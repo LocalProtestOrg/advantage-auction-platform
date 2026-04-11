@@ -1,11 +1,15 @@
 const express = require('express');
 const router = express.Router();
+const auth = require('../middleware/authMiddleware');
+const role = require('../middleware/roleMiddleware');
+const idempotency = require('../middleware/idempotency');
+const { validateCreateDraft, validateSubmit } = require('../validation/auctionValidation');
 
 // mount nested lot routes
 router.use('/:auctionId/lots', require('./lots'));
 
-// GET /api/auctions/seller
-router.get('/seller', (req, res) => {
+// GET /api/auctions/seller (seller or admin)
+router.get('/seller', auth, role(['seller', 'admin']), (req, res) => {
   res.status(501).json({
     message: 'Not implemented',
     requestShape: null,
@@ -13,10 +17,14 @@ router.get('/seller', (req, res) => {
   });
 });
 
-// POST /api/auctions
-router.post('/', (req, res) => {
-  res.status(501).json({
-    message: 'Not implemented',
+// POST /api/auctions (seller or admin)
+router.post('/', auth, role(['seller', 'admin']), idempotency, (req, res) => {
+  const validation = validateCreateDraft(req.body);
+  if (!validation.valid) {
+    return res.status(400).json({ error: 'Validation failed', details: validation.errors });
+  }
+  res.status(201).json({
+    message: 'Auction created',
     requestShape: {
       title: 'string',
       description: 'string',
@@ -29,16 +37,17 @@ router.post('/', (req, res) => {
   });
 });
 
-// GET /api/auctions/:auctionId (seller view)
-router.get('/:auctionId', (req, res) => {
+// GET /api/auctions/:auctionId (seller or admin)
+router.get('/:auctionId', auth, role(['seller', 'admin']), (req, res) => {
   res.status(501).json({
     message: 'Not implemented',
     responseShape: { id: 'uuid', title: 'string', consignors: [{ id: 'uuid', name: 'string' }], address_encrypted: 'binary' }
   });
 });
 
-// PATCH /api/auctions/:auctionId
-router.patch('/:auctionId', (req, res) => {
+// PATCH /api/auctions/:auctionId (seller or admin)
+router.patch('/:auctionId', auth, role(['seller', 'admin']), idempotency, (req, res) => {
+  // Could add validation here if needed
   res.status(501).json({
     message: 'Not implemented',
     requestShape: { title: 'string?', auction_terms: 'string?', marketing_selection: 'object?' },
@@ -46,12 +55,42 @@ router.patch('/:auctionId', (req, res) => {
   });
 });
 
-// POST /api/auctions/:auctionId/submit
-router.post('/:auctionId/submit', (req, res) => {
+// POST /api/auctions/:auctionId/submit (seller or admin)
+router.post('/:auctionId/submit', auth, role(['seller', 'admin']), idempotency, (req, res) => {
+  const validation = validateSubmit(req.body);
+  if (!validation.valid) {
+    return res.status(400).json({ error: 'Validation failed', details: validation.errors });
+  }
   res.status(501).json({
     message: 'Not implemented',
     requestShape: { clientVersion: 'int' },
     responseShape: { id: 'uuid', state: 'submitted', errors: ['optional validation errors'] }
+  });
+});
+
+// POST /api/auctions/:auctionId/publish (admin only)
+router.post('/:auctionId/publish', auth, role(['admin']), idempotency, (req, res) => {
+  console.log({
+    event: 'auction_publish_attempt',
+    adminId: req.user.id,
+    auctionId: req.params.auctionId
+  });
+  res.status(501).json({
+    message: 'Not implemented',
+    responseShape: { id: 'uuid', state: 'published' }
+  });
+});
+
+// POST /api/auctions/:auctionId/close (admin only)
+router.post('/:auctionId/close', auth, role(['admin']), idempotency, (req, res) => {
+  console.log({
+    event: 'auction_close_attempt',
+    adminId: req.user.id,
+    auctionId: req.params.auctionId
+  });
+  res.status(501).json({
+    message: 'Not implemented',
+    responseShape: { id: 'uuid', state: 'closed' }
   });
 });
 

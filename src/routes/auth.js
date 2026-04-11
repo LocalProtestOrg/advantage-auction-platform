@@ -1,15 +1,22 @@
 const express = require('express');
 const router = express.Router();
+const jwt = require('jsonwebtoken');
 
-// POST /api/auth/login
+// TEMP TEST LOGIN ONLY
 router.post('/login', (req, res) => {
-  // TODO: implement authentication
-  res.status(501).json({ message: 'Not implemented' });
-});
+  const { email } = req.body;
 
-// POST /api/auth/logout
-router.post('/logout', (req, res) => {
-  res.status(501).json({ message: 'Not implemented' });
+  let role = 'buyer';
+  if (email && email.includes('admin')) role = 'admin';
+  if (email && email.includes('seller')) role = 'seller';
+
+  const token = jwt.sign(
+    { id: 'test-user-id', role },
+    process.env.JWT_SECRET || 'dev_secret',
+    { expiresIn: '1h' }
+  );
+
+  res.json({ token });
 });
 
 module.exports = router;

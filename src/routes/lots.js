@@ -1,12 +1,16 @@
 const express = require('express');
 const router = express.Router({ mergeParams: true });
 
+const auth = require('../middleware/authMiddleware');
+const role = require('../middleware/roleMiddleware');
+const idempotency = require('../middleware/idempotency');
+
 // mount nested bids route for /api/auctions/:auctionId/lots/:lotId/bids
 router.use('/:lotId/bids', require('./bids'));
 
 // POST /api/auctions/:auctionId/lots
-router.post('/', (req, res) => {
-  res.status(501).json({
+router.post('/', auth, role(['seller', 'admin']), idempotency, (req, res) => {
+  res.status(201).json({
     message: 'Not implemented',
     requestShape: {
       title: 'string',
@@ -21,8 +25,8 @@ router.post('/', (req, res) => {
 });
 
 // PATCH /api/auctions/:auctionId/lots/:lotId
-router.patch('/:lotId', (req, res) => {
-  res.status(501).json({
+router.patch('/:lotId', auth, role(['seller', 'admin']), idempotency, (req, res) => {
+  res.status(200).json({
     message: 'Not implemented',
     requestShape: { title: 'string?', description: 'string?', is_withdrawn: 'boolean?' },
     responseShape: { id: 'uuid', updated_at: 'timestamp' }
@@ -30,16 +34,16 @@ router.patch('/:lotId', (req, res) => {
 });
 
 // DELETE /api/auctions/:auctionId/lots/:lotId (withdraw)
-router.delete('/:lotId', (req, res) => {
-  res.status(501).json({
+router.delete('/:lotId', auth, role(['seller', 'admin']), idempotency, (req, res) => {
+  res.status(200).json({
     message: 'Not implemented',
     responseShape: { id: 'uuid', is_withdrawn: true }
   });
 });
 
 // POST /api/auctions/:auctionId/lots/:lotId/images
-router.post('/:lotId/images', (req, res) => {
-  res.status(501).json({
+router.post('/:lotId/images', auth, role(['seller', 'admin']), idempotency, (req, res) => {
+  res.status(201).json({
     message: 'Not implemented',
     requestShape: { filename: 'string', contentType: 'string' },
     responseShape: { uploadUrl: 'string', storageKey: 'string' }
