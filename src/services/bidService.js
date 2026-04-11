@@ -202,6 +202,30 @@ class BidService {
         [newVisible, lotId]
       );
 
+      // Notify previous winner if they've been outbid
+      if (topMaxBids.length > 0 && topMaxBids[0].bidder_user_id !== userId && amountCents > topMaxBids[0].max_amount_cents) {
+        // Release client before emitting event to avoid connection issues
+        await client.query('COMMIT');
+        client.release();
+
+        // Emit outbid event (fire-and-forget, non-blocking)
+        const { emitEvent, EVENTS } = require('./eventEmitter');
+        emitEvent(EVENTS.BID_OUTBID, {
+          buyerUserId: topMaxBids[0].bidder_user_id,
+          lotId,
+          auctionId,
+          newBidAmount: amountCents
+        });
+
+        return {
+          auction_id: auctionId,
+          lot_id: lotId,
+          amount_cents: newVisible,
+          is_proxy: isProxy,
+          paddle_number: paddleNumber
+        };
+      }
+
       await client.query('COMMIT');
       return {
         auction_id: auctionId,

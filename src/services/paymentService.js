@@ -1,4 +1,6 @@
 // PaymentService implementation
+const db = require('../db');
+
 class PaymentService {
   async _ensureAdminRole(client, adminId) {
     const user = await client.query('SELECT role FROM users WHERE id = $1', [adminId]);
@@ -77,6 +79,8 @@ class PaymentService {
     // Record successful payment from provider
     // Winner and amount already locked at auction close
     // Valid transition: pending → paid (and ONLY from pending)
+    // Trigger: Assign buyer to pickup slot based on lot's size_category
+    // Trigger: Send payment confirmation notification
     const client = await db.connect();
     try {
       await client.query('BEGIN');
@@ -95,6 +99,13 @@ class PaymentService {
         throw new Error(`Cannot mark ${payment.status} payment as paid. Only pending payments can be charged.`);
       }
 
+      // Get lot info for notifications
+      const lotRes = await client.query(
+        'SELECT auction_id FROM lots WHERE id = $1',
+        [payment.lot_id]
+      );
+      const auctionId = lotRes.rows[0]?.auction_id;
+
       // Update payment status
       await client.query(
         `UPDATE payments
@@ -103,7 +114,56 @@ class PaymentService {
         [paymentProviderId, paymentId]
       );
 
+      // Assign buyer to pickup slot
+      const pickupScheduleService = require('./pickupScheduleService');
+      const pickupAssignment = await pickupScheduleService.assignPickupOnPayment(client, payment.lot_id, payment.buyer_user_id);
+
       await client.query('COMMIT');
+      client.release();
+
+      // Emit notification events asynchronously (fire-and-forget, non-blocking)
+      const { emitEvent, EVENTS } = require('./eventEmitter');
+
+      // Payment confirmation event
+      emitEvent(EVENTS.PAYMENT_CONFIRMED, {
+        buyerUserId: payment.buyer_user_id,
+        paymentId,
+        lotId: payment.lot_id,
+        auctionId,
+        amountCents: payment.amount_cents
+      });
+
+      // Pickup scheduled event - only if assignment exists in database after commit
+      if (pickupAssignment?.pickupAssignmentId) {
+        // Verify assignment exists in database (prevent race condition)
+        const verifyClient = await db.connect();
+        try {
+          const verifyRes = await verifyClient.query(
+            `SELECT id, slot_start, slot_end FROM pickup_assignments
+             WHERE id = $1 AND lot_id = $2 AND buyer_user_id = $3`,
+            [pickupAssignment.pickupAssignmentId, payment.lot_id, payment.buyer_user_id]
+          );
+
+          if (verifyRes.rows[0]) {
+            const verifiedAssignment = verifyRes.rows[0];
+            emitEvent(EVENTS.PICKUP_SCHEDULED, {
+              buyerUserId: payment.buyer_user_id,
+              pickupAssignmentId: verifiedAssignment.id,
+              lotId: payment.lot_id,
+              auctionId,
+              slotStart: verifiedAssignment.slot_start,
+              slotEnd: verifiedAssignment.slot_end
+            });
+          } else {
+            console.warn(`Pickup assignment ${pickupAssignment.pickupAssignmentId} not found after commit - notification skipped`);
+          }
+        } catch (verifyError) {
+          console.error('Failed to verify pickup assignment:', verifyError.message);
+        } finally {
+          verifyClient.release();
+        }
+      }
+
       return {
         payment_id: paymentId,
         status: 'paid',

@@ -325,6 +325,7 @@ class AuctionService {
       const lots = lotsRes.rows;
 
       let closedCount = 0;
+      const winnersToNotify = []; // Collect winners for post-commit notifications
 
       // For each lot, determine and lock the winner
       for (const lot of lots) {
@@ -363,6 +364,12 @@ class AuctionService {
              WHERE id = $3`,
             [topBids[0].bidder_user_id, startingBid, lot.id]
           );
+
+          winnersToNotify.push({
+            buyerUserId: topBids[0].bidder_user_id,
+            lotId: lot.id,
+            winningAmount: startingBid
+          });
         } else {
           // Multiple bidders: winning price = second-highest max (tie-break already applied)
           const winnerUserId = topBids[0].bidder_user_id;
@@ -378,6 +385,12 @@ class AuctionService {
              WHERE id = $3`,
             [winnerUserId, winningPrice, lot.id]
           );
+
+          winnersToNotify.push({
+            buyerUserId: winnerUserId,
+            lotId: lot.id,
+            winningAmount: winningPrice
+          });
         }
 
         closedCount += 1;
@@ -395,6 +408,21 @@ class AuctionService {
       });
 
       await client.query('COMMIT');
+      client.release();
+
+      // Emit winner notification events asynchronously (fire-and-forget, non-blocking)
+      if (winnersToNotify.length > 0) {
+        const { emitEvent, EVENTS } = require('./eventEmitter');
+        for (const winner of winnersToNotify) {
+          emitEvent(EVENTS.AUCTION_WON, {
+            buyerUserId: winner.buyerUserId,
+            auctionId,
+            lotId: winner.lotId,
+            winningAmount: winner.winningAmount
+          });
+        }
+      }
+
       return {
         auction_id: auctionId,
         closed_lot_count: closedCount
@@ -403,7 +431,9 @@ class AuctionService {
       await client.query('ROLLBACK');
       throw error;
     } finally {
-      client.release();
+      if (!client._released) {
+        client.release();
+      }
     }
   }
 }
