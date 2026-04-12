@@ -1,22 +1,33 @@
 const express = require('express');
 const router = express.Router();
-const jwt = require('jsonwebtoken');
+const authService = require('../services/authService');
 
-// TEMP TEST LOGIN ONLY
-router.post('/login', (req, res) => {
-  const { email } = req.body;
+router.post('/login', async (req, res, next) => {
+  try {
+    const result = await authService.authenticate(req.body);
 
-  let role = 'buyer';
-  if (email && email.includes('admin')) role = 'admin';
-  if (email && email.includes('seller')) role = 'seller';
+    return res.status(200).json({
+      success: true,
+      token: result.token,
+      user: result.user
+    });
+  } catch (err) {
+    if (err.message === 'Invalid credentials') {
+      return res.status(401).json({
+        success: false,
+        error: 'Invalid credentials'
+      });
+    }
 
-  const token = jwt.sign(
-    { id: 'test-user-id', role },
-    process.env.JWT_SECRET || 'dev_secret',
-    { expiresIn: '1h' }
-  );
+    if (err.message === 'User account is inactive') {
+      return res.status(403).json({
+        success: false,
+        error: 'User account is inactive'
+      });
+    }
 
-  res.json({ token });
+    next(err);
+  }
 });
 
 module.exports = router;

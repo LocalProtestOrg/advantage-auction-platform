@@ -1,53 +1,67 @@
 const express = require('express');
-const router = express.Router({ mergeParams: true });
-
+const router = express.Router();
+const lotService = require('../services/lotService');
 const auth = require('../middleware/authMiddleware');
-const role = require('../middleware/roleMiddleware');
-const idempotency = require('../middleware/idempotency');
 
-// mount nested bids route for /api/auctions/:auctionId/lots/:lotId/bids
-router.use('/:lotId/bids', require('./bids'));
+// Create lot
+router.post('/auctions/:auctionId/lots', auth, async (req, res) => {
+  try {
+    const lot = await lotService.createLot(
+      req.params.auctionId,
+      req.user.id,
+      req.body
+    );
 
-// POST /api/auctions/:auctionId/lots
-router.post('/', auth, role(['seller', 'admin']), idempotency, (req, res) => {
-  res.status(201).json({
-    message: 'Not implemented',
-    requestShape: {
-      title: 'string',
-      description: 'string',
-      size_category: "'A'|'B'|'C'",
-      dimensions: 'object?',
-      shippable: 'boolean?',
-      shipping_cost_cents: 'integer?'
-    },
-    responseShape: { id: 'uuid', lot_number: 'int', state: 'open' }
-  });
+    res.status(201).json({ success: true, data: lot });
+  } catch (err) {
+    res.status(400).json({ success: false, message: err.message });
+  }
 });
 
-// PATCH /api/auctions/:auctionId/lots/:lotId
-router.patch('/:lotId', auth, role(['seller', 'admin']), idempotency, (req, res) => {
-  res.status(200).json({
-    message: 'Not implemented',
-    requestShape: { title: 'string?', description: 'string?', is_withdrawn: 'boolean?' },
-    responseShape: { id: 'uuid', updated_at: 'timestamp' }
-  });
+// Get lots for auction
+router.get('/auctions/:auctionId/lots', auth, async (req, res) => {
+  try {
+    const lots = await lotService.getLotsByAuction(req.params.auctionId);
+    res.json({ success: true, data: lots });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
 });
 
-// DELETE /api/auctions/:auctionId/lots/:lotId (withdraw)
-router.delete('/:lotId', auth, role(['seller', 'admin']), idempotency, (req, res) => {
-  res.status(200).json({
-    message: 'Not implemented',
-    responseShape: { id: 'uuid', is_withdrawn: true }
-  });
+// Get one lot
+router.get('/lots/:id', auth, async (req, res) => {
+  const lot = await lotService.getLotById(req.params.id);
+
+  if (!lot) {
+    return res.status(404).json({ success: false, message: 'Not found' });
+  }
+
+  res.json({ success: true, data: lot });
 });
 
-// POST /api/auctions/:auctionId/lots/:lotId/images
-router.post('/:lotId/images', auth, role(['seller', 'admin']), idempotency, (req, res) => {
-  res.status(201).json({
-    message: 'Not implemented',
-    requestShape: { filename: 'string', contentType: 'string' },
-    responseShape: { uploadUrl: 'string', storageKey: 'string' }
-  });
+// Update
+router.put('/lots/:id', auth, async (req, res) => {
+  try {
+    const lot = await lotService.updateLot(
+      req.params.id,
+      req.user.id,
+      req.body
+    );
+
+    res.json({ success: true, data: lot });
+  } catch (err) {
+    res.status(400).json({ success: false, message: err.message });
+  }
+});
+
+// Delete
+router.delete('/lots/:id', auth, async (req, res) => {
+  try {
+    await lotService.deleteLot(req.params.id, req.user.id);
+    res.json({ success: true, message: 'Deleted' });
+  } catch (err) {
+    res.status(400).json({ success: false, message: err.message });
+  }
 });
 
 module.exports = router;
