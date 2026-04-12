@@ -1,7 +1,34 @@
+console.log("LOTS ROUTES LOADED");
+
 const express = require('express');
 const router = express.Router();
 const lotService = require('../services/lotService');
 const auth = require('../middleware/authMiddleware');
+const authMiddleware = require('../middleware/authMiddleware');
+const { createBid } = require('../services/bidService');
+
+router.post('/:lotId/bids', authMiddleware, async (req, res) => {
+  try {
+    const { lotId } = req.params;
+    const { amount, maxBid } = req.body;
+
+    const userId = req.user.id;
+
+    const result = await createBid(lotId, userId, { amount, maxBid });
+
+    return res.json({
+      success: true,
+      data: result
+    });
+
+  } catch (err) {
+    console.error(err);
+    return res.status(400).json({
+      success: false,
+      message: err.message
+    });
+  }
+});
 
 // Create lot
 router.post('/auctions/:auctionId/lots', auth, async (req, res) => {

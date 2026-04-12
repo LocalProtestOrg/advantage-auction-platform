@@ -1,0 +1,8 @@
+CREATE TABLE bids (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  lot_id UUID NOT NULL REFERENCES lots(id) ON DELETE CASCADE,
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  amount NUMERIC(10,2) NOT NULL,
+  max_bid NUMERIC(10,2),
+  created_at TIMESTAMP DEFAULT NOW()
+);

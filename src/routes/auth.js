@@ -1,32 +1,55 @@
 const express = require('express');
+const bcrypt = require('bcrypt');
+const jwt = require('jsonwebtoken');
+const db = require('../db/index');
+
 const router = express.Router();
-const authService = require('../services/authService');
+const JWT_SECRET = process.env.JWT_SECRET;
 
-router.post('/login', async (req, res, next) => {
+// Register
+router.post('/register', async (req, res) => {
+  const { email, password, role } = req.body;
+  if (!email || !password) {
+    return res.status(400).json({ success: false, error: 'Email and password required' });
+  }
   try {
-    const result = await authService.authenticate(req.body);
-
-    return res.status(200).json({
-      success: true,
-      token: result.token,
-      user: result.user
-    });
+    const hashedPassword = await bcrypt.hash(password, 10);
+    const result = await db.query(
+      'INSERT INTO users (email, password_hash, role) VALUES ($1, $2, $3) RETURNING id',
+      [email, hashedPassword, role || 'buyer']
+    );
+    res.json({ success: true, data: { user: result.rows[0] } });
   } catch (err) {
-    if (err.message === 'Invalid credentials') {
-      return res.status(401).json({
-        success: false,
-        error: 'Invalid credentials'
-      });
-    }
+    console.error(err);
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
 
-    if (err.message === 'User account is inactive') {
-      return res.status(403).json({
-        success: false,
-        error: 'User account is inactive'
-      });
+// Login
+router.post('/login', async (req, res) => {
+  const { email, password } = req.body;
+  if (!email || !password) {
+    return res.status(400).json({ success: false, error: 'Email and password required' });
+  }
+  try {
+    const result = await db.query('SELECT * FROM users WHERE email = $1', [email]);
+    const user = result.rows[0];
+    if (!user) {
+      return res.status(401).json({ success: false, error: 'Invalid credentials' });
     }
-
-    next(err);
+    const validPassword = await bcrypt.compare(password, user.password_hash);
+    if (!validPassword) {
+      return res.status(401).json({ success: false, error: 'Invalid credentials' });
+    }
+    const token = jwt.sign(
+      { id: user.id, role: user.role },
+      process.env.JWT_SECRET,
+      { expiresIn: '1d' }
+    );
+    res.json({ success: true, data: { token } });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ success: false, error: err.message });
   }
 });
 

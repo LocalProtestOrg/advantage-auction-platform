@@ -18,13 +18,17 @@ const authRoutes = require(path.join(__dirname, 'src/routes/auth'));
 const auctionRoutes = require(path.join(__dirname, 'src/routes/auctions'));
 const paymentRoutes = require(path.join(__dirname, 'src/routes/payments'));
 const adminRoutes = require(path.join(__dirname, 'src/routes/admin'));
-const lotsRoutes = require('./src/routes/lots');
+
+
+const lotRoutes = require('./src/routes/lots');
+const bidsRoutes = require('./src/routes/bids');
 
 app.use('/api/auth', authRoutes);
 app.use('/api/auctions', auctionRoutes);
 app.use('/api/payments', paymentRoutes);
 app.use('/api/admin', adminRoutes);
-app.use('/api', lotsRoutes);
+app.use('/api/lots', lotRoutes);
+app.use('/api', bidsRoutes);
 
 // Root route
 app.get('/', (req, res) => {
