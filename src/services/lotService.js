@@ -144,8 +144,28 @@ async function deleteLot(lotId, userId) {
   return result.rows[0];
 }
 
+// Admin-only: create a lot for any auction without ownership check
+async function adminCreateLot(auctionId, data) {
+  const { title, description, startingPrice } = data;
+
+  const result = await db.query(
+    `INSERT INTO lots (
+       auction_id, title, description,
+       starting_price, current_price,
+       bid_increment, position, pickup_category,
+       status, created_at
+     )
+     VALUES ($1, $2, $3, $4, $4, 1, 0, 'A', 'draft', NOW())
+     RETURNING *`,
+    [auctionId, title, description || null, startingPrice || 0]
+  );
+
+  return result.rows[0];
+}
+
 module.exports = {
   createLot,
+  adminCreateLot,
   getLotsByAuction,
   getLotById,
   updateLot,

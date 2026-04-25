@@ -2,7 +2,10 @@ const express = require('express');
 const router = express.Router();
 
 const auctionService = require('../services/auctionService');
+const lotService = require('../services/lotService');
 const authMiddleware = require('../middleware/authMiddleware');
+const { generateAuctionReport } = require('../services/reportingService');
+const { buildReportPdf }        = require('../services/pdfGenerationService');
 
 // Helper to check if a string is a valid UUID
 function isUuid(value) {
@@ -215,6 +218,23 @@ router.patch('/:auctionId', authMiddleware, async (req, res) => {
   }
 });
 
+// POST /api/auctions/:auctionId/lots
+router.post('/:auctionId/lots', authMiddleware, async (req, res) => {
+  try {
+    const { auctionId } = req.params;
+    const { title, description, starting_price } = req.body;
+    let lot;
+    if (req.user.role === 'admin') {
+      lot = await lotService.adminCreateLot(auctionId, { title, description, startingPrice: starting_price });
+    } else {
+      lot = await lotService.createLot(auctionId, req.user.id, { title, description, startingPrice: starting_price });
+    }
+    return res.status(201).json({ success: true, data: lot });
+  } catch (err) {
+    return res.status(400).json({ success: false, message: err.message });
+  }
+});
+
 module.exports = router;
 console.log('🔥 AUCTIONS ROUTE FILE LOADED');
 
@@ -392,6 +412,44 @@ router.patch('/:auctionId', authMiddleware, async (req, res) => {
       message: error.message,
       stack: error.stack,
     });
+  }
+});
+
+// GET /api/auctions/:auctionId/report — JSON report
+router.get('/:auctionId/report', authMiddleware, async (req, res) => {
+  try {
+    const { auctionId } = req.params;
+    if (!isUuid(auctionId)) {
+      return res.status(400).json({ success: false, message: 'Invalid auction ID' });
+    }
+    const report = await generateAuctionReport(auctionId);
+    return res.json({ success: true, data: report });
+  } catch (err) {
+    if (err.message === 'Auction not found') {
+      return res.status(404).json({ success: false, message: err.message });
+    }
+    console.error('Report Error:', err);
+    return res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// GET /api/auctions/:auctionId/report/pdf — download PDF
+router.get('/:auctionId/report/pdf', authMiddleware, async (req, res) => {
+  try {
+    const { auctionId } = req.params;
+    if (!isUuid(auctionId)) {
+      return res.status(400).json({ success: false, message: 'Invalid auction ID' });
+    }
+    const { buffer } = await buildReportPdf(auctionId);
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="auction-report-${auctionId}.pdf"`);
+    return res.send(buffer);
+  } catch (err) {
+    if (err.message === 'Auction not found') {
+      return res.status(404).json({ success: false, message: err.message });
+    }
+    console.error('PDF Report Error:', err);
+    return res.status(500).json({ success: false, message: err.message });
   }
 });
 

@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Lot Builder — Advantage Auction</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      background: #f5f5f5;
+      color: #222;
+      padding: 2rem 1rem;
+    }
+
+    header {
+      max-width: 900px;
+      margin: 0 auto 1.5rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+    }
+    header .brand { font-weight: 700; color: #2563eb; }
+    header .auction-label { font-size: 0.85rem; color: #666; }
+
+    #status-banner {
+      display: none;
+      max-width: 900px;
+      margin: 0 auto 1.25rem;
+      padding: 0.75rem 1rem;
+      border-radius: 8px;
+      font-size: 0.875rem;
+      font-weight: 500;
+    }
+    #status-banner.success { background: #dcfce7; color: #15803d; border: 1px solid #86efac; }
+    #status-banner.error   { background: #fee2e2; color: #b91c1c; border: 1px solid #fca5a5; }
+
+    .card {
+      background: #fff;
+      border: 1px solid #e0e0e0;
+      border-radius: 10px;
+      padding: 1.75rem;
+      max-width: 900px;
+      margin: 0 auto;
+    }
+
+    .card-title {
+      font-size: 1.25rem;
+      font-weight: 700;
+      margin-bottom: 1.5rem;
+    }
+
+    .columns {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 2rem;
+    }
+    @media (max-width: 600px) {
+      .columns { grid-template-columns: 1fr; }
+    }
+
+    .col-label {
+      font-size: 0.7rem;
+      font-weight: 700;
+      letter-spacing: 0.07em;
+      text-transform: uppercase;
+      color: #9ca3af;
+      margin-bottom: 1rem;
+      padding-bottom: 0.5rem;
+      border-bottom: 1px solid #e5e7eb;
+    }
+
+    /* ── Drop zone ── */
+    #drop-zone {
+      border: 2px dashed #c7d2fe;
+      border-radius: 8px;
+      background: #f0f4ff;
+      padding: 1.5rem 1rem;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color 0.15s, background 0.15s;
+      margin-bottom: 0.75rem;
+      user-select: none;
+    }
+    #drop-zone:hover,
+    #drop-zone.drag-over {
+      border-color: #2563eb;
+      background: #e0e7ff;
+    }
+    #drop-zone p { color: #4b5563; font-size: 0.875rem; pointer-events: none; }
+    #drop-zone p span { color: #2563eb; font-weight: 600; }
+    #drop-zone p.sub { font-size: 0.75rem; color: #9ca3af; margin-top: 0.3rem; }
+    #file-input { display: none; }
+
+    /* ── Thumbnail list ── */
+    #thumbnail-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      min-height: 1rem;
+      margin-bottom: 1rem;
+    }
+
+    .thumb-wrap {
+      position: relative;
+      cursor: grab;
+    }
+    .thumb-wrap.dragging { opacity: 0.4; }
+
+    .thumb-wrap img {
+      width: 72px;
+      height: 72px;
+      object-fit: cover;
+      border-radius: 6px;
+      border: 1px solid #e0e0e0;
+      display: block;
+    }
+    .thumb-wrap .order-badge {
+      position: absolute;
+      bottom: 3px;
+      left: 4px;
+      background: rgba(0,0,0,0.55);
+      color: #fff;
+      font-size: 0.6rem;
+      font-weight: 700;
+      padding: 1px 4px;
+      border-radius: 3px;
+    }
+    .thumb-wrap button.rm {
+      position: absolute;
+      top: -6px;
+      right: -6px;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      border: none;
+      background: #ef4444;
+      color: #fff;
+      font-size: 0.65rem;
+      line-height: 18px;
+      text-align: center;
+      cursor: pointer;
+      padding: 0;
+    }
+
+    /* Form fields */
+    .field { margin-bottom: 1.1rem; }
+    label {
+      display: block;
+      font-size: 0.82rem;
+      font-weight: 600;
+      margin-bottom: 0.3rem;
+      color: #374151;
+    }
+    label .req { color: #ef4444; }
+
+    input[type="text"],
+    textarea,
+    select {
+      width: 100%;
+      padding: 0.55rem 0.7rem;
+      border: 1.5px solid #d1d5db;
+      border-radius: 6px;
+      font-size: 0.875rem;
+      font-family: inherit;
+      color: #111;
+      background: #fff;
+    }
+    input:focus, textarea:focus, select:focus {
+      outline: none;
+      border-color: #2563eb;
+    }
+    textarea { resize: vertical; min-height: 110px; }
+
+    /* Buttons */
+    .btn {
+      display: inline-block;
+      padding: 0.6rem 1.2rem;
+      border: none;
+      border-radius: 6px;
+      font-size: 0.875rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.15s, opacity 0.15s;
+    }
+    .btn:disabled { opacity: 0.45; cursor: not-allowed; }
+    .btn-primary  { background: #2563eb; color: #fff; }
+    .btn-primary:not(:disabled):hover  { background: #1d4ed8; }
+    .btn-success  { background: #16a34a; color: #fff; }
+    .btn-success:not(:disabled):hover  { background: #15803d; }
+    .btn-outline  { background: #fff; color: #374151; border: 1.5px solid #d1d5db; }
+    .btn-outline:not(:disabled):hover  { border-color: #9ca3af; }
+
+    .action-bar {
+      display: flex;
+      gap: 0.75rem;
+      align-items: center;
+      margin-top: 1.75rem;
+      padding-top: 1.25rem;
+      border-top: 1px solid #e5e7eb;
+      flex-wrap: wrap;
+    }
+
+    #lots-saved {
+      margin-left: auto;
+      font-size: 0.82rem;
+      color: #6b7280;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <span class="brand">Advantage Auction</span>
+  <span class="auction-label" id="auction-label">Loading auction…</span>
+</header>
+
+<div id="status-banner"></div>
+
+<div class="card">
+  <div class="card-title">Add Lot</div>
+
+  <div class="columns">
+
+    <!-- LEFT: Images -->
+    <div>
+      <div class="col-label">Images</div>
+
+      <div id="drop-zone">
+        <p>Drop images here or <span>click to upload</span></p>
+        <p class="sub">JPG, PNG, WEBP — multiple allowed</p>
+      </div>
+      <input type="file" id="file-input" accept="image/*" multiple />
+
+      <div id="thumbnail-list"></div>
+    </div>
+
+    <!-- RIGHT: Details -->
+    <div>
+      <div class="col-label">Lot Details</div>
+
+      <div class="field">
+        <label for="lot-title">Title <span class="req">*</span></label>
+        <input type="text" id="lot-title" placeholder="e.g. Vintage Brass Table Lamp" />
+      </div>
+
+      <div class="field">
+        <label for="lot-description">Description</label>
+        <textarea id="lot-description" placeholder="Factual description of the item…"></textarea>
+      </div>
+
+      <div class="field">
+        <label for="lot-category">Category</label>
+        <input type="text" id="lot-category" placeholder="e.g. Home Decor, Furniture, Jewelry…" />
+      </div>
+
+      <div class="field">
+        <label for="lot-pickup">Pickup Size</label>
+        <select id="lot-pickup">
+          <option value="">— Select —</option>
+          <option value="A">A — Small (carry by hand)</option>
+          <option value="B">B — Medium (2 people)</option>
+          <option value="C">C — Large (truck / dolly)</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <div class="action-bar">
+    <button class="btn btn-outline" id="btn-generate">Generate Details</button>
+    <button class="btn btn-success" id="btn-save">Save Lot</button>
+    <button class="btn btn-outline" id="btn-another" style="display:none">Add Another Lot</button>
+    <span id="lots-saved"></span>
+  </div>
+</div>
+
+<script>
+  const token     = localStorage.getItem('token');
+  const params    = new URLSearchParams(location.search);
+  const auctionId = params.get('auctionId');
+
+  if (!token)     location.href = '/login.html';
+  if (!auctionId) document.getElementById('auction-label').textContent = 'No auction ID in URL';
+
+  if (auctionId) {
+    fetch('/api/lots/auction/' + auctionId)
+      .then(r => r.json()).catch(() => null)
+      .then(d => {
+        const count = d && d.data ? d.data.length : 0;
+        document.getElementById('auction-label').textContent =
+          'Auction ' + auctionId.slice(0, 8) + '… (' + count + ' lot' + (count === 1 ? '' : 's') + ')';
+      });
+  }
+
+  // ── Image state ──────────────────────────────────────────────────────────────
+  // Each entry: { objectUrl: string, file: File }
+  let images    = [];
+  let lotsAdded = 0;
+
+  const dropZone  = document.getElementById('drop-zone');
+  const fileInput = document.getElementById('file-input');
+  const thumbList = document.getElementById('thumbnail-list');
+
+  // Click on drop zone opens file picker
+  dropZone.addEventListener('click', () => fileInput.click());
+
+  // Drag-and-drop
+  dropZone.addEventListener('dragover', e => {
+    e.preventDefault();
+    dropZone.classList.add('drag-over');
+  });
+  dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+  dropZone.addEventListener('drop', e => {
+    e.preventDefault();
+    dropZone.classList.remove('drag-over');
+    addFiles(e.dataTransfer.files);
+  });
+
+  // File input change
+  fileInput.addEventListener('change', () => {
+    addFiles(fileInput.files);
+    fileInput.value = ''; // reset so same file can be re-added if removed
+  });
+
+  function addFiles(fileList) {
+    Array.from(fileList).forEach(file => {
+      if (!file.type.startsWith('image/')) return;
+      const objectUrl = URL.createObjectURL(file);
+      images.push({ objectUrl, file });
+    });
+    renderThumbs();
+  }
+
+  function renderThumbs() {
+    thumbList.innerHTML = '';
+    images.forEach((img, i) => {
+      const wrap = document.createElement('div');
+      wrap.className = 'thumb-wrap';
+      wrap.draggable = true;
+      wrap.dataset.index = i;
+
+      const el = document.createElement('img');
+      el.src = img.objectUrl;
+      el.alt = img.file.name;
+
+      const badge = document.createElement('div');
+      badge.className = 'order-badge';
+      badge.textContent = i + 1;
+
+      const rm = document.createElement('button');
+      rm.className = 'rm';
+      rm.textContent = '×';
+      rm.title = 'Remove';
+      rm.addEventListener('click', e => {
+        e.stopPropagation();
+        URL.revokeObjectURL(img.objectUrl);
+        images.splice(i, 1);
+        renderThumbs();
+      });
+
+      wrap.appendChild(el);
+      wrap.appendChild(badge);
+      wrap.appendChild(rm);
+
+      // Drag-to-reorder
+      wrap.addEventListener('dragstart', onDragStart);
+      wrap.addEventListener('dragover',  onDragOver);
+      wrap.addEventListener('drop',      onDrop);
+      wrap.addEventListener('dragend',   onDragEnd);
+
+      thumbList.appendChild(wrap);
+    });
+  }
+
+  // ── Drag-to-reorder thumbnails ────────────────────────────────────────────────
+  let dragSrcIndex = null;
+
+  function onDragStart(e) {
+    dragSrcIndex = parseInt(this.dataset.index);
+    this.classList.add('dragging');
+    e.dataTransfer.effectAllowed = 'move';
+  }
+  function onDragOver(e) {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+  }
+  function onDrop(e) {
+    e.preventDefault();
+    const destIndex = parseInt(this.dataset.index);
+    if (dragSrcIndex === null || dragSrcIndex === destIndex) return;
+    const moved = images.splice(dragSrcIndex, 1)[0];
+    images.splice(destIndex, 0, moved);
+    renderThumbs();
+  }
+  function onDragEnd() {
+    this.classList.remove('dragging');
+    dragSrcIndex = null;
+  }
+
+  // ── Generate Details ─────────────────────────────────────────────────────────
+  document.getElementById('btn-generate').addEventListener('click', async () => {
+    if (images.length === 0) {
+      showBanner('Upload at least one image before generating.', 'error');
+      return;
+    }
+    const btn = document.getElementById('btn-generate');
+    btn.disabled = true;
+    btn.textContent = 'Generating…';
+    try {
+      // Send the object URL — the mock AI service accepts any string
+      const res  = await fetch('/api/ai/generate-description', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+        body:    JSON.stringify({ imageUrl: images[0].objectUrl })
+      });
+      const data = await res.json();
+      if (!data.success) throw new Error(data.message || 'Generation failed');
+      const d = data.data;
+      set('lot-title',       d.title);
+      set('lot-description', d.description);
+      set('lot-category',    d.category);
+      setSelect('lot-pickup', d.pickup_category);
+    } catch (err) {
+      showBanner('Generate failed: ' + err.message, 'error');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Generate Details';
+    }
+  });
+
+  // ── Save Lot ─────────────────────────────────────────────────────────────────
+  document.getElementById('btn-save').addEventListener('click', async () => {
+    const title = document.getElementById('lot-title').value.trim();
+    if (!title)     { showBanner('Title is required.', 'error'); return; }
+    if (!auctionId) { showBanner('No auction ID.', 'error'); return; }
+
+    const btn = document.getElementById('btn-save');
+    btn.disabled = true;
+    btn.textContent = 'Saving…';
+
+    try {
+      // 1. Create lot
+      const lotRes = await fetch('/api/lots', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+        body:    JSON.stringify({
+          auctionId,
+          title,
+          description:     document.getElementById('lot-description').value.trim() || null,
+          category:        document.getElementById('lot-category').value.trim()    || null,
+          pickup_category: document.getElementById('lot-pickup').value             || null
+        })
+      });
+      const lotData = await lotRes.json();
+      if (!lotData.success) throw new Error(lotData.message || 'Failed to save lot');
+      const lotId = lotData.data.id;
+
+      // 2. Attach images using object URLs (temporary; S3 upload replaces this later)
+      if (images.length > 0) {
+        const imageUrls = images.map(img => img.objectUrl);
+        const imgRes = await fetch('/api/lots/' + lotId + '/images', {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+          body:    JSON.stringify({ images: imageUrls })
+        });
+        const imgData = await imgRes.json();
+        if (!imgData.success) throw new Error(imgData.message || 'Failed to attach images');
+      }
+
+      lotsAdded++;
+      updateCounter();
+      showBanner('Lot saved! (' + title + ')', 'success');
+      document.getElementById('btn-another').style.display = 'inline-block';
+
+    } catch (err) {
+      showBanner('Error: ' + err.message, 'error');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Save Lot';
+    }
+  });
+
+  // ── Add Another Lot ──────────────────────────────────────────────────────────
+  document.getElementById('btn-another').addEventListener('click', () => {
+    clearForm();
+    document.getElementById('btn-another').style.display = 'none';
+    document.getElementById('lot-title').focus();
+  });
+
+  // ── Helpers ──────────────────────────────────────────────────────────────────
+  function clearForm() {
+    // Revoke all object URLs before clearing to avoid memory leaks
+    images.forEach(img => URL.revokeObjectURL(img.objectUrl));
+    images = [];
+    renderThumbs();
+    ['lot-title', 'lot-description', 'lot-category'].forEach(id => {
+      document.getElementById(id).value = '';
+    });
+    document.getElementById('lot-pickup').value = '';
+  }
+
+  function updateCounter() {
+    const el = document.getElementById('lots-saved');
+    el.textContent = lotsAdded + ' lot' + (lotsAdded === 1 ? '' : 's') + ' saved this session';
+  }
+
+  function set(id, value) {
+    const el = document.getElementById(id);
+    if (el && value != null) el.value = value;
+  }
+
+  function setSelect(id, value) {
+    const el = document.getElementById(id);
+    if (!el || value == null) return;
+    for (const opt of el.options) {
+      if (opt.value === value) { el.value = value; return; }
+    }
+  }
+
+  function showBanner(msg, type) {
+    const b = document.getElementById('status-banner');
+    b.textContent = msg;
+    b.className   = type;
+    b.style.display = 'block';
+    if (type === 'success') setTimeout(() => { b.style.display = 'none'; }, 4000);
+  }
+</script>
+</body>
+</html>

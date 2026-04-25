@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Auction Detail</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: system-ui, sans-serif; background: #f5f5f5; color: #222; padding: 2rem; }
+    h1 { font-size: 1.5rem; margin-bottom: 0.25rem; }
+    .meta { color: #666; font-size: 0.875rem; margin-bottom: 2rem; }
+    .card { background: #fff; border: 1px solid #e0e0e0; border-radius: 8px; padding: 1.5rem; max-width: 640px; }
+    .btn { display: inline-block; padding: 0.6rem 1.25rem; border: none; border-radius: 6px; cursor: pointer; font-size: 0.9rem; font-weight: 600; }
+    .btn-primary { background: #2563eb; color: #fff; }
+    .btn-primary:hover { background: #1d4ed8; }
+    .btn-outline { background: #fff; color: #2563eb; border: 1.5px solid #2563eb; margin-right: 0.5rem; }
+    .btn-outline:hover { background: #eff6ff; }
+    .btn-outline.selected { background: #2563eb; color: #fff; }
+
+    /* Modal overlay */
+    #boost-modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 100; align-items: center; justify-content: center; }
+    #boost-modal.open { display: flex; }
+    .modal-box { background: #fff; border-radius: 10px; padding: 2rem; width: 100%; max-width: 420px; }
+    .modal-box h2 { font-size: 1.2rem; margin-bottom: 1rem; }
+    .packages { display: flex; flex-direction: column; gap: 0.75rem; margin-bottom: 1.5rem; }
+    .pkg { border: 1.5px solid #e0e0e0; border-radius: 8px; padding: 1rem; cursor: pointer; transition: border-color 0.15s; }
+    .pkg:hover { border-color: #2563eb; }
+    .pkg.selected { border-color: #2563eb; background: #eff6ff; }
+    .pkg-name { font-weight: 700; margin-bottom: 0.2rem; }
+    .pkg-desc { font-size: 0.82rem; color: #555; }
+    .modal-actions { display: flex; justify-content: flex-end; gap: 0.5rem; }
+    .btn-cancel { background: #f3f4f6; color: #444; }
+    .btn-cancel:hover { background: #e5e7eb; }
+
+    /* Status banner */
+    #status { display: none; margin-top: 1rem; padding: 0.75rem 1rem; border-radius: 6px; font-size: 0.9rem; }
+    #status.success { display: block; background: #d1fae5; color: #065f46; border: 1px solid #6ee7b7; }
+    #status.error   { display: block; background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; }
+
+    .btn-active { background: #16a34a; color: #fff; cursor: default; opacity: 0.85; }
+    .campaign-badge { display: inline-block; margin-left: 0.75rem; font-size: 0.78rem; font-weight: 600; color: #065f46; background: #d1fae5; border: 1px solid #6ee7b7; border-radius: 999px; padding: 0.2rem 0.6rem; vertical-align: middle; }
+
+    .spinner { display: none; }
+    .spinner.active { display: inline-block; width: 16px; height: 16px; border: 2px solid #fff; border-top-color: transparent; border-radius: 50%; animation: spin 0.6s linear infinite; vertical-align: middle; margin-left: 6px; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+
+<div id="app">
+  <p id="loading">Loading auction…</p>
+</div>
+
+<!-- Boost modal -->
+<div id="boost-modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+  <div class="modal-box">
+    <h2 id="modal-title">Boost this Auction</h2>
+    <div class="packages" id="package-list">
+      <div class="pkg" data-pkg="basic">
+        <div class="pkg-name">Basic</div>
+        <div class="pkg-desc">Social media mention + email blast to local list. 30-mile radius.</div>
+      </div>
+      <div class="pkg" data-pkg="premium">
+        <div class="pkg-name">Premium</div>
+        <div class="pkg-desc">Targeted ads + featured placement on listing page. 50-mile radius.</div>
+      </div>
+      <div class="pkg" data-pkg="featured">
+        <div class="pkg-name">Featured</div>
+        <div class="pkg-desc">Full campaign: ads, email, homepage feature, and dedicated outreach.</div>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-cancel" id="modal-cancel">Cancel</button>
+      <button class="btn btn-primary" id="modal-submit" disabled>
+        Boost <span class="spinner" id="submit-spinner"></span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<script>
+  const API = '';
+  const params = new URLSearchParams(location.search);
+  const auctionId = params.get('auctionId');
+  const token = localStorage.getItem('token');
+
+  // ── Bootstrap ──────────────────────────────────────────────────────────────
+
+  if (!token) {
+    document.getElementById('loading').textContent = 'Not logged in. Set token in localStorage and reload.';
+  } else if (!auctionId) {
+    document.getElementById('loading').textContent = 'No auctionId in URL. Use ?auctionId=<uuid>';
+  } else {
+    loadAuction();
+  }
+
+  async function loadAuction() {
+    try {
+      const [auctionRes, jobRes] = await Promise.all([
+        fetch(`${API}/api/auctions/${auctionId}`, { headers: { Authorization: `Bearer ${token}` } }),
+        fetch(`${API}/api/marketing/auctions/${auctionId}/package`, { headers: { Authorization: `Bearer ${token}` } })
+      ]);
+      const auctionBody = await auctionRes.json();
+      if (!auctionRes.ok) throw new Error(auctionBody.message || 'Failed to load auction');
+      const jobBody = jobRes.ok ? await jobRes.json() : { data: null };
+      renderAuction(auctionBody.data, jobBody.data);
+    } catch (err) {
+      document.getElementById('loading').textContent = `Error: ${err.message}`;
+    }
+  }
+
+  function renderAuction(auction, existingJob) {
+    const hasCampaign = !!existingJob;
+    document.getElementById('app').innerHTML = `
+      <div class="card">
+        <h1>${escHtml(auction.title)}</h1>
+        <p class="meta">
+          Status: <strong>${escHtml(auction.status)}</strong>
+          &nbsp;·&nbsp; ID: <code>${escHtml(auction.id)}</code>
+        </p>
+        ${auction.description ? `<p style="margin-bottom:1.5rem">${escHtml(auction.description)}</p>` : ''}
+        <div id="boost-area"></div>
+        <div id="status"></div>
+      </div>
+    `;
+    renderBoostButton(hasCampaign, existingJob);
+  }
+
+  function renderBoostButton(hasCampaign, job) {
+    const area = document.getElementById('boost-area');
+    if (hasCampaign) {
+      area.innerHTML = `
+        <button class="btn btn-active" disabled>✓ Campaign Active</button>
+        <span class="campaign-badge">${escHtml(job.package_type)}</span>
+      `;
+    } else {
+      area.innerHTML = `<button class="btn btn-primary" id="boost-btn">🚀 Boost Auction</button>`;
+      document.getElementById('boost-btn').addEventListener('click', openModal);
+    }
+  }
+
+  // ── Modal ──────────────────────────────────────────────────────────────────
+
+  let selectedPkg = null;
+
+  document.getElementById('package-list').addEventListener('click', e => {
+    const pkg = e.target.closest('.pkg');
+    if (!pkg) return;
+    document.querySelectorAll('.pkg').forEach(el => el.classList.remove('selected'));
+    pkg.classList.add('selected');
+    selectedPkg = pkg.dataset.pkg;
+    document.getElementById('modal-submit').disabled = false;
+  });
+
+  function openModal() {
+    selectedPkg = null;
+    document.querySelectorAll('.pkg').forEach(el => el.classList.remove('selected'));
+    document.getElementById('modal-submit').disabled = true;
+    document.getElementById('boost-modal').classList.add('open');
+  }
+
+  function closeModal() {
+    document.getElementById('boost-modal').classList.remove('open');
+  }
+
+  document.getElementById('modal-cancel').addEventListener('click', closeModal);
+
+  document.getElementById('boost-modal').addEventListener('click', e => {
+    if (e.target === document.getElementById('boost-modal')) closeModal();
+  });
+
+  document.getElementById('modal-submit').addEventListener('click', submitBoost);
+
+  async function submitBoost() {
+    if (!selectedPkg) return;
+    const btn = document.getElementById('modal-submit');
+    const spinner = document.getElementById('submit-spinner');
+    btn.disabled = true;
+    spinner.classList.add('active');
+
+    try {
+      const res = await fetch(`${API}/api/marketing/auctions/${auctionId}/package`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({ package_type: selectedPkg })
+      });
+      const body = await res.json();
+      closeModal();
+      if (res.ok) {
+        renderBoostButton(true, body.data);
+        showStatus(true, `Campaign started! Job ID: ${body.data.id}`);
+      } else {
+        showStatus(false, body.message || 'Something went wrong.');
+      }
+    } catch (err) {
+      closeModal();
+      showStatus(false, `Network error: ${err.message}`);
+    } finally {
+      btn.disabled = false;
+      spinner.classList.remove('active');
+    }
+  }
+
+  // ── Helpers ─────────────────────────────────────────────────────────────────
+
+  function showStatus(ok, msg) {
+    const el = document.getElementById('status');
+    el.className = ok ? 'success' : 'error';
+    el.textContent = msg;
+  }
+
+  function escHtml(str) {
+    return String(str ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
+</script>
+</body>
+</html>

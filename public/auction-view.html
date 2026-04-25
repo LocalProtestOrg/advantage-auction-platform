@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Auction — Advantage Auction</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      background: #f4f4f5;
+      color: #111;
+      min-height: 100vh;
+    }
+
+    /* ── Header ── */
+    header {
+      background: #111;
+      padding: 0.9rem 1.5rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .brand { color: #fff; font-weight: 700; font-size: 1rem; }
+    .header-right { display: flex; align-items: center; gap: 1.25rem; }
+    .lot-count { color: #888; font-size: 0.8rem; }
+
+    /* ── Auction banner ── */
+    .auction-banner {
+      background: #fff;
+      border-bottom: 1px solid #e4e4e7;
+      padding: 1.25rem 1.5rem;
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+    .auction-banner h1 { font-size: 1.25rem; font-weight: 700; color: #111; }
+    .auction-banner .meta { font-size: 0.8rem; color: #71717a; margin-top: 0.2rem; }
+
+    /* ── Grid wrapper ── */
+    .grid-wrap {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 1.5rem;
+    }
+
+    /* ── Lot grid ── */
+    .lot-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+      gap: 1.25rem;
+    }
+
+    /* ── Lot card ── */
+    .lot-card {
+      background: #fff;
+      border-radius: 10px;
+      border: 1px solid #e4e4e7;
+      overflow: hidden;
+      cursor: pointer;
+      text-decoration: none;
+      color: inherit;
+      display: flex;
+      flex-direction: column;
+      transition: box-shadow 0.15s, transform 0.1s;
+    }
+    .lot-card:hover {
+      box-shadow: 0 4px 20px rgba(0,0,0,0.10);
+      transform: translateY(-2px);
+    }
+
+    /* Image area */
+    .card-img {
+      width: 100%;
+      aspect-ratio: 4/3;
+      background: #e4e4e7;
+      overflow: hidden;
+      position: relative;
+      flex-shrink: 0;
+    }
+    .card-img img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+      transition: opacity 0.2s;
+    }
+    .card-img img.hidden { opacity: 0; }
+    .card-img .img-placeholder {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #a1a1aa;
+      font-size: 0.8rem;
+    }
+
+    /* Status badge */
+    .status-badge {
+      position: absolute;
+      top: 0.6rem;
+      right: 0.6rem;
+      padding: 0.2rem 0.55rem;
+      border-radius: 99px;
+      font-size: 0.68rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .status-draft   { background: #f4f4f5; color: #71717a; }
+    .status-active  { background: #dcfce7; color: #15803d; }
+    .status-closed  { background: #fee2e2; color: #b91c1c; }
+    .status-sold    { background: #ede9fe; color: #6d28d9; }
+
+    /* Card body */
+    .card-body {
+      padding: 0.9rem 1rem 1rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.4rem;
+      flex: 1;
+    }
+    .card-title {
+      font-size: 0.92rem;
+      font-weight: 700;
+      color: #111;
+      line-height: 1.35;
+      /* clamp to 2 lines */
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+    .card-category {
+      font-size: 0.72rem;
+      color: #a1a1aa;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+    .card-bid {
+      margin-top: auto;
+      padding-top: 0.65rem;
+      border-top: 1px solid #f4f4f5;
+      display: flex;
+      align-items: baseline;
+      gap: 0.4rem;
+    }
+    .bid-label { font-size: 0.72rem; color: #a1a1aa; }
+    .bid-amount {
+      font-size: 1.05rem;
+      font-weight: 800;
+      color: #111;
+    }
+    .bid-amount.no-bids { color: #a1a1aa; font-weight: 500; font-size: 0.85rem; }
+
+    /* ── Empty / loading states ── */
+    .state-msg {
+      grid-column: 1 / -1;
+      text-align: center;
+      padding: 4rem 1rem;
+      color: #71717a;
+      font-size: 0.9rem;
+    }
+    .state-msg strong { display: block; font-size: 1.1rem; color: #3f3f46; margin-bottom: 0.4rem; }
+
+    /* ── Skeleton loader ── */
+    .skeleton {
+      background: linear-gradient(90deg, #e4e4e7 25%, #f4f4f5 50%, #e4e4e7 75%);
+      background-size: 200% 100%;
+      animation: shimmer 1.4s infinite;
+      border-radius: 4px;
+    }
+    @keyframes shimmer { to { background-position: -200% 0; } }
+
+    .card-skeleton .card-img { background: #e4e4e7; }
+    .card-skeleton .sk-line  { height: 12px; margin: 4px 0; border-radius: 4px; }
+  </style>
+</head>
+<body>
+
+<header>
+  <span class="brand">Advantage Auction</span>
+  <div class="header-right">
+    <span class="lot-count" id="lot-count"></span>
+  </div>
+</header>
+
+<div class="auction-banner">
+  <h1 id="auction-title">Loading auction…</h1>
+  <div class="meta" id="auction-meta"></div>
+</div>
+
+<div class="grid-wrap">
+  <div class="lot-grid" id="lot-grid">
+    <!-- skeleton cards -->
+    <div class="lot-card card-skeleton">
+      <div class="card-img"></div>
+      <div class="card-body">
+        <div class="skeleton sk-line" style="width:80%"></div>
+        <div class="skeleton sk-line" style="width:50%"></div>
+      </div>
+    </div>
+    <div class="lot-card card-skeleton">
+      <div class="card-img"></div>
+      <div class="card-body">
+        <div class="skeleton sk-line" style="width:70%"></div>
+        <div class="skeleton sk-line" style="width:40%"></div>
+      </div>
+    </div>
+    <div class="lot-card card-skeleton">
+      <div class="card-img"></div>
+      <div class="card-body">
+        <div class="skeleton sk-line" style="width:90%"></div>
+        <div class="skeleton sk-line" style="width:55%"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  const params    = new URLSearchParams(location.search);
+  const auctionId = params.get('auctionId');
+  const grid      = document.getElementById('lot-grid');
+
+  if (!auctionId) {
+    grid.innerHTML = '<div class="state-msg"><strong>No auction selected.</strong>Check the URL and try again.</div>';
+    document.getElementById('auction-title').textContent = 'No auction ID';
+  } else {
+    loadAuction();
+  }
+
+  async function loadAuction() {
+    try {
+      const res  = await fetch('/api/lots/auction/' + auctionId);
+      const data = await res.json();
+
+      if (!data.success) throw new Error(data.message || 'Failed to load lots');
+
+      const lots = data.data;
+
+      // Update header
+      const count = lots.length;
+      document.getElementById('lot-count').textContent = count + ' lot' + (count === 1 ? '' : 's');
+      document.getElementById('auction-title').textContent = 'Auction';
+      document.getElementById('auction-meta').textContent = 'ID: ' + auctionId;
+
+      if (lots.length === 0) {
+        grid.innerHTML = '<div class="state-msg"><strong>No lots listed yet.</strong>Check back soon.</div>';
+        return;
+      }
+
+      // Fetch first image for every lot in parallel
+      const imageMap = await fetchFirstImages(lots.map(l => l.id));
+
+      // Render
+      grid.innerHTML = '';
+      lots.forEach(lot => {
+        const imgUrl = imageMap[lot.id] || null;
+        grid.appendChild(buildCard(lot, imgUrl));
+      });
+
+    } catch (err) {
+      grid.innerHTML = '<div class="state-msg"><strong>Could not load auction.</strong>' + esc(err.message) + '</div>';
+      document.getElementById('auction-title').textContent = 'Auction';
+    }
+  }
+
+  async function fetchFirstImages(lotIds) {
+    const results = await Promise.all(
+      lotIds.map(id =>
+        fetch('/api/lots/' + id + '/images')
+          .then(r => r.json())
+          .then(d => ({ id, url: d.success && d.data.length ? d.data[0].image_url : null }))
+          .catch(() => ({ id, url: null }))
+      )
+    );
+    const map = {};
+    results.forEach(r => { map[r.id] = r.url; });
+    return map;
+  }
+
+  function buildCard(lot, imgUrl) {
+    const a = document.createElement('a');
+    a.className = 'lot-card';
+    a.href = '/lot.html?lotId=' + lot.id;
+
+    // Image area
+    const imgWrap = document.createElement('div');
+    imgWrap.className = 'card-img';
+
+    if (imgUrl) {
+      const img = document.createElement('img');
+      img.alt  = lot.title || 'Lot image';
+      img.className = 'hidden';
+      img.onload  = () => img.classList.remove('hidden');
+      img.onerror = () => { img.style.display = 'none'; showPlaceholder(imgWrap); };
+      img.src = imgUrl;
+      imgWrap.appendChild(img);
+    } else {
+      showPlaceholder(imgWrap);
+    }
+
+    // Status badge
+    const badge = document.createElement('div');
+    const st    = (lot.status || 'draft').toLowerCase();
+    badge.className = 'status-badge status-' + (st === 'active' ? 'active' : st === 'sold' ? 'sold' : st === 'closed' ? 'closed' : 'draft');
+    badge.textContent = lot.status || 'draft';
+    imgWrap.appendChild(badge);
+
+    // Card body
+    const body = document.createElement('div');
+    body.className = 'card-body';
+
+    const title = document.createElement('div');
+    title.className = 'card-title';
+    title.textContent = lot.title || 'Untitled';
+
+    const cat = document.createElement('div');
+    cat.className = 'card-category';
+    cat.textContent = lot.category || '';
+
+    const bidRow = document.createElement('div');
+    bidRow.className = 'card-bid';
+
+    const bidLabel = document.createElement('span');
+    bidLabel.className = 'bid-label';
+    bidLabel.textContent = 'Current bid';
+
+    const bidAmt = document.createElement('span');
+    const cents  = lot.current_bid_cents || 0;
+    if (cents > 0) {
+      bidAmt.className = 'bid-amount';
+      bidAmt.textContent = '$' + (cents / 100).toFixed(2);
+    } else {
+      bidAmt.className = 'bid-amount no-bids';
+      bidAmt.textContent = 'No bids yet';
+    }
+
+    bidRow.appendChild(bidLabel);
+    bidRow.appendChild(bidAmt);
+    body.appendChild(title);
+    if (lot.category) body.appendChild(cat);
+    body.appendChild(bidRow);
+
+    a.appendChild(imgWrap);
+    a.appendChild(body);
+    return a;
+  }
+
+  function showPlaceholder(wrap) {
+    const ph = document.createElement('div');
+    ph.className = 'img-placeholder';
+    ph.textContent = 'No image';
+    wrap.appendChild(ph);
+  }
+
+  function esc(str) {
+    return String(str).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
+</script>
+</body>
+</html>

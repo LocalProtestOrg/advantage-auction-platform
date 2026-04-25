@@ -672,3 +672,24 @@ module.exports = {
   NotificationService: new NotificationService(),
   NOTIFICATION_TYPES
 };
+
+// ── queueNotification ─────────────────────────────────────────────────────────
+// Standalone helper — inserts one row into notifications_queue using the shared
+// connection pool (NOT a transaction client). Use this from routes or services
+// that are operating outside an open transaction.
+//
+// For insertion inside a transaction (e.g. resolveProxyBid), use client.query
+// directly so the queue entry commits atomically with the bid.
+//
+// @param {string} userId   - UUID of the recipient
+// @param {string} type     - 'OUTBID' | 'LEADING' | 'WINNING' | 'ENDING_SOON'
+// @param {object} payload  - context the delivery worker will use
+async function queueNotification({ userId, type, payload = {} }) {
+  await db.query(
+    `INSERT INTO notifications_queue (user_id, type, payload)
+     VALUES ($1, $2, $3)`,
+    [userId, type, JSON.stringify(payload)]
+  );
+}
+
+module.exports.queueNotification = queueNotification;

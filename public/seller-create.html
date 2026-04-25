@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Create Auction — Advantage Auction</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      background: #f5f5f5;
+      color: #222;
+      padding: 2rem 1rem;
+    }
+
+    header {
+      max-width: 680px;
+      margin: 0 auto 2rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    header .brand { font-weight: 700; font-size: 1.1rem; color: #2563eb; }
+
+    header a {
+      font-size: 0.875rem;
+      color: #555;
+      text-decoration: none;
+    }
+    header a:hover { color: #222; }
+
+    .card {
+      background: #fff;
+      border: 1px solid #e0e0e0;
+      border-radius: 10px;
+      padding: 2rem;
+      max-width: 680px;
+      margin: 0 auto 1.5rem;
+    }
+
+    h1 { font-size: 1.5rem; margin-bottom: 0.25rem; }
+    .subtitle { color: #666; font-size: 0.9rem; margin-bottom: 2rem; }
+
+    /* Upload zone */
+    #upload-zone {
+      border: 2px dashed #c7d2fe;
+      border-radius: 8px;
+      background: #f0f4ff;
+      padding: 2.5rem 1rem;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color 0.15s, background 0.15s;
+      margin-bottom: 1rem;
+    }
+    #upload-zone:hover, #upload-zone.drag-over {
+      border-color: #2563eb;
+      background: #e0e7ff;
+    }
+    #upload-zone p { color: #4b5563; font-size: 0.9rem; pointer-events: none; }
+    #upload-zone p span { color: #2563eb; font-weight: 600; }
+    #file-input { display: none; }
+
+    #preview-list {
+      display: flex;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+      margin-bottom: 1.25rem;
+    }
+    #preview-list img {
+      width: 80px;
+      height: 80px;
+      object-fit: cover;
+      border-radius: 6px;
+      border: 1px solid #e0e0e0;
+    }
+
+    /* Buttons */
+    .btn {
+      display: inline-block;
+      padding: 0.65rem 1.4rem;
+      border: none;
+      border-radius: 6px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.15s, opacity 0.15s;
+    }
+    .btn:disabled { opacity: 0.45; cursor: not-allowed; }
+    .btn-primary  { background: #2563eb; color: #fff; }
+    .btn-primary:not(:disabled):hover  { background: #1d4ed8; }
+    .btn-secondary { background: #fff; color: #2563eb; border: 1.5px solid #2563eb; }
+    .btn-secondary:not(:disabled):hover { background: #eff6ff; }
+    .btn-success  { background: #16a34a; color: #fff; }
+    .btn-success:not(:disabled):hover  { background: #15803d; }
+
+    #btn-generate { margin-bottom: 2rem; }
+
+    /* Section headings */
+    .section-title {
+      font-size: 0.75rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #9ca3af;
+      margin-bottom: 1rem;
+      padding-bottom: 0.5rem;
+      border-bottom: 1px solid #e5e7eb;
+    }
+
+    /* Form fields */
+    .field { margin-bottom: 1.25rem; }
+    label {
+      display: block;
+      font-size: 0.85rem;
+      font-weight: 600;
+      margin-bottom: 0.35rem;
+      color: #374151;
+    }
+    label .req { color: #ef4444; margin-left: 2px; }
+
+    input[type="text"],
+    input[type="datetime-local"],
+    textarea,
+    select {
+      width: 100%;
+      padding: 0.6rem 0.75rem;
+      border: 1.5px solid #d1d5db;
+      border-radius: 6px;
+      font-size: 0.9rem;
+      font-family: inherit;
+      color: #111;
+      background: #fff;
+      transition: border-color 0.15s;
+    }
+    input:focus, textarea:focus, select:focus {
+      outline: none;
+      border-color: #2563eb;
+    }
+    textarea { resize: vertical; min-height: 100px; }
+
+    .row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+    }
+
+    /* Action bar */
+    .actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 0.75rem;
+      margin-top: 1.5rem;
+    }
+
+    /* Status banner */
+    #status-banner {
+      display: none;
+      max-width: 680px;
+      margin: 0 auto 1.25rem;
+      padding: 0.75rem 1rem;
+      border-radius: 8px;
+      font-size: 0.875rem;
+      font-weight: 500;
+    }
+    #status-banner.success { background: #dcfce7; color: #15803d; border: 1px solid #86efac; }
+    #status-banner.error   { background: #fee2e2; color: #b91c1c; border: 1px solid #fca5a5; }
+  </style>
+</head>
+<body>
+
+<header>
+  <span class="brand">Advantage Auction</span>
+  <a href="/seller-dashboard.html">My Auctions</a>
+</header>
+
+<div id="status-banner"></div>
+
+<div class="card">
+  <h1>Create Auction</h1>
+  <p class="subtitle">Upload a photo of your item and we'll generate the listing details for you.</p>
+
+  <!-- Image upload -->
+  <div id="upload-zone">
+    <p>Drop images here or <span>click to upload</span></p>
+    <p style="font-size:0.8rem;margin-top:0.4rem;color:#9ca3af;">JPG, PNG, WEBP — multiple allowed</p>
+  </div>
+  <input type="file" id="file-input" accept="image/jpeg,image/png,image/webp" multiple />
+  <div id="preview-list"></div>
+
+  <button id="btn-generate" class="btn btn-primary" disabled>Generate Details</button>
+
+  <!-- Listing Details -->
+  <p class="section-title">Listing Details</p>
+
+  <div class="field">
+    <label for="lot-title">Lot Title <span class="req">*</span></label>
+    <input type="text" id="lot-title" placeholder="e.g. Vintage Brass Table Lamp" />
+  </div>
+
+  <div class="field">
+    <label for="lot-description">Description</label>
+    <textarea id="lot-description" placeholder="Factual description of the item…"></textarea>
+  </div>
+
+  <div class="row">
+    <div class="field">
+      <label for="lot-category">Category</label>
+      <select id="lot-category">
+        <option value="">— Select —</option>
+        <option>Furniture</option>
+        <option>Fine Art</option>
+        <option>Jewelry</option>
+        <option>Home Decor</option>
+        <option>Tools</option>
+        <option>Pottery &amp; Ceramics</option>
+        <option>Clocks &amp; Timepieces</option>
+        <option>Antiques</option>
+        <option>General</option>
+      </select>
+    </div>
+    <div class="field">
+      <label for="lot-pickup-category">Pickup Size</label>
+      <select id="lot-pickup-category">
+        <option value="">— Select —</option>
+        <option value="A">A — Small (carry by hand)</option>
+        <option value="B">B — Medium (2 people)</option>
+        <option value="C">C — Large (truck/dolly)</option>
+      </select>
+    </div>
+  </div>
+
+  <!-- Auction Details -->
+  <p class="section-title">Auction Details</p>
+
+  <div class="field">
+    <label for="auction-title">Auction Title <span class="req">*</span></label>
+    <input type="text" id="auction-title" placeholder="e.g. Spring Estate Sale — April 2026" />
+  </div>
+
+  <div class="row">
+    <div class="field">
+      <label for="auction-city">City</label>
+      <input type="text" id="auction-city" placeholder="City" />
+    </div>
+    <div class="field">
+      <label for="auction-state">State</label>
+      <input type="text" id="auction-state" placeholder="State" maxlength="2" style="text-transform:uppercase" />
+    </div>
+  </div>
+
+  <div class="field">
+    <label for="auction-pickup-start">Pickup Window Start</label>
+    <input type="datetime-local" id="auction-pickup-start" />
+  </div>
+
+  <div class="actions">
+    <button id="btn-draft" class="btn btn-secondary">Save Draft</button>
+    <button id="btn-submit" class="btn btn-success">Submit for Review</button>
+  </div>
+</div>
+
+<script>
+  const token = localStorage.getItem('token');
+  if (!token) {
+    window.location.href = '/login.html';
+  }
+
+  let sellerProfileId = null;
+  let uploadedImageUrl = null; // first uploaded image, used for AI call
+
+  // Fetch seller profile on load
+  fetch('/api/sellers/me', { headers: { Authorization: 'Bearer ' + token } })
+    .then(r => r.json())
+    .then(d => {
+      if (d.success) {
+        sellerProfileId = d.data.id;
+      } else {
+        showBanner('Seller profile not found. Contact support.', 'error');
+      }
+    })
+    .catch(() => showBanner('Could not load seller profile.', 'error'));
+
+  // ── Upload zone ────────────────────────────────────────────────────────────
+  const zone      = document.getElementById('upload-zone');
+  const fileInput = document.getElementById('file-input');
+  const preview   = document.getElementById('preview-list');
+  const btnGen    = document.getElementById('btn-generate');
+
+  zone.addEventListener('click', () => fileInput.click());
+
+  zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('drag-over'); });
+  zone.addEventListener('dragleave', () => zone.classList.remove('drag-over'));
+  zone.addEventListener('drop', e => {
+    e.preventDefault();
+    zone.classList.remove('drag-over');
+    handleFiles(e.dataTransfer.files);
+  });
+
+  fileInput.addEventListener('change', () => handleFiles(fileInput.files));
+
+  function handleFiles(files) {
+    if (!files.length) return;
+    preview.innerHTML = '';
+    Array.from(files).forEach((file, i) => {
+      const url = URL.createObjectURL(file);
+      if (i === 0) uploadedImageUrl = url; // first image drives AI
+      const img = document.createElement('img');
+      img.src = url;
+      img.alt = file.name;
+      preview.appendChild(img);
+    });
+    btnGen.disabled = false;
+  }
+
+  // ── Generate details ───────────────────────────────────────────────────────
+  btnGen.addEventListener('click', async () => {
+    if (!uploadedImageUrl) return;
+    btnGen.disabled = true;
+    btnGen.textContent = 'Generating…';
+    try {
+      const res  = await fetch('/api/ai/generate-description', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+        body:    JSON.stringify({ imageUrl: uploadedImageUrl })
+      });
+      const data = await res.json();
+      if (!data.success) throw new Error(data.message || 'Generation failed');
+      const d = data.data;
+      setField('lot-title',           d.title);
+      setField('lot-description',     d.description);
+      setSelect('lot-category',       d.category);
+      setSelect('lot-pickup-category', d.pickup_category);
+      // Pre-fill auction title if blank
+      if (!document.getElementById('auction-title').value) {
+        setField('auction-title', d.title);
+      }
+    } catch (err) {
+      showBanner('Could not generate details: ' + err.message, 'error');
+    } finally {
+      btnGen.disabled = false;
+      btnGen.textContent = 'Generate Details';
+    }
+  });
+
+  // ── Save / Submit ──────────────────────────────────────────────────────────
+  document.getElementById('btn-draft').addEventListener('click',  () => save('draft'));
+  document.getElementById('btn-submit').addEventListener('click', () => save('submitted'));
+
+  async function save(status) {
+    if (!sellerProfileId) {
+      showBanner('Seller profile not loaded yet. Please wait and try again.', 'error');
+      return;
+    }
+    const title = document.getElementById('auction-title').value.trim();
+    if (!title) {
+      showBanner('Auction title is required.', 'error');
+      return;
+    }
+
+    const payload = {
+      sellerProfileId,
+      title,
+      description: document.getElementById('lot-description').value.trim() || undefined,
+      status
+    };
+
+    const pickupStart = document.getElementById('auction-pickup-start').value;
+    if (pickupStart) payload.startTime = new Date(pickupStart).toISOString();
+
+    try {
+      const res  = await fetch('/api/auctions', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+        body:    JSON.stringify(payload)
+      });
+      const data = await res.json();
+      if (!data.success) throw new Error(data.message || 'Save failed');
+
+      if (status === 'draft') {
+        showBanner('Draft saved.', 'success');
+      } else {
+        showBanner('Auction submitted for review. We\'ll be in touch soon.', 'success');
+        document.getElementById('btn-submit').disabled = true;
+        document.getElementById('btn-draft').disabled  = true;
+      }
+    } catch (err) {
+      showBanner('Error: ' + err.message, 'error');
+    }
+  }
+
+  // ── Helpers ────────────────────────────────────────────────────────────────
+  function setField(id, value) {
+    const el = document.getElementById(id);
+    if (el && value != null) el.value = value;
+  }
+
+  function setSelect(id, value) {
+    const el = document.getElementById(id);
+    if (!el || value == null) return;
+    for (const opt of el.options) {
+      if (opt.value === value || opt.text === value) { el.value = opt.value; return; }
+    }
+  }
+
+  function showBanner(msg, type) {
+    const b = document.getElementById('status-banner');
+    b.textContent = msg;
+    b.className   = type;
+    b.style.display = 'block';
+    if (type === 'success') setTimeout(() => { b.style.display = 'none'; }, 4000);
+  }
+</script>
+</body>
+</html>

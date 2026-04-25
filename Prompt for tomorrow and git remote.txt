@@ -1,0 +1,42 @@
+git remote add origin https://github.com/LocalProtestOrg/advantage-auction-platform.git
+git push -u origin main
+
+
+
+GET http://localhost:3000/api/auctions/seller
+Authorization: Bearer eyJhbGci.......
+
+
+
+Prompt for GPT Tomorrow: April 23
+We are continuing the Advantage Auction Platform build.
+
+Checkpoint status:
+- Server lifecycle issue is FIXED (Express app.listen replaced with http.createServer)
+- Server now stays alive correctly
+- Stripe CLI is installed and authenticated
+- Webhook listener is working and connected to localhost:3000/api/payments/webhook
+- Payment system is implemented with Stripe PaymentIntents
+- Webhook handler is implemented
+- Idempotency is implemented using PostgreSQL
+- Notification queue system is implemented
+- All bid engine tests are passing (23/23)
+
+Current goal:
+Complete end-to-end payment validation.
+
+Plan for today:
+1. Confirm webhook events are received by the server
+2. Fix any webhook handler errors (if present)
+3. Validate payment success flow:
+   - payment_intent.succeeded updates DB
+   - recordPaymentSuccess runs correctly
+4. Validate idempotency behavior
+5. Run Playwright E2E tests for bidding + payments
+
+Important:
+- Do NOT refactor working systems
+- Keep changes minimal and surgical
+- Focus only on completing payment + webhook validation
+
+Start by walking me step-by-step through triggering a Stripe test event and verifying the webhook is processed correctly.

@@ -1,0 +1,795 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Lot Detail — Advantage Auction</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      background: #111;
+      color: #222;
+      min-height: 100vh;
+    }
+
+    /* ── Top bar ── */
+    header {
+      background: #111;
+      padding: 0.85rem 1.5rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    header .brand { color: #fff; font-weight: 700; font-size: 1rem; letter-spacing: 0.02em; }
+    header .back  { color: #aaa; font-size: 0.82rem; text-decoration: none; }
+    header .back:hover { color: #fff; }
+
+    /* ── Main layout ── */
+    .layout {
+      display: grid;
+      grid-template-columns: 1fr 380px;
+      min-height: calc(100vh - 52px);
+      align-items: start;
+    }
+    @media (max-width: 720px) {
+      .layout { grid-template-columns: 1fr; }
+      .bid-panel { position: static !important; }
+    }
+
+    /* ── LEFT: Image area ── */
+    .image-col {
+      background: #1a1a1a;
+      padding: 1.5rem;
+      min-height: calc(100vh - 52px);
+    }
+
+    #main-image-wrap {
+      width: 100%;
+      aspect-ratio: 4/3;
+      background: #000;
+      border-radius: 8px;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 1rem;
+    }
+    #main-image {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      transition: opacity 0.15s;
+    }
+    #main-image.loading { opacity: 0.4; }
+
+    .no-image-placeholder {
+      color: #555;
+      font-size: 0.875rem;
+      text-align: center;
+    }
+
+    /* Thumbnail strip */
+    #thumb-strip {
+      display: flex;
+      gap: 0.5rem;
+      overflow-x: auto;
+      padding-bottom: 0.5rem;
+      scrollbar-width: thin;
+      scrollbar-color: #444 transparent;
+    }
+    #thumb-strip::-webkit-scrollbar { height: 4px; }
+    #thumb-strip::-webkit-scrollbar-thumb { background: #444; border-radius: 2px; }
+
+    .thumb {
+      flex-shrink: 0;
+      width: 72px;
+      height: 72px;
+      border-radius: 6px;
+      overflow: hidden;
+      cursor: pointer;
+      border: 2px solid transparent;
+      transition: border-color 0.12s;
+    }
+    .thumb.active { border-color: #2563eb; }
+    .thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+    /* Lot meta below images */
+    #lot-meta {
+      margin-top: 1.5rem;
+      color: #bbb;
+    }
+    #lot-meta .lot-category {
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #666;
+      margin-bottom: 0.4rem;
+    }
+    #lot-meta .lot-description {
+      font-size: 0.875rem;
+      line-height: 1.6;
+      color: #999;
+    }
+
+    /* ── RIGHT: Bid panel ── */
+    .bid-panel {
+      background: #fff;
+      border-left: 1px solid #e5e7eb;
+      padding: 1.75rem 1.5rem;
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 1.25rem;
+    }
+
+    .lot-title {
+      font-size: 1.2rem;
+      font-weight: 700;
+      line-height: 1.35;
+      color: #111;
+    }
+
+    /* Current bid display */
+    .bid-display {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      padding: 1rem 1.25rem;
+      transition: background 0.3s;
+    }
+    .bid-display.flash {
+      background: #dbeafe;
+      border-color: #93c5fd;
+    }
+    .bid-display .label {
+      font-size: 0.72rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      color: #94a3b8;
+      margin-bottom: 0.25rem;
+    }
+    .bid-display .amount {
+      font-size: 2rem;
+      font-weight: 800;
+      color: #111;
+      line-height: 1;
+    }
+    .bid-display .amount span { font-size: 1rem; font-weight: 500; color: #64748b; margin-left: 4px; }
+
+    /* Activity line under bid display */
+    #bid-activity {
+      font-size: 0.78rem;
+      color: #94a3b8;
+      margin-top: 0.4rem;
+    }
+    #bid-activity.has-bids { color: #16a34a; }
+
+    /* Bid input */
+    .bid-form .field-label {
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: #374151;
+      margin-bottom: 0.35rem;
+    }
+    .bid-hint {
+      font-size: 0.75rem;
+      color: #94a3b8;
+      margin-bottom: 0.5rem;
+    }
+    .bid-row {
+      display: flex;
+      gap: 0.5rem;
+    }
+    .bid-row input {
+      flex: 1;
+      padding: 0.65rem 0.85rem;
+      border: 1.5px solid #d1d5db;
+      border-radius: 6px;
+      font-size: 1rem;
+      font-weight: 600;
+      color: #111;
+    }
+    .bid-row input:focus { outline: none; border-color: #2563eb; }
+    .btn-place-bid {
+      padding: 0.65rem 1.1rem;
+      background: #2563eb;
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      font-size: 0.9rem;
+      font-weight: 700;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: background 0.15s;
+    }
+    .btn-place-bid:hover    { background: #1d4ed8; }
+    .btn-place-bid:disabled { opacity: 0.45; cursor: not-allowed; }
+
+    #bid-status {
+      font-size: 0.8rem;
+      min-height: 1.2em;
+      font-weight: 500;
+    }
+    #bid-status.ok  { color: #16a34a; }
+    #bid-status.err { color: #dc2626; }
+
+    /* Bid history */
+    .history-header {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      font-size: 0.72rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      color: #94a3b8;
+      padding-bottom: 0.5rem;
+      border-bottom: 1px solid #e5e7eb;
+    }
+    #bid-count-label { font-size: 0.72rem; color: #94a3b8; font-weight: 500; }
+
+    #bid-list {
+      display: flex;
+      flex-direction: column;
+      overflow-y: auto;
+      flex: 1;
+    }
+    .bid-row-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0.5rem 0;
+      border-bottom: 1px solid #f1f5f9;
+      font-size: 0.85rem;
+      transition: background 0.4s;
+    }
+    .bid-row-item:last-child { border-bottom: none; }
+    .bid-row-item .bid-amt  { font-weight: 700; color: #111; }
+    .bid-row-item .bid-time { color: #94a3b8; font-size: 0.75rem; }
+    .bid-row-item.top-bid .bid-amt { color: #2563eb; }
+    .bid-row-item.new-bid { background: #eff6ff; }
+
+    #bid-empty {
+      font-size: 0.85rem;
+      color: #94a3b8;
+      text-align: center;
+      padding: 1rem 0;
+    }
+
+    #loading-overlay {
+      color: #666;
+      font-size: 0.9rem;
+      padding: 2rem 0;
+      text-align: center;
+    }
+
+    /* Live pulse dot */
+    .live-dot {
+      display: inline-block;
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: #16a34a;
+      margin-right: 5px;
+      animation: pulse 2s infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50%       { opacity: 0.3; }
+    }
+
+    /* ── Countdown ── */
+    #countdown-wrap {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: #374151;
+      margin-top: 0.5rem;
+    }
+    #countdown-wrap .cd-icon { font-size: 0.85rem; }
+    #countdown-val { font-variant-numeric: tabular-nums; }
+    #countdown-val.urgent { color: #dc2626; }
+    #countdown-val.ended  { color: #94a3b8; font-weight: 500; }
+
+    /* ── Closed state ── */
+    #closed-banner {
+      display: none;
+      background: #fef2f2;
+      border: 1px solid #fecaca;
+      border-radius: 8px;
+      padding: 0.85rem 1rem;
+      font-size: 0.875rem;
+      font-weight: 600;
+      color: #b91c1c;
+      text-align: center;
+    }
+
+    /* ── Winner panel ── */
+    #winner-panel {
+      display: none;
+      background: #f0fdf4;
+      border: 1px solid #bbf7d0;
+      border-radius: 8px;
+      padding: 1rem 1.25rem;
+    }
+    #winner-panel .w-label {
+      font-size: 0.7rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #16a34a;
+      margin-bottom: 0.3rem;
+    }
+    #winner-panel .w-amount {
+      font-size: 1.5rem;
+      font-weight: 800;
+      color: #15803d;
+      line-height: 1.1;
+    }
+    #winner-panel .w-note {
+      font-size: 0.75rem;
+      color: #4ade80;
+      margin-top: 0.25rem;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <span class="brand">Advantage Auction</span>
+  <a href="javascript:history.back()" class="back">← Back</a>
+</header>
+
+<div class="layout">
+
+  <!-- LEFT: Images + description -->
+  <div class="image-col">
+    <div id="main-image-wrap">
+      <div class="no-image-placeholder" id="no-image-msg">No images</div>
+      <img id="main-image" style="display:none" alt="Lot image" />
+    </div>
+
+    <div id="thumb-strip"></div>
+
+    <div id="lot-meta">
+      <div class="lot-category" id="lot-category"></div>
+      <div class="lot-description" id="lot-description"></div>
+    </div>
+  </div>
+
+  <!-- RIGHT: Bid panel -->
+  <div class="bid-panel">
+    <div id="loading-overlay">Loading…</div>
+
+    <div id="panel-content" style="display:none; flex-direction:column; gap:1.25rem; flex:1">
+
+      <div class="lot-title" id="lot-title"></div>
+
+      <div class="bid-display" id="bid-display">
+        <div class="label"><span class="live-dot"></span>Current Bid</div>
+        <div class="amount" id="current-bid">$0.00 <span>USD</span></div>
+        <div id="bid-activity">Be the first to bid</div>
+        <div id="countdown-wrap" style="display:none">
+          <span class="cd-icon">⏱</span>
+          <span id="countdown-val"></span>
+        </div>
+      </div>
+
+      <div id="winner-panel">
+        <div class="w-label">Winning Bid</div>
+        <div class="w-amount" id="winner-amount"></div>
+        <div class="w-note">This lot has closed.</div>
+      </div>
+
+      <div id="closed-banner">Auction ended — bidding is closed</div>
+
+      <div class="bid-form">
+        <div class="field-label">Your Bid</div>
+        <div class="bid-hint" id="bid-hint">Enter your bid amount</div>
+        <div class="bid-row">
+          <input type="number" id="bid-input" placeholder="0.00" min="0" step="0.01" />
+          <button class="btn-place-bid" id="btn-bid">Place Bid</button>
+        </div>
+        <div style="margin-top:0.6rem">
+          <div class="field-label" style="font-size:0.75rem; color:#94a3b8; font-weight:500; margin-bottom:0.25rem">
+            Max Bid — proxy (optional)
+          </div>
+          <input type="number" id="max-bid-input" placeholder="Set your maximum…" min="0" step="0.01"
+                 style="width:100%; padding:0.5rem 0.75rem; border:1.5px solid #e2e8f0; border-radius:6px;
+                        font-size:0.9rem; color:#374151; background:#f8fafc;" />
+        </div>
+      </div>
+
+      <div id="bid-status"></div>
+
+      <div style="display:flex; flex-direction:column; flex:1; min-height:0">
+        <div class="history-header">
+          <span>Bid History</span>
+          <span id="bid-count-label"></span>
+        </div>
+        <div id="bid-list">
+          <div id="bid-empty">Be the first to bid</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+  const token  = localStorage.getItem('token');
+  const params = new URLSearchParams(location.search);
+  const lotId  = params.get('lotId');
+
+  if (!token)  location.href = '/login.html';
+  if (!lotId)  document.getElementById('loading-overlay').textContent = 'No lot ID in URL.';
+
+  const REFRESH_INTERVAL = 3000;  // ms
+  const BID_INCREMENT    = 5;     // dollars
+
+  let images          = [];
+  let topBidAmount    = 0;      // dollars, tracked to detect new top bids
+  let bidding         = false;  // true while a bid POST is in flight
+  let refreshTimer    = null;
+  let countdownTimer  = null;
+  let lotClosed       = false;  // set true once lot status is non-active
+  let currentClosesAt = null;   // ISO string, updated when anti-snipe extends the lot
+
+  // ── Initial load ─────────────────────────────────────────────────────────────
+  async function load() {
+    if (!lotId) return;
+    try {
+      const headers = { Authorization: 'Bearer ' + token };
+      const [lotRes, imgRes, bidRes] = await Promise.all([
+        fetch('/api/lots/' + lotId, { headers }),
+        fetch('/api/lots/' + lotId + '/images'),
+        fetch('/api/lots/' + lotId + '/bids', { headers })
+      ]);
+      const [lotData, imgData, bidData] = await Promise.all([
+        lotRes.json(), imgRes.json(), bidRes.json()
+      ]);
+
+      if (!lotData.success || !lotData.data) throw new Error('Lot not found');
+
+      renderLot(lotData.data);
+      renderImages(imgData.success ? imgData.data : []);
+      renderBids(bidData.success ? bidData.data : [], false);
+
+      document.getElementById('loading-overlay').style.display = 'none';
+      document.getElementById('panel-content').style.display = 'flex';
+
+      startRefresh();
+    } catch (err) {
+      document.getElementById('loading-overlay').textContent = 'Error: ' + err.message;
+    }
+  }
+
+  // ── Auto-refresh bids every 3 s ───────────────────────────────────────────────
+  function startRefresh() {
+    refreshTimer = setInterval(async () => {
+      if (lotClosed || bidding) return;
+      try {
+        const res  = await fetch('/api/lots/' + lotId + '/bids', { headers: { Authorization: 'Bearer ' + token } });
+        const data = await res.json();
+        if (data.success) renderBids(data.data, true);
+
+        // Also re-check lot status so we catch close transitions and anti-snipe extensions
+        const lotRes  = await fetch('/api/lots/' + lotId, { headers: { Authorization: 'Bearer ' + token } });
+        const lotData = await lotRes.json();
+        if (lotData.success && lotData.data) {
+          const ld = lotData.data;
+          const st = ld.status;
+          if (st === 'closed' || st === 'sold') {
+            lotClosed = true;
+            applyClosedState();
+            if (ld.winning_amount_cents) renderWinnerPanel(ld.winning_amount_cents);
+          } else if (ld.closes_at && ld.closes_at !== currentClosesAt) {
+            // Anti-snipe extended the deadline — restart countdown with new time
+            startCountdown(ld.closes_at);
+          }
+        }
+      } catch { /* network blip — just wait for next tick */ }
+    }, REFRESH_INTERVAL);
+  }
+
+  // ── Stop all timers ───────────────────────────────────────────────────────────
+  function stopRefresh() {
+    clearInterval(refreshTimer);
+    clearInterval(countdownTimer);
+    refreshTimer   = null;
+    countdownTimer = null;
+  }
+
+  // ── Countdown timer ───────────────────────────────────────────────────────────
+  function startCountdown(closesAt) {
+    clearInterval(countdownTimer);  // safe to restart with new closes_at
+    countdownTimer  = null;
+    currentClosesAt = closesAt;
+
+    const wrap = document.getElementById('countdown-wrap');
+    const val  = document.getElementById('countdown-val');
+    const end  = new Date(closesAt).getTime();
+    wrap.style.display = 'flex';
+
+    function tick() {
+      const remaining = end - Date.now();
+      if (remaining <= 0) {
+        val.textContent = 'Ended';
+        val.className   = 'ended';
+        clearInterval(countdownTimer);
+        countdownTimer = null;
+        return;
+      }
+      const h = Math.floor(remaining / 3600000);
+      const m = Math.floor((remaining % 3600000) / 60000);
+      const s = Math.floor((remaining % 60000) / 1000);
+      if (h > 0) {
+        val.textContent = h + 'h ' + String(m).padStart(2, '0') + 'm';
+      } else if (m > 0) {
+        val.textContent = m + 'm ' + String(s).padStart(2, '0') + 's';
+      } else {
+        val.textContent = s + 's';
+      }
+      val.className = remaining < 60000 ? 'urgent' : '';
+    }
+
+    tick();
+    countdownTimer = setInterval(tick, 1000);
+  }
+
+  // ── Closed state ──────────────────────────────────────────────────────────────
+  function applyClosedState() {
+    document.getElementById('bid-input').disabled     = true;
+    document.getElementById('max-bid-input').disabled = true;
+    document.getElementById('btn-bid').disabled       = true;
+    document.getElementById('closed-banner').style.display = 'block';
+    // Swap live dot label
+    const label = document.querySelector('.bid-display .label');
+    if (label) label.innerHTML = 'Final Bid';
+    // Hide countdown if present
+    const wrap = document.getElementById('countdown-wrap');
+    const val  = document.getElementById('countdown-val');
+    if (val && val.textContent !== 'Ended') {
+      val.textContent = 'Ended';
+      val.className   = 'ended';
+      wrap.style.display = 'flex';
+    }
+    stopRefresh();
+  }
+
+  // ── Winner panel ──────────────────────────────────────────────────────────────
+  function renderWinnerPanel(cents) {
+    document.getElementById('winner-amount').textContent = '$' + (cents / 100).toFixed(2);
+    document.getElementById('winner-panel').style.display = 'block';
+  }
+
+  // ── Render lot metadata ───────────────────────────────────────────────────────
+  function renderLot(lot) {
+    document.title = lot.title + ' — Advantage Auction';
+    document.getElementById('lot-title').textContent       = lot.title       || '';
+    document.getElementById('lot-category').textContent    = lot.category    || '';
+    document.getElementById('lot-description').textContent = lot.description || '';
+    setCurrentBid(lot.current_bid_cents || 0);
+
+    const st = lot.status;
+    if (st === 'closed' || st === 'sold') {
+      lotClosed = true;
+      applyClosedState();
+      if (lot.winning_amount_cents) renderWinnerPanel(lot.winning_amount_cents);
+    } else if (st === 'active' && lot.closes_at) {
+      currentClosesAt = lot.closes_at;
+      startCountdown(lot.closes_at);
+    }
+  }
+
+  // ── Images ───────────────────────────────────────────────────────────────────
+  function renderImages(rows) {
+    images = rows.map(r => r.image_url);
+    const strip = document.getElementById('thumb-strip');
+    strip.innerHTML = '';
+    if (!images.length) return;
+
+    document.getElementById('no-image-msg').style.display = 'none';
+    document.getElementById('main-image').style.display   = 'block';
+    setMainImage(0);
+
+    images.forEach((url, i) => {
+      const wrap = document.createElement('div');
+      wrap.className    = 'thumb' + (i === 0 ? ' active' : '');
+      wrap.dataset.index = i;
+
+      const img = document.createElement('img');
+      img.src = url;
+      img.alt = 'Image ' + (i + 1);
+
+      wrap.appendChild(img);
+      wrap.addEventListener('click', () => setMainImage(i));
+      strip.appendChild(wrap);
+    });
+  }
+
+  function setMainImage(index) {
+    const main = document.getElementById('main-image');
+    main.classList.add('loading');
+    main.onload  = () => main.classList.remove('loading');
+    main.onerror = () => main.classList.remove('loading');
+    main.src = images[index];
+    document.querySelectorAll('.thumb').forEach((t, i) => t.classList.toggle('active', i === index));
+  }
+
+  // ── Render bids ───────────────────────────────────────────────────────────────
+  function renderBids(bids, fromPoll) {
+    const list  = document.getElementById('bid-list');
+    const empty = document.getElementById('bid-empty');
+    const countLabel = document.getElementById('bid-count-label');
+
+    if (!bids.length) {
+      list.innerHTML = '';
+      empty.style.display = 'block';
+      list.appendChild(empty);
+      countLabel.textContent = '';
+      setActivity(0, 0);
+      return;
+    }
+
+    empty.style.display = 'none';
+
+    const sorted = [...bids].sort((a, b) =>
+      b.amount - a.amount || new Date(b.created_at) - new Date(a.created_at)
+    );
+
+    const newTop = Number(sorted[0].amount);
+    const isNewTopBid = fromPoll && newTop > topBidAmount;
+
+    // Update current bid display
+    const topCents = Math.round(newTop * 100);
+    setCurrentBid(topCents);
+    if (isNewTopBid) flashBidDisplay();
+    topBidAmount = newTop;
+
+    // Update activity line
+    setActivity(bids.length, topCents);
+
+    // Update hint with next minimum
+    updateHint(topCents);
+
+    // Count label
+    countLabel.textContent = bids.length + ' bid' + (bids.length === 1 ? '' : 's');
+
+    // Render rows
+    list.innerHTML = '';
+    sorted.forEach((bid, i) => {
+      const isNew = fromPoll && i === 0 && isNewTopBid;
+
+      const row = document.createElement('div');
+      row.className = 'bid-row-item' + (i === 0 ? ' top-bid' : '') + (isNew ? ' new-bid' : '');
+
+      const amt = document.createElement('span');
+      amt.className   = 'bid-amt';
+      amt.textContent = '$' + Number(bid.amount).toFixed(2);
+
+      const time = document.createElement('span');
+      time.className   = 'bid-time';
+      time.textContent = formatTime(bid.created_at);
+
+      row.appendChild(amt);
+      row.appendChild(time);
+      list.appendChild(row);
+
+      // Remove highlight class after animation
+      if (isNew) setTimeout(() => row.classList.remove('new-bid'), 1500);
+    });
+  }
+
+  // ── Current bid + flash ───────────────────────────────────────────────────────
+  function setCurrentBid(cents) {
+    document.getElementById('current-bid').innerHTML =
+      '$' + (cents / 100).toFixed(2) + ' <span>USD</span>';
+  }
+
+  function flashBidDisplay() {
+    const el = document.getElementById('bid-display');
+    el.classList.add('flash');
+    setTimeout(() => el.classList.remove('flash'), 800);
+  }
+
+  // ── Activity line ─────────────────────────────────────────────────────────────
+  function setActivity(count, topCents) {
+    const el = document.getElementById('bid-activity');
+    if (count === 0) {
+      el.textContent = 'Be the first to bid';
+      el.className   = '';
+    } else {
+      el.textContent = count + ' bid' + (count === 1 ? '' : 's') + ' placed';
+      el.className   = 'has-bids';
+    }
+  }
+
+  // ── Bid hint (next minimum) ───────────────────────────────────────────────────
+  function updateHint(currentCents) {
+    const nextDollars = (currentCents / 100) + BID_INCREMENT;
+    document.getElementById('bid-hint').textContent =
+      'Next minimum bid: $' + nextDollars.toFixed(2);
+  }
+
+  // ── Place bid ────────────────────────────────────────────────────────────────
+  document.getElementById('btn-bid').addEventListener('click', async () => {
+    const input        = document.getElementById('bid-input');
+    const maxBidInput  = document.getElementById('max-bid-input');
+    const btn          = document.getElementById('btn-bid');
+    const amount       = parseFloat(input.value);
+    const maxBidDollar = parseFloat(maxBidInput.value);
+    const hasMaxBid    = !isNaN(maxBidDollar) && maxBidDollar > 0;
+
+    // Require at least one of: manual amount or max bid.
+    if ((!amount || amount <= 0) && !hasMaxBid) {
+      setStatus('Enter a bid amount or set a max bid.', 'err');
+      return;
+    }
+
+    const payload = {};
+    if (amount > 0)  payload.amount       = amount;
+    if (hasMaxBid)   payload.max_bid_cents = Math.round(maxBidDollar * 100);
+
+    bidding      = true;
+    btn.disabled = true;
+    btn.textContent = 'Placing…';
+    setStatus('', '');
+
+    try {
+      const res  = await fetch('/api/lots/' + lotId + '/bids', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+        body:    JSON.stringify(payload)
+      });
+      const data = await res.json();
+      if (!data.success) throw new Error(data.message || 'Bid failed');
+
+      input.value       = '';
+      maxBidInput.value = '';
+      setStatus(hasMaxBid ? 'Max bid set!' : 'Bid placed!', 'ok');
+
+      // Refresh immediately after own bid
+      const bidRes  = await fetch('/api/lots/' + lotId + '/bids', { headers: { Authorization: 'Bearer ' + token } });
+      const bidData = await bidRes.json();
+      if (bidData.success) renderBids(bidData.data, false);
+
+      input.focus();
+    } catch (err) {
+      setStatus(err.message, 'err');
+    } finally {
+      bidding      = false;
+      btn.disabled = false;
+      btn.textContent = 'Place Bid';
+    }
+  });
+
+  document.getElementById('bid-input').addEventListener('keydown', e => {
+    if (e.key === 'Enter') document.getElementById('btn-bid').click();
+  });
+
+  function setStatus(msg, type) {
+    const el = document.getElementById('bid-status');
+    el.textContent = msg;
+    el.className   = type;
+  }
+
+  function formatTime(iso) {
+    if (!iso) return '';
+    const d = new Date(iso);
+    return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) +
+           ' ' + d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+  }
+
+  load();
+</script>
+</body>
+</html>

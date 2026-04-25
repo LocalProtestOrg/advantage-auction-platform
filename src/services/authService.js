@@ -1,5 +1,6 @@
 const jwt = require('jsonwebtoken');
 const db = require('../db/index');
+const bcrypt = require('bcrypt');
 
 class AuthService {
   async authenticate(credentials) {
@@ -24,8 +25,8 @@ class AuthService {
       throw new Error('User account is inactive');
     }
 
-    // TEMP DEV LOGIN (replace with bcrypt later)
-    if (email !== 'seller1@example.com' || password !== 'test') {
+    const validPassword = await bcrypt.compare(password, user.password_hash);
+    if (!validPassword) {
       throw new Error('Invalid credentials');
     }
 
@@ -35,7 +36,7 @@ class AuthService {
         role: user.role
       },
       process.env.JWT_SECRET,
-      { expiresIn: '1h' }
+      { expiresIn: process.env.JWT_EXPIRES_IN || '1h' }
     );
 
     return {

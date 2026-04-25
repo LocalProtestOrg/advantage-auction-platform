@@ -139,7 +139,7 @@ class PickupScheduleService {
 
   async generateSchedule(adminId, auctionId) {
     // After auction closes, generate pickup windows for all paid lots
-    // Groups by size_category (A, B, C) and assigns sequential time slots
+    // Groups by pickup_category (A, B, C) and assigns sequential time slots
     const client = await db.connect();
     try {
       await client.query('BEGIN');
@@ -161,10 +161,10 @@ class PickupScheduleService {
 
       // Get all closed lots with winners for this auction
       const lotsRes = await client.query(
-        `SELECT id, size_category, winning_buyer_user_id
+        `SELECT id, pickup_category, winning_buyer_user_id
          FROM lots
          WHERE auction_id = $1 AND state = 'closed' AND winning_buyer_user_id IS NOT NULL
-         ORDER BY size_category, id`,
+         ORDER BY pickup_category, id`,
         [auctionId]
       );
       const lots = lotsRes.rows;
@@ -173,11 +173,11 @@ class PickupScheduleService {
         throw new Error('No sold lots to generate pickup schedule');
       }
 
-      // Group lots by size_category
+      // Group lots by pickup_category
       const byCat = { A: [], B: [], C: [] };
       for (const lot of lots) {
-        if (lot.size_category && byCat[lot.size_category]) {
-          byCat[lot.size_category].push(lot);
+        if (lot.pickup_category && byCat[lot.pickup_category]) {
+          byCat[lot.pickup_category].push(lot);
         }
       }
 
@@ -277,7 +277,7 @@ class PickupScheduleService {
     // Prevents empty slot waste, enables real-time payment flow
     // Enforces: 1 assignment per lot (replaces existing if reassigning)
     const lotRes = await client.query(
-      `SELECT size_category, auction_id FROM lots WHERE id = $1`,
+      `SELECT pickup_category, auction_id FROM lots WHERE id = $1`,
       [lotId]
     );
     if (!lotRes.rows[0]) {
@@ -290,11 +290,11 @@ class PickupScheduleService {
       [lot.auction_id]
     );
     if (!scheduleRes.rows[0]) {
-      throw new Error('Pickup schedule not found for auction');
+      return null;
     }
     const scheduleId = scheduleRes.rows[0].id;
 
-    const cat = lot.size_category;
+    const cat = lot.pickup_category;
 
     // Check if lot already has an assignment (handle reassignment)
     const existingRes = await client.query(
@@ -785,5 +785,7 @@ class PickupScheduleService {
   // TODO: Implement pickup reminders/notifications before slot time
   // TODO: Integrate penalty application with PaymentService for charges/invoices
   // TODO: Implement automatic missed pickup detection (scheduled job after slot end)
+
+}
 
 module.exports = new PickupScheduleService();

@@ -10,8 +10,15 @@ app.use((req, res, next) => {
   next();
 });
 
-// JSON body parsing
-app.use(express.json());
+// JSON body parsing — skip the Stripe webhook path so it receives the raw buffer
+// required for signature verification.
+app.use((req, res, next) => {
+  if (req.path === '/api/payments/webhook') return next();
+  express.json()(req, res, next);
+});
+
+// Static frontend
+app.use(express.static(path.join(__dirname, 'public')));
 
 // Mount routes
 const authRoutes = require(path.join(__dirname, 'src/routes/auth'));
@@ -22,6 +29,11 @@ const adminRoutes = require(path.join(__dirname, 'src/routes/admin'));
 
 const lotRoutes = require('./src/routes/lots');
 const bidsRoutes = require('./src/routes/bids');
+const marketingRoutes = require('./src/routes/marketing');
+const payoutPreferencesRoutes = require('./src/routes/payoutPreferences');
+const aiRoutes = require('./src/routes/ai');
+const sellersRoutes   = require('./src/routes/sellers');
+const watchlistRoutes = require('./src/routes/watchlist');
 
 app.use('/api/auth', authRoutes);
 app.use('/api/auctions', auctionRoutes);
@@ -29,6 +41,11 @@ app.use('/api/payments', paymentRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/lots', lotRoutes);
 app.use('/api', bidsRoutes);
+app.use('/api/marketing', marketingRoutes);
+app.use('/api/payout-preferences', payoutPreferencesRoutes);
+app.use('/api/ai', aiRoutes);
+app.use('/api/sellers', sellersRoutes);
+app.use('/api/watchlist', watchlistRoutes);
 
 // Root route
 app.get('/', (req, res) => {
@@ -59,8 +76,16 @@ app.use((err, req, res, next) => {
   });
 });
 
+const http = require('http');
 const PORT = process.env.PORT || 3000;
 
-app.listen(PORT, () => {
+const server = http.createServer(app);
+
+server.on('error', (err) => {
+  console.error('Server failed to start:', err.message);
+  process.exit(1);
+});
+
+server.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });

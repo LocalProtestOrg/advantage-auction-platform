@@ -1,5 +1,12 @@
 // PaymentService implementation
-const db = require('../db');
+const db           = require('../db');
+const auditService = require('./auditService');
+const Stripe       = require('stripe');
+
+function getStripe() {
+  if (!process.env.STRIPE_SECRET_KEY) throw new Error('STRIPE_SECRET_KEY is not set');
+  return Stripe(process.env.STRIPE_SECRET_KEY);
+}
 
 class PaymentService {
   async _ensureAdminRole(client, adminId) {
@@ -15,7 +22,7 @@ class PaymentService {
       await client.query('BEGIN');
 
       const lotRes = await client.query(
-        'SELECT state, winning_buyer_user_id, winning_amount_cents FROM lots WHERE id = $1 AND auction_id = $2',
+        'SELECT status, winning_buyer_user_id, winning_amount_cents FROM lots WHERE id = $1 AND auction_id = $2',
         [lotId, auctionId]
       );
       if (!lotRes.rows[0]) {
@@ -24,7 +31,7 @@ class PaymentService {
       const lot = lotRes.rows[0];
 
       // Lot must be closed (winner locked at closeAuction time)
-      if (lot.state !== 'closed') {
+      if (lot.status !== 'closed') {
         throw new Error('Lot must be closed before payment');
       }
 
@@ -50,22 +57,46 @@ class PaymentService {
         throw new Error(`Payment already exists for this lot (status: ${existingPayment.rows[0].status}). Cannot create duplicate.`);
       }
 
-      // Create pending payment with locked winning amount
+      // Create the Stripe PaymentIntent before writing the DB row so we never
+      // store a pending payment without a real intent backing it.
+      const stripe = getStripe();
+      const intent = await stripe.paymentIntents.create({
+        amount:   lot.winning_amount_cents,
+        currency: 'usd',
+        metadata: { lot_id: lotId, auction_id: auctionId, buyer_user_id: userId },
+      });
+
+      // Create pending payment row with the intent ID locked in.
       const payment = await client.query(
-        `INSERT INTO payments (auction_id, lot_id, buyer_user_id, amount_cents, status)
-         VALUES ($1, $2, $3, $4, 'pending')
+        `INSERT INTO payments (auction_id, lot_id, buyer_user_id, amount_cents, status, payment_intent_id)
+         VALUES ($1, $2, $3, $4, 'pending', $5)
          RETURNING id, amount_cents, status, created_at`,
-        [auctionId, lotId, userId, lot.winning_amount_cents]
+        [auctionId, lotId, userId, lot.winning_amount_cents, intent.id]
       );
+
+      const paymentId = payment.rows[0].id;
+
+      await auditService.logEvent(client, {
+        eventType:  'payment.created',
+        entityType: 'payment',
+        entityId:   paymentId,
+        auctionId,
+        lotId,
+        paymentId,
+        actorId:    userId,
+        metadata:   { amount_cents: payment.rows[0].amount_cents, status: 'pending', payment_intent_id: intent.id }
+      });
 
       await client.query('COMMIT');
       return {
-        id: payment.rows[0].id,
-        lot_id: lotId,
-        auction_id: auctionId,
-        amount_cents: payment.rows[0].amount_cents,
-        status: payment.rows[0].status,
-        created_at: payment.rows[0].created_at
+        id:                paymentId,
+        lot_id:            lotId,
+        auction_id:        auctionId,
+        amount_cents:      payment.rows[0].amount_cents,
+        status:            payment.rows[0].status,
+        created_at:        payment.rows[0].created_at,
+        payment_intent_id: intent.id,
+        client_secret:     intent.client_secret,
       };
     } catch (error) {
       await client.query('ROLLBACK');
@@ -81,6 +112,7 @@ class PaymentService {
     // Valid transition: pending → paid (and ONLY from pending)
     // Trigger: Assign buyer to pickup slot based on lot's size_category
     // Trigger: Send payment confirmation notification
+    let payment, auctionId, pickupAssignment;
     const client = await db.connect();
     try {
       await client.query('BEGIN');
@@ -92,11 +124,20 @@ class PaymentService {
       if (!paymentRes.rows[0]) {
         throw new Error('Payment not found');
       }
-      const payment = paymentRes.rows[0];
+      payment = paymentRes.rows[0];
 
-      // Guard: ONLY pending → paid allowed
-      if (payment.status !== 'pending') {
-        throw new Error(`Cannot mark ${payment.status} payment as paid. Only pending payments can be charged.`);
+      // Idempotency: already paid — safe to return without re-processing.
+      if (payment.status === 'paid') {
+        await client.query('ROLLBACK');
+        console.log(`[payment] recordPaymentSuccess: payment ${paymentId} already paid — skipping`);
+        return { payment_id: paymentId, status: 'paid', charged_at: null };
+      }
+
+      // Failed payments cannot be retried through the success path.
+      if (payment.status === 'failed') {
+        await client.query('ROLLBACK');
+        console.log(`[payment] recordPaymentSuccess: payment ${paymentId} is failed — skipping`);
+        return { payment_id: paymentId, status: 'failed', charged_at: null };
       }
 
       // Get lot info for notifications
@@ -104,7 +145,7 @@ class PaymentService {
         'SELECT auction_id FROM lots WHERE id = $1',
         [payment.lot_id]
       );
-      const auctionId = lotRes.rows[0]?.auction_id;
+      auctionId = lotRes.rows[0]?.auction_id;
 
       // Update payment status
       await client.query(
@@ -116,65 +157,72 @@ class PaymentService {
 
       // Assign buyer to pickup slot
       const pickupScheduleService = require('./pickupScheduleService');
-      const pickupAssignment = await pickupScheduleService.assignPickupOnPayment(client, payment.lot_id, payment.buyer_user_id);
+      pickupAssignment = await pickupScheduleService.assignPickupOnPayment(client, payment.lot_id, payment.buyer_user_id);
 
-      await client.query('COMMIT');
-      client.release();
-
-      // Emit notification events asynchronously (fire-and-forget, non-blocking)
-      const { emitEvent, EVENTS } = require('./eventEmitter');
-
-      // Payment confirmation event
-      emitEvent(EVENTS.PAYMENT_CONFIRMED, {
-        buyerUserId: payment.buyer_user_id,
-        paymentId,
-        lotId: payment.lot_id,
+      await auditService.logEvent(client, {
+        eventType:  'payment.paid',
+        entityType: 'payment',
+        entityId:   paymentId,
         auctionId,
-        amountCents: payment.amount_cents
+        lotId:      payment.lot_id,
+        paymentId,
+        actorId:    payment.buyer_user_id,
+        metadata:   { payment_provider_id: paymentProviderId }
       });
 
-      // Pickup scheduled event - only if assignment exists in database after commit
-      if (pickupAssignment?.pickupAssignmentId) {
-        // Verify assignment exists in database (prevent race condition)
-        const verifyClient = await db.connect();
-        try {
-          const verifyRes = await verifyClient.query(
-            `SELECT id, slot_start, slot_end FROM pickup_assignments
-             WHERE id = $1 AND lot_id = $2 AND buyer_user_id = $3`,
-            [pickupAssignment.pickupAssignmentId, payment.lot_id, payment.buyer_user_id]
-          );
-
-          if (verifyRes.rows[0]) {
-            const verifiedAssignment = verifyRes.rows[0];
-            emitEvent(EVENTS.PICKUP_SCHEDULED, {
-              buyerUserId: payment.buyer_user_id,
-              pickupAssignmentId: verifiedAssignment.id,
-              lotId: payment.lot_id,
-              auctionId,
-              slotStart: verifiedAssignment.slot_start,
-              slotEnd: verifiedAssignment.slot_end
-            });
-          } else {
-            console.warn(`Pickup assignment ${pickupAssignment.pickupAssignmentId} not found after commit - notification skipped`);
-          }
-        } catch (verifyError) {
-          console.error('Failed to verify pickup assignment:', verifyError.message);
-        } finally {
-          verifyClient.release();
-        }
-      }
-
-      return {
-        payment_id: paymentId,
-        status: 'paid',
-        charged_at: new Date()
-      };
+      await client.query('COMMIT');
     } catch (error) {
       await client.query('ROLLBACK');
       throw error;
     } finally {
       client.release();
     }
+
+    // Fire-and-forget events run outside the transaction so a failure here
+    // cannot trigger a spurious ROLLBACK on an already-committed transaction.
+    const { emitEvent, EVENTS } = require('./eventEmitter');
+
+    emitEvent(EVENTS.PAYMENT_CONFIRMED, {
+      buyerUserId: payment.buyer_user_id,
+      paymentId,
+      lotId: payment.lot_id,
+      auctionId,
+      amountCents: payment.amount_cents
+    });
+
+    if (pickupAssignment?.pickupAssignmentId) {
+      const verifyClient = await db.connect();
+      try {
+        const verifyRes = await verifyClient.query(
+          `SELECT id, slot_start, slot_end FROM pickup_assignments
+           WHERE id = $1 AND lot_id = $2 AND buyer_user_id = $3`,
+          [pickupAssignment.pickupAssignmentId, payment.lot_id, payment.buyer_user_id]
+        );
+        if (verifyRes.rows[0]) {
+          const verifiedAssignment = verifyRes.rows[0];
+          emitEvent(EVENTS.PICKUP_SCHEDULED, {
+            buyerUserId: payment.buyer_user_id,
+            pickupAssignmentId: verifiedAssignment.id,
+            lotId: payment.lot_id,
+            auctionId,
+            slotStart: verifiedAssignment.slot_start,
+            slotEnd: verifiedAssignment.slot_end
+          });
+        } else {
+          console.warn(`Pickup assignment ${pickupAssignment.pickupAssignmentId} not found after commit - notification skipped`);
+        }
+      } catch (verifyError) {
+        console.error('Failed to verify pickup assignment:', verifyError.message);
+      } finally {
+        verifyClient.release();
+      }
+    }
+
+    return {
+      payment_id: paymentId,
+      status: 'paid',
+      charged_at: new Date()
+    };
   }
 
   async recordPaymentFailure(paymentId) {
@@ -193,9 +241,16 @@ class PaymentService {
         throw new Error('Payment not found');
       }
 
-      // Guard: ONLY pending can fail/retry
-      if (paymentRes.rows[0].status !== 'pending') {
-        throw new Error(`Cannot retry ${paymentRes.rows[0].status} payment. Only pending payments can be retried.`);
+      // Idempotency: already in a terminal state — safe to return without re-processing.
+      if (paymentRes.rows[0].status === 'paid') {
+        await client.query('ROLLBACK');
+        console.log(`[payment] recordPaymentFailure: payment ${paymentId} already paid — skipping`);
+        return { payment_id: paymentId, status: 'paid', retry_count: paymentRes.rows[0].retry_count, last_attempted_at: null };
+      }
+      if (paymentRes.rows[0].status === 'failed') {
+        await client.query('ROLLBACK');
+        console.log(`[payment] recordPaymentFailure: payment ${paymentId} already failed — skipping`);
+        return { payment_id: paymentId, status: 'failed', retry_count: paymentRes.rows[0].retry_count, last_attempted_at: null };
       }
 
       const newRetryCount = (paymentRes.rows[0].retry_count || 0) + 1;
@@ -310,6 +365,47 @@ class PaymentService {
   // TODO: In route/seller view layer: IF payment.status !== 'paid' THEN hide auction.address_encrypted
   // TODO: Decrypt and return full address ONLY after _ensurePaymentVerified() passes
   // TODO: Add buyer invoice generation that includes address (only for paid payments)
+
+  // ── handleWebhookEvent ───────────────────────────────────────────────────────
+  // Called by the /webhook route after Stripe signature is verified.
+  // Looks up the payment row by payment_intent_id, then delegates to the
+  // existing success/failure methods so all business logic stays in one place.
+  async handleWebhookEvent(event) {
+    const intent = event.data.object;
+
+    if (event.type === 'payment_intent.succeeded') {
+      const paymentRes = await db.query(
+        `SELECT id FROM payments WHERE payment_intent_id = $1 LIMIT 1`,
+        [intent.id]
+      );
+      if (!paymentRes.rows[0]) {
+        // Intent not created through this platform — ignore safely.
+        console.warn(`[webhook] No payment row for intent ${intent.id} — skipped`);
+        return;
+      }
+      const paymentId = paymentRes.rows[0].id;
+      await this.recordPaymentSuccess(paymentId, intent.id);
+      console.log(`[webhook] payment_intent.succeeded → payment ${paymentId} marked paid`);
+      return;
+    }
+
+    if (event.type === 'payment_intent.payment_failed') {
+      const paymentRes = await db.query(
+        `SELECT id FROM payments WHERE payment_intent_id = $1 LIMIT 1`,
+        [intent.id]
+      );
+      if (!paymentRes.rows[0]) {
+        console.warn(`[webhook] No payment row for intent ${intent.id} — skipped`);
+        return;
+      }
+      const paymentId = paymentRes.rows[0].id;
+      await this.recordPaymentFailure(paymentId);
+      console.log(`[webhook] payment_intent.payment_failed → payment ${paymentId} failure recorded`);
+      return;
+    }
+
+    // All other event types are acknowledged but not acted on.
+  }
 }
 
 module.exports = new PaymentService();
