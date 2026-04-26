@@ -46,6 +46,7 @@ async function resetState() {
       await pool.query('DELETE FROM bids             WHERE lot_id = $1', [id]);
       await pool.query('DELETE FROM lots             WHERE id     = $1', [id]);
     }
+    await pool.query("DELETE FROM seller_payouts WHERE auction_id = $1", [AUCTION_ID]);
     await pool.query("UPDATE auctions SET status = 'draft' WHERE id = $1", [AUCTION_ID]);
   } finally {
     await pool.end();
@@ -136,6 +137,20 @@ test(`${CONCURRENT} concurrent close calls: exactly 1 succeeds, lot winner set o
       [lotId]
     );
     expect(bidCount, 'Bid count must be exactly 1').toBe(1);
+
+    // Seller payout record created atomically with close (not fire-and-forget)
+    const { rows: [payout] } = await pool.query(
+      `SELECT gross_revenue_cents, platform_fee_cents, seller_payout_cents, payout_status
+       FROM seller_payouts WHERE auction_id = $1`,
+      [AUCTION_ID]
+    );
+    expect(payout, 'seller_payouts row must exist').toBeTruthy();
+    expect(payout.payout_status, 'payout_status must be pending').toBe('pending');
+    // With one bidder the visible price is the $1 starting bid (proxy max stays hidden).
+    // 100 cents gross → 10 cents fee (10%) → 90 cents payout.
+    expect(payout.gross_revenue_cents, 'gross_revenue_cents must be starting bid in cents').toBe(100);
+    expect(payout.platform_fee_cents,  'platform_fee_cents must be 10% of gross').toBe(10);
+    expect(payout.seller_payout_cents, 'seller_payout_cents must be gross minus fee').toBe(90);
 
   } finally {
     await pool.end();

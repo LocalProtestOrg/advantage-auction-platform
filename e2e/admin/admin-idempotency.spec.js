@@ -1,6 +1,7 @@
 import 'dotenv/config';
 import { test, expect } from '@playwright/test';
 import pg from 'pg';
+import crypto from 'crypto';
 
 test.describe.configure({ mode: 'serial' });
 
@@ -38,16 +39,22 @@ async function resetToDraft() {
   }
 }
 
-// Look up idempotency rows by route pattern created in the last 60 seconds
-async function recentIdempotencyRows(routePattern) {
+// Look up the idempotency row for a specific key+route combination.
+// Uses the same hash algorithm as src/middleware/idempotency.js.
+function idempotencyHash(key, method, url, body = undefined) {
+  return crypto.createHash('sha256')
+    .update(key + method + url + JSON.stringify(body))
+    .digest('hex');
+}
+
+async function getIdempotencyRow(hash, route) {
   const pool = getPool();
   try {
     const res = await pool.query(
       `SELECT response_status, response_body
        FROM payment_idempotency_keys
-       WHERE route LIKE $1
-         AND created_at > NOW() - INTERVAL '60 seconds'`,
-      [routePattern]
+       WHERE idempotency_key = $1 AND route = $2`,
+      [hash, route]
     );
     return res.rows;
   } finally {
@@ -90,8 +97,10 @@ test('admin publish - same idempotency key replays stored response without re-ex
   expect(res1.status(), 'First publish should succeed').toBe(200);
   const body1 = await res1.json();
 
-  // Verify idempotency row was written with a completed response
-  const rows = await recentIdempotencyRows(`PATCH ${url}`);
+  // Verify idempotency row was written with a completed response.
+  // Look up by exact hash so repeated test runs don't accumulate and corrupt the count.
+  const hash = idempotencyHash(idemKey, 'PATCH', url);
+  const rows = await getIdempotencyRow(hash, `PATCH ${url}`);
   expect(rows.length, 'Expected one idempotency row in DB').toBe(1);
   expect(rows[0].response_status, 'Stored status should be 200').toBe(200);
   expect(rows[0].response_body, 'Stored response_body should not be null').not.toBeNull();

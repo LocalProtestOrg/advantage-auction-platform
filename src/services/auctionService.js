@@ -1,5 +1,6 @@
 const db = require('../db/index');
 const auditService = require('./auditService');
+const { getSellerPayoutPreference } = require('./payoutPreferenceService');
 
 async function createAuction(data) {
   console.log('RUNNING CREATE AUCTION SERVICE');
@@ -171,7 +172,7 @@ async function closeAuction(auctionId, actorId = null) {
 
     // Lock auction row and verify it exists and is not already closed
     const auctionRes = await client.query(
-      'SELECT id, status FROM auctions WHERE id = $1 FOR UPDATE',
+      'SELECT id, status, created_by_user_id FROM auctions WHERE id = $1 FOR UPDATE',
       [auctionId]
     );
     if (!auctionRes.rows[0]) {
@@ -250,6 +251,25 @@ async function closeAuction(auctionId, actorId = null) {
       metadata: { lots_closed: results.length, results }
     });
 
+    // Create seller payout record inside the transaction so it is guaranteed to exist
+    // after close, even if the process crashes immediately after COMMIT.
+    // Figures are computed from the in-transaction results array; using pool connections
+    // here would read stale lot data (winning amounts not yet committed).
+    // Fee rate mirrors the constant in reportingService — update both if the rate changes.
+    const PLATFORM_FEE_RATE = 0.10;
+    const sellerUserId = auctionRes.rows[0].created_by_user_id;
+    const grossRevenueCents = results.reduce((sum, r) => sum + (r.winning_amount_cents ?? 0), 0);
+    const platformFeeCents  = Math.round(grossRevenueCents * PLATFORM_FEE_RATE);
+    const sellerPayoutCents = grossRevenueCents - platformFeeCents;
+    const pref = await getSellerPayoutPreference(sellerUserId);
+    await client.query(
+      `INSERT INTO seller_payouts
+         (auction_id, seller_user_id, gross_revenue_cents, platform_fee_cents, seller_payout_cents, payout_method)
+       VALUES ($1, $2, $3, $4, $5, $6)
+       ON CONFLICT (auction_id) DO NOTHING`,
+      [auctionId, sellerUserId, grossRevenueCents, platformFeeCents, sellerPayoutCents, pref ? pref.payout_method : null]
+    );
+
     await client.query('COMMIT');
 
     // Fire-and-forget: cache report data after close is committed.
@@ -265,12 +285,6 @@ async function closeAuction(auctionId, actorId = null) {
     // Email failures must never surface to the caller — auction close is already committed.
     require('./operationalCloseEmailService').sendOperationalCloseEmail(auctionId)
       .catch(err => console.error(`[email] operational close email failed for auction_id=${auctionId}:`, err.message));
-
-    // Fire-and-forget: create seller payout record for tracking.
-    // Does NOT move money. Status starts 'pending' and is managed separately by Advantage.
-    require('./payoutService').createSellerPayoutRecord(auctionId)
-      .then(() => console.log(`[payout] created seller payout record for auction_id=${auctionId}`))
-      .catch(err => console.error(`[payout] failed to create seller payout record for auction_id=${auctionId}:`, err.message));
 
     return {
       auction_id: auctionId,
