@@ -42,7 +42,7 @@ router.post('/auctions/:auctionId/publish', auth, role(['admin']), idempotency, 
 });
 
 // PATCH /api/admin/auctions/:auctionId/publish
-router.patch('/auctions/:auctionId/publish', auth, role(['admin']), async (req, res, next) => {
+router.patch('/auctions/:auctionId/publish', auth, role(['admin']), idempotency, async (req, res, next) => {
   try {
     const { auctionId } = req.params;
     const result = await auctionService.publishAuction(auctionId, req.user.id);

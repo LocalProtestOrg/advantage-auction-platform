@@ -10,3 +10,39 @@
 ◇ injected env (18) from .env // tip: ◈ encrypted .env [www.dotenvx.com]
 🔥 AUCTIONS ROUTE FILE LOADED
 Server running on port 3000
+[2026-04-25T00:21:55.271Z] GET /
+[2026-04-25T00:22:02.511Z] POST /api/auth/login
+PostgreSQL connected
+[2026-04-25T00:22:02.716Z] POST /api/auth/login
+[2026-04-25T00:22:02.803Z] POST /api/auctions/2eb81a2a-27aa-42fd-887b-bb343c48819d/lots
+[2026-04-25T00:22:02.821Z] PATCH /api/admin/auctions/2eb81a2a-27aa-42fd-887b-bb343c48819d/publish
+[2026-04-25T00:22:02.834Z] POST /api/lots/7313a8cb-fda0-4b2e-b03e-48caa9917fcc/bids
+BID SUBMITTED (UNIFIED) {
+  userId: '3dcf5439-323b-4e2d-b8ee-98358bd97766',
+  submittedMaxCents: 2500,
+  increment: 100,
+  currentBidCents: 0
+}
+CREATE BID SUCCESS {
+  id: 'ac7f383e-93b2-4a9a-9592-e35cb470c246',
+  lot_id: '7313a8cb-fda0-4b2e-b03e-48caa9917fcc',
+  user_id: '3dcf5439-323b-4e2d-b8ee-98358bd97766',
+  amount: '1.00',
+  max_bid: null,
+  created_at: 2026-04-25T00:22:02.840Z,
+  is_proxy: true,
+  closes_at: null,
+  winner_user_id: '3dcf5439-323b-4e2d-b8ee-98358bd97766',
+  visible_cents: 100
+}
+[2026-04-25T00:22:02.947Z] POST /api/admin/auctions/2eb81a2a-27aa-42fd-887b-bb343c48819d/close
+PostgreSQL connected
+[reporting] failed for auction_id=2eb81a2a-27aa-42fd-887b-bb343c48819d: column "ends_at" does not exist
+PostgreSQL connected
+PostgreSQL connected
+PostgreSQL connected
+[email] operational close email failed for auction_id=2eb81a2a-27aa-42fd-887b-bb343c48819d: Email config missing: set SMTP_HOST, SMTP_USER, and SMTP_PASS in .env
+PostgreSQL connected
+[payout] created seller payout record for auction_id=2eb81a2a-27aa-42fd-887b-bb343c48819d
+[2026-04-25T00:22:03.095Z] POST /api/payments/charge-lot
+[2026-04-25T00:22:03.719Z] POST /api/admin/payments/f87631f5-89b0-49f6-bbf7-f82bda1f2c84/record-success
