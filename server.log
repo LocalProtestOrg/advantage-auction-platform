@@ -46,3 +46,175 @@ PostgreSQL connected
 [payout] created seller payout record for auction_id=2eb81a2a-27aa-42fd-887b-bb343c48819d
 [2026-04-25T00:22:03.095Z] POST /api/payments/charge-lot
 [2026-04-25T00:22:03.719Z] POST /api/admin/payments/f87631f5-89b0-49f6-bbf7-f82bda1f2c84/record-success
+[32m[nodemon] restarting due to changes...[39m
+[32m[nodemon] starting `node server.js`[39m
+◇ injected env (18) from .env // tip: ◈ encrypted .env [www.dotenvx.com]
+🔥 AUCTIONS ROUTE FILE LOADED
+Server running on port 3000
+[32m[nodemon] restarting due to changes...[39m
+[32m[nodemon] starting `node server.js`[39m
+◇ injected env (18) from .env // tip: ⌘ suppress logs { quiet: true }
+🔥 AUCTIONS ROUTE FILE LOADED
+Server running on port 3000
+[32m[nodemon] restarting due to changes...[39m
+[32m[nodemon] starting `node server.js`[39m
+◇ injected env (18) from .env // tip: ⌘ suppress logs { quiet: true }
+🔥 AUCTIONS ROUTE FILE LOADED
+Server running on port 3000
+[2026-04-26T00:46:05.981Z] GET /
+[2026-04-26T00:46:33.534Z] GET /
+[2026-04-26T00:46:33.578Z] GET /favicon.ico
+[2026-04-26T00:47:28.027Z] POST /api/auth/login
+PostgreSQL connected
+[2026-04-26T00:47:28.219Z] PATCH /api/admin/auctions/2eb81a2a-27aa-42fd-887b-bb343c48819d/publish
+[32m[nodemon] restarting due to changes...[39m
+[32m[nodemon] starting `node server.js`[39m
+◇ injected env (18) from .env // tip: ⌘ multiple files { path: ['.env.local', '.env'] }
+🔥 AUCTIONS ROUTE FILE LOADED
+Server running on port 3000
+[32m[nodemon] restarting due to changes...[39m
+[32m[nodemon] starting `node server.js`[39m
+◇ injected env (18) from .env // tip: ⌘ suppress logs { quiet: true }
+🔥 AUCTIONS ROUTE FILE LOADED
+Server running on port 3000
+[2026-04-26T00:52:46.797Z] GET /
+[2026-04-26T00:52:53.317Z] POST /api/auth/login
+PostgreSQL connected
+[2026-04-26T00:52:53.492Z] PATCH /api/admin/auctions/2eb81a2a-27aa-42fd-887b-bb343c48819d/publish
+[2026-04-26T00:52:53.586Z] PATCH /api/admin/auctions/2eb81a2a-27aa-42fd-887b-bb343c48819d/publish
+PostgreSQL connected
+[32m[nodemon] restarting due to changes...[39m
+[32m[nodemon] starting `node server.js`[39m
+◇ injected env (18) from .env // tip: ⌘ override existing { override: true }
+🔥 AUCTIONS ROUTE FILE LOADED
+Server running on port 3000
+[32m[nodemon] restarting due to changes...[39m
+[32m[nodemon] starting `node server.js`[39m
+◇ injected env (18) from .env // tip: ⌘ suppress logs { quiet: true }
+🔥 AUCTIONS ROUTE FILE LOADED
+Server running on port 3000
+[32m[nodemon] restarting due to changes...[39m
+[32m[nodemon] starting `node server.js`[39m
+◇ injected env (18) from .env // tip: ⌘ multiple files { path: ['.env.local', '.env'] }
+🔥 AUCTIONS ROUTE FILE LOADED
+Server running on port 3000
+[2026-04-26T00:55:00.142Z] POST /api/auth/login
+PostgreSQL connected
+[2026-04-26T00:55:00.337Z] PATCH /api/admin/auctions/2eb81a2a-27aa-42fd-887b-bb343c48819d/publish
+[2026-04-26T00:55:00.427Z] PATCH /api/admin/auctions/2eb81a2a-27aa-42fd-887b-bb343c48819d/publish
+PostgreSQL connected
+[2026-04-26T00:55:08.449Z] POST /api/auth/login
+[2026-04-26T00:55:08.543Z] POST /api/auth/login
+[2026-04-26T00:55:08.629Z] POST /api/auctions/2eb81a2a-27aa-42fd-887b-bb343c48819d/lots
+[2026-04-26T00:55:08.645Z] PATCH /api/admin/auctions/2eb81a2a-27aa-42fd-887b-bb343c48819d/publish
+[2026-04-26T00:55:08.656Z] POST /api/lots/1cb72706-1d2c-48c5-8528-828f8d45f48a/bids
+BID SUBMITTED (UNIFIED) {
+  userId: '3dcf5439-323b-4e2d-b8ee-98358bd97766',
+  submittedMaxCents: 2500,
+  increment: 100,
+  currentBidCents: 0
+}
+CREATE BID SUCCESS {
+  id: '1113d7fe-2838-4032-a314-ab256823fc89',
+  lot_id: '1cb72706-1d2c-48c5-8528-828f8d45f48a',
+  user_id: '3dcf5439-323b-4e2d-b8ee-98358bd97766',
+  amount: '1.00',
+  max_bid: null,
+  created_at: 2026-04-26T00:55:08.661Z,
+  is_proxy: true,
+  closes_at: null,
+  winner_user_id: '3dcf5439-323b-4e2d-b8ee-98358bd97766',
+  visible_cents: 100
+}
+[2026-04-26T00:55:08.779Z] POST /api/admin/auctions/2eb81a2a-27aa-42fd-887b-bb343c48819d/close
+PostgreSQL connected
+PostgreSQL connected
+PostgreSQL connected
+[reporting] failed for auction_id=2eb81a2a-27aa-42fd-887b-bb343c48819d: column "ends_at" does not exist
+PostgreSQL connected
+PostgreSQL connected
+[payout] created seller payout record for auction_id=2eb81a2a-27aa-42fd-887b-bb343c48819d
+[email] operational close email failed for auction_id=2eb81a2a-27aa-42fd-887b-bb343c48819d: Email config missing: set SMTP_HOST, SMTP_USER, and SMTP_PASS in .env
+[2026-04-26T00:55:08.927Z] POST /api/payments/charge-lot
+[2026-04-26T00:55:09.715Z] POST /api/admin/payments/663d5822-410c-4008-886d-8f2307e761b0/record-success
+[32m[nodemon] restarting due to changes...[39m
+[32m[nodemon] starting `node server.js`[39m
+◇ injected env (18) from .env // tip: ⌁ auth for agents [www.vestauth.com]
+🔥 AUCTIONS ROUTE FILE LOADED
+Server running on port 3000
+[32m[nodemon] restarting due to changes...[39m
+[32m[nodemon] starting `node server.js`[39m
+◇ injected env (18) from .env // tip: ⌁ auth for agents [www.vestauth.com]
+🔥 AUCTIONS ROUTE FILE LOADED
+Server running on port 3000
+[2026-04-26T01:09:33.960Z] GET /
+[2026-04-26T01:09:42.119Z] POST /api/auth/login
+PostgreSQL connected
+[2026-04-26T01:09:42.290Z] POST /api/auth/login
+[2026-04-26T01:09:42.373Z] POST /api/auctions/2eb81a2a-27aa-42fd-887b-bb343c48819d/lots
+[2026-04-26T01:09:42.390Z] PATCH /api/admin/auctions/2eb81a2a-27aa-42fd-887b-bb343c48819d/publish
+[2026-04-26T01:09:42.409Z] POST /api/lots/e60ac1fb-d930-4e61-8194-656286c01808/bids
+BID SUBMITTED (UNIFIED) {
+  userId: '3dcf5439-323b-4e2d-b8ee-98358bd97766',
+  submittedMaxCents: 5000,
+  increment: 100,
+  currentBidCents: 0
+}
+CREATE BID SUCCESS {
+  id: 'f385bbbf-d091-4c7c-8504-95ec9ec0d850',
+  lot_id: 'e60ac1fb-d930-4e61-8194-656286c01808',
+  user_id: '3dcf5439-323b-4e2d-b8ee-98358bd97766',
+  amount: '1.00',
+  max_bid: null,
+  created_at: 2026-04-26T01:09:42.413Z,
+  is_proxy: true,
+  closes_at: null,
+  winner_user_id: '3dcf5439-323b-4e2d-b8ee-98358bd97766',
+  visible_cents: 100
+}
+[2026-04-26T01:09:42.433Z] POST /api/admin/auctions/2eb81a2a-27aa-42fd-887b-bb343c48819d/close
+[2026-04-26T01:09:42.439Z] POST /api/admin/auctions/2eb81a2a-27aa-42fd-887b-bb343c48819d/close
+[2026-04-26T01:09:42.441Z] POST /api/admin/auctions/2eb81a2a-27aa-42fd-887b-bb343c48819d/close
+[2026-04-26T01:09:42.442Z] POST /api/admin/auctions/2eb81a2a-27aa-42fd-887b-bb343c48819d/close
+[2026-04-26T01:09:42.444Z] POST /api/admin/auctions/2eb81a2a-27aa-42fd-887b-bb343c48819d/close
+PostgreSQL connected
+PostgreSQL connected
+PostgreSQL connected
+PostgreSQL connected
+PostgreSQL connected
+[reporting] failed for auction_id=2eb81a2a-27aa-42fd-887b-bb343c48819d: column "ends_at" does not exist
+PostgreSQL connected
+PostgreSQL connected
+PostgreSQL connected
+[email] operational close email failed for auction_id=2eb81a2a-27aa-42fd-887b-bb343c48819d: Email config missing: set SMTP_HOST, SMTP_USER, and SMTP_PASS in .env
+PostgreSQL connected
+[payout] created seller payout record for auction_id=2eb81a2a-27aa-42fd-887b-bb343c48819d
+[2026-04-26T01:09:50.625Z] POST /api/auth/login
+[2026-04-26T01:09:50.736Z] POST /api/auth/login
+[2026-04-26T01:09:50.837Z] POST /api/auctions/2eb81a2a-27aa-42fd-887b-bb343c48819d/lots
+[2026-04-26T01:09:50.853Z] PATCH /api/admin/auctions/2eb81a2a-27aa-42fd-887b-bb343c48819d/publish
+[2026-04-26T01:09:50.872Z] POST /api/lots/6e0b314b-f478-4178-9d0e-87c1dfa003a5/bids
+BID SUBMITTED (UNIFIED) {
+  userId: '3dcf5439-323b-4e2d-b8ee-98358bd97766',
+  submittedMaxCents: 2500,
+  increment: 100,
+  currentBidCents: 0
+}
+CREATE BID SUCCESS {
+  id: 'b00542c1-8b9b-45dd-aa5b-381ae2362b7d',
+  lot_id: '6e0b314b-f478-4178-9d0e-87c1dfa003a5',
+  user_id: '3dcf5439-323b-4e2d-b8ee-98358bd97766',
+  amount: '1.00',
+  max_bid: null,
+  created_at: 2026-04-26T01:09:50.876Z,
+  is_proxy: true,
+  closes_at: null,
+  winner_user_id: '3dcf5439-323b-4e2d-b8ee-98358bd97766',
+  visible_cents: 100
+}
+[2026-04-26T01:09:51.004Z] POST /api/admin/auctions/2eb81a2a-27aa-42fd-887b-bb343c48819d/close
+[reporting] failed for auction_id=2eb81a2a-27aa-42fd-887b-bb343c48819d: column "ends_at" does not exist
+[payout] created seller payout record for auction_id=2eb81a2a-27aa-42fd-887b-bb343c48819d
+[email] operational close email failed for auction_id=2eb81a2a-27aa-42fd-887b-bb343c48819d: Email config missing: set SMTP_HOST, SMTP_USER, and SMTP_PASS in .env
+[2026-04-26T01:09:51.101Z] POST /api/payments/charge-lot
+[2026-04-26T01:09:52.002Z] POST /api/admin/payments/822a5e67-8dbe-4d86-88ac-eca5b5c6957c/record-success
