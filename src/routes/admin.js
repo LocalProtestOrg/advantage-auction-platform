@@ -51,6 +51,12 @@ router.patch('/auctions/:auctionId/publish', auth, role(['admin']), idempotency,
     if (err.message === 'Auction not found') {
       return res.status(404).json({ success: false, message: err.message });
     }
+    if (err.message === 'Auction is already published') {
+      return res.status(409).json({ success: false, message: err.message });
+    }
+    if (err.message === 'Cannot publish a closed auction') {
+      return res.status(422).json({ success: false, message: err.message });
+    }
     next(err);
   }
 });
