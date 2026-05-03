@@ -58,8 +58,7 @@ async function cleanBids(lotId) {
   await dbQuery('DELETE FROM bids           WHERE lot_id = $1', [lotId]);
   await dbQuery('DELETE FROM lot_proxy_bids WHERE lot_id = $1', [lotId]);
   await dbQuery(
-    `UPDATE lots SET current_bid_cents = 0, current_price = 0,
-                    current_winner_user_id = NULL, closes_at = closes_at
+    `UPDATE lots SET current_bid_cents = 0, current_price = 0, current_winner_user_id = NULL
      WHERE id = $1`,
     [lotId]
   );

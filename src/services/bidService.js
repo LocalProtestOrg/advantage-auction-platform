@@ -173,7 +173,7 @@ async function applyAntiSnipe(client, lot) {
               jsonb_build_object(
                 'lot_id',        $1::text,
                 'closes_at',     $2::text,
-                'visible_cents', $3
+                'visible_cents', $3::int
               )
        FROM (
               SELECT user_id FROM bids       WHERE lot_id = $1
