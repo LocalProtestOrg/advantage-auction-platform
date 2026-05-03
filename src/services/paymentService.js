@@ -64,7 +64,7 @@ class PaymentService {
         amount:   lot.winning_amount_cents,
         currency: 'usd',
         metadata: { lot_id: lotId, auction_id: auctionId, buyer_user_id: userId },
-      });
+      }, { timeout: 15000 });
 
       // Create pending payment row with the intent ID locked in.
       const payment = await client.query(

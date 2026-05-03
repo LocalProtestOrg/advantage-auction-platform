@@ -220,6 +220,7 @@ test.describe('Payment guards', () => {
 // Same Idempotency-Key twice must return an identical stored response.
 // ─────────────────────────────────────────────────────────────────────────────
 test.describe('Idempotency', () => {
+  test.setTimeout(45_000);
   test.beforeEach(async () => { await cleanPayments(LOT_ID); });
 
   test('same key returns identical response', async ({ request }) => {

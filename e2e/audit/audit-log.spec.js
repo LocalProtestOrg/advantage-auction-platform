@@ -152,6 +152,7 @@ test('audit_log records auction.closed', async ({ request }) => {
 
 // ─── Test 3: payment.created ────────────────────────────────────────────────
 test('audit_log records payment.created', async ({ request }) => {
+  test.setTimeout(45_000);
   const res = await request.post('/api/payments/charge-lot', {
     data: { auction_id: AUCTION_ID, lot_id: lotId },
     headers: {
