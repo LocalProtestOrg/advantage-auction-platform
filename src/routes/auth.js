@@ -46,7 +46,7 @@ router.post('/login', async (req, res) => {
       process.env.JWT_SECRET,
       { expiresIn: process.env.JWT_EXPIRES_IN || '1h' }
     );
-    res.json({ success: true, data: { token } });
+    res.json({ success: true, token });
   } catch (err) {
     console.error(err);
     return res.status(500).json({ success: false, error: err.message });
