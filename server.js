@@ -190,6 +190,11 @@ app.use('/api/watchlist', watchlistRoutes);
 // Root
 app.get('/', (req, res) => res.send('API Running'));
 
+// ✅ Force serve payment page (MUST be before 404)
+app.get('/payment.html', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'payment.html'));
+});
+
 // 404
 app.use((req, res) => {
   res.status(404).json({ error: 'Route not found' });

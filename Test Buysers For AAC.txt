@@ -1,0 +1,21 @@
+ADMIN email: tylerwitt2015@gmail.com
+Pass: password123
+
+STRIPE WEBHOOK:
+whsec_15f03a509a6209b9f5734ff0cdc5cc9b49f81edbfc618063b5cea3ef54975df8
+
+TOKEN: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjNkNGEzMThhLTU1MzgtNDhmMS04MmY1LWNhZTQ4M2UwMTcyNSIsInJvbGUiOiJhZG1pbiIsImlhdCI6MTc3NjEyMDgzNywiZXhwIjoxNzc2MjA3MjM3fQ.9TRP-lvFzLNlka13oFojgeKvnaaGxchN3BMzCUJC9fc
+
+
+| Buyer | Email                                     | Password    |
+| ----- | ----------------------------------------- | ----------- |
+
+| 1     | [buyer1@test.com](mailto:buyer1@test.com) | password123 |
+TOKEN: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjFhNDUyNDNmLTdmZDgtNDlhNy05N2QwLTVmMTdmZDM0YmViZiIsInJvbGUiOiJidXllciIsImlhdCI6MTc3NjExNTU1MCwiZXhwIjoxNzc2MjAxOTUwfQ.S8IyG81Zf2Avm-aj5tUQUkno5aHiUpzWZAM_cAa_dyw
+
+| 2     | [buyer2@test.com](mailto:buyer2@test.com) | password123 |
+TOKEN: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6ImU3ZDlhM2M5LWE0Y2UtNGMxZS04NTFmLTJmZmNhMTJlNDVhMyIsInJvbGUiOiJidXllciIsImlhdCI6MTc3NjExNTgxNywiZXhwIjoxNzc2MjAyMjE3fQ.qa0GKO4R7fRrUPTCdgF9u2pSKR8y1GKfO26olwZRi08
+
+
+| 3     | [buyer3@test.com](mailto:buyer3@test.com) | password123 |
+TOKEN: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjNkY2Y1NDM5LTMyM2ItNGUyZC1iOGVlLTk4MzU4YmQ5Nzc2NiIsInJvbGUiOiJidXllciIsImlhdCI6MTc3NjExNTg0MiwiZXhwIjoxNzc2MjAyMjQyfQ.UP2vDJqI3Bj4vgFtlyMS7lFMv9jXiOJ8edY_mB6rt1A

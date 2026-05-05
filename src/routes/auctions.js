@@ -12,6 +12,29 @@ function isUuid(value) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
 }
 
+// PUBLIC STUB — GET ALL AUCTIONS
+router.get('/', (req, res) => {
+  res.json([
+    { id: "1", title: "Test Auction", current_price: 100, end_time: "2026-12-31" }
+  ]);
+});
+
+// PUBLIC STUB — GET SINGLE AUCTION
+// Handles non-UUID ids (e.g. "1" for test data). UUID ids fall through to the auth route below.
+router.get('/:id', (req, res, next) => {
+  if (isUuid(req.params.id)) return next();
+  if (req.params.id !== '1') {
+    return res.status(404).json({ error: 'Auction not found' });
+  }
+  res.json({
+    id: "1",
+    title: "Test Auction",
+    current_price: 100,
+    end_time: "2026-12-31",
+    current_winner_id: "user_1"
+  });
+});
+
 // CREATE AUCTION
 router.post('/', authMiddleware, async (req, res) => {
   try {

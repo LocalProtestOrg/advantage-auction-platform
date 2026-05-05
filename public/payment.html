@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Complete Payment — Advantage Auction</title>
+  <script src="https://js.stripe.com/v3/"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      background: linear-gradient(135deg, #f5f7fa, #e4e8f0);
+      color: #111;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 1.5rem;
+    }
+
+    .card {
+      background: #fff;
+      border-radius: 15px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.10), 0 1px 4px rgba(0,0,0,0.05);
+      padding: 1.75rem 1.75rem 1.5rem;
+      width: 100%;
+      max-width: 420px;
+    }
+
+    .brand {
+      font-size: 0.75rem;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #888;
+      margin-bottom: 1.5rem;
+    }
+
+    h1 {
+      font-size: 1.25rem;
+      font-weight: 700;
+      margin-bottom: 0.35rem;
+    }
+
+    .amount {
+      font-size: 2rem;
+      font-weight: 800;
+      color: #111;
+      margin-bottom: 0.25rem;
+    }
+
+    .lot-label {
+      font-size: 0.82rem;
+      color: #888;
+      margin-bottom: 1.75rem;
+    }
+
+    .divider {
+      border: none;
+      border-top: 1px solid #e4e4e7;
+      margin-bottom: 1.75rem;
+    }
+
+    label {
+      display: block;
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: #555;
+      margin-bottom: 0.5rem;
+    }
+
+    #card-element {
+      border: 1.5px solid #d1d5db;
+      border-radius: 8px;
+      padding: 0.75rem 0.875rem;
+      background: #fafafa;
+      transition: border-color 0.15s;
+    }
+
+    #card-element.StripeElement--focus {
+      border-color: #111;
+      background: #fff;
+    }
+
+    #card-element.StripeElement--invalid {
+      border-color: #ef4444;
+    }
+
+    #card-errors {
+      color: #ef4444;
+      font-size: 0.8rem;
+      margin-top: 0.6rem;
+      min-height: 1.1rem;
+    }
+
+    button#pay-btn {
+      margin-top: 1.5rem;
+      width: 100%;
+      padding: 0.85rem;
+      background: #111;
+      color: #fff;
+      font-size: 0.95rem;
+      font-weight: 600;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background 0.15s, opacity 0.15s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+    }
+
+    button#pay-btn:hover:not(:disabled) { background: #333; }
+    button#pay-btn:disabled { opacity: 0.55; cursor: not-allowed; }
+
+    .spinner {
+      width: 16px;
+      height: 16px;
+      border: 2px solid rgba(255,255,255,0.4);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      display: none;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    #result {
+      display: none;
+      margin-top: 1.25rem;
+      padding: 0.85rem 1rem;
+      border-radius: 8px;
+      font-size: 0.875rem;
+      font-weight: 500;
+      text-align: center;
+    }
+
+    #result.success {
+      background: #f0fdf4;
+      color: #16a34a;
+      border: 1px solid #bbf7d0;
+    }
+
+    #result.error {
+      background: #fef2f2;
+      color: #dc2626;
+      border: 1px solid #fecaca;
+    }
+
+    .secure-note {
+      margin-top: 1.25rem;
+      text-align: center;
+      font-size: 0.75rem;
+      color: #aaa;
+    }
+
+    .no-secret {
+      color: #dc2626;
+      font-size: 0.875rem;
+      text-align: center;
+      padding: 1rem 0;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="brand">Advantage Auction Platform</div>
+    <h1>Complete Your Payment</h1>
+    <div class="amount" id="display-amount">—</div>
+    <div class="lot-label" id="display-lot"></div>
+    <hr class="divider" />
+
+    <div id="payment-form">
+      <label for="card-element">Card details</label>
+      <div id="card-element"></div>
+      <div id="card-errors" role="alert"></div>
+      <button id="pay-btn" type="button">
+        <span class="spinner" id="spinner"></span>
+        <span id="btn-label">Pay now</span>
+      </button>
+    </div>
+
+    <div id="result"></div>
+    <div class="secure-note">Secured by Stripe &bull; SSL encrypted</div>
+  </div>
+
+  <script>
+    // ── Read URL params ────────────────────────────────────────────────────────
+    const params       = new URLSearchParams(location.search);
+    const clientSecret = params.get('client_secret');
+    const pubKey       = params.get('pk') || 'pk_test_REPLACE_WITH_YOUR_PUBLISHABLE_KEY';
+    const amountCents  = parseInt(params.get('amount') || '0', 10);
+    const lotId        = params.get('lot_id') || '';
+
+    // ── Display amount / lot ───────────────────────────────────────────────────
+    if (amountCents) {
+      document.getElementById('display-amount').textContent =
+        '$' + (amountCents / 100).toFixed(2);
+    }
+    if (lotId) {
+      document.getElementById('display-lot').textContent = 'Lot ' + lotId.slice(0, 8) + '…';
+    }
+
+    // ── Guard: client_secret required ─────────────────────────────────────────
+    if (!clientSecret) {
+      document.getElementById('payment-form').innerHTML =
+        '<p class="no-secret">Missing <code>client_secret</code> in URL.<br>Return to the auction and try again.</p>';
+    } else {
+      // ── Init Stripe Elements ───────────────────────────────────────────────
+      const stripe  = Stripe(pubKey);
+      const elements = stripe.elements();
+
+      const card = elements.create('card', {
+        style: {
+          base: {
+            fontFamily: 'system-ui, -apple-system, sans-serif',
+            fontSize: '15px',
+            color: '#111',
+            '::placeholder': { color: '#aab' },
+          },
+          invalid: { color: '#ef4444' },
+        },
+      });
+
+      card.mount('#card-element');
+
+      card.on('change', ({ error }) => {
+        document.getElementById('card-errors').textContent = error ? error.message : '';
+      });
+
+      // ── Submit ─────────────────────────────────────────────────────────────
+      document.getElementById('pay-btn').addEventListener('click', async () => {
+        setLoading(true);
+
+        const { error, paymentIntent } = await stripe.confirmCardPayment(clientSecret, {
+          payment_method: { card },
+        });
+
+        if (error) {
+          document.getElementById('card-errors').textContent = error.message;
+          setLoading(false);
+        } else if (paymentIntent.status === 'succeeded') {
+          showResult('success', 'Payment successful! Your lot has been secured.');
+          document.getElementById('payment-form').style.display = 'none';
+        } else {
+          showResult('error', 'Payment status: ' + paymentIntent.status + '. Please contact support.');
+          setLoading(false);
+        }
+      });
+    }
+
+    function setLoading(on) {
+      const btn     = document.getElementById('pay-btn');
+      const spinner = document.getElementById('spinner');
+      const label   = document.getElementById('btn-label');
+      btn.disabled        = on;
+      spinner.style.display = on ? 'block' : 'none';
+      label.textContent   = on ? 'Processing…' : 'Pay now';
+    }
+
+    function showResult(type, message) {
+      const el = document.getElementById('result');
+      el.className = type;
+      el.textContent = message;
+      el.style.display = 'block';
+    }
+  </script>
+</body>
+</html>

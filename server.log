@@ -628,3 +628,9 @@ CREATE BID SUCCESS {
 [2026-04-26T01:34:16.522Z] POST /api/auth/login
 PostgreSQL connected
 [2026-04-26T01:34:16.685Z] POST /api/payments/charge-lot
+◇ injected env (22) from .env // tip: ⌘ override existing { override: true }
+🔥 AUCTIONS ROUTE FILE LOADED
+Server failed to start: listen EADDRINUSE: address already in use :::3000
+◇ injected env (22) from .env // tip: ◈ encrypted .env [www.dotenvx.com]
+🔥 AUCTIONS ROUTE FILE LOADED
+Server failed to start: listen EADDRINUSE: address already in use :::3000

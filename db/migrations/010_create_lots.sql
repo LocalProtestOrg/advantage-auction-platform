@@ -1,4 +1,4 @@
-CREATE TABLE lots (
+CREATE TABLE IF NOT EXISTS lots (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   auction_id UUID NOT NULL REFERENCES auctions(id) ON DELETE CASCADE,
   title TEXT NOT NULL,

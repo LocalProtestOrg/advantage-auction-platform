@@ -22,7 +22,7 @@ class PaymentService {
       await client.query('BEGIN');
 
       const lotRes = await client.query(
-        'SELECT status, winning_buyer_user_id, winning_amount_cents FROM lots WHERE id = $1 AND auction_id = $2',
+        'SELECT state, winning_buyer_user_id, winning_amount_cents FROM lots WHERE id = $1 AND auction_id = $2',
         [lotId, auctionId]
       );
       if (!lotRes.rows[0]) {
@@ -31,7 +31,7 @@ class PaymentService {
       const lot = lotRes.rows[0];
 
       // Lot must be closed (winner locked at closeAuction time)
-      if (lot.status !== 'closed') {
+      if (lot.state !== 'closed') {
         throw new Error('Lot must be closed before payment');
       }
 

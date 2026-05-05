@@ -51,7 +51,7 @@ CREATE TABLE IF NOT EXISTS auctions (
   public_auction_type TEXT,
   auction_terms TEXT,
   city TEXT,
-  state TEXT,
+  address_state TEXT,
   zip TEXT,
   timezone TEXT,
   start_time TIMESTAMPTZ,
@@ -118,7 +118,7 @@ CREATE TABLE IF NOT EXISTS lots (
 
 -- Ensure lot_number is unique per auction
 ALTER TABLE IF EXISTS lots
-  ADD CONSTRAINT IF NOT EXISTS uq_lots_auction_lot_number UNIQUE (auction_id, lot_number);
+  ADD CONSTRAINT uq_lots_auction_lot_number UNIQUE (auction_id, lot_number);
 
 CREATE INDEX IF NOT EXISTS idx_lots_auction_lotnum ON lots(auction_id, lot_number);
 CREATE INDEX IF NOT EXISTS idx_lots_closes_at ON lots(closes_at);
