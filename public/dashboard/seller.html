@@ -1,0 +1,663 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Seller Dashboard — Advantage Auction</title>
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      background: #f5f7fa;
+      color: #111;
+      min-height: 100vh;
+      padding: 2rem 1.5rem;
+    }
+
+    .page { max-width: 960px; margin: 0 auto; }
+
+    /* ── Header ────────────────────────────────────────────── */
+    header { margin-bottom: 2rem; }
+
+    .brand {
+      font-size: 0.72rem;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #888;
+      margin-bottom: 0.4rem;
+    }
+
+    h1 {
+      font-size: 1.6rem;
+      font-weight: 800;
+      line-height: 1.2;
+    }
+
+    .header-actions {
+      display: flex;
+      gap: 0.6rem;
+      margin-top: 0.9rem;
+      flex-wrap: wrap;
+    }
+
+    /* ── Shared buttons ─────────────────────────────────────── */
+    .btn {
+      display: inline-block;
+      padding: 0.4rem 1rem;
+      font-size: 0.8rem;
+      font-weight: 600;
+      background: #fff;
+      border: 1.5px solid #d1d5db;
+      border-radius: 6px;
+      cursor: pointer;
+      color: #374151;
+      text-decoration: none;
+      white-space: nowrap;
+    }
+    .btn:hover { background: #f3f4f6; }
+    .btn-primary {
+      background: #111;
+      color: #fff;
+      border-color: #111;
+    }
+    .btn-primary:hover { background: #333; }
+
+    /* ── Status / Error ─────────────────────────────────────── */
+    #status-msg {
+      margin-bottom: 1.5rem;
+      font-size: 0.9rem;
+      color: #666;
+    }
+    #status-msg.error { color: #dc2626; font-weight: 600; }
+    #status-msg.hidden { display: none; }
+
+    /* ── Section label ──────────────────────────────────────── */
+    .section-label {
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.07em;
+      text-transform: uppercase;
+      color: #888;
+      margin-bottom: 0.75rem;
+    }
+
+    /* ── Summary stat chips ─────────────────────────────────── */
+    .summary-row {
+      display: flex;
+      gap: 0.75rem;
+      flex-wrap: wrap;
+      margin-bottom: 2rem;
+    }
+
+    .stat-chip {
+      background: #fff;
+      border-radius: 10px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.06);
+      padding: 1rem 1.25rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.2rem;
+      min-width: 130px;
+      flex: 1;
+    }
+
+    .stat-chip-label {
+      font-size: 0.7rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: #888;
+    }
+
+    .stat-chip-value {
+      font-size: 1.8rem;
+      font-weight: 800;
+      color: #111;
+      line-height: 1.1;
+    }
+
+    .stat-chip-value.accent-blue   { color: #2563eb; }
+    .stat-chip-value.accent-green  { color: #16a34a; }
+    .stat-chip-value.accent-violet { color: #7c3aed; }
+
+    /* ── Auction cards ──────────────────────────────────────── */
+    .auction-list {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+      margin-bottom: 2rem;
+    }
+
+    .auction-card {
+      background: #fff;
+      border-radius: 12px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.07);
+      padding: 1.25rem 1.5rem;
+    }
+
+    .auction-card-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 1rem;
+      flex-wrap: wrap;
+      margin-bottom: 0.85rem;
+    }
+
+    .auction-card-title {
+      font-size: 1.05rem;
+      font-weight: 700;
+      line-height: 1.3;
+    }
+
+    .auction-card-meta {
+      font-size: 0.78rem;
+      color: #999;
+      margin-top: 0.2rem;
+    }
+
+    .badge-row {
+      display: flex;
+      gap: 0.4rem;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 0.2rem 0.6rem;
+      border-radius: 99px;
+      font-size: 0.68rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      white-space: nowrap;
+    }
+
+    .badge-published { background: #f0fdf4; color: #15803d; }
+    .badge-closed    { background: #eff6ff; color: #2563eb; }
+    .badge-draft     { background: #f3f4f6; color: #374151; }
+    .badge-submitted { background: #fef9c3; color: #92400e; }
+    .badge-default   { background: #f3f4f6; color: #374151; }
+
+    .badge-pkg-standard { background: #eff6ff; color: #2563eb; }
+    .badge-pkg-premium  { background: #f5f3ff; color: #7c3aed; }
+    .badge-pkg-elite    { background: #fefce8; color: #a16207; }
+    .badge-pkg-basic    { background: #f3f4f6; color: #374151; }
+
+    /* Metric mini-grid inside card */
+    .card-metrics {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+      gap: 0.6rem;
+      margin-bottom: 1rem;
+      padding-top: 0.75rem;
+      border-top: 1px solid #f0f0f0;
+    }
+
+    .card-metric {
+      display: flex;
+      flex-direction: column;
+      gap: 0.15rem;
+    }
+
+    .card-metric-label {
+      font-size: 0.65rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: #aaa;
+    }
+
+    .card-metric-value {
+      font-size: 1.1rem;
+      font-weight: 800;
+      color: #111;
+    }
+
+    .card-actions {
+      display: flex;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+      padding-top: 0.75rem;
+      border-top: 1px solid #f0f0f0;
+    }
+
+    /* ── Performance snapshot ────────────────────────────────── */
+    .metric-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+      gap: 1rem;
+      margin-bottom: 2rem;
+    }
+
+    .metric-card {
+      background: #fff;
+      border-radius: 12px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.07);
+      padding: 1.25rem 1.25rem 1rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.3rem;
+    }
+
+    .metric-label {
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: #888;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .metric-value {
+      font-size: 2rem;
+      font-weight: 800;
+      color: #111;
+      line-height: 1.1;
+    }
+
+    .metric-value.accent-blue   { color: #2563eb; }
+    .metric-value.accent-green  { color: #16a34a; }
+    .metric-value.accent-violet { color: #7c3aed; }
+    .metric-value.accent-orange { color: #d97706; }
+
+    .metric-sublabel {
+      font-size: 0.72rem;
+      color: #aaa;
+      margin-top: 0.1rem;
+    }
+
+    /* ── AI Insights placeholder ─────────────────────────────── */
+    .insights-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+      gap: 1rem;
+      margin-bottom: 2rem;
+    }
+
+    .insight-card {
+      background: #fff;
+      border-radius: 12px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.07);
+      padding: 1.25rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.6rem;
+    }
+
+    .insight-card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.5rem;
+    }
+
+    .insight-icon {
+      font-size: 1.25rem;
+      line-height: 1;
+    }
+
+    .coming-soon {
+      font-size: 0.65rem;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      background: #fef9c3;
+      color: #92400e;
+      padding: 0.15rem 0.45rem;
+      border-radius: 99px;
+    }
+
+    .insight-title {
+      font-size: 0.9rem;
+      font-weight: 700;
+    }
+
+    .insight-body {
+      font-size: 0.82rem;
+      color: #999;
+      line-height: 1.55;
+    }
+
+    .shimmer-line {
+      height: 0.75rem;
+      border-radius: 4px;
+      background-image: linear-gradient(90deg, #f0f2f5 25%, #e4e6ea 50%, #f0f2f5 75%);
+      background-size: 200% 100%;
+      animation: shimmer 1.6s infinite linear;
+    }
+    .shimmer-line.short { width: 65%; }
+
+    @keyframes shimmer {
+      0%   { background-position: 200% 0; }
+      100% { background-position: -200% 0; }
+    }
+
+    /* ── Empty state ─────────────────────────────────────────── */
+    .empty {
+      text-align: center;
+      color: #aaa;
+      font-size: 0.95rem;
+      padding: 3rem 1rem;
+    }
+
+    /* ── Responsive ──────────────────────────────────────────── */
+    @media (max-width: 540px) {
+      .stat-chip-value { font-size: 1.4rem; }
+      .metric-value    { font-size: 1.6rem; }
+      h1               { font-size: 1.3rem; }
+      .card-metrics    { grid-template-columns: repeat(3, 1fr); }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="page">
+
+    <!-- ── Header ─────────────────────────────────────────── -->
+    <header>
+      <div class="brand">Advantage Auction Platform</div>
+      <h1>Seller Dashboard</h1>
+      <div class="header-actions">
+        <a class="btn" href="/dashboard.html">&larr; Buyer Dashboard</a>
+        <button class="btn" onclick="logout()">Logout</button>
+      </div>
+    </header>
+
+    <div id="status-msg">Loading dashboard&hellip;</div>
+
+    <div id="main" style="display:none">
+
+      <!-- ── A: Summary stat chips ─────────────────────────── -->
+      <div class="section-label">Account Overview</div>
+      <div class="summary-row" id="summary-row"></div>
+
+      <!-- ── B: Auction cards ──────────────────────────────── -->
+      <div class="section-label">Your Auctions</div>
+      <div class="auction-list" id="auction-list"></div>
+
+      <!-- ── C: Performance snapshot ──────────────────────── -->
+      <div class="section-label">Total Marketing Performance</div>
+      <div class="metric-grid" id="perf-grid"></div>
+
+      <!-- ── D: AI Insights placeholder ───────────────────── -->
+      <div class="section-label">
+        AI Seller Insights &nbsp;<span class="coming-soon">Coming Soon</span>
+      </div>
+      <div class="insights-grid" id="insights-grid"></div>
+
+    </div><!-- /#main -->
+  </div><!-- /.page -->
+
+  <script>
+    var token = localStorage.getItem('token');
+    if (!token) { window.location.href = '/login.html'; }
+
+    var statusEl  = document.getElementById('status-msg');
+    var mainEl    = document.getElementById('main');
+    var summaryEl = document.getElementById('summary-row');
+    var listEl    = document.getElementById('auction-list');
+    var perfEl    = document.getElementById('perf-grid');
+    var insightEl = document.getElementById('insights-grid');
+
+    function logout() {
+      localStorage.removeItem('token');
+      window.location.href = '/login.html';
+    }
+
+    function fmt(n) {
+      if (n === null || n === undefined) return '—';
+      return new Intl.NumberFormat('en-US').format(n);
+    }
+
+    function fmtDate(iso) {
+      if (!iso) return '—';
+      try {
+        return new Date(iso).toLocaleDateString('en-US', {
+          month: 'short', day: 'numeric', year: 'numeric'
+        });
+      } catch (e) { return '—'; }
+    }
+
+    function stateBadge(state) {
+      var map = {
+        published: ['badge-published', 'Active'],
+        closed:    ['badge-closed',    'Closed'],
+        draft:     ['badge-draft',     'Draft'],
+        submitted: ['badge-submitted', 'Submitted'],
+      };
+      var entry = map[state] || ['badge-default', state || 'Unknown'];
+      return { cls: entry[0], label: entry[1] };
+    }
+
+    function pkgBadge(pkg) {
+      if (!pkg) return null;
+      var map = {
+        standard: 'badge-pkg-standard',
+        premium:  'badge-pkg-premium',
+        elite:    'badge-pkg-elite',
+        basic:    'badge-pkg-basic',
+      };
+      return { cls: map[pkg] || 'badge-default', label: pkg.charAt(0).toUpperCase() + pkg.slice(1) };
+    }
+
+    function el(tag, cls, text) {
+      var e = document.createElement(tag);
+      if (cls) e.className = cls;
+      if (text !== undefined) e.textContent = text;
+      return e;
+    }
+
+    // ── Section A: Summary chips ──────────────────────────
+    function renderSummary(s) {
+      var chips = [
+        { label: 'Active Auctions',   value: fmt(s.active_count),              accent: 'accent-green'  },
+        { label: 'Closed Auctions',   value: fmt(s.closed_count),              accent: ''              },
+        { label: 'Total Views',       value: fmt(s.total_views),               accent: 'accent-blue'   },
+        { label: 'Bidder Conversions',value: fmt(s.total_bidder_conversions),  accent: 'accent-violet' },
+      ];
+
+      chips.forEach(function (c) {
+        var chip  = el('div', 'stat-chip');
+        var label = el('div', 'stat-chip-label', c.label);
+        var value = el('div', 'stat-chip-value ' + c.accent, c.value);
+        chip.appendChild(label);
+        chip.appendChild(value);
+        summaryEl.appendChild(chip);
+      });
+    }
+
+    // ── Section B: Auction cards ──────────────────────────
+    function renderAuctions(auctions) {
+      if (!auctions.length) {
+        var empty = el('div', 'empty', 'No auctions found. Create your first auction to get started.');
+        listEl.appendChild(empty);
+        return;
+      }
+
+      auctions.forEach(function (a) {
+        var card = el('div', 'auction-card');
+
+        // Header
+        var header = el('div', 'auction-card-header');
+
+        var titleBlock = el('div');
+        titleBlock.appendChild(el('div', 'auction-card-title', a.title || 'Untitled Auction'));
+        titleBlock.appendChild(el('div', 'auction-card-meta',
+          'Ends ' + fmtDate(a.end_time) + ' · Created ' + fmtDate(a.created_at)));
+        header.appendChild(titleBlock);
+
+        var badges = el('div', 'badge-row');
+        var sb = stateBadge(a.state);
+        var stateBadgeEl = el('span', 'badge ' + sb.cls, sb.label);
+        badges.appendChild(stateBadgeEl);
+
+        var pb = pkgBadge(a.package_type);
+        if (pb) {
+          var pkgBadgeEl = el('span', 'badge ' + pb.cls, pb.label + ' pkg');
+          badges.appendChild(pkgBadgeEl);
+        }
+        header.appendChild(badges);
+        card.appendChild(header);
+
+        // Metrics mini-grid
+        var metrics = el('div', 'card-metrics');
+        var metricDefs = [
+          { label: 'Views',        value: fmt(a.views_count) },
+          { label: 'Clicks',       value: fmt(a.clicks_count) },
+          { label: 'Watchlisted',  value: fmt(a.watchlist_adds) },
+          { label: 'Conversions',  value: fmt(a.bidder_conversions) },
+          { label: 'Reach',        value: fmt(a.reach_count) },
+        ];
+        metricDefs.forEach(function (m) {
+          var cm = el('div', 'card-metric');
+          cm.appendChild(el('div', 'card-metric-label', m.label));
+          cm.appendChild(el('div', 'card-metric-value', m.value));
+          metrics.appendChild(cm);
+        });
+        card.appendChild(metrics);
+
+        // Action buttons
+        var actions = el('div', 'card-actions');
+
+        var reportBtn = document.createElement('a');
+        reportBtn.className = 'btn btn-primary';
+        reportBtn.href = '/dashboard/marketing.html?auctionId=' + a.id;
+        reportBtn.textContent = 'View Exposure Report';
+        actions.appendChild(reportBtn);
+
+        var auctionBtn = document.createElement('a');
+        auctionBtn.className = 'btn';
+        auctionBtn.href = '/auction-view.html?id=' + a.id;
+        auctionBtn.textContent = 'View Auction';
+        actions.appendChild(auctionBtn);
+
+        // Placeholders — links not yet wired to pages
+        var lotsBtn = document.createElement('a');
+        lotsBtn.className = 'btn';
+        lotsBtn.href = '#';
+        lotsBtn.title = 'Coming soon';
+        lotsBtn.textContent = 'Manage Lots';
+        actions.appendChild(lotsBtn);
+
+        var invoicesBtn = document.createElement('a');
+        invoicesBtn.className = 'btn';
+        invoicesBtn.href = '#';
+        invoicesBtn.title = 'Coming soon';
+        invoicesBtn.textContent = 'View Invoices';
+        actions.appendChild(invoicesBtn);
+
+        card.appendChild(actions);
+        listEl.appendChild(card);
+      });
+    }
+
+    // ── Section C: Performance snapshot ──────────────────
+    function renderPerformance(s) {
+      var metrics = [
+        { label: 'Total Views',        value: fmt(s.total_views),               sub: 'across all auctions',       accent: 'accent-blue'   },
+        { label: 'Total Clicks',       value: fmt(s.total_clicks),              sub: 'visits from promotion',     accent: 'accent-blue'   },
+        { label: 'Watchlist Adds',     value: fmt(s.total_watchlist_adds),      sub: 'buyers tracking auctions',  accent: 'accent-violet' },
+        { label: 'Bidder Conversions', value: fmt(s.total_bidder_conversions),  sub: 'viewers who placed a bid',  accent: 'accent-green'  },
+      ];
+
+      metrics.forEach(function (m) {
+        var card = el('div', 'metric-card');
+        card.appendChild(el('div', 'metric-label', m.label));
+        card.appendChild(el('div', 'metric-value ' + m.accent, m.value));
+        card.appendChild(el('div', 'metric-sublabel', m.sub));
+        perfEl.appendChild(card);
+      });
+    }
+
+    // ── Section D: AI insights placeholders ──────────────
+    function renderInsights() {
+      var cards = [
+        {
+          icon: '📈',
+          title: 'Bid Momentum Analysis',
+          body: 'Detect which lots generate early bidding momentum and surface them to additional buyers before closing time.'
+        },
+        {
+          icon: '🗺️',
+          title: 'Geographic Targeting Suggestions',
+          body: 'Based on your auction location and category, AI will recommend optimal radius and market segments for each package.'
+        },
+        {
+          icon: '✍️',
+          title: 'AI Ad Creative Generator',
+          body: 'Automatically generate compelling listing descriptions and promotional copy tailored to each lot\'s category and appeal.'
+        },
+        {
+          icon: '🔔',
+          title: 'Optimal Send-Time Alerts',
+          body: 'Machine learning will identify the best time to push outbid and reminder notifications for maximum re-engagement.'
+        },
+      ];
+
+      cards.forEach(function (c) {
+        var card = el('div', 'insight-card');
+
+        var header = el('div', 'insight-card-header');
+        header.appendChild(el('span', 'insight-icon', c.icon));
+        header.appendChild(el('span', 'coming-soon', 'Coming Soon'));
+        card.appendChild(header);
+
+        card.appendChild(el('div', 'insight-title', c.title));
+        card.appendChild(el('div', 'insight-body', c.body));
+
+        var lines = el('div');
+        lines.style.display = 'flex';
+        lines.style.flexDirection = 'column';
+        lines.style.gap = '0.4rem';
+        lines.style.marginTop = '0.5rem';
+        lines.appendChild(el('div', 'shimmer-line'));
+        lines.appendChild(el('div', 'shimmer-line short'));
+        card.appendChild(lines);
+
+        insightEl.appendChild(card);
+      });
+    }
+
+    // ── Main load ─────────────────────────────────────────
+    function showError(msg) {
+      statusEl.textContent = msg;
+      statusEl.classList.add('error');
+    }
+
+    fetch('/api/sellers/me/dashboard', {
+      headers: { 'Authorization': 'Bearer ' + token }
+    })
+      .then(function (res) {
+        if (res.status === 401) {
+          localStorage.removeItem('token');
+          window.location.href = '/login.html';
+          return;
+        }
+        if (res.status === 403) { throw new Error('Access denied.'); }
+        if (!res.ok) { throw new Error('Server error (' + res.status + '). Please try again.'); }
+        return res.json();
+      })
+      .then(function (body) {
+        if (!body) return;
+        if (!body.success) { throw new Error(body.message || 'Failed to load dashboard.'); }
+
+        renderSummary(body.data.summary);
+        renderAuctions(body.data.auctions);
+        renderPerformance(body.data.summary);
+        renderInsights();
+
+        statusEl.classList.add('hidden');
+        mainEl.style.display = 'block';
+      })
+      .catch(function (err) {
+        showError(err.message || 'Failed to load dashboard. Please try again.');
+        console.error('[seller-dashboard]', err);
+      });
+  </script>
+</body>
+</html>
