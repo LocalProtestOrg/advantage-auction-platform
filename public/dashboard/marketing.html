@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Auction Exposure Report — Advantage Auction</title>
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      background: #f5f7fa;
+      color: #111;
+      min-height: 100vh;
+      padding: 2rem 1.5rem;
+    }
+
+    .page { max-width: 860px; margin: 0 auto; }
+
+    /* ── Header ─────────────────────────────────────────── */
+    header { margin-bottom: 2rem; }
+
+    .brand {
+      font-size: 0.72rem;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #888;
+      margin-bottom: 0.4rem;
+    }
+
+    h1 {
+      font-size: 1.6rem;
+      font-weight: 800;
+      line-height: 1.2;
+    }
+
+    .auction-subtitle {
+      margin-top: 0.35rem;
+      font-size: 0.9rem;
+      color: #555;
+    }
+
+    .header-actions {
+      display: flex;
+      gap: 0.6rem;
+      margin-top: 0.9rem;
+      flex-wrap: wrap;
+    }
+
+    .btn {
+      display: inline-block;
+      padding: 0.4rem 1rem;
+      font-size: 0.8rem;
+      font-weight: 600;
+      background: #fff;
+      border: 1.5px solid #d1d5db;
+      border-radius: 6px;
+      cursor: pointer;
+      color: #374151;
+      text-decoration: none;
+    }
+    .btn:hover { background: #f3f4f6; }
+
+    /* ── Status / Error ─────────────────────────────────── */
+    #status-msg {
+      margin-bottom: 1.5rem;
+      font-size: 0.9rem;
+      color: #666;
+    }
+    #status-msg.error { color: #dc2626; font-weight: 600; }
+    #status-msg.hidden { display: none; }
+
+    /* ── Campaign meta strip ────────────────────────────── */
+    .meta-strip {
+      display: flex;
+      gap: 1rem;
+      flex-wrap: wrap;
+      margin-bottom: 1.75rem;
+      align-items: center;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.3rem;
+      padding: 0.25rem 0.7rem;
+      border-radius: 99px;
+      font-size: 0.72rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    .badge-active   { background: #f0fdf4; color: #15803d; }
+    .badge-pending  { background: #eff6ff; color: #2563eb; }
+    .badge-complete { background: #f3f4f6; color: #374151; }
+    .badge-default  { background: #f3f4f6; color: #374151; }
+
+    .meta-item {
+      font-size: 0.82rem;
+      color: #555;
+    }
+    .meta-item strong { color: #111; }
+
+    /* ── Section headings ───────────────────────────────── */
+    .section-label {
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.07em;
+      text-transform: uppercase;
+      color: #888;
+      margin-bottom: 0.75rem;
+    }
+
+    /* ── Metric grid ────────────────────────────────────── */
+    .metric-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+      gap: 1rem;
+      margin-bottom: 2rem;
+    }
+
+    .metric-card {
+      background: #fff;
+      border-radius: 12px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.07);
+      padding: 1.25rem 1.25rem 1rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.3rem;
+    }
+
+    .metric-label {
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: #888;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .metric-value {
+      font-size: 2rem;
+      font-weight: 800;
+      color: #111;
+      line-height: 1.1;
+    }
+
+    .metric-sublabel {
+      font-size: 0.72rem;
+      color: #aaa;
+      margin-top: 0.15rem;
+    }
+
+    /* Accent colours per metric type */
+    .metric-card.accent-blue  .metric-value { color: #2563eb; }
+    .metric-card.accent-green .metric-value { color: #16a34a; }
+    .metric-card.accent-violet .metric-value { color: #7c3aed; }
+    .metric-card.accent-orange .metric-value { color: #d97706; }
+
+    /* ── Placeholder sections ───────────────────────────── */
+    .placeholder-section {
+      background: #fff;
+      border-radius: 12px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.07);
+      padding: 1.5rem;
+      margin-bottom: 1.25rem;
+    }
+
+    .placeholder-section h2 {
+      font-size: 1rem;
+      font-weight: 700;
+      margin-bottom: 0.5rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .coming-soon {
+      font-size: 0.68rem;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      background: #fef9c3;
+      color: #92400e;
+      padding: 0.15rem 0.5rem;
+      border-radius: 99px;
+    }
+
+    .placeholder-body {
+      font-size: 0.85rem;
+      color: #999;
+      line-height: 1.6;
+    }
+
+    .placeholder-rows {
+      margin-top: 0.75rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    .placeholder-row {
+      height: 2.25rem;
+      background: #f3f4f6;
+      border-radius: 6px;
+      animation: shimmer 1.6s infinite linear;
+      background-size: 200% 100%;
+      background-image: linear-gradient(90deg, #f3f4f6 25%, #e9ebee 50%, #f3f4f6 75%);
+    }
+
+    @keyframes shimmer {
+      0%   { background-position: 200% 0; }
+      100% { background-position: -200% 0; }
+    }
+
+    /* ── Responsive ─────────────────────────────────────── */
+    @media (max-width: 480px) {
+      .metric-grid { grid-template-columns: repeat(2, 1fr); }
+      .metric-value { font-size: 1.6rem; }
+      h1 { font-size: 1.3rem; }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="page">
+    <header>
+      <div class="brand">Advantage Auction Platform</div>
+      <h1>Auction Exposure Report</h1>
+      <div class="auction-subtitle" id="auction-subtitle"></div>
+      <div class="header-actions">
+        <a class="btn" href="/dashboard.html">&larr; Dashboard</a>
+        <button class="btn" onclick="logout()">Logout</button>
+      </div>
+    </header>
+
+    <div id="status-msg">Loading report&hellip;</div>
+
+    <div id="report" style="display:none">
+
+      <!-- Campaign meta strip -->
+      <div class="meta-strip" id="meta-strip"></div>
+
+      <!-- Core metrics -->
+      <div class="section-label">Your Auction's Reach</div>
+      <div class="metric-grid" id="metric-grid"></div>
+
+      <!-- Top Lots placeholder -->
+      <div class="placeholder-section">
+        <h2>Top Performing Lots <span class="coming-soon">Coming Soon</span></h2>
+        <p class="placeholder-body">
+          Once your auction is active, we'll surface your top lots ranked by bidder engagement,
+          watchlist adds, and view-to-bid conversion rate.
+        </p>
+        <div class="placeholder-rows">
+          <div class="placeholder-row"></div>
+          <div class="placeholder-row"></div>
+          <div class="placeholder-row"></div>
+        </div>
+      </div>
+
+      <!-- AI Insights placeholder -->
+      <div class="placeholder-section">
+        <h2>AI Marketing Insights <span class="coming-soon">Coming Soon</span></h2>
+        <p class="placeholder-body">
+          Advantage will automatically analyze your auction's performance and generate
+          actionable recommendations — including optimal promotion timing, geographic
+          targeting suggestions, and lot-level creative improvements.
+        </p>
+        <div class="placeholder-rows">
+          <div class="placeholder-row"></div>
+          <div class="placeholder-row"></div>
+        </div>
+      </div>
+
+    </div><!-- /#report -->
+  </div><!-- /.page -->
+
+  <script>
+    var token = localStorage.getItem('token');
+    if (!token) { window.location.href = '/login.html'; }
+
+    var params    = new URLSearchParams(window.location.search);
+    var auctionId = params.get('auctionId');
+
+    var statusEl   = document.getElementById('status-msg');
+    var reportEl   = document.getElementById('report');
+    var subtitleEl = document.getElementById('auction-subtitle');
+    var metaEl     = document.getElementById('meta-strip');
+    var gridEl     = document.getElementById('metric-grid');
+
+    function logout() {
+      localStorage.removeItem('token');
+      window.location.href = '/login.html';
+    }
+
+    function formatDate(iso) {
+      if (!iso) return '—';
+      try {
+        return new Date(iso).toLocaleDateString('en-US', {
+          month: 'long', day: 'numeric', year: 'numeric'
+        });
+      } catch (e) { return '—'; }
+    }
+
+    function formatNumber(n) {
+      if (n === null || n === undefined) return '—';
+      return new Intl.NumberFormat('en-US').format(n);
+    }
+
+    function badgeClass(status) {
+      if (status === 'active')   return 'badge-active';
+      if (status === 'pending')  return 'badge-pending';
+      if (status === 'complete') return 'badge-complete';
+      return 'badge-default';
+    }
+
+    function badgeLabel(status) {
+      var labels = { active: 'Active', pending: 'Scheduled', complete: 'Completed' };
+      return labels[status] || (status ? status.charAt(0).toUpperCase() + status.slice(1) : 'Unknown');
+    }
+
+    function packageLabel(type) {
+      var labels = { standard: 'Standard', premium: 'Premium', elite: 'Elite', basic: 'Basic' };
+      return labels[type] || (type ? type.charAt(0).toUpperCase() + type.slice(1) : '—');
+    }
+
+    function metaItem(label, value) {
+      var el = document.createElement('div');
+      el.className = 'meta-item';
+      el.innerHTML = label + ': <strong>' + value + '</strong>';
+      return el;
+    }
+
+    function metricCard(label, value, sublabel, accentClass) {
+      var card = document.createElement('div');
+      card.className = 'metric-card' + (accentClass ? ' ' + accentClass : '');
+
+      var lbl = document.createElement('div');
+      lbl.className = 'metric-label';
+      lbl.textContent = label;
+
+      var val = document.createElement('div');
+      val.className = 'metric-value';
+      val.textContent = value;
+
+      card.appendChild(lbl);
+      card.appendChild(val);
+
+      if (sublabel) {
+        var sub = document.createElement('div');
+        sub.className = 'metric-sublabel';
+        sub.textContent = sublabel;
+        card.appendChild(sub);
+      }
+
+      return card;
+    }
+
+    function render(d) {
+      // Subtitle
+      if (d.auction_title) {
+        subtitleEl.textContent = d.auction_title;
+      }
+
+      // Meta strip
+      var badge = document.createElement('span');
+      badge.className = 'badge ' + badgeClass(d.status);
+      badge.textContent = badgeLabel(d.status);
+      metaEl.appendChild(badge);
+
+      metaEl.appendChild(metaItem('Package', packageLabel(d.package_type)));
+      metaEl.appendChild(metaItem('Target radius', d.target_radius_miles + ' mi'));
+      if (d.campaign_created_at) {
+        metaEl.appendChild(metaItem('Campaign started', formatDate(d.campaign_created_at)));
+      }
+
+      // Metric cards
+      gridEl.appendChild(metricCard(
+        'Total Views',
+        formatNumber(d.views_count),
+        'people who saw your auction',
+        'accent-blue'
+      ));
+
+      gridEl.appendChild(metricCard(
+        'Clicks',
+        formatNumber(d.clicks_count),
+        'visits driven by promotion',
+        'accent-blue'
+      ));
+
+      gridEl.appendChild(metricCard(
+        'Reach',
+        formatNumber(d.reach_count),
+        'unique people reached',
+        null
+      ));
+
+      gridEl.appendChild(metricCard(
+        'Watchlist Adds',
+        formatNumber(d.watchlist_adds),
+        'buyers tracking your auction',
+        'accent-violet'
+      ));
+
+      gridEl.appendChild(metricCard(
+        'Bidder Conversions',
+        formatNumber(d.bidder_conversions),
+        'marketing viewers who placed a bid',
+        'accent-green'
+      ));
+
+      // Show report
+      statusEl.classList.add('hidden');
+      reportEl.style.display = 'block';
+    }
+
+    function showError(msg) {
+      statusEl.textContent = msg;
+      statusEl.classList.add('error');
+    }
+
+    if (!auctionId) {
+      showError('No auction specified. Please return to your dashboard and select an auction.');
+    } else {
+      fetch('/api/seller/marketing-report/' + auctionId, {
+        headers: { 'Authorization': 'Bearer ' + token }
+      })
+        .then(function (res) {
+          if (res.status === 401) {
+            localStorage.removeItem('token');
+            window.location.href = '/login.html';
+            return;
+          }
+          if (res.status === 403) {
+            throw new Error('You do not have permission to view this report.');
+          }
+          if (res.status === 404) {
+            throw new Error('No marketing campaign found for this auction.');
+          }
+          if (!res.ok) {
+            throw new Error('Server error (' + res.status + '). Please try again.');
+          }
+          return res.json();
+        })
+        .then(function (body) {
+          if (!body) return;
+          if (!body.success) {
+            throw new Error(body.message || 'Failed to load report.');
+          }
+          render(body.data);
+        })
+        .catch(function (err) {
+          showError(err.message || 'Failed to load report. Please try again.');
+          console.error('[marketing-report]', err);
+        });
+    }
+  </script>
+</body>
+</html>
