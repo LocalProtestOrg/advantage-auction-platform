@@ -8,35 +8,84 @@ Authorization: Bearer eyJhbGci.......
 
 
 
-Prompt for GPT Tomorrow: April 23
-We are continuing the Advantage Auction Platform build.
+Prompt for GPT Tomorrow: May 7th
 
-Checkpoint status:
-- Server lifecycle issue is FIXED (Express app.listen replaced with http.createServer)
-- Server now stays alive correctly
-- Stripe CLI is installed and authenticated
-- Webhook listener is working and connected to localhost:3000/api/payments/webhook
-- Payment system is implemented with Stripe PaymentIntents
-- Webhook handler is implemented
-- Idempotency is implemented using PostgreSQL
-- Notification queue system is implemented
-- All bid engine tests are passing (23/23)
 
-Current goal:
-Complete end-to-end payment validation.
+🚀 TOMORROW GAMEPLAN (High Impact, Low Risk)
 
-Plan for today:
-1. Confirm webhook events are received by the server
-2. Fix any webhook handler errors (if present)
-3. Validate payment success flow:
-   - payment_intent.succeeded updates DB
-   - recordPaymentSuccess runs correctly
-4. Validate idempotency behavior
-5. Run Playwright E2E tests for bidding + payments
+We will move in this order:
 
-Important:
-- Do NOT refactor working systems
-- Keep changes minimal and surgical
-- Focus only on completing payment + webhook validation
+1. Invoice Detail Page ⭐ (next immediate step)
+2. Tie dashboard → detail navigation
+3. Add pickup / post-payment UX foundation
+4. Prep for email confirmations
+5. Then → integration + marketing push
+🧠 YOUR MORNING PROMPT (for ME)
 
-Start by walking me step-by-step through triggering a Stripe test event and verifying the webhook is processed correctly.
+Copy/paste this into a new chat with me:
+
+Resume Advantage Auction Platform from latest checkpoint.
+
+Current state:
+- Payments, invoices, and buyer dashboard are fully working
+- /api/me/invoices returns correct data
+- Dashboard UI is built with auth guard, logout, formatting, and status styling
+
+Next goal:
+Build the Invoice Detail Page.
+
+Requirements:
+- Route: /dashboard/invoice.html?id=<invoiceId>
+- Fetch invoice data (we may need a new endpoint if required)
+- Display:
+  - Lot title
+  - Image
+  - Price
+  - Status
+  - Purchase date
+- Clean, premium UI (same style as dashboard)
+- No frameworks, vanilla JS
+
+Follow same development SOP:
+- Minimal changes
+- No refactors
+- Stable, production-safe code
+
+Walk me step-by-step.
+🤖 YOUR MORNING PROMPT (for Claude)
+Build invoice detail page.
+
+Create file:
+public/invoice.html
+
+Requirements:
+
+1. Read invoice ID from URL:
+   /dashboard/invoice.html?id=<id>
+
+2. Call API:
+   GET /api/me/invoices
+   (filter client-side for now — do NOT create new endpoint yet)
+
+3. Render:
+   - Lot title
+   - Image (fallback safe)
+   - Price (Intl.NumberFormat)
+   - Status (use existing status classes)
+   - Purchase date
+
+4. Add:
+   - Back button → /dashboard.html
+
+5. Maintain:
+   - Auth guard (same as dashboard)
+   - Same styling direction
+   - No frameworks
+
+6. Do NOT:
+   - Refactor dashboard
+   - Change API structure
+   - Add new services
+
+Goal:
+Create a clean invoice detail page that connects from the dashboard.

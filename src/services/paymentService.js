@@ -1,11 +1,23 @@
 // PaymentService implementation
-const db           = require('../db');
-const auditService = require('./auditService');
-const Stripe       = require('stripe');
+const db             = require('../db');
+const auditService   = require('./auditService');
+const invoiceService = require('./invoiceService');
+const Stripe         = require('stripe');
 
 function getStripe() {
   if (!process.env.STRIPE_SECRET_KEY) throw new Error('STRIPE_SECRET_KEY is not set');
   return Stripe(process.env.STRIPE_SECRET_KEY);
+}
+
+// In-memory deduplication for Stripe events within a server session.
+// recordPaymentSuccess/Failure idempotency guards handle cross-restart safety.
+const MAX_PROCESSED_EVENTS = 5000;
+const _processedEvents = new Set();
+function _trackProcessedEvent(id) {
+  if (_processedEvents.size >= MAX_PROCESSED_EVENTS) {
+    _processedEvents.delete(_processedEvents.values().next().value); // evict oldest
+  }
+  _processedEvents.add(id);
 }
 
 class PaymentService {
@@ -45,17 +57,23 @@ class PaymentService {
         throw new Error('Only winning bidder can create payment');
       }
 
-      // Check if payment already exists (active, pending, or paid)
-      // DB constraint prevents duplicates, but this provides clear error handling
+      // Check if a completed payment already exists — block only on paid/refunded
       const existingPayment = await client.query(
         `SELECT id, status FROM payments
-         WHERE lot_id = $1 AND buyer_user_id = $2 AND status IN ('pending', 'paid', 'refunded', 'partially_refunded')
+         WHERE lot_id = $1 AND buyer_user_id = $2 AND status IN ('paid', 'refunded', 'partially_refunded')
          LIMIT 1`,
         [lotId, userId]
       );
       if (existingPayment.rows[0]) {
         throw new Error(`Payment already exists for this lot (status: ${existingPayment.rows[0].status}). Cannot create duplicate.`);
       }
+
+      // Retire any stale pending payment so the DB unique constraint allows a fresh one
+      await client.query(
+        `UPDATE payments SET status = 'failed'
+         WHERE lot_id = $1 AND buyer_user_id = $2 AND status = 'pending'`,
+        [lotId, userId]
+      );
 
       // Create the Stripe PaymentIntent before writing the DB row so we never
       // store a pending payment without a real intent backing it.
@@ -154,6 +172,14 @@ class PaymentService {
          WHERE id = $2`,
         [paymentProviderId, paymentId]
       );
+
+      // Load full payment row for invoice creation
+      const paidPaymentRes = await client.query(
+        'SELECT * FROM payments WHERE id = $1',
+        [paymentId]
+      );
+      const invoice = await invoiceService.createInvoice(client, paidPaymentRes.rows[0]);
+      console.log(`[invoice] created invoice ${invoice.id} for payment ${paymentId}`);
 
       // Assign buyer to pickup slot
       const pickupScheduleService = require('./pickupScheduleService');
@@ -371,21 +397,40 @@ class PaymentService {
   // Looks up the payment row by payment_intent_id, then delegates to the
   // existing success/failure methods so all business logic stays in one place.
   async handleWebhookEvent(event) {
+    console.log(`[webhook] received ${event.type} ${event.id}`);
+
+    if (_processedEvents.has(event.id)) {
+      console.log(`[webhook] ${event.id} already processed — skipped`);
+      return;
+    }
+
     const intent = event.data.object;
 
     if (event.type === 'payment_intent.succeeded') {
+      const { lot_id, auction_id, buyer_user_id } = intent.metadata || {};
+      if (!lot_id || !auction_id || !buyer_user_id) {
+        console.warn(`[webhook] payment_intent.succeeded missing metadata on intent ${intent.id}`, {
+          lot_id,
+          auction_id,
+          buyer_user_id,
+        });
+        return;
+      }
+
       const paymentRes = await db.query(
         `SELECT id FROM payments WHERE payment_intent_id = $1 LIMIT 1`,
         [intent.id]
       );
       if (!paymentRes.rows[0]) {
-        // Intent not created through this platform — ignore safely.
         console.warn(`[webhook] No payment row for intent ${intent.id} — skipped`);
         return;
       }
       const paymentId = paymentRes.rows[0].id;
+      // recordPaymentSuccess handles idempotency, audit logging, and fires
+      // PAYMENT_CONFIRMED and PICKUP_SCHEDULED events — hooks for notifications live there.
       await this.recordPaymentSuccess(paymentId, intent.id);
-      console.log(`[webhook] payment_intent.succeeded → payment ${paymentId} marked paid`);
+      _trackProcessedEvent(event.id);
+      console.log(`[webhook] payment_intent.succeeded → payment ${paymentId} marked paid (lot=${lot_id})`);
       return;
     }
 
@@ -400,6 +445,7 @@ class PaymentService {
       }
       const paymentId = paymentRes.rows[0].id;
       await this.recordPaymentFailure(paymentId);
+      _trackProcessedEvent(event.id);
       console.log(`[webhook] payment_intent.payment_failed → payment ${paymentId} failure recorded`);
       return;
     }

@@ -295,6 +295,7 @@ class PickupScheduleService {
     const scheduleId = scheduleRes.rows[0].id;
 
     const cat = lot.pickup_category;
+    if (!cat) return null;
 
     // Check if lot already has an assignment (handle reassignment)
     const existingRes = await client.query(

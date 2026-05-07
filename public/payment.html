@@ -234,18 +234,24 @@
       document.getElementById('pay-btn').addEventListener('click', async () => {
         setLoading(true);
 
-        const { error, paymentIntent } = await stripe.confirmCardPayment(clientSecret, {
-          payment_method: { card },
-        });
+        try {
+          const { error, paymentIntent } = await stripe.confirmCardPayment(clientSecret, {
+            payment_method: { card },
+          });
 
-        if (error) {
-          document.getElementById('card-errors').textContent = error.message;
-          setLoading(false);
-        } else if (paymentIntent.status === 'succeeded') {
-          showResult('success', 'Payment successful! Your lot has been secured.');
-          document.getElementById('payment-form').style.display = 'none';
-        } else {
-          showResult('error', 'Payment status: ' + paymentIntent.status + '. Please contact support.');
+          if (error) {
+            document.getElementById('card-errors').textContent = error.message;
+            setLoading(false);
+          } else if (paymentIntent.status === 'succeeded') {
+            showResult('success', 'Payment successful! Your lot has been secured.');
+            document.getElementById('payment-form').style.display = 'none';
+          } else {
+            showResult('error', 'Payment status: ' + paymentIntent.status + '. Please contact support.');
+            setLoading(false);
+          }
+        } catch (err) {
+          console.error('[payment] confirmCardPayment threw:', err);
+          document.getElementById('card-errors').textContent = 'An unexpected error occurred. Please try again.';
           setLoading(false);
         }
       });

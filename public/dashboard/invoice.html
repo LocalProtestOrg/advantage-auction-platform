@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Invoice - Advantage Auction</title>
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      background: #f5f7fa;
+      color: #111;
+      min-height: 100vh;
+      padding: 2rem 1.5rem;
+    }
+
+    .page { max-width: 600px; margin: 0 auto; }
+
+    header { margin-bottom: 1.75rem; }
+
+    .brand {
+      font-size: 0.72rem;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #888;
+      margin-bottom: 0.5rem;
+    }
+
+    h1 { font-size: 1.5rem; font-weight: 800; }
+
+    .back-btn {
+      display: inline-block;
+      margin-top: 0.75rem;
+      padding: 0.4rem 1rem;
+      font-size: 0.8rem;
+      font-weight: 600;
+      background: #fff;
+      border: 1.5px solid #d1d5db;
+      border-radius: 6px;
+      cursor: pointer;
+      color: #374151;
+      text-decoration: none;
+    }
+
+    .back-btn:hover { background: #f3f4f6; }
+
+    #status-msg {
+      margin-bottom: 1.25rem;
+      font-size: 0.9rem;
+      color: #666;
+    }
+
+    #status-msg.error { color: #dc2626; }
+
+    .card {
+      background: #fff;
+      border-radius: 12px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.07);
+      overflow: hidden;
+    }
+
+    .card-img {
+      width: 100%;
+      height: 260px;
+      object-fit: cover;
+      background: #e4e8f0;
+      display: block;
+    }
+
+    .card-body {
+      padding: 1.5rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+
+    .card-title {
+      font-size: 1.15rem;
+      font-weight: 700;
+      line-height: 1.3;
+    }
+
+    .card-price {
+      font-size: 1.6rem;
+      font-weight: 800;
+    }
+
+    .card-date {
+      font-size: 0.8rem;
+      color: #999;
+    }
+
+    .row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 0.2rem 0.55rem;
+      border-radius: 99px;
+      font-size: 0.7rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      width: fit-content;
+    }
+
+    .badge-issued { background: #eff6ff; color: #2563eb; }
+    .badge-paid { background: #f0fdf4; color: #16a34a; }
+    .badge-refunded { background: #fef9c3; color: #92400e; }
+    .badge-partially_refunded { background: #fff7ed; color: #c2410c; }
+    .badge-default { background: #f3f4f6; color: #374151; }
+  </style>
+</head>
+
+<body>
+  <div class="page">
+    <header>
+      <div class="brand">Advantage Auction Platform</div>
+      <h1>Invoice Detail</h1>
+      <a class="back-btn" href="/dashboard.html">&larr; Back to Purchases</a>
+    </header>
+
+    <div id="status-msg">Loading...</div>
+    <div id="detail"></div>
+  </div>
+
+  <script>
+    var token = localStorage.getItem('token');
+
+    if (!token) {
+      window.location.href = '/login.html';
+    }
+
+    var params = new URLSearchParams(window.location.search);
+    var invoiceId = params.get('id');
+
+    var statusEl = document.getElementById('status-msg');
+    var detailEl = document.getElementById('detail');
+
+    function formatPrice(cents) {
+      return new Intl.NumberFormat('en-US', {
+        style: 'currency',
+        currency: 'USD'
+      }).format((cents || 0) / 100);
+    }
+
+    function formatDate(iso) {
+      try {
+        return new Date(iso).toLocaleDateString('en-US', {
+          month: 'long',
+          day: 'numeric',
+          year: 'numeric'
+        });
+      } catch (e) {
+        return 'Date unavailable';
+      }
+    }
+
+    function badgeClass(status) {
+      var known = ['issued', 'paid', 'refunded', 'partially_refunded'];
+      return known.indexOf(status) !== -1 ? 'badge-' + status : 'badge-default';
+    }
+
+    function render(inv) {
+      var img = document.createElement('img');
+      img.className = 'card-img';
+      img.src = inv.lot_image_url || '/images/fallback.jpg';
+      img.alt = inv.lot_title || 'Lot';
+
+      img.onerror = function () {
+        img.style.display = 'none';
+      };
+
+      var title = document.createElement('div');
+      title.className = 'card-title';
+      title.textContent = inv.lot_title || 'Untitled Lot';
+
+      var price = document.createElement('div');
+      price.className = 'card-price';
+      price.textContent = formatPrice(inv.amount_cents);
+
+      var badge = document.createElement('span');
+      badge.className = 'badge ' + badgeClass(inv.status);
+      badge.textContent = (inv.status || 'unknown').replace('_', ' ');
+
+      var row = document.createElement('div');
+      row.className = 'row';
+      row.appendChild(price);
+      row.appendChild(badge);
+
+      var date = document.createElement('div');
+      date.className = 'card-date';
+      date.textContent = inv.created_at
+        ? 'Purchased ' + formatDate(inv.created_at)
+        : 'Purchase date unavailable';
+
+      var body = document.createElement('div');
+      body.className = 'card-body';
+      body.appendChild(title);
+      body.appendChild(row);
+      body.appendChild(date);
+
+      var card = document.createElement('div');
+      card.className = 'card';
+      card.appendChild(img);
+      card.appendChild(body);
+
+      detailEl.appendChild(card);
+    }
+
+    if (!invoiceId) {
+      statusEl.textContent = 'No invoice ID specified.';
+      statusEl.className = 'error';
+    } else {
+      fetch('/api/me/invoices', {
+        headers: {
+          'Authorization': 'Bearer ' + token
+        }
+      })
+        .then(function (res) {
+          if (!res.ok) throw new Error('HTTP ' + res.status);
+          return res.json();
+        })
+        .then(function (data) {
+          var list = Array.isArray(data.invoices) ? data.invoices : [];
+
+          var inv = list.find(function (i) {
+            return String(i.id) === String(invoiceId);
+          });
+
+          if (!inv) {
+            statusEl.textContent = 'Invoice not found.';
+            statusEl.className = 'error';
+            return;
+          }
+
+          statusEl.textContent = '';
+          render(inv);
+        })
+        .catch(function (err) {
+          statusEl.textContent = 'Failed to load invoice.';
+          statusEl.className = 'error';
+          console.error(err);
+        });
+    }
+  </script>
+</body>
+</html>

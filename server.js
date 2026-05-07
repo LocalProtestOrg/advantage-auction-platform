@@ -6,6 +6,8 @@ const { Server } = require('socket.io');
 const db = require('./src/db');
 const authMiddleware = require('./src/middleware/authMiddleware');
 
+console.log('DB:', process.env.DATABASE_URL?.includes('neon') ? 'NEON' : 'LOCAL');
+
 const app = express();
 const server = http.createServer(app);
 
@@ -46,6 +48,9 @@ app.options('/{*path}', (req, res) => {
   res.sendStatus(200);
 });
 
+// Static frontend — must be before routes and 404 handler
+app.use(express.static(path.join(__dirname, 'public')));
+
 // Logging
 app.use((req, res, next) => {
   console.log(`[${new Date().toISOString()}] ${req.method} ${req.path}`);
@@ -59,9 +64,6 @@ app.use((req, res, next) => {
   express.json()(req, res, next);
 });
 
-// Static frontend
-app.use(express.static(path.join(__dirname, 'public')));
-
 // ── Route imports ─────────────────────────────────────────────────────────────
 const authRoutes = require(path.join(__dirname, 'src/routes/auth'));
 const auctionRoutes = require(path.join(__dirname, 'src/routes/auctions'));
@@ -74,6 +76,7 @@ const payoutPreferencesRoutes = require('./src/routes/payoutPreferences');
 const aiRoutes = require('./src/routes/ai');
 const sellersRoutes = require('./src/routes/sellers');
 const watchlistRoutes = require('./src/routes/watchlist');
+const { router: invoicesRoutes, fetchInvoicesForBuyer } = require('./src/routes/invoices');
 
 // ── Database-backed routes (frontend API shape) ───────────────────────────────
 
@@ -186,6 +189,7 @@ app.use('/api/payout-preferences', payoutPreferencesRoutes);
 app.use('/api/ai', aiRoutes);
 app.use('/api/sellers', sellersRoutes);
 app.use('/api/watchlist', watchlistRoutes);
+app.use('/api/invoices', invoicesRoutes);
 
 // Root
 app.get('/', (req, res) => res.send('API Running'));
@@ -193,6 +197,17 @@ app.get('/', (req, res) => res.send('API Running'));
 // ✅ Force serve payment page (MUST be before 404)
 app.get('/payment.html', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'payment.html'));
+});
+
+// GET /api/me/invoices — buyer dashboard
+app.get('/api/me/invoices', authMiddleware, async (req, res) => {
+  try {
+    const rows = await fetchInvoicesForBuyer(req.user.id);
+    return res.json({ invoices: rows });
+  } catch (err) {
+    console.error('[invoices] GET /api/me/invoices error:', err.message);
+    return res.status(500).json({ error: 'Failed to fetch invoices' });
+  }
 });
 
 // 404

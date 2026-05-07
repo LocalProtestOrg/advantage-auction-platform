@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>My Purchases — Advantage Auction</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      background: #f5f7fa;
+      color: #111;
+      min-height: 100vh;
+      padding: 2rem 1.5rem;
+    }
+
+    header {
+      max-width: 900px;
+      margin: 0 auto 2rem;
+    }
+
+    .brand {
+      font-size: 0.72rem;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #888;
+      margin-bottom: 0.5rem;
+    }
+
+    h1 {
+      font-size: 1.6rem;
+      font-weight: 800;
+    }
+
+    #status-msg {
+      max-width: 900px;
+      margin: 0 auto 1.5rem;
+      font-size: 0.9rem;
+      color: #666;
+    }
+
+    #status-msg.error {
+      color: #dc2626;
+    }
+
+    .grid {
+      max-width: 900px;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+      gap: 1.25rem;
+    }
+
+    .card {
+      background: #fff;
+      border-radius: 12px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.07);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      cursor: pointer;
+      transition: box-shadow 0.15s ease, transform 0.15s ease;
+    }
+    .card:hover {
+      box-shadow: 0 6px 20px rgba(0,0,0,0.13);
+      transform: translateY(-2px);
+    }
+
+    .card-img {
+      width: 100%;
+      height: 160px;
+      object-fit: cover;
+      background: #e4e8f0;
+      display: block;
+    }
+
+    .card-body {
+      padding: 1rem;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 0.4rem;
+    }
+
+    .card-title {
+      font-size: 0.95rem;
+      font-weight: 700;
+      line-height: 1.3;
+    }
+
+    .card-price {
+      font-size: 1.2rem;
+      font-weight: 800;
+      color: #111;
+    }
+
+    .card-date {
+      font-size: 0.75rem;
+      color: #999;
+      margin-top: auto;
+      padding-top: 0.5rem;
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 0.2rem 0.55rem;
+      border-radius: 99px;
+      font-size: 0.7rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      width: fit-content;
+    }
+
+    .badge-issued         { background: #eff6ff; color: #2563eb; }
+    .badge-paid           { background: #f0fdf4; color: #16a34a; }
+    .badge-refunded       { background: #fef9c3; color: #92400e; }
+    .badge-partially_refunded { background: #fff7ed; color: #c2410c; }
+    .badge-default        { background: #f3f4f6; color: #374151; }
+
+    .empty {
+      max-width: 900px;
+      margin: 3rem auto;
+      text-align: center;
+      color: #aaa;
+      font-size: 0.95rem;
+    }
+
+    .status-paid   { color: #0a7a0a; }
+    .status-issued { color: #555; }
+    .status-pending { color: #d98200; }
+
+    .logout-btn {
+      margin-top: 0.75rem;
+      padding: 0.4rem 1rem;
+      font-size: 0.8rem;
+      font-weight: 600;
+      background: #fff;
+      border: 1.5px solid #d1d5db;
+      border-radius: 6px;
+      cursor: pointer;
+      color: #374151;
+    }
+    .logout-btn:hover { background: #f3f4f6; }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="brand">Advantage Auction Platform</div>
+    <h1>My Purchases</h1>
+    <button class="logout-btn" onclick="logout()">Logout</button>
+  </header>
+
+  <div id="status-msg">Loading…</div>
+  <div class="grid" id="grid"></div>
+
+  <script>
+    const API = '';
+    const token = localStorage.getItem('token');
+
+    if (!token) {
+      window.location.href = '/login.html';
+    }
+
+    const statusEl = document.getElementById('status-msg');
+    const gridEl   = document.getElementById('grid');
+
+    function formatPrice(cents) {
+      return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(cents / 100);
+    }
+
+    function getStatusClass(status) {
+      if (status === 'paid')   return 'status-paid';
+      if (status === 'issued') return 'status-issued';
+      return 'status-pending';
+    }
+
+    function logout() {
+      localStorage.removeItem('token');
+      window.location.href = '/login.html';
+    }
+
+    function formatDate(iso) {
+      return new Date(iso).toLocaleDateString('en-US', {
+        month: 'short', day: 'numeric', year: 'numeric'
+      });
+    }
+
+    function badgeClass(status) {
+      const known = ['issued', 'paid', 'refunded', 'partially_refunded'];
+      return known.includes(status) ? `badge-${status}` : 'badge-default';
+    }
+
+    function renderCard(invoice) {
+      const card = document.createElement('div');
+      card.className = 'card';
+
+      const img = document.createElement('img');
+      img.className = 'card-img';
+      img.src = invoice.lot_image_url || '/images/fallback.jpg';
+      img.alt = invoice.lot_title || 'Lot';
+      img.onerror = () => { img.src = '/images/fallback.jpg'; };
+
+      const body = document.createElement('div');
+      body.className = 'card-body';
+
+      const title = document.createElement('div');
+      title.className = 'card-title';
+      title.textContent = invoice.lot_title || 'Untitled Lot';
+
+      const price = document.createElement('div');
+      price.className = 'card-price';
+      price.textContent = formatPrice(invoice.amount_cents);
+
+      const badge = document.createElement('span');
+      badge.className = `badge ${badgeClass(invoice.status)}`;
+      badge.textContent = invoice.status.replace('_', ' ');
+
+      const statusP = document.createElement('p');
+      statusP.className = `status ${getStatusClass(invoice.status)}`;
+      statusP.textContent = invoice.status;
+
+      const date = document.createElement('div');
+      date.className = 'card-date';
+      date.textContent = formatDate(invoice.created_at);
+
+      body.append(title, price, statusP, date);
+      card.append(img, body);
+      card.addEventListener('click', () => {
+        window.location.href = `/dashboard/invoice.html?id=${invoice.id}`;
+      });
+      return card;
+    }
+
+    async function load() {
+      try {
+        const res = await fetch(`${API}/api/me/invoices`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        const data = await res.json();
+
+        if (!res.ok) {
+          statusEl.className = 'error';
+          statusEl.textContent = `Error ${res.status}: ${data.error || 'Unknown error'}`;
+          return;
+        }
+
+        statusEl.textContent = '';
+
+        const invoices = data.invoices || [];
+        if (invoices.length === 0) {
+          const empty = document.createElement('div');
+          empty.className = 'empty';
+          empty.textContent = 'No purchases yet. Start bidding!';
+          gridEl.replaceWith(empty);
+          return;
+        }
+
+        invoices.forEach(inv => gridEl.appendChild(renderCard(inv)));
+      } catch (err) {
+        statusEl.className = 'error';
+        statusEl.textContent = 'Failed to load invoices. Check console for details.';
+        console.error('[dashboard]', err);
+      }
+    }
+
+    load();
+  </script>
+</body>
+</html>
