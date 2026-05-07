@@ -1,0 +1,85 @@
+'use strict';
+
+const express  = require('express');
+const multer   = require('multer');
+const router   = express.Router();
+const auth     = require('../middleware/authMiddleware');
+const cloudinaryService = require('../services/cloudinaryService');
+
+const MAX_SIZE_BYTES = 10 * 1024 * 1024; // 10 MB
+
+const ALLOWED_MIME_TYPES = new Set([
+  'image/jpeg',
+  'image/jpg',
+  'image/png',
+  'image/gif',
+  'image/webp',
+  'image/heic',
+]);
+
+// Memory storage only — no local disk writes
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits:  { fileSize: MAX_SIZE_BYTES },
+  fileFilter: function (_req, file, cb) {
+    if (!ALLOWED_MIME_TYPES.has(file.mimetype)) {
+      return cb(Object.assign(new Error('Only image files are accepted'), { status: 400 }));
+    }
+    cb(null, true);
+  },
+});
+
+function requireSellerOrAdmin(req, res, next) {
+  const role = req.user?.role;
+  if (role !== 'seller' && role !== 'admin') {
+    return res.status(403).json({ success: false, message: 'Seller or admin access required' });
+  }
+  next();
+}
+
+// POST /api/uploads/image
+router.post(
+  '/image',
+  auth,
+  requireSellerOrAdmin,
+  function (req, res, next) {
+    upload.single('image')(req, res, function (err) {
+      if (!err) return next();
+      if (err.code === 'LIMIT_FILE_SIZE') {
+        return res.status(400).json({
+          success: false,
+          message: 'File too large. Maximum size is 10 MB.',
+        });
+      }
+      if (err.status === 400) {
+        return res.status(400).json({ success: false, message: err.message });
+      }
+      next(err);
+    });
+  },
+  async (req, res, next) => {
+    if (!req.file) {
+      return res.status(400).json({ success: false, message: 'No image file provided' });
+    }
+
+    try {
+      const result = await cloudinaryService.uploadBuffer(req.file.buffer, {
+        folder: 'lot-images',
+      });
+
+      return res.status(201).json({
+        success:    true,
+        secure_url: result.secure_url,
+        public_id:  result.public_id,
+        width:      result.width,
+        height:     result.height,
+        format:     result.format,
+        bytes:      result.bytes,
+      });
+    } catch (err) {
+      next(err);
+    }
+  }
+);
+
+module.exports = router;
