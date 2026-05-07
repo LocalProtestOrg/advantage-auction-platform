@@ -77,6 +77,7 @@ const aiRoutes = require('./src/routes/ai');
 const sellersRoutes = require('./src/routes/sellers');
 const watchlistRoutes = require('./src/routes/watchlist');
 const { router: invoicesRoutes, fetchInvoicesForBuyer } = require('./src/routes/invoices');
+const marketingReportsRoutes = require('./src/routes/marketingReports');
 
 // ── Database-backed routes (frontend API shape) ───────────────────────────────
 
@@ -190,6 +191,7 @@ app.use('/api/ai', aiRoutes);
 app.use('/api/sellers', sellersRoutes);
 app.use('/api/watchlist', watchlistRoutes);
 app.use('/api/invoices', invoicesRoutes);
+app.use('/api/seller/marketing-report', marketingReportsRoutes);
 
 // Root
 app.get('/', (req, res) => res.send('API Running'));
