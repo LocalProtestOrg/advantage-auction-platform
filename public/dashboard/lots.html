@@ -456,7 +456,17 @@
       gap: 0.5rem;
       flex-wrap: wrap;
       padding-top: 0.25rem;
+      align-items: center;
     }
+
+    .draft-indicator {
+      font-size: 0.75rem;
+      color: #16a34a;
+      font-weight: 600;
+      opacity: 0;
+      transition: opacity 0.4s;
+    }
+    .draft-indicator.visible { opacity: 1; }
 
     /* ── D: AI Suggestions ───────────────────────────────────── */
     .suggestion-list {
@@ -908,6 +918,7 @@
             <button class="btn btn-primary" onclick="handleSaveDraft()">Save Draft</button>
             <button class="btn" onclick="handleAddToAuction()">Add to Auction</button>
             <button class="btn" onclick="resetForm()">Clear</button>
+            <span class="draft-indicator" id="draft-indicator">&#10003; Draft saved</span>
           </div>
 
         </div><!-- /lot details card -->
@@ -1051,7 +1062,7 @@
         if (uploadedFiles.length >= 20) return;
 
         var id = 'img-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6);
-        uploadedFiles.push({ id: id, file: file, jobId: null });
+        uploadedFiles.push({ id: id, file: file, jobId: null, cloudinaryUrl: null, name: file.name });
 
         var reader = new FileReader();
         reader.onload = function (e) {
@@ -1115,6 +1126,7 @@
 
       updatePhotoCount();
       if (uploadedFiles.length === 0) addMoreRow.style.display = 'none';
+      saveDraft();
     }
 
     function updatePhotoCount() {
@@ -1177,6 +1189,9 @@
           var cloudinaryUrl = uploadData.secure_url;
           var previewImg = document.getElementById('preview-img-' + id);
           if (previewImg) previewImg.src = cloudinaryUrl;
+
+          var uploadedEntry = uploadedFiles.find(function (f) { return f.id === id; });
+          if (uploadedEntry) { uploadedEntry.cloudinaryUrl = cloudinaryUrl; saveDraft(); }
 
           updateQueueItem(id, 'pending', null);
 
@@ -1367,8 +1382,9 @@
         document.getElementById('lot-title').focus();
         return;
       }
-      // TODO: POST /api/lots with form data when backend is wired
-      alert('Draft saved! (Backend integration coming soon)');
+      // TODO: POST /api/lots with form data when backend lot storage is wired
+      saveDraft();
+      showDraftSaved();
     }
 
     function handleAddToAuction() {
@@ -1378,8 +1394,10 @@
         document.getElementById('lot-title').focus();
         return;
       }
-      // TODO: POST /api/lots + assign to auctionId when backend is wired
+      // TODO: POST /api/lots + assign to auctionId when backend is wired; call clearDraft() on success
       alert('Lot queued for auction! (Backend integration coming soon)');
+      clearDraft();
+      resetForm();
     }
 
     function resetForm() {
@@ -1403,6 +1421,7 @@
       uploadedFiles = [];
       staticItemsCleared = false;
       addMoreRow.style.display = 'none';
+      clearDraft();
 
       // Restore static placeholder queue items
       queueList.innerHTML =
@@ -1431,6 +1450,94 @@
           '<div class="queue-progress"><div class="queue-progress-bar"></div></div>' +
         '</div>';
     }
+
+    /* ── H: Draft persistence (localStorage) ──────────────── */
+    var DRAFT_KEY = 'lot_draft' + (auctionId ? '_' + auctionId : '');
+    var _draftTimer = null;
+    var _indicatorTimer = null;
+
+    function saveDraft() {
+      var tier = document.querySelector('input[name="pickup-tier"]:checked');
+      var draft = {
+        title:       document.getElementById('lot-title').value,
+        desc:        document.getElementById('lot-desc').value,
+        category:    document.getElementById('lot-category').value,
+        startingBid: document.getElementById('starting-bid').value,
+        pickupTier:  tier ? tier.value : 'B',
+        images: uploadedFiles
+          .filter(function (f) { return f.cloudinaryUrl; })
+          .map(function (f) {
+            return { id: f.id, name: f.name || (f.file && f.file.name) || '', cloudinaryUrl: f.cloudinaryUrl };
+          }),
+      };
+      try {
+        localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
+      } catch (e) {
+        // localStorage full or unavailable — fail silently
+      }
+    }
+
+    function clearDraft() {
+      try { localStorage.removeItem(DRAFT_KEY); } catch (e) {}
+    }
+
+    function showDraftSaved() {
+      var el = document.getElementById('draft-indicator');
+      if (!el) return;
+      el.classList.add('visible');
+      clearTimeout(_indicatorTimer);
+      _indicatorTimer = setTimeout(function () {
+        el.classList.remove('visible');
+      }, 2000);
+    }
+
+    function debouncedSaveDraft() {
+      clearTimeout(_draftTimer);
+      _draftTimer = setTimeout(function () { saveDraft(); showDraftSaved(); }, 800);
+    }
+
+    // Wire auto-save to form fields
+    ['lot-title', 'lot-desc', 'starting-bid'].forEach(function (fieldId) {
+      document.getElementById(fieldId).addEventListener('input', debouncedSaveDraft);
+    });
+    document.getElementById('lot-category').addEventListener('change', function () { saveDraft(); showDraftSaved(); });
+    document.querySelectorAll('input[name="pickup-tier"]').forEach(function (radio) {
+      radio.addEventListener('change', function () { saveDraft(); showDraftSaved(); });
+    });
+
+    function loadDraft() {
+      var raw;
+      try { raw = localStorage.getItem(DRAFT_KEY); } catch (e) { return; }
+      if (!raw) return;
+
+      var draft;
+      try { draft = JSON.parse(raw); } catch (e) { return; }
+
+      if (draft.title)       document.getElementById('lot-title').value = draft.title;
+      if (draft.desc)        document.getElementById('lot-desc').value  = draft.desc;
+      if (draft.category)    document.getElementById('lot-category').value = draft.category;
+      if (draft.startingBid) document.getElementById('starting-bid').value = draft.startingBid;
+
+      if (draft.pickupTier) {
+        var tierRadio = document.querySelector('input[name="pickup-tier"][value="' + draft.pickupTier + '"]');
+        if (tierRadio) {
+          tierRadio.checked = true;
+          tierDesc.textContent = tierDescs[draft.pickupTier] || '';
+        }
+      }
+
+      // Restore Cloudinary-backed image previews
+      if (draft.images && draft.images.length) {
+        draft.images.forEach(function (img) {
+          if (!img.cloudinaryUrl) return;
+          uploadedFiles.push({ id: img.id, file: null, jobId: null, cloudinaryUrl: img.cloudinaryUrl, name: img.name });
+          addPreview(img.id, img.cloudinaryUrl, img.name);
+        });
+        updatePhotoCount();
+      }
+    }
+
+    loadDraft();
 
     /* ── D: Apply AI suggestions ───────────────────────────── */
     function applySuggestion(type, value) {
