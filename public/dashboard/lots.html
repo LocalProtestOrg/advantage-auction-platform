@@ -1169,12 +1169,17 @@
       var formData = new FormData();
       formData.append('image', file);
 
+      var uploadController = new AbortController();
+      var uploadTimeout = setTimeout(function () { uploadController.abort(); }, 90000);
+
       fetch('/api/uploads/image', {
         method: 'POST',
         headers: { 'Authorization': 'Bearer ' + token },
         body: formData,
+        signal: uploadController.signal,
       })
         .then(function (res) {
+          clearTimeout(uploadTimeout);
           if (res.status === 401) { window.location.href = '/login.html'; return null; }
           return res.json();
         })
@@ -1230,8 +1235,13 @@
               updateQueueItem(id, 'failed', 'Network error');
             });
         })
-        .catch(function () {
-          updateQueueItem(id, 'failed', 'Upload failed — network error');
+        .catch(function (err) {
+          clearTimeout(uploadTimeout);
+          if (err && err.name === 'AbortError') {
+            updateQueueItem(id, 'failed', 'Upload timed out — check connection and retry');
+          } else {
+            updateQueueItem(id, 'failed', 'Upload failed — network error');
+          }
         });
     }
 
