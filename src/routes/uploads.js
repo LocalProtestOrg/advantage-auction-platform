@@ -15,6 +15,7 @@ const ALLOWED_MIME_TYPES = new Set([
   'image/gif',
   'image/webp',
   'image/heic',
+  'image/heif', // iOS 15+ sends heif for HEIC files
 ]);
 
 // Memory storage only — no local disk writes

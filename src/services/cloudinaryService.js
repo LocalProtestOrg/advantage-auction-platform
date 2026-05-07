@@ -29,7 +29,7 @@ class CloudinaryService {
     const uploadOptions = {
       folder:         options.folder    || 'lot-images',
       resource_type:  'image',
-      allowed_formats: ['jpg', 'jpeg', 'png', 'gif', 'webp', 'heic'],
+      allowed_formats: ['jpg', 'jpeg', 'png', 'gif', 'webp', 'heic', 'heif'],
       // TODO Cloudinary AI transforms: add eager transforms here for background removal
       // TODO thumbnail generation: add eager: [{ width: 300, height: 300, crop: 'fill' }]
       ...options,
