@@ -117,6 +117,27 @@
     .badge-refunded { background: #fef9c3; color: #92400e; }
     .badge-partially_refunded { background: #fff7ed; color: #c2410c; }
     .badge-default { background: #f3f4f6; color: #374151; }
+
+    .print-btn {
+      display: inline-block;
+      margin-top: 0.75rem;
+      margin-left: 0.5rem;
+      padding: 0.4rem 1rem;
+      font-size: 0.8rem;
+      font-weight: 600;
+      background: #fff;
+      border: 1.5px solid #d1d5db;
+      border-radius: 6px;
+      cursor: pointer;
+      color: #374151;
+    }
+    .print-btn:hover { background: #f3f4f6; }
+
+    @media print {
+      .back-btn, .print-btn { display: none; }
+      body { background: #fff; padding: 0; }
+      .card { box-shadow: none; border: 1px solid #e5e7eb; border-radius: 0; }
+    }
   </style>
 </head>
 
@@ -126,6 +147,7 @@
       <div class="brand">Advantage Auction Platform</div>
       <h1>Invoice Detail</h1>
       <a class="back-btn" href="/dashboard.html">&larr; Back to Purchases</a>
+      <button class="print-btn" onclick="window.print()">Print Invoice</button>
     </header>
 
     <div id="status-msg">Loading...</div>
