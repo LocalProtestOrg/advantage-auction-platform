@@ -584,6 +584,7 @@
     .queue-badge-pending    { background: #f3f4f6; color: #6b7280; }
     .queue-badge-processing { background: #fefce8; color: #a16207; }
     .queue-badge-complete   { background: #f0fdf4; color: #15803d; }
+    .queue-badge-failed     { background: #fef2f2; color: #dc2626; }
 
     .pulse-dot {
       width: 7px;
@@ -998,15 +999,23 @@
         'Auction ' + auctionId.slice(0, 8).toUpperCase() + '…';
     }
 
-    /* ── A: Upload / preview ───────────────────────────────── */
+    /* ── State ─────────────────────────────────────────────── */
+    var uploadedFiles      = [];   // { id, file, jobId }
+    var jobPollers         = {};   // jobId → { intervalId, attempts }
+    var staticItemsCleared = false;
+
+    var POLL_INTERVAL_MS  = 2500;
+    var MAX_POLL_ATTEMPTS = 48;    // ~2 min max
+
+    /* ── DOM refs ──────────────────────────────────────────── */
     var uploadZone  = document.getElementById('upload-zone');
     var fileInput   = document.getElementById('file-input');
     var previewGrid = document.getElementById('preview-grid');
     var addMoreRow  = document.getElementById('add-more-row');
     var photoCount  = document.getElementById('photo-count');
+    var queueList   = document.getElementById('queue-list');
 
-    var uploadedFiles = [];
-
+    /* ── A: Upload / preview ───────────────────────────────── */
     uploadZone.addEventListener('click', function () {
       fileInput.click();
     });
@@ -1041,12 +1050,16 @@
         if (uploadedFiles.length >= 20) return;
 
         var id = 'img-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6);
-        uploadedFiles.push({ id: id, file: file });
+        uploadedFiles.push({ id: id, file: file, jobId: null });
 
         var reader = new FileReader();
         reader.onload = function (e) {
-          addPreview(id, e.target.result, file.name);
+          var dataUrl = e.target.result;
+          addPreview(id, dataUrl, file.name);
           updatePhotoCount();
+          if (aiToggle.checked) {
+            submitEnhancementJob(id, file.name, dataUrl);
+          }
         };
         reader.readAsDataURL(file);
       });
@@ -1060,6 +1073,7 @@
       var img = document.createElement('img');
       img.src = src;
       img.alt = name;
+      img.id = 'preview-img-' + id;
 
       var removeBtn = document.createElement('button');
       removeBtn.className = 'preview-remove';
@@ -1072,6 +1086,7 @@
 
       var label = document.createElement('div');
       label.className = 'preview-label';
+      label.id = 'preview-label-' + id;
       label.textContent = name.length > 14 ? name.slice(0, 12) + '…' : name;
 
       item.appendChild(img);
@@ -1083,9 +1098,20 @@
     }
 
     function removePreview(id) {
+      var entry = uploadedFiles.find(function (f) { return f.id === id; });
+      if (entry && entry.jobId && jobPollers[entry.jobId]) {
+        clearInterval(jobPollers[entry.jobId].intervalId);
+        delete jobPollers[entry.jobId];
+      }
+
       uploadedFiles = uploadedFiles.filter(function (f) { return f.id !== id; });
+
       var el = document.getElementById('preview-' + id);
       if (el) el.remove();
+
+      var qi = document.getElementById('queue-item-' + id);
+      if (qi) qi.remove();
+
       updatePhotoCount();
       if (uploadedFiles.length === 0) addMoreRow.style.display = 'none';
     }
@@ -1096,7 +1122,7 @@
     }
 
     /* ── B: AI enhancement toggle ──────────────────────────── */
-    var aiToggle       = document.getElementById('ai-enhance');
+    var aiToggle        = document.getElementById('ai-enhance');
     var enhancementList = document.getElementById('enhancement-list');
 
     aiToggle.addEventListener('change', function () {
@@ -1106,6 +1132,178 @@
         enhancementList.classList.add('dimmed');
       }
     });
+
+    /* ── E: AI job submission ──────────────────────────────── */
+    function getSelectedEnhancementType() {
+      var checked = document.querySelector('input[name="enhancement"]:checked');
+      return checked ? checked.value : 'background_removal';
+    }
+
+    function submitEnhancementJob(id, fileName, dataUrl) {
+      if (!staticItemsCleared) {
+        queueList.innerHTML = '';
+        staticItemsCleared = true;
+      }
+
+      addQueueItem(id, fileName, 'pending');
+
+      // TODO real upload persistence: upload dataUrl to Cloudinary/S3 and use the returned URL
+      // TODO Cloudinary integration: replace lot-studio:// placeholder with real CDN URL
+      var placeholderUrl = 'lot-studio://' + encodeURIComponent(fileName);
+      var enhancementType = getSelectedEnhancementType();
+
+      fetch('/api/image-processing/jobs', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ' + token,
+        },
+        body: JSON.stringify({
+          originalImageUrl: placeholderUrl,
+          enhancementType:  enhancementType,
+          lotTempId:        auctionId || null,
+        }),
+      })
+        .then(function (res) {
+          if (res.status === 401) { window.location.href = '/login.html'; return null; }
+          return res.json();
+        })
+        .then(function (data) {
+          if (!data) return;
+          if (!data.success) {
+            updateQueueItem(id, 'failed', data.message || 'Submission failed');
+            return;
+          }
+          var jobId = data.data.id;
+          var entry = uploadedFiles.find(function (f) { return f.id === id; });
+          if (entry) entry.jobId = jobId;
+          startPolling(id, jobId);
+        })
+        .catch(function () {
+          updateQueueItem(id, 'failed', 'Network error');
+        });
+    }
+
+    /* ── F: Queue DOM helpers ──────────────────────────────── */
+    function addQueueItem(id, fileName, status) {
+      var item = document.createElement('div');
+      item.className = 'queue-item';
+      item.id = 'queue-item-' + id;
+
+      var shortName = fileName.length > 22 ? fileName.slice(0, 20) + '…' : fileName;
+
+      item.innerHTML =
+        '<div class="queue-item-info">' +
+          '<span class="queue-item-name">' + shortName + '</span>' +
+          '<span class="queue-badge queue-badge-' + status + '" id="queue-badge-' + id + '">' +
+            _badgeLabel(status) +
+          '</span>' +
+        '</div>' +
+        '<div class="queue-item-meta" id="queue-meta-' + id + '">' +
+          _metaText(status) +
+        '</div>' +
+        '<div class="queue-progress" id="queue-progress-' + id + '" style="' +
+          (status === 'pending' || status === 'processing' ? '' : 'display:none') + '">' +
+          '<div class="queue-progress-bar"></div>' +
+        '</div>';
+
+      queueList.insertBefore(item, queueList.firstChild);
+    }
+
+    function updateQueueItem(id, status, errorMsg) {
+      var badge    = document.getElementById('queue-badge-' + id);
+      var meta     = document.getElementById('queue-meta-' + id);
+      var progress = document.getElementById('queue-progress-' + id);
+
+      if (badge) {
+        badge.className = 'queue-badge queue-badge-' + status;
+        badge.textContent = _badgeLabel(status);
+      }
+      if (meta) {
+        meta.textContent = errorMsg || _metaText(status);
+      }
+      if (progress) {
+        if (status === 'complete' || status === 'failed') {
+          progress.style.display = 'none';
+        } else {
+          progress.style.display = '';
+        }
+      }
+    }
+
+    function _badgeLabel(status) {
+      var map = { pending: 'Pending', processing: 'Processing…', complete: 'Done', failed: 'Failed' };
+      return map[status] || status;
+    }
+
+    function _metaText(status) {
+      var map = {
+        pending:    'Waiting for worker…',
+        processing: 'AI processing in progress…',
+        complete:   'Enhancement complete',
+        failed:     'Processing failed',
+      };
+      return map[status] || '';
+    }
+
+    /* ── G: Polling ────────────────────────────────────────── */
+    function startPolling(id, jobId) {
+      var attempts = 0;
+
+      var intervalId = setInterval(function () {
+        attempts++;
+        if (attempts > MAX_POLL_ATTEMPTS) {
+          clearInterval(intervalId);
+          delete jobPollers[jobId];
+          updateQueueItem(id, 'failed', 'Timed out waiting for result');
+          return;
+        }
+
+        fetch('/api/image-processing/jobs/' + jobId, {
+          headers: { 'Authorization': 'Bearer ' + token },
+        })
+          .then(function (res) {
+            if (res.status === 401) { window.location.href = '/login.html'; return null; }
+            return res.json();
+          })
+          .then(function (data) {
+            if (!data || !data.data) return;
+            var job = data.data;
+
+            if (job.status === 'processing') {
+              updateQueueItem(id, 'processing', null);
+            } else if (job.status === 'complete') {
+              clearInterval(intervalId);
+              delete jobPollers[jobId];
+              updateQueueItem(id, 'complete', null);
+              onJobComplete(id, job.processed_image_url);
+            } else if (job.status === 'failed') {
+              clearInterval(intervalId);
+              delete jobPollers[jobId];
+              updateQueueItem(id, 'failed', job.error_message || 'Processing failed');
+            }
+          })
+          .catch(function () {
+            /* network hiccup — keep polling */
+          });
+      }, POLL_INTERVAL_MS);
+
+      jobPollers[jobId] = { intervalId: intervalId, attempts: 0 };
+    }
+
+    function onJobComplete(id, processedImageUrl) {
+      if (processedImageUrl) {
+        var img = document.getElementById('preview-img-' + id);
+        if (img) img.src = processedImageUrl;
+      }
+      // TODO remove.bg integration: update img.src with real background-removed URL
+      // TODO Replicate provider integration: update img.src with model-processed URL
+      var label = document.getElementById('preview-label-' + id);
+      if (label) {
+        label.textContent = 'Enhanced';
+        label.style.color = '#16a34a';
+      }
+    }
 
     /* ── C: Pickup tier descriptions ───────────────────────── */
     var tierDescs = {
@@ -1156,9 +1354,43 @@
       var defaultTier = document.querySelector('input[name="pickup-tier"][value="B"]');
       if (defaultTier) { defaultTier.checked = true; tierDesc.textContent = tierDescs['B']; }
 
+      // Stop all active pollers
+      Object.keys(jobPollers).forEach(function (jobId) {
+        clearInterval(jobPollers[jobId].intervalId);
+      });
+      jobPollers = {};
+
       previewGrid.innerHTML = '';
       uploadedFiles = [];
+      staticItemsCleared = false;
       addMoreRow.style.display = 'none';
+
+      // Restore static placeholder queue items
+      queueList.innerHTML =
+        '<div class="queue-item">' +
+          '<div class="queue-item-info">' +
+            '<span class="queue-item-name">photo_001.jpg</span>' +
+            '<span class="queue-badge queue-badge-complete">Done</span>' +
+          '</div>' +
+          '<div class="queue-item-meta">Background removed · White background applied</div>' +
+          '<div class="queue-progress" style="display:none"><div class="queue-progress-bar"></div></div>' +
+        '</div>' +
+        '<div class="queue-item">' +
+          '<div class="queue-item-info">' +
+            '<span class="queue-item-name">photo_002.jpg</span>' +
+            '<span class="queue-badge queue-badge-processing">Processing…</span>' +
+          '</div>' +
+          '<div class="queue-item-meta">Drop shadow generation in progress…</div>' +
+          '<div class="queue-progress"><div class="queue-progress-bar"></div></div>' +
+        '</div>' +
+        '<div class="queue-item">' +
+          '<div class="queue-item-info">' +
+            '<span class="queue-item-name">photo_003.jpg</span>' +
+            '<span class="queue-badge queue-badge-pending">Pending</span>' +
+          '</div>' +
+          '<div class="queue-item-meta">Waiting for worker…</div>' +
+          '<div class="queue-progress"><div class="queue-progress-bar"></div></div>' +
+        '</div>';
     }
 
     /* ── D: Apply AI suggestions ───────────────────────────── */
