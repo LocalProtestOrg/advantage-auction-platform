@@ -89,20 +89,20 @@ async function resolveProxyBid(client, lot, bidderUserId, maxAmountCents, increm
 
   // Bid history row for the winner at the visible price (is_proxy = true).
   const insertResult = await client.query(
-    `INSERT INTO bids (lot_id, user_id, amount, is_proxy)
+    `INSERT INTO bids (lot_id, bidder_user_id, amount_cents, is_proxy)
      VALUES ($1, $2, $3, true)
      RETURNING *`,
-    [lot.id, winner.bidder_user_id, visibleCents / 100]
+    [lot.id, winner.bidder_user_id, visibleCents]
   );
 
-  // Update lot: visible price + live winner.
+  // Update lot: visible price + live winner + bid counter.
   await client.query(
     `UPDATE lots
      SET current_bid_cents      = $1,
-         current_price          = $2,
-         current_winner_user_id = $3
-     WHERE id = $4`,
-    [visibleCents, visibleCents / 100, winner.bidder_user_id, lot.id]
+         current_winner_user_id = $2,
+         bid_count              = bid_count + 1
+     WHERE id = $3`,
+    [visibleCents, winner.bidder_user_id, lot.id]
   );
 
   // Queue notifications inside the same transaction so they commit atomically
@@ -176,9 +176,9 @@ async function applyAntiSnipe(client, lot) {
                 'visible_cents', $3::int
               )
        FROM (
-              SELECT user_id FROM bids       WHERE lot_id = $1
+              SELECT bidder_user_id AS user_id FROM bids       WHERE lot_id = $1
               UNION
-              SELECT user_id FROM watchlists WHERE lot_id = $1
+              SELECT user_id                   FROM watchlists WHERE lot_id = $1
             ) candidates
        WHERE NOT EXISTS (
                SELECT 1 FROM notifications_queue nq

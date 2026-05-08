@@ -117,23 +117,23 @@ async function publishAuction(auctionId, actorId = null) {
     await client.query('BEGIN');
 
     const current = await client.query(
-      'SELECT id, status FROM auctions WHERE id = $1 FOR UPDATE',
+      'SELECT id, state FROM auctions WHERE id = $1 FOR UPDATE',
       [auctionId]
     );
     if (!current.rows[0]) {
       throw new Error('Auction not found');
     }
-    const { status } = current.rows[0];
-    if (status === 'published') {
+    const { state } = current.rows[0];
+    if (state === 'published') {
       throw new Error('Auction is already published');
     }
-    if (status === 'closed') {
+    if (state === 'closed') {
       throw new Error('Cannot publish a closed auction');
     }
 
     const result = await client.query(
       `UPDATE auctions
-       SET status = 'published',
+       SET state = 'published',
            start_time = NOW(),
            end_time = NOW() + interval '1 hour',
            updated_at = NOW()
@@ -143,7 +143,7 @@ async function publishAuction(auctionId, actorId = null) {
     );
 
     await client.query(
-      `UPDATE lots SET status = 'active' WHERE auction_id = $1 AND status = 'draft'`,
+      `UPDATE lots SET state = 'open' WHERE auction_id = $1 AND state = 'withdrawn'`,
       [auctionId]
     );
 
@@ -172,42 +172,46 @@ async function closeAuction(auctionId, actorId = null) {
 
     // Lock auction row and verify it exists and is not already closed
     const auctionRes = await client.query(
-      'SELECT id, status, created_by_user_id FROM auctions WHERE id = $1 FOR UPDATE',
+      `SELECT a.id, a.state, sp.user_id AS seller_user_id
+       FROM auctions a
+       JOIN seller_profiles sp ON sp.id = a.seller_id
+       WHERE a.id = $1 FOR UPDATE OF a`,
       [auctionId]
     );
     if (!auctionRes.rows[0]) {
       throw new Error('Auction not found');
     }
-    const { status } = auctionRes.rows[0];
-    if (status === 'closed') {
+    const { state } = auctionRes.rows[0];
+    if (state === 'closed') {
       throw new Error('Auction is already closed');
     }
-    if (status !== 'published') {
+    if (state !== 'published') {
       throw new Error('Only published auctions can be closed');
     }
 
     // Mark auction closed
     await client.query(
-      `UPDATE auctions SET status = 'closed', updated_at = now() WHERE id = $1`,
+      `UPDATE auctions SET state = 'closed', updated_at = now() WHERE id = $1`,
       [auctionId]
     );
 
-    // Lock all lots for this auction before reading bids.
+    // Lock all non-withdrawn lots for this auction before reading bids.
     // This blocks any concurrent createBid calls (which also SELECT lots FOR UPDATE)
-    // from slipping a new bid in between the top-bid read and the lot status write.
+    // from slipping a new bid in between the top-bid read and the lot state write.
+    // Withdrawn lots are excluded — they are already settled and must not be re-opened.
     const lotsRes = await client.query(
-      'SELECT id FROM lots WHERE auction_id = $1 FOR UPDATE',
+      `SELECT id FROM lots WHERE auction_id = $1 AND state != 'withdrawn' FOR UPDATE`,
       [auctionId]
     );
 
     const results = [];
 
     for (const lot of lotsRes.rows) {
-      // Highest bid: max amount, earliest created_at as tiebreaker
+      // Highest bid: max amount_cents, earliest created_at as tiebreaker
       const bidRes = await client.query(
-        `SELECT user_id, amount FROM bids
+        `SELECT bidder_user_id, amount_cents FROM bids
          WHERE lot_id = $1
-         ORDER BY amount DESC, created_at ASC
+         ORDER BY amount_cents DESC, created_at ASC
          LIMIT 1`,
         [lot.id]
       );
@@ -215,14 +219,14 @@ async function closeAuction(auctionId, actorId = null) {
       const topBid = bidRes.rows[0];
 
       if (topBid) {
-        const winningCents = Math.round(parseFloat(topBid.amount) * 100);
+        const winningCents = topBid.amount_cents;
         await client.query(
           `UPDATE lots
-           SET status = 'closed',
+           SET state = 'closed',
                winning_buyer_user_id = $1,
                winning_amount_cents = $2
-           WHERE id = $3 AND status != 'closed'`,
-          [topBid.user_id, winningCents, lot.id]
+           WHERE id = $3 AND state != 'closed'`,
+          [topBid.bidder_user_id, winningCents, lot.id]
         );
         results.push({
           lot_id: lot.id,
@@ -231,7 +235,7 @@ async function closeAuction(auctionId, actorId = null) {
         });
       } else {
         await client.query(
-          `UPDATE lots SET status = 'closed' WHERE id = $1 AND status != 'closed'`,
+          `UPDATE lots SET state = 'closed' WHERE id = $1 AND state != 'closed'`,
           [lot.id]
         );
         results.push({
@@ -257,7 +261,7 @@ async function closeAuction(auctionId, actorId = null) {
     // here would read stale lot data (winning amounts not yet committed).
     // Fee rate mirrors the constant in reportingService — update both if the rate changes.
     const PLATFORM_FEE_RATE = 0.10;
-    const sellerUserId = auctionRes.rows[0].created_by_user_id;
+    const sellerUserId = auctionRes.rows[0].seller_user_id;
     const grossRevenueCents = results.reduce((sum, r) => sum + (r.winning_amount_cents ?? 0), 0);
     const platformFeeCents  = Math.round(grossRevenueCents * PLATFORM_FEE_RATE);
     const sellerPayoutCents = grossRevenueCents - platformFeeCents;

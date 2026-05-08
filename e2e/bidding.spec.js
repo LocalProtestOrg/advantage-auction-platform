@@ -33,20 +33,16 @@ const NONWINNER = {
 };
 
 // ── DB helpers ────────────────────────────────────────────────────────────────
+let _pool;
 function pool() {
-  return new Pool({
-    host:     process.env.DB_HOST     || 'localhost',
-    port:     parseInt(process.env.DB_PORT || '5432', 10),
-    database: process.env.DB_NAME     || 'advantage_auction',
-    user:     process.env.DB_USER     || 'postgres',
-    password: process.env.DB_PASSWORD || 'admin123',
-  });
+  if (!_pool) _pool = new Pool({ connectionString: process.env.DATABASE_URL, ssl: { rejectUnauthorized: false } });
+  return _pool;
 }
 
 async function dbQuery(sql, params = []) {
-  const p = pool();
-  try   { return (await p.query(sql, params)).rows; }
-  finally { await p.end(); }
+  const client = await pool().connect();
+  try   { return (await client.query(sql, params)).rows; }
+  finally { client.release(); }
 }
 
 async function getLot(lotId) {
@@ -58,8 +54,7 @@ async function cleanBids(lotId) {
   await dbQuery('DELETE FROM bids           WHERE lot_id = $1', [lotId]);
   await dbQuery('DELETE FROM lot_proxy_bids WHERE lot_id = $1', [lotId]);
   await dbQuery(
-    `UPDATE lots SET current_bid_cents = 0, current_price = 0, current_winner_user_id = NULL
-     WHERE id = $1`,
+    `UPDATE lots SET current_bid_cents = 0, current_winner_user_id = NULL WHERE id = $1`,
     [lotId]
   );
 }
@@ -73,8 +68,8 @@ async function login(request, { email, password }) {
   const res  = await request.post('/api/auth/login', { data: { email, password } });
   const body = await res.json();
   expect(res.status(), `Login failed for ${email}: ${body.message}`).toBe(200);
-  expect(body.data?.token, 'JWT missing').toBeTruthy();
-  return body.data.token;
+  expect(body.token, 'JWT missing').toBeTruthy();
+  return body.token;
 }
 
 async function placeBid(request, token, lotId, amountCents) {
@@ -135,7 +130,7 @@ test.describe('Anti-sniping', () => {
   test('bid in final 60s extends closes_at', async ({ request }) => {
     // Force the lot to close in 30 s so the next bid triggers anti-snipe.
     await dbQuery(
-      `UPDATE lots SET closes_at = now() + interval '30 seconds', status = 'active'
+      `UPDATE lots SET closes_at = now() + interval '30 seconds', state = 'open'
        WHERE id = $1`,
       [ACTIVE_LOT_ID]
     );
@@ -153,10 +148,10 @@ test.describe('Anti-sniping', () => {
     const lotAfter  = await getLot(ACTIVE_LOT_ID);
     const closesAfter = new Date(lotAfter.closes_at).getTime();
 
-    // closes_at must have increased by ~60 s (allow ±2 s for clock skew)
+    // closes_at must have increased by ~120 s (2-min rule, allow ±3 s for clock skew)
     const delta = closesAfter - closesBefore;
-    expect(delta).toBeGreaterThanOrEqual(58_000);
-    expect(delta).toBeLessThanOrEqual(62_000);
+    expect(delta).toBeGreaterThanOrEqual(117_000);
+    expect(delta).toBeLessThanOrEqual(123_000);
   });
 });
 
