@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sign In — Advantage Auction</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      background: #f4f4f5;
+      color: #111;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    header {
+      background: #111;
+      padding: 0.9rem 1.5rem;
+      display: flex;
+      align-items: center;
+    }
+    .brand { color: #fff; font-weight: 700; font-size: 1rem; text-decoration: none; }
+
+    .page {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem 1rem;
+    }
+
+    .card {
+      background: #fff;
+      border: 1px solid #e4e4e7;
+      border-radius: 12px;
+      padding: 2rem;
+      width: 100%;
+      max-width: 400px;
+    }
+
+    .card-title {
+      font-size: 1.25rem;
+      font-weight: 700;
+      margin-bottom: 1.5rem;
+      text-align: center;
+    }
+
+    /* ── Tabs ── */
+    .tabs {
+      display: flex;
+      border-bottom: 2px solid #e4e4e7;
+      margin-bottom: 1.5rem;
+    }
+    .tab {
+      flex: 1;
+      padding: 0.6rem 0;
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: #71717a;
+      background: none;
+      border: none;
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      margin-bottom: -2px;
+      transition: color 0.15s, border-color 0.15s;
+    }
+    .tab.active {
+      color: #111;
+      border-bottom-color: #111;
+    }
+    .tab:focus-visible { outline: 2px solid #111; outline-offset: 2px; border-radius: 2px; }
+
+    /* ── Forms ── */
+    .form-panel { display: none; }
+    .form-panel.active { display: block; }
+
+    .field { margin-bottom: 1rem; }
+    .field label {
+      display: block;
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: #374151;
+      margin-bottom: 0.35rem;
+    }
+    .field input {
+      width: 100%;
+      padding: 0.55rem 0.75rem;
+      font-size: 0.9rem;
+      border: 1.5px solid #d1d5db;
+      border-radius: 7px;
+      background: #fff;
+      color: #111;
+      transition: border-color 0.15s;
+    }
+    .field input:focus {
+      outline: none;
+      border-color: #111;
+    }
+    .field input.error { border-color: #dc2626; }
+
+    .btn-submit {
+      width: 100%;
+      padding: 0.7rem;
+      font-size: 0.9rem;
+      font-weight: 700;
+      background: #111;
+      color: #fff;
+      border: none;
+      border-radius: 7px;
+      cursor: pointer;
+      margin-top: 0.5rem;
+      transition: background 0.15s;
+    }
+    .btn-submit:hover:not(:disabled) { background: #222; }
+    .btn-submit:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    /* ── Error / success messages ── */
+    .msg {
+      display: none;
+      font-size: 0.82rem;
+      border-radius: 6px;
+      padding: 0.6rem 0.75rem;
+      margin-bottom: 1rem;
+    }
+    .msg.visible { display: block; }
+    .msg.error   { background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; }
+    .msg.success { background: #f0fdf4; color: #16a34a; border: 1px solid #bbf7d0; }
+
+    /* ── Footer note ── */
+    .note {
+      margin-top: 1.25rem;
+      font-size: 0.78rem;
+      color: #71717a;
+      text-align: center;
+      line-height: 1.5;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <a class="brand" href="/">Advantage Auction</a>
+</header>
+
+<div class="page">
+  <div class="card">
+    <div class="card-title">Welcome back</div>
+
+    <div class="tabs">
+      <button class="tab active" id="tab-login"    onclick="showTab('login')">Log In</button>
+      <button class="tab"        id="tab-register" onclick="showTab('register')">Create Account</button>
+    </div>
+
+    <!-- ── Login panel ── -->
+    <div class="form-panel active" id="panel-login">
+      <div class="msg error" id="login-error"></div>
+      <div class="field">
+        <label for="login-email">Email</label>
+        <input type="email" id="login-email" autocomplete="email" placeholder="you@example.com" />
+      </div>
+      <div class="field">
+        <label for="login-password">Password</label>
+        <input type="password" id="login-password" autocomplete="current-password" placeholder="••••••••" />
+      </div>
+      <button class="btn-submit" id="login-btn" onclick="handleLogin()">Log In</button>
+    </div>
+
+    <!-- ── Register panel ── -->
+    <div class="form-panel" id="panel-register">
+      <div class="msg error"   id="register-error"></div>
+      <div class="msg success" id="register-success"></div>
+      <div class="field">
+        <label for="reg-email">Email</label>
+        <input type="email" id="reg-email" autocomplete="email" placeholder="you@example.com" />
+      </div>
+      <div class="field">
+        <label for="reg-password">Password</label>
+        <input type="password" id="reg-password" autocomplete="new-password" placeholder="At least 8 characters" />
+      </div>
+      <div class="field">
+        <label for="reg-confirm">Confirm password</label>
+        <input type="password" id="reg-confirm" autocomplete="new-password" placeholder="••••••••" />
+      </div>
+      <button class="btn-submit" id="register-btn" onclick="handleRegister()">Create Account</button>
+      <p class="note">Bidder accounts only. Sellers are added by Advantage staff.</p>
+    </div>
+  </div>
+</div>
+
+<script>
+  // ── Tab switching ─────────────────────────────────────────────────────────
+  function showTab(tab) {
+    document.getElementById('panel-login').classList.toggle('active', tab === 'login');
+    document.getElementById('panel-register').classList.toggle('active', tab === 'register');
+    document.getElementById('tab-login').classList.toggle('active', tab === 'login');
+    document.getElementById('tab-register').classList.toggle('active', tab === 'register');
+    document.getElementById('card-title') && (document.querySelector('.card-title').textContent =
+      tab === 'login' ? 'Welcome back' : 'Create your account');
+    clearMessages();
+  }
+
+  function clearMessages() {
+    ['login-error', 'register-error', 'register-success'].forEach(function (id) {
+      var el = document.getElementById(id);
+      el.className = el.className.replace(' visible', '');
+      el.textContent = '';
+    });
+    document.querySelectorAll('input.error').forEach(function (el) { el.classList.remove('error'); });
+  }
+
+  function showMsg(id, text) {
+    var el = document.getElementById(id);
+    el.textContent = text;
+    if (!el.classList.contains('visible')) el.classList.add('visible');
+  }
+
+  // ── Redirect target ───────────────────────────────────────────────────────
+  function redirectAfterAuth(role) {
+    var params = new URLSearchParams(window.location.search);
+    var next   = params.get('next');
+    if (next && next.startsWith('/')) {
+      window.location.href = next;
+      return;
+    }
+    if (role === 'seller' || role === 'admin') {
+      window.location.href = '/dashboard/seller.html';
+    } else {
+      window.location.href = '/auction-view.html';
+    }
+  }
+
+  // ── If already logged in, redirect immediately ────────────────────────────
+  (function () {
+    var token = localStorage.getItem('token');
+    if (!token) return;
+    try {
+      var payload = JSON.parse(atob(token.split('.')[1]));
+      if (payload.exp && payload.exp * 1000 > Date.now()) {
+        redirectAfterAuth(payload.role);
+      } else {
+        localStorage.removeItem('token');
+      }
+    } catch (e) {
+      localStorage.removeItem('token');
+    }
+  }());
+
+  // ── Login ─────────────────────────────────────────────────────────────────
+  function handleLogin() {
+    clearMessages();
+    var email    = document.getElementById('login-email').value.trim();
+    var password = document.getElementById('login-password').value;
+
+    if (!email) {
+      document.getElementById('login-email').classList.add('error');
+      showMsg('login-error', 'Email is required.');
+      return;
+    }
+    if (!password) {
+      document.getElementById('login-password').classList.add('error');
+      showMsg('login-error', 'Password is required.');
+      return;
+    }
+
+    var btn = document.getElementById('login-btn');
+    btn.disabled = true;
+    btn.textContent = 'Signing in…';
+
+    fetch('/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: email, password: password }),
+    })
+      .then(function (res) { return res.json(); })
+      .then(function (data) {
+        if (data.success && data.token) {
+          localStorage.setItem('token', data.token);
+          try {
+            var payload = JSON.parse(atob(data.token.split('.')[1]));
+            redirectAfterAuth(payload.role);
+          } catch (e) {
+            redirectAfterAuth('buyer');
+          }
+        } else {
+          showMsg('login-error', data.error || 'Invalid email or password.');
+          btn.disabled = false;
+          btn.textContent = 'Log In';
+        }
+      })
+      .catch(function () {
+        showMsg('login-error', 'Network error — please try again.');
+        btn.disabled = false;
+        btn.textContent = 'Log In';
+      });
+  }
+
+  // ── Register ──────────────────────────────────────────────────────────────
+  function handleRegister() {
+    clearMessages();
+    var email    = document.getElementById('reg-email').value.trim();
+    var password = document.getElementById('reg-password').value;
+    var confirm  = document.getElementById('reg-confirm').value;
+
+    if (!email) {
+      document.getElementById('reg-email').classList.add('error');
+      showMsg('register-error', 'Email is required.');
+      return;
+    }
+    if (password.length < 8) {
+      document.getElementById('reg-password').classList.add('error');
+      showMsg('register-error', 'Password must be at least 8 characters.');
+      return;
+    }
+    if (password !== confirm) {
+      document.getElementById('reg-confirm').classList.add('error');
+      showMsg('register-error', 'Passwords do not match.');
+      return;
+    }
+
+    var btn = document.getElementById('register-btn');
+    btn.disabled = true;
+    btn.textContent = 'Creating account…';
+
+    fetch('/api/auth/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: email, password: password }),
+    })
+      .then(function (res) { return res.json(); })
+      .then(function (data) {
+        if (data.success) {
+          // Auto-login after successful registration
+          return fetch('/api/auth/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email: email, password: password }),
+          })
+            .then(function (res) { return res.json(); })
+            .then(function (loginData) {
+              if (loginData.success && loginData.token) {
+                localStorage.setItem('token', loginData.token);
+                redirectAfterAuth('buyer');
+              } else {
+                // Registration succeeded but auto-login failed — ask them to log in manually
+                showMsg('register-success', 'Account created! Please log in.');
+                btn.disabled = false;
+                btn.textContent = 'Create Account';
+                showTab('login');
+              }
+            });
+        } else {
+          var msg = data.error || 'Could not create account.';
+          if (msg.includes('duplicate') || msg.includes('unique')) {
+            msg = 'An account with that email already exists.';
+          }
+          showMsg('register-error', msg);
+          btn.disabled = false;
+          btn.textContent = 'Create Account';
+        }
+      })
+      .catch(function () {
+        showMsg('register-error', 'Network error — please try again.');
+        btn.disabled = false;
+        btn.textContent = 'Create Account';
+      });
+  }
+
+  // ── Enter key support ─────────────────────────────────────────────────────
+  document.addEventListener('keydown', function (e) {
+    if (e.key !== 'Enter') return;
+    var activePanel = document.querySelector('.form-panel.active');
+    if (!activePanel) return;
+    if (activePanel.id === 'panel-login') handleLogin();
+    else handleRegister();
+  });
+</script>
+
+</body>
+</html>
