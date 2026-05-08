@@ -46,11 +46,11 @@ router.get('/:lotId/bids', authMiddleware, async (req, res) => {
 // Bidding only allowed on active lots — draft and closed lots are rejected.
 router.post('/:lotId/bids', authMiddleware, async (req, res) => {
   try {
-    const lotRes = await db.query('SELECT status FROM lots WHERE id = $1', [req.params.lotId]);
+    const lotRes = await db.query('SELECT state FROM lots WHERE id = $1', [req.params.lotId]);
     const lot    = lotRes.rows[0];
-    if (!lot)                    return res.status(404).json({ success: false, message: 'Lot not found' });
-    if (lot.status === 'draft')  return res.status(403).json({ success: false, message: 'Lot is not open for bidding' });
-    if (lot.status !== 'active') return res.status(422).json({ success: false, message: 'Lot is not accepting bids' });
+    if (!lot)                       return res.status(404).json({ success: false, message: 'Lot not found' });
+    if (lot.state === 'withdrawn')  return res.status(403).json({ success: false, message: 'Lot is not open for bidding' });
+    if (lot.state !== 'open')       return res.status(422).json({ success: false, message: 'Lot is not accepting bids' });
 
     const { amount, maxBid, max_bid_cents } = req.body;
     const result = await createBid(req.params.lotId, req.user.id, { amount, maxBid, max_bid_cents });
@@ -101,13 +101,13 @@ router.get('/auction/:auctionId/seller', auth, async (req, res, next) => {
 });
 
 // GET /api/lots/auction/:auctionId  (must come before /:lotId)
-// Draft lots are excluded — this endpoint is buyer-facing and public.
+// Withdrawn lots are excluded — this endpoint is buyer-facing and public.
 router.get('/auction/:auctionId', async (req, res, next) => {
   try {
     const result = await db.query(
       `SELECT * FROM lots
        WHERE auction_id = $1
-         AND status IN ('active', 'sold', 'closed')
+         AND state != 'withdrawn'
        ORDER BY created_at ASC`,
       [req.params.auctionId]
     );
@@ -199,7 +199,7 @@ router.put('/:lotId', auth, async (req, res, next) => {
 });
 
 // GET /api/lots/:lotId
-// Draft lots return 404 — this endpoint is buyer-facing and public.
+// Withdrawn lots return 404 — this endpoint is buyer-facing and public.
 router.get('/:lotId', async (req, res, next) => {
   try {
     const result = await db.query(
@@ -207,7 +207,7 @@ router.get('/:lotId', async (req, res, next) => {
       [req.params.lotId]
     );
     const lot = result.rows[0] || null;
-    if (!lot || lot.status === 'draft') {
+    if (!lot || lot.state === 'withdrawn') {
       return res.status(404).json({ success: false, message: 'Lot not found' });
     }
     res.json({ success: true, data: lot });

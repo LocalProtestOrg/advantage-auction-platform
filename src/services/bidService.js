@@ -152,10 +152,10 @@ async function resolveProxyBid(client, lot, bidderUserId, maxAmountCents, increm
 async function applyAntiSnipe(client, lot) {
   if (!lot.closes_at) return null;
   const remaining = new Date(lot.closes_at).getTime() - Date.now();
-  if (remaining > 0 && remaining <= 60000) {
+  if (remaining > 0 && remaining <= 120000) {
     const extRes = await client.query(
       `UPDATE lots
-       SET closes_at       = closes_at + interval '60 seconds',
+       SET closes_at       = closes_at + interval '2 minutes',
            extension_count = extension_count + 1
        WHERE id = $1
        RETURNING closes_at`,

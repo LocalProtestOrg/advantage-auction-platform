@@ -108,10 +108,9 @@
       text-transform: uppercase;
       letter-spacing: 0.05em;
     }
-    .status-draft   { background: #f4f4f5; color: #71717a; }
-    .status-active  { background: #dcfce7; color: #15803d; }
-    .status-closed  { background: #fee2e2; color: #b91c1c; }
-    .status-sold    { background: #ede9fe; color: #6d28d9; }
+    .status-open      { background: #dcfce7; color: #15803d; }
+    .status-closed    { background: #fee2e2; color: #b91c1c; }
+    .status-withdrawn { background: #f4f4f5; color: #71717a; }
 
     /* Card body */
     .card-body {
@@ -303,9 +302,9 @@
 
     // Status badge
     const badge = document.createElement('div');
-    const st    = (lot.status || 'draft').toLowerCase();
-    badge.className = 'status-badge status-' + (st === 'active' ? 'active' : st === 'sold' ? 'sold' : st === 'closed' ? 'closed' : 'draft');
-    badge.textContent = lot.status || 'draft';
+    const st    = (lot.state || 'open').toLowerCase();
+    badge.className = 'status-badge status-' + (st === 'open' ? 'open' : st === 'closed' ? 'closed' : 'withdrawn');
+    badge.textContent = st === 'open' ? 'Live' : st === 'closed' ? 'Closed' : 'Withdrawn';
     imgWrap.appendChild(badge);
 
     // Card body
@@ -315,10 +314,6 @@
     const title = document.createElement('div');
     title.className = 'card-title';
     title.textContent = lot.title || 'Untitled';
-
-    const cat = document.createElement('div');
-    cat.className = 'card-category';
-    cat.textContent = lot.category || '';
 
     const bidRow = document.createElement('div');
     bidRow.className = 'card-bid';
@@ -340,7 +335,6 @@
     bidRow.appendChild(bidLabel);
     bidRow.appendChild(bidAmt);
     body.appendChild(title);
-    if (lot.category) body.appendChild(cat);
     body.appendChild(bidRow);
 
     a.appendChild(imgWrap);

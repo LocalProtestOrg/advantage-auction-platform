@@ -486,8 +486,8 @@
         const lotData = await lotRes.json();
         if (lotData.success && lotData.data) {
           const ld = lotData.data;
-          const st = ld.status;
-          if (st === 'closed' || st === 'sold') {
+          const st = ld.state;
+          if (st === 'closed' || st === 'withdrawn') {
             lotClosed = true;
             applyClosedState();
             if (ld.winning_amount_cents) renderWinnerPanel(ld.winning_amount_cents);
@@ -575,16 +575,16 @@
   function renderLot(lot) {
     document.title = lot.title + ' — Advantage Auction';
     document.getElementById('lot-title').textContent       = lot.title       || '';
-    document.getElementById('lot-category').textContent    = lot.category    || '';
+    document.getElementById('lot-category').textContent    = lot.size_category || '';
     document.getElementById('lot-description').textContent = lot.description || '';
     setCurrentBid(lot.current_bid_cents || 0);
 
-    const st = lot.status;
-    if (st === 'closed' || st === 'sold') {
+    const st = lot.state;
+    if (st === 'closed' || st === 'withdrawn') {
       lotClosed = true;
       applyClosedState();
       if (lot.winning_amount_cents) renderWinnerPanel(lot.winning_amount_cents);
-    } else if (st === 'active' && lot.closes_at) {
+    } else if (st === 'open' && lot.closes_at) {
       currentClosesAt = lot.closes_at;
       startCountdown(lot.closes_at);
     }
