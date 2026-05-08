@@ -3,50 +3,28 @@ const auditService = require('./auditService');
 const { getSellerPayoutPreference } = require('./payoutPreferenceService');
 
 async function createAuction(data) {
-  console.log('RUNNING CREATE AUCTION SERVICE');
-
   const {
-    sellerProfileId,
-    createdByUserId,
+    sellerId,
     title,
     description,
-    status,
+    state,
     startTime,
     endTime
   } = data;
 
-  const query = `
-    INSERT INTO auctions (
-      seller_profile_id,
-      created_by_user_id,
-      title,
-      description,
-      status,
-      start_time,
-      end_time
-    )
-    VALUES ($1, $2, $3, $4, $5, $6, $7)
-    RETURNING *;
-  `;
-
-  const values = [
-    sellerProfileId,
-    createdByUserId,
-    title,
-    description || null,
-    status || 'draft',
-    startTime || null,
-    endTime || null
-  ];
-
-  const result = await db.query(query, values);
+  const result = await db.query(
+    `INSERT INTO auctions (seller_id, title, description, state, start_time, end_time)
+     VALUES ($1, $2, $3, $4, $5, $6)
+     RETURNING *`,
+    [sellerId, title, description || null, state || 'draft', startTime || null, endTime || null]
+  );
   return result.rows[0];
 }
 
 
-// Update auction (only allowed fields, enforce ownership)
+// Update auction (only allowed fields, enforce ownership via seller_profiles)
 async function updateAuction(auctionId, userId, updates) {
-  const allowed = ['title', 'description', 'status', 'start_time', 'end_time'];
+  const allowed = ['title', 'description', 'state', 'start_time', 'end_time'];
   const fields = [];
   const values = [];
   let idx = 1;
@@ -67,7 +45,8 @@ async function updateAuction(auctionId, userId, updates) {
   const query = `
     UPDATE auctions
     SET ${fields.join(', ')}
-    WHERE id = $${idx++} AND created_by_user_id = $${idx}
+    WHERE id = $${idx++}
+      AND seller_id = (SELECT id FROM seller_profiles WHERE user_id = $${idx})
     RETURNING *
   `;
   const result = await db.query(query, values);
@@ -76,38 +55,41 @@ async function updateAuction(auctionId, userId, updates) {
 
 // Delete auction (enforce ownership)
 async function deleteAuction(auctionId, userId) {
-  const query = `
-    DELETE FROM auctions
-    WHERE id = $1 AND created_by_user_id = $2
-    RETURNING *
-  `;
-  const result = await db.query(query, [auctionId, userId]);
+  const result = await db.query(
+    `DELETE FROM auctions
+     WHERE id = $1
+       AND seller_id = (SELECT id FROM seller_profiles WHERE user_id = $2)
+     RETURNING *`,
+    [auctionId, userId]
+  );
   return result.rows[0] || null;
 }
 
 
-// Get all auctions for a seller (by created_by_user_id)
+// Get all auctions for a seller (by user_id via seller_profiles)
 async function getSellerAuctions(userId) {
-  const query = `
-    SELECT *
-    FROM auctions
-    WHERE created_by_user_id = $1
-    ORDER BY created_at DESC
-  `;
-  const result = await db.query(query, [userId]);
+  const result = await db.query(
+    `SELECT a.*
+     FROM auctions a
+     JOIN seller_profiles sp ON sp.id = a.seller_id
+     WHERE sp.user_id = $1
+     ORDER BY a.created_at DESC`,
+    [userId]
+  );
   return result.rows;
 }
 
 
-// Get a single auction by id and owner
+// Get a single auction by id, verifying ownership via seller_profiles
 async function getAuctionById(auctionId, userId) {
-  const query = `
-    SELECT *
-    FROM auctions
-    WHERE id = $1 AND created_by_user_id = $2
-    LIMIT 1
-  `;
-  const result = await db.query(query, [auctionId, userId]);
+  const result = await db.query(
+    `SELECT a.*
+     FROM auctions a
+     JOIN seller_profiles sp ON sp.id = a.seller_id
+     WHERE a.id = $1 AND sp.user_id = $2
+     LIMIT 1`,
+    [auctionId, userId]
+  );
   return result.rows[0] || null;
 }
 
@@ -230,7 +212,7 @@ async function closeAuction(auctionId, actorId = null) {
         );
         results.push({
           lot_id: lot.id,
-          winner_user_id: topBid.user_id,
+          winner_user_id: topBid.bidder_user_id,
           winning_amount_cents: winningCents
         });
       } else {

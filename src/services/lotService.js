@@ -1,10 +1,11 @@
 const db = require('../db/index');
 
-// Create lot
+// Create lot (seller-owned, verifies auction ownership via seller_profiles)
 async function createLot(auctionId, userId, data) {
-  // 1. Verify auction ownership
   const ownershipCheck = await db.query(
-    `SELECT id FROM auctions WHERE id = $1 AND created_by_user_id = $2`,
+    `SELECT a.id FROM auctions a
+     JOIN seller_profiles sp ON sp.id = a.seller_id
+     WHERE a.id = $1 AND sp.user_id = $2`,
     [auctionId, userId]
   );
 
@@ -17,49 +18,39 @@ async function createLot(auctionId, userId, data) {
     description,
     startingPrice,
     bidIncrement,
-    position,
     pickupCategory
   } = data;
 
-  const query = `
-    INSERT INTO lots (
-      auction_id,
+  const result = await db.query(
+    `INSERT INTO lots (
+       auction_id,
+       title,
+       description,
+       starting_bid_cents,
+       bid_increment_cents,
+       pickup_category,
+       state
+     )
+     VALUES ($1, $2, $3, $4, $5, $6, 'open')
+     RETURNING *`,
+    [
+      auctionId,
       title,
-      description,
-      starting_price,
-      current_price,
-      bid_increment,
-      position,
-      pickup_category,
-      status
-    )
-    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
-    RETURNING *;
-  `;
-
-  const values = [
-    auctionId,
-    title,
-    description || null,
-    startingPrice || 0,
-    startingPrice || 0,
-    bidIncrement || 1,
-    position || 0,
-    pickupCategory || 'A',
-    'draft'
-  ];
-
-  const result = await db.query(query, values);
+      description || null,
+      startingPrice ? Math.round(Number(startingPrice) * 100) : 100,
+      bidIncrement  ? Math.round(Number(bidIncrement)  * 100) : 500,
+      pickupCategory || null
+    ]
+  );
   return result.rows[0];
 }
 
 // Get lots for an auction
 async function getLotsByAuction(auctionId) {
   const result = await db.query(
-    `SELECT * FROM lots WHERE auction_id = $1 ORDER BY position ASC`,
+    `SELECT * FROM lots WHERE auction_id = $1 ORDER BY lot_number ASC NULLS LAST, created_at ASC`,
     [auctionId]
   );
-
   return result.rows;
 }
 
@@ -69,18 +60,18 @@ async function getLotById(lotId) {
     `SELECT * FROM lots WHERE id = $1 LIMIT 1`,
     [lotId]
   );
-
   return result.rows[0] || null;
 }
 
-// Update lot
+// Update lot (verifies auction ownership via seller_profiles)
 async function updateLot(lotId, userId, updates) {
-  // Verify ownership through auction
-  const check = await db.query(`
-    SELECT l.id FROM lots l
-    JOIN auctions a ON l.auction_id = a.id
-    WHERE l.id = $1 AND a.created_by_user_id = $2
-  `, [lotId, userId]);
+  const check = await db.query(
+    `SELECT l.id FROM lots l
+     JOIN auctions a ON l.auction_id = a.id
+     JOIN seller_profiles sp ON sp.id = a.seller_id
+     WHERE l.id = $1 AND sp.user_id = $2`,
+    [lotId, userId]
+  );
 
   if (check.rows.length === 0) {
     throw new Error('Unauthorized');
@@ -91,19 +82,22 @@ async function updateLot(lotId, userId, updates) {
   let index = 1;
 
   const map = {
-    title: 'title',
-    description: 'description',
-    startingPrice: 'starting_price',
-    bidIncrement: 'bid_increment',
-    position: 'position',
-    pickupCategory: 'pickup_category',
-    status: 'status'
+    title:         'title',
+    description:   'description',
+    startingPrice: 'starting_bid_cents',
+    bidIncrement:  'bid_increment_cents',
+    pickupCategory:'pickup_category',
+    state:         'state'
   };
 
   for (const key in map) {
     if (updates[key] !== undefined) {
       fields.push(`${map[key]} = $${index}`);
-      values.push(updates[key]);
+      if (key === 'startingPrice' || key === 'bidIncrement') {
+        values.push(Math.round(Number(updates[key]) * 100));
+      } else {
+        values.push(updates[key]);
+      }
       index++;
     }
   }
@@ -113,7 +107,6 @@ async function updateLot(lotId, userId, updates) {
   }
 
   fields.push(`updated_at = NOW()`);
-
   values.push(lotId);
 
   const result = await db.query(
@@ -124,13 +117,15 @@ async function updateLot(lotId, userId, updates) {
   return result.rows[0];
 }
 
-// Delete lot
+// Delete lot (verifies auction ownership via seller_profiles)
 async function deleteLot(lotId, userId) {
-  const check = await db.query(`
-    SELECT l.id FROM lots l
-    JOIN auctions a ON l.auction_id = a.id
-    WHERE l.id = $1 AND a.created_by_user_id = $2
-  `, [lotId, userId]);
+  const check = await db.query(
+    `SELECT l.id FROM lots l
+     JOIN auctions a ON l.auction_id = a.id
+     JOIN seller_profiles sp ON sp.id = a.seller_id
+     WHERE l.id = $1 AND sp.user_id = $2`,
+    [lotId, userId]
+  );
 
   if (check.rows.length === 0) {
     throw new Error('Unauthorized');
@@ -151,13 +146,17 @@ async function adminCreateLot(auctionId, data) {
   const result = await db.query(
     `INSERT INTO lots (
        auction_id, title, description,
-       starting_price, current_price,
-       bid_increment, position, pickup_category,
-       status, created_at
+       starting_bid_cents, bid_increment_cents,
+       pickup_category, state
      )
-     VALUES ($1, $2, $3, $4, $4, 1, 0, 'A', 'draft', NOW())
+     VALUES ($1, $2, $3, $4, 500, null, 'open')
      RETURNING *`,
-    [auctionId, title, description || null, startingPrice || 0]
+    [
+      auctionId,
+      title,
+      description || null,
+      startingPrice ? Math.round(Number(startingPrice) * 100) : 100
+    ]
   );
 
   return result.rows[0];
