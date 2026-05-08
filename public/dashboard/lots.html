@@ -653,6 +653,97 @@
       .card { padding: 1.1rem; }
       .upload-zone { padding: 1.75rem 1rem; }
     }
+
+    /* ── Lot inventory ───────────────────────────────────────── */
+    #inventory-section { margin-top: 2rem; }
+
+    .inv-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 0.75rem;
+    }
+
+    #inventory-count { font-size: 0.78rem; color: #888; }
+
+    .inv-empty {
+      text-align: center;
+      color: #aaa;
+      font-size: 0.88rem;
+      padding: 1.5rem;
+      background: #fff;
+      border-radius: 10px;
+      border: 1px solid #e4e4e7;
+    }
+
+    .inv-lot {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.9rem;
+      background: #fff;
+      border-radius: 10px;
+      border: 1px solid #e4e4e7;
+      padding: 0.85rem 1rem;
+      margin-bottom: 0.6rem;
+      transition: border-color 0.15s;
+    }
+
+    .inv-lot.editing { border-color: #fde047; background: #fefce8; }
+
+    .inv-thumb {
+      width: 72px;
+      height: 72px;
+      border-radius: 7px;
+      object-fit: cover;
+      flex-shrink: 0;
+      background: #f0f2f5;
+    }
+
+    .inv-thumb-placeholder {
+      width: 72px;
+      height: 72px;
+      border-radius: 7px;
+      background: #f0f2f5;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.4rem;
+      color: #ccc;
+    }
+
+    .inv-body { flex: 1; min-width: 0; }
+
+    .inv-title {
+      font-size: 0.9rem;
+      font-weight: 700;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      margin-bottom: 0.25rem;
+    }
+
+    .inv-meta { font-size: 0.75rem; color: #888; margin-bottom: 0.4rem; }
+
+    .inv-badges { display: flex; gap: 0.35rem; flex-wrap: wrap; margin-bottom: 0.5rem; }
+
+    .inv-badge {
+      font-size: 0.65rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+      padding: 0.15rem 0.5rem;
+      border-radius: 99px;
+    }
+    .inv-badge-open    { background: #f0fdf4; color: #15803d; }
+    .inv-badge-closed  { background: #eff6ff; color: #2563eb; }
+    .inv-badge-neutral { background: #f3f4f6; color: #374151; }
+
+    .inv-actions { display: flex; gap: 0.4rem; flex-wrap: wrap; }
+
+    .btn-danger { background: #fff; border-color: #fca5a5; color: #dc2626; }
+    .btn-danger:hover { background: #fef2f2; }
+    .btn-editing { background: #fefce8; border-color: #fde047; color: #854d0e; cursor: default; }
   </style>
 </head>
 
@@ -917,7 +1008,8 @@
 
           <div class="form-actions">
             <button class="btn btn-primary" onclick="handleSaveDraft()">Save Draft</button>
-            <button class="btn" onclick="handleAddToAuction()">Add to Auction</button>
+            <button class="btn" id="add-lot-btn" onclick="handleAddToAuction()">Add to Auction</button>
+            <button class="btn btn-danger" id="cancel-edit-btn" onclick="cancelEdit()" style="display:none">Cancel Edit</button>
             <button class="btn" onclick="resetForm()">Clear</button>
             <span class="draft-indicator" id="draft-indicator">&#10003; Draft saved</span>
           </div>
@@ -992,6 +1084,16 @@
 
       </div><!-- /right col -->
     </div><!-- /studio-layout -->
+
+    <!-- ── F: Lot Inventory ──────────────────────────────────── -->
+    <div id="inventory-section" style="display:none">
+      <div class="inv-header">
+        <div class="section-label" style="margin:0">Lots in This Auction</div>
+        <span id="inventory-count"></span>
+      </div>
+      <div id="inventory-list"></div>
+    </div>
+
   </div><!-- /.page -->
 
   <script>
@@ -1016,6 +1118,8 @@
     var uploadedFiles      = [];   // { id, file, jobId }
     var jobPollers         = {};   // jobId → { intervalId, attempts }
     var staticItemsCleared = false;
+    var editingLotId       = null; // non-null when editing an existing lot
+    var editingLotImages   = [];   // existing Cloudinary URLs already in DB for the lot being edited
 
     var POLL_INTERVAL_MS  = 2500;
     var MAX_POLL_ATTEMPTS = 48;    // ~2 min max
@@ -1410,92 +1514,120 @@
         return;
       }
 
-      var addBtn = document.querySelector('button[onclick="handleAddToAuction()"]');
-      if (addBtn) { addBtn.disabled = true; addBtn.textContent = 'Adding…'; }
+      var addBtn = document.getElementById('add-lot-btn');
+      if (addBtn) { addBtn.disabled = true; addBtn.textContent = editingLotId ? 'Saving…' : 'Adding…'; }
 
       var selectedTier  = document.querySelector('input[name="pickup-tier"]:checked');
       var startingBidRaw = parseFloat(document.getElementById('starting-bid').value) || 0;
 
       var payload = {
-        auctionId:          auctionId,
         title:              title,
         description:        document.getElementById('lot-desc').value.trim() || null,
         size_category:      selectedTier ? selectedTier.value : null,
         pickup_category:    selectedTier ? selectedTier.value : null,
         starting_bid_cents: startingBidRaw > 0 ? Math.round(startingBidRaw * 100) : null,
       };
+      if (!editingLotId) payload.auctionId = auctionId;
 
-      fetch('/api/lots', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer ' + token,
-        },
-        body: JSON.stringify(payload),
-      })
-        .then(function (res) {
-          if (res.status === 401) { window.location.href = '/login.html'; return null; }
-          return res.json();
+      // Only newly-uploaded files (not already in DB as editingLotImages) get attached
+      var newCloudinaryUrls = uploadedFiles
+        .filter(function (f) { return f.cloudinaryUrl && editingLotImages.indexOf(f.cloudinaryUrl) === -1; })
+        .map(function (f) { return f.cloudinaryUrl; });
+
+      function attachImages(lotId, onDone) {
+        if (!newCloudinaryUrls.length) { onDone(''); return; }
+        fetch('/api/lots/' + lotId + '/images', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+          body: JSON.stringify({ images: newCloudinaryUrls }),
         })
-        .then(function (data) {
-          if (!data) return;
-          if (!data.success) {
-            if (addBtn) { addBtn.disabled = false; addBtn.textContent = 'Add to Auction'; }
-            alert('Failed to save lot: ' + (data.message || 'Unknown error') + '\n\nYour draft has been preserved.');
-            return;
-          }
+          .then(function (r) { if (r.status === 401) { window.location.href = '/login.html'; return null; } return r.json(); })
+          .then(function (d) { onDone(d && d.success ? '' : 'failed'); })
+          .catch(function () { onDone('failed'); });
+      }
 
-          var lotId = data.data.id;
-          var cloudinaryUrls = uploadedFiles
-            .filter(function (f) { return f.cloudinaryUrl; })
-            .map(function (f) { return f.cloudinaryUrl; });
-
-          function onAllDone(withImages) {
-            clearDraft();
-            resetForm();
-            if (addBtn) { addBtn.disabled = false; addBtn.textContent = 'Add to Auction'; }
-            if (withImages === 'failed') {
-              alert('Lot created, but images could not be attached. Contact Advantage support with lot ID: ' + lotId);
-            } else {
-              var imgNote = cloudinaryUrls.length
-                ? ' with ' + cloudinaryUrls.length + ' image' + (cloudinaryUrls.length !== 1 ? 's' : '')
-                : '';
-              alert('Lot added to auction' + imgNote + '!');
-            }
-          }
-
-          if (!cloudinaryUrls.length) {
-            onAllDone('');
-            return;
-          }
-
-          fetch('/api/lots/' + lotId + '/images', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': 'Bearer ' + token,
-            },
-            body: JSON.stringify({ images: cloudinaryUrls }),
+      if (editingLotId) {
+        // ── Edit existing lot ─────────────────────────────────
+        var lotId = editingLotId;
+        fetch('/api/lots/' + lotId, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+          body: JSON.stringify(payload),
+        })
+          .then(function (res) {
+            if (res.status === 401) { window.location.href = '/login.html'; return null; }
+            return res.json();
           })
-            .then(function (res) {
-              if (res.status === 401) { window.location.href = '/login.html'; return null; }
-              return res.json();
-            })
-            .then(function (imgData) {
-              onAllDone(imgData && imgData.success ? '' : 'failed');
-            })
-            .catch(function () {
-              // Lot row exists — clear draft and reset, but warn about images
-              onAllDone('failed');
+          .then(function (data) {
+            if (!data) return;
+            if (!data.success) {
+              if (addBtn) { addBtn.disabled = false; addBtn.textContent = 'Save Changes'; }
+              alert('Failed to update lot: ' + (data.message || 'Unknown error'));
+              return;
+            }
+            attachImages(lotId, function (imgResult) {
+              resetForm();
+              loadInventory();
+              if (imgResult === 'failed') {
+                alert('Lot updated, but new images could not be attached. Contact support with lot ID: ' + lotId);
+              } else {
+                alert('Lot updated.');
+              }
             });
+          })
+          .catch(function () {
+            if (addBtn) { addBtn.disabled = false; addBtn.textContent = 'Save Changes'; }
+            alert('Network error — lot not saved. Please try again.');
+          });
+
+      } else {
+        // ── Create new lot ────────────────────────────────────
+        fetch('/api/lots', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+          body: JSON.stringify(payload),
         })
-        .catch(function () {
-          if (addBtn) { addBtn.disabled = false; addBtn.textContent = 'Add to Auction'; }
-          alert('Failed to save lot — network error. Your draft has been preserved.');
-        });
+          .then(function (res) {
+            if (res.status === 401) { window.location.href = '/login.html'; return null; }
+            return res.json();
+          })
+          .then(function (data) {
+            if (!data) return;
+            if (!data.success) {
+              if (addBtn) { addBtn.disabled = false; addBtn.textContent = 'Add to Auction'; }
+              alert('Failed to save lot: ' + (data.message || 'Unknown error') + '\n\nYour draft has been preserved.');
+              return;
+            }
+            var lotId = data.data.id;
+            attachImages(lotId, function (imgResult) {
+              clearDraft();
+              resetForm();
+              loadInventory();
+              if (imgResult === 'failed') {
+                alert('Lot created, but images could not be attached. Contact support with lot ID: ' + lotId);
+              } else {
+                var imgNote = newCloudinaryUrls.length
+                  ? ' with ' + newCloudinaryUrls.length + ' image' + (newCloudinaryUrls.length !== 1 ? 's' : '')
+                  : '';
+                alert('Lot added to auction' + imgNote + '!');
+              }
+            });
+          })
+          .catch(function () {
+            if (addBtn) { addBtn.disabled = false; addBtn.textContent = 'Add to Auction'; }
+            alert('Failed to save lot — network error. Your draft has been preserved.');
+          });
+      }
     }
 
     function resetForm() {
+      editingLotId     = null;
+      editingLotImages = [];
+      var addBtn = document.getElementById('add-lot-btn');
+      if (addBtn) { addBtn.textContent = 'Add to Auction'; addBtn.disabled = false; }
+      var cancelBtn = document.getElementById('cancel-edit-btn');
+      if (cancelBtn) cancelBtn.style.display = 'none';
+
       document.getElementById('lot-title').value    = '';
       document.getElementById('lot-desc').value     = '';
       document.getElementById('lot-category').value = '';
@@ -1657,6 +1789,227 @@
         alert(tags);
       }
     }
+
+    /* ── F: Lot Inventory ──────────────────────────────────────── */
+
+    function fmtCents(cents) {
+      if (!cents) return '—';
+      return '$' + (cents / 100).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+    }
+
+    function fmtDateShort(iso) {
+      if (!iso) return '';
+      try {
+        return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+      } catch (e) { return ''; }
+    }
+
+    function loadInventory() {
+      if (!auctionId) return;
+      var section = document.getElementById('inventory-section');
+      var list    = document.getElementById('inventory-list');
+      var countEl = document.getElementById('inventory-count');
+      section.style.display = 'none';
+      list.innerHTML = '';
+
+      fetch('/api/lots/auction/' + auctionId + '/seller', {
+        headers: { 'Authorization': 'Bearer ' + token },
+      })
+        .then(function (res) {
+          if (res.status === 401) { window.location.href = '/login.html'; return null; }
+          if (res.status === 403) { return null; } // seller doesn't own this auction — stay silent
+          return res.json();
+        })
+        .then(function (data) {
+          if (!data || !data.success) return;
+          var lots = data.data;
+          section.style.display = 'block';
+          countEl.textContent = lots.length + ' lot' + (lots.length !== 1 ? 's' : '');
+          if (!lots.length) {
+            list.innerHTML = '<div class="inv-empty">No lots yet. Use the form above to add your first lot.</div>';
+            return;
+          }
+          lots.forEach(function (lot) { list.appendChild(buildLotCard(lot)); });
+        })
+        .catch(function (err) {
+          console.error('[inventory]', err);
+        });
+    }
+
+    function buildLotCard(lot) {
+      var card = document.createElement('div');
+      card.className = 'inv-lot';
+      card.id = 'inv-lot-' + lot.id;
+      if (editingLotId === lot.id) card.classList.add('editing');
+
+      // Thumbnail
+      if (lot.first_image_url || lot.thumbnail_url) {
+        var img = document.createElement('img');
+        img.className = 'inv-thumb';
+        img.src = lot.first_image_url || lot.thumbnail_url;
+        img.alt = lot.title || '';
+        img.onerror = function () { this.style.display = 'none'; };
+        card.appendChild(img);
+      } else {
+        var ph = document.createElement('div');
+        ph.className = 'inv-thumb-placeholder';
+        ph.textContent = '🖼';
+        card.appendChild(ph);
+      }
+
+      // Body
+      var body = document.createElement('div');
+      body.className = 'inv-body';
+
+      var title = document.createElement('div');
+      title.className = 'inv-title';
+      title.textContent = lot.title || '(Untitled)';
+      body.appendChild(title);
+
+      var meta = document.createElement('div');
+      meta.className = 'inv-meta';
+      var metaParts = [];
+      if (lot.starting_bid_cents) metaParts.push('Starts ' + fmtCents(lot.starting_bid_cents));
+      if (lot.created_at) metaParts.push('Added ' + fmtDateShort(lot.created_at));
+      meta.textContent = metaParts.join(' · ');
+      body.appendChild(meta);
+
+      var badges = document.createElement('div');
+      badges.className = 'inv-badges';
+
+      var stateBadge = document.createElement('span');
+      stateBadge.className = 'inv-badge ' + (lot.state === 'open' ? 'inv-badge-open' : lot.state === 'closed' ? 'inv-badge-closed' : 'inv-badge-neutral');
+      stateBadge.textContent = lot.state || 'open';
+      badges.appendChild(stateBadge);
+
+      if (lot.pickup_category) {
+        var tierBadge = document.createElement('span');
+        tierBadge.className = 'inv-badge inv-badge-neutral';
+        tierBadge.textContent = 'Tier ' + lot.pickup_category;
+        badges.appendChild(tierBadge);
+      }
+      if (lot.size_category) {
+        var sizeBadge = document.createElement('span');
+        sizeBadge.className = 'inv-badge inv-badge-neutral';
+        sizeBadge.textContent = 'Size ' + lot.size_category;
+        badges.appendChild(sizeBadge);
+      }
+      body.appendChild(badges);
+
+      // Actions
+      var actions = document.createElement('div');
+      actions.className = 'inv-actions';
+
+      if (editingLotId === lot.id) {
+        var editingTag = document.createElement('span');
+        editingTag.className = 'btn btn-sm btn-editing';
+        editingTag.textContent = 'Editing…';
+        actions.appendChild(editingTag);
+      } else {
+        var editBtn = document.createElement('button');
+        editBtn.className = 'btn btn-sm';
+        editBtn.textContent = 'Edit';
+        editBtn.onclick = (function (l) { return function () { startEditLot(l); }; }(lot));
+        actions.appendChild(editBtn);
+
+        var withdrawBtn = document.createElement('button');
+        withdrawBtn.className = 'btn btn-sm btn-danger';
+        withdrawBtn.textContent = 'Withdraw';
+        withdrawBtn.onclick = (function (id, t, bc) { return function () { withdrawLot(id, t, bc); }; }(lot.id, lot.title, lot.bid_count));
+        actions.appendChild(withdrawBtn);
+      }
+
+      body.appendChild(actions);
+      card.appendChild(body);
+      return card;
+    }
+
+    function withdrawLot(id, title, bidCount) {
+      if (bidCount > 0) {
+        alert('This lot has received bids and cannot be withdrawn.');
+        return;
+      }
+      if (!confirm('Withdraw "' + (title || 'this lot') + '"? This cannot be undone.')) return;
+
+      fetch('/api/lots/' + id, {
+        method: 'DELETE',
+        headers: { 'Authorization': 'Bearer ' + token },
+      })
+        .then(function (res) {
+          if (res.status === 401) { window.location.href = '/login.html'; return null; }
+          return res.json();
+        })
+        .then(function (data) {
+          if (!data) return;
+          if (data.success) {
+            var card = document.getElementById('inv-lot-' + id);
+            if (card) card.remove();
+            // Update count
+            var list = document.getElementById('inventory-list');
+            var countEl = document.getElementById('inventory-count');
+            var remaining = list.querySelectorAll('.inv-lot').length;
+            countEl.textContent = remaining + ' lot' + (remaining !== 1 ? 's' : '');
+            if (!remaining) {
+              list.innerHTML = '<div class="inv-empty">No lots yet. Use the form above to add your first lot.</div>';
+            }
+          } else {
+            alert('Could not withdraw lot: ' + (data.message || 'Unknown error'));
+          }
+        })
+        .catch(function () {
+          alert('Network error — lot not withdrawn. Please try again.');
+        });
+    }
+
+    function startEditLot(lot) {
+      editingLotId     = lot.id;
+      editingLotImages = lot.first_image_url ? [lot.first_image_url] : [];
+
+      // Populate form fields
+      document.getElementById('lot-title').value    = lot.title || '';
+      document.getElementById('lot-desc').value     = lot.description || '';
+      document.getElementById('starting-bid').value = lot.starting_bid_cents ? (lot.starting_bid_cents / 100) : '';
+
+      // Pickup tier
+      var tierVal = lot.pickup_category || lot.size_category || 'B';
+      var tierRadio = document.querySelector('input[name="pickup-tier"][value="' + tierVal + '"]');
+      if (tierRadio) { tierRadio.checked = true; tierDesc.textContent = tierDescs[tierVal] || ''; }
+
+      // Switch button labels
+      var addBtn    = document.getElementById('add-lot-btn');
+      var cancelBtn = document.getElementById('cancel-edit-btn');
+      if (addBtn)    { addBtn.textContent = 'Save Changes'; addBtn.disabled = false; }
+      if (cancelBtn) cancelBtn.style.display = '';
+
+      // Show existing thumbnail as a locked preview (read-only, informational)
+      previewGrid.innerHTML = '';
+      uploadedFiles = [];
+      if (lot.first_image_url) {
+        var img = document.createElement('img');
+        img.src = lot.first_image_url;
+        img.alt = 'Existing image';
+        img.style.cssText = 'width:88px;height:88px;object-fit:cover;border-radius:8px;opacity:0.7;';
+        img.title = 'Existing image (locked) — upload new photos to add more';
+        previewGrid.appendChild(img);
+        updatePhotoCount();
+      }
+
+      // Highlight the card being edited
+      loadInventory();
+
+      // Scroll the form into view
+      document.querySelector('.studio-layout').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    function cancelEdit() {
+      var prevDraft = editingLotId; // just to signal we're cancelling
+      resetForm();
+      if (prevDraft) loadDraft(); // restore any pending new-lot draft
+      loadInventory();
+    }
+
+    // Load inventory on page init if auctionId is present
+    if (auctionId) { loadInventory(); }
   </script>
 </body>
 </html>
