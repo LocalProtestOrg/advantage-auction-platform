@@ -122,3 +122,38 @@
 - Add Redis for session/rate-limit state across multiple instances
 - Add DB read replica for reporting queries
 - Add email/SMS alerting on payment failures or server errors
+
+---
+
+## Email Infrastructure Status
+
+### Services and delivery behavior
+
+| Service | File | Delivery | Behavior when SMTP missing |
+|---|---|---|---|
+| Buyer notifications (outbid, won, payment, pickup) | `notificationService.js` | **Mock only** — logs to console, never sends | Logs to console regardless |
+| Registration confirmation | `notificationService.js` | **Mock only** | Logs to console regardless |
+| Seller operational close email | `operationalCloseEmailService.js` | Real (nodemailer) | **Throws** — admin endpoint fails |
+| Seller final PDF report | `pdfGenerationService.js` | Real (nodemailer) | **Throws** — admin endpoint returns 500 |
+| Transactional email helper | `emailService.js` | Real (nodemailer) | Gracefully skips with console.warn |
+
+### Pilot email strategy
+
+For the pilot, two behaviors are relevant:
+
+1. **Buyer notification emails are NOT sent.** `notificationService._sendEmail` is mock — outbid, won, and payment confirmation emails console.log only. Buyers will not receive automated emails during the pilot unless this is wired to `emailService.js` post-pilot.
+
+2. **Admin seller report requires SMTP.** `POST /api/admin/auctions/:id/send-final-report` calls `pdfGenerationService.sendFinalSellerReport`, which throws if `SMTP_HOST`, `SMTP_USER`, or `SMTP_PASS` is missing. Do not trigger this endpoint until SMTP is configured.
+
+### Configuring SMTP for pilot
+
+Set in `.env`:
+```
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USER=your-account@gmail.com
+SMTP_PASS=your-app-password
+EMAIL_FROM=noreply@advantageauction.bid
+```
+
+Verify SMTP is live: `GET /api/health` returns `email_configured: true` when `SMTP_HOST` and `SMTP_USER` are set.

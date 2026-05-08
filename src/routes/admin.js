@@ -179,4 +179,31 @@ router.get('/diagnostics/payments', auth, role(['admin']), async (req, res, next
   }
 });
 
+// ── GET /api/admin/diagnostics/notifications ──────────────────────────────────
+// Pilot operational visibility: notification delivery status and queue depth.
+router.get('/diagnostics/notifications', auth, role(['admin']), async (req, res, next) => {
+  try {
+    const [statusRes, queueRes, recentRes] = await Promise.all([
+      db.query(`SELECT status, COUNT(*)::int AS count FROM notifications GROUP BY status ORDER BY status`),
+      db.query(`SELECT COUNT(*)::int AS count FROM notifications_queue`),
+      db.query(`
+        SELECT id, notification_type, channel, status, sent_at, failed_reason, retry_count, created_at
+          FROM notifications
+         ORDER BY created_at DESC
+         LIMIT 10
+      `),
+    ]);
+    return res.json({
+      success: true,
+      data: {
+        by_status:            statusRes.rows,
+        queue_depth:          queueRes.rows[0].count,
+        recent_notifications: recentRes.rows,
+      },
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
 module.exports = router;

@@ -20,7 +20,7 @@ router.post('/register', async (req, res) => {
     );
     res.json({ success: true, data: { user: result.rows[0] } });
   } catch (err) {
-    console.error(err);
+    console.error('[auth] register failed:', { email, error: err.message });
     return res.status(500).json({ success: false, error: err.message });
   }
 });
@@ -44,11 +44,11 @@ router.post('/login', async (req, res) => {
     const token = jwt.sign(
       { id: user.id, role: user.role },
       process.env.JWT_SECRET,
-      { expiresIn: process.env.JWT_EXPIRES_IN || '1h' }
+      { expiresIn: process.env.JWT_EXPIRES_IN || '24h' }
     );
     res.json({ success: true, token });
   } catch (err) {
-    console.error(err);
+    console.error('[auth] login failed:', { email, error: err.message });
     return res.status(500).json({ success: false, error: err.message });
   }
 });

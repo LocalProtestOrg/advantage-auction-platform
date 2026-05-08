@@ -1,0 +1,761 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Platform Demo — Advantage Auction</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --ink:    #0f0f11;
+      --blue:   #2563eb;
+      --blue-d: #1d4ed8;
+      --gray:   #6b7280;
+      --border: #e5e7eb;
+      --bg:     #f8f9fb;
+      --card:   #ffffff;
+      --green:  #16a34a;
+      --amber:  #b45309;
+    }
+
+    body {
+      font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+      background: var(--bg);
+      color: var(--ink);
+      line-height: 1.6;
+    }
+
+    /* ── Header ─────────────────────────────────────────────────── */
+    header {
+      background: var(--ink);
+      padding: 0 1.5rem;
+      height: 56px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .brand {
+      color: #fff;
+      font-weight: 800;
+      font-size: 1rem;
+      letter-spacing: -0.01em;
+      text-decoration: none;
+    }
+    .header-nav {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+    .header-link {
+      color: #aaa;
+      font-size: 0.85rem;
+      text-decoration: none;
+      transition: color 0.15s;
+    }
+    .header-link:hover { color: #fff; }
+    .btn-sign-in {
+      background: #fff;
+      color: var(--ink);
+      font-size: 0.8rem;
+      font-weight: 700;
+      padding: 0.4rem 1rem;
+      border-radius: 6px;
+      text-decoration: none;
+      transition: background 0.15s;
+    }
+    .btn-sign-in:hover { background: #e5e7eb; }
+
+    /* ── Demo badge ──────────────────────────────────────────────── */
+    .demo-ribbon {
+      background: #1e3a8a;
+      color: #93c5fd;
+      text-align: center;
+      font-size: 0.78rem;
+      font-weight: 600;
+      padding: 0.5rem 1rem;
+      letter-spacing: 0.04em;
+    }
+
+    /* ── Hero ────────────────────────────────────────────────────── */
+    .hero {
+      text-align: center;
+      padding: 4rem 1.5rem 3rem;
+      max-width: 680px;
+      margin: 0 auto;
+    }
+    .hero-eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      font-size: 0.78rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--blue);
+      background: #eff6ff;
+      border: 1px solid #bfdbfe;
+      padding: 0.3rem 0.75rem;
+      border-radius: 99px;
+      margin-bottom: 1.25rem;
+    }
+    .hero h1 {
+      font-size: clamp(1.75rem, 5vw, 2.75rem);
+      font-weight: 800;
+      line-height: 1.15;
+      letter-spacing: -0.02em;
+      color: var(--ink);
+      margin-bottom: 1rem;
+    }
+    .hero h1 span { color: var(--blue); }
+    .hero p {
+      font-size: 1.05rem;
+      color: var(--gray);
+      max-width: 520px;
+      margin: 0 auto 1.75rem;
+    }
+    .hero-actions {
+      display: flex;
+      gap: 0.75rem;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+    .btn-primary {
+      background: var(--blue);
+      color: #fff;
+      font-size: 0.9rem;
+      font-weight: 700;
+      padding: 0.65rem 1.5rem;
+      border-radius: 8px;
+      text-decoration: none;
+      transition: background 0.15s;
+    }
+    .btn-primary:hover { background: var(--blue-d); }
+    .btn-outline {
+      background: transparent;
+      color: var(--ink);
+      font-size: 0.9rem;
+      font-weight: 600;
+      padding: 0.65rem 1.5rem;
+      border-radius: 8px;
+      border: 1.5px solid var(--border);
+      text-decoration: none;
+      transition: border-color 0.15s, background 0.15s;
+    }
+    .btn-outline:hover { border-color: #9ca3af; background: #f3f4f6; }
+
+    /* ── Section wrapper ─────────────────────────────────────────── */
+    .section {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 0 1.5rem 4rem;
+    }
+    .section-label {
+      font-size: 0.75rem;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--blue);
+      margin-bottom: 0.5rem;
+    }
+    .section-title {
+      font-size: 1.6rem;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      margin-bottom: 0.5rem;
+    }
+    .section-sub {
+      font-size: 0.95rem;
+      color: var(--gray);
+      margin-bottom: 2rem;
+    }
+
+    /* ── Credentials grid ────────────────────────────────────────── */
+    .creds-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1.25rem;
+    }
+    @media (max-width: 620px) {
+      .creds-grid { grid-template-columns: 1fr; }
+    }
+
+    .cred-card {
+      background: var(--card);
+      border: 1.5px solid var(--border);
+      border-radius: 14px;
+      padding: 1.75rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+      transition: box-shadow 0.15s;
+    }
+    .cred-card:hover { box-shadow: 0 4px 20px rgba(0,0,0,0.08); }
+
+    .cred-type {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      font-size: 0.7rem;
+      font-weight: 800;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      padding: 0.25rem 0.65rem;
+      border-radius: 6px;
+      width: fit-content;
+    }
+    .cred-type.buyer  { background: #eff6ff; color: var(--blue); border: 1px solid #bfdbfe; }
+    .cred-type.seller { background: #f0fdf4; color: var(--green); border: 1px solid #86efac; }
+
+    .cred-title {
+      font-size: 1.1rem;
+      font-weight: 800;
+      margin: 0;
+    }
+    .cred-desc {
+      font-size: 0.875rem;
+      color: var(--gray);
+      line-height: 1.5;
+    }
+
+    .cred-fields {
+      display: flex;
+      flex-direction: column;
+      gap: 0.6rem;
+    }
+    .cred-field {
+      background: #f9fafb;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 0.65rem 0.9rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.5rem;
+    }
+    .cred-field-left { min-width: 0; flex: 1; }
+    .cred-field label {
+      display: block;
+      font-size: 0.68rem;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: #9ca3af;
+      margin-bottom: 0.1rem;
+    }
+    .cred-value {
+      font-size: 0.88rem;
+      font-weight: 600;
+      color: var(--ink);
+      font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', Consolas, monospace;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .copy-btn {
+      background: #f3f4f6;
+      border: 1px solid var(--border);
+      border-radius: 5px;
+      padding: 0.25rem 0.6rem;
+      font-size: 0.72rem;
+      font-weight: 600;
+      color: var(--gray);
+      cursor: pointer;
+      white-space: nowrap;
+      transition: background 0.1s, color 0.1s;
+      flex-shrink: 0;
+    }
+    .copy-btn:hover { background: #e5e7eb; color: var(--ink); }
+    .copy-btn.copied { background: #dcfce7; color: var(--green); border-color: #86efac; }
+
+    .cred-explore {
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--gray);
+      margin-bottom: 0.15rem;
+    }
+    .cred-bullets {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 0.3rem;
+    }
+    .cred-bullets li {
+      font-size: 0.82rem;
+      color: #374151;
+      display: flex;
+      align-items: flex-start;
+      gap: 0.4rem;
+    }
+    .cred-bullets li::before {
+      content: '→';
+      color: var(--blue);
+      font-size: 0.75rem;
+      margin-top: 0.05rem;
+      flex-shrink: 0;
+    }
+
+    .cred-cta {
+      display: block;
+      text-align: center;
+      background: var(--ink);
+      color: #fff;
+      font-size: 0.85rem;
+      font-weight: 700;
+      padding: 0.65rem 1rem;
+      border-radius: 8px;
+      text-decoration: none;
+      transition: background 0.15s;
+      margin-top: auto;
+    }
+    .cred-cta:hover { background: #1f2937; }
+    .cred-cta.seller-cta { background: var(--green); }
+    .cred-cta.seller-cta:hover { background: #15803d; }
+
+    /* ── Divider ─────────────────────────────────────────────────── */
+    .divider {
+      height: 1px;
+      background: var(--border);
+      max-width: 900px;
+      margin: 0 auto 4rem;
+    }
+
+    /* ── Platform walkthrough ────────────────────────────────────── */
+    .walkthrough-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 1rem;
+    }
+    .wt-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1.4rem 1.25rem;
+    }
+    .wt-icon {
+      font-size: 1.6rem;
+      margin-bottom: 0.75rem;
+      display: block;
+    }
+    .wt-title {
+      font-size: 0.9rem;
+      font-weight: 700;
+      margin-bottom: 0.4rem;
+      color: var(--ink);
+    }
+    .wt-desc {
+      font-size: 0.8rem;
+      color: var(--gray);
+      line-height: 1.5;
+    }
+
+    /* ── Preview strip ───────────────────────────────────────────── */
+    .preview-strip {
+      background: var(--ink);
+      padding: 3rem 1.5rem;
+    }
+    .preview-inner {
+      max-width: 900px;
+      margin: 0 auto;
+    }
+    .preview-inner .section-label { color: #60a5fa; }
+    .preview-inner .section-title { color: #fff; margin-bottom: 0.5rem; }
+    .preview-inner .section-sub   { color: #9ca3af; margin-bottom: 2rem; }
+
+    .preview-cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+      gap: 1rem;
+    }
+    .preview-card {
+      background: #1a1c20;
+      border: 1px solid #374151;
+      border-radius: 12px;
+      overflow: hidden;
+    }
+    .preview-img {
+      width: 100%;
+      aspect-ratio: 4/3;
+      object-fit: cover;
+      display: block;
+      background: #2d2f36;
+    }
+    .preview-body {
+      padding: 1rem 1.1rem;
+    }
+    .preview-lot-num {
+      font-size: 0.68rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #6b7280;
+      margin-bottom: 0.25rem;
+    }
+    .preview-title {
+      font-size: 0.9rem;
+      font-weight: 700;
+      color: #f3f4f6;
+      margin-bottom: 0.5rem;
+      line-height: 1.3;
+    }
+    .preview-price {
+      font-size: 1.1rem;
+      font-weight: 800;
+      color: #fff;
+    }
+    .preview-status {
+      display: inline-block;
+      font-size: 0.68rem;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      padding: 0.2rem 0.55rem;
+      border-radius: 4px;
+      background: #064e3b;
+      color: #6ee7b7;
+      margin-top: 0.4rem;
+    }
+
+    /* ── CTA section ─────────────────────────────────────────────── */
+    .cta-section {
+      padding: 4rem 1.5rem;
+    }
+    .cta-card {
+      max-width: 640px;
+      margin: 0 auto;
+      background: linear-gradient(135deg, #1e40af 0%, #1d4ed8 50%, #2563eb 100%);
+      border-radius: 20px;
+      padding: 3rem 2.5rem;
+      text-align: center;
+      color: #fff;
+    }
+    .cta-card h2 {
+      font-size: 1.75rem;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      margin-bottom: 0.6rem;
+    }
+    .cta-card p {
+      font-size: 0.95rem;
+      color: #bfdbfe;
+      margin-bottom: 2rem;
+    }
+    .cta-buttons {
+      display: flex;
+      gap: 0.75rem;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+    .btn-cta-primary {
+      background: #fff;
+      color: #1e40af;
+      font-size: 0.9rem;
+      font-weight: 800;
+      padding: 0.7rem 1.6rem;
+      border-radius: 8px;
+      text-decoration: none;
+      transition: background 0.15s, transform 0.1s;
+    }
+    .btn-cta-primary:hover { background: #eff6ff; transform: translateY(-1px); }
+    .btn-cta-secondary {
+      background: transparent;
+      color: #bfdbfe;
+      font-size: 0.9rem;
+      font-weight: 600;
+      padding: 0.7rem 1.6rem;
+      border-radius: 8px;
+      border: 1.5px solid rgba(255,255,255,0.3);
+      text-decoration: none;
+      transition: border-color 0.15s, color 0.15s;
+    }
+    .btn-cta-secondary:hover { border-color: rgba(255,255,255,0.7); color: #fff; }
+
+    /* ── Footer ──────────────────────────────────────────────────── */
+    footer {
+      background: var(--ink);
+      color: #6b7280;
+      text-align: center;
+      font-size: 0.8rem;
+      padding: 1.5rem;
+    }
+    footer a { color: #9ca3af; text-decoration: none; }
+    footer a:hover { color: #fff; }
+
+    /* ── Responsive ──────────────────────────────────────────────── */
+    @media (max-width: 480px) {
+      .hero { padding: 2.5rem 1rem 2rem; }
+      .cta-card { padding: 2rem 1.25rem; }
+      .cta-card h2 { font-size: 1.35rem; }
+      .section { padding-bottom: 2.5rem; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Header -->
+  <header>
+    <a href="/" class="brand">Advantage Auction</a>
+    <nav class="header-nav">
+      <a href="https://www.advantage.bid" class="header-link" target="_blank" rel="noopener">Marketing Site</a>
+      <a href="/login.html" class="btn-sign-in">Sign In</a>
+    </nav>
+  </header>
+
+  <!-- Demo ribbon -->
+  <div class="demo-ribbon">
+    DEMO ENVIRONMENT &nbsp;·&nbsp; This is a controlled pilot showcase. All data is for demonstration purposes only.
+  </div>
+
+  <!-- Hero -->
+  <section class="hero">
+    <div class="hero-eyebrow">
+      <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><circle cx="6" cy="6" r="5" stroke="currentColor" stroke-width="1.5"/><circle cx="6" cy="6" r="2" fill="currentColor"/></svg>
+      Live Platform Demo
+    </div>
+    <h1>The auction platform built for <span>serious sellers</span></h1>
+    <p>Explore the full Advantage Auction experience — from listing lots to buyer checkout, invoicing, and seller reporting.</p>
+    <div class="hero-actions">
+      <a href="#access" class="btn-primary">Access the Demo</a>
+      <a href="#features" class="btn-outline">See What's Inside</a>
+    </div>
+  </section>
+
+  <!-- Demo credentials -->
+  <section class="section" id="access">
+    <div class="section-label">Platform Access</div>
+    <div class="section-title">Two roles. One demo environment.</div>
+    <div class="section-sub">Log in as a buyer or seller to explore the full platform. Both accounts have real auction history, invoices, and dashboard data ready to explore.</div>
+
+    <div class="creds-grid">
+
+      <!-- Buyer card -->
+      <div class="cred-card">
+        <div class="cred-type buyer">Buyer Account</div>
+        <div class="cred-title">Explore Purchases &amp; Invoices</div>
+        <div class="cred-desc">See how buyers browse lots, track their bids, and manage purchases — including real invoice history with paid and pending states.</div>
+
+        <div class="cred-fields">
+          <div class="cred-field">
+            <div class="cred-field-left">
+              <label>Email</label>
+              <div class="cred-value" id="buyer-email">demo-buyer@advantage.bid</div>
+            </div>
+            <button class="copy-btn" onclick="copyField('buyer-email', this)">Copy</button>
+          </div>
+          <div class="cred-field">
+            <div class="cred-field-left">
+              <label>Password</label>
+              <div class="cred-value" id="buyer-pass">DemoExplore2025!</div>
+            </div>
+            <button class="copy-btn" onclick="copyField('buyer-pass', this)">Copy</button>
+          </div>
+        </div>
+
+        <div>
+          <div class="cred-explore">What you'll find:</div>
+          <ul class="cred-bullets">
+            <li>Purchase history across 3 closed auctions</li>
+            <li>2 paid invoices (jewelry, bracelet)</li>
+            <li>1 outstanding invoice (lounge chair — $1,850)</li>
+            <li>Real lot images and descriptions</li>
+            <li>Mobile-responsive buyer experience</li>
+          </ul>
+        </div>
+
+        <a href="/login.html" class="cred-cta">Sign In as Buyer →</a>
+      </div>
+
+      <!-- Seller card -->
+      <div class="cred-card">
+        <div class="cred-type seller">Seller Account</div>
+        <div class="cred-title">Explore Auction Management</div>
+        <div class="cred-desc">See the full seller workflow — managing auction listings, viewing lot performance, and reviewing a closed auction's results and buyer activity.</div>
+
+        <div class="cred-fields">
+          <div class="cred-field">
+            <div class="cred-field-left">
+              <label>Email</label>
+              <div class="cred-value" id="seller-email">demo-seller@advantage.bid</div>
+            </div>
+            <button class="copy-btn" onclick="copyField('seller-email', this)">Copy</button>
+          </div>
+          <div class="cred-field">
+            <div class="cred-field-left">
+              <label>Password</label>
+              <div class="cred-value" id="seller-pass">DemoExplore2025!</div>
+            </div>
+            <button class="copy-btn" onclick="copyField('seller-pass', this)">Copy</button>
+          </div>
+        </div>
+
+        <div>
+          <div class="cred-explore">What you'll find:</div>
+          <ul class="cred-bullets">
+            <li>3 closed auctions across different categories</li>
+            <li>9 lots with real images and bidding history</li>
+            <li>Inline add/edit lot management</li>
+            <li>Auction state tracking (draft → closed)</li>
+            <li>Mobile-responsive seller dashboard</li>
+          </ul>
+        </div>
+
+        <a href="/login.html" class="cred-cta seller-cta">Sign In as Seller →</a>
+      </div>
+
+    </div>
+  </section>
+
+  <div class="divider"></div>
+
+  <!-- Platform features -->
+  <section class="section" id="features">
+    <div class="section-label">Platform Capabilities</div>
+    <div class="section-title">Everything a real auction needs</div>
+    <div class="section-sub">Built from the ground up for professional auction operations — not adapted from a generic marketplace template.</div>
+
+    <div class="walkthrough-grid">
+      <div class="wt-card">
+        <span class="wt-icon">🏷️</span>
+        <div class="wt-title">Proxy Bidding</div>
+        <div class="wt-desc">Auto-increment bids up to a max. Transparent price resolution with anti-snipe lot extensions.</div>
+      </div>
+      <div class="wt-card">
+        <span class="wt-icon">🛡️</span>
+        <div class="wt-title">Anti-Snipe Protection</div>
+        <div class="wt-desc">Bids placed in the final 2 minutes automatically extend the lot close time — fair for all bidders.</div>
+      </div>
+      <div class="wt-card">
+        <span class="wt-icon">📋</span>
+        <div class="wt-title">Seller Dashboard</div>
+        <div class="wt-desc">Manage all your lots from a single view. Add, edit, and organize without leaving the page.</div>
+      </div>
+      <div class="wt-card">
+        <span class="wt-icon">💳</span>
+        <div class="wt-title">Stripe Checkout</div>
+        <div class="wt-desc">Integrated card payments with automatic invoice generation for every winning bid.</div>
+      </div>
+      <div class="wt-card">
+        <span class="wt-icon">📄</span>
+        <div class="wt-title">Printable Invoices</div>
+        <div class="wt-desc">Professional PDF-ready invoices for every purchase. Accessible anytime from the buyer dashboard.</div>
+      </div>
+      <div class="wt-card">
+        <span class="wt-icon">📱</span>
+        <div class="wt-title">Mobile-First Design</div>
+        <div class="wt-desc">Bidders and sellers can manage everything on any device — phone, tablet, or desktop.</div>
+      </div>
+      <div class="wt-card">
+        <span class="wt-icon">🔒</span>
+        <div class="wt-title">Paddle Anonymity</div>
+        <div class="wt-desc">Buyer identity is protected during bidding. Full address revealed only after verified payment.</div>
+      </div>
+      <div class="wt-card">
+        <span class="wt-icon">📊</span>
+        <div class="wt-title">Operational Reports</div>
+        <div class="wt-desc">Admin sees auction state, payment totals, and lot-level performance at a glance.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Preview strip — sample lots -->
+  <div class="preview-strip">
+    <div class="preview-inner">
+      <div class="section-label">Live Demo Data</div>
+      <div class="section-title">Sample lots from the demo auctions</div>
+      <div class="section-sub">These are real closed lots visible in the platform — with actual images, descriptions, and winning bids.</div>
+
+      <div class="preview-cards">
+        <div class="preview-card">
+          <img
+            class="preview-img"
+            src="https://images.unsplash.com/photo-1535632066927-ab7c9ab60908?w=600&h=450&fit=crop&q=80"
+            alt="14K Gold & Diamond Pendant Necklace"
+            loading="lazy"
+          />
+          <div class="preview-body">
+            <div class="preview-lot-num">Lot 1 · Estate Jewelry Collection</div>
+            <div class="preview-title">14K Gold &amp; Diamond Pendant Necklace</div>
+            <div class="preview-price">$875.00</div>
+            <div class="preview-status">Sold</div>
+          </div>
+        </div>
+
+        <div class="preview-card">
+          <img
+            class="preview-img"
+            src="https://images.unsplash.com/photo-1586023492125-27b2c045efd7?w=600&h=450&fit=crop&q=80"
+            alt="Eames-Era Lounge Chair & Ottoman"
+            loading="lazy"
+          />
+          <div class="preview-body">
+            <div class="preview-lot-num">Lot 1 · Mid-Century Modern</div>
+            <div class="preview-title">Eames-Era Lounge Chair &amp; Ottoman</div>
+            <div class="preview-price">$1,850.00</div>
+            <div class="preview-status">Sold</div>
+          </div>
+        </div>
+
+        <div class="preview-card">
+          <img
+            class="preview-img"
+            src="https://images.unsplash.com/photo-1461360228754-6e81c478b882?w=600&h=450&fit=crop&q=80"
+            alt="Leica M6 35mm Film Camera"
+            loading="lazy"
+          />
+          <div class="preview-body">
+            <div class="preview-lot-num">Lot 1 · Vintage Electronics</div>
+            <div class="preview-title">Leica M6 35mm Film Camera with 50mm Lens</div>
+            <div class="preview-price">Starting $100.00</div>
+            <div class="preview-status" style="background:#1c1917;color:#a8a29e;">Unsold</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CTA section -->
+  <section class="cta-section">
+    <div class="cta-card">
+      <h2>Ready to list your auction?</h2>
+      <p>Pilot access is limited to select sellers. Join now and run your first auction on the platform.</p>
+      <div class="cta-buttons">
+        <a href="https://calendly.com/advantageauction" class="btn-cta-primary" target="_blank" rel="noopener">Schedule a Demo</a>
+        <a href="mailto:advantageauction.bid@gmail.com?subject=Early%20Access%20Request&body=Hi%2C%0A%0AI%27d%20like%20to%20request%20early%20access%20to%20Advantage%20Auction.%0A%0AName%3A%0AAuction%20type%3A%0AExpected%20volume%3A%0A" class="btn-cta-secondary">Request Early Access</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer>
+    <p>Advantage Auction &nbsp;·&nbsp; Demo Environment &nbsp;·&nbsp; <a href="mailto:advantageauction.bid@gmail.com">advantageauction.bid@gmail.com</a></p>
+  </footer>
+
+  <script>
+    function copyField(id, btn) {
+      const text = document.getElementById(id).textContent.trim();
+      navigator.clipboard.writeText(text).then(() => {
+        btn.textContent = 'Copied!';
+        btn.classList.add('copied');
+        setTimeout(() => {
+          btn.textContent = 'Copy';
+          btn.classList.remove('copied');
+        }, 2000);
+      });
+    }
+
+    // Smooth scroll for anchor links
+    document.querySelectorAll('a[href^="#"]').forEach(a => {
+      a.addEventListener('click', e => {
+        const target = document.querySelector(a.getAttribute('href'));
+        if (target) {
+          e.preventDefault();
+          target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      });
+    });
+  </script>
+</body>
+</html>

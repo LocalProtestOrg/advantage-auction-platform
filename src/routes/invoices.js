@@ -12,7 +12,9 @@ async function fetchInvoicesForBuyer(buyerId) {
               i.created_at,
               i.status,
               l.title AS lot_title,
-              '/images/fallback.jpg' AS lot_image_url
+              (SELECT image_url FROM lot_images
+                WHERE lot_id = l.id
+                ORDER BY sort_order ASC LIMIT 1) AS lot_image_url
          FROM invoices i
          LEFT JOIN lots l ON l.id = i.lot_id
         WHERE i.buyer_user_id = $1
