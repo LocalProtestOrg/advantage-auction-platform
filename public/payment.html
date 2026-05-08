@@ -190,7 +190,6 @@
     // ── Read URL params ────────────────────────────────────────────────────────
     const params       = new URLSearchParams(location.search);
     const clientSecret = params.get('client_secret');
-    const pubKey       = params.get('pk') || 'pk_test_REPLACE_WITH_YOUR_PUBLISHABLE_KEY';
     const amountCents  = parseInt(params.get('amount') || '0', 10);
     const lotId        = params.get('lot_id') || '';
 
@@ -203,13 +202,31 @@
       document.getElementById('display-lot').textContent = 'Lot ' + lotId.slice(0, 8) + '…';
     }
 
-    // ── Guard: client_secret required ─────────────────────────────────────────
-    if (!clientSecret) {
-      document.getElementById('payment-form').innerHTML =
-        '<p class="no-secret">Missing <code>client_secret</code> in URL.<br>Return to the auction and try again.</p>';
-    } else {
+    // ── Bootstrap ─────────────────────────────────────────────────────────────
+    async function initPayment() {
+      if (!clientSecret) {
+        document.getElementById('payment-form').innerHTML =
+          '<p class="no-secret">Missing payment details. Return to the auction and try again.</p>';
+        return;
+      }
+
+      // Prefer pk from URL (set by lot.html); fall back to server config
+      let pubKey = params.get('pk');
+      if (!pubKey) {
+        try {
+          const cfg = await fetch('/api/payments/config').then(r => r.json());
+          pubKey = cfg.publishableKey;
+        } catch { /* fall through to error below */ }
+      }
+
+      if (!pubKey) {
+        document.getElementById('payment-form').innerHTML =
+          '<p class="no-secret">Payment configuration unavailable. Contact support.</p>';
+        return;
+      }
+
       // ── Init Stripe Elements ───────────────────────────────────────────────
-      const stripe  = Stripe(pubKey);
+      const stripe   = Stripe(pubKey);
       const elements = stripe.elements();
 
       const card = elements.create('card', {
@@ -256,6 +273,8 @@
         }
       });
     }
+
+    initPayment();
 
     function setLoading(on) {
       const btn     = document.getElementById('pay-btn');

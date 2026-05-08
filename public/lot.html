@@ -339,6 +339,21 @@
       color: #4ade80;
       margin-top: 0.25rem;
     }
+    #pay-btn {
+      display: none;
+      margin-top: 0.85rem;
+      width: 100%;
+      padding: 0.7rem;
+      background: #15803d;
+      color: #fff;
+      font-size: 0.9rem;
+      font-weight: 700;
+      border: none;
+      border-radius: 7px;
+      cursor: pointer;
+    }
+    #pay-btn:hover:not(:disabled) { background: #166534; }
+    #pay-btn:disabled { opacity: 0.55; cursor: not-allowed; }
   </style>
 </head>
 <body>
@@ -387,6 +402,7 @@
         <div class="w-label">Winning Bid</div>
         <div class="w-amount" id="winner-amount"></div>
         <div class="w-note">This lot has closed.</div>
+        <button id="pay-btn">Pay Now</button>
       </div>
 
       <div id="closed-banner">Auction ended — bidding is closed</div>
@@ -432,6 +448,12 @@
   if (!token)  location.href = '/login.html';
   if (!lotId)  document.getElementById('loading-overlay').textContent = 'No lot ID in URL.';
 
+  function _decodeJwt(tok) {
+    try { return JSON.parse(atob(tok.split('.')[1].replace(/-/g, '+').replace(/_/g, '/'))); }
+    catch { return null; }
+  }
+  const currentUserId = _decodeJwt(token)?.id || null;
+
   const REFRESH_INTERVAL = 3000;  // ms
   const BID_INCREMENT    = 5;     // dollars
 
@@ -442,6 +464,7 @@
   let countdownTimer  = null;
   let lotClosed       = false;  // set true once lot status is non-active
   let currentClosesAt = null;   // ISO string, updated when anti-snipe extends the lot
+  let currentAuctionId = null;  // set in renderLot, needed for charge-lot
 
   // ── Initial load ─────────────────────────────────────────────────────────────
   async function load() {
@@ -490,7 +513,7 @@
           if (st === 'closed' || st === 'withdrawn') {
             lotClosed = true;
             applyClosedState();
-            if (ld.winning_amount_cents) renderWinnerPanel(ld.winning_amount_cents);
+            if (ld.winning_amount_cents) renderWinnerPanel(ld);
           } else if (ld.closes_at && ld.closes_at !== currentClosesAt) {
             // Anti-snipe extended the deadline — restart countdown with new time
             startCountdown(ld.closes_at);
@@ -566,13 +589,17 @@
   }
 
   // ── Winner panel ──────────────────────────────────────────────────────────────
-  function renderWinnerPanel(cents) {
-    document.getElementById('winner-amount').textContent = '$' + (cents / 100).toFixed(2);
+  function renderWinnerPanel(lot) {
+    document.getElementById('winner-amount').textContent = '$' + (lot.winning_amount_cents / 100).toFixed(2);
     document.getElementById('winner-panel').style.display = 'block';
+    if (lot.winning_buyer_user_id && lot.winning_buyer_user_id === currentUserId) {
+      document.getElementById('pay-btn').style.display = 'block';
+    }
   }
 
   // ── Render lot metadata ───────────────────────────────────────────────────────
   function renderLot(lot) {
+    currentAuctionId = lot.auction_id;
     document.title = lot.title + ' — Advantage Auction';
     document.getElementById('lot-title').textContent       = lot.title       || '';
     document.getElementById('lot-category').textContent    = lot.size_category || '';
@@ -583,7 +610,7 @@
     if (st === 'closed' || st === 'withdrawn') {
       lotClosed = true;
       applyClosedState();
-      if (lot.winning_amount_cents) renderWinnerPanel(lot.winning_amount_cents);
+      if (lot.winning_amount_cents) renderWinnerPanel(lot);
     } else if (st === 'open' && lot.closes_at) {
       currentClosesAt = lot.closes_at;
       startCountdown(lot.closes_at);
@@ -774,6 +801,40 @@
 
   document.getElementById('bid-input').addEventListener('keydown', e => {
     if (e.key === 'Enter') document.getElementById('btn-bid').click();
+  });
+
+  // ── Pay Now ──────────────────────────────────────────────────────────────────
+  document.getElementById('pay-btn').addEventListener('click', async () => {
+    if (!currentAuctionId) return;
+    const btn = document.getElementById('pay-btn');
+    btn.disabled = true;
+    btn.textContent = 'Please wait…';
+    try {
+      const [cfg, intentRes] = await Promise.all([
+        fetch('/api/payments/config').then(r => r.json()).catch(() => ({})),
+        fetch('/api/payments/charge-lot', {
+          method:  'POST',
+          headers: {
+            'Content-Type':    'application/json',
+            'Authorization':   'Bearer ' + token,
+            'Idempotency-Key': 'pay-' + lotId + '-' + currentUserId,
+          },
+          body: JSON.stringify({ auction_id: currentAuctionId, lot_id: lotId }),
+        }).then(r => r.json()),
+      ]);
+      if (!intentRes.success) throw new Error(intentRes.message || 'Payment initiation failed');
+      const qs = new URLSearchParams({
+        client_secret: intentRes.data.client_secret,
+        amount:        intentRes.data.amount_cents,
+        lot_id:        lotId,
+      });
+      if (cfg.publishableKey) qs.set('pk', cfg.publishableKey);
+      window.location.href = '/payment.html?' + qs.toString();
+    } catch (err) {
+      setStatus(err.message, 'err');
+      btn.disabled = false;
+      btn.textContent = 'Pay Now';
+    }
   });
 
   function setStatus(msg, type) {

@@ -9,6 +9,11 @@ const idempotency = require('../middleware/idempotency');
 const paymentService = require('../services/paymentService');
 const Stripe = require('stripe');
 
+// GET /api/payments/config — returns Stripe publishable key for frontend use
+router.get('/config', (req, res) => {
+  res.json({ publishableKey: process.env.STRIPE_PUBLISHABLE_KEY || '' });
+});
+
 // POST /api/payments/charge-lot
 router.post('/charge-lot', strictLimiter, auth, role(['buyer', 'admin']), idempotency, async (req, res) => {
   if (!req.headers['idempotency-key']) {
