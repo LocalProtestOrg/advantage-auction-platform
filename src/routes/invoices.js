@@ -4,9 +4,7 @@ const db = require('../db');
 const auth = require('../middleware/authMiddleware');
 
 async function fetchInvoicesForBuyer(buyerId) {
-  console.log('[invoices] buyerId:', buyerId);
   try {
-    console.log('[invoices] running query');
     const { rows } = await db.query(
       `SELECT i.id,
               i.amount_cents,
@@ -21,10 +19,9 @@ async function fetchInvoicesForBuyer(buyerId) {
         ORDER BY i.created_at DESC`,
       [buyerId]
     );
-    console.log('[invoices] rows returned:', rows.length);
     return rows;
   } catch (err) {
-    console.error('[invoices] FULL ERROR:', err);
+    console.error('[invoices] fetchInvoicesForBuyer failed:', { buyerId, error: err.message });
     throw err;
   }
 }

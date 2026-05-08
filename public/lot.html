@@ -476,6 +476,13 @@
         fetch('/api/lots/' + lotId + '/images'),
         fetch('/api/lots/' + lotId + '/bids', { headers })
       ]);
+
+      if (lotRes.status === 401 || bidRes.status === 401) {
+        localStorage.removeItem('token');
+        window.location.href = '/login.html';
+        return;
+      }
+
       const [lotData, imgData, bidData] = await Promise.all([
         lotRes.json(), imgRes.json(), bidRes.json()
       ]);
@@ -501,11 +508,13 @@
       if (lotClosed || bidding) return;
       try {
         const res  = await fetch('/api/lots/' + lotId + '/bids', { headers: { Authorization: 'Bearer ' + token } });
+        if (res.status === 401) { stopRefresh(); localStorage.removeItem('token'); window.location.href = '/login.html'; return; }
         const data = await res.json();
         if (data.success) renderBids(data.data, true);
 
         // Also re-check lot status so we catch close transitions and anti-snipe extensions
         const lotRes  = await fetch('/api/lots/' + lotId, { headers: { Authorization: 'Bearer ' + token } });
+        if (lotRes.status === 401) { stopRefresh(); localStorage.removeItem('token'); window.location.href = '/login.html'; return; }
         const lotData = await lotRes.json();
         if (lotData.success && lotData.data) {
           const ld = lotData.data;

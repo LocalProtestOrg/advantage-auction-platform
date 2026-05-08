@@ -23,8 +23,10 @@ router.post('/charge-lot', strictLimiter, auth, role(['buyer', 'admin']), idempo
   const { auction_id, lot_id } = req.body;
   try {
     const result = await paymentService.createPaymentIntent(req.user.id, auction_id, lot_id);
+    console.log('[payments] payment intent created:', { userId: req.user.id, lotId: lot_id, auctionId: auction_id });
     return res.status(200).json({ success: true, data: result });
   } catch (err) {
+    console.error('[payments] charge-lot failed:', { userId: req.user.id, lotId: lot_id, auctionId: auction_id, error: err.message });
     return res.status(400).json({ success: false, message: err.message });
   }
 });

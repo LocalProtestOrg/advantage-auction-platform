@@ -5,6 +5,7 @@ const http = require('http');
 const { Server } = require('socket.io');
 const db = require('./src/db');
 const authMiddleware = require('./src/middleware/authMiddleware');
+const logger = require('./src/middleware/logger');
 
 console.log('DB:', process.env.DATABASE_URL?.includes('neon') ? 'NEON' : 'LOCAL');
 
@@ -22,15 +23,8 @@ const io = new Server(server, {
 
 // ── Socket.IO — auction rooms ─────────────────────────────────────────────────
 io.on('connection', (socket) => {
-  console.log(`[ws] connected: ${socket.id}`);
-
   socket.on('joinAuction', (auctionId) => {
     socket.join(`auction:${auctionId}`);
-    console.log(`[ws] ${socket.id} joined auction:${auctionId}`);
-  });
-
-  socket.on('disconnect', () => {
-    console.log(`[ws] disconnected: ${socket.id}`);
   });
 });
 
@@ -51,11 +45,8 @@ app.options('/{*path}', (req, res) => {
 // Static frontend — must be before routes and 404 handler
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Logging
-app.use((req, res, next) => {
-  console.log(`[${new Date().toISOString()}] ${req.method} ${req.path}`);
-  next();
-});
+// Logging — logs method, path, status, duration on response finish
+app.use(logger);
 
 // JSON body parsing — skip the Stripe webhook path so it receives the raw buffer
 // required for signature verification.

@@ -46,7 +46,7 @@ router.post('/', authMiddleware, async (req, res) => {
 
     return res.status(201).json({ success: true, data: auction });
   } catch (err) {
-    console.error('Create Auction Error:', err);
+    console.error('[auctions] createAuction failed:', { userId: req.user.id, error: err.message });
     return res.status(500).json({ success: false, message: err.message });
   }
 });
@@ -57,7 +57,7 @@ router.get('/my', authMiddleware, async (req, res) => {
     const auctions = await auctionService.getSellerAuctions(req.user.id);
     return res.json({ success: true, data: auctions });
   } catch (err) {
-    console.error('Get Seller Auctions Error:', err);
+    console.error('[auctions] getSellerAuctions failed:', { userId: req.user.id, error: err.message });
     return res.status(500).json({ success: false, message: err.message });
   }
 });

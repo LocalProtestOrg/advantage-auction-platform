@@ -390,7 +390,14 @@ if (!token) window.location.href = '/login.html';
 
 const api = (path, opts = {}) =>
   fetch(path, { headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json', ...opts.headers }, ...opts })
-    .then(r => r.json());
+    .then(r => {
+      if (r.status === 401) {
+        localStorage.removeItem('token');
+        window.location.href = '/login.html';
+        throw new Error('Session expired');
+      }
+      return r.json();
+    });
 
 // ── State ────────────────────────────────────────────────────────────────────
 let sellerProfileId = null;

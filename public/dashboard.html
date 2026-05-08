@@ -239,6 +239,9 @@
         const res = await fetch(`${API}/api/me/invoices`, {
           headers: { Authorization: `Bearer ${token}` }
         });
+
+        if (res.status === 401) { logout(); return; }
+
         const data = await res.json();
 
         if (!res.ok) {
