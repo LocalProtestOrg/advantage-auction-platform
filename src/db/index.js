@@ -14,12 +14,8 @@ const pool = process.env.DATABASE_URL
       password: String(process.env.DB_PASSWORD || ''),
     });
 
-pool.on('connect', () => {
-  console.log('PostgreSQL connected');
-});
-
 pool.on('error', (err) => {
-  console.error('Unexpected DB error', err);
+  console.error('[db] Unexpected pool error:', err.message);
 });
 
 module.exports = {

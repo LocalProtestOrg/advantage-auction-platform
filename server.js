@@ -3,11 +3,32 @@ const express = require('express');
 const path = require('path');
 const http = require('http');
 const { Server } = require('socket.io');
-const db = require('./src/db');
+const db   = require('./src/db');
 const authMiddleware = require('./src/middleware/authMiddleware');
 const logger = require('./src/middleware/logger');
+const log  = require('./src/lib/logger');
 
-console.log('DB:', process.env.DATABASE_URL?.includes('neon') ? 'NEON' : 'LOCAL');
+// ── Startup: env validation ───────────────────────────────────────────────────
+const REQUIRED_ENV = ['JWT_SECRET', 'DATABASE_URL'];
+const WARN_ENV     = ['STRIPE_SECRET_KEY', 'STRIPE_PUBLISHABLE_KEY', 'STRIPE_WEBHOOK_SECRET'];
+
+const missingRequired = REQUIRED_ENV.filter(k => !process.env[k]);
+if (missingRequired.length) {
+  console.error(`[startup] FATAL — missing required env vars: ${missingRequired.join(', ')}`);
+  process.exit(1);
+}
+const missingWarn = WARN_ENV.filter(k => !process.env[k]);
+if (missingWarn.length) {
+  log.warn('startup', 'missing optional env vars — some features may be unavailable', { missing: missingWarn });
+}
+
+const stripeMode = process.env.STRIPE_SECRET_KEY?.startsWith('sk_test_') ? 'TEST'
+  : process.env.STRIPE_SECRET_KEY ? 'LIVE' : 'NOT_SET';
+log.info('startup', 'Advantage Auction Platform', {
+  env:    process.env.NODE_ENV || 'development',
+  db:     process.env.DATABASE_URL?.includes('neon') ? 'NEON' : 'LOCAL',
+  stripe: stripeMode,
+});
 
 const app = express();
 const server = http.createServer(app);
@@ -129,6 +150,27 @@ app.get('/api/me/invoices', authMiddleware, async (req, res) => {
   }
 });
 
+// ── Health check ──────────────────────────────────────────────────────────────
+app.get('/api/health', async (req, res) => {
+  let dbReachable = false;
+  try { await db.query('SELECT 1'); dbReachable = true; } catch { /* db down */ }
+
+  const healthy = dbReachable;
+  const stripeMode = process.env.STRIPE_SECRET_KEY?.startsWith('sk_test_') ? 'test'
+    : process.env.STRIPE_SECRET_KEY ? 'live' : 'not_set';
+
+  return res.status(healthy ? 200 : 503).json({
+    status:            healthy ? 'ok' : 'degraded',
+    env:               process.env.NODE_ENV || 'development',
+    uptime_seconds:    Math.floor(process.uptime()),
+    started_at:        log.startedAt,
+    db_reachable:      dbReachable,
+    stripe_configured: !!(process.env.STRIPE_SECRET_KEY && process.env.STRIPE_PUBLISHABLE_KEY),
+    stripe_mode:       stripeMode,
+    email_configured:  !!(process.env.SMTP_HOST && process.env.SMTP_USER),
+  });
+});
+
 // 404
 app.use((req, res) => {
   res.status(404).json({ error: 'Route not found' });
@@ -153,5 +195,5 @@ server.on('error', (err) => {
 });
 
 server.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+  log.info('startup', `server listening on port ${PORT}`);
 });

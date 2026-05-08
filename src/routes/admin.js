@@ -7,6 +7,7 @@ const idempotency = require('../middleware/idempotency');
 const auctionService = require('../services/auctionService');
 const paymentService = require('../services/paymentService');
 const { sendFinalSellerReport } = require('../services/pdfGenerationService');
+const db = require('../db');
 
 // PATCH /api/admin/auctions/:auctionId
 router.patch('/auctions/:auctionId', auth, role(['admin']), idempotency, (req, res) => {
@@ -117,6 +118,63 @@ router.post('/payments/:paymentId/record-success', auth, role(['admin']), async 
     if (err.message === 'Payment not found') {
       return res.status(404).json({ success: false, message: err.message });
     }
+    next(err);
+  }
+});
+
+// ── GET /api/admin/diagnostics/auctions ──────────────────────────────────────
+// Pilot operational visibility: auction states and open lot counts.
+router.get('/diagnostics/auctions', auth, role(['admin']), async (req, res, next) => {
+  try {
+    const [statesRes, openLotsRes, recentRes] = await Promise.all([
+      db.query(`SELECT state, COUNT(*)::int AS count FROM auctions GROUP BY state ORDER BY state`),
+      db.query(`SELECT COUNT(*)::int AS count FROM lots WHERE state = 'open'`),
+      db.query(`
+        SELECT a.id, a.title, a.state, a.created_at,
+               COUNT(l.id)::int AS lot_count
+          FROM auctions a
+          LEFT JOIN lots l ON l.auction_id = a.id
+         GROUP BY a.id
+         ORDER BY a.created_at DESC
+         LIMIT 15
+      `),
+    ]);
+    return res.json({
+      success: true,
+      data: {
+        auction_states:  statesRes.rows,
+        open_lots:       openLotsRes.rows[0].count,
+        recent_auctions: recentRes.rows,
+      },
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// ── GET /api/admin/diagnostics/payments ──────────────────────────────────────
+// Pilot operational visibility: payment statuses and recent activity.
+router.get('/diagnostics/payments', auth, role(['admin']), async (req, res, next) => {
+  try {
+    const [statusRes, recentRes] = await Promise.all([
+      db.query(`SELECT status, COUNT(*)::int AS count FROM payments GROUP BY status ORDER BY status`),
+      db.query(`
+        SELECT p.id, p.amount_cents, p.status, p.created_at,
+               l.title AS lot_title
+          FROM payments p
+          LEFT JOIN lots l ON l.id = p.lot_id
+         ORDER BY p.created_at DESC
+         LIMIT 15
+      `),
+    ]);
+    return res.json({
+      success: true,
+      data: {
+        by_status:       statusRes.rows,
+        recent_payments: recentRes.rows,
+      },
+    });
+  } catch (err) {
     next(err);
   }
 });
