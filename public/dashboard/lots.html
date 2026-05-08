@@ -1405,10 +1405,94 @@
         document.getElementById('lot-title').focus();
         return;
       }
-      // TODO: POST /api/lots + assign to auctionId when backend is wired; call clearDraft() on success
-      alert('Lot queued for auction! (Backend integration coming soon)');
-      clearDraft();
-      resetForm();
+      if (!auctionId) {
+        alert('No auction selected. Please open this page from the Seller Dashboard.');
+        return;
+      }
+
+      var addBtn = document.querySelector('button[onclick="handleAddToAuction()"]');
+      if (addBtn) { addBtn.disabled = true; addBtn.textContent = 'Adding…'; }
+
+      var selectedTier  = document.querySelector('input[name="pickup-tier"]:checked');
+      var startingBidRaw = parseFloat(document.getElementById('starting-bid').value) || 0;
+
+      var payload = {
+        auctionId:          auctionId,
+        title:              title,
+        description:        document.getElementById('lot-desc').value.trim() || null,
+        size_category:      selectedTier ? selectedTier.value : null,
+        pickup_category:    selectedTier ? selectedTier.value : null,
+        starting_bid_cents: startingBidRaw > 0 ? Math.round(startingBidRaw * 100) : null,
+      };
+
+      fetch('/api/lots', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ' + token,
+        },
+        body: JSON.stringify(payload),
+      })
+        .then(function (res) {
+          if (res.status === 401) { window.location.href = '/login.html'; return null; }
+          return res.json();
+        })
+        .then(function (data) {
+          if (!data) return;
+          if (!data.success) {
+            if (addBtn) { addBtn.disabled = false; addBtn.textContent = 'Add to Auction'; }
+            alert('Failed to save lot: ' + (data.message || 'Unknown error') + '\n\nYour draft has been preserved.');
+            return;
+          }
+
+          var lotId = data.data.id;
+          var cloudinaryUrls = uploadedFiles
+            .filter(function (f) { return f.cloudinaryUrl; })
+            .map(function (f) { return f.cloudinaryUrl; });
+
+          function onAllDone(withImages) {
+            clearDraft();
+            resetForm();
+            if (addBtn) { addBtn.disabled = false; addBtn.textContent = 'Add to Auction'; }
+            if (withImages === 'failed') {
+              alert('Lot created, but images could not be attached. Contact Advantage support with lot ID: ' + lotId);
+            } else {
+              var imgNote = cloudinaryUrls.length
+                ? ' with ' + cloudinaryUrls.length + ' image' + (cloudinaryUrls.length !== 1 ? 's' : '')
+                : '';
+              alert('Lot added to auction' + imgNote + '!');
+            }
+          }
+
+          if (!cloudinaryUrls.length) {
+            onAllDone('');
+            return;
+          }
+
+          fetch('/api/lots/' + lotId + '/images', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': 'Bearer ' + token,
+            },
+            body: JSON.stringify({ images: cloudinaryUrls }),
+          })
+            .then(function (res) {
+              if (res.status === 401) { window.location.href = '/login.html'; return null; }
+              return res.json();
+            })
+            .then(function (imgData) {
+              onAllDone(imgData && imgData.success ? '' : 'failed');
+            })
+            .catch(function () {
+              // Lot row exists — clear draft and reset, but warn about images
+              onAllDone('failed');
+            });
+        })
+        .catch(function () {
+          if (addBtn) { addBtn.disabled = false; addBtn.textContent = 'Add to Auction'; }
+          alert('Failed to save lot — network error. Your draft has been preserved.');
+        });
     }
 
     function resetForm() {

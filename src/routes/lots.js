@@ -40,12 +40,12 @@ router.post('/:lotId/bids', authMiddleware, async (req, res) => {
 // POST /api/lots
 router.post('/', auth, async (req, res, next) => {
   try {
-    const { auctionId, title, description, category, pickup_category, bid_increment_cents } = req.body;
+    const { auctionId, title, description, size_category, pickup_category, bid_increment_cents, starting_bid_cents } = req.body;
     const result = await db.query(
-      `INSERT INTO lots (auction_id, title, description, category, pickup_category, bid_increment_cents)
-       VALUES ($1, $2, $3, $4, $5, $6)
+      `INSERT INTO lots (auction_id, title, description, size_category, pickup_category, bid_increment_cents, starting_bid_cents)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
        RETURNING *`,
-      [auctionId, title, description, category, pickup_category, bid_increment_cents || null]
+      [auctionId, title, description, size_category || null, pickup_category || null, bid_increment_cents || null, starting_bid_cents || null]
     );
     res.status(201).json({ success: true, data: result.rows[0] });
   } catch (err) {
