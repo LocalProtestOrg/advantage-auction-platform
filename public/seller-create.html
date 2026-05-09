@@ -179,7 +179,7 @@
 
 <div class="card">
   <h1>Create Auction</h1>
-  <p class="subtitle">Upload a photo of your item and we'll generate the listing details for you.</p>
+  <p class="subtitle">Upload a photo of your item and we'll suggest listing details for you.</p>
 
   <!-- Image upload -->
   <div id="upload-zone">
@@ -189,7 +189,7 @@
   <input type="file" id="file-input" accept="image/jpeg,image/png,image/webp" multiple />
   <div id="preview-list"></div>
 
-  <button id="btn-generate" class="btn btn-primary" disabled>Generate Details</button>
+  <button id="btn-generate" class="btn btn-primary" disabled>Suggest Details</button>
 
   <!-- Listing Details -->
   <p class="section-title">Listing Details</p>
@@ -318,7 +318,7 @@
   btnGen.addEventListener('click', async () => {
     if (!uploadedImageUrl) return;
     btnGen.disabled = true;
-    btnGen.textContent = 'Generating…';
+    btnGen.textContent = 'Suggesting…';
     try {
       const res  = await fetch('/api/ai/generate-description', {
         method:  'POST',
@@ -326,7 +326,7 @@
         body:    JSON.stringify({ imageUrl: uploadedImageUrl })
       });
       const data = await res.json();
-      if (!data.success) throw new Error(data.message || 'Generation failed');
+      if (!data.success) throw new Error(data.message || 'Suggestion failed');
       const d = data.data;
       setField('lot-title',           d.title);
       setField('lot-description',     d.description);
@@ -337,10 +337,10 @@
         setField('auction-title', d.title);
       }
     } catch (err) {
-      showBanner('Could not generate details: ' + err.message, 'error');
+      showBanner('Could not suggest details: ' + err.message, 'error');
     } finally {
       btnGen.disabled = false;
-      btnGen.textContent = 'Generate Details';
+      btnGen.textContent = 'Suggest Details';
     }
   });
 

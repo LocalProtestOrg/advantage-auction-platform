@@ -268,7 +268,7 @@
   </div>
 
   <div class="action-bar">
-    <button class="btn btn-outline" id="btn-generate">Generate Details</button>
+    <button class="btn btn-outline" id="btn-generate">Suggest Details</button>
     <button class="btn btn-success" id="btn-save">Save Lot</button>
     <button class="btn btn-outline" id="btn-another" style="display:none">Add Another Lot</button>
     <span id="lots-saved"></span>
@@ -406,7 +406,7 @@
     }
     const btn = document.getElementById('btn-generate');
     btn.disabled = true;
-    btn.textContent = 'Generating…';
+    btn.textContent = 'Suggesting…';
     try {
       // Send the object URL — the mock AI service accepts any string
       const res  = await fetch('/api/ai/generate-description', {
@@ -415,17 +415,17 @@
         body:    JSON.stringify({ imageUrl: images[0].objectUrl })
       });
       const data = await res.json();
-      if (!data.success) throw new Error(data.message || 'Generation failed');
+      if (!data.success) throw new Error(data.message || 'Suggestion failed');
       const d = data.data;
       set('lot-title',       d.title);
       set('lot-description', d.description);
       set('lot-category',    d.category);
       setSelect('lot-pickup', d.pickup_category);
     } catch (err) {
-      showBanner('Generate failed: ' + err.message, 'error');
+      showBanner('Suggestion failed: ' + err.message, 'error');
     } finally {
       btn.disabled = false;
-      btn.textContent = 'Generate Details';
+      btn.textContent = 'Suggest Details';
     }
   });
 
