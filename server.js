@@ -1,4 +1,5 @@
 require('dotenv').config();
+const Sentry     = require('@sentry/node');
 const express    = require('express');
 const path       = require('path');
 const http       = require('http');
@@ -10,11 +11,20 @@ const authMiddleware = require('./src/middleware/authMiddleware');
 const logger = require('./src/middleware/logger');
 const log  = require('./src/lib/logger');
 
+if (process.env.SENTRY_DSN) {
+  Sentry.init({
+    dsn:         process.env.SENTRY_DSN,
+    environment: process.env.NODE_ENV || 'development',
+  });
+  log.info('startup', 'Sentry initialized');
+}
+
 // ── Process-level error handlers — must be first ──────────────────────────────
 // Catches unhandled async rejections and synchronous exceptions that escape all
 // try/catch blocks. Logs structured context then exits so the process manager
 // (or cloud platform) can restart cleanly rather than running in a broken state.
 process.on('unhandledRejection', (reason) => {
+  if (process.env.SENTRY_DSN) Sentry.captureException(reason instanceof Error ? reason : new Error(String(reason)));
   log.error('process', 'Unhandled promise rejection — exiting', {
     reason: reason instanceof Error ? reason.message : String(reason),
     stack:  reason instanceof Error ? reason.stack    : undefined,
@@ -23,6 +33,7 @@ process.on('unhandledRejection', (reason) => {
 });
 
 process.on('uncaughtException', (err) => {
+  if (process.env.SENTRY_DSN) Sentry.captureException(err);
   log.error('process', 'Uncaught exception — exiting', {
     error: err.message,
     stack: err.stack,
@@ -215,6 +226,9 @@ app.get('/api/health', async (req, res) => {
     email_configured:  !!(process.env.SMTP_HOST && process.env.SMTP_USER),
   });
 });
+
+// Sentry error handler — must be before the 404 and generic error handlers
+if (process.env.SENTRY_DSN) Sentry.setupExpressErrorHandler(app);
 
 // 404
 app.use((req, res) => {

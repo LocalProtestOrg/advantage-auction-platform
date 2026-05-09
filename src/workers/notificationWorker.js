@@ -12,9 +12,17 @@
  */
 
 require('dotenv').config();
+const Sentry        = require('@sentry/node');
 const db            = require('../db/index');
 const { sendEmail } = require('../services/emailService');
 const { sendSMS }   = require('../services/smsService');
+
+if (process.env.SENTRY_DSN) {
+  Sentry.init({ dsn: process.env.SENTRY_DSN, environment: process.env.NODE_ENV || 'development' });
+}
+
+process.on('uncaughtException',  (err)    => { if (process.env.SENTRY_DSN) Sentry.captureException(err); });
+process.on('unhandledRejection', (reason) => { if (process.env.SENTRY_DSN) Sentry.captureException(reason instanceof Error ? reason : new Error(String(reason))); });
 
 const SITE_URL = process.env.FRONTEND_URL || 'https://advantageauction.bid';
 
