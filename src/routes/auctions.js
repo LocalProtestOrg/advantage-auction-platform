@@ -12,9 +12,19 @@ function isUuid(v) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(v);
 }
 
-// ── GET /  — Public auction list (stub) ─────────────────────────────────────
-router.get('/', (req, res) => {
-  res.json({ success: true, data: [] });
+// ── GET /  — Public auction list (non-draft auctions) ───────────────────────
+router.get('/', async (req, res) => {
+  try {
+    const result = await db.query(
+      `SELECT id, title, state, start_time, end_time
+       FROM auctions
+       WHERE state != 'draft'
+       ORDER BY end_time DESC`
+    );
+    res.json({ success: true, data: result.rows });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
 });
 
 // ── POST /  — Create auction ─────────────────────────────────────────────────

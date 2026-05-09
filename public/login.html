@@ -230,7 +230,19 @@
     } else if (role === 'admin') {
       window.location.href = '/seller-dashboard.html';
     } else {
-      window.location.href = '/auction-view.html';
+      fetch('/api/auctions')
+        .then(function(r) { return r.json(); })
+        .then(function(body) {
+          var auctions = body.data || [];
+          if (auctions.length > 0) {
+            window.location.href = '/auction-view.html?auctionId=' + auctions[0].id;
+          } else {
+            window.location.href = '/auction-view.html';
+          }
+        })
+        .catch(function() {
+          window.location.href = '/auction-view.html';
+        });
     }
   }
 
