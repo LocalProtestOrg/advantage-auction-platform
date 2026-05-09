@@ -1,7 +1,8 @@
 require('dotenv').config();
-const express = require('express');
-const path = require('path');
-const http = require('http');
+const express    = require('express');
+const path       = require('path');
+const http       = require('http');
+const { fork }   = require('child_process');
 const { Server } = require('socket.io');
 const db   = require('./src/db');
 const authMiddleware = require('./src/middleware/authMiddleware');
@@ -188,6 +189,46 @@ app.use((err, req, res, next) => {
   return res.status(err.status || 500).json({ error: 'Internal server error' });
 });
 
+// ── Worker processes ──────────────────────────────────────────────────────────
+// Workers are forked as child processes so their event loops are isolated from
+// the HTTP server. AAP_IS_WORKER=1 is set in the child env to prevent any
+// accidental recursive spawn if this file is ever loaded in a worker context.
+
+const activeWorkers = new Map();  // workerPath → ChildProcess
+let   shuttingDown  = false;
+
+function spawnWorker(workerPath) {
+  if (shuttingDown) return;
+  const label = path.relative(__dirname, workerPath);
+  const child = fork(workerPath, [], {
+    env: { ...process.env, AAP_IS_WORKER: '1' },
+  });
+  activeWorkers.set(workerPath, child);
+  child.on('exit', (code, signal) => {
+    activeWorkers.delete(workerPath);
+    if (shuttingDown) return;
+    log.warn('worker', `${label} exited (code=${code} signal=${signal}), restarting in 5s`);
+    setTimeout(() => spawnWorker(workerPath), 5_000);
+  });
+  child.on('error', (err) => {
+    log.error('worker', `${label} error`, { error: err.message });
+  });
+  log.info('worker', `spawned ${label} pid=${child.pid}`);
+}
+
+function shutdown(signal) {
+  shuttingDown = true;
+  log.info('startup', `${signal} — shutting down workers and server`);
+  for (const child of activeWorkers.values()) {
+    try { child.kill('SIGTERM'); } catch { /* already gone */ }
+  }
+  server.close(() => process.exit(0));
+  setTimeout(() => process.exit(1), 10_000).unref();
+}
+
+process.on('SIGTERM', () => shutdown('SIGTERM'));
+process.on('SIGINT',  () => shutdown('SIGINT'));
+
 // ── Start ─────────────────────────────────────────────────────────────────────
 const PORT = process.env.PORT || 3000;
 
@@ -198,4 +239,9 @@ server.on('error', (err) => {
 
 server.listen(PORT, () => {
   log.info('startup', `server listening on port ${PORT}`);
+  // Only spawn workers from the primary process — not from forked worker children.
+  if (!process.env.AAP_IS_WORKER) {
+    spawnWorker(path.join(__dirname, 'src/workers/notificationWorker.js'));
+    spawnWorker(path.join(__dirname, 'src/workers/imageProcessingWorker.js'));
+  }
 });

@@ -16,6 +16,8 @@ const db            = require('../db/index');
 const { sendEmail } = require('../services/emailService');
 const { sendSMS }   = require('../services/smsService');
 
+const SITE_URL = process.env.FRONTEND_URL || 'https://advantageauction.bid';
+
 const POLL_INTERVAL_MS = 5000;
 const BATCH_SIZE       = 50;
 const MAX_ATTEMPTS     = 3;
@@ -43,7 +45,7 @@ function buildEmail(type, payload, toAddress) {
   const lotId    = payload.lot_id || 'unknown';
   const cents    = payload.visible_cents != null ? payload.visible_cents : null;
   const price    = cents != null ? `$${(cents / 100).toFixed(2)}` : 'N/A';
-  const lotUrl   = `https://advantageauction.bid/lot.html?lotId=${lotId}`;
+  const lotUrl   = `${SITE_URL}/lot.html?lotId=${lotId}`;
 
   if (type === 'OUTBID') {
     return {

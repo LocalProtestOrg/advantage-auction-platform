@@ -20,6 +20,7 @@
 
 require('dotenv').config();
 
+const db                     = require('../db');
 const imageProcessingService = require('../services/imageProcessingService');
 
 const POLL_INTERVAL_MS  = 5000;
@@ -81,9 +82,30 @@ async function poll() {
   }
 }
 
+// ── Stuck-job recovery ────────────────────────────────────────────────────────
+// On restart, any job left in 'processing' from a previous crashed run will
+// never be retried because getPendingJobs() only fetches 'pending' rows.
+// Jobs created >10 minutes ago that are still 'processing' are definitively
+// orphaned and safe to reset back to 'pending'.
+async function recoverStuckJobs() {
+  try {
+    const { rowCount } = await db.query(
+      `UPDATE image_processing_jobs
+          SET status = 'pending'
+        WHERE status    = 'processing'
+          AND created_at < NOW() - INTERVAL '10 minutes'`
+    );
+    if (rowCount > 0) {
+      console.log(`[img-worker] Recovered ${rowCount} stuck job(s) → pending`);
+    }
+  } catch (err) {
+    console.error('[img-worker] Stuck job recovery failed:', err.message);
+  }
+}
+
 // ── Start ─────────────────────────────────────────────────────────────────────
 console.log(`[img-worker] Started — polling every ${POLL_INTERVAL_MS / 1000}s, batch size ${BATCH_SIZE}`);
 setInterval(poll, POLL_INTERVAL_MS);
 
-// Run once immediately so first batch isn't delayed by the full interval.
-poll();
+// Recover orphaned jobs from any previous crash, then run first poll immediately.
+recoverStuckJobs().then(() => poll());
