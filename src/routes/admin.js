@@ -7,6 +7,7 @@ const idempotency = require('../middleware/idempotency');
 const auctionService = require('../services/auctionService');
 const paymentService = require('../services/paymentService');
 const { sendFinalSellerReport } = require('../services/pdfGenerationService');
+const { enqueueNewAuctionNotifications } = require('../services/followerNotificationService');
 const db = require('../db');
 
 // PATCH /api/admin/auctions/:auctionId
@@ -47,6 +48,14 @@ router.patch('/auctions/:auctionId/publish', auth, role(['admin']), idempotency,
   try {
     const { auctionId } = req.params;
     const result = await auctionService.publishAuction(auctionId, req.user.id);
+
+    // Fan-out NEW_AUCTION notifications to seller followers after commit.
+    // Guarded: failure here must never affect the publish response.
+    enqueueNewAuctionNotifications(result).catch(err => {
+      const log = require('../lib/logger');
+      log.warn('followers', 'NEW_AUCTION enqueue failed', { auctionId, error: err.message });
+    });
+
     return res.json({ success: true, data: result });
   } catch (err) {
     if (err.message === 'Auction not found') {

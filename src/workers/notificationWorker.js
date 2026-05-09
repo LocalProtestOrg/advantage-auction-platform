@@ -152,6 +152,24 @@ function buildEmail(type, payload, toAddress) {
     };
   }
 
+  if (type === 'NEW_AUCTION') {
+    const auctionId  = payload.auction_id || 'unknown';
+    const auctionUrl = `${SITE_URL}${payload.auction_url || `/auction-view.html?auctionId=${auctionId}`}`;
+    const lotLine    = payload.lot_count ? `<li><strong>Lots:</strong> ${payload.lot_count}</li>` : '';
+    return {
+      to:      toAddress,
+      subject: `New auction: ${payload.title || 'New Auction'}`,
+      html:    `
+        <p>A seller you follow has listed a new auction.</p>
+        <ul>
+          <li><strong>Auction:</strong> ${payload.title || 'New Auction'}</li>
+          ${lotLine}
+        </ul>
+        <p><a href="${auctionUrl}">View auction →</a></p>
+      `.trim(),
+    };
+  }
+
   throw new Error(`Unknown notification type: ${type}`);
 }
 
@@ -180,7 +198,7 @@ function buildSMS(type, payload) {
     return `Bidding has been extended for Lot ${lotId}. You still have time to win. Current price: ${price}`;
   }
 
-  // WINNING and ENDING_SOON are email-only for now; SMS not required by spec.
+  // WINNING, ENDING_SOON, and NEW_AUCTION are email-only for now.
   return null;
 }
 
