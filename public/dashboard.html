@@ -144,6 +144,67 @@
       color: #374151;
     }
     .logout-btn:hover { background: #f3f4f6; }
+
+    /* ── Following Sellers section ── */
+    .section-title {
+      max-width: 900px;
+      margin: 2.5rem auto 0.9rem;
+      font-size: 1rem;
+      font-weight: 700;
+      color: #111;
+    }
+
+    #following-list {
+      max-width: 900px;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    .seller-row {
+      background: #fff;
+      border: 1px solid #e4e4e7;
+      border-radius: 8px;
+      padding: 0.85rem 1rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+    }
+
+    .seller-row-info {
+      display: flex;
+      flex-direction: column;
+      gap: 0.2rem;
+    }
+
+    .seller-row-name {
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: #111;
+    }
+
+    .seller-row-meta {
+      font-size: 0.76rem;
+      color: #71717a;
+    }
+
+    .btn-unfollow {
+      padding: 0.25rem 0.7rem;
+      font-size: 0.75rem;
+      font-weight: 600;
+      border-radius: 6px;
+      border: 1.5px solid #d1d5db;
+      background: #fff;
+      color: #374151;
+      cursor: pointer;
+      white-space: nowrap;
+      flex-shrink: 0;
+      transition: background 0.12s, border-color 0.12s;
+    }
+    .btn-unfollow:hover { background: #fef2f2; border-color: #fca5a5; color: #b91c1c; }
+    .btn-unfollow:disabled { opacity: 0.4; cursor: default; }
   </style>
 </head>
 <body>
@@ -155,6 +216,10 @@
 
   <div id="status-msg">Loading…</div>
   <div class="grid" id="grid"></div>
+
+  <div class="section-title">Following Sellers</div>
+  <div id="following-status" style="max-width:900px;margin:0 auto 0.5rem;font-size:0.85rem;color:#888"></div>
+  <div id="following-list"></div>
 
   <script>
     const API = '';
@@ -270,6 +335,96 @@
     }
 
     load();
+    loadFollowing();
+
+    // ── Following Sellers ────────────────────────────────────────────────────
+    async function loadFollowing() {
+      const followingStatusEl = document.getElementById('following-status');
+      const followingListEl   = document.getElementById('following-list');
+
+      try {
+        const res = await fetch(`${API}/api/sellers/following`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        if (res.status === 401) { logout(); return; }
+
+        const data = await res.json();
+        if (!data.success) {
+          followingStatusEl.textContent = 'Could not load followed sellers.';
+          return;
+        }
+
+        followingStatusEl.textContent = '';
+        const sellers = data.data || [];
+
+        if (sellers.length === 0) {
+          const empty = document.createElement('div');
+          empty.className = 'empty';
+          empty.textContent = 'You are not following any sellers yet.';
+          followingListEl.appendChild(empty);
+          return;
+        }
+
+        sellers.forEach(seller => followingListEl.appendChild(buildSellerRow(seller)));
+      } catch (err) {
+        followingStatusEl.textContent = 'Could not load followed sellers.';
+        console.error('[dashboard:following]', err);
+      }
+    }
+
+    function buildSellerRow(seller) {
+      const row = document.createElement('div');
+      row.className = 'seller-row';
+
+      const info = document.createElement('div');
+      info.className = 'seller-row-info';
+
+      const name = document.createElement('div');
+      name.className = 'seller-row-name';
+      name.textContent = seller.seller_email || 'Seller';
+
+      const meta = document.createElement('div');
+      meta.className = 'seller-row-meta';
+      const auctionCount = seller.active_auction_count || 0;
+      meta.textContent = auctionCount + ' active auction' + (auctionCount === 1 ? '' : 's');
+
+      info.append(name, meta);
+
+      const btn = document.createElement('button');
+      btn.className = 'btn-unfollow';
+      btn.textContent = 'Unfollow';
+      btn.addEventListener('click', () => unfollowSeller(seller.seller_id, row, btn));
+
+      row.append(info, btn);
+      return row;
+    }
+
+    async function unfollowSeller(sellerId, rowEl, btn) {
+      btn.disabled = true;
+      try {
+        const res = await fetch(`${API}/api/sellers/${sellerId}/follow`, {
+          method: 'DELETE',
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        if (res.status === 401) { logout(); return; }
+        if (!res.ok) throw new Error('Unfollow failed');
+
+        // Remove the row with a brief fade.
+        rowEl.style.transition = 'opacity 0.2s';
+        rowEl.style.opacity = '0';
+        setTimeout(() => {
+          rowEl.remove();
+          if (!document.querySelector('.seller-row')) {
+            const empty = document.createElement('div');
+            empty.className = 'empty';
+            empty.textContent = 'You are not following any sellers yet.';
+            document.getElementById('following-list').appendChild(empty);
+          }
+        }, 220);
+      } catch {
+        btn.disabled = false;
+      }
+    }
   </script>
 </body>
 </html>

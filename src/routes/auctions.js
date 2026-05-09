@@ -121,6 +121,34 @@ router.post('/:auctionId/lots', authMiddleware, async (req, res) => {
   }
 });
 
+// ── GET /:auctionId/summary  — Public auction summary (buyer-facing) ─────────
+// Returns minimal public info including seller_id and follower count.
+// No auth required — safe to call from unauthenticated buyer pages.
+router.get('/:auctionId/summary', async (req, res) => {
+  try {
+    const { auctionId } = req.params;
+    if (!isUuid(auctionId)) {
+      return res.status(400).json({ success: false, message: 'Invalid auction ID' });
+    }
+    const { rows } = await db.query(
+      `SELECT a.id, a.title, a.state, a.seller_id,
+              COUNT(sf.id)::int AS follower_count
+         FROM auctions a
+         LEFT JOIN seller_followers sf ON sf.seller_id = a.seller_id
+        WHERE a.id = $1
+        GROUP BY a.id, a.title, a.state, a.seller_id`,
+      [auctionId]
+    );
+    if (!rows[0]) {
+      return res.status(404).json({ success: false, message: 'Auction not found' });
+    }
+    return res.json({ success: true, data: rows[0] });
+  } catch (err) {
+    console.error('[auctions] summary error:', err.message);
+    return res.status(500).json({ success: false, message: err.message });
+  }
+});
+
 // ── GET /:auctionId  — Single auction (seller-owned) ────────────────────────
 router.get('/:auctionId', authMiddleware, async (req, res) => {
   try {

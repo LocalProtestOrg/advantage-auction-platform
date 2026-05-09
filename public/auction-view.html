@@ -37,6 +37,35 @@
     .auction-banner h1 { font-size: 1.25rem; font-weight: 700; color: #111; }
     .auction-banner .meta { font-size: 0.8rem; color: #71717a; margin-top: 0.2rem; }
 
+    /* ── Seller bar ── */
+    .seller-bar {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      margin-top: 0.6rem;
+      font-size: 0.8rem;
+      color: #71717a;
+    }
+    .seller-follower-count { flex-shrink: 0; }
+    .btn-follow {
+      padding: 0.25rem 0.75rem;
+      font-size: 0.78rem;
+      font-weight: 600;
+      border-radius: 6px;
+      border: 1.5px solid #2563eb;
+      background: #fff;
+      color: #2563eb;
+      cursor: pointer;
+      transition: background 0.12s, color 0.12s;
+    }
+    .btn-follow:hover { background: #eff6ff; }
+    .btn-follow.following {
+      background: #2563eb;
+      color: #fff;
+    }
+    .btn-follow.following:hover { background: #1d4ed8; }
+    .btn-follow:disabled { opacity: 0.5; cursor: default; }
+
     /* ── Grid wrapper ── */
     .grid-wrap {
       max-width: 1200px;
@@ -188,6 +217,7 @@
 <div class="auction-banner">
   <h1 id="auction-title">Loading auction…</h1>
   <div class="meta" id="auction-meta"></div>
+  <div class="seller-bar" id="seller-bar" style="display:none"></div>
 </div>
 
 <div class="grid-wrap">
@@ -222,11 +252,117 @@
   const auctionId = params.get('auctionId');
   const grid      = document.getElementById('lot-grid');
 
+  const token = localStorage.getItem('token');
+
   if (!auctionId) {
     grid.innerHTML = '<div class="state-msg"><strong>No auction selected.</strong>Check the URL and try again.</div>';
     document.getElementById('auction-title').textContent = 'No auction ID';
   } else {
     loadAuction();
+    loadSellerInfo();
+  }
+
+  // ── Seller bar ────────────────────────────────────────────────────────────
+  let currentSellerId = null;
+  let isFollowing = false;
+
+  async function loadSellerInfo() {
+    try {
+      const res  = await fetch('/api/auctions/' + auctionId + '/summary');
+      const data = await res.json();
+      if (!data.success || !data.data.seller_id) return;
+
+      const { seller_id, follower_count, title } = data.data;
+      currentSellerId = seller_id;
+
+      // Update auction title if the API returned one.
+      if (title) {
+        document.getElementById('auction-title').textContent = title;
+        document.title = title + ' — Advantage Auction';
+      }
+
+      // Check follow status if authenticated.
+      if (token) {
+        try {
+          const fRes  = await fetch('/api/sellers/following', { headers: { Authorization: 'Bearer ' + token } });
+          if (fRes.status === 401) {
+            localStorage.removeItem('token');
+          } else {
+            const fData = await fRes.json();
+            if (fData.success) {
+              isFollowing = fData.data.some(s => s.seller_id === seller_id);
+            }
+          }
+        } catch { /* follow status check failed — default to not following */ }
+      }
+
+      renderSellerBar(follower_count);
+    } catch { /* summary fetch failed — seller bar stays hidden */ }
+  }
+
+  function renderSellerBar(followerCount) {
+    const bar = document.getElementById('seller-bar');
+    bar.innerHTML = '';
+
+    const countEl = document.createElement('span');
+    countEl.className = 'seller-follower-count';
+    countEl.id = 'follower-count-display';
+    countEl.textContent = followerCount + ' follower' + (followerCount === 1 ? '' : 's');
+    bar.appendChild(countEl);
+
+    if (!token) {
+      bar.style.display = 'flex';
+      return;
+    }
+
+    const btn = document.createElement('button');
+    btn.className = 'btn-follow' + (isFollowing ? ' following' : '');
+    btn.textContent = isFollowing ? 'Following' : 'Follow Seller';
+    btn.addEventListener('click', () => toggleFollow(btn));
+    bar.appendChild(btn);
+
+    bar.style.display = 'flex';
+  }
+
+  async function toggleFollow(btn) {
+    if (!currentSellerId) return;
+    const wasFollowing = isFollowing;
+
+    // Optimistic update.
+    isFollowing = !wasFollowing;
+    applyFollowState(btn);
+
+    const countEl = document.getElementById('follower-count-display');
+    const prevCount = parseInt(countEl.textContent, 10) || 0;
+    const newCount  = wasFollowing ? Math.max(0, prevCount - 1) : prevCount + 1;
+    countEl.textContent = newCount + ' follower' + (newCount === 1 ? '' : 's');
+
+    btn.disabled = true;
+    try {
+      const method = wasFollowing ? 'DELETE' : 'POST';
+      const res = await fetch('/api/sellers/' + currentSellerId + '/follow', {
+        method,
+        headers: { Authorization: 'Bearer ' + token },
+      });
+      if (res.status === 401) {
+        localStorage.removeItem('token');
+        window.location.href = '/login.html';
+        return;
+      }
+      if (!res.ok) throw new Error('Request failed');
+    } catch {
+      // Revert on failure.
+      isFollowing = wasFollowing;
+      applyFollowState(btn);
+      countEl.textContent = prevCount + ' follower' + (prevCount === 1 ? '' : 's');
+    } finally {
+      btn.disabled = false;
+    }
+  }
+
+  function applyFollowState(btn) {
+    btn.textContent = isFollowing ? 'Following' : 'Follow Seller';
+    btn.className   = 'btn-follow' + (isFollowing ? ' following' : '');
   }
 
   async function loadAuction() {
