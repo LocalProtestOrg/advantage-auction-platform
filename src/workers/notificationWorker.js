@@ -40,6 +40,16 @@ async function getUserDeliveryInfo(userId) {
   return res.rows[0] || null;
 }
 
+// ── Minimal HTML escaper — guards user-supplied strings injected into email HTML ──
+function escHtml(str) {
+  return String(str)
+    .replace(/&/g,  '&amp;')
+    .replace(/</g,  '&lt;')
+    .replace(/>/g,  '&gt;')
+    .replace(/"/g,  '&quot;')
+    .replace(/'/g,  '&#39;');
+}
+
 // ── Email content by notification type ────────────────────────────────────────
 function buildEmail(type, payload, toAddress) {
   const lotId    = payload.lot_id || 'unknown';
@@ -155,16 +165,20 @@ function buildEmail(type, payload, toAddress) {
   if (type === 'NEW_AUCTION') {
     const auctionId  = payload.auction_id || 'unknown';
     const auctionUrl = `${SITE_URL}${payload.auction_url || `/auction-view.html?auctionId=${auctionId}`}`;
-    const lotLine    = payload.lot_count ? `<li><strong>Lots:</strong> ${payload.lot_count}</li>` : '';
+    const title      = payload.title || 'New Auction';
+    const lotLine    = payload.lot_count
+      ? `<li><strong>Lots available:</strong> ${Number(payload.lot_count)}</li>`
+      : '';
     return {
       to:      toAddress,
-      subject: `New auction: ${payload.title || 'New Auction'}`,
+      subject: `New auction from a seller you follow: ${title}`,
       html:    `
-        <p>A seller you follow has listed a new auction.</p>
+        <p>A seller you follow has published a new auction.</p>
         <ul>
-          <li><strong>Auction:</strong> ${payload.title || 'New Auction'}</li>
+          <li><strong>Auction:</strong> ${escHtml(title)}</li>
           ${lotLine}
         </ul>
+        <p>Register now to start bidding.</p>
         <p><a href="${auctionUrl}">View auction →</a></p>
       `.trim(),
     };
@@ -205,12 +219,18 @@ function buildSMS(type, payload) {
 // ── Delivery ──────────────────────────────────────────────────────────────────
 async function deliver(row) {
   const payload = row.payload || {};
-  const lotId   = payload.lot_id || 'unknown-lot';
-  const price   = payload.visible_cents != null
-    ? ` @ $${(payload.visible_cents / 100).toFixed(2)}`
-    : '';
+  let context;
+  if (row.type === 'NEW_AUCTION') {
+    context = `auction ${payload.auction_id || 'unknown'}`;
+  } else {
+    const lotId = payload.lot_id || 'unknown-lot';
+    const price = payload.visible_cents != null
+      ? ` @ $${(payload.visible_cents / 100).toFixed(2)}`
+      : '';
+    context = `lot ${lotId}${price}`;
+  }
 
-  console.log(`[notify] ${row.type} → user ${row.user_id} for lot ${lotId}${price}`);
+  console.log(`[notify] ${row.type} → user ${row.user_id} for ${context}`);
 
   const userInfo = await getUserDeliveryInfo(row.user_id);
   if (!userInfo) {

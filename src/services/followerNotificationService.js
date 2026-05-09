@@ -43,16 +43,27 @@ async function enqueueNewAuctionNotifications(auction) {
     auction_url: `/auction-view.html?auctionId=${auctionId}`,
   });
 
-  await db.query(
+  // Dedup guard: skip any user who already has a NEW_AUCTION row for this
+  // auction. Prevents duplicate notifications if this function is ever called
+  // more than once for the same auction (crash-restart, retry, etc.).
+  const { rowCount } = await db.query(
     `INSERT INTO notifications_queue (user_id, type, payload)
-     SELECT unnest($1::uuid[]), 'NEW_AUCTION', $2::jsonb`,
-    [userIds, payload]
+     SELECT u, 'NEW_AUCTION', $2::jsonb
+     FROM   unnest($1::uuid[]) AS u
+     WHERE  NOT EXISTS (
+       SELECT 1 FROM notifications_queue nq
+       WHERE  nq.type                   = 'NEW_AUCTION'
+         AND  nq.payload->>'auction_id' = $3
+         AND  nq.user_id                = u
+     )`,
+    [userIds, payload, auctionId]
   );
 
-  log.info('followers', `Queued NEW_AUCTION for ${userIds.length} follower(s)`, {
+  log.info('followers', `Queued NEW_AUCTION for ${rowCount} follower(s) (${userIds.length - rowCount} skipped — already queued)`, {
     auctionId,
     sellerId,
-    followerCount: userIds.length,
+    enqueued:  rowCount,
+    skipped:   userIds.length - rowCount,
   });
 }
 
