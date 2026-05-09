@@ -19,7 +19,7 @@ router.get('/', async (req, res) => {
       `SELECT id, title, state, start_time, end_time
        FROM auctions
        WHERE state != 'draft'
-       ORDER BY end_time DESC`
+       ORDER BY end_time DESC NULLS LAST`
     );
     res.json({ success: true, data: result.rows });
   } catch (err) {
