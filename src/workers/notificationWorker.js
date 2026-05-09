@@ -290,7 +290,7 @@ async function enqueueCloseToWinning() {
     const res = await db.query(
       `INSERT INTO notifications_queue (user_id, type, payload)
        SELECT DISTINCT
-              b.user_id,
+              b.bidder_user_id,
               'CLOSE_TO_WINNING',
               jsonb_build_object(
                 'lot_id',        l.id::text,
@@ -299,14 +299,14 @@ async function enqueueCloseToWinning() {
               )
        FROM   lots l
        JOIN   bids b ON b.lot_id = l.id
-                    AND b.amount * 100 >= l.current_bid_cents * 0.9
-       WHERE  l.status            = 'active'
+                    AND b.amount_cents >= l.current_bid_cents * 0.9
+       WHERE  l.state             = 'active'
          AND  l.current_bid_cents  > 0
-         AND  (l.current_winner_user_id IS NULL OR b.user_id != l.current_winner_user_id)
+         AND  (l.current_winner_user_id IS NULL OR b.bidder_user_id != l.current_winner_user_id)
          AND  NOT EXISTS (
                 SELECT 1
                 FROM   notifications_queue nq
-                WHERE  nq.user_id            = b.user_id
+                WHERE  nq.user_id            = b.bidder_user_id
                   AND  nq.type               = 'CLOSE_TO_WINNING'
                   AND  nq.payload->>'lot_id' = l.id::text
                   AND  nq.created_at         > NOW() - ($1 || ' minutes')::interval
@@ -341,11 +341,11 @@ async function enqueueFinalSeconds() {
               )
        FROM   lots l
        JOIN   (
-                SELECT b.user_id, b.lot_id FROM bids b
+                SELECT b.bidder_user_id AS user_id, b.lot_id FROM bids b
                 UNION
                 SELECT w.user_id, w.lot_id FROM watchlists w
               ) candidates ON candidates.lot_id = l.id
-       WHERE  l.status    = 'active'
+       WHERE  l.state     = 'active'
          AND  l.closes_at <= NOW() + INTERVAL '10 seconds'
          AND  NOT EXISTS (
                 SELECT 1
@@ -388,9 +388,9 @@ async function enqueueEndingSoon() {
        FROM   lots l
        JOIN   (
                 -- Engaged bidders: at least one bid within 80% of current price
-                SELECT b.user_id, b.lot_id
+                SELECT b.bidder_user_id AS user_id, b.lot_id
                 FROM   bids b
-                WHERE  b.amount * 100 >= (
+                WHERE  b.amount_cents >= (
                          SELECT current_bid_cents FROM lots WHERE id = b.lot_id
                        ) * 0.8
 
@@ -400,7 +400,7 @@ async function enqueueEndingSoon() {
                 SELECT w.user_id, w.lot_id
                 FROM   watchlists w
               ) candidates ON candidates.lot_id = l.id
-       WHERE  l.status    = 'active'
+       WHERE  l.state     = 'active'
          AND  l.closes_at BETWEEN NOW()
                                AND NOW() + ($1 || ' minutes')::interval
          AND  NOT EXISTS (
