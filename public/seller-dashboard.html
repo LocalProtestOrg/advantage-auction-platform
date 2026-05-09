@@ -259,6 +259,50 @@
     textarea { resize: vertical; min-height: 60px; }
     .form-actions { display: flex; gap: 0.5rem; }
 
+    /* ── Audience summary ── */
+    .audience-section {
+      max-width: 800px;
+      margin: 0 auto 1.5rem;
+    }
+    .audience-label {
+      font-size: 0.7rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #9ca3af;
+      margin-bottom: 0.5rem;
+    }
+    .audience-chips {
+      display: flex;
+      gap: 0.75rem;
+      flex-wrap: wrap;
+    }
+    .audience-chip {
+      background: #fff;
+      border: 1px solid #e0e0e0;
+      border-radius: 8px;
+      padding: 0.7rem 1rem;
+      min-width: 90px;
+    }
+    .audience-chip .metric {
+      font-size: 1.5rem;
+      font-weight: 800;
+      color: #111;
+      line-height: 1;
+      margin-bottom: 0.2rem;
+    }
+    .audience-chip .metric-label {
+      font-size: 0.72rem;
+      color: #6b7280;
+      font-weight: 500;
+    }
+    .audience-chip.chip-followers .metric { color: #2563eb; }
+    .audience-chip.chip-growth {
+      border-color: #bbf7d0;
+      background: #f0fdf4;
+    }
+    .audience-chip.chip-growth .metric { color: #15803d; }
+
     /* ── Empty / loading states ── */
     .empty-state {
       text-align: center;
@@ -306,6 +350,28 @@
   <div class="summary-chip"><span id="sum-submitted">0</span> Submitted</div>
   <div class="summary-chip"><span id="sum-published">0</span> Live</div>
   <div class="summary-chip"><span id="sum-closed">0</span> Closed</div>
+</div>
+
+<div id="audience-section" class="audience-section" style="display:none">
+  <div class="audience-label">Your Audience</div>
+  <div class="audience-chips">
+    <div class="audience-chip chip-followers">
+      <div class="metric" id="aud-followers">—</div>
+      <div class="metric-label">Followers</div>
+    </div>
+    <div class="audience-chip chip-growth" id="aud-growth-chip" style="display:none">
+      <div class="metric" id="aud-growth">—</div>
+      <div class="metric-label">New this week</div>
+    </div>
+    <div class="audience-chip" id="aud-watchers-chip" style="display:none">
+      <div class="metric" id="aud-watchers">—</div>
+      <div class="metric-label">Watching now</div>
+    </div>
+    <div class="audience-chip" id="aud-lots-chip" style="display:none">
+      <div class="metric" id="aud-lots">—</div>
+      <div class="metric-label">Live lots</div>
+    </div>
+  </div>
 </div>
 
 <div class="page-header">
@@ -798,8 +864,37 @@ function escHtml(str) {
     .replace(/"/g, '&quot;');
 }
 
+// ── Audience summary ─────────────────────────────────────────────────────────
+async function loadAudience() {
+  try {
+    const data = await api('/api/sellers/me/audience');
+    if (!data.success) return;
+
+    const { followers_total, followers_7d, active_watchers, active_lot_count } = data.data;
+
+    document.getElementById('aud-followers').textContent = followers_total;
+
+    // Growth chip: only shown when there is positive growth
+    if (followers_7d > 0) {
+      document.getElementById('aud-growth').textContent = '+' + followers_7d;
+      document.getElementById('aud-growth-chip').style.display = '';
+    }
+
+    // Watcher and live-lot chips: only meaningful when there are active auctions
+    if (active_lot_count > 0) {
+      document.getElementById('aud-lots').textContent   = active_lot_count;
+      document.getElementById('aud-lots-chip').style.display = '';
+      document.getElementById('aud-watchers').textContent = active_watchers;
+      document.getElementById('aud-watchers-chip').style.display = '';
+    }
+
+    document.getElementById('audience-section').style.display = '';
+  } catch { /* audience load failure is non-fatal */ }
+}
+
 // ── Boot ──────────────────────────────────────────────────────────────────────
 loadDashboard();
+loadAudience();
 </script>
 </body>
 </html>

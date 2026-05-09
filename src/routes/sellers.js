@@ -68,6 +68,66 @@ router.get('/me/dashboard', auth, async (req, res, next) => {
   }
 });
 
+// GET /api/sellers/me/audience
+// Returns lightweight audience summary for the authenticated seller.
+// Combines follower metrics and active-lot watcher counts in three parallel queries.
+router.get('/me/audience', auth, async (req, res, next) => {
+  try {
+    const spRes = await db.query(
+      'SELECT id FROM seller_profiles WHERE user_id = $1',
+      [req.user.id]
+    );
+    if (!spRes.rows[0]) {
+      return res.status(404).json({ success: false, message: 'Seller profile not found' });
+    }
+    const sellerId = spRes.rows[0].id;
+
+    const [follRes, watchRes, lotsRes] = await Promise.all([
+      // Followers total + 7-day growth in one pass
+      db.query(
+        `SELECT COUNT(*)::int AS followers_total,
+                COUNT(CASE WHEN created_at > NOW() - INTERVAL '7 days' THEN 1 END)::int AS followers_7d
+           FROM seller_followers
+          WHERE seller_id = $1`,
+        [sellerId]
+      ),
+      // Unique buyers watching any open lot across the seller's live auctions
+      db.query(
+        `SELECT COUNT(DISTINCT w.user_id)::int AS count
+           FROM watchlists w
+           JOIN lots l    ON l.id    = w.lot_id
+           JOIN auctions a ON a.id   = l.auction_id
+          WHERE a.seller_id = $1
+            AND l.state      = 'open'
+            AND a.state      IN ('published', 'active')`,
+        [sellerId]
+      ),
+      // Open lots in live auctions
+      db.query(
+        `SELECT COUNT(*)::int AS count
+           FROM lots l
+           JOIN auctions a ON a.id = l.auction_id
+          WHERE a.seller_id = $1
+            AND l.state      = 'open'
+            AND a.state      IN ('published', 'active')`,
+        [sellerId]
+      ),
+    ]);
+
+    return res.json({
+      success: true,
+      data: {
+        followers_total:  follRes.rows[0].followers_total,
+        followers_7d:     follRes.rows[0].followers_7d,
+        active_watchers:  watchRes.rows[0].count,
+        active_lot_count: lotsRes.rows[0].count,
+      },
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
 // ── Seller Followers ──────────────────────────────────────────────────────────
 // GET /api/sellers/following — list sellers the authenticated buyer follows.
 // Must be declared before /:sellerId routes to avoid "following" matching as a param.
