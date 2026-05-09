@@ -2,6 +2,9 @@
   "outputDirectory": "public",
   "buildCommand": "",
   "installCommand": "echo skip",
+  "redirects": [
+    { "source": "/", "destination": "/demo.html", "permanent": false }
+  ],
   "rewrites": [
     {
       "source": "/api/:path*",
