@@ -61,6 +61,7 @@ function buildEmail(type, payload, toAddress) {
     return {
       to:      toAddress,
       subject: "You've been outbid",
+      text:    `Someone placed a higher bid on a lot you were winning.\n\nLot ID: ${lotId}\nCurrent price: ${price}\n\nPlace a new bid: ${lotUrl}`,
       html:    `
         <p>Someone has placed a higher bid on a lot you were winning.</p>
         <ul>
@@ -76,6 +77,7 @@ function buildEmail(type, payload, toAddress) {
     return {
       to:      toAddress,
       subject: "You're currently winning",
+      text:    `You are the current high bidder!\n\nLot ID: ${lotId}\nCurrent price: ${price}\n\nView lot: ${lotUrl}`,
       html:    `
         <p>You are the current high bidder!</p>
         <ul>
@@ -91,6 +93,7 @@ function buildEmail(type, payload, toAddress) {
     return {
       to:      toAddress,
       subject: "Congratulations — you won!",
+      text:    `You won the lot. Proceed to payment to secure your item.\n\nLot ID: ${lotId}\nWinning bid: ${price}\n\nComplete payment: ${lotUrl}`,
       html:    `
         <p>You won the lot. Proceed to payment to secure your item.</p>
         <ul>
@@ -106,6 +109,7 @@ function buildEmail(type, payload, toAddress) {
     return {
       to:      toAddress,
       subject: "Auction ending soon",
+      text:    `A lot you are watching is closing soon.\n\nLot ID: ${lotId}\nCurrent price: ${price}\n\nBid now: ${lotUrl}`,
       html:    `
         <p>A lot you are watching is closing soon.</p>
         <ul>
@@ -121,6 +125,7 @@ function buildEmail(type, payload, toAddress) {
     return {
       to:      toAddress,
       subject: "You're very close to winning",
+      text:    `You're very close to winning Lot ${lotId}. A small increase could secure it.\n\nLot ID: ${lotId}\nCurrent price: ${price}\n\nIncrease your bid: ${lotUrl}`,
       html:    `
         <p>You're very close to winning Lot ${lotId}. A small increase could secure it.</p>
         <ul>
@@ -136,6 +141,7 @@ function buildEmail(type, payload, toAddress) {
     return {
       to:      toAddress,
       subject: "Final seconds — bid now!",
+      text:    `Final seconds for Lot ${lotId} — bid now before it closes.\n\nLot ID: ${lotId}\nCurrent price: ${price}\n\nBid now: ${lotUrl}`,
       html:    `
         <p>Final seconds for Lot ${lotId} — bid now before it closes.</p>
         <ul>
@@ -151,6 +157,7 @@ function buildEmail(type, payload, toAddress) {
     return {
       to:      toAddress,
       subject: "Bidding has been extended",
+      text:    `Bidding has been extended for Lot ${lotId}. You still have time to win.\n\nLot ID: ${lotId}\nCurrent price: ${price}\n\nPlace your bid: ${lotUrl}`,
       html:    `
         <p>Bidding has been extended for Lot ${lotId}. You still have time to win.</p>
         <ul>
@@ -163,15 +170,19 @@ function buildEmail(type, payload, toAddress) {
   }
 
   if (type === 'NEW_AUCTION') {
-    const auctionId  = payload.auction_id || 'unknown';
-    const auctionUrl = `${SITE_URL}${payload.auction_url || `/auction-view.html?auctionId=${auctionId}`}`;
-    const title      = payload.title || 'New Auction';
-    const lotLine    = payload.lot_count
+    const auctionId   = payload.auction_id || 'unknown';
+    const auctionUrl  = `${SITE_URL}${payload.auction_url || `/auction-view.html?auctionId=${auctionId}`}`;
+    const title       = payload.title || 'New Auction';
+    const lotLine     = payload.lot_count
       ? `<li><strong>Lots available:</strong> ${Number(payload.lot_count)}</li>`
+      : '';
+    const lotLineTxt  = payload.lot_count
+      ? `Lots available: ${Number(payload.lot_count)}\n`
       : '';
     return {
       to:      toAddress,
       subject: `New auction from a seller you follow: ${title}`,
+      text:    `A seller you follow has published a new auction.\n\nAuction: ${title}\n${lotLineTxt}\nRegister now to start bidding.\n\nView auction: ${auctionUrl}`,
       html:    `
         <p>A seller you follow has published a new auction.</p>
         <ul>

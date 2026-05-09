@@ -17,7 +17,8 @@ const {
   SMTP_PORT,
   SMTP_USER,
   SMTP_PASS,
-  EMAIL_FROM = 'noreply@advantageauction.bid',
+  EMAIL_FROM  = 'noreply@advantageauction.bid',
+  EMAIL_REPLY_TO = 'advantageauction.bid@gmail.com',
 } = process.env;
 
 function buildTransporter() {
@@ -36,10 +37,11 @@ function buildTransporter() {
  * @param {string} opts.to      - recipient address
  * @param {string} opts.subject - email subject line
  * @param {string} opts.html    - HTML body
+ * @param {string} [opts.text]  - Plaintext fallback (strongly recommended)
  * @returns {Promise<object>}   Nodemailer info object
  * @throws on SMTP failure
  */
-async function sendEmail({ to, subject, html }) {
+async function sendEmail({ to, subject, html, text }) {
   if (!SMTP_HOST || !SMTP_USER || !SMTP_PASS) {
     // SMTP not configured — log and skip without throwing so the worker
     // can still mark the row sent during local development.
@@ -50,9 +52,11 @@ async function sendEmail({ to, subject, html }) {
   const transporter = buildTransporter();
   const info = await transporter.sendMail({
     from:    EMAIL_FROM,
+    replyTo: EMAIL_REPLY_TO,
     to,
     subject,
     html,
+    ...(text ? { text } : {}),
   });
 
   console.log(`[email] Sent "${subject}" to ${to} — messageId: ${info.messageId}`);
