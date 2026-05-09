@@ -211,7 +211,7 @@ function buildSMS(type, payload) {
   const lotId  = payload.lot_id || 'unknown';
   const cents  = payload.visible_cents != null ? payload.visible_cents : null;
   const price  = cents != null ? `$${(cents / 100).toFixed(2)}` : 'N/A';
-  const link   = `https://advantageauction.bid/lot.html?lotId=${lotId}`;
+  const link   = `${SITE_URL}/lot.html?lotId=${lotId}`;
 
   if (type === 'OUTBID') {
     return `You've been outbid. Lot ${lotId} is now ${price}. Bid now: ${link}`;
