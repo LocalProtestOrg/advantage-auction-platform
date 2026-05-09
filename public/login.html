@@ -331,32 +331,17 @@
     })
       .then(function (res) { return res.json(); })
       .then(function (data) {
-        if (data.success) {
-          // Auto-login after successful registration
-          return fetch('/api/auth/login', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email: email, password: password }),
-          })
-            .then(function (res) { return res.json(); })
-            .then(function (loginData) {
-              if (loginData.success && loginData.token) {
-                localStorage.setItem('token', loginData.token);
-                redirectAfterAuth('buyer');
-              } else {
-                // Registration succeeded but auto-login failed — ask them to log in manually
-                showMsg('register-success', 'Account created! Please log in.');
-                btn.disabled = false;
-                btn.textContent = 'Create Account';
-                showTab('login');
-              }
-            });
+        if (data.success && data.token) {
+          localStorage.setItem('token', data.token);
+          redirectAfterAuth('buyer');
+        } else if (data.success) {
+          // Fallback: registration succeeded without token — ask them to log in
+          showMsg('register-success', 'Account created! Please log in.');
+          btn.disabled = false;
+          btn.textContent = 'Create Account';
+          showTab('login');
         } else {
-          var msg = data.error || 'Could not create account.';
-          if (msg.includes('duplicate') || msg.includes('unique')) {
-            msg = 'An account with that email already exists.';
-          }
-          showMsg('register-error', msg);
+          showMsg('register-error', data.error || 'Could not create account.');
           btn.disabled = false;
           btn.textContent = 'Create Account';
         }
