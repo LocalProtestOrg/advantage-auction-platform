@@ -9,8 +9,9 @@ function getStripe() {
   return Stripe(process.env.STRIPE_SECRET_KEY);
 }
 
-// In-memory deduplication for Stripe events within a server session.
-// recordPaymentSuccess/Failure idempotency guards handle cross-restart safety.
+// Two-layer deduplication for Stripe webhook events:
+// 1. In-memory Set — fast path for within-session duplicate deliveries
+// 2. DB table stripe_webhook_events — survives restarts; prevents reprocessing on redeploy
 const MAX_PROCESSED_EVENTS = 5000;
 const _processedEvents = new Set();
 function _trackProcessedEvent(id) {
@@ -18,6 +19,15 @@ function _trackProcessedEvent(id) {
     _processedEvents.delete(_processedEvents.values().next().value); // evict oldest
   }
   _processedEvents.add(id);
+}
+
+// Returns true if the event was newly inserted (not a duplicate).
+async function _claimWebhookEvent(id, eventType) {
+  const result = await db.query(
+    `INSERT INTO stripe_webhook_events (id, event_type) VALUES ($1, $2) ON CONFLICT (id) DO NOTHING`,
+    [id, eventType]
+  );
+  return result.rowCount === 1;
 }
 
 class PaymentService {
@@ -399,11 +409,21 @@ class PaymentService {
   async handleWebhookEvent(event) {
     console.log(`[webhook] received ${event.type} ${event.id}`);
 
+    // Fast path: in-memory dedup for within-session duplicates.
     if (_processedEvents.has(event.id)) {
-      console.log(`[webhook] ${event.id} already processed — skipped`);
+      console.log(`[webhook] ${event.id} already processed (in-memory) — skipped`);
       return;
     }
 
+    // Durable path: DB dedup survives restarts. _claimWebhookEvent returns false on conflict.
+    const claimed = await _claimWebhookEvent(event.id, event.type);
+    if (!claimed) {
+      _trackProcessedEvent(event.id); // warm in-memory cache for subsequent rapid retries
+      console.log(`[webhook] ${event.id} already processed (db) — skipped`);
+      return;
+    }
+
+    _trackProcessedEvent(event.id);
     const intent = event.data.object;
 
     if (event.type === 'payment_intent.succeeded') {
@@ -429,7 +449,6 @@ class PaymentService {
       // recordPaymentSuccess handles idempotency, audit logging, and fires
       // PAYMENT_CONFIRMED and PICKUP_SCHEDULED events — hooks for notifications live there.
       await this.recordPaymentSuccess(paymentId, intent.id);
-      _trackProcessedEvent(event.id);
       console.log(`[webhook] payment_intent.succeeded → payment ${paymentId} marked paid (lot=${lot_id})`);
       return;
     }
@@ -445,7 +464,6 @@ class PaymentService {
       }
       const paymentId = paymentRes.rows[0].id;
       await this.recordPaymentFailure(paymentId);
-      _trackProcessedEvent(event.id);
       console.log(`[webhook] payment_intent.payment_failed → payment ${paymentId} failure recorded`);
       return;
     }
