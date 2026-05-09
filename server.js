@@ -131,8 +131,10 @@ app.use('/api/seller/marketing-report', marketingReportsRoutes);
 app.use('/api/image-processing', imageProcessingRoutes);
 app.use('/api/uploads', uploadsRoutes);
 
-// Root
-app.get('/', (req, res) => res.send('API Running'));
+// Root — serve demo page
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'demo.html'));
+});
 
 // ✅ Force serve payment page (MUST be before 404)
 app.get('/payment.html', (req, res) => {
