@@ -225,8 +225,10 @@
       window.location.href = next;
       return;
     }
-    if (role === 'seller' || role === 'admin') {
-      window.location.href = '/dashboard/seller.html';
+    if (role === 'seller') {
+      window.location.href = '/seller-dashboard.html';
+    } else if (role === 'admin') {
+      window.location.href = '/seller-dashboard.html';
     } else {
       window.location.href = '/auction-view.html';
     }

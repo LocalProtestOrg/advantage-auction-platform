@@ -38,8 +38,10 @@ Expected: `data[0].seller_profile_id` is a valid UUID.
 
 Sellers work independently:
 - Log in → `/seller-dashboard.html` → **Create Auction**
-- Fill in auction details, add lots, choose 3 featured lots
+- Fill in auction details, add lots, upload lot photos
 - Submit for final review (locks seller editing)
+
+Note: Featured lot selection is done by admin during review (Step 4), not by the seller. Admin can override featured lots at any time.
 
 Auction state transitions: `draft → submitted → under_review`
 
@@ -55,6 +57,10 @@ Auction state transitions: `draft → submitted → under_review`
 3. Verify required fields are complete:
    - Title, description, start/end time, pickup window
    - At least 3 lots with title, size category, and starting bid
+4. **Select 3 featured lots** in the DB (or via admin API when available):
+   ```sql
+   UPDATE lots SET is_featured = true WHERE id IN ('<lot1>', '<lot2>', '<lot3>');
+   ```
    - Featured lots selected
 
 ---
