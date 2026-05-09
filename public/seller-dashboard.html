@@ -141,12 +141,13 @@
       letter-spacing: 0.04em;
       text-transform: uppercase;
     }
-    .badge-draft     { background: #f4f4f5; color: #71717a; }
-    .badge-submitted { background: #fefce8; color: #854d0e; }
-    .badge-published { background: #dcfce7; color: #15803d; }
-    .badge-closed    { background: #fee2e2; color: #b91c1c; }
-    .badge-open      { background: #dcfce7; color: #15803d; }
-    .badge-withdrawn { background: #f4f4f5; color: #9ca3af; }
+    .badge-draft        { background: #f4f4f5; color: #71717a; }
+    .badge-submitted    { background: #fefce8; color: #854d0e; }
+    .badge-under-review { background: #eff6ff; color: #1d4ed8; }
+    .badge-published    { background: #dcfce7; color: #15803d; }
+    .badge-closed       { background: #fee2e2; color: #b91c1c; }
+    .badge-open         { background: #dcfce7; color: #15803d; }
+    .badge-withdrawn    { background: #f4f4f5; color: #9ca3af; }
 
     /* ── Lots panel ── */
     .lots-panel {
@@ -486,12 +487,13 @@ function showBanner(msg, type) {
 // ── State badge HTML ─────────────────────────────────────────────────────────
 function stateBadge(state) {
   const map = {
-    draft:     ['badge-draft',     'Draft'],
-    submitted: ['badge-submitted', 'Submitted'],
-    published: ['badge-published', 'Live'],
-    closed:    ['badge-closed',    'Closed'],
-    open:      ['badge-open',      'Open'],
-    withdrawn: ['badge-withdrawn', 'Withdrawn'],
+    draft:        ['badge-draft',        'Draft'],
+    submitted:    ['badge-submitted',    'Submitted'],
+    under_review: ['badge-under-review', 'Under Review'],
+    published:    ['badge-published',    'Live'],
+    closed:       ['badge-closed',       'Closed'],
+    open:         ['badge-open',         'Open'],
+    withdrawn:    ['badge-withdrawn',    'Withdrawn'],
   };
   const [cls, label] = map[state] || ['badge-draft', state];
   return `<span class="badge ${cls}">${label}</span>`;
@@ -528,7 +530,7 @@ async function loadDashboard() {
     const auctions = dashData.data?.auctions || [];
 
     // Summary
-    const counts = { draft: 0, submitted: 0, published: 0, closed: 0 };
+    const counts = { draft: 0, submitted: 0, under_review: 0, published: 0, closed: 0 };
     auctions.forEach(a => {
       if (counts[a.state] !== undefined) counts[a.state]++;
     });
@@ -565,9 +567,16 @@ function renderAuctionCard(container, auction) {
   card.className = 'auction-card';
   card.dataset.auctionId = auction.id;
 
-  const isEditable = auction.state === 'draft' || auction.state === 'submitted';
+  const isEditable  = auction.state === 'draft';
+  const isSubmitted = auction.state === 'submitted' || auction.state === 'under_review';
   const isPublished = auction.state === 'published';
-  const lotCount = '';
+
+  const statusCallout = isSubmitted ? `
+    <div style="margin:0.75rem 1.25rem 0;padding:0.65rem 0.9rem;background:#eff6ff;border:1px solid #bfdbfe;border-radius:6px;font-size:0.82rem;color:#1e40af;line-height:1.5">
+      <strong>Awaiting review by Advantage Auction.</strong>
+      Your auction has been submitted and is locked for editing. We'll reach out if we have questions.
+      Questions? Email <a href="mailto:advantageauction.bid@gmail.com" style="color:#1d4ed8">advantageauction.bid@gmail.com</a>.
+    </div>` : '';
 
   card.innerHTML = `
     <div class="auction-header">
@@ -585,6 +594,7 @@ function renderAuctionCard(container, auction) {
         ${isEditable ? `<button class="btn btn-primary btn-sm" data-add-lot="${auction.id}">+ Add Lot</button>` : ''}
       </div>
     </div>
+    ${statusCallout}
     <div class="lots-panel" id="lots-${auction.id}">
       <div class="lots-panel-header">
         <span class="label">Lots</span>
