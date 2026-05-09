@@ -113,6 +113,37 @@ router.post('/auctions/:auctionId/send-final-report', auth, role(['admin']), asy
   }
 });
 
+// POST /api/admin/payments/:paymentId/refund
+// Full or partial refund of a paid payment. Admin-only.
+// Body: { refund_amount_cents: number }
+router.post('/payments/:paymentId/refund', auth, role(['admin']), async (req, res, next) => {
+  try {
+    const { paymentId } = req.params;
+    const { refund_amount_cents } = req.body;
+
+    if (refund_amount_cents == null || typeof refund_amount_cents !== 'number' || refund_amount_cents <= 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'refund_amount_cents is required and must be a positive number',
+      });
+    }
+
+    const result = await paymentService.processRefund(req.user.id, paymentId, refund_amount_cents);
+    return res.json({ success: true, data: result });
+  } catch (err) {
+    if (err.message === 'Payment not found') {
+      return res.status(404).json({ success: false, message: err.message });
+    }
+    if (
+      err.message.startsWith('Cannot refund') ||
+      err.message.startsWith('Refund amount')
+    ) {
+      return res.status(422).json({ success: false, message: err.message });
+    }
+    next(err);
+  }
+});
+
 // POST /api/admin/payments/:paymentId/record-success
 router.post('/payments/:paymentId/record-success', auth, role(['admin']), async (req, res, next) => {
   try {

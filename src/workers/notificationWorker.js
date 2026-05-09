@@ -461,8 +461,23 @@ async function enqueueEndingSoon() {
 }
 
 // ── Runner ────────────────────────────────────────────────────────────────────
-console.log(`[notify] Worker started — polling every ${POLL_INTERVAL_MS / 1000}s`);
-setInterval(processNotifications, POLL_INTERVAL_MS);
+// Delivery requires SMTP. If unconfigured, the delivery loop is suppressed so
+// pending rows are NOT consumed and permanently marked failed. Enqueueing
+// schedulers still run — rows accumulate and will be delivered once SMTP is
+// configured and the worker is restarted.
+const SMTP_CONFIGURED = !!(
+  process.env.SMTP_HOST &&
+  process.env.SMTP_USER &&
+  process.env.SMTP_PASS
+);
+
+if (SMTP_CONFIGURED) {
+  console.log(`[notify] Worker started — polling every ${POLL_INTERVAL_MS / 1000}s`);
+  setInterval(processNotifications, POLL_INTERVAL_MS);
+  processNotifications();
+} else {
+  console.warn('[notify] SMTP not configured — delivery paused. Pending rows will be held until SMTP_HOST, SMTP_USER, and SMTP_PASS are set and the worker is restarted.');
+}
 
 console.log(`[notify] ENDING_SOON scheduler started — scanning every ${ENDING_SOON_INTERVAL_MS / 1000}s`);
 setInterval(enqueueEndingSoon, ENDING_SOON_INTERVAL_MS);
@@ -473,8 +488,6 @@ setInterval(enqueueCloseToWinning, CLOSE_TO_WINNING_INTERVAL_MS);
 console.log(`[notify] FINAL_SECONDS scheduler started — scanning every ${FINAL_SECONDS_INTERVAL_MS / 1000}s`);
 setInterval(enqueueFinalSeconds, FINAL_SECONDS_INTERVAL_MS);
 
-// Run once immediately on startup so first batch isn't delayed.
-processNotifications();
 enqueueEndingSoon();
 enqueueCloseToWinning();
 enqueueFinalSeconds();

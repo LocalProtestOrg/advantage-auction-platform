@@ -2,9 +2,10 @@ const express = require('express');
 const router = express.Router();
 const bidService = require('../services/bidService');
 const auth = require('../middleware/authMiddleware');
+const { strictLimiter } = require('../middleware/rateLimit');
 
 // POST /api/lots/:lotId/bids
-router.post('/:lotId/bids', auth, async (req, res) => {
+router.post('/:lotId/bids', auth, strictLimiter, async (req, res) => {
   try {
     const { lotId } = req.params;
     const { amount, maxBid } = req.body;

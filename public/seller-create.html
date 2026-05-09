@@ -146,6 +146,12 @@
       gap: 1rem;
     }
 
+    @media (max-width: 640px) {
+      .row { grid-template-columns: 1fr; }
+      .card { padding: 1.25rem; }
+      body  { padding: 1rem 0.75rem; }
+    }
+
     /* Action bar */
     .actions {
       display: flex;
@@ -184,9 +190,9 @@
   <!-- Image upload -->
   <div id="upload-zone">
     <p>Drop images here or <span>click to upload</span></p>
-    <p style="font-size:0.8rem;margin-top:0.4rem;color:#9ca3af;">JPG, PNG, WEBP — multiple allowed</p>
+    <p style="font-size:0.8rem;margin-top:0.4rem;color:#9ca3af;">JPG, PNG, WEBP, HEIC — multiple allowed</p>
   </div>
-  <input type="file" id="file-input" accept="image/jpeg,image/png,image/webp" multiple />
+  <input type="file" id="file-input" accept="image/jpeg,image/png,image/webp,image/heic,image/heif" multiple />
   <div id="preview-list"></div>
 
   <button id="btn-generate" class="btn btn-primary" disabled>Suggest Details</button>

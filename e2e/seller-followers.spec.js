@@ -213,7 +213,9 @@ test.describe('NEW_AUCTION notification on publish', () => {
     expect(body.data.state).toBe('published');
 
     // Allow the async fan-out to complete (it fires after response).
-    await new Promise(r => setTimeout(r, 300));
+    // Use 1500ms here — the test suite runs serially, and prior browser-based
+    // specs leave in-flight server requests that temporarily exhaust the DB pool.
+    await new Promise(r => setTimeout(r, 1500));
 
     const notifs = await dbQuery(
       `SELECT nq.user_id, nq.type, nq.payload

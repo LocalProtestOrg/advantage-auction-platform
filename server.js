@@ -4,21 +4,58 @@ const path       = require('path');
 const http       = require('http');
 const { fork }   = require('child_process');
 const { Server } = require('socket.io');
+const helmet     = require('helmet');
 const db   = require('./src/db');
 const authMiddleware = require('./src/middleware/authMiddleware');
 const logger = require('./src/middleware/logger');
 const log  = require('./src/lib/logger');
 
+// ── Process-level error handlers — must be first ──────────────────────────────
+// Catches unhandled async rejections and synchronous exceptions that escape all
+// try/catch blocks. Logs structured context then exits so the process manager
+// (or cloud platform) can restart cleanly rather than running in a broken state.
+process.on('unhandledRejection', (reason) => {
+  log.error('process', 'Unhandled promise rejection — exiting', {
+    reason: reason instanceof Error ? reason.message : String(reason),
+    stack:  reason instanceof Error ? reason.stack    : undefined,
+  });
+  process.exit(1);
+});
+
+process.on('uncaughtException', (err) => {
+  log.error('process', 'Uncaught exception — exiting', {
+    error: err.message,
+    stack: err.stack,
+  });
+  process.exit(1);
+});
+
 // ── Startup: env validation ───────────────────────────────────────────────────
-const REQUIRED_ENV = ['JWT_SECRET', 'DATABASE_URL'];
-const WARN_ENV     = ['STRIPE_SECRET_KEY', 'STRIPE_PUBLISHABLE_KEY', 'STRIPE_WEBHOOK_SECRET'];
+const REQUIRED_ENV  = ['JWT_SECRET', 'DATABASE_URL'];
+// Stripe is required in production — the platform cannot accept payments without it.
+const STRIPE_ENV    = ['STRIPE_SECRET_KEY', 'STRIPE_PUBLISHABLE_KEY', 'STRIPE_WEBHOOK_SECRET'];
+const WARN_ONLY_ENV = ['SMTP_HOST', 'SMTP_USER', 'SMTP_PASS'];
 
 const missingRequired = REQUIRED_ENV.filter(k => !process.env[k]);
 if (missingRequired.length) {
   console.error(`[startup] FATAL — missing required env vars: ${missingRequired.join(', ')}`);
   process.exit(1);
 }
-const missingWarn = WARN_ENV.filter(k => !process.env[k]);
+
+if (process.env.NODE_ENV === 'production') {
+  const missingStripe = STRIPE_ENV.filter(k => !process.env[k]);
+  if (missingStripe.length) {
+    console.error(`[startup] FATAL — missing Stripe env vars in production: ${missingStripe.join(', ')}`);
+    process.exit(1);
+  }
+} else {
+  const missingStripe = STRIPE_ENV.filter(k => !process.env[k]);
+  if (missingStripe.length) {
+    log.warn('startup', 'Stripe not fully configured — payment features unavailable', { missing: missingStripe });
+  }
+}
+
+const missingWarn = WARN_ONLY_ENV.filter(k => !process.env[k]);
 if (missingWarn.length) {
   log.warn('startup', 'missing optional env vars — some features may be unavailable', { missing: missingWarn });
 }
@@ -51,6 +88,11 @@ io.on('connection', (socket) => {
 });
 
 // ── HTTP middleware ───────────────────────────────────────────────────────────
+
+// Security headers — helmet adds X-Frame-Options, X-Content-Type-Options,
+// Strict-Transport-Security, Referrer-Policy, etc. CSP is disabled because the
+// HTML pages use inline <script> blocks; it can be enabled with nonces later.
+app.use(helmet({ contentSecurityPolicy: false }));
 
 // CORS
 app.use((req, res, next) => {
