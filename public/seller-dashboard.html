@@ -472,7 +472,8 @@ let sellerProfileId = null;
 // ── Logout ───────────────────────────────────────────────────────────────────
 document.getElementById('btn-logout').addEventListener('click', () => {
   localStorage.removeItem('token');
-  window.location.href = '/login.html';
+  sessionStorage.clear();
+  window.location.href = '/demo.html';
 });
 
 // ── Banner ───────────────────────────────────────────────────────────────────

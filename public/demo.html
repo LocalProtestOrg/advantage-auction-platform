@@ -502,7 +502,7 @@
     <a href="/" class="brand">Advantage Auction</a>
     <nav class="header-nav">
       <a href="https://www.advantage.bid" class="header-link" target="_blank" rel="noopener">Marketing Site</a>
-      <a href="/login.html" class="btn-sign-in">Sign In</a>
+      <a href="/login.html" class="btn-sign-in" onclick="localStorage.removeItem('token');sessionStorage.clear();">Sign In</a>
     </nav>
   </header>
 
@@ -567,7 +567,7 @@
           </ul>
         </div>
 
-        <a href="/login.html" class="cred-cta">Sign In as Buyer →</a>
+        <a href="/login.html" class="cred-cta" onclick="localStorage.removeItem('token');sessionStorage.clear();">Sign In as Buyer →</a>
       </div>
 
       <!-- Seller card -->
@@ -604,7 +604,7 @@
           </ul>
         </div>
 
-        <a href="/login.html" class="cred-cta seller-cta">Sign In as Seller →</a>
+        <a href="/login.html" class="cred-cta seller-cta" onclick="localStorage.removeItem('token');sessionStorage.clear();">Sign In as Seller →</a>
       </div>
 
     </div>

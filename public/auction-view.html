@@ -211,6 +211,7 @@
   <span class="brand">Advantage Auction</span>
   <div class="header-right">
     <span class="lot-count" id="lot-count"></span>
+    <button id="btn-logout" onclick="localStorage.removeItem('token');sessionStorage.clear();window.location.href='/demo.html';" style="font-size:0.8rem;color:#ef4444;background:none;border:none;cursor:pointer;padding:0;">Log out</button>
   </div>
 </header>
 
