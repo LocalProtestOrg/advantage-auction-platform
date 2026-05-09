@@ -46,7 +46,7 @@ router.get('/', auth, async (req, res, next) => {
   try {
     const result = await db.query(
       `SELECT w.lot_id, w.created_at,
-              l.title, l.status, l.current_bid_cents, l.closes_at
+              l.title, l.state, l.current_bid_cents, l.closes_at
        FROM watchlists w
        JOIN lots l ON l.id = w.lot_id
        WHERE w.user_id = $1
