@@ -246,4 +246,72 @@ router.get('/diagnostics/notifications', auth, role(['admin']), async (req, res,
   }
 });
 
+// GET /api/admin/sellers?search=<email>
+// Returns matching seller profiles with user email, type, capabilities, and auction count.
+router.get('/sellers', auth, role(['admin']), async (req, res, next) => {
+  try {
+    const search = (req.query.search || '').trim();
+    const rows = await db.query(
+      `SELECT sp.id              AS seller_profile_id,
+              sp.seller_type,
+              sp.capabilities,
+              sp.created_at      AS profile_created_at,
+              u.id               AS user_id,
+              u.email,
+              u.role,
+              u.created_at       AS user_created_at,
+              COUNT(a.id)::int   AS auction_count
+         FROM seller_profiles sp
+         JOIN users u ON u.id = sp.user_id
+    LEFT JOIN auctions a ON a.seller_id = sp.id
+        WHERE ($1 = '' OR u.email ILIKE $2)
+     GROUP BY sp.id, u.id
+     ORDER BY sp.created_at DESC
+        LIMIT 50`,
+      [search, `%${search}%`]
+    );
+    return res.json({ success: true, data: rows.rows });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// GET /api/admin/payouts?status=<pending|released|all>
+// Returns seller_payouts rows with seller email for operational visibility.
+router.get('/payouts', auth, role(['admin']), async (req, res, next) => {
+  try {
+    const status = req.query.status || 'all';
+    const validStatuses = ['pending', 'released', 'all'];
+    if (!validStatuses.includes(status)) {
+      return res.status(400).json({ error: 'status must be pending, released, or all' });
+    }
+
+    const rows = await db.query(
+      `SELECT sp.id                  AS payout_id,
+              sp.auction_id,
+              sp.seller_user_id,
+              sp.gross_revenue_cents,
+              sp.platform_fee_cents,
+              sp.seller_payout_cents,
+              sp.payout_method,
+              sp.payout_status,
+              sp.payout_reference,
+              sp.created_at,
+              sp.updated_at,
+              u.email                AS seller_email,
+              a.title                AS auction_title
+         FROM seller_payouts sp
+         JOIN users u ON u.id = sp.seller_user_id
+    LEFT JOIN auctions a ON a.id = sp.auction_id
+        WHERE ($1 = 'all' OR sp.payout_status = $1)
+     ORDER BY sp.created_at DESC
+        LIMIT 100`,
+      [status]
+    );
+    return res.json({ success: true, data: rows.rows });
+  } catch (err) {
+    next(err);
+  }
+});
+
 module.exports = router;
