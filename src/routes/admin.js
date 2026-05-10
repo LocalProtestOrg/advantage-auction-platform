@@ -6,6 +6,7 @@ const role = require('../middleware/roleMiddleware');
 const idempotency = require('../middleware/idempotency');
 const auctionService = require('../services/auctionService');
 const paymentService = require('../services/paymentService');
+const videoService   = require('../services/walkthroughVideoService');
 const { sendFinalSellerReport } = require('../services/pdfGenerationService');
 const { enqueueNewAuctionNotifications } = require('../services/followerNotificationService');
 const db = require('../db');
@@ -312,6 +313,72 @@ router.get('/payouts', auth, role(['admin']), async (req, res, next) => {
   } catch (err) {
     next(err);
   }
+});
+
+// ── Walkthrough video moderation ─────────────────────────────────────────────
+
+// GET /api/admin/videos/pending — moderation queue (oldest first)
+router.get('/videos/pending', auth, role(['admin']), async (req, res, next) => {
+  try {
+    const limit = Math.min(parseInt(req.query.limit, 10) || 50, 200);
+    const rows = await videoService.getPendingVideos(limit);
+    return res.json({ success: true, data: rows });
+  } catch (err) { next(err); }
+});
+
+// POST /api/admin/videos/:videoId/approve
+// Sets review_status='approved'. Does NOT auto-publish (visible_public stays false).
+router.post('/videos/:videoId/approve', auth, role(['admin']), async (req, res, next) => {
+  try {
+    const { videoId } = req.params;
+    const adminUserId = req.user.id;
+    const row = await videoService.approveVideo(videoId, adminUserId);
+    if (!row) return res.status(404).json({ success: false, message: 'Video not found' });
+    return res.json({ success: true, data: row });
+  } catch (err) { next(err); }
+});
+
+// POST /api/admin/videos/:videoId/reject
+// Body: { reason? }
+router.post('/videos/:videoId/reject', auth, role(['admin']), async (req, res, next) => {
+  try {
+    const { videoId } = req.params;
+    const { reason } = req.body || {};
+    const adminUserId = req.user.id;
+    const row = await videoService.rejectVideo(videoId, adminUserId, reason || null);
+    if (!row) return res.status(404).json({ success: false, message: 'Video not found' });
+    return res.json({ success: true, data: row });
+  } catch (err) { next(err); }
+});
+
+// PATCH /api/admin/videos/:videoId/visibility
+// Body: { visible: true|false }  — only works after approval
+router.patch('/videos/:videoId/visibility', auth, role(['admin']), async (req, res, next) => {
+  try {
+    const { videoId } = req.params;
+    const { visible } = req.body || {};
+    if (typeof visible !== 'boolean') {
+      return res.status(400).json({ success: false, message: 'visible must be a boolean' });
+    }
+    const row = await videoService.setPublicVisibility(videoId, visible);
+    if (!row) return res.status(404).json({ success: false, message: 'Video not found or not yet approved' });
+    return res.json({ success: true, data: row });
+  } catch (err) { next(err); }
+});
+
+// PATCH /api/admin/videos/:videoId/featured
+// Body: { featured: true|false }  — only works after approval
+router.patch('/videos/:videoId/featured', auth, role(['admin']), async (req, res, next) => {
+  try {
+    const { videoId } = req.params;
+    const { featured } = req.body || {};
+    if (typeof featured !== 'boolean') {
+      return res.status(400).json({ success: false, message: 'featured must be a boolean' });
+    }
+    const row = await videoService.setFeaturedForMarketing(videoId, featured);
+    if (!row) return res.status(404).json({ success: false, message: 'Video not found or not yet approved' });
+    return res.json({ success: true, data: row });
+  } catch (err) { next(err); }
 });
 
 module.exports = router;
