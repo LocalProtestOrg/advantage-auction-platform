@@ -123,28 +123,34 @@ router.get('/auction/:auctionId', async (req, res, next) => {
 // POST /api/lots/:lotId/images
 router.post('/:lotId/images', auth, async (req, res, next) => {
   try {
-    const { images, enhancement_enabled } = req.body;
-    const enhancementEnabled = enhancement_enabled !== false; // default true
+    const { images } = req.body;
+    const rawFlag = req.body.enhancement_enabled;
+    // Strict normalization: only boolean true or string "true" is enabled.
+    // Missing (undefined) defaults to true for backward compatibility.
+    const batchEnhancement = rawFlag === undefined ? true : (rawFlag === true || rawFlag === 'true');
 
     if (!Array.isArray(images) || images.length === 0) {
       return res.status(400).json({ success: false, message: 'Images array required' });
     }
 
-    const values = images.map((url, i) => `($1, $${i + 2}, ${i})`).join(',');
-    const params = [req.params.lotId, ...images];
+    // Store enhancement_enabled per image row — all images in this batch share the flag.
+    // $1 = lot_id, $2…$(n+1) = image URLs, $(n+2) = enhancement_enabled flag
+    const flagParamIdx = images.length + 2;
+    const values = images.map((url, i) => `($1, $${i + 2}, ${i}, $${flagParamIdx})`).join(',');
+    const params = [req.params.lotId, ...images, batchEnhancement];
 
-    await db.query(
-      `INSERT INTO lot_images (lot_id, image_url, sort_order) VALUES ${values}`,
+    const inserted = await db.query(
+      `INSERT INTO lot_images (lot_id, image_url, sort_order, enhancement_enabled)
+       VALUES ${values} RETURNING image_url, enhancement_enabled`,
       params
     );
 
-    // Auto-enqueue background removal for each Cloudinary image — fire-and-forget, non-fatal
-    if (enhancementEnabled) {
-      const cloudinaryUrls = images.filter(u => typeof u === 'string' && u.includes('res.cloudinary.com'));
-      for (const imageUrl of cloudinaryUrls) {
+    // Enqueue per inserted row — respects the stored enhancement_enabled value
+    for (const row of inserted.rows) {
+      if (row.enhancement_enabled && typeof row.image_url === 'string' && row.image_url.includes('res.cloudinary.com')) {
         imageProcessingService.createProcessingJob({
           lotTempId:        req.params.lotId,
-          originalImageUrl: imageUrl,
+          originalImageUrl: row.image_url,
           enhancementType:  'white_background',
         }).catch(err => console.warn('[lots] image-processing enqueue failed:', err.message));
       }
