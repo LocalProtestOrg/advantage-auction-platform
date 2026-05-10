@@ -144,21 +144,23 @@ async function deleteLot(lotId, userId) {
 
 // Admin-only: create a lot for any auction without ownership check
 async function adminCreateLot(auctionId, data) {
-  const { title, description, startingPrice } = data;
+  const { title, description, startingPrice, pickupCategory, category } = data;
 
   const result = await db.query(
     `INSERT INTO lots (
        auction_id, title, description,
        starting_bid_cents, bid_increment_cents,
-       pickup_category, state
+       pickup_category, category, state
      )
-     VALUES ($1, $2, $3, $4, 500, null, 'open')
+     VALUES ($1, $2, $3, $4, 500, $5, $6, 'open')
      RETURNING *`,
     [
       auctionId,
       title,
       description || null,
-      startingPrice ? Math.round(Number(startingPrice) * 100) : 100
+      startingPrice ? Math.round(Number(startingPrice) * 100) : 100,
+      pickupCategory || null,
+      category || null
     ]
   );
 
