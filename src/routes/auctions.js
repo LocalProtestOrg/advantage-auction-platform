@@ -117,12 +117,12 @@ router.post('/:auctionId/lots', authMiddleware, async (req, res) => {
     if (!isUuid(auctionId)) {
       return res.status(400).json({ success: false, message: 'Invalid auction ID' });
     }
-    const { title, description, starting_price } = req.body;
+    const { title, description, starting_price, pickup_category, category } = req.body;
     let lot;
     if (req.user.role === 'admin') {
-      lot = await lotService.adminCreateLot(auctionId, { title, description, startingPrice: starting_price });
+      lot = await lotService.adminCreateLot(auctionId, { title, description, startingPrice: starting_price, pickupCategory: pickup_category, category });
     } else {
-      lot = await lotService.createLot(auctionId, req.user.id, { title, description, startingPrice: starting_price });
+      lot = await lotService.createLot(auctionId, req.user.id, { title, description, startingPrice: starting_price, pickupCategory: pickup_category, category });
     }
     return res.status(201).json({ success: true, data: lot });
   } catch (err) {

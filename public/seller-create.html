@@ -390,7 +390,6 @@
     const payload = {
       sellerProfileId,
       title,
-      description: document.getElementById('lot-description').value.trim() || undefined,
       state: status
     };
 
@@ -405,6 +404,32 @@
       });
       const data = await res.json();
       if (!data.success) throw new Error(data.message || 'Save failed');
+
+      const auctionId = data.data.id;
+
+      // Persist lot fields if a lot title was provided
+      const lotTitle = document.getElementById('lot-title').value.trim();
+      if (lotTitle && auctionId) {
+        const lotPayload = {
+          title:           lotTitle,
+          description:     document.getElementById('lot-description').value.trim() || undefined,
+          pickup_category: document.getElementById('lot-pickup-category').value   || undefined,
+          category:        document.getElementById('lot-category').value           || undefined,
+        };
+        const lotRes  = await fetch('/api/auctions/' + auctionId + '/lots', {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+          body:    JSON.stringify(lotPayload),
+        });
+        const lotData = await lotRes.json();
+        if (lotData.success && uploadedImageUrl) {
+          await fetch('/api/lots/' + lotData.data.id + '/images', {
+            method:  'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+            body:    JSON.stringify({ images: [uploadedImageUrl] }),
+          }).catch(() => {}); // image link is non-fatal
+        }
+      }
 
       if (status === 'draft') {
         showBanner('Draft saved.', 'success');

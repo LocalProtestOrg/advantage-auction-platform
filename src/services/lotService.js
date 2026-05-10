@@ -18,7 +18,8 @@ async function createLot(auctionId, userId, data) {
     description,
     startingPrice,
     bidIncrement,
-    pickupCategory
+    pickupCategory,
+    category
   } = data;
 
   const result = await db.query(
@@ -29,9 +30,10 @@ async function createLot(auctionId, userId, data) {
        starting_bid_cents,
        bid_increment_cents,
        pickup_category,
+       category,
        state
      )
-     VALUES ($1, $2, $3, $4, $5, $6, 'open')
+     VALUES ($1, $2, $3, $4, $5, $6, $7, 'open')
      RETURNING *`,
     [
       auctionId,
@@ -39,7 +41,8 @@ async function createLot(auctionId, userId, data) {
       description || null,
       startingPrice ? Math.round(Number(startingPrice) * 100) : 100,
       bidIncrement  ? Math.round(Number(bidIncrement)  * 100) : 500,
-      pickupCategory || null
+      pickupCategory || null,
+      category || null
     ]
   );
   return result.rows[0];
