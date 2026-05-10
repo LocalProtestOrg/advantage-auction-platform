@@ -192,6 +192,7 @@
     const clientSecret = params.get('client_secret');
     const amountCents  = parseInt(params.get('amount') || '0', 10);
     const lotId        = params.get('lot_id') || '';
+    const auctionId    = params.get('auction_id') || '';
 
     // ── Display amount / lot ───────────────────────────────────────────────────
     if (amountCents) {
@@ -260,8 +261,16 @@
             document.getElementById('card-errors').textContent = error.message;
             setLoading(false);
           } else if (paymentIntent.status === 'succeeded') {
-            showResult('success', 'Payment successful! Your lot has been secured.');
             document.getElementById('payment-form').style.display = 'none';
+            const el = document.getElementById('result');
+            el.className = 'success';
+            el.style.display = 'block';
+            el.innerHTML =
+              '<strong>Payment successful!</strong> Your lot has been secured.' +
+              '<div style="margin-top:1rem;display:flex;gap:0.75rem;flex-wrap:wrap;">' +
+              (auctionId ? `<a href="/auction-view.html?auctionId=${auctionId}" style="padding:0.5rem 1rem;background:#2563eb;color:#fff;border-radius:6px;text-decoration:none;font-size:0.875rem;font-weight:600;">Back to Auction</a>` : '') +
+              '<a href="/dashboard.html" style="padding:0.5rem 1rem;background:#fff;color:#2563eb;border:1.5px solid #2563eb;border-radius:6px;text-decoration:none;font-size:0.875rem;font-weight:600;">My Dashboard</a>' +
+              '</div>';
           } else {
             showResult('error', 'Payment status: ' + paymentIntent.status + '. Please contact support.');
             setLoading(false);

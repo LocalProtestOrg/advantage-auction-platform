@@ -837,6 +837,7 @@
         client_secret: intentRes.data.client_secret,
         amount:        intentRes.data.amount_cents,
         lot_id:        lotId,
+        auction_id:    currentAuctionId || '',
       });
       if (cfg.publishableKey) qs.set('pk', cfg.publishableKey);
       window.location.href = '/payment.html?' + qs.toString();

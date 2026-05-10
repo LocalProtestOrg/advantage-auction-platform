@@ -363,7 +363,7 @@
       <div class="brand">Advantage Auction Platform</div>
       <h1>Seller Dashboard</h1>
       <div class="header-actions">
-        <a class="btn" href="/dashboard.html">&larr; Buyer Dashboard</a>
+        <a class="btn" href="/seller-dashboard.html">&larr; My Auctions</a>
         <button class="btn" onclick="logout()">Logout</button>
       </div>
     </header>
@@ -406,7 +406,8 @@
 
     function logout() {
       localStorage.removeItem('token');
-      window.location.href = '/login.html';
+      sessionStorage.clear();
+      window.location.href = '/demo.html';
     }
 
     function fmt(n) {
@@ -532,7 +533,7 @@
 
         var auctionBtn = document.createElement('a');
         auctionBtn.className = 'btn';
-        auctionBtn.href = '/auction-view.html?id=' + a.id;
+        auctionBtn.href = '/auction-view.html?auctionId=' + a.id;
         auctionBtn.textContent = 'View Auction';
         actions.appendChild(auctionBtn);
 
@@ -543,11 +544,10 @@
         lotsBtn.textContent = 'Manage Lots';
         actions.appendChild(lotsBtn);
 
-        var invoicesBtn = document.createElement('a');
+        var invoicesBtn = document.createElement('span');
         invoicesBtn.className = 'btn';
-        invoicesBtn.href = '#';
-        invoicesBtn.title = 'Coming soon';
-        invoicesBtn.textContent = 'View Invoices';
+        invoicesBtn.textContent = 'Invoices — Coming Soon';
+        invoicesBtn.style.cssText = 'opacity:0.45;cursor:not-allowed;pointer-events:none;';
         actions.appendChild(invoicesBtn);
 
         card.appendChild(actions);

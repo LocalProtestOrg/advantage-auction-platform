@@ -244,7 +244,8 @@
 
     function logout() {
       localStorage.removeItem('token');
-      window.location.href = '/login.html';
+      sessionStorage.clear();
+      window.location.href = '/demo.html';
     }
 
     function formatDate(iso) {
