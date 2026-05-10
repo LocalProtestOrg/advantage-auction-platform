@@ -23,19 +23,25 @@ require('dotenv').config();
 const db                     = require('../db');
 const imageProcessingService = require('../services/imageProcessingService');
 
-const POLL_INTERVAL_MS  = 5000;
-const BATCH_SIZE        = 5;
-const SIMULATED_DELAY_MS = 2000; // simulate AI processing time
+const POLL_INTERVAL_MS = 5000;
+const BATCH_SIZE       = 5;
 
-// ── Simulated provider dispatch ───────────────────────────────────────────────
-// Returns the URL that a real provider would produce. Placeholder for now.
-async function simulateProcessing(job) {
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      // TODO: replace with actual provider API response URL
-      resolve(`${job.original_image_url}?enhanced=1&type=${job.enhancement_type}`);
-    }, SIMULATED_DELAY_MS);
-  });
+// Cloudinary transform strings per enhancement type.
+// Transforms are applied at CDN delivery time — no extra API call required.
+const CLOUDINARY_TRANSFORMS = {
+  background_removal: 'e_background_removal,q_auto,f_auto',
+  white_background:   'e_background_removal,b_white,q_auto,f_auto',
+  drop_shadow:        'e_improve,e_shadow:40,q_auto,f_auto',
+  auto_crop:          'e_improve,g_auto,c_fill,w_800,h_800,q_auto,f_auto',
+  lighting_cleanup:   'e_improve,e_sharpen:50,q_auto,f_auto',
+  full_enhancement:   'e_improve,e_sharpen:50,e_auto_contrast,q_auto,f_auto',
+};
+
+function buildProcessedUrl(job) {
+  const { original_image_url: url, enhancement_type: type } = job;
+  if (!url || !url.includes('res.cloudinary.com')) return url;
+  const transform = CLOUDINARY_TRANSFORMS[type] || 'e_improve,q_auto,f_auto';
+  return url.replace('/upload/', `/upload/${transform}/`);
 }
 
 // ── Process a single job ──────────────────────────────────────────────────────
@@ -50,7 +56,7 @@ async function processOne(job) {
   }
 
   try {
-    const processedUrl = await simulateProcessing(job);
+    const processedUrl = buildProcessedUrl(job);
     const completed    = await imageProcessingService.markComplete(job.id, processedUrl);
     console.log(`[img-worker] Job ${job.id} complete → ${completed?.processed_image_url}`);
   } catch (err) {

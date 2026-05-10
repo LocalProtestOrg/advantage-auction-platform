@@ -28,6 +28,7 @@
   },
   "homepage": "https://github.com/LocalProtestOrg/advantage-auction-platform#readme",
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.52.0",
     "@sentry/node": "^10.52.0",
     "bcrypt": "^6.0.0",
     "cloudinary": "^2.10.0",

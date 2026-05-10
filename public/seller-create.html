@@ -309,15 +309,37 @@
   function handleFiles(files) {
     if (!files.length) return;
     preview.innerHTML = '';
-    Array.from(files).forEach((file, i) => {
-      const url = URL.createObjectURL(file);
-      if (i === 0) uploadedImageUrl = url; // first image drives AI
+    uploadedImageUrl = null;
+    btnGen.disabled  = true;
+    btnGen.textContent = 'Uploading…';
+
+    // Show local previews immediately
+    Array.from(files).forEach(file => {
       const img = document.createElement('img');
-      img.src = url;
+      img.src = URL.createObjectURL(file);
       img.alt = file.name;
       preview.appendChild(img);
     });
-    btnGen.disabled = false;
+
+    // Upload first file to Cloudinary — store the real secure_url for AI
+    const fd = new FormData();
+    fd.append('image', files[0]);
+    fetch('/api/uploads/image', {
+      method:  'POST',
+      headers: { Authorization: 'Bearer ' + token },
+      body:    fd,
+    })
+      .then(r => r.json())
+      .then(data => {
+        if (!data.success) throw new Error(data.message || 'Upload failed');
+        uploadedImageUrl = data.secure_url;
+        btnGen.disabled    = false;
+        btnGen.textContent = 'Suggest Details';
+      })
+      .catch(err => {
+        showBanner('Image upload failed: ' + err.message, 'error');
+        btnGen.textContent = 'Suggest Details';
+      });
   }
 
   // ── Generate details ───────────────────────────────────────────────────────
