@@ -22,6 +22,8 @@ require('dotenv').config();
 
 const db                     = require('../db');
 const imageProcessingService = require('../services/imageProcessingService');
+require('../services/cloudinaryService'); // configures cloudinary.v2 credentials
+const { v2: cloudinary }     = require('cloudinary');
 
 const POLL_INTERVAL_MS = 5000;
 const BATCH_SIZE       = 5;
@@ -44,6 +46,54 @@ function buildProcessedUrl(job) {
   return url.replace('/upload/', `/upload/${transform}/`);
 }
 
+// Raw transformation strings for Cloudinary explicit() API calls.
+// Chained with / so background is set after transparency is created.
+const EAGER_TYPES = {
+  background_removal: 'e_background_removal/q_auto,f_auto',
+  white_background:   'e_background_removal/b_white,q_auto,f_auto',
+};
+
+// Extract Cloudinary public_id from a secure_url.
+// e.g. https://res.cloudinary.com/cloud/image/upload/v1234/lot-images/abc.jpg → lot-images/abc
+function extractPublicId(url) {
+  const idx = url.indexOf('/upload/');
+  if (idx === -1) return null;
+  let path = url.slice(idx + '/upload/'.length);
+  path = path.replace(/^v\d+\//, '');  // strip version prefix
+  return path.replace(/\.[^.]+$/, ''); // strip file extension
+}
+
+// Trigger the Cloudinary transformation via explicit() API so the result is
+// pre-generated and immediately available in CDN cache when the frontend loads it.
+// Falls back to URL-based transform string if the API call fails.
+async function processWithCloudinary(job) {
+  const { original_image_url: url, enhancement_type: type } = job;
+  const rawTransform = EAGER_TYPES[type];
+
+  if (!url || !url.includes('res.cloudinary.com') || !rawTransform) {
+    return buildProcessedUrl(job);
+  }
+
+  const publicId = extractPublicId(url);
+  if (!publicId) return buildProcessedUrl(job);
+
+  try {
+    const result = await cloudinary.uploader.explicit(publicId, {
+      type:  'upload',
+      eager: [{ raw_transformation: rawTransform }],
+    });
+    const processed = result?.eager?.[0]?.secure_url;
+    if (processed) {
+      console.log(`[img-worker] Cloudinary ${type} applied via explicit() API`);
+      return processed;
+    }
+  } catch (err) {
+    console.warn(`[img-worker] Cloudinary explicit() failed for job ${job.id}: ${err.message} — falling back to URL transform`);
+  }
+
+  return buildProcessedUrl(job);
+}
+
 // ── Process a single job ──────────────────────────────────────────────────────
 async function processOne(job) {
   console.log(`[img-worker] Processing job ${job.id} | type=${job.enhancement_type} | lot=${job.lot_temp_id || 'none'}`);
@@ -56,7 +106,7 @@ async function processOne(job) {
   }
 
   try {
-    const processedUrl = buildProcessedUrl(job);
+    const processedUrl = await processWithCloudinary(job);
     const completed    = await imageProcessingService.markComplete(job.id, processedUrl);
     console.log(`[img-worker] Job ${job.id} complete → ${completed?.processed_image_url}`);
   } catch (err) {
