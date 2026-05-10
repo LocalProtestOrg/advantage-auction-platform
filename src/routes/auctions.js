@@ -153,7 +153,6 @@ router.post('/:auctionId/lots', authMiddleware, async (req, res) => {
 });
 
 // ── GET /:auctionId/summary  — Public auction summary (buyer-facing) ─────────
-// Returns minimal public info including seller_id and follower count.
 // No auth required — safe to call from unauthenticated buyer pages.
 router.get('/:auctionId/summary', async (req, res) => {
   try {
@@ -162,12 +161,15 @@ router.get('/:auctionId/summary', async (req, res) => {
       return res.status(400).json({ success: false, message: 'Invalid auction ID' });
     }
     const { rows } = await db.query(
-      `SELECT a.id, a.title, a.state, a.seller_id,
+      `SELECT a.id, a.title, a.subtitle, a.description, a.state, a.seller_id,
+              a.city, a.address_state, a.start_time, a.end_time,
+              a.pickup_window_start, a.pickup_window_end,
+              a.banner_image_url, a.cover_image_url, a.shipping_available,
               COUNT(sf.id)::int AS follower_count
          FROM auctions a
          LEFT JOIN seller_followers sf ON sf.seller_id = a.seller_id
         WHERE a.id = $1
-        GROUP BY a.id, a.title, a.state, a.seller_id`,
+        GROUP BY a.id`,
       [auctionId]
     );
     if (!rows[0]) {
@@ -176,6 +178,31 @@ router.get('/:auctionId/summary', async (req, res) => {
     return res.json({ success: true, data: rows[0] });
   } catch (err) {
     console.error('[auctions] summary error:', err.message);
+    return res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// ── GET /:auctionId/public-video  — Approved public walkthrough (no auth) ────
+// Only returns videos that are approved AND explicitly made public by admin.
+// Returns null if no qualifying video exists.
+router.get('/:auctionId/public-video', async (req, res) => {
+  try {
+    const { auctionId } = req.params;
+    if (!isUuid(auctionId)) {
+      return res.status(400).json({ success: false, message: 'Invalid auction ID' });
+    }
+    const { rows } = await db.query(
+      `SELECT id, video_url, title, caption, featured_for_marketing, approved_at
+         FROM auction_walkthrough_videos
+        WHERE auction_id    = $1
+          AND review_status = 'approved'
+          AND visible_public = true
+        ORDER BY approved_at DESC
+        LIMIT 1`,
+      [auctionId]
+    );
+    return res.json({ success: true, data: rows[0] || null });
+  } catch (err) {
     return res.status(500).json({ success: false, message: err.message });
   }
 });

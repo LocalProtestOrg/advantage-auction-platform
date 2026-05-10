@@ -30,23 +30,94 @@
     .auction-banner {
       background: #fff;
       border-bottom: 1px solid #e4e4e7;
-      padding: 1.25rem 1.5rem;
+    }
+
+    /* Optional banner image hero */
+    .banner-hero {
+      width: 100%;
+      max-height: 220px;
+      object-fit: cover;
+      display: block;
+    }
+
+    .banner-body {
       max-width: 1200px;
       margin: 0 auto;
+      padding: 1.25rem 1.5rem 1rem;
     }
-    .auction-banner h1 { font-size: 1.25rem; font-weight: 700; color: #111; }
-    .auction-banner .meta { font-size: 0.8rem; color: #71717a; margin-top: 0.2rem; }
+
+    .auction-title-row {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 1rem;
+      flex-wrap: wrap;
+    }
+
+    .auction-title-group { flex: 1; min-width: 0; }
+    .auction-title { font-size: 1.3rem; font-weight: 700; color: #111; }
+    .auction-subtitle {
+      font-size: 0.88rem;
+      color: #52525b;
+      margin-top: 0.2rem;
+    }
+    .auction-meta {
+      display: flex;
+      gap: 1rem;
+      flex-wrap: wrap;
+      margin-top: 0.4rem;
+      font-size: 0.78rem;
+      color: #71717a;
+    }
+    .auction-meta span::before { content: '· '; }
+    .auction-meta span:first-child::before { content: ''; }
+
+    /* Walkthrough CTA */
+    .btn-walkthrough {
+      display: none;
+      align-items: center;
+      gap: 0.45rem;
+      padding: 0.5rem 1rem;
+      border: 1.5px solid #3f3f46;
+      border-radius: 6px;
+      background: #111;
+      color: #fff;
+      font-size: 0.82rem;
+      font-weight: 600;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: background 0.12s;
+      flex-shrink: 0;
+    }
+    .btn-walkthrough:hover { background: #3f3f46; }
+    .btn-walkthrough.visible { display: flex; }
+    .play-icon {
+      width: 18px;
+      height: 18px;
+      background: #fff;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+    .play-icon::after {
+      content: '';
+      border-style: solid;
+      border-width: 4px 0 4px 8px;
+      border-color: transparent transparent transparent #111;
+      margin-left: 1px;
+    }
 
     /* ── Seller bar ── */
     .seller-bar {
       display: flex;
       align-items: center;
       gap: 0.75rem;
-      margin-top: 0.6rem;
+      margin-top: 0.7rem;
       font-size: 0.8rem;
       color: #71717a;
     }
-    .seller-follower-count { flex-shrink: 0; }
     .btn-follow {
       padding: 0.25rem 0.75rem;
       font-size: 0.78rem;
@@ -59,10 +130,7 @@
       transition: background 0.12s, color 0.12s;
     }
     .btn-follow:hover { background: #eff6ff; }
-    .btn-follow.following {
-      background: #2563eb;
-      color: #fff;
-    }
+    .btn-follow.following { background: #2563eb; color: #fff; }
     .btn-follow.following:hover { background: #1d4ed8; }
     .btn-follow:disabled { opacity: 0.5; cursor: default; }
 
@@ -112,9 +180,10 @@
       height: 100%;
       object-fit: cover;
       display: block;
-      transition: opacity 0.2s;
+      opacity: 0;
+      transition: opacity 0.25s;
     }
-    .card-img img.hidden { opacity: 0; }
+    .card-img img.loaded { opacity: 1; }
     .card-img .img-placeholder {
       position: absolute;
       inset: 0;
@@ -123,6 +192,21 @@
       justify-content: center;
       color: #a1a1aa;
       font-size: 0.8rem;
+    }
+
+    /* Enhanced badge */
+    .enhanced-badge {
+      position: absolute;
+      bottom: 0.5rem;
+      left: 0.5rem;
+      background: rgba(0,0,0,0.6);
+      color: #fff;
+      font-size: 0.6rem;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      padding: 2px 6px;
+      border-radius: 4px;
+      text-transform: uppercase;
     }
 
     /* Status badge */
@@ -154,7 +238,6 @@
       font-weight: 700;
       color: #111;
       line-height: 1.35;
-      /* clamp to 2 lines */
       display: -webkit-box;
       -webkit-line-clamp: 2;
       -webkit-box-orient: vertical;
@@ -175,14 +258,10 @@
       gap: 0.4rem;
     }
     .bid-label { font-size: 0.72rem; color: #a1a1aa; }
-    .bid-amount {
-      font-size: 1.05rem;
-      font-weight: 800;
-      color: #111;
-    }
+    .bid-amount { font-size: 1.05rem; font-weight: 800; color: #111; }
     .bid-amount.no-bids { color: #a1a1aa; font-weight: 500; font-size: 0.85rem; }
 
-    /* ── Empty / loading states ── */
+    /* ── States ── */
     .state-msg {
       grid-column: 1 / -1;
       text-align: center;
@@ -192,7 +271,7 @@
     }
     .state-msg strong { display: block; font-size: 1.1rem; color: #3f3f46; margin-bottom: 0.4rem; }
 
-    /* ── Skeleton loader ── */
+    /* ── Skeleton ── */
     .skeleton {
       background: linear-gradient(90deg, #e4e4e7 25%, #f4f4f5 50%, #e4e4e7 75%);
       background-size: 200% 100%;
@@ -200,9 +279,60 @@
       border-radius: 4px;
     }
     @keyframes shimmer { to { background-position: -200% 0; } }
-
     .card-skeleton .card-img { background: #e4e4e7; }
     .card-skeleton .sk-line  { height: 12px; margin: 4px 0; border-radius: 4px; }
+
+    /* ── Video modal ── */
+    #video-modal {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.85);
+      z-index: 900;
+      align-items: center;
+      justify-content: center;
+      padding: 1.5rem;
+    }
+    #video-modal.open { display: flex; }
+    .video-modal-inner {
+      position: relative;
+      width: 100%;
+      max-width: 900px;
+      background: #000;
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    .video-modal-inner video {
+      width: 100%;
+      display: block;
+      max-height: 80vh;
+      object-fit: contain;
+    }
+    .video-modal-close {
+      position: absolute;
+      top: 0.6rem;
+      right: 0.6rem;
+      width: 32px;
+      height: 32px;
+      background: rgba(0,0,0,0.6);
+      color: #fff;
+      border: none;
+      border-radius: 50%;
+      font-size: 1rem;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 10;
+    }
+    .video-modal-close:hover { background: rgba(0,0,0,0.85); }
+    .video-title {
+      padding: 0.75rem 1rem;
+      background: #111;
+      color: #fff;
+      font-size: 0.85rem;
+      font-weight: 600;
+    }
   </style>
 </head>
 <body>
@@ -211,19 +341,31 @@
   <span class="brand">Advantage Auction</span>
   <div class="header-right">
     <span class="lot-count" id="lot-count"></span>
-    <button id="btn-logout" onclick="localStorage.removeItem('token');sessionStorage.clear();window.location.href='/demo.html';" style="font-size:0.8rem;color:#ef4444;background:none;border:none;cursor:pointer;padding:0;">Log out</button>
+    <button onclick="localStorage.removeItem('token');sessionStorage.clear();window.location.href='/demo.html';"
+            style="font-size:0.8rem;color:#ef4444;background:none;border:none;cursor:pointer;padding:0;">Log out</button>
   </div>
 </header>
 
-<div class="auction-banner">
-  <h1 id="auction-title">Loading auction…</h1>
-  <div class="meta" id="auction-meta"></div>
-  <div class="seller-bar" id="seller-bar" style="display:none"></div>
+<div class="auction-banner" id="auction-banner">
+  <img class="banner-hero" id="banner-hero" style="display:none" alt="Auction banner" />
+  <div class="banner-body">
+    <div class="auction-title-row">
+      <div class="auction-title-group">
+        <div class="auction-title" id="auction-title">Loading auction…</div>
+        <div class="auction-subtitle" id="auction-subtitle" style="display:none"></div>
+        <div class="auction-meta" id="auction-meta"></div>
+      </div>
+      <button class="btn-walkthrough" id="btn-walkthrough" aria-label="Watch auction walkthrough">
+        <span class="play-icon"></span>
+        Watch Walkthrough
+      </button>
+    </div>
+    <div class="seller-bar" id="seller-bar" style="display:none"></div>
+  </div>
 </div>
 
 <div class="grid-wrap">
   <div class="lot-grid" id="lot-grid">
-    <!-- skeleton cards -->
     <div class="lot-card card-skeleton">
       <div class="card-img"></div>
       <div class="card-body">
@@ -248,12 +390,20 @@
   </div>
 </div>
 
+<!-- Walkthrough video modal -->
+<div id="video-modal" role="dialog" aria-modal="true">
+  <div class="video-modal-inner">
+    <button class="video-modal-close" id="video-close" aria-label="Close video">✕</button>
+    <video id="walkthrough-video" controls playsinline preload="metadata"></video>
+    <div class="video-title" id="video-title"></div>
+  </div>
+</div>
+
 <script>
   const params    = new URLSearchParams(location.search);
   const auctionId = params.get('auctionId');
   const grid      = document.getElementById('lot-grid');
-
-  const token = localStorage.getItem('token');
+  const token     = localStorage.getItem('token');
 
   if (!auctionId) {
     grid.innerHTML = '<div class="state-msg"><strong>No auction selected.</strong>Check the URL and try again.</div>';
@@ -261,98 +411,104 @@
   } else {
     loadAuction();
     loadSellerInfo();
+    loadWalkthroughVideo();
   }
 
-  // ── Seller bar ────────────────────────────────────────────────────────────
+  // ── Seller / auction info ─────────────────────────────────────────────────
   let currentSellerId = null;
-  let isFollowing = false;
+  let isFollowing     = false;
 
   async function loadSellerInfo() {
     try {
       const res  = await fetch('/api/auctions/' + auctionId + '/summary');
       const data = await res.json();
-      if (!data.success || !data.data.seller_id) return;
+      if (!data.success || !data.data) return;
 
-      const { seller_id, follower_count, title } = data.data;
-      currentSellerId = seller_id;
+      const d = data.data;
+      currentSellerId = d.seller_id;
 
-      // Update auction title if the API returned one.
-      if (title) {
-        document.getElementById('auction-title').textContent = title;
-        document.title = title + ' — Advantage Auction';
+      // Title
+      document.getElementById('auction-title').textContent = d.title || 'Auction';
+      document.title = (d.title || 'Auction') + ' — Advantage Auction';
+
+      // Subtitle
+      if (d.subtitle) {
+        const sub = document.getElementById('auction-subtitle');
+        sub.textContent    = d.subtitle;
+        sub.style.display  = 'block';
       }
 
-      // Check follow status if authenticated.
+      // Meta row: location + dates
+      const meta = document.getElementById('auction-meta');
+      const parts = [];
+      if (d.city && d.address_state) parts.push(d.city + ', ' + d.address_state);
+      else if (d.city)               parts.push(d.city);
+      if (d.start_time) parts.push('Opens ' + fmtDate(d.start_time));
+      if (d.end_time)   parts.push('Closes ' + fmtDate(d.end_time));
+      if (d.shipping_available) parts.push('Shipping available');
+      meta.innerHTML = parts.map(p => '<span>' + esc(p) + '</span>').join('');
+
+      // Banner hero image
+      if (d.banner_image_url) {
+        const hero = document.getElementById('banner-hero');
+        hero.src = d.banner_image_url;
+        hero.style.display = 'block';
+      }
+
+      // Follow state
       if (token) {
         try {
           const fRes  = await fetch('/api/sellers/following', { headers: { Authorization: 'Bearer ' + token } });
-          if (fRes.status === 401) {
-            localStorage.removeItem('token');
-          } else {
+          if (fRes.status === 401) { localStorage.removeItem('token'); }
+          else {
             const fData = await fRes.json();
-            if (fData.success) {
-              isFollowing = fData.data.some(s => s.seller_id === seller_id);
-            }
+            if (fData.success) isFollowing = fData.data.some(s => s.seller_id === d.seller_id);
           }
-        } catch { /* follow status check failed — default to not following */ }
+        } catch { /* ignore */ }
       }
 
-      renderSellerBar(follower_count);
-    } catch { /* summary fetch failed — seller bar stays hidden */ }
+      renderSellerBar(d.follower_count);
+    } catch { /* summary failed — banner stays minimal */ }
   }
 
   function renderSellerBar(followerCount) {
     const bar = document.getElementById('seller-bar');
     bar.innerHTML = '';
-
     const countEl = document.createElement('span');
-    countEl.className = 'seller-follower-count';
-    countEl.id = 'follower-count-display';
+    countEl.id          = 'follower-count-display';
     countEl.textContent = followerCount + ' follower' + (followerCount === 1 ? '' : 's');
     bar.appendChild(countEl);
 
-    if (!token) {
-      bar.style.display = 'flex';
-      return;
+    if (token) {
+      const btn = document.createElement('button');
+      btn.className   = 'btn-follow' + (isFollowing ? ' following' : '');
+      btn.textContent = isFollowing ? 'Following' : 'Follow Seller';
+      btn.addEventListener('click', () => toggleFollow(btn));
+      bar.appendChild(btn);
     }
-
-    const btn = document.createElement('button');
-    btn.className = 'btn-follow' + (isFollowing ? ' following' : '');
-    btn.textContent = isFollowing ? 'Following' : 'Follow Seller';
-    btn.addEventListener('click', () => toggleFollow(btn));
-    bar.appendChild(btn);
-
     bar.style.display = 'flex';
   }
 
   async function toggleFollow(btn) {
     if (!currentSellerId) return;
     const wasFollowing = isFollowing;
-
-    // Optimistic update.
     isFollowing = !wasFollowing;
     applyFollowState(btn);
 
-    const countEl = document.getElementById('follower-count-display');
+    const countEl   = document.getElementById('follower-count-display');
     const prevCount = parseInt(countEl.textContent, 10) || 0;
     const newCount  = wasFollowing ? Math.max(0, prevCount - 1) : prevCount + 1;
     countEl.textContent = newCount + ' follower' + (newCount === 1 ? '' : 's');
 
     btn.disabled = true;
     try {
-      const method = wasFollowing ? 'DELETE' : 'POST';
       const res = await fetch('/api/sellers/' + currentSellerId + '/follow', {
-        method,
+        method: wasFollowing ? 'DELETE' : 'POST',
         headers: { Authorization: 'Bearer ' + token },
       });
-      if (res.status === 401) {
-        localStorage.removeItem('token');
-        window.location.href = '/login.html';
-        return;
-      }
-      if (!res.ok) throw new Error('Request failed');
+      if (res.status === 401) { localStorage.removeItem('token'); window.location.href = '/login.html'; return; }
+      if (!res.ok) throw new Error();
     } catch {
-      // Revert on failure.
       isFollowing = wasFollowing;
       applyFollowState(btn);
       countEl.textContent = prevCount + ' follower' + (prevCount === 1 ? '' : 's');
@@ -366,39 +522,71 @@
     btn.className   = 'btn-follow' + (isFollowing ? ' following' : '');
   }
 
+  // ── Walkthrough video ─────────────────────────────────────────────────────
+  let walkthroughVideoUrl   = null;
+  let walkthroughVideoTitle = null;
+
+  async function loadWalkthroughVideo() {
+    try {
+      const res  = await fetch('/api/auctions/' + auctionId + '/public-video');
+      const data = await res.json();
+      if (!data.success || !data.data) return;
+      walkthroughVideoUrl   = data.data.video_url;
+      walkthroughVideoTitle = data.data.title || 'Auction Walkthrough';
+      const btn = document.getElementById('btn-walkthrough');
+      btn.classList.add('visible');
+    } catch { /* video unavailable — no CTA shown */ }
+  }
+
+  document.getElementById('btn-walkthrough').addEventListener('click', () => {
+    if (!walkthroughVideoUrl) return;
+    const vid = document.getElementById('walkthrough-video');
+    vid.src = walkthroughVideoUrl;
+    document.getElementById('video-title').textContent = walkthroughVideoTitle;
+    document.getElementById('video-modal').classList.add('open');
+    vid.play().catch(() => {});
+  });
+
+  function closeVideoModal() {
+    const modal = document.getElementById('video-modal');
+    const vid   = document.getElementById('walkthrough-video');
+    modal.classList.remove('open');
+    vid.pause();
+    vid.src = '';
+  }
+
+  document.getElementById('video-close').addEventListener('click', closeVideoModal);
+  document.getElementById('video-modal').addEventListener('click', e => {
+    if (e.target === document.getElementById('video-modal')) closeVideoModal();
+  });
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') closeVideoModal();
+  });
+
+  // ── Lot grid ──────────────────────────────────────────────────────────────
   async function loadAuction() {
     try {
       const res  = await fetch('/api/lots/auction/' + auctionId);
       const data = await res.json();
-
       if (!data.success) throw new Error(data.message || 'Failed to load lots');
 
-      const lots = data.data;
-
-      // Update header
+      const lots  = data.data;
       const count = lots.length;
       document.getElementById('lot-count').textContent = count + ' lot' + (count === 1 ? '' : 's');
-      document.getElementById('auction-title').textContent = 'Auction';
-      document.getElementById('auction-meta').textContent = 'ID: ' + auctionId;
 
-      if (lots.length === 0) {
+      if (!lots.length) {
         grid.innerHTML = '<div class="state-msg"><strong>No lots listed yet.</strong>Check back soon.</div>';
         return;
       }
 
-      // Fetch first image for every lot in parallel
+      // Fetch first image (with best_image_url) for each lot in parallel
       const imageMap = await fetchFirstImages(lots.map(l => l.id));
 
-      // Render
       grid.innerHTML = '';
-      lots.forEach(lot => {
-        const imgUrl = imageMap[lot.id] || null;
-        grid.appendChild(buildCard(lot, imgUrl));
-      });
+      lots.forEach(lot => grid.appendChild(buildCard(lot, imageMap[lot.id])));
 
     } catch (err) {
       grid.innerHTML = '<div class="state-msg"><strong>Could not load auction.</strong>' + esc(err.message) + '</div>';
-      document.getElementById('auction-title').textContent = 'Auction';
     }
   }
 
@@ -407,71 +595,92 @@
       lotIds.map(id =>
         fetch('/api/lots/' + id + '/images')
           .then(r => r.json())
-          .then(d => ({ id, url: d.success && d.data.length ? d.data[0].image_url : null }))
-          .catch(() => ({ id, url: null }))
+          .then(d => {
+            if (!d.success || !d.data.length) return { id, url: null, enhanced: false };
+            const row = d.data[0];
+            return {
+              id,
+              url: row.best_image_url || row.image_url || null,
+              enhanced: row.processing_status === 'complete' && !!row.processed_image_url,
+            };
+          })
+          .catch(() => ({ id, url: null, enhanced: false }))
       )
     );
     const map = {};
-    results.forEach(r => { map[r.id] = r.url; });
+    results.forEach(r => { map[r.id] = r; });
     return map;
   }
 
-  function buildCard(lot, imgUrl) {
+  function buildCard(lot, imgInfo) {
+    const url      = imgInfo?.url      || null;
+    const enhanced = imgInfo?.enhanced || false;
+
     const a = document.createElement('a');
     a.className = 'lot-card';
-    a.href = '/lot.html?lotId=' + lot.id;
+    a.href      = '/lot.html?lotId=' + lot.id;
 
     // Image area
     const imgWrap = document.createElement('div');
     imgWrap.className = 'card-img';
 
-    if (imgUrl) {
-      const img = document.createElement('img');
-      img.alt  = lot.title || 'Lot image';
-      img.className = 'hidden';
-      img.onload  = () => img.classList.remove('hidden');
+    if (url) {
+      const img   = document.createElement('img');
+      img.alt     = lot.title || 'Lot image';
+      img.loading = 'lazy';
+      img.onload  = () => img.classList.add('loaded');
       img.onerror = () => { img.style.display = 'none'; showPlaceholder(imgWrap); };
-      img.src = imgUrl;
+      img.src     = url;
       imgWrap.appendChild(img);
+
+      if (enhanced) {
+        const badge = document.createElement('div');
+        badge.className   = 'enhanced-badge';
+        badge.textContent = '✦ Enhanced';
+        imgWrap.appendChild(badge);
+      }
     } else {
       showPlaceholder(imgWrap);
     }
 
     // Status badge
-    const badge = document.createElement('div');
     const st    = (lot.state || 'open').toLowerCase();
-    badge.className = 'status-badge status-' + (st === 'open' ? 'open' : st === 'closed' ? 'closed' : 'withdrawn');
+    const badge = document.createElement('div');
+    badge.className   = 'status-badge status-' + (st === 'open' ? 'open' : st === 'closed' ? 'closed' : 'withdrawn');
     badge.textContent = st === 'open' ? 'Live' : st === 'closed' ? 'Closed' : 'Withdrawn';
     imgWrap.appendChild(badge);
 
     // Card body
-    const body = document.createElement('div');
+    const body  = document.createElement('div');
     body.className = 'card-body';
 
-    const title = document.createElement('div');
-    title.className = 'card-title';
-    title.textContent = lot.title || 'Untitled';
+    const titleEl = document.createElement('div');
+    titleEl.className   = 'card-title';
+    titleEl.textContent = lot.title || 'Untitled';
+
+    if (lot.category) {
+      const catEl = document.createElement('div');
+      catEl.className   = 'card-category';
+      catEl.textContent = lot.category;
+      body.appendChild(catEl);
+    }
 
     const bidRow = document.createElement('div');
     bidRow.className = 'card-bid';
 
     const bidLabel = document.createElement('span');
-    bidLabel.className = 'bid-label';
+    bidLabel.className   = 'bid-label';
     bidLabel.textContent = 'Current bid';
 
-    const bidAmt = document.createElement('span');
-    const cents  = lot.current_bid_cents || 0;
-    if (cents > 0) {
-      bidAmt.className = 'bid-amount';
-      bidAmt.textContent = '$' + (cents / 100).toFixed(2);
-    } else {
-      bidAmt.className = 'bid-amount no-bids';
-      bidAmt.textContent = 'No bids yet';
-    }
+    const bidAmt  = document.createElement('span');
+    const cents   = lot.current_bid_cents || 0;
+    bidAmt.className   = cents > 0 ? 'bid-amount' : 'bid-amount no-bids';
+    bidAmt.textContent = cents > 0 ? '$' + (cents / 100).toFixed(2) : 'No bids yet';
 
     bidRow.appendChild(bidLabel);
     bidRow.appendChild(bidAmt);
-    body.appendChild(title);
+
+    body.appendChild(titleEl);
     body.appendChild(bidRow);
 
     a.appendChild(imgWrap);
@@ -481,13 +690,20 @@
 
   function showPlaceholder(wrap) {
     const ph = document.createElement('div');
-    ph.className = 'img-placeholder';
+    ph.className   = 'img-placeholder';
     ph.textContent = 'No image';
     wrap.appendChild(ph);
   }
 
+  // ── Helpers ───────────────────────────────────────────────────────────────
   function esc(str) {
-    return String(str).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    return String(str ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
+
+  function fmtDate(iso) {
+    try {
+      return new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+    } catch { return ''; }
   }
 </script>
 </body>

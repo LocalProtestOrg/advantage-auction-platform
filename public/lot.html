@@ -55,14 +55,49 @@
       align-items: center;
       justify-content: center;
       margin-bottom: 1rem;
+      position: relative;
+      cursor: zoom-in;
     }
     #main-image {
       width: 100%;
       height: 100%;
       object-fit: contain;
-      transition: opacity 0.15s;
+      opacity: 0;
+      transition: opacity 0.2s;
     }
-    #main-image.loading { opacity: 0.4; }
+    #main-image.loaded { opacity: 1; }
+
+    /* Skeleton shimmer while image loads */
+    @keyframes shimmer {
+      0%   { background-position: 200% 0; }
+      100% { background-position: -200% 0; }
+    }
+    #main-skeleton {
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(90deg, #222 25%, #2e2e2e 50%, #222 75%);
+      background-size: 200% 100%;
+      animation: shimmer 1.4s infinite;
+      border-radius: 8px;
+      transition: opacity 0.2s;
+    }
+    #main-skeleton.hidden { opacity: 0; pointer-events: none; }
+
+    /* Enhanced badge on main image */
+    #main-enhanced-badge {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      background: rgba(37, 99, 235, 0.88);
+      color: #fff;
+      font-size: 10px;
+      font-weight: 700;
+      padding: 3px 8px;
+      border-radius: 4px;
+      letter-spacing: 0.04em;
+      display: none;
+      z-index: 2;
+    }
 
     .no-image-placeholder {
       color: #555;
@@ -91,9 +126,40 @@
       cursor: pointer;
       border: 2px solid transparent;
       transition: border-color 0.12s;
+      position: relative;
     }
     .thumb.active { border-color: #2563eb; }
-    .thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .thumb img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+      opacity: 0;
+      transition: opacity 0.2s;
+    }
+    .thumb img.loaded { opacity: 1; }
+    .thumb .thumb-skeleton {
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(90deg, #222 25%, #2e2e2e 50%, #222 75%);
+      background-size: 200% 100%;
+      animation: shimmer 1.4s infinite;
+      transition: opacity 0.2s;
+    }
+    .thumb .thumb-skeleton.hidden { opacity: 0; pointer-events: none; }
+    .thumb .enh-dot {
+      position: absolute;
+      bottom: 3px;
+      right: 3px;
+      background: rgba(37, 99, 235, 0.9);
+      color: #fff;
+      font-size: 8px;
+      font-weight: 700;
+      padding: 1px 4px;
+      border-radius: 3px;
+      line-height: 1.5;
+      z-index: 2;
+    }
 
     /* Lot meta below images */
     #lot-meta {
@@ -112,6 +178,26 @@
       line-height: 1.6;
       color: #999;
     }
+
+    /* Item detail grid */
+    .item-details {
+      margin-top: 1.25rem;
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 0.6rem 1.25rem;
+    }
+    .detail-field .df-label {
+      font-size: 0.67rem;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      color: #555;
+      margin-bottom: 0.15rem;
+    }
+    .detail-field .df-value {
+      font-size: 0.83rem;
+      color: #ccc;
+    }
+    .detail-full { grid-column: 1 / -1; }
 
     /* ── RIGHT: Bid panel ── */
     .bid-panel {
@@ -162,7 +248,6 @@
     }
     .bid-display .amount span { font-size: 1rem; font-weight: 500; color: #64748b; margin-left: 4px; }
 
-    /* Activity line under bid display */
     #bid-activity {
       font-size: 0.78rem;
       color: #94a3b8;
@@ -354,6 +439,86 @@
     }
     #pay-btn:hover:not(:disabled) { background: #166534; }
     #pay-btn:disabled { opacity: 0.55; cursor: not-allowed; }
+
+    /* ── Lightbox ── */
+    #lightbox {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.94);
+      z-index: 1000;
+      align-items: center;
+      justify-content: center;
+      user-select: none;
+    }
+    #lightbox.open { display: flex; }
+    #lb-img {
+      max-width: 90vw;
+      max-height: 90vh;
+      object-fit: contain;
+      border-radius: 4px;
+      opacity: 0;
+      transition: opacity 0.15s;
+    }
+    #lb-img.loaded { opacity: 1; }
+    #lb-close {
+      position: fixed;
+      top: 14px;
+      right: 18px;
+      color: #fff;
+      font-size: 1.9rem;
+      cursor: pointer;
+      background: none;
+      border: none;
+      line-height: 1;
+      opacity: 0.7;
+      padding: 4px 8px;
+    }
+    #lb-close:hover { opacity: 1; }
+    .lb-nav {
+      position: fixed;
+      top: 50%;
+      transform: translateY(-50%);
+      background: rgba(255, 255, 255, 0.1);
+      border: none;
+      color: #fff;
+      font-size: 1.4rem;
+      width: 44px;
+      height: 64px;
+      cursor: pointer;
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.15s;
+    }
+    .lb-nav:hover { background: rgba(255, 255, 255, 0.22); }
+    .lb-nav:disabled { opacity: 0.15; cursor: default; }
+    #lb-prev { left: 14px; }
+    #lb-next { right: 14px; }
+    #lb-counter {
+      position: fixed;
+      bottom: 18px;
+      left: 50%;
+      transform: translateX(-50%);
+      color: rgba(255, 255, 255, 0.5);
+      font-size: 0.78rem;
+      letter-spacing: 0.04em;
+    }
+    #lb-enhanced {
+      position: fixed;
+      bottom: 46px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(37, 99, 235, 0.85);
+      color: #fff;
+      font-size: 0.73rem;
+      font-weight: 700;
+      padding: 3px 10px;
+      border-radius: 4px;
+      letter-spacing: 0.04em;
+      display: none;
+    }
   </style>
 </head>
 <body>
@@ -368,8 +533,10 @@
   <!-- LEFT: Images + description -->
   <div class="image-col">
     <div id="main-image-wrap">
+      <div id="main-skeleton"></div>
       <div class="no-image-placeholder" id="no-image-msg">No images</div>
       <img id="main-image" style="display:none" alt="Lot image" />
+      <div id="main-enhanced-badge">✦ AI Enhanced</div>
     </div>
 
     <div id="thumb-strip"></div>
@@ -377,6 +544,7 @@
     <div id="lot-meta">
       <div class="lot-category" id="lot-category"></div>
       <div class="lot-description" id="lot-description"></div>
+      <div class="item-details" id="item-details" style="display:none"></div>
     </div>
   </div>
 
@@ -440,6 +608,16 @@
   </div>
 </div>
 
+<!-- Lightbox -->
+<div id="lightbox" role="dialog" aria-modal="true" aria-label="Image viewer">
+  <button id="lb-close" aria-label="Close">&times;</button>
+  <button class="lb-nav" id="lb-prev" aria-label="Previous image">&#8592;</button>
+  <img id="lb-img" alt="Full size lot image" />
+  <button class="lb-nav" id="lb-next" aria-label="Next image">&#8594;</button>
+  <div id="lb-enhanced">✦ AI Enhanced</div>
+  <div id="lb-counter"></div>
+</div>
+
 <script>
   const token  = localStorage.getItem('token');
   const params = new URLSearchParams(location.search);
@@ -454,17 +632,19 @@
   }
   const currentUserId = _decodeJwt(token)?.id || null;
 
-  const REFRESH_INTERVAL = 3000;  // ms
-  const BID_INCREMENT    = 5;     // dollars
+  const REFRESH_INTERVAL = 3000;
+  const BID_INCREMENT    = 5;
 
-  let images          = [];
-  let topBidAmount    = 0;      // dollars, tracked to detect new top bids
-  let bidding         = false;  // true while a bid POST is in flight
+  // imageRows stores full API rows: { url, enhanced }
+  let imageRows       = [];
+  let activeIndex     = 0;
+  let topBidAmount    = 0;
+  let bidding         = false;
   let refreshTimer    = null;
   let countdownTimer  = null;
-  let lotClosed       = false;  // set true once lot status is non-active
-  let currentClosesAt = null;   // ISO string, updated when anti-snipe extends the lot
-  let currentAuctionId = null;  // set in renderLot, needed for charge-lot
+  let lotClosed       = false;
+  let currentClosesAt = null;
+  let currentAuctionId = null;
 
   // ── Initial load ─────────────────────────────────────────────────────────────
   async function load() {
@@ -512,7 +692,6 @@
         const data = await res.json();
         if (data.success) renderBids(data.data, true);
 
-        // Also re-check lot status so we catch close transitions and anti-snipe extensions
         const lotRes  = await fetch('/api/lots/' + lotId, { headers: { Authorization: 'Bearer ' + token } });
         if (lotRes.status === 401) { stopRefresh(); localStorage.removeItem('token'); window.location.href = '/login.html'; return; }
         const lotData = await lotRes.json();
@@ -524,15 +703,13 @@
             applyClosedState();
             if (ld.winning_amount_cents) renderWinnerPanel(ld);
           } else if (ld.closes_at && ld.closes_at !== currentClosesAt) {
-            // Anti-snipe extended the deadline — restart countdown with new time
             startCountdown(ld.closes_at);
           }
         }
-      } catch { /* network blip — just wait for next tick */ }
+      } catch { /* network blip */ }
     }, REFRESH_INTERVAL);
   }
 
-  // ── Stop all timers ───────────────────────────────────────────────────────────
   function stopRefresh() {
     clearInterval(refreshTimer);
     clearInterval(countdownTimer);
@@ -540,9 +717,9 @@
     countdownTimer = null;
   }
 
-  // ── Countdown timer ───────────────────────────────────────────────────────────
+  // ── Countdown ─────────────────────────────────────────────────────────────────
   function startCountdown(closesAt) {
-    clearInterval(countdownTimer);  // safe to restart with new closes_at
+    clearInterval(countdownTimer);
     countdownTimer  = null;
     currentClosesAt = closesAt;
 
@@ -583,10 +760,8 @@
     document.getElementById('max-bid-input').disabled = true;
     document.getElementById('btn-bid').disabled       = true;
     document.getElementById('closed-banner').style.display = 'block';
-    // Swap live dot label
     const label = document.querySelector('.bid-display .label');
     if (label) label.innerHTML = 'Final Bid';
-    // Hide countdown if present
     const wrap = document.getElementById('countdown-wrap');
     const val  = document.getElementById('countdown-val');
     if (val && val.textContent !== 'Ended') {
@@ -615,6 +790,42 @@
     document.getElementById('lot-description').textContent = lot.description || '';
     setCurrentBid(lot.current_bid_cents || 0);
 
+    // Item detail fields
+    const details = [];
+    if (lot.condition)    details.push({ label: 'Condition',    value: lot.condition });
+    if (lot.material)     details.push({ label: 'Material',     value: lot.material });
+    if (lot.era)          details.push({ label: 'Era / Period', value: lot.era });
+    if (lot.maker_artist) details.push({ label: 'Maker / Artist', value: lot.maker_artist });
+    if (lot.weight)       details.push({ label: 'Weight',       value: lot.weight + ' lbs' });
+
+    let dimsStr = null;
+    if (lot.dimensions) {
+      const d = typeof lot.dimensions === 'string' ? JSON.parse(lot.dimensions) : lot.dimensions;
+      const parts = [];
+      if (d.height) parts.push(d.height + '"H');
+      if (d.width)  parts.push(d.width  + '"W');
+      if (d.depth)  parts.push(d.depth  + '"D');
+      if (parts.length) dimsStr = parts.join(' × ');
+    }
+
+    const container = document.getElementById('item-details');
+    if (details.length || dimsStr) {
+      container.style.display = 'grid';
+      container.innerHTML = '';
+      details.forEach(({ label, value }) => {
+        const div = document.createElement('div');
+        div.className = 'detail-field';
+        div.innerHTML = `<div class="df-label">${label}</div><div class="df-value">${value}</div>`;
+        container.appendChild(div);
+      });
+      if (dimsStr) {
+        const div = document.createElement('div');
+        div.className = 'detail-field detail-full';
+        div.innerHTML = `<div class="df-label">Dimensions</div><div class="df-value">${dimsStr}</div>`;
+        container.appendChild(div);
+      }
+    }
+
     const st = lot.state;
     if (st === 'closed' || st === 'withdrawn') {
       lotClosed = true;
@@ -628,38 +839,160 @@
 
   // ── Images ───────────────────────────────────────────────────────────────────
   function renderImages(rows) {
-    images = rows.map(r => r.image_url);
+    // Build normalized rows using best_image_url fallback
+    imageRows = rows.map(r => ({
+      url:      r.best_image_url || r.image_url,
+      enhanced: r.processing_status === 'complete' && !!r.processed_image_url,
+    }));
+
     const strip = document.getElementById('thumb-strip');
     strip.innerHTML = '';
-    if (!images.length) return;
+
+    if (!imageRows.length) {
+      document.getElementById('main-skeleton').classList.add('hidden');
+      return;
+    }
 
     document.getElementById('no-image-msg').style.display = 'none';
     document.getElementById('main-image').style.display   = 'block';
     setMainImage(0);
 
-    images.forEach((url, i) => {
+    imageRows.forEach((row, i) => {
       const wrap = document.createElement('div');
-      wrap.className    = 'thumb' + (i === 0 ? ' active' : '');
+      wrap.className     = 'thumb' + (i === 0 ? ' active' : '');
       wrap.dataset.index = i;
 
-      const img = document.createElement('img');
-      img.src = url;
-      img.alt = 'Image ' + (i + 1);
+      const skel = document.createElement('div');
+      skel.className = 'thumb-skeleton';
 
+      const img = document.createElement('img');
+      img.alt  = 'Image ' + (i + 1);
+      img.src  = row.url;
+      img.onload  = () => { img.classList.add('loaded'); skel.classList.add('hidden'); };
+      img.onerror = () => { skel.classList.add('hidden'); };
+
+      wrap.appendChild(skel);
       wrap.appendChild(img);
+
+      if (row.enhanced) {
+        const dot = document.createElement('div');
+        dot.className   = 'enh-dot';
+        dot.textContent = '✦';
+        wrap.appendChild(dot);
+      }
+
       wrap.addEventListener('click', () => setMainImage(i));
       strip.appendChild(wrap);
     });
+
+    // Swipe on main image area
+    const wrap = document.getElementById('main-image-wrap');
+    let swipeX = null;
+    wrap.addEventListener('touchstart', e => { swipeX = e.touches[0].clientX; }, { passive: true });
+    wrap.addEventListener('touchend', e => {
+      if (swipeX === null) return;
+      const dx = e.changedTouches[0].clientX - swipeX;
+      swipeX = null;
+      if (Math.abs(dx) < 40) return;
+      if (dx < 0 && activeIndex < imageRows.length - 1) setMainImage(activeIndex + 1);
+      if (dx > 0 && activeIndex > 0)                    setMainImage(activeIndex - 1);
+    }, { passive: true });
   }
 
   function setMainImage(index) {
-    const main = document.getElementById('main-image');
-    main.classList.add('loading');
-    main.onload  = () => main.classList.remove('loading');
-    main.onerror = () => main.classList.remove('loading');
-    main.src = images[index];
+    activeIndex = index;
+    const main  = document.getElementById('main-image');
+    const skel  = document.getElementById('main-skeleton');
+    const badge = document.getElementById('main-enhanced-badge');
+
+    main.classList.remove('loaded');
+    skel.classList.remove('hidden');
+
+    main.onload  = () => { main.classList.add('loaded'); skel.classList.add('hidden'); };
+    main.onerror = () => { skel.classList.add('hidden'); };
+    main.src = imageRows[index].url;
+
+    badge.style.display = imageRows[index].enhanced ? 'block' : 'none';
+
     document.querySelectorAll('.thumb').forEach((t, i) => t.classList.toggle('active', i === index));
   }
+
+  // ── Lightbox ─────────────────────────────────────────────────────────────────
+  let lbIndex = 0;
+
+  function openLightbox(index) {
+    if (!imageRows.length) return;
+    lbIndex = index;
+    const lb  = document.getElementById('lightbox');
+    lb.classList.add('open');
+    document.body.style.overflow = 'hidden';
+    lbShow(lbIndex);
+  }
+
+  function closeLightbox() {
+    document.getElementById('lightbox').classList.remove('open');
+    document.body.style.overflow = '';
+    const img = document.getElementById('lb-img');
+    img.src = '';
+    img.classList.remove('loaded');
+  }
+
+  function lbShow(index) {
+    lbIndex = index;
+    const img     = document.getElementById('lb-img');
+    const counter = document.getElementById('lb-counter');
+    const enhanced = document.getElementById('lb-enhanced');
+
+    img.classList.remove('loaded');
+    img.src    = imageRows[index].url;
+    img.onload = () => img.classList.add('loaded');
+
+    counter.textContent = (index + 1) + ' / ' + imageRows.length;
+    enhanced.style.display = imageRows[index].enhanced ? 'block' : 'none';
+
+    document.getElementById('lb-prev').disabled = index === 0;
+    document.getElementById('lb-next').disabled = index === imageRows.length - 1;
+
+    // Show/hide nav buttons for single-image lots
+    const single = imageRows.length <= 1;
+    document.getElementById('lb-prev').style.display = single ? 'none' : 'flex';
+    document.getElementById('lb-next').style.display = single ? 'none' : 'flex';
+  }
+
+  document.getElementById('main-image-wrap').addEventListener('click', () => {
+    if (imageRows.length) openLightbox(activeIndex);
+  });
+
+  document.getElementById('lb-close').addEventListener('click', closeLightbox);
+  document.getElementById('lb-prev').addEventListener('click', () => { if (lbIndex > 0) lbShow(lbIndex - 1); });
+  document.getElementById('lb-next').addEventListener('click', () => { if (lbIndex < imageRows.length - 1) lbShow(lbIndex + 1); });
+
+  // Close on backdrop click (not on image)
+  document.getElementById('lightbox').addEventListener('click', e => {
+    if (e.target === document.getElementById('lightbox')) closeLightbox();
+  });
+
+  // Keyboard navigation
+  document.addEventListener('keydown', e => {
+    if (!document.getElementById('lightbox').classList.contains('open')) return;
+    if (e.key === 'Escape')      closeLightbox();
+    if (e.key === 'ArrowLeft'  && lbIndex > 0)                    lbShow(lbIndex - 1);
+    if (e.key === 'ArrowRight' && lbIndex < imageRows.length - 1) lbShow(lbIndex + 1);
+  });
+
+  // Touch swipe in lightbox
+  let lbSwipeX = null;
+  document.getElementById('lightbox').addEventListener('touchstart', e => {
+    lbSwipeX = e.touches[0].clientX;
+  }, { passive: true });
+  document.getElementById('lightbox').addEventListener('touchend', e => {
+    if (lbSwipeX === null) return;
+    const dx = e.changedTouches[0].clientX - lbSwipeX;
+    lbSwipeX = null;
+    if (Math.abs(dx) < 40) return;
+    if (dx < 0 && lbIndex < imageRows.length - 1) lbShow(lbIndex + 1);
+    if (dx > 0 && lbIndex > 0)                    lbShow(lbIndex - 1);
+  }, { passive: true });
 
   // ── Render bids ───────────────────────────────────────────────────────────────
   function renderBids(bids, fromPoll) {
@@ -685,22 +1018,16 @@
     const newTop = Number(sorted[0].amount);
     const isNewTopBid = fromPoll && newTop > topBidAmount;
 
-    // Update current bid display
     const topCents = Math.round(newTop * 100);
     setCurrentBid(topCents);
     if (isNewTopBid) flashBidDisplay();
     topBidAmount = newTop;
 
-    // Update activity line
     setActivity(bids.length, topCents);
-
-    // Update hint with next minimum
     updateHint(topCents);
 
-    // Count label
     countLabel.textContent = bids.length + ' bid' + (bids.length === 1 ? '' : 's');
 
-    // Render rows
     list.innerHTML = '';
     sorted.forEach((bid, i) => {
       const isNew = fromPoll && i === 0 && isNewTopBid;
@@ -720,7 +1047,6 @@
       row.appendChild(time);
       list.appendChild(row);
 
-      // Remove highlight class after animation
       if (isNew) setTimeout(() => row.classList.remove('new-bid'), 1500);
     });
   }
@@ -737,7 +1063,6 @@
     setTimeout(() => el.classList.remove('flash'), 800);
   }
 
-  // ── Activity line ─────────────────────────────────────────────────────────────
   function setActivity(count, topCents) {
     const el = document.getElementById('bid-activity');
     if (count === 0) {
@@ -749,7 +1074,6 @@
     }
   }
 
-  // ── Bid hint (next minimum) ───────────────────────────────────────────────────
   function updateHint(currentCents) {
     const nextDollars = (currentCents / 100) + BID_INCREMENT;
     document.getElementById('bid-hint').textContent =
@@ -765,7 +1089,6 @@
     const maxBidDollar = parseFloat(maxBidInput.value);
     const hasMaxBid    = !isNaN(maxBidDollar) && maxBidDollar > 0;
 
-    // Require at least one of: manual amount or max bid.
     if ((!amount || amount <= 0) && !hasMaxBid) {
       setStatus('Enter a bid amount or set a max bid.', 'err');
       return;
@@ -794,7 +1117,6 @@
       maxBidInput.value = '';
       setStatus(hasMaxBid ? 'Max bid set!' : 'Bid placed!', 'ok');
 
-      // Refresh immediately after own bid
       const bidRes  = await fetch('/api/lots/' + lotId + '/bids', { headers: { Authorization: 'Bearer ' + token } });
       const bidData = await bidRes.json();
       if (bidData.success) renderBids(bidData.data, false);
