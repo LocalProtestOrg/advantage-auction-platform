@@ -45,6 +45,31 @@ class CloudinaryService {
   }
 
   /**
+   * Upload a video buffer to Cloudinary.
+   * Returns the Cloudinary upload result (secure_url, public_id, format, bytes, duration).
+   *
+   * @param {Buffer} buffer      Raw video bytes
+   * @param {Object} options     Optional overrides
+   * @returns {Promise<Object>}
+   */
+  async uploadVideoBuffer(buffer, options = {}) {
+    const uploadOptions = {
+      folder:        options.folder || 'auction-videos',
+      resource_type: 'video',
+      allowed_formats: ['mp4', 'mov'],
+      ...options,
+    };
+
+    return new Promise((resolve, reject) => {
+      const stream = cloudinary.uploader.upload_stream(uploadOptions, (error, result) => {
+        if (error) return reject(error);
+        resolve(result);
+      });
+      stream.end(buffer);
+    });
+  }
+
+  /**
    * Delete an asset from Cloudinary by public_id.
    * Safe to call even if the asset no longer exists.
    */

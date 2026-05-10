@@ -6,17 +6,55 @@ async function createAuction(data) {
   const {
     sellerId,
     title,
+    subtitle,
     description,
     state,
     startTime,
-    endTime
+    endTime,
+    streetAddress,
+    city,
+    addressState,
+    zip,
+    previewStart,
+    previewEnd,
+    pickupWindowStart,
+    pickupWindowEnd,
+    shippingAvailable,
+    bannerImageUrl,
+    coverImageUrl,
   } = data;
 
   const result = await db.query(
-    `INSERT INTO auctions (seller_id, title, description, state, start_time, end_time)
-     VALUES ($1, $2, $3, $4, $5, $6)
+    `INSERT INTO auctions (
+       seller_id, title, subtitle, description, state,
+       start_time, end_time,
+       street_address, city, address_state, zip,
+       preview_start, preview_end,
+       pickup_window_start, pickup_window_end,
+       shipping_available, banner_image_url, cover_image_url
+     )
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)
      RETURNING *`,
-    [sellerId, title, description || null, state || 'draft', startTime || null, endTime || null]
+    [
+      sellerId,
+      title,
+      subtitle        || null,
+      description     || null,
+      state           || 'draft',
+      startTime       || null,
+      endTime         || null,
+      streetAddress   || null,
+      city            || null,
+      addressState    || null,
+      zip             || null,
+      previewStart    || null,
+      previewEnd      || null,
+      pickupWindowStart || null,
+      pickupWindowEnd   || null,
+      shippingAvailable === true,
+      bannerImageUrl  || null,
+      coverImageUrl   || null,
+    ]
   );
   return result.rows[0];
 }
@@ -24,7 +62,14 @@ async function createAuction(data) {
 
 // Update auction (only allowed fields, enforce ownership via seller_profiles)
 async function updateAuction(auctionId, userId, updates) {
-  const allowed = ['title', 'description', 'state', 'start_time', 'end_time'];
+  const allowed = [
+    'title', 'subtitle', 'description', 'state',
+    'start_time', 'end_time',
+    'street_address', 'city', 'address_state', 'zip',
+    'preview_start', 'preview_end',
+    'pickup_window_start', 'pickup_window_end',
+    'shipping_available', 'banner_image_url', 'cover_image_url',
+  ];
   const fields = [];
   const values = [];
   let idx = 1;

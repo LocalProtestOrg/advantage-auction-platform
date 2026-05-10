@@ -163,10 +163,31 @@ router.post('/:lotId/images', auth, async (req, res, next) => {
 });
 
 // GET /api/lots/:lotId/images
+// Enriches each row with processed_image_url, processing_status, and best_image_url.
+// best_image_url = processed_image_url when complete, otherwise original image_url.
 router.get('/:lotId/images', async (req, res, next) => {
   try {
     const result = await db.query(
-      `SELECT * FROM lot_images WHERE lot_id = $1 ORDER BY sort_order ASC`,
+      `SELECT
+         li.*,
+         j.processed_image_url,
+         j.status                                               AS processing_status,
+         CASE
+           WHEN j.status = 'complete' AND j.processed_image_url IS NOT NULL
+           THEN j.processed_image_url
+           ELSE li.image_url
+         END                                                    AS best_image_url
+       FROM lot_images li
+       LEFT JOIN LATERAL (
+         SELECT processed_image_url, status
+         FROM image_processing_jobs
+         WHERE lot_temp_id        = li.lot_id::TEXT
+           AND original_image_url = li.image_url
+         ORDER BY created_at DESC
+         LIMIT 1
+       ) j ON TRUE
+       WHERE li.lot_id = $1
+       ORDER BY li.sort_order ASC`,
       [req.params.lotId]
     );
     res.json({ success: true, data: result.rows });
@@ -202,15 +223,48 @@ router.put('/:lotId', auth, async (req, res, next) => {
     if (!await userOwnsLot(req.user.id, req.user.role, req.params.lotId)) {
       return res.status(403).json({ success: false, message: 'Access denied' });
     }
-    const { title, description, size_category, pickup_category, bid_increment_cents, starting_bid_cents } = req.body;
+    const {
+      title, description, category, size_category, pickup_category,
+      bid_increment_cents, starting_bid_cents,
+      condition, material, era, maker_artist, weight,
+      dimensions, shippable,
+    } = req.body;
     const result = await db.query(
       `UPDATE lots
-       SET title = $1, description = $2, size_category = $3, pickup_category = $4,
-           bid_increment_cents = $5, starting_bid_cents = $6, updated_at = NOW()
-       WHERE id = $7
+       SET title               = $1,
+           description         = $2,
+           category            = $3,
+           size_category       = $4,
+           pickup_category     = $5,
+           bid_increment_cents = $6,
+           starting_bid_cents  = $7,
+           condition           = $8,
+           material            = $9,
+           era                 = $10,
+           maker_artist        = $11,
+           weight              = $12,
+           dimensions          = COALESCE($13::jsonb, dimensions),
+           shippable           = COALESCE($14, shippable),
+           updated_at          = NOW()
+       WHERE id = $15
        RETURNING *`,
-      [title, description, size_category || null, pickup_category || null,
-       bid_increment_cents || null, starting_bid_cents || null, req.params.lotId]
+      [
+        title,
+        description     || null,
+        category        || null,
+        size_category   || null,
+        pickup_category || null,
+        bid_increment_cents  || null,
+        starting_bid_cents   || null,
+        condition       || null,
+        material        || null,
+        era             || null,
+        maker_artist    || null,
+        weight          || null,
+        dimensions ? JSON.stringify(dimensions) : null,
+        shippable != null ? shippable : null,
+        req.params.lotId,
+      ]
     );
     res.json({ success: true, data: result.rows[0] });
   } catch (err) {

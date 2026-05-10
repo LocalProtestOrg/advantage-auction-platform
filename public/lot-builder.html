@@ -156,6 +156,7 @@
     label .req { color: #ef4444; }
 
     input[type="text"],
+    input[type="number"],
     textarea,
     select {
       width: 100%;
@@ -191,6 +192,88 @@
     .btn-success:not(:disabled):hover  { background: #15803d; }
     .btn-outline  { background: #fff; color: #374151; border: 1.5px solid #d1d5db; }
     .btn-outline:not(:disabled):hover  { border-color: #9ca3af; }
+
+    /* Item details section */
+    .details-section {
+      margin-top: 1.75rem;
+      padding-top: 1.25rem;
+      border-top: 1px solid #e5e7eb;
+    }
+    .details-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 1rem;
+    }
+    @media (max-width: 600px) {
+      .details-grid { grid-template-columns: 1fr; }
+    }
+    .dim-row {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 0.6rem;
+    }
+    .dim-row .field { margin-bottom: 0; }
+    .input-unit {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+    }
+    .input-unit input { flex: 1; }
+    .input-unit span {
+      font-size: 0.8rem;
+      color: #6b7280;
+      white-space: nowrap;
+    }
+    .toggle-row {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      padding: 0.55rem 0.75rem;
+      background: #f9fafb;
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+    }
+    .toggle-wrap {
+      position: relative;
+      width: 34px;
+      height: 19px;
+      flex-shrink: 0;
+    }
+    .toggle-wrap input { opacity: 0; width: 0; height: 0; position: absolute; }
+    .toggle-slider {
+      position: absolute;
+      inset: 0;
+      background: #d1d5db;
+      border-radius: 19px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .toggle-slider::before {
+      content: '';
+      position: absolute;
+      width: 13px; height: 13px;
+      left: 3px; top: 3px;
+      background: #fff;
+      border-radius: 50%;
+      transition: transform 0.2s;
+    }
+    .toggle-wrap input:checked + .toggle-slider { background: #2563eb; }
+    .toggle-wrap input:checked + .toggle-slider::before { transform: translateX(15px); }
+    .toggle-label {
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: #374151;
+      cursor: pointer;
+      user-select: none;
+    }
+    .reserve-note {
+      font-size: 0.75rem;
+      color: #9ca3af;
+      padding: 0.5rem 0.75rem;
+      background: #f9fafb;
+      border: 1px solid #e5e7eb;
+      border-radius: 6px;
+    }
 
     .action-bar {
       display: flex;
@@ -305,7 +388,20 @@
 
       <div class="field">
         <label for="lot-category">Category</label>
-        <input type="text" id="lot-category" placeholder="e.g. Home Decor, Furniture, Jewelry…" />
+        <select id="lot-category">
+          <option value="">— Select —</option>
+          <option>Furniture</option>
+          <option>Fine Art</option>
+          <option>Jewelry</option>
+          <option>Home Decor</option>
+          <option>Tools</option>
+          <option>Pottery &amp; Ceramics</option>
+          <option>Clocks &amp; Timepieces</option>
+          <option>Antiques</option>
+          <option>Collectibles</option>
+          <option>Electronics</option>
+          <option>General</option>
+        </select>
       </div>
 
       <div class="field">
@@ -316,6 +412,95 @@
           <option value="B">B — Medium (2 people)</option>
           <option value="C">C — Large (truck / dolly)</option>
         </select>
+      </div>
+
+      <div class="field">
+        <label for="lot-starting-bid">Starting Bid ($)</label>
+        <input type="number" id="lot-starting-bid" placeholder="1.00" min="0" step="0.01" />
+      </div>
+
+      <div class="field">
+        <p class="reserve-note">Reserve price — admin-configurable after submission</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Item Details ──────────────────────────────────────────────────────── -->
+  <div class="details-section">
+    <div class="col-label" style="margin-bottom:1rem;">Item Details</div>
+
+    <div class="details-grid">
+      <div class="field">
+        <label for="lot-condition">Condition</label>
+        <select id="lot-condition">
+          <option value="">— Select —</option>
+          <option value="excellent">Excellent</option>
+          <option value="good">Good</option>
+          <option value="fair">Fair</option>
+          <option value="poor">Poor</option>
+          <option value="parts_only">Parts / As-Is</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label for="lot-material">Material</label>
+        <input type="text" id="lot-material" placeholder="e.g. Solid oak, Brass, Ceramic" />
+      </div>
+
+      <div class="field">
+        <label for="lot-era">Era / Period</label>
+        <input type="text" id="lot-era" placeholder="e.g. Mid-Century, Victorian, 1960s" />
+      </div>
+
+      <div class="field">
+        <label for="lot-maker">Maker / Artist</label>
+        <input type="text" id="lot-maker" placeholder="e.g. Herman Miller, Stickley" />
+      </div>
+
+      <div class="field">
+        <label>Weight</label>
+        <div class="input-unit">
+          <input type="number" id="lot-weight" placeholder="0" min="0" step="0.1" />
+          <span>lbs</span>
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Shipping</label>
+        <div class="toggle-row">
+          <span class="toggle-wrap">
+            <input type="checkbox" id="lot-shippable" />
+            <span class="toggle-slider"></span>
+          </span>
+          <label class="toggle-label" for="lot-shippable">Item can be shipped</label>
+        </div>
+      </div>
+    </div>
+
+    <div class="field" style="margin-top:1rem;">
+      <label>Dimensions (inches)</label>
+      <div class="dim-row">
+        <div class="field">
+          <label style="font-size:0.75rem;color:#6b7280;">Height</label>
+          <div class="input-unit">
+            <input type="number" id="lot-height" placeholder="0" min="0" step="0.25" />
+            <span>in</span>
+          </div>
+        </div>
+        <div class="field">
+          <label style="font-size:0.75rem;color:#6b7280;">Width</label>
+          <div class="input-unit">
+            <input type="number" id="lot-width" placeholder="0" min="0" step="0.25" />
+            <span>in</span>
+          </div>
+        </div>
+        <div class="field">
+          <label style="font-size:0.75rem;color:#6b7280;">Depth</label>
+          <div class="input-unit">
+            <input type="number" id="lot-depth" placeholder="0" min="0" step="0.25" />
+            <span>in</span>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -480,8 +665,8 @@
       const d = data.data;
       set('lot-title',       d.title);
       set('lot-description', d.description);
-      set('lot-category',    d.category);
-      setSelect('lot-pickup', d.pickup_category);
+      setSelect('lot-category',    d.category);
+      setSelect('lot-pickup',      d.pickup_category);
     } catch (err) {
       showBanner('Suggestion failed: ' + err.message, 'error');
     } finally {
@@ -501,6 +686,16 @@
     btn.textContent = 'Saving…';
 
     try {
+      const getNum = id => { const v = parseFloat(document.getElementById(id).value); return isNaN(v) ? null : v; };
+      const getVal = id => document.getElementById(id).value.trim() || null;
+
+      const dimH = getNum('lot-height');
+      const dimW = getNum('lot-width');
+      const dimD = getNum('lot-depth');
+      const dimensions = (dimH || dimW || dimD) ? { height: dimH, width: dimW, depth: dimD } : null;
+
+      const startingBid = getNum('lot-starting-bid');
+
       // 1. Create lot
       const lotRes = await fetch('/api/lots', {
         method:  'POST',
@@ -508,9 +703,17 @@
         body:    JSON.stringify({
           auctionId,
           title,
-          description:     document.getElementById('lot-description').value.trim() || null,
-          category:        document.getElementById('lot-category').value.trim()    || null,
-          pickup_category: document.getElementById('lot-pickup').value             || null
+          description:     getVal('lot-description'),
+          category:        getVal('lot-category'),
+          pickup_category: document.getElementById('lot-pickup').value || null,
+          starting_price:  startingBid,
+          condition:       getVal('lot-condition'),
+          material:        getVal('lot-material'),
+          era:             getVal('lot-era'),
+          maker_artist:    getVal('lot-maker'),
+          weight:          getNum('lot-weight') != null ? String(getNum('lot-weight')) : null,
+          dimensions,
+          shippable:       document.getElementById('lot-shippable').checked,
         })
       });
       const lotData = await lotRes.json();
@@ -570,14 +773,19 @@
   }
 
   function clearForm() {
-    // Revoke all object URLs before clearing to avoid memory leaks
     images.forEach(img => URL.revokeObjectURL(img.objectUrl));
     images = [];
     renderThumbs();
-    ['lot-title', 'lot-description', 'lot-category'].forEach(id => {
+    [
+      'lot-title', 'lot-description', 'lot-material', 'lot-era',
+      'lot-maker', 'lot-starting-bid', 'lot-weight',
+      'lot-height', 'lot-width', 'lot-depth',
+    ].forEach(id => { document.getElementById(id).value = ''; });
+    ['lot-category', 'lot-pickup', 'lot-condition'].forEach(id => {
       document.getElementById(id).value = '';
     });
-    document.getElementById('lot-pickup').value = '';
+    document.getElementById('lot-shippable').checked = false;
+    document.getElementById('lot-enhance-toggle').checked = true;
   }
 
   function updateCounter() {
@@ -593,8 +801,12 @@
   function setSelect(id, value) {
     const el = document.getElementById(id);
     if (!el || value == null) return;
+    const needle = String(value).toLowerCase();
     for (const opt of el.options) {
-      if (opt.value === value) { el.value = value; return; }
+      if (opt.value.toLowerCase() === needle || opt.text.toLowerCase() === needle) {
+        el.value = opt.value;
+        return;
+      }
     }
   }
 

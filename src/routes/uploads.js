@@ -83,4 +83,61 @@ router.post(
   }
 );
 
+// ── POST /api/uploads/video ───────────────────────────────────────────────────
+const VIDEO_MAX_BYTES = 500 * 1024 * 1024; // 500 MB
+
+const ALLOWED_VIDEO_MIME_TYPES = new Set([
+  'video/mp4',
+  'video/quicktime', // .mov
+]);
+
+const uploadVideo = multer({
+  storage: multer.memoryStorage(),
+  limits:  { fileSize: VIDEO_MAX_BYTES },
+  fileFilter: function (_req, file, cb) {
+    if (!ALLOWED_VIDEO_MIME_TYPES.has(file.mimetype)) {
+      return cb(Object.assign(new Error('Only MP4 and MOV video files are accepted'), { status: 400 }));
+    }
+    cb(null, true);
+  },
+});
+
+router.post(
+  '/video',
+  auth,
+  requireSellerOrAdmin,
+  function (req, res, next) {
+    uploadVideo.single('video')(req, res, function (err) {
+      if (!err) return next();
+      if (err.code === 'LIMIT_FILE_SIZE') {
+        return res.status(400).json({ success: false, message: 'File too large. Maximum size is 500 MB.' });
+      }
+      if (err.status === 400) {
+        return res.status(400).json({ success: false, message: err.message });
+      }
+      next(err);
+    });
+  },
+  async (req, res, next) => {
+    if (!req.file) {
+      return res.status(400).json({ success: false, message: 'No video file provided' });
+    }
+    try {
+      const result = await cloudinaryService.uploadVideoBuffer(req.file.buffer, {
+        folder: 'auction-videos',
+      });
+      return res.status(201).json({
+        success:    true,
+        secure_url: result.secure_url,
+        public_id:  result.public_id,
+        format:     result.format,
+        bytes:      result.bytes,
+        duration:   result.duration,
+      });
+    } catch (err) {
+      next(err);
+    }
+  }
+);
+
 module.exports = router;

@@ -19,30 +19,42 @@ async function createLot(auctionId, userId, data) {
     startingPrice,
     bidIncrement,
     pickupCategory,
-    category
+    category,
+    condition,
+    material,
+    era,
+    makerArtist,
+    weight,
+    dimensions,
+    shippable,
   } = data;
 
   const result = await db.query(
     `INSERT INTO lots (
-       auction_id,
-       title,
-       description,
-       starting_bid_cents,
-       bid_increment_cents,
-       pickup_category,
-       category,
+       auction_id, title, description,
+       starting_bid_cents, bid_increment_cents,
+       pickup_category, category,
+       condition, material, era, maker_artist, weight,
+       dimensions, shippable,
        state
      )
-     VALUES ($1, $2, $3, $4, $5, $6, $7, 'open')
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,'open')
      RETURNING *`,
     [
       auctionId,
       title,
-      description || null,
+      description  || null,
       startingPrice ? Math.round(Number(startingPrice) * 100) : 100,
       bidIncrement  ? Math.round(Number(bidIncrement)  * 100) : 500,
       pickupCategory || null,
-      category || null
+      category       || null,
+      condition      || null,
+      material       || null,
+      era            || null,
+      makerArtist    || null,
+      weight         || null,
+      dimensions     ? JSON.stringify(dimensions) : null,
+      shippable      === true,
     ]
   );
   return result.rows[0];
@@ -144,23 +156,36 @@ async function deleteLot(lotId, userId) {
 
 // Admin-only: create a lot for any auction without ownership check
 async function adminCreateLot(auctionId, data) {
-  const { title, description, startingPrice, pickupCategory, category } = data;
+  const {
+    title, description, startingPrice, pickupCategory, category,
+    condition, material, era, makerArtist, weight, dimensions, shippable,
+  } = data;
 
   const result = await db.query(
     `INSERT INTO lots (
        auction_id, title, description,
        starting_bid_cents, bid_increment_cents,
-       pickup_category, category, state
+       pickup_category, category,
+       condition, material, era, maker_artist, weight,
+       dimensions, shippable,
+       state
      )
-     VALUES ($1, $2, $3, $4, 500, $5, $6, 'open')
+     VALUES ($1,$2,$3,$4,500,$5,$6,$7,$8,$9,$10,$11,$12,$13,'open')
      RETURNING *`,
     [
       auctionId,
       title,
-      description || null,
+      description    || null,
       startingPrice ? Math.round(Number(startingPrice) * 100) : 100,
       pickupCategory || null,
-      category || null
+      category       || null,
+      condition      || null,
+      material       || null,
+      era            || null,
+      makerArtist    || null,
+      weight         || null,
+      dimensions     ? JSON.stringify(dimensions) : null,
+      shippable      === true,
     ]
   );
 
