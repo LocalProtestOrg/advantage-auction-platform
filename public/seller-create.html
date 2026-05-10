@@ -172,6 +172,52 @@
     }
     #status-banner.success { background: #dcfce7; color: #15803d; border: 1px solid #86efac; }
     #status-banner.error   { background: #fee2e2; color: #b91c1c; border: 1px solid #fca5a5; }
+
+    /* AI enhancement toggle */
+    .enhance-row {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      margin-bottom: 1.25rem;
+      padding: 0.65rem 0.85rem;
+      background: #f8faff;
+      border: 1px solid #e0e7ff;
+      border-radius: 8px;
+    }
+    .enhance-toggle {
+      position: relative;
+      width: 34px;
+      height: 19px;
+      flex-shrink: 0;
+    }
+    .enhance-toggle input { opacity: 0; width: 0; height: 0; position: absolute; }
+    .enhance-slider {
+      position: absolute;
+      inset: 0;
+      background: #d1d5db;
+      border-radius: 19px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .enhance-slider::before {
+      content: '';
+      position: absolute;
+      width: 13px; height: 13px;
+      left: 3px; top: 3px;
+      background: #fff;
+      border-radius: 50%;
+      transition: transform 0.2s;
+    }
+    .enhance-toggle input:checked + .enhance-slider { background: #2563eb; }
+    .enhance-toggle input:checked + .enhance-slider::before { transform: translateX(15px); }
+    .enhance-label {
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: #374151;
+      cursor: pointer;
+      user-select: none;
+    }
+    .enhance-note { font-size: 0.75rem; color: #9ca3af; margin-left: auto; }
   </style>
 </head>
 <body>
@@ -194,6 +240,15 @@
   </div>
   <input type="file" id="file-input" accept="image/jpeg,image/png,image/webp,image/heic,image/heif" multiple />
   <div id="preview-list"></div>
+
+  <div class="enhance-row">
+    <span class="enhance-toggle">
+      <input type="checkbox" id="enhance-toggle" checked />
+      <span class="enhance-slider"></span>
+    </span>
+    <label class="enhance-label" for="enhance-toggle">Enhance images with AI background removal</label>
+    <span class="enhance-note">Recommended for catalog photos</span>
+  </div>
 
   <button id="btn-generate" class="btn btn-primary" disabled>Suggest Details</button>
 
@@ -423,10 +478,11 @@
         });
         const lotData = await lotRes.json();
         if (lotData.success && uploadedImageUrl) {
+          const enhancementEnabled = document.getElementById('enhance-toggle').checked;
           await fetch('/api/lots/' + lotData.data.id + '/images', {
             method:  'POST',
             headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
-            body:    JSON.stringify({ images: [uploadedImageUrl] }),
+            body:    JSON.stringify({ images: [uploadedImageUrl], enhancement_enabled: enhancementEnabled }),
           }).catch(() => {}); // image link is non-fatal
         }
       }

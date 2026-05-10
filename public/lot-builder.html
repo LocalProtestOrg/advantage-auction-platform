@@ -207,6 +207,51 @@
       font-size: 0.82rem;
       color: #6b7280;
     }
+
+    /* AI enhancement toggle */
+    .enhance-row {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      margin-bottom: 0.75rem;
+      padding: 0.6rem 0.75rem;
+      background: #f8faff;
+      border: 1px solid #e0e7ff;
+      border-radius: 8px;
+    }
+    .enhance-toggle {
+      position: relative;
+      width: 34px;
+      height: 19px;
+      flex-shrink: 0;
+    }
+    .enhance-toggle input { opacity: 0; width: 0; height: 0; position: absolute; }
+    .enhance-slider {
+      position: absolute;
+      inset: 0;
+      background: #d1d5db;
+      border-radius: 19px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .enhance-slider::before {
+      content: '';
+      position: absolute;
+      width: 13px; height: 13px;
+      left: 3px; top: 3px;
+      background: #fff;
+      border-radius: 50%;
+      transition: transform 0.2s;
+    }
+    .enhance-toggle input:checked + .enhance-slider { background: #2563eb; }
+    .enhance-toggle input:checked + .enhance-slider::before { transform: translateX(15px); }
+    .enhance-label {
+      font-size: 0.78rem;
+      font-weight: 600;
+      color: #374151;
+      cursor: pointer;
+      user-select: none;
+    }
   </style>
 </head>
 <body>
@@ -234,6 +279,14 @@
       <input type="file" id="file-input" accept="image/*" multiple />
 
       <div id="thumbnail-list"></div>
+
+      <div class="enhance-row">
+        <span class="enhance-toggle">
+          <input type="checkbox" id="lot-enhance-toggle" checked />
+          <span class="enhance-slider"></span>
+        </span>
+        <label class="enhance-label" for="lot-enhance-toggle">AI background removal</label>
+      </div>
     </div>
 
     <!-- RIGHT: Details -->
@@ -473,10 +526,11 @@
         }));
         const imageUrls = images.map(img => img.cloudinaryUrl).filter(Boolean);
         if (imageUrls.length > 0) {
+          const enhancementEnabled = document.getElementById('lot-enhance-toggle').checked;
           await fetch('/api/lots/' + lotId + '/images', {
             method:  'POST',
             headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
-            body:    JSON.stringify({ images: imageUrls })
+            body:    JSON.stringify({ images: imageUrls, enhancement_enabled: enhancementEnabled })
           }).catch(() => {}); // image link is non-fatal after lot creation
         }
       }

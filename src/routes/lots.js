@@ -123,7 +123,8 @@ router.get('/auction/:auctionId', async (req, res, next) => {
 // POST /api/lots/:lotId/images
 router.post('/:lotId/images', auth, async (req, res, next) => {
   try {
-    const { images } = req.body;
+    const { images, enhancement_enabled } = req.body;
+    const enhancementEnabled = enhancement_enabled !== false; // default true
 
     if (!Array.isArray(images) || images.length === 0) {
       return res.status(400).json({ success: false, message: 'Images array required' });
@@ -138,13 +139,15 @@ router.post('/:lotId/images', auth, async (req, res, next) => {
     );
 
     // Auto-enqueue background removal for each Cloudinary image — fire-and-forget, non-fatal
-    const cloudinaryUrls = images.filter(u => typeof u === 'string' && u.includes('res.cloudinary.com'));
-    for (const imageUrl of cloudinaryUrls) {
-      imageProcessingService.createProcessingJob({
-        lotTempId:        req.params.lotId,
-        originalImageUrl: imageUrl,
-        enhancementType:  'white_background',
-      }).catch(err => console.warn('[lots] image-processing enqueue failed:', err.message));
+    if (enhancementEnabled) {
+      const cloudinaryUrls = images.filter(u => typeof u === 'string' && u.includes('res.cloudinary.com'));
+      for (const imageUrl of cloudinaryUrls) {
+        imageProcessingService.createProcessingJob({
+          lotTempId:        req.params.lotId,
+          originalImageUrl: imageUrl,
+          enhancementType:  'white_background',
+        }).catch(err => console.warn('[lots] image-processing enqueue failed:', err.message));
+      }
     }
 
     res.json({ success: true });
