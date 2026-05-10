@@ -63,7 +63,7 @@ async function generateDescriptionFromImage(imageUrl) {
         }],
       });
 
-      const raw    = message.content[0].text.trim();
+      const raw    = message.content[0].text.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/, '');
       const parsed = JSON.parse(raw);
       return {
         title:           parsed.title           || 'Untitled Item',
