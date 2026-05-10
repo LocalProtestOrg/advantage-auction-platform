@@ -4,6 +4,7 @@ const auth = require('../middleware/authMiddleware');
 const authMiddleware = require('../middleware/authMiddleware');
 const db = require('../db');
 const { getBidsByLot, createBid } = require('../services/bidService');
+const imageProcessingService      = require('../services/imageProcessingService');
 
 // ── Ownership helpers (admin bypasses both checks) ───────────────────────────
 
@@ -135,6 +136,16 @@ router.post('/:lotId/images', auth, async (req, res, next) => {
       `INSERT INTO lot_images (lot_id, image_url, sort_order) VALUES ${values}`,
       params
     );
+
+    // Auto-enqueue background removal for each Cloudinary image — fire-and-forget, non-fatal
+    const cloudinaryUrls = images.filter(u => typeof u === 'string' && u.includes('res.cloudinary.com'));
+    for (const imageUrl of cloudinaryUrls) {
+      imageProcessingService.createProcessingJob({
+        lotTempId:        req.params.lotId,
+        originalImageUrl: imageUrl,
+        enhancementType:  'white_background',
+      }).catch(err => console.warn('[lots] image-processing enqueue failed:', err.message));
+    }
 
     res.json({ success: true });
   } catch (err) {
