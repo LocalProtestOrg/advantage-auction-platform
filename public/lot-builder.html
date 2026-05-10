@@ -327,7 +327,9 @@
     Array.from(fileList).forEach(file => {
       if (!file.type.startsWith('image/')) return;
       const objectUrl = URL.createObjectURL(file);
-      images.push({ objectUrl, file });
+      const entry = { objectUrl, file, cloudinaryUrl: null };
+      images.push(entry);
+      uploadToCloudinary(file).then(url => { entry.cloudinaryUrl = url; }).catch(() => {});
     });
     renderThumbs();
   }
@@ -408,11 +410,17 @@
     btn.disabled = true;
     btn.textContent = 'Suggesting…';
     try {
-      // Send the object URL — the mock AI service accepts any string
+      let imageUrl = images[0].cloudinaryUrl;
+      if (!imageUrl) {
+        btn.textContent = 'Uploading…';
+        imageUrl = await uploadToCloudinary(images[0].file);
+        images[0].cloudinaryUrl = imageUrl;
+        btn.textContent = 'Suggesting…';
+      }
       const res  = await fetch('/api/ai/generate-description', {
         method:  'POST',
         headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
-        body:    JSON.stringify({ imageUrl: images[0].objectUrl })
+        body:    JSON.stringify({ imageUrl })
       });
       const data = await res.json();
       if (!data.success) throw new Error(data.message || 'Suggestion failed');
@@ -456,16 +464,21 @@
       if (!lotData.success) throw new Error(lotData.message || 'Failed to save lot');
       const lotId = lotData.data.id;
 
-      // 2. Attach images using object URLs (temporary; S3 upload replaces this later)
+      // 2. Upload any images not yet on Cloudinary, then attach real URLs
       if (images.length > 0) {
-        const imageUrls = images.map(img => img.objectUrl);
-        const imgRes = await fetch('/api/lots/' + lotId + '/images', {
-          method:  'POST',
-          headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
-          body:    JSON.stringify({ images: imageUrls })
-        });
-        const imgData = await imgRes.json();
-        if (!imgData.success) throw new Error(imgData.message || 'Failed to attach images');
+        await Promise.all(images.map(async img => {
+          if (!img.cloudinaryUrl) {
+            img.cloudinaryUrl = await uploadToCloudinary(img.file).catch(() => null);
+          }
+        }));
+        const imageUrls = images.map(img => img.cloudinaryUrl).filter(Boolean);
+        if (imageUrls.length > 0) {
+          await fetch('/api/lots/' + lotId + '/images', {
+            method:  'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+            body:    JSON.stringify({ images: imageUrls })
+          }).catch(() => {}); // image link is non-fatal after lot creation
+        }
       }
 
       lotsAdded++;
@@ -489,6 +502,19 @@
   });
 
   // ── Helpers ──────────────────────────────────────────────────────────────────
+  async function uploadToCloudinary(file) {
+    const fd = new FormData();
+    fd.append('image', file);
+    const res = await fetch('/api/uploads/image', {
+      method: 'POST',
+      headers: { Authorization: 'Bearer ' + token },
+      body: fd,
+    });
+    const data = await res.json();
+    if (!data.success) throw new Error(data.message || 'Upload failed');
+    return data.secure_url;
+  }
+
   function clearForm() {
     // Revoke all object URLs before clearing to avoid memory leaks
     images.forEach(img => URL.revokeObjectURL(img.objectUrl));
