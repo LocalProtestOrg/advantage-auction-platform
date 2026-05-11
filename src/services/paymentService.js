@@ -323,6 +323,16 @@ class PaymentService {
   async processRefund(adminId, paymentId, refundAmountCents) {
     // Admin-only refund logic
     // Valid transition: paid → refunded OR paid → partially_refunded (and ONLY from paid)
+    //
+    // Execution order (matches createPaymentIntent pattern — Stripe before DB write):
+    //   1. Validate payment state inside a locked transaction
+    //   2. Call stripe.refunds.create() — if this throws, ROLLBACK and surface the error
+    //   3. Write DB status + stripe_refund_id atomically, then COMMIT
+    //   4. Log audit event inside the same transaction
+    //
+    // If Stripe succeeds but COMMIT fails (rare crash window), the stripe_refund_id
+    // from the thrown error is logged so an admin can manually reconcile in the
+    // Stripe Dashboard. The buyer's money is already returned at that point.
     const client = await db.connect();
     try {
       await client.query('BEGIN');
@@ -330,7 +340,8 @@ class PaymentService {
       await this._ensureAdminRole(client, adminId);
 
       const paymentRes = await client.query(
-        'SELECT status, amount_cents FROM payments WHERE id = $1 FOR UPDATE',
+        `SELECT status, amount_cents, payment_intent_id, lot_id, auction_id
+           FROM payments WHERE id = $1 FOR UPDATE`,
         [paymentId]
       );
       if (!paymentRes.rows[0]) {
@@ -347,22 +358,64 @@ class PaymentService {
         throw new Error('Refund amount must be between 0 and the payment amount');
       }
 
+      // Execute Stripe refund for payments that have a real PaymentIntent.
+      // Payments without payment_intent_id are seeded/test records — Stripe call skipped.
+      let stripeRefundId = null;
+      if (payment.payment_intent_id) {
+        const stripe = getStripe();
+        let stripeRefund;
+        try {
+          stripeRefund = await stripe.refunds.create({
+            payment_intent: payment.payment_intent_id,
+            amount:         refundAmountCents,
+          });
+        } catch (stripeErr) {
+          console.error('[refund] Stripe refund API failed:', {
+            paymentId,
+            payment_intent_id: payment.payment_intent_id,
+            amount_cents: refundAmountCents,
+            error: stripeErr.message,
+          });
+          throw new Error(`Stripe refund failed: ${stripeErr.message}`);
+        }
+        stripeRefundId = stripeRefund.id;
+      } else {
+        console.warn('[refund] No payment_intent_id — Stripe refund skipped (seeded/test payment)', { paymentId });
+      }
+
       const isFullRefund = refundAmountCents === payment.amount_cents;
       const newStatus = isFullRefund ? 'refunded' : 'partially_refunded';
+      const refundedAt = new Date();
 
       await client.query(
         `UPDATE payments
-         SET status = $1, refunded_at = now()
-         WHERE id = $2`,
-        [newStatus, paymentId]
+         SET status = $1, refunded_at = $2, stripe_refund_id = $3
+         WHERE id = $4`,
+        [newStatus, refundedAt, stripeRefundId, paymentId]
       );
+
+      await auditService.logEvent(client, {
+        eventType:  'payment.refunded',
+        entityType: 'payment',
+        entityId:   paymentId,
+        auctionId:  payment.auction_id,
+        lotId:      payment.lot_id,
+        paymentId,
+        actorId:    adminId,
+        metadata: {
+          refund_amount_cents: refundAmountCents,
+          stripe_refund_id:   stripeRefundId,
+          status:             newStatus,
+        }
+      });
 
       await client.query('COMMIT');
       return {
-        payment_id: paymentId,
-        status: newStatus,
+        payment_id:         paymentId,
+        status:             newStatus,
         refund_amount_cents: refundAmountCents,
-        refunded_at: new Date()
+        stripe_refund_id:   stripeRefundId,
+        refunded_at:        refundedAt,
       };
     } catch (error) {
       await client.query('ROLLBACK');

@@ -1,11 +1,11 @@
 # Delta-Testing — Current Work
 
-## Status: IDLE — Marketplace Validation Sprint Complete
+## Status: IDLE — Pilot-Safe Payments Sprint Complete
 
-Marketplace validation sprint delivered. See checkpoint-log.md for full
-stability/regression summary.
+Pilot-Safe Payments Sprint delivered. 36-test spec covers Stripe refund execution,
+invoice lifecycle, audit trail, and idempotency regression. 72/72 pass (36 new + 36 existing).
 
-**Outcome: STABLE. No critical defects. Greenlit for Discovery Ranking Layer v1.**
+**Outcome: STABLE. All payment fixes confirmed. Checkpoint: checkpoint-pilot-safe-payments-v1.**
 
 ---
 
@@ -15,6 +15,8 @@ stability/regression summary.
 
 | Spec File | Tests | Status |
 |---|---|---|
+| e2e/payments/payment-refund-execution.spec.js | 36 | PASS (Pilot-Safe sprint, 3 browsers) |
+| e2e/admin/admin-refund.spec.js | 36 | PASS (regression confirmed post-fix) |
 | e2e/public-discovery.spec.js | 42 | PASS |
 | e2e/public-discovery-phase2.spec.js | 45 | PASS |
 | e2e/charlie-bd-featured-near-you.spec.js | 49 | PASS (pending first run) |

@@ -1,6 +1,6 @@
 # Active Work Queue
 
-Last updated: 2026-05-11 (Bravo-Discovery ranking layer v1 — COMPLETE)
+Last updated: 2026-05-11 (Pilot-Safe Payments Sprint — COMPLETE: checkpoint-pilot-safe-payments-v1)
 Maintained by: Human Operator
 
 This is the single-pane view of all active and queued work across all seven
@@ -18,16 +18,14 @@ workstreams. Update this file whenever a stream starts, completes, or blocks wor
 | Alpha-Core | IDLE | — | See candidate list below |
 | Bravo-Discovery | IDLE | — | See candidate list below |
 | Charlie-BD | IDLE | — | See candidate list below |
-| Delta-Testing | IDLE | — | Coverage audit: walkthroughs, watchlist, soft-close |
+| Delta-Testing | IDLE | — | See candidate list below |
 | Frontend Ops | IDLE | — | Awaiting next Charlie-BD export publish |
 | Growth Ops | IDLE | — | See candidate list below |
 | Marketplace Intelligence | IDLE | — | Initial telemetry query design |
 
-**Current migration ceiling:** `044_create_analytics_events.sql`
-The next migration must be numbered `045`. Confirm this in `active-work-queue.md`
+**Current migration ceiling:** `045_add_stripe_refund_id.sql`
+The next migration must be numbered `046`. Confirm this in `active-work-queue.md`
 before creating any new migration file.
-
-**Migration 045 status:** NOT claimed. No stream has started a migration this cycle.
 
 ---
 
@@ -211,16 +209,16 @@ to widgets. Data collection will begin once widgets emit events.
 
 ## Next Migration Number
 
-**Current ceiling: 044**
-**Next available: 045**
+**Current ceiling: 045**
+**Next available: 046**
 
-Before creating a migration, confirm in this file that no other stream has claimed 045.
+Before creating a migration, confirm in this file that no other stream has claimed 046.
 Update this section when a migration is created:
 
 ```
 ## Next Migration Number
-Current ceiling: 044
-Next available: 045
+Current ceiling: 045
+Next available: 046
 Claimed by: [stream name] on [date] — [description]
 ```
 
@@ -230,6 +228,7 @@ Claimed by: [stream name] on [date] — [description]
 
 | Date | Stream | Checkpoint | Description |
 |---|---|---|---|
+| 2026-05-11 | Alpha-Core + Bravo-Discovery + Delta-Testing | checkpoint-pilot-safe-payments-v1 | Pilot-Safe Payments Sprint: Stripe refund execution fix, invoice status lifecycle fix (paid not issued), migration 045 (stripe_refund_id), buyer premium decision doc (0% pilot), SMTP readiness checklist, 36-test regression spec (72/72 pass across 2 specs + 3 browsers) |
 | 2026-05-11 | Bravo-Discovery | checkpoint-discovery-ranking-v1 | Discovery Ranking Layer v1: deterministic additive scoring (featured, freshness, shipping, geo), auctionScoreSQL, 4 ORDER BY integrations, 566-line ranking spec |
 | 2026-05-11 | Delta-Testing | checkpoint-delta-marketplace-validation-v1 | Marketplace validation sprint: ~90 tests across 8 areas; platform STABLE; greenlit for Discovery Ranking Layer v1 |
 | 2026-05-11 | Charlie-BD | checkpoint-bd-marketplace-seller-cta-v1 (7d2e50b) | Marketplace seller acquisition CTA: AAPMarketplaceSellerCta v1 module, auction-view.html integration, ~50 Playwright tests |
