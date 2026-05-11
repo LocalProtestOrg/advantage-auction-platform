@@ -4,20 +4,33 @@
 
 This directory is the operational headquarters for multi-agent development on the Advantage Auction Platform. It defines which agent owns which files, what each agent is responsible for, how work cycles are structured, and how checkpoints are managed.
 
-**Four agents. Clear boundaries. No overlapping file ownership during an active work cycle.**
+**Seven workstreams. Clear boundaries. No overlapping file ownership during an active work cycle.**
+
+Cross-stream coordination is governed by `agents/orchestration/`. Read that directory
+before starting any new work cycle or opening a second terminal.
 
 ---
 
-## The Four Agents
+## The Seven Workstreams
+
+### Engineering Streams (Terminal A)
 
 | Agent | Domain | Tag Prefix |
 |---|---|---|
 | **Alpha-Core** | Platform foundation — auth, bidding, payments, auction lifecycle, admin ops | `checkpoint-{work}-v{N}` |
-| **Bravo-Discovery** | Public marketplace discovery API — `/api/public/*`, ranking, geo | `checkpoint-discovery-{work}-v{N}` |
-| **Charlie-BD** | BD integration layer — widgets, embed contracts, public-facing BD pages | `checkpoint-bd-{work}-v{N}` |
+| **Bravo-Discovery** | Public marketplace discovery API — `/api/public/*`, ranking, geo, analytics | `checkpoint-discovery-{work}-v{N}` |
+| **Charlie-BD** | BD integration layer — widgets, exports, BD package governance | `checkpoint-bd-{work}-v{N}` |
 | **Delta-Testing** | Test infrastructure — E2E specs, seeds, validation scripts, coverage audits | `checkpoint-testing-{work}-v{N}` |
 
-Each agent directory contains five files:
+### Operations Streams (Terminal B — when authorized)
+
+| Stream | Domain | Boundary |
+|---|---|---|
+| **Frontend Ops** | BD deployment using `/exports/frontend-widgets/` only | Reads exports, writes `deployment-log.md` only |
+| **Growth Ops** | Planning, onboarding, SEO, outreach | `/ops/` only (excluding `ops/frontend/`) |
+| **Marketplace Intelligence** | Analytics queries, seller reporting, telemetry interpretation | Read-only analysis + propose to docs |
+
+Each **engineering** agent directory contains five files:
 
 | File | Purpose |
 |---|---|
@@ -164,13 +177,17 @@ When the human operator assigns new work:
 
 ## Current Platform State
 
-As of the initial Agent OS establishment:
+As of 2026-05-11:
 
-| Agent | Last Checkpoint | Tests Passing |
+| Stream | Last Checkpoint | Status |
 |---|---|---|
-| Alpha-Core | checkpoint-admin-moderation-v1 | 241+ (full audit) |
-| Bravo-Discovery | checkpoint-discovery-phase2-v1 | 312 total (87 discovery) |
-| Charlie-BD | Not yet assigned | — |
-| Delta-Testing | Not yet assigned | — |
+| Alpha-Core | checkpoint-admin-moderation-v1 | IDLE |
+| Bravo-Discovery | checkpoint-discovery-phase2-v1 + analytics (commit 6be45cc) | IDLE |
+| Charlie-BD | checkpoint-bd-marketplace-config-v1 (tag pending) | IDLE |
+| Delta-Testing | Monitoring — 10 pre-existing failures documented | IDLE |
+| Frontend Ops | No deployments yet — exports v1.0.0 available | IDLE |
+| Growth Ops | No work cycles yet | IDLE |
+| Marketplace Intelligence | Analytics table live — no work cycles yet | IDLE |
 
-The platform has 312 passing tests across 19+ spec files. All failures are pre-existing and documented.
+The platform has 312+ passing tests across 19+ spec files. All failures are pre-existing and documented.
+Cross-stream state is tracked in `agents/orchestration/active-work-queue.md`.
