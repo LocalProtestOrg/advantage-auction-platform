@@ -317,6 +317,15 @@ router.get('/payouts', auth, role(['admin']), async (req, res, next) => {
 
 // ── Walkthrough video moderation ─────────────────────────────────────────────
 
+// GET /api/admin/videos — all videos with optional ?status=pending_review|approved|rejected
+router.get('/videos', auth, role(['admin']), async (req, res, next) => {
+  try {
+    const limit = parseInt(req.query.limit, 10) || 100;
+    const rows = await videoService.listAllVideos(req.query.status, limit);
+    return res.json({ success: true, data: rows });
+  } catch (err) { next(err); }
+});
+
 // GET /api/admin/videos/pending — moderation queue (oldest first)
 router.get('/videos/pending', auth, role(['admin']), async (req, res, next) => {
   try {

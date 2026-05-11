@@ -1,0 +1,1074 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="noindex" />
+  <title>Admin Moderation — Advantage Auction</title>
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      background: #f5f7fa;
+      color: #111;
+      min-height: 100vh;
+      padding: 2rem 1.5rem;
+    }
+
+    .page { max-width: 1100px; margin: 0 auto; }
+
+    /* ── Header ─────────────────────────────────────────────── */
+    header { margin-bottom: 1.5rem; }
+
+    .brand {
+      font-size: 0.72rem;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #888;
+      margin-bottom: 0.4rem;
+    }
+
+    .header-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      flex-wrap: wrap;
+    }
+
+    h1 { font-size: 1.6rem; font-weight: 800; }
+
+    .header-actions { display: flex; gap: 0.6rem; align-items: center; }
+
+    .role-badge {
+      font-size: 0.65rem;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      background: #111;
+      color: #fff;
+      padding: 0.2rem 0.6rem;
+      border-radius: 99px;
+    }
+
+    /* ── Tabs ───────────────────────────────────────────────── */
+    .tabs {
+      display: flex;
+      gap: 0.25rem;
+      background: #fff;
+      border-radius: 10px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.06);
+      padding: 0.35rem;
+      margin-bottom: 1.5rem;
+      flex-wrap: wrap;
+    }
+
+    .tab-btn {
+      flex: 1;
+      min-width: 70px;
+      padding: 0.45rem 0.7rem;
+      font-size: 0.78rem;
+      font-weight: 600;
+      background: transparent;
+      border: none;
+      border-radius: 7px;
+      cursor: pointer;
+      color: #666;
+      text-align: center;
+      transition: background 0.12s, color 0.12s;
+      white-space: nowrap;
+    }
+    .tab-btn:hover { background: #f3f4f6; color: #111; }
+    .tab-btn.active { background: #111; color: #fff; }
+
+    .tab-count {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      background: #ef4444;
+      color: #fff;
+      border-radius: 99px;
+      font-size: 0.6rem;
+      font-weight: 700;
+      min-width: 16px;
+      height: 16px;
+      padding: 0 4px;
+      margin-left: 4px;
+    }
+    .tab-btn.active .tab-count { background: #fff; color: #111; }
+    .tab-count.hidden { display: none; }
+
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+
+    /* ── Status messages ────────────────────────────────────── */
+    .status-msg {
+      font-size: 0.88rem;
+      color: #666;
+      margin-bottom: 1rem;
+    }
+    .status-msg.error { color: #dc2626; font-weight: 600; }
+    .status-msg.hidden { display: none; }
+
+    /* ── Section label ──────────────────────────────────────── */
+    .section-label {
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.07em;
+      text-transform: uppercase;
+      color: #888;
+      margin-bottom: 0.75rem;
+    }
+
+    /* ── Summary chips ──────────────────────────────────────── */
+    .summary-row {
+      display: flex;
+      gap: 0.75rem;
+      flex-wrap: wrap;
+      margin-bottom: 1.5rem;
+    }
+
+    .stat-chip {
+      background: #fff;
+      border-radius: 10px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.06);
+      padding: 0.9rem 1.1rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.2rem;
+      min-width: 100px;
+      flex: 1;
+    }
+
+    .stat-chip-label {
+      font-size: 0.68rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: #888;
+    }
+
+    .stat-chip-value {
+      font-size: 1.6rem;
+      font-weight: 800;
+      color: #111;
+      line-height: 1.1;
+    }
+
+    .accent-green  { color: #16a34a; }
+    .accent-blue   { color: #2563eb; }
+    .accent-violet { color: #7c3aed; }
+    .accent-orange { color: #d97706; }
+    .accent-red    { color: #dc2626; }
+
+    /* ── Buttons ────────────────────────────────────────────── */
+    .btn {
+      display: inline-block;
+      padding: 0.4rem 1rem;
+      font-size: 0.78rem;
+      font-weight: 600;
+      background: #fff;
+      border: 1.5px solid #d1d5db;
+      border-radius: 6px;
+      cursor: pointer;
+      color: #374151;
+      text-decoration: none;
+      white-space: nowrap;
+      transition: background 0.1s;
+    }
+    .btn:hover { background: #f3f4f6; }
+    .btn:disabled { opacity: 0.4; cursor: default; }
+
+    .btn-primary { background: #111; color: #fff; border-color: #111; }
+    .btn-primary:hover { background: #333; }
+
+    .btn-approve { background: #f0fdf4; color: #15803d; border-color: #86efac; }
+    .btn-approve:hover { background: #dcfce7; }
+
+    .btn-reject { background: #fef2f2; color: #b91c1c; border-color: #fca5a5; }
+    .btn-reject:hover { background: #fee2e2; }
+
+    .btn-publish { background: #eff6ff; color: #1d4ed8; border-color: #93c5fd; }
+    .btn-publish:hover { background: #dbeafe; }
+
+    .btn-feature { background: #f5f3ff; color: #6d28d9; border-color: #c4b5fd; }
+    .btn-feature:hover { background: #ede9fe; }
+
+    .btn-on { background: #111; color: #fff; border-color: #111; }
+    .btn-on:hover { background: #333; }
+
+    .btn-sm { padding: 0.3rem 0.75rem; font-size: 0.72rem; }
+
+    /* ── Badges ─────────────────────────────────────────────── */
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 0.2rem 0.6rem;
+      border-radius: 99px;
+      font-size: 0.65rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      white-space: nowrap;
+    }
+
+    .badge-pending  { background: #fef9c3; color: #854d0e; }
+    .badge-approved { background: #f0fdf4; color: #15803d; }
+    .badge-rejected { background: #fef2f2; color: #b91c1c; }
+    .badge-published { background: #f0fdf4; color: #15803d; }
+    .badge-draft    { background: #f3f4f6; color: #374151; }
+    .badge-submitted { background: #fef9c3; color: #92400e; }
+    .badge-closed   { background: #eff6ff; color: #2563eb; }
+
+    /* ── Card list ──────────────────────────────────────────── */
+    .card-list {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .card {
+      background: #fff;
+      border-radius: 12px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.07);
+      padding: 1.25rem 1.5rem;
+    }
+
+    .card-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 1rem;
+      flex-wrap: wrap;
+      margin-bottom: 0.75rem;
+    }
+
+    .card-title { font-size: 1rem; font-weight: 700; line-height: 1.3; }
+
+    .card-meta { font-size: 0.76rem; color: #999; margin-top: 0.2rem; }
+
+    .card-actions {
+      display: flex;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+      padding-top: 0.75rem;
+      border-top: 1px solid #f0f0f0;
+      align-items: center;
+    }
+
+    /* ── Video card layout ──────────────────────────────────── */
+    .video-layout {
+      display: flex;
+      gap: 1.25rem;
+    }
+
+    .video-thumb {
+      width: 160px;
+      height: 100px;
+      flex-shrink: 0;
+      border-radius: 8px;
+      background: #e4e8f0;
+      object-fit: cover;
+      display: block;
+    }
+
+    .video-thumb-placeholder {
+      width: 160px;
+      height: 100px;
+      flex-shrink: 0;
+      border-radius: 8px;
+      background: linear-gradient(135deg, #e4e8f0 0%, #d1d5db 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 2rem;
+      color: #9ca3af;
+    }
+
+    .video-content { flex: 1; min-width: 0; }
+
+    .video-flags {
+      display: flex;
+      gap: 0.4rem;
+      flex-wrap: wrap;
+      margin: 0.5rem 0;
+    }
+
+    .video-flag {
+      padding: 0.15rem 0.5rem;
+      border-radius: 4px;
+      font-size: 0.72rem;
+      font-weight: 600;
+    }
+
+    .flag-on  { background: #f0fdf4; color: #15803d; }
+    .flag-off { background: #f3f4f6; color: #888; }
+    .flag-featured-on { background: #f5f3ff; color: #6d28d9; }
+
+    .reject-reason { font-size: 0.82rem; color: #b91c1c; margin-bottom: 0.5rem; }
+
+    /* Inline reject form */
+    .reject-inline {
+      display: none;
+      gap: 0.5rem;
+      align-items: center;
+      flex-wrap: wrap;
+      margin-top: 0.5rem;
+    }
+
+    .reject-inline input {
+      flex: 1;
+      min-width: 180px;
+      padding: 0.35rem 0.7rem;
+      font-size: 0.8rem;
+      border: 1.5px solid #d1d5db;
+      border-radius: 6px;
+      outline: none;
+    }
+    .reject-inline input:focus { border-color: #111; }
+
+    /* ── Filter bar ─────────────────────────────────────────── */
+    .filter-bar {
+      display: flex;
+      gap: 0.4rem;
+      flex-wrap: wrap;
+      margin-bottom: 1rem;
+    }
+
+    .filter-btn {
+      padding: 0.3rem 0.85rem;
+      font-size: 0.75rem;
+      font-weight: 600;
+      background: #fff;
+      border: 1.5px solid #d1d5db;
+      border-radius: 99px;
+      cursor: pointer;
+      color: #374151;
+    }
+    .filter-btn:hover { background: #f3f4f6; }
+    .filter-btn.active { background: #111; color: #fff; border-color: #111; }
+
+    /* ── Search form ────────────────────────────────────────── */
+    .search-form { display: flex; gap: 0.5rem; margin-bottom: 1rem; flex-wrap: wrap; }
+
+    .search-form input {
+      flex: 1;
+      min-width: 200px;
+      padding: 0.5rem 0.9rem;
+      font-size: 0.85rem;
+      border: 1.5px solid #d1d5db;
+      border-radius: 8px;
+      outline: none;
+    }
+    .search-form input:focus { border-color: #111; }
+
+    /* ── Row list (sellers / payouts) ───────────────────────── */
+    .row-list { display: flex; flex-direction: column; gap: 0.5rem; margin-bottom: 1.5rem; }
+
+    .row-item {
+      background: #fff;
+      border-radius: 8px;
+      box-shadow: 0 1px 6px rgba(0,0,0,0.06);
+      padding: 0.85rem 1rem;
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      flex-wrap: wrap;
+    }
+
+    .row-main { flex: 1; min-width: 0; }
+    .row-title { font-size: 0.88rem; font-weight: 600; }
+    .row-meta  { font-size: 0.73rem; color: #888; margin-top: 0.15rem; }
+    .row-amount { font-size: 1rem; font-weight: 700; color: #111; white-space: nowrap; }
+    .row-submeta { font-size: 0.72rem; color: #999; margin-top: 0.1rem; }
+
+    /* ── Diagnostics ────────────────────────────────────────── */
+    .diag-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .diag-card {
+      background: #fff;
+      border-radius: 10px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.06);
+      padding: 1rem 1.1rem;
+    }
+
+    .diag-title {
+      font-size: 0.72rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: #888;
+      margin-bottom: 0.5rem;
+    }
+
+    .diag-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.82rem;
+      padding: 0.2rem 0;
+      border-bottom: 1px solid #f5f5f5;
+    }
+    .diag-row:last-child { border-bottom: none; }
+    .diag-row-label { color: #555; }
+    .diag-row-value { font-weight: 700; color: #111; }
+
+    .diag-big {
+      font-size: 2rem;
+      font-weight: 800;
+      color: #111;
+      margin-top: 0.25rem;
+    }
+
+    /* ── Empty / loading ────────────────────────────────────── */
+    .empty {
+      text-align: center;
+      color: #aaa;
+      font-size: 0.9rem;
+      padding: 3rem 1rem;
+    }
+
+    /* ── Responsive ─────────────────────────────────────────── */
+    @media (max-width: 600px) {
+      .video-layout { flex-direction: column; }
+      .video-thumb, .video-thumb-placeholder { width: 100%; height: 180px; }
+      .tabs { gap: 0.1rem; }
+      .tab-btn { font-size: 0.7rem; padding: 0.35rem 0.45rem; min-width: 50px; }
+      h1 { font-size: 1.3rem; }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="page">
+
+    <!-- ── Header ─────────────────────────────────────────── -->
+    <header>
+      <div class="brand">Advantage Auction Platform</div>
+      <div class="header-row">
+        <h1>Admin Moderation</h1>
+        <div class="header-actions">
+          <span class="role-badge">Admin</span>
+          <button class="btn" onclick="logout()">Logout</button>
+        </div>
+      </div>
+    </header>
+
+    <!-- ── Tabs ───────────────────────────────────────────── -->
+    <nav class="tabs">
+      <button class="tab-btn active" data-tab="queue" onclick="switchTab('queue')">
+        Queue <span class="tab-count hidden" id="queue-count"></span>
+      </button>
+      <button class="tab-btn" data-tab="videos" onclick="switchTab('videos')">All Videos</button>
+      <button class="tab-btn" data-tab="auctions" onclick="switchTab('auctions')">Auctions</button>
+      <button class="tab-btn" data-tab="sellers" onclick="switchTab('sellers')">Sellers</button>
+      <button class="tab-btn" data-tab="payouts" onclick="switchTab('payouts')">Payouts</button>
+      <button class="tab-btn" data-tab="diag" onclick="switchTab('diag')">Diagnostics</button>
+    </nav>
+
+    <!-- ── Queue tab ──────────────────────────────────────── -->
+    <div class="tab-panel active" id="tab-queue">
+      <div class="section-label">Pending Review</div>
+      <div class="status-msg" id="queue-status">Loading&hellip;</div>
+      <div class="card-list" id="queue-list"></div>
+    </div>
+
+    <!-- ── All Videos tab ─────────────────────────────────── -->
+    <div class="tab-panel" id="tab-videos">
+      <div class="filter-bar" id="videos-filter">
+        <button class="filter-btn active" onclick="loadVideos(null, this)">All</button>
+        <button class="filter-btn" onclick="loadVideos('pending_review', this)">Pending</button>
+        <button class="filter-btn" onclick="loadVideos('approved', this)">Approved</button>
+        <button class="filter-btn" onclick="loadVideos('rejected', this)">Rejected</button>
+      </div>
+      <div class="status-msg" id="videos-status"></div>
+      <div class="card-list" id="videos-list"></div>
+    </div>
+
+    <!-- ── Auctions tab ───────────────────────────────────── -->
+    <div class="tab-panel" id="tab-auctions">
+      <div class="section-label">Auction States</div>
+      <div class="summary-row" id="auction-chips"></div>
+      <div class="section-label">Recent Auctions</div>
+      <div class="status-msg" id="auctions-status"></div>
+      <div class="card-list" id="auctions-list"></div>
+    </div>
+
+    <!-- ── Sellers tab ────────────────────────────────────── -->
+    <div class="tab-panel" id="tab-sellers">
+      <form class="search-form" onsubmit="searchSellers(event)">
+        <input type="text" id="seller-search" placeholder="Search by email&hellip;" autocomplete="off" />
+        <button type="submit" class="btn btn-primary">Search</button>
+        <button type="button" class="btn" onclick="loadSellers('')">Show All</button>
+      </form>
+      <div class="status-msg" id="sellers-status"></div>
+      <div class="row-list" id="sellers-list"></div>
+    </div>
+
+    <!-- ── Payouts tab ────────────────────────────────────── -->
+    <div class="tab-panel" id="tab-payouts">
+      <div class="filter-bar" id="payouts-filter">
+        <button class="filter-btn active" onclick="loadPayouts('all', this)">All</button>
+        <button class="filter-btn" onclick="loadPayouts('pending', this)">Pending</button>
+        <button class="filter-btn" onclick="loadPayouts('released', this)">Released</button>
+      </div>
+      <div class="status-msg" id="payouts-status"></div>
+      <div class="row-list" id="payouts-list"></div>
+    </div>
+
+    <!-- ── Diagnostics tab ────────────────────────────────── -->
+    <div class="tab-panel" id="tab-diag">
+      <div class="status-msg" id="diag-status">Loading&hellip;</div>
+      <div id="diag-content"></div>
+    </div>
+
+  </div><!-- /.page -->
+
+  <script>
+  'use strict';
+
+  // ── Auth guard ────────────────────────────────────────────────────────────────
+  const token = localStorage.getItem('token');
+  if (!token) { window.location.href = '/login.html'; }
+
+  (function checkAdminRole() {
+    try {
+      const payload = JSON.parse(atob(token.split('.')[1]));
+      if (payload.role !== 'admin') throw new Error();
+    } catch {
+      document.body.innerHTML = '<div style="padding:4rem;text-align:center;font-family:system-ui">' +
+        '<h2>Access Denied</h2>' +
+        '<p style="margin-top:1rem;color:#666">This page requires administrator access.</p>' +
+        '<a href="/login.html" style="display:inline-block;margin-top:1.5rem;color:#2563eb">Back to Login</a></div>';
+      throw new Error('not admin');
+    }
+  })();
+
+  function logout() {
+    localStorage.removeItem('token');
+    sessionStorage.clear();
+    window.location.href = '/demo.html';
+  }
+
+  // ── API helper ────────────────────────────────────────────────────────────────
+  function api(method, url, body) {
+    const opts = {
+      method,
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+    };
+    if (body !== undefined) opts.body = JSON.stringify(body);
+    return fetch(url, opts).then(r => {
+      if (r.status === 401) { logout(); throw new Error('Session expired'); }
+      return r.json();
+    });
+  }
+
+  // ── DOM helpers ───────────────────────────────────────────────────────────────
+  function el(tag, cls, text) {
+    const e = document.createElement(tag);
+    if (cls)             e.className = cls;
+    if (text !== undefined) e.textContent = text;
+    return e;
+  }
+
+  function fmtDate(iso) {
+    if (!iso) return '—';
+    return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  }
+
+  function fmtMoney(cents) {
+    if (cents == null) return '—';
+    return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(cents / 100);
+  }
+
+  function videoThumb(url) {
+    if (!url) return null;
+    const m = url.match(/res\.cloudinary\.com\/([^/]+)\/video\/upload\/(.*)/);
+    if (!m) return null;
+    const rest = m[2].replace(/\.[^.?]+(\?.*)?$/, '');
+    return `https://res.cloudinary.com/${m[1]}/video/upload/so_0,w_320,h_200,c_fill,q_70/${rest}.jpg`;
+  }
+
+  function showMsg(id, text, isError) {
+    const e = document.getElementById(id);
+    if (!e) return;
+    e.textContent = text;
+    e.className = 'status-msg' + (isError ? ' error' : '') + (!text ? ' hidden' : '');
+  }
+
+  function reviewBadge(status) {
+    const map = {
+      pending_review: ['badge-pending', 'Pending'],
+      approved:       ['badge-approved', 'Approved'],
+      rejected:       ['badge-rejected', 'Rejected'],
+    };
+    const [cls, label] = map[status] || ['badge-draft', status];
+    return el('span', `badge ${cls}`, label);
+  }
+
+  function auctionStateBadge(state) {
+    const map = {
+      published: ['badge-published', 'Published'],
+      draft:     ['badge-draft', 'Draft'],
+      submitted: ['badge-submitted', 'Submitted'],
+      closed:    ['badge-closed', 'Closed'],
+    };
+    const [cls, label] = map[state] || ['badge-draft', state];
+    return el('span', `badge ${cls}`, label);
+  }
+
+  // ── Tab switching ─────────────────────────────────────────────────────────────
+  const loadedTabs = new Set();
+
+  function switchTab(name) {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === name));
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.toggle('active', p.id === `tab-${name}`));
+
+    // Queue always refreshes (moderation state changes frequently)
+    if (name === 'queue') { loadQueue(); return; }
+
+    if (!loadedTabs.has(name)) {
+      loadedTabs.add(name);
+      if (name === 'videos')   loadVideos(null);
+      if (name === 'auctions') loadAuctions();
+      if (name === 'sellers')  loadSellers('');
+      if (name === 'payouts')  loadPayouts('all');
+      if (name === 'diag')     loadDiagnostics();
+    }
+  }
+
+  // ── Queue tab ─────────────────────────────────────────────────────────────────
+  function loadQueue() {
+    showMsg('queue-status', 'Loading…');
+    api('GET', '/api/admin/videos/pending').then(data => {
+      showMsg('queue-status', '');
+      const list = document.getElementById('queue-list');
+      list.innerHTML = '';
+      const videos = data.data || [];
+
+      const countEl = document.getElementById('queue-count');
+      if (videos.length > 0) {
+        countEl.textContent = videos.length;
+        countEl.classList.remove('hidden');
+      } else {
+        countEl.classList.add('hidden');
+      }
+
+      if (!videos.length) {
+        list.appendChild(el('div', 'empty', 'No videos awaiting review.'));
+        return;
+      }
+      videos.forEach(v => list.appendChild(buildVideoCard(v, 'queue')));
+    }).catch(err => showMsg('queue-status', err.message, true));
+  }
+
+  // ── All Videos tab ────────────────────────────────────────────────────────────
+  let currentVideoStatus = null;
+
+  function loadVideos(status, filterBtn) {
+    currentVideoStatus = status;
+    if (filterBtn) {
+      document.querySelectorAll('#videos-filter .filter-btn').forEach(b => b.classList.remove('active'));
+      filterBtn.classList.add('active');
+    }
+    showMsg('videos-status', 'Loading…');
+    const url = '/api/admin/videos' + (status ? `?status=${status}` : '');
+    api('GET', url).then(data => {
+      showMsg('videos-status', '');
+      const list = document.getElementById('videos-list');
+      list.innerHTML = '';
+      const videos = data.data || [];
+      if (!videos.length) { list.appendChild(el('div', 'empty', 'No videos found.')); return; }
+      videos.forEach(v => list.appendChild(buildVideoCard(v, 'all')));
+    }).catch(err => showMsg('videos-status', err.message, true));
+  }
+
+  // ── Video card builder ────────────────────────────────────────────────────────
+  function buildVideoCard(v, context) {
+    const card = el('div', 'card');
+    const layout = el('div', 'video-layout');
+
+    // Thumbnail
+    const thumb = videoThumb(v.video_url);
+    if (thumb) {
+      const img = document.createElement('img');
+      img.className = 'video-thumb';
+      img.src = thumb;
+      img.alt = 'Video thumbnail';
+      img.onerror = () => { img.replaceWith(el('div', 'video-thumb-placeholder', '▶')); };
+      layout.appendChild(img);
+    } else {
+      layout.appendChild(el('div', 'video-thumb-placeholder', '▶'));
+    }
+
+    // Content
+    const content = el('div', 'video-content');
+
+    // Header row: title + badge
+    const headerRow = el('div', 'card-header');
+    const titleBlock = el('div');
+    titleBlock.appendChild(el('div', 'card-title', v.title || '(Untitled video)'));
+    const metaLine = v.auction_title + ' · Submitted ' + fmtDate(v.created_at);
+    titleBlock.appendChild(el('div', 'card-meta', metaLine));
+    if (v.caption) titleBlock.appendChild(el('div', 'card-meta', '“' + v.caption + '”'));
+    headerRow.appendChild(titleBlock);
+    headerRow.appendChild(reviewBadge(v.review_status));
+    content.appendChild(headerRow);
+
+    // Visibility/featured flags for approved
+    if (v.review_status === 'approved') {
+      const flags = el('div', 'video-flags');
+      flags.appendChild(el('span', `video-flag ${v.visible_public ? 'flag-on' : 'flag-off'}`, v.visible_public ? 'Public' : 'Not public'));
+      flags.appendChild(el('span', `video-flag ${v.featured_for_marketing ? 'flag-featured-on' : 'flag-off'}`, v.featured_for_marketing ? 'Featured' : 'Not featured'));
+      content.appendChild(flags);
+    }
+
+    if (v.rejection_reason) {
+      content.appendChild(el('div', 'reject-reason', 'Rejection reason: ' + v.rejection_reason));
+    }
+
+    // Actions
+    const actions = el('div', 'card-actions');
+
+    // Always: open video link
+    const link = document.createElement('a');
+    link.className = 'btn btn-sm';
+    link.href = v.video_url;
+    link.target = '_blank';
+    link.rel = 'noopener';
+    link.textContent = 'Open Video';
+    actions.appendChild(link);
+
+    if (v.review_status === 'pending_review') {
+      const approveBtn = el('button', 'btn btn-approve btn-sm', 'Approve');
+      approveBtn.onclick = () => doApprove(v.id, context);
+      actions.appendChild(approveBtn);
+
+      const { toggleBtn: rejectToggle, form: rejectForm } = buildRejectInline(v.id, context);
+      actions.appendChild(rejectToggle);
+      content.appendChild(actions);
+      content.appendChild(rejectForm);
+
+    } else if (v.review_status === 'approved') {
+      const visLabel = v.visible_public ? 'Unpublish' : 'Make Public';
+      const visCls   = v.visible_public ? 'btn btn-on btn-sm' : 'btn btn-publish btn-sm';
+      const visBtn = el('button', visCls, visLabel);
+      visBtn.onclick = () => doVisibility(v.id, !v.visible_public, context);
+      actions.appendChild(visBtn);
+
+      const featLabel = v.featured_for_marketing ? 'Unfeature' : 'Feature';
+      const featCls   = v.featured_for_marketing ? 'btn btn-on btn-sm' : 'btn btn-feature btn-sm';
+      const featBtn = el('button', featCls, featLabel);
+      featBtn.onclick = () => doFeatured(v.id, !v.featured_for_marketing, context);
+      actions.appendChild(featBtn);
+
+      const { toggleBtn: rejectToggle2, form: rejectForm2 } = buildRejectInline(v.id, context);
+      actions.appendChild(rejectToggle2);
+      content.appendChild(actions);
+      content.appendChild(rejectForm2);
+
+    } else {
+      content.appendChild(actions);
+    }
+
+    layout.appendChild(content);
+    card.appendChild(layout);
+    return card;
+  }
+
+  function buildRejectInline(videoId, context) {
+    const form = el('div', 'reject-inline');
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.placeholder = 'Reason (optional)';
+    const confirmBtn = el('button', 'btn btn-reject btn-sm', 'Confirm');
+    const cancelBtn  = el('button', 'btn btn-sm', 'Cancel');
+    form.appendChild(input);
+    form.appendChild(confirmBtn);
+    form.appendChild(cancelBtn);
+
+    const toggleBtn = el('button', 'btn btn-reject btn-sm', 'Reject');
+    toggleBtn.onclick = () => { form.style.display = form.style.display === 'flex' ? 'none' : 'flex'; };
+    confirmBtn.onclick = () => doReject(videoId, input.value.trim(), context);
+    cancelBtn.onclick  = () => { form.style.display = 'none'; };
+
+    return { toggleBtn, form };
+  }
+
+  // ── Video actions ─────────────────────────────────────────────────────────────
+  function doApprove(videoId, context) {
+    api('POST', `/api/admin/videos/${videoId}/approve`).then(data => {
+      if (!data.success) { alert(data.message || 'Approve failed'); return; }
+      context === 'queue' ? loadQueue() : loadVideos(currentVideoStatus);
+    }).catch(err => alert(err.message));
+  }
+
+  function doReject(videoId, reason, context) {
+    api('POST', `/api/admin/videos/${videoId}/reject`, { reason: reason || null }).then(data => {
+      if (!data.success) { alert(data.message || 'Reject failed'); return; }
+      context === 'queue' ? loadQueue() : loadVideos(currentVideoStatus);
+    }).catch(err => alert(err.message));
+  }
+
+  function doVisibility(videoId, visible, context) {
+    api('PATCH', `/api/admin/videos/${videoId}/visibility`, { visible }).then(data => {
+      if (!data.success) { alert(data.message || 'Visibility update failed'); return; }
+      context === 'queue' ? loadQueue() : loadVideos(currentVideoStatus);
+    }).catch(err => alert(err.message));
+  }
+
+  function doFeatured(videoId, featured, context) {
+    api('PATCH', `/api/admin/videos/${videoId}/featured`, { featured }).then(data => {
+      if (!data.success) { alert(data.message || 'Feature update failed'); return; }
+      context === 'queue' ? loadQueue() : loadVideos(currentVideoStatus);
+    }).catch(err => alert(err.message));
+  }
+
+  // ── Auctions tab ──────────────────────────────────────────────────────────────
+  function loadAuctions() {
+    showMsg('auctions-status', 'Loading…');
+    api('GET', '/api/admin/diagnostics/auctions').then(data => {
+      showMsg('auctions-status', '');
+      const d = data.data;
+
+      // State chips
+      const chips = document.getElementById('auction-chips');
+      chips.innerHTML = '';
+      const openChip = el('div', 'stat-chip');
+      openChip.appendChild(el('div', 'stat-chip-label', 'Open Lots'));
+      openChip.appendChild(el('div', 'stat-chip-value accent-green', String(d.open_lots)));
+      chips.appendChild(openChip);
+      (d.auction_states || []).forEach(s => {
+        const chip = el('div', 'stat-chip');
+        chip.appendChild(el('div', 'stat-chip-label', s.state));
+        chip.appendChild(el('div', 'stat-chip-value', String(s.count)));
+        chips.appendChild(chip);
+      });
+
+      // Auction cards
+      const list = document.getElementById('auctions-list');
+      list.innerHTML = '';
+      const auctions = d.recent_auctions || [];
+      if (!auctions.length) { list.appendChild(el('div', 'empty', 'No auctions found.')); return; }
+
+      auctions.forEach(a => {
+        const card = el('div', 'card');
+        const header = el('div', 'card-header');
+        const info = el('div');
+        info.appendChild(el('div', 'card-title', a.title || '(Untitled)'));
+        info.appendChild(el('div', 'card-meta', fmtDate(a.created_at) + ' · ' + a.lot_count + ' lot' + (a.lot_count === 1 ? '' : 's')));
+        header.appendChild(info);
+        header.appendChild(auctionStateBadge(a.state));
+        card.appendChild(header);
+
+        const actions = el('div', 'card-actions');
+
+        if (a.state === 'submitted') {
+          const btn = el('button', 'btn btn-publish btn-sm', 'Publish');
+          btn.onclick = () => doPublishAuction(a.id);
+          actions.appendChild(btn);
+        }
+        if (a.state === 'published') {
+          const btn = el('button', 'btn btn-reject btn-sm', 'Close Auction');
+          btn.onclick = () => {
+            if (!confirm(`Close auction "${a.title || 'this auction'}"? This cannot be undone.`)) return;
+            doCloseAuction(a.id);
+          };
+          actions.appendChild(btn);
+        }
+
+        const viewLink = document.createElement('a');
+        viewLink.className = 'btn btn-sm';
+        viewLink.href = `/auction-view.html?auctionId=${a.id}`;
+        viewLink.target = '_blank';
+        viewLink.rel = 'noopener';
+        viewLink.textContent = 'View';
+        actions.appendChild(viewLink);
+
+        card.appendChild(actions);
+        list.appendChild(card);
+      });
+    }).catch(err => showMsg('auctions-status', err.message, true));
+  }
+
+  function doPublishAuction(auctionId) {
+    api('PATCH', `/api/admin/auctions/${auctionId}/publish`).then(data => {
+      if (!data.success) { alert(data.message || 'Publish failed'); return; }
+      loadedTabs.delete('auctions');
+      loadAuctions();
+    }).catch(err => alert(err.message));
+  }
+
+  function doCloseAuction(auctionId) {
+    api('POST', `/api/admin/auctions/${auctionId}/close`).then(data => {
+      if (!data.success) { alert(data.message || 'Close failed'); return; }
+      loadedTabs.delete('auctions');
+      loadAuctions();
+    }).catch(err => alert(err.message));
+  }
+
+  // ── Sellers tab ───────────────────────────────────────────────────────────────
+  function loadSellers(search) {
+    showMsg('sellers-status', 'Loading…');
+    api('GET', '/api/admin/sellers?search=' + encodeURIComponent(search)).then(data => {
+      showMsg('sellers-status', '');
+      const list = document.getElementById('sellers-list');
+      list.innerHTML = '';
+      const sellers = data.data || [];
+      if (!sellers.length) {
+        list.appendChild(el('div', 'empty', search ? `No sellers match "${search}".` : 'No sellers found.'));
+        return;
+      }
+      sellers.forEach(s => {
+        const row = el('div', 'row-item');
+        const main = el('div', 'row-main');
+        main.appendChild(el('div', 'row-title', s.email));
+        const caps = s.capabilities ? Object.keys(s.capabilities).filter(k => s.capabilities[k]) : [];
+        const metaParts = [
+          s.seller_type,
+          s.auction_count + ' auction' + (s.auction_count === 1 ? '' : 's'),
+          caps.length ? caps.join(', ') : null,
+          'joined ' + fmtDate(s.user_created_at),
+        ].filter(Boolean);
+        main.appendChild(el('div', 'row-meta', metaParts.join(' · ')));
+        row.appendChild(main);
+        list.appendChild(row);
+      });
+    }).catch(err => showMsg('sellers-status', err.message, true));
+  }
+
+  function searchSellers(e) {
+    e.preventDefault();
+    loadSellers(document.getElementById('seller-search').value.trim());
+  }
+
+  // ── Payouts tab ───────────────────────────────────────────────────────────────
+  function loadPayouts(status, filterBtn) {
+    if (filterBtn) {
+      document.querySelectorAll('#payouts-filter .filter-btn').forEach(b => b.classList.remove('active'));
+      filterBtn.classList.add('active');
+    }
+    showMsg('payouts-status', 'Loading…');
+    api('GET', `/api/admin/payouts?status=${status}`).then(data => {
+      showMsg('payouts-status', '');
+      const list = document.getElementById('payouts-list');
+      list.innerHTML = '';
+      const payouts = data.data || [];
+      if (!payouts.length) { list.appendChild(el('div', 'empty', 'No payouts found.')); return; }
+      payouts.forEach(p => {
+        const row = el('div', 'row-item');
+        const main = el('div', 'row-main');
+        main.appendChild(el('div', 'row-title', p.seller_email + ' — ' + (p.auction_title || 'Auction')));
+        main.appendChild(el('div', 'row-meta', fmtDate(p.created_at) + ' · ' + (p.payout_method || 'unknown method') + ' · ' + p.payout_status));
+        row.appendChild(main);
+
+        const right = el('div');
+        right.style.cssText = 'text-align:right;flex-shrink:0;';
+        right.appendChild(el('div', 'row-amount', fmtMoney(p.seller_payout_cents)));
+        right.appendChild(el('div', 'row-submeta', 'Gross ' + fmtMoney(p.gross_revenue_cents) + ' · Fee ' + fmtMoney(p.platform_fee_cents)));
+        row.appendChild(right);
+        list.appendChild(row);
+      });
+    }).catch(err => showMsg('payouts-status', err.message, true));
+  }
+
+  // ── Diagnostics tab ───────────────────────────────────────────────────────────
+  function loadDiagnostics() {
+    showMsg('diag-status', 'Loading…');
+    Promise.all([
+      api('GET', '/api/admin/diagnostics/auctions'),
+      api('GET', '/api/admin/diagnostics/payments'),
+      api('GET', '/api/admin/diagnostics/notifications'),
+    ]).then(([auctionRes, paymentRes, notifRes]) => {
+      showMsg('diag-status', '');
+      const content = document.getElementById('diag-content');
+      content.innerHTML = '';
+
+      // Auctions
+      content.appendChild(el('div', 'section-label', 'Auctions'));
+      const aGrid = el('div', 'diag-grid');
+      const aCard = el('div', 'diag-card');
+      aCard.appendChild(el('div', 'diag-title', 'Auction States'));
+      (auctionRes.data.auction_states || []).forEach(s => {
+        const row = el('div', 'diag-row');
+        row.appendChild(el('span', 'diag-row-label', s.state));
+        row.appendChild(el('span', 'diag-row-value', String(s.count)));
+        aCard.appendChild(row);
+      });
+      aGrid.appendChild(aCard);
+
+      const openCard = el('div', 'diag-card');
+      openCard.appendChild(el('div', 'diag-title', 'Open Lots'));
+      openCard.appendChild(el('div', 'diag-big accent-green', String(auctionRes.data.open_lots)));
+      aGrid.appendChild(openCard);
+      content.appendChild(aGrid);
+
+      // Payments
+      content.appendChild(el('div', 'section-label', 'Payments'));
+      const pGrid = el('div', 'diag-grid');
+      const pCard = el('div', 'diag-card');
+      pCard.appendChild(el('div', 'diag-title', 'Payment Statuses'));
+      (paymentRes.data.by_status || []).forEach(s => {
+        const row = el('div', 'diag-row');
+        row.appendChild(el('span', 'diag-row-label', s.status));
+        row.appendChild(el('span', 'diag-row-value', String(s.count)));
+        pCard.appendChild(row);
+      });
+      pGrid.appendChild(pCard);
+      content.appendChild(pGrid);
+
+      // Notifications
+      content.appendChild(el('div', 'section-label', 'Notifications'));
+      const nGrid = el('div', 'diag-grid');
+      const nStatusCard = el('div', 'diag-card');
+      nStatusCard.appendChild(el('div', 'diag-title', 'Notification Statuses'));
+      (notifRes.data.by_status || []).forEach(s => {
+        const row = el('div', 'diag-row');
+        row.appendChild(el('span', 'diag-row-label', s.status));
+        row.appendChild(el('span', 'diag-row-value', String(s.count)));
+        nStatusCard.appendChild(row);
+      });
+      nGrid.appendChild(nStatusCard);
+
+      const qCard = el('div', 'diag-card');
+      qCard.appendChild(el('div', 'diag-title', 'Queue Depth'));
+      qCard.appendChild(el('div', 'diag-big', String(notifRes.data.queue_depth)));
+      nGrid.appendChild(qCard);
+      content.appendChild(nGrid);
+
+      // Recent notifications
+      content.appendChild(el('div', 'section-label', 'Recent Notifications'));
+      const nList = el('div', 'row-list');
+      const recents = notifRes.data.recent_notifications || [];
+      if (!recents.length) {
+        nList.appendChild(el('div', 'empty', 'No recent notifications.'));
+      } else {
+        recents.forEach(n => {
+          const row = el('div', 'row-item');
+          const main = el('div', 'row-main');
+          main.appendChild(el('div', 'row-title', n.notification_type + ' — ' + n.channel));
+          const retryNote = n.retry_count > 0 ? ` · ${n.retry_count} retries` : '';
+          const failNote  = n.failed_reason ? ` · ${n.failed_reason}` : '';
+          main.appendChild(el('div', 'row-meta', n.status + ' · ' + fmtDate(n.created_at) + retryNote + failNote));
+          row.appendChild(main);
+          nList.appendChild(row);
+        });
+      }
+      content.appendChild(nList);
+    }).catch(err => showMsg('diag-status', err.message, true));
+  }
+
+  // ── Bootstrap ─────────────────────────────────────────────────────────────────
+  loadQueue();
+  </script>
+</body>
+</html>

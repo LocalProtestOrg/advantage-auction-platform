@@ -112,6 +112,28 @@ async function getPendingVideos(limit = 50) {
   return rows;
 }
 
+// List all videos with an optional review_status filter (admin use).
+async function listAllVideos(status, limit = 100) {
+  const validStatuses = ['pending_review', 'approved', 'rejected'];
+  const params = [];
+  let where = '';
+  if (status && validStatuses.includes(status)) {
+    params.push(status);
+    where = 'WHERE v.review_status = $1';
+  }
+  params.push(Math.min(limit, 500));
+  const { rows } = await db.query(
+    `SELECT v.*, a.title AS auction_title
+       FROM auction_walkthrough_videos v
+       JOIN auctions a ON a.id = v.auction_id
+     ${where}
+     ORDER BY v.created_at DESC
+     LIMIT $${params.length}`,
+    params
+  );
+  return rows;
+}
+
 // List all approved + publicly visible videos (e.g. for homepage or marketing).
 async function getPublicVideos(limit = 20) {
   const { rows } = await db.query(
@@ -152,6 +174,7 @@ module.exports = {
   setPublicVisibility,
   setFeaturedForMarketing,
   getPendingVideos,
+  listAllVideos,
   getPublicVideos,
   getMarketingVideos,
 };
