@@ -364,7 +364,7 @@
   </div>
 </div>
 
-<div class="grid-wrap">
+<div class="grid-wrap" id="grid-wrap">
   <div class="lot-grid" id="lot-grid">
     <div class="lot-card card-skeleton">
       <div class="card-img"></div>
@@ -390,6 +390,9 @@
   </div>
 </div>
 
+<!-- Marketplace seller acquisition CTA — Advantage.Bid marketplace only -->
+<div id="marketplace-seller-cta-mount"></div>
+
 <!-- Walkthrough video modal -->
 <div id="video-modal" role="dialog" aria-modal="true">
   <div class="video-modal-inner">
@@ -399,6 +402,8 @@
   </div>
 </div>
 
+<script src="/widgets/shared/analytics.js"></script>
+<script src="/widgets/shared/marketplace-seller-cta.js"></script>
 <script>
   const params    = new URLSearchParams(location.search);
   const auctionId = params.get('auctionId');
@@ -412,6 +417,15 @@
     loadAuction();
     loadSellerInfo();
     loadWalkthroughVideo();
+    initSellerAcquisitionCta();
+  }
+
+  function initSellerAcquisitionCta() {
+    var mount = document.getElementById('marketplace-seller-cta-mount');
+    if (!mount || typeof window.AAPMarketplaceSellerCta === 'undefined') return;
+    window.AAPMarketplaceSellerCta.init(mount, {
+      context: { auction_id: auctionId || null }
+    });
   }
 
   // ── Seller / auction info ─────────────────────────────────────────────────

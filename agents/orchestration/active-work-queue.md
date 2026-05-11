@@ -17,7 +17,7 @@ workstreams. Update this file whenever a stream starts, completes, or blocks wor
 |---|---|---|---|
 | Alpha-Core | IDLE | — | See candidate list below |
 | Bravo-Discovery | IDLE | — | See candidate list below |
-| Charlie-BD | IDLE | — | See candidate list below |
+| Charlie-BD | **ACTIVE** | `public/widgets/shared/marketplace-seller-cta.js`, `public/auction-view.html`, `e2e/charlie-bd-marketplace-seller-cta.spec.js` | Marketplace seller acquisition CTA |
 | Delta-Testing | IDLE | — | Coverage audit: walkthroughs, watchlist, soft-close |
 | Frontend Ops | IDLE | — | Awaiting next Charlie-BD export publish |
 | Growth Ops | IDLE | — | See candidate list below |

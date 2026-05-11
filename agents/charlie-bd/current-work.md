@@ -1,9 +1,29 @@
 # Charlie-BD — Current Work
 
-## Status: IDLE — Third Work Cycle Complete
+## Status: ACTIVE — Fourth Work Cycle
 
-**checkpoint-bd-marketplace-config-v1** has been delivered and is ready for git tagging.
-See `checkpoint-log.md` for full details.
+### Assignment
+Marketplace seller acquisition CTA — buyer-to-seller conversion pathway.
+Presentation-only. No backend changes. No migration. No server.js changes.
+
+### Files Being Modified
+- [x] `public/widgets/shared/marketplace-seller-cta.js` (new — Charlie OWN)
+- [x] `public/auction-view.html` (cross-stream note: Alpha-Core is IDLE, confirmed; change is presentation-only — adds mount point + script tag + init call)
+- [x] `e2e/charlie-bd-marketplace-seller-cta.spec.js` (new — following established Bravo/Charlie spec pattern)
+
+### What Does NOT Change
+- No routes, services, migrations
+- No `server.js` changes
+- No bidding, payment, or auth files
+- No export packages (this is marketplace-owned, not BD-facing)
+
+### Conflict Check (verified)
+- Alpha-Core: IDLE — `public/auction-view.html` touch is presentation-only; no logic changes
+- Bravo-Discovery: IDLE — no overlap
+- Delta-Testing: IDLE — not writing specs for any file being modified
+
+### Checkpoint Target
+`checkpoint-bd-marketplace-seller-cta-v1`
 
 ---
 
