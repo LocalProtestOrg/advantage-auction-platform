@@ -146,6 +146,7 @@ const { router: invoicesRoutes, fetchInvoicesForBuyer } = require('./src/routes/
 const marketingReportsRoutes    = require('./src/routes/marketingReports');
 const imageProcessingRoutes     = require('./src/routes/imageProcessing');
 const uploadsRoutes             = require('./src/routes/uploads');
+const publicRoutes              = require('./src/routes/public');
 
 // ── Database-backed routes (frontend API shape) ───────────────────────────────
 
@@ -184,6 +185,7 @@ app.use('/api/invoices', invoicesRoutes);
 app.use('/api/seller/marketing-report', marketingReportsRoutes);
 app.use('/api/image-processing', imageProcessingRoutes);
 app.use('/api/uploads', uploadsRoutes);
+app.use('/api/public', publicRoutes);
 
 // Root — serve demo page
 app.get('/', (req, res) => {
