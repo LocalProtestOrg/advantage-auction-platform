@@ -1,35 +1,8 @@
 # Bravo-Discovery — Current Work
 
-## Status: ACTIVE — Phase 3: Discovery Enrichment
+## Status: IDLE
 
-Last completed: checkpoint-discovery-phase2-v1.
-
----
-
-## Active Work Cycle
-
-### Assignment
-Add keyword search, pagination metadata, and seller context to the public discovery API.
-No migration. No server.js changes. Additive only.
-
-### Files Being Modified
-- [x] `src/routes/public.js`
-- [x] `e2e/public-discovery-phase3.spec.js` (new)
-
-### Changes Scoped
-1. `GET /api/public/auctions` — add `q` keyword search; add pagination envelope
-2. `GET /api/public/auctions/near` — add pagination envelope
-3. `GET /api/public/auctions/:id/lots` — add pagination envelope
-4. `GET /api/public/featured-lots` — add seller context JOIN
-5. `GET /api/public/featured-videos` — add seller_display_name JOIN
-
-### Checkpoint Target
-`checkpoint-discovery-phase3-v1`
-
-### Conflict Check (verified)
-- Alpha-Core: IDLE — no overlap
-- Charlie-BD: IDLE — no overlap
-- Delta-Testing: IDLE — not writing specs for any file being modified
+Last completed: checkpoint-discovery-phase3-v1 (commit 4194582, 2026-05-11)
 
 ---
 

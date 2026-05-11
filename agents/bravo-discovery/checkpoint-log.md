@@ -4,6 +4,45 @@ Chronological record of completed work cycles. Most recent first.
 
 ---
 
+## checkpoint-discovery-phase3-v1 (4194582)
+
+**Date:** 2026-05-11
+
+**What was done:**
+
+No migration. No server.js changes. Additive only to `src/routes/public.js`.
+
+Enriched endpoints:
+- `GET /api/public/auctions` — added `q` keyword search (ILIKE on title/description/city,
+  parameterized, max 100 chars); added pagination envelope: `total_count` (window function),
+  `has_more`, `offset`, `limit`. `total_count` stripped from individual row objects.
+- `GET /api/public/auctions/near` — added pagination envelope: `total_count`, `has_more`,
+  `offset`, `limit`. Window function on outer subquery counts rows within radius before LIMIT.
+- `GET /api/public/auctions/:id/lots` — added pagination envelope: `total_count`, `has_more`,
+  `offset`, `limit`.
+- `GET /api/public/featured-lots` — added seller context via LEFT JOIN to seller_profiles:
+  `seller_display_name`, `seller_location_label`, `seller_logo_url`.
+- `GET /api/public/featured-videos` — added `seller_display_name` via LEFT JOIN to
+  seller_profiles (through auctions).
+
+Test spec:
+- `e2e/public-discovery-phase3.spec.js` — 45 tests covering keyword search, SQL injection
+  safety, pagination metadata consistency across pages, seller field type safety, BD
+  allowlist (no internal fields in rows).
+
+**All changes backwards-compatible:** existing consumers reading `body.data` are unaffected.
+
+**Live query validation:** all 5 SQL patterns verified against production database.
+Window function confirmed: lots table returned `total_count: 27` with `LIMIT 2`.
+
+**What's next (candidates, not assigned):**
+- Pagination metadata on `/api/public/auctions/near` offset param (already present)
+- Full-text search index (GIN on tsvector) for better `q` performance at scale
+- Auction type taxonomy endpoint `/api/public/auction-types`
+- Seller profile enrichment endpoint (requires Alpha-Core coordination)
+
+---
+
 ## checkpoint-discovery-phase2-v1 (f9f65c1)
 
 **Date:** 2026-05-11

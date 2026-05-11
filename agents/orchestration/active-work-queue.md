@@ -16,7 +16,7 @@ workstreams. Update this file whenever a stream starts, completes, or blocks wor
 | Stream | Status | Active Files | Next Queued Item |
 |---|---|---|---|
 | Alpha-Core | IDLE | — | See candidate list below |
-| Bravo-Discovery | **ACTIVE** | `src/routes/public.js`, `e2e/public-discovery-phase3.spec.js` | Phase 3 — Discovery Enrichment |
+| Bravo-Discovery | IDLE | — | See candidate list below |
 | Charlie-BD | IDLE | — | See candidate list below |
 | Delta-Testing | IDLE | — | Coverage audit: walkthroughs, watchlist, soft-close |
 | Frontend Ops | IDLE | — | Awaiting next Charlie-BD export publish |
@@ -234,6 +234,7 @@ Claimed by: [stream name] on [date] — [description]
 
 | Date | Stream | Checkpoint | Description |
 |---|---|---|---|
+| 2026-05-11 | Bravo-Discovery | checkpoint-discovery-phase3-v1 (4194582) | Phase 3 enrichment: keyword search, pagination metadata, seller context on featured-lots and featured-videos |
 | 2026-05-11 | Bravo-Discovery | — | Analytics foundation (migration 044, analyticsService, analytics route, AAPAnalytics JS, docs) |
 | 2026-05-11 | Growth Ops / Charlie-BD | a6b217c | Deployment governance (deployment-log.md, CHANGELOG.md) |
 | 2026-05-11 | Charlie-BD | 1f4378e | Frontend widget export pipeline (/exports/frontend-widgets/) |
