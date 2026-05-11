@@ -16,6 +16,7 @@
 const express = require('express');
 const router  = express.Router();
 const db      = require('../db');
+const { auctionScoreSQL } = require('../services/discoveryRankingService');
 
 const LIVE_CACHE   = 's-maxage=30, stale-while-revalidate=10';
 const PUBLIC_CACHE = 's-maxage=60, stale-while-revalidate=30';
@@ -113,7 +114,7 @@ router.get('/auctions', async (req, res, next) => {
         LEFT JOIN lots l ON l.auction_id = a.id AND l.state != 'withdrawn'
        WHERE ${where.join(' AND ')}
        GROUP BY a.id, sp.id
-       ORDER BY a.marketplace_priority DESC, a.start_time DESC
+       ORDER BY ${auctionScoreSQL('a')} DESC, a.id ASC
        LIMIT $${li} OFFSET $${oi}
     `, params);
 
@@ -208,7 +209,8 @@ router.get('/auctions/near', async (req, res, next) => {
                      * cos(radians(a.lng) - radians($2::float))
                      + sin(radians(a.lat)) * sin(radians($1::float))
                    )
-                 ) AS distance_km
+                 ) AS distance_km,
+                 ${auctionScoreSQL('a')} AS ranking_score
             FROM auctions a
             LEFT JOIN seller_profiles sp ON sp.id = a.seller_id
             LEFT JOIN lots l ON l.auction_id = a.id AND l.state != 'withdrawn'
@@ -219,7 +221,7 @@ router.get('/auctions/near', async (req, res, next) => {
            GROUP BY a.id, sp.id
         ) sub
        WHERE sub.distance_km <= $3::float
-       ORDER BY sub.distance_km ASC, sub.marketplace_priority DESC
+       ORDER BY sub.distance_km ASC, sub.ranking_score DESC, sub.id ASC
        LIMIT $4 OFFSET $5
     `, [lat, lng, radiusKm, limit, offset]);
 
@@ -389,7 +391,7 @@ router.get('/featured-lots', async (req, res, next) => {
        WHERE l.is_featured = true
          AND l.state != 'withdrawn'
          AND ${stateClause}
-       ORDER BY a.marketplace_priority DESC, l.lot_number ASC
+       ORDER BY ${auctionScoreSQL('a')} DESC, l.lot_number ASC, l.id ASC
        LIMIT $1
     `, [limit]);
 
@@ -490,7 +492,8 @@ router.get('/featured-auctions', async (req, res, next) => {
                             )
                           )
                      ELSE NULL
-                   END AS distance_km
+                   END AS distance_km,
+                   ${auctionScoreSQL('a')} AS ranking_score
               FROM auctions a
               LEFT JOIN seller_profiles sp ON sp.id = a.seller_id
               LEFT JOIN lots lo ON lo.auction_id = a.id AND lo.state != 'withdrawn'
@@ -499,7 +502,7 @@ router.get('/featured-auctions', async (req, res, next) => {
              GROUP BY a.id, sp.id
           ) sub
          WHERE sub.distance_km IS NULL OR sub.distance_km <= $3::float
-         ORDER BY sub.distance_km ASC NULLS LAST, sub.marketplace_priority DESC
+         ORDER BY sub.distance_km ASC NULLS LAST, sub.ranking_score DESC, sub.id ASC
          LIMIT $4
       `, [lat, lng, radiusKm, limit]));
     } else {
@@ -535,7 +538,7 @@ router.get('/featured-auctions', async (req, res, next) => {
          WHERE a.state IN ('published', 'active')
            AND a.marketplace_priority > 0
          GROUP BY a.id, sp.id
-         ORDER BY a.marketplace_priority DESC, a.start_time ASC
+         ORDER BY ${auctionScoreSQL('a')} DESC, a.id ASC
          LIMIT $1
       `, [limit]));
     }

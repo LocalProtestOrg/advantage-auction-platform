@@ -2,7 +2,7 @@
 
 ## Status: IDLE
 
-Last completed: checkpoint-discovery-phase3-v1 (commit 4194582, 2026-05-11)
+Last completed: checkpoint-discovery-ranking-v1 (Discovery Ranking Layer v1, 2026-05-11)
 
 ---
 
