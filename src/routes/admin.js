@@ -247,6 +247,53 @@ router.get('/diagnostics/notifications', auth, role(['admin']), async (req, res,
   }
 });
 
+// ── POST /api/admin/email/test ────────────────────────────────────────────────
+// Sends a single test email via the configured SMTP transporter.
+// Used during pilot readiness validation — confirms SMTP auth and outbound delivery.
+// Does NOT queue a notification row or touch the notifications_queue table.
+router.post('/email/test', auth, role(['admin']), async (req, res, next) => {
+  try {
+    const { to } = req.body;
+    if (!to || typeof to !== 'string' || !to.includes('@')) {
+      return res.status(400).json({ success: false, message: 'to must be a valid email address' });
+    }
+
+    const { sendEmail } = require('../services/emailService');
+    const result = await sendEmail({
+      to,
+      subject: 'Advantage Auction — SMTP delivery test',
+      html: `
+        <p>This is an automated SMTP delivery test from the Advantage Auction Platform.</p>
+        <p>If you received this email, outbound delivery is working correctly.</p>
+        <ul>
+          <li><strong>To:</strong> ${to}</li>
+          <li><strong>Sent at:</strong> ${new Date().toISOString()}</li>
+          <li><strong>Environment:</strong> ${process.env.NODE_ENV || 'development'}</li>
+        </ul>
+        <p>Check email headers for SPF and DKIM pass status.</p>
+      `.trim(),
+      text: `Advantage Auction SMTP test — sent at ${new Date().toISOString()}. If you received this, outbound delivery is working.`,
+    });
+
+    if (result.skipped) {
+      return res.status(503).json({
+        success: false,
+        message: 'SMTP not configured — SMTP_HOST, SMTP_USER, and SMTP_PASS must be set',
+        email_configured: false,
+      });
+    }
+
+    return res.json({
+      success: true,
+      message: `Test email sent to ${to}`,
+      message_id: result.messageId,
+      email_configured: true,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
 // GET /api/admin/sellers?search=<email>
 // Returns matching seller profiles with user email, type, capabilities, and auction count.
 router.get('/sellers', auth, role(['admin']), async (req, res, next) => {
