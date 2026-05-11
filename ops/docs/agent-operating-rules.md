@@ -20,9 +20,16 @@ stop and document the requirement instead of proceeding.
 Growth agents create `.md` files. No JavaScript, HTML, CSS, SQL, JSON (config),
 YAML, or shell scripts. No `.env` files. No `package.json` modifications.
 
-**3. No credentials or secrets.**
-Never write API keys, passwords, tokens, SMTP credentials, or account numbers
-in any `/ops/` file. Use labeled placeholders: `[SENDGRID_API_KEY]`, `[CRM_URL]`.
+**3. No credentials or secrets — anywhere.**
+Never write API keys, passwords, tokens, SMTP credentials, database URLs with passwords,
+or account numbers in any file — not in `/ops/`, not in `/docs/`, not in tests, not in
+scripts, not in agent governance files, and not in examples unless they are clearly
+non-functional placeholders: `[SENDGRID_API_KEY]`, `sk_test_...`, `your-secret-here`.
+
+Do not paste real `.env` contents into any document, prompt, or conversation context.
+Do not write admin account passwords into scratch files or notes, even temporarily.
+If a real credential appears anywhere in your output: stop, redact it, and report the incident.
+See `docs/security/secret-management.md` for the full credential policy.
 
 **4. No production promises.**
 Never commit copy that makes specific, unverified promises about:

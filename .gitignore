@@ -1,13 +1,55 @@
+# ── Dependencies ──────────────────────────────────────────────────────────────
 node_modules
+
+# ── Environment / Secrets ─────────────────────────────────────────────────────
 .env
 .env.local
+.env.production
+.env.staging
+.env.test
+.env.*.local
+secrets/
+credentials/
+*.pem
+*.key
+*.cert
+*.p12
+*.pfx
+
+# ── Logs ──────────────────────────────────────────────────────────────────────
+*.log
+logs/
+server.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# ── Scratch / Temp files ──────────────────────────────────────────────────────
+*.txt.bak
+scratch/
+temp/
+tmp/
+check-*.js
+debug-*.js
+get-*.js
+_*.js
+*For AAC.txt
+
+# ── Build output ──────────────────────────────────────────────────────────────
 .next
 dist
+build
 coverage
 
-# Playwright
+# ── Playwright ────────────────────────────────────────────────────────────────
 /test-results/
 /playwright-report/
 /blob-report/
 /playwright/.cache/
 /playwright/.auth/
+
+# ── OS / Editor ───────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+.vscode/settings.json
+.idea/

@@ -59,6 +59,14 @@ You are working on the Advantage Auction Platform.
 - Never depend on BD database tables for core auction operations
 - Treat BD as an external presentation and identity adapter only
 
+## Security Rules (Non-Negotiable)
+- Never write real credentials, API keys, passwords, tokens, or secrets into any file
+- Never paste `.env` file contents into code, docs, tests, scripts, or agent context
+- `.env.example` uses placeholders only — never real values
+- Test accounts use clearly-labeled seeded passwords, never production credentials
+- If a real credential appears anywhere in your output, stop and report it
+- Read `docs/security/secret-management.md` for the full credential policy
+
 ## Coding Expectations
 - Write maintainable code
 - Add tests for business rules
