@@ -1,0 +1,34 @@
+/**
+ * Advantage City Enhancements — Brand Override Layer
+ * Export package v1.0.0
+ *
+ * City enhancements use the same underlying widget as Featured Near You.
+ * CSS overrides use the aapny- prefix namespace.
+ *
+ * Scope overrides to the widget container:
+ *
+ *   #aap-featured-near-you .aapny-grid {
+ *     --aapny-bg: #your-color;
+ *   }
+ */
+
+/**
+ * Available aapny- CSS variables (see featured-near-you/widget.css for full list):
+ *
+ *   --aapny-bg, --aapny-bg-secondary, --aapny-fg, --aapny-sub
+ *   --aapny-bdr, --aapny-live, --aapny-up, --aapny-ship
+ *   --aapny-dist, --aapny-cta-bdr
+ */
+
+/**
+ * Example: Texas regional brand colors
+ */
+/*
+#aap-featured-near-you .aapny-grid {
+  --aapny-up:      #b91c1c;
+  --aapny-cta-bdr: #b91c1c;
+}
+#aap-featured-near-you .aapny-cta-btn {
+  background: #b91c1c;
+}
+*/

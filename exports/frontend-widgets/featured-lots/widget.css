@@ -1,0 +1,68 @@
+/**
+ * Advantage Featured Lots Widget — Brand Override Layer
+ * Export package v1.0.0
+ *
+ * This file contains ONLY the CSS custom properties that BD pages may override
+ * for brand customization. The widget's runtime CSS is injected automatically
+ * by the widget JavaScript — do not attempt to replicate or modify that CSS here.
+ *
+ * HOW TO USE:
+ * Scope all overrides to the widget container to avoid affecting the rest of the page:
+ *
+ *   #aap-featured-lots .aapc-root {
+ *     --aapc-bg:   #1a1a2e;
+ *     --aapc-fg:   #e0e0e0;
+ *   }
+ *
+ * Or use the data-theme="dark" attribute on the container for the built-in dark theme.
+ *
+ * ─────────────────────────────────────────────────────────────────────────────
+ * DO NOT modify this file for runtime changes — it has no effect on the widget
+ * unless a BD page explicitly links to it. The widget self-injects its CSS.
+ * ─────────────────────────────────────────────────────────────────────────────
+ */
+
+/**
+ * Default light theme variables (reference — these are already set by the widget).
+ * Override any of these in your BD page CSS using the scoping pattern above.
+ *
+ * #aap-featured-lots .aapc-root {
+ *   --aapc-bg:       #ffffff;    card background
+ *   --aapc-bg2:      #f8fafc;    secondary background, no-image placeholder
+ *   --aapc-fg:       #1e293b;    primary text
+ *   --aapc-sub:      #64748b;    secondary / muted text
+ *   --aapc-bdr:      #e2e8f0;    card border
+ *   --aapc-live:     #16a34a;    LIVE NOW badge background
+ *   --aapc-up:       #3b82f6;    UPCOMING badge background
+ *   --aapc-ship:     #0891b2;    Ships badge background
+ *   --aapc-end:      #f97316;    Ending Soon badge background
+ *   --aapc-dist:     #0284c7;    distance text color
+ *   --aapc-cta-bdr:  #3b82f6;    CTA card dashed border
+ * }
+ */
+
+/**
+ * Example: match a BD page with a dark navy brand color.
+ * Uncomment and adjust to use.
+ */
+/*
+#aap-featured-lots .aapc-root {
+  --aapc-bg:      #0f172a;
+  --aapc-bg2:     #1e293b;
+  --aapc-fg:      #f1f5f9;
+  --aapc-sub:     #94a3b8;
+  --aapc-bdr:     #334155;
+  --aapc-live:    #166534;
+  --aapc-up:      #1d4ed8;
+  --aapc-cta-bdr: #1d4ed8;
+}
+*/
+
+/**
+ * Grid column control — wrap the widget container in a max-width parent.
+ * The widget auto-fills columns using CSS Grid minmax(280px, 1fr).
+ *
+ *   max-width: 620px  → forces 2 columns on desktop
+ *   max-width: 900px  → forces 3 columns on desktop
+ *   max-width: none   → auto-fills based on container width (default)
+ */

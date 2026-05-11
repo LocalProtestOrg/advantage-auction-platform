@@ -1,0 +1,26 @@
+{
+  "package": "seller-cta",
+  "version": "1.0.0",
+  "release_date": "2026-05-11",
+  "status": "stable",
+  "source_file": "public/widgets/shared/components/seller-cta.js",
+  "cdn_url": "https://auctions.advantage.bid/widgets/shared/components/seller-cta.js",
+  "container_id": "aap-seller-cta",
+  "css_prefix": "aapc-cta",
+  "compatibility": {
+    "shared_platform_layer": ">=1.0.0",
+    "aapconfig_version": ">=2",
+    "requires_api": [],
+    "browser_support": "ES5+ (no async/await needed for CTA-only embed)",
+    "standalone_capable": true
+  },
+  "breaking_changes_since": null,
+  "changelog": [
+    {
+      "version": "1.0.0",
+      "date": "2026-05-11",
+      "type": "initial",
+      "notes": "Initial stable release. Standalone CTA card with full AAPConfig integration and analytics event dispatch."
+    }
+  ]
+}

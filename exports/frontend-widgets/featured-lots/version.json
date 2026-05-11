@@ -1,0 +1,27 @@
+{
+  "package": "featured-lots",
+  "version": "1.0.0",
+  "release_date": "2026-05-11",
+  "status": "stable",
+  "source_file": "public/widgets/featured-lots.js",
+  "cdn_url": "https://auctions.advantage.bid/widgets/featured-lots.js",
+  "container_id": "aap-featured-lots",
+  "css_prefix": "aapfl",
+  "compatibility": {
+    "shared_platform_layer": ">=1.0.0",
+    "aapconfig_version": ">=2",
+    "requires_api": [
+      "GET /api/public/featured-lots"
+    ],
+    "browser_support": "ES2017+ (async/await); IE11 not supported"
+  },
+  "breaking_changes_since": null,
+  "changelog": [
+    {
+      "version": "1.0.0",
+      "date": "2026-05-11",
+      "type": "initial",
+      "notes": "Initial stable release. Standalone embed with inline fallbacks for all shared components."
+    }
+  ]
+}

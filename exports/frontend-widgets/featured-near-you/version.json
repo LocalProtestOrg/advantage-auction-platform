@@ -1,0 +1,29 @@
+{
+  "package": "featured-near-you",
+  "version": "1.0.0",
+  "release_date": "2026-05-11",
+  "status": "stable",
+  "source_file": "public/widgets/featured-near-you.js",
+  "cdn_url": "https://auctions.advantage.bid/widgets/featured-near-you.js",
+  "container_id": "aap-featured-near-you",
+  "css_prefix": "aapny",
+  "compatibility": {
+    "shared_platform_layer": ">=1.0.0",
+    "aapconfig_version": ">=2",
+    "requires_api": [
+      "GET /api/public/featured-auctions",
+      "GET /api/public/auctions/near"
+    ],
+    "browser_support": "ES2017+ (async/await, Geolocation API); IE11 not supported",
+    "geolocation": "Optional — widget degrades gracefully without permission"
+  },
+  "breaking_changes_since": null,
+  "changelog": [
+    {
+      "version": "1.0.0",
+      "date": "2026-05-11",
+      "type": "initial",
+      "notes": "Initial stable release. Three-source fetch strategy: geo-featured → geo-near → national fallback. Self-contained CSS with full dark theme support."
+    }
+  ]
+}

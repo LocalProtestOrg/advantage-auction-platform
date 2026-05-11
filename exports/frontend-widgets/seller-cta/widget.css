@@ -1,0 +1,48 @@
+/**
+ * Advantage Seller CTA Widget — Brand Override Layer
+ * Export package v1.0.0
+ *
+ * The CTA card uses the shared aapc- namespace CSS variables.
+ * Scope overrides to the container to avoid affecting surrounding page styles.
+ *
+ * HOW TO USE:
+ *   #aap-seller-cta .aapc-cta {
+ *     border-color: #your-brand-color;
+ *   }
+ *   #aap-seller-cta .aapc-root {
+ *     --aapc-cta-bdr: #your-brand-color;
+ *     --aapc-bg2: #your-secondary-bg;
+ *     --aapc-fg: #your-text-color;
+ *   }
+ */
+
+/**
+ * CSS variables used by the CTA card (reference):
+ *
+ * #aap-seller-cta .aapc-root {
+ *   --aapc-cta-bdr: #3b82f6;    dashed border color
+ *   --aapc-bg2:     #f8fafc;    card background
+ *   --aapc-fg:      #1e293b;    headline text
+ *   --aapc-sub:     #64748b;    subtext
+ * }
+ *
+ * The CTA button color (#2563eb blue) is hardcoded in the component.
+ * To override the button color, target:
+ *   #aap-seller-cta .aapc-cta-btn { background: #your-color; }
+ */
+
+/**
+ * Example: green brand override
+ */
+/*
+#aap-seller-cta .aapc-root {
+  --aapc-cta-bdr: #16a34a;
+  --aapc-bg2:     #f0fdf4;
+}
+#aap-seller-cta .aapc-cta-btn {
+  background: #16a34a;
+}
+#aap-seller-cta .aapc-cta-btn:hover {
+  background: #15803d;
+}
+*/

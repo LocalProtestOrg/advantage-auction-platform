@@ -1,0 +1,39 @@
+{
+  "package": "city-enhancements",
+  "version": "1.0.0",
+  "release_date": "2026-05-11",
+  "status": "stable",
+  "description": "Pre-configured regional variants of the Featured Near You widget. Each city config targets a specific metro area with hardcoded coordinates — no browser geolocation prompt.",
+  "source_file": "public/widgets/featured-near-you.js",
+  "cdn_url": "https://auctions.advantage.bid/widgets/featured-near-you.js",
+  "container_id": "aap-featured-near-you",
+  "css_prefix": "aapny",
+  "available_city_configs": [
+    "dallas-tx",
+    "houston-tx",
+    "atlanta-ga",
+    "chicago-il",
+    "phoenix-az",
+    "denver-co",
+    "nashville-tn",
+    "kansas-city-mo",
+    "minneapolis-mn",
+    "san-antonio-tx"
+  ],
+  "compatibility": {
+    "underlying_widget": "featured-near-you@1.0.0",
+    "requires_api": [
+      "GET /api/public/featured-auctions",
+      "GET /api/public/auctions/near"
+    ],
+    "browser_support": "ES2017+"
+  },
+  "changelog": [
+    {
+      "version": "1.0.0",
+      "date": "2026-05-11",
+      "type": "initial",
+      "notes": "Initial set of city configurations. All use hardcoded coordinates — no geolocation prompt. Add new cities by extending the CITY_CONFIGS map in widget.js."
+    }
+  ]
+}

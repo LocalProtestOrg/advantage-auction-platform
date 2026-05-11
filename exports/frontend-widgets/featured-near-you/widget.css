@@ -1,0 +1,64 @@
+/**
+ * Advantage Featured Near You Widget — Brand Override Layer
+ * Export package v1.0.0
+ *
+ * This file contains ONLY the CSS custom properties BD pages may override
+ * for brand customization. The widget's runtime CSS is self-injected by the
+ * widget JavaScript — this file is the theming override layer only.
+ *
+ * HOW TO USE — scope overrides to the widget container:
+ *
+ *   #aap-featured-near-you .aapny-grid {
+ *     --aapny-bg:   #0f172a;
+ *     --aapny-fg:   #f1f5f9;
+ *   }
+ *
+ * Or use data-theme="dark" on the container for the built-in dark preset.
+ *
+ * ─────────────────────────────────────────────────────────────────────────────
+ * IMPORTANT: This widget uses the aapny- CSS prefix (not aapc-).
+ * The Featured Lots widget uses aapc- prefix. They are separate namespaces.
+ * ─────────────────────────────────────────────────────────────────────────────
+ */
+
+/**
+ * Default light theme variables (reference — already set by the widget).
+ *
+ * #aap-featured-near-you .aapny-grid {
+ *   --aapny-bg:            #ffffff;     card background
+ *   --aapny-bg-secondary:  #f8fafc;     secondary background, no-image, CTA bg
+ *   --aapny-fg:            #1e293b;     primary text
+ *   --aapny-sub:           #64748b;     secondary / muted text
+ *   --aapny-bdr:           #e2e8f0;     card border
+ *   --aapny-live:          #16a34a;     LIVE NOW badge
+ *   --aapny-up:            #3b82f6;     UPCOMING badge
+ *   --aapny-ship:          #0891b2;     Ships badge
+ *   --aapny-dist:          #0284c7;     distance text
+ *   --aapny-cta-bdr:       #3b82f6;     CTA dashed border
+ *   --aapny-skel:          #e2e8f0;     skeleton loading color
+ *   --aapny-err:           #dc2626;     error text
+ * }
+ */
+
+/**
+ * Example: warm earth-tone brand override.
+ * Uncomment and adjust to use.
+ */
+/*
+#aap-featured-near-you .aapny-grid {
+  --aapny-bg:           #fefce8;
+  --aapny-bg-secondary: #fef9c3;
+  --aapny-fg:           #1c1917;
+  --aapny-sub:          #78716c;
+  --aapny-bdr:          #e7e5e4;
+  --aapny-up:           #ca8a04;
+  --aapny-cta-bdr:      #ca8a04;
+}
+*/
+
+/**
+ * Grid column control — wrap the container in a max-width parent.
+ *
+ *   max-width: 620px  → forces 2 columns on desktop
+ *   max-width: 900px  → forces 3 columns on desktop
+ */

@@ -1,0 +1,33 @@
+{
+  "package": "onboarding-flow",
+  "version": "0.0.0",
+  "release_date": null,
+  "status": "planned",
+  "description": "Seller and buyer onboarding entry sequence widget. Not yet built.",
+  "source_file": null,
+  "cdn_url": null,
+  "container_id": "aap-onboarding-flow",
+  "compatibility": {
+    "requires_api": [
+      "POST /api/auth/register (planned)",
+      "GET /api/public/config"
+    ],
+    "browser_support": "TBD"
+  },
+  "breaking_changes_since": null,
+  "engineering_requirements": [
+    "Multi-step form component for seller/buyer registration",
+    "AAPConfig-driven copy (headline, CTA label, step labels)",
+    "Analytics events: aap:onboarding:step, aap:onboarding:complete",
+    "Must work as standalone embed without shared platform layer",
+    "No auth token stored in embed code"
+  ],
+  "changelog": [
+    {
+      "version": "0.0.0",
+      "date": "2026-05-11",
+      "type": "placeholder",
+      "notes": "Package directory created as planned placeholder. Widget not yet built. Engineering request documented."
+    }
+  ]
+}
