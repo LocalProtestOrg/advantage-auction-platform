@@ -390,4 +390,60 @@ router.patch('/videos/:videoId/featured', auth, role(['admin']), async (req, res
   } catch (err) { next(err); }
 });
 
+// PATCH /api/admin/auctions/:auctionId/discovery
+// Updates marketplace discovery fields: priority, lat, lng.
+// All body fields are optional — only supplied fields are updated.
+// Body: { priority?: integer 0–10000, lat?: float, lng?: float }
+router.patch('/auctions/:auctionId/discovery', auth, role(['admin']), async (req, res, next) => {
+  try {
+    const { auctionId } = req.params;
+    const { priority, lat, lng } = req.body || {};
+
+    const updates = [];
+    const params  = [];
+
+    if (priority !== undefined) {
+      if (typeof priority !== 'number' || !Number.isInteger(priority) || priority < 0 || priority > 10000) {
+        return res.status(400).json({ success: false, message: 'priority must be a non-negative integer (0–10000)' });
+      }
+      params.push(priority);
+      updates.push(`marketplace_priority = $${params.length}`);
+    }
+
+    if (lat !== undefined) {
+      const latF = parseFloat(lat);
+      if (isNaN(latF) || latF < -90 || latF > 90) {
+        return res.status(400).json({ success: false, message: 'lat must be a number between -90 and 90' });
+      }
+      params.push(latF);
+      updates.push(`lat = $${params.length}`);
+    }
+
+    if (lng !== undefined) {
+      const lngF = parseFloat(lng);
+      if (isNaN(lngF) || lngF < -180 || lngF > 180) {
+        return res.status(400).json({ success: false, message: 'lng must be a number between -180 and 180' });
+      }
+      params.push(lngF);
+      updates.push(`lng = $${params.length}`);
+    }
+
+    if (updates.length === 0) {
+      return res.status(400).json({ success: false, message: 'At least one of priority, lat, lng is required' });
+    }
+
+    params.push(auctionId);
+    const { rows } = await db.query(
+      `UPDATE auctions
+          SET ${updates.join(', ')}, updated_at = now()
+        WHERE id = $${params.length}
+        RETURNING id, title, state, marketplace_priority, lat, lng`,
+      params
+    );
+
+    if (!rows.length) return res.status(404).json({ success: false, message: 'Auction not found' });
+    return res.json({ success: true, data: rows[0] });
+  } catch (err) { next(err); }
+});
+
 module.exports = router;

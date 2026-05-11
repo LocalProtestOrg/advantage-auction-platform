@@ -97,6 +97,7 @@ router.get('/auctions', async (req, res, next) => {
              a.banner_image_url,
              a.created_at,
              COUNT(l.id)::int   AS lot_count,
+             COUNT(l.id) FILTER (WHERE l.shippable = true)::int AS shippable_lot_count,
              sp.display_name    AS seller_display_name,
              sp.location_label  AS seller_location_label,
              sp.logo_url        AS seller_logo_url
@@ -108,6 +109,109 @@ router.get('/auctions', async (req, res, next) => {
        ORDER BY a.marketplace_priority DESC, a.start_time DESC
        LIMIT $${li} OFFSET $${oi}
     `, params);
+
+    res.set('Cache-Control', PUBLIC_CACHE);
+    return res.json({ success: true, data: rows });
+  } catch (err) { next(err); }
+});
+
+// ── GET /api/public/auctions/near ─────────────────────────────────────────────
+// Radius-based auction discovery using Haversine distance.
+// Only returns auctions that have lat/lng coordinates set (admin-populated).
+// Results ordered by distance ascending, then marketplace_priority descending.
+//
+// Required query params:
+//   lat        — latitude  (-90 to 90)
+//   lng        — longitude (-180 to 180)
+//
+// Optional query params:
+//   radius_km  — search radius in km (1–800, default 100)
+//   shipping   — "true" to require shipping_available = true
+//   limit      — 1–100, default 20
+//   offset     — default 0
+router.get('/auctions/near', async (req, res, next) => {
+  try {
+    const q = req.query;
+
+    const lat      = parseFloat(q.lat);
+    const lng      = parseFloat(q.lng);
+    const radiusKm = Math.min(Math.max(parseFloat(q.radius_km) || 100, 1), 800);
+
+    if (!q.lat || !q.lng || isNaN(lat) || isNaN(lng)) {
+      return res.status(400).json({ success: false, message: 'lat and lng are required' });
+    }
+    if (lat < -90 || lat > 90) {
+      return res.status(400).json({ success: false, message: 'lat must be between -90 and 90' });
+    }
+    if (lng < -180 || lng > 180) {
+      return res.status(400).json({ success: false, message: 'lng must be between -180 and 180' });
+    }
+
+    const limit  = Math.min(Math.max(parseInt(q.limit,  10) || 20, 1), 100);
+    const offset = Math.max(parseInt(q.offset, 10) || 0, 0);
+
+    const extraWhere = q.shipping === 'true' ? 'AND a.shipping_available = true' : '';
+
+    // Haversine distance computed in subquery so it can be referenced in outer WHERE + ORDER BY.
+    // marketplace_priority included in subquery for secondary sort; excluded from outer SELECT.
+    const { rows } = await db.query(`
+      SELECT id, title, subtitle, description, public_auction_type,
+             state, city, address_state, zip, lat, lng,
+             shipping_available, start_time, end_time,
+             pickup_window_start, pickup_window_end,
+             preview_start, preview_end,
+             cover_image_url, banner_image_url, created_at,
+             lot_count, shippable_lot_count,
+             seller_display_name, seller_location_label, seller_logo_url,
+             distance_km
+        FROM (
+          SELECT a.id,
+                 a.title,
+                 a.subtitle,
+                 a.description,
+                 a.public_auction_type,
+                 a.state,
+                 a.city,
+                 a.address_state,
+                 a.zip,
+                 a.lat,
+                 a.lng,
+                 a.shipping_available,
+                 a.start_time,
+                 a.end_time,
+                 a.pickup_window_start,
+                 a.pickup_window_end,
+                 a.preview_start,
+                 a.preview_end,
+                 a.cover_image_url,
+                 a.banner_image_url,
+                 a.created_at,
+                 a.marketplace_priority,
+                 COUNT(l.id)::int AS lot_count,
+                 COUNT(l.id) FILTER (WHERE l.shippable = true)::int AS shippable_lot_count,
+                 sp.display_name    AS seller_display_name,
+                 sp.location_label  AS seller_location_label,
+                 sp.logo_url        AS seller_logo_url,
+                 6371.0 * acos(
+                   LEAST(1.0,
+                     cos(radians(a.lat)) * cos(radians($1::float))
+                     * cos(radians(a.lng) - radians($2::float))
+                     + sin(radians(a.lat)) * sin(radians($1::float))
+                   )
+                 ) AS distance_km
+            FROM auctions a
+            LEFT JOIN seller_profiles sp ON sp.id = a.seller_id
+            LEFT JOIN lots l ON l.auction_id = a.id AND l.state != 'withdrawn'
+           WHERE a.lat IS NOT NULL
+             AND a.lng IS NOT NULL
+             AND a.state IN ('published', 'active')
+             ${extraWhere}
+           GROUP BY a.id, sp.id
+        ) sub
+       WHERE sub.distance_km <= $3::float
+       ORDER BY sub.distance_km ASC, sub.marketplace_priority DESC
+       LIMIT $4 OFFSET $5
+    `, [lat, lng, radiusKm, limit, offset]);
 
     res.set('Cache-Control', PUBLIC_CACHE);
     return res.json({ success: true, data: rows });
@@ -275,6 +379,153 @@ router.get('/featured-lots', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
+// ── GET /api/public/featured-auctions ────────────────────────────────────────
+// Featured auction feed for marketplace widgets.
+// Only returns published/active auctions with marketplace_priority > 0.
+//
+// Optional query params:
+//   lat        — latitude  for "near me" filtering
+//   lng        — longitude for "near me" filtering (required if lat provided)
+//   radius_km  — radius in km when lat/lng used (1–800, default 200)
+//   limit      — 1–50, default 12
+//
+// When lat/lng provided: filters by radius, adds distance_km to each result,
+//   sorts by distance_km ASC.
+// Without lat/lng: returns all featured auctions sorted by priority DESC.
+router.get('/featured-auctions', async (req, res, next) => {
+  try {
+    const q     = req.query;
+    const limit = Math.min(Math.max(parseInt(q.limit, 10) || 12, 1), 50);
+
+    const hasLat = q.lat != null;
+    const hasLng = q.lng != null;
+    const hasGeo = hasLat && hasLng;
+    let lat, lng, radiusKm;
+
+    // Reject partial coordinate pairs
+    if (hasLat !== hasLng) {
+      return res.status(400).json({ success: false, message: 'Both lat and lng are required together' });
+    }
+
+    if (hasGeo) {
+      lat      = parseFloat(q.lat);
+      lng      = parseFloat(q.lng);
+      radiusKm = Math.min(Math.max(parseFloat(q.radius_km) || 200, 1), 800);
+      if (isNaN(lat) || isNaN(lng)) {
+        return res.status(400).json({ success: false, message: 'lat and lng must be valid numbers' });
+      }
+      if (lat < -90 || lat > 90) {
+        return res.status(400).json({ success: false, message: 'lat must be between -90 and 90' });
+      }
+      if (lng < -180 || lng > 180) {
+        return res.status(400).json({ success: false, message: 'lng must be between -180 and 180' });
+      }
+    }
+
+    let rows;
+
+    if (hasGeo) {
+      // Geo-filtered: subquery computes distance, outer query filters + sorts
+      ({ rows } = await db.query(`
+        SELECT id, title, subtitle, description, public_auction_type,
+               state, city, address_state, zip, lat, lng,
+               shipping_available, start_time, end_time,
+               preview_start, preview_end,
+               cover_image_url, banner_image_url, created_at,
+               lot_count, shippable_lot_count,
+               seller_display_name, seller_location_label, seller_logo_url,
+               distance_km
+          FROM (
+            SELECT a.id,
+                   a.title,
+                   a.subtitle,
+                   a.description,
+                   a.public_auction_type,
+                   a.state,
+                   a.city,
+                   a.address_state,
+                   a.zip,
+                   a.lat,
+                   a.lng,
+                   a.shipping_available,
+                   a.start_time,
+                   a.end_time,
+                   a.preview_start,
+                   a.preview_end,
+                   a.cover_image_url,
+                   a.banner_image_url,
+                   a.created_at,
+                   a.marketplace_priority,
+                   COUNT(lo.id)::int AS lot_count,
+                   COUNT(lo.id) FILTER (WHERE lo.shippable = true)::int AS shippable_lot_count,
+                   sp.display_name    AS seller_display_name,
+                   sp.location_label  AS seller_location_label,
+                   sp.logo_url        AS seller_logo_url,
+                   CASE
+                     WHEN a.lat IS NOT NULL AND a.lng IS NOT NULL
+                     THEN 6371.0 * acos(
+                            LEAST(1.0,
+                              cos(radians(a.lat)) * cos(radians($1::float))
+                              * cos(radians(a.lng) - radians($2::float))
+                              + sin(radians(a.lat)) * sin(radians($1::float))
+                            )
+                          )
+                     ELSE NULL
+                   END AS distance_km
+              FROM auctions a
+              LEFT JOIN seller_profiles sp ON sp.id = a.seller_id
+              LEFT JOIN lots lo ON lo.auction_id = a.id AND lo.state != 'withdrawn'
+             WHERE a.state IN ('published', 'active')
+               AND a.marketplace_priority > 0
+             GROUP BY a.id, sp.id
+          ) sub
+         WHERE sub.distance_km IS NULL OR sub.distance_km <= $3::float
+         ORDER BY sub.distance_km ASC NULLS LAST, sub.marketplace_priority DESC
+         LIMIT $4
+      `, [lat, lng, radiusKm, limit]));
+    } else {
+      // No geo: national featured feed ordered by priority
+      ({ rows } = await db.query(`
+        SELECT a.id,
+               a.title,
+               a.subtitle,
+               a.description,
+               a.public_auction_type,
+               a.state,
+               a.city,
+               a.address_state,
+               a.zip,
+               a.lat,
+               a.lng,
+               a.shipping_available,
+               a.start_time,
+               a.end_time,
+               a.preview_start,
+               a.preview_end,
+               a.cover_image_url,
+               a.banner_image_url,
+               a.created_at,
+               COUNT(lo.id)::int AS lot_count,
+               COUNT(lo.id) FILTER (WHERE lo.shippable = true)::int AS shippable_lot_count,
+               sp.display_name    AS seller_display_name,
+               sp.location_label  AS seller_location_label,
+               sp.logo_url        AS seller_logo_url
+          FROM auctions a
+          LEFT JOIN seller_profiles sp ON sp.id = a.seller_id
+          LEFT JOIN lots lo ON lo.auction_id = a.id AND lo.state != 'withdrawn'
+         WHERE a.state IN ('published', 'active')
+           AND a.marketplace_priority > 0
+         GROUP BY a.id, sp.id
+         ORDER BY a.marketplace_priority DESC, a.start_time ASC
+         LIMIT $1
+      `, [limit]));
+    }
+
+    res.set('Cache-Control', PUBLIC_CACHE);
+    return res.json({ success: true, data: rows });
+  } catch (err) { next(err); }
+});
+
 // ── GET /api/public/featured-videos ───────────────────────────────────────────
 // Approved, publicly-visible walkthrough videos (visible_public = true).
 // Only admin-approved and explicitly published videos appear here.
@@ -304,6 +555,47 @@ router.get('/featured-videos', async (req, res, next) => {
     `, [limit]);
 
     res.set('Cache-Control', SLOW_CACHE);
+    return res.json({ success: true, data: rows });
+  } catch (err) { next(err); }
+});
+
+// ── GET /api/public/locations ─────────────────────────────────────────────────
+// City/state aggregation for marketplace discovery navigation.
+// Returns distinct city+state combinations with auction counts,
+// ordered by active auction count descending.
+//
+// Query params:
+//   address_state — filter by state abbreviation (e.g. "TX")
+//   limit         — 1–500, default 200
+router.get('/locations', async (req, res, next) => {
+  try {
+    const limit  = Math.min(Math.max(parseInt(req.query.limit, 10) || 200, 1), 500);
+    const params = [limit];
+    const stateFilter = req.query.address_state
+      ? `AND a.address_state = $2`
+      : '';
+    if (req.query.address_state) {
+      params.push(req.query.address_state.trim().toUpperCase());
+    }
+
+    const { rows } = await db.query(`
+      SELECT a.city,
+             a.address_state,
+             COUNT(DISTINCT a.id)::int AS auction_count,
+             COUNT(DISTINCT a.id) FILTER (
+               WHERE a.state IN ('published', 'active')
+             )::int AS active_count
+        FROM auctions a
+       WHERE a.city IS NOT NULL
+         AND a.address_state IS NOT NULL
+         AND a.state IN ('published', 'active', 'closed')
+         ${stateFilter}
+       GROUP BY a.city, a.address_state
+       ORDER BY active_count DESC, auction_count DESC
+       LIMIT $1
+    `, params);
+
+    res.set('Cache-Control', PUBLIC_CACHE);
     return res.json({ success: true, data: rows });
   } catch (err) { next(err); }
 });
