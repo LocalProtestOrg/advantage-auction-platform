@@ -2,6 +2,64 @@
 
 ---
 
+## checkpoint-bd-marketplace-seller-cta-v1 — 2026-05-11
+
+**Commit:** 7d2e50b  **Tag:** `checkpoint-bd-marketplace-seller-cta-v1` (pushed)
+
+**What was done:**
+Built the marketplace seller acquisition CTA — a lightweight, config-driven seller
+conversion strip for Advantage.Bid marketplace-owned auction experiences. Surfaces
+after the lot grid on auction-view.html to convert buyers into seller leads.
+
+**Files created/modified:**
+
+| File | Status | Description |
+|---|---|---|
+| `public/widgets/shared/marketplace-seller-cta.js` | Created | AAPMarketplaceSellerCta v1 IIFE module |
+| `public/auction-view.html` | Modified | Mount point, script tags, initSellerAcquisitionCta() |
+| `e2e/charlie-bd-marketplace-seller-cta.spec.js` | Created | ~50 Playwright tests |
+
+**Module architecture:**
+
+| Feature | Implementation |
+|---|---|
+| Idempotency guard | `_v: 1` check prevents double-init across script re-includes |
+| `enabled` flag | Config-driven (`marketplace.seller_cta.enabled`), default true; hard override via opts |
+| `is_marketplace` flag | Config-driven (`marketplace.is_marketplace`), default true; hard override via opts; blocks render on white-label |
+| Attribution URL | `URL` constructor appends `?source=marketplace_cta&auction_id=<id>` |
+| CSS injection | `.msc-*` scoped classes, injected once via `STYLE_ID` guard; 600px mobile breakpoint |
+| Click telemetry | `AAPAnalytics.track('seller_cta_click', meta, ctx)` with `cta_variant`, `destination`, `widget_name`, `auction_id` |
+| Impression telemetry | `IntersectionObserver` at 25% threshold fires `seller_cta_impression` once then disconnects |
+| XSS safety | All copy strings passed through `esc()` before innerHTML assignment |
+| Graceful degradation | Swallows all telemetry errors; skips IntersectionObserver if unavailable |
+
+**Test coverage (e2e/charlie-bd-marketplace-seller-cta.spec.js):**
+
+| Describe group | Tests |
+|---|---|
+| Module load | 3 |
+| Rendering | 7 |
+| Link behavior | 5 |
+| Conditional rendering | 4 |
+| Telemetry | 2 |
+| Page integration safety | 6 |
+| Mobile layout | 2 |
+| **Total** | **~29** |
+
+**Integration in auction-view.html:**
+- Mount point: `<div id="marketplace-seller-cta-mount">` placed after `.grid-wrap`
+- Load order: `analytics.js` → `marketplace-seller-cta.js` → existing scripts
+- Init call: `initSellerAcquisitionCta()` wired into the `else` branch of the page auth guard (same path as `loadAuction()`)
+
+**What does NOT change:**
+No routes, services, migrations, server.js changes, bidding/payment/auth logic.
+All work is additive presentation layer only.
+
+**What's next:**
+Charlie-BD is IDLE. See `current-work.md` for candidate next assignments.
+
+---
+
 ## Inherited Context (from Bravo-Discovery)
 
 The following assets were created by Bravo-Discovery and are now Charlie-BD's to maintain:

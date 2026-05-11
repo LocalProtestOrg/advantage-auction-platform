@@ -1,6 +1,6 @@
 # Active Work Queue
 
-Last updated: 2026-05-11
+Last updated: 2026-05-11 (Charlie-BD fourth work cycle closed)
 Maintained by: Human Operator
 
 This is the single-pane view of all active and queued work across all seven
@@ -17,7 +17,7 @@ workstreams. Update this file whenever a stream starts, completes, or blocks wor
 |---|---|---|---|
 | Alpha-Core | IDLE | — | See candidate list below |
 | Bravo-Discovery | IDLE | — | See candidate list below |
-| Charlie-BD | **ACTIVE** | `public/widgets/shared/marketplace-seller-cta.js`, `public/auction-view.html`, `e2e/charlie-bd-marketplace-seller-cta.spec.js` | Marketplace seller acquisition CTA |
+| Charlie-BD | IDLE | — | See candidate list below |
 | Delta-Testing | IDLE | — | Coverage audit: walkthroughs, watchlist, soft-close |
 | Frontend Ops | IDLE | — | Awaiting next Charlie-BD export publish |
 | Growth Ops | IDLE | — | See candidate list below |
@@ -84,15 +84,11 @@ Agent files: `agents/bravo-discovery/`
 
 ### Charlie-BD
 
-**Status: IDLE — Third Work Cycle Complete**
-Last checkpoint: `checkpoint-bd-marketplace-config-v1` (pending git tag)
+**Status: IDLE — Fourth Work Cycle Complete**
+Last checkpoint: `checkpoint-bd-marketplace-seller-cta-v1` (7d2e50b, pushed)
 Agent files: `agents/charlie-bd/`
 
 **Active work cycle:** None
-
-**Outstanding action:** Apply git tag `checkpoint-bd-marketplace-config-v1` to the
-commit that delivered migrations 041–043, `adminConfig.js`, `marketplace-config.html`,
-`charlie-bd-marketplace-config.spec.js`, and `config.js` extensions.
 
 **Candidate next assignments** (not active — awaiting operator assignment):
 - Option A: Sold Lots Showcase Widget — `public/widgets/sold-lots.js`
@@ -234,6 +230,7 @@ Claimed by: [stream name] on [date] — [description]
 
 | Date | Stream | Checkpoint | Description |
 |---|---|---|---|
+| 2026-05-11 | Charlie-BD | checkpoint-bd-marketplace-seller-cta-v1 (7d2e50b) | Marketplace seller acquisition CTA: AAPMarketplaceSellerCta v1 module, auction-view.html integration, ~50 Playwright tests |
 | 2026-05-11 | Bravo-Discovery | checkpoint-discovery-phase3-v1 (4194582) | Phase 3 enrichment: keyword search, pagination metadata, seller context on featured-lots and featured-videos |
 | 2026-05-11 | Bravo-Discovery | — | Analytics foundation (migration 044, analyticsService, analytics route, AAPAnalytics JS, docs) |
 | 2026-05-11 | Growth Ops / Charlie-BD | a6b217c | Deployment governance (deployment-log.md, CHANGELOG.md) |
