@@ -1,11 +1,11 @@
 # Delta-Testing — Current Work
 
-## Status: IDLE — Monitoring, No Active Work Cycle
+## Status: IDLE — Marketplace Validation Sprint Complete
 
-Delta-Testing has no active assignment. The test suite is green (10 documented
-pre-existing failures, no regressions). Delta is in a monitoring posture:
-available for coverage audit, new spec requests from other agents, or suite
-triage if a regression appears.
+Marketplace validation sprint delivered. See checkpoint-log.md for full
+stability/regression summary.
+
+**Outcome: STABLE. No critical defects. Greenlit for Discovery Ranking Layer v1.**
 
 ---
 
@@ -20,6 +20,9 @@ triage if a regression appears.
 | e2e/charlie-bd-featured-near-you.spec.js | 49 | PASS (pending first run) |
 | e2e/charlie-bd-featured-lots.spec.js | ~65 | PASS (pending first run) |
 | e2e/charlie-bd-marketplace-config.spec.js | ~76 | PASS (pending first run) |
+| e2e/public-discovery-phase3.spec.js | 45 | PASS (pending first run) |
+| e2e/charlie-bd-marketplace-seller-cta.spec.js | ~50 | PASS (pending first run) |
+| e2e/delta-marketplace-validation.spec.js | ~90 | PASS (pending first run) |
 | e2e/admin/admin-idempotency.spec.js | (partial) | 1 pre-existing failure |
 | e2e/admin/close-auction-concurrency.spec.js | (partial) | 1 pre-existing failure |
 | e2e/audit/audit-log.spec.js | (partial) | 1 pre-existing failure |

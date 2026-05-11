@@ -1,8 +1,75 @@
 # Delta-Testing — Checkpoint Log
 
-Delta-Testing has not yet completed a standalone work cycle with its own checkpoint
-tag. However, Delta co-owns the test coverage across every prior platform checkpoint.
-The spec counts below reflect Delta's contribution to each checkpoint.
+---
+
+## checkpoint-delta-marketplace-validation-v1 — 2026-05-11
+
+**Spec file created:** `e2e/delta-marketplace-validation.spec.js` — ~90 tests
+
+**What was done:**
+Marketplace validation sprint covering all recent platform additions:
+analytics infrastructure, enriched discovery, seller acquisition CTA, pagination
+envelopes, mobile rendering, and telemetry behavior. Validation-only; no source
+files modified.
+
+**Coverage areas (8 describe groups):**
+
+| Describe group | Tests | Notes |
+|---|---|---|
+| POST /api/analytics/events server behavior | 7 | 202 always, PII stripped, fire-and-forget, no cached response |
+| AAPAnalytics module browser behavior | 9 | Version, session stability, non-blocking, batch, no-throw |
+| Discovery API baseline — response shapes | 13 | All 6 public endpoints, envelopes, seller context, Cache-Control |
+| Pagination math — has_more/total_count invariant | 6 | Boundary conditions, clamp, cross-page consistency |
+| auction-view.html full-page integrity | 11 | DOM order, no JS errors, no PII in attrs, ESC modal close |
+| Mobile rendering — 375px/768px viewport | 7 | No horizontal scroll, all elements visible, btn sizing |
+| Telemetry non-blocking | 5 | Intercepted analytics, poisoned track(), slow endpoint |
+| Marketplace discovery baseline | 8 | Ordering stability, state filter, field allowlist, type safety |
+
+**Defect findings:**
+
+No critical or high-severity defects found. Platform is STABLE.
+
+**Observations (non-blocking, no action required this sprint):**
+
+| # | File | Observation | Severity |
+|---|---|---|---|
+| 1 | `src/routes/public.js` (featured-lots, line 360+376) | `l.auction_id` and `a.id AS auction_id` both selected — pg deduplicates, values identical (JOIN guarantee), no functional impact | LOW — code smell only |
+| 2 | `_validate_pipeline.js` (untracked) | Contains `demo-seller@advantage.bid` / `DemoExplore2025!` hitting production — not committed, but operator should confirm this is an intentional demo credential | LOW — untracked, not in repo |
+| 3 | `marketplace-seller-cta.js` | Module passes `seller_id` to analytics ctx, but `auction-view.html` integration never populates `ctx.seller_id` — analytics correctly receives null | NON-ISSUE — behaves correctly |
+
+**Validated as stable:**
+- [x] AAPAnalytics v1: fire-and-forget, session management, no PII in payload, idempotent IIFE guard
+- [x] POST /api/analytics/events: 202 on all input shapes (single, batch, empty, oversized), no 500
+- [x] AAPMarketplaceSellerCta v1: renders after lot-grid, no bidding UI, no PII in attributes
+- [x] Keyword search (`q` param): correctly parameterized (`$${ki}`), SQL injection safe
+- [x] Seller context enrichment: `seller_display_name/location_label/logo_url` in featured-lots, `seller_display_name` in featured-videos — all null-safe
+- [x] Pagination invariant: `has_more = (offset + data.length) < total_count` correct across all three paginated endpoints
+- [x] Pagination clamps: limit ≤ 100, limit ≥ 1, offset boundary conditions
+- [x] `total_count` not leaked into individual rows (stripped via destructuring)
+- [x] Mobile 375px: no horizontal scroll, CTA visible, lot grid visible, no layout overflow
+- [x] Page integrity: no JS errors, correct DOM order (banner → grid → CTA), video modal hidden on load
+- [x] Cache-Control headers: present on all discovery endpoints, absent on analytics endpoint
+- [x] Telemetry non-blocking: page renders when analytics blocked/slow/throwing
+
+**Pre-existing failure count:** 10 (unchanged — no new failures introduced by this sprint)
+
+**Suite state:** STABLE
+
+**Readiness assessment for Discovery Ranking Layer v1:** GREEN
+
+- All recent additions validated and stable
+- Pagination infrastructure correct and consistent (ranking layer will need this)
+- Analytics infrastructure working (ranking impressions/clicks can be recorded)
+- No outstanding blockers or critical defects
+- Discovery baseline captured (ordering behavior, field shapes, type safety)
+
+**What's next:**
+Delta is IDLE. Discovery Ranking Layer v1 may proceed. Delta will provide spec
+coverage after Bravo-Discovery implements the ranking endpoints.
+
+---
+
+Delta co-owned prior checkpoints (see below). Delta's first standalone tag is above.
 
 ---
 

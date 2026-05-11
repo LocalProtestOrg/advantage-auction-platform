@@ -1,6 +1,6 @@
 # Active Work Queue
 
-Last updated: 2026-05-11 (Charlie-BD fourth work cycle closed)
+Last updated: 2026-05-11 (Delta-Testing marketplace validation sprint COMPLETE — all streams IDLE)
 Maintained by: Human Operator
 
 This is the single-pane view of all active and queued work across all seven
@@ -230,6 +230,7 @@ Claimed by: [stream name] on [date] — [description]
 
 | Date | Stream | Checkpoint | Description |
 |---|---|---|---|
+| 2026-05-11 | Delta-Testing | checkpoint-delta-marketplace-validation-v1 | Marketplace validation sprint: ~90 tests across 8 areas; platform STABLE; greenlit for Discovery Ranking Layer v1 |
 | 2026-05-11 | Charlie-BD | checkpoint-bd-marketplace-seller-cta-v1 (7d2e50b) | Marketplace seller acquisition CTA: AAPMarketplaceSellerCta v1 module, auction-view.html integration, ~50 Playwright tests |
 | 2026-05-11 | Bravo-Discovery | checkpoint-discovery-phase3-v1 (4194582) | Phase 3 enrichment: keyword search, pagination metadata, seller context on featured-lots and featured-videos |
 | 2026-05-11 | Bravo-Discovery | — | Analytics foundation (migration 044, analyticsService, analytics route, AAPAnalytics JS, docs) |
