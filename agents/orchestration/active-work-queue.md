@@ -16,7 +16,7 @@ workstreams. Update this file whenever a stream starts, completes, or blocks wor
 | Stream | Status | Active Files | Next Queued Item |
 |---|---|---|---|
 | Alpha-Core | IDLE | — | See candidate list below |
-| Bravo-Discovery | IDLE | — | See candidate list below |
+| Bravo-Discovery | **ACTIVE** | `src/routes/public.js`, `e2e/public-discovery-phase3.spec.js` | Phase 3 — Discovery Enrichment |
 | Charlie-BD | IDLE | — | See candidate list below |
 | Delta-Testing | IDLE | — | Coverage audit: walkthroughs, watchlist, soft-close |
 | Frontend Ops | IDLE | — | Awaiting next Charlie-BD export publish |
@@ -26,6 +26,8 @@ workstreams. Update this file whenever a stream starts, completes, or blocks wor
 **Current migration ceiling:** `044_create_analytics_events.sql`
 The next migration must be numbered `045`. Confirm this in `active-work-queue.md`
 before creating any new migration file.
+
+**Migration 045 status:** NOT claimed. No stream has started a migration this cycle.
 
 ---
 

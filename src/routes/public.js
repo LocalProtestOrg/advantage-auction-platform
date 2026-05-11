@@ -69,6 +69,12 @@ router.get('/auctions', async (req, res, next) => {
       where.push(`a.shipping_available = true`);
     }
 
+    if (q.q && typeof q.q === 'string' && q.q.trim().length > 0) {
+      params.push(`%${q.q.trim().slice(0, 100)}%`);
+      const ki = params.length;
+      where.push(`(a.title ILIKE $${ki} OR a.description ILIKE $${ki} OR a.city ILIKE $${ki})`);
+    }
+
     const limit  = Math.min(Math.max(parseInt(q.limit,  10) || 20, 1), 100);
     const offset = Math.max(parseInt(q.offset, 10) || 0, 0);
     params.push(limit);
@@ -100,7 +106,8 @@ router.get('/auctions', async (req, res, next) => {
              COUNT(l.id) FILTER (WHERE l.shippable = true)::int AS shippable_lot_count,
              sp.display_name    AS seller_display_name,
              sp.location_label  AS seller_location_label,
-             sp.logo_url        AS seller_logo_url
+             sp.logo_url        AS seller_logo_url,
+             COUNT(*) OVER()    AS total_count
         FROM auctions a
         LEFT JOIN seller_profiles sp ON sp.id = a.seller_id
         LEFT JOIN lots l ON l.auction_id = a.id AND l.state != 'withdrawn'
@@ -110,8 +117,10 @@ router.get('/auctions', async (req, res, next) => {
        LIMIT $${li} OFFSET $${oi}
     `, params);
 
+    const total_count = rows.length > 0 ? parseInt(rows[0].total_count, 10) : 0;
+    const data = rows.map(({ total_count: _tc, ...rest }) => rest);
     res.set('Cache-Control', PUBLIC_CACHE);
-    return res.json({ success: true, data: rows });
+    return res.json({ success: true, data, total_count, has_more: offset + data.length < total_count, offset, limit });
   } catch (err) { next(err); }
 });
 
@@ -163,7 +172,8 @@ router.get('/auctions/near', async (req, res, next) => {
              cover_image_url, banner_image_url, created_at,
              lot_count, shippable_lot_count,
              seller_display_name, seller_location_label, seller_logo_url,
-             distance_km
+             distance_km,
+             COUNT(*) OVER() AS total_count
         FROM (
           SELECT a.id,
                  a.title,
@@ -213,8 +223,10 @@ router.get('/auctions/near', async (req, res, next) => {
        LIMIT $4 OFFSET $5
     `, [lat, lng, radiusKm, limit, offset]);
 
+    const total_count = rows.length > 0 ? parseInt(rows[0].total_count, 10) : 0;
+    const data = rows.map(({ total_count: _tc, ...rest }) => rest);
     res.set('Cache-Control', PUBLIC_CACHE);
-    return res.json({ success: true, data: rows });
+    return res.json({ success: true, data, total_count, has_more: offset + data.length < total_count, offset, limit });
   } catch (err) { next(err); }
 });
 
@@ -312,7 +324,8 @@ router.get('/auctions/:id/lots', async (req, res, next) => {
              l.extended_until,
              l.shippable,
              l.shipping_cost_cents,
-             l.shipping_notes
+             l.shipping_notes,
+             COUNT(*) OVER() AS total_count
         FROM lots l
        WHERE l.auction_id = $1
          AND l.state != 'withdrawn'
@@ -320,8 +333,10 @@ router.get('/auctions/:id/lots', async (req, res, next) => {
        LIMIT $2 OFFSET $3
     `, [id, limit, offset]);
 
+    const total_count = rows.length > 0 ? parseInt(rows[0].total_count, 10) : 0;
+    const data = rows.map(({ total_count: _tc, ...rest }) => rest);
     res.set('Cache-Control', LIVE_CACHE);
-    return res.json({ success: true, data: rows });
+    return res.json({ success: true, data, total_count, has_more: offset + data.length < total_count, offset, limit });
   } catch (err) { next(err); }
 });
 
@@ -364,9 +379,13 @@ router.get('/featured-lots', async (req, res, next) => {
              a.city             AS auction_city,
              a.address_state    AS auction_address_state,
              a.end_time         AS auction_end_time,
-             a.cover_image_url  AS auction_cover_image_url
+             a.cover_image_url  AS auction_cover_image_url,
+             sp.display_name    AS seller_display_name,
+             sp.location_label  AS seller_location_label,
+             sp.logo_url        AS seller_logo_url
         FROM lots l
         JOIN auctions a ON a.id = l.auction_id
+        LEFT JOIN seller_profiles sp ON sp.id = a.seller_id
        WHERE l.is_featured = true
          AND l.state != 'withdrawn'
          AND ${stateClause}
@@ -545,9 +564,11 @@ router.get('/featured-videos', async (req, res, next) => {
              a.city          AS auction_city,
              a.address_state AS auction_address_state,
              a.state         AS auction_state,
-             a.end_time      AS auction_end_time
+             a.end_time      AS auction_end_time,
+             sp.display_name AS seller_display_name
         FROM auction_walkthrough_videos v
         JOIN auctions a ON a.id = v.auction_id
+        LEFT JOIN seller_profiles sp ON sp.id = a.seller_id
        WHERE v.visible_public = true
          AND v.review_status = 'approved'
        ORDER BY v.created_at DESC
