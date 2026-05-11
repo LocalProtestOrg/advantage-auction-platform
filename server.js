@@ -147,6 +147,7 @@ const marketingReportsRoutes    = require('./src/routes/marketingReports');
 const imageProcessingRoutes     = require('./src/routes/imageProcessing');
 const uploadsRoutes             = require('./src/routes/uploads');
 const publicRoutes              = require('./src/routes/public');
+const analyticsRoutes           = require('./src/routes/analytics');
 
 // ── Database-backed routes (frontend API shape) ───────────────────────────────
 
@@ -186,6 +187,7 @@ app.use('/api/seller/marketing-report', marketingReportsRoutes);
 app.use('/api/image-processing', imageProcessingRoutes);
 app.use('/api/uploads', uploadsRoutes);
 app.use('/api/public', publicRoutes);
+app.use('/api/analytics', analyticsRoutes);
 
 // Root — serve demo page
 app.get('/', (req, res) => {
