@@ -1,0 +1,698 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="noindex" />
+  <title>Marketplace Config — Advantage Admin</title>
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      background: #f5f7fa;
+      color: #111;
+      min-height: 100vh;
+      padding: 2rem 1.5rem;
+    }
+
+    .page { max-width: 960px; margin: 0 auto; }
+
+    /* ── Header ─────────────────────────────────────────────── */
+    header { margin-bottom: 1.5rem; }
+    .brand {
+      font-size: 0.72rem; font-weight: 600; letter-spacing: 0.08em;
+      text-transform: uppercase; color: #888; margin-bottom: 0.4rem;
+    }
+    .header-row {
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 1rem; flex-wrap: wrap;
+    }
+    h1 { font-size: 1.5rem; font-weight: 800; }
+    .role-badge {
+      font-size: 0.65rem; font-weight: 700; letter-spacing: 0.05em;
+      text-transform: uppercase; background: #111; color: #fff;
+      padding: 0.2rem 0.6rem; border-radius: 99px;
+    }
+    .btn {
+      display: inline-block; padding: 0.45rem 1rem;
+      border-radius: 6px; font-size: 0.875rem; font-weight: 600;
+      cursor: pointer; border: none; transition: background 0.15s;
+    }
+    .btn-primary { background: #2563eb; color: #fff; }
+    .btn-primary:hover { background: #1d4ed8; }
+    .btn-danger  { background: #dc2626; color: #fff; }
+    .btn-danger:hover  { background: #b91c1c; }
+    .btn-ghost   { background: transparent; color: #374151; border: 1px solid #d1d5db; }
+    .btn-ghost:hover   { background: #f3f4f6; }
+    .btn-sm { padding: 0.3rem 0.7rem; font-size: 0.78rem; }
+
+    /* ── Tabs ───────────────────────────────────────────────── */
+    .tabs { display: flex; gap: 0.25rem; border-bottom: 2px solid #e5e7eb; margin-bottom: 1.5rem; }
+    .tab-btn {
+      padding: 0.6rem 1.1rem; font-size: 0.875rem; font-weight: 600;
+      background: none; border: none; cursor: pointer; color: #6b7280;
+      border-bottom: 2px solid transparent; margin-bottom: -2px;
+      transition: color 0.15s;
+    }
+    .tab-btn.active { color: #1e293b; border-bottom-color: #2563eb; }
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+
+    /* ── Toast ──────────────────────────────────────────────── */
+    #toast {
+      position: fixed; bottom: 1.5rem; right: 1.5rem;
+      background: #1e293b; color: #fff; padding: 0.7rem 1.2rem;
+      border-radius: 8px; font-size: 0.875rem; font-weight: 500;
+      opacity: 0; transition: opacity 0.25s; pointer-events: none;
+      z-index: 999;
+    }
+    #toast.show { opacity: 1; }
+    #toast.error { background: #dc2626; }
+
+    /* ── Section card ───────────────────────────────────────── */
+    .section {
+      background: #fff; border: 1px solid #e5e7eb; border-radius: 10px;
+      padding: 1.5rem; margin-bottom: 1.25rem;
+    }
+    .section-title {
+      font-size: 0.8rem; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 0.06em; color: #6b7280; margin-bottom: 1.1rem;
+    }
+
+    /* ── Form grid ──────────────────────────────────────────── */
+    .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+    @media (max-width: 600px) { .form-grid { grid-template-columns: 1fr; } }
+    .field { display: flex; flex-direction: column; gap: 0.3rem; }
+    .field.full { grid-column: 1 / -1; }
+    label { font-size: 0.8rem; font-weight: 600; color: #374151; }
+    .field-desc { font-size: 0.72rem; color: #9ca3af; }
+    input[type="text"], input[type="number"], input[type="url"],
+    select, textarea {
+      padding: 0.45rem 0.65rem; border: 1px solid #d1d5db;
+      border-radius: 6px; font-size: 0.875rem; color: #111;
+      background: #fff; transition: border-color 0.15s;
+    }
+    input:focus, select:focus, textarea:focus {
+      outline: none; border-color: #2563eb;
+      box-shadow: 0 0 0 2px rgba(37,99,235,0.12);
+    }
+    textarea { resize: vertical; min-height: 64px; }
+    .field-actions { display: flex; justify-content: flex-end; margin-top: 1rem; }
+
+    /* ── Packages table ─────────────────────────────────────── */
+    .pkg-table { width: 100%; border-collapse: collapse; font-size: 0.875rem; margin-bottom: 1rem; }
+    .pkg-table th { text-align: left; padding: 0.5rem 0.75rem; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: #6b7280; border-bottom: 2px solid #e5e7eb; }
+    .pkg-table td { padding: 0.65rem 0.75rem; border-bottom: 1px solid #f3f4f6; vertical-align: top; }
+    .pkg-table tr:last-child td { border-bottom: none; }
+    .pkg-name { font-weight: 600; }
+    .pkg-price { font-weight: 600; color: #2563eb; }
+    .pkg-inactive { opacity: 0.45; }
+    .badge-active   { display: inline-block; padding: 0.15rem 0.5rem; background: #d1fae5; color: #065f46; border-radius: 99px; font-size: 0.7rem; font-weight: 700; }
+    .badge-inactive { display: inline-block; padding: 0.15rem 0.5rem; background: #f3f4f6; color: #9ca3af; border-radius: 99px; font-size: 0.7rem; font-weight: 700; }
+    .pkg-actions { display: flex; gap: 0.5rem; }
+
+    /* ── Package modal ──────────────────────────────────────── */
+    .modal-overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.45);
+      display: flex; align-items: center; justify-content: center;
+      z-index: 100; opacity: 0; pointer-events: none; transition: opacity 0.2s;
+    }
+    .modal-overlay.open { opacity: 1; pointer-events: all; }
+    .modal {
+      background: #fff; border-radius: 12px; padding: 1.75rem;
+      width: min(480px, calc(100vw - 2rem)); max-height: calc(100vh - 4rem);
+      overflow-y: auto; box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+    }
+    .modal h2 { font-size: 1.1rem; font-weight: 700; margin-bottom: 1.25rem; }
+    .modal-actions { display: flex; gap: 0.75rem; justify-content: flex-end; margin-top: 1.25rem; }
+    .features-input { font-family: monospace; font-size: 0.82rem; }
+
+    /* ── Widget tab ─────────────────────────────────────────── */
+    .widget-slug-label { font-size: 0.78rem; color: #6b7280; margin-bottom: 0.5rem; display: block; }
+
+    /* ── Loading / error ────────────────────────────────────── */
+    .skeleton { background: #e5e7eb; border-radius: 6px; height: 1.25rem; margin-bottom: 0.5rem; animation: pulse 1.4s ease-in-out infinite; }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.45} }
+    .error-msg { background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; padding: 1rem; color: #b91c1c; font-size: 0.875rem; }
+  </style>
+</head>
+<body>
+
+<div class="page">
+  <header>
+    <div class="brand">Advantage Auction Platform — Admin</div>
+    <div class="header-row">
+      <h1>Marketplace Configuration</h1>
+      <div style="display:flex;gap:0.75rem;align-items:center;">
+        <span class="role-badge" id="role-badge">ADMIN</span>
+        <button class="btn btn-ghost btn-sm" id="btn-logout">Log out</button>
+      </div>
+    </div>
+  </header>
+
+  <div class="tabs" role="tablist">
+    <button class="tab-btn active" role="tab" aria-selected="true"  data-tab="platform">Platform Settings</button>
+    <button class="tab-btn"        role="tab" aria-selected="false" data-tab="widgets">Widget Defaults</button>
+    <button class="tab-btn"        role="tab" aria-selected="false" data-tab="packages">Marketing Packages</button>
+  </div>
+
+  <!-- ── Platform Settings ─────────────────────────────── -->
+  <div class="tab-panel active" id="panel-platform" role="tabpanel">
+    <div id="platform-loading">
+      <div class="skeleton" style="width:60%;height:1.5rem;margin-bottom:1rem;"></div>
+      <div class="skeleton" style="width:40%;height:1rem;margin-bottom:0.5rem;"></div>
+      <div class="skeleton" style="width:70%;height:1rem;"></div>
+    </div>
+    <div id="platform-error" class="error-msg" style="display:none;"></div>
+    <div id="platform-content" style="display:none;">
+
+      <div class="section">
+        <div class="section-title">Status Badge Labels</div>
+        <div class="form-grid">
+          <div class="field">
+            <label for="badge-live">Live badge</label>
+            <div class="field-desc">Shown on cards for active auctions</div>
+            <input type="text" id="badge-live" data-key="marketplace.badge.live" />
+          </div>
+          <div class="field">
+            <label for="badge-upcoming">Upcoming badge</label>
+            <div class="field-desc">Shown on cards for published auctions</div>
+            <input type="text" id="badge-upcoming" data-key="marketplace.badge.upcoming" />
+          </div>
+          <div class="field">
+            <label for="badge-ships">Shipping badge</label>
+            <div class="field-desc">Shown when lots are shippable</div>
+            <input type="text" id="badge-ships" data-key="marketplace.badge.ships" />
+          </div>
+          <div class="field">
+            <label for="badge-ending-soon">Ending soon badge</label>
+            <div class="field-desc">Urgency label for lots closing soon</div>
+            <input type="text" id="badge-ending-soon" data-key="marketplace.badge.ending_soon" />
+          </div>
+          <div class="field">
+            <label for="badge-threshold">Ending soon threshold (minutes)</label>
+            <div class="field-desc">Show badge when this many minutes remain</div>
+            <input type="number" id="badge-threshold" min="1" max="1440" data-key="marketplace.badge.ending_soon_threshold_min" />
+          </div>
+        </div>
+        <div class="field-actions">
+          <button class="btn btn-primary btn-sm" data-save-section="badges">Save Badge Settings</button>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Seller CTA Card</div>
+        <div class="form-grid">
+          <div class="field full">
+            <label for="cta-url">CTA URL</label>
+            <div class="field-desc">Leave blank to hide the CTA card entirely</div>
+            <input type="url" id="cta-url" data-key="marketplace.cta.url" placeholder="https://..." />
+          </div>
+          <div class="field">
+            <label for="cta-headline">Headline</label>
+            <input type="text" id="cta-headline" data-key="marketplace.cta.headline" />
+          </div>
+          <div class="field">
+            <label for="cta-label">Button label</label>
+            <input type="text" id="cta-label" data-key="marketplace.cta.label" />
+          </div>
+          <div class="field full">
+            <label for="cta-subtext">Supporting text</label>
+            <textarea id="cta-subtext" data-key="marketplace.cta.subtext" rows="2"></textarea>
+          </div>
+        </div>
+        <div class="field-actions">
+          <button class="btn btn-primary btn-sm" data-save-section="cta">Save CTA Settings</button>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Card Display Controls</div>
+        <div class="form-grid">
+          <div class="field">
+            <label for="card-img-height">Image height (px)</label>
+            <input type="number" id="card-img-height" min="80" max="400" data-key="marketplace.card.image_height_px" />
+          </div>
+          <div class="field">
+            <label for="card-show-seller">Show seller name</label>
+            <select id="card-show-seller" data-key="marketplace.card.show_seller" data-type="bool">
+              <option value="true">Yes</option>
+              <option value="false">No</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="card-show-lots">Show lot count</label>
+            <select id="card-show-lots" data-key="marketplace.card.show_lot_count" data-type="bool">
+              <option value="true">Yes</option>
+              <option value="false">No</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="card-show-bid">Show bid amount</label>
+            <select id="card-show-bid" data-key="marketplace.card.show_bid" data-type="bool">
+              <option value="true">Yes</option>
+              <option value="false">No</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="shipping-badge">Show shipping badge</label>
+            <select id="shipping-badge" data-key="marketplace.shipping.show_badge" data-type="bool">
+              <option value="true">Yes</option>
+              <option value="false">No</option>
+            </select>
+          </div>
+        </div>
+        <div class="field-actions">
+          <button class="btn btn-primary btn-sm" data-save-section="cards">Save Card Settings</button>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Homepage Feed Controls</div>
+        <div class="form-grid">
+          <div class="field">
+            <label for="home-featured-limit">Featured lots limit</label>
+            <div class="field-desc">Max featured lots shown in homepage widget</div>
+            <input type="number" id="home-featured-limit" min="1" max="24" data-key="marketplace.homepage.featured_limit" />
+          </div>
+          <div class="field">
+            <label for="home-near-limit">Near you limit</label>
+            <div class="field-desc">Max near-you auctions shown in homepage widget</div>
+            <input type="number" id="home-near-limit" min="1" max="24" data-key="marketplace.homepage.near_you_limit" />
+          </div>
+        </div>
+        <div class="field-actions">
+          <button class="btn btn-primary btn-sm" data-save-section="homepage">Save Feed Controls</button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ── Widget Defaults ────────────────────────────────── -->
+  <div class="tab-panel" id="panel-widgets" role="tabpanel">
+    <div id="widgets-loading">
+      <div class="skeleton" style="width:55%;height:1.5rem;margin-bottom:1rem;"></div>
+    </div>
+    <div id="widgets-error" class="error-msg" style="display:none;"></div>
+    <div id="widgets-content" style="display:none;"></div>
+  </div>
+
+  <!-- ── Marketing Packages ─────────────────────────────── -->
+  <div class="tab-panel" id="panel-packages" role="tabpanel">
+    <div id="packages-loading">
+      <div class="skeleton" style="width:70%;height:1.5rem;margin-bottom:1rem;"></div>
+    </div>
+    <div id="packages-error" class="error-msg" style="display:none;"></div>
+    <div id="packages-content" style="display:none;">
+      <div style="display:flex;justify-content:flex-end;margin-bottom:1rem;">
+        <button class="btn btn-primary btn-sm" id="btn-add-package">+ Add Package</button>
+      </div>
+      <div class="section" style="padding:0;overflow:hidden;">
+        <table class="pkg-table" aria-label="Marketing packages">
+          <thead>
+            <tr>
+              <th>Package</th>
+              <th>Price</th>
+              <th>Status</th>
+              <th>Order</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="packages-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Package modal ─────────────────────────────────────── -->
+<div class="modal-overlay" id="pkg-modal" role="dialog" aria-modal="true" aria-labelledby="pkg-modal-title">
+  <div class="modal">
+    <h2 id="pkg-modal-title">Add Package</h2>
+    <div class="form-grid">
+      <div class="field full">
+        <label for="pkg-name">Name</label>
+        <input type="text" id="pkg-name" />
+      </div>
+      <div class="field full">
+        <label for="pkg-desc">Description</label>
+        <textarea id="pkg-desc" rows="2"></textarea>
+      </div>
+      <div class="field">
+        <label for="pkg-price">Price (cents)</label>
+        <div class="field-desc">e.g. 9900 = $99.00. Use 0 for free tier.</div>
+        <input type="number" id="pkg-price" min="0" />
+      </div>
+      <div class="field">
+        <label for="pkg-order">Display order</label>
+        <input type="number" id="pkg-order" min="0" />
+      </div>
+      <div class="field full">
+        <label for="pkg-features">Features (one per line)</label>
+        <textarea id="pkg-features" class="features-input" rows="5"
+                  placeholder="Platform search listing&#10;Buyer notification emails&#10;Standard analytics"></textarea>
+      </div>
+      <div class="field">
+        <label for="pkg-active">Status</label>
+        <select id="pkg-active">
+          <option value="true">Active</option>
+          <option value="false">Inactive</option>
+        </select>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" id="pkg-modal-cancel">Cancel</button>
+      <button class="btn btn-primary" id="pkg-modal-save">Save</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast" role="status" aria-live="polite"></div>
+
+<script>
+(function () {
+  'use strict';
+
+  var token = localStorage.getItem('token');
+  if (!token) { window.location.href = '/login.html'; return; }
+
+  // Validate token has admin role
+  try {
+    var payload = JSON.parse(atob(token.split('.')[1]));
+    if (payload.role !== 'admin') { window.location.href = '/login.html'; return; }
+    document.getElementById('role-badge').textContent = payload.role.toUpperCase();
+  } catch (e) { window.location.href = '/login.html'; return; }
+
+  document.getElementById('btn-logout').addEventListener('click', function () {
+    localStorage.removeItem('token');
+    window.location.href = '/login.html';
+  });
+
+  // ── API helpers ───────────────────────────────────────────────────────────
+  function api(method, path, body) {
+    var opts = {
+      method: method,
+      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+    };
+    if (body !== undefined) opts.body = JSON.stringify(body);
+    return fetch(path, opts).then(function (r) {
+      if (r.status === 401 || r.status === 403) {
+        localStorage.removeItem('token');
+        window.location.href = '/login.html';
+        throw new Error('Unauthorized');
+      }
+      return r.json();
+    });
+  }
+
+  // ── Toast ─────────────────────────────────────────────────────────────────
+  var _toastTimer;
+  function toast(msg, isError) {
+    var el = document.getElementById('toast');
+    el.textContent = msg;
+    el.className   = 'show' + (isError ? ' error' : '');
+    clearTimeout(_toastTimer);
+    _toastTimer = setTimeout(function () { el.className = ''; }, 3000);
+  }
+
+  // ── Tabs ──────────────────────────────────────────────────────────────────
+  var panels = {};
+  document.querySelectorAll('.tab-panel').forEach(function (p) {
+    panels[p.id.replace('panel-', '')] = p;
+  });
+
+  document.querySelectorAll('.tab-btn').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      document.querySelectorAll('.tab-btn').forEach(function (b) {
+        b.classList.remove('active');
+        b.setAttribute('aria-selected', 'false');
+      });
+      document.querySelectorAll('.tab-panel').forEach(function (p) { p.classList.remove('active'); });
+      btn.classList.add('active');
+      btn.setAttribute('aria-selected', 'true');
+      var panel = panels[btn.dataset.tab];
+      if (panel) panel.classList.add('active');
+    });
+  });
+
+  // ── Platform Settings ─────────────────────────────────────────────────────
+  var _platformData = {};
+
+  var SECTION_KEYS = {
+    badges:   ['marketplace.badge.live', 'marketplace.badge.upcoming', 'marketplace.badge.ships',
+               'marketplace.badge.ending_soon', 'marketplace.badge.ending_soon_threshold_min'],
+    cta:      ['marketplace.cta.url', 'marketplace.cta.headline', 'marketplace.cta.label', 'marketplace.cta.subtext'],
+    cards:    ['marketplace.card.image_height_px', 'marketplace.card.show_seller',
+               'marketplace.card.show_lot_count', 'marketplace.card.show_bid', 'marketplace.shipping.show_badge'],
+    homepage: ['marketplace.homepage.featured_limit', 'marketplace.homepage.near_you_limit'],
+  };
+
+  function readField(el) {
+    if (el.type === 'number') return Number(el.value);
+    if (el.dataset.type === 'bool') return el.value === 'true';
+    return el.value === '' && el.type === 'url' ? null : el.value;
+  }
+
+  function populatePlatformForm(data) {
+    document.querySelectorAll('[data-key]').forEach(function (el) {
+      var key  = el.dataset.key;
+      var item = data[key];
+      var val  = item ? item.value : null;
+      if (val === null || val === undefined) return;
+      if (el.tagName === 'SELECT') {
+        el.value = String(val);
+      } else {
+        el.value = val === null ? '' : String(val);
+      }
+    });
+  }
+
+  function loadPlatform() {
+    api('GET', '/api/admin/config/platform').then(function (body) {
+      if (!body.success) throw new Error(body.message || 'Failed to load');
+      _platformData = body.data;
+      populatePlatformForm(_platformData);
+      document.getElementById('platform-loading').style.display = 'none';
+      document.getElementById('platform-content').style.display = 'block';
+    }).catch(function (err) {
+      document.getElementById('platform-loading').style.display = 'none';
+      var errEl = document.getElementById('platform-error');
+      errEl.textContent = 'Could not load platform settings: ' + err.message;
+      errEl.style.display = 'block';
+    });
+  }
+
+  document.querySelectorAll('[data-save-section]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var section = btn.dataset.saveSection;
+      var keys    = SECTION_KEYS[section];
+      if (!keys) return;
+      var payload = {};
+      keys.forEach(function (k) {
+        var el = document.querySelector('[data-key="' + k + '"]');
+        if (el) payload[k] = readField(el);
+      });
+      btn.disabled = true;
+      api('PATCH', '/api/admin/config/platform', payload).then(function (body) {
+        if (!body.success) throw new Error(body.message || 'Save failed');
+        toast('Settings saved');
+      }).catch(function (err) {
+        toast(err.message || 'Save failed', true);
+      }).finally(function () { btn.disabled = false; });
+    });
+  });
+
+  // ── Widget Defaults ───────────────────────────────────────────────────────
+  function loadWidgets() {
+    api('GET', '/api/admin/config/widgets').then(function (body) {
+      if (!body.success) throw new Error(body.message || 'Failed to load');
+      var container = document.getElementById('widgets-content');
+      container.innerHTML = '';
+      body.data.forEach(function (w) {
+        var section = document.createElement('div');
+        section.className = 'section';
+        var settings = w.settings || {};
+        var rows = Object.keys(settings).map(function (k) {
+          return '<div class="field"><label>' + escHtml(k) + '</label>' +
+            '<input type="text" data-widget="' + escHtml(w.widget_slug) + '" data-key="' + escHtml(k) + '" value="' + escHtml(String(settings[k])) + '" /></div>';
+        }).join('');
+        section.innerHTML =
+          '<div class="section-title">' + escHtml(w.widget_slug) + '</div>' +
+          '<div class="field-desc widget-slug-label">' + escHtml(w.description || '') + '</div>' +
+          '<div class="form-grid">' + rows + '</div>' +
+          '<div class="field-actions"><button class="btn btn-primary btn-sm" data-save-widget="' + escHtml(w.widget_slug) + '">Save</button></div>';
+        container.appendChild(section);
+      });
+      container.querySelectorAll('[data-save-widget]').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          var slug = btn.dataset.saveWidget;
+          var payload = {};
+          container.querySelectorAll('[data-widget="' + slug + '"]').forEach(function (inp) {
+            var k = inp.dataset.key;
+            var v = isNaN(inp.value) ? inp.value : Number(inp.value);
+            payload[k] = v;
+          });
+          btn.disabled = true;
+          api('PATCH', '/api/admin/config/widgets/' + slug, payload).then(function (body) {
+            if (!body.success) throw new Error(body.message || 'Save failed');
+            toast('Widget settings saved');
+          }).catch(function (err) {
+            toast(err.message || 'Save failed', true);
+          }).finally(function () { btn.disabled = false; });
+        });
+      });
+      document.getElementById('widgets-loading').style.display = 'none';
+      container.style.display = 'block';
+    }).catch(function (err) {
+      document.getElementById('widgets-loading').style.display = 'none';
+      var errEl = document.getElementById('widgets-error');
+      errEl.textContent = 'Could not load widget settings: ' + err.message;
+      errEl.style.display = 'block';
+    });
+  }
+
+  // ── Marketing Packages ────────────────────────────────────────────────────
+  var _packages    = [];
+  var _editingPkgId = null;
+
+  function fmtPrice(cents) {
+    return cents === 0 ? 'Free' : '$' + (cents / 100).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  }
+
+  function renderPackages() {
+    var tbody = document.getElementById('packages-tbody');
+    tbody.innerHTML = '';
+    _packages.forEach(function (pkg) {
+      var tr = document.createElement('tr');
+      if (!pkg.is_active) tr.classList.add('pkg-inactive');
+      tr.innerHTML =
+        '<td><div class="pkg-name">' + escHtml(pkg.name) + '</div>' +
+        '<div style="font-size:0.78rem;color:#6b7280;margin-top:0.2rem;">' + escHtml(pkg.description || '') + '</div></td>' +
+        '<td class="pkg-price">' + fmtPrice(pkg.price_cents) + '</td>' +
+        '<td><span class="' + (pkg.is_active ? 'badge-active' : 'badge-inactive') + '">' + (pkg.is_active ? 'Active' : 'Inactive') + '</span></td>' +
+        '<td>' + pkg.display_order + '</td>' +
+        '<td><div class="pkg-actions">' +
+        '<button class="btn btn-ghost btn-sm" data-edit="' + pkg.id + '">Edit</button>' +
+        '<button class="btn btn-ghost btn-sm" data-toggle="' + pkg.id + '">' + (pkg.is_active ? 'Deactivate' : 'Activate') + '</button>' +
+        '</div></td>';
+      tbody.appendChild(tr);
+    });
+
+    tbody.querySelectorAll('[data-edit]').forEach(function (btn) {
+      btn.addEventListener('click', function () { openPkgModal(btn.dataset.edit); });
+    });
+    tbody.querySelectorAll('[data-toggle]').forEach(function (btn) {
+      btn.addEventListener('click', function () { toggleActive(btn.dataset.toggle); });
+    });
+  }
+
+  function loadPackages() {
+    api('GET', '/api/admin/config/packages').then(function (body) {
+      if (!body.success) throw new Error(body.message || 'Failed to load');
+      _packages = body.data;
+      renderPackages();
+      document.getElementById('packages-loading').style.display = 'none';
+      document.getElementById('packages-content').style.display = 'block';
+    }).catch(function (err) {
+      document.getElementById('packages-loading').style.display = 'none';
+      var errEl = document.getElementById('packages-error');
+      errEl.textContent = 'Could not load packages: ' + err.message;
+      errEl.style.display = 'block';
+    });
+  }
+
+  function toggleActive(id) {
+    var pkg = _packages.find(function (p) { return p.id === id; });
+    if (!pkg) return;
+    api('PATCH', '/api/admin/config/packages/' + id, { is_active: !pkg.is_active }).then(function (body) {
+      if (!body.success) throw new Error(body.message || 'Failed');
+      pkg.is_active = !pkg.is_active;
+      renderPackages();
+      toast('Package ' + (pkg.is_active ? 'activated' : 'deactivated'));
+    }).catch(function (err) { toast(err.message || 'Failed', true); });
+  }
+
+  // ── Package modal ─────────────────────────────────────────────────────────
+  var modal       = document.getElementById('pkg-modal');
+  var modalTitle  = document.getElementById('pkg-modal-title');
+
+  function openPkgModal(id) {
+    _editingPkgId = id || null;
+    var pkg = id ? _packages.find(function (p) { return p.id === id; }) : null;
+    modalTitle.textContent = pkg ? 'Edit Package' : 'Add Package';
+    document.getElementById('pkg-name').value     = pkg ? pkg.name : '';
+    document.getElementById('pkg-desc').value     = pkg ? (pkg.description || '') : '';
+    document.getElementById('pkg-price').value    = pkg ? pkg.price_cents : '0';
+    document.getElementById('pkg-order').value    = pkg ? pkg.display_order : '0';
+    document.getElementById('pkg-active').value   = pkg ? String(pkg.is_active) : 'true';
+    var feats = pkg && Array.isArray(pkg.features) ? pkg.features.join('\n') : '';
+    document.getElementById('pkg-features').value = feats;
+    modal.classList.add('open');
+    document.getElementById('pkg-name').focus();
+  }
+
+  function closePkgModal() {
+    modal.classList.remove('open');
+    _editingPkgId = null;
+  }
+
+  document.getElementById('btn-add-package').addEventListener('click', function () { openPkgModal(null); });
+  document.getElementById('pkg-modal-cancel').addEventListener('click', closePkgModal);
+  modal.addEventListener('click', function (e) { if (e.target === modal) closePkgModal(); });
+
+  document.getElementById('pkg-modal-save').addEventListener('click', function () {
+    var name       = document.getElementById('pkg-name').value.trim();
+    var price_cents = parseInt(document.getElementById('pkg-price').value, 10);
+    if (!name) { toast('Name is required', true); return; }
+    if (isNaN(price_cents) || price_cents < 0) { toast('Valid price is required', true); return; }
+    var raw = document.getElementById('pkg-features').value;
+    var features = raw.split('\n').map(function (s) { return s.trim(); }).filter(Boolean);
+    var payload = {
+      name:          name,
+      description:   document.getElementById('pkg-desc').value.trim() || null,
+      price_cents:   price_cents,
+      features:      features,
+      display_order: parseInt(document.getElementById('pkg-order').value, 10) || 0,
+      is_active:     document.getElementById('pkg-active').value === 'true',
+    };
+
+    var method = _editingPkgId ? 'PATCH' : 'POST';
+    var path   = '/api/admin/config/packages' + (_editingPkgId ? '/' + _editingPkgId : '');
+
+    api(method, path, payload).then(function (body) {
+      if (!body.success) throw new Error(body.message || 'Save failed');
+      closePkgModal();
+      return loadPackagesPromise();
+    }).then(function () {
+      toast('Package saved');
+    }).catch(function (err) { toast(err.message || 'Save failed', true); });
+  });
+
+  function loadPackagesPromise() {
+    return api('GET', '/api/admin/config/packages').then(function (body) {
+      if (!body.success) throw new Error(body.message || 'Failed to load');
+      _packages = body.data;
+      renderPackages();
+    });
+  }
+
+  // ── XSS safety ───────────────────────────────────────────────────────────
+  function escHtml(s) {
+    return String(s == null ? '' : s)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+
+  // ── Init ──────────────────────────────────────────────────────────────────
+  loadPlatform();
+  loadWidgets();
+  loadPackages();
+
+})();
+</script>
+
+</body>
+</html>

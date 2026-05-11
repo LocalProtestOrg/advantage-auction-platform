@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex">
+  <title>Featured Lots Widget — Demo</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f8fafc; color: #1e293b; }
+
+    header { background: #1e293b; color: #fff; padding: 20px 32px; }
+    header h1 { margin: 0; font-size: 20px; font-weight: 600; }
+    header p  { margin: 6px 0 0; font-size: 14px; color: #94a3b8; }
+
+    .page { max-width: 1100px; margin: 0 auto; padding: 32px 24px; }
+    h2 { font-size: 17px; font-weight: 600; margin: 0 0 6px; }
+    .desc { margin: 0 0 18px; font-size: 14px; color: #64748b; line-height: 1.6; }
+    .code-block {
+      background: #1e293b; color: #e2e8f0;
+      border-radius: 8px; padding: 16px 20px;
+      font-family: 'SFMono-Regular', Consolas, monospace; font-size: 12.5px;
+      line-height: 1.6; white-space: pre; overflow-x: auto; margin-bottom: 24px;
+    }
+    .divider { border: none; border-top: 1px solid #e2e8f0; margin: 40px 0; }
+    .widget-box { background: #fff; border: 1px solid #e2e8f0; border-radius: 10px; padding: 24px; margin-bottom: 16px; }
+    .widget-label { font-size: 12px; font-weight: 600; color: #64748b; letter-spacing: .07em; text-transform: uppercase; margin-bottom: 20px; }
+    .event-log { background: #f1f5f9; border: 1px solid #e2e8f0; border-radius: 8px; padding: 14px 16px; font-family: monospace; font-size: 12px; color: #475569; max-height: 120px; overflow-y: auto; margin-top: 16px; }
+    .event-log p { margin: 0 0 4px; }
+    .ev-name { color: #2563eb; font-weight: 600; }
+    .ev-dim  { color: #94a3b8; }
+    table { width: 100%; border-collapse: collapse; font-size: 14px; }
+    thead tr { border-bottom: 2px solid #e2e8f0; }
+    tbody tr { border-bottom: 1px solid #e2e8f0; }
+    th, td { text-align: left; padding: 9px 12px; }
+    th { font-weight: 600; }
+    code { background: #f1f5f9; padding: 1px 5px; border-radius: 3px; font-size: 12px; }
+    .notice { background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; padding: 14px 16px; font-size: 13px; color: #1e40af; margin-bottom: 24px; line-height: 1.6; }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>Featured Lots Widget — Demo</h1>
+  <p>Image-first lot showcase. Configurable via AAPConfig — zero hardcoded business variables.</p>
+</header>
+
+<div class="page">
+
+  <!-- ── Live demo ──────────────────────────────────────────────────────────── -->
+  <h2>Live demo — with shared platform layer</h2>
+  <p class="desc">
+    All business-facing variables (badge labels, CTA copy, display limits) come from
+    <code>AAPConfig</code>. Data attributes on the container element override config values per-embed.
+    A seller CTA card appears at the end of the grid when <code>marketplace.cta.url</code> is configured.
+  </p>
+
+  <div class="notice">
+    <strong>Data note:</strong> <code>GET /api/public/featured-lots</code> only returns lots marked
+    <code>is_featured = true</code> on active or published auctions. If this demo shows empty state,
+    ask an admin to mark some lots as featured via the admin interface.
+  </div>
+
+  <div class="widget-box">
+    <div class="widget-label">Live preview — full shared layer</div>
+    <div id="aap-featured-lots"
+         data-api-base=""
+         data-limit="6"
+         data-theme="light">
+    </div>
+    <div class="event-log" id="event-log-full">
+      <p><span class="ev-dim">— Analytics events will appear here —</span></p>
+    </div>
+  </div>
+
+  <hr class="divider">
+
+  <!-- ── Embed snippets ─────────────────────────────────────────────────────── -->
+  <h2>Simple embed — single script, self-contained</h2>
+  <p class="desc">
+    Widget carries inline fallbacks for all components. Works with one script tag and no dependencies.
+    Business variables fall back to platform defaults when AAPConfig is not loaded.
+  </p>
+  <div class="code-block">&lt;div id="aap-featured-lots"
+     data-api-base="https://auctions.advantage.bid"
+     data-limit="6"&gt;
+&lt;/div&gt;
+&lt;script src="https://auctions.advantage.bid/widgets/featured-lots.js"&gt;&lt;/script&gt;</div>
+
+  <h2>Full platform layer — recommended for multi-widget pages</h2>
+  <p class="desc">
+    Load shared utilities, config, and components once. All widgets on the page share one copy of
+    each dependency. Configure marketplace variables centrally via <code>AAPConfig.set()</code>.
+  </p>
+  <div class="code-block">&lt;!-- 1. Utilities and config --&gt;
+&lt;script src="https://auctions.advantage.bid/widgets/shared/utils.js"&gt;&lt;/script&gt;
+&lt;script src="https://auctions.advantage.bid/widgets/shared/config.js"&gt;&lt;/script&gt;
+
+&lt;!-- 2. Configure marketplace variables --&gt;
+&lt;script&gt;
+  AAPConfig.set({
+    'marketplace.cta.url':      'https://auctions.advantage.bid/seller-create.html',
+    'marketplace.cta.headline': 'Consigning an Estate?',
+    'marketplace.cta.label':    'Start Consigning',
+    'widget.limit':             6,
+    'marketplace.badge.ending_soon_threshold_min': 120,
+  });
+&lt;/script&gt;
+
+&lt;!-- 3. Shared UI components --&gt;
+&lt;script src="https://auctions.advantage.bid/widgets/shared/components/badge.js"&gt;&lt;/script&gt;
+&lt;script src="https://auctions.advantage.bid/widgets/shared/components/skeleton-card.js"&gt;&lt;/script&gt;
+&lt;script src="https://auctions.advantage.bid/widgets/shared/components/auction-card.js"&gt;&lt;/script&gt;
+&lt;script src="https://auctions.advantage.bid/widgets/shared/components/seller-cta.js"&gt;&lt;/script&gt;
+&lt;script src="https://auctions.advantage.bid/widgets/shared/components/empty-state.js"&gt;&lt;/script&gt;
+&lt;script src="https://auctions.advantage.bid/widgets/shared/components/error-state.js"&gt;&lt;/script&gt;
+
+&lt;!-- 4. Widget --&gt;
+&lt;div id="aap-featured-lots"
+     data-api-base="https://auctions.advantage.bid"
+     data-limit="6"
+     data-theme="light"&gt;
+&lt;/div&gt;
+&lt;script src="https://auctions.advantage.bid/widgets/featured-lots.js"&gt;&lt;/script&gt;</div>
+
+  <h2>Inline config block — alternative to AAPConfig.set()</h2>
+  <p class="desc">
+    Place a <code>&lt;script type="application/json" id="aap-config"&gt;</code> block anywhere
+    on the page before widgets load. <code>config.js</code> reads it automatically.
+  </p>
+  <div class="code-block">&lt;script id="aap-config" type="application/json"&gt;
+{
+  "marketplace.cta.url":      "https://auctions.advantage.bid/seller-create.html",
+  "marketplace.cta.headline": "Consigning an Estate?",
+  "marketplace.badge.ending_soon_threshold_min": 90,
+  "widget.limit": 8
+}
+&lt;/script&gt;
+
+&lt;script src="https://auctions.advantage.bid/widgets/shared/config.js"&gt;&lt;/script&gt;
+&lt;!-- config.js reads the block above during its own initialization --&gt;</div>
+
+  <h2>Multi-widget page — featured lots + featured near you</h2>
+  <p class="desc">
+    Both widgets coexist on one page. Config and components are shared. CSS namespacing
+    (<code>aapfl-</code> vs <code>aapny-</code>) prevents style collisions.
+  </p>
+  <div class="code-block">&lt;!-- shared layer loaded once --&gt;
+&lt;script src=".../shared/utils.js"&gt;&lt;/script&gt;
+&lt;script src=".../shared/config.js"&gt;&lt;/script&gt;
+&lt;script&gt;AAPConfig.set({ 'marketplace.cta.url': '...', 'widget.limit': 6 });&lt;/script&gt;
+&lt;script src=".../shared/components/badge.js"&gt;&lt;/script&gt;
+&lt;script src=".../shared/components/skeleton-card.js"&gt;&lt;/script&gt;
+&lt;script src=".../shared/components/auction-card.js"&gt;&lt;/script&gt;
+&lt;script src=".../shared/components/seller-cta.js"&gt;&lt;/script&gt;
+&lt;script src=".../shared/components/empty-state.js"&gt;&lt;/script&gt;
+&lt;script src=".../shared/components/error-state.js"&gt;&lt;/script&gt;
+
+&lt;!-- Widget A: Featured Near You --&gt;
+&lt;div id="aap-featured-near-you" data-api-base="..." data-use-geolocation="true"&gt;&lt;/div&gt;
+&lt;script src=".../widgets/featured-near-you.js"&gt;&lt;/script&gt;
+
+&lt;!-- Widget B: Featured Lots --&gt;
+&lt;div id="aap-featured-lots" data-api-base="..."&gt;&lt;/div&gt;
+&lt;script src=".../widgets/featured-lots.js"&gt;&lt;/script&gt;</div>
+
+  <hr class="divider">
+
+  <!-- ── Analytics ──────────────────────────────────────────────────────────── -->
+  <h2>Analytics integration</h2>
+  <div class="code-block">var container = document.getElementById('aap-featured-lots');
+
+// Fires after widget renders
+container.addEventListener('aap:widget:loaded', function (e) {
+  // { widgetId: 'aap-featured-lots', resultCount: 6, source: 'featured-lots' }
+  gtag('event', 'widget_loaded', e.detail);
+});
+
+// Fires when a visitor clicks a lot card
+container.addEventListener('aap:lot:click', function (e) {
+  // { lotId, lotTitle, auctionId, auctionTitle }
+  gtag('event', 'lot_card_click', e.detail);
+  // Route to your lot detail page using auctionId + lotId
+});
+
+// Fires when CTA button is clicked
+container.addEventListener('aap:cta:click', function (e) {
+  gtag('event', 'seller_cta_click', e.detail);
+});</div>
+
+  <hr class="divider">
+
+  <!-- ── Config reference ───────────────────────────────────────────────────── -->
+  <h2>Widget configuration reference</h2>
+  <table>
+    <thead><tr><th>data-* attribute</th><th>AAPConfig key</th><th>Default</th><th>Description</th></tr></thead>
+    <tbody>
+      <tr><td><code>data-api-base</code></td><td>—</td><td>(same origin)</td><td>API host</td></tr>
+      <tr><td><code>data-limit</code></td><td><code>widget.limit</code></td><td>6</td><td>Cards to show (1–12)</td></tr>
+      <tr><td><code>data-auction-state</code></td><td>—</td><td>(all)</td><td>Filter: <code>published</code>|<code>active</code>|<code>closed</code></td></tr>
+      <tr><td><code>data-theme</code></td><td>—</td><td>light</td><td><code>light</code> or <code>dark</code></td></tr>
+      <tr><td><code>data-seller-cta-url</code></td><td><code>marketplace.cta.url</code></td><td>none (CTA hidden)</td><td>Seller CTA link</td></tr>
+      <tr><td><code>data-seller-cta-headline</code></td><td><code>marketplace.cta.headline</code></td><td>Consigning an Estate?</td><td>CTA card headline</td></tr>
+      <tr><td><code>data-seller-cta-label</code></td><td><code>marketplace.cta.label</code></td><td>Learn More</td><td>CTA button label</td></tr>
+    </tbody>
+  </table>
+
+  <hr class="divider">
+
+  <h2>AAPConfig marketplace keys (admin-editable in future)</h2>
+  <table>
+    <thead><tr><th>Key</th><th>Default</th><th>Description</th></tr></thead>
+    <tbody>
+      <tr><td><code>marketplace.badge.live</code></td><td>LIVE NOW</td><td>Status badge for active auctions</td></tr>
+      <tr><td><code>marketplace.badge.upcoming</code></td><td>UPCOMING</td><td>Status badge for published auctions</td></tr>
+      <tr><td><code>marketplace.badge.ships</code></td><td>Ships nationwide</td><td>Shipping badge label</td></tr>
+      <tr><td><code>marketplace.badge.ending_soon</code></td><td>Ending Soon</td><td>Urgency badge label</td></tr>
+      <tr><td><code>marketplace.badge.ending_soon_threshold_min</code></td><td>120</td><td>Minutes remaining to trigger ending-soon badge</td></tr>
+      <tr><td><code>marketplace.card.image_height_px</code></td><td>168</td><td>Card image area height in px</td></tr>
+      <tr><td><code>marketplace.card.show_seller</code></td><td>true</td><td>Show seller display name on cards</td></tr>
+      <tr><td><code>marketplace.card.show_lot_count</code></td><td>true</td><td>Show lot count on auction cards</td></tr>
+      <tr><td><code>marketplace.card.show_bid</code></td><td>true</td><td>Show current/starting bid on lot cards</td></tr>
+      <tr><td><code>marketplace.shipping.show_badge</code></td><td>true</td><td>Show shipping badge when lot is shippable</td></tr>
+    </tbody>
+  </table>
+
+</div>
+
+<!-- ── Scripts ──────────────────────────────────────────────────────────────── -->
+<script src="shared/utils.js"></script>
+<script src="shared/config.js"></script>
+
+<!-- Configure marketplace variables for this demo -->
+<script>
+  AAPConfig.set({
+    'marketplace.cta.url':      '/seller-create.html',
+    'marketplace.cta.headline': 'Consigning an Estate?',
+    'marketplace.cta.label':    'Start Consigning',
+  });
+</script>
+
+<script src="shared/components/badge.js"></script>
+<script src="shared/components/skeleton-card.js"></script>
+<script src="shared/components/auction-card.js"></script>
+<script src="shared/components/seller-cta.js"></script>
+<script src="shared/components/empty-state.js"></script>
+<script src="shared/components/error-state.js"></script>
+
+<script src="featured-lots.js"></script>
+
+<!-- Demo: capture and display analytics events -->
+<script>
+  (function () {
+    var log  = document.getElementById('event-log-full');
+    function addEntry(name, detail) {
+      if (log.querySelector('.ev-dim')) log.innerHTML = '';
+      var p = document.createElement('p');
+      p.innerHTML = '<span class="ev-name">' + name + '</span> <span class="ev-dim">' + JSON.stringify(detail) + '</span>';
+      log.appendChild(p);
+      log.scrollTop = log.scrollHeight;
+    }
+    var c = document.getElementById('aap-featured-lots');
+    if (c) {
+      ['aap:widget:loaded', 'aap:lot:click', 'aap:cta:click'].forEach(function (ev) {
+        c.addEventListener(ev, function (e) { addEntry(e.type, e.detail); });
+      });
+    }
+  })();
+</script>
+
+</body>
+</html>

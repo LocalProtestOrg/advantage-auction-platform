@@ -446,4 +446,9 @@ router.patch('/auctions/:auctionId/discovery', auth, role(['admin']), async (req
   } catch (err) { next(err); }
 });
 
+// ── Config sub-router ─────────────────────────────────────────────────────────
+// Handles /api/admin/config/platform, /widgets, /packages
+// Auth + role enforcement is applied inside adminConfig.js
+router.use('/config', require('./adminConfig').router);
+
 module.exports = router;

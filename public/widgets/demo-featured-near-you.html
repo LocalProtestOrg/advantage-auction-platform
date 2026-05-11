@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex">
+  <title>Featured Auctions Near You — Widget Demo</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f8fafc; color: #1e293b; }
+
+    header { background: #1e293b; color: #fff; padding: 20px 32px; }
+    header h1 { margin: 0; font-size: 20px; font-weight: 600; }
+    header p  { margin: 6px 0 0; font-size: 14px; color: #94a3b8; }
+
+    .page { max-width: 1100px; margin: 0 auto; padding: 32px 24px; }
+
+    h2 { font-size: 17px; font-weight: 600; margin: 0 0 6px; }
+    .section-desc { margin: 0 0 16px; font-size: 14px; color: #64748b; line-height: 1.6; }
+
+    .code-block {
+      background: #1e293b; color: #e2e8f0;
+      border-radius: 8px; padding: 16px 20px;
+      font-family: 'SFMono-Regular', Consolas, monospace; font-size: 12.5px;
+      line-height: 1.6; white-space: pre; overflow-x: auto;
+      margin-bottom: 24px;
+    }
+
+    .divider { border: none; border-top: 1px solid #e2e8f0; margin: 40px 0; }
+
+    .widget-box {
+      background: #fff; border: 1px solid #e2e8f0;
+      border-radius: 10px; padding: 24px;
+      margin-bottom: 12px;
+    }
+    .widget-box.dark-box { background: #0f172a; border-color: #1e293b; }
+
+    .widget-label {
+      font-size: 12px; font-weight: 600; color: #64748b;
+      letter-spacing: .07em; text-transform: uppercase;
+      margin-bottom: 20px;
+    }
+    .dark-box .widget-label { color: #475569; }
+
+    .event-log {
+      background: #f1f5f9; border: 1px solid #e2e8f0; border-radius: 8px;
+      padding: 14px 16px; font-family: monospace; font-size: 12px;
+      color: #475569; max-height: 140px; overflow-y: auto;
+      margin-top: 16px;
+    }
+    .event-log p { margin: 0 0 4px; }
+    .event-log p:last-child { margin-bottom: 0; }
+    .event-log .ev-name { color: #2563eb; font-weight: 600; }
+    .event-log .ev-dim  { color: #94a3b8; }
+
+    table { width: 100%; border-collapse: collapse; font-size: 14px; }
+    thead tr { border-bottom: 2px solid #e2e8f0; }
+    tbody tr { border-bottom: 1px solid #e2e8f0; }
+    th, td { text-align: left; padding: 9px 12px; }
+    th { font-weight: 600; }
+    code { background: #f1f5f9; padding: 1px 5px; border-radius: 3px; font-size: 12px; }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>Featured Auctions Near You — Widget Demo</h1>
+  <p>Production-ready embed for BD and partner pages. Self-contained, zero dependencies, XSS-safe.</p>
+</header>
+
+<div class="page">
+
+  <!-- ── Live demo ──────────────────────────────────────────────────────────── -->
+  <h2>Live demo — geo-enabled with seller CTA</h2>
+  <p class="section-desc">
+    Requests the visitor's location (if <code>data-use-geolocation="true"</code>).
+    Fetches featured auctions near them. If permission is denied or no geo-filtered results
+    exist, falls back gracefully to the national featured feed. A seller CTA card appears
+    at the end of the grid.
+  </p>
+
+  <div class="widget-box">
+    <div class="widget-label">Live preview</div>
+
+    <div id="aap-featured-near-you"
+         data-api-base=""
+         data-limit="6"
+         data-radius-km="300"
+         data-use-geolocation="true"
+         data-geo-timeout-ms="5000"
+         data-theme="light"
+         data-seller-cta-url="/seller-create.html"
+         data-seller-cta-headline="Consigning an Estate?"
+         data-seller-cta-label="Start Consigning">
+    </div>
+
+    <div class="event-log" id="event-log">
+      <p><span class="ev-dim">— Analytics events will appear here —</span></p>
+    </div>
+  </div>
+
+  <hr class="divider">
+
+  <!-- ── Embed snippets ─────────────────────────────────────────────────────── -->
+  <h2>Embed snippet — basic (no geolocation)</h2>
+  <p class="section-desc">
+    Returns the national featured feed sorted by marketplace priority.
+    No browser permission dialog. Simplest embed — one script tag.
+  </p>
+  <div class="code-block">&lt;div id="aap-featured-near-you"
+     data-api-base="https://auctions.advantage.bid"
+     data-limit="6"&gt;
+&lt;/div&gt;
+&lt;script src="https://auctions.advantage.bid/widgets/featured-near-you.js"&gt;&lt;/script&gt;</div>
+
+  <h2>Embed snippet — geo-enabled with radius</h2>
+  <p class="section-desc">
+    Asks the visitor for their location and shows auctions within 200 km.
+    Falls back to the national feed if permission is denied or no nearby results exist.
+  </p>
+  <div class="code-block">&lt;div id="aap-featured-near-you"
+     data-api-base="https://auctions.advantage.bid"
+     data-limit="6"
+     data-use-geolocation="true"
+     data-radius-km="200"&gt;
+&lt;/div&gt;
+&lt;script src="https://auctions.advantage.bid/widgets/featured-near-you.js"&gt;&lt;/script&gt;</div>
+
+  <h2>Embed snippet — dark theme with seller CTA</h2>
+  <p class="section-desc">
+    Dark theme switches via a CSS class on the grid — no re-injection of styles.
+    The seller CTA card appears at the end of the results grid.
+  </p>
+  <div class="code-block">&lt;div id="aap-featured-near-you"
+     data-api-base="https://auctions.advantage.bid"
+     data-limit="6"
+     data-use-geolocation="true"
+     data-radius-km="300"
+     data-theme="dark"
+     data-seller-cta-url="https://auctions.advantage.bid/seller-create.html"
+     data-seller-cta-headline="Consigning an Estate?"
+     data-seller-cta-label="Start Consigning"&gt;
+&lt;/div&gt;
+&lt;script src="https://auctions.advantage.bid/widgets/featured-near-you.js"&gt;&lt;/script&gt;</div>
+
+  <h2>Embed snippet — with shared utils (multiple widgets on one page)</h2>
+  <p class="section-desc">
+    Load <code>shared/utils.js</code> before both widget scripts. Utilities are
+    shared in memory — only one copy of <code>esc()</code>, <code>fmtDate()</code>
+    etc. regardless of how many widgets are on the page.
+  </p>
+  <div class="code-block">&lt;!-- Utilities — load once, before any widget --&gt;
+&lt;script src="https://auctions.advantage.bid/widgets/shared/utils.js"&gt;&lt;/script&gt;
+
+&lt;!-- Widget A: Featured Near You --&gt;
+&lt;div id="aap-featured-near-you" data-api-base="..." data-use-geolocation="true"&gt;&lt;/div&gt;
+&lt;script src="https://auctions.advantage.bid/widgets/featured-near-you.js"&gt;&lt;/script&gt;
+
+&lt;!-- Widget B: Featured Auctions (original) --&gt;
+&lt;div id="aap-featured-auctions" data-api-base="..."&gt;&lt;/div&gt;
+&lt;script src="https://auctions.advantage.bid/widgets/featured-auctions.js"&gt;&lt;/script&gt;</div>
+
+  <hr class="divider">
+
+  <!-- ── Analytics ──────────────────────────────────────────────────────────── -->
+  <h2>Analytics event integration</h2>
+  <p class="section-desc">
+    The widget fires <code>CustomEvent</code>s that bubble from the container element.
+    Listen for them on the container or any ancestor (including <code>window</code>).
+    No polling required. Events carry structured detail objects for downstream analytics
+    and tag manager integration.
+  </p>
+  <div class="code-block">var container = document.getElementById('aap-featured-near-you');
+
+// Fires when the widget finishes rendering
+container.addEventListener('aap:widget:loaded', function (e) {
+  console.log('Loaded', e.detail);
+  // { widgetId: 'aap-featured-near-you', resultCount: 6, source: 'featured' }
+  // source: 'featured' | 'near' | 'national'
+});
+
+// Fires when the widget switches from the primary to a fallback data source
+container.addEventListener('aap:widget:fallback', function (e) {
+  console.log('Fallback triggered', e.detail);
+  // { reason: 'geo-denied' | 'geo-unavailable' | 'geo-timeout' | 'no-results' }
+});
+
+// Fires when a visitor clicks an auction card
+container.addEventListener('aap:auction:click', function (e) {
+  console.log('Card clicked', e.detail);
+  // { auctionId, title, distanceKm, source }
+  // Route the visitor to your auction detail page using auctionId.
+});
+
+// Fires when a visitor clicks the seller CTA button
+container.addEventListener('aap:cta:click', function (e) {
+  console.log('CTA clicked', e.detail);
+  // { widgetId: 'aap-featured-near-you' }
+});</div>
+
+  <hr class="divider">
+
+  <!-- ── Config reference ───────────────────────────────────────────────────── -->
+  <h2>Configuration reference</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>Attribute</th>
+        <th>Default</th>
+        <th>Description</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>data-api-base</code></td>
+        <td>(same origin)</td>
+        <td>API host, e.g. <code>https://auctions.advantage.bid</code></td>
+      </tr>
+      <tr>
+        <td><code>data-limit</code></td>
+        <td>6</td>
+        <td>Number of auction cards (1–12)</td>
+      </tr>
+      <tr>
+        <td><code>data-use-geolocation</code></td>
+        <td>false</td>
+        <td>Set to <code>true</code> to request browser location</td>
+      </tr>
+      <tr>
+        <td><code>data-radius-km</code></td>
+        <td>200</td>
+        <td>Search radius in km when geolocation is active (1–800)</td>
+      </tr>
+      <tr>
+        <td><code>data-geo-timeout-ms</code></td>
+        <td>5000</td>
+        <td>Geolocation request timeout in ms (1000–15000)</td>
+      </tr>
+      <tr>
+        <td><code>data-theme</code></td>
+        <td>light</td>
+        <td><code>light</code> or <code>dark</code></td>
+      </tr>
+      <tr>
+        <td><code>data-seller-cta-url</code></td>
+        <td>(none)</td>
+        <td>Seller CTA card link. Omit to hide the CTA card entirely.</td>
+      </tr>
+      <tr>
+        <td><code>data-seller-cta-headline</code></td>
+        <td>Consigning an Estate?</td>
+        <td>CTA card headline text</td>
+      </tr>
+      <tr>
+        <td><code>data-seller-cta-label</code></td>
+        <td>Learn More</td>
+        <td>CTA button label</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <hr class="divider">
+
+  <!-- ── Fetch strategy ─────────────────────────────────────────────────────── -->
+  <h2>Fetch strategy</h2>
+  <table>
+    <thead>
+      <tr><th>Condition</th><th>Primary endpoint</th><th>Fallback endpoint</th><th>source</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Geo granted + featured results exist nearby</td>
+        <td><code>/api/public/featured-auctions?lat=…&amp;lng=…</code></td>
+        <td>—</td>
+        <td><code>featured</code></td>
+      </tr>
+      <tr>
+        <td>Geo granted + no featured results nearby</td>
+        <td><code>/api/public/featured-auctions?lat=…&amp;lng=…</code> (empty)</td>
+        <td><code>/api/public/auctions/near?lat=…&amp;lng=…</code></td>
+        <td><code>near</code></td>
+      </tr>
+      <tr>
+        <td>Geo denied / unavailable / timed out</td>
+        <td><code>/api/public/featured-auctions</code></td>
+        <td>—</td>
+        <td><code>national</code></td>
+      </tr>
+      <tr>
+        <td>Geolocation not requested (<code>data-use-geolocation</code> omitted)</td>
+        <td><code>/api/public/featured-auctions</code></td>
+        <td>—</td>
+        <td><code>national</code></td>
+      </tr>
+    </tbody>
+  </table>
+
+</div>
+
+<!-- ── Scripts ──────────────────────────────────────────────────────────────── -->
+<script src="shared/utils.js"></script>
+<script src="featured-near-you.js"></script>
+
+<script>
+  // Demo: capture analytics events and display them in the event log
+  (function () {
+    var log  = document.getElementById('event-log');
+    var init = log.innerHTML;
+
+    function addEntry(name, detail) {
+      if (log.querySelector('.ev-dim')) log.innerHTML = '';
+      var p = document.createElement('p');
+      p.innerHTML = '<span class="ev-name">' + name + '</span> '
+        + '<span class="ev-dim">' + JSON.stringify(detail) + '</span>';
+      log.appendChild(p);
+      log.scrollTop = log.scrollHeight;
+    }
+
+    var container = document.getElementById('aap-featured-near-you');
+    ['aap:widget:loaded', 'aap:widget:fallback', 'aap:auction:click', 'aap:cta:click']
+      .forEach(function (ev) {
+        container.addEventListener(ev, function (e) { addEntry(e.type, e.detail); });
+      });
+  })();
+</script>
+
+</body>
+</html>

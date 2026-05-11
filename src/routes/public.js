@@ -638,4 +638,55 @@ router.get('/sellers/:sellerId/profile', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
+// ── GET /api/public/config ────────────────────────────────────────────────────
+// Returns safe marketplace-facing configuration for widget consumption.
+// Only exposes presentation variables (badge labels, CTA copy, card controls).
+// Never exposes pricing, ranking weights, admin notes, or internal fields.
+//
+// Widgets call this endpoint via AAPConfig.loadRemote() to receive admin-edited
+// values without a page reload or code deploy. 5-minute cache is intentional —
+// config changes are low-urgency and cache miss pressure is low.
+router.get('/config', async (req, res, next) => {
+  try {
+    const { PUBLIC_KEY_ALLOWLIST } = require('./adminConfig');
+    const publicKeys = Array.from(PUBLIC_KEY_ALLOWLIST);
+
+    const { rows } = await db.query(
+      `SELECT key, value
+         FROM platform_settings
+        WHERE key = ANY($1::text[])`,
+      [publicKeys]
+    );
+
+    const data = {};
+    rows.forEach(r => { data[r.key] = r.value; });
+
+    res.set('Cache-Control', 's-maxage=300, stale-while-revalidate=60');
+    return res.json({ success: true, data });
+  } catch (err) { next(err); }
+});
+
+// ── GET /api/public/config/widgets/:slug ─────────────────────────────────────
+// Returns public widget defaults for a given widget slug.
+// Widgets use this to fetch their specific display defaults at init time.
+const ALLOWED_WIDGET_SLUGS = ['featured-lots', 'featured-near-you'];
+
+router.get('/config/widgets/:slug', async (req, res, next) => {
+  try {
+    const { slug } = req.params;
+    if (!ALLOWED_WIDGET_SLUGS.includes(slug)) {
+      return res.status(404).json({ success: false, message: 'Widget not found' });
+    }
+
+    const { rows } = await db.query(
+      `SELECT settings FROM widget_settings WHERE widget_slug = $1`,
+      [slug]
+    );
+
+    const settings = rows.length ? rows[0].settings : {};
+    res.set('Cache-Control', 's-maxage=300, stale-while-revalidate=60');
+    return res.json({ success: true, data: { widget_slug: slug, settings } });
+  } catch (err) { next(err); }
+});
+
 module.exports = router;
