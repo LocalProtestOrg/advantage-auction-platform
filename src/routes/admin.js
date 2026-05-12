@@ -290,7 +290,15 @@ router.post('/email/test', auth, role(['admin']), async (req, res, next) => {
       email_configured: true,
     });
   } catch (err) {
-    next(err);
+    // Surface SMTP errors directly — this is an admin diagnostic endpoint,
+    // generic 500 conceals the actionable error (e.g. "Connection timeout").
+    return res.status(502).json({
+      success: false,
+      message: 'SMTP delivery failed',
+      smtp_error: err.message,
+      smtp_host: process.env.SMTP_HOST,
+      smtp_port: process.env.SMTP_PORT,
+    });
   }
 });
 
