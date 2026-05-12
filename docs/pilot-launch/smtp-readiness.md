@@ -8,12 +8,47 @@ See also: `docs/email-launch-checklist.md` (full provider guide)
 
 ## Current Status
 
-**SMTP configured in Railway — validation pending.**
+**SMTP configured in Railway — outbound port blocked by Railway network.**
 
-Railway environment variables were set for `info@advantage.bid`.
-Local dev server (port 3002) still shows `email_configured: false` — expected,
-because it loaded before the Railway variables were changed. Production Railway
-server requires a deploy/restart to pick them up.
+Railway environment variables are correctly set. Production health endpoint returns
+`email_configured: true`. Notification worker started in delivery mode.
+
+SMTP delivery is blocked at the network level — Railway's infrastructure does not
+allow outbound TCP connections to port 465 (SMTPS) from application containers
+by default. This is a Railway firewall policy, not a code or configuration error.
+
+### What was validated
+- `GET /api/health` → `{ email_configured: true }` ✅
+- Notification worker: `[notify] Worker started — polling every 5s` ✅
+- SMTP env vars present and readable at runtime ✅
+- Code correctly uses `secure: true` for port 465, `EMAIL_FROM` from `SMTP_FROM` ✅
+- `POST /api/admin/email/test` → `502 { smtp_error: "Connection timeout", smtp_host: "mail.advantage.bid", smtp_port: "465" }` — network blocked
+
+### Root cause
+```
+Railway container → TCP SYN → mail.advantage.bid:465 → [Railway egress firewall drops packet]
+```
+`mail.advantage.bid` ports 465 and 587 are both open and reachable from the
+internet (confirmed from dev machine). The block is Railway-side.
+
+### Resolution options
+
+**Option A — Request Railway to unblock outbound SMTP (preferred)**
+1. Go to https://discord.gg/railway (Railway community) or https://help.railway.com
+2. Request: "Please unblock outbound TCP ports 465 and 587 for project
+   e327dbb4-ab21-41de-980a-c2c83e43904e (Advantage Auction)"
+3. Once unblocked, no code changes needed — the current configuration will work
+
+**Option B — Switch to a managed transactional SMTP relay**
+Change 4 Railway env vars to use a provider that Railway's infrastructure can reach:
+
+| Provider | SMTP_HOST | SMTP_PORT | SMTP_SECURE | Notes |
+|---|---|---|---|---|
+| Postmark | smtp.postmarkapp.com | 587 | false | Best deliverability |
+| Gmail SMTP | smtp.gmail.com | 587 | false | Use App Password |
+| SendGrid | smtp.sendgrid.net | 587 | false | Free 100/day tier |
+
+For Option B, also update `EMAIL_FROM` to a verified sender address for that provider.
 
 ---
 
