@@ -14,10 +14,13 @@ function buildTransporter() {
   const port   = parseInt(SMTP_PORT || '587', 10);
   const secure = SMTP_SECURE === 'true' || SMTP_SECURE === '1' || port === 465;
   return nodemailer.createTransport({
-    host: SMTP_HOST,
+    host:             SMTP_HOST,
     port,
     secure,
-    auth: { user: SMTP_USER, pass: SMTP_PASS }
+    auth:             { user: SMTP_USER, pass: SMTP_PASS },
+    connectionTimeout: 15_000,
+    greetingTimeout:   10_000,
+    socketTimeout:     30_000,
   });
 }
 
