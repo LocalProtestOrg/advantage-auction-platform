@@ -7,14 +7,16 @@ function formatCents(cents) {
 }
 
 function buildTransporter() {
-  const { SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS } = process.env;
+  const { SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, SMTP_SECURE } = process.env;
   if (!SMTP_HOST || !SMTP_USER || !SMTP_PASS) {
     throw new Error('Email config missing: set SMTP_HOST, SMTP_USER, and SMTP_PASS in .env');
   }
+  const port   = parseInt(SMTP_PORT || '587', 10);
+  const secure = SMTP_SECURE === 'true' || SMTP_SECURE === '1' || port === 465;
   return nodemailer.createTransport({
     host: SMTP_HOST,
-    port: parseInt(SMTP_PORT || '587', 10),
-    secure: false,
+    port,
+    secure,
     auth: { user: SMTP_USER, pass: SMTP_PASS }
   });
 }
@@ -100,8 +102,9 @@ async function sendOperationalCloseEmail(auctionId) {
 
   const transporter = buildTransporter();
 
+  const fromAddress = process.env.EMAIL_FROM || process.env.SMTP_FROM || process.env.SMTP_USER || 'noreply@advantageauction.bid';
   await transporter.sendMail({
-    from:    process.env.EMAIL_FROM || 'noreply@advantageauction.bid',
+    from:    fromAddress,
     to:      seller_email,
     subject: `[Auction Closed] ${title}`,
     text:    lines.join('\n')
