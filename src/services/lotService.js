@@ -36,9 +36,12 @@ async function createLot(auctionId, userId, data) {
        pickup_category, category,
        condition, material, era, maker_artist, weight,
        dimensions, shippable,
+       lot_number,
        state
      )
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,'open')
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,
+             (SELECT COALESCE(MAX(lot_number), 0) + 1 FROM lots WHERE auction_id = $1),
+             'open')
      RETURNING *`,
     [
       auctionId,
@@ -168,9 +171,12 @@ async function adminCreateLot(auctionId, data) {
        pickup_category, category,
        condition, material, era, maker_artist, weight,
        dimensions, shippable,
+       lot_number,
        state
      )
-     VALUES ($1,$2,$3,$4,500,$5,$6,$7,$8,$9,$10,$11,$12,$13,'open')
+     VALUES ($1,$2,$3,$4,500,$5,$6,$7,$8,$9,$10,$11,$12,$13,
+             (SELECT COALESCE(MAX(lot_number), 0) + 1 FROM lots WHERE auction_id = $1),
+             'open')
      RETURNING *`,
     [
       auctionId,

@@ -68,8 +68,9 @@ router.post('/', auth, async (req, res, next) => {
   try {
     const { auctionId, title, description, size_category, pickup_category, bid_increment_cents, starting_bid_cents } = req.body;
     const result = await db.query(
-      `INSERT INTO lots (auction_id, title, description, size_category, pickup_category, bid_increment_cents, starting_bid_cents)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)
+      `INSERT INTO lots (auction_id, title, description, size_category, pickup_category, bid_increment_cents, starting_bid_cents, lot_number)
+       VALUES ($1, $2, $3, $4, $5, $6, $7,
+               (SELECT COALESCE(MAX(lot_number), 0) + 1 FROM lots WHERE auction_id = $1))
        RETURNING *`,
       [auctionId, title, description, size_category || null, pickup_category || null, bid_increment_cents || null, starting_bid_cents || null]
     );
@@ -227,7 +228,7 @@ router.put('/:lotId', auth, async (req, res, next) => {
       title, description, category, size_category, pickup_category,
       bid_increment_cents, starting_bid_cents,
       condition, material, era, maker_artist, weight,
-      dimensions, shippable,
+      dimensions, shippable, closes_at,
     } = req.body;
     const result = await db.query(
       `UPDATE lots
@@ -245,8 +246,9 @@ router.put('/:lotId', auth, async (req, res, next) => {
            weight              = $12,
            dimensions          = COALESCE($13::jsonb, dimensions),
            shippable           = COALESCE($14, shippable),
+           closes_at           = COALESCE($15::timestamptz, closes_at),
            updated_at          = NOW()
-       WHERE id = $15
+       WHERE id = $16
        RETURNING *`,
       [
         title,
@@ -263,6 +265,7 @@ router.put('/:lotId', auth, async (req, res, next) => {
         weight          || null,
         dimensions ? JSON.stringify(dimensions) : null,
         shippable != null ? shippable : null,
+        closes_at       || null,
         req.params.lotId,
       ]
     );
