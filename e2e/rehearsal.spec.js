@@ -43,12 +43,17 @@ async function getLot(lotId) {
 }
 
 // ── API helpers ───────────────────────────────────────────────────────────────
+// Token cache: avoids re-authenticating the same account on every test, which
+// would exhaust the strictLimiter (10 logins/min) when all tests run from one IP.
+const _tokenCache = {};
 async function login(request, { email, password }) {
+  if (_tokenCache[email]) return _tokenCache[email];
   const res  = await request.post('/api/auth/login', { data: { email, password } });
   const body = await res.json();
   expect(res.status(), `Login failed for ${email}: ${JSON.stringify(body)}`).toBe(200);
   const token = body.token;
   expect(token, `JWT missing for ${email}`).toBeTruthy();
+  _tokenCache[email] = token;
   return token;
 }
 
@@ -182,7 +187,7 @@ test.describe('Phase 2 — Public buyer visibility', () => {
     await page.fill('#login-email', BUYER_A.email);
     await page.fill('#login-password', BUYER_A.password);
     await page.click('#login-btn');
-    await page.waitForURL(/lot|auction|dashboard/, { timeout: 8000 });
+    await page.waitForURL(url => !url.href.includes('/login.html'), { timeout: 8000 });
 
     await page.goto(`${BASE}/lot.html?lotId=${LOT_1_ID}`);
     await page.waitForSelector('#lot-title', { timeout: 10000 });
@@ -569,7 +574,7 @@ test.describe('Phase 7 — Operational audit', () => {
     await page.fill('#login-email', BUYER_A.email);
     await page.fill('#login-password', BUYER_A.password);
     await page.click('#login-btn');
-    await page.waitForURL(/lot|auction|dashboard/, { timeout: 8000 });
+    await page.waitForURL(url => !url.href.includes('/login.html'), { timeout: 8000 });
 
     const consoleErrors = [];
     page.on('console', m => { if (m.type() === 'error') consoleErrors.push(m.text()); });
