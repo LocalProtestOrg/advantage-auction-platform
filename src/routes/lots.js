@@ -104,7 +104,8 @@ router.get('/auction/:auctionId/seller', auth, async (req, res, next) => {
 
 // GET /api/lots/auction/:auctionId  (must come before /:lotId)
 // Withdrawn lots are excluded — this endpoint is buyer-facing and public.
-// winning_buyer_user_id, current_winner_user_id, winning_amount_cents excluded.
+// winning_buyer_user_id and current_winner_user_id excluded; winning_amount_cents is the
+// final hammer price (public) and is included so the closed-lot display works.
 router.get('/auction/:auctionId', async (req, res, next) => {
   try {
     const result = await db.query(
@@ -113,6 +114,7 @@ router.get('/auction/:auctionId', async (req, res, next) => {
               condition, material, era, maker_artist, weight, dimensions,
               shippable, shipping_cost_cents, shipping_notes,
               starting_bid_cents, bid_increment_cents, current_bid_cents, bid_count,
+              winning_amount_cents,
               state, is_withdrawn, is_featured,
               closes_at, extended_until, extension_count,
               thumbnail_url, images_count,
@@ -285,9 +287,28 @@ router.put('/:lotId', auth, async (req, res, next) => {
   }
 });
 
+// GET /api/lots/:lotId/winner-status
+// Auth required. Returns whether the requesting user won this lot and the winning amount.
+// Never exposes winning_buyer_user_id to the client — identity check is server-side only.
+router.get('/:lotId/winner-status', authMiddleware, async (req, res, next) => {
+  try {
+    const result = await db.query(
+      `SELECT state, winning_buyer_user_id, winning_amount_cents FROM lots WHERE id = $1`,
+      [req.params.lotId]
+    );
+    const lot = result.rows[0];
+    if (!lot) return res.status(404).json({ success: false, message: 'Lot not found' });
+    const isWinner = lot.state === 'closed' && lot.winning_buyer_user_id === req.user.id;
+    res.json({ success: true, data: { is_winner: isWinner, winning_amount_cents: lot.winning_amount_cents } });
+  } catch (err) {
+    next(err);
+  }
+});
+
 // GET /api/lots/:lotId
 // Withdrawn lots return 404 — this endpoint is buyer-facing and public.
-// winning_buyer_user_id, current_winner_user_id, winning_amount_cents excluded.
+// winning_buyer_user_id and current_winner_user_id excluded; winning_amount_cents is the
+// final hammer price (public) and is included so the closed-lot display works.
 router.get('/:lotId', async (req, res, next) => {
   try {
     const result = await db.query(
@@ -296,6 +317,7 @@ router.get('/:lotId', async (req, res, next) => {
               condition, material, era, maker_artist, weight, dimensions,
               shippable, shipping_cost_cents, shipping_notes,
               starting_bid_cents, bid_increment_cents, current_bid_cents, bid_count,
+              winning_amount_cents,
               state, is_withdrawn, is_featured,
               closes_at, extended_until, extension_count,
               thumbnail_url, images_count,

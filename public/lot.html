@@ -701,7 +701,7 @@
           if (st === 'closed' || st === 'withdrawn') {
             lotClosed = true;
             applyClosedState();
-            if (ld.winning_amount_cents) renderWinnerPanel(ld);
+            if (ld.winning_amount_cents) fetchAndRenderWinnerPanel(ld.id, ld.winning_amount_cents);
           } else if (ld.closes_at && ld.closes_at !== currentClosesAt) {
             startCountdown(ld.closes_at);
           }
@@ -773,11 +773,25 @@
   }
 
   // ── Winner panel ──────────────────────────────────────────────────────────────
-  function renderWinnerPanel(lot) {
-    document.getElementById('winner-amount').textContent = '$' + (lot.winning_amount_cents / 100).toFixed(2);
+  // winningAmountCents is from the public lot endpoint (final hammer price).
+  // isWinner is fetched separately from /winner-status (server-side identity check —
+  // winning_buyer_user_id never touches the client).
+  function renderWinnerPanel(winningAmountCents, isWinner) {
+    document.getElementById('winner-amount').textContent = '$' + (winningAmountCents / 100).toFixed(2);
     document.getElementById('winner-panel').style.display = 'block';
-    if (lot.winning_buyer_user_id && lot.winning_buyer_user_id === currentUserId) {
+    if (isWinner) {
       document.getElementById('pay-btn').style.display = 'block';
+    }
+  }
+
+  async function fetchAndRenderWinnerPanel(lotId, winningAmountCents) {
+    try {
+      const res = await fetch('/api/lots/' + lotId + '/winner-status', { headers: { Authorization: 'Bearer ' + token } });
+      if (!res.ok) { renderWinnerPanel(winningAmountCents, false); return; }
+      const data = await res.json();
+      renderWinnerPanel(winningAmountCents, data.success && data.data.is_winner);
+    } catch {
+      renderWinnerPanel(winningAmountCents, false);
     }
   }
 
@@ -815,13 +829,27 @@
       details.forEach(({ label, value }) => {
         const div = document.createElement('div');
         div.className = 'detail-field';
-        div.innerHTML = `<div class="df-label">${label}</div><div class="df-value">${value}</div>`;
+        const lbl = document.createElement('div');
+        lbl.className = 'df-label';
+        lbl.textContent = label;
+        const val = document.createElement('div');
+        val.className = 'df-value';
+        val.textContent = value;
+        div.appendChild(lbl);
+        div.appendChild(val);
         container.appendChild(div);
       });
       if (dimsStr) {
         const div = document.createElement('div');
         div.className = 'detail-field detail-full';
-        div.innerHTML = `<div class="df-label">Dimensions</div><div class="df-value">${dimsStr}</div>`;
+        const lbl = document.createElement('div');
+        lbl.className = 'df-label';
+        lbl.textContent = 'Dimensions';
+        const val = document.createElement('div');
+        val.className = 'df-value';
+        val.textContent = dimsStr;
+        div.appendChild(lbl);
+        div.appendChild(val);
         container.appendChild(div);
       }
     }
@@ -830,7 +858,7 @@
     if (st === 'closed' || st === 'withdrawn') {
       lotClosed = true;
       applyClosedState();
-      if (lot.winning_amount_cents) renderWinnerPanel(lot);
+      if (lot.winning_amount_cents) fetchAndRenderWinnerPanel(lot.id, lot.winning_amount_cents);
     } else if (st === 'open' && lot.closes_at) {
       currentClosesAt = lot.closes_at;
       startCountdown(lot.closes_at);
