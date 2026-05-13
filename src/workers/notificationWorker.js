@@ -357,7 +357,7 @@ async function enqueueCloseToWinning() {
        FROM   lots l
        JOIN   bids b ON b.lot_id = l.id
                     AND b.amount_cents >= l.current_bid_cents * 0.9
-       WHERE  l.state             = 'active'
+       WHERE  l.state             IN ('open', 'active')
          AND  l.current_bid_cents  > 0
          AND  (l.current_winner_user_id IS NULL OR b.bidder_user_id != l.current_winner_user_id)
          AND  NOT EXISTS (
@@ -402,7 +402,7 @@ async function enqueueFinalSeconds() {
                 UNION
                 SELECT w.user_id, w.lot_id FROM watchlists w
               ) candidates ON candidates.lot_id = l.id
-       WHERE  l.state     = 'active'
+       WHERE  l.state     IN ('open', 'active')
          AND  l.closes_at <= NOW() + INTERVAL '10 seconds'
          AND  NOT EXISTS (
                 SELECT 1
@@ -457,7 +457,7 @@ async function enqueueEndingSoon() {
                 SELECT w.user_id, w.lot_id
                 FROM   watchlists w
               ) candidates ON candidates.lot_id = l.id
-       WHERE  l.state     = 'active'
+       WHERE  l.state     IN ('open', 'active')
          AND  l.closes_at BETWEEN NOW()
                                AND NOW() + ($1 || ' minutes')::interval
          AND  NOT EXISTS (
