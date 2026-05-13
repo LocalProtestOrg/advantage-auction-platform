@@ -63,7 +63,7 @@ async function createAuction(data) {
 // Update auction (only allowed fields, enforce ownership via seller_profiles)
 async function updateAuction(auctionId, userId, updates) {
   const allowed = [
-    'title', 'subtitle', 'description', 'state',
+    'title', 'subtitle', 'description',
     'start_time', 'end_time',
     'street_address', 'city', 'address_state', 'zip',
     'preview_start', 'preview_end',

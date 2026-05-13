@@ -2,7 +2,7 @@ const express = require('express');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const db = require('../db/index');
-const { normalLimiter } = require('../middleware/rateLimit');
+const { normalLimiter, strictLimiter } = require('../middleware/rateLimit');
 
 const router = express.Router();
 const JWT_SECRET = process.env.JWT_SECRET;
@@ -39,7 +39,7 @@ router.post('/register', normalLimiter, async (req, res) => {
 });
 
 // Login
-router.post('/login', normalLimiter, async (req, res) => {
+router.post('/login', strictLimiter, async (req, res) => {
   const { email, password } = req.body;
   if (!email || !password) {
     return res.status(400).json({ success: false, error: 'Email and password required' });

@@ -104,10 +104,20 @@ router.get('/auction/:auctionId/seller', auth, async (req, res, next) => {
 
 // GET /api/lots/auction/:auctionId  (must come before /:lotId)
 // Withdrawn lots are excluded — this endpoint is buyer-facing and public.
+// winning_buyer_user_id, current_winner_user_id, winning_amount_cents excluded.
 router.get('/auction/:auctionId', async (req, res, next) => {
   try {
     const result = await db.query(
-      `SELECT * FROM lots
+      `SELECT id, auction_id, lot_number, title, description,
+              category, size_category, pickup_category,
+              condition, material, era, maker_artist, weight, dimensions,
+              shippable, shipping_cost_cents, shipping_notes,
+              starting_bid_cents, bid_increment_cents, current_bid_cents, bid_count,
+              state, is_withdrawn, is_featured,
+              closes_at, extended_until, extension_count,
+              thumbnail_url, images_count,
+              created_at, updated_at
+       FROM lots
        WHERE auction_id = $1
          AND state != 'withdrawn'
        ORDER BY created_at ASC`,
@@ -277,10 +287,20 @@ router.put('/:lotId', auth, async (req, res, next) => {
 
 // GET /api/lots/:lotId
 // Withdrawn lots return 404 — this endpoint is buyer-facing and public.
+// winning_buyer_user_id, current_winner_user_id, winning_amount_cents excluded.
 router.get('/:lotId', async (req, res, next) => {
   try {
     const result = await db.query(
-      `SELECT * FROM lots WHERE id = $1`,
+      `SELECT id, auction_id, lot_number, title, description,
+              category, size_category, pickup_category,
+              condition, material, era, maker_artist, weight, dimensions,
+              shippable, shipping_cost_cents, shipping_notes,
+              starting_bid_cents, bid_increment_cents, current_bid_cents, bid_count,
+              state, is_withdrawn, is_featured,
+              closes_at, extended_until, extension_count,
+              thumbnail_url, images_count,
+              created_at, updated_at
+       FROM lots WHERE id = $1`,
       [req.params.lotId]
     );
     const lot = result.rows[0] || null;

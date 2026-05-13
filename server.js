@@ -80,6 +80,7 @@ log.info('startup', 'Advantage Auction Platform', {
 });
 
 const app = express();
+app.set('trust proxy', 1); // Railway sits behind a proxy; req.ip must use X-Forwarded-For
 const server = http.createServer(app);
 
 const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:3001';
