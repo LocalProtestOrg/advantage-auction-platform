@@ -1,37 +1,72 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Featured Auctions — Estate &amp; Liquidation Auction Collections | Advantage.Bid</title>
-  <meta name="description" content="Browse featured estate and liquidation auction collections. Handpicked by the Advantage.Bid team." />
-  <meta name="keywords" content="featured auctions, estate auction collections, curated liquidation auctions, handpicked estate sales, online auction browse" />
+  <title>Browse Auctions — Estate &amp; Liquidation Collections | Advantage.Bid</title>
+  <meta name="description" content="Explore quality estate and liquidation collections — furniture, art, jewelry, collectibles, and complete home contents from real sellers nationwide." />
+  <meta name="keywords" content="estate auction collections, curated liquidation auctions, quality estate items, online estate browsing, unique finds auction" />
   <link rel="canonical" href="https://advantage.bid/featured-auctions.html" />
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
 
   <!-- Open Graph -->
-  <meta property="og:title" content="Featured Auctions — Estate &amp; Liquidation Auction Collections | Advantage.Bid" />
-  <meta property="og:description" content="Browse featured estate and liquidation auction collections. Handpicked by the Advantage.Bid team." />
+  <meta property="og:title" content="Browse Auctions — Estate &amp; Liquidation Collections | Advantage.Bid" />
+  <meta property="og:description" content="Explore quality estate and liquidation collections. Real inventory from real homes and businesses." />
   <meta property="og:type" content="website" />
   <meta property="og:url" content="https://advantage.bid/featured-auctions.html" />
 
   <link rel="stylesheet" href="/marketplace.css" />
   <style>
-    /* Page-specific styles — shared system in /marketplace.css */
     body { background: var(--bg); }
 
     /* ── Page layout ── */
-    .page-section { max-width: 1100px; margin: 0 auto; padding: 2.5rem 1.5rem 4rem; }
-    .section-h2 {
-      font-size: clamp(1.4rem, 3vw, 1.9rem);
-      letter-spacing: -0.025em;
-      color: var(--ink);
-      margin-bottom: 1.5rem;
-      line-height: 1.2;
+    .page-section {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 2.5rem 1.5rem 4rem;
     }
 
-    /* ── Recently added section ── */
-    .recently-section { border-top: 1px solid var(--border); padding-top: 3rem; margin-top: 3rem; }
+    /* ── Quality strip ── */
+    .quality-strip {
+      background: #fff;
+      border-top: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+      padding: 2.25rem 1.5rem;
+    }
+    .quality-strip-inner {
+      max-width: 1100px;
+      margin: 0 auto;
+      display: flex;
+      gap: 2rem;
+      align-items: flex-start;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+    .quality-strip-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.65rem;
+      max-width: 300px;
+      min-width: 200px;
+      flex: 1;
+    }
+    .quality-strip-icon {
+      font-size: 1.2rem;
+      flex-shrink: 0;
+      margin-top: 0.1rem;
+    }
+    .quality-strip-text strong {
+      display: block;
+      font-size: 0.88rem;
+      font-weight: 700;
+      color: var(--ink);
+      margin-bottom: 0.1rem;
+    }
+    .quality-strip-text span {
+      font-size: 0.8rem;
+      color: var(--gray);
+      line-height: 1.5;
+    }
   </style>
 </head>
 <body>
@@ -62,29 +97,69 @@
 <!-- ── Hero ── -->
 <section class="hero" aria-label="Page hero">
   <div class="hero-inner">
-    <div class="hero-eyebrow">Curated Collections</div>
-    <h1>Featured Auctions</h1>
-    <p class="hero-sub">Handpicked estate liquidation collections — furniture, art, collectibles, and complete home contents.</p>
+    <div class="hero-eyebrow">Curated Marketplace</div>
+    <h1>Quality collections.<br />Real inventory.</h1>
+    <p class="hero-sub">
+      Estate sales, liquidations, and collections from real homes and businesses.
+      Unique finds you won't see in stores — at prices you decide.
+    </p>
   </div>
 </section>
 
 <!-- ── Featured auctions ── -->
-<main class="page-section">
-  <div class="section-eyebrow">Featured by Advantage.Bid</div>
-  <h2 class="section-h2" id="featured-heading">Handpicked Estate Collections</h2>
-  <div class="auctions-grid" id="featured-grid" aria-live="polite" aria-labelledby="featured-heading">
-    <!-- Populated by JS -->
-  </div>
-
-  <!-- Recently Added (shown only if featured auctions loaded) -->
-  <div class="recently-section" id="recently-section" style="display:none;">
-    <div class="section-eyebrow">Also Active</div>
-    <h2 class="section-h2" id="recently-heading">Recently Added Auctions</h2>
-    <div class="auctions-grid" id="recently-grid" aria-live="polite" aria-labelledby="recently-heading">
-      <!-- Populated by JS -->
+<main class="page-section" id="main-content">
+  <div class="section-header-row">
+    <div>
+      <div class="section-eyebrow">Curated by Advantage.Bid</div>
+      <h2 class="section-h2" id="featured-heading">Featured Collections</h2>
     </div>
+    <a href="/ending-soon.html" class="section-view-all">Ending soon →</a>
+  </div>
+  <div class="auctions-grid" id="featured-grid" aria-live="polite" aria-labelledby="featured-heading">
+    <!-- Populated by JavaScript -->
   </div>
 </main>
+
+<!-- ── Quality strip ── -->
+<div class="quality-strip" role="complementary" aria-label="Why shop here">
+  <div class="quality-strip-inner">
+    <div class="quality-strip-item">
+      <span class="quality-strip-icon" aria-hidden="true">🏺</span>
+      <div class="quality-strip-text">
+        <strong>Unique finds, not mass-produced</strong>
+        <span>Every collection comes from a real estate sale, liquidation, or personal collection — not a warehouse.</span>
+      </div>
+    </div>
+    <div class="quality-strip-item">
+      <span class="quality-strip-icon" aria-hidden="true">💰</span>
+      <div class="quality-strip-text">
+        <strong>You set the price</strong>
+        <span>Competitive bidding means you pay what the market decides. Better value than fixed retail pricing.</span>
+      </div>
+    </div>
+    <div class="quality-strip-item">
+      <span class="quality-strip-icon" aria-hidden="true">🔄</span>
+      <div class="quality-strip-text">
+        <strong>Fresh inventory, regularly</strong>
+        <span>New estate and liquidation collections added every week. The inventory turns — check back often.</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Just Listed lots ── -->
+<section id="just-listed-rail" class="discovery-rail" aria-labelledby="just-listed-heading">
+  <div class="discovery-rail-inner">
+    <div class="discovery-rail-header">
+      <div>
+        <div class="section-eyebrow">Fresh Inventory</div>
+        <h2 class="discovery-rail-title" id="just-listed-heading">Just Listed</h2>
+      </div>
+      <a href="/ending-soon.html" class="discovery-rail-link">View ending soon →</a>
+    </div>
+    <div class="discovery-rail-scroll" id="just-listed-scroll" aria-live="polite" aria-label="Recently listed lots"></div>
+  </div>
+</section>
 
 <!-- ── Footer ── -->
 <footer>
@@ -133,200 +208,81 @@
   </div>
 </footer>
 
+<script src="/marketplace-components.js"></script>
 <script>
 (function () {
   'use strict';
 
-  function fmtMoney(cents) {
-    if (cents == null) return '$0';
-    return '$' + (cents / 100).toLocaleString('en-US', { maximumFractionDigits: 0 });
+  var MC = window.MktComponents;
+  if (!MC) return;
+
+  var featuredGrid   = document.getElementById('featured-grid');
+  var justListedScroll = document.getElementById('just-listed-scroll');
+
+  /* Load Just Listed lot rail in parallel — self-hides if empty */
+  if (justListedScroll) {
+    MC.loadDiscoveryRail(justListedScroll, '/api/public/lots/recently-added', { limit: 12 });
   }
 
-  function fmtCountdown(iso) {
-    if (!iso) return '';
-    var ms = new Date(iso) - Date.now();
-    if (ms <= 0) return 'Closed';
-    var totalMin = Math.floor(ms / 60000);
-    var h = Math.floor(totalMin / 60);
-    var m = totalMin % 60;
-    if (h >= 48) { var d = Math.floor(h / 24); return d + 'd ' + (h % 24) + 'h remaining'; }
-    if (h >= 1) return h + 'h ' + m + 'm remaining';
-    return m + 'm remaining';
-  }
+  /* Featured auction collections */
+  if (featuredGrid) {
+    MC.renderSkeletons(featuredGrid, 6);
 
-  function fmtDate(iso) {
-    if (!iso) return '';
-    return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-  }
+    fetch('/api/public/featured-auctions?limit=24')
+      .then(function (r) { return r.json(); })
+      .then(function (json) {
+        featuredGrid.innerHTML = '';
+        var data = (json && json.data) ? json.data : [];
 
-  function isEndingSoon(iso) {
-    if (!iso) return false;
-    var ms = new Date(iso) - Date.now();
-    return ms > 0 && ms < 86400000;
-  }
+        if (!data.length) {
+          var empty = document.createElement('div');
+          empty.className = 'marketplace-empty';
+          empty.style.display = 'block';
 
-  function isNew(createdAt) {
-    if (!createdAt) return false;
-    return (Date.now() - new Date(createdAt)) < 7 * 86400000;
-  }
+          var iconEl = document.createElement('div');
+          iconEl.style.cssText = 'font-size:2rem;margin-bottom:0.75rem;';
+          iconEl.textContent = '⭐';
+          empty.appendChild(iconEl);
 
-  function setElem(parent, tag, cls, text) {
-    var el = document.createElement(tag);
-    if (cls) el.className = cls;
-    if (text != null) el.textContent = text;
-    parent.appendChild(el);
-    return el;
-  }
+          var h3 = document.createElement('h3');
+          h3.textContent = 'No featured auctions right now';
+          empty.appendChild(h3);
 
-  function makeAuctionCard(auction, showFeaturedBadge) {
-    var a = document.createElement('a');
-    a.className = 'auction-card';
-    a.href = '/auction-view.html?id=' + encodeURIComponent(auction.id);
+          var p = document.createElement('p');
+          p.textContent = 'New collections are added regularly. Browse all active auctions below.';
+          empty.appendChild(p);
 
-    var imgDiv = document.createElement('div');
-    imgDiv.className = 'auction-card-img';
-    if (auction.cover_image_url) {
-      imgDiv.style.backgroundImage = 'url(' + encodeURI(auction.cover_image_url) + ')';
-    }
+          var lnk = document.createElement('a');
+          lnk.href = '/ending-soon.html';
+          lnk.textContent = 'View items ending soon →';
+          empty.appendChild(lnk);
 
-    var badges = document.createElement('div');
-    badges.className = 'auction-badges';
-
-    if (showFeaturedBadge) {
-      setElem(badges, 'span', 'auction-badge badge-featured', '⭐ Featured');
-    } else {
-      if (auction.state === 'active') {
-        if (isEndingSoon(auction.end_time)) {
-          setElem(badges, 'span', 'auction-badge badge-ending', 'Ending Soon');
-        } else {
-          setElem(badges, 'span', 'auction-badge badge-live', '● Live Now');
+          featuredGrid.appendChild(empty);
+          return;
         }
-      } else if (auction.state === 'published') {
-        setElem(badges, 'span', 'auction-badge badge-upcoming', 'Upcoming');
-        if (isNew(auction.created_at)) {
-          setElem(badges, 'span', 'auction-badge badge-new', 'New');
-        }
-      }
-    }
-    if (auction.shipping_available) {
-      setElem(badges, 'span', 'auction-badge badge-shipping', '📦 Ships');
-    }
-    imgDiv.appendChild(badges);
 
-    if (auction.public_auction_type) {
-      setElem(imgDiv, 'div', 'auction-card-type-tag', auction.public_auction_type);
-    }
-
-    a.appendChild(imgDiv);
-
-    var body = document.createElement('div');
-    body.className = 'auction-card-body';
-
-    if (auction.seller_display_name) {
-      setElem(body, 'div', 'auction-card-seller', auction.seller_display_name);
-    }
-    setElem(body, 'div', 'auction-card-title', auction.title || 'Untitled Auction');
-    if (auction.city || auction.address_state) {
-      setElem(body, 'div', 'auction-card-location',
-        [auction.city, auction.address_state].filter(Boolean).join(', '));
-    }
-
-    var meta = document.createElement('div');
-    meta.className = 'auction-card-meta';
-
-    var lotsSpan = document.createElement('span');
-    var lc = auction.lot_count || 0;
-    lotsSpan.textContent = lc + (lc === 1 ? ' lot' : ' lots');
-    meta.appendChild(lotsSpan);
-
-    if (auction.end_time && auction.state === 'active') {
-      var timer = document.createElement('span');
-      timer.className = 'auction-card-timer';
-      timer.setAttribute('data-closes', auction.end_time);
-      timer.textContent = fmtCountdown(auction.end_time);
-      meta.appendChild(timer);
-    } else if (auction.start_time && auction.state === 'published') {
-      var startSpan = document.createElement('span');
-      startSpan.textContent = 'Opens ' + fmtDate(auction.start_time);
-      meta.appendChild(startSpan);
-    }
-
-    body.appendChild(meta);
-    a.appendChild(body);
-    return a;
-  }
-
-  function renderSkeletons(container, count) {
-    for (var i = 0; i < count; i++) {
-      var s = document.createElement('div');
-      s.className = 'skeleton-card';
-      s.setAttribute('aria-hidden', 'true');
-      var si  = document.createElement('div'); si.className  = 'sk-img';         s.appendChild(si);
-      var sl1 = document.createElement('div'); sl1.className = 'sk-line sk-title'; s.appendChild(sl1);
-      var sl2 = document.createElement('div'); sl2.className = 'sk-line sk-sub';   s.appendChild(sl2);
-      var sl3 = document.createElement('div'); sl3.className = 'sk-line sk-short'; s.appendChild(sl3);
-      container.appendChild(s);
-    }
-  }
-
-  function updateTimers() {
-    document.querySelectorAll('[data-closes]').forEach(function (el) {
-      el.textContent = fmtCountdown(el.getAttribute('data-closes'));
-    });
-  }
-
-  var featuredGrid    = document.getElementById('featured-grid');
-  var recentlySection = document.getElementById('recently-section');
-  var recentlyGrid    = document.getElementById('recently-grid');
-
-  renderSkeletons(featuredGrid, 6);
-
-  fetch('/api/public/featured-auctions?limit=24')
-    .then(function (r) { return r.json(); })
-    .then(function (json) {
-      featuredGrid.innerHTML = '';
-      var data = (json && json.data) ? json.data : [];
-
-      if (!data.length) {
+        data.forEach(function (a) {
+          featuredGrid.appendChild(MC.makeAuctionCard(a, { featuredBadge: true }));
+        });
+        MC.updateTimers();
+      })
+      .catch(function () {
+        featuredGrid.innerHTML = '';
         var empty = document.createElement('div');
-        empty.className = 'empty-state';
-        var icon = document.createElement('div'); icon.className = 'empty-state-icon'; icon.textContent = '⭐'; empty.appendChild(icon);
-        var h3 = document.createElement('h3'); h3.textContent = 'No featured auctions right now'; empty.appendChild(h3);
-        var p = document.createElement('p'); p.textContent = 'New featured auctions are added regularly. Browse all active auctions.'; empty.appendChild(p);
-        var lnk = document.createElement('a'); lnk.href = '/auction.html'; lnk.textContent = 'Browse all auctions →'; empty.appendChild(lnk);
+        empty.className = 'marketplace-empty';
+        empty.style.display = 'block';
+        var h3 = document.createElement('h3');
+        h3.textContent = 'Unable to load collections';
+        empty.appendChild(h3);
+        var p = document.createElement('p');
+        p.textContent = 'Please try refreshing the page.';
+        empty.appendChild(p);
         featuredGrid.appendChild(empty);
-        return;
-      }
+      });
+  }
 
-      data.forEach(function (a) { featuredGrid.appendChild(makeAuctionCard(a, true)); });
-
-      /* Load recently added as secondary section */
-      if (recentlySection && recentlyGrid) {
-        fetch('/api/public/auctions?limit=6')
-          .then(function (r2) { return r2.json(); })
-          .then(function (json2) {
-            var data2 = (json2 && json2.data) ? json2.data : [];
-            if (!data2.length) return;
-            data2.forEach(function (a) { recentlyGrid.appendChild(makeAuctionCard(a, false)); });
-            recentlySection.style.display = '';
-          })
-          .catch(function () { /* secondary section stays hidden */ });
-      }
-    })
-    .catch(function () {
-      featuredGrid.innerHTML = '';
-      var empty = document.createElement('div');
-      empty.className = 'empty-state';
-      var h3 = document.createElement('h3'); h3.textContent = 'Unable to load auctions'; empty.appendChild(h3);
-      var p = document.createElement('p'); p.textContent = 'Please try refreshing the page.'; empty.appendChild(p);
-      featuredGrid.appendChild(empty);
-    });
-
-  setInterval(updateTimers, 30000);
+  setInterval(MC.updateTimers, 30000);
 })();
 </script>
-
-<script src="/marketplace-components.js"></script>
 </body>
 </html>
-
