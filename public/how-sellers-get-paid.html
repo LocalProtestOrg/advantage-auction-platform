@@ -1,0 +1,415 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>How Sellers Get Paid — Advantage.Bid</title>
+  <meta name="description" content="Complete transparency on seller fees, payout timing, and how your auction proceeds are calculated on Advantage.Bid. No hidden fees, no surprises." />
+  <meta name="keywords" content="auction seller payout, how auction sellers get paid, online auction fees, consignment auction payout timeline, estate auction commission" />
+  <link rel="canonical" href="https://advantage.bid/how-sellers-get-paid.html" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+
+  <meta property="og:title" content="How Sellers Get Paid — Advantage.Bid" />
+  <meta property="og:description" content="Complete transparency on seller fees, payout timing, and how your auction proceeds are calculated." />
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://advantage.bid/how-sellers-get-paid.html" />
+
+  <link rel="stylesheet" href="/marketplace.css" />
+  <style>
+    body { background: #fff; }
+
+    .page-hero { background: linear-gradient(160deg, #0f172a 0%, #1e3a5f 100%); padding: 4rem 1.5rem 3.5rem; text-align: center; }
+    .page-hero-inner { max-width: 680px; margin: 0 auto; }
+    .page-eyebrow { display: inline-block; font-size: 0.72rem; font-weight: 700; letter-spacing: 0.09em; text-transform: uppercase; color: #93c5fd; background: rgba(59,130,246,0.15); border: 1px solid rgba(147,197,253,0.25); padding: 0.28rem 0.85rem; border-radius: 99px; margin-bottom: 1.1rem; }
+    .page-hero h1 { font-size: clamp(1.75rem, 4.5vw, 2.6rem); font-weight: 800; line-height: 1.15; letter-spacing: -0.03em; color: #fff; margin-bottom: 0.85rem; }
+    .page-hero-sub { font-size: 1rem; color: #94a3b8; line-height: 1.65; }
+
+    .section-inner { max-width: 860px; margin: 0 auto; padding: 0 1.5rem; }
+    .section-wide { max-width: 1100px; margin: 0 auto; padding: 0 1.5rem; }
+
+    .principle-section { padding: 4rem 0; background: #fff; }
+    .principle-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.5rem; }
+    @media (max-width: 640px) { .principle-grid { grid-template-columns: 1fr; } }
+    .principle-card { background: var(--green-lt); border: 1px solid #bbf7d0; border-radius: 12px; padding: 1.5rem; }
+    .principle-icon { font-size: 1.5rem; margin-bottom: 0.65rem; }
+    .principle-card h3 { font-size: 1rem; font-weight: 800; color: var(--green); margin-bottom: 0.4rem; }
+    .principle-card p { font-size: 0.875rem; color: #166534; line-height: 1.55; }
+
+    .formula-section { padding: 4rem 0; background: var(--bg); }
+    .section-h2 { font-size: clamp(1.4rem, 3vw, 1.9rem); font-weight: 800; letter-spacing: -0.02em; line-height: 1.2; margin-bottom: 0.7rem; }
+
+    .formula-box { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 2rem; margin-bottom: 2rem; }
+    .formula { display: flex; align-items: center; justify-content: center; gap: 1rem; flex-wrap: wrap; text-align: center; }
+    .formula-term { font-size: 0.95rem; font-weight: 700; }
+    .formula-term .label { font-size: 0.72rem; font-weight: 500; color: var(--gray); letter-spacing: 0.04em; text-transform: uppercase; display: block; margin-bottom: 0.2rem; }
+    .formula-term .value { font-size: 1.1rem; font-weight: 800; }
+    .formula-term.result .value { color: var(--green); font-size: 1.25rem; }
+    .formula-op { font-size: 1.5rem; color: var(--gray); font-weight: 300; }
+
+    .examples-section { padding: 4rem 0; background: #fff; }
+    .examples-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 1.5rem; }
+    .example-card { border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+    .example-card-header { background: #0f172a; padding: 1rem 1.25rem; }
+    .example-card-title { font-size: 0.9rem; font-weight: 700; color: #fff; margin-bottom: 0.2rem; }
+    .example-card-sub { font-size: 0.78rem; color: #64748b; }
+    .example-rows { display: flex; flex-direction: column; }
+    .example-row { display: flex; justify-content: space-between; padding: 0.6rem 1.25rem; border-bottom: 1px solid var(--border); font-size: 0.875rem; }
+    .example-row:last-child { border-bottom: none; }
+    .example-row .ex-label { color: var(--gray); }
+    .example-row .ex-val { font-weight: 600; }
+    .example-row.total { background: var(--green-lt); }
+    .example-row.total .ex-label { color: var(--green); font-weight: 600; }
+    .example-row.total .ex-val { color: var(--green); font-size: 1rem; }
+
+    .timeline-section { padding: 4rem 0; background: var(--bg); }
+    .payout-timeline { display: flex; flex-direction: column; gap: 0; }
+    .pt-step { display: grid; grid-template-columns: 40px 1fr; gap: 1.25rem; padding-bottom: 2rem; }
+    .pt-step:last-child { padding-bottom: 0; }
+    .pt-left { display: flex; flex-direction: column; align-items: center; }
+    .pt-dot { width: 16px; height: 16px; border-radius: 50%; background: var(--blue); flex-shrink: 0; margin-top: 0.35rem; }
+    .pt-line { width: 2px; background: var(--border); flex: 1; margin-top: 0.3rem; }
+    .pt-step:last-child .pt-line { display: none; }
+    .pt-content { padding-bottom: 0.25rem; }
+    .pt-content h3 { font-size: 0.95rem; font-weight: 700; margin-bottom: 0.3rem; }
+    .pt-content p { font-size: 0.875rem; color: var(--gray); line-height: 1.6; }
+
+    .statement-section { padding: 4rem 0; background: #fff; }
+    .statement-sample { background: var(--card); border: 1px solid var(--border); border-radius: 14px; overflow: hidden; max-width: 620px; }
+    .statement-header { background: #0f172a; padding: 1.25rem 1.5rem; }
+    .statement-header h3 { font-size: 0.95rem; font-weight: 700; color: #fff; margin-bottom: 0.15rem; }
+    .statement-header p { font-size: 0.8rem; color: #64748b; }
+    .statement-body { padding: 1.25rem 1.5rem; }
+    .statement-lots { width: 100%; border-collapse: collapse; margin-bottom: 1.25rem; }
+    .statement-lots th { font-size: 0.72rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; color: var(--gray); padding: 0 0.5rem 0.5rem; text-align: left; border-bottom: 1px solid var(--border); }
+    .statement-lots td { font-size: 0.875rem; padding: 0.5rem 0.5rem; border-bottom: 1px solid var(--gray-lt); color: #374151; }
+    .statement-lots tr:last-child td { border-bottom: none; }
+    .statement-totals { background: var(--gray-lt); border-radius: 8px; padding: 0.85rem 1rem; }
+    .stmt-row { display: flex; justify-content: space-between; font-size: 0.875rem; padding: 0.2rem 0; }
+    .stmt-row.total { font-weight: 800; font-size: 1rem; padding-top: 0.5rem; border-top: 1px solid var(--border); margin-top: 0.3rem; color: var(--green); }
+
+    .faq-section { padding: 4rem 0; background: var(--bg); }
+    .faq-list { display: flex; flex-direction: column; gap: 0.5rem; }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="header-inner">
+    <a href="/" class="brand">Advantage<span>.Bid</span></a>
+    <nav class="header-nav" aria-label="Main navigation">
+      <a href="/how-it-works.html" class="nav-link">How It Works</a>
+      <a href="/start-selling.html" class="nav-link">Start Selling</a>
+      <a href="/seller-faq.html" class="nav-link">Seller FAQ</a>
+      <a href="/buyer-faq.html" class="nav-link">Buyer FAQ</a>
+    </nav>
+    <div class="header-actions">
+      <a href="/login.html" class="btn-ghost">Sign In</a>
+      <a href="/start-selling.html" class="btn-header-cta">Start Selling</a>
+    </div>
+  </div>
+</header>
+
+<div class="page-hero">
+  <div class="page-hero-inner">
+    <div class="page-eyebrow">Seller Payouts</div>
+    <h1>How Sellers Get Paid</h1>
+    <p class="page-hero-sub">
+      One fee. No surprises. Here's exactly how your auction proceeds are calculated and when you receive them.
+    </p>
+  </div>
+</div>
+
+<!-- Principles -->
+<section class="principle-section" aria-labelledby="principles-heading">
+  <div class="section-inner">
+    <div class="principle-grid" role="list">
+      <div class="principle-card" role="listitem">
+        <div class="principle-icon" aria-hidden="true">🚫</div>
+        <h3>No listing fees</h3>
+        <p>You're never charged to list an item. If it doesn't sell, you owe nothing. Your only cost is a percentage of what actually sells.</p>
+      </div>
+      <div class="principle-card" role="listitem">
+        <div class="principle-icon" aria-hidden="true">📋</div>
+        <h3>One fee, disclosed upfront</h3>
+        <p>Your platform fee rate is agreed on and documented before your first auction. No variable fees, no photo fees, no hidden deductions after the fact.</p>
+      </div>
+      <div class="principle-card" role="listitem">
+        <div class="principle-icon" aria-hidden="true">💰</div>
+        <h3>Buyers pay first</h3>
+        <p>Buyers pay online before they collect. Your payout is released after buyer payments are confirmed — you're never waiting on cash at pickup.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Formula -->
+<section class="formula-section" aria-labelledby="formula-heading">
+  <div class="section-inner">
+    <div class="section-eyebrow">The Math</div>
+    <h2 class="section-h2" id="formula-heading">How your payout is calculated</h2>
+    <p class="section-sub">The formula is simple. Your payout is the sum of all hammer prices, minus one platform fee on those hammer prices. That's it.</p>
+
+    <div class="formula-box" role="region" aria-label="Payout formula">
+      <div class="formula">
+        <div class="formula-term">
+          <span class="label">Sum of</span>
+          <span class="value">Hammer prices</span>
+        </div>
+        <div class="formula-op">−</div>
+        <div class="formula-term">
+          <span class="label">Platform fee on</span>
+          <span class="value">Hammer prices</span>
+        </div>
+        <div class="formula-op">=</div>
+        <div class="formula-term result">
+          <span class="label">Your</span>
+          <span class="value">Payout</span>
+        </div>
+      </div>
+    </div>
+
+    <div style="background:var(--blue-lt);border-radius:10px;padding:1.1rem 1.25rem;font-size:0.9rem;color:#1e40af;line-height:1.6;">
+      <strong>What is the hammer price?</strong> The hammer price is the final winning bid amount for a lot — the price at which bidding closed. Your payout is based on hammer prices only. The buyer premium (paid by the buyer on top of the hammer price) is separate and goes to Advantage as the platform's buyer-facing fee.
+    </div>
+  </div>
+</section>
+
+<!-- Examples -->
+<section class="examples-section" aria-labelledby="examples-heading">
+  <div class="section-wide">
+    <div class="section-eyebrow">Real-World Examples</div>
+    <h2 class="section-h2" id="examples-heading">What different auctions actually pay out</h2>
+    <p class="section-sub">These examples use a 10% platform fee for illustration. Your actual rate is documented in your seller agreement.</p>
+
+    <div class="examples-grid">
+
+      <div class="example-card">
+        <div class="example-card-header">
+          <div class="example-card-title">Small auction — 5 lots</div>
+          <div class="example-card-sub">Jewelry and collectibles</div>
+        </div>
+        <div class="example-rows">
+          <div class="example-row"><span class="ex-label">Ring set (Lot 1)</span><span class="ex-val">$185</span></div>
+          <div class="example-row"><span class="ex-label">Vintage watch (Lot 2)</span><span class="ex-val">$310</span></div>
+          <div class="example-row"><span class="ex-label">Coin collection (Lot 3)</span><span class="ex-val">$90</span></div>
+          <div class="example-row"><span class="ex-label">Silver earrings (Lot 4)</span><span class="ex-val">$45</span></div>
+          <div class="example-row"><span class="ex-label">Pendant necklace (Lot 5)</span><span class="ex-val">$70</span></div>
+          <div class="example-row"><span class="ex-label">Total hammer price</span><span class="ex-val">$700</span></div>
+          <div class="example-row"><span class="ex-label">Platform fee (10%)</span><span class="ex-val" style="color:var(--gray);">− $70</span></div>
+          <div class="example-row total"><span class="ex-label">Your payout</span><span class="ex-val">$630</span></div>
+        </div>
+      </div>
+
+      <div class="example-card">
+        <div class="example-card-header">
+          <div class="example-card-title">Mid-size auction — 12 lots</div>
+          <div class="example-card-sub">Furniture and household contents</div>
+        </div>
+        <div class="example-rows">
+          <div class="example-row"><span class="ex-label">Antique sideboard</span><span class="ex-val">$520</span></div>
+          <div class="example-row"><span class="ex-label">Oil painting</span><span class="ex-val">$285</span></div>
+          <div class="example-row"><span class="ex-label">Silver flatware set</span><span class="ex-val">$195</span></div>
+          <div class="example-row"><span class="ex-label">Lots 4–12 (combined)</span><span class="ex-val">$680</span></div>
+          <div class="example-row"><span class="ex-label">Total hammer price</span><span class="ex-val">$1,680</span></div>
+          <div class="example-row"><span class="ex-label">Platform fee (10%)</span><span class="ex-val" style="color:var(--gray);">− $168</span></div>
+          <div class="example-row total"><span class="ex-label">Your payout</span><span class="ex-val">$1,512</span></div>
+        </div>
+      </div>
+
+      <div class="example-card">
+        <div class="example-card-header">
+          <div class="example-card-title">Full estate auction — 30 lots</div>
+          <div class="example-card-sub">Mixed estate contents</div>
+        </div>
+        <div class="example-rows">
+          <div class="example-row"><span class="ex-label">Lot 1 — bureau bookcase</span><span class="ex-val">$880</span></div>
+          <div class="example-row"><span class="ex-label">Lot 2 — original artwork</span><span class="ex-val">$650</span></div>
+          <div class="example-row"><span class="ex-label">Lots 3–10 (combined)</span><span class="ex-val">$1,420</span></div>
+          <div class="example-row"><span class="ex-label">Lots 11–30 (combined)</span><span class="ex-val">$1,970</span></div>
+          <div class="example-row"><span class="ex-label">Total hammer price</span><span class="ex-val">$4,920</span></div>
+          <div class="example-row"><span class="ex-label">Platform fee (10%)</span><span class="ex-val" style="color:var(--gray);">− $492</span></div>
+          <div class="example-row total"><span class="ex-label">Your payout</span><span class="ex-val">$4,428</span></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- Payout timeline -->
+<section class="timeline-section" aria-labelledby="timeline-heading">
+  <div class="section-inner">
+    <div class="section-eyebrow">Payout Timeline</div>
+    <h2 class="section-h2" id="timeline-heading">When money moves</h2>
+    <p class="section-sub">Here's the sequence from auction close to funds in your account.</p>
+
+    <div class="payout-timeline" role="list">
+      <div class="pt-step" role="listitem">
+        <div class="pt-left"><div class="pt-dot"></div><div class="pt-line"></div></div>
+        <div class="pt-content">
+          <h3>Auction closes</h3>
+          <p>The final lot closes in the staggered sequence. All winning bids are locked and recorded. No further bidding is accepted.</p>
+        </div>
+      </div>
+      <div class="pt-step" role="listitem">
+        <div class="pt-left"><div class="pt-dot"></div><div class="pt-line"></div></div>
+        <div class="pt-content">
+          <h3>Winners notified and invoiced</h3>
+          <p>Winning buyers receive payment notifications. Each won lot generates an invoice in the buyer's account. Buyers have a payment window to complete checkout.</p>
+        </div>
+      </div>
+      <div class="pt-step" role="listitem">
+        <div class="pt-left"><div class="pt-dot"></div><div class="pt-line"></div></div>
+        <div class="pt-content">
+          <h3>Buyers complete payment</h3>
+          <p>Buyers pay via Stripe using a debit or credit card. Payment is processed immediately. Full pickup address is released to the buyer after confirmed payment.</p>
+        </div>
+      </div>
+      <div class="pt-step" role="listitem">
+        <div class="pt-left"><div class="pt-dot"></div><div class="pt-line"></div></div>
+        <div class="pt-content">
+          <h3>Pickup window opens</h3>
+          <p>Pickup begins at least 36 hours after auction close. Buyers collect during your scheduled window. You receive a payout statement as each lot clears.</p>
+        </div>
+      </div>
+      <div class="pt-step" role="listitem">
+        <div class="pt-left"><div class="pt-dot"></div></div>
+        <div class="pt-content">
+          <h3>Seller proceeds released</h3>
+          <p>After buyer payments are confirmed, your seller proceeds are released. The exact release timing is documented in your seller agreement. You receive a full itemized payout statement.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Statement sample -->
+<section class="statement-section" aria-labelledby="statement-heading">
+  <div class="section-inner">
+    <div class="section-eyebrow">Payout Statement</div>
+    <h2 class="section-h2" id="statement-heading">What your payout statement looks like</h2>
+    <p class="section-sub">After every auction, you receive a complete itemized statement — useful for your own records and for estate settlement documentation.</p>
+
+    <div class="statement-sample" role="region" aria-label="Sample payout statement">
+      <div class="statement-header">
+        <h3>Payout Statement — Advantage.Bid</h3>
+        <p>Auction ID: A-2025-0014 · Closed May 18, 2025</p>
+      </div>
+      <div class="statement-body">
+        <table class="statement-lots" aria-label="Lot-by-lot breakdown">
+          <thead>
+            <tr>
+              <th>Lot</th>
+              <th>Description</th>
+              <th>Hammer Price</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td>001</td><td>Antique oak sideboard</td><td>$520.00</td></tr>
+            <tr><td>002</td><td>Oil on canvas, landscape</td><td>$285.00</td></tr>
+            <tr><td>003</td><td>Sterling silver flatware (service for 8)</td><td>$195.00</td></tr>
+            <tr><td>004</td><td>Vintage mantel clock</td><td>$110.00</td></tr>
+            <tr><td>005</td><td>Oriental area rug (8×10)</td><td>$165.00</td></tr>
+            <tr><td>006</td><td>Lot of 3: ceramic vases</td><td>$55.00</td></tr>
+            <tr><td>007</td><td>Mahogany writing desk</td><td>$350.00</td></tr>
+          </tbody>
+        </table>
+        <div class="statement-totals">
+          <div class="stmt-row"><span>Total hammer price</span><span>$1,680.00</span></div>
+          <div class="stmt-row"><span>Platform fee (10%)</span><span style="color:var(--gray);">− $168.00</span></div>
+          <div class="stmt-row total"><span>Seller payout</span><span>$1,512.00</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FAQ -->
+<section class="faq-section" aria-labelledby="faq-heading">
+  <div class="section-inner">
+    <div class="section-eyebrow">Payout Questions</div>
+    <h2 class="section-h2" id="faq-heading">Common payout questions</h2>
+    <p class="section-sub">More seller questions are answered in the <a href="/seller-faq.html" style="color:var(--blue);text-decoration:none;">full Seller FAQ</a>.</p>
+
+    <div class="faq-list">
+      <details class="faq-item">
+        <summary>Does the buyer premium affect my payout?</summary>
+        <div class="faq-body">No. The buyer premium is paid by the buyer on top of their winning bid. It goes to Advantage as the platform's buyer-facing fee. Your payout is calculated on hammer prices only — the buyer premium is entirely separate from your seller proceeds.</div>
+      </details>
+      <details class="faq-item">
+        <summary>Am I charged for lots that don't sell?</summary>
+        <div class="faq-body">No. If a lot receives no bids, there is no charge. The platform fee only applies to lots that actually sell. Unsold lots are returned to you without any cost.</div>
+      </details>
+      <details class="faq-item">
+        <summary>Can I see a payout estimate before the auction closes?</summary>
+        <div class="faq-body">You can see current bid activity in your seller dashboard during the auction. Your estimated payout at any moment would be the sum of current high bids minus the fee — though final amounts depend on where bidding ends.</div>
+      </details>
+      <details class="faq-item">
+        <summary>What if a buyer doesn't complete payment?</summary>
+        <div class="faq-body">Payment completion is managed by the Advantage team. Buyers are required to have a verified payment method before bidding, which significantly reduces non-payment. If a buyer fails to complete payment, Advantage handles the resolution and advises you on next steps for the affected lot.</div>
+      </details>
+      <details class="faq-item">
+        <summary>Is my payout statement useful for estate or probate records?</summary>
+        <div class="faq-body">Yes. The payout statement includes auction ID, lot descriptions, hammer prices, and the calculated payout — all the transaction detail needed for estate settlement, probate documentation, or executor reporting. Consignor details are also stored within the platform for recordkeeping.</div>
+      </details>
+    </div>
+  </div>
+</section>
+
+<section class="cta-band" aria-labelledby="cta-heading">
+  <h2 id="cta-heading">Ready to see what your inventory can earn?</h2>
+  <p>Create your seller account and start building your first auction. Our team handles setup and publishing.</p>
+  <div class="cta-actions">
+    <a href="/start-selling.html" class="btn-cta-primary">Start Selling</a>
+    <a href="/seller-faq.html" class="btn-cta-outline">Seller FAQ</a>
+  </div>
+</section>
+
+<footer>
+  <div class="footer-inner">
+    <div class="footer-top">
+      <div>
+        <div class="footer-brand">Advantage<span>.Bid</span></div>
+        <p class="footer-tagline">The auction platform for estate sales, liquidation, and consignment inventory nationwide.</p>
+      </div>
+      <div>
+        <div class="footer-col-title">Sellers</div>
+        <ul class="footer-links">
+          <li><a href="/start-selling.html">Start Selling</a></li>
+          <li><a href="/how-it-works.html">How It Works</a></li>
+          <li><a href="/how-sellers-get-paid.html">How You Get Paid</a></li>
+          <li><a href="/seller-faq.html">Seller FAQ</a></li>
+          <li><a href="/after-estate-sale.html">After an Estate Sale</a></li>
+        </ul>
+      </div>
+      <div>
+        <div class="footer-col-title">Buyers</div>
+        <ul class="footer-links">
+          <li><a href="/login.html">Create Account</a></li>
+          <li><a href="/buyer-faq.html">Buyer FAQ</a></li>
+          <li><a href="/how-it-works.html#buyers">Bidding Guide</a></li>
+        </ul>
+      </div>
+      <div>
+        <div class="footer-col-title">Platform</div>
+        <ul class="footer-links">
+          <li><a href="/login.html">Sign In</a></li>
+          <li><a href="/start-selling.html">Get Started</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <p class="footer-copy">© 2025 Advantage Auction. All rights reserved.</p>
+      <div class="footer-legal">
+        <a href="#">Privacy Policy</a>
+        <a href="#">Terms of Use</a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script src="/marketplace-components.js"></script>
+</body>
+</html>
+
+

@@ -1,0 +1,1008 @@
+/* =================================================================
+   Advantage.Bid — Shared Marketplace Design System
+   Version 1.1
+
+   Loaded as the LAST stylesheet in each page <head> so cascade
+   order gives these overrides priority over same-specificity
+   page-level rules. No !important needed — document order wins
+   for equal specificity; higher-specificity selectors used where
+   page styles are more specific.
+
+   Scope: all public marketing pages
+   ================================================================= */
+
+/* ── Universal reset ──────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+/* ── Google Fonts: Quicksand ──────────────────────────────────── */
+@import url('https://fonts.googleapis.com/css2?family=Quicksand:wght@500;600;700&display=swap');
+
+/* ── Design tokens ────────────────────────────────────────────── */
+:root {
+  /* Brand palette */
+  --brand-red:    #d62828;
+  --brand-red-d:  #b81f1f;
+  --brand-navy:   #071629;
+  --brand-navy-2: #0f2240;
+
+  /* Shared UI tokens — used across all public pages */
+  --ink:      #0f0f11;
+  --blue:     #2563eb;
+  --blue-d:   #1d4ed8;
+  --blue-lt:  #eff6ff;
+  --gray:     #6b7280;
+  --gray-lt:  #f3f4f6;
+  --border:   #e5e7eb;
+  --bg:       #f8f9fb;
+  --card:     #ffffff;
+  --green:    #16a34a;
+  --green-lt: #f0fdf4;
+  --amber:    #b45309;
+}
+
+/* ── Base layout ──────────────────────────────────────────────── */
+html { scroll-behavior: smooth; }
+
+/* ── Global typography ────────────────────────────────────────── */
+body {
+  font-family: 'Quicksand', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  color: var(--ink);
+  line-height: 1.6;
+}
+
+/* ================================================================
+   HEADER — Dark navy, consistent across all pages
+   ================================================================ */
+
+header {
+  background: var(--brand-navy);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+  box-shadow: 0 2px 16px rgba(0, 0, 0, 0.24);
+}
+
+/* Brand wordmark */
+.brand {
+  color: #fff;
+  font-family: 'Quicksand', system-ui, sans-serif;
+  font-weight: 700;
+}
+.brand span { color: #60a5fa; }
+
+/* Nav links — override gray-on-white with white-on-navy.
+   Two-class selector beats page-level .nav-link (one class). */
+.header-nav .nav-link {
+  color: rgba(255, 255, 255, 0.58);
+  font-weight: 600;
+}
+.header-nav .nav-link:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.08);
+}
+.header-nav .nav-link.active {
+  color: #93c5fd;
+  background: rgba(147, 197, 253, 0.10);
+}
+
+/* Ghost sign-in link */
+.btn-ghost {
+  color: rgba(255, 255, 255, 0.52);
+  font-weight: 600;
+}
+.btn-ghost:hover { color: #fff; }
+
+/* ================================================================
+   PRIMARY CTA — Brand red, rounded, with elevation on hover
+   Matches BD's .menu-cta pattern
+   ================================================================ */
+
+.btn-header-cta {
+  background: var(--brand-red);
+  border-radius: 10px;
+  font-weight: 700;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.20);
+  transition: background 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+}
+.btn-header-cta:hover {
+  background: var(--brand-red-d);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.28);
+}
+
+/* Hero primary CTA */
+.btn-hero-primary {
+  background: var(--brand-red);
+  border-radius: 10px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.20);
+  transition: background 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+}
+.btn-hero-primary:hover {
+  background: var(--brand-red-d);
+  transform: translateY(-2px);
+  box-shadow: 0 5px 16px rgba(0, 0, 0, 0.26);
+}
+
+/* General primary button */
+.btn-primary {
+  background: var(--brand-red);
+  border-radius: 10px;
+  font-weight: 700;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.16);
+  transition: background 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+}
+.btn-primary:hover {
+  background: var(--brand-red-d);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.22);
+}
+
+/* Sidebar card CTA button */
+.sidebar-card a.btn {
+  background: var(--brand-red);
+  border-radius: 10px;
+  font-weight: 700;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.16);
+  transition: background 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+}
+.sidebar-card a.btn:hover {
+  background: var(--brand-red-d);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.22);
+}
+
+/* Standalone action button (content areas) */
+.action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  background: var(--brand-red);
+  color: #fff;
+  font-size: 0.95rem;
+  font-weight: 700;
+  padding: 0.75rem 1.75rem;
+  border-radius: 10px;
+  text-decoration: none;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.16);
+  transition: background 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+}
+.action-btn:hover {
+  background: var(--brand-red-d);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.22);
+}
+
+/* ================================================================
+   SECONDARY / GHOST BUTTONS — rounded, smooth transition
+   These keep their existing color; only shape + motion improved
+   ================================================================ */
+
+.btn-hero-secondary {
+  border-radius: 10px;
+  transition: background 0.2s ease, transform 0.15s ease;
+}
+
+.btn-outline {
+  border-radius: 10px;
+  transition: border-color 0.2s ease, background 0.2s ease, transform 0.15s ease;
+}
+
+/* ================================================================
+   CTA BAND BUTTONS — white-on-dark stays white; just rounder
+   ================================================================ */
+
+.btn-cta-primary {
+  display: inline-block;
+  background: #fff;
+  color: var(--blue-d);
+  font-size: 0.95rem;
+  font-weight: 700;
+  padding: 0.75rem 1.75rem;
+  border-radius: 10px;
+  text-decoration: none;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+  transition: opacity 0.15s, box-shadow 0.2s ease, transform 0.2s ease;
+}
+.btn-cta-primary:hover {
+  opacity: 0.92;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.20);
+}
+
+.btn-cta-outline {
+  display: inline-block;
+  background: transparent;
+  color: #e2e8f0;
+  font-size: 0.95rem;
+  font-weight: 600;
+  padding: 0.75rem 1.75rem;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  text-decoration: none;
+  transition: background 0.2s ease, transform 0.15s ease;
+}
+.btn-cta-outline:hover {
+  background: rgba(255, 255, 255, 0.08);
+  transform: translateY(-1px);
+}
+
+/* ================================================================
+   CARDS — consistent 14px radius + layered hover shadow
+   ================================================================ */
+
+/* Content cards */
+.persona-card,
+.feature-card,
+.who-card,
+.buyer-card,
+.objection-card,
+.step-card,
+.scenario-link,
+.sidebar-card {
+  border-radius: 14px;
+}
+
+.persona-card,
+.who-card {
+  transition: box-shadow 0.18s ease, transform 0.18s ease;
+}
+.persona-card:hover,
+.who-card:hover {
+  box-shadow: 0 6px 22px rgba(0, 0, 0, 0.10);
+  transform: translateY(-2px);
+}
+
+/* FAQ items */
+details.faq-item,
+.faq-item {
+  border-radius: 12px;
+}
+
+/* Marketplace cards */
+.auction-card { border-radius: 14px; }
+.lot-card     { border-radius: 12px; }
+.skeleton-card { border-radius: 14px; }
+
+.auction-card-img { border-radius: 0; } /* img area is flush top */
+
+/* Payout/info cards */
+.value-visual,
+.hero-card {
+  border-radius: 16px;
+  box-shadow: 0 2px 20px rgba(0, 0, 0, 0.07);
+}
+
+.example-card {
+  border-radius: 14px;
+  overflow: hidden;
+}
+
+.protect-banner { border-radius: 14px; }
+
+/* ================================================================
+   TAB SWITCHER (How It Works page)
+   ================================================================ */
+
+.tab-switcher { border-radius: 10px; }
+.tab-btn      { border-radius: 7px; }
+
+/* ================================================================
+   SECTION TYPOGRAPHY
+   ================================================================ */
+
+.section-h2 {
+  font-family: 'Quicksand', system-ui, sans-serif;
+  font-weight: 700;
+}
+
+.page-hero h1,
+.article-hero h1,
+.hero h1 {
+  font-family: 'Quicksand', system-ui, sans-serif;
+  font-weight: 700;
+}
+
+/* ================================================================
+   FOOTER — brand wordmark font
+   ================================================================ */
+
+.footer-brand {
+  font-family: 'Quicksand', system-ui, sans-serif;
+  font-weight: 700;
+}
+
+/* ================================================================
+   HEADER — Layout structure (color/bg above; this adds scaffold)
+   ================================================================ */
+
+header {
+  position: sticky;
+  top: 0;
+  z-index: 200;
+}
+
+.header-inner {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 0 1.5rem;
+  height: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.5rem;
+}
+
+.brand {
+  font-size: 1.1rem;
+  text-decoration: none;
+  letter-spacing: -0.02em;
+  flex-shrink: 0;
+}
+
+.header-nav {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  flex: 1;
+}
+
+.nav-link {
+  font-size: 0.875rem;
+  text-decoration: none;
+  padding: 0.4rem 0.75rem;
+  border-radius: 6px;
+  transition: color 0.15s, background 0.15s;
+  white-space: nowrap;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+.btn-ghost {
+  font-size: 0.875rem;
+  text-decoration: none;
+  padding: 0.4rem 0.85rem;
+  border-radius: 6px;
+}
+
+.btn-header-cta {
+  font-size: 0.875rem;
+  color: #fff;
+  text-decoration: none;
+  padding: 0.45rem 1.1rem;
+}
+
+.mobile-menu-btn {
+  display: none;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0.4rem;
+}
+
+@media (max-width: 760px) {
+  .header-nav              { display: none; }
+  .mobile-menu-btn         { display: flex; }
+}
+
+/* Mobile nav open state — toggled by marketplace-components.js */
+.header-nav.mobile-open {
+  display: flex;
+  flex-direction: column;
+  position: absolute;
+  top: 60px;
+  left: 0;
+  right: 0;
+  background: var(--brand-navy);
+  padding: 0.75rem 1rem 1rem;
+  z-index: 199;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  gap: 0.15rem;
+}
+
+.header-nav.mobile-open .nav-link {
+  width: 100%;
+  border-radius: 8px;
+  padding: 0.55rem 0.85rem;
+}
+
+@media (max-width: 500px) {
+  .btn-ghost { display: none; }
+}
+
+/* ================================================================
+   SECTION STRUCTURE — shared across all marketing pages
+   ================================================================ */
+
+.section-inner {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 0 1.5rem;
+}
+
+/* Small uppercase eyebrow label above section titles */
+.section-eyebrow {
+  display: inline-block;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #2563eb;
+  margin-bottom: 0.55rem;
+}
+
+/* Section subtitle */
+.section-sub {
+  font-size: 1.05rem;
+  color: #6b7280;
+  max-width: 600px;
+  line-height: 1.65;
+  margin-bottom: 2.5rem;
+  margin-top: 0.5rem;
+}
+
+/* Header row: title left, view-all link right */
+.section-header-row {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  margin-bottom: 1.75rem;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+.section-header-row .section-h2 { margin-bottom: 0; }
+
+.section-view-all {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #2563eb;
+  text-decoration: none;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.section-view-all:hover { text-decoration: underline; }
+
+/* ================================================================
+   HERO — Dark navy gradient, shared across discovery pages
+   ================================================================ */
+
+.hero {
+  background: linear-gradient(160deg, #0f172a 0%, #1e3a5f 100%);
+  padding: 4rem 1.5rem 3.5rem;
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+}
+
+.hero::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.02'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+}
+
+.hero-inner {
+  max-width: 700px;
+  margin: 0 auto;
+  position: relative;
+}
+
+.hero-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: #93c5fd;
+  background: rgba(59, 130, 246, 0.15);
+  border: 1px solid rgba(147, 197, 253, 0.25);
+  padding: 0.3rem 0.85rem;
+  border-radius: 99px;
+  margin-bottom: 1.25rem;
+}
+
+.hero h1 {
+  font-size: clamp(1.85rem, 5vw, 3rem);
+  font-weight: 800;
+  line-height: 1.1;
+  letter-spacing: -0.03em;
+  color: #fff;
+  margin-bottom: 1rem;
+}
+
+.hero-sub {
+  font-size: clamp(0.95rem, 2.5vw, 1.1rem);
+  color: #94a3b8;
+  max-width: 560px;
+  margin: 0 auto;
+  line-height: 1.65;
+}
+
+/* Light-background hero variant (e.g. browse-categories.html)
+   More specific selector overrides the dark-navy .hero-eyebrow above */
+.page-hero .hero-eyebrow {
+  color: #2563eb;
+  background: rgba(37, 99, 235, 0.08);
+  border-color: rgba(37, 99, 235, 0.3);
+}
+
+/* ================================================================
+   AUCTION CARDS — complete card system
+   ================================================================ */
+
+.auctions-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 1.25rem;
+}
+
+.auction-card {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 14px;
+  overflow: hidden;
+  text-decoration: none;
+  color: #0f0f11;
+  display: flex;
+  flex-direction: column;
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+.auction-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.09);
+}
+
+.auction-card-img {
+  height: 168px;
+  background: linear-gradient(135deg, #1e3a5f 0%, #0f172a 100%);
+  position: relative;
+  flex-shrink: 0;
+  background-size: cover;
+  background-position: center;
+  border-radius: 0;
+}
+
+.auction-badges {
+  position: absolute;
+  top: 0.6rem;
+  left: 0.6rem;
+  display: flex;
+  gap: 0.3rem;
+  flex-wrap: wrap;
+}
+
+.auction-badge {
+  font-size: 0.68rem;
+  font-weight: 700;
+  padding: 0.22rem 0.55rem;
+  border-radius: 99px;
+  letter-spacing: 0.02em;
+}
+
+.badge-live     { background: rgba(22, 163, 74, 0.92);  color: #fff; }
+.badge-ending   { background: rgba(180, 83, 9, 0.92);   color: #fff; }
+.badge-urgent   { background: rgba(220, 38, 38, 0.92);  color: #fff; }
+.badge-upcoming { background: rgba(37, 99, 235, 0.9);   color: #fff; }
+.badge-new      { background: rgba(37, 99, 235, 0.85);  color: #fff; }
+.badge-shipping { background: rgba(255, 255, 255, 0.88); color: #374151; }
+.badge-tomorrow { background: rgba(37, 99, 235, 0.88);  color: #fff; }
+.badge-featured { background: rgba(180, 83, 9, 0.90);   color: #fff; }
+
+.auction-card-type-tag {
+  position: absolute;
+  bottom: 0.6rem;
+  right: 0.6rem;
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.7);
+  background: rgba(0, 0, 0, 0.35);
+  padding: 0.18rem 0.5rem;
+  border-radius: 4px;
+}
+
+.auction-card-body {
+  padding: 1rem 1.1rem 1.15rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  flex: 1;
+}
+
+.auction-card-seller {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: #2563eb;
+}
+
+.auction-card-title {
+  font-size: 0.95rem;
+  font-weight: 700;
+  line-height: 1.3;
+  color: #0f0f11;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.auction-card-location {
+  font-size: 0.82rem;
+  color: #6b7280;
+  margin-top: 0.05rem;
+}
+
+.auction-card-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-top: 0.65rem;
+  margin-top: 0.65rem;
+  font-size: 0.8rem;
+  color: #6b7280;
+  border-top: 1px solid #f3f4f6;
+}
+
+.auction-card-timer { font-weight: 600; color: #0f0f11; }
+.timer-urgent { color: #dc2626 !important; }
+.timer-ending { color: #b45309 !important; }
+
+/* ================================================================
+   LOT CARDS
+   ================================================================ */
+
+.lots-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: 1rem;
+}
+
+.lot-card {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  overflow: hidden;
+  text-decoration: none;
+  color: #0f0f11;
+  display: flex;
+  flex-direction: column;
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+.lot-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.07);
+}
+
+.lot-card-img {
+  height: 155px;
+  background: linear-gradient(135deg, #f1f5f9, #e2e8f0);
+  position: relative;
+  flex-shrink: 0;
+  background-size: cover;
+  background-position: center;
+}
+
+.lot-badge-ship {
+  position: absolute;
+  bottom: 0.35rem;
+  right: 0.35rem;
+  font-size: 0.78rem;
+  background: rgba(255, 255, 255, 0.9);
+  border-radius: 4px;
+  padding: 0.12rem 0.4rem;
+}
+
+.lot-card-body {
+  padding: 0.85rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  flex: 1;
+}
+
+.lot-card-auction {
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #2563eb;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.lot-card-title {
+  font-size: 0.875rem;
+  font-weight: 700;
+  line-height: 1.3;
+  color: #0f0f11;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.lot-card-bid {
+  display: flex;
+  align-items: baseline;
+  gap: 0.4rem;
+  margin-top: auto;
+  padding-top: 0.5rem;
+}
+
+.lot-bid-amount { font-size: 1rem; font-weight: 800; color: #0f0f11; letter-spacing: -0.01em; }
+.lot-bid-count  { font-size: 0.72rem; color: #6b7280; }
+.lot-card-timer { font-size: 0.72rem; color: #6b7280; margin-top: 0.1rem; }
+
+/* ================================================================
+   SKELETON LOADING — shimmer animation for card placeholders
+   ================================================================ */
+
+.skeleton-card {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 14px;
+  overflow: hidden;
+}
+
+.sk-img {
+  height: 168px;
+  background: linear-gradient(90deg, #f0f0f0 25%, #e8e8e8 50%, #f0f0f0 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+
+.sk-line {
+  margin: 0.65rem 1rem 0;
+  height: 11px;
+  border-radius: 6px;
+  background: linear-gradient(90deg, #f0f0f0 25%, #e8e8e8 50%, #f0f0f0 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+
+.sk-title  { width: 72%; height: 13px; }
+.sk-sub    { width: 50%; }
+.sk-short  { width: 38%; margin-bottom: 0.85rem; }
+
+@keyframes shimmer {
+  0%   { background-position:  200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* ================================================================
+   EMPTY STATES
+   ================================================================ */
+
+.marketplace-empty {
+  display: none;
+  grid-column: 1 / -1;
+  text-align: center;
+  padding: 3rem 1.5rem;
+}
+.marketplace-empty p { font-size: 0.95rem; color: #6b7280; margin-bottom: 0.5rem; }
+.marketplace-empty a { font-size: 0.875rem; color: #2563eb; text-decoration: none; }
+.marketplace-empty a:hover { text-decoration: underline; }
+
+.empty-state {
+  display: none;
+  grid-column: 1 / -1;
+  text-align: center;
+  padding: 4rem 1.5rem;
+}
+.empty-state-icon { font-size: 2.5rem; margin-bottom: 1rem; }
+.empty-state h3   { font-size: 1.1rem; font-weight: 700; color: #0f0f11; margin-bottom: 0.5rem; }
+.empty-state p    { font-size: 0.95rem; color: #6b7280; margin-bottom: 1rem; }
+.empty-state a    { font-size: 0.875rem; color: #2563eb; text-decoration: none; font-weight: 600; }
+.empty-state a:hover { text-decoration: underline; }
+
+/* ================================================================
+   FAQ ACCORDION
+   ================================================================ */
+
+details.faq-item {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  overflow: hidden;
+}
+details.faq-item[open] { border-color: #bfdbfe; }
+
+details.faq-item summary {
+  font-size: 0.95rem;
+  font-weight: 600;
+  padding: 1rem 1.25rem;
+  cursor: pointer;
+  list-style: none;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  user-select: none;
+  gap: 1rem;
+}
+details.faq-item summary::-webkit-details-marker { display: none; }
+details.faq-item summary::after { content: '+'; font-size: 1.1rem; color: #6b7280; flex-shrink: 0; }
+details.faq-item[open] summary::after { content: '−'; }
+
+.faq-body {
+  padding: 0 1.25rem 1.2rem;
+  font-size: 0.9rem;
+  color: #374151;
+  line-height: 1.7;
+}
+.faq-body p { margin-bottom: 0.6rem; }
+.faq-body p:last-child { margin-bottom: 0; }
+.faq-body a { color: #2563eb; text-decoration: none; }
+.faq-body a:hover { text-decoration: underline; }
+.faq-body ul { margin: 0.5rem 0 0.5rem 1.1rem; display: flex; flex-direction: column; gap: 0.3rem; }
+.faq-body li { font-size: 0.88rem; }
+
+/* ================================================================
+   TRUST BAR
+   ================================================================ */
+
+.trust-bar {
+  background: #f8f9fb;
+  border-top: 1px solid #e5e7eb;
+  border-bottom: 1px solid #e5e7eb;
+  padding: 1.1rem 1.5rem;
+}
+.trust-bar-inner {
+  max-width: 1100px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2rem;
+  flex-wrap: wrap;
+}
+.trust-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+  color: #374151;
+  white-space: nowrap;
+}
+.trust-icon { font-size: 1rem; }
+.trust-divider {
+  width: 1px;
+  height: 1.25rem;
+  background: #d1d5db;
+  flex-shrink: 0;
+}
+@media (max-width: 600px) {
+  .trust-divider { display: none; }
+  .trust-bar-inner { justify-content: flex-start; gap: 1rem; }
+}
+
+/* ================================================================
+   CTA BAND — full-width gradient call-to-action section
+   ================================================================ */
+
+.cta-band {
+  background: linear-gradient(135deg, #1e3a5f, #1e40af);
+  padding: 4.5rem 1.5rem;
+  text-align: center;
+  color: #fff;
+}
+.cta-band h2 {
+  font-size: clamp(1.5rem, 3.5vw, 2rem);
+  font-weight: 800;
+  letter-spacing: -0.025em;
+  margin-bottom: 0.65rem;
+  line-height: 1.15;
+}
+.cta-band p {
+  font-size: 1rem;
+  color: #93c5fd;
+  margin-bottom: 2rem;
+  max-width: 520px;
+  margin-left: auto;
+  margin-right: auto;
+  line-height: 1.65;
+}
+.cta-band-actions,
+.cta-actions {
+  display: flex;
+  gap: 0.75rem;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+/* ================================================================
+   MARKETPLACE SECTION CONTAINERS
+   ================================================================ */
+
+.marketplace-section {
+  padding: 4.5rem 1.5rem;
+  background: #f8f9fb;
+}
+.featured-lots-section {
+  padding: 4.5rem 1.5rem;
+  background: #fff;
+}
+
+/* ================================================================
+   FOOTER — full structure (color only: font handled above)
+   ================================================================ */
+
+footer {
+  background: #0f172a;
+  padding: 3.5rem 1.5rem 2rem;
+  color: #94a3b8;
+}
+
+.footer-inner {
+  max-width: 1100px;
+  margin: 0 auto;
+}
+
+.footer-top {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr 1fr;
+  gap: 3rem;
+  margin-bottom: 3rem;
+}
+
+@media (max-width: 760px) {
+  .footer-top          { grid-template-columns: 1fr 1fr; gap: 2rem; }
+  .footer-brand-col    { grid-column: 1 / -1; }
+}
+@media (max-width: 480px) {
+  .footer-top { grid-template-columns: 1fr; }
+}
+
+.footer-brand span   { color: #60a5fa; }
+.footer-tagline      { font-size: 0.83rem; color: #64748b; line-height: 1.6; max-width: 220px; }
+
+.footer-col-title {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #e2e8f0;
+  margin-bottom: 0.85rem;
+}
+
+.footer-links {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.footer-links a {
+  font-size: 0.83rem;
+  color: #64748b;
+  text-decoration: none;
+  transition: color 0.15s;
+}
+.footer-links a:hover { color: #94a3b8; }
+
+.footer-bottom {
+  padding-top: 2rem;
+  border-top: 1px solid #1e293b;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.footer-copy { font-size: 0.78rem; color: #475569; }
+
+.footer-legal { display: flex; gap: 1.25rem; }
+.footer-legal a {
+  font-size: 0.78rem;
+  color: #475569;
+  text-decoration: none;
+  transition: color 0.15s;
+}
+.footer-legal a:hover { color: #64748b; }

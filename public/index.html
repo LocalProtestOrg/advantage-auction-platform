@@ -1,0 +1,906 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Advantage.Bid — Online Auctions for Estate &amp; Liquidation Inventory</title>
+  <meta name="description" content="The auction platform for what comes after an estate sale. Sell remaining inventory fast, reach motivated buyers nationwide, and get paid within days. Trusted by estate companies, executors, and liquidators." />
+  <meta name="keywords" content="estate sale leftovers auction, online estate auction, liquidation auction platform, sell estate items online, auction after estate sale, consignment auction online" />
+  <link rel="canonical" href="https://advantage.bid/" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+
+  <!-- Open Graph -->
+  <meta property="og:title" content="Advantage.Bid — Online Auctions for Estate &amp; Liquidation Inventory" />
+  <meta property="og:description" content="The auction platform for what comes after an estate sale. Sell remaining inventory fast and reach buyers nationwide." />
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://advantage.bid/" />
+
+  <!-- Structured Data -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "Organization",
+    "name": "Advantage.Bid",
+    "description": "Online auction platform for estate sales, liquidation, and consignment inventory",
+    "url": "https://advantage.bid",
+    "serviceType": ["Online Auction", "Estate Liquidation", "Consignment Auction"]
+  }
+  </script>
+
+  <link rel="stylesheet" href="/marketplace.css" />
+  <style>
+    body { background: #fff; }
+
+    /* ── Hero ────────────────────────────────────────────────────────── */
+    .hero { background: linear-gradient(160deg, #0f172a 0%, #1e3a5f 100%); padding: 5rem 1.5rem 4.5rem; text-align: center; position: relative; overflow: hidden; }
+    .hero::before { content: ''; position: absolute; inset: 0; background: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.02'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E"); }
+    .hero-inner { max-width: 780px; margin: 0 auto; position: relative; }
+    .hero-eyebrow { display: inline-flex; align-items: center; gap: 0.4rem; font-size: 0.75rem; font-weight: 700; letter-spacing: 0.09em; text-transform: uppercase; color: #93c5fd; background: rgba(59,130,246,0.15); border: 1px solid rgba(147,197,253,0.25); padding: 0.3rem 0.85rem; border-radius: 99px; margin-bottom: 1.5rem; }
+    .hero h1 { font-size: clamp(2rem, 5.5vw, 3.25rem); font-weight: 800; line-height: 1.1; letter-spacing: -0.03em; color: #fff; margin-bottom: 1.25rem; }
+    .hero h1 em { font-style: normal; color: #93c5fd; }
+    .hero-sub { font-size: clamp(1rem, 2.5vw, 1.15rem); color: #94a3b8; max-width: 600px; margin: 0 auto 2.25rem; line-height: 1.65; }
+    .hero-actions { display: flex; gap: 0.75rem; justify-content: center; flex-wrap: wrap; margin-bottom: 3rem; }
+    .btn-hero-primary { background: var(--blue); color: #fff; font-size: 1rem; font-weight: 700; padding: 0.8rem 2rem; border-radius: 8px; text-decoration: none; transition: background 0.15s, transform 0.1s; }
+    .btn-hero-primary:hover { background: var(--blue-d); transform: translateY(-1px); }
+    .btn-hero-secondary { background: rgba(255,255,255,0.08); color: #e2e8f0; font-size: 1rem; font-weight: 600; padding: 0.8rem 2rem; border-radius: 8px; border: 1px solid rgba(255,255,255,0.15); text-decoration: none; transition: background 0.15s; }
+    .btn-hero-secondary:hover { background: rgba(255,255,255,0.12); }
+    .hero-stats { display: flex; gap: 2.5rem; justify-content: center; flex-wrap: wrap; }
+    .hero-stat { text-align: center; }
+    .hero-stat-num { font-size: 1.5rem; font-weight: 800; color: #fff; letter-spacing: -0.02em; }
+    .hero-stat-label { font-size: 0.78rem; color: #64748b; margin-top: 0.1rem; }
+
+    /* ── Who it's for ────────────────────────────────────────────────── */
+    .personas { background: var(--bg); padding: 4.5rem 1.5rem; }
+    .persona-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 1rem; }
+    .persona-card { background: var(--card); border: 1.5px solid var(--border); border-radius: 12px; padding: 1.5rem 1.25rem; transition: border-color 0.15s, box-shadow 0.15s; }
+    .persona-card:hover { border-color: #bfdbfe; box-shadow: 0 4px 16px rgba(37,99,235,0.08); }
+    .persona-icon { font-size: 1.75rem; margin-bottom: 0.75rem; display: block; }
+    .persona-title { font-size: 0.95rem; font-weight: 700; color: var(--ink); margin-bottom: 0.35rem; }
+    .persona-desc { font-size: 0.82rem; color: var(--gray); line-height: 1.55; }
+
+    /* ── How it works ────────────────────────────────────────────────── */
+    .how-it-works { padding: 4.5rem 1.5rem; background: #fff; }
+    .steps { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1.5rem; margin-bottom: 2.5rem; }
+    .step { position: relative; }
+    .step-num { width: 36px; height: 36px; border-radius: 50%; background: var(--blue-lt); color: var(--blue); font-size: 0.9rem; font-weight: 800; display: flex; align-items: center; justify-content: center; margin-bottom: 1rem; flex-shrink: 0; }
+    .step h3 { font-size: 1rem; font-weight: 700; color: var(--ink); margin-bottom: 0.4rem; }
+    .step p { font-size: 0.875rem; color: var(--gray); line-height: 1.6; }
+
+    /* ── Seller value ────────────────────────────────────────────────── */
+    .seller-value { padding: 4.5rem 1.5rem; background: var(--bg); }
+    .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 4rem; align-items: center; }
+    @media (max-width: 760px) { .two-col { grid-template-columns: 1fr; gap: 2rem; } }
+    .value-list { list-style: none; display: flex; flex-direction: column; gap: 1rem; margin: 1.5rem 0; }
+    .value-item { display: flex; gap: 0.85rem; align-items: flex-start; }
+    .value-icon { width: 28px; height: 28px; border-radius: 6px; background: var(--green-lt); color: var(--green); display: flex; align-items: center; justify-content: center; font-size: 0.85rem; flex-shrink: 0; margin-top: 0.05rem; }
+    .value-text strong { display: block; font-size: 0.9rem; font-weight: 700; color: var(--ink); margin-bottom: 0.15rem; }
+    .value-text span { font-size: 0.82rem; color: var(--gray); line-height: 1.5; }
+    .value-visual { background: var(--card); border: 1.5px solid var(--border); border-radius: 16px; padding: 2rem; }
+    .value-visual-title { font-size: 0.75rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--gray); margin-bottom: 1.25rem; }
+    .payout-demo { display: flex; flex-direction: column; gap: 0.75rem; }
+    .payout-row { display: flex; justify-content: space-between; align-items: center; padding: 0.6rem 0.85rem; background: var(--bg); border-radius: 8px; font-size: 0.85rem; }
+    .payout-row .label { color: var(--gray); }
+    .payout-row .amount { font-weight: 700; color: var(--ink); }
+    .payout-row.total { background: var(--green-lt); border: 1px solid #bbf7d0; }
+    .payout-row.total .label { color: var(--green); font-weight: 600; }
+    .payout-row.total .amount { color: var(--green); font-size: 1rem; }
+    .payout-note { font-size: 0.75rem; color: var(--gray); margin-top: 0.5rem; line-height: 1.5; }
+
+    /* ── Buyer section ───────────────────────────────────────────────── */
+    .buyer-section { padding: 4.5rem 1.5rem; background: #fff; }
+    .feature-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 1.25rem; margin-bottom: 2.5rem; }
+    .feature-card { padding: 1.5rem 1.25rem; border: 1.5px solid var(--border); border-radius: 12px; background: var(--card); }
+    .feature-card-icon { font-size: 1.5rem; margin-bottom: 0.75rem; }
+    .feature-card h3 { font-size: 0.9rem; font-weight: 700; color: var(--ink); margin-bottom: 0.4rem; }
+    .feature-card p { font-size: 0.82rem; color: var(--gray); line-height: 1.55; }
+
+    /* ── Trust bar (dark/ink version) ───────────────────────────────── */
+    .trust-bar { background: var(--ink); padding: 2.5rem 1.5rem; }
+    .trust-bar-inner { max-width: 1100px; margin: 0 auto; display: flex; gap: 2rem; align-items: center; justify-content: center; flex-wrap: wrap; }
+    .trust-item { display: flex; align-items: center; gap: 0.6rem; }
+    .trust-icon { font-size: 1.2rem; }
+    .trust-text { font-size: 0.85rem; color: #94a3b8; white-space: nowrap; }
+    .trust-text strong { color: #e2e8f0; }
+    .trust-divider { width: 1px; height: 20px; background: #374151; }
+    @media (max-width: 600px) { .trust-divider { display: none; } }
+
+    /* ── CTA band (light gradient, dark text) ───────────────────────── */
+    .cta-band { padding: 5rem 1.5rem; background: linear-gradient(135deg, #eff6ff 0%, #f0fdf4 100%); text-align: center; }
+    .cta-band h2 { font-size: clamp(1.6rem, 4vw, 2.25rem); font-weight: 800; letter-spacing: -0.025em; color: var(--ink); margin-bottom: 0.75rem; }
+    .cta-band p { font-size: 1.05rem; color: var(--gray); max-width: 500px; margin: 0 auto 2rem; line-height: 1.6; }
+    .cta-band-actions { display: flex; gap: 0.75rem; justify-content: center; flex-wrap: wrap; }
+    .btn-primary { background: var(--blue); color: #fff; font-size: 0.95rem; font-weight: 700; padding: 0.75rem 1.75rem; border-radius: 8px; text-decoration: none; transition: background 0.15s; }
+    .btn-primary:hover { background: var(--blue-d); }
+    .btn-outline { background: transparent; color: var(--ink); font-size: 0.95rem; font-weight: 600; padding: 0.75rem 1.75rem; border-radius: 8px; border: 1.5px solid var(--border); text-decoration: none; transition: border-color 0.15s, background 0.15s; }
+    .btn-outline:hover { border-color: #9ca3af; background: #f9fafb; }
+
+    /* ── Scenarios strip ─────────────────────────────────────────────── */
+    .scenarios { padding: 4rem 1.5rem; background: #fff; }
+    .scenario-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 1rem; }
+    .scenario-link { display: block; padding: 1.4rem 1.25rem; border: 1.5px solid var(--border); border-radius: 12px; text-decoration: none; transition: border-color 0.15s, box-shadow 0.15s; }
+    .scenario-link:hover { border-color: var(--blue); box-shadow: 0 2px 12px rgba(37,99,235,0.08); }
+    .scenario-link-label { font-size: 0.7rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--blue); margin-bottom: 0.4rem; }
+    .scenario-link-title { font-size: 0.95rem; font-weight: 700; color: var(--ink); margin-bottom: 0.3rem; line-height: 1.3; }
+    .scenario-link-desc { font-size: 0.8rem; color: var(--gray); line-height: 1.5; }
+    .scenario-arrow { display: flex; align-items: center; justify-content: flex-end; margin-top: 0.75rem; color: var(--blue); font-size: 0.8rem; font-weight: 600; }
+
+    /* ── Marketplace discovery sections ──────────────────────────────── */
+    .ending-soon-section { padding: 3.5rem 1.5rem; background: #fffbf0; border-top: 1px solid #fde68a; border-bottom: 1px solid #fde68a; }
+    .eyebrow-amber { color: #b45309; }
+
+    .browse-section { padding: 4.5rem 1.5rem; background: var(--bg); }
+    .category-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(168px, 1fr)); gap: 1rem; margin-bottom: 1.5rem; }
+    .category-card { display: flex; flex-direction: column; align-items: flex-start; gap: 0.3rem; padding: 1.4rem 1.2rem; background: #fff; border: 1.5px solid var(--border); border-radius: 14px; text-decoration: none; color: var(--ink); transition: border-color 0.15s, box-shadow 0.15s, transform 0.15s; }
+    .category-card:hover { border-color: var(--blue); box-shadow: 0 4px 16px rgba(37,99,235,0.07); transform: translateY(-2px); }
+    .category-icon  { font-size: 1.75rem; line-height: 1; margin-bottom: 0.1rem; }
+    .category-label { font-size: 0.875rem; font-weight: 700; color: var(--ink); line-height: 1.2; }
+    .category-desc  { font-size: 0.76rem; color: var(--gray); line-height: 1.4; }
+
+    .locations-section { padding: 4rem 1.5rem; background: #fff; }
+    .location-pills { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 1.5rem; min-height: 2.5rem; }
+    .location-pill { display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.38rem 0.85rem; background: var(--bg); border: 1px solid var(--border); border-radius: 99px; font-size: 0.82rem; font-weight: 600; color: var(--ink); text-decoration: none; transition: border-color 0.15s, background 0.15s, color 0.15s; white-space: nowrap; }
+    .location-pill:hover { border-color: var(--blue); background: var(--blue-lt); color: var(--blue); }
+    .location-pill-count { font-size: 0.68rem; font-weight: 500; color: var(--gray); }
+  </style>
+</head>
+<body>
+
+<!-- ── Header ─────────────────────────────────────────────────────────── -->
+<header>
+  <div class="header-inner">
+    <a href="/" class="brand">Advantage<span>.Bid</span></a>
+    <nav class="header-nav" aria-label="Main navigation">
+      <a href="/how-it-works.html" class="nav-link">How It Works</a>
+      <a href="/start-selling.html" class="nav-link">Start Selling</a>
+      <a href="/seller-faq.html" class="nav-link">Seller FAQ</a>
+      <a href="/buyer-faq.html" class="nav-link">Buyer FAQ</a>
+    </nav>
+    <div class="header-actions">
+      <a href="/login.html" class="btn-ghost">Sign In</a>
+      <a href="/start-selling.html" class="btn-header-cta">List Your Items</a>
+    </div>
+    <button class="mobile-menu-btn" aria-label="Menu">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>
+      </svg>
+    </button>
+  </div>
+</header>
+
+<!-- ── Hero ───────────────────────────────────────────────────────────── -->
+<section class="hero" aria-label="Hero">
+  <div class="hero-inner">
+    <div class="hero-eyebrow">Online Estate &amp; Liquidation Auctions</div>
+    <h1>What to do with everything<br /><em>left after an estate sale.</em></h1>
+    <p class="hero-sub">
+      Advantage.Bid connects estate sellers with motivated buyers nationwide.
+      List unsold estate inventory, household contents, and collections — and get paid fast.
+    </p>
+    <div class="hero-actions">
+      <a href="/start-selling.html" class="btn-hero-primary">Start Selling</a>
+      <a href="/how-it-works.html" class="btn-hero-secondary">How It Works</a>
+    </div>
+    <div class="hero-stats">
+      <div class="hero-stat">
+        <div class="hero-stat-num">Online</div>
+        <div class="hero-stat-label">Nationwide reach</div>
+      </div>
+      <div class="hero-stat">
+        <div class="hero-stat-num">Fast</div>
+        <div class="hero-stat-label">Setup in minutes</div>
+      </div>
+      <div class="hero-stat">
+        <div class="hero-stat-num">Transparent</div>
+        <div class="hero-stat-label">No surprise fees</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── Who it's for ────────────────────────────────────────────────────── -->
+<!-- ── Active Auctions ────────────────────────────────────────────────── -->
+<section id="active-auctions-section" class="marketplace-section" aria-labelledby="auctions-heading">
+  <div class="section-inner">
+    <div class="section-header-row">
+      <div>
+        <div class="section-eyebrow">Live Marketplace</div>
+        <h2 class="section-h2" id="auctions-heading">Auctions Happening Now</h2>
+      </div>
+      <a href="/auction.html" class="section-view-all">Browse all auctions →</a>
+    </div>
+    <div class="auctions-grid" id="active-auctions-grid" aria-live="polite" aria-label="Active auctions">
+      <!-- Populated by JavaScript -->
+    </div>
+    <div class="marketplace-empty" id="active-auctions-empty" role="status">
+      <p>New estate and liquidation auctions are added regularly.</p>
+      <a href="/start-selling.html">Are you a seller? List your inventory →</a>
+    </div>
+  </div>
+</section>
+
+<!-- ── Ending Soon ────────────────────────────────────────────────────── -->
+<section id="ending-soon-section" class="ending-soon-section" aria-labelledby="ending-soon-heading" style="display:none;">
+  <div class="section-inner">
+    <div class="section-header-row">
+      <div>
+        <div class="section-eyebrow eyebrow-amber">⏱ Closing Today</div>
+        <h2 class="section-h2" id="ending-soon-heading">Ending Soon</h2>
+      </div>
+      <a href="/ending-soon.html" class="section-view-all">View all ending soon →</a>
+    </div>
+    <div class="auctions-grid" id="ending-soon-grid" aria-live="polite" aria-label="Auctions ending soon">
+      <!-- Populated by JavaScript -->
+    </div>
+  </div>
+</section>
+
+<!-- ── Who it's for ────────────────────────────────────────────────────── -->
+<section class="personas" aria-labelledby="personas-heading">
+  <div class="section-inner">
+    <div class="section-eyebrow">Who Uses Advantage.Bid</div>
+    <h2 class="section-h2" id="personas-heading">Built for every stage of liquidation</h2>
+    <p class="section-sub">Whether you're clearing a single estate or managing a professional liquidation pipeline, Advantage.Bid gives you the auction infrastructure to sell fast and get paid.</p>
+    <div class="persona-grid">
+      <div class="persona-card">
+        <span class="persona-icon" aria-hidden="true">🏠</span>
+        <div class="persona-title">Estate Sale Companies</div>
+        <p class="persona-desc">Sell unsold inventory after your on-site sale ends. Extend your reach and your revenue without holding a second event.</p>
+      </div>
+      <div class="persona-card">
+        <span class="persona-icon" aria-hidden="true">📋</span>
+        <div class="persona-title">Executors &amp; Trustees</div>
+        <p class="persona-desc">Liquidate estate assets efficiently. Document everything with a full transaction record for estate settlement.</p>
+      </div>
+      <div class="persona-card">
+        <span class="persona-icon" aria-hidden="true">📦</span>
+        <div class="persona-title">Downsizers</div>
+        <p class="persona-desc">Moving, downsizing, or clearing out? Auction your furniture, collectibles, and household contents quickly.</p>
+      </div>
+      <div class="persona-card">
+        <span class="persona-icon" aria-hidden="true">🏺</span>
+        <div class="persona-title">Antique &amp; Vintage Dealers</div>
+        <p class="persona-desc">Sell excess inventory, individual pieces, or entire collections to motivated bidders nationwide.</p>
+      </div>
+      <div class="persona-card">
+        <span class="persona-icon" aria-hidden="true">🏢</span>
+        <div class="persona-title">Commercial Liquidators</div>
+        <p class="persona-desc">Auction office equipment, fixtures, and commercial inventory with full buyer visibility and competitive bidding.</p>
+      </div>
+      <div class="persona-card">
+        <span class="persona-icon" aria-hidden="true">🎨</span>
+        <div class="persona-title">Collectors</div>
+        <p class="persona-desc">Selling a collection? Advantage.Bid presents your items professionally and reaches the right audience.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── How it works ────────────────────────────────────────────────────── -->
+<section class="how-it-works" aria-labelledby="hiw-heading">
+  <div class="section-inner">
+    <div class="section-eyebrow">Simple Process</div>
+    <h2 class="section-h2" id="hiw-heading">From listing to payment in three steps</h2>
+    <p class="section-sub">No auction house visits. No guesswork. Your items are online and bidding in minutes.</p>
+    <div class="steps">
+      <div class="step">
+        <div class="step-num" aria-hidden="true">1</div>
+        <h3>Submit your inventory</h3>
+        <p>Upload photos and descriptions of what you're selling. Our team reviews and publishes your auction, handling the professional presentation.</p>
+      </div>
+      <div class="step">
+        <div class="step-num" aria-hidden="true">2</div>
+        <h3>Buyers compete online</h3>
+        <p>Registered buyers bid competitively. Anti-sniping protection extends close times automatically so every item gets its full market price.</p>
+      </div>
+      <div class="step">
+        <div class="step-num" aria-hidden="true">3</div>
+        <h3>Collect and schedule pickup</h3>
+        <p>Winning buyers pay securely online. You set the pickup window — buyers arrange collection directly. Simple, documented, done.</p>
+      </div>
+    </div>
+    <a href="/how-it-works.html" style="display:inline-flex;align-items:center;gap:0.35rem;font-size:0.9rem;font-weight:600;color:var(--blue);text-decoration:none;">
+      See the full process →
+    </a>
+  </div>
+</section>
+
+<!-- ── Seller value ────────────────────────────────────────────────────── -->
+<section class="seller-value" aria-labelledby="seller-value-heading">
+  <div class="section-inner">
+    <div class="two-col">
+      <div>
+        <div class="section-eyebrow">For Sellers</div>
+        <h2 class="section-h2" id="seller-value-heading">Turn leftover inventory into real revenue</h2>
+        <p class="section-sub">Estate sales leave things behind. Advantage.Bid gives that inventory a second market — nationwide, online, and competitive.</p>
+        <ul class="value-list" aria-label="Seller benefits">
+          <li class="value-item">
+            <div class="value-icon" aria-hidden="true">✓</div>
+            <div class="value-text">
+              <strong>Professional presentation</strong>
+              <span>AI-enhanced photos and clean lot pages that make your items look their best to buyers.</span>
+            </div>
+          </li>
+          <li class="value-item">
+            <div class="value-icon" aria-hidden="true">✓</div>
+            <div class="value-text">
+              <strong>Nationwide buyer pool</strong>
+              <span>Reach buyers beyond your local market. More competition means better prices.</span>
+            </div>
+          </li>
+          <li class="value-item">
+            <div class="value-icon" aria-hidden="true">✓</div>
+            <div class="value-text">
+              <strong>Transparent payout</strong>
+              <span>Know exactly what you'll receive before the auction closes. No hidden deductions.</span>
+            </div>
+          </li>
+          <li class="value-item">
+            <div class="value-icon" aria-hidden="true">✓</div>
+            <div class="value-text">
+              <strong>You control pickup timing</strong>
+              <span>Set your own pickup window. Buyers collect on your schedule, not ours.</span>
+            </div>
+          </li>
+        </ul>
+        <a href="/start-selling.html" class="btn-primary" style="display:inline-block;margin-top:0.5rem;">Start Selling</a>
+      </div>
+      <div class="value-visual" role="region" aria-label="Example payout breakdown">
+        <div class="value-visual-title">Example seller payout</div>
+        <div class="payout-demo">
+          <div class="payout-row">
+            <span class="label">Total winning bids</span>
+            <span class="amount">$1,240.00</span>
+          </div>
+          <div class="payout-row">
+            <span class="label">Platform fee (10%)</span>
+            <span class="amount" style="color:#6b7280;">− $124.00</span>
+          </div>
+          <div class="payout-row total">
+            <span class="label">Your payout</span>
+            <span class="amount">$1,116.00</span>
+          </div>
+        </div>
+        <p class="payout-note">Buyers pay the platform fee — your payout is based on the hammer price. <a href="/how-sellers-get-paid.html" style="color:var(--blue);text-decoration:none;">Learn more →</a></p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── Buyer section ───────────────────────────────────────────────────── -->
+<!-- ── Featured Lots ──────────────────────────────────────────────────── -->
+<section id="featured-lots-section" class="featured-lots-section" aria-labelledby="featured-lots-heading">
+  <div class="section-inner">
+    <div class="section-header-row">
+      <div>
+        <div class="section-eyebrow">Featured Inventory</div>
+        <h2 class="section-h2" id="featured-lots-heading">Handpicked Lots from Active Auctions</h2>
+      </div>
+      <a href="/auction.html" class="section-view-all">View all auctions →</a>
+    </div>
+    <div class="lots-grid" id="featured-lots-grid" aria-live="polite" aria-label="Featured lots">
+      <!-- Populated by JavaScript -->
+    </div>
+  </div>
+</section>
+
+<!-- ── Browse by Category ─────────────────────────────────────────────── -->
+<section class="browse-section" aria-labelledby="browse-cat-heading">
+  <div class="section-inner">
+    <div class="section-eyebrow">Browse</div>
+    <h2 class="section-h2" id="browse-cat-heading">Explore by Category</h2>
+    <p class="section-sub" style="margin-bottom:2rem;">Find auctions by type, timeline, or shipping availability.</p>
+    <div class="category-grid">
+      <a href="/featured-auctions.html" class="category-card">
+        <span class="category-icon">⭐</span>
+        <span class="category-label">Featured Auctions</span>
+        <span class="category-desc">Handpicked estate collections</span>
+      </a>
+      <a href="/ending-soon.html" class="category-card">
+        <span class="category-icon">⏱️</span>
+        <span class="category-label">Ending Soon</span>
+        <span class="category-desc">Auctions closing today</span>
+      </a>
+      <a href="/shipping-available.html" class="category-card">
+        <span class="category-icon">📦</span>
+        <span class="category-label">Ships Nationwide</span>
+        <span class="category-desc">Buy without local pickup</span>
+      </a>
+      <a href="/browse-categories.html" class="category-card">
+        <span class="category-icon">🏺</span>
+        <span class="category-label">Antiques &amp; Collectibles</span>
+        <span class="category-desc">Estate pieces and collections</span>
+      </a>
+      <a href="/browse-categories.html#estate" class="category-card">
+        <span class="category-icon">🏠</span>
+        <span class="category-label">Estate Liquidations</span>
+        <span class="category-desc">Complete home contents</span>
+      </a>
+      <a href="/browse-locations.html" class="category-card">
+        <span class="category-icon">📍</span>
+        <span class="category-label">Browse by Location</span>
+        <span class="category-desc">Find auctions near you</span>
+      </a>
+    </div>
+  </div>
+</section>
+
+<!-- ── Browse by Location ─────────────────────────────────────────────── -->
+<section id="locations-section" class="locations-section" aria-labelledby="browse-loc-heading">
+  <div class="section-inner">
+    <div class="section-header-row">
+      <div>
+        <div class="section-eyebrow">By State</div>
+        <h2 class="section-h2" id="browse-loc-heading">Active Auction Locations</h2>
+      </div>
+      <a href="/browse-locations.html" class="section-view-all">View all locations →</a>
+    </div>
+    <div class="location-pills" id="location-pills" aria-live="polite" aria-label="Active auction locations">
+      <!-- Populated by JavaScript -->
+    </div>
+  </div>
+</section>
+
+<!-- ── Buyer section ───────────────────────────────────────────────────── -->
+<section class="buyer-section" aria-labelledby="buyer-heading">
+  <div class="section-inner">
+    <div class="section-eyebrow">For Buyers</div>
+    <h2 class="section-h2" id="buyer-heading">Real estate inventory. Competitive prices.</h2>
+    <p class="section-sub">Browse and bid on verified estate lots — furniture, art, collectibles, jewelry, and more — from sellers nationwide.</p>
+    <div class="feature-grid">
+      <div class="feature-card">
+        <div class="feature-card-icon" aria-hidden="true">🔒</div>
+        <h3>Secure bidding</h3>
+        <p>Every bid is confirmed in real time. Your payment is only processed when you win — and never before.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-card-icon" aria-hidden="true">⏱️</div>
+        <h3>Anti-sniping protection</h3>
+        <p>Late bids automatically extend the closing window, giving all bidders a fair opportunity to respond.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-card-icon" aria-hidden="true">📍</div>
+        <h3>Pickup details included</h3>
+        <p>Know exactly where and when to collect before you bid. Full pickup address released after payment.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-card-icon" aria-hidden="true">💬</div>
+        <h3>Transparent lot details</h3>
+        <p>Condition, dimensions, materials, and provenance — sellers document everything so you can bid with confidence.</p>
+      </div>
+    </div>
+    <a href="/login.html" class="btn-primary">Create a Buyer Account</a>
+  </div>
+</section>
+
+<!-- ── Trust bar ───────────────────────────────────────────────────────── -->
+<div class="trust-bar" role="complementary" aria-label="Trust signals">
+  <div class="trust-bar-inner">
+    <div class="trust-item">
+      <span class="trust-icon" aria-hidden="true">🔐</span>
+      <span class="trust-text"><strong>Secure payments</strong> via Stripe</span>
+    </div>
+    <div class="trust-divider" aria-hidden="true"></div>
+    <div class="trust-item">
+      <span class="trust-icon" aria-hidden="true">📸</span>
+      <span class="trust-text"><strong>AI-enhanced</strong> photo presentation</span>
+    </div>
+    <div class="trust-divider" aria-hidden="true"></div>
+    <div class="trust-item">
+      <span class="trust-icon" aria-hidden="true">⚖️</span>
+      <span class="trust-text"><strong>Fair close</strong> anti-snipe protection</span>
+    </div>
+    <div class="trust-divider" aria-hidden="true"></div>
+    <div class="trust-item">
+      <span class="trust-icon" aria-hidden="true">💰</span>
+      <span class="trust-text"><strong>Transparent</strong> seller payouts</span>
+    </div>
+  </div>
+</div>
+
+<!-- ── Scenario links ──────────────────────────────────────────────────── -->
+<section class="scenarios" aria-labelledby="scenarios-heading">
+  <div class="section-inner">
+    <div class="section-eyebrow">Common Situations</div>
+    <h2 class="section-h2" id="scenarios-heading">Whatever brought you here, we can help</h2>
+    <p class="section-sub" style="margin-bottom:2rem;">Read about how Advantage.Bid fits different liquidation situations.</p>
+    <div class="scenario-list">
+      <a href="/after-estate-sale.html" class="scenario-link">
+        <div class="scenario-link-label">Guide</div>
+        <div class="scenario-link-title">After the Estate Sale: What Comes Next</div>
+        <p class="scenario-link-desc">Items left after an on-site sale still have value. Learn how online auction turns leftovers into revenue.</p>
+        <div class="scenario-arrow">Read guide →</div>
+      </a>
+      <a href="/downsizing-liquidation.html" class="scenario-link">
+        <div class="scenario-link-label">Guide</div>
+        <div class="scenario-link-title">Downsizing? Here's How to Liquidate Efficiently</div>
+        <p class="scenario-link-desc">Moving to a smaller home? Auction the furniture, art, and collectibles you can't take with you.</p>
+        <div class="scenario-arrow">Read guide →</div>
+      </a>
+      <a href="/how-sellers-get-paid.html" class="scenario-link">
+        <div class="scenario-link-label">Explainer</div>
+        <div class="scenario-link-title">How Sellers Get Paid</div>
+        <p class="scenario-link-desc">Transparent fee structure, payout timeline, and payment methods — everything you need to know.</p>
+        <div class="scenario-arrow">Read more →</div>
+      </a>
+      <a href="/how-it-works.html" class="scenario-link">
+        <div class="scenario-link-label">Overview</div>
+        <div class="scenario-link-title">How Advantage.Bid Works</div>
+        <p class="scenario-link-desc">The complete walkthrough: from submitting items to receiving your payout.</p>
+        <div class="scenario-arrow">Full overview →</div>
+      </a>
+    </div>
+  </div>
+</section>
+
+<!-- ── CTA band ────────────────────────────────────────────────────────── -->
+<section class="cta-band" aria-labelledby="cta-heading">
+  <div class="section-inner">
+    <h2 id="cta-heading">Ready to turn your inventory into revenue?</h2>
+    <p>It takes minutes to get started. Our team handles the setup and publishes your auction — you collect the proceeds.</p>
+    <div class="cta-band-actions">
+      <a href="/start-selling.html" class="btn-primary">Start Selling Today</a>
+      <a href="/how-it-works.html" class="btn-outline">Learn How It Works</a>
+    </div>
+  </div>
+</section>
+
+<!-- ── Footer ─────────────────────────────────────────────────────────── -->
+<footer>
+  <div class="footer-inner">
+    <div class="footer-top">
+      <div class="footer-brand-col">
+        <div class="footer-brand">Advantage<span>.Bid</span></div>
+        <p class="footer-tagline">The auction platform for estate sales, liquidation, and consignment inventory nationwide.</p>
+      </div>
+      <div>
+        <div class="footer-col-title">Sellers</div>
+        <ul class="footer-links">
+          <li><a href="/start-selling.html">Start Selling</a></li>
+          <li><a href="/how-it-works.html">How It Works</a></li>
+          <li><a href="/how-sellers-get-paid.html">How You Get Paid</a></li>
+          <li><a href="/seller-faq.html">Seller FAQ</a></li>
+          <li><a href="/after-estate-sale.html">After an Estate Sale</a></li>
+        </ul>
+      </div>
+      <div>
+        <div class="footer-col-title">Buyers</div>
+        <ul class="footer-links">
+          <li><a href="/login.html">Create Account</a></li>
+          <li><a href="/buyer-faq.html">Buyer FAQ</a></li>
+          <li><a href="/how-it-works.html#buyers">Bidding Guide</a></li>
+        </ul>
+      </div>
+      <div>
+        <div class="footer-col-title">Browse</div>
+        <ul class="footer-links">
+          <li><a href="/featured-auctions.html">Featured Auctions</a></li>
+          <li><a href="/ending-soon.html">Ending Soon</a></li>
+          <li><a href="/shipping-available.html">Ships Nationwide</a></li>
+          <li><a href="/browse-categories.html">Browse Categories</a></li>
+          <li><a href="/browse-locations.html">Browse Locations</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <p class="footer-copy">© 2025 Advantage Auction. All rights reserved.</p>
+      <div class="footer-legal">
+        <a href="#">Privacy Policy</a>
+        <a href="#">Terms of Use</a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script>
+(function () {
+  'use strict';
+
+  function fmtMoney(cents) {
+    if (cents == null) return '$0';
+    return '$' + (cents / 100).toLocaleString('en-US', { maximumFractionDigits: 0 });
+  }
+
+  function fmtCountdown(iso) {
+    if (!iso) return '';
+    const ms = new Date(iso) - Date.now();
+    if (ms <= 0) return 'Closed';
+    const totalMin = Math.floor(ms / 60000);
+    const h = Math.floor(totalMin / 60);
+    const m = totalMin % 60;
+    if (h >= 48) { const d = Math.floor(h / 24); return d + 'd ' + (h % 24) + 'h remaining'; }
+    if (h >= 1) return h + 'h ' + m + 'm remaining';
+    return m + 'm remaining';
+  }
+
+  function fmtDate(iso) {
+    if (!iso) return '';
+    return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  }
+
+  function isEndingSoon(iso) {
+    if (!iso) return false;
+    const ms = new Date(iso) - Date.now();
+    return ms > 0 && ms < 86400000;
+  }
+
+  function isNew(createdAt) {
+    if (!createdAt) return false;
+    return (Date.now() - new Date(createdAt)) < 7 * 86400000;
+  }
+
+  function setElem(parent, tag, cls, text) {
+    const el = document.createElement(tag);
+    if (cls) el.className = cls;
+    if (text != null) el.textContent = text;
+    parent.appendChild(el);
+    return el;
+  }
+
+  function makeAuctionCard(auction) {
+    const a = document.createElement('a');
+    a.className = 'auction-card';
+    a.href = '/auction-view.html?id=' + encodeURIComponent(auction.id);
+
+    const imgDiv = document.createElement('div');
+    imgDiv.className = 'auction-card-img';
+    if (auction.cover_image_url) {
+      imgDiv.style.backgroundImage = 'url(' + encodeURI(auction.cover_image_url) + ')';
+    }
+
+    const badges = document.createElement('div');
+    badges.className = 'auction-badges';
+
+    if (auction.state === 'active') {
+      if (isEndingSoon(auction.end_time)) {
+        setElem(badges, 'span', 'auction-badge badge-ending', 'Ending Soon');
+      } else {
+        setElem(badges, 'span', 'auction-badge badge-live', '● Live Now');
+      }
+    } else if (auction.state === 'published') {
+      setElem(badges, 'span', 'auction-badge badge-upcoming', 'Upcoming');
+      if (isNew(auction.created_at)) {
+        setElem(badges, 'span', 'auction-badge badge-new', 'New');
+      }
+    }
+    if (auction.shipping_available) {
+      setElem(badges, 'span', 'auction-badge badge-shipping', '📦 Ships');
+    }
+    imgDiv.appendChild(badges);
+
+    if (auction.public_auction_type) {
+      setElem(imgDiv, 'div', 'auction-card-type-tag', auction.public_auction_type);
+    }
+
+    a.appendChild(imgDiv);
+
+    const body = document.createElement('div');
+    body.className = 'auction-card-body';
+
+    if (auction.seller_display_name) {
+      setElem(body, 'div', 'auction-card-seller', auction.seller_display_name);
+    }
+    setElem(body, 'div', 'auction-card-title', auction.title || 'Untitled Auction');
+    if (auction.city || auction.address_state) {
+      setElem(body, 'div', 'auction-card-location',
+        [auction.city, auction.address_state].filter(Boolean).join(', '));
+    }
+
+    const meta = document.createElement('div');
+    meta.className = 'auction-card-meta';
+
+    const lotsSpan = document.createElement('span');
+    const lc = auction.lot_count || 0;
+    lotsSpan.textContent = lc + (lc === 1 ? ' lot' : ' lots');
+    meta.appendChild(lotsSpan);
+
+    if (auction.end_time && auction.state === 'active') {
+      const timer = document.createElement('span');
+      timer.className = 'auction-card-timer';
+      timer.setAttribute('data-closes', auction.end_time);
+      timer.textContent = fmtCountdown(auction.end_time);
+      meta.appendChild(timer);
+    } else if (auction.start_time && auction.state === 'published') {
+      const startSpan = document.createElement('span');
+      startSpan.textContent = 'Opens ' + fmtDate(auction.start_time);
+      meta.appendChild(startSpan);
+    }
+
+    body.appendChild(meta);
+    a.appendChild(body);
+    return a;
+  }
+
+  function makeLotCard(lot) {
+    const a = document.createElement('a');
+    a.className = 'lot-card';
+    a.href = '/lot.html?id=' + encodeURIComponent(lot.id);
+
+    const imgDiv = document.createElement('div');
+    imgDiv.className = 'lot-card-img';
+    if (lot.thumbnail_url) {
+      imgDiv.style.backgroundImage = 'url(' + encodeURI(lot.thumbnail_url) + ')';
+    }
+    if (lot.shippable) {
+      setElem(imgDiv, 'span', 'lot-badge-ship', '📦');
+    }
+    a.appendChild(imgDiv);
+
+    const body = document.createElement('div');
+    body.className = 'lot-card-body';
+
+    if (lot.auction_title) {
+      setElem(body, 'div', 'lot-card-auction', lot.auction_title);
+    }
+    setElem(body, 'div', 'lot-card-title', lot.title || 'Untitled Lot');
+
+    const bidRow = document.createElement('div');
+    bidRow.className = 'lot-card-bid';
+    const bidAmt = document.createElement('span');
+    bidAmt.className = 'lot-bid-amount';
+    bidAmt.textContent = (lot.bid_count > 0)
+      ? fmtMoney(lot.current_bid_cents)
+      : fmtMoney(lot.starting_bid_cents);
+    bidRow.appendChild(bidAmt);
+
+    if (lot.bid_count > 0) {
+      const bc = document.createElement('span');
+      bc.className = 'lot-bid-count';
+      bc.textContent = lot.bid_count + (lot.bid_count === 1 ? ' bid' : ' bids');
+      bidRow.appendChild(bc);
+    } else {
+      const noB = document.createElement('span');
+      noB.className = 'lot-bid-count';
+      noB.textContent = 'starting bid';
+      bidRow.appendChild(noB);
+    }
+    body.appendChild(bidRow);
+
+    if (lot.closes_at) {
+      const timer = document.createElement('div');
+      timer.className = 'lot-card-timer';
+      timer.setAttribute('data-closes', lot.closes_at);
+      timer.textContent = fmtCountdown(lot.closes_at);
+      body.appendChild(timer);
+    }
+
+    a.appendChild(body);
+    return a;
+  }
+
+  function renderSkeletons(container, count) {
+    for (let i = 0; i < count; i++) {
+      const s = document.createElement('div');
+      s.className = 'skeleton-card';
+      s.setAttribute('aria-hidden', 'true');
+      const si = document.createElement('div'); si.className = 'sk-img'; s.appendChild(si);
+      const sl1 = document.createElement('div'); sl1.className = 'sk-line sk-title'; s.appendChild(sl1);
+      const sl2 = document.createElement('div'); sl2.className = 'sk-line sk-sub'; s.appendChild(sl2);
+      const sl3 = document.createElement('div'); sl3.className = 'sk-line sk-short'; s.appendChild(sl3);
+      container.appendChild(s);
+    }
+  }
+
+  function updateTimers() {
+    document.querySelectorAll('[data-closes]').forEach(function (el) {
+      el.textContent = fmtCountdown(el.getAttribute('data-closes'));
+    });
+  }
+
+  /* Active auctions */
+  var auctionsGrid  = document.getElementById('active-auctions-grid');
+  var auctionsEmpty = document.getElementById('active-auctions-empty');
+
+  if (auctionsGrid) {
+    renderSkeletons(auctionsGrid, 3);
+    fetch('/api/public/auctions?limit=6')
+      .then(function (r) { return r.json(); })
+      .then(function (json) {
+        auctionsGrid.innerHTML = '';
+        var data = (json && json.data) ? json.data : [];
+        if (!data.length) {
+          if (auctionsEmpty) auctionsEmpty.style.display = 'block';
+          return;
+        }
+        data.forEach(function (a) { auctionsGrid.appendChild(makeAuctionCard(a)); });
+      })
+      .catch(function () {
+        auctionsGrid.innerHTML = '';
+        if (auctionsEmpty) auctionsEmpty.style.display = 'block';
+      });
+  }
+
+  /* Featured lots */
+  var featuredGrid    = document.getElementById('featured-lots-grid');
+  var featuredSection = document.getElementById('featured-lots-section');
+
+  if (featuredGrid) {
+    renderSkeletons(featuredGrid, 4);
+    fetch('/api/public/featured-lots?limit=8')
+      .then(function (r) { return r.json(); })
+      .then(function (json) {
+        featuredGrid.innerHTML = '';
+        var data = (json && json.data) ? json.data : [];
+        if (!data.length) {
+          if (featuredSection) featuredSection.style.display = 'none';
+          return;
+        }
+        data.forEach(function (l) { featuredGrid.appendChild(makeLotCard(l)); });
+      })
+      .catch(function () {
+        if (featuredSection) featuredSection.style.display = 'none';
+      });
+  }
+
+  /* Ending soon — fetch active auctions, filter to those closing within 24h */
+  var endingSoonSection = document.getElementById('ending-soon-section');
+  var endingSoonGrid    = document.getElementById('ending-soon-grid');
+
+  if (endingSoonGrid) {
+    fetch('/api/public/auctions?state=active&limit=24')
+      .then(function (r) { return r.json(); })
+      .then(function (json) {
+        var data = (json && json.data) ? json.data : [];
+        var soon = data.filter(function (a) {
+          if (!a.end_time) return false;
+          var ms = new Date(a.end_time) - Date.now();
+          return ms > 0 && ms < 86400000;
+        });
+        soon.sort(function (a, b) { return new Date(a.end_time) - new Date(b.end_time); });
+        if (!soon.length) return;
+        soon.slice(0, 6).forEach(function (a) { endingSoonGrid.appendChild(makeAuctionCard(a)); });
+        if (endingSoonSection) endingSoonSection.style.display = '';
+      })
+      .catch(function () { /* keep section hidden */ });
+  }
+
+  /* Browse by location */
+  var locationPills   = document.getElementById('location-pills');
+  var locationsSection = document.getElementById('locations-section');
+
+  if (locationPills) {
+    fetch('/api/public/locations?limit=30')
+      .then(function (r) { return r.json(); })
+      .then(function (json) {
+        var data = (json && json.data) ? json.data : [];
+        data = data.filter(function (l) { return l.active_count > 0; });
+        if (!data.length) {
+          if (locationsSection) locationsSection.style.display = 'none';
+          return;
+        }
+        data.slice(0, 24).forEach(function (loc) {
+          var a = document.createElement('a');
+          a.className = 'location-pill';
+          var qs = new URLSearchParams();
+          if (loc.address_state) qs.set('state', loc.address_state);
+          if (loc.city) qs.set('city', loc.city);
+          a.href = '/browse-locations.html?' + qs.toString();
+
+          var label = (loc.city ? loc.city + ', ' : '') + (loc.address_state || '');
+          var labelSpan = document.createElement('span');
+          labelSpan.textContent = label;
+          a.appendChild(labelSpan);
+
+          if (loc.active_count > 0) {
+            var countSpan = document.createElement('span');
+            countSpan.className = 'location-pill-count';
+            countSpan.textContent = loc.active_count + (loc.active_count === 1 ? ' auction' : ' auctions');
+            a.appendChild(countSpan);
+          }
+
+          locationPills.appendChild(a);
+        });
+      })
+      .catch(function () {
+        if (locationsSection) locationsSection.style.display = 'none';
+      });
+  }
+
+  setInterval(updateTimers, 30000);
+})();
+</script>
+
+<script src="/marketplace-components.js"></script>
+</body>
+</html>
+
+
