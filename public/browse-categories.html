@@ -1,37 +1,32 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Browse Auction Categories — Estate &amp; Liquidation | Advantage.Bid</title>
-  <meta name="description" content="Browse estate and liquidation auctions by category. Find antiques, furniture, collectibles, commercial inventory, and more." />
-  <meta name="keywords" content="estate auction categories, liquidation auction types, antique auction, furniture auction, collectibles auction, commercial liquidation" />
+  <title>Explore by Type — Estate &amp; Liquidation Finds | Advantage.Bid</title>
+  <meta name="description" content="Explore unique estate and liquidation inventory by type — antiques, furniture, jewelry, collectibles, and more. Discover quality finds from real homes and collections." />
+  <meta name="keywords" content="estate auction categories, antique auction, furniture auction, collectibles auction, estate inventory types, liquidation finds" />
   <link rel="canonical" href="https://advantage.bid/browse-categories.html" />
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
 
   <!-- Open Graph -->
-  <meta property="og:title" content="Browse Auction Categories — Estate &amp; Liquidation | Advantage.Bid" />
-  <meta property="og:description" content="Browse estate and liquidation auctions by category. Find antiques, furniture, collectibles, commercial inventory, and more." />
+  <meta property="og:title" content="Explore by Type — Estate &amp; Liquidation Finds | Advantage.Bid" />
+  <meta property="og:description" content="Discover unique estate inventory by the type of finds you love — antiques, furniture, jewelry, collectibles, and more." />
   <meta property="og:type" content="website" />
   <meta property="og:url" content="https://advantage.bid/browse-categories.html" />
 
   <link rel="stylesheet" href="/marketplace.css" />
   <style>
-    /* Page-specific styles — shared system in /marketplace.css */
     body { background: #fff; }
 
-    /* ── Light hero (navigation hub — NOT the dark navy .hero class) ── */
+    /* ── Light hero — white background, ink text ── */
     .page-hero {
       background: #fff;
       border-bottom: 1px solid var(--border);
       padding: 3.5rem 1.5rem 3rem;
       text-align: center;
     }
-    /* Override the dark-navy .hero-eyebrow from marketplace.css for light context.
-       Uses higher specificity (.page-hero .hero-eyebrow) handled in marketplace.css;
-       this rule is a fallback for direct .hero-eyebrow on this page. */
-    .page-hero .hero-eyebrow,
-    .page-hero > .hero-eyebrow {
+    .page-hero .hero-eyebrow {
       color: var(--blue);
       background: rgba(37, 99, 235, 0.08);
       border-color: rgba(37, 99, 235, 0.3);
@@ -44,30 +39,100 @@
       margin-bottom: 0.85rem;
       line-height: 1.1;
     }
-    .page-hero p { font-size: clamp(0.95rem, 2.5vw, 1.1rem); color: var(--gray); max-width: 520px; margin: 0 auto; line-height: 1.65; }
+    .page-hero p {
+      font-size: clamp(0.95rem, 2.5vw, 1.1rem);
+      color: var(--gray);
+      max-width: 520px;
+      margin: 0 auto;
+      line-height: 1.65;
+    }
 
     /* ── Category sections ── */
-    .categories-wrapper { max-width: 1100px; margin: 0 auto; padding: 0 1.5rem 5rem; }
+    .categories-wrapper { max-width: 1100px; margin: 0 auto; padding: 0 1.5rem 4rem; }
     .cat-section { padding: 3rem 0; border-bottom: 1px solid var(--border); }
     .cat-section:last-of-type { border-bottom: none; }
     .cat-layout { display: grid; grid-template-columns: 1fr 1fr; gap: 3rem; align-items: start; }
     @media (max-width: 720px) { .cat-layout { grid-template-columns: 1fr; gap: 1.5rem; } }
-    .cat-header { display: flex; align-items: center; gap: 0.85rem; margin-bottom: 0.85rem; }
-    .cat-icon { font-size: 2rem; line-height: 1; flex-shrink: 0; }
-    .cat-title { font-size: 1.3rem; font-weight: 800; color: var(--ink); letter-spacing: -0.02em; }
-    .cat-desc { font-size: 0.95rem; color: var(--gray); line-height: 1.65; margin-bottom: 1.5rem; max-width: 460px; }
-    .cat-cta { display: inline-flex; align-items: center; gap: 0.3rem; font-size: 0.9rem; font-weight: 700; color: var(--blue); text-decoration: none; padding: 0.55rem 1.25rem; border: 2px solid var(--blue); border-radius: 8px; transition: background 0.15s, color 0.15s; }
-    .cat-cta:hover { background: var(--blue); color: #fff; }
-    .cat-items-card { background: var(--bg); border: 1.5px solid var(--border); border-radius: 14px; padding: 1.5rem 1.5rem 1.25rem; }
-    .cat-items-label { font-size: 0.68rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--gray); margin-bottom: 0.85rem; }
-    .cat-items-list { list-style: none; display: flex; flex-direction: column; gap: 0.45rem; }
-    .cat-items-list li { font-size: 0.875rem; color: var(--ink); display: flex; align-items: center; gap: 0.5rem; }
-    .cat-items-list li::before { content: ''; display: inline-block; width: 5px; height: 5px; border-radius: 50%; background: var(--blue); flex-shrink: 0; }
 
-    /* ── Bottom CTA band (light gradient) ── */
-    .bottom-cta { background: linear-gradient(135deg, var(--blue-lt) 0%, var(--green-lt) 100%); padding: 4rem 1.5rem; text-align: center; }
-    .bottom-cta h2 { font-size: clamp(1.4rem, 3.5vw, 2rem); font-weight: 800; color: var(--ink); letter-spacing: -0.02em; margin-bottom: 0.65rem; }
-    .bottom-cta p { font-size: 1rem; color: var(--gray); max-width: 440px; margin: 0 auto 1.75rem; line-height: 1.6; }
+    .cat-header { display: flex; align-items: center; gap: 0.85rem; margin-bottom: 0.85rem; }
+    .cat-icon   { font-size: 2rem; line-height: 1; flex-shrink: 0; }
+    .cat-title  { font-size: 1.3rem; font-weight: 800; color: var(--ink); letter-spacing: -0.02em; }
+    .cat-desc   { font-size: 0.95rem; color: var(--gray); line-height: 1.65; margin-bottom: 1.5rem; max-width: 460px; }
+
+    .cat-cta {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.3rem;
+      font-size: 0.9rem;
+      font-weight: 700;
+      color: var(--blue);
+      text-decoration: none;
+      padding: 0.55rem 1.25rem;
+      border: 2px solid var(--blue);
+      border-radius: 8px;
+      transition: background 0.15s, color 0.15s;
+    }
+    .cat-cta:hover { background: var(--blue); color: #fff; }
+
+    .cat-items-card {
+      background: var(--bg);
+      border: 1.5px solid var(--border);
+      border-radius: 14px;
+      padding: 1.5rem 1.5rem 1.25rem;
+    }
+    .cat-items-label {
+      font-size: 0.68rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--gray);
+      margin-bottom: 0.85rem;
+    }
+    .cat-items-list { list-style: none; display: flex; flex-direction: column; gap: 0.45rem; }
+    .cat-items-list li {
+      font-size: 0.875rem;
+      color: var(--ink);
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .cat-items-list li::before {
+      content: '';
+      display: inline-block;
+      width: 5px;
+      height: 5px;
+      border-radius: 50%;
+      background: var(--blue);
+      flex-shrink: 0;
+    }
+
+    /* ── Discovery CTA band ── */
+    .discovery-cta {
+      background: var(--bg);
+      border-top: 1px solid var(--border);
+      padding: 3rem 1.5rem;
+      text-align: center;
+    }
+    .discovery-cta h2 {
+      font-size: clamp(1.3rem, 3vw, 1.75rem);
+      font-weight: 800;
+      color: var(--ink);
+      letter-spacing: -0.02em;
+      margin-bottom: 0.5rem;
+    }
+    .discovery-cta p {
+      font-size: 0.95rem;
+      color: var(--gray);
+      max-width: 420px;
+      margin: 0 auto 1.5rem;
+      line-height: 1.6;
+    }
+    .discovery-cta-actions {
+      display: flex;
+      gap: 0.75rem;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
   </style>
 </head>
 <body>
@@ -97,13 +162,13 @@
 
 <!-- ── Hero ── -->
 <section class="page-hero" aria-label="Page hero">
-  <div class="hero-eyebrow">Browse by Type</div>
-  <h1>Browse Auction Categories</h1>
-  <p>Explore estate and liquidation inventory by type.</p>
+  <div class="hero-eyebrow">Explore by Interest</div>
+  <h1>Find what speaks to you.</h1>
+  <p>From antique furniture to vintage jewelry — unique inventory from real homes and collections, organized by what you love.</p>
 </section>
 
 <!-- ── Category sections ── -->
-<main class="categories-wrapper" aria-label="Auction categories">
+<main class="categories-wrapper" aria-label="Inventory categories">
 
   <!-- 1. Estate Liquidations -->
   <section class="cat-section" id="estate" aria-labelledby="cat-estate-title">
@@ -113,18 +178,18 @@
           <span class="cat-icon" aria-hidden="true">🏠</span>
           <h2 class="cat-title" id="cat-estate-title">Estate Liquidations</h2>
         </div>
-        <p class="cat-desc">Complete home contents — furniture, household goods, artwork, décor, and everything left after an estate sale.</p>
-        <a href="/auction.html" class="cat-cta">Browse Estate Auctions →</a>
+        <p class="cat-desc">Complete home contents — furniture, household goods, artwork, décor, and everything left after an estate sale. Real inventory from real homes.</p>
+        <a href="/featured-auctions.html" class="cat-cta">Explore Estate Collections →</a>
       </div>
       <div class="cat-items-card" role="complementary" aria-label="What you'll find in Estate Liquidations">
         <div class="cat-items-label">What you'll find</div>
         <ul class="cat-items-list">
-          <li>Furniture sets</li>
+          <li>Furniture sets and statement pieces</li>
           <li>Bedroom and dining sets</li>
-          <li>Sofas and chairs</li>
-          <li>Home décor and artwork</li>
+          <li>Sofas, chairs, and lounge furniture</li>
+          <li>Home décor and original artwork</li>
           <li>Mirrors and wall art</li>
-          <li>Kitchenware and linens</li>
+          <li>Kitchenware, linens, and textiles</li>
         </ul>
       </div>
     </div>
@@ -138,18 +203,18 @@
           <span class="cat-icon" aria-hidden="true">🏺</span>
           <h2 class="cat-title" id="cat-antiques-title">Antiques &amp; Collectibles</h2>
         </div>
-        <p class="cat-desc">Curated antiques, vintage items, and collector pieces from estate liquidations.</p>
-        <a href="/featured-auctions.html" class="cat-cta">Browse Antique Auctions →</a>
+        <p class="cat-desc">Curated antiques, vintage pieces, and collector items from estate liquidations. Unique finds with character — things you won't see in stores.</p>
+        <a href="/featured-auctions.html" class="cat-cta">Explore Antiques →</a>
       </div>
       <div class="cat-items-card" role="complementary" aria-label="What you'll find in Antiques and Collectibles">
         <div class="cat-items-label">What you'll find</div>
         <ul class="cat-items-list">
-          <li>Antique furniture</li>
-          <li>Vintage jewelry</li>
-          <li>Silverware and china sets</li>
-          <li>Art glass</li>
-          <li>Vintage tools</li>
-          <li>Coins, currency, and sports memorabilia</li>
+          <li>Antique furniture and case pieces</li>
+          <li>Vintage jewelry and accessories</li>
+          <li>Silverware, china, and crystal</li>
+          <li>Art glass and decorative objects</li>
+          <li>Vintage tools and mechanical items</li>
+          <li>Coins, currency, and memorabilia</li>
         </ul>
       </div>
     </div>
@@ -163,8 +228,8 @@
           <span class="cat-icon" aria-hidden="true">📦</span>
           <h2 class="cat-title" id="cat-downsizing-title">Downsizing &amp; Home</h2>
         </div>
-        <p class="cat-desc">Inventory from homeowners who are moving, downsizing, or clearing out decades of belongings.</p>
-        <a href="/downsizing-liquidation.html" class="cat-cta">Browse Downsizing Auctions →</a>
+        <p class="cat-desc">Inventory from homeowners who are moving, downsizing, or clearing out decades of well-kept belongings. Practical quality at real prices.</p>
+        <a href="/featured-auctions.html" class="cat-cta">Explore Home &amp; Downsizing →</a>
       </div>
       <div class="cat-items-card" role="complementary" aria-label="What you'll find in Downsizing and Home">
         <div class="cat-items-label">What you'll find</div>
@@ -172,9 +237,9 @@
           <li>Bedroom and outdoor furniture</li>
           <li>Appliances and electronics</li>
           <li>Clothing and accessories</li>
-          <li>Books and media</li>
-          <li>Exercise equipment</li>
-          <li>Seasonal and holiday items</li>
+          <li>Books, media, and records</li>
+          <li>Exercise and hobby equipment</li>
+          <li>Seasonal and garden items</li>
         </ul>
       </div>
     </div>
@@ -188,17 +253,17 @@
           <span class="cat-icon" aria-hidden="true">🏢</span>
           <h2 class="cat-title" id="cat-commercial-title">Commercial &amp; Business</h2>
         </div>
-        <p class="cat-desc">Office equipment, fixtures, and commercial inventory from business liquidations.</p>
-        <a href="/auction.html" class="cat-cta">Browse Commercial Auctions →</a>
+        <p class="cat-desc">Office equipment, fixtures, and commercial inventory from business liquidations — priced to move, available to anyone.</p>
+        <a href="/featured-auctions.html" class="cat-cta">Explore Commercial →</a>
       </div>
       <div class="cat-items-card" role="complementary" aria-label="What you'll find in Commercial and Business">
         <div class="cat-items-label">What you'll find</div>
         <ul class="cat-items-list">
-          <li>Office furniture</li>
+          <li>Office furniture and workstations</li>
           <li>Computers and electronics</li>
           <li>Display cases and retail fixtures</li>
-          <li>Industrial equipment</li>
-          <li>Restaurant equipment</li>
+          <li>Industrial and shop equipment</li>
+          <li>Restaurant and kitchen equipment</li>
           <li>Warehouse and storage items</li>
         </ul>
       </div>
@@ -213,18 +278,18 @@
           <span class="cat-icon" aria-hidden="true">📦</span>
           <h2 class="cat-title" id="cat-shipping-title">Ships Nationwide</h2>
         </div>
-        <p class="cat-desc">Estate lots available to buyers nationwide — no local pickup required.</p>
-        <a href="/shipping-available.html" class="cat-cta">Browse Shipping Auctions →</a>
+        <p class="cat-desc">Unique estate finds available to buyers anywhere in the country — no local pickup required. Great inventory doesn't have to be local.</p>
+        <a href="/shipping-available.html" class="cat-cta">Explore Shippable Finds →</a>
       </div>
       <div class="cat-items-card" role="complementary" aria-label="What you'll find in Ships Nationwide">
         <div class="cat-items-label">What you'll find</div>
         <ul class="cat-items-list">
           <li>Jewelry and small antiques</li>
           <li>Collectibles and art prints</li>
-          <li>Silver and china</li>
-          <li>Vintage watches</li>
-          <li>Books and documents</li>
-          <li>Small decorative items</li>
+          <li>Silver, china, and crystal</li>
+          <li>Vintage watches and accessories</li>
+          <li>Books, documents, and ephemera</li>
+          <li>Small decorative and vintage items</li>
         </ul>
       </div>
     </div>
@@ -236,19 +301,19 @@
       <div>
         <div class="cat-header">
           <span class="cat-icon" aria-hidden="true">⭐</span>
-          <h2 class="cat-title" id="cat-featured-title">Featured Auctions</h2>
+          <h2 class="cat-title" id="cat-featured-title">Featured Collections</h2>
         </div>
-        <p class="cat-desc">Handpicked estate and liquidation collections selected by the Advantage.Bid team — notable inventory, standout sellers, and exceptional lots.</p>
-        <a href="/featured-auctions.html" class="cat-cta">Browse Featured Auctions →</a>
+        <p class="cat-desc">Handpicked estate and liquidation collections — notable inventory, standout sellers, and exceptional finds selected by the Advantage.Bid team.</p>
+        <a href="/featured-auctions.html" class="cat-cta">Explore Featured →</a>
       </div>
-      <div class="cat-items-card" role="complementary" aria-label="What you'll find in Featured Auctions">
+      <div class="cat-items-card" role="complementary" aria-label="What you'll find in Featured Collections">
         <div class="cat-items-label">What you'll find</div>
         <ul class="cat-items-list">
           <li>Handpicked estate collections</li>
-          <li>Notable antiques and art</li>
+          <li>Notable antiques and original art</li>
           <li>Complete household contents</li>
           <li>Rare and unusual items</li>
-          <li>High-value lots</li>
+          <li>High-value standout lots</li>
           <li>Curated seller collections</li>
         </ul>
       </div>
@@ -257,11 +322,28 @@
 
 </main>
 
-<!-- ── Bottom CTA ── -->
-<section class="bottom-cta" aria-labelledby="bottom-cta-heading">
-  <h2 id="bottom-cta-heading">Ready to sell your estate inventory?</h2>
-  <p>List your estate or liquidation items on Advantage.Bid and reach motivated buyers nationwide.</p>
-  <a href="/start-selling.html" class="btn-primary">Start Selling →</a>
+<!-- ── Trending Finds rail ── -->
+<section id="trending-rail" class="discovery-rail" aria-labelledby="trending-heading">
+  <div class="discovery-rail-inner">
+    <div class="discovery-rail-header">
+      <div>
+        <div class="section-eyebrow">Active Right Now</div>
+        <h2 class="discovery-rail-title" id="trending-heading">Trending Finds</h2>
+      </div>
+      <a href="/ending-soon.html" class="discovery-rail-link">See what's ending soon →</a>
+    </div>
+    <div class="discovery-rail-scroll" id="trending-scroll" aria-live="polite" aria-label="Trending lots"></div>
+  </div>
+</section>
+
+<!-- ── Discovery CTA ── -->
+<section class="discovery-cta" aria-labelledby="discovery-cta-heading">
+  <h2 id="discovery-cta-heading">Ready to start exploring?</h2>
+  <p>Browse active collections or list your own estate inventory to reach buyers nationwide.</p>
+  <div class="discovery-cta-actions">
+    <a href="/login.html" class="btn-primary">Create a Buyer Account</a>
+    <a href="/start-selling.html" class="btn-outline">List Your Items</a>
+  </div>
 </section>
 
 <!-- ── Footer ── -->
@@ -312,6 +394,14 @@
 </footer>
 
 <script src="/marketplace-components.js"></script>
+<script>
+(function () {
+  'use strict';
+  var MC = window.MktComponents;
+  if (!MC) return;
+  var trendingScroll = document.getElementById('trending-scroll');
+  if (trendingScroll) MC.loadDiscoveryRail(trendingScroll, '/api/public/lots/trending', { limit: 12 });
+})();
+</script>
 </body>
 </html>
-

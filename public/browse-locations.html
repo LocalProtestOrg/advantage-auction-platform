@@ -1,29 +1,27 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Browse Auction Locations — Estate Sales by State &amp; City | Advantage.Bid</title>
-  <meta name="description" content="Browse estate and liquidation auctions by state and city. Find active auctions near you on Advantage.Bid." />
-  <meta name="keywords" content="estate auctions by state, auction locations, find auctions near me, estate sale locations, liquidation auction map" />
+  <title>Discover Inventory Near You — Browse by Region | Advantage.Bid</title>
+  <meta name="description" content="Explore estate and liquidation collections by state. Real inventory from real homes — discover what's active near you or anywhere across the country." />
+  <meta name="keywords" content="estate auctions by state, auction near me, estate sales by region, liquidation collections by location, find estate items near me" />
   <link rel="canonical" href="https://advantage.bid/browse-locations.html" />
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
 
   <!-- Open Graph -->
-  <meta property="og:title" content="Browse Auction Locations — Estate Sales by State &amp; City | Advantage.Bid" />
-  <meta property="og:description" content="Browse estate and liquidation auctions by state and city. Find active auctions near you on Advantage.Bid." />
+  <meta property="og:title" content="Discover Inventory Near You — Browse by Region | Advantage.Bid" />
+  <meta property="og:description" content="Estate and liquidation collections by state. Real inventory from real homes — discover what's near you." />
   <meta property="og:type" content="website" />
   <meta property="og:url" content="https://advantage.bid/browse-locations.html" />
 
   <link rel="stylesheet" href="/marketplace.css" />
   <style>
-    /* Page-specific styles — shared system in /marketplace.css */
     body { background: var(--bg); }
 
-    /* ── State filter section ── */
+    /* ── Region filter section ── */
     .state-section { background: #fff; border-bottom: 1px solid var(--border); padding: 2.5rem 1.5rem 2rem; }
     .state-section-inner { max-width: 1100px; margin: 0 auto; }
-    .section-h2 { font-size: clamp(1.2rem, 2.5vw, 1.6rem); font-weight: 800; color: var(--ink); margin-bottom: 1.5rem; letter-spacing: -0.02em; }
 
     .state-grid { display: flex; flex-wrap: wrap; gap: 0.5rem; min-height: 2.5rem; }
     .state-btn { display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.45rem 1rem; background: var(--bg); border: 1.5px solid var(--border); border-radius: 99px; font-size: 0.82rem; font-weight: 600; color: var(--ink); cursor: pointer; transition: border-color 0.15s, background 0.15s, color 0.15s; white-space: nowrap; }
@@ -34,11 +32,11 @@
     .state-btn.active .state-btn-abbr,
     .state-btn.active .state-btn-count { opacity: 0.8; }
 
-    /* Skeleton pills for state buttons (uses @keyframes shimmer from marketplace.css) */
+    /* Skeleton pills (uses @keyframes shimmer from marketplace.css) */
     .state-skeleton { display: flex; flex-wrap: wrap; gap: 0.5rem; }
     .sk-pill { height: 32px; border-radius: 99px; background: linear-gradient(90deg, #f0f0f0 25%, #e8e8e8 50%, #f0f0f0 75%); background-size: 200% 100%; animation: shimmer 1.5s infinite; }
 
-    /* ── Auction list section ── */
+    /* ── Collections list section ── */
     .auctions-section { max-width: 1100px; margin: 0 auto; padding: 2.5rem 1.5rem 4rem; }
     .auctions-section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 0.75rem; }
     .auctions-section-heading { font-size: clamp(1.2rem, 2.5vw, 1.5rem); font-weight: 800; color: var(--ink); letter-spacing: -0.02em; }
@@ -50,6 +48,41 @@
     .load-more-btn { font-size: 0.9rem; font-weight: 700; color: var(--blue); background: #fff; border: 2px solid var(--blue); padding: 0.65rem 1.75rem; border-radius: 8px; cursor: pointer; transition: background 0.15s, color 0.15s; }
     .load-more-btn:hover { background: var(--blue); color: #fff; }
     .load-more-btn:disabled { opacity: 0.5; cursor: default; }
+
+    /* ── Discovery CTA ── */
+    .discovery-cta {
+      background: var(--bg);
+      border-top: 1px solid var(--border);
+      padding: 3rem 1.5rem;
+      text-align: center;
+    }
+    .discovery-cta-inner { max-width: 700px; margin: 0 auto; }
+    .discovery-cta h2 {
+      font-size: clamp(1.15rem, 2.5vw, 1.5rem);
+      font-weight: 800;
+      color: var(--ink);
+      margin-bottom: 0.5rem;
+      letter-spacing: -0.02em;
+    }
+    .discovery-cta p {
+      font-size: 0.92rem;
+      color: var(--gray);
+      margin-bottom: 1.5rem;
+      line-height: 1.6;
+    }
+    .discovery-cta-btns { display: flex; gap: 0.75rem; justify-content: center; flex-wrap: wrap; }
+    .discovery-cta-btns a {
+      font-size: 0.9rem;
+      font-weight: 700;
+      padding: 0.65rem 1.5rem;
+      border-radius: 8px;
+      text-decoration: none;
+      transition: background 0.15s, color 0.15s;
+    }
+    .discovery-cta-btns .btn-primary { background: var(--blue); color: #fff; }
+    .discovery-cta-btns .btn-primary:hover { background: var(--blue-d); }
+    .discovery-cta-btns .btn-secondary { background: #fff; color: var(--blue); border: 2px solid var(--blue); }
+    .discovery-cta-btns .btn-secondary:hover { background: var(--blue-lt); }
   </style>
 </head>
 <body>
@@ -80,19 +113,21 @@
 <!-- ── Hero ── -->
 <section class="hero" aria-label="Page hero">
   <div class="hero-inner">
-    <div class="hero-eyebrow">Browse by Location</div>
-    <h1>Find Auctions Near You</h1>
-    <p class="hero-sub">Estate and liquidation auctions are listed by location. Browse by state to find active auctions near you.</p>
+    <div class="hero-eyebrow">Explore by Region</div>
+    <h1>Discover inventory<br />near you.</h1>
+    <p class="hero-sub">
+      Estate sales, liquidations, and collections from real homes across the country.
+      Choose a state to see what's active — or explore everything.
+    </p>
   </div>
 </section>
 
-<!-- ── State filter ── -->
+<!-- ── Region filter ── -->
 <section class="state-section" aria-labelledby="state-filter-heading">
   <div class="state-section-inner">
-    <div class="section-eyebrow">Filter by State</div>
-    <h2 class="section-h2" id="state-filter-heading">Active Auction States</h2>
-    <div class="state-grid" id="state-grid" aria-live="polite" aria-label="States with active auctions">
-      <!-- Skeleton pills while loading -->
+    <div class="section-eyebrow">Where do you want to explore?</div>
+    <h2 class="section-h2" id="state-filter-heading">Browse by State</h2>
+    <div class="state-grid" id="state-grid" aria-live="polite" aria-label="States with active collections">
       <div class="state-skeleton" id="state-skeleton">
         <div class="sk-pill" style="width:90px;" aria-hidden="true"></div>
         <div class="sk-pill" style="width:75px;" aria-hidden="true"></div>
@@ -105,19 +140,45 @@
   </div>
 </section>
 
-<!-- ── Auction list ── -->
-<main class="auctions-section">
+<!-- ── Collections grid ── -->
+<main class="auctions-section" id="main-content">
   <div class="auctions-section-header">
-    <h2 class="auctions-section-heading" id="auctions-heading" aria-live="polite">All Locations</h2>
-    <button class="clear-filter-btn" id="clear-filter-btn" style="display:none;" aria-label="Clear state filter">Clear filter</button>
+    <h2 class="auctions-section-heading" id="auctions-heading" aria-live="polite">All Collections</h2>
+    <button class="clear-filter-btn" id="clear-filter-btn" style="display:none;" aria-label="Clear region filter">Clear filter</button>
   </div>
   <div class="auctions-grid" id="auctions-grid" aria-live="polite" aria-labelledby="auctions-heading">
-    <!-- Populated by JS -->
+    <!-- Populated by JavaScript -->
   </div>
   <div class="load-more-row" id="load-more-row" style="display:none;">
-    <button class="load-more-btn" id="load-more-btn">Load More Auctions</button>
+    <button class="load-more-btn" id="load-more-btn">Load More Collections</button>
   </div>
 </main>
+
+<!-- ── Ending Soon lot rail ── -->
+<section id="ending-soon-rail" class="discovery-rail" aria-labelledby="ending-soon-heading">
+  <div class="discovery-rail-inner">
+    <div class="discovery-rail-header">
+      <div>
+        <div class="section-eyebrow">Bid Before They're Gone</div>
+        <h2 class="discovery-rail-title" id="ending-soon-heading">Ending Soon</h2>
+      </div>
+      <a href="/ending-soon.html" class="discovery-rail-link">View all ending soon →</a>
+    </div>
+    <div class="discovery-rail-scroll" id="ending-soon-scroll" aria-live="polite" aria-label="Lots ending soon"></div>
+  </div>
+</section>
+
+<!-- ── Discovery CTA ── -->
+<div class="discovery-cta" role="complementary">
+  <div class="discovery-cta-inner">
+    <h2>Great finds don't have to be local</h2>
+    <p>Collections that ship are available to buyers anywhere. And if you have estate or liquidation inventory to sell, we make listing easy.</p>
+    <div class="discovery-cta-btns">
+      <a href="/shipping-available.html" class="btn-primary">Browse Ships Nationwide</a>
+      <a href="/start-selling.html" class="btn-secondary">List Your Items</a>
+    </div>
+  </div>
+</div>
 
 <!-- ── Footer ── -->
 <footer>
@@ -166,9 +227,13 @@
   </div>
 </footer>
 
+<script src="/marketplace-components.js"></script>
 <script>
 (function () {
   'use strict';
+
+  var MC = window.MktComponents;
+  if (!MC) return;
 
   var STATE_NAMES = {
     AL:'Alabama', AK:'Alaska', AZ:'Arizona', AR:'Arkansas', CA:'California',
@@ -183,148 +248,18 @@
     VA:'Virginia', WA:'Washington', WV:'West Virginia', WI:'Wisconsin', WY:'Wyoming'
   };
 
-  function fmtCountdown(iso) {
-    if (!iso) return '';
-    var ms = new Date(iso) - Date.now();
-    if (ms <= 0) return 'Closed';
-    var totalMin = Math.floor(ms / 60000);
-    var h = Math.floor(totalMin / 60);
-    var m = totalMin % 60;
-    if (h >= 48) { var d = Math.floor(h / 24); return d + 'd ' + (h % 24) + 'h remaining'; }
-    if (h >= 1) return h + 'h ' + m + 'm remaining';
-    return m + 'm remaining';
-  }
-
-  function fmtDate(iso) {
-    if (!iso) return '';
-    return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-  }
-
-  function isEndingSoon(iso) {
-    if (!iso) return false;
-    var ms = new Date(iso) - Date.now();
-    return ms > 0 && ms < 86400000;
-  }
-
-  function isNew(createdAt) {
-    if (!createdAt) return false;
-    return (Date.now() - new Date(createdAt)) < 7 * 86400000;
-  }
-
-  function setElem(parent, tag, cls, text) {
-    var el = document.createElement(tag);
-    if (cls) el.className = cls;
-    if (text != null) el.textContent = text;
-    parent.appendChild(el);
-    return el;
-  }
-
-  function makeAuctionCard(auction) {
-    var a = document.createElement('a');
-    a.className = 'auction-card';
-    a.href = '/auction-view.html?id=' + encodeURIComponent(auction.id);
-
-    var imgDiv = document.createElement('div');
-    imgDiv.className = 'auction-card-img';
-    if (auction.cover_image_url) {
-      imgDiv.style.backgroundImage = 'url(' + encodeURI(auction.cover_image_url) + ')';
-    }
-
-    var badges = document.createElement('div');
-    badges.className = 'auction-badges';
-
-    if (auction.state === 'active') {
-      if (isEndingSoon(auction.end_time)) {
-        setElem(badges, 'span', 'auction-badge badge-ending', 'Ending Soon');
-      } else {
-        setElem(badges, 'span', 'auction-badge badge-live', '● Live Now');
-      }
-    } else if (auction.state === 'published') {
-      setElem(badges, 'span', 'auction-badge badge-upcoming', 'Upcoming');
-      if (isNew(auction.created_at)) {
-        setElem(badges, 'span', 'auction-badge badge-new', 'New');
-      }
-    }
-    if (auction.shipping_available) {
-      setElem(badges, 'span', 'auction-badge badge-shipping', '📦 Ships');
-    }
-    imgDiv.appendChild(badges);
-
-    if (auction.public_auction_type) {
-      setElem(imgDiv, 'div', 'auction-card-type-tag', auction.public_auction_type);
-    }
-
-    a.appendChild(imgDiv);
-
-    var body = document.createElement('div');
-    body.className = 'auction-card-body';
-
-    if (auction.seller_display_name) {
-      setElem(body, 'div', 'auction-card-seller', auction.seller_display_name);
-    }
-    setElem(body, 'div', 'auction-card-title', auction.title || 'Untitled Auction');
-    if (auction.city || auction.address_state) {
-      setElem(body, 'div', 'auction-card-location',
-        [auction.city, auction.address_state].filter(Boolean).join(', '));
-    }
-
-    var meta = document.createElement('div');
-    meta.className = 'auction-card-meta';
-
-    var lotsSpan = document.createElement('span');
-    var lc = auction.lot_count || 0;
-    lotsSpan.textContent = lc + (lc === 1 ? ' lot' : ' lots');
-    meta.appendChild(lotsSpan);
-
-    if (auction.end_time && auction.state === 'active') {
-      var timer = document.createElement('span');
-      timer.className = 'auction-card-timer';
-      timer.setAttribute('data-closes', auction.end_time);
-      timer.textContent = fmtCountdown(auction.end_time);
-      meta.appendChild(timer);
-    } else if (auction.start_time && auction.state === 'published') {
-      var startSpan = document.createElement('span');
-      startSpan.textContent = 'Opens ' + fmtDate(auction.start_time);
-      meta.appendChild(startSpan);
-    }
-
-    body.appendChild(meta);
-    a.appendChild(body);
-    return a;
-  }
-
-  function renderSkeletons(container, count) {
-    for (var i = 0; i < count; i++) {
-      var s = document.createElement('div');
-      s.className = 'skeleton-card';
-      s.setAttribute('aria-hidden', 'true');
-      var si  = document.createElement('div'); si.className  = 'sk-img';          s.appendChild(si);
-      var sl1 = document.createElement('div'); sl1.className = 'sk-line sk-title'; s.appendChild(sl1);
-      var sl2 = document.createElement('div'); sl2.className = 'sk-line sk-sub';   s.appendChild(sl2);
-      var sl3 = document.createElement('div'); sl3.className = 'sk-line sk-short'; s.appendChild(sl3);
-      container.appendChild(s);
-    }
-  }
-
-  function updateTimers() {
-    document.querySelectorAll('[data-closes]').forEach(function (el) {
-      el.textContent = fmtCountdown(el.getAttribute('data-closes'));
-    });
-  }
-
-  /* State */
-  var selectedState = null;
-  var currentOffset = 0;
-  var pageSize = 12;
+  var selectedState  = null;
+  var currentOffset  = 0;
+  var pageSize       = 12;
   var loadingAuctions = false;
 
-  var stateGrid      = document.getElementById('state-grid');
-  var stateSkeleton  = document.getElementById('state-skeleton');
-  var auctionsGrid   = document.getElementById('auctions-grid');
-  var auctionsHead   = document.getElementById('auctions-heading');
-  var clearBtn       = document.getElementById('clear-filter-btn');
-  var loadMoreRow    = document.getElementById('load-more-row');
-  var loadMoreBtn    = document.getElementById('load-more-btn');
+  var stateGrid     = document.getElementById('state-grid');
+  var stateSkeleton = document.getElementById('state-skeleton');
+  var auctionsGrid  = document.getElementById('auctions-grid');
+  var auctionsHead  = document.getElementById('auctions-heading');
+  var clearBtn      = document.getElementById('clear-filter-btn');
+  var loadMoreRow   = document.getElementById('load-more-row');
+  var loadMoreBtn   = document.getElementById('load-more-btn');
 
   /* Read ?state= query param on page load */
   (function () {
@@ -344,9 +279,9 @@
 
   function updateHeading() {
     if (selectedState && STATE_NAMES[selectedState]) {
-      auctionsHead.textContent = 'Showing auctions in ' + STATE_NAMES[selectedState];
+      auctionsHead.textContent = 'Collections in ' + STATE_NAMES[selectedState];
     } else {
-      auctionsHead.textContent = 'All Locations';
+      auctionsHead.textContent = 'All Collections';
     }
   }
 
@@ -357,7 +292,7 @@
     if (!append) {
       auctionsGrid.innerHTML = '';
       loadMoreRow.style.display = 'none';
-      renderSkeletons(auctionsGrid, 6);
+      MC.renderSkeletons(auctionsGrid, 6);
     }
     if (loadMoreBtn) loadMoreBtn.disabled = true;
 
@@ -365,7 +300,7 @@
       .then(function (r) { return r.json(); })
       .then(function (json) {
         loadingAuctions = false;
-        var data = (json && json.data) ? json.data : [];
+        var data  = (json && json.data)  ? json.data  : [];
         var total = (json && json.total != null) ? json.total : null;
 
         if (!append) {
@@ -375,36 +310,56 @@
 
         if (!data.length && !append) {
           var empty = document.createElement('div');
-          empty.className = 'empty-state';
-          var icon = document.createElement('div'); icon.className = 'empty-state-icon'; icon.textContent = '📍'; empty.appendChild(icon);
+          empty.className = 'marketplace-empty';
+          empty.style.display = 'block';
+
+          var iconEl = document.createElement('div');
+          iconEl.style.cssText = 'font-size:2rem;margin-bottom:0.75rem;';
+          iconEl.textContent = '📍';
+          empty.appendChild(iconEl);
+
           var h3 = document.createElement('h3');
           h3.textContent = selectedState
-            ? ('No active auctions in ' + (STATE_NAMES[selectedState] || selectedState))
-            : 'No active auctions right now';
+            ? ('No active collections in ' + (STATE_NAMES[selectedState] || selectedState))
+            : 'No active collections right now';
           empty.appendChild(h3);
-          var p = document.createElement('p'); p.textContent = 'Auctions are added regularly. Check back soon.'; empty.appendChild(p);
-          var lnk = document.createElement('a'); lnk.href = '/featured-auctions.html'; lnk.textContent = 'Browse all auctions →'; empty.appendChild(lnk);
+
+          var p = document.createElement('p');
+          p.textContent = 'New inventory is added regularly. Check back soon or browse all featured collections.';
+          empty.appendChild(p);
+
+          var lnk = document.createElement('a');
+          lnk.href = '/featured-auctions.html';
+          lnk.textContent = 'Browse all collections →';
+          empty.appendChild(lnk);
+
           auctionsGrid.appendChild(empty);
           return;
         }
 
-        data.forEach(function (a) { auctionsGrid.appendChild(makeAuctionCard(a)); });
+        data.forEach(function (a) { auctionsGrid.appendChild(MC.makeAuctionCard(a)); });
         currentOffset = (append ? currentOffset : 0) + data.length;
 
-        /* Show Load More if there are likely more results */
         var hasMore = (data.length === pageSize);
         if (total != null) hasMore = currentOffset < total;
         loadMoreRow.style.display = hasMore ? 'block' : 'none';
         if (loadMoreBtn) loadMoreBtn.disabled = false;
+
+        MC.updateTimers();
       })
       .catch(function () {
         loadingAuctions = false;
         if (!append) {
           auctionsGrid.innerHTML = '';
           var empty = document.createElement('div');
-          empty.className = 'empty-state';
-          var h3 = document.createElement('h3'); h3.textContent = 'Unable to load auctions'; empty.appendChild(h3);
-          var p = document.createElement('p'); p.textContent = 'Please try refreshing the page.'; empty.appendChild(p);
+          empty.className = 'marketplace-empty';
+          empty.style.display = 'block';
+          var h3 = document.createElement('h3');
+          h3.textContent = 'Unable to load collections';
+          empty.appendChild(h3);
+          var p = document.createElement('p');
+          p.textContent = 'Please try refreshing the page.';
+          empty.appendChild(p);
           auctionsGrid.appendChild(empty);
         }
         if (loadMoreBtn) loadMoreBtn.disabled = false;
@@ -416,10 +371,8 @@
     currentOffset = 0;
     updateHeading();
 
-    /* Update button states */
     document.querySelectorAll('.state-btn').forEach(function (btn) {
-      var isActive = btn.getAttribute('data-abbr') === abbr;
-      btn.classList.toggle('active', isActive);
+      btn.classList.toggle('active', btn.getAttribute('data-abbr') === abbr);
     });
 
     clearBtn.style.display = abbr ? 'inline' : 'none';
@@ -436,17 +389,22 @@
     });
   }
 
-  /* Initial auction load */
+  /* Initial load */
   updateHeading();
   loadAuctions(false);
 
-  /* Load state filter from locations API */
+  /* Ending Soon discovery rail */
+  var endingSoonScroll = document.getElementById('ending-soon-scroll');
+  if (endingSoonScroll) {
+    MC.loadDiscoveryRail(endingSoonScroll, '/api/public/lots/ending-soon', { limit: 12 });
+  }
+
+  /* State filter — load from locations API */
   fetch('/api/public/locations?limit=200')
     .then(function (r) { return r.json(); })
     .then(function (json) {
       var data = (json && json.data) ? json.data : [];
 
-      /* Group by state, sum active counts */
       var byState = {};
       data.forEach(function (loc) {
         var abbr = loc.address_state;
@@ -456,20 +414,17 @@
         byState[abbr] += (loc.active_count || 0);
       });
 
-      /* Sort by active count descending */
       var states = Object.keys(byState).filter(function (abbr) {
         return byState[abbr] > 0;
       });
       states.sort(function (a, b) { return byState[b] - byState[a]; });
 
-      /* Remove skeleton */
       if (stateSkeleton) stateSkeleton.remove();
 
       if (!states.length) {
         var msg = document.createElement('p');
-        msg.style.fontSize = '0.875rem';
-        msg.style.color = 'var(--gray)';
-        msg.textContent = 'Auctions are added regularly. Check back soon.';
+        msg.style.cssText = 'font-size:0.875rem;color:var(--gray);';
+        msg.textContent = 'Inventory is added regularly. Check back soon.';
         stateGrid.appendChild(msg);
         return;
       }
@@ -492,19 +447,17 @@
         var countSpan = document.createElement('span');
         countSpan.className = 'state-btn-count';
         var cnt = byState[abbr];
-        countSpan.textContent = cnt + (cnt === 1 ? ' auction' : ' auctions');
+        countSpan.textContent = cnt + (cnt === 1 ? ' collection' : ' collections');
         btn.appendChild(countSpan);
 
         btn.addEventListener('click', function () {
           selectState(abbr);
-          /* Scroll to auction list */
           document.querySelector('.auctions-section').scrollIntoView({ behavior: 'smooth', block: 'start' });
         });
 
         stateGrid.appendChild(btn);
       });
 
-      /* Show clear button if a state was pre-selected via URL param */
       if (selectedState) {
         clearBtn.style.display = 'inline';
       }
@@ -512,17 +465,13 @@
     .catch(function () {
       if (stateSkeleton) stateSkeleton.remove();
       var msg = document.createElement('p');
-      msg.style.fontSize = '0.875rem';
-      msg.style.color = 'var(--gray)';
-      msg.textContent = 'Location data unavailable.';
+      msg.style.cssText = 'font-size:0.875rem;color:var(--gray);';
+      msg.textContent = 'Region data unavailable.';
       stateGrid.appendChild(msg);
     });
 
-  setInterval(updateTimers, 30000);
+  setInterval(MC.updateTimers, 30000);
 })();
 </script>
-
-<script src="/marketplace-components.js"></script>
 </body>
 </html>
-
