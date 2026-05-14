@@ -1,23 +1,22 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Ending Soon — Auctions Closing Today | Advantage.Bid</title>
-  <meta name="description" content="Browse online estate and liquidation auctions ending today and tomorrow. Bid now before they close." />
-  <meta name="keywords" content="ending soon auctions, closing today auction, estate auction closing, liquidation auction ending, bid before close" />
+  <title>Ending Soon — Items Closing Today | Advantage.Bid</title>
+  <meta name="description" content="Browse unique estate and liquidation items closing today. Bid at the price you decide — quality finds from real homes and collections." />
+  <meta name="keywords" content="ending soon auction lots, items closing today, estate items closing, bid before close, online estate auction" />
   <link rel="canonical" href="https://advantage.bid/ending-soon.html" />
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
 
   <!-- Open Graph -->
-  <meta property="og:title" content="Ending Soon — Auctions Closing Today | Advantage.Bid" />
-  <meta property="og:description" content="Browse online estate and liquidation auctions ending today and tomorrow. Bid now before they close." />
+  <meta property="og:title" content="Ending Soon — Items Closing Today | Advantage.Bid" />
+  <meta property="og:description" content="Quality finds from real homes and collections. Bid now — these items are closing soon." />
   <meta property="og:type" content="website" />
   <meta property="og:url" content="https://advantage.bid/ending-soon.html" />
 
   <link rel="stylesheet" href="/marketplace.css" />
   <style>
-    /* Page-specific styles — shared system in /marketplace.css */
     body { background: var(--bg); }
 
     /* ── Filter bar ── */
@@ -49,12 +48,19 @@
       transition: all 0.15s;
       white-space: nowrap;
     }
-    .filter-tab:hover { border-color: var(--blue); color: var(--blue); background: var(--blue-lt); }
-    .filter-tab.active { background: var(--blue); border-color: var(--blue); color: #fff; }
-    .filter-count { font-size: 0.72rem; font-weight: 500; margin-left: 0.25rem; opacity: 0.75; }
+    .filter-tab:hover   { border-color: var(--blue); color: var(--blue); background: var(--blue-lt); }
+    .filter-tab.active  { background: var(--blue); border-color: var(--blue); color: #fff; }
+
+    .filter-count       { font-size: 0.72rem; font-weight: 500; margin-left: 0.25rem; opacity: 0.75; }
+    /* Red count when items are closing very soon */
+    .filter-tab:not(.active) .filter-count.count-urgent { color: #dc2626; opacity: 1; font-weight: 700; }
 
     /* ── Page content ── */
-    .page-content { max-width: 1100px; margin: 0 auto; padding: 2.5rem 1.5rem 4rem; }
+    .page-content {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 2.5rem 1.5rem 4rem;
+    }
     .results-header {
       display: flex;
       align-items: center;
@@ -65,6 +71,47 @@
     }
     .results-label { font-size: 0.875rem; color: var(--gray); }
     .results-label strong { color: var(--ink); font-weight: 700; }
+
+    /* ── Trust strip ── */
+    .urgency-trust {
+      background: var(--bg);
+      border-top: 1px solid var(--border);
+      padding: 2.5rem 1.5rem;
+    }
+    .urgency-trust-inner {
+      max-width: 1100px;
+      margin: 0 auto;
+      display: flex;
+      gap: 2rem;
+      align-items: flex-start;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+    .urgency-trust-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.65rem;
+      max-width: 280px;
+      min-width: 200px;
+      flex: 1;
+    }
+    .urgency-trust-icon {
+      font-size: 1.25rem;
+      flex-shrink: 0;
+      margin-top: 0.05rem;
+    }
+    .urgency-trust-text strong {
+      display: block;
+      font-size: 0.9rem;
+      font-weight: 700;
+      color: var(--ink);
+      margin-bottom: 0.15rem;
+    }
+    .urgency-trust-text span {
+      font-size: 0.82rem;
+      color: var(--gray);
+      line-height: 1.55;
+    }
   </style>
 </head>
 <body>
@@ -96,35 +143,65 @@
 <section class="hero" aria-label="Page hero">
   <div class="hero-inner">
     <div class="hero-eyebrow">⏱ Closing Soon</div>
-    <h1>Auctions Ending Soon</h1>
-    <p class="hero-sub">These estate and liquidation auctions are closing soon — don't miss your chance to bid.</p>
+    <h1>Find something before it's gone.</h1>
+    <p class="hero-sub">
+      Unique items from real homes and collections — closing soon.
+      Bid at the price you decide.
+    </p>
   </div>
 </section>
 
 <!-- ── Filter bar ── -->
 <div class="filter-bar" role="navigation" aria-label="Time filter">
   <div class="filter-bar-inner">
+    <button class="filter-tab" data-filter="urgent" aria-pressed="false">
+      Under 6 Hours <span class="filter-count count-urgent" id="count-urgent"></span>
+    </button>
     <button class="filter-tab active" data-filter="today" aria-pressed="true">
       Closing Today <span class="filter-count" id="count-today"></span>
     </button>
-    <button class="filter-tab" data-filter="tomorrow" aria-pressed="false">
-      Closing Tomorrow <span class="filter-count" id="count-tomorrow"></span>
-    </button>
     <button class="filter-tab" data-filter="all" aria-pressed="false">
-      All Active <span class="filter-count" id="count-all"></span>
+      All Ending Soon <span class="filter-count" id="count-all"></span>
     </button>
   </div>
 </div>
 
-<!-- ── Auction grid ── -->
+<!-- ── Lot grid ── -->
 <main class="page-content">
   <div class="results-header">
     <p class="results-label" id="results-label" aria-live="polite"></p>
   </div>
-  <div class="auctions-grid" id="auctions-grid" aria-live="polite" aria-label="Auctions">
-    <!-- Skeletons inserted by JS -->
+  <div class="lots-grid" id="lots-grid" aria-live="polite" aria-label="Lots ending soon">
+    <!-- Populated by JavaScript -->
   </div>
 </main>
+
+<!-- ── Trust strip ── -->
+<div class="urgency-trust" role="complementary" aria-label="Why bid now">
+  <div class="urgency-trust-inner">
+    <div class="urgency-trust-item">
+      <span class="urgency-trust-icon" aria-hidden="true">🏠</span>
+      <div class="urgency-trust-text">
+        <strong>Real inventory from real homes</strong>
+        <span>Every item comes from a genuine estate sale, liquidation, or collection — not mass-produced retail.</span>
+      </div>
+    </div>
+    <div class="urgency-trust-item">
+      <span class="urgency-trust-icon" aria-hidden="true">💰</span>
+      <div class="urgency-trust-text">
+        <strong>You set the price</strong>
+        <span>Competitive bidding means you pay what the market decides — not a fixed retail markup.</span>
+      </div>
+    </div>
+    <div class="urgency-trust-item">
+      <span class="urgency-trust-icon" aria-hidden="true">🔄</span>
+      <div class="urgency-trust-text">
+        <strong>New items added regularly</strong>
+        <span>Fresh inventory from new estate sellers every week. Check back often — the finds change constantly.</span>
+      </div>
+    </div>
+  </div>
+</div>
 
 <!-- ── Footer ── -->
 <footer>
@@ -173,230 +250,90 @@
   </div>
 </footer>
 
+<script src="/marketplace-components.js"></script>
 <script>
 (function () {
   'use strict';
 
-  function fmtMoney(cents) {
-    if (cents == null) return '$0';
-    return '$' + (cents / 100).toLocaleString('en-US', { maximumFractionDigits: 0 });
-  }
+  var MC = window.MktComponents;
+  if (!MC) return;
 
-  function fmtCountdown(iso) {
-    if (!iso) return '';
-    var ms = new Date(iso) - Date.now();
-    if (ms <= 0) return 'Closed';
-    var totalMin = Math.floor(ms / 60000);
-    var h = Math.floor(totalMin / 60);
-    var m = totalMin % 60;
-    if (h >= 48) { var d = Math.floor(h / 24); return d + 'd ' + (h % 24) + 'h remaining'; }
-    if (h >= 1) return h + 'h ' + m + 'm remaining';
-    return m + 'm remaining';
-  }
+  var grid         = document.getElementById('lots-grid');
+  var label        = document.getElementById('results-label');
+  var countUrgent  = document.getElementById('count-urgent');
+  var countToday   = document.getElementById('count-today');
+  var countAll     = document.getElementById('count-all');
+  var tabs         = document.querySelectorAll('.filter-tab');
 
-  function fmtDate(iso) {
-    if (!iso) return '';
-    return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-  }
-
-  function isNew(createdAt) {
-    if (!createdAt) return false;
-    return (Date.now() - new Date(createdAt)) < 7 * 86400000;
-  }
-
-  function setElem(parent, tag, cls, text) {
-    var el = document.createElement(tag);
-    if (cls) el.className = cls;
-    if (text != null) el.textContent = text;
-    parent.appendChild(el);
-    return el;
-  }
-
-  function urgencyClass(iso) {
-    if (!iso) return '';
-    var ms = new Date(iso) - Date.now();
-    if (ms <= 0) return '';
-    if (ms < 7200000) return 'timer-urgent';
-    if (ms < 21600000) return 'timer-ending';
-    return '';
-  }
-
-  function makeAuctionCard(auction) {
-    var a = document.createElement('a');
-    a.className = 'auction-card';
-    a.href = '/auction-view.html?id=' + encodeURIComponent(auction.id);
-
-    var imgDiv = document.createElement('div');
-    imgDiv.className = 'auction-card-img';
-    if (auction.cover_image_url) {
-      imgDiv.style.backgroundImage = 'url(' + encodeURI(auction.cover_image_url) + ')';
-    }
-
-    var badges = document.createElement('div');
-    badges.className = 'auction-badges';
-
-    if (auction.end_time) {
-      var ms = new Date(auction.end_time) - Date.now();
-      if (ms > 0 && ms < 7200000) {
-        setElem(badges, 'span', 'auction-badge badge-urgent', '🔴 Closing Now');
-      } else if (ms > 0 && ms < 86400000) {
-        setElem(badges, 'span', 'auction-badge badge-ending', '⏱ Closing Today');
-      } else if (ms >= 86400000 && ms < 172800000) {
-        setElem(badges, 'span', 'auction-badge badge-tomorrow', 'Closing Tomorrow');
-      } else {
-        setElem(badges, 'span', 'auction-badge badge-live', '● Live Now');
-      }
-    }
-    if (auction.shipping_available) {
-      setElem(badges, 'span', 'auction-badge badge-shipping', '📦 Ships');
-    }
-    imgDiv.appendChild(badges);
-
-    if (auction.public_auction_type) {
-      setElem(imgDiv, 'div', 'auction-card-type-tag', auction.public_auction_type);
-    }
-
-    a.appendChild(imgDiv);
-
-    var body = document.createElement('div');
-    body.className = 'auction-card-body';
-
-    if (auction.seller_display_name) {
-      setElem(body, 'div', 'auction-card-seller', auction.seller_display_name);
-    }
-    setElem(body, 'div', 'auction-card-title', auction.title || 'Untitled Auction');
-    if (auction.city || auction.address_state) {
-      setElem(body, 'div', 'auction-card-location',
-        [auction.city, auction.address_state].filter(Boolean).join(', '));
-    }
-
-    var meta = document.createElement('div');
-    meta.className = 'auction-card-meta';
-
-    var lotsSpan = document.createElement('span');
-    var lc = auction.lot_count || 0;
-    lotsSpan.textContent = lc + (lc === 1 ? ' lot' : ' lots');
-    meta.appendChild(lotsSpan);
-
-    if (auction.end_time) {
-      var timer = document.createElement('span');
-      timer.className = 'auction-card-timer';
-      var uc = urgencyClass(auction.end_time);
-      if (uc) timer.className += ' ' + uc;
-      timer.setAttribute('data-closes', auction.end_time);
-      timer.textContent = fmtCountdown(auction.end_time);
-      meta.appendChild(timer);
-    } else if (auction.start_time) {
-      var startSpan = document.createElement('span');
-      startSpan.textContent = 'Opens ' + fmtDate(auction.start_time);
-      meta.appendChild(startSpan);
-    }
-
-    body.appendChild(meta);
-    a.appendChild(body);
-    return a;
-  }
-
-  function renderSkeletons(container, count) {
-    for (var i = 0; i < count; i++) {
-      var s = document.createElement('div');
-      s.className = 'skeleton-card';
-      s.setAttribute('aria-hidden', 'true');
-      var si = document.createElement('div'); si.className = 'sk-img'; s.appendChild(si);
-      var sl1 = document.createElement('div'); sl1.className = 'sk-line sk-title'; s.appendChild(sl1);
-      var sl2 = document.createElement('div'); sl2.className = 'sk-line sk-sub'; s.appendChild(sl2);
-      var sl3 = document.createElement('div'); sl3.className = 'sk-line sk-short'; s.appendChild(sl3);
-      container.appendChild(s);
-    }
-  }
-
-  function updateTimers() {
-    document.querySelectorAll('[data-closes]').forEach(function (el) {
-      el.textContent = fmtCountdown(el.getAttribute('data-closes'));
-    });
-  }
-
-  var grid       = document.getElementById('auctions-grid');
-  var label      = document.getElementById('results-label');
-  var countToday = document.getElementById('count-today');
-  var countTmrw  = document.getElementById('count-tomorrow');
-  var countAll   = document.getElementById('count-all');
-  var tabs       = document.querySelectorAll('.filter-tab');
-
-  var allAuctions = [];
+  var allLots     = [];
   var activeFilter = 'today';
 
-  function bucketAuctions(auctions) {
-    var now = Date.now();
-    var today    = [];
-    var tomorrow = [];
-    var rest     = [];
-    auctions.forEach(function (a) {
-      if (!a.end_time) { rest.push(a); return; }
-      var ms = new Date(a.end_time) - now;
+  function bucketLots(lots) {
+    var now    = Date.now();
+    var urgent = [];
+    var today  = [];
+    lots.forEach(function (l) {
+      if (!l.closes_at) return;
+      var ms = new Date(l.closes_at) - now;
       if (ms <= 0) return;
-      if (ms < 86400000)  { today.push(a); }
-      else if (ms < 172800000) { tomorrow.push(a); }
-      else { rest.push(a); }
+      if (ms < 21600000) urgent.push(l);   /* < 6 hours */
+      if (ms < 86400000) today.push(l);    /* < 24 hours (includes urgent) */
     });
-    return { today: today, tomorrow: tomorrow, rest: rest };
+    return { urgent: urgent, today: today, all: lots };
+  }
+
+  function setLabel(count, filter) {
+    if (!label) return;
+    label.innerHTML = '';
+    var strong = document.createElement('strong');
+    strong.textContent = String(count);
+    label.appendChild(strong);
+    var suffix = {
+      urgent: ' item' + (count !== 1 ? 's' : '') + ' closing in under 6 hours',
+      today:  ' item' + (count !== 1 ? 's' : '') + ' closing today',
+      all:    ' item' + (count !== 1 ? 's' : '') + ' ending within 48 hours'
+    }[filter] || ' items';
+    label.appendChild(document.createTextNode(suffix));
   }
 
   function renderFilter(filter) {
     activeFilter = filter;
     tabs.forEach(function (t) {
-      var isActive = t.getAttribute('data-filter') === filter;
-      t.classList.toggle('active', isActive);
-      t.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+      var active = t.getAttribute('data-filter') === filter;
+      t.classList.toggle('active', active);
+      t.setAttribute('aria-pressed', active ? 'true' : 'false');
     });
 
-    var buckets = bucketAuctions(allAuctions);
-    var list;
-    var labelText;
-    if (filter === 'today') {
-      list = buckets.today;
-      labelText = 'Showing ' + list.length + ' auction' + (list.length !== 1 ? 's' : '') + ' closing today';
-    } else if (filter === 'tomorrow') {
-      list = buckets.tomorrow;
-      labelText = 'Showing ' + list.length + ' auction' + (list.length !== 1 ? 's' : '') + ' closing tomorrow';
-    } else {
-      list = allAuctions;
-      labelText = 'Showing all ' + list.length + ' active auction' + (list.length !== 1 ? 's' : '');
-    }
+    var buckets = bucketLots(allLots);
+    var list    = buckets[filter] || allLots;
 
-    if (label) {
-      var strong = document.createElement('strong');
-      strong.textContent = String(list.length);
-      label.textContent = '';
-      label.appendChild(strong);
-      var rest = document.createTextNode(
-        filter === 'today'    ? ' auction' + (list.length !== 1 ? 's' : '') + ' closing today' :
-        filter === 'tomorrow' ? ' auction' + (list.length !== 1 ? 's' : '') + ' closing tomorrow' :
-                                ' active auction' + (list.length !== 1 ? 's' : '')
-      );
-      label.appendChild(rest);
-    }
-
+    setLabel(list.length, filter);
     grid.innerHTML = '';
 
     if (!list.length) {
       var empty = document.createElement('div');
-      empty.className = 'empty-state';
+      empty.className = 'marketplace-empty';
       empty.style.display = 'block';
 
-      var icon = document.createElement('div');
-      icon.className = 'empty-state-icon';
-      icon.textContent = '⏱';
-      empty.appendChild(icon);
+      var msgs = {
+        urgent: { icon: '⏱', title: 'Nothing closing in the next 6 hours',  sub: 'Check the "Closing Today" tab for items due within 24 hours.' },
+        today:  { icon: '⏱', title: 'No items closing today',                sub: 'New estate auctions are added regularly — check back soon or browse all active lots.' },
+        all:    { icon: '🔍', title: 'No items closing within 48 hours',      sub: 'New estate inventory is added regularly. Browse featured auctions to see what\'s coming up.' }
+      };
+      var m = msgs[filter] || msgs.all;
+
+      var iconEl = document.createElement('div');
+      iconEl.style.fontSize = '2rem';
+      iconEl.style.marginBottom = '0.75rem';
+      iconEl.textContent = m.icon;
+      empty.appendChild(iconEl);
 
       var h3 = document.createElement('h3');
-      h3.textContent = filter === 'today' ? 'No auctions closing today' :
-                       filter === 'tomorrow' ? 'No auctions closing tomorrow' :
-                       'No active auctions right now';
+      h3.textContent = m.title;
       empty.appendChild(h3);
 
       var p = document.createElement('p');
-      p.textContent = 'New auctions are added regularly. Check back soon.';
+      p.textContent = m.sub;
       empty.appendChild(p);
 
       var lnk = document.createElement('a');
@@ -408,7 +345,8 @@
       return;
     }
 
-    list.forEach(function (a) { grid.appendChild(makeAuctionCard(a)); });
+    list.forEach(function (lot) { grid.appendChild(MC.makeLotCard(lot)); });
+    MC.updateTimers();
   }
 
   tabs.forEach(function (tab) {
@@ -417,30 +355,39 @@
     });
   });
 
-  renderSkeletons(grid, 6);
+  /* Skeleton while loading */
+  MC.renderSkeletons(grid, 8);
 
-  fetch('/api/public/auctions?state=active&limit=48')
+  fetch('/api/public/lots/ending-soon?limit=50')
     .then(function (r) { return r.json(); })
     .then(function (json) {
-      allAuctions = (json && json.data) ? json.data : [];
-      allAuctions.sort(function (a, b) {
-        return new Date(a.end_time || 0) - new Date(b.end_time || 0);
-      });
+      allLots = (json && json.data) ? json.data : [];
 
-      var buckets = bucketAuctions(allAuctions);
-      if (countToday)  countToday.textContent  = '(' + buckets.today.length + ')';
-      if (countTmrw)   countTmrw.textContent   = '(' + buckets.tomorrow.length + ')';
-      if (countAll)    countAll.textContent     = '(' + allAuctions.length + ')';
+      var buckets = bucketLots(allLots);
+      if (countUrgent) {
+        countUrgent.textContent = '(' + buckets.urgent.length + ')';
+      }
+      if (countToday) {
+        countToday.textContent = '(' + buckets.today.length + ')';
+      }
+      if (countAll) {
+        countAll.textContent = '(' + allLots.length + ')';
+      }
 
-      renderFilter(activeFilter);
+      /* Auto-select most urgent non-empty tab */
+      if (buckets.today.length > 0) {
+        renderFilter('today');
+      } else {
+        renderFilter('all');
+      }
     })
     .catch(function () {
       grid.innerHTML = '';
       var empty = document.createElement('div');
-      empty.className = 'empty-state';
+      empty.className = 'marketplace-empty';
       empty.style.display = 'block';
       var h3 = document.createElement('h3');
-      h3.textContent = 'Unable to load auctions';
+      h3.textContent = 'Unable to load listings';
       empty.appendChild(h3);
       var p = document.createElement('p');
       p.textContent = 'Please try refreshing the page.';
@@ -448,11 +395,8 @@
       grid.appendChild(empty);
     });
 
-  setInterval(updateTimers, 30000);
+  setInterval(MC.updateTimers, 30000);
 })();
 </script>
-
-<script src="/marketplace-components.js"></script>
 </body>
 </html>
-
