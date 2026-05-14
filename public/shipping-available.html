@@ -269,7 +269,7 @@
 
   /* Just Listed lot rail — loads in parallel, self-hides if empty */
   if (justListedScroll) {
-    MC.loadDiscoveryRail(justListedScroll, '/api/public/lots/recently-added', { limit: 12 });
+    MC.loadDiscoveryRail(justListedScroll, '/api/public/lots/recently-added', { limit: 12, params: { shippable: 'true' } });
   }
 
   /* Shipping auction collections */

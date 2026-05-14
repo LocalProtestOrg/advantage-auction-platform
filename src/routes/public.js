@@ -688,10 +688,25 @@ router.get('/config', async (req, res, next) => {
 // Individual lots closing within 48 hours, sorted most-urgent first.
 //
 // Query params:
-//   limit — 1–50, default 20
+//   limit         — 1–50, default 20
+//   shippable     — "true" to restrict to shippable lots
+//   address_state — exact state abbreviation, e.g. "TX"
 router.get('/lots/ending-soon', async (req, res, next) => {
   try {
-    const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 20, 1), 50);
+    const limit      = Math.min(Math.max(parseInt(req.query.limit, 10) || 20, 1), 50);
+    const params     = [];
+    const extraWhere = [];
+
+    if (req.query.shippable === 'true') {
+      extraWhere.push('l.shippable = true');
+    }
+    if (req.query.address_state) {
+      params.push(req.query.address_state.trim().toUpperCase());
+      extraWhere.push(`a.address_state = $${params.length}`);
+    }
+    params.push(limit);
+    const limitIdx     = params.length;
+    const extraWhereSQL = extraWhere.length ? 'AND ' + extraWhere.join(' AND ') : '';
 
     const { rows } = await db.query(`
       SELECT l.id,
@@ -719,9 +734,10 @@ router.get('/lots/ending-soon', async (req, res, next) => {
          AND l.closes_at > NOW()
          AND l.closes_at <= NOW() + INTERVAL '48 hours'
          AND a.state = 'active'
+         ${extraWhereSQL}
        ORDER BY l.closes_at ASC
-       LIMIT $1
-    `, [limit]);
+       LIMIT $${limitIdx}
+    `, params);
 
     res.set('Cache-Control', LIVE_CACHE);
     return res.json({ success: true, data: rows });
@@ -732,10 +748,25 @@ router.get('/lots/ending-soon', async (req, res, next) => {
 // Lots added in the last 21 days, newest first.
 //
 // Query params:
-//   limit — 1–50, default 20
+//   limit         — 1–50, default 20
+//   shippable     — "true" to restrict to shippable lots
+//   address_state — exact state abbreviation, e.g. "TX"
 router.get('/lots/recently-added', async (req, res, next) => {
   try {
-    const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 20, 1), 50);
+    const limit      = Math.min(Math.max(parseInt(req.query.limit, 10) || 20, 1), 50);
+    const params     = [];
+    const extraWhere = [];
+
+    if (req.query.shippable === 'true') {
+      extraWhere.push('l.shippable = true');
+    }
+    if (req.query.address_state) {
+      params.push(req.query.address_state.trim().toUpperCase());
+      extraWhere.push(`a.address_state = $${params.length}`);
+    }
+    params.push(limit);
+    const limitIdx      = params.length;
+    const extraWhereSQL = extraWhere.length ? 'AND ' + extraWhere.join(' AND ') : '';
 
     const { rows } = await db.query(`
       SELECT l.id,
@@ -763,9 +794,10 @@ router.get('/lots/recently-added', async (req, res, next) => {
        WHERE l.state != 'withdrawn'
          AND l.created_at >= NOW() - INTERVAL '21 days'
          AND a.state IN ('published', 'active')
+         ${extraWhereSQL}
        ORDER BY l.created_at DESC
-       LIMIT $1
-    `, [limit]);
+       LIMIT $${limitIdx}
+    `, params);
 
     res.set('Cache-Control', PUBLIC_CACHE);
     return res.json({ success: true, data: rows });
@@ -776,10 +808,25 @@ router.get('/lots/recently-added', async (req, res, next) => {
 // Most-bid lots in active auctions, sorted by bid activity descending.
 //
 // Query params:
-//   limit — 1–50, default 20
+//   limit         — 1–50, default 20
+//   shippable     — "true" to restrict to shippable lots
+//   address_state — exact state abbreviation, e.g. "TX"
 router.get('/lots/trending', async (req, res, next) => {
   try {
-    const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 20, 1), 50);
+    const limit      = Math.min(Math.max(parseInt(req.query.limit, 10) || 20, 1), 50);
+    const params     = [];
+    const extraWhere = [];
+
+    if (req.query.shippable === 'true') {
+      extraWhere.push('l.shippable = true');
+    }
+    if (req.query.address_state) {
+      params.push(req.query.address_state.trim().toUpperCase());
+      extraWhere.push(`a.address_state = $${params.length}`);
+    }
+    params.push(limit);
+    const limitIdx      = params.length;
+    const extraWhereSQL = extraWhere.length ? 'AND ' + extraWhere.join(' AND ') : '';
 
     const { rows } = await db.query(`
       SELECT l.id,
@@ -806,9 +853,10 @@ router.get('/lots/trending', async (req, res, next) => {
        WHERE l.state = 'open'
          AND l.bid_count >= 1
          AND a.state = 'active'
+         ${extraWhereSQL}
        ORDER BY l.bid_count DESC, l.closes_at ASC
-       LIMIT $1
-    `, [limit]);
+       LIMIT $${limitIdx}
+    `, params);
 
     res.set('Cache-Control', LIVE_CACHE);
     return res.json({ success: true, data: rows });

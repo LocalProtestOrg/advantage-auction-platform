@@ -132,6 +132,11 @@
     var lc = auction.lot_count || 0;
     setElem(meta, 'span', '', lc + (lc === 1 ? ' lot' : ' lots'));
 
+    var sc = auction.shippable_lot_count || 0;
+    if (sc > 0 && !auction.shipping_available) {
+      setElem(meta, 'span', 'auction-card-ships', sc + (sc === 1 ? ' lot ships' : ' lots ship'));
+    }
+
     if (auction.end_time) {
       var timer = document.createElement('span');
       var uc = urgencyClass(auction.end_time);

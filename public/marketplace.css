@@ -651,6 +651,7 @@ header {
 }
 
 .auction-card-timer { font-weight: 600; color: #0f0f11; }
+.auction-card-ships { font-size: 0.72rem; color: #9ca3af; }
 .timer-urgent { color: #dc2626 !important; }
 .timer-ending { color: #b45309 !important; }
 

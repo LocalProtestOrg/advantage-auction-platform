@@ -393,10 +393,12 @@
   updateHeading();
   loadAuctions(false);
 
-  /* Ending Soon discovery rail */
+  /* Ending Soon discovery rail — scoped to selected state when present */
   var endingSoonScroll = document.getElementById('ending-soon-scroll');
   if (endingSoonScroll) {
-    MC.loadDiscoveryRail(endingSoonScroll, '/api/public/lots/ending-soon', { limit: 12 });
+    var endingSoonOpts = { limit: 12 };
+    if (selectedState) endingSoonOpts.params = { address_state: selectedState };
+    MC.loadDiscoveryRail(endingSoonScroll, '/api/public/lots/ending-soon', endingSoonOpts);
   }
 
   /* State filter — load from locations API */
