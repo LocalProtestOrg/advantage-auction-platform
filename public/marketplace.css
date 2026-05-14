@@ -931,6 +931,127 @@ details.faq-item[open] summary::after { content: '−'; }
 }
 
 /* ================================================================
+   DISCOVERY RAILS — horizontal-scroll lot strips
+   ================================================================ */
+
+.discovery-rail {
+  padding: 3.5rem 0 3.5rem;
+  background: #fff;
+}
+
+.discovery-rail + .discovery-rail {
+  border-top: 1px solid var(--border);
+  padding-top: 3rem;
+}
+
+.discovery-rail-inner {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 0 1.5rem;
+}
+
+.discovery-rail-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-bottom: 1.25rem;
+}
+
+.discovery-rail-title {
+  font-size: 1.2rem;
+  font-weight: 700;
+  letter-spacing: -0.015em;
+  color: var(--ink);
+  line-height: 1.2;
+}
+
+.discovery-rail-link {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--blue);
+  text-decoration: none;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.discovery-rail-link:hover { text-decoration: underline; }
+
+/* Horizontal scroll container */
+.discovery-rail-scroll {
+  display: flex;
+  gap: 1rem;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: 0.75rem;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+.discovery-rail-scroll::-webkit-scrollbar { height: 4px; }
+.discovery-rail-scroll::-webkit-scrollbar-track { background: transparent; }
+.discovery-rail-scroll::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+/* Each card in a rail gets a fixed width so they scroll */
+.discovery-rail-scroll .lot-card {
+  flex: 0 0 185px;
+  scroll-snap-align: start;
+  min-width: 0;
+}
+
+/* On wider screens, allow cards to fill naturally up to a grid */
+@media (min-width: 900px) {
+  .discovery-rail-scroll {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(185px, 1fr));
+    overflow-x: visible;
+    scroll-snap-type: none;
+    padding-bottom: 0;
+  }
+  .discovery-rail-scroll .lot-card {
+    flex: unset;
+  }
+}
+
+/* Activity signal row on lot cards (below bid row) */
+.lot-activity-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  margin-top: 0.35rem;
+}
+
+.lot-activity-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  font-size: 0.68rem;
+  font-weight: 600;
+  padding: 0.15rem 0.45rem;
+  border-radius: 4px;
+  white-space: nowrap;
+  line-height: 1.4;
+}
+
+.pill-watch {
+  background: #f0fdf4;
+  color: #15803d;
+  border: 1px solid #bbf7d0;
+}
+
+.pill-new {
+  background: #eff6ff;
+  color: #1d4ed8;
+  border: 1px solid #bfdbfe;
+}
+
+.pill-hot {
+  background: #fff7ed;
+  color: #c2410c;
+  border: 1px solid #fed7aa;
+}
+
+/* ================================================================
    FOOTER — full structure (color only: font handled above)
    ================================================================ */
 

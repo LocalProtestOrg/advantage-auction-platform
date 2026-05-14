@@ -148,6 +148,147 @@
     return a;
   }
 
+  /* ── Lot card ────────────────────────────────────────────────────────── */
+
+  /**
+   * makeLotCard(lot)
+   * Builds a .lot-card with bid info, closing timer, and activity signals.
+   * Expects lot fields from the discovery API: thumbnail_url, title, auction_title,
+   * bid_count, current_bid_cents, starting_bid_cents, closes_at, shippable,
+   * watch_count, created_at.
+   */
+  function makeLotCard(lot) {
+    var a = document.createElement('a');
+    a.className = 'lot-card';
+    a.href = '/lot.html?id=' + encodeURIComponent(lot.id);
+
+    /* image */
+    var imgDiv = document.createElement('div');
+    imgDiv.className = 'lot-card-img';
+    if (lot.thumbnail_url) {
+      imgDiv.style.backgroundImage = 'url(' + encodeURI(lot.thumbnail_url) + ')';
+    }
+    if (lot.shippable) {
+      setElem(imgDiv, 'span', 'lot-badge-ship', '📦');
+    }
+    a.appendChild(imgDiv);
+
+    /* body */
+    var body = document.createElement('div');
+    body.className = 'lot-card-body';
+
+    if (lot.auction_title) {
+      setElem(body, 'div', 'lot-card-auction', lot.auction_title);
+    }
+    setElem(body, 'div', 'lot-card-title', lot.title || 'Untitled Lot');
+
+    /* bid row */
+    var bidRow = document.createElement('div');
+    bidRow.className = 'lot-card-bid';
+    var bidAmt = document.createElement('span');
+    bidAmt.className = 'lot-bid-amount';
+    bidAmt.textContent = (lot.bid_count > 0)
+      ? fmtMoney(lot.current_bid_cents)
+      : fmtMoney(lot.starting_bid_cents);
+    bidRow.appendChild(bidAmt);
+
+    var bidLabel = document.createElement('span');
+    bidLabel.className = 'lot-bid-count';
+    bidLabel.textContent = lot.bid_count > 0
+      ? lot.bid_count + (lot.bid_count === 1 ? ' bid' : ' bids')
+      : 'starting bid';
+    bidRow.appendChild(bidLabel);
+    body.appendChild(bidRow);
+
+    /* closing timer */
+    if (lot.closes_at) {
+      var timer = document.createElement('div');
+      var uc = urgencyClass(lot.closes_at);
+      timer.className = 'lot-card-timer' + (uc ? ' ' + uc : '');
+      timer.setAttribute('data-closes', lot.closes_at);
+      timer.textContent = fmtCountdown(lot.closes_at);
+      body.appendChild(timer);
+    }
+
+    /* activity signals */
+    var pills = document.createElement('div');
+    pills.className = 'lot-activity-row';
+
+    if (lot.watch_count > 0) {
+      setElem(pills, 'span', 'lot-activity-pill pill-watch', lot.watch_count + ' watching');
+    }
+    if (isNew(lot.created_at)) {
+      setElem(pills, 'span', 'lot-activity-pill pill-new', 'New');
+    }
+    if (lot.bid_count >= 5) {
+      setElem(pills, 'span', 'lot-activity-pill pill-hot', 'Hot');
+    }
+    if (pills.childElementCount > 0) {
+      body.appendChild(pills);
+    }
+
+    a.appendChild(body);
+    return a;
+  }
+
+  /* ── Discovery rail ──────────────────────────────────────────────────── */
+
+  /**
+   * loadDiscoveryRail(scrollEl, endpoint, opts)
+   * Fetches a discovery endpoint and renders lot cards into a scroll container.
+   * Hides the nearest .discovery-rail ancestor if the response is empty.
+   *
+   * opts.limit  — number of cards to request (default 12)
+   * opts.params — extra query string params object
+   */
+  function loadDiscoveryRail(scrollEl, endpoint, opts) {
+    opts = opts || {};
+    var limit  = opts.limit || 12;
+    var params = opts.params || {};
+
+    var qs = '?limit=' + limit;
+    Object.keys(params).forEach(function (k) { qs += '&' + k + '=' + encodeURIComponent(params[k]); });
+
+    /* skeleton placeholders */
+    for (var i = 0; i < Math.min(limit, 6); i++) {
+      var s = document.createElement('div');
+      s.className = 'skeleton-card';
+      s.setAttribute('aria-hidden', 'true');
+      var si  = document.createElement('div'); si.className = 'sk-img';   s.appendChild(si);
+      var sl1 = document.createElement('div'); sl1.className = 'sk-line sk-title'; s.appendChild(sl1);
+      var sl2 = document.createElement('div'); sl2.className = 'sk-line sk-sub';   s.appendChild(sl2);
+      scrollEl.appendChild(s);
+    }
+
+    function findRail(el) {
+      var cur = el;
+      while (cur && cur !== document.body) {
+        if (cur.classList && cur.classList.contains('discovery-rail')) return cur;
+        cur = cur.parentElement;
+      }
+      return null;
+    }
+
+    fetch(endpoint + qs)
+      .then(function (r) { return r.json(); })
+      .then(function (json) {
+        scrollEl.innerHTML = '';
+        var data = (json && json.data) ? json.data : [];
+        if (!data.length) {
+          var rail = findRail(scrollEl);
+          if (rail) rail.style.display = 'none';
+          return;
+        }
+        data.forEach(function (lot) { scrollEl.appendChild(makeLotCard(lot)); });
+        updateTimers();
+      })
+      .catch(function () {
+        scrollEl.innerHTML = '';
+        var rail = findRail(scrollEl);
+        if (rail) rail.style.display = 'none';
+      });
+  }
+
   /* ── Skeleton loader ─────────────────────────────────────────────────── */
 
   function renderSkeletons(container, count) {
@@ -226,18 +367,20 @@
   /* ── Public API ──────────────────────────────────────────────────────── */
 
   root.MktComponents = {
-    fmtMoney:        fmtMoney,
-    fmtCountdown:    fmtCountdown,
-    fmtDate:         fmtDate,
-    isEndingSoon:    isEndingSoon,
-    isNew:           isNew,
-    urgencyClass:    urgencyClass,
-    setElem:         setElem,
-    makeAuctionCard: makeAuctionCard,
-    renderSkeletons: renderSkeletons,
-    updateTimers:    updateTimers,
-    initMobileMenu:  initMobileMenu,
-    initActiveNav:   initActiveNav
+    fmtMoney:           fmtMoney,
+    fmtCountdown:       fmtCountdown,
+    fmtDate:            fmtDate,
+    isEndingSoon:       isEndingSoon,
+    isNew:              isNew,
+    urgencyClass:       urgencyClass,
+    setElem:            setElem,
+    makeAuctionCard:    makeAuctionCard,
+    makeLotCard:        makeLotCard,
+    loadDiscoveryRail:  loadDiscoveryRail,
+    renderSkeletons:    renderSkeletons,
+    updateTimers:       updateTimers,
+    initMobileMenu:     initMobileMenu,
+    initActiveNav:      initActiveNav
   };
 
 }(window));

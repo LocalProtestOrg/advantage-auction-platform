@@ -166,7 +166,7 @@ router.get('/auctions/near', async (req, res, next) => {
     // marketplace_priority included in subquery for secondary sort; excluded from outer SELECT.
     const { rows } = await db.query(`
       SELECT id, title, subtitle, description, public_auction_type,
-             state, city, address_state, zip, lat, lng,
+             state, city, address_state, zip,
              shipping_available, start_time, end_time,
              pickup_window_start, pickup_window_end,
              preview_start, preview_end,
@@ -185,8 +185,6 @@ router.get('/auctions/near', async (req, res, next) => {
                  a.city,
                  a.address_state,
                  a.zip,
-                 a.lat,
-                 a.lng,
                  a.shipping_available,
                  a.start_time,
                  a.end_time,
@@ -449,7 +447,7 @@ router.get('/featured-auctions', async (req, res, next) => {
       // Geo-filtered: subquery computes distance, outer query filters + sorts
       ({ rows } = await db.query(`
         SELECT id, title, subtitle, description, public_auction_type,
-               state, city, address_state, zip, lat, lng,
+               state, city, address_state, zip,
                shipping_available, start_time, end_time,
                preview_start, preview_end,
                cover_image_url, banner_image_url, created_at,
@@ -466,8 +464,6 @@ router.get('/featured-auctions', async (req, res, next) => {
                    a.city,
                    a.address_state,
                    a.zip,
-                   a.lat,
-                   a.lng,
                    a.shipping_available,
                    a.start_time,
                    a.end_time,
@@ -517,8 +513,6 @@ router.get('/featured-auctions', async (req, res, next) => {
                a.city,
                a.address_state,
                a.zip,
-               a.lat,
-               a.lng,
                a.shipping_available,
                a.start_time,
                a.end_time,
@@ -687,6 +681,137 @@ router.get('/config', async (req, res, next) => {
 
     res.set('Cache-Control', 's-maxage=300, stale-while-revalidate=60');
     return res.json({ success: true, data });
+  } catch (err) { next(err); }
+});
+
+// ── GET /api/public/lots/ending-soon ─────────────────────────────────────────
+// Individual lots closing within 48 hours, sorted most-urgent first.
+//
+// Query params:
+//   limit — 1–50, default 20
+router.get('/lots/ending-soon', async (req, res, next) => {
+  try {
+    const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 20, 1), 50);
+
+    const { rows } = await db.query(`
+      SELECT l.id,
+             l.auction_id,
+             l.lot_number,
+             l.title,
+             l.thumbnail_url,
+             l.images_count,
+             l.state            AS lot_state,
+             l.starting_bid_cents,
+             l.current_bid_cents,
+             l.bid_count,
+             l.closes_at,
+             l.shippable,
+             (SELECT COUNT(*)::int FROM watchlists w WHERE w.lot_id = l.id) AS watch_count,
+             a.id               AS auction_id,
+             a.title            AS auction_title,
+             a.state            AS auction_state,
+             a.end_time         AS auction_end_time,
+             sp.display_name    AS seller_display_name
+        FROM lots l
+        JOIN auctions a ON a.id = l.auction_id
+        LEFT JOIN seller_profiles sp ON sp.id = a.seller_id
+       WHERE l.state = 'open'
+         AND l.closes_at > NOW()
+         AND l.closes_at <= NOW() + INTERVAL '48 hours'
+         AND a.state = 'active'
+       ORDER BY l.closes_at ASC
+       LIMIT $1
+    `, [limit]);
+
+    res.set('Cache-Control', LIVE_CACHE);
+    return res.json({ success: true, data: rows });
+  } catch (err) { next(err); }
+});
+
+// ── GET /api/public/lots/recently-added ──────────────────────────────────────
+// Lots added in the last 21 days, newest first.
+//
+// Query params:
+//   limit — 1–50, default 20
+router.get('/lots/recently-added', async (req, res, next) => {
+  try {
+    const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 20, 1), 50);
+
+    const { rows } = await db.query(`
+      SELECT l.id,
+             l.auction_id,
+             l.lot_number,
+             l.title,
+             l.thumbnail_url,
+             l.images_count,
+             l.state            AS lot_state,
+             l.starting_bid_cents,
+             l.current_bid_cents,
+             l.bid_count,
+             l.closes_at,
+             l.created_at,
+             l.shippable,
+             (SELECT COUNT(*)::int FROM watchlists w WHERE w.lot_id = l.id) AS watch_count,
+             a.id               AS auction_id,
+             a.title            AS auction_title,
+             a.state            AS auction_state,
+             a.end_time         AS auction_end_time,
+             sp.display_name    AS seller_display_name
+        FROM lots l
+        JOIN auctions a ON a.id = l.auction_id
+        LEFT JOIN seller_profiles sp ON sp.id = a.seller_id
+       WHERE l.state != 'withdrawn'
+         AND l.created_at >= NOW() - INTERVAL '21 days'
+         AND a.state IN ('published', 'active')
+       ORDER BY l.created_at DESC
+       LIMIT $1
+    `, [limit]);
+
+    res.set('Cache-Control', PUBLIC_CACHE);
+    return res.json({ success: true, data: rows });
+  } catch (err) { next(err); }
+});
+
+// ── GET /api/public/lots/trending ─────────────────────────────────────────────
+// Most-bid lots in active auctions, sorted by bid activity descending.
+//
+// Query params:
+//   limit — 1–50, default 20
+router.get('/lots/trending', async (req, res, next) => {
+  try {
+    const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 20, 1), 50);
+
+    const { rows } = await db.query(`
+      SELECT l.id,
+             l.auction_id,
+             l.lot_number,
+             l.title,
+             l.thumbnail_url,
+             l.images_count,
+             l.state            AS lot_state,
+             l.starting_bid_cents,
+             l.current_bid_cents,
+             l.bid_count,
+             l.closes_at,
+             l.shippable,
+             (SELECT COUNT(*)::int FROM watchlists w WHERE w.lot_id = l.id) AS watch_count,
+             a.id               AS auction_id,
+             a.title            AS auction_title,
+             a.state            AS auction_state,
+             a.end_time         AS auction_end_time,
+             sp.display_name    AS seller_display_name
+        FROM lots l
+        JOIN auctions a ON a.id = l.auction_id
+        LEFT JOIN seller_profiles sp ON sp.id = a.seller_id
+       WHERE l.state = 'open'
+         AND l.bid_count >= 1
+         AND a.state = 'active'
+       ORDER BY l.bid_count DESC, l.closes_at ASC
+       LIMIT $1
+    `, [limit]);
+
+    res.set('Cache-Control', LIVE_CACHE);
+    return res.json({ success: true, data: rows });
   } catch (err) { next(err); }
 });
 
