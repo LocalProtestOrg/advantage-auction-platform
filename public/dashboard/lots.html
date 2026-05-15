@@ -1023,61 +1023,13 @@
         <div class="card">
           <div class="suggestion-list">
 
-            <!-- Suggested Title -->
-            <div class="suggestion-card">
-              <div class="suggestion-card-header">
-                <span class="suggestion-type">Suggested Title</span>
-                <button class="btn btn-sm btn-ghost" onclick="applySuggestion('title', 'Mid-Century Modern Walnut Dresser — 6 Drawer, Excellent Condition')">Apply</button>
-              </div>
-              <div class="suggestion-value">Mid-Century Modern Walnut Dresser &mdash; 6 Drawer, Excellent Condition</div>
-              <div class="suggestion-sub">Based on visible item style and wood grain</div>
-            </div>
-
-            <!-- Suggested Category -->
-            <div class="suggestion-card">
-              <div class="suggestion-card-header">
-                <span class="suggestion-type">Suggested Category</span>
-                <button class="btn btn-sm btn-ghost" onclick="applySuggestion('category', 'furniture')">Apply</button>
-              </div>
-              <div class="suggestion-value">Furniture &rsaquo; Bedroom &rsaquo; Dressers &amp; Chests</div>
-              <div class="suggestion-sub">94% confidence</div>
-            </div>
-
-            <!-- Suggested Tags -->
-            <div class="suggestion-card">
-              <div class="suggestion-card-header">
-                <span class="suggestion-type">Suggested Tags</span>
-                <button class="btn btn-sm btn-ghost" onclick="handleTagsNote()">Copy</button>
-              </div>
-              <div class="suggestion-value" style="font-size:0.82rem;color:#555">
-                #midcentury &nbsp;#walnut &nbsp;#dresser &nbsp;#vintage &nbsp;#bedroom &nbsp;#modernist
-              </div>
-              <div class="suggestion-sub">High-traffic search terms for this item type</div>
-            </div>
-
-            <!-- Suggested Starting Bid -->
-            <div class="suggestion-card">
-              <div class="suggestion-card-header">
-                <span class="suggestion-type">Suggested Starting Bid</span>
-                <button class="btn btn-sm btn-ghost" onclick="applySuggestion('bid', '85')">Apply</button>
-              </div>
-              <div class="suggestion-value">$85</div>
-              <div class="suggestion-sub">Based on 14 recent comparable sales in this region</div>
-            </div>
-
-            <!-- Image Quality Score -->
-            <div class="suggestion-card">
-              <div class="suggestion-card-header">
-                <span class="suggestion-type">Image Quality Score</span>
-              </div>
-              <div class="suggestion-value">8.4 / 10</div>
-              <div class="quality-bar-wrap">
-                <div class="quality-bar"></div>
-              </div>
-              <div class="suggestion-sub" style="margin-top:0.4rem">
-                Good lighting detected. Minor background clutter — AI will clean automatically.
-              </div>
-            </div>
+            <p style="font-size:0.85rem;color:#6b7280;margin:0 0 0.75rem">
+              Upload a photo first, then let AI suggest a title, description, and category based on what it sees.
+            </p>
+            <button class="btn btn-primary" id="btn-ai-generate" onclick="generateAiDescription()">
+              &#10024; Generate from Photo
+            </button>
+            <div id="ai-gen-status" style="margin-top:0.6rem;font-size:0.83rem;display:none"></div>
 
           </div><!-- /suggestion-list -->
         </div><!-- /AI suggestions card -->
@@ -1767,6 +1719,50 @@
     loadDraft();
 
     /* ── D: Apply AI suggestions ───────────────────────────── */
+    function generateAiDescription() {
+      var first  = uploadedFiles.find(function (f) { return f.cloudinaryUrl; });
+      var btn    = document.getElementById('btn-ai-generate');
+      var status = document.getElementById('ai-gen-status');
+
+      if (!first) {
+        status.style.display = '';
+        status.style.color   = '#dc2626';
+        status.textContent   = 'Upload at least one photo first.';
+        return;
+      }
+
+      btn.disabled    = true;
+      btn.textContent = 'Generating…';
+      status.style.display = 'none';
+
+      fetch('/api/ai/generate-description', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+        body:    JSON.stringify({ imageUrl: first.cloudinaryUrl })
+      })
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+          if (!data.success) throw new Error(data.message || 'Generation failed');
+          var d = data.data;
+          if (d.title)       document.getElementById('lot-title').value    = d.title;
+          if (d.description) document.getElementById('lot-desc').value     = d.description;
+          if (d.category)    document.getElementById('lot-category').value = d.category;
+          saveDraft();
+          status.style.display = '';
+          status.style.color   = '#16a34a';
+          status.textContent   = '✓ Fields populated — review and edit as needed.';
+        })
+        .catch(function (err) {
+          status.style.display = '';
+          status.style.color   = '#dc2626';
+          status.textContent   = 'Generation failed: ' + err.message;
+        })
+        .finally(function () {
+          btn.disabled    = false;
+          btn.textContent = '✨ Generate from Photo';
+        });
+    }
+
     function applySuggestion(type, value) {
       if (type === 'title') {
         document.getElementById('lot-title').value = value;
