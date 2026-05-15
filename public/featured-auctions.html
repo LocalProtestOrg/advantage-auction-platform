@@ -67,6 +67,11 @@
       color: var(--gray);
       line-height: 1.5;
     }
+
+    .buyer-strip { background: #fff; border-bottom: 1px solid var(--border); padding: 0.7rem 1.5rem; }
+    .buyer-strip-inner { max-width: 900px; margin: 0 auto; display: flex; justify-content: center; gap: 0.5rem 2.25rem; flex-wrap: wrap; align-items: center; }
+    .buyer-strip-item { font-size: 0.78rem; color: var(--gray); white-space: nowrap; }
+    .buyer-strip-item strong { color: var(--ink); font-weight: 600; }
   </style>
 </head>
 <body>
@@ -105,6 +110,19 @@
     </p>
   </div>
 </section>
+
+<!-- ── Buyer assurance strip ── -->
+<div class="buyer-strip" role="complementary" aria-label="Buyer assurances">
+  <div class="buyer-strip-inner">
+    <span class="buyer-strip-item"><strong>Free to browse</strong></span>
+    <span class="buyer-strip-item" aria-hidden="true">·</span>
+    <span class="buyer-strip-item"><strong>Pay only if you win</strong></span>
+    <span class="buyer-strip-item" aria-hidden="true">·</span>
+    <span class="buyer-strip-item"><strong>Secure checkout</strong> via Stripe</span>
+    <span class="buyer-strip-item" aria-hidden="true">·</span>
+    <span class="buyer-strip-item"><strong>New inventory</strong> added regularly</span>
+  </div>
+</div>
 
 <!-- ── Featured auctions ── -->
 <main class="page-section" id="main-content">
@@ -183,6 +201,7 @@
         <div class="footer-col-title">Buyers</div>
         <ul class="footer-links">
           <li><a href="/login.html">Create Account</a></li>
+          <li><a href="/how-to-buy.html">How to Buy</a></li>
           <li><a href="/buyer-faq.html">Buyer FAQ</a></li>
           <li><a href="/how-it-works.html#buyers">Bidding Guide</a></li>
         </ul>
