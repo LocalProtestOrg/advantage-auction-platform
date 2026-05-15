@@ -304,6 +304,9 @@
     #bid-status.ok  { color: #16a34a; }
     #bid-status.err { color: #dc2626; }
 
+    .bid-trust { display: flex; justify-content: space-around; flex-wrap: wrap; gap: 0.25rem; padding: 0.6rem 0; border-top: 1px solid #f1f5f9; margin-top: 0.25rem; }
+    .bid-trust-item { font-size: 0.68rem; color: #94a3b8; text-align: center; white-space: nowrap; }
+
     /* Bid history */
     .history-header {
       display: flex;
@@ -593,6 +596,12 @@
       </div>
 
       <div id="bid-status"></div>
+
+      <div class="bid-trust" aria-label="Buyer assurances">
+        <span class="bid-trust-item">Pay only when you win</span>
+        <span class="bid-trust-item">Anti-sniping protection</span>
+        <span class="bid-trust-item">Secure via Stripe</span>
+      </div>
 
       <div style="display:flex; flex-direction:column; flex:1; min-height:0">
         <div class="history-header">

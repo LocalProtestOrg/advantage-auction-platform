@@ -156,6 +156,14 @@
       color: #aaa;
     }
 
+    .pay-reassurance {
+      font-size: 0.75rem;
+      color: #888;
+      text-align: center;
+      margin-bottom: 0.85rem;
+      line-height: 1.5;
+    }
+
     .no-secret {
       color: #dc2626;
       font-size: 0.875rem;
@@ -176,6 +184,7 @@
       <label for="card-element">Card details</label>
       <div id="card-element"></div>
       <div id="card-errors" role="alert"></div>
+      <p class="pay-reassurance">You're only charged for lots you won.<br>The amount above is your total — no hidden fees.</p>
       <button id="pay-btn" type="button">
         <span class="spinner" id="spinner"></span>
         <span id="btn-label">Pay now</span>
