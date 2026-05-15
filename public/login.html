@@ -252,6 +252,12 @@
     }
   }
 
+  // ── Auto-select tab from ?tab=register ───────────────────────────────────
+  (function () {
+    var p = new URLSearchParams(window.location.search);
+    if (p.get('tab') === 'register') showTab('register');
+  }());
+
   // ── If already logged in, redirect immediately ────────────────────────────
   (function () {
     var token = localStorage.getItem('token');

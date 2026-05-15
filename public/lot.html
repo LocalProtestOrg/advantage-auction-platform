@@ -36,7 +36,6 @@
     @media (max-width: 720px) {
       .layout { grid-template-columns: 1fr; }
       .bid-panel { position: static !important; height: auto; border-left: none; border-top: 1px solid #e5e7eb; }
-      .image-col { min-height: 0; }
     }
 
     /* ── LEFT: Image area ── */
@@ -523,6 +522,10 @@
       letter-spacing: 0.04em;
       display: none;
     }
+    @media (max-width: 720px) {
+      .layout    { min-height: 0; }
+      .image-col { min-height: 0; }
+    }
   </style>
 </head>
 <body>
@@ -633,7 +636,6 @@
   const params = new URLSearchParams(location.search);
   const lotId  = params.get('lotId');
 
-  if (!token)  location.href = '/login.html';
   if (!lotId)  document.getElementById('loading-overlay').textContent = 'No lot ID in URL.';
 
   function _decodeJwt(tok) {
@@ -660,22 +662,26 @@
   async function load() {
     if (!lotId) return;
     try {
-      const headers = { Authorization: 'Bearer ' + token };
-      const [lotRes, imgRes, bidRes] = await Promise.all([
-        fetch('/api/lots/' + lotId, { headers }),
+      const authHeaders = token ? { Authorization: 'Bearer ' + token } : {};
+      const fetches = [
+        fetch('/api/lots/' + lotId, { headers: authHeaders }),
         fetch('/api/lots/' + lotId + '/images'),
-        fetch('/api/lots/' + lotId + '/bids', { headers })
-      ]);
+      ];
+      if (token) fetches.push(fetch('/api/lots/' + lotId + '/bids', { headers: authHeaders }));
 
-      if (lotRes.status === 401 || bidRes.status === 401) {
+      const results           = await Promise.all(fetches);
+      const [lotRes, imgRes]  = results;
+      const bidRes            = token ? results[2] : null;
+
+      if (lotRes.status === 401 || (bidRes && bidRes.status === 401)) {
         localStorage.removeItem('token');
         window.location.href = '/login.html';
         return;
       }
 
-      const [lotData, imgData, bidData] = await Promise.all([
-        lotRes.json(), imgRes.json(), bidRes.json()
-      ]);
+      const lotData = await lotRes.json();
+      const imgData = await imgRes.json();
+      const bidData = bidRes ? await bidRes.json() : { success: false, data: [] };
 
       if (!lotData.success || !lotData.data) throw new Error('Lot not found');
 
@@ -686,10 +692,38 @@
       document.getElementById('loading-overlay').style.display = 'none';
       document.getElementById('panel-content').style.display = 'flex';
 
-      startRefresh();
+      if (token) {
+        startRefresh();
+      } else {
+        showGuestBidPanel();
+      }
     } catch (err) {
       document.getElementById('loading-overlay').textContent = 'Error: ' + err.message;
     }
+  }
+
+  function showGuestBidPanel() {
+    const form = document.querySelector('.bid-form');
+    if (!form) return;
+    const nextUrl = encodeURIComponent(location.pathname + location.search);
+    form.innerHTML = `
+      <div style="text-align:center; padding:0.5rem 0 0.25rem;">
+        <p style="color:#374151; margin:0 0 0.9rem; font-size:0.93rem; line-height:1.4;">
+          Create a free account to place bids on this item.
+        </p>
+        <a href="/login.html?tab=register&next=${nextUrl}"
+           style="display:block; background:#1d4ed8; color:#fff; padding:0.75rem 1rem; border-radius:8px; text-decoration:none; font-weight:600; font-size:0.95rem; text-align:center; margin-bottom:0.65rem;">
+          Create Free Account
+        </a>
+        <a href="/login.html?next=${nextUrl}"
+           style="display:block; color:#1d4ed8; font-size:0.85rem; text-decoration:none; font-weight:500;">
+          Already have an account? Sign in →
+        </a>
+      </div>
+    `;
+    const historyWrap = document.getElementById('bid-list')?.closest('div[style]') ||
+                        document.querySelector('.history-header')?.parentElement;
+    if (historyWrap) historyWrap.style.display = 'none';
   }
 
   // ── Auto-refresh bids every 3 s ───────────────────────────────────────────────
