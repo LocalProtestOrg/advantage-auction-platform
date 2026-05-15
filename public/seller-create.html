@@ -569,15 +569,15 @@
       }
 
       if (status === 'submitted') {
-        showBanner('Auction submitted for review. Redirecting to lot builder…', 'success');
+        showBanner('Auction submitted for review. Redirecting to lot upload…', 'success');
         document.getElementById('btn-draft').disabled  = true;
         document.getElementById('btn-submit').disabled = true;
       } else {
-        showBanner('Draft saved. Redirecting to lot builder…', 'success');
+        showBanner('Draft saved. Redirecting to lot upload…', 'success');
       }
 
       setTimeout(() => {
-        window.location.href = '/lot-builder.html?auctionId=' + auctionId;
+        window.location.href = '/dashboard/lots.html?auctionId=' + auctionId;
       }, 1200);
 
     } catch (err) {
