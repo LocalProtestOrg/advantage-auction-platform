@@ -380,6 +380,7 @@ header {
   border: none;
   cursor: pointer;
   padding: 0.4rem;
+  color: rgba(255, 255, 255, 0.75);
 }
 
 @media (max-width: 760px) {
@@ -1075,8 +1076,9 @@ footer {
 }
 
 @media (max-width: 760px) {
-  .footer-top          { grid-template-columns: 1fr 1fr; gap: 2rem; }
-  .footer-brand-col    { grid-column: 1 / -1; }
+  .footer-top                   { grid-template-columns: 1fr 1fr; gap: 2rem; }
+  .footer-brand-col             { grid-column: 1 / -1; }
+  .footer-top > div:first-child { grid-column: 1 / -1; }
 }
 @media (max-width: 480px) {
   .footer-top { grid-template-columns: 1fr; }
@@ -1128,3 +1130,27 @@ footer {
   transition: color 0.15s;
 }
 .footer-legal a:hover { color: #64748b; }
+
+/* ================================================================
+   MOBILE RESPONSIVENESS — section padding + CTA stacking
+   ================================================================ */
+
+@media (max-width: 768px) {
+  .marketplace-section    { padding: 2.5rem 1.25rem; }
+  .featured-lots-section  { padding: 2.5rem 1.25rem; }
+  .cta-band               { padding: 3rem 1.25rem; }
+  .discovery-rail         { padding: 2rem 0; }
+  .discovery-rail + .discovery-rail { padding-top: 1.5rem; }
+}
+
+@media (max-width: 480px) {
+  .cta-band-actions,
+  .cta-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .btn-cta-primary,
+  .btn-cta-outline {
+    text-align: center;
+  }
+}
