@@ -109,10 +109,16 @@ app.use(helmet({ contentSecurityPolicy: false }));
 // CORS
 // Public discovery endpoints and widget assets are designed for cross-origin consumption by BD.
 app.use((req, res, next) => {
-  const isPublicDiscovery = req.path.startsWith('/api/public/') || req.path.startsWith('/widgets/');
+  const isPublicDiscovery = req.path.startsWith('/api/public/')
+    || req.path.startsWith('/widgets/')
+    || req.path === '/marketplace.css'
+    || req.path === '/marketplace-components.js';
   res.header('Access-Control-Allow-Origin', isPublicDiscovery ? '*' : FRONTEND_URL);
   res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
   res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  if (isPublicDiscovery) {
+    res.header('Cross-Origin-Resource-Policy', 'cross-origin');
+  }
   next();
 });
 
