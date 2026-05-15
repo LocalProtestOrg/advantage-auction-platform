@@ -70,10 +70,11 @@
    */
   function makeAuctionCard(auction, opts) {
     opts = opts || {};
+    var base = opts.base || '';
 
     var a = document.createElement('a');
     a.className = 'auction-card';
-    a.href = '/auction-view.html?id=' + encodeURIComponent(auction.id);
+    a.href = base + '/auction-view.html?auctionId=' + encodeURIComponent(auction.id);
 
     /* image */
     var imgDiv = document.createElement('div');
@@ -162,10 +163,13 @@
    * bid_count, current_bid_cents, starting_bid_cents, closes_at, shippable,
    * watch_count, created_at.
    */
-  function makeLotCard(lot) {
+  function makeLotCard(lot, opts) {
+    opts = opts || {};
+    var base = opts.base || '';
+
     var a = document.createElement('a');
     a.className = 'lot-card';
-    a.href = '/lot.html?id=' + encodeURIComponent(lot.id);
+    a.href = base + '/lot.html?lotId=' + encodeURIComponent(lot.id);
 
     /* image */
     var imgDiv = document.createElement('div');
@@ -284,7 +288,7 @@
           if (rail) rail.style.display = 'none';
           return;
         }
-        data.forEach(function (lot) { scrollEl.appendChild(makeLotCard(lot)); });
+        data.forEach(function (lot) { scrollEl.appendChild(makeLotCard(lot, { base: opts.base || '' })); });
         updateTimers();
       })
       .catch(function () {

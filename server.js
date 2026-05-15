@@ -107,8 +107,10 @@ io.on('connection', (socket) => {
 app.use(helmet({ contentSecurityPolicy: false }));
 
 // CORS
+// Public discovery endpoints and widget assets are designed for cross-origin consumption by BD.
 app.use((req, res, next) => {
-  res.header('Access-Control-Allow-Origin', FRONTEND_URL);
+  const isPublicDiscovery = req.path.startsWith('/api/public/') || req.path.startsWith('/widgets/');
+  res.header('Access-Control-Allow-Origin', isPublicDiscovery ? '*' : FRONTEND_URL);
   res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
   res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   next();
