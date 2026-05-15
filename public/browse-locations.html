@@ -253,13 +253,14 @@
   var pageSize       = 12;
   var loadingAuctions = false;
 
-  var stateGrid     = document.getElementById('state-grid');
-  var stateSkeleton = document.getElementById('state-skeleton');
-  var auctionsGrid  = document.getElementById('auctions-grid');
-  var auctionsHead  = document.getElementById('auctions-heading');
-  var clearBtn      = document.getElementById('clear-filter-btn');
-  var loadMoreRow   = document.getElementById('load-more-row');
-  var loadMoreBtn   = document.getElementById('load-more-btn');
+  var stateGrid        = document.getElementById('state-grid');
+  var stateSkeleton    = document.getElementById('state-skeleton');
+  var auctionsGrid     = document.getElementById('auctions-grid');
+  var auctionsHead     = document.getElementById('auctions-heading');
+  var clearBtn         = document.getElementById('clear-filter-btn');
+  var loadMoreRow      = document.getElementById('load-more-row');
+  var loadMoreBtn      = document.getElementById('load-more-btn');
+  var endingSoonScroll = document.getElementById('ending-soon-scroll');
 
   /* Read ?state= query param on page load */
   (function () {
@@ -366,6 +367,16 @@
       });
   }
 
+  function reloadEndingSoonRail() {
+    if (!endingSoonScroll) return;
+    var rail = document.getElementById('ending-soon-rail');
+    if (rail) rail.style.display = '';        /* restore if hidden by an empty prior load */
+    endingSoonScroll.innerHTML = '';           /* clear before loadDiscoveryRail appends skeletons */
+    var opts = { limit: 12 };
+    if (selectedState) opts.params = { address_state: selectedState };
+    MC.loadDiscoveryRail(endingSoonScroll, '/api/public/lots/ending-soon', opts);
+  }
+
   function selectState(abbr) {
     selectedState = abbr;
     currentOffset = 0;
@@ -377,6 +388,7 @@
 
     clearBtn.style.display = abbr ? 'inline' : 'none';
     loadAuctions(false);
+    reloadEndingSoonRail();
   }
 
   clearBtn.addEventListener('click', function () {
@@ -393,13 +405,8 @@
   updateHeading();
   loadAuctions(false);
 
-  /* Ending Soon discovery rail — scoped to selected state when present */
-  var endingSoonScroll = document.getElementById('ending-soon-scroll');
-  if (endingSoonScroll) {
-    var endingSoonOpts = { limit: 12 };
-    if (selectedState) endingSoonOpts.params = { address_state: selectedState };
-    MC.loadDiscoveryRail(endingSoonScroll, '/api/public/lots/ending-soon', endingSoonOpts);
-  }
+  /* Ending Soon discovery rail — state-aware, re-fetches on every state change */
+  reloadEndingSoonRail();
 
   /* State filter — load from locations API */
   fetch('/api/public/locations?limit=200')
