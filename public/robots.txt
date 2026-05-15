@@ -1,0 +1,13 @@
+User-agent: *
+Disallow: /auction.html
+Disallow: /auction-view.html
+Disallow: /dashboard.html
+Disallow: /demo.html
+Disallow: /lot.html
+Disallow: /lot-builder.html
+Disallow: /payment.html
+Disallow: /seller-create.html
+Disallow: /seller-dashboard.html
+Disallow: /api/
+
+Sitemap: https://advantage.bid/sitemap.xml
