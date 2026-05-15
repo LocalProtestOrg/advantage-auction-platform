@@ -112,6 +112,13 @@
       color: var(--gray);
       line-height: 1.55;
     }
+
+    /* ── Discovery crosslinks ── */
+    .discovery-nav { background: var(--bg); border-top: 1px solid var(--border); padding: 1.1rem 1.5rem; }
+    .discovery-nav-inner { max-width: 1100px; margin: 0 auto; display: flex; gap: 0.5rem 1.75rem; flex-wrap: wrap; align-items: center; justify-content: center; }
+    .dlink { font-size: 0.875rem; font-weight: 600; color: var(--blue); text-decoration: none; white-space: nowrap; }
+    .dlink:hover { text-decoration: underline; }
+    .dlink-dot { color: var(--border); font-size: 1.1rem; line-height: 1; }
   </style>
 </head>
 <body>
@@ -202,6 +209,19 @@
     </div>
   </div>
 </div>
+
+<!-- ── Discovery crosslinks ── -->
+<nav class="discovery-nav" aria-label="Continue exploring">
+  <div class="discovery-nav-inner">
+    <a href="/featured-auctions.html" class="dlink">All Active Auctions</a>
+    <span class="dlink-dot" aria-hidden="true">·</span>
+    <a href="/browse-categories.html" class="dlink">Browse by Type</a>
+    <span class="dlink-dot" aria-hidden="true">·</span>
+    <a href="/shipping-available.html" class="dlink">Ships Nationwide</a>
+    <span class="dlink-dot" aria-hidden="true">·</span>
+    <a href="/browse-locations.html" class="dlink">Browse by Region</a>
+  </div>
+</nav>
 
 <!-- ── Footer ── -->
 <footer>

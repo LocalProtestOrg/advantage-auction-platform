@@ -354,6 +354,20 @@
   </div>
 </section>
 
+<!-- ── Ending Soon lot rail ── -->
+<section id="ending-soon-cat-rail" class="discovery-rail" aria-labelledby="ending-soon-cat-heading">
+  <div class="discovery-rail-inner">
+    <div class="discovery-rail-header">
+      <div>
+        <div class="section-eyebrow">⏱ Don't Miss Out</div>
+        <h2 class="discovery-rail-title" id="ending-soon-cat-heading">Ending Soon</h2>
+      </div>
+      <a href="/ending-soon.html" class="discovery-rail-link">View all ending soon →</a>
+    </div>
+    <div class="discovery-rail-scroll" id="ending-soon-cat-scroll" aria-live="polite" aria-label="Lots ending soon"></div>
+  </div>
+</section>
+
 <!-- ── Discovery CTA ── -->
 <section class="discovery-cta" aria-labelledby="discovery-cta-heading">
   <h2 id="discovery-cta-heading">Ready to start exploring?</h2>
@@ -418,8 +432,10 @@
   'use strict';
   var MC = window.MktComponents;
   if (!MC) return;
-  var trendingScroll = document.getElementById('trending-scroll');
-  if (trendingScroll) MC.loadDiscoveryRail(trendingScroll, '/api/public/lots/trending', { limit: 12 });
+  var trendingScroll      = document.getElementById('trending-scroll');
+  var endingSoonCatScroll = document.getElementById('ending-soon-cat-scroll');
+  if (trendingScroll)      MC.loadDiscoveryRail(trendingScroll,      '/api/public/lots/trending',      { limit: 12 });
+  if (endingSoonCatScroll) MC.loadDiscoveryRail(endingSoonCatScroll, '/api/public/lots/ending-soon',   { limit: 12 });
 })();
 </script>
 </body>

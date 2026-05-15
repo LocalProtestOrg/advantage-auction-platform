@@ -21,8 +21,11 @@
       padding: 0.9rem 1.5rem;
       display: flex;
       align-items: center;
+      justify-content: space-between;
     }
     .brand { color: #fff; font-weight: 700; font-size: 1rem; text-decoration: none; }
+    .header-browse { color: #94a3b8; font-size: 0.8rem; text-decoration: none; transition: color 0.15s; }
+    .header-browse:hover { color: #e2e8f0; }
 
     .page {
       flex: 1;
@@ -142,7 +145,8 @@
 <body>
 
 <header>
-  <a class="brand" href="/">Advantage Auction</a>
+  <a class="brand" href="/">Advantage.Bid</a>
+  <a href="/featured-auctions.html" class="header-browse">Browse without signing in →</a>
 </header>
 
 <div class="page">
@@ -170,6 +174,7 @@
 
     <!-- ── Register panel ── -->
     <div class="form-panel" id="panel-register">
+      <p class="note" style="margin-bottom:1.25rem;">Bid on unique estate finds — furniture, art, jewelry, and collectibles from real homes across the country.</p>
       <div class="msg error"   id="register-error"></div>
       <div class="msg success" id="register-success"></div>
       <div class="field">
