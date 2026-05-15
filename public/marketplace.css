@@ -1154,3 +1154,28 @@ footer {
     text-align: center;
   }
 }
+
+/* ================================
+   Marketplace Section Spacing
+================================ */
+
+.bdai-auctions-page section {
+    padding-top: 72px;
+    padding-bottom: 72px;
+}
+
+.bdai-section-head {
+    margin-bottom: 42px;
+}
+
+.discovery-rail {
+    margin-top: 28px;
+}
+
+#featured-auctions-feed {
+    margin-top: 32px;
+}
+
+.bdai-trending-section .discovery-rail + .discovery-rail {
+    margin-top: 36px;
+}
