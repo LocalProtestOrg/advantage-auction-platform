@@ -1746,7 +1746,14 @@
           var d = data.data;
           if (d.title)       document.getElementById('lot-title').value    = d.title;
           if (d.description) document.getElementById('lot-desc').value     = d.description;
-          if (d.category)    document.getElementById('lot-category').value = d.category;
+          if (d.category) {
+            var catMap = {
+              'Furniture': 'furniture', 'Fine Art': 'art', 'Jewelry': 'jewelry',
+              'Home Decor': 'other', 'Tools': 'tools', 'Pottery & Ceramics': 'other',
+              'Clocks & Timepieces': 'other', 'Antiques': 'other', 'General': 'other',
+            };
+            document.getElementById('lot-category').value = catMap[d.category] || 'other';
+          }
           saveDraft();
           status.style.display = '';
           status.style.color   = '#16a34a';
