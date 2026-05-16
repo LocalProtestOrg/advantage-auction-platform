@@ -292,21 +292,32 @@ test('4.4 - draft-saved indicator appears after AI fill', async ({ page }) => {
 // ── Phase 5: Draft Persistence ────────────────────────────────────────────────
 
 test('5.1 - draft persists across page reload', async ({ page }) => {
-  await openPageWithToken(page, sellerToken, `/dashboard/lots.html?auctionId=${testAuctionId}`);
+  const lotsPath = `/dashboard/lots.html?auctionId=${testAuctionId}`;
+  await openPageWithToken(page, sellerToken, lotsPath);
 
   await page.locator('#lot-title').fill('Persistence Test Lot');
   await page.locator('#lot-desc').fill('Persistence test description.');
   await page.locator('#lot-category').selectOption('electronics');
   await page.locator('#starting-bid').fill('25');
 
-  // Wait for debounced auto-save (800ms + buffer)
-  await page.waitForTimeout(1500);
+  // Force an immediate save via the page's own saveDraft() to bypass the
+  // 800ms debounce — Firefox page.reload() clears localStorage in Playwright,
+  // making the debounce-then-reload pattern unreliable cross-browser.
+  await page.evaluate(() => { if (typeof saveDraft === 'function') saveDraft(); });
 
-  // Reload and re-inject token (reload clears localStorage token)
-  await page.reload();
-  await page.evaluate(t => localStorage.setItem('token', t), sellerToken);
-  await page.reload();
-  await page.waitForTimeout(500);
+  // Verify the draft reached localStorage before we leave the page
+  const draftRaw = await page.evaluate(
+    key => localStorage.getItem(key),
+    `lot_draft_${testAuctionId}`
+  );
+  expect(draftRaw, 'Draft must be in localStorage before navigation').not.toBeNull();
+  const saved = JSON.parse(draftRaw);
+  expect(saved.title).toBe('Persistence Test Lot');
+
+  // Navigate away then back (avoids page.reload() localStorage-clear in Firefox)
+  await page.goto(`${BASE}/seller-dashboard.html`);
+  await openPageWithToken(page, sellerToken, lotsPath);
+  await page.waitForTimeout(600); // allow loadDraft() to populate fields
 
   await expect(page.locator('#lot-title')).toHaveValue('Persistence Test Lot', { timeout: 5000 });
   await expect(page.locator('#lot-desc')).toHaveValue('Persistence test description.');
