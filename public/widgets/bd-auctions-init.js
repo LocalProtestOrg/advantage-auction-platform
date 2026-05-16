@@ -26,6 +26,15 @@
 
   var CARD_OPTS = { base: API_BASE };
 
+  /* Ensure the discovery-rail-scroll class is present so marketplace.css
+     mobile styles (overflow-x, min-width, scroll-snap) always apply,
+     regardless of whether the BD page template includes the class. */
+  function ensureRailClass(el) {
+    if (el && !el.classList.contains('discovery-rail-scroll')) {
+      el.classList.add('discovery-rail-scroll');
+    }
+  }
+
   function activate(MC) {
     /* ── Featured Auctions ─────────────────────────────────────────── */
     var featuredFeed = document.getElementById('featured-auctions-feed');
@@ -53,6 +62,7 @@
     /* ── Ending Soon ───────────────────────────────────────────────── */
     var endingSoonScroll = document.getElementById('ending-soon-scroll');
     if (endingSoonScroll) {
+      ensureRailClass(endingSoonScroll);
       MC.loadDiscoveryRail(
         endingSoonScroll,
         API_BASE + '/api/public/lots/ending-soon',
@@ -63,6 +73,7 @@
     /* ── Trending ──────────────────────────────────────────────────── */
     var trendingScroll = document.getElementById('trending-scroll');
     if (trendingScroll) {
+      ensureRailClass(trendingScroll);
       MC.loadDiscoveryRail(
         trendingScroll,
         API_BASE + '/api/public/lots/trending',
@@ -73,6 +84,7 @@
     /* ── Just Listed ───────────────────────────────────────────────── */
     var justListedScroll = document.getElementById('just-listed-scroll');
     if (justListedScroll) {
+      ensureRailClass(justListedScroll);
       MC.loadDiscoveryRail(
         justListedScroll,
         API_BASE + '/api/public/lots/recently-added',
