@@ -250,6 +250,7 @@
   };
 
   var selectedState  = null;
+  var selectedCity   = null;
   var currentOffset  = 0;
   var pageSize       = 12;
   var loadingAuctions = false;
@@ -263,24 +264,33 @@
   var loadMoreBtn      = document.getElementById('load-more-btn');
   var endingSoonScroll = document.getElementById('ending-soon-scroll');
 
-  /* Read ?state= query param on page load */
+  /* Read ?state= and ?city= query params on page load */
   (function () {
-    var params = new URLSearchParams(window.location.search);
+    var params     = new URLSearchParams(window.location.search);
     var stateParam = params.get('state');
+    var cityParam  = params.get('city');
     if (stateParam && STATE_NAMES[stateParam.toUpperCase()]) {
       selectedState = stateParam.toUpperCase();
+    }
+    if (cityParam && cityParam.trim()) {
+      selectedCity = cityParam.trim();
     }
   })();
 
   function buildAuctionUrl(offset) {
     var url = '/api/public/auctions?limit=' + pageSize;
     if (selectedState) url += '&address_state=' + encodeURIComponent(selectedState);
+    if (selectedCity)  url += '&city=' + encodeURIComponent(selectedCity);
     if (offset) url += '&offset=' + offset;
     return url;
   }
 
   function updateHeading() {
-    if (selectedState && STATE_NAMES[selectedState]) {
+    if (selectedCity && selectedState && STATE_NAMES[selectedState]) {
+      auctionsHead.textContent = 'Collections in ' + selectedCity + ', ' + selectedState;
+    } else if (selectedCity) {
+      auctionsHead.textContent = 'Collections in ' + selectedCity;
+    } else if (selectedState && STATE_NAMES[selectedState]) {
       auctionsHead.textContent = 'Collections in ' + STATE_NAMES[selectedState];
     } else {
       auctionsHead.textContent = 'All Collections';
@@ -321,9 +331,11 @@
           empty.appendChild(iconEl);
 
           var h3 = document.createElement('h3');
-          h3.textContent = selectedState
-            ? ('No active collections in ' + (STATE_NAMES[selectedState] || selectedState))
-            : 'No active collections right now';
+          h3.textContent = selectedCity
+            ? ('No active collections in ' + selectedCity + (selectedState ? ', ' + selectedState : ''))
+            : selectedState
+              ? ('No active collections in ' + (STATE_NAMES[selectedState] || selectedState))
+              : 'No active collections right now';
           empty.appendChild(h3);
 
           var p = document.createElement('p');
@@ -380,6 +392,7 @@
 
   function selectState(abbr) {
     selectedState = abbr;
+    selectedCity  = null;
     currentOffset = 0;
     updateHeading();
 
@@ -468,7 +481,7 @@
         stateGrid.appendChild(btn);
       });
 
-      if (selectedState) {
+      if (selectedState || selectedCity) {
         clearBtn.style.display = 'inline';
       }
     })
