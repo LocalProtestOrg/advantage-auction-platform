@@ -30,6 +30,8 @@ const router = express.Router();
 // Burst protection — bots trying to flood the table get a 429 before they
 // can affect throughput. Legitimate BD pages emit at most a few events per
 // page load.
+// No custom keyGenerator — trust proxy: 1 in server.js makes req.ip correct,
+// and the default keyGenerator handles IPv6 safely (no ERR_ERL_KEY_GEN_IPV6).
 const analyticsLimiter = rateLimit({
   windowMs:             60 * 1000,
   max:                  100,
@@ -37,11 +39,6 @@ const analyticsLimiter = rateLimit({
   legacyHeaders:        false,
   skipSuccessfulRequests: false,
   message:              { error: 'Too many events — rate limit exceeded' },
-  keyGenerator: (req) => {
-    // Use X-Forwarded-For if available (Railway / Vercel proxy)
-    const forwarded = req.headers['x-forwarded-for'];
-    return forwarded ? forwarded.split(',')[0].trim() : req.ip;
-  },
 });
 
 // ── POST /api/analytics/events ────────────────────────────────────────────────
