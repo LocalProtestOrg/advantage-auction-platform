@@ -269,6 +269,25 @@
   var MC = window.MktComponents;
   if (!MC) return;
 
+  /* ── ?type= URL filter ── */
+  var urlParams  = new URLSearchParams(window.location.search);
+  var typeParam  = (urlParams.get('type') || '').trim();
+  var TYPE_LABELS = {
+    'estate':              'Estate Sales',
+    'moving':              'Moving Sales',
+    'business_liquidation':'Business Liquidations',
+    'charity':             'Charity Auctions',
+    'consignment':         'Consignment Auctions',
+    'general':             'General Auctions',
+    'fine-art':            'Fine Art Auctions',
+  };
+  var typeLabel = typeParam && TYPE_LABELS[typeParam] ? TYPE_LABELS[typeParam] : '';
+
+  if (typeLabel) {
+    var heading = document.getElementById('featured-heading');
+    if (heading) heading.textContent = typeLabel;
+  }
+
   var featuredGrid     = document.getElementById('featured-grid');
   var justListedScroll = document.getElementById('just-listed-scroll');
   var trendingScroll   = document.getElementById('trending-scroll');
@@ -281,11 +300,17 @@
     MC.loadDiscoveryRail(trendingScroll, '/api/public/lots/trending', { limit: 12 });
   }
 
-  /* Featured auction collections */
+  /* Featured auction collections.
+     With ?type=: fetch /api/public/auctions?auction_type=... (supports filtering).
+     Without ?type=: fetch /api/public/featured-auctions (curated, priority-sorted). */
   if (featuredGrid) {
     MC.renderSkeletons(featuredGrid, 6);
 
-    fetch('/api/public/featured-auctions?limit=24')
+    var apiUrl = typeParam
+      ? '/api/public/auctions?auction_type=' + encodeURIComponent(typeParam) + '&limit=24'
+      : '/api/public/featured-auctions?limit=24';
+
+    fetch(apiUrl)
       .then(function (r) { return r.json(); })
       .then(function (json) {
         featuredGrid.innerHTML = '';
@@ -302,7 +327,9 @@
           empty.appendChild(iconEl);
 
           var h3 = document.createElement('h3');
-          h3.textContent = 'No featured auctions right now';
+          h3.textContent = typeLabel
+            ? 'No ' + typeLabel.toLowerCase() + ' right now'
+            : 'No featured auctions right now';
           empty.appendChild(h3);
 
           var p = document.createElement('p');
