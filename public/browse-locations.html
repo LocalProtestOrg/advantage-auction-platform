@@ -168,6 +168,20 @@
   </div>
 </section>
 
+<!-- ── Trending Now rail ── -->
+<section id="trending-rail" class="discovery-rail" aria-labelledby="trending-heading">
+  <div class="discovery-rail-inner">
+    <div class="discovery-rail-header">
+      <div>
+        <div class="section-eyebrow">Active Bidding</div>
+        <h2 class="discovery-rail-title" id="trending-heading">Trending Now</h2>
+      </div>
+      <a href="/ending-soon.html" class="discovery-rail-link">See what's ending soon →</a>
+    </div>
+    <div class="discovery-rail-scroll" id="trending-scroll" aria-live="polite" aria-label="Trending lots"></div>
+  </div>
+</section>
+
 <!-- ── Discovery CTA ── -->
 <div class="discovery-cta" role="complementary">
   <div class="discovery-cta-inner">
@@ -263,6 +277,7 @@
   var loadMoreRow      = document.getElementById('load-more-row');
   var loadMoreBtn      = document.getElementById('load-more-btn');
   var endingSoonScroll = document.getElementById('ending-soon-scroll');
+  var trendingScroll   = document.getElementById('trending-scroll');
 
   /* Read ?state= and ?city= query params on page load */
   (function () {
@@ -390,6 +405,16 @@
     MC.loadDiscoveryRail(endingSoonScroll, '/api/public/lots/ending-soon', opts);
   }
 
+  function reloadTrendingRail() {
+    if (!trendingScroll) return;
+    var rail = document.getElementById('trending-rail');
+    if (rail) rail.style.display = '';        /* restore if hidden by an empty prior load */
+    trendingScroll.innerHTML = '';
+    var opts = { limit: 12 };
+    if (selectedState) opts.params = { address_state: selectedState };
+    MC.loadDiscoveryRail(trendingScroll, '/api/public/lots/trending', opts);
+  }
+
   function selectState(abbr) {
     selectedState = abbr;
     selectedCity  = null;
@@ -403,6 +428,7 @@
     clearBtn.style.display = abbr ? 'inline' : 'none';
     loadAuctions(false);
     reloadEndingSoonRail();
+    reloadTrendingRail();
   }
 
   clearBtn.addEventListener('click', function () {
@@ -419,8 +445,9 @@
   updateHeading();
   loadAuctions(false);
 
-  /* Ending Soon discovery rail — state-aware, re-fetches on every state change */
+  /* Discovery rails — state-aware, re-fetch on every state change */
   reloadEndingSoonRail();
+  reloadTrendingRail();
 
   /* State filter — load from locations API */
   fetch('/api/public/locations?limit=200')
