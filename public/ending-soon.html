@@ -210,6 +210,20 @@
   </div>
 </div>
 
+<!-- ── Just Listed continuation rail ── -->
+<section id="just-listed-rail" class="discovery-rail" aria-labelledby="just-listed-heading">
+  <div class="discovery-rail-inner">
+    <div class="discovery-rail-header">
+      <div>
+        <div class="section-eyebrow">Fresh Inventory</div>
+        <h2 class="discovery-rail-title" id="just-listed-heading">Just Listed</h2>
+      </div>
+      <a href="/featured-auctions.html" class="discovery-rail-link">Browse all active auctions →</a>
+    </div>
+    <div class="discovery-rail-scroll" id="just-listed-scroll" aria-live="polite" aria-label="Recently listed lots"></div>
+  </div>
+</section>
+
 <!-- ── Discovery crosslinks ── -->
 <nav class="discovery-nav" aria-label="Continue exploring">
   <div class="discovery-nav-inner">
@@ -415,6 +429,12 @@
       empty.appendChild(p);
       grid.appendChild(empty);
     });
+
+  /* Just Listed continuation rail — self-hides if API returns empty */
+  var justListedScroll = document.getElementById('just-listed-scroll');
+  if (justListedScroll) {
+    MC.loadDiscoveryRail(justListedScroll, '/api/public/lots/recently-added', { limit: 12 });
+  }
 
   setInterval(MC.updateTimers, 30000);
 })();
