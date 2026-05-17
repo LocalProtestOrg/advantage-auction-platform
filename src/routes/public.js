@@ -35,6 +35,7 @@ function validUuid(id) { return UUID_RE.test(id); }
 //   address_state  — exact match, e.g. "TX"
 //   auction_type   — matches public_auction_type
 //   shipping       — "true" to require shipping_available = true
+//   sort           — "ending_soon": restrict to end_time within 24h, order by end_time ASC
 //   limit          — 1–100, default 20
 //   offset         — default 0
 router.get('/auctions', async (req, res, next) => {
@@ -76,12 +77,22 @@ router.get('/auctions', async (req, res, next) => {
       where.push(`(a.title ILIKE $${ki} OR a.description ILIKE $${ki} OR a.city ILIKE $${ki})`);
     }
 
+    const sortEndingSoon = q.sort === 'ending_soon';
+    if (sortEndingSoon) {
+      where.push(`a.end_time > NOW()`);
+      where.push(`a.end_time <= NOW() + INTERVAL '24 hours'`);
+    }
+
     const limit  = Math.min(Math.max(parseInt(q.limit,  10) || 20, 1), 100);
     const offset = Math.max(parseInt(q.offset, 10) || 0, 0);
     params.push(limit);
     const li = params.length;
     params.push(offset);
     const oi = params.length;
+
+    const orderByClause = sortEndingSoon
+      ? 'a.end_time ASC'
+      : `${auctionScoreSQL('a')} DESC, a.id ASC`;
 
     const { rows } = await db.query(`
       SELECT a.id,
@@ -114,7 +125,7 @@ router.get('/auctions', async (req, res, next) => {
         LEFT JOIN lots l ON l.auction_id = a.id AND l.state != 'withdrawn'
        WHERE ${where.join(' AND ')}
        GROUP BY a.id, sp.id
-       ORDER BY ${auctionScoreSQL('a')} DESC, a.id ASC
+       ORDER BY ${orderByClause}
        LIMIT $${li} OFFSET $${oi}
     `, params);
 

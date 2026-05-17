@@ -878,23 +878,17 @@
       });
   }
 
-  /* Ending soon — fetch active auctions, filter to those closing within 24h */
+  /* Ending soon — fetch auctions closing within the next 24h, pre-sorted by urgency */
   var endingSoonSection = document.getElementById('ending-soon-section');
   var endingSoonGrid    = document.getElementById('ending-soon-grid');
 
   if (endingSoonGrid) {
-    fetch('/api/public/auctions?state=active&limit=24')
+    fetch('/api/public/auctions?sort=ending_soon&limit=6')
       .then(function (r) { return r.json(); })
       .then(function (json) {
         var data = (json && json.data) ? json.data : [];
-        var soon = data.filter(function (a) {
-          if (!a.end_time) return false;
-          var ms = new Date(a.end_time) - Date.now();
-          return ms > 0 && ms < 86400000;
-        });
-        soon.sort(function (a, b) { return new Date(a.end_time) - new Date(b.end_time); });
-        if (!soon.length) return;
-        soon.slice(0, 6).forEach(function (a) { endingSoonGrid.appendChild(makeAuctionCard(a)); });
+        if (!data.length) return;
+        data.forEach(function (a) { endingSoonGrid.appendChild(makeAuctionCard(a)); });
         if (endingSoonSection) endingSoonSection.style.display = '';
       })
       .catch(function () { /* keep section hidden */ });
