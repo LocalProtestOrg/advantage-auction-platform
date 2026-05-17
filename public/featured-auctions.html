@@ -72,6 +72,13 @@
     .buyer-strip-inner { max-width: 900px; margin: 0 auto; display: flex; justify-content: center; gap: 0.5rem 2.25rem; flex-wrap: wrap; align-items: center; }
     .buyer-strip-item { font-size: 0.78rem; color: var(--gray); white-space: nowrap; }
     .buyer-strip-item strong { color: var(--ink); font-weight: 600; }
+
+    /* ── Discovery crosslink nav — matches ending-soon.html pattern ── */
+    .discovery-nav { background: var(--bg); border-top: 1px solid var(--border); padding: 1.1rem 1.5rem; }
+    .discovery-nav-inner { max-width: 1100px; margin: 0 auto; display: flex; gap: 0.5rem 1.75rem; flex-wrap: wrap; align-items: center; justify-content: center; }
+    .dlink { font-size: 0.875rem; font-weight: 600; color: var(--blue); text-decoration: none; white-space: nowrap; }
+    .dlink:hover { text-decoration: underline; }
+    .dlink-dot { color: var(--border); font-size: 1.1rem; line-height: 1; }
   </style>
 </head>
 <body>
@@ -179,6 +186,33 @@
   </div>
 </section>
 
+<!-- ── Trending Now ── -->
+<section id="trending-rail" class="discovery-rail" aria-labelledby="trending-heading">
+  <div class="discovery-rail-inner">
+    <div class="discovery-rail-header">
+      <div>
+        <div class="section-eyebrow">Active Bidding</div>
+        <h2 class="discovery-rail-title" id="trending-heading">Trending Now</h2>
+      </div>
+      <a href="/ending-soon.html" class="discovery-rail-link">See what's ending soon →</a>
+    </div>
+    <div class="discovery-rail-scroll" id="trending-scroll" aria-live="polite" aria-label="Trending lots"></div>
+  </div>
+</section>
+
+<!-- ── Discovery crosslinks ── -->
+<nav class="discovery-nav" aria-label="Continue exploring">
+  <div class="discovery-nav-inner">
+    <a href="/browse-categories.html" class="dlink">Browse by Type</a>
+    <span class="dlink-dot" aria-hidden="true">·</span>
+    <a href="/browse-locations.html" class="dlink">Browse by Region</a>
+    <span class="dlink-dot" aria-hidden="true">·</span>
+    <a href="/ending-soon.html" class="dlink">Ending Soon</a>
+    <span class="dlink-dot" aria-hidden="true">·</span>
+    <a href="/shipping-available.html" class="dlink">Ships Nationwide</a>
+  </div>
+</nav>
+
 <!-- ── Footer ── -->
 <footer>
   <div class="footer-inner">
@@ -235,12 +269,16 @@
   var MC = window.MktComponents;
   if (!MC) return;
 
-  var featuredGrid   = document.getElementById('featured-grid');
+  var featuredGrid     = document.getElementById('featured-grid');
   var justListedScroll = document.getElementById('just-listed-scroll');
+  var trendingScroll   = document.getElementById('trending-scroll');
 
-  /* Load Just Listed lot rail in parallel — self-hides if empty */
+  /* Discovery rails — load in parallel, each self-hides if API returns empty */
   if (justListedScroll) {
     MC.loadDiscoveryRail(justListedScroll, '/api/public/lots/recently-added', { limit: 12 });
+  }
+  if (trendingScroll) {
+    MC.loadDiscoveryRail(trendingScroll, '/api/public/lots/trending', { limit: 12 });
   }
 
   /* Featured auction collections */
