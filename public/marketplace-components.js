@@ -161,7 +161,7 @@
    * Builds a .lot-card with bid info, closing timer, and activity signals.
    * Expects lot fields from the discovery API: thumbnail_url, title, auction_title,
    * bid_count, current_bid_cents, starting_bid_cents, closes_at, shippable,
-   * watch_count, created_at.
+   * watch_count, created_at, images_count.
    */
   function makeLotCard(lot, opts) {
     opts = opts || {};
@@ -179,6 +179,9 @@
     }
     if (lot.shippable) {
       setElem(imgDiv, 'span', 'lot-badge-ship', '📦');
+    }
+    if (lot.images_count > 1) {
+      setElem(imgDiv, 'span', 'lot-badge-photos', '🖼 ' + lot.images_count);
     }
     a.appendChild(imgDiv);
 

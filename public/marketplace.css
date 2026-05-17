@@ -701,6 +701,17 @@ header {
   padding: 0.12rem 0.4rem;
 }
 
+.lot-badge-photos {
+  position: absolute;
+  bottom: 0.35rem;
+  left: 0.35rem;
+  font-size: 0.78rem;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  border-radius: 4px;
+  padding: 0.12rem 0.4rem;
+}
+
 .lot-card-body {
   padding: 0.85rem;
   display: flex;
