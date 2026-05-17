@@ -90,6 +90,13 @@
       color: var(--gray);
       line-height: 1.5;
     }
+
+    /* ── Discovery crosslink nav ── */
+    .discovery-nav { background: var(--bg); border-top: 1px solid var(--border); padding: 1.1rem 1.5rem; }
+    .discovery-nav-inner { max-width: 1100px; margin: 0 auto; display: flex; gap: 0.5rem 1.75rem; flex-wrap: wrap; align-items: center; justify-content: center; }
+    .dlink { font-size: 0.875rem; font-weight: 600; color: var(--blue); text-decoration: none; white-space: nowrap; }
+    .dlink:hover { text-decoration: underline; }
+    .dlink-dot { color: var(--border); font-size: 1.1rem; line-height: 1; }
   </style>
 </head>
 <body>
@@ -209,6 +216,47 @@
   </div>
 </section>
 
+<!-- ── Trending Now ── -->
+<section id="trending-rail" class="discovery-rail" aria-labelledby="trending-heading">
+  <div class="discovery-rail-inner">
+    <div class="discovery-rail-header">
+      <div>
+        <div class="section-eyebrow">Active Bidding</div>
+        <h2 class="discovery-rail-title" id="trending-heading">Trending Now</h2>
+      </div>
+      <a href="/ending-soon.html" class="discovery-rail-link">See what's ending soon →</a>
+    </div>
+    <div class="discovery-rail-scroll" id="trending-scroll" aria-live="polite" aria-label="Trending shippable lots"></div>
+  </div>
+</section>
+
+<!-- ── Ending Soon ── -->
+<section id="ending-soon-rail" class="discovery-rail" aria-labelledby="ending-soon-heading">
+  <div class="discovery-rail-inner">
+    <div class="discovery-rail-header">
+      <div>
+        <div class="section-eyebrow">⏱ Don't Miss Out</div>
+        <h2 class="discovery-rail-title" id="ending-soon-heading">Ending Soon</h2>
+      </div>
+      <a href="/ending-soon.html" class="discovery-rail-link">View all ending soon →</a>
+    </div>
+    <div class="discovery-rail-scroll" id="ending-soon-scroll" aria-live="polite" aria-label="Shippable lots ending soon"></div>
+  </div>
+</section>
+
+<!-- ── Discovery crosslinks ── -->
+<nav class="discovery-nav" aria-label="Continue exploring">
+  <div class="discovery-nav-inner">
+    <a href="/featured-auctions.html" class="dlink">All Active Auctions</a>
+    <span class="dlink-dot" aria-hidden="true">·</span>
+    <a href="/browse-categories.html" class="dlink">Browse by Type</a>
+    <span class="dlink-dot" aria-hidden="true">·</span>
+    <a href="/ending-soon.html" class="dlink">Ending Soon</a>
+    <span class="dlink-dot" aria-hidden="true">·</span>
+    <a href="/browse-locations.html" class="dlink">Browse by Region</a>
+  </div>
+</nav>
+
 <!-- ── Footer ── -->
 <footer>
   <div class="footer-inner">
@@ -267,10 +315,18 @@
 
   var shippingGrid     = document.getElementById('shipping-grid');
   var justListedScroll = document.getElementById('just-listed-scroll');
+  var trendingScroll   = document.getElementById('trending-scroll');
+  var endingSoonScroll = document.getElementById('ending-soon-scroll');
 
-  /* Just Listed lot rail — loads in parallel, self-hides if empty */
+  /* Discovery rails — shippable-scoped, each self-hides if API returns empty */
   if (justListedScroll) {
     MC.loadDiscoveryRail(justListedScroll, '/api/public/lots/recently-added', { limit: 12, params: { shippable: 'true' } });
+  }
+  if (trendingScroll) {
+    MC.loadDiscoveryRail(trendingScroll, '/api/public/lots/trending', { limit: 12, params: { shippable: 'true' } });
+  }
+  if (endingSoonScroll) {
+    MC.loadDiscoveryRail(endingSoonScroll, '/api/public/lots/ending-soon', { limit: 12, params: { shippable: 'true' } });
   }
 
   /* Shipping auction collections */
