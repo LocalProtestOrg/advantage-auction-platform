@@ -793,7 +793,7 @@ router.get('/lots/recently-added', async (req, res, next) => {
         LEFT JOIN seller_profiles sp ON sp.id = a.seller_id
        WHERE l.state != 'withdrawn'
          AND l.created_at >= NOW() - INTERVAL '21 days'
-         AND a.state IN ('published', 'active')
+         AND a.state = 'active'
          ${extraWhereSQL}
        ORDER BY l.created_at DESC
        LIMIT $${limitIdx}
