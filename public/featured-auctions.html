@@ -200,6 +200,20 @@
   </div>
 </section>
 
+<!-- ── Ending Soon ── -->
+<section id="ending-soon-rail" class="discovery-rail" aria-labelledby="ending-soon-heading">
+  <div class="discovery-rail-inner">
+    <div class="discovery-rail-header">
+      <div>
+        <div class="section-eyebrow">⏱ Don't Miss Out</div>
+        <h2 class="discovery-rail-title" id="ending-soon-heading">Ending Soon</h2>
+      </div>
+      <a href="/ending-soon.html" class="discovery-rail-link">View all ending soon →</a>
+    </div>
+    <div class="discovery-rail-scroll" id="ending-soon-scroll" aria-live="polite" aria-label="Lots ending soon"></div>
+  </div>
+</section>
+
 <!-- ── Discovery crosslinks ── -->
 <nav class="discovery-nav" aria-label="Continue exploring">
   <div class="discovery-nav-inner">
@@ -291,6 +305,7 @@
   var featuredGrid     = document.getElementById('featured-grid');
   var justListedScroll = document.getElementById('just-listed-scroll');
   var trendingScroll   = document.getElementById('trending-scroll');
+  var endingSoonScroll = document.getElementById('ending-soon-scroll');
 
   /* Discovery rails — load in parallel, each self-hides if API returns empty */
   if (justListedScroll) {
@@ -298,6 +313,9 @@
   }
   if (trendingScroll) {
     MC.loadDiscoveryRail(trendingScroll, '/api/public/lots/trending', { limit: 12 });
+  }
+  if (endingSoonScroll) {
+    MC.loadDiscoveryRail(endingSoonScroll, '/api/public/lots/ending-soon', { limit: 12 });
   }
 
   /* Featured auction collections.
