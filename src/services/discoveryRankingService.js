@@ -6,7 +6,7 @@
  * Deterministic, additive marketplace ranking for auction discovery feeds.
  *
  * V1 SCORING MODEL
- *   Score = featured_score + freshness_score + shipping_score
+ *   Score = featured_score + freshness_score + shipping_score + cover_image_score
  *
  *   featured_score:
  *     Auctions with marketplace_priority > 0 receive FEATURED_BASE + priority
@@ -72,6 +72,10 @@ const RANKING_WEIGHTS = {
   // Flat shipping availability boost.
   shipping:                15,
 
+  // Flat boost for auctions that have a cover image set.
+  // Surfaces complete listings above image-less drafts in discovery.
+  cover_image:              5,
+
   // ── Future placeholders (not implemented in v1) ────────────────────────────
   // engagement_per_bid:    0,
   // engagement_bid_cap:    0,
@@ -83,7 +87,7 @@ const RANKING_WEIGHTS = {
  * auction row. Safe to embed in ORDER BY or a SELECT alias.
  *
  * The expression references only lightweight, indexed columns:
- *   marketplace_priority, created_at, shipping_available
+ *   marketplace_priority, created_at, shipping_available, cover_image_url
  *
  * No query parameters are introduced — all constants are inlined as
  * numeric literals. The expression is idempotent and deterministic for
@@ -93,6 +97,7 @@ const RANKING_WEIGHTS = {
  *   marketplace_priority NULL  → treated as 0 (no featured boost)
  *   created_at NULL            → EXTRACT returns NULL → GREATEST clips to 0
  *   shipping_available NULL    → CASE ELSE 0.0 (no shipping boost)
+ *   cover_image_url NULL       → CASE ELSE 0.0 (no cover image boost)
  *
  * @param {string} alias  — SQL alias of the auctions table (default 'a')
  * @returns {string}       SQL fragment, no parameters needed
@@ -113,6 +118,7 @@ function auctionScoreSQL(alias) {
         * (1.0 - EXTRACT(EPOCH FROM (NOW() - ${t}.created_at)) / ${ds}.0)
       )
     + CASE WHEN ${t}.shipping_available = true THEN ${w.shipping}.0 ELSE 0.0 END
+    + CASE WHEN ${t}.cover_image_url IS NOT NULL THEN ${w.cover_image}.0 ELSE 0.0 END
   )`;
 }
 
