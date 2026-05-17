@@ -1165,15 +1165,26 @@ footer {
 ================================ */
 
 /* BD CMS uses Froala editor tables for page layout. On mobile the table
-   is rendered at its desktop content width (~1130px), overflowing the
-   390px viewport and causing full-page horizontal scroll. Capping it to
-   100% of its containing block makes the entire section stack collapse
-   to viewport width, allowing our discovery rails to scroll correctly. */
+   expands to its content's minimum width (~2390px) regardless of max-width,
+   because CSS table-layout: auto ignores max-width when content is wider.
+   table-layout: fixed forces the table to honour width: 100% and distribute
+   its single column to the containing block width (390px on mobile). */
 @media (max-width: 900px) {
   .bdai-auctions-page .froala-table {
+    table-layout: fixed !important;
     width: 100% !important;
     max-width: 100% !important;
   }
+}
+
+/* BD Design Settings CSS (inline <style> block, loads before our stylesheet)
+   sets overflow-x: hidden on .discovery-rail-scroll with 2-class specificity
+   (0-2-0). Our base .discovery-rail-scroll rule has only 1-class specificity
+   and loses even though our file loads later. Match the same specificity here
+   with !important to restore horizontal scrolling of the lot-card rail. */
+.bdai-auctions-page .discovery-rail-scroll {
+  overflow-x: auto !important;
+  -webkit-overflow-scrolling: touch;
 }
 
 .bdai-auctions-page section {
