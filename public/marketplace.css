@@ -1164,6 +1164,18 @@ footer {
    Marketplace Section Spacing
 ================================ */
 
+/* BD CMS uses Froala editor tables for page layout. On mobile the table
+   is rendered at its desktop content width (~1130px), overflowing the
+   390px viewport and causing full-page horizontal scroll. Capping it to
+   100% of its containing block makes the entire section stack collapse
+   to viewport width, allowing our discovery rails to scroll correctly. */
+@media (max-width: 900px) {
+  .bdai-auctions-page .froala-table {
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+}
+
 .bdai-auctions-page section {
     padding-top: 72px;
     padding-bottom: 72px;
