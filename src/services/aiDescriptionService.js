@@ -48,35 +48,67 @@ function fallback() {
   };
 }
 
-async function generateDescriptionFromImage(imageUrl) {
-  if (client && imageUrl && !imageUrl.startsWith('blob:')) {
-    try {
-      const message = await client.messages.create({
-        model:      'claude-haiku-4-5-20251001',
-        max_tokens: 400,
-        messages: [{
-          role:    'user',
-          content: [
-            { type: 'image', source: { type: 'url', url: imageUrl } },
-            { type: 'text',  text: PROMPT },
-          ],
-        }],
-      });
-
-      const raw    = message.content[0].text.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/, '');
-      const parsed = JSON.parse(raw);
-      return {
-        title:           parsed.title           || 'Untitled Item',
-        description:     parsed.description     || '',
-        category:        parsed.category        || 'General',
-        pickup_category: parsed.pickup_category || 'B',
-      };
-    } catch (err) {
-      console.error('[ai] Claude call failed, using fallback:', err.message);
-    }
+/* Custom error so the HTTP route can distinguish "AI is structurally
+   unavailable" (no key, bad image URL) from generic 500s and respond with
+   503 + a truthful message. The frontend already surfaces fetch errors
+   visibly (lots.html generateAiDescription catch), so the seller sees an
+   explicit "AI unavailable" instead of being silently fed a random sample. */
+class AIUnavailableError extends Error {
+  constructor(message, cause) {
+    super(message);
+    this.name  = 'AIUnavailableError';
+    this.cause = cause;
   }
-
-  return fallback();
 }
 
-module.exports = { generateDescriptionFromImage };
+async function generateDescriptionFromImage(imageUrl) {
+  if (!client) {
+    throw new AIUnavailableError('ANTHROPIC_API_KEY not configured on server');
+  }
+  if (!imageUrl || imageUrl.startsWith('blob:')) {
+    throw new AIUnavailableError('imageUrl must be a publicly-reachable URL (not a blob)');
+  }
+
+  let message;
+  try {
+    message = await client.messages.create({
+      model:      'claude-haiku-4-5-20251001',
+      max_tokens: 400,
+      messages: [{
+        role:    'user',
+        content: [
+          { type: 'image', source: { type: 'url', url: imageUrl } },
+          { type: 'text',  text: PROMPT },
+        ],
+      }],
+    });
+  } catch (err) {
+    console.error('[ai] Claude API call failed:', err && err.message);
+    throw new AIUnavailableError('AI provider call failed', err);
+  }
+
+  let parsed;
+  try {
+    const raw = message.content[0].text.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/, '');
+    parsed    = JSON.parse(raw);
+  } catch (err) {
+    console.error('[ai] Could not parse Claude response as JSON:', err && err.message);
+    throw new AIUnavailableError('AI response could not be parsed', err);
+  }
+
+  return {
+    title:           parsed.title           || 'Untitled Item',
+    description:     parsed.description     || '',
+    category:        parsed.category        || 'General',
+    pickup_category: parsed.pickup_category || 'B',
+  };
+}
+
+/* NOTE: SAMPLES / fallback() / PICKUP_CATEGORY / CONDITION_NOTES above are
+   intentionally left in source. They are no longer wired into the live AI
+   endpoint because returning random samples masquerading as AI output caused
+   real operator confusion on 2026-05-26 (a painting was labeled "Gilt Bronze
+   Mantel Clock"). Any future use must be explicit, scoped to dev/test, and
+   visibly distinguishable from real AI output. */
+
+module.exports = { generateDescriptionFromImage, AIUnavailableError };
