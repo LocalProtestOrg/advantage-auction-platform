@@ -593,8 +593,7 @@ function renderAuctionCard(container, auction) {
       <div class="auction-actions">
         ${isPublished ? `<a href="/auction-view.html?auctionId=${auction.id}" class="btn btn-ghost btn-sm" target="_blank">View Live</a>` : ''}
         <button class="btn btn-secondary btn-sm" data-toggle-lots="${auction.id}">View Lots</button>
-        ${isEditable ? `<a href="/dashboard/lots.html?auctionId=${auction.id}" class="btn btn-primary btn-sm">Upload Photos</a>` : ''}
-        ${isEditable ? `<button class="btn btn-ghost btn-sm" data-add-lot="${auction.id}">+ Add Lot</button>` : ''}
+        ${isEditable ? `<a href="/dashboard/lots.html?auctionId=${auction.id}" class="btn btn-primary btn-sm">+ Add Lot</a>` : ''}
       </div>
     </div>
     ${statusCallout}
