@@ -371,22 +371,33 @@
     <div class="field">
       <label>Banner Image</label>
       <div class="upload-zone" id="banner-zone">
-        <p>Drop or <span>click to upload</span></p>
+        <p>Drop or <span>click to upload</span>
+           &nbsp;&middot;&nbsp;
+           <span onclick="event.stopPropagation();document.getElementById('banner-input-camera').click()">take photo</span>
+        </p>
         <p style="font-size:0.75rem;color:#9ca3af;margin-top:0.3rem;">JPG, PNG, WEBP</p>
         <img class="preview-img" id="banner-preview" style="display:none" alt="Banner preview" />
         <p class="upload-status" id="banner-status"></p>
       </div>
       <input type="file" id="banner-input" accept="image/jpeg,image/png,image/webp" style="display:none" />
+      <!-- Dedicated camera input. Single-file with capture="environment" to work
+           around the iOS Safari camera-from-gallery-picker bug class (black
+           viewfinder). Funnels into the same handleImageFile pipeline. -->
+      <input type="file" id="banner-input-camera" accept="image/*" capture="environment" style="display:none" />
     </div>
     <div class="field">
       <label>Cover Image</label>
       <div class="upload-zone" id="cover-zone">
-        <p>Drop or <span>click to upload</span></p>
+        <p>Drop or <span>click to upload</span>
+           &nbsp;&middot;&nbsp;
+           <span onclick="event.stopPropagation();document.getElementById('cover-input-camera').click()">take photo</span>
+        </p>
         <p style="font-size:0.75rem;color:#9ca3af;margin-top:0.3rem;">JPG, PNG, WEBP</p>
         <img class="preview-img" id="cover-preview" style="display:none" alt="Cover preview" />
         <p class="upload-status" id="cover-status"></p>
       </div>
       <input type="file" id="cover-input" accept="image/jpeg,image/png,image/webp" style="display:none" />
+      <input type="file" id="cover-input-camera" accept="image/*" capture="environment" style="display:none" />
     </div>
   </div>
 
@@ -394,18 +405,32 @@
   <div class="field">
     <label>Walkthrough Video <span style="font-weight:400;color:#9ca3af;">(optional)</span></label>
     <div class="video-zone" id="video-zone">
-      <p>Drop or <span>click to upload</span></p>
+      <p>Drop or <span>click to upload</span>
+         &nbsp;&middot;&nbsp;
+         <span onclick="event.stopPropagation();document.getElementById('video-input-camera').click()">record video</span>
+      </p>
       <p style="font-size:0.75rem;color:#9ca3af;margin-top:0.3rem;">MP4 or MOV — max 500 MB</p>
     </div>
     <input type="file" id="video-input" accept="video/mp4,video/quicktime" style="display:none" />
+    <!-- Dedicated camera input for video. capture="environment" invokes the
+         OS camera in video-record mode on iOS/Android. Same iOS workaround
+         as the image inputs. Funnels into handleVideoFile. -->
+    <input type="file" id="video-input-camera" accept="video/*" capture="environment" style="display:none" />
     <p class="video-status" id="video-status"></p>
     <button class="video-remove" id="video-remove" style="display:none">Remove video</button>
     <p class="hint">Videos are reviewed by Advantage before being displayed publicly.</p>
   </div>
 
+  <!-- Workflow guidance: sellers consistently report confusion when the green
+       Submit button is the visually dominant action on a fresh auction with no
+       lots yet. The natural flow is: save a draft, add lots in the next step,
+       then return here to submit. Save Draft is now the primary CTA. -->
+  <div class="actions-help" style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:0.85rem 1rem;margin-bottom:0.75rem;color:#1e3a8a;font-size:0.85rem;line-height:1.5;">
+    <strong>Typical flow:</strong> Save Draft &rarr; add lots on the next page &rarr; come back here to submit. You can keep editing while in Draft. Submit only after your lots are uploaded.
+  </div>
   <div class="actions">
-    <button id="btn-draft"  class="btn btn-secondary">Save Draft</button>
-    <button id="btn-submit" class="btn btn-success">Submit for Review</button>
+    <button id="btn-draft"  class="btn btn-primary">Save Draft &amp; Add Lots</button>
+    <button id="btn-submit" class="btn btn-secondary">Submit to Advantage for Review</button>
   </div>
 </div>
 
@@ -466,6 +491,40 @@
   wireImageZone('banner-zone', 'banner-input', 'banner-preview', 'banner-status', url => { bannerImageUrl = url; });
   wireImageZone('cover-zone',  'cover-input',  'cover-preview',  'cover-status',  url => { coverImageUrl  = url; });
 
+  // ── Camera inputs (mobile-safe): dedicated capture="environment" inputs that
+  // bypass the iOS file-picker camera bug class. Each funnels into the same
+  // upload pipeline used by its sibling gallery input — no duplicate transport.
+  function wireCameraInput(cameraInputId, previewId, statusId, onUploaded) {
+    const camInput = document.getElementById(cameraInputId);
+    const preview  = document.getElementById(previewId);
+    const status   = document.getElementById(statusId);
+    if (!camInput) return;
+
+    camInput.addEventListener('change', async () => {
+      const file = camInput.files[0];
+      if (!file) return;
+      preview.src = URL.createObjectURL(file);
+      preview.style.display = 'block';
+      status.textContent = 'Uploading…';
+      try {
+        const fd = new FormData();
+        fd.append('image', file);
+        const res  = await fetch('/api/uploads/image', { method: 'POST', headers: { Authorization: 'Bearer ' + token }, body: fd });
+        const data = await res.json();
+        if (!data.success) throw new Error(data.message || 'Upload failed');
+        status.textContent = 'Uploaded';
+        onUploaded(data.secure_url);
+      } catch (err) {
+        status.textContent = 'Upload failed: ' + err.message;
+        onUploaded(null);
+      } finally {
+        camInput.value = '';
+      }
+    });
+  }
+  wireCameraInput('banner-input-camera', 'banner-preview', 'banner-status', url => { bannerImageUrl = url; });
+  wireCameraInput('cover-input-camera',  'cover-preview',  'cover-status',  url => { coverImageUrl  = url; });
+
   // ── Video upload zone ───────────────────────────────────────────────────────
   const videoZone   = document.getElementById('video-zone');
   const videoInput  = document.getElementById('video-input');
@@ -481,6 +540,16 @@
     if (e.dataTransfer.files[0]) handleVideoFile(e.dataTransfer.files[0]);
   });
   videoInput.addEventListener('change', () => { if (videoInput.files[0]) handleVideoFile(videoInput.files[0]); });
+
+  // Dedicated video-camera input (record-mode capture on mobile). Same iOS
+  // workaround as the image camera inputs. Funnels into handleVideoFile.
+  const videoInputCamera = document.getElementById('video-input-camera');
+  if (videoInputCamera) {
+    videoInputCamera.addEventListener('change', () => {
+      if (videoInputCamera.files[0]) handleVideoFile(videoInputCamera.files[0]);
+      videoInputCamera.value = '';
+    });
+  }
 
   async function handleVideoFile(file) {
     videoStatus.textContent = 'Uploading video… this may take a minute.';
@@ -513,7 +582,17 @@
 
   // ── Save / Submit ───────────────────────────────────────────────────────────
   document.getElementById('btn-draft').addEventListener('click',  () => save('draft'));
-  document.getElementById('btn-submit').addEventListener('click', () => save('submitted'));
+  document.getElementById('btn-submit').addEventListener('click', () => {
+    // Soft guard: backend permits submitting without lots, but a submitted
+    // auction with zero lots is an operational anti-pattern. Confirm intent.
+    var ok = window.confirm(
+      'Submit this auction to Advantage for review?\n\n' +
+      'Submit only after you have added all your lots in the next step. ' +
+      'If you have not added lots yet, choose "Save Draft & Add Lots" instead.'
+    );
+    if (!ok) return;
+    save('submitted');
+  });
 
   async function save(status) {
     if (!sellerProfileId) {

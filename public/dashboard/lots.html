@@ -780,7 +780,9 @@
             <span class="upload-icon">&#128247;</span>
             <div class="upload-primary">Drag photos here</div>
             <div class="upload-secondary">
-              or <span onclick="document.getElementById('file-input').click()">click to browse</span>
+              or <span onclick="event.stopPropagation();document.getElementById('file-input').click()">click to browse</span>
+              &nbsp;&middot;&nbsp;
+              <span onclick="event.stopPropagation();document.getElementById('file-input-camera').click()">take photo</span>
             </div>
             <div class="upload-secondary" style="margin-top:0.4rem">
               JPG, PNG, HEIC &nbsp;&middot;&nbsp; Up to 20 photos per lot
@@ -794,9 +796,26 @@
             multiple
           />
 
+          <!--
+            Dedicated camera input. Workaround for iOS Safari bug where a
+            multiple-file input combined with camera capture renders a black
+            viewfinder. This input is single-file and uses capture="environment"
+            so iOS picks the rear camera with the standard capture UI.
+          -->
+          <input
+            type="file"
+            id="file-input-camera"
+            accept="image/*"
+            capture="environment"
+            style="display:none"
+          />
+
           <div class="preview-grid" id="preview-grid"></div>
 
           <div class="add-more-row" id="add-more-row" style="display:none">
+            <button class="btn btn-sm" onclick="document.getElementById('file-input-camera').click()">
+              + Take Photo
+            </button>
             <button class="btn btn-sm" onclick="document.getElementById('file-input').click()">
               + Add More Photos
             </button>
@@ -1012,6 +1031,7 @@
             <button class="btn btn-danger" id="cancel-edit-btn" onclick="cancelEdit()" style="display:none">Cancel Edit</button>
             <button class="btn" onclick="resetForm()">Clear</button>
             <span class="draft-indicator" id="draft-indicator">&#10003; Draft saved</span>
+            <span class="upload-status-indicator" id="upload-status-indicator" style="display:none;color:#b45309;font-size:0.85rem;margin-left:0.5rem"></span>
           </div>
 
         </div><!-- /lot details card -->
@@ -1113,24 +1133,43 @@
       fileInput.value = '';
     });
 
+    // Dedicated camera input — bypasses the iOS multi-file + camera black-screen
+    // bug. Funnels into the same handleFiles pipeline so all downstream behavior
+    // (preview, upload, enhancement, save-button gating) is identical.
+    var fileInputCamera = document.getElementById('file-input-camera');
+    if (fileInputCamera) {
+      fileInputCamera.addEventListener('change', function () {
+        handleFiles(fileInputCamera.files);
+        fileInputCamera.value = '';
+      });
+    }
+
     function handleFiles(files) {
       Array.from(files).forEach(function (file) {
         if (!file.type.startsWith('image/')) return;
         if (uploadedFiles.length >= 20) return;
 
         var id = 'img-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6);
-        uploadedFiles.push({ id: id, file: file, jobId: null, cloudinaryUrl: null, name: file.name });
+        // failed flag distinguishes "upload in flight" (cloudinaryUrl=null, failed=false)
+        // from "upload explicitly failed" (cloudinaryUrl=null, failed=true). The save
+        // button gate (updateSaveButtonState) only blocks on in-flight uploads.
+        uploadedFiles.push({ id: id, file: file, jobId: null, cloudinaryUrl: null, name: file.name, failed: false });
 
         var reader = new FileReader();
         reader.onload = function (e) {
           var dataUrl = e.target.result;
           addPreview(id, dataUrl, file.name);
           updatePhotoCount();
-          if (aiToggle.checked) {
-            submitEnhancementJob(id, file);
-          }
+          // Always upload — AI enhancement is now an independent secondary step.
+          // Previously this was gated on aiToggle.checked, which silently dropped
+          // images when the toggle was off.
+          uploadToCloudinary(id, file);
         };
         reader.readAsDataURL(file);
+
+        // Mark a pending upload immediately so the save button gates correctly
+        // even before the FileReader completes.
+        updateSaveButtonState();
       });
     }
 
@@ -1184,11 +1223,56 @@
       updatePhotoCount();
       if (uploadedFiles.length === 0) addMoreRow.style.display = 'none';
       saveDraft();
+      // A removed in-flight upload may have been the last pending one — refresh
+      // the save-button gate so the user isn't stuck with a disabled button.
+      updateSaveButtonState();
     }
 
     function updatePhotoCount() {
       var n = uploadedFiles.length;
       photoCount.textContent = n + ' photo' + (n !== 1 ? 's' : '') + ' selected';
+    }
+
+    // Save-button gate: disable Add-to-Auction / Save-Changes while uploads
+    // are still in flight, so the seller cannot accidentally save a lot with
+    // partially-uploaded photos. Failed uploads do NOT block save — the seller
+    // sees them marked failed in the queue and can choose to remove or proceed.
+    function getPendingUploadCount() {
+      return uploadedFiles.filter(function (f) {
+        return !f.cloudinaryUrl && !f.failed;
+      }).length;
+    }
+
+    function updateSaveButtonState() {
+      var pending = getPendingUploadCount();
+      var addBtn  = document.getElementById('add-lot-btn');
+      var status  = document.getElementById('upload-status-indicator');
+
+      if (addBtn) {
+        if (pending > 0) {
+          addBtn.disabled = true;
+          addBtn.dataset.uploadGated = '1';
+        } else if (addBtn.dataset.uploadGated === '1') {
+          // Only re-enable if the disabled state was caused by us, not by an
+          // in-progress save request (which sets its own disabled + 'Saving…').
+          addBtn.disabled = false;
+          delete addBtn.dataset.uploadGated;
+          if (addBtn.textContent === 'Adding…' || addBtn.textContent === 'Saving…') {
+            // Save was already triggered; leave its label/disabled alone.
+          } else {
+            addBtn.textContent = editingLotId ? 'Save Changes' : 'Add to Auction';
+          }
+        }
+      }
+      if (status) {
+        if (pending > 0) {
+          status.textContent = 'Uploading ' + pending + ' photo' + (pending !== 1 ? 's' : '') + '…';
+          status.style.display = '';
+        } else {
+          status.textContent = '';
+          status.style.display = 'none';
+        }
+      }
     }
 
     /* ── B: AI enhancement toggle ──────────────────────────── */
@@ -1211,7 +1295,15 @@
 
     // TODO signed uploads: call /api/uploads/signature and use Cloudinary JS SDK for direct upload
     // TODO direct browser uploads: bypass server for large files using signed params + Cloudinary widget
-    function submitEnhancementJob(id, file) {
+
+    // Upload pipeline — split into two independent stages:
+    //   uploadToCloudinary(id, file)  — ALWAYS runs on file selection
+    //   submitEnhancementJob(id, url) — runs only if AI enhancement toggle is on
+    //
+    // Prior to this split, uploadToCloudinary was conditional on the AI toggle.
+    // When the toggle was off, files were never uploaded and silently disappeared
+    // on lot save. Splitting guarantees upload regardless of enhancement choice.
+    function uploadToCloudinary(id, file) {
       var fileName = file.name;
 
       if (!staticItemsCleared) {
@@ -1221,12 +1313,18 @@
 
       addQueueItem(id, fileName, 'uploading');
 
-      // Step 1: upload to Cloudinary via server proxy
       var formData = new FormData();
       formData.append('image', file);
 
       var uploadController = new AbortController();
       var uploadTimeout = setTimeout(function () { uploadController.abort(); }, 90000);
+
+      function markFailed(reason) {
+        updateQueueItem(id, 'failed', reason);
+        var entry = uploadedFiles.find(function (f) { return f.id === id; });
+        if (entry) { entry.failed = true; entry.cloudinaryUrl = null; }
+        updateSaveButtonState();
+      }
 
       fetch('/api/uploads/image', {
         method: 'POST',
@@ -1242,7 +1340,7 @@
         .then(function (uploadData) {
           if (!uploadData) return;
           if (!uploadData.success) {
-            updateQueueItem(id, 'failed', uploadData.message || 'Upload failed');
+            markFailed(uploadData.message || 'Upload failed');
             return;
           }
 
@@ -1253,51 +1351,72 @@
           if (previewImg) previewImg.src = cloudinaryUrl;
 
           var uploadedEntry = uploadedFiles.find(function (f) { return f.id === id; });
-          if (uploadedEntry) { uploadedEntry.cloudinaryUrl = cloudinaryUrl; saveDraft(); }
+          if (uploadedEntry) {
+            uploadedEntry.cloudinaryUrl = cloudinaryUrl;
+            uploadedEntry.failed = false;
+            saveDraft();
+          }
 
-          updateQueueItem(id, 'pending', null);
+          // Upload finished — release the save-button gate for this file.
+          updateSaveButtonState();
 
-          // Step 2: create enhancement job using real Cloudinary URL
-          var enhancementType = getSelectedEnhancementType();
-
-          fetch('/api/image-processing/jobs', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': 'Bearer ' + token,
-            },
-            body: JSON.stringify({
-              originalImageUrl: cloudinaryUrl,
-              enhancementType:  enhancementType,
-              lotTempId:        auctionId || null,
-            }),
-          })
-            .then(function (res) {
-              if (res.status === 401) { window.location.href = '/login.html'; return null; }
-              return res.json();
-            })
-            .then(function (data) {
-              if (!data) return;
-              if (!data.success) {
-                updateQueueItem(id, 'failed', data.message || 'Submission failed');
-                return;
-              }
-              var jobId = data.data.id;
-              var entry = uploadedFiles.find(function (f) { return f.id === id; });
-              if (entry) entry.jobId = jobId;
-              startPolling(id, jobId);
-            })
-            .catch(function () {
-              updateQueueItem(id, 'failed', 'Network error');
-            });
+          // Stage 2: enhancement is now optional. Only fire if the toggle is on
+          // at the moment the upload completes.
+          if (aiToggle && aiToggle.checked) {
+            updateQueueItem(id, 'pending', null);
+            submitEnhancementJob(id, cloudinaryUrl);
+          } else {
+            // No enhancement requested — file is fully done.
+            updateQueueItem(id, 'complete', null);
+          }
         })
         .catch(function (err) {
           clearTimeout(uploadTimeout);
           if (err && err.name === 'AbortError') {
-            updateQueueItem(id, 'failed', 'Upload timed out — check connection and retry');
+            markFailed('Upload timed out — check connection and retry');
           } else {
-            updateQueueItem(id, 'failed', 'Upload failed — network error');
+            markFailed('Upload failed — network error');
           }
+        });
+    }
+
+    // Enhancement-only stage. Called from uploadToCloudinary after upload
+    // completes, when the AI toggle is on. Takes the already-uploaded URL.
+    function submitEnhancementJob(id, cloudinaryUrl) {
+      var enhancementType = getSelectedEnhancementType();
+
+      fetch('/api/image-processing/jobs', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ' + token,
+        },
+        body: JSON.stringify({
+          originalImageUrl: cloudinaryUrl,
+          enhancementType:  enhancementType,
+          lotTempId:        auctionId || null,
+        }),
+      })
+        .then(function (res) {
+          if (res.status === 401) { window.location.href = '/login.html'; return null; }
+          return res.json();
+        })
+        .then(function (data) {
+          if (!data) return;
+          if (!data.success) {
+            // Enhancement failure does NOT mark the file failed — the upload
+            // succeeded and the original Cloudinary URL is still attachable.
+            // Only the enhancement attempt failed.
+            updateQueueItem(id, 'failed', data.message || 'Enhancement submission failed');
+            return;
+          }
+          var jobId = data.data.id;
+          var entry = uploadedFiles.find(function (f) { return f.id === id; });
+          if (entry) entry.jobId = jobId;
+          startPolling(id, jobId);
+        })
+        .catch(function () {
+          updateQueueItem(id, 'failed', 'Enhancement network error');
         });
     }
 
@@ -1466,6 +1585,15 @@
         return;
       }
 
+      // Defense in depth: the save button is gated by updateSaveButtonState()
+      // whenever uploads are in flight. This check covers any path that might
+      // bypass the gate (e.g., race between handleFiles dispatch and click).
+      var pendingCount = getPendingUploadCount();
+      if (pendingCount > 0) {
+        alert(pendingCount + ' photo' + (pendingCount !== 1 ? 's are' : ' is') + ' still uploading. Please wait until uploads finish before saving the lot.');
+        return;
+      }
+
       var addBtn = document.getElementById('add-lot-btn');
       if (addBtn) { addBtn.disabled = true; addBtn.textContent = editingLotId ? 'Saving…' : 'Adding…'; }
 
@@ -1601,6 +1729,9 @@
       staticItemsCleared = false;
       addMoreRow.style.display = 'none';
       clearDraft();
+
+      // Clear any lingering upload-pending state on the save button + status indicator.
+      updateSaveButtonState();
 
       // Restore static placeholder queue items
       queueList.innerHTML =

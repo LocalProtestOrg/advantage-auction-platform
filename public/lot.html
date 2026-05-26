@@ -532,7 +532,7 @@
 
 <header>
   <span class="brand">Advantage Auction</span>
-  <a href="javascript:history.back()" class="back">← Back</a>
+  <a href="javascript:smartBack()" class="back">← Back</a>
 </header>
 
 <div class="layout">
@@ -637,6 +637,59 @@
   const lotId  = params.get('lotId');
 
   if (!lotId)  document.getElementById('loading-overlay').textContent = 'No lot ID in URL.';
+
+  // ── Safe back navigation ────────────────────────────────────────────────────
+  // history.back() is a no-op when the user lands here via a direct link,
+  // notification, post-login redirect, or fresh tab — leaving the user stuck.
+  //
+  // Fallback ladder:
+  //   1. If browser history has prior entry, use history.back() (buyer flow)
+  //   2. If we appear to have been opened in a new tab from our own origin
+  //      (e.g., seller dashboard "View" with target="_blank"), try
+  //      window.close(). If the browser allows it, the tab closes and the
+  //      seller is naturally back on the parent dashboard tab. If the
+  //      browser blocks the close, fall through.
+  //   3. Navigate to /auction-view.html?auctionId=<currentAuctionId>
+  //   4. Navigate to / as last resort
+  function smartBack() {
+    if (window.history.length > 1) {
+      try { window.history.back(); return; } catch (_) { /* fall through */ }
+    }
+
+    // New-tab heuristic: history is empty AND referrer is from our own origin.
+    // This is a strong signal we were opened by target="_blank" from another
+    // in-app page (e.g., seller-dashboard.html "View" buttons). Try to close;
+    // if the browser blocks window.close (it may for non-script-opened tabs),
+    // silently fall through to the navigation fallback so the user never
+    // ends up stuck on a dead Back button.
+    var openedFromApp =
+      window.history.length === 1 &&
+      document.referrer &&
+      document.referrer.indexOf(window.location.origin) === 0;
+
+    if (openedFromApp) {
+      try { window.close(); } catch (_) { /* fall through */ }
+      // If close was disallowed by the browser, this tab is still here.
+      // Give the browser a moment to honor close before navigating away,
+      // so a successful close isn't preempted by the fallback navigation.
+      // If close succeeded, the navigation below never runs (tab is gone).
+      setTimeout(function () {
+        _smartBackFallback();
+      }, 80);
+      return;
+    }
+
+    _smartBackFallback();
+  }
+
+  function _smartBackFallback() {
+    var aid = (typeof currentAuctionId !== 'undefined' && currentAuctionId) ? currentAuctionId : null;
+    if (aid) {
+      window.location.href = '/auction-view.html?auctionId=' + encodeURIComponent(aid);
+    } else {
+      window.location.href = '/';
+    }
+  }
 
   function _decodeJwt(tok) {
     try { return JSON.parse(atob(tok.split('.')[1].replace(/-/g, '+').replace(/_/g, '/'))); }
