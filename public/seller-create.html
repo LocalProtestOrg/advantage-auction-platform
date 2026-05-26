@@ -245,6 +245,24 @@
     #status-banner.error   { background: #fee2e2; color: #b91c1c; border: 1px solid #fca5a5; }
 
     .hint { font-size: 0.75rem; color: #9ca3af; margin-top: 0.3rem; }
+
+    /* iOS Safari treats display:none file inputs as non-interactive, which
+       breaks programmatic .click() invocation from the user-gesture chain
+       (camera opens to a black viewfinder). The visually-hidden pattern keeps
+       the input in the DOM as a real focusable element while hiding it from
+       sighted users — the synchronous .click() path works reliably. */
+    .visually-hidden-input {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+      opacity: 0;
+    }
   </style>
 </head>
 <body>
@@ -379,11 +397,13 @@
         <img class="preview-img" id="banner-preview" style="display:none" alt="Banner preview" />
         <p class="upload-status" id="banner-status"></p>
       </div>
-      <input type="file" id="banner-input" accept="image/jpeg,image/png,image/webp" style="display:none" />
+      <input type="file" id="banner-input" class="visually-hidden-input" accept="image/jpeg,image/png,image/webp" />
       <!-- Dedicated camera input. Single-file with capture="environment" to work
            around the iOS Safari camera-from-gallery-picker bug class (black
-           viewfinder). Funnels into the same handleImageFile pipeline. -->
-      <input type="file" id="banner-input-camera" accept="image/*" capture="environment" style="display:none" />
+           viewfinder). Funnels into the same handleImageFile pipeline. Uses
+           visually-hidden CSS (not display:none) so iOS treats the input as
+           interactive when .click() fires. -->
+      <input type="file" id="banner-input-camera" class="visually-hidden-input" accept="image/*" capture="environment" />
     </div>
     <div class="field">
       <label>Cover Image</label>
@@ -396,8 +416,8 @@
         <img class="preview-img" id="cover-preview" style="display:none" alt="Cover preview" />
         <p class="upload-status" id="cover-status"></p>
       </div>
-      <input type="file" id="cover-input" accept="image/jpeg,image/png,image/webp" style="display:none" />
-      <input type="file" id="cover-input-camera" accept="image/*" capture="environment" style="display:none" />
+      <input type="file" id="cover-input" class="visually-hidden-input" accept="image/jpeg,image/png,image/webp" />
+      <input type="file" id="cover-input-camera" class="visually-hidden-input" accept="image/*" capture="environment" />
     </div>
   </div>
 
@@ -411,11 +431,11 @@
       </p>
       <p style="font-size:0.75rem;color:#9ca3af;margin-top:0.3rem;">MP4 or MOV — max 500 MB</p>
     </div>
-    <input type="file" id="video-input" accept="video/mp4,video/quicktime" style="display:none" />
+    <input type="file" id="video-input" class="visually-hidden-input" accept="video/mp4,video/quicktime" />
     <!-- Dedicated camera input for video. capture="environment" invokes the
          OS camera in video-record mode on iOS/Android. Same iOS workaround
          as the image inputs. Funnels into handleVideoFile. -->
-    <input type="file" id="video-input-camera" accept="video/*" capture="environment" style="display:none" />
+    <input type="file" id="video-input-camera" class="visually-hidden-input" accept="video/*" capture="environment" />
     <p class="video-status" id="video-status"></p>
     <button class="video-remove" id="video-remove" style="display:none">Remove video</button>
     <p class="hint">Videos are reviewed by Advantage before being displayed publicly.</p>
@@ -482,6 +502,9 @@
         status.textContent = 'Uploaded';
         onUploaded(data.secure_url);
       } catch (err) {
+        console.error('[upload-image-zone] failed', {
+          zoneId: zoneId, name: file && file.name, type: file && file.type, size: file && file.size, error: err && err.message,
+        });
         status.textContent = 'Upload failed: ' + err.message;
         onUploaded(null);
       }
@@ -515,6 +538,9 @@
         status.textContent = 'Uploaded';
         onUploaded(data.secure_url);
       } catch (err) {
+        console.error('[upload-image-camera] failed', {
+          inputId: cameraInputId, name: file.name, type: file.type, size: file.size, error: err && err.message,
+        });
         status.textContent = 'Upload failed: ' + err.message;
         onUploaded(null);
       } finally {
@@ -567,6 +593,9 @@
       videoStatus.className   = 'video-status uploaded';
       videoRemove.style.display = 'inline';
     } catch (err) {
+      console.error('[upload-video] failed', {
+        name: file && file.name, type: file && file.type, size: file && file.size, error: err && err.message,
+      });
       videoStatus.textContent = 'Video upload failed: ' + err.message;
       videoStatus.className   = 'video-status error';
     }
