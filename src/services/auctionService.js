@@ -61,7 +61,14 @@ async function createAuction(data) {
 
 
 // Update auction (only allowed fields, enforce ownership via seller_profiles)
-async function updateAuction(auctionId, userId, updates) {
+//
+// actorRole governs state-transition permission:
+//   admin     → any state value accepted
+//   non-admin → only 'submitted' accepted, and only when current state is
+//               'draft' (one-shot seller self-submission for AAC Review).
+//               All other non-admin state requests are silently dropped.
+// Other field whitelisting is unchanged.
+async function updateAuction(auctionId, userId, updates, actorRole) {
   const allowed = [
     'title', 'subtitle', 'description',
     'start_time', 'end_time',
@@ -70,6 +77,25 @@ async function updateAuction(auctionId, userId, updates) {
     'pickup_window_start', 'pickup_window_end',
     'shipping_available', 'banner_image_url', 'cover_image_url',
   ];
+
+  // Gate state transitions separately from the generic whitelist. Defense-in-
+  // depth on top of GOV-1's route-layer canMutateAuction gate — also protects
+  // business sellers (who bypass GOV-1 for non-draft auctions) from setting
+  // arbitrary states like 'published' / 'active' / 'closed' from the seller
+  // PATCH endpoint.
+  let stateToWrite = null;
+  if (updates.state !== undefined) {
+    if (actorRole === 'admin') {
+      stateToWrite = updates.state;
+    } else if (updates.state === 'submitted') {
+      const cur = await db.query('SELECT state FROM auctions WHERE id = $1', [auctionId]);
+      if (cur.rows[0] && cur.rows[0].state === 'draft') {
+        stateToWrite = 'submitted';
+      }
+    }
+    // All other non-admin state requests silently dropped.
+  }
+
   const fields = [];
   const values = [];
   let idx = 1;
@@ -80,6 +106,12 @@ async function updateAuction(auctionId, userId, updates) {
       values.push(updates[key]);
     }
   }
+
+  if (stateToWrite !== null) {
+    fields.push(`state = $${idx++}`);
+    values.push(stateToWrite);
+  }
+
   if (fields.length === 0) return null;
 
   values.push(new Date()); // updated_at

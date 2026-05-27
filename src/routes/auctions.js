@@ -242,7 +242,7 @@ router.patch('/:auctionId', authMiddleware, async (req, res) => {
     if (!gate.allowed) {
       return res.status(403).json({ success: false, message: lockErrorMessage(gate.reason) });
     }
-    const updated = await auctionService.updateAuction(auctionId, req.user.id, req.body);
+    const updated = await auctionService.updateAuction(auctionId, req.user.id, req.body, req.user.role);
     if (!updated) {
       return res.status(404).json({ success: false, message: 'No valid fields or auction not found' });
     }
