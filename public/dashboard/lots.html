@@ -919,6 +919,28 @@
       <!-- ══ RIGHT COLUMN ══════════════════════════════════════ -->
       <div>
 
+        <!-- ── D: AI Suggestions Panel ───────────────────────── -->
+        <!-- Placed BEFORE Lot Details so the natural seller flow reads:
+             upload photo → AI analyzes → review AI output → finalize details.
+             Previously sellers were asked to fill in details before they
+             could see what the AI suggested, which broke the cognitive flow. -->
+        <div class="section-label">
+          AI Suggestions &nbsp;<span class="ai-badge">&#10024; AI</span>
+        </div>
+        <div class="card">
+          <div class="suggestion-list">
+
+            <p style="font-size:0.85rem;color:#6b7280;margin:0 0 0.75rem">
+              Upload a photo first, then let AI suggest a title, description, and category based on what it sees.
+            </p>
+            <button class="btn btn-primary" id="btn-ai-generate" onclick="generateAiDescription()">
+              &#10024; Generate from Photo
+            </button>
+            <div id="ai-gen-status" style="margin-top:0.6rem;font-size:0.83rem;display:none"></div>
+
+          </div><!-- /suggestion-list -->
+        </div><!-- /AI suggestions card -->
+
         <!-- ── C: Lot Details Form ───────────────────────────── -->
         <div class="section-label">Lot Details</div>
         <div class="card">
@@ -1028,24 +1050,6 @@
           </div>
 
         </div><!-- /lot details card -->
-
-        <!-- ── D: AI Suggestions Panel ───────────────────────── -->
-        <div class="section-label">
-          AI Suggestions &nbsp;<span class="ai-badge">&#10024; AI</span>
-        </div>
-        <div class="card">
-          <div class="suggestion-list">
-
-            <p style="font-size:0.85rem;color:#6b7280;margin:0 0 0.75rem">
-              Upload a photo first, then let AI suggest a title, description, and category based on what it sees.
-            </p>
-            <button class="btn btn-primary" id="btn-ai-generate" onclick="generateAiDescription()">
-              &#10024; Generate from Photo
-            </button>
-            <div id="ai-gen-status" style="margin-top:0.6rem;font-size:0.83rem;display:none"></div>
-
-          </div><!-- /suggestion-list -->
-        </div><!-- /AI suggestions card -->
 
       </div><!-- /right col -->
     </div><!-- /studio-layout -->
