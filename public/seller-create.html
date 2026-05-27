@@ -613,9 +613,14 @@
   document.getElementById('btn-draft').addEventListener('click',  () => save('draft'));
   document.getElementById('btn-submit').addEventListener('click', () => {
     // Soft guard: backend permits submitting without lots, but a submitted
-    // auction with zero lots is an operational anti-pattern. Confirm intent.
+    // auction with zero lots is an operational anti-pattern. Confirm intent
+    // and warn about the editing lock that follows submission.
     var ok = window.confirm(
       'Submit this auction to Advantage for review?\n\n' +
+      'After submission:\n' +
+      '  • You will NOT be able to edit this auction or its lots\n' +
+      '  • Advantage will review and either publish or contact you with feedback\n' +
+      '  • If changes are needed, Advantage can return it to draft\n\n' +
       'Submit only after you have added all your lots in the next step. ' +
       'If you have not added lots yet, choose "Save Draft & Add Lots" instead.'
     );
