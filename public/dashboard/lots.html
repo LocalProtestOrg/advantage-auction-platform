@@ -1959,6 +1959,71 @@
         });
     })();
 
+    /* ── Capability gating: lot studio editing locked after auction submission ──
+       Server-side enforcement is in src/routes/{auctions,lots}.js (GOV-1) via
+       canMutateAuction/canMutateLot. This client-side gate provides immediate
+       visible feedback and prevents pointless form interaction when the parent
+       auction is past draft. Admins bypass entirely (server allows anyway).
+       Business sellers bypass per governance spec (auction houses, estate sale
+       companies). Failsafe: if state cannot be determined, default to LOCKED
+       to match server behavior. */
+    function applyLotStudioLock(currentState) {
+      var banner = document.createElement('div');
+      banner.style.cssText = 'background:#fef9c3;border:2px solid #ca8a04;border-radius:10px;padding:1rem 1.25rem;margin-bottom:1.5rem;color:#713f12;font-size:0.9rem;line-height:1.5';
+      banner.innerHTML =
+        '<div style="font-weight:700;margin-bottom:0.3rem">🔒 Editing locked — auction state: ' + currentState + '</div>' +
+        '<div>This auction is awaiting Advantage review. You cannot add, edit, or remove lots until Advantage returns it to draft. ' +
+        'Contact Advantage to request changes.</div>';
+      var page = document.querySelector('.page');
+      if (page && page.firstChild) page.insertBefore(banner, page.firstChild.nextSibling);
+
+      var addBtn = document.getElementById('add-lot-btn');
+      if (addBtn) {
+        addBtn.disabled = true;
+        addBtn.title = 'Editing locked — auction is past draft';
+        addBtn.style.opacity = '0.5';
+      }
+      var saveDraftBtn = document.querySelector('button[onclick="handleSaveDraft()"]');
+      if (saveDraftBtn) {
+        saveDraftBtn.disabled = true;
+        saveDraftBtn.style.opacity = '0.5';
+      }
+      var uz = document.getElementById('upload-zone');
+      if (uz) { uz.style.opacity = '0.4'; uz.style.pointerEvents = 'none'; }
+      var ar = document.getElementById('add-more-row');
+      if (ar) { ar.style.opacity = '0.4'; ar.style.pointerEvents = 'none'; }
+    }
+
+    (function gateLotStudioEditing() {
+      // Admin bypass — server permits, no need to lock client UI
+      try {
+        var p = JSON.parse(atob(token.split('.')[1]));
+        if (p && p.role === 'admin') return;
+      } catch (e) { /* malformed token — let normal auth flow handle */ }
+
+      if (!auctionId) return; // no auction context, nothing to lock against
+
+      Promise.all([
+        fetch('/api/auctions/' + auctionId, { headers: { 'Authorization': 'Bearer ' + token } }).then(function (r) { return r.json(); }),
+        fetch('/api/sellers/me',            { headers: { 'Authorization': 'Bearer ' + token } }).then(function (r) { return r.json(); }),
+      ]).then(function (results) {
+        var auctionData = results[0];
+        var profileData = results[1];
+        var state      = (auctionData && auctionData.success && auctionData.data) ? auctionData.data.state : null;
+        var sellerType = (profileData && profileData.success && profileData.data) ? profileData.data.seller_type : null;
+
+        if (!state)                    return;                  // unknown state, don't lock pre-emptively
+        if (state === 'draft')         return;                  // editable
+        if (sellerType === 'business') return;                  // business seller bypass per governance spec
+
+        applyLotStudioLock(state);
+      }).catch(function (err) {
+        // Failsafe: if we can't determine state, lock to match server behavior
+        console.warn('[gate-lot-studio] could not determine auction state — defaulting to locked', { error: err && err.message });
+        applyLotStudioLock('(unknown)');
+      });
+    })();
+
     /* ── D: Apply AI suggestions ───────────────────────────── */
     function generateAiDescription() {
       // Prefer a newly-uploaded photo's Cloudinary URL. Fall back to the
