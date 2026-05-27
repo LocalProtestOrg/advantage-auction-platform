@@ -234,7 +234,10 @@
     if (role === 'seller') {
       window.location.href = '/seller-dashboard.html';
     } else if (role === 'admin') {
-      window.location.href = '/seller-dashboard.html';
+      // Admins have no seller_profile and cannot use the seller dashboard;
+      // /admin/index.html provides their landing with diagnostics + links
+      // to existing /admin/* tools.
+      window.location.href = '/admin/index.html';
     } else {
       fetch('/api/auctions')
         .then(function(r) { return r.json(); })
