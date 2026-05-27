@@ -455,6 +455,19 @@
 const token = localStorage.getItem('token');
 if (!token) window.location.href = '/login.html';
 
+// Defense-in-depth: if an admin lands here (e.g., via a bookmark from before
+// the login.html admin-redirect fix, or by typing the URL directly), bounce
+// them to the admin landing page. The seller dashboard requires a seller_profile,
+// which admin users correctly do not have — letting them through would only
+// produce the "Seller profile not found" blocking error.
+try {
+  var __payload = JSON.parse(atob(token.split('.')[1]));
+  if (__payload && __payload.role === 'admin') {
+    window.location.href = '/admin/index.html';
+    throw new Error('redirecting admin');
+  }
+} catch (__e) { /* malformed token → existing 401 flow handles below */ }
+
 const api = (path, opts = {}) =>
   fetch(path, { headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json', ...opts.headers }, ...opts })
     .then(r => {
