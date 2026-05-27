@@ -795,6 +795,9 @@
       <div class="brand">Advantage Auction Platform</div>
       <h1>Lot Creation Studio</h1>
       <div class="header-sub" id="auction-context">Preparing new lot</div>
+      <!-- Updated by updateLotNumberContext() — shows "Creating Lot #N" or
+           "Editing Lot #N" so the seller knows where they are in the sequence. -->
+      <div class="header-sub" id="lot-number-context" style="font-weight:700;color:#2563eb;margin-top:0.15rem"></div>
       <div class="header-actions">
         <a class="btn" href="/seller-dashboard.html">&larr; My Auctions</a>
         <button class="btn" onclick="logout()">Logout</button>
@@ -1093,6 +1096,27 @@
     var staticItemsCleared = false;
     var editingLotId       = null; // non-null when editing an existing lot
     var editingLotImages   = [];   // existing Cloudinary URLs already in DB for the lot being edited
+    var nextLotNumber      = 1;    // computed from inventory; updated after each loadInventory()
+
+    /* ── Lot-number context indicator ───────────────────────
+       Updates the "Creating Lot #N" / "Editing Lot #N" line below the
+       page header. Driven by editingLotId + nextLotNumber state. Called
+       from loadInventory completion, startEditLot, resetForm, and after
+       a successful create/save (via loadInventory()). */
+    function updateLotNumberContext() {
+      var el = document.getElementById('lot-number-context');
+      if (!el) return;
+      if (editingLotId) {
+        // editingLotNumber is populated by startEditLot from the lot row
+        var n = (window.__editingLotNumber != null) ? window.__editingLotNumber : '?';
+        el.textContent = 'Editing Lot #' + n;
+      } else {
+        el.textContent = 'Creating Lot #' + nextLotNumber;
+      }
+    }
+    // Initial render — loadInventory() will refresh with the real next number
+    // once the auction's existing lots are fetched.
+    updateLotNumberContext();
 
     var POLL_INTERVAL_MS  = 2500;
     var MAX_POLL_ATTEMPTS = 48;    // ~2 min max
@@ -1760,8 +1784,10 @@
     }
 
     function resetForm() {
-      editingLotId     = null;
-      editingLotImages = [];
+      editingLotId             = null;
+      editingLotImages         = [];
+      window.__editingLotNumber = null;
+      updateLotNumberContext();
       var addBtn = document.getElementById('add-lot-btn');
       if (addBtn) { addBtn.textContent = 'Add to Auction'; addBtn.disabled = false; }
       var cancelBtn = document.getElementById('cancel-edit-btn');
@@ -2029,6 +2055,15 @@
           var lots = data.data;
           section.style.display = 'block';
           countEl.textContent = lots.length + ' lot' + (lots.length !== 1 ? 's' : '');
+
+          // Compute next lot_number for "Creating Lot #N" indicator.
+          var maxNum = 0;
+          for (var i = 0; i < lots.length; i++) {
+            if (lots[i].lot_number != null && lots[i].lot_number > maxNum) maxNum = lots[i].lot_number;
+          }
+          nextLotNumber = maxNum + 1;
+          updateLotNumberContext();
+
           if (!lots.length) {
             list.innerHTML = '<div class="inv-empty">No lots yet. Use the form above to add your first lot.</div>';
             return;
@@ -2067,7 +2102,12 @@
 
       var title = document.createElement('div');
       title.className = 'inv-title';
-      title.textContent = lot.title || '(Untitled)';
+      // Prefix with "Lot #N · " so sellers can immediately orient themselves
+      // in the auction sequence. lot_number is auto-assigned per-auction on
+      // INSERT (see src/routes/lots.js); falls back to "Lot #—" if somehow
+      // missing on a legacy row.
+      var numLabel = (lot.lot_number != null) ? ('Lot #' + lot.lot_number) : 'Lot #—';
+      title.textContent = numLabel + ' · ' + (lot.title || '(Untitled)');
       body.appendChild(title);
 
       var meta = document.createElement('div');
@@ -2166,8 +2206,10 @@
     }
 
     function startEditLot(lot) {
-      editingLotId     = lot.id;
-      editingLotImages = lot.first_image_url ? [lot.first_image_url] : [];
+      editingLotId            = lot.id;
+      editingLotImages        = lot.first_image_url ? [lot.first_image_url] : [];
+      window.__editingLotNumber = lot.lot_number;
+      updateLotNumberContext();
 
       // Populate form fields
       document.getElementById('lot-title').value    = lot.title || '';
