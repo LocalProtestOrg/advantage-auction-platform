@@ -31,6 +31,20 @@ async function userOwnsLot(userId, userRole, lotId) {
   return rows.length > 0;
 }
 
+// ── Input validators ─────────────────────────────────────────────────────────
+
+// Validate dimensions payload. Accepts only { text: "..." } where text is a
+// non-empty trimmed string up to 200 chars. Returns the normalized object on
+// success or null on any malformed input — callers should treat null as
+// "do not write" (POST → store NULL; PUT → COALESCE preserves existing).
+function validateDimensions(input) {
+  if (!input || typeof input !== 'object' || Array.isArray(input)) return null;
+  if (typeof input.text !== 'string') return null;
+  const trimmed = input.text.trim();
+  if (trimmed.length === 0 || trimmed.length > 200) return null;
+  return { text: trimmed };
+}
+
 // ── Bid sub-routes (must come before /:lotId to avoid shadowing) ─────────────
 
 // GET /api/lots/:lotId/bids
@@ -66,13 +80,14 @@ router.post('/:lotId/bids', authMiddleware, async (req, res) => {
 // POST /api/lots
 router.post('/', auth, async (req, res, next) => {
   try {
-    const { auctionId, title, description, size_category, pickup_category, bid_increment_cents, starting_bid_cents } = req.body;
+    const { auctionId, title, description, size_category, pickup_category, bid_increment_cents, starting_bid_cents, dimensions } = req.body;
+    const dimsValidated = validateDimensions(dimensions); // null if invalid → stored as NULL
     const result = await db.query(
-      `INSERT INTO lots (auction_id, title, description, size_category, pickup_category, bid_increment_cents, starting_bid_cents, lot_number)
-       VALUES ($1, $2, $3, $4, $5, $6, $7,
+      `INSERT INTO lots (auction_id, title, description, size_category, pickup_category, bid_increment_cents, starting_bid_cents, dimensions, lot_number)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb,
                (SELECT COALESCE(MAX(lot_number), 0) + 1 FROM lots WHERE auction_id = $1))
        RETURNING *`,
-      [auctionId, title, description, size_category || null, pickup_category || null, bid_increment_cents || null, starting_bid_cents || null]
+      [auctionId, title, description, size_category || null, pickup_category || null, bid_increment_cents || null, starting_bid_cents || null, dimsValidated ? JSON.stringify(dimsValidated) : null]
     );
     res.status(201).json({ success: true, data: result.rows[0] });
   } catch (err) {
@@ -275,7 +290,12 @@ router.put('/:lotId', auth, async (req, res, next) => {
         era             || null,
         maker_artist    || null,
         weight          || null,
-        dimensions ? JSON.stringify(dimensions) : null,
+        // Validate dimensions against the same { text: "..." } shape POST
+        // uses. Invalid input → null → COALESCE preserves the existing value.
+        (function () {
+          const v = validateDimensions(dimensions);
+          return v ? JSON.stringify(v) : null;
+        })(),
         shippable != null ? shippable : null,
         closes_at       || null,
         req.params.lotId,

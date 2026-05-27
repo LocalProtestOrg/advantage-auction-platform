@@ -966,8 +966,21 @@
             <textarea
               class="form-textarea"
               id="lot-desc"
-              placeholder="Condition, dimensions, notable features, provenance..."
+              placeholder="Condition, notable features, provenance..."
             ></textarea>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="lot-dimensions">
+              Dimensions <span class="optional">(optional)</span>
+            </label>
+            <input
+              class="form-input"
+              type="text"
+              id="lot-dimensions"
+              placeholder='e.g. 24 x 18 x 32 in  or  "Approx. 6 ft tall"'
+              maxlength="200"
+            />
           </div>
 
           <div class="form-group">
@@ -1682,6 +1695,7 @@
 
       var selectedTier  = document.querySelector('input[name="pickup-tier"]:checked');
       var startingBidRaw = parseFloat(document.getElementById('starting-bid').value) || 0;
+      var dimensionsRaw = document.getElementById('lot-dimensions').value.trim();
 
       var payload = {
         title:              title,
@@ -1689,6 +1703,9 @@
         size_category:      selectedTier ? selectedTier.value : null,
         pickup_category:    selectedTier ? selectedTier.value : null,
         starting_bid_cents: startingBidRaw > 0 ? Math.round(startingBidRaw * 100) : null,
+        // Server stores as JSONB { text: "..." } — see src/routes/lots.js
+        // validateDimensions(). Empty/whitespace omitted entirely.
+        dimensions:         dimensionsRaw ? { text: dimensionsRaw } : null,
       };
       if (!editingLotId) payload.auctionId = auctionId;
 
@@ -1793,10 +1810,11 @@
       var cancelBtn = document.getElementById('cancel-edit-btn');
       if (cancelBtn) cancelBtn.style.display = 'none';
 
-      document.getElementById('lot-title').value    = '';
-      document.getElementById('lot-desc').value     = '';
-      document.getElementById('lot-category').value = '';
-      document.getElementById('starting-bid').value = '';
+      document.getElementById('lot-title').value      = '';
+      document.getElementById('lot-desc').value       = '';
+      document.getElementById('lot-dimensions').value = '';
+      document.getElementById('lot-category').value   = '';
+      document.getElementById('starting-bid').value   = '';
       document.getElementById('reserve-toggle').checked = false;
 
       var defaultTier = document.querySelector('input[name="pickup-tier"][value="B"]');
@@ -1838,6 +1856,7 @@
       var draft = {
         title:       document.getElementById('lot-title').value,
         desc:        document.getElementById('lot-desc').value,
+        dimensions:  document.getElementById('lot-dimensions').value,
         category:    document.getElementById('lot-category').value,
         startingBid: document.getElementById('starting-bid').value,
         pickupTier:  tier ? tier.value : 'B',
@@ -1874,7 +1893,7 @@
     }
 
     // Wire auto-save to form fields
-    ['lot-title', 'lot-desc', 'starting-bid'].forEach(function (fieldId) {
+    ['lot-title', 'lot-desc', 'lot-dimensions', 'starting-bid'].forEach(function (fieldId) {
       document.getElementById(fieldId).addEventListener('input', debouncedSaveDraft);
     });
     document.getElementById('lot-category').addEventListener('change', function () { saveDraft(); showDraftSaved(); });
@@ -1890,10 +1909,11 @@
       var draft;
       try { draft = JSON.parse(raw); } catch (e) { return; }
 
-      if (draft.title)       document.getElementById('lot-title').value = draft.title;
-      if (draft.desc)        document.getElementById('lot-desc').value  = draft.desc;
-      if (draft.category)    document.getElementById('lot-category').value = draft.category;
-      if (draft.startingBid) document.getElementById('starting-bid').value = draft.startingBid;
+      if (draft.title)       document.getElementById('lot-title').value      = draft.title;
+      if (draft.desc)        document.getElementById('lot-desc').value       = draft.desc;
+      if (draft.dimensions)  document.getElementById('lot-dimensions').value = draft.dimensions;
+      if (draft.category)    document.getElementById('lot-category').value   = draft.category;
+      if (draft.startingBid) document.getElementById('starting-bid').value   = draft.startingBid;
 
       if (draft.pickupTier) {
         var tierRadio = document.querySelector('input[name="pickup-tier"][value="' + draft.pickupTier + '"]');
@@ -2114,6 +2134,9 @@
       meta.className = 'inv-meta';
       var metaParts = [];
       if (lot.starting_bid_cents) metaParts.push('Starts ' + fmtCents(lot.starting_bid_cents));
+      if (lot.dimensions && typeof lot.dimensions === 'object' && typeof lot.dimensions.text === 'string' && lot.dimensions.text.trim()) {
+        metaParts.push(lot.dimensions.text.trim());
+      }
       if (lot.created_at) metaParts.push('Added ' + fmtDateShort(lot.created_at));
       meta.textContent = metaParts.join(' · ');
       body.appendChild(meta);
@@ -2212,9 +2235,10 @@
       updateLotNumberContext();
 
       // Populate form fields
-      document.getElementById('lot-title').value    = lot.title || '';
-      document.getElementById('lot-desc').value     = lot.description || '';
-      document.getElementById('starting-bid').value = lot.starting_bid_cents ? (lot.starting_bid_cents / 100) : '';
+      document.getElementById('lot-title').value      = lot.title || '';
+      document.getElementById('lot-desc').value       = lot.description || '';
+      document.getElementById('lot-dimensions').value = (lot.dimensions && typeof lot.dimensions === 'object' && typeof lot.dimensions.text === 'string') ? lot.dimensions.text : '';
+      document.getElementById('starting-bid').value   = lot.starting_bid_cents ? (lot.starting_bid_cents / 100) : '';
 
       // Pickup tier
       var tierVal = lot.pickup_category || lot.size_category || 'B';
