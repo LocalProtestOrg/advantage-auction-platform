@@ -4,11 +4,15 @@ const auth = require('../middleware/authMiddleware');
 const db = require('../db');
 
 // GET /api/sellers/me
-// Returns the seller profile for the authenticated user.
+// Returns the seller profile for the authenticated user. seller_type is
+// included so the lot studio frontend can client-side gate fields that are
+// only appropriate for business sellers (e.g., reserve pricing). This is a
+// stopgap until full capability-based gating lands; private/other sellers
+// must not see fields they cannot actually use.
 router.get('/me', auth, async (req, res, next) => {
   try {
     const result = await db.query(
-      'SELECT id, user_id FROM seller_profiles WHERE user_id = $1',
+      'SELECT id, user_id, seller_type FROM seller_profiles WHERE user_id = $1',
       [req.user.id]
     );
     if (!result.rows[0]) {

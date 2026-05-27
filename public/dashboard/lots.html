@@ -1002,7 +1002,11 @@
             </div>
           </div>
 
-          <div class="form-group">
+          <!-- Reserve Price: hidden by default. Revealed by JS only when
+               the authenticated seller's profile reports seller_type='business'.
+               Failsafe — any error fetching the profile leaves reserve hidden.
+               Private/other sellers must not see this control. -->
+          <div class="form-group" id="reserve-form-group" style="display:none">
             <div class="inline-toggle-row">
               <div>
                 <div class="inline-toggle-label">Reserve Price</div>
@@ -1885,6 +1889,29 @@
     }
 
     loadDraft();
+
+    /* ── Capability gating: reserve pricing visible only to business sellers ──
+       Fetches the authenticated user's seller_profile on page load. If the
+       profile reports seller_type='business', reveal the Reserve Price form
+       group; otherwise leave it hidden. Failsafe — any fetch error, missing
+       field, or non-business value leaves reserve hidden. This is a stopgap
+       until full capability-based gating lands; see project memory
+       project-seller-studio-known-defects Defect 2. */
+    (function gateReservePricing() {
+      fetch('/api/sellers/me', {
+        headers: { 'Authorization': 'Bearer ' + token },
+      })
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+          if (data && data.success && data.data && data.data.seller_type === 'business') {
+            var el = document.getElementById('reserve-form-group');
+            if (el) el.style.display = '';
+          }
+        })
+        .catch(function (err) {
+          console.warn('[gate-reserve] could not fetch seller profile; reserve remains hidden', { error: err && err.message });
+        });
+    })();
 
     /* ── D: Apply AI suggestions ───────────────────────────── */
     function generateAiDescription() {
