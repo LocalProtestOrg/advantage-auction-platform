@@ -66,6 +66,21 @@ async function canMutateLot(userId, userRole, lotId) {
   return canMutateAuction(userId, userRole, rows[0].auction_id);
 }
 
+// Deletion is treated more strictly than ordinary edit-mutation: even
+// business sellers cannot delete a non-draft auction. Once an auction has
+// been submitted, only Advantage (admin) can remove it. This protects the
+// audit/review record even for sellers who have expanded edit rights.
+async function canDeleteAuction(userId, userRole, auctionId) {
+  if (userRole === 'admin') return { allowed: true, reason: 'admin' };
+  const { rows } = await db.query(
+    `SELECT state FROM auctions WHERE id = $1`,
+    [auctionId]
+  );
+  if (!rows[0]) return { allowed: false, reason: 'auction_not_found' };
+  if (rows[0].state === 'draft') return { allowed: true, reason: 'draft' };
+  return { allowed: false, reason: 'auction_locked_after_submission' };
+}
+
 // Maps internal lock reasons to user-facing 403 messages. Keep terse and
 // actionable — sellers should understand what to do (contact Advantage).
 function lockErrorMessage(reason) {
@@ -422,4 +437,5 @@ router.get('/:lotId', async (req, res, next) => {
 module.exports = router;
 module.exports.canMutateAuction  = canMutateAuction;
 module.exports.canMutateLot      = canMutateLot;
+module.exports.canDeleteAuction  = canDeleteAuction;
 module.exports.lockErrorMessage  = lockErrorMessage;

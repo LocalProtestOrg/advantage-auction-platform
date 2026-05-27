@@ -8,7 +8,7 @@ const { generateAuctionReport } = require('../services/reportingService');
 const { buildReportPdf }        = require('../services/pdfGenerationService');
 const { sendEmail }             = require('../services/emailService');
 const db                        = require('../db/index');
-const { canMutateAuction, lockErrorMessage } = require('./lots');
+const { canMutateAuction, canDeleteAuction, lockErrorMessage } = require('./lots');
 
 function isUuid(v) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(v);
@@ -374,11 +374,19 @@ router.delete('/:auctionId/walkthrough-video/:videoId', authMiddleware, async (r
 });
 
 // ── DELETE /:auctionId  — Delete auction ─────────────────────────────────────
+// Delete-lock note: stricter than the edit-mutation gate. Even business
+// sellers cannot delete a non-draft auction — only admin can remove
+// submitted/published auctions. This protects the audit/review record from
+// being wiped out by sellers with expanded edit rights.
 router.delete('/:auctionId', authMiddleware, async (req, res) => {
   try {
     const { auctionId } = req.params;
     if (!isUuid(auctionId)) {
       return res.status(400).json({ success: false, message: 'Invalid auction ID' });
+    }
+    const gate = await canDeleteAuction(req.user.id, req.user.role, auctionId);
+    if (!gate.allowed) {
+      return res.status(403).json({ success: false, message: lockErrorMessage(gate.reason) });
     }
     const deleted = await auctionService.deleteAuction(auctionId, req.user.id);
     if (!deleted) {
