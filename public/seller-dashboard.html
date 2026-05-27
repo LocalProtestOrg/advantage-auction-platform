@@ -607,6 +607,7 @@ function renderAuctionCard(container, auction) {
         ${isPublished ? `<a href="/auction-view.html?auctionId=${auction.id}" class="btn btn-ghost btn-sm" target="_blank">View Live</a>` : ''}
         <button class="btn btn-secondary btn-sm" data-toggle-lots="${auction.id}">View Lots</button>
         ${isEditable ? `<a href="/dashboard/lots.html?auctionId=${auction.id}" class="btn btn-primary btn-sm">+ Add Lot</a>` : ''}
+        ${isEditable ? `<button class="btn btn-secondary btn-sm" data-submit-auction="${auction.id}" data-auction-title="${escHtml(auction.title || 'Untitled')}">Submit for AAC Review</button>` : ''}
       </div>
     </div>
     ${statusCallout}
@@ -633,6 +634,56 @@ function renderAuctionCard(container, auction) {
   const addBtn = card.querySelector(`[data-add-lot="${auction.id}"]`);
   if (addBtn) {
     addBtn.addEventListener('click', () => showAddLotForm(auction.id));
+  }
+
+  // Submit for AAC Review button (only shown on draft auctions)
+  const submitBtn = card.querySelector(`[data-submit-auction="${auction.id}"]`);
+  if (submitBtn) {
+    submitBtn.addEventListener('click', function () {
+      const title = submitBtn.dataset.auctionTitle || 'this auction';
+      submitAuctionForReview(auction.id, title, submitBtn);
+    });
+  }
+}
+
+// ── Submit auction for AAC Review ─────────────────────────────────────────────
+// PATCH /api/auctions/:id with { state: 'submitted' }. After submission, the
+// server-side edit-lock (GOV-1) prevents the seller from further mutations
+// on this auction or its lots until Advantage returns it to draft.
+async function submitAuctionForReview(auctionId, title, btn) {
+  const ok = window.confirm(
+    'Submit "' + title + '" to Advantage for review?\n\n' +
+    'After submission:\n' +
+    '  • You will NOT be able to edit this auction or its lots\n' +
+    '  • Advantage will review and either publish or contact you with feedback\n' +
+    '  • If changes are needed, Advantage can return it to draft\n\n' +
+    'Submit only after you have added all your lots and reviewed everything.\n' +
+    'Continue?'
+  );
+  if (!ok) return;
+
+  btn.disabled = true;
+  const originalLabel = btn.textContent;
+  btn.textContent = 'Submitting…';
+
+  try {
+    const r = await api('/api/auctions/' + auctionId, {
+      method: 'PATCH',
+      body:   JSON.stringify({ state: 'submitted' }),
+    });
+    if (r && r.success) {
+      showBanner('Auction submitted for Advantage review. Editing is now locked until review completes.', 'success');
+      // Reload to refresh card state, hide submit/edit CTAs, show submitted callout
+      setTimeout(function () { window.location.reload(); }, 1500);
+    } else {
+      btn.disabled = false;
+      btn.textContent = originalLabel;
+      showBanner('Submit failed: ' + (r && r.message ? r.message : 'unknown error'), 'error');
+    }
+  } catch (err) {
+    btn.disabled = false;
+    btn.textContent = originalLabel;
+    showBanner('Submit failed: ' + (err && err.message ? err.message : 'network error'), 'error');
   }
 }
 
