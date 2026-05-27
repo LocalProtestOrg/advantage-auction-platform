@@ -8,6 +8,7 @@ const { generateAuctionReport } = require('../services/reportingService');
 const { buildReportPdf }        = require('../services/pdfGenerationService');
 const { sendEmail }             = require('../services/emailService');
 const db                        = require('../db/index');
+const { canMutateAuction, lockErrorMessage } = require('./lots');
 
 function isUuid(v) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(v);
@@ -226,11 +227,20 @@ router.get('/:auctionId', authMiddleware, async (req, res) => {
 });
 
 // ── PATCH /:auctionId  — Update auction fields ───────────────────────────────
+// Edit-lock note: the gate evaluates the auction's CURRENT state, not the
+// proposed transition. So a private seller PATCHing { state: 'submitted' }
+// on a draft auction passes (draft → allowed). PATCHing any field on a
+// submitted auction is blocked (state lock). Admin always bypasses.
+// Business sellers bypass for non-draft auctions per governance spec.
 router.patch('/:auctionId', authMiddleware, async (req, res) => {
   try {
     const { auctionId } = req.params;
     if (!isUuid(auctionId)) {
       return res.status(400).json({ success: false, message: 'Invalid auction ID' });
+    }
+    const gate = await canMutateAuction(req.user.id, req.user.role, auctionId);
+    if (!gate.allowed) {
+      return res.status(403).json({ success: false, message: lockErrorMessage(gate.reason) });
     }
     const updated = await auctionService.updateAuction(auctionId, req.user.id, req.body);
     if (!updated) {

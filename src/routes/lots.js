@@ -31,6 +31,52 @@ async function userOwnsLot(userId, userRole, lotId) {
   return rows.length > 0;
 }
 
+// ── Governance: edit-lock for submitted auctions ─────────────────────────────
+//
+// Private/other sellers lose mutation rights on an auction once it transitions
+// out of 'draft' state. Editing returns only when an admin moves it back to
+// 'draft'. Admin always bypasses. Business sellers (auction houses, estate
+// sale companies) are exempt from the lock — they may receive expanded
+// editing permissions per the broader capability roadmap. This is the
+// surgical implementation; a full capability/RBAC system is deferred.
+//
+// Returns { allowed: boolean, reason: string }. Reasons: 'admin',
+// 'draft', 'business_seller_bypass', 'auction_locked_after_submission',
+// 'auction_not_found', 'lot_not_found'.
+async function canMutateAuction(userId, userRole, auctionId) {
+  if (userRole === 'admin') return { allowed: true, reason: 'admin' };
+  const { rows } = await db.query(
+    `SELECT a.state, sp.seller_type
+       FROM auctions a
+       LEFT JOIN seller_profiles sp ON sp.user_id = $2
+      WHERE a.id = $1`,
+    [auctionId, userId]
+  );
+  if (!rows[0]) return { allowed: false, reason: 'auction_not_found' };
+  const { state, seller_type } = rows[0];
+  if (state === 'draft')               return { allowed: true,  reason: 'draft' };
+  if (seller_type === 'business')      return { allowed: true,  reason: 'business_seller_bypass' };
+  return { allowed: false, reason: 'auction_locked_after_submission' };
+}
+
+async function canMutateLot(userId, userRole, lotId) {
+  if (userRole === 'admin') return { allowed: true, reason: 'admin' };
+  const { rows } = await db.query(`SELECT auction_id FROM lots WHERE id = $1`, [lotId]);
+  if (!rows[0]) return { allowed: false, reason: 'lot_not_found' };
+  return canMutateAuction(userId, userRole, rows[0].auction_id);
+}
+
+// Maps internal lock reasons to user-facing 403 messages. Keep terse and
+// actionable — sellers should understand what to do (contact Advantage).
+function lockErrorMessage(reason) {
+  if (reason === 'auction_locked_after_submission') {
+    return 'This auction is awaiting Advantage review. Contact Advantage to request changes.';
+  }
+  if (reason === 'auction_not_found') return 'Auction not found';
+  if (reason === 'lot_not_found')     return 'Lot not found';
+  return 'Access denied';
+}
+
 // ── Input validators ─────────────────────────────────────────────────────────
 
 // Validate dimensions payload. Accepts only { text: "..." } where text is a
@@ -81,6 +127,12 @@ router.post('/:lotId/bids', authMiddleware, async (req, res) => {
 router.post('/', auth, async (req, res, next) => {
   try {
     const { auctionId, title, description, size_category, pickup_category, bid_increment_cents, starting_bid_cents, dimensions } = req.body;
+    // Edit-lock gate — refuse mutation if parent auction is past 'draft' for
+    // a private/other seller. Admin and business sellers bypass.
+    const gate = await canMutateAuction(req.user.id, req.user.role, auctionId);
+    if (!gate.allowed) {
+      return res.status(403).json({ success: false, message: lockErrorMessage(gate.reason) });
+    }
     const dimsValidated = validateDimensions(dimensions); // null if invalid → stored as NULL
     const result = await db.query(
       `INSERT INTO lots (auction_id, title, description, size_category, pickup_category, bid_increment_cents, starting_bid_cents, dimensions, lot_number)
@@ -230,6 +282,12 @@ router.delete('/:lotId', auth, async (req, res, next) => {
     if (!await userOwnsLot(req.user.id, req.user.role, req.params.lotId)) {
       return res.status(403).json({ success: false, message: 'Access denied' });
     }
+    // Edit-lock gate — refuse delete if parent auction is past 'draft' for
+    // a private/other seller.
+    const gate = await canMutateLot(req.user.id, req.user.role, req.params.lotId);
+    if (!gate.allowed) {
+      return res.status(403).json({ success: false, message: lockErrorMessage(gate.reason) });
+    }
     const check = await db.query('SELECT bid_count FROM lots WHERE id = $1', [req.params.lotId]);
     if (!check.rows[0]) return res.status(404).json({ success: false, message: 'Lot not found' });
     if (check.rows[0].bid_count > 0) {
@@ -250,6 +308,12 @@ router.put('/:lotId', auth, async (req, res, next) => {
   try {
     if (!await userOwnsLot(req.user.id, req.user.role, req.params.lotId)) {
       return res.status(403).json({ success: false, message: 'Access denied' });
+    }
+    // Edit-lock gate — refuse edit if parent auction is past 'draft' for
+    // a private/other seller.
+    const gate = await canMutateLot(req.user.id, req.user.role, req.params.lotId);
+    if (!gate.allowed) {
+      return res.status(403).json({ success: false, message: lockErrorMessage(gate.reason) });
     }
     const {
       title, description, category, size_category, pickup_category,
@@ -356,3 +420,6 @@ router.get('/:lotId', async (req, res, next) => {
 });
 
 module.exports = router;
+module.exports.canMutateAuction  = canMutateAuction;
+module.exports.canMutateLot      = canMutateLot;
+module.exports.lockErrorMessage  = lockErrorMessage;
