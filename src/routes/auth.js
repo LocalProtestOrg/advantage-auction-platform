@@ -2,6 +2,7 @@ const express = require('express');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const db = require('../db/index');
+const auth = require('../middleware/authMiddleware');
 const { normalLimiter, strictLimiter } = require('../middleware/rateLimit');
 
 const router = express.Router();
@@ -63,6 +64,25 @@ router.post('/login', strictLimiter, async (req, res) => {
   } catch (err) {
     console.error('[auth] login failed:', { email, error: err.message });
     return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// GET /api/auth/me
+// Returns the authenticated user's id, email, and role. Lightweight
+// alternative to /api/sellers/me for surfaces that need identity but not
+// seller-specific data (e.g., admin dashboard identity banner). The JWT
+// only carries id + role; email is fetched fresh from the users table.
+router.get('/me', auth, async (req, res) => {
+  try {
+    const { rows } = await db.query(
+      'SELECT id, email, role FROM users WHERE id = $1',
+      [req.user.id]
+    );
+    if (!rows[0]) return res.status(404).json({ success: false, error: 'User not found' });
+    return res.json({ success: true, data: rows[0] });
+  } catch (err) {
+    console.error('[auth] /me failed:', err.message);
+    return res.status(500).json({ success: false, error: 'Failed to load user' });
   }
 });
 

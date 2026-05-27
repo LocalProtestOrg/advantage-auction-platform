@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="noindex" />
+  <title>Admin Dashboard — Advantage Auction</title>
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      background: #f5f7fa;
+      color: #111;
+      min-height: 100vh;
+      padding: 2rem 1.5rem;
+    }
+
+    .page { max-width: 1100px; margin: 0 auto; }
+
+    /* ── Header ─────────────────────────────────────────────── */
+    header { margin-bottom: 1.5rem; }
+
+    .brand {
+      font-size: 0.72rem;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #888;
+      margin-bottom: 0.4rem;
+    }
+
+    .header-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      flex-wrap: wrap;
+    }
+
+    h1 { font-size: 1.6rem; font-weight: 800; }
+
+    .header-actions { display: flex; gap: 0.6rem; align-items: center; }
+
+    .role-badge {
+      font-size: 0.65rem;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      background: #111;
+      color: #fff;
+      padding: 0.2rem 0.6rem;
+      border-radius: 99px;
+    }
+
+    .btn {
+      padding: 0.45rem 1.1rem;
+      font-size: 0.8rem;
+      font-weight: 600;
+      background: #fff;
+      border: 1.5px solid #d1d5db;
+      border-radius: 6px;
+      cursor: pointer;
+      color: #374151;
+      text-decoration: none;
+    }
+    .btn:hover { background: #f3f4f6; }
+
+    /* ── Identity banner ────────────────────────────────────── */
+    .identity {
+      background: #fff;
+      border: 1px solid #e5e7eb;
+      border-radius: 10px;
+      padding: 0.9rem 1.1rem;
+      margin-bottom: 1.5rem;
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      flex-wrap: wrap;
+    }
+
+    .identity-label {
+      font-size: 0.7rem;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: #888;
+    }
+
+    .identity-value {
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: #111;
+    }
+
+    .identity-meta {
+      font-size: 0.75rem;
+      color: #6b7280;
+    }
+
+    /* ── Section labels ─────────────────────────────────────── */
+    .section-label {
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.07em;
+      text-transform: uppercase;
+      color: #888;
+      margin: 1.75rem 0 0.75rem;
+    }
+    .section-label:first-child { margin-top: 0; }
+
+    /* ── Card grid ──────────────────────────────────────────── */
+    .card-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 1rem;
+    }
+
+    .card {
+      background: #fff;
+      border: 1px solid #e5e7eb;
+      border-radius: 10px;
+      padding: 1.25rem;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+    }
+
+    .card-link { text-decoration: none; color: inherit; transition: border-color 0.15s, transform 0.15s; display: block; }
+    .card-link:hover { border-color: #2563eb; transform: translateY(-1px); }
+
+    .card-title {
+      font-size: 0.95rem;
+      font-weight: 700;
+      margin-bottom: 0.35rem;
+    }
+
+    .card-sub {
+      font-size: 0.8rem;
+      color: #6b7280;
+      line-height: 1.4;
+    }
+
+    .card-cta {
+      display: inline-block;
+      margin-top: 0.85rem;
+      font-size: 0.75rem;
+      font-weight: 700;
+      color: #2563eb;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    /* ── Diagnostic tables ──────────────────────────────────── */
+    .diag-card {
+      background: #fff;
+      border: 1px solid #e5e7eb;
+      border-radius: 10px;
+      padding: 1.25rem;
+    }
+
+    .diag-title {
+      font-size: 0.85rem;
+      font-weight: 700;
+      margin-bottom: 0.6rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .diag-refresh {
+      font-size: 0.7rem;
+      color: #2563eb;
+      cursor: pointer;
+      background: none;
+      border: none;
+      padding: 0;
+      font-weight: 600;
+    }
+    .diag-refresh:hover { text-decoration: underline; }
+
+    .diag-loading, .diag-error, .diag-empty {
+      font-size: 0.8rem;
+      color: #888;
+      padding: 0.5rem 0;
+    }
+    .diag-error { color: #dc2626; }
+
+    .diag-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.78rem;
+    }
+    .diag-table th {
+      text-align: left;
+      font-weight: 700;
+      color: #6b7280;
+      padding: 0.4rem 0.5rem 0.4rem 0;
+      border-bottom: 1px solid #e5e7eb;
+      white-space: nowrap;
+    }
+    .diag-table td {
+      padding: 0.4rem 0.5rem 0.4rem 0;
+      border-bottom: 1px solid #f3f4f6;
+      color: #111;
+    }
+    .diag-table tr:last-child td { border-bottom: none; }
+
+    .diag-summary {
+      font-size: 0.78rem;
+      color: #374151;
+      background: #f9fafb;
+      padding: 0.5rem 0.7rem;
+      border-radius: 6px;
+      margin-bottom: 0.6rem;
+    }
+
+    /* ── Placeholder cards ──────────────────────────────────── */
+    .placeholder {
+      opacity: 0.55;
+      cursor: not-allowed;
+    }
+    .placeholder-tag {
+      display: inline-block;
+      font-size: 0.6rem;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      background: #f3f4f6;
+      color: #6b7280;
+      padding: 0.15rem 0.5rem;
+      border-radius: 99px;
+      margin-top: 0.5rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+
+    <!-- ── Header ─────────────────────────────────────────── -->
+    <header>
+      <div class="brand">Advantage Auction Platform</div>
+      <div class="header-row">
+        <h1>Admin Dashboard</h1>
+        <div class="header-actions">
+          <span class="role-badge" id="role-badge">ADMIN</span>
+          <button class="btn" onclick="logout()">Logout</button>
+        </div>
+      </div>
+    </header>
+
+    <!-- ── Identity banner ─────────────────────────────────── -->
+    <div class="identity" id="identity-banner">
+      <div>
+        <div class="identity-label">Logged in as</div>
+        <div class="identity-value" id="identity-email">…</div>
+      </div>
+      <div>
+        <div class="identity-label">Role</div>
+        <div class="identity-value" id="identity-role">…</div>
+      </div>
+      <div>
+        <div class="identity-label">Account ID</div>
+        <div class="identity-meta" id="identity-uid">…</div>
+      </div>
+    </div>
+
+    <!-- ── Operational Tools ───────────────────────────────── -->
+    <div class="section-label">Operational Tools</div>
+    <div class="card-grid">
+      <a class="card card-link" href="/admin/moderation.html">
+        <div class="card-title">Auction Moderation</div>
+        <div class="card-sub">Review submitted auctions, approve/reject, manage seller submissions.</div>
+        <div class="card-cta">Open →</div>
+      </a>
+      <a class="card card-link" href="/admin/marketplace-config.html">
+        <div class="card-title">Marketplace Configuration</div>
+        <div class="card-sub">Configure marketplace settings, featured content, and discovery surfaces.</div>
+        <div class="card-cta">Open →</div>
+      </a>
+    </div>
+
+    <!-- ── Diagnostics (inline data fetches) ───────────────── -->
+    <div class="section-label">Diagnostics</div>
+    <div class="card-grid">
+
+      <!-- Recent Auctions -->
+      <div class="diag-card">
+        <div class="diag-title">
+          Recent Auctions
+          <button class="diag-refresh" onclick="loadAuctions()">Refresh</button>
+        </div>
+        <div id="diag-auctions-summary" class="diag-summary" style="display:none"></div>
+        <div id="diag-auctions"><div class="diag-loading">Loading…</div></div>
+      </div>
+
+      <!-- Recent Payments -->
+      <div class="diag-card">
+        <div class="diag-title">
+          Recent Payments
+          <button class="diag-refresh" onclick="loadPayments()">Refresh</button>
+        </div>
+        <div id="diag-payments"><div class="diag-loading">Loading…</div></div>
+      </div>
+
+      <!-- Notifications Health -->
+      <div class="diag-card">
+        <div class="diag-title">
+          Notifications Health
+          <button class="diag-refresh" onclick="loadNotifications()">Refresh</button>
+        </div>
+        <div id="diag-notifications"><div class="diag-loading">Loading…</div></div>
+      </div>
+    </div>
+
+    <!-- ── Future Tools placeholder ────────────────────────── -->
+    <div class="section-label">Coming Soon</div>
+    <div class="card-grid">
+      <div class="card placeholder">
+        <div class="card-title">Seller Capability Management</div>
+        <div class="card-sub">Assign per-seller capabilities (reserve pricing, shipping, etc.). Currently uses static seller_type only.</div>
+        <span class="placeholder-tag">Not implemented</span>
+      </div>
+      <div class="card placeholder">
+        <div class="card-title">Payouts</div>
+        <div class="card-sub">Review seller payout schedules and history.</div>
+        <span class="placeholder-tag">API exists, UI pending</span>
+      </div>
+      <div class="card placeholder">
+        <div class="card-title">Walkthrough Video Review</div>
+        <div class="card-sub">Approve, reject, and feature seller walkthrough videos.</div>
+        <span class="placeholder-tag">API exists, UI pending</span>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    /* ── Auth + identity ─────────────────────────────────────── */
+    var token = localStorage.getItem('token');
+    if (!token) {
+      window.location.href = '/login.html?next=/admin/index.html';
+    }
+
+    function logout() {
+      localStorage.removeItem('token');
+      window.location.href = '/login.html';
+    }
+
+    // Decode JWT for fast initial role/id render (signature not verified — display only).
+    // Email is fetched separately from /api/auth/me since the JWT only carries id + role.
+    try {
+      var payload = JSON.parse(atob(token.split('.')[1]));
+      document.getElementById('identity-role').textContent = payload.role || '(no role)';
+      document.getElementById('identity-uid').textContent  = payload.id   || '(no id)';
+      if (payload.role !== 'admin') {
+        // Non-admin reached this page (e.g., via bookmark). Send them home.
+        window.location.href = '/login.html';
+      }
+    } catch (e) {
+      // Malformed token — force re-login
+      window.location.href = '/login.html';
+    }
+
+    // Fetch fresh email from server (JWT doesn't carry it)
+    fetch('/api/auth/me', { headers: { 'Authorization': 'Bearer ' + token } })
+      .then(function (r) { return r.json(); })
+      .then(function (body) {
+        if (body && body.success && body.data) {
+          document.getElementById('identity-email').textContent = body.data.email || '(no email on record)';
+        } else {
+          document.getElementById('identity-email').textContent = '(could not load)';
+        }
+      })
+      .catch(function () {
+        document.getElementById('identity-email').textContent = '(network error)';
+      });
+
+    /* ── Diagnostic fetches ──────────────────────────────────── */
+    function authedJson(url) {
+      return fetch(url, { headers: { 'Authorization': 'Bearer ' + token } })
+        .then(function (r) {
+          if (r.status === 401) { window.location.href = '/login.html'; return null; }
+          if (r.status === 403) { throw new Error('Forbidden — admin role required'); }
+          return r.json();
+        });
+    }
+
+    function fmtDate(iso) {
+      if (!iso) return '—';
+      try {
+        return new Date(iso).toLocaleString('en-US', {
+          month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit',
+        });
+      } catch (e) { return iso; }
+    }
+
+    function fmtCents(c) {
+      if (c == null) return '—';
+      return '$' + (c / 100).toFixed(2);
+    }
+
+    function renderError(elId, err) {
+      document.getElementById(elId).innerHTML =
+        '<div class="diag-error">' + (err && err.message ? err.message : 'Fetch failed') + '</div>';
+    }
+
+    // Recent Auctions
+    function loadAuctions() {
+      var el = document.getElementById('diag-auctions');
+      var sum = document.getElementById('diag-auctions-summary');
+      el.innerHTML = '<div class="diag-loading">Loading…</div>';
+      sum.style.display = 'none';
+      authedJson('/api/admin/diagnostics/auctions')
+        .then(function (body) {
+          if (!body || !body.success) throw new Error('Endpoint returned no data');
+          var d = body.data;
+          // State summary
+          if (d.auction_states && d.auction_states.length) {
+            sum.textContent = d.auction_states.map(function (s) {
+              return s.state + ': ' + s.count;
+            }).join('  ·  ') + '  ·  open lots: ' + (d.open_lots || 0);
+            sum.style.display = '';
+          }
+          // Recent table
+          var rows = d.recent_auctions || [];
+          if (!rows.length) {
+            el.innerHTML = '<div class="diag-empty">No auctions.</div>';
+            return;
+          }
+          var html = '<table class="diag-table"><thead><tr>' +
+            '<th>Title</th><th>State</th><th>Lots</th><th>Created</th></tr></thead><tbody>';
+          rows.forEach(function (r) {
+            html += '<tr><td>' + (r.title || '(untitled)') +
+              '</td><td>' + r.state +
+              '</td><td>' + (r.lot_count != null ? r.lot_count : '—') +
+              '</td><td>' + fmtDate(r.created_at) + '</td></tr>';
+          });
+          html += '</tbody></table>';
+          el.innerHTML = html;
+        })
+        .catch(function (err) { renderError('diag-auctions', err); });
+    }
+
+    // Recent Payments
+    function loadPayments() {
+      var el = document.getElementById('diag-payments');
+      el.innerHTML = '<div class="diag-loading">Loading…</div>';
+      authedJson('/api/admin/diagnostics/payments')
+        .then(function (body) {
+          if (!body || !body.success) throw new Error('Endpoint returned no data');
+          var d = body.data;
+          var rows = (d && d.recent_payments) || (Array.isArray(d) ? d : []);
+          if (!rows.length) {
+            el.innerHTML = '<div class="diag-empty">No recent payments.</div>';
+            return;
+          }
+          var html = '<table class="diag-table"><thead><tr>' +
+            '<th>Amount</th><th>Status</th><th>Created</th></tr></thead><tbody>';
+          rows.slice(0, 10).forEach(function (r) {
+            html += '<tr><td>' + fmtCents(r.amount_cents) +
+              '</td><td>' + (r.status || '—') +
+              '</td><td>' + fmtDate(r.created_at) + '</td></tr>';
+          });
+          html += '</tbody></table>';
+          el.innerHTML = html;
+        })
+        .catch(function (err) { renderError('diag-payments', err); });
+    }
+
+    // Notifications Health
+    function loadNotifications() {
+      var el = document.getElementById('diag-notifications');
+      el.innerHTML = '<div class="diag-loading">Loading…</div>';
+      authedJson('/api/admin/diagnostics/notifications')
+        .then(function (body) {
+          if (!body || !body.success) throw new Error('Endpoint returned no data');
+          var d = body.data;
+          var statusRows = (d && d.by_status) || [];
+          var queueDepth = (d && d.queue_depth != null) ? d.queue_depth : '—';
+          var html = '<div class="diag-summary">Queue depth: ' + queueDepth + '</div>';
+          if (statusRows.length) {
+            html += '<table class="diag-table"><thead><tr><th>Status</th><th>Count</th></tr></thead><tbody>';
+            statusRows.forEach(function (r) {
+              html += '<tr><td>' + r.status + '</td><td>' + r.count + '</td></tr>';
+            });
+            html += '</tbody></table>';
+          } else {
+            html += '<div class="diag-empty">No status data.</div>';
+          }
+          el.innerHTML = html;
+        })
+        .catch(function (err) { renderError('diag-notifications', err); });
+    }
+
+    // Initial loads
+    loadAuctions();
+    loadPayments();
+    loadNotifications();
+  </script>
+</body>
+</html>
