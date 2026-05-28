@@ -529,9 +529,12 @@ async function loadDashboard() {
   container.innerHTML = `<div style="max-width:800px;margin:0 auto;padding:2rem;text-align:center;color:#9ca3af;font-size:0.9rem;">Loading your auctions…</div>`;
 
   try {
-    const [profileData, dashData] = await Promise.all([
+    // OPS-5: also fetch walkthrough videos so we can show review status
+    // (pending_review / approved / rejected with reason) per auction card.
+    const [profileData, dashData, videoData] = await Promise.all([
       api('/api/sellers/me'),
       api('/api/sellers/me/dashboard'),
+      api('/api/sellers/me/walkthrough-videos').catch(() => ({ success: false, data: [] })),
     ]);
 
     if (!profileData.success) {
@@ -542,6 +545,14 @@ async function loadDashboard() {
     sellerProfileId = profileData.data.id;
 
     const auctions = dashData.data?.auctions || [];
+    // Group videos by auction_id for fast lookup during render
+    window.__sellerVideosByAuction = {};
+    if (videoData && videoData.success && Array.isArray(videoData.data)) {
+      videoData.data.forEach(v => {
+        if (!window.__sellerVideosByAuction[v.auction_id]) window.__sellerVideosByAuction[v.auction_id] = [];
+        window.__sellerVideosByAuction[v.auction_id].push(v);
+      });
+    }
 
     // Summary
     const counts = { draft: 0, submitted: 0, under_review: 0, published: 0, closed: 0 };
@@ -576,6 +587,44 @@ async function loadDashboard() {
 }
 
 // ── Render auction card ───────────────────────────────────────────────────────
+// OPS-5: render a video status callout for a seller's auction. Always shows
+// an upload/replace CTA when the auction is editable (draft); shows read-only
+// status after submission. Status colors track admin review lifecycle:
+//   pending_review → yellow ("Awaiting Advantage review")
+//   approved        → green  ("Approved" + visibility note)
+//   rejected        → red    ("Rejected" + reason if provided)
+function buildVideoCallout(auction, video, isEditable) {
+  const uploadHref = '/seller-create.html?edit=' + auction.id;
+  if (!video) {
+    // No video uploaded yet — show CTA on every editable auction (no-video
+    // state is silent on non-editable to avoid clutter)
+    if (!isEditable) return '';
+    return `
+      <div style="margin:0.75rem 1.25rem 0;padding:0.65rem 0.9rem;background:#f9fafb;border:1px solid #e5e7eb;border-radius:6px;font-size:0.82rem;color:#374151;line-height:1.5">
+        <strong>Walkthrough video</strong> · No video uploaded yet.
+        <a href="${uploadHref}" style="color:#2563eb;margin-left:0.4rem">Upload walkthrough video</a>
+      </div>`;
+  }
+  let color = '#374151', bg = '#f9fafb', border = '#e5e7eb', label = video.review_status, extra = '';
+  if (video.review_status === 'pending_review') {
+    color = '#92400e'; bg = '#fef9c3'; border = '#fde047';
+    label = 'Awaiting Advantage review';
+  } else if (video.review_status === 'approved') {
+    color = '#166534'; bg = '#dcfce7'; border = '#86efac';
+    label = 'Approved';
+    extra = video.visible_public ? ' · Visible to buyers' : ' · Awaiting visibility toggle';
+  } else if (video.review_status === 'rejected') {
+    color = '#991b1b'; bg = '#fee2e2'; border = '#fca5a5';
+    label = 'Rejected';
+    if (video.rejection_reason) extra = ' · ' + escHtml(video.rejection_reason);
+  }
+  const replaceLink = isEditable ? `<a href="${uploadHref}" style="color:#2563eb;margin-left:0.5rem">Replace video</a>` : '';
+  return `
+    <div style="margin:0.75rem 1.25rem 0;padding:0.65rem 0.9rem;background:${bg};border:1px solid ${border};border-radius:6px;font-size:0.82rem;color:${color};line-height:1.5">
+      <strong>Walkthrough video</strong> · ${label}${extra}${replaceLink}
+    </div>`;
+}
+
 function renderAuctionCard(container, auction) {
   const card = document.createElement('div');
   card.className = 'auction-card';
@@ -587,11 +636,16 @@ function renderAuctionCard(container, auction) {
 
   const statusCallout = isSubmitted ? `
     <div style="margin:0.75rem 1.25rem 0;padding:0.65rem 0.9rem;background:#eff6ff;border:1px solid #bfdbfe;border-radius:6px;font-size:0.82rem;color:#1e40af;line-height:1.5">
-      <strong>Awaiting review by Advantage Auction.</strong>
-      Your auction has been submitted and is locked for editing.
-      We typically review within 1–2 business days and will contact you when it's approved or if we have questions.
-      Email us at <a href="mailto:advantageauction.bid@gmail.com" style="color:#1d4ed8">advantageauction.bid@gmail.com</a>.
+      Awaiting review by Advantage Auction. Your auction has been submitted and is locked for editing. We typically review within 1-2 business days and will contact you when it's approved or if we have questions. If your auction has not been approved after 2 business days email us at <a href="mailto:advantageauction.bid@gmail.com" style="color:#1d4ed8">advantageauction.bid@gmail.com</a> from the email account you registered with.
     </div>` : '';
+
+  // OPS-5: walkthrough video status callout. Reads from the per-auction
+  // grouping pre-built in loadDashboard. When the auction is editable (draft),
+  // we always show the upload/replace CTA so sellers can fix or swap videos
+  // pre-submission. After submission the data is shown read-only.
+  const videos       = (window.__sellerVideosByAuction && window.__sellerVideosByAuction[auction.id]) || [];
+  const latestVideo  = videos[0];  // ordered DESC by created_at server-side
+  const videoCallout = buildVideoCallout(auction, latestVideo, isEditable);
 
   card.innerHTML = `
     <div class="auction-header">
@@ -611,6 +665,7 @@ function renderAuctionCard(container, auction) {
       </div>
     </div>
     ${statusCallout}
+    ${videoCallout}
     <div class="lots-panel" id="lots-${auction.id}">
       <div class="lots-panel-header">
         <span class="label">Lots</span>

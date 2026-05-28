@@ -213,4 +213,31 @@ router.delete('/:sellerId/follow', auth, async (req, res, next) => {
   }
 });
 
+// GET /api/sellers/me/walkthrough-videos
+// OPS-5: returns the walkthrough videos for every auction this seller owns,
+// surfacing review_status + rejection_reason so the seller dashboard can show
+// review progress. Videos default to pending_review on upload (per migration
+// 038), require admin approval, and visibility flags are off by default until
+// admin sets them. This endpoint is the seller's window into that workflow.
+router.get('/me/walkthrough-videos', auth, async (req, res, next) => {
+  try {
+    const { rows } = await db.query(
+      `SELECT v.id, v.auction_id, v.title, v.caption, v.review_status,
+              v.approved_at, v.rejection_reason,
+              v.visible_public, v.featured_for_marketing,
+              v.created_at, v.updated_at,
+              a.title AS auction_title, a.state AS auction_state
+         FROM auction_walkthrough_videos v
+         JOIN auctions a ON a.id = v.auction_id
+         JOIN seller_profiles sp ON sp.id = a.seller_id
+        WHERE sp.user_id = $1
+        ORDER BY v.created_at DESC`,
+      [req.user.id]
+    );
+    return res.json({ success: true, data: rows });
+  } catch (err) {
+    next(err);
+  }
+});
+
 module.exports = router;
