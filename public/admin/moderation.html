@@ -915,6 +915,18 @@
         viewLink.textContent = 'View';
         actions.appendChild(viewLink);
 
+        // Admin lot moderation: opens the lot studio for this auction.
+        // Admin has full bypass through GOV-1 / GOV-6 / GOV-3's role check,
+        // so the existing studio UI works for all admin lot operations
+        // (add lot, edit, take photo, withdraw, AI generate, etc.).
+        const studioLink = document.createElement('a');
+        studioLink.className = 'btn btn-sm';
+        studioLink.href = `/dashboard/lots.html?auctionId=${a.id}`;
+        studioLink.target = '_blank';
+        studioLink.rel = 'noopener';
+        studioLink.textContent = 'Open Lot Studio';
+        actions.appendChild(studioLink);
+
         card.appendChild(actions);
         list.appendChild(card);
       });
