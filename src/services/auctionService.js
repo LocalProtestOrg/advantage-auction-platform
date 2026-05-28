@@ -190,11 +190,15 @@ async function publishAuction(auctionId, actorId = null) {
       throw new Error('Cannot publish a closed auction');
     }
 
+    // PUB-5: publish no longer overwrites seller-provided start_time/end_time.
+    // The seller chose these in seller-create.html and they are authoritative
+    // through the publish transition. published → active and active → closed
+    // are now driven by the state transition scheduler (PUB-7) which compares
+    // start_time / end_time to NOW(). Auctions submitted without times stay
+    // in 'published' until an admin edits them.
     const result = await client.query(
       `UPDATE auctions
        SET state = 'published',
-           start_time = NOW(),
-           end_time = NOW() + interval '1 hour',
            updated_at = NOW()
        WHERE id = $1
        RETURNING *`,
