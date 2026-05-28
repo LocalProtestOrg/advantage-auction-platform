@@ -12,10 +12,11 @@
  */
 
 require('dotenv').config();
-const Sentry        = require('@sentry/node');
-const db            = require('../db/index');
-const { sendEmail } = require('../services/emailService');
-const { sendSMS }   = require('../services/smsService');
+const Sentry         = require('@sentry/node');
+const db             = require('../db/index');
+const { sendEmail }  = require('../services/emailService');
+const { sendSMS }    = require('../services/smsService');
+const auctionService = require('../services/auctionService');
 
 if (process.env.SENTRY_DSN) {
   Sentry.init({ dsn: process.env.SENTRY_DSN, environment: process.env.NODE_ENV || 'development' });
@@ -510,3 +511,61 @@ setInterval(enqueueFinalSeconds, FINAL_SECONDS_INTERVAL_MS);
 enqueueEndingSoon();
 enqueueCloseToWinning();
 enqueueFinalSeconds();
+
+// ── AUCTION_STATE scheduler (PUB-7) ────────────────────────────────────────────
+// Time-driven state transitions:
+//   published → active    when start_time has arrived
+//   active    → closed    when end_time has arrived (delegates to
+//                         auctionService.closeAuction for lot-by-lot winner
+//                         resolution inside a FOR UPDATE transaction)
+//
+// NULL start_time or end_time means the auction has no scheduled transition
+// from this scheduler's perspective — it stays in its current state until
+// either an admin edits the times or moves it manually. This is intentional:
+// the seller is the source of truth for scheduling per the governance spec.
+async function runAuctionStateTransitions() {
+  try {
+    // 1. published → active
+    const promoted = await db.query(`
+      UPDATE auctions
+      SET state = 'active', updated_at = NOW()
+      WHERE state = 'published'
+        AND start_time IS NOT NULL
+        AND start_time <= NOW()
+      RETURNING id, title
+    `);
+    if (promoted.rowCount > 0) {
+      console.log(`[state-transition] promoted ${promoted.rowCount} auction(s) published → active`);
+    }
+
+    // 2. active → closed (delegate to closeAuction for winner resolution).
+    //    closeAuction throws 'Auction is already closed' on retry — catch and
+    //    move on so a single transient failure does not block the rest of
+    //    this tick's work.
+    const due = await db.query(`
+      SELECT id, title FROM auctions
+      WHERE state = 'active'
+        AND end_time IS NOT NULL
+        AND end_time <= NOW()
+    `);
+    for (const row of due.rows) {
+      try {
+        await auctionService.closeAuction(row.id, null /* system actor */);
+        console.log(`[state-transition] closed auction ${row.id} (${row.title})`);
+      } catch (err) {
+        if (!/already closed/i.test(err.message)) {
+          console.error(`[state-transition] close failed for ${row.id}: ${err.message}`);
+          if (process.env.SENTRY_DSN) Sentry.captureException(err);
+        }
+      }
+    }
+  } catch (err) {
+    console.error('[state-transition] scheduler error:', err.message);
+    if (process.env.SENTRY_DSN) Sentry.captureException(err);
+  }
+}
+
+const AUCTION_STATE_INTERVAL_MS = 30000;
+console.log(`[state-transition] scheduler started — scanning every ${AUCTION_STATE_INTERVAL_MS / 1000}s`);
+setInterval(runAuctionStateTransitions, AUCTION_STATE_INTERVAL_MS);
+runAuctionStateTransitions();
