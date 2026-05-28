@@ -428,9 +428,15 @@
             return;
           }
           var html = '<table class="diag-table"><thead><tr>' +
-            '<th>Title</th><th>State</th><th>Lots</th><th>Created</th></tr></thead><tbody>';
+            '<th>Title</th><th>Seller</th><th>State</th><th>Lots</th><th>Created</th></tr></thead><tbody>';
           rows.forEach(function (r) {
+            var sellerCell = '—';
+            if (r.seller_email) {
+              sellerCell = '<a href="mailto:' + r.seller_email + '" style="color:#2563eb">' + r.seller_email + '</a>';
+              if (r.seller_type) sellerCell += '<br><span style="font-size:0.7rem;color:#6b7280">' + r.seller_type + '</span>';
+            }
             html += '<tr><td>' + (r.title || '(untitled)') +
+              '</td><td>' + sellerCell +
               '</td><td>' + r.state +
               '</td><td>' + (r.lot_count != null ? r.lot_count : '—') +
               '</td><td>' + fmtDate(r.created_at) + '</td></tr>';

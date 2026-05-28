@@ -172,10 +172,14 @@ router.get('/diagnostics/auctions', auth, role(['admin']), async (req, res, next
       db.query(`SELECT COUNT(*)::int AS count FROM lots WHERE state = 'open'`),
       db.query(`
         SELECT a.id, a.title, a.state, a.created_at,
-               COUNT(l.id)::int AS lot_count
+               COUNT(l.id)::int AS lot_count,
+               u.email           AS seller_email,
+               sp.seller_type    AS seller_type
           FROM auctions a
-          LEFT JOIN lots l ON l.auction_id = a.id
-         GROUP BY a.id
+          LEFT JOIN seller_profiles sp ON sp.id = a.seller_id
+          LEFT JOIN users u            ON u.id  = sp.user_id
+          LEFT JOIN lots l             ON l.auction_id = a.id
+         GROUP BY a.id, u.email, sp.seller_type
          ORDER BY a.created_at DESC
          LIMIT 15
       `),

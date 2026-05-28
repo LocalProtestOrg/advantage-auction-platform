@@ -866,6 +866,27 @@
         const info = el('div');
         info.appendChild(el('div', 'card-title', a.title || '(Untitled)'));
         info.appendChild(el('div', 'card-meta', fmtDate(a.created_at) + ' · ' + a.lot_count + ' lot' + (a.lot_count === 1 ? '' : 's')));
+        // Seller contact line — surfaces who owns the auction for moderation
+        // outreach. Email is a mailto: link for one-tap contact. seller_type
+        // and seller_email come from the LEFT JOIN added to the diagnostics
+        // endpoint; both fall back gracefully if the auction has no seller_id
+        // (e.g., ON DELETE SET NULL aftermath).
+        if (a.seller_email || a.seller_type) {
+          const sellerLine = el('div', 'card-meta');
+          if (a.seller_email) {
+            const mail = document.createElement('a');
+            mail.href = 'mailto:' + a.seller_email;
+            mail.textContent = a.seller_email;
+            mail.style.color = '#2563eb';
+            sellerLine.appendChild(mail);
+          } else {
+            sellerLine.appendChild(document.createTextNode('(no seller email)'));
+          }
+          if (a.seller_type) {
+            sellerLine.appendChild(document.createTextNode(' · ' + a.seller_type));
+          }
+          info.appendChild(sellerLine);
+        }
         header.appendChild(info);
         header.appendChild(auctionStateBadge(a.state));
         card.appendChild(header);
