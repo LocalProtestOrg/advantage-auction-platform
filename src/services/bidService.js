@@ -88,11 +88,16 @@ async function resolveProxyBid(client, lot, bidderUserId, maxAmountCents, increm
   }
 
   // Bid history row for the winner at the visible price (is_proxy = true).
+  // auction_id is denormalized for query convenience — schema defines it on
+  // the bids table (db/migrations/001:156) but createBid was historically
+  // inserting NULL, breaking any analytics or filter that joined via
+  // bids.auction_id. lot.auction_id is available because resolveProxyBid
+  // receives the full lot row loaded via SELECT * FOR UPDATE.
   const insertResult = await client.query(
-    `INSERT INTO bids (lot_id, bidder_user_id, amount_cents, is_proxy)
-     VALUES ($1, $2, $3, true)
+    `INSERT INTO bids (lot_id, auction_id, bidder_user_id, amount_cents, is_proxy)
+     VALUES ($1, $2, $3, $4, true)
      RETURNING *`,
-    [lot.id, winner.bidder_user_id, visibleCents]
+    [lot.id, lot.auction_id, winner.bidder_user_id, visibleCents]
   );
 
   // Update lot: visible price + live winner + bid counter.
