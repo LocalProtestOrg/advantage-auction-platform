@@ -498,10 +498,42 @@
     <div class="tab-panel" id="tab-auctions">
       <div class="section-label">Auction States</div>
       <div class="summary-row" id="auction-chips"></div>
-      <div class="section-label">Recent Auctions</div>
+
+      <!-- OPS-1: filter bar — drives GET /api/admin/auctions -->
+      <div class="section-label">Filters</div>
+      <div style="display:flex;flex-wrap:wrap;gap:0.5rem 0.75rem;align-items:center;margin-bottom:1rem">
+        <input type="text" id="auctions-filter-search" placeholder="Search title or subtitle&hellip;" style="flex:1;min-width:200px;padding:0.45rem 0.7rem;font-size:0.85rem;border:1px solid #d1d5db;border-radius:6px" />
+        <input type="text" id="auctions-filter-seller" placeholder="Seller email" style="flex:1;min-width:180px;padding:0.45rem 0.7rem;font-size:0.85rem;border:1px solid #d1d5db;border-radius:6px" />
+        <button class="btn btn-sm" onclick="applyAuctionFilters()">Apply</button>
+        <button class="btn btn-sm" onclick="clearAuctionFilters()">Clear</button>
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:0.35rem;margin-bottom:1rem" id="auctions-filter-chips">
+        <button class="auctions-chip" data-state="">All</button>
+        <button class="auctions-chip" data-state="draft">Draft</button>
+        <button class="auctions-chip" data-state="submitted">Submitted</button>
+        <button class="auctions-chip" data-state="published">Published</button>
+        <button class="auctions-chip" data-state="active">Active</button>
+        <button class="auctions-chip" data-state="closed">Closed</button>
+        <span style="margin-left:0.5rem;border-left:1px solid #e5e7eb;padding-left:0.75rem;display:flex;gap:0.35rem">
+          <button class="auctions-chip" data-toggle="submitted_only">Needs Review</button>
+          <button class="auctions-chip" data-toggle="recently_updated">Recently Updated</button>
+        </span>
+      </div>
+
+      <div class="section-label">Auctions</div>
       <div class="status-msg" id="auctions-status"></div>
       <div class="card-list" id="auctions-list"></div>
     </div>
+
+    <style>
+      .auctions-chip {
+        font-size: 0.72rem; font-weight: 600; padding: 0.3rem 0.7rem;
+        background: #fff; border: 1px solid #d1d5db; border-radius: 99px;
+        cursor: pointer; color: #374151; transition: background 0.12s;
+      }
+      .auctions-chip:hover { background: #f3f4f6; }
+      .auctions-chip.active { background: #111; color: #fff; border-color: #111; }
+    </style>
 
     <!-- ── Sellers tab ────────────────────────────────────── -->
     <div class="tab-panel" id="tab-sellers">
@@ -836,11 +868,21 @@
   // ── Auctions tab ──────────────────────────────────────────────────────────────
   function loadAuctions() {
     showMsg('auctions-status', 'Loading…');
-    api('GET', '/api/admin/diagnostics/auctions').then(data => {
-      showMsg('auctions-status', '');
-      const d = data.data;
 
-      // State chips
+    // OPS-1: state summary still comes from the diagnostics endpoint
+    // (cheap aggregate), but the auction list now reads from the new
+    // /api/admin/auctions endpoint which accepts filters + pagination.
+    // Both fetches run in parallel.
+    const filters = currentAuctionFilters();
+    const qs = buildAuctionFiltersQS(filters);
+    Promise.all([
+      api('GET', '/api/admin/diagnostics/auctions'),
+      api('GET', '/api/admin/auctions' + (qs ? '?' + qs : '')),
+    ]).then(([diag, filtered]) => {
+      showMsg('auctions-status', '');
+      const d = diag.data;
+
+      // State chips (aggregate summary, unfiltered)
       const chips = document.getElementById('auction-chips');
       chips.innerHTML = '';
       const openChip = el('div', 'stat-chip');
@@ -854,11 +896,14 @@
         chips.appendChild(chip);
       });
 
-      // Auction cards
+      // Reflect filter chip active states
+      syncAuctionFilterChips(filters);
+
+      // Auction cards (filtered list)
       const list = document.getElementById('auctions-list');
       list.innerHTML = '';
-      const auctions = d.recent_auctions || [];
-      if (!auctions.length) { list.appendChild(el('div', 'empty', 'No auctions found.')); return; }
+      const auctions = filtered.data || [];
+      if (!auctions.length) { list.appendChild(el('div', 'empty', 'No auctions match the current filters.')); return; }
 
       auctions.forEach(a => {
         const card = el('div', 'card');
@@ -951,6 +996,82 @@
       });
     }).catch(err => showMsg('auctions-status', err.message, true));
   }
+
+  // OPS-1: filter state lives in window.location.hash for persistence across
+  // tab switches and page reloads. Format: #auctions=state:submitted|search:foo
+  function currentAuctionFilters() {
+    const f = { state: '', search: '', seller_email: '', submitted_only: false, recently_updated: false };
+    const hash = window.location.hash || '';
+    const m = hash.match(/auctions=([^&]+)/);
+    if (!m) return f;
+    decodeURIComponent(m[1]).split('|').forEach(part => {
+      const [k, v] = part.split(':');
+      if (k && v != null) {
+        if (k === 'submitted_only' || k === 'recently_updated') f[k] = (v === 'true');
+        else if (f.hasOwnProperty(k)) f[k] = v;
+      }
+    });
+    return f;
+  }
+  function persistAuctionFilters(f) {
+    const parts = [];
+    if (f.state)              parts.push('state:' + encodeURIComponent(f.state));
+    if (f.search)             parts.push('search:' + encodeURIComponent(f.search));
+    if (f.seller_email)       parts.push('seller_email:' + encodeURIComponent(f.seller_email));
+    if (f.submitted_only)     parts.push('submitted_only:true');
+    if (f.recently_updated)   parts.push('recently_updated:true');
+    const base = window.location.hash.replace(/auctions=[^&]+/, '').replace(/^#&?/, '');
+    const newHash = (parts.length ? 'auctions=' + parts.join('|') : '') + (base ? '&' + base : '');
+    history.replaceState(null, '', '#' + newHash);
+  }
+  function buildAuctionFiltersQS(f) {
+    const p = new URLSearchParams();
+    if (f.state)              p.set('state', f.state);
+    if (f.search)             p.set('search', f.search);
+    if (f.seller_email)       p.set('seller_email', f.seller_email);
+    if (f.submitted_only)     p.set('submitted_only', 'true');
+    if (f.recently_updated)   p.set('recently_updated', 'true');
+    return p.toString();
+  }
+  function syncAuctionFilterChips(f) {
+    document.querySelectorAll('.auctions-chip[data-state]').forEach(b => {
+      b.classList.toggle('active', b.dataset.state === f.state);
+    });
+    document.querySelectorAll('.auctions-chip[data-toggle]').forEach(b => {
+      b.classList.toggle('active', !!f[b.dataset.toggle]);
+    });
+    const s = document.getElementById('auctions-filter-search');
+    if (s && s.value !== f.search)             s.value = f.search;
+    const e = document.getElementById('auctions-filter-seller');
+    if (e && e.value !== f.seller_email)       e.value = f.seller_email;
+  }
+  function applyAuctionFilters() {
+    const f = currentAuctionFilters();
+    f.search       = document.getElementById('auctions-filter-search').value.trim();
+    f.seller_email = document.getElementById('auctions-filter-seller').value.trim();
+    persistAuctionFilters(f);
+    loadedTabs.delete('auctions');
+    loadAuctions();
+  }
+  function clearAuctionFilters() {
+    history.replaceState(null, '', '#');
+    document.getElementById('auctions-filter-search').value = '';
+    document.getElementById('auctions-filter-seller').value = '';
+    loadedTabs.delete('auctions');
+    loadAuctions();
+  }
+  // Wire chip clicks once on DOM ready (idempotent — re-binding is fine).
+  document.addEventListener('click', e => {
+    const b = e.target.closest('.auctions-chip');
+    if (!b) return;
+    e.preventDefault();
+    const f = currentAuctionFilters();
+    if (b.dataset.state != null) f.state = b.dataset.state;
+    if (b.dataset.toggle) f[b.dataset.toggle] = !f[b.dataset.toggle];
+    persistAuctionFilters(f);
+    loadedTabs.delete('auctions');
+    loadAuctions();
+  });
 
   function doPublishAuction(auctionId) {
     api('PATCH', `/api/admin/auctions/${auctionId}/publish`).then(data => {

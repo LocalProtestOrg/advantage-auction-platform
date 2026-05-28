@@ -11,6 +11,73 @@ const { sendFinalSellerReport } = require('../services/pdfGenerationService');
 const { enqueueNewAuctionNotifications } = require('../services/followerNotificationService');
 const db = require('../db');
 
+// GET /api/admin/auctions
+// OPS-1: server-side auction filter + search for the moderation UI. The
+// diagnostics endpoint is hard-capped at 15 rows; this endpoint accepts
+// state, search, seller_email, recently_updated, and pagination so the
+// operator can locate any auction without scrolling all 34+ records.
+//   state             — comma-separated list (e.g., 'submitted,active')
+//   search            — case-insensitive title/subtitle ILIKE
+//   seller_email      — exact match (case-insensitive)
+//   submitted_only    — boolean; equivalent to state=submitted
+//   recently_updated  — boolean; auctions updated within last 7 days
+//   limit             — default 50, max 200
+//   offset            — default 0
+router.get('/auctions', auth, role(['admin']), async (req, res, next) => {
+  try {
+    const where  = [];
+    const params = [];
+
+    if (req.query.submitted_only === 'true') {
+      params.push('submitted');
+      where.push(`a.state = $${params.length}`);
+    } else if (req.query.state) {
+      const states = String(req.query.state).split(',').map(s => s.trim()).filter(Boolean);
+      if (states.length) {
+        params.push(states);
+        where.push(`a.state = ANY($${params.length}::text[])`);
+      }
+    }
+
+    if (req.query.search) {
+      params.push('%' + String(req.query.search) + '%');
+      where.push(`(a.title ILIKE $${params.length} OR COALESCE(a.subtitle, '') ILIKE $${params.length})`);
+    }
+
+    if (req.query.seller_email) {
+      params.push(String(req.query.seller_email).trim());
+      where.push(`LOWER(u.email) = LOWER($${params.length})`);
+    }
+
+    if (req.query.recently_updated === 'true') {
+      where.push(`a.updated_at > NOW() - INTERVAL '7 days'`);
+    }
+
+    const limit  = Math.min(parseInt(req.query.limit, 10) || 50, 200);
+    const offset = Math.max(parseInt(req.query.offset, 10) || 0, 0);
+    params.push(limit, offset);
+
+    const sql = `
+      SELECT a.id, a.title, a.state, a.created_at, a.updated_at,
+             COUNT(l.id)::int AS lot_count,
+             u.email           AS seller_email,
+             sp.seller_type    AS seller_type
+        FROM auctions a
+        LEFT JOIN seller_profiles sp ON sp.id = a.seller_id
+        LEFT JOIN users u            ON u.id  = sp.user_id
+        LEFT JOIN lots l             ON l.auction_id = a.id
+       ${where.length ? 'WHERE ' + where.join(' AND ') : ''}
+       GROUP BY a.id, u.email, sp.seller_type
+       ORDER BY a.created_at DESC
+       LIMIT $${params.length - 1} OFFSET $${params.length}
+    `;
+    const result = await db.query(sql, params);
+    return res.json({ success: true, data: result.rows, count: result.rows.length, limit, offset });
+  } catch (err) {
+    next(err);
+  }
+});
+
 // GET /api/admin/auctions/:auctionId
 // OP-A: admin full-auction-detail fetch. The seller-side getAuctionById in
 // auctionService joins on user_id which 0-rows for admin (no seller_profile),
