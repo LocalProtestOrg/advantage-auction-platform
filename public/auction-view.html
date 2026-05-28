@@ -670,7 +670,10 @@
 
     const titleEl = document.createElement('div');
     titleEl.className   = 'card-title';
-    titleEl.textContent = lot.title || 'Untitled';
+    // OP-D: prefix card title with "Lot #N · " when lot_number is set.
+    // Helps buyers reference lots by sequence in conversations and search.
+    const numPrefix = (lot.lot_number != null) ? ('Lot #' + lot.lot_number + ' · ') : '';
+    titleEl.textContent = numPrefix + (lot.title || 'Untitled');
 
     if (lot.category) {
       const catEl = document.createElement('div');

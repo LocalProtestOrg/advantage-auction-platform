@@ -896,8 +896,14 @@
   function renderLot(lot) {
     currentAuctionId = lot.auction_id;
     document.title = lot.title + ' — Advantage Auction';
-    document.getElementById('lot-title').textContent       = lot.title       || '';
-    document.getElementById('lot-category').textContent    = lot.size_category || '';
+    // OP-D: prefix title with "Lot #N · " when lot_number is set. Provides
+    // public-side orientation matching the seller-side dashboard format.
+    const numPrefix = (lot.lot_number != null) ? ('Lot #' + lot.lot_number + ' · ') : '';
+    document.getElementById('lot-title').textContent       = numPrefix + (lot.title || '');
+    // Prefer the real lot category (Furniture, Fine Art, etc.) over the
+    // size_category code (A/B/C) which is operationally meaningful but
+    // unhelpful to buyers. Fall back to size_category if no category set.
+    document.getElementById('lot-category').textContent    = lot.category || lot.size_category || '';
     document.getElementById('lot-description').textContent = lot.description || '';
     setCurrentBid(lot.current_bid_cents || 0);
 
@@ -912,11 +918,19 @@
     let dimsStr = null;
     if (lot.dimensions) {
       const d = typeof lot.dimensions === 'string' ? JSON.parse(lot.dimensions) : lot.dimensions;
-      const parts = [];
-      if (d.height) parts.push(d.height + '"H');
-      if (d.width)  parts.push(d.width  + '"W');
-      if (d.depth)  parts.push(d.depth  + '"D');
-      if (parts.length) dimsStr = parts.join(' × ');
+      // UX-4 introduced { text: "..." } as the seller-input shape. Prefer that
+      // when present; fall back to the older { height, width, depth } structured
+      // format for historical rows so display works regardless of which schema
+      // populated the JSONB column.
+      if (d && typeof d.text === 'string' && d.text.trim()) {
+        dimsStr = d.text.trim();
+      } else if (d) {
+        const parts = [];
+        if (d.height) parts.push(d.height + '"H');
+        if (d.width)  parts.push(d.width  + '"W');
+        if (d.depth)  parts.push(d.depth  + '"D');
+        if (parts.length) dimsStr = parts.join(' × ');
+      }
     }
 
     const container = document.getElementById('item-details');
