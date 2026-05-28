@@ -164,15 +164,46 @@ router.patch('/auctions/:auctionId', auth, role(['admin']), idempotency, async (
 });
 
 // POST /api/admin/sellers/:sellerId/capabilities
-router.post('/sellers/:sellerId/capabilities', auth, role(['admin']), idempotency, (req, res) => {
-  res.status(501).json({
-    message: 'Not implemented',
-    requestShape: {
-      shipping_enabled: 'boolean?',
-      reserve_enabled: 'boolean?'
-    },
-    responseShape: { seller_id: 'uuid', capabilities: 'object' }
-  });
+// OPS-2: closes Defect 2 partially — capability map is now writable.
+// Body accepts an arbitrary key/value object that is MERGED into the existing
+// seller_profiles.capabilities JSONB (keys not in the request are left
+// untouched). Audit log entry per change records before/after.
+// Frontend-side gating (e.g., UX-blocker-3's reserve hide) still uses
+// seller_type, not capabilities — wiring the data path here is the
+// prerequisite for future frontend gates that read capabilities.
+router.post('/sellers/:sellerId/capabilities', auth, role(['admin']), idempotency, async (req, res, next) => {
+  try {
+    const { sellerId }    = req.params;
+    const updates         = req.body && typeof req.body === 'object' && !Array.isArray(req.body) ? req.body : null;
+    if (!updates) {
+      return res.status(400).json({ success: false, message: 'Body must be an object of capability key/value pairs' });
+    }
+    const cur = await db.query(
+      `SELECT id, user_id, capabilities FROM seller_profiles WHERE id = $1`,
+      [sellerId]
+    );
+    if (!cur.rows[0]) {
+      return res.status(404).json({ success: false, message: 'Seller profile not found' });
+    }
+    const before = cur.rows[0].capabilities || {};
+    const after  = { ...before, ...updates };
+    const out    = await db.query(
+      `UPDATE seller_profiles SET capabilities = $1::jsonb WHERE id = $2
+       RETURNING id, user_id, seller_type, capabilities`,
+      [JSON.stringify(after), sellerId]
+    );
+    const { writeAuditLog } = require('../lib/auditLog');
+    await writeAuditLog({
+      event_type:  'seller_capabilities_changed',
+      entity_type: 'seller_profile',
+      entity_id:   sellerId,
+      actor_id:    req.user.id,
+      metadata:    { before, after, changed_keys: Object.keys(updates) },
+    });
+    return res.json({ success: true, data: out.rows[0] });
+  } catch (err) {
+    next(err);
+  }
 });
 
 // POST /api/admin/auctions/:auctionId/publish
