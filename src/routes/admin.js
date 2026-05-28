@@ -550,13 +550,7 @@ router.get('/sellers', auth, role(['admin']), async (req, res, next) => {
   try {
     const search = (req.query.search || '').trim();
     const rows = await db.query(
-      // OPS-3 caveat: u.is_active intentionally omitted from this SELECT
-      // because the column does not yet exist on the staging/production
-      // users table (schema drift — referenced in seed-test-fixtures.js
-      // but never added via tracked migration). The OPS-3 suspend/unsuspend
-      // endpoints are wired but non-functional pending a future ALTER TABLE
-      // migration. Adding u.is_active here would break this whole endpoint
-      // with a 500 column-does-not-exist error.
+      // is_active surfaces seller suspension status (added by migration 046)
       `SELECT sp.id              AS seller_profile_id,
               sp.seller_type,
               sp.capabilities,
@@ -564,6 +558,7 @@ router.get('/sellers', auth, role(['admin']), async (req, res, next) => {
               u.id               AS user_id,
               u.email,
               u.role,
+              u.is_active,
               u.created_at       AS user_created_at,
               COUNT(a.id)::int   AS auction_count
          FROM seller_profiles sp
