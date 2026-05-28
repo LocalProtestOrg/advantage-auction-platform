@@ -145,7 +145,10 @@ const auctionRoutes = require(path.join(__dirname, 'src/routes/auctions'));
 const paymentRoutes = require(path.join(__dirname, 'src/routes/payments'));
 const adminRoutes = require(path.join(__dirname, 'src/routes/admin'));
 const lotRoutes = require('./src/routes/lots');
-const bidsRoutes = require('./src/routes/bids');
+// bidsRoutes intentionally removed 2026-05-28: its POST mounted at the
+// unreachable path /api/:lotId/bids (missing /lots/ prefix) and its GET
+// was shadowed by an identical handler in lots.js. src/routes/bids.js
+// remains as orphaned source for a future housekeeping pass.
 const marketingRoutes = require('./src/routes/marketing');
 const payoutPreferencesRoutes = require('./src/routes/payoutPreferences');
 const aiRoutes = require('./src/routes/ai');
@@ -185,7 +188,6 @@ app.use('/api/auctions', auctionRoutes);
 app.use('/api/payments', paymentRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/lots', lotRoutes);
-app.use('/api', bidsRoutes);
 app.use('/api/marketing', marketingRoutes);
 app.use('/api/payout-preferences', payoutPreferencesRoutes);
 app.use('/api/ai', aiRoutes);
