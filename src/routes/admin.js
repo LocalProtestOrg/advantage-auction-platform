@@ -163,6 +163,74 @@ router.patch('/auctions/:auctionId', auth, role(['admin']), idempotency, async (
   }
 });
 
+// POST /api/admin/sellers/:sellerId/suspend
+// OPS-3: suspend a seller's user account. Sets users.is_active = false so the
+// next login attempt is rejected by the auth route (return 403 with a clear
+// message). Body accepts { reason: string? }; the reason is captured in the
+// audit_log metadata for operational accountability.
+router.post('/sellers/:sellerId/suspend', auth, role(['admin']), idempotency, async (req, res, next) => {
+  try {
+    const { sellerId } = req.params;
+    const reason       = (req.body && typeof req.body.reason === 'string') ? req.body.reason.trim() : null;
+    const cur = await db.query(
+      `SELECT sp.id, sp.user_id, u.email, u.is_active
+         FROM seller_profiles sp
+         JOIN users u ON u.id = sp.user_id
+        WHERE sp.id = $1`,
+      [sellerId]
+    );
+    if (!cur.rows[0]) return res.status(404).json({ success: false, message: 'Seller profile not found' });
+    if (cur.rows[0].is_active === false) {
+      return res.status(409).json({ success: false, message: 'Seller is already suspended' });
+    }
+    await db.query(`UPDATE users SET is_active = false WHERE id = $1`, [cur.rows[0].user_id]);
+    const { writeAuditLog } = require('../lib/auditLog');
+    await writeAuditLog({
+      event_type:  'seller_suspended',
+      entity_type: 'seller_profile',
+      entity_id:   sellerId,
+      actor_id:    req.user.id,
+      metadata:    { user_id: cur.rows[0].user_id, email: cur.rows[0].email, reason },
+    });
+    return res.json({ success: true, data: { seller_profile_id: sellerId, is_active: false, reason } });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// POST /api/admin/sellers/:sellerId/unsuspend
+// OPS-3: reverse a previous suspension. Sets users.is_active = true. Body
+// accepts { reason: string? } for the audit trail.
+router.post('/sellers/:sellerId/unsuspend', auth, role(['admin']), idempotency, async (req, res, next) => {
+  try {
+    const { sellerId } = req.params;
+    const reason       = (req.body && typeof req.body.reason === 'string') ? req.body.reason.trim() : null;
+    const cur = await db.query(
+      `SELECT sp.id, sp.user_id, u.email, u.is_active
+         FROM seller_profiles sp
+         JOIN users u ON u.id = sp.user_id
+        WHERE sp.id = $1`,
+      [sellerId]
+    );
+    if (!cur.rows[0]) return res.status(404).json({ success: false, message: 'Seller profile not found' });
+    if (cur.rows[0].is_active !== false) {
+      return res.status(409).json({ success: false, message: 'Seller is not suspended' });
+    }
+    await db.query(`UPDATE users SET is_active = true WHERE id = $1`, [cur.rows[0].user_id]);
+    const { writeAuditLog } = require('../lib/auditLog');
+    await writeAuditLog({
+      event_type:  'seller_unsuspended',
+      entity_type: 'seller_profile',
+      entity_id:   sellerId,
+      actor_id:    req.user.id,
+      metadata:    { user_id: cur.rows[0].user_id, email: cur.rows[0].email, reason },
+    });
+    return res.json({ success: true, data: { seller_profile_id: sellerId, is_active: true, reason } });
+  } catch (err) {
+    next(err);
+  }
+});
+
 // POST /api/admin/sellers/:sellerId/capabilities
 // OPS-2: closes Defect 2 partially — capability map is now writable.
 // Body accepts an arbitrary key/value object that is MERGED into the existing
@@ -489,6 +557,7 @@ router.get('/sellers', auth, role(['admin']), async (req, res, next) => {
               u.id               AS user_id,
               u.email,
               u.role,
+              u.is_active,
               u.created_at       AS user_created_at,
               COUNT(a.id)::int   AS auction_count
          FROM seller_profiles sp

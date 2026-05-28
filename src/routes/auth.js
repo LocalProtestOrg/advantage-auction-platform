@@ -55,6 +55,13 @@ router.post('/login', strictLimiter, async (req, res) => {
     if (!validPassword) {
       return res.status(401).json({ success: false, error: 'Invalid credentials' });
     }
+    // OPS-3: suspended accounts cannot log in. is_active defaults true; admin
+    // toggles it via /api/admin/sellers/:id/{suspend,unsuspend}. We return 403
+    // (not 401) with a clear message so the user knows the account exists but
+    // is locked, not that their password is wrong.
+    if (user.is_active === false) {
+      return res.status(403).json({ success: false, error: 'Account suspended. Contact Advantage Auction support.' });
+    }
     const token = jwt.sign(
       { id: user.id, role: user.role },
       process.env.JWT_SECRET,
