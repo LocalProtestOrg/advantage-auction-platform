@@ -1131,12 +1131,16 @@
         <div style="margin-top:0.85rem;display:flex;gap:0.5rem;align-items:center">
           <button class="btn btn-publish btn-sm" data-save="${auctionId}">Save Changes</button>
           <button class="btn btn-sm" data-cancel="${auctionId}">Cancel</button>
+          <button class="btn btn-sm" data-audit="${auctionId}">Audit Log</button>
           <span class="admin-edit-status" style="font-size:0.78rem;color:#6b7280"></span>
         </div>
+        <!-- OPS-4: audit log timeline, lazy-loaded on click -->
+        <div class="audit-log-panel" style="display:none;margin-top:0.85rem;padding:0.7rem 0.9rem;background:#f9fafb;border-radius:6px;font-size:0.75rem"></div>
       `;
       container.dataset.built = '1';
       container.querySelector('[data-save]').onclick = () => saveAuctionEdit(card, auctionId);
       container.querySelector('[data-cancel]').onclick = () => { container.style.display = 'none'; };
+      container.querySelector('[data-audit]').onclick = () => toggleAuditLog(container, auctionId);
     }).catch(err => {
       container.innerHTML = '<div style="font-size:0.78rem;color:#dc2626">Failed: ' + err.message + '</div>';
     });
@@ -1185,6 +1189,44 @@
   function escText(v) {
     if (v == null) return '';
     return String(v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+
+  // OPS-4: audit log timeline panel inside the edit form. Toggleable.
+  function toggleAuditLog(container, auctionId) {
+    const panel = container.querySelector('.audit-log-panel');
+    if (!panel) return;
+    if (panel.style.display !== 'none') {
+      panel.style.display = 'none';
+      return;
+    }
+    panel.style.display = '';
+    panel.innerHTML = '<div style="color:#6b7280">Loading audit log…</div>';
+    api('GET', `/api/admin/audit-log?auction_id=${auctionId}&limit=50`).then(data => {
+      if (!data.success) {
+        panel.innerHTML = '<div style="color:#dc2626">Audit log fetch failed: ' + (data.message || 'unknown') + '</div>';
+        return;
+      }
+      const entries = data.data || [];
+      if (!entries.length) {
+        panel.innerHTML = '<div style="color:#9ca3af;font-style:italic">No audit entries for this auction yet. Admin actions taken after this point will appear here.</div>';
+        return;
+      }
+      const rows = entries.map(e => {
+        const when    = new Date(e.created_at).toLocaleString();
+        const actor   = e.actor_email || (e.actor_id ? '(unknown user)' : 'system');
+        const meta    = e.metadata ? JSON.stringify(e.metadata) : '';
+        const metaStr = meta && meta !== '{}' ? ' · ' + escText(meta) : '';
+        return `
+          <div style="padding:0.4rem 0;border-bottom:1px solid #e5e7eb">
+            <div style="font-weight:700;color:#111">${escText(e.event_type)}</div>
+            <div style="color:#6b7280;font-size:0.72rem">${escText(when)} · ${escText(actor)}${metaStr}</div>
+          </div>
+        `;
+      }).join('');
+      panel.innerHTML = `<div style="font-weight:700;margin-bottom:0.5rem">Audit Log (${entries.length} ${entries.length === 1 ? 'entry' : 'entries'})</div>` + rows;
+    }).catch(err => {
+      panel.innerHTML = '<div style="color:#dc2626">Audit log error: ' + err.message + '</div>';
+    });
   }
 
   function doCloseAuction(auctionId) {

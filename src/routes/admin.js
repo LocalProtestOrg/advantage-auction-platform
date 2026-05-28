@@ -11,6 +11,54 @@ const { sendFinalSellerReport } = require('../services/pdfGenerationService');
 const { enqueueNewAuctionNotifications } = require('../services/followerNotificationService');
 const db = require('../db');
 
+// GET /api/admin/audit-log
+// OPS-4: read-only audit timeline. Used by the moderation UI to render a
+// timeline of admin actions on a specific auction (or filtered by entity).
+// Joins users to surface the actor's email; falls back gracefully when
+// actor_id is NULL (system-generated events from the state-transition
+// scheduler).
+//   auction_id    — most common filter (events for one auction)
+//   entity_type   — narrow to a specific entity class (e.g., 'seller_profile')
+//   entity_id     — narrow to a specific entity row
+//   limit         — default 100, max 500
+//   offset        — default 0
+router.get('/audit-log', auth, role(['admin']), async (req, res, next) => {
+  try {
+    const where  = [];
+    const params = [];
+    if (req.query.auction_id) {
+      params.push(req.query.auction_id);
+      where.push(`al.auction_id = $${params.length}`);
+    }
+    if (req.query.entity_type) {
+      params.push(req.query.entity_type);
+      where.push(`al.entity_type = $${params.length}`);
+    }
+    if (req.query.entity_id) {
+      params.push(req.query.entity_id);
+      where.push(`al.entity_id = $${params.length}`);
+    }
+    const limit  = Math.min(parseInt(req.query.limit, 10) || 100, 500);
+    const offset = Math.max(parseInt(req.query.offset, 10) || 0, 0);
+    params.push(limit, offset);
+    const sql = `
+      SELECT al.id, al.event_type, al.entity_type, al.entity_id,
+             al.auction_id, al.lot_id, al.payment_id,
+             al.actor_id, al.metadata, al.created_at,
+             u.email AS actor_email
+        FROM audit_log al
+        LEFT JOIN users u ON u.id = al.actor_id
+       ${where.length ? 'WHERE ' + where.join(' AND ') : ''}
+       ORDER BY al.created_at DESC
+       LIMIT $${params.length - 1} OFFSET $${params.length}
+    `;
+    const result = await db.query(sql, params);
+    return res.json({ success: true, data: result.rows, count: result.rows.length, limit, offset });
+  } catch (err) {
+    next(err);
+  }
+});
+
 // GET /api/admin/auctions
 // OPS-1: server-side auction filter + search for the moderation UI. The
 // diagnostics endpoint is hard-capped at 15 rows; this endpoint accepts
