@@ -120,13 +120,22 @@ router.get('/:lotId/bids', authMiddleware, async (req, res) => {
 
 // POST /api/lots/:lotId/bids
 // Bidding only allowed on active lots — draft and closed lots are rejected.
+// Also rejects bids on lots whose scheduled close time has already passed.
 router.post('/:lotId/bids', authMiddleware, async (req, res) => {
   try {
-    const lotRes = await db.query('SELECT state FROM lots WHERE id = $1', [req.params.lotId]);
+    const lotRes = await db.query('SELECT state, closes_at FROM lots WHERE id = $1', [req.params.lotId]);
     const lot    = lotRes.rows[0];
     if (!lot)                       return res.status(404).json({ success: false, message: 'Lot not found' });
     if (lot.state === 'withdrawn')  return res.status(403).json({ success: false, message: 'Lot is not open for bidding' });
     if (lot.state !== 'open')       return res.status(422).json({ success: false, message: 'Lot is not accepting bids' });
+    // Time-based close enforcement: a lot with a closes_at in the past has
+    // ended even if no scheduler has flipped state to 'closed'. Without this
+    // guard, lots whose end time has passed would silently keep accepting bids
+    // (observed on staging 2026-05-28 against the Whitfield Estate lots whose
+    // closes_at was 12 days in the past).
+    if (lot.closes_at && new Date() > new Date(lot.closes_at)) {
+      return res.status(422).json({ success: false, message: 'Lot has closed and is no longer accepting bids' });
+    }
 
     const { amount, maxBid, max_bid_cents } = req.body;
     const result = await createBid(req.params.lotId, req.user.id, { amount, maxBid, max_bid_cents });
