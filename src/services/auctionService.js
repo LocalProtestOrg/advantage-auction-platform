@@ -248,8 +248,13 @@ async function closeAuction(auctionId, actorId = null) {
     if (state === 'closed') {
       throw new Error('Auction is already closed');
     }
-    if (state !== 'published') {
-      throw new Error('Only published auctions can be closed');
+    // PUB-6: accept 'active' as a valid pre-close state in addition to
+    // 'published'. Both paths reach closeAuction:
+    //   • admin emergency takedown of a 'published' (not yet live) auction
+    //   • scheduler auto-close of an 'active' (live) auction whose end_time
+    //     has arrived (PUB-7)
+    if (state !== 'published' && state !== 'active') {
+      throw new Error('Only published or active auctions can be closed');
     }
 
     // Mark auction closed
