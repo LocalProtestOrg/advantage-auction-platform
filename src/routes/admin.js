@@ -11,17 +11,41 @@ const { sendFinalSellerReport } = require('../services/pdfGenerationService');
 const { enqueueNewAuctionNotifications } = require('../services/followerNotificationService');
 const db = require('../db');
 
+// GET /api/admin/auctions/:auctionId
+// OP-A: admin full-auction-detail fetch. The seller-side getAuctionById in
+// auctionService joins on user_id which 0-rows for admin (no seller_profile),
+// so this endpoint reads the row directly with admin role guard.
+router.get('/auctions/:auctionId', auth, role(['admin']), async (req, res, next) => {
+  try {
+    const { auctionId } = req.params;
+    const { rows } = await db.query('SELECT * FROM auctions WHERE id = $1', [auctionId]);
+    if (!rows[0]) return res.status(404).json({ success: false, message: 'Auction not found' });
+    return res.json({ success: true, data: rows[0] });
+  } catch (err) {
+    next(err);
+  }
+});
+
 // PATCH /api/admin/auctions/:auctionId
-router.patch('/auctions/:auctionId', auth, role(['admin']), idempotency, (req, res) => {
-  res.status(501).json({
-    message: 'Not implemented',
-    requestShape: {
-      title: 'string?',
-      featured_lot_ids: ['uuid'],
-      pickup_window_start: 'timestamp?'
-    },
-    responseShape: { id: 'uuid', updated_at: 'timestamp' }
-  });
+// OP-A: admin auction editing. Wires through auctionService.updateAuction
+// with actorRole='admin', which bypasses the seller-ownership SQL guard
+// (admin has no seller_profile so the ownership SELECT would otherwise
+// return 0 rows). Field whitelist is unchanged — see updateAuction for the
+// complete editable surface (title, schedule, addresses, pickup windows,
+// shipping, images). State transitions still apply: admin can set any state.
+router.patch('/auctions/:auctionId', auth, role(['admin']), idempotency, async (req, res, next) => {
+  try {
+    const auctionService = require('../services/auctionService');
+    const { auctionId } = req.params;
+    const updated = await auctionService.updateAuction(auctionId, req.user.id, req.body, 'admin');
+    if (!updated) {
+      return res.status(404).json({ success: false, message: 'No valid fields or auction not found' });
+    }
+    return res.json({ success: true, data: updated });
+  } catch (err) {
+    console.error('[admin] PATCH /auctions/:id error:', err.message);
+    return next(err);
+  }
 });
 
 // POST /api/admin/sellers/:sellerId/capabilities

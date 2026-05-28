@@ -119,13 +119,27 @@ async function updateAuction(auctionId, userId, updates, actorRole) {
 
   values.push(auctionId, userId);
 
-  const query = `
-    UPDATE auctions
-    SET ${fields.join(', ')}
-    WHERE id = $${idx++}
-      AND seller_id = (SELECT id FROM seller_profiles WHERE user_id = $${idx})
-    RETURNING *
-  `;
+  // OP-A: admin bypasses ownership check. Sellers still require their
+  // user_id to match the auction's seller_profile owner. This is the same
+  // bypass pattern used by GOV-1's canMutateAuction and other admin paths.
+  const isAdmin = actorRole === 'admin';
+  const query = isAdmin
+    ? `
+        UPDATE auctions
+        SET ${fields.join(', ')}
+        WHERE id = $${idx++}
+        RETURNING *
+      `
+    : `
+        UPDATE auctions
+        SET ${fields.join(', ')}
+        WHERE id = $${idx++}
+          AND seller_id = (SELECT id FROM seller_profiles WHERE user_id = $${idx})
+        RETURNING *
+      `;
+  // Admin path doesn't reference userId in the WHERE — drop it from the
+  // parameter list to keep $${idx} substitutions aligned.
+  if (isAdmin) values.pop();
   const result = await db.query(query, values);
   return result.rows[0] || null;
 }
