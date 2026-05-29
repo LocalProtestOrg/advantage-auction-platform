@@ -639,6 +639,19 @@ function renderAuctionCard(container, auction) {
       Awaiting review by Advantage Auction. Your auction has been submitted and is locked for editing. We typically review within 1-2 business days and will contact you when it's approved or if we have questions. If your auction has not been approved after 2 business days email us at <a href="mailto:advantageauction.bid@gmail.com" style="color:#1d4ed8">advantageauction.bid@gmail.com</a> from the email account you registered with.
     </div>` : '';
 
+  // GOV-RET: revision banner shown when a draft has been returned by the
+  // moderation team. revision_count > 0 distinguishes a re-submission cycle
+  // from a fresh draft, and revision_note carries the operator's reason
+  // verbatim. The lock has already been lifted by the server (state='draft'),
+  // so all the editable-state CTAs are visible alongside this banner.
+  const isRevisionRequested = isEditable && Number(auction.revision_count || 0) > 0 && (auction.revision_note || '').trim().length > 0;
+  const revisionCallout = isRevisionRequested ? `
+    <div style="margin:0.75rem 1.25rem 0;padding:0.65rem 0.9rem;background:#fff7ed;border:1px solid #fdba74;border-radius:6px;font-size:0.82rem;color:#9a3412;line-height:1.5">
+      <strong>Revisions requested by Advantage Auction</strong>
+      <div style="margin-top:0.35rem;color:#7c2d12;white-space:pre-wrap">${escHtml(auction.revision_note)}</div>
+      <div style="margin-top:0.4rem;font-size:0.75rem;color:#9a3412">Edit your auction below, then click "Submit for AAC Review" again when ready.</div>
+    </div>` : '';
+
   // OPS-5: walkthrough video status callout. Reads from the per-auction
   // grouping pre-built in loadDashboard. When the auction is editable (draft),
   // we always show the upload/replace CTA so sellers can fix or swap videos
@@ -664,6 +677,7 @@ function renderAuctionCard(container, auction) {
         ${isEditable ? `<button class="btn btn-secondary btn-sm" data-submit-auction="${auction.id}" data-auction-title="${escHtml(auction.title || 'Untitled')}">Submit for AAC Review</button>` : ''}
       </div>
     </div>
+    ${revisionCallout}
     ${statusCallout}
     ${videoCallout}
     <div class="lots-panel" id="lots-${auction.id}">

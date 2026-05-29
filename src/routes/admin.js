@@ -9,6 +9,7 @@ const paymentService = require('../services/paymentService');
 const videoService   = require('../services/walkthroughVideoService');
 const { sendFinalSellerReport } = require('../services/pdfGenerationService');
 const { enqueueNewAuctionNotifications } = require('../services/followerNotificationService');
+const { writeAuditLog } = require('../lib/auditLog');
 const db = require('../db');
 
 // GET /api/admin/audit-log
@@ -331,6 +332,101 @@ router.post('/auctions/:auctionId/close', auth, role(['admin']), async (req, res
       return res.status(422).json({ success: false, message: err.message });
     }
     next(err);
+  }
+});
+
+// POST /api/admin/auctions/:auctionId/return-to-draft
+// GOV-RET: send a submitted/under_review auction back to the seller for
+// revisions with a written reason. The auction reverts to 'draft' state
+// (re-enabling all seller editing — the same edit-lock rule that gates
+// 'draft' applies). The reason is persisted to auctions.revision_note so
+// the seller dashboard can render it as a banner alongside the draft, and
+// revision_count is incremented so AUD-EXP and the dashboard can tell a
+// fresh draft apart from a revision cycle.
+//
+// Only 'submitted' and 'under_review' are valid source states. Active and
+// published auctions cannot be returned to draft — that would silently
+// drop live bidding state. Operators must close-then-rebuild instead.
+router.post('/auctions/:auctionId/return-to-draft', auth, role(['admin']), idempotency, async (req, res, next) => {
+  const { auctionId } = req.params;
+  const reason = (req.body && typeof req.body.reason === 'string') ? req.body.reason.trim() : '';
+  if (!reason) {
+    return res.status(400).json({ success: false, message: 'A revision reason is required.' });
+  }
+  const client = await db.connect();
+  try {
+    await client.query('BEGIN');
+
+    // Lock the auction row and verify the source state. Joining seller_profiles
+    // here gives us the seller's user_id for the follow-up notification queue
+    // insert without a second round-trip.
+    const cur = await client.query(
+      `SELECT a.id, a.state, a.title, sp.user_id AS seller_user_id
+         FROM auctions a
+         JOIN seller_profiles sp ON sp.id = a.seller_id
+        WHERE a.id = $1
+        FOR UPDATE OF a`,
+      [auctionId]
+    );
+    if (!cur.rows[0]) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ success: false, message: 'Auction not found.' });
+    }
+    const fromState = cur.rows[0].state;
+    if (fromState !== 'submitted' && fromState !== 'under_review') {
+      await client.query('ROLLBACK');
+      return res.status(409).json({
+        success: false,
+        message: `Only submitted or under_review auctions can be returned to draft. Current state: ${fromState}.`,
+      });
+    }
+
+    await client.query(
+      `UPDATE auctions
+          SET state          = 'draft',
+              revision_note  = $1,
+              revision_count = revision_count + 1,
+              updated_at     = NOW()
+        WHERE id = $2`,
+      [reason, auctionId]
+    );
+
+    // Queue the seller-facing notification inside the transaction so the
+    // notification queue write rolls back with the state change if anything
+    // downstream throws.
+    await client.query(
+      `INSERT INTO notifications_queue (user_id, type, payload)
+       VALUES ($1, 'AUCTION_RETURNED_TO_DRAFT', $2::jsonb)`,
+      [
+        cur.rows[0].seller_user_id,
+        JSON.stringify({
+          auction_id: auctionId,
+          title:      cur.rows[0].title,
+          reason,
+        }),
+      ]
+    );
+
+    await client.query('COMMIT');
+
+    // Audit write is non-blocking by design (see writeAuditLog). Runs after
+    // commit so an audit failure cannot roll back the seller-visible state
+    // change.
+    writeAuditLog({
+      event_type:  'auction_returned_to_draft',
+      entity_type: 'auction',
+      entity_id:   auctionId,
+      auction_id:  auctionId,
+      actor_id:    req.user.id,
+      metadata:    { from_state: fromState, reason },
+    }).catch(() => {});
+
+    return res.json({ success: true, message: 'Auction returned to draft. Seller has been notified.' });
+  } catch (err) {
+    try { await client.query('ROLLBACK'); } catch (_) {}
+    next(err);
+  } finally {
+    client.release();
   }
 });
 

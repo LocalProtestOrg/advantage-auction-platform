@@ -205,6 +205,28 @@ function buildEmail(type, payload, toAddress) {
     };
   }
 
+  if (type === 'AUCTION_RETURNED_TO_DRAFT') {
+    // GOV-RET: seller revision request. Quoting the operator's reason verbatim
+    // gives the seller actionable correction guidance — the link sends them
+    // straight back to their dashboard where the lock will already be lifted.
+    const auctionId  = payload.auction_id || 'unknown';
+    const title      = payload.title      || 'Your auction';
+    const reason     = payload.reason     || '';
+    const dashUrl    = `${SITE_URL}/seller-dashboard.html`;
+    return {
+      to:      toAddress,
+      subject: `Revisions requested on your auction: ${title}`,
+      text:    `Advantage Auction has returned your auction "${title}" to draft for revisions.\n\nReason: ${reason}\n\nYou can edit your auction and re-submit it from your dashboard: ${dashUrl}`,
+      html:    `
+        <p>Advantage Auction has returned your auction <strong>${escHtml(title)}</strong> to draft for revisions.</p>
+        <p><strong>Reason from the review team:</strong></p>
+        <blockquote style="border-left:3px solid #c8a86b; padding-left:12px; color:#333;">${escHtml(reason)}</blockquote>
+        <p>You can edit your auction and re-submit it from your dashboard.</p>
+        <p><a href="${dashUrl}">Open my dashboard →</a></p>
+      `.trim(),
+    };
+  }
+
   throw new Error(`Unknown notification type: ${type}`);
 }
 
@@ -241,7 +263,7 @@ function buildSMS(type, payload) {
 async function deliver(row) {
   const payload = row.payload || {};
   let context;
-  if (row.type === 'NEW_AUCTION') {
+  if (row.type === 'NEW_AUCTION' || row.type === 'AUCTION_RETURNED_TO_DRAFT') {
     context = `auction ${payload.auction_id || 'unknown'}`;
   } else {
     const lotId = payload.lot_id || 'unknown-lot';

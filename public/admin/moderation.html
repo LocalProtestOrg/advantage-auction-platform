@@ -1128,10 +1128,13 @@
           <label>Cover image URL <input data-f="cover_image_url" value="${escAttr(a.cover_image_url)}" style="width:100%;padding:0.35rem;border:1px solid #d1d5db;border-radius:4px"></label>
           <label><input type="checkbox" data-f="shipping_available" ${a.shipping_available ? 'checked' : ''}> Shipping available</label>
         </div>
-        <div style="margin-top:0.85rem;display:flex;gap:0.5rem;align-items:center">
+        <div style="margin-top:0.85rem;display:flex;gap:0.5rem;align-items:center;flex-wrap:wrap">
           <button class="btn btn-publish btn-sm" data-save="${auctionId}">Save Changes</button>
           <button class="btn btn-sm" data-cancel="${auctionId}">Cancel</button>
           <button class="btn btn-sm" data-audit="${auctionId}">Audit Log</button>
+          ${(a.state === 'submitted' || a.state === 'under_review')
+            ? `<button class="btn btn-sm" data-return-to-draft="${auctionId}" style="background:#fff7ed;border-color:#fdba74;color:#9a3412">Return to Draft</button>`
+            : ''}
           <span class="admin-edit-status" style="font-size:0.78rem;color:#6b7280"></span>
         </div>
         <!-- OPS-4: audit log timeline, lazy-loaded on click -->
@@ -1141,6 +1144,11 @@
       container.querySelector('[data-save]').onclick = () => saveAuctionEdit(card, auctionId);
       container.querySelector('[data-cancel]').onclick = () => { container.style.display = 'none'; };
       container.querySelector('[data-audit]').onclick = () => toggleAuditLog(container, auctionId);
+      // GOV-RET: only present on submitted/under_review auctions per the
+      // server-side guard. Inline prompt keeps the UI lightweight — a modal
+      // component would be overkill for a single-field collection.
+      const rtdBtn = container.querySelector('[data-return-to-draft]');
+      if (rtdBtn) rtdBtn.onclick = () => returnToDraft(card, auctionId);
     }).catch(err => {
       container.innerHTML = '<div style="font-size:0.78rem;color:#dc2626">Failed: ' + err.message + '</div>';
     });
@@ -1179,6 +1187,44 @@
     }).catch(err => {
       statusEl.textContent = 'Failed: ' + err.message;
       statusEl.style.color = '#dc2626';
+    });
+  }
+
+  // GOV-RET: send a submitted/under_review auction back to the seller for
+  // revisions. Reason is required server-side; we collect it via prompt to
+  // keep the UI surface minimal. The server reopens seller editing via
+  // state='draft', persists the reason to revision_note, and queues a
+  // seller-facing notification — no client-side state to reconcile, so
+  // reloadAuctions() after success is the only refresh step.
+  function returnToDraft(card, auctionId) {
+    const reason = prompt(
+      'Why is this auction being returned to draft?\n\n' +
+      'Be specific — the seller will see this verbatim and use it to revise.'
+    );
+    if (reason === null) return; // operator cancelled
+    const trimmed = reason.trim();
+    if (!trimmed) {
+      alert('A revision reason is required.');
+      return;
+    }
+    const container = card.querySelector('.admin-edit-form-container');
+    const statusEl  = container ? container.querySelector('.admin-edit-status') : null;
+    if (statusEl) {
+      statusEl.textContent = 'Returning to draft…';
+      statusEl.style.color = '#6b7280';
+    }
+    api('POST', `/api/admin/auctions/${auctionId}/return-to-draft`, { reason: trimmed }).then(data => {
+      if (!data.success) {
+        if (statusEl) { statusEl.textContent = 'Failed: ' + (data.message || 'unknown'); statusEl.style.color = '#dc2626'; }
+        else alert('Failed: ' + (data.message || 'unknown'));
+        return;
+      }
+      if (statusEl) { statusEl.textContent = 'Returned to draft. Seller notified.'; statusEl.style.color = '#059669'; }
+      // Force a fresh fetch so the auction state chip + button visibility update.
+      setTimeout(() => { loadedTabs.delete('auctions'); loadAuctions(); }, 600);
+    }).catch(err => {
+      if (statusEl) { statusEl.textContent = 'Failed: ' + err.message; statusEl.style.color = '#dc2626'; }
+      else alert('Failed: ' + err.message);
     });
   }
 
