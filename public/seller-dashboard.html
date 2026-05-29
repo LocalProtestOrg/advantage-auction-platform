@@ -146,6 +146,7 @@
     .badge-under-review { background: #eff6ff; color: #1d4ed8; }
     .badge-published    { background: #dcfce7; color: #15803d; }
     .badge-closed       { background: #fee2e2; color: #b91c1c; }
+    .badge-rejected     { background: #fef2f2; color: #b91c1c; }
     .badge-open         { background: #dcfce7; color: #15803d; }
     .badge-withdrawn    { background: #f4f4f5; color: #9ca3af; }
 
@@ -506,6 +507,7 @@ function stateBadge(state) {
     under_review: ['badge-under-review', 'Under Review'],
     published:    ['badge-published',    'Live'],
     closed:       ['badge-closed',       'Closed'],
+    rejected:     ['badge-rejected',     'Rejected'],
     open:         ['badge-open',         'Open'],
     withdrawn:    ['badge-withdrawn',    'Withdrawn'],
   };
@@ -633,6 +635,7 @@ function renderAuctionCard(container, auction) {
   const isEditable  = auction.state === 'draft';
   const isSubmitted = auction.state === 'submitted' || auction.state === 'under_review';
   const isPublished = auction.state === 'published';
+  const isRejected  = auction.state === 'rejected';
 
   const statusCallout = isSubmitted ? `
     <div style="margin:0.75rem 1.25rem 0;padding:0.65rem 0.9rem;background:#eff6ff;border:1px solid #bfdbfe;border-radius:6px;font-size:0.82rem;color:#1e40af;line-height:1.5">
@@ -650,6 +653,16 @@ function renderAuctionCard(container, auction) {
       <strong>Revisions requested by Advantage Auction</strong>
       <div style="margin-top:0.35rem;color:#7c2d12;white-space:pre-wrap">${escHtml(auction.revision_note)}</div>
       <div style="margin-top:0.4rem;font-size:0.75rem;color:#9a3412">Edit your auction below, then click "Submit for AAC Review" again when ready.</div>
+    </div>` : '';
+
+  // GOV-REJ: terminal rejection banner. No CTA — the auction is locked and
+  // the seller's only path forward is creating a new submission, which they
+  // can do from the dashboard's top-level "+ New Auction" action.
+  const rejectedCallout = isRejected ? `
+    <div style="margin:0.75rem 1.25rem 0;padding:0.65rem 0.9rem;background:#fef2f2;border:1px solid #fca5a5;border-radius:6px;font-size:0.82rem;color:#991b1b;line-height:1.5">
+      <strong>This auction was not approved</strong>
+      <div style="margin-top:0.35rem;color:#7f1d1d;white-space:pre-wrap">${escHtml(auction.rejection_reason || 'No reason recorded.')}</div>
+      <div style="margin-top:0.4rem;font-size:0.75rem;color:#991b1b">${auction.rejected_at ? 'Reviewed ' + fmtDate(auction.rejected_at) + '. ' : ''}To try again, create a new auction submission with the feedback above addressed.</div>
     </div>` : '';
 
   // OPS-5: walkthrough video status callout. Reads from the per-auction
@@ -678,6 +691,7 @@ function renderAuctionCard(container, auction) {
       </div>
     </div>
     ${revisionCallout}
+    ${rejectedCallout}
     ${statusCallout}
     ${videoCallout}
     <div class="lots-panel" id="lots-${auction.id}">

@@ -430,6 +430,94 @@ router.post('/auctions/:auctionId/return-to-draft', auth, role(['admin']), idemp
   }
 });
 
+// POST /api/admin/auctions/:auctionId/reject
+// GOV-REJ: terminal moderation outcome. The auction transitions to the
+// new 'rejected' state, rejection_reason/rejected_at/rejected_by are
+// recorded for audit and compliance, and the seller is notified.
+// Source state must be 'submitted' or 'under_review' — rejecting an
+// already-active or already-closed auction would either drop live bids
+// or contradict an existing close result, neither of which has a
+// well-defined recovery path.
+//
+// Sellers can no longer edit a rejected auction (the existing edit-lock
+// rule refuses mutation on state != 'draft'). Restarting the workflow
+// is done by creating a new auction, intentionally — we want the audit
+// record of the rejection to be preserved.
+router.post('/auctions/:auctionId/reject', auth, role(['admin']), idempotency, async (req, res, next) => {
+  const { auctionId } = req.params;
+  const reason = (req.body && typeof req.body.reason === 'string') ? req.body.reason.trim() : '';
+  if (!reason) {
+    return res.status(400).json({ success: false, message: 'A rejection reason is required.' });
+  }
+  const client = await db.connect();
+  try {
+    await client.query('BEGIN');
+
+    const cur = await client.query(
+      `SELECT a.id, a.state, a.title, sp.user_id AS seller_user_id
+         FROM auctions a
+         JOIN seller_profiles sp ON sp.id = a.seller_id
+        WHERE a.id = $1
+        FOR UPDATE OF a`,
+      [auctionId]
+    );
+    if (!cur.rows[0]) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ success: false, message: 'Auction not found.' });
+    }
+    const fromState = cur.rows[0].state;
+    if (fromState !== 'submitted' && fromState !== 'under_review') {
+      await client.query('ROLLBACK');
+      return res.status(409).json({
+        success: false,
+        message: `Only submitted or under_review auctions can be rejected. Current state: ${fromState}.`,
+      });
+    }
+
+    await client.query(
+      `UPDATE auctions
+          SET state            = 'rejected',
+              rejection_reason = $1,
+              rejected_at      = NOW(),
+              rejected_by      = $2,
+              updated_at       = NOW()
+        WHERE id = $3`,
+      [reason, req.user.id, auctionId]
+    );
+
+    await client.query(
+      `INSERT INTO notifications_queue (user_id, type, payload)
+       VALUES ($1, 'AUCTION_REJECTED', $2::jsonb)`,
+      [
+        cur.rows[0].seller_user_id,
+        JSON.stringify({
+          auction_id: auctionId,
+          title:      cur.rows[0].title,
+          reason,
+        }),
+      ]
+    );
+
+    await client.query('COMMIT');
+
+    writeAuditLog({
+      event_type:  'auction_rejected',
+      entity_type: 'auction',
+      entity_id:   auctionId,
+      auction_id:  auctionId,
+      actor_id:    req.user.id,
+      metadata:    { from_state: fromState, reason },
+    }).catch(() => {});
+
+    return res.json({ success: true, message: 'Auction rejected. Seller has been notified.' });
+  } catch (err) {
+    try { await client.query('ROLLBACK'); } catch (_) {}
+    next(err);
+  } finally {
+    client.release();
+  }
+});
+
 // POST /api/admin/auctions/:auctionId/send-final-report
 // MANUAL ONLY — human-gated. Never called automatically by the auction lifecycle.
 router.post('/auctions/:auctionId/send-final-report', auth, role(['admin']), async (req, res, next) => {

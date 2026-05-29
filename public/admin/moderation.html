@@ -514,6 +514,7 @@
         <button class="auctions-chip" data-state="published">Published</button>
         <button class="auctions-chip" data-state="active">Active</button>
         <button class="auctions-chip" data-state="closed">Closed</button>
+        <button class="auctions-chip" data-state="rejected">Rejected</button>
         <span style="margin-left:0.5rem;border-left:1px solid #e5e7eb;padding-left:0.75rem;display:flex;gap:0.35rem">
           <button class="auctions-chip" data-toggle="submitted_only">Needs Review</button>
           <button class="auctions-chip" data-toggle="recently_updated">Recently Updated</button>
@@ -653,6 +654,7 @@
       draft:     ['badge-draft', 'Draft'],
       submitted: ['badge-submitted', 'Submitted'],
       closed:    ['badge-closed', 'Closed'],
+      rejected:  ['badge-rejected', 'Rejected'],
     };
     const [cls, label] = map[state] || ['badge-draft', state];
     return el('span', `badge ${cls}`, label);
@@ -1135,6 +1137,9 @@
           ${(a.state === 'submitted' || a.state === 'under_review')
             ? `<button class="btn btn-sm" data-return-to-draft="${auctionId}" style="background:#fff7ed;border-color:#fdba74;color:#9a3412">Return to Draft</button>`
             : ''}
+          ${(a.state === 'submitted' || a.state === 'under_review')
+            ? `<button class="btn btn-sm" data-reject="${auctionId}" style="background:#fee2e2;border-color:#fca5a5;color:#991b1b">Reject</button>`
+            : ''}
           <span class="admin-edit-status" style="font-size:0.78rem;color:#6b7280"></span>
         </div>
         <!-- OPS-4: audit log timeline, lazy-loaded on click -->
@@ -1149,6 +1154,8 @@
       // component would be overkill for a single-field collection.
       const rtdBtn = container.querySelector('[data-return-to-draft]');
       if (rtdBtn) rtdBtn.onclick = () => returnToDraft(card, auctionId);
+      const rejBtn = container.querySelector('[data-reject]');
+      if (rejBtn) rejBtn.onclick = () => rejectAuction(card, auctionId, a.title);
     }).catch(err => {
       container.innerHTML = '<div style="font-size:0.78rem;color:#dc2626">Failed: ' + err.message + '</div>';
     });
@@ -1221,6 +1228,44 @@
       }
       if (statusEl) { statusEl.textContent = 'Returned to draft. Seller notified.'; statusEl.style.color = '#059669'; }
       // Force a fresh fetch so the auction state chip + button visibility update.
+      setTimeout(() => { loadedTabs.delete('auctions'); loadAuctions(); }, 600);
+    }).catch(err => {
+      if (statusEl) { statusEl.textContent = 'Failed: ' + err.message; statusEl.style.color = '#dc2626'; }
+      else alert('Failed: ' + err.message);
+    });
+  }
+
+  // GOV-REJ: terminal rejection. Two-step confirmation because the action
+  // is non-reversible from the moderation UI — once rejected, the seller
+  // must create a new submission. Reason is required server-side and is
+  // shown to the seller verbatim, so we collect it before the confirm.
+  function rejectAuction(card, auctionId, title) {
+    const reason = prompt(
+      `Why is "${title || 'this auction'}" being rejected?\n\n` +
+      'Be specific — the seller will see this verbatim. They cannot edit the rejected auction; they will need to start a new submission.'
+    );
+    if (reason === null) return;
+    const trimmed = reason.trim();
+    if (!trimmed) {
+      alert('A rejection reason is required.');
+      return;
+    }
+    if (!confirm(`Reject this auction?\n\nThis is terminal — the seller cannot edit a rejected auction.\n\nReason:\n${trimmed}`)) {
+      return;
+    }
+    const container = card.querySelector('.admin-edit-form-container');
+    const statusEl  = container ? container.querySelector('.admin-edit-status') : null;
+    if (statusEl) {
+      statusEl.textContent = 'Rejecting…';
+      statusEl.style.color = '#6b7280';
+    }
+    api('POST', `/api/admin/auctions/${auctionId}/reject`, { reason: trimmed }).then(data => {
+      if (!data.success) {
+        if (statusEl) { statusEl.textContent = 'Failed: ' + (data.message || 'unknown'); statusEl.style.color = '#dc2626'; }
+        else alert('Failed: ' + (data.message || 'unknown'));
+        return;
+      }
+      if (statusEl) { statusEl.textContent = 'Rejected. Seller notified.'; statusEl.style.color = '#059669'; }
       setTimeout(() => { loadedTabs.delete('auctions'); loadAuctions(); }, 600);
     }).catch(err => {
       if (statusEl) { statusEl.textContent = 'Failed: ' + err.message; statusEl.style.color = '#dc2626'; }

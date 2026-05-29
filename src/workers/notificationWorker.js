@@ -205,6 +205,30 @@ function buildEmail(type, payload, toAddress) {
     };
   }
 
+  if (type === 'AUCTION_REJECTED') {
+    // GOV-REJ: terminal moderation outcome. Quote the operator's reason
+    // verbatim so the seller knows exactly what was disqualifying.
+    // We deliberately do NOT include a link back to the rejected auction
+    // (it's already locked and not editable) — the dashboard is the
+    // single source of truth for what the seller can do next.
+    const auctionId = payload.auction_id || 'unknown';
+    const title     = payload.title      || 'Your auction';
+    const reason    = payload.reason     || '';
+    const dashUrl   = `${SITE_URL}/seller-dashboard.html`;
+    return {
+      to:      toAddress,
+      subject: `Your auction was not approved: ${title}`,
+      text:    `Advantage Auction has reviewed your auction "${title}" and is unable to approve it.\n\nReason: ${reason}\n\nYou may create a new auction submission from your dashboard once you have addressed the feedback above: ${dashUrl}`,
+      html:    `
+        <p>Advantage Auction has reviewed your auction <strong>${escHtml(title)}</strong> and is unable to approve it.</p>
+        <p><strong>Reason from the review team:</strong></p>
+        <blockquote style="border-left:3px solid #dc2626; padding-left:12px; color:#333;">${escHtml(reason)}</blockquote>
+        <p>You may create a new auction submission from your dashboard once you have addressed the feedback above.</p>
+        <p><a href="${dashUrl}">Open my dashboard →</a></p>
+      `.trim(),
+    };
+  }
+
   if (type === 'AUCTION_RETURNED_TO_DRAFT') {
     // GOV-RET: seller revision request. Quoting the operator's reason verbatim
     // gives the seller actionable correction guidance — the link sends them
@@ -263,7 +287,7 @@ function buildSMS(type, payload) {
 async function deliver(row) {
   const payload = row.payload || {};
   let context;
-  if (row.type === 'NEW_AUCTION' || row.type === 'AUCTION_RETURNED_TO_DRAFT') {
+  if (row.type === 'NEW_AUCTION' || row.type === 'AUCTION_RETURNED_TO_DRAFT' || row.type === 'AUCTION_REJECTED') {
     context = `auction ${payload.auction_id || 'unknown'}`;
   } else {
     const lotId = payload.lot_id || 'unknown-lot';

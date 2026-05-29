@@ -37,6 +37,8 @@ router.get('/me/dashboard', auth, async (req, res, next) => {
          a.created_at,
          a.revision_note,
          a.revision_count,
+         a.rejection_reason,
+         a.rejected_at,
          mj.package_type,
          mj.status           AS marketing_status,
          COALESCE(mj.views_count,        0) AS views_count,
