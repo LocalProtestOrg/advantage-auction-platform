@@ -109,6 +109,7 @@
 - [ ] Configure SMTP for transactional email (seller reports)
 - [ ] Verify `/api/health` returns `{ status: "ok" }` after deploy
 - [ ] Run full test suite against staging DB before launch
+- [ ] Run governance regression signoff per `docs/sop-staging-signoff.md` and attach the resulting `governance-summary.json` to the release record
 
 ### Monitoring (manual, pilot phase)
 - Poll `GET /api/health` to verify DB reachability and uptime

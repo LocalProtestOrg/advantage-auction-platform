@@ -47,6 +47,9 @@ coverage
 /blob-report/
 /playwright/.cache/
 /playwright/.auth/
+# governance-regression.spec.js writes this per run; signoff receipts attach
+# to release notes or commit messages, not to source control.
+governance-summary.json
 
 # ── OS / Editor ───────────────────────────────────────────────────────────────
 .DS_Store
