@@ -29,6 +29,7 @@ yarn-error.log*
 scratch/
 temp/
 tmp/
+tmp-*/
 check-*.js
 debug-*.js
 get-*.js
