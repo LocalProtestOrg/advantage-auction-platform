@@ -688,6 +688,7 @@ function renderAuctionCard(container, auction) {
         <button class="btn btn-secondary btn-sm" data-toggle-lots="${auction.id}">View Lots</button>
         ${isEditable ? `<a href="/dashboard/lots.html?auctionId=${auction.id}" class="btn btn-primary btn-sm">+ Add Lot</a>` : ''}
         ${isEditable ? `<button class="btn btn-secondary btn-sm" data-submit-auction="${auction.id}" data-auction-title="${escHtml(auction.title || 'Untitled')}">Submit for AAC Review</button>` : ''}
+        <button class="btn btn-ghost btn-sm" data-history="${auction.id}" data-auction-title="${escHtml(auction.title || 'Untitled')}" title="View moderation and lifecycle history">History</button>
       </div>
     </div>
     ${revisionCallout}
@@ -727,6 +728,108 @@ function renderAuctionCard(container, auction) {
       submitAuctionForReview(auction.id, title, submitBtn);
     });
   }
+
+  // AUD-EXP: History button — opens an overlay with the seller-visible
+  // audit timeline for this auction.
+  const historyBtn = card.querySelector(`[data-history="${auction.id}"]`);
+  if (historyBtn) {
+    historyBtn.addEventListener('click', () => openAuctionHistory(auction.id, historyBtn.dataset.auctionTitle || 'this auction'));
+  }
+}
+
+// AUD-EXP: lightweight overlay rendering the seller-visible audit timeline.
+// Hits GET /api/sellers/me/audit?auction_id=... which is allow-list filtered
+// server-side, so we only need to render what comes back.
+async function openAuctionHistory(auctionId, title) {
+  // Remove any existing overlay before opening a new one so repeated clicks
+  // do not stack DOM.
+  const existing = document.getElementById('seller-history-overlay');
+  if (existing) existing.remove();
+
+  const overlay = document.createElement('div');
+  overlay.id = 'seller-history-overlay';
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,0.55);display:flex;align-items:center;justify-content:center;z-index:9999;padding:1rem';
+  overlay.innerHTML = `
+    <div style="background:#fff;max-width:560px;width:100%;max-height:80vh;overflow-y:auto;border-radius:10px;padding:1.25rem 1.4rem;box-shadow:0 10px 25px rgba(0,0,0,0.18)">
+      <div style="display:flex;justify-content:space-between;align-items:baseline;gap:1rem;margin-bottom:0.75rem">
+        <h3 style="margin:0;font-size:1.05rem">History — ${escHtml(title)}</h3>
+        <button id="seller-history-close" class="btn btn-ghost btn-sm">Close</button>
+      </div>
+      <div id="seller-history-body" style="font-size:0.85rem;color:#374151;line-height:1.55">Loading…</div>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+  overlay.querySelector('#seller-history-close').addEventListener('click', () => overlay.remove());
+  overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+
+  try {
+    const token = localStorage.getItem('token');
+    const r = await fetch(`/api/sellers/me/audit?auction_id=${encodeURIComponent(auctionId)}&limit=100`, {
+      headers: { Authorization: 'Bearer ' + token },
+    });
+    const j = await r.json();
+    const body = overlay.querySelector('#seller-history-body');
+    if (!j.success) {
+      body.innerHTML = `<div style="color:#dc2626">Failed to load history: ${escHtml(j.message || 'unknown error')}</div>`;
+      return;
+    }
+    if (!j.data.length) {
+      body.innerHTML = '<div style="color:#6b7280">No moderation or lifecycle events recorded yet.</div>';
+      return;
+    }
+    body.innerHTML = j.data.map(row => `
+      <div style="padding:0.55rem 0;border-bottom:1px solid #f1f5f9">
+        <div style="display:flex;justify-content:space-between;gap:0.5rem">
+          <strong>${escHtml(prettyAuditEvent(row.event_type))}</strong>
+          <span style="font-size:0.72rem;color:#6b7280">${fmtDateTime(row.created_at)}</span>
+        </div>
+        <div style="font-size:0.72rem;color:#6b7280;margin-top:0.15rem">by ${escHtml(row.actor_label || 'unknown')}</div>
+        ${renderAuditMetadata(row.event_type, row.metadata)}
+      </div>
+    `).join('');
+  } catch (err) {
+    overlay.querySelector('#seller-history-body').innerHTML =
+      `<div style="color:#dc2626">Failed to load history: ${escHtml(err.message)}</div>`;
+  }
+}
+
+// Maps event_type → human-readable label. Keeps the overlay readable
+// without burying the seller in machine-shaped strings.
+function prettyAuditEvent(evt) {
+  const map = {
+    'auction_submitted':         'Auction submitted for review',
+    'auction_returned_to_draft': 'Returned to draft for revisions',
+    'auction_rejected':          'Auction not approved',
+    'auction.published':         'Auction published',
+    'auction.closed':            'Auction closed',
+    'lot_auto_closed':           'Lot closed',
+  };
+  return map[evt] || evt;
+}
+
+// Pretty-prints the parts of the audit_log metadata blob that are
+// meaningful to the seller. Specific to the allow-listed event types —
+// everything else falls through to a non-rendered no-op.
+function renderAuditMetadata(eventType, metadata) {
+  if (!metadata) return '';
+  if (eventType === 'auction_returned_to_draft' || eventType === 'auction_rejected') {
+    const reason = metadata.reason ? String(metadata.reason) : '';
+    if (!reason) return '';
+    return `<div style="margin-top:0.35rem;padding:0.4rem 0.6rem;background:#f8fafc;border-radius:4px;color:#475569;white-space:pre-wrap">${escHtml(reason)}</div>`;
+  }
+  if (eventType === 'lot_auto_closed') {
+    const cents = metadata.winning_amount_cents;
+    if (metadata.had_bid && cents != null) {
+      return `<div style="margin-top:0.2rem;font-size:0.78rem;color:#475569">Final price: ${fmtCents(cents)}</div>`;
+    }
+    return `<div style="margin-top:0.2rem;font-size:0.78rem;color:#475569">No bids — lot closed unsold.</div>`;
+  }
+  return '';
+}
+
+function fmtDateTime(iso) {
+  if (!iso) return '—';
+  return new Date(iso).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' });
 }
 
 // ── Submit auction for AAC Review ─────────────────────────────────────────────

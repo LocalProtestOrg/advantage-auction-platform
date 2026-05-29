@@ -244,4 +244,72 @@ router.get('/me/walkthrough-videos', auth, async (req, res, next) => {
   }
 });
 
+// GET /api/sellers/me/audit?auction_id=&limit=&offset=
+// AUD-EXP: seller-visible audit history for a single auction the seller
+// owns. Filters by a strict allow-list of event types — sellers must see
+// the major lifecycle and moderation events that affect them, but must
+// NOT see internal admin telemetry (capability changes, suspensions,
+// other sellers' events, raw mutation diffs that may include data the
+// seller has no claim to inspect).
+//
+// Allow-listed event types:
+//   auction_submitted         — seller submitted the auction
+//   auction_returned_to_draft — admin sent it back with revisions
+//   auction_rejected          — admin terminally rejected
+//   auction.published         — auction went live
+//   auction.closed            — auction closed
+//   lot_auto_closed           — individual lot finalized at closes_at
+// Everything else is filtered out server-side.
+//
+// Ownership is enforced by joining audit_log → auctions → seller_profiles
+// → users in a single query; an auction_id query param that the seller
+// does not own returns an empty list (never a 403, to avoid disclosing
+// the existence of someone else's auction id).
+router.get('/me/audit', auth, async (req, res, next) => {
+  try {
+    const auctionId = req.query.auction_id ? String(req.query.auction_id) : null;
+    const limit  = Math.min(parseInt(req.query.limit, 10)  || 50, 200);
+    const offset = Math.max(parseInt(req.query.offset, 10) || 0, 0);
+
+    const allowedEvents = [
+      'auction_submitted',
+      'auction_returned_to_draft',
+      'auction_rejected',
+      'auction.published',
+      'auction.closed',
+      'lot_auto_closed',
+    ];
+
+    const params = [req.user.id, allowedEvents];
+    let extraWhere = '';
+    if (auctionId) {
+      params.push(auctionId);
+      extraWhere = ` AND al.auction_id = $${params.length}`;
+    }
+    params.push(limit, offset);
+
+    const { rows } = await db.query(
+      `SELECT al.id, al.event_type, al.entity_type, al.entity_id,
+              al.auction_id, al.lot_id, al.metadata, al.created_at,
+              CASE WHEN al.actor_id = $1 THEN 'you'
+                   WHEN al.actor_id IS NULL THEN 'system'
+                   ELSE 'advantage'
+              END AS actor_label
+         FROM audit_log al
+         JOIN auctions a        ON a.id  = al.auction_id
+         JOIN seller_profiles sp ON sp.id = a.seller_id
+        WHERE sp.user_id      = $1
+          AND al.event_type = ANY($2::text[])
+          ${extraWhere}
+        ORDER BY al.created_at DESC
+        LIMIT $${params.length - 1} OFFSET $${params.length}`,
+      params
+    );
+
+    return res.json({ success: true, data: rows, count: rows.length, limit, offset });
+  } catch (err) {
+    next(err);
+  }
+});
+
 module.exports = router;

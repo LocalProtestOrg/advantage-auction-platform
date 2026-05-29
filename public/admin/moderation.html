@@ -1305,12 +1305,12 @@
       const rows = entries.map(e => {
         const when    = new Date(e.created_at).toLocaleString();
         const actor   = e.actor_email || (e.actor_id ? '(unknown user)' : 'system');
-        const meta    = e.metadata ? JSON.stringify(e.metadata) : '';
-        const metaStr = meta && meta !== '{}' ? ' · ' + escText(meta) : '';
+        const metaHtml = prettyAdminMetadata(e.event_type, e.metadata);
         return `
           <div style="padding:0.4rem 0;border-bottom:1px solid #e5e7eb">
             <div style="font-weight:700;color:#111">${escText(e.event_type)}</div>
-            <div style="color:#6b7280;font-size:0.72rem">${escText(when)} · ${escText(actor)}${metaStr}</div>
+            <div style="color:#6b7280;font-size:0.72rem">${escText(when)} · ${escText(actor)}</div>
+            ${metaHtml}
           </div>
         `;
       }).join('');
@@ -1318,6 +1318,45 @@
     }).catch(err => {
       panel.innerHTML = '<div style="color:#dc2626">Audit log error: ' + err.message + '</div>';
     });
+  }
+
+  // AUD-EXP: pretty-print the high-signal fields in audit_log metadata so
+  // operators don't have to mentally parse JSON. For event types we know
+  // about, render specific labels. For unknown types, fall back to a
+  // compact JSON dump so we never lose information.
+  function prettyAdminMetadata(eventType, metadata) {
+    if (!metadata || typeof metadata !== 'object') return '';
+    if (eventType === 'auction_returned_to_draft' || eventType === 'auction_rejected') {
+      const parts = [];
+      if (metadata.from_state) parts.push(`<span style="color:#475569">from <strong>${escText(metadata.from_state)}</strong></span>`);
+      if (metadata.reason)     parts.push(`<div style="margin-top:0.25rem;padding:0.35rem 0.55rem;background:#fff;border:1px solid #e5e7eb;border-radius:4px;color:#1f2937;white-space:pre-wrap">${escText(metadata.reason)}</div>`);
+      return parts.length ? `<div style="margin-top:0.25rem;font-size:0.72rem">${parts.join('')}</div>` : '';
+    }
+    if (eventType === 'auction_updated' || eventType === 'auction_submitted') {
+      const cf = metadata.changed_fields;
+      if (!cf || Object.keys(cf).length === 0) return '';
+      const items = Object.entries(cf).map(([k, v]) => {
+        const from = v && v.from != null ? JSON.stringify(v.from) : '∅';
+        const to   = v && v.to   != null ? JSON.stringify(v.to)   : '∅';
+        return `<li><code style="background:#f1f5f9;padding:0 4px;border-radius:3px">${escText(k)}</code>: ${escText(from)} → ${escText(to)}</li>`;
+      }).join('');
+      return `<details style="margin-top:0.25rem"><summary style="font-size:0.72rem;color:#475569;cursor:pointer">${Object.keys(cf).length} field(s) changed</summary><ul style="margin:0.3rem 0 0 1rem;padding:0;font-size:0.72rem;color:#475569">${items}</ul></details>`;
+    }
+    if (eventType === 'lot_added' || eventType === 'lot_withdrawn' || eventType === 'lot_updated') {
+      const lot = metadata.lot_number != null ? `Lot #${metadata.lot_number}` : null;
+      const title = metadata.title || null;
+      const actor = metadata.actor_role ? `(${metadata.actor_role})` : '';
+      const parts = [lot, title, actor].filter(Boolean).join(' · ');
+      return parts ? `<div style="margin-top:0.2rem;font-size:0.72rem;color:#475569">${escText(parts)}</div>` : '';
+    }
+    if (eventType === 'lot_auto_closed') {
+      const cents = metadata.winning_amount_cents;
+      const sold  = metadata.had_bid ? `sold at ${cents != null ? '$' + (cents / 100).toFixed(2) : 'n/a'}` : 'no bids — unsold';
+      return `<div style="margin-top:0.2rem;font-size:0.72rem;color:#475569">${escText(sold)}</div>`;
+    }
+    // Unknown event type: compact JSON so operators still see what changed.
+    const json = JSON.stringify(metadata);
+    return `<div style="margin-top:0.2rem;font-size:0.7rem;color:#9ca3af;font-family:monospace;word-break:break-all">${escText(json)}</div>`;
   }
 
   function doCloseAuction(auctionId) {
