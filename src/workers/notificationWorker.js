@@ -17,6 +17,7 @@ const db             = require('../db/index');
 const { sendEmail }  = require('../services/emailService');
 const { sendSMS }    = require('../services/smsService');
 const auctionService = require('../services/auctionService');
+const auditService   = require('../services/auditService');
 
 if (process.env.SENTRY_DSN) {
   Sentry.init({ dsn: process.env.SENTRY_DSN, environment: process.env.NODE_ENV || 'development' });
@@ -569,3 +570,121 @@ const AUCTION_STATE_INTERVAL_MS = 30000;
 console.log(`[state-transition] scheduler started — scanning every ${AUCTION_STATE_INTERVAL_MS / 1000}s`);
 setInterval(runAuctionStateTransitions, AUCTION_STATE_INTERVAL_MS);
 runAuctionStateTransitions();
+
+// ── INT-1: Lot-level auto-close scheduler ────────────────────────────────────
+//
+// Each tick, finds open lots whose closes_at has passed and finalizes them
+// individually (sets state='closed', records winner). This complements the
+// auction-level scheduler:
+//   • bidService.applySoftClose bumps both lot.closes_at AND auction.end_time
+//     when a bid lands inside the final 2 min, so the auction won't be
+//     closed by runAuctionStateTransitions while lots still have time on
+//     their clocks.
+//   • runLotAutoClose closes any individual lot whose extended window has
+//     fully elapsed, even if the auction itself remains 'active' because
+//     other lots are still running.
+//   • When auction.end_time eventually arrives, runAuctionStateTransitions
+//     calls auctionService.closeAuction which iterates lots and is no-op
+//     for already-closed ones (WHERE state != 'closed' clause).
+//
+// Per-lot logic mirrors closeAuction's winner-resolution rule exactly:
+// max amount_cents wins, earliest created_at is the tiebreaker. Each lot
+// closes in its own transaction with FOR UPDATE so concurrent bid writers
+// are serialized cleanly. A race where a bid arrived after the SELECT but
+// before the lock would re-check the closes_at and skip the lot, leaving
+// it to the next tick.
+async function runLotAutoClose() {
+  let due;
+  try {
+    due = await db.query(`
+      SELECT l.id
+        FROM lots l
+        JOIN auctions a ON a.id = l.auction_id
+       WHERE l.state = 'open'
+         AND l.closes_at IS NOT NULL
+         AND l.closes_at <= NOW()
+         AND a.state IN ('published', 'active')
+    `);
+  } catch (err) {
+    console.error('[lot-auto-close] scan failed:', err.message);
+    if (process.env.SENTRY_DSN) Sentry.captureException(err);
+    return;
+  }
+
+  for (const row of due.rows) {
+    const client = await db.connect();
+    try {
+      await client.query('BEGIN');
+
+      // Re-lock and re-check state inside the transaction. Skip if a writer
+      // raced ahead of us (extended closes_at via soft-close, or already
+      // closed the lot).
+      const lotRes = await client.query(
+        `SELECT id, auction_id, closes_at, state
+           FROM lots
+          WHERE id = $1
+          FOR UPDATE`,
+        [row.id]
+      );
+      const lot = lotRes.rows[0];
+      if (!lot || lot.state !== 'open' || !lot.closes_at || new Date(lot.closes_at) > new Date()) {
+        await client.query('ROLLBACK');
+        continue;
+      }
+
+      const bidRes = await client.query(
+        `SELECT bidder_user_id, amount_cents
+           FROM bids
+          WHERE lot_id = $1
+          ORDER BY amount_cents DESC, created_at ASC
+          LIMIT 1`,
+        [lot.id]
+      );
+      const topBid = bidRes.rows[0];
+
+      if (topBid) {
+        await client.query(
+          `UPDATE lots
+              SET state                 = 'closed',
+                  winning_buyer_user_id = $1,
+                  winning_amount_cents  = $2
+            WHERE id = $3`,
+          [topBid.bidder_user_id, topBid.amount_cents, lot.id]
+        );
+      } else {
+        await client.query(
+          `UPDATE lots SET state = 'closed' WHERE id = $1`,
+          [lot.id]
+        );
+      }
+
+      await auditService.logEvent(client, {
+        eventType:  'lot_auto_closed',
+        entityType: 'lot',
+        entityId:   lot.id,
+        auctionId:  lot.auction_id,
+        lotId:      lot.id,
+        actorId:    null,
+        metadata: {
+          had_bid:              !!topBid,
+          winning_amount_cents: topBid ? topBid.amount_cents : null,
+          closes_at:            lot.closes_at,
+        },
+      });
+
+      await client.query('COMMIT');
+      console.log(`[lot-auto-close] closed lot ${lot.id} in auction ${lot.auction_id}, winner=${topBid ? topBid.bidder_user_id : 'none'}`);
+    } catch (err) {
+      try { await client.query('ROLLBACK'); } catch (_) {}
+      console.error(`[lot-auto-close] failed for lot ${row.id}: ${err.message}`);
+      if (process.env.SENTRY_DSN) Sentry.captureException(err);
+    } finally {
+      client.release();
+    }
+  }
+}
+
+const LOT_AUTO_CLOSE_INTERVAL_MS = 30000;
+console.log(`[lot-auto-close] scheduler started — scanning every ${LOT_AUTO_CLOSE_INTERVAL_MS / 1000}s`);
+setInterval(runLotAutoClose, LOT_AUTO_CLOSE_INTERVAL_MS);
+runLotAutoClose();

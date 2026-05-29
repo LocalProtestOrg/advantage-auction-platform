@@ -195,6 +195,28 @@ async function applyAntiSnipe(client, lot) {
       [lot.id, extended.toISOString(), lot.current_bid_cents || 0]
     );
 
+    // INT-1: an extended lot must not be auto-closed by the auction-level
+    // state-transition scheduler while it still has time on its clock. We
+    // recompute MAX(closes_at) over the auction's non-withdrawn lots and
+    // bump auctions.end_time to track it. This UPDATE only fires when the
+    // new max would push the auction's end forward — never shortens.
+    // Lot extensions are intentionally uncapped per operator direction.
+    await client.query(
+      `UPDATE auctions
+         SET end_time   = latest.max_closes,
+             updated_at = NOW()
+        FROM (
+          SELECT MAX(closes_at) AS max_closes
+            FROM lots
+           WHERE auction_id = $1
+             AND state != 'withdrawn'
+        ) latest
+        WHERE auctions.id = $1
+          AND latest.max_closes IS NOT NULL
+          AND (auctions.end_time IS NULL OR latest.max_closes > auctions.end_time)`,
+      [lot.auction_id]
+    );
+
     return extended;
   }
   return lot.closes_at;
