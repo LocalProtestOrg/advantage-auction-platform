@@ -1,5 +1,6 @@
 const db = require('../db/index');
 const auditService = require('./auditService');
+const { writeAuditLog } = require('../lib/auditLog');
 const { getSellerPayoutPreference } = require('./payoutPreferenceService');
 
 async function createAuction(data) {
@@ -140,8 +141,48 @@ async function updateAuction(auctionId, userId, updates, actorRole) {
   // Admin path doesn't reference userId in the WHERE — drop it from the
   // parameter list to keep $${idx} substitutions aligned.
   if (isAdmin) values.pop();
+
+  // INT-2: snapshot pre-update values so we can write a diff to audit_log
+  // after the UPDATE succeeds. Run this just-in-time and tolerate failure —
+  // an audit gap must never block the mutation.
+  let beforeRow = null;
+  try {
+    const beforeRes = await db.query(
+      `SELECT ${[...allowed, 'state'].join(', ')} FROM auctions WHERE id = $1`,
+      [auctionId]
+    );
+    beforeRow = beforeRes.rows[0] || null;
+  } catch (_) { /* audit snapshot is best-effort */ }
+
   const result = await db.query(query, values);
-  return result.rows[0] || null;
+  if (!result.rows[0]) return null;
+
+  // INT-2: write audit_log entry. Pick a more specific event type when the
+  // change is an entry into 'submitted' state (the moderation queue trigger);
+  // every other field/state change is 'auction_updated' with a diff blob.
+  try {
+    const after = result.rows[0];
+    const changed = {};
+    for (const k of [...allowed, 'state']) {
+      if (updates[k] === undefined) continue;
+      const fromVal = beforeRow ? beforeRow[k] : null;
+      const toVal   = after[k];
+      if (String(fromVal) !== String(toVal)) {
+        changed[k] = { from: fromVal, to: toVal };
+      }
+    }
+    const enteredSubmitted = changed.state && changed.state.to === 'submitted';
+    writeAuditLog({
+      event_type:  enteredSubmitted ? 'auction_submitted' : 'auction_updated',
+      entity_type: 'auction',
+      entity_id:   auctionId,
+      auction_id:  auctionId,
+      actor_id:    userId,
+      metadata:    { changed_fields: changed, actor_role: actorRole || 'unknown' },
+    }).catch(() => {});
+  } catch (_) { /* audit failures are non-blocking by design */ }
+
+  return result.rows[0];
 }
 
 // Delete auction (enforce ownership)

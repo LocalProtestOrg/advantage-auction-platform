@@ -5,6 +5,7 @@ const authMiddleware = require('../middleware/authMiddleware');
 const db = require('../db');
 const { getBidsByLot, createBid } = require('../services/bidService');
 const imageProcessingService      = require('../services/imageProcessingService');
+const { writeAuditLog }           = require('../lib/auditLog');
 
 // ── Ownership helpers (admin bypasses both checks) ───────────────────────────
 
@@ -165,7 +166,18 @@ router.post('/', auth, async (req, res, next) => {
        RETURNING *`,
       [auctionId, title, description, size_category || null, pickup_category || null, bid_increment_cents || null, starting_bid_cents || null, dimsValidated ? JSON.stringify(dimsValidated) : null]
     );
-    res.status(201).json({ success: true, data: result.rows[0] });
+    // INT-2: audit lot creation. Non-blocking — helper swallows errors.
+    const created = result.rows[0];
+    writeAuditLog({
+      event_type:  'lot_added',
+      entity_type: 'lot',
+      entity_id:   created.id,
+      auction_id:  auctionId,
+      lot_id:      created.id,
+      actor_id:    req.user.id,
+      metadata:    { lot_number: created.lot_number, title: created.title, actor_role: req.user.role },
+    }).catch(() => {});
+    res.status(201).json({ success: true, data: created });
   } catch (err) {
     next(err);
   }
@@ -312,7 +324,13 @@ router.delete('/:lotId', auth, async (req, res, next) => {
     if (!gate.allowed) {
       return res.status(403).json({ success: false, message: lockErrorMessage(gate.reason) });
     }
-    const check = await db.query('SELECT bid_count FROM lots WHERE id = $1', [req.params.lotId]);
+    // INT-2: pull auction_id + lot_number alongside the bid_count guard so we
+    // can scope the audit_log entry to the parent auction (audit timeline
+    // filters on auction_id) without a second round-trip.
+    const check = await db.query(
+      'SELECT bid_count, auction_id, lot_number, title FROM lots WHERE id = $1',
+      [req.params.lotId]
+    );
     if (!check.rows[0]) return res.status(404).json({ success: false, message: 'Lot not found' });
     if (check.rows[0].bid_count > 0) {
       return res.status(409).json({ success: false, message: 'Cannot remove a lot that has received bids' });
@@ -321,6 +339,22 @@ router.delete('/:lotId', auth, async (req, res, next) => {
       `UPDATE lots SET is_withdrawn = true, state = 'withdrawn', updated_at = NOW() WHERE id = $1`,
       [req.params.lotId]
     );
+    // INT-2: audit lot withdrawal. actor_role distinguishes seller self-
+    // withdraw from admin removal — both are legitimate but the operational
+    // signal is different.
+    writeAuditLog({
+      event_type:  'lot_withdrawn',
+      entity_type: 'lot',
+      entity_id:   req.params.lotId,
+      auction_id:  check.rows[0].auction_id,
+      lot_id:      req.params.lotId,
+      actor_id:    req.user.id,
+      metadata:    {
+        lot_number: check.rows[0].lot_number,
+        title:      check.rows[0].title,
+        actor_role: req.user.role,
+      },
+    }).catch(() => {});
     res.json({ success: true });
   } catch (err) {
     next(err);
@@ -345,6 +379,23 @@ router.put('/:lotId', auth, async (req, res, next) => {
       condition, material, era, maker_artist, weight,
       dimensions, shippable, closes_at,
     } = req.body;
+    // INT-2: snapshot the columns that this UPDATE writes so we can compute
+    // a diff for the audit_log entry after the UPDATE succeeds. auction_id
+    // is included so we can scope the audit entry to the parent auction
+    // without a second query. Failure here is best-effort.
+    let beforeLot = null;
+    try {
+      const beforeRes = await db.query(
+        `SELECT auction_id, title, description, category, size_category,
+                pickup_category, bid_increment_cents, starting_bid_cents,
+                condition, material, era, maker_artist, weight, dimensions,
+                shippable, closes_at
+           FROM lots
+          WHERE id = $1`,
+        [req.params.lotId]
+      );
+      beforeLot = beforeRes.rows[0] || null;
+    } catch (_) { /* audit snapshot is best-effort */ }
     const result = await db.query(
       `UPDATE lots
        SET title               = $1,
@@ -389,7 +440,36 @@ router.put('/:lotId', auth, async (req, res, next) => {
         req.params.lotId,
       ]
     );
-    res.json({ success: true, data: result.rows[0] });
+    // INT-2: audit lot edit. Diff is scoped to fields the request actually
+    // touched (req.body keys), so unchanged columns aren't logged as
+    // "from X to X" noise.
+    const after = result.rows[0];
+    if (after) {
+      try {
+        const changed = {};
+        const touched = ['title','description','category','size_category','pickup_category',
+                         'bid_increment_cents','starting_bid_cents','condition','material',
+                         'era','maker_artist','weight','dimensions','shippable','closes_at'];
+        for (const k of touched) {
+          if (req.body[k] === undefined) continue;
+          const fromVal = beforeLot ? beforeLot[k] : null;
+          const toVal   = after[k];
+          if (JSON.stringify(fromVal) !== JSON.stringify(toVal)) {
+            changed[k] = { from: fromVal, to: toVal };
+          }
+        }
+        writeAuditLog({
+          event_type:  'lot_updated',
+          entity_type: 'lot',
+          entity_id:   req.params.lotId,
+          auction_id:  after.auction_id,
+          lot_id:      req.params.lotId,
+          actor_id:    req.user.id,
+          metadata:    { lot_number: after.lot_number, changed_fields: changed, actor_role: req.user.role },
+        }).catch(() => {});
+      } catch (_) { /* audit is non-blocking */ }
+    }
+    res.json({ success: true, data: after });
   } catch (err) {
     next(err);
   }
