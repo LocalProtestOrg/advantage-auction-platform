@@ -1344,6 +1344,51 @@
     });
   }
 
+  // AUD-VIS (Tier 2): per-seller audit timeline. Structurally parallel to
+  // toggleAuditLog, but filtered by entity_type=seller_profile&entity_id so it
+  // returns the NULL-auction_id seller events (suspend / unsuspend /
+  // capabilities) that the auction-scoped panel cannot surface. Reuses
+  // prettyAdminMetadata + escText verbatim — same renderer, different filter
+  // (see docs/admin-audit-visibility-tier2-plan.md §4.2). toggleAuditLog is
+  // deliberately left untouched (no refactor).
+  function toggleSellerAudit(container, sellerProfileId) {
+    const panel = container.querySelector('.audit-log-panel');
+    if (!panel) return;
+    if (panel.style.display !== 'none') {
+      panel.style.display = 'none';
+      return;
+    }
+    panel.style.display = '';
+    panel.innerHTML = '<div style="color:#6b7280">Loading audit log…</div>';
+    const qs = `entity_type=seller_profile&entity_id=${encodeURIComponent(sellerProfileId)}&limit=50`;
+    api('GET', `/api/admin/audit-log?${qs}`).then(data => {
+      if (!data.success) {
+        panel.innerHTML = '<div style="color:#dc2626">Audit log fetch failed: ' + (data.message || 'unknown') + '</div>';
+        return;
+      }
+      const entries = data.data || [];
+      if (!entries.length) {
+        panel.innerHTML = '<div style="color:#9ca3af;font-style:italic">No recorded admin actions for this seller yet.</div>';
+        return;
+      }
+      const rows = entries.map(e => {
+        const when    = new Date(e.created_at).toLocaleString();
+        const actor   = e.actor_email || (e.actor_id ? '(unknown user)' : 'system');
+        const metaHtml = prettyAdminMetadata(e.event_type, e.metadata);
+        return `
+          <div style="padding:0.4rem 0;border-bottom:1px solid #e5e7eb">
+            <div style="font-weight:700;color:#111">${escText(e.event_type)}</div>
+            <div style="color:#6b7280;font-size:0.72rem">${escText(when)} · ${escText(actor)}</div>
+            ${metaHtml}
+          </div>
+        `;
+      }).join('');
+      panel.innerHTML = `<div style="font-weight:700;margin-bottom:0.5rem">Audit Log (${entries.length} ${entries.length === 1 ? 'entry' : 'entries'})</div>` + rows;
+    }).catch(err => {
+      panel.innerHTML = '<div style="color:#dc2626">Audit log error: ' + err.message + '</div>';
+    });
+  }
+
   // AUD-EXP: pretty-print the high-signal fields in audit_log metadata so
   // operators don't have to mentally parse JSON. For event types we know
   // about, render specific labels. For unknown types, fall back to a
@@ -1377,6 +1422,27 @@
       const cents = metadata.winning_amount_cents;
       const sold  = metadata.had_bid ? `sold at ${cents != null ? '$' + (cents / 100).toFixed(2) : 'n/a'}` : 'no bids — unsold';
       return `<div style="margin-top:0.2rem;font-size:0.72rem;color:#475569">${escText(sold)}</div>`;
+    }
+    // AUD-VIS (Tier 2): seller-scoped moderation events. Reason box mirrors the
+    // auction_rejected style; capability diff mirrors the auction_updated
+    // changed-fields style. Additive branches on this existing dispatcher.
+    if (eventType === 'seller_suspended' || eventType === 'seller_unsuspended') {
+      const inner = metadata.reason
+        ? `<div style="margin-top:0.25rem;padding:0.35rem 0.55rem;background:#fff;border:1px solid #e5e7eb;border-radius:4px;color:#1f2937;white-space:pre-wrap">${escText(metadata.reason)}</div>`
+        : `<span style="color:#9ca3af;font-style:italic">no reason recorded</span>`;
+      return `<div style="margin-top:0.25rem;font-size:0.72rem">${inner}</div>`;
+    }
+    if (eventType === 'seller_capabilities_changed') {
+      const keys   = Array.isArray(metadata.changed_keys) ? metadata.changed_keys : [];
+      if (!keys.length) return '';
+      const before = metadata.before || {};
+      const after  = metadata.after  || {};
+      const items = keys.map(k => {
+        const from = before[k] != null ? JSON.stringify(before[k]) : '∅';
+        const to   = after[k]  != null ? JSON.stringify(after[k])  : '∅';
+        return `<li><code style="background:#f1f5f9;padding:0 4px;border-radius:3px">${escText(k)}</code>: ${escText(from)} → ${escText(to)}</li>`;
+      }).join('');
+      return `<details style="margin-top:0.25rem"><summary style="font-size:0.72rem;color:#475569;cursor:pointer">${keys.length} capability change(s)</summary><ul style="margin:0.3rem 0 0 1rem;padding:0;font-size:0.72rem;color:#475569">${items}</ul></details>`;
     }
     // Unknown event type: compact JSON so operators still see what changed.
     const json = JSON.stringify(metadata);
@@ -1416,6 +1482,37 @@
         ].filter(Boolean);
         main.appendChild(el('div', 'row-meta', metaParts.join(' · ')));
         row.appendChild(main);
+
+        // AUD-VIS (Tier 2): per-seller audit history. seller_suspended /
+        // seller_unsuspended / seller_capabilities_changed are written with
+        // entity_type='seller_profile', entity_id=seller_profiles.id, and
+        // auction_id=NULL — so they never appear in Tier 1's auction-scoped
+        // History. This row-level History button surfaces them via the SAME
+        // GET /api/admin/audit-log endpoint (entity_type/entity_id filters,
+        // already supported) and the SAME prettyAdminMetadata() renderer. The
+        // panel is a full-width child; .row-item is flex-wrap:wrap, so it
+        // wraps onto its own line below the seller's content. Read-only — no
+        // change to any seller-management workflow.
+        if (s.seller_profile_id) {
+          const auditContainer = el('div', 'seller-audit-container');
+          auditContainer.style.flexBasis = '100%';
+          auditContainer.style.width     = '100%';
+          const auditPanel = el('div', 'audit-log-panel');
+          auditPanel.style.display      = 'none';
+          auditPanel.style.marginTop    = '0.6rem';
+          auditPanel.style.padding      = '0.7rem 0.9rem';
+          auditPanel.style.background   = '#f9fafb';
+          auditPanel.style.borderRadius = '6px';
+          auditPanel.style.fontSize     = '0.75rem';
+          auditContainer.appendChild(auditPanel);
+
+          const historyBtn = el('button', 'btn btn-sm', 'History');
+          historyBtn.style.flexShrink = '0';
+          historyBtn.onclick = () => toggleSellerAudit(auditContainer, s.seller_profile_id);
+          row.appendChild(historyBtn);
+          row.appendChild(auditContainer);
+        }
+
         list.appendChild(row);
       });
     }).catch(err => showMsg('sellers-status', err.message, true));
