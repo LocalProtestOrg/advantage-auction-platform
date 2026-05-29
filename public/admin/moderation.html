@@ -1297,6 +1297,74 @@
     });
   }
 
+  // SMA-S1b: Suspend / Unsuspend handlers. Expose the existing, already-
+  // enforced admin endpoints (POST /api/admin/sellers/:id/{suspend,unsuspend})
+  // — suspension sets users.is_active=false, which the login path rejects.
+  // Mirrors the Tier 1 mutation pattern (prompt optional reason → confirm →
+  // POST → reload). The triggering button is disabled while in-flight to
+  // avoid a double-submit; the endpoint also 409s on a redundant transition.
+  // On success we reload the sellers list so the Suspended badge + the
+  // Suspend/Unsuspend label flip; the resulting seller_suspended /
+  // seller_unsuspended audit event is already visible via the Tier 2 History
+  // button. No change to api() or any backend (reason omitted from the body
+  // when blank — the endpoint treats a missing reason as null).
+  function reloadSellersPreservingSearch() {
+    const box = document.getElementById('seller-search');
+    loadSellers(box ? box.value.trim() : '');
+  }
+
+  function suspendSeller(sellerProfileId, email, btn) {
+    const who = email || 'this seller';
+    const reason = prompt(
+      `Reason for suspending ${who}? (optional)\n\n` +
+      'The seller does not see this; it is recorded in the audit log for accountability.'
+    );
+    if (reason === null) return; // operator cancelled
+    if (!confirm(
+      `Suspend ${who}?\n\n` +
+      'They will be unable to log in until unsuspended. This blocks all login for the account.'
+    )) return;
+    const trimmed = reason.trim();
+    if (btn) { btn.disabled = true; btn.textContent = 'Suspending…'; }
+    showMsg('sellers-status', 'Suspending ' + who + '…');
+    api('POST', `/api/admin/sellers/${sellerProfileId}/suspend`, trimmed ? { reason: trimmed } : {}).then(data => {
+      if (!data.success) {
+        showMsg('sellers-status', 'Failed: ' + (data.message || 'unknown'), true);
+        if (btn) { btn.disabled = false; btn.textContent = 'Suspend'; }
+        return;
+      }
+      showMsg('sellers-status', '');
+      reloadSellersPreservingSearch();
+    }).catch(err => {
+      showMsg('sellers-status', 'Failed: ' + err.message, true);
+      if (btn) { btn.disabled = false; btn.textContent = 'Suspend'; }
+    });
+  }
+
+  function unsuspendSeller(sellerProfileId, email, btn) {
+    const who = email || 'this seller';
+    const reason = prompt(
+      `Reason for unsuspending ${who}? (optional)\n\n` +
+      'Recorded in the audit log for accountability.'
+    );
+    if (reason === null) return; // operator cancelled
+    const trimmed = reason.trim();
+    if (btn) { btn.disabled = true; btn.textContent = 'Unsuspending…'; }
+    showMsg('sellers-status', 'Unsuspending ' + who + '…');
+    api('POST', `/api/admin/sellers/${sellerProfileId}/unsuspend`, trimmed ? { reason: trimmed } : {}).then(data => {
+      if (!data.success) {
+        showMsg('sellers-status', 'Failed: ' + (data.message || 'unknown'), true);
+        if (btn) { btn.disabled = false; btn.textContent = 'Unsuspend'; }
+        return;
+      }
+      showMsg('sellers-status', '');
+      reloadSellersPreservingSearch();
+    }).catch(err => {
+      showMsg('sellers-status', 'Failed: ' + err.message, true);
+      if (btn) { btn.disabled = false; btn.textContent = 'Unsuspend'; }
+    });
+  }
+
   function escAttr(v) {
     if (v == null) return '';
     return String(v).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -1482,6 +1550,36 @@
         ].filter(Boolean);
         main.appendChild(el('div', 'row-meta', metaParts.join(' · ')));
         row.appendChild(main);
+
+        // SMA-S1a: surface suspension status from the is_active value the
+        // sellers endpoint already returns (previously fetched but never
+        // displayed). Pure display — a red pill, only when suspended.
+        const isSuspended = s.is_active === false;
+        if (isSuspended) {
+          const badge = el('span', 'badge badge-rejected', 'Suspended');
+          badge.style.flexShrink = '0';
+          row.appendChild(badge);
+        }
+
+        // SMA-S1b: state-aware Suspend / Unsuspend action, exposing the
+        // existing admin endpoints (see suspendSeller / unsuspendSeller). The
+        // resulting audit event is reviewable via the Tier 2 History button
+        // below — a see-status → act → review loop. Guarded on
+        // seller_profile_id (the endpoint route param). Suspend is styled red
+        // to match the Tier 1 reject action; Unsuspend stays neutral.
+        if (s.seller_profile_id) {
+          const actionBtn = el('button', 'btn btn-sm', isSuspended ? 'Unsuspend' : 'Suspend');
+          actionBtn.style.flexShrink = '0';
+          if (!isSuspended) {
+            actionBtn.style.background  = '#fee2e2';
+            actionBtn.style.borderColor = '#fca5a5';
+            actionBtn.style.color       = '#991b1b';
+          }
+          actionBtn.onclick = () => isSuspended
+            ? unsuspendSeller(s.seller_profile_id, s.email, actionBtn)
+            : suspendSeller(s.seller_profile_id, s.email, actionBtn);
+          row.appendChild(actionBtn);
+        }
 
         // AUD-VIS (Tier 2): per-seller audit history. seller_suspended /
         // seller_unsuspended / seller_capabilities_changed are written with
