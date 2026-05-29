@@ -983,7 +983,31 @@
           actions.appendChild(editBtn);
         }
 
+        // AUD-VIS (Tier 1): audit history is read-only and relevant in EVERY
+        // state — especially 'closed', where the Edit button (and the Audit
+        // Log button nested inside its form) is hidden, previously leaving
+        // closed auctions with no UI path to their own history. This
+        // card-level History button surfaces the SAME timeline through the
+        // SAME toggleAuditLog() renderer + prettyAdminMetadata(), scoped to a
+        // dedicated card-level panel so it never collides with the edit-form
+        // panel. No new viewer, no new endpoint, no duplicated logic — only
+        // the trigger is promoted out of the Edit workflow onto the card.
+        const auditContainer = el('div', 'card-audit-container');
+        const auditPanel = el('div', 'audit-log-panel');
+        auditPanel.style.display    = 'none';
+        auditPanel.style.marginTop  = '0.85rem';
+        auditPanel.style.padding    = '0.7rem 0.9rem';
+        auditPanel.style.background = '#f9fafb';
+        auditPanel.style.borderRadius = '6px';
+        auditPanel.style.fontSize   = '0.75rem';
+        auditContainer.appendChild(auditPanel);
+
+        const historyBtn = el('button', 'btn btn-sm', 'History');
+        historyBtn.onclick = () => toggleAuditLog(auditContainer, a.id);
+        actions.appendChild(historyBtn);
+
         card.appendChild(actions);
+        card.appendChild(auditContainer);
 
         // Lazy edit-form container; populated on first Edit click.
         const editContainer = el('div', 'admin-edit-form-container');
