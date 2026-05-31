@@ -1012,7 +1012,11 @@
             </select>
           </div>
 
-          <div class="form-group">
+          <!-- Phase C.2: Starting Bid is a professional-only control. Hidden by
+               default (failsafe); revealed by JS only for admins and professional
+               seller types. Non-professional sellers → $1 via server default.
+               Server (src/routes/lots.js) is authoritative regardless of this. -->
+          <div class="form-group" id="starting-bid-form-group" style="display:none">
             <label class="form-label" for="starting-bid">Starting Bid</label>
             <div class="input-prefix-wrap">
               <span class="input-prefix">$</span>
@@ -1712,6 +1716,9 @@
         size_category:      selectedTier ? selectedTier.value : null,
         pickup_category:    selectedTier ? selectedTier.value : null,
         starting_bid_cents: startingBidRaw > 0 ? Math.round(startingBidRaw * 100) : null,
+        // Phase C.2: professional-only reserve visibility toggle. Sent for all,
+        // but the server ignores it for non-professional sellers (authoritative).
+        reserve_visible:    !!(document.getElementById('reserve-toggle') && document.getElementById('reserve-toggle').checked),
         // Server stores as JSONB { text: "..." } — see src/routes/lots.js
         // validateDimensions(). Empty/whitespace omitted entirely.
         dimensions:         dimensionsRaw ? { text: dimensionsRaw } : null,
@@ -1948,26 +1955,34 @@
 
     loadDraft();
 
-    /* ── Capability gating: reserve pricing visible only to business sellers ──
-       Fetches the authenticated user's seller_profile on page load. If the
-       profile reports seller_type='business', reveal the Reserve Price form
-       group; otherwise leave it hidden. Failsafe — any fetch error, missing
-       field, or non-business value leaves reserve hidden. This is a stopgap
-       until full capability-based gating lands; see project memory
-       project-seller-studio-known-defects Defect 2. */
-    (function gateReservePricing() {
-      fetch('/api/sellers/me', {
-        headers: { 'Authorization': 'Bearer ' + token },
-      })
+    /* ── Phase C.2: professional-only lot settings (Starting Bid + Reserve) ──
+       Server is authoritative (src/routes/lots.js gates these by seller_type).
+       This client gate is UX only: reveal Starting Bid + Reserve for admins and
+       professional seller types (auction_house / estate_sale_company /
+       professional_liquidator). All other sellers (private / business / other /
+       NULL) keep them hidden → $1 default and no reserve. Failsafe: any error
+       leaves them hidden. Note: this REPLACES the prior business-only reserve
+       gate — under the seller-type framework, 'business' is non-professional. */
+    (function gateProfessionalControls() {
+      var PRO_TYPES = ['auction_house', 'estate_sale_company', 'professional_liquidator'];
+      function reveal(show) {
+        ['starting-bid-form-group', 'reserve-form-group'].forEach(function (id) {
+          var el = document.getElementById(id);
+          if (el) el.style.display = show ? '' : 'none';
+        });
+      }
+      var isAdmin = false;
+      try { isAdmin = JSON.parse(atob(token.split('.')[1])).role === 'admin'; } catch (e) {}
+      if (isAdmin) { reveal(true); return; }
+      fetch('/api/sellers/me', { headers: { 'Authorization': 'Bearer ' + token } })
         .then(function (r) { return r.json(); })
         .then(function (data) {
-          if (data && data.success && data.data && data.data.seller_type === 'business') {
-            var el = document.getElementById('reserve-form-group');
-            if (el) el.style.display = '';
-          }
+          var st = (data && data.success && data.data) ? data.data.seller_type : null;
+          reveal(PRO_TYPES.indexOf(st) !== -1);
         })
         .catch(function (err) {
-          console.warn('[gate-reserve] could not fetch seller profile; reserve remains hidden', { error: err && err.message });
+          console.warn('[gate-pro] could not fetch seller profile; pro controls remain hidden', { error: err && err.message });
+          reveal(false);
         });
     })();
 
@@ -2544,6 +2559,8 @@
       document.getElementById('lot-desc').value       = lot.description || '';
       document.getElementById('lot-dimensions').value = (lot.dimensions && typeof lot.dimensions === 'object' && typeof lot.dimensions.text === 'string') ? lot.dimensions.text : '';
       document.getElementById('starting-bid').value   = lot.starting_bid_cents ? (lot.starting_bid_cents / 100) : '';
+      var rtEdit = document.getElementById('reserve-toggle');   // Phase C.2: reflect stored reserve visibility
+      if (rtEdit) rtEdit.checked = !!lot.reserve_visible;
 
       // Pickup tier
       var tierVal = lot.pickup_category || lot.size_category || 'B';

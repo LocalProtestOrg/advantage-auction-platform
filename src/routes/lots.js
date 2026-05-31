@@ -6,6 +6,36 @@ const db = require('../db');
 const { getBidsByLot, createBid } = require('../services/bidService');
 const imageProcessingService      = require('../services/imageProcessingService');
 const { writeAuditLog }           = require('../lib/auditLog');
+const { isProfessional }          = require('../services/sellerTypeRules');
+
+// ── Phase C.2: professional-only lot settings (starting bid, reserve) ─────────
+// Server-authoritative gate. Admin may configure anything (override). Otherwise
+// ONLY professional seller types (auction_house / estate_sale_company /
+// professional_liquidator) may set starting_bid / reserve; non-professional and
+// untyped sellers have these IGNORED here (stored null → existing $1 fallback /
+// no reserve). Frontend hiding is UX only; this is the enforcement.
+async function proSettingsAllowedForAuction(userRole, auctionId) {
+  if (userRole === 'admin') return true;
+  const { rows } = await db.query(
+    `SELECT sp.seller_type FROM auctions a
+       JOIN seller_profiles sp ON sp.id = a.seller_id
+      WHERE a.id = $1`,
+    [auctionId]
+  );
+  return rows[0] ? isProfessional(rows[0].seller_type) : false;
+}
+
+async function proSettingsAllowedForLot(userRole, lotId) {
+  if (userRole === 'admin') return true;
+  const { rows } = await db.query(
+    `SELECT sp.seller_type FROM lots l
+       JOIN auctions a        ON a.id  = l.auction_id
+       JOIN seller_profiles sp ON sp.id = a.seller_id
+      WHERE l.id = $1`,
+    [lotId]
+  );
+  return rows[0] ? isProfessional(rows[0].seller_type) : false;
+}
 
 // ── Ownership helpers (admin bypasses both checks) ───────────────────────────
 
@@ -151,20 +181,26 @@ router.post('/:lotId/bids', authMiddleware, async (req, res) => {
 // POST /api/lots
 router.post('/', auth, async (req, res, next) => {
   try {
-    const { auctionId, title, description, size_category, pickup_category, bid_increment_cents, starting_bid_cents, dimensions } = req.body;
+    const { auctionId, title, description, size_category, pickup_category, bid_increment_cents, starting_bid_cents, reserve_cents, reserve_visible, dimensions } = req.body;
     // Edit-lock gate — refuse mutation if parent auction is past 'draft' for
     // a private/other seller. Admin and business sellers bypass.
     const gate = await canMutateAuction(req.user.id, req.user.role, auctionId);
     if (!gate.allowed) {
       return res.status(403).json({ success: false, message: lockErrorMessage(gate.reason) });
     }
+    // Phase C.2: professional-only settings. Non-professional sellers have
+    // starting_bid + reserve ignored → null (existing $1 fallback / no reserve).
+    const proAllowed        = await proSettingsAllowedForAuction(req.user.role, auctionId);
+    const effStartingBid    = proAllowed ? (starting_bid_cents || null) : null;
+    const effReserveCents   = proAllowed ? (reserve_cents || null)      : null;
+    const effReserveVisible = proAllowed ? (reserve_visible === true)   : false;
     const dimsValidated = validateDimensions(dimensions); // null if invalid → stored as NULL
     const result = await db.query(
-      `INSERT INTO lots (auction_id, title, description, size_category, pickup_category, bid_increment_cents, starting_bid_cents, dimensions, lot_number)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb,
+      `INSERT INTO lots (auction_id, title, description, size_category, pickup_category, bid_increment_cents, starting_bid_cents, reserve_cents, reserve_visible, dimensions, lot_number)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10::jsonb,
                (SELECT COALESCE(MAX(lot_number), 0) + 1 FROM lots WHERE auction_id = $1))
        RETURNING *`,
-      [auctionId, title, description, size_category || null, pickup_category || null, bid_increment_cents || null, starting_bid_cents || null, dimsValidated ? JSON.stringify(dimsValidated) : null]
+      [auctionId, title, description, size_category || null, pickup_category || null, bid_increment_cents || null, effStartingBid, effReserveCents, effReserveVisible, dimsValidated ? JSON.stringify(dimsValidated) : null]
     );
     // INT-2: audit lot creation. Non-blocking — helper swallows errors.
     const created = result.rows[0];
@@ -375,10 +411,18 @@ router.put('/:lotId', auth, async (req, res, next) => {
     }
     const {
       title, description, category, size_category, pickup_category,
-      bid_increment_cents, starting_bid_cents,
+      bid_increment_cents, starting_bid_cents, reserve_cents, reserve_visible,
       condition, material, era, maker_artist, weight,
       dimensions, shippable, closes_at,
     } = req.body;
+    // Phase C.2: professional-only settings gate (admin bypasses). Non-pro
+    // sellers have starting_bid + reserve ignored. reserve_* use COALESCE below
+    // so a non-pro edit (or a pro omitting them) preserves existing values
+    // (never destroys an admin-set reserve); only a pro-supplied value writes.
+    const proAllowed        = await proSettingsAllowedForLot(req.user.role, req.params.lotId);
+    const effStartingBid    = proAllowed ? (starting_bid_cents || null) : null;
+    const effReserveCents   = proAllowed ? (reserve_cents != null ? reserve_cents : null) : null;
+    const effReserveVisible = proAllowed ? (typeof reserve_visible === 'boolean' ? reserve_visible : null) : null;
     // INT-2: snapshot the columns that this UPDATE writes so we can compute
     // a diff for the audit_log entry after the UPDATE succeeds. auction_id
     // is included so we can scope the audit entry to the parent auction
@@ -413,8 +457,10 @@ router.put('/:lotId', auth, async (req, res, next) => {
            dimensions          = COALESCE($13::jsonb, dimensions),
            shippable           = COALESCE($14, shippable),
            closes_at           = COALESCE($15::timestamptz, closes_at),
+           reserve_cents       = COALESCE($16, reserve_cents),
+           reserve_visible     = COALESCE($17, reserve_visible),
            updated_at          = NOW()
-       WHERE id = $16
+       WHERE id = $18
        RETURNING *`,
       [
         title,
@@ -423,7 +469,7 @@ router.put('/:lotId', auth, async (req, res, next) => {
         size_category   || null,
         pickup_category || null,
         bid_increment_cents  || null,
-        starting_bid_cents   || null,
+        effStartingBid,          // Phase C.2: null for non-professional sellers
         condition       || null,
         material        || null,
         era             || null,
@@ -437,6 +483,8 @@ router.put('/:lotId', auth, async (req, res, next) => {
         })(),
         shippable != null ? shippable : null,
         closes_at       || null,
+        effReserveCents,         // Phase C.2: COALESCE preserves existing when null
+        effReserveVisible,       // Phase C.2: COALESCE preserves existing when null
         req.params.lotId,
       ]
     );

@@ -156,12 +156,26 @@ router.patch('/auctions/:auctionId', auth, role(['admin']), idempotency, async (
   try {
     const auctionService = require('../services/auctionService');
     const { auctionId } = req.params;
-    const updated = await auctionService.updateAuction(auctionId, req.user.id, req.body, 'admin');
+    const updated = await auctionService.updateAuction(
+      auctionId, req.user.id, req.body, 'admin',
+      { overrideReason: req.body.override_reason }   // Phase C: admin schedule-rule override (reason required, audited)
+    );
     if (!updated) {
       return res.status(404).json({ success: false, message: 'No valid fields or auction not found' });
     }
     return res.json({ success: true, data: updated });
   } catch (err) {
+    // Phase C: schedule violation without a valid override → 422 + explanation
+    // (admins can override by re-sending with override_reason).
+    if (err && err.code === 'SCHEDULE_RULE_VIOLATION') {
+      return res.status(422).json({
+        success: false,
+        code: err.code,
+        message: (err.violations && err.violations[0] && err.violations[0].message) || err.message,
+        violations: err.violations || [],
+        adminOverrideAvailable: !!err.adminOverrideAvailable,
+      });
+    }
     console.error('[admin] PATCH /auctions/:id error:', err.message);
     return next(err);
   }

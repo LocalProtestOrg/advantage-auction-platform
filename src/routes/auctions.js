@@ -63,10 +63,24 @@ router.post('/', authMiddleware, async (req, res) => {
       previewStart, previewEnd,
       pickupWindowStart, pickupWindowEnd,
       shippingAvailable, bannerImageUrl, coverImageUrl,
+      // Phase C: actor context + optional admin override of the schedule rule.
+      actorRole:     req.user.role,
+      actorUserId:   req.user.id,
+      overrideReason: req.body.override_reason,
     });
 
     return res.status(201).json({ success: true, data: auction });
   } catch (err) {
+    // Phase C: seller-type schedule violation → 422 with the explanation.
+    if (err && err.code === 'SCHEDULE_RULE_VIOLATION') {
+      return res.status(422).json({
+        success: false,
+        code: err.code,
+        message: (err.violations && err.violations[0] && err.violations[0].message) || err.message,
+        violations: err.violations || [],
+        adminOverrideAvailable: !!err.adminOverrideAvailable,
+      });
+    }
     console.error('[auctions] createAuction failed:', { userId: req.user.id, error: err.message });
     return res.status(500).json({ success: false, message: err.message });
   }
@@ -242,12 +256,25 @@ router.patch('/:auctionId', authMiddleware, async (req, res) => {
     if (!gate.allowed) {
       return res.status(403).json({ success: false, message: lockErrorMessage(gate.reason) });
     }
-    const updated = await auctionService.updateAuction(auctionId, req.user.id, req.body, req.user.role);
+    const updated = await auctionService.updateAuction(
+      auctionId, req.user.id, req.body, req.user.role,
+      { overrideReason: req.body.override_reason }   // honored for admins only (server-enforced)
+    );
     if (!updated) {
       return res.status(404).json({ success: false, message: 'No valid fields or auction not found' });
     }
     return res.json({ success: true, data: updated });
   } catch (err) {
+    // Phase C: seller-type schedule violation → 422 with the explanation.
+    if (err && err.code === 'SCHEDULE_RULE_VIOLATION') {
+      return res.status(422).json({
+        success: false,
+        code: err.code,
+        message: (err.violations && err.violations[0] && err.violations[0].message) || err.message,
+        violations: err.violations || [],
+        adminOverrideAvailable: !!err.adminOverrideAvailable,
+      });
+    }
     console.error('Update Auction Error:', err);
     return res.status(500).json({ success: false, message: err.message });
   }

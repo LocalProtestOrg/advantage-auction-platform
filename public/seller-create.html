@@ -323,7 +323,10 @@
     </div>
   </div>
 
-  <div class="row">
+  <!-- Phase C.2: Preview Start/End are professional-only. Hidden by default;
+       revealed by JS only for professional seller types. Server (auctionService)
+       is authoritative and ignores preview times from non-professional sellers. -->
+  <div class="row" id="preview-times-row" style="display:none">
     <div class="field">
       <label for="preview-start">Preview Start</label>
       <input type="datetime-local" id="preview-start" />
@@ -467,8 +470,18 @@
   fetch('/api/sellers/me', { headers: { Authorization: 'Bearer ' + token } })
     .then(r => r.json())
     .then(d => {
-      if (d.success) sellerProfileId = d.data.id;
-      else showBanner('Seller profile not found. Contact support.', 'error');
+      if (d.success) {
+        sellerProfileId = d.data.id;
+        // Phase C.2: reveal Preview Start/End only for professional seller types
+        // (server-authoritative regardless). Others never see it.
+        var PRO_TYPES = ['auction_house', 'estate_sale_company', 'professional_liquidator'];
+        if (PRO_TYPES.indexOf(d.data.seller_type) !== -1) {
+          var row = document.getElementById('preview-times-row');
+          if (row) row.style.display = '';
+        }
+      } else {
+        showBanner('Seller profile not found. Contact support.', 'error');
+      }
     })
     .catch(() => showBanner('Could not load seller profile.', 'error'));
 

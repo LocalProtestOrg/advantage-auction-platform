@@ -1521,6 +1521,15 @@
            + `<code style="background:#f1f5f9;padding:0 4px;border-radius:3px">${from}</code> → `
            + `<code style="background:#f1f5f9;padding:0 4px;border-radius:3px">${to}</code></div>`;
     }
+    // Seller-Type Rules Phase C: admin override of a schedule rule.
+    if (eventType === 'schedule_rule_overridden') {
+      const rule = (metadata.violations && metadata.violations[0] && metadata.violations[0].rule) || 'schedule rule';
+      const parts = [`<span style="color:#475569">override of <strong>${escText(rule)}</strong></span>`];
+      if (metadata.override_reason) {
+        parts.push(`<div style="margin-top:0.25rem;padding:0.35rem 0.55rem;background:#fff;border:1px solid #e5e7eb;border-radius:4px;color:#1f2937;white-space:pre-wrap">${escText(metadata.override_reason)}</div>`);
+      }
+      return `<div style="margin-top:0.25rem;font-size:0.72rem">${parts.join('')}</div>`;
+    }
     // AI Catalog Assistant Phase 2A: verification provenance recorded on a lot.
     if (eventType === 'lot_ai_verification_recorded') {
       const refined = metadata.refined ? 'refined from seller confirmations' : 'no refinement';

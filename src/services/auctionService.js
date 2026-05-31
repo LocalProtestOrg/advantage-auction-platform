@@ -2,6 +2,21 @@ const db = require('../db/index');
 const auditService = require('./auditService');
 const { writeAuditLog } = require('../lib/auditLog');
 const { getSellerPayoutPreference } = require('./payoutPreferenceService');
+const { validateAuctionSchedule, ScheduleRuleError, isProfessional } = require('./sellerTypeRules');
+
+// Phase C: server-authoritative seller-type schedule enforcement, shared by
+// createAuction + updateAuction. Pure decision over a resolved sellerType.
+// - No violation        → { overridden: false }.
+// - Admin + override reason → { overridden: true }  (caller audits the override).
+// - Otherwise (seller, or admin without a reason) → throws ScheduleRuleError.
+function enforceScheduleRule({ sellerType, endTime, pickupWindowStart, actorRole, overrideReason }) {
+  const { ok, violations } = validateAuctionSchedule({ sellerType, endTime, pickupWindowStart });
+  if (ok) return { overridden: false, violations: [] };
+  const isAdmin   = actorRole === 'admin';
+  const hasReason = overrideReason != null && String(overrideReason).trim().length > 0;
+  if (isAdmin && hasReason) return { overridden: true, violations };
+  throw new ScheduleRuleError(violations, { adminOverrideAvailable: isAdmin });
+}
 
 async function createAuction(data) {
   const {
@@ -24,6 +39,33 @@ async function createAuction(data) {
     bannerImageUrl,
     coverImageUrl,
   } = data;
+
+  // Phase C / C.2: resolve seller_type once when needed for the schedule rule or
+  // preview gating. sellerId IS the seller_profile id.
+  let sellerType = null;
+  if ((endTime && pickupWindowStart) || previewStart || previewEnd) {
+    const spRes = await db.query('SELECT seller_type FROM seller_profiles WHERE id = $1', [sellerId]);
+    sellerType = spRes.rows[0] ? spRes.rows[0].seller_type : null;
+  }
+
+  // Phase C: server-authoritative 48h pickup rule (admin may override w/ reason).
+  let scheduleOverride = null;
+  if (endTime && pickupWindowStart) {
+    const res = enforceScheduleRule({
+      sellerType, endTime, pickupWindowStart,
+      actorRole: data.actorRole, overrideReason: data.overrideReason,
+    });
+    if (res.overridden) scheduleOverride = res.violations;
+  }
+
+  // Phase C.2: Preview Start/End are professional-only. Non-professional (and
+  // untyped) sellers cannot set them; force null on create. Admin bypasses.
+  let effPreviewStart = previewStart || null;
+  let effPreviewEnd   = previewEnd   || null;
+  if (data.actorRole !== 'admin' && !isProfessional(sellerType)) {
+    effPreviewStart = null;
+    effPreviewEnd   = null;
+  }
 
   const result = await db.query(
     `INSERT INTO auctions (
@@ -48,8 +90,8 @@ async function createAuction(data) {
       city            || null,
       addressState    || null,
       zip             || null,
-      previewStart    || null,
-      previewEnd      || null,
+      effPreviewStart,
+      effPreviewEnd,
       pickupWindowStart || null,
       pickupWindowEnd   || null,
       shippingAvailable === true,
@@ -57,7 +99,26 @@ async function createAuction(data) {
       coverImageUrl   || null,
     ]
   );
-  return result.rows[0];
+  const created = result.rows[0];
+
+  // Phase C: record an admin override of the schedule rule (non-blocking audit;
+  // visible in History). Only reached when an admin supplied an override reason.
+  if (created && scheduleOverride) {
+    writeAuditLog({
+      event_type:  'schedule_rule_overridden',
+      entity_type: 'auction',
+      entity_id:   created.id,
+      auction_id:  created.id,
+      actor_id:    data.actorUserId || null,
+      metadata: {
+        violations:      scheduleOverride,
+        override_reason: data.overrideReason || null,
+        schedule:        { end_time: endTime, pickup_window_start: pickupWindowStart },
+        phase:           'create',
+      },
+    }).catch(() => {});
+  }
+  return created;
 }
 
 
@@ -69,7 +130,7 @@ async function createAuction(data) {
 //               'draft' (one-shot seller self-submission for AAC Review).
 //               All other non-admin state requests are silently dropped.
 // Other field whitelisting is unchanged.
-async function updateAuction(auctionId, userId, updates, actorRole) {
+async function updateAuction(auctionId, userId, updates, actorRole, options = {}) {
   const allowed = [
     'title', 'subtitle', 'description',
     'start_time', 'end_time',
@@ -95,6 +156,55 @@ async function updateAuction(auctionId, userId, updates, actorRole) {
       }
     }
     // All other non-admin state requests silently dropped.
+  }
+
+  // Phase C: server-authoritative schedule validation. Validate ONLY when the
+  // patch touches a schedule field, or on a submit/publish transition — so
+  // unrelated edits to existing auctions are never re-validated (grandfathering
+  // of legacy auctions). Computes the EFFECTIVE schedule (patch value ?? stored)
+  // and classifies by the auction's seller_type. Throws ScheduleRuleError unless
+  // valid or an admin supplied an override reason (then captured for audit).
+  let scheduleOverride = null;
+  const scheduleTouched = updates.end_time !== undefined || updates.pickup_window_start !== undefined;
+  const submitOrPublish = stateToWrite === 'submitted' || stateToWrite === 'published';
+  if (scheduleTouched || submitOrPublish) {
+    const sched = await db.query(
+      `SELECT a.end_time, a.pickup_window_start, sp.seller_type
+         FROM auctions a
+         JOIN seller_profiles sp ON sp.id = a.seller_id
+        WHERE a.id = $1`,
+      [auctionId]
+    );
+    if (sched.rows[0]) {
+      const effEnd    = updates.end_time !== undefined            ? updates.end_time            : sched.rows[0].end_time;
+      const effPickup = updates.pickup_window_start !== undefined ? updates.pickup_window_start : sched.rows[0].pickup_window_start;
+      const res = enforceScheduleRule({
+        sellerType:       sched.rows[0].seller_type,
+        endTime:          effEnd,
+        pickupWindowStart: effPickup,
+        actorRole,
+        overrideReason:   options.overrideReason,
+      });
+      if (res.overridden) {
+        scheduleOverride = { violations: res.violations, end_time: effEnd, pickup_window_start: effPickup };
+      }
+    }
+  }
+
+  // Phase C.2: Preview Start/End are professional-only. For non-professional
+  // (non-admin) sellers, strip preview fields from the update so they are never
+  // written — existing values are preserved (grandfathering of existing auctions).
+  if (actorRole !== 'admin' && (updates.preview_start !== undefined || updates.preview_end !== undefined)) {
+    const ptRes = await db.query(
+      `SELECT sp.seller_type FROM auctions a
+         JOIN seller_profiles sp ON sp.id = a.seller_id
+        WHERE a.id = $1`,
+      [auctionId]
+    );
+    if (!ptRes.rows[0] || !isProfessional(ptRes.rows[0].seller_type)) {
+      delete updates.preview_start;
+      delete updates.preview_end;
+    }
   }
 
   const fields = [];
@@ -156,6 +266,25 @@ async function updateAuction(auctionId, userId, updates, actorRole) {
 
   const result = await db.query(query, values);
   if (!result.rows[0]) return null;
+
+  // Phase C: record an admin override of the schedule rule (non-blocking;
+  // visible in the auction History timeline). Only set when an admin proceeded
+  // past a violation with an override reason.
+  if (scheduleOverride) {
+    writeAuditLog({
+      event_type:  'schedule_rule_overridden',
+      entity_type: 'auction',
+      entity_id:   auctionId,
+      auction_id:  auctionId,
+      actor_id:    userId,
+      metadata: {
+        violations:      scheduleOverride.violations,
+        override_reason: options.overrideReason || null,
+        schedule:        { end_time: scheduleOverride.end_time, pickup_window_start: scheduleOverride.pickup_window_start },
+        phase:           'update',
+      },
+    }).catch(() => {});
+  }
 
   // INT-2: write audit_log entry. Pick a more specific event type when the
   // change is an entry into 'submitted' state (the moderation queue trigger);
@@ -433,5 +562,7 @@ module.exports = {
   updateAuction,
   deleteAuction,
   publishAuction,
-  closeAuction
+  closeAuction,
+  // Exported for unit-testing the Phase C override decision without a DB.
+  enforceScheduleRule,
 };
