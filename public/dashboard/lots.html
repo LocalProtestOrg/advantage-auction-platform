@@ -941,6 +941,15 @@
             </button>
             <div id="ai-gen-status" style="margin-top:0.6rem;font-size:0.83rem;display:none"></div>
 
+            <!-- AI Catalog Assistant Phase 2A: button-driven verification.
+                 Populated after Generate with the relevant clarification groups
+                 for the detected item. Multi-select; no typing. -->
+            <div id="ai-clarification" style="margin-top:0.85rem;display:none"></div>
+
+            <!-- Admin-only: read-only verification provenance for the lot being
+                 edited (original AI / seller selections / final). -->
+            <div id="ai-admin-verification" style="margin-top:0.85rem;display:none"></div>
+
           </div><!-- /suggestion-list -->
         </div><!-- /AI suggestions card -->
 
@@ -1745,6 +1754,7 @@
               alert('Failed to update lot: ' + (data.message || 'Unknown error'));
               return;
             }
+            persistAiVerification(lotId);   // Phase 2A: capture provenance (best-effort) before reset
             attachImages(lotId, function (imgResult) {
               resetForm();
               loadInventory();
@@ -1779,6 +1789,7 @@
               return;
             }
             var lotId = data.data.id;
+            persistAiVerification(lotId);   // Phase 2A: capture provenance (best-effort) before reset
             attachImages(lotId, function (imgResult) {
               clearDraft();
               resetForm();
@@ -1801,6 +1812,7 @@
     }
 
     function resetForm() {
+      resetAiVerification();   // Phase 2A: clear verification chips + state
       editingLotId             = null;
       editingLotImages         = [];
       window.__editingLotNumber = null;
@@ -2065,10 +2077,13 @@
             };
             document.getElementById('lot-category').value = catMap[d.category] || 'other';
           }
+          // Phase 2A: capture provenance + render the relevant verification
+          // button groups for the detected item.
+          setupAiVerification(d, imageUrl);
           saveDraft();
           status.style.display = '';
           status.style.color   = '#16a34a';
-          status.textContent   = '✓ Fields populated — review and edit as needed.';
+          status.textContent   = '✓ Fields populated — confirm details below, then Update Description.';
         })
         .catch(function (err) {
           console.error('[ai-generate] failed', { errName: err && err.name, errMessage: err && err.message });
@@ -2080,6 +2095,231 @@
           btn.disabled    = false;
           btn.textContent = '✨ Generate from Photo';
         });
+    }
+
+    /* ── AI Catalog Assistant Phase 2A: Seller Verification Layer ──────────
+       Button-driven (no typing): after Generate, the seller confirms relevant
+       details via multi-select chips, clicks Update Description to regenerate,
+       and the provenance bundle is persisted at save. */
+    var aiVerification = null;
+
+    function setupAiVerification(d, imageUrl) {
+      aiVerification = {
+        draftCorrelation: d.draft_correlation || null,
+        imageUrl:         imageUrl,
+        aiModel:          d.ai_model || null,
+        promptVersion:    d.prompt_version || null,
+        generate: {
+          ai_title:             d.title || null,
+          ai_description:       d.description || null,
+          ai_category:          d.category || null,
+          clarification_schema: d.clarification_schema || [],
+        },
+        refine:     null,
+        selections: {},
+      };
+      renderClarificationGroups();
+    }
+
+    function styleChip(b, selected) {
+      b.style.cssText = 'cursor:pointer;font-size:0.78rem;padding:0.3rem 0.7rem;border-radius:99px;border:1px solid ' +
+        (selected ? '#2563eb' : '#d1d5db') + ';background:' + (selected ? '#2563eb' : '#fff') +
+        ';color:' + (selected ? '#fff' : '#374151') + ';';
+    }
+
+    function renderClarificationGroups() {
+      var container = document.getElementById('ai-clarification');
+      if (!container) return;
+      container.innerHTML = '';
+      var schema = aiVerification && aiVerification.generate && aiVerification.generate.clarification_schema;
+      if (!schema || !schema.length) { container.style.display = 'none'; return; }
+      container.style.display = '';
+
+      var intro = document.createElement('div');
+      intro.style.cssText = 'font-size:0.8rem;color:#374151;font-weight:600;margin-bottom:0.5rem';
+      intro.textContent = 'Confirm what you know (tap any that apply):';
+      container.appendChild(intro);
+
+      schema.forEach(function (group) {
+        var gWrap = document.createElement('div');
+        gWrap.style.cssText = 'margin-bottom:0.6rem';
+        var gLabel = document.createElement('div');
+        gLabel.style.cssText = 'font-size:0.72rem;text-transform:uppercase;letter-spacing:0.04em;color:#6b7280;margin-bottom:0.3rem';
+        gLabel.textContent = group.label;
+        gWrap.appendChild(gLabel);
+        var chips = document.createElement('div');
+        chips.style.cssText = 'display:flex;flex-wrap:wrap;gap:0.4rem';
+        (group.options || []).forEach(function (opt) {
+          var selected = ((aiVerification.selections[group.key]) || []).indexOf(opt.key) !== -1;
+          var b = document.createElement('button');
+          b.type = 'button';
+          b.className = 'ai-chip';
+          b.textContent = opt.label;
+          styleChip(b, selected);
+          b.onclick = function () { toggleClarification(group.key, opt.key, b); };
+          chips.appendChild(b);
+        });
+        gWrap.appendChild(chips);
+        container.appendChild(gWrap);
+      });
+
+      var updateBtn = document.createElement('button');
+      updateBtn.type = 'button';
+      updateBtn.id = 'btn-ai-update';
+      updateBtn.className = 'btn btn-primary';
+      updateBtn.style.cssText = 'margin-top:0.5rem';
+      updateBtn.textContent = 'Update Description';
+      updateBtn.onclick = updateAiDescription;
+      container.appendChild(updateBtn);
+
+      var ust = document.createElement('div');
+      ust.id = 'ai-update-status';
+      ust.style.cssText = 'margin-top:0.5rem;font-size:0.83rem;display:none';
+      container.appendChild(ust);
+    }
+
+    function toggleClarification(groupKey, optKey, btn) {
+      if (!aiVerification) return;
+      var sel = aiVerification.selections[groupKey] || [];
+      var i = sel.indexOf(optKey);
+      if (i === -1) sel.push(optKey); else sel.splice(i, 1);
+      aiVerification.selections[groupKey] = sel;
+      styleChip(btn, sel.indexOf(optKey) !== -1);
+    }
+
+    function updateAiDescription() {
+      if (!aiVerification) return;
+      var btn = document.getElementById('btn-ai-update');
+      var st  = document.getElementById('ai-update-status');
+      var hasAny = Object.keys(aiVerification.selections).some(function (k) {
+        return (aiVerification.selections[k] || []).length > 0;
+      });
+      if (!hasAny) {
+        if (st) { st.style.display = ''; st.style.color = '#b45309'; st.textContent = 'Tap at least one button first, or just save as-is.'; }
+        return;
+      }
+      if (btn) { btn.disabled = true; btn.textContent = 'Updating…'; }
+      if (st) st.style.display = 'none';
+      fetch('/api/ai/refine-description', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+        body: JSON.stringify({
+          imageUrl: aiVerification.imageUrl,
+          base: {
+            title:       document.getElementById('lot-title').value,
+            description: document.getElementById('lot-desc').value,
+            category:    aiVerification.generate.ai_category,
+          },
+          selections: aiVerification.selections,
+        }),
+      })
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+          if (!data.success) throw new Error(data.message || 'Update failed');
+          if (data.data.description) document.getElementById('lot-desc').value = data.data.description;
+          aiVerification.refine = {
+            ai_description:    data.data.description || null,
+            seller_selections: JSON.parse(JSON.stringify(aiVerification.selections)),
+          };
+          saveDraft();
+          if (st) { st.style.display = ''; st.style.color = '#16a34a'; st.textContent = '✓ Description updated from your confirmations.'; }
+        })
+        .catch(function (err) {
+          if (st) { st.style.display = ''; st.style.color = '#dc2626'; st.textContent = 'Update failed: ' + err.message; }
+        })
+        .finally(function () {
+          if (btn) { btn.disabled = false; btn.textContent = 'Update Description'; }
+        });
+    }
+
+    // Persist the provenance bundle AFTER the lot is saved (best-effort —
+    // provenance must never block or fail the lot save). Server populates blank
+    // lot metadata fields from the selections; it never overwrites seller input.
+    function persistAiVerification(lotId) {
+      if (!aiVerification || !lotId) return;
+      var descEl = document.getElementById('lot-desc');
+      var body = {
+        lot_id:            lotId,
+        draft_correlation: aiVerification.draftCorrelation,
+        image_url:         aiVerification.imageUrl,
+        generate:          aiVerification.generate,
+        final: {
+          final_description: descEl ? descEl.value.trim() : (aiVerification.generate.ai_description || ''),
+          seller_selections: aiVerification.selections,
+        },
+      };
+      if (aiVerification.refine) body.refine = aiVerification.refine;
+      fetch('/api/ai/verifications', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+        body:    JSON.stringify(body),
+      }).catch(function () { /* best-effort; never block the save */ });
+    }
+
+    function resetAiVerification() {
+      aiVerification = null;
+      var c = document.getElementById('ai-clarification');
+      if (c) { c.innerHTML = ''; c.style.display = 'none'; }
+      var a = document.getElementById('ai-admin-verification');
+      if (a) { a.innerHTML = ''; a.style.display = 'none'; }
+    }
+
+    // ── Admin-only verification view (requirement 6): original AI, seller
+    // selections, final accepted description. Read-only; fetched from the
+    // admin endpoint only when the logged-in user is an admin.
+    function isAdminUser() {
+      try { return JSON.parse(atob(token.split('.')[1])).role === 'admin'; } catch (e) { return false; }
+    }
+
+    function maybeShowAdminVerification(lotId) {
+      var c = document.getElementById('ai-admin-verification');
+      if (!isAdminUser() || !lotId) { if (c) { c.innerHTML = ''; c.style.display = 'none'; } return; }
+      fetch('/api/admin/lots/' + lotId + '/ai-verification', { headers: { Authorization: 'Bearer ' + token } })
+        .then(function (r) { return r.json(); })
+        .then(function (data) { if (data && data.success) renderAdminVerification(data.data); })
+        .catch(function () { /* best-effort — admin panel is informational */ });
+    }
+
+    function renderAdminVerification(d) {
+      var c = document.getElementById('ai-admin-verification');
+      if (!c) return;
+      c.innerHTML = '';
+      var hasAny = d && (d.original || d.final || (d.history && d.history.length));
+      if (!hasAny) { c.style.display = 'none'; return; }
+      c.style.cssText = 'margin-top:0.85rem;display:block;border:1px solid #e5e7eb;border-radius:8px;padding:0.7rem 0.9rem;background:#f9fafb';
+
+      var h = document.createElement('div');
+      h.style.cssText = 'font-weight:700;font-size:0.8rem;margin-bottom:0.5rem;color:#111';
+      h.textContent = 'AI Verification (admin)';
+      c.appendChild(h);
+
+      function block(label, text) {
+        if (!text) return;
+        var w = document.createElement('div'); w.style.cssText = 'margin-bottom:0.5rem';
+        var l = document.createElement('div'); l.style.cssText = 'font-size:0.7rem;text-transform:uppercase;letter-spacing:0.04em;color:#6b7280'; l.textContent = label;
+        var t = document.createElement('div'); t.style.cssText = 'font-size:0.8rem;color:#1f2937;white-space:pre-wrap'; t.textContent = text;
+        w.appendChild(l); w.appendChild(t); c.appendChild(w);
+      }
+
+      block('Original AI description', d.original && d.original.ai_description);
+
+      var fin = d.final;
+      if (fin && fin.selections_described && fin.selections_described.length) {
+        var w = document.createElement('div'); w.style.cssText = 'margin-bottom:0.5rem';
+        var l = document.createElement('div'); l.style.cssText = 'font-size:0.7rem;text-transform:uppercase;letter-spacing:0.04em;color:#6b7280'; l.textContent = 'Seller selections';
+        w.appendChild(l);
+        fin.selections_described.forEach(function (g) {
+          var row = document.createElement('div'); row.style.cssText = 'font-size:0.8rem;color:#1f2937';
+          var val = g.notSure
+            ? 'Not Sure' + (g.optionLabels.length ? ' (' + g.optionLabels.join(', ') + ')' : '')
+            : g.optionLabels.join(', ');
+          row.textContent = g.groupLabel + ': ' + val;
+          w.appendChild(row);
+        });
+        c.appendChild(w);
+      }
+
+      block('Final description', fin && fin.final_description);
     }
 
     function applySuggestion(type, value) {
@@ -2328,6 +2568,9 @@
         previewGrid.appendChild(img);
         updatePhotoCount();
       }
+
+      // Phase 2A: admin-only verification provenance for this lot.
+      maybeShowAdminVerification(lot.id);
 
       // Highlight the card being edited
       loadInventory();

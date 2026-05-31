@@ -1,6 +1,18 @@
 # AI Catalog Assistant — Phase 2: Seller Verification Layer (Planning Document)
 
-*Planning only. No implementation. Designs a button-driven seller-verification layer on top of the existing AI description generator. **Not** a chatbot, **not** conversational, **no** seller typing. Builds on the working Phase 1 pipeline; additive and server-authoritative.*
+*Designs a button-driven seller-verification layer on top of the existing AI description generator. **Not** a chatbot, **not** conversational, **no** seller typing. Builds on the working Phase 1 pipeline; additive and server-authoritative.*
+
+> **Implementation status — Phase 2A FULLY IMPLEMENTED in working tree (2026-05-31), not yet committed; migration pending staging apply.**
+> Built per this plan + the approved architecture decisions (derive version labels on read, no `seq`, append-only, universal condition grade, category-specific qualifiers, `Untested` only in Working Status):
+> - **Registry** `src/constants/clarificationCategories.js` — 9 groups, category→group map (Fine Art / Jewelry / Furniture / Electronics / …), per-group `Not Sure`, obvious-only metadata mappings; pure helpers `schemaForCategory`/`isValidSelection`/`metadataFromSelections`/`describeSelections`.
+> - **Persistence** `db/migrations/052_create_lot_ai_verifications.sql` (append-only; forward-only/idempotent) + `src/services/lotAiVerificationService.js` (insert + reads only; no update/delete → original AI output never lost).
+> - **AI** `aiDescriptionService.js` — generate now returns `clarification_schema` + provenance; new `refineDescriptionFromImage` with the conservative "Not Sure → hedge/omit, never more specific" prompt.
+> - **Routes** `ai.js` — enriched generate, `POST /refine-description`, `POST /verifications` (persist-at-save bundle, server-stamped, ownership-checked, **blank-only** metadata population that never overwrites seller input, + `lot_ai_verification_recorded` audit carrying `auction_id`). Admin read `GET /api/admin/lots/:lotId/ai-verification` in `admin.js`.
+> - **Seller UI** `dashboard/lots.html` — multi-select chips after Generate, **Update Description** → refine, provenance persisted on lot save.
+> - **Admin UI** — admin-only verification panel (original AI / seller selections / final) in the Lot Studio; audit branch in `moderation.html`.
+> - **Verification:** registry assertions (pass), conservative-prompt unit assertions (pass), and a 19/19 headless integration harness (generate → Fine-Art chips → multi-select incl. Not Sure → Update → refine → persist bundle → admin panel). Jest baseline unchanged (22 pass; 4 pre-existing `bid.test.js` failures, unrelated). Migration application + DB-backed tests are the staging step.
+>
+> *Original planning content below is retained as the design record.*
 
 > **Verified current state (2026-05-31):**
 > - `POST /api/ai/generate-description` (`src/routes/ai.js`) takes `{ imageUrl }`, calls Claude **`claude-haiku-4-5-20251001`** vision (`src/services/aiDescriptionService.js`), and returns `{ title, description, category, pickup_category }`. It is **stateless** — nothing is persisted; the UI (`dashboard/lots.html` `generateAiDescription`) just fills `lot-title` / `lot-desc` / `lot-category` and calls `saveDraft()`.

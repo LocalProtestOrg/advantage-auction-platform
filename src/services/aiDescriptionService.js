@@ -1,10 +1,17 @@
 'use strict';
 
 const Anthropic = require('@anthropic-ai/sdk');
+const { schemaForCategory, describeSelections, isValidSelection } = require('../constants/clarificationCategories');
 
 const client = process.env.ANTHROPIC_API_KEY
   ? new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
   : null;
+
+// Provenance stamps for the Seller Verification Layer (Phase 2A). Bump
+// PROMPT_VERSION whenever the prompt or the clarification registry changes, so
+// stored verifications remain segmentable for learning/dispute analysis.
+const AI_MODEL       = 'claude-haiku-4-5-20251001';
+const PROMPT_VERSION = 'p2a-2026-05-31';
 
 // ── Fallback samples (used when API key absent or call fails) ─────────────────
 const SAMPLES = [
@@ -96,11 +103,107 @@ async function generateDescriptionFromImage(imageUrl) {
     throw new AIUnavailableError('AI response could not be parsed', err);
   }
 
+  const category = parsed.category || 'General';
   return {
     title:           parsed.title           || 'Untitled Item',
     description:     parsed.description     || '',
-    category:        parsed.category        || 'General',
+    category:        category,
     pickup_category: parsed.pickup_category || 'B',
+    // Phase 2A: the relevant verification button groups for this detected
+    // item, so the seller UI can render only relevant groups. Additive — older
+    // callers that ignore this field are unaffected.
+    clarification_schema: schemaForCategory(category),
+  };
+}
+
+// ── Phase 2A: refine an existing description using the seller's button
+// confirmations. Stateless (no DB); the route persists the provenance. The
+// seller never types — `selections` is the multi-select button payload,
+// validated against the clarification registry before we prompt.
+//
+// Conservative rule (hard requirement): for any group the seller marked
+// "Not Sure", the AI must become MORE conservative — it must NOT assert that
+// attribute (hedge or omit), never more specific. Seller confirmations win
+// over the original AI guess on conflict.
+function buildConfirmationLines(selections) {
+  const described = describeSelections(selections);
+  if (!described.length) return '(no confirmations selected)';
+  return described.map((d) => {
+    if (d.notSure) {
+      const extra = d.optionLabels.length ? ` (also noted: ${d.optionLabels.join(', ')})` : '';
+      return `- ${d.groupLabel}: NOT SURE — do not assert this attribute; hedge or omit it${extra}`;
+    }
+    return `- ${d.groupLabel}: ${d.optionLabels.join(', ')}`;
+  }).join('\n');
+}
+
+const REFINE_PROMPT_HEADER = `You are an auction house catalog writer revising an item description using the seller's confirmed details. The seller selected buttons (no free text); treat their confirmations as authoritative.`;
+
+const REFINE_PROMPT_RULES = `Rules:
+- Incorporate the seller's confirmed facts. If a confirmation conflicts with the original description, the SELLER WINS (e.g., if they confirmed "Print", do not call it an original painting).
+- For any attribute marked NOT SURE, be MORE CONSERVATIVE: do not assert that attribute — hedge ("appears to be", "presented as") or omit it entirely. Never make a stronger or more specific claim about an uncertain attribute.
+- Do not invent facts the seller did not confirm and the image does not clearly show.
+- Stay factual; 2-3 sentences.
+Respond with ONLY valid JSON — no markdown — in exactly this format:
+{"title":"concise 5-8 word title","description":"2-3 factual sentences","category":"the item category","pickup_category":"A or B or C"}`;
+
+async function refineDescriptionFromImage({ imageUrl, base, selections }) {
+  if (!client) {
+    throw new AIUnavailableError('ANTHROPIC_API_KEY not configured on server');
+  }
+  if (!imageUrl || imageUrl.startsWith('blob:')) {
+    throw new AIUnavailableError('imageUrl must be a publicly-reachable URL (not a blob)');
+  }
+  if (!isValidSelection(selections)) {
+    throw new AIUnavailableError('selections failed clarification-registry validation');
+  }
+  const baseDesc = (base && base.description) || '';
+  const baseCat  = (base && base.category) || 'General';
+
+  const prompt = [
+    REFINE_PROMPT_HEADER,
+    '',
+    `Original AI description:\n"${baseDesc}"`,
+    `Detected category: ${baseCat}`,
+    '',
+    'Seller confirmations (button selections):',
+    buildConfirmationLines(selections),
+    '',
+    REFINE_PROMPT_RULES,
+  ].join('\n');
+
+  let message;
+  try {
+    message = await client.messages.create({
+      model:      AI_MODEL,
+      max_tokens: 400,
+      messages: [{
+        role:    'user',
+        content: [
+          { type: 'image', source: { type: 'url', url: imageUrl } },
+          { type: 'text',  text: prompt },
+        ],
+      }],
+    });
+  } catch (err) {
+    console.error('[ai] Claude refine call failed:', err && err.message);
+    throw new AIUnavailableError('AI provider call failed', err);
+  }
+
+  let parsed;
+  try {
+    const raw = message.content[0].text.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/, '');
+    parsed    = JSON.parse(raw);
+  } catch (err) {
+    console.error('[ai] Could not parse Claude refine response as JSON:', err && err.message);
+    throw new AIUnavailableError('AI response could not be parsed', err);
+  }
+
+  return {
+    title:           parsed.title           || (base && base.title) || 'Untitled Item',
+    description:     parsed.description     || baseDesc,
+    category:        parsed.category        || baseCat,
+    pickup_category: parsed.pickup_category || (base && base.pickup_category) || 'B',
   };
 }
 
@@ -111,4 +214,13 @@ async function generateDescriptionFromImage(imageUrl) {
    Mantel Clock"). Any future use must be explicit, scoped to dev/test, and
    visibly distinguishable from real AI output. */
 
-module.exports = { generateDescriptionFromImage, AIUnavailableError };
+module.exports = {
+  generateDescriptionFromImage,
+  refineDescriptionFromImage,
+  AIUnavailableError,
+  AI_MODEL,
+  PROMPT_VERSION,
+  // Exported for unit-testing the conservative "Not Sure" prompt construction
+  // without calling the live AI provider.
+  buildConfirmationLines,
+};

@@ -11,6 +11,8 @@ const { sendFinalSellerReport } = require('../services/pdfGenerationService');
 const { enqueueNewAuctionNotifications } = require('../services/followerNotificationService');
 const { writeAuditLog } = require('../lib/auditLog');
 const { isValidSellerType, SELLER_TYPES } = require('../constants/sellerTypes');
+const { describeSelections } = require('../constants/clarificationCategories');
+const { listVerifications } = require('../services/lotAiVerificationService');
 const db = require('../db');
 
 // GET /api/admin/audit-log
@@ -318,6 +320,30 @@ router.post('/sellers/:sellerId/seller-type', auth, role(['admin']), idempotency
       });
     }
     return res.json({ success: true, data: out.rows[0] });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// GET /api/admin/lots/:lotId/ai-verification
+// AI Catalog Assistant Phase 2A: admin visibility into the verification
+// provenance for a lot — the ORIGINAL AI output, the seller's button
+// selections (rendered to human labels), and the FINAL accepted description.
+// Read-only over the append-only lot_ai_verifications store.
+router.get('/lots/:lotId/ai-verification', auth, role(['admin']), async (req, res, next) => {
+  try {
+    const { lotId } = req.params;
+    const history = (await listVerifications(lotId)).map((row) => ({
+      ...row,
+      selections_described: describeSelections(row.seller_selections || {}),
+    }));
+    // history is newest-first; surface the most recent of each kind for display.
+    const original = history.find((r) => r.event_type === 'generate') || null;
+    const finalRow = history.find((r) => r.event_type === 'final') || null;
+    return res.json({
+      success: true,
+      data: { latest: history[0] || null, original, final: finalRow, history },
+    });
   } catch (err) {
     next(err);
   }
