@@ -1512,6 +1512,15 @@
       }).join('');
       return `<details style="margin-top:0.25rem"><summary style="font-size:0.72rem;color:#475569;cursor:pointer">${keys.length} capability change(s)</summary><ul style="margin:0.3rem 0 0 1rem;padding:0;font-size:0.72rem;color:#475569">${items}</ul></details>`;
     }
+    // SELLER-TYPE PHASE B: seller_type_changed — show before → after. Additive
+    // branch on this dispatcher (mirrors the capabilities-diff style).
+    if (eventType === 'seller_type_changed') {
+      const from = metadata.before != null ? escText(String(metadata.before)) : '∅';
+      const to   = metadata.after  != null ? escText(String(metadata.after))  : '∅';
+      return `<div style="margin-top:0.25rem;font-size:0.72rem;color:#475569">type: `
+           + `<code style="background:#f1f5f9;padding:0 4px;border-radius:3px">${from}</code> → `
+           + `<code style="background:#f1f5f9;padding:0 4px;border-radius:3px">${to}</code></div>`;
+    }
     // Unknown event type: compact JSON so operators still see what changed.
     const json = JSON.stringify(metadata);
     return `<div style="margin-top:0.2rem;font-size:0.7rem;color:#9ca3af;font-family:monospace;word-break:break-all">${escText(json)}</div>`;
@@ -1526,6 +1535,53 @@
   }
 
   // ── Sellers tab ───────────────────────────────────────────────────────────────
+
+  // SELLER-TYPE PHASE B: client mirror of src/constants/sellerTypes.js (a static
+  // HTML page can't require the module). Keep in sync with that file and the
+  // migration 051 CHECK. Order: non-professional first, then professional.
+  const SELLER_TYPE_OPTIONS = [
+    ['private', 'Private'],
+    ['business', 'Business'],
+    ['other', 'Other'],
+    ['auction_house', 'Auction House'],
+    ['estate_sale_company', 'Estate Sale Company'],
+    ['professional_liquidator', 'Professional Liquidator'],
+  ];
+
+  // SELLER-TYPE PHASE B (decision #4: admin-visible settings need an admin edit
+  // path). Assign a seller's type via the existing admin endpoint, then reload
+  // so the row + the cosmetic meta line reflect it. The seller_type_changed
+  // audit event is reviewable via the History button on the same row (Tier 2).
+  // Phase B enforces NO scheduling rule — this only writes the type + audits.
+  function setSellerType(sellerProfileId, email, sel) {
+    const newType = sel.value;
+    const prev    = sel.dataset.prev || '';
+    if (!newType || newType === prev) return;
+    const label = sel.options[sel.selectedIndex] ? sel.options[sel.selectedIndex].textContent : newType;
+    if (!confirm(
+      `Change ${email || 'this seller'} to "${label}"?\n\n` +
+      'Professional types (Auction House, Estate Sale Company, Professional Liquidator) ' +
+      'will be exempt from the 48-hour pickup rule once scheduling enforcement is enabled.'
+    )) {
+      sel.value = prev; // revert the visible selection
+      return;
+    }
+    sel.disabled = true;
+    showMsg('sellers-status', 'Updating seller type for ' + (email || 'seller') + '…');
+    api('POST', `/api/admin/sellers/${sellerProfileId}/seller-type`, { seller_type: newType }).then(data => {
+      if (!data.success) {
+        showMsg('sellers-status', 'Failed: ' + (data.message || 'unknown'), true);
+        sel.value = prev; sel.disabled = false;
+        return;
+      }
+      showMsg('sellers-status', '');
+      reloadSellersPreservingSearch();
+    }).catch(err => {
+      showMsg('sellers-status', 'Failed: ' + err.message, true);
+      sel.value = prev; sel.disabled = false;
+    });
+  }
+
   function loadSellers(search) {
     showMsg('sellers-status', 'Loading…');
     api('GET', '/api/admin/sellers?search=' + encodeURIComponent(search)).then(data => {
@@ -1550,6 +1606,38 @@
         ].filter(Boolean);
         main.appendChild(el('div', 'row-meta', metaParts.join(' · ')));
         row.appendChild(main);
+
+        // SELLER-TYPE PHASE B: in-place seller_type editor (decision #4 —
+        // admin-visible settings need an admin edit path). seller_type was
+        // display-only in the meta line; this <select> makes the current value
+        // visible AND editable. Closed set of 6 → a select is the right control
+        // (vs. the free-text prompt used by suspend). On change → setSellerType.
+        if (s.seller_profile_id) {
+          const typeSel = document.createElement('select');
+          typeSel.className = 'seller-type-select';
+          typeSel.title = 'Seller type';
+          typeSel.style.flexShrink = '0';
+          typeSel.style.fontSize   = '0.75rem';
+          typeSel.style.padding    = '0.25rem 0.4rem';
+          typeSel.style.border     = '1px solid #d1d5db';
+          typeSel.style.borderRadius = '6px';
+          // Untyped (legacy NULL) sellers get a disabled placeholder so we never
+          // misrepresent an unset seller as 'private' in the control.
+          if (!s.seller_type) {
+            const ph = document.createElement('option');
+            ph.value = ''; ph.textContent = '(unset)'; ph.disabled = true; ph.selected = true;
+            typeSel.appendChild(ph);
+          }
+          SELLER_TYPE_OPTIONS.forEach(([val, label]) => {
+            const opt = document.createElement('option');
+            opt.value = val; opt.textContent = label;
+            if (s.seller_type === val) opt.selected = true;
+            typeSel.appendChild(opt);
+          });
+          typeSel.dataset.prev = s.seller_type || '';
+          typeSel.onchange = () => setSellerType(s.seller_profile_id, s.email, typeSel);
+          row.appendChild(typeSel);
+        }
 
         // SMA-S1a: surface suspension status from the is_active value the
         // sellers endpoint already returns (previously fetched but never

@@ -10,6 +10,7 @@ const videoService   = require('../services/walkthroughVideoService');
 const { sendFinalSellerReport } = require('../services/pdfGenerationService');
 const { enqueueNewAuctionNotifications } = require('../services/followerNotificationService');
 const { writeAuditLog } = require('../lib/auditLog');
+const { isValidSellerType, SELLER_TYPES } = require('../constants/sellerTypes');
 const db = require('../db');
 
 // GET /api/admin/audit-log
@@ -269,6 +270,53 @@ router.post('/sellers/:sellerId/capabilities', auth, role(['admin']), idempotenc
       actor_id:    req.user.id,
       metadata:    { before, after, changed_keys: Object.keys(updates) },
     });
+    return res.json({ success: true, data: out.rows[0] });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// POST /api/admin/sellers/:sellerId/seller-type
+// SELLER-TYPE PHASE B: admin assignment of seller_type. Validates against the
+// shared SELLER_TYPES constant (kept in sync with migration 051's CHECK),
+// writes the new value, and records a 'seller_type_changed' audit event with
+// before/after. Phase B is assignment + audit ONLY — this change enforces no
+// scheduling/pickup rule (that is Phase C). Mirrors the capabilities/suspend
+// admin-mutation pattern (auth + admin + idempotency + non-blocking audit).
+router.post('/sellers/:sellerId/seller-type', auth, role(['admin']), idempotency, async (req, res, next) => {
+  try {
+    const { sellerId } = req.params;
+    const sellerType = (req.body && typeof req.body.seller_type === 'string') ? req.body.seller_type.trim() : null;
+    if (!sellerType || !isValidSellerType(sellerType)) {
+      return res.status(400).json({
+        success: false,
+        message: `seller_type must be one of: ${SELLER_TYPES.join(', ')}`,
+      });
+    }
+    const cur = await db.query(
+      `SELECT id, user_id, seller_type FROM seller_profiles WHERE id = $1`,
+      [sellerId]
+    );
+    if (!cur.rows[0]) {
+      return res.status(404).json({ success: false, message: 'Seller profile not found' });
+    }
+    const before = cur.rows[0].seller_type;
+    const out = await db.query(
+      `UPDATE seller_profiles SET seller_type = $1 WHERE id = $2
+       RETURNING id, user_id, seller_type, capabilities`,
+      [sellerType, sellerId]
+    );
+    // Audit only on an actual change. A no-op re-assignment still returns 200
+    // (idempotent) but writes no misleading "changed" event.
+    if (before !== sellerType) {
+      await writeAuditLog({
+        event_type:  'seller_type_changed',
+        entity_type: 'seller_profile',
+        entity_id:   sellerId,
+        actor_id:    req.user.id,
+        metadata:    { before, after: sellerType },
+      });
+    }
     return res.json({ success: true, data: out.rows[0] });
   } catch (err) {
     next(err);
