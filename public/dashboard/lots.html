@@ -1337,8 +1337,19 @@
       }).length;
     }
 
+    // Bg-removal fix: an enhancement is "in-flight" once its job was submitted
+    // (jobId set) but has neither produced a processedUrl nor failed. Saving must
+    // wait for these so the processed URL — not the original — is what persists.
+    function getPendingEnhancementCount() {
+      return uploadedFiles.filter(function (f) {
+        return f.jobId && !f.processedUrl && !f.enhanceFailed;
+      }).length;
+    }
+
     function updateSaveButtonState() {
-      var pending = getPendingUploadCount();
+      var uploading = getPendingUploadCount();
+      var enhancing = getPendingEnhancementCount();   // Bg-removal fix: also gate while enhancing
+      var pending   = uploading + enhancing;
       var addBtn  = document.getElementById('add-lot-btn');
       var status  = document.getElementById('upload-status-indicator');
 
@@ -1359,8 +1370,11 @@
         }
       }
       if (status) {
-        if (pending > 0) {
-          status.textContent = 'Uploading ' + pending + ' photo' + (pending !== 1 ? 's' : '') + '…';
+        if (uploading > 0) {
+          status.textContent = 'Uploading ' + uploading + ' photo' + (uploading !== 1 ? 's' : '') + '…';
+          status.style.display = '';
+        } else if (enhancing > 0) {
+          status.textContent = 'Enhancing ' + enhancing + ' photo' + (enhancing !== 1 ? 's' : '') + '…';
           status.style.display = '';
         } else {
           status.textContent = '';
@@ -1513,7 +1527,8 @@
           }
           var jobId = data.data.id;
           var entry = uploadedFiles.find(function (f) { return f.id === id; });
-          if (entry) entry.jobId = jobId;
+          if (entry) { entry.jobId = jobId; entry.processedUrl = null; entry.enhanceFailed = false; }
+          updateSaveButtonState();   // Bg-removal fix: gate save — enhancement now in-flight
           startPolling(id, jobId);
         })
         .catch(function (err) {
@@ -1602,6 +1617,9 @@
           clearInterval(intervalId);
           delete jobPollers[jobId];
           updateQueueItem(id, 'failed', 'Timed out waiting for result');
+          var to = uploadedFiles.find(function (f) { return f.id === id; });
+          if (to) to.enhanceFailed = true;   // Bg-removal fix: stop gating save on a dead job
+          updateSaveButtonState();
           return;
         }
 
@@ -1627,6 +1645,9 @@
               clearInterval(intervalId);
               delete jobPollers[jobId];
               updateQueueItem(id, 'failed', job.error_message || 'Processing failed');
+              var ef = uploadedFiles.find(function (f) { return f.id === id; });
+              if (ef) ef.enhanceFailed = true;   // Bg-removal fix: stop gating save on a failed job
+              updateSaveButtonState();
             }
           })
           .catch(function () {
@@ -1638,10 +1659,20 @@
     }
 
     function onJobComplete(id, processedImageUrl) {
+      // Bg-removal fix: persist the processed URL into the DATA MODEL, not just
+      // the preview. The save path (effectiveUrl) sends processedUrl when present,
+      // so the enhanced image — not the original — is stored on the lot.
+      var entry = uploadedFiles.find(function (f) { return f.id === id; });
       if (processedImageUrl) {
+        if (entry) entry.processedUrl = processedImageUrl;
         var img = document.getElementById('preview-img-' + id);
         if (img) img.src = processedImageUrl;
+      } else if (entry) {
+        // No processed URL returned — treat as enhancement-not-applied so the
+        // save gate releases and the original (still valid) can be saved.
+        entry.enhanceFailed = true;
       }
+      updateSaveButtonState();   // enhancement settled → may release the save gate
       // TODO remove.bg integration: update img.src with real background-removed URL
       // TODO Replicate provider integration: update img.src with model-processed URL
       // TODO Cloudinary AI transforms: derive processed URL via Cloudinary transformation string
@@ -1702,6 +1733,13 @@
         alert(pendingCount + ' photo' + (pendingCount !== 1 ? 's are' : ' is') + ' still uploading. Please wait until uploads finish before saving the lot.');
         return;
       }
+      // Bg-removal fix: block save while enhancement is in-flight so the processed
+      // URL (not the original) is what gets persisted to the lot.
+      var enhancingCount = getPendingEnhancementCount();
+      if (enhancingCount > 0) {
+        alert(enhancingCount + ' photo' + (enhancingCount !== 1 ? 's are' : ' is') + ' still being enhanced. Please wait until enhancement finishes before saving the lot.');
+        return;
+      }
 
       var addBtn = document.getElementById('add-lot-btn');
       if (addBtn) { addBtn.disabled = true; addBtn.textContent = editingLotId ? 'Saving…' : 'Adding…'; }
@@ -1725,17 +1763,24 @@
       };
       if (!editingLotId) payload.auctionId = auctionId;
 
+      // Bg-removal fix: persist the enhanced image when one exists. effectiveUrl
+      // prefers the processed URL (set by onJobComplete) over the original upload.
+      function effectiveUrl(f) { return f.processedUrl || f.cloudinaryUrl; }
+
       // Only newly-uploaded files (not already in DB as editingLotImages) get attached
       var newCloudinaryUrls = uploadedFiles
-        .filter(function (f) { return f.cloudinaryUrl && editingLotImages.indexOf(f.cloudinaryUrl) === -1; })
-        .map(function (f) { return f.cloudinaryUrl; });
+        .filter(function (f) { var u = effectiveUrl(f); return u && editingLotImages.indexOf(u) === -1; })
+        .map(effectiveUrl);
 
       function attachImages(lotId, onDone) {
         if (!newCloudinaryUrls.length) { onDone(''); return; }
         fetch('/api/lots/' + lotId + '/images', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
-          body: JSON.stringify({ images: newCloudinaryUrls }),
+          // enhancement_enabled:false — the client owns enhancement (processed URL is
+          // already attached); this stops the server re-enqueuing a redundant job that
+          // would re-process an already-enhanced URL and whose output is never persisted.
+          body: JSON.stringify({ images: newCloudinaryUrls, enhancement_enabled: false }),
         })
           .then(function (r) { if (r.status === 401) { window.location.href = '/login.html'; return null; } return r.json(); })
           .then(function (d) { onDone(d && d.success ? '' : 'failed'); })
@@ -1882,7 +1927,8 @@
         images: uploadedFiles
           .filter(function (f) { return f.cloudinaryUrl; })
           .map(function (f) {
-            return { id: f.id, name: f.name || (f.file && f.file.name) || '', cloudinaryUrl: f.cloudinaryUrl };
+            // Bg-removal fix: keep processedUrl so a draft reload doesn't revert to the original.
+            return { id: f.id, name: f.name || (f.file && f.file.name) || '', cloudinaryUrl: f.cloudinaryUrl, processedUrl: f.processedUrl || null };
           }),
       };
       try {
@@ -1946,8 +1992,9 @@
       if (draft.images && draft.images.length) {
         draft.images.forEach(function (img) {
           if (!img.cloudinaryUrl) return;
-          uploadedFiles.push({ id: img.id, file: null, jobId: null, cloudinaryUrl: img.cloudinaryUrl, name: img.name });
-          addPreview(img.id, img.cloudinaryUrl, img.name);
+          // Bg-removal fix: restore processedUrl and show it in the preview.
+          uploadedFiles.push({ id: img.id, file: null, jobId: null, cloudinaryUrl: img.cloudinaryUrl, processedUrl: img.processedUrl || null, name: img.name });
+          addPreview(img.id, img.processedUrl || img.cloudinaryUrl, img.name);
         });
         updatePhotoCount();
       }
