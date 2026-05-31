@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="noindex" />
+  <title>Admin · Seller Agreements</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { font-family: -apple-system, Segoe UI, Roboto, sans-serif; margin: 0; background: #f8fafc; color: #1f2937; }
+    header { background: #0f172a; color: #fff; padding: 0.9rem 1.25rem; display: flex; align-items: center; gap: 1rem; }
+    header h1 { font-size: 1.05rem; margin: 0; font-weight: 600; }
+    main { max-width: 1100px; margin: 1.25rem auto; padding: 0 1rem; display: grid; gap: 1.25rem; }
+    .card { background: #fff; border: 1px solid #e5e7eb; border-radius: 8px; padding: 1rem 1.1rem; }
+    .card h2 { font-size: 0.95rem; margin: 0 0 0.75rem; }
+    label { display: block; font-size: 0.78rem; color: #475569; margin: 0.5rem 0 0.2rem; }
+    input, select, textarea { width: 100%; padding: 0.45rem 0.55rem; border: 1px solid #cbd5e1; border-radius: 6px; font: inherit; }
+    textarea { min-height: 90px; font-family: ui-monospace, Menlo, monospace; font-size: 0.8rem; }
+    .row { display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem; }
+    button { background: #2563eb; color: #fff; border: 0; border-radius: 6px; padding: 0.5rem 0.9rem; font: inherit; cursor: pointer; margin-top: 0.6rem; }
+    button.secondary { background: #475569; }
+    button.ghost { background: #e2e8f0; color: #1f2937; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.82rem; margin-top: 0.5rem; }
+    th, td { text-align: left; padding: 0.4rem 0.5rem; border-bottom: 1px solid #eef2f7; }
+    .muted { color: #64748b; font-size: 0.78rem; }
+    .pill { display: inline-block; padding: 0.05rem 0.45rem; border-radius: 999px; font-size: 0.7rem; background: #e2e8f0; }
+    .ok { color: #16a34a; } .err { color: #dc2626; }
+    pre { background: #0f172a; color: #e2e8f0; padding: 0.7rem; border-radius: 6px; overflow: auto; font-size: 0.78rem; white-space: pre-wrap; }
+    #toast { position: fixed; right: 1rem; bottom: 1rem; background: #0f172a; color: #fff; padding: 0.6rem 0.9rem; border-radius: 6px; display: none; max-width: 360px; font-size: 0.82rem; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Seller Agreements <span class="pill">Phase A · Admin authoring</span></h1>
+  </header>
+  <main>
+    <!-- Templates -->
+    <section class="card">
+      <h2>Agreement Templates</h2>
+      <div class="row">
+        <div>
+          <label>Type</label>
+          <select id="tpl-type">
+            <option value="private">private</option>
+            <option value="business">business</option>
+            <option value="auction_house">auction_house</option>
+            <option value="estate_sale_company">estate_sale_company</option>
+            <option value="professional_liquidator">professional_liquidator</option>
+            <option value="custom">custom</option>
+          </select>
+        </div>
+        <div><label>Name</label><input id="tpl-name" placeholder="e.g. Private Seller Consignment Agreement" /></div>
+      </div>
+      <label>Description (optional)</label>
+      <input id="tpl-desc" />
+      <button id="tpl-create">Create template</button>
+      <table id="tpl-table"><thead><tr><th>Name</th><th>Type</th><th>Active</th><th>Current v</th><th></th></tr></thead><tbody></tbody></table>
+    </section>
+
+    <!-- Version editor + preview -->
+    <section class="card" id="version-card" style="display:none">
+      <h2>Template: <span id="ver-tpl-name"></span> <span class="muted" id="ver-tpl-id"></span></h2>
+      <label>Body (markdown, use {{placeholders}})</label>
+      <textarea id="ver-body" placeholder="Seller {{legal_name}} ({{company_name}}) agrees to {{commission_pct}} commission and {{buyer_premium_pct}} buyer premium."></textarea>
+      <div class="row">
+        <div><label>variable_schema (JSON array)</label><textarea id="ver-schema" placeholder='[{"key":"commission_pct","type":"percent","required":true,"source":"terms"}]'></textarea></div>
+        <div><label>effective_terms_defaults (JSON object)</label><textarea id="ver-defaults" placeholder='{"commission_pct":15,"buyer_premium_pct":18}'></textarea></div>
+      </div>
+      <button id="ver-publish">Publish new version</button>
+      <button class="secondary" id="ver-toggle-active">Toggle active</button>
+      <hr style="margin:1rem 0;border:none;border-top:1px solid #eef2f7" />
+      <h2 style="margin-top:0">Preview</h2>
+      <div class="row">
+        <div><label>sellerProfileId (optional — pulls real terms/identity)</label><input id="pv-seller" /></div>
+        <div><label>variables / overrides (JSON object, optional)</label><textarea id="pv-vars" placeholder='{"effective_date":"2026-06-01"}'></textarea></div>
+      </div>
+      <button class="ghost" id="pv-run">Render preview</button>
+      <div id="pv-missing" class="err" style="margin-top:0.5rem"></div>
+      <pre id="pv-out" style="display:none"></pre>
+    </section>
+
+    <!-- Seller terms -->
+    <section class="card">
+      <h2>Seller Terms <span class="muted">(history-preserving)</span></h2>
+      <label>sellerProfileId</label>
+      <input id="terms-seller" placeholder="seller_profile UUID" />
+      <button class="ghost" id="terms-load">Load</button>
+      <div class="row">
+        <div><label>commission_pct</label><input id="t-commission" type="number" step="0.01" /></div>
+        <div><label>buyer_premium_pct</label><input id="t-premium" type="number" step="0.01" /></div>
+      </div>
+      <div class="row">
+        <div><label>credit_card_fee_pct</label><input id="t-ccfee" type="number" step="0.01" /></div>
+        <div><label>marketing_fee_cents</label><input id="t-mktg" type="number" step="1" /></div>
+      </div>
+      <label>settlement_terms</label><input id="t-settle" />
+      <label>payout_schedule</label><input id="t-payout" />
+      <button id="terms-save">Save (new version)</button>
+      <table id="terms-history"><thead><tr><th>commission</th><th>premium</th><th>effective_from</th><th>current?</th></tr></thead><tbody></tbody></table>
+    </section>
+
+    <!-- Seller identity -->
+    <section class="card">
+      <h2>Seller Identity</h2>
+      <label>sellerProfileId</label>
+      <input id="id-seller" placeholder="seller_profile UUID" />
+      <button class="ghost" id="id-load">Load</button>
+      <div class="row">
+        <div><label>legal_name</label><input id="i-legal" /></div>
+        <div><label>company_name</label><input id="i-company" /></div>
+      </div>
+      <div class="row">
+        <div><label>signatory_name</label><input id="i-signame" /></div>
+        <div><label>signatory_title</label><input id="i-sigtitle" /></div>
+      </div>
+      <div class="row">
+        <div><label>address_line1</label><input id="i-addr1" /></div>
+        <div><label>address_line2</label><input id="i-addr2" /></div>
+      </div>
+      <div class="row">
+        <div><label>city</label><input id="i-city" /></div>
+        <div><label>state</label><input id="i-state" /></div>
+      </div>
+      <div class="row">
+        <div><label>postal_code</label><input id="i-zip" /></div>
+        <div><label>country</label><input id="i-country" /></div>
+      </div>
+      <div class="row">
+        <div><label>phone</label><input id="i-phone" /></div>
+        <div><label>payout_info_ref <span class="muted">(tokenized ref only — never raw bank/card)</span></label><input id="i-payout" /></div>
+      </div>
+      <button id="id-save">Save identity</button>
+    </section>
+  </main>
+  <div id="toast"></div>
+
+  <script>
+    var token = localStorage.getItem('token');
+    if (!token) { window.location.href = '/login.html'; }
+    try {
+      var payload = JSON.parse(atob(token.split('.')[1]));
+      if (payload.role !== 'admin') { document.body.innerHTML = '<p style="padding:2rem">Admin access required.</p>'; throw new Error('not admin'); }
+    } catch (e) { /* handled above */ }
+
+    function toast(msg, ok) {
+      var t = document.getElementById('toast');
+      t.textContent = msg; t.style.background = ok ? '#166534' : '#0f172a'; t.style.display = 'block';
+      setTimeout(function () { t.style.display = 'none'; }, 3200);
+    }
+    async function api(method, path, body) {
+      var res = await fetch('/api/admin/agreements' + path, {
+        method: method,
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+        body: body ? JSON.stringify(body) : undefined,
+      });
+      if (res.status === 401) { window.location.href = '/login.html'; return {}; }
+      var json = null; try { json = await res.json(); } catch (e) {}
+      if (!res.ok) { toast((json && json.message) || ('Error ' + res.status), false); }
+      return { status: res.status, json: json };
+    }
+    function parseJsonField(id, fallback) {
+      var v = document.getElementById(id).value.trim();
+      if (!v) return fallback;
+      try { return JSON.parse(v); } catch (e) { toast('Invalid JSON in ' + id, false); throw e; }
+    }
+
+    // ── Templates ──
+    var selectedTpl = null;
+    async function loadTemplates() {
+      var r = await api('GET', '/templates');
+      var tb = document.querySelector('#tpl-table tbody'); tb.innerHTML = '';
+      (r.json && r.json.data || []).forEach(function (t) {
+        var tr = document.createElement('tr');
+        tr.innerHTML = '<td>' + t.name + '</td><td>' + t.agreement_type + '</td><td>' + (t.is_active ? 'yes' : 'no') + '</td><td>' + (t.current_version_int || '—') + '</td>';
+        var td = document.createElement('td'); var b = document.createElement('button'); b.className = 'ghost'; b.textContent = 'Open'; b.style.margin = '0';
+        b.onclick = function () { openTemplate(t.id); }; td.appendChild(b); tr.appendChild(td); tb.appendChild(tr);
+      });
+    }
+    document.getElementById('tpl-create').onclick = async function () {
+      var r = await api('POST', '/templates', {
+        agreement_type: document.getElementById('tpl-type').value,
+        name: document.getElementById('tpl-name').value,
+        description: document.getElementById('tpl-desc').value || null,
+      });
+      if (r.status === 201) { toast('Template created', true); document.getElementById('tpl-name').value = ''; loadTemplates(); }
+    };
+    async function openTemplate(id) {
+      var r = await api('GET', '/templates/' + id);
+      if (!r.json || !r.json.data) return;
+      selectedTpl = r.json.data;
+      document.getElementById('version-card').style.display = '';
+      document.getElementById('ver-tpl-name').textContent = selectedTpl.name;
+      document.getElementById('ver-tpl-id').textContent = selectedTpl.id;
+      var cv = selectedTpl.current_version;
+      document.getElementById('ver-body').value = cv ? cv.body_markdown : '';
+      document.getElementById('ver-schema').value = cv ? JSON.stringify(cv.variable_schema, null, 2) : '';
+      document.getElementById('ver-defaults').value = cv ? JSON.stringify(cv.effective_terms_defaults, null, 2) : '';
+      window.scrollTo({ top: document.getElementById('version-card').offsetTop - 20, behavior: 'smooth' });
+    }
+    document.getElementById('ver-publish').onclick = async function () {
+      if (!selectedTpl) return;
+      var schema, defaults;
+      try { schema = parseJsonField('ver-schema', []); defaults = parseJsonField('ver-defaults', {}); } catch (e) { return; }
+      var r = await api('POST', '/templates/' + selectedTpl.id + '/versions', {
+        body_markdown: document.getElementById('ver-body').value,
+        variable_schema: schema, effective_terms_defaults: defaults,
+      });
+      if (r.status === 201) { toast('Published v' + r.json.data.version_int, true); loadTemplates(); }
+    };
+    document.getElementById('ver-toggle-active').onclick = async function () {
+      if (!selectedTpl) return;
+      var r = await api('PATCH', '/templates/' + selectedTpl.id, { is_active: !selectedTpl.is_active });
+      if (r.status === 200) { selectedTpl.is_active = r.json.data.is_active; toast('Active: ' + selectedTpl.is_active, true); loadTemplates(); }
+    };
+    document.getElementById('pv-run').onclick = async function () {
+      if (!selectedTpl) return;
+      var vars;
+      try { vars = parseJsonField('pv-vars', {}); } catch (e) { return; }
+      var body = { variables: vars };
+      var sid = document.getElementById('pv-seller').value.trim(); if (sid) body.sellerProfileId = sid;
+      var r = await api('POST', '/templates/' + selectedTpl.id + '/preview', body);
+      if (r.json && r.json.data) {
+        var d = r.json.data;
+        document.getElementById('pv-out').style.display = ''; document.getElementById('pv-out').textContent = d.renderedBody;
+        document.getElementById('pv-missing').textContent = (d.missingRequired && d.missingRequired.length) ? ('Missing required: ' + d.missingRequired.join(', ')) : '';
+      }
+    };
+
+    // ── Terms ──
+    document.getElementById('terms-load').onclick = async function () {
+      var sid = document.getElementById('terms-seller').value.trim(); if (!sid) return;
+      var r = await api('GET', '/sellers/' + sid + '/terms');
+      var t = r.json && r.json.data;
+      document.getElementById('t-commission').value = t ? (t.commission_pct ?? '') : '';
+      document.getElementById('t-premium').value = t ? (t.buyer_premium_pct ?? '') : '';
+      document.getElementById('t-ccfee').value = t ? (t.credit_card_fee_pct ?? '') : '';
+      document.getElementById('t-mktg').value = t ? (t.marketing_fee_cents ?? '') : '';
+      document.getElementById('t-settle').value = t ? (t.settlement_terms ?? '') : '';
+      document.getElementById('t-payout').value = t ? (t.payout_schedule ?? '') : '';
+      var h = await api('GET', '/sellers/' + sid + '/terms/history');
+      var tb = document.querySelector('#terms-history tbody'); tb.innerHTML = '';
+      (h.json && h.json.data || []).forEach(function (row) {
+        var tr = document.createElement('tr');
+        tr.innerHTML = '<td>' + (row.commission_pct ?? '') + '</td><td>' + (row.buyer_premium_pct ?? '') + '</td><td>' + new Date(row.effective_from).toLocaleString() + '</td><td>' + (row.superseded_at ? '' : '✓') + '</td>';
+        tb.appendChild(tr);
+      });
+    };
+    document.getElementById('terms-save').onclick = async function () {
+      var sid = document.getElementById('terms-seller').value.trim(); if (!sid) return;
+      function num(id) { var v = document.getElementById(id).value.trim(); return v === '' ? undefined : Number(v); }
+      function str(id) { var v = document.getElementById(id).value.trim(); return v === '' ? undefined : v; }
+      var patch = {
+        commission_pct: num('t-commission'), buyer_premium_pct: num('t-premium'),
+        credit_card_fee_pct: num('t-ccfee'), marketing_fee_cents: num('t-mktg'),
+        settlement_terms: str('t-settle'), payout_schedule: str('t-payout'),
+      };
+      var r = await api('PUT', '/sellers/' + sid + '/terms', patch);
+      if (r.status === 200) { toast('Terms saved (new version)', true); document.getElementById('terms-load').click(); }
+    };
+
+    // ── Identity ──
+    var idFields = { 'i-legal': 'legal_name', 'i-company': 'company_name', 'i-signame': 'signatory_name', 'i-sigtitle': 'signatory_title', 'i-addr1': 'address_line1', 'i-addr2': 'address_line2', 'i-city': 'city', 'i-state': 'state', 'i-zip': 'postal_code', 'i-country': 'country', 'i-phone': 'phone', 'i-payout': 'payout_info_ref' };
+    document.getElementById('id-load').onclick = async function () {
+      var sid = document.getElementById('id-seller').value.trim(); if (!sid) return;
+      var r = await api('GET', '/sellers/' + sid + '/identity');
+      var d = (r.json && r.json.data) || {};
+      Object.keys(idFields).forEach(function (el) { document.getElementById(el).value = d[idFields[el]] || ''; });
+    };
+    document.getElementById('id-save').onclick = async function () {
+      var sid = document.getElementById('id-seller').value.trim(); if (!sid) return;
+      var patch = {};
+      Object.keys(idFields).forEach(function (el) { var v = document.getElementById(el).value.trim(); if (v !== '') patch[idFields[el]] = v; });
+      var r = await api('PUT', '/sellers/' + sid + '/identity', patch);
+      if (r.status === 200) { toast('Identity saved', true); }
+    };
+
+    loadTemplates();
+  </script>
+</body>
+</html>

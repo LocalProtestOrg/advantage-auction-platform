@@ -160,6 +160,7 @@ const imageProcessingRoutes     = require('./src/routes/imageProcessing');
 const uploadsRoutes             = require('./src/routes/uploads');
 const publicRoutes              = require('./src/routes/public');
 const analyticsRoutes           = require('./src/routes/analytics');
+const adminAgreementsRoutes     = require('./src/routes/adminAgreements');
 
 // ── Database-backed routes (frontend API shape) ───────────────────────────────
 
@@ -186,6 +187,7 @@ if (process.env.NODE_ENV !== 'production') {
 app.use('/api/auth', authRoutes);
 app.use('/api/auctions', auctionRoutes);
 app.use('/api/payments', paymentRoutes);
+app.use('/api/admin/agreements', adminAgreementsRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/lots', lotRoutes);
 app.use('/api/marketing', marketingRoutes);
