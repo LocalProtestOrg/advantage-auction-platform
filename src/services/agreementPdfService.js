@@ -1,0 +1,81 @@
+'use strict';
+
+/**
+ * agreementPdfService — render a signed agreement to PDF (PDFKit) and store it
+ * durably on Cloudinary as a raw asset. Returns the secure URL + a SHA-256 of
+ * the exact bytes. Generation is non-blocking to the signing act (the signature
+ * row + content hash are the legal anchor); callers handle failure via pdf_status.
+ */
+const PDFDocument = require('pdfkit');
+const crypto = require('crypto');
+const cloudinaryService = require('./cloudinaryService');
+const { v2: cloudinary } = require('cloudinary');
+
+const SIGNED_URL_TTL_SECONDS = 300; // signed PDF links live 5 minutes
+
+function buildPdfBuffer(agreement, signature) {
+  return new Promise((resolve, reject) => {
+    const doc = new PDFDocument({ margin: 50, size: 'LETTER' });
+    const chunks = [];
+    doc.on('data', (c) => chunks.push(c));
+    doc.on('end', () => resolve(Buffer.concat(chunks)));
+    doc.on('error', reject);
+
+    doc.fontSize(16).font('Helvetica-Bold').text('Seller Agreement', { align: 'center' });
+    doc.moveDown(0.4);
+    const ps = agreement.party_snapshot || {};
+    const partyLine = [ps.legal_name, ps.company_name].filter(Boolean).join(' · ');
+    if (partyLine) { doc.fontSize(9).font('Helvetica').fillColor('#555555').text(partyLine, { align: 'center' }); doc.fillColor('#000000'); }
+    doc.moveDown(1);
+
+    doc.fontSize(10).font('Helvetica').text(agreement.rendered_body || '', { align: 'left' });
+    doc.moveDown(2);
+
+    doc.fontSize(11).font('Helvetica-Bold').text('Electronic Signature');
+    doc.moveTo(50, doc.y).lineTo(562, doc.y).stroke();
+    doc.moveDown(0.4).fontSize(9).font('Helvetica');
+    const line = (l) => doc.text(l);
+    line(`Signed by (typed): ${signature.typed_name || ''}`);
+    if (signature.drawn_image_url) line(`Drawn signature on file: ${signature.drawn_image_url}`);
+    line(`Signer role: ${signature.signer_role || 'seller'}`);
+    line(`Signed at (UTC): ${signature.signed_at ? new Date(signature.signed_at).toISOString() : ''}`);
+    line(`IP address: ${signature.ip_address || ''}`);
+    line(`User agent: ${signature.user_agent || ''}`);
+    line(`Consent acknowledged: ${signature.consent_acknowledged ? 'yes' : 'no'}`);
+    line(`Intent: ${signature.intent_statement || ''}`);
+    line(`Content SHA-256: ${signature.content_sha256 || ''}`);
+
+    doc.end();
+  });
+}
+
+async function generateAndStore(agreement, signature) {
+  const buffer = await buildPdfBuffer(agreement, signature);
+  const sha256 = crypto.createHash('sha256').update(buffer).digest('hex');
+  // Stored PRIVATE (not publicly retrievable) — signed agreements hold legal/PII
+  // data. Delivery is via short-lived signed URLs (signedDownloadUrl), never a
+  // permanent public URL.
+  const result = await cloudinaryService.uploadBuffer(buffer, {
+    folder: 'agreements',
+    resource_type: 'raw',
+    type: 'private',
+    allowed_formats: ['pdf'],
+    public_id: `agreement-${agreement.id}`,
+    format: 'pdf',
+    overwrite: true,
+  });
+  return { sha256, public_id: result.public_id };
+}
+
+// Generate a short-lived signed download URL for a private raw PDF asset.
+// The signature embeds an expiry; the URL is unusable after SIGNED_URL_TTL_SECONDS.
+function signedDownloadUrl(publicId, ttlSeconds = SIGNED_URL_TTL_SECONDS) {
+  const expiresAt = Math.floor(Date.now() / 1000) + ttlSeconds;
+  return cloudinary.utils.private_download_url(publicId, 'pdf', {
+    resource_type: 'raw',
+    type: 'private',
+    expires_at: expiresAt,
+  });
+}
+
+module.exports = { buildPdfBuffer, generateAndStore, signedDownloadUrl, SIGNED_URL_TTL_SECONDS };

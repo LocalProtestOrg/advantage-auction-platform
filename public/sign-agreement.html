@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="noindex" />
+  <title>Review &amp; Sign — Seller Agreement</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { font-family: -apple-system, Segoe UI, Roboto, sans-serif; margin: 0; background: #f1f5f9; color: #1f2937; }
+    .wrap { max-width: 760px; margin: 1.5rem auto; padding: 0 1rem; }
+    .card { background: #fff; border: 1px solid #e5e7eb; border-radius: 10px; padding: 1.25rem 1.4rem; margin-bottom: 1rem; }
+    h1 { font-size: 1.2rem; margin: 0 0 0.3rem; }
+    .muted { color: #64748b; font-size: 0.85rem; }
+    .badge { display: inline-block; padding: 0.1rem 0.55rem; border-radius: 999px; font-size: 0.72rem; font-weight: 600; }
+    .b-sent { background: #dbeafe; color: #1e40af; } .b-viewed { background: #fef3c7; color: #92400e; }
+    .b-signed { background: #dcfce7; color: #166534; } .b-expired, .b-revoked, .b-superseded { background: #fee2e2; color: #991b1b; }
+    .doc { white-space: pre-wrap; line-height: 1.5; font-size: 0.92rem; border: 1px solid #e5e7eb; border-radius: 8px; padding: 1rem; max-height: 380px; overflow: auto; background: #fafafa; }
+    label { display: block; font-size: 0.82rem; color: #334155; margin: 0.8rem 0 0.25rem; }
+    input[type=text] { width: 100%; padding: 0.55rem 0.65rem; border: 1px solid #cbd5e1; border-radius: 6px; font: inherit; }
+    .check { display: flex; gap: 0.5rem; align-items: flex-start; margin-top: 0.7rem; font-size: 0.86rem; }
+    .check input { margin-top: 0.2rem; }
+    canvas { border: 1px dashed #94a3b8; border-radius: 6px; touch-action: none; width: 100%; height: 140px; background: #fff; }
+    button { background: #2563eb; color: #fff; border: 0; border-radius: 7px; padding: 0.6rem 1.1rem; font: inherit; cursor: pointer; }
+    button.ghost { background: #e2e8f0; color: #1f2937; }
+    button[disabled] { opacity: 0.5; cursor: not-allowed; }
+    .err { color: #dc2626; font-size: 0.85rem; margin-top: 0.6rem; }
+    .ok { color: #166534; }
+    a { color: #2563eb; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <h1>Seller Agreement</h1>
+      <div id="meta" class="muted">Loading…</div>
+    </div>
+    <div class="card" id="doc-card" style="display:none">
+      <div class="muted" id="terms-summary"></div>
+      <div class="doc" id="doc-body"></div>
+    </div>
+
+    <!-- Sign panel -->
+    <div class="card" id="sign-card" style="display:none">
+      <h1 style="font-size:1rem">Sign this agreement</h1>
+      <div id="login-needed" style="display:none">
+        <p class="muted">You must be signed in to your seller account to sign this agreement.</p>
+        <a id="login-link" href="/login.html"><button>Log in to sign</button></a>
+      </div>
+      <div id="sign-form" style="display:none">
+        <label for="typed-name">Type your full legal name (typed signature)</label>
+        <input type="text" id="typed-name" placeholder="e.g. Jane Q. Seller" />
+        <label>Draw your signature (optional)</label>
+        <canvas id="sig-canvas"></canvas>
+        <button class="ghost" id="clear-canvas" type="button" style="margin-top:0.4rem">Clear drawing</button>
+        <div class="check"><input type="checkbox" id="consent" /><label for="consent" style="margin:0">I consent to sign this agreement electronically and to do business electronically (ESIGN/UETA).</label></div>
+        <div class="check"><input type="checkbox" id="intent" /><label for="intent" style="margin:0">I intend to sign and agree to be legally bound by this agreement.</label></div>
+        <div style="margin-top:1rem"><button id="sign-btn">Sign agreement</button></div>
+        <div class="err" id="sign-err"></div>
+      </div>
+    </div>
+
+    <!-- Signed state -->
+    <div class="card" id="signed-card" style="display:none">
+      <h1 style="font-size:1rem" class="ok">✓ Signed</h1>
+      <div class="muted" id="signed-meta"></div>
+      <div style="margin-top:0.8rem"><button id="download-btn">Download signed PDF</button></div>
+      <div class="err" id="dl-err"></div>
+    </div>
+  </div>
+
+  <script>
+    var qs = new URLSearchParams(location.search);
+    var token = qs.get('token');
+    var idParam = qs.get('id');
+    var authToken = localStorage.getItem('token');
+    var agreement = null;
+
+    function badge(status) { return '<span class="badge b-' + status + '">' + status + '</span>'; }
+    function authedUserId() { try { return JSON.parse(atob(authToken.split('.')[1])).id; } catch (e) { return null; } }
+
+    async function load() {
+      try {
+        var res, json;
+        if (token) {
+          res = await fetch('/api/agreements/by-token/' + encodeURIComponent(token));
+        } else if (idParam) {
+          if (!authToken) { document.getElementById('meta').textContent = 'Please log in to view this agreement.'; return; }
+          res = await fetch('/api/agreements/' + idParam, { headers: { Authorization: 'Bearer ' + authToken } });
+        } else {
+          document.getElementById('meta').textContent = 'Missing agreement link.'; return;
+        }
+        json = await res.json();
+        if (!res.ok || !json.success) { document.getElementById('meta').innerHTML = '<span class="err">' + (json.message || 'Unable to load agreement.') + '</span>'; return; }
+        agreement = json.data;
+        render();
+      } catch (e) { document.getElementById('meta').innerHTML = '<span class="err">Network error.</span>'; }
+    }
+
+    function render() {
+      document.getElementById('meta').innerHTML =
+        (agreement.template_name || 'Agreement') + ' ' + badge(agreement.status) +
+        (agreement.expires_at ? '<br><span class="muted">Expires: ' + new Date(agreement.expires_at).toLocaleString() + '</span>' : '');
+      document.getElementById('doc-card').style.display = '';
+      document.getElementById('doc-body').textContent = agreement.rendered_body || '';
+      var rv = agreement.resolved_variables || {};
+      var keys = Object.keys(rv);
+      document.getElementById('terms-summary').textContent = keys.length ? ('Key terms: ' + keys.map(function (k) { return k + ' = ' + rv[k]; }).join(' · ')) : '';
+
+      if (agreement.status === 'signed') {
+        document.getElementById('signed-card').style.display = '';
+        document.getElementById('signed-meta').textContent = 'Signed on ' + (agreement.signed_at ? new Date(agreement.signed_at).toLocaleString() : '');
+        return;
+      }
+      if (agreement.status === 'sent' || agreement.status === 'viewed') {
+        document.getElementById('sign-card').style.display = '';
+        var isSeller = authToken && agreement && (idParam || true); // ownership enforced server-side on sign
+        if (!authToken) {
+          document.getElementById('login-needed').style.display = '';
+          var next = encodeURIComponent(location.pathname + location.search);
+          document.getElementById('login-link').href = '/login.html?next=' + next;
+        } else {
+          document.getElementById('sign-form').style.display = '';
+          initCanvas();
+        }
+      }
+    }
+
+    // ── Drawn signature canvas ──
+    var drawing = false, hasDrawn = false, ctx, canvas;
+    function initCanvas() {
+      canvas = document.getElementById('sig-canvas');
+      var rect = canvas.getBoundingClientRect();
+      canvas.width = rect.width; canvas.height = rect.height;
+      ctx = canvas.getContext('2d'); ctx.lineWidth = 2; ctx.lineCap = 'round'; ctx.strokeStyle = '#111';
+      function pos(e) { var r = canvas.getBoundingClientRect(); var t = e.touches ? e.touches[0] : e; return { x: t.clientX - r.left, y: t.clientY - r.top }; }
+      function start(e) { drawing = true; hasDrawn = true; var p = pos(e); ctx.beginPath(); ctx.moveTo(p.x, p.y); e.preventDefault(); }
+      function move(e) { if (!drawing) return; var p = pos(e); ctx.lineTo(p.x, p.y); ctx.stroke(); e.preventDefault(); }
+      function end() { drawing = false; }
+      canvas.addEventListener('mousedown', start); canvas.addEventListener('mousemove', move); window.addEventListener('mouseup', end);
+      canvas.addEventListener('touchstart', start); canvas.addEventListener('touchmove', move); canvas.addEventListener('touchend', end);
+      document.getElementById('clear-canvas').onclick = function () { ctx.clearRect(0, 0, canvas.width, canvas.height); hasDrawn = false; };
+    }
+
+    document.getElementById('sign-btn').onclick = async function () {
+      var errEl = document.getElementById('sign-err'); errEl.textContent = '';
+      var typed = document.getElementById('typed-name').value.trim();
+      if (!typed) { errEl.textContent = 'Please type your legal name.'; return; }
+      if (!document.getElementById('consent').checked || !document.getElementById('intent').checked) { errEl.textContent = 'Please check both consent boxes.'; return; }
+      var body = { typed_name: typed, consent_acknowledged: true, intent_acknowledged: true };
+      if (hasDrawn) body.drawn_image_data = canvas.toDataURL('image/png');
+      document.getElementById('sign-btn').disabled = true;
+      try {
+        var res = await fetch('/api/agreements/' + agreement.id + '/sign', {
+          method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + authToken }, body: JSON.stringify(body),
+        });
+        var json = await res.json();
+        if (!res.ok || !json.success) { errEl.textContent = json.message || 'Could not sign.'; document.getElementById('sign-btn').disabled = false; return; }
+        agreement.status = 'signed'; agreement.signed_at = new Date().toISOString();
+        document.getElementById('sign-card').style.display = 'none';
+        render();
+      } catch (e) { errEl.textContent = 'Network error.'; document.getElementById('sign-btn').disabled = false; }
+    };
+
+    document.getElementById('download-btn').onclick = async function () {
+      var errEl = document.getElementById('dl-err'); errEl.textContent = '';
+      if (!authToken) { errEl.textContent = 'Log in to download.'; return; }
+      try {
+        var res = await fetch('/api/agreements/' + agreement.id + '/pdf', { headers: { Authorization: 'Bearer ' + authToken } });
+        var json = await res.json();
+        if (res.ok && json.success && json.url) { window.open(json.url, '_blank'); }
+        else { errEl.textContent = json.message || 'PDF not available yet.'; }
+      } catch (e) { errEl.textContent = 'Network error.'; }
+    };
+
+    load();
+  </script>
+</body>
+</html>

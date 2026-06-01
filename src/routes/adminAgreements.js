@@ -17,6 +17,17 @@ const templateService = require('../services/agreementTemplateService');
 const termsService    = require('../services/sellerTermsService');
 const identityService = require('../services/sellerIdentityService');
 const { resolveAndRender } = require('../services/agreementVariableService');
+const agreementService = require('../services/agreementService');
+
+function mapAgreementErr(res, err, next) {
+  if (err && err.status && err.code) {
+    const body = { success: false, code: err.code, message: err.message };
+    if (err.missingRequired) body.missingRequired = err.missingRequired;
+    return res.status(err.status).json(body);
+  }
+  return next(err);
+}
+function signingLink(req, rawToken) { return `${req.protocol}://${req.get('host')}/sign-agreement.html?token=${rawToken}`; }
 
 function isUuid(v) {
   return typeof v === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(v);
@@ -160,6 +171,60 @@ router.put('/sellers/:sellerProfileId/identity', idempotency, async (req, res, n
     const row = await identityService.upsertIdentity(req.params.sellerProfileId, allowed, req.user.id);
     return res.json({ success: true, data: row });
   } catch (err) { next(err); }
+});
+
+// ── Agreement instances (Phase B: send / list / get / resend / reissue / revoke) ──
+router.post('/agreements', idempotency, async (req, res, next) => {
+  try {
+    const { sellerProfileId, templateId, overrides, expiresInDays } = req.body || {};
+    if (!isUuid(sellerProfileId)) return res.status(400).json({ success: false, message: 'sellerProfileId (uuid) is required' });
+    if (templateId !== undefined && !isUuid(templateId)) return res.status(400).json({ success: false, message: 'Invalid templateId' });
+    const { agreement, rawToken } = await agreementService.sendAgreement({ sellerProfileId, templateId, overrides, expiresInDays, actorId: req.user.id });
+    return res.status(201).json({ success: true, data: { id: agreement.id, status: agreement.status, expires_at: agreement.expires_at, signing_token: rawToken, signing_link: signingLink(req, rawToken) } });
+  } catch (err) { mapAgreementErr(res, err, next); }
+});
+
+router.get('/agreements', async (req, res, next) => {
+  try {
+    const filter = {};
+    if (req.query.sellerProfileId) { if (!isUuid(req.query.sellerProfileId)) return res.status(400).json({ success: false, message: 'Invalid sellerProfileId' }); filter.sellerProfileId = req.query.sellerProfileId; }
+    return res.json({ success: true, data: await agreementService.listAll(filter) });
+  } catch (err) { next(err); }
+});
+
+router.get('/agreements/:id', async (req, res, next) => {
+  try {
+    if (!isUuid(req.params.id)) return res.status(400).json({ success: false, message: 'Invalid agreement id' });
+    const a = await agreementService.getById(req.params.id);
+    if (!a) return res.status(404).json({ success: false, message: 'Agreement not found' });
+    a.signatures = await agreementService.getSignatures(a.id);
+    return res.json({ success: true, data: a });
+  } catch (err) { next(err); }
+});
+
+router.post('/agreements/:id/resend', idempotency, async (req, res, next) => {
+  try {
+    if (!isUuid(req.params.id)) return res.status(400).json({ success: false, message: 'Invalid agreement id' });
+    const { agreement, rawToken } = await agreementService.resend(req.params.id, req.user.id);
+    return res.json({ success: true, data: { id: agreement.id, status: agreement.status, signing_token: rawToken, signing_link: signingLink(req, rawToken) } });
+  } catch (err) { mapAgreementErr(res, err, next); }
+});
+
+router.post('/agreements/:id/reissue', idempotency, async (req, res, next) => {
+  try {
+    if (!isUuid(req.params.id)) return res.status(400).json({ success: false, message: 'Invalid agreement id' });
+    const { templateId, overrides, expiresInDays } = req.body || {};
+    const { agreement, rawToken, superseded } = await agreementService.reissue(req.params.id, { templateId, overrides, expiresInDays }, req.user.id);
+    return res.status(201).json({ success: true, data: { id: agreement.id, status: agreement.status, superseded_agreement_id: superseded, signing_token: rawToken, signing_link: signingLink(req, rawToken) } });
+  } catch (err) { mapAgreementErr(res, err, next); }
+});
+
+router.post('/agreements/:id/revoke', idempotency, async (req, res, next) => {
+  try {
+    if (!isUuid(req.params.id)) return res.status(400).json({ success: false, message: 'Invalid agreement id' });
+    const a = await agreementService.revoke(req.params.id, { reason: req.body && req.body.reason }, req.user.id);
+    return res.json({ success: true, data: { id: a.id, status: a.status } });
+  } catch (err) { mapAgreementErr(res, err, next); }
 });
 
 module.exports = router;
