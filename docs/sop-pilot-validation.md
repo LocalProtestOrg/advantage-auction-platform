@@ -91,7 +91,7 @@ The exact UI path is on the seller dashboard — usually "Create Auction" or sim
 | Auction type (public/private) | Public | Discovery surface displays it |
 | Start time | T+25 min from now (rounded) | Future start; ends-soon rail doesn't pick it up prematurely |
 | End time | T+60 min from now (gives 35-minute auction window) | Soft close window large enough for all 7 lots + 2 extensions to play out |
-| Pickup window start | At least 36 hours after end time (per CLAUDE.md business rule) | The 36-hour rule is enforced server-side; pre-check the form rejects shorter |
+| Pickup window start | Non-professional sellers: at least 48 hours after end time; professional sellers exempt (own timing); never before close (seller-type rule, supersedes the old 36h) | The 48-hour non-professional rule is enforced server-side (`sellerTypeRules`); pre-check the form rejects shorter |
 | Pickup window end | Pickup_start + 4–8 hours | Operator-realistic window |
 | Address | Real or synthetic; whatever is encrypted at rest will only be revealed to buyers after payment confirmed | Per business rule: "Full address stays hidden until payment is verified" |
 | Timezone | Operator's actual timezone | Countdown math must respect TZ |
@@ -406,7 +406,7 @@ What to watch for during the pilot. Each item has a severity and an action.
 |---|---|---|
 | Field-naming mismatch between form labels and what data is actually stored | Medium | Note field. |
 | Required-vs-optional ambiguity (e.g., dimensions appear required but shouldn't be) | Medium | Note field. Verify against business rules. |
-| 36-hour pickup rule rejection not clearly explained | Medium | Note error message text. |
+| 48-hour (non-professional) pickup rule rejection not clearly explained | Medium | Note error message text. |
 | Featured-lot selection unclear (which 3 of 7 are featured?) | Medium | Note UI screen. |
 | Submit-for-review button location / friction | Low | Note workflow time. |
 | Lock-out after submit (seller realizes they need to edit something) | High | This is per CLAUDE.md "single-use submission" — admin override is the documented escape. Note if it was needed. |

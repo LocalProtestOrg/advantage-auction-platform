@@ -1,247 +1,107 @@
 # Pilot Runbook — Advantage Auction Platform
 
-*Last updated: 2026-05-08 | Pilot phase*
+*Last updated: 2026-06-01 | Pilot phase | Reflects the current platform: Railway hosting, seller types, governance moderation, seller agreements (A/B), real queued notifications, and the reconciled 48h pickup rule.*
+
+> ⏳ **SES-pending marker:** sections marked **`⏳ SES-PENDING`** require Amazon SES production access (email provider migration from Postmark; see `docs/postmark-to-ses-migration-plan.md` + `docs/aws-ses-onboarding-checklist.md`). Until SES is approved and `emailService` is cut over, outbound **email delivery is queued/retried but not delivered** — in-app flows still work; email links do not arrive. Do not rely on emailed links during this window.
+
+> 📦 **Promotion prerequisite:** production currently runs an older `main`. Shipping this feature set to prod requires the **migration + merge** in `docs/production-promotion-runbook.md` (apply migrations **046–057** to the prod DB after a Neon backup, then merge `deploy/seller-studio-1b` → `main`). This runbook is the **operational** guide; the promotion runbook is the **release** guide.
 
 ---
 
-## Deployment Topology
-
+## 1. Deployment topology (Railway)
 ```
-Internet
-    │
-    ▼
-[Reverse Proxy — Nginx or Caddy]
-    │  TLS termination, static caching, rate limiting
-    │  Forwards /api/* and WebSocket to Node
-    │
-    ▼
-[Node.js Process — server.js on port 3000]
-    │  Serves public/ as static files
-    │  Handles /api/* routes
-    │  Socket.IO for real-time bid push
-    │
-    ├──► [Neon PostgreSQL — DATABASE_URL]
-    │       All operational data: users, auctions, lots, bids, payments
-    │
-    ├──► [Stripe — STRIPE_SECRET_KEY]
-    │       Payment intent creation, webhook delivery
-    │
-    └──► [SMTP (optional at pilot) — SMTP_HOST]
-             Seller final report email, operational close email
+Internet ──► Railway edge (TLS, proxy) ──► Node (server.js)
+                                            │  app.set('trust proxy', 1)  → real client IP
+                                            │  serves public/ (static) + /api/* + Socket.IO
+                                            │  forks 2 workers after listen:
+                                            │     • imageProcessingWorker (Cloudinary enhancement jobs)
+                                            │     • notificationWorker    (drains notifications_queue → email)
+   ├─► Neon PostgreSQL (DATABASE_URL)   all operational data + audit_log + agreements
+   ├─► Stripe (STRIPE_*)                payment intents + webhook   [prod currently TEST mode]
+   ├─► Cloudinary (CLOUDINARY_*)        lot images, bg-removal, signed-agreement PDFs (private + signed URLs)
+   └─► Amazon SES (SMTP_* )  ⏳ SES-PENDING   transactional email (was Postmark; account rejected)
 ```
+**Services:** `advantage-auction-platform` (prod, branch `main`) and `advantage-staging` (branch `deploy/seller-studio-1b`) — both in one Railway project, **auto-deploy on git push** to their branch. Each has its own Neon database (prod and staging are isolated). No VPS/Nginx/PM2 — Railway manages the process, restarts, and TLS.
 
-**Notes:**
-- Frontend is served as static files from `public/` by the same Node process. No separate frontend host required.
-- No background worker processes. All operations are request-scoped.
-- WebSocket connections upgrade from HTTP on the same port.
+## 2. Environment variables
+**Hard-required (server exits without these):** `JWT_SECRET`, `DATABASE_URL`; in production also `STRIPE_SECRET_KEY` / `STRIPE_PUBLISHABLE_KEY` / `STRIPE_WEBHOOK_SECRET`.
+**Feature env:**
+- `CLOUDINARY_CLOUD_NAME` / `CLOUDINARY_API_KEY` / `CLOUDINARY_API_SECRET` — images + signed-agreement PDFs.
+- `SMTP_HOST` / `SMTP_PORT` / `SMTP_SECURE` / `SMTP_USER` / `SMTP_PASS` — **⏳ SES-PENDING** (will be SES SMTP); `EMAIL_FROM=notifications@advantage.bid`, `EMAIL_REPLY_TO=info@advantage.bid`.
+- `PUBLIC_BASE_URL` (or `FRONTEND_URL` / `SITE_URL`) — canonical domain for agreement/notification **links**. *(Prod: currently unset → falls back to the Railway URL; set before relying on emailed links.)*
+- `ANTHROPIC_API_KEY` — AI Catalog Assistant (degrades to a truthful 503 if unset).
+- `SENTRY_DSN` (errors), `ADMIN_EMAIL`, `NODE_ENV=production`.
+
+## 3. Health & monitoring
+- `GET /api/health` → `{ status, env, uptime_seconds, db_reachable, stripe_configured, stripe_mode, email_configured }`.
+- `GET /api/admin/diagnostics/auctions` (admin) — auction states, open lots, recent activity.
+- `GET /api/admin/diagnostics/payments` (admin) — payment statuses; watch `failed` accumulation.
+- `GET /api/admin/diagnostics/notifications` (admin) — queue depth + `failed` counts. **⏳ SES-PENDING:** during the SES gap, expect notifications to **queue/retry** rather than send; this is expected, not a fault.
+- **Railway logs** — boot banner, worker start, `[email] …` lines, `[ERROR]` lines.
+- **Stripe / Cloudinary / SES / Neon** consoles for provider-side health (see §9).
+
+## 4. Admin operational procedures
+
+### 4.1 Governance moderation lifecycle (current)
+Auction states: `draft → submitted → under_review → published → active → closed`, plus `rejected`.
+- **Seller submits** a draft for review (`PATCH /api/auctions/:id` state→`submitted`; edit-lock engages for private sellers).
+- **Return to draft** (request revisions): `POST /api/admin/auctions/:id/return-to-draft` `{reason}` → state→`draft`, `revision_count++`, seller sees the reason banner. Audited; **⏳ SES-PENDING** notification email.
+- **Reject**: `POST /api/admin/auctions/:id/reject` `{reason}` → state→`rejected`, reason recorded. Audited; **⏳ SES-PENDING** notification email.
+- **Publish**: `PATCH /api/admin/auctions/:id/publish` → `submitted/under_review → published`.
+- **Close**: `POST /api/admin/auctions/:id/close` → auction + lots close; winners set; invoices available.
+- **Audit timeline**: admin `GET /api/admin/audit-log?auction_id=…`; sellers see an allow-listed subset via `GET /api/sellers/me/audit`.
+
+### 4.2 Seller-type administration
+- Assign type: `POST /api/admin/sellers/:profileId/seller-type` `{ seller_type }` (private/business/other/auction_house/estate_sale_company/professional_liquidator). Audited.
+- Effects: **professional** types are exempt from the 48h pickup rule and may use pro-only controls (Preview Start/End, lot starting bid, reserve). Non-professional types are gated server-side. Suspension: `POST /api/admin/sellers/:id/suspend` / `…/unsuspend` (reversible; suspended sellers cannot log in).
+
+### 4.3 Seller agreements (admin authoring + lifecycle)
+*Admin UI: `/admin/agreements.html`. Requires migrations 053–057.*
+- **Author**: create a template per seller type → publish an immutable version (`{{placeholders}}` + variable schema + term defaults); set per-seller **terms** and **identity** (history-preserving).
+- **Send**: `POST /api/admin/agreements/agreements` `{ sellerProfileId, templateId? }` → resolves+freezes the agreement, returns a **signing link + token**. **⏳ SES-PENDING:** the email isn't delivered yet — **workaround:** copy the returned `signing_link` to the seller, or the seller opens it from `/my-agreements.html` (authenticated, no email needed).
+- **Seller signs** (authenticated; typed/drawn) → status `signed`; a **private signed PDF** is generated (Cloudinary) and delivered via short-lived **signed URLs** (`GET /api/agreements/:id/pdf`).
+- **Resend / reissue / revoke**: admin endpoints under `/api/admin/agreements/agreements/:id/…` (resend rotates the token; reissue supersedes; revoke invalidates).
+
+### 4.4 Payments
+- Manual record (out-of-band pay): `POST /api/admin/payments/:paymentId/record-success`.
+- Failed payment: check `diagnostics/payments`; if Stripe collected but record is `pending`, use `record-success`; else buyer retries via `/payment.html`. **Prod Stripe is in TEST mode** — decide test-vs-live before real-money launch.
+
+## 5. Seller onboarding (current)
+1. Seller registers (`/register` → `POST /api/auth/register`); admin assigns `seller` role + `seller_type` as needed.
+2. **Agreement (if used in pilot):** admin sends the seller-type-matched agreement; seller reviews + signs (via the link or `/my-agreements.html`). **⏳ SES-PENDING** email; use the link workaround. *(The future agreement-gated onboarding — blocking the first auction until signed — is NOT enabled yet.)*
+3. Seller builds the auction at `/seller-create.html` and lots at `/dashboard/lots.html`: title, description, **required size category** (dimensions optional), **3 featured lots**, starting bids ($1 default), pickup window.
+4. **Pickup rule (reconciled):** non-professional sellers must set pickup to start **≥ 48 hours after auction close**; professional sellers may set their own pickup timing; no pickup before close. Enforced server-side (`sellerTypeRules`); the form/API rejects violations (422) with an explanation.
+5. Seller submits → enters governance review (§4.1). Admin returns-to-draft / rejects / publishes.
+
+**Seller checklist (pre-event):** account + login confirmed; (agreement signed, if used); all lots entered with photos + size category + starting bids; 3 featured lots chosen; **pickup ≥ 48h after close (non-professional)**; auction submitted; understands publish/close/payment automation and that full address is hidden until payment is verified.
+
+## 6. Notifications (real, queued)
+- Notifications are written to **`notifications_queue`**; the **notificationWorker** drains it and sends via `emailService.sendEmail`. Types include registration/verification, outbid, winning-bidder, auction reminders, and governance events (returned-to-draft, rejected). SMS is opt-in only and not implemented at pilot.
+- **⏳ SES-PENDING:** until SES is live, `sendEmail` returns `{skipped}` (or fails and **retries**) — **queued notifications are not lost**; they deliver once SES is cut over. Monitor `diagnostics/notifications` queue depth.
+
+## 7. Backup + recovery
+- **Before any prod migration/release:** create a **Neon backup branch** of the prod DB (instant, copy-on-write rollback point) — see the promotion runbook.
+- **Recovery priority:** users (backup only; bcrypt hashes) → auctions/lots/bids/agreements (Neon backup) → payments (Stripe is authoritative; reconcile) → invoices (derivable).
+- **JWT_SECRET rotation:** invalidates sessions (re-login), no data loss. **Stripe key change:** in-flight intents stranded (resolve in Stripe).
+
+## 8. Known limitations / pending items
+| Area | Status |
+|---|---|
+| **Email delivery (all types)** | ⏳ **SES-PENDING** (AWS production-access review). Queued + retried; links available in-app meanwhile. |
+| Prod Stripe mode | TEST — decide test-vs-live before real-money launch |
+| Prod schema | Migrations **046–057 not yet applied to prod** (promotion runbook) |
+| `PUBLIC_BASE_URL` (prod) | Unset → links fall back to the Railway URL; set before relying on emailed links |
+| Agreement-gated onboarding | Designed (Phase D), **not enabled** — does not block first auction yet |
+| AI Catalog Assistant | Requires `ANTHROPIC_API_KEY`; truthful 503 if absent |
+| `pdfGenerationService` final-report join | Verify `created_by_user_id` join vs live schema before relying on the final-report email |
+| SMS notifications | Not implemented (opt-in future) |
+| Rate limiting on bid/payment | None at pilot scale |
+
+## 9. Monitoring during a live event
+- Watch Railway logs for `[ERROR]`; `diagnostics/auctions` `open_lots` should decrease as lots close; after close, `payments.by_status` `pending → paid`.
+- **⏳ SES-PENDING:** `diagnostics/notifications` will show a non-draining queue until SES is live — expected.
+- Signs of trouble: `db_reachable:false` (Neon), `stripe_configured:false` (env), rising `failed` payments (webhook), agreement `pdf_status='failed'` (Cloudinary).
 
 ---
 
-## Pre-Deploy Checklist
-
-Complete every item before starting the server in production.
-
-### Environment Variables
-- [ ] `JWT_SECRET` — minimum 32 random characters; **do not reuse dev value**
-- [ ] `DATABASE_URL` — Neon connection string with `?sslmode=require`
-- [ ] `STRIPE_SECRET_KEY` — `sk_test_*` for pilot; `sk_live_*` only after explicit approval
-- [ ] `STRIPE_PUBLISHABLE_KEY` — matching `pk_test_*` or `pk_live_*`
-- [ ] `STRIPE_WEBHOOK_SECRET` — from Stripe dashboard for the deployed URL
-- [ ] `NODE_ENV=production` — suppresses stack traces in error responses
-- [ ] `FRONTEND_URL` — production domain (e.g. `https://auction.advantageauction.bid`)
-- [ ] `PORT` — optional; defaults to 3000
-
-### SMTP (required for seller final reports)
-- [ ] `SMTP_HOST` — e.g. smtp.gmail.com or your mail provider
-- [ ] `SMTP_PORT` — typically 587
-- [ ] `SMTP_USER` — SMTP account
-- [ ] `SMTP_PASS` — SMTP password or app password
-- [ ] `EMAIL_FROM` — e.g. `noreply@advantageauction.bid`
-- Note: If SMTP is not configured, buyer notifications log to console (mock mode).
-  Operational close email and final report email will **throw** — do not trigger these
-  endpoints until SMTP is configured.
-
-### Process Manager
-- [ ] PM2 or systemd configured to restart on crash
-- [ ] `server.on('error')` exits with code 1 on port conflict — process manager will restart
-
-### Stripe Webhook
-- [ ] Webhook URL registered in Stripe dashboard: `https://yourdomain.com/api/payments/webhook`
-- [ ] `STRIPE_WEBHOOK_SECRET` matches the registered webhook
-
-### Database
-- [ ] Run `GET /api/health` after startup; verify `db_reachable: true`
-- [ ] Run `GET /api/admin/diagnostics/auctions` with admin token; verify `200 OK`
-
----
-
-## Step-by-Step Go-Live Procedure
-
-### 1. Provision server
-- Node.js >= 18.x, npm >= 9.x
-- Install dependencies: `npm install --omit=dev`
-- Copy `.env` with all required vars (see above)
-
-### 2. Database readiness
-- Verify Neon connection: `psql "$DATABASE_URL" -c "SELECT 1"`
-- Confirm all schema migrations applied (check migrations directory if applicable)
-- Verify test user exists (admin account for Advantage staff)
-
-### 3. Start the server
-```
-NODE_ENV=production node server.js
-```
-Or with PM2:
-```
-pm2 start server.js --name advantage-auction --env production
-pm2 save
-```
-
-### 4. Verify startup
-Check console for startup banner:
-```
-[<timestamp>] INFO  [startup] Advantage Auction Platform {"env":"production","db":"NEON","stripe":"TEST"}
-[<timestamp>] INFO  [startup] server listening on port 3000
-```
-If you see `[startup] FATAL — missing required env vars`, check your `.env`.
-
-### 5. Smoke tests (manual)
-```
-curl https://yourdomain.com/api/health
-# Expected: {"status":"ok","db_reachable":true,...}
-
-curl -H "Authorization: Bearer <admin_token>" https://yourdomain.com/api/admin/diagnostics/auctions
-# Expected: {"success":true,"data":{...}}
-```
-
-### 6. Configure reverse proxy
-- Point proxy to `localhost:3000`
-- Enable WebSocket upgrade forwarding (`Upgrade`, `Connection` headers)
-- Set `X-Forwarded-For` if behind nginx for accurate IP logging
-
----
-
-## Monitoring Workflow
-
-### Daily during pilot
-1. Check `GET /api/health` — verify `status: "ok"` and `db_reachable: true`
-2. Check `GET /api/admin/diagnostics/auctions` — review open lot counts and auction states
-3. Check `GET /api/admin/diagnostics/payments` — look for unexpected `failed` payment accumulation
-4. Check `GET /api/admin/diagnostics/notifications` — review `failed` notification counts; queue depth should be near 0 between auctions
-
-### During a live auction event
-- Monitor server logs for `[ERROR]` lines (payment failures, auth anomalies)
-- Watch `open_lots` count via diagnostics; should decrease as lots close
-- After close: check `payments.by_status` for `pending` → `paid` transitions
-
-### Signs of trouble
-| Signal | Likely cause | Action |
-|---|---|---|
-| `db_reachable: false` | Neon connection lost | Check DATABASE_URL; Neon status page |
-| `stripe_configured: false` | Missing Stripe env var | Check `.env`, restart |
-| Large `failed` payment count | Stripe webhook not firing | Verify webhook URL in Stripe dashboard |
-| Large `failed` notification count | SMTP misconfigured | Check SMTP vars; buyer notifications still work (mock) |
-
----
-
-## Admin Operational Procedures
-
-### Publishing an auction
-1. Seller creates and submits auction via seller create flow
-2. Admin reviews lots and selects featured lots if needed
-3. Admin calls `PATCH /api/admin/auctions/:id/publish` with admin token
-4. Auction state transitions: `submitted → published`
-5. Verify via diagnostics: `auction_states` should show count increase in `published`
-
-### Closing an auction
-1. After auction window has passed, admin calls `POST /api/admin/auctions/:id/close`
-2. Auction and all lots transition to closed state
-3. Winners are set; invoices become available to buyers
-4. Optional: send operational close email via `POST /api/admin/auctions/:id/send-final-report`
-   (requires SMTP configured; attaches PDF report)
-
-### Manually recording a payment
-If a buyer pays outside Stripe (cash, check — not recommended for pilot):
-```
-POST /api/admin/payments/:paymentId/record-success
-Authorization: Bearer <admin_token>
-Content-Type: application/json
-
-{ "payment_provider_id": "manual-check-<date>" }
-```
-
-### Troubleshooting a failed payment
-1. Buyer reports payment failure
-2. Check `GET /api/admin/diagnostics/payments` for recent failures
-3. Find payment record ID in DB: `SELECT id, status, amount_cents FROM payments WHERE lot_id = '<lot_id>'`
-4. If charge was collected by Stripe but record shows `pending`: use `record-success` endpoint
-5. If charge was not collected: buyer must retry via `/payment.html`
-
----
-
-## Seller Onboarding (Pilot)
-
-### Pre-auction preparation
-1. Create seller account: `POST /api/auth/register` (or admin creates via DB)
-2. Admin promotes to seller role: `UPDATE users SET role = 'seller' WHERE email = '<email>'`
-3. Seller creates `seller_profile` if required by schema (check if auto-created on role assignment)
-4. Seller logs in, navigates to `/seller-create.html`
-5. Seller fills in auction details: title, description, dates, pickup window
-6. Seller adds lots: title, description, starting bid, category, images
-7. Seller submits auction — locks seller editing
-8. Admin reviews and publishes
-
-### Seller checklist (give to seller before event)
-- [ ] Account created and login confirmed
-- [ ] Test login before auction day
-- [ ] All lots entered with descriptions, photos, and starting bids
-- [ ] Auction submitted (locked)
-- [ ] Pickup window confirmed (must be ≥ 36 hours after auction end)
-- [ ] Understand: after admin publishes, buyers can view and bid
-- [ ] Understand: auction close and payment collection are automated; pickup details go to buyers after payment
-
----
-
-## Backup + Recovery Verification
-
-### Neon backup assumptions
-- Neon free tier: automatic daily backups, 7-day history
-- Neon Pro tier: point-in-time recovery
-
-### Pre-pilot verification (do once before go-live)
-1. Log in to Neon console → branch → "Restore" tab
-2. Confirm a backup snapshot exists from the last 24 hours
-3. Test restore to a dev branch: `SELECT COUNT(*) FROM users` should return expected count
-4. Record: last verified restore on _______ by _______
-
-### Recovery priorities if DB is lost
-1. **Users** — cannot be recovered except from backups; all passwords are bcrypt hashes
-2. **Auctions + lots** — auction data; recoverable from Neon backup
-3. **Bids** — bid history; recoverable from Neon backup
-4. **Payments** — Stripe is authoritative for payment intent status; payments table can be reconciled from Stripe dashboard
-5. **Invoices** — derived from payments + lots; can be regenerated if base data is intact
-
-### If JWT_SECRET is rotated
-- All active sessions immediately invalidated
-- Users must log in again
-- No data loss
-- Update `.env`, restart server
-
-### If Stripe keys are changed
-- In-flight payment intents created with old key become unreachable
-- New payments work with new key
-- Resolve stranded intents via Stripe dashboard manually
-
----
-
-## Known Pilot Limitations
-
-| Area | Status | Notes |
-|---|---|---|
-| Buyer notifications (outbid, won) | Mock (console only) | Notifications are logged but not emailed. Wiring to emailService.js is a post-pilot TODO. |
-| SMS notifications | Not implemented | Opt-in SMS is a future feature |
-| Final seller report email | Requires SMTP | `POST /api/admin/auctions/:id/send-final-report` throws if SMTP not configured |
-| Operational close email | Requires SMTP | Uses `operationalCloseEmailService.js`; graceful failure documented |
-| Seller final report join | Pre-existing bug | `pdfGenerationService.js` joins on `created_by_user_id` which may not match schema; test before pilot |
-| Rate limiting | None | No rate limiter on bid or payment routes; acceptable for pilot scale |
-| Multi-instance | Not supported | Single Node process; no Redis for session/rate state |
+*Operational runbook. For the release/promotion mechanics see `docs/production-promotion-runbook.md`; for the email provider migration see `docs/postmark-to-ses-migration-plan.md`.*

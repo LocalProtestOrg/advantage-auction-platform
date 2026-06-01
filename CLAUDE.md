@@ -28,7 +28,7 @@ You are working on the Advantage Auction Platform.
 - Buyer has access only to bidding, favorites, account, notification preferences, payment methods, invoices, and purchased-lot details
 
 ## Critical Business Constraints
-- Pickup must begin at least 36 hours after auction end
+- Pickup-gap rule (governed by seller type; supersedes the prior fixed 36-hour rule): non-professional sellers (private, business, other, untyped) must set pickup to begin at least 48 hours after auction close; professional sellers (auction_house, estate_sale_company, professional_liquidator) are exempt and may configure their own pickup timing; no seller may set pickup before the auction closes. Enforced server-side in `src/services/sellerTypeRules.js`.
 - Seller chooses 3 featured lots before final submission
 - Advantage can override featured lots
 - Dimensions are optional, size category is required

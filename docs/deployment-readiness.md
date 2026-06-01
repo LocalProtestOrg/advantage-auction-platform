@@ -1,160 +1,98 @@
 # Deployment Readiness — Advantage Auction Platform
 
-*Last updated: 2026-05-08 | Pilot phase*
+*Last updated: 2026-06-01 | Refreshed for the current Railway architecture + feature set. Release mechanics live in `docs/production-promotion-runbook.md`; this doc is the readiness/risk reference.*
+
+> **Status legend:** ✅ Ready now · ⏳ Blocked by SES (AWS production-access pending) · 📦 Blocked by production promotion (migrations 046–057 + branch merge) · 🔭 Future roadmap.
 
 ---
 
-## Current Persistence Architecture
-
-| Asset | Provider | Notes |
+## 1. Architecture (current — Railway)
+| Concern | Provider / mechanism | Notes |
 |---|---|---|
-| Primary database | Neon PostgreSQL (serverless) | `DATABASE_URL` in `.env` |
-| Images/media | Cloudinary | `CLOUDINARY_*` vars in `.env` |
-| Session tokens | JWT (stateless) | Signed with `JWT_SECRET`; 24h expiry |
-| Payment intents | Stripe | `STRIPE_SECRET_KEY`, idempotency table in DB |
-| Idempotency keys | DB table `payment_idempotency_keys` | Deduplication for charge-lot |
+| Hosting | **Railway** — services `advantage-auction-platform` (prod, `main`) and `advantage-staging` (`deploy/seller-studio-1b`) | Managed process + TLS + restarts; **auto-deploy on git push**; **no VPS/Nginx/PM2** |
+| Config | **Railway service env vars** | **No `.env` file on a server** in prod/staging; secrets live in Railway, never in git |
+| Proxy / client IP | `app.set('trust proxy', 1)` | Real client IP via `X-Forwarded-For` (used for signatures/logging) |
+| Workers | **2 forked workers** after `listen()` | `imageProcessingWorker` (Cloudinary enhancement) + `notificationWorker` (drains `notifications_queue` → email). *(Corrects the prior "no background workers" claim.)* |
+| Database | **Neon PostgreSQL** (`DATABASE_URL`) | Prod (`ep-proud-leaf-an8pzkib`) and staging (`ep-polished-cake-anq3xrza`) are **isolated** |
+| Media + PDFs | **Cloudinary** (`CLOUDINARY_*`) | Lot images, bg-removal, **private signed-agreement PDFs** (short-lived signed URLs) |
+| Payments | **Stripe** (`STRIPE_*`) + `payment_idempotency_keys` | **Prod currently TEST mode** |
+| Email | **Amazon SES (SMTP)** ⏳ | Migration from Postmark (account rejected); see `postmark-to-ses-migration-plan.md` |
+| Sessions | JWT (`JWT_SECRET`), 24h | Stateless |
 
----
-
-## Required Environment Variables
-
-| Variable | Required | Notes |
+## 2. Required environment variables (current)
+**Hard-required (startup exits if missing — `server.js` REQUIRED_ENV + Stripe-in-prod):** `JWT_SECRET`, `DATABASE_URL`, `STRIPE_SECRET_KEY`, `STRIPE_PUBLISHABLE_KEY`, `STRIPE_WEBHOOK_SECRET`.
+**Feature env:**
+| Var | Purpose | Status |
 |---|---|---|
-| `JWT_SECRET` | **Yes** | Min 32 chars recommended; rotate on compromise |
-| `DATABASE_URL` | **Yes** | Neon connection string with `sslmode=require` |
-| `STRIPE_SECRET_KEY` | **Yes** | `sk_test_*` (test) or `sk_live_*` (production) |
-| `STRIPE_PUBLISHABLE_KEY` | **Yes** | Passed to frontend via `/api/payments/config` |
-| `STRIPE_WEBHOOK_SECRET` | **Yes** | From Stripe dashboard webhook settings |
-| `PORT` | No | Default: 3000 |
-| `NODE_ENV` | No | Set to `production` on server |
-| `FRONTEND_URL` | No | For CORS; default: `http://localhost:3001` |
-| `SMTP_HOST` | No | Required for seller email reports |
-| `SMTP_PORT` | No | Default: 587 |
-| `SMTP_USER` | No | SMTP authentication |
-| `SMTP_PASS` | No | SMTP authentication |
-| `EMAIL_FROM` | No | Sender address for transactional email |
-| `CLOUDINARY_CLOUD_NAME` | No | Required for image uploads |
-| `CLOUDINARY_API_KEY` | No | Required for image uploads |
-| `CLOUDINARY_API_SECRET` | No | Required for image uploads |
+| `CLOUDINARY_CLOUD_NAME`/`API_KEY`/`API_SECRET` | images + signed-agreement PDFs | ✅ set on prod |
+| `SMTP_HOST`/`PORT`/`SECURE`/`USER`/`PASS` | transactional email transport | ⏳ **SES-pending** (will be SES SMTP) |
+| `EMAIL_FROM` = `notifications@advantage.bid` | sender | ⏳ confirm at SES cutover |
+| `EMAIL_REPLY_TO` = `info@advantage.bid` | reply-to | ⏳ |
+| `PUBLIC_BASE_URL` (or `FRONTEND_URL`/`SITE_URL`) | agreement/notification **links** | ⚠️ **prod unset** → falls back to Railway URL; set before relying on emailed links |
+| `ANTHROPIC_API_KEY` | AI Catalog Assistant | ✅ set on prod (truthful 503 if absent) |
+| `SENTRY_DSN`, `ADMIN_EMAIL`, `NODE_ENV=production` | errors / ops | recommended |
 
----
+## 3. Readiness by category
+### ✅ Ready now (server-authoritative; staging-validated)
+- Seller-type rules + **reconciled 48h pickup rule** (non-pro ≥48h, professional exempt, sanity floor) — `sellerTypeRules`.
+- Governance moderation lifecycle (submit / return-to-draft / reject / publish / close) + audit visibility.
+- Background-removal persistence fix; AI Catalog Assistant (with `ANTHROPIC_API_KEY`).
+- Seller **agreement authoring + signing + private signed-PDF** (in-app; signing needs no email).
+- Health + admin diagnostics; Cloudinary media; Stripe payment flow (in TEST mode).
 
-## Backup-Critical Assets
+### ⏳ Blocked by SES (AWS production-access pending)
+- **Delivery** of all transactional email: account verification, password reset, outbid, winning-bidder, reminders, **governance notifications** (return-to-draft/rejected), **agreement signing-link emails**, operational close email, final-report PDF email.
+- Until cutover, `emailService.sendEmail` skips/queues — `notifications_queue` **retries; nothing is lost**. In-app workarounds exist (admin copies the agreement `signing_link`; sellers use `/my-agreements.html`).
 
-1. **Neon database** — Contains all auction, lot, bid, user, payment, invoice, and seller data. Neon provides automatic daily backups (free tier: 7-day history). For production pilot, verify backup schedule and test restore procedure before go-live.
+### 📦 Blocked by production promotion (`production-promotion-runbook.md`)
+- **Migrations 046–057** must be applied to the prod DB (all genuinely absent — clean apply) **after a Neon backup**, then merge `deploy/seller-studio-1b` → `main`. Until then, prod runs the old `main` (`51dc8c9`) and none of the current feature set is live in prod.
 
-2. **`.env` file** — Contains all secrets. Must be backed up securely (NOT in git). Loss of `JWT_SECRET` invalidates all active sessions. Loss of `STRIPE_*` keys requires Stripe dashboard recovery.
+### 🔭 Future roadmap
+- Agreement-gated onboarding (Phase D); Seller/Agreement Assistants; professional-seller syndication; white-label sites; SMS (opt-in); rate limiting; APM + structured-log aggregation; Redis for multi-instance.
 
-3. **Cloudinary media** — Lot images are stored in Cloudinary. Images are referenced by URL in the database. Cloudinary free tier does not include automatic backup; images can be regenerated from re-upload if sellers retain originals.
-
----
-
-## Recovery Risks
-
-| Scenario | Impact | Recovery |
+## 4. Launch blockers & operational risks
+| Item | Type | Action |
 |---|---|---|
-| `JWT_SECRET` changed | All active sessions invalidated | Users re-login; no data loss |
-| `DATABASE_URL` changed | Server fails to start | Update `.env`, restart |
-| DB connection lost | Server degraded (health: degraded) | Automatic reconnect on next query |
-| Stripe keys revoked | Payments fail; config endpoint returns empty key | Update `.env`, restart |
-| Cloudinary credentials lost | Image upload fails; existing image URLs still work | Recover via Cloudinary dashboard |
-| Neon DB data loss | All auction/user/payment data lost | Restore from Neon backup snapshot |
+| **SES production access** | ⏳ blocker | Await AWS; then SMTP creds + Phase 1 cutover (`postmark-to-ses-phase1-emailservice-spec.md`) |
+| **Migrations 046–057 not on prod** | 📦 blocker | Apply (gated, batched) per promotion runbook |
+| **Stripe TEST mode on prod** | decision/blocker (for real money) | Pilot vs GA → live keys + live webhook if GA |
+| **`PUBLIC_BASE_URL` unset on prod** | risk | Set to canonical domain before emailed links matter |
+| Cloudinary shared between prod + staging (`dwenlikku`) | risk | Distinct folders/public_ids; consider separate accounts long-term |
+| `pdfGenerationService` final-report `created_by_user_id` join | risk | Verify vs live schema before relying on final-report email |
+| No rate limiting on bid/payment | risk (low at pilot scale) | Roadmap |
+| Single instance (workers forked in-process) | risk | Acceptable at pilot; Redis/clustering is roadmap |
+
+## 5. Migration dependencies
+- New in the promotion delta: **046–050** (governance: revision/rejection columns, notification types), **051–052** (seller-type, lot_ai_verifications), **053–057** (agreements A/B). Apply in order, batched with verification, **after** a Neon backup branch. The read-only prod preflight confirmed all 12 are absent on prod (no record-only reconciliation needed).
+
+## 6. Rollback requirements
+- **Pre-release Neon backup branch of prod** (instant, copy-on-write) — mandatory.
+- **Code rollback** = revert the merge on `main` (→ redeploy `51dc8c9`); additive migrations are safe to leave.
+- **DB rollback** = restore from the Neon backup branch if schema/data issue.
+- **Email rollback** = Postmark is **not** available (rejected); rely on `notifications_queue` retry + (optional) a backup SES region/SMTP behind the same `SMTP_*` env.
+
+## 7. Validation steps (for a controlled promotion once SES is approved)
+- **Pre-deploy:** unit suites green; staging-green checkpoints confirmed; read-only prod preflight re-run.
+- **DB:** Neon backup branch created; migrations 046–057 applied + per-batch verification.
+- **Post-deploy (prod):** `GET /api/health` 200 (`db_reachable`, `stripe_configured`); deployment `SUCCESS`; workers started.
+- **Functional:** governance regression suite; admin (moderation, seller-type, agreement authoring); seller (sign flow); payment (config/idempotency/webhook); agreement (send→sign→signed-PDF); **notification: real SES delivery with SPF/DKIM/DMARC = pass** (the SES-gated check).
+- **Cleanup:** remove any test artifacts created during prod validation.
+
+## 8. Backup-critical assets & recovery risks (Railway-current)
+- **Neon DB** — all auction/lot/bid/user/payment/invoice/agreement data + `audit_log`. Backup branch before releases; recovery priority: users (backup) → auctions/lots/bids/agreements (backup) → payments (Stripe authoritative) → invoices (derivable).
+- **Railway env vars** — secrets (JWT/DB/Stripe/Cloudinary/SES). Not in git. `JWT_SECRET` change → re-login (no data loss); Stripe key change → strand in-flight intents (resolve in Stripe).
+- **Cloudinary** — image URLs + signed agreement PDFs; no automatic backup on lower tiers.
+
+## 9. Historical context (corrected — kept for usefulness only)
+- **"Buyer notifications are mock-only" (old doc): CORRECTED.** The live path is `notificationWorker → emailService.sendEmail` (real, queued). `notificationService._sendEmail` is a dead console-log scaffold, **not** the production sender.
+- **"No background workers" (old doc): CORRECTED.** Two workers are forked (image-processing, notification).
+- **PM2 / Nginx / Caddy / VPS / `.env`-on-server / Gmail SMTP (old doc): SUPERSEDED** by Railway + service env vars + SES.
 
 ---
 
-## Single Points of Failure
-
-- **Neon PostgreSQL**: All operational data. Downtime → server returns 503 from health check.
-- **Stripe**: Payment intent creation fails. Existing auctions/bids unaffected.
-- **JWT_SECRET**: If rotated, all sessions expire immediately. No graceful logout cascade.
-- **Server process**: Single process, single port. No clustering currently.
-
----
-
-## Production Deployment Requirements
-
-### Runtime
-- Node.js >= 18.x (for `fetch` built-in and ES2022 syntax)
-- npm >= 9.x
-
-### Environment
-- `NODE_ENV=production` — enables production error handler (no stack traces in responses)
-- All required env vars set (server validates at startup and exits if missing)
-- Stripe webhook configured in Stripe dashboard pointing to `https://yourdomain.com/api/payments/webhook`
-
-### Process Management
-- Use a process manager (PM2 or systemd) to restart on crash
-- `server.on('error')` exits with code 1 on port conflict — process manager will restart
-- No background workers currently (all operations are request-scoped)
-
-### CORS
-- Set `FRONTEND_URL` to the deployed frontend origin
-- If frontend and API are on the same domain, CORS headers are still present but not restricted
-
-### Reverse Proxy (recommended)
-- Nginx or Caddy in front of Node for TLS termination, static asset caching, and rate limiting
-- Set `X-Forwarded-For` headers if using Nginx; rate limiter uses `req.ip`
-
----
-
-## Operational Hardening Checklist
-
-### Before Pilot Go-Live
-- [ ] Set `NODE_ENV=production` on server
-- [ ] Rotate `JWT_SECRET` from dev value to production value
-- [ ] Switch Stripe keys to `sk_live_*` / `pk_live_*` (or confirm test is acceptable for pilot)
-- [ ] Verify Stripe webhook secret matches deployed webhook URL
-- [ ] Confirm Neon backup schedule and test DB restore
-- [ ] Set `FRONTEND_URL` to production domain
-- [ ] Configure SMTP for transactional email (seller reports)
-- [ ] Verify `/api/health` returns `{ status: "ok" }` after deploy
-- [ ] Run full test suite against staging DB before launch
-- [ ] Run governance regression signoff per `docs/sop-staging-signoff.md` and attach the resulting `governance-summary.json` to the release record
-
-### Monitoring (manual, pilot phase)
-- Poll `GET /api/health` to verify DB reachability and uptime
-- Check `GET /api/admin/diagnostics/auctions` for open lot counts and auction states
-- Check `GET /api/admin/diagnostics/payments` for payment status distribution
-- Review server logs for `[ERROR]` and `[WARN]` entries during auction events
-
-### Post-Pilot Recommendations
-- Add APM (e.g., Datadog, New Relic) for request tracing
-- Add structured JSON logging for log aggregation
-- Add Redis for session/rate-limit state across multiple instances
-- Add DB read replica for reporting queries
-- Add email/SMS alerting on payment failures or server errors
-
----
-
-## Email Infrastructure Status
-
-### Services and delivery behavior
-
-| Service | File | Delivery | Behavior when SMTP missing |
-|---|---|---|---|
-| Buyer notifications (outbid, won, payment, pickup) | `notificationService.js` | **Mock only** — logs to console, never sends | Logs to console regardless |
-| Registration confirmation | `notificationService.js` | **Mock only** | Logs to console regardless |
-| Seller operational close email | `operationalCloseEmailService.js` | Real (nodemailer) | **Throws** — admin endpoint fails |
-| Seller final PDF report | `pdfGenerationService.js` | Real (nodemailer) | **Throws** — admin endpoint returns 500 |
-| Transactional email helper | `emailService.js` | Real (nodemailer) | Gracefully skips with console.warn |
-
-### Pilot email strategy
-
-For the pilot, two behaviors are relevant:
-
-1. **Buyer notification emails are NOT sent.** `notificationService._sendEmail` is mock — outbid, won, and payment confirmation emails console.log only. Buyers will not receive automated emails during the pilot unless this is wired to `emailService.js` post-pilot.
-
-2. **Admin seller report requires SMTP.** `POST /api/admin/auctions/:id/send-final-report` calls `pdfGenerationService.sendFinalSellerReport`, which throws if `SMTP_HOST`, `SMTP_USER`, or `SMTP_PASS` is missing. Do not trigger this endpoint until SMTP is configured.
-
-### Configuring SMTP for pilot
-
-Set in `.env`:
-```
-SMTP_HOST=smtp.gmail.com
-SMTP_PORT=587
-SMTP_USER=your-account@gmail.com
-SMTP_PASS=your-app-password
-EMAIL_FROM=noreply@advantageauction.bid
-```
-
-Verify SMTP is live: `GET /api/health` returns `email_configured: true` when `SMTP_HOST` and `SMTP_USER` are set.
+## Launch-readiness summary (concise)
+- **Code:** ✅ staging-green (seller-type, bg-removal, agreements A/B). 
+- **Two hard blockers:** ⏳ **SES production access** (email delivery) and 📦 **prod migrations 046–057 + branch merge** (nothing current is live in prod yet).
+- **One decision:** Stripe **TEST vs LIVE** (real-money launch). **One config:** set **`PUBLIC_BASE_URL`** on prod.
+- **Mandatory before promotion:** Neon prod backup branch + the gated migration apply + the validation matrix (incl. SES email SPF/DKIM/DMARC once SES is live).
+- **Net:** the platform is **build-complete and staging-validated**; production go-live is gated on **SES approval** and the **controlled promotion** (per `production-promotion-runbook.md`) — not on further engineering.

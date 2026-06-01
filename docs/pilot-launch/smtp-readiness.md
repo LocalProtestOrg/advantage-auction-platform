@@ -1,3 +1,5 @@
+> ⛔ **SUPERSEDED (2026-06-01) — historical reference only.** This SMTP/Postmark-era readiness checklist is replaced by the Amazon SES migration plan (Postmark was abandoned — account rejected). **Do not use for current email setup.** Current source of truth: `docs/postmark-to-ses-migration-plan.md`, `docs/aws-ses-onboarding-checklist.md`, `docs/postmark-to-ses-phase1-emailservice-spec.md`.
+
 # SMTP Readiness — Pilot Launch Checklist
 
 *Last updated: 2026-05-11 | SMTP Validation Cycle*

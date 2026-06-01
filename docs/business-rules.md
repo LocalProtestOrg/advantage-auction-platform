@@ -20,7 +20,7 @@
 15. Public-facing auction type must be selectable, including examples like Downsizing Auction, Moving Auction, Liquidation Auction, and future expandable types.
 
 ## Timing + Pickup
-16. Pickup start must be at least 36 hours after auction end.
+16. Pickup-gap rule is governed by seller type (supersedes the prior fixed 36-hour rule, per the Seller-Type Rules Phase C decision): non-professional sellers (private, business, other, and untyped) must set pickup to start at least **48 hours** after auction close; professional sellers (auction_house, estate_sale_company, professional_liquidator) are **exempt** and may configure their own pickup timing; for all sellers, pickup may not start before the auction closes (sanity floor). Enforced server-side in `src/services/sellerTypeRules.js`.
 17. System should support automatic pickup-slot generation using lot size groups.
 18. Pickup scheduling should prioritize clearing smaller lots before larger furniture and bulky lots.
 19. Time zone must be based on auction location and handled consistently system-wide.

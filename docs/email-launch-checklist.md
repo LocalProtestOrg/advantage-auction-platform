@@ -1,3 +1,5 @@
+> ⛔ **SUPERSEDED (2026-06-01) — historical reference only.** Built around Postmark, which was abandoned (account rejected); the platform is migrating to **Amazon SES (SMTP mode)**. **Do not use this checklist for current email launch.** Current source of truth: `docs/postmark-to-ses-migration-plan.md`, `docs/aws-ses-onboarding-checklist.md`, `docs/postmark-to-ses-phase1-emailservice-spec.md`.
+
 # Email Launch Checklist
 
 Complete every item before pilot launch. Items marked **BLOCKING** prevent any email delivery.

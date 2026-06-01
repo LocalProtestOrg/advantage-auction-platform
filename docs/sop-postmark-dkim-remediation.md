@@ -1,3 +1,5 @@
+> ⛔ **SUPERSEDED (2026-06-01) — historical reference only.** Postmark was abandoned (account rejected); the platform is migrating to **Amazon SES (SMTP mode)**. **Do not use this document for current email setup or validation.** Current source of truth: `docs/postmark-to-ses-migration-plan.md`, `docs/aws-ses-onboarding-checklist.md`, `docs/postmark-to-ses-phase1-emailservice-spec.md`.
+
 # SOP: Postmark DKIM Remediation — advantage.bid
 
 **Resolved:** 2026-05-15  

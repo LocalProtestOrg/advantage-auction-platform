@@ -18,7 +18,7 @@ Create a highly automated online auction system that reduces manual work for Adv
 - Seller can save drafts while building the auction
 - Seller must choose 3 featured lots before final submission
 - Seller can enter optional dimensions and required size category
-- Seller can set pickup dates, but pickup start must be at least 36 hours after auction end
+- Seller can set pickup dates. The pickup gap depends on seller type (supersedes the prior 36-hour rule): non-professional sellers must set pickup start at least 48 hours after auction close; professional sellers may configure their own pickup timing (exempt from the fixed gap); no seller may set pickup before close.
 - Seller may see shipping options only if shipping is enabled for that seller by admin
 - Seller may see reserve-price options only if reserve capability is enabled by admin
 - Seller can opt into a marketing campaign during auction setup using admin-defined tiers
