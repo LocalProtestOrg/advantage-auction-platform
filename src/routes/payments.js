@@ -67,10 +67,12 @@ router.post('/webhook', express.raw({ type: 'application/json' }), async (req, r
     await paymentService.handleWebhookEvent(event);
     return res.json({ received: true });
   } catch (err) {
-    console.error('[webhook] Handler error:', err.message);
-    // Return 200 so Stripe does not retry events we've already partially processed.
-    // Internal failures are logged; idempotency guards prevent double-processing on retry.
-    return res.status(200).json({ received: true, warning: err.message });
+    // Return non-2xx so Stripe retries. handleWebhookEvent marks the event row
+    // as 'failed' before rethrowing, so the next delivery picks up from the
+    // failure state and re-runs the handler — no double-processing risk because
+    // dispatch handlers are individually idempotent on prior-success rows.
+    console.error('[webhook] Handler error:', { event_id: event.id, event_type: event.type, error: err.message });
+    return res.status(500).json({ received: false, error: 'handler_failed' });
   }
 });
 
