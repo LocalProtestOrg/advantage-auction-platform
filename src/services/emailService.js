@@ -1,106 +1,107 @@
 'use strict';
 
 /**
- * emailService — Postmark HTTP transport wrapper used by the notification worker.
+ * emailService — transactional email transport via Amazon SES (SMTP, nodemailer).
  *
- * Configuration comes from environment variables:
- *   SMTP_PASS      — Postmark Server API Token (used as X-Postmark-Server-Token)
+ * Configuration (Railway env):
+ *   SMTP_HOST      — SES SMTP endpoint, e.g. email-smtp.us-east-1.amazonaws.com
+ *   SMTP_PORT      — 587 (STARTTLS); 465 for implicit TLS
+ *   SMTP_SECURE    — 'true' only for port 465; otherwise false (STARTTLS on 587)
+ *   SMTP_USER      — SES SMTP username
+ *   SMTP_PASS      — SES SMTP password
  *   EMAIL_FROM     — sender address; falls back to SMTP_FROM then SMTP_USER
  *   EMAIL_REPLY_TO — reply-to address
  *
- * SMTP_HOST, SMTP_PORT, SMTP_SECURE, SMTP_USER are preserved in Railway for
- * rollback safety but are not used by this transport.
+ * Public contract is unchanged from the prior Postmark wrapper:
+ *   sendEmail({ to, subject, html, text })
+ *     → { messageId } on success
+ *     → { skipped: true } when email is not configured (no throw)
+ *     → throws on delivery failure (the notification worker retries)
+ * No caller changes, no template changes.
  *
- * sendEmail() throws on delivery failure so callers can handle retries.
+ * (Replaces the prior Postmark HTTP transport — the Postmark account was rejected.)
  */
 
 require('dotenv').config();
-const https = require('https');
+const nodemailer = require('nodemailer');
 
 const {
+  SMTP_HOST,
   SMTP_USER,
   SMTP_PASS,
   SMTP_FROM,
+  SMTP_PORT,
+  SMTP_SECURE,
   EMAIL_REPLY_TO = 'advantageauction.bid@gmail.com',
 } = process.env;
 
-// EMAIL_FROM falls back to SMTP_FROM then SMTP_USER so the authenticated
-// sender identity is always used when EMAIL_FROM is not explicitly set.
+// EMAIL_FROM falls back to SMTP_FROM then SMTP_USER so a sender identity is
+// always present. NOTE: under SES, SMTP_USER is the SMTP *username* (not an
+// email), so EMAIL_FROM (or SMTP_FROM) MUST be a verified @advantage.bid sender.
 const EMAIL_FROM = process.env.EMAIL_FROM || SMTP_FROM || SMTP_USER || 'noreply@advantageauction.bid';
 
+// One-time guard: warn if the resolved From is not a plausible email address
+// (e.g. EMAIL_FROM/SMTP_FROM unset and the SES username fell through).
+if (EMAIL_FROM && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(EMAIL_FROM)) {
+  console.warn(`[email] EMAIL_FROM does not look like an email address ("${EMAIL_FROM}") — set EMAIL_FROM to a verified @advantage.bid sender; SES rejects an invalid/unverified From.`);
+}
+
+function isConfigured() {
+  return Boolean(SMTP_HOST && SMTP_USER && SMTP_PASS);
+}
+
+// Lazy singleton transport — reused across sends.
+let _transporter = null;
+function getTransporter() {
+  if (_transporter) return _transporter;
+  const port   = parseInt(SMTP_PORT || '587', 10);
+  const secure = SMTP_SECURE === 'true' || SMTP_SECURE === '1' || port === 465;
+  _transporter = nodemailer.createTransport({
+    host: SMTP_HOST,
+    port,
+    secure,
+    auth: { user: SMTP_USER, pass: SMTP_PASS },
+    connectionTimeout: 15_000,
+    greetingTimeout:   10_000,
+    socketTimeout:     30_000,
+  });
+  return _transporter;
+}
+
 /**
- * Send a single transactional email via Postmark HTTP API (port 443).
+ * Send a single transactional email via Amazon SES (SMTP).
  *
  * @param {object} opts
  * @param {string} opts.to      - recipient address
- * @param {string} opts.subject - email subject line
+ * @param {string} opts.subject - subject line
  * @param {string} opts.html    - HTML body
- * @param {string} [opts.text]  - Plaintext fallback (strongly recommended)
- * @returns {Promise<object>}   { messageId } on success, { skipped: true } if unconfigured
+ * @param {string} [opts.text]  - plaintext fallback (recommended)
+ * @returns {Promise<object>} { messageId } on success, { skipped: true } if unconfigured
  * @throws on delivery failure
  */
 async function sendEmail({ to, subject, html, text }) {
-  if (!SMTP_PASS) {
-    console.warn('[email] Postmark token not configured — skipping delivery to', to);
+  if (!isConfigured()) {
+    console.warn('[email] SMTP/SES not configured — skipping delivery to', to);
     return { skipped: true };
   }
 
-  const payload = JSON.stringify({
-    From:          EMAIL_FROM,
-    To:            to,
-    Subject:       subject,
-    HtmlBody:      html,
-    ...(text ? { TextBody: text } : {}),
-    ReplyTo:       EMAIL_REPLY_TO,
-    MessageStream: 'outbound',
-  });
-
-  return new Promise((resolve, reject) => {
-    const options = {
-      hostname: 'api.postmarkapp.com',
-      port:     443,
-      path:     '/email',
-      method:   'POST',
-      headers: {
-        'Content-Type':              'application/json',
-        'Accept':                    'application/json',
-        'X-Postmark-Server-Token':   SMTP_PASS,
-        'Content-Length':            Buffer.byteLength(payload),
-      },
-    };
-
-    const req = https.request(options, (res) => {
-      let body = '';
-      res.on('data', (chunk) => { body += chunk; });
-      res.on('end', () => {
-        let parsed;
-        try { parsed = JSON.parse(body); } catch { parsed = {}; }
-
-        if (res.statusCode === 200) {
-          console.log(`[email] Sent "${subject}" to ${to} — messageId: ${parsed.MessageID}`);
-          resolve({ messageId: parsed.MessageID });
-        } else {
-          const msg = `Postmark API error ${res.statusCode} (code ${parsed.ErrorCode}): ${parsed.Message || body}`;
-          console.error(`[email] Delivery failed for ${to} — status ${res.statusCode}, Postmark code ${parsed.ErrorCode}: ${parsed.Message}`);
-          const err = new Error(msg);
-          err.statusCode = res.statusCode;
-          reject(err);
-        }
-      });
+  try {
+    const info = await getTransporter().sendMail({
+      from:    EMAIL_FROM,
+      to,
+      subject,
+      html,
+      ...(text ? { text } : {}),
+      replyTo: EMAIL_REPLY_TO,
     });
-
-    req.setTimeout(30_000, () => {
-      req.destroy(new Error('Postmark API request timeout after 30s'));
-    });
-
-    req.on('error', (err) => {
-      console.error(`[email] Postmark HTTP request error for ${to}:`, err.message);
-      reject(err);
-    });
-
-    req.write(payload);
-    req.end();
-  });
+    console.log(`[email] Sent "${subject}" to ${to} — messageId: ${info.messageId}`);
+    return { messageId: info.messageId };
+  } catch (err) {
+    console.error(`[email] Delivery failed for ${to} — ${err.message}`);
+    // Preserve an analog of the prior Postmark err.statusCode for callers/logs.
+    if (err.responseCode) err.statusCode = err.responseCode;
+    throw err;
+  }
 }
 
 module.exports = { sendEmail };
