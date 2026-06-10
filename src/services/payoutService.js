@@ -47,9 +47,10 @@ async function createSellerPayoutRecord(auctionId) {
     [
       auctionId,
       sellerUserId,
-      report.gross_revenue_cents,
-      report.platform_fee_cents,
-      report.seller_payout_cents,
+      // generateAuctionReport nests these figures under report.summary
+      report.summary.gross_revenue_cents,
+      report.summary.platform_fee_cents,
+      report.summary.seller_payout_cents,
       pref ? pref.payout_method : null
     ]
   );
