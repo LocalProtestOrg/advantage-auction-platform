@@ -2,7 +2,9 @@ const db = require('../db');
 
 async function generateAuctionReport(auctionId) {
   const auctionRes = await db.query(
-    `SELECT id, title, ends_at FROM auctions WHERE id = $1`,
+    // Deployed schema column is end_time; aliased to ends_at to preserve the
+    // downstream auction.ends_at / report.auction_ends_at interface.
+    `SELECT id, title, end_time AS ends_at FROM auctions WHERE id = $1`,
     [auctionId]
   );
   if (!auctionRes.rows[0]) {
