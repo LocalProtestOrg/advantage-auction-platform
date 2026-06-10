@@ -226,6 +226,18 @@ app.get('/api/me/invoices', authMiddleware, async (req, res) => {
 });
 
 // ── Health check ──────────────────────────────────────────────────────────────
+// Each reconciliation query is wrapped in its own try/catch so a DB hiccup
+// on any single query never breaks the health endpoint. The reconciliation
+// fields are informational only — they DO NOT affect the response status code.
+async function _safeQueryScalar(sql, fallback = null) {
+  try {
+    const { rows } = await db.query(sql);
+    return rows[0] ? Object.values(rows[0])[0] : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
 app.get('/api/health', async (req, res) => {
   let dbReachable = false;
   try { await db.query('SELECT 1'); dbReachable = true; } catch { /* db down */ }
@@ -233,6 +245,29 @@ app.get('/api/health', async (req, res) => {
   const healthy = dbReachable;
   const stripeMode = process.env.STRIPE_SECRET_KEY?.startsWith('sk_test_') ? 'test'
     : process.env.STRIPE_SECRET_KEY ? 'live' : 'not_set';
+
+  // Reconciliation surface (R-2). Read-only; nulls on query failure.
+  // Only attempted when the DB is reachable; otherwise reported as null.
+  let reconciliation = {
+    last_webhook_received_at:       null,
+    last_webhook_processed_at:      null,
+    webhook_failed_count_1h:        null,
+    payments_orphaned_intent_count: null,
+  };
+  if (dbReachable) {
+    const [lastRecv, lastProc, failed1h, orphans] = await Promise.all([
+      _safeQueryScalar(`SELECT MAX(received_at) FROM stripe_webhook_events`),
+      _safeQueryScalar(`SELECT MAX(processed_at) FROM stripe_webhook_events WHERE status = 'processed'`),
+      _safeQueryScalar(`SELECT COUNT(*)::int FROM stripe_webhook_events WHERE status = 'failed' AND received_at > now() - interval '1 hour'`, null),
+      _safeQueryScalar(`SELECT COUNT(*)::int FROM payments WHERE payment_intent_id IS NULL AND status = 'pending' AND created_at < now() - interval '5 minutes'`, null),
+    ]);
+    reconciliation = {
+      last_webhook_received_at:       lastRecv,
+      last_webhook_processed_at:      lastProc,
+      webhook_failed_count_1h:        failed1h,
+      payments_orphaned_intent_count: orphans,
+    };
+  }
 
   return res.status(healthy ? 200 : 503).json({
     status:            healthy ? 'ok' : 'degraded',
@@ -243,6 +278,7 @@ app.get('/api/health', async (req, res) => {
     stripe_configured: !!(process.env.STRIPE_SECRET_KEY && process.env.STRIPE_PUBLISHABLE_KEY),
     stripe_mode:       stripeMode,
     email_configured:  !!(process.env.SMTP_HOST && process.env.SMTP_USER),
+    reconciliation,
   });
 });
 

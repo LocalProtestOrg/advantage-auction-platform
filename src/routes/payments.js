@@ -16,13 +16,16 @@ router.get('/config', (req, res) => {
 
 // POST /api/payments/charge-lot
 router.post('/charge-lot', strictLimiter, auth, role(['buyer', 'admin']), idempotency, async (req, res) => {
-  if (!req.headers['idempotency-key']) {
+  const idempotencyKey = req.headers['idempotency-key'];
+  if (!idempotencyKey) {
     return res.status(400).json({ error: 'Missing Idempotency-Key' });
   }
 
   const { auction_id, lot_id } = req.body;
   try {
-    const result = await paymentService.createPaymentIntent(req.user.id, auction_id, lot_id);
+    // The HTTP Idempotency-Key is also passed to Stripe so SDK-level retries
+    // collapse to the same PaymentIntent within Stripe's 24h idempotency window.
+    const result = await paymentService.createPaymentIntent(req.user.id, auction_id, lot_id, idempotencyKey);
     console.log('[payments] payment intent created:', { userId: req.user.id, lotId: lot_id, auctionId: auction_id });
     return res.status(200).json({ success: true, data: result });
   } catch (err) {

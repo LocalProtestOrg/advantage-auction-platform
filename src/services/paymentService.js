@@ -152,7 +152,23 @@ class PaymentService {
     }
   }
 
-  async createPaymentIntent(userId, auctionId, lotId) {
+  async createPaymentIntent(userId, auctionId, lotId, idempotencyKey) {
+    // Sub-batch 2 reorder (C-2 + M-1):
+    //   tx1: validate, retire stale-orphaned pending, INSERT payment (intent_id=NULL), COMMIT
+    //   --- locks released BEFORE any external call ---
+    //   Stripe call (idempotencyKey = HTTP header value, so retries are deterministic)
+    //   tx2: UPDATE payment_intent_id, audit 'payment.intent_attached', COMMIT
+    //   on Stripe failure: separate tx marks the row 'failed' and rethrows.
+    //
+    // Transitional state (I-1): a row may sit with status='pending' and
+    // payment_intent_id=NULL for the duration of the Stripe call. The R-2
+    // health metric surfaces any row stuck in this state for >5 minutes.
+    //
+    // I-4 guard: the retire-stale-pending UPDATE only retires rows that are
+    // already orphaned (intent_id IS NULL AND created_at < now() - 60s). This
+    // prevents a concurrent retry from retiring a row that is currently mid-
+    // Stripe-call by another process.
+    let paymentId, amountCents, paymentCreatedAt;
     const client = await db.connect();
     try {
       await client.query('BEGIN');
@@ -192,31 +208,35 @@ class PaymentService {
         throw new Error(`Payment already exists for this lot (status: ${existingPayment.rows[0].status}). Cannot create duplicate.`);
       }
 
-      // Retire any stale pending payment so the DB unique constraint allows a fresh one
+      // I-4 retire guard: only retire orphaned transitional rows (intent_id NULL,
+      // older than 60s). A pending row with intent_id set is actively mid-Stripe-
+      // call from another process — must NOT be touched. The partial unique index
+      // idx_payments_unique_active will block our subsequent INSERT if such a row
+      // exists, which is the correct outcome (concurrent attempts conflict).
       await client.query(
-        `UPDATE payments SET status = 'failed'
-         WHERE lot_id = $1 AND buyer_user_id = $2 AND status = 'pending'`,
+        `UPDATE payments
+            SET status = 'failed', last_attempted_at = now()
+          WHERE lot_id = $1
+            AND buyer_user_id = $2
+            AND status = 'pending'
+            AND payment_intent_id IS NULL
+            AND created_at < now() - interval '60 seconds'`,
         [lotId, userId]
       );
 
-      // Create the Stripe PaymentIntent before writing the DB row so we never
-      // store a pending payment without a real intent backing it.
-      const stripe = getStripe();
-      const intent = await stripe.paymentIntents.create({
-        amount:   lot.winning_amount_cents,
-        currency: 'usd',
-        metadata: { lot_id: lotId, auction_id: auctionId, buyer_user_id: userId },
-      }, { timeout: 15000 });
-
-      // Create pending payment row with the intent ID locked in.
-      const payment = await client.query(
+      // Insert pending payment row WITHOUT intent_id. The intent will be
+      // attached in tx2 after the Stripe call succeeds. The partial unique
+      // index idx_payments_unique_active enforces single-pending per (lot,
+      // buyer) at commit time.
+      const inserted = await client.query(
         `INSERT INTO payments (auction_id, lot_id, buyer_user_id, amount_cents, status, payment_intent_id)
-         VALUES ($1, $2, $3, $4, 'pending', $5)
-         RETURNING id, amount_cents, status, created_at`,
-        [auctionId, lotId, userId, lot.winning_amount_cents, intent.id]
+         VALUES ($1, $2, $3, $4, 'pending', NULL)
+         RETURNING id, amount_cents, created_at`,
+        [auctionId, lotId, userId, lot.winning_amount_cents]
       );
-
-      const paymentId = payment.rows[0].id;
+      paymentId        = inserted.rows[0].id;
+      amountCents      = inserted.rows[0].amount_cents;
+      paymentCreatedAt = inserted.rows[0].created_at;
 
       await auditService.logEvent(client, {
         eventType:  'payment.created',
@@ -226,26 +246,135 @@ class PaymentService {
         lotId,
         paymentId,
         actorId:    userId,
-        metadata:   { amount_cents: payment.rows[0].amount_cents, status: 'pending', payment_intent_id: intent.id }
+        metadata: {
+          amount_cents:    amountCents,
+          status:          'pending',
+          intent_attached: false,
+        }
       });
 
       await client.query('COMMIT');
-      return {
-        id:                paymentId,
-        lot_id:            lotId,
-        auction_id:        auctionId,
-        amount_cents:      payment.rows[0].amount_cents,
-        status:            payment.rows[0].status,
-        created_at:        payment.rows[0].created_at,
-        payment_intent_id: intent.id,
-        client_secret:     intent.client_secret,
-      };
     } catch (error) {
       await client.query('ROLLBACK');
       throw error;
     } finally {
       client.release();
     }
+
+    // ── External call OUTSIDE any DB transaction ───────────────────────────
+    // Stripe idempotency key: prefer the HTTP Idempotency-Key the client sent,
+    // so retries within Stripe's 24h idempotency window collapse to the same
+    // PaymentIntent. Fallback to payment.id if no HTTP key was provided
+    // (defensive — the route currently rejects requests without the header).
+    const stripeKey = idempotencyKey || paymentId;
+    let intent;
+    try {
+      const stripe = getStripe();
+      intent = await stripe.paymentIntents.create({
+        amount:   amountCents,
+        currency: 'usd',
+        metadata: { lot_id: lotId, auction_id: auctionId, buyer_user_id: userId, payment_id: paymentId },
+      }, { timeout: 15000, idempotencyKey: stripeKey });
+    } catch (stripeErr) {
+      // Release the slot so a retry can proceed cleanly. Only flip rows that
+      // are still in the transitional state — guards against a concurrent
+      // recovery flow that may have already attached an intent.
+      const failClient = await db.connect();
+      try {
+        await failClient.query('BEGIN');
+        await failClient.query(
+          `UPDATE payments
+              SET status = 'failed', last_attempted_at = now()
+            WHERE id = $1 AND status = 'pending' AND payment_intent_id IS NULL`,
+          [paymentId]
+        );
+        await auditService.logEvent(failClient, {
+          eventType:  'payment.intent_create_failed',
+          entityType: 'payment',
+          entityId:   paymentId,
+          auctionId,
+          lotId,
+          paymentId,
+          actorId:    userId,
+          metadata: {
+            source:           'createPaymentIntent',
+            stripe_error:     stripeErr.message,
+            idempotency_key:  stripeKey,
+          }
+        });
+        await failClient.query('COMMIT');
+      } catch (cleanupErr) {
+        await failClient.query('ROLLBACK').catch(() => {});
+        console.error('[payment] createPaymentIntent cleanup failed', {
+          paymentId,
+          cleanup_error: cleanupErr.message,
+          original_error: stripeErr.message,
+        });
+      } finally {
+        failClient.release();
+      }
+      throw stripeErr;
+    }
+
+    // ── Attach the intent (tx2) ───────────────────────────────────────────
+    const attachClient = await db.connect();
+    try {
+      await attachClient.query('BEGIN');
+      const updateRes = await attachClient.query(
+        `UPDATE payments
+            SET payment_intent_id = $1
+          WHERE id = $2 AND payment_intent_id IS NULL
+          RETURNING id, status`,
+        [intent.id, paymentId]
+      );
+      if (updateRes.rowCount !== 1) {
+        // The row already had an intent attached (probably by a recovery flow
+        // for the same HTTP idempotency key). Stripe returned the same intent
+        // via its idempotency cache; the existing attachment is authoritative.
+        // No-op on attach; still safe to return the intent details.
+        console.warn(`[payment] intent attach found existing intent_id on payment ${paymentId} — Stripe returned cached intent ${intent.id}`);
+      } else {
+        await auditService.logEvent(attachClient, {
+          eventType:  'payment.intent_attached',
+          entityType: 'payment',
+          entityId:   paymentId,
+          auctionId,
+          lotId,
+          paymentId,
+          actorId:    userId,
+          metadata: {
+            payment_intent_id: intent.id,
+            idempotency_key:   stripeKey,
+          }
+        });
+      }
+      await attachClient.query('COMMIT');
+    } catch (attachErr) {
+      await attachClient.query('ROLLBACK').catch(() => {});
+      // The Stripe intent exists but we failed to record it. The R-2 health
+      // metric (payments_orphaned_intent_count) surfaces this row after 5
+      // minutes. A retry with the same HTTP idempotency key will return the
+      // same intent from Stripe and re-attempt the UPDATE.
+      console.error('[payment] intent_attached UPDATE failed — payment row may be stuck in transitional state', {
+        paymentId,
+        intent_id: intent.id,
+        error: attachErr.message,
+      });
+      throw attachErr;
+    } finally {
+      attachClient.release();
+    }
+
+    return {
+      id:                paymentId,
+      lot_id:            lotId,
+      auction_id:        auctionId,
+      amount_cents:      amountCents,
+      status:            'pending',
+      created_at:        paymentCreatedAt,
+      payment_intent_id: intent.id,
+      client_secret:     intent.client_secret,
+    };
   }
 
   async recordPaymentSuccess(paymentId, paymentProviderId) {
@@ -448,19 +577,38 @@ class PaymentService {
   // TODO: Implement optional cooldown/backoff logic (e.g., exponential backoff between retries)
   // TODO: Add query to find payments eligible for retry based on last_attempted_at + cooldown window
 
-  async processRefund(adminId, paymentId, refundAmountCents) {
-    // Admin-only refund logic
-    // Valid transition: paid → refunded OR paid → partially_refunded (and ONLY from paid)
+  async processRefund(adminId, paymentId, refundAmountCents, idempotencyKey) {
+    // Admin-only refund logic.
     //
-    // Execution order (matches createPaymentIntent pattern — Stripe before DB write):
-    //   1. Validate payment state inside a locked transaction
-    //   2. Call stripe.refunds.create() — if this throws, ROLLBACK and surface the error
-    //   3. Write DB status + stripe_refund_id atomically, then COMMIT
-    //   4. Log audit event inside the same transaction
+    // Sub-batch 2 reorder (C-3 + M-1 + C-4 + I.3 look-back):
+    //   tx1: admin check, SELECT FOR UPDATE, 30s look-back guard, cumulative
+    //        overspend guard, status guard, audit 'payment.refund_started', COMMIT
+    //   --- locks released BEFORE Stripe call ---
+    //   stripe.refunds.create({...}, { idempotencyKey: refund_key })
+    //   on Stripe failure: separate tx writes 'payment.refund_failed' audit, throws
+    //   tx2: UPDATE payments status + refunded_at + stripe_refund_id +
+    //        refunded_amount_cents (cumulative), audit 'payment.refunded', COMMIT
     //
-    // If Stripe succeeds but COMMIT fails (rare crash window), the stripe_refund_id
-    // from the thrown error is logged so an admin can manually reconcile in the
-    // Stripe Dashboard. The buyer's money is already returned at that point.
+    // Valid transitions:
+    //   paid              → refunded               (full refund)
+    //   paid              → partially_refunded     (partial)
+    //   partially_refunded → partially_refunded    (subsequent partials)
+    //   partially_refunded → refunded              (final partial completes total)
+    //
+    // I.3 30s look-back: rejects a duplicate refund attempt within 30 seconds
+    // of a prior payment.refund_started that has no subsequent payment.refunded
+    // or payment.refund_failed. Closes the narrow concurrent-admin-click window.
+    //
+    // C-4 overspend: validates refundAmountCents + refunded_amount_cents <=
+    // amount_cents BEFORE the Stripe call. Defense-in-depth alongside the DB
+    // CHECK constraint chk_refunded_amount_bounded (migration 047).
+    //
+    // Seeded path (payment_intent_id IS NULL): the Stripe call is skipped;
+    // DB state is still updated so the seeded test data refund flow works.
+    let payment, refundStartedAt;
+    const refundKey = idempotencyKey || `${paymentId}:${refundAmountCents}:${Date.now()}`;
+
+    // ── tx1: validate, guard, mark started ────────────────────────────────
     const client = await db.connect();
     try {
       await client.query('BEGIN');
@@ -468,61 +616,153 @@ class PaymentService {
       await this._ensureAdminRole(client, adminId);
 
       const paymentRes = await client.query(
-        `SELECT status, amount_cents, payment_intent_id, lot_id, auction_id
+        `SELECT status, amount_cents, refunded_amount_cents, payment_intent_id, lot_id, auction_id
            FROM payments WHERE id = $1 FOR UPDATE`,
         [paymentId]
       );
       if (!paymentRes.rows[0]) {
         throw new Error('Payment not found');
       }
-      const payment = paymentRes.rows[0];
+      payment = paymentRes.rows[0];
 
-      // Guard: ONLY paid → refunded/partially_refunded allowed
-      if (payment.status !== 'paid') {
-        throw new Error(`Cannot refund ${payment.status} payment. Only paid payments can be refunded.`);
+      // Status guard: only paid or partially_refunded can be refunded further.
+      if (payment.status !== 'paid' && payment.status !== 'partially_refunded') {
+        throw new Error(`Cannot refund ${payment.status} payment. Only paid or partially_refunded payments can be refunded.`);
       }
 
-      if (refundAmountCents <= 0 || refundAmountCents > payment.amount_cents) {
-        throw new Error('Refund amount must be between 0 and the payment amount');
+      if (refundAmountCents <= 0) {
+        throw new Error('Refund amount must be greater than 0');
       }
 
-      // Execute Stripe refund for payments that have a real PaymentIntent.
-      // Payments without payment_intent_id are seeded/test records — Stripe call skipped.
-      let stripeRefundId = null;
-      if (payment.payment_intent_id) {
-        const stripe = getStripe();
-        let stripeRefund;
-        try {
-          stripeRefund = await stripe.refunds.create({
-            payment_intent: payment.payment_intent_id,
-            amount:         refundAmountCents,
-          });
-        } catch (stripeErr) {
-          console.error('[refund] Stripe refund API failed:', {
-            paymentId,
-            payment_intent_id: payment.payment_intent_id,
-            amount_cents: refundAmountCents,
-            error: stripeErr.message,
-          });
-          throw new Error(`Stripe refund failed: ${stripeErr.message}`);
-        }
-        stripeRefundId = stripeRefund.id;
-      } else {
-        console.warn('[refund] No payment_intent_id — Stripe refund skipped (seeded/test payment)', { paymentId });
+      // C-4 cumulative overspend check. The DB CHECK constraint backs this up
+      // at the database level, but we want a clean application error rather
+      // than a constraint violation.
+      const priorRefunded = payment.refunded_amount_cents || 0;
+      if (priorRefunded + refundAmountCents > payment.amount_cents) {
+        throw new Error(`Refund total would exceed payment amount (already refunded ${priorRefunded} of ${payment.amount_cents}; requested additional ${refundAmountCents})`);
       }
 
-      const isFullRefund = refundAmountCents === payment.amount_cents;
-      const newStatus = isFullRefund ? 'refunded' : 'partially_refunded';
-      const refundedAt = new Date();
-
-      await client.query(
-        `UPDATE payments
-         SET status = $1, refunded_at = $2, stripe_refund_id = $3
-         WHERE id = $4`,
-        [newStatus, refundedAt, stripeRefundId, paymentId]
+      // I.3 30s look-back guard. Catches concurrent admin-click race before
+      // any Stripe call. NB: the SELECT FOR UPDATE above already serializes
+      // refund attempts for the same payment id; this is defense-in-depth for
+      // any caller that doesn't take the row lock (e.g., direct SQL scripts).
+      const inFlight = await client.query(
+        `SELECT 1 FROM audit_log a
+          WHERE a.payment_id = $1
+            AND a.event_type = 'payment.refund_started'
+            AND a.created_at > now() - interval '30 seconds'
+            AND NOT EXISTS (
+              SELECT 1 FROM audit_log a2
+               WHERE a2.payment_id = $1
+                 AND a2.event_type IN ('payment.refunded', 'payment.refund_failed')
+                 AND a2.created_at > a.created_at
+            )
+          LIMIT 1`,
+        [paymentId]
       );
+      if (inFlight.rows[0]) {
+        const err = new Error('Refund already in progress for this payment');
+        err.code = 'REFUND_IN_PROGRESS';
+        throw err;
+      }
 
+      refundStartedAt = new Date();
       await auditService.logEvent(client, {
+        eventType:  'payment.refund_started',
+        entityType: 'payment',
+        entityId:   paymentId,
+        auctionId:  payment.auction_id,
+        lotId:      payment.lot_id,
+        paymentId,
+        actorId:    adminId,
+        metadata: {
+          requested_amount_cents:   refundAmountCents,
+          prior_refunded_cents:     priorRefunded,
+          payment_amount_cents:     payment.amount_cents,
+          payment_intent_id:        payment.payment_intent_id,
+          stripe_idempotency_key:   refundKey,
+        }
+      });
+
+      await client.query('COMMIT');
+    } catch (error) {
+      await client.query('ROLLBACK').catch(() => {});
+      client.release();
+      throw error;
+    }
+    client.release();
+
+    // ── External Stripe call OUTSIDE any DB transaction ───────────────────
+    let stripeRefundId = null;
+    if (payment.payment_intent_id) {
+      try {
+        const stripe = getStripe();
+        const stripeRefund = await stripe.refunds.create({
+          payment_intent: payment.payment_intent_id,
+          amount:         refundAmountCents,
+        }, { idempotencyKey: refundKey });
+        stripeRefundId = stripeRefund.id;
+      } catch (stripeErr) {
+        // Write a failure audit so the look-back window doesn't keep blocking
+        // legitimate retries. The payment row stays in its original status.
+        const failClient = await db.connect();
+        try {
+          await failClient.query('BEGIN');
+          await auditService.logEvent(failClient, {
+            eventType:  'payment.refund_failed',
+            entityType: 'payment',
+            entityId:   paymentId,
+            auctionId:  payment.auction_id,
+            lotId:      payment.lot_id,
+            paymentId,
+            actorId:    adminId,
+            metadata: {
+              source:                  'stripe.refunds.create',
+              stripe_error:            stripeErr.message,
+              requested_amount_cents:  refundAmountCents,
+              stripe_idempotency_key:  refundKey,
+            }
+          });
+          await failClient.query('COMMIT');
+        } catch (auditErr) {
+          await failClient.query('ROLLBACK').catch(() => {});
+          console.error('[refund] failed to write refund_failed audit', {
+            paymentId, audit_error: auditErr.message, stripe_error: stripeErr.message,
+          });
+        } finally {
+          failClient.release();
+        }
+        console.error('[refund] Stripe refund API failed:', {
+          paymentId,
+          payment_intent_id: payment.payment_intent_id,
+          amount_cents:      refundAmountCents,
+          error:             stripeErr.message,
+        });
+        throw new Error(`Stripe refund failed: ${stripeErr.message}`);
+      }
+    } else {
+      console.warn('[refund] No payment_intent_id — Stripe refund skipped (seeded/test payment)', { paymentId });
+    }
+
+    // ── tx2: persist DB state ─────────────────────────────────────────────
+    const newRefundedTotal = (payment.refunded_amount_cents || 0) + refundAmountCents;
+    const isFullRefund     = newRefundedTotal >= payment.amount_cents;
+    const newStatus        = isFullRefund ? 'refunded' : 'partially_refunded';
+    const refundedAt       = new Date();
+
+    const persistClient = await db.connect();
+    try {
+      await persistClient.query('BEGIN');
+      await persistClient.query(
+        `UPDATE payments
+            SET status                = $1,
+                refunded_at           = COALESCE(refunded_at, $2),
+                stripe_refund_id      = COALESCE($3, stripe_refund_id),
+                refunded_amount_cents = $4
+          WHERE id = $5`,
+        [newStatus, refundedAt, stripeRefundId, newRefundedTotal, paymentId]
+      );
+      await auditService.logEvent(persistClient, {
         eventType:  'payment.refunded',
         entityType: 'payment',
         entityId:   paymentId,
@@ -531,26 +771,41 @@ class PaymentService {
         paymentId,
         actorId:    adminId,
         metadata: {
-          refund_amount_cents: refundAmountCents,
-          stripe_refund_id:   stripeRefundId,
-          status:             newStatus,
+          refund_amount_cents:      refundAmountCents,
+          stripe_refund_id:         stripeRefundId,
+          status:                   newStatus,
+          prior_refunded_cents:     payment.refunded_amount_cents || 0,
+          new_refunded_total_cents: newRefundedTotal,
+          stripe_idempotency_key:   refundKey,
         }
       });
-
-      await client.query('COMMIT');
-      return {
-        payment_id:         paymentId,
-        status:             newStatus,
-        refund_amount_cents: refundAmountCents,
-        stripe_refund_id:   stripeRefundId,
-        refunded_at:        refundedAt,
-      };
-    } catch (error) {
-      await client.query('ROLLBACK');
-      throw error;
+      await persistClient.query('COMMIT');
+    } catch (persistErr) {
+      await persistClient.query('ROLLBACK').catch(() => {});
+      // Stripe already issued the refund (or seeded path produced no Stripe
+      // side effect). The DB is now out of sync. Log loudly with all the
+      // recovery info so an operator can reconcile manually.
+      console.error('[refund] Stripe succeeded but DB UPDATE failed — MANUAL RECONCILIATION REQUIRED', {
+        paymentId,
+        stripe_refund_id:         stripeRefundId,
+        refund_amount_cents:      refundAmountCents,
+        new_refunded_total_cents: newRefundedTotal,
+        new_status:               newStatus,
+        error:                    persistErr.message,
+      });
+      throw persistErr;
     } finally {
-      client.release();
+      persistClient.release();
     }
+
+    return {
+      payment_id:          paymentId,
+      status:              newStatus,
+      refund_amount_cents: refundAmountCents,
+      stripe_refund_id:    stripeRefundId,
+      refunded_at:         refundedAt,
+      refunded_amount_cents_total: newRefundedTotal,
+    };
   }
 
   async getPaymentStatus(paymentId) {
@@ -661,8 +916,25 @@ class PaymentService {
     // M-7 fix: metadata is informational only. Lookup is by intent.id (Stripe-authoritative).
     // Do not silently drop the event on missing metadata — that previously caused
     // money-received-but-not-recorded outcomes.
+    //
+    // Race 1 mitigation (Sub-batch 2 audit): if two rows have the same intent_id
+    // (a concurrent-create recovery scenario where a failed row had its intent
+    // attached and a new pending row was then created with the same Stripe
+    // idempotency key), prefer the still-actionable pending row. Without this
+    // ordering, the LIMIT 1 could pick the failed row arbitrarily and recordPayment-
+    // Success would then attempt failed->paid recovery on the wrong row, only to
+    // hit the partial unique index later when the real pending row also tries
+    // to transition.
     const paymentRes = await db.query(
-      `SELECT id FROM payments WHERE payment_intent_id = $1 LIMIT 1`,
+      `SELECT id FROM payments
+        WHERE payment_intent_id = $1
+        ORDER BY CASE status
+                   WHEN 'pending' THEN 0
+                   WHEN 'paid'    THEN 1
+                   ELSE 2
+                 END,
+                 created_at DESC
+        LIMIT 1`,
       [intent.id]
     );
     if (!paymentRes.rows[0]) {
@@ -767,7 +1039,7 @@ class PaymentService {
     try {
       await client.query('BEGIN');
       const paymentRes = await client.query(
-        `SELECT id, status, amount_cents, lot_id, auction_id, stripe_refund_id
+        `SELECT id, status, amount_cents, refunded_amount_cents, lot_id, auction_id, stripe_refund_id
            FROM payments WHERE payment_intent_id = $1 FOR UPDATE`,
         [intentId]
       );
@@ -783,26 +1055,32 @@ class PaymentService {
       const latestRefund   = refunds.length ? refunds[refunds.length - 1] : null;
       const latestRefundId = latestRefund ? latestRefund.id : null;
 
-      // Echo of our own processRefund — already recorded, nothing to reconcile.
-      if (payment.stripe_refund_id && latestRefundId && payment.stripe_refund_id === latestRefundId) {
+      // Stripe-authoritative cumulative refund amount.
+      const amountRefunded = typeof charge.amount_refunded === 'number' ? charge.amount_refunded : 0;
+
+      // Echo of our own processRefund — already recorded. Reconcile
+      // refunded_amount_cents anyway if Stripe's number is higher (handles a
+      // race where processRefund's tx2 hadn't committed when the echo arrived).
+      if (payment.stripe_refund_id && latestRefundId && payment.stripe_refund_id === latestRefundId
+          && (payment.refunded_amount_cents || 0) >= amountRefunded) {
         await client.query('ROLLBACK');
         console.log(`[webhook] charge.refunded — payment ${payment.id} already reconciled (refund=${latestRefundId})`);
         return;
       }
 
-      // Compute reconciled status from Stripe's authoritative amount_refunded.
-      const amountRefunded = typeof charge.amount_refunded === 'number' ? charge.amount_refunded : 0;
-      const isFull = amountRefunded >= payment.amount_cents;
-      const newStatus = isFull ? 'refunded' : 'partially_refunded';
+      const isFull      = amountRefunded >= payment.amount_cents;
+      const newStatus   = isFull ? 'refunded' : 'partially_refunded';
       const priorStatus = payment.status;
+      const priorRefunded = payment.refunded_amount_cents || 0;
 
       await client.query(
         `UPDATE payments
-            SET status = $1,
-                refunded_at = COALESCE(refunded_at, now()),
-                stripe_refund_id = COALESCE($2, stripe_refund_id)
-          WHERE id = $3`,
-        [newStatus, latestRefundId, payment.id]
+            SET status                = $1,
+                refunded_at           = COALESCE(refunded_at, now()),
+                stripe_refund_id      = COALESCE($2, stripe_refund_id),
+                refunded_amount_cents = GREATEST(refunded_amount_cents, $3)
+          WHERE id = $4`,
+        [newStatus, latestRefundId, amountRefunded, payment.id]
       );
       await auditService.logEvent(client, {
         eventType:  'payment.refunded',
@@ -813,16 +1091,18 @@ class PaymentService {
         paymentId:  payment.id,
         actorId:    null,
         metadata: {
-          source:                'stripe_webhook.charge.refunded',
-          stripe_charge_id:      charge.id,
-          stripe_refund_id:      latestRefundId,
-          amount_refunded_cents: amountRefunded,
-          prior_status:          priorStatus,
-          new_status:            newStatus,
+          source:                   'stripe_webhook.charge.refunded',
+          stripe_charge_id:         charge.id,
+          stripe_refund_id:         latestRefundId,
+          amount_refunded_cents:    amountRefunded,
+          prior_status:             priorStatus,
+          new_status:               newStatus,
+          prior_refunded_cents:     priorRefunded,
+          new_refunded_total_cents: Math.max(priorRefunded, amountRefunded),
         }
       });
       await client.query('COMMIT');
-      console.log(`[webhook] charge.refunded → payment ${payment.id} reconciled (status=${newStatus}, refund=${latestRefundId})`);
+      console.log(`[webhook] charge.refunded → payment ${payment.id} reconciled (status=${newStatus}, refund=${latestRefundId}, total_refunded=${Math.max(priorRefunded, amountRefunded)})`);
     } catch (err) {
       await client.query('ROLLBACK');
       throw err;
