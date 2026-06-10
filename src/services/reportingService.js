@@ -46,7 +46,7 @@ async function generateAuctionReport(auctionId) {
      WHERE l.auction_id = $1
      GROUP BY l.id, l.lot_number, l.title, l.winning_amount_cents,
               l.winning_buyer_user_id, l.extension_count, u.email
-     ORDER BY l.position ASC, l.created_at ASC`,
+     ORDER BY l.lot_number ASC, l.created_at ASC`,
     [auctionId]
   );
 
