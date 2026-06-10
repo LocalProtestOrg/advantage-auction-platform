@@ -34,15 +34,23 @@ class MarketingService {
     // Sellers may only create jobs for auctions they own.
     let sellerUserId;
     if (isAdmin) {
+      // Canonical ownership: auctions.seller_id → seller_profiles.user_id.
       const auctionRes = await db.query(
-        'SELECT created_by_user_id FROM auctions WHERE id = $1',
+        `SELECT sp.user_id AS seller_user_id
+           FROM auctions a
+           JOIN seller_profiles sp ON sp.id = a.seller_id
+          WHERE a.id = $1`,
         [auctionId]
       );
       if (!auctionRes.rows[0]) throw new Error('Auction not found');
-      sellerUserId = auctionRes.rows[0].created_by_user_id;
+      sellerUserId = auctionRes.rows[0].seller_user_id;
     } else {
+      // Canonical ownership check: caller must be the seller via seller_id chain.
       const auctionRes = await db.query(
-        'SELECT id FROM auctions WHERE id = $1 AND created_by_user_id = $2',
+        `SELECT a.id
+           FROM auctions a
+           JOIN seller_profiles sp ON sp.id = a.seller_id
+          WHERE a.id = $1 AND sp.user_id = $2`,
         [auctionId, callerUserId]
       );
       if (!auctionRes.rows[0]) throw new Error('Auction not found or not owned by seller');

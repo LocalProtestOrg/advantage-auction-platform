@@ -13,14 +13,18 @@ async function createSellerPayoutRecord(auctionId) {
   }
 
   // Resolve seller_user_id from the auction
+  // Canonical ownership chain: auctions.seller_id → seller_profiles.user_id.
   const auctionRes = await db.query(
-    'SELECT created_by_user_id FROM auctions WHERE id = $1',
+    `SELECT sp.user_id AS seller_user_id
+       FROM auctions a
+       JOIN seller_profiles sp ON sp.id = a.seller_id
+      WHERE a.id = $1`,
     [auctionId]
   );
   if (!auctionRes.rows[0]) {
     throw new Error('Auction not found');
   }
-  const sellerUserId = auctionRes.rows[0].created_by_user_id;
+  const sellerUserId = auctionRes.rows[0].seller_user_id;
 
   // Pull payout figures and preference in parallel
   const [report, pref] = await Promise.all([

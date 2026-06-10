@@ -138,9 +138,12 @@ async function sendFinalSellerReport(auctionId) {
   const [pdfResult, sellerRes] = await Promise.all([
     buildReportPdf(auctionId),
     db.query(
+      // Canonical ownership chain: auctions.seller_id → seller_profiles.id →
+      // seller_profiles.user_id → users.id (NOT created_by_user_id).
       `SELECT u.email
        FROM auctions a
-       JOIN users u ON u.id = a.created_by_user_id
+       JOIN seller_profiles sp ON sp.id = a.seller_id
+       JOIN users u            ON u.id = sp.user_id
        WHERE a.id = $1`,
       [auctionId]
     )

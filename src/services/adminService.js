@@ -1,3 +1,17 @@
+/**
+ * ⚠️ DEPRECATED — DO NOT USE. Retained pre-launch for reference only.
+ *
+ * - NOT WIRED into the application: no module imports this file.
+ * - OBSOLETE SCHEMA ASSUMPTIONS: references auctions.seller_profile_id,
+ *   auctions.created_by_user_id, and auctions.status — none of which exist in
+ *   the deployed schema (db/migrations/001_create_schema.sql uses
+ *   auctions.seller_id and auctions.state). Every query here would fail.
+ * - NOT AUTHORITATIVE. Do not build features from this file.
+ * - CANONICAL implementation lives in src/services/auctionService.js and
+ *   src/routes/admin.js. Ownership flows through the canonical chain:
+ *   auctions.seller_id → seller_profiles.id → seller_profiles.user_id → users.id
+ *   (created_by_user_id is NOT used for ownership).
+ */
 const db = require('../db');
 
 async function createAuction({ sellerProfileId, createdByUserId, title, description, status, startTime, endTime }) {

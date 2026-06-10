@@ -1,3 +1,19 @@
+-- =============================================================================
+-- ⚠️ DEPRECATED — NOT DEPLOYED — DO NOT BUILD NEW FEATURES FROM THIS FILE
+-- -----------------------------------------------------------------------------
+-- This is an obsolete/alternate schema. It is NOT the schema used by
+-- production or staging. Notably, it defines auctions with seller_profile_id /
+-- created_by_user_id / status, which DO NOT match the deployed schema.
+--
+-- PRODUCTION & STAGING USE: db/migrations/*.sql  (canonical).
+--   - auctions ownership is auctions.seller_id → seller_profiles.id →
+--     seller_profiles.user_id → users.id  (NOT created_by_user_id).
+--   - auctions state column is `state` (NOT `status`).
+--
+-- Retained pre-launch only to avoid breaking any legacy bootstrap reference.
+-- Do not edit this to add features; add migrations under db/migrations/ instead.
+-- =============================================================================
+
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
 CREATE TABLE IF NOT EXISTS users (

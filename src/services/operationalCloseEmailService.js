@@ -34,7 +34,8 @@ async function sendOperationalCloseEmail(auctionId) {
               COALESCE(SUM(l.winning_amount_cents) FILTER (WHERE l.winning_buyer_user_id IS NOT NULL), 0)::int
                 AS gross_total_cents
        FROM auctions a
-       JOIN users u ON u.id = a.created_by_user_id
+       JOIN seller_profiles sp ON sp.id = a.seller_id
+       JOIN users u            ON u.id = sp.user_id
        LEFT JOIN lots l ON l.auction_id = a.id
        WHERE a.id = $1
        GROUP BY a.title, a.id, u.email`,
