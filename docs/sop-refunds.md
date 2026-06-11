@@ -36,25 +36,48 @@ SELECT p.id, p.lot_id, p.amount_cents, p.status, p.payment_intent_id
 
 ## Step 3 — Issue Refund
 
+**An `Idempotency-Key` header is REQUIRED.** Generate a UUID per refund attempt
+(e.g., `uuidgen` or `python -c "import uuid; print(uuid.uuid4())"`). The same
+key is forwarded to Stripe so any network retry within 24h collapses to the
+same Stripe refund — no double-disbursement risk.
+
+If you omit the header the request is rejected with HTTP 400.
+
 **Full refund:**
 ```
 POST /api/admin/payments/<payment-id>/refund
 Authorization: Bearer <admin-token>
+Idempotency-Key: <uuid>
 Content-Type: application/json
 
-{ "type": "full" }
+{ "refund_amount_cents": <full-amount-in-cents> }
 ```
 
-**Partial refund:**
-```
-POST /api/admin/payments/<payment-id>/refund
-Authorization: Bearer <admin-token>
-Content-Type: application/json
+**Partial refund:** same shape, with `refund_amount_cents` set to the partial amount.
 
-{ "type": "partial", "amount_cents": <amount> }
+A successful response returns:
+```
+{
+  "success": true,
+  "data": {
+    "payment_id": "...",
+    "status": "refunded" | "partially_refunded",
+    "refund_amount_cents": <this attempt's amount>,
+    "stripe_refund_id": "re_...",
+    "refunded_at": "<timestamp>",
+    "refunded_amount_cents_total": <cumulative refunded across all attempts>
+  }
+}
 ```
 
-A successful response returns `{ "success": true, "data": { "status": "refunded" | "partially_refunded" } }`.
+**Error responses to be aware of:**
+- `400 Missing Idempotency-Key header` — add the header.
+- `409 Refund already in progress for this payment` — another refund attempt
+  for this payment started within the last 30 seconds and hasn't finished.
+  Wait and retry, or check `audit_log` for a `payment.refund_started` row.
+- `422 Refund total would exceed payment amount (already refunded X of Y; requested additional Z)`
+  — cumulative refund cap would be breached. Use the message to recompute the
+  remaining refundable amount.
 
 ---
 

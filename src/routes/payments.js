@@ -16,13 +16,16 @@ router.get('/config', (req, res) => {
 
 // POST /api/payments/charge-lot
 router.post('/charge-lot', strictLimiter, auth, role(['buyer', 'admin']), idempotency, async (req, res) => {
-  if (!req.headers['idempotency-key']) {
+  const idempotencyKey = req.headers['idempotency-key'];
+  if (!idempotencyKey) {
     return res.status(400).json({ error: 'Missing Idempotency-Key' });
   }
 
   const { auction_id, lot_id } = req.body;
   try {
-    const result = await paymentService.createPaymentIntent(req.user.id, auction_id, lot_id);
+    // The HTTP Idempotency-Key is also passed to Stripe so SDK-level retries
+    // collapse to the same PaymentIntent within Stripe's 24h idempotency window.
+    const result = await paymentService.createPaymentIntent(req.user.id, auction_id, lot_id, idempotencyKey);
     console.log('[payments] payment intent created:', { userId: req.user.id, lotId: lot_id, auctionId: auction_id });
     return res.status(200).json({ success: true, data: result });
   } catch (err) {
@@ -67,10 +70,12 @@ router.post('/webhook', express.raw({ type: 'application/json' }), async (req, r
     await paymentService.handleWebhookEvent(event);
     return res.json({ received: true });
   } catch (err) {
-    console.error('[webhook] Handler error:', err.message);
-    // Return 200 so Stripe does not retry events we've already partially processed.
-    // Internal failures are logged; idempotency guards prevent double-processing on retry.
-    return res.status(200).json({ received: true, warning: err.message });
+    // Return non-2xx so Stripe retries. handleWebhookEvent marks the event row
+    // as 'failed' before rethrowing, so the next delivery picks up from the
+    // failure state and re-runs the handler — no double-processing risk because
+    // dispatch handlers are individually idempotent on prior-success rows.
+    console.error('[webhook] Handler error:', { event_id: event.id, event_type: event.type, error: err.message });
+    return res.status(500).json({ received: false, error: 'handler_failed' });
   }
 });
 

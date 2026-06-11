@@ -627,7 +627,13 @@ router.post('/auctions/:auctionId/send-final-report', auth, role(['admin']), asy
 // POST /api/admin/payments/:paymentId/refund
 // Full or partial refund of a paid payment. Admin-only.
 // Body: { refund_amount_cents: number }
-router.post('/payments/:paymentId/refund', auth, role(['admin']), async (req, res, next) => {
+// Headers: Idempotency-Key (required) — also forwarded to Stripe so SDK-level
+//   retries collapse to the same Stripe refund within 24h.
+router.post('/payments/:paymentId/refund', auth, role(['admin']), idempotency, async (req, res, next) => {
+  const idempotencyKey = req.headers['idempotency-key'];
+  if (!idempotencyKey) {
+    return res.status(400).json({ success: false, message: 'Missing Idempotency-Key header' });
+  }
   try {
     const { paymentId } = req.params;
     const { refund_amount_cents } = req.body;
@@ -639,15 +645,19 @@ router.post('/payments/:paymentId/refund', auth, role(['admin']), async (req, re
       });
     }
 
-    const result = await paymentService.processRefund(req.user.id, paymentId, refund_amount_cents);
+    const result = await paymentService.processRefund(req.user.id, paymentId, refund_amount_cents, idempotencyKey);
     return res.json({ success: true, data: result });
   } catch (err) {
     if (err.message === 'Payment not found') {
       return res.status(404).json({ success: false, message: err.message });
     }
+    if (err.code === 'REFUND_IN_PROGRESS') {
+      return res.status(409).json({ success: false, message: err.message });
+    }
     if (
       err.message.startsWith('Cannot refund') ||
-      err.message.startsWith('Refund amount')
+      err.message.startsWith('Refund amount') ||
+      err.message.startsWith('Refund total would exceed')
     ) {
       return res.status(422).json({ success: false, message: err.message });
     }

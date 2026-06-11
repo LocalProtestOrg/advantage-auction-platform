@@ -30,10 +30,19 @@ async function apiLogin(request, creds) {
   return body.token;
 }
 
-async function api(request, method, path, token, data) {
-  const opts = { headers: { Authorization: `Bearer ${token}` } };
-  if (data !== undefined) opts.data = data;
-  const res = await request[method](`${BASE}${path}`, opts);
+// Sub-batch 2: admin refund endpoint now requires Idempotency-Key. Auto-generate
+// one per request to /api/admin/payments/*/refund unless the caller explicitly
+// passes opts.idempotencyKey (used by the idempotency-retry tests to reuse a key).
+let _idemCounter = 0;
+async function api(request, method, path, token, data, opts = {}) {
+  const headers = { Authorization: `Bearer ${token}` };
+  if (/\/api\/admin\/payments\/.*\/refund$/.test(path) && method === 'post') {
+    headers['Idempotency-Key'] = opts.idempotencyKey
+      || `e2e-refund-${Date.now()}-${++_idemCounter}`;
+  }
+  const reqOpts = { headers };
+  if (data !== undefined) reqOpts.data = data;
+  const res = await request[method](`${BASE}${path}`, reqOpts);
   return { status: res.status(), body: await res.json() };
 }
 
