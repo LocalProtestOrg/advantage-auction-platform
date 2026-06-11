@@ -1,6 +1,6 @@
 # Phase 1 — Staging Validation Report (Line B Financial Integrity)
 **Date:** 2026-06-11 · **Branch:** `feat/line-b-financial-integrity` (HEAD `c153356`, deployed detached).
-**Run outcome:** executed end-to-end through STEP 5 (S0–S10). **One validation scenario FAILED (S3) on a real, reproducible defect.** Per the stop-on-failure rule, work halted at the report; not promoted, not merged, Stripe LIVE not enabled, no Phase 2.
+**Run outcome:** executed end-to-end through STEP 5 (S0–S10). The initial run found **one real, reproducible defect (S3 → DEFECT-LINEB-1)**; it was fixed (`f441512`), redeployed to staging, and **re-validated PASS** (see *DEFECT-LINEB-1 — Remediation* and *Retest* near the end). **Final status: PASS — READY FOR MERGE REVIEW.** Not promoted, not merged, Stripe LIVE not enabled, no Phase 2 (held per instruction). The sections below preserve the as-found results; the remediation + retest sections supersede the S3 outcome.
 
 ---
 
@@ -92,13 +92,31 @@ Clearly-tagged Line B test fixtures (auction `a1000000-…-aa`, lots `b*`, payme
 
 Migrations were **not** touched (additive 058/059 stand). Payout wiring untouched. Production untouched.
 
-### Retest (post-fix, staging) — see results appended below after redeploy.
+### Retest (post-fix, staging) — PASS
+**Commit:** `f441512` · **Redeployed** to `advantage-staging` only (image `sha256:f0d6661d6f457556d7a8532e8478be68d77135b3ec961c0c0a80f26e3bfa32ae`; fresh boot `started_at 2026-06-11T18:21:26Z`; health 200, `stripe_mode:test`). Each request used a 25s client timeout so a regression would surface as TIMEOUT, never a hang.
+
+| ID | Scenario | Result | Evidence |
+|---|---|---|---|
+| **S3** | Stale in-flight takeover (>300s) | **PASS** | seeded `received` row, `received_at = now()-6min`, **`ms_exact=false`** (sub-ms precision present — the exact trigger). Delivery → **HTTP 200 in 596 ms** (no hang/502), `received→processed`, `attempt_count 1→2`, `received_at` refreshed. |
+| **S3f** | Fresh in-flight NOT stolen | **PASS** | fresh `received` row (`received_at=now()`) → HTTP 200 (267 ms), stays `received`, `attempt_count` unchanged ⇒ not stolen, not double-processed. |
+| **S1** | Webhook dedup / replay | **PASS** | delivery → `processed`/ac1 (972 ms); redelivery → 200, `processed`, ac unchanged. |
+| **S2** | Failed → reclaim | **PASS** | `failed`/ac1 → 200 (583 ms) → `processed`, `last_error=NULL`, ac 1→2. |
+| **S4** | Handler failure → 500 + recover | **PASS** | orphan → 500 (281 ms), `failed`+`last_error`; after row created, redelivery → 200 → `processed`. |
+
+**Retest: 5/5 PASS.** Post-run sanity: **0** active webhook-acquire queries in `pg_stat_activity` (no spin/recursion), health 200, `webhook_failed_count_1h=0`. The infinite-loop / 502 behavior is gone; the takeover succeeds on a genuinely-stale µs-precision row.
+
+> Note: with S3 now passing, the full Phase 1 matrix is green — S0, S1, S2, S3, S4, S5, S6, S7, S8, S9, S10 all PASS.
 
 ---
 
 # PHASE 1 STAGING STATUS
 
-## FAIL — FIX REQUIRED  *(superseded by retest below)*
+## PASS — READY FOR MERGE REVIEW
+DEFECT-LINEB-1 is fixed on `feat/line-b-financial-integrity` (`f441512`) and re-validated on staging: S3 stale-takeover now succeeds (HTTP 200, no hang/502) on the exact µs-precision condition that failed, with S1/S2/S4 + fresh-not-stolen regression all green and no acquire-loop activity. The complete S0–S10 matrix passes; migrations 058/059 are applied and verified; deploy is clean; Stripe stayed TEST throughout.
+
+**Held as instructed — not actioned:** no merge into `deploy/seller-studio-1b`, no production deploy, Stripe LIVE not enabled, no Phase 2 payout wiring, no production data modified. Recommend human merge review of `feat/line-b-financial-integrity` as the next gate.
+
+*(Prior status was FAIL — FIX REQUIRED on S3; superseded by the retest above.)*
 S0, S1, S2, S4, S5, S6, S7, S8, S9, S10 PASS. **S3 (stale in-flight takeover) FAILS on a real, reproducible defect (DEFECT-LINEB-1):** a `received_at` millisecond/microsecond precision mismatch makes the takeover `UPDATE` never match, sending `_acquireWebhookEvent` into unbounded recursion that hangs the webhook request (HTTP 502) and would wedge production webhook ingestion on the first crashed-handler recovery. Fix on `feat/line-b-financial-integrity`, redeploy staging, and re-run S3 (+ S1/S2/S4 regression) before any promotion.
 
 *Constraints honored: migrations + deploy targeted staging `ep-royal-dawn-anarou3f` only; production untouched; Stripe remained TEST; no merge into `deploy/seller-studio-1b`; Stripe LIVE not enabled; no Phase 2 payout wiring; no production data modified. Backup branch was not a validation target.*
