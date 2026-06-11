@@ -36,89 +36,127 @@ function _trackProcessedEvent(id) {
 // handler runtime (Stripe call + DB tx, normally <5s; cap with margin).
 const STALE_IN_FLIGHT_SECONDS = 300;
 
+// Maximum acquire attempts. The loop below only re-iterates on transient races
+// (the row was deleted mid-acquire, or we lost a failed-row reclaim to a concurrent
+// delivery). This hard cap makes it impossible for the acquire path to spin
+// unbounded — the failure mode DEFECT-LINEB-1 produced via recursion on a
+// never-matching takeover guard.
+const MAX_ACQUIRE_ATTEMPTS = 5;
+
 // Acquire a webhook event for processing. Returns one of:
 //   { action: 'process' }   — caller MUST run the handler, then call _finalizeWebhookEvent
 //   { action: 'skip' }      — event is a true duplicate; ignore and acknowledge
 //   { action: 'in_flight' } — another delivery is currently being processed; acknowledge
+//
+// Concurrency model: every state transition is an atomic conditional UPDATE whose
+// WHERE clause IS the compare-and-swap. Postgres row locks serialize concurrent
+// deliveries, so exactly one wins each transition. Crucially, staleness is evaluated
+// entirely server-side (`received_at < now() - interval`); a timestamp is never
+// round-tripped through a JS Date and compared for equality. That round-trip lost
+// microsecond precision (Postgres `now()` is µs; JS Date is ms), so the old
+// `received_at = $2` guard never matched and the function recursed forever
+// (DEFECT-LINEB-1: webhook request hangs → HTTP 502 → acquire-loop hammers the DB).
 async function _acquireWebhookEvent(eventId, eventType, payload) {
-  // Try to claim a brand-new event row.
-  const insert = await db.query(
-    `INSERT INTO stripe_webhook_events (id, event_type, payload, status, attempt_count)
-     VALUES ($1, $2, $3::jsonb, 'received', 1)
-     ON CONFLICT (id) DO NOTHING`,
-    [eventId, eventType, JSON.stringify(payload)]
-  );
-  if (insert.rowCount === 1) {
-    return { action: 'process' };
-  }
-
-  // Conflict path — inspect the existing row to decide what to do.
-  const existing = await db.query(
-    `SELECT status, received_at, attempt_count, (payload IS NULL) AS legacy_row
-       FROM stripe_webhook_events WHERE id = $1`,
-    [eventId]
-  );
-  const row = existing.rows[0];
-  if (!row) {
-    // Row was deleted between our INSERT conflict and SELECT (operator action).
-    // Retry the acquire — the INSERT will now succeed.
-    return _acquireWebhookEvent(eventId, eventType, payload);
-  }
-
-  // Legacy/deploy-window rows: the old code inserted only on successful processing
-  // and never wrote a payload. Promote to 'processed' (with payload archived for
-  // any future replay) and treat as a duplicate. This guards against the migration
-  // backfill having missed any deploy-window rows.
-  if (row.legacy_row) {
-    await db.query(
-      `UPDATE stripe_webhook_events
-          SET status = 'processed',
-              processed_at = COALESCE(processed_at, now()),
-              payload = $2::jsonb
-        WHERE id = $1 AND payload IS NULL`,
-      [eventId, JSON.stringify(payload)]
+  for (let attempt = 1; attempt <= MAX_ACQUIRE_ATTEMPTS; attempt++) {
+    // Try to claim a brand-new event row.
+    const insert = await db.query(
+      `INSERT INTO stripe_webhook_events (id, event_type, payload, status, attempt_count)
+       VALUES ($1, $2, $3::jsonb, 'received', 1)
+       ON CONFLICT (id) DO NOTHING`,
+      [eventId, eventType, JSON.stringify(payload)]
     );
-    return { action: 'skip' };
-  }
+    if (insert.rowCount === 1) {
+      return { action: 'process' };
+    }
 
-  if (row.status === 'processed') {
-    return { action: 'skip' };
-  }
-
-  if (row.status === 'failed') {
-    // Previous attempt threw. Reclaim for retry. Single-row guard prevents two
-    // concurrent deliveries from both claiming the retry.
-    const claim = await db.query(
-      `UPDATE stripe_webhook_events
-          SET status = 'received',
-              attempt_count = attempt_count + 1,
-              last_error = NULL,
-              received_at = now()
-        WHERE id = $1 AND status = 'failed'`,
+    // Conflict path — inspect the existing row to decide what to do. We only need
+    // the status and whether it is a legacy (payload-less) row; the staleness
+    // decision is made by Postgres in the takeover UPDATE below, NOT in JS.
+    const existing = await db.query(
+      `SELECT status, (payload IS NULL) AS legacy_row
+         FROM stripe_webhook_events WHERE id = $1`,
       [eventId]
     );
-    if (claim.rowCount === 1) return { action: 'process' };
-    // Lost the race to another delivery — re-inspect.
-    return _acquireWebhookEvent(eventId, eventType, payload);
-  }
+    const row = existing.rows[0];
+    if (!row) {
+      // Row was deleted between our INSERT conflict and SELECT (operator action).
+      // Re-iterate — the INSERT will now succeed. Bounded by MAX_ACQUIRE_ATTEMPTS.
+      continue;
+    }
 
-  // status === 'received'
-  const ageSec = (Date.now() - new Date(row.received_at).getTime()) / 1000;
-  if (ageSec > STALE_IN_FLIGHT_SECONDS) {
-    // Previous handler is presumed dead. Take over.
-    const claim = await db.query(
+    // Legacy/deploy-window rows: the old code inserted only on successful processing
+    // and never wrote a payload. Promote to 'processed' (with payload archived for
+    // any future replay) and treat as a duplicate. This guards against the migration
+    // backfill having missed any deploy-window rows.
+    if (row.legacy_row) {
+      await db.query(
+        `UPDATE stripe_webhook_events
+            SET status = 'processed',
+                processed_at = COALESCE(processed_at, now()),
+                payload = $2::jsonb
+          WHERE id = $1 AND payload IS NULL`,
+        [eventId, JSON.stringify(payload)]
+      );
+      return { action: 'skip' };
+    }
+
+    // Already processed — idempotent duplicate.
+    if (row.status === 'processed') {
+      return { action: 'skip' };
+    }
+
+    // Previous attempt threw and was finalized 'failed'. Reclaim for retry. The
+    // `status = 'failed'` guard is the compare-and-swap: only one concurrent
+    // delivery can flip it back to 'received'.
+    if (row.status === 'failed') {
+      const claim = await db.query(
+        `UPDATE stripe_webhook_events
+            SET status = 'received',
+                attempt_count = attempt_count + 1,
+                last_error = NULL,
+                received_at = now()
+          WHERE id = $1 AND status = 'failed'`,
+        [eventId]
+      );
+      if (claim.rowCount === 1) return { action: 'process' };
+      // Lost the race to another delivery — re-inspect. Bounded.
+      continue;
+    }
+
+    // status === 'received'. Atomic stale-takeover: claim the row ONLY if it has
+    // been 'received' longer than STALE_IN_FLIGHT_SECONDS (previous handler presumed
+    // dead). The staleness predicate is evaluated by Postgres against the stored
+    // timestamptz at full precision — there is no JS Date equality guard, so the
+    // ms/µs precision mismatch behind DEFECT-LINEB-1 cannot recur. The row lock
+    // makes the UPDATE a single-winner compare-and-swap under concurrency.
+    // STALE_IN_FLIGHT_SECONDS is a trusted internal integer constant (safe to inline).
+    const takeover = await db.query(
       `UPDATE stripe_webhook_events
           SET attempt_count = attempt_count + 1,
               received_at = now(),
               last_error = NULL
-        WHERE id = $1 AND status = 'received' AND received_at = $2`,
-      [eventId, row.received_at]
+        WHERE id = $1
+          AND status = 'received'
+          AND received_at < now() - interval '${STALE_IN_FLIGHT_SECONDS} seconds'`,
+      [eventId]
     );
-    if (claim.rowCount === 1) return { action: 'process' };
-    return _acquireWebhookEvent(eventId, eventType, payload);
+    if (takeover.rowCount === 1) {
+      // We took over a stale row (previous handler presumed dead).
+      return { action: 'process' };
+    }
+
+    // rowCount 0 ⇒ the row is either still fresh (a genuine concurrent in-flight
+    // delivery, not yet stale) or another delivery just took it over. Either way
+    // someone else owns it right now — acknowledge without acting. If that owner
+    // ultimately fails, the row becomes 'failed' and the next delivery reclaims it
+    // via the failed-row branch above; Stripe's retries drive that redelivery.
+    return { action: 'in_flight' };
   }
 
-  // Recent in-flight delivery — another handler is on it. Acknowledge without acting.
+  // Exhausted attempts on transient churn (row repeatedly deleted, or repeatedly
+  // lost the failed-reclaim race). Acknowledge without processing so we can never
+  // spin; Stripe will redeliver and a later, uncontended delivery resolves it.
+  console.warn(`[webhook] _acquireWebhookEvent: exhausted ${MAX_ACQUIRE_ATTEMPTS} attempts for ${eventId} — acknowledging as in_flight`);
   return { action: 'in_flight' };
 }
 
