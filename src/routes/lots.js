@@ -3,7 +3,7 @@ const router = express.Router();
 const auth = require('../middleware/authMiddleware');
 const authMiddleware = require('../middleware/authMiddleware');
 const db = require('../db');
-const { getBidsByLot, createBid } = require('../services/bidService');
+const { getBidsByLot, createBid, resolveBidIncrement } = require('../services/bidService');
 const imageProcessingService      = require('../services/imageProcessingService');
 const { writeAuditLog }           = require('../lib/auditLog');
 const { isProfessional }          = require('../services/sellerTypeRules');
@@ -565,6 +565,27 @@ router.get('/:lotId', async (req, res, next) => {
     if (!lot || lot.state === 'withdrawn') {
       return res.status(404).json({ success: false, message: 'Lot not found' });
     }
+
+    // Server-authoritative bid math (#16): the lot page's "Next minimum bid"
+    // must agree EXACTLY with bidService's validation. Both derive the increment
+    // from resolveBidIncrement (lot → auction → house default $5) and apply the
+    // same floor: minimum next bid = max(starting_bid, current_bid + increment).
+    // We expose the resolved values so the client never computes a divergent
+    // number. This does not change validation behavior — it only surfaces it.
+    try {
+      const effInc   = await resolveBidIncrement(db, lot);
+      const starting = lot.starting_bid_cents || 100;
+      const current  = lot.current_bid_cents  || 0;
+      lot.effective_bid_increment_cents = effInc;
+      lot.next_min_bid_cents = Math.max(starting, current + effInc);
+    } catch (e) {
+      // Non-fatal: fall back so the page still renders. Logged, not surfaced.
+      console.error('[lots] resolveBidIncrement failed for', lot.id, e.message);
+      const fb = lot.bid_increment_cents || 500;
+      lot.effective_bid_increment_cents = fb;
+      lot.next_min_bid_cents = Math.max(lot.starting_bid_cents || 100, (lot.current_bid_cents || 0) + fb);
+    }
+
     res.json({ success: true, data: lot });
   } catch (err) {
     next(err);

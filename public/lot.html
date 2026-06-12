@@ -711,10 +711,12 @@
   let activeIndex     = 0;
   let topBidAmount    = 0;
   // Lot pricing context (cents). Populated from the lot endpoint in renderLot.
-  // Defaults: $1 start / $1 increment (the platform fallbacks) so the display
-  // never reads NaN or $0.00 before the lot loads.
+  // bidIncrementCents is the SERVER-RESOLVED increment (effective_bid_increment_cents)
+  // so the displayed "Next minimum bid" matches bidService validation exactly.
+  // Defaults: $1 start / $5 increment (the server's house default) so any pre-load
+  // display still agrees with the server and never reads NaN/$0.00.
   let startingBidCents  = 100;
-  let bidIncrementCents = 100;
+  let bidIncrementCents = 500;
   let hasBids           = false;
   let bidding         = false;
   let refreshTimer    = null;
@@ -921,14 +923,18 @@
     // Pricing context (cents) — used by setCurrentBid / updateHint. Coerce and
     // fall back to platform defaults so a missing/NaN field never surfaces as
     // "$NaN" or a misleading "$0.00".
-    startingBidCents  = Number(lot.starting_bid_cents)  > 0 ? Number(lot.starting_bid_cents)  : 100;
-    bidIncrementCents = Number(lot.bid_increment_cents) > 0 ? Number(lot.bid_increment_cents) : 100;
-    const curCents    = Number(lot.current_bid_cents)   > 0 ? Number(lot.current_bid_cents)   : 0;
+    startingBidCents  = Number(lot.starting_bid_cents) > 0 ? Number(lot.starting_bid_cents) : 100;
+    // Prefer the SERVER-RESOLVED increment (#16) so display == validation; fall
+    // back to the lot column, then the $5 house default.
+    bidIncrementCents = Number(lot.effective_bid_increment_cents) > 0 ? Number(lot.effective_bid_increment_cents)
+                      : (Number(lot.bid_increment_cents) > 0 ? Number(lot.bid_increment_cents) : 500);
+    const curCents    = Number(lot.current_bid_cents) > 0 ? Number(lot.current_bid_cents) : 0;
     hasBids           = curCents > 0 || Number(lot.bid_count) > 0;
-    // With no bids the current price IS the starting bid, and the next minimum
-    // is the starting bid itself; with bids it's current + increment.
+    // Current price display: starting bid when no bids, else the current bid.
+    // Next-min uses the server's exact floor: max(starting, current + increment),
+    // so with no bids it is max(starting, increment) — not just the starting bid.
     setCurrentBid(hasBids ? curCents : startingBidCents);
-    updateHint(hasBids ? curCents : startingBidCents);
+    updateHint(curCents);
 
     // Item detail fields
     const details = [];
@@ -1168,10 +1174,11 @@
       list.appendChild(empty);
       countLabel.textContent = '';
       setActivity(0, 0);
-      // No bids yet: current price is the starting bid; next min is the starting bid.
+      // No bids yet: current price shows the starting bid; next min is the
+      // server floor max(starting, increment) — pass current=0.
       hasBids = false;
       setCurrentBid(startingBidCents);
-      updateHint(startingBidCents);
+      updateHint(0);
       return;
     }
 
@@ -1252,10 +1259,11 @@
     const el = document.getElementById('bid-hint');
     if (!el) return;
     let cur = Number(currentCents);
-    if (!Number.isFinite(cur) || cur <= 0) cur = startingBidCents;
-    // No bids → you may bid the starting amount. With bids → current + the
-    // lot's own increment (not a hardcoded $5).
-    let nextCents = hasBids ? (cur + bidIncrementCents) : startingBidCents;
+    if (!Number.isFinite(cur) || cur < 0) cur = 0;
+    // EXACT mirror of bidService: minimum next bid = max(starting, current + increment).
+    // With no bids (cur=0) this is max(starting, increment); with bids it's current
+    // + increment. bidIncrementCents is the server-resolved value, so they agree.
+    let nextCents = Math.max(startingBidCents, cur + bidIncrementCents);
     if (!Number.isFinite(nextCents) || nextCents <= 0) nextCents = startingBidCents;
     el.textContent = 'Next minimum bid: $' + (nextCents / 100).toFixed(2);
   }
