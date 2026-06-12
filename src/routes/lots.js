@@ -4,6 +4,7 @@ const auth = require('../middleware/authMiddleware');
 const authMiddleware = require('../middleware/authMiddleware');
 const optionalAuth = require('../middleware/optionalAuthMiddleware');
 const { redactRealizedPrice } = require('../lib/realizedPrice'); // #20.1
+const registrationService = require('../services/auctionRegistrationService'); // #20
 const db = require('../db');
 const { getBidsByLot, createBid, resolveBidIncrement } = require('../services/bidService');
 const imageProcessingService      = require('../services/imageProcessingService');
@@ -156,7 +157,7 @@ router.get('/:lotId/bids', authMiddleware, async (req, res) => {
 // Also rejects bids on lots whose scheduled close time has already passed.
 router.post('/:lotId/bids', authMiddleware, async (req, res) => {
   try {
-    const lotRes = await db.query('SELECT state, closes_at FROM lots WHERE id = $1', [req.params.lotId]);
+    const lotRes = await db.query('SELECT state, closes_at, auction_id FROM lots WHERE id = $1', [req.params.lotId]);
     const lot    = lotRes.rows[0];
     if (!lot)                       return res.status(404).json({ success: false, message: 'Lot not found' });
     if (lot.state === 'withdrawn')  return res.status(403).json({ success: false, message: 'Lot is not open for bidding' });
@@ -168,6 +169,13 @@ router.post('/:lotId/bids', authMiddleware, async (req, res) => {
     // closes_at was 12 days in the past).
     if (lot.closes_at && new Date() > new Date(lot.closes_at)) {
       return res.status(422).json({ success: false, message: 'Lot has closed and is no longer accepting bids' });
+    }
+
+    // #20: server-side bidding gate — active account + accepted current terms +
+    // active auction registration. (Card-on-file is STEP 4, not enforced yet.)
+    const gate = await registrationService.assertCanBid(req.user.id, lot.auction_id);
+    if (!gate.ok) {
+      return res.status(gate.status).json({ success: false, message: gate.message, code: gate.code });
     }
 
     const { amount, maxBid, max_bid_cents } = req.body;

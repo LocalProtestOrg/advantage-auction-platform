@@ -316,6 +316,15 @@
     .cbf-status.err { color: #b91c1c; }
     .card-signin { margin-top: 0.55rem; font-size: 0.8rem; }
     .card-signin a { color: #1d4ed8; text-decoration: none; font-weight: 600; }
+    .card-register { margin-top: 0.6rem; display: flex; flex-direction: column; gap: 0.5rem; }
+    .btn-register {
+      padding: 0.5rem 0.9rem; font-size: 0.85rem; font-weight: 700;
+      background: #047857; color: #fff; border: none; border-radius: 7px; cursor: pointer;
+    }
+    .btn-register:disabled { opacity: 0.6; cursor: default; }
+    .register-ack-text { font-size: 0.76rem; color: #4b5563; line-height: 1.35; }
+    .register-ack-text a { color: #1d4ed8; text-decoration: none; font-weight: 600; }
+    .register-ack { font-size: 0.78rem; color: #374151; display: flex; align-items: flex-start; gap: 0.35rem; }
     .card-actions { margin-top: 0.55rem; display: flex; justify-content: flex-end; }
     .view-details { font-size: 0.8rem; color: #1d4ed8; text-decoration: none; font-weight: 600; }
     .view-details:hover { text-decoration: underline; }
@@ -479,6 +488,7 @@
   const grid      = document.getElementById('lot-grid');
   const token     = localStorage.getItem('token');
   let   auctionState = null;   // #5/#19: 'published' | 'active' | 'closed' | …
+  let   bidGate = { logged_in: false, terms_accepted_current: false, registered: false, can_bid: false }; // #20
 
   if (!auctionId) {
     grid.innerHTML = '<div class="state-msg"><strong>No auction selected.</strong>Check the URL and try again.</div>';
@@ -676,6 +686,9 @@
       ]);
       if (!lotsRes.success) throw new Error(lotsRes.message || 'Failed to load lots');
       auctionState = (meta && meta.success && meta.data) ? meta.data.state : auctionState;
+
+      // #20: refresh the bidder gate (logged in? terms? registered?) for this auction.
+      bidGate = await BidUtils.getBidGate(auctionId, token);
 
       const allLots = lotsRes.data;
       // #5: while the auction is actively closing, show only lots still open so
@@ -938,55 +951,9 @@
       startCardCountdown(lotId, cd, cdVal, progressFill, lotCloseTime(lot));
     }
 
-    // Inline bidding (logged-in + open), else sign-in prompt
-    if (open && token) {
-      const form = document.createElement('div');
-      form.className = 'card-bidform';
-      const row = document.createElement('div');
-      row.className = 'cbf-row';
-      const input = document.createElement('input');
-      input.type = 'text';
-      input.setAttribute('inputmode', 'decimal');
-      input.setAttribute('autocomplete', 'off');
-      input.placeholder = BidUtils.formatUSD(nextMin) + ' or more';
-      const btn = document.createElement('button');
-      btn.type = 'button';
-      btn.textContent = 'Place Bid';
-      row.appendChild(input); row.appendChild(btn);
-      const status = document.createElement('div');
-      status.className = 'cbf-status';
-      form.appendChild(row); form.appendChild(status);
-      body.appendChild(form);
-
-      async function submitBid() {
-        const built = BidUtils.buildBidPayload(input.value, null);
-        if (built.error) { status.className = 'cbf-status err'; status.textContent = built.error; return; }
-        btn.disabled = true; const orig = btn.textContent; btn.textContent = 'Placing…';
-        status.className = 'cbf-status'; status.textContent = '';
-        const r = await BidUtils.placeBid(lotId, built.payload, token);
-        if (r.unauthorized) { localStorage.removeItem('token'); window.location.href = '/login.html'; return; }
-        btn.disabled = false; btn.textContent = orig;
-        if (r.ok) {
-          status.className = 'cbf-status ok';
-          status.textContent = 'Bid placed: ' + BidUtils.formatUSD(Math.round(built.amount * 100));
-          input.value = '';
-          await patchCardBids(card, lotId);
-        } else {
-          status.className = 'cbf-status err';
-          status.textContent = r.message;
-        }
-      }
-      btn.addEventListener('click', submitBid);
-      input.addEventListener('keydown', e => { if (e.key === 'Enter') submitBid(); });
-    } else if (open && !token) {
-      const signin = document.createElement('div');
-      signin.className = 'card-signin';
-      const nextUrl = encodeURIComponent(location.pathname + location.search);
-      const link = document.createElement('a');
-      link.href = '/login.html?next=' + nextUrl;
-      link.textContent = 'Sign in to bid →';
-      signin.appendChild(link);
-      body.appendChild(signin);
+    // #20 gate-aware bid area: sign-in / accept-terms / register-to-bid / bid form.
+    if (open) {
+      renderCardBidArea(card, body, lot, lotId, nextMin);
     }
 
     // View details (always)
@@ -1001,6 +968,103 @@
 
     card.appendChild(body);
     return card;
+  }
+
+  // #20: choose the bid CTA for an open lot based on the bidder gate.
+  function renderCardBidArea(card, body, lot, lotId, nextMin) {
+    if (!token || !bidGate.logged_in) {
+      const signin = document.createElement('div');
+      signin.className = 'card-signin';
+      const nextUrl = encodeURIComponent(location.pathname + location.search);
+      signin.innerHTML = '<a href="/login.html?next=' + nextUrl + '">Sign in or create an account to bid →</a>';
+      body.appendChild(signin);
+      return;
+    }
+    if (!bidGate.terms_accepted_current) {
+      const el = document.createElement('div');
+      el.className = 'card-signin';
+      el.innerHTML = '<a href="/buyer-terms.html">Accept Buyer Terms to bid →</a>';
+      body.appendChild(el);
+      return;
+    }
+    if (!bidGate.can_bid) {
+      const reg = document.createElement('div');
+      reg.className = 'card-register';
+      const btn = document.createElement('button');
+      btn.type = 'button'; btn.className = 'btn-register'; btn.textContent = 'Register to Bid';
+      const status = document.createElement('div'); status.className = 'cbf-status';
+      reg.appendChild(btn); reg.appendChild(status);
+      body.appendChild(reg);
+      btn.addEventListener('click', () => showCardRegisterPanel(reg, lot.auction_id));
+      return;
+    }
+    renderCardBidForm(card, body, lotId, nextMin);
+  }
+
+  // Pickup-acknowledgement panel → register, then refresh the grid so bid forms show.
+  function showCardRegisterPanel(reg, auctionId) {
+    reg.innerHTML = '';
+    const txt = document.createElement('div');
+    txt.className = 'register-ack-text';
+    txt.innerHTML = 'By registering you accept the <a href="/buyer-terms.html">Buyer Terms</a> and acknowledge you must collect won lots during the scheduled pickup window.';
+    const lbl = document.createElement('label');
+    lbl.className = 'register-ack';
+    const cb = document.createElement('input'); cb.type = 'checkbox';
+    const span = document.createElement('span'); span.textContent = ' I acknowledge the pickup obligations.';
+    lbl.appendChild(cb); lbl.appendChild(span);
+    const confirm = document.createElement('button');
+    confirm.type = 'button'; confirm.className = 'btn-register'; confirm.textContent = 'Confirm & Register';
+    const st = document.createElement('div'); st.className = 'cbf-status';
+    reg.appendChild(txt); reg.appendChild(lbl); reg.appendChild(confirm); reg.appendChild(st);
+    confirm.addEventListener('click', async () => {
+      if (!cb.checked) { st.className = 'cbf-status err'; st.textContent = 'Please acknowledge the pickup obligations.'; return; }
+      confirm.disabled = true; confirm.textContent = 'Registering…';
+      const r = await BidUtils.registerForAuction(auctionId, token, true);
+      if (r.unauthorized) { localStorage.removeItem('token'); window.location.href = '/login.html'; return; }
+      if (r.ok) { bidGate.can_bid = true; bidGate.registered = true; loadAuction(); }
+      else { confirm.disabled = false; confirm.textContent = 'Confirm & Register'; st.className = 'cbf-status err'; st.textContent = r.message; }
+    });
+  }
+
+  function renderCardBidForm(card, body, lotId, nextMin) {
+    const form = document.createElement('div');
+    form.className = 'card-bidform';
+    const row = document.createElement('div');
+    row.className = 'cbf-row';
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.setAttribute('inputmode', 'decimal');
+    input.setAttribute('autocomplete', 'off');
+    input.placeholder = BidUtils.formatUSD(nextMin) + ' or more';
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.textContent = 'Place Bid';
+    row.appendChild(input); row.appendChild(btn);
+    const status = document.createElement('div');
+    status.className = 'cbf-status';
+    form.appendChild(row); form.appendChild(status);
+    body.appendChild(form);
+
+    async function submitBid() {
+      const built = BidUtils.buildBidPayload(input.value, null);
+      if (built.error) { status.className = 'cbf-status err'; status.textContent = built.error; return; }
+      btn.disabled = true; const orig = btn.textContent; btn.textContent = 'Placing…';
+      status.className = 'cbf-status'; status.textContent = '';
+      const r = await BidUtils.placeBid(lotId, built.payload, token);
+      if (r.unauthorized) { localStorage.removeItem('token'); window.location.href = '/login.html'; return; }
+      btn.disabled = false; btn.textContent = orig;
+      if (r.ok) {
+        status.className = 'cbf-status ok';
+        status.textContent = 'Bid placed: ' + BidUtils.formatUSD(Math.round(built.amount * 100));
+        input.value = '';
+        await patchCardBids(card, lotId);
+      } else {
+        status.className = 'cbf-status err';
+        status.textContent = r.message;
+      }
+    }
+    btn.addEventListener('click', submitBid);
+    input.addEventListener('keydown', e => { if (e.key === 'Enter') submitBid(); });
   }
 
   function showPlaceholder(wrap) {

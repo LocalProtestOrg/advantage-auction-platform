@@ -762,6 +762,7 @@
       document.getElementById('panel-content').style.display = 'flex';
 
       if (token) {
+        await applyBidGate();   // #20: gate the bid form (terms / registration)
         startRefresh();
       } else {
         showGuestBidPanel();
@@ -793,6 +794,47 @@
     const historyWrap = document.getElementById('bid-list')?.closest('div[style]') ||
                         document.querySelector('.history-header')?.parentElement;
     if (historyWrap) historyWrap.style.display = 'none';
+  }
+
+  // #20: gate the bid form for a logged-in buyer — accept-terms / register / bid.
+  async function applyBidGate() {
+    if (!currentAuctionId || lotClosed || realizedHidden) return;
+    const gate = await BidUtils.getBidGate(currentAuctionId, token);
+    if (gate.can_bid) return; // registered + terms accepted → keep the bid form
+    const form = document.querySelector('.bid-form');
+    if (!form) return;
+
+    if (!gate.terms_accepted_current) {
+      form.innerHTML =
+        '<div style="text-align:center; padding:0.5rem 0;">' +
+        '<p style="color:#374151; margin:0 0 0.8rem; font-size:0.92rem; line-height:1.4;">Accept the AAC Buyer Terms &amp; Conditions to bid on this auction.</p>' +
+        '<a href="/buyer-terms.html" style="display:block; background:#1d4ed8; color:#fff; padding:0.75rem 1rem; border-radius:8px; text-decoration:none; font-weight:600;">Review &amp; Accept Terms</a></div>';
+      return;
+    }
+
+    // terms accepted but not registered → register-to-bid with pickup acknowledgement
+    form.innerHTML = '';
+    const p = document.createElement('p');
+    p.style.cssText = 'color:#374151; margin:0 0 0.6rem; font-size:0.9rem; line-height:1.4;';
+    p.innerHTML = 'Register to bid in this auction. By registering you accept the <a href="/buyer-terms.html" style="color:#1d4ed8;">Buyer Terms</a> and acknowledge you must collect won lots during the scheduled pickup window.';
+    const lbl = document.createElement('label');
+    lbl.style.cssText = 'display:flex; gap:0.4rem; align-items:flex-start; font-size:0.85rem; color:#374151; margin-bottom:0.7rem;';
+    const cb = document.createElement('input'); cb.type = 'checkbox';
+    const span = document.createElement('span'); span.textContent = ' I acknowledge the pickup obligations.';
+    lbl.appendChild(cb); lbl.appendChild(span);
+    const btn = document.createElement('button');
+    btn.type = 'button'; btn.textContent = 'Register to Bid';
+    btn.style.cssText = 'width:100%; background:#047857; color:#fff; padding:0.75rem 1rem; border:none; border-radius:8px; font-weight:700; cursor:pointer;';
+    const st = document.createElement('div'); st.style.cssText = 'font-size:0.8rem; margin-top:0.5rem;';
+    form.appendChild(p); form.appendChild(lbl); form.appendChild(btn); form.appendChild(st);
+    btn.addEventListener('click', async () => {
+      if (!cb.checked) { st.style.color = '#b91c1c'; st.textContent = 'Please acknowledge the pickup obligations.'; return; }
+      btn.disabled = true; btn.textContent = 'Registering…';
+      const r = await BidUtils.registerForAuction(currentAuctionId, token, true);
+      if (r.unauthorized) { localStorage.removeItem('token'); window.location.href = '/login.html'; return; }
+      if (r.ok) { window.location.reload(); }
+      else { btn.disabled = false; btn.textContent = 'Register to Bid'; st.style.color = '#b91c1c'; st.textContent = r.message; }
+    });
   }
 
   // ── Auto-refresh bids every 3 s ───────────────────────────────────────────────

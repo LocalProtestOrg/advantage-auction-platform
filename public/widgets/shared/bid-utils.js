@@ -76,12 +76,46 @@
     }
   }
 
+  // #20: the caller's per-auction bid gate (logged in? terms accepted? registered?).
+  async function getBidGate(auctionId, token) {
+    if (!token) return { logged_in: false, terms_accepted_current: false, registered: false, can_bid: false };
+    try {
+      var res = await fetch('/api/auctions/' + auctionId + '/registration-status', { headers: { Authorization: 'Bearer ' + token } });
+      if (res.status === 401) return { logged_in: false, terms_accepted_current: false, registered: false, can_bid: false };
+      var data = await res.json();
+      return Object.assign({ logged_in: true }, (data && data.success) ? data.data : {});
+    } catch (e) {
+      return { logged_in: true, terms_accepted_current: false, registered: false, can_bid: false };
+    }
+  }
+
+  // #20: register for an auction. Returns { ok, status, message, data }.
+  async function registerForAuction(auctionId, token, pickupAcknowledged) {
+    try {
+      var res = await fetch('/api/auctions/' + auctionId + '/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+        body: JSON.stringify({ pickup_acknowledged: !!pickupAcknowledged })
+      });
+      var data = await res.json().catch(function () { return null; });
+      if (res.status === 401) return { ok: false, status: 401, unauthorized: true, message: 'Please log in.' };
+      if (!res.ok || !data || !data.success) {
+        return { ok: false, status: res.status, code: data && data.code, message: (data && data.message) || 'Registration failed. Please try again.' };
+      }
+      return { ok: true, status: res.status, data: data.data };
+    } catch (e) {
+      return { ok: false, status: 0, message: 'Could not register. Please check your connection and try again.' };
+    }
+  }
+
   global.BidUtils = {
     parseMoney: parseMoney,
     nextMinCents: nextMinCents,
     formatUSD: formatUSD,
     humanizeBidError: humanizeBidError,
     buildBidPayload: buildBidPayload,
-    placeBid: placeBid
+    placeBid: placeBid,
+    getBidGate: getBidGate,
+    registerForAuction: registerForAuction
   };
 })(window);

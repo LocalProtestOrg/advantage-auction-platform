@@ -9,6 +9,7 @@ const { buildReportPdf }        = require('../services/pdfGenerationService');
 const { sendEmail }             = require('../services/emailService');
 const db                        = require('../db/index');
 const { canMutateAuction, canDeleteAuction, lockErrorMessage } = require('./lots');
+const registrationService = require('../services/auctionRegistrationService'); // #20
 
 function isUuid(v) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(v);
@@ -423,6 +424,39 @@ router.delete('/:auctionId', authMiddleware, async (req, res) => {
   } catch (err) {
     console.error('Delete Auction Error:', err);
     return res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// ── #20 Auction (bidder) registration ───────────────────────────────────────
+// POST /api/auctions/:auctionId/register — logged-in buyer registers to bid.
+// Requires accepted current terms + pickup acknowledgement. Idempotent.
+router.post('/:auctionId/register', authMiddleware, async (req, res) => {
+  try {
+    const { auctionId } = req.params;
+    if (!isUuid(auctionId)) return res.status(400).json({ success: false, message: 'Invalid auction ID' });
+    const result = await registrationService.registerForAuction(req.user.id, auctionId, {
+      pickupAcknowledged: req.body && req.body.pickup_acknowledged === true,
+    });
+    return res.json({ success: true, data: result });
+  } catch (err) {
+    if (err instanceof registrationService.RegistrationError) {
+      return res.status(err.status).json({ success: false, message: err.message, code: err.code });
+    }
+    console.error('[auctions] register failed:', err.message);
+    return res.status(500).json({ success: false, message: 'Registration failed' });
+  }
+});
+
+// GET /api/auctions/:auctionId/registration-status — the caller's gate state.
+router.get('/:auctionId/registration-status', authMiddleware, async (req, res) => {
+  try {
+    const { auctionId } = req.params;
+    if (!isUuid(auctionId)) return res.status(400).json({ success: false, message: 'Invalid auction ID' });
+    const status = await registrationService.getRegistrationStatus(req.user.id, auctionId);
+    return res.json({ success: true, data: status });
+  } catch (err) {
+    console.error('[auctions] registration-status failed:', err.message);
+    return res.status(500).json({ success: false, message: 'Failed to load registration status' });
   }
 });
 
