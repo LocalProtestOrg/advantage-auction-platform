@@ -1032,4 +1032,40 @@ router.patch('/auctions/:auctionId/discovery', auth, role(['admin']), async (req
 // Auth + role enforcement is applied inside adminConfig.js
 router.use('/config', require('./adminConfig').router);
 
+// ── #22 Archive / hide auction (launch-safe; NO hard delete, NO cascade) ─────
+// POST /api/admin/auctions/:auctionId/archive — hide from public surfaces.
+router.post('/auctions/:auctionId/archive', auth, role(['admin']), async (req, res, next) => {
+  try {
+    const { auctionId } = req.params;
+    const reason = (req.body && typeof req.body.reason === 'string') ? req.body.reason.slice(0, 1000) : null;
+    const { rows } = await db.query(
+      `UPDATE auctions
+          SET is_archived = true, archived_at = now(), archived_by = $2, archive_reason = $3, updated_at = now()
+        WHERE id = $1
+        RETURNING id, title, state, is_archived, archived_at, archived_by, archive_reason`,
+      [auctionId, req.user.id, reason]
+    );
+    if (!rows[0]) return res.status(404).json({ success: false, message: 'Auction not found' });
+    writeAuditLog({ event_type: 'auction.archived', entity_type: 'auction', entity_id: auctionId, auction_id: auctionId, actor_id: req.user.id, metadata: { reason } }).catch(() => {});
+    return res.json({ success: true, data: rows[0] });
+  } catch (err) { next(err); }
+});
+
+// POST /api/admin/auctions/:auctionId/unarchive — restore public visibility.
+router.post('/auctions/:auctionId/unarchive', auth, role(['admin']), async (req, res, next) => {
+  try {
+    const { auctionId } = req.params;
+    const { rows } = await db.query(
+      `UPDATE auctions
+          SET is_archived = false, archived_at = NULL, archived_by = NULL, archive_reason = NULL, updated_at = now()
+        WHERE id = $1
+        RETURNING id, title, state, is_archived`,
+      [auctionId]
+    );
+    if (!rows[0]) return res.status(404).json({ success: false, message: 'Auction not found' });
+    writeAuditLog({ event_type: 'auction.unarchived', entity_type: 'auction', entity_id: auctionId, auction_id: auctionId, actor_id: req.user.id, metadata: {} }).catch(() => {});
+    return res.json({ success: true, data: rows[0] });
+  } catch (err) { next(err); }
+});
+
 module.exports = router;

@@ -257,6 +257,10 @@ router.get('/auction/:auctionId/seller', auth, async (req, res, next) => {
 // final hammer price (public) and is included so the closed-lot display works.
 router.get('/auction/:auctionId', optionalAuth, async (req, res, next) => {
   try {
+    // #22: archived auctions are not browsable publicly.
+    const arch = (await db.query('SELECT is_archived FROM auctions WHERE id = $1', [req.params.auctionId])).rows[0];
+    if (arch && arch.is_archived) return res.status(404).json({ success: false, message: 'Auction not available' });
+
     const result = await db.query(
       `SELECT id, auction_id, lot_number, title, description,
               category, size_category, pickup_category,
@@ -591,7 +595,9 @@ router.get('/:lotId', optionalAuth, async (req, res, next) => {
               closes_at, extended_until, extension_count,
               thumbnail_url, images_count,
               created_at, updated_at
-       FROM lots WHERE id = $1`,
+       FROM lots
+       WHERE id = $1
+         AND NOT EXISTS (SELECT 1 FROM auctions a WHERE a.id = lots.auction_id AND a.is_archived IS TRUE)`,
       [req.params.lotId]
     );
     const lot = result.rows[0] || null;

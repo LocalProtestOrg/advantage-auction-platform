@@ -49,8 +49,9 @@ router.get('/auctions', async (req, res, next) => {
       params.push(q.state);
       where.push(`a.state = $${params.length}`);
     } else {
-      where.push(`a.state IN ('published', 'active')`);
+      where.push(`a.state IN ('published', 'active') AND a.is_archived IS NOT TRUE`);
     }
+    where.push(`a.is_archived IS NOT TRUE`); // #22: archived auctions never appear publicly
 
     if (q.city) {
       params.push(`%${q.city.trim()}%`);
@@ -225,7 +226,7 @@ router.get('/auctions/near', async (req, res, next) => {
             LEFT JOIN lots l ON l.auction_id = a.id AND l.state != 'withdrawn'
            WHERE a.lat IS NOT NULL
              AND a.lng IS NOT NULL
-             AND a.state IN ('published', 'active')
+             AND a.state IN ('published', 'active') AND a.is_archived IS NOT TRUE
              ${extraWhere}
            GROUP BY a.id, sp.id
         ) sub
@@ -281,7 +282,7 @@ router.get('/auctions/:id', async (req, res, next) => {
         LEFT JOIN seller_profiles sp ON sp.id = a.seller_id
         LEFT JOIN lots l ON l.auction_id = a.id AND l.state != 'withdrawn'
        WHERE a.id = $1
-         AND a.state IN ('published', 'active', 'closed')
+         AND a.state IN ('published', 'active', 'closed') AND a.is_archived IS NOT TRUE
        GROUP BY a.id, sp.id
     `, [id]);
 
@@ -305,7 +306,7 @@ router.get('/auctions/:id/lots', async (req, res, next) => {
     const offset = Math.max(parseInt(req.query.offset, 10) || 0, 0);
 
     const auctionCheck = await db.query(
-      `SELECT id FROM auctions WHERE id = $1 AND state IN ('published', 'active', 'closed')`,
+      `SELECT id FROM auctions WHERE id = $1 AND state IN ('published', 'active', 'closed') AND is_archived IS NOT TRUE`,
       [id]
     );
     if (!auctionCheck.rows.length) {
@@ -363,7 +364,7 @@ router.get('/featured-lots', async (req, res, next) => {
 
     const validAS = ['published', 'active', 'closed'];
     const as = req.query.auction_state;
-    let stateClause = `a.state IN ('published', 'active')`;
+    let stateClause = `a.state IN ('published', 'active') AND a.is_archived IS NOT TRUE`;
     if (as && validAS.includes(as)) stateClause = `a.state = '${as}'`;
 
     const { rows } = await db.query(`
@@ -504,7 +505,7 @@ router.get('/featured-auctions', async (req, res, next) => {
               FROM auctions a
               LEFT JOIN seller_profiles sp ON sp.id = a.seller_id
               LEFT JOIN lots lo ON lo.auction_id = a.id AND lo.state != 'withdrawn'
-             WHERE a.state IN ('published', 'active')
+             WHERE a.state IN ('published', 'active') AND a.is_archived IS NOT TRUE
                AND a.marketplace_priority > 0
              GROUP BY a.id, sp.id
           ) sub
@@ -540,7 +541,7 @@ router.get('/featured-auctions', async (req, res, next) => {
           FROM auctions a
           LEFT JOIN seller_profiles sp ON sp.id = a.seller_id
           LEFT JOIN lots lo ON lo.auction_id = a.id AND lo.state != 'withdrawn'
-         WHERE a.state IN ('published', 'active')
+         WHERE a.state IN ('published', 'active') AND a.is_archived IS NOT TRUE
            AND a.marketplace_priority > 0
          GROUP BY a.id, sp.id
          ORDER BY ${auctionScoreSQL('a')} DESC, a.id ASC
@@ -612,12 +613,12 @@ router.get('/locations', async (req, res, next) => {
              a.address_state,
              COUNT(DISTINCT a.id)::int AS auction_count,
              COUNT(DISTINCT a.id) FILTER (
-               WHERE a.state IN ('published', 'active')
+               WHERE a.state IN ('published', 'active') AND a.is_archived IS NOT TRUE
              )::int AS active_count
         FROM auctions a
        WHERE a.city IS NOT NULL
          AND a.address_state IS NOT NULL
-         AND a.state IN ('published', 'active', 'closed')
+         AND a.state IN ('published', 'active', 'closed') AND a.is_archived IS NOT TRUE
          ${stateFilter}
        GROUP BY a.city, a.address_state
        ORDER BY active_count DESC, auction_count DESC
@@ -645,10 +646,10 @@ router.get('/sellers/:sellerId/profile', async (req, res, next) => {
              sp.logo_url,
              sp.seller_type,
              COUNT(DISTINCT a.id) FILTER (
-               WHERE a.state IN ('published', 'active', 'closed')
+               WHERE a.state IN ('published', 'active', 'closed') AND a.is_archived IS NOT TRUE
              )::int AS auction_count,
              COUNT(DISTINCT a.id) FILTER (
-               WHERE a.state IN ('published', 'active')
+               WHERE a.state IN ('published', 'active') AND a.is_archived IS NOT TRUE
              )::int AS active_auction_count
         FROM seller_profiles sp
         LEFT JOIN auctions a ON a.seller_id = sp.id
@@ -656,7 +657,7 @@ router.get('/sellers/:sellerId/profile', async (req, res, next) => {
          AND EXISTS (
                SELECT 1 FROM auctions ea
                 WHERE ea.seller_id = sp.id
-                  AND ea.state IN ('published', 'active', 'closed')
+                  AND ea.state IN ('published', 'active', 'closed') AND ea.is_archived IS NOT TRUE
              )
        GROUP BY sp.id
     `, [sellerId]);
@@ -744,7 +745,7 @@ router.get('/lots/ending-soon', async (req, res, next) => {
        WHERE l.state = 'open'
          AND l.closes_at > NOW()
          AND l.closes_at <= NOW() + INTERVAL '48 hours'
-         AND a.state = 'active'
+         AND a.state = 'active' AND a.is_archived IS NOT TRUE
          ${extraWhereSQL}
        ORDER BY l.closes_at ASC
        LIMIT $${limitIdx}
@@ -804,7 +805,7 @@ router.get('/lots/recently-added', async (req, res, next) => {
         LEFT JOIN seller_profiles sp ON sp.id = a.seller_id
        WHERE l.state != 'withdrawn'
          AND l.created_at >= NOW() - INTERVAL '21 days'
-         AND a.state = 'active'
+         AND a.state = 'active' AND a.is_archived IS NOT TRUE
          ${extraWhereSQL}
        ORDER BY l.created_at DESC
        LIMIT $${limitIdx}
@@ -863,7 +864,7 @@ router.get('/lots/trending', async (req, res, next) => {
         LEFT JOIN seller_profiles sp ON sp.id = a.seller_id
        WHERE l.state = 'open'
          AND l.bid_count >= 1
-         AND a.state = 'active'
+         AND a.state = 'active' AND a.is_archived IS NOT TRUE
          ${extraWhereSQL}
        ORDER BY l.bid_count DESC, l.closes_at ASC
        LIMIT $${limitIdx}

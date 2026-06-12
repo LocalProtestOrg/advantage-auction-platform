@@ -185,6 +185,7 @@ router.get('/:auctionId/summary', async (req, res) => {
          FROM auctions a
          LEFT JOIN seller_followers sf ON sf.seller_id = a.seller_id
         WHERE a.id = $1
+          AND a.is_archived IS NOT TRUE   -- #22: archived auctions are not public
         GROUP BY a.id`,
       [auctionId]
     );
