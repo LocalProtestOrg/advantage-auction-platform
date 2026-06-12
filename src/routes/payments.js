@@ -7,11 +7,48 @@ const auth = require('../middleware/authMiddleware');
 const role = require('../middleware/roleMiddleware');
 const idempotency = require('../middleware/idempotency');
 const paymentService = require('../services/paymentService');
+const cardService = require('../services/cardService'); // #20 STEP 4 card-on-file
 const Stripe = require('stripe');
 
 // GET /api/payments/config — returns Stripe publishable key for frontend use
 router.get('/config', (req, res) => {
   res.json({ publishableKey: process.env.STRIPE_PUBLISHABLE_KEY || '' });
+});
+
+// #20 STEP 4: card-on-file (Stripe TEST, no charge).
+// POST /api/payments/setup-intent — create a SetupIntent to save a card.
+router.post('/setup-intent', auth, async (req, res) => {
+  try {
+    const data = await cardService.createSetupIntent(req.user.id);
+    return res.json({ success: true, data });
+  } catch (err) {
+    console.error('[payments] setup-intent failed:', err.message);
+    return res.status(500).json({ success: false, message: 'Could not start card setup' });
+  }
+});
+
+// POST /api/payments/card-on-file — after the client confirms the SetupIntent,
+// record the saved PM as the default + a verified marker. No charge.
+router.post('/card-on-file', auth, async (req, res) => {
+  try {
+    const data = await cardService.recordCardOnFile(req.user.id);
+    return res.json({ success: true, data });
+  } catch (err) {
+    if (err.code === 'NO_PM') return res.status(422).json({ success: false, message: err.message, code: 'NO_PM' });
+    console.error('[payments] card-on-file save failed:', err.message);
+    return res.status(500).json({ success: false, message: 'Could not save payment method' });
+  }
+});
+
+// GET /api/payments/card-on-file — whether the buyer has a card on file.
+router.get('/card-on-file', auth, async (req, res) => {
+  try {
+    const has = await cardService.hasCardOnFile(req.user.id);
+    return res.json({ success: true, data: { has_card: has } });
+  } catch (err) {
+    console.error('[payments] card-on-file status failed:', err.message);
+    return res.status(500).json({ success: false, message: 'Could not check payment method' });
+  }
 });
 
 // POST /api/payments/charge-lot

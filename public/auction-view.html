@@ -987,6 +987,14 @@
       body.appendChild(el);
       return;
     }
+    if (!bidGate.card_on_file) {
+      const el = document.createElement('div');
+      el.className = 'card-signin';
+      const nextUrl = encodeURIComponent(location.pathname + location.search);
+      el.innerHTML = '<a href="/add-card.html?next=' + nextUrl + '">Add a payment method to bid →</a>';
+      body.appendChild(el);
+      return;
+    }
     if (!bidGate.can_bid) {
       const reg = document.createElement('div');
       reg.className = 'card-register';

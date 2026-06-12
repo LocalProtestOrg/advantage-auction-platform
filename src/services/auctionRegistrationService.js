@@ -4,6 +4,7 @@
 // ACTIVE registration row. Card-on-file is STEP 4 (not enforced here yet).
 const db = require('../db');
 const termsService = require('./termsService');
+const cardService = require('./cardService'); // #20 STEP 4
 const { writeAuditLog } = require('../lib/auditLog');
 
 const REGISTRABLE_STATES = ['published', 'active'];
@@ -42,6 +43,10 @@ async function registerForAuction(userId, auctionId, { pickupAcknowledged } = {}
 
   if (!(await termsService.hasAcceptedCurrentTerms(userId))) {
     throw new RegistrationError('TERMS_NOT_ACCEPTED', 'Please accept the current Buyer Terms & Conditions before registering.', 403);
+  }
+  // STEP 4: a saved/verified card is required to register to bid (no charge).
+  if (!(await cardService.hasCardOnFile(userId))) {
+    throw new RegistrationError('CARD_REQUIRED', 'Please add a payment method before bidding.', 402);
   }
   const termsAcceptanceId = await _currentTermsAcceptanceId(userId);
 
@@ -82,14 +87,16 @@ async function getRegistrationStatus(userId, auctionId) {
     [auctionId, userId]
   )).rows[0] || null;
   const termsAccepted = await termsService.hasAcceptedCurrentTerms(userId);
+  const cardOnFile = await cardService.hasCardOnFile(userId);
   const registeredActive = !!reg && reg.status === 'active';
   return {
     registered: registeredActive,
     status: reg ? reg.status : null,
     pickup_acknowledged: reg ? reg.pickup_acknowledged : false,
     terms_accepted_current: termsAccepted,
+    card_on_file: cardOnFile,
     paddle_number: reg ? reg.paddle_number : null,
-    can_bid: registeredActive && termsAccepted,
+    can_bid: registeredActive && termsAccepted && cardOnFile,
   };
 }
 
@@ -104,6 +111,11 @@ async function assertCanBid(userId, auctionId) {
   const reg = (await db.query('SELECT status FROM auction_buyers WHERE auction_id = $1 AND user_id = $2', [auctionId, userId])).rows[0];
   if (!reg) return { ok: false, status: 403, code: 'NOT_REGISTERED', message: 'Please register to bid in this auction.' };
   if (reg.status !== 'active') return { ok: false, status: 403, code: 'REGISTRATION_REVOKED', message: 'Your registration for this auction is not active.' };
+  // STEP 4: card-on-file required (defense-in-depth — a card could be removed
+  // after registration).
+  if (!(await cardService.hasCardOnFile(userId))) {
+    return { ok: false, status: 402, code: 'CARD_REQUIRED', message: 'Please add a payment method before bidding.' };
+  }
   return { ok: true };
 }
 
