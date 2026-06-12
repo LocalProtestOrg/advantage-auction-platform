@@ -319,6 +319,12 @@
     .card-actions { margin-top: 0.55rem; display: flex; justify-content: flex-end; }
     .view-details { font-size: 0.8rem; color: #1d4ed8; text-decoration: none; font-weight: 600; }
     .view-details:hover { text-decoration: underline; }
+    .card-realized-prompt {
+      margin-top: auto; padding-top: 0.65rem; border-top: 1px solid #f4f4f5;
+      font-size: 0.82rem; line-height: 1.35;
+    }
+    .card-realized-prompt a { color: #1d4ed8; text-decoration: none; font-weight: 600; }
+    .card-realized-prompt a:hover { text-decoration: underline; }
     .card-img-link { display: block; }
 
     /* ── States ── */
@@ -661,8 +667,11 @@
   async function loadAuction() {
     try {
       // Pull lots + auction state together; state drives #5 visibility.
+      // Send the token (when present) so logged-in users receive realized/sold
+      // prices on closed lots; anonymous callers get them gated server-side (#20.1).
+      const authH = token ? { headers: { Authorization: 'Bearer ' + token } } : {};
       const [lotsRes, meta] = await Promise.all([
-        fetch('/api/lots/auction/' + auctionId).then(r => r.json()),
+        fetch('/api/lots/auction/' + auctionId, authH).then(r => r.json()),
         fetch('/api/auctions/' + auctionId + '/summary').then(r => r.json()).catch(() => null),
       ]);
       if (!lotsRes.success) throw new Error(lotsRes.message || 'Failed to load lots');
@@ -782,7 +791,8 @@
   // endpoint which returns server-authoritative next_min_bid_cents.
   async function patchCardBids(card, lotId) {
     try {
-      const res  = await fetch('/api/lots/' + lotId);
+      const authH = token ? { headers: { Authorization: 'Bearer ' + token } } : {};
+      const res  = await fetch('/api/lots/' + lotId, authH);
       const data = await res.json();
       if (!data.success || !data.data) return;
       const lot      = data.data;
@@ -890,17 +900,28 @@
     const nextMin   = Number(lot.next_min_bid_cents) > 0 ? Number(lot.next_min_bid_cents)
                     : BidUtils.nextMinCents(starting, cents, increment);
 
-    const bidRow = document.createElement('div');
-    bidRow.className = 'card-bid';
-    const bidLabel = document.createElement('span');
-    bidLabel.className   = 'bid-label';
-    bidLabel.textContent = 'Current bid';
-    const bidAmt = document.createElement('span');
-    bidAmt.className   = cents > 0 ? 'bid-amount' : 'bid-amount no-bids';
-    bidAmt.textContent = cents > 0 ? BidUtils.formatUSD(cents) : 'No bids — starts ' + BidUtils.formatUSD(starting);
-    bidRow.appendChild(bidLabel);
-    bidRow.appendChild(bidAmt);
-    body.appendChild(bidRow);
+    if (lot.realized_price_hidden) {
+      // #20.1: realized/sold price gated for anonymous users on closed lots.
+      const prompt = document.createElement('div');
+      prompt.className = 'card-realized-prompt';
+      const a = document.createElement('a');
+      a.href = '/login.html?next=' + encodeURIComponent(location.pathname + location.search);
+      a.textContent = 'Log in or create an account to view realized prices';
+      prompt.appendChild(a);
+      body.appendChild(prompt);
+    } else {
+      const bidRow = document.createElement('div');
+      bidRow.className = 'card-bid';
+      const bidLabel = document.createElement('span');
+      bidLabel.className   = 'bid-label';
+      bidLabel.textContent = (lot.state === 'closed') ? 'Sold for' : 'Current bid';
+      const bidAmt = document.createElement('span');
+      bidAmt.className   = cents > 0 ? 'bid-amount' : 'bid-amount no-bids';
+      bidAmt.textContent = cents > 0 ? BidUtils.formatUSD(cents) : 'No bids — starts ' + BidUtils.formatUSD(starting);
+      bidRow.appendChild(bidLabel);
+      bidRow.appendChild(bidAmt);
+      body.appendChild(bidRow);
+    }
 
     if (open) {
       const nm = document.createElement('div');

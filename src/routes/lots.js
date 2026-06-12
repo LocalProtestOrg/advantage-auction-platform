@@ -2,6 +2,8 @@ const express = require('express');
 const router = express.Router();
 const auth = require('../middleware/authMiddleware');
 const authMiddleware = require('../middleware/authMiddleware');
+const optionalAuth = require('../middleware/optionalAuthMiddleware');
+const { redactRealizedPrice } = require('../lib/realizedPrice'); // #20.1
 const db = require('../db');
 const { getBidsByLot, createBid, resolveBidIncrement } = require('../services/bidService');
 const imageProcessingService      = require('../services/imageProcessingService');
@@ -245,7 +247,7 @@ router.get('/auction/:auctionId/seller', auth, async (req, res, next) => {
 // Withdrawn lots are excluded — this endpoint is buyer-facing and public.
 // winning_buyer_user_id and current_winner_user_id excluded; winning_amount_cents is the
 // final hammer price (public) and is included so the closed-lot display works.
-router.get('/auction/:auctionId', async (req, res, next) => {
+router.get('/auction/:auctionId', optionalAuth, async (req, res, next) => {
   try {
     const result = await db.query(
       `SELECT id, auction_id, lot_number, title, description,
@@ -285,7 +287,9 @@ router.get('/auction/:auctionId', async (req, res, next) => {
       }
     }
 
-    res.json({ success: true, data: lots });
+    // #20.1: gate realized/sold prices on closed lots for anonymous callers.
+    const isAuthed = !!req.user;
+    res.json({ success: true, data: lots.map(l => redactRealizedPrice(l, isAuthed)) });
   } catch (err) {
     next(err);
   }
@@ -566,7 +570,7 @@ router.get('/:lotId/winner-status', authMiddleware, async (req, res, next) => {
 // Withdrawn lots return 404 — this endpoint is buyer-facing and public.
 // winning_buyer_user_id and current_winner_user_id excluded; winning_amount_cents is the
 // final hammer price (public) and is included so the closed-lot display works.
-router.get('/:lotId', async (req, res, next) => {
+router.get('/:lotId', optionalAuth, async (req, res, next) => {
   try {
     const result = await db.query(
       `SELECT id, auction_id, lot_number, title, description,
@@ -607,7 +611,7 @@ router.get('/:lotId', async (req, res, next) => {
       lot.next_min_bid_cents = Math.max(lot.starting_bid_cents || 100, (lot.current_bid_cents || 0) + fb);
     }
 
-    res.json({ success: true, data: lot });
+    res.json({ success: true, data: redactRealizedPrice(lot, !!req.user) });
   } catch (err) {
     next(err);
   }

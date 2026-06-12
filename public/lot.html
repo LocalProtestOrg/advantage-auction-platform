@@ -719,6 +719,7 @@
   let startingBidCents  = 100;
   let bidIncrementCents = 500;
   let hasBids           = false;
+  let realizedHidden    = false;  // #20.1: anonymous + closed lot → price gated
   let bidding         = false;
   let refreshTimer    = null;
   let countdownTimer  = null;
@@ -934,8 +935,18 @@
     // Current price display: starting bid when no bids, else the current bid.
     // Next-min uses the server's exact floor: max(starting, current + increment),
     // so with no bids it is max(starting, increment) — not just the starting bid.
-    setCurrentBid(hasBids ? curCents : startingBidCents);
-    updateHint(curCents);
+    // #20.1: anonymous viewing a CLOSED lot — gate the realized/sold price.
+    realizedHidden = !!lot.realized_price_hidden;
+    if (realizedHidden) {
+      const cb = document.getElementById('current-bid');
+      if (cb) cb.innerHTML = '<a href="/login.html?next=' + encodeURIComponent(location.pathname + location.search) +
+        '" style="color:#1d4ed8;font-weight:600;font-size:0.95rem;text-decoration:none;">Log in to view realized price</a>';
+      const bh = document.getElementById('bid-hint');
+      if (bh) bh.textContent = 'Log in or create an account to view realized prices.';
+    } else {
+      setCurrentBid(hasBids ? curCents : startingBidCents);
+      updateHint(curCents);
+    }
 
     // Item detail fields
     const details = [];
@@ -1232,6 +1243,7 @@
 
   // ── Current bid + flash ───────────────────────────────────────────────────────
   function setCurrentBid(cents) {
+    if (realizedHidden) return; // keep the "log in to view realized price" prompt
     const el = document.getElementById('current-bid');
     if (!el) return;
     let c = Number(cents);
@@ -1257,6 +1269,7 @@
   }
 
   function updateHint(currentCents) {
+    if (realizedHidden) return;
     const el = document.getElementById('bid-hint');
     if (!el) return;
     // Next-min math lives in the shared helper (mirrors bidService exactly).
