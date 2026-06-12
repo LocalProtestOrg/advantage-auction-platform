@@ -264,7 +264,28 @@ router.get('/auction/:auctionId', async (req, res, next) => {
        ORDER BY created_at ASC`,
       [req.params.auctionId]
     );
-    res.json({ success: true, data: result.rows });
+
+    // #17/#16: surface server-authoritative bid math so the lot cards' "Next
+    // minimum bid" agrees EXACTLY with bidService validation. Every lot in an
+    // auction resolves to the same increment (resolveBidIncrement walks
+    // lot→auction→house, and lot-level is currently inert), so resolve once.
+    const lots = result.rows;
+    if (lots.length) {
+      let sharedIncrement = 500; // $5 house default fallback
+      try {
+        sharedIncrement = await resolveBidIncrement(db, lots[0]);
+      } catch (e) {
+        console.error('[lots] list resolveBidIncrement failed for auction', req.params.auctionId, e.message);
+      }
+      for (const lot of lots) {
+        const starting = lot.starting_bid_cents || 100;
+        const current  = lot.current_bid_cents  || 0;
+        lot.effective_bid_increment_cents = sharedIncrement;
+        lot.next_min_bid_cents = Math.max(starting, current + sharedIncrement);
+      }
+    }
+
+    res.json({ success: true, data: lots });
   } catch (err) {
     next(err);
   }

@@ -636,6 +636,7 @@
   <div id="lb-counter"></div>
 </div>
 
+<script src="/widgets/shared/bid-utils.js"></script>
 <script>
   const token  = localStorage.getItem('token');
   const params = new URLSearchParams(location.search);
@@ -1258,37 +1259,16 @@
   function updateHint(currentCents) {
     const el = document.getElementById('bid-hint');
     if (!el) return;
-    let cur = Number(currentCents);
-    if (!Number.isFinite(cur) || cur < 0) cur = 0;
-    // EXACT mirror of bidService: minimum next bid = max(starting, current + increment).
-    // With no bids (cur=0) this is max(starting, increment); with bids it's current
-    // + increment. bidIncrementCents is the server-resolved value, so they agree.
-    let nextCents = Math.max(startingBidCents, cur + bidIncrementCents);
-    if (!Number.isFinite(nextCents) || nextCents <= 0) nextCents = startingBidCents;
-    el.textContent = 'Next minimum bid: $' + (nextCents / 100).toFixed(2);
+    // Next-min math lives in the shared helper (mirrors bidService exactly).
+    const nextCents = BidUtils.nextMinCents(startingBidCents, currentCents, bidIncrementCents);
+    el.textContent = 'Next minimum bid: ' + BidUtils.formatUSD(nextCents);
   }
 
   // ── Place bid ────────────────────────────────────────────────────────────────
-  // Normalize money input: accept "5", "5.00", "$5", "$5.00", "1,000", "1000.00".
-  function parseMoney(v) {
-    if (v == null) return NaN;
-    const cleaned = String(v).replace(/[$,\s]/g, '');
-    if (cleaned === '') return NaN;
-    const n = Number(cleaned);
-    return Number.isFinite(n) ? n : NaN;
-  }
-
-  // Map a failed bid response to a clear, human message — never a raw JS error.
-  function humanizeBidError(status, serverMsg) {
-    if (serverMsg && /^(Bid|Max bid|Your bid|Enter a bid)/i.test(serverMsg)) {
-      return serverMsg; // already buyer-friendly, e.g. "Bid must be at least $25.00"
-    }
-    if (status === 401) return 'Please log in to bid.';
-    if (status === 403) return 'This lot is not open for bidding.';
-    if (status === 404) return 'This lot could not be found. Please refresh and try again.';
-    if (status === 422) return (serverMsg && /closed/i.test(serverMsg)) ? 'This lot has already closed.' : (serverMsg || 'This lot is not accepting bids.');
-    return serverMsg || 'Your bid could not be placed. Please refresh and try again.';
-  }
+  // Bid parsing + error wording live in the shared BidUtils module so lot.html
+  // and auction-view.html never drift. Thin local aliases keep call sites stable.
+  function parseMoney(v) { return BidUtils.parseMoney(v); }
+  function humanizeBidError(status, serverMsg) { return BidUtils.humanizeBidError(status, serverMsg); }
 
   document.getElementById('btn-bid').addEventListener('click', async () => {
     const input        = document.getElementById('bid-input');

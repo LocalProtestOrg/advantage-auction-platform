@@ -261,6 +261,38 @@
     .bid-amount { font-size: 1.05rem; font-weight: 800; color: #111; }
     .bid-amount.no-bids { color: #a1a1aa; font-weight: 500; font-size: 0.85rem; }
 
+    /* ── #17: inline card bidding ── */
+    .card-nextmin { font-size: 0.74rem; color: #6b7280; margin-top: 0.2rem; }
+    .card-nextmin strong { color: #111; font-weight: 700; }
+    .card-countdown {
+      display: flex; align-items: center; gap: 0.3rem;
+      font-size: 0.78rem; font-weight: 600; color: #b45309;
+      margin-top: 0.35rem;
+    }
+    .card-countdown.urgent { color: #b91c1c; }
+    .card-countdown.ended  { color: #71717a; }
+    .card-bidform { margin-top: 0.6rem; display: flex; flex-direction: column; gap: 0.4rem; }
+    .card-bidform .cbf-row { display: flex; gap: 0.4rem; }
+    .card-bidform input {
+      flex: 1; min-width: 0; padding: 0.45rem 0.55rem; font-size: 0.85rem;
+      border: 1.5px solid #e2e8f0; border-radius: 6px; color: #111;
+    }
+    .card-bidform button {
+      padding: 0.45rem 0.8rem; font-size: 0.82rem; font-weight: 700;
+      background: #1d4ed8; color: #fff; border: none; border-radius: 6px; cursor: pointer;
+      white-space: nowrap;
+    }
+    .card-bidform button:disabled { opacity: 0.6; cursor: default; }
+    .cbf-status { font-size: 0.76rem; min-height: 1em; }
+    .cbf-status.ok  { color: #15803d; }
+    .cbf-status.err { color: #b91c1c; }
+    .card-signin { margin-top: 0.55rem; font-size: 0.8rem; }
+    .card-signin a { color: #1d4ed8; text-decoration: none; font-weight: 600; }
+    .card-actions { margin-top: 0.55rem; display: flex; justify-content: flex-end; }
+    .view-details { font-size: 0.8rem; color: #1d4ed8; text-decoration: none; font-weight: 600; }
+    .view-details:hover { text-decoration: underline; }
+    .card-img-link { display: block; }
+
     /* ── States ── */
     .state-msg {
       grid-column: 1 / -1;
@@ -404,6 +436,7 @@
 
 <script src="/widgets/shared/analytics.js"></script>
 <script src="/widgets/shared/marketplace-seller-cta.js"></script>
+<script src="/widgets/shared/bid-utils.js"></script>
 <script>
   const params    = new URLSearchParams(location.search);
   // Accept ?auctionId= (canonical) or ?id= (legacy/marketplace card links) so
@@ -420,6 +453,17 @@
     loadSellerInfo();
     loadWalkthroughVideo();
     initSellerAcquisitionCta();
+
+    // #8: refresh lot/bid state automatically when returning to the page
+    // (bfcache restore or tab re-focus). Skip if a bid is half-typed so we
+    // never wipe a buyer's in-progress entry.
+    function anyBidInputDirty() {
+      return Array.from(document.querySelectorAll('.card-bidform input')).some(i => i.value.trim() !== '');
+    }
+    window.addEventListener('pageshow', e => { if (e.persisted && !anyBidInputDirty()) loadAuction(); });
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible' && !anyBidInputDirty()) loadAuction();
+    });
   }
 
   function initSellerAcquisitionCta() {
@@ -598,6 +642,7 @@
       // Fetch first image (with best_image_url) for each lot in parallel
       const imageMap = await fetchFirstImages(lots.map(l => l.id));
 
+      clearAllCardTimers();
       grid.innerHTML = '';
       lots.forEach(lot => grid.appendChild(buildCard(lot, imageMap[lot.id])));
 
@@ -628,18 +673,83 @@
     return map;
   }
 
+  // ── #17: per-card countdown timers (cleared on every re-render) ─────────────
+  const cardTimers = {};
+  function clearAllCardTimers() {
+    Object.keys(cardTimers).forEach(id => { clearInterval(cardTimers[id]); delete cardTimers[id]; });
+  }
+  function lotCloseTime(lot) { return lot.extended_until || lot.closes_at || null; }
+  function lotIsOpen(lot) {
+    if ((lot.state || 'open').toLowerCase() !== 'open') return false;
+    const close = lotCloseTime(lot);
+    return !(close && Date.now() > new Date(close).getTime());
+  }
+  function startCardCountdown(lotId, wrap, span, closesAt) {
+    if (cardTimers[lotId]) { clearInterval(cardTimers[lotId]); delete cardTimers[lotId]; }
+    if (!closesAt) { wrap.style.display = 'none'; return; }
+    const end = new Date(closesAt).getTime();
+    function tick() {
+      const remaining = end - Date.now();
+      if (remaining <= 0) {
+        span.textContent = 'Ended';
+        wrap.classList.add('ended'); wrap.classList.remove('urgent');
+        clearInterval(cardTimers[lotId]); delete cardTimers[lotId];
+        return;
+      }
+      const h = Math.floor(remaining / 3600000);
+      const m = Math.floor((remaining % 3600000) / 60000);
+      const s = Math.floor((remaining % 60000) / 1000);
+      span.textContent = h > 0 ? (h + 'h ' + String(m).padStart(2, '0') + 'm')
+                       : m > 0 ? (m + 'm ' + String(s).padStart(2, '0') + 's')
+                       : (s + 's');
+      wrap.classList.toggle('urgent', remaining < 60000);
+    }
+    tick();
+    cardTimers[lotId] = setInterval(tick, 1000);
+  }
+
+  // After a bid, refresh just this card's bid figures in place (keeps the
+  // success message + the buyer's place in the grid). Uses the single-lot
+  // endpoint which returns server-authoritative next_min_bid_cents.
+  async function patchCardBids(card, lotId) {
+    try {
+      const res  = await fetch('/api/lots/' + lotId);
+      const data = await res.json();
+      if (!data.success || !data.data) return;
+      const lot      = data.data;
+      const cents    = Number(lot.current_bid_cents) > 0 ? Number(lot.current_bid_cents) : 0;
+      const starting = Number(lot.starting_bid_cents) > 0 ? Number(lot.starting_bid_cents) : 100;
+      const nextMin  = Number(lot.next_min_bid_cents) > 0 ? Number(lot.next_min_bid_cents)
+                     : BidUtils.nextMinCents(starting, cents, lot.effective_bid_increment_cents);
+      const amtEl = card.querySelector('.bid-amount');
+      if (amtEl) {
+        amtEl.className   = cents > 0 ? 'bid-amount' : 'bid-amount no-bids';
+        amtEl.textContent = cents > 0 ? BidUtils.formatUSD(cents) : 'No bids — starts ' + BidUtils.formatUSD(starting);
+      }
+      const nmEl = card.querySelector('.card-nextmin strong');
+      if (nmEl) nmEl.textContent = BidUtils.formatUSD(nextMin);
+      const inp = card.querySelector('.card-bidform input');
+      if (inp) inp.placeholder = BidUtils.formatUSD(nextMin) + ' or more';
+    } catch { /* ignore refresh blip */ }
+  }
+
   function buildCard(lot, imgInfo) {
-    const url      = imgInfo?.url      || null;
-    const enhanced = imgInfo?.enhanced || false;
+    const url       = imgInfo?.url      || null;
+    const enhanced  = imgInfo?.enhanced || false;
+    const lotId     = lot.id;
+    const open      = lotIsOpen(lot);
+    const detailsUrl = '/lot.html?lotId=' + encodeURIComponent(lotId);
 
-    const a = document.createElement('a');
-    a.className = 'lot-card';
-    a.href      = '/lot.html?lotId=' + lot.id;
+    const card = document.createElement('div');
+    card.className = 'lot-card';
+    card.setAttribute('data-lot-id', lotId);
 
-    // Image area
+    // Image (links to full details)
+    const imgLink = document.createElement('a');
+    imgLink.className = 'card-img-link';
+    imgLink.href = detailsUrl;
     const imgWrap = document.createElement('div');
     imgWrap.className = 'card-img';
-
     if (url) {
       const img   = document.createElement('img');
       img.alt     = lot.title || 'Lot image';
@@ -648,7 +758,6 @@
       img.onerror = () => { img.style.display = 'none'; showPlaceholder(imgWrap); };
       img.src     = url;
       imgWrap.appendChild(img);
-
       if (enhanced) {
         const badge = document.createElement('div');
         badge.className   = 'enhanced-badge';
@@ -658,24 +767,25 @@
     } else {
       showPlaceholder(imgWrap);
     }
+    const st = (lot.state || 'open').toLowerCase();
+    const sbadge = document.createElement('div');
+    sbadge.className   = 'status-badge status-' + (st === 'open' ? 'open' : st === 'closed' ? 'closed' : 'withdrawn');
+    sbadge.textContent = st === 'open' ? 'Live' : st === 'closed' ? 'Closed' : 'Withdrawn';
+    imgWrap.appendChild(sbadge);
+    imgLink.appendChild(imgWrap);
+    card.appendChild(imgLink);
 
-    // Status badge
-    const st    = (lot.state || 'open').toLowerCase();
-    const badge = document.createElement('div');
-    badge.className   = 'status-badge status-' + (st === 'open' ? 'open' : st === 'closed' ? 'closed' : 'withdrawn');
-    badge.textContent = st === 'open' ? 'Live' : st === 'closed' ? 'Closed' : 'Withdrawn';
-    imgWrap.appendChild(badge);
-
-    // Card body
-    const body  = document.createElement('div');
+    // Body
+    const body = document.createElement('div');
     body.className = 'card-body';
 
-    const titleEl = document.createElement('div');
-    titleEl.className   = 'card-title';
-    // OP-D: prefix card title with "Lot #N · " when lot_number is set.
-    // Helps buyers reference lots by sequence in conversations and search.
+    const titleEl = document.createElement('a');
+    titleEl.className = 'card-title';
+    titleEl.href = detailsUrl;
+    titleEl.style.textDecoration = 'none';
     const numPrefix = (lot.lot_number != null) ? ('Lot #' + lot.lot_number + ' · ') : '';
     titleEl.textContent = numPrefix + (lot.title || 'Untitled');
+    body.appendChild(titleEl);
 
     if (lot.category) {
       const catEl = document.createElement('div');
@@ -684,27 +794,104 @@
       body.appendChild(catEl);
     }
 
+    // Current bid + next-min (server-authoritative)
+    const cents     = Number(lot.current_bid_cents) > 0 ? Number(lot.current_bid_cents) : 0;
+    const starting  = Number(lot.starting_bid_cents) > 0 ? Number(lot.starting_bid_cents) : 100;
+    const increment = Number(lot.effective_bid_increment_cents) > 0 ? Number(lot.effective_bid_increment_cents)
+                    : (Number(lot.bid_increment_cents) > 0 ? Number(lot.bid_increment_cents) : 500);
+    const nextMin   = Number(lot.next_min_bid_cents) > 0 ? Number(lot.next_min_bid_cents)
+                    : BidUtils.nextMinCents(starting, cents, increment);
+
     const bidRow = document.createElement('div');
     bidRow.className = 'card-bid';
-
     const bidLabel = document.createElement('span');
     bidLabel.className   = 'bid-label';
     bidLabel.textContent = 'Current bid';
-
-    const bidAmt  = document.createElement('span');
-    const cents   = lot.current_bid_cents || 0;
+    const bidAmt = document.createElement('span');
     bidAmt.className   = cents > 0 ? 'bid-amount' : 'bid-amount no-bids';
-    bidAmt.textContent = cents > 0 ? '$' + (cents / 100).toFixed(2) : 'No bids yet';
-
+    bidAmt.textContent = cents > 0 ? BidUtils.formatUSD(cents) : 'No bids — starts ' + BidUtils.formatUSD(starting);
     bidRow.appendChild(bidLabel);
     bidRow.appendChild(bidAmt);
-
-    body.appendChild(titleEl);
     body.appendChild(bidRow);
 
-    a.appendChild(imgWrap);
-    a.appendChild(body);
-    return a;
+    if (open) {
+      const nm = document.createElement('div');
+      nm.className = 'card-nextmin';
+      nm.innerHTML = 'Next min: <strong>' + BidUtils.formatUSD(nextMin) + '</strong>';
+      body.appendChild(nm);
+
+      const cd = document.createElement('div');
+      cd.className = 'card-countdown';
+      const cdIcon = document.createElement('span'); cdIcon.textContent = '⏱';
+      const cdVal  = document.createElement('span');
+      cd.appendChild(cdIcon); cd.appendChild(cdVal);
+      body.appendChild(cd);
+      startCardCountdown(lotId, cd, cdVal, lotCloseTime(lot));
+    }
+
+    // Inline bidding (logged-in + open), else sign-in prompt
+    if (open && token) {
+      const form = document.createElement('div');
+      form.className = 'card-bidform';
+      const row = document.createElement('div');
+      row.className = 'cbf-row';
+      const input = document.createElement('input');
+      input.type = 'text';
+      input.setAttribute('inputmode', 'decimal');
+      input.setAttribute('autocomplete', 'off');
+      input.placeholder = BidUtils.formatUSD(nextMin) + ' or more';
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.textContent = 'Place Bid';
+      row.appendChild(input); row.appendChild(btn);
+      const status = document.createElement('div');
+      status.className = 'cbf-status';
+      form.appendChild(row); form.appendChild(status);
+      body.appendChild(form);
+
+      async function submitBid() {
+        const built = BidUtils.buildBidPayload(input.value, null);
+        if (built.error) { status.className = 'cbf-status err'; status.textContent = built.error; return; }
+        btn.disabled = true; const orig = btn.textContent; btn.textContent = 'Placing…';
+        status.className = 'cbf-status'; status.textContent = '';
+        const r = await BidUtils.placeBid(lotId, built.payload, token);
+        if (r.unauthorized) { localStorage.removeItem('token'); window.location.href = '/login.html'; return; }
+        btn.disabled = false; btn.textContent = orig;
+        if (r.ok) {
+          status.className = 'cbf-status ok';
+          status.textContent = 'Bid placed: ' + BidUtils.formatUSD(Math.round(built.amount * 100));
+          input.value = '';
+          await patchCardBids(card, lotId);
+        } else {
+          status.className = 'cbf-status err';
+          status.textContent = r.message;
+        }
+      }
+      btn.addEventListener('click', submitBid);
+      input.addEventListener('keydown', e => { if (e.key === 'Enter') submitBid(); });
+    } else if (open && !token) {
+      const signin = document.createElement('div');
+      signin.className = 'card-signin';
+      const nextUrl = encodeURIComponent(location.pathname + location.search);
+      const link = document.createElement('a');
+      link.href = '/login.html?next=' + nextUrl;
+      link.textContent = 'Sign in to bid →';
+      signin.appendChild(link);
+      body.appendChild(signin);
+    }
+
+    // View details (always)
+    const actions = document.createElement('div');
+    actions.className = 'card-actions';
+    const vd = document.createElement('a');
+    vd.className = 'view-details';
+    vd.href = detailsUrl;
+    vd.textContent = 'View details →';
+    actions.appendChild(vd);
+    body.appendChild(actions);
+
+    card.appendChild(body);
+    return card;
   }
 
   function showPlaceholder(wrap) {
