@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Buyer Terms &amp; Conditions of Sale — Advantage Auction</title>
+  <style>
+    :root { color-scheme: light; }
+    body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+           background: #f8fafc; color: #1f2937; }
+    .wrap { max-width: 760px; margin: 0 auto; padding: 2rem 1.25rem 4rem; }
+    .doc { background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 1.75rem 1.9rem; }
+    .doc h1 { font-size: 1.5rem; margin: 0 0 0.25rem; }
+    .doc h2, .doc h3 { font-size: 1.05rem; margin: 1.3rem 0 0.4rem; }
+    .doc .meta { color: #6b7280; font-size: 0.85rem; margin-bottom: 1.25rem; }
+    .doc p { line-height: 1.55; }
+    .doc li { line-height: 1.5; margin: 0.25rem 0; }
+    .accept-bar { position: sticky; bottom: 0; margin-top: 1.5rem; background: #fff;
+                  border: 1px solid #e5e7eb; border-radius: 12px; padding: 1rem 1.2rem;
+                  display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
+    .accept-bar .status { font-size: 0.9rem; color: #374151; }
+    .accept-bar .status.ok { color: #15803d; font-weight: 600; }
+    .accept-bar button { background: #1d4ed8; color: #fff; border: none; border-radius: 8px;
+                         padding: 0.7rem 1.3rem; font-size: 0.95rem; font-weight: 700; cursor: pointer; }
+    .accept-bar button:disabled { opacity: 0.55; cursor: default; }
+    .signin a { color: #1d4ed8; font-weight: 600; text-decoration: none; }
+    .loading { color: #6b7280; padding: 2rem; text-align: center; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="doc">
+      <div id="doc-body" class="loading">Loading terms…</div>
+    </div>
+    <div class="accept-bar" id="accept-bar" style="display:none">
+      <div class="status" id="accept-status"></div>
+      <div id="accept-action"></div>
+    </div>
+  </div>
+
+  <script>
+    const token = localStorage.getItem('token');
+
+    // Minimal, safe markdown renderer (headings, lists, bold, paragraphs).
+    function esc(s) { return String(s).replace(/[&<>]/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;' }[c])); }
+    function renderMarkdown(md) {
+      const lines = md.replace(/\r\n/g, '\n').split('\n');
+      let html = '', inList = false;
+      const inline = t => esc(t).replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+      for (const raw of lines) {
+        const line = raw.trim();
+        const li = line.match(/^(?:[-*]|\d+\.)\s+(.*)$/);
+        if (li) { if (!inList) { html += '<ul>'; inList = true; } html += '<li>' + inline(li[1]) + '</li>'; continue; }
+        if (inList) { html += '</ul>'; inList = false; }
+        if (!line) continue;
+        if (line.startsWith('### ')) html += '<h3>' + inline(line.slice(4)) + '</h3>';
+        else if (line.startsWith('## ')) html += '<h2>' + inline(line.slice(3)) + '</h2>';
+        else if (line.startsWith('# ')) html += '<h1>' + inline(line.slice(2)) + '</h1>';
+        else html += '<p>' + inline(line) + '</p>';
+      }
+      if (inList) html += '</ul>';
+      return html;
+    }
+
+    async function load() {
+      const docBody = document.getElementById('doc-body');
+      try {
+        const res = await fetch('/api/terms/current');
+        const data = await res.json();
+        if (!data.success || !data.data) { docBody.textContent = 'Terms are not available right now.'; return; }
+        const t = data.data;
+        docBody.className = '';
+        docBody.innerHTML =
+          '<div class="meta">Version ' + t.version_int + ' · effective ' +
+          new Date(t.effective_at).toLocaleDateString() + '</div>' + renderMarkdown(t.body_markdown);
+        await renderAcceptBar(t.version_int);
+      } catch (e) {
+        docBody.textContent = 'Could not load terms. Please try again.';
+      }
+    }
+
+    async function renderAcceptBar(versionInt) {
+      const bar = document.getElementById('accept-bar');
+      const status = document.getElementById('accept-status');
+      const action = document.getElementById('accept-action');
+      bar.style.display = 'flex';
+      if (!token) {
+        status.innerHTML = 'Log in to accept these terms.';
+        action.innerHTML = '<span class="signin"><a href="/login.html?next=' +
+          encodeURIComponent('/buyer-terms.html') + '">Log in or create an account →</a></span>';
+        return;
+      }
+      let accepted = false;
+      try {
+        const r = await fetch('/api/terms/me/acceptance', { headers: { Authorization: 'Bearer ' + token } });
+        if (r.status === 401) { localStorage.removeItem('token'); }
+        else { const d = await r.json(); accepted = d.success && d.data.accepted_current; }
+      } catch {}
+      if (accepted) {
+        status.className = 'status ok';
+        status.textContent = '✓ You have accepted the current terms (v' + versionInt + ').';
+        action.innerHTML = '';
+        return;
+      }
+      status.className = 'status';
+      status.textContent = 'You have not yet accepted the current terms.';
+      const btn = document.createElement('button');
+      btn.textContent = 'Accept Terms';
+      btn.addEventListener('click', async () => {
+        btn.disabled = true; btn.textContent = 'Saving…';
+        try {
+          const r = await fetch('/api/terms/accept', { method: 'POST', headers: { Authorization: 'Bearer ' + token } });
+          const d = await r.json();
+          if (d.success) { status.className = 'status ok'; status.textContent = '✓ Terms accepted. Thank you.'; action.innerHTML = ''; }
+          else { btn.disabled = false; btn.textContent = 'Accept Terms'; status.textContent = d.message || 'Could not save. Try again.'; }
+        } catch { btn.disabled = false; btn.textContent = 'Accept Terms'; status.textContent = 'Could not save. Try again.'; }
+      });
+      action.innerHTML = ''; action.appendChild(btn);
+    }
+
+    load();
+  </script>
+</body>
+</html>
