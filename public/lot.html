@@ -48,7 +48,10 @@
     #main-image-wrap {
       width: 100%;
       aspect-ratio: 4/3;
-      background: #000;
+      /* Default to white to match the admin/build view and the marketplace
+         thumbnails (white-background processed images). Per-item dark backdrops
+         for white/silver/glass items are a follow-up (see deferred #13). */
+      background: #fff;
       border-radius: 8px;
       overflow: hidden;
       display: flex;
@@ -586,14 +589,16 @@
         <div class="field-label">Your Bid</div>
         <div class="bid-hint" id="bid-hint">Enter your bid amount</div>
         <div class="bid-row">
-          <input type="number" id="bid-input" placeholder="0.00" min="0" step="0.01" />
+          <input type="text" inputmode="decimal" id="bid-input" placeholder="0.00"
+                 autocomplete="off" />
           <button class="btn-place-bid" id="btn-bid">Place Bid</button>
         </div>
         <div style="margin-top:0.6rem">
           <div class="field-label" style="font-size:0.75rem; color:#94a3b8; font-weight:500; margin-bottom:0.25rem">
             Max Bid — proxy (optional)
           </div>
-          <input type="number" id="max-bid-input" placeholder="Set your maximum…" min="0" step="0.01"
+          <input type="text" inputmode="decimal" id="max-bid-input" placeholder="Set your maximum…"
+                 autocomplete="off"
                  style="width:100%; padding:0.5rem 0.75rem; border:1.5px solid #e2e8f0; border-radius:6px;
                         font-size:0.9rem; color:#374151; background:#f8fafc;" />
         </div>
@@ -634,7 +639,9 @@
 <script>
   const token  = localStorage.getItem('token');
   const params = new URLSearchParams(location.search);
-  const lotId  = params.get('lotId');
+  // Accept ?lotId= (canonical) or ?id= (legacy card links) so shared/older
+  // links don't dead-end on "No lot ID in URL".
+  const lotId  = params.get('lotId') || params.get('id');
 
   if (!lotId)  document.getElementById('loading-overlay').textContent = 'No lot ID in URL.';
 
@@ -698,12 +705,17 @@
   const currentUserId = _decodeJwt(token)?.id || null;
 
   const REFRESH_INTERVAL = 3000;
-  const BID_INCREMENT    = 5;
 
   // imageRows stores full API rows: { url, enhanced }
   let imageRows       = [];
   let activeIndex     = 0;
   let topBidAmount    = 0;
+  // Lot pricing context (cents). Populated from the lot endpoint in renderLot.
+  // Defaults: $1 start / $1 increment (the platform fallbacks) so the display
+  // never reads NaN or $0.00 before the lot loads.
+  let startingBidCents  = 100;
+  let bidIncrementCents = 100;
+  let hasBids           = false;
   let bidding         = false;
   let refreshTimer    = null;
   let countdownTimer  = null;
@@ -905,7 +917,18 @@
     // unhelpful to buyers. Fall back to size_category if no category set.
     document.getElementById('lot-category').textContent    = lot.category || lot.size_category || '';
     document.getElementById('lot-description').textContent = lot.description || '';
-    setCurrentBid(lot.current_bid_cents || 0);
+
+    // Pricing context (cents) — used by setCurrentBid / updateHint. Coerce and
+    // fall back to platform defaults so a missing/NaN field never surfaces as
+    // "$NaN" or a misleading "$0.00".
+    startingBidCents  = Number(lot.starting_bid_cents)  > 0 ? Number(lot.starting_bid_cents)  : 100;
+    bidIncrementCents = Number(lot.bid_increment_cents) > 0 ? Number(lot.bid_increment_cents) : 100;
+    const curCents    = Number(lot.current_bid_cents)   > 0 ? Number(lot.current_bid_cents)   : 0;
+    hasBids           = curCents > 0 || Number(lot.bid_count) > 0;
+    // With no bids the current price IS the starting bid, and the next minimum
+    // is the starting bid itself; with bids it's current + increment.
+    setCurrentBid(hasBids ? curCents : startingBidCents);
+    updateHint(hasBids ? curCents : startingBidCents);
 
     // Item detail fields
     const details = [];
@@ -1145,6 +1168,10 @@
       list.appendChild(empty);
       countLabel.textContent = '';
       setActivity(0, 0);
+      // No bids yet: current price is the starting bid; next min is the starting bid.
+      hasBids = false;
+      setCurrentBid(startingBidCents);
+      updateHint(startingBidCents);
       return;
     }
 
@@ -1157,10 +1184,15 @@
     const newTop = Number(sorted[0].amount);
     const isNewTopBid = fromPoll && newTop > topBidAmount;
 
-    const topCents = Math.round(newTop * 100);
+    // Guard against a malformed bid row (null/undefined amount) so the current
+    // bid never renders as "$NaN"; fall back to the last good top or starting bid.
+    const topCents = Number.isFinite(newTop) && newTop > 0
+      ? Math.round(newTop * 100)
+      : (topBidAmount > 0 ? Math.round(topBidAmount * 100) : startingBidCents);
+    hasBids = true;
     setCurrentBid(topCents);
     if (isNewTopBid) flashBidDisplay();
-    topBidAmount = newTop;
+    if (Number.isFinite(newTop) && newTop > 0) topBidAmount = newTop;
 
     setActivity(bids.length, topCents);
     updateHint(topCents);
@@ -1192,8 +1224,11 @@
 
   // ── Current bid + flash ───────────────────────────────────────────────────────
   function setCurrentBid(cents) {
-    document.getElementById('current-bid').innerHTML =
-      '$' + (cents / 100).toFixed(2) + ' <span>USD</span>';
+    const el = document.getElementById('current-bid');
+    if (!el) return;
+    let c = Number(cents);
+    if (!Number.isFinite(c) || c <= 0) c = startingBidCents; // never show $NaN / $0.00
+    el.innerHTML = '$' + (c / 100).toFixed(2) + ' <span>USD</span>';
   }
 
   function flashBidDisplay() {
@@ -1214,28 +1249,58 @@
   }
 
   function updateHint(currentCents) {
-    const nextDollars = (currentCents / 100) + BID_INCREMENT;
-    document.getElementById('bid-hint').textContent =
-      'Next minimum bid: $' + nextDollars.toFixed(2);
+    const el = document.getElementById('bid-hint');
+    if (!el) return;
+    let cur = Number(currentCents);
+    if (!Number.isFinite(cur) || cur <= 0) cur = startingBidCents;
+    // No bids → you may bid the starting amount. With bids → current + the
+    // lot's own increment (not a hardcoded $5).
+    let nextCents = hasBids ? (cur + bidIncrementCents) : startingBidCents;
+    if (!Number.isFinite(nextCents) || nextCents <= 0) nextCents = startingBidCents;
+    el.textContent = 'Next minimum bid: $' + (nextCents / 100).toFixed(2);
   }
 
   // ── Place bid ────────────────────────────────────────────────────────────────
+  // Normalize money input: accept "5", "5.00", "$5", "$5.00", "1,000", "1000.00".
+  function parseMoney(v) {
+    if (v == null) return NaN;
+    const cleaned = String(v).replace(/[$,\s]/g, '');
+    if (cleaned === '') return NaN;
+    const n = Number(cleaned);
+    return Number.isFinite(n) ? n : NaN;
+  }
+
+  // Map a failed bid response to a clear, human message — never a raw JS error.
+  function humanizeBidError(status, serverMsg) {
+    if (serverMsg && /^(Bid|Max bid|Your bid|Enter a bid)/i.test(serverMsg)) {
+      return serverMsg; // already buyer-friendly, e.g. "Bid must be at least $25.00"
+    }
+    if (status === 401) return 'Please log in to bid.';
+    if (status === 403) return 'This lot is not open for bidding.';
+    if (status === 404) return 'This lot could not be found. Please refresh and try again.';
+    if (status === 422) return (serverMsg && /closed/i.test(serverMsg)) ? 'This lot has already closed.' : (serverMsg || 'This lot is not accepting bids.');
+    return serverMsg || 'Your bid could not be placed. Please refresh and try again.';
+  }
+
   document.getElementById('btn-bid').addEventListener('click', async () => {
     const input        = document.getElementById('bid-input');
     const maxBidInput  = document.getElementById('max-bid-input');
     const btn          = document.getElementById('btn-bid');
-    const amount       = parseFloat(input.value);
-    const maxBidDollar = parseFloat(maxBidInput.value);
-    const hasMaxBid    = !isNaN(maxBidDollar) && maxBidDollar > 0;
+    if (!input || !maxBidInput || !btn) { setStatus('Bid form unavailable — please refresh the page.', 'err'); return; }
 
-    if ((!amount || amount <= 0) && !hasMaxBid) {
+    const amount       = parseMoney(input.value);
+    const maxBidDollar = parseMoney(maxBidInput.value);
+    const hasMaxBid    = Number.isFinite(maxBidDollar) && maxBidDollar > 0;
+    const hasAmount    = Number.isFinite(amount) && amount > 0;
+
+    if (!hasAmount && !hasMaxBid) {
       setStatus('Enter a bid amount or set a max bid.', 'err');
       return;
     }
 
     const payload = {};
-    if (amount > 0)  payload.amount       = amount;
-    if (hasMaxBid)   payload.max_bid_cents = Math.round(maxBidDollar * 100);
+    if (hasAmount)  payload.amount       = amount;
+    if (hasMaxBid)  payload.max_bid_cents = Math.round(maxBidDollar * 100);
 
     bidding      = true;
     btn.disabled = true;
@@ -1249,20 +1314,32 @@
         body:    JSON.stringify(payload)
       });
       if (res.status === 401) { localStorage.removeItem('token'); window.location.href = '/login.html'; return; }
-      const data = await res.json();
-      if (!data.success) throw new Error(data.message || 'Bid failed');
+
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !data || !data.success) {
+        setStatus(humanizeBidError(res.status, data && data.message), 'err');
+        return;
+      }
 
       input.value       = '';
       maxBidInput.value = '';
-      setStatus(hasMaxBid ? 'Max bid set!' : 'Bid placed!', 'ok');
+      // #2: echo the amount the buyer entered so they can remember their max.
+      setStatus(
+        hasMaxBid ? ('Max bid placed: $' + maxBidDollar.toFixed(2))
+                  : ('Bid placed: $' + amount.toFixed(2)),
+        'ok'
+      );
 
-      const bidRes  = await fetch('/api/lots/' + lotId + '/bids', { headers: { Authorization: 'Bearer ' + token } });
-      const bidData = await bidRes.json();
-      if (bidData.success) renderBids(bidData.data, false);
+      try {
+        const bidRes  = await fetch('/api/lots/' + lotId + '/bids', { headers: { Authorization: 'Bearer ' + token } });
+        const bidData = await bidRes.json().catch(() => null);
+        if (bidData && bidData.success) renderBids(bidData.data, false);
+      } catch { /* refresh blip — the bid itself succeeded */ }
 
       input.focus();
     } catch (err) {
-      setStatus(err.message, 'err');
+      // Network/unexpected error — human message, never a raw JS stack.
+      setStatus('Your bid could not be placed. Please check your connection and try again.', 'err');
     } finally {
       bidding      = false;
       btn.disabled = false;
@@ -1311,6 +1388,7 @@
 
   function setStatus(msg, type) {
     const el = document.getElementById('bid-status');
+    if (!el) return;
     el.textContent = msg;
     el.className   = type;
   }

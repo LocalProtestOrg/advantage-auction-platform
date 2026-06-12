@@ -406,7 +406,9 @@
 <script src="/widgets/shared/marketplace-seller-cta.js"></script>
 <script>
   const params    = new URLSearchParams(location.search);
-  const auctionId = params.get('auctionId');
+  // Accept ?auctionId= (canonical) or ?id= (legacy/marketplace card links) so
+  // older or externally-shared links don't dead-end on "No auction selected".
+  const auctionId = params.get('auctionId') || params.get('id');
   const grid      = document.getElementById('lot-grid');
   const token     = localStorage.getItem('token');
 

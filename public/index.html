@@ -686,7 +686,7 @@
   function makeAuctionCard(auction) {
     const a = document.createElement('a');
     a.className = 'auction-card';
-    a.href = '/auction-view.html?id=' + encodeURIComponent(auction.id);
+    a.href = '/auction-view.html?auctionId=' + encodeURIComponent(auction.id);
 
     const imgDiv = document.createElement('div');
     imgDiv.className = 'auction-card-img';
@@ -760,7 +760,7 @@
   function makeLotCard(lot) {
     const a = document.createElement('a');
     a.className = 'lot-card';
-    a.href = '/lot.html?id=' + encodeURIComponent(lot.id);
+    a.href = '/lot.html?lotId=' + encodeURIComponent(lot.id);
 
     const imgDiv = document.createElement('div');
     imgDiv.className = 'lot-card-img';
