@@ -271,6 +271,34 @@
     }
     .card-countdown.urgent { color: #b91c1c; }
     .card-countdown.ended  { color: #71717a; }
+
+    /* ── #19: per-lot countdown progress bar (final 60s urgency) ── */
+    .lot-progress {
+      position: relative;
+      height: 9px;
+      width: 100%;
+      background: #eef0f3;
+      overflow: hidden;
+    }
+    .lot-progress-fill {
+      height: 100%;
+      width: 100%;
+      transform-origin: left center;
+      border-radius: 0 6px 6px 0;
+      transition: width 1s linear, background 0.4s ease, box-shadow 0.4s ease;
+      background: linear-gradient(90deg, #34d399, #10b981);
+    }
+    /* >60s remaining — subtle, calm */
+    .lot-progress-fill.lp-idle  { background: linear-gradient(90deg, #a7f3d0, #6ee7b7); opacity: 0.5; }
+    /* 60–31s */
+    .lot-progress-fill.lp-green { background: linear-gradient(90deg, #34d399, #059669); opacity: 1; }
+    /* 30–16s */
+    .lot-progress-fill.lp-amber { background: linear-gradient(90deg, #fbbf24, #f97316); opacity: 1; }
+    /* 15–1s — urgent, with a soft glow */
+    .lot-progress-fill.lp-red   { background: linear-gradient(90deg, #fb7185, #dc2626); opacity: 1;
+                                  box-shadow: 0 0 10px rgba(220, 38, 38, 0.55); }
+    /* closed */
+    .lot-progress-fill.lp-closed { background: #27272a; opacity: 1; width: 0 !important; }
     .card-bidform { margin-top: 0.6rem; display: flex; flex-direction: column; gap: 0.4rem; }
     .card-bidform .cbf-row { display: flex; gap: 0.4rem; }
     .card-bidform input {
@@ -444,6 +472,7 @@
   const auctionId = params.get('auctionId') || params.get('id');
   const grid      = document.getElementById('lot-grid');
   const token     = localStorage.getItem('token');
+  let   auctionState = null;   // #5/#19: 'published' | 'active' | 'closed' | …
 
   if (!auctionId) {
     grid.innerHTML = '<div class="state-msg"><strong>No auction selected.</strong>Check the URL and try again.</div>';
@@ -503,8 +532,13 @@
       const parts = [];
       if (d.city && d.address_state) parts.push(d.city + ', ' + d.address_state);
       else if (d.city)               parts.push(d.city);
-      if (d.start_time) parts.push('Opens ' + fmtDate(d.start_time));
-      if (d.end_time)   parts.push('Closes ' + fmtDate(d.end_time));
+      // #7: soft timed-auction language — avoid a single hard "auction end time".
+      if (d.state === 'closed') {
+        parts.push('Auction ended — sale results below');
+      } else if (d.start_time) {
+        parts.push('Auction starts ' + fmtDate(d.start_time));
+        parts.push('Lots begin closing then, about 1 min apart');
+      }
       if (d.shipping_available) parts.push('Shipping available');
       meta.innerHTML = parts.map(p => '<span>' + esc(p) + '</span>').join('');
 
@@ -626,20 +660,39 @@
   // ── Lot grid ──────────────────────────────────────────────────────────────
   async function loadAuction() {
     try {
-      const res  = await fetch('/api/lots/auction/' + auctionId);
-      const data = await res.json();
-      if (!data.success) throw new Error(data.message || 'Failed to load lots');
+      // Pull lots + auction state together; state drives #5 visibility.
+      const [lotsRes, meta] = await Promise.all([
+        fetch('/api/lots/auction/' + auctionId).then(r => r.json()),
+        fetch('/api/auctions/' + auctionId + '/summary').then(r => r.json()).catch(() => null),
+      ]);
+      if (!lotsRes.success) throw new Error(lotsRes.message || 'Failed to load lots');
+      auctionState = (meta && meta.success && meta.data) ? meta.data.state : auctionState;
 
-      const lots  = data.data;
-      const count = lots.length;
-      document.getElementById('lot-count').textContent = count + ' lot' + (count === 1 ? '' : 's');
+      const allLots = lotsRes.data;
+      // #5: while the auction is actively closing, show only lots still open so
+      // bidders see what's available. 'published' (not started) shows all (none
+      // closed yet); 'closed' shows ALL lots — the sale-results view.
+      const lots = (auctionState === 'active') ? allLots.filter(lotIsOpen) : allLots;
 
-      if (!lots.length) {
+      const resultsMode = (auctionState === 'closed');
+      const label = !allLots.length ? ''
+        : auctionState === 'active' ? (lots.length + ' lot' + (lots.length === 1 ? '' : 's') + ' open')
+        : resultsMode               ? (allLots.length + ' lot' + (allLots.length === 1 ? '' : 's') + ' · sale results')
+        : (allLots.length + ' lot' + (allLots.length === 1 ? '' : 's'));
+      document.getElementById('lot-count').textContent = label;
+
+      if (!allLots.length) {
         grid.innerHTML = '<div class="state-msg"><strong>No lots listed yet.</strong>Check back soon.</div>';
         return;
       }
+      if (!lots.length) {
+        // Active auction with everything already closed (between last close and
+        // the auction-level close transition).
+        clearAllCardTimers();
+        grid.innerHTML = '<div class="state-msg"><strong>All lots have closed.</strong>Final results will appear shortly.</div>';
+        return;
+      }
 
-      // Fetch first image (with best_image_url) for each lot in parallel
       const imageMap = await fetchFirstImages(lots.map(l => l.id));
 
       clearAllCardTimers();
@@ -684,12 +737,28 @@
     const close = lotCloseTime(lot);
     return !(close && Date.now() > new Date(close).getTime());
   }
-  function startCardCountdown(lotId, wrap, span, closesAt) {
+  // #19: drive the urgency bar from the SAME closes_at as the numeric timer.
+  // Bands: >60s idle/subtle · 60–31s green · 30–16s amber · 15–1s red · 0 closed.
+  function updateProgressBar(fill, remaining) {
+    if (!fill) return;
+    if (remaining <= 0) { fill.className = 'lot-progress-fill lp-closed'; fill.style.width = '0%'; return; }
+    if (remaining > 60000) { fill.className = 'lot-progress-fill lp-idle'; fill.style.width = '100%'; return; }
+    const pct = Math.max(0, Math.min(100, (remaining / 60000) * 100));
+    let cls = 'lp-green';
+    if (remaining <= 15000)      cls = 'lp-red';
+    else if (remaining <= 30000) cls = 'lp-amber';
+    fill.className = 'lot-progress-fill ' + cls;
+    fill.style.width = pct + '%';
+  }
+
+  // span = numeric timer; fill = progress-bar fill (may be null when not active).
+  function startCardCountdown(lotId, wrap, span, fill, closesAt) {
     if (cardTimers[lotId]) { clearInterval(cardTimers[lotId]); delete cardTimers[lotId]; }
-    if (!closesAt) { wrap.style.display = 'none'; return; }
+    if (!closesAt) { wrap.style.display = 'none'; updateProgressBar(fill, 0); return; }
     const end = new Date(closesAt).getTime();
     function tick() {
       const remaining = end - Date.now();
+      updateProgressBar(fill, remaining);
       if (remaining <= 0) {
         span.textContent = 'Ended';
         wrap.classList.add('ended'); wrap.classList.remove('urgent');
@@ -730,6 +799,12 @@
       if (nmEl) nmEl.textContent = BidUtils.formatUSD(nextMin);
       const inp = card.querySelector('.card-bidform input');
       if (inp) inp.placeholder = BidUtils.formatUSD(nextMin) + ' or more';
+      // #19.7: if anti-snipe extended this lot, reset the countdown + bar to the
+      // fresh close time (same source as the initial render).
+      const cdWrap = card.querySelector('.card-countdown');
+      const cdVal  = cdWrap ? cdWrap.querySelector('span:last-child') : null;
+      const fill   = card.querySelector('.lot-progress-fill');
+      if (cdWrap && cdVal) startCardCountdown(lotId, cdWrap, cdVal, fill, lot.extended_until || lot.closes_at);
     } catch { /* ignore refresh blip */ }
   }
 
@@ -774,6 +849,19 @@
     imgWrap.appendChild(sbadge);
     imgLink.appendChild(imgWrap);
     card.appendChild(imgLink);
+
+    // #19: urgency progress bar directly beneath the image — only once the
+    // auction is actively closing. Driven by the lot's closes_at (same source
+    // as the numeric timer), so it tracks anti-snipe extensions automatically.
+    let progressFill = null;
+    if (open && auctionState === 'active') {
+      const bar = document.createElement('div');
+      bar.className = 'lot-progress';
+      progressFill = document.createElement('div');
+      progressFill.className = 'lot-progress-fill lp-idle';
+      bar.appendChild(progressFill);
+      card.appendChild(bar);
+    }
 
     // Body
     const body = document.createElement('div');
@@ -826,7 +914,7 @@
       const cdVal  = document.createElement('span');
       cd.appendChild(cdIcon); cd.appendChild(cdVal);
       body.appendChild(cd);
-      startCardCountdown(lotId, cd, cdVal, lotCloseTime(lot));
+      startCardCountdown(lotId, cd, cdVal, progressFill, lotCloseTime(lot));
     }
 
     // Inline bidding (logged-in + open), else sign-in prompt

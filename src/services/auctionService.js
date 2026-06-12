@@ -4,6 +4,11 @@ const { writeAuditLog } = require('../lib/auditLog');
 const { getSellerPayoutPreference } = require('./payoutPreferenceService');
 const { validateAuctionSchedule, ScheduleRuleError, isProfessional } = require('./sellerTypeRules');
 
+// #18: default gap between consecutive lot closings (AAC timed model). Lot N
+// closes at start_time + N * this interval. Editable config is a post-launch
+// follow-up; 60s is the AAC default.
+const LOT_CLOSE_INTERVAL_SECONDS = 60;
+
 // Phase C: server-authoritative seller-type schedule enforcement, shared by
 // createAuction + updateAuction. Pure decision over a resolved sellerType.
 // - No violation        → { overridden: false }.
@@ -393,6 +398,38 @@ async function publishAuction(auctionId, actorId = null) {
       `UPDATE lots SET state = 'open' WHERE auction_id = $1 AND state = 'withdrawn'`,
       [auctionId]
     );
+
+    // #18: generate the staggered close schedule from the seller's start_time so
+    // lots close sequentially (Lot 1 closes one interval after start, each later
+    // lot one interval after the previous). end_time is set to the LAST lot's
+    // close so the auction-level scheduler (runAuctionStateTransitions) only
+    // closes the auction after every lot has finished. This reuses the existing
+    // lot-auto-close + anti-snipe machinery — no scheduler change. Only runs when
+    // a start_time is set; auctions without one stay unscheduled until an admin
+    // sets times (then re-publish regenerates).
+    const startTime = result.rows[0].start_time;
+    if (startTime) {
+      await client.query(
+        `WITH ordered AS (
+           SELECT id, ROW_NUMBER() OVER (ORDER BY lot_number ASC NULLS LAST, created_at ASC) AS pos
+             FROM lots
+            WHERE auction_id = $1 AND state = 'open'
+         )
+         UPDATE lots l
+            SET closes_at = $2::timestamptz + make_interval(secs => (ordered.pos * $3))
+           FROM ordered
+          WHERE l.id = ordered.id`,
+        [auctionId, startTime, LOT_CLOSE_INTERVAL_SECONDS]
+      );
+      await client.query(
+        `UPDATE auctions a
+            SET end_time = sub.max_close, updated_at = NOW()
+           FROM (SELECT MAX(closes_at) AS max_close
+                   FROM lots WHERE auction_id = $1 AND state != 'withdrawn') sub
+          WHERE a.id = $1 AND sub.max_close IS NOT NULL`,
+        [auctionId]
+      );
+    }
 
     await auditService.logEvent(client, {
       eventType:  'auction.published',
