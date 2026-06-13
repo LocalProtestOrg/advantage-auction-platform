@@ -482,6 +482,8 @@
 <script src="/widgets/shared/analytics.js"></script>
 <script src="/widgets/shared/marketplace-seller-cta.js"></script>
 <script src="/widgets/shared/bid-utils.js"></script>
+<script src="/socket.io/socket.io.js"></script>
+
 <script>
   const params    = new URLSearchParams(location.search);
   // Accept ?auctionId= (canonical) or ?id= (legacy/marketplace card links) so
@@ -491,6 +493,7 @@
   const token     = localStorage.getItem('token');
   let   auctionState = null;   // #5/#19: 'published' | 'active' | 'closed' | …
   let   bidGate = { logged_in: false, terms_accepted_current: false, registered: false, can_bid: false }; // #20
+  let   gridKey = null;        // #1: structural signature of the rendered grid (poll change-detection)
 
   if (!auctionId) {
     grid.innerHTML = '<div class="state-msg"><strong>No auction selected.</strong>Check the URL and try again.</div>';
@@ -511,6 +514,12 @@
     document.addEventListener('visibilitychange', () => {
       if (document.visibilityState === 'visible' && !anyBidInputDirty()) loadAuction();
     });
+
+    // #1 real-time: permanent polling fallback (every 6s) + socket.io push when
+    // available. Bidding visibility NEVER depends on the socket — if it drops,
+    // the poll keeps the grid live.
+    setInterval(pollGrid, 6000);
+    startRealtime();
   }
 
   function initSellerAcquisitionCta() {
@@ -707,6 +716,7 @@
 
       if (!allLots.length) {
         grid.innerHTML = '<div class="state-msg"><strong>No lots listed yet.</strong>Check back soon.</div>';
+        gridKey = computeGridKey(auctionState, []);
         return;
       }
       if (!lots.length) {
@@ -714,6 +724,7 @@
         // the auction-level close transition).
         clearAllCardTimers();
         grid.innerHTML = '<div class="state-msg"><strong>All lots have closed.</strong>Final results will appear shortly.</div>';
+        gridKey = computeGridKey(auctionState, []);
         return;
       }
 
@@ -722,6 +733,7 @@
       clearAllCardTimers();
       grid.innerHTML = '';
       lots.forEach(lot => grid.appendChild(buildCard(lot, imageMap[lot.id])));
+      gridKey = computeGridKey(auctionState, lots);
 
     } catch (err) {
       grid.innerHTML = '<div class="state-msg"><strong>Could not load auction.</strong>' + esc(err.message) + '</div>';
@@ -810,27 +822,101 @@
       const res  = await fetch('/api/lots/' + lotId, authH);
       const data = await res.json();
       if (!data.success || !data.data) return;
-      const lot      = data.data;
-      const cents    = Number(lot.current_bid_cents) > 0 ? Number(lot.current_bid_cents) : 0;
-      const starting = Number(lot.starting_bid_cents) > 0 ? Number(lot.starting_bid_cents) : 100;
-      const nextMin  = Number(lot.next_min_bid_cents) > 0 ? Number(lot.next_min_bid_cents)
-                     : BidUtils.nextMinCents(starting, cents, lot.effective_bid_increment_cents);
-      const amtEl = card.querySelector('.bid-amount');
-      if (amtEl) {
-        amtEl.className   = cents > 0 ? 'bid-amount' : 'bid-amount no-bids';
-        amtEl.textContent = cents > 0 ? BidUtils.formatUSD(cents) : 'No bids — starts ' + BidUtils.formatUSD(starting);
-      }
-      const nmEl = card.querySelector('.card-nextmin strong');
-      if (nmEl) nmEl.textContent = BidUtils.formatUSD(nextMin);
-      const inp = card.querySelector('.card-bidform input');
-      if (inp) inp.placeholder = BidUtils.formatUSD(nextMin) + ' or more';
-      // #19.7: if anti-snipe extended this lot, reset the countdown + bar to the
-      // fresh close time (same source as the initial render).
-      const cdWrap = card.querySelector('.card-countdown');
-      const cdVal  = cdWrap ? cdWrap.querySelector('span:last-child') : null;
-      const fill   = card.querySelector('.lot-progress-fill');
-      if (cdWrap && cdVal) startCardCountdown(lotId, cdWrap, cdVal, fill, lot.extended_until || lot.closes_at);
+      applyLotToCard(card, data.data);
     } catch { /* ignore refresh blip */ }
+  }
+
+  // Update a card's bid figures, countdown, and winning/outbid chip IN PLACE from
+  // a lot object. Shared by the per-bid patch, the catalog poll, and socket events.
+  function applyLotToCard(card, lot) {
+    const lotId    = card.getAttribute('data-lot-id');
+    const cents    = Number(lot.current_bid_cents) > 0 ? Number(lot.current_bid_cents) : 0;
+    const starting = Number(lot.starting_bid_cents) > 0 ? Number(lot.starting_bid_cents) : 100;
+    const nextMin  = Number(lot.next_min_bid_cents) > 0 ? Number(lot.next_min_bid_cents)
+                   : BidUtils.nextMinCents(starting, cents, lot.effective_bid_increment_cents);
+    const amtEl = card.querySelector('.bid-amount');
+    if (amtEl) {
+      amtEl.className   = cents > 0 ? 'bid-amount' : 'bid-amount no-bids';
+      amtEl.textContent = cents > 0 ? BidUtils.formatUSD(cents) : 'No bids — starts ' + BidUtils.formatUSD(starting);
+    }
+    const nmEl = card.querySelector('.card-nextmin strong');
+    if (nmEl) nmEl.textContent = BidUtils.formatUSD(nextMin);
+    const inp = card.querySelector('.card-bidform input');
+    if (inp && document.activeElement !== inp) inp.placeholder = BidUtils.formatUSD(nextMin) + ' or more';
+    // #19.7: anti-snipe extension resets the countdown + bar to the fresh close.
+    const cdWrap = card.querySelector('.card-countdown');
+    const cdVal  = cdWrap ? cdWrap.querySelector('span:last-child') : null;
+    const fill   = card.querySelector('.lot-progress-fill');
+    if (cdWrap && cdVal) startCardCountdown(lotId, cdWrap, cdVal, fill, lot.extended_until || lot.closes_at);
+    // #2 winning/outbid chip — winning→not-winning transition reads as Outbid.
+    updateCardChip(card, lot.viewer_is_high_bidder);
+  }
+
+  // ── #2 winning/outbid chip ──────────────────────────────────────────────────
+  const CHIP_CSS = 'display:inline-block;font-size:11px;font-weight:700;padding:2px 8px;border-radius:999px;margin-left:6px;vertical-align:middle;';
+  function setCardChip(chip, state) {
+    if (!chip) return;
+    chip.setAttribute('data-state', state || '');
+    if (state === 'winning')     { chip.style.cssText = CHIP_CSS + 'background:#dcfce7;color:#166534;'; chip.textContent = '✓ Winning'; }
+    else if (state === 'outbid') { chip.style.cssText = CHIP_CSS + 'background:#fee2e2;color:#991b1b;'; chip.textContent = 'Outbid'; }
+    else { chip.style.display = 'none'; chip.textContent = ''; }
+  }
+  function updateCardChip(card, isWinning) {
+    const chip = card.querySelector('[data-chip]');
+    if (!chip) return;
+    const prev = chip.getAttribute('data-state') || '';
+    if (isWinning) setCardChip(chip, 'winning');
+    else if (prev === 'winning') setCardChip(chip, 'outbid'); // lost the lead
+    // else leave as-is (a socket-driven 'outbid' persists; empty stays empty)
+  }
+  function cssEsc(s) { return (window.CSS && CSS.escape) ? CSS.escape(s) : String(s).replace(/"/g, '\\"'); }
+  function cardFor(lotId) { return lotId ? grid.querySelector('[data-lot-id="' + cssEsc(lotId) + '"]') : null; }
+  function chipFor(lotId) { const c = cardFor(lotId); return c ? c.querySelector('[data-chip]') : null; }
+
+  // ── #1 catalog polling fallback (always on, independent of the socket) ───────
+  function computeGridKey(state, lots) {
+    return state + '|' + lots.map(l => l.id + ':' + l.state + ':' + (l.extended_until || l.closes_at || '')).join(',');
+  }
+  function bidInputDirty() {
+    return Array.from(document.querySelectorAll('.card-bidform input')).some(i => i.value.trim() !== '');
+  }
+  async function pollGrid() {
+    if (document.hidden || !auctionId || bidInputDirty()) return;
+    try {
+      const authH = token ? { headers: { Authorization: 'Bearer ' + token } } : {};
+      const [lotsRes, meta] = await Promise.all([
+        fetch('/api/lots/auction/' + auctionId, authH).then(r => r.json()),
+        fetch('/api/auctions/' + auctionId + '/summary').then(r => r.json()).catch(() => null),
+      ]);
+      if (!lotsRes || !lotsRes.success) return;
+      const newState = (meta && meta.success && meta.data) ? meta.data.state : auctionState;
+      const allLots  = lotsRes.data || [];
+      const lots     = (newState === 'active') ? allLots.filter(lotIsOpen) : allLots;
+      const key = computeGridKey(newState, lots);
+      if (newState !== auctionState || key !== gridKey) {
+        auctionState = newState;
+        await loadAuction();   // structural change → rebuild (lot closed / results / new lot)
+        return;
+      }
+      for (const lot of lots) {
+        const card = cardFor(lot.id);
+        if (card) applyLotToCard(card, lot);
+      }
+    } catch { /* ignore poll blip */ }
+  }
+
+  // ── #1 socket.io push (accelerates the poll; never the sole source) ──────────
+  function startRealtime() {
+    if (typeof io !== 'function') return;  // client failed to load → polling only
+    let socket;
+    try { socket = io({ auth: { token: token || undefined } }); } catch (e) { return; }
+    let t = null;
+    const soon = () => { clearTimeout(t); t = setTimeout(pollGrid, 200); };
+    socket.on('connect', () => socket.emit('joinAuction', auctionId));
+    socket.on('lot:update', soon);
+    socket.on('lot:winning', m => { const c = chipFor(m && m.lot_id); if (c) setCardChip(c, 'winning'); soon(); });
+    socket.on('lot:outbid',  m => { const c = chipFor(m && m.lot_id); if (c) setCardChip(c, 'outbid'); soon(); });
+    socket.on('auction:update', () => loadAuction());
   }
 
   function buildCard(lot, imgInfo) {
@@ -898,6 +984,12 @@
     titleEl.style.textDecoration = 'none';
     const numPrefix = (lot.lot_number != null) ? ('Lot #' + lot.lot_number + ' · ') : '';
     titleEl.textContent = numPrefix + (lot.title || 'Untitled');
+    // #2 winning/outbid chip — initial state from the per-viewer serializer flag.
+    const chip = document.createElement('span');
+    chip.setAttribute('data-chip', '');
+    chip.style.display = 'none';
+    titleEl.appendChild(chip);
+    if (lot.viewer_is_high_bidder) setCardChip(chip, 'winning');
     body.appendChild(titleEl);
 
     if (lot.category) {

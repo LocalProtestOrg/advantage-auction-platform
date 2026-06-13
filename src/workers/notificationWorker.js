@@ -18,6 +18,7 @@ const { sendEmail }  = require('../services/emailService');
 const { sendSMS }    = require('../services/smsService');
 const auctionService = require('../services/auctionService');
 const auditService   = require('../services/auditService');
+const realtime       = require('../lib/realtime'); // #1 real-time push (pg NOTIFY)
 
 if (process.env.SENTRY_DSN) {
   Sentry.init({ dsn: process.env.SENTRY_DSN, environment: process.env.NODE_ENV || 'development' });
@@ -666,7 +667,7 @@ async function runLotAutoClose() {
       // raced ahead of us (extended closes_at via soft-close, or already
       // closed the lot).
       const lotRes = await client.query(
-        `SELECT id, auction_id, closes_at, state
+        `SELECT id, auction_id, lot_number, title, closes_at, state
            FROM lots
           WHERE id = $1
           FOR UPDATE`,
@@ -720,6 +721,19 @@ async function runLotAutoClose() {
 
       await client.query('COMMIT');
       console.log(`[lot-auto-close] closed lot ${lot.id} in auction ${lot.auction_id}, winner=${topBid ? topBid.bidder_user_id : 'none'}`);
+
+      // #1 real-time: notify viewers the lot closed (public payload omits the
+      // realized price — clients re-fetch the gated value; targeted lot:winning
+      // goes to the winner only).
+      realtime.publish('lot', {
+        auction_id:     lot.auction_id,
+        lot_id:         lot.id,
+        lot_number:     lot.lot_number,
+        title:          lot.title,
+        state:          'closed',
+        closes_at:      lot.closes_at,
+        winner_user_id: topBid ? topBid.bidder_user_id : null,
+      });
     } catch (err) {
       try { await client.query('ROLLBACK'); } catch (_) {}
       console.error(`[lot-auto-close] failed for lot ${row.id}: ${err.message}`);

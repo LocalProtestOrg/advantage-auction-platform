@@ -639,6 +639,7 @@
 <script src="/widgets/shared/auth-refresh.js"></script>
 <script src="/widgets/shared/bid-increment.js"></script>
 <script src="/widgets/shared/bid-utils.js"></script>
+<script src="/socket.io/socket.io.js"></script>
 <script>
   const token  = localStorage.getItem('token');
   const params = new URLSearchParams(location.search);
@@ -854,31 +855,39 @@
   }
 
   // ── Auto-refresh bids every 3 s ───────────────────────────────────────────────
-  function startRefresh() {
-    refreshTimer = setInterval(async () => {
-      if (lotClosed || bidding) return;
-      try {
-        const res  = await fetch('/api/lots/' + lotId + '/bids', { headers: { Authorization: 'Bearer ' + token } });
-        if (res.status === 401) { stopRefresh(); localStorage.removeItem('token'); window.location.href = '/login.html'; return; }
-        const data = await res.json();
-        if (data.success) renderBids(data.data, true);
-
-        const lotRes  = await fetch('/api/lots/' + lotId, { headers: { Authorization: 'Bearer ' + token } });
-        if (lotRes.status === 401) { stopRefresh(); localStorage.removeItem('token'); window.location.href = '/login.html'; return; }
-        const lotData = await lotRes.json();
-        if (lotData.success && lotData.data) {
-          const ld = lotData.data;
-          const st = ld.state;
-          if (st === 'closed' || st === 'withdrawn') {
-            lotClosed = true;
-            applyClosedState();
-            if (ld.winning_amount_cents) fetchAndRenderWinnerPanel(ld.id, ld.winning_amount_cents);
-          } else if (ld.closes_at && ld.closes_at !== currentClosesAt) {
-            startCountdown(ld.closes_at);
-          }
+  // One refresh pass — used by the 3s poll (permanent fallback) AND triggered
+  // immediately by socket events (#1). Fetches the lot first (state / close /
+  // increment / winning-outbid chip), then the bid history (which updates the
+  // current-bid headline + next-minimum via renderBids).
+  let refreshing = false;
+  async function refreshLotNow() {
+    if (lotClosed || bidding || refreshing) return;
+    refreshing = true;
+    try {
+      const lotRes = await fetch('/api/lots/' + lotId, { headers: { Authorization: 'Bearer ' + token } });
+      if (lotRes.status === 401) { stopRefresh(); return; }   // soften: stop, never bounce mid-auction
+      const lotData = await lotRes.json();
+      if (lotData.success && lotData.data) {
+        const ld = lotData.data;
+        if (Number(ld.effective_bid_increment_cents) > 0) bidIncrementCents = Number(ld.effective_bid_increment_cents);
+        updateLotChip(ld.viewer_is_high_bidder);              // #2 winning / outbid
+        if (ld.state === 'closed' || ld.state === 'withdrawn') {
+          lotClosed = true;
+          applyClosedState();
+          if (ld.winning_amount_cents) fetchAndRenderWinnerPanel(ld.id, ld.winning_amount_cents);
+        } else if (ld.closes_at && ld.closes_at !== currentClosesAt) {
+          startCountdown(ld.closes_at);                       // anti-snipe extension
         }
-      } catch { /* network blip */ }
-    }, REFRESH_INTERVAL);
+      }
+      const res = await fetch('/api/lots/' + lotId + '/bids', { headers: { Authorization: 'Bearer ' + token } });
+      if (res.status === 401) { stopRefresh(); return; }
+      const data = await res.json();
+      if (data.success) renderBids(data.data, true);          // current bid + next-min headline
+    } catch { /* network blip */ }
+    finally { refreshing = false; }
+  }
+  function startRefresh() {
+    refreshTimer = setInterval(refreshLotNow, REFRESH_INTERVAL);
   }
 
   function stopRefresh() {
@@ -886,6 +895,49 @@
     clearInterval(countdownTimer);
     refreshTimer   = null;
     countdownTimer = null;
+  }
+
+  // ── #2 winning / outbid chip ────────────────────────────────────────────────
+  function ensureLotChip() {
+    if (document.getElementById('lot-bid-chip')) return;
+    const anchor = document.getElementById('bid-activity') || document.getElementById('current-bid');
+    if (!anchor || !anchor.parentNode) return;
+    const chip = document.createElement('span');
+    chip.id = 'lot-bid-chip';
+    chip.style.display = 'none';
+    anchor.parentNode.insertBefore(chip, anchor.nextSibling);
+  }
+  function setLotChip(state) {
+    const chip = document.getElementById('lot-bid-chip');
+    if (!chip) return;
+    chip.setAttribute('data-state', state || '');
+    const base = 'display:inline-block;font-size:12px;font-weight:700;padding:3px 10px;border-radius:999px;margin-left:8px;vertical-align:middle;';
+    if (state === 'winning')     { chip.style.cssText = base + 'background:#dcfce7;color:#166534;'; chip.textContent = '✓ Winning'; }
+    else if (state === 'outbid') { chip.style.cssText = base + 'background:#fee2e2;color:#991b1b;'; chip.textContent = 'Outbid'; }
+    else { chip.style.display = 'none'; chip.textContent = ''; }
+  }
+  function updateLotChip(isWinning) {
+    const chip = document.getElementById('lot-bid-chip');
+    if (!chip) return;
+    const prev = chip.getAttribute('data-state') || '';
+    if (isWinning) setLotChip('winning');
+    else if (prev === 'winning') setLotChip('outbid'); // lost the lead
+  }
+
+  // ── #1 socket.io push (accelerates the poll; polling stays the fallback) ─────
+  function startLotRealtime() {
+    if (typeof io !== 'function') return;  // client unavailable → polling only
+    let socket;
+    try { socket = io({ auth: { token: token || undefined } }); } catch (e) { return; }
+    window.__lotSocket = socket;
+    let t = null;
+    const soon = () => { clearTimeout(t); t = setTimeout(refreshLotNow, 150); };
+    const joinIfReady = () => { if (currentAuctionId) socket.emit('joinAuction', currentAuctionId); };
+    socket.on('connect', joinIfReady);
+    socket.on('lot:update', m => { if (m && m.lot_id === lotId) soon(); });
+    socket.on('lot:winning', m => { if (m && m.lot_id === lotId) { setLotChip('winning'); soon(); } });
+    socket.on('lot:outbid',  m => { if (m && m.lot_id === lotId) { setLotChip('outbid'); soon(); } });
+    socket.on('auction:update', () => soon());
   }
 
   // ── Countdown ─────────────────────────────────────────────────────────────────
@@ -969,6 +1021,9 @@
   // ── Render lot metadata ───────────────────────────────────────────────────────
   function renderLot(lot) {
     currentAuctionId = lot.auction_id;
+    ensureLotChip();
+    updateLotChip(lot.viewer_is_high_bidder);
+    if (window.__lotSocket && window.__lotSocket.connected && currentAuctionId) window.__lotSocket.emit('joinAuction', currentAuctionId);
     document.title = lot.title + ' — Advantage Auction';
     // OP-D: prefix title with "Lot #N · " when lot_number is set. Provides
     // public-side orientation matching the seller-side dashboard format.
@@ -1460,6 +1515,7 @@
   }
 
   load();
+  startLotRealtime();
 </script>
 </body>
 </html>

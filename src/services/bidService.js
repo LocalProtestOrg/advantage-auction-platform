@@ -2,6 +2,7 @@ const db = require('../db/index');
 // Canonical increment ladder — shared verbatim with the client (bid-increment.js)
 // so validation and the displayed "next minimum" can never diverge.
 const { incrementForCents, effectiveIncrement, nextMinCents } = require('../../public/widgets/shared/bid-increment');
+const realtime = require('../lib/realtime'); // #1 real-time push (pg NOTIFY)
 
 // ── Increment resolution ───────────────────────────────────────────────────────
 // The platform ladder (incrementForCents) is the default. A configured FLAT
@@ -285,6 +286,28 @@ async function createBid(lotId, userId, { amount, maxBid, max_bid_cents }) {
     const finalClosesAt = await applyAntiSnipe(client, lot);
 
     await client.query('COMMIT');
+
+    // #1 real-time: push the new lot state to everyone viewing the auction, plus
+    // privacy-safe winning/outbid to the affected users. Best-effort — the bid is
+    // already committed; a failed push must never surface. This same lot:update
+    // also conveys an anti-snipe extension (closes_at + extension_count change).
+    const extended = finalClosesAt && lot.closes_at
+      && new Date(finalClosesAt).getTime() > new Date(lot.closes_at).getTime();
+    realtime.publish('lot', {
+      auction_id:                    lot.auction_id,
+      lot_id:                        lot.id,
+      lot_number:                    lot.lot_number,
+      title:                         lot.title,
+      current_bid_cents:             resolution.visible_cents,
+      next_min_bid_cents:            nextMinCents(lot.starting_bid_cents || 100, resolution.visible_cents, override),
+      effective_bid_increment_cents: effectiveIncrement(resolution.visible_cents, override),
+      bid_count:                     (lot.bid_count || 0) + 1,
+      state:                         'open',
+      closes_at:                     finalClosesAt,
+      extension_count:               (lot.extension_count || 0) + (extended ? 1 : 0),
+      winner_user_id:                resolution.winner_user_id,
+      prev_winner_user_id:           lot.current_winner_user_id || null,
+    });
 
     const result = {
       ...resolution.bid,

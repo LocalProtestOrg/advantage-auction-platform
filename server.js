@@ -91,11 +91,25 @@ const io = new Server(server, {
     methods: ['GET', 'POST'],
   },
 });
+// Share the io instance with route handlers (req.app.get('io')).
+app.set('io', io);
 
-// ── Socket.IO — auction rooms ─────────────────────────────────────────────────
+// ── Socket.IO — auction rooms + per-user rooms (#1 real-time) ──────────────────
+const jwt = require('jsonwebtoken');
 io.on('connection', (socket) => {
+  // Optional auth: a valid token joins the socket to its private user room so it
+  // can receive targeted, privacy-safe winning/outbid signals. Anonymous sockets
+  // still receive the public lot:update broadcasts.
+  try {
+    const token = socket.handshake && socket.handshake.auth && socket.handshake.auth.token;
+    if (token && process.env.JWT_SECRET) {
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      if (decoded && decoded.id) socket.join(`user:${decoded.id}`);
+    }
+  } catch (_) { /* invalid/expired token → anonymous socket */ }
+
   socket.on('joinAuction', (auctionId) => {
-    socket.join(`auction:${auctionId}`);
+    if (typeof auctionId === 'string' && auctionId) socket.join(`auction:${auctionId}`);
   });
 });
 
@@ -356,5 +370,9 @@ server.listen(PORT, () => {
   if (!process.env.AAP_IS_WORKER) {
     spawnWorker(path.join(__dirname, 'src/workers/notificationWorker.js'));
     spawnWorker(path.join(__dirname, 'src/workers/imageProcessingWorker.js'));
+    // #1 real-time: bridge Postgres NOTIFY (from web + worker processes) to
+    // socket.io. Polling on the clients remains the permanent fallback.
+    require('./src/lib/realtime').startListener(io)
+      .catch(e => log.error('realtime', 'listener start failed', { error: e.message }));
   }
 });

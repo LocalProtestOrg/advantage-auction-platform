@@ -1,5 +1,6 @@
 const db = require('../db/index');
 const auditService = require('./auditService');
+const realtime = require('../lib/realtime'); // #1 real-time push (pg NOTIFY)
 const { writeAuditLog } = require('../lib/auditLog');
 const { getSellerPayoutPreference } = require('./payoutPreferenceService');
 const { validateAuctionSchedule, ScheduleRuleError, isProfessional } = require('./sellerTypeRules');
@@ -564,6 +565,10 @@ async function closeAuction(auctionId, actorId = null) {
     );
 
     await client.query('COMMIT');
+
+    // #1 real-time: results-mode transition — tell everyone viewing the auction
+    // to reload into the sale-results view. Best-effort (close already committed).
+    realtime.publish('auction', { auction_id: auctionId, state: 'closed' });
 
     // Fire-and-forget: cache report data after close is committed.
     // DATA GENERATION ONLY — does not send email, does not send PDF.
