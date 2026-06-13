@@ -54,6 +54,25 @@ describe('#2/#10 annotateViewerBidState', () => {
       expect(r).toHaveProperty(f);
     }
   });
+
+  test('viewer_has_bid + viewer_max_bid_cents reflect the viewer\'s own proxy max', () => {
+    const r = annotateViewerBidState(openLot({ current_winner_user_id: 'u2' }), 'u1', 5000);
+    expect(r.viewer_has_bid).toBe(true);
+    expect(r.viewer_max_bid_cents).toBe(5000);
+    expect(r.viewer_is_high_bidder).toBe(false); // has bid but not leading → Outbid
+  });
+
+  test('no proxy max → viewer_has_bid false, max null (Watching)', () => {
+    const r = annotateViewerBidState(openLot(), 'u1', undefined);
+    expect(r.viewer_has_bid).toBe(false);
+    expect(r.viewer_max_bid_cents).toBeNull();
+  });
+
+  test('logged-out → has_bid false, max null even if a max is passed', () => {
+    const r = annotateViewerBidState(openLot(), null, 5000);
+    expect(r.viewer_has_bid).toBe(false);
+    expect(r.viewer_max_bid_cents).toBeNull();
+  });
 });
 
 describe('#2/#10 composition with realized-price privacy (#20.1)', () => {

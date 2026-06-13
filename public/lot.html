@@ -638,6 +638,7 @@
 
 <script src="/widgets/shared/auth-refresh.js"></script>
 <script src="/widgets/shared/bid-increment.js"></script>
+<script src="/widgets/shared/bid-status.js"></script>
 <script src="/widgets/shared/bid-utils.js"></script>
 <script src="/socket.io/socket.io.js"></script>
 <script>
@@ -870,7 +871,7 @@
       if (lotData.success && lotData.data) {
         const ld = lotData.data;
         if (Number(ld.effective_bid_increment_cents) > 0) bidIncrementCents = Number(ld.effective_bid_increment_cents);
-        updateLotChip(ld.viewer_is_high_bidder);              // #2 winning / outbid
+        renderLotStatus(ld);                                  // #2 status panel + #10 CTA
         if (ld.state === 'closed' || ld.state === 'withdrawn') {
           lotClosed = true;
           applyClosedState();
@@ -897,31 +898,46 @@
     countdownTimer = null;
   }
 
-  // ── #2 winning / outbid chip ────────────────────────────────────────────────
-  function ensureLotChip() {
-    if (document.getElementById('lot-bid-chip')) return;
+  // ── #2 bidder status panel (Winning / Outbid / Watching / Sold / Closed) ─────
+  function ensureLotPanel() {
+    if (document.getElementById('lot-status-panel')) return;
     const anchor = document.getElementById('bid-activity') || document.getElementById('current-bid');
     if (!anchor || !anchor.parentNode) return;
-    const chip = document.createElement('span');
-    chip.id = 'lot-bid-chip';
-    chip.style.display = 'none';
-    anchor.parentNode.insertBefore(chip, anchor.nextSibling);
+    const panel = document.createElement('div');
+    panel.id = 'lot-status-panel';
+    panel.style.cssText = 'display:none;margin:10px 0;padding:10px 12px;border:1px solid #e2e8f0;border-radius:10px;background:#fff;';
+    anchor.parentNode.insertBefore(panel, anchor.nextSibling);
   }
-  function setLotChip(state) {
-    const chip = document.getElementById('lot-bid-chip');
-    if (!chip) return;
-    chip.setAttribute('data-state', state || '');
-    const base = 'display:inline-block;font-size:12px;font-weight:700;padding:3px 10px;border-radius:999px;margin-left:8px;vertical-align:middle;';
-    if (state === 'winning')     { chip.style.cssText = base + 'background:#dcfce7;color:#166534;'; chip.textContent = '✓ Winning'; }
-    else if (state === 'outbid') { chip.style.cssText = base + 'background:#fee2e2;color:#991b1b;'; chip.textContent = 'Outbid'; }
-    else { chip.style.display = 'none'; chip.textContent = ''; }
+  function statusRow(k, v) {
+    return '<div style="display:flex;justify-content:space-between;font-size:13px;padding:2px 0;">'
+      + '<span style="color:#64748b;">' + k + '</span><span style="font-weight:700;">' + v + '</span></div>';
   }
-  function updateLotChip(isWinning) {
-    const chip = document.getElementById('lot-bid-chip');
-    if (!chip) return;
-    const prev = chip.getAttribute('data-state') || '';
-    if (isWinning) setLotChip('winning');
-    else if (prev === 'winning') setLotChip('outbid'); // lost the lead
+  // Render the full bidder-status panel from the shared logic. Logged-out viewers
+  // (no token) see no panel — bidder status is only meaningful when signed in.
+  function renderLotStatus(lot) {
+    ensureLotPanel();
+    const panel = document.getElementById('lot-status-panel');
+    if (!panel) return;
+    if (!token || !window.BidStatus) { panel.style.display = 'none'; return; }
+    const s = BidStatus.deriveBidderStatus(lot);
+    const TONE = { win: ['#dcfce7', '#166534'], lose: ['#fee2e2', '#991b1b'], neutral: ['#f1f5f9', '#475569'] };
+    const c = TONE[s.tone] || TONE.neutral;
+    let note = '';
+    if (s.isOpen && s.extended) note = 'Extended';
+    else if (s.isOpen && s.closingSoon) note = 'Closing soon';
+    let rows = '';
+    if (s.hasBid && s.maxBidCents != null)  rows += statusRow('Your max bid', BidUtils.formatUSD(s.maxBidCents));
+    if (s.isOpen && s.nextMinCents != null) rows += statusRow('Next minimum bid', BidUtils.formatUSD(s.nextMinCents));
+    panel.innerHTML =
+      '<div style="display:flex;align-items:center;gap:8px;' + (rows ? 'margin-bottom:8px;' : '') + '">'
+        + '<span style="font-size:14px;font-weight:800;padding:4px 12px;border-radius:999px;background:' + c[0] + ';color:' + c[1] + ';">' + s.label + '</span>'
+        + (note ? '<span style="font-size:12px;font-weight:700;color:#b45309;">' + note + '</span>' : '')
+      + '</div>' + rows;
+    panel.style.display = '';
+    panel.setAttribute('data-state', s.key);
+    // #10: when the viewer is already winning, don't invite a normal bid.
+    const bidBtn = document.getElementById('btn-bid');
+    if (bidBtn && !bidBtn.disabled) bidBtn.textContent = s.winning ? 'Increase Your Max Bid' : 'Place Bid';
   }
 
   // ── #1 socket.io push (accelerates the poll; polling stays the fallback) ─────
@@ -935,8 +951,8 @@
     const joinIfReady = () => { if (currentAuctionId) socket.emit('joinAuction', currentAuctionId); };
     socket.on('connect', joinIfReady);
     socket.on('lot:update', m => { if (m && m.lot_id === lotId) soon(); });
-    socket.on('lot:winning', m => { if (m && m.lot_id === lotId) { setLotChip('winning'); soon(); } });
-    socket.on('lot:outbid',  m => { if (m && m.lot_id === lotId) { setLotChip('outbid'); soon(); } });
+    socket.on('lot:winning', m => { if (m && m.lot_id === lotId) refreshLotNow(); });
+    socket.on('lot:outbid',  m => { if (m && m.lot_id === lotId) refreshLotNow(); });
     socket.on('auction:update', () => soon());
   }
 
@@ -1021,8 +1037,7 @@
   // ── Render lot metadata ───────────────────────────────────────────────────────
   function renderLot(lot) {
     currentAuctionId = lot.auction_id;
-    ensureLotChip();
-    updateLotChip(lot.viewer_is_high_bidder);
+    renderLotStatus(lot);
     if (window.__lotSocket && window.__lotSocket.connected && currentAuctionId) window.__lotSocket.emit('joinAuction', currentAuctionId);
     document.title = lot.title + ' — Advantage Auction';
     // OP-D: prefix title with "Lot #N · " when lot_number is set. Provides
@@ -1437,12 +1452,10 @@
 
       input.value       = '';
       maxBidInput.value = '';
-      // #2: echo the amount the buyer entered so they can remember their max.
-      setStatus(
-        hasMaxBid ? ('Max bid placed: $' + maxBidDollar.toFixed(2))
-                  : ('Bid placed: $' + amount.toFixed(2)),
-        'ok'
-      );
+      // #16: every bid is a proxy maximum server-side — always frame the entered
+      // amount as the buyer's max bid so they always know their current ceiling.
+      setStatus('Your Max Bid: $' + (hasMaxBid ? maxBidDollar : amount).toFixed(2), 'ok');
+      setTimeout(() => refreshLotNow(), 120); // refresh status panel (Winning) + CTA label
 
       try {
         const bidRes  = await fetch('/api/lots/' + lotId + '/bids', { headers: { Authorization: 'Bearer ' + token } });

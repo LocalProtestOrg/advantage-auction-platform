@@ -479,6 +479,7 @@
 
 <script src="/widgets/shared/auth-refresh.js"></script>
 <script src="/widgets/shared/bid-increment.js"></script>
+<script src="/widgets/shared/bid-status.js"></script>
 <script src="/widgets/shared/analytics.js"></script>
 <script src="/widgets/shared/marketplace-seller-cta.js"></script>
 <script src="/widgets/shared/bid-utils.js"></script>
@@ -848,30 +849,40 @@
     const cdVal  = cdWrap ? cdWrap.querySelector('span:last-child') : null;
     const fill   = card.querySelector('.lot-progress-fill');
     if (cdWrap && cdVal) startCardCountdown(lotId, cdWrap, cdVal, fill, lot.extended_until || lot.closes_at);
-    // #2 winning/outbid chip — winning→not-winning transition reads as Outbid.
-    updateCardChip(card, lot.viewer_is_high_bidder);
+    // #2 winning / outbid / watching / sold status badge.
+    applyCardStatus(card, lot);
+    // #10: keep the bid CTA in sync — winning bidders are offered a max raise.
+    const bidBtn = card.querySelector('.card-bidform button');
+    if (bidBtn && !bidBtn.disabled) bidBtn.textContent = lot.viewer_is_high_bidder ? 'Increase Your Max Bid' : 'Place Bid';
   }
 
-  // ── #2 winning/outbid chip ──────────────────────────────────────────────────
+  // ── #2 winning / outbid / watching / sold status badge ──────────────────────
   const CHIP_CSS = 'display:inline-block;font-size:11px;font-weight:700;padding:2px 8px;border-radius:999px;margin-left:6px;vertical-align:middle;';
-  function setCardChip(chip, state) {
-    if (!chip) return;
-    chip.setAttribute('data-state', state || '');
-    if (state === 'winning')     { chip.style.cssText = CHIP_CSS + 'background:#dcfce7;color:#166534;'; chip.textContent = '✓ Winning'; }
-    else if (state === 'outbid') { chip.style.cssText = CHIP_CSS + 'background:#fee2e2;color:#991b1b;'; chip.textContent = 'Outbid'; }
-    else { chip.style.display = 'none'; chip.textContent = ''; }
+  const CHIP_TONE = { win: 'background:#dcfce7;color:#166534;', lose: 'background:#fee2e2;color:#991b1b;', neutral: 'background:#f1f5f9;color:#475569;' };
+  // Render the chip from the shared bidder-status logic (reliable Winning/Outbid/
+  // Watching/Sold without guessing). 'watching' is hidden on cards to avoid noise.
+  function renderChip(chip, lot) {
+    if (!chip || !window.BidStatus) return;
+    const s = BidStatus.deriveBidderStatus(lot);
+    if (s.key === 'watching') { chip.style.display = 'none'; chip.setAttribute('data-state', ''); chip.textContent = ''; return; }
+    chip.setAttribute('data-state', s.key);
+    let txt = s.label;
+    if (s.hasBid && s.maxBidCents) txt += ' · Your max ' + BidUtils.formatUSD(s.maxBidCents);
+    chip.textContent = txt;
+    chip.style.cssText = CHIP_CSS + (CHIP_TONE[s.tone] || CHIP_TONE.neutral);
   }
-  function updateCardChip(card, isWinning) {
-    const chip = card.querySelector('[data-chip]');
+  function applyCardStatus(card, lot) { renderChip(card.querySelector('[data-chip]'), lot); }
+  // Socket fast-path: a targeted winning/outbid event flips the badge instantly;
+  // the debounced poll then reconciles the full status (incl. the viewer's max).
+  function setCardChipState(card, key) {
+    const chip = card && card.querySelector('[data-chip]');
     if (!chip) return;
-    const prev = chip.getAttribute('data-state') || '';
-    if (isWinning) setCardChip(chip, 'winning');
-    else if (prev === 'winning') setCardChip(chip, 'outbid'); // lost the lead
-    // else leave as-is (a socket-driven 'outbid' persists; empty stays empty)
+    chip.setAttribute('data-state', key);
+    chip.textContent = key === 'winning' ? '✓ Winning' : 'Outbid';
+    chip.style.cssText = CHIP_CSS + (key === 'winning' ? CHIP_TONE.win : CHIP_TONE.lose);
   }
   function cssEsc(s) { return (window.CSS && CSS.escape) ? CSS.escape(s) : String(s).replace(/"/g, '\\"'); }
   function cardFor(lotId) { return lotId ? grid.querySelector('[data-lot-id="' + cssEsc(lotId) + '"]') : null; }
-  function chipFor(lotId) { const c = cardFor(lotId); return c ? c.querySelector('[data-chip]') : null; }
 
   // ── #1 catalog polling fallback (always on, independent of the socket) ───────
   function computeGridKey(state, lots) {
@@ -914,8 +925,8 @@
     const soon = () => { clearTimeout(t); t = setTimeout(pollGrid, 200); };
     socket.on('connect', () => socket.emit('joinAuction', auctionId));
     socket.on('lot:update', soon);
-    socket.on('lot:winning', m => { const c = chipFor(m && m.lot_id); if (c) setCardChip(c, 'winning'); soon(); });
-    socket.on('lot:outbid',  m => { const c = chipFor(m && m.lot_id); if (c) setCardChip(c, 'outbid'); soon(); });
+    socket.on('lot:winning', m => { const c = cardFor(m && m.lot_id); if (c) setCardChipState(c, 'winning'); soon(); });
+    socket.on('lot:outbid',  m => { const c = cardFor(m && m.lot_id); if (c) setCardChipState(c, 'outbid'); soon(); });
     socket.on('auction:update', () => loadAuction());
   }
 
@@ -989,7 +1000,7 @@
     chip.setAttribute('data-chip', '');
     chip.style.display = 'none';
     titleEl.appendChild(chip);
-    if (lot.viewer_is_high_bidder) setCardChip(chip, 'winning');
+    renderChip(chip, lot);
     body.appendChild(titleEl);
 
     if (lot.category) {
@@ -1100,7 +1111,7 @@
       btn.addEventListener('click', () => showCardRegisterPanel(reg, lot.auction_id));
       return;
     }
-    renderCardBidForm(card, body, lotId, nextMin);
+    renderCardBidForm(card, body, lotId, nextMin, lot);
   }
 
   // Pickup-acknowledgement panel → register, then refresh the grid so bid forms show.
@@ -1128,7 +1139,8 @@
     });
   }
 
-  function renderCardBidForm(card, body, lotId, nextMin) {
+  function renderCardBidForm(card, body, lotId, nextMin, lot) {
+    const winning = !!(lot && lot.viewer_is_high_bidder); // #10
     const form = document.createElement('div');
     form.className = 'card-bidform';
     const row = document.createElement('div');
@@ -1137,10 +1149,11 @@
     input.type = 'text';
     input.setAttribute('inputmode', 'decimal');
     input.setAttribute('autocomplete', 'off');
-    input.placeholder = BidUtils.formatUSD(nextMin) + ' or more';
+    input.placeholder = winning ? ('New max (≥ ' + BidUtils.formatUSD(nextMin) + ')') : (BidUtils.formatUSD(nextMin) + ' or more');
     const btn = document.createElement('button');
     btn.type = 'button';
-    btn.textContent = 'Place Bid';
+    // #10: when already winning, don't invite a normal bid — offer to raise the max.
+    btn.textContent = winning ? 'Increase Your Max Bid' : 'Place Bid';
     row.appendChild(input); row.appendChild(btn);
     const status = document.createElement('div');
     status.className = 'cbf-status';
@@ -1157,7 +1170,7 @@
       btn.disabled = false; btn.textContent = orig;
       if (r.ok) {
         status.className = 'cbf-status ok';
-        status.textContent = 'Bid placed: ' + BidUtils.formatUSD(Math.round(built.amount * 100));
+        status.textContent = 'Your Max Bid: ' + BidUtils.formatUSD(Math.round(built.amount * 100)); // #16
         input.value = '';
         await patchCardBids(card, lotId);
       } else {

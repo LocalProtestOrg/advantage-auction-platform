@@ -303,11 +303,23 @@ router.get('/auction/:auctionId', optionalAuth, async (req, res, next) => {
       }
     }
 
-    // #2/#10: annotate viewer_is_high_bidder (strips winner UUIDs) BEFORE the
-    // #20.1 realized-price gate for closed lots / anonymous callers.
+    // #2/#10: annotate per-viewer bid state (strips winner UUIDs) BEFORE the
+    // #20.1 realized-price gate. Fetch the viewer's OWN proxy maximums for these
+    // lots in one query (their data only — privacy-safe).
     const isAuthed = !!req.user;
     const viewerId = req.user && req.user.id;
-    res.json({ success: true, data: lots.map(l => redactRealizedPrice(annotateViewerBidState(l, viewerId), isAuthed)) });
+    const viewerMax = {};
+    if (viewerId && lots.length) {
+      try {
+        const pm = await db.query(
+          `SELECT lot_id, max_amount_cents FROM lot_proxy_bids
+            WHERE bidder_user_id = $1 AND lot_id = ANY($2::uuid[])`,
+          [viewerId, lots.map(l => l.id)]
+        );
+        for (const r of pm.rows) viewerMax[r.lot_id] = r.max_amount_cents;
+      } catch (e) { console.error('[lots] viewer proxy-max fetch failed', e.message); }
+    }
+    res.json({ success: true, data: lots.map(l => redactRealizedPrice(annotateViewerBidState(l, viewerId, viewerMax[l.id]), isAuthed)) });
   } catch (err) {
     next(err);
   }
@@ -632,7 +644,17 @@ router.get('/:lotId', optionalAuth, async (req, res, next) => {
       lot.next_min_bid_cents = nextMinBidCents(lot.starting_bid_cents || 100, lot.current_bid_cents || 0, override);
     }
 
-    res.json({ success: true, data: redactRealizedPrice(annotateViewerBidState(lot, req.user && req.user.id), !!req.user) });
+    let viewerMaxCents = null;
+    if (req.user) {
+      try {
+        const pm = await db.query(
+          `SELECT max_amount_cents FROM lot_proxy_bids WHERE lot_id = $1 AND bidder_user_id = $2`,
+          [lot.id, req.user.id]
+        );
+        viewerMaxCents = pm.rows[0] ? pm.rows[0].max_amount_cents : null;
+      } catch (e) { console.error('[lots] viewer proxy-max fetch failed', e.message); }
+    }
+    res.json({ success: true, data: redactRealizedPrice(annotateViewerBidState(lot, req.user && req.user.id, viewerMaxCents), !!req.user) });
   } catch (err) {
     next(err);
   }
