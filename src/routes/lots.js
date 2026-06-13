@@ -4,6 +4,7 @@ const auth = require('../middleware/authMiddleware');
 const authMiddleware = require('../middleware/authMiddleware');
 const optionalAuth = require('../middleware/optionalAuthMiddleware');
 const { redactRealizedPrice } = require('../lib/realizedPrice'); // #20.1
+const { annotateViewerBidState } = require('../lib/viewerBidState'); // #2/#10
 const registrationService = require('../services/auctionRegistrationService'); // #20
 const db = require('../db');
 const { getBidsByLot, createBid, resolveIncrementOverride, resolveAuctionIncrementOverride, effectiveIncrement, nextMinBidCents } = require('../services/bidService');
@@ -253,8 +254,9 @@ router.get('/auction/:auctionId/seller', auth, async (req, res, next) => {
 
 // GET /api/lots/auction/:auctionId  (must come before /:lotId)
 // Withdrawn lots are excluded — this endpoint is buyer-facing and public.
-// winning_buyer_user_id and current_winner_user_id excluded; winning_amount_cents is the
-// final hammer price (public) and is included so the closed-lot display works.
+// winning_buyer_user_id and current_winner_user_id are selected ONLY to derive
+// viewer_is_high_bidder (annotateViewerBidState), then STRIPPED before the response;
+// winning_amount_cents is the final hammer price (public) and is kept for display.
 router.get('/auction/:auctionId', optionalAuth, async (req, res, next) => {
   try {
     // #22: archived auctions are not browsable publicly.
@@ -267,7 +269,7 @@ router.get('/auction/:auctionId', optionalAuth, async (req, res, next) => {
               condition, material, era, maker_artist, weight, dimensions,
               shippable, shipping_cost_cents, shipping_notes,
               starting_bid_cents, bid_increment_cents, current_bid_cents, bid_count,
-              winning_amount_cents,
+              winning_amount_cents, current_winner_user_id, winning_buyer_user_id,
               state, is_withdrawn, is_featured,
               closes_at, extended_until, extension_count,
               thumbnail_url, images_count,
@@ -301,9 +303,11 @@ router.get('/auction/:auctionId', optionalAuth, async (req, res, next) => {
       }
     }
 
-    // #20.1: gate realized/sold prices on closed lots for anonymous callers.
+    // #2/#10: annotate viewer_is_high_bidder (strips winner UUIDs) BEFORE the
+    // #20.1 realized-price gate for closed lots / anonymous callers.
     const isAuthed = !!req.user;
-    res.json({ success: true, data: lots.map(l => redactRealizedPrice(l, isAuthed)) });
+    const viewerId = req.user && req.user.id;
+    res.json({ success: true, data: lots.map(l => redactRealizedPrice(annotateViewerBidState(l, viewerId), isAuthed)) });
   } catch (err) {
     next(err);
   }
@@ -582,8 +586,9 @@ router.get('/:lotId/winner-status', authMiddleware, async (req, res, next) => {
 
 // GET /api/lots/:lotId
 // Withdrawn lots return 404 — this endpoint is buyer-facing and public.
-// winning_buyer_user_id and current_winner_user_id excluded; winning_amount_cents is the
-// final hammer price (public) and is included so the closed-lot display works.
+// winning_buyer_user_id and current_winner_user_id are selected ONLY to derive
+// viewer_is_high_bidder (annotateViewerBidState), then STRIPPED before the response;
+// winning_amount_cents is the final hammer price (public) and is kept for display.
 router.get('/:lotId', optionalAuth, async (req, res, next) => {
   try {
     const result = await db.query(
@@ -592,7 +597,7 @@ router.get('/:lotId', optionalAuth, async (req, res, next) => {
               condition, material, era, maker_artist, weight, dimensions,
               shippable, shipping_cost_cents, shipping_notes,
               starting_bid_cents, bid_increment_cents, current_bid_cents, bid_count,
-              winning_amount_cents,
+              winning_amount_cents, current_winner_user_id, winning_buyer_user_id,
               state, is_withdrawn, is_featured,
               closes_at, extended_until, extension_count,
               thumbnail_url, images_count,
@@ -627,7 +632,7 @@ router.get('/:lotId', optionalAuth, async (req, res, next) => {
       lot.next_min_bid_cents = nextMinBidCents(lot.starting_bid_cents || 100, lot.current_bid_cents || 0, override);
     }
 
-    res.json({ success: true, data: redactRealizedPrice(lot, !!req.user) });
+    res.json({ success: true, data: redactRealizedPrice(annotateViewerBidState(lot, req.user && req.user.id), !!req.user) });
   } catch (err) {
     next(err);
   }
