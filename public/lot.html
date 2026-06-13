@@ -636,6 +636,7 @@
   <div id="lb-counter"></div>
 </div>
 
+<script src="/widgets/shared/auth-refresh.js"></script>
 <script src="/widgets/shared/bid-utils.js"></script>
 <script>
   const token  = localStorage.getItem('token');
@@ -742,26 +743,31 @@
       const [lotRes, imgRes]  = results;
       const bidRes            = token ? results[2] : null;
 
+      // Tolerant auth handling: a 401 on the auth-gated /bids call (expired or
+      // invalid token) must NOT bounce an active bidder to /login or hide the
+      // countdown. Degrade to the guest view instead — the lot details and the
+      // countdown render from the optionalAuth /lots/:lotId response regardless
+      // of auth state. Fixes refresh-logout (#4) and missing countdown (#7).
+      let authed = !!token;
       if (lotRes.status === 401 || (bidRes && bidRes.status === 401)) {
         localStorage.removeItem('token');
-        window.location.href = '/login.html';
-        return;
+        authed = false;
       }
 
       const lotData = await lotRes.json();
       const imgData = await imgRes.json();
-      const bidData = bidRes ? await bidRes.json() : { success: false, data: [] };
+      const bidData = (bidRes && bidRes.status !== 401) ? await bidRes.json() : { success: false, data: [] };
 
       if (!lotData.success || !lotData.data) throw new Error('Lot not found');
 
-      renderLot(lotData.data);
+      renderLot(lotData.data);            // countdown starts here, independent of auth
       renderImages(imgData.success ? imgData.data : []);
       renderBids(bidData.success ? bidData.data : [], false);
 
       document.getElementById('loading-overlay').style.display = 'none';
       document.getElementById('panel-content').style.display = 'flex';
 
-      if (token) {
+      if (authed) {
         await applyBidGate();   // #20: gate the bid form (terms / registration)
         startRefresh();
       } else {
