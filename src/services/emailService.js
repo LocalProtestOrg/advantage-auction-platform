@@ -61,6 +61,11 @@ function getTransporter() {
     port,
     secure,
     auth: { user: SMTP_USER, pass: SMTP_PASS },
+    // Pool connections so a burst at auction close doesn't pay a fresh STARTTLS
+    // handshake per message and respects SES connection limits deliberately.
+    pool: true,
+    maxConnections: 5,
+    maxMessages:    100,
     connectionTimeout: 15_000,
     greetingTimeout:   10_000,
     socketTimeout:     30_000,

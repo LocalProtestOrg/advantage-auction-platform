@@ -19,6 +19,7 @@ const { sendSMS }    = require('../services/smsService');
 const auctionService = require('../services/auctionService');
 const auditService   = require('../services/auditService');
 const realtime       = require('../lib/realtime'); // #1 real-time push (pg NOTIFY)
+const content        = require('../lib/notificationContent'); // enriched templates + staleness
 
 if (process.env.SENTRY_DSN) {
   Sentry.init({ dsn: process.env.SENTRY_DSN, environment: process.env.NODE_ENV || 'development' });
@@ -31,7 +32,8 @@ const SITE_URL = process.env.FRONTEND_URL || 'https://advantageauction.bid';
 
 const POLL_INTERVAL_MS = 5000;
 const BATCH_SIZE       = 50;
-const MAX_ATTEMPTS     = 3;
+const MAX_ATTEMPTS     = 5;
+const LEASE_TIMEOUT_SEC = 120;   // release a stuck 'processing' lease after a crash
 
 // ── User + preference lookup ───────────────────────────────────────────────────
 // Returns { email, email_enabled, sms_enabled, sms_consent, phone_number }.
@@ -285,102 +287,138 @@ function buildSMS(type, payload) {
 }
 
 // ── Delivery ──────────────────────────────────────────────────────────────────
+// Returns { sent: true } on success or { skipped, reason } when intentionally not
+// sent (stale / email disabled / lot gone). Throws ONLY on a real failure so the
+// caller can back off and retry.
 async function deliver(row) {
   const payload = row.payload || {};
-  let context;
-  if (row.type === 'NEW_AUCTION' || row.type === 'AUCTION_RETURNED_TO_DRAFT' || row.type === 'AUCTION_REJECTED') {
-    context = `auction ${payload.auction_id || 'unknown'}`;
-  } else {
-    const lotId = payload.lot_id || 'unknown-lot';
-    const price = payload.visible_cents != null
-      ? ` @ $${(payload.visible_cents / 100).toFixed(2)}`
-      : '';
-    context = `lot ${lotId}${price}`;
+
+  // ── Lot-scoped buyer emails: join lot + auction at SEND time so the message
+  // always carries Lot # + Title + image + link, and DROP it if it has gone
+  // stale (e.g. an outbid/closing-soon email for a lot that already closed). ──
+  if (content.isLotType(row.type)) {
+    let lot = null, auction = null;
+    if (payload.lot_id) {
+      const lr = await db.query(
+        `SELECT id, auction_id, lot_number, title, state, current_bid_cents,
+                winning_amount_cents, closes_at, extended_until, thumbnail_url
+           FROM lots WHERE id = $1`,
+        [payload.lot_id]
+      );
+      lot = lr.rows[0] || null;
+      if (lot) {
+        const ar = await db.query(`SELECT title FROM auctions WHERE id = $1`, [lot.auction_id]);
+        auction = ar.rows[0] || null;
+      }
+    }
+    const rel = content.relevance(row.type, lot, new Date());
+    if (!rel.send) { console.log(`[notify] drop ${row.type} for ${payload.lot_id} — ${rel.reason}`); return { skipped: true, reason: rel.reason }; }
+
+    const userInfo = await getUserDeliveryInfo(row.user_id);
+    if (!userInfo) throw new Error(`User ${row.user_id} not found`);
+    if (!userInfo.email_enabled) return { skipped: true, reason: 'email disabled' };
+
+    // SMS (opt-in) — best-effort, never affects the queue outcome.
+    const smsBody = buildSMS(row.type, payload);
+    if (smsBody && userInfo.sms_enabled && userInfo.sms_consent && userInfo.phone_number) {
+      sendSMS({ to: userInfo.phone_number, message: smsBody }).catch(err => console.error(`[sms] Failed for user ${row.user_id}:`, err.message));
+    }
+
+    console.log(`[notify] ${row.type} → user ${row.user_id} for ${content.lotRef(lot)}`);
+    const emailMsg = content.buildLotEmail(row.type, { lot, auction, toAddress: userInfo.email });
+    const result = await sendEmail(emailMsg);
+    if (result.skipped) throw new Error('SMTP not configured — delivery skipped');
+    return { sent: true };
   }
 
-  console.log(`[notify] ${row.type} → user ${row.user_id} for ${context}`);
-
+  // ── Non-lot types (auction publish / seller moderation) — legacy builder ──
+  console.log(`[notify] ${row.type} → user ${row.user_id} for auction ${payload.auction_id || 'unknown'}`);
   const userInfo = await getUserDeliveryInfo(row.user_id);
-  if (!userInfo) {
-    throw new Error(`User ${row.user_id} not found`);
-  }
-
-  // ── SMS — fires independently, never affects queue row outcome ──
-  const smsBody = buildSMS(row.type, payload);
-  if (
-    smsBody &&
-    userInfo.sms_enabled &&
-    userInfo.sms_consent &&
-    userInfo.phone_number
-  ) {
-    sendSMS({ to: userInfo.phone_number, message: smsBody }).catch(err => {
-      console.error(`[sms] Failed for user ${row.user_id}:`, err.message);
-    });
-  }
-
-  // ── Email — determines queue success/failure; must throw on any problem ──
-  if (!userInfo.email_enabled) {
-    throw new Error(`Email disabled for user ${row.user_id}`);
-  }
-
+  if (!userInfo) throw new Error(`User ${row.user_id} not found`);
+  if (!userInfo.email_enabled) return { skipped: true, reason: 'email disabled' };
   const emailMsg = buildEmail(row.type, payload, userInfo.email);
   const result   = await sendEmail(emailMsg);
-
-  if (result.skipped) {
-    throw new Error('SMTP not configured — delivery skipped');
-  }
+  if (result.skipped) throw new Error('SMTP not configured — delivery skipped');
+  return { sent: true };
 }
 
 // ── Core processor ────────────────────────────────────────────────────────────
+// A single worker process runs this on an interval. A re-entrancy guard prevents
+// overlapping ticks (a slow SES batch must never let the next tick re-select the
+// same head-of-queue rows). Rows are CLAIMED atomically with a lease
+// (status='processing' + locked_at + FOR UPDATE SKIP LOCKED) so a crash mid-batch
+// can be recovered by the reaper rather than stranding rows forever.
+let ticking = false;
 async function processNotifications() {
-  let rows;
+  if (ticking) return;           // no overlapping ticks
+  ticking = true;
   try {
+    // Reaper: release leases stuck in 'processing' past the lease timeout.
+    await db.query(
+      `UPDATE notifications_queue
+          SET status = 'pending', locked_at = NULL
+        WHERE status = 'processing'
+          AND locked_at < now() - ($1 || ' seconds')::interval`,
+      [String(LEASE_TIMEOUT_SEC)]
+    ).catch(err => console.error('[notify] reaper error:', err.message));
+
+    // Claim a batch: oldest ready rows (honoring backoff), atomically leased.
     const res = await db.query(
-      `SELECT * FROM notifications_queue
-       WHERE status = 'pending'
-         AND attempts < $1
-       ORDER BY created_at ASC
-       LIMIT $2`,
+      `UPDATE notifications_queue
+          SET status = 'processing', locked_at = now()
+        WHERE id IN (
+          SELECT id FROM notifications_queue
+           WHERE status = 'pending'
+             AND attempts < $1
+             AND (next_attempt_at IS NULL OR next_attempt_at <= now())
+           ORDER BY created_at ASC
+           LIMIT $2
+           FOR UPDATE SKIP LOCKED
+        )
+        RETURNING *`,
       [MAX_ATTEMPTS, BATCH_SIZE]
     );
-    rows = res.rows;
+    const rows = res.rows;
+    if (!rows.length) return;
+    console.log(`[notify] Processing ${rows.length} claimed notification(s)`);
+    await Promise.allSettled(rows.map(deliverOne));
   } catch (err) {
-    console.error('[notify] Failed to query notifications_queue:', err.message);
-    return;
+    console.error('[notify] processNotifications error:', err.message);
+  } finally {
+    ticking = false;
   }
-
-  if (!rows.length) return;
-
-  console.log(`[notify] Processing ${rows.length} pending notification(s)`);
-
-  await Promise.allSettled(
-    rows.map(row => deliverOne(row))
-  );
 }
 
 async function deliverOne(row) {
   try {
-    await deliver(row);
-
+    const outcome = await deliver(row);
+    if (outcome && outcome.skipped) {
+      // Intentionally not sent (stale / disabled / lot gone) — terminal, no retry.
+      await db.query(
+        `UPDATE notifications_queue SET status = 'skipped', processed_at = now(), last_error = $2, locked_at = NULL WHERE id = $1`,
+        [row.id, (outcome.reason || '').slice(0, 500)]
+      );
+      return;
+    }
     await db.query(
-      `UPDATE notifications_queue
-       SET status   = 'sent',
-           attempts = attempts + 1
-       WHERE id = $1`,
+      `UPDATE notifications_queue SET status = 'sent', processed_at = now(), attempts = attempts + 1, locked_at = NULL WHERE id = $1`,
       [row.id]
     );
   } catch (err) {
     console.error(`[notify] Failed to deliver ${row.type} to user ${row.user_id}:`, err.message);
-
+    // Exponential backoff (30s, 60s, 120s, 240s, capped 600s) so retries don't
+    // churn the head of the queue; give up as 'failed' after MAX_ATTEMPTS.
+    const delaySec = Math.min(30 * Math.pow(2, row.attempts || 0), 600);
     await db.query(
       `UPDATE notifications_queue
-       SET status   = CASE WHEN attempts + 1 >= $1 THEN 'failed' ELSE 'pending' END,
-           attempts = attempts + 1
-       WHERE id = $2`,
-      [MAX_ATTEMPTS, row.id]
-    ).catch(updateErr => {
-      console.error('[notify] Could not update failed row:', updateErr.message);
-    });
+          SET status          = CASE WHEN attempts + 1 >= $1 THEN 'failed' ELSE 'pending' END,
+              attempts        = attempts + 1,
+              next_attempt_at = now() + ($3 || ' seconds')::interval,
+              last_error      = $4,
+              locked_at       = NULL
+        WHERE id = $2`,
+      [MAX_ATTEMPTS, row.id, String(delaySec), (err.message || '').slice(0, 500)]
+    ).catch(updateErr => console.error('[notify] Could not update failed row:', updateErr.message));
   }
 }
 
