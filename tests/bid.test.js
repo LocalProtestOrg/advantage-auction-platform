@@ -17,7 +17,7 @@ jest.mock('../src/db/index', () => ({
 }));
 
 const db                                  = require('../src/db/index');
-const { createBid, resolveBidIncrement }  = require('../src/services/bidService');
+const { createBid, resolveIncrementOverride, resolveAuctionIncrementOverride } = require('../src/services/bidService');
 
 // ── Factories ─────────────────────────────────────────────────────────────────
 
@@ -82,20 +82,25 @@ function makeClient(overrides = {}) {
   return client;
 }
 
-// ── resolveBidIncrement — unit tests (no createBid involved) ──────────────────
+// ── increment override resolution — unit tests (no createBid involved) ────────
+// The platform LADDER (incrementForCents/nextMinCents) is covered exhaustively in
+// bid-increment.test.js. Here we test only the OVERRIDE hierarchy: a configured
+// flat increment at lot → auction → house, else null (⇒ the ladder applies).
 
-describe('resolveBidIncrement', () => {
+describe('resolveIncrementOverride', () => {
   let client;
   beforeEach(() => {
     client = makeClient({
-      'from auctions':     { rows: [{ bid_increment_cents: null, auction_house_id: 'house-1' }] },
+      'from auctions':       { rows: [{ bid_increment_cents: null, auction_house_id: 'house-1' }] },
       'from auction_houses': { rows: [{ default_bid_increment_cents: 750 }] },
     });
   });
 
   test('G — lot-level override is returned immediately, no DB query fired', async () => {
+    // Regression: previously read lot.bid_increment (wrong column) so lot-level
+    // overrides were silently inert. Now reads lot.bid_increment_cents.
     const lot = makeLot({ bid_increment_cents: 250 });
-    const result = await resolveBidIncrement(client, lot);
+    const result = await resolveIncrementOverride(client, lot);
     expect(result).toBe(250);
     expect(client.query).not.toHaveBeenCalled();
   });
@@ -105,31 +110,31 @@ describe('resolveBidIncrement', () => {
       'from auctions': { rows: [{ bid_increment_cents: 1000, auction_house_id: null }] },
     });
     const lot = makeLot({ bid_increment_cents: null });
-    const result = await resolveBidIncrement(client, lot);
-    expect(result).toBe(1000);
+    expect(await resolveIncrementOverride(client, lot)).toBe(1000);
   });
 
   test('I — auction-house default used when lot and auction have none', async () => {
     const lot = makeLot({ bid_increment_cents: null });
-    const result = await resolveBidIncrement(client, lot);
-    expect(result).toBe(750);
+    expect(await resolveIncrementOverride(client, lot)).toBe(750);
   });
 
-  test('fallback 500 when no lot, no auction, no house', async () => {
+  test('null (⇒ ladder) when no lot, no auction, no house override', async () => {
     client = makeClient({
       'from auctions':       { rows: [{ bid_increment_cents: null, auction_house_id: 'house-1' }] },
       'from auction_houses': { rows: [] },   // house not found
     });
     const lot = makeLot({ bid_increment_cents: null });
-    const result = await resolveBidIncrement(client, lot);
-    expect(result).toBe(500);
+    expect(await resolveIncrementOverride(client, lot)).toBeNull();
   });
 
-  test('fallback 500 when lot has no auction_id', async () => {
+  test('null when lot has no auction_id', async () => {
     const lot = makeLot({ bid_increment_cents: null, auction_id: null });
-    const result = await resolveBidIncrement(client, lot);
-    expect(result).toBe(500);
+    expect(await resolveIncrementOverride(client, lot)).toBeNull();
     expect(client.query).not.toHaveBeenCalled();
+  });
+
+  test('resolveAuctionIncrementOverride walks auction → house default', async () => {
+    expect(await resolveAuctionIncrementOverride(client, 'auction-aaa')).toBe(750);
   });
 });
 
@@ -310,7 +315,7 @@ describe('createBid — anti-snipe (J)', () => {
       'from lot_proxy_bids': { rows: proxies },
       'insert into bids':    { rows: [makeBidRow()] },
       // Anti-snipe UPDATE returns the new closes_at
-      'closes_at = closes_at': { rows: [{ closes_at: extendedTime }], rowCount: 1 },
+      'closes_at + interval': { rows: [{ closes_at: extendedTime }], rowCount: 1 },
     });
 
     const result = await bid(client, 'lot-aaa', 'user-1', { max_bid_cents: 1000 });
@@ -319,7 +324,7 @@ describe('createBid — anti-snipe (J)', () => {
 
     // Confirm the extension UPDATE was issued.
     const snipeCalls = client.query.mock.calls.filter(
-      ([sql]) => sql && sql.toLowerCase().includes('closes_at = closes_at')
+      ([sql]) => sql && sql.toLowerCase().includes('closes_at + interval')
     );
     expect(snipeCalls.length).toBeGreaterThan(0);
   });
@@ -341,7 +346,7 @@ describe('createBid — anti-snipe (J)', () => {
     expect(new Date(result.closes_at).getTime()).toBe(new Date(closesLater).getTime());
 
     const snipeCalls = client.query.mock.calls.filter(
-      ([sql]) => sql && sql.toLowerCase().includes('closes_at = closes_at')
+      ([sql]) => sql && sql.toLowerCase().includes('closes_at + interval')
     );
     expect(snipeCalls).toHaveLength(0);
   });

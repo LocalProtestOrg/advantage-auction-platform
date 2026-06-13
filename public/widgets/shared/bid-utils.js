@@ -15,12 +15,19 @@
     return Number.isFinite(n) ? n : NaN;
   }
 
-  // Exact mirror of bidService: minimum next bid = max(starting, current + increment).
-  // With no bids (current=0) this is max(starting, increment). All inputs in cents.
+  // Minimum next bid = max(starting, current + increment). Prefer the server's
+  // already-banded increment (effective_bid_increment_cents) when provided; when
+  // absent, fall back to the shared platform ladder (bid-increment.js) so the
+  // client hint matches bidService exactly. All inputs in cents.
   function nextMinCents(startingCents, currentCents, incrementCents) {
     var s = Number(startingCents);  if (!Number.isFinite(s) || s <= 0) s = 100;
     var c = Number(currentCents);   if (!Number.isFinite(c) || c < 0)  c = 0;
-    var i = Number(incrementCents); if (!Number.isFinite(i) || i <= 0) i = 500;
+    var i = Number(incrementCents);
+    if (!Number.isFinite(i) || i <= 0) {
+      i = (global.BidIncrement && global.BidIncrement.incrementForCents)
+        ? global.BidIncrement.incrementForCents(c)
+        : 500;
+    }
     var n = Math.max(s, c + i);
     return (Number.isFinite(n) && n > 0) ? n : s;
   }

@@ -1,52 +1,58 @@
 const db = require('../db/index');
+// Canonical increment ladder — shared verbatim with the client (bid-increment.js)
+// so validation and the displayed "next minimum" can never diverge.
+const { incrementForCents, effectiveIncrement, nextMinCents } = require('../../public/widgets/shared/bid-increment');
 
-// ── resolveBidIncrement ────────────────────────────────────────────────────────
-// Walks the hierarchy: lot → auction → auction_house → 500 (cents).
-// Uses the already-open transaction client; never opens its own connection.
-async function resolveBidIncrement(client, lot) {
-  // 1. Lot-level override — highest precedence.
-  if (lot.bid_increment != null) {
-    return Math.round(lot.bid_increment * 100);
-  }
+// ── Increment resolution ───────────────────────────────────────────────────────
+// The platform ladder (incrementForCents) is the default. A configured FLAT
+// override (professional seller / admin) takes precedence when present, walked
+// lot → auction → auction_house. resolveIncrementOverride returns that flat
+// override in cents, or null when none is set (⇒ use the ladder).
 
-  // 2. Fetch auction (only when needed).
-  if (!lot.auction_id) return 500;
+// Auction/house override only (no lot row needed) — used by the list endpoint to
+// resolve once, then band each lot by its own price.
+async function resolveAuctionIncrementOverride(client, auctionId) {
+  if (!auctionId) return null;
   const auctionRes = await client.query(
     `SELECT bid_increment_cents, auction_house_id FROM auctions WHERE id = $1`,
-    [lot.auction_id]
+    [auctionId]
   );
   const auction = auctionRes.rows[0];
-  if (!auction) return 500;
-
-  // 3. Auction-level override.
-  if (auction.bid_increment_cents != null) {
-    return auction.bid_increment_cents;
-  }
-
-  // 4. Fetch auction house (only when needed).
-  if (!auction.auction_house_id) return 500;
+  if (!auction) return null;
+  if (auction.bid_increment_cents != null) return auction.bid_increment_cents;
+  if (!auction.auction_house_id) return null;
   const houseRes = await client.query(
     `SELECT default_bid_increment_cents FROM auction_houses WHERE id = $1`,
     [auction.auction_house_id]
   );
   const house = houseRes.rows[0];
+  return (house && house.default_bid_increment_cents != null) ? house.default_bid_increment_cents : null;
+}
 
-  // 5. House default, or hardcoded fallback.
-  return (house && house.default_bid_increment_cents != null)
-    ? house.default_bid_increment_cents
-    : 500;
+// Full override for a specific lot: lot-level wins, else auction/house.
+// NOTE: reads lot.bid_increment_cents (the canonical column). A prior bug read
+// lot.bid_increment, leaving every lot-level override silently inert.
+async function resolveIncrementOverride(client, lot) {
+  if (lot.bid_increment_cents != null) return lot.bid_increment_cents;
+  return resolveAuctionIncrementOverride(client, lot.auction_id);
+}
+
+// Minimum acceptable next bid (cents) for a lot given its flat override (or null).
+function nextMinBidCents(startingCents, currentCents, override) {
+  return nextMinCents(startingCents, currentCents, override);
 }
 
 // ── resolveProxyBid ───────────────────────────────────────────────────────────
 // Called inside an open transaction on a FOR-UPDATE locked lot row.
 // Upserts the caller's max, re-ranks all proxies, computes visible price,
 // writes bid history + lot fields, then returns resolution detail.
-async function resolveProxyBid(client, lot, bidderUserId, maxAmountCents, increment) {
+async function resolveProxyBid(client, lot, bidderUserId, maxAmountCents, override) {
   const currentBidCents  = lot.current_bid_cents || 0;
   const startingBidCents = lot.starting_bid_cents || 100;
 
-  // Minimum acceptable max = must beat current price by at least one increment.
-  const minMaxCents = Math.max(startingBidCents, currentBidCents + increment);
+  // Minimum acceptable max = must beat current price by at least one increment
+  // (ladder band at the current price, or the flat override when configured).
+  const minMaxCents = nextMinCents(startingBidCents, currentBidCents, override);
   if (maxAmountCents < minMaxCents) {
     throw new Error(
       `Max bid must be at least $${(minMaxCents / 100).toFixed(2)}`
@@ -82,7 +88,7 @@ async function resolveProxyBid(client, lot, bidderUserId, maxAmountCents, increm
     visibleCents = Math.max(startingBidCents, currentBidCents);
   } else {
     visibleCents = Math.min(
-      runnerUp.max_amount_cents + increment,
+      runnerUp.max_amount_cents + effectiveIncrement(runnerUp.max_amount_cents, override),
       winner.max_amount_cents
     );
   }
@@ -254,26 +260,26 @@ async function createBid(lotId, userId, { amount, maxBid, max_bid_cents }) {
       throw new Error('Bidding not allowed on this lot');
     }
 
-    // Resolve increment once for this transaction.
-    const increment = await resolveBidIncrement(client, lot);
+    // Resolve the increment override once for this transaction (null ⇒ ladder).
+    const override = await resolveIncrementOverride(client, lot);
 
     console.log('BID SUBMITTED (UNIFIED)', {
       userId,
       submittedMaxCents,
-      increment,
+      override,
       currentBidCents: lot.current_bid_cents,
     });
 
     // Step 4 — Validate minimum before touching any state.
     const currentBidCents  = lot.current_bid_cents || 0;
     const startingBidCents = lot.starting_bid_cents || 100;
-    const minAllowed = Math.max(startingBidCents, currentBidCents + increment);
+    const minAllowed = nextMinCents(startingBidCents, currentBidCents, override);
     if (submittedMaxCents < minAllowed) {
       throw new Error(`Bid must be at least $${(minAllowed / 100).toFixed(2)}`);
     }
 
     // Step 3 — Single resolution path for all bid types.
-    const resolution = await resolveProxyBid(client, lot, userId, submittedMaxCents, increment);
+    const resolution = await resolveProxyBid(client, lot, userId, submittedMaxCents, override);
 
     // Step 6 — Anti-snipe (unchanged, position unchanged).
     const finalClosesAt = await applyAntiSnipe(client, lot);
@@ -309,4 +315,12 @@ async function getBidsByLot(lotId) {
   return res.rows;
 }
 
-module.exports = { createBid, getBidsByLot, resolveBidIncrement };
+module.exports = {
+  createBid,
+  getBidsByLot,
+  resolveIncrementOverride,
+  resolveAuctionIncrementOverride,
+  nextMinBidCents,
+  effectiveIncrement,
+  incrementForCents,
+};

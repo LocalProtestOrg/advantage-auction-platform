@@ -6,7 +6,7 @@ const optionalAuth = require('../middleware/optionalAuthMiddleware');
 const { redactRealizedPrice } = require('../lib/realizedPrice'); // #20.1
 const registrationService = require('../services/auctionRegistrationService'); // #20
 const db = require('../db');
-const { getBidsByLot, createBid, resolveBidIncrement } = require('../services/bidService');
+const { getBidsByLot, createBid, resolveIncrementOverride, resolveAuctionIncrementOverride, effectiveIncrement, nextMinBidCents } = require('../services/bidService');
 const imageProcessingService      = require('../services/imageProcessingService');
 const { writeAuditLog }           = require('../lib/auditLog');
 const { isProfessional }          = require('../services/sellerTypeRules');
@@ -279,23 +279,25 @@ router.get('/auction/:auctionId', optionalAuth, async (req, res, next) => {
       [req.params.auctionId]
     );
 
-    // #17/#16: surface server-authoritative bid math so the lot cards' "Next
-    // minimum bid" agrees EXACTLY with bidService validation. Every lot in an
-    // auction resolves to the same increment (resolveBidIncrement walks
-    // lot→auction→house, and lot-level is currently inert), so resolve once.
+    // #17/#16/#3: surface server-authoritative bid math so the lot cards' "Next
+    // minimum bid" agrees EXACTLY with bidService validation. The increment now
+    // follows the platform ladder banded by EACH lot's current price (a flat
+    // override at lot/auction/house level still wins when configured), so we
+    // resolve the auction/house override once and band every lot individually.
     const lots = result.rows;
     if (lots.length) {
-      let sharedIncrement = 500; // $5 house default fallback
+      let auctionOverride = null;
       try {
-        sharedIncrement = await resolveBidIncrement(db, lots[0]);
+        auctionOverride = await resolveAuctionIncrementOverride(db, req.params.auctionId);
       } catch (e) {
-        console.error('[lots] list resolveBidIncrement failed for auction', req.params.auctionId, e.message);
+        console.error('[lots] list increment override failed for auction', req.params.auctionId, e.message);
       }
       for (const lot of lots) {
+        const override = lot.bid_increment_cents != null ? lot.bid_increment_cents : auctionOverride;
         const starting = lot.starting_bid_cents || 100;
         const current  = lot.current_bid_cents  || 0;
-        lot.effective_bid_increment_cents = sharedIncrement;
-        lot.next_min_bid_cents = Math.max(starting, current + sharedIncrement);
+        lot.effective_bid_increment_cents = effectiveIncrement(current, override);
+        lot.next_min_bid_cents = nextMinBidCents(starting, current, override);
       }
     }
 
@@ -612,17 +614,17 @@ router.get('/:lotId', optionalAuth, async (req, res, next) => {
     // We expose the resolved values so the client never computes a divergent
     // number. This does not change validation behavior — it only surfaces it.
     try {
-      const effInc   = await resolveBidIncrement(db, lot);
+      const override = await resolveIncrementOverride(db, lot);
       const starting = lot.starting_bid_cents || 100;
       const current  = lot.current_bid_cents  || 0;
-      lot.effective_bid_increment_cents = effInc;
-      lot.next_min_bid_cents = Math.max(starting, current + effInc);
+      lot.effective_bid_increment_cents = effectiveIncrement(current, override);
+      lot.next_min_bid_cents = nextMinBidCents(starting, current, override);
     } catch (e) {
       // Non-fatal: fall back so the page still renders. Logged, not surfaced.
-      console.error('[lots] resolveBidIncrement failed for', lot.id, e.message);
-      const fb = lot.bid_increment_cents || 500;
-      lot.effective_bid_increment_cents = fb;
-      lot.next_min_bid_cents = Math.max(lot.starting_bid_cents || 100, (lot.current_bid_cents || 0) + fb);
+      console.error('[lots] increment resolve failed for', lot.id, e.message);
+      const override = lot.bid_increment_cents != null ? lot.bid_increment_cents : null;
+      lot.effective_bid_increment_cents = effectiveIncrement(lot.current_bid_cents || 0, override);
+      lot.next_min_bid_cents = nextMinBidCents(lot.starting_bid_cents || 100, lot.current_bid_cents || 0, override);
     }
 
     res.json({ success: true, data: redactRealizedPrice(lot, !!req.user) });
