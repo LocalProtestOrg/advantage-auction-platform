@@ -951,9 +951,9 @@
     const soon = () => { clearTimeout(t); t = setTimeout(refreshLotNow, 150); };
     const joinIfReady = () => { if (currentAuctionId) socket.emit('joinAuction', currentAuctionId); };
     socket.on('connect', joinIfReady);
-    socket.on('lot:update', m => { if (m && m.lot_id === lotId) soon(); });
-    socket.on('lot:winning', m => { if (m && m.lot_id === lotId) refreshLotNow(); });
-    socket.on('lot:outbid',  m => { if (m && m.lot_id === lotId) refreshLotNow(); });
+    socket.on('lot:update', m => { if (m && m.lot_id === lotId) { if (window.BuyerChime && m.closes_at && currentClosesAt && m.closes_at !== currentClosesAt) BuyerChime.play('extended'); soon(); } });
+    socket.on('lot:winning', m => { if (m && m.lot_id === lotId) { if (window.BuyerChime) BuyerChime.play('bid'); refreshLotNow(); } });
+    socket.on('lot:outbid',  m => { if (m && m.lot_id === lotId) { if (window.BuyerChime) BuyerChime.play('outbid'); refreshLotNow(); } });
     socket.on('auction:update', () => soon());
   }
 
@@ -1045,10 +1045,10 @@
     // public-side orientation matching the seller-side dashboard format.
     const numPrefix = (lot.lot_number != null) ? ('Lot #' + lot.lot_number + ' · ') : '';
     document.getElementById('lot-title').textContent       = numPrefix + (lot.title || '');
-    // Prefer the real lot category (Furniture, Fine Art, etc.) over the
-    // size_category code (A/B/C) which is operationally meaningful but
-    // unhelpful to buyers. Fall back to size_category if no category set.
-    document.getElementById('lot-category').textContent    = lot.category || lot.size_category || '';
+    // #12: show ONLY the human category (Furniture, Fine Art, …) to buyers.
+    // Never fall back to the internal size_category code (A/B/C) — that was
+    // rendering as a stray single letter ("A") above the description.
+    document.getElementById('lot-category').textContent    = lot.category || '';
     document.getElementById('lot-description').textContent = lot.description || '';
 
     // Pricing context (cents) — used by setCurrentBid / updateHint. Coerce and

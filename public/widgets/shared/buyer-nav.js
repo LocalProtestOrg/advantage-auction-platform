@@ -25,6 +25,8 @@
     '#buyer-nav .bn-links a.active{background:#2563eb;color:#fff}' +
     '#buyer-nav .bn-auth a{color:#cbd5e1;text-decoration:none;font-size:14px;font-weight:700;padding:7px 10px;white-space:nowrap}' +
     '#buyer-nav .bn-auth a:hover{color:#fff}' +
+    '#buyer-nav .bn-sound{background:none;border:none;color:#cbd5e1;font-size:16px;cursor:pointer;padding:6px 8px;line-height:1}' +
+    '#buyer-nav .bn-sound:hover{color:#fff}' +
     '@media (max-width:600px){#buyer-nav .bn-brand{display:none}#buyer-nav .bn-links a{padding:7px 9px;font-size:13px}}';
 
   var LINKS = [
@@ -41,6 +43,50 @@
     if (history.length > 1 && sameOriginReferrer()) history.back();
     else location.href = '/';
   }
+
+  // ── #14 optional bid chime ──────────────────────────────────────────────────
+  // OFF by default; persisted in localStorage. Short, rate-limited tone on
+  // bid / outbid / extension. WebAudio — no autoplay: the AudioContext is only
+  // created/resumed from a user gesture (the toggle) or a live bid event, and
+  // nothing plays unless the buyer has explicitly turned sounds on.
+  var _audio = null, _lastChime = 0;
+  function chimeEnabled() { try { return localStorage.getItem('bidSound') === 'on'; } catch (e) { return false; } }
+  function audioCtx() {
+    try {
+      if (!_audio) { var AC = window.AudioContext || window.webkitAudioContext; if (!AC) return null; _audio = new AC(); }
+      if (_audio.state === 'suspended' && _audio.resume) _audio.resume();
+      return _audio;
+    } catch (e) { return null; }
+  }
+  function beep(freqs) {
+    var c = audioCtx(); if (!c) return;
+    var t = c.currentTime;
+    freqs.forEach(function (f, i) {
+      var o = c.createOscillator(), g = c.createGain();
+      o.type = 'sine'; o.frequency.value = f;
+      var s = t + i * 0.09;
+      g.gain.setValueAtTime(0.0001, s);
+      g.gain.exponentialRampToValueAtTime(0.14, s + 0.012);
+      g.gain.exponentialRampToValueAtTime(0.0001, s + 0.085);
+      o.connect(g); g.connect(c.destination);
+      o.start(s); o.stop(s + 0.09);
+    });
+  }
+  function playChime(kind) {
+    if (!chimeEnabled()) return;
+    var now = Date.now(); if (now - _lastChime < 800) return;   // rate-limit — never spammy
+    _lastChime = now;
+    if (kind === 'outbid') beep([392]);              // lower single tone
+    else if (kind === 'extended') beep([587, 784]);  // rising pair
+    else beep([659, 988]);                           // new bid: bright rising pair
+  }
+  function toggleChime() {
+    var on = !chimeEnabled();
+    try { localStorage.setItem('bidSound', on ? 'on' : 'off'); } catch (e) {}
+    if (on) { audioCtx(); beep([659, 988]); }        // confirmation beep (within the click gesture)
+    return on;
+  }
+  window.BuyerChime = { enabled: chimeEnabled, play: playChime, toggle: toggleChime };
 
   function mount() {
     if (document.getElementById('buyer-nav')) return;
@@ -64,6 +110,7 @@
         '<button class="bn-back" type="button" aria-label="Go back">&#8592; Back</button>' +
         '<a class="bn-brand" href="/">Advantage</a>' +
         '<nav class="bn-links">' + linksHtml + '</nav>' +
+        '<button class="bn-sound" type="button" aria-label="Toggle bid sounds" title="Bid sounds (off by default)"></button>' +
         '<div class="bn-auth">' + authHtml + '</div>' +
       '</div>';
     document.body.insertBefore(header, document.body.firstChild);
@@ -75,6 +122,14 @@
       try { localStorage.removeItem('token'); } catch (_) {}
       location.href = '/';
     });
+
+    // #14 bid-sound toggle
+    var sound = header.querySelector('.bn-sound');
+    if (sound) {
+      var paint = function () { sound.textContent = chimeEnabled() ? '🔊' : '🔇'; sound.style.opacity = chimeEnabled() ? '1' : '0.6'; };
+      paint();
+      sound.addEventListener('click', function () { toggleChime(); paint(); });
+    }
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', mount);

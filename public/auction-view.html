@@ -926,8 +926,8 @@
     const soon = () => { clearTimeout(t); t = setTimeout(pollGrid, 200); };
     socket.on('connect', () => socket.emit('joinAuction', auctionId));
     socket.on('lot:update', soon);
-    socket.on('lot:winning', m => { const c = cardFor(m && m.lot_id); if (c) setCardChipState(c, 'winning'); soon(); });
-    socket.on('lot:outbid',  m => { const c = cardFor(m && m.lot_id); if (c) setCardChipState(c, 'outbid'); soon(); });
+    socket.on('lot:winning', m => { const c = cardFor(m && m.lot_id); if (c) setCardChipState(c, 'winning'); if (window.BuyerChime) BuyerChime.play('bid'); soon(); });
+    socket.on('lot:outbid',  m => { const c = cardFor(m && m.lot_id); if (c) setCardChipState(c, 'outbid'); if (window.BuyerChime) BuyerChime.play('outbid'); soon(); });
     socket.on('auction:update', () => loadAuction());
   }
 
