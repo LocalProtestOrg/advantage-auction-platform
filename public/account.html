@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Account — Advantage Auction</title>
+  <style>
+    *,*::before,*::after{box-sizing:border-box}
+    body{margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#f8fafc;color:#1f2937}
+    .wrap{max-width:560px;margin:0 auto;padding:1.5rem 1rem 4rem}
+    h1{font-size:1.4rem;margin:0 0 1rem}
+    .card{background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:1.25rem 1.4rem;margin-bottom:1rem}
+    .who{font-size:.95rem;color:#374151}.who strong{display:block;font-size:1.05rem;margin-bottom:2px}
+    .links{display:flex;flex-direction:column}
+    .links a,.links button{display:block;text-align:left;padding:.85rem 0;border:none;border-bottom:1px solid #f1f5f9;background:none;
+      font-size:.95rem;font-weight:600;color:#1f2937;text-decoration:none;cursor:pointer}
+    .links a:last-child,.links button:last-child{border-bottom:none}
+    .links a:hover{color:#2563eb}
+    .links .logout{color:#991b1b}
+    .empty{padding:2rem;text-align:center;color:#64748b}
+    .empty a{color:#2563eb;font-weight:700;text-decoration:none}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Account</h1>
+    <div id="content" class="empty">Loading…</div>
+  </div>
+  <script src="/widgets/shared/auth-refresh.js"></script>
+  <script src="/widgets/shared/buyer-nav.js"></script>
+  <script>
+    const token = localStorage.getItem('token');
+    const content = document.getElementById('content');
+    function esc(s){ return String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+    const menu =
+      '<div class="card links">'
+        +'<a href="/my-bids.html">My Bids</a>'
+        +'<a href="/watchlist.html">Watchlist</a>'
+        +'<a href="/add-card.html?next=%2Faccount.html">Payment method</a>'
+        +'<button type="button" class="logout" id="logout">Log out</button>'
+      +'</div>';
+    async function load(){
+      if(!token){ content.className='empty'; content.innerHTML='Please <a href="/login.html?next=%2Faccount.html">log in</a> to view your account.'; return; }
+      let who = '<div class="card who"><strong>Signed in</strong></div>';
+      try{
+        const r = await fetch('/api/auth/me', { headers:{ Authorization:'Bearer '+token } });
+        if(r.status===401){ localStorage.removeItem('token'); content.className='empty'; content.innerHTML='Please <a href="/login.html?next=%2Faccount.html">log in</a> to view your account.'; return; }
+        const d = await r.json();
+        if(d.success && d.data){ who = '<div class="card who"><strong>'+esc(d.data.email||'Your account')+'</strong>'+esc((d.data.role||'buyer'))+'</div>'; }
+      }catch(e){}
+      content.className=''; content.innerHTML = who + menu;
+      const lo = document.getElementById('logout');
+      if(lo) lo.addEventListener('click', () => { localStorage.removeItem('token'); location.href='/'; });
+    }
+    load();
+  </script>
+</body>
+</html>

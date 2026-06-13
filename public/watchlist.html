@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Watchlist — Advantage Auction</title>
+  <style>
+    *,*::before,*::after{box-sizing:border-box}
+    body{margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#f8fafc;color:#1f2937}
+    .wrap{max-width:1100px;margin:0 auto;padding:1.5rem 1rem 4rem}
+    h1{font-size:1.4rem;margin:0 0 1rem}
+    .loading,.empty{padding:2rem;text-align:center;color:#64748b}
+    .empty a{color:#2563eb;font-weight:700;text-decoration:none}
+    .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px}
+    .wl-card{display:flex;flex-direction:column;background:#fff;border:1px solid #e2e8f0;border-radius:12px;overflow:hidden}
+    .wl-top{display:flex}
+    .wl-img{width:92px;min-width:92px;background:#eef2f7}
+    .wl-img img{width:100%;height:100%;object-fit:cover}
+    .wl-img .ph{width:100%;height:100%;background:linear-gradient(135deg,#e2e8f0,#f1f5f9)}
+    .wl-body{padding:10px 12px;flex:1;min-width:0}
+    .wl-title{font-weight:700;font-size:.92rem;margin-bottom:6px;line-height:1.25}
+    .wl-badge{display:inline-block;font-size:11px;font-weight:800;padding:3px 9px;border-radius:999px;margin-bottom:6px}
+    .wl-rows{display:grid;grid-template-columns:auto 1fr;gap:2px 8px;font-size:12.5px}
+    .wl-rows span{color:#64748b}.wl-rows strong{text-align:right}
+    .wl-actions{display:flex;border-top:1px solid #f1f5f9}
+    .wl-actions a,.wl-actions button{flex:1;text-align:center;padding:9px;font-size:13px;font-weight:700;border:none;background:#fff;cursor:pointer;text-decoration:none;color:#2563eb}
+    .wl-actions button{color:#991b1b;border-left:1px solid #f1f5f9}
+    .wl-actions a:hover,.wl-actions button:hover{background:#f8fafc}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Watchlist</h1>
+    <div id="content" class="loading">Loading…</div>
+  </div>
+  <script src="/widgets/shared/auth-refresh.js"></script>
+  <script src="/widgets/shared/bid-increment.js"></script>
+  <script src="/widgets/shared/bid-status.js"></script>
+  <script src="/widgets/shared/bid-utils.js"></script>
+  <script src="/widgets/shared/buyer-nav.js"></script>
+  <script>
+    const token = localStorage.getItem('token');
+    const content = document.getElementById('content');
+    const TONE = { win:['#dcfce7','#166534'], lose:['#fee2e2','#991b1b'], neutral:['#f1f5f9','#475569'] };
+    function esc(s){ return String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+    function fmtRemaining(c){ if(!c) return '—'; const r=new Date(c).getTime()-Date.now(); if(r<=0) return 'Ended';
+      const h=Math.floor(r/3600000),m=Math.floor((r%3600000)/60000),s=Math.floor((r%60000)/1000);
+      return h>0?(h+'h '+String(m).padStart(2,'0')+'m'):m>0?(m+'m '+String(s).padStart(2,'0')+'s'):(s+'s'); }
+    function card(lot){
+      const s = BidStatus.deriveBidderStatus(lot);
+      const c = TONE[s.tone]||TONE.neutral;
+      const closesAt = lot.extended_until || lot.closes_at || null;
+      const img = lot.thumbnail_url ? '<img src="'+esc(lot.thumbnail_url)+'" alt="" loading="lazy">' : '<div class="ph"></div>';
+      const cur = (lot.current_bid_cents!=null) ? BidUtils.formatUSD(lot.current_bid_cents) : '—';
+      const num = (lot.lot_number!=null) ? ('Lot #'+lot.lot_number+' · ') : '';
+      const lotUrl = '/lot.html?lotId='+encodeURIComponent(lot.id);
+      return '<div class="wl-card" data-lot="'+esc(lot.id)+'">'
+        +'<div class="wl-top">'
+          +'<a class="wl-img" href="'+lotUrl+'">'+img+'</a>'
+          +'<div class="wl-body">'
+            +'<div class="wl-title">'+num+esc(lot.title||'')+'</div>'
+            +'<span class="wl-badge" style="background:'+c[0]+';color:'+c[1]+'">'+s.label+'</span>'
+            +'<div class="wl-rows">'
+              +'<span>Current bid</span><strong>'+cur+'</strong>'
+              +(s.isOpen?('<span>Time left</span><strong data-close="'+(closesAt||'')+'">'+fmtRemaining(closesAt)+'</strong>'):'')
+            +'</div>'
+          +'</div>'
+        +'</div>'
+        +'<div class="wl-actions"><a href="'+lotUrl+'">View lot →</a><button type="button" data-remove>Remove</button></div>'
+      +'</div>';
+    }
+    async function remove(lotId, el){
+      try{
+        const r = await fetch('/api/watchlist/remove', { method:'POST', headers:{'Content-Type':'application/json',Authorization:'Bearer '+token}, body:JSON.stringify({ lotId }) });
+        if(r.ok && el) { el.remove(); if(!document.querySelector('.wl-card')){ content.className='empty'; content.innerHTML='Your watchlist is empty. <a href="/">Browse auctions →</a>'; } }
+      }catch(e){}
+    }
+    async function load(){
+      if(!token){ content.className='empty'; content.innerHTML='Please <a href="/login.html?next=%2Fwatchlist.html">log in</a> to view your watchlist.'; return; }
+      try{
+        const r = await fetch('/api/watchlist', { headers:{ Authorization:'Bearer '+token } });
+        if(r.status===401){ content.className='empty'; content.innerHTML='Please <a href="/login.html?next=%2Fwatchlist.html">log in</a> to view your watchlist.'; return; }
+        const d = await r.json();
+        const lots = (d.success && d.data) || [];
+        if(!lots.length){ content.className='empty'; content.innerHTML='Your watchlist is empty. <a href="/">Browse auctions →</a>'; return; }
+        content.className='grid'; content.innerHTML = lots.map(card).join('');
+        content.querySelectorAll('[data-remove]').forEach(btn => btn.addEventListener('click', () => {
+          const c = btn.closest('.wl-card'); remove(c.getAttribute('data-lot'), c);
+        }));
+      }catch(e){ content.className='empty'; content.textContent='Could not load your watchlist. Please try again.'; }
+    }
+    setInterval(() => { document.querySelectorAll('[data-close]').forEach(el => { const c=el.getAttribute('data-close'); if(c) el.textContent=fmtRemaining(c); }); }, 1000);
+    load();
+  </script>
+</body>
+</html>

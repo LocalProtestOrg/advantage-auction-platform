@@ -38,8 +38,13 @@
     </div>
   </div>
 
+  <script src="/widgets/shared/auth-refresh.js"></script>
+  <script src="/widgets/shared/buyer-nav.js"></script>
   <script>
     const token = localStorage.getItem('token');
+    // #5: preserve the return URL through the flow so accepting terms never
+    // dead-ends — we send the bidder back to the auction/lot they came from.
+    const NEXT = new URLSearchParams(location.search).get('next') || '';
 
     // Minimal, safe markdown renderer (headings, lists, bold, paragraphs).
     function esc(s) { return String(s).replace(/[&<>]/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;' }[c])); }
@@ -87,7 +92,7 @@
       if (!token) {
         status.innerHTML = 'Log in to accept these terms.';
         action.innerHTML = '<span class="signin"><a href="/login.html?next=' +
-          encodeURIComponent('/buyer-terms.html') + '">Log in or create an account →</a></span>';
+          encodeURIComponent(location.pathname + location.search) + '">Log in or create an account →</a></span>';
         return;
       }
       let accepted = false;
@@ -99,7 +104,9 @@
       if (accepted) {
         status.className = 'status ok';
         status.textContent = '✓ You have accepted the current terms (v' + versionInt + ').';
-        action.innerHTML = '';
+        action.innerHTML = NEXT
+          ? '<span class="signin"><a href="' + encodeURI(NEXT) + '">Return to the auction →</a></span>'
+          : '';
         return;
       }
       status.className = 'status';
@@ -111,7 +118,13 @@
         try {
           const r = await fetch('/api/terms/accept', { method: 'POST', headers: { Authorization: 'Bearer ' + token } });
           const d = await r.json();
-          if (d.success) { status.className = 'status ok'; status.textContent = '✓ Terms accepted. Thank you.'; action.innerHTML = ''; }
+          if (d.success) {
+            status.className = 'status ok';
+            action.innerHTML = '';
+            // #5: never leave the bidder stranded — return to where they came from.
+            if (NEXT) { status.textContent = '✓ Terms accepted — returning you to the auction…'; setTimeout(() => { location.href = NEXT; }, 700); }
+            else { status.textContent = '✓ Terms accepted. Thank you.'; }
+          }
           else { btn.disabled = false; btn.textContent = 'Accept Terms'; status.textContent = d.message || 'Could not save. Try again.'; }
         } catch { btn.disabled = false; btn.textContent = 'Accept Terms'; status.textContent = 'Could not save. Try again.'; }
       });

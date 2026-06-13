@@ -187,6 +187,31 @@ router.post('/:lotId/bids', authMiddleware, async (req, res) => {
   }
 });
 
+// GET /api/lots/my-bids — lots the authenticated buyer has bid on, with their
+// per-viewer status (#6 My Bids). Declared BEFORE /:lotId so it isn't shadowed.
+router.get('/my-bids', authMiddleware, async (req, res, next) => {
+  try {
+    const result = await db.query(
+      `SELECT l.id, l.auction_id, l.lot_number, l.title, l.state,
+              l.current_bid_cents, l.winning_amount_cents, l.bid_count,
+              l.closes_at, l.extended_until, l.thumbnail_url,
+              l.current_winner_user_id, l.winning_buyer_user_id,
+              pb.max_amount_cents AS viewer_max
+         FROM lot_proxy_bids pb
+         JOIN lots l ON l.id = pb.lot_id
+        WHERE pb.bidder_user_id = $1
+          AND l.state != 'withdrawn'
+          AND NOT EXISTS (SELECT 1 FROM auctions a WHERE a.id = l.auction_id AND a.is_archived IS TRUE)
+        ORDER BY (l.state = 'open') DESC, l.closes_at ASC NULLS LAST`,
+      [req.user.id]
+    );
+    // Authed viewer (they bid on these) → realized prices visible; annotate strips
+    // winner UUIDs and adds viewer_is_high_bidder / viewer_has_bid / viewer_max_bid_cents.
+    const data = result.rows.map(r => redactRealizedPrice(annotateViewerBidState(r, req.user.id, r.viewer_max), true));
+    res.json({ success: true, data });
+  } catch (err) { next(err); }
+});
+
 // ── Lot CRUD ─────────────────────────────────────────────────────────────────
 
 // POST /api/lots

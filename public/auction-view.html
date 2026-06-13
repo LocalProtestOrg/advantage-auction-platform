@@ -484,6 +484,7 @@
 <script src="/widgets/shared/marketplace-seller-cta.js"></script>
 <script src="/widgets/shared/bid-utils.js"></script>
 <script src="/socket.io/socket.io.js"></script>
+<script src="/widgets/shared/buyer-nav.js"></script>
 
 <script>
   const params    = new URLSearchParams(location.search);
@@ -1088,7 +1089,7 @@
     if (!bidGate.terms_accepted_current) {
       const el = document.createElement('div');
       el.className = 'card-signin';
-      el.innerHTML = '<a href="/buyer-terms.html">Accept Buyer Terms to bid →</a>';
+      el.innerHTML = '<a href="/buyer-terms.html?next=' + encodeURIComponent(location.pathname + location.search) + '">Accept Buyer Terms to bid →</a>';
       body.appendChild(el);
       return;
     }
