@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Search — Advantage Auction</title>
+  <style>
+    *,*::before,*::after{box-sizing:border-box}
+    body{margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#f8fafc;color:#1f2937}
+    .wrap{max-width:1100px;margin:0 auto;padding:1.25rem 1rem 4rem}
+    h1{font-size:1.4rem;margin:0 0 .8rem}
+    .searchbar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+    .searchbar input[type=text]{flex:1;min-width:200px;padding:10px 12px;border:1.5px solid #cbd5e1;border-radius:8px;font-size:15px}
+    .searchbar button{padding:10px 16px;border:none;border-radius:8px;background:#2563eb;color:#fff;font-weight:700;cursor:pointer}
+    .searchbar .nearme{background:#0f172a}
+    .modes{display:flex;gap:6px;margin-bottom:10px}
+    .modes button{padding:7px 14px;border:1.5px solid #cbd5e1;background:#fff;border-radius:999px;font-weight:700;font-size:13px;cursor:pointer;color:#475569}
+    .modes button.active{background:#2563eb;border-color:#2563eb;color:#fff}
+    .filters{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+    .filters select,.filters input{padding:8px 10px;border:1.5px solid #e2e8f0;border-radius:7px;font-size:13px;background:#fff}
+    .filters label{font-size:13px;color:#475569;display:flex;align-items:center;gap:5px}
+    .meta{font-size:13px;color:#64748b;margin-bottom:10px}
+    .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:14px}
+    .card{display:flex;flex-direction:column;background:#fff;border:1px solid #e2e8f0;border-radius:12px;overflow:hidden;text-decoration:none;color:inherit}
+    .card:hover{box-shadow:0 2px 8px rgba(0,0,0,.08)}
+    .card .img{aspect-ratio:4/3;background:linear-gradient(135deg,#e2e8f0,#f1f5f9)}
+    .card .img img{width:100%;height:100%;object-fit:cover}
+    .card .body{padding:10px 12px}
+    .card .t{font-weight:700;font-size:.92rem;line-height:1.25;margin-bottom:4px}
+    .card .sub{font-size:12px;color:#64748b;margin-bottom:6px}
+    .card .price{font-weight:800;color:#0f172a}
+    .chip{display:inline-block;font-size:11px;font-weight:700;color:#475569;background:#f1f5f9;border-radius:999px;padding:2px 8px;margin-bottom:6px}
+    .empty{padding:2.5rem;text-align:center;color:#64748b}
+    .more{display:block;margin:18px auto 0;padding:10px 20px;border:1.5px solid #cbd5e1;background:#fff;border-radius:8px;font-weight:700;cursor:pointer}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Search auctions &amp; lots</h1>
+    <div class="searchbar">
+      <input type="text" id="q" placeholder="Search lots, auctions, sellers, locations…" />
+      <button id="go">Search</button>
+      <button class="nearme" id="nearme" title="Find auctions near you">📍 Near me</button>
+    </div>
+    <div class="modes">
+      <button data-mode="lots" class="active">Lots</button>
+      <button data-mode="auctions">Auctions</button>
+    </div>
+    <div class="filters">
+      <select id="category"><option value="">All categories</option></select>
+      <input type="text" id="state" placeholder="State (e.g. TX)" size="6" maxlength="2" />
+      <input type="text" id="city" placeholder="City" size="10" />
+      <select id="status"><option value="">Active &amp; upcoming</option><option value="active">Active</option><option value="upcoming">Upcoming</option><option value="closed">Closed</option></select>
+      <select id="sort"><option value="">Sort: ending soon</option><option value="newest">Newest</option><option value="most_bids">Most bids</option></select>
+      <label><input type="checkbox" id="ending_soon" /> Ending soon</label>
+    </div>
+    <div class="meta" id="meta"></div>
+    <div id="results" class="grid"></div>
+    <button class="more" id="more" style="display:none">Load more</button>
+  </div>
+
+  <script src="/widgets/shared/buyer-nav.js"></script>
+  <script>
+    const $ = s => document.querySelector(s);
+    const results = $('#results'), meta = $('#meta'), moreBtn = $('#more');
+    let mode = 'lots', offset = 0, total = 0, lastNear = null;
+    const params = new URLSearchParams(location.search);
+    function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+    function usd(c){ return (c==null)?null:'$'+(Number(c)/100).toFixed(2); }
+    function timeLeft(t){ if(!t) return ''; const r=new Date(t).getTime()-Date.now(); if(r<=0) return 'Ended';
+      const h=Math.floor(r/3600000),m=Math.floor((r%3600000)/60000); return h>24?(Math.floor(h/24)+'d '+(h%24)+'h'):h>0?(h+'h '+String(m).padStart(2,'0')+'m'):(m+'m'); }
+
+    function lotCard(l){
+      const cur = (l.current_bid_cents!=null && l.current_bid_cents>0) ? ('Current bid '+usd(l.current_bid_cents))
+                : ('Starts at '+ (usd(l.starting_bid_cents)||'$1.00'));
+      const img = l.thumbnail_url ? '<img src="'+esc(l.thumbnail_url)+'" alt="" loading="lazy">' : '';
+      const num = l.lot_number!=null ? ('Lot #'+l.lot_number+' · ') : '';
+      const loc = [l.auction_city, l.auction_address_state].filter(Boolean).join(', ');
+      const tl = (l.lot_state==='open' && l.closes_at) ? (' · '+timeLeft(l.closes_at)+' left') : (l.lot_state==='closed'?' · Closed':'');
+      return '<a class="card" href="/lot.html?lotId='+encodeURIComponent(l.id)+'">'
+        +'<div class="img">'+img+'</div><div class="body">'
+        +(l.category?('<span class="chip">'+esc(l.category)+'</span><br>'):'')
+        +'<div class="t">'+num+esc(l.title)+'</div>'
+        +'<div class="sub">'+esc(l.auction_title||'')+(loc?(' · '+esc(loc)):'')+tl+'</div>'
+        +'<div class="price">'+cur+'</div></div></a>';
+    }
+    function auctionCard(a){
+      const img = a.cover_image_url ? '<img src="'+esc(a.cover_image_url)+'" alt="" loading="lazy">' : '';
+      const loc = [a.city, a.address_state].filter(Boolean).join(', ');
+      const dist = (a.distance_km!=null) ? (' · '+Math.round(a.distance_km)+' km') : '';
+      return '<a class="card" href="/auction-view.html?auctionId='+encodeURIComponent(a.id)+'">'
+        +'<div class="img">'+img+'</div><div class="body">'
+        +'<div class="t">'+esc(a.title)+'</div>'
+        +'<div class="sub">'+esc(loc||'')+dist+(a.seller_display_name?(' · '+esc(a.seller_display_name)):'')+'</div>'
+        +'<div class="price">'+(a.lot_count!=null?(a.lot_count+' lot'+(a.lot_count===1?'':'s')):'')+'</div></div></a>';
+    }
+
+    function buildUrl(append){
+      if (mode === 'auctions') {
+        if (lastNear) { const u=new URLSearchParams({lat:lastNear.lat,lng:lastNear.lng,radius_km:200,limit:24}); return '/api/public/auctions/near?'+u; }
+        const u=new URLSearchParams(); const q=$('#q').value.trim(); if(q)u.set('q',q);
+        if($('#state').value.trim())u.set('address_state',$('#state').value.trim());
+        if($('#city').value.trim())u.set('city',$('#city').value.trim());
+        if($('#status').value)u.set('state',$('#status').value==='upcoming'?'published':$('#status').value);
+        if($('#sort').value==='')u.set('sort','ending_soon'); // default chip behavior optional
+        u.set('limit',24); u.set('offset',append?offset:0); return '/api/public/auctions?'+u;
+      }
+      const u=new URLSearchParams(); const q=$('#q').value.trim(); if(q)u.set('q',q);
+      if($('#category').value)u.set('category',$('#category').value);
+      if($('#state').value.trim())u.set('address_state',$('#state').value.trim());
+      if($('#city').value.trim())u.set('city',$('#city').value.trim());
+      if($('#status').value)u.set('status',$('#status').value);
+      if($('#sort').value)u.set('sort',$('#sort').value);
+      if($('#ending_soon').checked)u.set('ending_soon','true');
+      u.set('limit',24); u.set('offset',append?offset:0); return '/api/public/lots/search?'+u;
+    }
+
+    async function run(append){
+      if(!append){ offset=0; results.innerHTML=''; }
+      meta.textContent='Searching…';
+      try{
+        const r = await fetch(buildUrl(append)); const d = await r.json();
+        const rows = (d && d.data) || [];
+        total = (d && d.total_count!=null) ? d.total_count : (offset+rows.length);
+        const html = rows.map(mode==='auctions'?auctionCard:lotCard).join('');
+        results.insertAdjacentHTML('beforeend', html);
+        offset += rows.length;
+        if(!results.children.length){ results.innerHTML='<div class="empty">No results. Try a different term or filter.</div>'; }
+        meta.textContent = total ? (total+' result'+(total===1?'':'s')) : '';
+        moreBtn.style.display = (rows.length>0 && offset<total) ? 'block' : 'none';
+      }catch(e){ meta.textContent='Search failed. Please try again.'; }
+    }
+
+    async function loadCategories(){
+      try{ const d=await (await fetch('/api/public/categories')).json();
+        (d.data||[]).forEach(c=>{ const o=document.createElement('option'); o.value=c.category; o.textContent=c.category+' ('+c.lot_count+')'; $('#category').appendChild(o); });
+      }catch(e){}
+    }
+
+    // wire
+    document.querySelectorAll('.modes button').forEach(b=>b.addEventListener('click',()=>{
+      document.querySelectorAll('.modes button').forEach(x=>x.classList.remove('active'));
+      b.classList.add('active'); mode=b.dataset.mode; lastNear=null; run(false);
+    }));
+    $('#go').addEventListener('click',()=>{ lastNear=null; run(false); });
+    $('#q').addEventListener('keydown',e=>{ if(e.key==='Enter'){ lastNear=null; run(false); } });
+    ['category','state','city','status','sort','ending_soon'].forEach(id=>$('#'+id).addEventListener('change',()=>{ lastNear=null; run(false); }));
+    moreBtn.addEventListener('click',()=>run(true));
+    $('#nearme').addEventListener('click',()=>{
+      if(!navigator.geolocation){ meta.textContent='Location not supported on this device.'; return; }
+      meta.textContent='Finding your location…';
+      navigator.geolocation.getCurrentPosition(p=>{
+        lastNear={lat:p.coords.latitude,lng:p.coords.longitude};
+        mode='auctions'; document.querySelectorAll('.modes button').forEach(x=>x.classList.toggle('active',x.dataset.mode==='auctions'));
+        run(false);
+      }, ()=>{ meta.textContent='Could not get your location. Allow location access or search by city/state.'; });
+    });
+
+    // hydrate from URL (?q=&category=&state=&mode=)
+    if(params.get('q')) $('#q').value=params.get('q');
+    if(params.get('category')) $('#category').value=params.get('category'); // applied after categories load below
+    if(params.get('state')) $('#state').value=params.get('state');
+    if(params.get('mode')==='auctions'){ mode='auctions'; document.querySelectorAll('.modes button').forEach(x=>x.classList.toggle('active',x.dataset.mode==='auctions')); }
+    loadCategories().then(()=>{ if(params.get('category')) $('#category').value=params.get('category'); run(false); });
+  </script>
+</body>
+</html>

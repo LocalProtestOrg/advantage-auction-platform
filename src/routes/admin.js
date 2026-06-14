@@ -1023,6 +1023,16 @@ router.patch('/auctions/:auctionId/discovery', auth, role(['admin']), async (req
     );
 
     if (!rows.length) return res.status(404).json({ success: false, message: 'Auction not found' });
+    try {
+      await writeAuditLog({
+        event_type:  'auction.discovery_updated',
+        entity_type: 'auction',
+        entity_id:   auctionId,
+        auction_id:  auctionId,
+        actor_id:    req.user.id,
+        metadata:    { priority, lat, lng },
+      });
+    } catch (e) { console.error('[admin] discovery audit log failed:', e.message); }
     return res.json({ success: true, data: rows[0] });
   } catch (err) { next(err); }
 });

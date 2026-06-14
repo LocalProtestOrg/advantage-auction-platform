@@ -17,6 +17,7 @@ const express = require('express');
 const router  = express.Router();
 const db      = require('../db');
 const { auctionScoreSQL } = require('../services/discoveryRankingService');
+const { buildLotSearch, clampInt } = require('../services/searchService');
 
 const LIVE_CACHE   = 's-maxage=30, stale-while-revalidate=10';
 const PUBLIC_CACHE = 's-maxage=60, stale-while-revalidate=30';
@@ -75,7 +76,7 @@ router.get('/auctions', async (req, res, next) => {
     if (q.q && typeof q.q === 'string' && q.q.trim().length > 0) {
       params.push(`%${q.q.trim().slice(0, 100)}%`);
       const ki = params.length;
-      where.push(`(a.title ILIKE $${ki} OR a.description ILIKE $${ki} OR a.city ILIKE $${ki})`);
+      where.push(`(a.title ILIKE $${ki} OR a.subtitle ILIKE $${ki} OR a.description ILIKE $${ki} OR a.city ILIKE $${ki} OR sp.display_name ILIKE $${ki})`);
     }
 
     const sortEndingSoon = q.sort === 'ending_soon';
@@ -693,6 +694,63 @@ router.get('/config', async (req, res, next) => {
 
     res.set('Cache-Control', 's-maxage=300, stale-while-revalidate=60');
     return res.json({ success: true, data });
+  } catch (err) { next(err); }
+});
+
+// ── GET /api/public/lots/search — buyer lot-level search (Phase 2) ────────────
+// Params: q (text: title/description/category/maker), category (exact),
+//   address_state, city, shippable, status (active|upcoming|closed),
+//   ending_soon, sort (ending_soon|newest|most_bids), limit (1–50), offset.
+// Realized prices are withheld for closed lots (anonymous endpoint, #20.1).
+router.get('/lots/search', async (req, res, next) => {
+  try {
+    const { where, params, orderBy } = buildLotSearch(req.query);
+    const limit  = clampInt(req.query.limit, 24, 1, 50);
+    const offset = Math.max(parseInt(req.query.offset, 10) || 0, 0);
+    params.push(limit);  const li = params.length;
+    params.push(offset); const oi = params.length;
+    const { rows } = await db.query(`
+      SELECT l.id, l.auction_id, l.lot_number, l.title, l.category,
+             l.thumbnail_url, l.images_count, l.state AS lot_state,
+             l.starting_bid_cents,
+             CASE WHEN l.state = 'open' THEN l.current_bid_cents ELSE NULL END AS current_bid_cents,
+             l.bid_count, l.closes_at, l.shippable,
+             a.title AS auction_title, a.state AS auction_state,
+             a.city AS auction_city, a.address_state AS auction_address_state,
+             a.end_time AS auction_end_time,
+             sp.display_name AS seller_display_name,
+             COUNT(*) OVER() AS total_count
+        FROM lots l
+        JOIN auctions a ON a.id = l.auction_id
+        LEFT JOIN seller_profiles sp ON sp.id = a.seller_id
+       WHERE ${where.join(' AND ')}
+       ORDER BY ${orderBy}
+       LIMIT $${li} OFFSET $${oi}
+    `, params);
+    const total_count = rows.length ? parseInt(rows[0].total_count, 10) : 0;
+    const data = rows.map(({ total_count: _tc, ...rest }) => rest);
+    res.set('Cache-Control', LIVE_CACHE);
+    return res.json({ success: true, data, total_count, has_more: offset + data.length < total_count, offset, limit });
+  } catch (err) { next(err); }
+});
+
+// ── GET /api/public/categories — real lot categories with counts (browse) ─────
+router.get('/categories', async (req, res, next) => {
+  try {
+    const { rows } = await db.query(`
+      SELECT l.category, COUNT(*)::int AS lot_count
+        FROM lots l
+        JOIN auctions a ON a.id = l.auction_id
+       WHERE l.category IS NOT NULL AND l.category <> ''
+         AND l.state <> 'withdrawn'
+         AND a.is_archived IS NOT TRUE
+         AND a.state IN ('published','active')
+       GROUP BY l.category
+       ORDER BY lot_count DESC, l.category ASC
+       LIMIT 100
+    `);
+    res.set('Cache-Control', PUBLIC_CACHE);
+    return res.json({ success: true, data: rows });
   } catch (err) { next(err); }
 });
 
