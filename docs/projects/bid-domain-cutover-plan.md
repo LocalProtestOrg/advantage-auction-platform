@@ -22,7 +22,12 @@ Audit grounded in the current `fix/stabilization-sprint-1` code.
 | `FRONTEND_URL` | unset (→ fallback `advantageauction.bid`/`localhost`) | `https://bid.advantage.bid` | CORS + socket.io origin + email links |
 | `PUBLIC_BASE_URL` | unset (→ `FRONTEND_URL` fallback) | `https://bid.advantage.bid` (or leave to fallback) | seller-agreement email links |
 | `SITE_URL` | unset (→ Railway URL) | optional; admin-facing only | admin walkthrough-review email link |
+| `ALLOWED_ORIGINS` | unset | optional comma-list | extra CORS/socket.io origins beyond `FRONTEND_URL` (e.g. transition window) |
 | `BACKEND_URL`, `APP_URL` | n/a | — | **not used anywhere** (no action) |
+
+> Cutover env (prod): `FRONTEND_URL=https://bid.advantage.bid` (optionally
+> `https://bid.advantage.bid,https://advantage-auction-platform-production.up.railway.app`
+> during transition); `PUBLIC_BASE_URL=https://bid.advantage.bid`.
 
 ## DNS / Railway checklist
 - [ ] Railway: add custom domain `bid.advantage.bid` to the **production web service** (`advantage-auction-platform`).
@@ -31,10 +36,20 @@ Audit grounded in the current `fix/stabilization-sprint-1` code.
 - [ ] Set `FRONTEND_URL=https://bid.advantage.bid` (and `PUBLIC_BASE_URL`) on the prod service env.
 - [ ] Redeploy/restart so the new env is read.
 
-## Code changes required?
-**No — for the buyer cutover it is ENV-ONLY**, with two optional decisions:
-1. **Dual-origin transition** (serve both `bid.advantage.bid` and the Railway URL during a window): the single-string socket.io `cors.origin` would need a small change to accept a **list/function**. If you cut over cleanly (same-origin app+API on the new domain), **no code change**.
-2. **SEO canonicals** (`index.html` etc. point to apex `advantage.bid`): optional; decide whether buyer pages should canonicalize to `bid.advantage.bid`. Not blocking.
+## Code changes — IMPLEMENTED (Phase 1)
+- **Multi-origin CORS + socket.io** (`server.js` + new `src/lib/publicUrls.js`): `FRONTEND_URL`
+  may now be a **comma-separated list** (plus optional `ALLOWED_ORIGINS`). The HTTP CORS
+  middleware echoes the matching allowed origin (with `Vary: Origin`); socket.io is given the
+  origin **array**. This enables a clean dual-origin transition (Railway URL **and**
+  `bid.advantage.bid` live at once) with no further code change.
+- **Email link base decoupled** (`notificationContent.js`, `notificationWorker.js` →
+  `publicUrls.publicBaseUrl()`): links use `PUBLIC_BASE_URL` → first `FRONTEND_URL` origin →
+  safe live default, so a comma-list `FRONTEND_URL` can never produce a malformed link base.
+- **Non-breaking:** with env unset, behavior is unchanged (dev origin for CORS, current
+  default for links). Validated by `tests/public-urls.test.js` (8) + full suite 169/169.
+- **Still env/config (no code):** the actual cutover = set `FRONTEND_URL`/`PUBLIC_BASE_URL`
+  + Railway custom domain + DNS (below). SEO canonicals on marketing pages remain pointed at
+  the apex `advantage.bid` (deliberate; not blocking).
 
 ## Risk assessment
 - **Low.** No cookies/sessions to break; relative links + `location.origin` carry over; webhook unaffected. Main risk = **forgetting to set `FRONTEND_URL`** (emails would keep pointing at `advantageauction.bid`) or a socket.io origin mismatch if app and API end up on different origins.

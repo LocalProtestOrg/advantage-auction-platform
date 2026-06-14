@@ -28,7 +28,7 @@ if (process.env.SENTRY_DSN) {
 process.on('uncaughtException',  (err)    => { if (process.env.SENTRY_DSN) Sentry.captureException(err); });
 process.on('unhandledRejection', (reason) => { if (process.env.SENTRY_DSN) Sentry.captureException(reason instanceof Error ? reason : new Error(String(reason))); });
 
-const SITE_URL = process.env.FRONTEND_URL || 'https://advantageauction.bid';
+const SITE_URL = require('../lib/publicUrls').publicBaseUrl();
 
 const POLL_INTERVAL_MS = 5000;
 const BATCH_SIZE       = 50;

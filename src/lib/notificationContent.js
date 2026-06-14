@@ -8,7 +8,7 @@
 // lotId only as a functional URL), and no realized prices to public contexts
 // (the recipient is the winner/bidder, and stale post-close "bid now" emails are
 // dropped by relevance() before they can be sent).
-const SITE_URL = process.env.FRONTEND_URL || 'https://advantageauction.bid';
+const SITE_URL = require('./publicUrls').publicBaseUrl();
 
 function escHtml(str) {
   return String(str)

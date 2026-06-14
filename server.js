@@ -83,11 +83,15 @@ const app = express();
 app.set('trust proxy', 1); // Railway sits behind a proxy; req.ip must use X-Forwarded-For
 const server = http.createServer(app);
 
-const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:3001';
+// Allowed origins for CORS + socket.io. FRONTEND_URL may be a comma-separated
+// list (e.g. the Railway URL AND https://bid.advantage.bid during cutover).
+const { allowedOrigins, isOriginAllowed } = require('./src/lib/publicUrls');
+const ALLOWED_ORIGINS = allowedOrigins();
+const PRIMARY_ORIGIN  = ALLOWED_ORIGINS[0];
 
 const io = new Server(server, {
   cors: {
-    origin: FRONTEND_URL,
+    origin: ALLOWED_ORIGINS,   // socket.io accepts an array of allowed origins
     methods: ['GET', 'POST'],
   },
 });
@@ -127,7 +131,16 @@ app.use((req, res, next) => {
     || req.path.startsWith('/widgets/')
     || req.path === '/marketplace.css'
     || req.path === '/marketplace-components.js';
-  res.header('Access-Control-Allow-Origin', isPublicDiscovery ? '*' : FRONTEND_URL);
+  const reqOrigin = req.headers.origin;
+  if (isPublicDiscovery) {
+    res.header('Access-Control-Allow-Origin', '*');
+  } else if (reqOrigin && isOriginAllowed(reqOrigin)) {
+    // Echo the matching allowed origin (supports the multi-origin cutover window).
+    res.header('Access-Control-Allow-Origin', reqOrigin);
+    res.header('Vary', 'Origin');
+  } else {
+    res.header('Access-Control-Allow-Origin', PRIMARY_ORIGIN);
+  }
   res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
   res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   if (isPublicDiscovery) {
