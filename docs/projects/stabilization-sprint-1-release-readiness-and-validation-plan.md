@@ -77,3 +77,73 @@ reach prod before 065 is applied (worker hard-depends on it).
 ## 7. Hard constraints (all phases until explicit LIVE approval)
 No Stripe LIVE. No Terms v2 activation. No custom-domain cutover (Railway prod domain).
 Apply only 065. Never `run-migrations.js` on prod. Never apply 008.
+
+## 8. Additional Release-Readiness Findings — Domain, Admin Controls, Buyer Premium, Tax Exemption
+Audited 2026-06-14 (read-only). Detailed docs: `bid-domain-cutover-plan.md`,
+`admin-auction-controls-audit.md`, `buyer-premium-audit-and-plan.md`,
+`admin-buyer-controls-audit.md`, `tax-exemption-reseller-certificate-plan.md`.
+
+- **bid.advantage.bid cutover** is part of launch readiness. It is **env/config-only**
+  (set `FRONTEND_URL` + Railway custom domain + DNS CNAME) — pure JWT/localStorage (no
+  cookies), relative links, `location.origin` Stripe returns, dashboard-configured
+  webhook. Prod `FRONTEND_URL` is currently **unset** → email links fall back to the wrong
+  domain. No code change for buyers (a dual-origin transition window would need a small
+  socket.io cors change). Do at promotion; does not gate staging code validation.
+- **Admin auction editing** — core fields (title/description/times/pickup/address/images/
+  lifecycle) ARE admin-editable and audited. **Gaps:** no per-auction buyer premium or
+  sales-tax controls (those features don't exist); orphan columns uneditable
+  (`auction_terms`, `increment_ladder`, `default_starting_bid_cents`, `admin_notes`,
+  `public_auction_type`); staggered-close/anti-snipe are hardcoded (match the rules); no
+  seller reassignment; archive/discovery endpoints lack UI; no closed-state guard at the
+  service layer. The editable set is **sufficient for a TEST-mode public launch** if the
+  hardcoded-timing exception is accepted.
+- **Buyer premium** — **not charged or displayed today (0%, hammer price only).** Live
+  display is an unmet CLAUDE.md requirement. Editability/charging is **required before
+  Stripe LIVE only if a non-zero premium will be charged**; safe to launch TEST at 0%.
+- **Admin buyer controls** — **no admin buyer-management surface**; suspend/unsuspend are
+  seller-keyed and cannot reach pure buyers. **Minimum (buyer search/view + user-id-keyed
+  suspend/activate + registration revoke) is recommended as a public-launch operational
+  requirement.** Schema is ready; endpoint+UI work only.
+- **Tax exemption / reseller** — **sales tax itself is unbuilt.** A tax-collection decision
+  plus a (manual-first) exemption flow is a **hard Stripe-LIVE gate and a compliance
+  (attorney/CPA) gate** — **not** a TEST-launch blocker.
+
+### Impact on production promotion
+The stabilization sprint (9 phases) is **independent** of these gaps and can be promoted +
+validated on its own. These findings shape **public-launch** (domain + minimal admin buyer
+controls) and **Stripe-LIVE** (tax, premium-if-charged, Terms v2 money clauses) readiness —
+they do not block the staging code validation.
+
+### Updated Go / No-Go
+**Promote stabilization sprint (Stripe TEST):**
+- [ ] Staging two-buyer validation passes (checklist).
+- [ ] Backup taken; **migration 065 only** applied (`prod-migrate-065.js` → PASS); 058–064 already present; 008 NOT applied.
+- [ ] Prod deploy healthy; full prod validation (TEST) passes.
+
+**Public launch (Stripe TEST) adds:**
+- [ ] `bid.advantage.bid` configured (Railway custom domain + DNS) and **validated** (app loads, socket.io connects, emails link to it).
+- [ ] **No Railway/`advantageauction.bid` buyer-facing links remain** in emails/public flows (`FRONTEND_URL` set).
+- [ ] Admin can edit the required auction settings **or** the gaps are explicitly accepted as launch exceptions (hardcoded staggered/anti-snipe documented).
+- [ ] **Minimum admin buyer controls** (find/view/suspend a buyer; revoke a registration) present **or** explicitly accepted as a launch exception.
+- [ ] Buyer premium behavior is **known and approved** (e.g., launch at 0%).
+
+**Stripe LIVE adds (hard gates):**
+- [ ] **Tax treatment known and approved** (collection decision + at least a manual exemption flow), with attorney/CPA sign-off.
+- [ ] Buyer premium implemented + disclosed live **if** any premium will be charged.
+- [ ] Buyer Terms **v2** money clauses (premium, auto-charge, payment timing, tax) drafted (attorney) and activated, aligned with the LIVE cutover.
+- [ ] Final production TEST-mode auction passed (existing gate).
+
+## 9. Recommendation (Go/No-Go summary)
+- **Proceed to staging validation now — YES.** The sprint is independent of the new gaps.
+- **Plan admin/premium/tax/domain in parallel** — do not pause the staging validation for them.
+- **Blocks PUBLIC launch (TEST):** `bid.advantage.bid` cutover (config) + minimum admin
+  buyer controls (or accepted exception). Admin auction editing is sufficient as-is.
+- **Blocks Stripe LIVE (hard stops):** tax-collection + exemption decision (compliance);
+  buyer premium (if charging) implemented + live-disclosed; Terms v2 money clauses active.
+- **Can wait:** increment-ladder editor, seller reassignment, admin read views, archive/
+  discovery UI, `admin.advantage.bid`, walkthrough uploader, SEO canonicals.
+
+**Direct call:** None of these pause the **stabilization-sprint** promotion or the staging
+validation. They do gate the broader **public launch** (domain + admin buyer safety) and,
+most importantly, **Stripe LIVE is blocked until the sales-tax/exemption decision is made
+with attorney/CPA review** — that is the single largest LIVE prerequisite surfaced today.
