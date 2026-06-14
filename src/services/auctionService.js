@@ -253,6 +253,9 @@ async function updateAuction(auctionId, userId, updates, actorRole, options = {}
           throw new Error('Each increment_ladder tier needs a positive integer increment_cents');
         }
       }
+      // node-pg serializes a JS array as a Postgres array literal, not JSON —
+      // stringify so it binds correctly to the jsonb column (pg casts text→jsonb).
+      updates.increment_ladder = JSON.stringify(updates.increment_ladder);
     }
     if (updates.marketing_selection !== undefined && updates.marketing_selection !== null && typeof updates.marketing_selection !== 'object') {
       throw new Error('marketing_selection must be a JSON object');
@@ -663,6 +666,15 @@ async function closeAuction(auctionId, actorId = null) {
                winning_amount_cents = $2
            WHERE id = $3 AND state != 'closed'`,
           [topBid.bidder_user_id, winningCents, lot.id]
+        );
+        // ADMIN-CTRL Phase 3: enqueue the winner's "you won" email into
+        // notifications_queue (the real SES path). Previously closeAuction sent
+        // nothing — winners were never emailed. The worker renders WINNING via
+        // notificationContent.buildLotEmail (link base = publicBaseUrl()). Atomic
+        // with the close; relevance() keeps WINNING deliverable post-close.
+        await client.query(
+          `INSERT INTO notifications_queue (user_id, type, payload) VALUES ($1, 'WINNING', $2)`,
+          [topBid.bidder_user_id, JSON.stringify({ lot_id: lot.id, visible_cents: winningCents })]
         );
         results.push({
           lot_id: lot.id,

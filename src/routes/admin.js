@@ -191,6 +191,12 @@ router.patch('/auctions/:auctionId', auth, role(['admin']), idempotency, async (
         adminOverrideAvailable: !!err.adminOverrideAvailable,
       });
     }
+    // ADMIN-CTRL Phase 1A: field-lock / validation rejections → 422 with the
+    // human message (so the admin UI shows why a field couldn't be saved) instead
+    // of a generic 500.
+    if (err && /locked|must be|valid JSON|tier needs|JSON object|JSON array/i.test(err.message || '')) {
+      return res.status(422).json({ success: false, message: err.message });
+    }
     console.error('[admin] PATCH /auctions/:id error:', err.message);
     return next(err);
   }
