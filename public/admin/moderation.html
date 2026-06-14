@@ -449,6 +449,8 @@
 </head>
 
 <body>
+  <!-- ADMIN-CTRL Phase 1B: shared admin nav (Back + Moderation/Buyers + Logout) -->
+  <script src="/widgets/shared/admin-nav.js"></script>
   <div class="page">
 
     <!-- ── Header ─────────────────────────────────────────── -->
@@ -518,6 +520,8 @@
         <span style="margin-left:0.5rem;border-left:1px solid #e5e7eb;padding-left:0.75rem;display:flex;gap:0.35rem">
           <button class="auctions-chip" data-toggle="submitted_only">Needs Review</button>
           <button class="auctions-chip" data-toggle="recently_updated">Recently Updated</button>
+          <button class="auctions-chip" data-toggle="archived">Archived / Hidden</button>
+          <button class="auctions-chip" data-toggle="test">Test / Demo</button>
         </span>
       </div>
 
@@ -589,8 +593,9 @@
   function logout() {
     localStorage.removeItem('token');
     sessionStorage.clear();
-    window.location.href = '/demo.html';
+    window.location.href = '/login.html';
   }
+  window.adminLogout = logout; // shared admin-nav Log out reuses this
 
   // ── API helper ────────────────────────────────────────────────────────────────
   function api(method, url, body) {
@@ -912,7 +917,8 @@
         const header = el('div', 'card-header');
         const info = el('div');
         info.appendChild(el('div', 'card-title', a.title || '(Untitled)'));
-        info.appendChild(el('div', 'card-meta', fmtDate(a.created_at) + ' · ' + a.lot_count + ' lot' + (a.lot_count === 1 ? '' : 's')));
+        info.appendChild(el('div', 'card-meta', fmtDate(a.created_at) + ' · ' + a.lot_count + ' lot' + (a.lot_count === 1 ? '' : 's')
+          + ' · ' + (a.bid_count || 0) + ' bid' + ((a.bid_count || 0) === 1 ? '' : 's')));
         // Seller contact line — surfaces who owns the auction for moderation
         // outreach. Email is a mailto: link for one-tap contact. seller_type
         // and seller_email come from the LEFT JOIN added to the diagnostics
@@ -935,7 +941,17 @@
           info.appendChild(sellerLine);
         }
         header.appendChild(info);
-        header.appendChild(auctionStateBadge(a.state));
+        const badgeWrap = el('div');
+        badgeWrap.style.display = 'flex';
+        badgeWrap.style.gap = '0.35rem';
+        badgeWrap.style.alignItems = 'center';
+        badgeWrap.appendChild(auctionStateBadge(a.state));
+        if (a.is_archived) {
+          const ab = el('span', null, 'ARCHIVED');
+          ab.style.cssText = 'font-size:0.62rem;font-weight:800;letter-spacing:0.05em;color:#92400e;background:#fef3c7;border:1px solid #fcd34d;border-radius:99px;padding:0.15rem 0.5rem';
+          badgeWrap.appendChild(ab);
+        }
+        header.appendChild(badgeWrap);
         card.appendChild(header);
 
         const actions = el('div', 'card-actions');
@@ -977,11 +993,30 @@
         // OP-A: admin edit. Reveals an inline form (lazy-built) with editable
         // fields per auctionService.updateAuction's whitelist. Hidden when
         // state === 'closed' since closed auctions are operationally terminal.
-        if (a.state !== 'closed') {
-          const editBtn = el('button', 'btn btn-sm', 'Edit');
+        // Edit is available in every state (Advanced Edit). On active/closed the
+        // form renders bidding/price (and, when closed, all non-notes) fields
+        // read-only — see toggleEditForm — so admins can still edit admin_notes
+        // on a closed auction and safe fields on an active one.
+        {
+          const editBtn = el('button', 'btn btn-sm', a.state === 'closed' ? 'Advanced Edit' : 'Edit');
           editBtn.onclick = () => toggleEditForm(card, a.id);
           actions.appendChild(editBtn);
         }
+
+        // ADMIN-CTRL Phase 1A: Archive / Restore (preferred safe cleanup) + guarded Delete.
+        if (a.is_archived) {
+          const restoreBtn = el('button', 'btn btn-sm', 'Restore');
+          restoreBtn.onclick = () => doRestoreAuction(a.id, a.title);
+          actions.appendChild(restoreBtn);
+        } else {
+          const archiveBtn = el('button', 'btn btn-sm', 'Archive / Hide');
+          archiveBtn.onclick = () => doArchiveAuction(a.id, a.title);
+          actions.appendChild(archiveBtn);
+        }
+        const delBtn = el('button', 'btn btn-sm', 'Delete Test Auction');
+        delBtn.style.cssText = 'background:#fee2e2;border-color:#fca5a5;color:#991b1b';
+        delBtn.onclick = () => doDeleteAuction(a.id, a.title, a.bid_count || 0);
+        actions.appendChild(delBtn);
 
         // AUD-VIS (Tier 1): audit history is read-only and relevant in EVERY
         // state — especially 'closed', where the Edit button (and the Audit
@@ -1026,14 +1061,15 @@
   // OPS-1: filter state lives in window.location.hash for persistence across
   // tab switches and page reloads. Format: #auctions=state:submitted|search:foo
   function currentAuctionFilters() {
-    const f = { state: '', search: '', seller_email: '', submitted_only: false, recently_updated: false };
+    const f = { state: '', search: '', seller_email: '', submitted_only: false, recently_updated: false, archived: false, test: false };
     const hash = window.location.hash || '';
     const m = hash.match(/auctions=([^&]+)/);
     if (!m) return f;
+    const BOOL = ['submitted_only', 'recently_updated', 'archived', 'test'];
     decodeURIComponent(m[1]).split('|').forEach(part => {
       const [k, v] = part.split(':');
       if (k && v != null) {
-        if (k === 'submitted_only' || k === 'recently_updated') f[k] = (v === 'true');
+        if (BOOL.includes(k)) f[k] = (v === 'true');
         else if (f.hasOwnProperty(k)) f[k] = v;
       }
     });
@@ -1046,6 +1082,8 @@
     if (f.seller_email)       parts.push('seller_email:' + encodeURIComponent(f.seller_email));
     if (f.submitted_only)     parts.push('submitted_only:true');
     if (f.recently_updated)   parts.push('recently_updated:true');
+    if (f.archived)           parts.push('archived:true');
+    if (f.test)               parts.push('test:true');
     const base = window.location.hash.replace(/auctions=[^&]+/, '').replace(/^#&?/, '');
     const newHash = (parts.length ? 'auctions=' + parts.join('|') : '') + (base ? '&' + base : '');
     history.replaceState(null, '', '#' + newHash);
@@ -1057,6 +1095,8 @@
     if (f.seller_email)       p.set('seller_email', f.seller_email);
     if (f.submitted_only)     p.set('submitted_only', 'true');
     if (f.recently_updated)   p.set('recently_updated', 'true');
+    if (f.archived)           p.set('archived', 'only');
+    if (f.test)               p.set('test', 'true');
     return p.toString();
   }
   function syncAuctionFilterChips(f) {
@@ -1107,6 +1147,36 @@
     }).catch(err => alert(err.message));
   }
 
+  // ADMIN-CTRL Phase 1A: Archive / Restore / guarded hard-delete.
+  function doArchiveAuction(auctionId, title) {
+    const reason = prompt(`Archive (hide from public) "${title || 'this auction'}"?\n\nOptional reason for the audit log:`, '');
+    if (reason === null) return;
+    api('POST', `/api/admin/auctions/${auctionId}/archive`, { reason: reason || null }).then(data => {
+      if (!data.success) { alert(data.message || 'Archive failed'); return; }
+      loadedTabs.delete('auctions'); loadAuctions();
+    }).catch(err => alert(err.message));
+  }
+  function doRestoreAuction(auctionId, title) {
+    if (!confirm(`Restore "${title || 'this auction'}" to public visibility?`)) return;
+    api('POST', `/api/admin/auctions/${auctionId}/unarchive`).then(data => {
+      if (!data.success) { alert(data.message || 'Restore failed'); return; }
+      loadedTabs.delete('auctions'); loadAuctions();
+    }).catch(err => alert(err.message));
+  }
+  function doDeleteAuction(auctionId, title, bidCount) {
+    const warn = `PERMANENTLY DELETE "${title || 'this auction'}"?\n\n`
+      + `This cannot be undone and removes the auction, its lots, and ${bidCount} bid(s).\n`
+      + `Blocked automatically if it has any payments, payouts, or invoices (use Archive instead).\n\n`
+      + `To confirm, type the auction title exactly:`;
+    const typed = prompt(warn, '');
+    if (typed === null) return;
+    if (typed.trim() !== (title || '').trim()) { alert('Title did not match — delete cancelled.'); return; }
+    api('DELETE', `/api/admin/auctions/${auctionId}`).then(data => {
+      if (!data.success) { alert((data.message || 'Delete failed') + (data.blockers ? '\n\n• ' + data.blockers.join('\n• ') : '')); return; }
+      loadedTabs.delete('auctions'); loadAuctions();
+    }).catch(err => alert(err.message));
+  }
+
   // OP-A admin edit form ─────────────────────────────────────────────────────
   // Lazy-builds an inline form on first Edit click. Fetches the auction's
   // current values from GET /api/admin/auctions/:id, prefills inputs, then
@@ -1135,30 +1205,47 @@
       const a = data.data;
       // ISO timestamp → 'YYYY-MM-DDTHH:MM' for datetime-local input
       const dtLocal = v => v ? new Date(v).toISOString().slice(0, 16) : '';
+      // ADMIN-CTRL Phase 1A: state-aware field locking mirrors the server guards.
+      //   closed  → only Admin notes editable (all else read-only)
+      //   active  → bidding/price fields read-only (title/desc/location/schedule ok)
+      // A read-only field omits data-f so it is never sent on Save.
+      const closed = a.state === 'closed';
+      const priceLock = closed || a.state === 'active';
+      const ef = f => closed ? 'disabled' : ('data-f="' + f + '"');   // general fields
+      const pf = f => priceLock ? 'disabled' : ('data-f="' + f + '"'); // bidding/price fields
+      const lockBanner = closed
+        ? '<div style="grid-column:1/-1;background:#fef3c7;border:1px solid #fcd34d;color:#92400e;border-radius:6px;padding:0.4rem 0.6rem">Closed auction — only <strong>Admin notes</strong> can be edited.</div>'
+        : (a.state === 'active'
+          ? '<div style="grid-column:1/-1;background:#eff6ff;border:1px solid #bfdbfe;color:#1e40af;border-radius:6px;padding:0.4rem 0.6rem">Live auction — bidding &amp; price fields are locked.</div>'
+          : '');
       container.innerHTML = `
         <div style="display:grid;grid-template-columns:repeat(2, 1fr);gap:0.6rem 1rem;font-size:0.78rem">
-          <label>Title <input data-f="title" value="${escAttr(a.title)}" style="width:100%;padding:0.35rem;border:1px solid #d1d5db;border-radius:4px"></label>
-          <label>Subtitle <input data-f="subtitle" value="${escAttr(a.subtitle)}" style="width:100%;padding:0.35rem;border:1px solid #d1d5db;border-radius:4px"></label>
-          <label style="grid-column:1/-1">Description <textarea data-f="description" rows="2" style="width:100%;padding:0.35rem;border:1px solid #d1d5db;border-radius:4px;font-family:inherit">${escText(a.description)}</textarea></label>
-          <label>Start time <input type="datetime-local" data-f="start_time" value="${dtLocal(a.start_time)}" style="width:100%;padding:0.35rem;border:1px solid #d1d5db;border-radius:4px"></label>
-          <label>End time <input type="datetime-local" data-f="end_time" value="${dtLocal(a.end_time)}" style="width:100%;padding:0.35rem;border:1px solid #d1d5db;border-radius:4px"></label>
-          <label>Preview start <input type="datetime-local" data-f="preview_start" value="${dtLocal(a.preview_start)}" style="width:100%;padding:0.35rem;border:1px solid #d1d5db;border-radius:4px"></label>
-          <label>Preview end <input type="datetime-local" data-f="preview_end" value="${dtLocal(a.preview_end)}" style="width:100%;padding:0.35rem;border:1px solid #d1d5db;border-radius:4px"></label>
-          <label>Pickup window start <input type="datetime-local" data-f="pickup_window_start" value="${dtLocal(a.pickup_window_start)}" style="width:100%;padding:0.35rem;border:1px solid #d1d5db;border-radius:4px"></label>
-          <label>Pickup window end <input type="datetime-local" data-f="pickup_window_end" value="${dtLocal(a.pickup_window_end)}" style="width:100%;padding:0.35rem;border:1px solid #d1d5db;border-radius:4px"></label>
-          <label>Street address <input data-f="street_address" value="${escAttr(a.street_address)}" style="width:100%;padding:0.35rem;border:1px solid #d1d5db;border-radius:4px"></label>
-          <label>City <input data-f="city" value="${escAttr(a.city)}" style="width:100%;padding:0.35rem;border:1px solid #d1d5db;border-radius:4px"></label>
-          <label>State <input data-f="address_state" value="${escAttr(a.address_state)}" maxlength="2" style="width:100%;padding:0.35rem;border:1px solid #d1d5db;border-radius:4px"></label>
-          <label>ZIP <input data-f="zip" value="${escAttr(a.zip)}" style="width:100%;padding:0.35rem;border:1px solid #d1d5db;border-radius:4px"></label>
-          <label>Banner image URL <input data-f="banner_image_url" value="${escAttr(a.banner_image_url)}" style="width:100%;padding:0.35rem;border:1px solid #d1d5db;border-radius:4px"></label>
-          <label>Cover image URL <input data-f="cover_image_url" value="${escAttr(a.cover_image_url)}" style="width:100%;padding:0.35rem;border:1px solid #d1d5db;border-radius:4px"></label>
-          <label><input type="checkbox" data-f="shipping_available" ${a.shipping_available ? 'checked' : ''}> Shipping available</label>
-          <div style="grid-column:1/-1;margin-top:.5rem;padding-top:.5rem;border-top:1px dashed #e5e7eb;font-weight:700;color:#475569">Admin-only settings (#4)</div>
-          <label>Public auction type <input data-f="public_auction_type" value="${escAttr(a.public_auction_type)}" style="width:100%;padding:0.35rem;border:1px solid #d1d5db;border-radius:4px"></label>
-          <label>Bid increment override (cents, blank = platform ladder) <input data-f="bid_increment_cents" value="${a.bid_increment_cents != null ? a.bid_increment_cents : ''}" inputmode="numeric" style="width:100%;padding:0.35rem;border:1px solid #d1d5db;border-radius:4px"></label>
-          <label>Buyer premium (basis points, 100 = 1%; stored, not charged yet) <input data-f="buyer_premium_bps" value="${a.buyer_premium_bps != null ? a.buyer_premium_bps : ''}" inputmode="numeric" style="width:100%;padding:0.35rem;border:1px solid #d1d5db;border-radius:4px"></label>
+          ${lockBanner}
+          <label>Title <input ${ef('title')} value="${escAttr(a.title)}" style="width:100%;padding:0.35rem;border:1px solid #d1d5db;border-radius:4px"></label>
+          <label>Subtitle <input ${ef('subtitle')} value="${escAttr(a.subtitle)}" style="width:100%;padding:0.35rem;border:1px solid #d1d5db;border-radius:4px"></label>
+          <label style="grid-column:1/-1">Description <textarea ${ef('description')} rows="2" style="width:100%;padding:0.35rem;border:1px solid #d1d5db;border-radius:4px;font-family:inherit">${escText(a.description)}</textarea></label>
+          <label>Start time <input type="datetime-local" ${ef('start_time')} value="${dtLocal(a.start_time)}" style="width:100%;padding:0.35rem;border:1px solid #d1d5db;border-radius:4px"></label>
+          <label>End time <input type="datetime-local" ${ef('end_time')} value="${dtLocal(a.end_time)}" style="width:100%;padding:0.35rem;border:1px solid #d1d5db;border-radius:4px"></label>
+          <label>Preview start <input type="datetime-local" ${ef('preview_start')} value="${dtLocal(a.preview_start)}" style="width:100%;padding:0.35rem;border:1px solid #d1d5db;border-radius:4px"></label>
+          <label>Preview end <input type="datetime-local" ${ef('preview_end')} value="${dtLocal(a.preview_end)}" style="width:100%;padding:0.35rem;border:1px solid #d1d5db;border-radius:4px"></label>
+          <label>Pickup window start <input type="datetime-local" ${ef('pickup_window_start')} value="${dtLocal(a.pickup_window_start)}" style="width:100%;padding:0.35rem;border:1px solid #d1d5db;border-radius:4px"></label>
+          <label>Pickup window end <input type="datetime-local" ${ef('pickup_window_end')} value="${dtLocal(a.pickup_window_end)}" style="width:100%;padding:0.35rem;border:1px solid #d1d5db;border-radius:4px"></label>
+          <label>Timezone <input ${ef('timezone')} value="${escAttr(a.timezone)}" placeholder="e.g. America/Chicago" style="width:100%;padding:0.35rem;border:1px solid #d1d5db;border-radius:4px"></label>
+          <label>Street address <input ${ef('street_address')} value="${escAttr(a.street_address)}" style="width:100%;padding:0.35rem;border:1px solid #d1d5db;border-radius:4px"></label>
+          <label>City <input ${ef('city')} value="${escAttr(a.city)}" style="width:100%;padding:0.35rem;border:1px solid #d1d5db;border-radius:4px"></label>
+          <label>State <input ${ef('address_state')} value="${escAttr(a.address_state)}" maxlength="2" style="width:100%;padding:0.35rem;border:1px solid #d1d5db;border-radius:4px"></label>
+          <label>ZIP <input ${ef('zip')} value="${escAttr(a.zip)}" style="width:100%;padding:0.35rem;border:1px solid #d1d5db;border-radius:4px"></label>
+          <label>Banner image URL <input ${ef('banner_image_url')} value="${escAttr(a.banner_image_url)}" style="width:100%;padding:0.35rem;border:1px solid #d1d5db;border-radius:4px"></label>
+          <label>Cover image URL <input ${ef('cover_image_url')} value="${escAttr(a.cover_image_url)}" style="width:100%;padding:0.35rem;border:1px solid #d1d5db;border-radius:4px"></label>
+          <label><input type="checkbox" ${ef('shipping_available')} ${a.shipping_available ? 'checked' : ''}> Shipping available</label>
+          <div style="grid-column:1/-1;margin-top:.5rem;padding-top:.5rem;border-top:1px dashed #e5e7eb;font-weight:700;color:#475569">Admin-only settings</div>
+          <label>Public auction type <input ${ef('public_auction_type')} value="${escAttr(a.public_auction_type)}" style="width:100%;padding:0.35rem;border:1px solid #d1d5db;border-radius:4px"></label>
+          <label>Default starting bid (cents) <input ${pf('default_starting_bid_cents')} value="${a.default_starting_bid_cents != null ? a.default_starting_bid_cents : ''}" inputmode="numeric" style="width:100%;padding:0.35rem;border:1px solid #d1d5db;border-radius:4px"></label>
+          <label>Bid increment override (cents, blank = platform ladder) <input ${pf('bid_increment_cents')} value="${a.bid_increment_cents != null ? a.bid_increment_cents : ''}" inputmode="numeric" style="width:100%;padding:0.35rem;border:1px solid #d1d5db;border-radius:4px"></label>
+          <label>Buyer premium (basis points, 100 = 1%; stored, not charged yet) <input ${pf('buyer_premium_bps')} value="${a.buyer_premium_bps != null ? a.buyer_premium_bps : ''}" inputmode="numeric" style="width:100%;padding:0.35rem;border:1px solid #d1d5db;border-radius:4px"></label>
+          <label style="grid-column:1/-1">Increment ladder (JSON array; blank = unchanged) <textarea id="ladder-${auctionId}" rows="2" ${priceLock ? 'disabled' : ''} placeholder='[{"threshold_cents":0,"increment_cents":250}]' style="width:100%;padding:0.35rem;border:1px solid #d1d5db;border-radius:4px;font-family:monospace">${escText(a.increment_ladder ? JSON.stringify(a.increment_ladder) : '')}</textarea></label>
           <label>Feature priority (0 = not featured) <input id="feat-${auctionId}" value="${a.marketplace_priority != null ? a.marketplace_priority : 0}" inputmode="numeric" style="width:100%;padding:0.35rem;border:1px solid #d1d5db;border-radius:4px"></label>
-          <label style="grid-column:1/-1">Auction terms / disclosures <textarea data-f="auction_terms" rows="2" style="width:100%;padding:0.35rem;border:1px solid #d1d5db;border-radius:4px;font-family:inherit">${escText(a.auction_terms)}</textarea></label>
+          <label style="grid-column:1/-1">Auction terms / disclosures <textarea ${ef('auction_terms')} rows="2" style="width:100%;padding:0.35rem;border:1px solid #d1d5db;border-radius:4px;font-family:inherit">${escText(a.auction_terms)}</textarea></label>
           <label style="grid-column:1/-1">Admin notes (internal) <textarea data-f="admin_notes" rows="2" style="width:100%;padding:0.35rem;border:1px solid #d1d5db;border-radius:4px;font-family:inherit">${escText(a.admin_notes && a.admin_notes.text ? a.admin_notes.text : '')}</textarea></label>
           <label style="grid-column:1/-1">Reassign seller (seller_profile UUID) <input id="seller-${auctionId}" value="" placeholder="seller_profile id" style="width:100%;padding:0.35rem;border:1px solid #d1d5db;border-radius:4px"></label>
         </div>
@@ -1234,6 +1321,18 @@
         updates[field] = v.length ? v : null;
       }
     });
+
+    // ADMIN-CTRL Phase 1A: increment_ladder is JSON. Only include it when the
+    // (enabled) textarea is non-empty + valid JSON; blank means "leave unchanged"
+    // so we never accidentally null an active ladder.
+    const ladderEl = container.querySelector('#ladder-' + auctionId);
+    if (ladderEl && !ladderEl.disabled) {
+      const raw = ladderEl.value.trim();
+      if (raw) {
+        try { updates.increment_ladder = JSON.parse(raw); }
+        catch (e) { statusEl.textContent = 'Increment ladder must be valid JSON'; statusEl.style.color = '#dc2626'; return; }
+      }
+    }
 
     api('PATCH', `/api/admin/auctions/${auctionId}`, updates).then(data => {
       if (!data.success) {

@@ -105,21 +105,36 @@ router.get('/auctions', auth, role(['admin']), async (req, res, next) => {
       where.push(`a.updated_at > NOW() - INTERVAL '7 days'`);
     }
 
+    // ADMIN-CTRL Phase 1A: archived filter — 'only' shows hidden auctions,
+    // 'exclude' hides them, default shows both (admins see everything).
+    if (req.query.archived === 'only')    where.push(`a.is_archived IS TRUE`);
+    else if (req.query.archived === 'exclude') where.push(`a.is_archived IS NOT TRUE`);
+
+    // ADMIN-CTRL Phase 1A: test/demo/validation filter — title patterns + seeded
+    // test seller emails. Used by the cleanup view.
+    if (req.query.test === 'true') {
+      where.push(`(a.title ~* '(test|demo|validation|valqa|mktqa|prod val|stagger|smoke|sample|dummy|fixture|browser|rehearsal|pipeline|toggle hardening)'
+                   OR u.email ILIKE '%example.com' OR u.email ILIKE '%+test%')`);
+    }
+
     const limit  = Math.min(parseInt(req.query.limit, 10) || 50, 200);
     const offset = Math.max(parseInt(req.query.offset, 10) || 0, 0);
     params.push(limit, offset);
 
     const sql = `
-      SELECT a.id, a.title, a.state, a.created_at, a.updated_at,
+      SELECT a.id, a.title, a.state, a.created_at, a.updated_at, a.submitted_at,
+             a.is_archived, a.archived_at, a.archive_reason,
              COUNT(l.id)::int AS lot_count,
+             (SELECT COUNT(*)::int FROM bids b WHERE b.auction_id = a.id) AS bid_count,
              u.email           AS seller_email,
+             sp.display_name   AS seller_name,
              sp.seller_type    AS seller_type
         FROM auctions a
         LEFT JOIN seller_profiles sp ON sp.id = a.seller_id
         LEFT JOIN users u            ON u.id  = sp.user_id
         LEFT JOIN lots l             ON l.auction_id = a.id
        ${where.length ? 'WHERE ' + where.join(' AND ') : ''}
-       GROUP BY a.id, u.email, sp.seller_type
+       GROUP BY a.id, u.email, sp.display_name, sp.seller_type
        ORDER BY a.created_at DESC
        LIMIT $${params.length - 1} OFFSET $${params.length}
     `;
@@ -179,6 +194,29 @@ router.patch('/auctions/:auctionId', auth, role(['admin']), idempotency, async (
     console.error('[admin] PATCH /auctions/:id error:', err.message);
     return next(err);
   }
+});
+
+// DELETE /api/admin/auctions/:auctionId
+// ADMIN-CTRL Phase 1A: safe, guarded hard-delete for test/demo auctions.
+// Blocked (409) when the auction has settled/pending payments, seller payouts,
+// or invoices — the operator should Archive instead. On success the auction and
+// all CASCADE dependents are removed and 'auction.hard_deleted' is audit-logged
+// (with a snapshot) atomically. Archive remains the preferred cleanup action.
+router.delete('/auctions/:auctionId', auth, role(['admin']), idempotency, async (req, res, next) => {
+  try {
+    const auctionService = require('../services/auctionService');
+    const { auctionId } = req.params;
+    const r = await auctionService.hardDeleteAuction(auctionId, req.user.id);
+    if (r.notFound) return res.status(404).json({ success: false, message: 'Auction not found' });
+    if (r.blocked) {
+      return res.status(409).json({
+        success: false, code: 'DELETE_BLOCKED',
+        message: 'Cannot hard-delete: ' + r.blockers.join('; ') + '. Archive this auction instead.',
+        blockers: r.blockers, counts: r.counts,
+      });
+    }
+    return res.json({ success: true, message: 'Auction permanently deleted.', data: r.snapshot });
+  } catch (err) { next(err); }
 });
 
 // POST /api/admin/sellers/:sellerId/suspend

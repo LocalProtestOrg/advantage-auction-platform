@@ -423,6 +423,10 @@ router.delete('/:auctionId', authMiddleware, async (req, res) => {
     }
     return res.json({ success: true, data: deleted });
   } catch (err) {
+    // ADMIN-CTRL Phase 1A: money-guard rejection → 409 with an actionable message.
+    if (err && err.code === 'DELETE_BLOCKED') {
+      return res.status(409).json({ success: false, code: 'DELETE_BLOCKED', message: err.message, blockers: err.blockers || [] });
+    }
     console.error('Delete Auction Error:', err);
     return res.status(500).json({ success: false, message: err.message });
   }

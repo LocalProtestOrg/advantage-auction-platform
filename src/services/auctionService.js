@@ -154,7 +154,12 @@ async function updateAuction(auctionId, userId, updates, actorRole, options = {}
   //   bid_increment_cents  — flat per-auction increment override (honored by
   //                          bidService.resolveAuctionIncrementOverride)
   //   buyer_premium_bps    — stored only; NOT charged yet (migration 067)
-  const adminOnly = ['auction_terms', 'public_auction_type', 'admin_notes', 'bid_increment_cents', 'buyer_premium_bps'];
+  //   ADMIN-CTRL Phase 1A — advanced admin-editable fields (per approved matrix):
+  //   timezone, default_starting_bid_cents, increment_ladder (validated),
+  //   marketing_selection (admin marketing panel). Bidding/price fields are
+  //   additionally locked once the auction is ACTIVE (see ACTIVE_LOCKED below).
+  const adminOnly = ['auction_terms', 'public_auction_type', 'admin_notes', 'bid_increment_cents', 'buyer_premium_bps',
+    'timezone', 'default_starting_bid_cents', 'increment_ladder', 'marketing_selection'];
   const effectiveAllowed = actorRole === 'admin' ? [...allowed, ...adminOnly] : allowed;
 
   // Gate state transitions separately from the generic whitelist. Defense-in-
@@ -236,6 +241,22 @@ async function updateAuction(auctionId, userId, updates, actorRole, options = {}
     }
     // admin_notes is JSONB — accept a plain string as { text } for convenience.
     if (typeof updates.admin_notes === 'string') updates.admin_notes = { text: updates.admin_notes };
+    // ADMIN-CTRL Phase 1A: validate advanced fields.
+    if (updates.default_starting_bid_cents !== undefined && updates.default_starting_bid_cents !== null) {
+      const d = Number(updates.default_starting_bid_cents);
+      if (!Number.isInteger(d) || d < 1 || d > 100000000) throw new Error('default_starting_bid_cents must be a positive integer (cents)');
+    }
+    if (updates.increment_ladder !== undefined && updates.increment_ladder !== null) {
+      if (!Array.isArray(updates.increment_ladder)) throw new Error('increment_ladder must be a JSON array of { threshold_cents, increment_cents }');
+      for (const tier of updates.increment_ladder) {
+        if (!tier || typeof tier !== 'object' || !Number.isInteger(Number(tier.increment_cents)) || Number(tier.increment_cents) < 1) {
+          throw new Error('Each increment_ladder tier needs a positive integer increment_cents');
+        }
+      }
+    }
+    if (updates.marketing_selection !== undefined && updates.marketing_selection !== null && typeof updates.marketing_selection !== 'object') {
+      throw new Error('marketing_selection must be a JSON object');
+    }
   }
 
   // Phase 4: closed-auction protection. Once closed, fields are locked except
@@ -248,6 +269,15 @@ async function updateAuction(auctionId, userId, updates, actorRole, options = {}
       if (k !== 'admin_notes' && updates[k] !== undefined) {
         throw new Error('Closed auctions are locked. Only admin notes may be edited.');
       }
+    }
+  }
+  // ADMIN-CTRL Phase 1A: bidding/price structure is locked once the auction is
+  // live (active) — changing it mid-auction would move the goalposts for bidders.
+  // (Title/description/location/schedule remain editable-with-care on active.)
+  const ACTIVE_LOCKED = ['increment_ladder', 'bid_increment_cents', 'buyer_premium_bps', 'default_starting_bid_cents'];
+  if (curState === 'active') {
+    for (const k of ACTIVE_LOCKED) {
+      if (updates[k] !== undefined) throw new Error('Bidding and price fields are locked once the auction is active.');
     }
   }
 
@@ -336,7 +366,7 @@ async function updateAuction(auctionId, userId, updates, actorRole, options = {}
   try {
     const after = result.rows[0];
     const changed = {};
-    for (const k of [...allowed, 'state']) {
+    for (const k of [...effectiveAllowed, 'state']) {
       if (updates[k] === undefined) continue;
       const fromVal = beforeRow ? beforeRow[k] : null;
       const toVal   = after[k];
@@ -358,16 +388,94 @@ async function updateAuction(auctionId, userId, updates, actorRole, options = {}
   return result.rows[0];
 }
 
-// Delete auction (enforce ownership)
+// ── Deletion safety + cascade (ADMIN-CTRL Phase 1A) ──────────────────────────
+// Money/obligation guard for hard deletion. An auction is UNSAFE to hard-delete
+// if it has any settled/in-flight payment, any seller payout record, or any
+// invoice (issued or paid). Returns { safe, blockers[], counts }. Pure read;
+// callers should re-check inside the delete transaction.
+async function assessAuctionDeletable(auctionId, client = db) {
+  const { rows } = await client.query(`
+    SELECT
+      (SELECT COUNT(*)::int FROM payments       WHERE auction_id=$1)                                 AS payments_total,
+      (SELECT COUNT(*)::int FROM payments       WHERE auction_id=$1 AND status IN ('paid','pending')) AS payments_settled,
+      (SELECT COUNT(*)::int FROM seller_payouts WHERE auction_id=$1)                                 AS payouts,
+      (SELECT COUNT(*)::int FROM invoices       WHERE auction_id=$1)                                 AS invoices_total,
+      (SELECT COUNT(*)::int FROM invoices       WHERE auction_id=$1 AND status IN ('issued','paid'))  AS invoices_open,
+      (SELECT COUNT(*)::int FROM lots           WHERE auction_id=$1)                                 AS lots,
+      (SELECT COUNT(*)::int FROM bids           WHERE auction_id=$1)                                 AS bids,
+      (SELECT state FROM auctions WHERE id=$1)                                                        AS state
+  `, [auctionId]);
+  const c = rows[0] || {};
+  const blockers = [];
+  if ((c.payments_settled || 0) > 0) blockers.push(`${c.payments_settled} settled/pending payment(s)`);
+  if ((c.payouts || 0)          > 0) blockers.push(`${c.payouts} seller payout record(s)`);
+  if ((c.invoices_open || 0)    > 0) blockers.push(`${c.invoices_open} invoice(s)`);
+  return { safe: blockers.length === 0, blockers, counts: c };
+}
+
+// Physically remove an auction and all dependent rows. Almost every child FK is
+// ON DELETE CASCADE; the two exceptions are handled explicitly first:
+//   • pickup_schedules.auction_id is NO ACTION (would block) → cleared first,
+//     after pickup_assignments (by lot) in case they reference a schedule.
+//   • audit_log has NO FK to auctions, so the trail survives the delete.
+// Runs inside the caller's transaction client.
+async function purgeAuctionCascade(client, auctionId) {
+  await client.query(`DELETE FROM pickup_assignments WHERE lot_id IN (SELECT id FROM lots WHERE auction_id=$1)`, [auctionId]);
+  await client.query(`DELETE FROM pickup_schedules   WHERE auction_id=$1`, [auctionId]);
+  await client.query(`DELETE FROM auctions           WHERE id=$1`, [auctionId]); // cascades lots, bids, payments, payouts, etc.
+}
+
+// Admin hard-delete with money-guard + audit snapshot. Returns one of:
+//   { deleted:true, snapshot } | { notFound:true } | { blocked:true, blockers, counts }
+async function hardDeleteAuction(auctionId, actorId = null) {
+  const client = await db.connect();
+  try {
+    await client.query('BEGIN');
+    const cur = await client.query(`SELECT id, title, state FROM auctions WHERE id=$1 FOR UPDATE`, [auctionId]);
+    if (!cur.rows[0]) { await client.query('ROLLBACK'); return { notFound: true }; }
+    const assess = await assessAuctionDeletable(auctionId, client);
+    if (!assess.safe) { await client.query('ROLLBACK'); return { blocked: true, blockers: assess.blockers, counts: assess.counts }; }
+    const snapshot = { title: cur.rows[0].title, state: cur.rows[0].state, counts: assess.counts };
+    // Audit BEFORE the row vanishes (audit_log has no FK to auctions, but log the
+    // intent atomically inside the same transaction so it commits with the delete).
+    await auditService.logEvent(client, {
+      eventType: 'auction.hard_deleted', entityType: 'auction', entityId: auctionId,
+      auctionId, actorId, metadata: snapshot,
+    });
+    await purgeAuctionCascade(client, auctionId);
+    await client.query('COMMIT');
+    return { deleted: true, snapshot };
+  } catch (e) {
+    await client.query('ROLLBACK').catch(() => {});
+    throw e;
+  } finally {
+    client.release();
+  }
+}
+
+// Delete auction (seller path — enforce ownership; now money-guarded + cascade).
 async function deleteAuction(auctionId, userId) {
-  const result = await db.query(
-    `DELETE FROM auctions
-     WHERE id = $1
-       AND seller_id = (SELECT id FROM seller_profiles WHERE user_id = $2)
-     RETURNING *`,
+  const owns = await db.query(
+    `SELECT a.id FROM auctions a
+       JOIN seller_profiles sp ON sp.id = a.seller_id
+      WHERE a.id = $1 AND sp.user_id = $2`,
     [auctionId, userId]
   );
-  return result.rows[0] || null;
+  if (!owns.rows[0]) return null;
+  const assess = await assessAuctionDeletable(auctionId);
+  if (!assess.safe) { const e = new Error('Cannot delete: ' + assess.blockers.join('; ') + '. Archive instead.'); e.code = 'DELETE_BLOCKED'; e.blockers = assess.blockers; throw e; }
+  const client = await db.connect();
+  try {
+    await client.query('BEGIN');
+    await purgeAuctionCascade(client, auctionId);
+    await client.query('COMMIT');
+    return { id: auctionId };
+  } catch (e) {
+    await client.query('ROLLBACK').catch(() => {});
+    throw e;
+  } finally {
+    client.release();
+  }
 }
 
 
@@ -641,6 +749,8 @@ module.exports = {
   getAuctionById,
   updateAuction,
   deleteAuction,
+  assessAuctionDeletable,
+  hardDeleteAuction,
   publishAuction,
   closeAuction,
   // Exported for unit-testing the Phase C override decision without a DB.

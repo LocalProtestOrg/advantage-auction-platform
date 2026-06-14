@@ -31,7 +31,7 @@
   </style>
 </head>
 <body>
-  <header><strong>Advantage Admin</strong><a href="/admin/moderation.html">Moderation</a><a href="/admin/buyers.html">Buyers</a><span class="sp"></span><a href="#" id="logout">Log out</a></header>
+  <script src="/widgets/shared/admin-nav.js"></script>
   <div class="wrap">
     <h1>Buyer Management</h1>
     <div class="bar">
@@ -47,7 +47,9 @@
     const token = localStorage.getItem('token');
     if (!token) window.location.href = '/login.html';
     function logout(){ localStorage.removeItem('token'); window.location.href = '/login.html'; }
-    document.getElementById('logout').addEventListener('click', e => { e.preventDefault(); logout(); });
+    window.adminLogout = logout; // shared admin-nav Log out reuses this
+    var _lo = document.getElementById('logout');
+    if (_lo) _lo.addEventListener('click', e => { e.preventDefault(); logout(); });
     function api(method, url, body){
       const opts = { method, headers: { 'Content-Type':'application/json', 'Authorization':'Bearer '+token } };
       if (body !== undefined) opts.body = JSON.stringify(body);
