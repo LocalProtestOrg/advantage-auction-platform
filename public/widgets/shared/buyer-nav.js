@@ -25,12 +25,17 @@
     '#buyer-nav .bn-links a.active{background:#2563eb;color:#fff}' +
     '#buyer-nav .bn-auth a{color:#cbd5e1;text-decoration:none;font-size:14px;font-weight:700;padding:7px 10px;white-space:nowrap}' +
     '#buyer-nav .bn-auth a:hover{color:#fff}' +
+    '#buyer-nav .bn-sell{opacity:.75;border:1px solid rgba(255,255,255,.22);border-radius:7px;margin-right:6px}' +
+    '#buyer-nav .bn-sell:hover{opacity:1}' +
     '#buyer-nav .bn-sound{background:none;border:none;color:#cbd5e1;font-size:16px;cursor:pointer;padding:6px 8px;line-height:1}' +
     '#buyer-nav .bn-sound:hover{color:#fff}' +
     '@media (max-width:600px){#buyer-nav .bn-brand{display:none}#buyer-nav .bn-links a{padding:7px 9px;font-size:13px}}';
 
   var LINKS = [
     { href: '/', label: 'Auctions', match: ['/', '/index.html'] },
+    { href: '/search.html', label: 'Browse Auctions' },
+    { href: '/browse-categories.html', label: 'Categories' },
+    { href: '/browse-locations.html', label: 'Locations' },
     { href: '/my-bids.html', label: 'My Bids' },
     { href: '/watchlist.html', label: 'Watchlist' },
     { href: '/account.html', label: 'Account' },
@@ -108,10 +113,10 @@
     header.innerHTML =
       '<div class="bn-inner">' +
         '<button class="bn-back" type="button" aria-label="Go back">&#8592; Back</button>' +
-        '<a class="bn-brand" href="/">Advantage</a>' +
+        '<a class="bn-brand" href="/">Advantage.Bid</a>' +
         '<nav class="bn-links">' + linksHtml + '</nav>' +
         '<button class="bn-sound" type="button" aria-label="Toggle bid sounds" title="Bid sounds (off by default)"></button>' +
-        '<div class="bn-auth">' + authHtml + '</div>' +
+        '<div class="bn-auth"><a href="/start-selling.html" class="bn-sell" title="List items for auction">Sell</a>' + authHtml + '</div>' +
       '</div>';
     document.body.insertBefore(header, document.body.firstChild);
 

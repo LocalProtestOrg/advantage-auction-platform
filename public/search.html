@@ -156,10 +156,14 @@
       }, ()=>{ meta.textContent='Could not get your location. Allow location access or search by city/state.'; });
     });
 
-    // hydrate from URL (?q=&category=&state=&mode=)
+    // hydrate from URL (?q=&category=&state=&city=&status=&sort=&ending_soon=&mode=)
     if(params.get('q')) $('#q').value=params.get('q');
     if(params.get('category')) $('#category').value=params.get('category'); // applied after categories load below
     if(params.get('state')) $('#state').value=params.get('state');
+    if(params.get('city')) $('#city').value=params.get('city');
+    if(params.get('status')) $('#status').value=params.get('status');
+    if(params.get('sort')) $('#sort').value=params.get('sort');
+    if(params.get('ending_soon')==='true') $('#ending_soon').checked=true;
     if(params.get('mode')==='auctions'){ mode='auctions'; document.querySelectorAll('.modes button').forEach(x=>x.classList.toggle('active',x.dataset.mode==='auctions')); }
     loadCategories().then(()=>{ if(params.get('category')) $('#category').value=params.get('category'); run(false); });
   </script>
