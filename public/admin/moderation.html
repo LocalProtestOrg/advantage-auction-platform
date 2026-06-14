@@ -1153,11 +1153,21 @@
           <label>Banner image URL <input data-f="banner_image_url" value="${escAttr(a.banner_image_url)}" style="width:100%;padding:0.35rem;border:1px solid #d1d5db;border-radius:4px"></label>
           <label>Cover image URL <input data-f="cover_image_url" value="${escAttr(a.cover_image_url)}" style="width:100%;padding:0.35rem;border:1px solid #d1d5db;border-radius:4px"></label>
           <label><input type="checkbox" data-f="shipping_available" ${a.shipping_available ? 'checked' : ''}> Shipping available</label>
+          <div style="grid-column:1/-1;margin-top:.5rem;padding-top:.5rem;border-top:1px dashed #e5e7eb;font-weight:700;color:#475569">Admin-only settings (#4)</div>
+          <label>Public auction type <input data-f="public_auction_type" value="${escAttr(a.public_auction_type)}" style="width:100%;padding:0.35rem;border:1px solid #d1d5db;border-radius:4px"></label>
+          <label>Bid increment override (cents, blank = platform ladder) <input data-f="bid_increment_cents" value="${a.bid_increment_cents != null ? a.bid_increment_cents : ''}" inputmode="numeric" style="width:100%;padding:0.35rem;border:1px solid #d1d5db;border-radius:4px"></label>
+          <label>Buyer premium (basis points, 100 = 1%; stored, not charged yet) <input data-f="buyer_premium_bps" value="${a.buyer_premium_bps != null ? a.buyer_premium_bps : ''}" inputmode="numeric" style="width:100%;padding:0.35rem;border:1px solid #d1d5db;border-radius:4px"></label>
+          <label>Feature priority (0 = not featured) <input id="feat-${auctionId}" value="${a.marketplace_priority != null ? a.marketplace_priority : 0}" inputmode="numeric" style="width:100%;padding:0.35rem;border:1px solid #d1d5db;border-radius:4px"></label>
+          <label style="grid-column:1/-1">Auction terms / disclosures <textarea data-f="auction_terms" rows="2" style="width:100%;padding:0.35rem;border:1px solid #d1d5db;border-radius:4px;font-family:inherit">${escText(a.auction_terms)}</textarea></label>
+          <label style="grid-column:1/-1">Admin notes (internal) <textarea data-f="admin_notes" rows="2" style="width:100%;padding:0.35rem;border:1px solid #d1d5db;border-radius:4px;font-family:inherit">${escText(a.admin_notes && a.admin_notes.text ? a.admin_notes.text : '')}</textarea></label>
+          <label style="grid-column:1/-1">Reassign seller (seller_profile UUID) <input id="seller-${auctionId}" value="" placeholder="seller_profile id" style="width:100%;padding:0.35rem;border:1px solid #d1d5db;border-radius:4px"></label>
         </div>
         <div style="margin-top:0.85rem;display:flex;gap:0.5rem;align-items:center;flex-wrap:wrap">
           <button class="btn btn-publish btn-sm" data-save="${auctionId}">Save Changes</button>
           <button class="btn btn-sm" data-cancel="${auctionId}">Cancel</button>
           <button class="btn btn-sm" data-audit="${auctionId}">Audit Log</button>
+          <button class="btn btn-sm" data-feature="${auctionId}">Set Featured</button>
+          <button class="btn btn-sm" data-reassign="${auctionId}">Reassign Seller</button>
           ${(a.state === 'submitted' || a.state === 'under_review')
             ? `<button class="btn btn-sm" data-return-to-draft="${auctionId}" style="background:#fff7ed;border-color:#fdba74;color:#9a3412">Return to Draft</button>`
             : ''}
@@ -1173,6 +1183,26 @@
       container.querySelector('[data-save]').onclick = () => saveAuctionEdit(card, auctionId);
       container.querySelector('[data-cancel]').onclick = () => { container.style.display = 'none'; };
       container.querySelector('[data-audit]').onclick = () => toggleAuditLog(container, auctionId);
+      // #4 featuring (marketplace_priority via /discovery) + seller reassignment.
+      const featBtn = container.querySelector('[data-feature]');
+      if (featBtn) featBtn.onclick = () => {
+        const s = container.querySelector('.admin-edit-status');
+        const v = parseInt((container.querySelector('#feat-' + auctionId) || {}).value, 10) || 0;
+        s.textContent = 'Updating featured…'; s.style.color = '#6b7280';
+        api('PATCH', `/api/admin/auctions/${auctionId}/discovery`, { priority: v })
+          .then(d => { s.textContent = d.success ? '✓ Featured priority set' : ('Failed: ' + (d.message || '')); s.style.color = d.success ? '#16a34a' : '#dc2626'; })
+          .catch(e => { s.textContent = 'Failed: ' + e.message; s.style.color = '#dc2626'; });
+      };
+      const reBtn = container.querySelector('[data-reassign]');
+      if (reBtn) reBtn.onclick = () => {
+        const s = container.querySelector('.admin-edit-status');
+        const sid = (((container.querySelector('#seller-' + auctionId) || {}).value) || '').trim();
+        if (!sid) { s.textContent = 'Enter a seller_profile id.'; s.style.color = '#dc2626'; return; }
+        s.textContent = 'Reassigning…'; s.style.color = '#6b7280';
+        api('PATCH', `/api/admin/auctions/${auctionId}/seller`, { seller_id: sid })
+          .then(d => { s.textContent = d.success ? '✓ Seller reassigned' : ('Failed: ' + (d.message || '')); s.style.color = d.success ? '#16a34a' : '#dc2626'; })
+          .catch(e => { s.textContent = 'Failed: ' + e.message; s.style.color = '#dc2626'; });
+      };
       // GOV-RET: only present on submitted/under_review auctions per the
       // server-side guard. Inline prompt keeps the UI lightweight — a modal
       // component would be overkill for a single-field collection.

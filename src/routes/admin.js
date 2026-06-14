@@ -975,6 +975,26 @@ router.patch('/videos/:videoId/featured', auth, role(['admin']), async (req, res
 // Updates marketplace discovery fields: priority, lat, lng.
 // All body fields are optional — only supplied fields are updated.
 // Body: { priority?: integer 0–10000, lat?: float, lng?: float }
+// PATCH /api/admin/auctions/:auctionId/seller — reassign the auction's seller (#4).
+router.patch('/auctions/:auctionId/seller', auth, role(['admin']), async (req, res, next) => {
+  try {
+    const { auctionId } = req.params;
+    const { seller_id } = req.body || {};
+    if (!seller_id) return res.status(400).json({ success: false, message: 'seller_id is required' });
+    const sp = await db.query('SELECT id FROM seller_profiles WHERE id = $1', [seller_id]);
+    if (!sp.rows.length) return res.status(404).json({ success: false, message: 'Seller profile not found' });
+    const { rows } = await db.query(
+      `UPDATE auctions SET seller_id = $1, updated_at = now() WHERE id = $2 RETURNING id, title, seller_id`,
+      [seller_id, auctionId]
+    );
+    if (!rows.length) return res.status(404).json({ success: false, message: 'Auction not found' });
+    try {
+      await writeAuditLog({ event_type: 'auction.seller_reassigned', entity_type: 'auction', entity_id: auctionId, auction_id: auctionId, actor_id: req.user.id, metadata: { seller_id } });
+    } catch (e) { console.error('[admin] seller reassign audit log failed:', e.message); }
+    return res.json({ success: true, data: rows[0] });
+  } catch (err) { next(err); }
+});
+
 router.patch('/auctions/:auctionId/discovery', auth, role(['admin']), async (req, res, next) => {
   try {
     const { auctionId } = req.params;

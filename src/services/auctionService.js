@@ -145,6 +145,17 @@ async function updateAuction(auctionId, userId, updates, actorRole, options = {}
     'pickup_window_start', 'pickup_window_end',
     'shipping_available', 'banner_image_url', 'cover_image_url',
   ];
+  // Phase 4: admin-only auction settings (sellers can never set these). Closes
+  // the "orphaned editable fields" gaps from the admin-controls audit.
+  //   auction_terms        — per-auction terms/disclosure text
+  //   public_auction_type  — drives public filtering
+  //   admin_notes          — internal JSONB notes (also the only field editable
+  //                          once an auction is closed — see the guard below)
+  //   bid_increment_cents  — flat per-auction increment override (honored by
+  //                          bidService.resolveAuctionIncrementOverride)
+  //   buyer_premium_bps    — stored only; NOT charged yet (migration 067)
+  const adminOnly = ['auction_terms', 'public_auction_type', 'admin_notes', 'bid_increment_cents', 'buyer_premium_bps'];
+  const effectiveAllowed = actorRole === 'admin' ? [...allowed, ...adminOnly] : allowed;
 
   // Gate state transitions separately from the generic whitelist. Defense-in-
   // depth on top of GOV-1's route-layer canMutateAuction gate — also protects
@@ -213,11 +224,38 @@ async function updateAuction(auctionId, userId, updates, actorRole, options = {}
     }
   }
 
+  // Phase 4: validate + normalize admin-only settings.
+  if (actorRole === 'admin') {
+    if (updates.buyer_premium_bps !== undefined && updates.buyer_premium_bps !== null) {
+      const bp = Number(updates.buyer_premium_bps);
+      if (!Number.isInteger(bp) || bp < 0 || bp > 2500) throw new Error('buyer_premium_bps must be an integer 0–2500 (basis points; 0–25%)');
+    }
+    if (updates.bid_increment_cents !== undefined && updates.bid_increment_cents !== null) {
+      const inc = Number(updates.bid_increment_cents);
+      if (!Number.isInteger(inc) || inc < 1 || inc > 1000000) throw new Error('bid_increment_cents must be a positive integer (cents)');
+    }
+    // admin_notes is JSONB — accept a plain string as { text } for convenience.
+    if (typeof updates.admin_notes === 'string') updates.admin_notes = { text: updates.admin_notes };
+  }
+
+  // Phase 4: closed-auction protection. Once closed, fields are locked except
+  // internal admin_notes (annotations). State changes still flow via the
+  // dedicated lifecycle endpoints / admin stateToWrite below.
+  const curStateRow = await db.query('SELECT state FROM auctions WHERE id = $1', [auctionId]);
+  const curState = curStateRow.rows[0] && curStateRow.rows[0].state;
+  if (curState === 'closed') {
+    for (const k of effectiveAllowed) {
+      if (k !== 'admin_notes' && updates[k] !== undefined) {
+        throw new Error('Closed auctions are locked. Only admin notes may be edited.');
+      }
+    }
+  }
+
   const fields = [];
   const values = [];
   let idx = 1;
 
-  for (const key of allowed) {
+  for (const key of effectiveAllowed) {
     if (updates[key] !== undefined) {
       fields.push(`${key} = $${idx++}`);
       values.push(updates[key]);
@@ -264,7 +302,7 @@ async function updateAuction(auctionId, userId, updates, actorRole, options = {}
   let beforeRow = null;
   try {
     const beforeRes = await db.query(
-      `SELECT ${[...allowed, 'state'].join(', ')} FROM auctions WHERE id = $1`,
+      `SELECT ${[...effectiveAllowed, 'state'].join(', ')} FROM auctions WHERE id = $1`,
       [auctionId]
     );
     beforeRow = beforeRes.rows[0] || null;
