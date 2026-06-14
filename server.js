@@ -189,6 +189,7 @@ const uploadsRoutes             = require('./src/routes/uploads');
 const publicRoutes              = require('./src/routes/public');
 const analyticsRoutes           = require('./src/routes/analytics');
 const adminAgreementsRoutes     = require('./src/routes/adminAgreements');
+const adminBuyersRoutes         = require('./src/routes/adminBuyers');
 const agreementsRoutes          = require('./src/routes/agreements');
 
 // ── Database-backed routes (frontend API shape) ───────────────────────────────
@@ -217,6 +218,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/auctions', auctionRoutes);
 app.use('/api/payments', paymentRoutes);
 app.use('/api/admin/agreements', adminAgreementsRoutes);
+app.use('/api/admin/buyers', adminBuyersRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/agreements', agreementsRoutes);
 app.use('/api/lots', lotRoutes);

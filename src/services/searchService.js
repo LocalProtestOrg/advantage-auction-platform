@@ -63,4 +63,19 @@ function buildLotSearch(q) {
   return { where, params, orderBy };
 }
 
-module.exports = { buildLotSearch, clampInt };
+// Admin buyer search (Phase 3). Returns { where, params } over `users u`
+// (role='buyer'); `q` matches email (substring). `active` filters is_active.
+function buildBuyerSearch(q) {
+  q = q || {};
+  const params = [];
+  const where = ["u.role = 'buyer'"];
+  if (q.q && typeof q.q === 'string' && q.q.trim()) {
+    params.push('%' + q.q.trim().slice(0, 100) + '%');
+    where.push(`u.email ILIKE $${params.length}`);
+  }
+  if (q.active === 'true')  where.push('u.is_active IS NOT FALSE');
+  if (q.active === 'false') where.push('u.is_active = false');
+  return { where, params };
+}
+
+module.exports = { buildLotSearch, buildBuyerSearch, clampInt };

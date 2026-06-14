@@ -1,5 +1,20 @@
 // Phase 2 — buyer lot-search clause builder.
-const { buildLotSearch, clampInt } = require('../src/services/searchService');
+const { buildLotSearch, buildBuyerSearch, clampInt } = require('../src/services/searchService');
+
+describe('Phase 3 buildBuyerSearch', () => {
+  test('always scopes to role=buyer', () => {
+    expect(buildBuyerSearch({}).where).toContain("u.role = 'buyer'");
+  });
+  test('q matches email (bound param)', () => {
+    const r = buildBuyerSearch({ q: 'jane@' });
+    expect(r.params).toContain('%jane@%');
+    expect(r.where.some(w => /u\.email ILIKE \$\d+/.test(w))).toBe(true);
+  });
+  test('active filter', () => {
+    expect(buildBuyerSearch({ active: 'false' }).where).toContain('u.is_active = false');
+    expect(buildBuyerSearch({ active: 'true' }).where).toContain('u.is_active IS NOT FALSE');
+  });
+});
 
 const whereStr = q => buildLotSearch(q).where.join(' AND ');
 

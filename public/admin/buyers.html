@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Buyer Management — Admin</title>
+  <style>
+    *,*::before,*::after{box-sizing:border-box}
+    body{margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#f1f5f9;color:#1f2937}
+    header{background:#0f172a;color:#fff;padding:12px 16px;display:flex;align-items:center;gap:14px}
+    header a{color:#cbd5e1;text-decoration:none;font-weight:600;font-size:14px}
+    header .sp{flex:1}
+    .wrap{max-width:1100px;margin:0 auto;padding:1.25rem 1rem 4rem}
+    h1{font-size:1.3rem;margin:0 0 1rem}
+    .bar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+    .bar input,.bar select{padding:9px 11px;border:1.5px solid #cbd5e1;border-radius:7px;font-size:14px}
+    .bar input[type=text]{flex:1;min-width:220px}
+    .bar button{padding:9px 16px;border:none;border-radius:7px;background:#2563eb;color:#fff;font-weight:700;cursor:pointer}
+    table{width:100%;border-collapse:collapse;background:#fff;border-radius:10px;overflow:hidden}
+    th,td{text-align:left;padding:9px 12px;font-size:13px;border-bottom:1px solid #f1f5f9}
+    th{background:#f8fafc;color:#475569}
+    tr.row{cursor:pointer} tr.row:hover{background:#f8fafc}
+    .badge{display:inline-block;font-size:11px;font-weight:800;padding:2px 8px;border-radius:999px}
+    .ok{background:#dcfce7;color:#166534}.no{background:#fee2e2;color:#991b1b}.neutral{background:#f1f5f9;color:#475569}
+    .panel{background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:1.2rem 1.4rem;margin-top:16px}
+    .rows{display:grid;grid-template-columns:auto 1fr;gap:4px 14px;font-size:14px;margin:8px 0}
+    .rows span{color:#64748b}
+    .btn{padding:7px 13px;border:none;border-radius:7px;font-weight:700;font-size:13px;cursor:pointer;margin-right:6px}
+    .btn-danger{background:#fee2e2;color:#991b1b}.btn-go{background:#dcfce7;color:#166534}.btn-mut{background:#e2e8f0;color:#475569}
+    .msg{font-size:13px;color:#64748b;margin:8px 0}
+  </style>
+</head>
+<body>
+  <header><strong>Advantage Admin</strong><a href="/admin/moderation.html">Moderation</a><a href="/admin/buyers.html">Buyers</a><span class="sp"></span><a href="#" id="logout">Log out</a></header>
+  <div class="wrap">
+    <h1>Buyer Management</h1>
+    <div class="bar">
+      <input type="text" id="q" placeholder="Search by email…" />
+      <select id="active"><option value="">All</option><option value="true">Active</option><option value="false">Suspended</option></select>
+      <button id="go">Search</button>
+    </div>
+    <div class="msg" id="listmsg"></div>
+    <table id="list"><thead><tr><th>Email</th><th>Status</th><th>Registrations</th><th>Bids</th><th>Joined</th></tr><tbody id="rows"></tbody></table>
+    <div id="profile"></div>
+  </div>
+  <script>
+    const token = localStorage.getItem('token');
+    if (!token) window.location.href = '/login.html';
+    function logout(){ localStorage.removeItem('token'); window.location.href = '/login.html'; }
+    document.getElementById('logout').addEventListener('click', e => { e.preventDefault(); logout(); });
+    function api(method, url, body){
+      const opts = { method, headers: { 'Content-Type':'application/json', 'Authorization':'Bearer '+token } };
+      if (body !== undefined) opts.body = JSON.stringify(body);
+      return fetch(url, opts).then(r => { if (r.status === 401){ logout(); throw new Error('Session expired'); } return r.json(); });
+    }
+    function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+    function fmtDate(d){ return d ? new Date(d).toLocaleDateString() : '—'; }
+    const $ = s => document.querySelector(s);
+
+    async function search(){
+      const u = new URLSearchParams(); const q=$('#q').value.trim(); if(q)u.set('q',q);
+      if($('#active').value)u.set('active',$('#active').value);
+      $('#listmsg').textContent='Searching…'; $('#rows').innerHTML='';
+      try{
+        const d = await api('GET','/api/admin/buyers?'+u);
+        const data = d.data||[];
+        $('#listmsg').textContent = (d.total_count||0)+' buyer(s)';
+        $('#rows').innerHTML = data.map(b =>
+          '<tr class="row" data-id="'+b.id+'"><td>'+esc(b.email)+'</td>'
+          +'<td><span class="badge '+(b.is_active===false?'no':'ok')+'">'+(b.is_active===false?'Suspended':'Active')+'</span></td>'
+          +'<td>'+b.registrations+'</td><td>'+b.bids_placed+'</td><td>'+fmtDate(b.created_at)+'</td></tr>').join('');
+        document.querySelectorAll('tr.row').forEach(r=>r.addEventListener('click',()=>loadProfile(r.dataset.id)));
+      }catch(e){ $('#listmsg').textContent='Search failed.'; }
+    }
+
+    async function loadProfile(id){
+      const p = $('#profile'); p.innerHTML='<div class="panel msg">Loading…</div>';
+      try{
+        const d = await api('GET','/api/admin/buyers/'+id);
+        if(!d.success){ p.innerHTML='<div class="panel msg">Not found.</div>'; return; }
+        const b=d.data, act=b.bidding_activity||{};
+        const suspended = b.is_active===false;
+        const regRows = (b.registrations||[]).map(r =>
+          '<tr><td>'+esc(r.auction_title)+'</td><td>'+esc(r.auction_state)+'</td>'
+          +'<td><span class="badge '+(r.status==='revoked'?'no':'neutral')+'">'+esc(r.status)+'</span></td>'
+          +'<td>#'+(r.paddle_number==null?'—':r.paddle_number)+'</td><td>'+(r.pickup_acknowledged?'✓':'—')+'</td>'
+          +'<td>'+(r.status==='revoked'
+              ? '<button class="btn btn-go" data-reinstate="'+r.auction_id+'">Reinstate</button>'
+              : '<button class="btn btn-danger" data-revoke="'+r.auction_id+'">Revoke</button>')+'</td></tr>').join('');
+        p.innerHTML =
+          '<div class="panel"><h2 style="margin:0 0 6px">'+esc(b.email)+' '
+            +'<span class="badge '+(suspended?'no':'ok')+'">'+(suspended?'Suspended':'Active')+'</span></h2>'
+          +'<div class="rows">'
+            +'<span>Card on file</span><strong>'+(b.card_on_file?'Yes':'No')+'</strong>'
+            +'<span>Terms accepted</span><strong>'+(b.accepted_current_terms?('✓ current (v'+(b.terms_acceptance&&b.terms_acceptance.version_int)+')'):(b.terms_acceptance?'outdated (v'+b.terms_acceptance.version_int+')':'never'))+'</strong>'
+            +'<span>Lots bid / bids placed</span><strong>'+act.lots_bid+' / '+act.bids_placed+'</strong>'
+            +'<span>Currently winning / won</span><strong>'+act.currently_winning+' / '+act.lots_won+'</strong>'
+            +'<span>Joined</span><strong>'+fmtDate(b.created_at)+'</strong>'
+          +'</div>'
+          +(suspended
+              ? '<button class="btn btn-go" id="reactivate">Reactivate buyer</button>'
+              : '<button class="btn btn-danger" id="suspend">Suspend buyer</button>')
+          +'<h3 style="margin:18px 0 6px;font-size:1rem">Auction registrations</h3>'
+          +(b.registrations&&b.registrations.length
+              ? '<table><thead><tr><th>Auction</th><th>State</th><th>Status</th><th>Paddle</th><th>Pickup</th><th></th></tr><tbody>'+regRows+'</tbody></table>'
+              : '<div class="msg">No registrations.</div>')
+          +'<div class="msg" id="pmsg"></div></div>';
+        const act2 = async (verb, body) => { const r = await api('POST','/api/admin/buyers/'+id+'/'+verb, body); if(r.success){ loadProfile(id); search(); } else $('#pmsg').textContent=r.message||'Action failed.'; };
+        if($('#suspend'))    $('#suspend').addEventListener('click',()=>{ const reason=prompt('Reason for suspension?')||''; act2('suspend',{reason}); });
+        if($('#reactivate')) $('#reactivate').addEventListener('click',()=>act2('reactivate',{}));
+        document.querySelectorAll('[data-revoke]').forEach(btn=>btn.addEventListener('click',()=>{ const reason=prompt('Reason for revoking this registration?')||''; act2('registrations/'+btn.dataset.revoke+'/revoke',{reason}); }));
+        document.querySelectorAll('[data-reinstate]').forEach(btn=>btn.addEventListener('click',()=>act2('registrations/'+btn.dataset.reinstate+'/reinstate',{})));
+      }catch(e){ p.innerHTML='<div class="panel msg">Failed to load profile.</div>'; }
+    }
+
+    $('#go').addEventListener('click',search);
+    $('#q').addEventListener('keydown',e=>{ if(e.key==='Enter')search(); });
+    $('#active').addEventListener('change',search);
+    search();
+  </script>
+</body>
+</html>
