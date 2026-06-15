@@ -12,6 +12,8 @@ const { writeAuditLog } = require('../lib/auditLog');
 const TERMS_FIELDS = [
   'commission_pct', 'buyer_premium_pct', 'credit_card_fee_pct',
   'marketing_fee_cents', 'settlement_terms', 'payout_schedule',
+  // Buyer Premium Phase 1: internal BP split + optional hammer commission (defaults).
+  'aac_bp_share_pct', 'aac_hammer_commission_pct',
 ];
 
 async function getCurrentTerms(sellerProfileId) {
@@ -49,10 +51,12 @@ async function setTerms(sellerProfileId, patch, actorId) {
     const ins = await client.query(
       `INSERT INTO seller_terms
          (seller_profile_id, commission_pct, buyer_premium_pct, credit_card_fee_pct,
-          marketing_fee_cents, settlement_terms, payout_schedule, created_by)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
+          marketing_fee_cents, settlement_terms, payout_schedule,
+          aac_bp_share_pct, aac_hammer_commission_pct, created_by)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *`,
       [sellerProfileId, merged.commission_pct, merged.buyer_premium_pct, merged.credit_card_fee_pct,
-       merged.marketing_fee_cents, merged.settlement_terms, merged.payout_schedule, actorId ?? null]
+       merged.marketing_fee_cents, merged.settlement_terms, merged.payout_schedule,
+       merged.aac_bp_share_pct, merged.aac_hammer_commission_pct, actorId ?? null]
     );
     await client.query('COMMIT');
 

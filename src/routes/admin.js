@@ -225,6 +225,20 @@ router.delete('/auctions/:auctionId', auth, role(['admin']), idempotency, async 
   } catch (err) { next(err); }
 });
 
+// GET /api/admin/auctions/:auctionId/settlement-preview
+// Buyer Premium Phase 1: read-only PREVIEW of effective billing terms + the
+// hammer/BP/AAC-share/seller-share/hammer-commission/net-seller breakdown.
+// NOT active — buyers are not charged the premium and the live payout is the
+// flat 10%. For admin billing/settlement preparation only.
+router.get('/auctions/:auctionId/settlement-preview', auth, role(['admin']), async (req, res, next) => {
+  try {
+    const billing = require('../services/billingTermsService');
+    const exists = await db.query('SELECT 1 FROM auctions WHERE id = $1', [req.params.auctionId]);
+    if (!exists.rows[0]) return res.status(404).json({ success: false, message: 'Auction not found' });
+    return res.json({ success: true, data: await billing.getSettlementPreview(req.params.auctionId) });
+  } catch (err) { next(err); }
+});
+
 // POST /api/admin/sellers/:sellerId/suspend
 // OPS-3: suspend a seller's user account. Sets users.is_active = false so the
 // next login attempt is rejected by the auth route (return 403 with a clear

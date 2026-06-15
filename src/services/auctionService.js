@@ -159,7 +159,9 @@ async function updateAuction(auctionId, userId, updates, actorRole, options = {}
   //   marketing_selection (admin marketing panel). Bidding/price fields are
   //   additionally locked once the auction is ACTIVE (see ACTIVE_LOCKED below).
   const adminOnly = ['auction_terms', 'public_auction_type', 'admin_notes', 'bid_increment_cents', 'buyer_premium_bps',
-    'timezone', 'default_starting_bid_cents', 'increment_ladder', 'marketing_selection'];
+    'timezone', 'default_starting_bid_cents', 'increment_ladder', 'marketing_selection',
+    // Buyer Premium Phase 1: per-auction override of the internal BP split + hammer commission.
+    'aac_bp_share_bps', 'aac_hammer_commission_bps'];
   const effectiveAllowed = actorRole === 'admin' ? [...allowed, ...adminOnly] : allowed;
 
   // Gate state transitions separately from the generic whitelist. Defense-in-
@@ -260,6 +262,12 @@ async function updateAuction(auctionId, userId, updates, actorRole, options = {}
     if (updates.marketing_selection !== undefined && updates.marketing_selection !== null && typeof updates.marketing_selection !== 'object') {
       throw new Error('marketing_selection must be a JSON object');
     }
+    for (const k of ['aac_bp_share_bps', 'aac_hammer_commission_bps']) {
+      if (updates[k] !== undefined && updates[k] !== null) {
+        const v = Number(updates[k]);
+        if (!Number.isInteger(v) || v < 0 || v > 10000) throw new Error(k + ' must be an integer 0–10000 basis points (0–100%)');
+      }
+    }
   }
 
   // Phase 4: closed-auction protection. Once closed, fields are locked except
@@ -277,7 +285,7 @@ async function updateAuction(auctionId, userId, updates, actorRole, options = {}
   // ADMIN-CTRL Phase 1A: bidding/price structure is locked once the auction is
   // live (active) — changing it mid-auction would move the goalposts for bidders.
   // (Title/description/location/schedule remain editable-with-care on active.)
-  const ACTIVE_LOCKED = ['increment_ladder', 'bid_increment_cents', 'buyer_premium_bps', 'default_starting_bid_cents'];
+  const ACTIVE_LOCKED = ['increment_ladder', 'bid_increment_cents', 'buyer_premium_bps', 'default_starting_bid_cents', 'aac_bp_share_bps', 'aac_hammer_commission_bps'];
   if (curState === 'active') {
     for (const k of ACTIVE_LOCKED) {
       if (updates[k] !== undefined) throw new Error('Bidding and price fields are locked once the auction is active.');
@@ -735,6 +743,12 @@ async function closeAuction(auctionId, actorId = null) {
     require('./reportingService').generateAuctionReport(auctionId)
       .then(() => console.log(`[reporting] generated auction report for auction_id=${auctionId}`))
       .catch(err => console.error(`[reporting] failed for auction_id=${auctionId}:`, err.message));
+
+    // Buyer Premium Phase 1 (PREVIEW only): compute + store the BP/split/commission
+    // settlement breakdown on seller_payouts. Best-effort, post-commit — NEVER
+    // changes the live flat-10% payout written above.
+    require('./billingTermsService').storeSettlementPreview(auctionId)
+      .catch(err => console.error(`[billingTerms] preview store failed for auction_id=${auctionId}:`, err.message));
 
     // Fire-and-forget: operational close email to seller (NOT the final payout/stat report).
     // Sends auction total, buyer list, and unpaid item warnings.

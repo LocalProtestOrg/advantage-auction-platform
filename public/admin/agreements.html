@@ -93,6 +93,10 @@
         <div><label>credit_card_fee_pct</label><input id="t-ccfee" type="number" step="0.01" /></div>
         <div><label>marketing_fee_cents</label><input id="t-mktg" type="number" step="1" /></div>
       </div>
+      <div class="row">
+        <div><label>aac_bp_share_pct (AAC's % of hammer from BP; default 5)</label><input id="t-aacbp" type="number" step="0.01" /></div>
+        <div><label>aac_hammer_commission_pct (default 2)</label><input id="t-hammer" type="number" step="0.01" /></div>
+      </div>
       <label>settlement_terms</label><input id="t-settle" />
       <label>payout_schedule</label><input id="t-payout" />
       <button id="terms-save">Save (new version)</button>
@@ -235,6 +239,8 @@
       document.getElementById('t-premium').value = t ? (t.buyer_premium_pct ?? '') : '';
       document.getElementById('t-ccfee').value = t ? (t.credit_card_fee_pct ?? '') : '';
       document.getElementById('t-mktg').value = t ? (t.marketing_fee_cents ?? '') : '';
+      document.getElementById('t-aacbp').value = t ? (t.aac_bp_share_pct ?? '') : '';
+      document.getElementById('t-hammer').value = t ? (t.aac_hammer_commission_pct ?? '') : '';
       document.getElementById('t-settle').value = t ? (t.settlement_terms ?? '') : '';
       document.getElementById('t-payout').value = t ? (t.payout_schedule ?? '') : '';
       var h = await api('GET', '/sellers/' + sid + '/terms/history');
@@ -252,6 +258,7 @@
       var patch = {
         commission_pct: num('t-commission'), buyer_premium_pct: num('t-premium'),
         credit_card_fee_pct: num('t-ccfee'), marketing_fee_cents: num('t-mktg'),
+        aac_bp_share_pct: num('t-aacbp'), aac_hammer_commission_pct: num('t-hammer'),
         settlement_terms: str('t-settle'), payout_schedule: str('t-payout'),
       };
       var r = await api('PUT', '/sellers/' + sid + '/terms', patch);
