@@ -178,7 +178,7 @@ router.get('/:auctionId/summary', async (req, res) => {
     }
     const { rows } = await db.query(
       `SELECT a.id, a.title, a.subtitle, a.description, a.state, a.seller_id,
-              a.city, a.address_state, a.start_time, a.end_time,
+              a.city, a.address_state, a.zip, a.street_address, a.start_time, a.end_time,
               a.pickup_window_start, a.pickup_window_end,
               a.banner_image_url, a.cover_image_url, a.shipping_available,
               COUNT(sf.id)::int AS follower_count
@@ -192,7 +192,16 @@ router.get('/:auctionId/summary', async (req, res) => {
     if (!rows[0]) {
       return res.status(404).json({ success: false, message: 'Auction not found' });
     }
-    return res.json({ success: true, data: rows[0] });
+    const row = rows[0];
+    // Buyer-facing EFFECTIVE buyer premium (auction override → seller default → 18%).
+    // BP only — never the internal AAC/seller split. (Buyer Premium Phase 1 surface.)
+    try { row.buyer_premium_bps = (await require('../services/billingTermsService').resolveEffectiveTerms(auctionId)).buyer_premium_bps; }
+    catch (e) { row.buyer_premium_bps = 1800; }
+    // Privacy: full address stays hidden until payment is verified. Expose STREET
+    // NAME only (strip the house number); never send the precise number pre-payment.
+    row.pickup_street = row.street_address ? String(row.street_address).replace(/^\s*\d+\s*/, '').trim() : null;
+    delete row.street_address;
+    return res.json({ success: true, data: row });
   } catch (err) {
     console.error('[auctions] summary error:', err.message);
     return res.status(500).json({ success: false, message: err.message });

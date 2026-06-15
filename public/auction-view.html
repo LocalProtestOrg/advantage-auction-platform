@@ -408,6 +408,23 @@
       font-size: 0.85rem;
       font-weight: 600;
     }
+    /* Auction header tabs (mobile-friendly: horizontal scroll, no overflow) */
+    .auction-tabs{display:flex;gap:2px;max-width:1200px;margin:0 auto;padding:0 16px;border-bottom:1px solid #e2e8f0;overflow-x:auto;-webkit-overflow-scrolling:touch}
+    .atab{flex:0 0 auto;background:none;border:none;padding:12px 14px;font-size:14px;font-weight:700;color:#64748b;cursor:pointer;border-bottom:3px solid transparent;white-space:nowrap}
+    .atab:hover{color:#334155}
+    .atab.active{color:#2563eb;border-bottom-color:#2563eb}
+    .tab-panel{max-width:1200px;margin:0 auto;padding:18px 16px}
+    .tab-panel h3{font-size:1.05rem;margin:0 0 .6rem}
+    .info-row{margin:.4rem 0;font-size:.92rem;color:#334155;line-height:1.5}
+    .info-row strong{color:#0f172a}
+    .map-link{color:#2563eb;font-weight:700;text-decoration:none}
+    .tab-note{font-size:.8rem;color:#64748b;background:#f1f5f9;border-radius:8px;padding:.55rem .75rem;margin-top:.7rem;line-height:1.5}
+    .wl-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:12px}
+    .wl-card{background:#fff;border:1px solid #e2e8f0;border-radius:10px;overflow:hidden;text-decoration:none;color:inherit}
+    .wl-card .b{padding:8px 10px}.wl-card .t{font-weight:700;font-size:.86rem;line-height:1.3}.wl-card .s{font-size:.76rem;color:#64748b;margin-top:2px}
+    .empty-tab{padding:1.6rem;text-align:center;color:#64748b}
+    .auc-footer{background:#0f172a;color:#94a3b8;text-align:center;padding:1.5rem 1rem;font-size:.85rem;margin-top:2rem}
+    .auc-footer a{color:#cbd5e1;text-decoration:none;margin:0 .4rem}.auc-footer a:hover{color:#fff}
   </style>
 </head>
 <body>
@@ -439,6 +456,13 @@
   </div>
 </div>
 
+<nav class="auction-tabs" id="auction-tabs" role="tablist" aria-label="Auction sections">
+  <button class="atab active" type="button" data-tab="gallery">Bid Gallery</button>
+  <button class="atab" type="button" data-tab="pickup">Pickup Information</button>
+  <button class="atab" type="button" data-tab="terms">Terms &amp; Conditions</button>
+  <button class="atab" type="button" data-tab="watchlist">Watchlist Favorites</button>
+</nav>
+
 <div class="grid-wrap" id="grid-wrap">
   <div class="lot-grid" id="lot-grid">
     <div class="lot-card card-skeleton">
@@ -465,6 +489,10 @@
   </div>
 </div>
 
+<div class="tab-panel" id="panel-pickup" style="display:none"></div>
+<div class="tab-panel" id="panel-terms" style="display:none"></div>
+<div class="tab-panel" id="panel-watchlist" style="display:none"></div>
+
 <!-- Marketplace seller acquisition CTA — Advantage.Bid marketplace only -->
 <div id="marketplace-seller-cta-mount"></div>
 
@@ -476,6 +504,13 @@
     <div class="video-title" id="video-title"></div>
   </div>
 </div>
+
+<footer class="auc-footer">
+  <a href="/terms.html">Terms of Use</a> ·
+  <a href="/privacy.html">Privacy Policy</a> ·
+  <a href="/sitemap.html">Sitemap</a>
+  <div style="margin-top:0.4rem">© Advantage.Bid — Online Auction Marketplace</div>
+</footer>
 
 <script src="/widgets/shared/auth-refresh.js"></script>
 <script src="/widgets/shared/bid-increment.js"></script>
@@ -496,6 +531,7 @@
   let   auctionState = null;   // #5/#19: 'published' | 'active' | 'closed' | …
   let   bidGate = { logged_in: false, terms_accepted_current: false, registered: false, can_bid: false }; // #20
   let   gridKey = null;        // #1: structural signature of the rendered grid (poll change-detection)
+  let   auctionSummary = null; // tabs: captured /summary data for Pickup + Terms panels
 
   if (!auctionId) {
     grid.innerHTML = '<div class="state-msg"><strong>No auction selected.</strong>Check the URL and try again.</div>';
@@ -544,6 +580,8 @@
 
       const d = data.data;
       currentSellerId = d.seller_id;
+      auctionSummary = d;
+      try { populatePickupTab(); populateTermsTab(); } catch (e) { /* tabs are best-effort */ }
 
       // Title
       document.getElementById('auction-title').textContent = d.title || 'Auction';
@@ -1191,6 +1229,72 @@
   }
 
   // ── Helpers ───────────────────────────────────────────────────────────────
+  // ── Auction header tabs ─────────────────────────────────────────────────────
+  function tabMapsUrl() {
+    if (!auctionSummary) return '#';
+    var q = [auctionSummary.pickup_street, auctionSummary.city, auctionSummary.address_state, auctionSummary.zip].filter(Boolean).join(', ');
+    return 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(q || 'auction pickup');
+  }
+  function tabLocationText() {
+    var d = auctionSummary || {};
+    var loc = [d.pickup_street, [d.city, d.address_state].filter(Boolean).join(', '), d.zip].filter(Boolean).join(' · ');
+    return loc || 'Location provided after registration';
+  }
+  function populatePickupTab() {
+    var el = document.getElementById('panel-pickup'); if (!el) return;
+    var d = auctionSummary || {};
+    var date = d.pickup_window_start ? fmtDate(d.pickup_window_start) : 'To be announced';
+    el.innerHTML =
+      '<h3>Pickup Information</h3>' +
+      '<div class="info-row"><strong>Pickup date:</strong> ' + esc(date) + '</div>' +
+      '<div class="info-row"><strong>Category A (small items):</strong> 09:00 AM – 11:00 AM</div>' +
+      '<div class="info-row"><strong>Category C (large items):</strong> 11:00 AM – 12:30 PM</div>' +
+      '<div class="info-row"><strong>Location:</strong> ' + esc(tabLocationText()) +
+        ' &nbsp;<a class="map-link" href="' + tabMapsUrl() + '" target="_blank" rel="noopener">View Map ↗</a></div>' +
+      '<div class="tab-note">For your privacy, the exact street number is shown after your payment is verified. Bring help or a vehicle appropriate to each lot’s pickup size category.</div>';
+  }
+  function populateTermsTab() {
+    var el = document.getElementById('panel-terms'); if (!el) return;
+    var d = auctionSummary || {};
+    var bp = (d.buyer_premium_bps != null ? (d.buyer_premium_bps / 100) : 18);
+    el.innerHTML =
+      '<h3>Auction Terms &amp; Conditions</h3>' +
+      '<div class="info-row"><strong>Bidding starts:</strong> ' + esc(d.start_time ? fmtDate(d.start_time) : 'To be announced') + '</div>' +
+      '<div class="info-row"><strong>Bidding ends:</strong> ' + esc(d.end_time ? fmtDate(d.end_time) : 'To be announced') + ' — lots close in sequence, about 1 minute apart.</div>' +
+      '<div class="info-row"><strong>Extended bidding:</strong> a bid placed in the final 2 minutes extends that lot by 2 minutes (anti-snipe), repeating until bidding settles.</div>' +
+      '<div class="info-row"><strong>Buyer’s premium:</strong> ' + esc(bp) + '% added to the hammer price of each lot won.</div>' +
+      '<div class="info-row"><strong>Additional fees &amp; full terms:</strong> see the <a class="map-link" href="/terms.html" target="_blank" rel="noopener">full Terms &amp; Conditions</a>.</div>' +
+      '<div class="info-row"><strong>Pickup:</strong> ' + esc(tabLocationText()) +
+        ' &nbsp;<a class="map-link" href="' + tabMapsUrl() + '" target="_blank" rel="noopener">View Map ↗</a> · Category A 09:00–11:00 AM, Category C 11:00 AM–12:30 PM.</div>' +
+      '<div class="tab-note">Please review these terms before registering to bid. Full marketplace policy: <a href="/terms.html" target="_blank" rel="noopener">Terms of Use</a>.</div>';
+  }
+  function loadWatchlistTab() {
+    var el = document.getElementById('panel-watchlist'); if (!el) return;
+    if (!token) { el.innerHTML = '<h3>Watchlist Favorites</h3><div class="empty-tab">Log in to see the lots you’ve watched or bid on in this auction.</div>'; return; }
+    el.innerHTML = '<h3>Watchlist Favorites</h3><div class="empty-tab">Loading…</div>';
+    fetch('/api/watchlist', { headers: { Authorization: 'Bearer ' + token } })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        var rows = ((data && data.data) || []).filter(function (l) { return String(l.auction_id) === String(auctionId); });
+        if (!rows.length) { el.innerHTML = '<h3>Watchlist Favorites</h3><div class="empty-tab">No watched or bid-on lots in this auction yet. Bidding on a lot adds it here automatically.</div>'; return; }
+        el.innerHTML = '<h3>Watchlist Favorites (' + rows.length + ')</h3><div class="wl-grid">' + rows.map(function (l) {
+          var price = (l.current_bid_cents != null && l.current_bid_cents > 0) ? ('$' + (l.current_bid_cents / 100).toFixed(2)) : 'No bids yet';
+          var img = l.thumbnail_url ? ('<img src="' + esc(l.thumbnail_url) + '" alt="" style="width:100%;aspect-ratio:4/3;object-fit:cover">') : '';
+          return '<a class="wl-card" href="/lot.html?lotId=' + encodeURIComponent(l.id) + '">' + img +
+            '<div class="b"><div class="t">Lot #' + esc(l.lot_number) + ' · ' + esc(l.title || '') + '</div>' +
+            '<div class="s">' + esc(price) + ' · ' + esc(l.state) + '</div></div></a>';
+        }).join('') + '</div>';
+      })
+      .catch(function () { el.innerHTML = '<h3>Watchlist Favorites</h3><div class="empty-tab">Could not load your watchlist. Please refresh.</div>'; });
+  }
+  function showTab(name) {
+    document.querySelectorAll('.atab').forEach(function (b) { b.classList.toggle('active', b.dataset.tab === name); });
+    var gw = document.getElementById('grid-wrap'); if (gw) gw.style.display = (name === 'gallery') ? '' : 'none';
+    ['pickup', 'terms', 'watchlist'].forEach(function (p) { var el = document.getElementById('panel-' + p); if (el) el.style.display = (name === p) ? '' : 'none'; });
+    if (name === 'watchlist') loadWatchlistTab();
+  }
+  document.querySelectorAll('.atab').forEach(function (b) { b.addEventListener('click', function () { showTab(b.dataset.tab); }); });
+
   function esc(str) {
     return String(str ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   }
