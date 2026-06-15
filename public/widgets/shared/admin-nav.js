@@ -28,6 +28,7 @@
 
   var LINKS = [
     { href: '/admin/moderation.html', label: 'Moderation' },
+    { href: '/admin/users.html', label: 'Users' },
     { href: '/admin/buyers.html', label: 'Buyers' },
   ];
 

@@ -78,4 +78,25 @@ function buildBuyerSearch(q) {
   return { where, params };
 }
 
-module.exports = { buildLotSearch, buildBuyerSearch, clampInt };
+// Admin ALL-USERS search (Account/Buyer Ops). Returns { where, params } over
+// `users u`. `q` matches email/full_name/phone (substring, partial). Optional
+// role filter and status (active|suspended). Requires migration 068 columns.
+function buildUserSearch(q) {
+  q = q || {};
+  const params = [];
+  const where = ['1=1'];
+  if (q.q && typeof q.q === 'string' && q.q.trim()) {
+    params.push('%' + q.q.trim().slice(0, 100) + '%');
+    const i = params.length;
+    where.push(`(u.email ILIKE $${i} OR COALESCE(u.full_name,'') ILIKE $${i} OR COALESCE(u.phone,'') ILIKE $${i})`);
+  }
+  if (q.role && typeof q.role === 'string' && q.role.trim()) {
+    params.push(q.role.trim());
+    where.push(`u.role = $${params.length}`);
+  }
+  if (q.status === 'active')    where.push('u.is_active IS NOT FALSE');
+  if (q.status === 'suspended') where.push('u.is_active = false');
+  return { where, params };
+}
+
+module.exports = { buildLotSearch, buildBuyerSearch, buildUserSearch, clampInt };

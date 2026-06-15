@@ -28,6 +28,18 @@ async function fetchInvoicesForBuyer(buyerId) {
   }
 }
 
+// GET /api/invoices/mine — the authenticated buyer's own invoices (self-scoped).
+// Declared before /:buyerId so it isn't shadowed by the param route.
+router.get('/mine', auth, async (req, res) => {
+  try {
+    const rows = await fetchInvoicesForBuyer(req.user.id);
+    return res.json({ invoices: rows });
+  } catch (err) {
+    console.error('[invoices] GET /mine error:', err.message);
+    return res.status(500).json({ error: 'Failed to fetch invoices' });
+  }
+});
+
 // GET /api/invoices/:buyerId — admin or self
 router.get('/:buyerId', auth, async (req, res) => {
   const { buyerId } = req.params;

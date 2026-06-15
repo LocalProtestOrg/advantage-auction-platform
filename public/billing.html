@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Billing &amp; Card — Advantage.Bid</title>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <style>
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#f8fafc;color:#0f172a}
+    .wrap{max-width:620px;margin:0 auto;padding:1.25rem 1rem 4rem}
+    h1{font-size:1.4rem;margin:0 0 .3rem}
+    .sub{color:#64748b;font-size:.9rem;margin-bottom:1rem}
+    .card{background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:1.25rem;margin-bottom:1rem}
+    .row{display:flex;align-items:center;justify-content:space-between;gap:1rem}
+    .brand{font-weight:800;text-transform:capitalize}
+    .dots{font-family:monospace;color:#475569;letter-spacing:2px}
+    .exp{color:#64748b;font-size:.85rem}
+    .pill{display:inline-block;font-size:.72rem;font-weight:700;border-radius:999px;padding:3px 10px}
+    .on{background:#dcfce7;color:#166534}.off{background:#fee2e2;color:#991b1b}
+    .btn{display:inline-block;margin-top:1rem;background:#2563eb;color:#fff;font-weight:700;text-decoration:none;padding:.6rem 1.1rem;border-radius:8px;font-size:.9rem}
+    .btn.secondary{background:#fff;color:#0f172a;border:1px solid #cbd5e1}
+    .note{font-size:.8rem;color:#64748b;background:#f1f5f9;border-radius:8px;padding:.6rem .8rem;margin-top:1rem;line-height:1.5}
+  </style>
+</head>
+<body>
+  <script src="/widgets/shared/buyer-nav.js"></script>
+  <div class="wrap">
+    <h1>Billing &amp; Card on File</h1>
+    <div class="sub">Your saved payment method for winning bids.</div>
+    <div id="content" class="sub">Loading…</div>
+    <div class="note">🔒 Advantage never stores your full card number or security code. Card details are held securely by our payment processor (Stripe); we only display the brand, last 4 digits, and expiration for your reference.</div>
+  </div>
+  <script>
+    function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
+    (async function(){
+      const token=localStorage.getItem('token');
+      if(!token){location.href='/login.html?next='+encodeURIComponent('/billing.html');return;}
+      const c=document.getElementById('content');
+      try{
+        const r=await fetch('/api/payments/card-summary',{headers:{Authorization:'Bearer '+token}});
+        if(r.status===401){location.href='/login.html?next='+encodeURIComponent('/billing.html');return;}
+        const d=await r.json();const s=(d&&d.data)||{};
+        if(s.has_card){
+          c.innerHTML='<div class="card"><div class="row">'+
+            '<div><div class="brand">'+esc(s.brand||'Card')+' <span class="dots">•••• '+esc(s.last4||'')+'</span></div>'+
+            (s.exp_month?'<div class="exp">Expires '+String(s.exp_month).padStart(2,'0')+'/'+esc(s.exp_year||'')+'</div>':'')+'</div>'+
+            '<span class="pill on">Card on file</span></div>'+
+            '<a class="btn" href="/add-card.html?next='+encodeURIComponent('/billing.html')+'">Update card</a></div>';
+        }else{
+          c.innerHTML='<div class="card"><div class="row"><div>No valid card on file.</div><span class="pill off">No card</span></div>'+
+            '<a class="btn" href="/add-card.html?next='+encodeURIComponent('/billing.html')+'">Add a card</a></div>';
+        }
+      }catch(e){c.textContent='Could not load billing details. Please refresh.';}
+    })();
+  </script>
+</body>
+</html>

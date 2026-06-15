@@ -82,7 +82,7 @@ router.post('/login', strictLimiter, async (req, res) => {
 router.get('/me', auth, async (req, res) => {
   try {
     const { rows } = await db.query(
-      'SELECT id, email, role FROM users WHERE id = $1',
+      'SELECT id, email, role, full_name, phone FROM users WHERE id = $1',
       [req.user.id]
     );
     if (!rows[0]) return res.status(404).json({ success: false, error: 'User not found' });
@@ -90,6 +90,24 @@ router.get('/me', auth, async (req, res) => {
   } catch (err) {
     console.error('[auth] /me failed:', err.message);
     return res.status(500).json({ success: false, error: 'Failed to load user' });
+  }
+});
+
+// PATCH /api/auth/me — authenticated user edits their OWN profile contact fields
+// (full_name, phone). Self-scoped only; email/role/status are NOT editable here.
+// (ACCOUNT/BUYER OPS — buyer account/profile editing.)
+router.patch('/me', auth, async (req, res) => {
+  try {
+    const sets = [], params = [];
+    if (req.body && 'full_name' in req.body) { params.push(req.body.full_name == null ? null : String(req.body.full_name).slice(0, 200)); sets.push(`full_name=$${params.length}`); }
+    if (req.body && 'phone' in req.body)     { params.push(req.body.phone == null ? null : String(req.body.phone).slice(0, 40));      sets.push(`phone=$${params.length}`); }
+    if (!sets.length) return res.status(400).json({ success: false, error: 'No editable fields (full_name, phone)' });
+    params.push(req.user.id);
+    const { rows } = await db.query(`UPDATE users SET ${sets.join(', ')} WHERE id=$${params.length} RETURNING id, email, role, full_name, phone`, params);
+    return res.json({ success: true, data: rows[0] });
+  } catch (err) {
+    console.error('[auth] PATCH /me failed:', err.message);
+    return res.status(500).json({ success: false, error: 'Failed to update profile' });
   }
 });
 

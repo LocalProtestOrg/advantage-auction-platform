@@ -38,6 +38,8 @@
     { href: '/browse-locations.html', label: 'Locations' },
     { href: '/my-bids.html', label: 'My Bids' },
     { href: '/watchlist.html', label: 'Watchlist' },
+    { href: '/invoices.html', label: 'Invoices' },
+    { href: '/billing.html', label: 'Billing' },
     { href: '/account.html', label: 'Account' },
   ];
 

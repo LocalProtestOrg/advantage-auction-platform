@@ -51,6 +51,18 @@ router.get('/card-on-file', auth, async (req, res) => {
   }
 });
 
+// GET /api/payments/card-summary — buyer billing page: SAFE card metadata only
+// (brand/last4/exp from Stripe). Never PAN/CVC; nothing sensitive is stored.
+router.get('/card-summary', auth, async (req, res) => {
+  try {
+    const data = await cardService.getCardSummary(req.user.id);
+    return res.json({ success: true, data });
+  } catch (err) {
+    console.error('[payments] card-summary failed:', err.message);
+    return res.status(500).json({ success: false, message: 'Could not load billing summary' });
+  }
+});
+
 // POST /api/payments/charge-lot
 router.post('/charge-lot', strictLimiter, auth, role(['buyer', 'admin']), idempotency, async (req, res) => {
   const idempotencyKey = req.headers['idempotency-key'];

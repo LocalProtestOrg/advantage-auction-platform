@@ -78,4 +78,27 @@ async function hasCardOnFile(userId) {
   return rows[0] ? rows[0].ok === true : false;
 }
 
-module.exports = { ensureStripeCustomer, createSetupIntent, recordCardOnFile, hasCardOnFile };
+// Buyer billing summary: SAFE, non-sensitive card metadata only (brand, last4,
+// exp_month, exp_year) read live from Stripe — never a PAN/CVC, never stored.
+// Returns { has_card:false } when no customer/PM, so the billing page can render
+// a clean "no card on file" state.
+async function getCardSummary(userId) {
+  if (!userId) return { has_card: false };
+  const u = (await db.query('SELECT stripe_customer_id FROM users WHERE id = $1', [userId])).rows[0];
+  if (!u || !u.stripe_customer_id) return { has_card: false };
+  try {
+    const stripe = getStripe();
+    const cust = await stripe.customers.retrieve(u.stripe_customer_id);
+    const defaultPm = cust && cust.invoice_settings && cust.invoice_settings.default_payment_method;
+    const pms = await stripe.paymentMethods.list({ customer: u.stripe_customer_id, type: 'card' });
+    if (!pms.data.length) return { has_card: false };
+    const pm = pms.data.find(p => p.id === defaultPm) || pms.data[0];
+    const c = pm.card || {};
+    return { has_card: true, brand: c.brand || null, last4: c.last4 || null, exp_month: c.exp_month || null, exp_year: c.exp_year || null };
+  } catch (e) {
+    console.error('[cardService] getCardSummary failed:', e.message);
+    return { has_card: false, error: 'unavailable' };
+  }
+}
+
+module.exports = { ensureStripeCustomer, createSetupIntent, recordCardOnFile, hasCardOnFile, getCardSummary };

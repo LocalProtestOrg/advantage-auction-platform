@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>User Management — Advantage Admin</title>
+  <style>
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#f8fafc;color:#0f172a}
+    .wrap{max-width:1100px;margin:0 auto;padding:1rem}
+    h1{font-size:1.3rem;margin:.4rem 0 .8rem}
+    .bar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:1rem}
+    .bar input,.bar select{padding:.5rem .6rem;border:1px solid #cbd5e1;border-radius:7px;font-size:.85rem}
+    .bar input[type=text]{flex:1;min-width:220px}
+    .bar button{padding:.5rem 1rem;border:none;border-radius:7px;background:#111827;color:#fff;font-weight:700;cursor:pointer}
+    table{width:100%;border-collapse:collapse;background:#fff;border:1px solid #e2e8f0;border-radius:10px;overflow:hidden}
+    th,td{text-align:left;padding:.5rem .6rem;font-size:.82rem;border-bottom:1px solid #f1f5f9}
+    th{background:#f8fafc;color:#475569;font-size:.7rem;text-transform:uppercase;letter-spacing:.04em}
+    tr.click{cursor:pointer}tr.click:hover{background:#f8fafc}
+    .pill{display:inline-block;font-size:.68rem;font-weight:700;border-radius:999px;padding:2px 8px}
+    .on{background:#dcfce7;color:#166534}.off{background:#fee2e2;color:#991b1b}.role{background:#e0e7ff;color:#3730a3}
+    .yes{color:#16a34a;font-weight:700}.no{color:#94a3b8}
+    .msg{font-size:.82rem;color:#64748b;margin:.5rem 0}
+    #detail{margin-top:1.25rem;background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:1.1rem;display:none}
+    #detail h2{font-size:1.05rem;margin-bottom:.5rem}
+    .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:.5rem 1rem;font-size:.83rem;margin-bottom:.8rem}
+    .grid label{color:#64748b;font-size:.7rem;text-transform:uppercase;display:block}
+    .sec{margin-top:.9rem;border-top:1px solid #f1f5f9;padding-top:.7rem}
+    .sec h3{font-size:.78rem;text-transform:uppercase;letter-spacing:.04em;color:#475569;margin-bottom:.4rem}
+    .mini{width:100%;font-size:.78rem;border-collapse:collapse}.mini td,.mini th{padding:.3rem .4rem;border-bottom:1px solid #f6f8fa;text-align:left}
+    .ctrl{display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;margin:.4rem 0}
+    .ctrl input,.ctrl textarea{padding:.4rem .5rem;border:1px solid #cbd5e1;border-radius:6px;font-size:.82rem;font-family:inherit}
+    .ctrl button{padding:.4rem .8rem;border:none;border-radius:6px;font-weight:700;cursor:pointer;font-size:.8rem}
+    .b-danger{background:#fee2e2;color:#991b1b}.b-ok{background:#dcfce7;color:#166534}.b-blue{background:#2563eb;color:#fff}
+    .stat{font-size:.78rem;color:#64748b}
+    .note-item{font-size:.8rem;border-left:3px solid #e2e8f0;padding:.3rem .6rem;margin-bottom:.4rem;background:#f8fafc}
+    .note-item .meta{color:#94a3b8;font-size:.68rem}
+  </style>
+</head>
+<body>
+  <script src="/widgets/shared/admin-nav.js"></script>
+  <div class="wrap">
+    <h1>User Management</h1>
+    <div class="bar">
+      <input type="text" id="q" placeholder="Search email, name, or phone…" />
+      <select id="role"><option value="">All roles</option><option value="buyer">Buyer</option><option value="seller">Seller</option><option value="admin">Admin</option></select>
+      <select id="status"><option value="">Any status</option><option value="active">Active</option><option value="suspended">Suspended</option></select>
+      <button id="go">Search</button>
+    </div>
+    <div class="msg" id="listmsg"></div>
+    <table><thead><tr><th>Name</th><th>Email</th><th>Phone</th><th>Role</th><th>Status</th><th>Card</th><th>Bids</th><th>Won</th><th>Refunds</th><th>Joined</th></tr></thead><tbody id="rows"></tbody></table>
+    <div id="detail"></div>
+  </div>
+  <script>
+    const token=localStorage.getItem('token');
+    if(!token) location.href='/login.html';
+    window.adminLogout=function(){localStorage.removeItem('token');location.href='/login.html';};
+    function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
+    function usd(c){return c==null?'—':'$'+(Number(c)/100).toFixed(2)}
+    function fdate(s){try{return s?new Date(s).toLocaleDateString():'—'}catch(e){return '—'}}
+    async function api(method,url,body){
+      const opts={method,headers:{'Content-Type':'application/json',Authorization:'Bearer '+token}};
+      if(body!==undefined)opts.body=JSON.stringify(body);
+      const r=await fetch(url,opts);if(r.status===401){localStorage.removeItem('token');location.href='/login.html';throw new Error('Session expired');}
+      return r.json();
+    }
+    async function search(){
+      const q=document.getElementById('q').value.trim();
+      const role=document.getElementById('role').value;
+      const status=document.getElementById('status').value;
+      const p=new URLSearchParams();if(q)p.set('q',q);if(role)p.set('role',role);if(status)p.set('status',status);p.set('limit','100');
+      document.getElementById('listmsg').textContent='Searching…';
+      const d=await api('GET','/api/admin/users?'+p.toString());
+      const rows=(d&&d.data)||[];
+      document.getElementById('listmsg').textContent=(d.total_count||rows.length)+' user(s)';
+      document.getElementById('rows').innerHTML=rows.map(u=>
+        '<tr class="click" data-id="'+u.id+'">'+
+        '<td>'+esc(u.full_name||u.seller_name||'—')+'</td>'+
+        '<td>'+esc(u.email)+'</td>'+
+        '<td>'+esc(u.phone||'—')+'</td>'+
+        '<td><span class="pill role">'+esc(u.role)+'</span></td>'+
+        '<td>'+(u.is_active===false?'<span class="pill off">Suspended</span>':'<span class="pill on">Active</span>')+'</td>'+
+        '<td>'+(u.card_on_file?'<span class="yes">✓</span>':'<span class="no">—</span>')+'</td>'+
+        '<td>'+(u.bids_placed||0)+'</td><td>'+(u.lots_won||0)+'</td><td>'+(u.refunds||0)+'</td>'+
+        '<td>'+fdate(u.created_at)+'</td></tr>').join('');
+      document.querySelectorAll('#rows tr.click').forEach(tr=>tr.onclick=()=>openDetail(tr.dataset.id));
+    }
+    function tbl(rows,cols,empty){if(!rows||!rows.length)return '<div class="stat">'+empty+'</div>';
+      return '<table class="mini"><thead><tr>'+cols.map(c=>'<th>'+c[0]+'</th>').join('')+'</tr></thead><tbody>'+
+        rows.map(r=>'<tr>'+cols.map(c=>'<td>'+c[1](r)+'</td>').join('')+'</tr>').join('')+'</tbody></table>';}
+    async function openDetail(id){
+      const el=document.getElementById('detail');el.style.display='';el.innerHTML='Loading…';el.scrollIntoView({behavior:'smooth'});
+      const d=(await api('GET','/api/admin/users/'+id)).data;
+      el.innerHTML=
+        '<h2>'+esc(d.full_name||d.email)+' <span class="pill role">'+esc(d.role)+'</span> '+(d.is_active===false?'<span class="pill off">Suspended</span>':'<span class="pill on">Active</span>')+'</h2>'+
+        '<div class="grid">'+
+          '<div><label>Email</label>'+esc(d.email)+'</div>'+
+          '<div><label>Phone</label>'+esc(d.phone||'—')+'</div>'+
+          '<div><label>Name</label>'+esc(d.full_name||'—')+'</div>'+
+          '<div><label>Card on file</label>'+(d.card_on_file?'<span class="yes">Yes</span>':'<span class="no">No</span>')+'</div>'+
+          '<div><label>Stripe customer</label>'+(d.has_stripe_customer?'Yes':'No')+'</div>'+
+          '<div><label>Joined</label>'+fdate(d.created_at)+'</div>'+
+          '<div><label>Bids / Won</label>'+(d.bidding_activity.bids_placed)+' / '+(d.bidding_activity.lots_won)+'</div>'+
+          '<div><label>Winning now</label>'+(d.bidding_activity.currently_winning)+'</div>'+
+        '</div>'+
+        '<div class="sec"><h3>Account controls</h3>'+
+          '<div class="ctrl">'+
+            (d.is_active===false
+              ? '<button class="b-ok" id="d-act">Reactivate</button>'
+              : '<button class="b-danger" id="d-susp">Suspend</button>')+
+            '<span class="stat" id="d-status-msg"></span></div>'+
+          '<div class="ctrl"><input type="text" id="d-name" placeholder="Full name" value="'+esc(d.full_name||'')+'" />'+
+            '<input type="text" id="d-phone" placeholder="Phone" value="'+esc(d.phone||'')+'" />'+
+            '<button class="b-blue" id="d-contact">Save contact</button><span class="stat" id="d-contact-msg"></span></div>'+
+        '</div>'+
+        '<div class="sec"><h3>Internal admin notes</h3>'+
+          '<div id="d-notes">'+((d.admin_notes||[]).map(n=>'<div class="note-item">'+esc(n.note)+'<div class="meta">'+esc(n.actor_email||'admin')+' · '+fdate(n.created_at)+'</div></div>').join('')||'<div class="stat">No notes.</div>')+'</div>'+
+          '<div class="ctrl"><textarea id="d-note" rows="2" placeholder="Add an internal note…" style="flex:1;min-width:240px"></textarea><button class="b-blue" id="d-addnote">Add note</button><span class="stat" id="d-note-msg"></span></div>'+
+        '</div>'+
+        '<div class="sec"><h3>Auction registrations</h3>'+tbl(d.registrations,[['Auction',r=>esc(r.auction_title||'—')],['State',r=>esc(r.auction_state)],['Status',r=>esc(r.status||'—')],['Paddle',r=>esc(r.paddle_number||'—')]],'No registrations.')+'</div>'+
+        '<div class="sec"><h3>Winning lots</h3>'+tbl(d.winning_lots,[['Lot',r=>esc(r.title||'—')],['Auction',r=>esc(r.auction_title||'—')],['Winning',r=>usd(r.winning_amount_cents)]],'No winning lots.')+'</div>'+
+        '<div class="sec"><h3>Payment history</h3>'+tbl(d.payments,[['Date',r=>fdate(r.created_at)],['Amount',r=>usd(r.amount_cents)],['Status',r=>esc(r.status)],['Refunded',r=>usd(r.refunded_amount_cents)]],'No payments.')+'</div>'+
+        '<div class="sec"><h3>Refund history</h3>'+tbl(d.refunds,[['Payment',r=>esc(String(r.payment_id).slice(0,8))],['Refunded',r=>usd(r.refunded_amount_cents)],['Status',r=>esc(r.status)]],'No refunds.')+'</div>'+
+        '<div class="sec"><h3>Invoices</h3>'+tbl(d.invoices,[['Date',r=>fdate(r.created_at)],['Lot',r=>esc(r.lot_title||'—')],['Amount',r=>usd(r.amount_cents)],['Status',r=>esc(r.status||'—')]],'No invoices.')+'</div>'+
+        '<div class="sec"><h3>Watchlist</h3>'+tbl(d.watchlist,[['Lot',r=>esc(r.title||'—')],['State',r=>esc(r.state)],['Current',r=>usd(r.current_bid_cents)]],'No watched lots.')+'</div>';
+      const susp=document.getElementById('d-susp'),act=document.getElementById('d-act');
+      if(susp)susp.onclick=()=>setStatus(id,'suspended');
+      if(act)act.onclick=()=>setStatus(id,'active');
+      document.getElementById('d-contact').onclick=()=>saveContact(id);
+      document.getElementById('d-addnote').onclick=()=>addNote(id);
+    }
+    async function setStatus(id,status){
+      const reason=prompt((status==='suspended'?'Suspend':'Reactivate')+' this user — reason (optional, audit-logged):','');
+      if(reason===null)return;
+      const m=document.getElementById('d-status-msg');m.textContent='Saving…';
+      const d=await api('POST','/api/admin/users/'+id+'/status',{status,reason:reason||null});
+      m.textContent=d.success?'✓ Updated':(d.message||'Failed');if(d.success)setTimeout(()=>openDetail(id),500);
+    }
+    async function saveContact(id){
+      const m=document.getElementById('d-contact-msg');m.textContent='Saving…';
+      const d=await api('PATCH','/api/admin/users/'+id+'/contact',{full_name:document.getElementById('d-name').value,phone:document.getElementById('d-phone').value});
+      m.textContent=d.success?'✓ Saved':(d.message||'Failed');
+    }
+    async function addNote(id){
+      const note=document.getElementById('d-note').value.trim();if(!note)return;
+      const m=document.getElementById('d-note-msg');m.textContent='Saving…';
+      const d=await api('POST','/api/admin/users/'+id+'/notes',{note});
+      m.textContent=d.success?'✓ Added':(d.message||'Failed');if(d.success)setTimeout(()=>openDetail(id),400);
+    }
+    document.getElementById('go').onclick=search;
+    document.getElementById('q').addEventListener('keydown',e=>{if(e.key==='Enter')search();});
+    search();
+  </script>
+</body>
+</html>

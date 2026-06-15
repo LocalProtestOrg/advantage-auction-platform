@@ -19,6 +19,12 @@
     .links .logout{color:#991b1b}
     .empty{padding:2rem;text-align:center;color:#64748b}
     .empty a{color:#2563eb;font-weight:700;text-decoration:none}
+    .card h2{font-size:.78rem;text-transform:uppercase;letter-spacing:.04em;color:#64748b;margin:0 0 .6rem}
+    .fld{margin-bottom:.6rem}.fld label{display:block;font-size:.75rem;color:#64748b;margin-bottom:.2rem}
+    .fld input{width:100%;padding:.55rem .6rem;border:1px solid #cbd5e1;border-radius:7px;font-size:.9rem}
+    .fld input[disabled]{background:#f1f5f9;color:#64748b}
+    .save{background:#2563eb;color:#fff;border:none;border-radius:7px;padding:.55rem 1.1rem;font-weight:700;cursor:pointer;font-size:.88rem}
+    .pmsg{font-size:.8rem;color:#64748b;margin-left:.5rem}
   </style>
 </head>
 <body>
@@ -36,21 +42,41 @@
       '<div class="card links">'
         +'<a href="/my-bids.html">My Bids</a>'
         +'<a href="/watchlist.html">Watchlist</a>'
-        +'<a href="/add-card.html?next=%2Faccount.html">Payment method</a>'
+        +'<a href="/invoices.html">Past Invoices</a>'
+        +'<a href="/billing.html">Billing &amp; Card on File</a>'
+        +'<a href="/add-card.html?next=%2Faccount.html">Update payment method</a>'
         +'<button type="button" class="logout" id="logout">Log out</button>'
       +'</div>';
+    function profileCard(d){
+      return '<div class="card"><h2>Profile</h2>'
+        +'<div class="fld"><label>Email</label><input type="text" value="'+esc(d.email||'')+'" disabled></div>'
+        +'<div class="fld"><label>Full name</label><input type="text" id="p-name" value="'+esc(d.full_name||'')+'" placeholder="Your name"></div>'
+        +'<div class="fld"><label>Phone</label><input type="text" id="p-phone" value="'+esc(d.phone||'')+'" placeholder="Phone number"></div>'
+        +'<button class="save" id="p-save">Save profile</button><span class="pmsg" id="p-msg"></span></div>';
+    }
     async function load(){
       if(!token){ content.className='empty'; content.innerHTML='Please <a href="/login.html?next=%2Faccount.html">log in</a> to view your account.'; return; }
-      let who = '<div class="card who"><strong>Signed in</strong></div>';
+      let who = '<div class="card who"><strong>Signed in</strong></div>', prof = '';
       try{
         const r = await fetch('/api/auth/me', { headers:{ Authorization:'Bearer '+token } });
         if(r.status===401){ localStorage.removeItem('token'); content.className='empty'; content.innerHTML='Please <a href="/login.html?next=%2Faccount.html">log in</a> to view your account.'; return; }
         const d = await r.json();
-        if(d.success && d.data){ who = '<div class="card who"><strong>'+esc(d.data.email||'Your account')+'</strong>'+esc((d.data.role||'buyer'))+'</div>'; }
+        if(d.success && d.data){
+          who = '<div class="card who"><strong>'+esc(d.data.email||'Your account')+'</strong>'+esc((d.data.role||'buyer'))+'</div>';
+          prof = profileCard(d.data);
+        }
       }catch(e){}
-      content.className=''; content.innerHTML = who + menu;
+      content.className=''; content.innerHTML = who + prof + menu;
       const lo = document.getElementById('logout');
       if(lo) lo.addEventListener('click', () => { localStorage.removeItem('token'); location.href='/'; });
+      const ps = document.getElementById('p-save');
+      if(ps) ps.addEventListener('click', async () => {
+        const msg = document.getElementById('p-msg'); msg.textContent = 'Saving…';
+        try{
+          const r = await fetch('/api/auth/me', { method:'PATCH', headers:{ 'Content-Type':'application/json', Authorization:'Bearer '+token }, body: JSON.stringify({ full_name: document.getElementById('p-name').value, phone: document.getElementById('p-phone').value }) });
+          const d = await r.json(); msg.textContent = (r.ok && d.success) ? '✓ Saved' : (d.error || 'Failed');
+        }catch(e){ msg.textContent = 'Failed'; }
+      });
     }
     load();
   </script>

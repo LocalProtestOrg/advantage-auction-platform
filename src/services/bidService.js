@@ -285,6 +285,16 @@ async function createBid(lotId, userId, { amount, maxBid, max_bid_cents }) {
     // Step 6 — Anti-snipe (unchanged, position unchanged).
     const finalClosesAt = await applyAntiSnipe(client, lot);
 
+    // ACCOUNT/BUYER OPS: auto-add the bid-on lot to the bidder's watchlist so it
+    // surfaces on their Watchlist/Favorites page. Idempotent; best-effort inside
+    // the txn (a watchlist hiccup must never fail a committed bid path).
+    try {
+      await client.query(
+        `INSERT INTO watchlists (user_id, lot_id) VALUES ($1, $2) ON CONFLICT (user_id, lot_id) DO NOTHING`,
+        [userId, lot.id]
+      );
+    } catch (e) { console.error('[bid] watchlist auto-add failed (non-fatal):', e.message); }
+
     await client.query('COMMIT');
 
     // #1 real-time: push the new lot state to everyone viewing the auction, plus
