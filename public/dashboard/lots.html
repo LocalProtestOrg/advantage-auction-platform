@@ -784,6 +784,12 @@
     .btn-danger { background: #fff; border-color: #fca5a5; color: #dc2626; }
     .btn-danger:hover { background: #fef2f2; }
     .btn-editing { background: #fefce8; border-color: #fde047; color: #854d0e; cursor: default; }
+    /* Brief attention pulse on the photo-capture zone after a lot is saved. */
+    .pulse-attn { animation: lotPulse 0.6s ease-in-out 2; border-color: #2563eb !important; }
+    @keyframes lotPulse {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(37,99,235,0); }
+      50%      { box-shadow: 0 0 0 6px rgba(37,99,235,0.45); }
+    }
   </style>
 </head>
 
@@ -1815,6 +1821,7 @@
               } else {
                 alert('Lot updated.');
               }
+              focusNextLotEntry();   // scroll to top + focus/pulse photo zone
             });
           })
           .catch(function () {
@@ -1854,6 +1861,7 @@
                   : '';
                 alert('Lot added to auction' + imgNote + '!');
               }
+              focusNextLotEntry();   // scroll to top + focus/pulse photo zone for the next lot
             });
           })
           .catch(function () {
@@ -1908,6 +1916,25 @@
       // until the seller starts another upload.
       queueList.innerHTML =
         '<div class="empty-queue" id="queue-empty">No uploads yet. Items will appear here as you add photos.</div>';
+    }
+
+    // UX: after a successful save + form reset, return the seller to the top of the
+    // lot-entry workflow, focus the first actionable control (the photo-capture
+    // zone), and briefly pulse it so the next action (take a photo) is obvious.
+    // Only called from success callbacks — never on a validation-blocked save.
+    function focusNextLotEntry() {
+      try {
+        var layout = document.querySelector('.studio-layout');
+        if (layout && layout.scrollIntoView) layout.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        var zone = document.getElementById('upload-zone');
+        if (zone) {
+          try { zone.focus({ preventScroll: true }); } catch (e) { zone.focus(); }
+          zone.classList.remove('pulse-attn');
+          void zone.offsetWidth;            // reflow so the animation restarts on each save
+          zone.classList.add('pulse-attn');
+          setTimeout(function () { zone.classList.remove('pulse-attn'); }, 1500);
+        }
+      } catch (e) { /* non-fatal cosmetic enhancement */ }
     }
 
     /* ── H: Draft persistence (localStorage) ──────────────── */
