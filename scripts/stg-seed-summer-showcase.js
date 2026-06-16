@@ -6,10 +6,12 @@
  * SAFETY / DESIGN:
  *  - Auction state = 'published' with a FUTURE start_time (2026-07-15) so it renders
  *    as an "Upcoming" auction card and its detail page shows the full catalog.
- *  - Every lot state = 'draft'. The bid endpoint (src/routes/lots.js:165) rejects any
- *    lot whose state !== 'open' with HTTP 422, so bidding is impossible. Draft lots are
- *    still returned by GET /api/lots/auction/:id (WHERE state != 'withdrawn'), so the
- *    catalog DISPLAYS. This is the safe "browse the preview, cannot bid yet" mechanism.
+ *  - Lots use the normal state = 'open' (a published/upcoming auction's lots are 'open'
+ *    in this system). Bidding is blocked SERVER-SIDE by the auction-level start gate in
+ *    the bid endpoint (src/routes/lots.js): a bid is rejected with HTTP 422 unless the
+ *    auction is state='active' AND start_time has passed. The scheduler promotes
+ *    published->active at start_time, so this auction becomes biddable on 2026-07-15
+ *    and not a moment before.
  *  - NO bids, NO bidders, NO payments, NO invoices, NO winners, NO sold prices.
  *    starting_bid_cents are auction CONFIG only (not realized prices).
  *  - Does NOT touch Stripe, payments, buyer premium, or terms.
@@ -106,7 +108,8 @@ const LOTS = [
        'Demonstration auction. Standard Advantage.Bid buyer terms will apply when bidding opens. Pickup is by appointment after the auction closes.',
        IMG('photo-1513519245088-0e12902e35ca')]);
 
-    // 3) the lots — all DRAFT (display in catalog, cannot be bid on)
+    // 3) the lots — state='open' (normal for an upcoming auction). Bidding stays
+    //    blocked by the server-side auction start gate until 2026-07-15.
     for (const L of LOTS) {
       const id = lot(L.n);
       await c.query(
@@ -115,11 +118,11 @@ const LOTS = [
             pickup_category, condition, era, starting_bid_cents, bid_increment_cents,
             current_bid_cents, bid_count, state, is_featured, shippable,
             thumbnail_url, images_count)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,NULL,NULL,0,'draft',$12,false,$13,1)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,NULL,NULL,0,'open',$12,false,$13,1)
          ON CONFLICT (id) DO UPDATE SET
            title=EXCLUDED.title, description=EXCLUDED.description, category=EXCLUDED.category,
            size_category=EXCLUDED.size_category, pickup_category=EXCLUDED.pickup_category,
-           starting_bid_cents=EXCLUDED.starting_bid_cents, state='draft',
+           starting_bid_cents=EXCLUDED.starting_bid_cents, state='open',
            is_featured=EXCLUDED.is_featured, thumbnail_url=EXCLUDED.thumbnail_url`,
         [id, IDS.AUCTION, L.n, L.title, L.description, L.category, L.size,
          L.pickup, L.condition, L.era, L.start, L.featured, IMG(L.img)]);
@@ -132,15 +135,16 @@ const LOTS = [
     // 4) verification
     const a = (await c.query(
       `SELECT state, start_time > NOW() AS is_future, end_time FROM auctions WHERE id=$1`, [IDS.AUCTION])).rows[0];
-    const lc = (await c.query(`SELECT COUNT(*)::int n, COUNT(*) FILTER (WHERE state='draft')::int draft,
+    const lc = (await c.query(`SELECT COUNT(*)::int n, COUNT(*) FILTER (WHERE state='open')::int open,
        COUNT(*) FILTER (WHERE bid_count>0 OR current_bid_cents IS NOT NULL OR winning_buyer_user_id IS NOT NULL)::int withbids
        FROM lots WHERE auction_id=$1`, [IDS.AUCTION])).rows[0];
     const bids = (await c.query(`SELECT COUNT(*)::int n FROM bids b JOIN lots l ON l.id=b.lot_id WHERE l.auction_id=$1`, [IDS.AUCTION])).rows[0].n;
 
     console.log('Auction state=' + a.state + '  upcoming(start in future)=' + a.is_future + '  end=' + a.end_time.toISOString());
-    console.log('Lots total=' + lc.n + '  draft=' + lc.draft + '  with_bids_or_winner=' + lc.withbids + '  bid rows=' + bids);
-    const pass = a.state === 'published' && a.is_future === true && lc.n === LOTS.length && lc.draft === LOTS.length && lc.withbids === 0 && bids === 0;
-    console.log('RESULT: ' + (pass ? 'PASS (upcoming, all lots draft/unbiddable, no bids/winners)' : 'FAIL'));
+    console.log('Lots total=' + lc.n + '  open=' + lc.open + '  with_bids_or_winner=' + lc.withbids + '  bid rows=' + bids);
+    console.log('Bidding is blocked server-side until start_time (auction is published, not active).');
+    const pass = a.state === 'published' && a.is_future === true && lc.n === LOTS.length && lc.open === LOTS.length && lc.withbids === 0 && bids === 0;
+    console.log('RESULT: ' + (pass ? 'PASS (upcoming, all lots open, no bids/winners; bidding gated by server start guard)' : 'FAIL'));
     return pass ? 0 : 1;
   } catch (e) { console.error('FATAL', e.message); console.error(e.stack); return 1; }
   finally { c.release(); await pool.end(); }

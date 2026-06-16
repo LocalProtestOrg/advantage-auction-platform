@@ -5,6 +5,7 @@ const authMiddleware = require('../middleware/authMiddleware');
 const optionalAuth = require('../middleware/optionalAuthMiddleware');
 const { redactRealizedPrice } = require('../lib/realizedPrice'); // #20.1
 const { annotateViewerBidState } = require('../lib/viewerBidState'); // #2/#10
+const { auctionBiddingOpen } = require('../lib/biddingWindow'); // auction start gate
 const registrationService = require('../services/auctionRegistrationService'); // #20
 const db = require('../db');
 const { getBidsByLot, createBid, resolveIncrementOverride, resolveAuctionIncrementOverride, effectiveIncrement, nextMinBidCents } = require('../services/bidService');
@@ -158,11 +159,25 @@ router.get('/:lotId/bids', authMiddleware, async (req, res) => {
 // Also rejects bids on lots whose scheduled close time has already passed.
 router.post('/:lotId/bids', authMiddleware, async (req, res) => {
   try {
-    const lotRes = await db.query('SELECT state, closes_at, auction_id FROM lots WHERE id = $1', [req.params.lotId]);
+    const lotRes = await db.query(
+      `SELECT l.state, l.closes_at, l.auction_id,
+              a.state AS auction_state, a.start_time AS auction_start_time
+         FROM lots l
+         JOIN auctions a ON a.id = l.auction_id
+        WHERE l.id = $1`,
+      [req.params.lotId]);
     const lot    = lotRes.rows[0];
     if (!lot)                       return res.status(404).json({ success: false, message: 'Lot not found' });
     if (lot.state === 'withdrawn')  return res.status(403).json({ success: false, message: 'Lot is not open for bidding' });
     if (lot.state !== 'open')       return res.status(422).json({ success: false, message: 'Lot is not accepting bids' });
+    // Auction-level start gate (see src/lib/biddingWindow.js): registration opens at
+    // state='published' (scheduled), but the auction is only biddable once it has
+    // started (active + start_time passed). Without this guard a registered buyer with
+    // a card could bid on a not-yet-started auction (e.g. an upcoming/"Coming Soon"
+    // auction whose lots are already 'open').
+    if (!auctionBiddingOpen(lot.auction_state, lot.auction_start_time)) {
+      return res.status(422).json({ success: false, message: 'Bidding has not opened for this auction yet' });
+    }
     // Time-based close enforcement: a lot with a closes_at in the past has
     // ended even if no scheduler has flipped state to 'closed'. Without this
     // guard, lots whose end time has passed would silently keep accepting bids
