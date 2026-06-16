@@ -1,11 +1,11 @@
 /**
- * AAPComponents.EmptyState — empty results message element
+ * AAPComponents.EmptyState - empty results message element
  *
  * Usage:
  *   var el = AAPComponents.EmptyState({ message: 'No auctions found.' });
  *
  * Options:
- *   message {string} — display text
+ *   message {string} - display text
  */
 
 window.AAPComponents = window.AAPComponents || {};

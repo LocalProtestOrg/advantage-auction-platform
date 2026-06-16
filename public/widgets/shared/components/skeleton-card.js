@@ -1,12 +1,12 @@
 /**
- * AAPComponents.SkeletonCard — animated loading placeholder card
+ * AAPComponents.SkeletonCard - animated loading placeholder card
  *
  * Usage:
  *   var el = AAPComponents.SkeletonCard({ imageHeight: 168, lines: 4 });
  *
  * Options:
- *   imageHeight {number} — image area height in px (default: 168)
- *   lines       {number} — number of text skeleton lines (default: 4)
+ *   imageHeight {number} - image area height in px (default: 168)
+ *   lines       {number} - number of text skeleton lines (default: 4)
  */
 
 window.AAPComponents = window.AAPComponents || {};

@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Past Invoices — Advantage.Bid</title>
+  <title>Past Invoices - Advantage.Bid</title>
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
   <style>
     *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
@@ -28,15 +28,15 @@
   <div class="wrap">
     <h1>Past Invoices</h1>
     <div class="sub">Your won lots and payment history.</div>
-    <div class="note">Buyer premium, tax, and detailed refund/pickup breakdowns are shown as “—” until those features go live. Advantage never stores your full card details.</div>
+    <div class="note">Buyer premium, tax, and detailed refund/pickup breakdowns are shown as “-” until those features go live. Advantage never stores your full card details.</div>
     <div id="status" class="sub"></div>
     <div id="content"></div>
   </div>
   <script>
     function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
-    function usd(c){return c==null?'—':'$'+(Number(c)/100).toFixed(2)}
-    function fdate(s){try{return new Date(s).toLocaleDateString()}catch(e){return '—'}}
-    function pill(st){st=(st||'').toLowerCase();const cls=st==='paid'?'paid':st==='issued'?'issued':'other';return '<span class="pill '+cls+'">'+esc(st||'—')+'</span>'}
+    function usd(c){return c==null?'-':'$'+(Number(c)/100).toFixed(2)}
+    function fdate(s){try{return new Date(s).toLocaleDateString()}catch(e){return '-'}}
+    function pill(st){st=(st||'').toLowerCase();const cls=st==='paid'?'paid':st==='issued'?'issued':'other';return '<span class="pill '+cls+'">'+esc(st||'-')+'</span>'}
     (async function(){
       const token=localStorage.getItem('token');
       if(!token){location.href='/login.html?next='+encodeURIComponent('/invoices.html');return;}
@@ -51,9 +51,9 @@
         c.innerHTML='<table><thead><tr><th>Date</th><th>Lot</th><th>Amount</th><th>Buyer premium</th><th>Tax</th><th>Refund</th><th>Status</th></tr></thead><tbody>'+
           rows.map(i=>'<tr>'+
             '<td>'+fdate(i.created_at)+'</td>'+
-            '<td>'+(i.lot_id?'<a class="lotlink" href="/lot.html?lotId='+encodeURIComponent(i.lot_id)+'">'+esc(i.lot_title||'Lot')+'</a>':esc(i.lot_title||'—'))+'</td>'+
+            '<td>'+(i.lot_id?'<a class="lotlink" href="/lot.html?lotId='+encodeURIComponent(i.lot_id)+'">'+esc(i.lot_title||'Lot')+'</a>':esc(i.lot_title||'-'))+'</td>'+
             '<td>'+usd(i.amount_cents)+'</td>'+
-            '<td class="muted">—</td><td class="muted">—</td><td class="muted">—</td>'+
+            '<td class="muted">-</td><td class="muted">-</td><td class="muted">-</td>'+
             '<td>'+pill(i.status)+'</td>'+
           '</tr>').join('')+'</tbody></table>';
       }catch(e){s.textContent='Could not load invoices. Please refresh.';}

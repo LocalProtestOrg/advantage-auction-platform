@@ -7,9 +7,9 @@
  * PURPOSE
  *   Converts buyers browsing marketplace auctions into future sellers by
  *   surfacing a subtle, professional nudge at the natural exit point of
- *   the auction detail page — after the lot grid, before leaving the page.
+ *   the auction detail page - after the lot grid, before leaving the page.
  *
- * SCOPE — MARKETPLACE ONLY
+ * SCOPE - MARKETPLACE ONLY
  *   This module must NEVER be loaded in white-label or partner-branded
  *   auction environments. The `is_marketplace` option (default true) must
  *   be set to false on any non-Advantage.Bid surface.
@@ -21,29 +21,29 @@
  *   });
  *
  * OPTIONS
- *   context.auction_id  {string}  — UUID for telemetry enrichment
- *   context.city        {string}  — city for telemetry enrichment
- *   context.state_code  {string}  — state for telemetry enrichment
- *   headline   {string}  — overrides default/config headline
- *   subtext    {string}  — overrides default/config subtext
- *   label      {string}  — overrides default/config button label
- *   url        {string}  — overrides default/config destination URL
- *   enabled    {boolean} — hard override (default: read from AAPConfig, else true)
- *   is_marketplace {boolean} — must be true for CTA to render (default true)
- *   variant    {string}  — A/B test variant identifier (passed through to telemetry)
+ *   context.auction_id  {string}  - UUID for telemetry enrichment
+ *   context.city        {string}  - city for telemetry enrichment
+ *   context.state_code  {string}  - state for telemetry enrichment
+ *   headline   {string}  - overrides default/config headline
+ *   subtext    {string}  - overrides default/config subtext
+ *   label      {string}  - overrides default/config button label
+ *   url        {string}  - overrides default/config destination URL
+ *   enabled    {boolean} - hard override (default: read from AAPConfig, else true)
+ *   is_marketplace {boolean} - must be true for CTA to render (default true)
+ *   variant    {string}  - A/B test variant identifier (passed through to telemetry)
  *
  * TELEMETRY
- *   seller_cta_impression — fires once when the strip scrolls into view (≥25% visible)
- *   seller_cta_click      — fires when the "Start Selling" button is clicked
+ *   seller_cta_impression - fires once when the strip scrolls into view (≥25% visible)
+ *   seller_cta_click      - fires when the "Start Selling" button is clicked
  *   Both events carry: cta_variant, destination, auction_id, city, state_code
  *
  * CONFIG KEYS (via AAPConfig)
- *   marketplace.seller_cta.enabled   — boolean, default true
- *   marketplace.seller_cta.headline  — string
- *   marketplace.seller_cta.subtext   — string
- *   marketplace.seller_cta.label     — string
- *   marketplace.seller_cta.url       — string
- *   marketplace.is_marketplace       — boolean, default true
+ *   marketplace.seller_cta.enabled   - boolean, default true
+ *   marketplace.seller_cta.headline  - string
+ *   marketplace.seller_cta.subtext   - string
+ *   marketplace.seller_cta.label     - string
+ *   marketplace.seller_cta.url       - string
+ *   marketplace.is_marketplace       - boolean, default true
  *
  * FUTURE HOOKS
  *   - Set variant: opts.variant = 'treatment_a' for A/B experiments
@@ -67,7 +67,7 @@ window.AAPMarketplaceSellerCta = (function () {
   var DEFAULT_LABEL   = 'Start Selling';
   var DEFAULT_VARIANT = 'default';
 
-  // ── CSS — injected once, scoped to .msc-* ─────────────────────────────────
+  // ── CSS - injected once, scoped to .msc-* ─────────────────────────────────
   var CSS = [
     '.msc-section{',
       'border-top:1px solid #e4e4e7;',
@@ -173,16 +173,16 @@ window.AAPMarketplaceSellerCta = (function () {
           state_code:  context.state_code  || null,
         }
       );
-    } catch (_) { /* swallow — telemetry must not affect UX */ }
+    } catch (_) { /* swallow - telemetry must not affect UX */ }
   }
 
   // ── init ──────────────────────────────────────────────────────────────────
   /**
    * Render the seller acquisition strip inside `container`.
    *
-   * @param {HTMLElement} container   — mount point element
-   * @param {object}      opts        — see module header for option reference
-   * @returns {HTMLElement|null}      — the rendered section, or null if skipped
+   * @param {HTMLElement} container   - mount point element
+   * @param {object}      opts        - see module header for option reference
+   * @returns {HTMLElement|null}      - the rendered section, or null if skipped
    */
   function init(container, opts) {
     if (!container || !(container instanceof Element)) return null;

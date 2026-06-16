@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Seller Dashboard — Advantage Auction</title>
+  <title>Seller Dashboard - Advantage Auction</title>
 
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -411,17 +411,17 @@
     }
 
     function fmt(n) {
-      if (n === null || n === undefined) return '—';
+      if (n === null || n === undefined) return '-';
       return new Intl.NumberFormat('en-US').format(n);
     }
 
     function fmtDate(iso) {
-      if (!iso) return '—';
+      if (!iso) return '-';
       try {
         return new Date(iso).toLocaleDateString('en-US', {
           month: 'short', day: 'numeric', year: 'numeric'
         });
-      } catch (e) { return '—'; }
+      } catch (e) { return '-'; }
     }
 
     function stateBadge(state) {
@@ -537,7 +537,7 @@
         auctionBtn.textContent = 'View Auction';
         actions.appendChild(auctionBtn);
 
-        // Placeholders — links not yet wired to pages
+        // Placeholders - links not yet wired to pages
         var lotsBtn = document.createElement('a');
         lotsBtn.className = 'btn';
         lotsBtn.href = '/dashboard/lots.html?auctionId=' + a.id;
@@ -546,7 +546,7 @@
 
         var invoicesBtn = document.createElement('span');
         invoicesBtn.className = 'btn';
-        invoicesBtn.textContent = 'Invoices — Coming Soon';
+        invoicesBtn.textContent = 'Invoices - Coming Soon';
         invoicesBtn.style.cssText = 'opacity:0.45;cursor:not-allowed;pointer-events:none;';
         actions.appendChild(invoicesBtn);
 

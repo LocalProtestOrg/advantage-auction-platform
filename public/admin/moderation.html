@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="robots" content="noindex" />
-  <title>Admin Moderation — Advantage Auction</title>
+  <title>Admin Moderation - Advantage Auction</title>
 
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -501,7 +501,7 @@
       <div class="section-label">Auction States</div>
       <div class="summary-row" id="auction-chips"></div>
 
-      <!-- OPS-1: filter bar — drives GET /api/admin/auctions -->
+      <!-- OPS-1: filter bar - drives GET /api/admin/auctions -->
       <div class="section-label">Filters</div>
       <div style="display:flex;flex-wrap:wrap;gap:0.5rem 0.75rem;align-items:center;margin-bottom:1rem">
         <input type="text" id="auctions-filter-search" placeholder="Search title or subtitle&hellip;" style="flex:1;min-width:200px;padding:0.45rem 0.7rem;font-size:0.85rem;border:1px solid #d1d5db;border-radius:6px" />
@@ -619,12 +619,12 @@
   }
 
   function fmtDate(iso) {
-    if (!iso) return '—';
+    if (!iso) return '-';
     return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
   }
 
   function fmtMoney(cents) {
-    if (cents == null) return '—';
+    if (cents == null) return '-';
     return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(cents / 100);
   }
 
@@ -919,7 +919,7 @@
         info.appendChild(el('div', 'card-title', a.title || '(Untitled)'));
         info.appendChild(el('div', 'card-meta', fmtDate(a.created_at) + ' · ' + a.lot_count + ' lot' + (a.lot_count === 1 ? '' : 's')
           + ' · ' + (a.bid_count || 0) + ' bid' + ((a.bid_count || 0) === 1 ? '' : 's')));
-        // Seller contact line — surfaces who owns the auction for moderation
+        // Seller contact line - surfaces who owns the auction for moderation
         // outreach. Email is a mailto: link for one-tap contact. seller_type
         // and seller_email come from the LEFT JOIN added to the diagnostics
         // endpoint; both fall back gracefully if the auction has no seller_id
@@ -995,7 +995,7 @@
         // state === 'closed' since closed auctions are operationally terminal.
         // Edit is available in every state (Advanced Edit). On active/closed the
         // form renders bidding/price (and, when closed, all non-notes) fields
-        // read-only — see toggleEditForm — so admins can still edit admin_notes
+        // read-only - see toggleEditForm - so admins can still edit admin_notes
         // on a closed auction and safe fields on an active one.
         {
           const editBtn = el('button', 'btn btn-sm', a.state === 'closed' ? 'Advanced Edit' : 'Edit');
@@ -1019,13 +1019,13 @@
         actions.appendChild(delBtn);
 
         // AUD-VIS (Tier 1): audit history is read-only and relevant in EVERY
-        // state — especially 'closed', where the Edit button (and the Audit
+        // state - especially 'closed', where the Edit button (and the Audit
         // Log button nested inside its form) is hidden, previously leaving
         // closed auctions with no UI path to their own history. This
         // card-level History button surfaces the SAME timeline through the
         // SAME toggleAuditLog() renderer + prettyAdminMetadata(), scoped to a
         // dedicated card-level panel so it never collides with the edit-form
-        // panel. No new viewer, no new endpoint, no duplicated logic — only
+        // panel. No new viewer, no new endpoint, no duplicated logic - only
         // the trigger is promoted out of the Edit workflow onto the card.
         const auditContainer = el('div', 'card-audit-container');
         const auditPanel = el('div', 'audit-log-panel');
@@ -1126,7 +1126,7 @@
     loadedTabs.delete('auctions');
     loadAuctions();
   }
-  // Wire chip clicks once on DOM ready (idempotent — re-binding is fine).
+  // Wire chip clicks once on DOM ready (idempotent - re-binding is fine).
   document.addEventListener('click', e => {
     const b = e.target.closest('.auctions-chip');
     if (!b) return;
@@ -1170,7 +1170,7 @@
       + `To confirm, type the auction title exactly:`;
     const typed = prompt(warn, '');
     if (typed === null) return;
-    if (typed.trim() !== (title || '').trim()) { alert('Title did not match — delete cancelled.'); return; }
+    if (typed.trim() !== (title || '').trim()) { alert('Title did not match - delete cancelled.'); return; }
     api('DELETE', `/api/admin/auctions/${auctionId}`).then(data => {
       if (!data.success) { alert((data.message || 'Delete failed') + (data.blockers ? '\n\n• ' + data.blockers.join('\n• ') : '')); return; }
       loadedTabs.delete('auctions'); loadAuctions();
@@ -1214,9 +1214,9 @@
       const ef = f => closed ? 'disabled' : ('data-f="' + f + '"');   // general fields
       const pf = f => priceLock ? 'disabled' : ('data-f="' + f + '"'); // bidding/price fields
       const lockBanner = closed
-        ? '<div style="grid-column:1/-1;background:#fef3c7;border:1px solid #fcd34d;color:#92400e;border-radius:6px;padding:0.4rem 0.6rem">Closed auction — only <strong>Admin notes</strong> can be edited.</div>'
+        ? '<div style="grid-column:1/-1;background:#fef3c7;border:1px solid #fcd34d;color:#92400e;border-radius:6px;padding:0.4rem 0.6rem">Closed auction - only <strong>Admin notes</strong> can be edited.</div>'
         : (a.state === 'active'
-          ? '<div style="grid-column:1/-1;background:#eff6ff;border:1px solid #bfdbfe;color:#1e40af;border-radius:6px;padding:0.4rem 0.6rem">Live auction — bidding &amp; price fields are locked.</div>'
+          ? '<div style="grid-column:1/-1;background:#eff6ff;border:1px solid #bfdbfe;color:#1e40af;border-radius:6px;padding:0.4rem 0.6rem">Live auction - bidding &amp; price fields are locked.</div>'
           : '');
       container.innerHTML = `
         <div style="display:grid;grid-template-columns:repeat(2, 1fr);gap:0.6rem 1rem;font-size:0.78rem">
@@ -1272,7 +1272,7 @@
       `;
       container.dataset.built = '1';
       container.querySelector('[data-save]').onclick = () => saveAuctionEdit(card, auctionId);
-      // Buyer Premium Phase 1: settlement PREVIEW (NOT ACTIVE — display only).
+      // Buyer Premium Phase 1: settlement PREVIEW (NOT ACTIVE - display only).
       const bpBtn = container.querySelector('[data-bp-preview]');
       if (bpBtn) bpBtn.onclick = () => {
         const panel = container.querySelector('.bp-preview-panel');
@@ -1282,7 +1282,7 @@
           if (!d.success) { panel.innerHTML = 'Failed: ' + (d.message || ''); return; }
           const t = d.data.effective_terms_bps, p = d.data.preview, bp = b => (b / 100) + '%';
           panel.innerHTML =
-            '<div style="font-weight:800;color:#92400e;margin-bottom:.3rem">SETTLEMENT PREVIEW — NOT ACTIVE</div>' +
+            '<div style="font-weight:800;color:#92400e;margin-bottom:.3rem">SETTLEMENT PREVIEW - NOT ACTIVE</div>' +
             '<div style="color:#92400e;margin-bottom:.4rem">' + d.data.note + '</div>' +
             '<div>Effective terms: BP ' + bp(t.buyer_premium_bps) + ' (' + d.data.effective_terms_bps.source.buyer_premium + ') · AAC BP share ' + bp(t.aac_bp_share_bps) + ' · Seller BP share ' + bp(t.seller_bp_share_bps) + ' · AAC hammer commission ' + bp(t.aac_hammer_commission_bps) + '</div>' +
             '<div style="margin-top:.4rem">Hammer ' + c(p.hammer_cents) + ' · Buyer premium ' + c(p.buyer_premium_cents) + ' · Buyer total ' + c(p.buyer_total_preview_cents) + '</div>' +
@@ -1313,7 +1313,7 @@
           .catch(e => { s.textContent = 'Failed: ' + e.message; s.style.color = '#dc2626'; });
       };
       // GOV-RET: only present on submitted/under_review auctions per the
-      // server-side guard. Inline prompt keeps the UI lightweight — a modal
+      // server-side guard. Inline prompt keeps the UI lightweight - a modal
       // component would be overkill for a single-field collection.
       const rtdBtn = container.querySelector('[data-return-to-draft]');
       if (rtdBtn) rtdBtn.onclick = () => returnToDraft(card, auctionId);
@@ -1376,12 +1376,12 @@
   // revisions. Reason is required server-side; we collect it via prompt to
   // keep the UI surface minimal. The server reopens seller editing via
   // state='draft', persists the reason to revision_note, and queues a
-  // seller-facing notification — no client-side state to reconcile, so
+  // seller-facing notification - no client-side state to reconcile, so
   // reloadAuctions() after success is the only refresh step.
   function returnToDraft(card, auctionId) {
     const reason = prompt(
       'Why is this auction being returned to draft?\n\n' +
-      'Be specific — the seller will see this verbatim and use it to revise.'
+      'Be specific - the seller will see this verbatim and use it to revise.'
     );
     if (reason === null) return; // operator cancelled
     const trimmed = reason.trim();
@@ -1411,13 +1411,13 @@
   }
 
   // GOV-REJ: terminal rejection. Two-step confirmation because the action
-  // is non-reversible from the moderation UI — once rejected, the seller
+  // is non-reversible from the moderation UI - once rejected, the seller
   // must create a new submission. Reason is required server-side and is
   // shown to the seller verbatim, so we collect it before the confirm.
   function rejectAuction(card, auctionId, title) {
     const reason = prompt(
       `Why is "${title || 'this auction'}" being rejected?\n\n` +
-      'Be specific — the seller will see this verbatim. They cannot edit the rejected auction; they will need to start a new submission.'
+      'Be specific - the seller will see this verbatim. They cannot edit the rejected auction; they will need to start a new submission.'
     );
     if (reason === null) return;
     const trimmed = reason.trim();
@@ -1425,7 +1425,7 @@
       alert('A rejection reason is required.');
       return;
     }
-    if (!confirm(`Reject this auction?\n\nThis is terminal — the seller cannot edit a rejected auction.\n\nReason:\n${trimmed}`)) {
+    if (!confirm(`Reject this auction?\n\nThis is terminal - the seller cannot edit a rejected auction.\n\nReason:\n${trimmed}`)) {
       return;
     }
     const container = card.querySelector('.admin-edit-form-container');
@@ -1450,7 +1450,7 @@
 
   // SMA-S1b: Suspend / Unsuspend handlers. Expose the existing, already-
   // enforced admin endpoints (POST /api/admin/sellers/:id/{suspend,unsuspend})
-  // — suspension sets users.is_active=false, which the login path rejects.
+  // - suspension sets users.is_active=false, which the login path rejects.
   // Mirrors the Tier 1 mutation pattern (prompt optional reason → confirm →
   // POST → reload). The triggering button is disabled while in-flight to
   // avoid a double-submit; the endpoint also 409s on a redundant transition.
@@ -1458,7 +1458,7 @@
   // Suspend/Unsuspend label flip; the resulting seller_suspended /
   // seller_unsuspended audit event is already visible via the Tier 2 History
   // button. No change to api() or any backend (reason omitted from the body
-  // when blank — the endpoint treats a missing reason as null).
+  // when blank - the endpoint treats a missing reason as null).
   function reloadSellersPreservingSearch() {
     const box = document.getElementById('seller-search');
     loadSellers(box ? box.value.trim() : '');
@@ -1567,7 +1567,7 @@
   // toggleAuditLog, but filtered by entity_type=seller_profile&entity_id so it
   // returns the NULL-auction_id seller events (suspend / unsuspend /
   // capabilities) that the auction-scoped panel cannot surface. Reuses
-  // prettyAdminMetadata + escText verbatim — same renderer, different filter
+  // prettyAdminMetadata + escText verbatim - same renderer, different filter
   // (see docs/admin-audit-visibility-tier2-plan.md §4.2). toggleAuditLog is
   // deliberately left untouched (no refactor).
   function toggleSellerAudit(container, sellerProfileId) {
@@ -1639,7 +1639,7 @@
     }
     if (eventType === 'lot_auto_closed') {
       const cents = metadata.winning_amount_cents;
-      const sold  = metadata.had_bid ? `sold at ${cents != null ? '$' + (cents / 100).toFixed(2) : 'n/a'}` : 'no bids — unsold';
+      const sold  = metadata.had_bid ? `sold at ${cents != null ? '$' + (cents / 100).toFixed(2) : 'n/a'}` : 'no bids - unsold';
       return `<div style="margin-top:0.2rem;font-size:0.72rem;color:#475569">${escText(sold)}</div>`;
     }
     // AUD-VIS (Tier 2): seller-scoped moderation events. Reason box mirrors the
@@ -1663,7 +1663,7 @@
       }).join('');
       return `<details style="margin-top:0.25rem"><summary style="font-size:0.72rem;color:#475569;cursor:pointer">${keys.length} capability change(s)</summary><ul style="margin:0.3rem 0 0 1rem;padding:0;font-size:0.72rem;color:#475569">${items}</ul></details>`;
     }
-    // SELLER-TYPE PHASE B: seller_type_changed — show before → after. Additive
+    // SELLER-TYPE PHASE B: seller_type_changed - show before → after. Additive
     // branch on this dispatcher (mirrors the capabilities-diff style).
     if (eventType === 'seller_type_changed') {
       const from = metadata.before != null ? escText(String(metadata.before)) : '∅';
@@ -1717,7 +1717,7 @@
   // path). Assign a seller's type via the existing admin endpoint, then reload
   // so the row + the cosmetic meta line reflect it. The seller_type_changed
   // audit event is reviewable via the History button on the same row (Tier 2).
-  // Phase B enforces NO scheduling rule — this only writes the type + audits.
+  // Phase B enforces NO scheduling rule - this only writes the type + audits.
   function setSellerType(sellerProfileId, email, sel) {
     const newType = sel.value;
     const prev    = sel.dataset.prev || '';
@@ -1772,7 +1772,7 @@
         main.appendChild(el('div', 'row-meta', metaParts.join(' · ')));
         row.appendChild(main);
 
-        // SELLER-TYPE PHASE B: in-place seller_type editor (decision #4 —
+        // SELLER-TYPE PHASE B: in-place seller_type editor (decision #4 -
         // admin-visible settings need an admin edit path). seller_type was
         // display-only in the meta line; this <select> makes the current value
         // visible AND editable. Closed set of 6 → a select is the right control
@@ -1806,7 +1806,7 @@
 
         // SMA-S1a: surface suspension status from the is_active value the
         // sellers endpoint already returns (previously fetched but never
-        // displayed). Pure display — a red pill, only when suspended.
+        // displayed). Pure display - a red pill, only when suspended.
         const isSuspended = s.is_active === false;
         if (isSuspended) {
           const badge = el('span', 'badge badge-rejected', 'Suspended');
@@ -1817,7 +1817,7 @@
         // SMA-S1b: state-aware Suspend / Unsuspend action, exposing the
         // existing admin endpoints (see suspendSeller / unsuspendSeller). The
         // resulting audit event is reviewable via the Tier 2 History button
-        // below — a see-status → act → review loop. Guarded on
+        // below - a see-status → act → review loop. Guarded on
         // seller_profile_id (the endpoint route param). Suspend is styled red
         // to match the Tier 1 reject action; Unsuspend stays neutral.
         if (s.seller_profile_id) {
@@ -1837,12 +1837,12 @@
         // AUD-VIS (Tier 2): per-seller audit history. seller_suspended /
         // seller_unsuspended / seller_capabilities_changed are written with
         // entity_type='seller_profile', entity_id=seller_profiles.id, and
-        // auction_id=NULL — so they never appear in Tier 1's auction-scoped
+        // auction_id=NULL - so they never appear in Tier 1's auction-scoped
         // History. This row-level History button surfaces them via the SAME
         // GET /api/admin/audit-log endpoint (entity_type/entity_id filters,
         // already supported) and the SAME prettyAdminMetadata() renderer. The
         // panel is a full-width child; .row-item is flex-wrap:wrap, so it
-        // wraps onto its own line below the seller's content. Read-only — no
+        // wraps onto its own line below the seller's content. Read-only - no
         // change to any seller-management workflow.
         if (s.seller_profile_id) {
           const auditContainer = el('div', 'seller-audit-container');
@@ -1890,7 +1890,7 @@
       payouts.forEach(p => {
         const row = el('div', 'row-item');
         const main = el('div', 'row-main');
-        main.appendChild(el('div', 'row-title', p.seller_email + ' — ' + (p.auction_title || 'Auction')));
+        main.appendChild(el('div', 'row-title', p.seller_email + ' - ' + (p.auction_title || 'Auction')));
         main.appendChild(el('div', 'row-meta', fmtDate(p.created_at) + ' · ' + (p.payout_method || 'unknown method') + ' · ' + p.payout_status));
         row.appendChild(main);
 
@@ -1978,7 +1978,7 @@
         recents.forEach(n => {
           const row = el('div', 'row-item');
           const main = el('div', 'row-main');
-          main.appendChild(el('div', 'row-title', n.notification_type + ' — ' + n.channel));
+          main.appendChild(el('div', 'row-title', n.notification_type + ' - ' + n.channel));
           const retryNote = n.retry_count > 0 ? ` · ${n.retry_count} retries` : '';
           const failNote  = n.failed_reason ? ` · ${n.failed_reason}` : '';
           main.appendChild(el('div', 'row-meta', n.status + ' · ' + fmtDate(n.created_at) + retryNote + failNote));

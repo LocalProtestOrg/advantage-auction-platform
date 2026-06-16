@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="robots" content="noindex">
-  <title>Featured Lots Widget — Demo</title>
+  <title>Featured Lots Widget - Demo</title>
   <style>
     *, *::before, *::after { box-sizing: border-box; }
     body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f8fafc; color: #1e293b; }
@@ -41,14 +41,14 @@
 <body>
 
 <header>
-  <h1>Featured Lots Widget — Demo</h1>
-  <p>Image-first lot showcase. Configurable via AAPConfig — zero hardcoded business variables.</p>
+  <h1>Featured Lots Widget - Demo</h1>
+  <p>Image-first lot showcase. Configurable via AAPConfig - zero hardcoded business variables.</p>
 </header>
 
 <div class="page">
 
   <!-- ── Live demo ──────────────────────────────────────────────────────────── -->
-  <h2>Live demo — with shared platform layer</h2>
+  <h2>Live demo - with shared platform layer</h2>
   <p class="desc">
     All business-facing variables (badge labels, CTA copy, display limits) come from
     <code>AAPConfig</code>. Data attributes on the container element override config values per-embed.
@@ -62,21 +62,21 @@
   </div>
 
   <div class="widget-box">
-    <div class="widget-label">Live preview — full shared layer</div>
+    <div class="widget-label">Live preview - full shared layer</div>
     <div id="aap-featured-lots"
          data-api-base=""
          data-limit="6"
          data-theme="light">
     </div>
     <div class="event-log" id="event-log-full">
-      <p><span class="ev-dim">— Analytics events will appear here —</span></p>
+      <p><span class="ev-dim">- Analytics events will appear here -</span></p>
     </div>
   </div>
 
   <hr class="divider">
 
   <!-- ── Embed snippets ─────────────────────────────────────────────────────── -->
-  <h2>Simple embed — single script, self-contained</h2>
+  <h2>Simple embed - single script, self-contained</h2>
   <p class="desc">
     Widget carries inline fallbacks for all components. Works with one script tag and no dependencies.
     Business variables fall back to platform defaults when AAPConfig is not loaded.
@@ -87,7 +87,7 @@
 &lt;/div&gt;
 &lt;script src="https://auctions.advantage.bid/widgets/featured-lots.js"&gt;&lt;/script&gt;</div>
 
-  <h2>Full platform layer — recommended for multi-widget pages</h2>
+  <h2>Full platform layer - recommended for multi-widget pages</h2>
   <p class="desc">
     Load shared utilities, config, and components once. All widgets on the page share one copy of
     each dependency. Configure marketplace variables centrally via <code>AAPConfig.set()</code>.
@@ -123,7 +123,7 @@
 &lt;/div&gt;
 &lt;script src="https://auctions.advantage.bid/widgets/featured-lots.js"&gt;&lt;/script&gt;</div>
 
-  <h2>Inline config block — alternative to AAPConfig.set()</h2>
+  <h2>Inline config block - alternative to AAPConfig.set()</h2>
   <p class="desc">
     Place a <code>&lt;script type="application/json" id="aap-config"&gt;</code> block anywhere
     on the page before widgets load. <code>config.js</code> reads it automatically.
@@ -140,7 +140,7 @@
 &lt;script src="https://auctions.advantage.bid/widgets/shared/config.js"&gt;&lt;/script&gt;
 &lt;!-- config.js reads the block above during its own initialization --&gt;</div>
 
-  <h2>Multi-widget page — featured lots + featured near you</h2>
+  <h2>Multi-widget page - featured lots + featured near you</h2>
   <p class="desc">
     Both widgets coexist on one page. Config and components are shared. CSS namespacing
     (<code>aapfl-</code> vs <code>aapny-</code>) prevents style collisions.
@@ -195,10 +195,10 @@ container.addEventListener('aap:cta:click', function (e) {
   <table>
     <thead><tr><th>data-* attribute</th><th>AAPConfig key</th><th>Default</th><th>Description</th></tr></thead>
     <tbody>
-      <tr><td><code>data-api-base</code></td><td>—</td><td>(same origin)</td><td>API host</td></tr>
-      <tr><td><code>data-limit</code></td><td><code>widget.limit</code></td><td>6</td><td>Cards to show (1–12)</td></tr>
-      <tr><td><code>data-auction-state</code></td><td>—</td><td>(all)</td><td>Filter: <code>published</code>|<code>active</code>|<code>closed</code></td></tr>
-      <tr><td><code>data-theme</code></td><td>—</td><td>light</td><td><code>light</code> or <code>dark</code></td></tr>
+      <tr><td><code>data-api-base</code></td><td>-</td><td>(same origin)</td><td>API host</td></tr>
+      <tr><td><code>data-limit</code></td><td><code>widget.limit</code></td><td>6</td><td>Cards to show (1-12)</td></tr>
+      <tr><td><code>data-auction-state</code></td><td>-</td><td>(all)</td><td>Filter: <code>published</code>|<code>active</code>|<code>closed</code></td></tr>
+      <tr><td><code>data-theme</code></td><td>-</td><td>light</td><td><code>light</code> or <code>dark</code></td></tr>
       <tr><td><code>data-seller-cta-url</code></td><td><code>marketplace.cta.url</code></td><td>none (CTA hidden)</td><td>Seller CTA link</td></tr>
       <tr><td><code>data-seller-cta-headline</code></td><td><code>marketplace.cta.headline</code></td><td>Consigning an Estate?</td><td>CTA card headline</td></tr>
       <tr><td><code>data-seller-cta-label</code></td><td><code>marketplace.cta.label</code></td><td>Learn More</td><td>CTA button label</td></tr>

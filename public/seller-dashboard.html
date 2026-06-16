@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>My Auctions — Advantage Auction</title>
+  <title>My Auctions - Advantage Auction</title>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -359,19 +359,19 @@
   <div class="audience-label">Your Audience</div>
   <div class="audience-chips">
     <div class="audience-chip chip-followers">
-      <div class="metric" id="aud-followers">—</div>
+      <div class="metric" id="aud-followers">-</div>
       <div class="metric-label">Followers</div>
     </div>
     <div class="audience-chip chip-growth" id="aud-growth-chip" style="display:none">
-      <div class="metric" id="aud-growth">—</div>
+      <div class="metric" id="aud-growth">-</div>
       <div class="metric-label">New this week</div>
     </div>
     <div class="audience-chip" id="aud-watchers-chip" style="display:none">
-      <div class="metric" id="aud-watchers">—</div>
+      <div class="metric" id="aud-watchers">-</div>
       <div class="metric-label">Watching now</div>
     </div>
     <div class="audience-chip" id="aud-lots-chip" style="display:none">
-      <div class="metric" id="aud-lots">—</div>
+      <div class="metric" id="aud-lots">-</div>
       <div class="metric-label">Live lots</div>
     </div>
   </div>
@@ -399,10 +399,10 @@
       <div>
         <label class="field-label">Size Category</label>
         <select name="size_category">
-          <option value="">— Select —</option>
-          <option value="A">A — Small (carry by hand)</option>
-          <option value="B">B — Medium (2 people)</option>
-          <option value="C">C — Large (truck/dolly)</option>
+          <option value="">- Select -</option>
+          <option value="A">A - Small (carry by hand)</option>
+          <option value="B">B - Medium (2 people)</option>
+          <option value="C">C - Large (truck/dolly)</option>
         </select>
       </div>
       <div>
@@ -433,10 +433,10 @@
       <div>
         <label class="field-label">Size Category</label>
         <select name="size_category">
-          <option value="">— Select —</option>
-          <option value="A">A — Small (carry by hand)</option>
-          <option value="B">B — Medium (2 people)</option>
-          <option value="C">C — Large (truck/dolly)</option>
+          <option value="">- Select -</option>
+          <option value="A">A - Small (carry by hand)</option>
+          <option value="B">B - Medium (2 people)</option>
+          <option value="C">C - Large (truck/dolly)</option>
         </select>
       </div>
       <div>
@@ -460,7 +460,7 @@ if (!token) window.location.href = '/login.html';
 // Defense-in-depth: if an admin lands here (e.g., via a bookmark from before
 // the login.html admin-redirect fix, or by typing the URL directly), bounce
 // them to the admin landing page. The seller dashboard requires a seller_profile,
-// which admin users correctly do not have — letting them through would only
+// which admin users correctly do not have - letting them through would only
 // produce the "Seller profile not found" blocking error.
 try {
   var __payload = JSON.parse(atob(token.split('.')[1]));
@@ -517,12 +517,12 @@ function stateBadge(state) {
 }
 
 function fmtDate(iso) {
-  if (!iso) return '—';
+  if (!iso) return '-';
   return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
 function fmtCents(cents) {
-  if (cents == null) return '—';
+  if (cents == null) return '-';
   return '$' + (cents / 100).toFixed(2);
 }
 
@@ -599,7 +599,7 @@ async function loadDashboard() {
 function buildVideoCallout(auction, video, isEditable) {
   const uploadHref = '/seller-create.html?edit=' + auction.id;
   if (!video) {
-    // No video uploaded yet — show CTA on every editable auction (no-video
+    // No video uploaded yet - show CTA on every editable auction (no-video
     // state is silent on non-editable to avoid clutter)
     if (!isEditable) return '';
     return `
@@ -656,7 +656,7 @@ function renderAuctionCard(container, auction) {
       <div style="margin-top:0.4rem;font-size:0.75rem;color:#9a3412">Edit your auction below, then click "Submit for AAC Review" again when ready.</div>
     </div>` : '';
 
-  // GOV-REJ: terminal rejection banner. No CTA — the auction is locked and
+  // GOV-REJ: terminal rejection banner. No CTA - the auction is locked and
   // the seller's only path forward is creating a new submission, which they
   // can do from the dashboard's top-level "+ New Auction" action.
   const rejectedCallout = isRejected ? `
@@ -730,7 +730,7 @@ function renderAuctionCard(container, auction) {
     });
   }
 
-  // AUD-EXP: History button — opens an overlay with the seller-visible
+  // AUD-EXP: History button - opens an overlay with the seller-visible
   // audit timeline for this auction.
   const historyBtn = card.querySelector(`[data-history="${auction.id}"]`);
   if (historyBtn) {
@@ -753,7 +753,7 @@ async function openAuctionHistory(auctionId, title) {
   overlay.innerHTML = `
     <div style="background:#fff;max-width:560px;width:100%;max-height:80vh;overflow-y:auto;border-radius:10px;padding:1.25rem 1.4rem;box-shadow:0 10px 25px rgba(0,0,0,0.18)">
       <div style="display:flex;justify-content:space-between;align-items:baseline;gap:1rem;margin-bottom:0.75rem">
-        <h3 style="margin:0;font-size:1.05rem">History — ${escHtml(title)}</h3>
+        <h3 style="margin:0;font-size:1.05rem">History - ${escHtml(title)}</h3>
         <button id="seller-history-close" class="btn btn-ghost btn-sm">Close</button>
       </div>
       <div id="seller-history-body" style="font-size:0.85rem;color:#374151;line-height:1.55">Loading…</div>
@@ -809,7 +809,7 @@ function prettyAuditEvent(evt) {
 }
 
 // Pretty-prints the parts of the audit_log metadata blob that are
-// meaningful to the seller. Specific to the allow-listed event types —
+// meaningful to the seller. Specific to the allow-listed event types -
 // everything else falls through to a non-rendered no-op.
 function renderAuditMetadata(eventType, metadata) {
   if (!metadata) return '';
@@ -823,13 +823,13 @@ function renderAuditMetadata(eventType, metadata) {
     if (metadata.had_bid && cents != null) {
       return `<div style="margin-top:0.2rem;font-size:0.78rem;color:#475569">Final price: ${fmtCents(cents)}</div>`;
     }
-    return `<div style="margin-top:0.2rem;font-size:0.78rem;color:#475569">No bids — lot closed unsold.</div>`;
+    return `<div style="margin-top:0.2rem;font-size:0.78rem;color:#475569">No bids - lot closed unsold.</div>`;
   }
   return '';
 }
 
 function fmtDateTime(iso) {
-  if (!iso) return '—';
+  if (!iso) return '-';
   return new Date(iso).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' });
 }
 
@@ -985,7 +985,7 @@ function showAddLotForm(auctionId) {
 
   const container = document.getElementById(`add-lot-form-${auctionId}`);
   if (container.querySelector('[data-form="add"]')) {
-    // Already open — toggle
+    // Already open - toggle
     container.innerHTML = '';
     return;
   }

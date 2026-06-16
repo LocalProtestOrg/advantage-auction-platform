@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Current Auctions — Advantage.Bid Marketplace</title>
-  <meta name="description" content="Browse and bid on current online auctions and lots near you — estate, liquidation, and consignment inventory on Advantage.Bid." />
+  <title>Current Auctions - Advantage.Bid Marketplace</title>
+  <meta name="description" content="Browse and bid on current online auctions and lots near you - estate, liquidation, and consignment inventory on Advantage.Bid." />
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
   <style>
     *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
@@ -83,7 +83,7 @@
   <div class="hero">
     <div class="hero-inner">
       <h1>Current auctions on Advantage.Bid</h1>
-      <p>Search and bid on live auctions and individual lots — estate, liquidation, and consignment inventory. Browse by category or find auctions near you.</p>
+      <p>Search and bid on live auctions and individual lots - estate, liquidation, and consignment inventory. Browse by category or find auctions near you.</p>
       <form class="searchbar" id="searchForm" autocomplete="off">
         <input type="text" id="q" placeholder="Search auctions, lots, sellers, or locations…" aria-label="Search" />
         <button type="submit">Search</button>
@@ -95,7 +95,7 @@
         <input type="text" id="f-city" placeholder="City" size="9" />
         <input type="text" id="f-state" placeholder="State" size="4" maxlength="2" style="text-transform:uppercase" />
         <select id="f-status" aria-label="Status"><option value="">Active &amp; upcoming</option><option value="active">Active</option><option value="upcoming">Upcoming</option></select>
-        <select id="f-radius" aria-label="Radius"><option value="100">Within 100 km</option><option value="50">Within 50 km</option><option value="200">Within 200 km</option><option value="400">Within 400 km</option></select>
+        <select id="f-radius" aria-label="Radius"><option value="97">Within 60 mi</option><option value="48">Within 30 mi</option><option value="193">Within 120 mi</option><option value="402">Within 250 mi</option></select>
       </div>
       <div class="quick">
         <a href="/search.html?mode=auctions&status=active">Current auctions</a>
@@ -158,7 +158,7 @@
     </section>
   </div>
 
-  <!-- Footer — seller content is secondary here, never the main experience -->
+  <!-- Footer - seller content is secondary here, never the main experience -->
   <footer>
     <div class="foot-inner">
       <div>
@@ -192,7 +192,7 @@
       </div>
     </div>
     <div class="foot-bottom">
-      <span>© Advantage.Bid — Online Auction Marketplace</span>
+      <span>© Advantage.Bid - Online Auction Marketplace</span>
       <span>The live auction marketplace for Advantage Auction &amp; Estate Sales.</span>
     </div>
   </footer>
@@ -208,7 +208,7 @@
     function auctionCard(a){
       var img = a.cover_image_url ? '<img src="'+esc(a.cover_image_url)+'" alt="" loading="lazy">' : '';
       var loc = [a.city, a.address_state].filter(Boolean).join(', ');
-      var dist = (a.distance_km!=null) ? (' · '+Math.round(a.distance_km)+' km') : '';
+      var dist = (a.distance_km!=null) ? (' · '+Math.max(1,Math.round(a.distance_km*0.621371))+' mi') : '';
       var lots = (a.lot_count!=null) ? (a.lot_count+' lot'+(a.lot_count===1?'':'s')) : '';
       var ends = (a.state==='active' && a.end_time) ? ('Ends in '+timeLeft(a.end_time)) : (a.state==='published' ? 'Upcoming' : '');
       var badge = (a.state==='active') ? '<span class="badge live">Live</span>' : (a.state==='published' ? '<span class="badge">Upcoming</span>' : '');

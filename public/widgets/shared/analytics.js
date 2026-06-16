@@ -1,14 +1,14 @@
 /**
- * Advantage Auction Platform — Frontend Analytics Utility
+ * Advantage Auction Platform - Frontend Analytics Utility
  * window.AAPAnalytics  v1
  *
  * Lightweight, fire-and-forget telemetry helper for widgets and BD pages.
  *
  * Design rules:
  *   - track() NEVER blocks widget rendering or page navigation.
- *   - All errors are swallowed silently — analytics failures must not affect UX.
+ *   - All errors are swallowed silently - analytics failures must not affect UX.
  *   - No PII is collected: no emails, passwords, payment data, or auth tokens.
- *   - session_id is a random token with a 30-minute idle TTL — not linked to
+ *   - session_id is a random token with a 30-minute idle TTL - not linked to
  *     any user account or auth session.
  *   - keepalive:true allows the fetch to survive page navigation events.
  *
@@ -53,7 +53,7 @@ window.AAPAnalytics = (function () {
       localStorage.setItem(SESSION_TS_KEY, String(now));
       return id;
     } catch (e) {
-      // localStorage unavailable (private mode, iframe restriction) — use ephemeral ID
+      // localStorage unavailable (private mode, iframe restriction) - use ephemeral ID
       return 'aap_' + Math.random().toString(36).slice(2, 18);
     }
   }
@@ -83,9 +83,9 @@ window.AAPAnalytics = (function () {
   /**
    * Track an analytics event.
    *
-   * @param {string} eventType  — snake_case event name (e.g. 'widget_impression')
-   * @param {object} metadata   — event-specific data (e.g. { radius_km: 200 })
-   * @param {object} context    — optional top-level context fields:
+   * @param {string} eventType  - snake_case event name (e.g. 'widget_impression')
+   * @param {object} metadata   - event-specific data (e.g. { radius_km: 200 })
+   * @param {object} context    - optional top-level context fields:
    *                               widget_name, auction_id, seller_id,
    *                               city, state_code
    *
@@ -116,7 +116,7 @@ window.AAPAnalytics = (function () {
         keepalive: true,   // survives page unload / navigation
       }).catch(function () { /* swallow network errors */ });
     } catch (e) {
-      /* swallow — analytics must never affect page behavior */
+      /* swallow - analytics must never affect page behavior */
     }
   }
 
@@ -125,7 +125,7 @@ window.AAPAnalytics = (function () {
    * Track multiple events in a single network request.
    * Useful for page-unload scenarios.
    *
-   * @param {Array} events  — array of { event_type, metadata, ...context } objects
+   * @param {Array} events  - array of { event_type, metadata, ...context } objects
    */
   function trackBatch(events) {
     if (!Array.isArray(events) || !events.length) return;

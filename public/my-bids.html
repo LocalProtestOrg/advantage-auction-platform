@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>My Bids — Advantage Auction</title>
+  <title>My Bids - Advantage Auction</title>
   <style>
     *,*::before,*::after{box-sizing:border-box}
     body{margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#f8fafc;color:#1f2937}
@@ -39,7 +39,7 @@
     const content = document.getElementById('content');
     const TONE = { win:['#dcfce7','#166534'], lose:['#fee2e2','#991b1b'], neutral:['#f1f5f9','#475569'] };
     function esc(s){ return String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
-    function fmtRemaining(c){ if(!c) return '—'; const r=new Date(c).getTime()-Date.now(); if(r<=0) return 'Ended';
+    function fmtRemaining(c){ if(!c) return '-'; const r=new Date(c).getTime()-Date.now(); if(r<=0) return 'Ended';
       const h=Math.floor(r/3600000),m=Math.floor((r%3600000)/60000),s=Math.floor((r%60000)/1000);
       return h>0?(h+'h '+String(m).padStart(2,'0')+'m'):m>0?(m+'m '+String(s).padStart(2,'0')+'s'):(s+'s'); }
     function card(lot){
@@ -47,8 +47,8 @@
       const c = TONE[s.tone]||TONE.neutral;
       const closesAt = lot.extended_until || lot.closes_at || null;
       const img = lot.thumbnail_url ? '<img src="'+esc(lot.thumbnail_url)+'" alt="" loading="lazy">' : '<div class="ph"></div>';
-      const cur = (lot.current_bid_cents!=null) ? BidUtils.formatUSD(lot.current_bid_cents) : '—';
-      const mx  = (s.maxBidCents!=null) ? BidUtils.formatUSD(s.maxBidCents) : '—';
+      const cur = (lot.current_bid_cents!=null) ? BidUtils.formatUSD(lot.current_bid_cents) : '-';
+      const mx  = (s.maxBidCents!=null) ? BidUtils.formatUSD(s.maxBidCents) : '-';
       const num = (lot.lot_number!=null) ? ('Lot #'+lot.lot_number+' · ') : '';
       return '<a class="mb-card" href="/lot.html?lotId='+encodeURIComponent(lot.id)+'">'
         +'<div class="mb-img">'+img+'</div>'

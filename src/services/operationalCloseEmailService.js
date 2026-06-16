@@ -25,7 +25,7 @@ function buildTransporter() {
 }
 
 async function sendOperationalCloseEmail(auctionId) {
-  // Three independent queries — run in parallel
+  // Three independent queries - run in parallel
   const [auctionRes, buyerRes, unpaidRes] = await Promise.all([
     // Auction header + seller email + gross total
     db.query(
@@ -95,14 +95,14 @@ async function sendOperationalCloseEmail(auctionId) {
   } else {
     lines.push('Buyer Summary:');
     for (const b of buyers) {
-      lines.push(`  ${b.buyer_email} — ${b.lots_won} lot(s) — ${formatCents(b.total_cents)}`);
+      lines.push(`  ${b.buyer_email} - ${b.lots_won} lot(s) - ${formatCents(b.total_cents)}`);
     }
   }
 
   lines.push('');
   lines.push('This is an operational notice. Pickup scheduling and final settlement details will follow.');
   lines.push('');
-  lines.push('— Advantage Auction');
+  lines.push('- Advantage Auction');
 
   const transporter = buildTransporter();
 

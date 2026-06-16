@@ -10,11 +10,17 @@ const fs=require('fs'),path=require('path'),{Pool}=require('pg');
   const m=html.match(/<script type="text\/plain" id="doc-md">([\s\S]*?)<\/script>/);
   if(!m){console.error('FAIL: could not extract Terms markdown from terms.html');return 1;}
   const body=m[1].trim();
-  const title='Advantage.Bid Terms of Service — General and Buyers';
+  const title='Advantage.Bid Terms of Service - General and Buyers';
   const pool=new Pool({connectionString:raw.replace('-pooler',''),ssl:{rejectUnauthorized:false}});const c=await pool.connect();
   try{
     const exists=(await c.query("SELECT id,is_current FROM terms_versions WHERE kind='buyer_terms' AND version_int=2")).rows[0];
-    if(exists){console.log('SKIP: buyer_terms v2 already exists (is_current='+exists.is_current+'). Not modified.');}
+    if(exists){
+      if(exists.is_current===true){console.log('SKIP: buyer_terms v2 is CURRENT/active. Not modified (would change live terms).');}
+      else{
+        await c.query("UPDATE terms_versions SET title=$1, body_markdown=$2 WHERE kind='buyer_terms' AND version_int=2",[title,body]);
+        console.log('RESYNCED buyer_terms v2 draft body from terms.html (is_current=false, '+body.length+' chars).');
+      }
+    }
     else{
       await c.query(
         "INSERT INTO terms_versions (kind,version_int,title,body_markdown,effective_at,is_current,created_by) VALUES ('buyer_terms',2,$1,$2,now(),false,NULL)",

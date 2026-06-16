@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="robots" content="noindex">
-  <title>Featured Auctions Near You — Widget Demo</title>
+  <title>Featured Auctions Near You - Widget Demo</title>
   <style>
     *, *::before, *::after { box-sizing: border-box; }
     body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f8fafc; color: #1e293b; }
@@ -64,14 +64,14 @@
 <body>
 
 <header>
-  <h1>Featured Auctions Near You — Widget Demo</h1>
+  <h1>Featured Auctions Near You - Widget Demo</h1>
   <p>Production-ready embed for BD and partner pages. Self-contained, zero dependencies, XSS-safe.</p>
 </header>
 
 <div class="page">
 
   <!-- ── Live demo ──────────────────────────────────────────────────────────── -->
-  <h2>Live demo — geo-enabled with seller CTA</h2>
+  <h2>Live demo - geo-enabled with seller CTA</h2>
   <p class="section-desc">
     Requests the visitor's location (if <code>data-use-geolocation="true"</code>).
     Fetches featured auctions near them. If permission is denied or no geo-filtered results
@@ -95,17 +95,17 @@
     </div>
 
     <div class="event-log" id="event-log">
-      <p><span class="ev-dim">— Analytics events will appear here —</span></p>
+      <p><span class="ev-dim">- Analytics events will appear here -</span></p>
     </div>
   </div>
 
   <hr class="divider">
 
   <!-- ── Embed snippets ─────────────────────────────────────────────────────── -->
-  <h2>Embed snippet — basic (no geolocation)</h2>
+  <h2>Embed snippet - basic (no geolocation)</h2>
   <p class="section-desc">
     Returns the national featured feed sorted by marketplace priority.
-    No browser permission dialog. Simplest embed — one script tag.
+    No browser permission dialog. Simplest embed - one script tag.
   </p>
   <div class="code-block">&lt;div id="aap-featured-near-you"
      data-api-base="https://auctions.advantage.bid"
@@ -113,7 +113,7 @@
 &lt;/div&gt;
 &lt;script src="https://auctions.advantage.bid/widgets/featured-near-you.js"&gt;&lt;/script&gt;</div>
 
-  <h2>Embed snippet — geo-enabled with radius</h2>
+  <h2>Embed snippet - geo-enabled with radius</h2>
   <p class="section-desc">
     Asks the visitor for their location and shows auctions within 200 km.
     Falls back to the national feed if permission is denied or no nearby results exist.
@@ -126,9 +126,9 @@
 &lt;/div&gt;
 &lt;script src="https://auctions.advantage.bid/widgets/featured-near-you.js"&gt;&lt;/script&gt;</div>
 
-  <h2>Embed snippet — dark theme with seller CTA</h2>
+  <h2>Embed snippet - dark theme with seller CTA</h2>
   <p class="section-desc">
-    Dark theme switches via a CSS class on the grid — no re-injection of styles.
+    Dark theme switches via a CSS class on the grid - no re-injection of styles.
     The seller CTA card appears at the end of the results grid.
   </p>
   <div class="code-block">&lt;div id="aap-featured-near-you"
@@ -143,13 +143,13 @@
 &lt;/div&gt;
 &lt;script src="https://auctions.advantage.bid/widgets/featured-near-you.js"&gt;&lt;/script&gt;</div>
 
-  <h2>Embed snippet — with shared utils (multiple widgets on one page)</h2>
+  <h2>Embed snippet - with shared utils (multiple widgets on one page)</h2>
   <p class="section-desc">
     Load <code>shared/utils.js</code> before both widget scripts. Utilities are
-    shared in memory — only one copy of <code>esc()</code>, <code>fmtDate()</code>
+    shared in memory - only one copy of <code>esc()</code>, <code>fmtDate()</code>
     etc. regardless of how many widgets are on the page.
   </p>
-  <div class="code-block">&lt;!-- Utilities — load once, before any widget --&gt;
+  <div class="code-block">&lt;!-- Utilities - load once, before any widget --&gt;
 &lt;script src="https://auctions.advantage.bid/widgets/shared/utils.js"&gt;&lt;/script&gt;
 
 &lt;!-- Widget A: Featured Near You --&gt;
@@ -219,7 +219,7 @@ container.addEventListener('aap:cta:click', function (e) {
       <tr>
         <td><code>data-limit</code></td>
         <td>6</td>
-        <td>Number of auction cards (1–12)</td>
+        <td>Number of auction cards (1-12)</td>
       </tr>
       <tr>
         <td><code>data-use-geolocation</code></td>
@@ -229,12 +229,12 @@ container.addEventListener('aap:cta:click', function (e) {
       <tr>
         <td><code>data-radius-km</code></td>
         <td>200</td>
-        <td>Search radius in km when geolocation is active (1–800)</td>
+        <td>Search radius in km when geolocation is active (1-800)</td>
       </tr>
       <tr>
         <td><code>data-geo-timeout-ms</code></td>
         <td>5000</td>
-        <td>Geolocation request timeout in ms (1000–15000)</td>
+        <td>Geolocation request timeout in ms (1000-15000)</td>
       </tr>
       <tr>
         <td><code>data-theme</code></td>
@@ -271,7 +271,7 @@ container.addEventListener('aap:cta:click', function (e) {
       <tr>
         <td>Geo granted + featured results exist nearby</td>
         <td><code>/api/public/featured-auctions?lat=…&amp;lng=…</code></td>
-        <td>—</td>
+        <td>-</td>
         <td><code>featured</code></td>
       </tr>
       <tr>
@@ -283,13 +283,13 @@ container.addEventListener('aap:cta:click', function (e) {
       <tr>
         <td>Geo denied / unavailable / timed out</td>
         <td><code>/api/public/featured-auctions</code></td>
-        <td>—</td>
+        <td>-</td>
         <td><code>national</code></td>
       </tr>
       <tr>
         <td>Geolocation not requested (<code>data-use-geolocation</code> omitted)</td>
         <td><code>/api/public/featured-auctions</code></td>
-        <td>—</td>
+        <td>-</td>
         <td><code>national</code></td>
       </tr>
     </tbody>

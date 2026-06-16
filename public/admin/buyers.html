@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Buyer Management — Admin</title>
+  <title>Buyer Management - Admin</title>
   <style>
     *,*::before,*::after{box-sizing:border-box}
     body{margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#f1f5f9;color:#1f2937}
@@ -56,7 +56,7 @@
       return fetch(url, opts).then(r => { if (r.status === 401){ logout(); throw new Error('Session expired'); } return r.json(); });
     }
     function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
-    function fmtDate(d){ return d ? new Date(d).toLocaleDateString() : '—'; }
+    function fmtDate(d){ return d ? new Date(d).toLocaleDateString() : '-'; }
     const $ = s => document.querySelector(s);
 
     async function search(){
@@ -85,7 +85,7 @@
         const regRows = (b.registrations||[]).map(r =>
           '<tr><td>'+esc(r.auction_title)+'</td><td>'+esc(r.auction_state)+'</td>'
           +'<td><span class="badge '+(r.status==='revoked'?'no':'neutral')+'">'+esc(r.status)+'</span></td>'
-          +'<td>#'+(r.paddle_number==null?'—':r.paddle_number)+'</td><td>'+(r.pickup_acknowledged?'✓':'—')+'</td>'
+          +'<td>#'+(r.paddle_number==null?'-':r.paddle_number)+'</td><td>'+(r.pickup_acknowledged?'✓':'-')+'</td>'
           +'<td>'+(r.status==='revoked'
               ? '<button class="btn btn-go" data-reinstate="'+r.auction_id+'">Reinstate</button>'
               : '<button class="btn btn-danger" data-revoke="'+r.auction_id+'">Revoke</button>')+'</td></tr>').join('');

@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="robots" content="noindex" />
-  <title>Admin Dashboard — Advantage Auction</title>
+  <title>Admin Dashboard - Advantage Auction</title>
 
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -346,7 +346,7 @@
       window.location.href = '/login.html';
     }
 
-    // Decode JWT for fast initial role/id render (signature not verified — display only).
+    // Decode JWT for fast initial role/id render (signature not verified - display only).
     // Email is fetched separately from /api/auth/me since the JWT only carries id + role.
     try {
       var payload = JSON.parse(atob(token.split('.')[1]));
@@ -357,7 +357,7 @@
         window.location.href = '/login.html';
       }
     } catch (e) {
-      // Malformed token — force re-login
+      // Malformed token - force re-login
       window.location.href = '/login.html';
     }
 
@@ -380,13 +380,13 @@
       return fetch(url, { headers: { 'Authorization': 'Bearer ' + token } })
         .then(function (r) {
           if (r.status === 401) { window.location.href = '/login.html'; return null; }
-          if (r.status === 403) { throw new Error('Forbidden — admin role required'); }
+          if (r.status === 403) { throw new Error('Forbidden - admin role required'); }
           return r.json();
         });
     }
 
     function fmtDate(iso) {
-      if (!iso) return '—';
+      if (!iso) return '-';
       try {
         return new Date(iso).toLocaleString('en-US', {
           month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit',
@@ -395,7 +395,7 @@
     }
 
     function fmtCents(c) {
-      if (c == null) return '—';
+      if (c == null) return '-';
       return '$' + (c / 100).toFixed(2);
     }
 
@@ -430,7 +430,7 @@
           var html = '<table class="diag-table"><thead><tr>' +
             '<th>Title</th><th>Seller</th><th>State</th><th>Lots</th><th>Created</th></tr></thead><tbody>';
           rows.forEach(function (r) {
-            var sellerCell = '—';
+            var sellerCell = '-';
             if (r.seller_email) {
               sellerCell = '<a href="mailto:' + r.seller_email + '" style="color:#2563eb">' + r.seller_email + '</a>';
               if (r.seller_type) sellerCell += '<br><span style="font-size:0.7rem;color:#6b7280">' + r.seller_type + '</span>';
@@ -438,7 +438,7 @@
             html += '<tr><td>' + (r.title || '(untitled)') +
               '</td><td>' + sellerCell +
               '</td><td>' + r.state +
-              '</td><td>' + (r.lot_count != null ? r.lot_count : '—') +
+              '</td><td>' + (r.lot_count != null ? r.lot_count : '-') +
               '</td><td>' + fmtDate(r.created_at) + '</td></tr>';
           });
           html += '</tbody></table>';
@@ -464,7 +464,7 @@
             '<th>Amount</th><th>Status</th><th>Created</th></tr></thead><tbody>';
           rows.slice(0, 10).forEach(function (r) {
             html += '<tr><td>' + fmtCents(r.amount_cents) +
-              '</td><td>' + (r.status || '—') +
+              '</td><td>' + (r.status || '-') +
               '</td><td>' + fmtDate(r.created_at) + '</td></tr>';
           });
           html += '</tbody></table>';
@@ -482,7 +482,7 @@
           if (!body || !body.success) throw new Error('Endpoint returned no data');
           var d = body.data;
           var statusRows = (d && d.by_status) || [];
-          var queueDepth = (d && d.queue_depth != null) ? d.queue_depth : '—';
+          var queueDepth = (d && d.queue_depth != null) ? d.queue_depth : '-';
           var html = '<div class="diag-summary">Queue depth: ' + queueDepth + '</div>';
           if (statusRows.length) {
             html += '<table class="diag-table"><thead><tr><th>Status</th><th>Count</th></tr></thead><tbody>';

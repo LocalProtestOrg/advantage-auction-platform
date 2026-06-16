@@ -1,4 +1,4 @@
-/* Shared buyer bid helpers — single source of truth for lot.html and
+/* Shared buyer bid helpers - single source of truth for lot.html and
  * auction-view.html so bid parsing, next-min math, and error wording never drift.
  * Exposes window.BidUtils. All bid CALCULATION here mirrors the server
  * (bidService): minimum next bid = max(starting, current + increment).
@@ -38,7 +38,7 @@
     return '$' + (c / 100).toFixed(2);
   }
 
-  // Map a failed bid response to a clear, human message — never a raw JS error.
+  // Map a failed bid response to a clear, human message - never a raw JS error.
   function humanizeBidError(status, serverMsg) {
     if (serverMsg && /^(Bid|Max bid|Your bid|Enter a bid)/i.test(serverMsg)) {
       return serverMsg; // already buyer-friendly, e.g. "Bid must be at least $25.00"

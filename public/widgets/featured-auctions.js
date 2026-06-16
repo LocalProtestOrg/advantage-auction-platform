@@ -1,5 +1,5 @@
 /**
- * Advantage Auction Platform — Featured Auctions Widget
+ * Advantage Auction Platform - Featured Auctions Widget
  * Version 1.0
  *
  * Embed on any BD page:
@@ -13,11 +13,11 @@
  *   <script src="https://auctions.advantage.bid/widgets/featured-auctions.js"></script>
  *
  * Data attributes:
- *   data-api-base         — API host (default: same origin)
- *   data-limit            — number of cards to show (default 6, max 12)
- *   data-radius-km        — km radius when geolocation is used (default 200)
- *   data-use-geolocation  — "true" to attempt browser geolocation (default "false")
- *   data-theme            — "light" (default) or "dark"
+ *   data-api-base         - API host (default: same origin)
+ *   data-limit            - number of cards to show (default 6, max 12)
+ *   data-radius-km        - km radius when geolocation is used (default 200)
+ *   data-use-geolocation  - "true" to attempt browser geolocation (default "false")
+ *   data-theme            - "light" (default) or "dark"
  */
 
 (function () {
@@ -79,7 +79,7 @@
   function buildCard(a) {
     var loc = [a.city, a.address_state].filter(Boolean).join(', ');
     var dist = (a.distance_km != null)
-      ? ' &middot; ' + Math.round(a.distance_km) + ' km away'
+      ? ' &middot; ' + Math.max(1, Math.round(a.distance_km * 0.621371)) + ' mi away'
       : '';
     var badge = a.state === 'active'
       ? '<span class="aap-badge aap-live">LIVE NOW</span>'
@@ -133,7 +133,7 @@
         var pos = await getGeoPosition(5000);
         url += '&lat=' + pos.coords.latitude + '&lng=' + pos.coords.longitude + '&radius_km=' + radiusKm;
       } catch (e) {
-        // Geolocation denied or unavailable — load without location filter
+        // Geolocation denied or unavailable - load without location filter
       }
     }
 

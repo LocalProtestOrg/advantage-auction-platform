@@ -1,11 +1,11 @@
 /**
- * AAPComponents.ErrorState — API/network error message element
+ * AAPComponents.ErrorState - API/network error message element
  *
  * Usage:
  *   var el = AAPComponents.ErrorState({ message: 'Unable to load. Try again later.' });
  *
  * Options:
- *   message {string} — display text
+ *   message {string} - display text
  */
 
 window.AAPComponents = window.AAPComponents || {};

@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Sign In — Advantage Auction</title>
+  <title>Sign In - Advantage Auction</title>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -174,7 +174,7 @@
 
     <!-- ── Register panel ── -->
     <div class="form-panel" id="panel-register">
-      <p class="note" style="margin-bottom:1.25rem;">Bid on unique estate finds — furniture, art, jewelry, and collectibles from real homes across the country.</p>
+      <p class="note" style="margin-bottom:1.25rem;">Bid on unique estate finds - furniture, art, jewelry, and collectibles from real homes across the country.</p>
       <div class="msg error"   id="register-error"></div>
       <div class="msg success" id="register-success"></div>
       <div class="field">
@@ -190,7 +190,7 @@
         <input type="password" id="reg-confirm" autocomplete="new-password" placeholder="••••••••" />
       </div>
       <button class="btn-submit" id="register-btn" onclick="handleRegister()">Create Account</button>
-      <p class="note">After creating your account, you'll add a payment method to start bidding. A small temporary authorization under $1 may appear to verify your card — it is released immediately and never charged.</p>
+      <p class="note">After creating your account, you'll add a payment method to start bidding. A small temporary authorization under $1 may appear to verify your card - it is released immediately and never charged.</p>
       <p class="note" style="margin-top:0.5rem;">Bidder accounts only. Sellers are added by the Advantage team.</p>
     </div>
   </div>
@@ -320,7 +320,7 @@
         }
       })
       .catch(function () {
-        showMsg('login-error', 'Network error — please try again.');
+        showMsg('login-error', 'Network error - please try again.');
         btn.disabled = false;
         btn.textContent = 'Log In';
       });
@@ -364,7 +364,7 @@
           localStorage.setItem('token', data.token);
           redirectAfterAuth('buyer');
         } else if (data.success) {
-          // Fallback: registration succeeded without token — ask them to log in
+          // Fallback: registration succeeded without token - ask them to log in
           showMsg('register-success', 'Account created! Please log in.');
           btn.disabled = false;
           btn.textContent = 'Create Account';
@@ -376,7 +376,7 @@
         }
       })
       .catch(function () {
-        showMsg('register-error', 'Network error — please try again.');
+        showMsg('register-error', 'Network error - please try again.');
         btn.disabled = false;
         btn.textContent = 'Create Account';
       });

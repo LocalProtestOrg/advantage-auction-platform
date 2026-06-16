@@ -1,9 +1,9 @@
-/* Bidder status derivation — SINGLE SOURCE OF TRUTH for the Winning/Outbid panel
+/* Bidder status derivation - SINGLE SOURCE OF TRUTH for the Winning/Outbid panel
  * on both the auction catalog cards and the lot page (#2). UMD: require() in Node
  * (tests) and <script> in the browser (window.BidStatus).
  *
  * Privacy: consumes ONLY the per-viewer, identity-free fields from the lot
- * serializer (viewer_is_high_bidder, viewer_has_bid, viewer_max_bid_cents) — it
+ * serializer (viewer_is_high_bidder, viewer_has_bid, viewer_max_bid_cents) - it
  * never sees or needs another bidder's identity.
  *
  * Clarity over cleverness: a first-time bidder must instantly know their standing.

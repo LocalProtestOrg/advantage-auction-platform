@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Buyer Terms &amp; Conditions of Sale — Advantage Auction</title>
+  <title>Buyer Terms &amp; Conditions of Sale - Advantage Auction</title>
   <style>
     :root { color-scheme: light; }
     body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
@@ -43,7 +43,7 @@
   <script>
     const token = localStorage.getItem('token');
     // #5: preserve the return URL through the flow so accepting terms never
-    // dead-ends — we send the bidder back to the auction/lot they came from.
+    // dead-ends - we send the bidder back to the auction/lot they came from.
     const NEXT = new URLSearchParams(location.search).get('next') || '';
 
     // Minimal, safe markdown renderer (headings, lists, bold, paragraphs).
@@ -121,8 +121,8 @@
           if (d.success) {
             status.className = 'status ok';
             action.innerHTML = '';
-            // #5: never leave the bidder stranded — return to where they came from.
-            if (NEXT) { status.textContent = '✓ Terms accepted — returning you to the auction…'; setTimeout(() => { location.href = NEXT; }, 700); }
+            // #5: never leave the bidder stranded - return to where they came from.
+            if (NEXT) { status.textContent = '✓ Terms accepted - returning you to the auction…'; setTimeout(() => { location.href = NEXT; }, 700); }
             else { status.textContent = '✓ Terms accepted. Thank you.'; }
           }
           else { btn.disabled = false; btn.textContent = 'Accept Terms'; status.textContent = d.message || 'Could not save. Try again.'; }

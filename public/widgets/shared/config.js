@@ -1,5 +1,5 @@
 /**
- * Advantage Auction Platform — Shared Widget Configuration
+ * Advantage Auction Platform - Shared Widget Configuration
  * window.AAPConfig
  *
  * Centralised configuration-consumption layer for all marketplace widgets.
@@ -13,12 +13,12 @@
  *   4. Built-in platform defaults in DEFAULTS below
  *
  * Explicit local overrides (source 1) are tracked separately and always win
- * over remote values — calling loadRemote() never clobbers values the host
+ * over remote values - calling loadRemote() never clobbers values the host
  * page has intentionally set.
  *
  * Remote config is cached in localStorage (default 5 min TTL) so repeat page
  * loads do not incur a network round-trip on every widget init. Widgets remain
- * fully functional if the remote endpoint is unavailable — they fall back to
+ * fully functional if the remote endpoint is unavailable - they fall back to
  * inline config and platform defaults.
  *
  * Load before any widget or component:
@@ -38,7 +38,7 @@
 window.AAPConfig = (function () {
   'use strict';
 
-  // Already loaded — return existing instance unchanged
+  // Already loaded - return existing instance unchanged
   if (window.AAPConfig && window.AAPConfig._v) return window.AAPConfig;
 
   // ── Platform defaults ──────────────────────────────────────────────────────
@@ -100,7 +100,7 @@ window.AAPConfig = (function () {
 
   // ── Internal stores ────────────────────────────────────────────────────────
   var _store          = {};  // working store: defaults + inline + remote
-  var _localOverrides = {};  // values set explicitly via set() — always win over remote
+  var _localOverrides = {};  // values set explicitly via set() - always win over remote
 
   Object.keys(DEFAULTS).forEach(function (k) { _store[k] = DEFAULTS[k]; });
 
@@ -122,7 +122,7 @@ window.AAPConfig = (function () {
     try {
       localStorage.setItem(CACHE_KEY, JSON.stringify(data));
       localStorage.setItem(CACHE_TS_KEY, String(Date.now()));
-    } catch (e) { /* storage disabled or quota exceeded — silently skip */ }
+    } catch (e) { /* storage disabled or quota exceeded - silently skip */ }
   }
 
   function _cacheInvalidate() {
@@ -154,7 +154,7 @@ window.AAPConfig = (function () {
       if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
         Object.keys(parsed).forEach(function (k) { _store[k] = parsed[k]; });
       }
-    } catch (e) { /* invalid JSON or no inline block — silently ignore */ }
+    } catch (e) { /* invalid JSON or no inline block - silently ignore */ }
   }
 
   _readInlineBlock();
@@ -204,8 +204,8 @@ window.AAPConfig = (function () {
     // Load admin-editable config from a remote endpoint and merge it.
     //
     // Options:
-    //   cacheTtlSeconds {number}  — cache TTL in seconds (default: 300)
-    //   bypassCache     {boolean} — if true, skip cache and always fetch
+    //   cacheTtlSeconds {number}  - cache TTL in seconds (default: 300)
+    //   bypassCache     {boolean} - if true, skip cache and always fetch
     //
     // Behaviour:
     //   1. If a fresh cache entry exists (within TTL), merge it immediately.
@@ -213,7 +213,7 @@ window.AAPConfig = (function () {
     //   3. On any error (network, non-200, parse failure): return self unchanged.
     //   4. Local overrides (from set()) are NEVER clobbered by remote values.
     //   5. Only keys with safe prefixes (marketplace.*, widget.*, analytics.*)
-    //      are merged — all others are silently dropped.
+    //      are merged - all others are silently dropped.
     //
     // Returns a Promise that resolves to self when done (always resolves; never rejects).
     loadRemote: function (url, opts) {
@@ -244,7 +244,7 @@ window.AAPConfig = (function () {
           return self;
         })
         .catch(function () {
-          // Remote config load failed — continue with current store unchanged
+          // Remote config load failed - continue with current store unchanged
           return self;
         });
     },

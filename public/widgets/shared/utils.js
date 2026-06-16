@@ -1,8 +1,8 @@
 /**
- * Advantage Auction Platform — Shared Widget Utilities
+ * Advantage Auction Platform - Shared Widget Utilities
  * window.AAPWidgetUtils
  *
- * Load this before any widget that depends on it. Safe to include multiple times —
+ * Load this before any widget that depends on it. Safe to include multiple times -
  * subsequent loads are no-ops. All widgets also carry inline fallbacks, so this
  * file is optional but recommended when embedding more than one widget per page.
  *
@@ -15,7 +15,7 @@
 
   window.AAPWidgetUtils = {
 
-    // XSS-safe HTML escaping — use on every API string inserted into innerHTML
+    // XSS-safe HTML escaping - use on every API string inserted into innerHTML
     esc: function (str) {
       if (str == null) return '';
       return String(str)
@@ -48,11 +48,11 @@
       } catch (e) { return ''; }
     },
 
-    // "42 km away" / "< 1 km away" / null when km is null
+    // "42 mi away" / "< 1 mi away" / null when km is null (input is km; U.S. users see miles)
     fmtDistance: function (km) {
       if (km == null) return null;
-      var r = Math.round(km);
-      return (r === 0 ? '< 1' : r) + ' km away';
+      var r = Math.round(km * 0.621371); // km → miles
+      return (r === 0 ? '< 1' : r) + ' mi away';
     },
 
     clamp: function (v, lo, hi) {
@@ -84,7 +84,7 @@
       });
     },
 
-    // Inject a <style> element once — skips if the id already exists
+    // Inject a <style> element once - skips if the id already exists
     injectStyle: function (id, css) {
       if (document.getElementById(id)) return;
       var el = document.createElement('style');

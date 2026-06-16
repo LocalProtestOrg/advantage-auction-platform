@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Lot Creation Studio — Advantage Auction</title>
+  <title>Lot Creation Studio - Advantage Auction</title>
 
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -160,7 +160,7 @@
        breaks programmatic .click() invocation from the user-gesture chain
        (camera opens to a black viewfinder). The visually-hidden pattern keeps
        the input in the DOM as a real focusable element while hiding it from
-       sighted users — the synchronous .click() path works reliably. */
+       sighted users - the synchronous .click() path works reliably. */
     .visually-hidden-input {
       position: absolute;
       width: 1px;
@@ -801,7 +801,7 @@
       <div class="brand">Advantage Auction Platform</div>
       <h1>Lot Creation Studio</h1>
       <div class="header-sub" id="auction-context">Preparing new lot</div>
-      <!-- Updated by updateLotNumberContext() — shows "Creating Lot #N" or
+      <!-- Updated by updateLotNumberContext() - shows "Creating Lot #N" or
            "Editing Lot #N" so the seller knows where they are in the sequence. -->
       <div class="header-sub" id="lot-number-context" style="font-weight:700;color:#2563eb;margin-top:0.15rem"></div>
       <div class="header-actions">
@@ -1039,13 +1039,13 @@
 
           <!-- Reserve Price: hidden by default. Revealed by JS only when
                the authenticated seller's profile reports seller_type='business'.
-               Failsafe — any error fetching the profile leaves reserve hidden.
+               Failsafe - any error fetching the profile leaves reserve hidden.
                Private/other sellers must not see this control. -->
           <div class="form-group" id="reserve-form-group" style="display:none">
             <div class="inline-toggle-row">
               <div>
                 <div class="inline-toggle-label">Reserve Price</div>
-                <div class="inline-toggle-sub">Hidden minimum — admin sets the value</div>
+                <div class="inline-toggle-sub">Hidden minimum - admin sets the value</div>
               </div>
               <label class="toggle-switch" for="reserve-toggle">
                 <input type="checkbox" id="reserve-toggle" />
@@ -1061,15 +1061,15 @@
             <div class="tier-options">
               <label class="tier-pill">
                 <input type="radio" name="pickup-tier" value="A" />
-                <span>Tier A &mdash; Small</span>
+                <span>Tier A - Small</span>
               </label>
               <label class="tier-pill">
                 <input type="radio" name="pickup-tier" value="B" checked />
-                <span>Tier B &mdash; Medium</span>
+                <span>Tier B - Medium</span>
               </label>
               <label class="tier-pill">
                 <input type="radio" name="pickup-tier" value="C" />
-                <span>Tier C &mdash; Large</span>
+                <span>Tier C - Large</span>
               </label>
             </div>
             <div class="tier-desc" id="tier-desc">
@@ -1146,7 +1146,7 @@
         el.textContent = 'Creating Lot #' + nextLotNumber;
       }
     }
-    // Initial render — loadInventory() will refresh with the real next number
+    // Initial render - loadInventory() will refresh with the real next number
     // once the auction's existing lots are fetched.
     updateLotNumberContext();
 
@@ -1190,7 +1190,7 @@
       fileInput.value = '';
     });
 
-    // Dedicated camera input — bypasses the iOS multi-file + camera black-screen
+    // Dedicated camera input - bypasses the iOS multi-file + camera black-screen
     // bug. Funnels into the same handleFiles pipeline so all downstream behavior
     // (preview, upload, enhancement, save-button gating) is identical.
     var fileInputCamera = document.getElementById('file-input-camera');
@@ -1206,14 +1206,14 @@
       Array.from(files).forEach(function (file, idx) {
         // Defensive wrap: a throw inside addPreview / addQueueItem must not
         // halt the change-event handler silently. Observed during 2026-05-26
-        // iOS diagnostic work — kept as a safety net.
+        // iOS diagnostic work - kept as a safety net.
         try {
           if (!file.type.startsWith('image/')) {
             console.warn('[upload] skipped non-image file', { name: file.name, type: file.type, size: file.size });
             return;
           }
           if (uploadedFiles.length >= 20) {
-            console.warn('[upload] skipped — already at 20-photo limit', { name: file.name });
+            console.warn('[upload] skipped - already at 20-photo limit', { name: file.name });
             return;
           }
 
@@ -1228,7 +1228,7 @@
           // that lost photos on iPhone Safari pre-2026-05-26. The actual
           // upload still sends the raw File via FormData (see
           // uploadToCloudinary), so preview success and upload success are
-          // independent — preview failure does not block upload.
+          // independent - preview failure does not block upload.
           try {
             var blobUrl = URL.createObjectURL(file);
             var entry = uploadedFiles[uploadedFiles.length - 1];
@@ -1244,14 +1244,14 @@
             // addQueueItem also removes the empty-state placeholder.
             try {
               addQueueItem(id, file.name, 'failed');
-              updateQueueItem(id, 'failed', 'Preview could not be generated — file may be unreadable');
+              updateQueueItem(id, 'failed', 'Preview could not be generated - file may be unreadable');
               updatePhotoCount();
             } catch (recoveryErr) {
               console.error('[upload-preview-recovery] failed to insert failure tile', { error: recoveryErr && recoveryErr.message });
             }
           }
 
-          // Always attempt the upload — AI enhancement is an independent
+          // Always attempt the upload - AI enhancement is an independent
           // secondary step, and preview success/failure does not gate upload.
           uploadToCloudinary(id, file);
 
@@ -1289,7 +1289,7 @@
       var label = document.createElement('div');
       label.className = 'preview-label';
       label.id = 'preview-label-' + id;
-      // Guard against undefined/non-string name — iOS camera capture can
+      // Guard against undefined/non-string name - iOS camera capture can
       // produce File objects whose .name is undefined in some iOS versions.
       var safeName = (typeof name === 'string') ? name : '';
       label.textContent = safeName.length > 14 ? safeName.slice(0, 12) + '…' : safeName;
@@ -1323,7 +1323,7 @@
       updatePhotoCount();
       if (uploadedFiles.length === 0) addMoreRow.style.display = 'none';
       saveDraft();
-      // A removed in-flight upload may have been the last pending one — refresh
+      // A removed in-flight upload may have been the last pending one - refresh
       // the save-button gate so the user isn't stuck with a disabled button.
       updateSaveButtonState();
     }
@@ -1335,7 +1335,7 @@
 
     // Save-button gate: disable Add-to-Auction / Save-Changes while uploads
     // are still in flight, so the seller cannot accidentally save a lot with
-    // partially-uploaded photos. Failed uploads do NOT block save — the seller
+    // partially-uploaded photos. Failed uploads do NOT block save - the seller
     // sees them marked failed in the queue and can choose to remove or proceed.
     function getPendingUploadCount() {
       return uploadedFiles.filter(function (f) {
@@ -1345,7 +1345,7 @@
 
     // Bg-removal fix: an enhancement is "in-flight" once its job was submitted
     // (jobId set) but has neither produced a processedUrl nor failed. Saving must
-    // wait for these so the processed URL — not the original — is what persists.
+    // wait for these so the processed URL - not the original - is what persists.
     function getPendingEnhancementCount() {
       return uploadedFiles.filter(function (f) {
         return f.jobId && !f.processedUrl && !f.enhanceFailed;
@@ -1410,9 +1410,9 @@
     // TODO signed uploads: call /api/uploads/signature and use Cloudinary JS SDK for direct upload
     // TODO direct browser uploads: bypass server for large files using signed params + Cloudinary widget
 
-    // Upload pipeline — split into two independent stages:
-    //   uploadToCloudinary(id, file)  — ALWAYS runs on file selection
-    //   submitEnhancementJob(id, url) — runs only if AI enhancement toggle is on
+    // Upload pipeline - split into two independent stages:
+    //   uploadToCloudinary(id, file)  - ALWAYS runs on file selection
+    //   submitEnhancementJob(id, url) - runs only if AI enhancement toggle is on
     //
     // Prior to this split, uploadToCloudinary was conditional on the AI toggle.
     // When the toggle was off, files were never uploaded and silently disappeared
@@ -1465,7 +1465,7 @@
           if (uploadedEntry) {
             uploadedEntry.cloudinaryUrl = cloudinaryUrl;
             uploadedEntry.failed = false;
-            // Preview no longer needs the local blob — release it so the
+            // Preview no longer needs the local blob - release it so the
             // browser can free the underlying file reference.
             if (uploadedEntry.blobUrl) {
               try { URL.revokeObjectURL(uploadedEntry.blobUrl); } catch (e) {}
@@ -1474,7 +1474,7 @@
             saveDraft();
           }
 
-          // Upload finished — release the save-button gate for this file.
+          // Upload finished - release the save-button gate for this file.
           updateSaveButtonState();
 
           // Stage 2: enhancement is now optional. Only fire if the toggle is on
@@ -1483,7 +1483,7 @@
             updateQueueItem(id, 'pending', null);
             submitEnhancementJob(id, cloudinaryUrl);
           } else {
-            // No enhancement requested — file is fully done.
+            // No enhancement requested - file is fully done.
             updateQueueItem(id, 'complete', null);
           }
         })
@@ -1494,9 +1494,9 @@
             errName: err && err.name, errMessage: err && err.message,
           });
           if (err && err.name === 'AbortError') {
-            markFailed('Upload timed out — check connection and retry');
+            markFailed('Upload timed out - check connection and retry');
           } else {
-            markFailed('Upload failed — network error');
+            markFailed('Upload failed - network error');
           }
         });
     }
@@ -1525,7 +1525,7 @@
         .then(function (data) {
           if (!data) return;
           if (!data.success) {
-            // Enhancement failure does NOT mark the file failed — the upload
+            // Enhancement failure does NOT mark the file failed - the upload
             // succeeded and the original Cloudinary URL is still attachable.
             // Only the enhancement attempt failed.
             updateQueueItem(id, 'failed', data.message || 'Enhancement submission failed');
@@ -1534,7 +1534,7 @@
           var jobId = data.data.id;
           var entry = uploadedFiles.find(function (f) { return f.id === id; });
           if (entry) { entry.jobId = jobId; entry.processedUrl = null; entry.enhanceFailed = false; }
-          updateSaveButtonState();   // Bg-removal fix: gate save — enhancement now in-flight
+          updateSaveButtonState();   // Bg-removal fix: gate save - enhancement now in-flight
           startPolling(id, jobId);
         })
         .catch(function (err) {
@@ -1657,7 +1657,7 @@
             }
           })
           .catch(function () {
-            /* network hiccup — keep polling */
+            /* network hiccup - keep polling */
           });
       }, POLL_INTERVAL_MS);
 
@@ -1667,14 +1667,14 @@
     function onJobComplete(id, processedImageUrl) {
       // Bg-removal fix: persist the processed URL into the DATA MODEL, not just
       // the preview. The save path (effectiveUrl) sends processedUrl when present,
-      // so the enhanced image — not the original — is stored on the lot.
+      // so the enhanced image - not the original - is stored on the lot.
       var entry = uploadedFiles.find(function (f) { return f.id === id; });
       if (processedImageUrl) {
         if (entry) entry.processedUrl = processedImageUrl;
         var img = document.getElementById('preview-img-' + id);
         if (img) img.src = processedImageUrl;
       } else if (entry) {
-        // No processed URL returned — treat as enhancement-not-applied so the
+        // No processed URL returned - treat as enhancement-not-applied so the
         // save gate releases and the original (still valid) can be saved.
         entry.enhanceFailed = true;
       }
@@ -1763,7 +1763,7 @@
         // Phase C.2: professional-only reserve visibility toggle. Sent for all,
         // but the server ignores it for non-professional sellers (authoritative).
         reserve_visible:    !!(document.getElementById('reserve-toggle') && document.getElementById('reserve-toggle').checked),
-        // Server stores as JSONB { text: "..." } — see src/routes/lots.js
+        // Server stores as JSONB { text: "..." } - see src/routes/lots.js
         // validateDimensions(). Empty/whitespace omitted entirely.
         dimensions:         dimensionsRaw ? { text: dimensionsRaw } : null,
       };
@@ -1783,7 +1783,7 @@
         fetch('/api/lots/' + lotId + '/images', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
-          // enhancement_enabled:false — the client owns enhancement (processed URL is
+          // enhancement_enabled:false - the client owns enhancement (processed URL is
           // already attached); this stops the server re-enqueuing a redundant job that
           // would re-process an already-enhanced URL and whose output is never persisted.
           body: JSON.stringify({ images: newCloudinaryUrls, enhancement_enabled: false }),
@@ -1826,7 +1826,7 @@
           })
           .catch(function () {
             if (addBtn) { addBtn.disabled = false; addBtn.textContent = 'Save Changes'; }
-            alert('Network error — lot not saved. Please try again.');
+            alert('Network error - lot not saved. Please try again.');
           });
 
       } else {
@@ -1866,7 +1866,7 @@
           })
           .catch(function () {
             if (addBtn) { addBtn.disabled = false; addBtn.textContent = 'Add to Auction'; }
-            alert('Failed to save lot — network error. Your draft has been preserved.');
+            alert('Failed to save lot - network error. Your draft has been preserved.');
           });
       }
     }
@@ -1921,7 +1921,7 @@
     // UX: after a successful save + form reset, return the seller to the top of the
     // lot-entry workflow, focus the first actionable control (the photo-capture
     // zone), and briefly pulse it so the next action (take a photo) is obvious.
-    // Only called from success callbacks — never on a validation-blocked save.
+    // Only called from success callbacks - never on a validation-blocked save.
     function focusNextLotEntry() {
       try {
         var layout = document.querySelector('.studio-layout');
@@ -1961,7 +1961,7 @@
       try {
         localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
       } catch (e) {
-        // localStorage full or unavailable — fail silently
+        // localStorage full or unavailable - fail silently
       }
     }
 
@@ -2036,7 +2036,7 @@
        professional_liquidator). All other sellers (private / business / other /
        NULL) keep them hidden → $1 default and no reserve. Failsafe: any error
        leaves them hidden. Note: this REPLACES the prior business-only reserve
-       gate — under the seller-type framework, 'business' is non-professional. */
+       gate - under the seller-type framework, 'business' is non-professional. */
     (function gateProfessionalControls() {
       var PRO_TYPES = ['auction_house', 'estate_sale_company', 'professional_liquidator'];
       function reveal(show) {
@@ -2072,7 +2072,7 @@
       var banner = document.createElement('div');
       banner.style.cssText = 'background:#fef9c3;border:2px solid #ca8a04;border-radius:10px;padding:1rem 1.25rem;margin-bottom:1.5rem;color:#713f12;font-size:0.9rem;line-height:1.5';
       banner.innerHTML =
-        '<div style="font-weight:700;margin-bottom:0.3rem">🔒 Editing locked — auction state: ' + currentState + '</div>' +
+        '<div style="font-weight:700;margin-bottom:0.3rem">🔒 Editing locked - auction state: ' + currentState + '</div>' +
         '<div>This auction is awaiting Advantage review. You cannot add, edit, or remove lots until Advantage returns it to draft. ' +
         'Contact Advantage to request changes.</div>';
       var page = document.querySelector('.page');
@@ -2081,7 +2081,7 @@
       var addBtn = document.getElementById('add-lot-btn');
       if (addBtn) {
         addBtn.disabled = true;
-        addBtn.title = 'Editing locked — auction is past draft';
+        addBtn.title = 'Editing locked - auction is past draft';
         addBtn.style.opacity = '0.5';
       }
       var saveDraftBtn = document.querySelector('button[onclick="handleSaveDraft()"]');
@@ -2096,11 +2096,11 @@
     }
 
     (function gateLotStudioEditing() {
-      // Admin bypass — server permits, no need to lock client UI
+      // Admin bypass - server permits, no need to lock client UI
       try {
         var p = JSON.parse(atob(token.split('.')[1]));
         if (p && p.role === 'admin') return;
-      } catch (e) { /* malformed token — let normal auth flow handle */ }
+      } catch (e) { /* malformed token - let normal auth flow handle */ }
 
       if (!auctionId) return; // no auction context, nothing to lock against
 
@@ -2120,7 +2120,7 @@
         applyLotStudioLock(state);
       }).catch(function (err) {
         // Failsafe: if we can't determine state, lock to match server behavior
-        console.warn('[gate-lot-studio] could not determine auction state — defaulting to locked', { error: err && err.message });
+        console.warn('[gate-lot-studio] could not determine auction state - defaulting to locked', { error: err && err.message });
         applyLotStudioLock('(unknown)');
       });
     })();
@@ -2172,7 +2172,7 @@
           saveDraft();
           status.style.display = '';
           status.style.color   = '#16a34a';
-          status.textContent   = '✓ Fields populated — confirm details below, then Update Description.';
+          status.textContent   = '✓ Fields populated - confirm details below, then Update Description.';
         })
         .catch(function (err) {
           console.error('[ai-generate] failed', { errName: err && err.name, errMessage: err && err.message });
@@ -2321,7 +2321,7 @@
         });
     }
 
-    // Persist the provenance bundle AFTER the lot is saved (best-effort —
+    // Persist the provenance bundle AFTER the lot is saved (best-effort -
     // provenance must never block or fail the lot save). Server populates blank
     // lot metadata fields from the selections; it never overwrites seller input.
     function persistAiVerification(lotId) {
@@ -2366,7 +2366,7 @@
       fetch('/api/admin/lots/' + lotId + '/ai-verification', { headers: { Authorization: 'Bearer ' + token } })
         .then(function (r) { return r.json(); })
         .then(function (data) { if (data && data.success) renderAdminVerification(data.data); })
-        .catch(function () { /* best-effort — admin panel is informational */ });
+        .catch(function () { /* best-effort - admin panel is informational */ });
     }
 
     function renderAdminVerification(d) {
@@ -2437,7 +2437,7 @@
     /* ── F: Lot Inventory ──────────────────────────────────────── */
 
     function fmtCents(cents) {
-      if (!cents) return '—';
+      if (!cents) return '-';
       return '$' + (cents / 100).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
     }
 
@@ -2461,7 +2461,7 @@
       })
         .then(function (res) {
           if (res.status === 401) { window.location.href = '/login.html'; return null; }
-          if (res.status === 403) { return null; } // seller doesn't own this auction — stay silent
+          if (res.status === 403) { return null; } // seller doesn't own this auction - stay silent
           return res.json();
         })
         .then(function (data) {
@@ -2518,9 +2518,9 @@
       title.className = 'inv-title';
       // Prefix with "Lot #N · " so sellers can immediately orient themselves
       // in the auction sequence. lot_number is auto-assigned per-auction on
-      // INSERT (see src/routes/lots.js); falls back to "Lot #—" if somehow
+      // INSERT (see src/routes/lots.js); falls back to "Lot #-" if somehow
       // missing on a legacy row.
-      var numLabel = (lot.lot_number != null) ? ('Lot #' + lot.lot_number) : 'Lot #—';
+      var numLabel = (lot.lot_number != null) ? ('Lot #' + lot.lot_number) : 'Lot #-';
       title.textContent = numLabel + ' · ' + (lot.title || '(Untitled)');
       body.appendChild(title);
 
@@ -2618,7 +2618,7 @@
           }
         })
         .catch(function () {
-          alert('Network error — lot not withdrawn. Please try again.');
+          alert('Network error - lot not withdrawn. Please try again.');
         });
     }
 
@@ -2655,7 +2655,7 @@
         img.src = lot.first_image_url;
         img.alt = 'Existing image';
         img.style.cssText = 'width:88px;height:88px;object-fit:cover;border-radius:8px;opacity:0.7;';
-        img.title = 'Existing image (locked) — upload new photos to add more';
+        img.title = 'Existing image (locked) - upload new photos to add more';
         previewGrid.appendChild(img);
         updatePhotoCount();
       }

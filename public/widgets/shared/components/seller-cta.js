@@ -1,12 +1,12 @@
 /**
- * AAPComponents.SellerCta — seller call-to-action card
+ * AAPComponents.SellerCta - seller call-to-action card
  *
  * Reads configuration from AAPConfig if available, with per-call overrides.
- * All copy and URL values come from config — nothing is hardcoded.
+ * All copy and URL values come from config - nothing is hardcoded.
  *
  * Usage:
  *   var el = AAPComponents.SellerCta({
- *     config: window.AAPConfig,   // optional — provides defaults
+ *     config: window.AAPConfig,   // optional - provides defaults
  *     url:      'https://...',    // overrides config
  *     headline: 'Consigning?',   // overrides config
  *     subtext:  'We can help.', // overrides config
@@ -15,12 +15,12 @@
  *   });
  *
  * Options:
- *   config     {object}   — AAPConfig instance (optional)
- *   url        {string}   — CTA link href (required; falls back to config.marketplace.cta.url)
- *   headline   {string}   — card headline
- *   subtext    {string}   — supporting copy under headline
- *   label      {string}   — button label
- *   onCtaClick {function} — called when button is clicked (before navigation)
+ *   config     {object}   - AAPConfig instance (optional)
+ *   url        {string}   - CTA link href (required; falls back to config.marketplace.cta.url)
+ *   headline   {string}   - card headline
+ *   subtext    {string}   - supporting copy under headline
+ *   label      {string}   - button label
+ *   onCtaClick {function} - called when button is clicked (before navigation)
  */
 
 window.AAPComponents = window.AAPComponents || {};

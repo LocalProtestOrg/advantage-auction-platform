@@ -1,5 +1,5 @@
 /**
- * Advantage Auction Platform — Featured Lots Widget
+ * Advantage Auction Platform - Featured Lots Widget
  * Version 1.0
  *
  * Embed on any BD or partner page:
@@ -34,11 +34,11 @@
  * take precedence over AAPConfig values.
  *
  * Data attributes:
- *   data-api-base           — API host (default: same origin)
- *   data-limit              — cards to show, 1–12 (default: config widget.limit)
- *   data-auction-state      — filter by auction state: 'published'|'active'|'closed'
- *   data-theme              — "light" (default) or "dark"
- *   data-seller-cta-url     — seller CTA link; overrides config marketplace.cta.url
+ *   data-api-base           - API host (default: same origin)
+ *   data-limit              - cards to show, 1-12 (default: config widget.limit)
+ *   data-auction-state      - filter by auction state: 'published'|'active'|'closed'
+ *   data-theme              - "light" (default) or "dark"
+ *   data-seller-cta-url     - seller CTA link; overrides config marketplace.cta.url
  *   data-seller-cta-headline
  *   data-seller-cta-label
  *
@@ -46,9 +46,9 @@
  *   GET /api/public/featured-lots
  *
  * Analytics events (bubble from container element):
- *   aap:widget:loaded   — { widgetId, resultCount, source: 'featured-lots' }
- *   aap:lot:click       — { lotId, lotTitle, auctionId, auctionTitle }
- *   aap:cta:click       — { widgetId }
+ *   aap:widget:loaded   - { widgetId, resultCount, source: 'featured-lots' }
+ *   aap:lot:click       - { lotId, lotTitle, auctionId, auctionTitle }
+ *   aap:cta:click       - { widgetId }
  *
  * No auth tokens used. Only /api/public/* endpoints called.
  */
@@ -58,7 +58,7 @@
 
   var WIDGET_ID = 'aap-featured-lots';
   var STYLE_ID  = 'aapfl-styles';
-  var P         = 'aapfl';   // widget CSS prefix — grid layout only; card content uses aapc-*
+  var P         = 'aapfl';   // widget CSS prefix - grid layout only; card content uses aapc-*
 
   // ── Inline fallback utilities ─────────────────────────────────────────────────
   // Used when shared/utils.js is not loaded.
@@ -255,7 +255,7 @@
     var d      = container.dataset;
     var apiBase = (d.apiBase || '').replace(/\/$/, '');
 
-    // Resolve all config values — data-* > AAPConfig > hardcoded default
+    // Resolve all config values - data-* > AAPConfig > hardcoded default
     var limit      = U.clamp(U.parseIntSafe(d.limit, cfg('widget.limit', null, 6)), 1, 12);
     var aState     = d.auctionState || null;
     var dark       = d.theme === 'dark';

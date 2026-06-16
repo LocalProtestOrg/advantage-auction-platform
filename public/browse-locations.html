@@ -3,15 +3,15 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Discover Inventory Near You — Browse by Region | Advantage.Bid</title>
-  <meta name="description" content="Explore estate and liquidation collections by state. Real inventory from real homes — discover what's active near you or anywhere across the country." />
+  <title>Discover Inventory Near You - Browse by Region | Advantage.Bid</title>
+  <meta name="description" content="Explore estate and liquidation collections by state. Real inventory from real homes - discover what's active near you or anywhere across the country." />
   <meta name="keywords" content="estate auctions by state, auction near me, estate sales by region, liquidation collections by location, find estate items near me" />
   <link rel="canonical" href="https://advantage.bid/browse-locations.html" />
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
 
   <!-- Open Graph -->
-  <meta property="og:title" content="Discover Inventory Near You — Browse by Region | Advantage.Bid" />
-  <meta property="og:description" content="Estate and liquidation collections by state. Real inventory from real homes — discover what's near you." />
+  <meta property="og:title" content="Discover Inventory Near You - Browse by Region | Advantage.Bid" />
+  <meta property="og:description" content="Estate and liquidation collections by state. Real inventory from real homes - discover what's near you." />
   <meta property="og:type" content="website" />
   <meta property="og:url" content="https://advantage.bid/browse-locations.html" />
 
@@ -124,7 +124,7 @@
     <h1>Discover inventory<br />near you.</h1>
     <p class="hero-sub">
       Estate sales, liquidations, and collections from real homes across the country.
-      Choose a state to see what's active — or explore everything.
+      Choose a state to see what's active - or explore everything.
     </p>
   </div>
 </section>
@@ -466,11 +466,11 @@
   updateHeading();
   loadAuctions(false);
 
-  /* Discovery rails — state-aware, re-fetch on every state change */
+  /* Discovery rails - state-aware, re-fetch on every state change */
   reloadEndingSoonRail();
   reloadTrendingRail();
 
-  /* State filter — load from locations API */
+  /* State filter - load from locations API */
   fetch('/api/public/locations?limit=200')
     .then(function (r) { return r.json(); })
     .then(function (json) {

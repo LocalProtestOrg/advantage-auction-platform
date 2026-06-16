@@ -66,7 +66,7 @@
 
   /**
    * makeAuctionCard(auction, opts)
-   * opts.featuredBadge  — show "⭐ Featured" badge instead of state badges
+   * opts.featuredBadge  - show "⭐ Featured" badge instead of state badges
    */
   function makeAuctionCard(auction, opts) {
     opts = opts || {};
@@ -250,8 +250,8 @@
    * Fetches a discovery endpoint and renders lot cards into a scroll container.
    * Hides the nearest .discovery-rail ancestor if the response is empty.
    *
-   * opts.limit  — number of cards to request (default 12)
-   * opts.params — extra query string params object
+   * opts.limit  - number of cards to request (default 12)
+   * opts.params - extra query string params object
    */
   function loadDiscoveryRail(scrollEl, endpoint, opts) {
     opts = opts || {};

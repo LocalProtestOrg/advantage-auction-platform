@@ -1,4 +1,4 @@
-// auth-refresh.js — sliding-session client glue.
+// auth-refresh.js - sliding-session client glue.
 // The server (authMiddleware) mints a fresh JWT and returns it in the
 // `X-Refreshed-Token` response header once a token passes half its lifetime.
 // This wrapper transparently swaps that fresh token into localStorage on every

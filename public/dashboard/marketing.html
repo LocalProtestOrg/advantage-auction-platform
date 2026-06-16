@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Auction Exposure Report — Advantage Auction</title>
+  <title>Auction Exposure Report - Advantage Auction</title>
 
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -265,7 +265,7 @@
         <h2>AI Marketing Insights <span class="coming-soon">Coming Soon</span></h2>
         <p class="placeholder-body">
           Advantage will automatically analyze your auction's performance and generate
-          actionable recommendations — including optimal promotion timing, geographic
+          actionable recommendations - including optimal promotion timing, geographic
           targeting suggestions, and lot-level creative improvements.
         </p>
         <div class="placeholder-rows">
@@ -296,16 +296,16 @@
     }
 
     function formatDate(iso) {
-      if (!iso) return '—';
+      if (!iso) return '-';
       try {
         return new Date(iso).toLocaleDateString('en-US', {
           month: 'long', day: 'numeric', year: 'numeric'
         });
-      } catch (e) { return '—'; }
+      } catch (e) { return '-'; }
     }
 
     function formatNumber(n) {
-      if (n === null || n === undefined) return '—';
+      if (n === null || n === undefined) return '-';
       return new Intl.NumberFormat('en-US').format(n);
     }
 
@@ -323,7 +323,7 @@
 
     function packageLabel(type) {
       var labels = { standard: 'Standard', premium: 'Premium', elite: 'Elite', basic: 'Basic' };
-      return labels[type] || (type ? type.charAt(0).toUpperCase() + type.slice(1) : '—');
+      return labels[type] || (type ? type.charAt(0).toUpperCase() + type.slice(1) : '-');
     }
 
     function metaItem(label, value) {

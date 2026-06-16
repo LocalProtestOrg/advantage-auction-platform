@@ -71,7 +71,7 @@
       <hr style="margin:1rem 0;border:none;border-top:1px solid #eef2f7" />
       <h2 style="margin-top:0">Preview</h2>
       <div class="row">
-        <div><label>sellerProfileId (optional — pulls real terms/identity)</label><input id="pv-seller" /></div>
+        <div><label>sellerProfileId (optional - pulls real terms/identity)</label><input id="pv-seller" /></div>
         <div><label>variables / overrides (JSON object, optional)</label><textarea id="pv-vars" placeholder='{"effective_date":"2026-06-01"}'></textarea></div>
       </div>
       <button class="ghost" id="pv-run">Render preview</button>
@@ -131,7 +131,7 @@
       </div>
       <div class="row">
         <div><label>phone</label><input id="i-phone" /></div>
-        <div><label>payout_info_ref <span class="muted">(tokenized ref only — never raw bank/card)</span></label><input id="i-payout" /></div>
+        <div><label>payout_info_ref <span class="muted">(tokenized ref only - never raw bank/card)</span></label><input id="i-payout" /></div>
       </div>
       <button id="id-save">Save identity</button>
     </section>
@@ -175,7 +175,7 @@
       var tb = document.querySelector('#tpl-table tbody'); tb.innerHTML = '';
       (r.json && r.json.data || []).forEach(function (t) {
         var tr = document.createElement('tr');
-        tr.innerHTML = '<td>' + t.name + '</td><td>' + t.agreement_type + '</td><td>' + (t.is_active ? 'yes' : 'no') + '</td><td>' + (t.current_version_int || '—') + '</td>';
+        tr.innerHTML = '<td>' + t.name + '</td><td>' + t.agreement_type + '</td><td>' + (t.is_active ? 'yes' : 'no') + '</td><td>' + (t.current_version_int || '-') + '</td>';
         var td = document.createElement('td'); var b = document.createElement('button'); b.className = 'ghost'; b.textContent = 'Open'; b.style.margin = '0';
         b.onclick = function () { openTemplate(t.id); }; td.appendChild(b); tr.appendChild(td); tb.appendChild(tr);
       });

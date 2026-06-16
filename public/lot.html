@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Lot Detail — Advantage Auction</title>
+  <title>Lot Detail - Advantage Auction</title>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -583,7 +583,7 @@
         <button id="pay-btn">Pay Now</button>
       </div>
 
-      <div id="closed-banner">Auction ended — bidding is closed</div>
+      <div id="closed-banner">Auction ended - bidding is closed</div>
 
       <div class="bid-form">
         <div class="field-label">Your Bid</div>
@@ -595,7 +595,7 @@
         </div>
         <div style="margin-top:0.6rem">
           <div class="field-label" style="font-size:0.75rem; color:#94a3b8; font-weight:500; margin-bottom:0.25rem">
-            Max Bid — proxy (optional)
+            Max Bid - proxy (optional)
           </div>
           <input type="text" inputmode="decimal" id="max-bid-input" placeholder="Set your maximum…"
                  autocomplete="off"
@@ -653,7 +653,7 @@
 
   // ── Safe back navigation ────────────────────────────────────────────────────
   // history.back() is a no-op when the user lands here via a direct link,
-  // notification, post-login redirect, or fresh tab — leaving the user stuck.
+  // notification, post-login redirect, or fresh tab - leaving the user stuck.
   //
   // Fallback ladder:
   //   1. If browser history has prior entry, use history.back() (buyer flow)
@@ -749,7 +749,7 @@
 
       // Tolerant auth handling: a 401 on the auth-gated /bids call (expired or
       // invalid token) must NOT bounce an active bidder to /login or hide the
-      // countdown. Degrade to the guest view instead — the lot details and the
+      // countdown. Degrade to the guest view instead - the lot details and the
       // countdown render from the optionalAuth /lots/:lotId response regardless
       // of auth state. Fixes refresh-logout (#4) and missing countdown (#7).
       let authed = !!token;
@@ -806,7 +806,7 @@
     if (historyWrap) historyWrap.style.display = 'none';
   }
 
-  // #20: gate the bid form for a logged-in buyer — accept-terms / register / bid.
+  // #20: gate the bid form for a logged-in buyer - accept-terms / register / bid.
   async function applyBidGate() {
     if (!currentAuctionId || lotClosed || realizedHidden) return;
     const gate = await BidUtils.getBidGate(currentAuctionId, token);
@@ -826,7 +826,7 @@
       const nextUrl = encodeURIComponent(location.pathname + location.search);
       form.innerHTML =
         '<div style="text-align:center; padding:0.5rem 0;">' +
-        '<p style="color:#374151; margin:0 0 0.8rem; font-size:0.92rem; line-height:1.4;">Add a payment method to bid in this auction. Your card is saved for settlement — you are not charged now.</p>' +
+        '<p style="color:#374151; margin:0 0 0.8rem; font-size:0.92rem; line-height:1.4;">Add a payment method to bid in this auction. Your card is saved for settlement - you are not charged now.</p>' +
         '<a href="/add-card.html?next=' + nextUrl + '" style="display:block; background:#1d4ed8; color:#fff; padding:0.75rem 1rem; border-radius:8px; text-decoration:none; font-weight:600;">Add Payment Method</a></div>';
       return;
     }
@@ -857,7 +857,7 @@
   }
 
   // ── Auto-refresh bids every 3 s ───────────────────────────────────────────────
-  // One refresh pass — used by the 3s poll (permanent fallback) AND triggered
+  // One refresh pass - used by the 3s poll (permanent fallback) AND triggered
   // immediately by socket events (#1). Fetches the lot first (state / close /
   // increment / winning-outbid chip), then the bid history (which updates the
   // current-bid headline + next-minimum via renderBids).
@@ -914,7 +914,7 @@
       + '<span style="color:#64748b;">' + k + '</span><span style="font-weight:700;">' + v + '</span></div>';
   }
   // Render the full bidder-status panel from the shared logic. Logged-out viewers
-  // (no token) see no panel — bidder status is only meaningful when signed in.
+  // (no token) see no panel - bidder status is only meaningful when signed in.
   function renderLotStatus(lot) {
     ensureLotPanel();
     const panel = document.getElementById('lot-status-panel');
@@ -1014,7 +1014,7 @@
 
   // ── Winner panel ──────────────────────────────────────────────────────────────
   // winningAmountCents is from the public lot endpoint (final hammer price).
-  // isWinner is fetched separately from /winner-status (server-side identity check —
+  // isWinner is fetched separately from /winner-status (server-side identity check -
   // winning_buyer_user_id never touches the client).
   function renderWinnerPanel(winningAmountCents, isWinner) {
     document.getElementById('winner-amount').textContent = '$' + (winningAmountCents / 100).toFixed(2);
@@ -1040,18 +1040,18 @@
     currentAuctionId = lot.auction_id;
     renderLotStatus(lot);
     if (window.__lotSocket && window.__lotSocket.connected && currentAuctionId) window.__lotSocket.emit('joinAuction', currentAuctionId);
-    document.title = lot.title + ' — Advantage Auction';
+    document.title = lot.title + ' - Advantage Auction';
     // OP-D: prefix title with "Lot #N · " when lot_number is set. Provides
     // public-side orientation matching the seller-side dashboard format.
     const numPrefix = (lot.lot_number != null) ? ('Lot #' + lot.lot_number + ' · ') : '';
     document.getElementById('lot-title').textContent       = numPrefix + (lot.title || '');
     // #12: show ONLY the human category (Furniture, Fine Art, …) to buyers.
-    // Never fall back to the internal size_category code (A/B/C) — that was
+    // Never fall back to the internal size_category code (A/B/C) - that was
     // rendering as a stray single letter ("A") above the description.
     document.getElementById('lot-category').textContent    = lot.category || '';
     document.getElementById('lot-description').textContent = lot.description || '';
 
-    // Pricing context (cents) — used by setCurrentBid / updateHint. Coerce and
+    // Pricing context (cents) - used by setCurrentBid / updateHint. Coerce and
     // fall back to platform defaults so a missing/NaN field never surfaces as
     // "$NaN" or a misleading "$0.00".
     startingBidCents  = Number(lot.starting_bid_cents) > 0 ? Number(lot.starting_bid_cents) : 100;
@@ -1063,8 +1063,8 @@
     hasBids           = curCents > 0 || Number(lot.bid_count) > 0;
     // Current price display: starting bid when no bids, else the current bid.
     // Next-min uses the server's exact floor: max(starting, current + increment),
-    // so with no bids it is max(starting, increment) — not just the starting bid.
-    // #20.1: anonymous viewing a CLOSED lot — gate the realized/sold price.
+    // so with no bids it is max(starting, increment) - not just the starting bid.
+    // #20.1: anonymous viewing a CLOSED lot - gate the realized/sold price.
     realizedHidden = !!lot.realized_price_hidden;
     if (realizedHidden) {
       const cb = document.getElementById('current-bid');
@@ -1316,7 +1316,7 @@
       countLabel.textContent = '';
       setActivity(0, 0);
       // No bids yet: current price shows the starting bid; next min is the
-      // server floor max(starting, increment) — pass current=0.
+      // server floor max(starting, increment) - pass current=0.
       hasBids = false;
       setCurrentBid(startingBidCents);
       updateHint(0);
@@ -1416,7 +1416,7 @@
     const input        = document.getElementById('bid-input');
     const maxBidInput  = document.getElementById('max-bid-input');
     const btn          = document.getElementById('btn-bid');
-    if (!input || !maxBidInput || !btn) { setStatus('Bid form unavailable — please refresh the page.', 'err'); return; }
+    if (!input || !maxBidInput || !btn) { setStatus('Bid form unavailable - please refresh the page.', 'err'); return; }
 
     const amount       = parseMoney(input.value);
     const maxBidDollar = parseMoney(maxBidInput.value);
@@ -1453,7 +1453,7 @@
 
       input.value       = '';
       maxBidInput.value = '';
-      // #16: every bid is a proxy maximum server-side — always frame the entered
+      // #16: every bid is a proxy maximum server-side - always frame the entered
       // amount as the buyer's max bid so they always know their current ceiling.
       setStatus('Your Max Bid: $' + (hasMaxBid ? maxBidDollar : amount).toFixed(2), 'ok');
       setTimeout(() => refreshLotNow(), 120); // refresh status panel (Winning) + CTA label
@@ -1462,11 +1462,11 @@
         const bidRes  = await fetch('/api/lots/' + lotId + '/bids', { headers: { Authorization: 'Bearer ' + token } });
         const bidData = await bidRes.json().catch(() => null);
         if (bidData && bidData.success) renderBids(bidData.data, false);
-      } catch { /* refresh blip — the bid itself succeeded */ }
+      } catch { /* refresh blip - the bid itself succeeded */ }
 
       input.focus();
     } catch (err) {
-      // Network/unexpected error — human message, never a raw JS stack.
+      // Network/unexpected error - human message, never a raw JS stack.
       setStatus('Your bid could not be placed. Please check your connection and try again.', 'err');
     } finally {
       bidding      = false;
@@ -1535,7 +1535,7 @@
   <a href="/terms.html" style="color:#cbd5e1;text-decoration:none;margin:0 .4rem">Terms of Use</a> ·
   <a href="/privacy.html" style="color:#cbd5e1;text-decoration:none;margin:0 .4rem">Privacy Policy</a> ·
   <a href="/sitemap.html" style="color:#cbd5e1;text-decoration:none;margin:0 .4rem">Sitemap</a>
-  <div style="margin-top:0.4rem">© Advantage.Bid — Online Auction Marketplace</div>
+  <div style="margin-top:0.4rem">© Advantage.Bid - Online Auction Marketplace</div>
 </footer>
 </body>
 </html>

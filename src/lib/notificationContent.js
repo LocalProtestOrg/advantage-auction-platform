@@ -1,4 +1,4 @@
-// Buyer notification content + relevance — PURE, side-effect-free, unit-testable.
+// Buyer notification content + relevance - PURE, side-effect-free, unit-testable.
 // The worker joins the lot/auction at SEND time and passes them here, so emails
 // always carry the human Lot # + Title (never a UUID), the auction name, the lot
 // image, the current bid, and a direct CTA link.
@@ -17,7 +17,7 @@ function escHtml(str) {
 }
 
 // "Bid now / you're winning / closing soon" types are pointless once the lot has
-// closed or its close time has passed — they get dropped (status='skipped').
+// closed or its close time has passed - they get dropped (status='skipped').
 const STALE_IF_CLOSED = new Set(['OUTBID', 'LEADING', 'ENDING_SOON', 'CLOSE_TO_WINNING', 'FINAL_SECONDS', 'EXTENDED_BIDDING']);
 // All lot-scoped buyer emails (enriched + relevance-checked here). WINNING is the
 // post-close "you won" email and is intentionally NOT stale-on-close.
@@ -28,11 +28,11 @@ function isLotType(type) { return LOT_TYPES.has(type); }
 function lotRef(lot) {
   const num = (lot && lot.lot_number != null) ? ('#' + lot.lot_number) : '';
   const title = (lot && lot.title) ? lot.title : 'Lot';
-  return num ? ('Lot ' + num + ' — ' + title) : ('Lot — ' + title);
+  return num ? ('Lot ' + num + ' - ' + title) : ('Lot - ' + title);
 }
 
 // Decide whether a queued notification should still be delivered.
-// Returns { send: boolean, reason?: string }. Pure — pass `now` for testability.
+// Returns { send: boolean, reason?: string }. Pure - pass `now` for testability.
 function relevance(type, lot, now) {
   if (!LOT_TYPES.has(type)) return { send: true };          // non-lot types (auction/seller) always relevant
   if (!lot) return { send: false, reason: 'lot not found' };
@@ -48,13 +48,13 @@ function relevance(type, lot, now) {
 function money(cents) { return (cents != null) ? '$' + (Number(cents) / 100).toFixed(2) : null; }
 
 const META = {
-  OUTBID:           { subject: t => "You've been outbid — " + t,   lead: r => "You've been outbid on <strong>" + r + "</strong>. There's still time to take back the lead.", cta: 'Place a new bid →',   priceLabel: 'Current bid' },
-  LEADING:          { subject: t => "You're winning — " + t,        lead: r => "You're the current high bidder on <strong>" + r + "</strong>.",                                cta: 'View lot →',          priceLabel: 'Current bid' },
-  ENDING_SOON:      { subject: t => 'Closing soon — ' + t,          lead: r => "<strong>" + r + "</strong> is closing soon.",                                                  cta: 'Bid now →',           priceLabel: 'Current bid' },
-  CLOSE_TO_WINNING: { subject: t => "You're close — " + t,          lead: r => "You're very close to winning <strong>" + r + "</strong>. A small increase could secure it.",     cta: 'Increase your bid →', priceLabel: 'Current bid' },
-  FINAL_SECONDS:    { subject: t => 'Final seconds — ' + t,         lead: r => "Final seconds for <strong>" + r + "</strong> — bid now before it closes.",                       cta: 'Bid now →',           priceLabel: 'Current bid' },
-  EXTENDED_BIDDING: { subject: t => 'Bidding extended — ' + t,      lead: r => "Bidding has been extended for <strong>" + r + "</strong>. You still have time to win.",           cta: 'Place your bid →',    priceLabel: 'Current bid' },
-  WINNING:          { subject: t => 'You won — ' + t,               lead: r => "Congratulations — you won <strong>" + r + "</strong>. Complete payment to secure your item.",    cta: 'Complete payment →',  priceLabel: 'Winning bid' },
+  OUTBID:           { subject: t => "You've been outbid - " + t,   lead: r => "You've been outbid on <strong>" + r + "</strong>. There's still time to take back the lead.", cta: 'Place a new bid →',   priceLabel: 'Current bid' },
+  LEADING:          { subject: t => "You're winning - " + t,        lead: r => "You're the current high bidder on <strong>" + r + "</strong>.",                                cta: 'View lot →',          priceLabel: 'Current bid' },
+  ENDING_SOON:      { subject: t => 'Closing soon - ' + t,          lead: r => "<strong>" + r + "</strong> is closing soon.",                                                  cta: 'Bid now →',           priceLabel: 'Current bid' },
+  CLOSE_TO_WINNING: { subject: t => "You're close - " + t,          lead: r => "You're very close to winning <strong>" + r + "</strong>. A small increase could secure it.",     cta: 'Increase your bid →', priceLabel: 'Current bid' },
+  FINAL_SECONDS:    { subject: t => 'Final seconds - ' + t,         lead: r => "Final seconds for <strong>" + r + "</strong> - bid now before it closes.",                       cta: 'Bid now →',           priceLabel: 'Current bid' },
+  EXTENDED_BIDDING: { subject: t => 'Bidding extended - ' + t,      lead: r => "Bidding has been extended for <strong>" + r + "</strong>. You still have time to win.",           cta: 'Place your bid →',    priceLabel: 'Current bid' },
+  WINNING:          { subject: t => 'You won - ' + t,               lead: r => "Congratulations - you won <strong>" + r + "</strong>. Complete payment to secure your item.",    cta: 'Complete payment →',  priceLabel: 'Winning bid' },
 };
 
 // Build the enriched buyer email for a lot-scoped notification. Pure.

@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Create Auction — Advantage Auction</title>
+  <title>Create Auction - Advantage Auction</title>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -250,7 +250,7 @@
        breaks programmatic .click() invocation from the user-gesture chain
        (camera opens to a black viewfinder). The visually-hidden pattern keeps
        the input in the DOM as a real focusable element while hiding it from
-       sighted users — the synchronous .click() path works reliably. */
+       sighted users - the synchronous .click() path works reliably. */
     .visually-hidden-input {
       position: absolute;
       width: 1px;
@@ -283,7 +283,7 @@
 
   <div class="field">
     <label for="auction-title">Auction Title <span class="req">*</span></label>
-    <input type="text" id="auction-title" placeholder="e.g. Spring Estate Sale — April 2026" />
+    <input type="text" id="auction-title" placeholder="e.g. Spring Estate Sale - April 2026" />
   </div>
 
   <div class="field">
@@ -293,13 +293,13 @@
 
   <div class="field">
     <label for="auction-description">Sale Description</label>
-    <textarea id="auction-description" placeholder="Overview of the auction — seller background, highlights, notable items…"></textarea>
+    <textarea id="auction-description" placeholder="Overview of the auction - seller background, highlights, notable items…"></textarea>
   </div>
 
   <div class="field">
     <label for="auction-type">Auction Type</label>
     <select id="auction-type">
-      <option value="">— Select —</option>
+      <option value="">- Select -</option>
       <option value="estate">Estate Sale</option>
       <option value="moving">Moving Sale</option>
       <option value="business_liquidation">Business Liquidation</option>
@@ -385,7 +385,7 @@
     </div>
   </div>
 
-  <!-- ── Media — Banner & Cover ─────────────────────────────────── -->
+  <!-- ── Media - Banner & Cover ─────────────────────────────────── -->
   <p class="section-title">Media</p>
 
   <div class="row">
@@ -432,7 +432,7 @@
          &nbsp;&middot;&nbsp;
          <span onclick="event.stopPropagation();document.getElementById('video-input-camera').click()">record video</span>
       </p>
-      <p style="font-size:0.75rem;color:#9ca3af;margin-top:0.3rem;">MP4 or MOV — max 500 MB</p>
+      <p style="font-size:0.75rem;color:#9ca3af;margin-top:0.3rem;">MP4 or MOV - max 500 MB</p>
     </div>
     <input type="file" id="video-input" class="visually-hidden-input" accept="video/mp4,video/quicktime" />
     <!-- Dedicated camera input for video. capture="environment" invokes the
@@ -529,7 +529,7 @@
 
   // ── Camera inputs (mobile-safe): dedicated capture="environment" inputs that
   // bypass the iOS file-picker camera bug class. Each funnels into the same
-  // upload pipeline used by its sibling gallery input — no duplicate transport.
+  // upload pipeline used by its sibling gallery input - no duplicate transport.
   function wireCameraInput(cameraInputId, previewId, statusId, onUploaded) {
     const camInput = document.getElementById(cameraInputId);
     const preview  = document.getElementById(previewId);
@@ -602,7 +602,7 @@
       const data = await res.json();
       if (!data.success) throw new Error(data.message || 'Upload failed');
       walkthroughVideoUrl = data.secure_url;
-      videoStatus.textContent = 'Video uploaded — pending admin review after auction is saved.';
+      videoStatus.textContent = 'Video uploaded - pending admin review after auction is saved.';
       videoStatus.className   = 'video-status uploaded';
       videoRemove.style.display = 'inline';
     } catch (err) {
@@ -684,7 +684,7 @@
 
       const auctionId = data.data.id;
 
-      // Attach walkthrough video if uploaded — returns video row with id
+      // Attach walkthrough video if uploaded - returns video row with id
       if (walkthroughVideoUrl) {
         const vidRes = await fetch('/api/auctions/' + auctionId + '/walkthrough-video', {
           method:  'POST',

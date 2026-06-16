@@ -1,5 +1,5 @@
 /**
- * Advantage Auction Platform — Featured Auctions Near You Widget
+ * Advantage Auction Platform - Featured Auctions Near You Widget
  * Version 1.0
  *
  * Embed on any BD or partner page:
@@ -16,15 +16,15 @@
  *   <script src="https://auctions.advantage.bid/widgets/featured-near-you.js"></script>
  *
  * Data attributes:
- *   data-api-base            — API host (default: same origin)
- *   data-limit               — auction cards to show, 1–12 (default 6)
- *   data-radius-km           — geo search radius in km, 1–800 (default 200)
- *   data-use-geolocation     — "true" to request browser location (default "false")
- *   data-geo-timeout-ms      — geolocation timeout in ms, 1000–15000 (default 5000)
- *   data-theme               — "light" (default) or "dark"
- *   data-seller-cta-url      — seller CTA card link (omit to hide CTA card)
- *   data-seller-cta-headline — CTA card headline (default "Consigning an Estate?")
- *   data-seller-cta-label    — CTA button label (default "Learn More")
+ *   data-api-base            - API host (default: same origin)
+ *   data-limit               - auction cards to show, 1-12 (default 6)
+ *   data-radius-km           - geo search radius in km, 1-800 (default 200)
+ *   data-use-geolocation     - "true" to request browser location (default "false")
+ *   data-geo-timeout-ms      - geolocation timeout in ms, 1000-15000 (default 5000)
+ *   data-theme               - "light" (default) or "dark"
+ *   data-seller-cta-url      - seller CTA card link (omit to hide CTA card)
+ *   data-seller-cta-headline - CTA card headline (default "Consigning an Estate?")
+ *   data-seller-cta-label    - CTA button label (default "Learn More")
  *
  * Fetch strategy:
  *   1. Geo granted  → GET /api/public/featured-auctions?lat=…&lng=…&radius_km=…
@@ -32,11 +32,11 @@
  *   2. Geo denied / unavailable / not requested
  *      → GET /api/public/featured-auctions  (national featured feed)
  *
- * Analytics events (bubble from the container element — listen with addEventListener):
- *   aap:widget:loaded   — { widgetId, resultCount, source: 'featured'|'near'|'national' }
- *   aap:widget:fallback — { reason: 'geo-denied'|'geo-unavailable'|'geo-timeout'|'no-results' }
- *   aap:auction:click   — { auctionId, title, distanceKm, source }
- *   aap:cta:click       — { widgetId }
+ * Analytics events (bubble from the container element - listen with addEventListener):
+ *   aap:widget:loaded   - { widgetId, resultCount, source: 'featured'|'near'|'national' }
+ *   aap:widget:fallback - { reason: 'geo-denied'|'geo-unavailable'|'geo-timeout'|'no-results' }
+ *   aap:auction:click   - { auctionId, title, distanceKm, source }
+ *   aap:cta:click       - { widgetId }
  *
  * No auth tokens are used. All API calls are anonymous GETs to /api/public/* only.
  */
@@ -46,7 +46,7 @@
 
   var WIDGET_ID  = 'aap-featured-near-you';
   var STYLE_ID   = 'aapny-styles';
-  var P          = 'aapny';    // CSS class prefix — never collides with aap- widget
+  var P          = 'aapny';    // CSS class prefix - never collides with aap- widget
 
   // ── Inline fallback utilities ────────────────────────────────────────────────
   // Used when shared/utils.js is not loaded. If AAPWidgetUtils is present its
@@ -79,8 +79,8 @@
     },
     fmtDistance: function (km) {
       if (km == null) return null;
-      var r = Math.round(km);
-      return (r === 0 ? '< 1' : r) + ' km away';
+      var r = Math.round(km * 0.621371); // km → miles (U.S. users see miles)
+      return (r === 0 ? '< 1' : r) + ' mi away';
     },
     clamp: function (v, lo, hi) { return Math.min(Math.max(v, lo), hi); },
     parseIntSafe: function (s, fb) { var n = parseInt(s, 10); return isNaN(n) ? fb : n; },
@@ -107,10 +107,10 @@
 
   // ── CSS ──────────────────────────────────────────────────────────────────────
   // Uses CSS custom properties so dark/light theme is toggled by a class on the
-  // grid element — allows multiple instances with different themes on one page
+  // grid element - allows multiple instances with different themes on one page
   // without re-injecting the style block.
   var CSS = [
-    // Theme tokens — light (default)
+    // Theme tokens - light (default)
     '.' + P + '-grid{',
       '--' + P + '-bg:#ffffff;',
       '--' + P + '-bg-secondary:#f8fafc;',
@@ -125,7 +125,7 @@
       '--' + P + '-skel:#e2e8f0;',
       '--' + P + '-err:#dc2626;',
     '}',
-    // Theme tokens — dark
+    // Theme tokens - dark
     '.' + P + '-grid.' + P + '-dark{',
       '--' + P + '-bg:#1e293b;',
       '--' + P + '-bg-secondary:#0f172a;',
@@ -329,7 +329,7 @@
           label: container.dataset.sellerCtaLabel }
       : null;
 
-    // Inject shared styles once — CSS variables handle theming per-instance
+    // Inject shared styles once - CSS variables handle theming per-instance
     U.injectStyle(STYLE_ID, CSS);
 
     // ── Loading skeletons ──────────────────────────────────────────────────────
@@ -353,7 +353,7 @@
         var code = e && e.code;
         var reason = code === 1 ? 'geo-denied' : code === 3 ? 'geo-timeout' : 'geo-unavailable';
         U.dispatch(container, 'aap:widget:fallback', { reason: reason });
-        // Continue — will fetch national feed below
+        // Continue - will fetch national feed below
       }
     }
 
@@ -381,7 +381,7 @@
           source = 'near';
         }
       } else {
-        // No geo — national featured feed
+        // No geo - national featured feed
         var natUrl = apiBase + '/api/public/featured-auctions?limit=' + limit;
         auctions = await apiFetch(natUrl);
         source = 'national';

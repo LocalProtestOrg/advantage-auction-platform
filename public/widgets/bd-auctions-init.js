@@ -9,10 +9,10 @@
  *               data-api-base="https://auctions.advantage.bid"></script>
  *
  * Container IDs BD page must expose:
- *   #featured-auctions-feed   — auction card grid (replaces static feature cards)
- *   #ending-soon-scroll       — lot discovery rail (inside .discovery-rail > .discovery-rail-inner)
- *   #trending-scroll          — lot discovery rail (inside .discovery-rail > .discovery-rail-inner)
- *   #just-listed-scroll       — lot discovery rail (inside .discovery-rail > .discovery-rail-inner)
+ *   #featured-auctions-feed   - auction card grid (replaces static feature cards)
+ *   #ending-soon-scroll       - lot discovery rail (inside .discovery-rail > .discovery-rail-inner)
+ *   #trending-scroll          - lot discovery rail (inside .discovery-rail > .discovery-rail-inner)
+ *   #just-listed-scroll       - lot discovery rail (inside .discovery-rail > .discovery-rail-inner)
  *
  * All sections self-hide if the API returns empty results.
  */

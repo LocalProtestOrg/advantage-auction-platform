@@ -1,5 +1,5 @@
 /* Shared admin header/navigation (ADMIN-CTRL Phase 1B). Self-mounts a sticky top
- * bar with Back, brand, Moderation / Buyers links, and Log out — giving every
+ * bar with Back, brand, Moderation / Buyers links, and Log out - giving every
  * admin page a consistent nav + a Back affordance (previously missing on
  * moderation.html). Include on any admin page:
  *   <script src="/widgets/shared/admin-nav.js"></script>

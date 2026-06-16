@@ -237,10 +237,9 @@ app.use('/api/uploads', uploadsRoutes);
 app.use('/api/public', publicRoutes);
 app.use('/api/analytics', analyticsRoutes);
 
-// Root — serve demo page
-app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'demo.html'));
-});
+// Root is served by express.static → public/index.html (the live marketplace).
+// (The old app.get('/')→demo.html route was dead code — static precedes it — and
+// demo.html now redirects to '/'.)
 
 // ✅ Force serve payment page (MUST be before 404)
 app.get('/payment.html', (req, res) => {

@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Auction — Advantage Auction</title>
+  <title>Auction - Advantage Auction</title>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -288,13 +288,13 @@
       transition: width 1s linear, background 0.4s ease, box-shadow 0.4s ease;
       background: linear-gradient(90deg, #34d399, #10b981);
     }
-    /* >60s remaining — subtle, calm */
+    /* >60s remaining - subtle, calm */
     .lot-progress-fill.lp-idle  { background: linear-gradient(90deg, #a7f3d0, #6ee7b7); opacity: 0.5; }
-    /* 60–31s */
+    /* 60-31s */
     .lot-progress-fill.lp-green { background: linear-gradient(90deg, #34d399, #059669); opacity: 1; }
-    /* 30–16s */
+    /* 30-16s */
     .lot-progress-fill.lp-amber { background: linear-gradient(90deg, #fbbf24, #f97316); opacity: 1; }
-    /* 15–1s — urgent, with a soft glow */
+    /* 15-1s - urgent, with a soft glow */
     .lot-progress-fill.lp-red   { background: linear-gradient(90deg, #fb7185, #dc2626); opacity: 1;
                                   box-shadow: 0 0 10px rgba(220, 38, 38, 0.55); }
     /* closed */
@@ -493,7 +493,7 @@
 <div class="tab-panel" id="panel-terms" style="display:none"></div>
 <div class="tab-panel" id="panel-watchlist" style="display:none"></div>
 
-<!-- Marketplace seller acquisition CTA — Advantage.Bid marketplace only -->
+<!-- Marketplace seller acquisition CTA - Advantage.Bid marketplace only -->
 <div id="marketplace-seller-cta-mount"></div>
 
 <!-- Walkthrough video modal -->
@@ -509,7 +509,7 @@
   <a href="/terms.html">Terms of Use</a> ·
   <a href="/privacy.html">Privacy Policy</a> ·
   <a href="/sitemap.html">Sitemap</a>
-  <div style="margin-top:0.4rem">© Advantage.Bid — Online Auction Marketplace</div>
+  <div style="margin-top:0.4rem">© Advantage.Bid - Online Auction Marketplace</div>
 </footer>
 
 <script src="/widgets/shared/auth-refresh.js"></script>
@@ -554,7 +554,7 @@
     });
 
     // #1 real-time: permanent polling fallback (every 6s) + socket.io push when
-    // available. Bidding visibility NEVER depends on the socket — if it drops,
+    // available. Bidding visibility NEVER depends on the socket - if it drops,
     // the poll keeps the grid live.
     setInterval(pollGrid, 6000);
     startRealtime();
@@ -585,7 +585,7 @@
 
       // Title
       document.getElementById('auction-title').textContent = d.title || 'Auction';
-      document.title = (d.title || 'Auction') + ' — Advantage Auction';
+      document.title = (d.title || 'Auction') + ' - Advantage Auction';
 
       // Subtitle
       if (d.subtitle) {
@@ -599,9 +599,9 @@
       const parts = [];
       if (d.city && d.address_state) parts.push(d.city + ', ' + d.address_state);
       else if (d.city)               parts.push(d.city);
-      // #7: soft timed-auction language — avoid a single hard "auction end time".
+      // #7: soft timed-auction language - avoid a single hard "auction end time".
       if (d.state === 'closed') {
-        parts.push('Auction ended — sale results below');
+        parts.push('Auction ended - sale results below');
       } else if (d.start_time) {
         parts.push('Auction starts ' + fmtDate(d.start_time));
         parts.push('Lots begin closing then, about 1 min apart');
@@ -629,7 +629,7 @@
       }
 
       renderSellerBar(d.follower_count);
-    } catch { /* summary failed — banner stays minimal */ }
+    } catch { /* summary failed - banner stays minimal */ }
   }
 
   function renderSellerBar(followerCount) {
@@ -696,7 +696,7 @@
       walkthroughVideoTitle = data.data.title || 'Auction Walkthrough';
       const btn = document.getElementById('btn-walkthrough');
       btn.classList.add('visible');
-    } catch { /* video unavailable — no CTA shown */ }
+    } catch { /* video unavailable - no CTA shown */ }
   }
 
   document.getElementById('btn-walkthrough').addEventListener('click', () => {
@@ -744,7 +744,7 @@
       const allLots = lotsRes.data;
       // #5: while the auction is actively closing, show only lots still open so
       // bidders see what's available. 'published' (not started) shows all (none
-      // closed yet); 'closed' shows ALL lots — the sale-results view.
+      // closed yet); 'closed' shows ALL lots - the sale-results view.
       const lots = (auctionState === 'active') ? allLots.filter(lotIsOpen) : allLots;
 
       const resultsMode = (auctionState === 'closed');
@@ -814,7 +814,7 @@
     return !(close && Date.now() > new Date(close).getTime());
   }
   // #19: drive the urgency bar from the SAME closes_at as the numeric timer.
-  // Bands: >60s idle/subtle · 60–31s green · 30–16s amber · 15–1s red · 0 closed.
+  // Bands: >60s idle/subtle · 60-31s green · 30-16s amber · 15-1s red · 0 closed.
   function updateProgressBar(fill, remaining) {
     if (!fill) return;
     if (remaining <= 0) { fill.className = 'lot-progress-fill lp-closed'; fill.style.width = '0%'; return; }
@@ -877,7 +877,7 @@
     const amtEl = card.querySelector('.bid-amount');
     if (amtEl) {
       amtEl.className   = cents > 0 ? 'bid-amount' : 'bid-amount no-bids';
-      amtEl.textContent = cents > 0 ? BidUtils.formatUSD(cents) : 'No bids — starts ' + BidUtils.formatUSD(starting);
+      amtEl.textContent = cents > 0 ? BidUtils.formatUSD(cents) : 'No bids - starts ' + BidUtils.formatUSD(starting);
     }
     const nmEl = card.querySelector('.card-nextmin strong');
     if (nmEl) nmEl.textContent = BidUtils.formatUSD(nextMin);
@@ -890,7 +890,7 @@
     if (cdWrap && cdVal) startCardCountdown(lotId, cdWrap, cdVal, fill, lot.extended_until || lot.closes_at);
     // #2 winning / outbid / watching / sold status badge.
     applyCardStatus(card, lot);
-    // #10: keep the bid CTA in sync — winning bidders are offered a max raise.
+    // #10: keep the bid CTA in sync - winning bidders are offered a max raise.
     const bidBtn = card.querySelector('.card-bidform button');
     if (bidBtn && !bidBtn.disabled) bidBtn.textContent = lot.viewer_is_high_bidder ? 'Increase Your Max Bid' : 'Place Bid';
   }
@@ -1011,7 +1011,7 @@
     imgLink.appendChild(imgWrap);
     card.appendChild(imgLink);
 
-    // #19: urgency progress bar directly beneath the image — only once the
+    // #19: urgency progress bar directly beneath the image - only once the
     // auction is actively closing. Driven by the lot's closes_at (same source
     // as the numeric timer), so it tracks anti-snipe extensions automatically.
     let progressFill = null;
@@ -1034,7 +1034,7 @@
     titleEl.style.textDecoration = 'none';
     const numPrefix = (lot.lot_number != null) ? ('Lot #' + lot.lot_number + ' · ') : '';
     titleEl.textContent = numPrefix + (lot.title || 'Untitled');
-    // #2 winning/outbid chip — initial state from the per-viewer serializer flag.
+    // #2 winning/outbid chip - initial state from the per-viewer serializer flag.
     const chip = document.createElement('span');
     chip.setAttribute('data-chip', '');
     chip.style.display = 'none';
@@ -1074,7 +1074,7 @@
       bidLabel.textContent = (lot.state === 'closed') ? 'Sold for' : 'Current bid';
       const bidAmt = document.createElement('span');
       bidAmt.className   = cents > 0 ? 'bid-amount' : 'bid-amount no-bids';
-      bidAmt.textContent = cents > 0 ? BidUtils.formatUSD(cents) : 'No bids — starts ' + BidUtils.formatUSD(starting);
+      bidAmt.textContent = cents > 0 ? BidUtils.formatUSD(cents) : 'No bids - starts ' + BidUtils.formatUSD(starting);
       bidRow.appendChild(bidLabel);
       bidRow.appendChild(bidAmt);
       body.appendChild(bidRow);
@@ -1191,7 +1191,7 @@
     input.placeholder = winning ? ('New max (≥ ' + BidUtils.formatUSD(nextMin) + ')') : (BidUtils.formatUSD(nextMin) + ' or more');
     const btn = document.createElement('button');
     btn.type = 'button';
-    // #10: when already winning, don't invite a normal bid — offer to raise the max.
+    // #10: when already winning, don't invite a normal bid - offer to raise the max.
     btn.textContent = winning ? 'Increase Your Max Bid' : 'Place Bid';
     row.appendChild(input); row.appendChild(btn);
     const status = document.createElement('div');
@@ -1247,8 +1247,8 @@
     el.innerHTML =
       '<h3>Pickup Information</h3>' +
       '<div class="info-row"><strong>Pickup date:</strong> ' + esc(date) + '</div>' +
-      '<div class="info-row"><strong>Category A (small items):</strong> 09:00 AM – 11:00 AM</div>' +
-      '<div class="info-row"><strong>Category C (large items):</strong> 11:00 AM – 12:30 PM</div>' +
+      '<div class="info-row"><strong>Category A (small items):</strong> 09:00 AM - 11:00 AM</div>' +
+      '<div class="info-row"><strong>Category C (large items):</strong> 11:00 AM - 12:30 PM</div>' +
       '<div class="info-row"><strong>Location:</strong> ' + esc(tabLocationText()) +
         ' &nbsp;<a class="map-link" href="' + tabMapsUrl() + '" target="_blank" rel="noopener">View Map ↗</a></div>' +
       '<div class="tab-note">For your privacy, the exact street number is shown after your payment is verified. Bring help or a vehicle appropriate to each lot’s pickup size category.</div>';
@@ -1260,12 +1260,12 @@
     el.innerHTML =
       '<h3>Auction Terms &amp; Conditions</h3>' +
       '<div class="info-row"><strong>Bidding starts:</strong> ' + esc(d.start_time ? fmtDate(d.start_time) : 'To be announced') + '</div>' +
-      '<div class="info-row"><strong>Bidding ends:</strong> ' + esc(d.end_time ? fmtDate(d.end_time) : 'To be announced') + ' — lots close in sequence, about 1 minute apart.</div>' +
+      '<div class="info-row"><strong>Bidding ends:</strong> ' + esc(d.end_time ? fmtDate(d.end_time) : 'To be announced') + ' - lots close in sequence, about 1 minute apart.</div>' +
       '<div class="info-row"><strong>Extended bidding:</strong> a bid placed in the final 2 minutes extends that lot by 2 minutes (anti-snipe), repeating until bidding settles.</div>' +
       '<div class="info-row"><strong>Buyer’s premium:</strong> ' + esc(bp) + '% added to the hammer price of each lot won.</div>' +
       '<div class="info-row"><strong>Additional fees &amp; full terms:</strong> see the <a class="map-link" href="/terms.html" target="_blank" rel="noopener">full Terms &amp; Conditions</a>.</div>' +
       '<div class="info-row"><strong>Pickup:</strong> ' + esc(tabLocationText()) +
-        ' &nbsp;<a class="map-link" href="' + tabMapsUrl() + '" target="_blank" rel="noopener">View Map ↗</a> · Category A 09:00–11:00 AM, Category C 11:00 AM–12:30 PM.</div>' +
+        ' &nbsp;<a class="map-link" href="' + tabMapsUrl() + '" target="_blank" rel="noopener">View Map ↗</a> · Category A 09:00-11:00 AM, Category C 11:00 AM-12:30 PM.</div>' +
       '<div class="tab-note">Please review these terms before registering to bid. Full marketplace policy: <a href="/terms.html" target="_blank" rel="noopener">Terms of Use</a>.</div>';
   }
   function loadWatchlistTab() {

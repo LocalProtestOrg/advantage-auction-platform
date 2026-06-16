@@ -9,7 +9,7 @@
   function esc(s) { return String(s).replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c])); }
   function inline(s) {
     s = esc(s);
-    // links [text](url) — url is attribute-escaped for quotes
+    // links [text](url) - url is attribute-escaped for quotes
     s = s.replace(/\[([^\]]+)\]\(([^)]+)\)/g, function (_, t, u) {
       var safeU = u.replace(/"/g, '&quot;');
       var ext = /^https?:\/\//.test(u) ? ' target="_blank" rel="noopener"' : '';

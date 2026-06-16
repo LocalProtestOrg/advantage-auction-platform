@@ -1,5 +1,5 @@
 /**
- * AAPComponents.AuctionCard — unified auction/lot card element
+ * AAPComponents.AuctionCard - unified auction/lot card element
  *
  * Single component for both auction-level and lot-level cards. The caller maps
  * its API data to the options object; conditional sections render based on which
@@ -40,24 +40,24 @@
  *   });
  *
  * Options:
- *   image_url            {string|null}   — thumbnail/cover image URL
- *   title                {string}        — card headline
- *   state                {string}        — 'active'|'published' (controls status badge when badges not set)
- *   badges               {Array}         — [{text,variant}] overrides auto badge generation
+ *   image_url            {string|null}   - thumbnail/cover image URL
+ *   title                {string}        - card headline
+ *   state                {string}        - 'active'|'published' (controls status badge when badges not set)
+ *   badges               {Array}         - [{text,variant}] overrides auto badge generation
  *   city                 {string|null}
  *   address_state        {string|null}
- *   distance_km          {number|null}   — null hides distance row
- *   end_time             {string|null}   — ISO datetime for relative time label
- *   lot_count            {number|null}   — null hides lot count row
+ *   distance_km          {number|null}   - null hides distance row
+ *   end_time             {string|null}   - ISO datetime for relative time label
+ *   lot_count            {number|null}   - null hides lot count row
  *   shippable_lot_count  {number|null}
- *   current_bid_cents    {number|null}   — null hides bid row
- *   starting_bid_cents   {number|null}   — shown when current_bid_cents is null/0
+ *   current_bid_cents    {number|null}   - null hides bid row
+ *   starting_bid_cents   {number|null}   - shown when current_bid_cents is null/0
  *   bid_count            {number|null}
- *   context_label        {string|null}   — "from [Auction Title]" line
- *   seller_display_name  {string|null}   — null hides seller line
- *   imageHeight          {number}        — override image area height in px
- *   config               {object|null}   — AAPConfig instance
- *   onClick              {function|null} — click handler (receives the card element)
+ *   context_label        {string|null}   - "from [Auction Title]" line
+ *   seller_display_name  {string|null}   - null hides seller line
+ *   imageHeight          {number}        - override image area height in px
+ *   config               {object|null}   - AAPConfig instance
+ *   onClick              {function|null} - click handler (receives the card element)
  */
 
 window.AAPComponents = window.AAPComponents || {};
@@ -133,8 +133,8 @@ window.AAPComponents = window.AAPComponents || {};
 
   function fmtDistance(km) {
     if (km == null) return null;
-    var r = Math.round(km);
-    return (r === 0 ? '< 1' : r) + ' km away';
+    var r = Math.round(km * 0.621371); // km → miles (U.S. users see miles)
+    return (r === 0 ? '< 1' : r) + ' mi away';
   }
 
   function fmtCents(cents) {
@@ -246,7 +246,7 @@ window.AAPComponents = window.AAPComponents || {};
       bodyEl.appendChild(distEl);
     }
 
-    // Timing — relative label + date
+    // Timing - relative label + date
     if (o.end_time) {
       var rel  = fmtRelativeTime(o.end_time);
       var date = fmtDate(o.end_time);

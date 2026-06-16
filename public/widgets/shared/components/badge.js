@@ -1,15 +1,15 @@
 /**
- * AAPComponents.Badge — status/type badge element
+ * AAPComponents.Badge - status/type badge element
  *
  * Usage:
  *   var el = AAPComponents.Badge({ text: 'LIVE NOW', variant: 'live' });
  *   container.appendChild(el);
  *
  * Options:
- *   text      {string}  — badge label
- *   variant   {string}  — 'live' | 'upcoming' | 'ships' | 'ending-soon' | 'custom'
- *   className {string}  — additional CSS classes (optional)
- *   ariaLabel {string}  — aria-label override (optional, defaults to text)
+ *   text      {string}  - badge label
+ *   variant   {string}  - 'live' | 'upcoming' | 'ships' | 'ending-soon' | 'custom'
+ *   className {string}  - additional CSS classes (optional)
+ *   ariaLabel {string}  - aria-label override (optional, defaults to text)
  */
 
 window.AAPComponents = window.AAPComponents || {};
@@ -18,7 +18,7 @@ window.AAPComponents = window.AAPComponents || {};
   'use strict';
   if (window.AAPComponents.Badge) return;
 
-  // ── Root CSS variables — injected once, shared by all components ───────────
+  // ── Root CSS variables - injected once, shared by all components ───────────
   // The host grid element must carry class "aapc-root" (and "aapc-dark" for dark theme).
   // These variables cascade to all child component elements.
   function injectRootStyles() {

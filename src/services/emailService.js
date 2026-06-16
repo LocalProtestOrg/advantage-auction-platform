@@ -1,16 +1,16 @@
 'use strict';
 
 /**
- * emailService — transactional email transport via Amazon SES (SMTP, nodemailer).
+ * emailService - transactional email transport via Amazon SES (SMTP, nodemailer).
  *
  * Configuration (Railway env):
- *   SMTP_HOST      — SES SMTP endpoint, e.g. email-smtp.us-east-1.amazonaws.com
- *   SMTP_PORT      — 587 (STARTTLS); 465 for implicit TLS
- *   SMTP_SECURE    — 'true' only for port 465; otherwise false (STARTTLS on 587)
- *   SMTP_USER      — SES SMTP username
- *   SMTP_PASS      — SES SMTP password
- *   EMAIL_FROM     — sender address; falls back to SMTP_FROM then SMTP_USER
- *   EMAIL_REPLY_TO — reply-to address
+ *   SMTP_HOST      - SES SMTP endpoint, e.g. email-smtp.us-east-1.amazonaws.com
+ *   SMTP_PORT      - 587 (STARTTLS); 465 for implicit TLS
+ *   SMTP_SECURE    - 'true' only for port 465; otherwise false (STARTTLS on 587)
+ *   SMTP_USER      - SES SMTP username
+ *   SMTP_PASS      - SES SMTP password
+ *   EMAIL_FROM     - sender address; falls back to SMTP_FROM then SMTP_USER
+ *   EMAIL_REPLY_TO - reply-to address
  *
  * Public contract is unchanged from the prior Postmark wrapper:
  *   sendEmail({ to, subject, html, text })
@@ -19,7 +19,7 @@
  *     → throws on delivery failure (the notification worker retries)
  * No caller changes, no template changes.
  *
- * (Replaces the prior Postmark HTTP transport — the Postmark account was rejected.)
+ * (Replaces the prior Postmark HTTP transport - the Postmark account was rejected.)
  */
 
 require('dotenv').config();
@@ -43,14 +43,14 @@ const EMAIL_FROM = process.env.EMAIL_FROM || SMTP_FROM || SMTP_USER || 'noreply@
 // One-time guard: warn if the resolved From is not a plausible email address
 // (e.g. EMAIL_FROM/SMTP_FROM unset and the SES username fell through).
 if (EMAIL_FROM && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(EMAIL_FROM)) {
-  console.warn(`[email] EMAIL_FROM does not look like an email address ("${EMAIL_FROM}") — set EMAIL_FROM to a verified @advantage.bid sender; SES rejects an invalid/unverified From.`);
+  console.warn(`[email] EMAIL_FROM does not look like an email address ("${EMAIL_FROM}") - set EMAIL_FROM to a verified @advantage.bid sender; SES rejects an invalid/unverified From.`);
 }
 
 function isConfigured() {
   return Boolean(SMTP_HOST && SMTP_USER && SMTP_PASS);
 }
 
-// Lazy singleton transport — reused across sends.
+// Lazy singleton transport - reused across sends.
 let _transporter = null;
 function getTransporter() {
   if (_transporter) return _transporter;
@@ -86,7 +86,7 @@ function getTransporter() {
  */
 async function sendEmail({ to, subject, html, text }) {
   if (!isConfigured()) {
-    console.warn('[email] SMTP/SES not configured — skipping delivery to', to);
+    console.warn('[email] SMTP/SES not configured - skipping delivery to', to);
     return { skipped: true };
   }
 
@@ -99,10 +99,10 @@ async function sendEmail({ to, subject, html, text }) {
       ...(text ? { text } : {}),
       replyTo: EMAIL_REPLY_TO,
     });
-    console.log(`[email] Sent "${subject}" to ${to} — messageId: ${info.messageId}`);
+    console.log(`[email] Sent "${subject}" to ${to} - messageId: ${info.messageId}`);
     return { messageId: info.messageId };
   } catch (err) {
-    console.error(`[email] Delivery failed for ${to} — ${err.message}`);
+    console.error(`[email] Delivery failed for ${to} - ${err.message}`);
     // Preserve an analog of the prior Postmark err.statusCode for callers/logs.
     if (err.responseCode) err.statusCode = err.responseCode;
     throw err;
