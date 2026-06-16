@@ -1,267 +1,393 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Privacy Policy — Advantage.Bid</title>
-  <meta name="description" content="How Advantage.Bid handles your information — plainly explained. Your data is not sold. Payments are secured by Stripe." />
-  <link rel="canonical" href="https://advantage.bid/privacy.html" />
+  <meta name="description" content="Advantage.Bid Privacy Policy — how Advantage Auction Company collects, uses, and protects your information." />
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-
-  <meta property="og:title" content="Privacy Policy — Advantage.Bid" />
-  <meta property="og:description" content="How Advantage.Bid handles your information — plainly explained." />
-  <meta property="og:type" content="website" />
-  <meta property="og:url" content="https://advantage.bid/privacy.html" />
-
-  <link rel="stylesheet" href="/marketplace.css" />
+  <!-- NOTE: Attorney review is still recommended before this is treated as final, binding policy. -->
   <style>
-    body { background: #fff; }
-
-    .page-hero { background: linear-gradient(160deg, #0f172a 0%, #1e3a5f 100%); padding: 3.5rem 1.5rem 3rem; text-align: center; }
-    .page-hero-inner { max-width: 640px; margin: 0 auto; }
-    .page-eyebrow { display: inline-block; font-size: 0.72rem; font-weight: 700; letter-spacing: 0.09em; text-transform: uppercase; color: #93c5fd; background: rgba(59,130,246,0.15); border: 1px solid rgba(147,197,253,0.25); padding: 0.28rem 0.85rem; border-radius: 99px; margin-bottom: 1.1rem; }
-    .page-hero h1 { font-size: clamp(1.75rem, 4vw, 2.4rem); font-weight: 800; line-height: 1.15; letter-spacing: -0.03em; color: #fff; margin-bottom: 0.85rem; }
-    .page-hero-sub { font-size: 0.97rem; color: #94a3b8; line-height: 1.6; }
-
-    .policy-body {
-      max-width: 720px;
-      margin: 0 auto;
-      padding: 3.5rem 1.5rem 5rem;
-    }
-
-    .policy-updated {
-      font-size: 0.8rem;
-      color: var(--gray);
-      margin-bottom: 2.5rem;
-    }
-
-    .policy-section {
-      margin-bottom: 2.5rem;
-    }
-
-    .policy-section h2 {
-      font-size: 1.05rem;
-      font-weight: 800;
-      color: var(--ink);
-      margin-bottom: 0.6rem;
-      letter-spacing: -0.01em;
-    }
-
-    .policy-section p {
-      font-size: 0.94rem;
-      color: #374151;
-      line-height: 1.75;
-      margin-bottom: 0.75rem;
-    }
-
-    .policy-section p:last-child { margin-bottom: 0; }
-
-    .policy-section ul {
-      list-style: none;
-      display: flex;
-      flex-direction: column;
-      gap: 0.4rem;
-      margin-top: 0.5rem;
-    }
-
-    .policy-section ul li {
-      font-size: 0.92rem;
-      color: #374151;
-      line-height: 1.6;
-      padding-left: 1.25rem;
-      position: relative;
-    }
-
-    .policy-section ul li::before {
-      content: '·';
-      position: absolute;
-      left: 0;
-      color: var(--blue);
-      font-weight: 800;
-    }
-
-    .policy-divider {
-      border: none;
-      border-top: 1px solid var(--border);
-      margin: 2.5rem 0;
-    }
-
-    .policy-contact {
-      background: var(--bg);
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 1.5rem;
-    }
-
-    .policy-contact h2 {
-      font-size: 1rem;
-      font-weight: 800;
-      margin-bottom: 0.5rem;
-    }
-
-    .policy-contact p {
-      font-size: 0.9rem;
-      color: var(--gray);
-      line-height: 1.65;
-    }
-
-    .policy-contact a {
-      color: var(--blue);
-      text-decoration: none;
-    }
-
-    .policy-contact a:hover { text-decoration: underline; }
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#f8fafc;color:#1f2937;line-height:1.6}
+    .wrap{max-width:820px;margin:0 auto;padding:1.5rem 1.1rem 4rem}
+    .doc h1{font-size:1.6rem;margin:1.2rem 0 .6rem;color:#0f172a}
+    .doc h2{font-size:1.15rem;margin:1.6rem 0 .5rem;color:#0f172a;border-bottom:1px solid #e2e8f0;padding-bottom:.3rem}
+    .doc h3{font-size:1rem;margin:1.1rem 0 .4rem;color:#0f172a}
+    .doc p{margin:.6rem 0;font-size:.95rem}
+    .doc ul,.doc ol{margin:.5rem 0 .8rem 1.4rem}
+    .doc li{margin:.25rem 0;font-size:.95rem}
+    .doc hr{border:none;border-top:1px solid #e2e8f0;margin:1.4rem 0}
+    .doc a{color:#2563eb;text-decoration:none}.doc a:hover{text-decoration:underline}
+    .doc strong{color:#0f172a}
+    footer{background:#0f172a;color:#94a3b8;text-align:center;padding:1.5rem 1rem;font-size:.85rem;margin-top:2.5rem}
+    footer a{color:#cbd5e1;text-decoration:none;margin:0 .4rem}footer a:hover{color:#fff}
   </style>
 </head>
 <body>
+  <script src="/widgets/shared/buyer-nav.js"></script>
+  <div class="wrap"><div id="doc" class="doc">Loading…</div></div>
+  <footer>
+    <a href="/terms.html">Terms of Use</a> ·
+    <a href="/privacy.html">Privacy Policy</a> ·
+    <a href="/sitemap.html">Sitemap</a>
+    <div style="margin-top:0.4rem">© Advantage.Bid — Online Auction Marketplace</div>
+  </footer>
 
-<header>
-  <div class="header-inner">
-    <a href="/" class="brand">Advantage<span>.Bid</span></a>
-    <nav class="header-nav" aria-label="Main navigation">
-      <a href="/how-it-works.html" class="nav-link">How It Works</a>
-      <a href="/start-selling.html" class="nav-link">Start Selling</a>
-      <a href="/seller-faq.html" class="nav-link">Seller FAQ</a>
-      <a href="/buyer-faq.html" class="nav-link">Buyer FAQ</a>
-      <a href="/featured-auctions.html" class="nav-link">Browse Auctions</a>
-    </nav>
-    <div class="header-actions">
-      <a href="/login.html" class="btn-ghost">Sign In</a>
-      <a href="/start-selling.html" class="btn-header-cta">List Your Items</a>
-    </div>
-    <button class="mobile-menu-btn" aria-label="Menu">
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-        <line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>
-      </svg>
-    </button>
-  </div>
-</header>
+  <script type="text/plain" id="doc-md">
+# Privacy Policy
 
-<div class="page-hero">
-  <div class="page-hero-inner">
-    <div class="page-eyebrow">Your Privacy</div>
-    <h1>We keep your information yours.</h1>
-    <p class="page-hero-sub">
-      Your data is used to run the marketplace — not to sell you things or sold to others.
-      Here's exactly how it works, in plain language.
-    </p>
-  </div>
-</div>
+**Advantage Auction Company, LLC d/b/a Advantage.Bid**
+**Effective Date:** June 15, 2026
+**Last Updated:** June 15, 2026
 
-<main class="policy-body" id="main-content">
+## Introduction
 
-  <p class="policy-updated">Last updated: May 2025</p>
+Advantage Auction Company, LLC d/b/a Advantage.Bid ("Advantage Auction Company," "Advantage.Bid," "AAC," "we," "our," or "us") respects your privacy and is committed to protecting your personal information.
 
-  <div class="policy-section">
-    <h2>What we collect</h2>
-    <p>When you create an account, we collect your name, email address, and a verified payment method. When you use the platform, we record your bidding activity, won lots, invoices, and notification preferences.</p>
-    <p>We collect only what's necessary to operate a functioning auction marketplace. We don't ask for more than we need.</p>
-  </div>
+This Privacy Policy explains how we collect, use, disclose, store, and protect information when you visit, access, register for, bid on, purchase through, sell through, communicate with, or otherwise use Advantage.Bid and related services (collectively, the "Services").
 
-  <hr class="policy-divider" />
+By using the Services, you consent to the collection, use, and disclosure of information as described in this Privacy Policy.
 
-  <div class="policy-section">
-    <h2>How we use your information</h2>
-    <p>Your information is used to:</p>
-    <ul>
-      <li>Operate your buyer or seller account</li>
-      <li>Process payments for lots you win</li>
-      <li>Send notifications you've opted into — outbid alerts, win confirmations, auction reminders</li>
-      <li>Release pickup details to buyers after payment is confirmed</li>
-      <li>Generate payout statements for sellers</li>
-      <li>Improve how the marketplace works</li>
-    </ul>
-    <p>We do not sell, rent, or share your personal information with third parties for marketing purposes. Your inbox will never be handed to someone else.</p>
-  </div>
+---
 
-  <hr class="policy-divider" />
+# Information We Collect
 
-  <div class="policy-section">
-    <h2>Payment security</h2>
-    <p>All payment processing is handled by <strong>Stripe</strong>, a leading payment platform trusted by millions of businesses worldwide. Advantage.Bid never stores your full card number. Your card data is encrypted within Stripe's secure infrastructure — we receive only a payment token.</p>
-    <p>When you add a payment method, a temporary authorization under $1 is placed to confirm the card is valid. This authorization is released immediately and is never settled as a charge. It's a standard verification practice used by major marketplaces.</p>
-  </div>
+We may collect information directly from you, automatically through your use of the Services, from sellers, payment processors, service providers, and other third parties.
 
-  <hr class="policy-divider" />
+## Information You Provide
 
-  <div class="policy-section">
-    <h2>Your bidder identity</h2>
-    <p>Bidders are identified during active auctions by auction-specific <strong>paddle numbers</strong> — not names or account details. Your identity is private throughout the bidding process. Other buyers and sellers cannot see who you are while the auction is live.</p>
-    <p>The full pickup address for any auction is only released to winning buyers <em>after</em> payment is confirmed. Other bidders never see it. This protects sellers from unsolicited contact and ensures your address as a seller is only shared with people who have paid.</p>
-  </div>
+When creating an account, registering to bid, making a purchase, selling property, contacting us, or otherwise using the Services, you may provide:
 
-  <hr class="policy-divider" />
+### Account Information
 
-  <div class="policy-section">
-    <h2>SMS and email notifications</h2>
-    <p>Email notifications for outbid alerts, win confirmations, and auction reminders are part of normal account operation. SMS notifications are <strong>opt-in only</strong> — you will never receive text messages unless you explicitly choose to.</p>
-    <p>You can update your notification preferences in your account settings at any time.</p>
-  </div>
+* Full name
+* Username
+* Email address
+* Telephone number
+* Mailing address
+* Billing address
+* Account credentials
 
-  <hr class="policy-divider" />
+### Identity Verification Information
 
-  <div class="policy-section">
-    <h2>Cookies</h2>
-    <p>We use essential cookies to keep you signed in and maintain your session. We may use basic analytics to understand how the marketplace is used in aggregate. We do not use advertising cookies or third-party tracking for behavioral profiling.</p>
-  </div>
+Where necessary, we may collect:
 
-  <hr class="policy-divider" />
+* Government-issued identification
+* Identity verification records
+* Business information
+* Tax-related documentation
+* Seller verification information
 
-  <div class="policy-contact">
-    <h2>Questions?</h2>
-    <p>Privacy questions can be sent to <a href="mailto:advantageauction.bid@gmail.com">advantageauction.bid@gmail.com</a>. We're real people and we respond to every inquiry.</p>
-  </div>
+### Payment Information
 
-</main>
+When making purchases or registering to bid, payment information may be collected and processed through third-party payment processors.
 
-<footer>
-  <div class="footer-inner">
-    <div class="footer-top">
-      <div class="footer-brand-col">
-        <div class="footer-brand">Advantage<span>.Bid</span></div>
-        <p class="footer-tagline">The auction platform for estate sales, liquidation, and consignment inventory nationwide.</p>
-      </div>
-      <div>
-        <div class="footer-col-title">Sellers</div>
-        <ul class="footer-links">
-          <li><a href="/start-selling.html">Start Selling</a></li>
-          <li><a href="/how-it-works.html">How It Works</a></li>
-          <li><a href="/how-sellers-get-paid.html">How You Get Paid</a></li>
-          <li><a href="/seller-faq.html">Seller FAQ</a></li>
-          <li><a href="/after-estate-sale.html">After an Estate Sale</a></li>
-        </ul>
-      </div>
-      <div>
-        <div class="footer-col-title">Buyers</div>
-        <ul class="footer-links">
-          <li><a href="/login.html">Create Account</a></li>
-          <li><a href="/how-to-buy.html">How to Buy</a></li>
-          <li><a href="/buyer-faq.html">Buyer FAQ</a></li>
-          <li><a href="/how-it-works.html#buyers">Bidding Guide</a></li>
-        </ul>
-      </div>
-      <div>
-        <div class="footer-col-title">Browse</div>
-        <ul class="footer-links">
-          <li><a href="/featured-auctions.html">Featured Auctions</a></li>
-          <li><a href="/ending-soon.html">Ending Soon</a></li>
-          <li><a href="/shipping-available.html">Ships Nationwide</a></li>
-          <li><a href="/browse-categories.html">Browse Categories</a></li>
-          <li><a href="/browse-locations.html">Browse Locations</a></li>
-        </ul>
-      </div>
-    </div>
-    <div class="footer-bottom">
-      <p class="footer-copy">© 2025 Advantage Auction. All rights reserved.</p>
-      <div class="footer-legal">
-        <a href="/privacy.html">Privacy Policy</a>
-        <a href="/terms.html">Terms of Use</a>
-        <a href="/sitemap.html">Sitemap</a>
-      </div>
-    </div>
-  </div>
-</footer>
+This may include:
 
-<script src="/marketplace-components.js"></script>
+* Credit card information
+* Debit card information
+* Payment authorization data
+* Billing details
+
+Advantage.Bid does not store complete payment card numbers on its servers. Payment information is processed by PCI-compliant payment providers, including Stripe and other authorized processors.
+
+### Auction Activity
+
+We collect information regarding:
+
+* Auctions viewed
+* Lots viewed
+* Bids submitted
+* Maximum bids entered
+* Auction registrations
+* Purchases
+* Pickup confirmations
+* Watchlists
+* Saved searches
+* Communications
+
+### Communications
+
+We collect information you provide when:
+
+* Contacting support
+* Sending inquiries
+* Submitting forms
+* Responding to surveys
+* Communicating regarding transactions
+* Participating in dispute resolution
+
+---
+
+# Information Automatically Collected
+
+When using the Services, we may automatically collect:
+
+* IP address
+* Browser type
+* Device type
+* Operating system
+* Referring website
+* Pages visited
+* Time spent on pages
+* Auction activity
+* Clickstream data
+* Session information
+* Log files
+* Cookie identifiers
+
+---
+
+# Cookies and Similar Technologies
+
+We use cookies and similar technologies to:
+
+* Authenticate users
+* Maintain login sessions
+* Remember preferences
+* Improve platform performance
+* Measure traffic and usage
+* Detect fraud
+* Enhance security
+
+You may disable cookies through your browser settings, although certain features of the Services may not function properly.
+
+---
+
+# How We Use Information
+
+We use information for legitimate business purposes, including:
+
+## Providing Services
+
+* Creating and maintaining accounts
+* Processing registrations
+* Facilitating auctions
+* Processing purchases
+* Coordinating pickup and delivery
+* Managing seller accounts
+* Providing customer support
+
+## Payment Processing
+
+* Verifying payment methods
+* Preventing fraud
+* Processing payments
+* Processing refunds
+* Managing billing
+
+## Communications
+
+* Auction notifications
+* Outbid notices
+* Winning bid notifications
+* Pickup instructions
+* Invoice delivery
+* Account notices
+* Customer support responses
+* Security notifications
+
+## Platform Improvement
+
+* Analytics
+* Performance monitoring
+* Product development
+* User experience improvements
+* Testing new features
+
+## Security and Compliance
+
+* Fraud detection
+* Risk assessment
+* Identity verification
+* Enforcement of Terms of Service
+* Compliance with legal obligations
+* Protection of users and property
+
+---
+
+# Text Messages and Email Communications
+
+By creating an account, registering for auctions, placing bids, making purchases, or otherwise interacting with the Services, you consent to receive transactional communications including:
+
+* Auction registration confirmations
+* Bid notifications
+* Outbid alerts
+* Winning bidder notifications
+* Invoices
+* Pickup instructions
+* Account-related messages
+* Security notifications
+
+These communications are considered part of the Services.
+
+Marketing communications may be unsubscribed from at any time using the provided unsubscribe mechanism.
+
+---
+
+# Information Shared with Sellers
+
+When necessary to complete a transaction, we may provide sellers with information including:
+
+* Name
+* Email address
+* Telephone number
+* Pickup information
+* Transaction information
+
+Such information is shared only as reasonably necessary to facilitate auction transactions.
+
+---
+
+# Service Providers
+
+We may share information with trusted service providers that help us operate the Services, including:
+
+* Payment processors
+* Cloud hosting providers
+* Email providers
+* SMS providers
+* Customer support providers
+* Analytics providers
+* Fraud prevention providers
+* Identity verification providers
+* Legal and accounting service providers
+
+These providers may only use information as necessary to perform services on our behalf.
+
+---
+
+# Stripe and Payment Processing
+
+Payments processed through Advantage.Bid may be handled by Stripe and other third-party payment processors.
+
+By making purchases or providing payment information, you acknowledge that payment information may be collected, stored, and processed by those providers according to their privacy policies and terms.
+
+We encourage users to review Stripe's privacy practices before providing payment information.
+
+---
+
+# Legal Requirements and Law Enforcement
+
+We may disclose information when we believe disclosure is necessary to:
+
+* Comply with laws
+* Respond to subpoenas
+* Respond to court orders
+* Respond to governmental requests
+* Protect our rights
+* Protect user safety
+* Investigate fraud
+* Investigate criminal activity
+* Enforce agreements
+
+---
+
+# Business Transfers
+
+If Advantage Auction Company is involved in a merger, acquisition, asset sale, financing transaction, restructuring, bankruptcy, or similar transaction, information may be transferred as part of that transaction.
+
+---
+
+# Data Retention
+
+We retain information for as long as reasonably necessary to:
+
+* Operate the Services
+* Maintain transaction records
+* Comply with legal obligations
+* Resolve disputes
+* Enforce agreements
+* Protect against fraud
+
+Retention periods may vary depending on the nature of the information and applicable legal requirements.
+
+---
+
+# Data Security
+
+We implement commercially reasonable safeguards designed to protect personal information.
+
+However, no system, website, network, database, transmission method, or storage platform can be guaranteed to be completely secure.
+
+Users provide information at their own risk.
+
+---
+
+# Your Privacy Rights
+
+Depending on your location and applicable law, you may have rights regarding your personal information, including:
+
+* Access
+* Correction
+* Deletion
+* Portability
+* Restriction of processing
+* Objection to certain processing activities
+
+Requests may be submitted using the contact information below.
+
+We may require identity verification before processing requests.
+
+---
+
+# Children's Privacy
+
+The Services are not intended for individuals under eighteen (18) years of age.
+
+We do not knowingly collect personal information from children.
+
+If we become aware that personal information has been collected from a child, we will take reasonable steps to delete such information.
+
+---
+
+# Third-Party Websites
+
+The Services may contain links to third-party websites.
+
+We are not responsible for the privacy practices, policies, content, or security of third-party websites.
+
+Users access third-party websites at their own risk.
+
+---
+
+# Do Not Track
+
+Some browsers offer a "Do Not Track" feature.
+
+Because there is no universally accepted standard for responding to such signals, Advantage.Bid does not currently respond to Do Not Track signals.
+
+---
+
+# Changes to This Privacy Policy
+
+We may update this Privacy Policy periodically.
+
+Changes become effective upon posting to the Services unless otherwise stated.
+
+Continued use of the Services after changes are posted constitutes acceptance of the revised Privacy Policy.
+
+---
+
+# Contact Us
+
+If you have questions regarding this Privacy Policy or our privacy practices, please contact:
+
+**Advantage Auction Company, LLC d/b/a Advantage.Bid**
+
+Email: [privacy@advantage.bid](mailto:privacy@advantage.bid)
+
+Website: https://advantage.bid
+
+Mailing Address:
+300 Communipaw Ave #137
+Jersey City, NJ 07304
+
+Telephone:
+(346) 889-3944
+</script>
+  <script src="/widgets/shared/md-render.js"></script>
+  <script>renderMarkdownInto('doc-md', 'doc');</script>
 </body>
 </html>
