@@ -1,6 +1,6 @@
 # Seller Agreement System v1 — Design & Deployment Plan (pre-implementation)
 
-**Status:** DESIGN ONLY. No code written. Awaiting approval + decisions (§9).
+**Status:** DESIGN ONLY. No code written. Decisions locked (§9); awaiting approval to implement.
 **Date:** 2026-06-17
 
 ---
@@ -85,9 +85,8 @@ Existing 053–057 stay as-is. **One new additive migration:**
 - `ALTER TABLE seller_profiles ADD COLUMN agreement_waived_at TIMESTAMPTZ NULL;`  — admin override / grandfather marker.
 - `ALTER TABLE seller_profiles ADD COLUMN agreement_waived_by UUID NULL REFERENCES users(id);`
 - `ALTER TABLE agreements ADD COLUMN signed_pdf_emailed_at TIMESTAMPTZ NULL;`  — idempotency for the PDF email (req 5).
-- (Optional, decision §9-A) three read-only `CREATE VIEW seller_agreement_versions/_acceptances/_signatures AS …` over existing tables.
 
-No table drops, no type changes, no backfill required. Fully reversible (drop columns/views). Follows the project's per-file guarded migration + `schema_migrations` ledger discipline.
+No new tables, no views, no type changes, no backfill required. Fully reversible (drop the three added columns). Follows the project's per-file guarded migration + `schema_migrations` ledger discipline.
 
 **Grandfathering:** existing sellers with live/active auctions are not locked out (their `agreement_waived_at` is set during the cutover migration, or the gate treats "has any non-draft auction" as grandfathered — decision §9-C).
 
@@ -126,7 +125,7 @@ No table drops, no type changes, no backfill required. Fully reversible (drop co
 Unchanged from the deployed design (owner-locked):
 - Signed PDF → **Cloudinary private raw** asset (`folder: agreements`, `resource_type: raw`, `type: private`, `public_id: agreement-{id}`), with `signed_pdf_public_id` + `signed_pdf_sha256` stored on `agreements`.
 - Delivery via **5-minute signed download URLs** (`cloudinary.utils.private_download_url`) through the auth-gated `GET /:id/pdf` — the raw Cloudinary URL is never exposed.
-- Unsigned copy (C): generated on demand from the frozen `rendered_body`; **not stored** (no signature, no legal weight) — streamed directly or via the same signed-URL pattern. (Decision §9-B if we prefer to store it.)
+- Unsigned copy (C): generated on demand from the frozen `rendered_body`; **not stored** (no signature, no legal weight) — streamed directly to the requester.
 - Frozen-render integrity: signature binds to `content_sha256(rendered_body)`; tamper-evident.
 
 ---
@@ -136,9 +135,7 @@ Unchanged from the deployed design (owner-locked):
 - **Library:** PDFKit (`agreementPdfService`, already in prod).
 - **Signed PDF:** `buildPdfBuffer(agreement, signature)` → title, party snapshot, frozen body, signature block (typed name, drawn image, role, server `signed_at`, IP, UA, SHA-256, intent, consent). Unchanged.
 - **Unsigned PDF (new):** add `buildUnsignedPdfBuffer(agreement)` — same body render, signature block replaced by a "DRAFT — UNSIGNED COPY" watermark/notice. Pure function, unit-testable.
-- **Email of signed PDF (B):** the email transport is **SES via nodemailer**, which **does** support attachments. Two viable deliveries (decision §9-D):
-  - **(D1) Attach the PDF buffer** to the post-signing confirmation email (add `attachments` support to `emailService.sendEmail`). Simplest match to "email signed PDF"; watch ~size/deliverability.
-  - **(D2) Email a secure link** (the existing pattern) to the auth-gated download. Safer for deliverability/privacy; "PDF" reachable in one click but not attached.
+- **Email of signed PDF (B) — LOCKED: attach the PDF.** The email transport is **SES via nodemailer**, which supports attachments. After signing, the confirmation email **attaches the signed PDF buffer** (add `attachments` support to `emailService.sendEmail`) and `signed_pdf_emailed_at` is stamped. The auth-gated signed-URL download (`GET /:id/pdf`) remains the durable re-download path. (A secure-link-only email was the prior Phase B pattern and stays available as a fallback if attachment deliverability proves problematic.)
 - PDF generation stays **non-blocking to the legal act** (signing succeeds even if PDF/email lags; retried), exactly as today.
 
 ---
