@@ -18,7 +18,7 @@
 | `seller_phone` | text | seller_identity.phone | no | |
 | `seller_type` | text | seller_profiles.seller_type | yes | drives which template |
 | `commission_pct` | percent | seller_terms.commission_pct | yes | seller commission to AAC |
-| `buyer_premium_pct` | percent | seller_terms.buyer_premium_pct | yes | buyer premium (descriptive) |
+| `buyer_premium_pct` | percent | seller_terms.buyer_premium_pct | no | descriptive only; meaningful only if a buyer premium is enabled+disclosed for the auction (not active by default) |
 | `credit_card_fee_pct` | percent | seller_terms.credit_card_fee_pct | no | card processing pass-through |
 | `marketing_fee_cents` | currency_cents | seller_terms.marketing_fee_cents | no | optional flat marketing fee |
 | `settlement_terms` | text | seller_terms.settlement_terms | yes | e.g. "net proceeds within 14 days of buyer payment" |
@@ -46,7 +46,7 @@ This Seller Consignment and Auction Services Agreement (this "Agreement") govern
 
 ## 1. Appointment and Scope
 
-1.1 The Seller appoints Advantage as its exclusive agent to market, list, and sell the items the Seller consigns through the Platform (the "Consigned Property") for the duration of the applicable auction event and any related re-offer period.
+1.1 For each item the Seller submits and that Advantage accepts into an auction (the "Consigned Property"), the Seller appoints Advantage as its selling agent to market, list, and sell that item through the Platform. Advantage's rights are exclusive only as to those submitted and accepted items, and only for the duration of the applicable auction event and any related re-offer period. Once an item has been committed to an auction during that period, the Seller will not privately sell it, remove it, relist it elsewhere, or redirect it. This Agreement does not give Advantage exclusive rights to all of the Seller's property or to any of the Seller's future property.
 
 1.2 Advantage provides auction services including cataloging support, listing, bid management, buyer payment processing, and settlement of net proceeds. Advantage does not purchase the Consigned Property and acts solely as the Seller's selling agent unless a separate written purchase arrangement is executed.
 
@@ -60,13 +60,15 @@ This Seller Consignment and Auction Services Agreement (this "Agreement") govern
 
 2.3 The Seller must complete required onboarding, including execution of this Agreement, before the Seller's account is activated for setting up and submitting auctions.
 
+2.4 Execution of this Agreement enables the Seller's onboarding and seller dashboard access, but does not by itself grant full selling privileges. Seller account privileges remain subject to Advantage's approval. No auction or lot becomes public without Advantage's human review and approval, and Advantage may suspend or limit the Seller's privileges at any time for risk, noncompliance, or suspected fraud.
+
 ## 3. Title, Authenticity, and Condition
 
 3.1 The Seller represents and warrants that it holds clear and marketable title to each item of Consigned Property, free of liens, security interests, and competing ownership claims, and has full authority to consign and sell each item.
 
 3.2 The Seller represents that all descriptions, provenance, attributions, and condition information it supplies are accurate to the best of its knowledge, and that the Seller will promptly disclose known defects, damage, repairs, or reproductions.
 
-3.3 The Seller is responsible for the accuracy of item descriptions and categories. Advantage may add, correct, or standardize catalog information but is not obligated to verify authenticity or condition.
+3.3 The Seller is responsible for reviewing and approving each item's title, description, photographs, condition notes, quantities, pickup details, and any known defects before submission and before publication. Advantage may add, correct, or standardize catalog information for clarity or policy compliance but is not obligated to verify authenticity or condition, and the Seller remains responsible for the accuracy of the information it provides.
 
 ## 4. Prohibited and Restricted Items
 
@@ -82,17 +84,21 @@ This Seller Consignment and Auction Services Agreement (this "Agreement") govern
 
 5.3 Each auction uses per-lot timed closings with anti-sniping extensions as described in the Platform's buyer-facing rules. The Seller acknowledges that final hammer prices are determined by competitive bidding and are not guaranteed.
 
+5.4 The Seller may not bid on its own lots, arrange for or ask any other person to bid on the Seller's behalf, or otherwise manipulate or artificially influence bidding. Any such activity is a material breach and may result in cancellation of affected sales, forfeiture of related proceeds, and suspension of the Seller's account.
+
 ## 6. Fees, Commission, and Buyer Premium
 
 6.1 **Seller commission.** Advantage's commission is {{commission_pct}} of the hammer price for each item sold, retained from sale proceeds at settlement.
 
-6.2 **Buyer premium.** A buyer premium of {{buyer_premium_pct}} is added to the hammer price and charged to the buyer. The buyer premium is disclosed to buyers during bidding and is collected by Advantage. Allocation of the buyer premium is governed by the Platform's then-current billing terms and does not increase the commission stated in Section 6.1 unless separately agreed in writing.
+6.2 **Buyer premium.** A buyer premium may be charged only if it is enabled and disclosed for the applicable auction. If charged, the buyer premium is added to the hammer price, is paid by the buyer, and is retained and allocated according to Advantage's then-current terms, and does not increase the commission stated in Section 6.1 unless separately agreed in writing. Where a buyer premium is enabled for the Seller's account, the configured rate is {{buyer_premium_pct}}. This Agreement does not by itself activate or impose a buyer premium.
 
 6.3 **Payment processing.** Where applicable, a card processing fee of {{credit_card_fee_pct}} may be applied as described in the Seller's terms of record. Buyers pay by debit or credit card only.
 
-6.4 **Marketing fee.** An optional marketing fee of {{marketing_fee_cents}} may apply where the Seller elects or Advantage provides agreed marketing services. Any such fee is disclosed before it is incurred.
+6.4 **Marketing fees.** Marketing package fees are not charged upfront unless separately agreed in writing. If the Seller selects or Advantage approves a marketing package, the associated fees are deducted from the Seller's settlement and itemized on the Seller's statement. Where a flat marketing fee is configured for the Seller's account, it is {{marketing_fee_cents}}.
 
 6.5 The fees in this Section reflect the Seller's terms of record at the Effective Date. Advantage maintains the Seller's financial terms in a versioned, history-preserving record; changes apply prospectively and do not alter terms for an auction already approved and live.
+
+6.6 **Recovery of costs on withdrawal or cancellation.** If, after Advantage has performed work on an auction or item, the Seller cancels an auction, withdraws items committed to an auction, fails to provide committed items, or materially misrepresents items, Advantage may deduct from amounts otherwise owed to the Seller, or invoice the Seller for, its reasonable costs and losses arising from that conduct. These may include buyer refunds and chargebacks, marketing costs, labor, transportation and handling, and platform and administrative expenses. Such amounts are itemized on the Seller's statement.
 
 ## 7. Buyer Payment, Settlement, and Payout
 
@@ -116,6 +122,8 @@ This Seller Consignment and Auction Services Agreement (this "Agreement") govern
 
 8.4 If a buyer fails to complete pickup or payment, Advantage may re-offer, relist, or otherwise handle the item in a commercially reasonable manner and will coordinate with the Seller regarding unsold or unclaimed property.
 
+8.5 Where Advantage staff or a buyer attends the Seller's premises for preview, pickup, or removal, the Seller must provide safe access, lawful access, adequate parking and loading area where applicable, and reasonable cooperation during the pickup process. The Seller remains responsible for the condition and safety of its premises, except to the extent loss or injury is caused by Advantage's gross negligence or willful misconduct.
+
 ## 9. Marketing License and Content
 
 9.1 The Seller grants Advantage a non-exclusive, royalty-free license to use the photographs, descriptions, and related content of the Consigned Property for the purposes of listing, marketing, and promoting the auction and the Platform, including after the auction for recordkeeping and reference.
@@ -128,11 +136,13 @@ This Seller Consignment and Auction Services Agreement (this "Agreement") govern
 
 10.2 Except for the express representations in this Agreement, the Platform and auction services are provided on an "as is" and "as available" basis, and Advantage disclaims all other warranties to the maximum extent permitted by law.
 
+10.3 **No guarantee of results.** This is a platform and services agreement. Advantage does not guarantee any auction outcome, including hammer prices, bidder turnout, sell-through rate, or the timing of any payout beyond funds actually collected and settled. Prior results do not predict future results.
+
 ## 11. Limitation of Liability
 
 11.1 To the maximum extent permitted by law, neither party is liable for indirect, incidental, special, consequential, or punitive damages.
 
-11.2 Advantage's aggregate liability arising out of or relating to this Agreement will not exceed the total commission actually earned by Advantage on the Seller's items in the auction event giving rise to the claim.
+11.2 Advantage's aggregate liability arising out of or relating to this Agreement will not exceed the total commission actually earned by Advantage on the Seller's items in the auction event giving rise to the claim. **[COUNSEL REVIEW REQUIRED]**
 
 ## 12. Indemnification
 
@@ -156,7 +166,7 @@ This Seller Consignment and Auction Services Agreement (this "Agreement") govern
 
 ## 16. Dispute Resolution and Governing Law
 
-16.1 This Agreement is governed by the laws of the State of {{governing_state}}, without regard to conflict-of-laws principles.
+16.1 This Agreement is governed by the laws of the State of {{governing_state}} (default: Tennessee), without regard to conflict-of-laws principles. **[COUNSEL REVIEW REQUIRED]**
 
 16.2 The parties will attempt in good faith to resolve disputes informally before pursuing formal proceedings, in the courts or forum designated by Advantage's then-current policies, to the extent permitted by law.
 
