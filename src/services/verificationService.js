@@ -120,6 +120,8 @@ async function uploadDocument(requestId, userId, { category, filename, contentTy
     folder: 'verification-documents',
     resource_type: 'raw',
     type: 'private',
+    // Override the service default (image-only) so documents (PDF + images) are accepted.
+    allowed_formats: ['pdf', 'jpg', 'jpeg', 'png', 'gif', 'webp', 'heic', 'heif', 'tif', 'tiff'],
     public_id: `vdoc-${requestId}-${Date.now()}`,
     overwrite: false,
   });

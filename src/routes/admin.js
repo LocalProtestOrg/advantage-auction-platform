@@ -453,6 +453,9 @@ router.patch('/auctions/:auctionId/publish', auth, role(['admin']), idempotency,
     if (err.message === 'Cannot publish a closed auction') {
       return res.status(422).json({ success: false, message: err.message });
     }
+    if (err.code === 'VERIFICATION_REQUIRED') {
+      return res.status(422).json({ success: false, code: err.code, message: err.message });
+    }
     next(err);
   }
 });
