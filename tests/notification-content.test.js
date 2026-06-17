@@ -37,10 +37,10 @@ describe('relevance (staleness guard)', () => {
 
 describe('lotRef — human reference, never a UUID', () => {
   test('Lot # + Title', () => {
-    expect(lotRef(openLot())).toBe('Lot #12 — Vintage Fenton Glass Covered Compote');
+    expect(lotRef(openLot())).toBe('Lot #12 - Vintage Fenton Glass Covered Compote');
   });
   test('no lot number falls back gracefully', () => {
-    expect(lotRef(openLot({ lot_number: null }))).toBe('Lot — Vintage Fenton Glass Covered Compote');
+    expect(lotRef(openLot({ lot_number: null }))).toBe('Lot - Vintage Fenton Glass Covered Compote');
   });
 });
 
@@ -48,14 +48,14 @@ describe('buildLotEmail — enriched, privacy-safe', () => {
   test('OUTBID: subject + body use Lot # + Title, link, image, price — no UUID label', () => {
     const m = buildLotEmail('OUTBID', { lot: openLot(), auction: { title: 'Spring Estate Sale' }, toAddress: 'b@x.com' });
     expect(m.to).toBe('b@x.com');
-    expect(m.subject).toContain('Lot #12 — Vintage Fenton Glass Covered Compote');
-    expect(m.html).toContain('Lot #12 — Vintage Fenton Glass Covered Compote');
+    expect(m.subject).toContain('Lot #12 - Vintage Fenton Glass Covered Compote');
+    expect(m.html).toContain('Lot #12 - Vintage Fenton Glass Covered Compote');
     expect(m.html).toContain('Spring Estate Sale');               // auction title
     expect(m.html).toContain('/lot.html?lotId=lot-uuid-1');       // functional CTA link
     expect(m.html).toContain('https://img/x.jpg');                // lot image
     expect(m.html).toContain('$42.00');                           // current bid
     expect(m.html).not.toContain('Lot ID:');                      // never the old UUID label
-    expect(m.text).toContain('Lot #12 — Vintage Fenton Glass Covered Compote');
+    expect(m.text).toContain('Lot #12 - Vintage Fenton Glass Covered Compote');
   });
 
   test('WINNING: uses winning amount + Complete payment CTA', () => {
