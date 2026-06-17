@@ -196,14 +196,90 @@ async function signAgreement(agreementId, { userId, typedName, drawnImageData, c
 
   // PDF — non-blocking to the legal act. Stored PRIVATE; delivered via signed URLs.
   try {
-    const { public_id, sha256: pdfHash } = await pdfService.generateAndStore(agreement, sig.rows[0]);
+    const { public_id, sha256: pdfHash, buffer } = await pdfService.generateAndStore(agreement, sig.rows[0]);
     agreement = (await db.query(`UPDATE agreements SET signed_pdf_public_id=$1, signed_pdf_sha256=$2, pdf_status='stored', updated_at=now() WHERE id=$3 RETURNING *`, [public_id, pdfHash, agreementId])).rows[0];
     await writeAuditLog({ event_type: 'agreement_pdf_stored', entity_type: 'agreement', entity_id: agreementId, metadata: { signed_pdf_sha256: pdfHash } });
+    // Email the signed PDF to the seller (req 5). Best-effort, idempotent.
+    await emailSignedPdf(agreement, buffer);
   } catch (e) {
     await db.query(`UPDATE agreements SET pdf_status='failed', updated_at=now() WHERE id=$1`, [agreementId]);
     console.error('[agreements] PDF generation failed for', agreementId, '-', e.message);
   }
   return { agreement, signature: sig.rows[0] };
+}
+
+// Email the signed PDF as an attachment. Idempotent via signed_pdf_emailed_at
+// (only the first successful send stamps + audits). Best-effort: email is not the
+// system of record, so failures never fail the signing.
+async function emailSignedPdf(agreement, buffer) {
+  try {
+    if (!buffer || agreement.signed_pdf_emailed_at) return;
+    const r = await db.query('SELECT u.email FROM seller_profiles sp JOIN users u ON u.id = sp.user_id WHERE sp.id = $1', [agreement.seller_profile_id]);
+    const to = r.rows[0] && r.rows[0].email;
+    if (!to) return;
+    await sendEmail({
+      to,
+      subject: 'Your signed Advantage Auction seller agreement',
+      html: `<p>Thank you. Your Advantage Auction seller agreement has been signed.</p>
+             <p>A copy of the signed agreement is attached as a PDF for your records. You can also download it any time from your account.</p>`,
+      text: 'Your Advantage Auction seller agreement has been signed. A copy is attached as a PDF for your records. You can also download it any time from your account.',
+      attachments: [{ filename: `advantage-seller-agreement-${agreement.id}.pdf`, content: buffer, contentType: 'application/pdf' }],
+    });
+    const u = await db.query(`UPDATE agreements SET signed_pdf_emailed_at=now(), updated_at=now() WHERE id=$1 AND signed_pdf_emailed_at IS NULL RETURNING id`, [agreement.id]);
+    if (u.rowCount) await writeAuditLog({ event_type: 'agreement_pdf_emailed', entity_type: 'agreement', entity_id: agreement.id, metadata: { to } });
+  } catch (e) {
+    console.error('[agreements] signed PDF email failed for', agreement.id, '-', e.message);
+  }
+}
+
+// ── Onboarding / dashboard gate ──────────────────────────────────────────────
+// A seller has dashboard access when: an admin has waived the gate, OR they hold
+// a current signed agreement, OR they are grandfathered (already have a non-draft
+// auction). Otherwise access is blocked and we surface any pending signable
+// agreement so the client can route them to sign it.
+async function dashboardAccess(sellerProfileId) {
+  const sp = (await db.query('SELECT id, agreement_waived_at FROM seller_profiles WHERE id = $1', [sellerProfileId])).rows[0];
+  if (!sp) return { access: false, reason: 'seller_not_found', agreement_id: null };
+  if (sp.agreement_waived_at) return { access: true, reason: 'waived', agreement_id: null };
+  const signed = (await db.query(
+    `SELECT id FROM agreements WHERE seller_profile_id = $1 AND status IN ('signed','countersigned')
+      ORDER BY signed_at DESC NULLS LAST LIMIT 1`, [sellerProfileId])).rows[0];
+  if (signed) return { access: true, reason: 'signed', agreement_id: signed.id };
+  const gf = (await db.query(`SELECT 1 FROM auctions WHERE seller_id = $1 AND state <> 'draft' LIMIT 1`, [sellerProfileId])).rowCount;
+  if (gf) return { access: true, reason: 'grandfathered', agreement_id: null };
+  const pending = (await db.query(
+    `SELECT id FROM agreements WHERE seller_profile_id = $1 AND status IN ('sent','viewed')
+      ORDER BY created_at DESC LIMIT 1`, [sellerProfileId])).rows[0];
+  return { access: false, reason: 'agreement_required', agreement_id: pending ? pending.id : null };
+}
+
+async function getOnboardingStatus(userId) {
+  const sp = (await db.query('SELECT id FROM seller_profiles WHERE user_id = $1', [userId])).rows[0];
+  if (!sp) return { is_seller: false, dashboard_access: true, required: false, reason: 'not_a_seller', agreement_id: null };
+  const g = await dashboardAccess(sp.id);
+  return {
+    is_seller: true, seller_profile_id: sp.id,
+    dashboard_access: g.access, required: !g.access,
+    signed: g.reason === 'signed', waived: g.reason === 'waived', grandfathered: g.reason === 'grandfathered',
+    reason: g.reason, agreement_id: g.agreement_id,
+  };
+}
+
+// Admin override: waive (or un-waive) the agreement gate for a seller.
+async function waiveSellerGate(sellerProfileId, actorId, waive = true) {
+  const sp = (await db.query('SELECT id FROM seller_profiles WHERE id = $1', [sellerProfileId])).rows[0];
+  if (!sp) throw new AgreementError('SELLER_NOT_FOUND', 'Seller profile not found', 404);
+  const u = await db.query(
+    `UPDATE seller_profiles
+        SET agreement_waived_at = CASE WHEN $2 THEN now() ELSE NULL END,
+            agreement_waived_by = CASE WHEN $2 THEN $3::uuid ELSE NULL END
+      WHERE id = $1 RETURNING id, agreement_waived_at, agreement_waived_by`,
+    [sellerProfileId, waive, actorId ?? null]);
+  await writeAuditLog({
+    event_type: waive ? 'seller_agreement_waived' : 'seller_agreement_unwaived',
+    entity_type: 'seller_profile', entity_id: sellerProfileId, actor_id: actorId ?? null, metadata: {},
+  });
+  return u.rows[0];
 }
 
 async function resend(id, actorId) {
@@ -246,4 +322,5 @@ module.exports = {
   AgreementError, hashToken,
   sendAgreement, getById, getByToken, markViewed, listForSeller, listAll, getSignatures,
   signAgreement, resend, reissue, revoke, expireOverdue,
+  emailSignedPdf, dashboardAccess, getOnboardingStatus, waiveSellerGate,
 };

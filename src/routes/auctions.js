@@ -10,6 +10,7 @@ const { sendEmail }             = require('../services/emailService');
 const db                        = require('../db/index');
 const { canMutateAuction, canDeleteAuction, lockErrorMessage } = require('./lots');
 const registrationService = require('../services/auctionRegistrationService'); // #20
+const agreementService    = require('../services/agreementService'); // seller agreement gate
 
 function isUuid(v) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(v);
@@ -52,6 +53,12 @@ router.post('/', authMiddleware, async (req, res) => {
       );
       if (!spRes.rows[0]) {
         return res.status(403).json({ success: false, message: 'Seller profile not found or not authorized' });
+      }
+      // Seller agreement gate: a non-admin seller must hold dashboard access
+      // (signed agreement / waived / grandfathered) before creating auctions.
+      const gate = await agreementService.dashboardAccess(sellerProfileId);
+      if (!gate.access) {
+        return res.status(403).json({ success: false, code: 'AGREEMENT_REQUIRED', message: 'Please sign your seller agreement before creating auctions.', agreement_id: gate.agreement_id });
       }
     }
 

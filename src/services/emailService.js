@@ -81,10 +81,12 @@ function getTransporter() {
  * @param {string} opts.subject - subject line
  * @param {string} opts.html    - HTML body
  * @param {string} [opts.text]  - plaintext fallback (recommended)
+ * @param {Array}  [opts.attachments] - nodemailer attachments, e.g.
+ *        [{ filename, content: <Buffer>, contentType: 'application/pdf' }]
  * @returns {Promise<object>} { messageId } on success, { skipped: true } if unconfigured
  * @throws on delivery failure
  */
-async function sendEmail({ to, subject, html, text }) {
+async function sendEmail({ to, subject, html, text, attachments }) {
   if (!isConfigured()) {
     console.warn('[email] SMTP/SES not configured - skipping delivery to', to);
     return { skipped: true };
@@ -97,6 +99,7 @@ async function sendEmail({ to, subject, html, text }) {
       subject,
       html,
       ...(text ? { text } : {}),
+      ...(Array.isArray(attachments) && attachments.length ? { attachments } : {}),
       replyTo: EMAIL_REPLY_TO,
     });
     console.log(`[email] Sent "${subject}" to ${to} - messageId: ${info.messageId}`);

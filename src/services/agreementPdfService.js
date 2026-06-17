@@ -49,6 +49,33 @@ function buildPdfBuffer(agreement, signature) {
   });
 }
 
+// Unsigned copy: same body render, signature block replaced by a clear notice.
+// Generated on demand (req 6); never stored (no signature, no legal weight).
+function buildUnsignedPdfBuffer(agreement) {
+  return new Promise((resolve, reject) => {
+    const doc = new PDFDocument({ margin: 50, size: 'LETTER' });
+    const chunks = [];
+    doc.on('data', (c) => chunks.push(c));
+    doc.on('end', () => resolve(Buffer.concat(chunks)));
+    doc.on('error', reject);
+
+    doc.fontSize(16).font('Helvetica-Bold').text('Seller Agreement (Unsigned Copy)', { align: 'center' });
+    doc.moveDown(0.3);
+    doc.fontSize(9).font('Helvetica').fillColor('#b45309').text('DRAFT - UNSIGNED COPY. This copy is for review only and is not executed.', { align: 'center' });
+    doc.fillColor('#000000').moveDown(0.6);
+    const ps = agreement.party_snapshot || {};
+    const partyLine = [ps.legal_name, ps.company_name].filter(Boolean).join(' / ');
+    if (partyLine) { doc.fontSize(9).font('Helvetica').fillColor('#555555').text(partyLine, { align: 'center' }); doc.fillColor('#000000'); }
+    doc.moveDown(1);
+
+    doc.fontSize(10).font('Helvetica').text(agreement.rendered_body || '', { align: 'left' });
+    doc.moveDown(2);
+    doc.fontSize(9).font('Helvetica-Oblique').fillColor('#555555')
+      .text('No signature is recorded on this copy. Sign electronically through the Advantage.Bid platform to execute this agreement.', { align: 'left' });
+    doc.end();
+  });
+}
+
 async function generateAndStore(agreement, signature) {
   const buffer = await buildPdfBuffer(agreement, signature);
   const sha256 = crypto.createHash('sha256').update(buffer).digest('hex');
@@ -64,7 +91,9 @@ async function generateAndStore(agreement, signature) {
     format: 'pdf',
     overwrite: true,
   });
-  return { sha256, public_id: result.public_id };
+  // Return the buffer too so callers (e.g. the signed-PDF email) can reuse the
+  // exact bytes without re-rendering.
+  return { sha256, public_id: result.public_id, buffer };
 }
 
 // Generate a short-lived signed download URL for a private raw PDF asset.
@@ -78,4 +107,4 @@ function signedDownloadUrl(publicId, ttlSeconds = SIGNED_URL_TTL_SECONDS) {
   });
 }
 
-module.exports = { buildPdfBuffer, generateAndStore, signedDownloadUrl, SIGNED_URL_TTL_SECONDS };
+module.exports = { buildPdfBuffer, buildUnsignedPdfBuffer, generateAndStore, signedDownloadUrl, SIGNED_URL_TTL_SECONDS };

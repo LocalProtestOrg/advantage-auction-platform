@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const auth = require('../middleware/authMiddleware');
+const requireSellerAgreement = require('../middleware/requireSellerAgreement');
 const db = require('../db');
 
 // GET /api/sellers/me
@@ -26,7 +27,8 @@ router.get('/me', auth, async (req, res, next) => {
 
 // GET /api/sellers/me/dashboard
 // Returns all auctions for the authenticated seller with aggregated marketing metrics.
-router.get('/me/dashboard', auth, async (req, res, next) => {
+// Gated: a seller must hold dashboard access (signed agreement / waived / grandfathered).
+router.get('/me/dashboard', auth, requireSellerAgreement, async (req, res, next) => {
   try {
     const { rows } = await db.query(
       `SELECT

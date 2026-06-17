@@ -38,8 +38,9 @@
     const token = localStorage.getItem('token');
     const content = document.getElementById('content');
     function esc(s){ return String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
-    const menu =
-      '<div class="card links">'
+    function menuFor(role){
+      return '<div class="card links">'
+        +(role==='seller' ? '<a href="/my-agreements.html">Seller Agreement &amp; signed documents</a>' : '')
         +'<a href="/my-bids.html">My Bids</a>'
         +'<a href="/watchlist.html">Watchlist</a>'
         +'<a href="/invoices.html">Past Invoices</a>'
@@ -47,6 +48,7 @@
         +'<a href="/add-card.html?next=%2Faccount.html">Update payment method</a>'
         +'<button type="button" class="logout" id="logout">Log out</button>'
       +'</div>';
+    }
     function profileCard(d){
       return '<div class="card"><h2>Profile</h2>'
         +'<div class="fld"><label>Email</label><input type="text" value="'+esc(d.email||'')+'" disabled></div>'
@@ -56,17 +58,18 @@
     }
     async function load(){
       if(!token){ content.className='empty'; content.innerHTML='Please <a href="/login.html?next=%2Faccount.html">log in</a> to view your account.'; return; }
-      let who = '<div class="card who"><strong>Signed in</strong></div>', prof = '';
+      let who = '<div class="card who"><strong>Signed in</strong></div>', prof = '', role = 'buyer';
       try{
         const r = await fetch('/api/auth/me', { headers:{ Authorization:'Bearer '+token } });
         if(r.status===401){ localStorage.removeItem('token'); content.className='empty'; content.innerHTML='Please <a href="/login.html?next=%2Faccount.html">log in</a> to view your account.'; return; }
         const d = await r.json();
         if(d.success && d.data){
-          who = '<div class="card who"><strong>'+esc(d.data.email||'Your account')+'</strong>'+esc((d.data.role||'buyer'))+'</div>';
+          role = d.data.role || 'buyer';
+          who = '<div class="card who"><strong>'+esc(d.data.email||'Your account')+'</strong>'+esc(role)+'</div>';
           prof = profileCard(d.data);
         }
       }catch(e){}
-      content.className=''; content.innerHTML = who + prof + menu;
+      content.className=''; content.innerHTML = who + prof + menuFor(role);
       const lo = document.getElementById('logout');
       if(lo) lo.addEventListener('click', () => { localStorage.removeItem('token'); location.href='/'; });
       const ps = document.getElementById('p-save');

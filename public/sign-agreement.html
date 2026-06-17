@@ -38,6 +38,8 @@
     <div class="card" id="doc-card" style="display:none">
       <div class="muted" id="terms-summary"></div>
       <div class="doc" id="doc-body"></div>
+      <div style="margin-top:0.8rem"><button class="ghost" id="dl-unsigned" type="button" style="display:none">Download unsigned copy</button></div>
+      <div class="err" id="dlu-err"></div>
     </div>
 
     <!-- Sign panel -->
@@ -82,6 +84,15 @@
     async function load() {
       try {
         var res, json;
+        // Onboarding entry (/sign-agreement.html?onboarding=1): resolve the seller's
+        // pending agreement id from the gate status, then load it authenticated.
+        if (!token && !idParam && qs.get('onboarding') && authToken) {
+          try {
+            var st = await (await fetch('/api/agreements/onboarding-status', { headers: { Authorization: 'Bearer ' + authToken } })).json();
+            if (st && st.success && st.data && st.data.agreement_id) { idParam = st.data.agreement_id; }
+            else { document.getElementById('meta').textContent = 'No seller agreement is awaiting your signature right now. If you expected one, please contact support.'; return; }
+          } catch (e) { document.getElementById('meta').innerHTML = '<span class="err">Could not check your onboarding status.</span>'; return; }
+        }
         if (token) {
           res = await fetch('/api/agreements/by-token/' + encodeURIComponent(token));
         } else if (idParam) {
@@ -103,6 +114,7 @@
         (agreement.expires_at ? '<br><span class="muted">Expires: ' + new Date(agreement.expires_at).toLocaleString() + '</span>' : '');
       document.getElementById('doc-card').style.display = '';
       document.getElementById('doc-body').textContent = agreement.rendered_body || '';
+      if (authToken) document.getElementById('dl-unsigned').style.display = '';
       var rv = agreement.resolved_variables || {};
       var keys = Object.keys(rv);
       document.getElementById('terms-summary').textContent = keys.length ? ('Key terms: ' + keys.map(function (k) { return k + ' = ' + rv[k]; }).join(' · ')) : '';
@@ -171,6 +183,19 @@
         if (res.ok && json.success && json.url) { window.open(json.url, '_blank'); }
         else { errEl.textContent = json.message || 'PDF not available yet.'; }
       } catch (e) { errEl.textContent = 'Network error.'; }
+    };
+
+    document.getElementById('dl-unsigned').onclick = async function () {
+      var e = document.getElementById('dlu-err'); e.textContent = '';
+      if (!authToken) { e.textContent = 'Log in to download.'; return; }
+      try {
+        var res = await fetch('/api/agreements/' + agreement.id + '/pdf?variant=unsigned', { headers: { Authorization: 'Bearer ' + authToken } });
+        if (!res.ok) { var j = await res.json().catch(function () { return {}; }); e.textContent = j.message || 'Unable to download.'; return; }
+        var blob = await res.blob(); var url = URL.createObjectURL(blob);
+        var a = document.createElement('a'); a.href = url; a.download = 'advantage-seller-agreement-' + agreement.id + '-unsigned.pdf';
+        document.body.appendChild(a); a.click(); a.remove();
+        setTimeout(function () { URL.revokeObjectURL(url); }, 10000);
+      } catch (err) { e.textContent = 'Network error.'; }
     };
 
     load();

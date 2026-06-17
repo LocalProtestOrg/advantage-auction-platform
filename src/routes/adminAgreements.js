@@ -227,4 +227,31 @@ router.post('/agreements/:id/revoke', idempotency, async (req, res, next) => {
   } catch (err) { mapAgreementErr(res, err, next); }
 });
 
+// ── Seller dashboard gate: status + admin waive/override ─────────────────────
+// Inspect a seller's gate state (signed / waived / grandfathered / required).
+router.get('/sellers/:sellerProfileId/gate', async (req, res, next) => {
+  try {
+    if (!isUuid(req.params.sellerProfileId)) return res.status(400).json({ success: false, message: 'Invalid seller id' });
+    return res.json({ success: true, data: await agreementService.dashboardAccess(req.params.sellerProfileId) });
+  } catch (err) { mapAgreementErr(res, err, next); }
+});
+
+// Waive the agreement gate for a seller (admin override / grandfather).
+router.post('/sellers/:sellerProfileId/waive', idempotency, async (req, res, next) => {
+  try {
+    if (!isUuid(req.params.sellerProfileId)) return res.status(400).json({ success: false, message: 'Invalid seller id' });
+    const row = await agreementService.waiveSellerGate(req.params.sellerProfileId, req.user.id, true);
+    return res.json({ success: true, data: row });
+  } catch (err) { mapAgreementErr(res, err, next); }
+});
+
+// Remove a previously granted waiver (re-impose the gate).
+router.delete('/sellers/:sellerProfileId/waive', idempotency, async (req, res, next) => {
+  try {
+    if (!isUuid(req.params.sellerProfileId)) return res.status(400).json({ success: false, message: 'Invalid seller id' });
+    const row = await agreementService.waiveSellerGate(req.params.sellerProfileId, req.user.id, false);
+    return res.json({ success: true, data: row });
+  } catch (err) { mapAgreementErr(res, err, next); }
+});
+
 module.exports = router;

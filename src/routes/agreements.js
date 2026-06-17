@@ -60,6 +60,13 @@ router.get('/mine', auth, async (req, res, next) => {
   catch (err) { handleErr(res, err, next); }
 });
 
+// Seller onboarding / dashboard-gate status for the authenticated user.
+// Drives the client redirect and dashboard render. Declared before /:id.
+router.get('/onboarding-status', auth, async (req, res, next) => {
+  try { return res.json({ success: true, data: await agreements.getOnboardingStatus(req.user.id) }); }
+  catch (err) { handleErr(res, err, next); }
+});
+
 // Authenticated single (owner or admin).
 router.get('/:id', auth, async (req, res, next) => {
   try {
@@ -86,12 +93,24 @@ router.post('/:id/sign', auth, idempotency, async (req, res, next) => {
   } catch (err) { handleErr(res, err, next); }
 });
 
-// Download signed PDF — owner or admin. Redirects to the stored Cloudinary URL.
+// Download PDF — owner or admin.
+//   ?variant=unsigned → stream an UNSIGNED review copy (generated on demand, not
+//                       stored); available before signing.
+//   default           → signed copy as a short-lived signed Cloudinary URL.
 router.get('/:id/pdf', auth, async (req, res, next) => {
   try {
     const a = await agreements.getById(req.params.id);
     if (!a) return res.status(404).json({ success: false, message: 'Not found' });
     if (a.seller_user_id !== req.user.id && req.user.role !== 'admin') return res.status(403).json({ success: false, message: 'Forbidden' });
+
+    if (req.query.variant === 'unsigned') {
+      if (!a.rendered_body) return res.status(409).json({ success: false, message: 'Agreement content not available' });
+      const buf = await pdfService.buildUnsignedPdfBuffer(a);
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename="advantage-seller-agreement-${a.id}-unsigned.pdf"`);
+      return res.send(buf);
+    }
+
     if (a.pdf_status !== 'stored' || !a.signed_pdf_public_id) return res.status(409).json({ success: false, message: 'Signed PDF not available yet' });
     // Return a short-lived signed URL (no permanent public access). Bearer auth
     // can't ride a browser navigation, so the client fetches this then opens the url.
