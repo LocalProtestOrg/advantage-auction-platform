@@ -14,7 +14,8 @@
     .then(function (j) {
       if (!j || !j.success || !j.data) return;
       var d = j.data;
-      if (!d.is_seller || d.dashboard_access) return; // not a seller, or access granted
+      if (!d.is_seller) return;
+      if (d.dashboard_access) { maybeVerificationBanner(); return; } // access granted; check docs
       if (d.agreement_id) {
         // A signable agreement exists - route the seller to sign it.
         location.replace('/sign-agreement.html?onboarding=1');
@@ -28,4 +29,20 @@
       }
     })
     .catch(function () { /* network errors are non-fatal; server still enforces the gate */ });
+
+  // Non-blocking notice when Advantage has requested verification documents.
+  // Verification is NEVER a dashboard gate - this only points the seller to upload.
+  function maybeVerificationBanner() {
+    fetch('/api/verification/requests/mine', { headers: { Authorization: 'Bearer ' + token } })
+      .then(function (r) { return r.json(); })
+      .then(function (j) {
+        if (!j || !j.success || !Array.isArray(j.data) || !j.data.length) return;
+        var bar = document.createElement('div');
+        bar.setAttribute('role', 'status');
+        bar.style.cssText = 'background:#dbeafe;color:#1e40af;padding:10px 16px;font:14px/1.4 -apple-system,Segoe UI,Roboto,sans-serif;text-align:center;';
+        bar.innerHTML = 'Advantage has requested verification documents for your account. <a href="/verify-documents.html" style="color:#1e3a8a;font-weight:600">Upload securely</a>.';
+        if (document.body) document.body.insertBefore(bar, document.body.firstChild);
+      })
+      .catch(function () {});
+  }
 })();

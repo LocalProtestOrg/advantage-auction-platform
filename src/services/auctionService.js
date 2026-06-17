@@ -4,6 +4,7 @@ const realtime = require('../lib/realtime'); // #1 real-time push (pg NOTIFY)
 const { writeAuditLog } = require('../lib/auditLog');
 const { getSellerPayoutPreference } = require('./payoutPreferenceService');
 const { validateAuctionSchedule, ScheduleRuleError, isProfessional } = require('./sellerTypeRules');
+const verificationService = require('./verificationService'); // publication gate (verification-required)
 
 // #18: default gap between consecutive lot closings (AAC timed model). Lot N
 // closes at start_time + N * this interval. Editable config is a post-launch
@@ -523,7 +524,7 @@ async function publishAuction(auctionId, actorId = null) {
     await client.query('BEGIN');
 
     const current = await client.query(
-      'SELECT id, state FROM auctions WHERE id = $1 FOR UPDATE',
+      'SELECT id, state, seller_id FROM auctions WHERE id = $1 FOR UPDATE',
       [auctionId]
     );
     if (!current.rows[0]) {
@@ -535,6 +536,17 @@ async function publishAuction(auctionId, actorId = null) {
     }
     if (state === 'closed') {
       throw new Error('Cannot publish a closed auction');
+    }
+
+    // Verification publication gate: ONLY blocks when the seller is explicitly
+    // flagged verification_required_before_publication AND has no approved
+    // verification. Normal publication is otherwise unchanged. (Sellers can still
+    // build/edit drafts regardless; this guards the publish transition only.)
+    const gate = await verificationService.publicationGate(current.rows[0].seller_id);
+    if (gate.blocked) {
+      const e = new Error('Verification is required before this auction can be published. Approve the seller\'s verification documents first.');
+      e.code = 'VERIFICATION_REQUIRED'; e.status = 422;
+      throw e;
     }
 
     // PUB-5: publish no longer overwrites seller-provided start_time/end_time.

@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="noindex" />
+  <title>Verification - Advantage Admin</title>
+  <style>
+    *{box-sizing:border-box}
+    body{font-family:-apple-system,Segoe UI,Roboto,sans-serif;margin:0;background:#f1f5f9;color:#1f2937}
+    .wrap{max-width:920px;margin:1.2rem auto;padding:0 1rem}
+    .card{background:#fff;border:1px solid #e5e7eb;border-radius:10px;padding:1rem 1.2rem;margin-bottom:1rem}
+    h1{font-size:1.15rem;margin:.2rem 0 .6rem}h2{font-size:1rem;margin:0 0 .5rem}
+    label{display:block;font-size:.82rem;color:#334155;margin:.5rem 0 .2rem}
+    input[type=text],textarea,select{width:100%;padding:.5rem;border:1px solid #cbd5e1;border-radius:6px;font:inherit}
+    .row{display:flex;gap:.5rem;flex-wrap:wrap}.row>*{flex:1;min-width:160px}
+    .cats{display:flex;flex-wrap:wrap;gap:.4rem .9rem}.cats label{display:flex;align-items:center;gap:.3rem;margin:0;font-size:.85rem}
+    button{background:#2563eb;color:#fff;border:0;border-radius:7px;padding:.5rem 1rem;font:inherit;cursor:pointer;margin-top:.6rem}
+    button.ghost{background:#e2e8f0;color:#1f2937}
+    .badge{display:inline-block;padding:.1rem .5rem;border-radius:999px;font-size:.72rem;font-weight:600;background:#e2e8f0}
+    .muted{color:#64748b;font-size:.85rem}.err{color:#dc2626;font-size:.85rem}.ok{color:#166534;font-size:.85rem}
+    .doc{border:1px solid #e5e7eb;border-radius:6px;padding:.5rem .7rem;margin:.4rem 0;font-size:.85rem}
+    .warn{background:#fef3c7;color:#92400e;border-radius:6px;padding:.4rem .6rem;margin:.3rem 0;font-size:.85rem}
+    a{color:#2563eb}
+  </style>
+</head>
+<body>
+  <script src="/widgets/shared/admin-nav.js"></script>
+  <div class="wrap">
+    <div class="card">
+      <h1>Seller Verification</h1>
+      <label for="sp">Seller profile ID</label>
+      <div class="row">
+        <input type="text" id="sp" placeholder="seller_profile uuid" />
+        <button id="loadBtn" style="flex:0 0 auto">Load</button>
+      </div>
+      <div class="muted" id="loadMsg"></div>
+    </div>
+
+    <div class="card" id="riskCard" style="display:none">
+      <h2>Risk and publication gate</h2>
+      <div class="row">
+        <div><label>Risk level</label><select id="risk"><option value="low">low</option><option value="medium">medium</option><option value="high">high</option></select></div>
+        <div><label>Verification required before publication</label><select id="vreq"><option value="false">No</option><option value="true">Yes</option></select></div>
+      </div>
+      <label>Internal risk notes</label><textarea id="rnotes" rows="2"></textarea>
+      <button id="saveRisk">Save risk settings</button> <span id="riskMsg"></span>
+      <div id="dups"></div>
+    </div>
+
+    <div class="card" id="reqCard" style="display:none">
+      <h2>Request verification documents</h2>
+      <div class="cats" id="cats"></div>
+      <label>Message to seller (optional)</label><textarea id="msg" rows="2" placeholder="What is needed and why"></textarea>
+      <button id="sendReq">Send request + email</button> <span id="reqMsg"></span>
+    </div>
+
+    <div class="card" id="listCard" style="display:none">
+      <h2>Requests and submitted documents</h2>
+      <div id="reqs"></div>
+    </div>
+  </div>
+  <script>
+    var token = localStorage.getItem('token');
+    var CATS = ['government_id','passport','business_license','tax_document','proof_of_ownership','receipt_invoice','estate_authority','probate_letter','other'];
+    var sp = '';
+    function H(p,opt){ opt=opt||{}; opt.headers=Object.assign({Authorization:'Bearer '+token},opt.headers||{}); return fetch(p,opt).then(function(r){return r.json().then(function(j){return {ok:r.ok,j:j};});}); }
+    function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,function(c){return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]);}); }
+
+    document.getElementById('cats').innerHTML = CATS.map(function(c){ return '<label><input type="checkbox" value="'+c+'"> '+c.replace(/_/g,' ')+'</label>'; }).join('');
+
+    document.getElementById('loadBtn').onclick = async function(){
+      sp = document.getElementById('sp').value.trim();
+      var m = document.getElementById('loadMsg'); m.className='muted'; m.textContent='Loading…';
+      if(!sp){ m.className='err'; m.textContent='Enter a seller profile id.'; return; }
+      var g = await H('/api/admin/verification/sellers/'+sp+'/publication-gate');
+      if(!g.ok){ m.className='err'; m.textContent=(g.j.message||'Not found'); return; }
+      document.getElementById('riskCard').style.display='';
+      document.getElementById('reqCard').style.display='';
+      document.getElementById('listCard').style.display='';
+      m.textContent='Publication gate: '+(g.j.data.blocked?'BLOCKED ('+g.j.data.reason+')':'not blocked ('+g.j.data.reason+')');
+      loadDups(); loadReqs();
+    };
+    async function loadDups(){
+      var d = await H('/api/admin/verification/sellers/'+sp+'/duplicates');
+      var el = document.getElementById('dups');
+      var w = (d.ok && d.j.data) || [];
+      el.innerHTML = w.length ? ('<div style="margin-top:.5rem"><strong>Duplicate signals:</strong>'+w.map(function(x){return '<div class="warn">'+esc(x.type)+': '+esc(x.value)+' ('+x.matches.length+' match)</div>';}).join('')+'</div>') : '<div class="muted" style="margin-top:.5rem">No duplicate signals.</div>';
+    }
+    document.getElementById('saveRisk').onclick = async function(){
+      var msg=document.getElementById('riskMsg'); msg.className=''; msg.textContent='Saving…';
+      var r = await H('/api/admin/verification/sellers/'+sp+'/risk',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({risk_level:document.getElementById('risk').value,risk_notes:document.getElementById('rnotes').value,verification_required_before_publication:document.getElementById('vreq').value==='true'})});
+      msg.className = (r.ok&&r.j.success)?'ok':'err'; msg.textContent = (r.ok&&r.j.success)?' Saved.':(' '+(r.j.message||'Failed'));
+      if(r.ok) document.getElementById('loadBtn').onclick();
+    };
+    document.getElementById('sendReq').onclick = async function(){
+      var msg=document.getElementById('reqMsg'); msg.className=''; msg.textContent='Sending…';
+      var cats = Array.prototype.slice.call(document.querySelectorAll('#cats input:checked')).map(function(i){return i.value;});
+      if(!cats.length){ msg.className='err'; msg.textContent=' Select at least one category.'; return; }
+      var r = await H('/api/admin/verification/sellers/'+sp+'/requests',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({categories:cats,message:document.getElementById('msg').value})});
+      msg.className=(r.ok&&r.j.success)?'ok':'err'; msg.textContent=(r.ok&&r.j.success)?' Request sent + emailed.':(' '+(r.j.message||'Failed'));
+      if(r.ok) loadReqs();
+    };
+    async function loadReqs(){
+      var r = await H('/api/admin/verification/sellers/'+sp+'/requests');
+      var reqs = (r.ok && r.j.data) || [];
+      document.getElementById('reqs').innerHTML = reqs.length ? reqs.map(reqHtml).join('') : '<div class="muted">No requests yet.</div>';
+      reqs.forEach(wire);
+    }
+    function reqHtml(r){
+      return '<div class="doc"><div><span class="badge">'+esc(r.status)+'</span> requested: '+esc((r.categories||[]).join(', '))+'</div>'
+        +'<div id="docs-'+esc(r.id)+'" class="muted">loading docs…</div>'
+        +'<div class="row"><button class="ghost" data-act="approve" data-req="'+esc(r.id)+'">Approve</button>'
+        +'<button class="ghost" data-act="more_info" data-req="'+esc(r.id)+'">Request more info</button>'
+        +'<button class="ghost" data-act="reject" data-req="'+esc(r.id)+'">Reject</button></div></div>';
+    }
+    function wire(r){
+      H('/api/admin/verification/requests/'+r.id).then(function(res){
+        var docs=(res.ok&&res.j.data&&res.j.data.documents)||[];
+        document.getElementById('docs-'+r.id).innerHTML = docs.length ? docs.map(function(d){
+          return '<div>'+esc(d.category)+' - <span class="badge">'+esc(d.status)+'</span> '+esc(d.original_filename||'')
+            +' <a href="#" data-dl="'+esc(d.id)+'">download</a></div>';
+        }).join('') : 'No documents uploaded yet.';
+        document.querySelectorAll('a[data-dl]').forEach(function(a){ a.onclick=async function(e){ e.preventDefault(); var f=await H('/api/admin/verification/documents/'+a.getAttribute('data-dl')+'/file'); if(f.ok&&f.j.url) window.open(f.j.url,'_blank'); }; });
+      });
+      document.querySelectorAll('button[data-req="'+r.id+'"]').forEach(function(b){
+        b.onclick=async function(){ await H('/api/admin/verification/requests/'+r.id+'/review',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({status:b.getAttribute('data-act')})}); document.getElementById('loadBtn').onclick(); };
+      });
+    }
+    if(!token){ document.querySelector('.wrap').innerHTML='<div class="card">Admin login required. <a href="/login.html">Log in</a></div>'; }
+  </script>
+</body>
+</html>

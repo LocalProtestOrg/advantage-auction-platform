@@ -192,6 +192,8 @@ const adminAgreementsRoutes     = require('./src/routes/adminAgreements');
 const adminBuyersRoutes         = require('./src/routes/adminBuyers');
 const adminUsersRoutes          = require('./src/routes/adminUsers');
 const agreementsRoutes          = require('./src/routes/agreements');
+const adminVerificationRoutes   = require('./src/routes/adminVerification');
+const verificationRoutes        = require('./src/routes/verification');
 
 // ── Database-backed routes (frontend API shape) ───────────────────────────────
 
@@ -219,10 +221,12 @@ app.use('/api/auth', authRoutes);
 app.use('/api/auctions', auctionRoutes);
 app.use('/api/payments', paymentRoutes);
 app.use('/api/admin/agreements', adminAgreementsRoutes);
+app.use('/api/admin/verification', adminVerificationRoutes);
 app.use('/api/admin/buyers', adminBuyersRoutes);
 app.use('/api/admin/users', adminUsersRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/agreements', agreementsRoutes);
+app.use('/api/verification', verificationRoutes);
 app.use('/api/lots', lotRoutes);
 app.use('/api/terms', termsRoutes);
 app.use('/api/marketing', marketingRoutes);

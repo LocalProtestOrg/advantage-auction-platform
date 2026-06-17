@@ -62,6 +62,8 @@ This Seller Consignment and Auction Services Agreement (this "Agreement") govern
 
 2.4 Execution of this Agreement enables the Seller's onboarding and seller dashboard access, but does not by itself grant full selling privileges. Seller account privileges remain subject to Advantage's approval. No auction or lot becomes public without Advantage's human review and approval, and Advantage may suspend or limit the Seller's privileges at any time for risk, noncompliance, or suspected fraud.
 
+2.5 Verification documents. Advantage does not require identity or verification documents to create a seller account or to begin building auctions. However, when Advantage determines it is reasonably necessary (for example, to confirm identity, ownership, authority to sell, or to address risk, legal, or compliance concerns), Advantage may request verification documents from the Seller, which may include government-issued identification, a passport, a business license, tax documentation, proof of ownership, a receipt or invoice, estate authority, or probate documentation. The Seller agrees to provide requested verification documents through the secure process Advantage provides. Where Advantage has flagged a Seller or auction as requiring verification, Advantage may decline to publish, or may pause, the affected auction until the requested verification is satisfactorily completed and approved.
+
 ## 3. Title, Authenticity, and Condition
 
 3.1 The Seller represents and warrants that it holds clear and marketable title to each item of Consigned Property, free of liens, security interests, and competing ownership claims, and has full authority to consign and sell each item.

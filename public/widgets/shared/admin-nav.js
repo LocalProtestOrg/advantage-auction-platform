@@ -30,6 +30,7 @@
     { href: '/admin/moderation.html', label: 'Moderation' },
     { href: '/admin/users.html', label: 'Users' },
     { href: '/admin/buyers.html', label: 'Buyers' },
+    { href: '/admin/verification.html', label: 'Verification' },
   ];
 
   function sameOriginReferrer() {

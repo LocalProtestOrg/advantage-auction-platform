@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="noindex" />
+  <title>Verification Documents - Advantage.Bid</title>
+  <style>
+    *{box-sizing:border-box}
+    body{font-family:-apple-system,Segoe UI,Roboto,sans-serif;margin:0;background:#f1f5f9;color:#1f2937}
+    .wrap{max-width:740px;margin:1.5rem auto;padding:0 1rem}
+    .card{background:#fff;border:1px solid #e5e7eb;border-radius:10px;padding:1.2rem 1.4rem;margin-bottom:1rem}
+    h1{font-size:1.2rem;margin:0 0 .3rem}
+    .muted{color:#64748b;font-size:.88rem}
+    .cat{border:1px solid #e5e7eb;border-radius:8px;padding:.8rem;margin:.6rem 0}
+    .cat h3{margin:0 0 .35rem;font-size:.95rem;text-transform:capitalize}
+    .badge{display:inline-block;padding:.1rem .55rem;border-radius:999px;font-size:.72rem;font-weight:600}
+    .b-submitted{background:#dbeafe;color:#1e40af}.b-approved{background:#dcfce7;color:#166534}
+    .b-rejected{background:#fee2e2;color:#991b1b}.b-more_info{background:#fef3c7;color:#92400e}
+    button{background:#2563eb;color:#fff;border:0;border-radius:7px;padding:.5rem 1rem;font:inherit;cursor:pointer}
+    button[disabled]{opacity:.5;cursor:not-allowed}
+    input[type=file]{font:inherit;margin:.3rem 0}
+    .err{color:#dc2626;font-size:.85rem}.ok{color:#166534;font-size:.85rem}
+    a{color:#2563eb}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <h1>Verification documents</h1>
+      <div class="muted">Advantage Auction has requested the documents below. Your files are stored privately and reviewed only by Advantage staff. You can keep using your seller dashboard while these are reviewed.</div>
+    </div>
+    <div id="list"></div>
+  </div>
+  <script>
+    var token = localStorage.getItem('token');
+    var list = document.getElementById('list');
+    var CAT_LABEL = {
+      government_id:'Government-issued ID', passport:'Passport', business_license:'Business license',
+      tax_document:'Tax document', proof_of_ownership:'Proof of ownership', receipt_invoice:'Receipt or invoice',
+      estate_authority:'Estate authority', probate_letter:'Probate letter', other:'Other document'
+    };
+    function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,function(c){return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]);}); }
+
+    async function load(){
+      if(!token){ list.innerHTML = '<div class="card">Please <a href="/login.html?next=%2Fverify-documents.html">log in</a> to view requested documents.</div>'; return; }
+      try{
+        var res = await fetch('/api/verification/requests/mine', { headers:{ Authorization:'Bearer '+token } });
+        var json = await res.json();
+        var reqs = (json && json.data) || [];
+        if(!reqs.length){ list.innerHTML = '<div class="card muted">No documents are requested right now. If Advantage needs anything, it will appear here.</div>'; return; }
+        list.innerHTML = reqs.map(reqCard).join('');
+        reqs.forEach(wireReq);
+      }catch(e){ list.innerHTML = '<div class="card err">Could not load requested documents. Please refresh.</div>'; }
+    }
+    function reqCard(r){
+      var cats = (r.categories||[]).map(function(c){
+        return '<div class="cat"><h3>'+esc(CAT_LABEL[c]||c)+'</h3>'
+          +'<input type="file" data-req="'+esc(r.id)+'" data-cat="'+esc(c)+'" accept="image/*,application/pdf" />'
+          +'<button data-up="'+esc(r.id)+'" data-cat="'+esc(c)+'">Upload</button>'
+          +'<span class="msg" data-msg="'+esc(r.id)+'-'+esc(c)+'"></span></div>';
+      }).join('');
+      return '<div class="card"><div class="muted">Requested '+(r.message?(': '+esc(r.message)):'')+'</div>'+cats+'</div>';
+    }
+    function wireReq(r){
+      (r.categories||[]).forEach(function(c){
+        var btn = document.querySelector('button[data-up="'+r.id+'"][data-cat="'+c+'"]');
+        if(!btn) return;
+        btn.addEventListener('click', function(){ upload(r.id, c, btn); });
+      });
+    }
+    function upload(reqId, cat, btn){
+      var msg = document.querySelector('span[data-msg="'+reqId+'-'+cat+'"]');
+      var fileEl = document.querySelector('input[type=file][data-req="'+reqId+'"][data-cat="'+cat+'"]');
+      msg.className='msg'; msg.textContent='';
+      var f = fileEl && fileEl.files && fileEl.files[0];
+      if(!f){ msg.className='msg err'; msg.textContent=' Choose a file first.'; return; }
+      if(f.size > 15*1024*1024){ msg.className='msg err'; msg.textContent=' File exceeds 15 MB.'; return; }
+      var reader = new FileReader();
+      reader.onload = async function(){
+        btn.disabled = true; msg.textContent=' Uploading…';
+        try{
+          var res = await fetch('/api/verification/requests/'+reqId+'/documents', {
+            method:'POST', headers:{ 'Content-Type':'application/json', Authorization:'Bearer '+token },
+            body: JSON.stringify({ category:cat, filename:f.name, content_type:f.type, data_base64:String(reader.result) })
+          });
+          var json = await res.json();
+          if(res.ok && json.success){ msg.className='msg ok'; msg.textContent=' Uploaded. Status: '+json.data.status+'.'; btn.disabled=true; }
+          else { msg.className='msg err'; msg.textContent=' '+(json.message||'Upload failed.'); btn.disabled=false; }
+        }catch(e){ msg.className='msg err'; msg.textContent=' Network error.'; btn.disabled=false; }
+      };
+      reader.readAsDataURL(f);
+    }
+    load();
+  </script>
+</body>
+</html>
