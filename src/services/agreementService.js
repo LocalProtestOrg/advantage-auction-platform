@@ -253,15 +253,73 @@ async function dashboardAccess(sellerProfileId) {
   return { access: false, reason: 'agreement_required', agreement_id: pending ? pending.id : null };
 }
 
+// Auto-send the current Seller Agreement to a seller who has none yet. Idempotent
+// and side-effect-safe: skips waived sellers and sellers who already have a live or
+// signed agreement. Never throws (onboarding/registration must not crash). Resolves
+// the template's required variables from platform defaults (effective_terms_defaults)
+// + the seller's account identity, so no admin is needed.
+async function autoSendAgreement(sellerProfileId, actorId = null) {
+  try {
+    const sp = (await db.query(
+      `SELECT sp.id, sp.seller_type, sp.agreement_waived_at, u.email, u.full_name
+         FROM seller_profiles sp JOIN users u ON u.id = sp.user_id WHERE sp.id = $1`, [sellerProfileId])).rows[0];
+    if (!sp) return { status: 'no_seller' };
+    if (sp.agreement_waived_at) return { status: 'waived' };
+    const existing = (await db.query(
+      `SELECT id FROM agreements WHERE seller_profile_id = $1
+         AND status IN ('draft','sent','viewed','signed','countersigned') ORDER BY created_at DESC LIMIT 1`, [sellerProfileId])).rows[0];
+    if (existing) return { status: 'exists', agreement_id: existing.id };
+
+    const tpl = (await db.query(
+      `SELECT id FROM agreement_templates
+        WHERE agreement_type = $1 AND is_active = true AND current_version_id IS NOT NULL
+        ORDER BY updated_at DESC LIMIT 1`, [sp.seller_type || 'private'])).rows[0];
+    if (!tpl) {
+      await writeAuditLog({ event_type: 'seller_agreement_autosend_no_template', entity_type: 'seller_profile', entity_id: sellerProfileId, actor_id: actorId,
+        metadata: { seller_type: sp.seller_type, alert: 'No active agreement template for this seller_type. Staff must author/activate one or send manually.' } });
+      console.error('[onboarding] ALERT no active agreement template for seller_type=' + (sp.seller_type || 'private') + ' (seller ' + sellerProfileId + '); cannot auto-send.');
+      return { status: 'missing_template' };
+    }
+    const who = (sp.full_name && sp.full_name.trim()) ? sp.full_name.trim() : sp.email;
+    const overrides = {
+      effective_date: new Date().toISOString().slice(0, 10),
+      seller_type: sp.seller_type || 'private',
+      legal_name: who, signatory_name: who,
+    };
+    try {
+      const { agreement } = await sendAgreement({ sellerProfileId, overrides, actorId });
+      await writeAuditLog({ event_type: 'seller_agreement_autosent', entity_type: 'agreement', entity_id: agreement.id, actor_id: actorId, metadata: { seller_profile_id: sellerProfileId } });
+      return { status: 'sent', agreement_id: agreement.id };
+    } catch (e) {
+      await writeAuditLog({ event_type: 'seller_agreement_autosend_failed', entity_type: 'seller_profile', entity_id: sellerProfileId, actor_id: actorId,
+        metadata: { code: e.code, message: e.message, alert: 'Auto-send failed (likely unresolved required variables). Staff should review and send manually.' } });
+      console.error('[onboarding] auto-send failed for seller ' + sellerProfileId + ': ' + e.message);
+      return { status: 'failed', code: e.code };
+    }
+  } catch (e) {
+    console.error('[onboarding] autoSendAgreement error for seller ' + sellerProfileId + ': ' + e.message);
+    return { status: 'error' };
+  }
+}
+
 async function getOnboardingStatus(userId) {
   const sp = (await db.query('SELECT id FROM seller_profiles WHERE user_id = $1', [userId])).rows[0];
   if (!sp) return { is_seller: false, dashboard_access: true, required: false, reason: 'not_a_seller', agreement_id: null };
-  const g = await dashboardAccess(sp.id);
+  let g = await dashboardAccess(sp.id);
+  // Auto-send on first check: a seller who is blocked with no agreement yet (not
+  // waived, not grandfathered) gets the current agreement created+sent now, so they
+  // are never waiting on an admin. Idempotent; recompute after.
+  let autosend = null;
+  if (!g.access && g.reason === 'agreement_required' && !g.agreement_id) {
+    autosend = await autoSendAgreement(sp.id, null);
+    g = await dashboardAccess(sp.id);
+  }
+  const reason = (autosend && autosend.status === 'missing_template' && !g.access) ? 'missing_template' : g.reason;
   return {
     is_seller: true, seller_profile_id: sp.id,
     dashboard_access: g.access, required: !g.access,
     signed: g.reason === 'signed', waived: g.reason === 'waived', grandfathered: g.reason === 'grandfathered',
-    reason: g.reason, agreement_id: g.agreement_id,
+    reason, agreement_id: g.agreement_id,
   };
 }
 
@@ -322,5 +380,5 @@ module.exports = {
   AgreementError, hashToken,
   sendAgreement, getById, getByToken, markViewed, listForSeller, listAll, getSignatures,
   signAgreement, resend, reissue, revoke, expireOverdue,
-  emailSignedPdf, dashboardAccess, getOnboardingStatus, waiveSellerGate,
+  emailSignedPdf, dashboardAccess, getOnboardingStatus, waiveSellerGate, autoSendAgreement,
 };

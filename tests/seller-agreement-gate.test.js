@@ -123,3 +123,46 @@ describe('emailSignedPdf', () => {
     expect(sendEmail).not.toHaveBeenCalled();
   });
 });
+
+describe('autoSendAgreement (idempotent, failure-safe)', () => {
+  test('waived seller → skipped (no send)', async () => {
+    route([['sp.seller_type', [{ id: 'sp1', seller_type: 'private', agreement_waived_at: '2026-06-17', email: 'x@y.com', full_name: 'X' }]]]);
+    expect(await svc.autoSendAgreement('sp1')).toEqual({ status: 'waived' });
+  });
+
+  test('seller already has a live agreement → exists (no duplicate)', async () => {
+    route([
+      ['sp.seller_type', [{ id: 'sp1', seller_type: 'private', agreement_waived_at: null, email: 'x@y.com', full_name: 'X' }]],
+      ["status in ('draft'", [{ id: 'EX1' }]],
+    ]);
+    expect(await svc.autoSendAgreement('sp1')).toEqual({ status: 'exists', agreement_id: 'EX1' });
+  });
+
+  test('no active template → missing_template (no crash, audited)', async () => {
+    const { writeAuditLog } = require('../src/lib/auditLog');
+    route([
+      ['sp.seller_type', [{ id: 'sp1', seller_type: 'private', agreement_waived_at: null, email: 'x@y.com', full_name: 'X' }]],
+      ["status in ('draft'", []],
+      ['from agreement_templates', []],
+    ]);
+    expect(await svc.autoSendAgreement('sp1')).toEqual({ status: 'missing_template' });
+    expect(writeAuditLog).toHaveBeenCalledWith(expect.objectContaining({ event_type: 'seller_agreement_autosend_no_template' }));
+  });
+});
+
+describe('getOnboardingStatus auto-send wiring', () => {
+  test('blocked seller with no agreement + no template → reason missing_template', async () => {
+    route([
+      ['where user_id', [{ id: 'sp1' }]],                                    // getOnboardingStatus seller lookup
+      ['agreement_waived_at', [{ id: 'sp1', agreement_waived_at: null }]],   // dashboardAccess
+      ["status in ('signed'", []],
+      ['from auctions', []],
+      ["status in ('sent'", []],
+      ['sp.seller_type', [{ id: 'sp1', seller_type: 'private', agreement_waived_at: null, email: 'x@y.com', full_name: 'X' }]], // autoSend seller+user
+      ["status in ('draft'", []],                                            // autoSend existing check
+      ['from agreement_templates', []],                                      // autoSend template lookup → none
+    ]);
+    const r = await svc.getOnboardingStatus('user-1');
+    expect(r).toMatchObject({ is_seller: true, dashboard_access: false, required: true, reason: 'missing_template', agreement_id: null });
+  });
+});

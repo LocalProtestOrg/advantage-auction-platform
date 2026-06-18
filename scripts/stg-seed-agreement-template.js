@@ -31,6 +31,19 @@ const VARIABLE_SCHEMA = [
   { key: 'governing_state', type: 'string', source: 'manual', required: true },
 ];
 
+// Platform-standard defaults so the agreement can AUTO-SEND to a new seller without
+// an admin: these fill the required process/financial/contact variables. (effective_date,
+// seller_type, legal_name, signatory_name are supplied per-seller at auto-send time.)
+// NOTE: confirm the fee schedule (commission %, etc.) reflects the real platform standard.
+const EFFECTIVE_DEFAULTS = {
+  commission_pct: 15,
+  settlement_terms: 'Net proceeds within 14 days of buyer payment.',
+  payout_schedule: '14 days after auction close',
+  governing_state: 'Tennessee',
+  seller_address: 'On file with Advantage Auction',
+  seller_phone: 'On file with Advantage Auction',
+};
+
 function extractBody() {
   const md = fs.readFileSync(path.join(__dirname, '..', 'docs', 'seller-agreement-v1-content.md'), 'utf8');
   const start = md.indexOf('## Agreement body');
@@ -59,9 +72,9 @@ function extractBody() {
        ON CONFLICT (id) DO UPDATE SET name=EXCLUDED.name, is_active=true, updated_at=now()`, [TEMPLATE]);
     await c.query(
       `INSERT INTO agreement_template_versions (id, template_id, version_int, body_markdown, variable_schema, effective_terms_defaults)
-       VALUES ($1,$2,1,$3,$4::jsonb,'{}'::jsonb)
-       ON CONFLICT (id) DO UPDATE SET body_markdown=EXCLUDED.body_markdown, variable_schema=EXCLUDED.variable_schema`,
-      [VERSION, TEMPLATE, body, JSON.stringify(VARIABLE_SCHEMA)]);
+       VALUES ($1,$2,1,$3,$4::jsonb,$5::jsonb)
+       ON CONFLICT (id) DO UPDATE SET body_markdown=EXCLUDED.body_markdown, variable_schema=EXCLUDED.variable_schema, effective_terms_defaults=EXCLUDED.effective_terms_defaults`,
+      [VERSION, TEMPLATE, body, JSON.stringify(VARIABLE_SCHEMA), JSON.stringify(EFFECTIVE_DEFAULTS)]);
     await c.query(`UPDATE agreement_templates SET current_version_id=$1, updated_at=now() WHERE id=$2`, [VERSION, TEMPLATE]);
     await c.query('COMMIT');
   } catch (e) { await c.query('ROLLBACK').catch(() => {}); console.error('FAIL', e.message); c.release(); await pool.end(); return 1; }
