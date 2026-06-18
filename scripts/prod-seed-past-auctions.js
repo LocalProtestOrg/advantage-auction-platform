@@ -35,8 +35,8 @@ const AUCTIONS = [
   { id: A2, title: 'Modern Design & Decor', subtitle: 'Sample past auction results',
     startISO: '2026-05-20 15:00:00+00', endISO: '2026-05-23 23:00:00+00', cover: 'photo-1555041469-a586c61ea9bc',
     lots: [
-      { t: 'Mid-Century Lounge Chair', cat: 'Furniture', s: 'L', pk: 'C', start: 12000, sold: 38000, bids: 13, img: 'photo-1586023492125-27b2c045efd7' },
-      { t: 'Brass Arc Floor Lamp', cat: 'Home Decor', s: 'M', pk: 'B', start: 4000, sold: 12500, bids: 6, img: 'photo-1543159006-2e0c69cfe5b1' },
+      { t: 'Mid-Century Lounge Chair', cat: 'Furniture', s: 'C', pk: 'C', start: 12000, sold: 38000, bids: 13, img: 'photo-1586023492125-27b2c045efd7' },
+      { t: 'Brass Arc Floor Lamp', cat: 'Home Decor', s: 'B', pk: 'B', start: 4000, sold: 12500, bids: 6, img: 'photo-1543159006-2e0c69cfe5b1' },
       { t: 'Abstract Oil on Canvas', cat: 'Fine Art', s: 'B', pk: 'B', start: 10000, sold: 47000, bids: 16, img: 'photo-1549887534-1541e9326642' },
       { t: 'Set of Six Walnut Dining Chairs', cat: 'Furniture', s: 'C', pk: 'C', start: 9000, sold: 27500, bids: 10, img: 'photo-1503602642458-232111445657' },
     ] },
@@ -90,7 +90,7 @@ const AUCTIONS = [
       `SELECT COUNT(*)::int closed_nonarch FROM auctions WHERE state='closed' AND is_archived=false`)).rows[0];
     const pay = (await c.query(`SELECT COUNT(*)::int n FROM payments WHERE auction_id = ANY($1::uuid[])`, [CURATED])).rows[0].n;
     const inv = (await c.query(`SELECT COUNT(*)::int n FROM invoices WHERE auction_id = ANY($1::uuid[])`, [CURATED])).rows[0].n;
-    const lots = (await c.query(`SELECT COUNT(*)::int n, COUNT(*) FILTER (WHERE state='closed' AND winning_amount_cents IS NOT NULL) sold, COUNT(*) FILTER (WHERE winning_buyer_user_id IS NOT NULL) realbuyer FROM lots WHERE auction_id = ANY($1::uuid[])`, [CURATED])).rows[0];
+    const lots = (await c.query(`SELECT COUNT(*)::int n, COUNT(*) FILTER (WHERE state='closed' AND winning_amount_cents IS NOT NULL)::int sold, COUNT(*) FILTER (WHERE winning_buyer_user_id IS NOT NULL)::int realbuyer FROM lots WHERE auction_id = ANY($1::uuid[])`, [CURATED])).rows[0];
     console.log('Archived ' + archived.rowCount + ' non-curated closed auction(s).');
     console.log('Curated past auctions: ' + CURATED.length + ' | lots=' + lots.n + ' sold=' + lots.sold + ' real-buyers=' + lots.realbuyer + ' (expect 0)');
     console.log('Closed non-archived auctions total now: ' + v.closed_nonarch + ' (expect ' + CURATED.length + ')');
