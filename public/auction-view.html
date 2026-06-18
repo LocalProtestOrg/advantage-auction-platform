@@ -223,7 +223,9 @@
     }
     .status-open      { background: #dcfce7; color: #15803d; }
     .status-closed    { background: #fee2e2; color: #b91c1c; }
+    .status-sold      { background: #16a34a; color: #ffffff; }
     .status-withdrawn { background: #f4f4f5; color: #71717a; }
+    .card-bids        { font-size: 12px; color: #475569; font-weight: 600; margin-top: 2px; }
 
     /* Card body */
     .card-body {
@@ -1004,9 +1006,10 @@
       showPlaceholder(imgWrap);
     }
     const st = (lot.state || 'open').toLowerCase();
+    const soldLike = (st === 'closed') && Number(lot.bid_count) > 0;
     const sbadge = document.createElement('div');
-    sbadge.className   = 'status-badge status-' + (st === 'open' ? 'open' : st === 'closed' ? 'closed' : 'withdrawn');
-    sbadge.textContent = st === 'open' ? 'Live' : st === 'closed' ? 'Closed' : 'Withdrawn';
+    sbadge.className   = 'status-badge ' + (st === 'open' ? 'status-open' : soldLike ? 'status-sold' : st === 'closed' ? 'status-closed' : 'status-withdrawn');
+    sbadge.textContent = st === 'open' ? 'Live' : soldLike ? 'SOLD' : st === 'closed' ? 'Closed' : 'Withdrawn';
     imgWrap.appendChild(sbadge);
     imgLink.appendChild(imgWrap);
     card.appendChild(imgLink);
@@ -1047,6 +1050,15 @@
       catEl.className   = 'card-category';
       catEl.textContent = lot.category;
       body.appendChild(catEl);
+    }
+
+    // Bid-activity metric on closed/sold lots (bid_count is not a realized price, so it
+    // stays visible to anonymous users per the #20.1 privacy rule).
+    if (st === 'closed' && Number(lot.bid_count) > 0) {
+      const bidsEl = document.createElement('div');
+      bidsEl.className   = 'card-bids';
+      bidsEl.textContent = lot.bid_count + (Number(lot.bid_count) === 1 ? ' bid' : ' bids') + ' · Sold';
+      body.appendChild(bidsEl);
     }
 
     // Current bid + next-min (server-authoritative)

@@ -17,25 +17,47 @@
  */
 const { Pool } = require('pg');
 
-const IMG = (id) => `https://images.unsplash.com/${id}?w=900&h=675&fit=crop&q=80`;
 const OLD_CURATED = ['5b000000-0000-4000-8000-000000000010', '5b000000-0000-4000-8000-000000000020'];
+
+// Inline SVG "catalog tile" data-URI. Category-specific (gradient + category label),
+// deterministic, and UNIQUE per lot (each renders its own item title + "LOT n"), so a
+// tile can never mismatch its subject and no two lots share an image. CSP is disabled
+// app-wide, so data: image URIs render in <img>. No external stock dependency.
+function svgEsc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+function wrapText(s, max) { const out = []; let line = ''; for (const w of String(s).split(' ')) { if ((line + ' ' + w).trim().length > max) { if (line) out.push(line.trim()); line = w; } else line += ' ' + w; } if (line.trim()) out.push(line.trim()); return out.slice(0, 3); }
+function tile(label, title, c1, c2, lotNo) {
+  const lines = wrapText(title, 22);
+  const tspans = lines.map((ln, i) => `<tspan x='40' dy='${i === 0 ? 0 : 44}'>${svgEsc(ln)}</tspan>`).join('');
+  const lotTag = lotNo ? `<text x='604' y='62' text-anchor='end' fill='#cbd5e1' font-family='Arial, sans-serif' font-size='18' letter-spacing='1'>LOT ${svgEsc(String(lotNo))}</text>` : '';
+  const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='640' height='480'>`
+    + `<defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'><stop offset='0' stop-color='${c1}'/><stop offset='1' stop-color='${c2}'/></linearGradient></defs>`
+    + `<rect width='640' height='480' fill='url(#g)'/>`
+    + `<rect x='14' y='14' width='612' height='452' fill='none' stroke='rgba(255,255,255,0.18)' stroke-width='2'/>`
+    + `<text x='40' y='66' fill='#e2e8f0' font-family='Georgia, serif' font-size='20' letter-spacing='3'>ADVANTAGE.BID</text>`
+    + lotTag
+    + `<text x='40' y='220' fill='#ffffff' font-family='Georgia, serif' font-size='34' font-weight='700'>${tspans}</text>`
+    + `<text x='40' y='430' fill='#cbd5e1' font-family='Arial, sans-serif' font-size='19' letter-spacing='1'>${svgEsc(label)}</text>`
+    + `</svg>`;
+  return 'data:image/svg+xml,' + encodeURIComponent(svg);
+}
+const COVER = (title) => tile(title, 'Sample Auction Results', '#0f172a', '#1d4ed8', '');
 
 // Deterministic pseudo-random in [0,1) from an integer seed (stable across runs).
 function prng(s) { const x = Math.sin(s * 12.9898 + 78.233) * 43758.5453; return x - Math.floor(x); }
 
-// category -> size/pickup + sold-value range (cents) + image pool
+// category -> size/pickup + sold-value range (cents) + tile gradient [c1,c2]
 const CAT = {
-  'Jewelry':              { s: 'A', pk: 'A', lo: 18000,  hi: 950000,  imgs: ['photo-1605100804763-247f67b3557e','photo-1515562141207-7a88fb7ce338','photo-1611652022419-a9419f74343d','photo-1535632066927-ab7c9ab60908'] },
-  'Watches':              { s: 'A', pk: 'A', lo: 25000,  hi: 750000,  imgs: ['photo-1523170335258-f5ed11844a49','photo-1524805444758-089113d48a6d'] },
-  'Fine Art':             { s: 'B', pk: 'B', lo: 30000,  hi: 1800000, imgs: ['photo-1578321272176-b7bbc0679853','photo-1549887534-1541e9326642','photo-1577083552431-6e5fd75a9160','photo-1531913764164-f85c52e6e654'] },
-  'Sculpture':            { s: 'B', pk: 'B', lo: 35000,  hi: 900000,  imgs: ['photo-1578926375605-eaf7559b1458','photo-1564399580075-5dfe19c205f3'] },
-  'Antiques':             { s: 'B', pk: 'B', lo: 9000,   hi: 320000,  imgs: ['photo-1610701596007-11502861dcfa','photo-1578500494198-246f612d3b3d','photo-1495856458515-0637185db551'] },
-  'Furniture':            { s: 'C', pk: 'C', lo: 15000,  hi: 620000,  imgs: ['photo-1518455027359-f3f8164ba6bd','photo-1586023492125-27b2c045efd7','photo-1503602642458-232111445657','photo-1555041469-a586c61ea9bc'] },
-  'Home Decor':           { s: 'B', pk: 'B', lo: 5000,   hi: 280000,  imgs: ['photo-1543198126-c3e1c0a9d6d2','photo-1543159006-2e0c69cfe5b1','photo-1600166898405-da9535204843','photo-1513519245088-0e12902e35ca'] },
-  'Clocks & Timepieces':  { s: 'A', pk: 'B', lo: 8000,   hi: 240000,  imgs: ['photo-1495856458515-0637185db551','photo-1509048191080-d2984bad6ae5'] },
-  'Pottery & Ceramics':   { s: 'B', pk: 'B', lo: 7000,   hi: 180000,  imgs: ['photo-1578500494198-246f612d3b3d','photo-1610701596007-11502861dcfa'] },
-  'Coins & Currency':     { s: 'A', pk: 'A', lo: 9000,   hi: 480000,  imgs: ['photo-1621416894569-0f39ed31d247','photo-1610375461246-83df859d849d'] },
-  'Collectibles':         { s: 'A', pk: 'B', lo: 5000,   hi: 360000,  imgs: ['photo-1605792657660-596af9009e82','photo-1606166187734-a4cb74079037'] },
+  'Jewelry':              { s: 'A', pk: 'A', lo: 18000,  hi: 950000,  c: ['#1e1b4b', '#6d28d9'] },
+  'Watches':              { s: 'A', pk: 'A', lo: 25000,  hi: 750000,  c: ['#0f172a', '#334155'] },
+  'Fine Art':             { s: 'B', pk: 'B', lo: 30000,  hi: 1800000, c: ['#1e293b', '#9a3412'] },
+  'Sculpture':            { s: 'B', pk: 'B', lo: 35000,  hi: 900000,  c: ['#1f2937', '#57534e'] },
+  'Antiques':             { s: 'B', pk: 'B', lo: 9000,   hi: 320000,  c: ['#292524', '#78716c'] },
+  'Furniture':            { s: 'C', pk: 'C', lo: 15000,  hi: 620000,  c: ['#1c1917', '#92400e'] },
+  'Home Decor':           { s: 'B', pk: 'B', lo: 5000,   hi: 280000,  c: ['#0f172a', '#155e75'] },
+  'Clocks & Timepieces':  { s: 'A', pk: 'B', lo: 8000,   hi: 240000,  c: ['#111827', '#3730a3'] },
+  'Pottery & Ceramics':   { s: 'B', pk: 'B', lo: 7000,   hi: 180000,  c: ['#1e293b', '#166534'] },
+  'Coins & Currency':     { s: 'A', pk: 'A', lo: 9000,   hi: 480000,  c: ['#1f2937', '#a16207'] },
+  'Collectibles':         { s: 'A', pk: 'B', lo: 5000,   hi: 360000,  c: ['#18181b', '#3f3f46'] },
 };
 const DESC = ['', 'Antique ', 'Vintage ', 'Estate ', 'Mid-Century ', 'Pair of ', 'Set of Four ', '19th Century ', 'Early 20th Century ', 'Signed '];
 const ERA = ['', ', c. 1900', ', c. 1925', ', c. 1950', ', c. 1965', ', mid-20th century', ', Victorian era'];
@@ -86,7 +108,7 @@ const THEMES = [
          ON CONFLICT (id) DO UPDATE SET title=EXCLUDED.title, subtitle=EXCLUDED.subtitle, description=EXCLUDED.description,
            state='closed', is_archived=false, end_time=EXCLUDED.end_time, cover_image_url=EXCLUDED.cover_image_url, banner_image_url=EXCLUDED.banner_image_url`,
         [aid, SELLER_SP, th.title, th.subtitle,
-         'Sample auction results shown to demonstrate the Advantage.Bid selling experience. Demonstration data; not a record of an actual sale.', IMG(th.cover)]);
+         'Sample auction results shown to demonstrate the Advantage.Bid selling experience. Demonstration data; not a record of an actual sale.', COVER(th.title)]);
       for (let i = 1; i <= th.count; i++) {
         g += 1;
         const base = th.items[(i - 1) % th.items.length];
@@ -96,7 +118,7 @@ const THEMES = [
         const title = (desc + base[0] + era).slice(0, 140);
         const sold = Math.round((meta.lo + Math.floor(prng(g + 1) * (meta.hi - meta.lo))) / 500) * 500;
         const bids = 3 + Math.floor(prng(g + 2) * 28);
-        const img = IMG(meta.imgs[Math.floor(prng(g + 3) * meta.imgs.length)]);
+        const img = tile(base[1], title, meta.c[0], meta.c[1], i);
         const lid = `5b00000${th.n}-0000-4000-8000-${String(i).padStart(12, '0')}`;
         await c.query(
           `INSERT INTO lots (id, auction_id, lot_number, title, description, category, size_category, pickup_category,
@@ -107,7 +129,8 @@ const THEMES = [
              winning_amount_cents=EXCLUDED.winning_amount_cents, bid_count=EXCLUDED.bid_count, state='closed', thumbnail_url=EXCLUDED.thumbnail_url`,
           [lid, aid, i, title, 'Sold through Advantage.Bid. Sample lot shown for demonstration of past auction results.',
            base[1], meta.s, meta.pk, Math.max(100, Math.round(sold * 0.3 / 500) * 500), sold, bids, i <= 3, img]);
-        await c.query(`INSERT INTO lot_images (lot_id, image_url, sort_order) SELECT $1,$2,0 WHERE NOT EXISTS (SELECT 1 FROM lot_images WHERE lot_id=$1)`, [lid, img]);
+        await c.query(`DELETE FROM lot_images WHERE lot_id=$1`, [lid]);
+        await c.query(`INSERT INTO lot_images (lot_id, image_url, sort_order) VALUES ($1,$2,0)`, [lid, img]);
       }
     }
 
@@ -118,10 +141,22 @@ const THEMES = [
     const tot = (await c.query(`SELECT COUNT(*)::int n, COUNT(*) FILTER (WHERE winning_amount_cents IS NOT NULL)::int sold, COUNT(*) FILTER (WHERE winning_buyer_user_id IS NOT NULL)::int realbuyer, COALESCE(SUM(bid_count),0)::int bids FROM lots WHERE auction_id = ANY($1::uuid[])`, [curatedIds])).rows[0];
     const pay = (await c.query(`SELECT COUNT(*)::int n FROM payments WHERE auction_id = ANY($1::uuid[])`, [curatedIds])).rows[0].n;
     const inv = (await c.query(`SELECT COUNT(*)::int n FROM invoices WHERE auction_id = ANY($1::uuid[])`, [curatedIds])).rows[0].n;
+    // Image integrity: every lot has a category tile, all data: URIs (no external stock /
+    // placeholders), and images are UNIQUE within each auction (no duplicates).
+    const imgChk = (await c.query(
+      `SELECT COUNT(*) FILTER (WHERE thumbnail_url NOT LIKE 'data:image/svg%')::int nondatatile,
+              COUNT(*) FILTER (WHERE thumbnail_url IS NULL OR thumbnail_url = '')::int missing
+         FROM lots WHERE auction_id = ANY($1::uuid[])`, [curatedIds])).rows[0];
+    const dup = (await c.query(
+      `SELECT COALESCE(SUM(GREATEST(c-1,0)),0)::int dupes FROM (
+         SELECT auction_id, thumbnail_url, COUNT(*) c FROM lots WHERE auction_id = ANY($1::uuid[])
+         GROUP BY auction_id, thumbnail_url HAVING COUNT(*) > 1) s`, [curatedIds])).rows[0].dupes;
     console.log('Curated auctions: ' + cur + ' (expect 6) | per-auction lots min=' + lc.mn + ' max=' + lc.mx);
     console.log('Total curated lots: ' + tot.n + ' sold=' + tot.sold + ' total_bids=' + tot.bids + ' real-buyers=' + tot.realbuyer + ' (expect 0)');
+    console.log('Images: non-data-tile=' + imgChk.nondatatile + ' missing=' + imgChk.missing + ' duplicate-within-auction=' + dup + ' (expect 0/0/0)');
     console.log('payments=' + pay + ' invoices=' + inv + ' (expect 0/0) | closed non-archived auctions total: ' + v.closed_nonarch);
-    const pass = cur === 6 && lc.mn >= 35 && lc.mx <= 45 && tot.n >= 230 && tot.sold === tot.n && tot.realbuyer === 0 && pay === 0 && inv === 0 && v.closed_nonarch === 6;
+    const pass = cur === 6 && lc.mn >= 35 && lc.mx <= 45 && tot.n >= 230 && tot.sold === tot.n && tot.realbuyer === 0 && pay === 0 && inv === 0 && v.closed_nonarch === 6
+      && imgChk.nondatatile === 0 && imgChk.missing === 0 && dup === 0;
     console.log('RESULT: ' + (pass ? 'PASS' : 'FAIL'));
     return pass ? 0 : 1;
   } catch (e) { console.error('FATAL', e.message); console.error(e.stack); return 1; }
