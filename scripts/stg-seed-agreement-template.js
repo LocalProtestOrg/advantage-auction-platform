@@ -13,34 +13,21 @@ const { Pool } = require('pg');
 const TEMPLATE = 'ab000000-0000-4000-8000-000000000001';
 const VERSION  = 'ab000000-0000-4000-8000-000000000002';
 
+// Financial + governing terms are FIXED PROSE in the body (0% commission, 18% buyer
+// premium, 3% processing fee, 14-day payout, Michigan), so they are NOT variables and
+// can never leave an unresolved placeholder. Only per-seller identity/date vars remain.
 const VARIABLE_SCHEMA = [
   { key: 'legal_name', type: 'string', source: 'identity', required: true },
-  { key: 'company_name', type: 'string', source: 'identity' },
   { key: 'signatory_name', type: 'string', source: 'identity', required: true },
-  { key: 'signatory_title', type: 'string', source: 'identity' },
-  { key: 'seller_address', type: 'string', source: 'manual', required: true },
+  { key: 'seller_address', type: 'string', source: 'manual' },
   { key: 'seller_phone', type: 'string', source: 'manual' },
   { key: 'seller_type', type: 'string', source: 'manual', required: true },
-  { key: 'commission_pct', type: 'percent', source: 'terms', required: true },
-  { key: 'buyer_premium_pct', type: 'percent', source: 'terms' },
-  { key: 'credit_card_fee_pct', type: 'percent', source: 'terms' },
-  { key: 'marketing_fee_cents', type: 'currency_cents', source: 'terms' },
-  { key: 'settlement_terms', type: 'string', source: 'terms', required: true },
-  { key: 'payout_schedule', type: 'string', source: 'terms', required: true },
   { key: 'effective_date', type: 'date', source: 'manual', required: true },
-  { key: 'governing_state', type: 'string', source: 'manual', required: true },
 ];
 
-// Platform-standard defaults so the agreement can AUTO-SEND to a new seller without
-// an admin: these fill the required process/financial/contact variables. (effective_date,
-// seller_type, legal_name, signatory_name are supplied per-seller at auto-send time.)
-// NOTE: confirm the fee schedule (commission %, etc.) reflects the real platform standard.
+// Auto-send supplies legal_name, signatory_name, seller_type, effective_date per seller;
+// these defaults cover the optional contact fields so the body renders fully.
 const EFFECTIVE_DEFAULTS = {
-  commission_pct: 0,
-  credit_card_fee_pct: 3,
-  settlement_terms: 'Net proceeds within 14 days of buyer payment.',
-  payout_schedule: '14 days after auction close',
-  governing_state: 'Michigan',
   seller_address: 'On file with Advantage Auction',
   seller_phone: 'On file with Advantage Auction',
 };
