@@ -108,6 +108,13 @@
   </div>
 
   <div class="wrap">
+    <!-- Trust section: recent auction results (shown high for buyer/seller confidence) -->
+    <section class="feed" id="wrap-results" hidden>
+      <div class="sec-head"><h2>Recent Auction Results</h2><a class="viewall" href="/past-auctions.html">View all past auctions →</a></div>
+      <div class="grid" id="sec-results"></div>
+      <div style="margin-top:.9rem"><a href="/past-auctions.html" style="display:inline-block;background:#2563eb;color:#fff;font-weight:700;font-size:.9rem;border-radius:9px;padding:9px 16px;text-decoration:none">View All Past Auctions</a></div>
+    </section>
+
     <!-- Auction-level sections -->
     <section class="feed">
       <div class="sec-head"><h2>Current Auctions</h2><a class="viewall" href="/search.html?mode=auctions&status=active">View all →</a></div>
@@ -201,6 +208,18 @@
     var $ = function (s) { return document.querySelector(s); };
     function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];}); }
     function usd(c){ return (c==null)?null:'$'+(Number(c)/100).toFixed(2); }
+    function fmtDate(t){ if(!t) return ''; try{ return new Date(t).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}); }catch(e){ return ''; } }
+    // Recent Auction Results card (closed/sold demos) for trust-building.
+    function resultCard(a){
+      var img = a.cover_image_url ? '<img src="'+esc(a.cover_image_url)+'" alt="" loading="lazy">' : '';
+      var lots = (a.sold_lot_count!=null && a.sold_lot_count>0) ? a.sold_lot_count : (a.lot_count||0);
+      var bids = (a.total_bids!=null) ? a.total_bids : 0;
+      return '<a class="card" href="/auction-view.html?auctionId='+encodeURIComponent(a.id)+'">'
+        +'<div class="img"><span class="badge soon">Sample Results</span>'+img+'</div>'
+        +'<div class="body"><div class="t">'+esc(a.title)+'</div>'
+        +'<div class="sub">Closed '+esc(fmtDate(a.end_time))+'</div>'
+        +'<div class="price">'+lots+' lots sold · '+bids+' bids</div></div></a>';
+    }
     function timeLeft(t){ if(!t) return ''; var r=new Date(t).getTime()-Date.now(); if(r<=0) return 'Ended';
       var h=Math.floor(r/3600000),m=Math.floor((r%3600000)/60000);
       return h>24?(Math.floor(h/24)+'d '+(h%24)+'h'):h>0?(h+'h '+String(m).padStart(2,'0')+'m'):(m+'m'); }
@@ -309,6 +328,8 @@
     }
 
     // ── Initial loads ──
+    // Recent Auction Results first (hidden until populated): high-visibility trust section.
+    loadSection('sec-results', '/api/public/auctions?state=closed&limit=3', resultCard, '', 'wrap-results');
     loadSection('sec-current', '/api/public/auctions?state=active&limit=8', auctionCard,
       'No active auctions are listed right now. Check back soon for upcoming auctions.');
     loadSection('sec-featured', '/api/public/featured-auctions?limit=8', auctionCard, '', 'wrap-featured');

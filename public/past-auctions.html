@@ -21,11 +21,15 @@
     .card:hover{box-shadow:0 4px 16px rgba(15,23,42,.10);transform:translateY(-1px)}
     .card .img{aspect-ratio:4/3;background:linear-gradient(135deg,#e2e8f0,#f1f5f9);position:relative}
     .card .img img{width:100%;height:100%;object-fit:cover}
-    .badge{position:absolute;top:8px;left:8px;font-size:11px;font-weight:800;letter-spacing:.03em;text-transform:uppercase;color:#fff;background:#475569;border-radius:6px;padding:3px 7px}
-    .card .body{padding:11px 13px;display:flex;flex-direction:column;gap:4px;flex:1}
-    .card .t{font-weight:700;font-size:.95rem;line-height:1.25}
+    .badge{position:absolute;top:8px;left:8px;font-size:10px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:#fff;background:#b45309;border-radius:6px;padding:3px 8px}
+    .card .body{padding:12px 14px;display:flex;flex-direction:column;gap:5px;flex:1}
+    .card .t{font-weight:700;font-size:.98rem;line-height:1.25}
     .card .sub{font-size:12px;color:#64748b}
-    .card .meta{font-weight:700;margin-top:auto;padding-top:4px;font-size:.85rem;color:#334155}
+    .card .stats{display:flex;gap:12px;font-size:.8rem;color:#334155;margin-top:2px}
+    .card .stats b{font-weight:800;color:#0f172a}
+    .card .closed-on{font-size:.78rem;color:#64748b}
+    .card .vr{margin-top:auto;padding-top:8px}
+    .card .vr span{display:inline-block;background:#2563eb;color:#fff;font-weight:700;font-size:.82rem;border-radius:7px;padding:6px 12px}
     .empty,.loading{padding:1.4rem 1rem;text-align:center;color:#64748b;background:#fff;border:1px dashed #e2e8f0;border-radius:12px;font-size:.92rem}
     footer{background:#0f172a;color:#94a3b8;margin-top:2rem;padding:1.5rem 1rem;text-align:center;font-size:.85rem}
     footer a{color:#cbd5e1;text-decoration:none;margin:0 .4rem}
@@ -54,14 +58,17 @@
     function fmtDate(iso){ if(!iso) return ''; try{ return new Date(iso).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}); }catch(e){ return ''; } }
     function card(a){
       var img = a.cover_image_url ? '<img src="'+esc(a.cover_image_url)+'" alt="" loading="lazy">' : '';
-      var loc = [a.city, a.address_state].filter(Boolean).join(', ');
-      var lots = (a.lot_count!=null) ? (a.lot_count+' lot'+(a.lot_count===1?'':'s')) : '';
-      var ended = a.end_time ? ('Ended '+fmtDate(a.end_time)) : 'Closed';
+      var lots = (a.lot_count!=null) ? a.lot_count : 0;
+      var bids = (a.total_bids!=null) ? a.total_bids : 0;
       return '<a class="card" href="/auction-view.html?auctionId='+encodeURIComponent(a.id)+'">'
-        +'<div class="img"><span class="badge">Closed</span>'+img+'</div>'
-        +'<div class="body"><div class="t">'+esc(a.title)+'</div>'
-        +'<div class="sub">'+esc(loc||'')+(a.seller_display_name?(' · '+esc(a.seller_display_name)):'')+'</div>'
-        +'<div class="meta">'+esc(lots)+' · '+esc(ended)+'</div></div></a>';
+        +'<div class="img"><span class="badge">Sample Auction Results</span>'+img+'</div>'
+        +'<div class="body">'
+        +'<div class="t">'+esc(a.title)+'</div>'
+        +(a.subtitle?('<div class="sub">'+esc(a.subtitle)+'</div>'):'')
+        +'<div class="closed-on">Closed '+esc(fmtDate(a.end_time))+'</div>'
+        +'<div class="stats"><span><b>'+lots+'</b> lots</span><span><b>'+bids+'</b> bids</span></div>'
+        +'<div class="vr"><span>View Results</span></div>'
+        +'</div></a>';
     }
     fetch('/api/public/auctions?state=closed&limit=50')
       .then(function(r){ return r.json(); })

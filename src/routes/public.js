@@ -118,6 +118,8 @@ router.get('/auctions', async (req, res, next) => {
              a.created_at,
              COUNT(l.id)::int   AS lot_count,
              COUNT(l.id) FILTER (WHERE l.shippable = true)::int AS shippable_lot_count,
+             COUNT(l.id) FILTER (WHERE l.winning_amount_cents IS NOT NULL)::int AS sold_lot_count,
+             COALESCE(SUM(l.bid_count), 0)::int AS total_bids,
              sp.display_name    AS seller_display_name,
              sp.location_label  AS seller_location_label,
              sp.logo_url        AS seller_logo_url,
