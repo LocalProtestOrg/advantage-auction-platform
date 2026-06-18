@@ -36,10 +36,11 @@ const VARIABLE_SCHEMA = [
 // seller_type, legal_name, signatory_name are supplied per-seller at auto-send time.)
 // NOTE: confirm the fee schedule (commission %, etc.) reflects the real platform standard.
 const EFFECTIVE_DEFAULTS = {
-  commission_pct: 15,
+  commission_pct: 0,
+  credit_card_fee_pct: 3,
   settlement_terms: 'Net proceeds within 14 days of buyer payment.',
   payout_schedule: '14 days after auction close',
-  governing_state: 'Tennessee',
+  governing_state: 'Michigan',
   seller_address: 'On file with Advantage Auction',
   seller_phone: 'On file with Advantage Auction',
 };

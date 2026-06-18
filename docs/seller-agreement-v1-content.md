@@ -17,14 +17,14 @@
 | `seller_address` | text | seller_identity.address_line1/2 + city/state/postal | yes | composed display |
 | `seller_phone` | text | seller_identity.phone | no | |
 | `seller_type` | text | seller_profiles.seller_type | yes | drives which template |
-| `commission_pct` | percent | seller_terms.commission_pct | yes | seller commission to AAC |
-| `buyer_premium_pct` | percent | seller_terms.buyer_premium_pct | no | descriptive only; meaningful only if a buyer premium is enabled+disclosed for the auction (not active by default) |
-| `credit_card_fee_pct` | percent | seller_terms.credit_card_fee_pct | no | card processing pass-through |
-| `marketing_fee_cents` | currency_cents | seller_terms.marketing_fee_cents | no | optional flat marketing fee |
-| `settlement_terms` | text | seller_terms.settlement_terms | yes | e.g. "net proceeds within 14 days of buyer payment" |
-| `payout_schedule` | text | seller_terms.payout_schedule | yes | e.g. "14 days after auction close" |
+| `commission_pct` | percent | seller_terms / default | yes | seller commission to AAC; auto-send **default 0** |
+| `buyer_premium_pct` | percent | seller_terms | no | NOT interpolated in body; buyer premium inactive |
+| `credit_card_fee_pct` | percent | seller_terms / default | no | card processing pass-through; auto-send **default 3** |
+| `marketing_fee_cents` | currency_cents | seller_terms | no | NOT interpolated in body; blank unless separately approved per auction |
+| `settlement_terms` | text | seller_terms / default | yes | default "Net proceeds within 14 days of buyer payment." |
+| `payout_schedule` | text | seller_terms / default | yes | default "14 days after auction close" |
 | `effective_date` | date | override (send-time) | yes | agreement effective date |
-| `governing_state` | text | override (default "Tennessee") | yes | governing law |
+| `governing_state` | text | override / default | yes | governing law; auto-send **default Michigan** |
 
 Unknown placeholders are left intact by the renderer; `missingRequired` blocks send (422) until resolved, so every required variable above must be present in `seller_terms`/`seller_identity` or supplied as an override before an agreement can be sent.
 
@@ -36,7 +36,7 @@ Unknown placeholders are left intact by the renderer; `missingRequired` blocks s
 
 **Advantage Auction Company, LLC d/b/a Advantage.Bid** ("Advantage," "AAC," "we," "us," or "our")
 
-**Seller:** {{legal_name}}{{company_name}} ("Seller," "you," or "your")
+**Seller:** {{legal_name}} ("Seller," "you," or "your")
 
 **Effective Date:** {{effective_date}}
 
@@ -92,11 +92,11 @@ This Seller Consignment and Auction Services Agreement (this "Agreement") govern
 
 6.1 **Seller commission.** Advantage's commission is {{commission_pct}} of the hammer price for each item sold, retained from sale proceeds at settlement.
 
-6.2 **Buyer premium.** A buyer premium may be charged only if it is enabled and disclosed for the applicable auction. If charged, the buyer premium is added to the hammer price, is paid by the buyer, and is retained and allocated according to Advantage's then-current terms, and does not increase the commission stated in Section 6.1 unless separately agreed in writing. Where a buyer premium is enabled for the Seller's account, the configured rate is {{buyer_premium_pct}}. This Agreement does not by itself activate or impose a buyer premium.
+6.2 **Buyer premium.** A buyer premium may be charged only if it is enabled and disclosed for the applicable auction. If charged, the buyer premium is added to the hammer price, is paid by the buyer, and is retained and allocated according to Advantage's then-current terms, and does not increase the commission stated in Section 6.1 unless separately agreed in writing. This Agreement does not by itself activate or impose a buyer premium.
 
 6.3 **Payment processing.** Where applicable, a card processing fee of {{credit_card_fee_pct}} may be applied as described in the Seller's terms of record. Buyers pay by debit or credit card only.
 
-6.4 **Marketing fees.** Marketing package fees are not charged upfront unless separately agreed in writing. If the Seller selects or Advantage approves a marketing package, the associated fees are deducted from the Seller's settlement and itemized on the Seller's statement. Where a flat marketing fee is configured for the Seller's account, it is {{marketing_fee_cents}}.
+6.4 **Marketing fees.** Marketing package fees are not charged upfront and do not apply unless separately agreed in writing or approved for a specific auction. If the Seller selects or Advantage approves a marketing package, the associated fees are deducted from the Seller's settlement and itemized on the Seller's statement.
 
 6.5 The fees in this Section reflect the Seller's terms of record at the Effective Date. Advantage maintains the Seller's financial terms in a versioned, history-preserving record; changes apply prospectively and do not alter terms for an auction already approved and live.
 
@@ -113,6 +113,8 @@ This Seller Consignment and Auction Services Agreement (this "Agreement") govern
 7.4 Advantage remits net proceeds (hammer price less the commission in Section 6.1 and any other fees and adjustments described in this Agreement or the Seller's terms of record). Taxes are calculated after auction close in accordance with applicable law.
 
 7.5 Advantage may withhold or offset amounts reasonably necessary to cover chargebacks, refunds, returns, disputed transactions, or unrecovered amounts attributable to the Seller's items, and may delay payout for items subject to a payment dispute until the dispute is resolved.
+
+7.6 **Payout method and banking information.** Seller payouts are issued only by direct deposit (ACH) to a checking or savings account. Before any payout is released, the Seller must provide accurate and current banking information through the secure method Advantage provides. Advantage does not issue payouts by cash, card, or other methods. The Seller is responsible for the accuracy of the banking information it provides, and Advantage may use that information as part of identity verification and fraud prevention. Advantage may withhold a payout until valid banking information has been provided and verified. Banking information is collected and handled through a secure payment or payout provider; Advantage does not store full bank account numbers in its own systems.
 
 ## 8. Item Delivery, Pickup, and Risk
 
@@ -168,7 +170,7 @@ This Seller Consignment and Auction Services Agreement (this "Agreement") govern
 
 ## 16. Dispute Resolution and Governing Law
 
-16.1 This Agreement is governed by the laws of the State of {{governing_state}} (default: Tennessee), without regard to conflict-of-laws principles. **[COUNSEL REVIEW REQUIRED]**
+16.1 This Agreement is governed by the laws of the State of {{governing_state}} (default: Michigan), without regard to conflict-of-laws principles. **[COUNSEL REVIEW REQUIRED]**
 
 16.2 The parties will attempt in good faith to resolve disputes informally before pursuing formal proceedings, in the courts or forum designated by Advantage's then-current policies, to the extent permitted by law.
 
@@ -190,15 +192,16 @@ This Seller Consignment and Auction Services Agreement (this "Agreement") govern
 
 By signing below, the Seller acknowledges that it has read, understood, and agrees to this Agreement.
 
-**Seller:** {{signatory_name}}{{signatory_title}}
-on behalf of {{legal_name}}{{company_name}}
+**Seller:** {{signatory_name}}
+on behalf of {{legal_name}}
 
 Signature, date, and authentication metadata are captured electronically by the Platform at the time of signing.
 
 ---
 
 ### Authoring notes (not part of the signed body)
-- Compose `{{company_name}}` / `{{signatory_title}}` to render as " (Company Name)" / ", Title" when present and empty otherwise, or pre-format in `agreementVariableService.formatValue` so the sentence reads cleanly when the optional value is blank.
+- Optional, may-be-blank variables (`company_name`, `signatory_title`, `buyer_premium_pct`, `marketing_fee_cents`) are intentionally NOT interpolated in the body, so an unresolved `{{...}}` never renders. They remain in the schema for record/reporting but the body reads cleanly when they are absent.
+- Auto-send defaults (template `effective_terms_defaults`): `commission_pct=0`, `credit_card_fee_pct=3`, `governing_state=Michigan`, `payout_schedule="14 days after auction close"`, `settlement_terms="Net proceeds within 14 days of buyer payment."`, plus on-file placeholders for `seller_address`/`seller_phone`. Buyer Premium stays inactive. Auto-send supplies `effective_date`, `seller_type`, and `legal_name`/`signatory_name` (from the seller's account) per seller. Confirm the fee schedule reflects the real platform standard.
 - Maintain one template per `seller_type` (private, business, auction_house, estate_sale_company, professional_liquidator). The professional templates may add classification-specific scheduling/exemption language (e.g. professional pickup-timing autonomy) in Section 8; the body above is the base.
 - Keep the content em-dash-free (content SOP); `check-dashes.js` should pass on any HTML surface that renders it.
 - Counsel review required before production use (Section disclaimer at top).

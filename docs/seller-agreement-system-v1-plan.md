@@ -169,3 +169,19 @@ The v1 agreement body (original Advantage.Bid language, structured after a stand
 **Hard stops:** any failure touching bidding/payments/payout/premium/buyer-terms (must be zero — none are in scope); gate locking out a seller with live auctions; FF not clean.
 
 **Guardrails (unchanged):** Stripe TEST; Buyer Premium inactive; Buyer Terms v2 stays draft; no settlement/payout/payment changes; no BD widget; no auction-platform homepage/index changes.
+
+---
+
+## 11. Future / near-term: Seller ACH payout setup (NOT built in this sprint)
+
+Logged 2026-06-18 (owner). Sellers must eventually provide bank account information so payouts can be released; this is a future implementation, scoped here so the agreement and onboarding are forward-compatible. NOT built now; no Stripe/payout/payment-flow changes in this sprint.
+
+Requirements when implemented:
+- Payouts are issued by **direct deposit / ACH only**, to a **checking or savings account** (no cash/card/other).
+- Bank account setup is **required before payout release**, NOT before dashboard access (sellers can onboard, sign, build, and run auctions first; banking is gated only at payout time).
+- **Never store raw bank account numbers** in our database. Use a compliant tokenized provider flow.
+- **Prefer Stripe Connect external-account tokenization** (or another secure payout-provider model); store only provider tokens/last4/status, never full account/routing numbers.
+- Bank-account identity becomes part of **seller risk review and fraud prevention** (tie into `seller_profiles.risk_level` + verification; watch for mismatched/duplicate banking identities).
+- The Seller Agreement already states (Section 7.6) that payouts are ACH/direct-deposit only, that the seller must provide accurate banking information before payout, and that Advantage does not store full bank numbers.
+
+Implementation sketch (future): a `seller_payout_accounts` record holding provider + external-account token + last4 + verification status (no raw numbers); a payout-release gate `hasVerifiedPayoutAccount(sellerProfileId)`; admin visibility in the verification/risk console; seller setup UI via the provider's tokenized flow. Sequence and provider choice to be designed in a dedicated sprint.
