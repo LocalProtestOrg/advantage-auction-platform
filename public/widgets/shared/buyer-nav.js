@@ -56,6 +56,7 @@
     { href: '/search.html', label: 'Browse Auctions' },
     { href: '/browse-categories.html', label: 'Categories' },
     { href: '/browse-locations.html', label: 'Locations' },
+    { href: '/past-auctions.html', label: 'Past Auctions' },
     { href: '/my-bids.html', label: 'My Bids' },
     { href: '/watchlist.html', label: 'Watchlist' },
     { href: '/invoices.html', label: 'Invoices' },

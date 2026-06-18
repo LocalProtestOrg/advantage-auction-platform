@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Past Auctions - Advantage.Bid</title>
+  <meta name="description" content="Browse past auctions and recent results on Advantage.Bid." />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <style>
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#f8fafc;color:#0f172a;line-height:1.55}
+    .wrap{max-width:1140px;margin:0 auto;padding:0 1rem}
+    .hero{background:linear-gradient(160deg,#0f172a 0%,#1e293b 60%,#1d4ed8 160%);color:#fff;padding:2rem 1rem}
+    .hero-inner{max-width:1140px;margin:0 auto}
+    .hero h1{font-size:clamp(1.4rem,3vw,2rem);font-weight:800;margin-bottom:.3rem}
+    .hero p{color:#cbd5e1;font-size:.95rem;max-width:640px}
+    section{padding:1.6rem 0}
+    .note{background:#eff6ff;border:1px solid #bfdbfe;color:#1e40af;border-radius:10px;padding:.7rem 1rem;font-size:.88rem;margin-bottom:1rem}
+    .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:14px}
+    .card{display:flex;flex-direction:column;background:#fff;border:1px solid #e2e8f0;border-radius:13px;overflow:hidden;text-decoration:none;color:inherit;transition:box-shadow .15s,transform .1s}
+    .card:hover{box-shadow:0 4px 16px rgba(15,23,42,.10);transform:translateY(-1px)}
+    .card .img{aspect-ratio:4/3;background:linear-gradient(135deg,#e2e8f0,#f1f5f9);position:relative}
+    .card .img img{width:100%;height:100%;object-fit:cover}
+    .badge{position:absolute;top:8px;left:8px;font-size:11px;font-weight:800;letter-spacing:.03em;text-transform:uppercase;color:#fff;background:#475569;border-radius:6px;padding:3px 7px}
+    .card .body{padding:11px 13px;display:flex;flex-direction:column;gap:4px;flex:1}
+    .card .t{font-weight:700;font-size:.95rem;line-height:1.25}
+    .card .sub{font-size:12px;color:#64748b}
+    .card .meta{font-weight:700;margin-top:auto;padding-top:4px;font-size:.85rem;color:#334155}
+    .empty,.loading{padding:1.4rem 1rem;text-align:center;color:#64748b;background:#fff;border:1px dashed #e2e8f0;border-radius:12px;font-size:.92rem}
+    footer{background:#0f172a;color:#94a3b8;margin-top:2rem;padding:1.5rem 1rem;text-align:center;font-size:.85rem}
+    footer a{color:#cbd5e1;text-decoration:none;margin:0 .4rem}
+  </style>
+</head>
+<body>
+  <script src="/widgets/shared/buyer-nav.js"></script>
+  <div class="hero"><div class="hero-inner">
+    <h1>Past Auctions</h1>
+    <p>A look at recent auctions and results on Advantage.Bid. Browse current and upcoming auctions on the <a href="/" style="color:#fff;font-weight:700">home page</a>.</p>
+  </div></div>
+  <div class="wrap">
+    <section>
+      <div class="note" id="note">These are sample past auctions shown to illustrate the Advantage.Bid selling experience. Final sale prices are visible to signed-in members.</div>
+      <div class="grid" id="grid"><div class="loading">Loading past auctions...</div></div>
+    </section>
+  </div>
+  <footer>
+    <a href="/terms.html">Terms of Use</a> ·
+    <a href="/privacy.html">Privacy Policy</a> ·
+    <a href="/sitemap.html">Sitemap</a>
+    <div style="margin-top:.4rem">© Advantage.Bid - Online Auction Marketplace</div>
+  </footer>
+  <script>
+    function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,function(c){return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]);}); }
+    function fmtDate(iso){ if(!iso) return ''; try{ return new Date(iso).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}); }catch(e){ return ''; } }
+    function card(a){
+      var img = a.cover_image_url ? '<img src="'+esc(a.cover_image_url)+'" alt="" loading="lazy">' : '';
+      var loc = [a.city, a.address_state].filter(Boolean).join(', ');
+      var lots = (a.lot_count!=null) ? (a.lot_count+' lot'+(a.lot_count===1?'':'s')) : '';
+      var ended = a.end_time ? ('Ended '+fmtDate(a.end_time)) : 'Closed';
+      return '<a class="card" href="/auction-view.html?auctionId='+encodeURIComponent(a.id)+'">'
+        +'<div class="img"><span class="badge">Closed</span>'+img+'</div>'
+        +'<div class="body"><div class="t">'+esc(a.title)+'</div>'
+        +'<div class="sub">'+esc(loc||'')+(a.seller_display_name?(' · '+esc(a.seller_display_name)):'')+'</div>'
+        +'<div class="meta">'+esc(lots)+' · '+esc(ended)+'</div></div></a>';
+    }
+    fetch('/api/public/auctions?state=closed&limit=50')
+      .then(function(r){ return r.json(); })
+      .then(function(d){
+        var rows = (d && d.data) || [];
+        var grid = document.getElementById('grid');
+        if(!rows.length){ grid.innerHTML='<div class="empty">No past auctions to show yet. Check back after our current auctions close.</div>'; document.getElementById('note').style.display='none'; return; }
+        grid.innerHTML = rows.map(card).join('');
+      })
+      .catch(function(){ document.getElementById('grid').innerHTML='<div class="empty">Couldn’t load past auctions. Please refresh.</div>'; });
+  </script>
+</body>
+</html>
