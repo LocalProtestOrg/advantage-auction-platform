@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Auction Invoices - Advantage Auction Admin</title>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <style>
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#f1f5f9;color:#0f172a}
+    .wrap{max-width:1200px;margin:0 auto;padding:1.25rem 1rem 4rem}
+    .top{display:flex;align-items:center;gap:.75rem;margin-bottom:1rem;flex-wrap:wrap}
+    h1{font-size:1.4rem}
+    .crumb{font-size:.8rem;color:#64748b}
+    .crumb a{color:#2563eb;text-decoration:none}
+    .spacer{flex:1}
+    .btn{font:inherit;font-size:.8rem;font-weight:600;color:#0f172a;background:#fff;border:1px solid #cbd5e1;border-radius:7px;padding:6px 11px;cursor:pointer}
+    .btn:hover{background:#f8fafc}.btn:disabled{opacity:.55;cursor:default}
+    .btn-pri{background:#2563eb;color:#fff;border-color:#2563eb}.btn-pri:hover{background:#1d4ed8}
+    .panel{background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:.9rem 1rem;margin-bottom:1rem}
+    .controls{display:flex;gap:.6rem;align-items:end;flex-wrap:wrap}
+    label{display:block;font-size:.7rem;text-transform:uppercase;letter-spacing:.04em;color:#64748b;margin-bottom:3px}
+    select,input{font:inherit;font-size:.85rem;padding:6px 8px;border:1px solid #cbd5e1;border-radius:7px;background:#fff}
+    select{min-width:320px}
+    .pills{display:flex;gap:.35rem;flex-wrap:wrap}
+    .pill{font:inherit;font-size:.75rem;font-weight:700;border:1px solid #cbd5e1;background:#fff;border-radius:999px;padding:4px 11px;cursor:pointer;color:#475569}
+    .pill.active{background:#0f172a;color:#fff;border-color:#0f172a}
+    .pill:disabled{opacity:.5;cursor:default}
+    .summary{display:flex;gap:1.25rem;flex-wrap:wrap;font-size:.85rem;color:#334155;margin:.2rem 0 .8rem}
+    .summary b{color:#0f172a}
+    .toolbar{display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:.6rem}
+    table{width:100%;border-collapse:collapse;background:#fff;border:1px solid #e2e8f0;border-radius:10px;overflow:hidden}
+    th,td{text-align:left;padding:.55rem .6rem;font-size:.8rem;border-bottom:1px solid #f1f5f9;vertical-align:middle}
+    th{background:#f8fafc;color:#475569;font-size:.68rem;text-transform:uppercase;letter-spacing:.04em;white-space:nowrap}
+    tr:last-child td{border-bottom:none}
+    .st{font-weight:700;font-size:.7rem;border-radius:999px;padding:2px 8px}
+    .st-paid{background:#dcfce7;color:#166534}.st-issued{background:#fef9c3;color:#854d0e}.st-other{background:#f1f5f9;color:#475569}
+    .inum{font-variant-numeric:tabular-nums;font-weight:700;color:#334155}
+    .act{display:flex;gap:.3rem;flex-wrap:wrap}
+    .act .btn{padding:3px 8px;font-size:.72rem}
+    .empty{padding:1.5rem;text-align:center;color:#64748b}
+    .recon{margin-top:.6rem;font-size:.82rem}
+    .box-warn{background:#fff7ed;border:1px solid #fed7aa;border-radius:8px;padding:.6rem .8rem;color:#7c2d12}
+    .box-ok{background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:.6rem .8rem;color:#166534}
+    .msg{font-size:.85rem;color:#64748b}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="top">
+      <div>
+        <div class="crumb"><a href="/admin/">← Admin</a></div>
+        <h1>Auction Invoices</h1>
+      </div>
+      <div class="spacer"></div>
+      <button class="btn" onclick="adminLogout()">Log out</button>
+    </div>
+
+    <div class="panel">
+      <div class="controls">
+        <div>
+          <label>Auction</label>
+          <select id="auctionSel"><option value="">Loading auctions…</option></select>
+        </div>
+        <div>
+          <label>Search buyer</label>
+          <input id="qBuyer" type="text" placeholder="name or email" />
+        </div>
+        <div>
+          <label>Invoice #</label>
+          <input id="qNum" type="text" placeholder="AAC-000123" />
+        </div>
+        <div>
+          <label>Status</label>
+          <div class="pills" id="statusPills">
+            <button class="pill active" data-s="all">All</button>
+            <button class="pill" data-s="unpaid">Unpaid</button>
+            <button class="pill" data-s="paid">Paid</button>
+            <button class="pill" data-s="refunded" disabled title="No refunded invoices yet (future)">Refunded</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="status" class="msg"></div>
+    <div id="content"></div>
+  </div>
+
+  <script>
+  const token = localStorage.getItem('token');
+  if (!token) { window.location.href = '/login.html'; }
+  (function checkAdmin(){ try { if (JSON.parse(atob(token.split('.')[1])).role !== 'admin') throw 0; } catch { document.body.innerHTML='<div style="padding:4rem;text-align:center"><h2>Access Denied</h2><p style="color:#666;margin-top:1rem">Administrator access required.</p><a href="/login.html" style="color:#2563eb">Login</a></div>'; throw new Error('not admin'); } })();
+  function adminLogout(){ localStorage.removeItem('token'); sessionStorage.clear(); window.location.href='/login.html'; }
+  window.adminLogout = adminLogout;
+
+  function api(method, url, body){
+    const o = { method, headers: { 'Content-Type':'application/json', 'Authorization':'Bearer '+token } };
+    if (body !== undefined) o.body = JSON.stringify(body);
+    return fetch(url, o).then(r => { if (r.status===401){ adminLogout(); throw new Error('expired'); } return r.json(); });
+  }
+  function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+  function usd(c){ return c==null?'—':'$'+(Number(c)/100).toFixed(2); }
+  function fdate(s){ if(!s) return '—'; try { return new Date(s).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}); } catch(e){ return '—'; } }
+  function stPill(i){ const paid=i.is_paid; const cls=paid?'st-paid':(i.status==='issued'?'st-issued':'st-other'); return '<span class="st '+cls+'">'+esc(paid?'PAID':(i.status||'—').toUpperCase())+'</span>'; }
+
+  async function blobDownload(url, filename, btn){
+    const old=btn?btn.textContent:null; if(btn){btn.disabled=true;btn.textContent='…';}
+    try{
+      const r = await fetch(url,{headers:{Authorization:'Bearer '+token}});
+      if(r.status===401){adminLogout();return;}
+      if(!r.ok) throw new Error('HTTP '+r.status);
+      const b = await r.blob(); const u=URL.createObjectURL(b);
+      const a=document.createElement('a'); a.href=u; a.download=filename; document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(()=>URL.revokeObjectURL(u),5000);
+    }catch(e){ alert('Download failed: '+e.message); }
+    finally{ if(btn){btn.disabled=false;btn.textContent=old;} }
+  }
+
+  let CURRENT = { auctionId:'', title:'', invoices:[], totals:{}, counts:{}, status:'all' };
+
+  function applyFilter(){
+    const qB=(document.getElementById('qBuyer').value||'').trim().toLowerCase();
+    const qN=(document.getElementById('qNum').value||'').trim().toLowerCase();
+    let rows = CURRENT.invoices.slice();
+    if (CURRENT.status==='paid') rows=rows.filter(i=>i.is_paid);
+    else if (CURRENT.status==='unpaid') rows=rows.filter(i=>!i.is_paid);
+    else if (CURRENT.status==='refunded') rows=rows.filter(i=>i.status==='refunded');
+    if (qB) rows=rows.filter(i=>((i.buyer_name||'')+' '+(i.buyer_email||'')).toLowerCase().includes(qB));
+    if (qN) rows=rows.filter(i=>(i.invoice_number||'').toLowerCase().includes(qN));
+    renderTable(rows);
+  }
+
+  function renderTable(rows){
+    const c=CURRENT.counts||{total:0,paid:0,unpaid:0}, t=CURRENT.totals||{hammer_cents:0,paid_cents:0,unpaid_cents:0};
+    let html = '<div class="panel">'+
+      '<div class="summary">'+
+        '<span><b>'+c.total+'</b> invoices</span>'+
+        '<span style="color:#16a34a"><b>'+c.paid+'</b> paid</span>'+
+        '<span style="color:#b91c1c"><b>'+c.unpaid+'</b> unpaid</span>'+
+        '<span>Hammer <b>'+usd(t.hammer_cents)+'</b></span>'+
+        '<span>Paid <b>'+usd(t.paid_cents)+'</b></span>'+
+        '<span>Unpaid <b>'+usd(t.unpaid_cents)+'</b></span>'+
+      '</div>'+
+      '<div class="toolbar">'+
+        '<button class="btn" id="tbPacket">Download pickup packet</button>'+
+        '<button class="btn" id="tbReconcile">Reconcile</button>'+
+        '<button class="btn" id="tbIssue">Issue missing invoices</button>'+
+      '</div>'+
+      '<div class="recon" id="reconOut"></div>';
+    if (!rows.length) {
+      html += '<div class="empty">No invoices match the current view.</div>';
+    } else {
+      html += '<table><thead><tr><th>Invoice #</th><th>Buyer</th><th>Auction</th><th>Lot</th><th>Total</th><th>Status</th><th>Invoice date</th><th>Payment date</th><th>Actions</th></tr></thead><tbody>'+
+        rows.map(i=>{
+          const total = i.total_cents!=null?i.total_cents:i.amount_cents;
+          return '<tr>'+
+            '<td><span class="inum">'+esc(i.invoice_number||'—')+'</span></td>'+
+            '<td>'+esc(i.buyer_name||'—')+'<div style="color:#94a3b8;font-size:.72rem">'+esc(i.buyer_email||'')+'</div></td>'+
+            '<td>'+esc(CURRENT.title||'')+'</td>'+
+            '<td>'+(i.lot_number!=null?'#'+esc(i.lot_number)+' ':'')+esc(i.lot_title||'')+'</td>'+
+            '<td>'+usd(total)+'</td>'+
+            '<td>'+stPill(i)+'</td>'+
+            '<td>'+fdate(i.invoice_date)+'</td>'+
+            '<td>'+fdate(i.payment_date)+'</td>'+
+            '<td><div class="act">'+
+              '<a class="btn" href="/admin/invoice-detail.html?id='+encodeURIComponent(i.id)+'">View</a>'+
+              '<button class="btn" data-pdf="'+esc(i.id)+'" data-num="'+esc(i.invoice_number||'')+'">PDF</button>'+
+              (i.is_paid
+                ? '<button class="btn" data-receipt="'+esc(i.id)+'">Resend receipt</button>'
+                : '<button class="btn" data-invemail="'+esc(i.id)+'">Resend invoice</button>')+
+            '</div></td>'+
+          '</tr>';
+        }).join('')+'</tbody></table>';
+    }
+    html += '</div>';
+    document.getElementById('content').innerHTML = html;
+
+    document.getElementById('tbPacket').onclick = (e)=>blobDownload('/api/admin/auctions/'+encodeURIComponent(CURRENT.auctionId)+'/pickup-packet','pickup-packet-'+(CURRENT.title||'auction').replace(/[^a-z0-9]+/gi,'-')+'.pdf',e.target);
+    document.getElementById('tbIssue').onclick = (e)=>{ const b=e.target; b.disabled=true; b.textContent='Issuing…'; api('POST','/api/admin/auctions/'+encodeURIComponent(CURRENT.auctionId)+'/issue-invoices').then(r=>{ alert('Issued '+(r.created||0)+' new invoice(s); '+(r.already_existed||0)+' already existed.'); loadInvoices(CURRENT.auctionId); }).catch(()=>{b.disabled=false;b.textContent='Issue missing invoices';alert('Failed.');}); };
+    document.getElementById('tbReconcile').onclick = ()=>runReconcile();
+    document.querySelectorAll('[data-pdf]').forEach(b=>b.onclick=()=>blobDownload('/api/invoices/'+encodeURIComponent(b.getAttribute('data-pdf'))+'/pdf','invoice-'+(b.getAttribute('data-num')||b.getAttribute('data-pdf'))+'.pdf',b));
+    document.querySelectorAll('[data-receipt]').forEach(b=>b.onclick=()=>resend('receipt',b.getAttribute('data-receipt'),b));
+    document.querySelectorAll('[data-invemail]').forEach(b=>b.onclick=()=>resend('invoice',b.getAttribute('data-invemail'),b));
+  }
+
+  function resend(kind, id, btn){
+    const url = kind==='receipt' ? '/api/admin/invoices/'+encodeURIComponent(id)+'/resend-receipt' : '/api/admin/invoices/'+encodeURIComponent(id)+'/resend-invoice-email';
+    const old=btn.textContent; btn.disabled=true; btn.textContent='Sending…';
+    api('POST',url).then(r=>alert(r&&r.success?'Email sent.':'Not sent'+(r&&r.data&&r.data.reason?': '+r.data.reason:(r&&r.message?': '+r.message:'')))).catch(()=>alert('Resend failed.')).finally(()=>{btn.disabled=false;btn.textContent=old;});
+  }
+
+  function runReconcile(){
+    const out=document.getElementById('reconOut'); if(!out) return;
+    out.innerHTML='<div class="msg">Checking…</div>';
+    api('GET','/api/admin/auctions/'+encodeURIComponent(CURRENT.auctionId)+'/invoice-reconciliation').then(d=>{
+      if(!d||!d.success){out.innerHTML='<div class="box-warn">Reconciliation failed.</div>';return;}
+      const r=d.report;
+      if(r.clean){ out.innerHTML='<div class="box-ok">✓ No invoice issues found for this auction.</div>'; return; }
+      const items=Object.keys(r.counts).filter(k=>r.counts[k]>0).map(k=>'<li>'+esc(k.replace(/_/g,' '))+': <b>'+r.counts[k]+'</b></li>').join('');
+      let h='<div class="box-warn"><b>Invoice issues found</b><ul style="margin:.3rem 0 .4rem 1.1rem">'+items+'</ul>Safely repairable: <b>'+r.safely_repairable+'</b> · Needs manual review: <b>'+r.needs_manual_review+'</b>';
+      if(r.safely_repairable>0) h+='<div style="margin-top:.4rem"><button class="btn btn-pri" id="reconRepair">Run safe repair</button></div>';
+      h+='</div>'; out.innerHTML=h;
+      const rep=document.getElementById('reconRepair');
+      if(rep) rep.onclick=()=>{ rep.disabled=true; rep.textContent='Repairing…'; api('POST','/api/admin/auctions/'+encodeURIComponent(CURRENT.auctionId)+'/invoice-reconciliation/repair').then(rr=>{ const x=(rr&&rr.result&&rr.result.repaired)||{}; alert('Repair complete — issued: '+(x.issued||0)+', promoted: '+(x.promoted||0)+', PDFs: '+(x.pdfs_regenerated||0)); loadInvoices(CURRENT.auctionId); }).catch(()=>{rep.disabled=false;rep.textContent='Run safe repair';alert('Repair failed.');}); };
+    }).catch(()=>{out.innerHTML='<div class="box-warn">Reconciliation failed.</div>';});
+  }
+
+  function loadInvoices(auctionId){
+    if(!auctionId){ document.getElementById('content').innerHTML='<div class="panel"><div class="empty">Select an auction to view its invoices.</div></div>'; return; }
+    document.getElementById('status').textContent='Loading invoices…';
+    api('GET','/api/admin/auctions/'+encodeURIComponent(auctionId)+'/invoices').then(d=>{
+      document.getElementById('status').textContent='';
+      if(!d||!d.success){ document.getElementById('content').innerHTML='<div class="panel"><div class="empty">Failed to load invoices.</div></div>'; return; }
+      CURRENT.auctionId=auctionId; CURRENT.invoices=d.invoices||[]; CURRENT.totals=d.totals||{}; CURRENT.counts=d.counts||{};
+      const sel=document.getElementById('auctionSel'); const opt=sel.options[sel.selectedIndex]; CURRENT.title = opt?opt.getAttribute('data-title'):'';
+      applyFilter();
+    }).catch(()=>{ document.getElementById('status').textContent='Failed to load invoices.'; });
+  }
+
+  // Bootstrap: load auctions into the selector (optionally preselect ?auction=)
+  (function init(){
+    const pre = new URLSearchParams(location.search).get('auction') || '';
+    api('GET','/api/admin/auctions').then(d=>{
+      const list=(d&&d.data)||[];
+      const sel=document.getElementById('auctionSel');
+      sel.innerHTML='<option value="">— Select an auction —</option>'+list.map(a=>'<option value="'+esc(a.id)+'" data-title="'+esc(a.title||'')+'">'+esc(a.title||'(Untitled)')+' · '+esc(a.state||'')+'</option>').join('');
+      sel.onchange=()=>{ CURRENT.status='all'; document.querySelectorAll('#statusPills .pill').forEach(p=>p.classList.toggle('active',p.getAttribute('data-s')==='all')); loadInvoices(sel.value); };
+      if(pre){ sel.value=pre; loadInvoices(pre); } else { loadInvoices(''); }
+    }).catch(()=>{ document.getElementById('auctionSel').innerHTML='<option value="">Failed to load auctions</option>'; });
+
+    document.querySelectorAll('#statusPills .pill').forEach(p=>{ if(p.disabled) return; p.onclick=()=>{ document.querySelectorAll('#statusPills .pill').forEach(x=>x.classList.remove('active')); p.classList.add('active'); CURRENT.status=p.getAttribute('data-s'); applyFilter(); }; });
+    document.getElementById('qBuyer').addEventListener('input', applyFilter);
+    document.getElementById('qNum').addEventListener('input', applyFilter);
+  })();
+  </script>
+</body>
+</html>

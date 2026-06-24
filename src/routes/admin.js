@@ -835,6 +835,78 @@ router.post('/invoices/:invoiceId/resend-receipt', auth, role(['admin']), async 
   } catch (err) { next(err); }
 });
 
+// GET /api/admin/invoices/:invoiceId/detail
+// READ-ONLY aggregation for the Invoice Details page: the invoice + buyer + auction
+// + lot + payment, its generated_documents, and its audit timeline (invoice email
+// events + the linked payment's events). Reuses existing tables; mutates nothing.
+router.get('/invoices/:invoiceId/detail', auth, role(['admin']), async (req, res, next) => {
+  try {
+    const { invoiceId } = req.params;
+    const row = (await db.query(
+      `SELECT i.id, i.invoice_number, i.invoice_date, i.created_at, i.status,
+              i.amount_cents, i.hammer_cents, i.buyer_premium_cents, i.sales_tax_cents,
+              i.shipping_cents, i.total_cents, i.payment_id, i.lot_id, i.auction_id,
+              i.buyer_user_id, i.pdf_public_id, i.pdf_sha256, i.pdf_generated_at,
+              u.full_name AS buyer_name, u.email AS buyer_email, u.phone AS buyer_phone,
+              a.title AS auction_title,
+              l.lot_number, l.title AS lot_title,
+              p.status AS payment_status, p.charged_at AS payment_date,
+              p.payment_provider_id, p.payment_intent_id, p.amount_cents AS payment_amount_cents
+         FROM invoices i
+         LEFT JOIN users u   ON u.id = i.buyer_user_id
+         LEFT JOIN auctions a ON a.id = i.auction_id
+         LEFT JOIN lots l    ON l.id = i.lot_id
+         LEFT JOIN payments p ON p.id = i.payment_id
+        WHERE i.id = $1`,
+      [invoiceId]
+    )).rows[0];
+    if (!row) return res.status(404).json({ success: false, message: 'Invoice not found' });
+
+    const documents = (await db.query(
+      `SELECT id, doc_type, file_name, pdf_public_id, pdf_sha256, byte_size, created_at
+         FROM generated_documents WHERE entity_id = $1 ORDER BY created_at ASC`,
+      [invoiceId]
+    )).rows;
+
+    const audit = (await db.query(
+      `SELECT event_type, entity_type, entity_id, payment_id, actor_id, metadata, created_at
+         FROM audit_log
+        WHERE (entity_type = 'invoice' AND entity_id = $1)
+           OR ($2::uuid IS NOT NULL AND payment_id = $2::uuid)
+        ORDER BY created_at ASC`,
+      [invoiceId, row.payment_id]
+    )).rows.map((e) => ({ ...e, metadata: (() => { try { return typeof e.metadata === 'string' ? JSON.parse(e.metadata) : e.metadata; } catch (_e) { return e.metadata; } })() }));
+
+    const is_paid = row.status === 'paid' || row.payment_status === 'paid';
+    return res.json({
+      success: true,
+      invoice: {
+        id: row.id, invoice_number: row.invoice_number, invoice_date: row.invoice_date,
+        created_at: row.created_at, status: row.status, is_paid,
+        financial: {
+          hammer_cents: row.hammer_cents != null ? row.hammer_cents : row.amount_cents,
+          buyer_premium_cents: row.buyer_premium_cents || 0,
+          sales_tax_cents: row.sales_tax_cents || 0,
+          shipping_cents: row.shipping_cents || 0,
+          total_cents: row.total_cents != null ? row.total_cents : row.amount_cents,
+        },
+        pdf: { public_id: row.pdf_public_id, sha256: row.pdf_sha256, generated_at: row.pdf_generated_at },
+      },
+      buyer: { id: row.buyer_user_id, name: row.buyer_name, email: row.buyer_email, phone: row.buyer_phone },
+      auction: { id: row.auction_id, title: row.auction_title },
+      lot: { id: row.lot_id, lot_number: row.lot_number, title: row.lot_title },
+      payment: {
+        id: row.payment_id, status: row.payment_status, paid_at: row.payment_date,
+        stripe_payment_intent_id: row.payment_intent_id || null,
+        stripe_provider_id: row.payment_provider_id || null,
+        amount_cents: row.payment_amount_cents,
+      },
+      documents,
+      audit,
+    });
+  } catch (err) { next(err); }
+});
+
 // POST /api/admin/payments/:paymentId/refund
 // Full or partial refund of a paid payment. Admin-only.
 // Body: { refund_amount_cents: number }

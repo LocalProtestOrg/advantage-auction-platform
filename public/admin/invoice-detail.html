@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Invoice Detail - Advantage Auction Admin</title>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <style>
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#f1f5f9;color:#0f172a}
+    .wrap{max-width:920px;margin:0 auto;padding:1.25rem 1rem 4rem}
+    .crumb{font-size:.8rem;color:#64748b;margin-bottom:.3rem}
+    .crumb a{color:#2563eb;text-decoration:none}
+    .head{display:flex;align-items:center;gap:.6rem;flex-wrap:wrap;margin-bottom:1rem}
+    h1{font-size:1.5rem;font-variant-numeric:tabular-nums}
+    .spacer{flex:1}
+    .btn{font:inherit;font-size:.78rem;font-weight:600;color:#0f172a;background:#fff;border:1px solid #cbd5e1;border-radius:7px;padding:6px 11px;cursor:pointer;text-decoration:none;display:inline-block}
+    .btn:hover{background:#f8fafc}.btn:disabled{opacity:.55;cursor:default}
+    .btn-pri{background:#2563eb;color:#fff;border-color:#2563eb}
+    .st{font-weight:800;font-size:.78rem;border-radius:999px;padding:4px 12px}
+    .st-paid{background:#dcfce7;color:#166534}.st-issued{background:#fef9c3;color:#854d0e}.st-other{background:#f1f5f9;color:#475569}
+    .grid{display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1rem}
+    @media(max-width:680px){.grid{grid-template-columns:1fr}}
+    .card{background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:.9rem 1rem}
+    .card h2{font-size:.72rem;text-transform:uppercase;letter-spacing:.05em;color:#64748b;margin-bottom:.6rem}
+    .kv{display:flex;justify-content:space-between;gap:1rem;font-size:.86rem;padding:3px 0}
+    .kv .k{color:#64748b}.kv .v{font-weight:600;text-align:right;word-break:break-word}
+    .total{border-top:1px solid #e2e8f0;margin-top:.4rem;padding-top:.5rem;font-size:1rem}
+    .muted{color:#94a3b8}
+    table{width:100%;border-collapse:collapse;font-size:.82rem}
+    th,td{text-align:left;padding:.4rem .3rem;border-bottom:1px solid #f1f5f9}
+    th{color:#64748b;font-size:.68rem;text-transform:uppercase;letter-spacing:.04em}
+    .time{display:flex;flex-direction:column;gap:.5rem}
+    .ev{display:flex;gap:.6rem;align-items:flex-start;font-size:.84rem}
+    .dot{width:9px;height:9px;border-radius:50%;background:#2563eb;margin-top:5px;flex:none}
+    .ev .when{color:#94a3b8;font-size:.74rem}
+    #status{font-size:.9rem;color:#64748b}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="crumb"><a href="/admin/">← Admin</a> · <a href="/admin/invoices.html">Auction Invoices</a></div>
+    <div id="status">Loading…</div>
+    <div id="detail" style="display:none">
+      <div class="head">
+        <h1 id="invNum">—</h1>
+        <span class="st" id="invStatus">—</span>
+        <div class="spacer"></div>
+        <button class="btn btn-pri" id="dlPdf">Download Invoice PDF</button>
+        <button class="btn" id="resendBtn">Resend</button>
+        <a class="btn" id="backBtn" href="/admin/invoices.html">Back</a>
+      </div>
+
+      <div class="grid">
+        <div class="card"><h2>Buyer</h2><div id="buyer"></div></div>
+        <div class="card"><h2>Auction & Lot</h2><div id="auctionLot"></div></div>
+        <div class="card"><h2>Financial Summary</h2><div id="financial"></div></div>
+        <div class="card"><h2>Payment</h2><div id="payment"></div></div>
+      </div>
+
+      <div class="card" style="margin-bottom:1rem"><h2>Generated Documents</h2><div id="documents"></div></div>
+      <div class="card" style="margin-bottom:1rem"><h2>Email History</h2><div id="emails"></div></div>
+      <div class="card"><h2>Audit History</h2><div class="time" id="audit"></div></div>
+    </div>
+  </div>
+
+  <script>
+  const token = localStorage.getItem('token');
+  if (!token) { window.location.href = '/login.html'; }
+  (function checkAdmin(){ try { if (JSON.parse(atob(token.split('.')[1])).role !== 'admin') throw 0; } catch { document.body.innerHTML='<div style="padding:4rem;text-align:center"><h2>Access Denied</h2><a href="/login.html" style="color:#2563eb">Login</a></div>'; throw new Error('not admin'); } })();
+  function adminLogout(){ localStorage.removeItem('token'); sessionStorage.clear(); window.location.href='/login.html'; }
+  function api(method,url,body){ const o={method,headers:{'Content-Type':'application/json','Authorization':'Bearer '+token}}; if(body!==undefined)o.body=JSON.stringify(body); return fetch(url,o).then(r=>{ if(r.status===401){adminLogout();throw new Error('expired');} return r.json(); }); }
+  function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+  function usd(c){ return c==null?'—':'$'+(Number(c)/100).toFixed(2); }
+  function dt(s){ if(!s) return '—'; try { return new Date(s).toLocaleString('en-US',{month:'short',day:'numeric',year:'numeric',hour:'numeric',minute:'2-digit'}); } catch(e){ return '—'; } }
+  function kv(k,v){ return '<div class="kv"><span class="k">'+esc(k)+'</span><span class="v">'+v+'</span></div>'; }
+
+  const invoiceId = new URLSearchParams(location.search).get('id');
+
+  async function blobDownload(url, filename, btn){
+    const old=btn?btn.textContent:null; if(btn){btn.disabled=true;btn.textContent='…';}
+    try{ const r=await fetch(url,{headers:{Authorization:'Bearer '+token}}); if(r.status===401){adminLogout();return;} if(!r.ok)throw new Error('HTTP '+r.status); const b=await r.blob(); const u=URL.createObjectURL(b); const a=document.createElement('a'); a.href=u; a.download=filename; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(u),5000); }
+    catch(e){ alert('Download failed: '+e.message); } finally{ if(btn){btn.disabled=false;btn.textContent=old;} }
+  }
+
+  const EVENT_LABEL = {
+    'payment.created':'Payment created','payment.paid':'Payment completed','payment.intent_attached':'Payment intent attached',
+    'payment.intent_create_failed':'Payment intent failed','payment.refund_started':'Refund started','payment.refunded':'Refund completed',
+    'payment.refund_failed':'Refund failed','invoice.email_sent':'Invoice email sent','invoice.email_skipped':'Invoice email skipped',
+    'invoice.email_failed':'Invoice email failed','receipt.email_sent':'Receipt email sent','receipt.email_skipped':'Receipt email skipped','receipt.email_failed':'Receipt email failed'
+  };
+  const label = (t)=>EVENT_LABEL[t]||t;
+
+  function render(d){
+    const inv=d.invoice, b=d.buyer, a=d.auction, l=d.lot, p=d.payment, fin=inv.financial;
+    document.getElementById('invNum').textContent = inv.invoice_number || inv.id;
+    const stEl=document.getElementById('invStatus');
+    stEl.textContent = inv.is_paid?'PAID':(inv.status||'—').toUpperCase();
+    stEl.className = 'st '+(inv.is_paid?'st-paid':(inv.status==='issued'?'st-issued':'st-other'));
+
+    document.getElementById('buyer').innerHTML = kv('Name', esc(b.name||'—')) + kv('Email', esc(b.email||'—')) + kv('Phone', esc(b.phone||'—'));
+    document.getElementById('auctionLot').innerHTML = kv('Auction', esc(a.title||'—')) + kv('Winning lot', (l.lot_number!=null?'#'+esc(l.lot_number)+' ':'')+esc(l.title||'—'));
+    document.getElementById('financial').innerHTML =
+      kv('Hammer', usd(fin.hammer_cents)) +
+      kv('Buyer premium', fin.buyer_premium_cents?usd(fin.buyer_premium_cents):'<span class="muted">—</span>') +
+      kv('Sales tax', fin.sales_tax_cents?usd(fin.sales_tax_cents):'<span class="muted">—</span>') +
+      kv('Shipping', fin.shipping_cents?usd(fin.shipping_cents):'<span class="muted">—</span>') +
+      '<div class="total">'+kv('Total', '<b>'+usd(fin.total_cents)+'</b>')+'</div>';
+    const stripeId = p.stripe_payment_intent_id || p.stripe_provider_id;
+    document.getElementById('payment').innerHTML =
+      kv('Stripe Payment ID', stripeId?'<span style="font-family:monospace;font-size:.78rem">'+esc(stripeId)+'</span>':'<span class="muted">— (not charged)</span>') +
+      kv('Payment status', esc((p.status||(inv.is_paid?'paid':'unpaid'))).toUpperCase()) +
+      kv('Payment date', dt(p.paid_at)) +
+      kv('Invoice date', dt(inv.invoice_date));
+
+    // Generated documents
+    let docsHtml = '<div style="margin-bottom:.5rem"><button class="btn" id="dlPdf2">Download current invoice PDF</button></div>';
+    if (d.documents && d.documents.length) {
+      docsHtml += '<table><thead><tr><th>Document</th><th>Type</th><th>Generated</th><th>SHA-256</th></tr></thead><tbody>'+
+        d.documents.map(x=>'<tr><td>'+esc(x.file_name||'invoice.pdf')+'</td><td>'+esc(x.doc_type||'')+'</td><td>'+dt(x.created_at)+'</td><td style="font-family:monospace;font-size:.7rem">'+esc((x.pdf_sha256||'').slice(0,16))+(x.pdf_sha256?'…':'')+'</td></tr>').join('')+'</tbody></table>';
+    } else {
+      docsHtml += '<div class="muted" style="font-size:.83rem">No archived document records yet. The current invoice PDF can be downloaded above. (The paid receipt email attaches this same invoice PDF.)</div>';
+    }
+    document.getElementById('documents').innerHTML = docsHtml;
+    document.getElementById('dlPdf2').onclick=(e)=>blobDownload('/api/invoices/'+encodeURIComponent(inv.id)+'/pdf','invoice-'+(inv.invoice_number||inv.id)+'.pdf',e.target);
+
+    // Email history (from audit_log)
+    const emailEvents=(d.audit||[]).filter(e=>/^(invoice|receipt)\.email/.test(e.event_type));
+    if (emailEvents.length) {
+      document.getElementById('emails').innerHTML='<table><thead><tr><th>Event</th><th>To</th><th>Result</th><th>Message ID</th><th>When</th></tr></thead><tbody>'+
+        emailEvents.map(e=>{ const m=e.metadata||{}; return '<tr><td>'+esc(label(e.event_type))+'</td><td>'+esc(m.to||'—')+'</td><td>'+esc(m.result||'—')+(m.reason?(' ('+esc(m.reason)+')'):'')+'</td><td style="font-family:monospace;font-size:.7rem">'+esc(m.messageId||'—')+'</td><td>'+dt(e.created_at)+'</td></tr>'; }).join('')+'</tbody></table>';
+    } else {
+      document.getElementById('emails').innerHTML='<div class="muted" style="font-size:.83rem">No email send records yet for this invoice.</div>';
+    }
+
+    // Audit timeline: synthesize created + PDF-generated, merge with audit_log events
+    const tl=[];
+    if (inv.invoice_date) tl.push({ t:inv.invoice_date, label:'Invoice created' });
+    if (inv.pdf && inv.pdf.generated_at) tl.push({ t:inv.pdf.generated_at, label:'Invoice PDF generated' });
+    (d.audit||[]).forEach(e=>{ const m=e.metadata||{}; let extra=''; if(m.result&&/email/.test(e.event_type)) extra=' — '+m.result; tl.push({ t:e.created_at, label:label(e.event_type)+extra }); });
+    tl.sort((x,y)=> new Date(x.t)-new Date(y.t));
+    document.getElementById('audit').innerHTML = tl.length
+      ? tl.map(x=>'<div class="ev"><span class="dot"></span><div><div>'+esc(x.label)+'</div><div class="when">'+dt(x.t)+'</div></div></div>').join('')
+      : '<div class="muted" style="font-size:.83rem">No audit events recorded.</div>';
+
+    // Top actions
+    document.getElementById('dlPdf').onclick=(e)=>blobDownload('/api/invoices/'+encodeURIComponent(inv.id)+'/pdf','invoice-'+(inv.invoice_number||inv.id)+'.pdf',e.target);
+    const rb=document.getElementById('resendBtn');
+    rb.textContent = inv.is_paid ? 'Resend receipt' : 'Resend invoice';
+    rb.onclick=()=>{ const url = inv.is_paid?'/api/admin/invoices/'+encodeURIComponent(inv.id)+'/resend-receipt':'/api/admin/invoices/'+encodeURIComponent(inv.id)+'/resend-invoice-email'; rb.disabled=true; const o=rb.textContent; rb.textContent='Sending…'; api('POST',url).then(r=>alert(r&&r.success?'Email sent.':'Not sent'+(r&&r.data&&r.data.reason?': '+r.data.reason:(r&&r.message?': '+r.message:'')))).catch(()=>alert('Resend failed.')).finally(()=>{rb.disabled=false;rb.textContent=o;}); };
+
+    document.getElementById('status').style.display='none';
+    document.getElementById('detail').style.display='block';
+  }
+
+  if (!invoiceId) { document.getElementById('status').textContent='No invoice id specified.'; }
+  else {
+    api('GET','/api/admin/invoices/'+encodeURIComponent(invoiceId)+'/detail').then(d=>{
+      if(!d||!d.success){ document.getElementById('status').textContent='Invoice not found.'; return; }
+      render(d);
+    }).catch(()=>{ document.getElementById('status').textContent='Failed to load invoice.'; });
+  }
+  </script>
+</body>
+</html>
