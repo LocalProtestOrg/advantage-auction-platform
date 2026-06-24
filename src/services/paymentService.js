@@ -521,6 +521,12 @@ class PaymentService {
       amountCents: payment.amount_cents
     });
 
+    // Phase 2: itemized buyer payment receipt (email + attached invoice PDF).
+    // Fire-and-forget, best-effort — a delivery problem must never affect the
+    // already-committed payment.
+    require('./receiptService').sendPaymentReceipt(paymentId)
+      .catch(err => console.error('[receipt] dispatch failed:', err.message));
+
     if (pickupAssignment?.pickupAssignmentId) {
       const verifyClient = await db.connect();
       try {

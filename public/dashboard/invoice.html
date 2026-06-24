@@ -191,6 +191,32 @@
       return known.indexOf(status) !== -1 ? 'badge-' + status : 'badge-default';
     }
 
+    function sumLine(label, cents, opts) {
+      opts = opts || {};
+      var has = cents != null && cents !== 0;
+      var val = has ? formatPrice(cents) : '—';
+      var color = (!has && !opts.bold) ? '#94a3b8' : '#111';
+      return '<div class="row" style="margin:0">' +
+        '<span style="color:' + (opts.bold ? '#111' : '#666') + ';font-weight:' + (opts.bold ? '700' : '400') + '">' + label + '</span>' +
+        '<span style="color:' + color + ';font-weight:' + (opts.bold ? '800' : '600') + '">' + val + '</span>' +
+      '</div>';
+    }
+
+    async function downloadInvoicePdf(id, number, btn) {
+      var old = btn.textContent; btn.disabled = true; btn.textContent = '…';
+      try {
+        var r = await fetch('/api/invoices/' + encodeURIComponent(id) + '/pdf', { headers: { Authorization: 'Bearer ' + token } });
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        var blob = await r.blob();
+        var url = URL.createObjectURL(blob);
+        var a = document.createElement('a');
+        a.href = url; a.download = 'invoice-' + (number || id) + '.pdf';
+        document.body.appendChild(a); a.click(); a.remove();
+        setTimeout(function () { URL.revokeObjectURL(url); }, 4000);
+      } catch (e) { alert('Could not download the invoice PDF. Please try again.'); }
+      finally { btn.disabled = false; btn.textContent = old; }
+    }
+
     function render(inv) {
       var img = document.createElement('img');
       img.className = 'card-img';
@@ -220,15 +246,39 @@
 
       var date = document.createElement('div');
       date.className = 'card-date';
-      date.textContent = inv.created_at
-        ? 'Purchased ' + formatDate(inv.created_at)
-        : 'Purchase date unavailable';
+      var when = inv.invoice_date || inv.created_at;
+      date.textContent = when ? 'Purchased ' + formatDate(when) : 'Purchase date unavailable';
+
+      var meta = document.createElement('div');
+      meta.style.cssText = 'font-size:.82rem;color:#475569';
+      meta.innerHTML =
+        (inv.invoice_number ? '<div><strong>Invoice ' + inv.invoice_number + '</strong></div>' : '') +
+        (inv.auction_title ? '<div style="color:#94a3b8">' + inv.auction_title + '</div>' : '');
+
+      var breakdown = document.createElement('div');
+      breakdown.style.cssText = 'border-top:1px solid #eef2f7;padding-top:.75rem;margin-top:.25rem;display:flex;flex-direction:column;gap:.3rem';
+      breakdown.innerHTML =
+        sumLine('Hammer subtotal', inv.hammer_cents != null ? inv.hammer_cents : inv.amount_cents) +
+        sumLine('Buyer premium', inv.buyer_premium_cents) +
+        sumLine('Sales tax', inv.sales_tax_cents) +
+        sumLine('Shipping', inv.shipping_cents) +
+        '<div style="border-top:1px solid #e2e8f0;margin:.2rem 0"></div>' +
+        sumLine('Total', inv.total_cents != null ? inv.total_cents : inv.amount_cents, { bold: true });
+
+      var dl = document.createElement('button');
+      dl.className = 'print-btn';
+      dl.style.marginLeft = '0';
+      dl.textContent = 'Download PDF';
+      dl.addEventListener('click', function () { downloadInvoicePdf(inv.id, inv.invoice_number, dl); });
 
       var body = document.createElement('div');
       body.className = 'card-body';
+      body.appendChild(meta);
       body.appendChild(title);
       body.appendChild(row);
       body.appendChild(date);
+      body.appendChild(breakdown);
+      body.appendChild(dl);
 
       var card = document.createElement('div');
       card.className = 'card';
