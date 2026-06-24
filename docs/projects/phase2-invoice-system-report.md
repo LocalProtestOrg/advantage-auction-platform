@@ -75,11 +75,20 @@ A real fixture (closed auction → lot with a real Cloudinary JPEG → winning b
 | Account history enrichment | `/mine` returns invoice number, auction title, lot #1, lot title, total `42500`, status `paid`, thumbnail present |
 | Receipt hook fires on settlement | `recordPaymentSuccess` real path succeeded and dispatched the async receipt (log: "created invoice … / Sent Payment receipt") |
 
-### 2.3 Live HTTP download (deployed staging build) — BLOCKED on deploy
-- `GET /api/invoices/:invoiceId/pdf` with a buyer JWT returned **HTTP 404 `{"error":"Route not found"}`** because **the new code is not deployed to the staging service.** Investigation found:
-  - The staging service's most recent **build image is dated `2026-06-18`** — i.e. the git push to `deploy/seller-studio-1b` did **not** trigger a rebuild. Staging has been serving June-18 code; branch-push auto-deploy is not firing for this service.
-  - A direct CLI deploy (`railway up --service advantage-staging`) was **rejected: "You have used all your available resources"** — a Railway account quota/plan limit.
-- **This is an infrastructure/quota blocker, not a code issue.** The identical handler code was fully validated in-process in §2.2 (the route calls `getInvoiceData` + ownership check + `buildInvoicePdf`, all green against the staging DB). The live-URL 200 confirmation is pending a successful staging deploy, which requires the Railway resource limit to be lifted (or the git→Railway auto-deploy re-enabled for `deploy/seller-studio-1b`).
+### 2.3 Live HTTP download (deployed staging build) — CONFIRMED ✓
+After the Railway resource limit was lifted, the working tree was deployed to `advantage-staging` via `railway up --service advantage-staging` (deployed source `d1df7ba`, i.e. `229b467`+). New build confirmed live (the new route returns `401` unauthenticated, not `404 Route not found`). A fresh end-to-end validation run produced invoice `AAC-000010`, and the **live deployed endpoint** was exercised:
+
+| Live check | Result |
+|---|---|
+| `GET /api/invoices/:id/pdf` (valid buyer JWT) | **HTTP 200** |
+| Content-Type | `application/pdf` |
+| Content-Disposition | `attachment; filename="invoice-AAC-000010.pdf"` |
+| Body | valid `%PDF-`, **283,828 bytes** (thumbnail embedded) |
+| Same endpoint, **no token** (auth/ownership) | **HTTP 401** |
+
+The live deployed download now matches the in-process validation in §2.2. **All Phase 2 acceptance checks pass on staging.**
+
+> Earlier blocker (now resolved, kept for the record): staging had been frozen on a `2026-06-18` build because the git push to `deploy/seller-studio-1b` did not trigger a rebuild, and `railway up` was initially rejected with "You have used all your available resources." Both were cleared (Railway limit lifted + auto-deploy enabled), and the `railway up` deploy succeeded.
 
 ---
 
@@ -98,7 +107,7 @@ Automated browser screenshots were **not** captured in this run (no headless bro
 
 ## 4. Open Issues / Notes
 
-1. **Staging is not deploying new code (blocker, user action required).** The staging service is frozen on a `2026-06-18` build: pushing to `deploy/seller-studio-1b` did not trigger a rebuild, and `railway up` is blocked by a Railway account resource limit ("You have used all your available resources"). Until that is resolved, the deployed staging URL serves pre-Phase-2 code. **All Phase 2 code is validated in-process against the real staging backend (§2.2); only the deployed-URL HTTP confirmation (§2.3) is pending.** Action: raise/refresh the Railway plan/usage, then either re-enable git auto-deploy for the staging service or run `railway up --service advantage-staging`, and re-run the live-URL check in §2.3.
+1. **Staging deploy — RESOLVED.** The earlier freeze (git push not rebuilding + Railway resource limit) was cleared; `railway up --service advantage-staging` deployed `229b467`+ and the live endpoint check (§2.3) now passes. Note for the future: confirm whether git-push auto-deploy for `deploy/seller-studio-1b` is reliably firing, or standardize on `railway up --service advantage-staging` for staging deploys.
 2. **Per-lot invoices (not consolidated).** Today one invoice == one lot (the payment model is per-lot). A multi-lot winner receives multiple numbered invoices/receipts. The PDF/template already supports N lot rows; consolidation is a future, separate change (and pairs naturally with multi-lot PaymentIntents).
 3. **Receipt is a direct best-effort send, not queued.** It uses the same SES transport as other emails but is not yet in the retrying `notifications_queue`. A transient SES failure logs and drops (the payment is unaffected). Future hardening: move into the retry queue.
 4. **Thumbnail formats.** PDFKit embeds JPEG/PNG only. SVG/data-URI/WebP/GIF (e.g. the demo past-auction tile images) fall back to a "No image" placeholder by design. Real lot photos (Cloudinary JPEG/PNG) embed correctly, as validated.
