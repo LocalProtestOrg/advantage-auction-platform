@@ -19,8 +19,10 @@
 - **Added visibility (this phase):** every send now writes an `audit_log` row — `invoice.email_sent|skipped|failed`, `receipt.email_sent|skipped|failed` (with `to`, `messageId`, `reason`) — visible via `GET /api/admin/audit-log`.
 - **Recommendation (next step, not done here):** migrate invoice/receipt emails into the retrying `notifications_queue` for backoff + delivery guarantees. This needs the worker extended to render invoice/receipt bodies + attach the PDF at send time (moderate change to `notificationWorker`), so it is deferred to keep Phase 2D low-risk. See Open Issues.
 
-### Admin UI polish (Requirement 3) — `public/admin/moderation.html`
+### Admin UI polish (Requirement 3) — `public/admin/moderation.html` + `public/admin/index.html`
 The per-auction **Invoices** panel now shows a **summary bar**: total / paid / unpaid counts **and** total **hammer**, **paid**, and **unpaid** amounts (from the extended `GET …/invoices` which now returns `totals`). Actions are explicit: **Download PDF** (per invoice), **Resend invoice**, **Resend receipt**, **Issue missing invoices**, **Pickup packet**, and **Reconcile** (inline read-only check with a **Run safe repair** button when safely-repairable issues exist).
+
+**Discoverability (added for production):** the admin home (`/admin/index.html`) now has a top-level **"Auction Invoices"** card → `/admin/moderation.html?tab=auctions`, and `moderation.html` honors `?tab=` so the link lands directly on the **Auctions** tab where each auction's **Invoices** button lives. Verified live on staging: `https://advantage-staging-production.up.railway.app/admin/` → "Auction Invoices", and `…/admin/moderation.html?tab=auctions` opens the Auctions tab.
 
 ---
 
@@ -84,7 +86,7 @@ Confirmed in 4.1: buyer invoice history returns **unpaid `issued`** and **paid**
 - [ ] **Stripe TEST confirmed** on prod (no `sk_live`); this phase changes no charging/capture/payout.
 - [ ] **SES confirmed** (SMTP_* + verified `EMAIL_FROM`); send a test invoice/receipt and confirm `audit_log` `*.email_sent`.
 - [ ] **Apply migrations via prod-guarded runners** (mirror `stg-migrate-072/073`, prod endpoint `ep-proud-leaf-an8pzkib`), then deploy.
-- [ ] **Admin UAT:** close a test auction → Invoices panel shows counts+totals; download a PDF; resend invoice + receipt (verify in `audit_log`); run **Reconcile** (clean); delete a test invoice → Reconcile flags it → **Run safe repair** re-issues; download **Pickup packet** and grayscale-print check.
+- [ ] **Admin UAT:** from the admin home, open the **"Auction Invoices"** card (lands on the Auctions tab) → open an auction's **Invoices** panel → counts+totals shown; download a PDF; resend invoice + receipt (verify in `audit_log`); run **Reconcile** (clean); delete a test invoice → Reconcile flags it → **Run safe repair** re-issues; download **Pickup packet** and grayscale-print check.
 - [ ] **Buyer UAT:** as a buyer with an unpaid + a paid invoice, view `/invoices.html` (statuses + numbers), download both PDFs; confirm a buyer **cannot** download another buyer's invoice (403) and **cannot** hit admin invoice/packet endpoints (403).
 - [ ] **Rollback notes:** code rollback = redeploy the prior build (revert the branch). Schema: 073 is additive (nullable + index); if rollback needed, drop `idx_invoices_lot_buyer` and (optionally) re-impose `payment_id NOT NULL` only after confirming no NULL rows — **but** issued invoices intentionally have NULL `payment_id`, so prefer **forward-fix** over reverting 073. `generated_documents` and invoice columns from 072 are additive and safe to leave. Keep the pre-migration Neon backup for restore-in-place if required.
 
