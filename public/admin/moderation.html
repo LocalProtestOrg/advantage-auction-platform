@@ -650,10 +650,22 @@
     api('GET', '/api/admin/auctions/' + encodeURIComponent(auctionId) + '/invoices?status=' + encodeURIComponent(filter)).then(d => {
       if (!d || !d.success) { panel.innerHTML = '<div class="status-msg error">Failed to load invoices.</div>'; return; }
       const c = d.counts || { total: 0, paid: 0, unpaid: 0 };
+      const t = d.totals || { hammer_cents: 0, paid_cents: 0, unpaid_cents: 0 };
       const pill = (label, key) => '<button class="filter-btn' + (filter === key ? ' active' : '') + '" data-f="' + key + '">' + label + '</button>';
-      let html = '<div style="display:flex;gap:0.4rem;align-items:center;flex-wrap:wrap;margin-bottom:0.5rem">' +
-        pill('All (' + c.total + ')', 'all') + pill('Unpaid (' + c.unpaid + ')', 'unpaid') + pill('Paid (' + c.paid + ')', 'paid') +
-        '<button class="btn btn-sm" data-act="issue" style="margin-left:auto" title="Idempotently create any missing invoices for winners (repair path)">Issue missing invoices</button></div>';
+      let html =
+        '<div style="font-size:0.8rem;color:#334155;margin-bottom:0.45rem">' +
+          '<b>' + c.total + '</b> invoices · <span style="color:#16a34a"><b>' + c.paid + '</b> paid</span> · <span style="color:#b91c1c"><b>' + c.unpaid + '</b> unpaid</span>' +
+          ' &nbsp;|&nbsp; Hammer <b>' + fmtMoney(t.hammer_cents) + '</b> · Paid <b>' + fmtMoney(t.paid_cents) + '</b> · Unpaid <b>' + fmtMoney(t.unpaid_cents) + '</b>' +
+        '</div>' +
+        '<div style="display:flex;gap:0.4rem;align-items:center;flex-wrap:wrap;margin-bottom:0.5rem">' +
+          pill('All (' + c.total + ')', 'all') + pill('Unpaid (' + c.unpaid + ')', 'unpaid') + pill('Paid (' + c.paid + ')', 'paid') +
+          '<span style="margin-left:auto;display:flex;gap:0.4rem;flex-wrap:wrap">' +
+            '<button class="btn btn-sm" data-act="packet" title="Download the combined pickup-day invoice packet">Pickup packet</button>' +
+            '<button class="btn btn-sm" data-act="reconcile" title="Read-only invoice integrity check (with optional safe repair)">Reconcile</button>' +
+            '<button class="btn btn-sm" data-act="issue" title="Idempotently create any missing invoices for winners (repair path)">Issue missing invoices</button>' +
+          '</span>' +
+        '</div>' +
+        '<div class="recon-out" style="margin-bottom:0.5rem"></div>';
       if (!d.invoices.length) {
         html += '<div class="empty" style="padding:0.6rem">No invoices in this view.</div>';
       } else {
@@ -679,6 +691,10 @@
       }
       panel.innerHTML = html;
       panel.querySelectorAll('.filter-btn').forEach(b => b.onclick = () => renderInvoicePanel(panel, auctionId, b.getAttribute('data-f')));
+      const packetBtn2 = panel.querySelector('[data-act="packet"]');
+      if (packetBtn2) packetBtn2.onclick = () => downloadPacket(auctionId, null, packetBtn2);
+      const reconBtn = panel.querySelector('[data-act="reconcile"]');
+      if (reconBtn) reconBtn.onclick = () => reconcileAuction(panel.querySelector('.recon-out'), auctionId, reconBtn);
       const issueBtn = panel.querySelector('[data-act="issue"]');
       if (issueBtn) issueBtn.onclick = () => {
         issueBtn.disabled = true; issueBtn.textContent = 'Issuing…';
@@ -713,6 +729,40 @@
     api('POST', url).then(r => {
       alert(r && r.success ? 'Email sent.' : ('Email not sent' + (r && r.data && r.data.reason ? ': ' + r.data.reason : (r && r.message ? ': ' + r.message : ''))));
     }).catch(() => alert('Resend failed.')).finally(() => { if (btn) { btn.disabled = false; btn.textContent = old; } });
+  }
+
+  // Phase 2D: read-only reconciliation check (+ optional safe repair) for an auction.
+  function reconcileAuction(outEl, auctionId, btn) {
+    if (!outEl) return;
+    const old = btn ? btn.textContent : null;
+    if (btn) { btn.disabled = true; btn.textContent = 'Checking…'; }
+    api('GET', '/api/admin/auctions/' + encodeURIComponent(auctionId) + '/invoice-reconciliation').then(d => {
+      if (!d || !d.success) { outEl.innerHTML = '<div class="status-msg error">Reconciliation check failed.</div>'; return; }
+      const r = d.report;
+      if (r.clean) {
+        outEl.innerHTML = '<div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:6px;padding:0.5rem 0.7rem;font-size:0.8rem;color:#166534">✓ No invoice issues found for this auction.</div>';
+        return;
+      }
+      const c = r.counts;
+      const items = Object.keys(c).filter(k => c[k] > 0).map(k => '<li>' + escH(k.replace(/_/g, ' ')) + ': <b>' + c[k] + '</b></li>').join('');
+      let html = '<div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:6px;padding:0.5rem 0.7rem;font-size:0.8rem;color:#7c2d12">' +
+        '<div style="font-weight:700;margin-bottom:0.3rem">Invoice issues found</div><ul style="margin:0 0 0.4rem 1rem">' + items + '</ul>' +
+        'Safely repairable: <b>' + r.safely_repairable + '</b> · Needs manual review: <b>' + r.needs_manual_review + '</b>';
+      if (r.safely_repairable > 0) html += '<div style="margin-top:0.4rem"><button class="btn btn-sm" data-act="repair">Run safe repair</button></div>';
+      html += '</div>';
+      outEl.innerHTML = html;
+      const rep = outEl.querySelector('[data-act="repair"]');
+      if (rep) rep.onclick = () => {
+        rep.disabled = true; rep.textContent = 'Repairing…';
+        api('POST', '/api/admin/auctions/' + encodeURIComponent(auctionId) + '/invoice-reconciliation/repair').then(rr => {
+          const x = (rr && rr.result && rr.result.repaired) || {};
+          alert('Repair complete — issued: ' + (x.issued || 0) + ', promoted to paid: ' + (x.promoted || 0) + ', PDFs regenerated: ' + (x.pdfs_regenerated || 0) + (x.errors && x.errors.length ? (', errors: ' + x.errors.length) : ''));
+          const panel = outEl.closest('.inv-panel');
+          if (panel) renderInvoicePanel(panel, auctionId, 'all');
+        }).catch(() => { rep.disabled = false; rep.textContent = 'Run safe repair'; alert('Repair failed.'); });
+      };
+    }).catch(() => { outEl.innerHTML = '<div class="status-msg error">Reconciliation check failed.</div>'; })
+      .finally(() => { if (btn) { btn.disabled = false; btn.textContent = old; } });
   }
 
   // ── DOM helpers ───────────────────────────────────────────────────────────────

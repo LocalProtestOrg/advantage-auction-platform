@@ -18,9 +18,22 @@ const db = require('../db');
 const { sendEmail } = require('./emailService');
 const invoicePdfService = require('./invoicePdfService');
 const doc = require('./documentService');
+const auditService = require('./auditService');
 
 let SITE_URL = '';
 try { SITE_URL = require('../lib/publicUrls').publicBaseUrl(); } catch (_e) { SITE_URL = ''; }
+
+// Phase 2D email visibility: record every invoice/receipt send attempt in audit_log
+// so admins can see delivery outcomes via GET /api/admin/audit-log. Best-effort —
+// logging must never affect the send result.
+async function logEmail(eventType, { invoiceId, paymentId, to, result, reason, messageId }) {
+  try {
+    await auditService.logEvent(db, {
+      eventType, entityType: 'invoice', entityId: invoiceId || null, paymentId: paymentId || null,
+      metadata: { to: to || null, result, reason: reason || null, messageId: messageId || null },
+    });
+  } catch (_e) { /* visibility logging is best-effort */ }
+}
 
 function esc(s) {
   return String(s == null ? '' : s)
@@ -131,12 +144,15 @@ async function sendPaymentReceipt(paymentId) {
 
     if (result && result.skipped) {
       console.warn('[receipt] SES not configured — receipt for invoice', invoiceId, 'not delivered');
+      await logEmail('receipt.email_skipped', { invoiceId, paymentId, to: data.buyerEmail, result: 'skipped', reason: 'smtp_unconfigured' });
       return { sent: false, skipped: true, reason: 'smtp_unconfigured' };
     }
     console.log('[receipt] sent receipt for invoice', invoiceId, 'to', data.buyerEmail);
+    await logEmail('receipt.email_sent', { invoiceId, paymentId, to: data.buyerEmail, result: 'sent', messageId: result && result.messageId });
     return { sent: true, messageId: result && result.messageId };
   } catch (err) {
     console.error('[receipt] sendPaymentReceipt failed for payment', paymentId, '-', err.message);
+    await logEmail('receipt.email_failed', { paymentId, result: 'failed', reason: err.message });
     return { sent: false, reason: err.message };
   }
 }
@@ -217,12 +233,15 @@ async function sendUnpaidInvoiceEmail(invoiceId) {
     });
     if (result && result.skipped) {
       console.warn('[invoice-email] SES not configured — invoice', invoiceId, 'not delivered');
+      await logEmail('invoice.email_skipped', { invoiceId, to: data.buyerEmail, result: 'skipped', reason: 'smtp_unconfigured' });
       return { sent: false, skipped: true, reason: 'smtp_unconfigured' };
     }
     console.log('[invoice-email] sent unpaid invoice', invoiceId, 'to', data.buyerEmail);
+    await logEmail('invoice.email_sent', { invoiceId, to: data.buyerEmail, result: 'sent', messageId: result && result.messageId });
     return { sent: true, messageId: result && result.messageId };
   } catch (err) {
     console.error('[invoice-email] sendUnpaidInvoiceEmail failed for invoice', invoiceId, '-', err.message);
+    await logEmail('invoice.email_failed', { invoiceId, result: 'failed', reason: err.message });
     return { sent: false, reason: err.message };
   }
 }

@@ -718,8 +718,8 @@ router.get('/auctions/:auctionId/invoices', auth, role(['admin']), async (req, r
     const { auctionId } = req.params;
     const status = String(req.query.status || 'all').toLowerCase();
     const { rows } = await db.query(
-      `SELECT i.id, i.invoice_number, i.invoice_date, i.status, i.total_cents, i.amount_cents,
-              i.payment_id, i.lot_id, i.buyer_user_id,
+      `SELECT i.id, i.invoice_number, i.invoice_date, i.status, i.total_cents, i.amount_cents, i.hammer_cents,
+              i.payment_id, i.lot_id, i.buyer_user_id, i.pdf_generated_at,
               u.full_name AS buyer_name, u.email AS buyer_email, u.phone AS buyer_phone,
               l.lot_number, l.title AS lot_title,
               p.status AS payment_status, p.charged_at AS payment_date
@@ -734,15 +734,22 @@ router.get('/auctions/:auctionId/invoices', auth, role(['admin']), async (req, r
       [auctionId]
     );
     const enriched = rows.map((r) => ({ ...r, is_paid: r.status === 'paid' || r.payment_status === 'paid' }));
+    const tot = (arr, f) => arr.reduce((s, r) => s + (f(r) || 0), 0);
+    const lineTotal = (r) => (r.total_cents != null ? r.total_cents : r.amount_cents);
     const counts = {
       total: enriched.length,
       paid: enriched.filter((i) => i.is_paid).length,
       unpaid: enriched.filter((i) => !i.is_paid).length,
     };
+    const totals = {
+      hammer_cents: tot(enriched, (r) => (r.hammer_cents != null ? r.hammer_cents : r.amount_cents)),
+      paid_cents: tot(enriched.filter((i) => i.is_paid), lineTotal),
+      unpaid_cents: tot(enriched.filter((i) => !i.is_paid), lineTotal),
+    };
     let invoices = enriched;
     if (status === 'paid') invoices = enriched.filter((i) => i.is_paid);
     else if (status === 'unpaid') invoices = enriched.filter((i) => !i.is_paid);
-    return res.json({ success: true, auction_id: auctionId, counts, invoices });
+    return res.json({ success: true, auction_id: auctionId, counts, totals, invoices });
   } catch (err) { next(err); }
 });
 
@@ -771,6 +778,31 @@ router.post('/auctions/:auctionId/issue-invoices', auth, role(['admin']), async 
       already_existed: result.existingCount,
       emails_dispatched: sendEmail ? result.createdIds.length : 0,
     });
+  } catch (err) { next(err); }
+});
+
+// GET /api/admin/auctions/:auctionId/invoice-reconciliation
+// Phase 2D READ-ONLY integrity check: missing invoices, duplicates, paid-but-not-marked,
+// missing buyer/lot/number, ungenerated PDFs. Admin-only. Mutates nothing.
+router.get('/auctions/:auctionId/invoice-reconciliation', auth, role(['admin']), async (req, res, next) => {
+  try {
+    const svc = require('../services/invoiceReconciliationService');
+    const report = await svc.checkAuction(req.params.auctionId);
+    if (!report) return res.status(404).json({ success: false, message: 'Auction not found' });
+    return res.json({ success: true, report });
+  } catch (err) { next(err); }
+});
+
+// POST /api/admin/auctions/:auctionId/invoice-reconciliation/repair
+// Phase 2D SAFE repair: issue missing invoices, regenerate missing PDFs, and promote to
+// 'paid' ONLY where a real paid payment exists. Never creates payments; never marks paid
+// without payment evidence. Duplicates / missing buyer-lot-number are reported, not auto-fixed.
+router.post('/auctions/:auctionId/invoice-reconciliation/repair', auth, role(['admin']), async (req, res, next) => {
+  try {
+    const svc = require('../services/invoiceReconciliationService');
+    const result = await svc.repairAuction(req.params.auctionId);
+    if (!result) return res.status(404).json({ success: false, message: 'Auction not found' });
+    return res.json({ success: true, result });
   } catch (err) { next(err); }
 });
 
