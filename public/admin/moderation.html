@@ -610,6 +610,28 @@
     });
   }
 
+  // Phase 2B: download the combined pickup-day invoice packet (admin-only,
+  // authenticated blob fetch → client download; no token in the URL).
+  function downloadPacket(auctionId, title, btn) {
+    const old = btn ? btn.textContent : null;
+    if (btn) { btn.disabled = true; btn.textContent = 'Generating…'; }
+    fetch('/api/admin/auctions/' + encodeURIComponent(auctionId) + '/pickup-packet', {
+      headers: { 'Authorization': 'Bearer ' + token },
+    }).then(r => {
+      if (r.status === 401) { logout(); throw new Error('Session expired'); }
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      return r.blob();
+    }).then(blob => {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      const safe = (title || 'auction').replace(/[^a-z0-9]+/gi, '-').replace(/^-+|-+$/g, '').slice(0, 40) || 'auction';
+      a.href = url; a.download = 'pickup-packet-' + safe + '.pdf';
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 5000);
+    }).catch(e => { alert('Could not generate the pickup packet: ' + e.message); })
+      .finally(() => { if (btn) { btn.disabled = false; btn.textContent = old; } });
+  }
+
   // ── DOM helpers ───────────────────────────────────────────────────────────────
   function el(tag, cls, text) {
     const e = document.createElement(tag);
@@ -955,6 +977,13 @@
         card.appendChild(header);
 
         const actions = el('div', 'card-actions');
+
+        // Phase 2B: pickup-day invoice packet — available for any auction (most
+        // useful once closed). Lists every buyer invoice in pickup order.
+        const packetBtn = el('button', 'btn btn-sm', 'Pickup Invoice Packet');
+        packetBtn.title = 'Download a combined PDF of all buyer invoices for this auction, ordered for pickup day (unpaid first)';
+        packetBtn.onclick = () => downloadPacket(a.id, a.title, packetBtn);
+        actions.appendChild(packetBtn);
 
         if (a.state === 'submitted') {
           const btn = el('button', 'btn btn-publish btn-sm', 'Publish');

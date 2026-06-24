@@ -685,6 +685,31 @@ router.post('/auctions/:auctionId/send-final-report', auth, role(['admin']), asy
   }
 });
 
+// GET /api/admin/auctions/:auctionId/pickup-packet
+// Phase 2B: combined pickup-day PDF of all buyer invoices for the auction,
+// ordered unpaid-first then by buyer last/first name. Admin-only (role guard);
+// buyers cannot reach this auction-wide packet. Streams application/pdf.
+router.get('/auctions/:auctionId/pickup-packet', auth, role(['admin']), async (req, res, next) => {
+  try {
+    const { auctionId } = req.params;
+    const pickupPacketService = require('../services/pickupPacketService');
+    const packet = await pickupPacketService.getPacketData(auctionId);
+    if (!packet) return res.status(404).json({ success: false, message: 'Auction not found' });
+
+    const buffer = await pickupPacketService.buildPacketPdf(packet);
+    const safe = (packet.auction.title || 'auction').replace(/[^a-z0-9]+/gi, '-').replace(/^-+|-+$/g, '').slice(0, 40) || 'auction';
+    const fileName = `pickup-packet-${safe}.pdf`;
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+    res.setHeader('X-Packet-Counts', `unpaid=${packet.counts.unpaid};paid=${packet.counts.paid};total=${packet.counts.total}`);
+    res.setHeader('Content-Length', buffer.length);
+    return res.end(buffer);
+  } catch (err) {
+    console.error('[admin] pickup-packet error:', err.message);
+    next(err);
+  }
+});
+
 // POST /api/admin/payments/:paymentId/refund
 // Full or partial refund of a paid payment. Admin-only.
 // Body: { refund_amount_cents: number }
