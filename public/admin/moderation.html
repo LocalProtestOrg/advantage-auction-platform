@@ -2158,7 +2158,14 @@
   }
 
   // ── Bootstrap ─────────────────────────────────────────────────────────────────
-  loadQueue();
+  // Deep-link support: /admin/moderation.html?tab=auctions lands directly on a tab
+  // (used by the "Auction Invoices" item on the admin home). Falls back to the queue.
+  (function initTab() {
+    const valid = ['queue', 'videos', 'auctions', 'sellers', 'payouts', 'diag'];
+    let tab = 'queue';
+    try { const p = new URLSearchParams(location.search).get('tab'); if (p && valid.includes(p)) tab = p; } catch (_e) {}
+    switchTab(tab);
+  })();
   </script>
 </body>
 </html>
