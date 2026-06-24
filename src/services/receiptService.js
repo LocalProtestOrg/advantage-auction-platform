@@ -141,4 +141,90 @@ async function sendPaymentReceipt(paymentId) {
   }
 }
 
-module.exports = { sendPaymentReceipt, buildReceiptEmail };
+// ── Unpaid / issued invoice email (Phase 2C) ─────────────────────────────────
+// Sent when an auction closes (one per winning lot) and on admin resend. Clearly
+// states payment is required before pickup/release. The paid receipt is separate.
+function buildUnpaidInvoiceEmail(data) {
+  const linesHtml = data.lines.map((ln) => (
+    '<tr>' +
+      '<td style="padding:8px 0;border-bottom:1px solid #f1f5f9">' +
+        (ln.lotNumber != null ? ('<span style="color:#64748b">#' + esc(ln.lotNumber) + '</span> ') : '') +
+        esc(ln.title || 'Lot') +
+      '</td>' +
+      '<td style="padding:8px 0;border-bottom:1px solid #f1f5f9;text-align:right;font-weight:600">' + doc.money(ln.hammerCents) + '</td>' +
+    '</tr>'
+  )).join('');
+
+  const invoicesUrl = SITE_URL ? (SITE_URL + '/invoices.html') : null;
+
+  const html =
+    '<div style="font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif;max-width:560px;margin:0 auto;color:#1f2937">' +
+      '<div style="font-weight:800;font-size:18px;color:#0f172a;padding:8px 0 2px">Advantage Auction</div>' +
+      '<div style="font-size:13px;color:#b91c1c;font-weight:800;margin-bottom:12px">Payment required</div>' +
+      (data.auctionTitle ? ('<div style="font-size:13px;color:#64748b">' + esc(data.auctionTitle) + '</div>') : '') +
+      '<div style="font-size:15px;font-weight:700;margin:2px 0 10px">Invoice ' + esc(data.invoiceNumber) + '</div>' +
+      '<p style="line-height:1.5;margin:0 0 12px">Congratulations on your winning bid! The following ' +
+        (data.lines.length === 1 ? 'lot is' : 'lots are') + ' awaiting payment.</p>' +
+      '<div style="background:#fef2f2;border:1px solid #fecaca;border-left:4px solid #b91c1c;border-radius:6px;padding:10px 12px;margin:0 0 14px;font-size:13px;color:#7f1d1d;font-weight:600">' +
+        'Payment must be confirmed before items can be picked up or released.' +
+      '</div>' +
+      '<table style="width:100%;border-collapse:collapse;font-size:14px">' +
+        '<thead><tr>' +
+          '<th style="text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:#64748b;padding-bottom:4px">Lot</th>' +
+          '<th style="text-align:right;font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:#64748b;padding-bottom:4px">Hammer</th>' +
+        '</tr></thead><tbody>' + linesHtml + '</tbody>' +
+      '</table>' +
+      '<table style="width:100%;border-collapse:collapse;font-size:14px;margin-top:12px">' +
+        '<tr><td style="color:#0f172a;font-weight:700;padding-top:4px">Amount due</td>' +
+        '<td style="text-align:right;color:#0f172a;font-weight:800;padding-top:4px">' + doc.money(data.summary.totalCents) + '</td></tr>' +
+      '</table>' +
+      (invoicesUrl ? ('<p style="margin:16px 0 4px"><a href="' + invoicesUrl + '" style="display:inline-block;background:#2563eb;color:#fff;text-decoration:none;font-weight:700;padding:11px 20px;border-radius:8px">Pay now →</a></p>') : '') +
+      '<p style="font-size:12px;color:#94a3b8;margin-top:14px">Your invoice is attached as a PDF. Buyer premium, sales tax, and shipping appear as “—” until those features are activated. Advantage Auction never stores your full card details.</p>' +
+    '</div>';
+
+  const textLines = [
+    'Advantage Auction — Payment required',
+    '',
+    data.auctionTitle ? ('Auction: ' + data.auctionTitle) : null,
+    'Invoice: ' + data.invoiceNumber,
+    '',
+    'Payment must be confirmed before items can be picked up or released.',
+    '',
+    ...data.lines.map((ln) => (ln.lotNumber != null ? ('#' + ln.lotNumber + ' ') : '') + (ln.title || 'Lot') + ' — ' + doc.money(ln.hammerCents)),
+    '',
+    'Amount due: ' + doc.money(data.summary.totalCents),
+    SITE_URL ? ('Pay now: ' + SITE_URL + '/invoices.html') : null,
+  ].filter((l) => l !== null);
+
+  return { subject: 'Invoice ' + data.invoiceNumber + ' — payment required', html, text: textLines.join('\n') };
+}
+
+/**
+ * Send the unpaid/issued invoice email for an invoice (close-time + admin resend).
+ * @returns {Promise<{sent:boolean, skipped?:boolean, reason?:string, messageId?:string}>}
+ */
+async function sendUnpaidInvoiceEmail(invoiceId) {
+  try {
+    const { buffer, fileName, data } = await invoicePdfService.generateAndStoreInvoicePdf(invoiceId);
+    if (!data.buyerEmail) {
+      console.warn('[invoice-email] buyer has no email for invoice', invoiceId, '— skipping');
+      return { sent: false, skipped: true, reason: 'no_buyer_email' };
+    }
+    const { subject, html, text } = buildUnpaidInvoiceEmail(data);
+    const result = await sendEmail({
+      to: data.buyerEmail, subject, html, text,
+      attachments: [{ filename: fileName, content: buffer, contentType: 'application/pdf' }],
+    });
+    if (result && result.skipped) {
+      console.warn('[invoice-email] SES not configured — invoice', invoiceId, 'not delivered');
+      return { sent: false, skipped: true, reason: 'smtp_unconfigured' };
+    }
+    console.log('[invoice-email] sent unpaid invoice', invoiceId, 'to', data.buyerEmail);
+    return { sent: true, messageId: result && result.messageId };
+  } catch (err) {
+    console.error('[invoice-email] sendUnpaidInvoiceEmail failed for invoice', invoiceId, '-', err.message);
+    return { sent: false, reason: err.message };
+  }
+}
+
+module.exports = { sendPaymentReceipt, buildReceiptEmail, sendUnpaidInvoiceEmail, buildUnpaidInvoiceEmail };

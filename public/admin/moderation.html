@@ -632,6 +632,89 @@
       .finally(() => { if (btn) { btn.disabled = false; btn.textContent = old; } });
   }
 
+  // ── Phase 2C: per-auction invoice ops panel ──────────────────────────────────
+  function escH(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
+
+  function toggleInvoices(card, auctionId, btn) {
+    const existing = card.querySelector('.inv-panel');
+    if (existing) { existing.remove(); if (btn) btn.classList.remove('active'); return; }
+    const panel = el('div', 'inv-panel');
+    panel.style.cssText = 'margin-top:0.6rem;border-top:1px solid #e2e8f0;padding-top:0.6rem';
+    card.appendChild(panel);
+    if (btn) btn.classList.add('active');
+    renderInvoicePanel(panel, auctionId, 'all');
+  }
+
+  function renderInvoicePanel(panel, auctionId, filter) {
+    panel.innerHTML = '<div style="font-size:0.8rem;color:#64748b">Loading invoices…</div>';
+    api('GET', '/api/admin/auctions/' + encodeURIComponent(auctionId) + '/invoices?status=' + encodeURIComponent(filter)).then(d => {
+      if (!d || !d.success) { panel.innerHTML = '<div class="status-msg error">Failed to load invoices.</div>'; return; }
+      const c = d.counts || { total: 0, paid: 0, unpaid: 0 };
+      const pill = (label, key) => '<button class="filter-btn' + (filter === key ? ' active' : '') + '" data-f="' + key + '">' + label + '</button>';
+      let html = '<div style="display:flex;gap:0.4rem;align-items:center;flex-wrap:wrap;margin-bottom:0.5rem">' +
+        pill('All (' + c.total + ')', 'all') + pill('Unpaid (' + c.unpaid + ')', 'unpaid') + pill('Paid (' + c.paid + ')', 'paid') +
+        '<button class="btn btn-sm" data-act="issue" style="margin-left:auto" title="Idempotently create any missing invoices for winners (repair path)">Issue missing invoices</button></div>';
+      if (!d.invoices.length) {
+        html += '<div class="empty" style="padding:0.6rem">No invoices in this view.</div>';
+      } else {
+        html += '<table style="width:100%;border-collapse:collapse;font-size:0.78rem"><thead><tr>' +
+          '<th style="text-align:left;padding:0.3rem">Invoice</th><th style="text-align:left">Buyer</th><th style="text-align:left">Lot</th>' +
+          '<th style="text-align:right">Total</th><th style="text-align:center">Status</th><th style="text-align:center">Actions</th></tr></thead><tbody>';
+        d.invoices.forEach(i => {
+          const total = i.total_cents != null ? i.total_cents : i.amount_cents;
+          html += '<tr style="border-top:1px solid #f1f5f9">' +
+            '<td style="padding:0.3rem">' + escH(i.invoice_number || '-') + '</td>' +
+            '<td>' + escH(i.buyer_name || i.buyer_email || '-') + '</td>' +
+            '<td>' + (i.lot_number != null ? '#' + escH(i.lot_number) + ' ' : '') + escH(i.lot_title || '') + '</td>' +
+            '<td style="text-align:right">' + fmtMoney(total) + '</td>' +
+            '<td style="text-align:center">' + (i.is_paid ? '<span style="color:#16a34a;font-weight:700">PAID</span>' : '<span style="color:#b91c1c;font-weight:700">UNPAID</span>') + '</td>' +
+            '<td style="text-align:center;white-space:nowrap">' +
+              '<button class="btn btn-sm" data-dl="' + escH(i.id) + '" data-num="' + escH(i.invoice_number || '') + '">PDF</button> ' +
+              (i.is_paid
+                ? '<button class="btn btn-sm" data-receipt="' + escH(i.id) + '">Resend receipt</button>'
+                : '<button class="btn btn-sm" data-invemail="' + escH(i.id) + '">Resend invoice</button>') +
+            '</td></tr>';
+        });
+        html += '</tbody></table>';
+      }
+      panel.innerHTML = html;
+      panel.querySelectorAll('.filter-btn').forEach(b => b.onclick = () => renderInvoicePanel(panel, auctionId, b.getAttribute('data-f')));
+      const issueBtn = panel.querySelector('[data-act="issue"]');
+      if (issueBtn) issueBtn.onclick = () => {
+        issueBtn.disabled = true; issueBtn.textContent = 'Issuing…';
+        api('POST', '/api/admin/auctions/' + encodeURIComponent(auctionId) + '/issue-invoices')
+          .then(r => { alert('Issued ' + (r.created || 0) + ' new invoice(s); ' + (r.already_existed || 0) + ' already existed.'); renderInvoicePanel(panel, auctionId, filter); })
+          .catch(() => { issueBtn.disabled = false; issueBtn.textContent = 'Issue missing invoices'; alert('Issue failed.'); });
+      };
+      panel.querySelectorAll('[data-dl]').forEach(b => b.onclick = () => downloadInvoicePdf(b.getAttribute('data-dl'), b.getAttribute('data-num'), b));
+      panel.querySelectorAll('[data-receipt]').forEach(b => b.onclick = () => resendEmail('receipt', b.getAttribute('data-receipt'), b));
+      panel.querySelectorAll('[data-invemail]').forEach(b => b.onclick = () => resendEmail('invoice', b.getAttribute('data-invemail'), b));
+    }).catch(() => { panel.innerHTML = '<div class="status-msg error">Failed to load invoices.</div>'; });
+  }
+
+  function downloadInvoicePdf(invoiceId, number, btn) {
+    const old = btn ? btn.textContent : null;
+    if (btn) { btn.disabled = true; btn.textContent = '…'; }
+    fetch('/api/invoices/' + encodeURIComponent(invoiceId) + '/pdf', { headers: { Authorization: 'Bearer ' + token } })
+      .then(r => { if (r.status === 401) { logout(); throw new Error('expired'); } if (!r.ok) throw new Error('HTTP ' + r.status); return r.blob(); })
+      .then(blob => {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a'); a.href = url; a.download = 'invoice-' + (number || invoiceId) + '.pdf';
+        document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 4000);
+      }).catch(() => alert('Could not download invoice PDF.')).finally(() => { if (btn) { btn.disabled = false; btn.textContent = old; } });
+  }
+
+  function resendEmail(kind, invoiceId, btn) {
+    const url = kind === 'receipt'
+      ? '/api/admin/invoices/' + encodeURIComponent(invoiceId) + '/resend-receipt'
+      : '/api/admin/invoices/' + encodeURIComponent(invoiceId) + '/resend-invoice-email';
+    const old = btn ? btn.textContent : null;
+    if (btn) { btn.disabled = true; btn.textContent = 'Sending…'; }
+    api('POST', url).then(r => {
+      alert(r && r.success ? 'Email sent.' : ('Email not sent' + (r && r.data && r.data.reason ? ': ' + r.data.reason : (r && r.message ? ': ' + r.message : ''))));
+    }).catch(() => alert('Resend failed.')).finally(() => { if (btn) { btn.disabled = false; btn.textContent = old; } });
+  }
+
   // ── DOM helpers ───────────────────────────────────────────────────────────────
   function el(tag, cls, text) {
     const e = document.createElement(tag);
@@ -984,6 +1067,11 @@
         packetBtn.title = 'Download a combined PDF of all buyer invoices for this auction, ordered for pickup day (unpaid first)';
         packetBtn.onclick = () => downloadPacket(a.id, a.title, packetBtn);
         actions.appendChild(packetBtn);
+
+        const invBtn = el('button', 'btn btn-sm', 'Invoices');
+        invBtn.title = 'View and manage invoices for this auction (paid + unpaid)';
+        invBtn.onclick = () => toggleInvoices(card, a.id, invBtn);
+        actions.appendChild(invBtn);
 
         if (a.state === 'submitted') {
           const btn = el('button', 'btn btn-publish btn-sm', 'Publish');

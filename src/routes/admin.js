@@ -710,6 +710,99 @@ router.get('/auctions/:auctionId/pickup-packet', auth, role(['admin']), async (r
   }
 });
 
+// GET /api/admin/auctions/:auctionId/invoices?status=all|paid|unpaid
+// Phase 2C: admin view of every invoice for an auction, ordered unpaid-first then
+// by buyer last/first name (same order as the pickup packet). Admin-only.
+router.get('/auctions/:auctionId/invoices', auth, role(['admin']), async (req, res, next) => {
+  try {
+    const { auctionId } = req.params;
+    const status = String(req.query.status || 'all').toLowerCase();
+    const { rows } = await db.query(
+      `SELECT i.id, i.invoice_number, i.invoice_date, i.status, i.total_cents, i.amount_cents,
+              i.payment_id, i.lot_id, i.buyer_user_id,
+              u.full_name AS buyer_name, u.email AS buyer_email, u.phone AS buyer_phone,
+              l.lot_number, l.title AS lot_title,
+              p.status AS payment_status, p.charged_at AS payment_date
+         FROM invoices i
+         LEFT JOIN users u ON u.id = i.buyer_user_id
+         LEFT JOIN lots  l ON l.id = i.lot_id
+         LEFT JOIN payments p ON p.id = i.payment_id
+        WHERE i.auction_id = $1
+        ORDER BY (i.status = 'paid' OR p.status = 'paid') ASC,
+                 lower(coalesce(u.full_name, u.email, '')) ASC,
+                 i.invoice_number ASC`,
+      [auctionId]
+    );
+    const enriched = rows.map((r) => ({ ...r, is_paid: r.status === 'paid' || r.payment_status === 'paid' }));
+    const counts = {
+      total: enriched.length,
+      paid: enriched.filter((i) => i.is_paid).length,
+      unpaid: enriched.filter((i) => !i.is_paid).length,
+    };
+    let invoices = enriched;
+    if (status === 'paid') invoices = enriched.filter((i) => i.is_paid);
+    else if (status === 'unpaid') invoices = enriched.filter((i) => !i.is_paid);
+    return res.json({ success: true, auction_id: auctionId, counts, invoices });
+  } catch (err) { next(err); }
+});
+
+// POST /api/admin/auctions/:auctionId/issue-invoices
+// Phase 2C repair/retry path. Idempotently ensures every winner has an invoice
+// (the same generation that runs post-commit at close). Invoice generation only —
+// no charge, no payment row, no capture change. Emails the newly-created unpaid
+// invoices unless ?send_email=false.
+router.post('/auctions/:auctionId/issue-invoices', auth, role(['admin']), async (req, res, next) => {
+  try {
+    const { auctionId } = req.params;
+    const sendEmail = String(req.query.send_email || 'true') !== 'false';
+    const invoiceService = require('../services/invoiceService');
+    const result = await invoiceService.issueInvoicesForAuctionWinners(auctionId);
+    if (sendEmail && result.createdIds.length) {
+      const receiptService = require('../services/receiptService');
+      for (const id of result.createdIds) {
+        receiptService.sendUnpaidInvoiceEmail(id).catch((e) => console.error('[invoice-email] resend (issue) failed', id, e.message));
+      }
+    }
+    return res.json({
+      success: true,
+      auction_id: auctionId,
+      winners: result.winnerCount,
+      created: result.createdIds.length,
+      already_existed: result.existingCount,
+      emails_dispatched: sendEmail ? result.createdIds.length : 0,
+    });
+  } catch (err) { next(err); }
+});
+
+// POST /api/admin/invoices/:invoiceId/resend-invoice-email — resend the unpaid/issued invoice email.
+router.post('/invoices/:invoiceId/resend-invoice-email', auth, role(['admin']), async (req, res, next) => {
+  try {
+    const receiptService = require('../services/receiptService');
+    const result = await receiptService.sendUnpaidInvoiceEmail(req.params.invoiceId);
+    return res.json({ success: result.sent === true, data: result });
+  } catch (err) { next(err); }
+});
+
+// POST /api/admin/invoices/:invoiceId/resend-receipt — resend the paid receipt (only if paid).
+router.post('/invoices/:invoiceId/resend-receipt', auth, role(['admin']), async (req, res, next) => {
+  try {
+    const { invoiceId } = req.params;
+    const { rows } = await db.query(
+      `SELECT i.payment_id, i.status, p.status AS payment_status
+         FROM invoices i LEFT JOIN payments p ON p.id = i.payment_id
+        WHERE i.id = $1`, [invoiceId]
+    );
+    if (!rows[0]) return res.status(404).json({ success: false, message: 'Invoice not found' });
+    const isPaid = rows[0].status === 'paid' || rows[0].payment_status === 'paid';
+    if (!isPaid || !rows[0].payment_id) {
+      return res.status(409).json({ success: false, message: 'Invoice is not paid; no receipt to resend. Use resend-invoice-email instead.' });
+    }
+    const receiptService = require('../services/receiptService');
+    const result = await receiptService.sendPaymentReceipt(rows[0].payment_id);
+    return res.json({ success: result.sent === true, data: result });
+  } catch (err) { next(err); }
+});
+
 // POST /api/admin/payments/:paymentId/refund
 // Full or partial refund of a paid payment. Admin-only.
 // Body: { refund_amount_cents: number }

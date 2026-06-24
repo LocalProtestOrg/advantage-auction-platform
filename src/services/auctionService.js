@@ -768,6 +768,26 @@ async function closeAuction(auctionId, actorId = null) {
     require('./operationalCloseEmailService').sendOperationalCloseEmail(auctionId)
       .catch(err => console.error(`[email] operational close email failed for auction_id=${auctionId}:`, err.message));
 
+    // Phase 2C (POST-COMMIT, best-effort): ensure every winner has an invoice by
+    // creating an unpaid 'issued' invoice per winning lot, then emailing it (payment
+    // required before pickup). Decoupled from the close transaction so an invoice/email
+    // problem can NEVER roll back the close. Idempotent (ON CONFLICT DO NOTHING): if the
+    // buyer already paid in the meantime, the conflict is a no-op and no email is sent.
+    // Invoice generation only — no charge, no payment row, no capture change.
+    //
+    // If this best-effort step fails or is interrupted after COMMIT, the same idempotent
+    // generation can be re-run by an admin via POST /api/admin/auctions/:id/issue-invoices
+    // (the repair path) — both call invoiceService.issueInvoicesForAuctionWinners.
+    require('./invoiceService').issueInvoicesForAuctionWinners(auctionId)
+      .then(({ createdIds }) => {
+        const receiptService = require('./receiptService');
+        for (const id of createdIds) {
+          receiptService.sendUnpaidInvoiceEmail(id)
+            .catch(err => console.error('[invoice-email] unpaid send failed', id, err.message));
+        }
+      })
+      .catch(err => console.error(`[invoice] issued-invoice generation failed for auction_id=${auctionId}:`, err.message));
+
     return {
       auction_id: auctionId,
       lots_closed: results.length,
