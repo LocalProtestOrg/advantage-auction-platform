@@ -451,6 +451,7 @@
 <body>
   <!-- ADMIN-CTRL Phase 1B: shared admin nav (Back + Moderation/Buyers + Logout) -->
   <script src="/widgets/shared/admin-nav.js"></script>
+  <script src="/widgets/shared/timezone-utils.js"></script>
   <div class="page">
 
     <!-- ── Header ─────────────────────────────────────────── -->
@@ -1370,8 +1371,10 @@
         return;
       }
       const a = data.data;
-      // ISO timestamp → 'YYYY-MM-DDTHH:MM' for datetime-local input
-      const dtLocal = v => v ? new Date(v).toISOString().slice(0, 16) : '';
+      // ISO timestamp → 'YYYY-MM-DDTHH:MM' for datetime-local input, rendered in the
+      // AUCTION's timezone (fallback America/New_York) so editing round-trips correctly
+      // with the timezone-aware save below (no browser-tz skew).
+      const dtLocal = v => v ? (window.TimezoneUtils ? window.TimezoneUtils.utcIsoToLocalInput(v, a.timezone || 'America/New_York') : new Date(v).toISOString().slice(0, 16)) : '';
       // ADMIN-CTRL Phase 1A: state-aware field locking mirrors the server guards.
       //   closed  → only Admin notes editable (all else read-only)
       //   active  → bidding/price fields read-only (title/desc/location/schedule ok)
@@ -1498,13 +1501,18 @@
     statusEl.style.color = '#6b7280';
 
     const updates = {};
+    // Interpret datetime-local inputs in the auction's timezone (from the form's
+    // timezone field; fallback America/New_York) so the stored UTC instant matches
+    // the entered wall-clock regardless of the admin's browser timezone.
+    const tzInputEl = container.querySelector('[data-f="timezone"]');
+    const formTz = (tzInputEl && tzInputEl.value.trim()) || 'America/New_York';
     container.querySelectorAll('[data-f]').forEach(input => {
       const field = input.dataset.f;
       if (input.type === 'checkbox') {
         updates[field] = input.checked;
       } else if (input.type === 'datetime-local') {
-        // empty → null; non-empty → ISO with 'Z'
-        updates[field] = input.value ? new Date(input.value).toISOString() : null;
+        // empty → null; non-empty → UTC ISO interpreted in the auction timezone
+        updates[field] = input.value ? (window.TimezoneUtils ? window.TimezoneUtils.localToUtcIso(input.value, formTz) : new Date(input.value).toISOString()) : null;
       } else {
         const v = input.value.trim();
         updates[field] = v.length ? v : null;

@@ -357,7 +357,7 @@
         <option value="America/Denver">Mountain (America/Denver)</option>
         <option value="America/Los_Angeles">Pacific (America/Los_Angeles)</option>
       </select>
-      <div style="font-size:0.78rem;color:#64748b;margin-top:0.25rem">Buyers see pickup window times in this time zone.</div>
+      <div style="font-size:0.78rem;color:#64748b;margin-top:0.25rem">All auction, preview, and pickup times entered on this form are interpreted in this auction time zone. Buyers also see pickup times in this zone.</div>
     </div>
   </div>
 
@@ -470,6 +470,7 @@
   </div>
 </div>
 
+<script src="/widgets/shared/timezone-utils.js"></script>
 <script>
   const token = localStorage.getItem('token');
   if (!token) window.location.href = '/login.html';
@@ -663,7 +664,15 @@
     if (!title) { showBanner('Auction title is required.', 'error'); return; }
 
     const getVal    = id => document.getElementById(id).value.trim() || undefined;
-    const getIso    = id => { const v = document.getElementById(id).value; return v ? new Date(v).toISOString() : undefined; };
+    // Timezone-aware: interpret datetime-local values in the SELECTED auction time
+    // zone (not the browser's) and store the correct UTC instant. Falls back to
+    // America/New_York. Applies to auction start/end, preview, and pickup windows.
+    const auctionTz = () => (document.getElementById('auction-timezone') || {}).value || 'America/New_York';
+    const getIso    = id => {
+      const v = document.getElementById(id).value;
+      if (!v) return undefined;
+      return (window.TimezoneUtils ? window.TimezoneUtils.localToUtcIso(v, auctionTz()) : new Date(v).toISOString());
+    };
 
     const payload = {
       sellerProfileId,
