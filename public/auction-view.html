@@ -1259,18 +1259,22 @@
     var date = d.pickup_window_start ? fmtDate(d.pickup_window_start) : 'To be announced';
     var PT = window.PickupTiers || null;
     // Pickup Time A/B/C are the overall pickup window split into 3 EQUAL parts —
-    // computed, never hardcoded.
+    // computed, never hardcoded. Times are shown in the AUCTION'S timezone
+    // (auction.timezone; fallback America/New_York), never the viewer's browser tz.
+    var tz = d.timezone || (PT && PT.DEFAULT_TZ) || 'America/New_York';
+    var tzNames = { 'America/New_York': 'Eastern', 'America/Chicago': 'Central', 'America/Denver': 'Mountain', 'America/Los_Angeles': 'Pacific' };
+    var tzLabel = tzNames[tz] ? (tzNames[tz] + ' Time') : tz;
     var win = (PT && d.pickup_window_start && d.pickup_window_end) ? PT.splitWindow(d.pickup_window_start, d.pickup_window_end) : null;
     var windowText = (PT && d.pickup_window_start && d.pickup_window_end)
-      ? (PT.fmtTime(d.pickup_window_start) + ' – ' + PT.fmtTime(d.pickup_window_end)) : 'To be announced';
+      ? (PT.fmtTime(d.pickup_window_start, tz) + ' – ' + PT.fmtTime(d.pickup_window_end, tz)) : 'To be announced';
     function tierRow(letter, label) {
-      var t = (win && win[letter]) ? PT.windowLabel(win[letter]) : 'To be announced';
+      var t = (win && win[letter]) ? PT.windowLabel(win[letter], tz) : 'To be announced';
       return '<div class="info-row"><strong>Pickup Time ' + letter + ' — ' + label + ':</strong> ' + esc(t) + '</div>';
     }
     el.innerHTML =
       '<h3>Pickup Information</h3>' +
       '<div class="info-row"><strong>Pickup date:</strong> ' + esc(date) + '</div>' +
-      '<div class="info-row"><strong>Pickup window:</strong> ' + esc(windowText) + '</div>' +
+      '<div class="info-row"><strong>Pickup window:</strong> ' + esc(windowText) + (win ? (' <span style="color:#64748b">(' + esc(tzLabel) + ')</span>') : '') + '</div>' +
       (win ? (tierRow('A', 'Small Items') + tierRow('B', 'Medium Items') + tierRow('C', 'Large Items')) : '') +
       '<div class="info-row"><strong>Location:</strong> ' + esc(tabLocationText()) +
         ' &nbsp;<a class="map-link" href="' + tabMapsUrl() + '" target="_blank" rel="noopener">View Map ↗</a></div>' +

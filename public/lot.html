@@ -1062,9 +1062,10 @@
       var tier = PT ? PT.normTier(lot.size_category) : null;
       if (!tier) { pe.textContent = 'Pickup Time: Not specified'; pe.style.display = ''; return; }
       var label = PT.timeLabel(tier) + ' — ' + PT.itemLabel(tier);
+      var tz = lot.auction_timezone || PT.DEFAULT_TZ;  // auction tz; fallback America/New_York
       var win = (lot.auction_pickup_window_start && lot.auction_pickup_window_end)
         ? PT.splitWindow(lot.auction_pickup_window_start, lot.auction_pickup_window_end) : null;
-      if (win && win[tier]) label += '  ·  ' + PT.windowLabel(win[tier]);
+      if (win && win[tier]) label += '  ·  ' + PT.windowLabel(win[tier], tz);
       pe.textContent = label;
       pe.style.display = '';
     })();

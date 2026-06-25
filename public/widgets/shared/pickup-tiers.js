@@ -21,10 +21,13 @@
     function mk(i) { return { start: new Date(s + third * i), end: new Date(s + third * (i + 1)) }; }
     return { A: mk(0), B: mk(1), C: mk(2) };
   }
-  // UTC for deterministic, viewer-independent clock times (pickup windows store the
-  // intended wall-clock; auctions.timezone is essentially unpopulated). Same clock
-  // everywhere — packet + public pages.
-  function fmtTime(d) { try { return new Date(d).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: 'UTC' }); } catch (e) { return ''; } }
-  function windowLabel(w) { return w ? (fmtTime(w.start) + ' – ' + fmtTime(w.end)) : ''; }
-  window.PickupTiers = { normTier: normTier, timeLabel: timeLabel, itemLabel: itemLabel, assignedTier: assignedTier, splitWindow: splitWindow, fmtTime: fmtTime, windowLabel: windowLabel };
+  // Format pickup clock times in the auction's timezone (fallback DEFAULT_TZ).
+  // Never browser-local — auction pickup times must read the same regardless of viewer.
+  var DEFAULT_TZ = 'America/New_York';
+  function fmtTime(d, tz) {
+    try { return new Date(d).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: tz || DEFAULT_TZ }); }
+    catch (e) { try { return new Date(d).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: DEFAULT_TZ }); } catch (e2) { return ''; } }
+  }
+  function windowLabel(w, tz) { return w ? (fmtTime(w.start, tz) + ' – ' + fmtTime(w.end, tz)) : ''; }
+  window.PickupTiers = { DEFAULT_TZ: DEFAULT_TZ, normTier: normTier, timeLabel: timeLabel, itemLabel: itemLabel, assignedTier: assignedTier, splitWindow: splitWindow, fmtTime: fmtTime, windowLabel: windowLabel };
 })();

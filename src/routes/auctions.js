@@ -186,7 +186,7 @@ router.get('/:auctionId/summary', async (req, res) => {
     const { rows } = await db.query(
       `SELECT a.id, a.title, a.subtitle, a.description, a.state, a.seller_id,
               a.city, a.address_state, a.zip, a.street_address, a.start_time, a.end_time,
-              a.pickup_window_start, a.pickup_window_end,
+              a.pickup_window_start, a.pickup_window_end, a.timezone,
               a.banner_image_url, a.cover_image_url, a.shipping_available,
               COUNT(sf.id)::int AS follower_count
          FROM auctions a

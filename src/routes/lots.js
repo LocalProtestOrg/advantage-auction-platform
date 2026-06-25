@@ -657,6 +657,7 @@ router.get('/:lotId', optionalAuth, async (req, res, next) => {
               -- display the lot's computed pickup-time group. No schema change.
               (SELECT pickup_window_start FROM auctions a2 WHERE a2.id = lots.auction_id) AS auction_pickup_window_start,
               (SELECT pickup_window_end   FROM auctions a2 WHERE a2.id = lots.auction_id) AS auction_pickup_window_end,
+              (SELECT timezone            FROM auctions a2 WHERE a2.id = lots.auction_id) AS auction_timezone,
               created_at, updated_at
        FROM lots
        WHERE id = $1

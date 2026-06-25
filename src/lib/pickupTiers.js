@@ -43,14 +43,17 @@ function splitWindow(start, end) {
   return { A: mk(0), B: mk(1), C: mk(2) };
 }
 
-// Format in UTC for deterministic, viewer-independent clock times. Pickup windows
-// are stored as the intended wall-clock (auctions.timezone is essentially
-// unpopulated), so UTC formatting renders the same clock everywhere (packet +
-// public pages) and matches what was entered. See the Phase 3 doc's tz note.
-function fmtTime(d) {
-  if (!d) return '';
-  try { return new Date(d).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: 'UTC' }); } catch (_e) { return ''; }
-}
-function windowLabel(w) { return w ? (fmtTime(w.start) + ' – ' + fmtTime(w.end)) : ''; }
+// App default pickup timezone when an auction has no timezone set (most auctions
+// are US-Eastern). Display falls back to this; existing nulls are NOT mass-updated.
+const DEFAULT_TZ = 'America/New_York';
 
-module.exports = { TIER_ORDER, SIZE_ITEM_LABEL, normTier, timeLabel, itemLabel, assignedTier, splitWindow, fmtTime, windowLabel };
+// Format a pickup clock time in the auction's timezone (fallback DEFAULT_TZ), so
+// pickup windows display in the auction's local time on the packet + public pages.
+function fmtTime(d, tz) {
+  if (!d) return '';
+  try { return new Date(d).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: tz || DEFAULT_TZ }); }
+  catch (_e) { try { return new Date(d).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: DEFAULT_TZ }); } catch (__e) { return ''; } }
+}
+function windowLabel(w, tz) { return w ? (fmtTime(w.start, tz) + ' – ' + fmtTime(w.end, tz)) : ''; }
+
+module.exports = { TIER_ORDER, SIZE_ITEM_LABEL, DEFAULT_TZ, normTier, timeLabel, itemLabel, assignedTier, splitWindow, fmtTime, windowLabel };

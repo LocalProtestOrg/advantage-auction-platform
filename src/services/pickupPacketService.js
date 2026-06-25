@@ -63,7 +63,7 @@ const SIZE_LABELS = {
 
 async function getPacketData(auctionId) {
   const auctionRes = await db.query(
-    `SELECT id, title, street_address, city, address_state, zip, pickup_window_start, pickup_window_end
+    `SELECT id, title, timezone, street_address, city, address_state, zip, pickup_window_start, pickup_window_end
        FROM auctions WHERE id = $1`,
     [auctionId]
   );
@@ -110,7 +110,8 @@ async function getPacketData(auctionId) {
   // not hardcoded) and pre-group each buyer's lots so the packet can show the
   // buyer's assigned pickup time (largest item wins) + per-lot pickup times.
   const tierWin = pt.splitWindow(a.pickup_window_start, a.pickup_window_end);
-  const tierWindowLabel = (t) => (tierWin && t && tierWin[t]) ? pt.windowLabel(tierWin[t]) : null;
+  // Format tier windows in the auction's timezone (fallback America/New_York).
+  const tierWindowLabel = (t) => (tierWin && t && tierWin[t]) ? pt.windowLabel(tierWin[t], a.timezone) : null;
   const byBuyer = new Map();
   for (const r of rows) {
     if (!byBuyer.has(r.buyer_user_id)) byBuyer.set(r.buyer_user_id, []);

@@ -42,6 +42,7 @@ async function createAuction(data) {
     previewEnd,
     pickupWindowStart,
     pickupWindowEnd,
+    timezone,
     shippingAvailable,
     bannerImageUrl,
     coverImageUrl,
@@ -80,10 +81,10 @@ async function createAuction(data) {
        start_time, end_time,
        street_address, city, address_state, zip,
        preview_start, preview_end,
-       pickup_window_start, pickup_window_end,
+       pickup_window_start, pickup_window_end, timezone,
        shipping_available, banner_image_url, cover_image_url
      )
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)
      RETURNING *`,
     [
       sellerId,
@@ -101,6 +102,7 @@ async function createAuction(data) {
       effPreviewEnd,
       pickupWindowStart || null,
       pickupWindowEnd   || null,
+      timezone        || 'America/New_York',  // Phase: capture auction timezone (default Eastern)
       shippingAvailable === true,
       bannerImageUrl  || null,
       coverImageUrl   || null,

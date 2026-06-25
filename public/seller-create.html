@@ -348,6 +348,19 @@
     </div>
   </div>
 
+  <div class="row">
+    <div class="field">
+      <label for="auction-timezone">Auction Time Zone</label>
+      <select id="auction-timezone">
+        <option value="America/New_York" selected>Eastern (America/New_York)</option>
+        <option value="America/Chicago">Central (America/Chicago)</option>
+        <option value="America/Denver">Mountain (America/Denver)</option>
+        <option value="America/Los_Angeles">Pacific (America/Los_Angeles)</option>
+      </select>
+      <div style="font-size:0.78rem;color:#64748b;margin-top:0.25rem">Buyers see pickup window times in this time zone.</div>
+    </div>
+  </div>
+
   <!-- ── Location ───────────────────────────────────────────────── -->
   <p class="section-title">Location</p>
 
@@ -664,6 +677,7 @@
       previewEnd:       getIso('preview-end'),
       pickupWindowStart: getIso('pickup-start'),
       pickupWindowEnd:   getIso('pickup-end'),
+      timezone:         (document.getElementById('auction-timezone') || {}).value || 'America/New_York',
       streetAddress:    getVal('street-address'),
       city:             getVal('auction-city'),
       addressState:     document.getElementById('auction-state').value.trim().toUpperCase() || undefined,
