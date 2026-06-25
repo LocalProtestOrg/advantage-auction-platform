@@ -145,96 +145,117 @@ async function getPacketData(auctionId) {
   };
 }
 
-// ── Per-invoice pickup sheet (assumes a fresh page) ───────────────────────────
+// ── Per-invoice PICKUP RELEASE sheet (assumes a fresh page) ───────────────────
+// A pickup-day RELEASE / item-release document — NOT an invoice copy. Emphasizes
+// the pickup workflow: large "PICKUP RELEASE" title, alphabetical buyer lookup,
+// strong PAID/UNPAID handling, pickup instructions, an item checklist, the
+// financial totals (retained), and a release/signature block. The buyer-facing
+// accounting invoice (invoicePdfService) is unchanged.
 function drawPickupSheet(pdf, inv, auction, thumbBuf) {
   const left = pdf.page.margins.left;
   const right = pdf.page.width - pdf.page.margins.right;
   const W = right - left;
+  const unpaid = !inv.isPaid;
+  const SLATE = doc.BRAND.slate, HAIR = doc.BRAND.hair, BLUE = doc.BRAND.blue, NAVY = doc.BRAND.navy;
+
+  // ── Title band ────────────────────────────────────────────────────────────
   let y = pdf.page.margins.top;
-
-  // Brand line
-  pdf.fillColor(doc.BRAND.navy).font('Helvetica-Bold').fontSize(13).text(doc.BRAND.name, left, y);
-  pdf.font('Helvetica').fontSize(11).fillColor(doc.BRAND.slate)
-     .text('PICKUP INVOICE', left, y, { width: W, align: 'right' });
+  pdf.fillColor(NAVY).font('Helvetica-Bold').fontSize(26).text('PICKUP RELEASE', left, y);
+  pdf.font('Helvetica').fontSize(9).fillColor(SLATE)
+     .text('Advantage Auction' + (auction.title ? ('  ·  ' + auction.title) : ''), left, y + 31, { width: W });
   pdf.fillColor('#000000');
-  y = pdf.y + 8;
+  y += 46;
+  pdf.lineWidth(2).strokeColor(BLUE).moveTo(left, y).lineTo(right, y).stroke();
+  y += 12;
 
-  // ── Status indicator ───────────────────────────────────────────────────────
-  if (!inv.isPaid) {
-    const bh = 80;
+  // ── Strong PAID / UNPAID status band (B&W-safe) ───────────────────────────
+  if (unpaid) {
+    const bh = 66;
     pdf.save();
-    pdf.fillColor('#c0262d').rect(left, y, W, bh).fill();            // red (prints dark-gray in B&W)
-    pdf.lineWidth(3.5).strokeColor('#000000').rect(left, y, W, bh).stroke(); // heavy black border
-    pdf.lineWidth(1).strokeColor('#ffffff').rect(left + 5, y + 5, W - 10, bh - 10).stroke(); // inner contrast border
-    pdf.fillColor('#ffffff').font('Helvetica-Bold').fontSize(38).text('UNPAID', left, y + 8, { width: W, align: 'center' });
-    pdf.font('Helvetica-Bold').fontSize(12).text('DO NOT RELEASE ITEMS UNTIL PAYMENT IS CONFIRMED', left, y + 56, { width: W, align: 'center' });
+    pdf.fillColor('#c0262d').rect(left, y, W, bh).fill();                       // red → dark band in B&W
+    pdf.lineWidth(3.5).strokeColor('#000000').rect(left, y, W, bh).stroke();    // heavy black border
+    pdf.lineWidth(1).strokeColor('#ffffff').rect(left + 5, y + 5, W - 10, bh - 10).stroke();
+    pdf.fillColor('#ffffff').font('Helvetica-Bold').fontSize(28).text('UNPAID — DO NOT RELEASE', left, y + 9, { width: W, align: 'center' });
+    pdf.font('Helvetica-Bold').fontSize(11).text('Payment must be confirmed before any item is released.', left, y + 44, { width: W, align: 'center' });
     pdf.restore();
-    y += bh + 14;
+    y += bh + 12;
   } else {
-    const bw = 96, bh = 26, bx = right - bw;
+    const bh = 46;
     pdf.save();
-    pdf.fillColor('#15803d').roundedRect(bx, y, bw, bh, 4).fill();
-    pdf.lineWidth(1).strokeColor('#000000').roundedRect(bx, y, bw, bh, 4).stroke();
-    pdf.fillColor('#ffffff').font('Helvetica-Bold').fontSize(14).text('PAID', bx, y + 6, { width: bw, align: 'center' });
+    pdf.fillColor('#dcfce7').rect(left, y, W, bh).fill();
+    pdf.lineWidth(2.5).strokeColor('#166534').rect(left, y, W, bh).stroke();
+    pdf.fillColor('#166534').font('Helvetica-Bold').fontSize(20).text('PAID — CLEARED FOR PICKUP', left, y + 7, { width: W, align: 'center' });
+    pdf.font('Helvetica').fontSize(9).text(inv.paymentDate ? ('Payment received ' + (fmtDateTime(inv.paymentDate) || '')) : 'Payment received', left, y + 30, { width: W, align: 'center' });
     pdf.restore();
-    if (inv.paymentDate) {
-      pdf.font('Helvetica').fontSize(9).fillColor(doc.BRAND.slate)
-         .text('Paid ' + (fmtDateTime(inv.paymentDate) || ''), bx - 160, y + 8, { width: 156, align: 'right' });
-      pdf.fillColor('#000000');
-    }
-    y += bh + 14;
+    y += bh + 12;
   }
 
-  // ── Contact / pickup header (two columns) ───────────────────────────────────
-  pdf.y = y;
-  const colR = left + W / 2;
-  const topY = y;
+  // ── Buyer lookup (large) + pickup facts (two columns) ─────────────────────
+  const colW = W / 2 - 8;
+  const rx = left + W / 2 + 8;
+  pdf.fillColor('#000000').font('Helvetica-Bold').fontSize(22).text(inv.displayName, left, y, { width: colW });
+  let lyEnd = pdf.y;
+  pdf.font('Helvetica').fontSize(8).fillColor(SLATE).text('BUYER — last, first (alphabetical lookup)', left, lyEnd, { width: colW });
+  pdf.font('Helvetica').fontSize(10).fillColor('#000000').text(inv.email || '—', left, pdf.y + 2, { width: colW });
+  if (inv.phone) pdf.text('Phone: ' + inv.phone, left, pdf.y, { width: colW });
+  const leftBottom = pdf.y;
 
-  pdf.font('Helvetica-Bold').fontSize(16).fillColor('#000000').text(inv.displayName, left, topY, { width: W / 2 - 10 });
-  pdf.font('Helvetica').fontSize(10).fillColor(doc.BRAND.slate);
-  pdf.text(inv.email, left, pdf.y, { width: W / 2 - 10 });
-  if (inv.phone) pdf.text('Phone: ' + inv.phone, left, pdf.y, { width: W / 2 - 10 });
-  const leftEnd = pdf.y;
-
+  let ry = y;
   const fact = (label, val) => {
-    if (!val) return;
-    pdf.font('Helvetica-Bold').fontSize(9).fillColor(doc.BRAND.slate).text(label, colR, pdf.y, { width: W / 2, continued: true });
-    pdf.font('Helvetica').fontSize(9).fillColor('#000000').text('  ' + val, { width: W / 2 });
+    pdf.font('Helvetica-Bold').fontSize(8).fillColor(SLATE).text(label, rx, ry, { width: colW });
+    ry = pdf.y;
+    pdf.font('Helvetica').fontSize(10).fillColor('#000000').text(val || '—', rx, ry, { width: colW });
+    ry = pdf.y + 5;
   };
-  pdf.y = topY;
-  fact('Invoice', inv.invoiceNumber);
-  fact('Auction', auction.title);
-  fact('Payment', inv.paymentStatusLabel);
-  fact('Pickup location', auction.location || '—');
-  fact('Pickup date/time', inv.pickup || 'See auction details');
-  const rightEnd = pdf.y;
+  fact('INVOICE #', inv.invoiceNumber);
+  fact('PAYMENT STATUS', inv.paymentStatusLabel);
+  fact('PICKUP LOCATION', auction.location || 'See auction details');
+  fact('PICKUP DATE / TIME', inv.pickup || auction.pickup || 'See auction details');
+  y = Math.max(leftBottom, ry) + 10;
 
-  pdf.y = Math.max(leftEnd, rightEnd) + 10;
-  pdf.strokeColor(doc.BRAND.hair).lineWidth(1).moveTo(left, pdf.y).lineTo(right, pdf.y).stroke();
-  pdf.moveDown(0.5);
+  // ── Pickup instructions ────────────────────────────────────────────────────
+  pdf.strokeColor(HAIR).lineWidth(1).moveTo(left, y).lineTo(right, y).stroke();
+  y += 8;
+  pdf.font('Helvetica-Bold').fontSize(11).fillColor('#000000').text('Pickup instructions', left, y);
+  pdf.font('Helvetica').fontSize(9).fillColor('#334155');
+  [
+    '1. Look up the buyer by last name; verify photo ID matches the buyer name above.',
+    '2. Confirm the status band reads PAID before releasing any item. If UNPAID, do not release — direct the buyer to pay first.',
+    '3. Check off each item below as it is handed to the buyer.',
+    '4. Buyer signs; staff initials and dates the release block.',
+  ].forEach((s) => pdf.text(s, left, pdf.y + 1, { width: W }));
+  pdf.fillColor('#000000');
+  y = pdf.y + 10;
 
-  // ── Lot row ─────────────────────────────────────────────────────────────────
-  const THUMB = 46;
-  const rowY = pdf.y;
+  // ── Item checklist ──────────────────────────────────────────────────────────
+  pdf.font('Helvetica-Bold').fontSize(11).fillColor('#000000').text('Item checklist', left, y);
+  y = pdf.y + 4;
+  pdf.font('Helvetica-Bold').fontSize(8).fillColor(SLATE);
+  pdf.text('RELEASED', left, y, { width: 56 });
+  pdf.text('LOT', left + 96, y, { width: 36 });
+  pdf.text('ITEM', left + 136, y, { width: W - 136 - 92 });
+  pdf.text('HAMMER', right - 92, y, { width: 92, align: 'right' });
+  y = pdf.y + 2;
+  pdf.strokeColor(HAIR).lineWidth(1).moveTo(left, y).lineTo(right, y).stroke();
+  y += 6;
+  const rowY = y;
+  pdf.lineWidth(1.2).strokeColor('#000000').rect(left + 12, rowY, 16, 16).stroke();   // release checkbox
+  const TH = 30;
   let drew = false;
-  if (thumbBuf) {
-    try { pdf.image(thumbBuf, left, rowY, { fit: [THUMB, THUMB] }); drew = true; } catch (_e) { drew = false; }
-  }
+  if (thumbBuf) { try { pdf.image(thumbBuf, left + 56, rowY - 4, { fit: [TH, TH] }); drew = true; } catch (_e) { drew = false; } }
   if (!drew) {
-    pdf.save().fillColor('#f1f5f9').rect(left, rowY, THUMB, THUMB).fill().restore();
-    pdf.save().fillColor('#94a3b8').font('Helvetica').fontSize(7).text('No image', left, rowY + THUMB / 2 - 4, { width: THUMB, align: 'center' }).restore();
+    pdf.save().fillColor('#f1f5f9').rect(left + 56, rowY - 4, TH, TH).fill().restore();
+    pdf.save().fillColor('#94a3b8').font('Helvetica').fontSize(6).text('no img', left + 56, rowY + 7, { width: TH, align: 'center' }).restore();
   }
-  pdf.font('Helvetica-Bold').fontSize(9).fillColor(doc.BRAND.slate);
-  pdf.text('LOT', left + 60, rowY); pdf.text('DESCRIPTION', left + 110, rowY);
-  pdf.text('HAMMER', right - 90, rowY, { width: 90, align: 'right' });
   pdf.font('Helvetica').fontSize(11).fillColor('#000000');
-  pdf.text(inv.lotNumber != null ? ('#' + inv.lotNumber) : '—', left + 60, rowY + 12, { width: 50 });
-  pdf.text(inv.lotTitle, left + 110, rowY + 12, { width: right - 90 - (left + 110) - 6 });
-  pdf.font('Helvetica-Bold').text(doc.money(inv.summary.hammerCents), right - 90, rowY + 12, { width: 90, align: 'right' });
-  pdf.y = rowY + THUMB + 8;
+  pdf.text(inv.lotNumber != null ? ('#' + inv.lotNumber) : '—', left + 96, rowY + 2, { width: 36 });
+  pdf.text(inv.lotTitle || 'Lot', left + 136, rowY + 2, { width: W - 136 - 92 - 4 });
+  pdf.font('Helvetica-Bold').text(doc.money(inv.summary.hammerCents), right - 92, rowY + 2, { width: 92, align: 'right' });
+  y = rowY + TH + 10;
 
-  // ── Summary ─────────────────────────────────────────────────────────────────
+  // ── Financial totals (retained; compact, right-aligned) ───────────────────
   const sx = right - 230, sw = 230;
+  pdf.y = y;
   const sline = (label, cents, opts = {}) => {
     const val = cents ? doc.money(cents) : '—';
     const yy = pdf.y;
@@ -248,36 +269,38 @@ function drawPickupSheet(pdf, inv, auction, thumbBuf) {
   sline('Buyer premium', inv.summary.buyerPremiumCents);
   sline('Sales tax', inv.summary.salesTaxCents);
   sline('Shipping', inv.summary.shippingCents);
-  pdf.strokeColor(doc.BRAND.hair).lineWidth(1).moveTo(sx, pdf.y).lineTo(right, pdf.y).stroke();
+  pdf.strokeColor(HAIR).lineWidth(1).moveTo(sx, pdf.y).lineTo(right, pdf.y).stroke();
   pdf.moveDown(0.25);
-  sline('Total', inv.summary.totalCents, { bold: true });
+  sline('Total due', inv.summary.totalCents, { bold: true });
 
-  // ── Item release / signature section ────────────────────────────────────────
-  let ry = Math.max(pdf.y, 580) + 6;
-  pdf.strokeColor('#000000').lineWidth(1).moveTo(left, ry).lineTo(right, ry).stroke();
-  ry += 8;
-  pdf.font('Helvetica-Bold').fontSize(12).fillColor('#000000').text('ITEM RELEASE', left, ry);
-  ry = pdf.y + 4;
-
-  if (!inv.isPaid) {
+  // ── Release authorization / signature block ───────────────────────────────
+  let by = Math.max(pdf.y, 600) + 6;
+  pdf.strokeColor('#000000').lineWidth(1).moveTo(left, by).lineTo(right, by).stroke();
+  by += 8;
+  pdf.font('Helvetica-Bold').fontSize(12).fillColor('#000000').text('RELEASE AUTHORIZATION', left, by);
+  by = pdf.y + 4;
+  if (unpaid) {
     pdf.font('Helvetica-Bold').fontSize(11).fillColor('#c0262d')
-       .text('Payment must be confirmed before items are released.', left, ry, { width: W });
-    // Black underline keeps it obvious in B&W as well.
-    pdf.strokeColor('#000000').lineWidth(1.2).moveTo(left, pdf.y + 1).lineTo(left + 330, pdf.y + 1).stroke();
+       .text('Payment must be confirmed before items are released.', left, by, { width: W });
+    pdf.strokeColor('#000000').lineWidth(1.2).moveTo(left, pdf.y + 1).lineTo(left + 330, pdf.y + 1).stroke(); // B&W underline
     pdf.fillColor('#000000');
-    ry = pdf.y + 12;
+    by = pdf.y + 12;
+  } else {
+    pdf.font('Helvetica').fontSize(9).fillColor(SLATE)
+       .text('Payment confirmed — release the checked item(s) to the buyer below.', left, by, { width: W });
+    pdf.fillColor('#000000');
+    by = pdf.y + 8;
   }
-
   const lineY = (label, x, w, yy) => {
     pdf.strokeColor('#000000').lineWidth(0.8).moveTo(x, yy + 16).lineTo(x + w, yy + 16).stroke();
-    pdf.font('Helvetica').fontSize(8).fillColor(doc.BRAND.slate).text(label, x, yy + 19, { width: w });
+    pdf.font('Helvetica').fontSize(8).fillColor(SLATE).text(label, x, yy + 19, { width: w });
     pdf.fillColor('#000000');
   };
-  lineY('Buyer signature', left, 230, ry);
-  lineY('Staff initials', left + 250, 90, ry);
-  lineY('Pickup date', left + 360, W - 360, ry);
-  ry += 44;
-  lineY('Notes', left, W, ry);
+  lineY('Buyer signature', left, 230, by);
+  lineY('Staff initials', left + 250, 90, by);
+  lineY('Pickup date / time', left + 360, W - 360, by);
+  by += 44;
+  lineY('Notes', left, W, by);
 }
 
 async function buildPacketPdf(packet) {
@@ -289,9 +312,9 @@ async function buildPacketPdf(packet) {
 
   return doc.renderPdf((pdf) => {
     if (packet.invoices.length === 0) {
-      pdf.font('Helvetica-Bold').fontSize(16).text('Pickup Invoice Packet', { align: 'center' });
+      pdf.font('Helvetica-Bold').fontSize(16).text('Pickup Release Packet', { align: 'center' });
       pdf.moveDown(0.5).font('Helvetica').fontSize(11)
-         .text('No buyer invoices exist for this auction yet.', { align: 'center' });
+         .text('No buyer invoices exist for this auction yet — no pickup release sheets to print.', { align: 'center' });
       return;
     }
     packet.invoices.forEach((inv, i) => {
