@@ -384,6 +384,7 @@
       <div class="field">
         <label for="lot-description">Description</label>
         <textarea id="lot-description" placeholder="Factual description of the item…"></textarea>
+        <button type="button" class="btn btn-outline" id="btn-packing-note" style="margin-top:0.4rem;font-size:0.8rem">+ Add Packing Material Note</button>
       </div>
 
       <div class="field">
@@ -673,6 +674,18 @@
       btn.disabled = false;
       btn.textContent = 'Suggest Details';
     }
+  });
+
+  // ── Add Packing Material Note (convenience; user-initiated, idempotent) ───────
+  // Appends the exact note once; never duplicates, never overwrites the description.
+  document.getElementById('btn-packing-note').addEventListener('click', () => {
+    const ta = document.getElementById('lot-description');
+    const NOTE = 'Please bring appropriate packing material for safe transport.';
+    const cur = ta.value || '';
+    if (cur.indexOf(NOTE) !== -1) { showBanner('Packing material note is already added.', 'error'); return; }
+    ta.value = cur.trim() ? (cur.trim() + '\n\n' + NOTE) : NOTE;
+    ta.focus();
+    showBanner('Packing material note added.', 'success');
   });
 
   // ── Save Lot ─────────────────────────────────────────────────────────────────

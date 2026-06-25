@@ -653,6 +653,10 @@ router.get('/:lotId', optionalAuth, async (req, res, next) => {
               state, is_withdrawn, is_featured,
               closes_at, extended_until, extension_count,
               thumbnail_url, images_count,
+              -- Phase 3: read-only parent-auction pickup window so the lot page can
+              -- display the lot's computed pickup-time group. No schema change.
+              (SELECT pickup_window_start FROM auctions a2 WHERE a2.id = lots.auction_id) AS auction_pickup_window_start,
+              (SELECT pickup_window_end   FROM auctions a2 WHERE a2.id = lots.auction_id) AS auction_pickup_window_end,
               created_at, updated_at
        FROM lots
        WHERE id = $1

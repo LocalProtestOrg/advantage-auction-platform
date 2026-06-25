@@ -553,6 +553,7 @@
 
     <div id="lot-meta">
       <div class="lot-category" id="lot-category"></div>
+      <div class="lot-pickup-time" id="lot-pickup-time" style="display:none;font-size:0.8rem;font-weight:600;color:#2563eb;margin:0.15rem 0"></div>
       <div class="lot-description" id="lot-description"></div>
       <div class="item-details" id="item-details" style="display:none"></div>
     </div>
@@ -640,6 +641,7 @@
 <script src="/widgets/shared/bid-increment.js"></script>
 <script src="/widgets/shared/bid-status.js"></script>
 <script src="/widgets/shared/bid-utils.js"></script>
+<script src="/widgets/shared/pickup-tiers.js"></script>
 <script src="/socket.io/socket.io.js"></script>
 <script src="/widgets/shared/buyer-nav.js"></script>
 <script>
@@ -1050,6 +1052,22 @@
     // rendering as a stray single letter ("A") above the description.
     document.getElementById('lot-category').textContent    = lot.category || '';
     document.getElementById('lot-description').textContent = lot.description || '';
+
+    // Phase 3: lot pickup-time group from size_category (A/B/C → Pickup Time A/B/C,
+    // Small/Medium/Large). Window times shown when the auction pickup window is set.
+    // Never inferred — unset size shows "Not specified".
+    (function () {
+      var pe = document.getElementById('lot-pickup-time'); if (!pe) return;
+      var PT = window.PickupTiers || null;
+      var tier = PT ? PT.normTier(lot.size_category) : null;
+      if (!tier) { pe.textContent = 'Pickup Time: Not specified'; pe.style.display = ''; return; }
+      var label = PT.timeLabel(tier) + ' — ' + PT.itemLabel(tier);
+      var win = (lot.auction_pickup_window_start && lot.auction_pickup_window_end)
+        ? PT.splitWindow(lot.auction_pickup_window_start, lot.auction_pickup_window_end) : null;
+      if (win && win[tier]) label += '  ·  ' + PT.windowLabel(win[tier]);
+      pe.textContent = label;
+      pe.style.display = '';
+    })();
 
     // Pricing context (cents) - used by setCurrentBid / updateHint. Coerce and
     // fall back to platform defaults so a missing/NaN field never surfaces as

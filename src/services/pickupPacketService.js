@@ -18,6 +18,7 @@
 
 const db = require('../db');
 const doc = require('./documentService');
+const pt = require('../lib/pickupTiers');
 
 // Split a single full_name into { first, last }. Heuristic: last whitespace token
 // is the last name, the remainder is the first name. Falls back to the email local
@@ -105,11 +106,25 @@ async function getPacketData(auctionId) {
   const location = [a.street_address, [a.city, a.address_state].filter(Boolean).join(', '), a.zip]
     .filter(Boolean).join(' · ') || null;
 
+  // Phase 3: split the auction pickup window into 3 equal A/B/C tiers (computed,
+  // not hardcoded) and pre-group each buyer's lots so the packet can show the
+  // buyer's assigned pickup time (largest item wins) + per-lot pickup times.
+  const tierWin = pt.splitWindow(a.pickup_window_start, a.pickup_window_end);
+  const tierWindowLabel = (t) => (tierWin && t && tierWin[t]) ? pt.windowLabel(tierWin[t]) : null;
+  const byBuyer = new Map();
+  for (const r of rows) {
+    if (!byBuyer.has(r.buyer_user_id)) byBuyer.set(r.buyer_user_id, []);
+    byBuyer.get(r.buyer_user_id).push({ lotNumber: r.lot_number, size: r.size_category });
+  }
+
   const invoices = rows.map((r) => {
     const isPaid = r.invoice_status === 'paid' || r.payment_status === 'paid';
     const name = parseName(r.buyer_name, r.buyer_email);
     const hammer = r.hammer_cents != null ? r.hammer_cents : r.amount_cents;
     const total = r.total_cents != null ? r.total_cents : r.amount_cents;
+    const buyerLotRows = byBuyer.get(r.buyer_user_id) || [];
+    const aTier = pt.assignedTier(buyerLotRows.map((l) => l.size)); // largest item wins
+    const lotTier = pt.normTier(r.size_category);
     return {
       id: r.id,
       invoiceNumber: r.invoice_number || ('AAC-' + String(r.id).slice(0, 8)),
@@ -123,6 +138,13 @@ async function getPacketData(auctionId) {
       lotTitle: r.lot_title || 'Lot',
       sizeCategory: r.size_category || null,
       sizeTier: SIZE_LABELS[r.size_category] || 'Not specified',
+      lotTier,
+      lotTimeLabel: pt.timeLabel(lotTier),
+      lotTimeWindow: tierWindowLabel(lotTier),
+      assignedTier: aTier,
+      assignedTimeLabel: pt.timeLabel(aTier),
+      assignedTimeWindow: tierWindowLabel(aTier),
+      buyerLots: buyerLotRows.map((l) => { const t = pt.normTier(l.size); return { lotNumber: l.lotNumber, tier: t, timeLabel: pt.timeLabel(t) }; }),
       imageUrl: r.lot_image_url || null,
       pickup: pickupWindowLabel(r.slot_start || a.pickup_window_start, r.slot_end || a.pickup_window_end),
       summary: {
@@ -147,7 +169,11 @@ async function getPacketData(auctionId) {
   });
 
   return {
-    auction: { id: a.id, title: a.title || 'Auction', location, pickup: pickupWindowLabel(a.pickup_window_start, a.pickup_window_end) },
+    auction: {
+      id: a.id, title: a.title || 'Auction', location,
+      pickup: pickupWindowLabel(a.pickup_window_start, a.pickup_window_end),
+      tierWindows: tierWin ? { A: tierWindowLabel('A'), B: tierWindowLabel('B'), C: tierWindowLabel('C') } : null,
+    },
     invoices,
     counts: {
       unpaid: invoices.filter((i) => !i.isPaid).length,
@@ -239,17 +265,23 @@ function drawPickupSheet(pdf, inv, auction, thumbBuf) {
   pdf.fillColor('#000000');
   y = pdf.y + 10;
 
-  // ── Item checklist ──────────────────────────────────────────────────────────
+  // ── Assigned pickup time (buyer-level; largest item purchased determines it) ─
+  pdf.font('Helvetica-Bold').fontSize(9).fillColor(SLATE).text('ASSIGNED PICKUP TIME (largest item purchased)', left, y);
+  y = pdf.y + 1;
+  pdf.font('Helvetica-Bold').fontSize(16).fillColor(NAVY)
+     .text((inv.assignedTimeLabel || 'Not specified') + (inv.assignedTimeWindow ? ('     ' + inv.assignedTimeWindow) : ''), left, y);
+  pdf.fillColor('#000000');
+  y = pdf.y + 8;
+
+  // ── Item checklist (each lot's individual pickup time shown per row) ────────
   pdf.font('Helvetica-Bold').fontSize(11).fillColor('#000000').text('Item checklist', left, y);
-  y = pdf.y + 3;
-  // Lot pickup tier / item size (from Lot Studio size_category; "Not specified" if unset).
-  pdf.font('Helvetica-Bold').fontSize(9).fillColor(NAVY).text('PICKUP TIER / SIZE:  ', left, y, { continued: true })
-     .font('Helvetica').fillColor('#000000').text(inv.sizeTier || 'Not specified');
-  y = pdf.y + 5;
+  y = pdf.y + 4;
+  const timeX = right - 152;
   pdf.font('Helvetica-Bold').fontSize(8).fillColor(SLATE);
   pdf.text('RELEASED', left, y, { width: 56 });
-  pdf.text('LOT', left + 96, y, { width: 36 });
-  pdf.text('ITEM', left + 136, y, { width: W - 136 - 92 });
+  pdf.text('LOT', left + 96, y, { width: 32 });
+  pdf.text('ITEM', left + 132, y, { width: timeX - (left + 132) - 4 });
+  pdf.text('PICKUP TIME', timeX, y, { width: 60 });
   pdf.text('HAMMER', right - 92, y, { width: 92, align: 'right' });
   y = pdf.y + 2;
   pdf.strokeColor(HAIR).lineWidth(1).moveTo(left, y).lineTo(right, y).stroke();
@@ -263,11 +295,23 @@ function drawPickupSheet(pdf, inv, auction, thumbBuf) {
     pdf.save().fillColor('#f1f5f9').rect(left + 56, rowY - 4, TH, TH).fill().restore();
     pdf.save().fillColor('#94a3b8').font('Helvetica').fontSize(6).text('no img', left + 56, rowY + 7, { width: TH, align: 'center' }).restore();
   }
-  pdf.font('Helvetica').fontSize(11).fillColor('#000000');
-  pdf.text(inv.lotNumber != null ? ('#' + inv.lotNumber) : '—', left + 96, rowY + 2, { width: 36 });
-  pdf.text(inv.lotTitle || 'Lot', left + 136, rowY + 2, { width: W - 136 - 92 - 4 });
-  pdf.font('Helvetica-Bold').text(doc.money(inv.summary.hammerCents), right - 92, rowY + 2, { width: 92, align: 'right' });
-  y = rowY + TH + 10;
+  pdf.font('Helvetica').fontSize(10).fillColor('#000000');
+  pdf.text(inv.lotNumber != null ? ('#' + inv.lotNumber) : '—', left + 96, rowY + 2, { width: 32 });
+  pdf.text(inv.lotTitle || 'Lot', left + 132, rowY + 2, { width: timeX - (left + 132) - 4 });
+  pdf.font('Helvetica-Bold').fontSize(9).text(inv.lotTimeLabel || 'Not specified', timeX, rowY + 3, { width: 60 });
+  pdf.font('Helvetica-Bold').fontSize(10).text(doc.money(inv.summary.hammerCents), right - 92, rowY + 2, { width: 92, align: 'right' });
+  y = rowY + TH + 8;
+
+  // Multi-lot buyer: list every lot this buyer is collecting + each lot's pickup time.
+  if (inv.buyerLots && inv.buyerLots.length > 1) {
+    pdf.font('Helvetica').fontSize(8).fillColor(SLATE).text(
+      'This buyer has ' + inv.buyerLots.length + ' lots in this auction — '
+        + inv.buyerLots.map((l) => '#' + (l.lotNumber != null ? l.lotNumber : '?') + ' ' + l.timeLabel).join('   ·   '),
+      left, y, { width: W }
+    );
+    pdf.fillColor('#000000');
+    y = pdf.y + 6;
+  }
 
   // ── Financial totals (retained; compact, right-aligned) ───────────────────
   const sx = right - 230, sw = 230;

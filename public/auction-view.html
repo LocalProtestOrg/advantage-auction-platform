@@ -520,6 +520,7 @@
 <script src="/widgets/shared/analytics.js"></script>
 <script src="/widgets/shared/marketplace-seller-cta.js"></script>
 <script src="/widgets/shared/bid-utils.js"></script>
+<script src="/widgets/shared/pickup-tiers.js"></script>
 <script src="/socket.io/socket.io.js"></script>
 <script src="/widgets/shared/buyer-nav.js"></script>
 
@@ -1256,14 +1257,25 @@
     var el = document.getElementById('panel-pickup'); if (!el) return;
     var d = auctionSummary || {};
     var date = d.pickup_window_start ? fmtDate(d.pickup_window_start) : 'To be announced';
+    var PT = window.PickupTiers || null;
+    // Pickup Time A/B/C are the overall pickup window split into 3 EQUAL parts —
+    // computed, never hardcoded.
+    var win = (PT && d.pickup_window_start && d.pickup_window_end) ? PT.splitWindow(d.pickup_window_start, d.pickup_window_end) : null;
+    var windowText = (PT && d.pickup_window_start && d.pickup_window_end)
+      ? (PT.fmtTime(d.pickup_window_start) + ' – ' + PT.fmtTime(d.pickup_window_end)) : 'To be announced';
+    function tierRow(letter, label) {
+      var t = (win && win[letter]) ? PT.windowLabel(win[letter]) : 'To be announced';
+      return '<div class="info-row"><strong>Pickup Time ' + letter + ' — ' + label + ':</strong> ' + esc(t) + '</div>';
+    }
     el.innerHTML =
       '<h3>Pickup Information</h3>' +
       '<div class="info-row"><strong>Pickup date:</strong> ' + esc(date) + '</div>' +
-      '<div class="info-row"><strong>Category A (small items):</strong> 09:00 AM - 11:00 AM</div>' +
-      '<div class="info-row"><strong>Category C (large items):</strong> 11:00 AM - 12:30 PM</div>' +
+      '<div class="info-row"><strong>Pickup window:</strong> ' + esc(windowText) + '</div>' +
+      (win ? (tierRow('A', 'Small Items') + tierRow('B', 'Medium Items') + tierRow('C', 'Large Items')) : '') +
       '<div class="info-row"><strong>Location:</strong> ' + esc(tabLocationText()) +
         ' &nbsp;<a class="map-link" href="' + tabMapsUrl() + '" target="_blank" rel="noopener">View Map ↗</a></div>' +
-      '<div class="tab-note">For your privacy, the exact street number is shown after your payment is verified. Bring help or a vehicle appropriate to each lot’s pickup size category.</div>';
+      '<div class="tab-note">Pickup times are assigned according to the largest item purchased. Small items are released first to improve traffic flow and allow larger furniture and heavy items to be moved safely later in the pickup process.</div>' +
+      '<div class="tab-note">For your privacy, the exact street number is shown after your payment is verified.</div>';
   }
   function populateTermsTab() {
     var el = document.getElementById('panel-terms'); if (!el) return;
