@@ -671,6 +671,16 @@ router.post('/auctions/:auctionId/reject', auth, role(['admin']), idempotency, a
 // MANUAL ONLY — human-gated. Never called automatically by the auction lifecycle.
 router.post('/auctions/:auctionId/send-final-report', auth, role(['admin']), async (req, res, next) => {
   try {
+    // L1: Seller Settlements are OFF. This report emails a seller their payout
+    // breakdown (gross / platform fee / net), so it must not run until settlements
+    // are formally activated. Gate behind SELLER_SETTLEMENTS_ENABLED (default off);
+    // no code change needed to enable later.
+    if (!require('../lib/launchGuards').sellerSettlementsEnabled()) {
+      return res.status(409).json({
+        success: false,
+        message: 'Seller settlements are not active yet. Final seller reports (which include payout figures) are disabled until seller settlements are enabled.',
+      });
+    }
     const { auctionId } = req.params;
     const result = await sendFinalSellerReport(auctionId);
     return res.json({ success: true, data: result });
@@ -806,11 +816,26 @@ router.post('/auctions/:auctionId/invoice-reconciliation/repair', auth, role(['a
   } catch (err) { next(err); }
 });
 
-// POST /api/admin/invoices/:invoiceId/resend-invoice-email — resend the unpaid/issued invoice email.
+// POST /api/admin/invoices/:invoiceId/resend-invoice-email — resend the unpaid/issued
+// invoice ("payment required") email. M2: refuse on a PAID invoice so a paid buyer is
+// never told to pay again; direct the operator to resend the receipt instead.
 router.post('/invoices/:invoiceId/resend-invoice-email', auth, role(['admin']), async (req, res, next) => {
   try {
+    const { invoiceId } = req.params;
+    const { rows } = await db.query(
+      `SELECT i.status, p.status AS payment_status
+         FROM invoices i LEFT JOIN payments p ON p.id = i.payment_id
+        WHERE i.id = $1`, [invoiceId]
+    );
+    if (!rows[0]) return res.status(404).json({ success: false, message: 'Invoice not found' });
+    if (require('../lib/launchGuards').isInvoicePaid({ invoiceStatus: rows[0].status, paymentStatus: rows[0].payment_status })) {
+      return res.status(409).json({
+        success: false,
+        message: 'This invoice is already paid — a "payment required" email will not be sent. Use "Resend receipt" to re-send the paid receipt.',
+      });
+    }
     const receiptService = require('../services/receiptService');
-    const result = await receiptService.sendUnpaidInvoiceEmail(req.params.invoiceId);
+    const result = await receiptService.sendUnpaidInvoiceEmail(invoiceId);
     return res.json({ success: result.sent === true, data: result });
   } catch (err) { next(err); }
 });

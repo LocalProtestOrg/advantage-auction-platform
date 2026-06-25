@@ -12,6 +12,7 @@ const { getBidsByLot, createBid, resolveIncrementOverride, resolveAuctionIncreme
 const imageProcessingService      = require('../services/imageProcessingService');
 const { writeAuditLog }           = require('../lib/auditLog');
 const { isProfessional }          = require('../services/sellerTypeRules');
+const { normalizeTier, validateLotPayload } = require('../validation/lotValidation'); // H2
 
 // ── Phase C.2: professional-only lot settings (starting bid, reserve) ─────────
 // Server-authoritative gate. Admin may configure anything (override). Otherwise
@@ -239,6 +240,17 @@ router.post('/', auth, async (req, res, next) => {
     if (!gate.allowed) {
       return res.status(403).json({ success: false, message: lockErrorMessage(gate.reason) });
     }
+    // H2: enforce required launch fields server-side. The pickup tier may arrive as
+    // size_category OR pickup_category (client-dependent); normalize and require it.
+    const tier = normalizeTier(size_category, pickup_category);
+    const v = validateLotPayload({ title, sizeCategory: tier });
+    if (!v.valid) {
+      return res.status(422).json({ success: false, message: 'Lot validation failed', errors: v.errors });
+    }
+    // Persist size_category from the normalized tier so Phase 3 pickup display always
+    // has it; keep pickup_category consistent (legacy scheduler column).
+    const effSize   = tier;
+    const effPickup = normalizeTier(pickup_category) || tier;
     // Phase C.2: professional-only settings. Non-professional sellers have
     // starting_bid + reserve ignored → null (existing $1 fallback / no reserve).
     const proAllowed        = await proSettingsAllowedForAuction(req.user.role, auctionId);
@@ -251,7 +263,7 @@ router.post('/', auth, async (req, res, next) => {
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10::jsonb,
                (SELECT COALESCE(MAX(lot_number), 0) + 1 FROM lots WHERE auction_id = $1))
        RETURNING *`,
-      [auctionId, title, description, size_category || null, pickup_category || null, bid_increment_cents || null, effStartingBid, effReserveCents, effReserveVisible, dimsValidated ? JSON.stringify(dimsValidated) : null]
+      [auctionId, title, description, effSize, effPickup, bid_increment_cents || null, effStartingBid, effReserveCents, effReserveVisible, dimsValidated ? JSON.stringify(dimsValidated) : null]
     );
     // INT-2: audit lot creation. Non-blocking — helper swallows errors.
     const created = result.rows[0];
@@ -535,6 +547,19 @@ router.put('/:lotId', auth, async (req, res, next) => {
       );
       beforeLot = beforeRes.rows[0] || null;
     } catch (_) { /* audit snapshot is best-effort */ }
+    // H2: enforce required launch fields on edit. Derive the pickup tier from the
+    // body (size_category OR pickup_category); if the body omits both, fall back to
+    // the lot's existing tier so a partial edit isn't rejected or null-ed out. The
+    // UPDATE below sets size_category/pickup_category directly (not COALESCE), so we
+    // must always bind a valid normalized value.
+    const effTier = normalizeTier(size_category, pickup_category)
+      || (beforeLot ? normalizeTier(beforeLot.size_category, beforeLot.pickup_category) : null);
+    const effTitle = (title != null && String(title).trim()) ? title : (beforeLot ? beforeLot.title : title);
+    const vUpd = validateLotPayload({ title: effTitle, sizeCategory: effTier });
+    if (!vUpd.valid) {
+      return res.status(422).json({ success: false, message: 'Lot validation failed', errors: vUpd.errors });
+    }
+    const effPickupUpd = normalizeTier(pickup_category) || (beforeLot ? normalizeTier(beforeLot.pickup_category) : null) || effTier;
     const result = await db.query(
       `UPDATE lots
        SET title               = $1,
@@ -558,11 +583,11 @@ router.put('/:lotId', auth, async (req, res, next) => {
        WHERE id = $18
        RETURNING *`,
       [
-        title,
+        effTitle,
         description     || null,
         category        || null,
-        size_category   || null,
-        pickup_category || null,
+        effTier,
+        effPickupUpd,
         bid_increment_cents  || null,
         effStartingBid,          // Phase C.2: null for non-professional sellers
         condition       || null,

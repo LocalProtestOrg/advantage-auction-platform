@@ -36,19 +36,30 @@ function parseName(fullName, email) {
   return { first: '', last: local, display: local };
 }
 
-function fmtDateTime(d) {
+// H1: format date/time in the AUCTION's timezone (fallback America/New_York) so the
+// packet's date/window header matches the timezone-aware A/B/C tier rows. Never the
+// server's process timezone.
+function fmtDateTime(d, tz) {
   if (!d) return null;
   try {
     return new Date(d).toLocaleString('en-US', {
       year: 'numeric', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit',
+      timeZone: tz || pt.DEFAULT_TZ,
     });
-  } catch (_e) { return null; }
+  } catch (_e) {
+    try {
+      return new Date(d).toLocaleString('en-US', {
+        year: 'numeric', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit',
+        timeZone: pt.DEFAULT_TZ,
+      });
+    } catch (__e) { return null; }
+  }
 }
 
-function pickupWindowLabel(start, end) {
-  const s = fmtDateTime(start);
+function pickupWindowLabel(start, end, tz) {
+  const s = fmtDateTime(start, tz);
   if (!s) return null;
-  const e = end ? fmtDateTime(end) : null;
+  const e = end ? fmtDateTime(end, tz) : null;
   return e ? `${s} – ${e}` : s;
 }
 
@@ -147,7 +158,7 @@ async function getPacketData(auctionId) {
       assignedTimeWindow: tierWindowLabel(aTier),
       buyerLots: buyerLotRows.map((l) => { const t = pt.normTier(l.size); return { lotNumber: l.lotNumber, tier: t, timeLabel: pt.timeLabel(t) }; }),
       imageUrl: r.lot_image_url || null,
-      pickup: pickupWindowLabel(r.slot_start || a.pickup_window_start, r.slot_end || a.pickup_window_end),
+      pickup: pickupWindowLabel(r.slot_start || a.pickup_window_start, r.slot_end || a.pickup_window_end, a.timezone),
       summary: {
         hammerCents: hammer,
         buyerPremiumCents: r.buyer_premium_cents || 0,
@@ -172,7 +183,8 @@ async function getPacketData(auctionId) {
   return {
     auction: {
       id: a.id, title: a.title || 'Auction', location,
-      pickup: pickupWindowLabel(a.pickup_window_start, a.pickup_window_end),
+      timezone: a.timezone || null,
+      pickup: pickupWindowLabel(a.pickup_window_start, a.pickup_window_end, a.timezone),
       tierWindows: tierWin ? { A: tierWindowLabel('A'), B: tierWindowLabel('B'), C: tierWindowLabel('C') } : null,
     },
     invoices,
@@ -224,7 +236,7 @@ function drawPickupSheet(pdf, inv, auction, thumbBuf) {
     pdf.fillColor('#dcfce7').rect(left, y, W, bh).fill();
     pdf.lineWidth(2.5).strokeColor('#166534').rect(left, y, W, bh).stroke();
     pdf.fillColor('#166534').font('Helvetica-Bold').fontSize(20).text('PAID — CLEARED FOR PICKUP', left, y + 7, { width: W, align: 'center' });
-    pdf.font('Helvetica').fontSize(9).text(inv.paymentDate ? ('Payment received ' + (fmtDateTime(inv.paymentDate) || '')) : 'Payment received', left, y + 30, { width: W, align: 'center' });
+    pdf.font('Helvetica').fontSize(9).text(inv.paymentDate ? ('Payment received ' + (fmtDateTime(inv.paymentDate, auction.timezone) || '')) : 'Payment received', left, y + 30, { width: W, align: 'center' });
     pdf.restore();
     y += bh + 12;
   }
