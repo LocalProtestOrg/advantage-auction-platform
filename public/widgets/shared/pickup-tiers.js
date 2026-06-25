@@ -21,7 +21,10 @@
     function mk(i) { return { start: new Date(s + third * i), end: new Date(s + third * (i + 1)) }; }
     return { A: mk(0), B: mk(1), C: mk(2) };
   }
-  function fmtTime(d) { try { return new Date(d).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }); } catch (e) { return ''; } }
+  // UTC for deterministic, viewer-independent clock times (pickup windows store the
+  // intended wall-clock; auctions.timezone is essentially unpopulated). Same clock
+  // everywhere — packet + public pages.
+  function fmtTime(d) { try { return new Date(d).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: 'UTC' }); } catch (e) { return ''; } }
   function windowLabel(w) { return w ? (fmtTime(w.start) + ' – ' + fmtTime(w.end)) : ''; }
   window.PickupTiers = { normTier: normTier, timeLabel: timeLabel, itemLabel: itemLabel, assignedTier: assignedTier, splitWindow: splitWindow, fmtTime: fmtTime, windowLabel: windowLabel };
 })();

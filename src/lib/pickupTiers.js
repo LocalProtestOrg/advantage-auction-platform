@@ -43,9 +43,13 @@ function splitWindow(start, end) {
   return { A: mk(0), B: mk(1), C: mk(2) };
 }
 
+// Format in UTC for deterministic, viewer-independent clock times. Pickup windows
+// are stored as the intended wall-clock (auctions.timezone is essentially
+// unpopulated), so UTC formatting renders the same clock everywhere (packet +
+// public pages) and matches what was entered. See the Phase 3 doc's tz note.
 function fmtTime(d) {
   if (!d) return '';
-  try { return new Date(d).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }); } catch (_e) { return ''; }
+  try { return new Date(d).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: 'UTC' }); } catch (_e) { return ''; }
 }
 function windowLabel(w) { return w ? (fmtTime(w.start) + ' – ' + fmtTime(w.end)) : ''; }
 
