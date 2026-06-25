@@ -1,6 +1,15 @@
 # Launch Stabilization — End-to-End QA Report
 
 **Type:** Discovery-only QA. **No code was changed and no bugs were fixed** (awaiting explicit approval per directive).
+
+> ## ✅ RESOLUTION UPDATE — 2026-06-25
+> **H1, H2, M2, L1 are RESOLVED and LIVE IN PRODUCTION.**
+> - **Production commit SHA:** `28bffd9`
+> - **Production rollback tag:** `pre-launch-qa-fixes-2026-06-25` → `bf06ef8`
+> - **Staging validation:** PASSED (full jest suite 234/234; live staging checks for H1/H2/M2/L1).
+> - **Production smoke validation:** PASSED (health 200; H1 packet PDF 200/`%PDF`; H2 missing-tier 422 + valid-tier 201 normalized; M2 paid-resend 409; L1 final-report 409 with settlements OFF).
+> - **Config confirmed unchanged:** Stripe TEST · Buyer Premium OFF · Sales Tax OFF · Seller Settlements OFF (`SELLER_SETTLEMENTS_ENABLED` not set).
+> The per-item "current state" sections below are retained as the original discovery record; each now carries a **RESOLVED** line. Remaining items (M1, M3–M5, L2–L5) are unchanged and still open.
 **Date:** 2026-06-25
 **Method:** Code-level review + read-only API liveness checks, in the order Admin → Seller → Buyer → Cross-system, plus a security/authz pass.
 **Assumed prod state (confirmed consistent with code):** Stripe TEST · Buyer Premium OFF · Sales Tax OFF · Seller Settlements OFF · Pickup Phase 3 LIVE · Auction Timezone LIVE · Timezone-aware entry LIVE.
@@ -26,6 +35,7 @@
 ## HIGH
 
 ### H1 — Pickup packet date/time header renders in SERVER timezone, not the auction timezone
+- **STATUS: ✅ RESOLVED (2026-06-25)** — prod `28bffd9`; rollback `pre-launch-qa-fixes-2026-06-25`→`bf06ef8`; staging + prod smoke PASSED. `pickupPacketService` header now formats in the auction timezone (fallback America/New_York), matching the A/B/C tier rows.
 - **SEVERITY:** High
 - **AREA:** Cross-system / Pickup packet (timezone consistency)
 - **REPRO:** 1) Auction with `timezone='America/Chicago'`, pickup window stored as 9 AM–3 PM Central. 2) Admin downloads the pickup packet. 3) Compare the sheet's "Pickup date/time" header to the "Assigned Pickup Time" and per-lot tier windows.
@@ -35,6 +45,7 @@
 - **RISK:** Staff/buyers read a wrong pickup time on the release document (the core launch flow), causing missed/early arrivals and pickup-line confusion.
 
 ### H2 — Lot validation is a no-op stub; `size_category` (and title/image) never enforced server-side
+- **STATUS: ✅ RESOLVED (2026-06-25)** — prod `28bffd9`; rollback `pre-launch-qa-fixes-2026-06-25`→`bf06ef8`; staging + prod smoke PASSED. `lotValidation` now enforces title + A/B/C tier; POST/PUT `/api/lots` normalize the tier from `size_category`/`pickup_category`, return 422 on missing/invalid, and persist `size_category` consistently (no backfill of existing rows — that remains a separate task).
 - **SEVERITY:** High
 - **AREA:** Seller / Lot Studio + data quality
 - **REPRO:** 1) Create a lot via `POST /api/lots` (or Lot Studio) with no `size_category`. 2) It saves. 3) View the lot/packet.
@@ -57,6 +68,7 @@
 - **RISK:** If slot scheduling is ever turned on, buyers are told one pickup time but assigned a different slot.
 
 ### M2 — Admin "Resend invoice" sends a "payment required" email even for PAID invoices
+- **STATUS: ✅ RESOLVED (2026-06-25)** — prod `28bffd9`; rollback `pre-launch-qa-fixes-2026-06-25`→`bf06ef8`; staging + prod smoke PASSED. `resend-invoice-email` now returns **409** on a paid invoice with a clear message directing the operator to "Resend receipt"; unpaid resend still works.
 - **SEVERITY:** Medium
 - **AREA:** Admin / Invoice ops
 - **REPRO:** 1) Open a PAID invoice in the Auction Invoices module. 2) Trigger `POST /api/admin/invoices/:id/resend-invoice-email`.
@@ -97,6 +109,7 @@
 ## LOW
 
 ### L1 — `send-final-report` is live and emails a seller a flat-10% payout breakdown despite "Settlements OFF"
+- **STATUS: ✅ RESOLVED (2026-06-25)** — prod `28bffd9`; rollback `pre-launch-qa-fixes-2026-06-25`→`bf06ef8`; staging + prod smoke PASSED. `send-final-report` now gated behind `sellerSettlementsEnabled()`; returns **409** "Seller settlements are not active yet" unless `SELLER_SETTLEMENTS_ENABLED==='true'` (not set in prod), so no payout email can be sent while settlements are OFF.
 - **SEVERITY:** Low (admin-manual, human-gated)
 - **AREA:** Admin / Seller settlement
 - **ACTUAL:** admin.js:672-686 calls the real `sendFinalSellerReport` (pdfGenerationService) which builds + emails an auction report incl. gross/platform-fee/seller-payout (flat 10% from reportingService). It is not a stub. **FIX/RISK:** Ensure operators know this is live; if "settlements off" must mean "no payout figures emailed," gate or hide the button. Risk: an admin emails a seller payout numbers prematurely.
