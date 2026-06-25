@@ -51,6 +51,15 @@ function pickupWindowLabel(start, end) {
   return e ? `${s} – ${e}` : s;
 }
 
+// Item size tiers — labels are the AUTHORITATIVE ones defined in Lot Studio
+// (public/lot-builder.html size_category selector). Not invented here. Lots with
+// no size set show "Not specified" (no inference from description).
+const SIZE_LABELS = {
+  A: 'A — Small (carry by hand)',
+  B: 'B — Medium (2 people)',
+  C: 'C — Large (truck / dolly)',
+};
+
 async function getPacketData(auctionId) {
   const auctionRes = await db.query(
     `SELECT id, title, street_address, city, address_state, zip, pickup_window_start, pickup_window_end
@@ -80,6 +89,7 @@ async function getPacketData(auctionId) {
             p.charged_at        AS payment_date,
             l.lot_number,
             l.title             AS lot_title,
+            l.size_category,
             pa.slot_start,
             pa.slot_end,
             (SELECT image_url FROM lot_images WHERE lot_id = l.id ORDER BY sort_order ASC LIMIT 1) AS lot_image_url
@@ -111,6 +121,8 @@ async function getPacketData(auctionId) {
       phone: r.buyer_phone || null,
       lotNumber: r.lot_number,
       lotTitle: r.lot_title || 'Lot',
+      sizeCategory: r.size_category || null,
+      sizeTier: SIZE_LABELS[r.size_category] || 'Not specified',
       imageUrl: r.lot_image_url || null,
       pickup: pickupWindowLabel(r.slot_start || a.pickup_window_start, r.slot_end || a.pickup_window_end),
       summary: {
@@ -229,7 +241,11 @@ function drawPickupSheet(pdf, inv, auction, thumbBuf) {
 
   // ── Item checklist ──────────────────────────────────────────────────────────
   pdf.font('Helvetica-Bold').fontSize(11).fillColor('#000000').text('Item checklist', left, y);
-  y = pdf.y + 4;
+  y = pdf.y + 3;
+  // Lot pickup tier / item size (from Lot Studio size_category; "Not specified" if unset).
+  pdf.font('Helvetica-Bold').fontSize(9).fillColor(NAVY).text('PICKUP TIER / SIZE:  ', left, y, { continued: true })
+     .font('Helvetica').fillColor('#000000').text(inv.sizeTier || 'Not specified');
+  y = pdf.y + 5;
   pdf.font('Helvetica-Bold').fontSize(8).fillColor(SLATE);
   pdf.text('RELEASED', left, y, { width: 56 });
   pdf.text('LOT', left + 96, y, { width: 36 });
