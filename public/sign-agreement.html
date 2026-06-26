@@ -36,9 +36,14 @@
       <div id="meta" class="muted">Loading…</div>
     </div>
     <div class="card" id="doc-card" style="display:none">
+      <div class="muted" id="agreement-stamp" style="font-size:0.82rem"></div>
       <div class="muted" id="terms-summary"></div>
       <div class="doc" id="doc-body"></div>
-      <div style="margin-top:0.8rem"><button class="ghost" id="dl-unsigned" type="button" style="display:none">Download unsigned copy</button></div>
+      <div style="margin-top:0.8rem">
+        <button class="ghost" id="print-agreement" type="button">Print / Save as PDF</button>
+        <button class="ghost" id="dl-unsigned" type="button" style="display:none">Download unsigned PDF</button>
+      </div>
+      <div class="muted" style="font-size:0.78rem;margin-top:0.4rem">You may review, download, or print this agreement before accepting. Terms may be updated; the platform's current active version controls future acceptances.</div>
       <div class="err" id="dlu-err"></div>
     </div>
 
@@ -50,11 +55,13 @@
         <a id="login-link" href="/login.html"><button>Log in to sign</button></a>
       </div>
       <div id="sign-form" style="display:none">
+        <div class="muted" id="accept-version" style="margin-bottom:0.6rem;font-weight:600"></div>
         <label for="typed-name">Type your full legal name (typed signature)</label>
         <input type="text" id="typed-name" placeholder="e.g. Jane Q. Seller" />
         <label>Draw your signature (optional)</label>
         <canvas id="sig-canvas"></canvas>
         <button class="ghost" id="clear-canvas" type="button" style="margin-top:0.4rem">Clear drawing</button>
+        <div class="check"><input type="checkbox" id="reviewed" /><label for="reviewed" style="margin:0">I have read and reviewed this agreement (shown above), and had the opportunity to download or print it.</label></div>
         <div class="check"><input type="checkbox" id="consent" /><label for="consent" style="margin:0">I consent to sign this agreement electronically and to do business electronically (ESIGN/UETA).</label></div>
         <div class="check"><input type="checkbox" id="intent" /><label for="intent" style="margin:0">I intend to sign and agree to be legally bound by this agreement.</label></div>
         <div style="margin-top:1rem"><button id="sign-btn">Sign agreement</button></div>
@@ -108,12 +115,54 @@
       } catch (e) { document.getElementById('meta').innerHTML = '<span class="err">Network error.</span>'; }
     }
 
+    function versionLabel() {
+      return (agreement && agreement.version != null) ? ('version v' + agreement.version) : 'the current version';
+    }
+    function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]); }); }
+    // On-screen + print stamp — mirrors server src/services/agreementPdfService.agreementStampLines.
+    function stampLines() {
+      var ps = (agreement && agreement.party_snapshot) || {};
+      var seller = [ps.legal_name, ps.company_name].filter(Boolean).join(' / ');
+      var genUtc = new Date().toISOString().replace('T', ' ').slice(0, 19) + ' UTC';
+      var out = [];
+      out.push('Agreement version: ' + (agreement && agreement.version != null ? ('v' + agreement.version) : 'current version'));
+      if (agreement && agreement.effective_date) out.push('Effective date: ' + agreement.effective_date);
+      out.push('Copy generated: ' + genUtc + ' (timezone: UTC)');
+      if (seller) out.push('Prepared for: ' + seller);
+      out.push("This is a review copy. Terms may be updated from time to time; the platform's current active agreement version controls all future acceptances.");
+      return out;
+    }
+    function stampSummary() { return stampLines().join('  ·  '); }
+    // Print / Save-as-PDF — works for token (pre-auth) reviewers too, includes the stamp.
+    function printAgreement() {
+      var w = window.open('', '_blank');
+      if (!w) { alert('Please allow pop-ups to print the agreement.'); return; }
+      var stampHtml = stampLines().map(function (l) { return '<div>' + esc(l) + '</div>'; }).join('');
+      w.document.write(
+        '<!doctype html><html><head><meta charset="utf-8"><title>Seller Agreement' +
+        (agreement && agreement.version != null ? (' v' + esc(agreement.version)) : '') + '</title>' +
+        '<style>body{font-family:Georgia,serif;color:#111;margin:40px;line-height:1.5}' +
+        '.stamp{font-family:-apple-system,Segoe UI,Roboto,sans-serif;font-size:11px;color:#374151;border:1px solid #d1d5db;border-radius:6px;padding:10px 12px;margin-bottom:18px}' +
+        'h1{font-size:18px;text-align:center}.body{white-space:pre-wrap;font-size:13px}</style></head><body>' +
+        '<h1>Seller Agreement (Review Copy)</h1>' +
+        '<div class="stamp">' + stampHtml + '</div>' +
+        '<div class="body">' + esc(agreement && agreement.rendered_body) + '</div>' +
+        '</body></html>'
+      );
+      w.document.close();
+      w.focus();
+      setTimeout(function () { try { w.print(); } catch (e) {} }, 300);
+    }
+
     function render() {
       document.getElementById('meta').innerHTML =
         (agreement.template_name || 'Agreement') + ' ' + badge(agreement.status) +
         (agreement.expires_at ? '<br><span class="muted">Expires: ' + new Date(agreement.expires_at).toLocaleString() + '</span>' : '');
       document.getElementById('doc-card').style.display = '';
       document.getElementById('doc-body').textContent = agreement.rendered_body || '';
+      // Version / effective-date stamp shown on-screen (matches the printable copy).
+      document.getElementById('agreement-stamp').textContent = stampSummary();
+      // Unsigned PDF download requires auth; Print works for everyone (incl. token review).
       if (authToken) document.getElementById('dl-unsigned').style.display = '';
       var rv = agreement.resolved_variables || {};
       var keys = Object.keys(rv);
@@ -133,6 +182,8 @@
           document.getElementById('login-link').href = '/login.html?next=' + next;
         } else {
           document.getElementById('sign-form').style.display = '';
+          document.getElementById('accept-version').textContent =
+            'You are accepting ' + versionLabel() + (agreement.effective_date ? (', effective ' + agreement.effective_date) : '') + ' — the agreement shown above.';
           initCanvas();
         }
       }
@@ -158,6 +209,7 @@
       var errEl = document.getElementById('sign-err'); errEl.textContent = '';
       var typed = document.getElementById('typed-name').value.trim();
       if (!typed) { errEl.textContent = 'Please type your legal name.'; return; }
+      if (!document.getElementById('reviewed').checked) { errEl.textContent = 'Please confirm you have read and reviewed the agreement.'; return; }
       if (!document.getElementById('consent').checked || !document.getElementById('intent').checked) { errEl.textContent = 'Please check both consent boxes.'; return; }
       var body = { typed_name: typed, consent_acknowledged: true, intent_acknowledged: true };
       if (hasDrawn) body.drawn_image_data = canvas.toDataURL('image/png');
@@ -197,6 +249,8 @@
         setTimeout(function () { URL.revokeObjectURL(url); }, 10000);
       } catch (err) { e.textContent = 'Network error.'; }
     };
+
+    document.getElementById('print-agreement').onclick = function () { printAgreement(); };
 
     load();
   </script>

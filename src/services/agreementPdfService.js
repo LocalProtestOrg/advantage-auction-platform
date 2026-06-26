@@ -13,6 +13,30 @@ const { v2: cloudinary } = require('cloudinary');
 
 const SIGNED_URL_TTL_SECONDS = 300; // signed PDF links live 5 minutes
 
+// Pure, testable metadata stamp for any printable/downloadable agreement copy.
+// Guards against a seller later claiming an outdated printed copy is current:
+// version + effective date + generated timestamp/timezone + who it was prepared for
+// + a statement that the platform's current active version controls future acceptances.
+// `now` is injectable for deterministic tests. Timestamp rendered in UTC (unambiguous).
+function agreementStampLines(agreement, now) {
+  const a = agreement || {};
+  const ps = a.party_snapshot || {};
+  const rv = a.resolved_variables || {};
+  const versionNum = (a.version_int != null) ? a.version_int : (a.version != null ? a.version : null);
+  const version = versionNum != null ? ('v' + versionNum) : 'current version';
+  const effective = rv.effective_date || a.effective_date || null;
+  const sellerName = [ps.legal_name, ps.company_name].filter(Boolean).join(' / ') || null;
+  const gen = (now instanceof Date) ? now : new Date();
+  const generatedUtc = gen.toISOString().replace('T', ' ').slice(0, 19) + ' UTC';
+  const lines = [];
+  lines.push('Agreement version: ' + version);
+  if (effective) lines.push('Effective date: ' + effective);
+  lines.push('Copy generated: ' + generatedUtc + ' (timezone: UTC)');
+  if (sellerName) lines.push('Prepared for: ' + sellerName);
+  lines.push('This is a review copy. Terms may be updated from time to time; the platform’s current active agreement version controls all future acceptances.');
+  return lines;
+}
+
 function buildPdfBuffer(agreement, signature) {
   return new Promise((resolve, reject) => {
     const doc = new PDFDocument({ margin: 50, size: 'LETTER' });
@@ -35,6 +59,8 @@ function buildPdfBuffer(agreement, signature) {
     doc.moveTo(50, doc.y).lineTo(562, doc.y).stroke();
     doc.moveDown(0.4).fontSize(9).font('Helvetica');
     const line = (l) => doc.text(l);
+    const _v = (agreement.version_int != null) ? agreement.version_int : agreement.version;
+    if (_v != null) line(`Agreement version: v${_v}`);
     line(`Signed by (typed): ${signature.typed_name || ''}`);
     if (signature.drawn_image_url) line(`Drawn signature on file: ${signature.drawn_image_url}`);
     line(`Signer role: ${signature.signer_role || 'seller'}`);
@@ -66,7 +92,12 @@ function buildUnsignedPdfBuffer(agreement) {
     const ps = agreement.party_snapshot || {};
     const partyLine = [ps.legal_name, ps.company_name].filter(Boolean).join(' / ');
     if (partyLine) { doc.fontSize(9).font('Helvetica').fillColor('#555555').text(partyLine, { align: 'center' }); doc.fillColor('#000000'); }
-    doc.moveDown(1);
+    doc.moveDown(0.6);
+
+    // Version / effective date / generated timestamp+timezone / seller / update notice.
+    doc.fontSize(8).font('Helvetica').fillColor('#374151');
+    agreementStampLines(agreement).forEach((l) => doc.text(l, { align: 'left' }));
+    doc.fillColor('#000000').moveDown(1);
 
     doc.fontSize(10).font('Helvetica').text(agreement.rendered_body || '', { align: 'left' });
     doc.moveDown(2);
@@ -107,4 +138,4 @@ function signedDownloadUrl(publicId, ttlSeconds = SIGNED_URL_TTL_SECONDS) {
   });
 }
 
-module.exports = { buildPdfBuffer, buildUnsignedPdfBuffer, generateAndStore, signedDownloadUrl, SIGNED_URL_TTL_SECONDS };
+module.exports = { buildPdfBuffer, buildUnsignedPdfBuffer, generateAndStore, signedDownloadUrl, agreementStampLines, SIGNED_URL_TTL_SECONDS };

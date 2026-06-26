@@ -28,15 +28,25 @@ function handleErr(res, err, next) {
 async function withTemplate(a) {
   if (!a) return a;
   const r = await db.query(
-    'SELECT t.name, t.agreement_type FROM agreement_template_versions tv JOIN agreement_templates t ON t.id = tv.template_id WHERE tv.id = $1',
+    'SELECT t.name, t.agreement_type, tv.version_int FROM agreement_template_versions tv JOIN agreement_templates t ON t.id = tv.template_id WHERE tv.id = $1',
     [a.template_version_id]
   );
-  return { ...a, template_name: r.rows[0] && r.rows[0].name, agreement_type: r.rows[0] && r.rows[0].agreement_type };
+  return {
+    ...a,
+    template_name: r.rows[0] && r.rows[0].name,
+    agreement_type: r.rows[0] && r.rows[0].agreement_type,
+    version: r.rows[0] && r.rows[0].version_int,
+  };
 }
 function viewPayload(a) {
   if (!a) return null;
+  const rv = a.resolved_variables || {};
   return {
     id: a.id, status: a.status, template_name: a.template_name, agreement_type: a.agreement_type,
+    // Surface version + effective date so the seller sees exactly which version they
+    // are reviewing/accepting (and so the printable copy can be matched to the record).
+    version: (a.version != null) ? a.version : (a.version_int != null ? a.version_int : null),
+    effective_date: rv.effective_date || null,
     rendered_body: a.rendered_body, resolved_variables: a.resolved_variables, party_snapshot: a.party_snapshot,
     sent_at: a.sent_at, viewed_at: a.viewed_at, signed_at: a.signed_at, expires_at: a.expires_at,
     pdf_available: a.pdf_status === 'stored',
@@ -105,7 +115,8 @@ router.get('/:id/pdf', auth, async (req, res, next) => {
 
     if (req.query.variant === 'unsigned') {
       if (!a.rendered_body) return res.status(409).json({ success: false, message: 'Agreement content not available' });
-      const buf = await pdfService.buildUnsignedPdfBuffer(a);
+      const withVer = await withTemplate(a); // attach version_int for the copy stamp
+      const buf = await pdfService.buildUnsignedPdfBuffer(withVer);
       res.setHeader('Content-Type', 'application/pdf');
       res.setHeader('Content-Disposition', `attachment; filename="advantage-seller-agreement-${a.id}-unsigned.pdf"`);
       return res.send(buf);
