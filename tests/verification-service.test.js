@@ -71,7 +71,8 @@ describe('setRisk validation', () => {
 });
 
 describe('uploadDocument', () => {
-  const ok = 'data:application/pdf;base64,' + Buffer.from('hello pdf').toString('base64');
+  // Real %PDF magic bytes so server-side upload validation (Part B) accepts it.
+  const ok = 'data:application/pdf;base64,' + Buffer.concat([Buffer.from('%PDF-1.4\n'), Buffer.from('hello pdf')]).toString('base64');
   test('rejects upload to someone else\'s request (403)', async () => {
     route([
       ['from verification_requests', [{ id: 'r1', seller_profile_id: 'spOWNER', status: 'open' }]],

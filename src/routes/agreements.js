@@ -93,10 +93,11 @@ router.get('/:id', auth, async (req, res, next) => {
 // Sign — authenticated seller match (server-enforced in the service).
 router.post('/:id/sign', auth, idempotency, async (req, res, next) => {
   try {
-    const { typed_name, drawn_image_data, consent_acknowledged, intent_acknowledged, intent_statement } = req.body || {};
+    const { typed_name, drawn_image_data, consent_acknowledged, intent_acknowledged, reviewed_acknowledged, intent_statement } = req.body || {};
     const result = await agreements.signAgreement(req.params.id, {
       userId: req.user.id, typedName: typed_name, drawnImageData: drawn_image_data,
-      consent: consent_acknowledged === true, intent: intent_acknowledged === true, intentStatement: intent_statement,
+      consent: consent_acknowledged === true, intent: intent_acknowledged === true,
+      reviewed: reviewed_acknowledged === true, intentStatement: intent_statement,
       ip: req.ip, userAgent: req.get('user-agent'),
     });
     return res.json({ success: true, data: { id: result.agreement.id, status: result.agreement.status, pdf_status: result.agreement.pdf_status } });

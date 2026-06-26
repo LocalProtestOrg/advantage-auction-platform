@@ -165,12 +165,14 @@ async function getSignatures(agreementId) {
   return r.rows;
 }
 
-async function signAgreement(agreementId, { userId, typedName, drawnImageData, consent, intent, intentStatement, ip, userAgent }) {
+async function signAgreement(agreementId, { userId, typedName, drawnImageData, consent, intent, reviewed, intentStatement, ip, userAgent }) {
   let agreement = await getById(agreementId);
   if (!agreement) throw new AgreementError('NOT_FOUND', 'Agreement not found', 404);
   if (agreement.seller_user_id !== userId) throw new AgreementError('FORBIDDEN', 'Not your agreement', 403);
   if (!['sent', 'viewed'].includes(agreement.status)) throw new AgreementError('INVALID_STATE', `Cannot sign an agreement in status '${agreement.status}'`, 409);
   if (!typedName || !String(typedName).trim()) throw new AgreementError('TYPED_NAME_REQUIRED', 'Typed signature name is required', 400);
+  // Part A: server-side review acknowledgment is now MANDATORY (no longer client-only).
+  if (reviewed !== true) throw new AgreementError('REVIEW_REQUIRED', 'You must confirm you have read and reviewed this agreement before signing', 400);
   if (consent !== true || intent !== true) throw new AgreementError('CONSENT_REQUIRED', 'Consent and intent to sign are required', 400);
 
   const contentHash = sha256(agreement.rendered_body || '');
@@ -187,8 +189,9 @@ async function signAgreement(agreementId, { userId, typedName, drawnImageData, c
   const sig = await db.query(
     `INSERT INTO agreement_signatures
        (agreement_id, signer_user_id, signer_role, method, typed_name, drawn_image_url,
-        consent_acknowledged, intent_statement, content_sha256, signed_at, ip_address, user_agent)
-     VALUES ($1,$2,'seller',$3,$4,$5,$6,$7,$8, now(), $9, $10) RETURNING *`,
+        consent_acknowledged, intent_statement, content_sha256, signed_at, ip_address, user_agent,
+        reviewed_acknowledged, reviewed_acknowledged_at)
+     VALUES ($1,$2,'seller',$3,$4,$5,$6,$7,$8, now(), $9, $10, true, now()) RETURNING *`,
     [agreementId, userId, method, String(typedName).trim(), drawnUrl, true, intentStatement || DEFAULT_INTENT, contentHash, ip || null, userAgent || null]
   );
   agreement = (await db.query(`UPDATE agreements SET status='signed', signed_at=now(), updated_at=now() WHERE id=$1 RETURNING *`, [agreementId])).rows[0];

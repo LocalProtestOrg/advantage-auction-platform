@@ -211,7 +211,7 @@
       if (!typed) { errEl.textContent = 'Please type your legal name.'; return; }
       if (!document.getElementById('reviewed').checked) { errEl.textContent = 'Please confirm you have read and reviewed the agreement.'; return; }
       if (!document.getElementById('consent').checked || !document.getElementById('intent').checked) { errEl.textContent = 'Please check both consent boxes.'; return; }
-      var body = { typed_name: typed, consent_acknowledged: true, intent_acknowledged: true };
+      var body = { typed_name: typed, reviewed_acknowledged: true, consent_acknowledged: true, intent_acknowledged: true };
       if (hasDrawn) body.drawn_image_data = canvas.toDataURL('image/png');
       document.getElementById('sign-btn').disabled = true;
       try {

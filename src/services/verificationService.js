@@ -12,6 +12,10 @@ const { writeAuditLog } = require('../lib/auditLog');
 const cloudinaryService = require('./cloudinaryService');
 const { v2: cloudinary } = require('cloudinary');
 const { sendEmail } = require('./emailService');
+const { validateDocumentUpload, ALLOWED } = require('../lib/uploadValidation');
+// Canonical MIME → extension for deriving the private signed-download format from the
+// validated content type (never from the untrusted original filename).
+const MIME_TO_EXT = { 'application/pdf': 'pdf', 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp' };
 
 const CATEGORIES = [
   'government_id', 'passport', 'business_license', 'tax_document',
@@ -112,28 +116,34 @@ async function uploadDocument(requestId, userId, { category, filename, contentTy
 
   const b64 = dataBase64.includes(',') ? dataBase64.split(',')[1] : dataBase64;
   const buf = Buffer.from(b64, 'base64');
-  if (!buf.length) throw new VerificationError('FILE_REQUIRED', 'A document file is required', 400);
-  if (buf.length > MAX_BYTES) throw new VerificationError('FILE_TOO_LARGE', 'Document exceeds the 15 MB limit', 413);
+
+  // Server-side validation: allowlist (PDF/JPG/PNG/WEBP) cross-checked by extension,
+  // declared MIME, AND sniffed magic bytes; dangerous types rejected; size capped.
+  // The validated canonical type is authoritative — the client filename/MIME are not
+  // trusted. Re-map to VerificationError so the route returns a clean 4xx.
+  let v;
+  try {
+    v = validateDocumentUpload({ filename, contentType, buffer: buf });
+  } catch (e) {
+    throw new VerificationError(e.code || 'INVALID_FILE', e.message || 'Invalid document file', e.status || 400);
+  }
 
   const sha = crypto.createHash('sha256').update(buf).digest('hex');
   const up = await cloudinaryService.uploadBuffer(buf, {
     folder: 'verification-documents',
     resource_type: 'raw',
     type: 'private',
-    // Override the service default (image-only) so documents (PDF + images) are accepted.
-    allowed_formats: ['pdf', 'jpg', 'jpeg', 'png', 'gif', 'webp', 'heic', 'heif', 'tif', 'tiff'],
+    // App-layer validation above is authoritative; this is a Cloudinary-side backstop.
+    allowed_formats: Object.keys(ALLOWED).concat(['jpeg']),
     public_id: `vdoc-${requestId}-${Date.now()}`,
     overwrite: false,
   });
-  const fmt = (up.format || (filename && filename.includes('.') ? filename.split('.').pop() : 'bin'));
   const doc = (await db.query(
     `INSERT INTO verification_documents
        (request_id, seller_profile_id, category, storage_public_id, file_sha256,
         original_filename, content_type, byte_size, status, uploaded_by)
      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'submitted',$9) RETURNING id, category, status, uploaded_at`,
-    [requestId, spId, category, up.public_id, sha, filename || null, contentType || null, buf.length, userId])).rows[0];
-  // store the resolved format alongside the public_id for later signed-url download
-  doc._format = fmt;
+    [requestId, spId, category, up.public_id, sha, v.safeFilename, v.mime, buf.length, userId])).rows[0];
   await db.query(`UPDATE verification_requests SET status='submitted', updated_at=now() WHERE id=$1 AND status IN ('open','more_info')`, [requestId]);
   await writeAuditLog({ event_type: 'verification_document_uploaded', entity_type: 'verification_document', entity_id: doc.id, actor_id: userId, metadata: { request_id: requestId, category, sha256: sha } });
   return { id: doc.id, category: doc.category, status: doc.status };
@@ -164,7 +174,9 @@ async function reviewRequest(requestId, actorId, { status, adminNotes }) {
 async function documentDownloadUrl(docId) {
   const d = (await db.query('SELECT storage_public_id, original_filename, content_type FROM verification_documents WHERE id = $1', [docId])).rows[0];
   if (!d) throw new VerificationError('DOC_NOT_FOUND', 'Document not found', 404);
-  const fmt = (d.original_filename && d.original_filename.includes('.')) ? d.original_filename.split('.').pop() : 'bin';
+  // Format derives from the validated canonical content_type (not the original filename).
+  const fmt = MIME_TO_EXT[d.content_type]
+    || (d.original_filename && d.original_filename.includes('.') ? d.original_filename.split('.').pop().toLowerCase() : 'bin');
   const url = cloudinary.utils.private_download_url(d.storage_public_id, fmt, {
     resource_type: 'raw', type: 'private', expires_at: Math.floor(Date.now() / 1000) + SIGNED_URL_TTL_SECONDS,
   });
