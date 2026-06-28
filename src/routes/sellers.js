@@ -1,8 +1,16 @@
 const express = require('express');
+const jwt = require('jsonwebtoken');
 const router = express.Router();
 const auth = require('../middleware/authMiddleware');
 const requireSellerAgreement = require('../middleware/requireSellerAgreement');
 const db = require('../db');
+const agreementService = require('../services/agreementService');
+
+// Self-service seller enablement is restricted to non-professional seller types.
+// Professional types (auction_house, estate_sale_company, professional_liquidator)
+// carry scheduling exemptions and are assigned by an admin via the seller-type
+// endpoint — never self-claimed during onboarding.
+const SELF_SERVE_SELLER_TYPES = ['private', 'business', 'other'];
 
 // GET /api/sellers/me
 // Returns the seller profile for the authenticated user. seller_type is
@@ -20,6 +28,84 @@ router.get('/me', auth, async (req, res, next) => {
       return res.status(404).json({ success: false, message: 'Seller profile not found' });
     }
     return res.json({ success: true, data: result.rows[0] });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// POST /api/sellers/enroll
+// Self-service buyer → seller enablement. The simplest possible flow:
+//   Buyer account → complete seller profile → (sign agreement next) → dashboard.
+// There is NO application, NO approval queue, NO waiting period, and NO identity
+// verification here. Identity verification is an admin-only capability triggered
+// later for risk indicators — never a gate on onboarding.
+//
+// This endpoint:
+//   1. Creates the seller_profile for the authenticated user (idempotent — a
+//      user who already has one just gets their current status back).
+//   2. Promotes the user's role buyer → seller so the seller dashboard tooling
+//      (lot studio AI, marketing, payout prefs) works. Buyers retain purchasing
+//      ability (charge-lot now allows 'seller').
+//   3. Auto-sends the current seller agreement so the very next step is signing.
+//   4. Returns a fresh JWT carrying role='seller' so the client can use seller
+//      features immediately without forcing a re-login.
+// The seller DASHBOARD remains gated by requireSellerAgreement until the agreement
+// is signed — so "enabled immediately" means immediately after acceptance.
+router.post('/enroll', auth, async (req, res, next) => {
+  try {
+    const body = req.body || {};
+    const displayName = (body.display_name || body.legal_name || body.full_name || '').toString().trim() || null;
+    const phone       = (body.phone || '').toString().trim() || null;
+    let sellerType    = (body.seller_type || 'private').toString().trim().toLowerCase();
+    if (!SELF_SERVE_SELLER_TYPES.includes(sellerType)) sellerType = 'private';
+
+    // Idempotent: if a profile already exists, ensure the role is promoted and
+    // return the current onboarding status (never create a duplicate).
+    const existing = (await db.query('SELECT id FROM seller_profiles WHERE user_id = $1', [req.user.id])).rows[0];
+
+    let sellerProfileId;
+    if (existing) {
+      sellerProfileId = existing.id;
+    } else {
+      const ins = await db.query(
+        `INSERT INTO seller_profiles (user_id, seller_type, display_name)
+         VALUES ($1, $2, $3)
+         RETURNING id`,
+        [req.user.id, sellerType, displayName]
+      );
+      sellerProfileId = ins.rows[0].id;
+    }
+
+    // Promote buyer → seller (admins keep their role). Backfill contact fields on
+    // the users row when provided and currently empty — never overwrite existing.
+    await db.query(
+      `UPDATE users
+          SET role = CASE WHEN role = 'buyer' THEN 'seller' ELSE role END,
+              full_name = COALESCE(full_name, $2),
+              phone     = COALESCE(phone, $3)
+        WHERE id = $1`,
+      [req.user.id, displayName, phone]
+    );
+    const roleRow = (await db.query('SELECT role FROM users WHERE id = $1', [req.user.id])).rows[0];
+    const newRole = roleRow ? roleRow.role : req.user.role;
+
+    // Auto-send the current seller agreement so the next step is review + sign.
+    // Best-effort and idempotent inside the service (never throws).
+    await agreementService.autoSendAgreement(sellerProfileId, req.user.id);
+
+    // Fresh JWT so seller-gated tooling works without a re-login.
+    const token = jwt.sign(
+      { id: req.user.id, role: newRole },
+      process.env.JWT_SECRET,
+      { expiresIn: process.env.JWT_EXPIRES_IN || '24h' }
+    );
+
+    const onboarding = await agreementService.getOnboardingStatus(req.user.id);
+    return res.status(existing ? 200 : 201).json({
+      success: true,
+      token,
+      data: { seller_profile_id: sellerProfileId, role: newRole, onboarding },
+    });
   } catch (err) {
     next(err);
   }

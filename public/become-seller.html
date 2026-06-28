@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="noindex" />
+  <title>Become a Seller - Advantage.Bid</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { font-family: -apple-system, Segoe UI, Roboto, sans-serif; margin: 0; background: #f1f5f9; color: #1f2937; }
+    .wrap { max-width: 560px; margin: 2rem auto; padding: 0 1rem; }
+    .card { background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 1.5rem 1.6rem; }
+    h1 { font-size: 1.4rem; margin: 0 0 0.4rem; }
+    .sub { color: #64748b; font-size: 0.92rem; line-height: 1.55; margin: 0 0 1.2rem; }
+    .steps { display: flex; gap: 0.5rem; font-size: 0.74rem; color: #64748b; margin-bottom: 1.2rem; flex-wrap: wrap; }
+    .steps span { background: #eff6ff; border: 1px solid #bfdbfe; color: #1e3a8a; border-radius: 999px; padding: 0.2rem 0.7rem; }
+    label { display: block; font-size: 0.84rem; color: #334155; font-weight: 600; margin: 1rem 0 0.3rem; }
+    input[type=text], input[type=tel], select { width: 100%; padding: 0.6rem 0.7rem; border: 1px solid #cbd5e1; border-radius: 7px; font: inherit; }
+    .hint { font-size: 0.78rem; color: #94a3b8; margin: 0.3rem 0 0; }
+    button { background: #2563eb; color: #fff; border: 0; border-radius: 8px; padding: 0.75rem 1.3rem; font: inherit; font-weight: 600; cursor: pointer; margin-top: 1.4rem; width: 100%; }
+    button[disabled] { opacity: 0.5; cursor: not-allowed; }
+    .err { color: #dc2626; font-size: 0.86rem; margin-top: 0.8rem; }
+    .ok { color: #166534; }
+    .reassure { background: #f8fafc; border: 1px solid #e5e7eb; border-radius: 8px; padding: 0.85rem 1rem; font-size: 0.82rem; color: #475569; line-height: 1.5; margin-top: 1.3rem; }
+    a { color: #2563eb; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <div id="loading" class="sub">Loading…</div>
+
+      <div id="form-wrap" style="display:none">
+        <h1>Become a Seller</h1>
+        <p class="sub">Turn your account into a seller account. Complete your seller profile and accept the seller agreement — your seller dashboard is enabled immediately. No application, no approval queue, no waiting.</p>
+        <div class="steps">
+          <span>1 · Complete profile</span>
+          <span>2 · Accept agreement</span>
+          <span>3 · Start building</span>
+        </div>
+
+        <label for="seller-type">What best describes you?</label>
+        <select id="seller-type">
+          <option value="private">Private individual</option>
+          <option value="business">Business</option>
+          <option value="other">Other</option>
+        </select>
+
+        <label for="legal-name">Your full legal name <span style="color:#dc2626">*</span></label>
+        <input type="text" id="legal-name" placeholder="e.g. Jane Q. Seller" />
+        <p class="hint">Used on your seller agreement and payout records.</p>
+
+        <label for="phone">Phone <span style="font-weight:400;color:#94a3b8">(optional)</span></label>
+        <input type="tel" id="phone" placeholder="(555) 555-1234" />
+
+        <button id="submit-btn" type="button">Continue to seller agreement →</button>
+        <div class="err" id="form-err"></div>
+
+        <div class="reassure">
+          <strong>No identity verification required to start.</strong> You can build and submit your first auction right away. Advantage may request verification later only if risk indicators appear (e.g. chargebacks or unusually high-value activity).
+        </div>
+      </div>
+
+      <div id="need-login" style="display:none">
+        <h1>Sign in to continue</h1>
+        <p class="sub">You need an account before you can enable selling. Sign in or create a free account first — it only takes a moment.</p>
+        <a id="login-link" href="/login.html"><button type="button">Sign in / Create account</button></a>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    var authToken = localStorage.getItem('token');
+
+    function show(id) { document.getElementById(id).style.display = ''; document.getElementById('loading').style.display = 'none'; }
+
+    async function init() {
+      if (!authToken) {
+        var next = encodeURIComponent('/become-seller.html');
+        document.getElementById('login-link').href = '/login.html?next=' + next;
+        show('need-login');
+        return;
+      }
+      // If already a seller with dashboard access, skip straight to the dashboard.
+      // If a seller still needs to sign, route to the agreement. Otherwise show the form.
+      try {
+        var st = await (await fetch('/api/agreements/onboarding-status', { headers: { Authorization: 'Bearer ' + authToken } })).json();
+        if (st && st.success && st.data && st.data.is_seller) {
+          if (st.data.dashboard_access) { location.href = '/seller-dashboard.html'; return; }
+          location.href = '/sign-agreement.html?onboarding=1'; return;
+        }
+      } catch (e) { /* fall through to the form */ }
+
+      // Prefill the legal name from the user's account when available.
+      try {
+        var me = await (await fetch('/api/auth/me', { headers: { Authorization: 'Bearer ' + authToken } })).json();
+        if (me && me.success && me.data) {
+          if (me.data.full_name) document.getElementById('legal-name').value = me.data.full_name;
+          if (me.data.phone) document.getElementById('phone').value = me.data.phone;
+        }
+      } catch (e) { /* prefill is best-effort */ }
+      show('form-wrap');
+    }
+
+    document.getElementById('submit-btn').onclick = async function () {
+      var err = document.getElementById('form-err'); err.textContent = '';
+      var legalName = document.getElementById('legal-name').value.trim();
+      if (!legalName) { err.textContent = 'Please enter your full legal name.'; return; }
+      var payload = {
+        seller_type: document.getElementById('seller-type').value,
+        legal_name:  legalName,
+        phone:       document.getElementById('phone').value.trim() || undefined,
+      };
+      var btn = document.getElementById('submit-btn');
+      btn.disabled = true; btn.textContent = 'Setting up your seller account…';
+      try {
+        var res = await fetch('/api/sellers/enroll', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + authToken },
+          body: JSON.stringify(payload),
+        });
+        var json = await res.json();
+        if (!res.ok || !json.success) {
+          err.textContent = json.message || 'Could not enable selling. Please try again.';
+          btn.disabled = false; btn.textContent = 'Continue to seller agreement →';
+          return;
+        }
+        // Adopt the fresh seller-role JWT so seller tooling works immediately.
+        if (json.token) localStorage.setItem('token', json.token);
+        // Route into the agreement; once signed, the seller dashboard is enabled.
+        location.href = '/sign-agreement.html?onboarding=1';
+      } catch (e) {
+        err.textContent = 'Network error. Please try again.';
+        btn.disabled = false; btn.textContent = 'Continue to seller agreement →';
+      }
+    };
+
+    init();
+  </script>
+</body>
+</html>
