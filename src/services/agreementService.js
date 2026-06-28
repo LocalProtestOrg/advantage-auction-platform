@@ -48,15 +48,30 @@ async function emailLink(agreement, rawToken) {
   } catch (e) { /* best-effort — email is not the system of record */ }
 }
 
-async function pickTemplate(templateId, sellerType) {
-  if (templateId) return templateService.getTemplate(templateId);
-  const r = await db.query(
+// Resolve the active template id for a seller_type, falling back to ANY active
+// template with a current version when no type-specific one exists. The fallback
+// supports self-service onboarding (all self-serve seller types accept the one
+// general seller agreement) until type-specific templates are authored.
+async function resolveActiveTemplateId(sellerType) {
+  const typed = await db.query(
     `SELECT id FROM agreement_templates
       WHERE agreement_type = $1 AND is_active = true AND current_version_id IS NOT NULL
       ORDER BY updated_at DESC LIMIT 1`,
     [sellerType || 'private']
   );
-  return r.rows[0] ? templateService.getTemplate(r.rows[0].id) : null;
+  if (typed.rows[0]) return typed.rows[0].id;
+  const fallback = await db.query(
+    `SELECT id FROM agreement_templates
+      WHERE is_active = true AND current_version_id IS NOT NULL
+      ORDER BY updated_at DESC LIMIT 1`
+  );
+  return fallback.rows[0] ? fallback.rows[0].id : null;
+}
+
+async function pickTemplate(templateId, sellerType) {
+  if (templateId) return templateService.getTemplate(templateId);
+  const id = await resolveActiveTemplateId(sellerType);
+  return id ? templateService.getTemplate(id) : null;
 }
 
 async function sendAgreement({ sellerProfileId, templateId, overrides, expiresInDays, actorId }) {
@@ -273,10 +288,9 @@ async function autoSendAgreement(sellerProfileId, actorId = null) {
          AND status IN ('draft','sent','viewed','signed','countersigned') ORDER BY created_at DESC LIMIT 1`, [sellerProfileId])).rows[0];
     if (existing) return { status: 'exists', agreement_id: existing.id };
 
-    const tpl = (await db.query(
-      `SELECT id FROM agreement_templates
-        WHERE agreement_type = $1 AND is_active = true AND current_version_id IS NOT NULL
-        ORDER BY updated_at DESC LIMIT 1`, [sp.seller_type || 'private'])).rows[0];
+    // Type-specific template, else fall back to any active general seller agreement.
+    const tplId = await resolveActiveTemplateId(sp.seller_type);
+    const tpl = tplId ? { id: tplId } : null;
     if (!tpl) {
       await writeAuditLog({ event_type: 'seller_agreement_autosend_no_template', entity_type: 'seller_profile', entity_id: sellerProfileId, actor_id: actorId,
         metadata: { seller_type: sp.seller_type, alert: 'No active agreement template for this seller_type. Staff must author/activate one or send manually.' } });

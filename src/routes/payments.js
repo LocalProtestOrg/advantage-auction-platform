@@ -64,7 +64,12 @@ router.get('/card-summary', auth, async (req, res) => {
 });
 
 // POST /api/payments/charge-lot
-router.post('/charge-lot', strictLimiter, auth, role(['buyer', 'admin']), idempotency, async (req, res) => {
+// 'seller' is permitted in addition to 'buyer': in a discovery marketplace a user
+// who self-serves into a seller account may still win and pay for lots in OTHER
+// sellers' auctions. Without this, becoming a seller would silently revoke the
+// ability to pay for won lots. (Self-bidding on one's OWN auction is blocked
+// server-side in bidService.createBid, so a seller can never pay themselves.)
+router.post('/charge-lot', strictLimiter, auth, role(['buyer', 'seller', 'admin']), idempotency, async (req, res) => {
   const idempotencyKey = req.headers['idempotency-key'];
   if (!idempotencyKey) {
     return res.status(400).json({ error: 'Missing Idempotency-Key' });

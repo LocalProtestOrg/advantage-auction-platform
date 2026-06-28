@@ -316,10 +316,7 @@
     <div class="field">
       <label for="auction-start">Auction Start</label>
       <input type="datetime-local" id="auction-start" />
-    </div>
-    <div class="field">
-      <label for="auction-end">Auction End</label>
-      <input type="datetime-local" id="auction-end" />
+      <p class="hint">The auction end time is set automatically from your lots' staggered closing schedule — you don't need to enter it.</p>
     </div>
   </div>
 
@@ -368,6 +365,11 @@
     <label for="street-address">Street Address</label>
     <input type="text" id="street-address" placeholder="123 Main St" />
     <p class="hint">Full address is kept private until payment is verified.</p>
+  </div>
+
+  <div class="field">
+    <label for="street-address-2">Apartment / Suite / Unit / Building / Storage Unit <span style="font-weight:400;color:#9ca3af;">(optional)</span></label>
+    <input type="text" id="street-address-2" placeholder="e.g. Apt 4B · Suite 220 · Unit 17 · Bldg C" />
   </div>
 
   <div class="row-3">
@@ -457,16 +459,15 @@
     <p class="hint">Videos are reviewed by Advantage before being displayed publicly.</p>
   </div>
 
-  <!-- Workflow guidance: sellers consistently report confusion when the green
-       Submit button is the visually dominant action on a fresh auction with no
-       lots yet. The natural flow is: save a draft, add lots in the next step,
-       then return here to submit. Save Draft is now the primary CTA. -->
+  <!-- Single forward action: create the auction and go straight to Lot Studio.
+       The auction is saved as a draft you can keep editing; there is no separate
+       "submit for review" step here — Advantage publishes auctions once your
+       lots are ready. -->
   <div class="actions-help" style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:0.85rem 1rem;margin-bottom:0.75rem;color:#1e3a8a;font-size:0.85rem;line-height:1.5;">
-    <strong>Typical flow:</strong> Save Draft &rarr; add lots on the next page &rarr; come back here to submit. You can keep editing while in Draft. Submit only after your lots are uploaded.
+    <strong>Next:</strong> Create your auction and add lots in the Lot Studio. You can keep editing everything here while you build your catalog. Most sellers complete their entire auction catalog in an afternoon.
   </div>
   <div class="actions">
-    <button id="btn-draft"  class="btn btn-primary">Save Draft &amp; Add Lots</button>
-    <button id="btn-submit" class="btn btn-secondary">Submit to Advantage for Review</button>
+    <button id="btn-draft" class="btn btn-primary">Create Auction &amp; Add Lots</button>
   </div>
 </div>
 
@@ -636,24 +637,10 @@
     videoInput.value = '';
   });
 
-  // ── Save / Submit ───────────────────────────────────────────────────────────
-  document.getElementById('btn-draft').addEventListener('click',  () => save('draft'));
-  document.getElementById('btn-submit').addEventListener('click', () => {
-    // Soft guard: backend permits submitting without lots, but a submitted
-    // auction with zero lots is an operational anti-pattern. Confirm intent
-    // and warn about the editing lock that follows submission.
-    var ok = window.confirm(
-      'Submit this auction to Advantage for review?\n\n' +
-      'After submission:\n' +
-      '  • You will NOT be able to edit this auction or its lots\n' +
-      '  • Advantage will review and either publish or contact you with feedback\n' +
-      '  • If changes are needed, Advantage can return it to draft\n\n' +
-      'Submit only after you have added all your lots in the next step. ' +
-      'If you have not added lots yet, choose "Save Draft & Add Lots" instead.'
-    );
-    if (!ok) return;
-    save('submitted');
-  });
+  // ── Create & Add Lots ─────────────────────────────────────────────────────────
+  // Single forward action: save the auction as an editable draft and route into
+  // the Lot Studio. There is no seller-facing "submit for review" step here.
+  document.getElementById('btn-draft').addEventListener('click', () => save('draft'));
 
   async function save(status) {
     if (!sellerProfileId) {
@@ -674,6 +661,14 @@
       return (window.TimezoneUtils ? window.TimezoneUtils.localToUtcIso(v, auctionTz()) : new Date(v).toISOString());
     };
 
+    // Optional Apartment/Suite/Unit/Building/Storage Unit is appended to the
+    // existing street_address (no schema change). e.g. "123 Main St, Unit 17".
+    const streetLine1 = getVal('street-address');
+    const streetLine2 = getVal('street-address-2');
+    const streetAddress = streetLine1
+      ? (streetLine2 ? streetLine1 + ', ' + streetLine2 : streetLine1)
+      : undefined;
+
     const payload = {
       sellerProfileId,
       title,
@@ -681,13 +676,14 @@
       description:      getVal('auction-description'),
       state:            status,
       startTime:        getIso('auction-start'),
-      endTime:          getIso('auction-end'),
+      // end_time is intentionally NOT sent: publishAuction() derives it from the
+      // staggered lot-closing schedule. A seller-entered end time is unnecessary.
       previewStart:     getIso('preview-start'),
       previewEnd:       getIso('preview-end'),
       pickupWindowStart: getIso('pickup-start'),
       pickupWindowEnd:   getIso('pickup-end'),
       timezone:         (document.getElementById('auction-timezone') || {}).value || 'America/New_York',
-      streetAddress:    getVal('street-address'),
+      streetAddress:    streetAddress,
       city:             getVal('auction-city'),
       addressState:     document.getElementById('auction-state').value.trim().toUpperCase() || undefined,
       zip:              getVal('auction-zip'),
@@ -717,13 +713,8 @@
         if (vidRes && vidRes.success) walkthroughVideoId = vidRes.data.id;
       }
 
-      if (status === 'submitted') {
-        showBanner('Auction submitted for review. Redirecting to lot upload…', 'success');
-        document.getElementById('btn-draft').disabled  = true;
-        document.getElementById('btn-submit').disabled = true;
-      } else {
-        showBanner('Draft saved. Redirecting to lot upload…', 'success');
-      }
+      showBanner('Auction created. Opening Lot Studio…', 'success');
+      document.getElementById('btn-draft').disabled = true;
 
       setTimeout(() => {
         window.location.href = '/dashboard/lots.html?auctionId=' + auctionId;

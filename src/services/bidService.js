@@ -256,6 +256,24 @@ async function createBid(lotId, userId, { amount, maxBid, max_bid_cents }) {
     const lot = lotRes.rows[0];
     if (!lot) throw new Error('Lot not found');
 
+    // Self-bidding guard (server-authoritative): a seller must never bid on a lot
+    // in an auction they own. Walks lot → auction → seller_profile → user_id and
+    // rejects when the bidder is the owning seller. Runs inside the locked
+    // transaction so it cannot be raced, and covers every caller of createBid.
+    const ownerRes = await client.query(
+      `SELECT sp.user_id
+         FROM auctions a
+         JOIN seller_profiles sp ON sp.id = a.seller_id
+        WHERE a.id = $1`,
+      [lot.auction_id]
+    );
+    const ownerUserId = ownerRes.rows[0] && ownerRes.rows[0].user_id;
+    if (ownerUserId && String(ownerUserId) === String(userId)) {
+      const e = new Error('You cannot bid on your own auction.');
+      e.code = 'SELF_BID_FORBIDDEN';
+      throw e;
+    }
+
     // Status guard (route pre-flight already checked; this is the DB-level guard).
     if (!['draft', 'open', 'active'].includes(lot.status || lot.state)) {
       throw new Error('Bidding not allowed on this lot');
