@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Past Auctions - Advantage.Bid</title>
-  <meta name="description" content="Browse past auctions and recent results on Advantage.Bid." />
+  <title>Historical Auction Archive - Advantage.Bid</title>
+  <meta name="description" content="Explore Advantage Auction Company's Historical Auction Archive — completed auctions presented as a historical reference." />
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
   <style>
     *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
@@ -38,12 +38,12 @@
 <body>
   <script src="/widgets/shared/buyer-nav.js"></script>
   <div class="hero"><div class="hero-inner">
-    <h1>Past Auctions</h1>
-    <p>A look at recent auctions and results on Advantage.Bid. Browse current and upcoming auctions on the <a href="/" style="color:#fff;font-weight:700">home page</a>.</p>
+    <h1>Historical Auction Archive</h1>
+    <p>A historical reference from Advantage Auction Company. Browse current and upcoming auctions on the <a href="/" style="color:#fff;font-weight:700">home page</a>.</p>
   </div></div>
   <div class="wrap">
     <section>
-      <div class="note" id="note">These are sample past auctions shown to illustrate the Advantage.Bid selling experience. Final sale prices are visible to signed-in members.</div>
+      <div class="note" id="note">Explore Advantage Auction Company's Historical Auction Archive. These completed auctions represent actual past sales and are presented as a historical reference showcasing the breadth of items previously offered through our auctions.</div>
       <div class="grid" id="grid"><div class="loading">Loading past auctions...</div></div>
     </section>
   </div>
@@ -57,17 +57,22 @@
     function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,function(c){return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]);}); }
     function fmtDate(iso){ if(!iso) return ''; try{ return new Date(iso).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}); }catch(e){ return ''; } }
     function card(a){
+      // Historical archive auctions: never display the (internal placeholder) date or
+      // bid/price figures; show a subtle "Historical Auction" indicator instead.
+      var hist = a.public_auction_type === 'historical_archive';
       var img = a.cover_image_url ? '<img src="'+esc(a.cover_image_url)+'" alt="" loading="lazy">' : '';
       var lots = (a.lot_count!=null) ? a.lot_count : 0;
       var bids = (a.total_bids!=null) ? a.total_bids : 0;
       return '<a class="card" href="/auction-view.html?auctionId='+encodeURIComponent(a.id)+'">'
-        +'<div class="img"><span class="badge">Sample Auction Results</span>'+img+'</div>'
+        +'<div class="img"><span class="badge">'+(hist?'Historical Auction Archive':'Past Auction')+'</span>'+img+'</div>'
         +'<div class="body">'
         +'<div class="t">'+esc(a.title)+'</div>'
-        +(a.subtitle?('<div class="sub">'+esc(a.subtitle)+'</div>'):'')
-        +'<div class="closed-on">Closed '+esc(fmtDate(a.end_time))+'</div>'
-        +'<div class="stats"><span><b>'+lots+'</b> lots</span><span><b>'+bids+'</b> bids</span></div>'
-        +'<div class="vr"><span>View Results</span></div>'
+        +(hist?'':(a.subtitle?('<div class="sub">'+esc(a.subtitle)+'</div>'):''))
+        +(hist?'':'<div class="closed-on">Closed '+esc(fmtDate(a.end_time))+'</div>')
+        +(hist
+            ?'<div class="stats"><span><b>'+lots+'</b> lots</span></div>'
+            :'<div class="stats"><span><b>'+lots+'</b> lots</span><span><b>'+bids+'</b> bids</span></div>')
+        +'<div class="vr"><span>'+(hist?'View Lots':'View Results')+'</span></div>'
         +'</div></a>';
     }
     fetch('/api/public/auctions?state=closed&limit=50')
@@ -75,7 +80,7 @@
       .then(function(d){
         var rows = (d && d.data) || [];
         var grid = document.getElementById('grid');
-        if(!rows.length){ grid.innerHTML='<div class="empty">No past auctions to show yet. Check back after our current auctions close.</div>'; document.getElementById('note').style.display='none'; return; }
+        if(!rows.length){ grid.innerHTML='<div class="empty">No archived auctions to show yet.</div>'; document.getElementById('note').style.display='none'; return; }
         grid.innerHTML = rows.map(card).join('');
       })
       .catch(function(){ document.getElementById('grid').innerHTML='<div class="empty">Couldn’t load past auctions. Please refresh.</div>'; });

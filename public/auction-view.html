@@ -532,6 +532,7 @@
   const grid      = document.getElementById('lot-grid');
   const token     = localStorage.getItem('token');
   let   auctionState = null;   // #5/#19: 'published' | 'active' | 'closed' | …
+  let   isHistoricalAuction = false; // historical archive: suppress dates + price lines
   let   bidGate = { logged_in: false, terms_accepted_current: false, registered: false, can_bid: false }; // #20
   let   gridKey = null;        // #1: structural signature of the rendered grid (poll change-detection)
   let   auctionSummary = null; // tabs: captured /summary data for Pickup + Terms panels
@@ -586,9 +587,23 @@
       auctionSummary = d;
       try { populatePickupTab(); populateTermsTab(); } catch (e) { /* tabs are best-effort */ }
 
+      // Historical archive auctions: never display the (internal placeholder) date;
+      // show a subtle "Historical Auction" indicator instead.
+      const isHist = d.public_auction_type === 'historical_archive';
+      isHistoricalAuction = isHist;
+
       // Title
-      document.getElementById('auction-title').textContent = d.title || 'Auction';
-      document.title = (d.title || 'Auction') + ' - Advantage Auction';
+      const titleEl = document.getElementById('auction-title');
+      titleEl.textContent = d.title || 'Auction';
+      document.title = isHist
+        ? (d.title || 'Auction') + ' — Advantage Auction Company Historical Archive'
+        : (d.title || 'Auction') + ' - Advantage Auction';
+      if (isHist) {
+        const hb = document.createElement('span');
+        hb.textContent = 'Historical Auction Archive';
+        hb.style.cssText = 'display:inline-block;margin-left:.55rem;vertical-align:middle;font-size:.6em;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:#fff;background:#b45309;border-radius:6px;padding:3px 9px';
+        titleEl.appendChild(hb);
+      }
 
       // Subtitle
       if (d.subtitle) {
@@ -603,7 +618,11 @@
       if (d.city && d.address_state) parts.push(d.city + ', ' + d.address_state);
       else if (d.city)               parts.push(d.city);
       // #7: soft timed-auction language - avoid a single hard "auction end time".
-      if (d.state === 'closed') {
+      // Historical: the badge + subtitle already convey "archive / reference only",
+      // so the meta row shows location only (no date, no "sale results").
+      if (isHist) {
+        /* location only */
+      } else if (d.state === 'closed') {
         parts.push('Auction ended - sale results below');
       } else if (d.start_time) {
         parts.push('Auction starts ' + fmtDate(d.start_time));
@@ -631,7 +650,9 @@
         } catch { /* ignore */ }
       }
 
-      renderSellerBar(d.follower_count);
+      // Historical archive: no follower count / Follow button (reference only).
+      if (isHist) { const bar = document.getElementById('seller-bar'); if (bar) bar.style.display = 'none'; }
+      else renderSellerBar(d.follower_count);
     } catch { /* summary failed - banner stays minimal */ }
   }
 
@@ -740,6 +761,7 @@
       ]);
       if (!lotsRes.success) throw new Error(lotsRes.message || 'Failed to load lots');
       auctionState = (meta && meta.success && meta.data) ? meta.data.state : auctionState;
+      if (meta && meta.success && meta.data) isHistoricalAuction = meta.data.public_auction_type === 'historical_archive';
 
       // #20: refresh the bidder gate (logged in? terms? registered?) for this auction.
       bidGate = await BidUtils.getBidGate(auctionId, token);
@@ -753,7 +775,7 @@
       const resultsMode = (auctionState === 'closed');
       const label = !allLots.length ? ''
         : auctionState === 'active' ? (lots.length + ' lot' + (lots.length === 1 ? '' : 's') + ' open')
-        : resultsMode               ? (allLots.length + ' lot' + (allLots.length === 1 ? '' : 's') + ' · sale results')
+        : (resultsMode && !isHistoricalAuction) ? (allLots.length + ' lot' + (allLots.length === 1 ? '' : 's') + ' · sale results')
         : (allLots.length + ' lot' + (allLots.length === 1 ? '' : 's'));
       document.getElementById('lot-count').textContent = label;
 
@@ -1070,7 +1092,10 @@
     const nextMin   = Number(lot.next_min_bid_cents) > 0 ? Number(lot.next_min_bid_cents)
                     : BidUtils.nextMinCents(starting, cents, increment);
 
-    if (lot.realized_price_hidden) {
+    if (isHistoricalAuction) {
+      // Historical archive lots carry no price/bid data (estimates, realized prices,
+      // and bids are deliberately not imported) — render no price line.
+    } else if (lot.realized_price_hidden) {
       // #20.1: realized/sold price gated for anonymous users on closed lots.
       const prompt = document.createElement('div');
       prompt.className = 'card-realized-prompt';

@@ -71,7 +71,10 @@
       const h=Math.floor(r/3600000),m=Math.floor((r%3600000)/60000); return h>24?(Math.floor(h/24)+'d '+(h%24)+'h'):h>0?(h+'h '+String(m).padStart(2,'0')+'m'):(m+'m'); }
 
     function lotCard(l){
-      const cur = (l.current_bid_cents!=null && l.current_bid_cents>0) ? ('Current bid '+usd(l.current_bid_cents))
+      // Historical archive lots carry no price/bid data — show a neutral label.
+      const hist = l.auction_public_type === 'historical_archive';
+      const cur = hist ? 'Historical archive'
+                : (l.current_bid_cents!=null && l.current_bid_cents>0) ? ('Current bid '+usd(l.current_bid_cents))
                 : ('Starts at '+ (usd(l.starting_bid_cents)||'$1.00'));
       const img = l.thumbnail_url ? '<img src="'+esc(l.thumbnail_url)+'" alt="" loading="lazy">' : '';
       const num = l.lot_number!=null ? ('Lot #'+l.lot_number+' · ') : '';
