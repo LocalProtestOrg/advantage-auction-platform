@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<meta name="robots" content="noindex" />
+<title>Advantage.Bid — Living Map (Prototype)</title>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+<!--
+  Advantage.Bid "Living Map" — Concept A prototype.
+  Standalone, NOT linked from production nav. No engine/API/Stripe/bidding changes.
+  Uses MapLibre GL (CDN) + key-free CARTO GL basemaps (positron/voyager/dark-matter)
+  switched by time-of-day for the "emotionally adaptive" palette. Auction data is
+  fixtures here; production would read /api/public/auctions + /near.
+
+  Implements: fade-from-black → softly-lit US → glide to location → staggered pin
+  "bloom" → "N auctions near you" label → interactive; custom auction visual
+  language (gavel marker; Live / Ending Soon / Historical / Coming Soon states);
+  map⇄card hover sync; results drawer; floating command capsule + location chip;
+  mobile map/list toggle; returning-visitor "what's changed" deltas; full
+  prefers-reduced-motion fallback.
+-->
+<link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet" />
+<style>
+  :root{
+    /* Adaptive tokens — overwritten by setMood() at runtime */
+    --ink:#0B1B2B; --paper:#FBFBF9; --surface:#FFFFFF; --muted:#64748B;
+    --accent:#2563EB; --live:#E5484D; --sold:#16A34A; --hair:#ECECE7;
+    --glow: rgba(37,99,235,.55);          /* pin/aura glow */
+    --scrim: rgba(8,16,28,.42);           /* map vignette  */
+    --capsule-bg: rgba(255,255,255,.82);
+    --capsule-fg:#0B1B2B;
+    --drawer-bg: rgba(255,255,255,.92);
+    --r:16px;
+    --ease:cubic-bezier(.2,.7,.2,1);
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{margin:0;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;color:var(--ink);background:#0b1b2b;overflow:hidden}
+  #map{position:fixed;inset:0}
+  /* subtle vignette so the map feels lit from the center */
+  #scrim{position:fixed;inset:0;pointer-events:none;background:radial-gradient(120% 90% at 50% 40%, transparent 55%, var(--scrim));transition:background .8s var(--ease)}
+
+  /* ── Intro: fade from black ─────────────────────────────────────────────── */
+  #intro{position:fixed;inset:0;background:#05080d;z-index:60;display:flex;align-items:center;justify-content:center;transition:opacity 1s ease}
+  #intro.gone{opacity:0;pointer-events:none}
+  #intro .mark{color:#fff;font-weight:800;letter-spacing:.02em;font-size:clamp(20px,4vw,30px);opacity:.0;transform:translateY(6px);animation:rise 1.1s var(--ease) .25s forwards}
+  #intro .mark span{color:#60a5fa}
+  @keyframes rise{to{opacity:1;transform:none}}
+
+  /* ── Top floating capsule (command + brand + location) ──────────────────── */
+  .top{position:fixed;z-index:30;top:max(14px,env(safe-area-inset-top));left:50%;transform:translateX(-50%);width:min(880px,calc(100% - 24px));
+       display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:999px;
+       background:var(--capsule-bg);backdrop-filter:saturate(140%) blur(14px);-webkit-backdrop-filter:saturate(140%) blur(14px);
+       box-shadow:0 8px 30px rgba(8,16,28,.18),inset 0 0 0 1px rgba(255,255,255,.5);color:var(--capsule-fg);
+       opacity:0;transform:translate(-50%,-8px);transition:opacity .6s var(--ease) .2s, transform .6s var(--ease) .2s}
+  .top.in{opacity:1;transform:translate(-50%,0)}
+  .brand{font-weight:800;letter-spacing:.01em;padding:0 6px 0 8px;white-space:nowrap;font-size:15px}
+  .brand span{color:var(--accent)}
+  .search{flex:1;display:flex;align-items:center;gap:8px;background:rgba(255,255,255,.65);border:1px solid var(--hair);border-radius:999px;padding:9px 14px;min-width:0}
+  .search input{border:0;outline:0;background:transparent;font:inherit;color:inherit;width:100%}
+  .chip{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--hair);background:rgba(255,255,255,.7);border-radius:999px;padding:8px 12px;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap}
+  .chip:hover{border-color:var(--accent);color:var(--accent)}
+  .avatar{width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,#1e3a8a,#2563eb);flex:0 0 auto}
+  @media(max-width:680px){ .brand{display:none} .chip.loc .txt{display:none} }
+
+  /* ── "What's around me" label / returning deltas ────────────────────────── */
+  #pulse{position:fixed;z-index:25;left:50%;top:84px;transform:translateX(-50%) translateY(6px);opacity:0;
+         background:var(--capsule-bg);backdrop-filter:blur(12px);border:1px solid rgba(255,255,255,.5);
+         border-radius:14px;padding:10px 14px;box-shadow:0 8px 24px rgba(8,16,28,.18);max-width:min(520px,92vw);transition:opacity .6s var(--ease),transform .6s var(--ease)}
+  #pulse.in{opacity:1;transform:translateX(-50%) translateY(0)}
+  #pulse .big{font-weight:800;font-size:15px}
+  #pulse .delta{display:flex;gap:14px;flex-wrap:wrap;margin-top:4px;font-size:12.5px;color:var(--muted)}
+  #pulse .delta b{color:var(--ink)}
+  #pulse .dot{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:5px;vertical-align:middle}
+
+  /* ── Custom auction marker (the visual language) ────────────────────────── */
+  .mk{position:relative;width:40px;height:40px;cursor:pointer;transform:translateY(2px) scale(.2);opacity:0;transition:transform .5s var(--ease),opacity .5s var(--ease),filter .25s}
+  .mk.bloomed{transform:translateY(0) scale(1);opacity:1}
+  .mk .aura{position:absolute;inset:0;border-radius:50%;background:radial-gradient(circle, var(--glow) 0%, transparent 70%);}
+  .mk .disc{position:absolute;left:50%;top:50%;width:30px;height:30px;border-radius:50%;transform:translate(-50%,-50%);
+            background:var(--surface);box-shadow:0 4px 12px rgba(8,16,28,.30),inset 0 0 0 1.5px rgba(255,255,255,.7);
+            display:flex;align-items:center;justify-content:center;transition:transform .2s var(--ease)}
+  .mk .disc svg{width:17px;height:17px}
+  .mk:hover,.mk.active{filter:drop-shadow(0 6px 14px rgba(8,16,28,.35))}
+  .mk:hover .disc,.mk.active .disc{transform:translate(-50%,-50%) scale(1.14)}
+  /* state: LIVE — steady accent glow + ring */
+  .mk.live .disc{box-shadow:0 0 0 2px var(--accent),0 6px 16px var(--glow)}
+  .mk.live .disc svg{color:var(--accent)}
+  /* state: ENDING SOON — urgent pulsing ring */
+  .mk.ending .disc{box-shadow:0 0 0 2px var(--live),0 6px 16px rgba(229,72,77,.45)}
+  .mk.ending .disc svg{color:var(--live)}
+  .mk.ending .ring{position:absolute;left:50%;top:50%;width:30px;height:30px;border-radius:50%;transform:translate(-50%,-50%);
+                   border:2px solid var(--live);animation:ping 1.6s ease-out infinite}
+  @keyframes ping{0%{transform:translate(-50%,-50%) scale(1);opacity:.7}100%{transform:translate(-50%,-50%) scale(2.4);opacity:0}}
+  /* state: HISTORICAL — muted, archival */
+  .mk.historical .disc{filter:grayscale(.5);opacity:.92}
+  .mk.historical .disc svg{color:var(--muted)}
+  .mk.historical .aura{display:none}
+  /* state: COMING SOON — dashed, quiet anticipation */
+  .mk.coming .disc{box-shadow:0 0 0 2px transparent,0 4px 12px rgba(8,16,28,.25)}
+  .mk.coming .ring{position:absolute;left:50%;top:50%;width:34px;height:34px;border-radius:50%;transform:translate(-50%,-50%);border:1.5px dashed var(--accent);opacity:.6}
+  .mk.coming .disc svg{color:var(--accent)}
+
+  /* ── Results drawer ─────────────────────────────────────────────────────── */
+  #drawer{position:fixed;z-index:28;background:var(--drawer-bg);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);
+          box-shadow:0 -10px 40px rgba(8,16,28,.18);border-top:1px solid rgba(255,255,255,.6)}
+  /* desktop: dock right */
+  @media(min-width:861px){
+    #drawer{top:84px;right:14px;bottom:14px;width:380px;border-radius:18px;border:1px solid rgba(255,255,255,.6);box-shadow:0 16px 50px rgba(8,16,28,.22);
+            opacity:0;transform:translateX(12px);transition:opacity .6s var(--ease) .3s,transform .6s var(--ease) .3s}
+    #drawer.in{opacity:1;transform:none}
+    #toggle{display:none}
+  }
+  /* mobile: bottom sheet + map/list toggle */
+  @media(max-width:860px){
+    #drawer{left:0;right:0;bottom:0;height:46vh;border-radius:18px 18px 0 0;transform:translateY(0);transition:transform .35s var(--ease)}
+    body.listmode #drawer{height:84vh}
+    body.mapmode #drawer{transform:translateY(calc(100% - 64px))}
+    #toggle{position:fixed;z-index:31;left:50%;bottom:calc(16px + env(safe-area-inset-bottom));transform:translateX(-50%);
+            background:var(--ink);color:#fff;border:0;border-radius:999px;padding:11px 18px;font:inherit;font-weight:700;box-shadow:0 8px 24px rgba(8,16,28,.35);cursor:pointer}
+  }
+  .dwrap{height:100%;display:flex;flex-direction:column;min-height:0}
+  .dhead{padding:14px 16px 8px}
+  .dgrab{display:none}
+  @media(max-width:860px){.dgrab{display:block;width:38px;height:4px;border-radius:99px;background:#cbd5e1;margin:8px auto 2px}}
+  .dtitle{font-weight:800;font-size:15px}
+  .dtabs{display:flex;gap:6px;margin-top:10px}
+  .dtab{font-size:12.5px;font-weight:700;padding:6px 11px;border-radius:999px;border:1px solid var(--hair);background:#fff;cursor:pointer;color:var(--muted)}
+  .dtab.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+  .dlist{flex:1;overflow:auto;padding:6px 12px 16px;min-height:0}
+  .card{display:flex;gap:12px;padding:10px;border-radius:14px;cursor:pointer;transition:background .15s,transform .15s}
+  .card:hover,.card.active{background:rgba(37,99,235,.06)}
+  .card .ph{width:88px;height:66px;border-radius:10px;flex:0 0 auto;background-size:cover;background-position:center;box-shadow:inset 0 0 0 1px rgba(0,0,0,.05)}
+  .card .meta{min-width:0;flex:1}
+  .card .t{font-weight:700;font-size:14px;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .card .sub{font-size:12.5px;color:var(--muted);margin-top:3px}
+  .card .row{display:flex;align-items:center;gap:8px;margin-top:5px;font-size:12px}
+  .tag{display:inline-flex;align-items:center;gap:5px;font-weight:700;padding:2px 8px;border-radius:999px;font-size:11px}
+  .tag.live{background:rgba(37,99,235,.1);color:var(--accent)}
+  .tag.ending{background:rgba(229,72,77,.1);color:var(--live)}
+  .tag.historical{background:#f1f5f9;color:var(--muted)}
+  .tag.coming{background:rgba(37,99,235,.08);color:var(--accent)}
+  .dist{color:var(--muted)}
+
+  /* reduced motion: kill ambient animation */
+  @media (prefers-reduced-motion: reduce){
+    *{animation:none !important; transition-duration:.001ms !important}
+  }
+  .legend{position:fixed;z-index:20;left:14px;bottom:calc(14px + env(safe-area-inset-bottom));display:flex;gap:12px;flex-wrap:wrap;
+          background:var(--capsule-bg);backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,.5);border-radius:12px;padding:8px 12px;font-size:11.5px;font-weight:600;box-shadow:0 6px 18px rgba(8,16,28,.16)}
+  .legend i{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:5px;vertical-align:middle}
+  @media(max-width:860px){.legend{display:none}}
+  .note{position:fixed;z-index:20;left:14px;top:max(14px,env(safe-area-inset-top));font-size:11px;color:#fff;opacity:.6}
+</style>
+</head>
+<body class="mapmode">
+  <div id="map"></div>
+  <div id="scrim"></div>
+  <div class="note">prototype · not production</div>
+
+  <div id="intro"><div class="mark">Advantage<span>.Bid</span></div></div>
+
+  <div class="top" id="top">
+    <div class="brand">Advantage<span>.Bid</span></div>
+    <label class="search"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+      <input id="q" placeholder="Search auctions, lots, sellers or places…" autocomplete="off" />
+    </label>
+    <button class="chip loc" id="locChip" title="Change location">📍 <span class="txt" id="locTxt">Detroit, MI</span></button>
+    <button class="chip" id="nearBtn" title="Use my location">Near me</button>
+    <div class="avatar" title="Account"></div>
+  </div>
+
+  <div id="pulse"><div class="big" id="pulseBig">Looking around you…</div><div class="delta" id="pulseDelta"></div></div>
+
+  <button id="toggle">▤ List</button>
+
+  <div id="drawer">
+    <div class="dwrap">
+      <div class="dhead">
+        <div class="dgrab"></div>
+        <div class="dtitle" id="drawerTitle">Auctions near you</div>
+        <div class="dtabs">
+          <button class="dtab on" data-f="near">Near you</button>
+          <button class="dtab" data-f="ending">Ending tonight</button>
+          <button class="dtab" data-f="archive">Archive</button>
+        </div>
+      </div>
+      <div class="dlist" id="list"></div>
+    </div>
+  </div>
+
+  <div class="legend">
+    <span><i style="background:var(--accent)"></i>Live</span>
+    <span><i style="background:var(--live)"></i>Ending soon</span>
+    <span><i style="background:#94a3b8"></i>Historical</span>
+    <span><i style="background:var(--accent);opacity:.5"></i>Coming soon</span>
+  </div>
+
+<script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+<script>
+(function(){
+  "use strict";
+  var reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  // ── Emotionally adaptive palette: basemap + glow by time of day + season ──
+  function mood(){
+    var h = new Date().getHours(), m = new Date().getMonth();
+    var t = h<6?'night':h<11?'morning':h<17?'day':h<21?'evening':'night';
+    var winter = (m===11||m<2), holiday = (m===11); // simple seasonal hook
+    var styles = {
+      morning:'https://basemaps.cartocdn.com/gl/positron-gl-style/style.json',
+      day:    'https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json',
+      evening:'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json',
+      night:  'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json'
+    };
+    var vars = {
+      morning:{glow:'rgba(37,99,235,.45)', scrim:'rgba(241,245,233,.30)', capsule:'rgba(255,255,255,.82)', fg:'#0B1B2B', drawer:'rgba(255,255,255,.92)'},
+      day:    {glow:'rgba(37,99,235,.5)',  scrim:'rgba(11,27,43,.28)',    capsule:'rgba(255,255,255,.82)', fg:'#0B1B2B', drawer:'rgba(255,255,255,.92)'},
+      evening:{glow:'rgba(96,165,250,.6)', scrim:'rgba(5,10,20,.5)',      capsule:'rgba(17,26,40,.72)',    fg:'#EAF1FF', drawer:'rgba(15,22,35,.86)'},
+      night:  {glow:'rgba(96,165,250,.55)',scrim:'rgba(3,6,12,.6)',       capsule:'rgba(13,20,32,.74)',    fg:'#EAF1FF', drawer:'rgba(11,17,28,.88)'}
+    }[t];
+    if(holiday) vars.glow='rgba(220,160,90,.55)'; // subtle seasonal accent
+    var r=document.documentElement.style;
+    r.setProperty('--glow',vars.glow); r.setProperty('--scrim',vars.scrim);
+    r.setProperty('--capsule-bg',vars.capsule); r.setProperty('--capsule-fg',vars.fg);
+    r.setProperty('--drawer-bg',vars.drawer); r.setProperty('--hair', t==='evening'||t==='night'?'rgba(255,255,255,.12)':'#ECECE7');
+    if(t==='evening'||t==='night'){ r.setProperty('--ink','#EAF1FF'); r.setProperty('--muted','#9fb3cd'); }
+    return {style:styles[t], t:t, winter:winter, holiday:holiday};
+  }
+  var MOOD = mood();
+
+  // ── Location resolution (no prompt on load) ───────────────────────────────
+  var DEFAULT = {name:'Detroit, MI', lng:-83.0458, lat:42.3314};
+  function savedLoc(){ try{ return JSON.parse(localStorage.getItem('ab_loc')); }catch(e){ return null; } }
+  var LOC = savedLoc() || DEFAULT;
+  document.getElementById('locTxt').textContent = LOC.name;
+
+  // ── Fixture auctions around the location (production: /api/public/auctions) ─
+  function near(dlng,dlat){ return {lng:LOC.lng+dlng, lat:LOC.lat+dlat}; }
+  var COLORS=['#1e3a8a','#0f766e','#7c3a04','#9d174d','#3730a3','#0c4a6e','#155e75','#4d7c0f','#854d0e','#6d28d9','#9f1239','#115e59'];
+  function img(i){ // gradient placeholders (production: Cloudinary photos)
+    var a=COLORS[i%COLORS.length], b=COLORS[(i+5)%COLORS.length];
+    return 'linear-gradient(135deg,'+a+','+b+')';
+  }
+  var DATA=[
+    {id:'a1',t:'Estate Jewelry & Fine Watches', city:'Detroit', mi:6,  state:'ending', lots:40, end:'2h 14m'},
+    {id:'a2',t:'Mid-Century Modern Estate',      city:'Royal Oak', mi:9, state:'live',   lots:38, end:'Sat 7pm'},
+    {id:'a3',t:'Fine Art & Antiques',            city:'Birmingham', mi:12,state:'live',   lots:52, end:'Sun 6pm'},
+    {id:'a4',t:'Luxury Home Furnishings',        city:'Troy', mi:14,    state:'ending', lots:31, end:'58m'},
+    {id:'a5',t:'Collector Estate & Curiosities', city:'Ferndale', mi:7, state:'live',   lots:46, end:'Fri 8pm'},
+    {id:'a6',t:'Decorative Arts & Designer',     city:'Grosse Pointe', mi:11, state:'coming', lots:0, end:'Opens Thu'},
+    {id:'a7',t:'Sterling, Coins & Collectibles', city:'Dearborn', mi:10, state:'live',  lots:60, end:'Mon 5pm'},
+    {id:'a8',t:'Garden, Tools & Workshop',       city:'Warren', mi:13,  state:'coming', lots:0, end:'Opens Fri'},
+    {id:'a9',t:'The Whitfield Estate',           city:'Bloomfield', mi:16, state:'ending', lots:29, end:'1h 40m'},
+    {id:'a10',t:'Vintage Lighting & Glass',      city:'Berkley', mi:8,  state:'live',   lots:24, end:'Sun 4pm'},
+    {id:'h1',t:'No Reserve Designer Accents',    city:'Knoxville', mi:512, state:'historical', lots:174, end:'Closed'},
+    {id:'h2',t:'Fine Crystal & Gem Auction',     city:'Knoxville', mi:512, state:'historical', lots:231, end:'Closed'},
+    {id:'h3',t:'Steiff & Gund Collectables',     city:'Knoxville', mi:512, state:'historical', lots:378, end:'Closed'}
+  ];
+  // scatter coordinates around the location (historical sit further out)
+  DATA.forEach(function(d,i){
+    if(d.state==='historical'){ var p=near(-4.6+(i%3)*0.25, 4.0+(i%2)*0.2); d.lng=p.lng; d.lat=p.lat; }
+    else { var ang=i*0.8, rad=0.03+(i%5)*0.022; d.lng=LOC.lng+Math.cos(ang)*rad*1.5; d.lat=LOC.lat+Math.sin(ang)*rad; }
+    d.bg=img(i); d.endsToday = (d.state==='ending');
+  });
+
+  var GAVEL='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m14 13-3 3"/><path d="m17 10-3 3"/><path d="m10 6 8 8"/><path d="m6 10 4 4"/><path d="m4 22 6-6"/><path d="m14.5 5.5 4 4"/></svg>';
+
+  // ── Map ───────────────────────────────────────────────────────────────────
+  var markers=[], map;
+  try{
+    map=new maplibregl.Map({container:'map', style:MOOD.style, center:[-96,38], zoom:reduce?9:3.4, attributionControl:false, dragRotate:false, pitchWithRotate:false});
+  }catch(e){ fallback(); return; }
+  map.on('error',function(){/* tile hiccups shouldn't break the experience */});
+
+  function fallback(){ // MapLibre/tiles unavailable: still show the list
+    document.getElementById('intro').classList.add('gone');
+    document.getElementById('top').classList.add('in');
+    document.getElementById('drawer').classList.add('in');
+    buildList('near'); showPulse();
+  }
+
+  map.on('load', function(){
+    // reveal the softly-lit map
+    setTimeout(function(){ document.getElementById('intro').classList.add('gone'); }, reduce?0:350);
+    document.getElementById('top').classList.add('in');
+
+    function settle(){
+      addMarkers();
+      document.getElementById('drawer').classList.add('in');
+      buildList('near');
+      showPulse();
+    }
+    if(reduce){ map.jumpTo({center:[LOC.lng,LOC.lat], zoom:10}); settle(); }
+    else {
+      setTimeout(function(){
+        map.flyTo({center:[LOC.lng,LOC.lat], zoom:10.4, duration:1700, essential:true, curve:1.5});
+        map.once('moveend', settle);
+      }, 650);
+    }
+  });
+
+  function addMarkers(){
+    DATA.forEach(function(d,i){
+      var el=document.createElement('div'); el.className='mk '+d.state;
+      el.innerHTML='<div class="aura"></div>'+(d.state==='ending'||d.state==='coming'?'<div class="ring"></div>':'')+'<div class="disc">'+GAVEL+'</div>';
+      el.addEventListener('mouseenter',function(){ highlight(d.id,true); });
+      el.addEventListener('mouseleave',function(){ highlight(d.id,false); });
+      el.addEventListener('click',function(){ focusAuction(d); });
+      var mk=new maplibregl.Marker({element:el, anchor:'center'}).setLngLat([d.lng,d.lat]).addTo(map);
+      d._el=el; markers.push(mk);
+      // staggered "bloom"
+      setTimeout(function(){ el.classList.add('bloomed'); }, reduce?0:(120+i*70));
+    });
+  }
+
+  // ── Drawer list + map⇄card sync ────────────────────────────────────────────
+  var FILTERS={ near:function(d){return d.state!=='historical'}, ending:function(d){return d.state==='ending'}, archive:function(d){return d.state==='historical'} };
+  var TITLES={ near:'Auctions near you', ending:'Ending tonight near you', archive:'The Historical Archive' };
+  function buildList(f){
+    var list=document.getElementById('list'); list.innerHTML='';
+    document.getElementById('drawerTitle').textContent=TITLES[f];
+    var q=(document.getElementById('q').value||'').toLowerCase();
+    DATA.filter(FILTERS[f]).filter(function(d){return !q || d.t.toLowerCase().indexOf(q)>=0 || d.city.toLowerCase().indexOf(q)>=0}).forEach(function(d){
+      var tagcls=d.state, tagtxt={live:'● Live',ending:'⏱ Ending soon',historical:'Sold · Archive',coming:'Coming soon'}[d.state];
+      var c=document.createElement('div'); c.className='card'; c.dataset.id=d.id;
+      c.innerHTML='<div class="ph" style="background-image:'+d.bg+'"></div>'+
+        '<div class="meta"><div class="t">'+d.t+'</div>'+
+        '<div class="sub">📍 '+d.city+' · '+(d.state==='historical'?'archive':d.mi+' mi')+'</div>'+
+        '<div class="row"><span class="tag '+tagcls+'">'+tagtxt+'</span>'+
+        '<span class="dist">'+(d.state==='coming'?d.end:(d.state==='historical'?d.lots+' lots':'Ends '+d.end+' · '+d.lots+' lots'))+'</span></div></div>';
+      c.addEventListener('mouseenter',function(){ highlight(d.id,true); });
+      c.addEventListener('mouseleave',function(){ highlight(d.id,false); });
+      c.addEventListener('click',function(){ focusAuction(d); });
+      list.appendChild(c);
+    });
+  }
+  function highlight(id,on){
+    var d=DATA.find(function(x){return x.id===id}); if(d&&d._el) d._el.classList.toggle('active',on);
+    var card=document.querySelector('.card[data-id="'+id+'"]'); if(card) card.classList.toggle('active',on);
+  }
+  function focusAuction(d){
+    if(map) map.flyTo({center:[d.lng,d.lat], zoom:12, duration:800, essential:true});
+    var card=document.querySelector('.card[data-id="'+d.id+'"]'); if(card){ card.scrollIntoView({block:'nearest',behavior:reduce?'auto':'smooth'}); }
+    if(window.matchMedia('(max-width:860px)').matches){ document.body.classList.remove('mapmode'); document.body.classList.add('listmode'); }
+    // production: navigate to /auction-view.html?auctionId=d.id
+  }
+
+  // ── Returning-visitor "what's changed" deltas ──────────────────────────────
+  function showPulse(){
+    var key='ab_living_map', prev=null; try{ prev=JSON.parse(localStorage.getItem(key)); }catch(e){}
+    var nearN=DATA.filter(FILTERS.near).length;
+    var p=document.getElementById('pulse'), big=document.getElementById('pulseBig'), del=document.getElementById('pulseDelta');
+    if(prev && prev.ids){
+      var fresh=DATA.filter(FILTERS.near).filter(function(d){return prev.ids.indexOf(d.id)<0}).length;
+      var closing=DATA.filter(function(d){return d.endsToday}).length;
+      var viewedNewBids=(prev.viewed||[]).filter(function(id){return DATA.find(function(d){return d.id===id})}).length ? 1 : 0;
+      big.textContent='Welcome back. Here’s what changed near you.';
+      del.innerHTML=
+        '<span><span class="dot" style="background:var(--accent)"></span><b>'+fresh+'</b> new auctions nearby</span>'+
+        '<span><span class="dot" style="background:var(--live)"></span><b>'+closing+'</b> closing today</span>'+
+        (viewedNewBids?'<span><span class="dot" style="background:var(--sold)"></span><b>1</b> you viewed has new bids</span>':'');
+    } else {
+      big.textContent=nearN+' auctions near you';
+      del.innerHTML='<span>Hover a marker to preview · drag the list up for more</span>';
+    }
+    setTimeout(function(){ p.classList.add('in'); }, reduce?0:300);
+    setTimeout(function(){ p.classList.remove('in'); }, 6500);
+    // persist this visit
+    try{ localStorage.setItem(key, JSON.stringify({ids:DATA.filter(FILTERS.near).map(function(d){return d.id}), viewed:(prev&&prev.viewed)||['a1'], ts:Date.now()})); }catch(e){}
+  }
+
+  // ── Controls ───────────────────────────────────────────────────────────────
+  document.querySelectorAll('.dtab').forEach(function(b){ b.addEventListener('click',function(){
+    document.querySelectorAll('.dtab').forEach(function(x){x.classList.remove('on')}); b.classList.add('on'); buildList(b.dataset.f);
+  });});
+  document.getElementById('q').addEventListener('input',function(){ var on=document.querySelector('.dtab.on'); buildList(on?on.dataset.f:'near'); });
+  document.getElementById('toggle').addEventListener('click',function(){
+    var listmode=document.body.classList.toggle('listmode'); document.body.classList.toggle('mapmode',!listmode);
+    this.textContent=listmode?'🗺 Map':'▤ List';
+  });
+  document.getElementById('nearBtn').addEventListener('click',function(){
+    if(!navigator.geolocation) return;
+    navigator.geolocation.getCurrentPosition(function(pos){
+      LOC={name:'My location', lng:pos.coords.longitude, lat:pos.coords.latitude};
+      try{ localStorage.setItem('ab_loc',JSON.stringify(LOC)); }catch(e){}
+      document.getElementById('locTxt').textContent='My location';
+      if(map) map.flyTo({center:[LOC.lng,LOC.lat], zoom:10.6, duration:1400, essential:true});
+    });
+  });
+})();
+</script>
+</body>
+</html>
