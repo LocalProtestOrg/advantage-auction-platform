@@ -63,6 +63,12 @@ router.post('/enroll', auth, async (req, res, next) => {
     // return the current onboarding status (never create a duplicate).
     const existing = (await db.query('SELECT id FROM seller_profiles WHERE user_id = $1', [req.user.id])).rows[0];
 
+    // Phone is required to enable selling (launch policy). Enforced only for NEW
+    // enrollments so idempotent re-enroll of an existing seller never breaks.
+    if (!existing && !phone) {
+      return res.status(400).json({ success: false, message: 'A phone number is required to enable selling.' });
+    }
+
     let sellerProfileId;
     if (existing) {
       sellerProfileId = existing.id;

@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="robots" content="noindex" />
   <title>Become a Seller - Advantage.Bid</title>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
   <style>
     * { box-sizing: border-box; }
     body { font-family: -apple-system, Segoe UI, Roboto, sans-serif; margin: 0; background: #f1f5f9; color: #1f2937; }
@@ -50,8 +51,9 @@
         <input type="text" id="legal-name" placeholder="e.g. Jane Q. Seller" />
         <p class="hint">Used on your seller agreement and payout records.</p>
 
-        <label for="phone">Phone <span style="font-weight:400;color:#94a3b8">(optional)</span></label>
+        <label for="phone">Phone <span style="color:#dc2626">*</span></label>
         <input type="tel" id="phone" placeholder="(555) 555-1234" />
+        <p class="hint">So Advantage can reach you about your auction. Stored on your account; not shown publicly.</p>
 
         <button id="submit-btn" type="button">Continue to seller agreement →</button>
         <div class="err" id="form-err"></div>
@@ -106,10 +108,12 @@
       var err = document.getElementById('form-err'); err.textContent = '';
       var legalName = document.getElementById('legal-name').value.trim();
       if (!legalName) { err.textContent = 'Please enter your full legal name.'; return; }
+      var phone = document.getElementById('phone').value.trim();
+      if (!phone) { err.textContent = 'Please enter a phone number so we can reach you about your auction.'; return; }
       var payload = {
         seller_type: document.getElementById('seller-type').value,
         legal_name:  legalName,
-        phone:       document.getElementById('phone').value.trim() || undefined,
+        phone:       phone,
       };
       var btn = document.getElementById('submit-btn');
       btn.disabled = true; btn.textContent = 'Setting up your seller account…';

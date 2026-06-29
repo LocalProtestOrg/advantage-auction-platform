@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Sign In - Advantage Auction</title>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -242,19 +243,9 @@
       // to existing /admin/* tools.
       window.location.href = '/admin/index.html';
     } else {
-      fetch('/api/auctions')
-        .then(function(r) { return r.json(); })
-        .then(function(body) {
-          var auctions = body.data || [];
-          if (auctions.length > 0) {
-            window.location.href = '/auction-view.html?auctionId=' + auctions[0].id;
-          } else {
-            window.location.href = '/auction-view.html';
-          }
-        })
-        .catch(function() {
-          window.location.href = '/auction-view.html';
-        });
+      // New/returning buyers land on the public auctions discovery page, never
+      // routed into a specific seeded/demo auction (QA: confusing landing).
+      window.location.href = '/';
     }
   }
 

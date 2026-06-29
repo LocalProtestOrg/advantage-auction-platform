@@ -383,7 +383,9 @@ header {
   color: rgba(255, 255, 255, 0.75);
 }
 
-@media (max-width: 760px) {
+/* Collapse the full nav into the hamburger early enough that the link row never
+   overflows / forces a horizontal scrollbar on tablets and small laptops. */
+@media (max-width: 920px) {
   .header-nav              { display: none; }
   .mobile-menu-btn         { display: flex; }
 }
