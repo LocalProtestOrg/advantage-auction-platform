@@ -108,6 +108,31 @@
       text-align: center;
     }
 
+    /* Historical archive status panel (replaces bidding UI for archive lots).
+       SOLD is the primary emphasis; the archive label is a smaller secondary tag. */
+    #historical-panel { background:#f8fafc; border:1px solid #e2e8f0; border-radius:12px; padding:1.4rem 1.25rem; text-align:center; }
+    #historical-panel .hist-sold { font-size:2.4rem; font-weight:800; letter-spacing:0.08em; color:#16a34a; line-height:1; margin-bottom:0.4rem; }
+    #historical-panel .hist-tag { font-size:0.66rem; font-weight:700; letter-spacing:0.08em; text-transform:uppercase; color:#94a3b8; margin-bottom:0.85rem; }
+    #historical-panel .hist-note { font-size:0.86rem; color:#475569; line-height:1.5; margin:0.4rem 0; }
+
+    /* Historical subhead (category + lot number beneath the single title) */
+    #hist-subhead { display:flex; flex-direction:column; gap:0.1rem; margin-top:-0.4rem; margin-bottom:0.2rem; }
+    #hist-subhead .hs-cat { font-size:0.95rem; font-weight:600; color:#334155; }
+    #hist-subhead .hs-lot { font-size:0.82rem; color:#64748b; }
+
+    /* Historical auction context block */
+    #hist-context { border:1px solid #e2e8f0; border-radius:12px; padding:0.9rem 1rem; }
+    #hist-context .hc-label { font-size:0.66rem; font-weight:700; letter-spacing:0.06em; text-transform:uppercase; color:#94a3b8; margin-bottom:0.25rem; }
+    #hist-context a.hc-name { font-size:0.98rem; font-weight:700; color:#1d4ed8; text-decoration:none; }
+    #hist-context a.hc-name:hover { text-decoration:underline; }
+    #hist-context .hc-lots { font-size:0.82rem; color:#64748b; margin-top:0.15rem; }
+
+    /* Historical return-to-live footer CTA */
+    #hist-footer { border-top:1px solid #f1f5f9; padding-top:0.9rem; text-align:center; }
+    #hist-footer .hf-q { font-size:0.86rem; color:#475569; margin-bottom:0.3rem; }
+    #hist-footer a { font-size:0.92rem; font-weight:700; color:#1d4ed8; text-decoration:none; }
+    #hist-footer a:hover { text-decoration:underline; }
+
     /* Thumbnail strip */
     #thumb-strip {
       display: flex;
@@ -566,6 +591,20 @@
     <div id="panel-content" style="display:none; flex-direction:column; gap:1.25rem; flex:1">
 
       <div class="lot-title" id="lot-title"></div>
+      <!-- Historical archive: category + lot number directly beneath the single title -->
+      <div id="hist-subhead" style="display:none"></div>
+
+      <!-- Historical archive status (replaces the entire bidding panel for archive lots) -->
+      <div id="historical-panel" style="display:none">
+        <div class="hist-sold">SOLD</div>
+        <div class="hist-tag">Historical Auction Archive</div>
+        <p class="hist-note">This item was previously offered by Advantage Auction Company and is preserved as part of our Historical Auction Archive.</p>
+        <p class="hist-note">This auction has ended and is presented for historical reference only.</p>
+      </div>
+
+      <!-- Historical archive: auction context + return-to-live call to action -->
+      <div id="hist-context" style="display:none"></div>
+      <div id="hist-footer" style="display:none"></div>
 
       <div class="bid-display" id="bid-display">
         <div class="label"><span class="live-dot"></span>Current Bid</div>
@@ -666,7 +705,15 @@
   //      browser blocks the close, fall through.
   //   3. Navigate to /auction-view.html?auctionId=<currentAuctionId>
   //   4. Navigate to / as last resort
+  function escHtml(s){ return String(s==null?'':s).replace(/[&<>"]/g,function(c){return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]);}); }
+
   function smartBack() {
+    // Historical archive: always return to the auction catalog the visitor came from,
+    // not browser history.
+    if (isHistoricalLot && currentAuctionId) {
+      window.location.href = '/auction-view.html?auctionId=' + encodeURIComponent(currentAuctionId);
+      return;
+    }
     if (window.history.length > 1) {
       try { window.history.back(); return; } catch (_) { /* fall through */ }
     }
@@ -727,6 +774,8 @@
   let bidIncrementCents = 500;
   let hasBids           = false;
   let realizedHidden    = false;  // #20.1: anonymous + closed lot → price gated
+  let isHistoricalLot = false;    // historical archive lot → no price/bid data at all
+  let currentLotTitle = '';       // for image alt text (avoids "Image N" placeholders)
   let bidding         = false;
   let refreshTimer    = null;
   let countdownTimer  = null;
@@ -773,7 +822,9 @@
       document.getElementById('loading-overlay').style.display = 'none';
       document.getElementById('panel-content').style.display = 'flex';
 
-      if (authed) {
+      if (isHistoricalLot) {
+        showHistoricalPanel();  // archive lots: no bidding/registration UI at all
+      } else if (authed) {
         await applyBidGate();   // #20: gate the bid form (terms / registration)
         startRefresh();
       } else {
@@ -782,6 +833,22 @@
     } catch (err) {
       document.getElementById('loading-overlay').textContent = 'Error: ' + err.message;
     }
+  }
+
+  // Historical archive lots: hide every bidding/registration/price element and show
+  // only the archive status block. No prices, no bids, no Stripe/registration language.
+  function showHistoricalPanel() {
+    ['bid-display', 'winner-panel', 'closed-banner', 'bid-status'].forEach(id => {
+      const e = document.getElementById(id); if (e) e.style.display = 'none';
+    });
+    const form  = document.querySelector('.bid-form');  if (form)  form.style.display  = 'none';
+    const trust = document.querySelector('.bid-trust'); if (trust) trust.style.display = 'none';
+    const hist  = document.querySelector('.history-header'); if (hist && hist.parentElement) hist.parentElement.style.display = 'none';
+    ['historical-panel', 'hist-subhead', 'hist-context', 'hist-footer'].forEach(id => {
+      const e = document.getElementById(id);
+      if (e && e.innerHTML.trim()) e.style.display = (id === 'hist-subhead') ? 'flex' : 'block';
+    });
+    document.getElementById('historical-panel').style.display = 'block';
   }
 
   function showGuestBidPanel() {
@@ -1003,7 +1070,10 @@
     document.getElementById('btn-bid').disabled       = true;
     document.getElementById('closed-banner').style.display = 'block';
     const label = document.querySelector('.bid-display .label');
-    if (label) label.innerHTML = 'Final Bid';
+    if (label) label.innerHTML = isHistoricalLot ? 'Historical Auction' : 'Final Bid';
+    if (isHistoricalLot) {
+      document.getElementById('closed-banner').textContent = 'Historical auction archive — reference only';
+    }
     const wrap = document.getElementById('countdown-wrap');
     const val  = document.getElementById('countdown-val');
     if (val && val.textContent !== 'Ended') {
@@ -1040,17 +1110,40 @@
   // ── Render lot metadata ───────────────────────────────────────────────────────
   function renderLot(lot) {
     currentAuctionId = lot.auction_id;
+    isHistoricalLot = lot.auction_public_type === 'historical_archive';
+    currentLotTitle = lot.title || '';
     renderLotStatus(lot);
     if (window.__lotSocket && window.__lotSocket.connected && currentAuctionId) window.__lotSocket.emit('joinAuction', currentAuctionId);
-    document.title = lot.title + ' - Advantage Auction';
-    // OP-D: prefix title with "Lot #N · " when lot_number is set. Provides
-    // public-side orientation matching the seller-side dashboard format.
+    document.title = isHistoricalLot
+      ? (lot.title || 'Lot') + ' — Advantage Auction Company Historical Archive'
+      : (lot.title || '') + ' - Advantage Auction';
+    // OP-D: prefix title with "Lot #N · " when lot_number is set. Historical archive
+    // lots show the clean title ONCE (category + lot number live in the subhead beneath).
     const numPrefix = (lot.lot_number != null) ? ('Lot #' + lot.lot_number + ' · ') : '';
-    document.getElementById('lot-title').textContent       = numPrefix + (lot.title || '');
+    document.getElementById('lot-title').textContent = isHistoricalLot ? (lot.title || '') : (numPrefix + (lot.title || ''));
+    if (isHistoricalLot) {
+      // Header shows the historical auction's name (context) instead of "Advantage Auction".
+      const brand = document.querySelector('header .brand');
+      if (brand && lot.auction_title) brand.textContent = lot.auction_title;
+      // Subhead: category + lot number directly beneath the single title heading.
+      const sub = document.getElementById('hist-subhead');
+      if (sub) sub.innerHTML =
+        (lot.category ? '<div class="hs-cat">' + escHtml(lot.category) + '</div>' : '') +
+        (lot.lot_number != null ? '<div class="hs-lot">Lot ' + escHtml(String(lot.lot_number)) + '</div>' : '');
+      // Auction context block (Auction / name / N Lots).
+      const ctx = document.getElementById('hist-context');
+      if (ctx && lot.auction_title) ctx.innerHTML =
+        '<div class="hc-label">Auction</div>' +
+        '<a class="hc-name" href="/auction-view.html?auctionId=' + encodeURIComponent(lot.auction_id) + '">' + escHtml(lot.auction_title) + '</a>' +
+        (lot.auction_lot_count != null ? '<div class="hc-lots">' + escHtml(String(lot.auction_lot_count)) + ' Lots</div>' : '');
+      // Return-to-live CTA.
+      const ft = document.getElementById('hist-footer');
+      if (ft) ft.innerHTML = '<div class="hf-q">Interested in similar items?</div><a href="/">Browse current Advantage.Bid auctions →</a>';
+    }
     // #12: show ONLY the human category (Furniture, Fine Art, …) to buyers.
     // Never fall back to the internal size_category code (A/B/C) - that was
     // rendering as a stray single letter ("A") above the description.
-    document.getElementById('lot-category').textContent    = lot.category || '';
+    document.getElementById('lot-category').textContent    = isHistoricalLot ? '' : (lot.category || '');
     document.getElementById('lot-description').textContent = lot.description || '';
 
     // Phase 3: lot pickup-time group from size_category (A/B/C → Pickup Time A/B/C,
@@ -1058,6 +1151,8 @@
     // Never inferred — unset size shows "Not specified".
     (function () {
       var pe = document.getElementById('lot-pickup-time'); if (!pe) return;
+      // Historical archive lots have no pickup logistics — hide the section entirely.
+      if (isHistoricalLot) { pe.style.display = 'none'; return; }
       var PT = window.PickupTiers || null;
       var tier = PT ? PT.normTier(lot.size_category) : null;
       if (!tier) { pe.textContent = 'Pickup Time: Not specified'; pe.style.display = ''; return; }
@@ -1083,9 +1178,14 @@
     // Current price display: starting bid when no bids, else the current bid.
     // Next-min uses the server's exact floor: max(starting, current + increment),
     // so with no bids it is max(starting, increment) - not just the starting bid.
+    // Historical archive lots carry no price/bid data (estimates, realized prices,
+    // and bids are deliberately not imported); the whole bid panel is replaced with
+    // the archive status block (showHistoricalPanel), so no price path runs here.
     // #20.1: anonymous viewing a CLOSED lot - gate the realized/sold price.
-    realizedHidden = !!lot.realized_price_hidden;
-    if (realizedHidden) {
+    realizedHidden = !isHistoricalLot && !!lot.realized_price_hidden;
+    if (isHistoricalLot) {
+      // Handled by showHistoricalPanel(); nothing to render in the price area.
+    } else if (realizedHidden) {
       const cb = document.getElementById('current-bid');
       if (cb) cb.innerHTML = '<a href="/login.html?next=' + encodeURIComponent(location.pathname + location.search) +
         '" style="color:#1d4ed8;font-weight:600;font-size:0.95rem;text-decoration:none;">Log in to view realized price</a>';
@@ -1096,7 +1196,8 @@
       updateHint(curCents);
     }
 
-    // Item detail fields
+    // Item detail fields. (Historical archive: lot number is shown in the subhead
+    // beneath the title, not here, to avoid repeating it.)
     const details = [];
     if (lot.condition)    details.push({ label: 'Condition',    value: lot.condition });
     if (lot.material)     details.push({ label: 'Material',     value: lot.material });
@@ -1178,6 +1279,9 @@
 
     if (!imageRows.length) {
       document.getElementById('main-skeleton').classList.add('hidden');
+      const nm = document.getElementById('no-image-msg');
+      nm.textContent = isHistoricalLot ? 'Historical image unavailable.' : 'No images';
+      nm.style.display = '';
       return;
     }
 
@@ -1194,10 +1298,10 @@
       skel.className = 'thumb-skeleton';
 
       const img = document.createElement('img');
-      img.alt  = 'Image ' + (i + 1);
+      img.alt  = currentLotTitle || '';
       img.src  = row.url;
       img.onload  = () => { img.classList.add('loaded'); skel.classList.add('hidden'); };
-      img.onerror = () => { skel.classList.add('hidden'); };
+      img.onerror = () => { skel.classList.add('hidden'); wrap.style.display = 'none'; };
 
       wrap.appendChild(skel);
       wrap.appendChild(img);
@@ -1236,8 +1340,16 @@
     main.classList.remove('loaded');
     skel.classList.remove('hidden');
 
+    main.alt = currentLotTitle || '';
     main.onload  = () => { main.classList.add('loaded'); skel.classList.add('hidden'); };
-    main.onerror = () => { skel.classList.add('hidden'); };
+    main.onerror = () => {
+      // No broken-image placeholder: hide the image and show a clean message.
+      skel.classList.add('hidden');
+      main.style.display = 'none';
+      const nm = document.getElementById('no-image-msg');
+      nm.textContent = isHistoricalLot ? 'Historical image unavailable.' : 'Image unavailable.';
+      nm.style.display = '';
+    };
     main.src = imageRows[index].url;
 
     badge.style.display = imageRows[index].enhanced ? 'block' : 'none';

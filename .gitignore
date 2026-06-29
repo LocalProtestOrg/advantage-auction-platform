@@ -57,3 +57,10 @@ governance-summary.json
 Thumbs.db
 .vscode/settings.json
 .idea/
+
+# Historical archive — local import source/working data (~142MB: images, CSVs, zips;
+# re-hosted on Cloudinary, seeded via scripts; not needed in the repo or on the server).
+docs/historical-auctions/archive/
+
+# Generated auction report PDFs (build artifacts, not source).
+reports/

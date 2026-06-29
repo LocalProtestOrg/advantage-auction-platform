@@ -719,7 +719,7 @@ router.get('/lots/search', async (req, res, next) => {
              l.bid_count, l.closes_at, l.shippable,
              a.title AS auction_title, a.state AS auction_state,
              a.city AS auction_city, a.address_state AS auction_address_state,
-             a.end_time AS auction_end_time,
+             a.end_time AS auction_end_time, a.public_auction_type AS auction_public_type,
              sp.display_name AS seller_display_name,
              COUNT(*) OVER() AS total_count
         FROM lots l

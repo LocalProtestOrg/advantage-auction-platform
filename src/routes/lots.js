@@ -683,6 +683,9 @@ router.get('/:lotId', optionalAuth, async (req, res, next) => {
               (SELECT pickup_window_start FROM auctions a2 WHERE a2.id = lots.auction_id) AS auction_pickup_window_start,
               (SELECT pickup_window_end   FROM auctions a2 WHERE a2.id = lots.auction_id) AS auction_pickup_window_end,
               (SELECT timezone            FROM auctions a2 WHERE a2.id = lots.auction_id) AS auction_timezone,
+              (SELECT public_auction_type FROM auctions a2 WHERE a2.id = lots.auction_id) AS auction_public_type,
+              (SELECT title               FROM auctions a2 WHERE a2.id = lots.auction_id) AS auction_title,
+              (SELECT COUNT(*) FROM lots l2 WHERE l2.auction_id = lots.auction_id AND l2.state <> 'withdrawn')::int AS auction_lot_count,
               created_at, updated_at
        FROM lots
        WHERE id = $1

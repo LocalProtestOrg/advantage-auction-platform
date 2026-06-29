@@ -209,16 +209,18 @@
     function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];}); }
     function usd(c){ return (c==null)?null:'$'+(Number(c)/100).toFixed(2); }
     function fmtDate(t){ if(!t) return ''; try{ return new Date(t).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}); }catch(e){ return ''; } }
-    // Recent Auction Results card (closed/sold demos) for trust-building.
+    // Recent Auction Results card for trust-building. Historical-archive auctions
+    // never show the (internal placeholder) date or bid/price figures.
     function resultCard(a){
+      var hist = a.public_auction_type === 'historical_archive';
       var img = a.cover_image_url ? '<img src="'+esc(a.cover_image_url)+'" alt="" loading="lazy">' : '';
       var lots = (a.sold_lot_count!=null && a.sold_lot_count>0) ? a.sold_lot_count : (a.lot_count||0);
       var bids = (a.total_bids!=null) ? a.total_bids : 0;
       return '<a class="card" href="/auction-view.html?auctionId='+encodeURIComponent(a.id)+'">'
-        +'<div class="img"><span class="badge soon">Sample Results</span>'+img+'</div>'
+        +'<div class="img"><span class="badge soon">'+(hist?'Historical Auction Archive':'Past Auction')+'</span>'+img+'</div>'
         +'<div class="body"><div class="t">'+esc(a.title)+'</div>'
-        +'<div class="sub">Closed '+esc(fmtDate(a.end_time))+'</div>'
-        +'<div class="price">'+lots+' lots sold · '+bids+' bids</div></div></a>';
+        +(hist?'<div class="sub">Advantage Auction Company</div>':'<div class="sub">Closed '+esc(fmtDate(a.end_time))+'</div>')
+        +'<div class="price">'+(hist?(lots+' lots'):(lots+' lots sold · '+bids+' bids'))+'</div></div></a>';
     }
     function timeLeft(t){ if(!t) return ''; var r=new Date(t).getTime()-Date.now(); if(r<=0) return 'Ended';
       var h=Math.floor(r/3600000),m=Math.floor((r%3600000)/60000);
