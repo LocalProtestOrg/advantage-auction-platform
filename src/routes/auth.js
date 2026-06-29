@@ -4,6 +4,7 @@ const jwt = require('jsonwebtoken');
 const db = require('../db/index');
 const auth = require('../middleware/authMiddleware');
 const { normalLimiter, strictLimiter } = require('../middleware/rateLimit');
+const { requestReset, resetPassword } = require('../services/passwordResetService');
 
 const router = express.Router();
 const JWT_SECRET = process.env.JWT_SECRET;
@@ -108,6 +109,44 @@ router.patch('/me', auth, async (req, res) => {
   } catch (err) {
     console.error('[auth] PATCH /me failed:', err.message);
     return res.status(500).json({ success: false, error: 'Failed to update profile' });
+  }
+});
+
+// POST /api/auth/forgot-password — request a reset link.
+// Always returns 200 with a generic message (no account enumeration), even on error.
+// strictLimiter (10/min/IP in prod) curbs abuse/scraping.
+router.post('/forgot-password', strictLimiter, async (req, res) => {
+  const GENERIC = 'If an account exists for that email, a password reset link is on its way.';
+  try {
+    const { email } = req.body || {};
+    const baseUrl = process.env.PUBLIC_APP_URL || `${req.protocol}://${req.get('host')}`;
+    await requestReset(email, { ip: req.ip, baseUrl });
+    return res.json({ success: true, message: GENERIC });
+  } catch (err) {
+    // Return the same generic message on internal failure — never leak existence or errors.
+    console.error('[auth] forgot-password failed:', err.message);
+    return res.json({ success: true, message: GENERIC });
+  }
+});
+
+// POST /api/auth/reset-password — set a new password from a single-use, expiring token.
+router.post('/reset-password', strictLimiter, async (req, res) => {
+  try {
+    const { token, password } = req.body || {};
+    const result = await resetPassword(token, password);
+    if (result.ok) {
+      return res.json({ success: true, message: 'Your password has been updated. You can now sign in.' });
+    }
+    const messages = {
+      WEAK_PASSWORD: 'Password must be at least 8 characters.',
+      TOKEN_EXPIRED: 'This reset link has expired. Please request a new one.',
+      TOKEN_USED:    'This reset link has already been used. Please request a new one.',
+      INVALID_TOKEN: 'This reset link is invalid. Please request a new one.',
+    };
+    return res.status(400).json({ success: false, error: messages[result.code] || messages.INVALID_TOKEN });
+  } catch (err) {
+    console.error('[auth] reset-password failed:', err.message);
+    return res.status(500).json({ success: false, error: 'Could not reset your password. Please try again.' });
   }
 });
 
