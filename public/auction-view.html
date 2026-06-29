@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Auction - Advantage Auction</title>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -441,7 +442,7 @@
 </header>
 
 <div class="auction-banner" id="auction-banner">
-  <img class="banner-hero" id="banner-hero" style="display:none" alt="Auction banner" />
+  <img class="banner-hero" id="banner-hero" style="display:none" alt="" />
   <div class="banner-body">
     <div class="auction-title-row">
       <div class="auction-title-group">
@@ -631,9 +632,12 @@
       if (d.shipping_available) parts.push('Shipping available');
       meta.innerHTML = parts.map(p => '<span>' + esc(p) + '</span>').join('');
 
-      // Banner hero image
+      // Banner hero image — show only if it actually loads. A broken/missing URL
+      // must never surface raw "alt" text; onerror gracefully hides the element.
       if (d.banner_image_url) {
         const hero = document.getElementById('banner-hero');
+        hero.alt = '';
+        hero.onerror = () => { hero.style.display = 'none'; hero.onerror = null; };
         hero.src = d.banner_image_url;
         hero.style.display = 'block';
       }

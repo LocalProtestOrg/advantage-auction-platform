@@ -139,7 +139,7 @@ This Seller Consignment and Auction Services Agreement (this "Agreement") govern
 
 11.1 To the maximum extent permitted by law, neither party is liable for indirect, incidental, special, consequential, or punitive damages.
 
-11.2 Advantage's aggregate liability arising out of or relating to this Agreement will not exceed the total commission actually earned by Advantage on the Seller's items in the auction event giving rise to the claim. **[COUNSEL REVIEW REQUIRED]**
+11.2 Advantage's aggregate liability arising out of or relating to this Agreement will not exceed the total commission actually earned by Advantage on the Seller's items in the auction event giving rise to the claim.
 
 ## 12. Indemnification
 
@@ -163,7 +163,7 @@ This Seller Consignment and Auction Services Agreement (this "Agreement") govern
 
 ## 16. Dispute Resolution and Governing Law
 
-16.1 This Agreement is governed by the laws of the State of Michigan, without regard to conflict-of-laws principles. **[COUNSEL REVIEW REQUIRED]**
+16.1 This Agreement is governed by the laws of the State of Michigan, without regard to conflict-of-laws principles.
 
 16.2 The parties will attempt in good faith to resolve disputes informally before pursuing formal proceedings, in the courts or forum designated by Advantage's then-current policies, to the extent permitted by law.
 
