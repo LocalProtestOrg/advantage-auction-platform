@@ -323,7 +323,7 @@
     styleDark:'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json' };
   function styleFor(theme){ return (theme==='dark'||theme==='discover') ? CFG.styleDark : CFG.styleLight; }
   var SKIN={
-    light:   {land:'#F4F1E9',water:'#CFE4F6',green:'#E6EEDE',road:'#E9E3D8',building:'#ECE6DC',label:'#3a536e',halo:'rgba(251,251,249,.92)',boundary:'#e3ddd0'},
+    light:   {land:'#FCFBF8',water:'#CAE3FB',green:'#E9F1E6',road:'#FFFFFF',building:'#EFECE4',label:'#3a536e',halo:'rgba(255,255,255,.95)',boundary:'#EAE6DB'},
     dark:    {land:'#0E1726',water:'#0B1C33',green:'#13241f',road:'#26374f',building:'#162234',label:'#9fb6d4',halo:'rgba(6,16,30,.85)',boundary:'#2a3a52'},
     discover:{land:'#181E46',water:'#1E74BE',waterEdge:'#62E7FF',green:'#16414C',road:'#5BE1FF',building:'#27306b',label:'#dbe9ff',halo:'rgba(10,14,42,.7)',boundary:'#B06FE0',glowRoads:true,glowBlur:2.6}
   };
@@ -380,10 +380,14 @@
       else if(l.type==='symbol'){ sp(l.id,'text-color',P.label); sp(l.id,'text-halo-color',P.halo); sp(l.id,'text-halo-width',1.2); }
     });
   }
+  /* Apply the Advantage.Bid skin reliably after any style change: retry until the
+     vector style is loaded (slow networks/staging), and also re-apply on idle.
+     Without this, a theme toggle could leave the raw CARTO base (Discover→dark). */
+  function reskinSoon(){ if(!map)return; var n=0; (function go(){ try{ if(map.isStyleLoaded()){ applySkin(); return; } }catch(e){} if(n++<24) setTimeout(go,150); })(); try{ map.once('idle',applySkin); }catch(e){} }
   function setTheme(theme){ try{ localStorage.setItem('ab_theme',theme); }catch(e){}
     var style=computeMood();
     document.querySelectorAll('.themebtn').forEach(function(b){ b.classList.toggle('on',b.dataset.theme===theme); });
-    if(map){ try{ map.setStyle(style); map.once('styledata',function(){ setTimeout(applySkin,250); }); }catch(e){} }
+    if(map){ try{ map.setStyle(style); reskinSoon(); }catch(e){} }
   }
 
   /* ── Location (never prompt on load) ─────────────────────────────────── */
@@ -456,7 +460,7 @@
   function degrade(){ $('intro').classList.add('gone'); $('top').classList.add('in'); $('drawer').classList.add('in'); loadCore().then(function(){ buildList('near'); revealHUD(); }); }
 
   function onMapLoad(){
-    applySkin(); map.once('idle',applySkin);
+    reskinSoon();
     var dataReady=loadCore();
     function settle(){ dataReady.then(function(){ addMarkers(DATA); $('drawer').classList.add('in'); buildList('near'); revealHUD(); startAmbient(); }); }
     if(reduce){ $('intro').classList.add('gone'); $('top').classList.add('in'); dataReady.then(function(){ frameData(true); settle(); }); return; }
