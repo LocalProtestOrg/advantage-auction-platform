@@ -14,12 +14,15 @@
   Production wires the same UI to /api/public/auctions + /near with Cloudinary photos and a
   custom MapTiler/Protomaps brand style.
 -->
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&display=swap" rel="stylesheet">
 <link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet" />
 <style>
   :root{
     --ink:#0B1B2B; --muted:#5b6b7e; --hair:#ECECE7;
     --accent:#2F6BFF; --accentSoft:#7aa2ff;
-    --live:#2F6BFF; --ending:#F0843B; --hist:#8aa0b8; --coming:#1FB6A6; --sold:#16A34A;
+    /* State colors are a fixed brand language (consistent across all themes) */
+    --live:#B5273B; --ending:#E0922E; --coming:#1FB6A6; --hist:#9C6B3A; --sold:#16A34A;
     --glow:rgba(47,107,255,.5); --scrim:rgba(8,16,28,.42);
     --capsule:rgba(255,255,255,.78); --capsuleBorder:rgba(255,255,255,.6); --fg:#0B1B2B;
     --panel:rgba(255,255,255,.92); --panelText:#0B1B2B;
@@ -53,7 +56,8 @@
   .top.in{opacity:1;transform:translate(-50%,0)}
   .icobtn{width:38px;height:38px;border-radius:50%;border:0;background:rgba(255,255,255,.0);display:grid;place-items:center;cursor:pointer;color:inherit;transition:background .15s}
   .icobtn:hover{background:rgba(120,140,170,.14)}
-  .brand{font-weight:800;font-size:16px;letter-spacing:.01em;white-space:nowrap;padding:0 2px}
+  .brand{font-weight:700;font-size:17px;letter-spacing:.005em;white-space:nowrap;padding:0 2px;font-family:"Fraunces","Georgia",serif}
+  #intro .mark,#hud .count,#nav .brand,.dtitle{font-family:"Fraunces","Georgia",serif}
   .brand span{color:var(--accent)}
   .spacer{flex:1}
   .loc{display:inline-flex;align-items:center;gap:7px;border:1px solid var(--hair);background:rgba(255,255,255,.55);border-radius:999px;padding:8px 13px;font-size:13.5px;font-weight:600;cursor:pointer;white-space:nowrap;color:inherit}
@@ -74,28 +78,31 @@
   #hud .d i{width:7px;height:7px;border-radius:50%;display:inline-block;margin-right:6px;vertical-align:middle}
 
   /* ───────────────────────── Marker visual language ───────────────────────── */
-  .beacon{position:relative;width:44px;height:44px;cursor:pointer;opacity:0;transform:scale(.2) translateY(4px);transition:opacity .55s var(--ease),transform .55s var(--spring),filter .2s}
+  /* Classic location pin (instantly = "something is here"); the INSIDE is our brand. */
+  .beacon{position:relative;width:34px;height:46px;cursor:pointer;color:var(--c,#444);opacity:0;transform:scale(.2) translateY(8px);transform-origin:50% 100%;transition:opacity .55s var(--ease),transform .55s var(--spring),filter .2s}
   .beacon.bloom{opacity:1;transform:scale(1) translateY(0)}
-  .beacon .halo{position:absolute;inset:3px;border-radius:50%;background:radial-gradient(circle, var(--c,var(--glow)) 0%, transparent 68%);filter:blur(1px)}
-  .beacon .pin{position:absolute;left:50%;top:50%;width:32px;height:32px;border-radius:50% 50% 50% 4px;transform:translate(-50%,-50%) rotate(45deg);
-       background:var(--pinbg,#fff);box-shadow:0 6px 16px rgba(8,16,28,.34),inset 0 0 0 1.5px rgba(255,255,255,.55);display:grid;place-items:center;transition:transform .22s var(--spring)}
-  .beacon .pin svg{transform:rotate(-45deg);width:16px;height:16px;color:var(--c,var(--accent))}
-  .beacon .ping{position:absolute;left:50%;top:50%;width:30px;height:30px;border-radius:50%;transform:translate(-50%,-50%);border:2px solid var(--c,var(--accent))}
-  .beacon:hover,.beacon.active{filter:drop-shadow(0 10px 18px rgba(8,16,28,.4));z-index:5}
-  .beacon:hover .pin,.beacon.active .pin{transform:translate(-50%,-50%) rotate(45deg) scale(1.16)}
-  /* states */
+  .beacon .halo{position:absolute;left:50%;top:7px;width:30px;height:30px;transform:translateX(-50%);border-radius:50%;background:radial-gradient(circle, var(--c,var(--glow)) 0%, transparent 66%);opacity:.5;filter:blur(2px)}
+  .beacon .pin{position:absolute;left:50%;top:0;width:34px;height:46px;transform:translateX(-50%);transform-origin:50% 100%;filter:drop-shadow(0 6px 7px rgba(8,16,28,.32));transition:transform .22s var(--spring)}
+  .beacon .pin .body{fill:var(--c)}
+  .beacon .pin .face{fill:#fff}
+  .beacon .pin .g-head{fill:var(--c)}
+  .beacon .pin .g-stick,.beacon .pin .g-base{stroke:var(--c);stroke-width:2;stroke-linecap:round;fill:none}
+  .beacon .ping{position:absolute;left:50%;top:7px;width:30px;height:30px;border-radius:50%;transform:translate(-50%,0);border:2px solid var(--c,var(--accent))}
+  .beacon:hover,.beacon.active{filter:drop-shadow(0 12px 16px rgba(8,16,28,.42));z-index:5}
+  .beacon:hover .pin,.beacon.active .pin{transform:translateX(-50%) scale(1.13)}
+  /* states — fixed brand colors */
   .beacon.live   { --c:var(--live);   }
   .beacon.live   .halo{animation:breathe 3.2s var(--ease) infinite}
   .beacon.ending { --c:var(--ending); }
   .beacon.ending .ping{animation:ping 1.7s ease-out infinite}
   .beacon.coming { --c:var(--coming); }
-  .beacon.coming .ping{border-style:dashed;opacity:.6;width:38px;height:38px}
+  .beacon.coming .ping{border-style:dashed;opacity:.6}
   .beacon.historical{ --c:var(--hist); }
-  .beacon.historical .pin{filter:grayscale(.55);opacity:.92} .beacon.historical .halo{display:none}
+  .beacon.historical .pin{opacity:.96} .beacon.historical .halo{display:none}
   .beacon.spark .halo{animation:ignite 1.2s ease-out 1}
-  @keyframes breathe{0%,100%{opacity:.55;transform:scale(1)}50%{opacity:1;transform:scale(1.12)}}
-  @keyframes ping{0%{transform:translate(-50%,-50%) scale(1);opacity:.75}100%{transform:translate(-50%,-50%) scale(2.6);opacity:0}}
-  @keyframes ignite{0%{opacity:0;transform:scale(.4)}30%{opacity:1;transform:scale(1.5)}100%{opacity:.55;transform:scale(1)}}
+  @keyframes breathe{0%,100%{opacity:.42;transform:translateX(-50%) scale(1)}50%{opacity:.9;transform:translateX(-50%) scale(1.16)}}
+  @keyframes ping{0%{transform:translate(-50%,0) scale(1);opacity:.7}100%{transform:translate(-50%,0) scale(2.5);opacity:0}}
+  @keyframes ignite{0%{opacity:0;transform:translateX(-50%) scale(.4)}30%{opacity:.95;transform:translateX(-50%) scale(1.5)}100%{opacity:.42;transform:translateX(-50%) scale(1)}}
 
   /* hover preview (Nat-Geo photography) — MapLibre popup */
   .maplibregl-popup.preview .maplibregl-popup-content{padding:0;border-radius:16px;overflow:hidden;box-shadow:0 18px 50px rgba(8,16,28,.34);border:1px solid rgba(255,255,255,.5);background:var(--panel);color:var(--panelText);width:248px}
@@ -310,7 +317,7 @@
   var SKIN={
     light:   {land:'#F4F1E9',water:'#CFE4F6',green:'#E6EEDE',road:'#E9E3D8',building:'#ECE6DC',label:'#3a536e',halo:'rgba(251,251,249,.92)',boundary:'#e3ddd0'},
     dark:    {land:'#0E1726',water:'#0B1C33',green:'#13241f',road:'#26374f',building:'#162234',label:'#9fb6d4',halo:'rgba(6,16,30,.85)',boundary:'#2a3a52'},
-    discover:{land:'#101631',water:'#0F2E56',green:'#11302f',road:'#5BE1FF',building:'#1a2350',label:'#cfe4ff',halo:'rgba(8,12,30,.82)',boundary:'#3b2f73',glowRoads:true,glowBlur:2.2}
+    discover:{land:'#0E1430',water:'#15619A',waterEdge:'#5BE1FF',green:'#11302f',road:'#5BE1FF',building:'#1a2350',label:'#cfe4ff',halo:'rgba(8,12,30,.82)',boundary:'#3b2f73',glowRoads:true,glowBlur:2.2}
   };
   window.__PAL=SKIN.light;
   function setVars(v){ var r=document.documentElement.style;
@@ -325,12 +332,12 @@
     if(theme==='discover'){
       style=CARTO_DARK;
       setVars({ink:'#EAF1FF',muted:'#a7bbe0',hair:'rgba(140,170,255,.16)',cap:'rgba(20,24,52,.7)',capb:'rgba(120,160,255,.2)',panel:'rgba(17,21,46,.92)',ptext:'#EAF1FF',
-               glow:'rgba(91,225,255,.55)',scrim:'rgba(6,9,26,.5)',sky:'rgba(91,160,255,.22)',accent:'#5BE1FF',live:'#5BE1FF'});
+               glow:'rgba(91,225,255,.55)',scrim:'rgba(6,9,26,.5)',sky:'rgba(91,160,255,.22)',accent:'#5BE1FF'});
     } else if(theme==='dark'){
       style=CARTO_DARK;
       var dg={morning:'rgba(122,162,255,.5)',afternoon:'rgba(122,162,255,.5)',evening:'rgba(240,150,90,.55)',night:'rgba(122,162,255,.5)'}[t];
       setVars({ink:'#EAF1FF',muted:'#9fb3cd',hair:'rgba(255,255,255,.12)',cap:'rgba(14,21,34,.72)',capb:'rgba(255,255,255,.12)',panel:'rgba(12,18,30,.92)',ptext:'#EAF1FF',
-               glow:dg,scrim:'rgba(3,7,14,.55)',sky:(holiday?'rgba(214,170,110,.18)':'rgba(60,90,160,.18)'),accent:'#5b8cff',live:'#5b8cff'});
+               glow:dg,scrim:'rgba(3,7,14,.55)',sky:(holiday?'rgba(214,170,110,.18)':'rgba(60,90,160,.18)'),accent:'#5b8cff'});
     } else {
       style=CARTO_LIGHT[t];
       var ss={winter:'rgba(150,190,255,.20)',spring:'rgba(165,222,185,.18)',summer:'rgba(255,212,150,.18)',autumn:'rgba(240,175,115,.20)'}[season()];
@@ -340,7 +347,7 @@
               night:{glow:'rgba(96,132,220,.42)',sky:'rgba(120,150,210,.20)',scrim:'rgba(28,38,64,.20)'} }[t];
       if(holiday) a.sky='rgba(214,170,110,.26)';
       setVars({ink:'#0B1B2B',muted:'#5b6b7e',hair:'#ECECE7',cap:'rgba(255,255,255,.82)',capb:'rgba(255,255,255,.64)',panel:'rgba(255,255,255,.94)',ptext:'#0B1B2B',
-               glow:a.glow,scrim:a.scrim,sky:a.sky,accent:'#2F6BFF',live:'#2F6BFF'});
+               glow:a.glow,scrim:a.scrim,sky:a.sky,accent:'#2F6BFF'});
     }
     return style;
   }
@@ -353,13 +360,13 @@
       var key=((l['source-layer']||'')+' '+l.id).toLowerCase();
       if(l.type==='background'){ sp(l.id,'background-color',P.land); }
       else if(l.type==='fill'){
-        if(/water|ocean|sea|lake|bay|river/.test(key)) sp(l.id,'fill-color',P.water);
+        if(/water|ocean|sea|lake|bay|river/.test(key)){ sp(l.id,'fill-color',P.water); if(P.waterEdge) sp(l.id,'fill-outline-color',P.waterEdge); }
         else if(/park|wood|grass|forest|landcover|landuse|cemeter|golf|pitch|garden|scrub|wetland|sand|farm/.test(key)) sp(l.id,'fill-color',P.green);
         else if(/building/.test(key)) sp(l.id,'fill-color',P.building);
         else if(/land|earth|background/.test(key)) sp(l.id,'fill-color',P.land);
       }
       else if(l.type==='line'){
-        if(/water|waterway|river|canal|stream/.test(key)) sp(l.id,'line-color',P.water);
+        if(/water|waterway|river|canal|stream/.test(key)){ sp(l.id,'line-color',P.waterEdge||P.water); if(P.waterEdge) sp(l.id,'line-blur',1.6); }
         else if(/boundary|admin|border/.test(key)) sp(l.id,'line-color',P.boundary);
         else if(/transport|road|street|highway|motorway|trunk|primary|secondary|bridge|tunnel|rail|path|track/.test(key)){
           sp(l.id,'line-color',P.road);
@@ -409,7 +416,14 @@
     d.bg=bg(i); d.endsToday=(d.state==='ending');
   });
 
-  var GAVEL='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="m14.5 12.5-6 6"/><path d="m16 9-3 3"/><path d="m10.5 7.5 6 6"/><path d="M3 21h7"/></svg>';
+  // Classic pin silhouette (location) + auction gavel inside (Advantage.Bid brand).
+  var PIN_SVG='<svg class="pin" viewBox="0 0 34 46" width="34" height="46" aria-hidden="true">'
+    +'<path class="body" d="M17 1.5C9.8 1.5 4 7.3 4 14.5c0 9.4 13 29 13 29s13-19.6 13-29C30 7.3 24.2 1.5 17 1.5z"/>'
+    +'<circle class="face" cx="17" cy="14.5" r="8"/>'
+    +'<rect class="g-head" x="13.4" y="8.9" width="9" height="4.2" rx="1.6" transform="rotate(-32 17.9 11)"/>'
+    +'<path class="g-stick" d="M15.4 12.7 11.6 17.3"/>'
+    +'<path class="g-base" d="M10 18.8 H 15.8"/>'
+    +'</svg>';
 
   /* ── Map ──────────────────────────────────────────────────────────────── */
   var map, markers=[], hoverPopup=null, ambientTimer=null;
@@ -426,10 +440,13 @@
     // A graceful arrival, not an efficient one — anticipation before the reveal.
     setTimeout(function(){ $('intro').classList.add('gone'); }, 1500);   // hold the wordmark
     setTimeout(function(){ $('top').classList.add('in'); }, 2350);       // let the U.S. breathe
-    setTimeout(function(){                                               // then the slow descent (~3.4s, ease-in-out)
-      map.flyTo({center:[LOC.lng,LOC.lat], zoom:10.2, duration:3400, curve:1.25,
-                 easing:function(x){ return x<0.5 ? 4*x*x*x : 1-Math.pow(-2*x+2,3)/2; }, essential:true});
-      map.once('moveend', settle);
+    var ease=function(x){ return x<0.5 ? 4*x*x*x : 1-Math.pow(-2*x+2,3)/2; };
+    setTimeout(function(){                                               // gentle two-phase discovery
+      map.flyTo({center:[LOC.lng,LOC.lat], zoom:6.4, duration:2100, curve:1.2, easing:ease, essential:true});  // glide down to the region
+      map.once('moveend', function(){ setTimeout(function(){            // …a tiny breath to take it in…
+        map.flyTo({center:[LOC.lng,LOC.lat], zoom:10.2, duration:2300, curve:1.2, easing:ease, essential:true}); // …then settle into the neighborhood
+        map.once('moveend', settle);
+      }, 700); });
     }, 2650);
   });
   /* gentle organic "breath" once the camera lands — never stops abruptly */
@@ -438,7 +455,7 @@
   function addMarkers(){
     DATA.forEach(function(d,i){
       var el=document.createElement('div'); el.className='beacon '+d.state;
-      el.innerHTML='<div class="halo"></div>'+((d.state==='ending'||d.state==='coming')?'<div class="ping"></div>':'')+'<div class="pin">'+GAVEL+'</div>';
+      el.innerHTML='<div class="halo"></div>'+((d.state==='ending'||d.state==='coming')?'<div class="ping"></div>':'')+PIN_SVG;
       el.addEventListener('mouseenter',function(){ highlight(d.id,true); showPreview(d); });
       el.addEventListener('mouseleave',function(){ highlight(d.id,false); hidePreview(); });
       el.addEventListener('click',function(){ focusAuction(d); });
