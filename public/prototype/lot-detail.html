@@ -31,7 +31,7 @@
   .cols{display:grid;grid-template-columns:1fr 400px;gap:34px;align-items:start}
   @media(max-width:940px){ .cols{grid-template-columns:1fr} }
   /* gallery */
-  .galhero{position:relative;border-radius:22px;overflow:hidden;aspect-ratio:4/3;background-size:cover;background-position:center;box-shadow:0 22px 50px rgba(8,16,28,.16);cursor:zoom-in}
+  .galhero{position:relative;border-radius:20px;overflow:hidden;aspect-ratio:3/2;max-height:430px;background-size:cover;background-position:center;box-shadow:0 18px 44px rgba(8,16,28,.14);cursor:zoom-in}
   .galhero .zoom{position:absolute;right:12px;bottom:12px;background:rgba(8,14,24,.5);backdrop-filter:blur(6px);color:#fff;border-radius:999px;padding:7px 13px;font-size:12px;font-weight:700}
   .film{display:flex;gap:11px;margin-top:13px;overflow:auto;padding-bottom:4px;scrollbar-width:thin}
   .film .th{width:90px;height:68px;border-radius:11px;flex:0 0 auto;background-size:cover;background-position:center;cursor:pointer;border:2px solid transparent;transition:border-color .15s,transform .15s}
@@ -71,20 +71,32 @@
   .watch{display:flex;align-items:center;justify-content:center;gap:8px;margin-top:12px;color:var(--ink);font-weight:700;font-size:14px;cursor:pointer;padding:11px;border:1px solid var(--hair);border-radius:13px}
   .watch:hover{border-color:var(--live);color:var(--live)}
   .protect{margin-top:16px;border-top:1px solid var(--hair);padding-top:14px}
-  .protect .row{display:flex;gap:10px;align-items:flex-start;font-size:13px;color:#324254;padding:5px 0;line-height:1.5}
-  .protect .i{color:var(--sold);flex:0 0 auto;margin-top:1px}
+  .protect .row{display:flex;gap:11px;align-items:flex-start;font-size:13px;color:#324254;padding:6px 0;line-height:1.5}
+  .protect .ic{color:#64748b;flex:0 0 auto;margin-top:1px;display:grid;place-items:center}
+  .protect .ic svg{width:18px;height:18px}
   /* similar rail */
   .railhead{font-family:"Fraunces","Georgia",serif;font-weight:600;font-size:21px;margin:36px 2px 14px}
   .rail{display:flex;gap:15px;overflow:auto;padding-bottom:8px;scroll-snap-type:x mandatory}
   .rail .card{width:214px;flex:0 0 auto;scroll-snap-align:start;background:#fff;border:1px solid var(--hair);border-radius:16px;overflow:hidden;cursor:pointer;transition:transform .16s,box-shadow .16s}
   .rail .card:hover{transform:translateY(-3px);box-shadow:0 14px 30px rgba(8,16,28,.13)}
-  .rail .card .ph{height:140px;background-size:cover;background-position:center}
+  .rail .card{overflow:hidden}
+  .rail .card .ph{height:140px;background-size:cover;background-position:center;transform-origin:center;transition:transform 6s ease}
+  .rail .card:hover .ph{transform:scale(1.06)}
   .rail .card .b{padding:11px 13px}
   .rail .card .t{font-weight:600;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .rail .card .a{font-family:"Fraunces",serif;font-weight:600;font-variant-numeric:tabular-nums;margin-top:4px}
   footer{max-width:1180px;margin:34px auto;padding:18px 20px;color:var(--muted);font-size:12.5px;border-top:1px solid var(--hair)}
   .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(10px);opacity:0;background:#0B1B2B;color:#fff;padding:13px 20px;border-radius:13px;font-weight:600;font-size:14px;transition:opacity .25s,transform .25s;z-index:50}
   .toast.in{opacity:1;transform:translateX(-50%)}
+  /* mobile: keep bidding in view at all times */
+  .mobilebid{display:none}
+  @media(max-width:940px){
+    .mobilebid{display:flex;position:fixed;left:0;right:0;bottom:0;z-index:45;align-items:center;justify-content:space-between;gap:14px;background:#fff;border-top:1px solid var(--hair);padding:11px 18px calc(11px + env(safe-area-inset-bottom));box-shadow:0 -10px 28px rgba(8,16,28,.12)}
+    .mobilebid .lbl{font-size:10.5px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--muted)}
+    .mobilebid .amt{font-family:"Fraunces","Georgia",serif;font-weight:600;font-size:22px;font-variant-numeric:tabular-nums;line-height:1.1}
+    .mobilebid .btn.primary{width:auto;margin:0;padding:13px 24px;box-shadow:none}
+    body{padding-bottom:80px}
+  }
   @media (prefers-reduced-motion: reduce){ *{animation:none !important;transition-duration:.001ms !important} body{opacity:1} }
 </style>
 </head>
@@ -123,7 +135,7 @@
         <p>No chips or visible inclusions to the unaided eye. Prongs secure. Independent grading notes are available on request before close. Sold as described; in-person preview by appointment during the pickup window.</p>
       </div>
 
-      <div class="railhead">More from this estate</div>
+      <div class="railhead">More from this auction</div>
       <div class="rail" id="rail"></div>
     </div>
 
@@ -151,9 +163,9 @@
         <div class="watch">♡ Add to watchlist</div>
 
         <div class="protect">
-          <div class="row"><span class="i">✓</span><span>Card verified at signup — bid with confidence.</span></div>
-          <div class="row"><span class="i">✓</span><span>Your full address stays private until payment is verified.</span></div>
-          <div class="row"><span class="i">✓</span><span>2-minute anti-snipe — a late bid extends the clock, fair to everyone.</span></div>
+          <div class="row"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="5" width="19" height="14" rx="2.5"/><path d="M2.5 9.5h19"/></svg></span><span>Card verified at signup — bid with confidence.</span></div>
+          <div class="row"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4.5" y="10.5" width="15" height="9.5" rx="2.5"/><path d="M8 10.5V8a4 4 0 0 1 8 0v2.5"/></svg></span><span>Your full address stays private until payment is verified.</span></div>
+          <div class="row"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7.5V12l3 2"/></svg></span><span>2-minute anti-snipe — a late bid extends the clock, fair to everyone.</span></div>
         </div>
       </div>
     </aside>
@@ -161,6 +173,7 @@
 </div>
 <footer>Prototype · bidding is disabled (visual only) · Advantage.Bid design language</footer>
 <div class="toast" id="toast">Prototype — bidding is disabled here</div>
+<div class="mobilebid"><div><div class="lbl">Current bid</div><div class="amt">$1,150</div></div><button class="btn primary" id="mplace">Place bid</button></div>
 
 <script>
 (function(){
@@ -179,6 +192,7 @@
 
   function toast(){ var t=document.getElementById('toast'); t.classList.add('in'); setTimeout(function(){ t.classList.remove('in'); },1900); }
   document.getElementById('place').onclick=toast;
+  var mp=document.getElementById('mplace'); if(mp) mp.onclick=toast;
   document.getElementById('galhero').onclick=toast;
   document.getElementById('plus').onclick=function(){ var b=document.getElementById('bid'); var v=parseInt((b.value||'0').replace(/[^0-9]/g,''),10)||1150; b.value=(v+50).toLocaleString(); };
 })();
