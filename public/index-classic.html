@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Current Auctions - Advantage.Bid Marketplace</title>
+  <meta name="description" content="Browse and bid on current online auctions and lots near you - estate, liquidation, and consignment inventory on Advantage.Bid." />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <style>
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    :root{
+      --ink:#0f172a;--blue:#2563eb;--blue-d:#1d4ed8;--gray:#64748b;
+      --border:#e2e8f0;--bg:#f8fafc;--card:#fff;--chipbg:#f1f5f9;
+    }
+    body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:var(--bg);color:var(--ink);line-height:1.55}
+    a{color:inherit}
+    .wrap{max-width:1140px;margin:0 auto;padding:0 1rem}
+
+    /* ── Hero / search ─────────────────────────────────────────────── */
+    .hero{background:linear-gradient(160deg,#0f172a 0%,#1e293b 60%,#1d4ed8 160%);color:#fff;padding:2.2rem 1rem 2rem}
+    .hero-inner{max-width:1140px;margin:0 auto}
+    .hero h1{font-size:clamp(1.5rem,3.4vw,2.1rem);font-weight:800;letter-spacing:-.02em;margin-bottom:.3rem}
+    .hero p{color:#cbd5e1;font-size:.98rem;margin-bottom:1.2rem;max-width:640px}
+    .searchbar{display:flex;gap:8px;flex-wrap:wrap}
+    .searchbar input[type=text]{flex:1;min-width:220px;padding:13px 14px;border:none;border-radius:10px;font-size:16px}
+    .searchbar button{padding:13px 20px;border:none;border-radius:10px;background:var(--blue);color:#fff;font-weight:700;font-size:15px;cursor:pointer}
+    .searchbar button:hover{background:var(--blue-d)}
+    .searchbar .nearme{background:#fff;color:var(--ink)}
+    .filters{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;align-items:center}
+    .filters select,.filters input{padding:9px 10px;border:1px solid rgba(255,255,255,.25);border-radius:8px;font-size:13px;background:rgba(255,255,255,.10);color:#fff}
+    .filters select option{color:#0f172a}
+    .filters input::placeholder{color:#cbd5e1}
+    .filters label{font-size:13px;color:#e2e8f0;display:flex;align-items:center;gap:5px}
+    .quick{display:flex;gap:6px;flex-wrap:wrap;margin-top:12px}
+    .quick a{font-size:13px;font-weight:700;color:#fff;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.18);border-radius:999px;padding:6px 13px;text-decoration:none}
+    .quick a:hover{background:rgba(255,255,255,.22)}
+
+    /* ── Sections ──────────────────────────────────────────────────── */
+    section.feed{padding:1.8rem 0 .4rem}
+    .sec-head{display:flex;align-items:baseline;justify-content:space-between;gap:1rem;margin-bottom:.9rem}
+    .sec-head h2{font-size:1.2rem;font-weight:800;letter-spacing:-.01em}
+    .sec-head .viewall{font-size:.85rem;font-weight:700;color:var(--blue);text-decoration:none;white-space:nowrap}
+    .sec-head .viewall:hover{text-decoration:underline}
+    .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(225px,1fr));gap:14px}
+
+    .card{display:flex;flex-direction:column;background:var(--card);border:1px solid var(--border);border-radius:13px;overflow:hidden;text-decoration:none;color:inherit;transition:box-shadow .15s,transform .1s}
+    .card:hover{box-shadow:0 4px 16px rgba(15,23,42,.10);transform:translateY(-1px)}
+    .card .img{aspect-ratio:4/3;background:linear-gradient(135deg,#e2e8f0,#f1f5f9);position:relative}
+    .card .img img{width:100%;height:100%;object-fit:cover}
+    .card .body{padding:11px 13px;display:flex;flex-direction:column;gap:4px;flex:1}
+    .card .t{font-weight:700;font-size:.93rem;line-height:1.25}
+    .card .sub{font-size:12px;color:var(--gray)}
+    .card .price{font-weight:800;color:var(--ink);margin-top:auto;padding-top:4px}
+    .card .chip{align-self:flex-start;font-size:11px;font-weight:700;color:#475569;background:var(--chipbg);border-radius:999px;padding:2px 8px}
+    .badge{position:absolute;top:8px;left:8px;font-size:11px;font-weight:800;letter-spacing:.03em;text-transform:uppercase;color:#fff;background:rgba(15,23,42,.82);border-radius:6px;padding:3px 7px}
+    .badge.soon{background:#b45309}
+    .badge.live{background:#16a34a}
+
+    .empty{padding:1.4rem 1rem;text-align:center;color:var(--gray);background:var(--card);border:1px dashed var(--border);border-radius:12px;font-size:.92rem}
+    .loading{padding:1.2rem;text-align:center;color:#94a3b8;font-size:.88rem}
+
+    /* ── Category / location chips ─────────────────────────────────── */
+    .chips{display:flex;flex-wrap:wrap;gap:8px}
+    .chips a{font-size:.86rem;font-weight:700;color:var(--ink);background:var(--card);border:1px solid var(--border);border-radius:999px;padding:8px 14px;text-decoration:none}
+    .chips a:hover{border-color:var(--blue);color:var(--blue)}
+    .chips a .ct{color:var(--gray);font-weight:600;margin-left:5px}
+
+    /* ── Footer (seller content lives here, secondary) ─────────────── */
+    footer{background:var(--ink);color:#94a3b8;margin-top:2.5rem;padding:2.2rem 1rem 2rem}
+    .foot-inner{max-width:1140px;margin:0 auto;display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:1.4rem}
+    footer h4{color:#e2e8f0;font-size:.8rem;letter-spacing:.05em;text-transform:uppercase;margin-bottom:.6rem}
+    footer a{display:block;color:#94a3b8;text-decoration:none;font-size:.88rem;padding:3px 0}
+    footer a:hover{color:#fff}
+    .foot-bottom{max-width:1140px;margin:1.6rem auto 0;padding-top:1.2rem;border-top:1px solid #1e293b;font-size:.8rem;color:#64748b;display:flex;justify-content:space-between;flex-wrap:wrap;gap:.5rem}
+    @media (max-width:480px){.hero{padding:1.6rem 1rem}.grid{grid-template-columns:repeat(auto-fill,minmax(160px,1fr))}}
+  </style>
+</head>
+<body>
+  <!-- Shared buyer header (Browse Auctions / Categories / Locations / My Bids / Watchlist / Account / Sell / Sign In) -->
+  <script src="/widgets/shared/buyer-nav.js"></script>
+
+  <!-- Hero + prominent search -->
+  <div class="hero">
+    <div class="hero-inner">
+      <h1>Current auctions on Advantage.Bid</h1>
+      <p>Search and bid on live auctions and individual lots - estate, liquidation, and consignment inventory. Browse by category or find auctions near you.</p>
+      <form class="searchbar" id="searchForm" autocomplete="off">
+        <input type="text" id="q" placeholder="Search auctions, lots, sellers, or locations…" aria-label="Search" />
+        <button type="submit">Search</button>
+        <button type="button" class="nearme" id="nearme" title="Find auctions near you">📍 Near Me</button>
+      </form>
+      <div class="filters">
+        <select id="f-mode" aria-label="Search type"><option value="lots">Lots</option><option value="auctions">Auctions</option></select>
+        <select id="f-category" aria-label="Category"><option value="">All categories</option></select>
+        <input type="text" id="f-city" placeholder="City" size="9" />
+        <input type="text" id="f-state" placeholder="State" size="4" maxlength="2" style="text-transform:uppercase" />
+        <select id="f-status" aria-label="Status"><option value="">Active &amp; upcoming</option><option value="active">Active</option><option value="upcoming">Upcoming</option></select>
+        <select id="f-radius" aria-label="Radius"><option value="97">Within 60 mi</option><option value="48">Within 30 mi</option><option value="193">Within 120 mi</option><option value="402">Within 250 mi</option></select>
+      </div>
+      <div class="quick">
+        <a href="/search.html?mode=auctions&status=active">Current auctions</a>
+        <a href="/search.html?ending_soon=true">Ending soon</a>
+        <a href="/search.html?sort=newest">Newly listed</a>
+        <a href="/browse-categories.html">Browse categories</a>
+        <a href="/browse-locations.html">Browse locations</a>
+      </div>
+    </div>
+  </div>
+
+  <div class="wrap">
+    <!-- Trust section: recent auction results (shown high for buyer/seller confidence) -->
+    <section class="feed" id="wrap-results" hidden>
+      <div class="sec-head"><h2>Recent Auction Results</h2><a class="viewall" href="/past-auctions.html">View all past auctions →</a></div>
+      <div class="grid" id="sec-results"></div>
+      <div style="margin-top:.9rem"><a href="/past-auctions.html" style="display:inline-block;background:#2563eb;color:#fff;font-weight:700;font-size:.9rem;border-radius:9px;padding:9px 16px;text-decoration:none">View All Past Auctions</a></div>
+    </section>
+
+    <!-- Auction-level sections -->
+    <section class="feed">
+      <div class="sec-head"><h2>Current Auctions</h2><a class="viewall" href="/search.html?mode=auctions&status=active">View all →</a></div>
+      <div class="grid" id="sec-current"><div class="loading">Loading current auctions…</div></div>
+    </section>
+
+    <section class="feed" id="wrap-featured" hidden>
+      <div class="sec-head"><h2>Featured Auctions</h2><a class="viewall" href="/search.html?mode=auctions">View all →</a></div>
+      <div class="grid" id="sec-featured"></div>
+    </section>
+
+    <section class="feed" id="wrap-local" hidden>
+      <div class="sec-head"><h2>Local Auctions Near You</h2><a class="viewall" href="#" id="local-viewall">View all →</a></div>
+      <div class="grid" id="sec-local"></div>
+    </section>
+
+    <section class="feed">
+      <div class="sec-head"><h2>Ending Soon</h2><a class="viewall" href="/search.html?mode=auctions">View all →</a></div>
+      <div class="grid" id="sec-ending"><div class="loading">Loading…</div></div>
+    </section>
+
+    <!-- Lot-level discovery sections -->
+    <section class="feed">
+      <div class="sec-head"><h2>Ending Soon Lots</h2><a class="viewall" href="/search.html?ending_soon=true">View all →</a></div>
+      <div class="grid" id="sec-lots-ending"><div class="loading">Loading…</div></div>
+    </section>
+
+    <section class="feed">
+      <div class="sec-head"><h2>Newly Added Lots</h2><a class="viewall" href="/search.html?sort=newest">View all →</a></div>
+      <div class="grid" id="sec-lots-new"><div class="loading">Loading…</div></div>
+    </section>
+
+    <section class="feed">
+      <div class="sec-head"><h2>Popular Lots · Most Bids</h2><a class="viewall" href="/search.html?sort=most_bids">View all →</a></div>
+      <div class="grid" id="sec-lots-trending"><div class="loading">Loading…</div></div>
+    </section>
+
+    <!-- Browse by category -->
+    <section class="feed">
+      <div class="sec-head"><h2>Browse by Category</h2><a class="viewall" href="/browse-categories.html">All categories →</a></div>
+      <div class="chips" id="sec-categories"><div class="loading">Loading categories…</div></div>
+    </section>
+
+    <!-- Browse by location -->
+    <section class="feed">
+      <div class="sec-head"><h2>Browse by Location</h2><a class="viewall" href="/browse-locations.html">All locations →</a></div>
+      <div class="chips" id="sec-locations"><div class="loading">Loading locations…</div></div>
+    </section>
+  </div>
+
+  <!-- Footer - seller content is secondary here, never the main experience -->
+  <footer>
+    <div class="foot-inner">
+      <div>
+        <h4>Buy</h4>
+        <a href="/search.html">Browse Auctions</a>
+        <a href="/browse-categories.html">Categories</a>
+        <a href="/browse-locations.html">Locations</a>
+        <a href="/how-to-buy.html">How to Buy</a>
+        <a href="/buyer-faq.html">Buyer FAQ</a>
+      </div>
+      <div>
+        <h4>My Account</h4>
+        <a href="/my-bids.html">My Bids</a>
+        <a href="/watchlist.html">Watchlist</a>
+        <a href="/account.html">Account</a>
+        <a href="/login.html">Sign In</a>
+      </div>
+      <div>
+        <h4>Sell with Advantage</h4>
+        <a href="/start-selling.html">Start Selling</a>
+        <a href="/how-it-works.html">How It Works</a>
+        <a href="/seller-faq.html">Seller FAQ</a>
+        <a href="/how-sellers-get-paid.html">How Sellers Get Paid</a>
+      </div>
+      <div>
+        <h4>Company</h4>
+        <a href="https://www.advantage.bid" target="_blank" rel="noopener">Advantage Auction &amp; Estate Sales</a>
+        <a href="/terms.html">Terms of Use</a>
+        <a href="/privacy.html">Privacy Policy</a>
+        <a href="/sitemap.html">Sitemap</a>
+      </div>
+    </div>
+    <div class="foot-bottom">
+      <span>© Advantage.Bid - Online Auction Marketplace</span>
+      <span>The live auction marketplace for Advantage Auction &amp; Estate Sales.</span>
+    </div>
+  </footer>
+
+  <script>
+    var $ = function (s) { return document.querySelector(s); };
+    function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];}); }
+    function usd(c){ return (c==null)?null:'$'+(Number(c)/100).toFixed(2); }
+    function fmtDate(t){ if(!t) return ''; try{ return new Date(t).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}); }catch(e){ return ''; } }
+    // Recent Auction Results card for trust-building. Historical-archive auctions
+    // never show the (internal placeholder) date or bid/price figures.
+    function resultCard(a){
+      var hist = a.public_auction_type === 'historical_archive';
+      var img = a.cover_image_url ? '<img src="'+esc(a.cover_image_url)+'" alt="" loading="lazy">' : '';
+      var lots = (a.sold_lot_count!=null && a.sold_lot_count>0) ? a.sold_lot_count : (a.lot_count||0);
+      var bids = (a.total_bids!=null) ? a.total_bids : 0;
+      return '<a class="card" href="/auction-view.html?auctionId='+encodeURIComponent(a.id)+'">'
+        +'<div class="img"><span class="badge soon">'+(hist?'Historical Auction Archive':'Past Auction')+'</span>'+img+'</div>'
+        +'<div class="body"><div class="t">'+esc(a.title)+'</div>'
+        +(hist?'<div class="sub">Advantage Auction Company</div>':'<div class="sub">Closed '+esc(fmtDate(a.end_time))+'</div>')
+        +'<div class="price">'+(hist?(lots+' lots'):(lots+' lots sold · '+bids+' bids'))+'</div></div></a>';
+    }
+    function timeLeft(t){ if(!t) return ''; var r=new Date(t).getTime()-Date.now(); if(r<=0) return 'Ended';
+      var h=Math.floor(r/3600000),m=Math.floor((r%3600000)/60000);
+      return h>24?(Math.floor(h/24)+'d '+(h%24)+'h'):h>0?(h+'h '+String(m).padStart(2,'0')+'m'):(m+'m'); }
+
+    function auctionCard(a){
+      var img = a.cover_image_url ? '<img src="'+esc(a.cover_image_url)+'" alt="" loading="lazy">' : '';
+      var loc = [a.city, a.address_state].filter(Boolean).join(', ');
+      var dist = (a.distance_km!=null) ? (' · '+Math.max(1,Math.round(a.distance_km*0.621371))+' mi') : '';
+      var lots = (a.lot_count!=null) ? (a.lot_count+' lot'+(a.lot_count===1?'':'s')) : '';
+      var ends = (a.state==='active' && a.end_time) ? ('Ends in '+timeLeft(a.end_time)) : (a.state==='published' ? 'Upcoming' : '');
+      var badge = (a.state==='active') ? '<span class="badge live">Live</span>' : (a.state==='published' ? '<span class="badge">Upcoming</span>' : '');
+      return '<a class="card" href="/auction-view.html?auctionId='+encodeURIComponent(a.id)+'">'
+        +'<div class="img">'+badge+img+'</div><div class="body">'
+        +'<div class="t">'+esc(a.title)+'</div>'
+        +'<div class="sub">'+esc(loc||'')+dist+(a.seller_display_name?(' · '+esc(a.seller_display_name)):'')+'</div>'
+        +'<div class="price">'+esc(lots)+(ends?(' · '+esc(ends)):'')+'</div></div></a>';
+    }
+    function lotCard(l){
+      var cur = (l.current_bid_cents!=null && l.current_bid_cents>0) ? ('Current bid '+usd(l.current_bid_cents))
+              : ('Starts at '+(usd(l.starting_bid_cents)||'$1.00'));
+      var img = l.thumbnail_url ? '<img src="'+esc(l.thumbnail_url)+'" alt="" loading="lazy">' : '';
+      var num = l.lot_number!=null ? ('Lot #'+l.lot_number+' · ') : '';
+      var st = (l.lot_state||l.state);
+      var tl = (st==='open' && l.closes_at) ? timeLeft(l.closes_at)+' left' : (st==='closed'?'Closed':'');
+      var bids = (l.bid_count!=null && l.bid_count>0) ? (l.bid_count+' bid'+(l.bid_count===1?'':'s')) : '';
+      var badge = (st==='open' && l.closes_at && (new Date(l.closes_at).getTime()-Date.now() < 7200000)) ? '<span class="badge soon">Ending soon</span>' : '';
+      return '<a class="card" href="/lot.html?lotId='+encodeURIComponent(l.id)+'">'
+        +'<div class="img">'+badge+img+'</div><div class="body">'
+        +(l.category?('<span class="chip">'+esc(l.category)+'</span>'):'')
+        +'<div class="t">'+num+esc(l.title)+'</div>'
+        +'<div class="sub">'+esc(l.auction_title||'')+([bids,tl].filter(Boolean).length?(' · '+[bids,tl].filter(Boolean).join(' · ')):'')+'</div>'
+        +'<div class="price">'+cur+'</div></div></a>';
+    }
+
+    // Generic section loader. hideWrapId: hide that wrapper element if no rows (used for optional sections).
+    function loadSection(id, url, renderer, empty, hideWrapId){
+      var el = document.getElementById(id);
+      if(!el) return;
+      fetch(url).then(function(r){return r.json();}).then(function(d){
+        var rows = (d && d.data) || [];
+        if(!rows.length){
+          if(hideWrapId){ var w=document.getElementById(hideWrapId); if(w) w.hidden=true; return; }
+          el.innerHTML = '<div class="empty">'+empty+'</div>';
+          return;
+        }
+        if(hideWrapId){ var w2=document.getElementById(hideWrapId); if(w2) w2.hidden=false; }
+        el.innerHTML = rows.map(renderer).join('');
+      }).catch(function(){
+        el.innerHTML = '<div class="empty">Couldn’t load this section. Please refresh.</div>';
+      });
+    }
+
+    // ── Hero search → routes to the full search experience (search.html) ──
+    function buildSearchUrl(){
+      var u = new URLSearchParams();
+      var q = $('#q').value.trim(); if(q) u.set('q', q);
+      var mode = $('#f-mode').value; if(mode) u.set('mode', mode);
+      if($('#f-category').value) u.set('category', $('#f-category').value);
+      if($('#f-city').value.trim()) u.set('city', $('#f-city').value.trim());
+      if($('#f-state').value.trim()) u.set('state', $('#f-state').value.trim().toUpperCase());
+      if($('#f-status').value) u.set('status', $('#f-status').value);
+      return '/search.html?' + u.toString();
+    }
+    $('#searchForm').addEventListener('submit', function(e){ e.preventDefault(); location.href = buildSearchUrl(); });
+
+    // ── Near Me → load local auctions inline (auction/pickup location based) ──
+    $('#nearme').addEventListener('click', function(){
+      var btn = this;
+      if(!navigator.geolocation){ alert('Location is not supported on this device. Try searching by city or state.'); return; }
+      btn.textContent = '📍 Locating…';
+      navigator.geolocation.getCurrentPosition(function(p){
+        var lat=p.coords.latitude, lng=p.coords.longitude;
+        var radius=$('#f-radius').value||100;
+        var wrap=document.getElementById('wrap-local'); wrap.hidden=false;
+        document.getElementById('sec-local').innerHTML='<div class="loading">Finding auctions near you…</div>';
+        wrap.scrollIntoView({behavior:'smooth',block:'start'});
+        var va=document.getElementById('local-viewall'); if(va) va.href='/search.html?mode=auctions';
+        loadSection('sec-local','/api/public/auctions/near?lat='+lat+'&lng='+lng+'&radius_km='+radius+'&limit=8', auctionCard,
+          'No auctions found near you yet. Try a larger radius or browse all current auctions.');
+        btn.textContent='📍 Near Me';
+      }, function(){ btn.textContent='📍 Near Me'; alert('Couldn’t get your location. Allow location access, or search by city/state.'); });
+    });
+
+    // ── Category + location chips ──
+    function loadCategories(){
+      fetch('/api/public/categories').then(function(r){return r.json();}).then(function(d){
+        var rows=(d&&d.data)||[]; var el=$('#sec-categories');
+        var opt=$('#f-category');
+        rows.forEach(function(c){ var o=document.createElement('option'); o.value=c.category; o.textContent=c.category; opt.appendChild(o); });
+        if(!rows.length){ el.innerHTML='<div class="empty">Categories appear here once lots are listed.</div>'; return; }
+        el.innerHTML = rows.slice(0,24).map(function(c){
+          return '<a href="/search.html?category='+encodeURIComponent(c.category)+'">'+esc(c.category)+'<span class="ct">'+c.lot_count+'</span></a>';
+        }).join('');
+      }).catch(function(){ $('#sec-categories').innerHTML='<div class="empty">Couldn’t load categories.</div>'; });
+    }
+    function loadLocations(){
+      fetch('/api/public/locations?limit=24').then(function(r){return r.json();}).then(function(d){
+        var rows=(d&&d.data||[]).filter(function(x){return (x.active_count||0)>0;}); var el=$('#sec-locations');
+        if(!rows.length){ el.innerHTML='<div class="empty">Locations appear here once auctions are listed.</div>'; return; }
+        el.innerHTML = rows.map(function(x){
+          var label=[x.city,x.address_state].filter(Boolean).join(', ');
+          var u=new URLSearchParams({mode:'auctions'}); if(x.city)u.set('city',x.city); if(x.address_state)u.set('state',x.address_state);
+          return '<a href="/search.html?'+u.toString()+'">'+esc(label)+'<span class="ct">'+x.active_count+'</span></a>';
+        }).join('');
+      }).catch(function(){ $('#sec-locations').innerHTML='<div class="empty">Couldn’t load locations.</div>'; });
+    }
+
+    // ── Initial loads ──
+    // Recent Auction Results first (hidden until populated): high-visibility trust section.
+    loadSection('sec-results', '/api/public/auctions?state=closed&limit=3', resultCard, '', 'wrap-results');
+    loadSection('sec-current', '/api/public/auctions?state=active&limit=8', auctionCard,
+      'No active auctions are listed right now. Check back soon for upcoming auctions.');
+    loadSection('sec-featured', '/api/public/featured-auctions?limit=8', auctionCard, '', 'wrap-featured');
+    loadSection('sec-ending', '/api/public/auctions?sort=ending_soon&limit=8', auctionCard,
+      'Nothing is ending in the next 24 hours. Browse all current auctions above.');
+    loadSection('sec-lots-ending', '/api/public/lots/ending-soon?limit=8', lotCard,
+      'No lots are closing soon right now. Check back as auctions get underway.');
+    loadSection('sec-lots-new', '/api/public/lots/recently-added?limit=8', lotCard,
+      'No newly added lots yet. New inventory will appear here.');
+    loadSection('sec-lots-trending', '/api/public/lots/trending?limit=8', lotCard,
+      'No lots have bids yet. Be the first to bid on a current auction.');
+    loadCategories();
+    loadLocations();
+
+    // hydrate search box from ?q= if arriving with one
+    var ip = new URLSearchParams(location.search);
+    if(ip.get('q')) $('#q').value = ip.get('q');
+  </script>
+</body>
+</html>

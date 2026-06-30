@@ -1,354 +1,613 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Current Auctions - Advantage.Bid Marketplace</title>
-  <meta name="description" content="Browse and bid on current online auctions and lots near you - estate, liquidation, and consignment inventory on Advantage.Bid." />
-  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-  <style>
-    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-    :root{
-      --ink:#0f172a;--blue:#2563eb;--blue-d:#1d4ed8;--gray:#64748b;
-      --border:#e2e8f0;--bg:#f8fafc;--card:#fff;--chipbg:#f1f5f9;
-    }
-    body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:var(--bg);color:var(--ink);line-height:1.55}
-    a{color:inherit}
-    .wrap{max-width:1140px;margin:0 auto;padding:0 1rem}
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1" />
+<title>Advantage.Bid — Discover estate auctions near you</title>
+<meta name="description" content="Explore live and upcoming online estate, liquidation, and consignment auctions near you on an interactive map. Bid on individual lots — Advantage.Bid marketplace." />
+<link rel="canonical" href="https://bid.advantage.bid/" />
+<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+<!--
+  Advantage.Bid "Living Map" homepage — the approved design language, wired to the real
+  production discovery API (/api/public/auctions + /near). Presentation layer only: no
+  bidding/auth/seller/admin/Stripe/DB logic lives here. Basemap is configured by
+  /api/public/map-config (MapTiler via MAPTILER_KEY env, CARTO key-free fallback).
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&display=swap" rel="stylesheet">
+<link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet" />
+<style>
+  :root{
+    --ink:#0B1B2B; --muted:#5b6b7e; --hair:#ECECE7;
+    --accent:#2F6BFF; --accentSoft:#7aa2ff;
+    --live:#B5273B; --ending:#E0922E; --coming:#1FB6A6; --hist:#9C6B3A; --sold:#16A34A;
+    --glow:rgba(47,107,255,.5); --scrim:rgba(8,16,28,.42);
+    --capsule:rgba(255,255,255,.78); --capsuleBorder:rgba(255,255,255,.6); --fg:#0B1B2B;
+    --panel:rgba(255,255,255,.92); --panelText:#0B1B2B;
+    --r:18px; --ease:cubic-bezier(.22,.7,.2,1); --spring:cubic-bezier(.34,1.4,.5,1);
+    --sky1:rgba(47,107,255,.10); --sky2:transparent;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{margin:0;font-family:"Söhne",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;color:var(--ink);background:#e9eef5;overflow:hidden;-webkit-font-smoothing:antialiased}
+  button{font:inherit}
+  a{color:inherit}
+  .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
+  #map{position:fixed;inset:0}
+  #atmos{position:fixed;inset:0;pointer-events:none;background:
+      radial-gradient(140% 80% at 50% 0%, var(--sky1), var(--sky2) 60%),
+      radial-gradient(120% 90% at 50% 42%, transparent 52%, var(--scrim));
+      transition:background 1.2s var(--ease)}
 
-    /* ── Hero / search ─────────────────────────────────────────────── */
-    .hero{background:linear-gradient(160deg,#0f172a 0%,#1e293b 60%,#1d4ed8 160%);color:#fff;padding:2.2rem 1rem 2rem}
-    .hero-inner{max-width:1140px;margin:0 auto}
-    .hero h1{font-size:clamp(1.5rem,3.4vw,2.1rem);font-weight:800;letter-spacing:-.02em;margin-bottom:.3rem}
-    .hero p{color:#cbd5e1;font-size:.98rem;margin-bottom:1.2rem;max-width:640px}
-    .searchbar{display:flex;gap:8px;flex-wrap:wrap}
-    .searchbar input[type=text]{flex:1;min-width:220px;padding:13px 14px;border:none;border-radius:10px;font-size:16px}
-    .searchbar button{padding:13px 20px;border:none;border-radius:10px;background:var(--blue);color:#fff;font-weight:700;font-size:15px;cursor:pointer}
-    .searchbar button:hover{background:var(--blue-d)}
-    .searchbar .nearme{background:#fff;color:var(--ink)}
-    .filters{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;align-items:center}
-    .filters select,.filters input{padding:9px 10px;border:1px solid rgba(255,255,255,.25);border-radius:8px;font-size:13px;background:rgba(255,255,255,.10);color:#fff}
-    .filters select option{color:#0f172a}
-    .filters input::placeholder{color:#cbd5e1}
-    .filters label{font-size:13px;color:#e2e8f0;display:flex;align-items:center;gap:5px}
-    .quick{display:flex;gap:6px;flex-wrap:wrap;margin-top:12px}
-    .quick a{font-size:13px;font-weight:700;color:#fff;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.18);border-radius:999px;padding:6px 13px;text-decoration:none}
-    .quick a:hover{background:rgba(255,255,255,.22)}
+  #intro{position:fixed;inset:0;z-index:80;background:radial-gradient(120% 120% at 50% 45%,#0a1322,#04070d 70%);display:grid;place-items:center;transition:opacity 1.1s ease}
+  #intro.gone{opacity:0;pointer-events:none}
+  #intro .mark{font-size:clamp(22px,4.4vw,34px);font-weight:800;letter-spacing:.01em;color:#fff;opacity:0;transform:translateY(8px);animation:rise 1s var(--ease) .2s forwards}
+  #intro .mark span{color:var(--accentSoft)}
+  #intro .tag{margin-top:10px;color:#9fb3cd;font-size:13.5px;letter-spacing:.18em;text-transform:uppercase;opacity:0;animation:rise 1s var(--ease) .55s forwards}
+  @keyframes rise{to{opacity:1;transform:none}}
 
-    /* ── Sections ──────────────────────────────────────────────────── */
-    section.feed{padding:1.8rem 0 .4rem}
-    .sec-head{display:flex;align-items:baseline;justify-content:space-between;gap:1rem;margin-bottom:.9rem}
-    .sec-head h2{font-size:1.2rem;font-weight:800;letter-spacing:-.01em}
-    .sec-head .viewall{font-size:.85rem;font-weight:700;color:var(--blue);text-decoration:none;white-space:nowrap}
-    .sec-head .viewall:hover{text-decoration:underline}
-    .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(225px,1fr));gap:14px}
+  .top{position:fixed;z-index:40;top:max(14px,env(safe-area-inset-top));left:50%;transform:translate(-50%,-10px);width:min(940px,calc(100% - 22px));
+       display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:999px;color:var(--fg);
+       background:var(--capsule);backdrop-filter:saturate(150%) blur(18px);-webkit-backdrop-filter:saturate(150%) blur(18px);
+       box-shadow:0 10px 34px rgba(8,16,28,.20);border:1px solid var(--capsuleBorder);opacity:0;transition:opacity .7s var(--ease),transform .7s var(--ease)}
+  .top.in{opacity:1;transform:translate(-50%,0)}
+  .icobtn{width:38px;height:38px;border-radius:50%;border:0;background:rgba(255,255,255,.0);display:grid;place-items:center;cursor:pointer;color:inherit;transition:background .15s}
+  .icobtn:hover{background:rgba(120,140,170,.14)}
+  .brand{font-weight:700;font-size:17px;letter-spacing:.005em;white-space:nowrap;padding:0 2px;font-family:"Fraunces","Georgia",serif;text-decoration:none;color:inherit}
+  #intro .mark,#hud .count,#nav .brand,.dtitle{font-family:"Fraunces","Georgia",serif}
+  .brand span{color:var(--accent)}
+  .spacer{flex:1}
+  .loc{display:inline-flex;align-items:center;gap:7px;border:1px solid var(--hair);background:rgba(255,255,255,.55);border-radius:999px;padding:8px 13px;font-size:13.5px;font-weight:600;cursor:pointer;white-space:nowrap;color:inherit}
+  .loc:hover{border-color:var(--accent);color:var(--accent)}
+  .avatar{width:38px;height:38px;border-radius:50%;background:linear-gradient(135deg,#1e3a8a,#2F6BFF);flex:0 0 auto;cursor:pointer;box-shadow:inset 0 0 0 2px rgba(255,255,255,.5)}
+  @media(max-width:560px){ .loc .txt{display:none} }
 
-    .card{display:flex;flex-direction:column;background:var(--card);border:1px solid var(--border);border-radius:13px;overflow:hidden;text-decoration:none;color:inherit;transition:box-shadow .15s,transform .1s}
-    .card:hover{box-shadow:0 4px 16px rgba(15,23,42,.10);transform:translateY(-1px)}
-    .card .img{aspect-ratio:4/3;background:linear-gradient(135deg,#e2e8f0,#f1f5f9);position:relative}
-    .card .img img{width:100%;height:100%;object-fit:cover}
-    .card .body{padding:11px 13px;display:flex;flex-direction:column;gap:4px;flex:1}
-    .card .t{font-weight:700;font-size:.93rem;line-height:1.25}
-    .card .sub{font-size:12px;color:var(--gray)}
-    .card .price{font-weight:800;color:var(--ink);margin-top:auto;padding-top:4px}
-    .card .chip{align-self:flex-start;font-size:11px;font-weight:700;color:#475569;background:var(--chipbg);border-radius:999px;padding:2px 8px}
-    .badge{position:absolute;top:8px;left:8px;font-size:11px;font-weight:800;letter-spacing:.03em;text-transform:uppercase;color:#fff;background:rgba(15,23,42,.82);border-radius:6px;padding:3px 7px}
-    .badge.soon{background:#b45309}
-    .badge.live{background:#16a34a}
+  #hud{position:fixed;z-index:35;left:50%;top:90px;transform:translate(-50%,8px);opacity:0;text-align:center;pointer-events:none;
+       transition:opacity .7s var(--ease),transform .7s var(--ease)}
+  #hud.in{opacity:1;transform:translate(-50%,0)}
+  #hud .count{display:inline-block;background:var(--capsule);backdrop-filter:blur(14px);border:1px solid var(--capsuleBorder);
+       border-radius:999px;padding:9px 18px;font-weight:800;font-size:15px;color:var(--fg);box-shadow:0 8px 26px rgba(8,16,28,.20)}
+  #hud .count b{color:var(--accent);font-variant-numeric:tabular-nums}
+  #hud .deltas{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-top:8px}
+  #hud .d{background:var(--capsule);backdrop-filter:blur(12px);border:1px solid var(--capsuleBorder);border-radius:999px;padding:6px 12px;font-size:12.5px;font-weight:600;color:var(--fg);opacity:0;transform:translateY(6px);box-shadow:0 6px 18px rgba(8,16,28,.16)}
+  #hud .d.in{opacity:1;transform:none;transition:opacity .5s var(--ease),transform .5s var(--ease)}
+  #hud .d i{width:7px;height:7px;border-radius:50%;display:inline-block;margin-right:6px;vertical-align:middle}
 
-    .empty{padding:1.4rem 1rem;text-align:center;color:var(--gray);background:var(--card);border:1px dashed var(--border);border-radius:12px;font-size:.92rem}
-    .loading{padding:1.2rem;text-align:center;color:#94a3b8;font-size:.88rem}
+  .beacon{position:relative;width:34px;height:46px;cursor:pointer;color:var(--c,#444);opacity:0;transform:scale(.2) translateY(8px);transform-origin:50% 100%;transition:opacity .55s var(--ease),transform .55s var(--spring),filter .2s}
+  .beacon.bloom{opacity:1;transform:scale(1) translateY(0)}
+  .beacon .halo{position:absolute;left:50%;top:7px;width:30px;height:30px;transform:translateX(-50%);border-radius:50%;background:radial-gradient(circle, var(--c,var(--glow)) 0%, transparent 66%);opacity:.5;filter:blur(2px)}
+  .beacon .pin{position:absolute;left:50%;top:0;width:34px;height:46px;transform:translateX(-50%);transform-origin:50% 100%;filter:drop-shadow(0 6px 7px rgba(8,16,28,.32));transition:transform .22s var(--spring)}
+  .beacon .pin .body{fill:var(--c)}
+  .beacon .pin .face{fill:#fff}
+  .beacon .pin .g-a{stroke:var(--c);stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round;fill:none}
+  .beacon .ping{position:absolute;left:50%;top:7px;width:30px;height:30px;border-radius:50%;transform:translate(-50%,0);border:2px solid var(--c,var(--accent))}
+  .beacon:hover,.beacon.active{filter:drop-shadow(0 12px 16px rgba(8,16,28,.42));z-index:5}
+  .beacon:hover .pin,.beacon.active .pin{transform:translateX(-50%) scale(1.13)}
+  .beacon.live   { --c:var(--live);   }
+  .beacon.live   .halo{animation:breathe 3.2s var(--ease) infinite}
+  .beacon.ending { --c:var(--ending); }
+  .beacon.ending .ping{animation:ping 1.7s ease-out infinite}
+  .beacon.coming { --c:var(--coming); }
+  .beacon.coming .ping{border-style:dashed;opacity:.6}
+  .beacon.historical{ --c:var(--hist); }
+  .beacon.historical .pin{opacity:.96} .beacon.historical .halo{display:none}
+  .beacon.spark .halo{animation:ignite 1.2s ease-out 1}
+  @keyframes breathe{0%,100%{opacity:.42;transform:translateX(-50%) scale(1)}50%{opacity:.9;transform:translateX(-50%) scale(1.16)}}
+  @keyframes ping{0%{transform:translate(-50%,0) scale(1);opacity:.7}100%{transform:translate(-50%,0) scale(2.5);opacity:0}}
+  @keyframes ignite{0%{opacity:0;transform:translateX(-50%) scale(.4)}30%{opacity:.95;transform:translateX(-50%) scale(1.5)}100%{opacity:.42;transform:translateX(-50%) scale(1)}}
 
-    /* ── Category / location chips ─────────────────────────────────── */
-    .chips{display:flex;flex-wrap:wrap;gap:8px}
-    .chips a{font-size:.86rem;font-weight:700;color:var(--ink);background:var(--card);border:1px solid var(--border);border-radius:999px;padding:8px 14px;text-decoration:none}
-    .chips a:hover{border-color:var(--blue);color:var(--blue)}
-    .chips a .ct{color:var(--gray);font-weight:600;margin-left:5px}
+  .maplibregl-popup.preview .maplibregl-popup-content{padding:0;border-radius:16px;overflow:hidden;box-shadow:0 18px 50px rgba(8,16,28,.34);border:1px solid rgba(255,255,255,.5);background:var(--panel);color:var(--panelText);width:248px}
+  .maplibregl-popup.preview .maplibregl-popup-tip{display:none}
+  .pv .img{height:140px;background-size:cover;background-position:center;position:relative;transform-origin:center;animation:slowzoom 9s ease forwards}
+  @keyframes slowzoom{from{transform:scale(1)}to{transform:scale(1.06)}}
+  .pv .img:after{content:"";position:absolute;inset:0;background:linear-gradient(to top,rgba(0,0,0,.45),transparent 55%)}
+  .pv .tagchip{position:absolute;left:10px;top:10px;z-index:1;font-size:11px;font-weight:800;padding:4px 9px;border-radius:999px;color:#fff;letter-spacing:.02em;background:rgba(0,0,0,.35);backdrop-filter:blur(6px)}
+  .pv .body{padding:11px 13px 13px}
+  .pv .t{font-weight:800;font-size:14.5px;line-height:1.2}
+  .pv .s{color:var(--muted);font-size:12.5px;margin-top:4px}
 
-    /* ── Footer (seller content lives here, secondary) ─────────────── */
-    footer{background:var(--ink);color:#94a3b8;margin-top:2.5rem;padding:2.2rem 1rem 2rem}
-    .foot-inner{max-width:1140px;margin:0 auto;display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:1.4rem}
-    footer h4{color:#e2e8f0;font-size:.8rem;letter-spacing:.05em;text-transform:uppercase;margin-bottom:.6rem}
-    footer a{display:block;color:#94a3b8;text-decoration:none;font-size:.88rem;padding:3px 0}
-    footer a:hover{color:#fff}
-    .foot-bottom{max-width:1140px;margin:1.6rem auto 0;padding-top:1.2rem;border-top:1px solid #1e293b;font-size:.8rem;color:#64748b;display:flex;justify-content:space-between;flex-wrap:wrap;gap:.5rem}
-    @media (max-width:480px){.hero{padding:1.6rem 1rem}.grid{grid-template-columns:repeat(auto-fill,minmax(160px,1fr))}}
-  </style>
+  #drawer{position:fixed;z-index:38;background:var(--panel);color:var(--panelText);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px)}
+  @media(min-width:881px){
+    #drawer{top:88px;right:14px;bottom:14px;width:392px;border-radius:20px;border:1px solid var(--capsuleBorder);box-shadow:0 20px 60px rgba(8,16,28,.26);
+            opacity:0;transform:translateX(14px);transition:opacity .7s var(--ease) .35s,transform .7s var(--ease) .35s}
+    #drawer.in{opacity:1;transform:none}
+    #sheetctl{display:none}
+  }
+  @media(max-width:880px){
+    #drawer{left:0;right:0;bottom:0;border-radius:22px 22px 0 0;box-shadow:0 -14px 44px rgba(8,16,28,.28);border-top:1px solid var(--capsuleBorder);
+            height:86vh;transform:translateY(calc(100% - 92px));transition:transform .4s var(--spring);touch-action:none}
+    #drawer.half{transform:translateY(45vh)}
+    #drawer.full{transform:translateY(2vh)}
+    #sheetctl{position:fixed;z-index:39;left:50%;bottom:calc(18px + env(safe-area-inset-bottom));transform:translateX(-50%);
+              background:var(--ink);color:#fff;border:0;border-radius:999px;padding:12px 20px;font-weight:700;box-shadow:0 10px 30px rgba(8,16,28,.4);cursor:pointer;display:inline-flex;gap:8px;align-items:center}
+    body.full #sheetctl{display:none}
+  }
+  .dwrap{height:100%;display:flex;flex-direction:column;min-height:0}
+  .grab{display:none}
+  @media(max-width:880px){.grab{display:block;width:42px;height:5px;border-radius:99px;background:#c2cdda;margin:9px auto 2px;cursor:grab}}
+  .dhead{padding:12px 18px 8px}
+  .dtitle{font-weight:800;font-size:16px;letter-spacing:.01em}
+  .dsub{color:var(--muted);font-size:12.5px;margin-top:2px}
+  .dtabs{display:flex;gap:7px;margin-top:12px;flex-wrap:wrap}
+  .dtab{font-size:12.5px;font-weight:700;padding:7px 13px;border-radius:999px;border:1px solid var(--hair);background:rgba(255,255,255,.5);cursor:pointer;color:var(--muted)}
+  .dtab.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+  .dlist{flex:1;overflow:auto;padding:6px 12px 18px;min-height:0;scrollbar-width:thin}
+  .card{display:flex;gap:13px;padding:11px;border-radius:16px;cursor:pointer;transition:background .16s,transform .16s;align-items:center;text-decoration:none;color:inherit}
+  .card:hover,.card.active{background:rgba(47,107,255,.07);transform:translateX(2px)}
+  .card .ph{width:104px;height:78px;border-radius:12px;flex:0 0 auto;background-size:cover;background-position:center;box-shadow:inset 0 0 0 1px rgba(0,0,0,.06)}
+  .card .meta{min-width:0;flex:1}
+  .card .t{font-weight:750;font-size:14.5px;line-height:1.22;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .card .s{font-size:12.5px;color:var(--muted);margin-top:3px}
+  .card .r{display:flex;align-items:center;gap:8px;margin-top:6px}
+  .tag{display:inline-flex;align-items:center;gap:5px;font-weight:800;padding:3px 9px;border-radius:999px;font-size:11px;letter-spacing:.01em}
+  .tag.live{background:rgba(181,39,59,.12);color:var(--live)} .tag.ending{background:rgba(240,132,59,.14);color:var(--ending)}
+  .tag.historical{background:#eef2f6;color:var(--hist)} .tag.coming{background:rgba(31,182,166,.14);color:var(--coming)}
+  .when{color:var(--muted);font-size:12px}
+  .dempty{padding:22px 14px;text-align:center;color:var(--muted);font-size:13.5px}
+  .dempty a{color:var(--accent);font-weight:700}
+
+  #search{position:fixed;inset:0;z-index:60;display:none;background:rgba(7,13,22,.5);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
+  #search.open{display:block;animation:fade .25s ease}
+  @keyframes fade{from{opacity:0}to{opacity:1}}
+  .sbox{position:absolute;left:50%;top:14vh;transform:translateX(-50%);width:min(680px,calc(100% - 28px));background:#fff;border-radius:20px;box-shadow:0 30px 80px rgba(0,0,0,.4);overflow:hidden;color:#0B1B2B}
+  .sfield{display:flex;align-items:center;gap:12px;padding:18px 20px;border-bottom:1px solid #eef1f4}
+  .sfield input{border:0;outline:0;font-size:19px;width:100%;font-weight:500}
+  .sgrp{padding:8px 8px}
+  .sgrp .lbl{font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#94a3b8;padding:10px 14px 4px}
+  .srow{display:flex;align-items:center;gap:12px;padding:11px 14px;border-radius:12px;cursor:pointer;font-size:14.5px;text-decoration:none;color:inherit}
+  .srow:hover{background:#f4f7fb}
+  .srow .k{width:30px;height:30px;border-radius:8px;display:grid;place-items:center;background:#eef2f8;color:#2F6BFF;flex:0 0 auto}
+  .srow .near{background:linear-gradient(135deg,#2F6BFF,#1e3a8a);color:#fff}
+  .srow small{color:#94a3b8}
+  .sfilters{border-top:1px solid #eef1f4;padding:12px 16px;display:flex;gap:8px;flex-wrap:wrap;color:#64748b;font-size:12.5px}
+  .sfilters .f{border:1px solid #e6eaef;border-radius:999px;padding:6px 12px;cursor:pointer;font-weight:600;text-decoration:none;color:inherit}
+
+  #navwrap{position:fixed;inset:0;z-index:70;display:none}
+  #navwrap.open{display:block}
+  #navscrim{position:absolute;inset:0;background:rgba(7,13,22,.45);opacity:0;transition:opacity .3s ease}
+  #navwrap.open #navscrim{opacity:1}
+  #nav{position:absolute;left:0;top:0;bottom:0;width:min(330px,86vw);background:#0B1B2B;color:#fff;padding:22px 20px;transform:translateX(-100%);transition:transform .34s var(--ease);display:flex;flex-direction:column;overflow:auto}
+  #navwrap.open #nav{transform:none}
+  #nav .brand{font-size:20px;margin-bottom:6px;color:#fff}
+  #nav .tagline{color:#9fb3cd;font-size:12.5px;letter-spacing:.04em;margin-bottom:22px}
+  #nav a{display:flex;align-items:center;gap:12px;color:#dbe4f0;text-decoration:none;font-size:16px;font-weight:600;padding:13px 10px;border-radius:12px}
+  #nav a:hover{background:rgba(255,255,255,.07);color:#fff}
+  #nav .sep{height:1px;background:rgba(255,255,255,.08);margin:12px 0}
+  #nav .foot{margin-top:auto;color:#7f93ab;font-size:12px;padding-top:14px}
+  #nav .aplabel{color:#7f93ab;font-size:11px;letter-spacing:.08em;text-transform:uppercase;padding:8px 10px 4px}
+  .themerow{display:flex;gap:8px;padding:2px 8px 4px;flex-wrap:wrap}
+  .themebtn{flex:1;min-width:84px;border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.06);color:#dbe4f0;border-radius:11px;padding:10px 8px;font-weight:700;font-size:12.5px;cursor:pointer;display:flex;gap:6px;align-items:center;justify-content:center}
+  .themebtn.on{background:#2F6BFF;border-color:#2F6BFF;color:#fff}
+  .themebtn[data-theme=discover].on{background:linear-gradient(135deg,#5BE1FF,#6d5bff);border-color:#5BE1FF;color:#06122a}
+  [data-theme=discover] .beacon .pin{box-shadow:0 6px 16px rgba(8,16,28,.5),0 0 0 1.5px rgba(123,225,255,.55),0 0 20px rgba(91,225,255,.42)}
+  [data-theme=discover] .beacon .halo{filter:blur(2px)}
+  #atmos::before{content:"";position:absolute;inset:-25%;pointer-events:none;background:radial-gradient(42% 32% at 32% 22%,rgba(255,255,255,.06),transparent 60%);animation:drift 30s ease-in-out infinite alternate}
+  @keyframes drift{to{transform:translate(9%,5%)}}
+  [data-theme=discover] #atmos{background:
+      radial-gradient(86% 56% at 84% 3%, rgba(255,206,92,.13), transparent 46%),
+      radial-gradient(90% 60% at 14% 8%, rgba(255,108,200,.13), transparent 46%),
+      radial-gradient(140% 80% at 50% 0%, var(--sky1), transparent 62%),
+      radial-gradient(120% 90% at 50% 42%, transparent 52%, var(--scrim))}
+
+  .legend{position:fixed;z-index:30;left:14px;bottom:calc(14px + env(safe-area-inset-bottom));display:flex;gap:14px;flex-wrap:wrap;
+          background:var(--capsule);backdrop-filter:blur(12px);border:1px solid var(--capsuleBorder);border-radius:13px;padding:9px 13px;font-size:11.5px;font-weight:700;box-shadow:0 8px 22px rgba(8,16,28,.18);color:var(--fg)}
+  .legend i{width:9px;height:9px;border-radius:50%;display:inline-block;margin-right:6px;vertical-align:middle}
+  @media(max-width:880px){.legend{display:none}}
+
+  @media (prefers-reduced-motion: reduce){ *{animation:none !important;transition-duration:.001ms !important} }
+</style>
 </head>
-<body>
-  <!-- Shared buyer header (Browse Auctions / Categories / Locations / My Bids / Watchlist / Account / Sell / Sign In) -->
-  <script src="/widgets/shared/buyer-nav.js"></script>
+<body class="peek">
+  <h1 class="sr-only">Current estate, liquidation, and consignment auctions near you — Advantage.Bid</h1>
+  <noscript>
+    <div style="max-width:760px;margin:40px auto;padding:0 20px;font-family:system-ui,sans-serif;color:#0B1B2B">
+      <h2>Current auctions on Advantage.Bid</h2>
+      <p>Browse live and upcoming estate, liquidation, and consignment auctions near you, and bid on individual lots.</p>
+      <p>
+        <a href="/search.html?mode=auctions&status=active">Browse current auctions</a> ·
+        <a href="/browse-categories.html">Categories</a> ·
+        <a href="/browse-locations.html">Locations</a> ·
+        <a href="/past-auctions.html">Past auctions</a> ·
+        <a href="/login.html">Sign in</a>
+      </p>
+    </div>
+  </noscript>
 
-  <!-- Hero + prominent search -->
-  <div class="hero">
-    <div class="hero-inner">
-      <h1>Current auctions on Advantage.Bid</h1>
-      <p>Search and bid on live auctions and individual lots - estate, liquidation, and consignment inventory. Browse by category or find auctions near you.</p>
-      <form class="searchbar" id="searchForm" autocomplete="off">
-        <input type="text" id="q" placeholder="Search auctions, lots, sellers, or locations…" aria-label="Search" />
-        <button type="submit">Search</button>
-        <button type="button" class="nearme" id="nearme" title="Find auctions near you">📍 Near Me</button>
-      </form>
-      <div class="filters">
-        <select id="f-mode" aria-label="Search type"><option value="lots">Lots</option><option value="auctions">Auctions</option></select>
-        <select id="f-category" aria-label="Category"><option value="">All categories</option></select>
-        <input type="text" id="f-city" placeholder="City" size="9" />
-        <input type="text" id="f-state" placeholder="State" size="4" maxlength="2" style="text-transform:uppercase" />
-        <select id="f-status" aria-label="Status"><option value="">Active &amp; upcoming</option><option value="active">Active</option><option value="upcoming">Upcoming</option></select>
-        <select id="f-radius" aria-label="Radius"><option value="97">Within 60 mi</option><option value="48">Within 30 mi</option><option value="193">Within 120 mi</option><option value="402">Within 250 mi</option></select>
+  <div id="map"></div>
+  <div id="atmos"></div>
+
+  <div id="intro"><div style="text-align:center"><div class="mark">Advantage<span>.Bid</span></div><div class="tag">Treasure is closer than you think</div></div></div>
+
+  <!-- top capsule -->
+  <div class="top" id="top">
+    <button class="icobtn" id="menuBtn" aria-label="Menu"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
+    <a class="brand" href="/" aria-label="Advantage.Bid home">Advantage<span>.Bid</span></a>
+    <div class="spacer"></div>
+    <button class="icobtn" id="searchBtn" aria-label="Search"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg></button>
+    <button class="loc" id="locBtn">📍 <span class="txt" id="locTxt">Find auctions near you</span></button>
+    <a class="avatar" href="/account.html" title="Account" aria-label="Account"></a>
+  </div>
+
+  <div id="hud"><div class="count" id="count">Looking around you…</div><div class="deltas" id="deltas"></div></div>
+
+  <button id="sheetctl">▤ <span>Browse list</span></button>
+
+  <div id="drawer">
+    <div class="dwrap">
+      <div class="grab" id="grab"></div>
+      <div class="dhead">
+        <div class="dtitle" id="dTitle">Auctions near you</div>
+        <div class="dsub" id="dSub">Hover a marker to preview · drag up for the full list</div>
+        <div class="dtabs">
+          <button class="dtab on" data-f="near">Near you</button>
+          <button class="dtab" data-f="ending">Ending soon</button>
+          <button class="dtab" data-f="coming">Coming soon</button>
+          <button class="dtab" data-f="archive">Past</button>
+        </div>
       </div>
-      <div class="quick">
-        <a href="/search.html?mode=auctions&status=active">Current auctions</a>
-        <a href="/search.html?ending_soon=true">Ending soon</a>
-        <a href="/search.html?sort=newest">Newly listed</a>
-        <a href="/browse-categories.html">Browse categories</a>
-        <a href="/browse-locations.html">Browse locations</a>
+      <div class="dlist" id="list"><div class="dempty">Loading auctions…</div></div>
+    </div>
+  </div>
+
+  <div class="legend">
+    <span><i style="background:var(--live)"></i>Live</span>
+    <span><i style="background:var(--ending)"></i>Ending soon</span>
+    <span><i style="background:var(--coming)"></i>Coming soon</span>
+    <span><i style="background:var(--hist)"></i>Past</span>
+  </div>
+
+  <!-- search overlay -->
+  <div id="search">
+    <div class="sbox">
+      <form class="sfield" id="sForm"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+        <input id="sInput" placeholder="Search auctions, items, sellers or locations…" autocomplete="off" /></form>
+      <div class="sgrp">
+        <a class="srow" id="srowNear"><div class="k near">📍</div><div><b>Use my location</b><br><small>See what's happening around you</small></div></a>
+        <div class="lbl">Suggested</div>
+        <a class="srow" href="/search.html?ending_soon=true"><div class="k">⏱</div><div>Ending soon</div></a>
+        <a class="srow" href="/search.html?mode=auctions&status=active"><div class="k">●</div><div>Current auctions</div></a>
+        <a class="srow" href="/search.html?sort=newest"><div class="k">＋</div><div>Newly listed lots</div></a>
+        <a class="srow" href="/browse-categories.html"><div class="k">🗂</div><div>Browse by category</div></a>
+        <a class="srow" href="/browse-locations.html"><div class="k">📍</div><div>Browse by location</div></a>
+      </div>
+      <div class="sfilters"><span>Browse:</span>
+        <a class="f" href="/search.html?mode=auctions">Auctions</a>
+        <a class="f" href="/search.html?mode=lots">Lots</a>
+        <a class="f" href="/past-auctions.html">Past auctions</a>
+        <a class="f" href="/how-to-buy.html">How to buy</a>
       </div>
     </div>
   </div>
 
-  <div class="wrap">
-    <!-- Trust section: recent auction results (shown high for buyer/seller confidence) -->
-    <section class="feed" id="wrap-results" hidden>
-      <div class="sec-head"><h2>Recent Auction Results</h2><a class="viewall" href="/past-auctions.html">View all past auctions →</a></div>
-      <div class="grid" id="sec-results"></div>
-      <div style="margin-top:.9rem"><a href="/past-auctions.html" style="display:inline-block;background:#2563eb;color:#fff;font-weight:700;font-size:.9rem;border-radius:9px;padding:9px 16px;text-decoration:none">View All Past Auctions</a></div>
-    </section>
-
-    <!-- Auction-level sections -->
-    <section class="feed">
-      <div class="sec-head"><h2>Current Auctions</h2><a class="viewall" href="/search.html?mode=auctions&status=active">View all →</a></div>
-      <div class="grid" id="sec-current"><div class="loading">Loading current auctions…</div></div>
-    </section>
-
-    <section class="feed" id="wrap-featured" hidden>
-      <div class="sec-head"><h2>Featured Auctions</h2><a class="viewall" href="/search.html?mode=auctions">View all →</a></div>
-      <div class="grid" id="sec-featured"></div>
-    </section>
-
-    <section class="feed" id="wrap-local" hidden>
-      <div class="sec-head"><h2>Local Auctions Near You</h2><a class="viewall" href="#" id="local-viewall">View all →</a></div>
-      <div class="grid" id="sec-local"></div>
-    </section>
-
-    <section class="feed">
-      <div class="sec-head"><h2>Ending Soon</h2><a class="viewall" href="/search.html?mode=auctions">View all →</a></div>
-      <div class="grid" id="sec-ending"><div class="loading">Loading…</div></div>
-    </section>
-
-    <!-- Lot-level discovery sections -->
-    <section class="feed">
-      <div class="sec-head"><h2>Ending Soon Lots</h2><a class="viewall" href="/search.html?ending_soon=true">View all →</a></div>
-      <div class="grid" id="sec-lots-ending"><div class="loading">Loading…</div></div>
-    </section>
-
-    <section class="feed">
-      <div class="sec-head"><h2>Newly Added Lots</h2><a class="viewall" href="/search.html?sort=newest">View all →</a></div>
-      <div class="grid" id="sec-lots-new"><div class="loading">Loading…</div></div>
-    </section>
-
-    <section class="feed">
-      <div class="sec-head"><h2>Popular Lots · Most Bids</h2><a class="viewall" href="/search.html?sort=most_bids">View all →</a></div>
-      <div class="grid" id="sec-lots-trending"><div class="loading">Loading…</div></div>
-    </section>
-
-    <!-- Browse by category -->
-    <section class="feed">
-      <div class="sec-head"><h2>Browse by Category</h2><a class="viewall" href="/browse-categories.html">All categories →</a></div>
-      <div class="chips" id="sec-categories"><div class="loading">Loading categories…</div></div>
-    </section>
-
-    <!-- Browse by location -->
-    <section class="feed">
-      <div class="sec-head"><h2>Browse by Location</h2><a class="viewall" href="/browse-locations.html">All locations →</a></div>
-      <div class="chips" id="sec-locations"><div class="loading">Loading locations…</div></div>
-    </section>
+  <!-- nav drawer -->
+  <div id="navwrap"><div id="navscrim"></div>
+    <nav id="nav">
+      <a class="brand" href="/">Advantage<span style="color:var(--accentSoft)">.Bid</span></a>
+      <div class="tagline">Discover estate auctions near you</div>
+      <a href="/">🧭 Explore the map</a>
+      <a href="/search.html">⌕ Search &amp; browse</a>
+      <a href="/watchlist.html">♡ Watchlist</a>
+      <a href="/my-bids.html">▣ My bids</a>
+      <a href="/past-auctions.html">🗂 Past auctions</a>
+      <div class="sep"></div>
+      <a href="/start-selling.html">＋ Sell with Advantage</a>
+      <a href="/how-it-works.html">？ How it works</a>
+      <a href="/account.html">◎ Account</a>
+      <a href="/login.html">→ Sign in</a>
+      <div class="sep"></div>
+      <div class="aplabel">Appearance</div>
+      <div class="themerow">
+        <button class="themebtn on" data-theme="light">☀ Light</button>
+        <button class="themebtn" data-theme="dark">🌙 Dark</button>
+        <button class="themebtn" data-theme="discover">✧ Discover</button>
+      </div>
+      <div class="foot">© Advantage Auction Company · Light by day, cinematic by evening</div>
+    </nav>
   </div>
 
-  <!-- Footer - seller content is secondary here, never the main experience -->
-  <footer>
-    <div class="foot-inner">
-      <div>
-        <h4>Buy</h4>
-        <a href="/search.html">Browse Auctions</a>
-        <a href="/browse-categories.html">Categories</a>
-        <a href="/browse-locations.html">Locations</a>
-        <a href="/how-to-buy.html">How to Buy</a>
-        <a href="/buyer-faq.html">Buyer FAQ</a>
-      </div>
-      <div>
-        <h4>My Account</h4>
-        <a href="/my-bids.html">My Bids</a>
-        <a href="/watchlist.html">Watchlist</a>
-        <a href="/account.html">Account</a>
-        <a href="/login.html">Sign In</a>
-      </div>
-      <div>
-        <h4>Sell with Advantage</h4>
-        <a href="/start-selling.html">Start Selling</a>
-        <a href="/how-it-works.html">How It Works</a>
-        <a href="/seller-faq.html">Seller FAQ</a>
-        <a href="/how-sellers-get-paid.html">How Sellers Get Paid</a>
-      </div>
-      <div>
-        <h4>Company</h4>
-        <a href="https://www.advantage.bid" target="_blank" rel="noopener">Advantage Auction &amp; Estate Sales</a>
-        <a href="/terms.html">Terms of Use</a>
-        <a href="/privacy.html">Privacy Policy</a>
-        <a href="/sitemap.html">Sitemap</a>
-      </div>
-    </div>
-    <div class="foot-bottom">
-      <span>© Advantage.Bid - Online Auction Marketplace</span>
-      <span>The live auction marketplace for Advantage Auction &amp; Estate Sales.</span>
-    </div>
-  </footer>
+<script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+<script>
+(function(){
+  "use strict";
+  var reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var $ = function(id){ return document.getElementById(id); };
+  var ease=function(x){ return x<0.5 ? 4*x*x*x : 1-Math.pow(-2*x+2,3)/2; };
 
-  <script>
-    var $ = function (s) { return document.querySelector(s); };
-    function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];}); }
-    function usd(c){ return (c==null)?null:'$'+(Number(c)/100).toFixed(2); }
-    function fmtDate(t){ if(!t) return ''; try{ return new Date(t).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}); }catch(e){ return ''; } }
-    // Recent Auction Results card for trust-building. Historical-archive auctions
-    // never show the (internal placeholder) date or bid/price figures.
-    function resultCard(a){
-      var hist = a.public_auction_type === 'historical_archive';
-      var img = a.cover_image_url ? '<img src="'+esc(a.cover_image_url)+'" alt="" loading="lazy">' : '';
-      var lots = (a.sold_lot_count!=null && a.sold_lot_count>0) ? a.sold_lot_count : (a.lot_count||0);
-      var bids = (a.total_bids!=null) ? a.total_bids : 0;
-      return '<a class="card" href="/auction-view.html?auctionId='+encodeURIComponent(a.id)+'">'
-        +'<div class="img"><span class="badge soon">'+(hist?'Historical Auction Archive':'Past Auction')+'</span>'+img+'</div>'
-        +'<div class="body"><div class="t">'+esc(a.title)+'</div>'
-        +(hist?'<div class="sub">Advantage Auction Company</div>':'<div class="sub">Closed '+esc(fmtDate(a.end_time))+'</div>')
-        +'<div class="price">'+(hist?(lots+' lots'):(lots+' lots sold · '+bids+' bids'))+'</div></div></a>';
+  /* ── Theme & living atmosphere (LIGHT default · DARK / DISCOVER opt-in) ──── */
+  function getTheme(){ try{ var t=localStorage.getItem('ab_theme'); return (t==='dark'||t==='discover')?t:'light'; }catch(e){ return 'light'; } }
+  function todPart(){ var h=new Date().getHours(); return h<11?'morning':h<17?'afternoon':h<21?'evening':'night'; }
+  function season(){ var m=new Date().getMonth(); return (m<2||m===11)?'winter':m<5?'spring':m<8?'summer':'autumn'; }
+  /* Basemap is configured by /api/public/map-config (MapTiler env key or CARTO fallback). */
+  var CFG={ provider:'carto',
+    styleLight:'https://basemaps.cartocdn.com/gl/positron-gl-style/style.json',
+    styleDark:'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json' };
+  function styleFor(theme){ return (theme==='dark'||theme==='discover') ? CFG.styleDark : CFG.styleLight; }
+  var SKIN={
+    light:   {land:'#F4F1E9',water:'#CFE4F6',green:'#E6EEDE',road:'#E9E3D8',building:'#ECE6DC',label:'#3a536e',halo:'rgba(251,251,249,.92)',boundary:'#e3ddd0'},
+    dark:    {land:'#0E1726',water:'#0B1C33',green:'#13241f',road:'#26374f',building:'#162234',label:'#9fb6d4',halo:'rgba(6,16,30,.85)',boundary:'#2a3a52'},
+    discover:{land:'#181E46',water:'#1E74BE',waterEdge:'#62E7FF',green:'#16414C',road:'#5BE1FF',building:'#27306b',label:'#dbe9ff',halo:'rgba(10,14,42,.7)',boundary:'#B06FE0',glowRoads:true,glowBlur:2.6}
+  };
+  window.__PAL=SKIN.light;
+  function setVars(v){ var r=document.documentElement.style;
+    r.setProperty('--ink',v.ink); r.setProperty('--muted',v.muted); r.setProperty('--hair',v.hair);
+    r.setProperty('--capsule',v.cap); r.setProperty('--capsuleBorder',v.capb);
+    r.setProperty('--panel',v.panel); r.setProperty('--panelText',v.ptext); r.setProperty('--fg',v.ptext);
+    r.setProperty('--glow',v.glow); r.setProperty('--scrim',v.scrim); r.setProperty('--sky1',v.sky);
+    if(v.accent){r.setProperty('--accent',v.accent);} if(v.live){r.setProperty('--live',v.live);} }
+  function computeMood(){
+    var theme=getTheme(), t=todPart(), holiday=(new Date().getMonth()===11);
+    document.body.setAttribute('data-theme',theme); window.__PAL=SKIN[theme];
+    if(theme==='discover'){
+      setVars({ink:'#EAF1FF',muted:'#aDc1e8',hair:'rgba(140,170,255,.2)',cap:'rgba(26,30,72,.66)',capb:'rgba(130,170,255,.3)',panel:'rgba(22,27,64,.9)',ptext:'#EAF1FF',
+               glow:'rgba(98,231,255,.62)',scrim:'rgba(12,16,46,.34)',sky:'rgba(98,170,255,.30)',accent:'#5BE1FF'});
+    } else if(theme==='dark'){
+      var dg={morning:'rgba(122,162,255,.5)',afternoon:'rgba(122,162,255,.5)',evening:'rgba(240,150,90,.55)',night:'rgba(122,162,255,.5)'}[t];
+      setVars({ink:'#EAF1FF',muted:'#9fb3cd',hair:'rgba(255,255,255,.12)',cap:'rgba(14,21,34,.72)',capb:'rgba(255,255,255,.12)',panel:'rgba(12,18,30,.92)',ptext:'#EAF1FF',
+               glow:dg,scrim:'rgba(3,7,14,.55)',sky:(holiday?'rgba(214,170,110,.18)':'rgba(60,90,160,.18)'),accent:'#5b8cff'});
+    } else {
+      var ss={winter:'rgba(150,190,255,.20)',spring:'rgba(165,222,185,.18)',summer:'rgba(255,212,150,.18)',autumn:'rgba(240,175,115,.20)'}[season()];
+      var a={ morning:{glow:'rgba(47,107,255,.30)',sky:ss,scrim:'rgba(226,236,250,.16)'},
+              afternoon:{glow:'rgba(47,107,255,.40)',sky:ss,scrim:'rgba(11,27,43,.14)'},
+              evening:{glow:'rgba(255,150,80,.50)',sky:'rgba(255,186,120,.26)',scrim:'rgba(74,40,16,.20)'},
+              night:{glow:'rgba(96,132,220,.42)',sky:'rgba(120,150,210,.20)',scrim:'rgba(28,38,64,.20)'} }[t];
+      if(holiday) a.sky='rgba(214,170,110,.26)';
+      setVars({ink:'#0B1B2B',muted:'#5b6b7e',hair:'#ECECE7',cap:'rgba(255,255,255,.82)',capb:'rgba(255,255,255,.64)',panel:'rgba(255,255,255,.94)',ptext:'#0B1B2B',
+               glow:a.glow,scrim:a.scrim,sky:a.sky,accent:'#2F6BFF'});
     }
-    function timeLeft(t){ if(!t) return ''; var r=new Date(t).getTime()-Date.now(); if(r<=0) return 'Ended';
-      var h=Math.floor(r/3600000),m=Math.floor((r%3600000)/60000);
-      return h>24?(Math.floor(h/24)+'d '+(h%24)+'h'):h>0?(h+'h '+String(m).padStart(2,'0')+'m'):(m+'m'); }
-
-    function auctionCard(a){
-      var img = a.cover_image_url ? '<img src="'+esc(a.cover_image_url)+'" alt="" loading="lazy">' : '';
-      var loc = [a.city, a.address_state].filter(Boolean).join(', ');
-      var dist = (a.distance_km!=null) ? (' · '+Math.max(1,Math.round(a.distance_km*0.621371))+' mi') : '';
-      var lots = (a.lot_count!=null) ? (a.lot_count+' lot'+(a.lot_count===1?'':'s')) : '';
-      var ends = (a.state==='active' && a.end_time) ? ('Ends in '+timeLeft(a.end_time)) : (a.state==='published' ? 'Upcoming' : '');
-      var badge = (a.state==='active') ? '<span class="badge live">Live</span>' : (a.state==='published' ? '<span class="badge">Upcoming</span>' : '');
-      return '<a class="card" href="/auction-view.html?auctionId='+encodeURIComponent(a.id)+'">'
-        +'<div class="img">'+badge+img+'</div><div class="body">'
-        +'<div class="t">'+esc(a.title)+'</div>'
-        +'<div class="sub">'+esc(loc||'')+dist+(a.seller_display_name?(' · '+esc(a.seller_display_name)):'')+'</div>'
-        +'<div class="price">'+esc(lots)+(ends?(' · '+esc(ends)):'')+'</div></div></a>';
-    }
-    function lotCard(l){
-      var cur = (l.current_bid_cents!=null && l.current_bid_cents>0) ? ('Current bid '+usd(l.current_bid_cents))
-              : ('Starts at '+(usd(l.starting_bid_cents)||'$1.00'));
-      var img = l.thumbnail_url ? '<img src="'+esc(l.thumbnail_url)+'" alt="" loading="lazy">' : '';
-      var num = l.lot_number!=null ? ('Lot #'+l.lot_number+' · ') : '';
-      var st = (l.lot_state||l.state);
-      var tl = (st==='open' && l.closes_at) ? timeLeft(l.closes_at)+' left' : (st==='closed'?'Closed':'');
-      var bids = (l.bid_count!=null && l.bid_count>0) ? (l.bid_count+' bid'+(l.bid_count===1?'':'s')) : '';
-      var badge = (st==='open' && l.closes_at && (new Date(l.closes_at).getTime()-Date.now() < 7200000)) ? '<span class="badge soon">Ending soon</span>' : '';
-      return '<a class="card" href="/lot.html?lotId='+encodeURIComponent(l.id)+'">'
-        +'<div class="img">'+badge+img+'</div><div class="body">'
-        +(l.category?('<span class="chip">'+esc(l.category)+'</span>'):'')
-        +'<div class="t">'+num+esc(l.title)+'</div>'
-        +'<div class="sub">'+esc(l.auction_title||'')+([bids,tl].filter(Boolean).length?(' · '+[bids,tl].filter(Boolean).join(' · ')):'')+'</div>'
-        +'<div class="price">'+cur+'</div></div></a>';
-    }
-
-    // Generic section loader. hideWrapId: hide that wrapper element if no rows (used for optional sections).
-    function loadSection(id, url, renderer, empty, hideWrapId){
-      var el = document.getElementById(id);
-      if(!el) return;
-      fetch(url).then(function(r){return r.json();}).then(function(d){
-        var rows = (d && d.data) || [];
-        if(!rows.length){
-          if(hideWrapId){ var w=document.getElementById(hideWrapId); if(w) w.hidden=true; return; }
-          el.innerHTML = '<div class="empty">'+empty+'</div>';
-          return;
+    return styleFor(theme);
+  }
+  function sp(id,prop,val){ try{ map.setPaintProperty(id,prop,val); }catch(e){} }
+  function applySkin(){
+    if(!map){return;} var P=window.__PAL; if(!P){return;}
+    var layers; try{ if(!map.isStyleLoaded())return; layers=(map.getStyle().layers)||[]; }catch(e){ return; }
+    layers.forEach(function(l){
+      var key=((l['source-layer']||'')+' '+l.id).toLowerCase();
+      if(l.type==='background'){ sp(l.id,'background-color',P.land); }
+      else if(l.type==='fill'){
+        if(/water|ocean|sea|lake|bay|river/.test(key)){ sp(l.id,'fill-color',P.water); if(P.waterEdge) sp(l.id,'fill-outline-color',P.waterEdge); }
+        else if(/park|wood|grass|forest|landcover|landuse|cemeter|golf|pitch|garden|scrub|wetland|sand|farm/.test(key)) sp(l.id,'fill-color',P.green);
+        else if(/building/.test(key)) sp(l.id,'fill-color',P.building);
+        else if(/land|earth|background/.test(key)) sp(l.id,'fill-color',P.land);
+      }
+      else if(l.type==='line'){
+        if(/water|waterway|river|canal|stream/.test(key)){ sp(l.id,'line-color',P.waterEdge||P.water); if(P.waterEdge) sp(l.id,'line-blur',1.6); }
+        else if(/boundary|admin|border/.test(key)) sp(l.id,'line-color',P.boundary);
+        else if(/transport|road|street|highway|motorway|trunk|primary|secondary|bridge|tunnel|rail|path|track/.test(key)){
+          sp(l.id,'line-color',P.road);
+          if(P.glowRoads){ sp(l.id,'line-blur',P.glowBlur); sp(l.id,'line-opacity',0.95); }
         }
-        if(hideWrapId){ var w2=document.getElementById(hideWrapId); if(w2) w2.hidden=false; }
-        el.innerHTML = rows.map(renderer).join('');
-      }).catch(function(){
-        el.innerHTML = '<div class="empty">Couldn’t load this section. Please refresh.</div>';
-      });
-    }
-
-    // ── Hero search → routes to the full search experience (search.html) ──
-    function buildSearchUrl(){
-      var u = new URLSearchParams();
-      var q = $('#q').value.trim(); if(q) u.set('q', q);
-      var mode = $('#f-mode').value; if(mode) u.set('mode', mode);
-      if($('#f-category').value) u.set('category', $('#f-category').value);
-      if($('#f-city').value.trim()) u.set('city', $('#f-city').value.trim());
-      if($('#f-state').value.trim()) u.set('state', $('#f-state').value.trim().toUpperCase());
-      if($('#f-status').value) u.set('status', $('#f-status').value);
-      return '/search.html?' + u.toString();
-    }
-    $('#searchForm').addEventListener('submit', function(e){ e.preventDefault(); location.href = buildSearchUrl(); });
-
-    // ── Near Me → load local auctions inline (auction/pickup location based) ──
-    $('#nearme').addEventListener('click', function(){
-      var btn = this;
-      if(!navigator.geolocation){ alert('Location is not supported on this device. Try searching by city or state.'); return; }
-      btn.textContent = '📍 Locating…';
-      navigator.geolocation.getCurrentPosition(function(p){
-        var lat=p.coords.latitude, lng=p.coords.longitude;
-        var radius=$('#f-radius').value||100;
-        var wrap=document.getElementById('wrap-local'); wrap.hidden=false;
-        document.getElementById('sec-local').innerHTML='<div class="loading">Finding auctions near you…</div>';
-        wrap.scrollIntoView({behavior:'smooth',block:'start'});
-        var va=document.getElementById('local-viewall'); if(va) va.href='/search.html?mode=auctions';
-        loadSection('sec-local','/api/public/auctions/near?lat='+lat+'&lng='+lng+'&radius_km='+radius+'&limit=8', auctionCard,
-          'No auctions found near you yet. Try a larger radius or browse all current auctions.');
-        btn.textContent='📍 Near Me';
-      }, function(){ btn.textContent='📍 Near Me'; alert('Couldn’t get your location. Allow location access, or search by city/state.'); });
+      }
+      else if(l.type==='symbol'){ sp(l.id,'text-color',P.label); sp(l.id,'text-halo-color',P.halo); sp(l.id,'text-halo-width',1.2); }
     });
+  }
+  function setTheme(theme){ try{ localStorage.setItem('ab_theme',theme); }catch(e){}
+    var style=computeMood();
+    document.querySelectorAll('.themebtn').forEach(function(b){ b.classList.toggle('on',b.dataset.theme===theme); });
+    if(map){ try{ map.setStyle(style); map.once('styledata',function(){ setTimeout(applySkin,250); }); }catch(e){} }
+  }
 
-    // ── Category + location chips ──
-    function loadCategories(){
-      fetch('/api/public/categories').then(function(r){return r.json();}).then(function(d){
-        var rows=(d&&d.data)||[]; var el=$('#sec-categories');
-        var opt=$('#f-category');
-        rows.forEach(function(c){ var o=document.createElement('option'); o.value=c.category; o.textContent=c.category; opt.appendChild(o); });
-        if(!rows.length){ el.innerHTML='<div class="empty">Categories appear here once lots are listed.</div>'; return; }
-        el.innerHTML = rows.slice(0,24).map(function(c){
-          return '<a href="/search.html?category='+encodeURIComponent(c.category)+'">'+esc(c.category)+'<span class="ct">'+c.lot_count+'</span></a>';
-        }).join('');
-      }).catch(function(){ $('#sec-categories').innerHTML='<div class="empty">Couldn’t load categories.</div>'; });
+  /* ── Location (never prompt on load) ─────────────────────────────────── */
+  var US={name:'United States',lng:-96,lat:38};
+  var LOC=(function(){try{return JSON.parse(localStorage.getItem('ab_loc'))||null;}catch(e){return null;}})();
+  if(LOC&&LOC.name){ $('locTxt').textContent=LOC.name; }
+
+  /* ── Real data → marker/list model ───────────────────────────────────── */
+  var GRAD=['linear-gradient(135deg,#1e3a8a,#0f766e)','linear-gradient(135deg,#7c3a04,#9d174d)','linear-gradient(135deg,#3730a3,#0c4a6e)','linear-gradient(135deg,#155e75,#4d7c0f)'];
+  function esc(s){ return String(s==null?'':s).replace(/'/g,"%27"); }
+  function timeLeft(t){ if(!t) return ''; var r=new Date(t).getTime()-Date.now(); if(r<=0) return 'Ended';
+    var h=Math.floor(r/3600000),m=Math.floor((r%3600000)/60000);
+    return h>24?(Math.floor(h/24)+'d '+(h%24)+'h'):h>0?(h+'h '+String(m).padStart(2,'0')+'m'):(m+'m'); }
+  function shortDate(t){ if(!t) return ''; try{ return new Date(t).toLocaleDateString('en-US',{month:'short',day:'numeric'}); }catch(e){ return ''; } }
+  function classify(a){
+    if(a.public_auction_type==='historical_archive'||a.state==='closed') return 'historical';
+    if(a.state==='active'){ var r=a.end_time?(new Date(a.end_time).getTime()-Date.now()):1e12; return (r>0&&r<24*3600000)?'ending':'live'; }
+    return 'coming';
+  }
+  function toD(a,i){
+    var st=classify(a);
+    var cover=a.cover_image_url||a.banner_image_url||null;
+    var end = st==='historical' ? 'Closed'
+            : st==='coming' ? (a.start_time?('Opens '+shortDate(a.start_time)):'Upcoming')
+            : (a.end_time? ('Ends '+timeLeft(a.end_time)) : 'Live');
+    return {
+      id:a.id, t:a.title||'Untitled auction',
+      city:[a.city,a.address_state].filter(Boolean).join(', '),
+      state:st, lots:(a.lot_count||0), end:end,
+      lng:(a.lng!=null&&a.lng!==''?+a.lng:null), lat:(a.lat!=null&&a.lat!==''?+a.lat:null),
+      mi:(a.distance_km!=null?Math.max(1,Math.round(a.distance_km*0.621371)):null),
+      bg: cover ? ("url('"+esc(cover)+"'),"+GRAD[i%GRAD.length]) : GRAD[i%GRAD.length],
+      href:'/auction-view.html?auctionId='+encodeURIComponent(a.id),
+      endsToday:(st==='ending')
+    };
+  }
+  function j(u){ return fetch(u).then(function(r){return r.json();}).then(function(d){return (d&&d.data)||[];}).catch(function(){return [];}); }
+
+  var DATA=[], ARCH=[], archiveLoaded=false;
+  function loadCore(){
+    return Promise.all([ j('/api/public/auctions?state=active&limit=60'), j('/api/public/auctions?state=published&limit=60') ])
+      .then(function(r){ var rows=[].concat(r[0],r[1]); DATA=rows.map(toD); return DATA; });
+  }
+  function loadArchive(){ if(archiveLoaded) return Promise.resolve(ARCH);
+    return j('/api/public/auctions?state=closed&limit=40').then(function(rows){ ARCH=rows.map(toD); archiveLoaded=true; return ARCH; }); }
+
+  // Classic location pin + Advantage "A" brand mark inside.
+  var PIN_SVG='<svg class="pin" viewBox="0 0 34 46" width="34" height="46" aria-hidden="true">'
+    +'<path class="body" d="M17 1.5C9.8 1.5 4 7.3 4 14.5c0 9.4 13 29 13 29s13-19.6 13-29C30 7.3 24.2 1.5 17 1.5z"/>'
+    +'<circle class="face" cx="17" cy="14.5" r="8"/>'
+    +'<path class="g-a" d="M17 9 L13.2 20"/>'
+    +'<path class="g-a" d="M17 9 L20.8 20"/>'
+    +'<path class="g-a" d="M14.5 16.1 H19.5"/>'
+    +'</svg>';
+
+  /* ── Map ──────────────────────────────────────────────────────────────── */
+  var map, markersById={}, hoverPopup=null, ambientTimer=null, started=false;
+
+  function boot(){
+    try{ map=new maplibregl.Map({container:'map',style:computeMood(),center:[US.lng,US.lat],zoom:reduce?9:3.5,attributionControl:false,dragRotate:false,pitchWithRotate:false}); }
+    catch(e){ degrade(); return; }
+    map.on('error',function(){});
+    map.on('load',onMapLoad);
+  }
+  // resolve basemap config first (non-blocking: falls back to CARTO), then boot the map
+  fetch('/api/public/map-config').then(function(r){return r.json();}).then(function(c){
+    if(c&&c.styleLight){ CFG.provider=c.provider||CFG.provider; CFG.styleLight=c.styleLight; CFG.styleDark=c.styleDark||c.styleLight; }
+  }).catch(function(){}).then(boot);
+
+  function degrade(){ $('intro').classList.add('gone'); $('top').classList.add('in'); $('drawer').classList.add('in'); loadCore().then(function(){ buildList('near'); revealHUD(); }); }
+
+  function onMapLoad(){
+    applySkin(); map.once('idle',applySkin);
+    var dataReady=loadCore();
+    function settle(){ dataReady.then(function(){ addMarkers(DATA); $('drawer').classList.add('in'); buildList('near'); revealHUD(); startAmbient(); }); }
+    if(reduce){ $('intro').classList.add('gone'); $('top').classList.add('in'); dataReady.then(function(){ frameData(true); settle(); }); return; }
+    setTimeout(function(){ $('intro').classList.add('gone'); }, 1500);
+    setTimeout(function(){ $('top').classList.add('in'); }, 2350);
+    setTimeout(function(){ dataReady.then(function(){ frameData(false); map.once('moveend', settle); }); }, 2650);
+    // safety: if data is slow, still settle after a few seconds
+    setTimeout(function(){ if(!started){ started=true; settle(); } }, 6000);
+  }
+
+  function frameData(instant){
+    started=true;
+    var pts=DATA.filter(function(d){return d.lng!=null&&d.lat!=null;});
+    if(!pts.length){ if(LOC){ map[instant?'jumpTo':'flyTo']({center:[LOC.lng,LOC.lat],zoom:9.5,duration:2200,curve:1.2,easing:ease,essential:true}); } else { map[instant?'jumpTo':'flyTo']({center:[US.lng,US.lat],zoom:reduce?9:3.9,duration:1800,essential:true}); } return; }
+    if(pts.length===1){ map[instant?'jumpTo':'flyTo']({center:[pts[0].lng,pts[0].lat],zoom:9.6,duration:2400,curve:1.2,easing:ease,essential:true}); return; }
+    try{ var b=new maplibregl.LngLatBounds(); pts.forEach(function(p){ b.extend([p.lng,p.lat]); }); map.fitBounds(b,{padding:Math.min(140,innerWidth/5),duration:instant?0:2400,maxZoom:11,essential:true}); }
+    catch(e){ map.flyTo({center:[pts[0].lng,pts[0].lat],zoom:9,essential:true}); }
+  }
+
+  function addMarkers(arr){
+    arr.forEach(function(d,i){
+      if(d.lng==null||d.lat==null||markersById[d.id]) return;
+      var el=document.createElement('div'); el.className='beacon '+d.state;
+      el.innerHTML='<div class="halo"></div>'+((d.state==='ending'||d.state==='coming')?'<div class="ping"></div>':'')+PIN_SVG;
+      el.addEventListener('mouseenter',function(){ highlight(d.id,true); showPreview(d); });
+      el.addEventListener('mouseleave',function(){ highlight(d.id,false); hidePreview(); });
+      el.addEventListener('click',function(){ location.href=d.href; });
+      new maplibregl.Marker({element:el,anchor:'bottom'}).setLngLat([d.lng,d.lat]).addTo(map);
+      d._el=el; markersById[d.id]=d;
+      setTimeout(function(){ el.classList.add('bloom'); }, reduce?0:(220+i*120));
+    });
+  }
+  function showPreview(d){
+    if(reduce) return;
+    var tagtxt={live:'LIVE',ending:'ENDING SOON',coming:'COMING SOON',historical:'PAST'}[d.state];
+    var tagbg={live:'#B5273B',ending:'#E0922E',coming:'#1FB6A6',historical:'#8aa0b8'}[d.state];
+    var miTxt=(d.mi!=null?(' · '+d.mi+' mi'):'');
+    var tail=d.state==='historical'?(' · '+d.lots+' lots'):(' · '+d.end);
+    var html='<div class="pv"><div class="img" style="background-image:'+d.bg+'"><span class="tagchip" style="background:'+tagbg+'">'+tagtxt+'</span></div>'+
+      '<div class="body"><div class="t">'+d.t+'</div><div class="s">📍 '+(d.city||'')+miTxt+tail+'</div></div></div>';
+    hidePreview();
+    hoverPopup=new maplibregl.Popup({closeButton:false,closeOnClick:false,offset:26,className:'preview',maxWidth:'260px'}).setLngLat([d.lng,d.lat]).setHTML(html).addTo(map);
+    var elp=hoverPopup.getElement(); if(elp) elp.style.pointerEvents='none';
+  }
+  function hidePreview(){ if(hoverPopup){ hoverPopup.remove(); hoverPopup=null; } }
+  function startAmbient(){
+    if(reduce) return;
+    ambientTimer=setInterval(function(){
+      var live=DATA.filter(function(d){return d.state==='live'&&d._el;});
+      if(!live.length) return; var d=live[Math.floor(Math.random()*live.length)];
+      d._el.classList.add('spark'); setTimeout(function(){ d._el && d._el.classList.remove('spark'); },1300);
+    }, 4200);
+  }
+
+  /* ── Drawer list + map⇄card sync ──────────────────────────────────────── */
+  var F={near:function(d){return d.state!=='historical';},ending:function(d){return d.state==='ending';},coming:function(d){return d.state==='coming';},archive:function(d){return d.state==='historical';}};
+  var TT={near:'Auctions near you',ending:'Ending soon',coming:'Coming soon',archive:'Past auctions'};
+  function source(f){ return f==='archive'?ARCH:DATA; }
+  function buildList(f){
+    var list=$('list'); list.innerHTML=''; $('dTitle').textContent=TT[f];
+    var q=($('sInput').value||'').toLowerCase();
+    var rows=source(f).filter(F[f]).filter(function(d){return !q||d.t.toLowerCase().indexOf(q)>=0||(d.city||'').toLowerCase().indexOf(q)>=0;});
+    $('dSub').textContent=rows.length+(f==='archive'?' completed auctions':' auctions · hover to preview on the map');
+    if(!rows.length){
+      list.innerHTML='<div class="dempty">'+(f==='archive'?'No past auctions to show yet.':'No auctions to show here right now.')+'<br><a href="/search.html?mode=auctions">Browse all auctions →</a></div>';
+      return;
     }
-    function loadLocations(){
-      fetch('/api/public/locations?limit=24').then(function(r){return r.json();}).then(function(d){
-        var rows=(d&&d.data||[]).filter(function(x){return (x.active_count||0)>0;}); var el=$('#sec-locations');
-        if(!rows.length){ el.innerHTML='<div class="empty">Locations appear here once auctions are listed.</div>'; return; }
-        el.innerHTML = rows.map(function(x){
-          var label=[x.city,x.address_state].filter(Boolean).join(', ');
-          var u=new URLSearchParams({mode:'auctions'}); if(x.city)u.set('city',x.city); if(x.address_state)u.set('state',x.address_state);
-          return '<a href="/search.html?'+u.toString()+'">'+esc(label)+'<span class="ct">'+x.active_count+'</span></a>';
-        }).join('');
-      }).catch(function(){ $('#sec-locations').innerHTML='<div class="empty">Couldn’t load locations.</div>'; });
-    }
+    rows.forEach(function(d){
+      var tg={live:'● Live',ending:'⏱ Ending soon',coming:'◷ Coming soon',historical:'Past'}[d.state];
+      var miTxt=(d.mi!=null?(' · '+d.mi+' mi'):'');
+      var when=d.state==='coming'?d.end:(d.state==='historical'?(d.lots+' lots'):(d.end+(d.lots?(' · '+d.lots+' lots'):'')));
+      var c=document.createElement('a'); c.className='card'; c.dataset.id=d.id; c.href=d.href;
+      c.innerHTML='<div class="ph" style="background-image:'+d.bg+'"></div><div class="meta"><div class="t">'+d.t+'</div>'+
+        '<div class="s">📍 '+(d.city||'Location TBA')+miTxt+'</div>'+
+        '<div class="r"><span class="tag '+d.state+'">'+tg+'</span><span class="when">'+when+'</span></div></div>';
+      c.addEventListener('mouseenter',function(){ highlight(d.id,true); });
+      c.addEventListener('mouseleave',function(){ highlight(d.id,false); });
+      list.appendChild(c);
+    });
+  }
+  function highlight(id,on){ var d=markersById[id]; if(d&&d._el)d._el.classList.toggle('active',on); var c=document.querySelector('.card[data-id="'+id+'"]'); if(c)c.classList.toggle('active',on); }
 
-    // ── Initial loads ──
-    // Recent Auction Results first (hidden until populated): high-visibility trust section.
-    loadSection('sec-results', '/api/public/auctions?state=closed&limit=3', resultCard, '', 'wrap-results');
-    loadSection('sec-current', '/api/public/auctions?state=active&limit=8', auctionCard,
-      'No active auctions are listed right now. Check back soon for upcoming auctions.');
-    loadSection('sec-featured', '/api/public/featured-auctions?limit=8', auctionCard, '', 'wrap-featured');
-    loadSection('sec-ending', '/api/public/auctions?sort=ending_soon&limit=8', auctionCard,
-      'Nothing is ending in the next 24 hours. Browse all current auctions above.');
-    loadSection('sec-lots-ending', '/api/public/lots/ending-soon?limit=8', lotCard,
-      'No lots are closing soon right now. Check back as auctions get underway.');
-    loadSection('sec-lots-new', '/api/public/lots/recently-added?limit=8', lotCard,
-      'No newly added lots yet. New inventory will appear here.');
-    loadSection('sec-lots-trending', '/api/public/lots/trending?limit=8', lotCard,
-      'No lots have bids yet. Be the first to bid on a current auction.');
-    loadCategories();
-    loadLocations();
+  /* ── HUD ──────────────────────────────────────────────────────────────── */
+  function revealHUD(){
+    var key='ab_lm_home', prev=null; try{prev=JSON.parse(localStorage.getItem(key));}catch(e){}
+    var nearIds=DATA.filter(F.near).map(function(d){return d.id;}); var n=nearIds.length;
+    var countEl=$('count'), del=$('deltas');
+    $('hud').classList.add('in');
+    if(!n){ countEl.innerHTML='No live auctions right now — <b>browse upcoming</b>'; }
+    else if(prev&&prev.ids){
+      var fresh=nearIds.filter(function(id){return prev.ids.indexOf(id)<0;}).length;
+      var closing=DATA.filter(function(d){return d.endsToday;}).length;
+      countEl.innerHTML='Welcome back — <b>'+n+'</b> auction'+(n===1?'':'s')+' near you';
+      var chips=[]; if(fresh)chips.push(['var(--live)','<b>'+fresh+'</b> new']); if(closing)chips.push(['var(--ending)','<b>'+closing+'</b> closing soon']);
+      del.innerHTML=''; chips.forEach(function(c,i){ var s=document.createElement('span'); s.className='d'; s.innerHTML='<i style="background:'+c[0]+'"></i>'+c[1]; del.appendChild(s); setTimeout(function(){s.classList.add('in');}, reduce?0:(500+i*220)); });
+    } else { countUp(countEl,n); }
+    try{ localStorage.setItem(key,JSON.stringify({ids:nearIds,ts:Date.now()})); }catch(e){}
+    setTimeout(function(){ $('hud').classList.remove('in'); }, 7200);
+  }
+  function countUp(el,n){
+    if(reduce){ el.innerHTML='<b>'+n+'</b> auction'+(n===1?'':'s')+' near you'; return; }
+    var i=0; var iv=setInterval(function(){ i++; el.innerHTML='<b>'+i+'</b> auction'+(i===1?'':'s')+' near you'; if(i>=n)clearInterval(iv); }, 95);
+  }
 
-    // hydrate search box from ?q= if arriving with one
-    var ip = new URLSearchParams(location.search);
-    if(ip.get('q')) $('#q').value = ip.get('q');
-  </script>
+  /* ── Controls ─────────────────────────────────────────────────────────── */
+  document.querySelectorAll('.dtab').forEach(function(b){ b.addEventListener('click',function(){
+    document.querySelectorAll('.dtab').forEach(function(x){x.classList.remove('on');}); b.classList.add('on');
+    var f=b.dataset.f;
+    if(f==='archive'){ $('list').innerHTML='<div class="dempty">Loading…</div>'; loadArchive().then(function(){ addMarkers(ARCH); buildList('archive'); }); }
+    else { buildList(f); }
+  }); });
+
+  function openSearch(){ $('search').classList.add('open'); setTimeout(function(){$('sInput').focus();},60); }
+  function closeSearch(){ $('search').classList.remove('open'); }
+  $('searchBtn').addEventListener('click',openSearch);
+  $('search').addEventListener('click',function(e){ if(e.target===this) closeSearch(); });
+  // search submit → the real search experience (preserves current behavior)
+  $('sForm').addEventListener('submit',function(e){ e.preventDefault(); var q=($('sInput').value||'').trim(); location.href='/search.html?mode=auctions'+(q?('&q='+encodeURIComponent(q)):''); });
+  // live-filter the drawer as you type, too
+  $('sInput').addEventListener('input',function(){ var on=document.querySelector('.dtab.on'); buildList(on?on.dataset.f:'near'); });
+
+  $('menuBtn').addEventListener('click',function(){ $('navwrap').classList.add('open'); });
+  document.querySelectorAll('.themebtn').forEach(function(b){ b.classList.toggle('on',b.dataset.theme===getTheme()); b.addEventListener('click',function(){ setTheme(b.dataset.theme); }); });
+  $('navscrim').addEventListener('click',function(){ $('navwrap').classList.remove('open'); });
+  document.addEventListener('keydown',function(e){ if(e.key==='Escape'){ closeSearch(); $('navwrap').classList.remove('open'); } if((e.key==='k'||e.key==='K')&&(e.metaKey||e.ctrlKey)){ e.preventDefault(); openSearch(); } });
+
+  function useMyLocation(){
+    if(!navigator.geolocation){ location.href='/search.html?mode=auctions'; return; }
+    navigator.geolocation.getCurrentPosition(function(p){
+      LOC={name:'My location',lng:p.coords.longitude,lat:p.coords.latitude}; try{localStorage.setItem('ab_loc',JSON.stringify(LOC));}catch(e){}
+      $('locTxt').textContent='My location';
+      if(map)map.flyTo({center:[LOC.lng,LOC.lat],zoom:10.4,duration:1500,essential:true});
+      // refresh the "near you" set with real distances (best-effort)
+      j('/api/public/auctions/near?lat='+p.coords.latitude+'&lng='+p.coords.longitude+'&radius_km=400&limit=60').then(function(rows){
+        if(rows&&rows.length){ DATA=rows.map(toD); addMarkers(DATA); var on=document.querySelector('.dtab.on'); buildList(on&&on.dataset.f!=='archive'?on.dataset.f:'near'); }
+      });
+    }, function(){ /* denied — leave the national view */ });
+  }
+  $('locBtn').addEventListener('click',useMyLocation);
+  $('srowNear').addEventListener('click',function(e){ e.preventDefault(); closeSearch(); useMyLocation(); });
+
+  /* mobile bottom-sheet snap (peek / half / full) + drag */
+  function setSheet(s){ var d=$('drawer'); d.classList.remove('half','full'); document.body.classList.remove('peek','half','full'); if(s!=='peek'){ d.classList.add(s);} document.body.classList.add(s); $('sheetctl').firstChild.textContent = s==='peek'?'▤ ':'🗺 '; $('sheetctl').querySelector('span').textContent = s==='peek'?'Browse list':'Back to map'; }
+  $('sheetctl').addEventListener('click',function(){ setSheet(document.body.classList.contains('peek')?'half':'peek'); });
+  (function(){ var grab=$('grab'), sy=0, startState='peek', dragging=false;
+    function down(e){ dragging=true; sy=(e.touches?e.touches[0].clientY:e.clientY); startState=document.body.classList.contains('full')?'full':document.body.classList.contains('half')?'half':'peek'; }
+    function up(e){ if(!dragging)return; dragging=false; var y=(e.changedTouches?e.changedTouches[0].clientY:e.clientY); var dy=y-sy; if(dy<-40){ setSheet(startState==='peek'?'half':'full'); } else if(dy>40){ setSheet(startState==='full'?'half':'peek'); } }
+    grab.addEventListener('mousedown',down); window.addEventListener('mouseup',up);
+    grab.addEventListener('touchstart',down,{passive:true}); window.addEventListener('touchend',up);
+  })();
+})();
+</script>
 </body>
 </html>
