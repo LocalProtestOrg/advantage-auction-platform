@@ -6,68 +6,86 @@
 <meta name="robots" content="noindex" />
 <title>Lot — Advantage.Bid (Prototype)</title>
 <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-<!-- Lot-detail prototype in the Living Map design language. Standalone, not linked from
+<!-- Lot-detail prototype, Living Map design language. Standalone; not linked from
      production nav. Bidding is VISUAL ONLY — no engine/API/Stripe/bidding/DB changes. -->
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&display=swap" rel="stylesheet">
 <style>
-  :root{ --ink:#0B1B2B; --paper:#FBFAF7; --surface:#fff; --muted:#5b6b7e; --hair:#ECE9E2;
+  :root{ --ink:#0B1B2B; --paper:#FBFAF7; --surface:#fff; --muted:#637488; --hair:#ECE8E0;
     --accent:#2F6BFF; --live:#B5273B; --ending:#E0922E; --sold:#16A34A; --ease:cubic-bezier(.22,.7,.2,1); }
   *{box-sizing:border-box}
-  body{margin:0;background:var(--paper);color:var(--ink);font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+  html{scroll-behavior:smooth}
+  body{margin:0;background:var(--paper);color:var(--ink);font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;-webkit-font-smoothing:antialiased;overflow-x:hidden;opacity:0;animation:fadein .6s var(--ease) forwards}
+  @keyframes fadein{to{opacity:1}}
   a{color:inherit;text-decoration:none}
-  header{position:sticky;top:0;z-index:30;backdrop-filter:saturate(150%) blur(14px);background:rgba(251,250,247,.82);border-bottom:1px solid var(--hair)}
-  .hwrap{max-width:1160px;margin:0 auto;display:flex;align-items:center;gap:12px;padding:11px 18px}
+  header{position:sticky;top:0;z-index:30;backdrop-filter:saturate(150%) blur(16px);background:rgba(251,250,247,.8);border-bottom:1px solid var(--hair)}
+  .hwrap{max-width:1180px;margin:0 auto;display:flex;align-items:center;gap:12px;padding:11px 20px}
   .brand{font-family:"Fraunces","Georgia",serif;font-weight:700;font-size:18px}
   .brand span{color:var(--accent)}
   .spacer{flex:1}
   .icbtn{width:38px;height:38px;border-radius:50%;border:0;background:transparent;display:grid;place-items:center;cursor:pointer;color:inherit}
+  .icbtn:hover{background:rgba(120,140,170,.1)}
   .avatar{width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,#1e3a8a,#2F6BFF)}
-  .wrap{max-width:1160px;margin:0 auto;padding:18px}
-  .back{display:inline-flex;gap:8px;align-items:center;color:var(--muted);font-weight:600;font-size:14px;padding:8px 0}
-  .cols{display:grid;grid-template-columns:1fr 380px;gap:28px;align-items:start}
-  @media(max-width:900px){ .cols{grid-template-columns:1fr} }
+  .wrap{max-width:1180px;margin:0 auto;padding:14px 20px 30px}
+  .back{display:inline-flex;gap:8px;align-items:center;color:var(--muted);font-weight:600;font-size:14px;padding:10px 0}
+  .cols{display:grid;grid-template-columns:1fr 400px;gap:34px;align-items:start}
+  @media(max-width:940px){ .cols{grid-template-columns:1fr} }
   /* gallery */
-  .galhero{border-radius:20px;overflow:hidden;aspect-ratio:4/3;background-size:cover;background-position:center;box-shadow:0 18px 44px rgba(8,16,28,.16)}
-  .film{display:flex;gap:10px;margin-top:12px;overflow:auto;padding-bottom:4px}
-  .film .th{width:84px;height:64px;border-radius:10px;flex:0 0 auto;background-size:cover;background-position:center;cursor:pointer;border:2px solid transparent}
+  .galhero{position:relative;border-radius:22px;overflow:hidden;aspect-ratio:4/3;background-size:cover;background-position:center;box-shadow:0 22px 50px rgba(8,16,28,.16);cursor:zoom-in}
+  .galhero .zoom{position:absolute;right:12px;bottom:12px;background:rgba(8,14,24,.5);backdrop-filter:blur(6px);color:#fff;border-radius:999px;padding:7px 13px;font-size:12px;font-weight:700}
+  .film{display:flex;gap:11px;margin-top:13px;overflow:auto;padding-bottom:4px;scrollbar-width:thin}
+  .film .th{width:90px;height:68px;border-radius:11px;flex:0 0 auto;background-size:cover;background-position:center;cursor:pointer;border:2px solid transparent;transition:border-color .15s,transform .15s}
+  .film .th:hover{transform:translateY(-2px)}
   .film .th.on{border-color:var(--live)}
-  .desc{margin-top:26px}
-  .desc h2{font-family:"Fraunces","Georgia",serif;font-weight:600;font-size:22px;margin:0 0 10px}
-  .desc p{color:#2c3a4b;line-height:1.6;font-size:15px}
-  .specs{display:grid;grid-template-columns:1fr 1fr;gap:0 24px;margin-top:14px}
-  .specs .kv{display:flex;justify-content:space-between;font-size:13.5px;padding:8px 0;border-bottom:1px solid var(--hair)}
+  .desc{margin-top:30px;max-width:62ch}
+  .desc h2{font-family:"Fraunces","Georgia",serif;font-weight:600;font-size:23px;margin:0 0 12px;letter-spacing:-.01em}
+  .desc p{color:#324254;line-height:1.7;font-size:15.5px;margin:0 0 16px}
+  .specs{display:grid;grid-template-columns:1fr 1fr;gap:0 28px;margin-top:8px}
+  .specs .kv{display:flex;justify-content:space-between;font-size:13.5px;padding:10px 0;border-bottom:1px solid var(--hair)}
+  .specs .kv b{font-weight:700}
+  .provenance{margin-top:22px;background:#fff;border:1px solid var(--hair);border-radius:16px;padding:16px 18px}
+  .provenance h3{font-family:"Fraunces",serif;font-weight:600;font-size:16px;margin:0 0 8px}
+  .provenance p{color:#324254;font-size:14px;line-height:1.6;margin:0}
   /* bid panel */
-  .bidpanel{position:sticky;top:78px;background:var(--surface);border:1px solid var(--hair);border-radius:20px;padding:20px;box-shadow:0 14px 36px rgba(8,16,28,.08)}
-  .ln{font-size:11.5px;font-weight:800;letter-spacing:.05em;color:var(--muted);text-transform:uppercase}
-  .lottitle{font-family:"Fraunces","Georgia",serif;font-weight:600;font-size:24px;line-height:1.12;margin:4px 0 14px}
-  .curbid{display:flex;align-items:baseline;justify-content:space-between}
-  .curbid .amt{font-family:"Fraunces",serif;font-weight:700;font-size:34px;font-variant-numeric:tabular-nums}
-  .curbid .lbl{color:var(--muted);font-size:13px}
-  .premium{font-size:12.5px;color:var(--muted);margin-top:4px}
-  .timechip{display:inline-flex;align-items:center;gap:8px;background:rgba(224,146,46,.12);color:var(--ending);font-weight:800;border-radius:999px;padding:7px 13px;margin:14px 0;font-size:13.5px}
+  .bidpanel{position:sticky;top:80px;background:var(--surface);border:1px solid var(--hair);border-radius:22px;padding:22px;box-shadow:0 18px 44px rgba(8,16,28,.09)}
+  .eyebrow{font-size:11.5px;font-weight:800;letter-spacing:.05em;color:var(--muted);text-transform:uppercase}
+  .lottitle{font-family:"Fraunces","Georgia",serif;font-weight:600;font-size:25px;line-height:1.12;margin:5px 0 16px;letter-spacing:-.01em}
+  .bidblock{background:#FBF7F4;border:1px solid #f0e3df;border-radius:16px;padding:16px}
+  .curbid .lbl{color:var(--muted);font-size:12px;font-weight:700;letter-spacing:.04em;text-transform:uppercase}
+  .curbid .amt{font-family:"Fraunces",serif;font-weight:700;font-size:42px;line-height:1;font-variant-numeric:tabular-nums;margin-top:4px}
+  .curbid .meta{display:flex;justify-content:space-between;align-items:center;margin-top:6px}
+  .curbid .bids{color:var(--muted);font-size:13px;font-weight:600}
+  .premium{font-size:12.5px;color:var(--muted);margin-top:2px}
+  .timechip{display:inline-flex;align-items:center;gap:8px;background:rgba(224,146,46,.13);color:var(--ending);font-weight:800;border-radius:999px;padding:7px 13px;margin:16px 0 14px;font-size:13.5px}
   .timechip .dot{width:8px;height:8px;border-radius:50%;background:var(--ending);animation:pulse 1.5s infinite}
-  @keyframes pulse{0%,100%{opacity:.5}50%{opacity:1}}
-  .bidrow{display:flex;gap:10px;margin-top:6px}
-  .bidrow input{flex:1;border:1.5px solid var(--hair);border-radius:12px;padding:13px 14px;font:inherit;font-weight:700;font-variant-numeric:tabular-nums}
-  .btn{border:0;border-radius:12px;padding:14px 20px;font-weight:800;font-size:15px;cursor:pointer}
-  .btn.primary{background:var(--live);color:#fff;box-shadow:0 8px 22px rgba(181,39,59,.32);width:100%;margin-top:10px}
-  .btn.primary:hover{filter:brightness(1.05)}
-  .nextmin{color:var(--muted);font-size:12.5px;margin-top:8px;text-align:center}
-  .watch{display:flex;align-items:center;justify-content:center;gap:8px;margin-top:12px;color:var(--muted);font-weight:600;font-size:13.5px;cursor:pointer}
-  .pick{margin-top:14px;border-top:1px solid var(--hair);padding-top:12px;font-size:13px;color:var(--muted);line-height:1.5}
-  .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(10px);opacity:0;background:#0B1B2B;color:#fff;padding:12px 18px;border-radius:12px;font-weight:600;font-size:14px;transition:opacity .25s,transform .25s;z-index:50}
-  .toast.in{opacity:1;transform:translateX(-50%)}
+  @keyframes pulse{0%,100%{opacity:.45}50%{opacity:1}}
+  .bidrow{display:flex;gap:10px}
+  .bidrow .field{flex:1;position:relative}
+  .bidrow .field .dollar{position:absolute;left:14px;top:50%;transform:translateY(-50%);color:var(--muted);font-weight:700}
+  .bidrow input{width:100%;border:1.5px solid var(--hair);border-radius:13px;padding:14px 14px 14px 26px;font:inherit;font-weight:700;font-size:16px;font-variant-numeric:tabular-nums}
+  .bidrow input:focus{outline:none;border-color:var(--live)}
+  .step{border:1.5px solid var(--hair);background:#fff;border-radius:13px;padding:0 16px;font-weight:800;cursor:pointer}
+  .btn.primary{background:var(--live);color:#fff;border:0;border-radius:13px;padding:15px 20px;font-weight:800;font-size:15.5px;cursor:pointer;width:100%;margin-top:11px;box-shadow:0 10px 26px rgba(181,39,59,.34);transition:transform .15s,filter .15s}
+  .btn.primary:hover{transform:translateY(-1px);filter:brightness(1.06)}
+  .nextmin{color:var(--muted);font-size:12.5px;margin-top:9px;text-align:center}
+  .watch{display:flex;align-items:center;justify-content:center;gap:8px;margin-top:12px;color:var(--ink);font-weight:700;font-size:14px;cursor:pointer;padding:11px;border:1px solid var(--hair);border-radius:13px}
+  .watch:hover{border-color:var(--live);color:var(--live)}
+  .protect{margin-top:16px;border-top:1px solid var(--hair);padding-top:14px}
+  .protect .row{display:flex;gap:10px;align-items:flex-start;font-size:13px;color:#324254;padding:5px 0;line-height:1.5}
+  .protect .i{color:var(--sold);flex:0 0 auto;margin-top:1px}
   /* similar rail */
-  .railhead{font-family:"Fraunces","Georgia",serif;font-weight:600;font-size:20px;margin:30px 2px 12px}
-  .rail{display:flex;gap:14px;overflow:auto;padding-bottom:8px;scroll-snap-type:x mandatory}
-  .rail .card{width:200px;flex:0 0 auto;scroll-snap-align:start;background:#fff;border:1px solid var(--hair);border-radius:14px;overflow:hidden;cursor:pointer}
-  .rail .card .ph{height:130px;background-size:cover;background-position:center}
-  .rail .card .b{padding:10px 12px}
-  .rail .card .t{font-weight:650;font-size:13.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .rail .card .a{font-weight:800;font-variant-numeric:tabular-nums;margin-top:3px}
-  footer{max-width:1160px;margin:30px auto;padding:18px;color:var(--muted);font-size:12.5px}
-  @media (prefers-reduced-motion: reduce){ *{animation:none !important;transition-duration:.001ms !important} }
+  .railhead{font-family:"Fraunces","Georgia",serif;font-weight:600;font-size:21px;margin:36px 2px 14px}
+  .rail{display:flex;gap:15px;overflow:auto;padding-bottom:8px;scroll-snap-type:x mandatory}
+  .rail .card{width:214px;flex:0 0 auto;scroll-snap-align:start;background:#fff;border:1px solid var(--hair);border-radius:16px;overflow:hidden;cursor:pointer;transition:transform .16s,box-shadow .16s}
+  .rail .card:hover{transform:translateY(-3px);box-shadow:0 14px 30px rgba(8,16,28,.13)}
+  .rail .card .ph{height:140px;background-size:cover;background-position:center}
+  .rail .card .b{padding:11px 13px}
+  .rail .card .t{font-weight:600;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .rail .card .a{font-family:"Fraunces",serif;font-weight:600;font-variant-numeric:tabular-nums;margin-top:4px}
+  footer{max-width:1180px;margin:34px auto;padding:18px 20px;color:var(--muted);font-size:12.5px;border-top:1px solid var(--hair)}
+  .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(10px);opacity:0;background:#0B1B2B;color:#fff;padding:13px 20px;border-radius:13px;font-weight:600;font-size:14px;transition:opacity .25s,transform .25s;z-index:50}
+  .toast.in{opacity:1;transform:translateX(-50%)}
+  @media (prefers-reduced-motion: reduce){ *{animation:none !important;transition-duration:.001ms !important} body{opacity:1} }
 </style>
 </head>
 <body>
@@ -83,20 +101,26 @@
   <a class="back" href="/prototype/auction-detail.html">← Estate Jewelry &amp; Fine Watches</a>
   <div class="cols">
     <div>
-      <div class="galhero" id="galhero"></div>
+      <div class="galhero" id="galhero"><span class="zoom">⤢ Tap to zoom</span></div>
       <div class="film" id="film"></div>
 
       <div class="desc">
         <h2>Diamond solitaire ring, 1.20 ct</h2>
-        <p>A classic round-brilliant diamond solitaire in a four-prong platinum setting. Bright, lively stone with excellent symmetry; the band shows light, even wear consistent with age. From a single-owner Detroit estate. Independent grading notes available on request.</p>
+        <p>A classic round-brilliant diamond solitaire in a four-prong platinum setting. The stone is bright and lively with excellent symmetry; the band shows light, even wear consistent with age and gentle daily use.</p>
+        <p>From a single-owner Detroit estate, acquired by the family in the 1980s and worn sparingly. Photographed in natural light, unretouched.</p>
         <div class="specs">
           <div class="kv"><span>Category</span><b>Jewelry · Rings</b></div>
           <div class="kv"><span>Metal</span><b>Platinum 950</b></div>
           <div class="kv"><span>Center stone</span><b>1.20 ct, round</b></div>
           <div class="kv"><span>Condition</span><b>Very good</b></div>
-          <div class="kv"><span>Size</span><b>6.5 (sizable)</b></div>
-          <div class="kv"><span>Pickup</span><b>Sat 10–2, Detroit</b></div>
+          <div class="kv"><span>Ring size</span><b>6.5 (sizable)</b></div>
+          <div class="kv"><span>Pickup</span><b>Sat 10–2 · Detroit</b></div>
         </div>
+      </div>
+
+      <div class="provenance">
+        <h3>Condition &amp; provenance</h3>
+        <p>No chips or visible inclusions to the unaided eye. Prongs secure. Independent grading notes are available on request before close. Sold as described; in-person preview by appointment during the pickup window.</p>
       </div>
 
       <div class="railhead">More from this estate</div>
@@ -105,19 +129,32 @@
 
     <aside>
       <div class="bidpanel">
-        <div class="ln">Lot 1 · Estate Jewelry &amp; Fine Watches</div>
+        <div class="eyebrow">Lot 1 · Estate Jewelry &amp; Fine Watches</div>
         <div class="lottitle">Diamond solitaire ring, 1.20 ct</div>
-        <div class="curbid"><span class="amt" id="amt">$1,150</span><span class="lbl">current bid · 7 bids</span></div>
-        <div class="premium">+ 18% buyer premium applies at checkout</div>
+
+        <div class="bidblock">
+          <div class="curbid">
+            <div class="lbl">Current bid</div>
+            <div class="amt">$1,150</div>
+            <div class="meta"><span class="premium">+ 18% buyer premium at checkout</span><span class="bids">7 bids · 19 watching</span></div>
+          </div>
+        </div>
+
         <div class="timechip"><span class="dot"></span>Ends in 2h 14m · soft close</div>
+
         <div class="bidrow">
-          <input id="bid" inputmode="numeric" value="1,200" aria-label="Your max bid" />
-          <button class="btn" style="background:#eef1f5;color:#0B1B2B" id="plus">+ $50</button>
+          <div class="field"><span class="dollar">$</span><input id="bid" inputmode="numeric" value="1,200" aria-label="Your max bid" /></div>
+          <button class="step" id="plus">+50</button>
         </div>
         <button class="btn primary" id="place">Place bid</button>
-        <div class="nextmin">Next minimum bid: $1,200 · increment $50</div>
+        <div class="nextmin">Next minimum bid <b>$1,200</b> · increment $50</div>
         <div class="watch">♡ Add to watchlist</div>
-        <div class="pick">📍 Pickup in <b>Detroit, MI</b> after payment is verified. Bid from anywhere; full address stays private until you’ve paid.</div>
+
+        <div class="protect">
+          <div class="row"><span class="i">✓</span><span>Card verified at signup — bid with confidence.</span></div>
+          <div class="row"><span class="i">✓</span><span>Your full address stays private until payment is verified.</span></div>
+          <div class="row"><span class="i">✓</span><span>2-minute anti-snipe — a late bid extends the clock, fair to everyone.</span></div>
+        </div>
       </div>
     </aside>
   </div>
@@ -131,17 +168,18 @@
   var PH=['1611591437281-460bfbe1220a','1605100804763-247f67b3557e','1599643478518-a784e5dc4c8f','1518791841217-8f162f1e1131','1495107334309-fcf20504a5ab'];
   function url(id,w){ return 'https://images.unsplash.com/photo-'+id+'?w='+(w||900)+'&q=72&auto=format&fit=crop'; }
   var hero=document.getElementById('galhero'), film=document.getElementById('film');
-  function setHero(i){ hero.style.backgroundImage="url('"+url(PH[i],1100)+"'),linear-gradient(135deg,#243b6b,#7a274a)"; document.querySelectorAll('.film .th').forEach(function(t,j){ t.classList.toggle('on',j===i); }); }
-  PH.forEach(function(id,i){ var th=document.createElement('div'); th.className='th'+(i===0?' on':''); th.style.backgroundImage="url('"+url(id,200)+"')"; th.onclick=function(){ setHero(i); }; film.appendChild(th); });
+  function setHero(i){ hero.style.backgroundImage="url('"+url(PH[i],1200)+"'),linear-gradient(135deg,#243b6b,#7a274a)"; document.querySelectorAll('.film .th').forEach(function(t,j){ t.classList.toggle('on',j===i); }); }
+  PH.forEach(function(id,i){ var th=document.createElement('div'); th.className='th'+(i===0?' on':''); th.style.backgroundImage="url('"+url(id,220)+"')"; th.onclick=function(){ setHero(i); }; film.appendChild(th); });
   setHero(0);
 
   var rail=document.getElementById('rail');
   var SIM=[['14k gold tennis bracelet','$640'],['Omega Seamaster, c.1968','$1,900'],['Sapphire & diamond earrings','$880'],['Art Deco platinum brooch','$1,250'],['Strand of Akoya pearls','$420']];
   SIM.forEach(function(s,i){ var c=document.createElement('a'); c.className='card'; c.href='/prototype/lot-detail.html';
-    c.innerHTML='<div class="ph" style="background-image:url(\''+url(PH[(i+1)%PH.length],400)+'\'),linear-gradient(135deg,#243b6b,#7a274a)"></div><div class="b"><div class="t">'+s[0]+'</div><div class="a">'+s[1]+'</div></div>'; rail.appendChild(c); });
+    c.innerHTML='<div class="ph" style="background-image:url(\''+url(PH[(i+1)%PH.length],420)+'\'),linear-gradient(135deg,#243b6b,#7a274a)"></div><div class="b"><div class="t">'+s[0]+'</div><div class="a">'+s[1]+'</div></div>'; rail.appendChild(c); });
 
   function toast(){ var t=document.getElementById('toast'); t.classList.add('in'); setTimeout(function(){ t.classList.remove('in'); },1900); }
   document.getElementById('place').onclick=toast;
+  document.getElementById('galhero').onclick=toast;
   document.getElementById('plus').onclick=function(){ var b=document.getElementById('bid'); var v=parseInt((b.value||'0').replace(/[^0-9]/g,''),10)||1150; b.value=(v+50).toLocaleString(); };
 })();
 </script>
