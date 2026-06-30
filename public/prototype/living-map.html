@@ -178,8 +178,16 @@
   #nav .foot{margin-top:auto;color:#7f93ab;font-size:12px}
   #nav .aplabel{color:#7f93ab;font-size:11px;letter-spacing:.08em;text-transform:uppercase;padding:8px 10px 4px}
   .themerow{display:flex;gap:8px;padding:2px 8px 4px}
-  .themebtn{flex:1;border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.06);color:#dbe4f0;border-radius:11px;padding:11px;font-weight:700;cursor:pointer;display:flex;gap:6px;align-items:center;justify-content:center}
+  .themerow{flex-wrap:wrap}
+  .themebtn{flex:1;min-width:84px;border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.06);color:#dbe4f0;border-radius:11px;padding:10px 8px;font-weight:700;font-size:12.5px;cursor:pointer;display:flex;gap:6px;align-items:center;justify-content:center}
   .themebtn.on{background:#2F6BFF;border-color:#2F6BFF;color:#fff}
+  .themebtn[data-theme=discover].on{background:linear-gradient(135deg,#5BE1FF,#6d5bff);border-color:#5BE1FF;color:#06122a}
+  /* expressive Discover personality — luminous markers */
+  [data-theme=discover] .beacon .pin{box-shadow:0 6px 16px rgba(8,16,28,.5),0 0 0 1.5px rgba(123,225,255,.55),0 0 20px rgba(91,225,255,.42)}
+  [data-theme=discover] .beacon .halo{filter:blur(2px)}
+  /* gentle weather-inspired atmospheric drift (reduced-motion disables it) */
+  #atmos::before{content:"";position:absolute;inset:-25%;pointer-events:none;background:radial-gradient(42% 32% at 32% 22%,rgba(255,255,255,.06),transparent 60%);animation:drift 30s ease-in-out infinite alternate}
+  @keyframes drift{to{transform:translate(9%,5%)}}
 
   .legend{position:fixed;z-index:30;left:14px;bottom:calc(14px + env(safe-area-inset-bottom));display:flex;gap:14px;flex-wrap:wrap;
           background:var(--capsule);backdrop-filter:blur(12px);border:1px solid var(--capsuleBorder);border-radius:13px;padding:9px 13px;font-size:11.5px;font-weight:700;box-shadow:0 8px 22px rgba(8,16,28,.18);color:var(--fg)}
@@ -273,6 +281,7 @@
       <div class="themerow">
         <button class="themebtn on" data-theme="light">☀ Light</button>
         <button class="themebtn" data-theme="dark">🌙 Dark</button>
+        <button class="themebtn" data-theme="discover">✧ Discover</button>
       </div>
       <div class="foot">© Advantage Auction Company · Light by day, cinematic by evening</div>
     </nav>
@@ -285,53 +294,85 @@
   var reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
   var $ = function(id){ return document.getElementById(id); };
 
-  /* ── Theme & atmosphere ───────────────────────────────────────────────────
-     LIGHT is the primary identity of Advantage.Bid: bright, airy, optimistic.
-     DARK is an OPT-IN user preference (never forced, even if the OS prefers dark).
-     Within the chosen theme, time-of-day subtly modulates the atmosphere —
-     morning fresh · afternoon comfortable · evening warmly cinematic (still light). */
-  function getTheme(){ try{ return localStorage.getItem('ab_theme')||'light'; }catch(e){ return 'light'; } }
+  /* ── Theme & living atmosphere ────────────────────────────────────────────
+     LIGHT = the primary identity (bright/airy/optimistic). DARK = opt-in.
+     DISCOVER = an expressive twilight "treasure-map" personality (luminous water,
+     glowing roads) — sophisticated, not flashy. Time-of-day + season subtly
+     modulate the atmosphere; the vector basemap is RE-SKINNED to the Advantage.Bid
+     palette after it loads, so our map is recognizable on sight. (Defensive: every
+     paint op is wrapped — worst case the base basemap colors remain; never blank.) */
+  function getTheme(){ try{ var t=localStorage.getItem('ab_theme'); return (t==='dark'||t==='discover')?t:'light'; }catch(e){ return 'light'; } }
   function todPart(){ var h=new Date().getHours(); return h<11?'morning':h<17?'afternoon':h<21?'evening':'night'; }
-  var STYLE_LIGHT={
-    morning:'https://basemaps.cartocdn.com/gl/positron-gl-style/style.json',
-    afternoon:'https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json',
-    evening:'https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json',
-    night:'https://basemaps.cartocdn.com/gl/positron-gl-style/style.json'
+  function season(){ var m=new Date().getMonth(); return (m<2||m===11)?'winter':m<5?'spring':m<8?'summer':'autumn'; }
+  var CARTO_LIGHT={morning:'https://basemaps.cartocdn.com/gl/positron-gl-style/style.json',afternoon:'https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json',evening:'https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json',night:'https://basemaps.cartocdn.com/gl/positron-gl-style/style.json'};
+  var CARTO_DARK='https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json';
+  /* Advantage.Bid map skins — colors painted onto the vector basemap after load. */
+  var SKIN={
+    light:   {land:'#F4F1E9',water:'#CFE4F6',green:'#E6EEDE',road:'#E9E3D8',building:'#ECE6DC',label:'#3a536e',halo:'rgba(251,251,249,.92)',boundary:'#e3ddd0'},
+    dark:    {land:'#0E1726',water:'#0B1C33',green:'#13241f',road:'#26374f',building:'#162234',label:'#9fb6d4',halo:'rgba(6,16,30,.85)',boundary:'#2a3a52'},
+    discover:{land:'#101631',water:'#0F2E56',green:'#11302f',road:'#5BE1FF',building:'#1a2350',label:'#cfe4ff',halo:'rgba(8,12,30,.82)',boundary:'#3b2f73',glowRoads:true,glowBlur:2.2}
   };
-  var STYLE_DARK='https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json';
+  window.__PAL=SKIN.light;
   function setVars(v){ var r=document.documentElement.style;
     r.setProperty('--ink',v.ink); r.setProperty('--muted',v.muted); r.setProperty('--hair',v.hair);
     r.setProperty('--capsule',v.cap); r.setProperty('--capsuleBorder',v.capb);
     r.setProperty('--panel',v.panel); r.setProperty('--panelText',v.ptext); r.setProperty('--fg',v.ptext);
-    r.setProperty('--glow',v.glow); r.setProperty('--scrim',v.scrim); r.setProperty('--sky1',v.sky); }
+    r.setProperty('--glow',v.glow); r.setProperty('--scrim',v.scrim); r.setProperty('--sky1',v.sky);
+    if(v.accent){r.setProperty('--accent',v.accent);} if(v.live){r.setProperty('--live',v.live);} }
   function computeMood(){
     var theme=getTheme(), t=todPart(), holiday=(new Date().getMonth()===11), style;
-    if(theme==='dark'){
-      style=STYLE_DARK;
+    document.body.setAttribute('data-theme',theme); window.__PAL=SKIN[theme];
+    if(theme==='discover'){
+      style=CARTO_DARK;
+      setVars({ink:'#EAF1FF',muted:'#a7bbe0',hair:'rgba(140,170,255,.16)',cap:'rgba(20,24,52,.7)',capb:'rgba(120,160,255,.2)',panel:'rgba(17,21,46,.92)',ptext:'#EAF1FF',
+               glow:'rgba(91,225,255,.55)',scrim:'rgba(6,9,26,.5)',sky:'rgba(91,160,255,.22)',accent:'#5BE1FF',live:'#5BE1FF'});
+    } else if(theme==='dark'){
+      style=CARTO_DARK;
       var dg={morning:'rgba(122,162,255,.5)',afternoon:'rgba(122,162,255,.5)',evening:'rgba(240,150,90,.55)',night:'rgba(122,162,255,.5)'}[t];
-      setVars({ink:'#EAF1FF',muted:'#9fb3cd',hair:'rgba(255,255,255,.12)',cap:'rgba(14,21,34,.72)',capb:'rgba(255,255,255,.12)',
-               panel:'rgba(12,18,30,.92)',ptext:'#EAF1FF',glow:dg,scrim:'rgba(3,7,14,.55)',sky:(holiday?'rgba(214,170,110,.18)':'rgba(60,90,160,.18)')});
+      setVars({ink:'#EAF1FF',muted:'#9fb3cd',hair:'rgba(255,255,255,.12)',cap:'rgba(14,21,34,.72)',capb:'rgba(255,255,255,.12)',panel:'rgba(12,18,30,.92)',ptext:'#EAF1FF',
+               glow:dg,scrim:'rgba(3,7,14,.55)',sky:(holiday?'rgba(214,170,110,.18)':'rgba(60,90,160,.18)'),accent:'#5b8cff',live:'#5b8cff'});
     } else {
-      style=STYLE_LIGHT[t];
-      // LIGHT: panels stay bright + ink stays dark at every hour. Only the
-      // atmosphere (glow / sky wash / vignette) warms toward a cinematic evening.
-      var a={
-        morning:  {glow:'rgba(47,107,255,.30)', sky:'rgba(150,190,255,.22)', scrim:'rgba(226,236,250,.16)'},
-        afternoon:{glow:'rgba(47,107,255,.40)', sky:'rgba(47,107,255,.10)',  scrim:'rgba(11,27,43,.14)'},
-        evening:  {glow:'rgba(255,150,80,.50)', sky:'rgba(255,186,120,.26)', scrim:'rgba(74,40,16,.20)'},
-        night:    {glow:'rgba(96,132,220,.42)', sky:'rgba(120,150,210,.20)', scrim:'rgba(28,38,64,.20)'}
-      }[t];
-      if(holiday) a.sky='rgba(214,170,110,.24)';
-      setVars({ink:'#0B1B2B',muted:'#5b6b7e',hair:'#ECECE7',cap:'rgba(255,255,255,.82)',capb:'rgba(255,255,255,.64)',
-               panel:'rgba(255,255,255,.94)',ptext:'#0B1B2B',glow:a.glow,scrim:a.scrim,sky:a.sky});
+      style=CARTO_LIGHT[t];
+      var ss={winter:'rgba(150,190,255,.20)',spring:'rgba(165,222,185,.18)',summer:'rgba(255,212,150,.18)',autumn:'rgba(240,175,115,.20)'}[season()];
+      var a={ morning:{glow:'rgba(47,107,255,.30)',sky:ss,scrim:'rgba(226,236,250,.16)'},
+              afternoon:{glow:'rgba(47,107,255,.40)',sky:ss,scrim:'rgba(11,27,43,.14)'},
+              evening:{glow:'rgba(255,150,80,.50)',sky:'rgba(255,186,120,.26)',scrim:'rgba(74,40,16,.20)'},
+              night:{glow:'rgba(96,132,220,.42)',sky:'rgba(120,150,210,.20)',scrim:'rgba(28,38,64,.20)'} }[t];
+      if(holiday) a.sky='rgba(214,170,110,.26)';
+      setVars({ink:'#0B1B2B',muted:'#5b6b7e',hair:'#ECECE7',cap:'rgba(255,255,255,.82)',capb:'rgba(255,255,255,.64)',panel:'rgba(255,255,255,.94)',ptext:'#0B1B2B',
+               glow:a.glow,scrim:a.scrim,sky:a.sky,accent:'#2F6BFF',live:'#2F6BFF'});
     }
     return style;
   }
   var STYLE=computeMood();
+  function sp(id,prop,val){ try{ map.setPaintProperty(id,prop,val); }catch(e){} }
+  function applySkin(){
+    if(!map){return;} var P=window.__PAL; if(!P){return;}
+    var layers; try{ if(!map.isStyleLoaded())return; layers=(map.getStyle().layers)||[]; }catch(e){ return; }
+    layers.forEach(function(l){
+      var key=((l['source-layer']||'')+' '+l.id).toLowerCase();
+      if(l.type==='background'){ sp(l.id,'background-color',P.land); }
+      else if(l.type==='fill'){
+        if(/water|ocean|sea|lake|bay|river/.test(key)) sp(l.id,'fill-color',P.water);
+        else if(/park|wood|grass|forest|landcover|landuse|cemeter|golf|pitch|garden|scrub|wetland|sand|farm/.test(key)) sp(l.id,'fill-color',P.green);
+        else if(/building/.test(key)) sp(l.id,'fill-color',P.building);
+        else if(/land|earth|background/.test(key)) sp(l.id,'fill-color',P.land);
+      }
+      else if(l.type==='line'){
+        if(/water|waterway|river|canal|stream/.test(key)) sp(l.id,'line-color',P.water);
+        else if(/boundary|admin|border/.test(key)) sp(l.id,'line-color',P.boundary);
+        else if(/transport|road|street|highway|motorway|trunk|primary|secondary|bridge|tunnel|rail|path|track/.test(key)){
+          sp(l.id,'line-color',P.road);
+          if(P.glowRoads){ sp(l.id,'line-blur',P.glowBlur); sp(l.id,'line-opacity',0.95); }
+        }
+      }
+      else if(l.type==='symbol'){ sp(l.id,'text-color',P.label); sp(l.id,'text-halo-color',P.halo); sp(l.id,'text-halo-width',1.2); }
+    });
+  }
   function setTheme(theme){ try{ localStorage.setItem('ab_theme',theme); }catch(e){}
     var style=computeMood();
     document.querySelectorAll('.themebtn').forEach(function(b){ b.classList.toggle('on',b.dataset.theme===theme); });
-    if(map){ try{ map.setStyle(style); }catch(e){} }   // custom HTML markers persist across setStyle
+    if(map){ try{ map.setStyle(style); map.once('styledata',function(){ setTimeout(applySkin,250); }); }catch(e){} }
   }
 
   /* ── Location resolution (never prompt on load) ───────────────────────── */
@@ -379,12 +420,20 @@
   function degrade(){ $('intro').classList.add('gone'); $('top').classList.add('in'); $('drawer').classList.add('in'); buildList('near'); revealHUD(); }
 
   map.on('load',function(){
-    setTimeout(function(){ $('intro').classList.add('gone'); }, reduce?0:400);
-    $('top').classList.add('in');
-    function settle(){ addMarkers(); $('drawer').classList.add('in'); buildList('near'); revealHUD(); startAmbient(); }
-    if(reduce){ map.jumpTo({center:[LOC.lng,LOC.lat],zoom:10}); settle(); }
-    else { setTimeout(function(){ map.flyTo({center:[LOC.lng,LOC.lat],zoom:10.4,duration:1900,curve:1.5,essential:true}); map.once('moveend',settle); }, 700); }
+    applySkin(); map.once('idle',applySkin);   // paint the Advantage.Bid map identity
+    function settle(){ addMarkers(); $('drawer').classList.add('in'); buildList('near'); revealHUD(); startAmbient(); organicSettle(); }
+    if(reduce){ $('intro').classList.add('gone'); $('top').classList.add('in'); map.jumpTo({center:[LOC.lng,LOC.lat],zoom:10}); settle(); return; }
+    // A graceful arrival, not an efficient one — anticipation before the reveal.
+    setTimeout(function(){ $('intro').classList.add('gone'); }, 1500);   // hold the wordmark
+    setTimeout(function(){ $('top').classList.add('in'); }, 2350);       // let the U.S. breathe
+    setTimeout(function(){                                               // then the slow descent (~3.4s, ease-in-out)
+      map.flyTo({center:[LOC.lng,LOC.lat], zoom:10.2, duration:3400, curve:1.25,
+                 easing:function(x){ return x<0.5 ? 4*x*x*x : 1-Math.pow(-2*x+2,3)/2; }, essential:true});
+      map.once('moveend', settle);
+    }, 2650);
   });
+  /* gentle organic "breath" once the camera lands — never stops abruptly */
+  function organicSettle(){ if(reduce||!map)return; setTimeout(function(){ try{ map.easeTo({zoom:map.getZoom()+0.25,duration:2600,easing:function(x){return 1-Math.pow(1-x,3);}}); }catch(e){} }, 500); }
 
   function addMarkers(){
     DATA.forEach(function(d,i){
@@ -395,7 +444,7 @@
       el.addEventListener('click',function(){ focusAuction(d); });
       var mk=new maplibregl.Marker({element:el,anchor:'bottom'}).setLngLat([d.lng,d.lat]).addTo(map);
       d._el=el; d._mk=mk; markers.push(mk);
-      setTimeout(function(){ el.classList.add('bloom'); }, reduce?0:(160+i*75));
+      setTimeout(function(){ el.classList.add('bloom'); }, reduce?0:(260+i*135));
     });
   }
   function showPreview(d){
@@ -468,7 +517,7 @@
   }
   function countUp(el,n){
     if(reduce){ el.innerHTML='<b>'+n+'</b> auctions near you'; return; }
-    var i=0; var iv=setInterval(function(){ i++; el.innerHTML='<b>'+i+'</b> auctions near you'; if(i>=n)clearInterval(iv); }, 70);
+    var i=0; var iv=setInterval(function(){ i++; el.innerHTML='<b>'+i+'</b> auctions near you'; if(i>=n)clearInterval(iv); }, 95);
   }
 
   /* ── Controls: tabs, search overlay, nav drawer, location, mobile sheet ── */
