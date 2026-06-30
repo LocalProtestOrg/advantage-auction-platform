@@ -195,6 +195,12 @@
   /* gentle weather-inspired atmospheric drift (reduced-motion disables it) */
   #atmos::before{content:"";position:absolute;inset:-25%;pointer-events:none;background:radial-gradient(42% 32% at 32% 22%,rgba(255,255,255,.06),transparent 60%);animation:drift 30s ease-in-out infinite alternate}
   @keyframes drift{to{transform:translate(9%,5%)}}
+  /* Discover only: subtle gold + magenta aurora over the cyan twilight (sophisticated, not rave) */
+  [data-theme=discover] #atmos{background:
+      radial-gradient(86% 56% at 84% 3%, rgba(255,206,92,.13), transparent 46%),
+      radial-gradient(90% 60% at 14% 8%, rgba(255,108,200,.13), transparent 46%),
+      radial-gradient(140% 80% at 50% 0%, var(--sky1), transparent 62%),
+      radial-gradient(120% 90% at 50% 42%, transparent 52%, var(--scrim))}
 
   .legend{position:fixed;z-index:30;left:14px;bottom:calc(14px + env(safe-area-inset-bottom));display:flex;gap:14px;flex-wrap:wrap;
           background:var(--capsule);backdrop-filter:blur(12px);border:1px solid var(--capsuleBorder);border-radius:13px;padding:9px 13px;font-size:11.5px;font-weight:700;box-shadow:0 8px 22px rgba(8,16,28,.18);color:var(--fg)}
@@ -317,7 +323,7 @@
   var SKIN={
     light:   {land:'#F4F1E9',water:'#CFE4F6',green:'#E6EEDE',road:'#E9E3D8',building:'#ECE6DC',label:'#3a536e',halo:'rgba(251,251,249,.92)',boundary:'#e3ddd0'},
     dark:    {land:'#0E1726',water:'#0B1C33',green:'#13241f',road:'#26374f',building:'#162234',label:'#9fb6d4',halo:'rgba(6,16,30,.85)',boundary:'#2a3a52'},
-    discover:{land:'#181E46',water:'#1E74BE',waterEdge:'#62E7FF',green:'#16414C',road:'#5BE1FF',building:'#27306b',label:'#dbe9ff',halo:'rgba(10,14,42,.7)',boundary:'#6470e0',glowRoads:true,glowBlur:2.6}
+    discover:{land:'#181E46',water:'#1E74BE',waterEdge:'#62E7FF',green:'#16414C',road:'#5BE1FF',building:'#27306b',label:'#dbe9ff',halo:'rgba(10,14,42,.7)',boundary:'#B06FE0',glowRoads:true,glowBlur:2.6}
   };
   window.__PAL=SKIN.light;
   function setVars(v){ var r=document.documentElement.style;
