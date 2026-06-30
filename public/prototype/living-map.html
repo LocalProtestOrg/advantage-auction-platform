@@ -85,8 +85,7 @@
   .beacon .pin{position:absolute;left:50%;top:0;width:34px;height:46px;transform:translateX(-50%);transform-origin:50% 100%;filter:drop-shadow(0 6px 7px rgba(8,16,28,.32));transition:transform .22s var(--spring)}
   .beacon .pin .body{fill:var(--c)}
   .beacon .pin .face{fill:#fff}
-  .beacon .pin .g-head{fill:var(--c)}
-  .beacon .pin .g-stick,.beacon .pin .g-base{stroke:var(--c);stroke-width:2;stroke-linecap:round;fill:none}
+  .beacon .pin .g-a{stroke:var(--c);stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round;fill:none}
   .beacon .ping{position:absolute;left:50%;top:7px;width:30px;height:30px;border-radius:50%;transform:translate(-50%,0);border:2px solid var(--c,var(--accent))}
   .beacon:hover,.beacon.active{filter:drop-shadow(0 12px 16px rgba(8,16,28,.42));z-index:5}
   .beacon:hover .pin,.beacon.active .pin{transform:translateX(-50%) scale(1.13)}
@@ -107,7 +106,8 @@
   /* hover preview (Nat-Geo photography) — MapLibre popup */
   .maplibregl-popup.preview .maplibregl-popup-content{padding:0;border-radius:16px;overflow:hidden;box-shadow:0 18px 50px rgba(8,16,28,.34);border:1px solid rgba(255,255,255,.5);background:var(--panel);color:var(--panelText);width:248px}
   .maplibregl-popup.preview .maplibregl-popup-tip{display:none}
-  .pv .img{height:140px;background-size:cover;background-position:center;position:relative}
+  .pv .img{height:140px;background-size:cover;background-position:center;position:relative;transform-origin:center;animation:slowzoom 9s ease forwards}
+  @keyframes slowzoom{from{transform:scale(1)}to{transform:scale(1.06)}}
   .pv .img:after{content:"";position:absolute;inset:0;background:linear-gradient(to top,rgba(0,0,0,.45),transparent 55%)}
   .pv .tagchip{position:absolute;left:10px;top:10px;z-index:1;font-size:11px;font-weight:800;padding:4px 9px;border-radius:999px;color:#fff;letter-spacing:.02em;background:rgba(0,0,0,.35);backdrop-filter:blur(6px)}
   .pv .body{padding:11px 13px 13px}
@@ -195,6 +195,12 @@
   /* gentle weather-inspired atmospheric drift (reduced-motion disables it) */
   #atmos::before{content:"";position:absolute;inset:-25%;pointer-events:none;background:radial-gradient(42% 32% at 32% 22%,rgba(255,255,255,.06),transparent 60%);animation:drift 30s ease-in-out infinite alternate}
   @keyframes drift{to{transform:translate(9%,5%)}}
+  /* Discover only: subtle gold + magenta aurora over the cyan twilight (sophisticated, not rave) */
+  [data-theme=discover] #atmos{background:
+      radial-gradient(86% 56% at 84% 3%, rgba(255,206,92,.13), transparent 46%),
+      radial-gradient(90% 60% at 14% 8%, rgba(255,108,200,.13), transparent 46%),
+      radial-gradient(140% 80% at 50% 0%, var(--sky1), transparent 62%),
+      radial-gradient(120% 90% at 50% 42%, transparent 52%, var(--scrim))}
 
   .legend{position:fixed;z-index:30;left:14px;bottom:calc(14px + env(safe-area-inset-bottom));display:flex;gap:14px;flex-wrap:wrap;
           background:var(--capsule);backdrop-filter:blur(12px);border:1px solid var(--capsuleBorder);border-radius:13px;padding:9px 13px;font-size:11.5px;font-weight:700;box-shadow:0 8px 22px rgba(8,16,28,.18);color:var(--fg)}
@@ -317,7 +323,7 @@
   var SKIN={
     light:   {land:'#F4F1E9',water:'#CFE4F6',green:'#E6EEDE',road:'#E9E3D8',building:'#ECE6DC',label:'#3a536e',halo:'rgba(251,251,249,.92)',boundary:'#e3ddd0'},
     dark:    {land:'#0E1726',water:'#0B1C33',green:'#13241f',road:'#26374f',building:'#162234',label:'#9fb6d4',halo:'rgba(6,16,30,.85)',boundary:'#2a3a52'},
-    discover:{land:'#0E1430',water:'#15619A',waterEdge:'#5BE1FF',green:'#11302f',road:'#5BE1FF',building:'#1a2350',label:'#cfe4ff',halo:'rgba(8,12,30,.82)',boundary:'#3b2f73',glowRoads:true,glowBlur:2.2}
+    discover:{land:'#181E46',water:'#1E74BE',waterEdge:'#62E7FF',green:'#16414C',road:'#5BE1FF',building:'#27306b',label:'#dbe9ff',halo:'rgba(10,14,42,.7)',boundary:'#B06FE0',glowRoads:true,glowBlur:2.6}
   };
   window.__PAL=SKIN.light;
   function setVars(v){ var r=document.documentElement.style;
@@ -331,8 +337,8 @@
     document.body.setAttribute('data-theme',theme); window.__PAL=SKIN[theme];
     if(theme==='discover'){
       style=CARTO_DARK;
-      setVars({ink:'#EAF1FF',muted:'#a7bbe0',hair:'rgba(140,170,255,.16)',cap:'rgba(20,24,52,.7)',capb:'rgba(120,160,255,.2)',panel:'rgba(17,21,46,.92)',ptext:'#EAF1FF',
-               glow:'rgba(91,225,255,.55)',scrim:'rgba(6,9,26,.5)',sky:'rgba(91,160,255,.22)',accent:'#5BE1FF'});
+      setVars({ink:'#EAF1FF',muted:'#aDc1e8',hair:'rgba(140,170,255,.2)',cap:'rgba(26,30,72,.66)',capb:'rgba(130,170,255,.3)',panel:'rgba(22,27,64,.9)',ptext:'#EAF1FF',
+               glow:'rgba(98,231,255,.62)',scrim:'rgba(12,16,46,.34)',sky:'rgba(98,170,255,.30)',accent:'#5BE1FF'});
     } else if(theme==='dark'){
       style=CARTO_DARK;
       var dg={morning:'rgba(122,162,255,.5)',afternoon:'rgba(122,162,255,.5)',evening:'rgba(240,150,90,.55)',night:'rgba(122,162,255,.5)'}[t];
@@ -390,7 +396,7 @@
   /* ── Fixtures + Nat-Geo photography (Unsplash CDN; gradient fallback) ──── */
   function U(id){return 'https://images.unsplash.com/photo-'+id+'?w=560&q=70&auto=format&fit=crop';}
   var PH=['1515562141207-7a88fb7ce338','1586023492125-27b2c045efd7','1577083552431-6e5fd01aa342','1605100804763-247f67b3557e',
-          '1518791841217-8f162f1e1131','1551218808-94e220e084d2','1578500494198-246f612d3b3d','1600585154340-be6161a56a0c',
+          '1586023492125-27b2c045efd7','1551218808-94e220e084d2','1578500494198-246f612d3b3d','1600585154340-be6161a56a0c',
           '1605792657660-596af9009e82','1513519245088-0e12902e35ca','1531973576160-7125cd663d86','1493106641515-6b5631de4bb9',
           '1495107334309-fcf20504a5ab'];
   var GRAD=['linear-gradient(135deg,#1e3a8a,#0f766e)','linear-gradient(135deg,#7c3a04,#9d174d)','linear-gradient(135deg,#3730a3,#0c4a6e)','linear-gradient(135deg,#155e75,#4d7c0f)'];
@@ -420,9 +426,9 @@
   var PIN_SVG='<svg class="pin" viewBox="0 0 34 46" width="34" height="46" aria-hidden="true">'
     +'<path class="body" d="M17 1.5C9.8 1.5 4 7.3 4 14.5c0 9.4 13 29 13 29s13-19.6 13-29C30 7.3 24.2 1.5 17 1.5z"/>'
     +'<circle class="face" cx="17" cy="14.5" r="8"/>'
-    +'<rect class="g-head" x="13.4" y="8.9" width="9" height="4.2" rx="1.6" transform="rotate(-32 17.9 11)"/>'
-    +'<path class="g-stick" d="M15.4 12.7 11.6 17.3"/>'
-    +'<path class="g-base" d="M10 18.8 H 15.8"/>'
+    +'<path class="g-a" d="M17 9 L13.2 20"/>'        // Advantage "A" — left leg
+    +'<path class="g-a" d="M17 9 L20.8 20"/>'        // right leg
+    +'<path class="g-a" d="M14.5 16.1 H19.5"/>'      // crossbar
     +'</svg>';
 
   /* ── Map ──────────────────────────────────────────────────────────────── */

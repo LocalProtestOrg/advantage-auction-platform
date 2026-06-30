@@ -27,6 +27,24 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 
 function validUuid(id) { return UUID_RE.test(id); }
 
+// ── GET /api/public/map-config ──────────────────────────────────────────────────
+// Client basemap configuration for the Living Map homepage. Returns a MapTiler
+// style URL built from the MAPTILER_KEY env var (a domain-restricted, client-side
+// key — safe to expose), and falls back to CARTO's key-free styles for local/dev
+// when the env var is absent. No secret is stored in the repo.
+router.get('/map-config', (req, res) => {
+  const key = process.env.MAPTILER_KEY;
+  const cfg = key
+    ? { provider: 'maptiler',
+        styleLight: `https://api.maptiler.com/maps/dataviz/style.json?key=${encodeURIComponent(key)}`,
+        styleDark:  `https://api.maptiler.com/maps/dataviz-dark/style.json?key=${encodeURIComponent(key)}` }
+    : { provider: 'carto',
+        styleLight: 'https://basemaps.cartocdn.com/gl/positron-gl-style/style.json',
+        styleDark:  'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json' };
+  res.set('Cache-Control', SLOW_CACHE);
+  res.json({ success: true, ...cfg });
+});
+
 // ── GET /api/public/auctions ──────────────────────────────────────────────────
 // Paginated, filterable auction discovery feed.
 //
@@ -106,6 +124,8 @@ router.get('/auctions', async (req, res, next) => {
              a.city,
              a.address_state,
              a.zip,
+             a.lat,
+             a.lng,
              a.shipping_available,
              a.start_time,
              a.end_time,
@@ -264,6 +284,8 @@ router.get('/auctions/:id', async (req, res, next) => {
              a.city,
              a.address_state,
              a.zip,
+             a.lat,
+             a.lng,
              a.shipping_available,
              a.start_time,
              a.end_time,

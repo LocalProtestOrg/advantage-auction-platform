@@ -5,6 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Auction - Advantage Auction</title>
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&display=swap" rel="stylesheet">
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -428,6 +430,96 @@
     .empty-tab{padding:1.6rem;text-align:center;color:#64748b}
     .auc-footer{background:#0f172a;color:#94a3b8;text-align:center;padding:1.5rem 1rem;font-size:.85rem;margin-top:2rem}
     .auc-footer a{color:#cbd5e1;text-decoration:none;margin:0 .4rem}.auc-footer a:hover{color:#fff}
+
+    /* ════════════════════════════════════════════════════════════════════════
+       Advantage.Bid design-language re-skin (Phase 2). PRESENTATION ONLY —
+       every id, class hook, card template and JS behavior is unchanged; this
+       block only restyles existing selectors to the approved Living Map identity
+       (light-first, Fraunces, rich-red action/urgency, premium photography).
+       ════════════════════════════════════════════════════════════════════════ */
+    :root{ --ink:#0B1B2B; --paper:#FBFAF7; --surface:#fff; --muted:#637488; --hair:#ECE8E0;
+           --accent:#2F6BFF; --live:#B5273B; --ending:#E0922E; --coming:#1FB6A6; --sold:#16A34A;
+           --ease:cubic-bezier(.22,.7,.2,1); }
+    body{ background:var(--paper); color:var(--ink); overflow-x:hidden;
+          font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; }
+
+    /* header → light, refined; brand in Fraunces */
+    header{ background:rgba(251,250,247,.9); backdrop-filter:saturate(150%) blur(12px);
+            -webkit-backdrop-filter:saturate(150%) blur(12px); border-bottom:1px solid var(--hair); padding:12px 20px; }
+    .brand{ color:var(--ink); font-family:"Fraunces","Georgia",serif; font-weight:700; font-size:1.05rem; letter-spacing:.005em; }
+    .lot-count{ color:var(--muted); }
+
+    /* banner → cinematic hero. Branded gradient always behind; banner image (when
+       present) overlays as a cover layer; text stays white in both cases. */
+    .auction-banner{ position:relative; overflow:hidden; border-bottom:0;
+                     background:linear-gradient(135deg,#0B1B2B 0%,#243b6b 58%,#7a274a 130%); }
+    .banner-hero{ position:absolute!important; inset:0; width:100%; height:100%; max-height:none;
+                  object-fit:cover; z-index:0; opacity:.46; }
+    .auction-banner::after{ content:""; position:absolute; inset:0; z-index:0;
+                  background:linear-gradient(to top,rgba(6,12,22,.55),rgba(6,12,22,.05) 60%,transparent); }
+    .banner-body{ position:relative; z-index:1; max-width:1180px; padding:46px 24px 30px; color:#fff; }
+    .auction-title{ font-family:"Fraunces","Georgia",serif; font-weight:600; color:#fff;
+                    font-size:clamp(26px,4vw,44px); line-height:1.04; letter-spacing:-.01em; }
+    .auction-subtitle{ color:rgba(255,255,255,.85); font-size:1rem; margin-top:.45rem; }
+    .auction-meta{ color:#fff; font-weight:600; margin-top:.75rem; font-size:.86rem; }
+    .auction-meta span::before{ color:rgba(255,255,255,.45); }
+    .seller-bar{ color:rgba(255,255,255,.9); }
+    .btn-walkthrough{ background:rgba(255,255,255,.16); border:1px solid rgba(255,255,255,.42); color:#fff;
+                      backdrop-filter:blur(6px); border-radius:12px; }
+    .btn-walkthrough:hover{ background:rgba(255,255,255,.26); }
+    .btn-follow{ border:1.5px solid rgba(255,255,255,.6); color:#fff; background:rgba(255,255,255,.12);
+                 border-radius:999px; backdrop-filter:blur(4px); }
+    .btn-follow:hover{ background:rgba(255,255,255,.22); }
+    .btn-follow.following{ background:#fff; color:var(--ink); border-color:#fff; }
+    .btn-follow.following:hover{ background:#f1f1ee; }
+
+    /* tabs → refined, red active accent */
+    .auction-tabs{ max-width:1180px; padding:0 20px; border-bottom:1px solid var(--hair); background:var(--paper); }
+    .atab{ color:var(--muted); font-weight:700; padding:14px 16px; }
+    .atab:hover{ color:var(--ink); }
+    .atab.active{ color:var(--live); border-bottom-color:var(--live); }
+
+    /* lots → premium cards */
+    .grid-wrap{ max-width:1180px; padding:28px 20px; }
+    .lot-grid{ grid-template-columns:repeat(auto-fill,minmax(248px,1fr)); gap:18px; }
+    .lot-card{ border:1px solid var(--hair); border-radius:18px;
+               transition:transform .18s var(--ease),box-shadow .18s; }
+    .lot-card:hover{ transform:translateY(-4px); box-shadow:0 18px 38px rgba(8,16,28,.14); }
+    .card-img img{ transition:opacity .25s, transform 6s ease; transform-origin:center; }
+    .lot-card:hover .card-img img.loaded{ transform:scale(1.05); }
+    .card-title{ font-weight:600; font-size:.98rem; color:var(--ink); }
+    .card-category{ color:var(--muted); }
+    .card-bid{ border-top-color:var(--hair); }
+    .bid-label{ color:var(--muted); }
+    .bid-amount{ font-family:"Fraunces","Georgia",serif; font-weight:600; font-size:1.18rem; color:var(--ink); }
+    .bid-amount.no-bids{ color:var(--muted); }
+    .status-open{ background:rgba(181,39,59,.12); color:var(--live); }
+    .status-sold{ background:var(--sold); color:#fff; }
+    .card-countdown{ color:var(--ending); }
+    .card-countdown.urgent{ color:var(--live); }
+    .card-nextmin strong{ color:var(--ink); }
+    .card-bidform input{ border:1.5px solid var(--hair); border-radius:12px; }
+    .card-bidform input:focus{ outline:none; border-color:var(--live); }
+    .card-bidform button{ background:var(--live); border-radius:12px; font-weight:800;
+                          box-shadow:0 8px 20px rgba(181,39,59,.28); }
+    .card-bidform button:hover{ filter:brightness(1.05); }
+    .btn-register{ background:var(--live); border-radius:12px; font-weight:800;
+                   box-shadow:0 8px 20px rgba(181,39,59,.26); }
+    .btn-register:hover{ filter:brightness(1.05); }
+    .view-details,.card-signin a,.card-realized-prompt a,.register-ack-text a{ color:var(--accent); }
+    .lot-progress-fill.lp-amber{ background:linear-gradient(90deg,#F0B43B,var(--ending)); }
+    .lot-progress-fill.lp-red{ background:linear-gradient(90deg,#E0593B,var(--live));
+                               box-shadow:0 0 10px rgba(181,39,59,.55); }
+
+    /* panels → clean light */
+    .tab-panel{ max-width:1180px; padding:24px 20px; }
+    .tab-panel h3{ font-family:"Fraunces","Georgia",serif; font-weight:600; font-size:1.25rem; }
+    .info-row strong{ color:var(--ink); }
+    .map-link,.wl-card .t a{ color:var(--accent); }
+    .tab-note{ background:var(--surface); border:1px solid var(--hair); border-radius:12px; color:var(--muted); }
+    .wl-card{ border:1px solid var(--hair); border-radius:14px; }
+    .state-msg strong{ color:var(--ink); font-family:"Fraunces","Georgia",serif; font-weight:600; }
+    .auc-footer{ background:var(--ink); margin-top:2.5rem; }
   </style>
 </head>
 <body>
