@@ -5,6 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Lot Detail - Advantage Auction</title>
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&display=swap" rel="stylesheet">
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -555,6 +557,87 @@
       .layout    { min-height: 0; }
       .image-col { min-height: 0; }
     }
+
+    /* ════════════════════════════════════════════════════════════════════════
+       Advantage.Bid design-language re-skin (Phase 3, lot detail). PRESENTATION
+       ONLY — every id/class hook, the gallery + bidding/realtime JS, max-bid,
+       soft-close, watchlist and lightbox are unchanged. This restyles existing
+       selectors + the relocated title + the new inline image arrows/count.
+       ════════════════════════════════════════════════════════════════════════ */
+    :root{ --ink:#0B1B2B; --paper:#FBFAF7; --surface:#fff; --muted:#637488; --hair:#ECE8E0;
+           --accent:#2F6BFF; --live:#B5273B; --ending:#E0922E; --sold:#16A34A; --ease:cubic-bezier(.22,.7,.2,1); }
+    body{ background:var(--paper); color:var(--ink); overflow-x:hidden;
+          font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; }
+    header{ background:rgba(251,250,247,.92); backdrop-filter:saturate(150%) blur(12px);
+            -webkit-backdrop-filter:saturate(150%) blur(12px); border-bottom:1px solid var(--hair); padding:12px 20px; }
+    header .brand{ color:var(--ink); font-family:"Fraunces","Georgia",serif; font-weight:700; }
+    header .back{ color:var(--muted); } header .back:hover{ color:var(--ink); }
+
+    /* full-width lot title at the very top */
+    .lot-top{ background:var(--paper); border-bottom:1px solid var(--hair); }
+    .lot-top-inner{ max-width:1220px; margin:0 auto; padding:18px 20px 16px; }
+    .lot-top .lot-title{ font-family:"Fraunces","Georgia",serif; font-weight:600; color:var(--ink);
+                         font-size:clamp(22px,3vw,34px); line-height:1.08; letter-spacing:-.01em; }
+
+    /* centered, balanced two-column on a light canvas */
+    .layout{ max-width:1220px; margin:0 auto; grid-template-columns:minmax(0,1fr) 384px; gap:32px;
+             min-height:0; padding:24px 20px 40px; align-items:start; }
+    .image-col{ background:transparent; padding:0; min-height:0; min-width:0; }
+
+    /* main image — generous, height-capped so thumbnails stay in view; arrows + count */
+    #main-image-wrap{ background:var(--surface); border:1px solid var(--hair); border-radius:18px;
+                      aspect-ratio:4/3; max-height:clamp(320px,52vh,470px); margin-bottom:14px;
+                      box-shadow:0 14px 34px rgba(8,16,28,.10); }
+    .img-nav{ position:absolute; top:50%; transform:translateY(-50%); width:40px; height:40px; border-radius:50%;
+              border:0; cursor:pointer; z-index:3; background:rgba(255,255,255,.86); color:#0B1B2B; font-size:23px;
+              line-height:1; display:none; place-items:center; box-shadow:0 4px 14px rgba(8,16,28,.22);
+              opacity:.9; transition:opacity .2s,background .15s; }
+    #main-image-wrap:hover .img-nav{ opacity:1; }
+    .img-nav:hover{ background:#fff; }
+    .img-nav.prev{ left:12px } .img-nav.next{ right:12px }
+    .img-nav.show{ display:grid; }
+    .img-count{ position:absolute; left:12px; bottom:12px; z-index:3; background:rgba(8,14,24,.58);
+                -webkit-backdrop-filter:blur(6px); backdrop-filter:blur(6px); color:#fff; border-radius:999px;
+                padding:6px 12px; font-size:12px; font-weight:700; letter-spacing:.02em; display:none; }
+    .img-count.show{ display:block; }
+
+    /* thumbnails — light, red active, comfortable; visible directly under the image */
+    #thumb-strip{ gap:10px; padding-bottom:6px; scrollbar-color:#cbd0d8 transparent; }
+    .thumb{ width:84px; height:64px; border-radius:11px; border:2px solid transparent; }
+    .thumb.active{ border-color:var(--live); }
+    .thumb .thumb-skeleton{ background:linear-gradient(90deg,#eceae3 25%,#f6f4ee 50%,#eceae3 75%); background-size:200% 100%; }
+
+    /* lot meta on the light canvas */
+    #lot-meta{ color:var(--ink); margin-top:22px; }
+    #lot-meta .lot-category{ color:var(--muted); }
+    #lot-meta .lot-description{ color:#33414f; font-size:.95rem; }
+    .detail-field .df-label{ color:var(--muted); } .detail-field .df-value{ color:var(--ink); }
+
+    /* bid panel — integrated sticky card */
+    .bid-panel{ background:var(--surface); border:1px solid var(--hair); border-left:1px solid var(--hair);
+                border-radius:20px; box-shadow:0 16px 40px rgba(8,16,28,.09); padding:22px;
+                position:sticky; top:18px; height:auto; max-height:calc(100vh - 36px); overflow-y:auto; }
+    .bid-display{ background:#FBF7F4; border:1px solid #f0e3df; border-radius:16px; }
+    .bid-display .label{ color:var(--muted); }
+    .bid-display .amount{ font-family:"Fraunces","Georgia",serif; font-weight:700; color:var(--ink); }
+    .bid-display.flash{ background:#fdeef0; border-color:#f3c9d0; }
+    .live-dot{ background:var(--sold); }
+    #bid-activity.has-bids{ color:var(--sold); }
+    .bid-row input{ border:1.5px solid var(--hair); border-radius:12px; }
+    .bid-row input:focus{ border-color:var(--live); }
+    #max-bid-input{ border:1.5px solid var(--hair)!important; border-radius:12px!important; }
+    .btn-place-bid{ background:var(--live); border-radius:12px; font-weight:800; box-shadow:0 8px 20px rgba(181,39,59,.28); }
+    .btn-place-bid:hover{ background:var(--live); filter:brightness(1.06); }
+    #countdown-val.urgent{ color:var(--live); }
+    .bid-row-item.top-bid .bid-amt{ color:var(--live); }
+    .bid-row-item.new-bid{ background:#fdeef0; }
+
+    /* responsive — stack cleanly, bid card stays visible, no horizontal scroll */
+    @media(max-width:880px){
+      .layout{ grid-template-columns:1fr; gap:20px; padding:18px 16px 36px; }
+      .bid-panel{ position:static!important; height:auto; max-height:none; }
+      #main-image-wrap{ max-height:62vh; }
+    }
   </style>
 </head>
 <body>
@@ -563,6 +646,14 @@
   <span class="brand">Advantage Auction</span>
   <a href="javascript:smartBack()" class="back">← Back</a>
 </header>
+
+<!-- Full-width lot title header (relocated from the bid panel; same #lot-title id) -->
+<div class="lot-top">
+  <div class="lot-top-inner">
+    <div class="lot-title" id="lot-title"></div>
+    <div id="hist-subhead" style="display:none"></div>
+  </div>
+</div>
 
 <div class="layout">
 
@@ -573,6 +664,9 @@
       <div class="no-image-placeholder" id="no-image-msg">No images</div>
       <img id="main-image" style="display:none" alt="Lot image" />
       <div id="main-enhanced-badge">✦ AI Enhanced</div>
+      <button class="img-nav prev" id="img-prev" type="button" aria-label="Previous image">‹</button>
+      <button class="img-nav next" id="img-next" type="button" aria-label="Next image">›</button>
+      <div class="img-count" id="img-count"></div>
     </div>
 
     <div id="thumb-strip"></div>
@@ -591,9 +685,8 @@
 
     <div id="panel-content" style="display:none; flex-direction:column; gap:1.25rem; flex:1">
 
-      <div class="lot-title" id="lot-title"></div>
-      <!-- Historical archive: category + lot number directly beneath the single title -->
-      <div id="hist-subhead" style="display:none"></div>
+      <!-- lot title + historical subhead relocated to the full-width header above .layout -->
+
 
       <!-- Historical archive status (replaces the entire bidding panel for archive lots) -->
       <div id="historical-panel" style="display:none">
@@ -1669,5 +1762,29 @@
   <a href="/sitemap.html" style="color:#cbd5e1;text-decoration:none;margin:0 .4rem">Sitemap</a>
   <div style="margin-top:0.4rem">© Advantage.Bid - Online Auction Marketplace</div>
 </footer>
+<script>
+  /* Phase 3 gallery affordance: inline prev/next arrows + "n of N" count on the main
+     image, wired to the page's EXISTING setMainImage()/activeIndex/imageRows. Additive
+     only — no change to bidding, gallery data, swipe, or the lightbox. */
+  (function(){
+    var prev=document.getElementById('img-prev'), next=document.getElementById('img-next'), count=document.getElementById('img-count');
+    if(!prev||!next||!count) return;
+    function total(){ return (typeof imageRows!=='undefined' && imageRows) ? imageRows.length : 0; }
+    function idx(){ return (typeof activeIndex!=='undefined' && typeof activeIndex==='number') ? activeIndex : 0; }
+    function refresh(){
+      var t=total(), i=idx(), multi=t>1;
+      prev.classList.toggle('show',multi); next.classList.toggle('show',multi);
+      count.classList.toggle('show',t>=1); count.textContent=t?((i+1)+' of '+t):'';
+      prev.disabled=i<=0; next.disabled=i>=t-1;
+      prev.style.opacity=i<=0?'.4':''; next.style.opacity=i>=t-1?'.4':'';
+    }
+    prev.addEventListener('click',function(e){ e.stopPropagation(); if(typeof setMainImage==='function'&&idx()>0){ setMainImage(idx()-1); refresh(); } });
+    next.addEventListener('click',function(e){ e.stopPropagation(); if(typeof setMainImage==='function'&&idx()<total()-1){ setMainImage(idx()+1); refresh(); } });
+    // wrap setMainImage so thumbnail clicks + swipe also keep the count in sync
+    try{ if(typeof setMainImage==='function'){ var _orig=setMainImage; setMainImage=function(i){ _orig(i); refresh(); }; } }catch(e){}
+    var tries=0, iv=setInterval(function(){ refresh(); if(total()>0||tries++>40) clearInterval(iv); },200);
+    refresh();
+  })();
+</script>
 </body>
 </html>
