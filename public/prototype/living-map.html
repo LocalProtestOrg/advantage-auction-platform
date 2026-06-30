@@ -317,7 +317,7 @@
   var SKIN={
     light:   {land:'#F4F1E9',water:'#CFE4F6',green:'#E6EEDE',road:'#E9E3D8',building:'#ECE6DC',label:'#3a536e',halo:'rgba(251,251,249,.92)',boundary:'#e3ddd0'},
     dark:    {land:'#0E1726',water:'#0B1C33',green:'#13241f',road:'#26374f',building:'#162234',label:'#9fb6d4',halo:'rgba(6,16,30,.85)',boundary:'#2a3a52'},
-    discover:{land:'#0E1430',water:'#15619A',waterEdge:'#5BE1FF',green:'#11302f',road:'#5BE1FF',building:'#1a2350',label:'#cfe4ff',halo:'rgba(8,12,30,.82)',boundary:'#3b2f73',glowRoads:true,glowBlur:2.2}
+    discover:{land:'#181E46',water:'#1E74BE',waterEdge:'#62E7FF',green:'#16414C',road:'#5BE1FF',building:'#27306b',label:'#dbe9ff',halo:'rgba(10,14,42,.7)',boundary:'#6470e0',glowRoads:true,glowBlur:2.6}
   };
   window.__PAL=SKIN.light;
   function setVars(v){ var r=document.documentElement.style;
@@ -331,8 +331,8 @@
     document.body.setAttribute('data-theme',theme); window.__PAL=SKIN[theme];
     if(theme==='discover'){
       style=CARTO_DARK;
-      setVars({ink:'#EAF1FF',muted:'#a7bbe0',hair:'rgba(140,170,255,.16)',cap:'rgba(20,24,52,.7)',capb:'rgba(120,160,255,.2)',panel:'rgba(17,21,46,.92)',ptext:'#EAF1FF',
-               glow:'rgba(91,225,255,.55)',scrim:'rgba(6,9,26,.5)',sky:'rgba(91,160,255,.22)',accent:'#5BE1FF'});
+      setVars({ink:'#EAF1FF',muted:'#aDc1e8',hair:'rgba(140,170,255,.2)',cap:'rgba(26,30,72,.66)',capb:'rgba(130,170,255,.3)',panel:'rgba(22,27,64,.9)',ptext:'#EAF1FF',
+               glow:'rgba(98,231,255,.62)',scrim:'rgba(12,16,46,.34)',sky:'rgba(98,170,255,.30)',accent:'#5BE1FF'});
     } else if(theme==='dark'){
       style=CARTO_DARK;
       var dg={morning:'rgba(122,162,255,.5)',afternoon:'rgba(122,162,255,.5)',evening:'rgba(240,150,90,.55)',night:'rgba(122,162,255,.5)'}[t];
@@ -390,7 +390,7 @@
   /* ── Fixtures + Nat-Geo photography (Unsplash CDN; gradient fallback) ──── */
   function U(id){return 'https://images.unsplash.com/photo-'+id+'?w=560&q=70&auto=format&fit=crop';}
   var PH=['1515562141207-7a88fb7ce338','1586023492125-27b2c045efd7','1577083552431-6e5fd01aa342','1605100804763-247f67b3557e',
-          '1518791841217-8f162f1e1131','1551218808-94e220e084d2','1578500494198-246f612d3b3d','1600585154340-be6161a56a0c',
+          '1586023492125-27b2c045efd7','1551218808-94e220e084d2','1578500494198-246f612d3b3d','1600585154340-be6161a56a0c',
           '1605792657660-596af9009e82','1513519245088-0e12902e35ca','1531973576160-7125cd663d86','1493106641515-6b5631de4bb9',
           '1495107334309-fcf20504a5ab'];
   var GRAD=['linear-gradient(135deg,#1e3a8a,#0f766e)','linear-gradient(135deg,#7c3a04,#9d174d)','linear-gradient(135deg,#3730a3,#0c4a6e)','linear-gradient(135deg,#155e75,#4d7c0f)'];

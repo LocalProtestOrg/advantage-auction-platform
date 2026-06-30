@@ -163,10 +163,11 @@
 <script>
 (function(){
   "use strict";
-  var PH=['1611591437281-460bfbe1220a','1599643478518-a784e5dc4c8f','1605100804763-247f67b3557e','1518791841217-8f162f1e1131',
-          '1531995811006-35cb42e1a022','1551218808-94e220e084d2','1602173574767-37ac01994b2a','1495107334309-fcf20504a5ab',
-          '1620625515032-6ed0c1790c75','1513519245088-0e12902e35ca','1582719478250-c89cae4dc85b','1535632066927-ab7c9ab60908'];
-  function img(i){ return "url('https://images.unsplash.com/photo-"+PH[i%PH.length]+"?w=560&q=68&auto=format&fit=crop'),linear-gradient(135deg,#243b6b,#7a274a)"; }
+  // Jewelry-only imagery for this Estate Jewelry auction (varied crops of the same
+  // verified jewelry photos — no unrelated images). Real product uses each lot's photos.
+  var JB=['1605100804763-247f67b3557e','1515562141207-7a88fb7ce338','1611591437281-460bfbe1220a'];
+  var CR=['','top','bottom','left','right','entropy'];
+  function img(i){ var id=JB[i%JB.length], c=CR[Math.floor(i/JB.length)%CR.length]; return "url('https://images.unsplash.com/photo-"+id+"?w=560&q=68&auto=format&fit=crop"+(c?('&crop='+c):'')+"'),linear-gradient(135deg,#243b6b,#7a274a)"; }
   var TITLES=['Diamond solitaire ring, 1.20 ct','14k gold tennis bracelet','Omega Seamaster, c.1968','Sapphire & diamond earrings','Art Deco platinum brooch','Strand of Akoya pearls','Men’s Rolex Datejust','Emerald cocktail ring','Antique cameo pendant','Designer signed cuff','Vintage Cartier Tank','Diamond studs, 1 ct'];
   var lots=document.getElementById('lots');
   for(var i=0;i<12;i++){ (function(i){

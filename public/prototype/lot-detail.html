@@ -18,7 +18,7 @@
   body{margin:0;background:var(--paper);color:var(--ink);font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;-webkit-font-smoothing:antialiased;overflow-x:hidden;opacity:0;animation:fadein .6s var(--ease) forwards}
   @keyframes fadein{to{opacity:1}}
   a{color:inherit;text-decoration:none}
-  header{position:sticky;top:0;z-index:30;backdrop-filter:saturate(150%) blur(16px);background:rgba(251,250,247,.8);border-bottom:1px solid var(--hair)}
+  header{position:sticky;top:0;z-index:30;backdrop-filter:saturate(150%) blur(16px);background:rgba(251,250,247,.82);border-bottom:1px solid var(--hair)}
   .hwrap{max-width:1180px;margin:0 auto;display:flex;align-items:center;gap:12px;padding:11px 20px}
   .brand{font-family:"Fraunces","Georgia",serif;font-weight:700;font-size:18px}
   .brand span{color:var(--accent)}
@@ -26,36 +26,41 @@
   .icbtn{width:38px;height:38px;border-radius:50%;border:0;background:transparent;display:grid;place-items:center;cursor:pointer;color:inherit}
   .icbtn:hover{background:rgba(120,140,170,.1)}
   .avatar{width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,#1e3a8a,#2F6BFF)}
-  .wrap{max-width:1180px;margin:0 auto;padding:14px 20px 30px}
-  .back{display:inline-flex;gap:8px;align-items:center;color:var(--muted);font-weight:600;font-size:14px;padding:10px 0}
-  .cols{display:grid;grid-template-columns:1fr 400px;gap:34px;align-items:start}
-  @media(max-width:940px){ .cols{grid-template-columns:1fr} }
+  .wrap{max-width:1180px;margin:0 auto;padding:12px 20px 30px}
+  .back{display:inline-flex;gap:8px;align-items:center;color:var(--muted);font-weight:600;font-size:14px;padding:8px 0}
+  /* lot header — title is ALWAYS at the top, full width */
+  .lothead{margin:4px 0 18px}
+  .lothead .eyebrow{font-size:12px;font-weight:800;letter-spacing:.05em;color:var(--muted);text-transform:uppercase}
+  .lothead h1{font-family:"Fraunces","Georgia",serif;font-weight:600;font-size:clamp(26px,3.4vw,38px);line-height:1.06;letter-spacing:-.01em;margin:6px 0 0}
+  /* two-column: left = gallery+details, right = sticky bid card */
+  .cols{display:grid;grid-template-columns:minmax(0,1fr) 360px;gap:30px;align-items:start}
+  .left{min-width:0}            /* prevents image content from overflowing the grid */
+  @media(max-width:980px){ .cols{grid-template-columns:1fr} .bidpanel{position:static !important} }
   /* gallery */
   .galhero{position:relative;border-radius:20px;overflow:hidden;aspect-ratio:3/2;max-height:430px;background-size:cover;background-position:center;box-shadow:0 18px 44px rgba(8,16,28,.14);cursor:zoom-in}
   .galhero .zoom{position:absolute;right:12px;bottom:12px;background:rgba(8,14,24,.5);backdrop-filter:blur(6px);color:#fff;border-radius:999px;padding:7px 13px;font-size:12px;font-weight:700}
-  .film{display:flex;gap:11px;margin-top:13px;overflow:auto;padding-bottom:4px;scrollbar-width:thin}
-  .film .th{width:90px;height:68px;border-radius:11px;flex:0 0 auto;background-size:cover;background-position:center;cursor:pointer;border:2px solid transparent;transition:border-color .15s,transform .15s}
+  .film{display:flex;gap:11px;margin-top:12px;overflow-x:auto;padding-bottom:4px;scrollbar-width:thin}
+  .film .th{width:92px;height:70px;border-radius:11px;flex:0 0 auto;background-size:cover;background-position:center;cursor:pointer;border:2px solid transparent;transition:border-color .15s,transform .15s}
   .film .th:hover{transform:translateY(-2px)}
   .film .th.on{border-color:var(--live)}
-  .desc{margin-top:30px;max-width:62ch}
-  .desc h2{font-family:"Fraunces","Georgia",serif;font-weight:600;font-size:23px;margin:0 0 12px;letter-spacing:-.01em}
+  .desc{margin-top:28px;max-width:64ch}
+  .desc .lbl{font-size:11.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-bottom:8px}
   .desc p{color:#324254;line-height:1.7;font-size:15.5px;margin:0 0 16px}
-  .specs{display:grid;grid-template-columns:1fr 1fr;gap:0 28px;margin-top:8px}
+  .specs{display:grid;grid-template-columns:1fr 1fr;gap:0 28px;margin-top:6px}
+  @media(max-width:520px){ .specs{grid-template-columns:1fr} }
   .specs .kv{display:flex;justify-content:space-between;font-size:13.5px;padding:10px 0;border-bottom:1px solid var(--hair)}
   .specs .kv b{font-weight:700}
   .provenance{margin-top:22px;background:#fff;border:1px solid var(--hair);border-radius:16px;padding:16px 18px}
   .provenance h3{font-family:"Fraunces",serif;font-weight:600;font-size:16px;margin:0 0 8px}
   .provenance p{color:#324254;font-size:14px;line-height:1.6;margin:0}
-  /* bid panel */
-  .bidpanel{position:sticky;top:80px;background:var(--surface);border:1px solid var(--hair);border-radius:22px;padding:22px;box-shadow:0 18px 44px rgba(8,16,28,.09)}
-  .eyebrow{font-size:11.5px;font-weight:800;letter-spacing:.05em;color:var(--muted);text-transform:uppercase}
-  .lottitle{font-family:"Fraunces","Georgia",serif;font-weight:600;font-size:25px;line-height:1.12;margin:5px 0 16px;letter-spacing:-.01em}
+  /* bid card */
+  .bidpanel{position:sticky;top:80px;background:var(--surface);border:1px solid var(--hair);border-radius:20px;padding:22px;box-shadow:0 18px 44px rgba(8,16,28,.09)}
   .bidblock{background:#FBF7F4;border:1px solid #f0e3df;border-radius:16px;padding:16px}
   .curbid .lbl{color:var(--muted);font-size:12px;font-weight:700;letter-spacing:.04em;text-transform:uppercase}
   .curbid .amt{font-family:"Fraunces",serif;font-weight:700;font-size:42px;line-height:1;font-variant-numeric:tabular-nums;margin-top:4px}
   .curbid .meta{display:flex;justify-content:space-between;align-items:center;margin-top:6px}
   .curbid .bids{color:var(--muted);font-size:13px;font-weight:600}
-  .premium{font-size:12.5px;color:var(--muted);margin-top:2px}
+  .premium{font-size:12.5px;color:var(--muted)}
   .timechip{display:inline-flex;align-items:center;gap:8px;background:rgba(224,146,46,.13);color:var(--ending);font-weight:800;border-radius:999px;padding:7px 13px;margin:16px 0 14px;font-size:13.5px}
   .timechip .dot{width:8px;height:8px;border-radius:50%;background:var(--ending);animation:pulse 1.5s infinite}
   @keyframes pulse{0%,100%{opacity:.45}50%{opacity:1}}
@@ -75,22 +80,21 @@
   .protect .ic{color:#64748b;flex:0 0 auto;margin-top:1px;display:grid;place-items:center}
   .protect .ic svg{width:18px;height:18px}
   /* similar rail */
-  .railhead{font-family:"Fraunces","Georgia",serif;font-weight:600;font-size:21px;margin:36px 2px 14px}
-  .rail{display:flex;gap:15px;overflow:auto;padding-bottom:8px;scroll-snap-type:x mandatory}
+  .railhead{font-family:"Fraunces","Georgia",serif;font-weight:600;font-size:21px;margin:34px 2px 14px}
+  .rail{display:flex;gap:15px;overflow-x:auto;padding-bottom:8px;scroll-snap-type:x mandatory}
   .rail .card{width:214px;flex:0 0 auto;scroll-snap-align:start;background:#fff;border:1px solid var(--hair);border-radius:16px;overflow:hidden;cursor:pointer;transition:transform .16s,box-shadow .16s}
   .rail .card:hover{transform:translateY(-3px);box-shadow:0 14px 30px rgba(8,16,28,.13)}
-  .rail .card{overflow:hidden}
   .rail .card .ph{height:140px;background-size:cover;background-position:center;transform-origin:center;transition:transform 6s ease}
   .rail .card:hover .ph{transform:scale(1.06)}
   .rail .card .b{padding:11px 13px}
   .rail .card .t{font-weight:600;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .rail .card .a{font-family:"Fraunces",serif;font-weight:600;font-variant-numeric:tabular-nums;margin-top:4px}
   footer{max-width:1180px;margin:34px auto;padding:18px 20px;color:var(--muted);font-size:12.5px;border-top:1px solid var(--hair)}
-  .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(10px);opacity:0;background:#0B1B2B;color:#fff;padding:13px 20px;border-radius:13px;font-weight:600;font-size:14px;transition:opacity .25s,transform .25s;z-index:50}
+  .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(10px);opacity:0;background:#0B1B2B;color:#fff;padding:13px 20px;border-radius:13px;font-weight:600;font-size:14px;transition:opacity .25s,transform .25s;z-index:60}
   .toast.in{opacity:1;transform:translateX(-50%)}
-  /* mobile: keep bidding in view at all times */
+  /* mobile: keep bidding visible at all times */
   .mobilebid{display:none}
-  @media(max-width:940px){
+  @media(max-width:980px){
     .mobilebid{display:flex;position:fixed;left:0;right:0;bottom:0;z-index:45;align-items:center;justify-content:space-between;gap:14px;background:#fff;border-top:1px solid var(--hair);padding:11px 18px calc(11px + env(safe-area-inset-bottom));box-shadow:0 -10px 28px rgba(8,16,28,.12)}
     .mobilebid .lbl{font-size:10.5px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--muted)}
     .mobilebid .amt{font-family:"Fraunces","Georgia",serif;font-weight:600;font-size:22px;font-variant-numeric:tabular-nums;line-height:1.1}
@@ -111,13 +115,20 @@
 
 <div class="wrap">
   <a class="back" href="/prototype/auction-detail.html">← Estate Jewelry &amp; Fine Watches</a>
+
+  <!-- 1) back · 2) lot context · 3) lot title (always visible at top) -->
+  <div class="lothead">
+    <div class="eyebrow">Lot 1 · Estate Jewelry &amp; Fine Watches</div>
+    <h1>Diamond solitaire ring, 1.20 ct</h1>
+  </div>
+
   <div class="cols">
-    <div>
+    <div class="left">
       <div class="galhero" id="galhero"><span class="zoom">⤢ Tap to zoom</span></div>
       <div class="film" id="film"></div>
 
       <div class="desc">
-        <h2>Diamond solitaire ring, 1.20 ct</h2>
+        <div class="lbl">About this lot</div>
         <p>A classic round-brilliant diamond solitaire in a four-prong platinum setting. The stone is bright and lively with excellent symmetry; the band shows light, even wear consistent with age and gentle daily use.</p>
         <p>From a single-owner Detroit estate, acquired by the family in the 1980s and worn sparingly. Photographed in natural light, unretouched.</p>
         <div class="specs">
@@ -141,19 +152,14 @@
 
     <aside>
       <div class="bidpanel">
-        <div class="eyebrow">Lot 1 · Estate Jewelry &amp; Fine Watches</div>
-        <div class="lottitle">Diamond solitaire ring, 1.20 ct</div>
-
         <div class="bidblock">
           <div class="curbid">
             <div class="lbl">Current bid</div>
             <div class="amt">$1,150</div>
-            <div class="meta"><span class="premium">+ 18% buyer premium at checkout</span><span class="bids">7 bids · 19 watching</span></div>
+            <div class="meta"><span class="premium">+ 18% buyer premium</span><span class="bids">7 bids · 19 watching</span></div>
           </div>
         </div>
-
         <div class="timechip"><span class="dot"></span>Ends in 2h 14m · soft close</div>
-
         <div class="bidrow">
           <div class="field"><span class="dollar">$</span><input id="bid" inputmode="numeric" value="1,200" aria-label="Your max bid" /></div>
           <button class="step" id="plus">+50</button>
@@ -161,7 +167,6 @@
         <button class="btn primary" id="place">Place bid</button>
         <div class="nextmin">Next minimum bid <b>$1,200</b> · increment $50</div>
         <div class="watch">♡ Add to watchlist</div>
-
         <div class="protect">
           <div class="row"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="5" width="19" height="14" rx="2.5"/><path d="M2.5 9.5h19"/></svg></span><span>Card verified at signup — bid with confidence.</span></div>
           <div class="row"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4.5" y="10.5" width="15" height="9.5" rx="2.5"/><path d="M8 10.5V8a4 4 0 0 1 8 0v2.5"/></svg></span><span>Your full address stays private until payment is verified.</span></div>
@@ -178,17 +183,21 @@
 <script>
 (function(){
   "use strict";
-  var PH=['1611591437281-460bfbe1220a','1605100804763-247f67b3557e','1599643478518-a784e5dc4c8f','1518791841217-8f162f1e1131','1495107334309-fcf20504a5ab'];
-  function url(id,w){ return 'https://images.unsplash.com/photo-'+id+'?w='+(w||900)+'&q=72&auto=format&fit=crop'; }
+  /* Jewelry-only fixture imagery — the gallery shows the SAME estate-jewelry subject
+     family from several framings (no unrelated photos). Real product would use the
+     lot's own Cloudinary images. */
+  var JB=['1605100804763-247f67b3557e','1515562141207-7a88fb7ce338','1611591437281-460bfbe1220a'];
+  function jurl(id,w,crop){ return 'https://images.unsplash.com/photo-'+id+'?w='+(w||900)+'&q=72&auto=format&fit=crop'+(crop?('&crop='+crop):''); }
+  var VIEWS=[ {id:JB[0]}, {id:JB[0],c:'top'}, {id:JB[1]}, {id:JB[2]}, {id:JB[1],c:'bottom'} ];
   var hero=document.getElementById('galhero'), film=document.getElementById('film');
-  function setHero(i){ hero.style.backgroundImage="url('"+url(PH[i],1200)+"'),linear-gradient(135deg,#243b6b,#7a274a)"; document.querySelectorAll('.film .th').forEach(function(t,j){ t.classList.toggle('on',j===i); }); }
-  PH.forEach(function(id,i){ var th=document.createElement('div'); th.className='th'+(i===0?' on':''); th.style.backgroundImage="url('"+url(id,220)+"')"; th.onclick=function(){ setHero(i); }; film.appendChild(th); });
+  function setHero(i){ hero.style.backgroundImage="url('"+jurl(VIEWS[i].id,1200,VIEWS[i].c)+"'),linear-gradient(135deg,#243b6b,#7a274a)"; document.querySelectorAll('.film .th').forEach(function(t,j){ t.classList.toggle('on',j===i); }); }
+  VIEWS.forEach(function(v,i){ var th=document.createElement('div'); th.className='th'+(i===0?' on':''); th.style.backgroundImage="url('"+jurl(v.id,240,v.c)+"')"; th.onclick=function(){ setHero(i); }; film.appendChild(th); });
   setHero(0);
 
   var rail=document.getElementById('rail');
   var SIM=[['14k gold tennis bracelet','$640'],['Omega Seamaster, c.1968','$1,900'],['Sapphire & diamond earrings','$880'],['Art Deco platinum brooch','$1,250'],['Strand of Akoya pearls','$420']];
   SIM.forEach(function(s,i){ var c=document.createElement('a'); c.className='card'; c.href='/prototype/lot-detail.html';
-    c.innerHTML='<div class="ph" style="background-image:url(\''+url(PH[(i+1)%PH.length],420)+'\'),linear-gradient(135deg,#243b6b,#7a274a)"></div><div class="b"><div class="t">'+s[0]+'</div><div class="a">'+s[1]+'</div></div>'; rail.appendChild(c); });
+    c.innerHTML='<div class="ph" style="background-image:url(\''+jurl(JB[i%JB.length],440,['','top','bottom','left','right'][i%5])+'\'),linear-gradient(135deg,#243b6b,#7a274a)"></div><div class="b"><div class="t">'+s[0]+'</div><div class="a">'+s[1]+'</div></div>'; rail.appendChild(c); });
 
   function toast(){ var t=document.getElementById('toast'); t.classList.add('in'); setTimeout(function(){ t.classList.remove('in'); },1900); }
   document.getElementById('place').onclick=toast;
