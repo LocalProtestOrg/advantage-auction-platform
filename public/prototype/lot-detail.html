@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<meta name="robots" content="noindex" />
+<title>Lot — Advantage.Bid (Prototype)</title>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+<!-- Lot-detail prototype in the Living Map design language. Standalone, not linked from
+     production nav. Bidding is VISUAL ONLY — no engine/API/Stripe/bidding/DB changes. -->
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&display=swap" rel="stylesheet">
+<style>
+  :root{ --ink:#0B1B2B; --paper:#FBFAF7; --surface:#fff; --muted:#5b6b7e; --hair:#ECE9E2;
+    --accent:#2F6BFF; --live:#B5273B; --ending:#E0922E; --sold:#16A34A; --ease:cubic-bezier(.22,.7,.2,1); }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--paper);color:var(--ink);font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+  a{color:inherit;text-decoration:none}
+  header{position:sticky;top:0;z-index:30;backdrop-filter:saturate(150%) blur(14px);background:rgba(251,250,247,.82);border-bottom:1px solid var(--hair)}
+  .hwrap{max-width:1160px;margin:0 auto;display:flex;align-items:center;gap:12px;padding:11px 18px}
+  .brand{font-family:"Fraunces","Georgia",serif;font-weight:700;font-size:18px}
+  .brand span{color:var(--accent)}
+  .spacer{flex:1}
+  .icbtn{width:38px;height:38px;border-radius:50%;border:0;background:transparent;display:grid;place-items:center;cursor:pointer;color:inherit}
+  .avatar{width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,#1e3a8a,#2F6BFF)}
+  .wrap{max-width:1160px;margin:0 auto;padding:18px}
+  .back{display:inline-flex;gap:8px;align-items:center;color:var(--muted);font-weight:600;font-size:14px;padding:8px 0}
+  .cols{display:grid;grid-template-columns:1fr 380px;gap:28px;align-items:start}
+  @media(max-width:900px){ .cols{grid-template-columns:1fr} }
+  /* gallery */
+  .galhero{border-radius:20px;overflow:hidden;aspect-ratio:4/3;background-size:cover;background-position:center;box-shadow:0 18px 44px rgba(8,16,28,.16)}
+  .film{display:flex;gap:10px;margin-top:12px;overflow:auto;padding-bottom:4px}
+  .film .th{width:84px;height:64px;border-radius:10px;flex:0 0 auto;background-size:cover;background-position:center;cursor:pointer;border:2px solid transparent}
+  .film .th.on{border-color:var(--live)}
+  .desc{margin-top:26px}
+  .desc h2{font-family:"Fraunces","Georgia",serif;font-weight:600;font-size:22px;margin:0 0 10px}
+  .desc p{color:#2c3a4b;line-height:1.6;font-size:15px}
+  .specs{display:grid;grid-template-columns:1fr 1fr;gap:0 24px;margin-top:14px}
+  .specs .kv{display:flex;justify-content:space-between;font-size:13.5px;padding:8px 0;border-bottom:1px solid var(--hair)}
+  /* bid panel */
+  .bidpanel{position:sticky;top:78px;background:var(--surface);border:1px solid var(--hair);border-radius:20px;padding:20px;box-shadow:0 14px 36px rgba(8,16,28,.08)}
+  .ln{font-size:11.5px;font-weight:800;letter-spacing:.05em;color:var(--muted);text-transform:uppercase}
+  .lottitle{font-family:"Fraunces","Georgia",serif;font-weight:600;font-size:24px;line-height:1.12;margin:4px 0 14px}
+  .curbid{display:flex;align-items:baseline;justify-content:space-between}
+  .curbid .amt{font-family:"Fraunces",serif;font-weight:700;font-size:34px;font-variant-numeric:tabular-nums}
+  .curbid .lbl{color:var(--muted);font-size:13px}
+  .premium{font-size:12.5px;color:var(--muted);margin-top:4px}
+  .timechip{display:inline-flex;align-items:center;gap:8px;background:rgba(224,146,46,.12);color:var(--ending);font-weight:800;border-radius:999px;padding:7px 13px;margin:14px 0;font-size:13.5px}
+  .timechip .dot{width:8px;height:8px;border-radius:50%;background:var(--ending);animation:pulse 1.5s infinite}
+  @keyframes pulse{0%,100%{opacity:.5}50%{opacity:1}}
+  .bidrow{display:flex;gap:10px;margin-top:6px}
+  .bidrow input{flex:1;border:1.5px solid var(--hair);border-radius:12px;padding:13px 14px;font:inherit;font-weight:700;font-variant-numeric:tabular-nums}
+  .btn{border:0;border-radius:12px;padding:14px 20px;font-weight:800;font-size:15px;cursor:pointer}
+  .btn.primary{background:var(--live);color:#fff;box-shadow:0 8px 22px rgba(181,39,59,.32);width:100%;margin-top:10px}
+  .btn.primary:hover{filter:brightness(1.05)}
+  .nextmin{color:var(--muted);font-size:12.5px;margin-top:8px;text-align:center}
+  .watch{display:flex;align-items:center;justify-content:center;gap:8px;margin-top:12px;color:var(--muted);font-weight:600;font-size:13.5px;cursor:pointer}
+  .pick{margin-top:14px;border-top:1px solid var(--hair);padding-top:12px;font-size:13px;color:var(--muted);line-height:1.5}
+  .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(10px);opacity:0;background:#0B1B2B;color:#fff;padding:12px 18px;border-radius:12px;font-weight:600;font-size:14px;transition:opacity .25s,transform .25s;z-index:50}
+  .toast.in{opacity:1;transform:translateX(-50%)}
+  /* similar rail */
+  .railhead{font-family:"Fraunces","Georgia",serif;font-weight:600;font-size:20px;margin:30px 2px 12px}
+  .rail{display:flex;gap:14px;overflow:auto;padding-bottom:8px;scroll-snap-type:x mandatory}
+  .rail .card{width:200px;flex:0 0 auto;scroll-snap-align:start;background:#fff;border:1px solid var(--hair);border-radius:14px;overflow:hidden;cursor:pointer}
+  .rail .card .ph{height:130px;background-size:cover;background-position:center}
+  .rail .card .b{padding:10px 12px}
+  .rail .card .t{font-weight:650;font-size:13.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .rail .card .a{font-weight:800;font-variant-numeric:tabular-nums;margin-top:3px}
+  footer{max-width:1160px;margin:30px auto;padding:18px;color:var(--muted);font-size:12.5px}
+  @media (prefers-reduced-motion: reduce){ *{animation:none !important;transition-duration:.001ms !important} }
+</style>
+</head>
+<body>
+<header><div class="hwrap">
+  <button class="icbtn" aria-label="Menu"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
+  <a class="brand" href="/prototype/living-map.html">Advantage<span>.Bid</span></a>
+  <div class="spacer"></div>
+  <button class="icbtn" aria-label="Search"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg></button>
+  <div class="avatar"></div>
+</div></header>
+
+<div class="wrap">
+  <a class="back" href="/prototype/auction-detail.html">← Estate Jewelry &amp; Fine Watches</a>
+  <div class="cols">
+    <div>
+      <div class="galhero" id="galhero"></div>
+      <div class="film" id="film"></div>
+
+      <div class="desc">
+        <h2>Diamond solitaire ring, 1.20 ct</h2>
+        <p>A classic round-brilliant diamond solitaire in a four-prong platinum setting. Bright, lively stone with excellent symmetry; the band shows light, even wear consistent with age. From a single-owner Detroit estate. Independent grading notes available on request.</p>
+        <div class="specs">
+          <div class="kv"><span>Category</span><b>Jewelry · Rings</b></div>
+          <div class="kv"><span>Metal</span><b>Platinum 950</b></div>
+          <div class="kv"><span>Center stone</span><b>1.20 ct, round</b></div>
+          <div class="kv"><span>Condition</span><b>Very good</b></div>
+          <div class="kv"><span>Size</span><b>6.5 (sizable)</b></div>
+          <div class="kv"><span>Pickup</span><b>Sat 10–2, Detroit</b></div>
+        </div>
+      </div>
+
+      <div class="railhead">More from this estate</div>
+      <div class="rail" id="rail"></div>
+    </div>
+
+    <aside>
+      <div class="bidpanel">
+        <div class="ln">Lot 1 · Estate Jewelry &amp; Fine Watches</div>
+        <div class="lottitle">Diamond solitaire ring, 1.20 ct</div>
+        <div class="curbid"><span class="amt" id="amt">$1,150</span><span class="lbl">current bid · 7 bids</span></div>
+        <div class="premium">+ 18% buyer premium applies at checkout</div>
+        <div class="timechip"><span class="dot"></span>Ends in 2h 14m · soft close</div>
+        <div class="bidrow">
+          <input id="bid" inputmode="numeric" value="1,200" aria-label="Your max bid" />
+          <button class="btn" style="background:#eef1f5;color:#0B1B2B" id="plus">+ $50</button>
+        </div>
+        <button class="btn primary" id="place">Place bid</button>
+        <div class="nextmin">Next minimum bid: $1,200 · increment $50</div>
+        <div class="watch">♡ Add to watchlist</div>
+        <div class="pick">📍 Pickup in <b>Detroit, MI</b> after payment is verified. Bid from anywhere; full address stays private until you’ve paid.</div>
+      </div>
+    </aside>
+  </div>
+</div>
+<footer>Prototype · bidding is disabled (visual only) · Advantage.Bid design language</footer>
+<div class="toast" id="toast">Prototype — bidding is disabled here</div>
+
+<script>
+(function(){
+  "use strict";
+  var PH=['1611591437281-460bfbe1220a','1605100804763-247f67b3557e','1599643478518-a784e5dc4c8f','1518791841217-8f162f1e1131','1495107334309-fcf20504a5ab'];
+  function url(id,w){ return 'https://images.unsplash.com/photo-'+id+'?w='+(w||900)+'&q=72&auto=format&fit=crop'; }
+  var hero=document.getElementById('galhero'), film=document.getElementById('film');
+  function setHero(i){ hero.style.backgroundImage="url('"+url(PH[i],1100)+"'),linear-gradient(135deg,#243b6b,#7a274a)"; document.querySelectorAll('.film .th').forEach(function(t,j){ t.classList.toggle('on',j===i); }); }
+  PH.forEach(function(id,i){ var th=document.createElement('div'); th.className='th'+(i===0?' on':''); th.style.backgroundImage="url('"+url(id,200)+"')"; th.onclick=function(){ setHero(i); }; film.appendChild(th); });
+  setHero(0);
+
+  var rail=document.getElementById('rail');
+  var SIM=[['14k gold tennis bracelet','$640'],['Omega Seamaster, c.1968','$1,900'],['Sapphire & diamond earrings','$880'],['Art Deco platinum brooch','$1,250'],['Strand of Akoya pearls','$420']];
+  SIM.forEach(function(s,i){ var c=document.createElement('a'); c.className='card'; c.href='/prototype/lot-detail.html';
+    c.innerHTML='<div class="ph" style="background-image:url(\''+url(PH[(i+1)%PH.length],400)+'\'),linear-gradient(135deg,#243b6b,#7a274a)"></div><div class="b"><div class="t">'+s[0]+'</div><div class="a">'+s[1]+'</div></div>'; rail.appendChild(c); });
+
+  function toast(){ var t=document.getElementById('toast'); t.classList.add('in'); setTimeout(function(){ t.classList.remove('in'); },1900); }
+  document.getElementById('place').onclick=toast;
+  document.getElementById('plus').onclick=function(){ var b=document.getElementById('bid'); var v=parseInt((b.value||'0').replace(/[^0-9]/g,''),10)||1150; b.value=(v+50).toLocaleString(); };
+})();
+</script>
+</body>
+</html>

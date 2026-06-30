@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<meta name="robots" content="noindex" />
+<title>Auction — Advantage.Bid (Prototype)</title>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+<!-- Auction-detail prototype in the Living Map design language. Standalone, not linked
+     from production nav. No engine/API/Stripe/bidding/seller/DB changes. Fixtures + CDN. -->
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&display=swap" rel="stylesheet">
+<link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet" />
+<style>
+  :root{ --ink:#0B1B2B; --paper:#FBFAF7; --surface:#fff; --muted:#5b6b7e; --hair:#ECE9E2;
+    --accent:#2F6BFF; --live:#B5273B; --ending:#E0922E; --coming:#1FB6A6; --sold:#16A34A;
+    --r:18px; --ease:cubic-bezier(.22,.7,.2,1); }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--paper);color:var(--ink);font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+  .serif{font-family:"Fraunces","Georgia",serif}
+  a{color:inherit;text-decoration:none}
+  /* ── Header capsule ── */
+  header{position:sticky;top:0;z-index:30;backdrop-filter:saturate(150%) blur(14px);background:rgba(251,250,247,.82);border-bottom:1px solid var(--hair)}
+  .hwrap{max-width:1160px;margin:0 auto;display:flex;align-items:center;gap:12px;padding:11px 18px}
+  .brand{font-family:"Fraunces","Georgia",serif;font-weight:700;font-size:18px}
+  .brand span{color:var(--accent)}
+  .spacer{flex:1}
+  .icbtn{width:38px;height:38px;border-radius:50%;border:0;background:transparent;display:grid;place-items:center;cursor:pointer;color:inherit}
+  .icbtn:hover{background:rgba(120,140,170,.12)}
+  .loc{display:inline-flex;gap:7px;align-items:center;border:1px solid var(--hair);background:#fff;border-radius:999px;padding:8px 13px;font-size:13.5px;font-weight:600;cursor:pointer}
+  .avatar{width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,#1e3a8a,#2F6BFF)}
+  .wrap{max-width:1160px;margin:0 auto;padding:18px}
+  .back{display:inline-flex;gap:8px;align-items:center;color:var(--muted);font-weight:600;font-size:14px;padding:8px 0}
+  /* ── Hero ── */
+  .hero{position:relative;border-radius:22px;overflow:hidden;min-height:340px;display:flex;align-items:flex-end;
+    background-size:cover;background-position:center;box-shadow:0 20px 50px rgba(8,16,28,.18)}
+  .hero::after{content:"";position:absolute;inset:0;background:linear-gradient(to top,rgba(6,12,22,.78),rgba(6,12,22,.12) 55%,transparent)}
+  .hero .inner{position:relative;z-index:1;color:#fff;padding:26px 28px;width:100%}
+  .chip{display:inline-flex;align-items:center;gap:7px;font-weight:800;font-size:12px;letter-spacing:.03em;padding:5px 11px;border-radius:999px;color:#fff}
+  .chip.live{background:var(--live)} .chip.ending{background:var(--ending)} .chip.coming{background:var(--coming)}
+  .chip .pulse{width:8px;height:8px;border-radius:50%;background:#fff;animation:pulse 1.6s infinite}
+  @keyframes pulse{0%,100%{opacity:.5}50%{opacity:1}}
+  .hero h1{font-family:"Fraunces","Georgia",serif;font-weight:600;font-size:clamp(26px,4vw,42px);margin:.5rem 0 .3rem;line-height:1.05}
+  .hero .sub{color:rgba(255,255,255,.85);font-size:15px;max-width:60ch}
+  .metarow{display:flex;flex-wrap:wrap;gap:8px 18px;margin-top:14px;font-size:13.5px;color:rgba(255,255,255,.92);font-weight:600}
+  .metarow .num{font-variant-numeric:tabular-nums}
+  .actions{display:flex;gap:10px;margin-top:18px;flex-wrap:wrap}
+  .btn{border:0;border-radius:12px;padding:13px 22px;font-weight:800;font-size:15px;cursor:pointer}
+  .btn.primary{background:var(--live);color:#fff;box-shadow:0 8px 22px rgba(181,39,59,.34)}
+  .btn.primary:hover{filter:brightness(1.05)}
+  .btn.ghost{background:rgba(255,255,255,.16);color:#fff;border:1px solid rgba(255,255,255,.35);backdrop-filter:blur(6px)}
+  /* ── Layout ── */
+  .cols{display:grid;grid-template-columns:1fr 340px;gap:24px;margin-top:26px;align-items:start}
+  @media(max-width:900px){ .cols{grid-template-columns:1fr} }
+  .sectionhead{display:flex;align-items:baseline;justify-content:space-between;margin:6px 2px 14px}
+  .sectionhead h2{font-family:"Fraunces","Georgia",serif;font-weight:600;font-size:22px;margin:0}
+  .sectionhead .count{color:var(--muted);font-size:14px}
+  .lots{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:16px}
+  .lot{background:var(--surface);border:1px solid var(--hair);border-radius:16px;overflow:hidden;cursor:pointer;transition:transform .16s var(--ease),box-shadow .16s}
+  .lot:hover{transform:translateY(-3px);box-shadow:0 14px 30px rgba(8,16,28,.14)}
+  .lot .ph{height:160px;background-size:cover;background-position:center;position:relative}
+  .lot .heart{position:absolute;top:9px;right:9px;width:30px;height:30px;border-radius:50%;background:rgba(255,255,255,.85);display:grid;place-items:center;font-size:14px}
+  .lot .b{padding:11px 13px 13px}
+  .lot .ln{font-size:11.5px;font-weight:800;letter-spacing:.04em;color:var(--muted);text-transform:uppercase}
+  .lot .t{font-weight:650;font-size:14.5px;margin:3px 0 8px;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .lot .bid{display:flex;justify-content:space-between;align-items:baseline}
+  .lot .bid .amt{font-weight:800;font-variant-numeric:tabular-nums}
+  .lot .bid small{color:var(--muted);font-size:11px}
+  /* ── Info card ── */
+  .info{position:sticky;top:78px;display:flex;flex-direction:column;gap:16px}
+  .panel{background:var(--surface);border:1px solid var(--hair);border-radius:18px;padding:16px}
+  .panel h3{margin:0 0 10px;font-size:14px;letter-spacing:.02em}
+  #pickmap{height:160px;border-radius:12px;overflow:hidden;border:1px solid var(--hair)}
+  .kv{display:flex;justify-content:space-between;font-size:13.5px;padding:6px 0;border-bottom:1px solid var(--hair)}
+  .kv:last-child{border-bottom:0}
+  .kv b{font-weight:700}
+  .seller{display:flex;align-items:center;gap:11px}
+  .seller .badge{width:42px;height:42px;border-radius:11px;background:linear-gradient(135deg,#0B1B2B,#34506e);color:#fff;display:grid;place-items:center;font-family:"Fraunces",serif;font-weight:700}
+  .muted{color:var(--muted);font-size:13px;line-height:1.5}
+  footer{max-width:1160px;margin:30px auto;padding:18px;color:var(--muted);font-size:12.5px}
+  .mk{width:30px;height:40px}
+  @media (prefers-reduced-motion: reduce){ *{animation:none !important;transition-duration:.001ms !important} }
+</style>
+</head>
+<body>
+<header><div class="hwrap">
+  <button class="icbtn" aria-label="Menu"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
+  <a class="brand" href="/prototype/living-map.html">Advantage<span>.Bid</span></a>
+  <div class="spacer"></div>
+  <button class="icbtn" aria-label="Search"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg></button>
+  <button class="loc">📍 Detroit, MI</button>
+  <div class="avatar"></div>
+</div></header>
+
+<div class="wrap">
+  <a class="back" href="/prototype/living-map.html">← Back to the map</a>
+
+  <div class="hero" id="hero" style="background-image:url('https://images.unsplash.com/photo-1515562141207-7a88fb7ce338?w=1400&q=70&auto=format&fit=crop')">
+    <div class="inner">
+      <span class="chip ending"><span class="pulse"></span>ENDING SOON</span>
+      <h1>Estate Jewelry &amp; Fine Watches</h1>
+      <div class="sub">A curated single-owner estate — diamonds, signed designer pieces, and a small collection of vintage watches. Presented by Advantage Auction Company.</div>
+      <div class="metarow">
+        <span>📍 Detroit, MI · <span class="num">6 mi</span></span>
+        <span>⏱ Ends in <span class="num">2h 14m</span></span>
+        <span><span class="num">40</span> lots</span>
+        <span>Buyer premium <span class="num">18%</span></span>
+        <span>Pickup Sat <span class="num">10–2</span></span>
+      </div>
+      <div class="actions">
+        <button class="btn primary">Register to bid</button>
+        <button class="btn ghost">♡ Watch auction</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="cols">
+    <div>
+      <div class="sectionhead"><h2>Lots</h2><span class="count">40 lots · ending in staggered 1-minute closings</span></div>
+      <div class="lots" id="lots"></div>
+    </div>
+
+    <aside class="info">
+      <div class="panel">
+        <h3>Pickup location</h3>
+        <div id="pickmap"></div>
+        <p class="muted" style="margin:.6rem 0 0">Exact address shown after payment is verified. General area: <b>Detroit, MI 48226</b>.</p>
+      </div>
+      <div class="panel">
+        <h3>Seller</h3>
+        <div class="seller"><div class="badge">A</div><div><b>Advantage Auction Company</b><div class="muted">Knoxville, TN · 8 past auctions</div></div></div>
+      </div>
+      <div class="panel">
+        <h3>At a glance</h3>
+        <div class="kv"><span>Closing</span><b>Soft close · 2-min anti-snipe</b></div>
+        <div class="kv"><span>Buyer premium</span><b>18%</b></div>
+        <div class="kv"><span>Payment</span><b>Debit / credit card</b></div>
+        <div class="kv"><span>Pickup</span><b>Sat 10–2, Detroit</b></div>
+      </div>
+    </aside>
+  </div>
+</div>
+<footer>Prototype · Advantage.Bid Living Map design language · not production</footer>
+
+<script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+<script>
+(function(){
+  "use strict";
+  var PH=['1611591437281-460bfbe1220a','1599643478518-a784e5dc4c8f','1605100804763-247f67b3557e','1518791841217-8f162f1e1131',
+          '1531995811006-35cb42e1a022','1551218808-94e220e084d2','1602173574767-37ac01994b2a','1495107334309-fcf20504a5ab',
+          '1620625515032-6ed0c1790c75','1513519245088-0e12902e35ca','1582719478250-c89cae4dc85b','1535632066927-ab7c9ab60908'];
+  function img(i){ return "url('https://images.unsplash.com/photo-"+PH[i%PH.length]+"?w=520&q=68&auto=format&fit=crop'),linear-gradient(135deg,#243b6b,#7a274a)"; }
+  var TITLES=['Diamond solitaire ring, 1.20 ct','14k gold tennis bracelet','Omega Seamaster, c.1968','Sapphire & diamond earrings','Art Deco platinum brooch','Strand of Akoya pearls','Men’s Rolex Datejust','Emerald cocktail ring','Antique cameo pendant','Designer signed cuff','Vintage Cartier tank','Diamond stud earrings, 1ct'];
+  var lots=document.getElementById('lots');
+  for(var i=0;i<12;i++){ (function(i){
+    var bid=(150+i*85);
+    var c=document.createElement('a'); c.className='lot'; c.href='/prototype/lot-detail.html';
+    c.innerHTML='<div class="ph" style="background-image:'+img(i)+'"><div class="heart">♡</div></div>'+
+      '<div class="b"><div class="ln">Lot '+(i+1)+'</div><div class="t">'+TITLES[i]+'</div>'+
+      '<div class="bid"><span class="amt">$'+bid.toLocaleString()+'</span><small>'+(3+i%6)+' bids</small></div></div>';
+    lots.appendChild(c);
+  })(i); }
+
+  // living mini-map with the red gavel pin
+  try{
+    var m=new maplibregl.Map({container:'pickmap',style:'https://basemaps.cartocdn.com/gl/positron-gl-style/style.json',center:[-83.0458,42.3314],zoom:11,attributionControl:false,interactive:true,dragRotate:false});
+    var el=document.createElement('div'); el.style.cssText='width:30px;height:40px';
+    el.innerHTML='<svg viewBox="0 0 34 46" width="30" height="40"><path d="M17 1.5C9.8 1.5 4 7.3 4 14.5c0 9.4 13 29 13 29s13-19.6 13-29C30 7.3 24.2 1.5 17 1.5z" fill="#B5273B"/><circle cx="17" cy="14.5" r="8" fill="#fff"/><rect x="13.4" y="8.9" width="9" height="4.2" rx="1.6" transform="rotate(-32 17.9 11)" fill="#B5273B"/><path d="M15.4 12.7 11.6 17.3" stroke="#B5273B" stroke-width="2" stroke-linecap="round"/><path d="M10 18.8H15.8" stroke="#B5273B" stroke-width="2" stroke-linecap="round"/></svg>';
+    new maplibregl.Marker({element:el,anchor:'bottom'}).setLngLat([-83.0458,42.3314]).addTo(m);
+  }catch(e){ document.getElementById('pickmap').style.background='linear-gradient(135deg,#dbe6f5,#eef2f7)'; }
+})();
+</script>
+</body>
+</html>

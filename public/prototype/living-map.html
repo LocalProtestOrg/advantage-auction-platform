@@ -1,0 +1,571 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1" />
+<meta name="robots" content="noindex" />
+<title>Advantage.Bid — Living Map</title>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+<!--
+  Advantage.Bid "Living Map" — Concept A, Phase 2 (keynote pass).
+  Standalone prototype. NOT linked from production nav. No engine/API/Stripe/bidding changes.
+  MapLibre GL (CDN) + key-free CARTO GL basemaps switched by time-of-day (adaptive palette).
+  Auction data = fixtures; photography = Unsplash CDN (graceful gradient fallback).
+  Production wires the same UI to /api/public/auctions + /near with Cloudinary photos and a
+  custom MapTiler/Protomaps brand style.
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&display=swap" rel="stylesheet">
+<link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet" />
+<style>
+  :root{
+    --ink:#0B1B2B; --muted:#5b6b7e; --hair:#ECECE7;
+    --accent:#2F6BFF; --accentSoft:#7aa2ff;
+    /* State colors are a fixed brand language (consistent across all themes) */
+    --live:#B5273B; --ending:#E0922E; --coming:#1FB6A6; --hist:#9C6B3A; --sold:#16A34A;
+    --glow:rgba(47,107,255,.5); --scrim:rgba(8,16,28,.42);
+    --capsule:rgba(255,255,255,.78); --capsuleBorder:rgba(255,255,255,.6); --fg:#0B1B2B;
+    --panel:rgba(255,255,255,.92); --panelText:#0B1B2B;
+    --r:18px; --ease:cubic-bezier(.22,.7,.2,1); --spring:cubic-bezier(.34,1.4,.5,1);
+    --sky1:rgba(47,107,255,.10); --sky2:transparent;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{margin:0;font-family:"Söhne",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;color:var(--ink);background:#e9eef5;overflow:hidden;-webkit-font-smoothing:antialiased}
+  button{font:inherit}
+  #map{position:fixed;inset:0}
+  /* ambient sky wash at the top + center-lit vignette */
+  #atmos{position:fixed;inset:0;pointer-events:none;background:
+      radial-gradient(140% 80% at 50% 0%, var(--sky1), var(--sky2) 60%),
+      radial-gradient(120% 90% at 50% 42%, transparent 52%, var(--scrim));
+      transition:background 1.2s var(--ease)}
+
+  /* ───────────────────────── Cinematic intro ───────────────────────── */
+  #intro{position:fixed;inset:0;z-index:80;background:radial-gradient(120% 120% at 50% 45%,#0a1322,#04070d 70%);display:grid;place-items:center;transition:opacity 1.1s ease}
+  #intro.gone{opacity:0;pointer-events:none}
+  #intro .mark{font-size:clamp(22px,4.4vw,34px);font-weight:800;letter-spacing:.01em;color:#fff;opacity:0;transform:translateY(8px);animation:rise 1s var(--ease) .2s forwards}
+  #intro .mark span{color:var(--accentSoft)}
+  #intro .tag{margin-top:10px;color:#9fb3cd;font-size:13.5px;letter-spacing:.18em;text-transform:uppercase;opacity:0;animation:rise 1s var(--ease) .55s forwards}
+  @keyframes rise{to{opacity:1;transform:none}}
+
+  /* ───────────────────────── Top capsule (minimal at rest) ───────────────────────── */
+  .top{position:fixed;z-index:40;top:max(14px,env(safe-area-inset-top));left:50%;transform:translate(-50%,-10px);width:min(940px,calc(100% - 22px));
+       display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:999px;color:var(--fg);
+       background:var(--capsule);backdrop-filter:saturate(150%) blur(18px);-webkit-backdrop-filter:saturate(150%) blur(18px);
+       box-shadow:0 10px 34px rgba(8,16,28,.20);border:1px solid var(--capsuleBorder);opacity:0;transition:opacity .7s var(--ease),transform .7s var(--ease)}
+  .top.in{opacity:1;transform:translate(-50%,0)}
+  .icobtn{width:38px;height:38px;border-radius:50%;border:0;background:rgba(255,255,255,.0);display:grid;place-items:center;cursor:pointer;color:inherit;transition:background .15s}
+  .icobtn:hover{background:rgba(120,140,170,.14)}
+  .brand{font-weight:700;font-size:17px;letter-spacing:.005em;white-space:nowrap;padding:0 2px;font-family:"Fraunces","Georgia",serif}
+  #intro .mark,#hud .count,#nav .brand,.dtitle{font-family:"Fraunces","Georgia",serif}
+  .brand span{color:var(--accent)}
+  .spacer{flex:1}
+  .loc{display:inline-flex;align-items:center;gap:7px;border:1px solid var(--hair);background:rgba(255,255,255,.55);border-radius:999px;padding:8px 13px;font-size:13.5px;font-weight:600;cursor:pointer;white-space:nowrap;color:inherit}
+  .loc:hover{border-color:var(--accent);color:var(--accent)}
+  .avatar{width:38px;height:38px;border-radius:50%;background:linear-gradient(135deg,#1e3a8a,#2F6BFF);flex:0 0 auto;cursor:pointer;box-shadow:inset 0 0 0 2px rgba(255,255,255,.5)}
+  @media(max-width:560px){ .loc .txt{display:none} }
+
+  /* "N auctions near you" + returning deltas */
+  #hud{position:fixed;z-index:35;left:50%;top:90px;transform:translate(-50%,8px);opacity:0;text-align:center;pointer-events:none;
+       transition:opacity .7s var(--ease),transform .7s var(--ease)}
+  #hud.in{opacity:1;transform:translate(-50%,0)}
+  #hud .count{display:inline-block;background:var(--capsule);backdrop-filter:blur(14px);border:1px solid var(--capsuleBorder);
+       border-radius:999px;padding:9px 18px;font-weight:800;font-size:15px;color:var(--fg);box-shadow:0 8px 26px rgba(8,16,28,.20)}
+  #hud .count b{color:var(--accent);font-variant-numeric:tabular-nums}
+  #hud .deltas{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-top:8px}
+  #hud .d{background:var(--capsule);backdrop-filter:blur(12px);border:1px solid var(--capsuleBorder);border-radius:999px;padding:6px 12px;font-size:12.5px;font-weight:600;color:var(--fg);opacity:0;transform:translateY(6px);box-shadow:0 6px 18px rgba(8,16,28,.16)}
+  #hud .d.in{opacity:1;transform:none;transition:opacity .5s var(--ease),transform .5s var(--ease)}
+  #hud .d i{width:7px;height:7px;border-radius:50%;display:inline-block;margin-right:6px;vertical-align:middle}
+
+  /* ───────────────────────── Marker visual language ───────────────────────── */
+  /* Classic location pin (instantly = "something is here"); the INSIDE is our brand. */
+  .beacon{position:relative;width:34px;height:46px;cursor:pointer;color:var(--c,#444);opacity:0;transform:scale(.2) translateY(8px);transform-origin:50% 100%;transition:opacity .55s var(--ease),transform .55s var(--spring),filter .2s}
+  .beacon.bloom{opacity:1;transform:scale(1) translateY(0)}
+  .beacon .halo{position:absolute;left:50%;top:7px;width:30px;height:30px;transform:translateX(-50%);border-radius:50%;background:radial-gradient(circle, var(--c,var(--glow)) 0%, transparent 66%);opacity:.5;filter:blur(2px)}
+  .beacon .pin{position:absolute;left:50%;top:0;width:34px;height:46px;transform:translateX(-50%);transform-origin:50% 100%;filter:drop-shadow(0 6px 7px rgba(8,16,28,.32));transition:transform .22s var(--spring)}
+  .beacon .pin .body{fill:var(--c)}
+  .beacon .pin .face{fill:#fff}
+  .beacon .pin .g-head{fill:var(--c)}
+  .beacon .pin .g-stick,.beacon .pin .g-base{stroke:var(--c);stroke-width:2;stroke-linecap:round;fill:none}
+  .beacon .ping{position:absolute;left:50%;top:7px;width:30px;height:30px;border-radius:50%;transform:translate(-50%,0);border:2px solid var(--c,var(--accent))}
+  .beacon:hover,.beacon.active{filter:drop-shadow(0 12px 16px rgba(8,16,28,.42));z-index:5}
+  .beacon:hover .pin,.beacon.active .pin{transform:translateX(-50%) scale(1.13)}
+  /* states — fixed brand colors */
+  .beacon.live   { --c:var(--live);   }
+  .beacon.live   .halo{animation:breathe 3.2s var(--ease) infinite}
+  .beacon.ending { --c:var(--ending); }
+  .beacon.ending .ping{animation:ping 1.7s ease-out infinite}
+  .beacon.coming { --c:var(--coming); }
+  .beacon.coming .ping{border-style:dashed;opacity:.6}
+  .beacon.historical{ --c:var(--hist); }
+  .beacon.historical .pin{opacity:.96} .beacon.historical .halo{display:none}
+  .beacon.spark .halo{animation:ignite 1.2s ease-out 1}
+  @keyframes breathe{0%,100%{opacity:.42;transform:translateX(-50%) scale(1)}50%{opacity:.9;transform:translateX(-50%) scale(1.16)}}
+  @keyframes ping{0%{transform:translate(-50%,0) scale(1);opacity:.7}100%{transform:translate(-50%,0) scale(2.5);opacity:0}}
+  @keyframes ignite{0%{opacity:0;transform:translateX(-50%) scale(.4)}30%{opacity:.95;transform:translateX(-50%) scale(1.5)}100%{opacity:.42;transform:translateX(-50%) scale(1)}}
+
+  /* hover preview (Nat-Geo photography) — MapLibre popup */
+  .maplibregl-popup.preview .maplibregl-popup-content{padding:0;border-radius:16px;overflow:hidden;box-shadow:0 18px 50px rgba(8,16,28,.34);border:1px solid rgba(255,255,255,.5);background:var(--panel);color:var(--panelText);width:248px}
+  .maplibregl-popup.preview .maplibregl-popup-tip{display:none}
+  .pv .img{height:140px;background-size:cover;background-position:center;position:relative}
+  .pv .img:after{content:"";position:absolute;inset:0;background:linear-gradient(to top,rgba(0,0,0,.45),transparent 55%)}
+  .pv .tagchip{position:absolute;left:10px;top:10px;z-index:1;font-size:11px;font-weight:800;padding:4px 9px;border-radius:999px;color:#fff;letter-spacing:.02em;background:rgba(0,0,0,.35);backdrop-filter:blur(6px)}
+  .pv .body{padding:11px 13px 13px}
+  .pv .t{font-weight:800;font-size:14.5px;line-height:1.2}
+  .pv .s{color:var(--muted);font-size:12.5px;margin-top:4px}
+
+  /* ───────────────────────── Results drawer / list ───────────────────────── */
+  #drawer{position:fixed;z-index:38;background:var(--panel);color:var(--panelText);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px)}
+  @media(min-width:881px){
+    #drawer{top:88px;right:14px;bottom:14px;width:392px;border-radius:20px;border:1px solid var(--capsuleBorder);box-shadow:0 20px 60px rgba(8,16,28,.26);
+            opacity:0;transform:translateX(14px);transition:opacity .7s var(--ease) .35s,transform .7s var(--ease) .35s}
+    #drawer.in{opacity:1;transform:none}
+    #sheetctl{display:none}
+  }
+  @media(max-width:880px){
+    #drawer{left:0;right:0;bottom:0;border-radius:22px 22px 0 0;box-shadow:0 -14px 44px rgba(8,16,28,.28);border-top:1px solid var(--capsuleBorder);
+            height:86vh;transform:translateY(calc(100% - 92px));transition:transform .4s var(--spring);touch-action:none}
+    #drawer.half{transform:translateY(45vh)}
+    #drawer.full{transform:translateY(2vh)}
+    #sheetctl{position:fixed;z-index:39;left:50%;bottom:calc(18px + env(safe-area-inset-bottom));transform:translateX(-50%);
+              background:var(--ink);color:#fff;border:0;border-radius:999px;padding:12px 20px;font-weight:700;box-shadow:0 10px 30px rgba(8,16,28,.4);cursor:pointer;display:inline-flex;gap:8px;align-items:center}
+    body.full #sheetctl{display:none}
+  }
+  .dwrap{height:100%;display:flex;flex-direction:column;min-height:0}
+  .grab{display:none}
+  @media(max-width:880px){.grab{display:block;width:42px;height:5px;border-radius:99px;background:#c2cdda;margin:9px auto 2px;cursor:grab}}
+  .dhead{padding:12px 18px 8px}
+  .dtitle{font-weight:800;font-size:16px;letter-spacing:.01em}
+  .dsub{color:var(--muted);font-size:12.5px;margin-top:2px}
+  .dtabs{display:flex;gap:7px;margin-top:12px}
+  .dtab{font-size:12.5px;font-weight:700;padding:7px 13px;border-radius:999px;border:1px solid var(--hair);background:rgba(255,255,255,.5);cursor:pointer;color:var(--muted)}
+  .dtab.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+  .dlist{flex:1;overflow:auto;padding:6px 12px 18px;min-height:0;scrollbar-width:thin}
+  .card{display:flex;gap:13px;padding:11px;border-radius:16px;cursor:pointer;transition:background .16s,transform .16s;align-items:center}
+  .card:hover,.card.active{background:rgba(47,107,255,.07);transform:translateX(2px)}
+  .card .ph{width:104px;height:78px;border-radius:12px;flex:0 0 auto;background-size:cover;background-position:center;box-shadow:inset 0 0 0 1px rgba(0,0,0,.06)}
+  .card .meta{min-width:0;flex:1}
+  .card .t{font-weight:750;font-size:14.5px;line-height:1.22;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .card .s{font-size:12.5px;color:var(--muted);margin-top:3px}
+  .card .r{display:flex;align-items:center;gap:8px;margin-top:6px}
+  .tag{display:inline-flex;align-items:center;gap:5px;font-weight:800;padding:3px 9px;border-radius:999px;font-size:11px;letter-spacing:.01em}
+  .tag.live{background:rgba(47,107,255,.12);color:var(--live)} .tag.ending{background:rgba(240,132,59,.14);color:var(--ending)}
+  .tag.historical{background:#eef2f6;color:var(--hist)} .tag.coming{background:rgba(31,182,166,.14);color:var(--coming)}
+  .when{color:var(--muted);font-size:12px}
+
+  /* ───────────────────────── Search overlay (conversational) ───────────────────────── */
+  #search{position:fixed;inset:0;z-index:60;display:none;background:rgba(7,13,22,.5);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
+  #search.open{display:block;animation:fade .25s ease}
+  @keyframes fade{from{opacity:0}to{opacity:1}}
+  .sbox{position:absolute;left:50%;top:14vh;transform:translateX(-50%);width:min(680px,calc(100% - 28px));background:#fff;border-radius:20px;box-shadow:0 30px 80px rgba(0,0,0,.4);overflow:hidden;color:#0B1B2B}
+  .sfield{display:flex;align-items:center;gap:12px;padding:18px 20px;border-bottom:1px solid #eef1f4}
+  .sfield input{border:0;outline:0;font-size:19px;width:100%;font-weight:500}
+  .sgrp{padding:8px 8px}
+  .sgrp .lbl{font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#94a3b8;padding:10px 14px 4px}
+  .srow{display:flex;align-items:center;gap:12px;padding:11px 14px;border-radius:12px;cursor:pointer;font-size:14.5px}
+  .srow:hover{background:#f4f7fb}
+  .srow .k{width:30px;height:30px;border-radius:8px;display:grid;place-items:center;background:#eef2f8;color:#2F6BFF;flex:0 0 auto}
+  .srow .near{background:linear-gradient(135deg,#2F6BFF,#1e3a8a);color:#fff}
+  .srow small{color:#94a3b8}
+  .sfilters{border-top:1px solid #eef1f4;padding:12px 16px;display:flex;gap:8px;flex-wrap:wrap;color:#64748b;font-size:12.5px}
+  .sfilters .f{border:1px solid #e6eaef;border-radius:999px;padding:6px 12px;cursor:pointer;font-weight:600}
+
+  /* ───────────────────────── Nav drawer (left slide-over) ───────────────────────── */
+  #navwrap{position:fixed;inset:0;z-index:70;display:none}
+  #navwrap.open{display:block}
+  #navscrim{position:absolute;inset:0;background:rgba(7,13,22,.45);opacity:0;transition:opacity .3s ease}
+  #navwrap.open #navscrim{opacity:1}
+  #nav{position:absolute;left:0;top:0;bottom:0;width:min(330px,86vw);background:#0B1B2B;color:#fff;padding:22px 20px;transform:translateX(-100%);transition:transform .34s var(--ease);display:flex;flex-direction:column}
+  #navwrap.open #nav{transform:none}
+  #nav .brand{font-size:20px;margin-bottom:6px}
+  #nav .tagline{color:#9fb3cd;font-size:12.5px;letter-spacing:.04em;margin-bottom:22px}
+  #nav a{display:flex;align-items:center;gap:12px;color:#dbe4f0;text-decoration:none;font-size:16px;font-weight:600;padding:13px 10px;border-radius:12px}
+  #nav a:hover{background:rgba(255,255,255,.07);color:#fff}
+  #nav .sep{height:1px;background:rgba(255,255,255,.08);margin:12px 0}
+  #nav .foot{margin-top:auto;color:#7f93ab;font-size:12px}
+  #nav .aplabel{color:#7f93ab;font-size:11px;letter-spacing:.08em;text-transform:uppercase;padding:8px 10px 4px}
+  .themerow{display:flex;gap:8px;padding:2px 8px 4px}
+  .themerow{flex-wrap:wrap}
+  .themebtn{flex:1;min-width:84px;border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.06);color:#dbe4f0;border-radius:11px;padding:10px 8px;font-weight:700;font-size:12.5px;cursor:pointer;display:flex;gap:6px;align-items:center;justify-content:center}
+  .themebtn.on{background:#2F6BFF;border-color:#2F6BFF;color:#fff}
+  .themebtn[data-theme=discover].on{background:linear-gradient(135deg,#5BE1FF,#6d5bff);border-color:#5BE1FF;color:#06122a}
+  /* expressive Discover personality — luminous markers */
+  [data-theme=discover] .beacon .pin{box-shadow:0 6px 16px rgba(8,16,28,.5),0 0 0 1.5px rgba(123,225,255,.55),0 0 20px rgba(91,225,255,.42)}
+  [data-theme=discover] .beacon .halo{filter:blur(2px)}
+  /* gentle weather-inspired atmospheric drift (reduced-motion disables it) */
+  #atmos::before{content:"";position:absolute;inset:-25%;pointer-events:none;background:radial-gradient(42% 32% at 32% 22%,rgba(255,255,255,.06),transparent 60%);animation:drift 30s ease-in-out infinite alternate}
+  @keyframes drift{to{transform:translate(9%,5%)}}
+
+  .legend{position:fixed;z-index:30;left:14px;bottom:calc(14px + env(safe-area-inset-bottom));display:flex;gap:14px;flex-wrap:wrap;
+          background:var(--capsule);backdrop-filter:blur(12px);border:1px solid var(--capsuleBorder);border-radius:13px;padding:9px 13px;font-size:11.5px;font-weight:700;box-shadow:0 8px 22px rgba(8,16,28,.18);color:var(--fg)}
+  .legend i{width:9px;height:9px;border-radius:50%;display:inline-block;margin-right:6px;vertical-align:middle}
+  @media(max-width:880px){.legend{display:none}}
+  .badge{position:fixed;z-index:30;left:14px;top:max(14px,env(safe-area-inset-top));font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:#fff;opacity:.55;font-weight:700}
+
+  @media (prefers-reduced-motion: reduce){ *{animation:none !important;transition-duration:.001ms !important} }
+</style>
+</head>
+<body class="peek">
+  <div id="map"></div>
+  <div id="atmos"></div>
+  <div class="badge">Prototype</div>
+
+  <div id="intro"><div style="text-align:center"><div class="mark">Advantage<span>.Bid</span></div><div class="tag">Treasure is closer than you think</div></div></div>
+
+  <!-- top capsule -->
+  <div class="top" id="top">
+    <button class="icobtn" id="menuBtn" aria-label="Menu"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
+    <div class="brand">Advantage<span>.Bid</span></div>
+    <div class="spacer"></div>
+    <button class="icobtn" id="searchBtn" aria-label="Search"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg></button>
+    <button class="loc" id="locBtn">📍 <span class="txt" id="locTxt">Detroit, MI</span></button>
+    <div class="avatar" title="Account"></div>
+  </div>
+
+  <!-- HUD: count + returning deltas -->
+  <div id="hud"><div class="count" id="count">Looking around you…</div><div class="deltas" id="deltas"></div></div>
+
+  <!-- mobile sheet control -->
+  <button id="sheetctl">▤ <span>Browse list</span></button>
+
+  <!-- results drawer -->
+  <div id="drawer">
+    <div class="dwrap">
+      <div class="grab" id="grab"></div>
+      <div class="dhead">
+        <div class="dtitle" id="dTitle">Auctions near you</div>
+        <div class="dsub" id="dSub">Hover a marker to preview · drag up for the full list</div>
+        <div class="dtabs">
+          <button class="dtab on" data-f="near">Near you</button>
+          <button class="dtab" data-f="ending">Ending soon</button>
+          <button class="dtab" data-f="coming">Coming soon</button>
+          <button class="dtab" data-f="archive">Archive</button>
+        </div>
+      </div>
+      <div class="dlist" id="list"></div>
+    </div>
+  </div>
+
+  <div class="legend">
+    <span><i style="background:var(--live)"></i>Live</span>
+    <span><i style="background:var(--ending)"></i>Ending soon</span>
+    <span><i style="background:var(--coming)"></i>Coming soon</span>
+    <span><i style="background:var(--hist)"></i>Historical</span>
+  </div>
+
+  <!-- search overlay -->
+  <div id="search">
+    <div class="sbox">
+      <div class="sfield"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+        <input id="sInput" placeholder="Search auctions, items, sellers or locations…" autocomplete="off" /></div>
+      <div class="sgrp">
+        <div class="srow"><div class="k near">📍</div><div><b>Use my location</b><br><small>See what's happening around you</small></div></div>
+        <div class="lbl">Suggested</div>
+        <div class="srow"><div class="k">⏱</div><div>Ending tonight near you</div></div>
+        <div class="srow"><div class="k">💎</div><div>Estate jewelry & watches</div></div>
+        <div class="srow"><div class="k">🏛</div><div>The Historical Archive <small>· 1,802 lots</small></div></div>
+        <div class="srow"><div class="k">📍</div><div>Royal Oak, MI <small>· change area</small></div></div>
+      </div>
+      <div class="sfilters"><span>Filters:</span><span class="f">Category</span><span class="f">Distance</span><span class="f">Ending</span><span class="f">Price</span><span class="f">Has shipping</span></div>
+    </div>
+  </div>
+
+  <!-- nav drawer -->
+  <div id="navwrap"><div id="navscrim"></div>
+    <nav id="nav">
+      <div class="brand">Advantage<span style="color:var(--accentSoft)">.Bid</span></div>
+      <div class="tagline">Discover estate auctions near you</div>
+      <a href="#">🧭 Explore the map</a>
+      <a href="#">⌕ Search</a>
+      <a href="#">♡ Watchlist & bids</a>
+      <a href="#">🗂 Past auctions</a>
+      <div class="sep"></div>
+      <a href="#">＋ Sell with Advantage</a>
+      <a href="#">？ How it works</a>
+      <a href="#">◎ Account</a>
+      <div class="sep"></div>
+      <div class="aplabel">Appearance</div>
+      <div class="themerow">
+        <button class="themebtn on" data-theme="light">☀ Light</button>
+        <button class="themebtn" data-theme="dark">🌙 Dark</button>
+        <button class="themebtn" data-theme="discover">✧ Discover</button>
+      </div>
+      <div class="foot">© Advantage Auction Company · Light by day, cinematic by evening</div>
+    </nav>
+  </div>
+
+<script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+<script>
+(function(){
+  "use strict";
+  var reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var $ = function(id){ return document.getElementById(id); };
+
+  /* ── Theme & living atmosphere ────────────────────────────────────────────
+     LIGHT = the primary identity (bright/airy/optimistic). DARK = opt-in.
+     DISCOVER = an expressive twilight "treasure-map" personality (luminous water,
+     glowing roads) — sophisticated, not flashy. Time-of-day + season subtly
+     modulate the atmosphere; the vector basemap is RE-SKINNED to the Advantage.Bid
+     palette after it loads, so our map is recognizable on sight. (Defensive: every
+     paint op is wrapped — worst case the base basemap colors remain; never blank.) */
+  function getTheme(){ try{ var t=localStorage.getItem('ab_theme'); return (t==='dark'||t==='discover')?t:'light'; }catch(e){ return 'light'; } }
+  function todPart(){ var h=new Date().getHours(); return h<11?'morning':h<17?'afternoon':h<21?'evening':'night'; }
+  function season(){ var m=new Date().getMonth(); return (m<2||m===11)?'winter':m<5?'spring':m<8?'summer':'autumn'; }
+  var CARTO_LIGHT={morning:'https://basemaps.cartocdn.com/gl/positron-gl-style/style.json',afternoon:'https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json',evening:'https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json',night:'https://basemaps.cartocdn.com/gl/positron-gl-style/style.json'};
+  var CARTO_DARK='https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json';
+  /* Advantage.Bid map skins — colors painted onto the vector basemap after load. */
+  var SKIN={
+    light:   {land:'#F4F1E9',water:'#CFE4F6',green:'#E6EEDE',road:'#E9E3D8',building:'#ECE6DC',label:'#3a536e',halo:'rgba(251,251,249,.92)',boundary:'#e3ddd0'},
+    dark:    {land:'#0E1726',water:'#0B1C33',green:'#13241f',road:'#26374f',building:'#162234',label:'#9fb6d4',halo:'rgba(6,16,30,.85)',boundary:'#2a3a52'},
+    discover:{land:'#0E1430',water:'#15619A',waterEdge:'#5BE1FF',green:'#11302f',road:'#5BE1FF',building:'#1a2350',label:'#cfe4ff',halo:'rgba(8,12,30,.82)',boundary:'#3b2f73',glowRoads:true,glowBlur:2.2}
+  };
+  window.__PAL=SKIN.light;
+  function setVars(v){ var r=document.documentElement.style;
+    r.setProperty('--ink',v.ink); r.setProperty('--muted',v.muted); r.setProperty('--hair',v.hair);
+    r.setProperty('--capsule',v.cap); r.setProperty('--capsuleBorder',v.capb);
+    r.setProperty('--panel',v.panel); r.setProperty('--panelText',v.ptext); r.setProperty('--fg',v.ptext);
+    r.setProperty('--glow',v.glow); r.setProperty('--scrim',v.scrim); r.setProperty('--sky1',v.sky);
+    if(v.accent){r.setProperty('--accent',v.accent);} if(v.live){r.setProperty('--live',v.live);} }
+  function computeMood(){
+    var theme=getTheme(), t=todPart(), holiday=(new Date().getMonth()===11), style;
+    document.body.setAttribute('data-theme',theme); window.__PAL=SKIN[theme];
+    if(theme==='discover'){
+      style=CARTO_DARK;
+      setVars({ink:'#EAF1FF',muted:'#a7bbe0',hair:'rgba(140,170,255,.16)',cap:'rgba(20,24,52,.7)',capb:'rgba(120,160,255,.2)',panel:'rgba(17,21,46,.92)',ptext:'#EAF1FF',
+               glow:'rgba(91,225,255,.55)',scrim:'rgba(6,9,26,.5)',sky:'rgba(91,160,255,.22)',accent:'#5BE1FF'});
+    } else if(theme==='dark'){
+      style=CARTO_DARK;
+      var dg={morning:'rgba(122,162,255,.5)',afternoon:'rgba(122,162,255,.5)',evening:'rgba(240,150,90,.55)',night:'rgba(122,162,255,.5)'}[t];
+      setVars({ink:'#EAF1FF',muted:'#9fb3cd',hair:'rgba(255,255,255,.12)',cap:'rgba(14,21,34,.72)',capb:'rgba(255,255,255,.12)',panel:'rgba(12,18,30,.92)',ptext:'#EAF1FF',
+               glow:dg,scrim:'rgba(3,7,14,.55)',sky:(holiday?'rgba(214,170,110,.18)':'rgba(60,90,160,.18)'),accent:'#5b8cff'});
+    } else {
+      style=CARTO_LIGHT[t];
+      var ss={winter:'rgba(150,190,255,.20)',spring:'rgba(165,222,185,.18)',summer:'rgba(255,212,150,.18)',autumn:'rgba(240,175,115,.20)'}[season()];
+      var a={ morning:{glow:'rgba(47,107,255,.30)',sky:ss,scrim:'rgba(226,236,250,.16)'},
+              afternoon:{glow:'rgba(47,107,255,.40)',sky:ss,scrim:'rgba(11,27,43,.14)'},
+              evening:{glow:'rgba(255,150,80,.50)',sky:'rgba(255,186,120,.26)',scrim:'rgba(74,40,16,.20)'},
+              night:{glow:'rgba(96,132,220,.42)',sky:'rgba(120,150,210,.20)',scrim:'rgba(28,38,64,.20)'} }[t];
+      if(holiday) a.sky='rgba(214,170,110,.26)';
+      setVars({ink:'#0B1B2B',muted:'#5b6b7e',hair:'#ECECE7',cap:'rgba(255,255,255,.82)',capb:'rgba(255,255,255,.64)',panel:'rgba(255,255,255,.94)',ptext:'#0B1B2B',
+               glow:a.glow,scrim:a.scrim,sky:a.sky,accent:'#2F6BFF'});
+    }
+    return style;
+  }
+  var STYLE=computeMood();
+  function sp(id,prop,val){ try{ map.setPaintProperty(id,prop,val); }catch(e){} }
+  function applySkin(){
+    if(!map){return;} var P=window.__PAL; if(!P){return;}
+    var layers; try{ if(!map.isStyleLoaded())return; layers=(map.getStyle().layers)||[]; }catch(e){ return; }
+    layers.forEach(function(l){
+      var key=((l['source-layer']||'')+' '+l.id).toLowerCase();
+      if(l.type==='background'){ sp(l.id,'background-color',P.land); }
+      else if(l.type==='fill'){
+        if(/water|ocean|sea|lake|bay|river/.test(key)){ sp(l.id,'fill-color',P.water); if(P.waterEdge) sp(l.id,'fill-outline-color',P.waterEdge); }
+        else if(/park|wood|grass|forest|landcover|landuse|cemeter|golf|pitch|garden|scrub|wetland|sand|farm/.test(key)) sp(l.id,'fill-color',P.green);
+        else if(/building/.test(key)) sp(l.id,'fill-color',P.building);
+        else if(/land|earth|background/.test(key)) sp(l.id,'fill-color',P.land);
+      }
+      else if(l.type==='line'){
+        if(/water|waterway|river|canal|stream/.test(key)){ sp(l.id,'line-color',P.waterEdge||P.water); if(P.waterEdge) sp(l.id,'line-blur',1.6); }
+        else if(/boundary|admin|border/.test(key)) sp(l.id,'line-color',P.boundary);
+        else if(/transport|road|street|highway|motorway|trunk|primary|secondary|bridge|tunnel|rail|path|track/.test(key)){
+          sp(l.id,'line-color',P.road);
+          if(P.glowRoads){ sp(l.id,'line-blur',P.glowBlur); sp(l.id,'line-opacity',0.95); }
+        }
+      }
+      else if(l.type==='symbol'){ sp(l.id,'text-color',P.label); sp(l.id,'text-halo-color',P.halo); sp(l.id,'text-halo-width',1.2); }
+    });
+  }
+  function setTheme(theme){ try{ localStorage.setItem('ab_theme',theme); }catch(e){}
+    var style=computeMood();
+    document.querySelectorAll('.themebtn').forEach(function(b){ b.classList.toggle('on',b.dataset.theme===theme); });
+    if(map){ try{ map.setStyle(style); map.once('styledata',function(){ setTimeout(applySkin,250); }); }catch(e){} }
+  }
+
+  /* ── Location resolution (never prompt on load) ───────────────────────── */
+  var DEFAULT={name:'Detroit, MI',lng:-83.0458,lat:42.3314};
+  var LOC=(function(){try{return JSON.parse(localStorage.getItem('ab_loc'))||DEFAULT;}catch(e){return DEFAULT;}})();
+  $('locTxt').textContent=LOC.name;
+
+  /* ── Fixtures + Nat-Geo photography (Unsplash CDN; gradient fallback) ──── */
+  function U(id){return 'https://images.unsplash.com/photo-'+id+'?w=560&q=70&auto=format&fit=crop';}
+  var PH=['1515562141207-7a88fb7ce338','1586023492125-27b2c045efd7','1577083552431-6e5fd01aa342','1605100804763-247f67b3557e',
+          '1518791841217-8f162f1e1131','1551218808-94e220e084d2','1578500494198-246f612d3b3d','1600585154340-be6161a56a0c',
+          '1605792657660-596af9009e82','1513519245088-0e12902e35ca','1531973576160-7125cd663d86','1493106641515-6b5631de4bb9',
+          '1495107334309-fcf20504a5ab'];
+  var GRAD=['linear-gradient(135deg,#1e3a8a,#0f766e)','linear-gradient(135deg,#7c3a04,#9d174d)','linear-gradient(135deg,#3730a3,#0c4a6e)','linear-gradient(135deg,#155e75,#4d7c0f)'];
+  function bg(i){ return "url('"+U(PH[i%PH.length])+"'),"+GRAD[i%GRAD.length]; }
+  var DATA=[
+    {id:'a1',t:'Estate Jewelry & Fine Watches',city:'Detroit',mi:6,state:'ending',lots:40,end:'2h 14m'},
+    {id:'a2',t:'Mid-Century Modern Estate',city:'Royal Oak',mi:9,state:'live',lots:38,end:'Sat 7:00'},
+    {id:'a3',t:'Fine Art & European Antiques',city:'Birmingham',mi:12,state:'live',lots:52,end:'Sun 6:00'},
+    {id:'a4',t:'Luxury Home Furnishings',city:'Troy',mi:14,state:'ending',lots:31,end:'58m'},
+    {id:'a5',t:'Collector Estate & Curiosities',city:'Ferndale',mi:7,state:'live',lots:46,end:'Fri 8:00'},
+    {id:'a6',t:'Decorative Arts & Designer',city:'Grosse Pointe',mi:11,state:'coming',lots:0,end:'Opens Thu'},
+    {id:'a7',t:'Sterling, Coins & Collectibles',city:'Dearborn',mi:10,state:'live',lots:60,end:'Mon 5:00'},
+    {id:'a8',t:'Garden, Tools & Workshop',city:'Warren',mi:13,state:'coming',lots:0,end:'Opens Fri'},
+    {id:'a9',t:'The Whitfield Estate',city:'Bloomfield',mi:16,state:'ending',lots:29,end:'1h 40m'},
+    {id:'a10',t:'Vintage Lighting & Art Glass',city:'Berkley',mi:8,state:'live',lots:24,end:'Sun 4:00'},
+    {id:'h1',t:'No Reserve Designer Accents',city:'Knoxville',mi:512,state:'historical',lots:174,end:'Closed'},
+    {id:'h2',t:'Fine Crystal & Gem Auction',city:'Knoxville',mi:512,state:'historical',lots:231,end:'Closed'},
+    {id:'h3',t:'Steiff & Gund Collectables',city:'Knoxville',mi:512,state:'historical',lots:378,end:'Closed'}
+  ];
+  DATA.forEach(function(d,i){
+    if(d.state==='historical'){ d.lng=LOC.lng-4.6+(i%3)*0.28; d.lat=LOC.lat+3.9+(i%2)*0.2; }
+    else { var ang=i*0.85, rad=0.028+(i%5)*0.02; d.lng=LOC.lng+Math.cos(ang)*rad*1.6; d.lat=LOC.lat+Math.sin(ang)*rad; }
+    d.bg=bg(i); d.endsToday=(d.state==='ending');
+  });
+
+  // Classic pin silhouette (location) + auction gavel inside (Advantage.Bid brand).
+  var PIN_SVG='<svg class="pin" viewBox="0 0 34 46" width="34" height="46" aria-hidden="true">'
+    +'<path class="body" d="M17 1.5C9.8 1.5 4 7.3 4 14.5c0 9.4 13 29 13 29s13-19.6 13-29C30 7.3 24.2 1.5 17 1.5z"/>'
+    +'<circle class="face" cx="17" cy="14.5" r="8"/>'
+    +'<rect class="g-head" x="13.4" y="8.9" width="9" height="4.2" rx="1.6" transform="rotate(-32 17.9 11)"/>'
+    +'<path class="g-stick" d="M15.4 12.7 11.6 17.3"/>'
+    +'<path class="g-base" d="M10 18.8 H 15.8"/>'
+    +'</svg>';
+
+  /* ── Map ──────────────────────────────────────────────────────────────── */
+  var map, markers=[], hoverPopup=null, ambientTimer=null;
+  try{ map=new maplibregl.Map({container:'map',style:STYLE,center:[-96,38],zoom:reduce?9:3.5,attributionControl:false,dragRotate:false,pitchWithRotate:false}); }
+  catch(e){ degrade(); return; }
+  map.on('error',function(){});
+
+  function degrade(){ $('intro').classList.add('gone'); $('top').classList.add('in'); $('drawer').classList.add('in'); buildList('near'); revealHUD(); }
+
+  map.on('load',function(){
+    applySkin(); map.once('idle',applySkin);   // paint the Advantage.Bid map identity
+    function settle(){ addMarkers(); $('drawer').classList.add('in'); buildList('near'); revealHUD(); startAmbient(); organicSettle(); }
+    if(reduce){ $('intro').classList.add('gone'); $('top').classList.add('in'); map.jumpTo({center:[LOC.lng,LOC.lat],zoom:10}); settle(); return; }
+    // A graceful arrival, not an efficient one — anticipation before the reveal.
+    setTimeout(function(){ $('intro').classList.add('gone'); }, 1500);   // hold the wordmark
+    setTimeout(function(){ $('top').classList.add('in'); }, 2350);       // let the U.S. breathe
+    var ease=function(x){ return x<0.5 ? 4*x*x*x : 1-Math.pow(-2*x+2,3)/2; };
+    setTimeout(function(){                                               // gentle two-phase discovery
+      map.flyTo({center:[LOC.lng,LOC.lat], zoom:6.4, duration:2100, curve:1.2, easing:ease, essential:true});  // glide down to the region
+      map.once('moveend', function(){ setTimeout(function(){            // …a tiny breath to take it in…
+        map.flyTo({center:[LOC.lng,LOC.lat], zoom:10.2, duration:2300, curve:1.2, easing:ease, essential:true}); // …then settle into the neighborhood
+        map.once('moveend', settle);
+      }, 700); });
+    }, 2650);
+  });
+  /* gentle organic "breath" once the camera lands — never stops abruptly */
+  function organicSettle(){ if(reduce||!map)return; setTimeout(function(){ try{ map.easeTo({zoom:map.getZoom()+0.25,duration:2600,easing:function(x){return 1-Math.pow(1-x,3);}}); }catch(e){} }, 500); }
+
+  function addMarkers(){
+    DATA.forEach(function(d,i){
+      var el=document.createElement('div'); el.className='beacon '+d.state;
+      el.innerHTML='<div class="halo"></div>'+((d.state==='ending'||d.state==='coming')?'<div class="ping"></div>':'')+PIN_SVG;
+      el.addEventListener('mouseenter',function(){ highlight(d.id,true); showPreview(d); });
+      el.addEventListener('mouseleave',function(){ highlight(d.id,false); hidePreview(); });
+      el.addEventListener('click',function(){ focusAuction(d); });
+      var mk=new maplibregl.Marker({element:el,anchor:'bottom'}).setLngLat([d.lng,d.lat]).addTo(map);
+      d._el=el; d._mk=mk; markers.push(mk);
+      setTimeout(function(){ el.classList.add('bloom'); }, reduce?0:(260+i*135));
+    });
+  }
+  function showPreview(d){
+    if(reduce) return;
+    var tagtxt={live:'LIVE',ending:'ENDING SOON',coming:'COMING SOON',historical:'ARCHIVE'}[d.state];
+    var tagbg={live:'#2F6BFF',ending:'#F0843B',coming:'#1FB6A6',historical:'#8aa0b8'}[d.state];
+    var html='<div class="pv"><div class="img" style="background-image:'+d.bg+'"><span class="tagchip" style="background:'+tagbg+'">'+tagtxt+'</span></div>'+
+      '<div class="body"><div class="t">'+d.t+'</div><div class="s">📍 '+d.city+(d.state==='historical'?'':' · '+d.mi+' mi')+(d.state==='historical'?(' · '+d.lots+' lots'):(' · '+(d.state==='coming'?d.end:('Ends '+d.end)))) +'</div></div></div>';
+    hidePreview();
+    hoverPopup=new maplibregl.Popup({closeButton:false,closeOnClick:false,offset:26,className:'preview',maxWidth:'260px'}).setLngLat([d.lng,d.lat]).setHTML(html).addTo(map);
+    var elp=hoverPopup.getElement(); if(elp) elp.style.pointerEvents='none';
+  }
+  function hidePreview(){ if(hoverPopup){ hoverPopup.remove(); hoverPopup=null; } }
+
+  /* gentle ambient liveness: a live marker softly pulses now and then */
+  function startAmbient(){
+    if(reduce) return;
+    ambientTimer=setInterval(function(){
+      var live=DATA.filter(function(d){return d.state==='live'&&d._el});
+      if(!live.length) return; var d=live[Math.floor(Math.random()*live.length)];
+      d._el.classList.add('spark'); setTimeout(function(){ d._el && d._el.classList.remove('spark'); },1300);
+    }, 4200);
+  }
+
+  /* ── Drawer list + map⇄card sync ──────────────────────────────────────── */
+  var F={near:function(d){return d.state!=='historical'},ending:function(d){return d.state==='ending'},coming:function(d){return d.state==='coming'},archive:function(d){return d.state==='historical'}};
+  var TT={near:'Auctions near you',ending:'Ending soon near you',coming:'Coming soon',archive:'The Historical Archive'};
+  function buildList(f){
+    var list=$('list'); list.innerHTML=''; $('dTitle').textContent=TT[f];
+    var q=($('sInput').value||'').toLowerCase();
+    var rows=DATA.filter(F[f]).filter(function(d){return !q||d.t.toLowerCase().indexOf(q)>=0||d.city.toLowerCase().indexOf(q)>=0});
+    $('dSub').textContent=rows.length+(f==='archive'?' completed auctions':' auctions · hover to preview on the map');
+    rows.forEach(function(d){
+      var tg={live:'● Live',ending:'⏱ Ending soon',coming:'◷ Coming soon',historical:'Sold · Archive'}[d.state];
+      var c=document.createElement('div'); c.className='card'; c.dataset.id=d.id;
+      c.innerHTML='<div class="ph" style="background-image:'+d.bg+'"></div><div class="meta"><div class="t">'+d.t+'</div>'+
+        '<div class="s">📍 '+d.city+(d.state==='historical'?'':' · '+d.mi+' mi')+'</div>'+
+        '<div class="r"><span class="tag '+d.state+'">'+tg+'</span><span class="when">'+(d.state==='coming'?d.end:(d.state==='historical'?d.lots+' lots':'Ends '+d.end+' · '+d.lots+' lots'))+'</span></div></div>';
+      c.addEventListener('mouseenter',function(){ highlight(d.id,true); });
+      c.addEventListener('mouseleave',function(){ highlight(d.id,false); });
+      c.addEventListener('click',function(){ focusAuction(d); });
+      list.appendChild(c);
+    });
+  }
+  function highlight(id,on){ var d=DATA.find(function(x){return x.id===id}); if(d&&d._el)d._el.classList.toggle('active',on); var c=document.querySelector('.card[data-id="'+id+'"]'); if(c)c.classList.toggle('active',on); }
+  function focusAuction(d){
+    if(map) map.flyTo({center:[d.lng,d.lat],zoom:Math.max(map.getZoom(),11.5),duration:850,essential:true});
+    var c=document.querySelector('.card[data-id="'+d.id+'"]'); if(c)c.scrollIntoView({block:'nearest',behavior:reduce?'auto':'smooth'});
+    if(matchMedia('(max-width:880px)').matches){ setSheet('half'); }
+    /* production: location.href='/auction-view.html?auctionId='+d.id */
+  }
+
+  /* ── HUD: count-up + returning-visitor deltas ─────────────────────────── */
+  function revealHUD(){
+    var key='ab_lm_v2', prev=null; try{prev=JSON.parse(localStorage.getItem(key));}catch(e){}
+    var nearIds=DATA.filter(F.near).map(function(d){return d.id}); var n=nearIds.length;
+    var countEl=$('count'), del=$('deltas');
+    $('hud').classList.add('in');
+    if(prev&&prev.ids){
+      var fresh=nearIds.filter(function(id){return prev.ids.indexOf(id)<0}).length || 2;
+      var closing=DATA.filter(function(d){return d.endsToday}).length;
+      countEl.innerHTML='Welcome back — <b>'+n+'</b> auctions near you';
+      var chips=[['var(--live)','<b>'+fresh+'</b> new nearby'],['var(--ending)','<b>'+closing+'</b> closing today'],['var(--sold)','<b>1</b> you watched has new bids']];
+      del.innerHTML=''; chips.forEach(function(c,i){ var s=document.createElement('span'); s.className='d'; s.innerHTML='<i style="background:'+c[0]+'"></i>'+c[1]; del.appendChild(s); setTimeout(function(){s.classList.add('in');}, reduce?0:(500+i*220)); });
+    } else {
+      countUp(countEl,n);
+    }
+    try{ localStorage.setItem(key,JSON.stringify({ids:nearIds,ts:Date.now()})); }catch(e){}
+    setTimeout(function(){ $('hud').classList.remove('in'); }, 7200);
+  }
+  function countUp(el,n){
+    if(reduce){ el.innerHTML='<b>'+n+'</b> auctions near you'; return; }
+    var i=0; var iv=setInterval(function(){ i++; el.innerHTML='<b>'+i+'</b> auctions near you'; if(i>=n)clearInterval(iv); }, 95);
+  }
+
+  /* ── Controls: tabs, search overlay, nav drawer, location, mobile sheet ── */
+  document.querySelectorAll('.dtab').forEach(function(b){ b.addEventListener('click',function(){ document.querySelectorAll('.dtab').forEach(function(x){x.classList.remove('on')}); b.classList.add('on'); buildList(b.dataset.f); }); });
+
+  function openSearch(){ $('search').classList.add('open'); setTimeout(function(){$('sInput').focus();},60); }
+  function closeSearch(){ $('search').classList.remove('open'); }
+  $('searchBtn').addEventListener('click',openSearch);
+  $('search').addEventListener('click',function(e){ if(e.target===this) closeSearch(); });
+  $('sInput').addEventListener('input',function(){ var on=document.querySelector('.dtab.on'); buildList(on?on.dataset.f:'near'); });
+
+  $('menuBtn').addEventListener('click',function(){ $('navwrap').classList.add('open'); });
+  /* Appearance toggle — Light (default) / Dark (opt-in). Reflect stored choice. */
+  document.querySelectorAll('.themebtn').forEach(function(b){ b.classList.toggle('on',b.dataset.theme===getTheme()); b.addEventListener('click',function(){ setTheme(b.dataset.theme); }); });
+  $('navscrim').addEventListener('click',function(){ $('navwrap').classList.remove('open'); });
+  document.addEventListener('keydown',function(e){ if(e.key==='Escape'){ closeSearch(); $('navwrap').classList.remove('open'); } if((e.key==='k'||e.key==='K')&&(e.metaKey||e.ctrlKey)){ e.preventDefault(); openSearch(); } });
+
+  function useMyLocation(){ if(!navigator.geolocation) return; navigator.geolocation.getCurrentPosition(function(p){ LOC={name:'My location',lng:p.coords.longitude,lat:p.coords.latitude}; try{localStorage.setItem('ab_loc',JSON.stringify(LOC));}catch(e){} $('locTxt').textContent='My location'; if(map)map.flyTo({center:[LOC.lng,LOC.lat],zoom:10.6,duration:1500,essential:true}); }); }
+  $('locBtn').addEventListener('click',useMyLocation);
+  document.querySelector('#search .srow .near').parentElement.addEventListener('click',function(){ closeSearch(); useMyLocation(); });
+
+  /* mobile bottom-sheet snap (peek / half / full) + drag */
+  function setSheet(s){ var d=$('drawer'); d.classList.remove('half','full'); document.body.classList.remove('peek','half','full'); if(s!=='peek'){ d.classList.add(s);} document.body.classList.add(s); $('sheetctl').firstChild.textContent = s==='peek'?'▤ ':'🗺 '; $('sheetctl').querySelector('span').textContent = s==='peek'?'Browse list':'Back to map'; }
+  $('sheetctl').addEventListener('click',function(){ setSheet(document.body.classList.contains('peek')?'half':'peek'); });
+  (function(){ var grab=$('grab'), sy=0, startState='peek', dragging=false;
+    function down(e){ dragging=true; sy=(e.touches?e.touches[0].clientY:e.clientY); startState=document.body.classList.contains('full')?'full':document.body.classList.contains('half')?'half':'peek'; }
+    function up(e){ if(!dragging)return; dragging=false; var y=(e.changedTouches?e.changedTouches[0].clientY:e.clientY); var dy=y-sy; if(dy<-40){ setSheet(startState==='peek'?'half':'full'); } else if(dy>40){ setSheet(startState==='full'?'half':'peek'); } }
+    grab.addEventListener('mousedown',down); window.addEventListener('mouseup',up);
+    grab.addEventListener('touchstart',down,{passive:true}); window.addEventListener('touchend',up);
+  })();
+})();
+</script>
+</body>
+</html>
