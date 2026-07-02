@@ -1,7 +1,7 @@
 # Advantage.Bid — Organizations & Events Architecture
 
 **Status:** Planning / decision record (pre-implementation — no code yet)
-**Date:** 2026-07-02 (rev. 2 — Organization model + refinements)
+**Date:** 2026-07-02 (rev. 3 — §13 decisions locked)
 **Scope:** The **Organization** business layer, with **Events** as its first Phase-1 product, surfaced on Brilliant Directories (BD) city pages. Railway/AAC is the source of truth.
 **Launch markets:** Houston and NYC / Tri-State.
 
@@ -16,6 +16,7 @@
 - **Events are the first Phase-1 product** hung off organizations. Tables: **`events`, `event_images`, `event_categories`, `event_markets`** (no `local_` prefix — "local" is geography/filter, not a table name).
 - **Moderation = 5 states:** `draft → submitted → published | rejected → archived`. Single admin action: **Approve & Publish**. (No separate "approved" state.)
 - **Plans live at the org level** (`organization_plans`): free (10 imgs / 3 active events), standard (25 / 10), premium (50 / 25 / featured‑eligible). Enforced **server-side**.
+- **Phase-1 org scope:** one user = one primary organization, **auto-created on first event** (required name + contact); `organization_members` exists but Phase 1 uses the **owner** role only; sellers/auctions stay separate (linked in a later backfill).
 - **Design-for-future, build-minimal:** recurrence columns, organizer **verification** (Verified / Community / Imported), and **geo coordinates** (evolving toward polygon markets) are in the schema now but **not implemented** in Phase 1.
 - **Identity:** native Railway auth in Phase 1; optional one-way BD→Railway signed handoff later; migrate BD accounts into Railway long-term; **never** deep-sync two writable identity stores.
 - **Not greenfield** — clones proven internal patterns: `widgets/featured-auctions.js`, `/api/public/*` conventions, the auction governance/`audit_log` lifecycle, and the Cloudinary pipeline.
@@ -208,7 +209,7 @@ draft ──submit(org)──▶ submitted ──Approve & Publish(admin)──�
 | `source='organization'` and org `verification_status='verified'` | **Verified Organizer** |
 | `source='organization'` and org unverified/community | **Community Organizer** |
 | `source='admin'` | **Advantage** (hosted) |
-Phase 1 ships the column + an admin toggle only; the formal verification program comes later.
+**Phase 1:** all new organizations default to `community`/`unverified`, so the public badge is **Community Organizer** (or **Imported** / **Advantage** by source). The admin **mark-verified** action and the **Verified Organizer** badge are **deferred to a later phase** — no verification workflow ships in Phase 1.
 
 ---
 
@@ -278,7 +279,8 @@ BD "Create Event" (deep-link; market prefilled; lands on Railway login/signup if
 | POST | `/admin/events/:id/return-to-draft` | `→ draft` (reason) |
 | POST | `/admin/events/:id/archive` | `→ archived` |
 | POST | `/admin/events` · PATCH `/admin/events/:id` | Admin-created (`source='admin'`) / override |
-| POST | `/admin/organizations/:id/verify` | Toggle org `verification_status` |
+
+_(Deferred — not in Phase 1: `POST /admin/organizations/:id/verify` to mark an org verified. Phase 1 orgs are all `community`/`unverified`.)_
 
 **Public — in `public.js` → `/api/public`:** the endpoints in §7 (+ CORS).
 
@@ -324,16 +326,19 @@ BD "Create Event" (deep-link; market prefilled; lands on Railway login/signup if
 
 ---
 
-## 13. Open questions (raised by the Organization model)
+## 13. Locked decisions (Phase 1)
 
-1. **Sellers ↔ organizations:** confirm Phase 1 leaves `seller_profiles`/auctions untouched and links them to `organizations` in a later backfill (recommended), vs. unifying now.
-2. **Org onboarding:** auto-create an organization (creator = `owner`) on first event submission, or a distinct "create organization" step first? (Recommend auto-create with an editable profile.)
-3. **One org per user in Phase 1**, or allow a user to belong to multiple orgs from the start? (Schema supports many; recommend UI-limit to one now.)
-4. **Verification in Phase 1:** admin manual toggle only (recommended) — confirm criteria/process are deferred.
-5. **Plan scope:** org-level plan governs all products (recommended) vs. per-product plans later.
-6. **Markets:** confirm center+radius definitions for Houston / NYC Tri-State now, or slug-only until the geo/polygon phase.
-7. **Canonical domain:** `bid.advantage.bid` for portal/API/widgets (per your answer) — confirm the org portal namespace `/org/…`.
-8. **Event → org visibility:** public event shows the organization (name/logo/verification) — confirm that's desired for community organizers too.
+1. **Sellers ↔ organizations — deferred.** Phase 1 does **not** alter seller/auction tables. Existing `seller_profiles`/auctions are linked to `organizations` in a **later backfill phase**.
+2. **Organization onboarding — auto-create on first event.** When a logged-in user starts creating their first event, an organization is auto-created (creator = `owner`), requiring **name + contact** fields.
+3. **One organization per user in Phase 1.** One user = one primary organization; multi-org membership is deferred (schema already supports it).
+4. **`organization_members` created now, owner-only in Phase 1.** Table exists for future employees/roles; Phase 1 uses the **owner** role only.
+5. **Plans at the organization level** (not user level) — `organization_plans` governs limits.
+6. **Verification — default community/unverified; manual verify deferred.** All new orgs default to `community`/`unverified`; the admin **mark-verified** action and the **Verified Organizer** badge come in a later phase. **No automated verification** in Phase 1.
+7. **Event imports — out of scope for Phase 1.** Schema keeps `source='imported'` + attribution columns, but there is **no import workflow** now (no scraping, no API imports).
+8. **`seller_profiles` stay separate** — not merged into organizations; optional future linking via `organizations.seller_profile_id`.
+9. **Markets — slug-based in Phase 1** (`houston`, `nyc_tristate`); `center_lat/lng/radius_km` columns exist but are **not used** for filtering yet (geo/polygon search is a later phase).
+10. **Org portal namespace `/org/…`** on `bid.advantage.bid`; public event pages/widgets/API on `bid.advantage.bid`; `advantage.bid` displays only.
+11. **Public event shows the organization** (name/logo + **Community Organizer** badge in Phase 1).
 
 ---
 
