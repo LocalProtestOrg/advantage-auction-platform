@@ -1,177 +1,345 @@
-# Local Events — Architecture & Phase 1 Plan
+# Advantage.Bid — Organizations & Events Architecture
 
 **Status:** Planning / decision record (pre-implementation — no code yet)
-**Date:** 2026-07-02
-**Scope:** Company-created local events surfaced on Brilliant Directories (BD) city pages, with Railway/AAC as the source of truth.
-**Launch markets:** NYC / Tri-State and Houston, TX.
+**Date:** 2026-07-02 (rev. 2 — Organization model + refinements)
+**Scope:** The **Organization** business layer, with **Events** as its first Phase-1 product, surfaced on Brilliant Directories (BD) city pages. Railway/AAC is the source of truth.
+**Launch markets:** Houston and NYC / Tri-State.
+
+> Rev. 2 supersedes the original "local events" plan: events tables are renamed (no `local_` prefix), the moderation flow is simplified to 5 states, and `event_companies` is replaced by a foundational **Organization** model.
 
 ---
 
 ## 0. TL;DR (locked decisions)
 
-- **Railway/AAC is the source of truth for events.** BD does **not** own or manage events.
-- **BD is display/marketing only** — it renders published events via an embed that consumes a read-only public API. No BD business logic, no dependency on BD tables.
-- **Do not use BD-native event creation.** BD's "Create Event" deep-links into the Railway event portal.
-- **Events are a first-class data type, separate from auctions** (separate tables, lifecycle, moderation queue, widget). They ride the *same rails* as auctions (public API + embeddable widget + governance/`audit_log` + Cloudinary).
-- **Phase 1 uses Railway native auth.** No BD login integration required to ship events.
-- **No deep two-way login sync — ever.** It is the one identity option to avoid.
-- **Future (optional):** one-way BD→Railway signed handoff adapter; and/or a later one-time BD→Railway account migration to consolidate identity on Railway.
-- This is **not greenfield** — it clones proven internal patterns: `widgets/featured-auctions.js/.html`, `/api/public/auctions`, the auction governance lifecycle, and the Cloudinary image pipeline.
+- **The Organization is the foundational business entity.** `Users → Organizations → (Auctions, Events, Directory Listings, Advertising, Memberships, future Products)`. We are building the business ecosystem around the auction industry, not just an event feature.
+- **Railway/AAC is the source of truth** for organizations, events, moderation, images, plans, and public feeds. **BD is display/marketing only** (embeds a read-only public API; owns nothing; no dependency).
+- **Events are the first Phase-1 product** hung off organizations. Tables: **`events`, `event_images`, `event_categories`, `event_markets`** (no `local_` prefix — "local" is geography/filter, not a table name).
+- **Moderation = 5 states:** `draft → submitted → published | rejected → archived`. Single admin action: **Approve & Publish**. (No separate "approved" state.)
+- **Plans live at the org level** (`organization_plans`): free (10 imgs / 3 active events), standard (25 / 10), premium (50 / 25 / featured‑eligible). Enforced **server-side**.
+- **Design-for-future, build-minimal:** recurrence columns, organizer **verification** (Verified / Community / Imported), and **geo coordinates** (evolving toward polygon markets) are in the schema now but **not implemented** in Phase 1.
+- **Identity:** native Railway auth in Phase 1; optional one-way BD→Railway signed handoff later; migrate BD accounts into Railway long-term; **never** deep-sync two writable identity stores.
+- **Not greenfield** — clones proven internal patterns: `widgets/featured-auctions.js`, `/api/public/*` conventions, the auction governance/`audit_log` lifecycle, and the Cloudinary pipeline.
 
 ---
 
-## 1. Architecture — Railway as source of truth; BD as display only
-
-Consistent with `docs/integration-contract-bd.md` ("BD is a presentation, discovery, and account-entry layer… adapter, not a platform dependency") and CLAUDE.md (platform independence; BD adapter-not-dependency; never depend on BD tables).
+## 1. The big picture — the Organization ecosystem
 
 ```
-Company ──(BD "Create Event" deep link)──▶  Railway event portal (/company/events)
-                                             │  create → submit
-                                             ▼
-                                   Railway = SOURCE OF TRUTH
-                                   (local_events, images, moderation, audit_log)
-                                             │  admin approve → published
-                                             ▼
-                              Public read-only API  /api/public/events?market=…
-                                             │  (JSON, allowlisted fields, cache, CORS)
-                                             ▼
-      BD city pages ◀── embeddable widget (/widgets/events.js  or  iframe fallback)
-      (display only; no business logic; no ownership)
+                 ┌─────────────┐
+                 │    Users    │  (native Railway auth; source of truth)
+                 └──────┬──────┘
+                        │ organization_members (role: owner/admin/editor)
+                 ┌──────▼───────┐
+                 │ Organizations │  ← the heart of the platform (one business entity)
+                 └──────┬───────┘
+        ┌───────┬───────┼────────┬──────────┬─────────────┐
+     Auctions  Events  Directory  Advertising  Memberships  Future products
+   (existing)  (P1)    listings    (future)     (future)     (storefronts, services…)
 ```
 
-- **Railway owns:** event records, images, image limits by plan/tier, moderation/approval, lifecycle, public feeds/widgets/API.
-- **BD owns:** marketing/directory/city pages; it embeds and displays Railway events; it never writes or moderates them.
-- **Auctions stay only on Railway/AAC** and remain a **separate data type** from events.
+- One organization is the **parent** of everything a business does on the platform, so we never have to reconcile separate business records per feature.
+- **Railway becomes the true business platform; BD becomes a marketing front end.** This is what makes an eventual BD exit low-risk.
+- **Phase 1 introduces the org layer for event organizers only.** Existing `seller_profiles`/auctions are **not** touched now; a later phase backfills `organization_id` onto sellers/auctions to bring them under the same parent. (Keeps Phase 1 additive and off the auction domain.)
 
 ---
 
-## 2. Identity & login
+## 2. Architecture — Railway = source of truth; BD = display only
 
-### Current state (verified in code)
-- Railway already owns identity **natively** (`/api/auth` register / login / me / forgot-password / reset-password, JWT). Railway/AAC is already the de-facto identity source of truth.
-- **No BD auth integration is built.** `bd-handoff` exists only as a recommendation in the BD contract — no code, no provider-mapping table, no SSO issuer.
+Consistent with `docs/integration-contract-bd.md` and CLAUDE.md (platform independence; BD adapter-not-dependency; never depend on BD tables).
 
-### Decisions
-1. **Phase 1: Railway native auth.** Companies click BD "Create Event" → land on Railway signup/login → create events. No BD login work required to launch.
-2. **No deep two-way login sync.** Two writable identity stores fighting to stay consistent is the worst option; do not build it.
-3. **Railway is the identity source of truth going forward** (it already is). Preferred end-state: **BD is unauthenticated marketing/directory that deep-links into Railway wherever login is needed** ("Option A").
-4. **Future, optional — BD→Railway signed handoff (adapter).** Only if BD ever has member-gated content that must stay on BD. One-way: a BD member clicks → Railway trusts a **signed, short-expiry, replay-protected token** → creates/links a Railway user via an identity-mapping table (`platform_user_id, provider, provider_user_id, provider_email, linked_at`). BD remains one auth *provider*; Railway still owns the user record. Must be disable-able without breaking native login (per contract).
-5. **Possible later — BD account migration into Railway.** Given low traffic + few accounts, a **one-time migration** of BD members into Railway (consolidating on a single identity system) is cleaner than sustained federation. Reduces BD to marketing pages that need no login.
-6. **Avoid:** making BD an external IdP that Railway depends on; making BD's own login delegate to Railway (most BD plans can't consume external OIDC/SAML — not worth chasing).
-
-### BD admin checklist (verify before designing any BD auth bridge)
-Log into the BD admin and confirm on **your plan/version**:
-- [ ] **API access** — is it enabled? Which endpoints (members, listings/events, categories)? Rate limits? Auth method (API key/OAuth)?
-- [ ] **Webhooks** — available? Which events fire (member created/updated/login)? Signing/secret support?
-- [ ] **SSO / login integration** — any native SSO, "single sign-on," or custom-login feature? Can BD *issue* a signed token/redirect we can verify?
-- [ ] **External IdP support** — can BD's member login delegate to an external OIDC/SAML provider? (Likely no — confirm.)
-- [ ] **Custom code injection** — can city pages embed a `<script>` tag (needed for the JS widget) or only an iframe/HTML block?
-- [ ] **Member export** — can you export the member list (for a future migration)?
-> None of these block Phase-1 events (native Railway auth). They only inform the *future, optional* handoff/migration.
+```
+Organization user ─(BD "Create Event" deep link)─▶ Railway org portal (/org/events)
+                                                    │ create → submit
+                                                    ▼
+                                     Railway = SOURCE OF TRUTH
+                              (organizations, events, images, moderation, audit_log)
+                                                    │ admin "Approve & Publish"
+                                                    ▼
+                               Public read-only API  /api/public/events?market=…
+                                                    │ (JSON, allowlist, cache, CORS)
+                                                    ▼
+             BD city pages ◀── embeddable widget (/widgets/events.js  or  iframe fallback)
+             (display only; no business logic; no ownership)
+```
 
 ---
 
-## 3. BD integration method (display)
+## 3. Organization model (foundational)
 
-**Primary: JS script widget backed by a JSON API.** BD pastes `<script src="…/widgets/events.js"></script>` + `<div data-advantage-events data-market="houston"></div>`; the script fetches the public API and renders cards in the host page. Brand-cohesive, responsive, styleable, and it clones the existing `featured-auctions.js` pattern (lowest risk).
+```sql
+CREATE TABLE organization_plans (
+  plan_tier          text PRIMARY KEY,          -- 'free','standard','premium'
+  max_event_images   int  NOT NULL,
+  max_active_events  int  NOT NULL,
+  can_feature_events boolean NOT NULL DEFAULT false,
+  -- room for future per-product limits (auctions, ads, listings, memberships) added later
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+INSERT INTO organization_plans (plan_tier,max_event_images,max_active_events,can_feature_events) VALUES
+  ('free',10,3,false),('standard',25,10,false),('premium',50,25,true)
+ON CONFLICT (plan_tier) DO NOTHING;
 
-**Fallback: iframe** (`/widgets/events.html?market=…`) for BD pages that forbid `<script>` injection — isolated and simple, but weaker SEO/brand and harder sizing.
+CREATE TABLE organizations (
+  id            uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  slug          text UNIQUE NOT NULL,
+  name          text NOT NULL,
+  type          text,                            -- descriptive: 'auction_company','estate_sale','antique_dealer','event_organizer','other'
+  status        text NOT NULL DEFAULT 'active',  -- active|suspended
+  plan_tier     text NOT NULL DEFAULT 'free' REFERENCES organization_plans(plan_tier),
+  -- organizer verification (trust signal; anticipate now, minimal in P1)
+  verification_status text NOT NULL DEFAULT 'unverified',  -- unverified|community|verified
+  verified_at timestamptz, verified_by uuid REFERENCES users(id),
+  -- profile / contact
+  contact_email text, contact_phone text, website_url text, logo_url text, city text, state text,
+  -- future link to the existing auction-seller identity (nullable; backfilled later)
+  seller_profile_id uuid REFERENCES seller_profiles(id),
+  created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now()
+);
 
-**Underlying JSON API** doubles as a feed; a JSON/RSS feed is a near-free later output.
+CREATE TABLE organization_members (
+  id              uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  organization_id uuid NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+  user_id         uuid REFERENCES users(id),
+  role            text NOT NULL DEFAULT 'owner',   -- owner|admin|editor|member
+  status          text NOT NULL DEFAULT 'active',  -- active|invited|removed
+  invited_email   text,
+  created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (organization_id, user_id)
+);
+CREATE INDEX idx_org_members_user ON organization_members(user_id);
+```
 
-**SEO tradeoff (decision needed):** JS/iframe-rendered events are **not crawlable by default**, so they add no fresh SEO content to BD city pages on their own. If SEO matters there, add a server-rendered snapshot (prerender/hydrate, or BD periodically pulls rendered HTML). Flagged as an explicit decision, not a default.
-
----
-
-## 4. Data model (proposed)
-
-Follows existing conventions (allowlisted public fields, `audit_log`, geocode pattern, lifecycle states). **Events are fully separate from auctions.**
-
-- **`event_markets`** — table (not a hardcoded enum) so new markets are data, not migrations. e.g. `slug ('nyc_tristate'|'houston'), name, is_active`.
-- **`event_companies`** — organizer org, linked to a platform user; `plan_tier`. *(Open Q: same entity as auction `seller_profile`, or separate?)*
-- **`local_events`** — `id, slug, company_id (nullable), source ('company'|'imported'|'admin'), market, title, description, category, venue_name, address/city/state/zip, lat, lng, start_at, end_at, timezone, external_url, status, is_featured, promo_tier, promo_starts_at, promo_ends_at, attribution_source, attribution_url, reviewed_by, review_reason, submitted_at, approved_at, published_at, created_at, updated_at`.
-- **`local_event_images`** — `event_id, url (Cloudinary), position, is_cover`.
-- **`event_plan_limits`** — `plan_tier, max_images, max_active_events, can_feature, …` (config-driven; **enforced server-side**).
-- **Reuse `audit_log`** for all moderation transitions.
-- **Statuses:** `draft → submitted → approved → published → rejected → archived` (mirrors auction governance).
-
----
-
-## 5. Public API & widget
-
-- `GET /api/public/events?market=houston&status=published&limit=…` and `GET /api/public/events/:slug` — allowlisted fields, `Cache-Control` (reuse `PUBLIC_CACHE`), **plus restricted CORS** (net-new: allow `https://advantage.bid` origins only; the platform currently has no CORS).
-- `/widgets/events.js` (script) + `/widgets/events.html?market=…` (iframe fallback) — clone `featured-auctions.js/.html`.
-- BD copy/paste embed snippet + a documented **BD "Create Event"** deep-link URL.
-- JSON/RSS feed = later, cheap secondary output of the same API.
-
----
-
-## 6. Moderation, images, monetization scaffolding
-
-- **Moderation (untrusted external companies):** approval required before `published`; reuse the auction governance pattern + `audit_log`; spam/abuse controls. Company-created events show the submitting company.
-- **Third-party / public-source events (later phase):** default `imported → draft → admin approval`; **clear attribution** ("sourced from X; not hosted or endorsed by Advantage"); **no scraping in Phase 1**; respect source ToS/copyright.
-- **Images:** Cloudinary; **per-plan limits enforced server-side** (never UI-only); supports more than BD's 10-image cap by tier.
-- **Monetization (design now, build later):** schema carries `is_featured / promo_tier / promo_window` and `event_plan_limits` so paid promotions, featured placements, and company subscriptions are **additive later, not a rewrite**. No billing in Phase 1.
-
----
-
-## 7. Risks & guardrails
-
-- **Adapter-only on BD** — no BD tables/logic in any critical path (contract).
-- **Legal exposure of third-party events** — attribution + "not hosted/endorsed"; approval-gated; no scraping in Phase 1.
-- **Moderation** — external submissions are untrusted; approval before publish; audit everything.
-- **Server-side enforcement** — image/active-event limits enforced in the API, not the UI.
-- **CORS scope** — restrict to known origins, never `*`.
-- **SEO tradeoff** of JS rendering — decide explicitly (see §3).
-- **Separation** — events and auctions never share a table or moderation queue.
-- **Don't over-build** — low traffic → keep Phase 1 minimal; promotions/SSO/imports come later; schema leaves room.
-- **Identity** — never deep-sync two writable stores; keep Railway the source of truth.
-- **Market gating** — hard-limit to the two launch markets initially.
+- **Multi-user from day one** (`organization_members`), even if Phase-1 UI only exposes the owner. Future employees/roles need no migration.
+- **Plans at the org level** — one plan governs all products; per-product overrides can be added later without restructuring.
+- **Verification at the org level** — a single source; the event trust badge is *derived* (see §6).
 
 ---
 
-## 8. Phased implementation
+## 4. Events domain (Phase-1 product)
 
-- **Phase 1 (MVP):** tables + company event portal (CRUD, draft→submit) + admin moderation queue + server-enforced tier image limits + public events API (+CORS) + one JS widget + iframe fallback + BD embed snippet + "Create Event" deep link + 2 markets + native Railway auth. Staging → validate → prod.
-- **Phase 2:** activate promotions/featured/subscription scaffolding (paid placements), richer widget (filters/map), JSON/RSS feeds, more markets.
-- **Phase 3:** third-party event **API imports** from approved sources (draft + approval + attribution). No scraping.
-- **Phase 4 (identity):** optional BD→Railway SSO handoff adapter and/or one-time BD account consolidation onto Railway.
+```sql
+CREATE TABLE event_markets (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  slug text UNIQUE NOT NULL, name text NOT NULL,
+  is_active boolean NOT NULL DEFAULT true, sort_order int NOT NULL DEFAULT 0,
+  -- geographic definition: radius now, polygon later (PostGIS) — evolve without renaming
+  center_lat double precision, center_lng double precision, radius_km int,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+INSERT INTO event_markets (slug,name,sort_order) VALUES
+  ('houston','Houston, TX',1),('nyc_tristate','NYC / Tri-State',2) ON CONFLICT (slug) DO NOTHING;
+
+CREATE TABLE event_categories (
+  slug text PRIMARY KEY, name text NOT NULL, sort_order int NOT NULL DEFAULT 0, is_active boolean NOT NULL DEFAULT true
+);
+INSERT INTO event_categories (slug,name,sort_order) VALUES
+  ('auctions','Auctions',1),('estate_sales','Estate Sales',2),('art_antiques','Art & Antiques',3),
+  ('collectibles','Collectibles',4),('markets_fairs','Markets & Fairs',5),('business_networking','Business / Networking',6),
+  ('community','Community Events',7),('other','Other',8) ON CONFLICT (slug) DO NOTHING;
+
+CREATE TABLE events (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  slug text UNIQUE NOT NULL,
+  organization_id uuid REFERENCES organizations(id),   -- null for admin/imported
+  source text NOT NULL DEFAULT 'organization' CHECK (source IN ('organization','admin','imported')),
+  market_slug text NOT NULL REFERENCES event_markets(slug),
+  category_slug text REFERENCES event_categories(slug),
+  title text NOT NULL, description text,
+  venue_name text, address text, city text, state text, zip text,
+  lat double precision, lng double precision,          -- keep coords for future geo/polygon search
+  start_at timestamptz NOT NULL, end_at timestamptz, timezone text NOT NULL DEFAULT 'America/New_York',
+  -- recurrence (schema room only; NOT implemented in Phase 1)
+  is_recurring boolean NOT NULL DEFAULT false,
+  recurrence_type text,                                 -- 'none','daily','weekly','monthly','custom'
+  recurrence_rule text,                                 -- iCal RRULE string (future)
+  recurrence_parent_id uuid REFERENCES events(id),      -- materialized instances (future)
+  external_url text,
+  -- lifecycle (5 states)
+  status text NOT NULL DEFAULT 'draft'
+    CHECK (status IN ('draft','submitted','published','rejected','archived')),
+  submitted_at timestamptz, published_at timestamptz,
+  reviewed_by uuid REFERENCES users(id), review_reason text,
+  -- monetization scaffolding (Phase 1: columns only, never billed)
+  is_featured boolean NOT NULL DEFAULT false, promo_tier text, promo_starts_at timestamptz, promo_ends_at timestamptz,
+  -- third-party attribution (later phases)
+  attribution_source text, attribution_url text,
+  created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX idx_events_market_status ON events(market_slug, status);
+CREATE INDEX idx_events_start ON events(start_at);
+CREATE INDEX idx_events_org ON events(organization_id);
+
+CREATE TABLE event_images (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  event_id uuid NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+  url text NOT NULL, position int NOT NULL DEFAULT 0, is_cover boolean NOT NULL DEFAULT false,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX idx_event_images_event ON event_images(event_id);
+```
+
+**Migration:** `db/migrations/076_organizations_and_events.sql` (org + event tables + idempotent seeds), applied via the existing production-guarded runner. **Additive only** — no ALTER of auction/bid/payment/seller tables.
 
 ---
 
-## 9. Phase 1 scope (first sprint)
+## 5. Geography & markets (evolvable)
 
-Concrete, buildable, market-gated to NYC-Tri-State + Houston:
-- **DB migrations:** `event_markets`, `event_companies` (or extension), `local_events`, `local_event_images`, `event_plan_limits`; reuse `audit_log`.
-- **Company portal:** `/company/events`, `/company/events/new`, `/company/events/:id/edit` (draft→submit); Cloudinary upload with **server-enforced tier image limits**.
-- **Moderation:** admin queue (approve / reject / return-to-draft) reusing the governance + `audit_log` pattern.
-- **Public API:** `GET /api/public/events?market=` (+ `/:slug`), allowlisted fields, cache + **restricted CORS**.
-- **Embed:** `/widgets/events.js` + `/widgets/events.html?market=` (iframe) + BD copy/paste snippet + "Create Event" deep-link.
-- **Seed** the 2 markets + 1–2 sample events; staging validation; e2e for limits + moderation transitions.
-
-**Explicitly out of Phase 1:** third-party imports, scraping, paid promotions/billing, SSO. (Schema leaves room for all.)
+- Keep `event_markets` (slug + name) as the near-term handle, **but store `lat/lng` on every event** and `center_lat/center_lng/radius_km` on markets.
+- Near term, a market can optionally be defined by center+radius (so Houston can include Katy, Sugar Land, Pearland, The Woodlands via distance).
+- Long term, replace the radius with **polygon markets (PostGIS geometry)** and geographic search — a data/columns change, **no table rename** (that's the point of dropping the `local_` prefix and keeping coordinates now).
 
 ---
 
-## 10. Open questions to answer before implementation
+## 6. Moderation, lifecycle & verification
 
-1. **Company = seller?** Is an "event company" the same entity as an auction `seller_profile`, or a separate `event_companies` model? *(Biggest schema fork.)*
-2. **Markets:** exact definition of "NYC / Tri-State" (which counties/cities) and "Houston" (metro radius)? Table-driven markets OK?
-3. **Who can create events in Phase 1:** any self-serve registered company, or admin-invited only? Is approval-before-publish always required?
-4. **Plan tiers:** initial tier names + limits (max images, max active events, who can feature)? Is there a free tier?
-5. **BD embed reality:** can BD city pages inject a `<script>` (→ JS widget) or only an iframe/HTML block? **Do events need to be SEO-crawlable** on BD pages?
-6. **Canonical domain:** contract recommends `auctions.advantage.bid`, but live is `bid.advantage.bid`. Which domain hosts the event portal + public links + widget?
-7. **Auth for "Create Event":** Railway native signup/login in Phase 1 (recommended), or must it be BD-handoff SSO from day one?
-8. **Moderation ownership/SLA:** which admins approve events, and any turnaround target?
-9. **Taxonomy:** reuse auction categories for events, or an event-specific category set?
-10. **Monetization intent:** what promo/featured/subscription products are envisioned (to shape the schema)?
+**Lifecycle (5 states), every transition writes `auditService.logEvent`:**
+```
+draft ──submit(org)──▶ submitted ──Approve & Publish(admin)──▶ published ──archive(admin)──▶ archived
+   ▲                        │
+   └───return-to-draft──────┤──reject(admin, reason)──▶ rejected ──edit(org)──▶ draft
+```
+- Single admin action **"Approve & Publish"** (`submitted → published`). No "approved-but-unpublished" limbo.
+- Org edits allowed **only** in `draft`/`rejected`. Nothing is public until an admin publishes.
+
+**Organizer verification (trust signal — anticipate now, minimal in P1):** stored once on `organizations.verification_status`; the public **event badge is derived**:
+| Condition | Public badge |
+|---|---|
+| `event.source = 'imported'` | **Imported Listing** (+ attribution) |
+| `source='organization'` and org `verification_status='verified'` | **Verified Organizer** |
+| `source='organization'` and org unverified/community | **Community Organizer** |
+| `source='admin'` | **Advantage** (hosted) |
+Phase 1 ships the column + an admin toggle only; the formal verification program comes later.
 
 ---
 
-## 11. Reusable existing assets (why this is low-risk)
+## 7. Public API & widget
 
-- **Widgets/embed:** `public/widgets/featured-auctions.js` + `featured-auctions.html`, `bd-auctions-init.js`, `featured-lots.js`.
-- **Public API conventions:** `src/routes/public.js` (`/api/public/auctions`, `/featured-auctions`, `/config/widgets/:slug`, allowlists, `PUBLIC_CACHE`).
-- **Governance/moderation:** auction lifecycle (draft→submitted→approved/rejected) + `audit_log` (see `e2e/governance-regression.spec.js`).
-- **Images:** Cloudinary pipeline used by lots.
-- **Auth:** native `src/routes/auth.js`.
+- `GET /api/public/events?market=houston&category=&limit=&offset=` — **published**, upcoming/ongoing only; allowlisted fields; `PUBLIC_CACHE`; **restricted CORS**.
+- `GET /api/public/events/:slug` · `GET /api/public/event-markets` · `GET /api/public/event-categories`.
+- **CORS (net-new):** small middleware on `/api/public/events*` allowing `https://advantage.bid` (+ widget origins) only — never `*`.
+- **Public allowlist:** id, slug, title, description, category, market, venue_name, city/state/zip, lat/lng, start_at/end_at, timezone, external_url, is_featured, **derived organizer badge**, cover + images[], organization{name,slug,logo_url,website_url,verification_status}, attribution_source/url. **Never** exposes moderation fields, `user_id`, membership, or plan internals.
+- **`public/widgets/events.js`** (primary) + **`public/widgets/events.html?market=`** (iframe fallback) + **`public/event.html?slug=`** (public event detail page, Living Map design language) as the "View details" destination. CSS isolated to survive BD styles. Clones `featured-auctions.js`.
+
+---
+
+## 8. BD integration + embed snippets
+
+JS widget (preferred):
+```html
+<div data-advantage-events data-market="houston" data-limit="12"></div>
+<script async src="https://bid.advantage.bid/widgets/events.js"></script>
+```
+Iframe fallback:
+```html
+<iframe src="https://bid.advantage.bid/widgets/events.html?market=nyc_tristate"
+        style="width:100%;border:0;min-height:900px" loading="lazy" title="Local events"></iframe>
+```
+BD "Create Event" (deep-link; market prefilled; lands on Railway login/signup if needed):
+```html
+<a href="https://bid.advantage.bid/org/events/new?market=houston">Create Event</a>
+```
+**SEO tradeoff (decision):** JS/iframe rendering is not crawlable by default; Phase 1 accepts this (no server-rendered BD SEO). Revisit later with a prerendered snapshot if city-page SEO becomes a priority.
+
+---
+
+## 9. Identity & login (phased)
+
+- **Verified today:** Railway already owns identity natively (`/api/auth`, JWT). **No BD auth is built** (`bd-handoff` is contract-only).
+- **Phase 1:** native Railway auth; org users create events after login; BD merely deep-links in.
+- **Future (optional):** one-way **BD→Railway signed handoff** (signed, short-expiry, replay-protected token) + an `identity_links` mapping table (`platform_user_id, provider, provider_user_id, provider_email, linked_at`). BD becomes one provider; Railway still owns the user.
+- **Long term:** migrate BD accounts into Railway; Railway is the single identity source. **Never deep-sync two writable stores.**
+- **BD admin checklist** (verify before any BD bridge): API access + endpoints; webhooks + signing; SSO/custom-login; external-IdP support (likely none); member export (for future migration). None of this blocks Phase 1.
+
+---
+
+## 10. Phase-1 implementation plan (detailed)
+
+**Routers** (mounted in `src/routes/index.js`; public in `public.js`).
+
+**Org portal — `src/routes/orgEvents.js` → `/api/org`** (native `authMiddleware`; org-member-scoped)
+| Method | Path | Purpose |
+|---|---|---|
+| GET/POST | `/org/profile` | Get/create-update the caller's organization (onboarding creates org + owner member) |
+| GET | `/org/events` | List the org's events (all statuses) + plan usage |
+| POST | `/org/events` | Create `draft` (active-event limit checked) |
+| GET/PATCH | `/org/events/:id` | Get / edit (draft/rejected only) |
+| POST | `/org/events/:id/submit` | `draft → submitted` |
+| POST | `/org/events/:id/images` | Cloudinary upload (image limit enforced) |
+| DELETE | `/org/events/:id/images/:imageId` | Remove image |
+| POST | `/org/events/:id/archive` | Archive |
+
+**Admin moderation — `src/routes/adminEvents.js` → `/api/admin/events`** (`authMiddleware` + `roleMiddleware('admin')`)
+| Method | Path | Purpose |
+|---|---|---|
+| GET | `/admin/events?status=&market=` | Moderation queue |
+| GET | `/admin/events/:id` | Full review record + audit trail |
+| POST | `/admin/events/:id/publish` | **Approve & Publish** (`submitted → published`) |
+| POST | `/admin/events/:id/reject` | `→ rejected` (reason) |
+| POST | `/admin/events/:id/return-to-draft` | `→ draft` (reason) |
+| POST | `/admin/events/:id/archive` | `→ archived` |
+| POST | `/admin/events` · PATCH `/admin/events/:id` | Admin-created (`source='admin'`) / override |
+| POST | `/admin/organizations/:id/verify` | Toggle org `verification_status` |
+
+**Public — in `public.js` → `/api/public`:** the endpoints in §7 (+ CORS).
+
+**Server-side services:** `organizationsService` (onboarding, membership, plan lookup), `eventsService` (slug, state-machine guards, plan-limit enforcement: `max_event_images`, `max_active_events` where active = `status IN ('submitted','published')`, `is_featured` gated by `can_feature_events`). All transitions → `auditService.logEvent`.
+
+**Org portal pages (`public/org/…`, native auth):** `org/events.html` (list + statuses + plan usage + New Event), `org/event-new.html`, `org/event-edit.html?id=` (edit + image manager + Submit; shows rejection reason), `org/profile.html` (org profile + read-only plan/verification). Reuse `auth-refresh.js` + Cloudinary uploader; client guard → `/login.html?next=`.
+
+**Admin pages (`public/admin/…`, admin auth):** `admin/events.html` (queue; Approve & Publish / Reject / Return / Archive), `admin/event-detail.html?id=` (full review + images + org + map + audit trail). Reuse `admin-nav.js`.
+
+**Tests**
+- *Jest:* slug generation; plan-limit enforcement (images + active events) per tier; 5-state transition guards; public allowlist (no field leakage); organizer-badge derivation.
+- *Playwright e2e (staging, seeded identities; mirrors `governance-regression.spec.js`):* org onboarding → create draft → image-limit blocks 11th on free → submit → admin **Approve & Publish** → appears in `/api/public/events?market=houston` → widget renders; reject→edit→resubmit; active-event limit blocks 4th on free; public API returns only published + correct market; CORS header present; `audit_log` rows for submit/publish/reject.
+
+**Rollout** (your standard process)
+1. Branch `feat/organizations-events-phase1`.
+2. Build: migration 076 → services/routes → org portal → admin moderation → public API+CORS → widget + iframe + public event page → seeds (markets/categories/plans + 1–2 sample events + 1 sample org).
+3. **Staging:** apply 076 (guarded runner) → `railway up --service advantage-staging` → automated validation + e2e → product QA.
+4. **Production:** review diff/scope → **fresh Neon backup** → apply 076 (guarded runner) → merge→deploy → validate URLs/API/widget → report (backup id, commit, validation).
+5. **BD side (after prod):** paste the JS embed on Houston + NYC city pages; add the "Create Event" button.
+
+---
+
+## 11. Risks & guardrails
+
+- **Additive only** — new tables only; **no ALTER** of auction/bid/payment/seller tables in Phase 1; no Stripe/bidding/settlement/tax changes.
+- **Adapter-only on BD**; CORS scoped to advantage.bid.
+- **Server-side enforcement** of plan limits and state transitions (never UI-only).
+- **Moderation** — nothing public until admin publish; audit everything; org submissions untrusted.
+- **Third-party/imported events** — attribution + "Imported Listing" badge; default draft; **no scraping** in Phase 1; respect source ToS.
+- **Monetization/verification/recurrence/geo** — columns present, **behavior deferred**; no billing in Phase 1.
+- **Identity** — native only in Phase 1; never deep-sync two writable stores.
+- **Don't over-build** — org UI exposes owner-only for now; multi-member/roles ship when needed.
+
+---
+
+## 12. Phased roadmap
+
+- **Phase 1:** organizations (+ owner member + plans) · events product · 5-state moderation · server-enforced limits · public API+CORS · JS widget + iframe + public event page · Houston + NYC · native auth.
+- **Phase 2:** activate monetization (featured events, market spotlight, paid image/active-event upgrades, subscriptions) · richer widget (filters/map) · org multi-member/roles UI · JSON/RSS feeds · more markets.
+- **Phase 3:** organizer **verification** program · **recurring events** (materialize from `recurrence_rule`) · third-party **API imports** (draft + approval + attribution; no scraping) · **geo/polygon markets** + distance search.
+- **Phase 4:** link existing **sellers/auctions to organizations** (backfill `organization_id`) so auctions + events share one parent · directory listings · advertising.
+- **Phase 5 (identity):** optional BD→Railway handoff · BD account **migration/consolidation** onto Railway.
+
+---
+
+## 13. Open questions (raised by the Organization model)
+
+1. **Sellers ↔ organizations:** confirm Phase 1 leaves `seller_profiles`/auctions untouched and links them to `organizations` in a later backfill (recommended), vs. unifying now.
+2. **Org onboarding:** auto-create an organization (creator = `owner`) on first event submission, or a distinct "create organization" step first? (Recommend auto-create with an editable profile.)
+3. **One org per user in Phase 1**, or allow a user to belong to multiple orgs from the start? (Schema supports many; recommend UI-limit to one now.)
+4. **Verification in Phase 1:** admin manual toggle only (recommended) — confirm criteria/process are deferred.
+5. **Plan scope:** org-level plan governs all products (recommended) vs. per-product plans later.
+6. **Markets:** confirm center+radius definitions for Houston / NYC Tri-State now, or slug-only until the geo/polygon phase.
+7. **Canonical domain:** `bid.advantage.bid` for portal/API/widgets (per your answer) — confirm the org portal namespace `/org/…`.
+8. **Event → org visibility:** public event shows the organization (name/logo/verification) — confirm that's desired for community organizers too.
+
+---
+
+## 14. Reusable existing assets (why this is low-risk)
+
+- **Widgets/embed:** `public/widgets/featured-auctions.js/.html`, `bd-auctions-init.js`, `featured-lots.js`.
+- **Public API + conventions:** `src/routes/public.js` (allowlists, `PUBLIC_CACHE`, `/config/widgets/:slug`).
+- **Governance/moderation + audit:** auction lifecycle + `auditService.logEvent` (`e2e/governance-regression.spec.js`).
+- **Images:** `cloudinaryService`. **Auth/roles:** `authMiddleware`, `roleMiddleware`, `optionalAuthMiddleware`. **Migrations:** `db/migrations/` (`0XX_*.sql`, guarded prod runner).
