@@ -194,6 +194,9 @@ const adminUsersRoutes          = require('./src/routes/adminUsers');
 const agreementsRoutes          = require('./src/routes/agreements');
 const adminVerificationRoutes   = require('./src/routes/adminVerification');
 const verificationRoutes        = require('./src/routes/verification');
+const orgEventsRoutes           = require('./src/routes/orgEvents');
+const adminEventsRoutes         = require('./src/routes/adminEvents');
+const publicEventsRoutes        = require('./src/routes/publicEvents');
 
 // ── Database-backed routes (frontend API shape) ───────────────────────────────
 
@@ -224,6 +227,7 @@ app.use('/api/admin/agreements', adminAgreementsRoutes);
 app.use('/api/admin/verification', adminVerificationRoutes);
 app.use('/api/admin/buyers', adminBuyersRoutes);
 app.use('/api/admin/users', adminUsersRoutes);
+app.use('/api/admin/events', adminEventsRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/agreements', agreementsRoutes);
 app.use('/api/verification', verificationRoutes);
@@ -239,6 +243,8 @@ app.use('/api/seller/marketing-report', marketingReportsRoutes);
 app.use('/api/image-processing', imageProcessingRoutes);
 app.use('/api/uploads', uploadsRoutes);
 app.use('/api/public', publicRoutes);
+app.use('/api/public', publicEventsRoutes);   // event feed (+ restricted CORS); falls through public.js
+app.use('/api/org', orgEventsRoutes);
 app.use('/api/analytics', analyticsRoutes);
 
 // Root is served by express.static → public/index.html (the live marketplace).
