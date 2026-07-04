@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Local Events — Advantage.Bid</title>
+<meta name="description" content="Discover local estate sales, auctions, art & antiques, collectibles, markets, and community events near you on Advantage.Bid." />
+<link rel="canonical" href="https://bid.advantage.bid/events.html" />
+<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&display=swap" rel="stylesheet">
+<style>
+  :root{ --ink:#0B1B2B; --paper:#FBFAF7; --surface:#fff; --muted:#637488; --hair:#ECE8E0; --accent:#2F6BFF; --live:#B5273B; --ease:cubic-bezier(.22,.7,.2,1); }
+  *{box-sizing:border-box} body{margin:0;background:var(--paper);color:var(--ink);font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+  a{color:inherit;text-decoration:none}
+  .serif{font-family:"Fraunces","Georgia",serif}
+  header{position:sticky;top:0;z-index:20;background:rgba(251,250,247,.9);backdrop-filter:saturate(150%) blur(12px);border-bottom:1px solid var(--hair)}
+  .hin{max-width:1160px;margin:0 auto;display:flex;align-items:center;gap:14px;padding:12px 20px}
+  .brand{font-family:"Fraunces","Georgia",serif;font-weight:700;font-size:18px}.brand span{color:var(--accent)}
+  .sp{flex:1}.hlink{color:var(--muted);font-weight:600;font-size:14px}.hlink:hover{color:var(--ink)}
+  .wrap{max-width:1160px;margin:0 auto;padding:26px 20px 60px}
+  h1{font-family:"Fraunces","Georgia",serif;font-weight:600;font-size:clamp(28px,4vw,42px);margin:0 0 4px;letter-spacing:-.01em}
+  .sub{color:var(--muted);font-size:15px;margin:0 0 20px}
+  .filters{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:22px}
+  select{border:1.5px solid var(--hair);border-radius:11px;padding:10px 12px;font:inherit;font-size:14.5px;font-weight:600;background:#fff;color:var(--ink)}
+  select:focus{outline:none;border-color:var(--accent)}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(268px,1fr));gap:18px}
+  .ev{background:var(--surface);border:1px solid var(--hair);border-radius:18px;overflow:hidden;transition:transform .18s var(--ease),box-shadow .18s;display:flex;flex-direction:column}
+  .ev:hover{transform:translateY(-4px);box-shadow:0 18px 38px rgba(8,16,28,.14)}
+  .ev .ph{aspect-ratio:16/10;background:#eef0f3 center/cover no-repeat;position:relative}
+  .ev .ph.none{background:linear-gradient(135deg,#243b6b,#7a274a)}
+  .ev .cat{position:absolute;left:10px;top:10px;font-size:10.5px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:#fff;background:rgba(8,14,24,.5);backdrop-filter:blur(4px);border-radius:999px;padding:3px 9px}
+  .ev .b{padding:13px 15px 15px;display:flex;flex-direction:column;gap:6px;flex:1}
+  .ev .t{font-family:"Fraunces","Georgia",serif;font-weight:600;font-size:17px;line-height:1.18}
+  .ev .s{font-size:13px;color:var(--muted)}
+  .ev .org{margin-top:auto;padding-top:8px;border-top:1px solid var(--hair);display:flex;align-items:center;gap:8px;font-size:12.5px;color:#3a4a5c}
+  .badge{font-size:10.5px;font-weight:800;letter-spacing:.02em;border-radius:999px;padding:2px 8px}
+  .badge.community{background:#eef2f6;color:#475569}.badge.verified{background:rgba(22,163,74,.12);color:#15803d}.badge.imported{background:#fef3c7;color:#92610a}.badge.advantage{background:rgba(181,39,59,.1);color:var(--live)}
+  .feat{margin-left:auto;font-size:10.5px;font-weight:800;color:var(--live)}
+  .empty,.loading{grid-column:1/-1;text-align:center;color:var(--muted);padding:50px 16px}
+  .empty .big{font-family:"Fraunces","Georgia",serif;font-size:22px;color:var(--ink);margin-bottom:6px}
+  @media (prefers-reduced-motion: reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<header><div class="hin"><a class="brand" href="/">Advantage<span>.Bid</span></a><a class="hlink" href="/events.html">Events</a><div class="sp"></div><a class="hlink" href="/">🗺 Map</a></div></header>
+<div class="wrap">
+  <h1>Local Events</h1>
+  <p class="sub">Estate sales, auctions, markets, and community events — near you.</p>
+  <div class="filters"><select id="market"></select><select id="category"></select></div>
+  <div class="grid" id="grid"><div class="loading">Loading events…</div></div>
+</div>
+<script>
+(function () {
+  var grid = document.getElementById('grid');
+  var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); };
+  function fmt(t) { if (!t) return ''; try { return new Date(t).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }); } catch (e) { return ''; } }
+  function badgeClass(b) { b = (b || '').toLowerCase(); return b.indexOf('verified') >= 0 ? 'verified' : b.indexOf('imported') >= 0 ? 'imported' : b.indexOf('advantage') >= 0 ? 'advantage' : 'community'; }
+  function j(u) { return fetch(u).then(function (r) { return r.json(); }).then(function (d) { return (d && d.data) || []; }).catch(function () { return []; }); }
+  var qs = new URLSearchParams(location.search);
+
+  Promise.all([j('/api/public/event-markets'), j('/api/public/event-categories')]).then(function (r) {
+    var markets = r[0], cats = r[1];
+    var msel = document.getElementById('market'), csel = document.getElementById('category');
+    msel.innerHTML = '<option value="">All markets</option>' + markets.map(function (m) { return '<option value="' + esc(m.slug) + '">' + esc(m.name) + '</option>'; }).join('');
+    csel.innerHTML = '<option value="">All categories</option>' + cats.map(function (c) { return '<option value="' + esc(c.slug) + '">' + esc(c.name) + '</option>'; }).join('');
+    if (qs.get('market')) msel.value = qs.get('market');
+    if (qs.get('category')) csel.value = qs.get('category');
+    msel.addEventListener('change', load); csel.addEventListener('change', load);
+    load();
+  });
+
+  function load() {
+    grid.innerHTML = '<div class="loading">Loading events…</div>';
+    var m = document.getElementById('market').value, c = document.getElementById('category').value;
+    var q = ['limit=48']; if (m) q.push('market=' + encodeURIComponent(m)); if (c) q.push('category=' + encodeURIComponent(c));
+    j('/api/public/events?' + q.join('&')).then(function (rows) {
+      if (!rows.length) { grid.innerHTML = '<div class="empty"><div class="big">No events yet</div><p class="sub">Check back soon — new events are added regularly.</p></div>'; return; }
+      grid.innerHTML = rows.map(function (e) {
+        var ph = e.cover_image_url ? '<div class="ph" style="background-image:url(\'' + esc(e.cover_image_url) + '\')">' : '<div class="ph none">';
+        var org = e.organization ? e.organization.name : (e.organizer_badge === 'Advantage' ? 'Advantage' : '');
+        return '<a class="ev" href="/event.html?slug=' + encodeURIComponent(e.slug) + '">'
+          + ph + (e.category ? '<span class="cat">' + esc(e.category.replace(/_/g, ' ')) + '</span>' : '') + '</div>'
+          + '<div class="b"><div class="t">' + esc(e.title) + '</div>'
+          + '<div class="s">📅 ' + fmt(e.start_at) + (e.city ? ' · 📍 ' + esc(e.city) + (e.state ? ', ' + esc(e.state) : '') : '') + '</div>'
+          + '<div class="org"><span class="badge ' + badgeClass(e.organizer_badge) + '">' + esc(e.organizer_badge || 'Community Organizer') + '</span>'
+          + (org ? '<span>' + esc(org) + '</span>' : '') + (e.is_featured ? '<span class="feat">★ Featured</span>' : '') + '</div></div></a>';
+      }).join('');
+    });
+  }
+})();
+</script>
+</body>
+</html>

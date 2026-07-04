@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Event — Advantage.Bid</title>
+<meta name="description" content="Local event details on Advantage.Bid." />
+<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&display=swap" rel="stylesheet">
+<style>
+  :root{ --ink:#0B1B2B; --paper:#FBFAF7; --surface:#fff; --muted:#637488; --hair:#ECE8E0; --accent:#2F6BFF; --live:#B5273B; --ease:cubic-bezier(.22,.7,.2,1); }
+  *{box-sizing:border-box} body{margin:0;background:var(--paper);color:var(--ink);font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+  a{color:var(--accent);text-decoration:none} a:hover{text-decoration:underline}
+  .serif{font-family:"Fraunces","Georgia",serif}
+  header{position:sticky;top:0;z-index:20;background:rgba(251,250,247,.9);backdrop-filter:saturate(150%) blur(12px);border-bottom:1px solid var(--hair)}
+  .hin{max-width:920px;margin:0 auto;display:flex;align-items:center;gap:14px;padding:12px 20px}
+  .brand{font-family:"Fraunces","Georgia",serif;font-weight:700;font-size:18px;color:var(--ink)}.brand span{color:var(--accent)}
+  .sp{flex:1}.hlink{color:var(--muted);font-weight:600;font-size:14px}
+  .wrap{max-width:920px;margin:0 auto;padding:20px 20px 60px}
+  .back{color:var(--muted);font-weight:600;font-size:14px}
+  .hero{margin-top:12px;border-radius:20px;overflow:hidden;aspect-ratio:16/9;max-height:420px;background:#eef0f3 center/cover no-repeat;box-shadow:0 18px 44px rgba(8,16,28,.14)}
+  .hero.none{background:linear-gradient(135deg,#243b6b,#7a274a)}
+  h1{font-family:"Fraunces","Georgia",serif;font-weight:600;font-size:clamp(26px,4vw,40px);line-height:1.06;letter-spacing:-.01em;margin:18px 0 6px}
+  .orgrow{display:flex;align-items:center;gap:10px;flex-wrap:wrap;color:#3a4a5c;font-size:14px;margin-bottom:14px}
+  .badge{font-size:11px;font-weight:800;border-radius:999px;padding:3px 9px}
+  .badge.community{background:#eef2f6;color:#475569}.badge.verified{background:rgba(22,163,74,.12);color:#15803d}.badge.imported{background:#fef3c7;color:#92610a}.badge.advantage{background:rgba(181,39,59,.1);color:var(--live)}
+  .meta{display:flex;flex-direction:column;gap:8px;background:var(--surface);border:1px solid var(--hair);border-radius:16px;padding:16px 18px;margin:16px 0}
+  .meta .r{display:flex;gap:10px;font-size:14.5px}.meta .r b{color:var(--ink)}.meta .ic{width:20px;flex:0 0 auto;text-align:center}
+  .desc{font-size:16px;line-height:1.7;color:#2c3a4b;white-space:pre-wrap;margin:8px 0 20px}
+  .gallery{display:flex;gap:10px;flex-wrap:wrap;margin:10px 0 22px}
+  .gallery img{width:150px;height:110px;object-fit:cover;border-radius:12px;border:1px solid var(--hair)}
+  .cta{display:flex;gap:10px;flex-wrap:wrap;margin-top:6px}
+  .btn{border-radius:12px;padding:12px 22px;font-weight:800;font-size:15px;display:inline-block}
+  .btn.primary{background:var(--live);color:#fff;box-shadow:0 8px 20px rgba(181,39,59,.26)}
+  .btn.primary:hover{filter:brightness(1.06);text-decoration:none}
+  .btn.ghost{background:#fff;color:var(--ink);border:1px solid var(--hair)}.btn.ghost:hover{border-color:var(--accent);color:var(--accent);text-decoration:none}
+  .cat{display:inline-block;font-size:11px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);margin-bottom:4px}
+  .attrib{font-size:12.5px;color:var(--muted);margin-top:18px;border-top:1px solid var(--hair);padding-top:12px}
+  .loading,.err{padding:60px 16px;text-align:center;color:var(--muted)}
+  @media (prefers-reduced-motion: reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<header><div class="hin"><a class="brand" href="/">Advantage<span>.Bid</span></a><a class="hlink" href="/events.html">Events</a><div class="sp"></div><a class="hlink" href="/">🗺 Map</a></div></header>
+<div class="wrap">
+  <a class="back" href="/events.html">← All events</a>
+  <div id="content"><div class="loading">Loading…</div></div>
+</div>
+<script>
+(function () {
+  var content = document.getElementById('content');
+  var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); };
+  function fmtRange(a, b) {
+    if (!a) return '';
+    try {
+      var da = new Date(a), o = { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' };
+      var s = da.toLocaleString('en-US', o);
+      if (b) { var db = new Date(b); s += ' – ' + db.toLocaleString('en-US', { hour: 'numeric', minute: '2-digit' }); }
+      return s;
+    } catch (e) { return ''; }
+  }
+  function badgeClass(b) { b = (b || '').toLowerCase(); return b.indexOf('verified') >= 0 ? 'verified' : b.indexOf('imported') >= 0 ? 'imported' : b.indexOf('advantage') >= 0 ? 'advantage' : 'community'; }
+  var slug = new URLSearchParams(location.search).get('slug');
+  if (!slug) { content.innerHTML = '<div class="err">No event specified.</div>'; return; }
+
+  fetch('/api/public/events/' + encodeURIComponent(slug)).then(function (r) { return r.json(); }).then(function (res) {
+    if (!res || !res.data) { content.innerHTML = '<div class="err">This event isn’t available.</div>'; return; }
+    var e = res.data, org = e.organization;
+    document.title = e.title + ' — Advantage.Bid';
+    if (e.description) { var md = document.querySelector('meta[name=description]'); if (md) md.setAttribute('content', String(e.description).slice(0, 155)); }
+
+    var loc = [e.venue_name, e.address, [e.city, e.state].filter(Boolean).join(', '), e.zip].filter(Boolean).join(' · ');
+    var mapsQ = e.lat != null && e.lng != null ? (e.lat + ',' + e.lng) : [e.venue_name, e.address, e.city, e.state, e.zip].filter(Boolean).join(' ');
+    var gallery = (e.images || []).length > 1
+      ? '<div class="gallery">' + e.images.map(function (im) { return '<img src="' + esc(im.url) + '" alt="" loading="lazy">'; }).join('') + '</div>' : '';
+
+    content.innerHTML =
+      '<div class="hero' + (e.cover_image_url ? '' : ' none') + '"' + (e.cover_image_url ? ' style="background-image:url(\'' + esc(e.cover_image_url) + '\')"' : '') + '></div>'
+      + (e.category ? '<div class="cat" style="margin-top:16px">' + esc(e.category.replace(/_/g, ' ')) + '</div>' : '')
+      + '<h1>' + esc(e.title) + '</h1>'
+      + '<div class="orgrow"><span class="badge ' + badgeClass(e.organizer_badge) + '">' + esc(e.organizer_badge || 'Community Organizer') + '</span>'
+      + (org ? '<span>by <b>' + esc(org.name) + '</b></span>' + (org.website_url ? ' · <a href="' + esc(org.website_url) + '" target="_blank" rel="noopener">Website</a>' : '') : (e.organizer_badge === 'Advantage' ? '<span>Presented by Advantage</span>' : '')) + '</div>'
+      + '<div class="meta">'
+      + '<div class="r"><span class="ic">📅</span><span><b>' + fmtRange(e.start_at, e.end_at) + '</b></span></div>'
+      + (loc ? '<div class="r"><span class="ic">📍</span><span>' + esc(loc) + '</span></div>' : '')
+      + '</div>'
+      + (e.description ? '<div class="desc">' + esc(e.description) + '</div>' : '')
+      + gallery
+      + '<div class="cta">'
+      + (e.external_url ? '<a class="btn primary" href="' + esc(e.external_url) + '" target="_blank" rel="noopener">Visit event page ↗</a>' : '')
+      + (mapsQ ? '<a class="btn ghost" href="https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(mapsQ) + '" target="_blank" rel="noopener">Get directions</a>' : '')
+      + '</div>'
+      + (e.attribution_source ? '<div class="attrib">Listing sourced from ' + esc(e.attribution_source) + (e.attribution_url ? ' (<a href="' + esc(e.attribution_url) + '" target="_blank" rel="noopener">source</a>)' : '') + '. Not hosted or endorsed by Advantage.</div>' : '');
+  }).catch(function () { content.innerHTML = '<div class="err">Couldn’t load this event. Please try again.</div>'; });
+})();
+</script>
+</body>
+</html>
