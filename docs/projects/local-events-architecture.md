@@ -321,7 +321,7 @@ _(Deferred — not in Phase 1: `POST /admin/organizations/:id/verify` to mark an
 - **Phase 1:** organizations (+ owner member + plans) · events product · 5-state moderation · server-enforced limits · public API+CORS · JS widget + iframe + public event page · Houston + NYC · native auth.
 - **Phase 2:** activate monetization (featured events, market spotlight, paid image/active-event upgrades, subscriptions) · richer widget (filters/map) · org multi-member/roles UI · JSON/RSS feeds · more markets.
 - **Phase 3:** organizer **verification** program · **recurring events** (materialize from `recurrence_rule`) · third-party **API imports** (draft + approval + attribution; no scraping) · **geo/polygon markets** + distance search.
-- **Phase 4:** link existing **sellers/auctions to organizations** (backfill `organization_id`) so auctions + events share one parent · directory listings · advertising.
+- **Phase 4:** link existing **sellers/auctions to organizations** (backfill `organization_id`) so auctions + events share one parent · directory listings · advertising · **unify media uploads** behind organization‑level **capability‑based authorization** (e.g. `requireCapability('media_upload')`), collapsing the seller and organization upload endpoints into one. *(Phase 1 keeps two thin endpoints — the seller‑gated `POST /api/uploads/image` and the auth‑scoped `POST /api/org/upload-image`, both reusing `cloudinaryService`. The org endpoint is an **interim Phase‑1 adapter**; do not modify the seller upload path until unification. Today's `seller_profiles.capabilities` JSONB is schema‑only/unenforced and can seed the org‑level capability model.)*
 - **Phase 5 (identity):** optional BD→Railway handoff · BD account **migration/consolidation** onto Railway.
 
 ---
