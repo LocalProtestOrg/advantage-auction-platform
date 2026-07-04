@@ -9,12 +9,18 @@
  * have it yet). Run via scripts that set DATABASE_URL=<scratch> and EVENTS_SCRATCH=1.
  */
 
-// ── Hard safety guard (runs at file load, before any src/ is required) ──────────
-(function guard() {
-  const url = process.env.DATABASE_URL || '';
-  if (!process.env.EVENTS_SCRATCH) throw new Error('Refusing to run: EVENTS_SCRATCH not set (Tier-1 scratch only).');
-  if (/ep-proud-leaf/.test(url)) throw new Error('Refusing to run: DATABASE_URL looks like PRODUCTION.');
-})();
+// ── Scratch-only guard ──────────────────────────────────────────────────────────
+// This suite runs ONLY against an isolated Neon scratch branch with migration 076
+// applied (EVENTS_SCRATCH=1 + a non-prod DATABASE_URL, via the Tier-1 scratch harness).
+// Outside that environment it SKIPS cleanly instead of failing, so `npm test`/CI stay
+// green. A production-looking DATABASE_URL also forces a skip — prod is never a target.
+const SCRATCH_OK = !!process.env.EVENTS_SCRATCH && !/ep-proud-leaf/.test(process.env.DATABASE_URL || '');
+if (!SCRATCH_OK) {
+  // eslint-disable-next-line no-console
+  console.warn('[events-integration] SKIPPED — scratch env not configured '
+    + '(requires EVENTS_SCRATCH=1 and an isolated non-prod DATABASE_URL). Run via the Tier-1 scratch harness.');
+}
+const suite = SCRATCH_OK ? describe : describe.skip;
 
 const db = require('../../src/db');
 const orgs = require('../../src/services/organizationsService');
@@ -31,6 +37,7 @@ async function auditTypes(entityId) {
 const EV = (t, extra) => Object.assign({ title: t, marketSlug: 'houston', startAt: '2026-08-01T10:00' }, extra || {});
 
 beforeAll(async () => {
+  if (!SCRATCH_OK) return;
   // Definitive runtime guard: the events table exists ONLY on the migrated scratch branch.
   const reg = await db.query("SELECT to_regclass('public.events') AS t");
   expect(reg.rows[0].t).toBeTruthy();
@@ -39,9 +46,9 @@ beforeAll(async () => {
   expect(ids.length).toBeGreaterThanOrEqual(9);
   ADMIN = ids[0]; STRANGER = ids[1]; POOL = ids.slice(2);
 });
-afterAll(async () => { await db.pool.end(); });
+afterAll(async () => { if (!SCRATCH_OK) return; await db.pool.end(); });
 
-describe('1. Migration seeds', () => {
+suite('1. Migration seeds', () => {
   test('plans=3, markets=2, categories=8', async () => {
     expect((await db.query('SELECT count(*)::int c FROM organization_plans')).rows[0].c).toBe(3);
     expect((await db.query('SELECT count(*)::int c FROM event_markets')).rows[0].c).toBe(2);
@@ -49,7 +56,7 @@ describe('1. Migration seeds', () => {
   });
 });
 
-describe('2. Onboarding + one-org-per-user', () => {
+suite('2. Onboarding + one-org-per-user', () => {
   test('creates org + owner member + audit; idempotent; validates contact/name', async () => {
     const u = nextUser();
     const o = await orgs.onboardOrganization(u, { name: 'Acme Events', contactEmail: 'a@x.com' });
@@ -65,7 +72,7 @@ describe('2. Onboarding + one-org-per-user', () => {
   });
 });
 
-describe('3. Event create · slug · validation · audit', () => {
+suite('3. Event create · slug · validation · audit', () => {
   test('createDraft, unique slugs, required fields', async () => {
     const { u, o } = await freshOrg('Slugs Co');
     const e1 = await events.createDraft(u, o, EV('Summer Market'));
@@ -79,7 +86,7 @@ describe('3. Event create · slug · validation · audit', () => {
   });
 });
 
-describe('4. Attach flow + image limit (free = 10)', () => {
+suite('4. Attach flow + image limit (free = 10)', () => {
   test('first image is cover; 11th blocked; remove works; audited', async () => {
     const { u, o } = await freshOrg('Imgs Co');
     const e = await events.createDraft(u, o, EV('Photo Event'));
@@ -93,7 +100,7 @@ describe('4. Attach flow + image limit (free = 10)', () => {
   });
 });
 
-describe('5. Submit + active-event limit (free = 3); drafts uncounted', () => {
+suite('5. Submit + active-event limit (free = 3); drafts uncounted', () => {
   test('4th active submit blocked; extra drafts do not count', async () => {
     const { u, o } = await freshOrg('Limit Co');
     const a = await events.createDraft(u, o, EV('A')), b = await events.createDraft(u, o, EV('B')),
@@ -107,7 +114,7 @@ describe('5. Submit + active-event limit (free = 3); drafts uncounted', () => {
   });
 });
 
-describe('6. Admin moderation transitions + guards + reason + audit', () => {
+suite('6. Admin moderation transitions + guards + reason + audit', () => {
   test('publish/reject/return/archive, from-state guards, reasons', async () => {
     const { u, o } = await freshOrg('Mod Co');
     const e = await events.createDraft(u, o, EV('Mod Event'));
@@ -136,7 +143,7 @@ describe('6. Admin moderation transitions + guards + reason + audit', () => {
   });
 });
 
-describe('7. Ownership + editable-state guards', () => {
+suite('7. Ownership + editable-state guards', () => {
   test('non-owner blocked; cannot edit once published', async () => {
     const { u, o } = await freshOrg('Own Co');
     const e = await events.createDraft(u, o, EV('Own Event'));
@@ -146,7 +153,7 @@ describe('7. Ownership + editable-state guards', () => {
   });
 });
 
-describe('8. deriveOrganizerBadge', () => {
+suite('8. deriveOrganizerBadge', () => {
   test('badge derivation by source + verification', () => {
     expect(events.deriveOrganizerBadge({ source: 'imported' }, null)).toBe('Imported Listing');
     expect(events.deriveOrganizerBadge({ source: 'admin' }, null)).toBe('Advantage');
