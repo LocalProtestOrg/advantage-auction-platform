@@ -28,6 +28,7 @@
 
   var LINKS = [
     { href: '/admin/moderation.html', label: 'Moderation' },
+    { href: '/admin/events.html', label: 'Events' },
     { href: '/admin/users.html', label: 'Users' },
     { href: '/admin/buyers.html', label: 'Buyers' },
     { href: '/admin/verification.html', label: 'Verification' },

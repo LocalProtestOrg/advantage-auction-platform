@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="robots" content="noindex" />
+<title>Event Moderation — Advantage.Bid Admin</title>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/org/portal.css" />
+</head>
+<body>
+<script src="/widgets/shared/admin-nav.js"></script>
+<div class="wrap">
+  <h1 class="page">Event Moderation</h1>
+  <p class="sub">Review submitted events, then Approve &amp; Publish, Reject, Return to draft, or Archive.</p>
+  <div class="card" style="display:flex;gap:16px;flex-wrap:wrap;align-items:end;padding:14px 16px">
+    <div style="min-width:180px"><label style="margin-top:0">Status</label><select id="fStatus"></select></div>
+    <div style="min-width:180px"><label style="margin-top:0">Market</label><select id="fMarket"><option value="">All markets</option></select></div>
+  </div>
+  <div id="msg" class="msg"></div>
+  <div id="list"><div class="loading">Loading…</div></div>
+</div>
+<script src="/admin/events-admin.js"></script>
+<script>
+(function () {
+  if (!AE.requireAdmin()) return;
+  var $ = function (id) { return document.getElementById(id); };
+  var list = $('list'), msg = $('msg');
+  var STATUSES = [['submitted', 'Submitted (queue)'], ['published', 'Published'], ['draft', 'Draft'], ['rejected', 'Rejected'], ['archived', 'Archived'], ['', 'All statuses']];
+  $('fStatus').innerHTML = STATUSES.map(function (s) { return '<option value="' + s[0] + '">' + s[1] + '</option>'; }).join('');
+  $('fStatus').value = 'submitted';
+  fetch('/api/public/event-markets').then(function (r) { return r.json(); }).then(function (d) {
+    $('fMarket').innerHTML = '<option value="">All markets</option>' + (d.data || []).map(function (m) { return '<option value="' + AE.esc(m.slug) + '">' + AE.esc(m.name) + '</option>'; }).join('');
+  });
+
+  function load() {
+    list.innerHTML = '<div class="loading">Loading…</div>'; msg.className = 'msg';
+    var q = [];
+    if ($('fStatus').value) q.push('status=' + encodeURIComponent($('fStatus').value));
+    if ($('fMarket').value) q.push('market=' + encodeURIComponent($('fMarket').value));
+    AE.api('GET', '/api/admin/events' + (q.length ? '?' + q.join('&') : '')).then(function (d) {
+      var rows = d.events || [];
+      if (!rows.length) { list.innerHTML = '<div class="card empty">No events match this filter.</div>'; return; }
+      list.innerHTML = '<div class="elist">' + rows.map(function (e) {
+        var org = e.organization ? e.organization.name : (e.source === 'admin' ? 'Advantage' : '—');
+        var quick = e.status === 'submitted' ? '<button class="btn primary ap" data-id="' + e.id + '">Approve &amp; Publish</button>' : '';
+        return '<div class="erow"><div class="meta"><div class="t">' + AE.esc(e.title) + '</div>'
+          + '<div class="s">' + AE.statusChip(e.status) + ' &nbsp; ' + AE.esc(org) + ' · ' + AE.esc(e.market || '') + ' · ' + AE.fmtDate(e.start_at) + '</div></div>'
+          + '<div class="go" style="display:flex;gap:8px">' + quick + '<a class="btn ghost" href="/admin/event-detail.html?id=' + encodeURIComponent(e.id) + '">Review →</a></div></div>';
+      }).join('') + '</div>';
+      Array.prototype.forEach.call(list.querySelectorAll('.ap'), function (b) {
+        b.addEventListener('click', function () {
+          b.disabled = true;
+          AE.api('POST', '/api/admin/events/' + b.dataset.id + '/publish').then(load)
+            .catch(function (e) { b.disabled = false; msg.className = 'msg err'; msg.textContent = e.message; });
+        });
+      });
+    }).catch(function (e) { list.innerHTML = '<div class="msg err" style="display:block">' + AE.esc(e.message) + '</div>'; });
+  }
+  $('fStatus').addEventListener('change', load);
+  $('fMarket').addEventListener('change', load);
+  load();
+})();
+</script>
+</body>
+</html>

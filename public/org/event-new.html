@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="robots" content="noindex" />
+<title>Create Event — Advantage.Bid</title>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/org/portal.css" />
+</head>
+<body>
+<div id="hdr"></div>
+<div class="wrap">
+  <h1 class="page">Create Event</h1>
+  <p class="sub">Save a draft, add photos, then submit for review. Advantage publishes approved events.</p>
+  <div id="msg" class="msg"></div>
+
+  <form id="form">
+    <!-- Organization onboarding — shown only when the user has no organization yet -->
+    <div class="card" id="orgCard" style="display:none">
+      <h2>Your organization</h2>
+      <p class="hint" style="margin-top:-6px">We’ll create your organization from these details (one‑time).</p>
+      <label>Organization name <span class="req">*</span></label>
+      <input id="orgName" maxlength="120" autocomplete="organization" />
+      <div class="row">
+        <div><label>Contact email</label><input id="orgEmail" type="email" autocomplete="email" /></div>
+        <div><label>Contact phone</label><input id="orgPhone" autocomplete="tel" /></div>
+      </div>
+      <p class="hint">Provide at least an email or a phone.</p>
+    </div>
+
+    <div class="card">
+      <h2>Event details</h2>
+      <label>Title <span class="req">*</span></label>
+      <input id="title" maxlength="160" required />
+      <div class="row">
+        <div><label>Market <span class="req">*</span></label><select id="market" required></select></div>
+        <div><label>Category</label><select id="category"></select></div>
+      </div>
+      <label>Description</label>
+      <textarea id="description" maxlength="4000"></textarea>
+    </div>
+
+    <div class="card">
+      <h2>When &amp; where</h2>
+      <div class="row">
+        <div><label>Starts <span class="req">*</span></label><input id="startAt" type="datetime-local" required /></div>
+        <div><label>Ends</label><input id="endAt" type="datetime-local" /></div>
+      </div>
+      <label>Time zone</label>
+      <select id="timezone">
+        <option value="America/New_York">Eastern (New York)</option>
+        <option value="America/Chicago">Central (Chicago / Houston)</option>
+        <option value="America/Denver">Mountain (Denver)</option>
+        <option value="America/Los_Angeles">Pacific (Los Angeles)</option>
+      </select>
+      <label>Venue name</label>
+      <input id="venueName" maxlength="160" />
+      <label>Address</label>
+      <input id="address" maxlength="200" />
+      <div class="row">
+        <div><label>City</label><input id="city" maxlength="80" /></div>
+        <div><label>State</label><input id="state" maxlength="40" /></div>
+      </div>
+      <div class="row">
+        <div><label>ZIP</label><input id="zip" maxlength="12" /></div>
+        <div><label>External link</label><input id="externalUrl" type="url" placeholder="https://…" /></div>
+      </div>
+      <p class="hint">You’ll add photos on the next step, after the draft is created.</p>
+    </div>
+
+    <div class="btnrow">
+      <button type="submit" class="btn primary" id="save">Create draft →</button>
+      <a class="btn ghost" href="/org/events.html">Cancel</a>
+    </div>
+  </form>
+</div>
+<script src="/widgets/shared/auth-refresh.js"></script>
+<script src="/org/portal.js"></script>
+<script>
+(function () {
+  if (!ORG.guard()) return;
+  document.getElementById('hdr').innerHTML = ORG.header('new');
+  var $ = function (id) { return document.getElementById(id); };
+  var msg = $('msg'), hasOrg = false;
+
+  function fill(sel, rows, placeholder) {
+    sel.innerHTML = (placeholder ? '<option value="">' + placeholder + '</option>' : '')
+      + rows.map(function (r) { return '<option value="' + ORG.esc(r.slug) + '">' + ORG.esc(r.name) + '</option>'; }).join('');
+  }
+  // Prefill market from ?market= (BD deep link)
+  var qMarket = new URLSearchParams(location.search).get('market');
+
+  Promise.all([
+    ORG.api('GET', '/api/org/profile'),
+    fetch('/api/public/event-markets').then(function (r) { return r.json(); }),
+    fetch('/api/public/event-categories').then(function (r) { return r.json(); }),
+  ]).then(function (res) {
+    hasOrg = !!(res[0] && res[0].organization);
+    if (!hasOrg) $('orgCard').style.display = '';
+    fill($('market'), (res[1].data || []), 'Select a market…');
+    fill($('category'), (res[2].data || []), 'Select a category…');
+    if (qMarket) $('market').value = qMarket;
+  }).catch(function (e) { showErr(e.message); });
+
+  function showErr(t) { msg.className = 'msg err'; msg.textContent = t; window.scrollTo(0, 0); }
+
+  $('form').addEventListener('submit', function (ev) {
+    ev.preventDefault();
+    msg.className = 'msg';
+    var body = {
+      title: $('title').value.trim(),
+      marketSlug: $('market').value,
+      categorySlug: $('category').value || null,
+      description: $('description').value.trim() || null,
+      venueName: $('venueName').value.trim() || null,
+      address: $('address').value.trim() || null,
+      city: $('city').value.trim() || null,
+      state: $('state').value.trim() || null,
+      zip: $('zip').value.trim() || null,
+      startAt: $('startAt').value || null,
+      endAt: $('endAt').value || null,
+      timezone: $('timezone').value,
+      externalUrl: $('externalUrl').value.trim() || null,
+    };
+    if (!hasOrg) {
+      body.organization = { name: $('orgName').value.trim(), contactEmail: $('orgEmail').value.trim(), contactPhone: $('orgPhone').value.trim() };
+    }
+    $('save').disabled = true;
+    ORG.api('POST', '/api/org/events', body).then(function (d) {
+      location.href = '/org/event-edit.html?id=' + encodeURIComponent(d.event.id) + '&created=1';
+    }).catch(function (e) { $('save').disabled = false; showErr(e.message); });
+  });
+})();
+</script>
+</body>
+</html>

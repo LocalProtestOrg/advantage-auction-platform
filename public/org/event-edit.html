@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="robots" content="noindex" />
+<title>Edit Event — Advantage.Bid</title>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/org/portal.css" />
+</head>
+<body>
+<div id="hdr"></div>
+<div class="wrap">
+  <div style="display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap">
+    <h1 class="page" id="pageTitle">Event</h1>
+    <span id="statusChip"></span>
+  </div>
+  <p class="sub"><a href="/org/events.html">← All events</a></p>
+  <div id="msg" class="msg"></div>
+  <div id="rejectBanner"></div>
+  <div id="body"><div class="loading">Loading…</div></div>
+</div>
+<script src="/widgets/shared/auth-refresh.js"></script>
+<script src="/org/portal.js"></script>
+<script>
+(function () {
+  if (!ORG.guard()) return;
+  document.getElementById('hdr').innerHTML = ORG.header('events');
+  var $ = function (id) { return document.getElementById(id); };
+  var id = new URLSearchParams(location.search).get('id');
+  var msg = $('msg'), body = $('body');
+  if (!id) { body.innerHTML = '<div class="msg err" style="display:block">No event id.</div>'; return; }
+
+  var current = null, images = [], markets = [], cats = [];
+  function toLocalInput(iso) { if (!iso) return ''; var d = new Date(iso); if (isNaN(d)) return ''; var p = function (n) { return String(n).padStart(2, '0'); }; return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()) + 'T' + p(d.getHours()) + ':' + p(d.getMinutes()); }
+  function showErr(t) { msg.className = 'msg err'; msg.textContent = t; window.scrollTo(0, 0); }
+  function showOk(t) { msg.className = 'msg ok'; msg.textContent = t; }
+  function opts(rows, val) { return rows.map(function (r) { return '<option value="' + ORG.esc(r.slug) + '"' + (r.slug === val ? ' selected' : '') + '>' + ORG.esc(r.name) + '</option>'; }).join(''); }
+
+  Promise.all([
+    ORG.api('GET', '/api/org/events/' + encodeURIComponent(id)),
+    fetch('/api/public/event-markets').then(function (r) { return r.json(); }),
+    fetch('/api/public/event-categories').then(function (r) { return r.json(); }),
+  ]).then(function (res) {
+    current = res[0].event; images = res[0].images || []; markets = res[1].data || []; cats = res[2].data || [];
+    render();
+    if (new URLSearchParams(location.search).get('created')) showOk('Draft created. Add photos, then submit for review.');
+  }).catch(function (e) { body.innerHTML = '<div class="msg err" style="display:block">' + ORG.esc(e.message) + '</div>'; });
+
+  function render() {
+    var e = current, editable = (e.status === 'draft' || e.status === 'rejected');
+    $('pageTitle').textContent = editable ? 'Edit Event' : 'Event';
+    $('statusChip').innerHTML = ORG.statusChip(e.status);
+    $('rejectBanner').innerHTML = (e.status === 'rejected' && e.review_reason)
+      ? '<div class="banner reject"><b>Changes requested:</b> ' + ORG.esc(e.review_reason) + '</div>'
+      : (e.status === 'submitted' ? '<div class="banner info">This event is in review. You’ll be notified once it’s published.</div>'
+        : (e.status === 'published' ? '<div class="banner info">This event is live on Advantage.bid.</div>' : ''));
+
+    var dis = editable ? '' : ' disabled';
+    body.innerHTML =
+      '<div class="card"><h2>Event details</h2>'
+      + '<label>Title <span class="req">*</span></label><input id="title" maxlength="160" value="' + ORG.esc(e.title) + '"' + dis + ' />'
+      + '<div class="row"><div><label>Market <span class="req">*</span></label><select id="market"' + dis + '>' + opts(markets, e.market) + '</select></div>'
+      + '<div><label>Category</label><select id="category"' + dis + '><option value="">—</option>' + opts(cats, e.category) + '</select></div></div>'
+      + '<label>Description</label><textarea id="description" maxlength="4000"' + dis + '>' + ORG.esc(e.description || '') + '</textarea></div>'
+
+      + '<div class="card"><h2>When &amp; where</h2>'
+      + '<div class="row"><div><label>Starts <span class="req">*</span></label><input id="startAt" type="datetime-local" value="' + toLocalInput(e.start_at) + '"' + dis + ' /></div>'
+      + '<div><label>Ends</label><input id="endAt" type="datetime-local" value="' + toLocalInput(e.end_at) + '"' + dis + ' /></div></div>'
+      + '<label>Time zone</label><select id="timezone"' + dis + '>'
+      + ['America/New_York:Eastern (New York)', 'America/Chicago:Central (Chicago / Houston)', 'America/Denver:Mountain (Denver)', 'America/Los_Angeles:Pacific (Los Angeles)']
+        .map(function (o) { var k = o.split(':')[0]; return '<option value="' + k + '"' + (k === e.timezone ? ' selected' : '') + '>' + o.split(':')[1] + '</option>'; }).join('') + '</select>'
+      + '<label>Venue name</label><input id="venueName" maxlength="160" value="' + ORG.esc(e.venue_name || '') + '"' + dis + ' />'
+      + '<label>Address</label><input id="address" maxlength="200" value="' + ORG.esc(e.address || '') + '"' + dis + ' />'
+      + '<div class="row"><div><label>City</label><input id="city" value="' + ORG.esc(e.city || '') + '"' + dis + ' /></div>'
+      + '<div><label>State</label><input id="state" value="' + ORG.esc(e.state || '') + '"' + dis + ' /></div></div>'
+      + '<div class="row"><div><label>ZIP</label><input id="zip" value="' + ORG.esc(e.zip || '') + '"' + dis + ' /></div>'
+      + '<div><label>External link</label><input id="externalUrl" type="url" value="' + ORG.esc(e.external_url || '') + '"' + dis + ' /></div></div></div>'
+
+      + '<div class="card"><h2>Photos</h2><div class="imgs" id="imgs"></div>'
+      + (editable ? '<div class="dropz" id="dropz">＋ Click to upload a photo</div><input id="file" type="file" accept="image/*" hidden />' : '')
+      + '</div>'
+
+      + (editable
+        ? '<div class="btnrow"><button class="btn ghost" id="saveBtn">Save changes</button>'
+          + '<button class="btn primary" id="submitBtn">Submit for review →</button>'
+          + '<button class="btn ghost" id="archiveBtn" style="margin-left:auto">Archive</button></div>'
+        : '');
+
+    renderImages();
+    if (editable) wireEditable();
+  }
+
+  function renderImages() {
+    var el = $('imgs'); if (!el) return;
+    if (!images.length) { el.innerHTML = '<span class="hint">No photos yet.</span>'; return; }
+    var editable = (current.status === 'draft' || current.status === 'rejected');
+    el.innerHTML = images.map(function (im) {
+      return '<div class="im" style="background-image:url(\'' + ORG.esc(im.url) + '\')">'
+        + (im.is_cover ? '<span class="cover">Cover</span>' : '')
+        + (editable ? '<button class="rm" data-img="' + ORG.esc(im.id) + '" title="Remove">✕</button>' : '') + '</div>';
+    }).join('');
+    Array.prototype.forEach.call(el.querySelectorAll('.rm'), function (b) {
+      b.addEventListener('click', function () {
+        b.disabled = true;
+        ORG.api('DELETE', '/api/org/events/' + id + '/images/' + b.dataset.img).then(function () {
+          images = images.filter(function (x) { return x.id !== b.dataset.img; }); renderImages();
+        }).catch(function (e) { b.disabled = false; showErr(e.message); });
+      });
+    });
+  }
+
+  function collect() {
+    return {
+      title: $('title').value.trim(), marketSlug: $('market').value, categorySlug: $('category').value || null,
+      description: $('description').value.trim() || null, venueName: $('venueName').value.trim() || null,
+      address: $('address').value.trim() || null, city: $('city').value.trim() || null, state: $('state').value.trim() || null,
+      zip: $('zip').value.trim() || null, startAt: $('startAt').value || null, endAt: $('endAt').value || null,
+      timezone: $('timezone').value, externalUrl: $('externalUrl').value.trim() || null,
+    };
+  }
+
+  function wireEditable() {
+    $('dropz').addEventListener('click', function () { $('file').click(); });
+    $('file').addEventListener('change', function () {
+      var f = this.files && this.files[0]; if (!f) return;
+      $('dropz').textContent = 'Uploading…';
+      ORG.uploadImage(f).then(function (url) {
+        return ORG.api('POST', '/api/org/events/' + id + '/images', { url: url });
+      }).then(function (d) {
+        images.push(d.image); renderImages(); $('dropz').textContent = '＋ Click to upload a photo'; $('file').value = '';
+      }).catch(function (e) { $('dropz').textContent = '＋ Click to upload a photo'; showErr(e.message); });
+    });
+    $('saveBtn').addEventListener('click', function () {
+      msg.className = 'msg'; $('saveBtn').disabled = true;
+      ORG.api('PATCH', '/api/org/events/' + id, collect()).then(function (d) {
+        current = d.event; $('saveBtn').disabled = false; showOk('Saved.');
+      }).catch(function (e) { $('saveBtn').disabled = false; showErr(e.message); });
+    });
+    $('submitBtn').addEventListener('click', function () {
+      msg.className = 'msg'; $('submitBtn').disabled = true;
+      // Save any edits first, then submit
+      ORG.api('PATCH', '/api/org/events/' + id, collect())
+        .then(function () { return ORG.api('POST', '/api/org/events/' + id + '/submit'); })
+        .then(function () { location.href = '/org/events.html'; })
+        .catch(function (e) { $('submitBtn').disabled = false; showErr(e.message); });
+    });
+    $('archiveBtn').addEventListener('click', function () {
+      if (!confirm('Archive this event? It will no longer be editable.')) return;
+      ORG.api('POST', '/api/org/events/' + id + '/archive').then(function () { location.href = '/org/events.html'; }).catch(function (e) { showErr(e.message); });
+    });
+  }
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="robots" content="noindex" />
+<title>My Events — Advantage.Bid</title>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/org/portal.css" />
+</head>
+<body>
+<div id="hdr"></div>
+<div class="wrap">
+  <h1 class="page">My Events</h1>
+  <p class="sub">Create and manage local events. Published events appear on Advantage.bid city pages.</p>
+  <div id="usage" class="card" style="display:none"></div>
+  <div id="content"><div class="loading">Loading…</div></div>
+</div>
+<script src="/widgets/shared/auth-refresh.js"></script>
+<script src="/org/portal.js"></script>
+<script>
+(function () {
+  if (!ORG.guard()) return;
+  document.getElementById('hdr').innerHTML = ORG.header('events');
+  var content = document.getElementById('content'), usage = document.getElementById('usage');
+  ORG.api('GET', '/api/org/events').then(function (d) {
+    if (d.plan) {
+      usage.style.display = '';
+      usage.innerHTML = '<div class="usage"><span class="pill">' + ORG.esc(d.plan.tier) + ' plan</span>'
+        + '<span>Active events: <b>' + (d.usage ? d.usage.active_events : 0) + '</b> / ' + d.plan.max_active_events + '</span>'
+        + '<span>Images per event: <b>' + d.plan.max_event_images + '</b></span></div>';
+    }
+    var rows = d.events || [];
+    if (!rows.length) {
+      content.innerHTML = '<div class="card empty"><div class="big">' + (d.organization ? 'No events yet' : 'Welcome!') + '</div>'
+        + '<p class="sub" style="margin:0 0 16px">' + (d.organization ? 'Create your first event to get started.' : 'Create your first event and we’ll set up your organization automatically.') + '</p>'
+        + '<a class="btn primary" href="/org/event-new.html">＋ Create Event</a></div>';
+      return;
+    }
+    content.innerHTML = '<div class="btnrow" style="margin:0 0 16px"><a class="btn primary" href="/org/event-new.html">＋ Create Event</a></div>'
+      + '<div class="elist">' + rows.map(function (e) {
+        var canEdit = (e.status === 'draft' || e.status === 'rejected');
+        return '<div class="erow"><div class="meta"><div class="t">' + ORG.esc(e.title) + '</div>'
+          + '<div class="s">' + ORG.statusChip(e.status) + ' &nbsp; ' + ORG.esc(e.market || '') + ' · ' + ORG.fmtDate(e.start_at)
+          + (e.status === 'rejected' && e.review_reason ? (' · <span style="color:#b91c1c">' + ORG.esc(e.review_reason) + '</span>') : '') + '</div></div>'
+          + '<div class="go"><a class="btn ghost" href="/org/event-edit.html?id=' + encodeURIComponent(e.id) + '">' + (canEdit ? 'Edit' : 'View') + '</a></div></div>';
+      }).join('') + '</div>';
+  }).catch(function (err) {
+    content.innerHTML = '<div class="msg err" style="display:block">' + ORG.esc(err.message) + '</div>';
+  });
+})();
+</script>
+</body>
+</html>

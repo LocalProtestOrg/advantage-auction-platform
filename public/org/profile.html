@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="robots" content="noindex" />
+<title>Organization — Advantage.Bid</title>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/org/portal.css" />
+</head>
+<body>
+<div id="hdr"></div>
+<div class="wrap">
+  <h1 class="page">Organization</h1>
+  <p class="sub">Your public organizer profile. Shown with your published events.</p>
+  <div id="msg" class="msg"></div>
+  <div id="body"><div class="loading">Loading…</div></div>
+</div>
+<script src="/widgets/shared/auth-refresh.js"></script>
+<script src="/org/portal.js"></script>
+<script>
+(function () {
+  if (!ORG.guard()) return;
+  document.getElementById('hdr').innerHTML = ORG.header('profile');
+  var $ = function (id) { return document.getElementById(id); };
+  var msg = $('msg'), body = $('body');
+  function showErr(t) { msg.className = 'msg err'; msg.textContent = t; window.scrollTo(0, 0); }
+  function showOk(t) { msg.className = 'msg ok'; msg.textContent = t; }
+
+  ORG.api('GET', '/api/org/profile').then(function (d) {
+    var o = d.organization;
+    if (!o) {
+      body.innerHTML = '<div class="card empty"><div class="big">No organization yet</div>'
+        + '<p class="sub" style="margin:0 0 16px">Your organization is created automatically when you create your first event.</p>'
+        + '<a class="btn primary" href="/org/event-new.html">＋ Create your first event</a></div>';
+      return;
+    }
+    var badge = o.verification_status === 'verified' ? 'Verified Organizer' : 'Community Organizer';
+    body.innerHTML =
+      '<div class="card"><div class="usage" style="margin-bottom:14px"><span class="pill">' + ORG.esc(o.plan_tier) + ' plan</span>'
+      + '<span class="pill">' + ORG.esc(badge) + '</span></div>'
+      + '<label>Organization name <span class="req">*</span></label><input id="name" maxlength="120" value="' + ORG.esc(o.name) + '" />'
+      + '<div class="row"><div><label>Contact email</label><input id="contactEmail" type="email" value="' + ORG.esc(o.contact_email || '') + '" /></div>'
+      + '<div><label>Contact phone</label><input id="contactPhone" value="' + ORG.esc(o.contact_phone || '') + '" /></div></div>'
+      + '<label>Website</label><input id="websiteUrl" type="url" value="' + ORG.esc(o.website_url || '') + '" placeholder="https://…" />'
+      + '<label>Logo URL</label><input id="logoUrl" type="url" value="' + ORG.esc(o.logo_url || '') + '" placeholder="https://…" />'
+      + '<div class="row"><div><label>City</label><input id="city" value="' + ORG.esc(o.city || '') + '" /></div>'
+      + '<div><label>State</label><input id="state" value="' + ORG.esc(o.state || '') + '" /></div></div>'
+      + '<div class="btnrow"><button class="btn primary" id="save">Save</button></div></div>';
+
+    $('save').addEventListener('click', function () {
+      msg.className = 'msg'; $('save').disabled = true;
+      var b = {
+        name: $('name').value.trim(), contactEmail: $('contactEmail').value.trim(), contactPhone: $('contactPhone').value.trim(),
+        websiteUrl: $('websiteUrl').value.trim(), logoUrl: $('logoUrl').value.trim(), city: $('city').value.trim(), state: $('state').value.trim(),
+      };
+      ORG.api('POST', '/api/org/profile', b).then(function () { $('save').disabled = false; showOk('Saved.'); })
+        .catch(function (e) { $('save').disabled = false; showErr(e.message); });
+    });
+  }).catch(function (e) { body.innerHTML = '<div class="msg err" style="display:block">' + ORG.esc(e.message) + '</div>'; });
+})();
+</script>
+</body>
+</html>
