@@ -14,8 +14,21 @@ const authMiddleware = require('../middleware/authMiddleware');
 const orgsService = require('../services/organizationsService');
 const eventsService = require('../services/eventsService');
 const { asyncRoute, svcErr } = require('../utils/apiError');
+const multer = require('multer');
+const cloudinaryService = require('../services/cloudinaryService');
 
 router.use(authMiddleware); // all org routes require a logged-in user (req.user.id)
+
+// Reuse the shared Cloudinary pipeline, scoped to any logged-in org user
+// (/api/uploads/image is seller/admin-gated; organizers upload here instead).
+const uploadImg = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 10 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    if (/^image\//.test(file.mimetype)) return cb(null, true);
+    cb(Object.assign(new Error('Only image files are allowed.'), { status: 400 }));
+  },
+});
 
 const hasOwn = (o, k) => Object.prototype.hasOwnProperty.call(o, k);
 
@@ -137,5 +150,22 @@ router.delete('/events/:id/images/:imageId', asyncRoute(async (req, res) => {
   await eventsService.removeImage(req.user.id, req.params.id, req.params.imageId);
   res.json({ success: true });
 }));
+
+// POST /api/org/upload-image — upload one image to Cloudinary, return secure_url.
+// The portal posts that URL to /events/:id/images (attach). Reuses cloudinaryService.
+router.post('/upload-image',
+  (req, res, next) => {
+    uploadImg.single('image')(req, res, (err) => {
+      if (!err) return next();
+      if (err.code === 'LIMIT_FILE_SIZE') return res.status(400).json({ success: false, message: 'File too large. Maximum 10 MB.' });
+      if (err.status === 400) return res.status(400).json({ success: false, message: err.message });
+      next(err);
+    });
+  },
+  asyncRoute(async (req, res) => {
+    if (!req.file) throw svcErr(400, 'NO_FILE', 'No image file provided.');
+    const result = await cloudinaryService.uploadBuffer(req.file.buffer, { folder: 'event-images' });
+    res.status(201).json({ success: true, secure_url: result.secure_url });
+  }));
 
 module.exports = router;
