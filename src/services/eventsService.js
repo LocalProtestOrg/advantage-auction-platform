@@ -231,11 +231,11 @@ async function applyAdminTransition(adminId, eventId, opts) {
 function adminPublish(adminId, eventId) {
   return applyAdminTransition(adminId, eventId, { action: 'publish', from: ['submitted'], to: 'published', type: 'event.published', setPublished: true });
 }
-function adminReject(adminId, eventId, reason) {
+async function adminReject(adminId, eventId, reason) {
   if (!reason || !String(reason).trim()) throw svcErr(400, 'REASON_REQUIRED', 'A rejection reason is required.');
   return applyAdminTransition(adminId, eventId, { action: 'reject', from: ['submitted'], to: 'rejected', type: 'event.rejected', review: true, reason });
 }
-function adminReturnToDraft(adminId, eventId, reason) {
+async function adminReturnToDraft(adminId, eventId, reason) {
   if (!reason || !String(reason).trim()) throw svcErr(400, 'REASON_REQUIRED', 'A reason is required.');
   return applyAdminTransition(adminId, eventId, { action: 'return to draft', from: ['submitted'], to: 'draft', type: 'event.returned_to_draft', review: true, reason });
 }
