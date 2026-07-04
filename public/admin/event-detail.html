@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="robots" content="noindex" />
+<title>Review Event — Advantage.Bid Admin</title>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/org/portal.css" />
+</head>
+<body>
+<script src="/widgets/shared/admin-nav.js"></script>
+<div class="wrap">
+  <p class="sub" style="margin-bottom:8px"><a href="/admin/events.html">← Moderation queue</a></p>
+  <div style="display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap">
+    <h1 class="page" id="ttl">Event</h1><span id="chip"></span>
+  </div>
+  <div id="msg" class="msg"></div>
+  <div id="body"><div class="loading">Loading…</div></div>
+</div>
+<script src="/admin/events-admin.js"></script>
+<script>
+(function () {
+  if (!AE.requireAdmin()) return;
+  var $ = function (id) { return document.getElementById(id); };
+  var id = new URLSearchParams(location.search).get('id'), msg = $('msg'), body = $('body');
+  if (!id) { body.innerHTML = '<div class="msg err" style="display:block">No event id.</div>'; return; }
+  function err(t) { msg.className = 'msg err'; msg.textContent = t; window.scrollTo(0, 0); }
+  function field(l, v) { return v ? ('<div style="margin:8px 0"><div style="color:#637488;font-size:12px;font-weight:700">' + l + '</div>' + AE.esc(v) + '</div>') : ''; }
+
+  function load() {
+    AE.api('GET', '/api/admin/events/' + encodeURIComponent(id)).then(render)
+      .catch(function (e) { body.innerHTML = '<div class="msg err" style="display:block">' + AE.esc(e.message) + '</div>'; });
+  }
+
+  function render(d) {
+    var e = d.event, org = e.organization;
+    $('ttl').textContent = e.title; $('chip').innerHTML = AE.statusChip(e.status);
+    var imgs = (d.images || []).map(function (i) {
+      return '<div style="width:120px;height:88px;border-radius:8px;border:1px solid #ECE8E0;background:#eef0f3 center/cover no-repeat;background-image:url(\'' + AE.esc(i.url) + '\')"></div>';
+    }).join('');
+    var audit = (d.audit || []).map(function (a) {
+      var reason = a.metadata && a.metadata.reason ? (' — ' + AE.esc(a.metadata.reason)) : '';
+      return '<div style="font-size:13px;color:#334155;padding:5px 0;border-bottom:1px solid #f1f5f9">' + AE.esc(a.event_type) + ' · ' + AE.fmtDate(a.created_at) + reason + '</div>';
+    }).join('');
+
+    var actions = '';
+    if (e.status === 'submitted') {
+      actions = '<div class="card"><h2>Review</h2>'
+        + '<div class="btnrow" style="margin-top:0"><button class="btn primary" id="pub">Approve &amp; Publish</button></div>'
+        + '<label>Reason (required to reject or return)</label><textarea id="reason" placeholder="Explain what needs to change…"></textarea>'
+        + '<div class="btnrow"><button class="btn ghost" id="rej">Reject</button><button class="btn ghost" id="ret">Return to draft</button></div></div>';
+    } else if (e.status === 'published' || e.status === 'draft' || e.status === 'rejected') {
+      actions = '<div class="card"><div class="btnrow" style="margin-top:0"><button class="btn ghost" id="arch">Archive</button></div></div>';
+    }
+
+    body.innerHTML =
+      '<div class="card"><h2>Details</h2>'
+      + field('Organizer', org ? org.name : (e.source === 'admin' ? 'Advantage' : '—'))
+      + (org ? field('Verification', org.verification_status) : '')
+      + '<div class="row">' + field('Market', e.market) + field('Category', e.category) + '</div>'
+      + '<div class="row">' + field('Starts', AE.fmtDate(e.start_at)) + field('Ends', AE.fmtDate(e.end_at)) + '</div>'
+      + field('Venue', e.venue_name)
+      + field('Address', [e.address, e.city, e.state, e.zip].filter(Boolean).join(', '))
+      + field('External link', e.external_url)
+      + field('Description', e.description)
+      + (e.review_reason ? '<div class="banner reject">Last review reason: ' + AE.esc(e.review_reason) + '</div>' : '')
+      + '</div>'
+      + (imgs ? '<div class="card"><h2>Photos</h2><div style="display:flex;gap:10px;flex-wrap:wrap">' + imgs + '</div></div>' : '')
+      + actions
+      + '<div class="card"><h2>Audit trail</h2>' + (audit || '<span class="hint">No history yet.</span>') + '</div>';
+
+    wire();
+  }
+
+  function act(path, bodyObj, btn) {
+    if (btn) btn.disabled = true; msg.className = 'msg';
+    return AE.api('POST', '/api/admin/events/' + id + path, bodyObj).then(load)
+      .catch(function (e) { if (btn) btn.disabled = false; err(e.message); });
+  }
+  function wire() {
+    if ($('pub')) $('pub').addEventListener('click', function () { act('/publish', undefined, $('pub')); });
+    if ($('rej')) $('rej').addEventListener('click', function () { var r = ($('reason').value || '').trim(); if (!r) return err('A reason is required to reject.'); act('/reject', { reason: r }, $('rej')); });
+    if ($('ret')) $('ret').addEventListener('click', function () { var r = ($('reason').value || '').trim(); if (!r) return err('A reason is required to return to draft.'); act('/return-to-draft', { reason: r }, $('ret')); });
+    if ($('arch')) $('arch').addEventListener('click', function () { if (!confirm('Archive this event?')) return; act('/archive', undefined, $('arch')); });
+  }
+  load();
+})();
+</script>
+</body>
+</html>
