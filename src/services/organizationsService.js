@@ -14,6 +14,7 @@
 const db = require('../db');
 const auditService = require('./auditService');
 const { withTransaction } = require('../utils/withTransaction');
+const capabilityService = require('./capabilityService');
 const { generateUniqueSlug } = require('../utils/slug');
 
 /** Structured, route-mappable error. */
@@ -98,6 +99,9 @@ async function onboardOrganization(userId, input = {}) {
       `INSERT INTO organization_members (organization_id, user_id, role, status)
        VALUES ($1, $2, 'owner', 'active')`,
       [org.id, userId]);
+
+    // Grant the organization its plan's capabilities (Constitution §11: plans grant capabilities).
+    await capabilityService.grantPlanCapabilities(org.id, org.plan_tier, client);
 
     await auditService.logEvent(client, {
       eventType: 'organization.created', entityType: 'organization', entityId: org.id,

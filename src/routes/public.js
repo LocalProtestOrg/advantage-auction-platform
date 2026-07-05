@@ -71,6 +71,7 @@ router.get('/auctions', async (req, res, next) => {
       where.push(`a.state IN ('published', 'active') AND a.is_archived IS NOT TRUE`);
     }
     where.push(`a.is_archived IS NOT TRUE`); // #22: archived auctions never appear publicly
+    where.push(`a.marketplace_status = 'syndicated'`); // Phase 2: admin-hidden/removed auctions never appear on the marketplace
 
     if (q.city) {
       params.push(`%${q.city.trim()}%`);
@@ -331,7 +332,7 @@ router.get('/auctions/:id/lots', async (req, res, next) => {
     const offset = Math.max(parseInt(req.query.offset, 10) || 0, 0);
 
     const auctionCheck = await db.query(
-      `SELECT id FROM auctions WHERE id = $1 AND state IN ('published', 'active', 'closed') AND is_archived IS NOT TRUE`,
+      `SELECT id FROM auctions WHERE id = $1 AND state IN ('published', 'active', 'closed') AND is_archived IS NOT TRUE AND marketplace_status <> 'removed'`,
       [id]
     );
     if (!auctionCheck.rows.length) {
