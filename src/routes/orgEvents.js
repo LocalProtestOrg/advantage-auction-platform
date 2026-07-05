@@ -16,6 +16,7 @@ const eventsService = require('../services/eventsService');
 const { asyncRoute, svcErr } = require('../utils/apiError');
 const multer = require('multer');
 const cloudinaryService = require('../services/cloudinaryService');
+const requireOrgCapability = require('../middleware/requireOrgCapability');
 
 router.use(authMiddleware); // all org routes require a logged-in user (req.user.id)
 
@@ -126,8 +127,8 @@ router.patch('/events/:id', asyncRoute(async (req, res) => {
   res.json({ success: true, event: serializeEvent(ev) });
 }));
 
-// POST /api/org/events/:id/submit — draft|rejected → submitted (active-event limit enforced)
-router.post('/events/:id/submit', asyncRoute(async (req, res) => {
+// POST /api/org/events/:id/submit — draft|rejected → submitted (active-event limit + 'events' capability enforced)
+router.post('/events/:id/submit', requireOrgCapability('events'), asyncRoute(async (req, res) => {
   const ev = await eventsService.submit(req.user.id, req.params.id);
   res.json({ success: true, event: serializeEvent(ev) });
 }));
