@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="robots" content="noindex" />
+<title>Launch Readiness — Advantage.Bid Admin</title>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+<style>
+  :root{--ink:#0B1B2B;--paper:#FBFAF7;--hair:#ECE8E0;--ok:#1a7f4b;--warn:#B7791F;--todo:#B5273B;--muted:#637488}
+  *{box-sizing:border-box}body{margin:0;background:var(--paper);color:var(--ink);font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+  .wrap{max-width:820px;margin:0 auto;padding:28px 20px 70px}
+  h1{font-size:26px;margin:0 0 2px}.sub{color:var(--muted);font-size:13px;margin-bottom:18px}
+  .summary{display:flex;gap:10px;margin:14px 0 22px}
+  .pill{border-radius:10px;padding:8px 14px;font-weight:800;font-size:14px;border:1px solid var(--hair);background:#fff}
+  .pill b{font-size:18px}
+  .sec{background:#fff;border:1px solid var(--hair);border-radius:12px;margin:0 0 14px;overflow:hidden}
+  .sec h2{font-size:15px;margin:0;padding:12px 16px;border-bottom:1px solid var(--hair);background:#fbf9f5}
+  .item{display:flex;align-items:center;justify-content:space-between;padding:10px 16px;border-bottom:1px solid #f3f0ea}
+  .item:last-child{border-bottom:0}
+  .dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:10px}
+  .ok .dot{background:var(--ok)}.warn .dot{background:var(--warn)}.todo .dot{background:var(--todo)}
+  .label{font-size:14px}.detail{font-size:12.5px;color:var(--muted);font-variant-numeric:tabular-nums}
+  .st{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.04em}
+  .ok .st{color:var(--ok)}.warn .st{color:var(--warn)}.todo .st{color:var(--todo)}
+  .err{color:var(--todo);padding:16px;background:#fff;border:1px solid var(--hair);border-radius:12px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Launch Readiness</h1>
+  <div class="sub" id="sub">Phase 3 — Operational Launch · loading…</div>
+  <div class="summary" id="summary"></div>
+  <div id="sections"></div>
+</div>
+<script>
+  const token = localStorage.getItem('token');
+  const S = { ok: 'OK', warn: 'IN PROGRESS', todo: 'TO DO' };
+  async function load() {
+    if (!token) { document.getElementById('sections').innerHTML = '<div class="err">Not signed in. <a href="/login.html?next=/admin/launch-readiness.html">Sign in</a>.</div>'; return; }
+    let r;
+    try { r = await fetch('/api/admin/launch-readiness', { headers: { Authorization: 'Bearer ' + token } }); }
+    catch (e) { document.getElementById('sections').innerHTML = '<div class="err">Network error.</div>'; return; }
+    if (r.status === 401 || r.status === 403) { document.getElementById('sections').innerHTML = '<div class="err">Admin access required.</div>'; return; }
+    const j = await r.json();
+    document.getElementById('sub').textContent = 'Phase 3 — Operational Launch · migration ' + j.migration_level;
+    const sm = j.summary || {};
+    document.getElementById('summary').innerHTML =
+      '<span class="pill" style="color:var(--ok)"><b>' + (sm.ok||0) + '</b> ready</span>' +
+      '<span class="pill" style="color:var(--warn)"><b>' + (sm.warn||0) + '</b> in progress</span>' +
+      '<span class="pill" style="color:var(--todo)"><b>' + (sm.todo||0) + '</b> to do</span>';
+    document.getElementById('sections').innerHTML = (j.sections || []).map(function (s) {
+      return '<div class="sec"><h2>' + s.title + '</h2>' + s.items.map(function (i) {
+        return '<div class="item ' + i.status + '"><span class="label"><span class="dot"></span>' + i.label + '</span>' +
+               '<span><span class="detail">' + (i.detail != null ? i.detail : '') + '</span> &nbsp; <span class="st">' + (S[i.status] || i.status) + '</span></span></div>';
+      }).join('') + '</div>';
+    }).join('');
+  }
+  load();
+</script>
+</body>
+</html>
