@@ -35,4 +35,8 @@ Host-based domain resolution · per-tenant branding/config editing · marketplac
 - **Tier 2** (staging): migration applied via `stg-migrate-077.js`; existing auction/events endpoints unchanged (additive-only, nothing reads the new columns).
 
 ## Rollback
-Additive: drop `organization_capabilities`, `capabilities`, the new columns/indexes, and the `schema_migrations` row for 077; or restore the pre-migration Neon backup. Backfill is reversible (`SET organization_id = NULL`) but unnecessary (no reader).
+Additive → safe to reverse. Two options:
+1. **Neon backup restore** (preferred for production) — restore the pre‑migration branch backup.
+2. **`scripts/rollback-077.js`** (guarded, transactional) — drops `organization_capabilities`, `capabilities`, the added columns/indexes, removes the seeded platform tenant, and clears the `077` ledger row. Requires `CONFIRM_ROLLBACK_077=YES` (and `CONFIRM_ROLLBACK_077_PROD=YES` + owner approval against production).
+
+Backfill is reversible (`SET organization_id = NULL`) but unnecessary (no reader). Because the migration is additive and unwired, rollback carries no behavior risk.
