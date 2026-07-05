@@ -84,4 +84,38 @@ Production deployments (when requested) · Authentication redesign · Security m
 - Timing of per‑tenant economics exposure (before vs after public launch).
 - Isolation strength for payments/PII (logical vs RLS) and escalation trigger.
 
-*Related: `engineering-charter.md` (how we execute), `local-events-architecture.md` (Organizations & Events blueprint), `launch-content-roadmap.md` (roadmap), `../releases/organizations-events-v1.md` (v1 release).*
+---
+
+# Amendment — Marketplace Activation & Organization Lifecycle (2026-07-05b, RATIFIED in principle)
+
+## 19. Brilliant Directories = Partner Acquisition Platform
+BD is not merely the marketing website. It is the **Partner Acquisition Platform**, responsible for: Discovery, SEO, the Directory, **Claim Listings**, Lead Generation, Local Market Pages, Community, and **Partner Acquisition**. Railway is the **operational platform + system of record**. BD already contains 300+ real businesses; the objective is to **activate an existing nationwide network**, not fabricate launch data. **First objective: activate existing organizations, not create Partners.**
+
+## 20. Organization Lifecycle (business‑relationship model)
+```
+Prospect → Directory Listing → Organization (Inactive) → Claimed → Verified → Active Partner → White‑Label Partner → Enterprise Partner → Partner Ambassador
+```
+This is both a software `lifecycle_state` and our long‑term **business relationship** model. Organizations progress along it; claiming and verification **enrich and activate an existing Organization**, they do not create one.
+
+## 21. Organization‑First & hybrid materialization
+- **Organizations are the permanent master business entity.** Every real business eventually has an Organization record **regardless of claim status**. Railway is the long‑term source of truth.
+- **Everything attaches to the Organization:** events, auctions, images, reviews, followers, analytics, legal documents, capabilities, branding, marketplace status, reporting, communication history, and (future) CRM.
+- **Hybrid materialization (not lazy, not eager‑full):** businesses are represented as **lightweight, inactive Organization "shells"** (minimal fields, no owner/capabilities/config) mirrored one‑way from BD directory listings via `bd_listing_id`. **Claiming enriches and activates the existing shell** (adds owner, verification, capabilities, config) — it never creates a duplicate. This keeps Organizations the master entity for the whole network while avoiding premature import of full Partner records.
+- BD continues to own the public directory listing; Railway owns the Organization. **No two‑way sync.**
+
+## 22. Partner CRM & Organization Health (design intent — not built yet)
+Architect so these emerge naturally, without over‑engineering:
+- **Partner CRM** stages (Contacted, Demo Scheduled, Interested, Claimed, Activated, Inactive, Former Partner, Partner Ambassador) map onto `lifecycle_state` + a future append‑only `organization_activity` log (the existing `audit_log` is the activity spine today). Everything keys off `organization_id`.
+- **Organization Health / Completion Score** (claimed, verified, logo, photos, description, website, events, auctions, recent activity, marketplace participation) is **derivable from existing fields** — compute on demand; cache only if needed. No new schema required now.
+
+## 23. Sync doctrine (reaffirmed)
+BD → Railway is **one‑way, API‑based, read‑only** (directory listings + claim signals), evolving to **event‑driven (webhook)** for claims when BD write/webhook access exists. Railway → BD (Partner status/badges) is one‑way, display‑only, deferred. **Never two‑way Organization‑data sync.** Favor simple, reliable synchronization over complexity. Adapter‑based, not dependency‑based.
+
+## 17b. Additional standing decisions (ratified)
+10. BD = Partner Acquisition Platform; Railway = operational platform + source of truth.
+11. Organization‑First: Organizations are the permanent master entity; everything attaches to `organization_id`.
+12. Hybrid materialization: inactive Organization shells mirrored from BD; claim enriches/activates, never duplicates.
+13. Organization Lifecycle is the canonical relationship model (Prospect → … → Partner Ambassador).
+14. CRM + Organization Health are derivable/append‑only extensions — design for them, don't build yet.
+
+*Related: `engineering-charter.md` (how we execute), `marketplace-activation-strategy.md` (activation/growth/governance), `partner-lifecycle.md` (business relationships), `local-events-architecture.md`, `launch-content-roadmap.md`, `../releases/organizations-events-v1.md`.*
