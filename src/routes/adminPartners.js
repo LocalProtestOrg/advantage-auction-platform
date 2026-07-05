@@ -11,6 +11,7 @@ const authMiddleware = require('../middleware/authMiddleware');
 const roleMiddleware = require('../middleware/roleMiddleware');
 const capabilityService = require('../services/capabilityService');
 const configService = require('../services/configService');
+const orgLifecycle = require('../services/organizationLifecycleService');
 const { asyncRoute, svcErr } = require('../utils/apiError');
 
 router.use(authMiddleware, roleMiddleware(['admin']));
@@ -35,6 +36,18 @@ router.put('/:orgId/config', asyncRoute(async (req, res) => {
   if (!key) throw svcErr(400, 'KEY_REQUIRED', 'key is required.');
   await configService.setOrgConfig(req.params.orgId, key, value, req.user.id);
   res.json({ success: true });
+}));
+
+// Lifecycle transition (Phase 3A): verify | activate. Admin-only; audited in the service.
+router.post('/:orgId/lifecycle', asyncRoute(async (req, res) => {
+  const action = (req.body || {}).action;
+  let org;
+  if (action === 'verify') org = await orgLifecycle.verify(req.user.id, req.params.orgId);
+  else if (action === 'activate') org = await orgLifecycle.activate(req.user.id, req.params.orgId);
+  else throw svcErr(400, 'INVALID_ACTION', "action must be 'verify' or 'activate'.");
+  res.json({ success: true, organization: {
+    id: org.id, slug: org.slug, lifecycle_state: org.lifecycle_state, verification_status: org.verification_status,
+  } });
 }));
 
 module.exports = router;

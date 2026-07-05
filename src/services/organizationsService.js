@@ -16,6 +16,7 @@ const auditService = require('./auditService');
 const { withTransaction } = require('../utils/withTransaction');
 const capabilityService = require('./capabilityService');
 const { generateUniqueSlug } = require('../utils/slug');
+const { computeMatchKey } = require('./organizationMatchingService');
 
 /** Structured, route-mappable error. */
 function svcErr(status, code, message) {
@@ -58,6 +59,15 @@ async function isOwner(userId, orgId) {
   return rows.length > 0;
 }
 
+/** The org's active owner (id + email), or null. Null-safe for inactive shells with no members. */
+async function getOwner(orgId) {
+  const { rows } = await db.query(
+    `SELECT u.id, u.email FROM organization_members m JOIN users u ON u.id = m.user_id
+      WHERE m.organization_id = $1 AND m.role = 'owner' AND m.status = 'active' LIMIT 1`, [orgId]);
+  return rows[0] || null;
+}
+async function hasOwner(orgId) { return !!(await getOwner(orgId)); }
+
 /** Throw 403 unless the user owns the org. */
 async function assertOwner(userId, orgId, client) {
   const runner = client || db;
@@ -87,12 +97,15 @@ async function onboardOrganization(userId, input = {}) {
 
   return withTransaction(async (client) => {
     const slug = await generateUniqueSlug('organizations', name, client);
+    // Self-service onboarding: the user IS the owner (no impersonation risk) → active_partner.
     const { rows } = await client.query(
-      `INSERT INTO organizations (slug, name, type, contact_email, contact_phone, website_url, logo_url, city, state)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+      `INSERT INTO organizations (slug, name, type, contact_email, contact_phone, website_url, logo_url, city, state,
+                                  lifecycle_state, source, match_key)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'active_partner','onboarding',$10)
        RETURNING *`,
       [slug, name, input.type || null, contactEmail || null, contactPhone || null,
-       input.websiteUrl || null, input.logoUrl || null, input.city || null, input.state || null]);
+       input.websiteUrl || null, input.logoUrl || null, input.city || null, input.state || null,
+       computeMatchKey(name, input.state)]);
     const org = rows[0];
 
     await client.query(
@@ -146,6 +159,8 @@ module.exports = {
   getById,
   isOwner,
   assertOwner,
+  getOwner,
+  hasOwner,
   onboardOrganization,
   updateProfile,
 };
