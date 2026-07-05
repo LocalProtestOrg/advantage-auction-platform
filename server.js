@@ -256,6 +256,16 @@ app.get('/payment.html', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'payment.html'));
 });
 
+// Pretty alias for the organizer Create-Event page. A simple server-side redirect
+// that PRESERVES the query string (e.g. ?market=houston, ?market=nyc_tristate). BD
+// "Create Event" links point at /org/events/new; the page is served statically as
+// /org/event-new.html. No DB, no auth — additive. MUST be before the 404 handler.
+app.get('/org/events/new', (req, res) => {
+  const i = req.originalUrl.indexOf('?');
+  const qs = i >= 0 ? req.originalUrl.slice(i) : '';
+  res.redirect(302, '/org/event-new.html' + qs);
+});
+
 // GET /api/me/invoices — buyer dashboard
 app.get('/api/me/invoices', authMiddleware, async (req, res) => {
   try {
