@@ -1,75 +1,72 @@
-# Launch Content & Marketplace Rollout — Roadmap (planning only)
+# Advantage.Bid — Launch & Platform Roadmap (planning only)
 
-**Status:** PLANNING ONLY — do not implement from this document. Sequences the next phase after the Organizations & Events v1 production release (`f0a7648`, migration 076). Prerequisite platform is live; this plan is about **content, onboarding, and rollout**, not new engineering (engineering items are called out as deferred/prereqs).
+**Status:** PLANNING ONLY — do not implement from this document. Governed by `docs/projects/project-constitution.md`. Sequences the path from the Organizations & Events v1 release (`f0a7648`, migration 076) to an operational marketplace and, ultimately, the White‑Label Partner Network.
 
-## Guiding principle
-Railway is the system of record; BD is presentation. Launch = seed real organizations + events in the two live markets (`houston`, `nyc_tristate`), then surface them on BD city pages via the already-shipped widgets. Prioritize trustworthy, non-empty marketplace pages before broad promotion.
+## Guiding sequencing principle
+**Advantage.Bid is Partner #1.** Get operational fast on a **multi‑tenant‑ready foundation**: do the cheap‑now/expensive‑later work (tenant key on core tables + scoped queries + syndication defaults) before data accretes, but **defer the heavy white‑label machinery** (custom domains, branding UI, per‑tenant config editing, Partner console) until a real Partner needs it. Configuration over customization throughout.
 
-## Houston launch strategy
-- Target market slug: `houston` (BD page `/houston`).
-- Recruit 5–10 Houston estate-sale / auction organizations as initial Organizations (free tier to start).
-- Seed 10–20 published Houston events spanning the next 4–6 weeks so the feed is never empty.
-- Embed the JS widget on BD `/houston` below intro content (manual, pending BD page-edit access).
-- Success metric: `/events.html?market=houston` and the BD `/houston` widget show a full, current card set.
-
-## NYC / Tri-State launch strategy
-- Target market slug: `nyc_tristate`, mapped across BD pages `/new-york` (primary), `/new-jersey`, `/connecticut` (no single tri-state page exists).
-- Recruit organizations across all three states; tag every event `market=nyc_tristate` regardless of state page.
-- Seed 10–20 published events; embed the widget (`data-market="nyc_tristate"`) on all three BD pages.
-- Consider a future per-state filter (schema already stores `city`/`state`).
-
-## Initial organization onboarding
-- Onboard via the live portal (`/org/profile.html`, auto-onboard on first event) OR admin-assisted (admin-created orgs are currently deferred — would extend `organizationsService`).
-- Capture: name, contact email/phone, city/state, logo, website. Verify legitimate organizers → move `verification_status` to `community`/`verified` once the verification workflow ships (deferred).
-- Start all on **free** plan (3 active / 10 images); upgrade high-volume organizers to standard/premium.
-
-## Initial event population
-- Prioritize real, upcoming events with good cover imagery (Cloudinary upload via portal).
-- Moderation: every seeded event goes through submit → Approve & Publish so the audit trail and public feed reflect the real workflow.
-- Maintain a rolling 4–6 week horizon per market; archive past events (they auto-drop from the feed at `end_at`).
-
-## Advantage Auction Company (AAC) launch events
-- Create an "Advantage" organization (source `admin` → badge "Advantage") to seed flagship AAC events in both markets as anchor content.
-- Use AAC events to demonstrate the full buyer journey (discovery → event detail → any linked auction).
-- Coordinate with the historical archive work (separate track) so AAC's brand presence is consistent.
-
-## Public launch checklist
-- [ ] ≥10 published events per market with cover images.
-- [ ] Widget embedded + visually verified on `/houston`, `/new-york` (+ `/new-jersey`, `/connecticut`).
-- [ ] Create-Event deep-link (`/org/events/new?market=…`) present on each BD page.
-- [ ] `EVENTS_ALLOWED_ORIGINS` confirmed to include both BD origins in prod.
-- [ ] Public pages (`/events.html`, `/event.html`) reviewed on mobile + desktop.
-- [ ] Moderation SLA defined (who approves, how fast).
-- [ ] Analytics/UTM on widget → platform funnel.
-
-## BD widget rollout plan
-1. **Pilot:** embed JS widget on `/houston` only; verify render, CORS, funnel.
-2. **Expand:** add `/new-york`, then `/new-jersey`, `/connecticut`.
-3. **Fallback:** use the iframe snippet only where a `<script>` can't be added.
-4. **Create-Event CTA:** add the deep-link button near each widget.
-5. Keep BD native events untouched until parity is proven, then retire them.
-6. All BD edits are **manual** until BD page-edit access is enabled.
-
-## Future BD MCP integration
-- No BD MCP exists today (BD access = read-only REST API, `X-Api-Key`). To automate BD page edits, either connect a custom BD MCP or use a write-scoped BD content API (unverified BD supports it).
-- When added, apply least-privilege permissions: read/list/get/search = allow; create/update/publish = ask; delete = deny unless explicitly approved.
-- Until then, BD embeds and any BD content changes remain human-in-the-loop.
-
-## Imported event strategy
-- `events.source = 'imported'` + attribution fields are already in the schema (deferred/unbuilt).
-- Plan: optional ingestion of third-party/BD-native events as **imported** listings (badge "Imported Listing", attribution shown), clearly distinguished from organizer-submitted events, never auto-published without moderation.
-- Sequence after organic organizer content proves the model.
-
-## Unified authentication roadmap
-- Today: native Railway auth for organizers; sellers use the existing seller path; BD is not an identity provider.
-- Plan: unify seller ↔ organization identity and move media upload behind **capability-based authz** (e.g. `requireCapability('media_upload')`) so sellers and organizations share one pipeline (see `local-events-architecture.md` roadmap note). No deep two-way BD login sync.
-
-## Marketplace launch priorities
-1. Non-empty, trustworthy market pages (content first).
-2. BD widget embedded + funnel measurable.
-3. Moderation operations + SLA.
-4. Organizer growth (onboarding + verification workflow).
-5. Then: imports, per-state discovery, memberships/advertising, monetization.
+## Adjusted priorities (highest → lower)
+1. **Become operational** — payments LIVE‑ready, content in the two live markets, buyer trust primitives.
+2. **Multi‑tenant foundation** — tenant key + scoping + syndication model, added quietly while single‑tenant.
+3. **Marketplace strength** — syndication, discovery, shared bidder pool.
+4. **White‑Label Partner Network** — host‑based branding/config, Partner onboarding, per‑tenant legal/economics.
+5. **Enterprise & long‑term** — RBAC, partner reporting, monetization, network effects.
 
 ---
-*Blueprint reference: `docs/projects/local-events-architecture.md`. Release notes: `docs/releases/organizations-events-v1.md`.*
+
+# Milestone sequence (grouped)
+
+## A. Must Have Before Public Launch
+Fastest path to "operational," on a foundation that won't need retrofitting.
+- **Stripe LIVE readiness** — payments/settlement/tax sign‑off (currently TEST). *Approval‑gated (payment/infra).*
+- **Buyer card verification live** — implement the stubbed `cardVerificationService` (<$1 auth at signup/card change) — required business rule for real money.
+- **Tenant foundation (schema)** — introduce the Partner/tenant key on core tables (reuse/extend `organizations`), tenant‑scoping query discipline, Advantage as Partner #1; existing sellers/auctions migrate under it. *Additive migration; no behavior change yet.*
+- **Marketplace syndication model** — Partner auctions default `syndicated=true`; **admin‑only** visibility controls (hide/feature/promote/remove/override) with an **audit trail**. Partners cannot control visibility.
+- **Content launch (Houston + NYC/Tri‑State)** — onboard initial Partner Organizations; seed & publish real events; embed the BD widget (manual until BD page‑edit access). AAC flagship "Advantage" org events as anchor content.
+- **Legal versioning + acceptance ledger** — solidify buyer terms / seller agreement version capture (mostly exists) so every acceptance is recorded per version.
+- **Production hardening** — monitoring, backups, incident SOPs (largely in place); confirm `EVENTS_ALLOWED_ORIGINS`, health checks, rollback runbooks.
+
+## B. Should Have Shortly After Launch
+- **Per‑tenant economics as configuration** — buyer premium / commission / fees as data consumed by the **single settlement engine** (no forked logic). *Payment‑adjacent → approval‑gated.*
+- **Organization/Partner verification workflow** (schema exists; badge already derived).
+- **Location‑based buyer discovery** (radius search / geocode‑at‑publish) — already roadmapped.
+- **Imported events strategy** — `source='imported'` + attribution (schema exists), moderated, clearly badged.
+- **Recurring events**.
+- **CRM / analytics from platform data** — funnel, attribution, marketing value.
+
+## C. White‑Label Partner Network
+- **Host‑based tenant resolution** — resolve Partner branding + config from the incoming host (`bid.partnername.com`). *Custom domains + TLS = infrastructure → approval‑gated.*
+- **Per‑tenant branding** — logo, colors, fonts, email branding, homepage content, loaded by host; config inheritance (platform defaults → Partner overrides).
+- **Per‑tenant legal document set** — buyer terms, seller agreement, privacy, refund, pickup — editable + versioned, per Partner, with acceptance ledger.
+- **Partner admin console** — Partner‑scoped management of their auctions/events/users/branding within platform‑governed rails; Partners never touch marketplace visibility.
+- **Partner onboarding + Partner Agreement** — including syndication consent.
+- **Per‑tenant business rules** — settlement/tax/shipping/pickup as configuration.
+
+## D. Enterprise Expansion
+- **RBAC** — Partner‑scoped roles/permissions for staff.
+- **Partner financial reporting** — statements, payouts, reconciliation per Partner.
+- **Enterprise auth options** — SSO/OIDC for Partner staff (not buyers).
+- **Partner API + webhooks**.
+- **Tiered Partner plans**, white‑glove onboarding, SLAs.
+- **Stronger isolation** — RLS for payments/PII if warranted.
+
+## E. Long‑Term Vision
+- **Network effects** — cross‑Partner discovery, unified marketplace search, shared SEO/marketing.
+- **Marketplace monetization** — featured/promoted placements, memberships, advertising on organizations.
+- **Presentation‑adapter plurality** — BD becomes one of many adapters; platform independence preserved.
+- **Ecosystem** — potential Partner extensions/integrations marketplace.
+
+---
+
+# Content‑launch execution detail (supports Milestone A)
+- **Houston** (`market=houston`, BD `/houston`): recruit 5–10 organizations; seed 10–20 published events on a rolling 4–6 week horizon; embed JS widget below intro content.
+- **NYC / Tri‑State** (`market=nyc_tristate`, BD `/new-york` primary, `/new-jersey`, `/connecticut`): recruit across all three states; tag events `nyc_tristate`; embed widget on all three pages.
+- **Initial org onboarding:** via the live portal (auto‑onboard on first event); free plan to start; upgrade high‑volume organizers.
+- **AAC launch events:** an "Advantage" (source `admin`) organization seeds flagship anchor events in both markets.
+- **Public launch checklist:** ≥10 published events/market with imagery · widget embedded + verified on all city pages · Create‑Event deep‑link present · `EVENTS_ALLOWED_ORIGINS` confirmed · pages reviewed mobile/desktop · moderation SLA defined · funnel analytics.
+- **BD widget rollout:** pilot Houston → expand NYC/Tri‑State → iframe only where `<script>` unavailable → retire BD native events after parity. All BD edits manual until BD page‑edit access enabled.
+- **Future BD MCP integration:** none today (read‑only REST API only); when added, least‑privilege (read=allow, write=ask, delete=deny).
+- **Unified authentication roadmap:** unify seller↔organization identity; media upload behind capability‑based authz (`requireCapability('media_upload')`); no deep two‑way BD login sync.
+
+---
+*Constitution: `docs/projects/project-constitution.md`. Blueprint: `docs/projects/local-events-architecture.md`. v1 release: `docs/releases/organizations-events-v1.md`.*
