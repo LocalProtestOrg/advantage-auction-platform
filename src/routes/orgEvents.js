@@ -17,8 +17,10 @@ const { asyncRoute, svcErr } = require('../utils/apiError');
 const multer = require('multer');
 const cloudinaryService = require('../services/cloudinaryService');
 const requireOrgCapability = require('../middleware/requireOrgCapability');
+const resolveActingOrg = require('../middleware/resolveActingOrg');
 
 router.use(authMiddleware); // all org routes require a logged-in user (req.user.id)
+router.use(resolveActingOrg); // sets req.actingOrg (header-selected or primary org fallback)
 
 // Reuse the shared Cloudinary pipeline, scoped to any logged-in org user
 // (/api/uploads/image is seller/admin-gated; organizers upload here instead).
@@ -66,14 +68,14 @@ function mapOrgUpdate(b) {
 
 // GET /api/org/profile — the caller's organization (or null if not onboarded yet)
 router.get('/profile', asyncRoute(async (req, res) => {
-  const org = await orgsService.getPrimaryOrgForUser(req.user.id);
+  const org = req.actingOrg;
   res.json({ success: true, organization: serializeOrg(org) });
 }));
 
 // POST /api/org/profile — onboard (create) if none, else update the profile
 router.post('/profile', asyncRoute(async (req, res) => {
   const b = req.body || {};
-  const existing = await orgsService.getPrimaryOrgForUser(req.user.id);
+  const existing = req.actingOrg;
   const org = existing
     ? await orgsService.updateProfile(req.user.id, existing.id, mapOrgUpdate(b))
     : await orgsService.onboardOrganization(req.user.id, b);
@@ -82,7 +84,7 @@ router.post('/profile', asyncRoute(async (req, res) => {
 
 // GET /api/org/events — the org's events + plan usage
 router.get('/events', asyncRoute(async (req, res) => {
-  const org = await orgsService.getPrimaryOrgForUser(req.user.id);
+  const org = req.actingOrg;
   if (!org) return res.json({ success: true, organization: null, plan: null, usage: null, events: [] });
   const [events, plan, active] = await Promise.all([
     eventsService.listForOrg(org.id),
@@ -102,7 +104,7 @@ router.get('/events', asyncRoute(async (req, res) => {
 // POST /api/org/events — create a draft (auto-onboards the org on first event)
 router.post('/events', asyncRoute(async (req, res) => {
   const b = req.body || {};
-  let org = await orgsService.getPrimaryOrgForUser(req.user.id);
+  let org = req.actingOrg;
   if (!org) org = await orgsService.onboardOrganization(req.user.id, b.organization || {});
   const ev = await eventsService.createDraft(req.user.id, org, b);
   res.status(201).json({ success: true, event: serializeEvent(ev), organization: serializeOrg(org) });
