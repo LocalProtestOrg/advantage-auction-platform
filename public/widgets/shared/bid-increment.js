@@ -5,8 +5,7 @@
  * defect was a flat $5 increment with no ladder).
  *
  * Platform default ladder (current price band → increment):
- *   $1.00-$19.99     → $1
- *   $20.00-$49.99    → $2.50
+ *   $1.00-$49.99     → $1   (whole-dollar bidding — no half-dollar increments)
  *   $50.00-$199.99   → $5
  *   $200.00-$499.99  → $10
  *   $500.00-$999.99  → $25
@@ -21,8 +20,7 @@
 
   // [maxInclusiveCents, incrementCents] - first tier whose max >= price wins.
   var LADDER = [
-    [1999, 100],      // $1.00 - $19.99   → $1.00
-    [4999, 250],      // $20.00 - $49.99  → $2.50
+    [4999, 100],      // $1.00 - $49.99   → $1.00  (whole-dollar; replaces the old $2.50 band)
     [19999, 500],     // $50.00 - $199.99 → $5.00
     [49999, 1000],    // $200.00 - $499.99→ $10.00
     [99999, 2500],    // $500.00 - $999.99→ $25.00

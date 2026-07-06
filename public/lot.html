@@ -403,20 +403,37 @@
       50%       { opacity: 0.3; }
     }
 
-    /* ── Countdown ── */
-    #countdown-wrap {
-      display: flex;
-      align-items: center;
-      gap: 0.4rem;
-      font-size: 0.82rem;
-      font-weight: 600;
-      color: #374151;
-      margin-top: 0.5rem;
+    /* ── Countdown urgency bar (#4) ── */
+    #countdown-wrap { margin-top: 0.6rem; }
+    .cd-bar {
+      position: relative; height: 34px; border-radius: 10px; overflow: hidden;
+      background: #e5e7eb; box-shadow: inset 0 1px 3px rgba(0,0,0,.18);
     }
-    #countdown-wrap .cd-icon { font-size: 0.85rem; }
+    .cd-fill {
+      position: absolute; inset: 0;
+      background: linear-gradient(90deg, #15803d, #22c55e);
+      transition: background .5s ease, filter .3s ease;
+    }
+    .cd-label {
+      position: relative; z-index: 1; display: flex; align-items: center; justify-content: center;
+      gap: .4rem; height: 100%; color: #fff; font-weight: 800; font-size: 1rem;
+      letter-spacing: .02em; text-shadow: 0 1px 2px rgba(0,0,0,.4); font-variant-numeric: tabular-nums;
+    }
+    .cd-bar .cd-icon { font-size: .95rem; }
+    .cd-bar.warn .cd-fill   { background: linear-gradient(90deg, #b45309, #f59e0b); }
+    .cd-bar.urgent .cd-fill { background: linear-gradient(90deg, #b91c1c, #ef4444); }
+    .cd-bar.urgent { animation: cdPulse 1s ease-in-out infinite; }
+    .cd-bar.ended .cd-fill  { background: #94a3b8; }
+    .cd-bar.ended .cd-label { color: #f8fafc; }
+    .cd-bar.extended { animation: cdFlash .8s ease; }
+    @keyframes cdPulse {
+      0%,100% { box-shadow: inset 0 1px 3px rgba(0,0,0,.18), 0 0 0 0 rgba(239,68,68,.55); }
+      50%     { box-shadow: inset 0 1px 3px rgba(0,0,0,.18), 0 0 16px 4px rgba(239,68,68,.78); }
+    }
+    @keyframes cdFlash { 0%,100%{ filter:none; } 30%{ filter:brightness(1.7) saturate(1.4); } }
     #countdown-val { font-variant-numeric: tabular-nums; }
-    #countdown-val.urgent { color: #dc2626; }
-    #countdown-val.ended  { color: #94a3b8; font-weight: 500; }
+    .sound-toggle { margin-top:.4rem; background:none; border:none; color:#6b7280; font-size:.72rem; font-weight:600; cursor:pointer; padding:2px 0; }
+    .sound-toggle:hover { color:#374151; text-decoration:underline; }
 
     /* ── Closed state ── */
     #closed-banner {
@@ -626,8 +643,13 @@
     .bid-row input{ border:1.5px solid var(--hair); border-radius:12px; }
     .bid-row input:focus{ border-color:var(--live); }
     #max-bid-input{ border:1.5px solid var(--hair)!important; border-radius:12px!important; }
-    .btn-place-bid{ background:var(--live); border-radius:12px; font-weight:800; box-shadow:0 8px 20px rgba(181,39,59,.28); }
-    .btn-place-bid:hover{ background:var(--live); filter:brightness(1.06); }
+    /* #1 status-matched bid button: neutral=blue, winning=green, outbid=red */
+    .btn-place-bid{ background:#2563eb; border-radius:12px; font-weight:800; box-shadow:0 8px 20px rgba(37,99,235,.26); }
+    .btn-place-bid:hover{ background:#1d4ed8; filter:brightness(1.03); }
+    .btn-place-bid.is-winning{ background:#16a34a; box-shadow:0 8px 20px rgba(22,163,74,.30); }
+    .btn-place-bid.is-winning:hover{ background:#15803d; }
+    .btn-place-bid.is-outbid{ background:#dc2626; box-shadow:0 8px 20px rgba(220,38,38,.30); }
+    .btn-place-bid.is-outbid:hover{ background:#b91c1c; }
     #countdown-val.urgent{ color:var(--live); }
     .bid-row-item.top-bid .bid-amt{ color:var(--live); }
     .bid-row-item.new-bid{ background:#fdeef0; }
@@ -705,8 +727,11 @@
         <div class="amount" id="current-bid">$0.00 <span>USD</span></div>
         <div id="bid-activity">Be the first to bid</div>
         <div id="countdown-wrap" style="display:none">
-          <span class="cd-icon">⏱</span>
-          <span id="countdown-val"></span>
+          <div class="cd-bar" id="countdown-bar">
+            <div class="cd-fill"></div>
+            <div class="cd-label"><span class="cd-icon">⏱</span> <span id="countdown-val"></span></div>
+          </div>
+          <button type="button" id="sound-toggle" class="sound-toggle" aria-label="Toggle bid sounds">🔊 Bid sounds on</button>
         </div>
       </div>
 
@@ -723,7 +748,7 @@
         <div class="field-label">Your Bid</div>
         <div class="bid-hint" id="bid-hint">Enter your bid amount</div>
         <div class="bid-row">
-          <input type="text" inputmode="decimal" id="bid-input" placeholder="0.00"
+          <input type="text" inputmode="numeric" id="bid-input" placeholder="0"
                  autocomplete="off" />
           <button class="btn-place-bid" id="btn-bid">Place Bid</button>
         </div>
@@ -731,7 +756,7 @@
           <div class="field-label" style="font-size:0.75rem; color:#94a3b8; font-weight:500; margin-bottom:0.25rem">
             Max Bid - proxy (optional)
           </div>
-          <input type="text" inputmode="decimal" id="max-bid-input" placeholder="Set your maximum…"
+          <input type="text" inputmode="numeric" id="max-bid-input" placeholder="Set your maximum…"
                  autocomplete="off"
                  style="width:100%; padding:0.5rem 0.75rem; border:1.5px solid #e2e8f0; border-radius:6px;
                         font-size:0.9rem; color:#374151; background:#f8fafc;" />
@@ -772,6 +797,16 @@
 
 <script src="/widgets/shared/auth-refresh.js"></script>
 <script src="/widgets/shared/bid-increment.js"></script>
+<script src="/widgets/shared/buyer-chime.js"></script>
+<script>
+  // #2 mute toggle wiring (BuyerChime persists mute in localStorage).
+  document.addEventListener('DOMContentLoaded', function () {
+    var b = document.getElementById('sound-toggle'); if (!b || !window.BuyerChime) return;
+    function sync() { b.textContent = window.BuyerChime.isMuted() ? '🔇 Bid sounds off' : '🔊 Bid sounds on'; }
+    sync();
+    b.addEventListener('click', function () { var m = window.BuyerChime.toggle(); sync(); if (!m) window.BuyerChime.play('bid'); });
+  });
+</script>
 <script src="/widgets/shared/bid-status.js"></script>
 <script src="/widgets/shared/bid-utils.js"></script>
 <script src="/widgets/shared/pickup-tiers.js"></script>
@@ -1101,7 +1136,12 @@
     panel.setAttribute('data-state', s.key);
     // #10: when the viewer is already winning, don't invite a normal bid.
     const bidBtn = document.getElementById('btn-bid');
-    if (bidBtn && !bidBtn.disabled) bidBtn.textContent = s.winning ? 'Increase Your Max Bid' : 'Place Bid';
+    if (bidBtn && !bidBtn.disabled) {
+      bidBtn.textContent = s.winning ? 'Increase Your Max Bid' : 'Place Bid';
+      // #1: button color matches status — winning=green, outbid=red, neutral=default.
+      bidBtn.classList.toggle('is-winning', !!s.winning);
+      bidBtn.classList.toggle('is-outbid', !s.winning && !!s.hasBid);
+    }
   }
 
   // ── #1 socket.io push (accelerates the poll; polling stays the fallback) ─────
@@ -1114,7 +1154,7 @@
     const soon = () => { clearTimeout(t); t = setTimeout(refreshLotNow, 150); };
     const joinIfReady = () => { if (currentAuctionId) socket.emit('joinAuction', currentAuctionId); };
     socket.on('connect', joinIfReady);
-    socket.on('lot:update', m => { if (m && m.lot_id === lotId) { if (window.BuyerChime && m.closes_at && currentClosesAt && m.closes_at !== currentClosesAt) BuyerChime.play('extended'); soon(); } });
+    socket.on('lot:update', m => { if (m && m.lot_id === lotId) { if (m.closes_at && currentClosesAt && m.closes_at !== currentClosesAt) { if (window.BuyerChime) BuyerChime.play('extended'); const _b = document.getElementById('countdown-bar'); if (_b) { _b.classList.add('extended'); setTimeout(() => _b.classList.remove('extended'), 800); } } soon(); } });
     socket.on('lot:winning', m => { if (m && m.lot_id === lotId) { if (window.BuyerChime) BuyerChime.play('bid'); refreshLotNow(); } });
     socket.on('lot:outbid',  m => { if (m && m.lot_id === lotId) { if (window.BuyerChime) BuyerChime.play('outbid'); refreshLotNow(); } });
     socket.on('auction:update', () => soon());
@@ -1128,14 +1168,15 @@
 
     const wrap = document.getElementById('countdown-wrap');
     const val  = document.getElementById('countdown-val');
+    const bar  = document.getElementById('countdown-bar');
     const end  = new Date(closesAt).getTime();
-    wrap.style.display = 'flex';
+    wrap.style.display = 'block';
 
     function tick() {
       const remaining = end - Date.now();
       if (remaining <= 0) {
         val.textContent = 'Ended';
-        val.className   = 'ended';
+        if (bar) { bar.classList.remove('urgent', 'warn'); bar.classList.add('ended'); }
         clearInterval(countdownTimer);
         countdownTimer = null;
         return;
@@ -1150,7 +1191,12 @@
       } else {
         val.textContent = s + 's';
       }
-      val.className = remaining < 60000 ? 'urgent' : '';
+      // #4 urgency: green (>2m) → orange (1–2m) → red+pulse (<1m).
+      if (bar) {
+        bar.classList.remove('ended');
+        bar.classList.toggle('urgent', remaining < 60000);
+        bar.classList.toggle('warn', remaining >= 60000 && remaining < 120000);
+      }
     }
 
     tick();
@@ -1183,7 +1229,7 @@
   // isWinner is fetched separately from /winner-status (server-side identity check -
   // winning_buyer_user_id never touches the client).
   function renderWinnerPanel(winningAmountCents, isWinner) {
-    document.getElementById('winner-amount').textContent = '$' + (winningAmountCents / 100).toFixed(2);
+    document.getElementById('winner-amount').textContent = BidUtils.formatUSD(winningAmountCents); // #3 whole-dollar
     document.getElementById('winner-panel').style.display = 'block';
     if (isWinner) {
       document.getElementById('pay-btn').style.display = 'block';
@@ -1581,7 +1627,12 @@
 
       const amt = document.createElement('span');
       amt.className   = 'bid-amt';
-      amt.textContent = '$' + Number(bid.amount).toFixed(2);
+      // #5/#3: never render "$NaN" — accept amount_cents OR amount (socket vs poll shapes);
+      // display whole dollars only (backend keeps exact cents).
+      let _bc = Number(bid.amount_cents);
+      if (!Number.isFinite(_bc) || _bc <= 0) _bc = Math.round(Number(bid.amount) * 100);
+      if (!Number.isFinite(_bc) || _bc <= 0) _bc = 0;
+      amt.textContent = '$' + Math.round(_bc / 100).toLocaleString('en-US');
 
       const time = document.createElement('span');
       time.className   = 'bid-time';
@@ -1602,7 +1653,7 @@
     if (!el) return;
     let c = Number(cents);
     if (!Number.isFinite(c) || c <= 0) c = startingBidCents; // never show $NaN / $0.00
-    el.innerHTML = '$' + (c / 100).toFixed(2) + ' <span>USD</span>';
+    el.innerHTML = '$' + Math.round(c / 100).toLocaleString('en-US') + ' <span>USD</span>'; // #3 whole-dollar
   }
 
   function flashBidDisplay() {
@@ -1680,7 +1731,7 @@
       maxBidInput.value = '';
       // #16: every bid is a proxy maximum server-side - always frame the entered
       // amount as the buyer's max bid so they always know their current ceiling.
-      setStatus('Your Max Bid: $' + (hasMaxBid ? maxBidDollar : amount).toFixed(2), 'ok');
+      setStatus('Your Max Bid: ' + BidUtils.formatUSD(Math.round((hasMaxBid ? maxBidDollar : amount) * 100)), 'ok'); // #3 whole-dollar
       setTimeout(() => refreshLotNow(), 120); // refresh status panel (Winning) + CTA label
 
       try {

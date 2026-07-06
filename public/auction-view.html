@@ -609,6 +609,7 @@
 
 <script src="/widgets/shared/auth-refresh.js"></script>
 <script src="/widgets/shared/bid-increment.js"></script>
+<script src="/widgets/shared/buyer-chime.js"></script>
 <script src="/widgets/shared/bid-status.js"></script>
 <script src="/widgets/shared/analytics.js"></script>
 <script src="/widgets/shared/marketplace-seller-cta.js"></script>
@@ -1427,7 +1428,7 @@
         var rows = ((data && data.data) || []).filter(function (l) { return String(l.auction_id) === String(auctionId); });
         if (!rows.length) { el.innerHTML = '<h3>Watchlist Favorites</h3><div class="empty-tab">No watched or bid-on lots in this auction yet. Bidding on a lot adds it here automatically.</div>'; return; }
         el.innerHTML = '<h3>Watchlist Favorites (' + rows.length + ')</h3><div class="wl-grid">' + rows.map(function (l) {
-          var price = (l.current_bid_cents != null && l.current_bid_cents > 0) ? ('$' + (l.current_bid_cents / 100).toFixed(2)) : 'No bids yet';
+          var price = (l.current_bid_cents != null && l.current_bid_cents > 0) ? BidUtils.formatUSD(l.current_bid_cents) : 'No bids yet'; // #3 whole-dollar
           var img = l.thumbnail_url ? ('<img src="' + esc(l.thumbnail_url) + '" alt="" style="width:100%;aspect-ratio:4/3;object-fit:cover">') : '';
           return '<a class="wl-card" href="/lot.html?lotId=' + encodeURIComponent(l.id) + '">' + img +
             '<div class="b"><div class="t">Lot #' + esc(l.lot_number) + ' · ' + esc(l.title || '') + '</div>' +
