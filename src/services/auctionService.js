@@ -786,6 +786,13 @@ async function closeAuction(auctionId, actorId = null) {
     require('./billingTermsService').storeSettlementPreview(auctionId)
       .catch(err => console.error(`[billingTerms] preview store failed for auction_id=${auctionId}:`, err.message));
 
+    // Buyer-Centric Global Pickup Scheduling: generate the consolidated per-buyer pickup
+    // plan now that all winners are known (before payment). Best-effort, post-commit —
+    // no-ops gracefully if the auction has no pickup window. Enqueues PICKUP_SCHEDULED.
+    require('./pickupPlanService').generatePlanAtClose(auctionId)
+      .then(r => console.log(`[pickup] plan at close for auction_id=${auctionId}: ${JSON.stringify(r)}`))
+      .catch(err => console.error(`[pickup] plan generation failed for auction_id=${auctionId}:`, err.message));
+
     // Fire-and-forget: operational close email to seller (NOT the final payout/stat report).
     // Sends auction total, buyer list, and unpaid item warnings.
     // Email failures must never surface to the caller — auction close is already committed.

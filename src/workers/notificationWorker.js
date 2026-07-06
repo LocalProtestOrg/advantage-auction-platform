@@ -70,6 +70,35 @@ function buildEmail(type, payload, toAddress) {
   const price    = cents != null ? `$${(cents / 100).toFixed(2)}` : 'N/A';
   const lotUrl   = `${SITE_URL}/lot.html?lotId=${lotId}`;
 
+  // PICKUP_SCHEDULED — a RECOMMENDED arrival window (not a mandatory appointment). Buyers agreed
+  // only to the published pickup window before bidding and keep that flexibility; the optimized
+  // window is presented purely as advice to reduce wait times and protect fragile items.
+  if (type === 'PICKUP_SCHEDULED') {
+    const { fmtTime } = require('../lib/pickupTiers');
+    const rf = fmtTime(payload.slot_start), rt = fmtTime(payload.slot_end);
+    const wf = payload.window_start ? fmtTime(payload.window_start) : null;
+    const wt = payload.window_end ? fmtTime(payload.window_end) : null;
+    const winLine = (wf && wt)
+      ? `You are welcome to arrive at any time during the published pickup window (${wf} – ${wt}).`
+      : 'You are welcome to arrive at any time during the published pickup window.';
+    return {
+      to: toAddress,
+      subject: 'Your recommended pickup arrival window',
+      text: `Congratulations on your winning bid!\n\nTo reduce wait times and improve the pickup experience, we recommend arriving between ${rf} and ${rt}.\n\n${winLine}\n\n— Advantage Auction Company`,
+      html: `
+        <div style="font-family:system-ui,-apple-system,sans-serif;max-width:520px;margin:0 auto;color:#111;">
+          <div style="background:#111;color:#fff;padding:1rem 1.25rem;border-radius:10px 10px 0 0;font-weight:700;">Advantage.Bid</div>
+          <div style="border:1px solid #e4e4e7;border-top:none;border-radius:0 0 10px 10px;padding:1.5rem 1.25rem;">
+            <h1 style="font-size:1.15rem;margin:0 0 .6rem;">Your recommended pickup window</h1>
+            <p style="font-size:.92rem;line-height:1.6;color:#374151;margin:0 0 .9rem;">Congratulations on your winning bid! To reduce wait times and improve the pickup experience, we recommend arriving between:</p>
+            <p style="font-size:1.3rem;font-weight:700;margin:0 0 .9rem;">${rf} &ndash; ${rt}</p>
+            <p style="font-size:.9rem;line-height:1.6;color:#374151;margin:0 0 .5rem;">${winLine}</p>
+            <p style="font-size:.8rem;color:#71717a;margin:1rem 0 0;">&mdash; Advantage Auction Company</p>
+          </div>
+        </div>`.trim(),
+    };
+  }
+
   if (type === 'OUTBID') {
     return {
       to:      toAddress,
