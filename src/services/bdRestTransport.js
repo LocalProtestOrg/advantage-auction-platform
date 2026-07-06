@@ -25,19 +25,30 @@ async function getWithRetry(path, tries = 4) {
   throw last;
 }
 
-/** Fetch all directory listing records via cursor pagination. Read-only. */
-async function fetchAllListings({ max = 5000 } = {}) {
+/**
+ * Fetch all directory listing records. Read-only.
+ * BD pagination: the `next_page` token is passed back as the `?page=` query param (NOT
+ * `?next_page=`), and `?limit=N` sets the page size. A `seen` set guards against a
+ * non-advancing cursor (stops if a page returns no new records).
+ */
+async function fetchAllListings({ max = 5000, pageSize = 100 } = {}) {
   if (!apiKey()) throw new Error('BD_API_KEY not configured');
   let all = [], cursor = null, iter = 0, total = 0;
+  const seen = new Set();
   do {
-    const j = await getWithRetry('/user/get' + (cursor ? ('?next_page=' + encodeURIComponent(cursor)) : ''));
+    const path = '/user/get?limit=' + pageSize + (cursor ? ('&page=' + encodeURIComponent(cursor)) : '');
+    const j = await getWithRetry(path);
     total = parseInt(j.total, 10) || total;
-    all = all.concat(j.message || []);
+    const recs = j.message || [];
+    const before = seen.size;
+    for (const r of recs) { if (r && r.user_id != null) seen.add(String(r.user_id)); }
+    all = all.concat(recs);
     const nx = j.next_page && String(j.next_page).trim();
     cursor = nx || null;
     iter += 1;
-  } while (cursor && iter < 60 && all.length < total && all.length < max);
-  return { total, records: all, pages: iter };
+    if (cursor && seen.size === before) break; // cursor not advancing — stop to avoid a loop
+  } while (cursor && iter < 200 && seen.size < total && all.length < max);
+  return { total, records: all, pages: iter, unique: seen.size };
 }
 
 module.exports = { fetchAllListings, name: 'rest' };
