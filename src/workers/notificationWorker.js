@@ -736,6 +736,13 @@ async function runLotAutoClose() {
             WHERE id = $3`,
           [topBid.bidder_user_id, topBid.amount_cents, lot.id]
         );
+        // LR-P1-1: enqueue the winner's "you won" email at LOT close (prompt),
+        // matching closeAuction's payload. Atomic with the close. closeAuction only
+        // enqueues for lots it itself closes, so there is no double-email.
+        await client.query(
+          `INSERT INTO notifications_queue (user_id, type, payload) VALUES ($1, 'WINNING', $2)`,
+          [topBid.bidder_user_id, JSON.stringify({ lot_id: lot.id, visible_cents: topBid.amount_cents })]
+        );
       } else {
         await client.query(
           `UPDATE lots SET state = 'closed' WHERE id = $1`,
