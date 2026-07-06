@@ -526,7 +526,7 @@ async function publishAuction(auctionId, actorId = null) {
     await client.query('BEGIN');
 
     const current = await client.query(
-      'SELECT id, state, seller_id FROM auctions WHERE id = $1 FOR UPDATE',
+      'SELECT id, state, seller_id, start_time FROM auctions WHERE id = $1 FOR UPDATE',
       [auctionId]
     );
     if (!current.rows[0]) {
@@ -538,6 +538,25 @@ async function publishAuction(auctionId, actorId = null) {
     }
     if (state === 'closed') {
       throw new Error('Cannot publish a closed auction');
+    }
+
+    // LR-P0-1 launch guard: never publish an auction that would be "dead". Without a
+    // start_time the state scheduler never activates it (and lots never get closes_at);
+    // with no lots there is nothing to bid on. Applies to admins too — this is a
+    // correctness guard, not a permission (set a start_time / add a lot, then publish).
+    if (!current.rows[0].start_time) {
+      const e = new Error('This auction has no start time. Set a start time before publishing.');
+      e.code = 'START_TIME_REQUIRED'; e.status = 422;
+      throw e;
+    }
+    const lotCountRes = await client.query(
+      "SELECT count(*)::int AS c FROM lots WHERE auction_id = $1 AND state != 'withdrawn'",
+      [auctionId]
+    );
+    if (lotCountRes.rows[0].c === 0) {
+      const e = new Error('This auction has no lots. Add at least one lot before publishing.');
+      e.code = 'AUCTION_HAS_NO_LOTS'; e.status = 422;
+      throw e;
     }
 
     // Verification publication gate: ONLY blocks when the seller is explicitly
@@ -681,7 +700,7 @@ async function closeAuction(auctionId, actorId = null) {
 
       if (topBid) {
         const winningCents = topBid.amount_cents;
-        await client.query(
+        const upd = await client.query(
           `UPDATE lots
            SET state = 'closed',
                winning_buyer_user_id = $1,
@@ -690,14 +709,17 @@ async function closeAuction(auctionId, actorId = null) {
           [topBid.bidder_user_id, winningCents, lot.id]
         );
         // ADMIN-CTRL Phase 3: enqueue the winner's "you won" email into
-        // notifications_queue (the real SES path). Previously closeAuction sent
-        // nothing — winners were never emailed. The worker renders WINNING via
-        // notificationContent.buildLotEmail (link base = publicBaseUrl()). Atomic
-        // with the close; relevance() keeps WINNING deliverable post-close.
-        await client.query(
-          `INSERT INTO notifications_queue (user_id, type, payload) VALUES ($1, 'WINNING', $2)`,
-          [topBid.bidder_user_id, JSON.stringify({ lot_id: lot.id, visible_cents: winningCents })]
-        );
+        // notifications_queue (the real SES path). The worker renders WINNING via
+        // notificationContent.buildLotEmail. Atomic with the close.
+        // LR-P1-1: only enqueue for lots THIS call actually closed (rowCount > 0).
+        // Lots already closed by runLotAutoClose enqueued WINNING at their own close;
+        // re-enqueuing here would double-email that winner.
+        if (upd.rowCount > 0) {
+          await client.query(
+            `INSERT INTO notifications_queue (user_id, type, payload) VALUES ($1, 'WINNING', $2)`,
+            [topBid.bidder_user_id, JSON.stringify({ lot_id: lot.id, visible_cents: winningCents })]
+          );
+        }
         results.push({
           lot_id: lot.id,
           winner_user_id: topBid.bidder_user_id,
