@@ -202,6 +202,7 @@ const adminPartnersRoutes       = require('./src/routes/adminPartners');
 const adminLaunchReadinessRoutes = require('./src/routes/adminLaunchReadiness');
 const orgClaimRoutes            = require('./src/routes/orgClaim');
 const adminCrmRoutes            = require('./src/routes/adminCrm');
+const adminPickupRoutes         = require('./src/routes/adminPickup');
 const legalRoutes               = require('./src/routes/legal');
 const configRoutes              = require('./src/routes/config');
 
@@ -238,6 +239,7 @@ app.use('/api/admin/events', adminEventsRoutes);
 app.use('/api/admin/marketplace', adminMarketplaceRoutes);
 app.use('/api/admin/partners', adminPartnersRoutes);
 app.use('/api/admin/crm', adminCrmRoutes);
+app.use('/api/admin/pickup', adminPickupRoutes);
 app.use('/api/admin/launch-readiness', adminLaunchReadinessRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/agreements', agreementsRoutes);

@@ -272,10 +272,13 @@ class PickupScheduleService {
   }
 
   async assignPickupOnPayment(client, lotId, buyerUserId) {
-    // Called by PaymentService when payment succeeds
-    // Dynamically assign buyer to next available slot for their category
-    // Prevents empty slot waste, enables real-time payment flow
-    // Enforces: 1 assignment per lot (replaces existing if reassigning)
+    // RETIRED (Launch: Buyer-Centric Global Pickup Scheduling). The consolidated per-buyer
+    // pickup plan is now generated AT CLOSE by pickupPlanService.generatePlanAtClose (driven
+    // off the clean size_category, one appointment per buyer). This legacy per-lot,
+    // payment-order, pickup_category-keyed assignment is disabled so it cannot overwrite the
+    // buyer-centric plan. Kept as a no-op for call-site compatibility (recordPaymentSuccess).
+    return null;
+    // eslint-disable-next-line no-unreachable
     const lotRes = await client.query(
       `SELECT pickup_category, auction_id FROM lots WHERE id = $1`,
       [lotId]
