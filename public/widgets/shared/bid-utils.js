@@ -12,7 +12,8 @@
     var cleaned = String(v).replace(/[$,\s]/g, '');
     if (cleaned === '') return NaN;
     var n = Number(cleaned);
-    return Number.isFinite(n) ? n : NaN;
+    // Whole-dollar bidding: buyers bid in whole dollars — round any typed cents.
+    return Number.isFinite(n) ? Math.round(n) : NaN;
   }
 
   // Minimum next bid = max(starting, current + increment). Prefer the server's
@@ -35,7 +36,8 @@
   function formatUSD(cents) {
     var c = Number(cents);
     if (!Number.isFinite(c)) c = 0;
-    return '$' + (c / 100).toFixed(2);
+    // Whole-dollar bidding: buyers never see cents (backend keeps exact cents).
+    return '$' + Math.round(c / 100).toLocaleString('en-US');
   }
 
   // Map a failed bid response to a clear, human message - never a raw JS error.
