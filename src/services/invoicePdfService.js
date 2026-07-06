@@ -196,14 +196,18 @@ async function buildInvoicePdf(data) {
       pdf.moveDown(opts.bold ? 0.2 : 0.35);
     };
 
-    sumRow('Hammer subtotal', doc.money(data.summary.hammerCents));
-    sumRow('Buyer premium', data.summary.buyerPremiumCents ? doc.money(data.summary.buyerPremiumCents) : '—', { muted: !data.summary.buyerPremiumCents });
-    sumRow('Sales tax', data.summary.salesTaxCents ? doc.money(data.summary.salesTaxCents) : '—', { muted: !data.summary.salesTaxCents });
-    sumRow('Shipping', data.summary.shippingCents ? doc.money(data.summary.shippingCents) : '—', { muted: !data.summary.shippingCents });
+    // #10: always show every line item ($0.00 until the feature is enabled), with a
+    // Credits / Refunds line, ending in a bold Grand Total.
+    const creditsCents = Number(data.summary.creditsCents || data.summary.refundedCents || 0);
+    sumRow('Hammer Total', doc.money(data.summary.hammerCents));
+    sumRow('Buyer Premium', doc.money(data.summary.buyerPremiumCents || 0), { muted: !data.summary.buyerPremiumCents });
+    sumRow('Sales Tax', doc.money(data.summary.salesTaxCents || 0), { muted: !data.summary.salesTaxCents });
+    sumRow('Shipping', doc.money(data.summary.shippingCents || 0), { muted: !data.summary.shippingCents });
+    sumRow('Credits / Refunds', creditsCents ? ('-' + doc.money(creditsCents)) : doc.money(0), { muted: !creditsCents });
     pdf.moveDown(0.1);
     pdf.strokeColor(doc.BRAND.hair).lineWidth(1).moveTo(sx, pdf.y).lineTo(right, pdf.y).stroke();
     pdf.moveDown(0.3);
-    sumRow('Total', doc.money(data.summary.totalCents), { bold: true });
+    sumRow('Grand Total', doc.money(data.summary.totalCents), { bold: true });
 
     // ── Footer ──────────────────────────────────────────────────────────────
     pdf.font('Helvetica').fontSize(8).fillColor(doc.BRAND.slate);
