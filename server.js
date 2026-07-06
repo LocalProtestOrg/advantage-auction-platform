@@ -200,6 +200,7 @@ const publicEventsRoutes        = require('./src/routes/publicEvents');
 const adminMarketplaceRoutes    = require('./src/routes/adminMarketplace');
 const adminPartnersRoutes       = require('./src/routes/adminPartners');
 const adminLaunchReadinessRoutes = require('./src/routes/adminLaunchReadiness');
+const orgClaimRoutes            = require('./src/routes/orgClaim');
 const legalRoutes               = require('./src/routes/legal');
 const configRoutes              = require('./src/routes/config');
 
@@ -252,6 +253,7 @@ app.use('/api/image-processing', imageProcessingRoutes);
 app.use('/api/uploads', uploadsRoutes);
 app.use('/api/public', publicRoutes);
 app.use('/api/public', publicEventsRoutes);   // event feed (+ restricted CORS); falls through public.js
+app.use('/api/org/claim', orgClaimRoutes);
 app.use('/api/org', orgEventsRoutes);
 app.use('/api/legal', legalRoutes);
 app.use('/api/config', configRoutes);

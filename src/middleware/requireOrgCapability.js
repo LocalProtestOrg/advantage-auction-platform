@@ -16,7 +16,8 @@ function requireOrgCapability(capability) {
   return async function requireOrgCapabilityMiddleware(req, res, next) {
     try {
       if (req.user && req.user.role === 'admin') return next(); // admin override
-      const org = await orgsService.getPrimaryOrgForUser(req.user.id);
+      // Prefer the resolved acting org (Phase 3B); fall back to the user's single/primary org.
+      const org = req.actingOrg || await orgsService.getPrimaryOrgForUser(req.user.id);
       if (!org) {
         return res.status(403).json({ success: false, code: 'NO_ORGANIZATION', message: 'No organization is associated with this account.' });
       }
