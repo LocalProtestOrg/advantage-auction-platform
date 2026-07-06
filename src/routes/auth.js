@@ -5,6 +5,7 @@ const db = require('../db/index');
 const auth = require('../middleware/authMiddleware');
 const { normalLimiter, strictLimiter } = require('../middleware/rateLimit');
 const { requestReset, resetPassword } = require('../services/passwordResetService');
+const emailVerificationService = require('../services/emailVerificationService');
 
 const router = express.Router();
 const JWT_SECRET = process.env.JWT_SECRET;
@@ -30,6 +31,10 @@ router.post('/register', normalLimiter, async (req, res) => {
       process.env.JWT_SECRET,
       { expiresIn: process.env.JWT_EXPIRES_IN || '24h' }
     );
+    // Launch: professional welcome email + OPTIONAL (non-blocking) email verification.
+    // Fire-and-forget — registration must never fail because email delivery did, and
+    // nothing downstream gates on verification.
+    emailVerificationService.sendWelcome(user.id, email).catch(() => {});
     res.json({ success: true, token, data: { user: { id: user.id } } });
   } catch (err) {
     if (err.code === '23505') {
@@ -38,6 +43,34 @@ router.post('/register', normalLimiter, async (req, res) => {
     console.error('[auth] register failed:', { email, error: err.message });
     return res.status(500).json({ success: false, error: 'Registration failed' });
   }
+});
+
+// GET /api/auth/verify-email?token=... — OPTIONAL, non-blocking email confirmation.
+// Clicked from the welcome email. Records verification; never gates any flow. Returns a
+// friendly branded page (a token already used reads as success — the email is verified).
+router.get('/verify-email', async (req, res) => {
+  let ok = false;
+  try {
+    const result = await emailVerificationService.verifyEmail(req.query.token);
+    ok = result.ok || result.code === 'TOKEN_USED';
+  } catch (err) {
+    console.error('[auth] verify-email failed:', err.message);
+  }
+  const home = (process.env.PUBLIC_APP_URL || 'https://bid.advantage.bid').replace(/\/+$/, '');
+  const heading = ok ? 'Email confirmed' : 'Link expired or invalid';
+  const msg = ok
+    ? 'Thank you — your email address is confirmed. You can close this tab and return to Advantage.Bid.'
+    : 'This confirmation link is no longer valid. Confirming your email is optional — your account already works for bidding and checkout.';
+  res.status(ok ? 200 : 400).type('html').send(
+    `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${heading} — Advantage.Bid</title></head>` +
+    `<body style="font-family:system-ui,-apple-system,sans-serif;background:#fafafa;margin:0;padding:2.5rem 1rem;color:#111;">` +
+    `<div style="max-width:460px;margin:0 auto;border:1px solid #e4e4e7;border-radius:12px;overflow:hidden;background:#fff;">` +
+    `<div style="background:#111;color:#fff;padding:1rem 1.25rem;font-weight:700;">Advantage.Bid</div>` +
+    `<div style="padding:1.75rem 1.35rem;"><h1 style="font-size:1.2rem;margin:0 0 .6rem;">${heading}</h1>` +
+    `<p style="font-size:.92rem;line-height:1.6;color:#374151;margin:0 0 1.25rem;">${msg}</p>` +
+    `<a href="${home}" style="display:inline-block;background:#111;color:#fff;text-decoration:none;font-weight:700;padding:.65rem 1.25rem;border-radius:7px;font-size:.9rem;">Go to Advantage.Bid</a>` +
+    `</div></div></body></html>`
+  );
 });
 
 // Login
