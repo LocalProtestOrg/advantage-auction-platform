@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300" role="img" aria-label="Image coming soon">
+  <rect width="400" height="300" fill="#f1f5f9"/>
+  <g fill="none" stroke="#cbd5e1" stroke-width="7" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="139" y="108" width="122" height="92" rx="12"/>
+    <circle cx="200" cy="156" r="27"/>
+    <path d="M167 108l11-17h44l11 17"/>
+  </g>
+  <text x="200" y="238" text-anchor="middle" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif" font-size="17" fill="#94a3b8" font-weight="600">Image coming soon</text>
+</svg>

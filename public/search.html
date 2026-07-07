@@ -77,7 +77,7 @@
       const cur = hist ? 'Historical archive'
                 : (l.current_bid_cents!=null && l.current_bid_cents>0) ? ('Current bid '+usd(l.current_bid_cents))
                 : ('Starts at '+ (usd(l.starting_bid_cents)||'$1.00'));
-      const img = l.thumbnail_url ? '<img src="'+esc(l.thumbnail_url)+'" alt="" loading="lazy">' : '';
+      const img = '<img src="'+(l.thumbnail_url?esc(l.thumbnail_url):'/img/lot-placeholder.svg')+'" alt="" loading="lazy" onerror="this.onerror=null;this.src=\'/img/lot-placeholder.svg\'">'; // #13 professional fallback
       const num = l.lot_number!=null ? ('Lot #'+l.lot_number+' · ') : '';
       const loc = [l.auction_city, l.auction_address_state].filter(Boolean).join(', ');
       const tl = (l.lot_state==='open' && l.closes_at) ? (' · '+timeLeft(l.closes_at)+' left') : (l.lot_state==='closed'?' · Closed':'');
@@ -89,7 +89,7 @@
         +'<div class="price">'+cur+'</div></div></a>';
     }
     function auctionCard(a){
-      const img = a.cover_image_url ? '<img src="'+esc(a.cover_image_url)+'" alt="" loading="lazy">' : '';
+      const img = '<img src="'+(a.cover_image_url?esc(a.cover_image_url):'/img/lot-placeholder.svg')+'" alt="" loading="lazy" onerror="this.onerror=null;this.src=\'/img/lot-placeholder.svg\'">'; // #13 professional fallback
       const loc = [a.city, a.address_state].filter(Boolean).join(', ');
       const dist = (a.distance_km!=null) ? (' · '+Math.max(1,Math.round(a.distance_km*0.621371))+' mi') : '';
       return '<a class="card" href="/auction-view.html?auctionId='+encodeURIComponent(a.id)+'">'
