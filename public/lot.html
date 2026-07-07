@@ -1250,6 +1250,8 @@
   // ── Render lot metadata ───────────────────────────────────────────────────────
   function renderLot(lot) {
     currentAuctionId = lot.auction_id;
+    // Back-button context: a shared lot link (no in-app history) returns to this lot's auction.
+    if (lot.auction_id) window.BUYER_NAV_BACK = '/auction-view.html?auctionId=' + encodeURIComponent(lot.auction_id);
     isHistoricalLot = lot.auction_public_type === 'historical_archive';
     currentLotTitle = lot.title || '';
     renderLotStatus(lot);
