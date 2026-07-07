@@ -24,7 +24,7 @@
       'border-radius:7px;padding:7px 11px;font-size:17px;line-height:1;cursor:pointer}' +
     '#buyer-nav .bn-burger:hover{background:rgba(255,255,255,.22)}' +
     '#buyer-nav .bn-collapse{display:flex;align-items:center;gap:6px;flex:1;min-width:0}' +
-    '#buyer-nav .bn-links{display:flex;align-items:center;gap:2px;flex:1;flex-wrap:nowrap;overflow-x:auto;min-width:0}' +
+    '#buyer-nav .bn-links{display:flex;align-items:center;gap:2px;flex:1;flex-wrap:wrap;overflow:visible;min-width:0}' +
     '#buyer-nav .bn-links a{color:#cbd5e1;text-decoration:none;padding:7px 12px;border-radius:7px;' +
       'font-size:14px;font-weight:600;white-space:nowrap}' +
     '#buyer-nav .bn-links a:hover{background:rgba(255,255,255,.10);color:#fff}' +
