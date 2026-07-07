@@ -1191,7 +1191,15 @@ class PaymentService {
         [intent.id, payment.id, payment.auction_id, payment.buyer_user_id]
       )).rows[0];
       if (bai) {
-        await combinedSvc.settleCombined(bai.id, intent.id, payment.id);
+        const s = await combinedSvc.settleCombined(bai.id, intent.id, payment.id);
+        // If THIS settle flipped the header to paid, send the success package (covers the
+        // rare charge-returned-pending case where the close hook did not email). Idempotent:
+        // if the close hook already settled + emailed, settleCombined returns {alreadyPaid}
+        // and no duplicate is sent. Best-effort — never break the webhook ack.
+        if (s && s.settled) {
+          require('./combinedReceiptService').sendSuccessPackage(bai.id)
+            .catch(e => console.error('[webhook] combined success package send failed', bai.id, e.message));
+        }
         console.log(`[webhook] payment_intent.succeeded → combined invoice ${bai.id} settled (intent=${intent.id})`);
       } else {
         // Combined payment succeeded but no header row could be located. Mark the
