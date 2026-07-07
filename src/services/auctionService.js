@@ -845,6 +845,12 @@ async function closeAuction(auctionId, actorId = null) {
         const closedAt = new Date();
         const [plus12h, plus24h] = combinedInvoiceService.reminderSchedule(closedAt);
 
+        // Create the per-lot 'issued' invoices too (idempotent), but WITHOUT the per-lot
+        // email — the combined package is the buyer's single email. These remain as the
+        // admin-view + pickup-packet artifacts and are flipped to paid by settleCombined.
+        await require('./invoiceService').issueInvoicesForAuctionWinners(auctionId)
+          .catch(err => console.error(`[combined] per-lot invoice issuance failed for auction_id=${auctionId}:`, err.message));
+
         const issued = await combinedInvoiceService.issueForAuction(auctionId);
         console.log(`[combined] issued ${issued.length} combined invoice(s) for auction_id=${auctionId}`);
 
