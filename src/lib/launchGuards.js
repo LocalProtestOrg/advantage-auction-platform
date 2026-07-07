@@ -15,4 +15,11 @@ function sellerSettlementsEnabled(env = process.env) {
   return env && env.SELLER_SETTLEMENTS_ENABLED === 'true';
 }
 
-module.exports = { isInvoicePaid, sellerSettlementsEnabled };
+// Design C: combined per-buyer invoicing + off-session auto-charge + held seller closeout is OFF
+// unless COMBINED_INVOICING_ENABLED is exactly 'true'. Default (unset) = disabled, so auction
+// close keeps using the proven per-lot invoice + on-session Pay Now path until this is validated.
+function combinedInvoicingEnabled(env = process.env) {
+  return !!(env && env.COMBINED_INVOICING_ENABLED === 'true');
+}
+
+module.exports = { isInvoicePaid, sellerSettlementsEnabled, combinedInvoicingEnabled };
