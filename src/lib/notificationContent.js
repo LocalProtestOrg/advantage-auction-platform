@@ -33,14 +33,19 @@ function lotRef(lot) {
 
 // Decide whether a queued notification should still be delivered.
 // Returns { send: boolean, reason?: string }. Pure - pass `now` for testability.
-function relevance(type, lot, now) {
+function relevance(type, lot, now, auction) {
   if (!LOT_TYPES.has(type)) return { send: true };          // non-lot types (auction/seller) always relevant
   if (!lot) return { send: false, reason: 'lot not found' };
   const closed = lot.state === 'closed' || lot.state === 'withdrawn';
   const closeAt = lot.extended_until || lot.closes_at || null;
   const past = closeAt && new Date(closeAt).getTime() <= now.getTime();
-  if (STALE_IF_CLOSED.has(type) && (closed || past)) {
-    return { send: false, reason: 'lot closed or past close time' };
+  // Also drop once the whole AUCTION has ended. Covers lots with a null/unset closes_at
+  // (or not yet individually marked closed) whose auction has closed or passed end_time —
+  // the root cause of "you're winning" emails arriving hours after an auction ended.
+  const auctionEnded = !!auction && (auction.state === 'closed'
+    || (auction.end_time && new Date(auction.end_time).getTime() <= now.getTime()));
+  if (STALE_IF_CLOSED.has(type) && (closed || past || auctionEnded)) {
+    return { send: false, reason: (closed || past) ? 'lot closed or past close time' : 'auction ended' };
   }
   return { send: true };
 }

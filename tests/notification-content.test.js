@@ -27,6 +27,16 @@ describe('relevance (staleness guard)', () => {
   test('WINNING (you won) is NOT dropped on a closed lot', () => {
     expect(relevance('WINNING', openLot({ state: 'closed' }), NOW).send).toBe(true);
   });
+  test('act-now email dropped once the AUCTION has ended, even if the lot has no closes_at', () => {
+    const lot = openLot({ closes_at: null, extended_until: null }); // still "open", no close time
+    const ended = { state: 'closed', end_time: '2026-07-01T11:00:00Z' };
+    const r = relevance('LEADING', lot, NOW, ended);
+    expect(r.send).toBe(false); expect(r.reason).toMatch(/auction ended/);
+  });
+  test('act-now email still sends while the auction is live (open lot, no closes_at)', () => {
+    const live = { state: 'active', end_time: '2026-07-01T18:00:00Z' };
+    expect(relevance('LEADING', openLot({ closes_at: null }), NOW, live).send).toBe(true);
+  });
   test('missing lot → dropped (cannot enrich)', () => {
     expect(relevance('OUTBID', null, NOW).send).toBe(false);
   });
