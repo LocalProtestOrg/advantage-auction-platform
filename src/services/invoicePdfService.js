@@ -221,6 +221,94 @@ async function buildInvoicePdf(data) {
 }
 
 /**
+ * getCombinedInvoiceData — Design C combined header assembled into the SAME
+ * { header..., lines:[...], summary:{...} } shape buildInvoicePdf consumes, but
+ * across ALL of the buyer's winning lots in the auction. Reuses buildInvoicePdf
+ * unchanged. getInvoiceData (per-lot) is deliberately left untouched.
+ *
+ * FLAG-INERT: only reachable via the combined invoicing path, which is dormant
+ * until COMBINED_INVOICING_ENABLED is set.
+ */
+async function getCombinedInvoiceData(combinedInvoiceId) {
+  const { rows } = await db.query(
+    `SELECT b.id,
+            b.invoice_number,
+            b.created_at,
+            b.closed_at,
+            b.status,
+            b.hammer_cents,
+            b.buyer_premium_cents,
+            b.sales_tax_cents,
+            b.shipping_cents,
+            b.credits_cents,
+            b.total_cents,
+            b.buyer_user_id,
+            b.auction_id,
+            b.paid_at,
+            b.payment_id,
+            a.title      AS auction_title,
+            u.email      AS buyer_email,
+            u.full_name  AS buyer_name,
+            p.status     AS payment_status,
+            p.charged_at AS payment_date
+       FROM buyer_auction_invoices b
+       LEFT JOIN auctions a ON a.id = b.auction_id
+       LEFT JOIN users    u ON u.id = b.buyer_user_id
+       LEFT JOIN payments p ON p.id = b.payment_id
+      WHERE b.id = $1`,
+    [combinedInvoiceId]
+  );
+  if (!rows[0]) return null;
+  const r = rows[0];
+
+  const { rows: lots } = await db.query(
+    `SELECT l.id AS lot_id,
+            l.lot_number,
+            l.title AS lot_title,
+            l.winning_amount_cents,
+            (SELECT image_url FROM lot_images WHERE lot_id = l.id ORDER BY sort_order ASC LIMIT 1) AS lot_image_url
+       FROM lots l
+      WHERE l.auction_id = $1
+        AND l.winning_buyer_user_id = $2
+        AND l.state = 'closed'
+      ORDER BY l.lot_number ASC NULLS LAST`,
+    [r.auction_id, r.buyer_user_id]
+  );
+
+  const lines = lots.map((l) => ({
+    lotId: l.lot_id,
+    lotNumber: l.lot_number,
+    title: l.lot_title || 'Lot',
+    imageUrl: l.lot_image_url || null,
+    hammerCents: l.winning_amount_cents || 0,
+  }));
+
+  return {
+    id: r.id,
+    combinedInvoiceId: r.id,
+    auctionId: r.auction_id,
+    invoiceNumber: r.invoice_number || ('AAC-C-' + String(r.id).slice(0, 8)),
+    invoiceDate: r.closed_at || r.created_at,
+    status: r.status,
+    paymentStatus: r.payment_status || (r.status === 'paid' ? 'paid' : r.status),
+    paymentDate: r.payment_date || r.paid_at,
+    buyerUserId: r.buyer_user_id,
+    buyerName: r.buyer_name || null,
+    buyerEmail: r.buyer_email || null,
+    auctionTitle: r.auction_title || null,
+    lines,
+    summary: {
+      hammerCents: r.hammer_cents || 0,
+      buyerPremiumCents: r.buyer_premium_cents || 0,
+      salesTaxCents: r.sales_tax_cents || 0,
+      shippingCents: r.shipping_cents || 0,
+      creditsCents: r.credits_cents || 0,
+      totalCents: r.total_cents || 0,
+    },
+  };
+}
+
+/**
  * Build the invoice PDF, best-effort archive it to private storage, record a
  * generated_documents history row, and stamp the invoice's pdf_* columns.
  * @returns {Promise<{buffer: Buffer, fileName: string, public_id: string|null, sha256: string}>}
@@ -261,4 +349,4 @@ async function generateAndStoreInvoicePdf(invoiceId) {
   return { buffer, fileName, public_id: stored.public_id, sha256: stored.sha256, data };
 }
 
-module.exports = { getInvoiceData, buildInvoicePdf, generateAndStoreInvoicePdf };
+module.exports = { getInvoiceData, getCombinedInvoiceData, buildInvoicePdf, generateAndStoreInvoicePdf };

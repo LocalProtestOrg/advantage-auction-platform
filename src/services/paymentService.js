@@ -415,6 +415,189 @@ class PaymentService {
     };
   }
 
+  // ── Design C: combined per-buyer off-session charge (FLAG-INERT) ─────────────
+  // Pure resolution of the off-session charge context. Given the buyer's Stripe
+  // customer id + candidate payment methods, decide whether we can charge and with
+  // which PM. Prefers the local 'verified' card marker, then the customer's default
+  // PM. Returns { skipped:'no_card' } when either the customer or a usable PM is
+  // missing (caller then routes the header to payment_required). Never throws.
+  _resolveCombinedChargeContext({ stripeCustomerId, verifiedPmId, defaultPmId } = {}) {
+    if (!stripeCustomerId) return { skipped: 'no_card' };
+    const paymentMethodId = verifiedPmId || defaultPmId || null;
+    if (!paymentMethodId) return { skipped: 'no_card' };
+    return { customerId: stripeCustomerId, paymentMethodId };
+  }
+
+  // Load the raw context the pure resolver needs. Only calls Stripe (for the
+  // customer's default PM) when there is no local verified marker.
+  async _loadCombinedChargeContext(buyerUserId) {
+    const u = (await db.query('SELECT stripe_customer_id FROM users WHERE id = $1', [buyerUserId])).rows[0] || {};
+    const cv = (await db.query(
+      `SELECT stripe_payment_method_id
+         FROM card_verifications
+        WHERE user_id = $1 AND status = 'verified' AND stripe_payment_method_id IS NOT NULL
+        ORDER BY attempted_at DESC NULLS LAST, id DESC
+        LIMIT 1`,
+      [buyerUserId]
+    )).rows[0];
+    let defaultPmId = null;
+    if (u.stripe_customer_id && !(cv && cv.stripe_payment_method_id)) {
+      try {
+        const stripe = getStripe();
+        const cust = await stripe.customers.retrieve(u.stripe_customer_id);
+        let dp = cust && cust.invoice_settings && cust.invoice_settings.default_payment_method;
+        if (dp && typeof dp === 'object') dp = dp.id;
+        defaultPmId = dp || null;
+      } catch (_e) { /* best-effort — resolver will fall back to no_card */ }
+    }
+    return {
+      stripeCustomerId: u.stripe_customer_id || null,
+      verifiedPmId: (cv && cv.stripe_payment_method_id) || null,
+      defaultPmId,
+    };
+  }
+
+  // Charge a combined per-buyer invoice off-session. Mirrors createPaymentIntent's
+  // idempotency discipline (insert pending row first, Stripe OUTSIDE the tx, attach
+  // intent in a follow-up tx) but for lot_id=NULL combined payments, guarded by the
+  // partial unique index idx_payments_combined_active.
+  //
+  // Does NOT settle — returns the outcome for the caller (combinedInvoiceService)
+  // to route to settleCombined / markFailed:
+  //   { skipped:'no_card' }               — no customer/PM; caller → payment_required
+  //   { inProgress:true }                 — a combined charge is already in flight
+  //   { status:'succeeded', paymentId, intentId }
+  //   { status:'pending',   paymentId, intentId }  — requires_action / processing
+  //   { status:'failed',    paymentId, reason }     — card_declined / authentication_required
+  async chargeCombinedOffSession({ auctionId, buyerUserId, combinedInvoiceId, amountCents, idempotencyKey }) {
+    // 1. Resolve customer + payment method. No card → skip (never throw).
+    const ctx = await this._loadCombinedChargeContext(buyerUserId);
+    const resolved = this._resolveCombinedChargeContext(ctx);
+    if (resolved.skipped) return { skipped: resolved.skipped };
+
+    // 2. Insert a pending combined payment row (lot_id NULL). The partial unique
+    //    index blocks a duplicate active combined charge → treat as in-progress.
+    let paymentId;
+    const client = await db.connect();
+    try {
+      await client.query('BEGIN');
+      const inserted = await client.query(
+        `INSERT INTO payments (auction_id, lot_id, buyer_user_id, amount_cents, status, payment_intent_id)
+         VALUES ($1, NULL, $2, $3, 'pending', NULL)
+         RETURNING id`,
+        [auctionId, buyerUserId, amountCents]
+      );
+      paymentId = inserted.rows[0].id;
+      await auditService.logEvent(client, {
+        eventType:  'payment.created',
+        entityType: 'payment',
+        entityId:   paymentId,
+        auctionId,
+        paymentId,
+        actorId:    buyerUserId,
+        metadata: { amount_cents: amountCents, status: 'pending', combined: true, combined_invoice_id: combinedInvoiceId },
+      });
+      await client.query('COMMIT');
+    } catch (err) {
+      await client.query('ROLLBACK').catch(() => {});
+      client.release();
+      if (err && err.code === '23505') {
+        // Unique violation on idx_payments_combined_active — a combined charge is
+        // already pending/paid for this (auction, buyer).
+        return { inProgress: true };
+      }
+      throw err;
+    }
+    client.release();
+
+    // 3. Stripe off-session confirm. External call OUTSIDE any DB transaction.
+    const stripeKey = idempotencyKey || ('combined:' + combinedInvoiceId);
+    let intent;
+    try {
+      const stripe = getStripe();
+      intent = await stripe.paymentIntents.create({
+        amount:         amountCents,
+        currency:       'usd',
+        customer:       resolved.customerId,
+        payment_method: resolved.paymentMethodId,
+        off_session:    true,
+        confirm:        true,
+        metadata: { combined_invoice_id: combinedInvoiceId, auction_id: auctionId, buyer_user_id: buyerUserId, payment_id: paymentId },
+      }, { timeout: 15000, idempotencyKey: stripeKey });
+    } catch (stripeErr) {
+      // Off-session declines (card_declined) and authentication_required surface as
+      // StripeCardError. Mark the payment failed and return the outcome — do NOT throw
+      // for a card problem (caller routes the header to payment_required + Reminder #1).
+      const isCardError = stripeErr && (
+        stripeErr.type === 'StripeCardError' ||
+        stripeErr.code === 'card_declined' ||
+        stripeErr.code === 'authentication_required'
+      );
+      const attachedIntentId = stripeErr && stripeErr.raw && stripeErr.raw.payment_intent && stripeErr.raw.payment_intent.id;
+      const fc = await db.connect();
+      try {
+        await fc.query('BEGIN');
+        await fc.query(
+          `UPDATE payments
+              SET status = 'failed', last_attempted_at = now(),
+                  payment_intent_id = COALESCE(payment_intent_id, $2)
+            WHERE id = $1 AND status = 'pending'`,
+          [paymentId, attachedIntentId || null]
+        );
+        await auditService.logEvent(fc, {
+          eventType:  'payment.intent_create_failed',
+          entityType: 'payment',
+          entityId:   paymentId,
+          auctionId,
+          paymentId,
+          actorId:    buyerUserId,
+          metadata: { source: 'chargeCombinedOffSession', stripe_error: stripeErr.message, combined_invoice_id: combinedInvoiceId },
+        });
+        await fc.query('COMMIT');
+      } catch (cleanupErr) {
+        await fc.query('ROLLBACK').catch(() => {});
+        console.error('[combined] chargeCombinedOffSession cleanup failed', { paymentId, cleanup_error: cleanupErr.message, original_error: stripeErr.message });
+      } finally {
+        fc.release();
+      }
+      if (isCardError) return { status: 'failed', paymentId, reason: stripeErr.code || stripeErr.message };
+      throw stripeErr;
+    }
+
+    // Attach the intent id (tx2) — mirror createPaymentIntent's discipline.
+    const attachClient = await db.connect();
+    try {
+      await attachClient.query('BEGIN');
+      await attachClient.query(
+        `UPDATE payments SET payment_intent_id = $1 WHERE id = $2 AND payment_intent_id IS NULL`,
+        [intent.id, paymentId]
+      );
+      await auditService.logEvent(attachClient, {
+        eventType:  'payment.intent_attached',
+        entityType: 'payment',
+        entityId:   paymentId,
+        auctionId,
+        paymentId,
+        actorId:    buyerUserId,
+        metadata: { payment_intent_id: intent.id, combined_invoice_id: combinedInvoiceId, idempotency_key: stripeKey },
+      });
+      await attachClient.query('COMMIT');
+    } catch (attachErr) {
+      await attachClient.query('ROLLBACK').catch(() => {});
+      console.error('[combined] intent_attached UPDATE failed — payment may be stuck transitional', { paymentId, intent_id: intent.id, error: attachErr.message });
+      throw attachErr;
+    } finally {
+      attachClient.release();
+    }
+
+    if (intent.status === 'succeeded') {
+      return { status: 'succeeded', paymentId, intentId: intent.id };
+    }
+    // requires_action / processing — not a decline. Leave the row pending; the
+    // webhook (payment_intent.succeeded) will settle it later.
+    return { status: 'pending', paymentId, intentId: intent.id };
+  }
+
   async recordPaymentSuccess(paymentId, paymentProviderId) {
     // Record successful payment from provider.
     // Winner and amount already locked at auction close.
@@ -970,7 +1153,7 @@ class PaymentService {
     // hit the partial unique index later when the real pending row also tries
     // to transition.
     const paymentRes = await db.query(
-      `SELECT id FROM payments
+      `SELECT id, lot_id, auction_id, buyer_user_id FROM payments
         WHERE payment_intent_id = $1
         ORDER BY CASE status
                    WHEN 'pending' THEN 0
@@ -992,7 +1175,45 @@ class PaymentService {
       });
       throw new Error(`No payment row for intent ${intent.id}`);
     }
-    const paymentId = paymentRes.rows[0].id;
+    const payment = paymentRes.rows[0];
+
+    // Design C combined (null-lot) branch. Route to combinedInvoiceService.settleCombined
+    // and RETURN before the per-lot recordPaymentSuccess path. Idempotent: settleCombined
+    // is a no-op if the header is already paid (the synchronous settle may have run first).
+    // Lazy require avoids a circular import.
+    const combinedSvc = require('./combinedInvoiceService');
+    if (combinedSvc.isCombinedPayment(payment)) {
+      const bai = (await db.query(
+        `SELECT id FROM buyer_auction_invoices
+          WHERE stripe_payment_intent_id = $1 OR payment_id = $2
+             OR (auction_id = $3 AND buyer_user_id = $4)
+          LIMIT 1`,
+        [intent.id, payment.id, payment.auction_id, payment.buyer_user_id]
+      )).rows[0];
+      if (bai) {
+        const s = await combinedSvc.settleCombined(bai.id, intent.id, payment.id);
+        // If THIS settle flipped the header to paid, send the success package (covers the
+        // rare charge-returned-pending case where the close hook did not email). Idempotent:
+        // if the close hook already settled + emailed, settleCombined returns {alreadyPaid}
+        // and no duplicate is sent. Best-effort — never break the webhook ack.
+        if (s && s.settled) {
+          require('./combinedReceiptService').sendSuccessPackage(bai.id)
+            .catch(e => console.error('[webhook] combined success package send failed', bai.id, e.message));
+        }
+        console.log(`[webhook] payment_intent.succeeded → combined invoice ${bai.id} settled (intent=${intent.id})`);
+      } else {
+        // Combined payment succeeded but no header row could be located. Mark the
+        // payment paid so it does not sit pending; operator can reconcile the header.
+        await db.query(
+          `UPDATE payments SET status = 'paid', charged_at = now(), last_attempted_at = now() WHERE id = $1 AND status <> 'paid'`,
+          [payment.id]
+        );
+        console.warn(`[webhook] combined payment ${payment.id} succeeded but no buyer_auction_invoices header found (intent=${intent.id})`);
+      }
+      return;
+    }
+
+    const paymentId = payment.id;
     // recordPaymentSuccess handles idempotency (already-paid), invoice creation,
     // pickup assignment, audit logging, and downstream notification events.
     await this.recordPaymentSuccess(paymentId, intent.id);
@@ -1001,7 +1222,7 @@ class PaymentService {
 
   async _handlePaymentIntentFailed(intent) {
     const paymentRes = await db.query(
-      `SELECT id FROM payments WHERE payment_intent_id = $1 LIMIT 1`,
+      `SELECT id, lot_id, auction_id, buyer_user_id FROM payments WHERE payment_intent_id = $1 LIMIT 1`,
       [intent.id]
     );
     if (!paymentRes.rows[0]) {
@@ -1010,7 +1231,31 @@ class PaymentService {
       console.warn(`[webhook] payment_intent.payment_failed — no payment row for intent ${intent.id}`);
       return;
     }
-    const paymentId = paymentRes.rows[0].id;
+    const payment = paymentRes.rows[0];
+
+    // Design C combined (null-lot) branch: flip the payment failed + route the
+    // header to payment_required via combinedInvoiceService.markFailed, then RETURN
+    // before the per-lot recordPaymentFailure path. Idempotent (markFailed never
+    // downgrades a paid/void header). Lazy require avoids a circular import.
+    const combinedSvc = require('./combinedInvoiceService');
+    if (combinedSvc.isCombinedPayment(payment)) {
+      await db.query(
+        `UPDATE payments SET status = 'failed', last_attempted_at = now() WHERE id = $1 AND status <> 'paid'`,
+        [payment.id]
+      );
+      const bai = (await db.query(
+        `SELECT id FROM buyer_auction_invoices
+          WHERE stripe_payment_intent_id = $1 OR payment_id = $2
+             OR (auction_id = $3 AND buyer_user_id = $4)
+          LIMIT 1`,
+        [intent.id, payment.id, payment.auction_id, payment.buyer_user_id]
+      )).rows[0];
+      if (bai) await combinedSvc.markFailed(bai.id, 'payment_intent.payment_failed');
+      console.log(`[webhook] payment_intent.payment_failed → combined payment ${payment.id} failed, header payment_required`);
+      return;
+    }
+
+    const paymentId = payment.id;
     await this.recordPaymentFailure(paymentId);
     console.log(`[webhook] payment_intent.payment_failed → payment ${paymentId} failure recorded`);
   }

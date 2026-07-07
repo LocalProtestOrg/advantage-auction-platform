@@ -5,6 +5,7 @@ const { writeAuditLog } = require('../lib/auditLog');
 const { getSellerPayoutPreference } = require('./payoutPreferenceService');
 const { validateAuctionSchedule, ScheduleRuleError, isProfessional } = require('./sellerTypeRules');
 const verificationService = require('./verificationService'); // publication gate (verification-required)
+const { combinedInvoicingEnabled } = require('./../lib/launchGuards'); // Design C flag gate at close
 
 // #18: default gap between consecutive lot closings (AAC timed model). Lot N
 // closes at start_time + N * this interval. Editable config is a post-launch
@@ -793,31 +794,102 @@ async function closeAuction(auctionId, actorId = null) {
       .then(r => console.log(`[pickup] plan at close for auction_id=${auctionId}: ${JSON.stringify(r)}`))
       .catch(err => console.error(`[pickup] plan generation failed for auction_id=${auctionId}:`, err.message));
 
-    // Fire-and-forget: operational close email to seller (NOT the final payout/stat report).
-    // Sends auction total, buyer list, and unpaid item warnings.
-    // Email failures must never surface to the caller — auction close is already committed.
-    require('./operationalCloseEmailService').sendOperationalCloseEmail(auctionId)
-      .catch(err => console.error(`[email] operational close email failed for auction_id=${auctionId}:`, err.message));
+    // Design C flag gate: when COMBINED_INVOICING_ENABLED is OFF (production default),
+    // the proven per-lot path below runs EXACTLY as before — immediate seller
+    // operational close email + per-lot unpaid-invoice issuance/email. When ON, the
+    // combined per-buyer path runs INSTEAD: one combined header + one off-session
+    // charge per buyer, and the seller closeout is HELD (sent later by the worker's
+    // runSellerCloseoutScan), NOT sent immediately here.
+    if (!combinedInvoicingEnabled(process.env)) {
+      // ── Per-lot path (UNCHANGED — byte-for-byte the pre-Design-C behavior) ──
 
-    // Phase 2C (POST-COMMIT, best-effort): ensure every winner has an invoice by
-    // creating an unpaid 'issued' invoice per winning lot, then emailing it (payment
-    // required before pickup). Decoupled from the close transaction so an invoice/email
-    // problem can NEVER roll back the close. Idempotent (ON CONFLICT DO NOTHING): if the
-    // buyer already paid in the meantime, the conflict is a no-op and no email is sent.
-    // Invoice generation only — no charge, no payment row, no capture change.
-    //
-    // If this best-effort step fails or is interrupted after COMMIT, the same idempotent
-    // generation can be re-run by an admin via POST /api/admin/auctions/:id/issue-invoices
-    // (the repair path) — both call invoiceService.issueInvoicesForAuctionWinners.
-    require('./invoiceService').issueInvoicesForAuctionWinners(auctionId)
-      .then(({ createdIds }) => {
-        const receiptService = require('./receiptService');
-        for (const id of createdIds) {
-          receiptService.sendUnpaidInvoiceEmail(id)
-            .catch(err => console.error('[invoice-email] unpaid send failed', id, err.message));
+      // Fire-and-forget: operational close email to seller (NOT the final payout/stat report).
+      // Sends auction total, buyer list, and unpaid item warnings.
+      // Email failures must never surface to the caller — auction close is already committed.
+      require('./operationalCloseEmailService').sendOperationalCloseEmail(auctionId)
+        .catch(err => console.error(`[email] operational close email failed for auction_id=${auctionId}:`, err.message));
+
+      // Phase 2C (POST-COMMIT, best-effort): ensure every winner has an invoice by
+      // creating an unpaid 'issued' invoice per winning lot, then emailing it (payment
+      // required before pickup). Decoupled from the close transaction so an invoice/email
+      // problem can NEVER roll back the close. Idempotent (ON CONFLICT DO NOTHING): if the
+      // buyer already paid in the meantime, the conflict is a no-op and no email is sent.
+      // Invoice generation only — no charge, no payment row, no capture change.
+      //
+      // If this best-effort step fails or is interrupted after COMMIT, the same idempotent
+      // generation can be re-run by an admin via POST /api/admin/auctions/:id/issue-invoices
+      // (the repair path) — both call invoiceService.issueInvoicesForAuctionWinners.
+      require('./invoiceService').issueInvoicesForAuctionWinners(auctionId)
+        .then(({ createdIds }) => {
+          const receiptService = require('./receiptService');
+          for (const id of createdIds) {
+            receiptService.sendUnpaidInvoiceEmail(id)
+              .catch(err => console.error('[invoice-email] unpaid send failed', id, err.message));
+          }
+        })
+        .catch(err => console.error(`[invoice] issued-invoice generation failed for auction_id=${auctionId}:`, err.message));
+    } else {
+      // ── Combined per-buyer path (Design C) — fire-and-forget, NEVER throws out of close ──
+      // Issue one combined header per winning buyer, attempt one off-session charge each,
+      // and route the outcome: settle+receipt / payment_required+Reminder#1 (+ enqueue #2/#3)
+      // / leave pending (webhook settles) / skip in-progress. The immediate seller closeout
+      // is deliberately HELD — the worker's runSellerCloseoutScan sends it once all buyers
+      // have paid OR 24h post-close. Wrapped so any failure only logs.
+      (async () => {
+        const combinedInvoiceService = require('./combinedInvoiceService');
+        const paymentService = require('./paymentService');
+        const combinedReceiptService = require('./combinedReceiptService');
+
+        // Reminder anchor: the combined headers' closed_at is stamped now() at issue,
+        // so anchoring the +12h/+24h schedule to now is equivalent to the header value.
+        const closedAt = new Date();
+        const [plus12h, plus24h] = combinedInvoiceService.reminderSchedule(closedAt);
+
+        // Create the per-lot 'issued' invoices too (idempotent), but WITHOUT the per-lot
+        // email — the combined package is the buyer's single email. These remain as the
+        // admin-view + pickup-packet artifacts and are flipped to paid by settleCombined.
+        await require('./invoiceService').issueInvoicesForAuctionWinners(auctionId)
+          .catch(err => console.error(`[combined] per-lot invoice issuance failed for auction_id=${auctionId}:`, err.message));
+
+        const issued = await combinedInvoiceService.issueForAuction(auctionId);
+        console.log(`[combined] issued ${issued.length} combined invoice(s) for auction_id=${auctionId}`);
+
+        for (const { combinedInvoiceId, buyerUserId, totalCents } of issued) {
+          try {
+            const r = await paymentService.chargeCombinedOffSession({
+              auctionId, buyerUserId, combinedInvoiceId,
+              amountCents: totalCents, idempotencyKey: 'combined:' + combinedInvoiceId,
+            });
+
+            if (r.status === 'succeeded') {
+              // Send the success package only if THIS settle flipped it to paid, so the
+              // email is sent exactly once (the webhook may also fire and settle-first).
+              const s = await combinedInvoiceService.settleCombined(combinedInvoiceId, r.intentId, r.paymentId);
+              if (s && s.settled) await combinedReceiptService.sendSuccessPackage(combinedInvoiceId);
+            } else if (r.skipped || r.status === 'failed') {
+              await combinedInvoiceService.markFailed(combinedInvoiceId, r.reason || r.skipped);
+              await combinedReceiptService.sendPaymentRequired(combinedInvoiceId, 1); // Reminder #1 (immediate)
+              // Enqueue Reminder #2 (+12h) and Final notice #3 (+24h) with future next_attempt_at
+              // (already honored by the worker's claim query); worker self-skips if paid by then.
+              await db.query(
+                `INSERT INTO notifications_queue (user_id, type, payload, next_attempt_at)
+                 VALUES ($1, 'PAYMENT_REMINDER', jsonb_build_object('combined_invoice_id', $2::text, 'n', 2), $3),
+                        ($1, 'PAYMENT_REMINDER', jsonb_build_object('combined_invoice_id', $2::text, 'n', 3), $4)`,
+                [buyerUserId, combinedInvoiceId, plus12h, plus24h]
+              );
+            } else if (r.status === 'pending') {
+              // requires_action / processing — leave the header; the webhook settles it
+              // (payment_intent.succeeded) and sends the success package on arrival.
+            } else if (r.inProgress) {
+              // A combined charge is already in flight for this buyer — skip.
+            }
+          } catch (perBuyerErr) {
+            console.error(`[combined] per-buyer charge failed for combined_invoice_id=${combinedInvoiceId}:`, perBuyerErr.message);
+          }
         }
-      })
-      .catch(err => console.error(`[invoice] issued-invoice generation failed for auction_id=${auctionId}:`, err.message));
+        // Seller closeout is HELD — no immediate seller email in the combined branch.
+      })().catch(err => console.error(`[combined] combined invoicing failed for auction_id=${auctionId}:`, err.message));
+    }
 
     return {
       auction_id: auctionId,

@@ -17,6 +17,7 @@ const db             = require('../db/index');
 const { sendEmail }  = require('../services/emailService');
 const { sendSMS }    = require('../services/smsService');
 const auctionService = require('../services/auctionService');
+const sellerCloseoutService = require('../services/sellerCloseoutService'); // Design C held seller closeout
 const auditService   = require('../services/auditService');
 const realtime       = require('../lib/realtime'); // #1 real-time push (pg NOTIFY)
 const content        = require('../lib/notificationContent'); // enriched templates + staleness
@@ -321,6 +322,15 @@ function buildSMS(type, payload) {
 // caller can back off and retry.
 async function deliver(row) {
   const payload = row.payload || {};
+
+  // ── Design C combined payment reminders (#2 +12h / Final #3 +24h) ──
+  // deliverQueuedReminder self-skips when the combined invoice is already paid/void
+  // (returns { skipped } → marked terminal 'skipped' by deliverOne), else sends the
+  // reminder email + bumps reminders_sent. Rows only exist when the combined path
+  // ran at close, so this branch is inert under the per-lot default.
+  if (row.type === 'PAYMENT_REMINDER') {
+    return require('../services/combinedReceiptService').deliverQueuedReminder(row);
+  }
 
   // ── Lot-scoped buyer emails: join lot + auction at SEND time so the message
   // always carries Lot # + Title + image + link, and DROP it if it has gone
@@ -684,6 +694,57 @@ const AUCTION_STATE_INTERVAL_MS = 30000;
 console.log(`[state-transition] scheduler started — scanning every ${AUCTION_STATE_INTERVAL_MS / 1000}s`);
 setInterval(runAuctionStateTransitions, AUCTION_STATE_INTERVAL_MS);
 runAuctionStateTransitions();
+
+// ── Design C: HELD seller closeout scan ────────────────────────────────────────
+// Under combined invoicing the seller closeout package is NOT sent at close — it is
+// held until (A) every buyer has paid OR (B) 24h have elapsed post-close. This scan
+// finds auctions still needing it and sends exactly one package, stamping
+// auctions.seller_closeout_sent_at as the double-send guard.
+//
+// The EXISTS (buyer_auction_invoices) predicate means only auctions where the combined
+// path actually ran are ever selected — so when the flag was OFF at close (no combined
+// rows written), this scan is a permanent no-op. Safe to run unconditionally.
+async function runSellerCloseoutScan() {
+  let due;
+  try {
+    due = await db.query(`
+      SELECT a.id
+        FROM auctions a
+       WHERE a.state = 'closed'
+         AND a.seller_closeout_sent_at IS NULL
+         AND EXISTS (SELECT 1 FROM buyer_auction_invoices b WHERE b.auction_id = a.id)
+         AND (
+               NOT EXISTS (SELECT 1 FROM buyer_auction_invoices b
+                            WHERE b.auction_id = a.id AND b.status = 'payment_required')
+               OR EXISTS (SELECT 1 FROM buyer_auction_invoices b
+                           WHERE b.auction_id = a.id AND b.closed_at < now() - interval '24 hours')
+             )
+    `);
+  } catch (err) {
+    console.error('[seller-closeout] scan failed:', err.message);
+    if (process.env.SENTRY_DSN) Sentry.captureException(err);
+    return;
+  }
+
+  for (const row of due.rows) {
+    try {
+      await sellerCloseoutService.generateAndSend(row.id);
+      await db.query(
+        `UPDATE auctions SET seller_closeout_sent_at = now() WHERE id = $1 AND seller_closeout_sent_at IS NULL`,
+        [row.id]
+      );
+      console.log(`[seller-closeout] closeout sent + stamped for auction ${row.id}`);
+    } catch (err) {
+      console.error(`[seller-closeout] send failed for ${row.id}: ${err.message}`);
+      if (process.env.SENTRY_DSN) Sentry.captureException(err);
+    }
+  }
+}
+
+const SELLER_CLOSEOUT_INTERVAL_MS = 300000;   // 5 min
+console.log(`[seller-closeout] scheduler started — scanning every ${SELLER_CLOSEOUT_INTERVAL_MS / 1000}s`);
+setInterval(runSellerCloseoutScan, SELLER_CLOSEOUT_INTERVAL_MS);
+runSellerCloseoutScan();
 
 // ── INT-1: Lot-level auto-close scheduler ────────────────────────────────────
 //
