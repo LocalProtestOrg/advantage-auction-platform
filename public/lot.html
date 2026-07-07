@@ -300,10 +300,12 @@
     }
     .bid-row {
       display: flex;
+      flex-wrap: wrap;
       gap: 0.5rem;
     }
     .bid-row input {
-      flex: 1;
+      flex: 1 1 160px;
+      min-width: 0;
       padding: 0.65rem 0.85rem;
       border: 1.5px solid #d1d5db;
       border-radius: 6px;
@@ -313,6 +315,7 @@
     }
     .bid-row input:focus { outline: none; border-color: #2563eb; }
     .btn-place-bid {
+      flex: 1 1 auto;
       padding: 0.65rem 1.1rem;
       background: #2563eb;
       color: #fff;
@@ -723,7 +726,7 @@
       <div id="hist-footer" style="display:none"></div>
 
       <div class="bid-display" id="bid-display">
-        <div class="label"><span class="live-dot"></span>Current Bid</div>
+        <div class="label"><span class="live-dot"></span><span id="bid-label-text">Starting Bid</span></div>
         <div class="amount" id="current-bid">$0.00 <span>USD</span></div>
         <div id="bid-activity">Be the first to bid</div>
         <div id="countdown-wrap" style="display:none">
@@ -1666,6 +1669,9 @@
 
   function setActivity(count, topCents) {
     const el = document.getElementById('bid-activity');
+    // P2: the amount reads "Starting Bid" until the first bid lands, then "Current Bid".
+    const lbl = document.getElementById('bid-label-text');
+    if (lbl) lbl.textContent = count > 0 ? 'Current Bid' : 'Starting Bid';
     if (count === 0) {
       el.textContent = 'Be the first to bid';
       el.className   = '';
