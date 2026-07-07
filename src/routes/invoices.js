@@ -17,6 +17,7 @@ async function fetchInvoicesForBuyer(buyerId) {
               i.shipping_cents,
               i.total_cents,
               i.lot_id,
+              i.auction_id,
               i.created_at,
               i.status,
               l.title       AS lot_title,

@@ -25,6 +25,10 @@
     .pdfbtn{font:inherit;font-size:.75rem;font-weight:700;color:#2563eb;background:#eff6ff;border:1px solid #bfdbfe;border-radius:6px;padding:4px 9px;cursor:pointer;white-space:nowrap}
     .pdfbtn:hover{background:#dbeafe}
     .pdfbtn:disabled{opacity:.55;cursor:default}
+    .paybtn{font:inherit;font-size:.78rem;font-weight:800;color:#fff;background:#16a34a;border:none;border-radius:6px;padding:5px 13px;cursor:pointer;white-space:nowrap;margin-right:7px}
+    .paybtn:hover{background:#15803d}
+    .paybtn:disabled{opacity:.55;cursor:default}
+    .payhint{background:#f0fdf4;border:1px solid #bbf7d0;color:#166534;border-radius:8px;padding:9px 13px;font-size:.85rem;font-weight:600;margin-bottom:12px}
     .inum{font-variant-numeric:tabular-nums;color:#475569;font-weight:600}
   </style>
 </head>
@@ -50,6 +54,26 @@
       if(st==='refunded'||st==='partially_refunded')return['Refunded','refunded'];
       return[(st||'-'),'other'];}
     function pill(st){const r=statusLabel(st);return '<span class="pill '+r[1]+'">'+esc(r[0])+'</span>'}
+
+    // Pay an unpaid invoice: reuse the proven charge-lot → payment.html pipeline
+    // (same flow the lot page uses). Creates a PaymentIntent for the lot, then hands
+    // the buyer to the Stripe card page. Whole amount, no hidden fees.
+    async function payInvoice(id, auctionId, lotId, btn){
+      const token=localStorage.getItem('token');
+      if(!token){location.href='/login.html?next='+encodeURIComponent('/invoices.html');return;}
+      if(!auctionId||!lotId){alert('This invoice can’t be paid online yet — please contact support@advantage.bid.');return;}
+      const old=btn.textContent; btn.disabled=true; btn.textContent='Starting…';
+      try{
+        const [cfg,intentRes]=await Promise.all([
+          fetch('/api/payments/config').then(r=>r.json()).catch(()=>({})),
+          fetch('/api/payments/charge-lot',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token,'Idempotency-Key':'pay-inv-'+id},body:JSON.stringify({auction_id:auctionId,lot_id:lotId})}).then(r=>r.json())
+        ]);
+        if(!intentRes.success)throw new Error(intentRes.message||'Payment could not be started.');
+        const qs=new URLSearchParams({client_secret:intentRes.data.client_secret,amount:intentRes.data.amount_cents,lot_id:lotId,auction_id:auctionId});
+        if(cfg.publishableKey)qs.set('pk',cfg.publishableKey);
+        location.href='/payment.html?'+qs.toString();
+      }catch(e){alert(e.message||'Could not start payment. Please try again.');btn.disabled=false;btn.textContent=old;}
+    }
 
     // Authenticated PDF download: the endpoint requires a Bearer token, so fetch
     // the bytes as a blob and trigger a client-side download (no token in URL).
@@ -81,17 +105,24 @@
         const d=await r.json();const rows=(d&&d.invoices)||[];
         s.textContent='';
         if(!rows.length){c.innerHTML='<div class="empty">No invoices yet. Won lots and their payment status will appear here.</div>';return;}
-        c.innerHTML='<table><thead><tr><th>Invoice</th><th>Date</th><th>Auction</th><th>Lot</th><th>Total</th><th>Status</th><th>Invoice PDF</th></tr></thead><tbody>'+
-          rows.map(i=>'<tr>'+
+        // An invoice is payable unless it is already paid, refunded, or a charge is in flight.
+        const isPayable=st=>!['paid','refunded','partially_refunded','pending','processing'].includes((st||'').toLowerCase());
+        const unpaid=rows.filter(i=>isPayable(i.status)).length;
+        const hint=unpaid?('<div class="payhint">You have '+unpaid+' unpaid '+(unpaid===1?'invoice':'invoices')+'. Click <strong>Pay&nbsp;Now</strong> to complete your payment securely.</div>'):'';
+        c.innerHTML=hint+'<table><thead><tr><th>Invoice</th><th>Date</th><th>Auction</th><th>Lot</th><th>Total</th><th>Status</th><th>Actions</th></tr></thead><tbody>'+
+          rows.map(i=>{
+            const pay=isPayable(i.status)?'<button class="paybtn" data-pay-id="'+esc(i.id)+'" data-aid="'+esc(i.auction_id||'')+'" data-lid="'+esc(i.lot_id||'')+'">Pay Now</button>':'';
+            return '<tr>'+
             '<td><span class="inum">'+esc(i.invoice_number||'-')+'</span></td>'+
             '<td>'+fdate(i.invoice_date||i.created_at)+'</td>'+
             '<td>'+esc(i.auction_title||'-')+'</td>'+
             '<td>'+(i.lot_id?'<a class="lotlink" href="/lot.html?lotId='+encodeURIComponent(i.lot_id)+'">'+(i.lot_number!=null?'#'+esc(i.lot_number)+' ':'')+esc(i.lot_title||'Lot')+'</a>':esc(i.lot_title||'-'))+'</td>'+
             '<td>'+usd(i.total_cents!=null?i.total_cents:i.amount_cents)+'</td>'+
             '<td>'+pill(i.status)+'</td>'+
-            '<td><button class="pdfbtn" data-id="'+esc(i.id)+'" data-num="'+esc(i.invoice_number||'')+'">Download</button></td>'+
-          '</tr>').join('')+'</tbody></table>';
+            '<td>'+pay+'<button class="pdfbtn" data-id="'+esc(i.id)+'" data-num="'+esc(i.invoice_number||'')+'">Download</button></td>'+
+          '</tr>';}).join('')+'</tbody></table>';
         c.querySelectorAll('.pdfbtn').forEach(b=>b.addEventListener('click',()=>downloadInvoice(b.getAttribute('data-id'),b.getAttribute('data-num'),b)));
+        c.querySelectorAll('.paybtn').forEach(b=>b.addEventListener('click',()=>payInvoice(b.getAttribute('data-pay-id'),b.getAttribute('data-aid'),b.getAttribute('data-lid'),b)));
       }catch(e){s.textContent='Could not load invoices. Please refresh.';}
     })();
   </script>
