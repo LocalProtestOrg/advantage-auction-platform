@@ -68,8 +68,11 @@
     try { return document.referrer && new URL(document.referrer).origin === location.origin; } catch (e) { return false; }
   }
   function goBack() {
-    if (history.length > 1 && sameOriginReferrer()) history.back();
-    else location.href = '/';
+    // In-app history: return to the previous same-origin page.
+    if (history.length > 1 && sameOriginReferrer()) { history.back(); return; }
+    // Shared-link / cold entry: prefer a page-provided contextual target (e.g. a lot page
+    // sets window.BUYER_NAV_BACK to its auction), else fall back Home.
+    location.href = (typeof window.BUYER_NAV_BACK === 'string' && window.BUYER_NAV_BACK) || '/';
   }
 
   // ── #14 optional bid chime ──────────────────────────────────────────────────
