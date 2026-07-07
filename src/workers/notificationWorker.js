@@ -346,11 +346,11 @@ async function deliver(row) {
       );
       lot = lr.rows[0] || null;
       if (lot) {
-        const ar = await db.query(`SELECT title FROM auctions WHERE id = $1`, [lot.auction_id]);
+        const ar = await db.query(`SELECT title, state, end_time FROM auctions WHERE id = $1`, [lot.auction_id]);
         auction = ar.rows[0] || null;
       }
     }
-    const rel = content.relevance(row.type, lot, new Date());
+    const rel = content.relevance(row.type, lot, new Date(), auction);
     if (!rel.send) { console.log(`[notify] drop ${row.type} for ${payload.lot_id} — ${rel.reason}`); return { skipped: true, reason: rel.reason }; }
 
     const userInfo = await getUserDeliveryInfo(row.user_id);

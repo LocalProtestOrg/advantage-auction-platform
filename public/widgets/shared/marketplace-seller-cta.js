@@ -62,8 +62,8 @@ window.AAPMarketplaceSellerCta = (function () {
 
   var STYLE_ID        = 'aap-msc-styles';
   var DEFAULT_URL     = 'https://www.advantage.bid/start-selling';
-  var DEFAULT_HEAD    = 'Interested in Selling?';
-  var DEFAULT_SUB     = 'Start your own auction with Advantage.Bid.';
+  var DEFAULT_HEAD    = 'Ready to Sell?';
+  var DEFAULT_SUB     = 'Turn your collection into cash with Advantage.Bid.';
   var DEFAULT_LABEL   = 'Start Selling';
   var DEFAULT_VARIANT = 'default';
 
@@ -100,6 +100,19 @@ window.AAPMarketplaceSellerCta = (function () {
       'font-size:0.83rem;',
       'color:#52525b;',
       'margin:0;',
+      'font-family:system-ui,-apple-system,"Segoe UI",sans-serif;',
+    '}',
+    '.msc-line{',
+      'font-size:0.8rem;',
+      'color:#71717a;',
+      'margin:0.15rem 0 0;',
+      'font-family:system-ui,-apple-system,"Segoe UI",sans-serif;',
+    '}',
+    '.msc-emph{',
+      'font-size:0.82rem;',
+      'font-weight:700;',
+      'color:#047857;',
+      'margin:0.2rem 0 0;',
       'font-family:system-ui,-apple-system,"Segoe UI",sans-serif;',
     '}',
     '.msc-btn{',
@@ -230,7 +243,9 @@ window.AAPMarketplaceSellerCta = (function () {
     textGroup.className = 'msc-text';
     textGroup.innerHTML =
       '<p class="msc-headline">' + esc(headline) + '</p>' +
-      '<p class="msc-subtext">'  + esc(subtext)  + '</p>';
+      '<p class="msc-subtext">'  + esc(subtext)  + '</p>' +
+      '<p class="msc-line">Most sellers complete their auction catalog in a single afternoon.</p>' +
+      '<p class="msc-emph">Zero Seller Fees from Advantage.</p>';
 
     var btn = document.createElement('a');
     btn.className = 'msc-btn';

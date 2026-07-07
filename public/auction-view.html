@@ -137,6 +137,27 @@
     .btn-follow.following:hover { background: #1d4ed8; }
     .btn-follow:disabled { opacity: 0.5; cursor: default; }
 
+    /* ── P3: at-a-glance auction facts ── */
+    .auction-facts { margin-top: 1rem; }
+    .auction-facts-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, auto));
+      gap: 0.75rem 2.25rem;
+    }
+    .af-item { display: flex; flex-direction: column; gap: 0.15rem; min-width: 0; }
+    .af-label {
+      font-size: 0.66rem;
+      font-weight: 700;
+      letter-spacing: 0.07em;
+      text-transform: uppercase;
+      color: #71717a;
+    }
+    .af-value { font-size: 0.92rem; font-weight: 700; color: #111; line-height: 1.3; }
+    .af-note { margin-top: 0.7rem; font-size: 0.82rem; color: #52525b; line-height: 1.45; }
+    @media (max-width: 640px) {
+      .auction-facts-grid { grid-template-columns: repeat(2, 1fr); gap: 0.75rem 1.25rem; }
+    }
+
     /* ── Grid wrapper ── */
     .grid-wrap {
       max-width: 1200px;
@@ -472,6 +493,10 @@
     .btn-follow:hover{ background:rgba(255,255,255,.22); }
     .btn-follow.following{ background:#fff; color:var(--ink); border-color:#fff; }
     .btn-follow.following:hover{ background:#f1f1ee; }
+    /* P3 facts sit on the cinematic hero — invert to light text */
+    .auction-facts .af-label{ color:rgba(255,255,255,.62); }
+    .auction-facts .af-value{ color:#fff; }
+    .auction-facts .af-note{ color:rgba(255,255,255,.85); }
 
     /* tabs → refined, red active accent */
     .auction-tabs{ max-width:1180px; padding:0 20px; border-bottom:1px solid var(--hair); background:var(--paper); }
@@ -528,8 +553,6 @@
   <span class="brand">Advantage Auction</span>
   <div class="header-right">
     <span class="lot-count" id="lot-count"></span>
-    <button onclick="localStorage.removeItem('token');sessionStorage.clear();window.location.href='/demo.html';"
-            style="font-size:0.8rem;color:#ef4444;background:none;border:none;cursor:pointer;padding:0;">Log out</button>
   </div>
 </header>
 
@@ -548,6 +571,7 @@
       </button>
     </div>
     <div class="seller-bar" id="seller-bar" style="display:none"></div>
+    <div class="auction-facts" id="auction-facts" style="display:none"></div>
   </div>
 </div>
 
@@ -630,6 +654,75 @@
   let   bidGate = { logged_in: false, terms_accepted_current: false, registered: false, can_bid: false }; // #20
   let   gridKey = null;        // #1: structural signature of the rendered grid (poll change-detection)
   let   auctionSummary = null; // tabs: captured /summary data for Pickup + Terms panels
+  let   firstLotCloseIso = null; // P3: earliest lot closes_at (computed in loadAuction)
+  let   totalLotCount    = null; // P3: total lots in this auction
+
+  // P3: minimal state→IANA timezone map. Used only when the auction object has no
+  // explicit `timezone`. Defaults to America/Chicago (Central) when unknown.
+  const STATE_TZ = {
+    CT:'America/New_York', DE:'America/New_York', DC:'America/New_York', FL:'America/New_York',
+    GA:'America/New_York', ME:'America/New_York', MD:'America/New_York', MA:'America/New_York',
+    MI:'America/New_York', NH:'America/New_York', NJ:'America/New_York', NY:'America/New_York',
+    NC:'America/New_York', OH:'America/New_York', PA:'America/New_York', RI:'America/New_York',
+    SC:'America/New_York', VT:'America/New_York', VA:'America/New_York', WV:'America/New_York',
+    IN:'America/New_York',
+    AL:'America/Chicago', AR:'America/Chicago', IL:'America/Chicago', IA:'America/Chicago',
+    KS:'America/Chicago', KY:'America/New_York', LA:'America/Chicago', MN:'America/Chicago',
+    MS:'America/Chicago', MO:'America/Chicago', NE:'America/Chicago', ND:'America/Chicago',
+    OK:'America/Chicago', SD:'America/Chicago', TN:'America/Chicago', TX:'America/Chicago',
+    WI:'America/Chicago',
+    AZ:'America/Phoenix', CO:'America/Denver', ID:'America/Denver', MT:'America/Denver',
+    NM:'America/Denver', UT:'America/Denver', WY:'America/Denver',
+    CA:'America/Los_Angeles', NV:'America/Los_Angeles', OR:'America/Los_Angeles', WA:'America/Los_Angeles',
+    AK:'America/Anchorage', HI:'Pacific/Honolulu',
+  };
+  function resolveAuctionTz(d) {
+    if (d && d.timezone) return d.timezone;
+    const st = (d && d.address_state ? String(d.address_state).trim().toUpperCase() : '');
+    return STATE_TZ[st] || 'America/Chicago';
+  }
+  // P3: format e.g. "Mon, Jul 7, 6:00 PM CDT" in the AUCTION's timezone.
+  function fmtTzDateTime(iso, tz) {
+    try {
+      return new Intl.DateTimeFormat('en-US', {
+        weekday: 'short', month: 'short', day: 'numeric',
+        hour: 'numeric', minute: '2-digit', timeZoneName: 'short', timeZone: tz,
+      }).format(new Date(iso));
+    } catch { return ''; }
+  }
+  // P3: time-only variant e.g. "6:00 PM CDT" for the closing-schedule note.
+  function fmtTzTime(iso, tz) {
+    try {
+      return new Intl.DateTimeFormat('en-US', {
+        hour: 'numeric', minute: '2-digit', timeZoneName: 'short', timeZone: tz,
+      }).format(new Date(iso));
+    } catch { return ''; }
+  }
+  // P3: render the at-a-glance fact row. Safe to call repeatedly as data arrives
+  // (summary from loadSellerInfo, lot counts/first-close from loadAuction).
+  function renderAuctionFacts() {
+    const host = document.getElementById('auction-facts');
+    if (!host) return;
+    const d = auctionSummary;
+    if (!d || isHistoricalAuction) { host.style.display = 'none'; return; }
+    const tz = resolveAuctionTz(d);
+    const items = [];
+    if (d.start_time)        items.push(['Bidding Opens',   fmtTzDateTime(d.start_time, tz)]);
+    if (firstLotCloseIso)    items.push(['First Lot Closes', fmtTzDateTime(firstLotCloseIso, tz)]);
+    if (totalLotCount != null) items.push(['Total Lots',    String(totalLotCount)]);
+    if (d.pickup_window_start) items.push(['Pickup Date',   fmtTzDateTime(d.pickup_window_start, tz)]);
+    const shown = items.filter(it => it[1]);
+    if (!shown.length) { host.style.display = 'none'; return; }
+    let html = '<div class="auction-facts-grid">' + shown.map(it =>
+      '<div class="af-item"><span class="af-label">' + esc(it[0]) + '</span>' +
+      '<span class="af-value">' + esc(it[1]) + '</span></div>').join('') + '</div>';
+    if (firstLotCloseIso && d.state !== 'closed') {
+      html += '<div class="af-note">First lot closes at ' + esc(fmtTzTime(firstLotCloseIso, tz)) +
+              '. Remaining lots close about one minute apart.</div>';
+    }
+    host.innerHTML = html;
+    host.style.display = 'block';
+  }
 
   if (!auctionId) {
     grid.innerHTML = '<div class="state-msg"><strong>No auction selected.</strong>Check the URL and try again.</div>';
@@ -679,7 +772,7 @@
       const d = data.data;
       currentSellerId = d.seller_id;
       auctionSummary = d;
-      try { populatePickupTab(); populateTermsTab(); } catch (e) { /* tabs are best-effort */ }
+      try { populatePickupTab(); populateTermsTab(); renderAuctionFacts(); } catch (e) { /* tabs are best-effort */ }
 
       // Historical archive auctions: never display the (internal placeholder) date;
       // show a subtle "Historical Auction" indicator instead.
@@ -718,10 +811,10 @@
         /* location only */
       } else if (d.state === 'closed') {
         parts.push('Auction ended - sale results below');
-      } else if (d.start_time) {
-        parts.push('Auction starts ' + fmtDate(d.start_time));
-        parts.push('Lots begin closing then, about 1 min apart');
       }
+      // P3: the "Bidding Opens / First Lot Closes" fact row (below) now owns the
+      // scheduling story, so the meta row no longer repeats the vague
+      // "auction starts … about 1 min apart" line.
       if (d.shipping_available) parts.push('Shipping available');
       meta.innerHTML = parts.map(p => '<span>' + esc(p) + '</span>').join('');
 
@@ -864,6 +957,16 @@
       bidGate = await BidUtils.getBidGate(auctionId, token);
 
       const allLots = lotsRes.data;
+
+      // P3: derive the earliest scheduled close + total count for the fact row.
+      totalLotCount = allLots.length;
+      const closeTimes = allLots
+        .map(l => l.closes_at ? new Date(l.closes_at).getTime() : NaN)
+        .filter(n => !isNaN(n));
+      firstLotCloseIso = closeTimes.length ? new Date(Math.min(...closeTimes)).toISOString() : null;
+      if (auctionSummary) auctionSummary.state = auctionState;
+      renderAuctionFacts();
+
       // #5: while the auction is actively closing, show only lots still open so
       // bidders see what's available. 'published' (not started) shows all (none
       // closed yet); 'closed' shows ALL lots - the sale-results view.
@@ -1400,7 +1503,11 @@
       (win ? (tierRow('A', 'Small Items') + tierRow('B', 'Medium Items') + tierRow('C', 'Large Items')) : '') +
       '<div class="info-row"><strong>Location:</strong> ' + esc(tabLocationText()) +
         ' &nbsp;<a class="map-link" href="' + tabMapsUrl() + '" target="_blank" rel="noopener">View Map ↗</a></div>' +
-      '<div class="tab-note">Pickup times are assigned according to the largest item purchased. Small items are released first to improve traffic flow and allow larger furniture and heavy items to be moved safely later in the pickup process.</div>' +
+      // P5: public copy kept concise + confidence-inspiring. You get a recommended
+      // arrival window (based on your largest item) but may come any time in the
+      // published window. The detailed pickup-scheduling rationale lives in the
+      // Buyer FAQ (/buyer-faq.html#pickup) and on the paid invoice / pickup packet.
+      '<div class="tab-note">You’ll receive a recommended arrival window based on the largest item you win, and you may arrive any time during the published pickup window. Please bring a valid photo ID.</div>' +
       '<div class="tab-note">For your privacy, the exact street number is shown after your payment is verified.</div>';
   }
   function populateTermsTab() {
@@ -1415,7 +1522,7 @@
       '<div class="info-row"><strong>Buyer’s premium:</strong> ' + esc(bp) + '% added to the hammer price of each lot won.</div>' +
       '<div class="info-row"><strong>Additional fees &amp; full terms:</strong> see the <a class="map-link" href="/terms.html" target="_blank" rel="noopener">full Terms &amp; Conditions</a>.</div>' +
       '<div class="info-row"><strong>Pickup:</strong> ' + esc(tabLocationText()) +
-        ' &nbsp;<a class="map-link" href="' + tabMapsUrl() + '" target="_blank" rel="noopener">View Map ↗</a> · Category A 09:00-11:00 AM, Category C 11:00 AM-12:30 PM.</div>' +
+        ' &nbsp;<a class="map-link" href="' + tabMapsUrl() + '" target="_blank" rel="noopener">View Map ↗</a> · See the Pickup Information tab for dates and your recommended arrival window.</div>' +
       '<div class="tab-note">Please review these terms before registering to bid. Full marketplace policy: <a href="/terms.html" target="_blank" rel="noopener">Terms of Use</a>.</div>';
   }
   function loadWatchlistTab() {
