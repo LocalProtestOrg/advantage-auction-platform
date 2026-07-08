@@ -110,34 +110,35 @@ async function assembleEmailData(combinedInvoiceId, pdfData) {
   };
 }
 
+// #6: hide-when-zero. Hammer Total + Grand Total always render; Buyer Premium /
+// Sales Tax / Shipping / Credits appear only when their cents value is > 0.
 function summaryRowsHtml(summary) {
   const sumRow = (label, valCents, opts = {}) => {
     const isCredit = !!opts.credit;
-    const val = valCents ? ((isCredit ? '-' : '') + doc.money(valCents)) : (opts.bold ? doc.money(0) : '—');
-    const color = (!valCents && !opts.bold) ? '#94a3b8' : '#0f172a';
+    const val = (isCredit ? '-' : '') + doc.money(valCents);
     return '<tr>' +
       '<td style="padding:3px 0;color:' + (opts.bold ? '#0f172a' : '#64748b') + ';font-weight:' + (opts.bold ? '700' : '400') + '">' + esc(label) + '</td>' +
-      '<td style="padding:3px 0;text-align:right;color:' + color + ';font-weight:' + (opts.bold ? '700' : '600') + '">' + val + '</td>' +
+      '<td style="padding:3px 0;text-align:right;color:#0f172a;font-weight:' + (opts.bold ? '700' : '600') + '">' + val + '</td>' +
     '</tr>';
   };
-  return sumRow('Hammer Total', summary.hammerCents) +
-    sumRow('Buyer Premium', summary.buyerPremiumCents) +
-    sumRow('Sales Tax', summary.salesTaxCents) +
-    sumRow('Shipping', summary.shippingCents) +
-    sumRow('Credits / Refunds', summary.creditsCents, { credit: true }) +
-    '<tr><td colspan="2" style="border-top:1px solid #e2e8f0;padding-top:6px"></td></tr>' +
-    sumRow('Grand Total', summary.totalCents, { bold: true });
+  let out = sumRow('Hammer Total', summary.hammerCents);
+  if (Number(summary.buyerPremiumCents) > 0) out += sumRow('Buyer Premium', summary.buyerPremiumCents);
+  if (Number(summary.salesTaxCents) > 0) out += sumRow('Sales Tax', summary.salesTaxCents);
+  if (Number(summary.shippingCents) > 0) out += sumRow('Shipping', summary.shippingCents);
+  if (Number(summary.creditsCents) > 0) out += sumRow('Credits / Refunds', summary.creditsCents, { credit: true });
+  out += '<tr><td colspan="2" style="border-top:1px solid #e2e8f0;padding-top:6px"></td></tr>';
+  out += sumRow('Grand Total', summary.totalCents, { bold: true });
+  return out;
 }
 
 function summaryLinesText(summary) {
-  return [
-    'Hammer Total: ' + doc.money(summary.hammerCents),
-    'Buyer Premium: ' + (summary.buyerPremiumCents ? doc.money(summary.buyerPremiumCents) : '—'),
-    'Sales Tax: ' + (summary.salesTaxCents ? doc.money(summary.salesTaxCents) : '—'),
-    'Shipping: ' + (summary.shippingCents ? doc.money(summary.shippingCents) : '—'),
-    'Credits / Refunds: ' + (summary.creditsCents ? ('-' + doc.money(summary.creditsCents)) : '—'),
-    'Grand Total: ' + doc.money(summary.totalCents),
-  ];
+  const lines = ['Hammer Total: ' + doc.money(summary.hammerCents)];
+  if (Number(summary.buyerPremiumCents) > 0) lines.push('Buyer Premium: ' + doc.money(summary.buyerPremiumCents));
+  if (Number(summary.salesTaxCents) > 0) lines.push('Sales Tax: ' + doc.money(summary.salesTaxCents));
+  if (Number(summary.shippingCents) > 0) lines.push('Shipping: ' + doc.money(summary.shippingCents));
+  if (Number(summary.creditsCents) > 0) lines.push('Credits / Refunds: -' + doc.money(summary.creditsCents));
+  lines.push('Grand Total: ' + doc.money(summary.totalCents));
+  return lines;
 }
 
 function lotLinesHtml(lines) {

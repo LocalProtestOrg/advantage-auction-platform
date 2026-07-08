@@ -88,6 +88,23 @@ router.post('/charge-lot', strictLimiter, auth, role(['buyer', 'seller', 'admin'
   }
 });
 
+// POST /api/payments/charge-combined — start an ON-SESSION payment for an unpaid
+// combined invoice (the whole auction at once). Returns a client_secret for payment.html;
+// the webhook null-lot branch settles the combined header + per-lot invoices on success.
+router.post('/charge-combined', strictLimiter, auth, role(['buyer', 'seller', 'admin']), idempotency, async (req, res) => {
+  const idempotencyKey = req.headers['idempotency-key'];
+  if (!idempotencyKey) return res.status(400).json({ error: 'Missing Idempotency-Key' });
+  const { combined_invoice_id } = req.body;
+  if (!combined_invoice_id) return res.status(400).json({ success: false, message: 'combined_invoice_id is required' });
+  try {
+    const result = await paymentService.createCombinedPaymentIntent(req.user.id, combined_invoice_id, idempotencyKey);
+    return res.status(200).json({ success: true, data: result });
+  } catch (err) {
+    console.error('[payments] charge-combined failed:', { userId: req.user.id, combinedInvoiceId: combined_invoice_id, error: err.message });
+    return res.status(400).json({ success: false, message: err.message });
+  }
+});
+
 // POST /api/payments/:paymentId/refund
 router.post('/:paymentId/refund', (req, res) => {
   res.status(501).json({

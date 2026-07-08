@@ -598,6 +598,94 @@ class PaymentService {
     return { status: 'pending', paymentId, intentId: intent.id };
   }
 
+  // ── Design C: combined ON-SESSION charge (buyer clicks "Pay Now" on an unpaid
+  // combined invoice) ─────────────────────────────────────────────────────────
+  // Creates ONE PaymentIntent for the whole combined total (lot_id NULL); payment.html
+  // confirms it client-side, then the webhook's null-lot branch settles the combined
+  // header + per-lot invoices in one shot. Mirrors createPaymentIntent's tx1/Stripe/tx2
+  // idempotency discipline. Returns { client_secret, amount_cents }.
+  async createCombinedPaymentIntent(userId, combinedInvoiceId, idempotencyKey) {
+    let paymentId, amountCents, auctionId;
+    const client = await db.connect();
+    try {
+      await client.query('BEGIN');
+      const baiRes = await client.query(
+        `SELECT id, auction_id, buyer_user_id, total_cents, status
+           FROM buyer_auction_invoices WHERE id = $1 FOR UPDATE`,
+        [combinedInvoiceId]
+      );
+      const bai = baiRes.rows[0];
+      if (!bai) throw new Error('Combined invoice not found');
+      if (bai.buyer_user_id !== userId) throw new Error('Only the invoice owner can pay this invoice');
+      if (bai.status === 'paid' || bai.status === 'void') throw new Error(`This invoice is already ${bai.status}`);
+      if (!bai.total_cents || bai.total_cents <= 0) throw new Error('This invoice has no payable amount');
+      auctionId = bai.auction_id;
+
+      // Retire an orphaned stale pending (no intent, >60s) so a fresh attempt can proceed.
+      await client.query(
+        `UPDATE payments SET status = 'failed', last_attempted_at = now()
+          WHERE auction_id = $1 AND buyer_user_id = $2 AND lot_id IS NULL AND status = 'pending'
+            AND payment_intent_id IS NULL AND created_at < now() - interval '60 seconds'`,
+        [auctionId, userId]
+      );
+
+      // Insert pending combined payment (lot_id NULL). idx_payments_combined_active
+      // blocks a duplicate active combined charge at commit → handled below.
+      const inserted = await client.query(
+        `INSERT INTO payments (auction_id, lot_id, buyer_user_id, amount_cents, status, payment_intent_id)
+         VALUES ($1, NULL, $2, $3, 'pending', NULL)
+         RETURNING id, amount_cents`,
+        [auctionId, userId, bai.total_cents]
+      );
+      paymentId   = inserted.rows[0].id;
+      amountCents = inserted.rows[0].amount_cents;
+      await auditService.logEvent(client, {
+        eventType: 'payment.created', entityType: 'payment', entityId: paymentId,
+        auctionId, paymentId, actorId: userId,
+        metadata: { amount_cents: amountCents, status: 'pending', combined: true, on_session: true, combined_invoice_id: combinedInvoiceId },
+      });
+      await client.query('COMMIT');
+    } catch (error) {
+      await client.query('ROLLBACK').catch(() => {});
+      client.release();
+      if (error && error.code === '23505') {
+        // A combined charge is already pending/paid for this (auction, buyer) — reuse
+        // the in-flight intent's client_secret so the buyer resumes the same payment.
+        const ex = (await db.query(
+          `SELECT p.payment_intent_id, p.amount_cents FROM payments p
+             JOIN buyer_auction_invoices b ON b.auction_id = p.auction_id AND b.buyer_user_id = p.buyer_user_id
+            WHERE b.id = $1 AND p.lot_id IS NULL AND p.status = 'pending' AND p.payment_intent_id IS NOT NULL
+            ORDER BY p.created_at DESC LIMIT 1`,
+          [combinedInvoiceId]
+        )).rows[0];
+        if (ex && ex.payment_intent_id) {
+          const pi = await getStripe().paymentIntents.retrieve(ex.payment_intent_id);
+          return { client_secret: pi.client_secret, amount_cents: ex.amount_cents };
+        }
+        throw new Error('A payment for this invoice is already in progress. Please wait a moment and try again.');
+      }
+      throw error;
+    }
+    client.release();
+
+    const stripeKey = idempotencyKey || ('combined-onsession:' + combinedInvoiceId);
+    let intent;
+    try {
+      intent = await getStripe().paymentIntents.create({
+        amount: amountCents, currency: 'usd',
+        metadata: { combined_invoice_id: combinedInvoiceId, auction_id: auctionId, buyer_user_id: userId, payment_id: paymentId },
+      }, { timeout: 15000, idempotencyKey: stripeKey });
+    } catch (stripeErr) {
+      const fc = await db.connect();
+      try {
+        await fc.query(`UPDATE payments SET status = 'failed', last_attempted_at = now() WHERE id = $1 AND status = 'pending' AND payment_intent_id IS NULL`, [paymentId]);
+      } catch (e) { /* best-effort slot release */ } finally { fc.release(); }
+      throw stripeErr;
+    }
+    await db.query(`UPDATE payments SET payment_intent_id = $1 WHERE id = $2 AND payment_intent_id IS NULL`, [intent.id, paymentId]);
+    return { client_secret: intent.client_secret, amount_cents: amountCents };
+  }
+
   async recordPaymentSuccess(paymentId, paymentProviderId) {
     // Record successful payment from provider.
     // Winner and amount already locked at auction close.
