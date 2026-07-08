@@ -193,7 +193,7 @@ app.get('/sitemap.xml', async (req, res) => {
   // Static marketing pages (mirrors the prior public/sitemap.xml inventory).
   const staticPaths = [
     '/',
-    '/how-it-works.html',
+    '/how-it-works',
     '/how-to-buy.html',
     '/start-selling.html',
     '/buyer-faq.html',
@@ -233,6 +233,12 @@ app.get('/sitemap.xml', async (req, res) => {
   res.set('Cache-Control', 'public, max-age=3600');
   return res.send(xml);
 });
+
+// Clean, canonical URL for the seller "How It Works" experience — serve the file at
+// the extensionless /how-it-works (its canonical), and 301 the .html form to it so
+// existing links consolidate. Must run before express.static.
+app.get('/how-it-works', (req, res) => res.sendFile(path.join(__dirname, 'public', 'how-it-works.html')));
+app.get('/how-it-works.html', (req, res) => res.redirect(301, '/how-it-works'));
 
 // Static frontend — must be before routes and 404 handler
 app.use(express.static(path.join(__dirname, 'public')));
