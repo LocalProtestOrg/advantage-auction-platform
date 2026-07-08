@@ -57,7 +57,7 @@
     async function init() {
       try {
         const res = await fetch('/api/payments/setup-intent', { method: 'POST', headers: { Authorization: 'Bearer ' + token } });
-        if (res.status === 401) { localStorage.removeItem('token'); location.href = '/login.html'; return; }
+        if (res.status === 401) { localStorage.removeItem('token'); location.href = '/login.html?next=' + encodeURIComponent(location.pathname + location.search); return; }
         const data = await res.json();
         if (!data.success || !data.data.client_secret || !data.data.publishable_key) {
           loading.textContent = 'Could not start card setup. Please try again later.'; return;
