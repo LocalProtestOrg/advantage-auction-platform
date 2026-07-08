@@ -222,3 +222,146 @@ describe('shareMeta middleware', () => {
     svc.getLotMeta.mockRestore();
   });
 });
+
+// ── Phase 3 — JSON-LD ────────────────────────────────────────────────────────
+
+// Extract and parse the single application/ld+json script from injected HTML.
+function extractJsonLd(html) {
+  const m = html.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/);
+  if (!m) return null;
+  // Reverse the </script>-defense escape before parsing.
+  return JSON.parse(m[1].replace(/\\u003c/g, '<'));
+}
+
+describe('buildAuctionEvent', () => {
+  test('found auction → Event with startDate/endDate + organizer', () => {
+    const ev = mw.buildAuctionEvent(
+      { title: 'Grand Estate', description: 'Fine art', startDate: '2026-08-01T00:00:00Z',
+        endDate: '2026-08-05T00:00:00Z', organizer: 'Acme Estates' },
+      'https://bid.advantage.bid/auction-view.html?auctionId=' + UUID,
+      'https://bid.advantage.bid/img/social-card.png'
+    );
+    expect(ev['@type']).toBe('Event');
+    expect(ev.name).toBe('Grand Estate');
+    expect(ev.startDate).toBe('2026-08-01T00:00:00.000Z');
+    expect(ev.endDate).toBe('2026-08-05T00:00:00.000Z');
+    expect(ev.eventAttendanceMode).toBe('https://schema.org/OnlineEventAttendanceMode');
+    expect(ev.eventStatus).toBe('https://schema.org/EventScheduled');
+    expect(ev.organizer).toEqual({ '@type': 'Organization', name: 'Acme Estates' });
+    expect(ev.location).toEqual({ '@type': 'VirtualLocation', url: ev.url });
+  });
+
+  test('null dates + null organizer → omitted / defaulted', () => {
+    const ev = mw.buildAuctionEvent(
+      { title: 'T', description: null, startDate: null, endDate: null, organizer: null },
+      'https://bid.advantage.bid/auction-view.html?auctionId=' + UUID,
+      'https://bid.advantage.bid/img/social-card.png'
+    );
+    expect('startDate' in ev).toBe(false);
+    expect('endDate' in ev).toBe(false);
+    expect('description' in ev).toBe(false);
+    expect(ev.organizer.name).toBe('Advantage.Bid'); // default
+  });
+});
+
+describe('buildLotProduct', () => {
+  test('price present → offers emitted with formatted price', () => {
+    const p = mw.buildLotProduct(
+      { title: 'Tiffany Lamp', description: 'Original', priceCents: 12500 },
+      'https://bid.advantage.bid/lot.html?lotId=' + UUID,
+      'https://x/first.jpg'
+    );
+    expect(p['@type']).toBe('Product');
+    expect(p.offers).toEqual({
+      '@type': 'Offer', priceCurrency: 'USD', price: '125.00',
+      availability: 'https://schema.org/InStock',
+      url: 'https://bid.advantage.bid/lot.html?lotId=' + UUID,
+    });
+  });
+
+  test('no price → offers OMITTED (not fabricated)', () => {
+    const p = mw.buildLotProduct(
+      { title: 'Brass Clock', description: 'Ticking', priceCents: null },
+      'https://bid.advantage.bid/lot.html?lotId=' + UUID,
+      'https://x/thumb.jpg'
+    );
+    expect('offers' in p).toBe(false);
+  });
+});
+
+describe('buildJsonLd + injection', () => {
+  test('auction → @graph has Event + BreadcrumbList Home→Auction', () => {
+    const script = mw.buildJsonLd('auction',
+      { title: 'Grand Estate', description: 'Fine art', startDate: '2026-08-01T00:00:00Z',
+        endDate: '2026-08-05T00:00:00Z', organizer: 'Acme' },
+      'https://bid.advantage.bid/auction-view.html?auctionId=' + UUID,
+      'https://bid.advantage.bid/img/social-card.png');
+    const obj = JSON.parse(script.replace(/^<script[^>]*>/, '').replace(/<\/script>$/, '').replace(/\\u003c/g, '<'));
+    expect(obj['@context']).toBe('https://schema.org');
+    const event = obj['@graph'].find(g => g['@type'] === 'Event');
+    const crumb = obj['@graph'].find(g => g['@type'] === 'BreadcrumbList');
+    expect(event.name).toBe('Grand Estate');
+    expect(crumb.itemListElement.map(i => i.name)).toEqual(['Home', 'Grand Estate']);
+    expect(crumb.itemListElement[0].item).toBe('https://bid.advantage.bid/');
+  });
+
+  test('lot → @graph has Product + Breadcrumb Home→Auction→Lot', () => {
+    const script = mw.buildJsonLd('lot',
+      { title: 'Tiffany Lamp', description: 'Original', priceCents: 5000,
+        auctionId: UUID, auctionTitle: 'Grand Estate' },
+      'https://bid.advantage.bid/lot.html?lotId=' + UUID,
+      'https://x/first.jpg');
+    const obj = JSON.parse(script.replace(/^<script[^>]*>/, '').replace(/<\/script>$/, '').replace(/\\u003c/g, '<'));
+    const crumb = obj['@graph'].find(g => g['@type'] === 'BreadcrumbList');
+    expect(crumb.itemListElement.map(i => i.name)).toEqual(['Home', 'Grand Estate', 'Tiffany Lamp']);
+    expect(crumb.itemListElement[1].item).toBe('https://bid.advantage.bid/auction-view.html?auctionId=' + UUID);
+  });
+
+  test('</script> in a value is escaped and cannot break out', () => {
+    const script = mw.buildJsonLd('lot',
+      { title: 'Evil</script><script>alert(1)</script>', description: 'x', priceCents: null,
+        auctionId: UUID, auctionTitle: 'A' },
+      'https://bid.advantage.bid/lot.html?lotId=' + UUID, 'https://x/i.jpg');
+    // No raw </script> before the trailing tag.
+    expect(script.slice(0, -'</script>'.length)).not.toContain('</script>');
+    expect(script).toContain('\\u003c/script');
+    // Still valid JSON once the escape is reversed.
+    const obj = JSON.parse(script.replace(/^<script[^>]*>/, '').replace(/<\/script>$/, '').replace(/\\u003c/g, '<'));
+    expect(obj['@graph'][0].name).toContain('Evil');
+  });
+
+  test('middleware injects exactly one ld+json for a found auction', async () => {
+    jest.spyOn(svc, 'getAuctionMeta').mockResolvedValueOnce({
+      title: 'Grand Estate', description: 'Fine art',
+      image: 'https://res.cloudinary.com/cover.jpg',
+      url: 'https://bid.advantage.bid/auction-view.html?auctionId=' + UUID,
+      type: 'website', siteName: 'Advantage.Bid', organizer: 'Acme',
+      startDate: '2026-08-01T00:00:00Z', endDate: '2026-08-05T00:00:00Z',
+    });
+    const r = await run({ method: 'GET', path: '/auction-view.html', query: { auctionId: UUID } });
+    const html = r.res._body;
+    expect((html.match(/application\/ld\+json/g) || []).length).toBe(1);
+    const obj = extractJsonLd(html);
+    expect(obj['@graph'].find(g => g['@type'] === 'Event').endDate).toBe('2026-08-05T00:00:00.000Z');
+    svc.getAuctionMeta.mockRestore();
+  });
+});
+
+// ── Phase 3 — getSitemapEntries ──────────────────────────────────────────────
+
+describe('getSitemapEntries', () => {
+  test('maps auction + lot rows to id/lastmod', async () => {
+    db.query
+      .mockResolvedValueOnce({ rows: [{ id: 'a1', lastmod: '2026-07-01T00:00:00Z' }] })
+      .mockResolvedValueOnce({ rows: [{ id: 'l1', lastmod: '2026-07-02T00:00:00Z' }] });
+    const e = await svc.getSitemapEntries();
+    expect(e.auctions).toEqual([{ id: 'a1', lastmod: '2026-07-01T00:00:00Z' }]);
+    expect(e.lots).toEqual([{ id: 'l1', lastmod: '2026-07-02T00:00:00Z' }]);
+  });
+
+  test('DB error → empty arrays (fail-safe, never throws)', async () => {
+    db.query.mockRejectedValue(new Error('boom'));
+    const e = await svc.getSitemapEntries();
+    expect(e).toEqual({ auctions: [], lots: [] });
+  });
+});
