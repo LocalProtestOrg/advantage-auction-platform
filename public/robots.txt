@@ -1,13 +1,25 @@
 User-agent: *
-Disallow: /auction.html
-Disallow: /auction-view.html
-Disallow: /dashboard.html
-Disallow: /demo.html
-Disallow: /lot.html
-Disallow: /lot-builder.html
-Disallow: /payment.html
+
+# Private / authenticated pages — do not index
+Disallow: /dashboard
+Disallow: /seller-dashboard
 Disallow: /seller-create.html
-Disallow: /seller-dashboard.html
+Disallow: /lot-builder
+Disallow: /account.html
+Disallow: /watchlist.html
+Disallow: /my-bids.html
+Disallow: /my-agreements.html
+Disallow: /billing.html
+Disallow: /invoices.html
+Disallow: /payment.html
+Disallow: /add-card.html
+Disallow: /login.html
+Disallow: /forgot-password.html
+Disallow: /reset-password.html
+Disallow: /sign-agreement.html
+Disallow: /verify-documents.html
+Disallow: /demo.html
+Disallow: /admin/
 Disallow: /api/
 
-Sitemap: https://advantage.bid/sitemap.xml
+Sitemap: https://bid.advantage.bid/sitemap.xml
