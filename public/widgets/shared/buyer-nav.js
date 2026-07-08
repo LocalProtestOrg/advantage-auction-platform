@@ -1,7 +1,19 @@
-/* Shared buyer header/navigation (#6). Self-mounts a sticky top bar with Back,
- * brand, the buyer links, and a Log in/out affordance. On desktop the links sit
- * inline (unchanged). On mobile (≤600px) they collapse into a hamburger dropdown
- * that is closed by default (does not cover the page) and opens/closes cleanly.
+/* Shared buyer header/navigation (#6). Self-mounts a sticky top bar for the
+ * Advantage.Bid marketplace. Layout: contextual Back + brand on the left; a
+ * compact set of controls on the right.
+ *   • Signed OUT → Sign In / Sign Up (+ the marketplace hamburger menu).
+ *   • Signed IN  → Profile menu (person icon), Watchlist (heart), hamburger menu.
+ * The hamburger opens a grouped "mega" menu (Auctions · Categories · Sell ·
+ * How It Works · Help). All dropdowns open on click, close on outside-click /
+ * Escape, and are keyboard-accessible (button + aria-expanded).
+ *
+ * Preserved behavior hooks (do not remove):
+ *   - Contextual Back button + goBack() + window.BUYER_NAV_BACK
+ *   - Bid-sound toggle + window.BuyerChime
+ *   - Token-based auth detection (localStorage 'token') + logout
+ *   - Active-link highlighting
+ *   - No desktop horizontal scrollbar (nav links live inside dropdowns, so the
+ *     bar itself never overflows).
  * Include on any buyer page: <script src="/widgets/shared/buyer-nav.js"></script>
  */
 (function () {
@@ -9,60 +21,119 @@
   if (window.__buyerNavInstalled) return;
   window.__buyerNavInstalled = true;
 
-  var MOBILE = 600;
+  var MOBILE = 640;
   var CSS =
     '#buyer-nav{position:sticky;top:0;z-index:50;background:#0f172a;color:#fff;' +
       'font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;' +
       'box-shadow:0 1px 3px rgba(0,0,0,.18)}' +
-    '#buyer-nav .bn-inner{max-width:1100px;margin:0 auto;display:flex;align-items:center;gap:6px;' +
-      'padding:8px 12px;flex-wrap:nowrap;position:relative}' +
-    '#buyer-nav .bn-back{background:rgba(255,255,255,.12);color:#fff;border:none;border-radius:7px;' +
-      'padding:7px 12px;font-size:14px;font-weight:600;cursor:pointer;white-space:nowrap}' +
-    '#buyer-nav .bn-back:hover{background:rgba(255,255,255,.22)}' +
-    '#buyer-nav .bn-brand{font-weight:800;color:#fff;text-decoration:none;margin:0 8px 0 4px;font-size:15px;white-space:nowrap}' +
-    '#buyer-nav .bn-burger{display:none;margin-left:auto;background:rgba(255,255,255,.12);color:#fff;border:none;' +
-      'border-radius:7px;padding:7px 11px;font-size:17px;line-height:1;cursor:pointer}' +
-    '#buyer-nav .bn-burger:hover{background:rgba(255,255,255,.22)}' +
-    '#buyer-nav .bn-collapse{display:flex;align-items:center;gap:6px;flex:1;min-width:0}' +
-    '#buyer-nav .bn-links{display:flex;align-items:center;gap:2px;flex:1;flex-wrap:wrap;overflow:visible;min-width:0}' +
-    '#buyer-nav .bn-links a{color:#cbd5e1;text-decoration:none;padding:7px 12px;border-radius:7px;' +
-      'font-size:14px;font-weight:600;white-space:nowrap}' +
-    '#buyer-nav .bn-links a:hover{background:rgba(255,255,255,.10);color:#fff}' +
-    '#buyer-nav .bn-links a.active{background:#2563eb;color:#fff}' +
-    '#buyer-nav .bn-auth{display:flex;align-items:center;gap:4px}' +
-    '#buyer-nav .bn-auth a{color:#cbd5e1;text-decoration:none;font-size:14px;font-weight:700;padding:7px 10px;white-space:nowrap}' +
-    '#buyer-nav .bn-auth a:hover{color:#fff}' +
-    '#buyer-nav .bn-sell{opacity:.75;border:1px solid rgba(255,255,255,.22);border-radius:7px;margin-right:6px}' +
-    '#buyer-nav .bn-sell:hover{opacity:1}' +
-    '#buyer-nav .bn-sound{background:none;border:none;color:#cbd5e1;font-size:16px;cursor:pointer;padding:6px 8px;line-height:1}' +
-    '#buyer-nav .bn-sound:hover{color:#fff}' +
-    // ── Mobile: collapse links into a closed-by-default dropdown ──
+    '#buyer-nav *{box-sizing:border-box}' +
+    '#buyer-nav .bn-inner{max-width:1200px;margin:0 auto;display:flex;align-items:center;gap:8px;' +
+      'padding:8px 14px;position:relative}' +
+    // ── left: Back + brand ──
+    '#buyer-nav .bn-back{flex:0 0 auto;background:rgba(255,255,255,.10);color:#fff;border:none;border-radius:8px;' +
+      'padding:8px 12px;font-size:14px;font-weight:600;cursor:pointer;white-space:nowrap;min-height:38px}' +
+    '#buyer-nav .bn-back:hover{background:rgba(255,255,255,.20)}' +
+    '#buyer-nav .bn-brand{flex:0 1 auto;font-weight:800;color:#fff;text-decoration:none;margin:0 4px;font-size:16px;' +
+      'white-space:nowrap;overflow:hidden;text-overflow:ellipsis;letter-spacing:-.01em}' +
+    '#buyer-nav .bn-spacer{flex:1 1 auto;min-width:8px}' +
+    // ── right: action cluster ──
+    '#buyer-nav .bn-actions{flex:0 0 auto;display:flex;align-items:center;gap:6px}' +
+    '#buyer-nav .bn-icon{display:inline-flex;align-items:center;justify-content:center;width:40px;height:40px;' +
+      'background:rgba(255,255,255,.08);border:none;border-radius:9px;color:#e2e8f0;cursor:pointer;padding:0;text-decoration:none}' +
+    '#buyer-nav .bn-icon:hover{background:rgba(255,255,255,.18);color:#fff}' +
+    '#buyer-nav .bn-icon svg{width:20px;height:20px;display:block}' +
+    '#buyer-nav .bn-icon[aria-expanded="true"]{background:#2563eb;color:#fff}' +
+    '#buyer-nav .bn-sound{display:inline-flex;align-items:center;justify-content:center;width:40px;height:40px;' +
+      'background:rgba(255,255,255,.08);border:none;border-radius:9px;color:#cbd5e1;font-size:16px;line-height:1;cursor:pointer;padding:0}' +
+    '#buyer-nav .bn-sound:hover{background:rgba(255,255,255,.18);color:#fff}' +
+    // ── signed-out auth links ──
+    '#buyer-nav .bn-signin{color:#e2e8f0;text-decoration:none;font-size:14px;font-weight:700;padding:9px 12px;' +
+      'border-radius:8px;white-space:nowrap}' +
+    '#buyer-nav .bn-signin:hover{color:#fff;background:rgba(255,255,255,.10)}' +
+    '#buyer-nav .bn-signup{color:#fff;background:#2563eb;text-decoration:none;font-size:14px;font-weight:700;' +
+      'padding:9px 14px;border-radius:8px;white-space:nowrap}' +
+    '#buyer-nav .bn-signup:hover{background:#1d4ed8}' +
+    // ── dropdown shells ──
+    '#buyer-nav .bn-pop{position:absolute;top:calc(100% + 6px);right:8px;background:#0f172a;' +
+      'border:1px solid rgba(255,255,255,.10);border-radius:12px;box-shadow:0 16px 40px rgba(0,0,0,.45);' +
+      'padding:8px;display:none;z-index:60}' +
+    '#buyer-nav .bn-profile-pop{width:210px}' +
+    '#buyer-nav .bn-profile-pop.open{display:block}' +
+    '#buyer-nav .bn-pop a,#buyer-nav .bn-pop button.bn-item{display:block;width:100%;text-align:left;' +
+      'color:#cbd5e1;text-decoration:none;font-size:14px;font-weight:600;padding:10px 12px;border-radius:8px;' +
+      'background:none;border:none;cursor:pointer;font-family:inherit}' +
+    '#buyer-nav .bn-pop a:hover,#buyer-nav .bn-pop button.bn-item:hover{background:rgba(255,255,255,.10);color:#fff}' +
+    '#buyer-nav .bn-pop a.active{background:#1e293b;color:#fff}' +
+    '#buyer-nav .bn-pop hr{border:none;border-top:1px solid rgba(255,255,255,.10);margin:6px 4px}' +
+    // ── grouped mega menu ──
+    '#buyer-nav .bn-menu-pop{width:min(700px,calc(100vw - 16px));grid-template-columns:repeat(3,1fr);' +
+      'gap:8px 18px;padding:16px}' +
+    '#buyer-nav .bn-menu-pop.open{display:grid}' +
+    '#buyer-nav .bn-group{min-width:0}' +
+    '#buyer-nav .bn-group h4{margin:0 0 4px;padding:0 8px;font-size:11px;font-weight:800;letter-spacing:.08em;' +
+      'text-transform:uppercase;color:#94a3b8}' +
+    '#buyer-nav .bn-group a{display:block;color:#cbd5e1;text-decoration:none;font-size:14px;font-weight:600;' +
+      'padding:8px;border-radius:7px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}' +
+    '#buyer-nav .bn-group a:hover{background:rgba(255,255,255,.10);color:#fff}' +
+    '#buyer-nav .bn-group a.active{background:#2563eb;color:#fff}' +
+    // ── mobile ──
     '@media (max-width:' + MOBILE + 'px){' +
-      '#buyer-nav .bn-burger{display:block}' +
-      '#buyer-nav .bn-collapse{display:none;position:absolute;top:100%;left:0;right:0;background:#0f172a;' +
-        'flex-direction:column;align-items:stretch;gap:0;padding:6px 10px 10px;' +
-        'box-shadow:0 10px 18px rgba(0,0,0,.34);max-height:calc(100vh - 54px);overflow-y:auto}' +
-      '#buyer-nav.bn-open .bn-collapse{display:flex}' +
-      '#buyer-nav .bn-links{flex-direction:column;align-items:stretch;flex:none;overflow:visible}' +
-      '#buyer-nav .bn-links a{padding:11px 8px;border-bottom:1px solid rgba(255,255,255,.07);font-size:15px}' +
-      '#buyer-nav .bn-auth{flex-direction:column;align-items:stretch;gap:0}' +
-      '#buyer-nav .bn-auth a{padding:11px 8px;border-bottom:1px solid rgba(255,255,255,.07)}' +
-      '#buyer-nav .bn-sell{margin:8px 0 2px;text-align:center}' +
-      '#buyer-nav .bn-sound{align-self:flex-start;padding:10px 8px}' +
+      '#buyer-nav .bn-brand{font-size:15px}' +
+      '#buyer-nav .bn-back{padding:8px 10px}' +
+      '#buyer-nav .bn-icon,#buyer-nav .bn-sound{width:44px;height:44px}' +
+      '#buyer-nav .bn-signin{padding:11px 10px}' +
+      '#buyer-nav .bn-signup{padding:11px 12px}' +
+      '#buyer-nav .bn-pop{left:8px;right:8px}' +
+      '#buyer-nav .bn-profile-pop{width:auto}' +
+      '#buyer-nav .bn-menu-pop{width:auto;grid-template-columns:1fr;max-height:calc(100vh - 66px);overflow-y:auto}' +
+      '#buyer-nav .bn-group{border-bottom:1px solid rgba(255,255,255,.07);padding-bottom:6px;margin-bottom:2px}' +
+      '#buyer-nav .bn-group:last-child{border-bottom:none}' +
+      '#buyer-nav .bn-group a{padding:11px 8px}' +
     '}';
 
-  var LINKS = [
-    { href: '/', label: 'Auctions', match: ['/', '/index.html'] },
-    { href: '/search.html', label: 'Browse Auctions' },
-    { href: '/browse-categories.html', label: 'Categories' },
-    { href: '/browse-locations.html', label: 'Locations' },
-    { href: '/past-auctions.html', label: 'Past Auctions' },
-    { href: '/my-bids.html', label: 'My Bids' },
-    { href: '/watchlist.html', label: 'Watchlist' },
-    { href: '/invoices.html', label: 'Invoices' },
-    { href: '/billing.html', label: 'Billing' },
-    { href: '/account.html', label: 'Account' },
+  // ── Grouped hamburger menu ─────────────────────────────────────────────────
+  // NOTE: some destinations reuse existing pages/anchors because dedicated pages
+  // do not exist yet. See the FLAGGED list in the delivery report.
+  var MENU = [
+    { title: 'Auctions', items: [
+      { href: '/search.html?status=active',   label: 'Live Auctions' },
+      { href: '/search.html?status=upcoming', label: 'Upcoming Auctions' },
+      { href: '/past-auctions.html',          label: 'Past Auctions' },
+    ] },
+    { title: 'Categories', items: [
+      { href: '/search.html?category=Art',       label: 'Art' },
+      { href: '/search.html?category=Furniture', label: 'Furniture' },
+      { href: '/search.html?category=Antiques',  label: 'Antiques' },
+      { href: '/search.html?category=Jewelry',   label: 'Jewelry' },
+      { href: '/search.html?category=Household', label: 'Household' },
+      { href: '/browse-categories.html',         label: 'All Categories' },
+    ] },
+    { title: 'Sell', items: [
+      { href: '/start-selling.html',        label: 'Sell on Advantage' },
+      { href: '/after-estate-sale.html',    label: 'Estate Sales' },
+      { href: '/downsizing-liquidation.html', label: 'Moving Sales' },
+      { href: '/downsizing-liquidation.html', label: 'Senior Downsizing' },
+      { href: '/downsizing-liquidation.html', label: 'Business Liquidation' },
+      { href: '/start-selling.html',        label: 'Reseller Auctions' },
+    ] },
+    { title: 'How It Works', items: [
+      { href: '/how-it-works.html',          label: 'About' },
+      { href: '/how-to-buy.html',            label: 'Buying' },
+      { href: '/how-it-works.html#sellers',  label: 'Selling' },
+    ] },
+    { title: 'Help', items: [
+      { href: 'mailto:support@advantage.bid', label: 'Support' },
+      { href: '/buyer-faq.html',              label: 'FAQ' },
+    ] },
   ];
+
+  // Inline SVG icons (currentColor, no external assets).
+  var ICON_USER = '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">' +
+    '<path d="M12 12a5 5 0 1 0 0-10 5 5 0 0 0 0 10Zm0 2c-4.42 0-8 2.24-8 5v1h16v-1c0-2.76-3.58-5-8-5Z"/></svg>';
+  var ICON_HEART = '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">' +
+    '<path d="M12 21s-7.2-4.35-9.6-8.6C.9 9.2 2.5 5.4 6.1 5.4c2 0 3.3 1.15 3.9 2.2.6-1.05 1.9-2.2 3.9-2.2 3.6 0 5.2 3.8 3.7 7C19.2 16.65 12 21 12 21Z"/></svg>';
+  var ICON_MENU = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">' +
+    '<path d="M3 6h18M3 12h18M3 18h18"/></svg>';
 
   function sameOriginReferrer() {
     try { return document.referrer && new URL(document.referrer).origin === location.origin; } catch (e) { return false; }
@@ -121,14 +192,57 @@
 
     var token = (function () { try { return localStorage.getItem('token'); } catch (e) { return null; } })();
     var here = location.pathname;
-    var linksHtml = LINKS.map(function (l) {
-      var active = (l.match ? l.match.indexOf(here) !== -1 : here === l.href);
-      return '<a href="' + l.href + '"' + (active ? ' class="active"' : '') + '>' + l.label + '</a>';
+    var next = encodeURIComponent(here + location.search);
+
+    // Active-link test: match pathname; when the target carries a query string
+    // (e.g. ?status=active), require the current query to match exactly.
+    function isActive(href) {
+      if (href.charAt(0) !== '/') return false; // mailto: etc.
+      var path = href, query = '';
+      var qi = href.indexOf('?'); if (qi !== -1) { path = href.slice(0, qi); query = href.slice(qi); }
+      var hi = path.indexOf('#'); if (hi !== -1) path = path.slice(0, hi);
+      if (path !== here) return false;
+      if (query) return query === (location.search || '');
+      return true;
+    }
+    function menuLink(it) {
+      return '<a href="' + it.href + '"' + (isActive(it.href) ? ' class="active"' : '') + '>' + it.label + '</a>';
+    }
+    var menuHtml = MENU.map(function (g) {
+      return '<div class="bn-group"><h4>' + g.title + '</h4>' + g.items.map(menuLink).join('') + '</div>';
     }).join('');
 
-    var authHtml = token
-      ? '<a href="#" data-bn-logout>Log out</a>'
-      : '<a href="/login.html?next=' + encodeURIComponent(here + location.search) + '">Log in</a>';
+    var soundBtn = '<button class="bn-sound" type="button" aria-label="Toggle bid sounds" title="Bid sounds (off by default)"></button>';
+    var burgerBtn = '<button class="bn-icon bn-burger" type="button" aria-haspopup="true" aria-expanded="false" ' +
+      'aria-controls="bn-menu-pop" aria-label="Browse menu">' + ICON_MENU + '</button>';
+
+    var actionsHtml;
+    if (token) {
+      actionsHtml =
+        soundBtn +
+        '<button class="bn-icon bn-profile" type="button" aria-haspopup="true" aria-expanded="false" ' +
+          'aria-controls="bn-profile-pop" aria-label="Account menu">' + ICON_USER + '</button>' +
+        '<a class="bn-icon" href="/watchlist.html" aria-label="Watchlist" title="Watchlist">' + ICON_HEART + '</a>' +
+        burgerBtn;
+    } else {
+      actionsHtml =
+        soundBtn +
+        '<a class="bn-signin" href="/login.html?next=' + next + '">Sign In</a>' +
+        '<a class="bn-signup" href="/login.html?tab=register&next=' + next + '">Sign Up</a>' +
+        burgerBtn;
+    }
+
+    var profilePop = token
+      ? '<div class="bn-pop bn-profile-pop" id="bn-profile-pop" role="menu">' +
+          '<a href="/account.html" role="menuitem">Profile</a>' +
+          '<a href="/account.html" role="menuitem">Account</a>' +
+          '<a href="/search.html?status=active" role="menuitem">Register to Bid</a>' +
+          '<hr>' +
+          '<button type="button" class="bn-item" data-bn-logout role="menuitem">Logout</button>' +
+        '</div>'
+      : '';
+
+    var menuPop = '<div class="bn-pop bn-menu-pop" id="bn-menu-pop" role="menu">' + menuHtml + '</div>';
 
     var header = document.createElement('header');
     header.id = 'buyer-nav';
@@ -136,42 +250,53 @@
       '<div class="bn-inner">' +
         '<button class="bn-back" type="button" aria-label="Go back">&#8592; Back</button>' +
         '<a class="bn-brand" href="/">Advantage.Bid</a>' +
-        '<button class="bn-burger" type="button" aria-label="Menu" aria-expanded="false" aria-controls="bn-collapse">&#9776;</button>' +
-        '<div class="bn-collapse" id="bn-collapse">' +
-          '<nav class="bn-links">' + linksHtml + '</nav>' +
-          '<button class="bn-sound" type="button" aria-label="Toggle bid sounds" title="Bid sounds (off by default)"></button>' +
-          '<div class="bn-auth"><a href="/start-selling.html" class="bn-sell" title="List items for auction">Sell</a>' + authHtml + '</div>' +
-        '</div>' +
+        '<div class="bn-spacer"></div>' +
+        '<div class="bn-actions">' + actionsHtml + '</div>' +
+        profilePop +
+        menuPop +
       '</div>';
     document.body.insertBefore(header, document.body.firstChild);
 
     header.querySelector('.bn-back').addEventListener('click', goBack);
-    var logout = header.querySelector('[data-bn-logout]');
-    if (logout) logout.addEventListener('click', function (e) {
-      e.preventDefault();
-      try { localStorage.removeItem('token'); } catch (_) {}
-      location.href = '/';
+
+    // Logout (present inside the profile menu when signed in).
+    Array.prototype.forEach.call(header.querySelectorAll('[data-bn-logout]'), function (el) {
+      el.addEventListener('click', function (e) {
+        e.preventDefault();
+        try { localStorage.removeItem('token'); } catch (_) {}
+        location.href = '/';
+      });
     });
 
-    // ── Mobile hamburger toggle ──────────────────────────────────────────────
-    var burger = header.querySelector('.bn-burger');
-    function setOpen(open) {
-      header.classList.toggle('bn-open', open);
-      if (burger) { burger.setAttribute('aria-expanded', open ? 'true' : 'false'); burger.innerHTML = open ? '&#10005;' : '&#9776;'; }
+    // ── Dropdown manager (profile menu + hamburger mega menu) ────────────────
+    var pops = [];
+    function closeAll() {
+      pops.forEach(function (p) { p.pop.classList.remove('open'); p.btn.setAttribute('aria-expanded', 'false'); });
     }
-    if (burger) burger.addEventListener('click', function (e) { e.stopPropagation(); setOpen(!header.classList.contains('bn-open')); });
-    // Close on link click (navigation), outside click, and when widening to desktop.
-    header.querySelector('.bn-collapse').addEventListener('click', function (e) {
-      if (e.target.closest('a')) setOpen(false);
-    });
-    document.addEventListener('click', function (e) {
-      if (header.classList.contains('bn-open') && !header.contains(e.target)) setOpen(false);
-    });
-    window.addEventListener('resize', function () {
-      if (window.innerWidth > MOBILE && header.classList.contains('bn-open')) setOpen(false);
-    });
+    function register(btn, pop) {
+      if (!btn || !pop) return;
+      pops.push({ btn: btn, pop: pop });
+      btn.addEventListener('click', function (e) {
+        e.stopPropagation();
+        var isOpen = pop.classList.contains('open');
+        closeAll();
+        if (!isOpen) { pop.classList.add('open'); btn.setAttribute('aria-expanded', 'true'); }
+      });
+    }
+    register(header.querySelector('.bn-profile'), header.querySelector('#bn-profile-pop'));
+    register(header.querySelector('.bn-burger'),  header.querySelector('#bn-menu-pop'));
 
-    // #14 bid-sound toggle
+    // Close on outside click; also collapse after choosing a link inside a pop.
+    document.addEventListener('click', function (e) {
+      if (!header.contains(e.target)) { closeAll(); return; }
+      if (e.target.closest('.bn-pop a')) closeAll();
+    });
+    // Close on Escape.
+    document.addEventListener('keydown', function (e) { if (e.key === 'Escape' || e.key === 'Esc') closeAll(); });
+    // Collapse when crossing back to desktop width (avoids stuck-open panels).
+    window.addEventListener('resize', closeAll);
+
+    // ── #14 bid-sound toggle ─────────────────────────────────────────────────
     var sound = header.querySelector('.bn-sound');
     if (sound) {
       var paint = function () { sound.textContent = chimeEnabled() ? '🔊' : '🔇'; sound.style.opacity = chimeEnabled() ? '1' : '0.6'; };
