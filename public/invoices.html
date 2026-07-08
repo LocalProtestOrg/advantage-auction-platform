@@ -36,8 +36,8 @@
   <script src="/widgets/shared/buyer-nav.js"></script>
   <div class="wrap">
     <h1>Past Invoices</h1>
-    <div class="sub">Your won lots and payment history.</div>
-    <div class="note">Buyer premium, sales tax, and shipping appear as $0.00 until those features go live. Advantage never stores your full card details.</div>
+    <div class="sub">One invoice per auction you purchased, with payment status.</div>
+    <div class="note">Each invoice covers everything you won in that auction. Only applicable charges are shown. Advantage never stores your full card details.</div>
     <div id="status" class="sub"></div>
     <div id="content"></div>
   </div>
@@ -48,41 +48,41 @@
     // #7 buyer-facing plain-language status (internal status → label + style).
     function statusLabel(st){st=(st||'').toLowerCase();
       if(st==='paid')return['Paid','paid'];
-      if(st==='issued'||st==='unpaid')return['Unpaid','issued'];
+      if(st==='issued'||st==='unpaid'||st==='payment_required')return['Unpaid','issued'];
       if(st==='pending'||st==='processing')return['Payment Processing','processing'];
       if(st==='failed'||st==='payment_failed')return['Payment Failed','failed'];
       if(st==='refunded'||st==='partially_refunded')return['Refunded','refunded'];
+      if(st==='void')return['Void','other'];
       return[(st||'-'),'other'];}
     function pill(st){const r=statusLabel(st);return '<span class="pill '+r[1]+'">'+esc(r[0])+'</span>'}
 
-    // Pay an unpaid invoice: reuse the proven charge-lot → payment.html pipeline
-    // (same flow the lot page uses). Creates a PaymentIntent for the lot, then hands
-    // the buyer to the Stripe card page. Whole amount, no hidden fees.
-    async function payInvoice(id, auctionId, lotId, btn){
+    // Pay an unpaid COMBINED invoice in ONE payment for the whole auction. Uses the
+    // combined on-session charge endpoint → payment.html; the webhook's null-lot branch
+    // then settles the combined header + every per-lot invoice at once.
+    async function payInvoice(combinedInvoiceId, btn){
       const token=localStorage.getItem('token');
       if(!token){location.href='/login.html?next='+encodeURIComponent('/invoices.html');return;}
-      if(!auctionId||!lotId){alert('This invoice can’t be paid online yet — please contact support@advantage.bid.');return;}
       const old=btn.textContent; btn.disabled=true; btn.textContent='Starting…';
       try{
         const [cfg,intentRes]=await Promise.all([
           fetch('/api/payments/config').then(r=>r.json()).catch(()=>({})),
-          fetch('/api/payments/charge-lot',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token,'Idempotency-Key':'pay-inv-'+id},body:JSON.stringify({auction_id:auctionId,lot_id:lotId})}).then(r=>r.json())
+          fetch('/api/payments/charge-combined',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token,'Idempotency-Key':'pay-combined-'+combinedInvoiceId},body:JSON.stringify({combined_invoice_id:combinedInvoiceId})}).then(r=>r.json())
         ]);
         if(!intentRes.success)throw new Error(intentRes.message||'Payment could not be started.');
-        const qs=new URLSearchParams({client_secret:intentRes.data.client_secret,amount:intentRes.data.amount_cents,lot_id:lotId,auction_id:auctionId});
+        const qs=new URLSearchParams({client_secret:intentRes.data.client_secret,amount:intentRes.data.amount_cents});
         if(cfg.publishableKey)qs.set('pk',cfg.publishableKey);
         location.href='/payment.html?'+qs.toString();
       }catch(e){alert(e.message||'Could not start payment. Please try again.');btn.disabled=false;btn.textContent=old;}
     }
 
-    // Authenticated PDF download: the endpoint requires a Bearer token, so fetch
-    // the bytes as a blob and trigger a client-side download (no token in URL).
+    // Authenticated combined-invoice PDF download: the endpoint requires a Bearer
+    // token, so fetch the bytes as a blob and trigger a client-side download.
     async function downloadInvoice(id, number, btn){
       const token=localStorage.getItem('token');
       if(!token){location.href='/login.html?next='+encodeURIComponent('/invoices.html');return;}
       const old=btn.textContent; btn.disabled=true; btn.textContent='…';
       try{
-        const r=await fetch('/api/invoices/'+encodeURIComponent(id)+'/pdf',{headers:{Authorization:'Bearer '+token}});
+        const r=await fetch('/api/invoices/combined/'+encodeURIComponent(id)+'/pdf',{headers:{Authorization:'Bearer '+token}});
         if(!r.ok)throw new Error('HTTP '+r.status);
         const blob=await r.blob();
         const url=URL.createObjectURL(blob);
@@ -100,29 +100,29 @@
       const s=document.getElementById('status');const c=document.getElementById('content');
       s.textContent='Loading…';
       try{
-        const r=await fetch('/api/invoices/mine',{headers:{Authorization:'Bearer '+token}});
+        // #5: one invoice per AUCTION (combined) instead of per lot.
+        const r=await fetch('/api/invoices/mine/combined',{headers:{Authorization:'Bearer '+token}});
         if(r.status===401){location.href='/login.html?next='+encodeURIComponent('/invoices.html');return;}
         const d=await r.json();const rows=(d&&d.invoices)||[];
         s.textContent='';
-        if(!rows.length){c.innerHTML='<div class="empty">No invoices yet. Won lots and their payment status will appear here.</div>';return;}
-        // An invoice is payable unless it is already paid, refunded, or a charge is in flight.
-        const isPayable=st=>!['paid','refunded','partially_refunded','pending','processing'].includes((st||'').toLowerCase());
-        const unpaid=rows.filter(i=>isPayable(i.status)).length;
+        if(!rows.length){c.innerHTML='<div class="empty">No invoices yet. Auctions you purchase and their payment status will appear here.</div>';return;}
+        // Payable = combined invoice not yet settled (paid/void). One Pay Now settles the whole auction.
+        const isPayable=i=>['issued','unpaid','payment_required','failed','payment_failed'].includes((i.status||'').toLowerCase());
+        const unpaid=rows.filter(isPayable).length;
         const hint=unpaid?('<div class="payhint">You have '+unpaid+' unpaid '+(unpaid===1?'invoice':'invoices')+'. Click <strong>Pay&nbsp;Now</strong> to complete your payment securely.</div>'):'';
-        c.innerHTML=hint+'<table><thead><tr><th>Invoice</th><th>Date</th><th>Auction</th><th>Lot</th><th>Total</th><th>Status</th><th>Actions</th></tr></thead><tbody>'+
+        c.innerHTML=hint+'<table><thead><tr><th>Auction</th><th>Purchase Date</th><th>Amount</th><th>Status</th><th>Download Combined Invoice</th></tr></thead><tbody>'+
           rows.map(i=>{
-            const pay=isPayable(i.status)?'<button class="paybtn" data-pay-id="'+esc(i.id)+'" data-aid="'+esc(i.auction_id||'')+'" data-lid="'+esc(i.lot_id||'')+'">Pay Now</button>':'';
+            const id=i.combined_invoice_id;
+            const pay=isPayable(i)?'<button class="paybtn" data-pay-id="'+esc(id)+'">Pay Now</button>':'';
             return '<tr>'+
-            '<td><span class="inum">'+esc(i.invoice_number||'-')+'</span></td>'+
-            '<td>'+fdate(i.invoice_date||i.created_at)+'</td>'+
-            '<td>'+esc(i.auction_title||'-')+'</td>'+
-            '<td>'+(i.lot_id?'<a class="lotlink" href="/lot.html?lotId='+encodeURIComponent(i.lot_id)+'">'+(i.lot_number!=null?'#'+esc(i.lot_number)+' ':'')+esc(i.lot_title||'Lot')+'</a>':esc(i.lot_title||'-'))+'</td>'+
-            '<td>'+usd(i.total_cents!=null?i.total_cents:i.amount_cents)+'</td>'+
+            '<td>'+esc(i.auction_title||'-')+'<div class="inum" style="font-size:.72rem">'+esc(i.invoice_number||'')+'</div></td>'+
+            '<td>'+fdate(i.paid_at||i.created_at)+'</td>'+
+            '<td>'+usd(i.total_cents)+'</td>'+
             '<td>'+pill(i.status)+'</td>'+
-            '<td>'+pay+'<button class="pdfbtn" data-id="'+esc(i.id)+'" data-num="'+esc(i.invoice_number||'')+'">Download</button></td>'+
+            '<td>'+pay+'<button class="pdfbtn" data-id="'+esc(id)+'" data-num="'+esc(i.invoice_number||'')+'">Download</button></td>'+
           '</tr>';}).join('')+'</tbody></table>';
         c.querySelectorAll('.pdfbtn').forEach(b=>b.addEventListener('click',()=>downloadInvoice(b.getAttribute('data-id'),b.getAttribute('data-num'),b)));
-        c.querySelectorAll('.paybtn').forEach(b=>b.addEventListener('click',()=>payInvoice(b.getAttribute('data-pay-id'),b.getAttribute('data-aid'),b.getAttribute('data-lid'),b)));
+        c.querySelectorAll('.paybtn').forEach(b=>b.addEventListener('click',()=>payInvoice(b.getAttribute('data-pay-id'),b)));
       }catch(e){s.textContent='Could not load invoices. Please refresh.';}
     })();
   </script>

@@ -196,14 +196,15 @@ async function buildInvoicePdf(data) {
       pdf.moveDown(opts.bold ? 0.2 : 0.35);
     };
 
-    // #10: always show every line item ($0.00 until the feature is enabled), with a
-    // Credits / Refunds line, ending in a bold Grand Total.
+    // #6: only render a financial line when it's applicable (> 0). Hammer Total and
+    // Grand Total always show; Buyer Premium / Sales Tax / Shipping / Credits appear
+    // only when non-zero. At launch (all extras 0) the summary is just Hammer + Grand Total.
     const creditsCents = Number(data.summary.creditsCents || data.summary.refundedCents || 0);
     sumRow('Hammer Total', doc.money(data.summary.hammerCents));
-    sumRow('Buyer Premium', doc.money(data.summary.buyerPremiumCents || 0), { muted: !data.summary.buyerPremiumCents });
-    sumRow('Sales Tax', doc.money(data.summary.salesTaxCents || 0), { muted: !data.summary.salesTaxCents });
-    sumRow('Shipping', doc.money(data.summary.shippingCents || 0), { muted: !data.summary.shippingCents });
-    sumRow('Credits / Refunds', creditsCents ? ('-' + doc.money(creditsCents)) : doc.money(0), { muted: !creditsCents });
+    if (Number(data.summary.buyerPremiumCents) > 0) sumRow('Buyer Premium', doc.money(data.summary.buyerPremiumCents));
+    if (Number(data.summary.salesTaxCents) > 0) sumRow('Sales Tax', doc.money(data.summary.salesTaxCents));
+    if (Number(data.summary.shippingCents) > 0) sumRow('Shipping', doc.money(data.summary.shippingCents));
+    if (creditsCents > 0) sumRow('Credits / Refunds', '-' + doc.money(creditsCents));
     pdf.moveDown(0.1);
     pdf.strokeColor(doc.BRAND.hair).lineWidth(1).moveTo(sx, pdf.y).lineTo(right, pdf.y).stroke();
     pdf.moveDown(0.3);
@@ -212,7 +213,7 @@ async function buildInvoicePdf(data) {
     // ── Footer ──────────────────────────────────────────────────────────────
     pdf.font('Helvetica').fontSize(8).fillColor(doc.BRAND.slate);
     pdf.text(
-      'Buyer premium, sales tax, and shipping appear as "—" until those features are activated. ' +
+      'Only applicable charges are shown. Buyer premium, sales tax, and shipping appear when they apply. ' +
       'Advantage Auction never stores your full card details. Questions? Reply to your receipt email.',
       left, 720, { width: W, align: 'center' }
     );

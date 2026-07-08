@@ -101,29 +101,47 @@ function drawBrandHeader(doc, { docTitle, docSubtitle } = {}) {
  * Fetch a remote image into a Buffer (no external deps). Returns null on any
  * problem so PDF rendering can fall back to a placeholder. Only http(s) URLs are
  * fetched; data: URIs and non-raster formats are caller-skipped.
+ *
+ * Follows HTTP 3xx redirects (Location header) up to `maxRedirects`, so image
+ * URLs that 302 to a CDN (picsum, some Cloudinary/placeholder URLs) render
+ * instead of silently falling back to "No image". Each hop keeps the timeout +
+ * maxBytes safeguards; the final 200 response body is what's read.
  */
-function fetchImageBuffer(url, { timeoutMs = 4000, maxBytes = 5_000_000 } = {}) {
+function fetchImageBuffer(url, { timeoutMs = 4000, maxBytes = 5_000_000, maxRedirects = 3 } = {}) {
   return new Promise((resolve) => {
-    try {
-      if (!/^https?:\/\//i.test(url)) return resolve(null);
-      const lib = url.toLowerCase().startsWith('https:') ? https : http;
-      const req = lib.get(url, (res) => {
-        if (res.statusCode !== 200) { res.resume(); return resolve(null); }
-        const chunks = [];
-        let total = 0;
-        res.on('data', (c) => {
-          total += c.length;
-          if (total > maxBytes) { req.destroy(); return resolve(null); }
-          chunks.push(c);
+    const visit = (currentUrl, redirectsLeft) => {
+      try {
+        if (!/^https?:\/\//i.test(currentUrl)) return resolve(null);
+        const lib = currentUrl.toLowerCase().startsWith('https:') ? https : http;
+        const req = lib.get(currentUrl, (res) => {
+          const status = res.statusCode;
+          // Follow 3xx redirects (301/302/303/307/308) up to the cap.
+          if (status >= 300 && status < 400 && res.headers && res.headers.location) {
+            res.resume(); // drain the redirect body
+            if (redirectsLeft <= 0) return resolve(null);
+            let next;
+            try { next = new URL(res.headers.location, currentUrl).toString(); }
+            catch (_e) { return resolve(null); }
+            return visit(next, redirectsLeft - 1);
+          }
+          if (status !== 200) { res.resume(); return resolve(null); }
+          const chunks = [];
+          let total = 0;
+          res.on('data', (c) => {
+            total += c.length;
+            if (total > maxBytes) { req.destroy(); return resolve(null); }
+            chunks.push(c);
+          });
+          res.on('end', () => resolve(Buffer.concat(chunks)));
+          res.on('error', () => resolve(null));
         });
-        res.on('end', () => resolve(Buffer.concat(chunks)));
-        res.on('error', () => resolve(null));
-      });
-      req.on('error', () => resolve(null));
-      req.setTimeout(timeoutMs, () => { req.destroy(); resolve(null); });
-    } catch (_e) {
-      resolve(null);
-    }
+        req.on('error', () => resolve(null));
+        req.setTimeout(timeoutMs, () => { req.destroy(); resolve(null); });
+      } catch (_e) {
+        resolve(null);
+      }
+    };
+    visit(url, maxRedirects);
   });
 }
 
