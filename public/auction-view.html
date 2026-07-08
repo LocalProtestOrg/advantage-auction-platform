@@ -881,7 +881,7 @@
         method: wasFollowing ? 'DELETE' : 'POST',
         headers: { Authorization: 'Bearer ' + token },
       });
-      if (res.status === 401) { localStorage.removeItem('token'); window.location.href = '/login.html'; return; }
+      if (res.status === 401) { localStorage.removeItem('token'); window.location.href = '/login.html?next=' + encodeURIComponent(location.pathname + location.search); return; }
       if (!res.ok) throw new Error();
     } catch {
       isFollowing = wasFollowing;
@@ -1410,7 +1410,7 @@
       if (!cb.checked) { st.className = 'cbf-status err'; st.textContent = 'Please acknowledge the pickup obligations.'; return; }
       confirm.disabled = true; confirm.textContent = 'Registering…';
       const r = await BidUtils.registerForAuction(auctionId, token, true);
-      if (r.unauthorized) { localStorage.removeItem('token'); window.location.href = '/login.html'; return; }
+      if (r.unauthorized) { localStorage.removeItem('token'); window.location.href = '/login.html?next=' + encodeURIComponent(location.pathname + location.search); return; }
       if (r.ok) { bidGate.can_bid = true; bidGate.registered = true; loadAuction(); }
       else { confirm.disabled = false; confirm.textContent = 'Confirm & Register'; st.className = 'cbf-status err'; st.textContent = r.message; }
     });
@@ -1443,7 +1443,7 @@
       btn.disabled = true; const orig = btn.textContent; btn.textContent = 'Placing…';
       status.className = 'cbf-status'; status.textContent = '';
       const r = await BidUtils.placeBid(lotId, built.payload, token);
-      if (r.unauthorized) { localStorage.removeItem('token'); window.location.href = '/login.html'; return; }
+      if (r.unauthorized) { localStorage.removeItem('token'); window.location.href = '/login.html?next=' + encodeURIComponent(location.pathname + location.search); return; }
       btn.disabled = false; btn.textContent = orig;
       if (r.ok) {
         status.className = 'cbf-status ok';

@@ -701,7 +701,7 @@ async function closeAuction(auctionId, actorId = null) {
 
       if (topBid) {
         const winningCents = topBid.amount_cents;
-        const upd = await client.query(
+        await client.query(
           `UPDATE lots
            SET state = 'closed',
                winning_buyer_user_id = $1,
@@ -709,18 +709,10 @@ async function closeAuction(auctionId, actorId = null) {
            WHERE id = $3 AND state != 'closed'`,
           [topBid.bidder_user_id, winningCents, lot.id]
         );
-        // ADMIN-CTRL Phase 3: enqueue the winner's "you won" email into
-        // notifications_queue (the real SES path). The worker renders WINNING via
-        // notificationContent.buildLotEmail. Atomic with the close.
-        // LR-P1-1: only enqueue for lots THIS call actually closed (rowCount > 0).
-        // Lots already closed by runLotAutoClose enqueued WINNING at their own close;
-        // re-enqueuing here would double-email that winner.
-        if (upd.rowCount > 0) {
-          await client.query(
-            `INSERT INTO notifications_queue (user_id, type, payload) VALUES ($1, 'WINNING', $2)`,
-            [topBid.bidder_user_id, JSON.stringify({ lot_id: lot.id, visible_cents: winningCents })]
-          );
-        }
+        // Batch A (communication behavior): the standalone per-lot "you won"
+        // (WINNING) email has been removed. The buyer's only post-close email is
+        // the Design C combined package (success / payment-required + reminders),
+        // sent per (buyer, auction) — not per lot. No WINNING enqueue here.
         results.push({
           lot_id: lot.id,
           winner_user_id: topBid.bidder_user_id,

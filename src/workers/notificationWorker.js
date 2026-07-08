@@ -238,6 +238,29 @@ function buildEmail(type, payload, toAddress) {
     };
   }
 
+  if (type === 'AUCTION_BEGINS_SOON') {
+    // Batch A: engaged-buyer reminder that a bid/watchlisted auction starts soon.
+    // Recipients are gated at enqueue time (bidders + watchlisters only).
+    const auctionId  = payload.auction_id || 'unknown';
+    const auctionUrl = `${SITE_URL}${payload.auction_url || `/auction-view.html?auctionId=${auctionId}`}`;
+    const title      = payload.title || 'An auction you follow';
+    const mins       = Number(payload.milestone) || null;
+    const whenPhrase = mins === 5 ? 'in about 5 minutes' : (mins === 60 ? 'in about an hour' : 'soon');
+    return {
+      to:      toAddress,
+      subject: `Starting ${whenPhrase}: ${title}`,
+      text:    `An auction you're following is starting ${whenPhrase}.\n\nAuction: ${title}\n\nGet ready to bid.\n\nView auction: ${auctionUrl}`,
+      html:    `
+        <p>An auction you're following is starting <strong>${escHtml(whenPhrase)}</strong>.</p>
+        <ul>
+          <li><strong>Auction:</strong> ${escHtml(title)}</li>
+        </ul>
+        <p>Get ready to bid.</p>
+        <p><a href="${auctionUrl}">View auction →</a></p>
+      `.trim(),
+    };
+  }
+
   if (type === 'AUCTION_REJECTED') {
     // GOV-REJ: terminal moderation outcome. Quote the operator's reason
     // verbatim so the seller knows exactly what was disqualifying.
@@ -466,7 +489,8 @@ const CLOSE_TO_WINNING_INTERVAL_MS = 60_000;   // scan every 60 s
 const CLOSE_TO_WINNING_DEDUP_MIN   = 5;        // suppress if already sent within N minutes
 
 async function enqueueCloseToWinning() {
-  try {
+  return; // Batch A: CLOSE_TO_WINNING disabled — never enqueue (unreferenced, kept for rollback).
+  try {                                    // eslint-disable-line no-unreachable
     // Bidders whose best bid is >= 90 % of the current price but who are NOT
     // the current winner (they would already receive LEADING notifications).
     // Dedup guard prevents repeat notifications within the dedup window.
@@ -509,7 +533,8 @@ async function enqueueCloseToWinning() {
 const FINAL_SECONDS_INTERVAL_MS = 5_000;   // scan every 5 s
 
 async function enqueueFinalSeconds() {
-  try {
+  return; // Batch A: FINAL_SECONDS disabled — never enqueue (unreferenced, kept for rollback).
+  try {                                    // eslint-disable-line no-unreachable
     // Notify every bidder and watcher of a lot that closes within 10 seconds.
     // Dedup is lifetime-per-lot-per-user (no time window) — fire exactly once.
     const res = await db.query(
@@ -553,7 +578,8 @@ const ENDING_SOON_WINDOW_MIN   = 10;       // lots closing within N minutes
 const ENDING_SOON_DEDUP_MIN    = 5;        // suppress if already queued within N minutes
 
 async function enqueueEndingSoon() {
-  try {
+  return; // Batch A: ENDING_SOON disabled — never enqueue (unreferenced, kept for rollback).
+  try {                                    // eslint-disable-line no-unreachable
     // Single INSERT … SELECT with a NOT EXISTS dedup guard.
     // Finds every distinct bidder on any active lot closing within the window,
     // then skips any (user, lot) pair that already has an ENDING_SOON row
@@ -624,18 +650,75 @@ if (SMTP_CONFIGURED) {
   console.warn('[notify] SMTP not configured — delivery paused. Pending rows will be held until SMTP_HOST, SMTP_USER, and SMTP_PASS are set and the worker is restarted.');
 }
 
-console.log(`[notify] ENDING_SOON scheduler started — scanning every ${ENDING_SOON_INTERVAL_MS / 1000}s`);
-setInterval(enqueueEndingSoon, ENDING_SOON_INTERVAL_MS);
+// Batch A (communication behavior): the individual-lot buyer spam producers —
+// ENDING_SOON, CLOSE_TO_WINNING, and FINAL_SECONDS — are DISABLED. Their scheduler
+// registrations and initial invocations have been removed so no new rows of these
+// types are ever enqueued. The producer functions above are retained (unreferenced)
+// for reference/rollback, and each early-returns if ever called. OUTBID, the Design C
+// combined payment package, and AUCTION_BEGINS_SOON (below) are the only buyer emails.
 
-console.log(`[notify] CLOSE_TO_WINNING scheduler started — scanning every ${CLOSE_TO_WINNING_INTERVAL_MS / 1000}s`);
-setInterval(enqueueCloseToWinning, CLOSE_TO_WINNING_INTERVAL_MS);
+// ── AUCTION_BEGINS_SOON scheduler (Batch A) ────────────────────────────────────
+// Reminds ENGAGED buyers that an auction they care about is about to start, at two
+// milestones (60 min and 5 min before start_time). Recipients are gated to buyers who
+// have BID on a lot in the auction OR WATCHLISTED a lot in it — never a broadcast.
+const AUCTION_BEGINS_SOON_INTERVAL_MS = 60_000;   // scan every 60 s
+const AUCTION_BEGINS_SOON_MILESTONES  = [60, 5];  // minutes-before-start to notify
 
-console.log(`[notify] FINAL_SECONDS scheduler started — scanning every ${FINAL_SECONDS_INTERVAL_MS / 1000}s`);
-setInterval(enqueueFinalSeconds, FINAL_SECONDS_INTERVAL_MS);
+async function enqueueAuctionBeginsSoon() {
+  for (const mins of AUCTION_BEGINS_SOON_MILESTONES) {
+    try {
+      // For each milestone, enqueue once per (engaged buyer, auction) when the
+      // auction's start_time falls within the milestone window. Dedup is
+      // lifetime-per-(user, auction, milestone) so each buyer gets at most one
+      // 60-min and one 5-min reminder per auction.
+      const res = await db.query(
+        `INSERT INTO notifications_queue (user_id, type, payload)
+         SELECT DISTINCT
+                candidates.user_id,
+                'AUCTION_BEGINS_SOON',
+                jsonb_build_object(
+                  'auction_id',  a.id::text,
+                  'title',       a.title,
+                  'auction_url', '/auction-view.html?auctionId=' || a.id::text,
+                  'start_time',  a.start_time,
+                  'milestone',   $1::int
+                )
+         FROM   auctions a
+         JOIN   (
+                  -- Buyers who bid on any lot in the auction
+                  SELECT b.bidder_user_id AS user_id, l.auction_id
+                  FROM   bids b JOIN lots l ON l.id = b.lot_id
+                  UNION
+                  -- Buyers who watchlisted any lot in the auction
+                  SELECT w.user_id, l.auction_id
+                  FROM   watchlists w JOIN lots l ON l.id = w.lot_id
+                ) candidates ON candidates.auction_id = a.id
+         WHERE  a.state = 'published'
+           AND  a.start_time IS NOT NULL
+           AND  a.start_time > NOW()
+           AND  a.start_time <= NOW() + ($1 || ' minutes')::interval
+           AND  NOT EXISTS (
+                  SELECT 1
+                  FROM   notifications_queue nq
+                  WHERE  nq.user_id               = candidates.user_id
+                    AND  nq.type                  = 'AUCTION_BEGINS_SOON'
+                    AND  nq.payload->>'auction_id' = a.id::text
+                    AND  nq.payload->>'milestone'  = $1::text
+                )`,
+        [mins]
+      );
+      if (res.rowCount > 0) {
+        console.log(`[notify] Queued ${res.rowCount} AUCTION_BEGINS_SOON (${mins}m) notification(s)`);
+      }
+    } catch (err) {
+      console.error(`[notify] AUCTION_BEGINS_SOON (${mins}m) scan failed:`, err.message);
+    }
+  }
+}
 
-enqueueEndingSoon();
-enqueueCloseToWinning();
-enqueueFinalSeconds();
+console.log(`[notify] AUCTION_BEGINS_SOON scheduler started — scanning every ${AUCTION_BEGINS_SOON_INTERVAL_MS / 1000}s`);
+setInterval(enqueueAuctionBeginsSoon, AUCTION_BEGINS_SOON_INTERVAL_MS);
+enqueueAuctionBeginsSoon();
 
 // ── AUCTION_STATE scheduler (PUB-7) ────────────────────────────────────────────
 // Time-driven state transitions:
@@ -836,13 +919,9 @@ async function runLotAutoClose() {
             WHERE id = $3`,
           [topBid.bidder_user_id, topBid.amount_cents, lot.id]
         );
-        // LR-P1-1: enqueue the winner's "you won" email at LOT close (prompt),
-        // matching closeAuction's payload. Atomic with the close. closeAuction only
-        // enqueues for lots it itself closes, so there is no double-email.
-        await client.query(
-          `INSERT INTO notifications_queue (user_id, type, payload) VALUES ($1, 'WINNING', $2)`,
-          [topBid.bidder_user_id, JSON.stringify({ lot_id: lot.id, visible_cents: topBid.amount_cents })]
-        );
+        // Batch A (communication behavior): the per-lot "you won" (WINNING) email
+        // has been removed. The buyer's only post-close email is the Design C
+        // combined package (per buyer+auction), so no WINNING enqueue at lot close.
       } else {
         await client.query(
           `UPDATE lots SET state = 'closed' WHERE id = $1`,

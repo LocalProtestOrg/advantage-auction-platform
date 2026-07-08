@@ -143,12 +143,9 @@ async function resolveProxyBid(client, lot, bidderUserId, maxAmountCents, overri
     }
   }
 
-  if (await emailEnabled(newWinnerId)) {
-    await client.query(
-      `INSERT INTO notifications_queue (user_id, type, payload) VALUES ($1, 'LEADING', $2)`,
-      [newWinnerId, notifPayload]
-    );
-  }
+  // Batch A (communication behavior): the per-lot "you're winning" (LEADING) email
+  // has been removed to drastically reduce buyer notification volume. Only OUTBID is
+  // enqueued on a bid now; the current high bidder is not individually emailed.
 
   return {
     bid:            insertResult.rows[0],
@@ -176,31 +173,10 @@ async function applyAntiSnipe(client, lot) {
     const extended = extRes.rows[0].closes_at;
     console.log('[bid] anti-snipe extension applied, new closes_at:', extended);
 
-    // Notify all bidders + watchers of the extension.
-    // Dedup key = (user, lot, closes_at) — each unique extension fires once per user.
-    await client.query(
-      `INSERT INTO notifications_queue (user_id, type, payload)
-       SELECT DISTINCT candidates.user_id,
-              'EXTENDED_BIDDING',
-              jsonb_build_object(
-                'lot_id',        $1::text,
-                'closes_at',     $2::text,
-                'visible_cents', $3::int
-              )
-       FROM (
-              SELECT bidder_user_id AS user_id FROM bids       WHERE lot_id = $1
-              UNION
-              SELECT user_id                   FROM watchlists WHERE lot_id = $1
-            ) candidates
-       WHERE NOT EXISTS (
-               SELECT 1 FROM notifications_queue nq
-               WHERE  nq.user_id              = candidates.user_id
-                 AND  nq.type                 = 'EXTENDED_BIDDING'
-                 AND  nq.payload->>'lot_id'   = $1::text
-                 AND  nq.payload->>'closes_at' = $2::text
-             )`,
-      [lot.id, extended.toISOString(), lot.current_bid_cents || 0]
-    );
+    // Batch A (communication behavior): the "bidding has been extended"
+    // (EXTENDED_BIDDING) buyer email has been removed to reduce notification
+    // volume. The anti-snipe extension itself (lot.closes_at + auction.end_time
+    // bump below) is unchanged — only the per-lot notification enqueue is gone.
 
     // INT-1: an extended lot must not be auto-closed by the auction-level
     // state-transition scheduler while it still has time on its clock. We
@@ -303,17 +279,18 @@ async function createBid(lotId, userId, { amount, maxBid, max_bid_cents }) {
     // Step 6 — Anti-snipe (unchanged, position unchanged).
     const finalClosesAt = await applyAntiSnipe(client, lot);
 
+    await client.query('COMMIT');
+
     // ACCOUNT/BUYER OPS: auto-add the bid-on lot to the bidder's watchlist so it
-    // surfaces on their Watchlist/Favorites page. Idempotent; best-effort inside
-    // the txn (a watchlist hiccup must never fail a committed bid path).
+    // surfaces on their Watchlist/Favorites page. Idempotent (ON CONFLICT DO NOTHING).
+    // Runs POST-COMMIT on a pooled connection so a watchlist hiccup can never abort
+    // the already-committed bid transaction — the bid must always succeed first.
     try {
-      await client.query(
+      await db.query(
         `INSERT INTO watchlists (user_id, lot_id) VALUES ($1, $2) ON CONFLICT (user_id, lot_id) DO NOTHING`,
         [userId, lot.id]
       );
     } catch (e) { console.error('[bid] watchlist auto-add failed (non-fatal):', e.message); }
-
-    await client.query('COMMIT');
 
     // #1 real-time: push the new lot state to everyone viewing the auction, plus
     // privacy-safe winning/outbid to the affected users. Best-effort — the bid is

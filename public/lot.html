@@ -1051,7 +1051,7 @@
       if (!cb.checked) { st.style.color = '#b91c1c'; st.textContent = 'Please acknowledge the pickup obligations.'; return; }
       btn.disabled = true; btn.textContent = 'Registering…';
       const r = await BidUtils.registerForAuction(currentAuctionId, token, true);
-      if (r.unauthorized) { localStorage.removeItem('token'); window.location.href = '/login.html'; return; }
+      if (r.unauthorized) { localStorage.removeItem('token'); window.location.href = '/login.html?next=' + encodeURIComponent(location.pathname + location.search); return; }
       if (r.ok) { window.location.reload(); }
       else { btn.disabled = false; btn.textContent = 'Register to Bid'; st.style.color = '#b91c1c'; st.textContent = r.message; }
     });
@@ -1727,7 +1727,7 @@
         headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
         body:    JSON.stringify(payload)
       });
-      if (res.status === 401) { localStorage.removeItem('token'); window.location.href = '/login.html'; return; }
+      if (res.status === 401) { localStorage.removeItem('token'); window.location.href = '/login.html?next=' + encodeURIComponent(location.pathname + location.search); return; }
 
       const data = await res.json().catch(() => null);
       if (!res.ok || !data || !data.success) {
