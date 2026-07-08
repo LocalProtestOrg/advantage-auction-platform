@@ -158,6 +158,82 @@ app.options('/{*path}', (req, res) => {
 // meta. Fast, head-only, and fail-open (any error falls through to static).
 app.use(require('./src/middleware/shareMeta'));
 
+// Dynamic sitemap — MUST run before express.static so it wins over any static
+// file. Emits the static marketing pages PLUS every publicly-visible auction and
+// lot. FAIL-SAFE: on any DB error it still returns the static pages.
+app.get('/sitemap.xml', async (req, res) => {
+  const { publicBaseUrl } = require('./src/lib/publicUrls');
+  const shareMetaService = require('./src/services/shareMetaService');
+  const base = publicBaseUrl().replace(/\/+$/, '');
+
+  // XML-escape a URL for embedding in <loc> (ampersands in query strings etc.).
+  const xmlEscape = (s) => String(s == null ? '' : s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+
+  // yyyy-mm-dd for <lastmod>, or null when absent/invalid.
+  const lastmodDate = (v) => {
+    if (!v) return null;
+    try {
+      const d = (v instanceof Date) ? v : new Date(v);
+      return isNaN(d.getTime()) ? null : d.toISOString().slice(0, 10);
+    } catch (e) { return null; }
+  };
+
+  const urlEl = (loc, lastmod) => {
+    const parts = [`  <url>`, `    <loc>${xmlEscape(loc)}</loc>`];
+    if (lastmod) parts.push(`    <lastmod>${lastmod}</lastmod>`);
+    parts.push(`  </url>`);
+    return parts.join('\n');
+  };
+
+  // Static marketing pages (mirrors the prior public/sitemap.xml inventory).
+  const staticPaths = [
+    '/',
+    '/how-it-works.html',
+    '/how-to-buy.html',
+    '/start-selling.html',
+    '/buyer-faq.html',
+    '/seller-faq.html',
+    '/browse-categories.html',
+    '/browse-locations.html',
+    '/featured-auctions.html',
+    '/ending-soon.html',
+    '/past-auctions.html',
+    '/search.html',
+    '/shipping-available.html',
+    '/how-sellers-get-paid.html',
+    '/after-estate-sale.html',
+    '/downsizing-liquidation.html',
+  ];
+
+  const urls = staticPaths.map(p => urlEl(base + p, null));
+
+  try {
+    const entries = await shareMetaService.getSitemapEntries();
+    for (const a of entries.auctions) {
+      urls.push(urlEl(`${base}/auction-view.html?auctionId=${a.id}`, lastmodDate(a.lastmod)));
+    }
+    for (const l of entries.lots) {
+      urls.push(urlEl(`${base}/lot.html?lotId=${l.id}`, lastmodDate(l.lastmod)));
+    }
+  } catch (e) {
+    // FAIL-SAFE: fall through with just the static pages already collected.
+  }
+
+  const xml = `<?xml version="1.0" encoding="UTF-8"?>\n`
+    + `<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n`
+    + urls.join('\n') + `\n`
+    + `</urlset>\n`;
+
+  res.set('Content-Type', 'application/xml');
+  res.set('Cache-Control', 'public, max-age=3600');
+  return res.send(xml);
+});
+
 // Static frontend — must be before routes and 404 handler
 app.use(express.static(path.join(__dirname, 'public')));
 

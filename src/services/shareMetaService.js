@@ -94,6 +94,8 @@ async function getLotMeta(id) {
               l.thumbnail_url,
               l.lot_number,
               l.auction_id,
+              l.current_bid_cents,
+              l.starting_bid_cents,
               a.title AS auction_title,
               (SELECT image_url
                  FROM lot_images
@@ -116,12 +118,21 @@ async function getLotMeta(id) {
     // "<lot title> — <auction title> on Advantage.Bid" line when there is none.
     const description = clean(r.description, 160)
       || `${lotTitle} — ${auctionName} on Advantage.Bid`;
+    // Reliable price for JSON-LD offers: prefer a live current bid, else the
+    // starting bid. Only a positive integer cent value is exposed; anything
+    // null/zero/non-numeric yields null so the caller OMITS offers entirely.
+    const rawPrice = (typeof r.current_bid_cents === 'number' && r.current_bid_cents > 0)
+      ? r.current_bid_cents
+      : (typeof r.starting_bid_cents === 'number' && r.starting_bid_cents > 0 ? r.starting_bid_cents : null);
+    const priceCents = Number.isFinite(rawPrice) && rawPrice > 0 ? Math.round(rawPrice) : null;
     return {
       title:        lotTitle,
       description,
       image:        r.first_image_url || r.thumbnail_url || null,
       url:          `${base()}/lot.html?lotId=${encodeURIComponent(id)}`,
       auctionTitle: auctionName,
+      auctionId:    r.auction_id || null,
+      priceCents,
       siteName:     'Advantage.Bid',
     };
   } catch (e) {
@@ -129,4 +140,49 @@ async function getLotMeta(id) {
   }
 }
 
-module.exports = { getAuctionMeta, getLotMeta, validUuid, clean };
+/**
+ * getSitemapEntries() — visibility-gated URL inventory for the dynamic
+ * /sitemap.xml route. Returns public auctions and their lots (lots only for
+ * auctions that are themselves publicly visible), each with a lastmod date.
+ *
+ * FAIL-SAFE: never throws — returns { auctions: [], lots: [] } on any error so
+ * the sitemap route can still emit the static marketing pages.
+ *
+ * Caps: most recent 2000 auctions, most recent 3000 lots (≈5000 URLs + static).
+ *
+ * @returns {Promise<{ auctions: Array<{id,lastmod}>, lots: Array<{id,lastmod}> }>}
+ */
+async function getSitemapEntries() {
+  const VISIBLE = `a.state IN ('published', 'active', 'closed') AND a.is_archived IS NOT TRUE`;
+  const out = { auctions: [], lots: [] };
+  try {
+    const a = await db.query(
+      `SELECT a.id,
+              COALESCE(a.updated_at, a.created_at) AS lastmod
+         FROM auctions a
+        WHERE ${VISIBLE}
+        ORDER BY COALESCE(a.updated_at, a.created_at) DESC
+        LIMIT 2000`
+    );
+    out.auctions = (a.rows || []).map(r => ({ id: r.id, lastmod: r.lastmod || null }));
+  } catch (e) {
+    // Leave auctions empty; still attempt lots below independently.
+  }
+  try {
+    const l = await db.query(
+      `SELECT l.id,
+              COALESCE(l.updated_at, l.created_at) AS lastmod
+         FROM lots l
+         JOIN auctions a ON a.id = l.auction_id
+        WHERE ${VISIBLE}
+        ORDER BY COALESCE(l.updated_at, l.created_at) DESC
+        LIMIT 3000`
+    );
+    out.lots = (l.rows || []).map(r => ({ id: r.id, lastmod: r.lastmod || null }));
+  } catch (e) {
+    // Leave lots empty.
+  }
+  return out;
+}
+
+module.exports = { getAuctionMeta, getLotMeta, getSitemapEntries, validUuid, clean };
