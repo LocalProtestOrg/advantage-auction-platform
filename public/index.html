@@ -111,16 +111,12 @@
     #drawer{top:88px;right:14px;bottom:14px;width:392px;border-radius:20px;border:1px solid var(--capsuleBorder);box-shadow:0 20px 60px rgba(8,16,28,.26);
             opacity:0;transform:translateX(14px);transition:opacity .7s var(--ease) .35s,transform .7s var(--ease) .35s}
     #drawer.in{opacity:1;transform:none}
-    #sheetctl{display:none}
   }
   @media(max-width:880px){
     #drawer{left:0;right:0;bottom:0;border-radius:22px 22px 0 0;box-shadow:0 -14px 44px rgba(8,16,28,.28);border-top:1px solid var(--capsuleBorder);
             height:86vh;transform:translateY(calc(100% - 92px));transition:transform .4s var(--spring);touch-action:none}
     #drawer.half{transform:translateY(45vh)}
     #drawer.full{transform:translateY(2vh)}
-    #sheetctl{position:fixed;z-index:39;left:50%;bottom:calc(18px + env(safe-area-inset-bottom));transform:translateX(-50%);
-              background:var(--ink);color:#fff;border:0;border-radius:999px;padding:12px 20px;font-weight:700;box-shadow:0 10px 30px rgba(8,16,28,.4);cursor:pointer;display:inline-flex;gap:8px;align-items:center}
-    body.full #sheetctl{display:none}
   }
   .dwrap{height:100%;display:flex;flex-direction:column;min-height:0}
   .grab{display:none}
@@ -229,8 +225,6 @@
   </div>
 
   <div id="hud"><div class="count" id="count">Looking around you…</div><div class="deltas" id="deltas"></div></div>
-
-  <button id="sheetctl">▤ <span>Browse list</span></button>
 
   <div id="drawer">
     <div class="dwrap">
@@ -602,12 +596,16 @@
   $('locBtn').addEventListener('click',useMyLocation);
   $('srowNear').addEventListener('click',function(e){ e.preventDefault(); closeSearch(); useMyLocation(); });
 
-  /* mobile bottom-sheet snap (peek / half / full) + drag */
-  function setSheet(s){ var d=$('drawer'); d.classList.remove('half','full'); document.body.classList.remove('peek','half','full'); if(s!=='peek'){ d.classList.add(s);} document.body.classList.add(s); $('sheetctl').firstChild.textContent = s==='peek'?'▤ ':'🗺 '; $('sheetctl').querySelector('span').textContent = s==='peek'?'Browse list':'Back to map'; }
-  $('sheetctl').addEventListener('click',function(){ setSheet(document.body.classList.contains('peek')?'half':'peek'); });
+  /* mobile bottom-sheet snap (peek / half / full) + drag. The sheet is now the
+     primary interaction (the standalone "Browse list" button was removed): tap or
+     drag the always-visible peek handle/header to expand/collapse. */
+  function setSheet(s){ var d=$('drawer'); d.classList.remove('half','full'); document.body.classList.remove('peek','half','full'); if(s!=='peek'){ d.classList.add(s);} document.body.classList.add(s); }
+  var _sheetDragged=false;
+  function toggleSheet(){ setSheet(document.body.classList.contains('peek')?'half':'peek'); }
+  ['grab','dTitle','dSub'].forEach(function(id){ var el=$(id); if(el) el.addEventListener('click',function(){ if(_sheetDragged){ _sheetDragged=false; return; } toggleSheet(); }); });
   (function(){ var grab=$('grab'), sy=0, startState='peek', dragging=false;
     function down(e){ dragging=true; sy=(e.touches?e.touches[0].clientY:e.clientY); startState=document.body.classList.contains('full')?'full':document.body.classList.contains('half')?'half':'peek'; }
-    function up(e){ if(!dragging)return; dragging=false; var y=(e.changedTouches?e.changedTouches[0].clientY:e.clientY); var dy=y-sy; if(dy<-40){ setSheet(startState==='peek'?'half':'full'); } else if(dy>40){ setSheet(startState==='full'?'half':'peek'); } }
+    function up(e){ if(!dragging)return; dragging=false; var y=(e.changedTouches?e.changedTouches[0].clientY:e.clientY); var dy=y-sy; if(dy<-40){ _sheetDragged=true; setSheet(startState==='peek'?'half':'full'); } else if(dy>40){ _sheetDragged=true; setSheet(startState==='full'?'half':'peek'); } }
     grab.addEventListener('mousedown',down); window.addEventListener('mouseup',up);
     grab.addEventListener('touchstart',down,{passive:true}); window.addEventListener('touchend',up);
   })();

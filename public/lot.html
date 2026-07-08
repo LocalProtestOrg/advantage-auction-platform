@@ -608,14 +608,19 @@
     #main-image-wrap{ background:var(--surface); border:1px solid var(--hair); border-radius:18px;
                       aspect-ratio:4/3; max-height:clamp(320px,52vh,470px); margin-bottom:14px;
                       box-shadow:0 14px 34px rgba(8,16,28,.10); }
-    .img-nav{ position:absolute; top:50%; transform:translateY(-50%); width:40px; height:40px; border-radius:50%;
-              border:0; cursor:pointer; z-index:3; background:rgba(255,255,255,.86); color:#0B1B2B; font-size:23px;
-              line-height:1; display:none; place-items:center; box-shadow:0 4px 14px rgba(8,16,28,.22);
-              opacity:.9; transition:opacity .2s,background .15s; }
+    /* #9: higher-contrast arrows — semi-opaque dark disc + white chevron, larger
+       touch target on mobile (>=44px), vertically centered, inside the image. */
+    .img-nav{ position:absolute; top:50%; transform:translateY(-50%); width:44px; height:44px; border-radius:50%;
+              border:1px solid rgba(255,255,255,.35); cursor:pointer; z-index:3; background:rgba(11,27,43,.55); color:#fff; font-size:24px;
+              line-height:1; display:none; place-items:center; box-shadow:0 4px 14px rgba(8,16,28,.35);
+              -webkit-backdrop-filter:blur(4px); backdrop-filter:blur(4px);
+              opacity:.92; transition:opacity .2s,background .15s,transform .12s; }
     #main-image-wrap:hover .img-nav{ opacity:1; }
-    .img-nav:hover{ background:#fff; }
+    .img-nav:hover{ background:rgba(11,27,43,.85); }
+    .img-nav:active{ transform:translateY(-50%) scale(.94); }
     .img-nav.prev{ left:12px } .img-nav.next{ right:12px }
     .img-nav.show{ display:grid; }
+    @media(max-width:880px){ .img-nav{ width:46px; height:46px; opacity:1; } }
     .img-count{ position:absolute; left:12px; bottom:12px; z-index:3; background:rgba(8,14,24,.58);
                 -webkit-backdrop-filter:blur(6px); backdrop-filter:blur(6px); color:#fff; border-radius:999px;
                 padding:6px 12px; font-size:12px; font-weight:700; letter-spacing:.02em; display:none; }
@@ -651,8 +656,17 @@
     .btn-place-bid:hover{ background:#1d4ed8; filter:brightness(1.03); }
     .btn-place-bid.is-winning{ background:#16a34a; box-shadow:0 8px 20px rgba(22,163,74,.30); }
     .btn-place-bid.is-winning:hover{ background:#15803d; }
-    .btn-place-bid.is-outbid{ background:#dc2626; box-shadow:0 8px 20px rgba(220,38,38,.30); }
+    /* #7: outbid = red + attention pulse (shared keyframes with the gallery cards). */
+    .btn-place-bid.is-outbid{ background:#dc2626; box-shadow:0 8px 20px rgba(220,38,38,.30);
+                              animation:outbidPulse 1.5s ease-in-out infinite; }
     .btn-place-bid.is-outbid:hover{ background:#b91c1c; }
+    @keyframes outbidPulse{ 0%,100%{ box-shadow:0 8px 20px rgba(220,38,38,.30), 0 0 0 0 rgba(220,38,38,.5); }
+                            50%{ box-shadow:0 8px 20px rgba(220,38,38,.30), 0 0 0 7px rgba(220,38,38,0); } }
+    /* #7: secondary "increase max" affordance under the bid input (winning only) —
+       never the primary button label. */
+    .max-raise-link{ align-items:center; gap:4px; margin-top:8px; font-size:.8rem; font-weight:700;
+                     color:#2563eb; text-decoration:none; }
+    .max-raise-link:hover{ text-decoration:underline; }
     #countdown-val.urgent{ color:var(--live); }
     .bid-row-item.top-bid .bid-amt{ color:var(--live); }
     .bid-row-item.new-bid{ background:#fdeef0; }
@@ -755,6 +769,8 @@
                  autocomplete="off" />
           <button class="btn-place-bid" id="btn-bid">Place Bid</button>
         </div>
+        <!-- #7: secondary raise-max control (shown only while winning); primary button stays Winning -->
+        <a href="#" id="max-raise-link" class="max-raise-link" style="display:none">↑ Increase your maximum bid</a>
         <div style="margin-top:0.6rem">
           <div class="field-label" style="font-size:0.75rem; color:#94a3b8; font-weight:500; margin-bottom:0.25rem">
             Max Bid - proxy (optional)
@@ -1130,21 +1146,31 @@
     let rows = '';
     if (s.hasBid && s.maxBidCents != null)  rows += statusRow('Your max bid', BidUtils.formatUSD(s.maxBidCents));
     if (s.isOpen && s.nextMinCents != null) rows += statusRow('Next minimum bid', BidUtils.formatUSD(s.nextMinCents));
+    // #10: Winning is the PRIMARY signal (larger, ringed, green); "Closing soon" /
+    // "Extended" is SECONDARY (smaller, muted) so it never competes with it. The
+    // countdown bar's own green→orange→red progression is untouched.
+    const isWin = (s.key === 'winning' || s.key === 'won');
+    const badgeCss = 'font-weight:800;border-radius:999px;background:' + c[0] + ';color:' + c[1] + ';'
+      + (isWin ? 'font-size:15px;padding:5px 14px;box-shadow:0 0 0 3px ' + c[0] + '99;'
+               : 'font-size:14px;padding:4px 12px;');
     panel.innerHTML =
       '<div style="display:flex;align-items:center;gap:8px;' + (rows ? 'margin-bottom:8px;' : '') + '">'
-        + '<span style="font-size:14px;font-weight:800;padding:4px 12px;border-radius:999px;background:' + c[0] + ';color:' + c[1] + ';">' + s.label + '</span>'
-        + (note ? '<span style="font-size:12px;font-weight:700;color:#b45309;">' + note + '</span>' : '')
+        + '<span style="' + badgeCss + '">' + s.label + '</span>'
+        + (note ? '<span style="font-size:11px;font-weight:600;color:#94a3b8;letter-spacing:.03em;text-transform:uppercase;">' + note + '</span>' : '')
       + '</div>' + rows;
     panel.style.display = '';
     panel.setAttribute('data-state', s.key);
-    // #10: when the viewer is already winning, don't invite a normal bid.
+    // #7: primary button reflects standing and NEVER becomes "Increase Max".
+    // neutral → Place Bid (blue), winning → Winning (green), outbid → Outbid (red + pulse).
     const bidBtn = document.getElementById('btn-bid');
     if (bidBtn && !bidBtn.disabled) {
-      bidBtn.textContent = s.winning ? 'Increase Your Max Bid' : 'Place Bid';
-      // #1: button color matches status — winning=green, outbid=red, neutral=default.
+      bidBtn.textContent = s.winning ? 'Winning' : (s.hasBid ? 'Outbid' : 'Place Bid');
       bidBtn.classList.toggle('is-winning', !!s.winning);
       bidBtn.classList.toggle('is-outbid', !s.winning && !!s.hasBid);
     }
+    // #7: the max-bid raise is a SECONDARY affordance, surfaced only while winning.
+    const maxRaise = document.getElementById('max-raise-link');
+    if (maxRaise) maxRaise.style.display = s.winning ? 'inline-flex' : 'none';
   }
 
   // ── #1 socket.io push (accelerates the poll; polling stays the fallback) ─────
@@ -1471,8 +1497,12 @@
       const dx = e.changedTouches[0].clientX - swipeX;
       swipeX = null;
       if (Math.abs(dx) < 40) return;
-      if (dx < 0 && activeIndex < imageRows.length - 1) setMainImage(activeIndex + 1);
-      if (dx > 0 && activeIndex > 0)                    setMainImage(activeIndex - 1);
+      // #8: infinite loop — wrap past either end.
+      const n = imageRows.length;
+      if (n > 1) {
+        if (dx < 0) setMainImage((activeIndex + 1) % n);
+        if (dx > 0) setMainImage((activeIndex - 1 + n) % n);
+      }
     }, { passive: true });
   }
 
@@ -1535,8 +1565,9 @@
     counter.textContent = (index + 1) + ' / ' + imageRows.length;
     enhanced.style.display = imageRows[index].enhanced ? 'block' : 'none';
 
-    document.getElementById('lb-prev').disabled = index === 0;
-    document.getElementById('lb-next').disabled = index === imageRows.length - 1;
+    // #8: infinite loop — never disable at the ends (single-image hide is below).
+    document.getElementById('lb-prev').disabled = false;
+    document.getElementById('lb-next').disabled = false;
 
     // Show/hide nav buttons for single-image lots
     const single = imageRows.length <= 1;
@@ -1549,8 +1580,8 @@
   });
 
   document.getElementById('lb-close').addEventListener('click', closeLightbox);
-  document.getElementById('lb-prev').addEventListener('click', () => { if (lbIndex > 0) lbShow(lbIndex - 1); });
-  document.getElementById('lb-next').addEventListener('click', () => { if (lbIndex < imageRows.length - 1) lbShow(lbIndex + 1); });
+  document.getElementById('lb-prev').addEventListener('click', () => { const n = imageRows.length; if (n) lbShow((lbIndex - 1 + n) % n); }); // #8 loop
+  document.getElementById('lb-next').addEventListener('click', () => { const n = imageRows.length; if (n) lbShow((lbIndex + 1) % n); }); // #8 loop
 
   // Close on backdrop click (not on image)
   document.getElementById('lightbox').addEventListener('click', e => {
@@ -1561,8 +1592,8 @@
   document.addEventListener('keydown', e => {
     if (!document.getElementById('lightbox').classList.contains('open')) return;
     if (e.key === 'Escape')      closeLightbox();
-    if (e.key === 'ArrowLeft'  && lbIndex > 0)                    lbShow(lbIndex - 1);
-    if (e.key === 'ArrowRight' && lbIndex < imageRows.length - 1) lbShow(lbIndex + 1);
+    if (e.key === 'ArrowLeft'  && imageRows.length) lbShow((lbIndex - 1 + imageRows.length) % imageRows.length); // #8 loop
+    if (e.key === 'ArrowRight' && imageRows.length) lbShow((lbIndex + 1) % imageRows.length);                    // #8 loop
   });
 
   // Touch swipe in lightbox
@@ -1575,8 +1606,8 @@
     const dx = e.changedTouches[0].clientX - lbSwipeX;
     lbSwipeX = null;
     if (Math.abs(dx) < 40) return;
-    if (dx < 0 && lbIndex < imageRows.length - 1) lbShow(lbIndex + 1);
-    if (dx > 0 && lbIndex > 0)                    lbShow(lbIndex - 1);
+    if (dx < 0 && imageRows.length) lbShow((lbIndex + 1) % imageRows.length);                    // #8 loop
+    if (dx > 0 && imageRows.length) lbShow((lbIndex - 1 + imageRows.length) % imageRows.length); // #8 loop
   }, { passive: true });
 
   // ── Render bids ───────────────────────────────────────────────────────────────
@@ -1763,6 +1794,14 @@
     if (e.key === 'Enter') document.getElementById('btn-bid').click();
   });
 
+  // #7: secondary "increase your maximum bid" — focuses the existing proxy max input.
+  const _maxRaiseLink = document.getElementById('max-raise-link');
+  if (_maxRaiseLink) _maxRaiseLink.addEventListener('click', e => {
+    e.preventDefault();
+    const m = document.getElementById('max-bid-input');
+    if (m) { m.focus(); m.scrollIntoView({ block: 'nearest' }); }
+  });
+
   // ── Pay Now ──────────────────────────────────────────────────────────────────
   document.getElementById('pay-btn').addEventListener('click', async () => {
     if (!currentAuctionId) return;
@@ -1834,11 +1873,12 @@
       var t=total(), i=idx(), multi=t>1;
       prev.classList.toggle('show',multi); next.classList.toggle('show',multi);
       count.classList.toggle('show',t>=1); count.textContent=t?((i+1)+' of '+t):'';
-      prev.disabled=i<=0; next.disabled=i>=t-1;
-      prev.style.opacity=i<=0?'.4':''; next.style.opacity=i>=t-1?'.4':'';
+      // #8: infinite loop — arrows stay active (never dimmed/disabled) when multi.
+      prev.disabled=!multi; next.disabled=!multi;
+      prev.style.opacity=''; next.style.opacity='';
     }
-    prev.addEventListener('click',function(e){ e.stopPropagation(); if(typeof setMainImage==='function'&&idx()>0){ setMainImage(idx()-1); refresh(); } });
-    next.addEventListener('click',function(e){ e.stopPropagation(); if(typeof setMainImage==='function'&&idx()<total()-1){ setMainImage(idx()+1); refresh(); } });
+    prev.addEventListener('click',function(e){ e.stopPropagation(); var t=total(); if(typeof setMainImage==='function'&&t>1){ setMainImage((idx()-1+t)%t); refresh(); } });
+    next.addEventListener('click',function(e){ e.stopPropagation(); var t=total(); if(typeof setMainImage==='function'&&t>1){ setMainImage((idx()+1)%t); refresh(); } });
     // wrap setMainImage so thumbnail clicks + swipe also keep the count in sync
     try{ if(typeof setMainImage==='function'){ var _orig=setMainImage; setMainImage=function(i){ _orig(i); refresh(); }; } }catch(e){}
     var tries=0, iv=setInterval(function(){ refresh(); if(total()>0||tries++>40) clearInterval(iv); },200);

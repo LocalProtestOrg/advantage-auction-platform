@@ -493,6 +493,26 @@
     .btn-follow:hover{ background:rgba(255,255,255,.22); }
     .btn-follow.following{ background:#fff; color:var(--ink); border-color:#fff; }
     .btn-follow.following:hover{ background:#f1f1ee; }
+    /* FUTURE-READY preview-video hero slot — LAYOUT ONLY, fully inert today.
+       No body.has-auction-preview class is ever set when preview_video_url is absent
+       (the case today), so the slot stays display:none, banner-body stays a normal
+       block, and the hero is byte-for-byte identical to before. */
+    .hero-media{ display:none; }
+    .btn-preview-mobile{ display:none; }
+    @media(min-width:881px){
+      body.has-auction-preview .banner-body{ display:flex; gap:28px; align-items:center; }
+      body.has-auction-preview .banner-body .hero-content{ flex:1 1 auto; min-width:0; }
+      /* height-capped so the media never makes the hero taller than its text column */
+      body.has-auction-preview .hero-media{ display:block; flex:0 0 min(38%,420px); }
+      body.has-auction-preview .hero-media video,
+      body.has-auction-preview .hero-media iframe{ width:100%; aspect-ratio:16/9; max-height:220px;
+        border:0; border-radius:14px; background:#000; display:block; box-shadow:0 12px 30px rgba(8,16,28,.4); }
+    }
+    @media(max-width:880px){
+      body.has-auction-preview .btn-preview-mobile{ display:inline-flex; align-items:center; justify-content:center;
+        gap:8px; margin:12px 16px 0; width:calc(100% - 32px); padding:12px 16px; border:0; border-radius:12px;
+        background:#0B1B2B; color:#fff; font-weight:700; font-size:.9rem; cursor:pointer; }
+    }
     /* P3 facts sit on the cinematic hero — invert to light text */
     .auction-facts .af-label{ color:rgba(255,255,255,.62); }
     .auction-facts .af-value{ color:#fff; }
@@ -535,6 +555,16 @@
     .lot-progress-fill.lp-amber{ background:linear-gradient(90deg,#F0B43B,var(--ending)); }
     .lot-progress-fill.lp-red{ background:linear-gradient(90deg,#E0593B,var(--live));
                                box-shadow:0 0 10px rgba(181,39,59,.55); }
+    /* #7: card bid button follows the SAME standard tri-state as the lot page —
+       neutral=blue "Place Bid", winning=green "Winning", outbid=red "Outbid" (pulsing).
+       (Overrides the earlier brand-red default via later source order.) */
+    .card-bidform button{ background:#2563eb; box-shadow:0 8px 20px rgba(37,99,235,.24); }
+    .card-bidform button:hover{ filter:brightness(1.05); }
+    .card-bidform button.is-winning{ background:#16a34a; box-shadow:0 8px 20px rgba(22,163,74,.28); }
+    .card-bidform button.is-outbid{ background:#dc2626; box-shadow:0 8px 20px rgba(220,38,38,.30);
+                                     animation:outbidPulse 1.5s ease-in-out infinite; }
+    @keyframes outbidPulse{ 0%,100%{ box-shadow:0 8px 20px rgba(220,38,38,.30), 0 0 0 0 rgba(220,38,38,.5); }
+                            50%{ box-shadow:0 8px 20px rgba(220,38,38,.30), 0 0 0 7px rgba(220,38,38,0); } }
 
     /* panels → clean light */
     .tab-panel{ max-width:1180px; padding:24px 20px; }
@@ -559,21 +589,33 @@
 <div class="auction-banner" id="auction-banner">
   <img class="banner-hero" id="banner-hero" style="display:none" alt="" />
   <div class="banner-body">
-    <div class="auction-title-row">
-      <div class="auction-title-group">
-        <div class="auction-title" id="auction-title">Loading auction…</div>
-        <div class="auction-subtitle" id="auction-subtitle" style="display:none"></div>
-        <div class="auction-meta" id="auction-meta"></div>
+    <!-- hero-content holds the existing full-width text column. When a future
+         preview_video_url exists, body.has-auction-preview turns banner-body into a
+         flex row (text left, video right) WITHIN the current hero height. -->
+    <div class="hero-content">
+      <div class="auction-title-row">
+        <div class="auction-title-group">
+          <div class="auction-title" id="auction-title">Loading auction…</div>
+          <div class="auction-subtitle" id="auction-subtitle" style="display:none"></div>
+          <div class="auction-meta" id="auction-meta"></div>
+        </div>
+        <button class="btn-walkthrough" id="btn-walkthrough" aria-label="Watch auction walkthrough">
+          <span class="play-icon"></span>
+          Watch Walkthrough
+        </button>
       </div>
-      <button class="btn-walkthrough" id="btn-walkthrough" aria-label="Watch auction walkthrough">
-        <span class="play-icon"></span>
-        Watch Walkthrough
-      </button>
+      <div class="seller-bar" id="seller-bar" style="display:none"></div>
+      <div class="auction-facts" id="auction-facts" style="display:none"></div>
     </div>
-    <div class="seller-bar" id="seller-bar" style="display:none"></div>
-    <div class="auction-facts" id="auction-facts" style="display:none"></div>
+    <!-- FUTURE-READY (layout only, inert): desktop right-side preview-video slot.
+         Collapsed & invisible until preview_video_url is present — no height change,
+         no schema/upload work. Filled by renderPreviewVideo(). -->
+    <div class="hero-media" id="hero-media"></div>
   </div>
 </div>
+<!-- FUTURE-READY (layout only, inert): mobile "Watch Auction Preview" button beneath
+     the hero — shown ONLY when preview_video_url exists (body.has-auction-preview). -->
+<button class="btn-preview-mobile" id="btn-preview-mobile" type="button">▶ Watch Auction Preview</button>
 
 <nav class="auction-tabs" id="auction-tabs" role="tablist" aria-label="Auction sections">
   <button class="atab active" type="button" data-tab="gallery">Bid Gallery</button>
@@ -828,6 +870,11 @@
         hero.style.display = 'block';
       }
 
+      // FUTURE-READY (inert today): render a preview video into the hero slot ONLY if
+      // the summary provides preview_video_url. This field does not exist yet, so this
+      // is a no-op and the hero is visually unchanged. No schema/upload work here.
+      renderPreviewVideo(d.preview_video_url);
+
       // Follow state
       if (token) {
         try {
@@ -896,6 +943,31 @@
     btn.textContent = isFollowing ? 'Following' : 'Follow Seller';
     btn.className   = 'btn-follow' + (isFollowing ? ' following' : '');
   }
+
+  // ── FUTURE-READY preview video (layout only, inert until data exists) ────────
+  // Separate from the walkthrough modal above. When the auction summary later carries
+  // a preview_video_url, this fills the desktop hero slot and reveals the mobile
+  // "Watch Auction Preview" button. Absent today → early return → zero visual change.
+  let previewVideoUrl = null;
+  function renderPreviewVideo(url) {
+    if (!url || typeof url !== 'string') return;
+    previewVideoUrl = url;
+    const slot = document.getElementById('hero-media');
+    if (slot) {
+      const v = document.createElement('video');
+      v.src = url; v.controls = true; v.playsInline = true; v.preload = 'metadata';
+      slot.innerHTML = ''; slot.appendChild(v);
+    }
+    document.body.classList.add('has-auction-preview'); // reveals slot (desktop) / button (mobile)
+  }
+  document.getElementById('btn-preview-mobile').addEventListener('click', () => {
+    if (!previewVideoUrl) return;
+    const vid = document.getElementById('walkthrough-video');
+    vid.src = previewVideoUrl;
+    document.getElementById('video-title').textContent = 'Auction Preview';
+    document.getElementById('video-modal').classList.add('open');
+    vid.play().catch(() => {});
+  });
 
   // ── Walkthrough video ─────────────────────────────────────────────────────
   let walkthroughVideoUrl   = null;
@@ -1115,9 +1187,9 @@
     if (cdWrap && cdVal) startCardCountdown(lotId, cdWrap, cdVal, fill, lot.extended_until || lot.closes_at);
     // #2 winning / outbid / watching / sold status badge.
     applyCardStatus(card, lot);
-    // #10: keep the bid CTA in sync - winning bidders are offered a max raise.
+    // #7: keep the primary button's tri-state (Place Bid / Winning / Outbid) in sync.
     const bidBtn = card.querySelector('.card-bidform button');
-    if (bidBtn && !bidBtn.disabled) bidBtn.textContent = lot.viewer_is_high_bidder ? 'Increase Your Max Bid' : 'Place Bid';
+    if (bidBtn && !bidBtn.disabled) applyBidBtnState(bidBtn, lot);
   }
 
   // ── #2 winning / outbid / watching / sold status badge ──────────────────────
@@ -1136,6 +1208,16 @@
     chip.style.cssText = CHIP_CSS + (CHIP_TONE[s.tone] || CHIP_TONE.neutral);
   }
   function applyCardStatus(card, lot) { renderChip(card.querySelector('[data-chip]'), lot); }
+  // #7: standard tri-state primary bid button — Place Bid (blue) / Winning (green) /
+  // Outbid (red, pulsing). Shared by initial render and live in-place updates. The
+  // button NEVER becomes "Increase Max"; the max raise stays the input's own hint.
+  function applyBidBtnState(btn, lot) {
+    if (!btn || !window.BidStatus) return;
+    const s = BidStatus.deriveBidderStatus(lot);
+    btn.textContent = s.winning ? 'Winning' : (s.hasBid ? 'Outbid' : 'Place Bid');
+    btn.classList.toggle('is-winning', !!s.winning);
+    btn.classList.toggle('is-outbid', !s.winning && !!s.hasBid);
+  }
   // Socket fast-path: a targeted winning/outbid event flips the badge instantly;
   // the debounced poll then reconciles the full status (incl. the viewer's max).
   function setCardChipState(card, key) {
@@ -1429,8 +1511,9 @@
     input.placeholder = winning ? ('New max (≥ ' + BidUtils.formatUSD(nextMin) + ')') : (BidUtils.formatUSD(nextMin) + ' or more');
     const btn = document.createElement('button');
     btn.type = 'button';
-    // #10: when already winning, don't invite a normal bid - offer to raise the max.
-    btn.textContent = winning ? 'Increase Your Max Bid' : 'Place Bid';
+    // #7: primary button reflects standing (Place Bid / Winning / Outbid); the raise-max
+    // hint lives in the input placeholder above, not in the button label.
+    applyBidBtnState(btn, lot);
     row.appendChild(input); row.appendChild(btn);
     const status = document.createElement('div');
     status.className = 'cbf-status';

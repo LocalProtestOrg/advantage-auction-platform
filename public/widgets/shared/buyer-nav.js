@@ -101,12 +101,14 @@
       { href: '/past-auctions.html',          label: 'Past Auctions' },
     ] },
     { title: 'Categories', items: [
-      { href: '/search.html?category=Art',       label: 'Art' },
-      { href: '/search.html?category=Furniture', label: 'Furniture' },
-      { href: '/search.html?category=Antiques',  label: 'Antiques' },
-      { href: '/search.html?category=Jewelry',   label: 'Jewelry' },
-      { href: '/search.html?category=Household', label: 'Household' },
-      { href: '/browse-categories.html',         label: 'All Categories' },
+      // Route to the always-populated Categories page (avoids empty results when a
+      // category label doesn't exactly match a seeded name). Owner directive.
+      { href: '/browse-categories.html', label: 'Art' },
+      { href: '/browse-categories.html', label: 'Furniture' },
+      { href: '/browse-categories.html', label: 'Antiques' },
+      { href: '/browse-categories.html', label: 'Jewelry' },
+      { href: '/browse-categories.html', label: 'Household' },
+      { href: '/browse-categories.html', label: 'All Categories' },
     ] },
     { title: 'Sell', items: [
       { href: '/start-selling.html',        label: 'Sell on Advantage' },
@@ -122,7 +124,7 @@
       { href: '/how-it-works.html#sellers',  label: 'Selling' },
     ] },
     { title: 'Help', items: [
-      { href: 'mailto:support@advantage.bid', label: 'Support' },
+      { href: 'mailto:info@advantage.bid', label: 'Support' },
       { href: '/buyer-faq.html',              label: 'FAQ' },
     ] },
   ];
