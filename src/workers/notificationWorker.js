@@ -667,11 +667,21 @@ async function runAuctionStateTransitions() {
     //    closeAuction throws 'Auction is already closed' on retry — catch and
     //    move on so a single transient failure does not block the rest of
     //    this tick's work.
+    // Close an active auction when its end_time backstop passes OR when every lot has
+    // already closed. Without the second condition an auction whose lots all closed
+    // before end_time lingers 'active' — showing a misleading "time remaining" countdown
+    // on the Browse list while its detail shows all lots closed. Soft-close is respected:
+    // an extended lot keeps state='open', so the auction won't close while one is live.
     const due = await db.query(`
-      SELECT id, title FROM auctions
-      WHERE state = 'active'
-        AND end_time IS NOT NULL
-        AND end_time <= NOW()
+      SELECT a.id, a.title FROM auctions a
+      WHERE a.state = 'active'
+        AND (
+          (a.end_time IS NOT NULL AND a.end_time <= NOW())
+          OR (
+            EXISTS (SELECT 1 FROM lots l WHERE l.auction_id = a.id)
+            AND NOT EXISTS (SELECT 1 FROM lots l WHERE l.auction_id = a.id AND l.state = 'open')
+          )
+        )
     `);
     for (const row of due.rows) {
       try {
