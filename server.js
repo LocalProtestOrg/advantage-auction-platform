@@ -153,6 +153,11 @@ app.options('/{*path}', (req, res) => {
   res.sendStatus(200);
 });
 
+// Server-side share-meta injection — MUST run before express.static so shared
+// links to /auction-view.html and /lot.html get per-entity OG/Twitter/canonical
+// meta. Fast, head-only, and fail-open (any error falls through to static).
+app.use(require('./src/middleware/shareMeta'));
+
 // Static frontend — must be before routes and 404 handler
 app.use(express.static(path.join(__dirname, 'public')));
 
