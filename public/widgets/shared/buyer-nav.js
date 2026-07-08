@@ -111,6 +111,7 @@
       { href: '/browse-categories.html', label: 'All Categories' },
     ] },
     { title: 'Sell', items: [
+      { href: '/how-it-works',              label: 'How Selling Works' },
       { href: '/start-selling.html',        label: 'Sell on Advantage' },
       { href: '/after-estate-sale.html',    label: 'Estate Sales' },
       { href: '/downsizing-liquidation.html', label: 'Moving Sales' },
@@ -119,9 +120,9 @@
       { href: '/start-selling.html',        label: 'Reseller Auctions' },
     ] },
     { title: 'How It Works', items: [
-      { href: '/how-it-works.html',          label: 'About' },
+      { href: '/how-it-works',               label: 'How Selling Works' },
       { href: '/how-to-buy.html',            label: 'Buying' },
-      { href: '/how-it-works.html#sellers',  label: 'Selling' },
+      { href: '/how-it-works',               label: 'Selling' },
     ] },
     { title: 'Help', items: [
       { href: 'mailto:info@advantage.bid', label: 'Support' },
