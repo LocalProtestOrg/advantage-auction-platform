@@ -26,8 +26,7 @@ function buildWelcomeEmail(link) {
     'Welcome to Advantage.Bid.\n\n' +
     'Your account is ready — you can browse auctions, save favorites, add a card, and bid right away.\n\n' +
     'When you have a moment, confirm your email address (optional, but it helps secure your account):\n' +
-    link + '\n\n' +
-    'You do not need to confirm before bidding or checking out.\n\n— Advantage Auction Company';
+    link + '\n\n— Advantage Auction Company';
   const html = `
   <div style="font-family:system-ui,-apple-system,sans-serif;max-width:520px;margin:0 auto;color:#111;">
     <div style="background:#111;color:#fff;padding:1rem 1.25rem;border-radius:10px 10px 0 0;font-weight:700;font-size:1.05rem;">Advantage.Bid</div>

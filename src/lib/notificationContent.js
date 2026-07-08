@@ -53,7 +53,7 @@ function relevance(type, lot, now, auction) {
 function money(cents) { return (cents != null) ? '$' + (Number(cents) / 100).toFixed(2) : null; }
 
 const META = {
-  OUTBID:           { subject: t => "You've been outbid - " + t,   lead: r => "You've been outbid on <strong>" + r + "</strong>. There's still time to take back the lead.", cta: 'Place a new bid →',   priceLabel: 'Current bid' },
+  OUTBID:           { subject: t => "You've been outbid - " + t,   lead: r => "You've been outbid on <strong>" + r + "</strong>.",                                             cta: 'Place a new bid →',   priceLabel: 'Current bid' },
   LEADING:          { subject: t => "You're winning - " + t,        lead: r => "You're the current high bidder on <strong>" + r + "</strong>.",                                cta: 'View lot →',          priceLabel: 'Current bid' },
   ENDING_SOON:      { subject: t => 'Closing soon - ' + t,          lead: r => "<strong>" + r + "</strong> is closing soon.",                                                  cta: 'Bid now →',           priceLabel: 'Current bid' },
   CLOSE_TO_WINNING: { subject: t => "You're close - " + t,          lead: r => "You're very close to winning <strong>" + r + "</strong>. A small increase could secure it.",     cta: 'Increase your bid →', priceLabel: 'Current bid' },

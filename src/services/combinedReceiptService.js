@@ -27,7 +27,7 @@ const pt = require('../lib/pickupTiers');
 let SITE_URL = '';
 try { SITE_URL = require('../lib/publicUrls').publicBaseUrl(); } catch (_e) { SITE_URL = ''; }
 
-const SUPPORT_EMAIL = 'support@advantage.bid';
+const SUPPORT_EMAIL = 'info@advantage.bid';
 
 // Email visibility: record every combined invoice/receipt send in audit_log. Best-effort.
 async function logEmail(eventType, { combinedInvoiceId, to, result, reason, messageId }) {
@@ -177,6 +177,7 @@ function buildSuccessPackageEmail(data) {
       (data.auctionTitle ? ('<div style="font-size:13px;color:#64748b">' + esc(data.auctionTitle) + '</div>') : '') +
       '<div style="font-size:15px;font-weight:700;margin:2px 0 4px">Invoice ' + esc(data.invoiceNumber) + '</div>' +
       '<div style="display:inline-block;font-size:12px;font-weight:700;color:#166534;background:#dcfce7;border-radius:5px;padding:2px 8px;margin-bottom:12px">PAID</div>' +
+      '<p style="line-height:1.5;margin:2px 0 8px;color:#374151">You\'re all paid — your invoice is attached and your pickup details are below.</p>' +
       '<table style="width:100%;border-collapse:collapse;font-size:14px;margin-top:6px">' +
         '<thead><tr>' +
           '<th style="text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:#64748b;padding-bottom:4px">Lot</th>' +
@@ -186,11 +187,13 @@ function buildSuccessPackageEmail(data) {
       '<table style="width:100%;border-collapse:collapse;font-size:14px;margin-top:12px">' + summaryRowsHtml(data.summary) + '</table>' +
       pickupHtml +
       (invoicesUrl ? ('<p style="margin:16px 0 4px">' + button(invoicesUrl, 'View My Purchases', '#2563eb') + button('mailto:' + SUPPORT_EMAIL, 'Need Help?', '#475569') + '</p>') : '') +
-      '<p style="font-size:12px;color:#94a3b8;margin-top:14px">Your itemized invoice is attached as a PDF. Advantage Auction never stores your full card details.</p>' +
+      '<p style="font-size:12px;color:#94a3b8;margin-top:14px">Advantage Auction never stores your full card details.</p>' +
     '</div>';
 
   const textLines = [
     'Advantage Auction — Payment received, thank you!',
+    '',
+    "You're all paid — your invoice is attached and your pickup details are below.",
     '',
     data.auctionTitle ? ('Auction: ' + data.auctionTitle) : null,
     'Invoice: ' + data.invoiceNumber + ' (PAID)',
@@ -226,6 +229,9 @@ function buildPaymentRequiredEmail(data, { reminderNo } = {}) {
   const n = reminderNo || 1;
   const invoicesUrl = SITE_URL ? (SITE_URL + '/invoices.html') : null;
   const heading = n >= 3 ? 'Final notice — payment required' : (n === 2 ? 'Payment reminder' : 'Payment required');
+  const warn = n >= 3
+    ? 'Final notice: pay now to keep your items — they cannot be released until payment is confirmed.'
+    : 'Payment is required before your items can be picked up or released.';
   const p = data.pickup || {};
 
   const pickupHtml = (p.address || p.published)
@@ -242,7 +248,7 @@ function buildPaymentRequiredEmail(data, { reminderNo } = {}) {
       (data.auctionTitle ? ('<div style="font-size:13px;color:#64748b">' + esc(data.auctionTitle) + '</div>') : '') +
       '<div style="font-size:15px;font-weight:700;margin:2px 0 10px">Invoice ' + esc(data.invoiceNumber) + '</div>' +
       '<div style="background:#fef2f2;border:1px solid #fecaca;border-left:4px solid #b91c1c;border-radius:6px;padding:10px 12px;margin:0 0 14px;font-size:13px;color:#7f1d1d;font-weight:600">' +
-        'Payment must be confirmed before items can be picked up or released.' +
+        esc(warn) +
       '</div>' +
       '<table style="width:100%;border-collapse:collapse;font-size:14px">' +
         '<thead><tr>' +
@@ -262,7 +268,7 @@ function buildPaymentRequiredEmail(data, { reminderNo } = {}) {
     data.auctionTitle ? ('Auction: ' + data.auctionTitle) : null,
     'Invoice: ' + data.invoiceNumber,
     '',
-    'Payment must be confirmed before items can be picked up or released.',
+    warn,
     '',
     ...data.lines.map((ln) => (ln.lotNumber != null ? ('#' + ln.lotNumber + ' ') : '') + (ln.title || 'Lot') + ' — ' + doc.money(ln.hammerCents)),
     '',
