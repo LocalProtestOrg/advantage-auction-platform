@@ -113,7 +113,7 @@
   </script>
 
   <!-- ── Structured data: VideoObject (PLACEHOLDER for the walkthrough) ──
-       SWAP POINT: when the AI walkthrough film is produced, add
+       SWAP POINT: when the walkthrough film is produced, add
        "contentUrl" and "embedUrl" keys below (and update duration if it
        differs). Nothing else in this block needs to change. -->
   <script type="application/ld+json">
@@ -350,6 +350,47 @@
     .se-builder-close p { font-size: clamp(1.15rem, 2.6vw, 1.5rem); font-weight: 500; line-height: 1.4; margin-bottom: 1.5rem; }
     .se-builder-close strong { color: var(--se-accent); }
 
+    /* ── SMART CATALOG TOOLS (the centerpiece showcase) ──────────────── */
+    .se-tools {
+      margin-top: clamp(3.5rem, 7vw, 5.5rem);
+      padding-top: clamp(3rem, 6vw, 5rem);
+      border-top: 1px solid var(--se-line);
+    }
+    .se-tools-head { text-align: center; max-width: 780px; margin: 0 auto clamp(2.5rem, 5vw, 3.75rem); }
+    .se-tools-head .se-h2 { font-size: clamp(1.9rem, 4.5vw, 3rem); }
+    .se-tools-head .se-lead { margin: 1rem auto 0; }
+    .se-tools-head .se-lead strong { color: var(--se-ink); font-weight: 700; }
+    .se-tools-grid {
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: clamp(1.1rem, 2.4vw, 1.6rem);
+    }
+    .se-tool {
+      position: relative; background: #fff; border: 1px solid var(--se-line);
+      border-radius: 18px; overflow: hidden; display: flex; flex-direction: column;
+      transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+    }
+    .se-tool:hover { transform: translateY(-4px); box-shadow: 0 18px 44px rgba(15,23,42,0.10); border-color: #cdd7e8; }
+    /* Visual band doubles as the invisible screenshot swap point */
+    .se-tool-visual {
+      position: relative; aspect-ratio: 16 / 9; display: flex; align-items: center; justify-content: center;
+      background:
+        radial-gradient(120% 120% at 25% 15%, rgba(122,162,255,0.28), transparent 55%),
+        linear-gradient(150deg, #eef3fb 0%, #e3ebf7 100%);
+      border-bottom: 1px solid var(--se-line);
+    }
+    .se-tool-icon {
+      width: 60px; height: 60px; border-radius: 16px; display: flex; align-items: center; justify-content: center;
+      background: #fff; color: var(--se-accent);
+      box-shadow: 0 10px 26px rgba(37,99,235,0.18); border: 1px solid rgba(37,99,235,0.12);
+    }
+    .se-tool-icon svg { width: 30px; height: 30px; }
+    .se-tool-body { padding: 1.5rem 1.5rem 1.6rem; }
+    .se-tool-title { font-family: var(--se-display); font-size: 1.2rem; font-weight: 600; letter-spacing: -0.01em; margin-bottom: 0.5rem; }
+    .se-tool p { font-family: var(--se-sans); font-size: 0.96rem; color: var(--se-muted); line-height: 1.55; }
+    .se-tools-close { text-align: center; max-width: 640px; margin: clamp(2.5rem, 5vw, 3.75rem) auto 0; }
+    .se-tools-close p { font-size: clamp(1.2rem, 2.7vw, 1.55rem); font-weight: 500; line-height: 1.4; margin-bottom: 1.5rem; color: var(--se-ink); }
+    .se-tools-close strong { color: var(--se-accent); }
+
     /* Phone frame (for mobile-emphasis mock) */
     .se-phone {
       max-width: 260px; margin: 0 auto; border-radius: 34px; padding: 10px;
@@ -415,22 +456,34 @@
     .se-journey { padding: clamp(3.5rem, 7vw, 6rem) 0; background: #fff; }
     .se-journey-head { text-align: center; max-width: 760px; margin: 0 auto clamp(2.5rem, 5vw, 3.5rem); }
     .se-journey-head .se-lead { margin: 0 auto; }
-    .se-rail { position: relative; display: grid; grid-template-columns: repeat(auto-fit, minmax(0, 1fr)); gap: 1rem; }
+    /* Wrapping multi-row grid: comfortable 4-up on desktop, 2-up tablet,
+       1-up mobile. Generous gap + larger cards so nothing feels crammed. */
+    .se-rail {
+      position: relative; display: grid; grid-template-columns: repeat(4, 1fr);
+      gap: clamp(1.1rem, 2.4vw, 1.75rem);
+      list-style: none; margin: 0; padding: 0;
+    }
     .se-node {
       position: relative; background: var(--se-surface-2); border: 1px solid var(--se-line);
-      border-radius: 14px; padding: 1.1rem 1.1rem 1.25rem;
+      border-radius: 16px; padding: 1.4rem 1.35rem 1.55rem; height: 100%;
+      display: flex; flex-direction: column;
     }
     .se-node-badge {
-      width: 34px; height: 34px; border-radius: 10px; display: flex; align-items: center; justify-content: center;
-      font-family: var(--se-display); font-weight: 700; font-size: 0.95rem; margin-bottom: 0.7rem;
+      width: 40px; height: 40px; border-radius: 11px; display: flex; align-items: center; justify-content: center;
+      font-family: var(--se-display); font-weight: 700; font-size: 1.05rem; margin-bottom: 0.85rem;
       background: rgba(37,99,235,0.10); color: var(--se-accent);
     }
     .se-node.you .se-node-badge { background: rgba(86,97,122,0.12); color: #56617a; }
-    .se-node-label { font-family: var(--se-sans); font-weight: 700; font-size: 0.98rem; margin-bottom: 0.25rem; }
-    .se-node-line { font-family: var(--se-sans); font-size: 0.85rem; color: var(--se-muted); line-height: 1.45; }
+    .se-node-label { font-family: var(--se-sans); font-weight: 700; font-size: 1.05rem; margin-bottom: 0.3rem; }
+    .se-node-line { font-family: var(--se-sans); font-size: 0.9rem; color: var(--se-muted); line-height: 1.5; }
     .se-node.finish {
+      grid-column: 1 / -1; text-align: center; align-items: center;
+      padding: 1.6rem 1.35rem;
       background: linear-gradient(150deg, #123a22 0%, #0f2e1c 100%); border-color: rgba(22,163,74,0.4); color: #fff;
     }
+    .se-node.finish .se-node-badge { margin-left: auto; margin-right: auto; }
+    @media (max-width: 900px) { .se-rail { grid-template-columns: repeat(2, 1fr); } }
+    @media (max-width: 560px) { .se-rail { grid-template-columns: 1fr; } }
     .se-node.finish .se-node-badge { background: rgba(22,163,74,0.25); color: #7ee2a8; }
     .se-node.finish .se-node-label { color: #fff; }
     .se-node.finish .se-node-line { color: #b8e6c9; }
@@ -835,6 +888,102 @@
           <div class="se-step-num" aria-hidden="true">6</div>
           <h3 class="se-step-title">Submit</h3>
           <p class="se-step-callout">One tap. We take it from here.</p>
+        </div>
+      </div>
+
+      <!-- ── Smart Catalog Tools: the centerpiece differentiator ────────── -->
+      <div class="se-tools">
+        <div class="se-tools-head reveal">
+          <div class="se-eyebrow">Smart Catalog Tools</div>
+          <h3 class="se-h2">Why building here beats building anywhere else.</h3>
+          <p class="se-lead">Other platforms hand you a blank form and wish you luck. Advantage&rsquo;s <strong>Smart Catalog Tools do the heavy lifting</strong>, so you save hours and still look completely professional.</p>
+        </div>
+
+        <div class="se-tools-grid">
+
+          <article class="se-tool reveal">
+            <div class="se-tool-visual" data-replace="tools-photo">
+              <!-- REPLACE WITH REAL SCREENSHOT -->
+              <span class="se-tool-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+              </span>
+            </div>
+            <div class="se-tool-body">
+              <h4 class="se-tool-title">Auto Studio Photography</h4>
+              <p>Upload a photo from your phone and our Smart Photo Tools help turn it into a clean, professional product image that shows your item at its best.</p>
+            </div>
+          </article>
+
+          <article class="se-tool reveal">
+            <div class="se-tool-visual" data-replace="tools-description">
+              <!-- REPLACE WITH REAL SCREENSHOT -->
+              <span class="se-tool-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>
+              </span>
+            </div>
+            <div class="se-tool-body">
+              <h4 class="se-tool-title">Smart Description Tools</h4>
+              <p>Not sure how to describe something? Our Smart Description Tools help you write clear, professional descriptions in seconds.</p>
+            </div>
+          </article>
+
+          <article class="se-tool reveal">
+            <div class="se-tool-visual" data-replace="tools-detection">
+              <!-- REPLACE WITH REAL SCREENSHOT -->
+              <span class="se-tool-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 3v4M3 5h4M6 17v4M4 19h4"/><path d="M13 3l2.5 6.5L22 12l-6.5 2.5L13 21l-2.5-6.5L4 12l6.5-2.5z"/></svg>
+              </span>
+            </div>
+            <div class="se-tool-body">
+              <h4 class="se-tool-title">Auto Detection</h4>
+              <p>Our Smart Tools recognize what you&rsquo;re selling and help fill in accurate listing details for you.</p>
+            </div>
+          </article>
+
+          <article class="se-tool reveal">
+            <div class="se-tool-visual" data-replace="tools-populate">
+              <!-- REPLACE WITH REAL SCREENSHOT -->
+              <span class="se-tool-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+              </span>
+            </div>
+            <div class="se-tool-body">
+              <h4 class="se-tool-title">Automatic Information Population</h4>
+              <p>Whenever possible, item details are filled in for you. Less typing, less guesswork, more time saved.</p>
+            </div>
+          </article>
+
+          <article class="se-tool reveal">
+            <div class="se-tool-visual" data-replace="tools-results">
+              <!-- REPLACE WITH REAL SCREENSHOT -->
+              <span class="se-tool-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="6"/><path d="M8.21 13.89L7 23l5-3 5 3-1.21-9.11"/></svg>
+              </span>
+            </div>
+            <div class="se-tool-body">
+              <h4 class="se-tool-title">Professional Results</h4>
+              <p>Even first-time sellers end up with catalogs that look organized, polished, and ready for serious buyers.</p>
+            </div>
+          </article>
+
+          <article class="se-tool reveal">
+            <div class="se-tool-visual" data-replace="tools-editing">
+              <!-- REPLACE WITH REAL SCREENSHOT -->
+              <span class="se-tool-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg>
+              </span>
+            </div>
+            <div class="se-tool-body">
+              <h4 class="se-tool-title">Easy Editing</h4>
+              <p>Review everything before it publishes. Change anything, anytime. You stay in complete control.</p>
+            </div>
+          </article>
+
+        </div>
+
+        <div class="se-tools-close reveal">
+          <p>Most sellers expect this to take days. With <strong>Smart Catalog Tools</strong>, it takes an afternoon, and it looks like a professional did it.</p>
+          <a href="/start-selling.html" class="se-btn se-btn-primary">Start Selling</a>
         </div>
       </div>
 
