@@ -120,8 +120,8 @@
   {
     "@context": "https://schema.org",
     "@type": "VideoObject",
-    "name": "Watch a whole auction come together, start to finish",
-    "description": "A short walkthrough film following one seller as they turn a room of belongings into a live online auction on Advantage.Bid, from creating the auction to getting paid.",
+    "name": "Watch a seller build an entire auction catalog, start to finish",
+    "description": "A short walkthrough film following one seller as they build an entire auction catalog on Advantage.Bid, adding items, photos, and descriptions in a single afternoon, then getting paid after the auction closes.",
     "thumbnailUrl": "https://bid.advantage.bid/img/social-card.png",
     "uploadDate": "2026-07-08",
     "duration": "PT1M50S"
@@ -400,6 +400,81 @@
     .se-phone-screen { border-radius: 26px; overflow: hidden; background: #fff; position: relative; }
     .se-phone-notch { position:absolute; top:8px; left:50%; transform:translateX(-50%); width:90px; height:18px; border-radius:12px; background:#0f172a; z-index:3; }
 
+    /* ── The Advantage Builder: elevated section intro ───────────────── */
+    .se-builder-lead-strong {
+      font-family: var(--se-display); font-weight: 600; font-style: italic;
+      font-size: clamp(1.4rem, 3.4vw, 2.15rem); line-height: 1.18;
+      letter-spacing: -0.01em; color: var(--se-ink); margin: 0 auto 0.8rem; max-width: 22ch;
+    }
+    .se-builder .se-builder-head .se-eyebrow { font-size: 0.78rem; letter-spacing: 0.15em; }
+
+    /* ── FIVE Smart Tool visual showcases (before → after demos) ─────── */
+    .se-showcase {
+      display: grid; grid-template-columns: 0.92fr 1.08fr;
+      gap: clamp(1.75rem, 5vw, 4rem); align-items: center;
+      margin-bottom: clamp(3rem, 6vw, 5rem);
+    }
+    .se-showcase:last-of-type { margin-bottom: 0; }
+    .se-showcase.reverse .se-showcase-visual { order: 2; }
+    .se-showcase-copy .se-eyebrow { margin-bottom: 0.7rem; }
+    .se-showcase-title { font-family: var(--se-display); font-size: clamp(1.5rem, 3.6vw, 2.25rem); font-weight: 600; letter-spacing: -0.02em; line-height: 1.1; margin-bottom: 0.55rem; }
+    .se-showcase-line { font-family: var(--se-sans); font-size: 1.1rem; color: var(--se-muted); line-height: 1.5; max-width: 32ch; }
+
+    .se-showcase-visual {
+      position: relative; border-radius: 20px; padding: clamp(1.1rem, 2.5vw, 1.75rem);
+      background:
+        radial-gradient(120% 120% at 20% 10%, rgba(122,162,255,0.22), transparent 55%),
+        linear-gradient(150deg, #eef3fb 0%, #e3ebf7 100%);
+      border: 1px solid var(--se-line); box-shadow: 0 26px 60px rgba(15,23,42,0.14);
+      min-height: 300px; display: flex; align-items: center; justify-content: center;
+    }
+
+    /* Before → After transformation layout */
+    .se-ba { display: grid; grid-template-columns: 1fr auto 1fr; gap: 0.85rem; align-items: center; width: 100%; }
+    .se-pane { background:#fff; border:1px solid var(--se-line); border-radius:14px; overflow:hidden; box-shadow:0 8px 22px rgba(15,23,42,0.07); }
+    .se-pane-cap { font-family: var(--se-sans); font-size:0.62rem; font-weight:700; letter-spacing:0.08em; text-transform:uppercase; color:#8590a6; padding:0.6rem 0.75rem 0; }
+    .se-pane-body { padding: 0.7rem 0.75rem 0.85rem; }
+
+    .se-arrow { display:flex; flex-direction:column; align-items:center; gap:0.4rem; }
+    .se-arrow-label { font-family: var(--se-sans); font-size:0.58rem; font-weight:700; letter-spacing:0.05em; text-transform:uppercase; color: var(--se-accent); text-align:center; max-width:8ch; line-height:1.25; }
+    .se-arrow-glyph { width:32px; height:32px; border-radius:50%; background: var(--se-accent); color:#fff; display:flex; align-items:center; justify-content:center; box-shadow:0 8px 18px rgba(37,99,235,0.32); flex-shrink:0; }
+
+    /* photo before/after tiles */
+    .se-photo-tile { aspect-ratio: 4/3; display:flex; align-items:center; justify-content:center; border-radius:8px; }
+    .se-photo-before { background: radial-gradient(120% 120% at 75% 25%, rgba(120,110,80,0.55), transparent 60%), linear-gradient(150deg, #3a3730 0%, #24221d 100%); }
+    .se-photo-after { background: linear-gradient(180deg, #ffffff 0%, #f4f7fb 100%); box-shadow: inset 0 0 0 1px #eef1f6; }
+    .se-lamp { filter: drop-shadow(0 6px 14px rgba(0,0,0,0.28)); }
+
+    /* filled-for-you affordances */
+    .mk-fill { display:inline-flex; align-items:center; gap:0.28rem; background: rgba(22,163,74,0.10); color: var(--se-success); font-family: var(--se-sans); font-size:0.6rem; font-weight:700; border-radius:999px; padding:0.16rem 0.5rem; white-space:nowrap; }
+    .mk-field.filled { background:#fff; border-color:#cfe6d6; color: var(--se-ink); justify-content:space-between; gap:0.5rem; }
+    .mk-typed { color:#8590a6; }
+
+    /* Suggestion rows (Smart Detection + Breeze) */
+    .se-suggest { display:flex; align-items:center; justify-content:space-between; gap:0.6rem; background:#fff; border:1px solid var(--se-line); border-radius:10px; padding:0.55rem 0.7rem; margin-bottom:0.5rem; }
+    .se-suggest:last-child { margin-bottom:0; }
+    .se-suggest .lbl { font-family: var(--se-sans); font-size:0.68rem; color:#8590a6; }
+    .se-suggest .val { font-family: var(--se-sans); font-size:0.82rem; color:var(--se-ink); font-weight:600; text-align:right; }
+
+    /* Breeze assistant panel */
+    .se-breeze { width:100%; max-width:380px; }
+    .se-breeze-head { display:flex; align-items:center; gap:0.6rem; margin-bottom:0.8rem; }
+    .se-breeze-avatar { width:42px; height:42px; border-radius:50%; background: linear-gradient(140deg, #2563eb, #7aa2ff); display:flex; align-items:center; justify-content:center; box-shadow:0 8px 18px rgba(37,99,235,0.32); flex-shrink:0; }
+    .se-breeze-name { font-family: var(--se-display); font-weight:600; font-size:1.05rem; color:var(--se-ink); line-height:1.1; }
+    .se-breeze-role { font-family: var(--se-sans); font-size:0.72rem; color: var(--se-muted); }
+    .se-breeze-bubble { background:#eef2ff; border-radius:14px 14px 14px 4px; padding:0.7rem 0.85rem; font-family: var(--se-sans); font-size:0.82rem; color:#31406b; line-height:1.45; margin-bottom:0.75rem; }
+
+    @media (max-width: 760px) {
+      .se-showcase { grid-template-columns: 1fr; }
+      .se-showcase.reverse .se-showcase-visual { order: 0; }
+      .se-showcase-visual { order: 2; }
+      .se-showcase-line { max-width:none; }
+    }
+    @media (max-width: 520px) {
+      .se-ba { grid-template-columns: 1fr; }
+      .se-ba .se-arrow { transform: rotate(90deg); margin: 0.15rem auto; }
+    }
+
     /* =========================================================
        5 · WALKTHROUGH VIDEO
        ========================================================= */
@@ -412,7 +487,7 @@
     .se-video h2 { font-size: clamp(1.9rem, 4.6vw, 3rem); font-weight: 600; letter-spacing: -0.02em; line-height: 1.1; color: #fff; margin-bottom: 0.9rem; max-width: 20ch; margin-left:auto; margin-right:auto; }
     .se-video-sub { color: #b7c2d8; font-size: clamp(1.05rem, 2.3vw, 1.25rem); max-width: 42ch; margin: 0 auto 2.5rem; line-height: 1.5; }
     .se-video-frame {
-      position: relative; max-width: 960px; margin: 0 auto; aspect-ratio: 16 / 9;
+      position: relative; max-width: 1060px; margin: 0 auto; aspect-ratio: 16 / 9;
       border-radius: 18px; overflow: hidden; cursor: pointer;
       border: 1px solid rgba(255,255,255,0.14);
       box-shadow: 0 34px 80px rgba(0,0,0,0.5);
@@ -437,6 +512,9 @@
     }
     .se-video-cta { margin-top: 2.25rem; }
     .se-video-cta small { display: block; color: #93a1bd; font-size: 0.85rem; margin-bottom: 0.75rem; }
+    .se-video-eyebrow { color: var(--se-accent-2); }
+    .se-video-poster-brand { position: absolute; top: 20px; left: 24px; font-family: var(--se-display); font-weight: 600; font-size: 1.15rem; color: #eef2ff; opacity: 0.85; z-index: 2; }
+    .se-video-poster-brand span { color: #7aa2ff; }
 
     /* Video modal */
     .se-modal { position: fixed; inset: 0; z-index: 1000; display: none; align-items: center; justify-content: center; padding: 1.25rem; background: rgba(6,10,20,0.82); }
@@ -727,18 +805,45 @@
     <div class="se-narrow reveal">
       <h2 id="fear-heading">&ldquo;I&rsquo;ve never done this before.&rdquo;</h2>
       <p class="se-fear-relief">That&rsquo;s okay. <strong>Most Advantage sellers hadn&rsquo;t either.</strong></p>
-      <p class="se-fear-body">We built the platform so almost anyone can create an auction in a single afternoon. No special software. No experience required. We guide you the whole way.</p>
+      <p class="se-fear-body">No special software. No experience needed. We guide you the whole way.</p>
       <a href="#builder" class="se-btn se-btn-light">Show me how</a>
     </div>
   </section>
 
-  <!-- ══ 4 · THE EFFORTLESS BUILDER ═════════════════════════════════════ -->
+  <!-- ══ 4 · WALKTHROUGH VIDEO (moved up: one of the first things you see) ═ -->
+  <section class="se-video" aria-labelledby="video-heading">
+    <div class="se-wrap reveal">
+      <div class="se-eyebrow se-video-eyebrow">Watch First</div>
+      <h2 id="video-heading">Watch someone build an entire auction catalog.</h2>
+      <p class="se-video-sub">Start to finish, in one afternoon. You will think, &ldquo;that&rsquo;s all there is to it?&rdquo;</p>
+
+      <!-- Video area, fully architected for the real film.
+           SWAP POINT: set data-video-src on this element (or drop a
+           <video><source src="…"></video> inside .se-modal-inner) and the
+           poster below becomes the real thumbnail. -->
+      <div class="se-video-frame" data-open-video
+           data-video-src="" data-replace="walkthrough-video-poster">
+        <span class="se-video-poster-brand" aria-hidden="true">Advantage<span>.Bid</span></span>
+        <button type="button" class="se-play" data-open-video aria-label="Play the walkthrough film: watch a seller build an entire auction catalog from start to finish">
+          <svg width="30" height="30" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>
+        </button>
+        <span class="se-video-poster-label">Build a whole catalog, start to finish · about 90 seconds</span>
+      </div>
+
+      <div class="se-video-cta">
+        <a href="/start-selling.html" class="se-btn se-btn-primary">Start Selling</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══ 5 · THE ADVANTAGE BUILDER ══════════════════════════════════════ -->
   <section class="se-builder" id="builder" aria-labelledby="builder-heading">
     <div class="se-wrap">
       <div class="se-builder-head reveal">
-        <div class="se-eyebrow">The Effortless Builder</div>
-        <h2 class="se-h2" id="builder-heading">As easy as posting an item for sale.</h2>
-        <p class="se-lead">Five simple steps for each item, and you&rsquo;ve built a lot. Here&rsquo;s the whole flow.</p>
+        <div class="se-eyebrow">The Advantage Builder</div>
+        <h2 class="se-h2" id="builder-heading">This is where Advantage is different.</h2>
+        <p class="se-builder-lead-strong">Building a professional catalog usually takes days. Here it takes an afternoon.</p>
+        <p class="se-lead">A few simple steps per item. The Smart Tools do the rest.</p>
       </div>
 
       <!-- Step 1 -->
@@ -891,129 +996,157 @@
         </div>
       </div>
 
-      <!-- ── Smart Catalog Tools: the centerpiece differentiator ────────── -->
+      <!-- ── Smart Catalog Tools: five visual before → after demos ──────── -->
       <div class="se-tools">
         <div class="se-tools-head reveal">
           <div class="se-eyebrow">Smart Catalog Tools</div>
-          <h3 class="se-h2">Why building here beats building anywhere else.</h3>
-          <p class="se-lead">Other platforms hand you a blank form and wish you luck. Advantage&rsquo;s <strong>Smart Catalog Tools do the heavy lifting</strong>, so you save hours and still look completely professional.</p>
+          <h3 class="se-h2">The work is mostly done for you.</h3>
+          <p class="se-lead">Every listing, quietly upgraded as you add it. Watch what happens to one brass lamp.</p>
         </div>
 
-        <div class="se-tools-grid">
+        <!-- 1 · Auto Studio Photography -->
+        <div class="se-showcase reveal">
+          <div class="se-showcase-copy">
+            <div class="se-eyebrow">Smart Photo Tools</div>
+            <h4 class="se-showcase-title">Your photos, studio ready.</h4>
+            <p class="se-showcase-line">Snap it on your phone. It comes out looking professional.</p>
+          </div>
+          <!-- REPLACE WITH REAL SCREENSHOT -->
+          <div class="se-showcase-visual" data-replace="tool-photo" role="img" aria-label="A dim, cluttered phone snapshot of a brass lamp, a Smart Photo Tools arrow, then the same lamp on a clean white studio background.">
+            <div class="se-ba">
+              <div class="se-pane">
+                <div class="se-pane-cap">Your phone photo</div>
+                <div class="se-pane-body">
+                  <div class="se-photo-tile se-photo-before">
+                    <svg class="se-lamp" width="50" height="50" viewBox="0 0 24 24" fill="none" stroke="#c9b98a" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 2h8l2 7H6z"/><path d="M12 9v9"/><path d="M8.5 22h7"/><path d="M10 18h4v4h-4z"/></svg>
+                  </div>
+                </div>
+              </div>
+              <div class="se-arrow" aria-hidden="true">
+                <span class="se-arrow-glyph"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
+                <span class="se-arrow-label">Smart Photo Tools</span>
+              </div>
+              <div class="se-pane">
+                <div class="se-pane-cap">Studio ready</div>
+                <div class="se-pane-body">
+                  <div class="se-photo-tile se-photo-after">
+                    <svg class="se-lamp" width="50" height="50" viewBox="0 0 24 24" fill="none" stroke="#b78a2e" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 2h8l2 7H6z"/><path d="M12 9v9"/><path d="M8.5 22h7"/><path d="M10 18h4v4h-4z"/></svg>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
 
-          <article class="se-tool reveal">
-            <div class="se-tool-visual" data-replace="tools-photo">
-              <!-- REPLACE WITH REAL SCREENSHOT -->
-              <span class="se-tool-icon" aria-hidden="true">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
-              </span>
+        <!-- 2 · Smart Description Tools -->
+        <div class="se-showcase reverse reveal">
+          <div class="se-showcase-copy">
+            <div class="se-eyebrow">Smart Description Tools</div>
+            <h4 class="se-showcase-title">A professional listing, written for you.</h4>
+            <p class="se-showcase-line">Type a couple of words. Get a full, polished description.</p>
+          </div>
+          <!-- REPLACE WITH REAL SCREENSHOT -->
+          <div class="se-showcase-visual" data-replace="tool-description" role="img" aria-label="A nearly empty description field containing only the words brass lamp, a Smart Description Tools arrow, then a full multi-line polished description.">
+            <div class="se-ba">
+              <div class="se-pane">
+                <div class="se-pane-cap">You type</div>
+                <div class="se-pane-body">
+                  <div class="mk-field" style="height:70px; align-items:flex-start; padding-top:0.55rem;"><span class="mk-typed">brass lamp</span></div>
+                </div>
+              </div>
+              <div class="se-arrow" aria-hidden="true">
+                <span class="se-arrow-glyph"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
+                <span class="se-arrow-label">Smart Description Tools</span>
+              </div>
+              <div class="se-pane">
+                <div class="se-pane-cap">You get</div>
+                <div class="se-pane-body">
+                  <p style="font-family:var(--se-sans); font-size:0.72rem; line-height:1.5; color:#31406b; margin:0;">Vintage solid-brass table lamp with a warm patina and a classic urn base. Recently rewired and in full working order. A soft linen shade and weighted foot make it a lovely reading or accent light.</p>
+                </div>
+              </div>
             </div>
-            <div class="se-tool-body">
-              <h4 class="se-tool-title">Auto Studio Photography</h4>
-              <p>Upload a photo from your phone and our Smart Photo Tools help turn it into a clean, professional product image that shows your item at its best.</p>
-            </div>
-          </article>
+          </div>
+        </div>
 
-          <article class="se-tool reveal">
-            <div class="se-tool-visual" data-replace="tools-description">
-              <!-- REPLACE WITH REAL SCREENSHOT -->
-              <span class="se-tool-icon" aria-hidden="true">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>
-              </span>
+        <!-- 3 · Smart Detection -->
+        <div class="se-showcase reveal">
+          <div class="se-showcase-copy">
+            <div class="se-eyebrow">Smart Detection</div>
+            <h4 class="se-showcase-title">It already knows what you&rsquo;re selling.</h4>
+            <p class="se-showcase-line">Upload a photo. It recognizes the item and suggests the details.</p>
+          </div>
+          <!-- REPLACE WITH REAL SCREENSHOT -->
+          <div class="se-showcase-visual" data-replace="tool-detection" role="img" aria-label="An uploaded photo recognized as a Vintage Brass Table Lamp, with an auto-suggested title, category, and details.">
+            <div class="mk-card" style="width:100%; max-width:360px;">
+              <div style="display:flex; gap:0.7rem; align-items:center; margin-bottom:0.85rem;">
+                <div class="mk-thumb" style="width:58px; height:58px;"></div>
+                <div>
+                  <span class="mk-fill">&#10003; Recognized</span>
+                  <div style="font-family:var(--se-display); font-weight:600; font-size:0.98rem; margin-top:0.35rem; color:var(--se-ink);">Vintage Brass Table Lamp</div>
+                </div>
+              </div>
+              <div class="se-suggest"><span class="lbl">Title</span><span class="val">Vintage Brass Table Lamp</span></div>
+              <div class="se-suggest"><span class="lbl">Category</span><span class="val">Lighting · Lamps</span></div>
+              <div class="se-suggest"><span class="lbl">Details</span><span class="val">Brass · Rewired · Working</span></div>
             </div>
-            <div class="se-tool-body">
-              <h4 class="se-tool-title">Smart Description Tools</h4>
-              <p>Not sure how to describe something? Our Smart Description Tools help you write clear, professional descriptions in seconds.</p>
-            </div>
-          </article>
+          </div>
+        </div>
 
-          <article class="se-tool reveal">
-            <div class="se-tool-visual" data-replace="tools-detection">
-              <!-- REPLACE WITH REAL SCREENSHOT -->
-              <span class="se-tool-icon" aria-hidden="true">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 3v4M3 5h4M6 17v4M4 19h4"/><path d="M13 3l2.5 6.5L22 12l-6.5 2.5L13 21l-2.5-6.5L4 12l6.5-2.5z"/></svg>
-              </span>
+        <!-- 4 · Automatic Information Population -->
+        <div class="se-showcase reverse reveal">
+          <div class="se-showcase-copy">
+            <div class="se-eyebrow">Automatic Information Population</div>
+            <h4 class="se-showcase-title">Barely any typing.</h4>
+            <p class="se-showcase-line">Condition, era, dimensions. Filled in for you.</p>
+          </div>
+          <!-- REPLACE WITH REAL SCREENSHOT -->
+          <div class="se-showcase-visual" data-replace="tool-populate" role="img" aria-label="A listing form with condition, era, material, and dimension fields already filled in, each marked filled for you.">
+            <div class="mk-card" style="width:100%; max-width:360px;">
+              <div class="mk-label">Item details</div>
+              <div class="mk-field filled">Condition: Very good <span class="mk-fill">filled for you</span></div>
+              <div class="mk-field filled">Era: Mid-century <span class="mk-fill">filled for you</span></div>
+              <div class="mk-field filled">Material: Solid brass <span class="mk-fill">filled for you</span></div>
+              <div class="mk-row">
+                <div class="mk-col"><div class="mk-field filled" style="margin-bottom:0;">H 22 in <span class="mk-fill">auto</span></div></div>
+                <div class="mk-col"><div class="mk-field filled" style="margin-bottom:0;">W 9 in <span class="mk-fill">auto</span></div></div>
+              </div>
             </div>
-            <div class="se-tool-body">
-              <h4 class="se-tool-title">Auto Detection</h4>
-              <p>Our Smart Tools recognize what you&rsquo;re selling and help fill in accurate listing details for you.</p>
-            </div>
-          </article>
+          </div>
+        </div>
 
-          <article class="se-tool reveal">
-            <div class="se-tool-visual" data-replace="tools-populate">
-              <!-- REPLACE WITH REAL SCREENSHOT -->
-              <span class="se-tool-icon" aria-hidden="true">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
-              </span>
+        <!-- 5 · Breeze -->
+        <div class="se-showcase reveal">
+          <div class="se-showcase-copy">
+            <div class="se-eyebrow">Meet Breeze</div>
+            <h4 class="se-showcase-title">Breeze fills in the details.</h4>
+            <p class="se-showcase-line">Add an item and Breeze suggests the rest. The work is mostly done.</p>
+          </div>
+          <!-- REPLACE WITH REAL SCREENSHOT -->
+          <div class="se-showcase-visual" data-replace="tool-breeze" role="img" aria-label="The Breeze assistant panel greeting the seller and suggesting a title, category, and starting bid for a brass lamp, each ready to accept.">
+            <div class="se-breeze">
+              <div class="se-breeze-head">
+                <span class="se-breeze-avatar" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h4l2.5-7 4 15 2.5-8H21"/></svg></span>
+                <div>
+                  <div class="se-breeze-name">Breeze</div>
+                  <div class="se-breeze-role">Your listing assistant</div>
+                </div>
+              </div>
+              <div class="se-breeze-bubble">I recognized your brass lamp. Here is a head start, accept anything you like.</div>
+              <div class="se-suggest"><span class="lbl">Title</span><span class="val">Vintage Brass Table Lamp</span></div>
+              <div class="se-suggest"><span class="lbl">Category</span><span class="val">Lighting · Lamps</span></div>
+              <div class="se-suggest"><span class="lbl">Starting bid</span><span class="val">$1</span></div>
             </div>
-            <div class="se-tool-body">
-              <h4 class="se-tool-title">Automatic Information Population</h4>
-              <p>Whenever possible, item details are filled in for you. Less typing, less guesswork, more time saved.</p>
-            </div>
-          </article>
-
-          <article class="se-tool reveal">
-            <div class="se-tool-visual" data-replace="tools-results">
-              <!-- REPLACE WITH REAL SCREENSHOT -->
-              <span class="se-tool-icon" aria-hidden="true">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="6"/><path d="M8.21 13.89L7 23l5-3 5 3-1.21-9.11"/></svg>
-              </span>
-            </div>
-            <div class="se-tool-body">
-              <h4 class="se-tool-title">Professional Results</h4>
-              <p>Even first-time sellers end up with catalogs that look organized, polished, and ready for serious buyers.</p>
-            </div>
-          </article>
-
-          <article class="se-tool reveal">
-            <div class="se-tool-visual" data-replace="tools-editing">
-              <!-- REPLACE WITH REAL SCREENSHOT -->
-              <span class="se-tool-icon" aria-hidden="true">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg>
-              </span>
-            </div>
-            <div class="se-tool-body">
-              <h4 class="se-tool-title">Easy Editing</h4>
-              <p>Review everything before it publishes. Change anything, anytime. You stay in complete control.</p>
-            </div>
-          </article>
-
+          </div>
         </div>
 
         <div class="se-tools-close reveal">
-          <p>Most sellers expect this to take days. With <strong>Smart Catalog Tools</strong>, it takes an afternoon, and it looks like a professional did it.</p>
+          <p>Most sellers expect this to take days. It takes an afternoon, and it looks like <strong>a pro did it.</strong></p>
           <a href="/start-selling.html" class="se-btn se-btn-primary">Start Selling</a>
         </div>
       </div>
 
       <div class="se-builder-close reveal">
         <p>That&rsquo;s it. If you can post an item for sale online, <strong>you can build an entire auction.</strong></p>
-        <a href="/start-selling.html" class="se-btn se-btn-primary">Start Selling</a>
-      </div>
-    </div>
-  </section>
-
-  <!-- ══ 5 · WALKTHROUGH VIDEO ══════════════════════════════════════════ -->
-  <section class="se-video" aria-labelledby="video-heading">
-    <div class="se-wrap reveal">
-      <h2 id="video-heading">Watch a whole auction come together, start to finish.</h2>
-      <p class="se-video-sub">One seller. One afternoon. From a room of belongings to live bidding. <em>(About 90 seconds.)</em></p>
-
-      <!-- Video area, fully architected for the real film.
-           SWAP POINT: set data-video-src on this element (or drop a
-           <video><source src="…"></video> inside .se-modal-inner) and the
-           poster below becomes the real thumbnail. -->
-      <div class="se-video-frame" data-open-video
-           data-video-src="" data-replace="walkthrough-video-poster">
-        <button type="button" class="se-play" data-open-video aria-label="Play walkthrough video">
-          <svg width="30" height="30" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>
-        </button>
-        <span class="se-video-poster-label">A whole auction, start to finish · about 90 seconds</span>
-      </div>
-
-      <div class="se-video-cta">
-        <small>Ready when you are.</small>
         <a href="/start-selling.html" class="se-btn se-btn-primary">Start Selling</a>
       </div>
     </div>
@@ -1070,7 +1203,7 @@
         <div class="se-benefit reveal">
           <div class="se-benefit-icon" aria-hidden="true">🧾</div>
           <h3>No math, no chasing</h3>
-          <p>No calculating invoices. No chasing payments. Everything happens automatically.</p>
+          <p>Invoices and payments happen automatically.</p>
         </div>
         <div class="se-benefit reveal">
           <div class="se-benefit-icon" aria-hidden="true">📅</div>
