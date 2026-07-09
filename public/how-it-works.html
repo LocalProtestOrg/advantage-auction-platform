@@ -112,10 +112,10 @@
   }
   </script>
 
-  <!-- ── Structured data: VideoObject (PLACEHOLDER for the walkthrough) ──
-       SWAP POINT: when the walkthrough film is produced, add
-       "contentUrl" and "embedUrl" keys below (and update duration if it
-       differs). Nothing else in this block needs to change. -->
+  <!-- ── Structured data: VideoObject (walkthrough film) ─────────────────
+       SWAP HOOK: when the walkthrough film is produced, add "contentUrl"
+       and "embedUrl" keys below (and update duration if it differs).
+       Nothing else in this block needs to change. -->
   <script type="application/ld+json">
   {
     "@context": "https://schema.org",
@@ -457,12 +457,85 @@
     .se-suggest .val { font-family: var(--se-sans); font-size:0.82rem; color:var(--se-ink); font-weight:600; text-align:right; }
 
     /* Breeze assistant panel */
-    .se-breeze { width:100%; max-width:380px; }
-    .se-breeze-head { display:flex; align-items:center; gap:0.6rem; margin-bottom:0.8rem; }
-    .se-breeze-avatar { width:42px; height:42px; border-radius:50%; background: linear-gradient(140deg, #2563eb, #7aa2ff); display:flex; align-items:center; justify-content:center; box-shadow:0 8px 18px rgba(37,99,235,0.32); flex-shrink:0; }
-    .se-breeze-name { font-family: var(--se-display); font-weight:600; font-size:1.05rem; color:var(--se-ink); line-height:1.1; }
+    .se-breeze {
+      width:100%; max-width:370px; background:#fff; border:1px solid #e5e7eb;
+      border-radius:18px; padding:1.15rem 1.2rem 1.25rem; box-shadow:0 20px 48px rgba(15,23,42,0.18);
+    }
+    .se-breeze-head { display:flex; align-items:center; gap:0.6rem; margin-bottom:0.9rem; padding-bottom:0.9rem; border-bottom:1px solid #eef1f6; }
+    .se-breeze-avatar { width:44px; height:44px; border-radius:50%; background: linear-gradient(140deg, #2563eb, #7aa2ff); display:flex; align-items:center; justify-content:center; box-shadow:0 8px 18px rgba(37,99,235,0.32); flex-shrink:0; }
+    .se-breeze-name { font-family: var(--se-display); font-weight:600; font-size:1.05rem; color:var(--se-ink); line-height:1.15; }
     .se-breeze-role { font-family: var(--se-sans); font-size:0.72rem; color: var(--se-muted); }
-    .se-breeze-bubble { background:#eef2ff; border-radius:14px 14px 14px 4px; padding:0.7rem 0.85rem; font-family: var(--se-sans); font-size:0.82rem; color:#31406b; line-height:1.45; margin-bottom:0.75rem; }
+    .se-breeze-bubble { background:#eef2ff; border-radius:14px 14px 14px 4px; padding:0.65rem 0.85rem; font-family: var(--se-sans); font-size:0.82rem; color:#31406b; line-height:1.45; margin-bottom:0.55rem; }
+    .se-breeze-bubble:last-of-type { margin-bottom:0; }
+    .se-breeze-card { margin-top:0.95rem; border:1px solid #eef1f6; border-radius:12px; padding:0.55rem 0.85rem 0.75rem; background:#f8fafc; }
+    .se-breeze-actions { display:flex; gap:0.5rem; margin-top:0.7rem; }
+    .se-breeze-accept, .se-breeze-edit { flex:1; text-align:center; font-family:var(--se-sans); font-size:0.78rem; font-weight:600; border-radius:8px; padding:0.5rem 0.6rem; }
+    .se-breeze-accept { background:#16a34a; color:#fff; }
+    .se-breeze-edit { background:#fff; color:#374151; border:1.5px solid #d1d5db; }
+
+    /* ── Real lot-builder illustration kit (mirrors public/lot-builder.html) ──
+       Field labels #374151, inputs 1.5px #d1d5db / 6px radius, col-label
+       uppercase #9ca3af, accent #2563eb, success #15803d, danger #ef4444. */
+    .se-callout {
+      position:absolute; z-index:6; display:inline-flex; align-items:center; gap:0.42rem;
+      background:#fff; border:1px solid var(--se-line); border-radius:999px;
+      padding:0.4rem 0.75rem 0.4rem 0.55rem; box-shadow:0 12px 28px rgba(15,23,42,0.18);
+      font-family:var(--se-sans); font-size:0.74rem; font-weight:600; color:var(--se-ink); white-space:nowrap;
+    }
+    .se-callout .dot { width:8px; height:8px; border-radius:50%; background:var(--se-success); flex-shrink:0; }
+    .se-callout.accent .dot { background:var(--se-accent); }
+
+    .lb { width:100%; max-width:380px; background:#fff; border:1px solid #e5e7eb; border-radius:12px; box-shadow:0 20px 48px rgba(15,23,42,0.18); overflow:hidden; }
+    .lb-head { display:flex; align-items:center; gap:0.5rem; padding:0.7rem 1.05rem; border-bottom:1px solid #eef1f6; }
+    .lb-head .brand { font-family:var(--se-sans); font-weight:700; font-size:0.8rem; color:var(--se-accent); }
+    .lb-head .brand span { color:var(--se-ink); }
+    .lb-head .title { font-family:var(--se-sans); font-weight:700; font-size:0.78rem; color:#374151; margin-left:auto; }
+    .lb-body { padding:1rem 1.1rem 1.15rem; }
+    .lb-collabel { font-family:var(--se-sans); font-size:0.62rem; font-weight:700; letter-spacing:0.07em; text-transform:uppercase; color:#9ca3af; padding-bottom:0.5rem; margin-bottom:0.85rem; border-bottom:1px solid #e5e7eb; display:flex; align-items:center; gap:0.5rem; }
+    .lb-label { font-family:var(--se-sans); font-size:0.74rem; font-weight:600; color:#374151; margin-bottom:0.32rem; display:flex; align-items:center; gap:0.4rem; }
+    .lb-req { color:#ef4444; }
+    .lb-input { font-family:var(--se-sans); font-size:0.8rem; color:#111; background:#fff; border:1.5px solid #d1d5db; border-radius:6px; padding:0.5rem 0.6rem; min-height:36px; display:flex; align-items:center; gap:0.4rem; }
+    .lb-input.area { min-height:74px; align-items:flex-start; line-height:1.5; display:block; }
+    .lb-input .ph { color:#111; }
+    .lb-input .val { color:#111; font-weight:600; }
+    .lb-input .dim { color:#9ca3af; font-weight:600; margin-right:0.15rem; }
+    .lb-input.done { border-color:#cfe6d6; justify-content:space-between; }
+    .lb-field { margin-bottom:0.85rem; }
+    .lb-field:last-child { margin-bottom:0; }
+    .lb-row { display:grid; grid-template-columns:1fr 1fr; gap:0.6rem; }
+    .lb-row.three { grid-template-columns:1fr 1fr 1fr; }
+
+    .lb-caret { display:inline-block; width:1.5px; height:0.95em; background:var(--se-accent); margin-left:1px; vertical-align:-0.12em; animation:lb-blink 1.05s steps(1) infinite; }
+    @keyframes lb-blink { 50% { opacity:0; } }
+
+    .lb-fill { display:inline-flex; align-items:center; gap:0.24rem; background:rgba(22,163,74,0.10); color:#15803d; font-family:var(--se-sans); font-size:0.58rem; font-weight:700; border-radius:999px; padding:0.14rem 0.46rem; white-space:nowrap; }
+    .lb-suggest-tag { font-family:var(--se-sans); font-size:0.56rem; font-weight:700; letter-spacing:0.04em; text-transform:uppercase; color:var(--se-accent); background:rgba(37,99,235,0.10); border-radius:999px; padding:0.14rem 0.44rem; white-space:nowrap; }
+    .lb-check { width:20px; height:20px; border-radius:50%; background:rgba(22,163,74,0.12); color:#15803d; display:inline-flex; align-items:center; justify-content:center; font-size:0.66rem; flex-shrink:0; }
+
+    .lb-detect-head { display:flex; align-items:center; gap:0.7rem; margin-bottom:0.9rem; }
+    .lb-recog-chip { display:inline-flex; align-items:center; gap:0.3rem; background:rgba(22,163,74,0.10); color:#15803d; font-family:var(--se-sans); font-size:0.66rem; font-weight:700; border-radius:999px; padding:0.2rem 0.5rem; }
+    .lb-detect-name { font-family:var(--se-sans); font-weight:700; font-size:0.85rem; color:#111; margin-top:0.32rem; }
+    .lb-sugrow { display:flex; align-items:center; gap:0.55rem; padding:0.5rem 0; border-bottom:1px solid #eef1f6; }
+    .lb-sugrow:last-child { border-bottom:none; }
+    .lb-sugrow .k { font-family:var(--se-sans); font-size:0.7rem; color:#6b7280; min-width:58px; flex-shrink:0; }
+    .lb-sugrow .v { font-family:var(--se-sans); font-size:0.78rem; color:#111; font-weight:600; margin-left:auto; text-align:right; }
+    .lb-sugrow .lb-suggest-tag, .lb-sugrow .lb-check { flex-shrink:0; }
+
+    .lb-photo { width:56px; height:56px; border-radius:8px; border:1px solid #e5e7eb; overflow:hidden; flex-shrink:0; display:flex; align-items:center; justify-content:center; background:linear-gradient(180deg,#ffffff,#f4f7fb); }
+
+    /* Casual phone snapshot (before) vs clean catalog (after) */
+    .se-photo-before { position:relative; overflow:hidden;
+      background:
+        radial-gradient(85% 65% at 68% 22%, rgba(150,130,90,0.4), transparent 62%),
+        linear-gradient(150deg, #4a4335 0%, #29251d 100%);
+    }
+    .se-photo-before .statusbar { position:absolute; top:5px; left:9px; right:9px; display:flex; align-items:center; justify-content:space-between; font-family:var(--se-sans); font-size:0.5rem; font-weight:700; color:rgba(255,255,255,0.82); z-index:3; }
+    .se-photo-before .statusbar .batt { display:inline-flex; align-items:center; gap:3px; }
+    .se-photo-before .clutter { position:absolute; filter:blur(1.5px); opacity:0.55; z-index:1; }
+    .se-photo-before .se-lamp { position:relative; z-index:2; transform:rotate(-6deg) translateY(3px); }
+    .se-photo-after { position:relative; background:linear-gradient(180deg,#ffffff 0%, #f4f7fb 100%); box-shadow:inset 0 0 0 1px #eef1f6; }
+    .se-photo-after .shadow { position:absolute; bottom:15%; left:50%; transform:translateX(-50%); width:44%; height:9px; border-radius:50%; background:rgba(15,23,42,0.16); filter:blur(3px); z-index:1; }
+    .se-photo-after .se-lamp { position:relative; z-index:2; }
 
     @media (max-width: 760px) {
       .se-showcase { grid-template-columns: 1fr; }
@@ -486,34 +559,45 @@
     }
     .se-video h2 { font-size: clamp(1.9rem, 4.6vw, 3rem); font-weight: 600; letter-spacing: -0.02em; line-height: 1.1; color: #fff; margin-bottom: 0.9rem; max-width: 20ch; margin-left:auto; margin-right:auto; }
     .se-video-sub { color: #b7c2d8; font-size: clamp(1.05rem, 2.3vw, 1.25rem); max-width: 42ch; margin: 0 auto 2.5rem; line-height: 1.5; }
+    /* Cinematic, branded video still: warm golden-hour key light over the
+       navy brand base, a soft-focus brass lamp subject, floor plane + vignette. */
     .se-video-frame {
       position: relative; max-width: 1060px; margin: 0 auto; aspect-ratio: 16 / 9;
       border-radius: 18px; overflow: hidden; cursor: pointer;
       border: 1px solid rgba(255,255,255,0.14);
       box-shadow: 0 34px 80px rgba(0,0,0,0.5);
       background:
-        radial-gradient(120% 120% at 70% 20%, rgba(122,162,255,0.30), transparent 55%),
-        linear-gradient(140deg, #1a2947 0%, #0e1830 100%);
+        radial-gradient(115% 130% at 74% 16%, rgba(244,196,116,0.44), transparent 52%),
+        radial-gradient(95% 120% at 10% 6%, rgba(122,162,255,0.22), transparent 55%),
+        linear-gradient(168deg, #12233f 0%, #0c1730 48%, #16233f 100%);
     }
     .se-video-frame:focus-visible { outline: 3px solid var(--se-accent-2); outline-offset: 3px; }
+    .se-vid-floor { position:absolute; left:0; right:0; bottom:0; height:36%; z-index:1; background:linear-gradient(180deg, rgba(50,36,20,0) 0%, rgba(42,30,16,0.6) 100%); }
+    .se-vid-lamp { position:absolute; right:9%; bottom:11%; width:30%; max-width:290px; z-index:1; filter:drop-shadow(0 0 46px rgba(244,196,116,0.5)); }
+    .se-vid-lamp svg { width:100%; height:auto; display:block; }
+    .se-vid-vignette { position:absolute; inset:0; z-index:2; pointer-events:none; background:radial-gradient(120% 120% at 50% 42%, transparent 54%, rgba(6,10,20,0.58) 100%); }
     .se-play {
-      position: absolute; inset: 0; margin: auto; width: 88px; height: 88px;
+      position: absolute; inset: 0; margin: auto; width: 92px; height: 92px; z-index: 4;
       border-radius: 50%; border: none; cursor: pointer;
-      background: rgba(255,255,255,0.95); color: var(--se-ink);
+      background: rgba(255,255,255,0.96); color: var(--se-ink);
       display: flex; align-items: center; justify-content: center;
-      box-shadow: 0 12px 34px rgba(0,0,0,0.35);
+      box-shadow: 0 16px 40px rgba(0,0,0,0.4);
       transition: transform 0.18s ease, background 0.18s ease;
     }
+    .se-play::after { content:''; position:absolute; inset:-13px; border-radius:50%; border:2px solid rgba(255,255,255,0.45); }
+    .se-play::before { content:''; position:absolute; inset:-13px; border-radius:50%; box-shadow:0 0 0 0 rgba(255,255,255,0.4); animation:se-play-pulse 2.8s ease-out infinite; }
+    @keyframes se-play-pulse { 0% { box-shadow:0 0 0 0 rgba(255,255,255,0.4); } 70% { box-shadow:0 0 0 22px rgba(255,255,255,0); } 100% { box-shadow:0 0 0 0 rgba(255,255,255,0); } }
     .se-video-frame:hover .se-play { transform: scale(1.06); background: #fff; }
     .se-play svg { margin-left: 4px; }
     .se-video-poster-label {
-      position: absolute; left: 50%; bottom: 22px; transform: translateX(-50%);
-      font-family: var(--se-sans); font-size: 0.78rem; color: #c9d3e6; letter-spacing: 0.04em;
+      position: absolute; left: 50%; bottom: 22px; transform: translateX(-50%); z-index: 4;
+      font-family: var(--se-sans); font-size: 0.78rem; color: #e7ecf7; letter-spacing: 0.04em;
+      text-shadow: 0 1px 8px rgba(0,0,0,0.6);
     }
     .se-video-cta { margin-top: 2.25rem; }
     .se-video-cta small { display: block; color: #93a1bd; font-size: 0.85rem; margin-bottom: 0.75rem; }
     .se-video-eyebrow { color: var(--se-accent-2); }
-    .se-video-poster-brand { position: absolute; top: 20px; left: 24px; font-family: var(--se-display); font-weight: 600; font-size: 1.15rem; color: #eef2ff; opacity: 0.85; z-index: 2; }
+    .se-video-poster-brand { position: absolute; top: 20px; left: 24px; font-family: var(--se-display); font-weight: 600; font-size: 1.2rem; color: #eef2ff; z-index: 4; text-shadow:0 1px 10px rgba(0,0,0,0.5); }
     .se-video-poster-brand span { color: #7aa2ff; }
 
     /* Video modal */
@@ -716,6 +800,7 @@
     @media (prefers-reduced-motion: reduce) {
       .reveal { opacity: 1 !important; transform: none !important; transition: none !important; }
       .se-hero-media, .se-btn, .se-benefit, .se-who-card, .se-chip, .se-play, .se-faq-icon, .se-faq-a { transition: none !important; }
+      .lb-caret, .se-play::before { animation: none !important; }
       html { scroll-behavior: auto; }
       .se-sticky { transition: none; }
     }
@@ -822,7 +907,27 @@
            <video><source src="…"></video> inside .se-modal-inner) and the
            poster below becomes the real thumbnail. -->
       <div class="se-video-frame" data-open-video
-           data-video-src="" data-replace="walkthrough-video-poster">
+           data-video-src="" data-replace="walkthrough-video-poster"
+           role="img" aria-label="Video still: a warm, sunlit table with a brass lamp, ready to play the walkthrough film.">
+        <span class="se-vid-floor" aria-hidden="true"></span>
+        <span class="se-vid-lamp" aria-hidden="true">
+          <svg viewBox="0 0 66 82" fill="none" aria-hidden="true">
+            <defs>
+              <linearGradient id="vidBrass" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0" stop-color="#f6dfa0"/><stop offset="0.5" stop-color="#d8ad55"/><stop offset="1" stop-color="#9c7626"/>
+              </linearGradient>
+              <radialGradient id="vidGlow" cx="0.5" cy="0.45" r="0.6">
+                <stop offset="0" stop-color="#fff4d6"/><stop offset="1" stop-color="#e9c273"/>
+              </radialGradient>
+            </defs>
+            <path d="M14 30 L52 30 L45 8 L21 8 Z" fill="url(#vidGlow)"/>
+            <rect x="31.5" y="2.5" width="3" height="6" rx="1.5" fill="#d8ad55"/>
+            <rect x="31" y="30" width="4" height="34" fill="url(#vidBrass)"/>
+            <path d="M22 64 Q33 53 44 64 L41 74 L25 74 Z" fill="url(#vidBrass)"/>
+            <rect x="21" y="74" width="24" height="6" rx="3" fill="url(#vidBrass)"/>
+          </svg>
+        </span>
+        <span class="se-vid-vignette" aria-hidden="true"></span>
         <span class="se-video-poster-brand" aria-hidden="true">Advantage<span>.Bid</span></span>
         <button type="button" class="se-play" data-open-video aria-label="Play the walkthrough film: watch a seller build an entire auction catalog from start to finish">
           <svg width="30" height="30" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>
@@ -857,7 +962,7 @@
           <!-- REPLACE WITH REAL SCREENSHOT (Create Auction screen) -->
           <div class="se-frame" data-replace="builder-create-auction">
             <div class="se-frame-bar" aria-hidden="true"><span class="se-frame-dot"></span><span class="se-frame-dot"></span><span class="se-frame-dot"></span><span class="se-frame-url">advantage.bid/create</span></div>
-            <div class="se-shot" role="img" aria-label="Placeholder mock of the Create Auction screen: a name field, start and end date fields, and a Create Auction button.">
+            <div class="se-shot" role="img" aria-label="The Create Auction screen: a name field, start and end date fields, and a Create Auction button.">
               <div class="mk-card">
                 <div class="mk-label">Auction name</div>
                 <div class="mk-field">Maple Street Estate Auction</div>
@@ -878,7 +983,7 @@
           <!-- REPLACE WITH REAL SCREENSHOT (drag-and-drop photo upload grid) -->
           <div class="se-frame" data-replace="builder-upload-photos">
             <div class="se-frame-bar" aria-hidden="true"><span class="se-frame-dot"></span><span class="se-frame-dot"></span><span class="se-frame-dot"></span><span class="se-frame-url">advantage.bid/lot/photos</span></div>
-            <div class="se-shot" role="img" aria-label="Placeholder mock of the photo upload screen: a grid of photo thumbnails with a drag-and-drop dropzone.">
+            <div class="se-shot" role="img" aria-label="The photo upload screen: a grid of photo thumbnails with a drag-and-drop dropzone.">
               <div class="mk-card">
                 <div class="mk-label">Photos</div>
                 <div class="mk-grid">
@@ -912,7 +1017,7 @@
           <!-- REPLACE WITH REAL SCREENSHOT (item description screen) -->
           <div class="se-frame" data-replace="builder-describe">
             <div class="se-frame-bar" aria-hidden="true"><span class="se-frame-dot"></span><span class="se-frame-dot"></span><span class="se-frame-dot"></span><span class="se-frame-url">advantage.bid/lot/details</span></div>
-            <div class="se-shot" role="img" aria-label="Placeholder mock of the item description screen: a title field and a short description area.">
+            <div class="se-shot" role="img" aria-label="The item description screen: a title field and a short description area.">
               <div class="mk-card">
                 <div class="mk-label">Item title</div>
                 <div class="mk-field">Vintage brass table lamp</div>
@@ -931,7 +1036,7 @@
           <!-- REPLACE WITH REAL SCREENSHOT (starting bid screen with $1 hint) -->
           <div class="se-frame" data-replace="builder-starting-bid">
             <div class="se-frame-bar" aria-hidden="true"><span class="se-frame-dot"></span><span class="se-frame-dot"></span><span class="se-frame-dot"></span><span class="se-frame-url">advantage.bid/lot/pricing</span></div>
-            <div class="se-shot" role="img" aria-label="Placeholder mock of the starting bid screen: a starting bid amount of one dollar with a helpful hint.">
+            <div class="se-shot" role="img" aria-label="The starting bid screen: a starting bid amount of one dollar with a helpful hint.">
               <div class="mk-card" style="text-align:center;">
                 <div class="mk-label" style="text-align:left;">Starting bid</div>
                 <div class="mk-money">$1</div>
@@ -960,7 +1065,7 @@
           <div class="se-phone" data-replace="builder-lot-list">
             <div class="se-phone-screen">
               <div class="se-phone-notch" aria-hidden="true"></div>
-              <div class="se-shot" style="min-height:340px; padding-top:2rem;" role="img" aria-label="Placeholder mock of the catalog on a phone: a list of lots, each with a thumbnail and a starting bid, and an Add lot button.">
+              <div class="se-shot" style="min-height:340px; padding-top:2rem;" role="img" aria-label="The catalog on a phone: a list of lots, each with a thumbnail and a starting bid, and an Add lot button.">
                 <div class="mk-card">
                   <div class="mk-label">Your catalog · 6 lots</div>
                   <div class="mk-list-row"><div class="mk-thumb"></div><div style="flex:1;"><div class="mk-line" style="width:80%; margin-bottom:6px;"></div><div class="mk-line" style="width:40%;"></div></div></div>
@@ -980,7 +1085,7 @@
           <!-- REPLACE WITH REAL SCREENSHOT (submit confirmation) -->
           <div class="se-frame" data-replace="builder-submit">
             <div class="se-frame-bar" aria-hidden="true"><span class="se-frame-dot"></span><span class="se-frame-dot"></span><span class="se-frame-dot"></span><span class="se-frame-url">advantage.bid/submit</span></div>
-            <div class="se-shot" role="img" aria-label="Placeholder mock of the submit confirmation screen: a green check with a We take it from here message.">
+            <div class="se-shot" role="img" aria-label="The submit confirmation screen: a green check with a We take it from here message.">
               <div class="mk-card mk-confirm">
                 <div class="mk-check" aria-hidden="true">&#10003;</div>
                 <div style="font-family: var(--se-display); font-weight:600; font-size:1.2rem; color: var(--se-ink);">Submitted!</div>
@@ -1011,14 +1116,25 @@
             <h4 class="se-showcase-title">Your photos, studio ready.</h4>
             <p class="se-showcase-line">Snap it on your phone. It comes out looking professional.</p>
           </div>
-          <!-- REPLACE WITH REAL SCREENSHOT -->
-          <div class="se-showcase-visual" data-replace="tool-photo" role="img" aria-label="A dim, cluttered phone snapshot of a brass lamp, a Smart Photo Tools arrow, then the same lamp on a clean white studio background.">
+          <!-- Finished illustration. SWAP HOOK: data-replace="tool-photo" -->
+          <div class="se-showcase-visual" data-replace="tool-photo" role="img" aria-label="A dim, tilted phone snapshot of a brass table lamp beside the same lamp on a clean white studio background, cleaned up automatically.">
+            <span class="se-callout" style="right:0.9rem; bottom:0.9rem;"><span class="dot"></span>Cleaned up automatically</span>
             <div class="se-ba">
               <div class="se-pane">
                 <div class="se-pane-cap">Your phone photo</div>
                 <div class="se-pane-body">
                   <div class="se-photo-tile se-photo-before">
-                    <svg class="se-lamp" width="50" height="50" viewBox="0 0 24 24" fill="none" stroke="#c9b98a" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 2h8l2 7H6z"/><path d="M12 9v9"/><path d="M8.5 22h7"/><path d="M10 18h4v4h-4z"/></svg>
+                    <span class="statusbar" aria-hidden="true"><span>9:41</span><span class="batt">82%<svg width="14" height="8" viewBox="0 0 14 8" fill="none" aria-hidden="true"><rect x="0.5" y="0.5" width="11" height="7" rx="1.5" stroke="rgba(255,255,255,0.8)"/><rect x="2" y="2" width="7.5" height="4" rx="0.5" fill="rgba(255,255,255,0.8)"/><rect x="12" y="2.5" width="1.5" height="3" rx="0.5" fill="rgba(255,255,255,0.8)"/></svg></span></span>
+                    <span class="clutter" style="width:26px;height:16px;border-radius:3px;background:#7d6f4e;left:9%;bottom:14%;"></span>
+                    <span class="clutter" style="width:15px;height:15px;border-radius:50%;background:#8a7850;right:12%;bottom:19%;"></span>
+                    <svg class="se-lamp" width="50" height="62" viewBox="0 0 66 82" fill="none" aria-hidden="true">
+                      <defs><linearGradient id="brassDim" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#b09a63"/><stop offset="1" stop-color="#5f4d24"/></linearGradient></defs>
+                      <path d="M14 30 L52 30 L45 8 L21 8 Z" fill="url(#brassDim)"/>
+                      <rect x="31.5" y="2.5" width="3" height="6" rx="1.5" fill="#8f7a44"/>
+                      <rect x="31" y="30" width="4" height="34" fill="url(#brassDim)"/>
+                      <path d="M22 64 Q33 53 44 64 L41 74 L25 74 Z" fill="url(#brassDim)"/>
+                      <rect x="21" y="74" width="24" height="6" rx="3" fill="url(#brassDim)"/>
+                    </svg>
                   </div>
                 </div>
               </div>
@@ -1030,7 +1146,15 @@
                 <div class="se-pane-cap">Studio ready</div>
                 <div class="se-pane-body">
                   <div class="se-photo-tile se-photo-after">
-                    <svg class="se-lamp" width="50" height="50" viewBox="0 0 24 24" fill="none" stroke="#b78a2e" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 2h8l2 7H6z"/><path d="M12 9v9"/><path d="M8.5 22h7"/><path d="M10 18h4v4h-4z"/></svg>
+                    <span class="shadow" aria-hidden="true"></span>
+                    <svg class="se-lamp" width="56" height="70" viewBox="0 0 66 82" fill="none" aria-hidden="true">
+                      <defs><linearGradient id="brassBright" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#efd493"/><stop offset="0.5" stop-color="#cda24a"/><stop offset="1" stop-color="#916e26"/></linearGradient></defs>
+                      <path d="M14 30 L52 30 L45 8 L21 8 Z" fill="url(#brassBright)"/>
+                      <rect x="31.5" y="2.5" width="3" height="6" rx="1.5" fill="#cda24a"/>
+                      <rect x="31" y="30" width="4" height="34" fill="url(#brassBright)"/>
+                      <path d="M22 64 Q33 53 44 64 L41 74 L25 74 Z" fill="url(#brassBright)"/>
+                      <rect x="21" y="74" width="24" height="6" rx="3" fill="url(#brassBright)"/>
+                    </svg>
                   </div>
                 </div>
               </div>
@@ -1045,13 +1169,15 @@
             <h4 class="se-showcase-title">A professional listing, written for you.</h4>
             <p class="se-showcase-line">Type a couple of words. Get a full, polished description.</p>
           </div>
-          <!-- REPLACE WITH REAL SCREENSHOT -->
-          <div class="se-showcase-visual" data-replace="tool-description" role="img" aria-label="A nearly empty description field containing only the words brass lamp, a Smart Description Tools arrow, then a full multi-line polished description.">
+          <!-- Finished illustration. SWAP HOOK: data-replace="tool-description" -->
+          <div class="se-showcase-visual" data-replace="tool-description" role="img" aria-label="An Advantage description field with only the words brass table lamp and a cursor, then the same field filled with a full, polished multi-line description, written for you.">
+            <span class="se-callout" style="right:0.9rem; top:0.9rem;"><span class="dot"></span>Written for you</span>
             <div class="se-ba">
               <div class="se-pane">
                 <div class="se-pane-cap">You type</div>
                 <div class="se-pane-body">
-                  <div class="mk-field" style="height:70px; align-items:flex-start; padding-top:0.55rem;"><span class="mk-typed">brass lamp</span></div>
+                  <div class="lb-label">Description</div>
+                  <div class="lb-input area"><span class="val">brass table lamp</span><span class="lb-caret" aria-hidden="true"></span></div>
                 </div>
               </div>
               <div class="se-arrow" aria-hidden="true">
@@ -1061,7 +1187,8 @@
               <div class="se-pane">
                 <div class="se-pane-cap">You get</div>
                 <div class="se-pane-body">
-                  <p style="font-family:var(--se-sans); font-size:0.72rem; line-height:1.5; color:#31406b; margin:0;">Vintage solid-brass table lamp with a warm patina and a classic urn base. Recently rewired and in full working order. A soft linen shade and weighted foot make it a lovely reading or accent light.</p>
+                  <div class="lb-label">Description</div>
+                  <div class="lb-input area" style="font-size:0.72rem; color:#111; line-height:1.5;">Vintage solid-brass table lamp with a warm patina and a classic urn base. Recently rewired and in full working order. A soft linen shade and weighted foot make it a lovely reading or accent light.</div>
                 </div>
               </div>
             </div>
@@ -1075,19 +1202,34 @@
             <h4 class="se-showcase-title">It already knows what you&rsquo;re selling.</h4>
             <p class="se-showcase-line">Upload a photo. It recognizes the item and suggests the details.</p>
           </div>
-          <!-- REPLACE WITH REAL SCREENSHOT -->
-          <div class="se-showcase-visual" data-replace="tool-detection" role="img" aria-label="An uploaded photo recognized as a Vintage Brass Table Lamp, with an auto-suggested title, category, and details.">
-            <div class="mk-card" style="width:100%; max-width:360px;">
-              <div style="display:flex; gap:0.7rem; align-items:center; margin-bottom:0.85rem;">
-                <div class="mk-thumb" style="width:58px; height:58px;"></div>
-                <div>
-                  <span class="mk-fill">&#10003; Recognized</span>
-                  <div style="font-family:var(--se-display); font-weight:600; font-size:0.98rem; margin-top:0.35rem; color:var(--se-ink);">Vintage Brass Table Lamp</div>
+          <!-- Finished illustration. SWAP HOOK: data-replace="tool-detection" -->
+          <div class="se-showcase-visual" data-replace="tool-detection" role="img" aria-label="An uploaded photo recognized as a Vintage Brass Table Lamp, with suggested Title, Category, Condition, and Era rows, each ready to accept.">
+            <span class="se-callout accent" style="left:0.9rem; top:0.9rem;"><span class="dot"></span>It knows what you&rsquo;re selling</span>
+            <div class="lb">
+              <div class="lb-head"><span class="brand">Advantage<span>.Bid</span></span><span class="title">Add Lot</span></div>
+              <div class="lb-body">
+                <div class="lb-detect-head">
+                  <span class="lb-photo">
+                    <svg width="40" height="50" viewBox="0 0 66 82" fill="none" aria-hidden="true">
+                      <defs><linearGradient id="brassDet" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#efd493"/><stop offset="0.5" stop-color="#cda24a"/><stop offset="1" stop-color="#916e26"/></linearGradient></defs>
+                      <path d="M14 30 L52 30 L45 8 L21 8 Z" fill="url(#brassDet)"/>
+                      <rect x="31.5" y="2.5" width="3" height="6" rx="1.5" fill="#cda24a"/>
+                      <rect x="31" y="30" width="4" height="34" fill="url(#brassDet)"/>
+                      <path d="M22 64 Q33 53 44 64 L41 74 L25 74 Z" fill="url(#brassDet)"/>
+                      <rect x="21" y="74" width="24" height="6" rx="3" fill="url(#brassDet)"/>
+                    </svg>
+                  </span>
+                  <div>
+                    <span class="lb-recog-chip">&#10003; Recognized</span>
+                    <div class="lb-detect-name">Vintage Brass Table Lamp</div>
+                  </div>
                 </div>
+                <div class="lb-collabel">Suggested details</div>
+                <div class="lb-sugrow"><span class="k">Title</span><span class="v">Brass Table Lamp</span><span class="lb-suggest-tag">Suggested</span><span class="lb-check">&#10003;</span></div>
+                <div class="lb-sugrow"><span class="k">Category</span><span class="v">Home Decor</span><span class="lb-suggest-tag">Suggested</span><span class="lb-check">&#10003;</span></div>
+                <div class="lb-sugrow"><span class="k">Condition</span><span class="v">Good</span><span class="lb-suggest-tag">Suggested</span><span class="lb-check">&#10003;</span></div>
+                <div class="lb-sugrow"><span class="k">Era</span><span class="v">Mid-Century</span><span class="lb-suggest-tag">Suggested</span><span class="lb-check">&#10003;</span></div>
               </div>
-              <div class="se-suggest"><span class="lbl">Title</span><span class="val">Vintage Brass Table Lamp</span></div>
-              <div class="se-suggest"><span class="lbl">Category</span><span class="val">Lighting · Lamps</span></div>
-              <div class="se-suggest"><span class="lbl">Details</span><span class="val">Brass · Rewired · Working</span></div>
             </div>
           </div>
         </div>
@@ -1099,16 +1241,33 @@
             <h4 class="se-showcase-title">Barely any typing.</h4>
             <p class="se-showcase-line">Condition, era, dimensions. Filled in for you.</p>
           </div>
-          <!-- REPLACE WITH REAL SCREENSHOT -->
-          <div class="se-showcase-visual" data-replace="tool-populate" role="img" aria-label="A listing form with condition, era, material, and dimension fields already filled in, each marked filled for you.">
-            <div class="mk-card" style="width:100%; max-width:360px;">
-              <div class="mk-label">Item details</div>
-              <div class="mk-field filled">Condition: Very good <span class="mk-fill">filled for you</span></div>
-              <div class="mk-field filled">Era: Mid-century <span class="mk-fill">filled for you</span></div>
-              <div class="mk-field filled">Material: Solid brass <span class="mk-fill">filled for you</span></div>
-              <div class="mk-row">
-                <div class="mk-col"><div class="mk-field filled" style="margin-bottom:0;">H 22 in <span class="mk-fill">auto</span></div></div>
-                <div class="mk-col"><div class="mk-field filled" style="margin-bottom:0;">W 9 in <span class="mk-fill">auto</span></div></div>
+          <!-- Finished illustration. SWAP HOOK: data-replace="tool-populate" -->
+          <div class="se-showcase-visual" data-replace="tool-populate" role="img" aria-label="An Advantage lot form with Condition, Category, Era, Material, Dimensions, and a suggested Starting Bid already filled in, each tagged filled for you.">
+            <span class="se-callout" style="right:0.9rem; bottom:0.9rem;"><span class="dot"></span>You barely type</span>
+            <div class="lb" style="max-width:420px;">
+              <div class="lb-head"><span class="brand">Advantage<span>.Bid</span></span><span class="title">Add Lot</span></div>
+              <div class="lb-body">
+                <div class="lb-collabel">Item Details</div>
+                <div class="lb-row">
+                  <div class="lb-field"><div class="lb-label">Condition</div><div class="lb-input done"><span class="val">Good</span><span class="lb-fill">&#10003; filled</span></div></div>
+                  <div class="lb-field"><div class="lb-label">Category</div><div class="lb-input done"><span class="val">Home Decor</span><span class="lb-fill">&#10003; filled</span></div></div>
+                </div>
+                <div class="lb-row">
+                  <div class="lb-field"><div class="lb-label">Era / Period</div><div class="lb-input done"><span class="val">Mid-Century</span><span class="lb-fill">&#10003; filled</span></div></div>
+                  <div class="lb-field"><div class="lb-label">Material</div><div class="lb-input done"><span class="val">Solid brass</span><span class="lb-fill">&#10003; filled</span></div></div>
+                </div>
+                <div class="lb-field">
+                  <div class="lb-label">Dimensions (inches) <span class="lb-fill">&#10003; filled for you</span></div>
+                  <div class="lb-row three">
+                    <div class="lb-input"><span class="dim">H</span><span class="val">22</span></div>
+                    <div class="lb-input"><span class="dim">W</span><span class="val">9</span></div>
+                    <div class="lb-input"><span class="dim">D</span><span class="val">9</span></div>
+                  </div>
+                </div>
+                <div class="lb-field">
+                  <div class="lb-label">Starting Bid ($)</div>
+                  <div class="lb-input done"><span class="val">$1</span><span style="display:inline-flex; gap:0.3rem; align-items:center;"><span class="lb-suggest-tag">Suggested</span><span class="lb-fill">&#10003; filled</span></span></div>
+                </div>
               </div>
             </div>
           </div>
@@ -1121,20 +1280,28 @@
             <h4 class="se-showcase-title">Breeze fills in the details.</h4>
             <p class="se-showcase-line">Add an item and Breeze suggests the rest. The work is mostly done.</p>
           </div>
-          <!-- REPLACE WITH REAL SCREENSHOT -->
-          <div class="se-showcase-visual" data-replace="tool-breeze" role="img" aria-label="The Breeze assistant panel greeting the seller and suggesting a title, category, and starting bid for a brass lamp, each ready to accept.">
+          <!-- Finished illustration. SWAP HOOK: data-replace="tool-breeze" -->
+          <div class="se-showcase-visual" data-replace="tool-breeze" role="img" aria-label="The Breeze listing assistant greeting the seller warmly, then suggesting a title, category, and starting bid for the brass lamp, with Accept and Edit options.">
             <div class="se-breeze">
               <div class="se-breeze-head">
-                <span class="se-breeze-avatar" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h4l2.5-7 4 15 2.5-8H21"/></svg></span>
+                <span class="se-breeze-avatar" aria-hidden="true"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8h9a2.5 2.5 0 1 0-2.5-2.5"/><path d="M3 12h13a3 3 0 1 1-3 3"/><path d="M3 16h7a2 2 0 1 1-2 2"/></svg></span>
                 <div>
                   <div class="se-breeze-name">Breeze</div>
                   <div class="se-breeze-role">Your listing assistant</div>
                 </div>
               </div>
-              <div class="se-breeze-bubble">I recognized your brass lamp. Here is a head start, accept anything you like.</div>
-              <div class="se-suggest"><span class="lbl">Title</span><span class="val">Vintage Brass Table Lamp</span></div>
-              <div class="se-suggest"><span class="lbl">Category</span><span class="val">Lighting · Lamps</span></div>
-              <div class="se-suggest"><span class="lbl">Starting bid</span><span class="val">$1</span></div>
+              <div class="se-breeze-bubble">I recognized your brass lamp.</div>
+              <div class="se-breeze-bubble">I&rsquo;ve set up a great starting point for you.</div>
+              <div class="se-breeze-bubble">Accept anything you&rsquo;d like, or make it your own.</div>
+              <div class="se-breeze-card">
+                <div class="lb-sugrow"><span class="k">Title</span><span class="v">Vintage Brass Table Lamp</span></div>
+                <div class="lb-sugrow"><span class="k">Category</span><span class="v">Home Decor</span></div>
+                <div class="lb-sugrow"><span class="k">Starting bid</span><span class="v">$1</span></div>
+                <div class="se-breeze-actions" aria-hidden="true">
+                  <span class="se-breeze-accept">Accept</span>
+                  <span class="se-breeze-edit">Edit</span>
+                </div>
+              </div>
             </div>
           </div>
         </div>
