@@ -201,7 +201,7 @@
       if(r.safely_repairable>0) h+='<div style="margin-top:.4rem"><button class="btn btn-pri" id="reconRepair">Run safe repair</button></div>';
       h+='</div>'; out.innerHTML=h;
       const rep=document.getElementById('reconRepair');
-      if(rep) rep.onclick=()=>{ rep.disabled=true; rep.textContent='Repairing…'; api('POST','/api/admin/auctions/'+encodeURIComponent(CURRENT.auctionId)+'/invoice-reconciliation/repair').then(rr=>{ const x=(rr&&rr.result&&rr.result.repaired)||{}; alert('Repair complete — issued: '+(x.issued||0)+', promoted: '+(x.promoted||0)+', PDFs: '+(x.pdfs_regenerated||0)); loadInvoices(CURRENT.auctionId); }).catch(()=>{rep.disabled=false;rep.textContent='Run safe repair';alert('Repair failed.');}); };
+      if(rep) rep.onclick=()=>{ rep.disabled=true; rep.textContent='Repairing…'; api('POST','/api/admin/auctions/'+encodeURIComponent(CURRENT.auctionId)+'/invoice-reconciliation/repair').then(rr=>{ const x=(rr&&rr.result&&rr.result.repaired)||{}; alert('Repair complete. Issued: '+(x.issued||0)+', promoted: '+(x.promoted||0)+', PDFs: '+(x.pdfs_regenerated||0)); loadInvoices(CURRENT.auctionId); }).catch(()=>{rep.disabled=false;rep.textContent='Run safe repair';alert('Repair failed.');}); };
     }).catch(()=>{out.innerHTML='<div class="box-warn">Reconciliation failed.</div>';});
   }
 

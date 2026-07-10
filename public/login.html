@@ -3,14 +3,14 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Sign In | Advantage.Bid</title>
+  <title>Sign In - Advantage.Bid</title>
   <meta name="description" content="Sign in or create your bidder account on Advantage.Bid." />
   <meta name="robots" content="noindex" />
   <link rel="canonical" href="https://bid.advantage.bid/login.html" />
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
 
   <!-- Open Graph -->
-  <meta property="og:title" content="Sign In | Advantage.Bid" />
+  <meta property="og:title" content="Sign In - Advantage.Bid" />
   <meta property="og:description" content="Sign in or create your bidder account on Advantage.Bid." />
   <meta property="og:type" content="website" />
   <meta property="og:url" content="https://bid.advantage.bid/login.html" />
@@ -21,7 +21,7 @@
 
   <!-- Twitter -->
   <meta name="twitter:card" content="summary_large_image" />
-  <meta name="twitter:title" content="Sign In | Advantage.Bid" />
+  <meta name="twitter:title" content="Sign In - Advantage.Bid" />
   <meta name="twitter:description" content="Sign in or create your bidder account on Advantage.Bid." />
   <meta name="twitter:image" content="https://bid.advantage.bid/img/social-card.png" />
   <style>
@@ -174,7 +174,7 @@
     <h1 class="card-title" style="margin-top:0">Welcome back</h1>
 
     <div class="tabs">
-      <button class="tab active" id="tab-login"    onclick="showTab('login')">Log In</button>
+      <button class="tab active" id="tab-login"    onclick="showTab('login')">Sign In</button>
       <button class="tab"        id="tab-register" onclick="showTab('register')">Create Account</button>
     </div>
 
@@ -189,7 +189,7 @@
         <label for="login-password">Password</label>
         <input type="password" id="login-password" autocomplete="current-password" placeholder="••••••••" />
       </div>
-      <button class="btn-submit" id="login-btn" onclick="handleLogin()">Log In</button>
+      <button class="btn-submit" id="login-btn" onclick="handleLogin()">Sign In</button>
       <p class="note" style="margin-top:0.85rem;">
         <a href="/forgot-password.html" style="color:#111;font-weight:600;text-decoration:none;">Forgot your password?</a>
       </p>
@@ -331,13 +331,13 @@
         } else {
           showMsg('login-error', data.error || 'Invalid email or password.');
           btn.disabled = false;
-          btn.textContent = 'Log In';
+          btn.textContent = 'Sign In';
         }
       })
       .catch(function () {
         showMsg('login-error', 'Network error - please try again.');
         btn.disabled = false;
-        btn.textContent = 'Log In';
+        btn.textContent = 'Sign In';
       });
   }
 

@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Event — Advantage.Bid</title>
+<title>Event - Advantage.Bid</title>
 <meta name="description" content="Local event details on Advantage.Bid." />
 <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -56,7 +56,7 @@
     try {
       var da = new Date(a), o = { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' };
       var s = da.toLocaleString('en-US', o);
-      if (b) { var db = new Date(b); s += ' – ' + db.toLocaleString('en-US', { hour: 'numeric', minute: '2-digit' }); }
+      if (b) { var db = new Date(b); s += ' to ' + db.toLocaleString('en-US', { hour: 'numeric', minute: '2-digit' }); }
       return s;
     } catch (e) { return ''; }
   }
@@ -67,7 +67,7 @@
   fetch('/api/public/events/' + encodeURIComponent(slug)).then(function (r) { return r.json(); }).then(function (res) {
     if (!res || !res.data) { content.innerHTML = '<div class="err">This event isn’t available.</div>'; return; }
     var e = res.data, org = e.organization;
-    document.title = e.title + ' — Advantage.Bid';
+    document.title = e.title + ' - Advantage.Bid';
     if (e.description) { var md = document.querySelector('meta[name=description]'); if (md) md.setAttribute('content', String(e.description).slice(0, 155)); }
 
     var loc = [e.venue_name, e.address, [e.city, e.state].filter(Boolean).join(', '), e.zip].filter(Boolean).join(' · ');

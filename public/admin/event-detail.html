@@ -4,7 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <meta name="robots" content="noindex" />
-<title>Review Event — Advantage.Bid Admin</title>
+<title>Review Event - Advantage.Bid Admin</title>
 <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&display=swap" rel="stylesheet">
@@ -42,7 +42,7 @@
       return '<div style="width:120px;height:88px;border-radius:8px;border:1px solid #ECE8E0;background:#eef0f3 center/cover no-repeat;background-image:url(\'' + AE.esc(i.url) + '\')"></div>';
     }).join('');
     var audit = (d.audit || []).map(function (a) {
-      var reason = a.metadata && a.metadata.reason ? (' — ' + AE.esc(a.metadata.reason)) : '';
+      var reason = a.metadata && a.metadata.reason ? (' - ' + AE.esc(a.metadata.reason)) : '';
       return '<div style="font-size:13px;color:#334155;padding:5px 0;border-bottom:1px solid #f1f5f9">' + AE.esc(a.event_type) + ' · ' + AE.fmtDate(a.created_at) + reason + '</div>';
     }).join('');
 

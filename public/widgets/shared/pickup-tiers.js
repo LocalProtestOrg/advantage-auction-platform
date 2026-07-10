@@ -28,6 +28,6 @@
     try { return new Date(d).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: tz || DEFAULT_TZ }); }
     catch (e) { try { return new Date(d).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: DEFAULT_TZ }); } catch (e2) { return ''; } }
   }
-  function windowLabel(w, tz) { return w ? (fmtTime(w.start, tz) + ' – ' + fmtTime(w.end, tz)) : ''; }
+  function windowLabel(w, tz) { return w ? (fmtTime(w.start, tz) + ' to ' + fmtTime(w.end, tz)) : ''; }
   window.PickupTiers = { DEFAULT_TZ: DEFAULT_TZ, normTier: normTier, timeLabel: timeLabel, itemLabel: itemLabel, assignedTier: assignedTier, splitWindow: splitWindow, fmtTime: fmtTime, windowLabel: windowLabel };
 })();

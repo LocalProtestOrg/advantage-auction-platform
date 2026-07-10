@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Local Events — Advantage.Bid</title>
+<title>Local Events - Advantage.Bid</title>
 <meta name="description" content="Discover local estate sales, auctions, art & antiques, collectibles, markets, and community events near you on Advantage.Bid." />
 <link rel="canonical" href="https://bid.advantage.bid/events.html" />
 <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
@@ -46,7 +46,7 @@
 <header><div class="hin"><a class="brand" href="/">Advantage<span>.Bid</span></a><a class="hlink" href="/events.html">Events</a><div class="sp"></div><a class="hlink" href="/">🗺 Map</a></div></header>
 <div class="wrap">
   <h1>Local Events</h1>
-  <p class="sub">Estate sales, auctions, markets, and community events — near you.</p>
+  <p class="sub">Estate sales, auctions, markets, and community events near you.</p>
   <div class="filters"><select id="market"></select><select id="category"></select></div>
   <div class="grid" id="grid"><div class="loading">Loading events…</div></div>
 </div>
@@ -75,7 +75,7 @@
     var m = document.getElementById('market').value, c = document.getElementById('category').value;
     var q = ['limit=48']; if (m) q.push('market=' + encodeURIComponent(m)); if (c) q.push('category=' + encodeURIComponent(c));
     j('/api/public/events?' + q.join('&')).then(function (rows) {
-      if (!rows.length) { grid.innerHTML = '<div class="empty"><div class="big">No events yet</div><p class="sub">Check back soon — new events are added regularly.</p></div>'; return; }
+      if (!rows.length) { grid.innerHTML = '<div class="empty"><div class="big">No events yet</div><p class="sub">Check back soon. New events are added regularly.</p></div>'; return; }
       grid.innerHTML = rows.map(function (e) {
         var ph = e.cover_image_url ? '<div class="ph" style="background-image:url(\'' + esc(e.cover_image_url) + '\')">' : '<div class="ph none">';
         var org = e.organization ? e.organization.name : (e.organizer_badge === 'Advantage' ? 'Advantage' : '');

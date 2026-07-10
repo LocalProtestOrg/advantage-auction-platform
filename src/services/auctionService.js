@@ -239,7 +239,7 @@ async function updateAuction(auctionId, userId, updates, actorRole, options = {}
   if (actorRole === 'admin') {
     if (updates.buyer_premium_bps !== undefined && updates.buyer_premium_bps !== null) {
       const bp = Number(updates.buyer_premium_bps);
-      if (!Number.isInteger(bp) || bp < 0 || bp > 2500) throw new Error('buyer_premium_bps must be an integer 0–2500 (basis points; 0–25%)');
+      if (!Number.isInteger(bp) || bp < 0 || bp > 2500) throw new Error('buyer_premium_bps must be an integer 0-2500 (basis points; 0-25%)');
     }
     if (updates.bid_increment_cents !== undefined && updates.bid_increment_cents !== null) {
       const inc = Number(updates.bid_increment_cents);
@@ -269,7 +269,7 @@ async function updateAuction(auctionId, userId, updates, actorRole, options = {}
     for (const k of ['aac_bp_share_bps', 'aac_hammer_commission_bps']) {
       if (updates[k] !== undefined && updates[k] !== null) {
         const v = Number(updates[k]);
-        if (!Number.isInteger(v) || v < 0 || v > 10000) throw new Error(k + ' must be an integer 0–10000 basis points (0–100%)');
+        if (!Number.isInteger(v) || v < 0 || v > 10000) throw new Error(k + ' must be an integer 0-10000 basis points (0-100%)');
       }
     }
   }

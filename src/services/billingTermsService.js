@@ -72,7 +72,7 @@ async function getSettlementPreview(auctionId, client = db) {
   const terms = await resolveEffectiveTerms(auctionId, client);
   return {
     active: false,
-    note: 'PREVIEW ONLY — buyer premium is NOT charged and seller payout is NOT changed in Phase 1. Live payout remains the flat 10%.',
+    note: 'PREVIEW ONLY. Buyer premium is NOT charged and seller payout is NOT changed in Phase 1. Live payout remains the flat 10%.',
     effective_terms_bps: terms,
     gross_hammer_cents: gross,
     preview: computeSettlement(gross, terms),

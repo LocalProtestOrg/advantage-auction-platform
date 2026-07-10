@@ -21,12 +21,12 @@ function hashToken(raw) {
 }
 
 function buildWelcomeEmail(link) {
-  const subject = 'Welcome to Advantage.Bid — please confirm your email';
+  const subject = 'Welcome to Advantage.Bid: please confirm your email';
   const text =
     'Welcome to Advantage.Bid.\n\n' +
-    'Your account is ready — you can browse auctions, save favorites, add a card, and bid right away.\n\n' +
+    'Your account is ready. You can browse auctions, save favorites, add a card, and bid right away.\n\n' +
     'When you have a moment, confirm your email address (optional, but it helps secure your account):\n' +
-    link + '\n\n— Advantage Auction Company';
+    link + '\n\nAdvantage Auction Company';
   const html = `
   <div style="font-family:system-ui,-apple-system,sans-serif;max-width:520px;margin:0 auto;color:#111;">
     <div style="background:#111;color:#fff;padding:1rem 1.25rem;border-radius:10px 10px 0 0;font-weight:700;font-size:1.05rem;">Advantage.Bid</div>
@@ -34,11 +34,11 @@ function buildWelcomeEmail(link) {
       <h1 style="font-size:1.2rem;margin:0 0 0.75rem;">Welcome to Advantage.Bid</h1>
       <p style="font-size:0.92rem;line-height:1.6;color:#374151;margin:0 0 1rem;">
         Your account is ready. You can browse auctions, save favorites, add a payment card, and place bids
-        right away — there is nothing you need to do first.
+        right away. There is nothing you need to do first.
       </p>
       <p style="font-size:0.92rem;line-height:1.6;color:#374151;margin:0 0 1.1rem;">
         When it is convenient, please confirm your email address. It is optional and does not affect bidding
-        or checkout — it simply helps keep your account secure and lets us reach you about your auctions.
+        or checkout. It simply helps keep your account secure and lets us reach you about your auctions.
       </p>
       <p style="margin:0 0 1.25rem;">
         <a href="${link}" style="display:inline-block;background:#111;color:#fff;text-decoration:none;font-weight:700;padding:0.7rem 1.35rem;border-radius:7px;font-size:0.9rem;">Confirm my email</a>
@@ -46,7 +46,7 @@ function buildWelcomeEmail(link) {
       <p style="font-size:0.8rem;line-height:1.5;color:#71717a;margin:0 0 0.5rem;">
         Or paste this link into your browser:<br><a href="${link}" style="color:#111;word-break:break-all;">${link}</a>
       </p>
-      <p style="font-size:0.8rem;color:#71717a;margin:1rem 0 0;">— Advantage Auction Company</p>
+      <p style="font-size:0.8rem;color:#71717a;margin:1rem 0 0;">Advantage Auction Company</p>
     </div>
   </div>`;
   return { subject, html, text };

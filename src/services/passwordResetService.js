@@ -33,8 +33,8 @@ function buildResetEmail(link) {
   const text =
     'We received a request to reset your Advantage.Bid password.\n\n' +
     `Reset it here (link expires in ${RESET_TTL_MINUTES} minutes):\n${link}\n\n` +
-    'If you did not request this, you can safely ignore this email — your password ' +
-    'will not change.\n\n— Advantage Auction Company';
+    'If you did not request this, you can safely ignore this email. Your password ' +
+    'will not change.\n\nAdvantage Auction Company';
   const html = `
   <div style="font-family:system-ui,-apple-system,sans-serif;max-width:480px;margin:0 auto;color:#111;">
     <div style="background:#111;color:#fff;padding:1rem 1.25rem;border-radius:10px 10px 0 0;font-weight:700;">Advantage.Bid</div>
@@ -52,9 +52,9 @@ function buildResetEmail(link) {
         Or paste this link into your browser:<br><a href="${link}" style="color:#111;word-break:break-all;">${link}</a>
       </p>
       <p style="font-size:0.8rem;line-height:1.5;color:#71717a;margin:0.75rem 0 0;">
-        If you did not request this, you can safely ignore this email — your password will not change.
+        If you did not request this, you can safely ignore this email. Your password will not change.
       </p>
-      <p style="font-size:0.8rem;color:#71717a;margin:1rem 0 0;">— Advantage Auction Company</p>
+      <p style="font-size:0.8rem;color:#71717a;margin:1rem 0 0;">Advantage Auction Company</p>
     </div>
   </div>`;
   return { subject, html, text };

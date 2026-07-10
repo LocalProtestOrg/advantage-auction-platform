@@ -3,13 +3,13 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1" />
-<title>Advantage.Bid — Discover estate auctions near you</title>
-<meta name="description" content="Explore live and upcoming online estate, liquidation, and consignment auctions near you on an interactive map. Bid on individual lots — Advantage.Bid marketplace." />
+<title>Advantage.Bid - Discover estate auctions near you</title>
+<meta name="description" content="Explore live and upcoming online estate, liquidation, and consignment auctions near you on an interactive map. Bid on individual lots on the Advantage.Bid marketplace." />
 <link rel="canonical" href="https://bid.advantage.bid/" />
 <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
 
 <!-- Open Graph -->
-<meta property="og:title" content="Advantage.Bid — Discover estate auctions near you" />
+<meta property="og:title" content="Advantage.Bid - Discover estate auctions near you" />
 <meta property="og:description" content="Discover live and upcoming estate, liquidation, and consignment auctions near you and bid on individual lots on Advantage.Bid." />
 <meta property="og:type" content="website" />
 <meta property="og:url" content="https://bid.advantage.bid/" />
@@ -20,7 +20,7 @@
 
 <!-- Twitter -->
 <meta name="twitter:card" content="summary_large_image" />
-<meta name="twitter:title" content="Advantage.Bid — Discover estate auctions near you" />
+<meta name="twitter:title" content="Advantage.Bid - Discover estate auctions near you" />
 <meta name="twitter:description" content="Discover live and upcoming estate, liquidation, and consignment auctions near you and bid on individual lots on Advantage.Bid." />
 <meta name="twitter:image" content="https://bid.advantage.bid/img/social-card.png" />
 
@@ -32,7 +32,7 @@
   "name": "Advantage.Bid",
   "url": "https://bid.advantage.bid",
   "logo": "https://bid.advantage.bid/img/social-card.png",
-  "description": "Online auction marketplace for estate, liquidation, and consignment inventory — discover auctions near you and bid on individual lots.",
+  "description": "Online auction marketplace for estate, liquidation, and consignment inventory. Discover auctions near you and bid on individual lots.",
   "slogan": "Get The Advantage."
 }
 </script>
@@ -223,7 +223,7 @@
 </style>
 </head>
 <body class="peek">
-  <h1 class="sr-only">Current estate, liquidation, and consignment auctions near you — Advantage.Bid</h1>
+  <h1 class="sr-only">Current estate, liquidation, and consignment auctions near you. Advantage.Bid</h1>
   <noscript>
     <div style="max-width:760px;margin:40px auto;padding:0 20px;font-family:system-ui,sans-serif;color:#0B1B2B">
       <h2>Current auctions on Advantage.Bid</h2>
@@ -572,11 +572,11 @@
     var nearIds=DATA.filter(F.near).map(function(d){return d.id;}); var n=nearIds.length;
     var countEl=$('count'), del=$('deltas');
     $('hud').classList.add('in');
-    if(!n){ countEl.innerHTML='No live auctions right now — <b>browse upcoming</b>'; }
+    if(!n){ countEl.innerHTML='No live auctions right now, <b>browse upcoming</b>'; }
     else if(prev&&prev.ids){
       var fresh=nearIds.filter(function(id){return prev.ids.indexOf(id)<0;}).length;
       var closing=DATA.filter(function(d){return d.endsToday;}).length;
-      countEl.innerHTML='Welcome back — <b>'+n+'</b> auction'+(n===1?'':'s')+' near you';
+      countEl.innerHTML='Welcome back, <b>'+n+'</b> auction'+(n===1?'':'s')+' near you';
       var chips=[]; if(fresh)chips.push(['var(--live)','<b>'+fresh+'</b> new']); if(closing)chips.push(['var(--ending)','<b>'+closing+'</b> closing soon']);
       del.innerHTML=''; chips.forEach(function(c,i){ var s=document.createElement('span'); s.className='d'; s.innerHTML='<i style="background:'+c[0]+'"></i>'+c[1]; del.appendChild(s); setTimeout(function(){s.classList.add('in');}, reduce?0:(500+i*220)); });
     } else { countUp(countEl,n); }

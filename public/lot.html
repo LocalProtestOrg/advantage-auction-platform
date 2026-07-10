@@ -3,13 +3,13 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Lot | Advantage.Bid</title>
+  <title>Lot - Advantage.Bid</title>
   <meta name="description" content="Bid on this lot on Advantage.Bid." />
   <link rel="canonical" href="https://bid.advantage.bid/lot.html" />
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
 
   <!-- Open Graph -->
-  <meta property="og:title" content="Lot | Advantage.Bid" />
+  <meta property="og:title" content="Lot - Advantage.Bid" />
   <meta property="og:description" content="Bid on this lot on Advantage.Bid." />
   <meta property="og:type" content="website" />
   <meta property="og:url" content="https://bid.advantage.bid/lot.html" />
@@ -20,7 +20,7 @@
 
   <!-- Twitter -->
   <meta name="twitter:card" content="summary_large_image" />
-  <meta name="twitter:title" content="Lot | Advantage.Bid" />
+  <meta name="twitter:title" content="Lot - Advantage.Bid" />
   <meta name="twitter:description" content="Bid on this lot on Advantage.Bid." />
   <meta name="twitter:image" content="https://bid.advantage.bid/img/social-card.png" />
   <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1259,7 +1259,7 @@
     const label = document.querySelector('.bid-display .label');
     if (label) label.innerHTML = isHistoricalLot ? 'Historical Auction' : 'Final Bid';
     if (isHistoricalLot) {
-      document.getElementById('closed-banner').textContent = 'Historical auction archive — reference only';
+      document.getElementById('closed-banner').textContent = 'Historical auction archive, reference only';
     }
     const wrap = document.getElementById('countdown-wrap');
     const val  = document.getElementById('countdown-val');
@@ -1304,7 +1304,7 @@
     renderLotStatus(lot);
     if (window.__lotSocket && window.__lotSocket.connected && currentAuctionId) window.__lotSocket.emit('joinAuction', currentAuctionId);
     document.title = isHistoricalLot
-      ? (lot.title || 'Lot') + ' — Advantage Auction Company Historical Archive'
+      ? (lot.title || 'Lot') + ' - Advantage Auction Company Historical Archive'
       : (lot.title || '') + ' - Advantage Auction';
     // OP-D: prefix title with "Lot #N · " when lot_number is set. Historical archive
     // lots show the clean title ONCE (category + lot number live in the subhead beneath).
@@ -1345,7 +1345,7 @@
       var PT = window.PickupTiers || null;
       var tier = PT ? PT.normTier(lot.size_category) : null;
       if (!tier) { pe.textContent = 'Pickup Time: Not specified'; pe.style.display = ''; return; }
-      var label = PT.timeLabel(tier) + ' — ' + PT.itemLabel(tier);
+      var label = PT.timeLabel(tier) + ' - ' + PT.itemLabel(tier);
       var tz = lot.auction_timezone || PT.DEFAULT_TZ;  // auction tz; fallback America/New_York
       var win = (lot.auction_pickup_window_start && lot.auction_pickup_window_end)
         ? PT.splitWindow(lot.auction_pickup_window_start, lot.auction_pickup_window_end) : null;

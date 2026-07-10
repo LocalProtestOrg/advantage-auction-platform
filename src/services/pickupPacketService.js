@@ -60,16 +60,16 @@ function pickupWindowLabel(start, end, tz) {
   const s = fmtDateTime(start, tz);
   if (!s) return null;
   const e = end ? fmtDateTime(end, tz) : null;
-  return e ? `${s} – ${e}` : s;
+  return e ? `${s} to ${e}` : s;
 }
 
 // Item size tiers — labels are the AUTHORITATIVE ones defined in Lot Studio
 // (public/lot-builder.html size_category selector). Not invented here. Lots with
 // no size set show "Not specified" (no inference from description).
 const SIZE_LABELS = {
-  A: 'A — Small (carry by hand)',
-  B: 'B — Medium (2 people)',
-  C: 'C — Large (truck / dolly)',
+  A: 'A - Small (carry by hand)',
+  B: 'B - Medium (2 people)',
+  C: 'C - Large (truck / dolly)',
 };
 
 async function getPacketData(auctionId) {
@@ -226,7 +226,7 @@ function drawPickupSheet(pdf, inv, auction, thumbBuf) {
     pdf.fillColor('#c0262d').rect(left, y, W, bh).fill();                       // red → dark band in B&W
     pdf.lineWidth(3.5).strokeColor('#000000').rect(left, y, W, bh).stroke();    // heavy black border
     pdf.lineWidth(1).strokeColor('#ffffff').rect(left + 5, y + 5, W - 10, bh - 10).stroke();
-    pdf.fillColor('#ffffff').font('Helvetica-Bold').fontSize(28).text('UNPAID — DO NOT RELEASE', left, y + 9, { width: W, align: 'center' });
+    pdf.fillColor('#ffffff').font('Helvetica-Bold').fontSize(28).text('UNPAID: DO NOT RELEASE', left, y + 9, { width: W, align: 'center' });
     pdf.font('Helvetica-Bold').fontSize(11).text('Payment must be confirmed before any item is released.', left, y + 44, { width: W, align: 'center' });
     pdf.restore();
     y += bh + 12;
@@ -235,7 +235,7 @@ function drawPickupSheet(pdf, inv, auction, thumbBuf) {
     pdf.save();
     pdf.fillColor('#dcfce7').rect(left, y, W, bh).fill();
     pdf.lineWidth(2.5).strokeColor('#166534').rect(left, y, W, bh).stroke();
-    pdf.fillColor('#166534').font('Helvetica-Bold').fontSize(20).text('PAID — CLEARED FOR PICKUP', left, y + 7, { width: W, align: 'center' });
+    pdf.fillColor('#166534').font('Helvetica-Bold').fontSize(20).text('PAID: CLEARED FOR PICKUP', left, y + 7, { width: W, align: 'center' });
     pdf.font('Helvetica').fontSize(9).text(inv.paymentDate ? ('Payment received ' + (fmtDateTime(inv.paymentDate, auction.timezone) || '')) : 'Payment received', left, y + 30, { width: W, align: 'center' });
     pdf.restore();
     y += bh + 12;
@@ -246,7 +246,7 @@ function drawPickupSheet(pdf, inv, auction, thumbBuf) {
   const rx = left + W / 2 + 8;
   pdf.fillColor('#000000').font('Helvetica-Bold').fontSize(22).text(inv.displayName, left, y, { width: colW });
   let lyEnd = pdf.y;
-  pdf.font('Helvetica').fontSize(8).fillColor(SLATE).text('BUYER — last, first (alphabetical lookup)', left, lyEnd, { width: colW });
+  pdf.font('Helvetica').fontSize(8).fillColor(SLATE).text('BUYER: last, first (alphabetical lookup)', left, lyEnd, { width: colW });
   pdf.font('Helvetica').fontSize(10).fillColor('#000000').text(inv.email || '—', left, pdf.y + 2, { width: colW });
   if (inv.phone) pdf.text('Phone: ' + inv.phone, left, pdf.y, { width: colW });
   const leftBottom = pdf.y;
@@ -271,7 +271,7 @@ function drawPickupSheet(pdf, inv, auction, thumbBuf) {
   pdf.font('Helvetica').fontSize(9).fillColor('#334155');
   [
     '1. Look up the buyer by last name; verify photo ID matches the buyer name above.',
-    '2. Confirm the status band reads PAID before releasing any item. If UNPAID, do not release — direct the buyer to pay first.',
+    '2. Confirm the status band reads PAID before releasing any item. If UNPAID, do not release. Direct the buyer to pay first.',
     '3. Check off each item below as it is handed to the buyer.',
     '4. Buyer signs; staff initials and dates the release block.',
   ].forEach((s) => pdf.text(s, left, pdf.y + 1, { width: W }));
@@ -318,7 +318,7 @@ function drawPickupSheet(pdf, inv, auction, thumbBuf) {
   // Multi-lot buyer: list every lot this buyer is collecting + each lot's pickup time.
   if (inv.buyerLots && inv.buyerLots.length > 1) {
     pdf.font('Helvetica').fontSize(8).fillColor(SLATE).text(
-      'This buyer has ' + inv.buyerLots.length + ' lots in this auction — '
+      'This buyer has ' + inv.buyerLots.length + ' lots in this auction. '
         + inv.buyerLots.map((l) => '#' + (l.lotNumber != null ? l.lotNumber : '?') + ' ' + l.timeLabel).join('   ·   '),
       left, y, { width: W }
     );
@@ -360,7 +360,7 @@ function drawPickupSheet(pdf, inv, auction, thumbBuf) {
     by = pdf.y + 12;
   } else {
     pdf.font('Helvetica').fontSize(9).fillColor(SLATE)
-       .text('Payment confirmed — release the checked item(s) to the buyer below.', left, by, { width: W });
+       .text('Payment confirmed. Release the checked item(s) to the buyer below.', left, by, { width: W });
     pdf.fillColor('#000000');
     by = pdf.y + 8;
   }
@@ -387,7 +387,7 @@ async function buildPacketPdf(packet) {
     if (packet.invoices.length === 0) {
       pdf.font('Helvetica-Bold').fontSize(16).text('Pickup Release Packet', { align: 'center' });
       pdf.moveDown(0.5).font('Helvetica').fontSize(11)
-         .text('No buyer invoices exist for this auction yet — no pickup release sheets to print.', { align: 'center' });
+         .text('No buyer invoices exist for this auction yet. No pickup release sheets to print.', { align: 'center' });
       return;
     }
     packet.invoices.forEach((inv, i) => {

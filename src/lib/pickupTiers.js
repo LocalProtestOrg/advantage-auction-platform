@@ -54,6 +54,6 @@ function fmtTime(d, tz) {
   try { return new Date(d).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: tz || DEFAULT_TZ }); }
   catch (_e) { try { return new Date(d).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: DEFAULT_TZ }); } catch (__e) { return ''; } }
 }
-function windowLabel(w, tz) { return w ? (fmtTime(w.start, tz) + ' – ' + fmtTime(w.end, tz)) : ''; }
+function windowLabel(w, tz) { return w ? (fmtTime(w.start, tz) + ' to ' + fmtTime(w.end, tz)) : ''; }
 
 module.exports = { TIER_ORDER, SIZE_ITEM_LABEL, DEFAULT_TZ, normTier, timeLabel, itemLabel, assignedTier, splitWindow, fmtTime, windowLabel };

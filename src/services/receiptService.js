@@ -66,7 +66,7 @@ function buildReceiptEmail(data) {
   const html =
     '<div style="font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif;max-width:560px;margin:0 auto;color:#1f2937">' +
       '<div style="font-weight:800;font-size:18px;color:#0f172a;padding:8px 0 2px">Advantage Auction</div>' +
-      '<div style="font-size:13px;color:#16a34a;font-weight:700;margin-bottom:14px">Payment received — thank you!</div>' +
+      '<div style="font-size:13px;color:#16a34a;font-weight:700;margin-bottom:14px">Payment received. Thank you!</div>' +
       (data.auctionTitle ? ('<div style="font-size:13px;color:#64748b">' + esc(data.auctionTitle) + '</div>') : '') +
       '<div style="font-size:15px;font-weight:700;margin:2px 0 14px">Invoice ' + esc(data.invoiceNumber) + '</div>' +
       '<table style="width:100%;border-collapse:collapse;font-size:14px">' +
@@ -90,12 +90,12 @@ function buildReceiptEmail(data) {
     '</div>';
 
   const textLines = [
-    'Advantage Auction — Payment received, thank you!',
+    'Advantage Auction - Payment received, thank you!',
     '',
     data.auctionTitle ? ('Auction: ' + data.auctionTitle) : null,
     'Invoice: ' + data.invoiceNumber,
     '',
-    ...data.lines.map((ln) => (ln.lotNumber != null ? ('#' + ln.lotNumber + ' ') : '') + (ln.title || 'Lot') + ' — ' + doc.money(ln.hammerCents)),
+    ...data.lines.map((ln) => (ln.lotNumber != null ? ('#' + ln.lotNumber + ' ') : '') + (ln.title || 'Lot') + ' - ' + doc.money(ln.hammerCents)),
     '',
     'Hammer subtotal: ' + doc.money(data.summary.hammerCents),
     'Buyer premium: ' + (data.summary.buyerPremiumCents ? doc.money(data.summary.buyerPremiumCents) : '—'),
@@ -108,7 +108,7 @@ function buildReceiptEmail(data) {
   ].filter((l) => l !== null);
 
   return {
-    subject: 'Payment receipt — Invoice ' + data.invoiceNumber,
+    subject: 'Payment receipt - Invoice ' + data.invoiceNumber,
     html,
     text: textLines.join('\n'),
   };
@@ -199,20 +199,20 @@ function buildUnpaidInvoiceEmail(data) {
     '</div>';
 
   const textLines = [
-    'Advantage Auction — Payment required',
+    'Advantage Auction - Payment required',
     '',
     data.auctionTitle ? ('Auction: ' + data.auctionTitle) : null,
     'Invoice: ' + data.invoiceNumber,
     '',
     'Payment must be confirmed before items can be picked up or released.',
     '',
-    ...data.lines.map((ln) => (ln.lotNumber != null ? ('#' + ln.lotNumber + ' ') : '') + (ln.title || 'Lot') + ' — ' + doc.money(ln.hammerCents)),
+    ...data.lines.map((ln) => (ln.lotNumber != null ? ('#' + ln.lotNumber + ' ') : '') + (ln.title || 'Lot') + ' - ' + doc.money(ln.hammerCents)),
     '',
     'Amount due: ' + doc.money(data.summary.totalCents),
     SITE_URL ? ('Pay now: ' + SITE_URL + '/invoices.html') : null,
   ].filter((l) => l !== null);
 
-  return { subject: 'Invoice ' + data.invoiceNumber + ' — payment required', html, text: textLines.join('\n') };
+  return { subject: 'Invoice ' + data.invoiceNumber + ' - payment required', html, text: textLines.join('\n') };
 }
 
 /**
