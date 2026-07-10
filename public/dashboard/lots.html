@@ -1604,7 +1604,7 @@
 
     function _metaText(status) {
       var map = {
-        uploading:  'Uploading to Cloudinary…',
+        uploading:  'Uploading photo…',
         pending:    'Waiting for worker…',
         processing: 'Smart enhancement in progress…',
         complete:   'Enhancement complete',
@@ -2379,7 +2379,7 @@
 
       var h = document.createElement('div');
       h.style.cssText = 'font-weight:700;font-size:0.8rem;margin-bottom:0.5rem;color:#111';
-      h.textContent = 'AI Verification (admin)';
+      h.textContent = 'Smart Verification (admin)';
       c.appendChild(h);
 
       function block(label, text) {
@@ -2390,7 +2390,7 @@
         w.appendChild(l); w.appendChild(t); c.appendChild(w);
       }
 
-      block('Original AI description', d.original && d.original.ai_description);
+      block('Original Smart description', d.original && d.original.ai_description);
 
       var fin = d.final;
       if (fin && fin.selections_described && fin.selections_described.length) {

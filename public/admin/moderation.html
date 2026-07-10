@@ -1859,7 +1859,7 @@
     // AI Catalog Assistant Phase 2A: verification provenance recorded on a lot.
     if (eventType === 'lot_ai_verification_recorded') {
       const refined = metadata.refined ? 'refined from seller confirmations' : 'no refinement';
-      return `<div style="margin-top:0.2rem;font-size:0.72rem;color:#475569">AI description verified · ${escText(refined)}</div>`;
+      return `<div style="margin-top:0.2rem;font-size:0.72rem;color:#475569">Smart description verified · ${escText(refined)}</div>`;
     }
     // Unknown event type: compact JSON so operators still see what changed.
     const json = JSON.stringify(metadata);
