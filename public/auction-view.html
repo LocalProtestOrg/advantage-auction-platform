@@ -3,13 +3,13 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Auction | Advantage.Bid</title>
+  <title>Auction - Advantage.Bid</title>
   <meta name="description" content="Bid on estate &amp; liquidation lots on Advantage.Bid." />
   <link rel="canonical" href="https://bid.advantage.bid/auction-view.html" />
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
 
   <!-- Open Graph -->
-  <meta property="og:title" content="Auction | Advantage.Bid" />
+  <meta property="og:title" content="Auction - Advantage.Bid" />
   <meta property="og:description" content="Bid on estate &amp; liquidation lots on Advantage.Bid." />
   <meta property="og:type" content="website" />
   <meta property="og:url" content="https://bid.advantage.bid/auction-view.html" />
@@ -20,7 +20,7 @@
 
   <!-- Twitter -->
   <meta name="twitter:card" content="summary_large_image" />
-  <meta name="twitter:title" content="Auction | Advantage.Bid" />
+  <meta name="twitter:title" content="Auction - Advantage.Bid" />
   <meta name="twitter:description" content="Bid on estate &amp; liquidation lots on Advantage.Bid." />
   <meta name="twitter:image" content="https://bid.advantage.bid/img/social-card.png" />
   <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -843,7 +843,7 @@
       const titleEl = document.getElementById('auction-title');
       titleEl.textContent = d.title || 'Auction';
       document.title = isHist
-        ? (d.title || 'Auction') + ' — Advantage Auction Company Historical Archive'
+        ? (d.title || 'Auction') + ' - Advantage Auction Company Historical Archive'
         : (d.title || 'Auction') + ' - Advantage Auction';
       if (isHist) {
         const hb = document.createElement('span');
@@ -1592,10 +1592,10 @@
     var tzLabel = tzNames[tz] ? (tzNames[tz] + ' Time') : tz;
     var win = (PT && d.pickup_window_start && d.pickup_window_end) ? PT.splitWindow(d.pickup_window_start, d.pickup_window_end) : null;
     var windowText = (PT && d.pickup_window_start && d.pickup_window_end)
-      ? (PT.fmtTime(d.pickup_window_start, tz) + ' – ' + PT.fmtTime(d.pickup_window_end, tz)) : 'To be announced';
+      ? (PT.fmtTime(d.pickup_window_start, tz) + ' to ' + PT.fmtTime(d.pickup_window_end, tz)) : 'To be announced';
     function tierRow(letter, label) {
       var t = (win && win[letter]) ? PT.windowLabel(win[letter], tz) : 'To be announced';
-      return '<div class="info-row"><strong>Pickup Time ' + letter + ' — ' + label + ':</strong> ' + esc(t) + '</div>';
+      return '<div class="info-row"><strong>Pickup Time ' + letter + ' - ' + label + ':</strong> ' + esc(t) + '</div>';
     }
     el.innerHTML =
       '<h3>Pickup Information</h3>' +

@@ -757,7 +757,7 @@
         rep.disabled = true; rep.textContent = 'Repairing…';
         api('POST', '/api/admin/auctions/' + encodeURIComponent(auctionId) + '/invoice-reconciliation/repair').then(rr => {
           const x = (rr && rr.result && rr.result.repaired) || {};
-          alert('Repair complete — issued: ' + (x.issued || 0) + ', promoted to paid: ' + (x.promoted || 0) + ', PDFs regenerated: ' + (x.pdfs_regenerated || 0) + (x.errors && x.errors.length ? (', errors: ' + x.errors.length) : ''));
+          alert('Repair complete. Issued: ' + (x.issued || 0) + ', promoted to paid: ' + (x.promoted || 0) + ', PDFs regenerated: ' + (x.pdfs_regenerated || 0) + (x.errors && x.errors.length ? (', errors: ' + x.errors.length) : ''));
           const panel = outEl.closest('.inv-panel');
           if (panel) renderInvoicePanel(panel, auctionId, 'all');
         }).catch(() => { rep.disabled = false; rep.textContent = 'Run safe repair'; alert('Repair failed.'); });

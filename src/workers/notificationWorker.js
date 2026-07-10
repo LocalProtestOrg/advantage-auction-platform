@@ -80,21 +80,21 @@ function buildEmail(type, payload, toAddress) {
     const wf = payload.window_start ? fmtTime(payload.window_start) : null;
     const wt = payload.window_end ? fmtTime(payload.window_end) : null;
     const winLine = (wf && wt)
-      ? `You are welcome to arrive at any time during the published pickup window (${wf} – ${wt}).`
+      ? `You are welcome to arrive at any time during the published pickup window (${wf} to ${wt}).`
       : 'You are welcome to arrive at any time during the published pickup window.';
     return {
       to: toAddress,
       subject: 'Your recommended pickup arrival window',
-      text: `Congratulations on your winning bid!\n\nFor a faster pickup, we recommend arriving between ${rf} and ${rt}.\n\n${winLine}\n\n— Advantage Auction Company`,
+      text: `Congratulations on your winning bid!\n\nFor a faster pickup, we recommend arriving between ${rf} and ${rt}.\n\n${winLine}\n\nAdvantage Auction Company`,
       html: `
         <div style="font-family:system-ui,-apple-system,sans-serif;max-width:520px;margin:0 auto;color:#111;">
           <div style="background:#111;color:#fff;padding:1rem 1.25rem;border-radius:10px 10px 0 0;font-weight:700;">Advantage.Bid</div>
           <div style="border:1px solid #e4e4e7;border-top:none;border-radius:0 0 10px 10px;padding:1.5rem 1.25rem;">
             <h1 style="font-size:1.15rem;margin:0 0 .6rem;">Your recommended pickup window</h1>
             <p style="font-size:.92rem;line-height:1.6;color:#374151;margin:0 0 .9rem;">Congratulations on your winning bid! For a faster pickup, we recommend arriving between:</p>
-            <p style="font-size:1.3rem;font-weight:700;margin:0 0 .9rem;">${rf} &ndash; ${rt}</p>
+            <p style="font-size:1.3rem;font-weight:700;margin:0 0 .9rem;">${rf} to ${rt}</p>
             <p style="font-size:.9rem;line-height:1.6;color:#374151;margin:0 0 .5rem;">${winLine}</p>
-            <p style="font-size:.8rem;color:#71717a;margin:1rem 0 0;">&mdash; Advantage Auction Company</p>
+            <p style="font-size:.8rem;color:#71717a;margin:1rem 0 0;">Advantage Auction Company</p>
           </div>
         </div>`.trim(),
     };
@@ -135,7 +135,7 @@ function buildEmail(type, payload, toAddress) {
   if (type === 'WINNING') {
     return {
       to:      toAddress,
-      subject: "Congratulations — you won!",
+      subject: "Congratulations, you won!",
       text:    `You won the lot. Proceed to payment to secure your item.\n\nLot ID: ${lotId}\nWinning bid: ${price}\n\nComplete payment: ${lotUrl}`,
       html:    `
         <p>You won the lot. Proceed to payment to secure your item.</p>
@@ -183,10 +183,10 @@ function buildEmail(type, payload, toAddress) {
   if (type === 'FINAL_SECONDS') {
     return {
       to:      toAddress,
-      subject: "Final seconds — bid now!",
-      text:    `Final seconds for Lot ${lotId} — bid now before it closes.\n\nLot ID: ${lotId}\nCurrent price: ${price}\n\nBid now: ${lotUrl}`,
+      subject: "Final seconds, bid now!",
+      text:    `Final seconds for Lot ${lotId}. Bid now before it closes.\n\nLot ID: ${lotId}\nCurrent price: ${price}\n\nBid now: ${lotUrl}`,
       html:    `
-        <p>Final seconds for Lot ${lotId} — bid now before it closes.</p>
+        <p>Final seconds for Lot ${lotId}. Bid now before it closes.</p>
         <ul>
           <li><strong>Lot ID:</strong> ${lotId}</li>
           <li><strong>Current price:</strong> ${price}</li>
@@ -324,7 +324,7 @@ function buildSMS(type, payload) {
   }
 
   if (type === 'FINAL_SECONDS') {
-    return `Final seconds for Lot ${lotId} — bid now before it closes. Current price: ${price}`;
+    return `Final seconds for Lot ${lotId}. Bid now before it closes. Current price: ${price}`;
   }
 
   if (type === 'EXTENDED_BIDDING') {

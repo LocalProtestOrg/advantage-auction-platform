@@ -4,7 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <meta name="robots" content="noindex" />
-<title>Launch Readiness — Advantage.Bid Admin</title>
+<title>Launch Readiness - Advantage.Bid Admin</title>
 <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
 <style>
   :root{--ink:#0B1B2B;--paper:#FBFAF7;--hair:#ECE8E0;--ok:#1a7f4b;--warn:#B7791F;--todo:#B5273B;--muted:#637488}
@@ -29,7 +29,7 @@
 <body>
 <div class="wrap">
   <h1>Launch Readiness</h1>
-  <div class="sub" id="sub">Phase 3 — Operational Launch · loading…</div>
+  <div class="sub" id="sub">Phase 3 - Operational Launch · loading…</div>
   <div class="summary" id="summary"></div>
   <div id="sections"></div>
 </div>
@@ -43,7 +43,7 @@
     catch (e) { document.getElementById('sections').innerHTML = '<div class="err">Network error.</div>'; return; }
     if (r.status === 401 || r.status === 403) { document.getElementById('sections').innerHTML = '<div class="err">Admin access required.</div>'; return; }
     const j = await r.json();
-    document.getElementById('sub').textContent = 'Phase 3 — Operational Launch · migration ' + j.migration_level;
+    document.getElementById('sub').textContent = 'Phase 3 - Operational Launch · migration ' + j.migration_level;
     const sm = j.summary || {};
     document.getElementById('summary').innerHTML =
       '<span class="pill" style="color:var(--ok)"><b>' + (sm.ok||0) + '</b> ready</span>' +

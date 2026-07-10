@@ -127,7 +127,7 @@
         b.onclick=async function(){ await H('/api/admin/verification/requests/'+r.id+'/review',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({status:b.getAttribute('data-act')})}); document.getElementById('loadBtn').onclick(); };
       });
     }
-    if(!token){ document.querySelector('.wrap').innerHTML='<div class="card">Admin login required. <a href="/login.html">Log in</a></div>'; }
+    if(!token){ document.querySelector('.wrap').innerHTML='<div class="card">Admin login required. <a href="/login.html">Sign in</a></div>'; }
   </script>
 </body>
 </html>

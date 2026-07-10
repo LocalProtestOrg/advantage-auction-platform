@@ -199,11 +199,11 @@ function buildEmail({ auctionTitle, auctionId, report, invoices, unsold, pickups
 
   const html =
     '<div style="font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif;max-width:640px;margin:0 auto;color:#1f2937">' +
-      '<div style="font-weight:800;font-size:18px;color:#0f172a;padding:8px 0 2px">Advantage Auction — Seller Closeout</div>' +
+      '<div style="font-weight:800;font-size:18px;color:#0f172a;padding:8px 0 2px">Advantage Auction - Seller Closeout</div>' +
       `<div style="font-size:14px;color:#64748b;margin-bottom:14px">${esc(auctionTitle)}</div>` +
       '<h3 style="font-size:13px;text-transform:uppercase;letter-spacing:.04em;color:#0f172a">Settlement Summary</h3>' +
       `<table style="border-collapse:collapse;font-size:14px">${settlementRows}</table>` +
-      `<h3 style="font-size:13px;text-transform:uppercase;letter-spacing:.04em;color:#0f172a">Payment Status — ${paidCount} paid / ${unpaidCount} payment-required</h3>` +
+      `<h3 style="font-size:13px;text-transform:uppercase;letter-spacing:.04em;color:#0f172a">Payment Status: ${paidCount} paid / ${unpaidCount} payment-required</h3>` +
       `<table style="width:100%;border-collapse:collapse;font-size:13px">${invRows}</table>` +
       '<p style="font-size:12px;color:#94a3b8;margin-top:16px">Buyer roster, unsold lots, pickup and no-show details are in the attached bundled buyer-invoice PDF and the plain-text copy of this message.</p>' +
     '</div>';
