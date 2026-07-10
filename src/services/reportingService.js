@@ -1,4 +1,5 @@
 const db = require('../db');
+const { platformFeeCents } = require('../lib/settlementPolicy');
 
 async function generateAuctionReport(auctionId) {
   const auctionRes = await db.query(
@@ -61,8 +62,10 @@ async function generateAuctionReport(auctionId) {
   );
   const highest_sale_lot = highestLotRes.rows[0] || null;
 
-  const PLATFORM_FEE_RATE = 0.10;
-  const calcFee = gross => Math.round(gross * PLATFORM_FEE_RATE);
+  // Seller platform fee = 0% at launch (single source of truth: settlementPolicy).
+  // The legacy flat 10% is retired. The credit-card processing reimbursement is a
+  // separate, actual-Stripe-cost line computed by the settlement engine, not here.
+  const calcFee = platformFeeCents;
 
   const lots = lotsRes.rows.map(row => {
     const gross     = row.winning_amount_cents ?? 0;

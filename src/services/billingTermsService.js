@@ -4,9 +4,9 @@
  * resolution + settlement PREVIEW only.
  *
  * NOT used for live charging or live payout. Buyers are charged hammer only and
- * sellers are paid the existing flat 10% (closeAuction/reportingService) until
- * Phase 2 (gated on Buyer Terms v2 + Stripe LIVE). Everything here is preview/
- * display for admin billing prep.
+ * the live seller platform fee is 0% (closeAuction/reportingService via
+ * settlementPolicy) until Phase 2 (gated on Buyer Terms v2 + Stripe LIVE).
+ * Everything here is preview/display for admin billing prep.
  *
  * Effective terms precedence per field: auction override (bps) → seller_terms
  * default (pct→bps) → platform default.
@@ -72,7 +72,7 @@ async function getSettlementPreview(auctionId, client = db) {
   const terms = await resolveEffectiveTerms(auctionId, client);
   return {
     active: false,
-    note: 'PREVIEW ONLY. Buyer premium is NOT charged and seller payout is NOT changed in Phase 1. Live payout remains the flat 10%.',
+    note: 'PREVIEW ONLY. Buyer premium is NOT charged and seller payout is NOT changed in Phase 1. The live seller platform fee is 0%.',
     effective_terms_bps: terms,
     gross_hammer_cents: gross,
     preview: computeSettlement(gross, terms),
@@ -80,7 +80,7 @@ async function getSettlementPreview(auctionId, client = db) {
 }
 
 // Compute + persist the PREVIEW breakdown onto seller_payouts (additive columns).
-// Best-effort, post-commit; NEVER alters gross/platform_fee/seller_payout (flat 10%).
+// Best-effort, post-commit; NEVER alters gross/platform_fee/seller_payout (0% platform fee).
 async function storeSettlementPreview(auctionId) {
   try {
     const p = await getSettlementPreview(auctionId);
