@@ -6,6 +6,7 @@ const { getSellerPayoutPreference } = require('./payoutPreferenceService');
 const { validateAuctionSchedule, ScheduleRuleError, isProfessional } = require('./sellerTypeRules');
 const verificationService = require('./verificationService'); // publication gate (verification-required)
 const { combinedInvoicingEnabled } = require('./../lib/launchGuards'); // Design C flag gate at close
+const { platformFeeCents } = require('../lib/settlementPolicy'); // seller platform fee = 0% (shared)
 
 // #18: default gap between consecutive lot closings (AAC timed model). Lot N
 // closes at start_time + N * this interval. Editable config is a post-launch
@@ -744,19 +745,20 @@ async function closeAuction(auctionId, actorId = null) {
     // after close, even if the process crashes immediately after COMMIT.
     // Figures are computed from the in-transaction results array; using pool connections
     // here would read stale lot data (winning amounts not yet committed).
-    // Fee rate mirrors the constant in reportingService — update both if the rate changes.
-    const PLATFORM_FEE_RATE = 0.10;
+    // Seller platform fee = 0% at launch (single source of truth: settlementPolicy).
+    // The legacy flat 10% is retired; the credit-card processing reimbursement is a
+    // separate actual-Stripe-cost line handled by the settlement engine, not here.
     const sellerUserId = auctionRes.rows[0].seller_user_id;
     const grossRevenueCents = results.reduce((sum, r) => sum + (r.winning_amount_cents ?? 0), 0);
-    const platformFeeCents  = Math.round(grossRevenueCents * PLATFORM_FEE_RATE);
-    const sellerPayoutCents = grossRevenueCents - platformFeeCents;
+    const platformFeeCentsValue = platformFeeCents(grossRevenueCents);
+    const sellerPayoutCents = grossRevenueCents - platformFeeCentsValue;
     const pref = await getSellerPayoutPreference(sellerUserId);
     await client.query(
       `INSERT INTO seller_payouts
          (auction_id, seller_user_id, gross_revenue_cents, platform_fee_cents, seller_payout_cents, payout_method)
        VALUES ($1, $2, $3, $4, $5, $6)
        ON CONFLICT (auction_id) DO NOTHING`,
-      [auctionId, sellerUserId, grossRevenueCents, platformFeeCents, sellerPayoutCents, pref ? pref.payout_method : null]
+      [auctionId, sellerUserId, grossRevenueCents, platformFeeCentsValue, sellerPayoutCents, pref ? pref.payout_method : null]
     );
 
     await client.query('COMMIT');

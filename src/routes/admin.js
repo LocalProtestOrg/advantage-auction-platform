@@ -228,8 +228,8 @@ router.delete('/auctions/:auctionId', auth, role(['admin']), idempotency, async 
 // GET /api/admin/auctions/:auctionId/settlement-preview
 // Buyer Premium Phase 1: read-only PREVIEW of effective billing terms + the
 // hammer/BP/AAC-share/seller-share/hammer-commission/net-seller breakdown.
-// NOT active — buyers are not charged the premium and the live payout is the
-// flat 10%. For admin billing/settlement preparation only.
+// NOT active — buyers are not charged the premium and the live seller platform
+// fee is 0%. For admin billing/settlement preparation only.
 router.get('/auctions/:auctionId/settlement-preview', auth, role(['admin']), async (req, res, next) => {
   try {
     const billing = require('../services/billingTermsService');
