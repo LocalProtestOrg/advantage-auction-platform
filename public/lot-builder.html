@@ -766,10 +766,26 @@
   });
 
   // ── Add Another Lot ──────────────────────────────────────────────────────────
+  // This button only appears AFTER a lot saves successfully, so the previous lot is
+  // already added. Reset the form for the next lot, then return the studio to the top
+  // so the fresh blank form starts at its beginning (previously the page kept the
+  // seller's old scroll position partway down the form).
   document.getElementById('btn-another').addEventListener('click', () => {
     clearForm();
     document.getElementById('btn-another').style.display = 'none';
-    document.getElementById('lot-title').focus();
+    // Scroll to the top after the reset/rerender has settled. Double requestAnimationFrame
+    // avoids a jump-back from late layout. The studio scrolls the document (there is no
+    // internal scroll container), so scrolling the window is correct here.
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      window.scrollTo({ top: 0, behavior: reduceMotion ? 'auto' : 'smooth' });
+      // Focus the first field for keyboard users, but NOT on touch devices, so we never
+      // pop an unwanted mobile keyboard. preventScroll keeps focus from fighting the scroll.
+      const first = document.getElementById('lot-title');
+      if (first && !window.matchMedia('(pointer: coarse)').matches) {
+        first.focus({ preventScroll: true });
+      }
+    }));
   });
 
   // ── Helpers ──────────────────────────────────────────────────────────────────
