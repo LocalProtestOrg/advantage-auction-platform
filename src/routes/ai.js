@@ -20,7 +20,7 @@ function handleAiError(err, res, next) {
   // provider error, or registry-invalid selections) so the UI shows the real
   // reason instead of a silent fabrication (see Defect 4 history).
   if (err instanceof AIUnavailableError) {
-    return res.status(503).json({ success: false, message: 'AI description service unavailable: ' + err.message });
+    return res.status(503).json({ success: false, message: 'The Smart Description tool is temporarily unavailable. Please try again shortly, or add your description manually.' });
   }
   return next(err);
 }

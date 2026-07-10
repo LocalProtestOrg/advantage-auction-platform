@@ -876,11 +876,11 @@
         </div>
 
         <!-- ── B: AI Enhancement Controls ───────────────────── -->
-        <div class="section-label">AI Enhancement</div>
+        <div class="section-label">Smart Enhancement</div>
         <div class="card">
           <div class="toggle-row">
             <span class="toggle-label-text">Enhance Photos Automatically</span>
-            <label class="toggle-switch" for="ai-enhance" aria-label="Toggle AI photo enhancement">
+            <label class="toggle-switch" for="ai-enhance" aria-label="Toggle smart photo enhancement">
               <input type="checkbox" id="ai-enhance" checked />
               <span class="toggle-track"><span class="toggle-thumb"></span></span>
             </label>
@@ -934,13 +934,13 @@
              Previously sellers were asked to fill in details before they
              could see what the AI suggested, which broke the cognitive flow. -->
         <div class="section-label">
-          AI Suggestions &nbsp;<span class="ai-badge">&#10024; AI</span>
+          Smart Suggestions &nbsp;<span class="ai-badge">&#10024; Smart</span>
         </div>
         <div class="card">
           <div class="suggestion-list">
 
             <p style="font-size:0.85rem;color:#6b7280;margin:0 0 0.75rem">
-              Upload a photo first, then let AI suggest a title, description, and category based on what it sees.
+              Upload a photo first, then let Smart Suggestions propose a title, description, and category based on your photo.
             </p>
             <button class="btn btn-primary" id="btn-ai-generate" onclick="generateAiDescription()">
               &#10024; Generate from Photo
@@ -1606,7 +1606,7 @@
       var map = {
         uploading:  'Uploading to Cloudinary…',
         pending:    'Waiting for worker…',
-        processing: 'AI processing in progress…',
+        processing: 'Smart enhancement in progress…',
         complete:   'Enhancement complete',
         failed:     'Processing failed',
       };

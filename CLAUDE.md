@@ -67,6 +67,13 @@ You are working on the Advantage Auction Platform.
 - If a real credential appears anywhere in your output, stop and report it
 - Read `docs/security/secret-management.md` for the full credential policy
 
+## Public Language Standard (Non-Negotiable)
+- No public-facing surface may expose "AI" terminology. This includes any customer-visible page, feature name, workflow, button, tooltip, help text, dialog, notification, toast, email, marketing/FAQ/legal page, metadata, accessibility label, or API message returned to the user.
+- Banned public terms include (non-exhaustive): AI, A.I., Artificial Intelligence, AI Assistant/Generator/Writer/Enhancement/Detection/Recognition/Suggestions, "AI-powered", "powered by AI", "AI-generated", and any phrasing that frames a feature as artificial intelligence. Also avoid exposing model/vendor terms publicly (OpenAI, GPT, LLM, Copilot).
+- Present these capabilities to customers as helpful tooling instead: "Smart Tools", "Smart Catalog Tools", "Smart Description Tools", "Smart Photo Tools", "Smart Suggestions", "Smart Detection", "Smart Enhancement", "Automatic Suggestions/Enhancement", "Breeze" (the listing/catalog assistant). Language should feel natural and never make the user think about the technology.
+- This applies ONLY to user-facing language. Internal variables, APIs, database columns, feature flags, environment variables, service/file names, and code comments keep their existing names. Admin-only provenance/audit labels that must accurately record what an automated tool produced (e.g. the immutable "Original AI description" verification record) are internal staff tooling and are exempt.
+- Introducing any new public AI-facing wording requires explicit owner approval. When in doubt, default to Smart Tools language.
+
 ## Coding Expectations
 - Write maintainable code
 - Add tests for business rules
