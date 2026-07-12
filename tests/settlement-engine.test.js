@@ -82,6 +82,26 @@ describe('computeSettlementTotals (pure)', () => {
     expect(r.net_seller_proceeds_cents).toBe(12255);
   });
 
+  test('unified adjustments: manual fee = Debit deducted, reimbursement = Credit added, net correctly', () => {
+    const r = computeSettlementTotals({
+      buyerPaymentsCollectedCents: 100000,
+      adjustments: [
+        { adjustment_type: 'debit',  amount_cents: 4000, category: 'Fee' },          // e.g. disposal fee charged to seller
+        { adjustment_type: 'credit', amount_cents: 1500, category: 'Reimbursement' }, // amount owed back to seller
+        { adjustment_type: 'debit',  amount_cents: 500,  category: 'Other' },
+      ],
+    });
+    expect(r.adjustments.debit_cents).toBe(4500);
+    expect(r.adjustments.credit_cents).toBe(1500);
+    expect(r.adjustments.net_cents).toBe(-3000);              // 1500 credit - 4500 debit
+    expect(r.net_seller_proceeds_cents).toBe(97000);          // 100000 - 3000
+  });
+
+  test('no separate buyer_credits concept is presented (Decision 1)', () => {
+    const r = computeSettlementTotals({ buyerPaymentsCollectedCents: 5000 });
+    expect(r).not.toHaveProperty('buyer_credits_cents');
+  });
+
   test('empty input yields an all-zero settlement (no throw)', () => {
     const r = computeSettlementTotals();
     expect(r.net_seller_proceeds_cents).toBe(0);

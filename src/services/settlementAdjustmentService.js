@@ -16,6 +16,14 @@ const { ADJUSTMENT_TYPE, SETTLEMENT_AUDIT_EVENTS } = require('../lib/settlementP
 
 class SettlementAdjustmentError extends Error {}
 
+// Immutability guard: a paid settlement's adjustments cannot be added/edited/voided.
+async function assertSettlementMutable(client, auctionId) {
+  const r = await client.query('SELECT settlement_status FROM seller_payouts WHERE auction_id = $1', [auctionId]);
+  if (r.rows[0] && r.rows[0].settlement_status === 'paid') {
+    throw new SettlementAdjustmentError('Settlement is paid and immutable; adjustments cannot be changed.');
+  }
+}
+
 // Resolve the seller's user id from the auction (canonical ownership chain).
 async function resolveSellerUserId(client, auctionId) {
   const r = await client.query(
@@ -32,7 +40,7 @@ async function resolveSellerUserId(client, auctionId) {
  * Add a manual credit or debit adjustment to an auction's settlement.
  * @returns the inserted row
  */
-async function addAdjustment({ auctionId, type, amountCents, reason, notes = null, actorId = null }) {
+async function addAdjustment({ auctionId, type, amountCents, reason, notes = null, category = null, actorId = null }) {
   if (type !== ADJUSTMENT_TYPE.CREDIT && type !== ADJUSTMENT_TYPE.DEBIT) {
     throw new SettlementAdjustmentError("Invalid adjustment type (must be 'credit' or 'debit')");
   }
@@ -48,12 +56,13 @@ async function addAdjustment({ auctionId, type, amountCents, reason, notes = nul
   try {
     await client.query('BEGIN');
     const sellerUserId = await resolveSellerUserId(client, auctionId);
+    await assertSettlementMutable(client, auctionId); // block once paid
     const ins = await client.query(
       `INSERT INTO settlement_adjustments
-         (auction_id, seller_user_id, adjustment_type, amount_cents, reason, notes, created_by_user_id)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)
+         (auction_id, seller_user_id, adjustment_type, amount_cents, reason, notes, category, created_by_user_id)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
        RETURNING *`,
-      [auctionId, sellerUserId, type, cents, String(reason).trim(), notes, actorId]
+      [auctionId, sellerUserId, type, cents, String(reason).trim(), notes, category, actorId]
     );
     const row = ins.rows[0];
     await auditService.logEvent(client, {
@@ -62,7 +71,7 @@ async function addAdjustment({ auctionId, type, amountCents, reason, notes = nul
       entityId: row.id,
       auctionId,
       actorId,
-      metadata: { adjustment_type: type, amount_cents: cents, reason: row.reason, notes, seller_user_id: sellerUserId },
+      metadata: { adjustment_type: type, amount_cents: cents, reason: row.reason, category, notes, seller_user_id: sellerUserId },
     });
     await client.query('COMMIT');
     return row;
@@ -93,6 +102,8 @@ async function voidAdjustment({ adjustmentId, actorId = null, voidReason = null 
   const client = await db.connect();
   try {
     await client.query('BEGIN');
+    const cur = await client.query('SELECT auction_id FROM settlement_adjustments WHERE id = $1', [adjustmentId]);
+    if (cur.rows[0]) await assertSettlementMutable(client, cur.rows[0].auction_id); // block once paid
     const upd = await client.query(
       `UPDATE settlement_adjustments
           SET voided_at = now(), voided_by_user_id = $2, void_reason = $3
