@@ -29,24 +29,33 @@ router.get('/me', auth, role(['seller']), async (req, res, next) => {
   catch (err) { next(err); }
 });
 
-// Seller saves their OWN profile (check details, or ACH via a Stripe bank token).
+// Seller saves their OWN check details. (ACH uses the Stripe SetupIntent endpoints below.)
 router.put('/me', auth, role(['seller']), async (req, res, next) => {
   try {
     const method = (req.body || {}).payout_method;
-    let pref;
-    if (method === 'check') {
-      pref = await svc.saveCheckProfile(req.user.id, req.body);
-    } else if (method === 'ach') {
-      const token = req.body.bank_account_token;
-      if (!token) return res.status(422).json({ success: false, message: 'A Stripe bank account token is required for ACH.' });
-      const display = await svc.attachStripeBankAccount(req.user.id, token);
-      pref = await svc.saveAchProfile(req.user.id, display);
-    } else {
-      return res.status(422).json({ success: false, message: "payout_method must be 'ach' or 'check'." });
+    if (method !== 'check') {
+      return res.status(422).json({ success: false, message: "payout_method must be 'check' here; use the ACH setup endpoints for ACH." });
     }
+    const pref = await svc.saveCheckProfile(req.user.id, req.body);
     res.json({ success: true, data: serialize(pref) });
   } catch (err) {
-    if (/required|Invalid|token/i.test(err.message)) return res.status(422).json({ success: false, message: err.message });
+    if (/required|Invalid/i.test(err.message)) return res.status(422).json({ success: false, message: err.message });
+    next(err);
+  }
+});
+
+// ACH via Stripe (current flow: SetupIntent + us_bank_account / Financial Connections).
+// Step 1: seller starts ACH setup — server returns a SetupIntent client_secret.
+router.post('/me/ach/setup-intent', auth, role(['seller']), async (req, res, next) => {
+  try { res.json({ success: true, data: await svc.createAchSetupIntent(req.user.id) }); }
+  catch (err) { if (/configured/i.test(err.message)) return res.status(503).json({ success: false, message: 'Bank connection is temporarily unavailable.' }); next(err); }
+});
+// Step 2: after Stripe.js completes collection/confirmation, seller confirms — server
+// retrieves the SetupIntent and stores only the Stripe reference + safe display.
+router.post('/me/ach/confirm', auth, role(['seller']), async (req, res, next) => {
+  try { res.json({ success: true, data: serialize(await svc.confirmAchSetupIntent(req.user.id, (req.body || {}).setup_intent_id)) }); }
+  catch (err) {
+    if (/required|No US bank|does not belong/i.test(err.message)) return res.status(422).json({ success: false, message: err.message });
     next(err);
   }
 });

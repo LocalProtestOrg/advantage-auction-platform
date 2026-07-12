@@ -62,6 +62,31 @@ describe('maskedPayoutSummary — never leaks confidential banking data', () => 
   });
 });
 
+describe('usBankAccountDisplay (Stripe us_bank_account -> safe stored fields)', () => {
+  const pm = {
+    id: 'pm_1TESTbank',
+    us_bank_account: { bank_name: 'Example Bank', last4: '4831', account_type: 'checking', routing_number: '110000000' },
+  };
+  test('maps only safe fields; ref is the Stripe pm id, never routing/account numbers', () => {
+    const d = pp.usBankAccountDisplay(pm, 'succeeded');
+    expect(d).toEqual({
+      stripe_bank_account_ref: 'pm_1TESTbank', bank_name: 'Example Bank',
+      ach_account_type: 'checking', ach_account_last4: '4831', is_verified: true,
+    });
+    const json = JSON.stringify(d);
+    expect(json).not.toContain('110000000');   // routing number never stored
+    expect(json).not.toContain('routing');
+  });
+  test('is_verified true only when the SetupIntent succeeded (microdeposits pending => false)', () => {
+    expect(pp.usBankAccountDisplay(pm, 'succeeded').is_verified).toBe(true);
+    expect(pp.usBankAccountDisplay(pm, 'requires_action').is_verified).toBe(false);
+  });
+  test('throws when the PaymentMethod is not a usable US bank account', () => {
+    expect(() => pp.usBankAccountDisplay({ id: 'pm_x' }, 'succeeded')).toThrow(/No US bank account/);
+    expect(() => pp.usBankAccountDisplay(null, 'succeeded')).toThrow(/No US bank account/);
+  });
+});
+
 describe('tax placeholder', () => {
   test('exposes the three future statuses with labels', () => {
     expect(pp.TAX_STATUS).toEqual({ NOT_STARTED: 'not_started', IN_PROGRESS: 'in_progress', COMPLETED: 'completed' });

@@ -7,7 +7,7 @@
  */
 
 const db = require('../db');
-const { TAX_STATUS } = require('../lib/payoutProfile');
+const { TAX_STATUS, usBankAccountDisplay } = require('../lib/payoutProfile');
 
 async function getProfile(sellerUserId) {
   const r = await db.query('SELECT * FROM seller_payout_preferences WHERE seller_user_id = $1', [sellerUserId]);
@@ -58,24 +58,39 @@ async function setTaxStatus(sellerUserId, tax_status) {
 }
 
 /**
- * Attach a Stripe bank-account TOKEN (created client-side by Stripe.js — raw routing/
- * account numbers never touch our server) to the seller's Stripe customer, and return
- * the safe display + Stripe reference. Used by the seller UI (Increment 5B).
+ * ACH via the CURRENT Stripe-recommended flow: SetupIntent + us_bank_account collected
+ * through Financial Connections (verified against Stripe docs, 2026-07). Raw routing/
+ * account numbers are collected by Stripe.js and never reach our server.
+ *
+ * createAchSetupIntent: server creates the SetupIntent on the seller's Stripe customer and
+ * returns the client_secret; Stripe.js (collectBankAccountForSetup / confirmUsBankAccountSetup)
+ * completes it client-side. NO webhook is used — the server retrieves the SetupIntent on
+ * demand in confirmAchSetupIntent and stores only the PaymentMethod reference + safe display.
  */
-async function attachStripeBankAccount(sellerUserId, bankAccountToken) {
-  if (!bankAccountToken) throw new Error('A Stripe bank account token is required');
+async function createAchSetupIntent(sellerUserId) {
   if (!process.env.STRIPE_SECRET_KEY) throw new Error('Stripe is not configured');
   const cardService = require('./cardService');
   const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
   const customerId = await cardService.ensureStripeCustomer(sellerUserId);
-  const src = await stripe.customers.createSource(customerId, { source: bankAccountToken });
-  return {
-    stripe_bank_account_ref: src.id,
-    bank_name: src.bank_name || null,
-    ach_account_type: src.account_type || null,
-    ach_account_last4: src.last4 || null,
-    is_verified: src.status === 'verified',
-  };
+  const si = await stripe.setupIntents.create({
+    customer: customerId,
+    payment_method_types: ['us_bank_account'],
+    usage: 'off_session',
+  });
+  return { client_secret: si.client_secret, setup_intent_id: si.id, publishable_key: process.env.STRIPE_PUBLISHABLE_KEY || '' };
 }
 
-module.exports = { getProfile, saveCheckProfile, saveAchProfile, setTaxStatus, attachStripeBankAccount };
+async function confirmAchSetupIntent(sellerUserId, setupIntentId) {
+  if (!setupIntentId) throw new Error('A setup_intent_id is required');
+  if (!process.env.STRIPE_SECRET_KEY) throw new Error('Stripe is not configured');
+  const cardService = require('./cardService');
+  const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
+  const customerId = await cardService.ensureStripeCustomer(sellerUserId);
+  const si = await stripe.setupIntents.retrieve(setupIntentId, { expand: ['payment_method'] });
+  // Ownership guard: a seller can only confirm a SetupIntent that belongs to their own customer.
+  if (si.customer !== customerId) throw new Error('SetupIntent does not belong to this seller');
+  const display = usBankAccountDisplay(si.payment_method, si.status); // pure; stores pm ref + safe display only
+  return saveAchProfile(sellerUserId, display);
+}
+
+module.exports = { getProfile, saveCheckProfile, saveAchProfile, setTaxStatus, createAchSetupIntent, confirmAchSetupIntent };
