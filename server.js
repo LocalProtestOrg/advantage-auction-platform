@@ -266,6 +266,7 @@ const termsRoutes = require('./src/routes/terms');
 // remains as orphaned source for a future housekeeping pass.
 const marketingRoutes = require('./src/routes/marketing');
 const payoutPreferencesRoutes = require('./src/routes/payoutPreferences');
+const payoutProfileRoutes = require('./src/routes/payoutProfile');
 const aiRoutes = require('./src/routes/ai');
 const sellersRoutes = require('./src/routes/sellers');
 const watchlistRoutes = require('./src/routes/watchlist');
@@ -335,6 +336,7 @@ app.use('/api/lots', lotRoutes);
 app.use('/api/terms', termsRoutes);
 app.use('/api/marketing', marketingRoutes);
 app.use('/api/payout-preferences', payoutPreferencesRoutes);
+app.use('/api/payout-profile', payoutProfileRoutes);
 app.use('/api/ai', aiRoutes);
 app.use('/api/sellers', sellersRoutes);
 app.use('/api/watchlist', watchlistRoutes);
