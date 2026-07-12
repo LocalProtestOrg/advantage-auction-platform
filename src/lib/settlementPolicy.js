@@ -29,6 +29,30 @@ function platformFeeCents(grossCents) {
   return Math.round(g * PLATFORM_FEE_RATE);
 }
 
+// ── Settlement adjustments (owner-approved, Decision 4) ────────────────────────
+// A manual adjustment carries a POSITIVE amount_cents; the type sets the sign
+// applied to seller proceeds. A voided adjustment is ignored entirely.
+const ADJUSTMENT_TYPE = Object.freeze({ CREDIT: 'credit', DEBIT: 'debit' });
+
+/**
+ * Pure, cents-safe net of a list of settlement adjustments. Credits add to seller
+ * proceeds; debits subtract. Voided rows (voided_at set) and non-positive amounts
+ * are ignored. Never throws; always returns integer cents.
+ * @param {Array<{adjustment_type:string, amount_cents:number, voided_at?:any}>} adjustments
+ * @returns {{credit_cents:number, debit_cents:number, net_cents:number}}
+ */
+function sumAdjustments(adjustments) {
+  let credit = 0, debit = 0;
+  for (const a of Array.isArray(adjustments) ? adjustments : []) {
+    if (!a || a.voided_at) continue;
+    const cents = Math.trunc(Number(a.amount_cents));
+    if (!Number.isFinite(cents) || cents <= 0) continue;
+    if (a.adjustment_type === ADJUSTMENT_TYPE.CREDIT) credit += cents;
+    else if (a.adjustment_type === ADJUSTMENT_TYPE.DEBIT) debit += cents;
+  }
+  return { credit_cents: credit, debit_cents: debit, net_cents: credit - debit };
+}
+
 // ── Settlement status workflow (owner-approved) ────────────────────────────────
 //   Pending Review → Approved → Ready for Payment → Paid
 //                                       ↘ On Hold
@@ -70,6 +94,8 @@ const SETTLEMENT_AUDIT_EVENTS = Object.freeze({
 module.exports = {
   PLATFORM_FEE_RATE,
   platformFeeCents,
+  ADJUSTMENT_TYPE,
+  sumAdjustments,
   SETTLEMENT_STATUS,
   SETTLEMENT_STATUS_LABEL,
   SETTLEMENT_AUDIT_EVENTS,
