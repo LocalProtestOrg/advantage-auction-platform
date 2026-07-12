@@ -41,6 +41,33 @@ describe('settlementPolicy', () => {
     expect(Object.isFrozen(sp.SETTLEMENT_AUDIT_EVENTS)).toBe(true);
   });
 
+  test('adjustment types are credit/debit', () => {
+    expect(sp.ADJUSTMENT_TYPE).toEqual({ CREDIT: 'credit', DEBIT: 'debit' });
+  });
+
+  test('sumAdjustments: credits add, debits subtract (cents-safe)', () => {
+    const list = [
+      { adjustment_type: 'credit', amount_cents: 5000 },
+      { adjustment_type: 'debit',  amount_cents: 1500 },
+      { adjustment_type: 'credit', amount_cents: 250 },
+    ];
+    expect(sp.sumAdjustments(list)).toEqual({ credit_cents: 5250, debit_cents: 1500, net_cents: 3750 });
+  });
+
+  test('sumAdjustments: ignores voided rows, non-positive amounts, and bad input', () => {
+    const list = [
+      { adjustment_type: 'credit', amount_cents: 1000, voided_at: '2026-07-11T00:00:00Z' }, // voided → ignored
+      { adjustment_type: 'debit',  amount_cents: 0 },        // non-positive → ignored
+      { adjustment_type: 'credit', amount_cents: -400 },     // negative → ignored
+      { adjustment_type: 'credit', amount_cents: 900 },      // counts
+      null,                                                  // junk → ignored
+      { adjustment_type: 'bogus',  amount_cents: 500 },      // unknown type → ignored
+    ];
+    expect(sp.sumAdjustments(list)).toEqual({ credit_cents: 900, debit_cents: 0, net_cents: 900 });
+    expect(sp.sumAdjustments(undefined)).toEqual({ credit_cents: 0, debit_cents: 0, net_cents: 0 });
+    expect(sp.sumAdjustments([])).toEqual({ credit_cents: 0, debit_cents: 0, net_cents: 0 });
+  });
+
   test('defines the material settlement audit events', () => {
     const keys = Object.keys(sp.SETTLEMENT_AUDIT_EVENTS);
     ['PAYOUT_PREF_ADDED', 'SETTLEMENT_CREATED', 'ADJUSTMENT_ADDED', 'SETTLEMENT_APPROVED',
