@@ -28,7 +28,10 @@
 const db = require('../db');
 const auditService = require('./auditService');
 const { listAdjustments } = require('./settlementAdjustmentService');
+const { getSellerPayoutPreference } = require('./payoutPreferenceService');
 const { platformFeeCents, sumAdjustments, SETTLEMENT_AUDIT_EVENTS, SETTLEMENT_STATUS } = require('../lib/settlementPolicy');
+
+class MarkPaidError extends Error {}
 
 const cents = (v) => { const n = Math.trunc(Number(v)); return Number.isFinite(n) ? n : 0; };
 
@@ -43,13 +46,12 @@ function computeSettlementTotals(i = {}) {
   const collected    = cents(i.buyerPaymentsCollectedCents); // paid, gross of refunds
   const refunds      = cents(i.refundsCents);
   const failed       = cents(i.failedPaymentsCents);
-  const buyerCredits = cents(i.buyerCreditsCents);           // distinct from manual adjustments; 0 until a buyer-credit model exists
   const marketing    = cents(i.marketingDeductionCents);
   const stripeFee    = cents(i.stripeFeeCents);              // ACTUAL Stripe cost; 0 only when unavailable
-  const adj          = sumAdjustments(i.adjustments);        // credit adds, debit subtracts
+  const adj          = sumAdjustments(i.adjustments);        // unified credit/debit: credit adds, debit subtracts
 
   const outstanding  = Math.max(0, expected - collected);
-  const netCollected = collected - refunds - buyerCredits;
+  const netCollected = collected - refunds;                  // collected-basis (Decision 2)
   const platformFee  = platformFeeCents(netCollected);       // 0% at launch
   const netProceeds  = netCollected + adj.net_cents - marketing - stripeFee - platformFee;
 
@@ -60,7 +62,6 @@ function computeSettlementTotals(i = {}) {
     outstanding_balance_cents:        outstanding,
     failed_payments_cents:            failed,
     refunds_cents:                    refunds,
-    buyer_credits_cents:              buyerCredits,
     net_collected_cents:              netCollected,
     adjustments:                      { credit_cents: adj.credit_cents, debit_cents: adj.debit_cents, net_cents: adj.net_cents },
     marketing_deduction_cents:        marketing,
@@ -146,7 +147,6 @@ async function assembleSettlementInputs(auctionId) {
     buyerPaymentsCollectedCents:    Number(invRes.rows[0].collected),
     refundsCents:                   refunds,
     failedPaymentsCents:            failed,
-    buyerCreditsCents:              0,
     marketingDeductionCents:        marketing.deduction_cents,
     stripeFeeCents:                 stripeFee,
     adjustments,
@@ -203,6 +203,100 @@ async function recalculateSettlement(auctionId, actorId = null) {
   }
 }
 
+// ── Mark Paid (records a completed MANUAL payment; never moves money) ──────────
+// A payout preference is "complete" when the seller has provided everything needed
+// to actually be paid by the chosen method. (Stripe-managed ACH references arrive in
+// the banking increment; today: check needs payee + address, ach needs a stored ref.)
+function payoutPreferenceComplete(pref) {
+  if (!pref) return false;
+  if (pref.payout_method === 'check') return !!(pref.check_payee_name && pref.check_address_line1);
+  if (pref.payout_method === 'ach') return !!(pref.ach_account_last4 || pref.stripe_bank_account_ref);
+  return false;
+}
+
+/**
+ * PURE guard: decide whether Mark Paid may proceed. Throws MarkPaidError (clear reason)
+ * or returns {ok:true}. No side effects — fully unit-testable.
+ */
+function assertMarkPaidAllowed(state, input) {
+  const s = state || {}, i = input || {};
+  if (!s.hasSettlementRow) throw new MarkPaidError('No settlement exists for this auction yet.');
+  if (s.settlementStatus === SETTLEMENT_STATUS.PAID) throw new MarkPaidError('Settlement is already paid and is immutable.');
+  if (i.paymentMethod !== 'ach' && i.paymentMethod !== 'check') throw new MarkPaidError("Payment method must be 'ach' or 'check'.");
+  if (!s.payoutPreferenceComplete) throw new MarkPaidError('Seller payment preference is incomplete; cannot mark paid.');
+  if (!i.paymentReference || !String(i.paymentReference).trim()) throw new MarkPaidError('A payment reference is required.');
+  if (!i.paidAt) throw new MarkPaidError('The actual payment date is required.');
+  if (!i.confirmedCompleted) throw new MarkPaidError('Explicit confirmation that the payment was completed is required.');
+  const net = Math.trunc(Number(s.netProceedsCents));
+  const finalAmt = Math.trunc(Number(i.finalAmountCents));
+  if (!Number.isFinite(finalAmt)) throw new MarkPaidError('A final net payment amount is required.');
+  if (finalAmt !== net) throw new MarkPaidError('Final amount (' + finalAmt + ') does not match the calculated settlement (' + net + ').');
+  return { ok: true };
+}
+
+/**
+ * Record a completed MANUAL seller payment. Freezes the immutable final snapshot, sets
+ * paid metadata, blocks future recalculation/adjustment, and audits. This does NOT move
+ * money — it records that an out-of-platform ACH/check payment was completed. Transactional
+ * + idempotent (the partial-unique final-snapshot index rejects a duplicate final row).
+ */
+async function markSettlementPaid(auctionId, {
+  paymentMethod, paymentReference, paidAt = null, paymentNote = null,
+  finalAmountCents, actorId = null, confirmedCompleted = false,
+} = {}) {
+  const totals = await computeSettlement(auctionId);
+  const client = await db.connect();
+  try {
+    await client.query('BEGIN');
+    const spRes = await client.query('SELECT * FROM seller_payouts WHERE auction_id = $1 FOR UPDATE', [auctionId]);
+    const sp = spRes.rows[0];
+    const pref = sp ? await getSellerPayoutPreference(sp.seller_user_id) : null;
+
+    assertMarkPaidAllowed({
+      hasSettlementRow: !!sp,
+      settlementStatus: sp && sp.settlement_status,
+      netProceedsCents: totals.net_seller_proceeds_cents,
+      payoutPreferenceComplete: payoutPreferenceComplete(pref),
+    }, { paymentMethod, paymentReference, paidAt, finalAmountCents, confirmedCompleted });
+
+    const vRes = await client.query('SELECT COALESCE(MAX(version),0) AS maxv FROM settlement_snapshots WHERE auction_id = $1', [auctionId]);
+    const finalVersion = Number(vRes.rows[0].maxv) + 1;
+
+    // Immutable final snapshot (uq_settlement_snapshot_final rejects any second final row).
+    await client.query(
+      `INSERT INTO settlement_snapshots (auction_id, seller_user_id, version, snapshot, is_final, created_by_user_id)
+       VALUES ($1, $2, $3, $4, true, $5)`,
+      [auctionId, sp.seller_user_id, finalVersion, JSON.stringify(totals), actorId]);
+
+    await client.query(
+      `UPDATE seller_payouts SET
+         settlement_status = 'paid', settlement_version = $2,
+         seller_payout_cents = $3, final_amount_paid_cents = $3,
+         paid_at = COALESCE($4::timestamptz, now()), paid_by_user_id = $5,
+         payment_method_used = $6, payout_reference = $7, payment_note = $8,
+         payout_status = 'released', updated_at = now()
+       WHERE auction_id = $1`,
+      [auctionId, finalVersion, totals.net_seller_proceeds_cents, paidAt, actorId,
+       paymentMethod, String(paymentReference).trim(), paymentNote]);
+
+    await auditService.logEvent(client, {
+      eventType: SETTLEMENT_AUDIT_EVENTS.SETTLEMENT_MARKED_PAID,
+      entityType: 'seller_payout', entityId: sp.id, auctionId, actorId,
+      metadata: {
+        final_version: finalVersion, final_amount_cents: totals.net_seller_proceeds_cents,
+        payment_method: paymentMethod, payment_reference: String(paymentReference).trim(),
+      },
+    });
+    await client.query('COMMIT');
+    return { paid: true, final_version: finalVersion, final_amount_cents: totals.net_seller_proceeds_cents, totals };
+  } catch (err) {
+    await client.query('ROLLBACK').catch(() => {});
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
 module.exports = {
   computeSettlementTotals, // pure
   readMarketingCharges,
@@ -210,4 +304,8 @@ module.exports = {
   assembleSettlementInputs,
   computeSettlement,
   recalculateSettlement,
+  payoutPreferenceComplete, // pure
+  assertMarkPaidAllowed,    // pure
+  markSettlementPaid,
+  MarkPaidError,
 };
