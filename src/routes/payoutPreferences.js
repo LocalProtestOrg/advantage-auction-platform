@@ -39,17 +39,9 @@ router.put('/me', auth, role(['seller', 'admin']), async (req, res, next) => {
   }
 });
 
-// PUT /api/payout-preferences/seller/:sellerId  (admin only — set on behalf of seller)
-router.put('/seller/:sellerId', auth, role(['admin']), async (req, res, next) => {
-  try {
-    const pref = await upsertSellerPayoutPreference(req.params.sellerId, req.body);
-    return res.json({ success: true, data: pref });
-  } catch (err) {
-    if (err.message.startsWith('Invalid payout_method')) {
-      return res.status(422).json({ success: false, message: err.message });
-    }
-    next(err);
-  }
-});
+// NOTE: the admin "set on behalf of seller" write path was intentionally REMOVED
+// (Increment 5 separation-of-duties): administrators must not modify seller banking.
+// Sellers manage their own payout profile via /api/payout-profile/me; admins have a
+// READ-ONLY readiness view at /api/payout-profile/seller/:sellerId.
 
 module.exports = router;
