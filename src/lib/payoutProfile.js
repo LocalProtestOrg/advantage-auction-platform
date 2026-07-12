@@ -60,7 +60,26 @@ function maskedPayoutSummary(pref) {
   };
 }
 
+/**
+ * Map a Stripe us_bank_account PaymentMethod (+ SetupIntent status) to the SAFE fields we
+ * store. PURE — no Stripe/DB. The stored reference is the Stripe PaymentMethod id (pm_…),
+ * never a routing/account number. Throws if the PaymentMethod is not a usable bank account.
+ */
+function usBankAccountDisplay(paymentMethod, setupIntentStatus) {
+  const pm = paymentMethod || {};
+  const uba = pm.us_bank_account;
+  if (!pm.id || !uba) throw new Error('No US bank account found on this setup');
+  return {
+    stripe_bank_account_ref: pm.id, // Stripe-managed reference; NOT a routing/account number
+    bank_name: uba.bank_name || null,
+    ach_account_type: uba.account_type || null,
+    ach_account_last4: uba.last4 || null,
+    is_verified: setupIntentStatus === 'succeeded',
+  };
+}
+
 module.exports = {
   PAYOUT_STATUS, PAYOUT_STATUS_LABEL, TAX_STATUS, TAX_STATUS_LABEL,
   payoutProfileStatus, maskedPayoutSummary, isCheckComplete, isAchComplete,
+  usBankAccountDisplay,
 };

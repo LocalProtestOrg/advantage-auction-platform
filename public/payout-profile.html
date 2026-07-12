@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Payout Profile - Advantage.Bid</title>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <script src="https://js.stripe.com/v3/"></script>
+  <style>
+    :root { color-scheme: light; }
+    body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f8fafc; color: #1f2937; }
+    .wrap { max-width: 620px; margin: 0 auto; padding: 2.25rem 1.25rem 3.5rem; }
+    h1 { font-size: 1.5rem; margin: 0 0 0.35rem; }
+    .lede { color: #6b7280; font-size: 0.92rem; line-height: 1.5; margin: 0 0 1.4rem; }
+    .card { background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 1.4rem 1.4rem 1.5rem; margin-bottom: 1.1rem; }
+    .card h2 { font-size: 1.02rem; margin: 0 0 0.9rem; }
+    .status { display: inline-flex; align-items: center; gap: 0.45rem; font-size: 0.82rem; font-weight: 700; border-radius: 999px; padding: 0.32rem 0.8rem; }
+    .status.ready { background: #dcfce7; color: #15803d; } .status.needs_attention { background: #fef3c7; color: #92610a; } .status.incomplete { background: #f1f5f9; color: #475569; }
+    .methods { display: flex; gap: 0.75rem; flex-wrap: wrap; }
+    .method { flex: 1; min-width: 180px; border: 1.5px solid #e5e7eb; border-radius: 10px; padding: 0.85rem 1rem; cursor: pointer; display: flex; align-items: center; gap: 0.6rem; font-weight: 600; }
+    .method.active { border-color: #1d4ed8; background: #eff6ff; }
+    label.f { display: block; font-size: 0.8rem; font-weight: 600; color: #374151; margin: 0.75rem 0 0.3rem; }
+    input.t, select.t { width: 100%; box-sizing: border-box; border: 1.5px solid #e5e7eb; border-radius: 8px; padding: 0.6rem 0.7rem; font-size: 0.92rem; }
+    .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem; }
+    button { background: #1d4ed8; color: #fff; border: none; border-radius: 8px; padding: 0.8rem 1.15rem; font-size: 0.94rem; font-weight: 700; cursor: pointer; margin-top: 1rem; }
+    button.secondary { background: #fff; color: #1d4ed8; border: 1.5px solid #1d4ed8; }
+    button:disabled { opacity: 0.6; cursor: default; }
+    .msg { font-size: 0.85rem; margin-top: 0.85rem; min-height: 1em; } .msg.err { color: #b91c1c; } .msg.ok { color: #15803d; }
+    .masked { background: #f8fafc; border: 1px solid #e5e7eb; border-radius: 10px; padding: 0.9rem 1rem; }
+    .masked .big { font-size: 1.02rem; font-weight: 700; letter-spacing: 0.02em; }
+    .masked .kv { display: flex; justify-content: space-between; font-size: 0.85rem; color: #475569; margin-top: 0.4rem; }
+    .verified { color: #15803d; font-weight: 700; }
+    .reassure { font-size: 0.82rem; color: #475569; background: #f0f9ff; border: 1px solid #bae6fd; border-radius: 8px; padding: 0.75rem 0.9rem; margin-top: 0.4rem; line-height: 1.45; }
+    .center { text-align: center; padding: 2rem; color: #6b7280; }
+    .hide { display: none; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Payout Profile</h1>
+    <p class="lede">Choose how you would like to receive your auction settlement payments. You can update this at any time.</p>
+    <div id="loading" class="center">Loading your payout profile…</div>
+
+    <div id="app" class="hide">
+      <!-- Payout Status -->
+      <div class="card">
+        <h2>Payout Status</h2>
+        <span id="status-badge" class="status incomplete">Incomplete</span>
+      </div>
+
+      <!-- Preferred Payment Method -->
+      <div class="card">
+        <h2>Preferred Payment Method</h2>
+        <div class="methods">
+          <div class="method" id="m-ach" data-m="ach"><input type="radio" name="method" value="ach" /> Direct Deposit (ACH)</div>
+          <div class="method" id="m-check" data-m="check"><input type="radio" name="method" value="check" /> Check</div>
+        </div>
+      </div>
+
+      <!-- ACH -->
+      <div class="card hide" id="sec-ach">
+        <h2>Bank Account (ACH)</h2>
+        <div id="ach-saved" class="hide">
+          <div class="masked">
+            <div class="big" id="ach-line">Checking Account •••• 0000</div>
+            <div class="kv"><span>Bank Name</span><span id="ach-bank">Not set</span></div>
+            <div class="kv"><span>Account Type</span><span id="ach-type">Not set</span></div>
+            <div class="kv"><span>Status</span><span id="ach-verified" class="verified">Verified</span></div>
+            <div class="kv"><span>Last Updated</span><span id="ach-updated">Not set</span></div>
+          </div>
+          <button class="secondary" id="ach-update">Update Bank Account</button>
+        </div>
+        <div id="ach-connect">
+          <label class="f" for="ach-name">Name on Account</label>
+          <input class="t" id="ach-name" autocomplete="name" placeholder="Full name" />
+          <label class="f" for="ach-email">Email</label>
+          <input class="t" id="ach-email" type="email" autocomplete="email" placeholder="you@example.com" />
+          <button id="ach-connect-btn">Connect Bank Account</button>
+          <div class="reassure">Your banking information is securely managed through Stripe. Advantage.Bid never stores your routing or account numbers.</div>
+          <div class="msg" id="ach-msg"></div>
+        </div>
+      </div>
+
+      <!-- Check -->
+      <div class="card hide" id="sec-check">
+        <h2>Mailed Check</h2>
+        <label class="f" for="ck-payee">Payee Name</label>
+        <input class="t" id="ck-payee" placeholder="Name the check is payable to" />
+        <label class="f" for="ck-a1">Address Line 1</label>
+        <input class="t" id="ck-a1" autocomplete="address-line1" />
+        <label class="f" for="ck-a2">Address Line 2</label>
+        <input class="t" id="ck-a2" autocomplete="address-line2" placeholder="Optional" />
+        <div class="row2">
+          <div><label class="f" for="ck-city">City</label><input class="t" id="ck-city" autocomplete="address-level2" /></div>
+          <div><label class="f" for="ck-state">State</label><input class="t" id="ck-state" autocomplete="address-level1" maxlength="2" placeholder="MI" /></div>
+        </div>
+        <label class="f" for="ck-zip">ZIP Code</label>
+        <input class="t" id="ck-zip" autocomplete="postal-code" style="max-width:180px" />
+        <button id="ck-save">Save Check Details</button>
+        <div class="reassure">We mail your check to this address after each settlement is approved. Keep it current.</div>
+        <div class="msg" id="ck-msg"></div>
+      </div>
+
+      <!-- Tax Information placeholder -->
+      <div class="card">
+        <h2>Tax Information</h2>
+        <p class="lede" style="margin:0 0 0.6rem">Tax setup is not required yet. This will be available in the future.</p>
+        <select class="t" id="tax-status" style="max-width:240px">
+          <option value="not_started">Not Started</option>
+          <option value="in_progress">In Progress</option>
+          <option value="completed">Completed</option>
+        </select>
+        <button class="secondary" id="tax-save">Update Tax Status</button>
+        <div class="msg" id="tax-msg"></div>
+      </div>
+    </div>
+  </div>
+
+  <script src="/widgets/shared/auth-refresh.js"></script>
+  <script src="/widgets/shared/buyer-nav.js"></script>
+  <script>
+  (function () {
+    const token = localStorage.getItem('token');
+    if (!token) { location.href = '/login.html?next=' + encodeURIComponent('/payout-profile.html'); return; }
+    const H = { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' };
+    const $ = (id) => document.getElementById(id);
+    const STATUS_LABEL = { ready: 'Ready for Payment', needs_attention: 'Needs Attention', incomplete: 'Incomplete' };
+
+    function api(method, url, body) {
+      return fetch(url, { method, headers: H, body: body ? JSON.stringify(body) : undefined })
+        .then(r => { if (r.status === 401) { localStorage.removeItem('token'); location.href = '/login.html?next=' + encodeURIComponent('/payout-profile.html'); throw new Error('unauthorized'); } return r.json(); });
+    }
+    function setMsg(el, text, ok) { const e = $(el); e.className = 'msg' + (ok ? ' ok' : (text ? ' err' : '')); e.textContent = text || ''; }
+
+    function render(data) {
+      const p = (data && data.profile) || { method: null };
+      const status = (data && data.status) || 'incomplete';
+      const badge = $('status-badge'); badge.className = 'status ' + status; badge.textContent = STATUS_LABEL[status] || 'Incomplete';
+      // method selection
+      selectMethod(p.method || null, false);
+      // ACH masked display
+      if (p.method === 'ach' && p.last4) {
+        $('ach-saved').classList.remove('hide'); $('ach-connect').classList.add('hide');
+        $('ach-line').textContent = (cap(p.account_type) || 'Bank') + ' Account •••• ' + p.last4;
+        $('ach-bank').textContent = p.bank_name || 'Not set';
+        $('ach-type').textContent = cap(p.account_type) || 'Not set';
+        const v = $('ach-verified'); v.textContent = p.verified ? 'Verified' : 'Pending Verification'; v.className = p.verified ? 'verified' : '';
+        $('ach-updated').textContent = data.setup_completed_at ? new Date(data.setup_completed_at).toLocaleDateString() : 'Not set';
+      } else { $('ach-saved').classList.add('hide'); $('ach-connect').classList.remove('hide'); }
+      // check prefill
+      if (p.method === 'check') {
+        $('ck-payee').value = p.payee_name || ''; $('ck-a1').value = p.address_line1 || ''; $('ck-a2').value = p.address_line2 || '';
+        $('ck-city').value = p.city || ''; $('ck-state').value = p.state || ''; $('ck-zip').value = p.postal_code || '';
+      }
+      $('tax-status').value = (data && data.tax_status) || 'not_started';
+    }
+    function cap(s) { return s ? s.charAt(0).toUpperCase() + s.slice(1) : s; }
+    function selectMethod(m, persistNote) {
+      $('m-ach').classList.toggle('active', m === 'ach'); $('m-check').classList.toggle('active', m === 'check');
+      $('sec-ach').classList.toggle('hide', m !== 'ach'); $('sec-check').classList.toggle('hide', m !== 'check');
+      const r = document.querySelector('input[name=method][value="' + m + '"]'); if (r) r.checked = true;
+    }
+
+    document.querySelectorAll('.method').forEach(el => el.addEventListener('click', () => selectMethod(el.getAttribute('data-m'))));
+    $('ach-update').addEventListener('click', () => { $('ach-saved').classList.add('hide'); $('ach-connect').classList.remove('hide'); });
+
+    // Check save
+    $('ck-save').addEventListener('click', async () => {
+      setMsg('ck-msg', ''); const btn = $('ck-save'); btn.disabled = true; const t = btn.textContent; btn.textContent = 'Saving…';
+      try {
+        const d = await api('PUT', '/api/payout-profile/me', {
+          payout_method: 'check', payee_name: $('ck-payee').value.trim(), address_line1: $('ck-a1').value.trim(),
+          address_line2: $('ck-a2').value.trim() || null, city: $('ck-city').value.trim(), state: $('ck-state').value.trim().toUpperCase(), postal_code: $('ck-zip').value.trim(),
+        });
+        if (d.success) { render(d.data); setMsg('ck-msg', 'Check details saved.', true); }
+        else setMsg('ck-msg', d.message || 'Could not save.');
+      } catch (e) { if (e.message !== 'unauthorized') setMsg('ck-msg', 'Could not save. Please try again.'); }
+      finally { btn.disabled = false; btn.textContent = t; }
+    });
+
+    // Tax placeholder save
+    $('tax-save').addEventListener('click', async () => {
+      setMsg('tax-msg', ''); try {
+        const d = await api('PUT', '/api/payout-profile/me/tax-status', { tax_status: $('tax-status').value });
+        setMsg('tax-msg', d.success ? 'Saved.' : (d.message || 'Could not save.'), d.success);
+      } catch (e) { if (e.message !== 'unauthorized') setMsg('tax-msg', 'Could not save.'); }
+    });
+
+    // ACH connect via Stripe (SetupIntent + us_bank_account / Financial Connections)
+    $('ach-connect-btn').addEventListener('click', async () => {
+      const name = $('ach-name').value.trim(), email = $('ach-email').value.trim();
+      if (!name || !email) { setMsg('ach-msg', 'Please enter the name on the account and an email.'); return; }
+      const btn = $('ach-connect-btn'); btn.disabled = true; const t = btn.textContent; btn.textContent = 'Connecting…'; setMsg('ach-msg', '');
+      try {
+        const si = await api('POST', '/api/payout-profile/me/ach/setup-intent');
+        if (!si.success || !si.data.client_secret || !si.data.publishable_key) { setMsg('ach-msg', 'Bank connection is temporarily unavailable.'); return; }
+        const stripe = Stripe(si.data.publishable_key);
+        const clientSecret = si.data.client_secret;
+        const collected = await stripe.collectBankAccountForSetup({
+          clientSecret,
+          params: { payment_method_type: 'us_bank_account', payment_method_data: { billing_details: { name, email } } },
+          expand: ['payment_method'],
+        });
+        if (collected.error) { setMsg('ach-msg', collected.error.message || 'Bank connection was cancelled.'); return; }
+        let result = collected.setupIntent;
+        if (result && result.status === 'requires_confirmation') {
+          const confirmed = await stripe.confirmUsBankAccountSetup(clientSecret);
+          if (confirmed.error) { setMsg('ach-msg', confirmed.error.message || 'Could not confirm the bank account.'); return; }
+          result = confirmed.setupIntent;
+        }
+        const done = await api('POST', '/api/payout-profile/me/ach/confirm', { setup_intent_id: (result && result.id) || si.data.setup_intent_id });
+        if (done.success) { render(done.data); setMsg('ach-msg', 'Bank account connected.', true); }
+        else setMsg('ach-msg', done.message || 'Could not save the bank account.');
+      } catch (e) { if (e.message !== 'unauthorized') setMsg('ach-msg', 'Could not connect the bank account. Please try again.'); }
+      finally { btn.disabled = false; btn.textContent = t; }
+    });
+
+    // Load
+    api('GET', '/api/payout-profile/me').then(d => {
+      if (d.success) { render(d.data); $('loading').classList.add('hide'); $('app').classList.remove('hide'); }
+      else $('loading').textContent = 'Could not load your payout profile.';
+    }).catch(e => { if (e.message !== 'unauthorized') $('loading').textContent = 'Could not load your payout profile.'; });
+  })();
+  </script>
+</body>
+</html>
