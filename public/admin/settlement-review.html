@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Settlement Review - Advantage.Bid Admin</title>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <style>
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#f1f5f9;color:#0f172a}
+    .wrap{max-width:1000px;margin:0 auto;padding:1.25rem 1rem 4rem}
+    .crumb{font-size:.8rem;color:#64748b;margin-bottom:.5rem}.crumb a{color:#2563eb;text-decoration:none}
+    h1{font-size:1.4rem;font-variant-numeric:tabular-nums}
+    h2{font-size:.72rem;text-transform:uppercase;letter-spacing:.05em;color:#64748b;margin-bottom:.7rem}
+    .card{background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:1rem 1.15rem;margin-bottom:1rem}
+    .grid2{display:grid;grid-template-columns:1fr 1fr;gap:1rem}
+    @media(max-width:760px){.grid2{grid-template-columns:1fr}}
+    .kv{display:flex;justify-content:space-between;gap:1rem;font-size:.88rem;padding:4px 0}
+    .kv .k{color:#64748b}.kv .v{font-weight:600;text-align:right;font-variant-numeric:tabular-nums}
+    .st{font-weight:800;font-size:.74rem;border-radius:999px;padding:4px 12px}
+    .st.ready,.st.paid{background:#dcfce7;color:#166534}.st.pending_review,.st.approved{background:#fef9c3;color:#854d0e}.st.on_hold{background:#fee2e2;color:#991b1b}.st.incomplete{background:#f1f5f9;color:#475569}
+    .ind{display:flex;flex-wrap:wrap;gap:.5rem}
+    .chip{font-size:.82rem;font-weight:600;border-radius:8px;padding:.4rem .7rem;border:1px solid #e2e8f0}
+    .chip.g{background:#f0fdf4;color:#166534;border-color:#bbf7d0}.chip.y{background:#fffbeb;color:#92610a;border-color:#fde68a}.chip.r{background:#fef2f2;color:#991b1b;border-color:#fecaca}
+    .formula .row{display:flex;justify-content:space-between;font-size:.92rem;padding:5px 0;font-variant-numeric:tabular-nums}
+    .formula .op{color:#64748b;font-size:.82rem}
+    .formula .sub{border-top:1px solid #e2e8f0;margin-top:.3rem;padding-top:.5rem;font-weight:700}
+    .formula .final{border-top:2px solid #0f172a;margin-top:.5rem;padding-top:.6rem;font-size:1.25rem;font-weight:800}
+    .neg{color:#b91c1c}
+    .btn{font:inherit;font-size:.82rem;font-weight:600;color:#0f172a;background:#fff;border:1px solid #cbd5e1;border-radius:7px;padding:.5rem .9rem;cursor:pointer}
+    .btn:hover{background:#f8fafc}.btn:disabled{opacity:.5;cursor:default}
+    .btn-credit{background:#16a34a;color:#fff;border-color:#16a34a}.btn-debit{background:#b45309;color:#fff;border-color:#b45309}.btn-pri{background:#2563eb;color:#fff;border-color:#2563eb}
+    table{width:100%;border-collapse:collapse;font-size:.85rem}th,td{text-align:left;padding:.45rem .3rem;border-bottom:1px solid #f1f5f9}
+    th{color:#64748b;font-size:.68rem;text-transform:uppercase;letter-spacing:.04em}
+    .voided{opacity:.5;text-decoration:line-through}
+    .time .ev{display:flex;gap:.6rem;align-items:flex-start;font-size:.85rem;padding:.3rem 0}.time .dot{width:9px;height:9px;border-radius:50%;background:#2563eb;margin-top:5px;flex:none}.time .when{color:#94a3b8;font-size:.75rem}
+    .banner{border-radius:9px;padding:.8rem 1rem;font-size:.88rem;font-weight:600;margin-bottom:1rem}
+    .banner.off{background:#fffbeb;color:#92610a;border:1px solid #fde68a}.banner.final{background:#ecfdf5;color:#065f46;border:1px solid #a7f3d0}
+    .muted{color:#94a3b8}.na{color:#94a3b8;font-weight:600}
+    .modal-bg{position:fixed;inset:0;background:rgba(15,23,42,.5);display:none;align-items:center;justify-content:center;padding:1rem;z-index:50}
+    .modal{background:#fff;border-radius:12px;padding:1.4rem;max-width:440px;width:100%}
+    .modal h3{font-size:1.05rem;margin-bottom:.9rem}
+    label.f{display:block;font-size:.8rem;font-weight:600;color:#374151;margin:.7rem 0 .3rem}
+    input.t,select.t,textarea.t{width:100%;border:1.5px solid #e5e7eb;border-radius:8px;padding:.55rem .65rem;font:inherit;font-size:.9rem}
+    .msg{font-size:.84rem;margin-top:.6rem}.msg.err{color:#b91c1c}.msg.ok{color:#15803d}
+    @media print{ body{background:#fff} .btn,.modal-bg,.crumb,.actions{display:none!important} .card{border:1px solid #cbd5e1;break-inside:avoid} }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="crumb"><a href="/admin/">Admin</a> · Settlement Review</div>
+    <div id="status" class="muted">Loading settlement…</div>
+
+    <div id="app" style="display:none">
+      <div id="finalized" class="banner final" style="display:none"></div>
+      <div id="offbanner" class="banner off" style="display:none">Seller Settlements are currently OFF. This review is read-only until settlements are enabled.</div>
+
+      <!-- 1. Overview -->
+      <div class="card">
+        <div style="display:flex;align-items:center;gap:.7rem;flex-wrap:wrap;margin-bottom:.8rem">
+          <h1 id="ov-title">Auction</h1>
+          <span class="st" id="ov-status">Pending Review</span>
+          <div style="flex:1"></div>
+          <div style="text-align:right"><div class="muted" style="font-size:.72rem">Net Seller Payment</div><div id="ov-net" style="font-size:1.5rem;font-weight:800;font-variant-numeric:tabular-nums">$0.00</div></div>
+        </div>
+        <div class="grid2">
+          <div id="ov-left"></div>
+          <div id="ov-right"></div>
+        </div>
+      </div>
+
+      <!-- 2. Readiness -->
+      <div class="card"><h2>Financial Readiness</h2><div class="ind" id="readiness"></div></div>
+
+      <div class="grid2">
+        <!-- 3. Buyer Payments -->
+        <div class="card"><h2>Buyer Payment Summary</h2><div id="buyer-funds"></div></div>
+        <!-- 8. Stripe -->
+        <div class="card"><h2>Stripe Processing</h2><div id="stripe"></div></div>
+      </div>
+
+      <!-- 4. Settlement Formula (centerpiece) -->
+      <div class="card"><h2>Settlement Formula</h2><div class="formula" id="formula"></div></div>
+
+      <!-- 5/6. Adjustments -->
+      <div class="card">
+        <div style="display:flex;align-items:center;margin-bottom:.7rem"><h2 style="margin:0">Settlement Adjustments</h2><div style="flex:1"></div>
+          <div class="actions"><button class="btn btn-credit" id="add-credit">Add Credit</button> <button class="btn btn-debit" id="add-debit">Add Debit</button></div>
+        </div>
+        <div id="adjustments"></div>
+      </div>
+
+      <!-- 7. Marketing -->
+      <div class="grid2">
+        <div class="card"><h2>Marketing Charges</h2><div id="marketing-charges"></div></div>
+        <div class="card"><h2>Marketing Performance</h2><div id="marketing-perf"></div></div>
+      </div>
+
+      <!-- 9. Payment Information -->
+      <div class="card">
+        <div style="display:flex;align-items:center;margin-bottom:.7rem"><h2 style="margin:0">Payment Information</h2><div style="flex:1"></div>
+          <div class="actions"><button class="btn" id="recalc">Recalculate</button> <button class="btn btn-pri" id="mark-paid">Mark Paid</button></div>
+        </div>
+        <div id="payment-info"></div>
+      </div>
+
+      <!-- 10. Audit Timeline -->
+      <div class="card"><h2>Audit Timeline</h2><div class="time" id="timeline"></div><button class="btn" id="show-full" style="display:none;margin-top:.6rem">Show Full History</button></div>
+    </div>
+  </div>
+
+  <!-- Adjustment modal -->
+  <div class="modal-bg" id="adj-modal"><div class="modal">
+    <h3 id="adj-title">Add Adjustment</h3>
+    <label class="f" for="adj-category">Category</label>
+    <select class="t" id="adj-category"><option>Fee</option><option>Reimbursement</option><option>Correction</option><option>Credit</option><option>Other</option></select>
+    <label class="f" for="adj-amount">Amount (USD)</label>
+    <input class="t" id="adj-amount" type="number" min="0" step="0.01" placeholder="0.00" />
+    <label class="f" for="adj-reason">Reason (required)</label>
+    <input class="t" id="adj-reason" placeholder="Reason for this adjustment" />
+    <label class="f" for="adj-note">Internal Note (optional)</label>
+    <textarea class="t" id="adj-note" rows="2"></textarea>
+    <div class="msg" id="adj-msg"></div>
+    <div style="display:flex;gap:.6rem;margin-top:1rem"><button class="btn btn-pri" id="adj-save">Save</button><button class="btn" id="adj-cancel">Cancel</button></div>
+  </div></div>
+
+  <!-- Mark Paid modal -->
+  <div class="modal-bg" id="paid-modal"><div class="modal">
+    <h3>Mark Settlement Paid</h3>
+    <p class="muted" style="font-size:.82rem;margin-bottom:.4rem">This records that a manual payment was completed outside the platform. It does not send money.</p>
+    <label class="f" for="pay-method">Payment Method</label>
+    <select class="t" id="pay-method"><option value="check">Check</option><option value="ach">ACH</option></select>
+    <label class="f" for="pay-ref">Payment Reference</label>
+    <input class="t" id="pay-ref" placeholder="CHK-10542 / ACH-20260715-0012" />
+    <label class="f" for="pay-date">Payment Date</label>
+    <input class="t" id="pay-date" type="date" />
+    <label class="f" for="pay-note">Payment Note (optional)</label>
+    <input class="t" id="pay-note" />
+    <label class="f" style="display:flex;align-items:center;gap:.5rem;font-weight:600"><input type="checkbox" id="pay-confirm" /> I confirm this payment was actually completed.</label>
+    <div class="msg" id="paid-msg"></div>
+    <div style="display:flex;gap:.6rem;margin-top:1rem"><button class="btn btn-pri" id="paid-save">Confirm Mark Paid</button><button class="btn" id="paid-cancel">Cancel</button></div>
+  </div></div>
+
+  <script>
+  (function () {
+    const token = localStorage.getItem('token');
+    if (!token) { location.href = '/login.html?next=' + encodeURIComponent(location.pathname + location.search); return; }
+    try { if (JSON.parse(atob(token.split('.')[1])).role !== 'admin') throw 0; } catch { document.body.innerHTML = '<div style="padding:4rem;text-align:center"><h2>Access Denied</h2></div>'; return; }
+    function adminLogout(){ localStorage.removeItem('token'); location.href = '/login.html'; }
+    function api(method, url, body){ return fetch(url, { method, headers: { 'Content-Type':'application/json', Authorization:'Bearer '+token }, body: body===undefined?undefined:JSON.stringify(body) }).then(r => { if (r.status===401){ adminLogout(); throw new Error('expired'); } return r.json().then(j => ({ http:r.status, j })); }); }
+    const $ = id => document.getElementById(id);
+    const esc = s => String(s==null?'':s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+    const money = c => (c==null?'$0.00':'$' + (Number(c)/100).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}));
+    const neg = c => '<span class="neg">-' + money(c) + '</span>';
+    const dt = s => { if (!s) return 'Not set'; try { return new Date(s).toLocaleString('en-US',{month:'short',day:'numeric',year:'numeric',hour:'numeric',minute:'2-digit'}); } catch(e){ return 'Not set'; } };
+    const day = s => { if (!s) return 'Not set'; try { return new Date(s).toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'}); } catch(e){ return 'Not set'; } };
+    const kv = (k,v) => '<div class="kv"><span class="k">'+esc(k)+'</span><span class="v">'+v+'</span></div>';
+    const cap = s => s ? s.charAt(0).toUpperCase()+s.slice(1) : s;
+    const auctionId = new URLSearchParams(location.search).get('auction');
+
+    const EVENT_LABEL = { 'settlement.created':'Settlement Created','settlement.recalculated':'Recalculated','settlement.adjustment_added':'Adjustment Added','settlement.adjustment_removed':'Adjustment Voided','settlement.marked_paid':'Marked Paid','settlement.approved':'Approved','settlement.on_hold':'Placed On Hold' };
+    let D = null, showFull = false;
+
+    function render(d) {
+      D = d; const a = d.auction, s = d.summary, bf = d.buyer_funds, adj = d.adjustments || [];
+      const locked = a.is_paid, enabled = d.settlements_enabled;
+      $('ov-title').textContent = a.title || 'Auction';
+      const st = $('ov-status'); st.textContent = a.settlement_status_label; st.className = 'st ' + a.settlement_status;
+      $('ov-net').textContent = money(s.net_seller_proceeds_cents);
+      $('ov-left').innerHTML = kv('Auction ID', esc(a.number)) + kv('Seller', esc(a.seller_name)) + kv('Auction Closed', day(a.close_date)) + kv('Settlement Version', esc(a.settlement_version));
+      const pm = a.payment_method ? a.payment_method.toUpperCase() : 'Not set';
+      $('ov-right').innerHTML = kv('Preferred Payment Method', esc(pm)) + kv('Payout Profile', cap((a.payout_profile_status||'').replace('_',' '))) + kv('Payment Ready', d.readiness.can_mark_paid ? 'Yes' : 'No') + kv('Settlement Status', a.settlement_status_label);
+
+      // finalized / off banners
+      if (locked) { $('finalized').style.display='block'; $('finalized').innerHTML = 'Settlement Finalized · Paid ' + day(d.payment && d.payment.payment_date) + ' · Reference ' + esc((d.payment&&d.payment.payment_reference)||'Not set') + ' · Version ' + esc(a.settlement_version) + '. Editing is disabled because this settlement has been paid.'; }
+      $('offbanner').style.display = (!enabled && !locked) ? 'block' : 'none';
+
+      // readiness indicators
+      const ind = [];
+      ind.push(bf.outstanding_cents===0 ? ['g','Buyer Payments Complete'] : ['y','Outstanding Buyer Payments']);
+      const ps = a.payout_profile_status;
+      ind.push(ps==='ready' ? ['g','Seller Banking Complete'] : (ps==='needs_attention' ? ['y', a.payment_method==='check'?'Missing Mailing Address':'Seller Banking Incomplete'] : ['r','Payment Method Missing']));
+      ind.push(!d.stripe.balance_transaction_incomplete ? ['g','Stripe Fees Captured'] : ['y','Stripe Fee Not Yet Captured']);
+      ind.push(bf.refunds_cents===0 ? ['g','No Outstanding Refunds'] : ['y','Refunds Present']);
+      ind.push(d.readiness.can_mark_paid ? ['g','Ready For Payment'] : ['r','Not Ready For Payment']);
+      const DOT = { g:'🟢', y:'🟡', r:'🔴' };
+      $('readiness').innerHTML = ind.map(([c,t]) => '<span class="chip '+c+'">'+DOT[c]+' '+esc(t)+'</span>').join('');
+
+      // buyer funds
+      $('buyer-funds').innerHTML = kv('Expected Buyer Payments', money(bf.expected_cents)) + kv('Collected Buyer Payments', money(bf.collected_cents)) + kv('Outstanding Buyer Payments', money(bf.outstanding_cents)) + kv('Failed Payments', esc(bf.failed_cents)) + kv('Refunds', money(bf.refunds_cents)) + '<div class="kv" style="border-top:1px solid #e2e8f0;margin-top:.3rem;padding-top:.5rem"><span class="k">Net Collected</span><span class="v">'+money(bf.net_collected_cents)+'</span></div>';
+
+      // stripe
+      $('stripe').innerHTML = kv('Actual Stripe Processing Cost', money(d.stripe.actual_processing_cents)) + kv('Processing Recovery', money(d.stripe.actual_processing_cents)) + kv('Balance Transaction Status', d.stripe.balance_transaction_incomplete ? 'Not Yet Captured' : 'Captured') + kv('Platform Fee', '0.00%');
+
+      // formula
+      const f = [];
+      f.push(['Collected Buyer Payments', money(s.buyer_payments_collected_cents), '']);
+      f.push(['Less Refunds', neg(s.refunds_cents), 'op']);
+      f.push(['Net Collected', money(s.net_collected_cents), 'sub']);
+      f.push(['Plus Credits', s.adjustments.credit_cents?('+'+money(s.adjustments.credit_cents)):money(0), 'op']);
+      f.push(['Less Debits', neg(s.adjustments.debit_cents), 'op']);
+      f.push(['Less Marketing Charges', neg(s.marketing_deduction_cents), 'op']);
+      f.push(['Less Actual Stripe Processing', neg(s.credit_card_processing_fee_cents), 'op']);
+      f.push(['Less Platform Fee (0.00%)', neg(s.seller_platform_fee_cents), 'op']);
+      f.push(['Net Seller Payment', money(s.net_seller_proceeds_cents), 'final']);
+      $('formula').innerHTML = f.map(([k,v,cls]) => '<div class="row '+(cls==='sub'?'sub':cls==='final'?'final':'')+'"><span class="'+(cls==='op'?'op':'')+'">'+esc(k)+'</span><span>'+v+'</span></div>').join('');
+
+      // adjustments history
+      if (!adj.length) $('adjustments').innerHTML = '<p class="muted" style="font-size:.85rem">No adjustments.</p>';
+      else $('adjustments').innerHTML = '<table><thead><tr><th>Type</th><th>Amount</th><th>Category</th><th>Reason</th><th>By</th><th>When</th><th></th></tr></thead><tbody>' + adj.map(x => {
+        const voided = !!x.voided_at;
+        const amt = (x.adjustment_type==='credit'?'+':'-') + money(x.amount_cents);
+        const voidBtn = (!voided && !locked && enabled) ? '<button class="btn" data-void="'+esc(x.id)+'" style="font-size:.72rem;padding:.25rem .5rem">Void</button>' : (voided ? '<span class="muted" style="font-size:.72rem">Voided</span>' : '');
+        return '<tr class="'+(voided?'voided':'')+'"><td>'+cap(x.adjustment_type)+'</td><td>'+amt+'</td><td>'+esc(x.category||'')+'</td><td>'+esc(x.reason||'')+'</td><td>'+esc(x.created_by_user_id?String(x.created_by_user_id).slice(0,8):'')+'</td><td>'+day(x.created_at)+'</td><td>'+voidBtn+'</td></tr>';
+      }).join('') + '</tbody></table>';
+      document.querySelectorAll('[data-void]').forEach(b => b.addEventListener('click', () => voidAdj(b.getAttribute('data-void'))));
+
+      // marketing
+      $('marketing-charges').innerHTML = kv('Marketing Charges', (d.marketing.charges.note||'None')) + kv('Deduction', money(d.marketing.charges.deduction_cents));
+      const perf = d.marketing.performance;
+      if (!perf) $('marketing-perf').innerHTML = '<p class="muted" style="font-size:.85rem">No marketing package for this auction.</p>';
+      else { const na = '<span class="na">Not Available</span>';
+        $('marketing-perf').innerHTML = kv('Marketing Package', esc(perf.package_purchased||'Not set')) + kv('Campaign Status', esc(perf.campaign_status||'Not set')) + kv('Featured Lots', esc(perf.featured_lots)) + kv('Reach', esc(perf.reach)) + kv('Views', esc(perf.views)) + kv('Clicks', esc(perf.clicks)) + kv('Watchlist Adds', esc(perf.watchlist_adds)) + kv('Registered Bidder Conversions', esc(perf.bidder_conversions)) + kv('Attributed Buyers', na) + kv('Attributed Hammer', na) + kv('Campaign Conversion Rate', na); }
+
+      // payment info
+      const p = d.payment || {};
+      $('payment-info').innerHTML = kv('Preferred Payment Method', esc((p.preferred_method||'not set').toUpperCase())) + kv('Payout Status', a.settlement_status_label) + kv('Payment Reference', esc(p.payment_reference||'Not set')) + kv('Payment Date', day(p.payment_date)) + kv('Payment Notes', esc(p.payment_note||'Not set')) + kv('Administrator', esc(p.paid_by_user_id?String(p.paid_by_user_id).slice(0,8):'Not set')) + kv('Final Amount Paid', money(p.final_amount_paid_cents));
+
+      // timeline
+      const tl = (d.timeline||[]).slice().reverse();
+      const shown = showFull ? tl : tl.slice(0,6);
+      $('timeline').innerHTML = shown.map(e => '<div class="ev"><span class="dot"></span><div><div>'+esc(EVENT_LABEL[e.event_type]||e.event_type)+'</div><div class="when">'+dt(e.at)+' · '+esc(e.actor_email||(e.actor_id?String(e.actor_id).slice(0,8):'system'))+'</div></div></div>').join('') || '<p class="muted" style="font-size:.85rem">No activity yet.</p>';
+      $('show-full').style.display = (tl.length>6 && !showFull) ? 'inline-block' : 'none';
+
+      // lock / gate controls
+      const disabled = locked || !enabled;
+      ['add-credit','add-debit','recalc','mark-paid'].forEach(id => { $(id).disabled = disabled; });
+      $('mark-paid').disabled = disabled || !d.readiness.can_mark_paid;
+    }
+
+    function load() {
+      api('GET', '/api/admin/settlements/' + encodeURIComponent(auctionId)).then(({ http, j }) => {
+        if (http===404) { $('status').textContent = 'Auction not found.'; return; }
+        if (!j.success) { $('status').textContent = j.message || 'Could not load settlement.'; return; }
+        $('status').style.display='none'; $('app').style.display='block'; render(j.data);
+      }).catch(e => { if (e.message!=='expired') $('status').textContent = 'Could not load settlement.'; });
+    }
+
+    // Adjustment modal
+    let adjType = 'credit';
+    function openAdj(type){ adjType=type; $('adj-title').textContent = type==='credit'?'Add Credit':'Add Debit'; $('adj-amount').value=''; $('adj-reason').value=''; $('adj-note').value=''; $('adj-msg').textContent=''; $('adj-modal').style.display='flex'; }
+    $('add-credit').addEventListener('click', ()=>openAdj('credit'));
+    $('add-debit').addEventListener('click', ()=>openAdj('debit'));
+    $('adj-cancel').addEventListener('click', ()=>$('adj-modal').style.display='none');
+    $('adj-save').addEventListener('click', async () => {
+      const cents = Math.round(parseFloat($('adj-amount').value) * 100);
+      if (!(cents>0)) { $('adj-msg').className='msg err'; $('adj-msg').textContent='Enter a positive amount.'; return; }
+      if (!$('adj-reason').value.trim()) { $('adj-msg').className='msg err'; $('adj-msg').textContent='A reason is required.'; return; }
+      const btn=$('adj-save'); btn.disabled=true;
+      const { http, j } = await api('POST', '/api/admin/settlements/'+encodeURIComponent(auctionId)+'/adjustments', { type:adjType, amount_cents:cents, reason:$('adj-reason').value.trim(), category:$('adj-category').value, notes:$('adj-note').value.trim()||null });
+      btn.disabled=false;
+      if (j.success) { $('adj-modal').style.display='none'; load(); }
+      else { $('adj-msg').className='msg err'; $('adj-msg').textContent = j.message || (http===409?'Settlements are not enabled.':'Could not save.'); }
+    });
+
+    async function voidAdj(id){ if (!confirm('Void this adjustment? It stays in history.')) return;
+      const reason = prompt('Reason for voiding (required):'); if (!reason) return;
+      const { j, http } = await api('POST', '/api/admin/settlements/'+encodeURIComponent(auctionId)+'/adjustments/'+encodeURIComponent(id)+'/void', { void_reason: reason });
+      if (j.success) load(); else alert(j.message || (http===409?'Settlements are not enabled.':'Could not void.'));
+    }
+
+    $('recalc').addEventListener('click', async () => { const { j, http } = await api('POST','/api/admin/settlements/'+encodeURIComponent(auctionId)+'/recalculate'); if (j.success) load(); else alert(j.message || (http===409?'Settlements are not enabled.':'Could not recalculate.')); });
+    $('show-full').addEventListener('click', () => { showFull=true; render(D); });
+
+    // Mark Paid modal
+    $('mark-paid').addEventListener('click', () => { $('paid-msg').textContent=''; $('pay-ref').value=''; $('pay-note').value=''; $('pay-confirm').checked=false; $('paid-modal').style.display='flex'; });
+    $('paid-cancel').addEventListener('click', ()=>$('paid-modal').style.display='none');
+    $('paid-save').addEventListener('click', async () => {
+      if (!$('pay-ref').value.trim() || !$('pay-date').value || !$('pay-confirm').checked) { $('paid-msg').className='msg err'; $('paid-msg').textContent='Reference, date, and confirmation are required.'; return; }
+      const btn=$('paid-save'); btn.disabled=true;
+      const { http, j } = await api('POST','/api/admin/settlements/'+encodeURIComponent(auctionId)+'/mark-paid', { payment_method:$('pay-method').value, payment_reference:$('pay-ref').value.trim(), paid_at:$('pay-date').value, payment_note:$('pay-note').value.trim()||null, final_amount_cents: D.summary.net_seller_proceeds_cents, confirmed_completed:true });
+      btn.disabled=false;
+      if (j.success) { $('paid-modal').style.display='none'; load(); }
+      else { $('paid-msg').className='msg err'; $('paid-msg').textContent = j.message || (http===409?'Settlements are not enabled.':'Could not mark paid.'); }
+    });
+
+    if (!auctionId) { $('status').textContent = 'No auction specified. Open this page as settlement-review.html?auction=<id>.'; }
+    else load();
+  })();
+  </script>
+</body>
+</html>
