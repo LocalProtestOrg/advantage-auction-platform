@@ -17,7 +17,11 @@ const SELLER_PAGES = [
   'seller-faq.html',
   'how-it-works.html',
 ];
-const read = (f) => fs.readFileSync(path.join(PUB, f), 'utf8');
+// The guard checks seller-facing COPY. Strip <style>/<script> so CSS values (e.g. gradient
+// coordinates like "20% 10%") and inline JS can never false-positive the fee-wording checks.
+const read = (f) => fs.readFileSync(path.join(PUB, f), 'utf8')
+  .replace(/<style[\s\S]*?<\/style>/gi, ' ')
+  .replace(/<script[\s\S]*?<\/script>/gi, ' ');
 
 // Substrings that assert a seller platform fee / 10% seller-fee claim. None may appear.
 const FORBIDDEN = [
