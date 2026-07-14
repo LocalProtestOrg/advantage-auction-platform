@@ -1,14 +1,18 @@
-/* Shared admin header/navigation (ADMIN-CTRL Phase 1B). Self-mounts a sticky top
- * bar with Back, brand, Moderation / Buyers links, and Log out - giving every
- * admin page a consistent nav + a Back affordance (previously missing on
- * moderation.html). Include on any admin page:
+/* Shared admin header/navigation. Self-mounts one sticky top bar on every admin page:
+ * Back, brand (-> Admin Home), the core Admin sections, an ADMIN badge, and Log out -
+ * so every admin page has a consistent header and a one-click return to Admin Home
+ * (canonical route: /admin/). Include on any admin page:
  *   <script src="/widgets/shared/admin-nav.js"></script>
+ * This is presentation only: it renders static links and never bypasses the per-page
+ * auth checks or the server-side admin authorization that remain authoritative.
  * Pages may define window.adminLogout(); otherwise a default clear+redirect runs.
  */
 (function () {
   'use strict';
   if (window.__adminNavInstalled) return;
   window.__adminNavInstalled = true;
+
+  var HOME = '/admin/'; // canonical Admin Home route (serves admin/index.html)
 
   var CSS =
     '#admin-nav{position:sticky;top:0;z-index:60;background:#111827;color:#fff;' +
@@ -24,22 +28,37 @@
     '#admin-nav .an-badge{font-size:11px;font-weight:800;letter-spacing:.05em;color:#fbbf24;border:1px solid rgba(251,191,36,.5);border-radius:99px;padding:2px 8px;margin-right:6px}' +
     '#admin-nav .an-auth a{color:#cbd5e1;text-decoration:none;font-size:14px;font-weight:700;padding:7px 10px;white-space:nowrap;cursor:pointer}' +
     '#admin-nav .an-auth a:hover{color:#fff}' +
+    '#admin-nav a:focus-visible,#admin-nav button:focus-visible{outline:2px solid #fbbf24;outline-offset:2px}' +
     '@media (max-width:600px){#admin-nav .an-brand{display:none}}';
 
+  // Only sections that actually exist and are actively used in production.
   var LINKS = [
+    { href: HOME, label: 'Admin Home' },
     { href: '/admin/moderation.html', label: 'Moderation' },
-    { href: '/admin/events.html', label: 'Events' },
     { href: '/admin/users.html', label: 'Users' },
     { href: '/admin/buyers.html', label: 'Buyers' },
     { href: '/admin/verification.html', label: 'Verification' },
+    { href: '/admin/agreements.html', label: 'Agreements' },
+    { href: '/admin/events.html', label: 'Events' },
+    { href: '/admin/invoices.html', label: 'Invoices' },
+    { href: '/admin/marketplace-config.html', label: 'Marketplace Config' },
   ];
 
+  function isActive(href) {
+    var p = location.pathname;
+    if (href === HOME) return p === '/admin/' || p === '/admin' || p === '/admin/index.html';
+    if (p === href) return true;
+    // Detail pages belong to their parent section.
+    if (href === '/admin/invoices.html' && p === '/admin/invoice-detail.html') return true;
+    if (href === '/admin/events.html' && p === '/admin/event-detail.html') return true;
+    return false;
+  }
   function sameOriginReferrer() {
     try { return document.referrer && new URL(document.referrer).origin === location.origin; } catch (e) { return false; }
   }
   function goBack() {
     if (history.length > 1 && sameOriginReferrer()) history.back();
-    else location.href = '/admin/moderation.html';
+    else location.href = HOME;
   }
   function doLogout(e) {
     if (e) e.preventDefault();
@@ -51,20 +70,19 @@
   function mount() {
     if (document.getElementById('admin-nav')) return;
     var style = document.createElement('style'); style.textContent = CSS; document.head.appendChild(style);
-    var here = location.pathname;
     var linksHtml = LINKS.map(function (l) {
-      var active = here === l.href || here.indexOf(l.href) === 0;
-      return '<a href="' + l.href + '"' + (active ? ' class="active"' : '') + '>' + l.label + '</a>';
+      var active = isActive(l.href);
+      return '<a href="' + l.href + '"' + (active ? ' class="active" aria-current="page"' : '') + '>' + l.label + '</a>';
     }).join('');
     var header = document.createElement('header');
     header.id = 'admin-nav';
     header.innerHTML =
       '<div class="an-inner">' +
         '<button class="an-back" type="button" aria-label="Go back">&#8592; Back</button>' +
-        '<a class="an-brand" href="/admin/moderation.html">Advantage Admin</a>' +
-        '<nav class="an-links">' + linksHtml + '</nav>' +
+        '<a class="an-brand" href="' + HOME + '">Advantage Admin</a>' +
+        '<nav class="an-links" aria-label="Admin sections">' + linksHtml + '</nav>' +
         '<span class="an-badge">ADMIN</span>' +
-        '<div class="an-auth"><a data-an-logout>Log out</a></div>' +
+        '<div class="an-auth"><a data-an-logout tabindex="0" role="button">Log out</a></div>' +
       '</div>';
     document.body.insertBefore(header, document.body.firstChild);
     header.querySelector('.an-back').addEventListener('click', goBack);
