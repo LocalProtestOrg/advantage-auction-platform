@@ -110,6 +110,7 @@
       if (!legalName) { err.textContent = 'Please enter your full legal name.'; return; }
       var phone = document.getElementById('phone').value.trim();
       if (!phone) { err.textContent = 'Please enter a phone number so we can reach you about your auction.'; return; }
+      if (phone.replace(/\D/g, '').length < 10) { err.textContent = 'Please enter a valid phone number.'; return; }
       var payload = {
         seller_type: document.getElementById('seller-type').value,
         legal_name:  legalName,
@@ -123,15 +124,27 @@
           headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + authToken },
           body: JSON.stringify(payload),
         });
-        var json = await res.json();
+        // Session expired / no longer valid: re-authenticate, preserving this destination.
+        if (res.status === 401) {
+          localStorage.removeItem('token');
+          location.href = '/login.html?next=' + encodeURIComponent('/become-seller.html');
+          return;
+        }
+        var json = {};
+        try { json = await res.json(); } catch (_) { /* non-JSON response */ }
         if (!res.ok || !json.success) {
-          err.textContent = json.message || 'Could not enable selling. Please try again.';
+          // Show the specific server explanation. Handled errors use `message`; auth/500
+          // responses use `error`. Only fall back to a generic line if neither exists.
+          err.textContent = json.message || json.error || 'We could not complete seller setup. Please try again.';
           btn.disabled = false; btn.textContent = 'Continue to seller agreement →';
           return;
         }
         // Adopt the fresh seller-role JWT so seller tooling works immediately.
         if (json.token) localStorage.setItem('token', json.token);
-        // Route into the agreement; once signed, the seller dashboard is enabled.
+        // Route to the correct seller destination: dashboard if already accessible,
+        // otherwise the agreement step (which enables the dashboard once signed).
+        var ob = json.data && json.data.onboarding;
+        if (ob && ob.dashboard_access) { location.href = '/seller-dashboard.html'; return; }
         location.href = '/sign-agreement.html?onboarding=1';
       } catch (e) {
         err.textContent = 'Network error. Please try again.';
