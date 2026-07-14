@@ -517,7 +517,10 @@
       display: none;
       position: fixed;
       inset: 0;
-      background: rgba(0, 0, 0, 0.94);
+      /* Clean white stage so enlarged lot photos read the same as on the white
+         lot cards (no black/iridescent surround). Controls below are darkened to
+         stay visible on white. Scoped to this lot-image lightbox only. */
+      background: #ffffff;
       z-index: 1000;
       align-items: center;
       justify-content: center;
@@ -537,7 +540,7 @@
       position: fixed;
       top: 14px;
       right: 18px;
-      color: #fff;
+      color: #111827;
       font-size: 1.9rem;
       cursor: pointer;
       background: none;
@@ -551,9 +554,9 @@
       position: fixed;
       top: 50%;
       transform: translateY(-50%);
-      background: rgba(255, 255, 255, 0.1);
+      background: rgba(0, 0, 0, 0.06);
       border: none;
-      color: #fff;
+      color: #111827;
       font-size: 1.4rem;
       width: 44px;
       height: 64px;
@@ -564,8 +567,8 @@
       justify-content: center;
       transition: background 0.15s;
     }
-    .lb-nav:hover { background: rgba(255, 255, 255, 0.22); }
-    .lb-nav:disabled { opacity: 0.15; cursor: default; }
+    .lb-nav:hover { background: rgba(0, 0, 0, 0.14); }
+    .lb-nav:disabled { opacity: 0.2; cursor: default; }
     #lb-prev { left: 14px; }
     #lb-next { right: 14px; }
     #lb-counter {
@@ -573,7 +576,7 @@
       bottom: 18px;
       left: 50%;
       transform: translateX(-50%);
-      color: rgba(255, 255, 255, 0.5);
+      color: rgba(0, 0, 0, 0.55);
       font-size: 0.78rem;
       letter-spacing: 0.04em;
     }

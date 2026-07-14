@@ -225,13 +225,14 @@ If the platform has a default ladder, use it. Otherwise specify:
 
 | Current bid | Next increment |
 |---|---|
-| $0 – $24 | $1 |
-| $25 – $99 | $5 |
-| $100 – $499 | $10 |
-| $500 – $999 | $25 |
-| $1,000+ | $50 |
+| $0.01 – $49.99 | $1 |
+| $50 – $199.99 | $5 |
+| $200 – $499.99 | $10 |
+| $500 – $999.99 | $25 |
+| $1,000 – $2,499.99 | $50 |
+| $2,500+ | $100 |
 
-This gives buyers enough granularity to bid often (signal volume) without making the increments feel punitive.
+Whole-dollar increments only — there is no half-dollar ($2.50) band. This gives buyers enough granularity to bid often (signal volume) without making the increments feel punitive.
 
 ### Why 7 lots, not more
 

@@ -69,7 +69,7 @@ async function setupBuyer(tag, aucId) {
     ok('C session sliding-renewal header issued past half-life', !!(rr.headers.get && rr.headers.get('x-refreshed-token')));
 
     // D increment ladder bands (server-authoritative) — set price, read effective increment
-    const bands = [[100, 100], [2500, 250], [5000, 500], [20000, 1000], [50000, 2500], [100000, 5000], [250000, 10000]];
+    const bands = [[100, 100], [2500, 100], [5000, 500], [20000, 1000], [50000, 2500], [100000, 5000], [250000, 10000]];
     let ladderOk = true, detail = [];
     for (const [cur, inc] of bands) {
       await db.query(`UPDATE lots SET current_bid_cents=$1 WHERE id=$2`, [cur, lot2]);
