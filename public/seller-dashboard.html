@@ -643,7 +643,7 @@ function renderAuctionCard(container, auction) {
 
   const statusCallout = isSubmitted ? `
     <div style="margin:0.75rem 1.25rem 0;padding:0.65rem 0.9rem;background:#eff6ff;border:1px solid #bfdbfe;border-radius:6px;font-size:0.82rem;color:#1e40af;line-height:1.5">
-      Awaiting review by Advantage Auction. Your auction has been submitted and is locked for editing. We typically review within 1-2 business days and will contact you when it's approved or if we have questions. If your auction has not been approved after 2 business days email us at <a href="mailto:advantageauction.bid@gmail.com" style="color:#1d4ed8">advantageauction.bid@gmail.com</a> from the email account you registered with.
+      Awaiting review by Advantage Auction. Your auction has been submitted and is locked for editing. We typically review within 1-2 business days and will contact you when it's approved or if we have questions. If your auction has not been approved after 2 business days email us at <a href="mailto:info@advantage.bid" style="color:#1d4ed8">info@advantage.bid</a> from the email account you registered with.
     </div>` : '';
 
   // GOV-RET: revision banner shown when a draft has been returned by the
@@ -690,6 +690,7 @@ function renderAuctionCard(container, auction) {
       <div class="auction-actions">
         ${isPublished ? `<a href="/auction-view.html?auctionId=${auction.id}" class="btn btn-ghost btn-sm" target="_blank">View Live</a>` : ''}
         <button class="btn btn-secondary btn-sm" data-toggle-lots="${auction.id}">View Lots</button>
+        ${isEditable ? `<a href="/seller-create.html?edit=${auction.id}" class="btn btn-secondary btn-sm">Edit Auction Details</a>` : ''}
         ${isEditable ? `<a href="/dashboard/lots.html?auctionId=${auction.id}" class="btn btn-primary btn-sm">+ Add Lot</a>` : ''}
         ${isEditable ? `<button class="btn btn-secondary btn-sm" data-submit-auction="${auction.id}" data-auction-title="${escHtml(auction.title || 'Untitled')}">Submit for AAC Review</button>` : ''}
         <button class="btn btn-ghost btn-sm" data-history="${auction.id}" data-auction-title="${escHtml(auction.title || 'Untitled')}" title="View moderation and lifecycle history">History</button>
