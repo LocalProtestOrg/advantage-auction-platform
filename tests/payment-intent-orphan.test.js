@@ -260,7 +260,11 @@ describe('_handlePaymentIntentSucceeded — webhook intent lookup ordering', () 
     // throw so the test exits before requiring the full success path.
     db.query.mockImplementationOnce(async (sql) => {
       expect(sql).toMatch(/ORDER BY CASE status\s+WHEN 'pending' THEN 0\s+WHEN 'paid'\s+THEN 1\s+ELSE 2\s+END,\s+created_at DESC/);
-      return { rows: [{ id: 'p-pending' }] };
+      // Include lot_id so this is a per-lot payment (NOT a combined/null-lot invoice),
+      // routing the handler to recordPaymentSuccess — the path this test exercises.
+      // Without it, isCombinedPayment() treats the row as combined and diverts into
+      // the buyer_auction_invoices branch this test intentionally does not stub.
+      return { rows: [{ id: 'p-pending', lot_id: 'lot-1' }] };
     });
     jest.spyOn(paymentService, 'recordPaymentSuccess').mockRejectedValueOnce(new Error('stop'));
 

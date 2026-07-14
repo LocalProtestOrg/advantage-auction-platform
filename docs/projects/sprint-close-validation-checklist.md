@@ -23,7 +23,7 @@ browser/mobile/audio check a person performs.
 ## Bidding + max bidding + ladder (#3, #16)
 - [ ] `[AUTO]` A bids, B outbids, A re-leads — current bid + next-min ascend.
 - [ ] `[AUTO]` Max/proxy bid accepted; success wording is **"Your Max Bid: $X"**.
-- [ ] `[AUTO]` Increment ladder exact: $1/$2.50/$5/$10/$25/$50/$100 bands incl. **>$1000 = $50**.
+- [ ] `[AUTO]` Increment ladder exact (whole-dollar, no $2.50 band): $1/$5/$10/$25/$50/$100 bands incl. **$1000–$2499.99 = $50, >$2500 = $100**.
 - [ ] `[AUTO]` Too-low bid → "Bid must be at least $X.XX".
 
 ## Winning / Outbid + Increase Your Max Bid (#2, #10)

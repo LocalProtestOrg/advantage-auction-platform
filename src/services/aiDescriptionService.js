@@ -42,7 +42,59 @@ const CONDITION_NOTES = [
 ];
 
 const PROMPT = `You are an auction house catalog writer. Analyze this item image and respond with ONLY valid JSON — no markdown, no explanation — in exactly this format:
-{"title":"concise descriptive title in 5-8 words","description":"2-3 factual sentences covering what the item is and any visible condition details","category":"one of: Furniture, Fine Art, Jewelry, Home Decor, Tools, Pottery & Ceramics, Clocks & Timepieces, Antiques, General","pickup_category":"A or B or C where A=small carry by hand B=medium needs two people C=large needs truck or dolly"}`;
+{"title":"concise descriptive title in 5-8 words","description":"2-3 factual sentences covering what the item is and any visible condition details","category":"one of: Furniture, Fine Art, Jewelry, Home Decor, Tools, Pottery & Ceramics, Clocks & Timepieces, Antiques, Lighting, General","pickup_category":"A or B or C where A=small carry by hand B=medium needs two people C=large needs truck or dolly","item_count":number of distinct physical items visible (use 1 for a single item),"items_similar":true if there are multiple substantially similar or matching items forming a coherent set, false if the items are mixed or assorted,"count_confident":true only if you can count the items exactly and with confidence}
+Write "title" as the plain noun phrase for the item(s) — e.g. "Porcelain Dinner Plates" or "Assorted Kitchen Utensils" — WITHOUT any leading "Set of" or "Box Lot"; that opening is added automatically from item_count and items_similar.`;
+
+// ── WS4: multi-item lot naming ────────────────────────────────────────────────
+// Lots with several items follow an APPROVED naming convention, applied here as a
+// deterministic rule (not a brittle string replacement) from the model's structured
+// observations:
+//   • 4+ substantially similar / matching items → "Set of [Count] …" (a coherent set)
+//   • 4+ mixed / assorted items                 → "Box Lot of Assorted …"
+//   • fewer than 4 items                        → unchanged (rule does not trigger)
+// An exact count word is used ONLY when the model is confident of the count; a
+// "Box Lot" never states a count (so an uncertain count can never become a false one).
+// The model returns the plain noun phrase; the opening is composed here so the rule
+// is deterministic, testable, and consistent across generations.
+const MULTI_ITEM_THRESHOLD = 4;
+const NUMBER_WORDS = ['Zero', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight',
+  'Nine', 'Ten', 'Eleven', 'Twelve'];
+// Leading words that already convey "a mix of things". Used to avoid stacking a
+// second grouping word in the Box Lot branch ("Assorted Mixed …") and to strip
+// wording that contradicts a matching-set signal in the Set branch ("Set of
+// Assorted …"). The deterministic signal stays authoritative over base wording.
+const GROUPING_SYNONYM = /^(an?\s+)?(assorted|assortment(?:\s+of)?|mixed|miscellaneous|misc|various|sundry|sundries|variety(?:\s+of)?)\b[\s,:.-]*/i;
+function numberWord(n) {
+  return (Number.isInteger(n) && n >= 0 && n < NUMBER_WORDS.length) ? NUMBER_WORDS[n] : String(n);
+}
+function stripLeadingGrouping(s) {
+  return String(s == null ? '' : s).replace(GROUPING_SYNONYM, '').trim();
+}
+function composeLotTitle(opts) {
+  const o = opts || {};
+  const base = String(o.baseTitle == null ? '' : o.baseTitle).trim();
+  const n = Number(o.itemCount);
+  // A coherent set requires BOTH enough items AND substantial similarity.
+  const itemsSimilar = o.itemsSimilar === true;
+  const countConfident = o.countConfident === true;
+  // Respect a title that already follows the convention (e.g. seller-entered).
+  if (/^(set of\b|box lot\b)/i.test(base)) return { title: base, pattern: 'preserved', applied: false };
+  if (!Number.isFinite(n) || n < MULTI_ITEM_THRESHOLD) return { title: base, pattern: 'single', applied: false };
+  if (itemsSimilar) {
+    // Matching set → "Set of [Count] …". A matching set contradicts "assorted/mixed/…",
+    // so strip any such leading grouping word first (never "Set of Four Assorted Plates").
+    // Only include an exact count word when the count is confidently known.
+    const body = stripLeadingGrouping(base) || base;
+    const prefix = countConfident ? ('Set of ' + numberWord(Math.round(n)) + ' ') : 'Set of ';
+    return { title: prefix + body, pattern: 'set', applied: true };
+  }
+  // Mixed / assorted group → "Box Lot of …" (never states a count). Normalize the base
+  // first: drop a trailing "Box" (avoids "Box Lot … Box"), and only add "Assorted" when
+  // the base does not already begin with a grouping synonym (avoids "Assorted Mixed …").
+  const body = base.replace(/\s+box$/i, '').trim() || base;
+  const alreadyGrouped = GROUPING_SYNONYM.test(body);
+  return { title: 'Box Lot of ' + (alreadyGrouped ? body : ('Assorted ' + body)), pattern: 'box_lot', applied: true };
+}
 
 function fallback() {
   const sample = SAMPLES[Math.floor(Math.random() * SAMPLES.length)];
@@ -104,8 +156,15 @@ async function generateDescriptionFromImage(imageUrl) {
   }
 
   const category = parsed.category || 'General';
+  // WS4: apply the multi-item naming convention from the model's structured signals.
+  const named = composeLotTitle({
+    baseTitle:      parsed.title,
+    itemCount:      parsed.item_count,
+    itemsSimilar:   parsed.items_similar === true,
+    countConfident: parsed.count_confident === true,
+  });
   return {
-    title:           parsed.title           || 'Untitled Item',
+    title:           named.title           || parsed.title || 'Untitled Item',
     description:     parsed.description     || '',
     category:        category,
     pickup_category: parsed.pickup_category || 'B',
@@ -223,4 +282,6 @@ module.exports = {
   // Exported for unit-testing the conservative "Not Sure" prompt construction
   // without calling the live AI provider.
   buildConfirmationLines,
+  // WS4: exported for unit-testing the deterministic multi-item naming rule.
+  composeLotTitle,
 };

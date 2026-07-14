@@ -374,14 +374,14 @@ describe('createBid — increment hierarchy', () => {
   }
 
   test('G — lot-level increment applied in validation (bid just below rejected)', async () => {
-    // lot increment = 250 cents; current = 0; starting = 100
-    // minAllowed = max(100, 0+250) = 250 → bid of 200 must be rejected
-    const lot    = makeLot({ bid_increment_cents: 250, current_bid_cents: 0 });
+    // lot increment = 300 cents (whole-dollar); current = 0; starting = 100
+    // minAllowed = max(100, 0+300) = 300 → bid of 200 must be rejected
+    const lot    = makeLot({ bid_increment_cents: 300, current_bid_cents: 0 });
     const client = makeClient({ 'for update': { rows: [lot] } });
 
     await expect(
       bid(client, 'lot-aaa', 'user-1', { max_bid_cents: 200 })
-    ).rejects.toThrow('Bid must be at least $2.50');
+    ).rejects.toThrow('Bid must be at least $3.00');
   });
 
   test('G — lot-level increment used in proxy visible price', async () => {
