@@ -276,8 +276,8 @@
 <div id="status-banner"></div>
 
 <div class="card">
-  <h1>Create Auction</h1>
-  <p class="subtitle">Describe the sale event. You'll add individual lots after saving.</p>
+  <h1 id="page-h1">Create Auction</h1>
+  <p class="subtitle" id="page-subtitle">Describe the sale event. You'll add individual lots after saving.</p>
 
   <!-- ── Auction Identity ─────────────────────────────────────────── -->
   <p class="section-title">Auction Identity</p>
@@ -464,7 +464,7 @@
        The auction is saved as a draft you can keep editing; there is no separate
        "submit for review" step here — Advantage publishes auctions once your
        lots are ready. -->
-  <div class="actions-help" style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:0.85rem 1rem;margin-bottom:0.75rem;color:#1e3a8a;font-size:0.85rem;line-height:1.5;">
+  <div class="actions-help" id="create-help" style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:0.85rem 1rem;margin-bottom:0.75rem;color:#1e3a8a;font-size:0.85rem;line-height:1.5;">
     <strong>Next:</strong> Create your auction and add lots in the Lot Studio. You can keep editing everything here while you build your catalog. Most sellers complete their entire auction catalog in an afternoon.
   </div>
   <div class="actions">
@@ -482,6 +482,25 @@
   let coverImageUrl       = null;
   let walkthroughVideoUrl = null;
   let walkthroughVideoId  = null; // set after auction save + video attach
+
+  // ── Edit mode ────────────────────────────────────────────────────────────────
+  // This same form doubles as the "Edit Auction Details" screen. When opened as
+  // ?edit=<auctionId>, it prefills every seller-editable field and switches the
+  // save from POST /api/auctions (create) to PATCH /api/auctions/:id (update).
+  // The PATCH gate enforces draft-only editing + ownership SERVER-SIDE, so this
+  // is presentation only — a locked auction is refused regardless of this UI.
+  function isUuidLike(v) { return typeof v === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v); }
+  const EDIT_ID = new URLSearchParams(location.search).get('edit');
+  const IS_EDIT = isUuidLike(EDIT_ID);
+  let existingVideo = null; // most-recent walkthrough video row (edit mode)
+
+  if (IS_EDIT) {
+    document.title = 'Edit Auction Details - Advantage Auction';
+    const h1  = document.getElementById('page-h1');       if (h1)  h1.textContent  = 'Edit Auction Details';
+    const sub = document.getElementById('page-subtitle');  if (sub) sub.textContent = "Update your auction-level details, then save. Lots are managed separately from the Lot Studio.";
+    const help = document.getElementById('create-help');   if (help) help.style.display = 'none';
+    const btn = document.getElementById('btn-draft');      if (btn) btn.textContent = 'Save Changes';
+  }
 
   fetch('/api/sellers/me', { headers: { Authorization: 'Bearer ' + token } })
     .then(r => r.json())
@@ -638,13 +657,74 @@
     videoInput.value = '';
   });
 
+  // ── Prefill for edit mode ─────────────────────────────────────────────────────
+  // Load the owner-scoped auction row and populate every seller-editable field.
+  // Datetimes are stored UTC and shown in the auction's own time zone.
+  async function loadAuctionForEdit() {
+    try {
+      const r = await fetch('/api/auctions/' + EDIT_ID, { headers: { Authorization: 'Bearer ' + token } });
+      if (r.status === 401) { window.location.href = '/login.html?next=' + encodeURIComponent(location.pathname + location.search); return; }
+      const d = await r.json();
+      if (!d.success || !d.data) { showBanner(d.message || d.error || 'Could not load this auction for editing.', 'error'); return; }
+      const a = d.data;
+      const set = (id, v) => { const el = document.getElementById(id); if (el != null && v != null) el.value = v; };
+      set('auction-title', a.title || '');
+      set('auction-subtitle', a.subtitle || '');
+      set('auction-description', a.description || '');
+      // Set the time zone FIRST so the datetime conversions below use it.
+      const tz = a.timezone || 'America/New_York';
+      set('auction-timezone', tz);
+      const toLocal = (iso) => (window.TimezoneUtils ? window.TimezoneUtils.utcIsoToLocalInput(iso, tz) : '');
+      if (a.start_time) set('auction-start', toLocal(a.start_time));
+      if (a.preview_start || a.preview_end) {
+        const row = document.getElementById('preview-times-row'); if (row) row.style.display = '';
+      }
+      if (a.preview_start) set('preview-start', toLocal(a.preview_start));
+      if (a.preview_end)   set('preview-end',   toLocal(a.preview_end));
+      if (a.pickup_window_start) set('pickup-start', toLocal(a.pickup_window_start));
+      if (a.pickup_window_end)   set('pickup-end',   toLocal(a.pickup_window_end));
+      // The stored street_address may already include an appended unit; put the whole
+      // value back into line 1 and leave line 2 empty so it round-trips unchanged.
+      set('street-address', a.street_address || '');
+      set('auction-city', a.city || '');
+      set('auction-state', a.address_state || '');
+      set('auction-zip', a.zip || '');
+      document.getElementById('shipping-toggle').checked = !!a.shipping_available;
+      if (a.banner_image_url) {
+        bannerImageUrl = a.banner_image_url;
+        const p = document.getElementById('banner-preview'); if (p) { p.src = a.banner_image_url; p.style.display = 'block'; }
+        document.getElementById('banner-status').textContent = 'Current banner';
+      }
+      if (a.cover_image_url) {
+        coverImageUrl = a.cover_image_url;
+        const p = document.getElementById('cover-preview'); if (p) { p.src = a.cover_image_url; p.style.display = 'block'; }
+        document.getElementById('cover-status').textContent = 'Current cover';
+      }
+    } catch (e) {
+      showBanner('Could not load this auction for editing.', 'error');
+    }
+    // Existing walkthrough video lives in a separate table; show its status.
+    try {
+      const vr = await fetch('/api/auctions/' + EDIT_ID + '/walkthrough-video', { headers: { Authorization: 'Bearer ' + token } });
+      const vd = await vr.json();
+      if (vd.success && vd.data) {
+        existingVideo = vd.data;
+        const st = existingVideo.review_status || 'pending_review';
+        const label = st === 'approved' ? 'approved' : (st === 'rejected' ? 'not approved' : 'pending review');
+        videoStatus.textContent = 'A walkthrough video is on file (' + label + '). Upload a new one to replace it.';
+        videoStatus.className = 'video-status';
+      }
+    } catch (e) { /* non-blocking */ }
+  }
+  if (IS_EDIT) loadAuctionForEdit();
+
   // ── Create & Add Lots ─────────────────────────────────────────────────────────
   // Single forward action: save the auction as an editable draft and route into
   // the Lot Studio. There is no seller-facing "submit for review" step here.
   document.getElementById('btn-draft').addEventListener('click', () => save('draft'));
 
   async function save(status) {
-    if (!sellerProfileId) {
+    if (!sellerProfileId && !IS_EDIT) {
       showBanner('Seller profile not loaded yet. Please wait and try again.', 'error');
       return;
     }
@@ -669,6 +749,65 @@
     const streetAddress = streetLine1
       ? (streetLine2 ? streetLine1 + ', ' + streetLine2 : streetLine1)
       : undefined;
+
+    // ── EDIT MODE: PATCH the existing auction with snake_case fields ──────────────
+    // updateAuction() reads snake_case keys and only writes fields that are not
+    // undefined, so empty datetimes are skipped (never cleared) while cleared text
+    // fields are sent as '' (so they can be blanked). Ownership + draft-only editing
+    // are enforced server-side; timezone is admin-only and intentionally not sent.
+    if (IS_EDIT) {
+      const el = id => document.getElementById(id).value.trim();
+      const patch = {
+        title,
+        subtitle:            el('auction-subtitle'),
+        description:         el('auction-description'),
+        start_time:          getIso('auction-start'),
+        preview_start:       getIso('preview-start'),
+        preview_end:         getIso('preview-end'),
+        pickup_window_start: getIso('pickup-start'),
+        pickup_window_end:   getIso('pickup-end'),
+        street_address:      streetAddress !== undefined ? streetAddress : '',
+        city:                el('auction-city'),
+        address_state:       el('auction-state').toUpperCase(),
+        zip:                 el('auction-zip'),
+        shipping_available:  document.getElementById('shipping-toggle').checked,
+        banner_image_url:    bannerImageUrl || undefined,
+        cover_image_url:     coverImageUrl  || undefined,
+      };
+      try {
+        const res = await fetch('/api/auctions/' + EDIT_ID, {
+          method:  'PATCH',
+          headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+          body:    JSON.stringify(patch),
+        });
+        if (res.status === 401) { window.location.href = '/login.html?next=' + encodeURIComponent(location.pathname + location.search); return; }
+        const data = await res.json();
+        if (!data.success) throw new Error(data.message || data.error || 'Save failed');
+
+        // If the seller uploaded a NEW walkthrough video, replace any existing
+        // pending/rejected one (approved videos require admin), then attach the new
+        // upload for review.
+        if (walkthroughVideoUrl) {
+          if (existingVideo && existingVideo.id && existingVideo.review_status !== 'approved') {
+            await fetch('/api/auctions/' + EDIT_ID + '/walkthrough-video/' + existingVideo.id, {
+              method: 'DELETE', headers: { Authorization: 'Bearer ' + token },
+            }).catch(() => {});
+          }
+          await fetch('/api/auctions/' + EDIT_ID + '/walkthrough-video', {
+            method:  'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+            body:    JSON.stringify({ video_url: walkthroughVideoUrl }),
+          }).catch(() => null);
+        }
+
+        showBanner('Auction details saved.', 'success');
+        document.getElementById('btn-draft').disabled = true;
+        setTimeout(() => { window.location.href = '/seller-dashboard.html'; }, 1000);
+      } catch (err) {
+        showBanner('Error: ' + err.message, 'error');
+      }
+      return;
+    }
 
     const payload = {
       sellerProfileId,
