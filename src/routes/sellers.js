@@ -52,39 +52,53 @@ router.get('/me', auth, async (req, res, next) => {
 // The seller DASHBOARD remains gated by requireSellerAgreement until the agreement
 // is signed — so "enabled immediately" means immediately after acceptance.
 router.post('/enroll', auth, async (req, res, next) => {
+  const client = await db.connect();
   try {
+    // The JWT is valid, but confirm the user still exists. A stale token for a removed
+    // account would otherwise fail deeper (FK violation) as a confusing generic 500.
+    const userRow = (await client.query('SELECT id, role FROM users WHERE id = $1', [req.user.id])).rows[0];
+    if (!userRow) {
+      return res.status(401).json({ success: false, message: 'Your session is no longer valid. Please sign in again.' });
+    }
+
     const body = req.body || {};
     const displayName = (body.display_name || body.legal_name || body.full_name || '').toString().trim() || null;
     const phone       = (body.phone || '').toString().trim() || null;
     let sellerType    = (body.seller_type || 'private').toString().trim().toLowerCase();
     if (!SELF_SERVE_SELLER_TYPES.includes(sellerType)) sellerType = 'private';
 
-    // Idempotent: if a profile already exists, ensure the role is promoted and
-    // return the current onboarding status (never create a duplicate).
-    const existing = (await db.query('SELECT id FROM seller_profiles WHERE user_id = $1', [req.user.id])).rows[0];
+    // The seller_profile create + role promotion happen atomically: either the seller
+    // is fully enabled, or nothing is written (no partial/duplicate records).
+    await client.query('BEGIN');
 
-    // Phone is required to enable selling (launch policy). Enforced only for NEW
-    // enrollments so idempotent re-enroll of an existing seller never breaks.
-    if (!existing && !phone) {
-      return res.status(400).json({ success: false, message: 'A phone number is required to enable selling.' });
+    // Idempotent: reuse an existing profile; never create a duplicate.
+    const existing = (await client.query('SELECT id FROM seller_profiles WHERE user_id = $1', [req.user.id])).rows[0];
+
+    // Phone is required + must be valid for NEW enrollments (idempotent re-enroll skips this).
+    if (!existing) {
+      if (!phone) {
+        await client.query('ROLLBACK');
+        return res.status(400).json({ success: false, message: 'A phone number is required to enable selling.' });
+      }
+      if (phone.replace(/\D/g, '').length < 10) {
+        await client.query('ROLLBACK');
+        return res.status(400).json({ success: false, message: 'Please enter a valid phone number.' });
+      }
     }
 
     let sellerProfileId;
     if (existing) {
       sellerProfileId = existing.id;
     } else {
-      const ins = await db.query(
-        `INSERT INTO seller_profiles (user_id, seller_type, display_name)
-         VALUES ($1, $2, $3)
-         RETURNING id`,
+      sellerProfileId = (await client.query(
+        `INSERT INTO seller_profiles (user_id, seller_type, display_name) VALUES ($1, $2, $3) RETURNING id`,
         [req.user.id, sellerType, displayName]
-      );
-      sellerProfileId = ins.rows[0].id;
+      )).rows[0].id;
     }
 
-    // Promote buyer → seller (admins keep their role). Backfill contact fields on
-    // the users row when provided and currently empty — never overwrite existing.
-    await db.query(
+    // Promote buyer → seller (admins keep their role). Backfill contact fields only
+    // when currently empty — never overwrite existing account information.
+    await client.query(
       `UPDATE users
           SET role = CASE WHEN role = 'buyer' THEN 'seller' ELSE role END,
               full_name = COALESCE(full_name, $2),
@@ -92,28 +106,28 @@ router.post('/enroll', auth, async (req, res, next) => {
         WHERE id = $1`,
       [req.user.id, displayName, phone]
     );
-    const roleRow = (await db.query('SELECT role FROM users WHERE id = $1', [req.user.id])).rows[0];
-    const newRole = roleRow ? roleRow.role : req.user.role;
+    const newRole = (await client.query('SELECT role FROM users WHERE id = $1', [req.user.id])).rows[0].role;
+    await client.query('COMMIT');
 
-    // Auto-send the current seller agreement so the next step is review + sign.
-    // Best-effort and idempotent inside the service (never throws).
-    await agreementService.autoSendAgreement(sellerProfileId, req.user.id);
+    // Post-commit side effects are best-effort: the seller is already enabled, so a
+    // hiccup here must not surface as a failure. Always return a fresh seller JWT.
+    const token = jwt.sign({ id: req.user.id, role: newRole }, process.env.JWT_SECRET, { expiresIn: process.env.JWT_EXPIRES_IN || '24h' });
+    let onboarding = null;
+    try {
+      await agreementService.autoSendAgreement(sellerProfileId, req.user.id);
+      onboarding = await agreementService.getOnboardingStatus(req.user.id);
+    } catch (_) { /* enablement already committed; agreement send / status is best-effort */ }
 
-    // Fresh JWT so seller-gated tooling works without a re-login.
-    const token = jwt.sign(
-      { id: req.user.id, role: newRole },
-      process.env.JWT_SECRET,
-      { expiresIn: process.env.JWT_EXPIRES_IN || '24h' }
-    );
-
-    const onboarding = await agreementService.getOnboardingStatus(req.user.id);
     return res.status(existing ? 200 : 201).json({
       success: true,
       token,
       data: { seller_profile_id: sellerProfileId, role: newRole, onboarding },
     });
   } catch (err) {
+    await client.query('ROLLBACK').catch(() => {});
     next(err);
+  } finally {
+    client.release();
   }
 });
 
