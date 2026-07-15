@@ -986,7 +986,7 @@
 
       renderLot(lotData.data);            // countdown starts here, independent of auth
       renderImages(imgData.success ? imgData.data : []);
-      renderBids(bidData.success ? bidData.data : [], false);
+      renderBids(bidData.success ? bidData.data : [], false, Number(lotData.data && lotData.data.current_bid_cents));
 
       document.getElementById('loading-overlay').style.display = 'none';
       document.getElementById('panel-content').style.display = 'flex';
@@ -1122,7 +1122,7 @@
       const res = await fetch('/api/lots/' + lotId + '/bids', { headers: { Authorization: 'Bearer ' + token } });
       if (res.status === 401) { stopRefresh(); return; }
       const data = await res.json();
-      if (data.success) renderBids(data.data, true);          // current bid + next-min headline
+      if (data.success) renderBids(data.data, true, Number(lotData.data && lotData.data.current_bid_cents));   // #1 authoritative current bid + next-min headline
     } catch { /* network blip */ }
     finally { refreshing = false; }
   }
@@ -1632,10 +1632,15 @@
   }, { passive: true });
 
   // ── Render bids ───────────────────────────────────────────────────────────────
-  function renderBids(bids, fromPoll) {
+  // #1: `authoritativeCents` = the lot's current_bid_cents (the same visible field
+  // the auction gallery renders). When provided it drives the current-bid headline
+  // so Lot Detail and the gallery never diverge (proxy/max bids included); the bids
+  // array feeds only the history list + new-top flash detection.
+  function renderBids(bids, fromPoll, authoritativeCents) {
     const list  = document.getElementById('bid-list');
     const empty = document.getElementById('bid-empty');
     const countLabel = document.getElementById('bid-count-label');
+    const authCents = (Number.isFinite(Number(authoritativeCents)) && Number(authoritativeCents) > 0) ? Number(authoritativeCents) : 0;
 
     if (!bids.length) {
       list.innerHTML = '';
@@ -1653,22 +1658,30 @@
 
     empty.style.display = 'none';
 
+    // Authoritative per-bid amount is amount_cents (integer); older/socket shapes
+    // may carry `amount` (dollars) - accept it as a fallback. Used for the history
+    // sort and new-top detection only, never the headline.
+    const bidCents = (b) => {
+      let c = Number(b && b.amount_cents);
+      if (!Number.isFinite(c) || c <= 0) c = Math.round(Number(b && b.amount) * 100);
+      return (Number.isFinite(c) && c > 0) ? c : 0;
+    };
     const sorted = [...bids].sort((a, b) =>
-      b.amount - a.amount || new Date(b.created_at) - new Date(a.created_at)
+      bidCents(b) - bidCents(a) || new Date(b.created_at) - new Date(a.created_at)
     );
+    const topFromBids = bidCents(sorted[0]);
 
-    const newTop = Number(sorted[0].amount);
-    const isNewTopBid = fromPoll && newTop > topBidAmount;
-
-    // Guard against a malformed bid row (null/undefined amount) so the current
-    // bid never renders as "$NaN"; fall back to the last good top or starting bid.
-    const topCents = Number.isFinite(newTop) && newTop > 0
-      ? Math.round(newTop * 100)
-      : (topBidAmount > 0 ? Math.round(topBidAmount * 100) : startingBidCents);
+    // #1: the current-bid headline is the authoritative visible current_bid_cents
+    // (same value the gallery shows) when available; else fall back to the top bid,
+    // then the last good value / starting bid. Never derive "$NaN".
+    const topCents = authCents > 0
+      ? authCents
+      : (topFromBids > 0 ? topFromBids : (topBidAmount > 0 ? Math.round(topBidAmount * 100) : startingBidCents));
+    const isNewTopBid = fromPoll && topCents > Math.round(topBidAmount * 100);
     hasBids = true;
     setCurrentBid(topCents);
     if (isNewTopBid) flashBidDisplay();
-    if (Number.isFinite(newTop) && newTop > 0) topBidAmount = newTop;
+    if (topCents > 0) topBidAmount = topCents / 100;
 
     setActivity(bids.length, topCents);
     updateHint(topCents);
@@ -1792,13 +1805,11 @@
       // #16: every bid is a proxy maximum server-side - always frame the entered
       // amount as the buyer's max bid so they always know their current ceiling.
       setStatus('Your Max Bid: ' + BidUtils.formatUSD(Math.round((hasMaxBid ? maxBidDollar : amount) * 100)), 'ok'); // #3 whole-dollar
-      setTimeout(() => refreshLotNow(), 120); // refresh status panel (Winning) + CTA label
-
-      try {
-        const bidRes  = await fetch('/api/lots/' + lotId + '/bids', { headers: { Authorization: 'Bearer ' + token } });
-        const bidData = await bidRes.json().catch(() => null);
-        if (bidData && bidData.success) renderBids(bidData.data, false);
-      } catch { /* refresh blip - the bid itself succeeded */ }
+      // #1: refreshLotNow re-reads the authoritative current_bid_cents (the same
+      // value the gallery shows) plus the status panel and CTA. It replaces the old
+      // immediate /bids-only render, which could briefly show a proxy MAX instead of
+      // the visible current bid before the poll corrected it.
+      setTimeout(() => refreshLotNow(), 60);
 
       input.focus();
     } catch (err) {
