@@ -897,8 +897,13 @@
       if (token) {
         try {
           const fRes  = await fetch('/api/sellers/following', { headers: { Authorization: 'Bearer ' + token } });
-          if (fRes.status === 401) { localStorage.removeItem('token'); }
-          else {
+          if (fRes.status === 401) {
+            // #2 Session continuity: a 401 on this NON-CRITICAL follow lookup must not
+            // silently log the user out. Verify the token first; only clear it if the
+            // server confirms it is invalid (so the nav is truthful). Never redirect -
+            // the gallery is browsable, and a valid session is left untouched.
+            try { const me = await fetch('/api/auth/me', { headers: { Authorization: 'Bearer ' + token } }); if (!me.ok) localStorage.removeItem('token'); } catch (_) { /* keep session on network blip */ }
+          } else {
             const fData = await fRes.json();
             if (fData.success) isFollowing = fData.data.some(s => s.seller_id === d.seller_id);
           }
