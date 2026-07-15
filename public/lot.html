@@ -967,15 +967,24 @@
       const [lotRes, imgRes]  = results;
       const bidRes            = token ? results[2] : null;
 
-      // Tolerant auth handling: a 401 on the auth-gated /bids call (expired or
-      // invalid token) must NOT bounce an active bidder to /login or hide the
-      // countdown. Degrade to the guest view instead - the lot details and the
-      // countdown render from the optionalAuth /lots/:lotId response regardless
-      // of auth state. Fixes refresh-logout (#4) and missing countdown (#7).
+      // #2 Session continuity: a 401 on an auth-gated call must NOT blindly destroy
+      // the session (that turned a transient/expired-token blip into a silent
+      // "appears logged out"). Verify the token first; a still-valid token is kept
+      // as-is (no logout), and only a SERVER-confirmed invalid/expired token clears
+      // the session and sends the bidder to a context-preserving re-login that
+      // returns to this lot. Lot details + countdown still render from the
+      // optionalAuth /lots/:lotId response regardless.
       let authed = !!token;
-      if (lotRes.status === 401 || (bidRes && bidRes.status === 401)) {
-        localStorage.removeItem('token');
-        authed = false;
+      if (token && (lotRes.status === 401 || (bidRes && bidRes.status === 401))) {
+        let sessionValid = true;
+        try { const me = await fetch('/api/auth/me', { headers: authHeaders }); sessionValid = me.ok; }
+        catch (_) { sessionValid = true; /* network blip: never destroy a session on a fetch error */ }
+        if (!sessionValid) {
+          try { localStorage.removeItem('token'); } catch (_) {}
+          window.location.href = '/login.html?next=' + encodeURIComponent(location.pathname + location.search);
+          return;
+        }
+        authed = true; // token still valid - keep the session; the 401 was transient/scoped
       }
 
       const lotData = await lotRes.json();
