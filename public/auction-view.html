@@ -503,9 +503,13 @@
     .auction-meta{ color:#fff; font-weight:600; margin-top:.75rem; font-size:.86rem; }
     .auction-meta span::before{ color:rgba(255,255,255,.45); }
     .seller-bar{ color:rgba(255,255,255,.9); }
-    .btn-walkthrough{ background:rgba(255,255,255,.16); border:1px solid rgba(255,255,255,.42); color:#fff;
-                      backdrop-filter:blur(6px); border-radius:12px; }
-    .btn-walkthrough:hover{ background:rgba(255,255,255,.26); }
+    /* #7: the walkthrough is a key conversion action - use the standard filled
+       Advantage red primary style so it stands out on the hero (behavior/placement
+       unchanged). Focus ring added for keyboard users. */
+    .btn-walkthrough{ background:#d62828; border:1px solid #d62828; color:#fff;
+                      backdrop-filter:none; border-radius:12px; box-shadow:0 6px 18px rgba(214,40,40,.34); }
+    .btn-walkthrough:hover{ background:#b81f1f; border-color:#b81f1f; }
+    .btn-walkthrough:focus-visible{ outline:3px solid rgba(214,40,40,.45); outline-offset:2px; }
     .btn-follow{ border:1.5px solid rgba(255,255,255,.6); color:#fff; background:rgba(255,255,255,.12);
                  border-radius:999px; backdrop-filter:blur(4px); }
     .btn-follow:hover{ background:rgba(255,255,255,.22); }
@@ -573,8 +577,9 @@
     .lot-progress-fill.lp-amber{ background:linear-gradient(90deg,#F0B43B,var(--ending)); }
     .lot-progress-fill.lp-red{ background:linear-gradient(90deg,#E0593B,var(--live));
                                box-shadow:0 0 10px rgba(181,39,59,.55); }
-    /* #7: card bid button follows the SAME standard tri-state as the lot page —
-       neutral=blue "Place Bid", winning=green "Winning", outbid=red "Outbid" (pulsing).
+    /* #5: card bid button follows the SAME standard tri-state as the lot page —
+       neutral=blue "Place Bid", winning=green "Winning", outbid=red "Bid Again" (pulsing).
+       The OUTBID status itself is carried by the separate status chip, not the button.
        (Overrides the earlier brand-red default via later source order.) */
     .card-bidform button{ background:#2563eb; box-shadow:0 8px 20px rgba(37,99,235,.24); }
     .card-bidform button:hover{ filter:brightness(1.05); }
@@ -583,6 +588,8 @@
                                      animation:outbidPulse 1.5s ease-in-out infinite; }
     @keyframes outbidPulse{ 0%,100%{ box-shadow:0 8px 20px rgba(220,38,38,.30), 0 0 0 0 rgba(220,38,38,.5); }
                             50%{ box-shadow:0 8px 20px rgba(220,38,38,.30), 0 0 0 7px rgba(220,38,38,0); } }
+    /* #5: respect reduced-motion — keep the red "Bid Again" button, drop the pulse. */
+    @media (prefers-reduced-motion: reduce){ .card-bidform button.is-outbid{ animation:none; } }
 
     /* panels → clean light */
     .tab-panel{ max-width:1180px; padding:24px 20px; }
@@ -1210,7 +1217,7 @@
     if (cdWrap && cdVal) startCardCountdown(lotId, cdWrap, cdVal, fill, lot.extended_until || lot.closes_at);
     // #2 winning / outbid / watching / sold status badge.
     applyCardStatus(card, lot);
-    // #7: keep the primary button's tri-state (Place Bid / Winning / Outbid) in sync.
+    // #5: keep the primary button's tri-state (Place Bid / Winning / Bid Again) in sync.
     const bidBtn = card.querySelector('.card-bidform button');
     if (bidBtn && !bidBtn.disabled) applyBidBtnState(bidBtn, lot);
   }
@@ -1237,7 +1244,7 @@
   function applyBidBtnState(btn, lot) {
     if (!btn || !window.BidStatus) return;
     const s = BidStatus.deriveBidderStatus(lot);
-    btn.textContent = s.winning ? 'Winning' : (s.hasBid ? 'Outbid' : 'Place Bid');
+    btn.textContent = s.winning ? 'Winning' : (s.hasBid ? 'Bid Again' : 'Place Bid');
     btn.classList.toggle('is-winning', !!s.winning);
     btn.classList.toggle('is-outbid', !s.winning && !!s.hasBid);
   }
@@ -1368,6 +1375,9 @@
     // #2 winning/outbid chip - initial state from the per-viewer serializer flag.
     const chip = document.createElement('span');
     chip.setAttribute('data-chip', '');
+    // #5: the chip now carries the OUTBID status on its own (the button says "Bid
+    // Again"), and a socket event can flip it while the page is idle — announce it.
+    chip.setAttribute('role', 'status');
     chip.style.display = 'none';
     titleEl.appendChild(chip);
     renderChip(chip, lot);
@@ -1534,7 +1544,7 @@
     input.placeholder = winning ? ('New max (≥ ' + BidUtils.formatUSD(nextMin) + ')') : (BidUtils.formatUSD(nextMin) + ' or more');
     const btn = document.createElement('button');
     btn.type = 'button';
-    // #7: primary button reflects standing (Place Bid / Winning / Outbid); the raise-max
+    // #5: primary button reflects the ACTION (Place Bid / Winning / Bid Again); the raise-max
     // hint lives in the input placeholder above, not in the button label.
     applyBidBtnState(btn, lot);
     row.appendChild(input); row.appendChild(btn);

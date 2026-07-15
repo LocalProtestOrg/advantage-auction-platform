@@ -1225,7 +1225,9 @@ router.get('/videos/pending', auth, role(['admin']), async (req, res, next) => {
 });
 
 // POST /api/admin/videos/:videoId/approve
-// Sets review_status='approved'. Does NOT auto-publish (visible_public stays false).
+// #3: Queue approval auto-publishes — sets review_status='approved' AND
+// visible_public=true (see walkthroughVideoService.approveVideo). The separate
+// visibility endpoint is preserved so admins can hide/re-show an approved video.
 router.post('/videos/:videoId/approve', auth, role(['admin']), async (req, res, next) => {
   try {
     const { videoId } = req.params;
