@@ -1337,6 +1337,24 @@ router.patch('/auctions/:auctionId/discovery', auth, role(['admin']), async (req
       updates.push(`lng = $${params.length}`);
     }
 
+    // #4: a lone coordinate is meaningless and would half-move the marker.
+    if ((lat === undefined) !== (lng === undefined)) {
+      return res.status(400).json({ success: false, message: 'lat and lng must be provided together' });
+    }
+
+    // #4: an admin-supplied coordinate is a MANUAL OVERRIDE and must survive every
+    // later automatic pass — without this flag the next geocode would silently
+    // overwrite the admin's pin. Only an explicit Retry Geocoding clears it.
+    if (lat !== undefined && lng !== undefined) {
+      updates.push(
+        'coordinates_manually_overridden = true',
+        `geocoding_status = 'manual'`,
+        `geocoding_source = 'manual'`,
+        'geocoding_error = NULL',
+        'geocoded_at = NOW()'
+      );
+    }
+
     if (updates.length === 0) {
       return res.status(400).json({ success: false, message: 'At least one of priority, lat, lng is required' });
     }
@@ -1346,7 +1364,8 @@ router.patch('/auctions/:auctionId/discovery', auth, role(['admin']), async (req
       `UPDATE auctions
           SET ${updates.join(', ')}, updated_at = now()
         WHERE id = $${params.length}
-        RETURNING id, title, state, marketplace_priority, lat, lng`,
+        RETURNING id, title, state, marketplace_priority, lat, lng,
+                  geocoding_status, coordinates_manually_overridden`,
       params
     );
 
@@ -1358,10 +1377,46 @@ router.patch('/auctions/:auctionId/discovery', auth, role(['admin']), async (req
         entity_id:   auctionId,
         auction_id:  auctionId,
         actor_id:    req.user.id,
-        metadata:    { priority, lat, lng },
+        metadata:    { priority, lat, lng, manual_override: lat !== undefined },
       });
     } catch (e) { console.error('[admin] discovery audit log failed:', e.message); }
     return res.json({ success: true, data: rows[0] });
+  } catch (err) { next(err); }
+});
+
+// POST /api/admin/auctions/:auctionId/geocode — Retry Geocoding (#4).
+// The explicit admin action that re-runs the provider. This is the ONLY path that
+// replaces a manual coordinate override, which is why force is hard-coded here and
+// not accepted from the body — no other caller can reach it.
+// Returns the outcome so the admin sees the provider's actual result, including the
+// failure reason. A failed retry never clears the existing marker.
+router.post('/auctions/:auctionId/geocode', auth, role(['admin']), async (req, res, next) => {
+  try {
+    const { auctionId } = req.params;
+    const result = await require('../services/auctionGeocodingService')
+      .geocodeAuction(auctionId, { force: true });
+
+    if (result.status === 'not_found') {
+      return res.status(404).json({ success: false, message: 'Auction not found' });
+    }
+    try {
+      await writeAuditLog({
+        event_type:  'auction.geocode_retried',
+        entity_type: 'auction',
+        entity_id:   auctionId,
+        auction_id:  auctionId,
+        actor_id:    req.user.id,
+        metadata:    { status: result.status, ok: result.ok },
+      });
+    } catch (e) { console.error('[admin] geocode audit log failed:', e.message); }
+
+    // 200 even on provider failure: the request was handled correctly and the status
+    // is the payload. The admin UI renders the error text and offers another retry.
+    return res.json({
+      success: result.ok,
+      data:    { status: result.status, coordinates: result.public || null, normalized: result.normalized || null },
+      message: result.error || null,
+    });
   } catch (err) { next(err); }
 });
 

@@ -13,6 +13,10 @@ const { platformFeeCents } = require('../lib/settlementPolicy'); // seller platf
 // follow-up; 60s is the AAC default.
 const LOT_CLOSE_INTERVAL_SECONDS = 60;
 
+// Fields that define WHERE an auction is. A change to any of them re-triggers
+// geocoding for the homepage map; a change to anything else must not.
+const LOCATION_FIELDS = ['street_address', 'city', 'address_state', 'zip'];
+
 // Phase C: server-authoritative seller-type schedule enforcement, shared by
 // createAuction + updateAuction. Pure decision over a resolved sellerType.
 // - No violation        → { overridden: false }.
@@ -129,6 +133,13 @@ async function createAuction(data) {
       },
     }).catch(() => {});
   }
+
+  // Geocoding trigger: a new auction with location information. Fire-and-forget —
+  // creation has already committed and must never fail on a provider problem.
+  if (created && (city || zip)) {
+    require('./auctionGeocodingService').geocodeAuctionSafe(created.id).catch(() => {});
+  }
+
   return created;
 }
 
@@ -401,6 +412,15 @@ async function updateAuction(auctionId, userId, updates, actorRole, options = {}
     }).catch(() => {});
   } catch (_) { /* audit failures are non-blocking by design */ }
 
+  // Geocoding trigger: a seller or admin changed the auction location. Fire-and-forget
+  // and deliberately NOT awaited — the save has already succeeded and a provider
+  // outage must never surface as a failed edit. geocodeAuctionSafe applies the
+  // "unchanged location / manual override" rules itself, so an edit that leaves the
+  // address alone costs nothing.
+  if (LOCATION_FIELDS.some((f) => updates[f] !== undefined)) {
+    require('./auctionGeocodingService').geocodeAuctionSafe(auctionId).catch(() => {});
+  }
+
   return result.rows[0];
 }
 
@@ -633,6 +653,15 @@ async function publishAuction(auctionId, actorId = null) {
     });
 
     await client.query('COMMIT');
+
+    // Geocoding recovery attempt: an auction reaching the public map with no marker
+    // is the exact defect this exists to prevent, so publish is the last chance to
+    // fill in coordinates that an earlier attempt missed (provider was down, token
+    // was unset, address was fixed later). AFTER commit and fire-and-forget —
+    // publication must never depend on a geocoding provider. geocodeAuctionSafe
+    // no-ops when coordinates are already present or manually overridden.
+    require('./auctionGeocodingService').geocodeAuctionSafe(auctionId).catch(() => {});
+
     return result.rows[0];
   } catch (error) {
     await client.query('ROLLBACK');
