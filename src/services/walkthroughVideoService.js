@@ -36,8 +36,11 @@ async function deleteVideo(videoId) {
 
 // ── Admin-facing ──────────────────────────────────────────────────────────────
 
-// Approve a video — sets review_status, approved_at, approved_by.
-// Does NOT auto-set visible_public — that is a separate explicit action.
+// Approve a video — sets review_status, approved_at, approved_by, and PUBLISHES it.
+// #3 (approved business rule): normal Queue approval must result in a publicly
+// available walkthrough without a second manual "Make Public" step, so approval
+// sets visible_public = true. The separate setPublicVisibility action is preserved
+// so an admin can later hide/re-show an already-approved video when needed.
 async function approveVideo(videoId, adminUserId) {
   const { rows } = await db.query(
     `UPDATE auction_walkthrough_videos
@@ -45,6 +48,7 @@ async function approveVideo(videoId, adminUserId) {
             approved_at   = NOW(),
             approved_by   = $2,
             rejection_reason = NULL,
+            visible_public = true,
             updated_at    = NOW()
       WHERE id = $1
      RETURNING *`,

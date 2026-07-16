@@ -48,7 +48,7 @@
         <div class="spacer"></div>
         <button class="btn btn-pri" id="dlPdf">Download Invoice PDF</button>
         <button class="btn" id="resendBtn">Resend</button>
-        <a class="btn" id="backBtn" href="/admin/invoices.html">Back</a>
+        <a class="btn" id="backBtn" href="/admin/invoices.html" onclick="return AB.back(event,'/admin/invoices.html')">Back</a>
       </div>
 
       <div class="grid">
@@ -161,6 +161,7 @@
     }).catch(()=>{ document.getElementById('status').textContent='Failed to load invoice.'; });
   }
   </script>
+  <script src="/widgets/shared/smart-back.js"></script>
   <script src="/widgets/shared/admin-nav.js"></script>
 </body>
 </html>

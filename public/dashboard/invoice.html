@@ -146,7 +146,7 @@
     <header>
       <div class="brand">Advantage Auction Platform</div>
       <h1>Invoice Detail</h1>
-      <a class="back-btn" href="/dashboard.html">&larr; Back to Purchases</a>
+      <a class="back-btn" href="/dashboard.html" onclick="return AB.back(event,'/dashboard.html')">&larr; Back to Purchases</a>
       <button class="print-btn" onclick="window.print()">Print Invoice</button>
     </header>
 
@@ -325,5 +325,6 @@
         });
     }
   </script>
+  <script src="/widgets/shared/smart-back.js"></script>
 </body>
 </html>

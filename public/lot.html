@@ -683,6 +683,8 @@
     .btn-place-bid.is-outbid:hover{ background:#b91c1c; }
     @keyframes outbidPulse{ 0%,100%{ box-shadow:0 8px 20px rgba(220,38,38,.30), 0 0 0 0 rgba(220,38,38,.5); }
                             50%{ box-shadow:0 8px 20px rgba(220,38,38,.30), 0 0 0 7px rgba(220,38,38,0); } }
+    /* #5: respect reduced-motion — keep the red "Bid Again" button, drop the pulse. */
+    @media (prefers-reduced-motion: reduce){ .btn-place-bid.is-outbid{ animation:none; } }
     /* #7: secondary "increase max" affordance under the bid input (winning only) —
        never the primary button label. */
     .max-raise-link{ align-items:center; gap:4px; margin-top:8px; font-size:.8rem; font-weight:700;
@@ -803,7 +805,9 @@
         </div>
       </div>
 
-      <div id="bid-status"></div>
+      <!-- #5: carries the OUTBID/Winning status now that the button reads "Bid Again";
+           live bid events rewrite it in place, so it must announce. -->
+      <div id="bid-status" role="status"></div>
 
       <div class="bid-trust" aria-label="Buyer assurances">
         <span class="bid-trust-item">Pay only when you win</span>
@@ -1205,11 +1209,12 @@
       + '</div>' + rows;
     panel.style.display = '';
     panel.setAttribute('data-state', s.key);
-    // #7: primary button reflects standing and NEVER becomes "Increase Max".
-    // neutral → Place Bid (blue), winning → Winning (green), outbid → Outbid (red + pulse).
+    // #5: the primary button describes the ACTION, never just the status. Neutral →
+    // Place Bid (blue); winning → Winning (green); outbid → "Bid Again" (red + pulse).
+    // The OUTBID status itself is shown separately in the red status badge above.
     const bidBtn = document.getElementById('btn-bid');
     if (bidBtn && !bidBtn.disabled) {
-      bidBtn.textContent = s.winning ? 'Winning' : (s.hasBid ? 'Outbid' : 'Place Bid');
+      bidBtn.textContent = s.winning ? 'Winning' : (s.hasBid ? 'Bid Again' : 'Place Bid');
       bidBtn.classList.toggle('is-winning', !!s.winning);
       bidBtn.classList.toggle('is-outbid', !s.winning && !!s.hasBid);
     }
