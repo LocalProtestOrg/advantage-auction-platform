@@ -774,7 +774,9 @@
     if (!d || isHistoricalAuction) { host.style.display = 'none'; return; }
     const tz = resolveAuctionTz(d);
     const items = [];
-    if (d.start_time)        items.push(['Bidding Opens',   fmtTzDateTime(d.start_time, tz)]);
+    // Bidding is open as soon as an auction is published; start_time marks when the
+    // staggered lot-closing sequence begins (not when bidding opens).
+    if (d.start_time)        items.push(['Closing Begins',   fmtTzDateTime(d.start_time, tz)]);
     if (firstLotCloseIso)    items.push(['First Lot Closes', fmtTzDateTime(firstLotCloseIso, tz)]);
     if (totalLotCount != null) items.push(['Total Lots',    String(totalLotCount)]);
     if (d.pickup_window_start) items.push(['Pickup Date',   fmtTzDateTime(d.pickup_window_start, tz)]);
