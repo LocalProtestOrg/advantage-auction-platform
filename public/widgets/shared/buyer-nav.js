@@ -142,11 +142,17 @@
     try { return document.referrer && new URL(document.referrer).origin === location.origin; } catch (e) { return false; }
   }
   function goBack() {
-    // In-app history: return to the previous same-origin page.
+    // A page may declare an explicit, DETERMINISTIC destination for the header Back
+    // control via window.BUYER_NAV_BACK (e.g. Lot Detail sets it to '/' so its header
+    // Back always returns to the homepage discovery/map, regardless of history). When
+    // set it wins outright — no browser-history guessing. Only pages that opt in are
+    // affected; every other buyer page keeps the in-app history behavior below.
+    if (typeof window.BUYER_NAV_BACK === 'string' && window.BUYER_NAV_BACK) {
+      location.href = window.BUYER_NAV_BACK; return;
+    }
+    // Default: return to the previous same-origin page, else Home.
     if (history.length > 1 && sameOriginReferrer()) { history.back(); return; }
-    // Shared-link / cold entry: prefer a page-provided contextual target (e.g. a lot page
-    // sets window.BUYER_NAV_BACK to its auction), else fall back Home.
-    location.href = (typeof window.BUYER_NAV_BACK === 'string' && window.BUYER_NAV_BACK) || '/';
+    location.href = '/';
   }
 
   // ── #14 bid chime — delegated, never reimplemented ───────────────────────────
