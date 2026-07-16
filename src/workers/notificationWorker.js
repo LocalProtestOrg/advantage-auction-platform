@@ -239,7 +239,10 @@ function buildEmail(type, payload, toAddress) {
   }
 
   if (type === 'AUCTION_BEGINS_SOON') {
-    // Batch A: engaged-buyer reminder that a bid/watchlisted auction starts soon.
+    // Batch A: engaged-buyer reminder for a bid/watchlisted auction. Under the
+    // immediate-bidding model, bidding is ALREADY open when this fires — start_time
+    // marks when the staggered lot-closing sequence begins, so the copy tells the
+    // buyer bidding is open and closing is approaching (internal type name unchanged).
     // Recipients are gated at enqueue time (bidders + watchlisters only).
     const auctionId  = payload.auction_id || 'unknown';
     const auctionUrl = `${SITE_URL}${payload.auction_url || `/auction-view.html?auctionId=${auctionId}`}`;
@@ -248,11 +251,11 @@ function buildEmail(type, payload, toAddress) {
     const whenPhrase = mins === 5 ? 'in about 5 minutes' : (mins === 60 ? 'in about an hour' : 'soon');
     return {
       to:      toAddress,
-      subject: `Starting ${whenPhrase}: ${title}`,
-      text:    `${title} starts ${whenPhrase}.\n\nView auction: ${auctionUrl}`,
+      subject: `Bidding open — lots begin closing ${whenPhrase}: ${title}`,
+      text:    `Bidding is open for ${title}. Lots begin closing ${whenPhrase} — place your bids before they do.\n\nBid now: ${auctionUrl}`,
       html:    `
-        <p><strong>${escHtml(title)}</strong> starts ${escHtml(whenPhrase)}.</p>
-        <p><a href="${auctionUrl}">View auction →</a></p>
+        <p>Bidding is open for <strong>${escHtml(title)}</strong>. Lots begin closing ${escHtml(whenPhrase)} — place your bids before they do.</p>
+        <p><a href="${auctionUrl}">Bid now →</a></p>
       `.trim(),
     };
   }
