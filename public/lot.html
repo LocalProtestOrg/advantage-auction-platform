@@ -839,12 +839,22 @@
 <script src="/widgets/shared/bid-increment.js"></script>
 <script src="/widgets/shared/buyer-chime.js"></script>
 <script>
-  // #2 mute toggle wiring (BuyerChime persists mute in localStorage).
+  // #2 mute toggle wiring. BuyerChime is the single source of truth (one storage
+  // key, default ON). This page carries TWO controls — this one and the nav's
+  // .bn-sound — so both repaint on 'buyerchime:change' and can never disagree.
   document.addEventListener('DOMContentLoaded', function () {
     var b = document.getElementById('sound-toggle'); if (!b || !window.BuyerChime) return;
-    function sync() { b.textContent = window.BuyerChime.isMuted() ? '🔇 Bid sounds off' : '🔊 Bid sounds on'; }
+    function sync() {
+      var on = !window.BuyerChime.isMuted();
+      b.textContent = on ? '🔊 Bid sounds on' : '🔇 Bid sounds off';
+      b.setAttribute('aria-pressed', on ? 'false' : 'true');
+    }
     sync();
-    b.addEventListener('click', function () { var m = window.BuyerChime.toggle(); sync(); if (!m) window.BuyerChime.play('bid'); });
+    window.addEventListener('buyerchime:change', sync);
+    b.addEventListener('click', function () {
+      var m = window.BuyerChime.toggle();   // sync() runs via the change event
+      if (!m) window.BuyerChime.play('bid');
+    });
   });
 </script>
 <script src="/widgets/shared/bid-status.js"></script>
