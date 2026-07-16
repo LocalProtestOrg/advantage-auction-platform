@@ -2067,6 +2067,30 @@
         const main = el('div', 'row-main');
         main.appendChild(el('div', 'row-title', p.seller_email + ' - ' + (p.auction_title || 'Auction')));
         main.appendChild(el('div', 'row-meta', fmtDate(p.created_at) + ' · ' + (p.payout_method || 'unknown method') + ' · ' + p.payout_status));
+        // Seller closeout packet — read-only operational status (recipient, status,
+        // timestamp, SES message id). Surfaces existing audit data; no actions.
+        const c = p.closeout || {};
+        if (c.status && c.status !== 'not_sent') {
+          const tone = c.status === 'sent' ? '#166534' : (c.status === 'failed' ? '#b91c1c' : '#92400e');
+          const parts = ['Seller closeout: ' + c.status];
+          if (c.recipient) parts.push(c.recipient);
+          if (c.event_at || c.sent_at) parts.push(fmtDate(c.event_at || c.sent_at));
+          if (c.reason) parts.push(c.reason);
+          // el() sets textContent, so these values are auto-escaped.
+          const line = el('div', 'row-meta', parts.join(' · '));
+          line.style.color = tone;
+          line.title = c.message_id ? ('Message ID: ' + c.message_id) : '';
+          main.appendChild(line);
+          if (c.message_id) {
+            const mid = el('div', 'row-meta', 'msg ' + c.message_id);
+            mid.style.cssText = 'font-family:monospace;font-size:.7rem;color:#94a3b8;word-break:break-all';
+            main.appendChild(mid);
+          }
+        } else {
+          const line = el('div', 'row-meta', 'Seller closeout: not sent yet');
+          line.style.color = '#94a3b8';
+          main.appendChild(line);
+        }
         row.appendChild(main);
 
         const right = el('div');

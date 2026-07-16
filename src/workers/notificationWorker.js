@@ -817,12 +817,22 @@ async function runSellerCloseoutScan() {
 
   for (const row of due.rows) {
     try {
-      await sellerCloseoutService.generateAndSend(row.id);
-      await db.query(
-        `UPDATE auctions SET seller_closeout_sent_at = now() WHERE id = $1 AND seller_closeout_sent_at IS NULL`,
-        [row.id]
-      );
-      console.log(`[seller-closeout] closeout sent + stamped for auction ${row.id}`);
+      const result = await sellerCloseoutService.generateAndSend(row.id);
+      // Only stamp the double-send guard after a genuine SUCCESS. A skip (missing
+      // seller email, SMTP unconfigured, auction not found) or a failure must NOT
+      // stamp seller_closeout_sent_at — otherwise the auction is permanently marked
+      // "sent" and never retried even once the cause is fixed. Leaving it unstamped
+      // keeps it eligible for the next scan.
+      if (result && result.sent) {
+        await db.query(
+          `UPDATE auctions SET seller_closeout_sent_at = now() WHERE id = $1 AND seller_closeout_sent_at IS NULL`,
+          [row.id]
+        );
+        console.log(`[seller-closeout] closeout sent + stamped for auction ${row.id}`);
+      } else {
+        const why = (result && (result.reason || result.status)) || 'unknown';
+        console.warn(`[seller-closeout] not sent for ${row.id} (${why}) — left retry-eligible, not stamped`);
+      }
     } catch (err) {
       console.error(`[seller-closeout] send failed for ${row.id}: ${err.message}`);
       if (process.env.SENTRY_DSN) Sentry.captureException(err);

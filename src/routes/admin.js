@@ -1189,7 +1189,14 @@ router.get('/payouts', auth, role(['admin']), async (req, res, next) => {
               sp.created_at,
               sp.updated_at,
               u.email                AS seller_email,
-              a.title                AS auction_title
+              a.title                AS auction_title,
+              -- Seller closeout operational status (read-only visibility). The stamp
+              -- lives on the auction; the latest seller_closeout.* audit event carries
+              -- the recipient, result, SES message id, and any skip/failure reason.
+              a.seller_closeout_sent_at,
+              (SELECT to_jsonb(al) FROM audit_log al
+                WHERE al.auction_id = a.id AND al.event_type LIKE 'seller_closeout%'
+                ORDER BY al.created_at DESC LIMIT 1) AS closeout_event
          FROM seller_payouts sp
          JOIN users u ON u.id = sp.seller_user_id
     LEFT JOIN auctions a ON a.id = sp.auction_id
@@ -1198,7 +1205,25 @@ router.get('/payouts', auth, role(['admin']), async (req, res, next) => {
         LIMIT 100`,
       [status]
     );
-    return res.json({ success: true, data: rows.rows });
+    // Flatten the closeout event into a compact, read-only status object per row.
+    const data = rows.rows.map((r) => {
+      const ev = r.closeout_event || null;
+      const meta = (ev && ev.metadata) || {};
+      return {
+        ...r,
+        closeout_event: undefined,
+        closeout: {
+          sent_at:    r.seller_closeout_sent_at || null,
+          recipient:  meta.to || null,
+          // 'sent' | 'skipped' | 'failed' from the audit result, else derived.
+          status:     (meta.result) || (r.seller_closeout_sent_at ? 'sent' : 'not_sent'),
+          message_id: meta.messageId || null,
+          reason:     meta.reason || null,
+          event_at:   (ev && ev.created_at) || null,
+        },
+      };
+    });
+    return res.json({ success: true, data });
   } catch (err) {
     next(err);
   }
