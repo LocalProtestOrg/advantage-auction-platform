@@ -1132,7 +1132,12 @@
       if (res.status === 401) { stopRefresh(); return; }
       const data = await res.json();
       if (data.success) renderBids(data.data, true, Number(lotData.data && lotData.data.current_bid_cents));   // #1 authoritative current bid + next-min headline
-    } catch { /* network blip */ }
+    } catch (e) {
+      // A network blip here is normal and self-heals on the next poll. A RENDER
+      // error is not: it froze the live price silently for a whole session (SEV-1).
+      // Never swallow silently again — surface it so it is diagnosable.
+      console.error('[lot] refresh failed:', e && e.message ? e.message : e);
+    }
     finally { refreshing = false; }
   }
   function startRefresh() {
@@ -1645,6 +1650,17 @@
   // the auction gallery renders). When provided it drives the current-bid headline
   // so Lot Detail and the gallery never diverge (proxy/max bids included); the bids
   // array feeds only the history list + new-top flash detection.
+  // SEV-1: #bid-empty is a CHILD of #bid-list (see markup), so wiping the list with
+  // innerHTML='' destroyed it. The next render then hit `empty.style` on null and
+  // threw — and refreshLotNow's catch swallowed it — so the current-bid headline,
+  // bid count and history froze for the rest of the session while the gallery kept
+  // updating. Clear only the bid rows so #bid-empty always survives.
+  function clearBidRows(list) {
+    Array.prototype.slice.call(list.children).forEach((n) => {
+      if (n.id !== 'bid-empty') n.remove();
+    });
+  }
+
   function renderBids(bids, fromPoll, authoritativeCents) {
     const list  = document.getElementById('bid-list');
     const empty = document.getElementById('bid-empty');
@@ -1652,9 +1668,10 @@
     const authCents = (Number.isFinite(Number(authoritativeCents)) && Number(authoritativeCents) > 0) ? Number(authoritativeCents) : 0;
 
     if (!bids.length) {
-      list.innerHTML = '';
-      empty.style.display = 'block';
-      list.appendChild(empty);
+      clearBidRows(list);
+      // Null-guarded: the price headline must render even if this element is ever
+      // missing. Nothing here may throw before setCurrentBid().
+      if (empty) { empty.style.display = 'block'; list.appendChild(empty); }
       countLabel.textContent = '';
       setActivity(0, 0);
       // No bids yet: current price shows the starting bid; next min is the
@@ -1665,7 +1682,7 @@
       return;
     }
 
-    empty.style.display = 'none';
+    if (empty) empty.style.display = 'none';
 
     // Authoritative per-bid amount is amount_cents (integer); older/socket shapes
     // may carry `amount` (dollars) - accept it as a fallback. Used for the history
@@ -1697,7 +1714,7 @@
 
     countLabel.textContent = bids.length + ' bid' + (bids.length === 1 ? '' : 's');
 
-    list.innerHTML = '';
+    clearBidRows(list);   // SEV-1: never innerHTML='' here — it would destroy #bid-empty.
     sorted.forEach((bid, i) => {
       const isNew = fromPoll && i === 0 && isNewTopBid;
 
