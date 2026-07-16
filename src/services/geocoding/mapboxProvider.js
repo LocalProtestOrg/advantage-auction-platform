@@ -42,7 +42,10 @@ function isConfigured() {
  */
 async function geocode(query) {
   if (!isConfigured()) {
-    return { ok: false, status: 'unconfigured', error: 'MAPBOX_GEOCODING_TOKEN is not set' };
+    // Vendor- and variable-free: this string is rendered in the admin interface, and
+    // no human-facing surface may expose a provider name or an env var. The specific
+    // variable is named in .env.example, the deployment runbook, and the ops script.
+    return { ok: false, status: 'unconfigured', error: 'Automatic location lookup is not configured' };
   }
   if (!query || !String(query).trim()) {
     return { ok: false, status: 'insufficient_location', error: 'No usable location' };

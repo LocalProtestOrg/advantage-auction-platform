@@ -279,4 +279,47 @@ describe('backfill targets only auctions missing a public marker', () => {
     // Requires something to geocode with.
     expect(sql).toMatch(/zip/);
   });
+
+  test('archived auctions are excluded (their marker can never render)', async () => {
+    db.query.mockResolvedValueOnce({ rows: [] });
+    await svc.findMissingPublicCoordinates();
+    expect(db.query.mock.calls[0][0].replace(/\s+/g, ' ')).toMatch(/is_archived IS NOT TRUE/);
+  });
+});
+
+describe('public language standard — provider errors are admin-visible', () => {
+  // geocoding_error is rendered verbatim in the admin Map Location panel, and the
+  // language standard covers admin surfaces. No provider, vendor, or env-var name
+  // may appear in any string that can reach the interface.
+  const { geocode } = require('../src/services/geocoding/mapboxProvider');
+  const BANNED = /mapbox|MAPBOX|google|openai|cloudinary|_TOKEN|_KEY|\bAI\b/;
+
+  test('the unconfigured error names no vendor and no env var', async () => {
+    delete process.env.MAPBOX_GEOCODING_TOKEN;
+    const r = await geocode('Jersey City, NJ 07302');
+    expect(r.status).toBe('unconfigured');
+    expect(r.error).not.toMatch(BANNED);
+  });
+
+  test('transport failure errors name no vendor', async () => {
+    process.env.MAPBOX_GEOCODING_TOKEN = 'pk.test';
+    const realFetch = global.fetch;
+    global.fetch = async () => { throw Object.assign(new Error('x'), { name: 'TimeoutError' }); };
+    const r = await geocode('Jersey City, NJ 07302');
+    expect(r.error).not.toMatch(BANNED);
+    global.fetch = realFetch;
+    delete process.env.MAPBOX_GEOCODING_TOKEN;
+  });
+
+  test('HTTP-status errors name no vendor', async () => {
+    process.env.MAPBOX_GEOCODING_TOKEN = 'pk.test';
+    const realFetch = global.fetch;
+    for (const status of [401, 403, 429, 500]) {
+      global.fetch = async () => ({ ok: false, status });
+      const r = await geocode('Jersey City, NJ 07302');
+      expect(r.error).not.toMatch(BANNED);
+    }
+    global.fetch = realFetch;
+    delete process.env.MAPBOX_GEOCODING_TOKEN;
+  });
 });

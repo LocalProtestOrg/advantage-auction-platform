@@ -191,6 +191,10 @@ async function findMissingPublicCoordinates(limit = 500) {
        FROM auctions
       WHERE (lat IS NULL OR lng IS NULL)
         AND coordinates_manually_overridden IS NOT TRUE
+        -- Policy #22: archived auctions never appear on any public surface, so a
+        -- marker for one can never render. Geocoding them is a billable request for
+        -- an invisible pin — on current data that is 14 of 18 candidate rows.
+        AND is_archived IS NOT TRUE
         AND (NULLIF(TRIM(COALESCE(zip, '')), '') IS NOT NULL
              OR NULLIF(TRIM(COALESCE(city, '')), '') IS NOT NULL)
       ORDER BY created_at DESC NULLS LAST
