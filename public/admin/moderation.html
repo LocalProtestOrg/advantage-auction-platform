@@ -2073,6 +2073,17 @@
         right.style.cssText = 'text-align:right;flex-shrink:0;';
         right.appendChild(el('div', 'row-amount', fmtMoney(p.seller_payout_cents)));
         right.appendChild(el('div', 'row-submeta', 'Gross ' + fmtMoney(p.gross_revenue_cents) + ' · Fee ' + fmtMoney(p.platform_fee_cents)));
+        // Open the full settlement review workbench for this auction. It renders
+        // read-only while Seller Settlements are OFF (the page shows its own banner
+        // and disables every action), so this is purely a navigation affordance.
+        if (p.auction_id) {
+          const rev = document.createElement('a');
+          rev.className = 'btn';
+          rev.style.cssText = 'display:inline-block;margin-top:6px;padding:4px 10px;font-size:.75rem;text-decoration:none';
+          rev.href = '/admin/settlement-review.html?auction=' + encodeURIComponent(p.auction_id);
+          rev.textContent = 'Review Settlement →';
+          right.appendChild(rev);
+        }
         row.appendChild(right);
         list.appendChild(row);
       });
