@@ -172,7 +172,7 @@ function buildSuccessPackageEmail(data) {
 
   const html =
     '<div style="font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif;max-width:560px;margin:0 auto;color:#1f2937">' +
-      '<div style="font-weight:800;font-size:18px;color:#0f172a;padding:8px 0 2px">Advantage Auction</div>' +
+      doc.emailBrandHeader() +
       '<div style="font-size:13px;color:#16a34a;font-weight:700;margin-bottom:14px">Payment received. Thank you!</div>' +
       (data.auctionTitle ? ('<div style="font-size:13px;color:#64748b">' + esc(data.auctionTitle) + '</div>') : '') +
       '<div style="font-size:15px;font-weight:700;margin:2px 0 4px">Invoice ' + esc(data.invoiceNumber) + '</div>' +
@@ -187,11 +187,11 @@ function buildSuccessPackageEmail(data) {
       '<table style="width:100%;border-collapse:collapse;font-size:14px;margin-top:12px">' + summaryRowsHtml(data.summary) + '</table>' +
       pickupHtml +
       (invoicesUrl ? ('<p style="margin:16px 0 4px">' + button(invoicesUrl, 'View My Purchases', '#2563eb') + button('mailto:' + SUPPORT_EMAIL, 'Need Help?', '#475569') + '</p>') : '') +
-      '<p style="font-size:12px;color:#94a3b8;margin-top:14px">Advantage Auction never stores your full card details.</p>' +
+      '<p style="font-size:12px;color:#94a3b8;margin-top:14px">Advantage.Bid never stores your full card details.</p>' +
     '</div>';
 
   const textLines = [
-    'Advantage Auction - Payment received, thank you!',
+    'Advantage.Bid - Payment received, thank you!',
     '',
     "You're all paid. Your invoice is attached and your pickup details are below.",
     '',
@@ -243,7 +243,7 @@ function buildPaymentRequiredEmail(data, { reminderNo } = {}) {
 
   const html =
     '<div style="font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif;max-width:560px;margin:0 auto;color:#1f2937">' +
-      '<div style="font-weight:800;font-size:18px;color:#0f172a;padding:8px 0 2px">Advantage Auction</div>' +
+      doc.emailBrandHeader() +
       '<div style="font-size:13px;color:#b91c1c;font-weight:800;margin-bottom:12px">' + esc(heading) + '</div>' +
       (data.auctionTitle ? ('<div style="font-size:13px;color:#64748b">' + esc(data.auctionTitle) + '</div>') : '') +
       '<div style="font-size:15px;font-weight:700;margin:2px 0 10px">Invoice ' + esc(data.invoiceNumber) + '</div>' +
@@ -259,11 +259,11 @@ function buildPaymentRequiredEmail(data, { reminderNo } = {}) {
       '<table style="width:100%;border-collapse:collapse;font-size:14px;margin-top:12px">' + summaryRowsHtml(data.summary) + '</table>' +
       pickupHtml +
       (invoicesUrl ? ('<p style="margin:16px 0 4px">' + button(invoicesUrl, 'Complete Payment Now', '#b91c1c') + '</p>') : '') +
-      '<p style="font-size:12px;color:#94a3b8;margin-top:14px">Your invoice is attached as a PDF. Advantage Auction never stores your full card details.</p>' +
+      '<p style="font-size:12px;color:#94a3b8;margin-top:14px">Your invoice is attached as a PDF. Advantage.Bid never stores your full card details.</p>' +
     '</div>';
 
   const textLines = [
-    'Advantage Auction - ' + heading,
+    'Advantage.Bid - ' + heading,
     '',
     data.auctionTitle ? ('Auction: ' + data.auctionTitle) : null,
     'Invoice: ' + data.invoiceNumber,

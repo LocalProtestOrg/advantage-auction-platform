@@ -174,7 +174,7 @@ async function sendFinalSellerReport(auctionId) {
       'Please find the full auction summary and payout breakdown attached.',
       '',
       'Thank you,',
-      'Advantage Auction',
+      'Advantage.Bid',
     ].join('\n'),
     attachments: [{
       filename: `auction-report-${auctionId}.pdf`,

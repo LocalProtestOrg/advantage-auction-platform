@@ -212,8 +212,10 @@ function drawPickupSheet(pdf, inv, auction, thumbBuf) {
   // ── Title band ────────────────────────────────────────────────────────────
   let y = pdf.page.margins.top;
   pdf.fillColor(NAVY).font('Helvetica-Bold').fontSize(26).text('PICKUP RELEASE', left, y);
+  // Advantage.Bid logo lockup, top-right of the title band.
+  doc.drawBrandLockup(pdf, 0, y + 2, { badge: 24, rightEdge: right });
   pdf.font('Helvetica').fontSize(9).fillColor(SLATE)
-     .text('Advantage Auction' + (auction.title ? ('  ·  ' + auction.title) : ''), left, y + 31, { width: W });
+     .text(auction.title || '', left, y + 31, { width: W });
   pdf.fillColor('#000000');
   y += 46;
   pdf.lineWidth(2).strokeColor(BLUE).moveTo(left, y).lineTo(right, y).stroke();
