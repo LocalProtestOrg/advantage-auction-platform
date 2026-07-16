@@ -1217,21 +1217,17 @@
     const cdVal  = cdWrap ? cdWrap.querySelector('span:last-child') : null;
     const fill   = card.querySelector('.lot-progress-fill');
     if (cdWrap && cdVal) startCardCountdown(lotId, cdWrap, cdVal, fill, lot.extended_until || lot.closes_at);
-    // #2 winning / outbid / watching / sold status badge.
-    applyCardStatus(card, lot);
-    // #5: keep the primary button's tri-state (Place Bid / Winning / Bid Again) in sync.
-    const bidBtn = card.querySelector('.card-bidform button');
-    if (bidBtn && !bidBtn.disabled) applyBidBtnState(bidBtn, lot);
+    // Status badge + primary button ALWAYS update together from one authoritative
+    // bidder-status (never one without the other).
+    applyCardBidState(card, lot);
   }
 
   // ── #2 winning / outbid / watching / sold status badge ──────────────────────
   const CHIP_CSS = 'display:inline-block;font-size:11px;font-weight:700;padding:2px 8px;border-radius:999px;margin-left:6px;vertical-align:middle;';
   const CHIP_TONE = { win: 'background:#dcfce7;color:#166534;', lose: 'background:#fee2e2;color:#991b1b;', neutral: 'background:#f1f5f9;color:#475569;' };
-  // Render the chip from the shared bidder-status logic (reliable Winning/Outbid/
-  // Watching/Sold without guessing). 'watching' is hidden on cards to avoid noise.
-  function renderChip(chip, lot) {
-    if (!chip || !window.BidStatus) return;
-    const s = BidStatus.deriveBidderStatus(lot);
+  // Paint the chip from a PRECOMPUTED bidder-status. 'watching' hides it.
+  function renderChipFromStatus(chip, s) {
+    if (!chip) return;
     if (s.key === 'watching') { chip.style.display = 'none'; chip.setAttribute('data-state', ''); chip.textContent = ''; return; }
     chip.setAttribute('data-state', s.key);
     let txt = s.label;
@@ -1239,25 +1235,43 @@
     chip.textContent = txt;
     chip.style.cssText = CHIP_CSS + (CHIP_TONE[s.tone] || CHIP_TONE.neutral);
   }
-  function applyCardStatus(card, lot) { renderChip(card.querySelector('[data-chip]'), lot); }
-  // #7: standard tri-state primary bid button — Place Bid (blue) / Winning (green) /
-  // Outbid (red, pulsing). Shared by initial render and live in-place updates. The
-  // button NEVER becomes "Increase Max"; the max raise stays the input's own hint.
-  function applyBidBtnState(btn, lot) {
-    if (!btn || !window.BidStatus) return;
-    const s = BidStatus.deriveBidderStatus(lot);
+  // Paint the primary button from the SAME status. Never becomes "Increase Max".
+  function applyBtnFromStatus(btn, s) {
+    if (!btn) return;
     btn.textContent = s.winning ? 'Winning' : (s.hasBid ? 'Bid Again' : 'Place Bid');
     btn.classList.toggle('is-winning', !!s.winning);
     btn.classList.toggle('is-outbid', !s.winning && !!s.hasBid);
   }
-  // Socket fast-path: a targeted winning/outbid event flips the badge instantly;
-  // the debounced poll then reconciles the full status (incl. the viewer's max).
-  function setCardChipState(card, key) {
+  // THE authoritative updater: the status badge AND the primary button ALWAYS
+  // derive from ONE deriveBidderStatus(lot) call, so they can never disagree —
+  // they move together through polls, socket events, refreshes, and anti-snipe
+  // rebuilds. Skips BOTH (never one) only while a bid is mid-submission on this
+  // card ("Placing…"); they reconcile together the instant the submit completes.
+  function applyCardBidState(card, lot) {
+    if (!card || !window.BidStatus) return;
+    const btn = card.querySelector('.card-bidform button');
+    if (btn && btn.disabled && /placing/i.test(btn.textContent)) return;
+    const s = BidStatus.deriveBidderStatus(lot);
+    renderChipFromStatus(card.querySelector('[data-chip]'), s);
+    if (btn) applyBtnFromStatus(btn, s);
+  }
+  // Single-target wrappers used during card construction — same status logic, so a
+  // freshly built card's chip and button are consistent from the first paint.
+  function renderChip(chip, lot) { if (chip && window.BidStatus) renderChipFromStatus(chip, BidStatus.deriveBidderStatus(lot)); }
+  function applyBidBtnState(btn, lot) { if (btn && window.BidStatus) applyBtnFromStatus(btn, BidStatus.deriveBidderStatus(lot)); }
+  // Socket fast-path: a targeted winning/outbid event flips the badge AND the
+  // button together instantly (kept in lockstep); the debounced poll then
+  // reconciles the full status (incl. the viewer's max) via applyCardBidState.
+  function setCardBidStateFast(card, key) {
     const chip = card && card.querySelector('[data-chip]');
-    if (!chip) return;
-    chip.setAttribute('data-state', key);
-    chip.textContent = key === 'winning' ? '✓ Winning' : 'Outbid';
-    chip.style.cssText = CHIP_CSS + (key === 'winning' ? CHIP_TONE.win : CHIP_TONE.lose);
+    const btn  = card && card.querySelector('.card-bidform button');
+    const winning = key === 'winning';
+    if (chip) { chip.setAttribute('data-state', key); chip.textContent = winning ? '✓ Winning' : 'Outbid'; chip.style.cssText = CHIP_CSS + (winning ? CHIP_TONE.win : CHIP_TONE.lose); }
+    if (btn && !(btn.disabled && /placing/i.test(btn.textContent))) {
+      btn.textContent = winning ? 'Winning' : 'Bid Again';
+      btn.classList.toggle('is-winning', winning);
+      btn.classList.toggle('is-outbid', !winning);
+    }
   }
   function cssEsc(s) { return (window.CSS && CSS.escape) ? CSS.escape(s) : String(s).replace(/"/g, '\\"'); }
   function cardFor(lotId) { return lotId ? grid.querySelector('[data-lot-id="' + cssEsc(lotId) + '"]') : null; }
@@ -1303,8 +1317,8 @@
     const soon = () => { clearTimeout(t); t = setTimeout(pollGrid, 200); };
     socket.on('connect', () => socket.emit('joinAuction', auctionId));
     socket.on('lot:update', soon);
-    socket.on('lot:winning', m => { const c = cardFor(m && m.lot_id); if (c) setCardChipState(c, 'winning'); if (window.BuyerChime) BuyerChime.play('bid'); soon(); });
-    socket.on('lot:outbid',  m => { const c = cardFor(m && m.lot_id); if (c) setCardChipState(c, 'outbid'); if (window.BuyerChime) BuyerChime.play('outbid'); soon(); });
+    socket.on('lot:winning', m => { const c = cardFor(m && m.lot_id); if (c) setCardBidStateFast(c, 'winning'); if (window.BuyerChime) BuyerChime.play('bid'); soon(); });
+    socket.on('lot:outbid',  m => { const c = cardFor(m && m.lot_id); if (c) setCardBidStateFast(c, 'outbid'); if (window.BuyerChime) BuyerChime.play('outbid'); soon(); });
     socket.on('auction:update', () => loadAuction());
   }
 
@@ -1562,13 +1576,16 @@
       status.className = 'cbf-status'; status.textContent = '';
       const r = await BidUtils.placeBid(lotId, built.payload, token);
       if (r.unauthorized) { localStorage.removeItem('token'); window.location.href = '/login.html?next=' + encodeURIComponent(location.pathname + location.search); return; }
-      btn.disabled = false; btn.textContent = orig;
+      btn.disabled = false;
       if (r.ok) {
         status.className = 'cbf-status ok';
         status.textContent = 'Your Max Bid: ' + BidUtils.formatUSD(Math.round(built.amount * 100)); // #16
         input.value = '';
+        // Re-derive the badge + button together from the authoritative post-bid
+        // state (never restore the stale pre-bid label).
         await patchCardBids(card, lotId);
       } else {
+        btn.textContent = orig;   // failed submit → restore the prior label
         status.className = 'cbf-status err';
         status.textContent = r.message;
       }
