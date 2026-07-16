@@ -149,45 +149,26 @@
     location.href = (typeof window.BUYER_NAV_BACK === 'string' && window.BUYER_NAV_BACK) || '/';
   }
 
-  // ── #14 optional bid chime ──────────────────────────────────────────────────
-  var _audio = null, _lastChime = 0;
-  function chimeEnabled() { try { return localStorage.getItem('bidSound') === 'on'; } catch (e) { return false; } }
-  function audioCtx() {
-    try {
-      if (!_audio) { var AC = window.AudioContext || window.webkitAudioContext; if (!AC) return null; _audio = new AC(); }
-      if (_audio.state === 'suspended' && _audio.resume) _audio.resume();
-      return _audio;
-    } catch (e) { return null; }
+  // ── #14 bid chime — delegated, never reimplemented ───────────────────────────
+  // This file used to carry a SECOND chime implementation that overwrote
+  // window.BuyerChime, dropping isMuted/setMuted (which threw on the live auction
+  // pages), keying off 'bidSound', and defaulting OFF. buyer-chime.js is now the
+  // single source of truth: one storage key, one preference, default ON.
+  //
+  // Most nav pages do not include buyer-chime.js, so load it on demand rather than
+  // adding a script tag to 19 pages. Fail-open: no chime module → no sound control,
+  // never a broken nav.
+  function ensureChime(cb) {
+    if (window.BuyerChime) return cb();
+    var existing = document.querySelector('script[data-buyer-chime]');
+    if (existing) { existing.addEventListener('load', cb); existing.addEventListener('error', cb); return; }
+    var s = document.createElement('script');
+    s.src = '/widgets/shared/buyer-chime.js';
+    s.setAttribute('data-buyer-chime', '');
+    s.onload = cb;
+    s.onerror = cb;
+    document.head.appendChild(s);
   }
-  function beep(freqs) {
-    var c = audioCtx(); if (!c) return;
-    var t = c.currentTime;
-    freqs.forEach(function (f, i) {
-      var o = c.createOscillator(), g = c.createGain();
-      o.type = 'sine'; o.frequency.value = f;
-      var s = t + i * 0.09;
-      g.gain.setValueAtTime(0.0001, s);
-      g.gain.exponentialRampToValueAtTime(0.14, s + 0.012);
-      g.gain.exponentialRampToValueAtTime(0.0001, s + 0.085);
-      o.connect(g); g.connect(c.destination);
-      o.start(s); o.stop(s + 0.09);
-    });
-  }
-  function playChime(kind) {
-    if (!chimeEnabled()) return;
-    var now = Date.now(); if (now - _lastChime < 800) return;
-    _lastChime = now;
-    if (kind === 'outbid') beep([392]);
-    else if (kind === 'extended') beep([587, 784]);
-    else beep([659, 988]);
-  }
-  function toggleChime() {
-    var on = !chimeEnabled();
-    try { localStorage.setItem('bidSound', on ? 'on' : 'off'); } catch (e) {}
-    if (on) { audioCtx(); beep([659, 988]); }
-    return on;
-  }
-  window.BuyerChime = { enabled: chimeEnabled, play: playChime, toggle: toggleChime };
 
   function mount() {
     if (document.getElementById('buyer-nav')) return;
@@ -300,11 +281,27 @@
     window.addEventListener('resize', closeAll);
 
     // ── #14 bid-sound toggle ─────────────────────────────────────────────────
+    // Reads and writes the ONE shared preference. Repaints on 'buyerchime:change'
+    // so this and a page's own toggle (Lot Detail has one) never disagree.
     var sound = header.querySelector('.bn-sound');
     if (sound) {
-      var paint = function () { sound.textContent = chimeEnabled() ? '🔊' : '🔇'; sound.style.opacity = chimeEnabled() ? '1' : '0.6'; };
-      paint();
-      sound.addEventListener('click', function () { toggleChime(); paint(); });
+      ensureChime(function () {
+        if (!window.BuyerChime) { sound.style.display = 'none'; return; }
+        var paint = function () {
+          var on = !window.BuyerChime.isMuted();
+          sound.textContent = on ? '🔊' : '🔇';
+          sound.style.opacity = on ? '1' : '0.6';
+          sound.setAttribute('aria-label', on ? 'Turn bid sounds off' : 'Turn bid sounds on');
+          sound.setAttribute('aria-pressed', on ? 'false' : 'true');
+        };
+        paint();
+        window.addEventListener('buyerchime:change', paint);
+        sound.addEventListener('click', function () {
+          var nowMuted = window.BuyerChime.toggle();
+          // Confirm audibly when switching ON, matching the previous behavior.
+          if (!nowMuted) window.BuyerChime.play('bid');
+        });
+      });
     }
   }
 
