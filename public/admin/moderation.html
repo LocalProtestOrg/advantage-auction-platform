@@ -611,6 +611,69 @@
     });
   }
 
+  // ── Map Location (#4) ───────────────────────────────────────────────────────
+  // Coordinates do NOT go through the auction PATCH: they live on the discovery
+  // endpoint, which also marks them as a manual override so no later automatic pass
+  // can move an admin's pin.
+
+  // Human-readable geocoding status. Deliberately plain language — no provider or
+  // vendor name is ever shown in the interface.
+  function geoStatusLabel(a) {
+    if (a.coordinates_manually_overridden) return 'Manually set by an administrator';
+    switch (a.geocoding_status) {
+      case 'ok':           return 'Located automatically';
+      case 'manual':       return 'Manually set by an administrator';
+      case 'failed':       return 'Could not be located' + (a.geocoding_error ? ' — ' + a.geocoding_error : '');
+      case 'unconfigured': return 'Automatic location is not configured';
+      case 'insufficient_location': return 'Not enough address detail to locate';
+      default:             return (a.lat != null && a.lng != null) ? 'Located' : 'Not located yet';
+    }
+  }
+
+  function setGeoStatus(auctionId, text) {
+    const el = document.getElementById('geo-status-' + auctionId);
+    if (el) el.textContent = text;
+  }
+
+  function saveMapLocation(auctionId) {
+    const lat = document.getElementById('geo-lat-' + auctionId).value.trim();
+    const lng = document.getElementById('geo-lng-' + auctionId).value.trim();
+    if (lat === '' || lng === '') { alert('Enter both a latitude and a longitude.'); return; }
+
+    // Client-side range check mirrors the server guard so the admin gets an instant,
+    // specific message. The server remains authoritative.
+    const laF = Number(lat), lnF = Number(lng);
+    if (!isFinite(laF) || laF < -90 || laF > 90)    { alert('Latitude must be between -90 and 90.'); return; }
+    if (!isFinite(lnF) || lnF < -180 || lnF > 180)  { alert('Longitude must be between -180 and 180.'); return; }
+
+    setGeoStatus(auctionId, 'Saving…');
+    api('PATCH', '/api/admin/auctions/' + encodeURIComponent(auctionId) + '/discovery', { lat: laF, lng: lnF })
+      .then(d => {
+        if (!d || d.success === false) { setGeoStatus(auctionId, (d && d.message) || 'Could not save the location'); return; }
+        setGeoStatus(auctionId, 'Manually set by an administrator');
+      })
+      .catch(e => setGeoStatus(auctionId, 'Could not save the location — ' + e.message));
+  }
+
+  function retryGeocoding(auctionId) {
+    if (!confirm('Locate this auction again from its address?\n\nThis replaces a manually set location.')) return;
+    setGeoStatus(auctionId, 'Locating…');
+    api('POST', '/api/admin/auctions/' + encodeURIComponent(auctionId) + '/geocode')
+      .then(d => {
+        if (!d || d.success === false) {
+          setGeoStatus(auctionId, 'Could not be located' + (d && d.message ? ' — ' + d.message : ''));
+          return;
+        }
+        const c = d.data && d.data.coordinates;
+        if (c) {
+          document.getElementById('geo-lat-' + auctionId).value = c.lat;
+          document.getElementById('geo-lng-' + auctionId).value = c.lng;
+        }
+        setGeoStatus(auctionId, 'Located automatically');
+      })
+      .catch(e => setGeoStatus(auctionId, 'Could not be located — ' + e.message));
+  }
+
   // Phase 2B: download the combined pickup-day invoice packet (admin-only,
   // authenticated blob fetch → client download; no token in the URL).
   function downloadPacket(auctionId, title, btn) {
@@ -1408,6 +1471,21 @@
           <label>Banner image URL <input ${ef('banner_image_url')} value="${escAttr(a.banner_image_url)}" style="width:100%;padding:0.35rem;border:1px solid #d1d5db;border-radius:4px"></label>
           <label>Cover image URL <input ${ef('cover_image_url')} value="${escAttr(a.cover_image_url)}" style="width:100%;padding:0.35rem;border:1px solid #d1d5db;border-radius:4px"></label>
           <label><input type="checkbox" ${ef('shipping_available')} ${a.shipping_available ? 'checked' : ''}> Shipping available</label>
+          <div style="grid-column:1/-1;margin-top:.5rem;padding-top:.5rem;border-top:1px dashed #e5e7eb;font-weight:700;color:#475569">Map Location</div>
+          <div style="grid-column:1/-1;font-size:.78rem;color:#64748b;margin-top:-.25rem">
+            The public marker is placed about 0.10 miles from the auction address so the map never
+            reveals the exact property. Saving a manual location keeps that pin exactly where you put
+            it — automatic updates will not move it until you choose Retry Geocoding.
+          </div>
+          <label>Current Latitude <input id="geo-lat-${auctionId}" value="${a.lat != null ? a.lat : ''}" inputmode="decimal" placeholder="-90 to 90" style="width:100%;padding:0.35rem;border:1px solid #d1d5db;border-radius:4px"></label>
+          <label>Current Longitude <input id="geo-lng-${auctionId}" value="${a.lng != null ? a.lng : ''}" inputmode="decimal" placeholder="-180 to 180" style="width:100%;padding:0.35rem;border:1px solid #d1d5db;border-radius:4px"></label>
+          <div style="grid-column:1/-1;display:flex;align-items:center;gap:.5rem;flex-wrap:wrap">
+            <span style="font-size:.8rem;color:#475569">Geocoding Status:</span>
+            <span id="geo-status-${auctionId}" style="font-size:.8rem;font-weight:700">${escText(geoStatusLabel(a))}</span>
+            <button type="button" class="btn" onclick="saveMapLocation('${auctionId}')" style="padding:.3rem .6rem">Save Map Location</button>
+            <button type="button" class="btn" onclick="retryGeocoding('${auctionId}')" style="padding:.3rem .6rem">Retry Geocoding</button>
+          </div>
+
           <div style="grid-column:1/-1;margin-top:.5rem;padding-top:.5rem;border-top:1px dashed #e5e7eb;font-weight:700;color:#475569">Admin-only settings</div>
           <label>Public auction type <input ${ef('public_auction_type')} value="${escAttr(a.public_auction_type)}" style="width:100%;padding:0.35rem;border:1px solid #d1d5db;border-radius:4px"></label>
           <label>Default starting bid (cents) <input ${pf('default_starting_bid_cents')} value="${a.default_starting_bid_cents != null ? a.default_starting_bid_cents : ''}" inputmode="numeric" style="width:100%;padding:0.35rem;border:1px solid #d1d5db;border-radius:4px"></label>
