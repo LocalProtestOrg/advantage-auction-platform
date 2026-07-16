@@ -3,7 +3,7 @@ const auditService = require('./auditService');
 const realtime = require('../lib/realtime'); // #1 real-time push (pg NOTIFY)
 const { writeAuditLog } = require('../lib/auditLog');
 const { getSellerPayoutPreference } = require('./payoutPreferenceService');
-const { validateAuctionSchedule, ScheduleRuleError, isProfessional } = require('./sellerTypeRules');
+const { validateAuctionSchedule, assertStartBeforeEnd, ScheduleRuleError, isProfessional } = require('./sellerTypeRules');
 const verificationService = require('./verificationService'); // publication gate (verification-required)
 const { combinedInvoicingEnabled } = require('./../lib/launchGuards'); // Design C flag gate at close
 const { platformFeeCents } = require('../lib/settlementPolicy'); // seller platform fee = 0% (shared)
@@ -53,6 +53,10 @@ async function createAuction(data) {
     bannerImageUrl,
     coverImageUrl,
   } = data;
+
+  // Fundamental validity (all sellers + admins, non-overridable): close is never
+  // before start. Guards against an end-before-start schedule being persisted.
+  assertStartBeforeEnd(startTime, endTime);
 
   // Phase C / C.2: resolve seller_type once when needed for the schedule rule or
   // preview gating. sellerId IS the seller_profile id.
@@ -205,19 +209,22 @@ async function updateAuction(auctionId, userId, updates, actorRole, options = {}
   // and classifies by the auction's seller_type. Throws ScheduleRuleError unless
   // valid or an admin supplied an override reason (then captured for audit).
   let scheduleOverride = null;
-  const scheduleTouched = updates.end_time !== undefined || updates.pickup_window_start !== undefined;
+  const scheduleTouched = updates.start_time !== undefined || updates.end_time !== undefined || updates.pickup_window_start !== undefined;
   const submitOrPublish = stateToWrite === 'submitted' || stateToWrite === 'published';
   if (scheduleTouched || submitOrPublish) {
     const sched = await db.query(
-      `SELECT a.end_time, a.pickup_window_start, sp.seller_type
+      `SELECT a.start_time, a.end_time, a.pickup_window_start, sp.seller_type
          FROM auctions a
          JOIN seller_profiles sp ON sp.id = a.seller_id
         WHERE a.id = $1`,
       [auctionId]
     );
     if (sched.rows[0]) {
+      const effStart  = updates.start_time !== undefined          ? updates.start_time          : sched.rows[0].start_time;
       const effEnd    = updates.end_time !== undefined            ? updates.end_time            : sched.rows[0].end_time;
       const effPickup = updates.pickup_window_start !== undefined ? updates.pickup_window_start : sched.rows[0].pickup_window_start;
+      // Fundamental validity first (non-overridable): close never before start.
+      assertStartBeforeEnd(effStart, effEnd);
       const res = enforceScheduleRule({
         sellerType:       sched.rows[0].seller_type,
         endTime:          effEnd,

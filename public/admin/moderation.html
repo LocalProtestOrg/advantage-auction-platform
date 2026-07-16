@@ -1609,6 +1609,16 @@
       }
     }
 
+    // Client-side guard mirroring the server rule: an auction's end (close) can
+    // never be before its start. The server remains authoritative; this just gives
+    // instant feedback (both time fields are always present in the edit form).
+    if (updates.start_time && updates.end_time &&
+        new Date(updates.end_time).getTime() < new Date(updates.start_time).getTime()) {
+      statusEl.textContent = 'End time cannot be before the start time.';
+      statusEl.style.color = '#dc2626';
+      return;
+    }
+
     api('PATCH', `/api/admin/auctions/${auctionId}`, updates).then(data => {
       if (!data.success) {
         statusEl.textContent = 'Failed: ' + (data.message || 'unknown');
