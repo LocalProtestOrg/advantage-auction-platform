@@ -28,6 +28,8 @@ const MESSAGES = {
     'This helps ensure winning bidders have adequate time to complete payment before pickup begins.',
   // Basic validity floor, applies to all sellers including professionals.
   pickup_after_close: 'Pickup cannot begin before the auction closes.',
+  // Fundamental validity: the close can never precede the start.
+  end_before_start: 'Auction end time cannot be before the start time.',
 };
 
 function isProfessional(sellerType) {
@@ -61,6 +63,27 @@ function validateAuctionSchedule({ sellerType, endTime, pickupWindowStart }) {
   return { ok: violations.length === 0, violations };
 }
 
+/**
+ * Fundamental schedule validity, independent of seller type: an auction's end
+ * (close) may never be before its start. Applies to ALL sellers and admins — this
+ * is a correctness guard, not an overridable business rule, so it throws even for
+ * admins (no override path). No-op when either timestamp is missing or unparseable
+ * (other layers reject bad input; this must not block partial drafts).
+ * @throws {ScheduleRuleError} with an `end_before_start` violation.
+ */
+function assertStartBeforeEnd(startTime, endTime) {
+  if (startTime == null || endTime == null) return;
+  const s = new Date(startTime).getTime();
+  const e = new Date(endTime).getTime();
+  if (Number.isNaN(s) || Number.isNaN(e)) return;
+  if (e < s) {
+    throw new ScheduleRuleError(
+      [{ rule: 'end_before_start', message: MESSAGES.end_before_start }],
+      { adminOverrideAvailable: false }
+    );
+  }
+}
+
 /** Thrown by the auctionService chokepoint when a write is blocked by the rule. */
 class ScheduleRuleError extends Error {
   constructor(violations, opts = {}) {
@@ -79,5 +102,6 @@ module.exports = {
   MESSAGES,
   isProfessional,
   validateAuctionSchedule,
+  assertStartBeforeEnd,
   ScheduleRuleError,
 };
