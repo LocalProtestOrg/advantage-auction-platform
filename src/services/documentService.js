@@ -26,13 +26,57 @@ const { v2: cloudinary } = require('cloudinary');
 const SIGNED_URL_TTL_SECONDS = 300; // signed links live 5 minutes
 
 const BRAND = {
-  name: 'ADVANTAGE AUCTION',
+  name: 'Advantage.Bid',
   tagline: 'advantage.bid',
   navy: '#0f172a',
   blue: '#2563eb',
   slate: '#64748b',
   hair: '#e2e8f0',
+  white: '#ffffff',
 };
+
+// Draw the Advantage.Bid logo lockup at (x, y): a blue rounded badge with a serif
+// "A" (mirrors public/img/advantage-logo.svg + the favicon) followed by the
+// "Advantage.Bid" wordmark. Native pdfkit vector — pdfkit cannot embed SVG and we
+// deliberately avoid adding a rasterizer dependency. Returns the lockup width.
+// If an official raster logo is ever provided, this is the single PDF swap point
+// (replace the drawing below with doc.image(pngBuffer, x, y, {fit:[w, badge]})).
+function drawBrandLockup(doc, x, y, { badge = 26, rightEdge = null } = {}) {
+  doc.save();
+  const wordSize = Math.round(badge * 0.65);
+  doc.font('Helvetica-Bold').fontSize(wordSize);
+  const totalW = badge + 8 + doc.widthOfString('Advantage.Bid');
+  if (rightEdge != null) x = rightEdge - totalW;   // right-align within [.., rightEdge]
+
+  doc.roundedRect(x, y, badge, badge, 6).fill(BRAND.blue);
+  doc.fillColor(BRAND.white).font('Times-Bold').fontSize(badge * 0.66)
+     .text('A', x, y + badge * 0.16, { width: badge, align: 'center' });
+
+  const textX = x + badge + 8;
+  doc.font('Helvetica-Bold').fontSize(wordSize);
+  doc.fillColor(BRAND.navy).text('Advantage', textX, y + (badge - wordSize) / 2 + 1, { continued: true });
+  doc.fillColor(BRAND.blue).text('.Bid', { continued: false });
+  doc.restore();
+  return totalW;
+}
+
+// Email-safe branded header (inline-styled badge + "Advantage.Bid" wordmark).
+// Used by every transactional email so the brand is consistent with the PDF/HTML
+// logo. Inline styles + inline-block spans render across email clients; border-radius
+// simply degrades to a square badge in older clients (Outlook). No image dependency,
+// so nothing to block or strip. If an official hosted raster logo is ever adopted,
+// swap the inner spans for a single <img> here — one edit updates all emails.
+function emailBrandHeader() {
+  return (
+    '<div style="padding:8px 0 12px">' +
+      '<span style="display:inline-block;width:26px;height:26px;line-height:26px;background:#2563eb;' +
+        'border-radius:6px;color:#ffffff;font-family:Georgia,\'Times New Roman\',serif;font-weight:bold;' +
+        'font-size:17px;text-align:center;vertical-align:middle">A</span>' +
+      '<span style="font-weight:800;font-size:18px;color:#0f172a;vertical-align:middle;margin-left:8px">' +
+        'Advantage<span style="color:#2563eb">.Bid</span></span>' +
+    '</div>'
+  );
+}
 
 function isCloudinaryConfigured() {
   return Boolean(
@@ -75,11 +119,12 @@ function renderPdf(drawFn, { size = 'LETTER', margin = 50 } = {}) {
 function drawBrandHeader(doc, { docTitle, docSubtitle } = {}) {
   const left = doc.page.margins.left;
   const right = doc.page.width - doc.page.margins.right;
+  const top = doc.y;
 
-  doc.fillColor(BRAND.navy).font('Helvetica-Bold').fontSize(20)
-     .text(BRAND.name, left, doc.y);
+  // Logo lockup (badge + "Advantage.Bid" wordmark) in place of the old text wordmark.
+  drawBrandLockup(doc, left, top, { badge: 26 });
   doc.font('Helvetica').fontSize(9).fillColor(BRAND.slate)
-     .text(BRAND.tagline);
+     .text(BRAND.tagline, left, top + 30);
 
   if (docTitle) {
     // Right-aligned document title block on the same vertical band.
@@ -205,6 +250,8 @@ module.exports = {
   money,
   renderPdf,
   drawBrandHeader,
+  drawBrandLockup,
+  emailBrandHeader,
   fetchImageBuffer,
   storePrivatePdf,
   signedUrl,

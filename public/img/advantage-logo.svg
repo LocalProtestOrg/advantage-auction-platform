@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="232" height="40" viewBox="0 0 232 40" role="img" aria-label="Advantage.Bid">
+  <!-- Brand badge: matches the favicon glyph (blue rounded square, serif "A"). -->
+  <rect x="0" y="4" width="32" height="32" rx="7" fill="#2563eb"/>
+  <text x="16" y="28" font-family="Georgia, 'Times New Roman', serif" font-size="21" font-weight="bold"
+        text-anchor="middle" fill="#ffffff">A</text>
+  <!-- Wordmark: "Advantage" navy + ".Bid" brand blue. -->
+  <text x="44" y="27" font-family="-apple-system, 'Segoe UI', Helvetica, Arial, sans-serif"
+        font-size="20" font-weight="700" letter-spacing="-0.3" fill="#0f172a">Advantage<tspan fill="#2563eb">.Bid</tspan></text>
+</svg>

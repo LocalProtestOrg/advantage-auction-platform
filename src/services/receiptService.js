@@ -65,7 +65,7 @@ function buildReceiptEmail(data) {
 
   const html =
     '<div style="font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif;max-width:560px;margin:0 auto;color:#1f2937">' +
-      '<div style="font-weight:800;font-size:18px;color:#0f172a;padding:8px 0 2px">Advantage Auction</div>' +
+      doc.emailBrandHeader() +
       '<div style="font-size:13px;color:#16a34a;font-weight:700;margin-bottom:14px">Payment received. Thank you!</div>' +
       (data.auctionTitle ? ('<div style="font-size:13px;color:#64748b">' + esc(data.auctionTitle) + '</div>') : '') +
       '<div style="font-size:15px;font-weight:700;margin:2px 0 14px">Invoice ' + esc(data.invoiceNumber) + '</div>' +
@@ -86,11 +86,11 @@ function buildReceiptEmail(data) {
       '<p style="font-size:13px;line-height:1.5;color:#475569;margin:16px 0 4px">Your itemized invoice is attached as a PDF.' +
         (invoicesUrl ? (' You can also view all invoices any time at <a href="' + invoicesUrl + '" style="color:#2563eb">your account</a>.') : '') +
       '</p>' +
-      '<p style="font-size:12px;color:#94a3b8;margin-top:14px">Buyer premium, sales tax, and shipping appear as “—” until those features are activated. Advantage Auction never stores your full card details.</p>' +
+      '<p style="font-size:12px;color:#94a3b8;margin-top:14px">Buyer premium, sales tax, and shipping appear as “—” until those features are activated. Advantage.Bid never stores your full card details.</p>' +
     '</div>';
 
   const textLines = [
-    'Advantage Auction - Payment received, thank you!',
+    'Advantage.Bid - Payment received, thank you!',
     '',
     data.auctionTitle ? ('Auction: ' + data.auctionTitle) : null,
     'Invoice: ' + data.invoiceNumber,
@@ -175,7 +175,7 @@ function buildUnpaidInvoiceEmail(data) {
 
   const html =
     '<div style="font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif;max-width:560px;margin:0 auto;color:#1f2937">' +
-      '<div style="font-weight:800;font-size:18px;color:#0f172a;padding:8px 0 2px">Advantage Auction</div>' +
+      doc.emailBrandHeader() +
       '<div style="font-size:13px;color:#b91c1c;font-weight:800;margin-bottom:12px">Payment required</div>' +
       (data.auctionTitle ? ('<div style="font-size:13px;color:#64748b">' + esc(data.auctionTitle) + '</div>') : '') +
       '<div style="font-size:15px;font-weight:700;margin:2px 0 10px">Invoice ' + esc(data.invoiceNumber) + '</div>' +
@@ -195,11 +195,11 @@ function buildUnpaidInvoiceEmail(data) {
         '<td style="text-align:right;color:#0f172a;font-weight:800;padding-top:4px">' + doc.money(data.summary.totalCents) + '</td></tr>' +
       '</table>' +
       (invoicesUrl ? ('<p style="margin:16px 0 4px"><a href="' + invoicesUrl + '" style="display:inline-block;background:#2563eb;color:#fff;text-decoration:none;font-weight:700;padding:11px 20px;border-radius:8px">Pay now →</a></p>') : '') +
-      '<p style="font-size:12px;color:#94a3b8;margin-top:14px">Your invoice is attached as a PDF. Buyer premium, sales tax, and shipping appear as “—” until those features are activated. Advantage Auction never stores your full card details.</p>' +
+      '<p style="font-size:12px;color:#94a3b8;margin-top:14px">Your invoice is attached as a PDF. Buyer premium, sales tax, and shipping appear as “—” until those features are activated. Advantage.Bid never stores your full card details.</p>' +
     '</div>';
 
   const textLines = [
-    'Advantage Auction - Payment required',
+    'Advantage.Bid - Payment required',
     '',
     data.auctionTitle ? ('Auction: ' + data.auctionTitle) : null,
     'Invoice: ' + data.invoiceNumber,
