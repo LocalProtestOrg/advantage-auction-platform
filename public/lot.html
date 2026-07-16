@@ -706,7 +706,7 @@
 
 <header>
   <span class="brand">Advantage Auction</span>
-  <a href="javascript:smartBack()" class="back">← Back</a>
+  <a href="javascript:smartBack()" class="back" aria-label="Back to auction catalog">← Back To Auction</a>
 </header>
 
 <!-- Full-width lot title header (relocated from the bid panel; same #lot-title id) -->
@@ -890,50 +890,21 @@
   //   4. Navigate to / as last resort
   function escHtml(s){ return String(s==null?'':s).replace(/[&<>"]/g,function(c){return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]);}); }
 
+  // "Back To Auction" — the upper-right control. Deterministically returns to the
+  // auction CATALOG containing this lot, for both normal and historical/archived
+  // lots (historical lots already behaved this way; now it is the single rule).
+  // No dependence on browser history: the destination is always the lot's own
+  // auction, so it is correct on direct entry, shared links, refresh, and in a new
+  // tab. (The separate header control returns to the homepage discovery/map.)
   function smartBack() {
-    // Historical archive: always return to the auction catalog the visitor came from,
-    // not browser history.
-    if (isHistoricalLot && currentAuctionId) {
-      window.location.href = '/auction-view.html?auctionId=' + encodeURIComponent(currentAuctionId);
-      return;
-    }
-    if (window.history.length > 1) {
-      try { window.history.back(); return; } catch (_) { /* fall through */ }
-    }
-
-    // New-tab heuristic: history is empty AND referrer is from our own origin.
-    // This is a strong signal we were opened by target="_blank" from another
-    // in-app page (e.g., seller-dashboard.html "View" buttons). Try to close;
-    // if the browser blocks window.close (it may for non-script-opened tabs),
-    // silently fall through to the navigation fallback so the user never
-    // ends up stuck on a dead Back button.
-    var openedFromApp =
-      window.history.length === 1 &&
-      document.referrer &&
-      document.referrer.indexOf(window.location.origin) === 0;
-
-    if (openedFromApp) {
-      try { window.close(); } catch (_) { /* fall through */ }
-      // If close was disallowed by the browser, this tab is still here.
-      // Give the browser a moment to honor close before navigating away,
-      // so a successful close isn't preempted by the fallback navigation.
-      // If close succeeded, the navigation below never runs (tab is gone).
-      setTimeout(function () {
-        _smartBackFallback();
-      }, 80);
-      return;
-    }
-
-    _smartBackFallback();
-  }
-
-  function _smartBackFallback() {
     var aid = (typeof currentAuctionId !== 'undefined' && currentAuctionId) ? currentAuctionId : null;
     if (aid) {
       window.location.href = '/auction-view.html?auctionId=' + encodeURIComponent(aid);
-    } else {
-      window.location.href = '/';
+      return;
     }
+    // Auction not resolved yet (rare edge: clicked before the lot finished loading).
+    // Fall back to the homepage rather than a browser-history guess.
+    window.location.href = '/';
   }
 
   function _decodeJwt(tok) {
@@ -965,6 +936,11 @@
   let lotClosed       = false;
   let currentClosesAt = null;
   let currentAuctionId = null;
+
+  // Header Back (buyer-nav) → homepage discovery/map, set immediately so the control
+  // is correct even before the lot finishes loading (destination never depends on
+  // lot data). The upper-right "Back To Auction" control returns to the catalog.
+  window.BUYER_NAV_BACK = '/';
 
   // ── Initial load ─────────────────────────────────────────────────────────────
   async function load() {
@@ -1328,9 +1304,7 @@
 
   // ── Render lot metadata ───────────────────────────────────────────────────────
   function renderLot(lot) {
-    currentAuctionId = lot.auction_id;
-    // Back-button context: a shared lot link (no in-app history) returns to this lot's auction.
-    if (lot.auction_id) window.BUYER_NAV_BACK = '/auction-view.html?auctionId=' + encodeURIComponent(lot.auction_id);
+    currentAuctionId = lot.auction_id;   // used by smartBack() ("Back To Auction")
     isHistoricalLot = lot.auction_public_type === 'historical_archive';
     currentLotTitle = lot.title || '';
     renderLotStatus(lot);
