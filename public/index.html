@@ -474,6 +474,10 @@
     catch(e){ degrade(); return; }
     map.on('error',function(){});
     map.on('load',onMapLoad);
+    // P4: on mobile the hover-driven preview card has no mouseleave to close it.
+    // Tapping anywhere on the map (outside a pin) collapses it — matching desktop,
+    // where moving the pointer away dismisses it.
+    map.on('click',hidePreview);
   }
   // resolve basemap config first (non-blocking: falls back to CARTO), then boot the map
   fetch('/api/public/map-config').then(function(r){return r.json();}).then(function(c){
@@ -510,7 +514,7 @@
       el.innerHTML='<div class="halo"></div>'+((d.state==='ending'||d.state==='coming')?'<div class="ping"></div>':'')+PIN_SVG;
       el.addEventListener('mouseenter',function(){ highlight(d.id,true); showPreview(d); });
       el.addEventListener('mouseleave',function(){ highlight(d.id,false); hidePreview(); });
-      el.addEventListener('click',function(){ location.href=d.href; });
+      el.addEventListener('click',function(){ hidePreview(); location.href=d.href; });
       new maplibregl.Marker({element:el,anchor:'bottom'}).setLngLat([d.lng,d.lat]).addTo(map);
       d._el=el; markersById[d.id]=d;
       setTimeout(function(){ el.classList.add('bloom'); }, reduce?0:(220+i*120));

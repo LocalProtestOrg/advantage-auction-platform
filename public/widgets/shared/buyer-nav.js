@@ -28,12 +28,18 @@
       'box-shadow:0 1px 3px rgba(0,0,0,.18)}' +
     '#buyer-nav *{box-sizing:border-box}' +
     '#buyer-nav .bn-inner{max-width:1200px;margin:0 auto;display:flex;align-items:center;gap:8px;' +
-      'padding:8px 14px;position:relative}' +
+      'padding:8px 14px;position:relative;min-width:0}' +
+    // P8: the action cluster must be allowed to shrink (min-width:0) so the header
+    // never forces the row wider than the viewport on narrow phones.
+    '#buyer-nav .bn-actions{min-width:0}' +
     // ── left: Back + brand ──
     '#buyer-nav .bn-back{flex:0 0 auto;background:rgba(255,255,255,.10);color:#fff;border:none;border-radius:8px;' +
       'padding:8px 12px;font-size:14px;font-weight:600;cursor:pointer;white-space:nowrap;min-height:38px}' +
     '#buyer-nav .bn-back:hover{background:rgba(255,255,255,.20)}' +
-    '#buyer-nav .bn-brand{flex:0 1 auto;font-weight:800;color:#fff;text-decoration:none;margin:0 4px;font-size:16px;' +
+    // min-width:0 lets the brand actually shrink (ellipsis) in the flex row on narrow
+    // phones so the header never overflows the viewport (P8). The action cluster stays
+    // intact; the brand yields space only when there isn't enough for everything.
+    '#buyer-nav .bn-brand{flex:0 1 auto;min-width:0;font-weight:800;color:#fff;text-decoration:none;margin:0 4px 0 0;font-size:16px;' +
       'white-space:nowrap;overflow:hidden;text-overflow:ellipsis;letter-spacing:-.01em}' +
     '#buyer-nav .bn-spacer{flex:1 1 auto;min-width:8px}' +
     // ── right: action cluster ──
@@ -79,6 +85,9 @@
     // ── mobile ──
     '@media (max-width:' + MOBILE + 'px){' +
       '#buyer-nav .bn-brand{font-size:15px}' +
+      // P8: on phones the sound toggle (off by default) is dropped from the top bar so
+      // the brand + primary actions fit without overflowing / collapsing the logo.
+      '#buyer-nav .bn-sound{display:none}' +
       '#buyer-nav .bn-back{padding:8px 10px}' +
       '#buyer-nav .bn-icon,#buyer-nav .bn-sound{width:44px;height:44px}' +
       '#buyer-nav .bn-signin{padding:11px 10px}' +
@@ -236,9 +245,10 @@
 
     var header = document.createElement('header');
     header.id = 'buyer-nav';
+    // Header Back button removed (browser Back + the Advantage.Bid logo already
+    // return users home); the brand sits fully left in the header.
     header.innerHTML =
       '<div class="bn-inner">' +
-        '<button class="bn-back" type="button" aria-label="Go back">&#8592; Back</button>' +
         '<a class="bn-brand" href="/">Advantage.Bid</a>' +
         '<div class="bn-spacer"></div>' +
         '<div class="bn-actions">' + actionsHtml + '</div>' +
@@ -246,8 +256,6 @@
         menuPop +
       '</div>';
     document.body.insertBefore(header, document.body.firstChild);
-
-    header.querySelector('.bn-back').addEventListener('click', goBack);
 
     // Logout (present inside the profile menu when signed in).
     Array.prototype.forEach.call(header.querySelectorAll('[data-bn-logout]'), function (el) {

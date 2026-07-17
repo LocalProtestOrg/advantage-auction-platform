@@ -219,6 +219,14 @@ async function createBid(lotId, userId, { amount, maxBid, max_bid_cents }) {
     throw new Error('Enter a bid amount or max bid');
   }
 
+  // Whole-dollar bidding (server-authoritative): reject any non-whole-dollar amount
+  // rather than rounding it. The platform must NEVER modify a bidder's submitted
+  // amount — an invalid entry is refused so the buyer can correct it. Mirrors the
+  // client guard (BidUtils.wholeDollarError); this is the enforcement of record.
+  if (submittedMaxCents % 100 !== 0) {
+    throw new Error('Bids must be in whole dollars.');
+  }
+
   const client = await db.connect();
 
   try {

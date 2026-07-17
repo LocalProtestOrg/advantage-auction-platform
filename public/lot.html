@@ -612,7 +612,16 @@
     header{ background:rgba(251,250,247,.92); backdrop-filter:saturate(150%) blur(12px);
             -webkit-backdrop-filter:saturate(150%) blur(12px); border-bottom:1px solid var(--hair); padding:12px 20px; }
     header .brand{ color:var(--ink); font-family:"Fraunces","Georgia",serif; font-weight:700; }
-    header .back{ color:var(--muted); } header .back:hover{ color:var(--ink); }
+    /* P6: "Back To Auction" in Advantage brand red (#d62828). */
+    header .back{ color:#d62828; font-weight:700; } header .back:hover{ color:#b81f1f; }
+    /* P7: watchlist toggle on the lot detail page. */
+    .lot-watch{ display:inline-flex; align-items:center; gap:6px; margin-top:10px;
+      background:#fff; color:#d62828; border:1.5px solid #d62828; border-radius:999px;
+      padding:7px 14px; font-weight:700; font-size:.85rem; cursor:pointer;
+      transition:background .15s, color .15s; }
+    .lot-watch:hover{ background:#fff5f5; }
+    .lot-watch.watched{ background:#d62828; color:#fff; }
+    .lot-watch.watched:hover{ background:#b81f1f; }
 
     /* full-width lot title at the very top */
     .lot-top{ background:var(--paper); border-bottom:1px solid var(--hair); }
@@ -714,6 +723,10 @@
   <div class="lot-top-inner">
     <h1 class="lot-title" id="lot-title" style="margin:0"></h1>
     <div id="hist-subhead" style="display:none"></div>
+    <!-- P7: watchlist (favorites) entry point on the lot detail page. -->
+    <button class="lot-watch" id="lot-watch" type="button" style="display:none">
+      <span aria-hidden="true">♡</span> <span class="lw-label">Add to Watchlist</span>
+    </button>
   </div>
 </div>
 
@@ -970,11 +983,18 @@
         try { const me = await fetch('/api/auth/me', { headers: authHeaders }); sessionValid = me.ok; }
         catch (_) { sessionValid = true; /* network blip: never destroy a session on a fetch error */ }
         if (!sessionValid) {
+          // Non-destructive on navigation: the stored token is server-confirmed
+          // invalid (e.g. a simultaneous Admin + buyer session on the same browser
+          // clobbered the shared token, or it expired). Do NOT bounce the buyer to a
+          // full-page re-login just for opening a lot — the lot detail + countdown
+          // render fine from the optionalAuth /lots/:id response. Drop the dead token
+          // and fall through to the guest bid panel, which offers an inline sign-in
+          // only at the point of bidding. A valid buyer session is never touched.
           try { localStorage.removeItem('token'); } catch (_) {}
-          window.location.href = '/login.html?next=' + encodeURIComponent(location.pathname + location.search);
-          return;
+          authed = false;
+        } else {
+          authed = true; // token still valid - keep the session; the 401 was transient/scoped
         }
-        authed = true; // token still valid - keep the session; the 401 was transient/scoped
       }
 
       const lotData = await lotRes.json();
@@ -995,8 +1015,10 @@
       } else if (authed) {
         await applyBidGate();   // #20: gate the bid form (terms / registration)
         startRefresh();
+        initLotWatch();         // P7: watchlist toggle (favorites)
       } else {
         showGuestBidPanel();
+        initLotWatch();         // P7: still offer the watchlist entry point to guests
       }
     } catch (err) {
       document.getElementById('loading-overlay').textContent = 'Error: ' + err.message;
@@ -1776,6 +1798,33 @@
   function parseMoney(v) { return BidUtils.parseMoney(v); }
   function humanizeBidError(status, serverMsg) { return BidUtils.humanizeBidError(status, serverMsg); }
 
+  // ── P7: watchlist (favorites) toggle on the lot detail page ────────────────────
+  let lotWatched = false;
+  function markLotWatch(btn) {
+    if (!btn) return;
+    btn.classList.toggle('watched', lotWatched);
+    const g = btn.querySelector('span[aria-hidden]'); if (g) g.textContent = lotWatched ? '♥' : '♡';
+    const lbl = btn.querySelector('.lw-label');        if (lbl) lbl.textContent = lotWatched ? 'Watching' : 'Add to Watchlist';
+    btn.setAttribute('aria-pressed', lotWatched ? 'true' : 'false');
+  }
+  async function initLotWatch() {
+    const btn = document.getElementById('lot-watch');
+    if (!btn) return;
+    btn.style.display = 'inline-flex';
+    if (token) {
+      try { const s = await BidUtils.fetchWatchedLotIds(token); lotWatched = s.has(String(lotId)); } catch (_) {}
+    }
+    markLotWatch(btn);
+    btn.addEventListener('click', async function () {
+      const nextUrl = '/login.html?next=' + encodeURIComponent(location.pathname + location.search);
+      if (!token) { window.location.href = nextUrl; return; }
+      const want = !lotWatched;
+      lotWatched = want; markLotWatch(btn);            // optimistic
+      const r = await BidUtils.setWatched(lotId, want, token);
+      if (!r.ok) { lotWatched = !want; markLotWatch(btn); if (r.unauthorized) window.location.href = nextUrl; }
+    });
+  }
+
   document.getElementById('btn-bid').addEventListener('click', async () => {
     const input        = document.getElementById('bid-input');
     const maxBidInput  = document.getElementById('max-bid-input');
@@ -1791,6 +1840,10 @@
       setStatus('Enter a bid amount or set a max bid.', 'err');
       return;
     }
+    // Whole-dollar enforcement — reject (never round) a fractional entry. The input
+    // is left untouched so the buyer can correct it. Mirrors bidService server-side.
+    if (hasAmount)  { const e = BidUtils.wholeDollarError(amount);       if (e) { setStatus(e, 'err'); return; } }
+    if (hasMaxBid)  { const e = BidUtils.wholeDollarError(maxBidDollar);  if (e) { setStatus(e, 'err'); return; } }
 
     const payload = {};
     if (hasAmount)  payload.amount       = amount;
