@@ -214,10 +214,69 @@
       radial-gradient(140% 80% at 50% 0%, var(--sky1), transparent 62%),
       radial-gradient(120% 90% at 50% 42%, transparent 52%, var(--scrim))}
 
-  .legend{position:fixed;z-index:30;left:14px;bottom:calc(14px + env(safe-area-inset-bottom));display:flex;gap:14px;flex-wrap:wrap;
-          background:var(--capsule);backdrop-filter:blur(12px);border:1px solid var(--capsuleBorder);border-radius:13px;padding:9px 13px;font-size:11.5px;font-weight:700;box-shadow:0 8px 22px rgba(8,16,28,.18);color:var(--fg)}
-  .legend i{width:9px;height:9px;border-radius:50%;display:inline-block;margin-right:6px;vertical-align:middle}
-  @media(max-width:880px){.legend{display:none}}
+  /* ── Interactive map legend / filters (Marketplace Map Phase 1) ── */
+  .legend{position:fixed;z-index:34;left:14px;bottom:calc(14px + env(safe-area-inset-bottom));width:212px;max-width:calc(100vw - 28px);
+          background:var(--capsule);backdrop-filter:blur(12px);border:1px solid var(--capsuleBorder);border-radius:14px;
+          padding:10px 12px 11px;box-shadow:0 10px 26px rgba(8,16,28,.20);color:var(--fg)}
+  .legend-sec{display:flex;align-items:center;gap:8px;font-size:9.5px;font-weight:800;letter-spacing:.11em;text-transform:uppercase;color:var(--muted);margin:2px 2px 7px}
+  .legend-sec::after{content:"";flex:1 1 auto;height:1px;background:linear-gradient(90deg,var(--hair),rgba(236,236,231,0))}
+  .legend-sec+.legend-sec,.legend-row+.legend-sec{margin-top:11px}
+  .legend-row{display:flex;align-items:center;gap:8px;padding:5px 6px;border-radius:9px;cursor:pointer;font-size:12px;font-weight:700;user-select:none;transition:background .14s,opacity .2s;outline:none}
+  .legend-row:hover{background:rgba(47,107,255,.10)}
+  .legend-row:active{background:rgba(47,107,255,.17)}
+  .legend-row:focus-visible{box-shadow:0 0 0 2px var(--accentSoft)}
+  .legend-row input{appearance:none;-webkit-appearance:none;width:15px;height:15px;flex:0 0 auto;border:1.6px solid #b9c2cd;border-radius:4px;background:#fff;pointer-events:none;position:relative;margin:0}
+  .legend-row input:checked{background:var(--accent);border-color:var(--accent)}
+  .legend-row input:checked::after{content:"";position:absolute;left:4px;top:1px;width:4px;height:8px;border:solid #fff;border-width:0 2px 2px 0;transform:rotate(45deg)}
+  .legend-row.off{opacity:.5}                                   /* user-hidden (unchecked) */
+  .legend-row.muted .lg-name{color:var(--muted)}                /* zero-count, filter still active */
+  .legend-row.muted .lg-pin{filter:grayscale(.55);opacity:.72}
+  .legend-row .lg-name{flex:1 1 auto;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .legend-row .lg-n{flex:0 0 auto;font-size:10.5px;font-weight:800;color:#334155;background:rgba(51,65,85,.11);
+          border-radius:999px;padding:1px 7px;min-width:22px;text-align:center;line-height:1.5}
+  .legend-row.off .lg-n,.legend-row.muted .lg-n{color:var(--muted);background:rgba(100,116,139,.12)}
+  .legend-tools{display:flex;gap:6px;margin-top:10px;padding-top:9px;border-top:1px solid var(--hair)}
+  .legend-tools button{flex:1 1 0;font-family:inherit;font-size:10.5px;font-weight:800;color:var(--muted);
+          background:rgba(47,107,255,.06);border:1px solid var(--hair);border-radius:8px;padding:6px 4px;cursor:pointer;transition:background .14s,color .14s}
+  .legend-tools button:hover{background:rgba(47,107,255,.15);color:var(--ink)}
+  .legend-tools button:active{background:rgba(47,107,255,.24)}
+  .lg-pin{flex:0 0 auto;width:16px;height:16px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;
+          background:var(--c);box-shadow:0 1px 3px rgba(8,16,28,.28)}
+  .lg-pin svg{width:10px;height:10px;display:block;fill:#fff}
+  .legend-close{position:absolute;top:6px;right:8px;border:0;background:none;font-size:17px;line-height:1;color:var(--muted);cursor:pointer;display:none}
+  .legend-fab{position:fixed;z-index:34;left:14px;bottom:calc(14px + env(safe-area-inset-bottom));display:none;align-items:center;gap:7px;
+          background:var(--capsule);backdrop-filter:blur(12px);border:1px solid var(--capsuleBorder);border-radius:999px;padding:9px 14px;
+          font-size:12.5px;font-weight:800;color:var(--fg);box-shadow:0 8px 22px rgba(8,16,28,.18);cursor:pointer}
+  .legend-fab .lg-dots{display:inline-flex;gap:3px}
+  .legend-fab .lg-dots i{width:8px;height:8px;border-radius:50%}
+  @media(max-width:880px){
+    /* Sit above the bottom-sheet peek (~92px) and above its z-index so both the FAB
+       and the opened panel stay tappable over the drawer. */
+    .legend{display:none;left:12px;right:auto;bottom:calc(160px + env(safe-area-inset-bottom));width:220px;z-index:39;
+            max-height:calc(100vh - 230px);overflow-y:auto}
+    .legend.open{display:block}
+    .legend-close{display:block}
+    .legend-fab{display:inline-flex;z-index:39;bottom:calc(104px + env(safe-area-inset-bottom))}
+    .legend.open ~ .legend-fab{opacity:.35}
+  }
+  /* Marketplace partner info card (popup) */
+  .maplibregl-popup.mp-card .maplibregl-popup-content{padding:0;border-radius:16px;overflow:hidden;box-shadow:0 18px 44px rgba(8,16,28,.30);width:262px;max-width:78vw}
+  .maplibregl-popup.mp-card .maplibregl-popup-tip{border-top-color:#fff}
+  .maplibregl-popup.mp-card .maplibregl-popup-close-button{font-size:19px;color:#fff;padding:2px 8px;z-index:2;text-shadow:0 1px 3px rgba(0,0,0,.4)}
+  .mpc-head{padding:14px 14px 12px;color:#fff;display:flex;gap:11px;align-items:center}
+  .mpc-mono{flex:0 0 auto;width:44px;height:44px;border-radius:12px;background:rgba(255,255,255,.22);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:17px;letter-spacing:.02em}
+  .mpc-h-t{min-width:0}
+  .mpc-name{font-weight:800;font-size:14.5px;line-height:1.15;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+  .mpc-cat{font-size:11px;font-weight:700;opacity:.92;margin-top:2px}
+  .mpc-body{padding:11px 14px 13px;background:#fff;color:var(--ink)}
+  .mpc-loc{font-size:11.5px;font-weight:700;color:var(--muted);margin-bottom:6px}
+  .mpc-blurb{font-size:12px;line-height:1.45;color:#33414f;max-height:76px;overflow:hidden;margin-bottom:11px}
+  .mpc-actions{display:flex;gap:8px}
+  .mpc-actions a{flex:1 1 0;text-align:center;text-decoration:none;font-weight:800;font-size:12px;padding:9px 8px;border-radius:10px;white-space:nowrap}
+  .mpc-primary{background:var(--accent);color:#fff}
+  .mpc-primary:hover{filter:brightness(1.06)}
+  .mpc-ghost{background:#eef1f5;color:var(--ink)}
+  .mpc-ghost:hover{background:#e3e8ee}
 
   @media (prefers-reduced-motion: reduce){ *{animation:none !important;transition-duration:.001ms !important} }
 </style>
@@ -272,12 +331,14 @@
     </div>
   </div>
 
-  <div class="legend">
-    <span><i style="background:var(--live)"></i>Live</span>
-    <span><i style="background:var(--ending)"></i>Ending soon</span>
-    <span><i style="background:var(--coming)"></i>Coming soon</span>
-    <span><i style="background:var(--hist)"></i>Past</span>
+  <div class="legend" id="legend" role="group" aria-label="Map key and filters">
+    <button class="legend-close" id="legendClose" type="button" aria-label="Hide map key">&times;</button>
+    <!-- rows injected by the marketplace legend module -->
   </div>
+  <button class="legend-fab" id="legendFab" type="button" aria-expanded="false" aria-controls="legend">
+    <span class="lg-dots"><i style="background:var(--live)"></i><i style="background:#16A34A"></i><i style="background:#2F6BFF"></i></span>
+    Map Key &amp; Filters
+  </button>
 
   <!-- search overlay -->
   <div id="search">
@@ -489,13 +550,173 @@
   function onMapLoad(){
     reskinSoon();
     var dataReady=loadCore();
-    function settle(){ dataReady.then(function(){ addMarkers(DATA); $('drawer').classList.add('in'); buildList('near'); revealHUD(); startAmbient(); }); }
+    function settle(){ dataReady.then(function(){ addMarkers(DATA); $('drawer').classList.add('in'); buildList('near'); revealHUD(); startAmbient(); mpInit(); }); }
     if(reduce){ $('intro').classList.add('gone'); $('top').classList.add('in'); dataReady.then(function(){ frameData(true); settle(); }); return; }
     setTimeout(function(){ $('intro').classList.add('gone'); }, 1500);
     setTimeout(function(){ $('top').classList.add('in'); }, 2350);
     setTimeout(function(){ dataReady.then(function(){ frameData(false); map.once('moveend', settle); }); }, 2650);
     // safety: if data is slow, still settle after a few seconds
     setTimeout(function(){ if(!started){ started=true; settle(); } }, 6000);
+  }
+
+  /* ═══════════ Marketplace Map Phase 1 — BD partner pins + interactive legend ═══════════
+     A SEPARATE layer from the auction beacons: its own GeoJSON source ('mp'), its own CSS,
+     its own registry. Auction pins/API/geocoding/interactions are untouched. If the BD fetch
+     fails, auctions keep working and only the company rows read 0. Camera is never moved here. */
+  var MP = { records:[], counts:{}, active:{}, loaded:false, card:null };
+  var MP_EVENTS = [
+    { key:'live',   label:'Live Auctions',     color:'var(--live)' },
+    { key:'ending', label:'Ending Soon',       color:'var(--ending)' },
+    { key:'coming', label:'Upcoming Auctions', color:'var(--coming)' }
+  ];
+  var MP_CATS = [
+    { key:'estate_sale_companies', label:'Estate Sale Companies', color:'#16A34A', glyph:'house' },
+    { key:'auction_houses',        label:'Auction Houses',        color:'#2F6BFF', glyph:'gavel' },
+    { key:'appraisers',            label:'Appraisers',            color:'#E0A82E', glyph:'lens'  },
+    { key:'estate_services',       label:'Other Estate Services', color:'#475569', glyph:'dots'  }
+  ];
+  var MP_CAT_BY_KEY = {}; MP_CATS.forEach(function(c){ MP_CAT_BY_KEY[c.key]=c; MP.active[c.key]=true; });
+  // Glyph inner paths (24×24, inherit fill from parent). Distinguish by SHAPE, not colour alone.
+  var MP_GLYPH = {
+    house:'<path d="M12 3 3 11h2.4v9H10v-5h4v5h4.6v-9H21z"/>',
+    gavel:'<path d="M3.6 18.4 11 11l2 2-7.4 7.4zM11.6 6.2l4.2-4.2 4.2 4.2-4.2 4.2zM14 14l2-2 3.5 3.5-2 2zM2 21h9v1.6H2z"/>',
+    lens:'<path d="M10.5 3a7.5 7.5 0 015.9 12.1l4.2 4.2-1.4 1.4-4.2-4.2A7.5 7.5 0 1110.5 3zm0 2a5.5 5.5 0 100 11 5.5 5.5 0 000-11z"/>',
+    dots:'<path d="M6 12a2 2 0 11-4 0 2 2 0 014 0zm8 0a2 2 0 11-4 0 2 2 0 014 0zm8 0a2 2 0 11-4 0 2 2 0 014 0z"/>'
+  };
+  function mpEsc(s){ return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+  function mpSafeUrl(u){ if(!u) return null; var s=String(u).trim(); if(!s) return null; if(!/^https?:\/\//i.test(s)) s='http://'+s; return /^https?:\/\/[^\s]+$/i.test(s)?s:null; }
+  function mpPinSVG(color, glyphKey){
+    var g = MP_GLYPH[glyphKey]||'';
+    return '<svg xmlns="http://www.w3.org/2000/svg" width="60" height="80" viewBox="0 0 30 40">'
+      + '<path d="M15 1C7.8 1 2 6.8 2 14c0 9 13 25 13 25s13-16 13-25C28 6.8 22.2 1 15 1z" fill="'+color+'" stroke="#fff" stroke-width="2"/>'
+      + '<circle cx="15" cy="14.3" r="8.4" fill="#fff"/>'
+      + '<g transform="translate(15,14.3) scale(0.46) translate(-12,-12)" fill="'+color+'">'+g+'</g></svg>';
+  }
+  function mpAuctionCount(state){ var n=0; for(var id in markersById){ if(markersById[id] && markersById[id].state===state) n++; } return n; }
+  function mpToggleAuctions(state, show){ for(var id in markersById){ var d=markersById[id]; if(d && d.state===state && d._el) d._el.style.display = show ? '' : 'none'; } }
+  function mpFC(){
+    return { type:'FeatureCollection', features: MP.records.filter(function(r){ return MP.active[r.category_key]; }).map(function(r){
+      return { type:'Feature', geometry:{type:'Point',coordinates:[r.lng,r.lat]},
+        properties:{ id:r.id, name:r.name, cat:r.category_key, icon:'mp-'+r.category_key, category:r.category,
+          city:r.city||'', state:r.state||'', website:mpSafeUrl(r.website)||'', blurb:r.blurb||'' } };
+    }) };
+  }
+  function mpApplyFilter(){ var s=map.getSource('mp'); if(s){ s.setData(mpFC()); mpFade(); } }  // no camera / layout change
+  // Subtle fade-in of the marketplace layer on toggle: snap opacity to 0 (no transition),
+  // then transition back to full on the next frame. Never touches camera, zoom, or layout.
+  function mpFade(){
+    var L=[['mp-unclustered','icon-opacity',1],['mp-clusters','circle-opacity',0.92],['mp-cluster-count','text-opacity',1]];
+    try{
+      L.forEach(function(x){ if(map.getLayer(x[0])){ map.setPaintProperty(x[0],x[1]+'-transition',{duration:0}); map.setPaintProperty(x[0],x[1],0); } });
+      requestAnimationFrame(function(){ requestAnimationFrame(function(){
+        L.forEach(function(x){ if(map.getLayer(x[0])){ map.setPaintProperty(x[0],x[1]+'-transition',{duration:260}); map.setPaintProperty(x[0],x[1],x[2]); } });
+      }); });
+    }catch(e){}
+  }
+  function mpAddLayers(){
+    if(map.getSource('mp')) return;
+    map.addSource('mp', { type:'geojson', data:mpFC(), cluster:true, clusterRadius:46, clusterMaxZoom:12 });
+    map.addLayer({ id:'mp-clusters', type:'circle', source:'mp', filter:['has','point_count'],
+      paint:{ 'circle-color':'#334155','circle-opacity':0.92,'circle-stroke-width':2,'circle-stroke-color':'#fff',
+        'circle-radius':['step',['get','point_count'],15,5,19,15,25] } });
+    map.addLayer({ id:'mp-cluster-count', type:'symbol', source:'mp', filter:['has','point_count'],
+      layout:{ 'text-field':['get','point_count_abbreviated'],'text-font':['Open Sans Bold','Noto Sans Bold','Arial Unicode MS Bold'],'text-size':12,'text-allow-overlap':true },
+      paint:{ 'text-color':'#fff' } });
+    map.addLayer({ id:'mp-unclustered', type:'symbol', source:'mp', filter:['!',['has','point_count']],
+      layout:{ 'icon-image':['get','icon'],'icon-size':1,'icon-anchor':'bottom','icon-allow-overlap':true } });
+    map.on('click','mp-clusters', function(e){
+      var f=map.queryRenderedFeatures(e.point,{layers:['mp-clusters']})[0]; if(!f) return;
+      map.getSource('mp').getClusterExpansionZoom(f.properties.cluster_id, function(err,z){ if(err) return;
+        map.easeTo({ center:f.geometry.coordinates, zoom:z, duration:500 }); });
+    });
+    map.on('click','mp-unclustered', function(e){ if(e.features && e.features[0]) mpOpenCard(e.features[0]); });
+    ['mp-clusters','mp-unclustered'].forEach(function(ly){
+      map.on('mouseenter',ly,function(){ map.getCanvas().style.cursor='pointer'; });
+      map.on('mouseleave',ly,function(){ map.getCanvas().style.cursor=''; });
+    });
+    mpFade();  // graceful initial appearance
+  }
+  function mpOpenCard(f){
+    var p=f.properties, cat=MP_CAT_BY_KEY[p.cat]||MP_CATS[3];
+    var initials=(p.name||'?').split(/\s+/).filter(Boolean).slice(0,2).map(function(w){return w[0];}).join('').toUpperCase().slice(0,2)||'•';
+    var loc=[p.city,p.state].filter(Boolean).join(', ');
+    var coords=f.geometry.coordinates, dir='https://www.google.com/maps/dir/?api=1&destination='+encodeURIComponent(coords[1]+','+coords[0]);
+    var web=p.website, actions='';
+    if(web) actions+='<a class="mpc-primary" href="'+mpEsc(web)+'" target="_blank" rel="noopener noreferrer">Visit Website</a>';
+    actions+='<a class="'+(web?'mpc-ghost':'mpc-primary')+'" href="'+dir+'" target="_blank" rel="noopener noreferrer">Directions</a>';
+    var html='<div class="mpc-head" style="background:'+cat.color+'"><div class="mpc-mono">'+mpEsc(initials)+'</div>'
+      +'<div class="mpc-h-t"><div class="mpc-name">'+mpEsc(p.name)+'</div><div class="mpc-cat">'+mpEsc(p.category)+'</div></div></div>'
+      +'<div class="mpc-body">'+(loc?'<div class="mpc-loc">&#128205; '+mpEsc(loc)+'</div>':'')
+      +(p.blurb?'<div class="mpc-blurb">'+mpEsc(p.blurb)+'</div>':'')+'<div class="mpc-actions">'+actions+'</div></div>';
+    if(MP.card) MP.card.remove();
+    MP.card=new maplibregl.Popup({className:'mp-card',closeButton:true,closeOnClick:true,offset:26,maxWidth:'none'})
+      .setLngLat(coords).setHTML(html).addTo(map);
+  }
+  function mpRow(kind,key,color,glyph,label,n){
+    var muted = (n===0);  // zero-count → visually muted, but the filter stays ON (checked)
+    var pin='<span class="lg-pin" style="--c:'+color+'">'+(glyph?('<svg viewBox="0 0 24 24">'+MP_GLYPH[glyph]+'</svg>'):'')+'</span>';
+    return '<div class="legend-row'+(muted?' muted':'')+'" data-kind="'+kind+'" data-key="'+key+'" role="checkbox" aria-checked="true" tabindex="0">'
+      +'<input type="checkbox" checked tabindex="-1" aria-hidden="true">'+pin
+      +'<span class="lg-name">'+label+'</span><span class="lg-n">'+n+'</span></div>';
+  }
+  function mpBuildLegend(){
+    var el=document.getElementById('legend'); if(!el) return;
+    var html='<button class="legend-close" id="legendClose" type="button" aria-label="Hide map key">&times;</button>';
+    html+='<div class="legend-sec">Events</div>';
+    MP_EVENTS.forEach(function(e){ html+=mpRow('auction',e.key,e.color,'',e.label,mpAuctionCount(e.key)); });
+    html+='<div class="legend-sec">Marketplace</div>';
+    MP_CATS.forEach(function(c){ html+=mpRow('mp',c.key,c.color,c.glyph,c.label,(MP.counts&&MP.counts[c.key])||0); });
+    html+='<div class="legend-tools"><button type="button" data-tool="show">Show All</button>'
+      +'<button type="button" data-tool="hide">Hide All</button><button type="button" data-tool="reset">Reset</button></div>';
+    el.innerHTML=html;
+    mpWireLegend();
+  }
+  function mpSetRow(row, on){
+    var kind=row.getAttribute('data-kind'), key=row.getAttribute('data-key');
+    row.querySelector('input').checked=on; row.classList.toggle('off', !on); row.setAttribute('aria-checked', on?'true':'false');
+    if(kind==='auction') mpToggleAuctions(key, on); else MP.active[key]=on;
+  }
+  function mpSetAll(kindFilter, on){
+    var el=document.getElementById('legend'); if(!el) return;
+    el.querySelectorAll('.legend-row').forEach(function(row){
+      if(kindFilter && row.getAttribute('data-kind')!==kindFilter) return;
+      mpSetRow(row, on);
+    });
+    mpApplyFilter();  // single marketplace source update + fade
+  }
+  function mpWireLegend(){
+    var el=document.getElementById('legend'); if(!el) return;
+    el.querySelectorAll('.legend-row').forEach(function(row){
+      function toggle(){ var on=!row.querySelector('input').checked; mpSetRow(row,on); if(row.getAttribute('data-kind')==='mp') mpApplyFilter(); }
+      row.addEventListener('click', toggle);
+      row.addEventListener('keydown', function(ev){ if(ev.key===' '||ev.key==='Enter'){ ev.preventDefault(); toggle(); } });
+    });
+    el.querySelectorAll('.legend-tools button').forEach(function(b){
+      var t=b.getAttribute('data-tool');
+      b.addEventListener('click', function(){
+        if(t==='hide') mpSetAll('mp', false);   // hide marketplace; auction events stay visible
+        else mpSetAll(null, true);               // show all / reset → default (everything on)
+      });
+    });
+    var fab=document.getElementById('legendFab'), cl=document.getElementById('legendClose');
+    if(fab) fab.onclick=function(){ var open=el.classList.toggle('open'); fab.setAttribute('aria-expanded',open?'true':'false'); };
+    if(cl) cl.onclick=function(){ el.classList.remove('open'); if(fab) fab.setAttribute('aria-expanded','false'); };
+  }
+  function mpInit(){
+    if(MP.loaded) return; MP.loaded=true;
+    mpBuildLegend();  // event rows work immediately, independent of BD
+    fetch('/api/public/marketplace').then(function(r){return r.json();}).then(function(j){
+      if(!j || !j.success) throw new Error('marketplace unavailable');
+      MP.records=(j.data||[]).filter(function(r){ return r.lat!=null && r.lng!=null; });
+      MP.counts=j.counts||{};
+      var pending=MP_CATS.length;
+      MP_CATS.forEach(function(c){
+        var img=new Image(60,80);
+        img.onload=function(){ try{ if(!map.hasImage('mp-'+c.key)) map.addImage('mp-'+c.key,img,{pixelRatio:2}); }catch(e){} if(--pending===0){ mpAddLayers(); mpBuildLegend(); } };
+        img.onerror=function(){ if(--pending===0){ mpAddLayers(); mpBuildLegend(); } };
+        img.src='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(mpPinSVG(c.color,c.glyph));
+      });
+    }).catch(function(){ /* BD unavailable — auctions unaffected; company rows stay at 0 */ });
   }
 
   function frameData(instant){
