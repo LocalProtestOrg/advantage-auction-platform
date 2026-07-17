@@ -45,6 +45,80 @@ router.get('/map-config', (req, res) => {
   res.json({ success: true, ...cfg });
 });
 
+// ── GET /api/public/marketplace ───────────────────────────────────────────────
+// Marketplace partner pins for the Living Map (Marketplace Map Phase 1). Serves the
+// Brilliant Directories MIRROR that already lives in Railway (organizations rows with
+// source='bd_import'). This endpoint NEVER calls BD per request, never exposes BD
+// credentials to the browser, and never depends on an MCP session — it only reads the
+// curated, geocoded, server-side mirror.
+//
+// Privacy posture (Phase 1): only public, geocoded, non-sample company records are
+// returned. PII (phone / email) and deliberately-withheld logos are NOT surfaced.
+// Raw BD profession_id stays in bd_metadata so the taxonomy can be refined later.
+const MP_CATEGORY = {
+  '3': { key: 'auction_houses',        label: 'Auction Houses' },
+  '4': { key: 'estate_sale_companies', label: 'Estate Sale Companies' },
+  '5': { key: 'appraisers',            label: 'Appraisers' },
+};
+const MP_DEFAULT = { key: 'estate_services', label: 'Other Estate Services' };
+const mpCategory = (professionId) => MP_CATEGORY[String(professionId)] || MP_DEFAULT;
+
+// Strip HTML/entities and collapse whitespace into a plain card blurb.
+function mpBlurb(html, max = 260) {
+  if (!html) return null;
+  const s = String(html).replace(/<[^>]*>/g, ' ').replace(/&[a-z#0-9]+;/gi, ' ').replace(/\s+/g, ' ').trim();
+  return s ? s.slice(0, max) : null;
+}
+
+router.get('/marketplace', async (req, res, next) => {
+  try {
+    const { rows } = await db.query(
+      `SELECT id, name, city, state, lat, lng, website_url, description,
+              bd_metadata->>'profession_id' AS profession_id
+         FROM organizations
+        WHERE source = 'bd_import'
+          AND lat IS NOT NULL AND lng IS NOT NULL
+          AND name IS NOT NULL AND btrim(name) <> ''
+          AND lower(name) NOT LIKE 'sample %'
+          AND lower(name) NOT LIKE 'test %'
+          AND lower(name) NOT LIKE 'demo %'
+        ORDER BY name ASC`
+    );
+
+    // Deterministic de-stacking: where several records share identical coordinates
+    // (e.g. only city-level geocoding), fan them out on a small golden-angle spiral
+    // (~14 m/step) so co-located pins stay individually discoverable without implying
+    // a false exact address. Stable because the query is name-ordered.
+    const seen = new Map();
+    const partners = rows.map((r) => {
+      const cat = mpCategory(r.profession_id);
+      let lat = Number(r.lat), lng = Number(r.lng);
+      const key = lat.toFixed(5) + ',' + lng.toFixed(5);
+      const n = seen.get(key) || 0; seen.set(key, n + 1);
+      if (n > 0) {
+        const ang = n * 2.399963229; // golden angle (radians)
+        lat += 0.00013 * n * Math.cos(ang);
+        lng += 0.00013 * n * Math.sin(ang);
+      }
+      return {
+        id:           r.id,
+        name:         r.name,
+        category:     cat.label,
+        category_key: cat.key,
+        city:         r.city || null,
+        state:        r.state || null,
+        lat, lng,
+        website:      r.website_url || null,
+        blurb:        mpBlurb(r.description),
+      };
+    });
+
+    const counts = partners.reduce((m, p) => { m[p.category_key] = (m[p.category_key] || 0) + 1; return m; }, {});
+    res.set('Cache-Control', PUBLIC_CACHE);
+    res.json({ success: true, data: partners, counts, total: partners.length });
+  } catch (err) { next(err); }
+});
+
 // ── GET /api/public/auctions ──────────────────────────────────────────────────
 // Paginated, filterable auction discovery feed.
 //
