@@ -94,6 +94,7 @@ async function runScheduledSync(trigger = 'scheduled') {
 let lastRunEtDate = null;
 async function tick() {
   try {
+    if (!enabled()) return;                                     // idle when disabled — no runs
     const now = new Date();
     if (!due(now, lastRunEtDate)) return;
     const today = etDate(now);
@@ -104,13 +105,14 @@ async function tick() {
 }
 
 if (require.main === module) {
-  if (enabled()) {
-    console.log('[bd-sync] scheduler started — daily at 00:00 America/New_York');
-    setInterval(() => { tick(); }, CHECK_INTERVAL_MS);
-    tick();   // evaluate once at boot (only runs if it is the midnight hour of an un-run day)
-  } else {
-    console.log('[bd-sync] scheduler disabled (set MARKETPLACE_SYNC_ENABLED=true / NODE_ENV=production + BD_API_KEY)');
-  }
+  console.log(enabled()
+    ? '[bd-sync] scheduler active — daily at 00:00 America/New_York'
+    : '[bd-sync] scheduler idle — disabled (needs BD_API_KEY + production); worker stays alive, no runs');
+  // ALWAYS run the interval so the worker process stays alive (no respawn loop) and re-evaluates
+  // the schedule each minute. The sync fires only when enabled AND due — so if BD_API_KEY is added
+  // to the environment (which restarts the service), the next boot activates the schedule.
+  setInterval(() => { tick(); }, CHECK_INTERVAL_MS);
+  tick();
 }
 
 module.exports = { etDate, etHour, due, enabled, ranOn, runScheduledSync, tick };
