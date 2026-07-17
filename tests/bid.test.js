@@ -298,6 +298,20 @@ describe('createBid — proxy resolution', () => {
     ).rejects.toThrow('Enter a bid amount or max bid');
     expect(db.connect).not.toHaveBeenCalled();
   });
+
+  test('G — non-whole-dollar bid rejected (never rounded), before DB connect', async () => {
+    // Whole-dollar bidding: a fractional entry must be REFUSED, not silently
+    // rounded up. $2.50 (250¢) against any lot is rejected; the platform never
+    // modifies the bidder's amount. Guard runs before db.connect.
+    db.connect.mockClear();
+    await expect(
+      createBid('lot-aaa', 'user-1', { amount: 2.5 })
+    ).rejects.toThrow('Bids must be in whole dollars.');
+    await expect(
+      createBid('lot-aaa', 'user-1', { max_bid_cents: 250 })
+    ).rejects.toThrow('Bids must be in whole dollars.');
+    expect(db.connect).not.toHaveBeenCalled();
+  });
 });
 
 // ── Anti-snipe ────────────────────────────────────────────────────────────────
