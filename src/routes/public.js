@@ -85,6 +85,7 @@ router.get('/marketplace', async (req, res, next) => {
         WHERE source = 'bd_import'
           AND lat IS NOT NULL AND lng IS NOT NULL
           AND name IS NOT NULL AND btrim(name) <> ''
+          AND (bd_sync_status IS NULL OR bd_sync_status <> 'removed')  -- reconciled-away listings drop off
           AND lower(name) NOT LIKE 'sample %'
           AND lower(name) NOT LIKE 'test %'
           AND lower(name) NOT LIKE 'demo %'
