@@ -271,8 +271,21 @@
   .mpc-body{padding:11px 14px 13px;background:#fff;color:var(--ink)}
   .mpc-loc{font-size:11.5px;font-weight:700;color:var(--muted);margin-bottom:6px}
   .mpc-blurb{font-size:12px;line-height:1.45;color:#33414f;max-height:76px;overflow:hidden;margin-bottom:11px}
-  .mpc-actions{display:flex;gap:8px}
-  .mpc-actions a{flex:1 1 0;text-align:center;text-decoration:none;font-weight:800;font-size:12px;padding:9px 8px;border-radius:10px;white-space:nowrap}
+  /* Phase 2: linked-seller auctions inside the company card (lazy-loaded on open). */
+  .mpc-auctions{margin:0 0 11px;border-top:1px solid #eef1f5;padding-top:10px}
+  .mpc-auc-load{font-size:11.5px;font-weight:700;color:var(--muted)}
+  .mpc-auc-h{font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:2px 0 6px}
+  .mpc-auc-item+.mpc-auc-h{margin-top:9px}
+  .mpc-auc-item{display:flex;justify-content:space-between;gap:9px;align-items:center;text-decoration:none;color:var(--ink);
+        background:#f6f8fb;border-radius:9px;padding:7px 10px;margin-bottom:5px;font-weight:700;font-size:12px}
+  .mpc-auc-item:hover{background:#eaf0f8}
+  .mpc-auc-live{flex:0 0 auto;width:7px;height:7px;border-radius:50%;background:var(--live);box-shadow:0 0 0 3px rgba(181,39,59,.16)}
+  .mpc-auc-up{flex:0 0 auto;width:7px;height:7px;border-radius:50%;background:var(--coming)}
+  .mpc-auc-t{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1 1 auto}
+  .mpc-auc-m{flex:0 0 auto;font-size:10.5px;font-weight:800;color:var(--muted)}
+  .mpc-actions{display:flex;flex-wrap:wrap;gap:8px}
+  .mpc-actions a{flex:1 1 44%;text-align:center;text-decoration:none;font-weight:800;font-size:12px;padding:9px 8px;border-radius:10px;white-space:nowrap}
+  .mpc-actions a.mpc-full{flex:1 1 100%}
   .mpc-primary{background:var(--accent);color:#fff}
   .mpc-primary:hover{filter:brightness(1.06)}
   .mpc-ghost{background:#eef1f5;color:var(--ink)}
@@ -598,7 +611,8 @@
     return { type:'FeatureCollection', features: MP.records.filter(function(r){ return MP.active[r.category_key]; }).map(function(r){
       return { type:'Feature', geometry:{type:'Point',coordinates:[r.lng,r.lat]},
         properties:{ id:r.id, name:r.name, cat:r.category_key, icon:'mp-'+r.category_key, category:r.category,
-          city:r.city||'', state:r.state||'', website:mpSafeUrl(r.website)||'', blurb:r.blurb||'' } };
+          city:r.city||'', state:r.state||'', website:mpSafeUrl(r.website)||'', blurb:r.blurb||'',
+          has_auctions:(r.has_auctions===true||r.has_auctions==='true') } };
     }) };
   }
   function mpApplyFilter(){ var s=map.getSource('mp'); if(s){ s.setData(mpFC()); mpFade(); } }  // no camera / layout change
@@ -636,21 +650,55 @@
     });
     mpFade();  // graceful initial appearance
   }
+  // Build the card action row. viewHref (a linked-seller auction) promotes "View Auctions"
+  // to the primary CTA and demotes Website to secondary. Independent of the auction layer:
+  // web/dir are always available; view is added only after the lazy auctions fetch resolves.
+  function mpCardActions(web, dir, viewHref){
+    var out='';
+    if(viewHref) out+='<a class="mpc-primary mpc-full" href="'+viewHref+'">View Auctions</a>';
+    if(web) out+='<a class="'+(viewHref?'mpc-ghost':'mpc-primary')+'" href="'+mpEsc(web)+'" target="_blank" rel="noopener noreferrer">Visit Website</a>';
+    out+='<a class="mpc-ghost" href="'+dir+'" target="_blank" rel="noopener noreferrer">Directions</a>';
+    return out;
+  }
   function mpOpenCard(f){
     var p=f.properties, cat=MP_CAT_BY_KEY[p.cat]||MP_CATS[3];
     var initials=(p.name||'?').split(/\s+/).filter(Boolean).slice(0,2).map(function(w){return w[0];}).join('').toUpperCase().slice(0,2)||'•';
     var loc=[p.city,p.state].filter(Boolean).join(', ');
     var coords=f.geometry.coordinates, dir='https://www.google.com/maps/dir/?api=1&destination='+encodeURIComponent(coords[1]+','+coords[0]);
-    var web=p.website, actions='';
-    if(web) actions+='<a class="mpc-primary" href="'+mpEsc(web)+'" target="_blank" rel="noopener noreferrer">Visit Website</a>';
-    actions+='<a class="'+(web?'mpc-ghost':'mpc-primary')+'" href="'+dir+'" target="_blank" rel="noopener noreferrer">Directions</a>';
+    var web=p.website;
+    var hasAuc=(p.has_auctions===true||p.has_auctions==='true');
+    var aucSlot=hasAuc?'<div class="mpc-auctions"><div class="mpc-auc-load">Loading auctions&hellip;</div></div>':'';
     var html='<div class="mpc-head" style="background:'+cat.color+'"><div class="mpc-mono">'+mpEsc(initials)+'</div>'
       +'<div class="mpc-h-t"><div class="mpc-name">'+mpEsc(p.name)+'</div><div class="mpc-cat">'+mpEsc(p.category)+'</div></div></div>'
       +'<div class="mpc-body">'+(loc?'<div class="mpc-loc">&#128205; '+mpEsc(loc)+'</div>':'')
-      +(p.blurb?'<div class="mpc-blurb">'+mpEsc(p.blurb)+'</div>':'')+'<div class="mpc-actions">'+actions+'</div></div>';
+      +(p.blurb?'<div class="mpc-blurb">'+mpEsc(p.blurb)+'</div>':'')+aucSlot
+      +'<div class="mpc-actions">'+mpCardActions(web,dir,null)+'</div></div>';
     if(MP.card) MP.card.remove();
     MP.card=new maplibregl.Popup({className:'mp-card',closeButton:true,closeOnClick:true,offset:26,maxWidth:'none'})
       .setLngLat(coords).setHTML(html).addTo(map);
+    if(hasAuc) mpLoadCardAuctions(p.id, web, dir);
+  }
+  // Lazy per-company auctions fetch — the marketplace map/legend never load this; only an
+  // opened linked-company card does. Renders Current/Upcoming lists + promotes View Auctions.
+  function mpLoadCardAuctions(orgId, web, dir){
+    if(!orgId) return;
+    var thisCard=MP.card;
+    fetch('/api/public/marketplace/'+encodeURIComponent(orgId)+'/auctions').then(function(r){return r.json();}).then(function(j){
+      if(!MP.card || MP.card!==thisCard) return;              // card closed/replaced — drop stale result
+      var el=MP.card.getElement(); if(!el) return;
+      var host=el.querySelector('.mpc-auctions'); if(!host) return;
+      var cur=(j&&j.current)||[], up=(j&&j.upcoming)||[];
+      if(!cur.length && !up.length){ host.style.display='none'; return; }
+      function sec(title,arr,cls){ if(!arr.length) return '';
+        return '<div class="mpc-auc-h">'+title+'</div>'+arr.map(function(a){
+          return '<a class="mpc-auc-item" href="'+a.href+'"><span class="'+cls+'"></span><span class="mpc-auc-t">'+mpEsc(a.title)+'</span><span class="mpc-auc-m">'+(a.lots||0)+' lots</span></a>'; }).join(''); }
+      host.innerHTML=sec('Current Auctions',cur,'mpc-auc-live')+sec('Upcoming Auctions',up,'mpc-auc-up');
+      var first=(cur[0]||up[0]);
+      var act=el.querySelector('.mpc-actions');
+      if(first && act) act.innerHTML=mpCardActions(web,dir,first.href);
+    }).catch(function(){
+      if(MP.card && MP.card===thisCard){ var host=MP.card.getElement().querySelector('.mpc-auctions'); if(host) host.style.display='none'; }
+    });
   }
   function mpRow(kind,key,color,glyph,label,n){
     var muted = (n===0);  // zero-count → visually muted, but the filter stays ON (checked)

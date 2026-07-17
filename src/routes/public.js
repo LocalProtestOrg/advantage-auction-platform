@@ -74,7 +74,13 @@ router.get('/marketplace', async (req, res, next) => {
   try {
     const { rows } = await db.query(
       `SELECT id, name, city, state, lat, lng, website_url, description,
-              bd_metadata->>'profession_id' AS profession_id
+              bd_metadata->>'profession_id' AS profession_id,
+              (linked_seller_profile_id IS NOT NULL) AS linked,
+              (linked_seller_profile_id IS NOT NULL AND EXISTS (
+                 SELECT 1 FROM auctions a
+                  WHERE a.seller_id = organizations.linked_seller_profile_id
+                    AND a.state IN ('published','active') AND a.is_archived IS NOT TRUE
+                    AND a.marketplace_status = 'syndicated')) AS has_auctions
          FROM organizations
         WHERE source = 'bd_import'
           AND lat IS NOT NULL AND lng IS NOT NULL
@@ -110,12 +116,53 @@ router.get('/marketplace', async (req, res, next) => {
         lat, lng,
         website:      r.website_url || null,
         blurb:        mpBlurb(r.description),
+        // Phase 2: whether this listing is linked to a seller with live auctions. The card
+        // lazily fetches the auction list from /marketplace/:id/auctions only when true.
+        has_auctions: !!r.has_auctions,
       };
     });
 
     const counts = partners.reduce((m, p) => { m[p.category_key] = (m[p.category_key] || 0) + 1; return m; }, {});
     res.set('Cache-Control', PUBLIC_CACHE);
     res.json({ success: true, data: partners, counts, total: partners.length });
+  } catch (err) { next(err); }
+});
+
+// ── GET /api/public/marketplace/:orgId/auctions ───────────────────────────────
+// Marketplace Phase 2: the linked seller's public auctions for a company card. Lazy —
+// the map/legend never load this; the card fetches it only when opened. Returns the same
+// public visibility gate as /api/public/auctions, split into current (active) + upcoming
+// (published). Returns empty arrays gracefully when the company is unlinked or has none —
+// keeping the marketplace layer fully independent of the auction layer.
+router.get('/marketplace/:orgId/auctions', async (req, res, next) => {
+  try {
+    if (!validUuid(req.params.orgId)) return res.status(400).json({ success: false, message: 'Invalid company id' });
+    const { rows } = await db.query(
+      `SELECT a.id, a.title, a.state, a.start_time, a.end_time, a.cover_image_url, a.city, a.address_state,
+              (SELECT COUNT(*)::int FROM lots l WHERE l.auction_id = a.id AND l.state <> 'withdrawn') AS lot_count
+         FROM organizations o
+         JOIN auctions a ON a.seller_id = o.linked_seller_profile_id
+        WHERE o.id = $1
+          AND o.source = 'bd_import'
+          AND o.linked_seller_profile_id IS NOT NULL
+          AND a.state IN ('published','active')
+          AND a.is_archived IS NOT TRUE
+          AND a.marketplace_status = 'syndicated'
+        ORDER BY a.end_time ASC NULLS LAST
+        LIMIT 50`, [req.params.orgId]);
+
+    const shape = (a) => ({
+      id: a.id, title: a.title, state: a.state,
+      lots: a.lot_count || 0,
+      start_time: a.start_time, end_time: a.end_time,
+      cover_image_url: a.cover_image_url || null,
+      href: '/auction-view.html?auctionId=' + encodeURIComponent(a.id),
+    });
+    // Current = closing sequence underway (active); Upcoming = published, not yet started.
+    const current  = rows.filter((a) => a.state === 'active').map(shape);
+    const upcoming  = rows.filter((a) => a.state === 'published').map(shape);
+    res.set('Cache-Control', LIVE_CACHE);
+    res.json({ success: true, current, upcoming, total: current.length + upcoming.length });
   } catch (err) { next(err); }
 });
 
