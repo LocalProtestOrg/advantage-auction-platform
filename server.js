@@ -517,6 +517,9 @@ server.listen(PORT, () => {
   if (!process.env.AAP_IS_WORKER) {
     spawnWorker(path.join(__dirname, 'src/workers/notificationWorker.js'));
     spawnWorker(path.join(__dirname, 'src/workers/imageProcessingWorker.js'));
+    // Daily BD -> marketplace sync (00:00 America/New_York). Self-gates on env; the
+    // scheduler no-ops unless enabled (prod + BD_API_KEY, and not MARKETPLACE_SYNC_DISABLED).
+    spawnWorker(path.join(__dirname, 'src/workers/directorySyncWorker.js'));
     // #1 real-time: bridge Postgres NOTIFY (from web + worker processes) to
     // socket.io. Polling on the clients remains the permanent fallback.
     require('./src/lib/realtime').startListener(io)
