@@ -124,6 +124,15 @@ io.on('connection', (socket) => {
 // HTML pages use inline <script> blocks; it can be enabled with nonces later.
 app.use(helmet({ contentSecurityPolicy: false }));
 
+// ── Canonical hostname redirect ────────────────────────────────────────────────
+// Permanently redirect the typo-habit alias www.bid.advantage.bid → canonical bid.advantage.bid
+// (path + query preserved). Exact-match allowlist only; never the canonical host, staging,
+// Railway internal hostnames, or localhost. Runs before routing so users are redirected before
+// any rendering, but it only fires for the alias — health checks / webhooks / assets on the
+// canonical host are untouched. See src/middleware/canonicalHost.js for the full rationale.
+const { canonicalHostRedirect } = require('./src/middleware/canonicalHost');
+app.use(canonicalHostRedirect);
+
 // CORS
 // Public discovery endpoints and widget assets are designed for cross-origin consumption by BD.
 app.use((req, res, next) => {
