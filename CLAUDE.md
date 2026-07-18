@@ -80,3 +80,28 @@ You are working on the Advantage Auction Platform.
 - Add tests for business rules
 - Do not claim completion without evidence
 - If uncertain, ask for clarification inside the task notes rather than silently assuming
+
+## Canonical Auction Distribution Architecture
+
+Advantage.Bid uses a single-source-of-truth auction architecture.
+
+### Canonical Source
+All auction records must live only in the Advantage Auction Platform at https://bid.advantage.bid. The auction platform is authoritative for: auction identity; seller and organization ownership; auction title and description; images; dates and times; auction status; lots and bidding; publication, cancellation, closing, and archival state.
+
+### External Display
+Advantage.bid, Brilliant Directories pages, seller websites, estate sale company websites, auction house websites, city pages, and other approved external destinations must display auctions through widgets or API-fed embeds that read live data from bid.advantage.bid. Do not create duplicate native auction or event records on external sites unless the owner explicitly approves a documented exception.
+
+### Main Marketplace Widgets
+Advantage.Bid's public auction and event pages may display all eligible public auctions from the platform. Eligibility is based on platform publication and marketplace visibility rules (`state IN ('published','active')`, not archived, `marketplace_status='syndicated'`).
+
+### Company-Specific Widgets
+Each individual seller, estate sale company, or auction house website must use a tenant-scoped widget or feed that displays only auctions owned by that organization. Filtering must use a stable organization or seller identifier (UUID) rather than company-name text matching. A company-specific widget must never expose another organization's auctions.
+
+### Lifecycle Behavior
+Because widgets read from the platform source of truth, auction changes must flow automatically to every display location, including: publication; title/description edits; image changes; date/time changes; live status; closing; cancellation; unpublishing; past-auction state. External pages must not maintain independent auction copies that can become stale.
+
+### Links
+Every externally displayed auction must link to its canonical public auction page on bid.advantage.bid.
+
+### Engineering Rule
+Before implementing any auction distribution feature, prefer: (1) live API-fed widgets; (2) stable organization-level filtering; (3) one canonical auction record; (4) no duplicate external storage; (5) idempotent and privacy-safe rendering. Native syndication or copying is prohibited unless explicitly approved by the owner after architectural review.

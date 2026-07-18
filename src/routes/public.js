@@ -354,6 +354,20 @@ router.get('/auctions', async (req, res, next) => {
       where.push(`(a.title ILIKE $${ki} OR a.subtitle ILIKE $${ki} OR a.description ILIKE $${ki} OR a.city ILIKE $${ki} OR sp.display_name ILIKE $${ki})`);
     }
 
+    // Tenant-scoped feeds for company-specific widgets. Filtering uses STABLE UUIDs (never a
+    // company-name text match). `organization_id` resolves through the admin-confirmed marketplace
+    // link (organizations.linked_seller_profile_id); an org with no linked seller matches nothing.
+    // `seller_id` filters directly. Either way the feed can only ever return that one owner's
+    // auctions, so a company widget can never expose another organization's auctions.
+    if (q.organization_id && validUuid(q.organization_id)) {
+      params.push(q.organization_id);
+      where.push(`a.seller_id = (SELECT linked_seller_profile_id FROM organizations WHERE id = $${params.length})`);
+    }
+    if (q.seller_id && validUuid(q.seller_id)) {
+      params.push(q.seller_id);
+      where.push(`a.seller_id = $${params.length}`);
+    }
+
     const sortEndingSoon = q.sort === 'ending_soon';
     if (sortEndingSoon) {
       where.push(`a.end_time > NOW()`);
