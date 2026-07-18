@@ -240,6 +240,12 @@
           background:rgba(47,107,255,.06);border:1px solid var(--hair);border-radius:8px;padding:6px 4px;cursor:pointer;transition:background .14s,color .14s}
   .legend-tools button:hover{background:rgba(47,107,255,.15);color:var(--ink)}
   .legend-tools button:active{background:rgba(47,107,255,.24)}
+  .legend-browse{display:flex;align-items:center;justify-content:center;gap:7px;margin-top:8px;padding:9px 8px;
+        font-size:11.5px;font-weight:800;color:var(--ink);text-decoration:none;background:rgba(47,107,255,.08);
+        border:1px solid var(--hair);border-radius:9px;transition:background .14s,color .14s;cursor:pointer}
+  .legend-browse:hover{background:rgba(47,107,255,.16)}
+  .legend-browse:focus-visible{outline:none;box-shadow:0 0 0 2px var(--accentSoft)}
+  .legend-browse svg{width:14px;height:14px;flex:0 0 auto;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round}
   .lg-pin{flex:0 0 auto;width:16px;height:16px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;
           background:var(--c);box-shadow:0 1px 3px rgba(8,16,28,.28)}
   .lg-pin svg{width:10px;height:10px;display:block;fill:#fff}
@@ -249,6 +255,42 @@
           font-size:12.5px;font-weight:800;color:var(--fg);box-shadow:0 8px 22px rgba(8,16,28,.18);cursor:pointer}
   .legend-fab .lg-dots{display:inline-flex;gap:3px}
   .legend-fab .lg-dots i{width:8px;height:8px;border-radius:50%}
+  /* ── Feedback tab + slide-out panel ── */
+  .fb-tab{position:fixed;right:16px;bottom:calc(16px + env(safe-area-inset-bottom));z-index:44;display:inline-flex;align-items:center;gap:7px;
+        background:var(--capsule);backdrop-filter:blur(12px);border:1px solid var(--capsuleBorder);border-radius:999px;padding:9px 14px;
+        font-family:inherit;font-size:12.5px;font-weight:800;color:var(--fg);box-shadow:0 8px 22px rgba(8,16,28,.18);cursor:pointer}
+  .fb-tab:hover{background:rgba(255,255,255,.92)}
+  .fb-tab:focus-visible{outline:none;box-shadow:0 0 0 3px var(--accentSoft),0 8px 22px rgba(8,16,28,.18)}
+  .fb-tab svg{width:15px;height:15px;fill:none;stroke:var(--accent);stroke-width:2;stroke-linejoin:round}
+  .fb-scrim{position:fixed;inset:0;background:rgba(8,16,28,.34);z-index:60;opacity:0;transition:opacity .3s;pointer-events:none}
+  .fb-scrim.open{opacity:1;pointer-events:auto}
+  .fb-panel{position:fixed;top:0;right:0;height:100%;width:min(384px,100vw);background:#fff;color:#0B1B2B;z-index:61;
+        box-shadow:-14px 0 44px rgba(8,16,28,.28);transform:translateX(100%);transition:transform .32s var(--ease);
+        display:flex;flex-direction:column;padding:18px 20px calc(20px + env(safe-area-inset-bottom));overflow-y:auto;
+        font-family:"Söhne",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+  .fb-panel.open{transform:none}
+  .fb-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+  .fb-head h2{margin:0;font-size:18px;font-weight:800;letter-spacing:-.01em}
+  .fb-close{border:0;background:#eef1f5;width:32px;height:32px;border-radius:50%;font-size:20px;line-height:1;color:#33414f;cursor:pointer}
+  .fb-close:hover{background:#e3e8ee}
+  .fb-close:focus-visible{outline:none;box-shadow:0 0 0 3px var(--accentSoft)}
+  #fbForm{display:flex;flex-direction:column}
+  .fb-l{font-size:12px;font-weight:800;color:#33414f;margin:12px 0 5px}
+  .fb-req{color:#B5273B}
+  .fb-opt{color:#8a97a6;font-weight:700}
+  .fb-in{font-family:inherit;font-size:14px;color:#0B1B2B;background:#f6f8fb;border:1.5px solid #dde3ea;border-radius:10px;padding:10px 12px;width:100%}
+  .fb-in:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(47,107,255,.18);background:#fff}
+  textarea.fb-in{resize:vertical;min-height:96px;line-height:1.45}
+  .fb-row{display:flex;gap:10px}.fb-row>div{flex:1 1 0;min-width:0}
+  .fb-note{font-size:12.5px;font-weight:700;margin:12px 0 0;min-height:1px}
+  .fb-note.err{color:#B5273B}.fb-note.ok{color:#0F7A37}
+  .fb-submit{margin-top:14px;font-family:inherit;font-weight:800;font-size:14px;color:#fff;background:var(--accent);border:0;border-radius:11px;padding:12px;cursor:pointer;transition:background .14s,transform .12s}
+  .fb-submit:hover:not(:disabled){background:#2559d6;transform:translateY(-1px)}
+  .fb-submit:disabled{opacity:.6;cursor:default}
+  .fb-submit:focus-visible{outline:none;box-shadow:0 0 0 3px var(--accentSoft)}
+  .fb-fine{font-size:11px;color:#8a97a6;margin:10px 0 0;text-align:center}
+  @media(max-width:560px){ .fb-panel{width:100vw} .fb-tab span{display:inline} }
+  @media(max-width:880px){ body.mp-open .fb-tab{display:none} }
   @media(max-width:880px){
     /* Sit above the bottom-sheet peek (~92px) and above its z-index so both the FAB
        and the opened panel stay tappable over the drawer. */
@@ -326,7 +368,7 @@
   <!-- top capsule -->
   <div class="top" id="top">
     <button class="icobtn" id="menuBtn" aria-label="Menu"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
-    <a class="brand" href="/" aria-label="Advantage.Bid home">Advantage<span>.Bid</span></a>
+    <a class="brand" href="https://www.advantage.bid" aria-label="Return to Advantage.Bid home">Advantage<span>.Bid</span></a>
     <div class="spacer"></div>
     <button class="icobtn" id="searchBtn" aria-label="Search"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg></button>
     <button class="loc" id="locBtn">📍 <span class="txt" id="locTxt">Find auctions near you</span></button>
@@ -360,6 +402,40 @@
     <span class="lg-dots"><i style="background:var(--live)"></i><i style="background:#16A34A"></i><i style="background:#2F6BFF"></i></span>
     Map Key &amp; Filters
   </button>
+
+  <!-- Feedback: discreet lower-right tab + slide-out panel (stays on the Marketplace) -->
+  <button class="fb-tab" id="fbTab" type="button" aria-expanded="false" aria-controls="fbPanel">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 11.5a8.38 8.38 0 0 1-8.5 8.5 8.5 8.5 0 0 1-3.8-.9L3 21l1.9-5.7A8.5 8.5 0 0 1 12.5 3 8.38 8.38 0 0 1 21 11.5z"/></svg>
+    <span>Feedback</span>
+  </button>
+  <div class="fb-scrim" id="fbScrim" hidden></div>
+  <aside class="fb-panel" id="fbPanel" role="dialog" aria-modal="true" aria-labelledby="fbTitle" aria-hidden="true">
+    <div class="fb-head">
+      <h2 id="fbTitle">Send Feedback</h2>
+      <button class="fb-close" id="fbClose" type="button" aria-label="Close feedback">&times;</button>
+    </div>
+    <form id="fbForm" novalidate>
+      <label class="fb-l" for="fbType">What's this about?</label>
+      <select class="fb-in" id="fbType" name="type" required>
+        <option value="problem">Report a Problem</option>
+        <option value="incorrect">Incorrect Listing</option>
+        <option value="suggestion">Suggestion</option>
+        <option value="other">Other</option>
+      </select>
+      <label class="fb-l" for="fbMsg">Your feedback <span class="fb-req">*</span></label>
+      <textarea class="fb-in" id="fbMsg" name="message" rows="5" required maxlength="5000" placeholder="Tell us what happened or what could be better…"></textarea>
+      <div class="fb-row">
+        <div><label class="fb-l" for="fbName">Name <span class="fb-opt">(optional)</span></label>
+          <input class="fb-in" id="fbName" name="name" type="text" maxlength="120" autocomplete="name"></div>
+        <div><label class="fb-l" for="fbEmail">Email <span class="fb-opt">(optional)</span></label>
+          <input class="fb-in" id="fbEmail" name="email" type="email" maxlength="200" autocomplete="email" inputmode="email"></div>
+      </div>
+      <input type="text" id="fbHp" name="company_url" tabindex="-1" autocomplete="off" aria-hidden="true" style="position:absolute;left:-9999px;width:1px;height:1px;opacity:0">
+      <div class="fb-note" id="fbNote" role="status" aria-live="polite"></div>
+      <button class="fb-submit" id="fbSubmit" type="submit">Send Feedback</button>
+      <p class="fb-fine">Includes the page you're viewing to help us investigate.</p>
+    </form>
+  </aside>
 
   <!-- search overlay -->
   <div id="search">
@@ -641,6 +717,19 @@
       }); });
     }catch(e){}
   }
+  // Aggressive-but-bounded cluster zoom. MapLibre's native expansion zoom is the MINIMUM zoom at
+  // which a cluster splits — jumping exactly there feels sluggish (many clicks for a small cluster).
+  // We boost past it and guarantee a solid per-click step, clamped so the user keeps geographic
+  // context. clusterMaxZoom is 12, so any target >=13 dissolves every cluster into individual pins.
+  function mpClusterZoomTo(center, expZoom){
+    try{
+      var cur=map.getZoom(), MAXZ=15;
+      var target=Math.max((expZoom||cur)+2, cur+2);        // expansion + boost, but always a real step
+      target=Math.min(MAXZ, target);
+      if(target<cur+0.5) target=Math.min(MAXZ, cur+1.5);   // never a no-op near the ceiling
+      map.easeTo({ center:center, zoom:target, duration:480 });
+    }catch(e){ try{ map.easeTo({ center:center, zoom:Math.min(15,map.getZoom()+2.5), duration:480 }); }catch(_){} }
+  }
   function mpAddLayers(){
     if(map.getSource('mp')) return;
     map.addSource('mp', { type:'geojson', data:mpFC(), cluster:true, clusterRadius:46, clusterMaxZoom:12 });
@@ -658,8 +747,8 @@
       // form silently no-ops — that's why clusters didn't zoom). Handle both shapes defensively.
       var src=map.getSource('mp'); if(!src) return;
       var center=f.geometry.coordinates, cid=f.properties.cluster_id;
-      var ret=src.getClusterExpansionZoom(cid, function(err,z){ if(!err && z!=null) map.easeTo({ center:center, zoom:z, duration:500 }); });
-      if(ret && typeof ret.then==='function') ret.then(function(z){ map.easeTo({ center:center, zoom:z, duration:500 }); }).catch(function(){});
+      var ret=src.getClusterExpansionZoom(cid, function(err,z){ if(!err && z!=null) mpClusterZoomTo(center, z); });
+      if(ret && typeof ret.then==='function') ret.then(function(z){ mpClusterZoomTo(center, z); }).catch(function(){});
     });
     map.on('click','mp-unclustered', function(e){ if(e.features && e.features[0]) mpOpenCard(e.features[0]); });
     ['mp-clusters','mp-unclustered'].forEach(function(ly){
@@ -733,7 +822,8 @@
         .setLngLat(coords).setHTML(MPf.cardHTML(company,{variant:'popup'})).addTo(map);
       // On mobile the card is a bottom sheet — clear the FAB + drawer peek beneath it.
       document.body.classList.add('mp-open');
-      MP.card.on('close', function(){ document.body.classList.remove('mp-open'); });
+      MP.current=company;                                   // for feedback context
+      MP.card.on('close', function(){ document.body.classList.remove('mp-open'); MP.current=null; });
       mpFitCardIntoView();
       if(company.hasAuctions) mpLoadCardAuctions(company);
       return;
@@ -812,6 +902,10 @@
     MP_CATS.forEach(function(c){ html+=mpRow('mp',c.key,c.color,c.glyph,c.label,(MP.counts&&MP.counts[c.key])||0); });
     html+='<div class="legend-tools"><button type="button" data-tool="show">Show All</button>'
       +'<button type="button" data-tool="hide">Hide All</button><button type="button" data-tool="reset">Reset</button></div>';
+    // Prefer a traditional list over the map — links to the canonical Advantage.Bid auctions page
+    // (same tab; the user stays inside the Advantage ecosystem).
+    html+='<a class="legend-browse" href="https://www.advantage.bid/auctions">'
+      +'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg>Browse All Auctions</a>';
     el.innerHTML=html;
     mpWireLegend();
   }
@@ -1020,6 +1114,58 @@
     function up(e){ if(!dragging)return; dragging=false; var y=(e.changedTouches?e.changedTouches[0].clientY:e.clientY); var dy=y-sy; if(dy<-40){ _sheetDragged=true; setSheet(startState==='peek'?'half':'full'); } else if(dy>40){ _sheetDragged=true; setSheet(startState==='full'?'half':'peek'); } }
     grab.addEventListener('mousedown',down); window.addEventListener('mouseup',up);
     grab.addEventListener('touchstart',down,{passive:true}); window.addEventListener('touchend',up);
+  })();
+
+  // ── Feedback panel ──────────────────────────────────────────────────────────
+  (function(){
+    var tab=$('fbTab'), panel=$('fbPanel'), scrim=$('fbScrim'), closeB=$('fbClose'),
+        form=$('fbForm'), note=$('fbNote'), submit=$('fbSubmit'), lastFocus=null, sending=false;
+    if(!tab||!panel||!form) return;
+    function activeFilters(){
+      try{
+        var mp=MP_CATS.filter(function(c){return MP.active[c.key];}).map(function(c){return c.key;});
+        var ev=MP_EVENTS.filter(function(e){ return mpAuctionCount(e.key)>0; }).map(function(e){return e.key;});
+        return 'marketplace:['+mp.join(',')+'] events:['+ev.join(',')+']';
+      }catch(e){ return ''; }
+    }
+    function mapStr(){ try{ var c=window.__mpCam&&window.__mpCam(); return c?(c.c.lat.toFixed(4)+','+c.c.lng.toFixed(4)+' z='+c.z.toFixed(1)):''; }catch(e){ return ''; } }
+    function context(){
+      var cur=MP.current||null;
+      return { page_url:location.href, filters:activeFilters(),
+        company_id:cur?cur.id:'', company_name:cur?cur.name:'',
+        auction_id:'', auction_name:'', map:mapStr() };
+    }
+    function open(){ lastFocus=document.activeElement; panel.classList.add('open'); scrim.hidden=false; requestAnimationFrame(function(){scrim.classList.add('open');});
+      panel.setAttribute('aria-hidden','false'); tab.setAttribute('aria-expanded','true'); setTimeout(function(){ $('fbType').focus(); },60); document.addEventListener('keydown',onKey); }
+    function close(){ panel.classList.remove('open'); scrim.classList.remove('open'); panel.setAttribute('aria-hidden','true'); tab.setAttribute('aria-expanded','false');
+      setTimeout(function(){ scrim.hidden=true; },300); document.removeEventListener('keydown',onKey); if(lastFocus&&lastFocus.focus)lastFocus.focus(); }
+    function onKey(e){ if(e.key==='Escape') close(); }
+    tab.addEventListener('click',open); closeB.addEventListener('click',close); scrim.addEventListener('click',close);
+    function setNote(msg,cls){ note.textContent=msg||''; note.className='fb-note'+(cls?(' '+cls):''); }
+    form.addEventListener('submit',function(e){
+      e.preventDefault();
+      if(sending) return;                                   // prevent duplicate submissions
+      var msg=($('fbMsg').value||'').trim();
+      if(msg.length<2){ setNote('Please enter your feedback.','err'); $('fbMsg').focus(); return; }
+      var email=($('fbEmail').value||'').trim();
+      if(email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)){ setNote('Please enter a valid email, or leave it blank.','err'); $('fbEmail').focus(); return; }
+      sending=true; submit.disabled=true; submit.textContent='Sending…'; setNote('');
+      var payload={ type:$('fbType').value, message:msg, name:($('fbName').value||'').trim(), email:email,
+        company_url:$('fbHp').value, context:context() };
+      fetch('/api/public/feedback',{ method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload) })
+        .then(function(r){ return r.json().then(function(j){ return {ok:r.ok,j:j}; }); })
+        .then(function(res){
+          if(res.ok && res.j && res.j.success){
+            setNote(res.j.message||'Thank you — your feedback was sent.','ok');
+            form.reset();
+            setTimeout(close, 1400);
+          } else {
+            setNote((res.j&&res.j.message)||'We could not send your feedback right now. Please try again.','err');
+          }
+        })
+        .catch(function(){ setNote('Network error. Please check your connection and try again.','err'); })
+        .then(function(){ sending=false; submit.disabled=false; submit.textContent='Send Feedback'; });  // text preserved on failure (form not reset)
+    });
   })();
 })();
 </script>

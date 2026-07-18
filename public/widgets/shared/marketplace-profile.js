@@ -95,16 +95,19 @@
     var alt = esc(company.name || 'Business') + ' — ' + esc(company.categorySingular || cat.singular);
     if (img && img.url) {
       if (img.kind === 'photo') {
-        // Photographic cover — fill with a bottom scrim for legibility.
+        // Photographic cover — fills the whole header, with a bottom scrim for legibility.
         return '<div class="mpc2-hd mpc2-hd-photo">' +
                  '<img class="mpc2-cover" src="' + esc(img.url) + '" alt="' + alt + '" loading="lazy" ' +
                  'onerror="this.closest(\'.mpc2-hd\').classList.add(\'mpc2-hd-failed\')">' +
                  '<span class="mpc2-scrim" aria-hidden="true"></span>' +
                '</div>';
       }
-      // logo + default are both contained marks on a soft surface (default is a touch smaller).
+      // logo + default: a blurred, enlarged copy of the same image fills the header behind a
+      // large, sharp, contained foreground — so the header reads as intentionally full rather
+      // than a small mark in a blank field. Contain never distorts or crops logo text.
       var isDefault = img.kind === 'default';
       return '<div class="mpc2-hd mpc2-hd-logo' + (isDefault ? ' mpc2-hd-default' : '') + '" style="--cat:' + cat.color + '">' +
+               '<img class="mpc2-hd-bg" src="' + esc(img.url) + '" alt="" aria-hidden="true" loading="lazy">' +
                '<img class="mpc2-logo" src="' + esc(img.url) + '" alt="' + (isDefault ? esc(company.name || 'Business') : alt) + '" loading="lazy" ' +
                'onerror="this.closest(\'.mpc2-hd\').classList.add(\'mpc2-hd-failed\')">' +
              '</div>';
@@ -197,8 +200,11 @@
 
     /* card surface: layered elevation + top edge highlight. Advantage green is the brand/action
        color; the per-category hue stays as a small taxonomy accent (chip + location pin). */
-    '.mpc2{position:relative;background:#fff;border-radius:20px;overflow:hidden;color:var(--ink,#0B1B2B);' +
-      '--brand:#16A34A;--brand-deep:#0F7A37;' +
+    // The card owns its OWN text colors so it never inherits the page's theme vars (the map\'s
+    // dark/discover moods flip --ink to near-white, which would make text invisible on the card\'s
+    // light surface). --cat/--cat-deep (per category) are set inline on the article.
+    '.mpc2{position:relative;background:#fff;border-radius:20px;overflow:hidden;' +
+      '--ink:#0B1B2B;--muted:#5b6b7e;--brand:#16A34A;--brand-deep:#0F7A37;color:var(--ink);' +
       'box-shadow:0 1px 0 rgba(255,255,255,.7) inset,0 0 0 1px rgba(8,16,28,.06),0 10px 22px rgba(8,16,28,.10),0 26px 54px rgba(8,16,28,.20);' +
       'font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased}' +
 
@@ -207,12 +213,16 @@
     '@supports not (aspect-ratio:1){.mpc2-hd{height:176px}}' +
     '.mpc2-cover{width:100%;height:100%;object-fit:cover;display:block}' +
     '.mpc2-scrim{position:absolute;inset:auto 0 0 0;height:52%;background:linear-gradient(to top,rgba(8,16,28,.34),transparent);pointer-events:none}' +
-    '.mpc2-hd-logo{display:flex;align-items:center;justify-content:center;padding:20px;' +
+    '.mpc2-hd-logo{position:relative;display:flex;align-items:center;justify-content:center;padding:14px;' +
       'background:linear-gradient(135deg,color-mix(in srgb,var(--cat) 10%,#fff),color-mix(in srgb,var(--cat) 3%,#fff))}' +
-    '.mpc2-logo{max-width:78%;max-height:74%;object-fit:contain;display:block;filter:drop-shadow(0 6px 14px rgba(8,16,28,.14))}' +
-    /* BD default directory asset — a neutral surface, the mark shown smaller + calmer */
-    '.mpc2-hd-default{background:linear-gradient(135deg,#f4f6f9,#eef1f5)}' +
-    '.mpc2-hd-default .mpc2-logo{max-width:44%;max-height:56%;opacity:.9;filter:drop-shadow(0 4px 10px rgba(8,16,28,.10))}' +
+    /* blurred/enlarged copy of the logo fills the header; a soft veil keeps the foreground legible */
+    '.mpc2-hd-bg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;' +
+      'filter:blur(22px) saturate(1.15) brightness(1.04);transform:scale(1.35);opacity:.55}' +
+    '.mpc2-hd-logo::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(255,255,255,.42),rgba(255,255,255,.5));pointer-events:none}' +
+    '.mpc2-logo{position:relative;z-index:1;max-width:88%;max-height:84%;object-fit:contain;display:block;filter:drop-shadow(0 6px 16px rgba(8,16,28,.20))}' +
+    /* BD default directory asset — same filled treatment, foreground a touch smaller/calmer */
+    '.mpc2-hd-default .mpc2-logo{max-width:62%;max-height:64%;opacity:.94}' +
+    '.mpc2-hd-default::after{background:linear-gradient(180deg,rgba(255,255,255,.5),rgba(255,255,255,.6))}' +
     '.mpc2-hd-art{background-size:cover;background-position:center;display:flex;align-items:center;justify-content:center}' +
     '.mpc2-mono{width:64px;height:64px;border-radius:18px;display:flex;align-items:center;justify-content:center;' +
       'font-weight:800;font-size:24px;letter-spacing:.02em;color:#fff;background:rgba(255,255,255,.18);' +
@@ -254,19 +264,22 @@
     '.mpc2-auc-t{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1 1 auto}' +
     '.mpc2-auc-m{flex:0 0 auto;font-size:10.5px;font-weight:800;color:var(--muted,#5b6b7e)}' +
 
-    /* actions — Advantage-green primary, quiet ghost secondary */
+    /* actions — both buttons carry a 2px dark-category outline (--cat-deep) for a coherent
+       relationship with the category badge + map marker. Primary = filled category color
+       (clearly primary); secondary "Get Directions" = light surface with strong dark text. */
     '.mpc2-actions{display:flex;flex-wrap:wrap;gap:8px}' +
-    '.mpc2-btn{flex:1 1 44%;text-align:center;text-decoration:none;font-weight:700;font-size:12.5px;letter-spacing:.005em;padding:11px 10px;' +
-      'border-radius:12px;white-space:nowrap;transition:transform .12s,box-shadow .12s,background .12s;cursor:pointer}' +
+    '.mpc2-btn{flex:1 1 44%;text-align:center;text-decoration:none;font-weight:700;font-size:12.5px;letter-spacing:.005em;padding:10px 10px;' +
+      'border:2px solid transparent;border-radius:12px;white-space:nowrap;transition:transform .12s,box-shadow .12s,background .12s,border-color .12s;cursor:pointer}' +
     '.mpc2-btn-full{flex:1 1 100%}' +
-    '.mpc2-btn-primary{color:#fff;background:var(--brand,#16A34A);box-shadow:0 2px 6px color-mix(in srgb,var(--brand) 34%,transparent)}' +
-    '.mpc2-btn-primary:hover{background:var(--brand-deep,#0F7A37);transform:translateY(-1px);box-shadow:0 5px 14px color-mix(in srgb,var(--brand) 38%,transparent)}' +
-    '.mpc2-btn-primary:active{transform:translateY(0);box-shadow:0 1px 3px color-mix(in srgb,var(--brand) 30%,transparent)}' +
-    '.mpc2-btn-ghost{color:var(--ink,#0B1B2B);background:#eef1f5;border:1px solid rgba(8,16,28,.05)}' +
+    '.mpc2-btn-primary{color:#fff;background:var(--cat,#16A34A);border-color:var(--cat-deep,#0F7A37);' +
+      'box-shadow:0 2px 7px color-mix(in srgb,var(--cat) 32%,transparent)}' +
+    '.mpc2-btn-primary:hover{background:var(--cat-deep,#0F7A37);transform:translateY(-1px);box-shadow:0 5px 14px color-mix(in srgb,var(--cat) 40%,transparent)}' +
+    '.mpc2-btn-primary:active{transform:translateY(0);box-shadow:0 1px 3px color-mix(in srgb,var(--cat) 30%,transparent)}' +
+    '.mpc2-btn-ghost{color:var(--ink);background:#eef1f5;border-color:var(--cat-deep,#334155)}' +
     '.mpc2-btn-ghost:hover{background:#e4e9f0;transform:translateY(-1px)}' +
     '.mpc2-btn-ghost:active{transform:translateY(0);background:#dde3ea}' +
-    '.mpc2-btn-disabled{background:#e7ebf0;color:#9aa6b4;box-shadow:none;cursor:default;pointer-events:none}' +
-    '.mpc2-btn:focus-visible{outline:none;box-shadow:0 0 0 3px color-mix(in srgb,var(--brand) 42%,#fff)}' +
+    '.mpc2-btn-disabled{background:#e7ebf0;color:#9aa6b4;border-color:#d5dbe2;box-shadow:none;cursor:default;pointer-events:none}' +
+    '.mpc2-btn:focus-visible{outline:none;box-shadow:0 0 0 3px color-mix(in srgb,var(--cat) 45%,#fff)}' +
 
     /* standard (self-contained) variant — same DNA, own surface for grids/lists */
     '.mpc2-v-standard{width:320px;max-width:100%}' +
@@ -282,10 +295,11 @@
       '.mpc2-body{padding-top:16px}' +
     '}' +
 
-    /* dark theme (index.html swaps --ink/--muted; give the card a matching dark surface) */
-    ':root[data-theme="dark"] .mpc2,html.theme-dark .mpc2{background:#141c27;color:#eaf0f7}' +
+    /* dark surface — only when a HOST page opts in via data-theme=dark (the map page does NOT;
+       it keeps the light card). Flips the card\'s own local text vars so text stays legible. */
+    ':root[data-theme="dark"] .mpc2,html.theme-dark .mpc2{background:#141c27;--ink:#eaf0f7;--muted:#93a2b4}' +
     ':root[data-theme="dark"] .mpc2-blurb,html.theme-dark .mpc2-blurb{color:#c2ccd8}' +
-    ':root[data-theme="dark"] .mpc2-btn-ghost,html.theme-dark .mpc2-btn-ghost{background:#232f3d;color:#eaf0f7;border-color:rgba(255,255,255,.06)}' +
+    ':root[data-theme="dark"] .mpc2-btn-ghost,html.theme-dark .mpc2-btn-ghost{background:#232f3d}' +
     ':root[data-theme="dark"] .mpc2-auc-item,html.theme-dark .mpc2-auc-item{background:#1c2733;border-color:#26313f;color:#eaf0f7}' +
 
     /* reduced motion */

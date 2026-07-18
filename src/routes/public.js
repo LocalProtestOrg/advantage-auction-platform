@@ -207,6 +207,100 @@ router.get('/marketplace/:orgId/auctions', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
+// ── POST /api/public/feedback ─────────────────────────────────────────────────
+// Marketplace feedback → emailed to info@advantage.bid (existing SES infra) + recorded in
+// audit_log for future triage. Public + unauthenticated, so: per-IP rate limit, honeypot,
+// strict validation, header-injection-safe subject/reply-to, and HTML-escaped bodies. No
+// mail credentials ever touch the client. Errors never leak internals.
+const { feedbackLimiter } = require('../middleware/rateLimit');
+const { sendEmail } = require('../services/emailService');
+const { writeAuditLog } = require('../lib/auditLog');
+
+const FEEDBACK_TYPES = {
+  problem:    'Report a Problem',
+  incorrect:  'Incorrect Listing',
+  suggestion: 'Suggestion',
+  other:      'Other',
+};
+const escHtml = (v) => String(v == null ? '' : v).replace(/[&<>"']/g, (c) =>
+  ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+// A header-safe single-line value: no CR/LF/control chars (blocks email-header injection).
+const oneLine = (v, max = 200) => String(v == null ? '' : v).replace(/[\r\n\t\x00-\x1F\x7F]+/g, ' ').trim().slice(0, max);
+const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
+const clampStr = (v, max) => (v == null ? '' : String(v)).slice(0, max);
+
+router.post('/feedback', feedbackLimiter, express.json({ limit: '32kb' }), async (req, res) => {
+  try {
+    const b = req.body || {};
+
+    // Honeypot: real users never fill this hidden field. Bots do → accept silently, drop.
+    if (oneLine(b.company_url, 100)) return res.json({ success: true });
+
+    const typeKey = String(b.type || '').toLowerCase();
+    if (!FEEDBACK_TYPES[typeKey]) return res.status(400).json({ success: false, message: 'Please choose a feedback type.' });
+
+    const message = clampStr(b.message, 5000).trim();
+    if (message.length < 2) return res.status(400).json({ success: false, message: 'Please enter your feedback.' });
+
+    const name  = oneLine(b.name, 120);
+    const email = oneLine(b.email, 200);
+    if (email && !EMAIL_RE.test(email)) return res.status(400).json({ success: false, message: 'Please enter a valid email, or leave it blank.' });
+
+    // Auto-captured context (client-supplied → treated as untrusted; escaped + size-capped).
+    const ctx = (b.context && typeof b.context === 'object') ? b.context : {};
+    const context = {
+      page_url:     oneLine(ctx.page_url, 500),
+      filters:      oneLine(ctx.filters, 300),
+      company_id:   oneLine(ctx.company_id, 60),
+      company_name: oneLine(ctx.company_name, 200),
+      auction_id:   oneLine(ctx.auction_id, 60),
+      auction_name: oneLine(ctx.auction_name, 200),
+      map:          oneLine(ctx.map, 120),
+      user_agent:   oneLine(req.get('user-agent'), 400),
+      submitted_at: new Date().toISOString(),
+      environment:  process.env.NODE_ENV || 'unknown',
+    };
+
+    const typeLabel = FEEDBACK_TYPES[typeKey];
+    const subject = oneLine(`[Marketplace Feedback] ${typeLabel} — ${message.slice(0, 60)}`, 180);
+
+    const rowsHtml = [
+      ['Type', typeLabel], ['From', name || '(anonymous)'], ['Email', email || '(not provided)'],
+      ['Company', context.company_name ? `${context.company_name} (${context.company_id})` : '—'],
+      ['Auction', context.auction_name ? `${context.auction_name} (${context.auction_id})` : '—'],
+      ['Filters', context.filters || '—'], ['Map', context.map || '—'],
+      ['Page', context.page_url || '—'], ['Environment', context.environment],
+      ['Submitted', context.submitted_at], ['User agent', context.user_agent || '—'],
+    ].map(([k, v]) => `<tr><td style="padding:4px 12px 4px 0;color:#5b6b7e;vertical-align:top;white-space:nowrap">${escHtml(k)}</td><td style="padding:4px 0;color:#0B1B2B">${escHtml(v)}</td></tr>`).join('');
+    const html =
+      `<div style="font-family:system-ui,Segoe UI,Arial,sans-serif;max-width:640px">` +
+      `<h2 style="margin:0 0 4px;font-size:17px;color:#0B1B2B">Marketplace Feedback — ${escHtml(typeLabel)}</h2>` +
+      `<p style="margin:12px 0;white-space:pre-wrap;line-height:1.5;color:#1f2a37">${escHtml(message)}</p>` +
+      `<table style="border-collapse:collapse;font-size:13px;margin-top:8px">${rowsHtml}</table></div>`;
+    const text = `Marketplace Feedback — ${typeLabel}\n\n${message}\n\n` +
+      `From: ${name || '(anonymous)'} <${email || 'n/a'}>\nCompany: ${context.company_name || '—'} ${context.company_id || ''}\n` +
+      `Auction: ${context.auction_name || '—'} ${context.auction_id || ''}\nFilters: ${context.filters || '—'}\nMap: ${context.map || '—'}\n` +
+      `Page: ${context.page_url || '—'}\nEnv: ${context.environment}\nSubmitted: ${context.submitted_at}\nUA: ${context.user_agent || '—'}`;
+
+    await sendEmail({
+      to: 'info@advantage.bid', subject, html, text,
+      replyTo: email && EMAIL_RE.test(email) ? email : undefined,   // reply-to only for a valid supplied address
+    });
+
+    // Best-effort persistence so a future triage system can review submissions (no new table).
+    try {
+      await writeAuditLog({ event_type: 'marketplace_feedback_submitted', entity_type: 'feedback',
+        entity_id: '00000000-0000-4000-8000-000000000f00', actor_id: null,
+        metadata: { type: typeKey, has_email: !!email, message_len: message.length, context } });
+    } catch (_) { /* audit is best-effort */ }
+
+    return res.json({ success: true, message: 'Thank you — your feedback was sent.' });
+  } catch (err) {
+    // Never leak internals; the client keeps the user's text and can retry.
+    return res.status(502).json({ success: false, message: 'We could not send your feedback right now. Please try again.' });
+  }
+});
+
 // ── GET /api/public/auctions ──────────────────────────────────────────────────
 // Paginated, filterable auction discovery feed.
 //

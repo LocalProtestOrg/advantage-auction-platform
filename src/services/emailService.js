@@ -86,7 +86,7 @@ function getTransporter() {
  * @returns {Promise<object>} { messageId } on success, { skipped: true } if unconfigured
  * @throws on delivery failure
  */
-async function sendEmail({ to, subject, html, text, attachments }) {
+async function sendEmail({ to, subject, html, text, attachments, replyTo }) {
   if (!isConfigured()) {
     console.warn('[email] SMTP/SES not configured - skipping delivery to', to);
     return { skipped: true };
@@ -100,7 +100,8 @@ async function sendEmail({ to, subject, html, text, attachments }) {
       html,
       ...(text ? { text } : {}),
       ...(Array.isArray(attachments) && attachments.length ? { attachments } : {}),
-      replyTo: EMAIL_REPLY_TO,
+      // Per-message reply-to (e.g. a feedback submitter's address) overrides the default.
+      replyTo: replyTo || EMAIL_REPLY_TO,
     });
     console.log(`[email] Sent "${subject}" to ${to} - messageId: ${info.messageId}`);
     return { messageId: info.messageId };
