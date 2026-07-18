@@ -20,4 +20,14 @@ const normalLimiter = rateLimit({
   message: { error: 'Too many requests, please try again later.' }
 });
 
-module.exports = { strictLimiter, normalLimiter };
+// Public feedback: tight per-IP cap to blunt spam/abuse. Unlike the others this stays ACTIVE
+// on staging + production (only skipped in dev/test) so spam protection can be validated
+// pre-production. 5 submissions / 10 minutes is generous for a genuine user.
+const feedbackLimiter = rateLimit({
+  windowMs: 10 * 60 * 1000,
+  max: 5,
+  skip: () => ['test', 'development'].includes(process.env.NODE_ENV),
+  message: { error: 'You have sent several messages recently. Please wait a few minutes and try again.' },
+});
+
+module.exports = { strictLimiter, normalLimiter, feedbackLimiter };

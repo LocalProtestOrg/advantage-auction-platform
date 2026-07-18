@@ -34,11 +34,24 @@ describe('companyImage.select — approved sources only, policy-respecting', () 
     expect(r.source).toBe('seller_logo');
   });
 
-  test('unlinked / no approved image → null (frontend renders category artwork, never a BD logo)', () => {
+  test('the company\'s own BD listing image is used when no linked-seller image exists', () => {
+    expect(img.select({ bd_image_url: 'https://www.advantage.bid/logos/profile/l.jpg', bd_image_type: 'logo' }))
+      .toMatchObject({ url: 'https://www.advantage.bid/logos/profile/l.jpg', kind: 'logo', source: 'bd_logo' });
+    expect(img.select({ bd_image_url: 'https://www.advantage.bid/pictures/profile/p.jpg', bd_image_type: 'photo' }))
+      .toMatchObject({ kind: 'photo', source: 'bd_photo' });
+    expect(img.select({ bd_image_url: 'https://www.advantage.bid/images/Advantage.Bid-Favicon-2.0.png', bd_image_type: 'default' }))
+      .toMatchObject({ kind: 'default', source: 'bd_default' });
+  });
+
+  test('linked-seller imagery still outranks the BD listing image', () => {
+    const r = img.select({ seller_logo_url: 'https://res.cloudinary.com/aap/image/upload/s.png',
+      bd_image_url: 'https://www.advantage.bid/logos/profile/l.jpg', bd_image_type: 'logo' });
+    expect(r.source).toBe('seller_logo');
+  });
+
+  test('no image at all → null (frontend draws a monogram, the final fallback)', () => {
     expect(img.select({})).toBeNull();
-    expect(img.select({ seller_logo_url: null, linked_auction_cover_url: null })).toBeNull();
-    // A BD/organization logo is intentionally NOT an input this selector accepts.
-    expect(img.select({ logo_url: 'https://directorysecure.com/whatever/logo.png' })).toBeNull();
+    expect(img.select({ seller_logo_url: null, linked_auction_cover_url: null, bd_image_url: null })).toBeNull();
   });
 });
 
