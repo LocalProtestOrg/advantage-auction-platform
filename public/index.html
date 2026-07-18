@@ -902,10 +902,11 @@
     MP_CATS.forEach(function(c){ html+=mpRow('mp',c.key,c.color,c.glyph,c.label,(MP.counts&&MP.counts[c.key])||0); });
     html+='<div class="legend-tools"><button type="button" data-tool="show">Show All</button>'
       +'<button type="button" data-tool="hide">Hide All</button><button type="button" data-tool="reset">Reset</button></div>';
-    // Prefer a traditional list over the map — links to the canonical Advantage.Bid auctions page
+    // Prefer a traditional list over the map — the Marketplace spans estate sales, auctions, and
+    // other public estate events, so this links to the broader canonical Advantage.Bid events page
     // (same tab; the user stays inside the Advantage ecosystem).
-    html+='<a class="legend-browse" href="https://www.advantage.bid/auctions">'
-      +'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg>Browse All Auctions</a>';
+    html+='<a class="legend-browse" href="https://www.advantage.bid/all-events">'
+      +'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg>Browse All Events</a>';
     el.innerHTML=html;
     mpWireLegend();
   }

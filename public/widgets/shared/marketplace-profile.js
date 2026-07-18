@@ -102,13 +102,21 @@
                  '<span class="mpc2-scrim" aria-hidden="true"></span>' +
                '</div>';
       }
-      // logo + default: a blurred, enlarged copy of the same image fills the header behind a
-      // large, sharp, contained foreground — so the header reads as intentionally full rather
-      // than a small mark in a blank field. Contain never distorts or crops logo text.
-      var isDefault = img.kind === 'default';
-      return '<div class="mpc2-hd mpc2-hd-logo' + (isDefault ? ' mpc2-hd-default' : '') + '" style="--cat:' + cat.color + '">' +
+      if (img.kind === 'default') {
+        // KNOWN controlled asset (the AAC app-icon has a wide baked-in white margin). Deterministic
+        // treatment: fill the header edge-to-edge (cover), cropping only that outer margin so the
+        // gavel/AB mark reads large — never a small icon on a pale canvas.
+        return '<div class="mpc2-hd mpc2-hd-photo mpc2-hd-def" style="--cat:' + cat.color + '">' +
+                 '<img class="mpc2-cover" src="' + esc(img.url) + '" alt="' + esc(company.name || 'Business') + '" loading="lazy" ' +
+                 'onerror="this.closest(\'.mpc2-hd\').classList.add(\'mpc2-hd-failed\')">' +
+               '</div>';
+      }
+      // Company logo: a blurred, enlarged copy of the same image fills the header behind a LARGE,
+      // sharp, contained foreground (uses most of the safe width/height). Contain never distorts
+      // or crops logo text; the backdrop removes blank margins for logos that carry edge color.
+      return '<div class="mpc2-hd mpc2-hd-logo" style="--cat:' + cat.color + '">' +
                '<img class="mpc2-hd-bg" src="' + esc(img.url) + '" alt="" aria-hidden="true" loading="lazy">' +
-               '<img class="mpc2-logo" src="' + esc(img.url) + '" alt="' + (isDefault ? esc(company.name || 'Business') : alt) + '" loading="lazy" ' +
+               '<img class="mpc2-logo" src="' + esc(img.url) + '" alt="' + alt + '" loading="lazy" ' +
                'onerror="this.closest(\'.mpc2-hd\').classList.add(\'mpc2-hd-failed\')">' +
              '</div>';
     }
@@ -213,16 +221,20 @@
     '@supports not (aspect-ratio:1){.mpc2-hd{height:176px}}' +
     '.mpc2-cover{width:100%;height:100%;object-fit:cover;display:block}' +
     '.mpc2-scrim{position:absolute;inset:auto 0 0 0;height:52%;background:linear-gradient(to top,rgba(8,16,28,.34),transparent);pointer-events:none}' +
-    '.mpc2-hd-logo{position:relative;display:flex;align-items:center;justify-content:center;padding:14px;' +
-      'background:linear-gradient(135deg,color-mix(in srgb,var(--cat) 10%,#fff),color-mix(in srgb,var(--cat) 3%,#fff))}' +
-    /* blurred/enlarged copy of the logo fills the header; a soft veil keeps the foreground legible */
+    '.mpc2-hd-logo{position:relative;display:flex;align-items:center;justify-content:center;padding:8px;' +
+      'background:linear-gradient(135deg,color-mix(in srgb,var(--cat) 14%,#fff),color-mix(in srgb,var(--cat) 5%,#fff))}' +
+    /* a blurred, enlarged copy of the logo fills the header edge-to-edge (carries any edge color); a
+       light veil only lifts contrast — kept subtle so the header never washes out to blank white */
     '.mpc2-hd-bg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;' +
-      'filter:blur(22px) saturate(1.15) brightness(1.04);transform:scale(1.35);opacity:.55}' +
-    '.mpc2-hd-logo::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(255,255,255,.42),rgba(255,255,255,.5));pointer-events:none}' +
-    '.mpc2-logo{position:relative;z-index:1;max-width:88%;max-height:84%;object-fit:contain;display:block;filter:drop-shadow(0 6px 16px rgba(8,16,28,.20))}' +
-    /* BD default directory asset — same filled treatment, foreground a touch smaller/calmer */
-    '.mpc2-hd-default .mpc2-logo{max-width:62%;max-height:64%;opacity:.94}' +
-    '.mpc2-hd-default::after{background:linear-gradient(180deg,rgba(255,255,255,.5),rgba(255,255,255,.6))}' +
+      'filter:blur(20px) saturate(1.25) brightness(1.02);transform:scale(1.45);opacity:.9}' +
+    '.mpc2-hd-logo::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(255,255,255,.14),rgba(255,255,255,.24));pointer-events:none}' +
+    /* foreground logo uses most of the safe width/height (never distorted or cropped) */
+    '.mpc2-logo{position:relative;z-index:1;max-width:92%;max-height:90%;object-fit:contain;display:block;filter:drop-shadow(0 8px 18px rgba(8,16,28,.22))}' +
+    /* BD default directory asset — the known app-icon fills the header (cover), cropping only its
+       baked-in white margin; a faint inset ring keeps it feeling like a deliberate header. */
+    '.mpc2-hd-def{background:#fff}' +
+    '.mpc2-hd-def .mpc2-cover{object-position:center}' +
+    '.mpc2-hd-def::after{content:"";position:absolute;inset:0;box-shadow:inset 0 0 0 1px rgba(8,16,28,.05);pointer-events:none}' +
     '.mpc2-hd-art{background-size:cover;background-position:center;display:flex;align-items:center;justify-content:center}' +
     '.mpc2-mono{width:64px;height:64px;border-radius:18px;display:flex;align-items:center;justify-content:center;' +
       'font-weight:800;font-size:24px;letter-spacing:.02em;color:#fff;background:rgba(255,255,255,.18);' +
