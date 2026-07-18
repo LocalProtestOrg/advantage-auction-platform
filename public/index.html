@@ -259,6 +259,14 @@
     .legend-fab{display:inline-flex;z-index:39;bottom:calc(104px + env(safe-area-inset-bottom))}
     .legend.open ~ .legend-fab{opacity:.35}
   }
+  /* Premium company card (mp-card2) sits above other floating surfaces */
+  .maplibregl-popup.mp-card2{z-index:41}
+  /* When the company card is open as a mobile bottom sheet, clear the FAB + drawer peek beneath it */
+  @media(max-width:880px){
+    .maplibregl-popup.mp-card2{z-index:46}
+    body.mp-open .legend-fab{display:none!important}
+    body.mp-open #drawer{opacity:0;pointer-events:none;transition:opacity .2s}
+  }
   /* Marketplace partner info card (popup) */
   .maplibregl-popup.mp-card .maplibregl-popup-content{padding:0;border-radius:16px;overflow:hidden;box-shadow:0 18px 44px rgba(8,16,28,.30);width:262px;max-width:78vw}
   .maplibregl-popup.mp-card .maplibregl-popup-tip{border-top-color:#fff}
@@ -403,6 +411,7 @@
   </div>
 
 <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+<script src="/widgets/shared/marketplace-profile.js"></script>
 <script>
 (function(){
   "use strict";
@@ -661,11 +670,31 @@
     return out;
   }
   function mpOpenCard(f){
-    var p=f.properties, cat=MP_CAT_BY_KEY[p.cat]||MP_CATS[3];
+    var p=f.properties;
+    var coords=f.geometry.coordinates;
+    var dir='https://www.google.com/maps/dir/?api=1&destination='+encodeURIComponent(coords[1]+','+coords[0]);
+    var rec=(MP.byId&&MP.byId[p.id])||null;
+    if(MP.card) MP.card.remove();
+    var MPf=window.MarketplaceProfile;
+    if(MPf && rec){
+      // Premium profile card (reusable component). Full record carries the approved image
+      // object + singular category; the map feature only carries flat props.
+      var company={ id:rec.id, name:rec.name, categoryKey:rec.category_key,
+        categorySingular:rec.category_singular, city:rec.city, state:rec.state,
+        website:rec.website, blurb:rec.blurb, image:rec.image||null, linked:!!rec.linked,
+        hasAuctions:(rec.has_auctions===true||rec.has_auctions==='true'), dir:dir };
+      MP.card=new maplibregl.Popup({className:'mp-card2',closeButton:true,closeOnClick:true,offset:18,maxWidth:'none'})
+        .setLngLat(coords).setHTML(MPf.cardHTML(company,{variant:'popup'})).addTo(map);
+      // On mobile the card is a bottom sheet — clear the FAB + drawer peek beneath it.
+      document.body.classList.add('mp-open');
+      MP.card.on('close', function(){ document.body.classList.remove('mp-open'); });
+      if(company.hasAuctions) mpLoadCardAuctions(company);
+      return;
+    }
+    // Legacy fallback (component unavailable): the original compact card.
+    var cat=MP_CAT_BY_KEY[p.cat]||MP_CATS[3];
     var initials=(p.name||'?').split(/\s+/).filter(Boolean).slice(0,2).map(function(w){return w[0];}).join('').toUpperCase().slice(0,2)||'•';
-    var loc=[p.city,p.state].filter(Boolean).join(', ');
-    var coords=f.geometry.coordinates, dir='https://www.google.com/maps/dir/?api=1&destination='+encodeURIComponent(coords[1]+','+coords[0]);
-    var web=p.website;
+    var loc=[p.city,p.state].filter(Boolean).join(', '), web=p.website;
     var hasAuc=(p.has_auctions===true||p.has_auctions==='true');
     var aucSlot=hasAuc?'<div class="mpc-auctions"><div class="mpc-auc-load">Loading auctions&hellip;</div></div>':'';
     var html='<div class="mpc-head" style="background:'+cat.color+'"><div class="mpc-mono">'+mpEsc(initials)+'</div>'
@@ -673,18 +702,38 @@
       +'<div class="mpc-body">'+(loc?'<div class="mpc-loc">&#128205; '+mpEsc(loc)+'</div>':'')
       +(p.blurb?'<div class="mpc-blurb">'+mpEsc(p.blurb)+'</div>':'')+aucSlot
       +'<div class="mpc-actions">'+mpCardActions(web,dir,null)+'</div></div>';
-    if(MP.card) MP.card.remove();
     MP.card=new maplibregl.Popup({className:'mp-card',closeButton:true,closeOnClick:true,offset:26,maxWidth:'none'})
       .setLngLat(coords).setHTML(html).addTo(map);
-    if(hasAuc) mpLoadCardAuctions(p.id, web, dir);
+    if(hasAuc) mpLoadCardAuctionsLegacy(p.id, web, dir);
   }
   // Lazy per-company auctions fetch — the marketplace map/legend never load this; only an
   // opened linked-company card does. Renders Current/Upcoming lists + promotes View Auctions.
-  function mpLoadCardAuctions(orgId, web, dir){
+  function mpLoadCardAuctions(company){
+    if(!company || !company.id) return;
+    var thisCard=MP.card, MPf=window.MarketplaceProfile;
+    fetch('/api/public/marketplace/'+encodeURIComponent(company.id)+'/auctions').then(function(r){return r.json();}).then(function(j){
+      if(!MP.card || MP.card!==thisCard) return;              // card closed/replaced — drop stale result
+      var el=MP.card.getElement(); if(!el) return;
+      var host=el.querySelector('.mpc2-auctions'); if(!host) return;
+      var cur=(j&&j.current)||[], up=(j&&j.upcoming)||[];
+      if(!cur.length && !up.length){ host.style.display='none'; return; }
+      function sec(title,arr,cls){ if(!arr.length) return '';
+        return '<div class="mpc2-auc-h">'+title+'</div>'+arr.map(function(a){
+          return '<a class="mpc2-auc-item" href="'+mpEsc(a.href)+'"><span class="'+cls+'"></span><span class="mpc2-auc-t">'+mpEsc(a.title)+'</span><span class="mpc2-auc-m">'+(a.lots||0)+' lots</span></a>'; }).join(''); }
+      host.innerHTML=sec('Current Auctions',cur,'mpc2-auc-live')+sec('Upcoming Auctions',up,'mpc2-auc-up');
+      var first=(cur[0]||up[0]);
+      var act=el.querySelector('.mpc2-actions');
+      if(first && act && MPf) act.innerHTML=MPf.actionsHTML(company,{viewHref:first.href});
+    }).catch(function(){
+      if(MP.card && MP.card===thisCard){ var host=MP.card.getElement().querySelector('.mpc2-auctions'); if(host) host.style.display='none'; }
+    });
+  }
+  // Legacy lazy loader (only used by the fallback card above).
+  function mpLoadCardAuctionsLegacy(orgId, web, dir){
     if(!orgId) return;
     var thisCard=MP.card;
     fetch('/api/public/marketplace/'+encodeURIComponent(orgId)+'/auctions').then(function(r){return r.json();}).then(function(j){
-      if(!MP.card || MP.card!==thisCard) return;              // card closed/replaced — drop stale result
+      if(!MP.card || MP.card!==thisCard) return;
       var el=MP.card.getElement(); if(!el) return;
       var host=el.querySelector('.mpc-auctions'); if(!host) return;
       var cur=(j&&j.current)||[], up=(j&&j.upcoming)||[];
@@ -752,19 +801,33 @@
   }
   function mpInit(){
     if(MP.loaded) return; MP.loaded=true;
+    try{ if(window.MarketplaceProfile) MarketplaceProfile.injectStyles(); }catch(e){}
     mpBuildLegend();  // event rows work immediately, independent of BD
     fetch('/api/public/marketplace').then(function(r){return r.json();}).then(function(j){
       if(!j || !j.success) throw new Error('marketplace unavailable');
       MP.records=(j.data||[]).filter(function(r){ return r.lat!=null && r.lng!=null; });
+      MP.byId={}; MP.records.forEach(function(r){ MP.byId[r.id]=r; });  // full record (image obj intact) for the card
       MP.counts=j.counts||{};
       var pending=MP_CATS.length;
+      function mpDone(){ mpAddLayers(); mpBuildLegend(); mpDeepLink(); }
       MP_CATS.forEach(function(c){
         var img=new Image(60,80);
-        img.onload=function(){ try{ if(!map.hasImage('mp-'+c.key)) map.addImage('mp-'+c.key,img,{pixelRatio:2}); }catch(e){} if(--pending===0){ mpAddLayers(); mpBuildLegend(); } };
-        img.onerror=function(){ if(--pending===0){ mpAddLayers(); mpBuildLegend(); } };
+        img.onload=function(){ try{ if(!map.hasImage('mp-'+c.key)) map.addImage('mp-'+c.key,img,{pixelRatio:2}); }catch(e){} if(--pending===0){ mpDone(); } };
+        img.onerror=function(){ if(--pending===0){ mpDone(); } };
         img.src='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(mpPinSVG(c.color,c.glyph));
       });
     }).catch(function(){ /* BD unavailable — auctions unaffected; company rows stay at 0 */ });
+  }
+  // Shareable company deep-link: /?company=<uuid> flies to and opens that company's profile
+  // card once the marketplace layer is ready. Silently no-ops for unknown/missing ids.
+  function mpDeepLink(){
+    try{
+      var m=location.search.match(/[?&]company=([0-9a-fA-F-]{36})/); if(!m) return;
+      var r=MP.byId&&MP.byId[m[1]]; if(!r) return;
+      map.easeTo({ center:[r.lng,r.lat], zoom:Math.max(map.getZoom(),9), duration:600 });
+      mpOpenCard({ properties:{ id:r.id, cat:r.category_key, name:r.name },
+        geometry:{ type:'Point', coordinates:[r.lng,r.lat] } });
+    }catch(e){}
   }
 
   function frameData(instant){
