@@ -40,7 +40,15 @@ async function plan(listings) {
 }
 
 function metaFor(l) {
-  return { profession_id: l.professionId, subscription_name: l.subscriptionName, listing_type: l.listingType, zip: l.zip, source_bd: true };
+  return {
+    profession_id: l.professionId, subscription_name: l.subscriptionName, listing_type: l.listingType, zip: l.zip, source_bd: true,
+    // Public listing imagery + canonical profile path (owner-approved for Marketplace display).
+    // Stored in bd_metadata (NOT the platform-managed logo_url column) so claimed-org and
+    // linked-seller imagery is never touched; refreshed on every unclaimed-shell true-sync.
+    bd_image_url: l.bdImageUrl || null,
+    bd_image_type: l.bdImageType || null,
+    bd_profile_path: l.profilePath || null,
+  };
 }
 
 /** Apply the import (writes). Idempotent. Optional {limit}. */

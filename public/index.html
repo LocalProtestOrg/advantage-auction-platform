@@ -556,6 +556,11 @@
     try{ map=new maplibregl.Map({container:'map',style:computeMood(),center:[US.lng,US.lat],zoom:reduce?9:3.5,attributionControl:false,dragRotate:false,pitchWithRotate:false}); }
     catch(e){ degrade(); return; }
     map.on('error',function(){});
+    // Read-only diagnostic accessors for automated validation. Non-mutating.
+    try{
+      window.__mpCam=function(){ return { z:map.getZoom(), c:map.getCenter() }; };
+      window.__mpProject=function(lng,lat){ var p=map.project([lng,lat]); return { x:p.x, y:p.y }; };
+    }catch(e){}
     map.on('load',onMapLoad);
     // P4: on mobile the hover-driven preview card has no mouseleave to close it.
     // Tapping anywhere on the map (outside a pin) collapses it — matching desktop,
@@ -649,8 +654,12 @@
       layout:{ 'icon-image':['get','icon'],'icon-size':1,'icon-anchor':'bottom','icon-allow-overlap':true } });
     map.on('click','mp-clusters', function(e){
       var f=map.queryRenderedFeatures(e.point,{layers:['mp-clusters']})[0]; if(!f) return;
-      map.getSource('mp').getClusterExpansionZoom(f.properties.cluster_id, function(err,z){ if(err) return;
-        map.easeTo({ center:f.geometry.coordinates, zoom:z, duration:500 }); });
+      // MapLibre GL v4 changed getClusterExpansionZoom to return a Promise (the old callback
+      // form silently no-ops — that's why clusters didn't zoom). Handle both shapes defensively.
+      var src=map.getSource('mp'); if(!src) return;
+      var center=f.geometry.coordinates, cid=f.properties.cluster_id;
+      var ret=src.getClusterExpansionZoom(cid, function(err,z){ if(!err && z!=null) map.easeTo({ center:center, zoom:z, duration:500 }); });
+      if(ret && typeof ret.then==='function') ret.then(function(z){ map.easeTo({ center:center, zoom:z, duration:500 }); }).catch(function(){});
     });
     map.on('click','mp-unclustered', function(e){ if(e.features && e.features[0]) mpOpenCard(e.features[0]); });
     ['mp-clusters','mp-unclustered'].forEach(function(ly){
@@ -669,6 +678,40 @@
     out+='<a class="mpc-ghost" href="'+dir+'" target="_blank" rel="noopener noreferrer">Directions</a>';
     return out;
   }
+  // Viewport-safe card positioning (desktop). MapLibre's auto-anchor keeps the card inside the
+  // map container; this additionally pans the map so the card clears the fixed UI — the top nav,
+  // the right "Auctions near you" drawer, and the bottom-left legend. Mobile uses a bottom sheet,
+  // so it is skipped there. Uses the library's panBy camera API (no hard-coded pixel placement).
+  function mpFitCardIntoView(){
+    try{
+      if(window.matchMedia('(max-width:880px)').matches) return;   // mobile = bottom sheet
+      if(!MP.card) return;
+      var run=function(){
+        if(!MP.card) return;
+        var el=MP.card.getElement(); if(!el) return;
+        var card=el.querySelector('.mpc2')||el, r=card.getBoundingClientRect();
+        var vw=window.innerWidth, vh=window.innerHeight, M=12, visible=function(x){ return x && x.width>0 && x.height>0; };
+        var top=document.querySelector('.top'), navB=(top&&visible(top.getBoundingClientRect()))?top.getBoundingClientRect().bottom:64;
+        var safeL=M, safeR=vw-M, safeT=navB+10, safeB=vh-M;
+        // right drawer (desktop floating panel) — keep the card to its left
+        var dr=document.getElementById('drawer');
+        if(dr){ var d=dr.getBoundingClientRect(); if(visible(d) && d.right>vw-60 && d.left>vw*0.45) safeR=Math.min(safeR, d.left-M); }
+        // bottom-left legend — if the card would sit over it, lift the safe floor
+        var lg=document.querySelector('.legend');
+        if(lg){ var l=lg.getBoundingClientRect(); if(visible(l) && r.left < l.right+M) safeB=Math.min(safeB, l.top-M); }
+        var sx=0, sy=0;
+        if(r.width>(safeR-safeL)) sx=safeL-r.left;                 // wider than safe band → pin left
+        else if(r.right>safeR) sx=safeR-r.right; else if(r.left<safeL) sx=safeL-r.left;
+        if(r.height>(safeB-safeT)) sy=safeT-r.top;                 // taller than safe band → pin top
+        else if(r.bottom>safeB) sy=safeB-r.bottom; else if(r.top<safeT) sy=safeT-r.top;
+        if(Math.abs(sx)>1||Math.abs(sy)>1) map.panBy([-sx,-sy],{duration:280});
+      };
+      // Measure only once the camera is at rest — a deep-link/marker easeTo may still be running,
+      // and measuring mid-flight would pan against a moving target.
+      if(map.isMoving && map.isMoving()){ map.once('moveend', function(){ requestAnimationFrame(run); }); }
+      else { requestAnimationFrame(function(){ requestAnimationFrame(run); }); }
+    }catch(e){}
+  }
   function mpOpenCard(f){
     var p=f.properties;
     var coords=f.geometry.coordinates;
@@ -682,12 +725,16 @@
       var company={ id:rec.id, name:rec.name, categoryKey:rec.category_key,
         categorySingular:rec.category_singular, city:rec.city, state:rec.state,
         website:rec.website, blurb:rec.blurb, image:rec.image||null, linked:!!rec.linked,
+        profileUrl:rec.profile_url||null,
         hasAuctions:(rec.has_auctions===true||rec.has_auctions==='true'), dir:dir };
+      // anchor unset => MapLibre auto-picks the best of 8 anchors to stay in the map container
+      // (handles the four edges); mpFitCardIntoView then pans clear of the fixed UI panels.
       MP.card=new maplibregl.Popup({className:'mp-card2',closeButton:true,closeOnClick:true,offset:18,maxWidth:'none'})
         .setLngLat(coords).setHTML(MPf.cardHTML(company,{variant:'popup'})).addTo(map);
       // On mobile the card is a bottom sheet — clear the FAB + drawer peek beneath it.
       document.body.classList.add('mp-open');
       MP.card.on('close', function(){ document.body.classList.remove('mp-open'); });
+      mpFitCardIntoView();
       if(company.hasAuctions) mpLoadCardAuctions(company);
       return;
     }

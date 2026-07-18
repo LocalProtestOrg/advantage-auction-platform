@@ -84,27 +84,32 @@
     return (s || '•').toUpperCase().slice(0, 2);
   }
 
-  // ── Header: photo-fill vs. contained-logo vs. branded artwork + monogram ──────────
+  // ── Header treatments, in the owner-approved image hierarchy ──────────────────────
+  //   logo    → the company's own uploaded logo, contained (never cropped)
+  //   photo   → a listing photo/cover, filled with a legibility scrim
+  //   default → the Brilliant Directories default directory asset, contained
+  //   (none)  → a monogram on a category-tinted surface (absolute final fallback)
   function headerHTML(company) {
     var cat = categoryFor(company.categoryKey);
-    var img = company.image || null;                       // { url, kind:'logo'|'photo' } | null
+    var img = company.image || null;                       // { url, kind:'logo'|'photo'|'default' } | null
     var alt = esc(company.name || 'Business') + ' — ' + esc(company.categorySingular || cat.singular);
     if (img && img.url) {
-      if (img.kind === 'logo') {
-        // Contained logo on a soft branded surface — never cropped or stretched.
-        return '<div class="mpc2-hd mpc2-hd-logo" style="--cat:' + cat.color + '">' +
-                 '<img class="mpc2-logo" src="' + esc(img.url) + '" alt="' + alt + '" loading="lazy" ' +
+      if (img.kind === 'photo') {
+        // Photographic cover — fill with a bottom scrim for legibility.
+        return '<div class="mpc2-hd mpc2-hd-photo">' +
+                 '<img class="mpc2-cover" src="' + esc(img.url) + '" alt="' + alt + '" loading="lazy" ' +
                  'onerror="this.closest(\'.mpc2-hd\').classList.add(\'mpc2-hd-failed\')">' +
+                 '<span class="mpc2-scrim" aria-hidden="true"></span>' +
                '</div>';
       }
-      // Photographic cover — fill with a bottom scrim for legibility.
-      return '<div class="mpc2-hd mpc2-hd-photo">' +
-               '<img class="mpc2-cover" src="' + esc(img.url) + '" alt="' + alt + '" loading="lazy" ' +
+      // logo + default are both contained marks on a soft surface (default is a touch smaller).
+      var isDefault = img.kind === 'default';
+      return '<div class="mpc2-hd mpc2-hd-logo' + (isDefault ? ' mpc2-hd-default' : '') + '" style="--cat:' + cat.color + '">' +
+               '<img class="mpc2-logo" src="' + esc(img.url) + '" alt="' + (isDefault ? esc(company.name || 'Business') : alt) + '" loading="lazy" ' +
                'onerror="this.closest(\'.mpc2-hd\').classList.add(\'mpc2-hd-failed\')">' +
-               '<span class="mpc2-scrim" aria-hidden="true"></span>' +
              '</div>';
     }
-    // No approved image — branded category artwork with a monogram identity chip.
+    // No image at all — a monogram on a category-tinted surface (final fallback only).
     return '<div class="mpc2-hd mpc2-hd-art" style="background-image:url(&quot;' + artwork(company.categoryKey) + '&quot;)">' +
              '<span class="mpc2-mono" aria-hidden="true">' + esc(monogram(company.name)) + '</span>' +
            '</div>';
@@ -119,16 +124,27 @@
     return '<div class="mpc2-trust">' + chips.join('') + '</div>';
   }
 
-  // ── Actions — one primary, restrained secondaries; only supported controls ────────
+  // ── Actions — one primary (in-ecosystem), restrained secondary; only supported controls ──
+  // Primary "View Details" keeps visitors inside Advantage.Bid by opening the company's canonical
+  // directory listing (same tab — the user is continuing deeper). When a linked seller has live
+  // auctions, "View Auctions" is promoted to primary and View Details steps down to secondary.
+  // "Get Directions" always opens externally in a new tab with full rel protections.
   function actionsHTML(company, opts) {
     opts = opts || {};
-    var web = company.website ? mpSafeUrl(company.website) : null;
+    var profile = company.profileUrl || null;              // canonical Advantage.Bid listing page
     var dir = company.dir || null;
-    var viewHref = opts.viewHref || null;
+    var viewHref = opts.viewHref || null;                  // a linked-seller auction (optional)
     var out = '';
-    if (viewHref) out += '<a class="mpc2-btn mpc2-btn-primary mpc2-btn-full" href="' + esc(viewHref) + '">View Auctions</a>';
-    if (web) out += '<a class="mpc2-btn ' + (viewHref ? 'mpc2-btn-ghost' : 'mpc2-btn-primary') + '" href="' + esc(web) + '" target="_blank" rel="noopener noreferrer">Visit Website</a>';
-    if (dir) out += '<a class="mpc2-btn mpc2-btn-ghost" href="' + esc(dir) + '" target="_blank" rel="noopener noreferrer">Get Directions</a>';
+    if (viewHref) {
+      out += '<a class="mpc2-btn mpc2-btn-primary mpc2-btn-full" href="' + esc(viewHref) + '">View Auctions</a>';
+      if (profile) out += '<a class="mpc2-btn mpc2-btn-ghost" href="' + esc(profile) + '">View Details</a>';
+    } else if (profile) {
+      out += '<a class="mpc2-btn mpc2-btn-primary" href="' + esc(profile) + '">View Details</a>';
+    } else {
+      // Graceful fallback: no canonical listing destination on this legacy record.
+      out += '<span class="mpc2-btn mpc2-btn-primary mpc2-btn-disabled" aria-disabled="true">View Details</span>';
+    }
+    if (dir) out += '<a class="mpc2-btn mpc2-btn-ghost" href="' + esc(dir) + '" target="_blank" rel="noopener noreferrer nofollow">Get Directions</a>';
     return out;
   }
 
@@ -179,10 +195,12 @@
     '.maplibregl-popup.mp-card2 .maplibregl-popup-close-button{width:28px;height:28px;font-size:18px;line-height:1;color:#fff;top:8px;right:8px;border-radius:50%;background:rgba(8,16,28,.42);backdrop-filter:blur(4px);z-index:3;transition:background .15s}' +
     '.maplibregl-popup.mp-card2 .maplibregl-popup-close-button:hover{background:rgba(8,16,28,.62)}' +
 
-    /* card surface: layered elevation + top edge highlight */
+    /* card surface: layered elevation + top edge highlight. Advantage green is the brand/action
+       color; the per-category hue stays as a small taxonomy accent (chip + location pin). */
     '.mpc2{position:relative;background:#fff;border-radius:20px;overflow:hidden;color:var(--ink,#0B1B2B);' +
+      '--brand:#16A34A;--brand-deep:#0F7A37;' +
       'box-shadow:0 1px 0 rgba(255,255,255,.7) inset,0 0 0 1px rgba(8,16,28,.06),0 10px 22px rgba(8,16,28,.10),0 26px 54px rgba(8,16,28,.20);' +
-      'font-family:inherit;-webkit-font-smoothing:antialiased}' +
+      'font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased}' +
 
     /* header (16:9) */
     '.mpc2-hd{position:relative;aspect-ratio:16/9;overflow:hidden;background:#eef1f5}' +
@@ -190,8 +208,11 @@
     '.mpc2-cover{width:100%;height:100%;object-fit:cover;display:block}' +
     '.mpc2-scrim{position:absolute;inset:auto 0 0 0;height:52%;background:linear-gradient(to top,rgba(8,16,28,.34),transparent);pointer-events:none}' +
     '.mpc2-hd-logo{display:flex;align-items:center;justify-content:center;padding:20px;' +
-      'background:linear-gradient(135deg,color-mix(in srgb,var(--cat) 12%,#fff),color-mix(in srgb,var(--cat) 4%,#fff))}' +
+      'background:linear-gradient(135deg,color-mix(in srgb,var(--cat) 10%,#fff),color-mix(in srgb,var(--cat) 3%,#fff))}' +
     '.mpc2-logo{max-width:78%;max-height:74%;object-fit:contain;display:block;filter:drop-shadow(0 6px 14px rgba(8,16,28,.14))}' +
+    /* BD default directory asset — a neutral surface, the mark shown smaller + calmer */
+    '.mpc2-hd-default{background:linear-gradient(135deg,#f4f6f9,#eef1f5)}' +
+    '.mpc2-hd-default .mpc2-logo{max-width:44%;max-height:56%;opacity:.9;filter:drop-shadow(0 4px 10px rgba(8,16,28,.10))}' +
     '.mpc2-hd-art{background-size:cover;background-position:center;display:flex;align-items:center;justify-content:center}' +
     '.mpc2-mono{width:64px;height:64px;border-radius:18px;display:flex;align-items:center;justify-content:center;' +
       'font-weight:800;font-size:24px;letter-spacing:.02em;color:#fff;background:rgba(255,255,255,.18);' +
@@ -203,11 +224,11 @@
     /* body */
     '.mpc2-body{padding:14px 16px 15px}' +
     '.mpc2-idrow{margin-bottom:9px}' +
-    '.mpc2-name{margin:0;font-size:16.5px;line-height:1.2;font-weight:800;letter-spacing:-.01em;' +
+    '.mpc2-name{margin:0;font-size:17px;line-height:1.22;font-weight:700;letter-spacing:-.021em;color:var(--ink,#0B1B2B);' +
       'overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}' +
-    '.mpc2-cat{display:inline-flex;align-items:center;gap:6px;margin-top:6px;font-size:11px;font-weight:800;' +
-      'letter-spacing:.02em;color:var(--cat-deep,var(--cat));background:color-mix(in srgb,var(--cat) 12%,#fff);' +
-      'border:1px solid color-mix(in srgb,var(--cat) 26%,#fff);border-radius:999px;padding:3px 10px 3px 8px}' +
+    '.mpc2-cat{display:inline-flex;align-items:center;gap:6px;margin-top:7px;font-size:10.5px;font-weight:700;' +
+      'letter-spacing:.03em;color:var(--cat-deep,var(--cat));background:color-mix(in srgb,var(--cat) 10%,#fff);' +
+      'border:1px solid color-mix(in srgb,var(--cat) 22%,#fff);border-radius:999px;padding:3px 10px 3px 8px}' +
     '.mpc2-cat-dot{width:6px;height:6px;border-radius:50%;background:var(--cat)}' +
     '.mpc2-loc{display:flex;align-items:center;gap:5px;font-size:12px;font-weight:700;color:var(--muted,#5b6b7e);margin-bottom:8px}' +
     '.mpc2-ic{width:13px;height:13px;flex:0 0 auto;fill:var(--cat)}' +
@@ -233,17 +254,19 @@
     '.mpc2-auc-t{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1 1 auto}' +
     '.mpc2-auc-m{flex:0 0 auto;font-size:10.5px;font-weight:800;color:var(--muted,#5b6b7e)}' +
 
-    /* actions */
+    /* actions — Advantage-green primary, quiet ghost secondary */
     '.mpc2-actions{display:flex;flex-wrap:wrap;gap:8px}' +
-    '.mpc2-btn{flex:1 1 44%;text-align:center;text-decoration:none;font-weight:800;font-size:12.5px;padding:11px 10px;' +
-      'border-radius:12px;white-space:nowrap;transition:transform .14s,box-shadow .14s,filter .14s,background .14s;cursor:pointer}' +
+    '.mpc2-btn{flex:1 1 44%;text-align:center;text-decoration:none;font-weight:700;font-size:12.5px;letter-spacing:.005em;padding:11px 10px;' +
+      'border-radius:12px;white-space:nowrap;transition:transform .12s,box-shadow .12s,background .12s;cursor:pointer}' +
     '.mpc2-btn-full{flex:1 1 100%}' +
-    '.mpc2-btn-primary{color:#fff;background:linear-gradient(180deg,var(--cat),var(--cat-deep));' +
-      'box-shadow:0 4px 12px color-mix(in srgb,var(--cat) 40%,transparent)}' +
-    '.mpc2-btn-primary:hover{transform:translateY(-1px);filter:brightness(1.05);box-shadow:0 7px 18px color-mix(in srgb,var(--cat) 46%,transparent)}' +
+    '.mpc2-btn-primary{color:#fff;background:var(--brand,#16A34A);box-shadow:0 2px 6px color-mix(in srgb,var(--brand) 34%,transparent)}' +
+    '.mpc2-btn-primary:hover{background:var(--brand-deep,#0F7A37);transform:translateY(-1px);box-shadow:0 5px 14px color-mix(in srgb,var(--brand) 38%,transparent)}' +
+    '.mpc2-btn-primary:active{transform:translateY(0);box-shadow:0 1px 3px color-mix(in srgb,var(--brand) 30%,transparent)}' +
     '.mpc2-btn-ghost{color:var(--ink,#0B1B2B);background:#eef1f5;border:1px solid rgba(8,16,28,.05)}' +
     '.mpc2-btn-ghost:hover{background:#e4e9f0;transform:translateY(-1px)}' +
-    '.mpc2-btn:focus-visible{outline:none;box-shadow:0 0 0 3px color-mix(in srgb,var(--cat) 45%,#fff)}' +
+    '.mpc2-btn-ghost:active{transform:translateY(0);background:#dde3ea}' +
+    '.mpc2-btn-disabled{background:#e7ebf0;color:#9aa6b4;box-shadow:none;cursor:default;pointer-events:none}' +
+    '.mpc2-btn:focus-visible{outline:none;box-shadow:0 0 0 3px color-mix(in srgb,var(--brand) 42%,#fff)}' +
 
     /* standard (self-contained) variant — same DNA, own surface for grids/lists */
     '.mpc2-v-standard{width:320px;max-width:100%}' +

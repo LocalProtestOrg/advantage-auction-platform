@@ -67,6 +67,16 @@ const MP_DEFAULT = { key: 'estate_services', label: 'Other Estate Services', sin
 const mpCategory = (professionId) => MP_CATEGORY[String(professionId)] || MP_DEFAULT;
 const companyImage = require('../services/marketplace/companyImage');
 
+// Canonical Advantage.Bid directory profile URL for a listing (keeps visitors in-ecosystem —
+// the "View Details" action). Built from the authoritative synced `filename` slug; returns null
+// for legacy records without one so the card can render a disabled/fallback state.
+const MP_DIRECTORY_ORIGIN = 'https://www.advantage.bid';
+function mpProfileUrl(path) {
+  const p = (path || '').trim().replace(/^\/+/, '');       // slugs are stored without a leading slash
+  if (!p || /[<>"'\\\s]/.test(p) || /^https?:/i.test(p)) return null; // reject malformed/absolute values
+  return MP_DIRECTORY_ORIGIN + '/' + p.split('/').map(encodeURIComponent).join('/');
+}
+
 // Strip HTML/entities and collapse whitespace into a plain card blurb.
 function mpBlurb(html, max = 260) {
   if (!html) return null;
@@ -79,6 +89,9 @@ router.get('/marketplace', async (req, res, next) => {
     const { rows } = await db.query(
       `SELECT o.id, o.name, o.city, o.state, o.lat, o.lng, o.website_url, o.description,
               o.bd_metadata->>'profession_id' AS profession_id,
+              o.bd_metadata->>'bd_image_url'  AS bd_image_url,
+              o.bd_metadata->>'bd_image_type' AS bd_image_type,
+              o.bd_metadata->>'bd_profile_path' AS bd_profile_path,
               (o.linked_seller_profile_id IS NOT NULL) AS linked,
               -- Only APPROVED, seller-owned imagery is surfaced. BD / unclaimed-org logos stay
               -- withheld by policy (never selected here). sp.logo_url is the linked seller's own
@@ -139,9 +152,11 @@ router.get('/marketplace', async (req, res, next) => {
         website:          r.website_url || null,
         blurb:            mpBlurb(r.description),
         linked:           !!r.linked,
-        // Approved, policy-respecting card image (linked seller logo / auction cover) or null.
-        // When null the card renders branded category artwork, then a monogram. Never a BD logo.
+        // Approved card image: linked seller logo/cover → the company's own BD listing image
+        // (logo / photo / default directory asset) → null (card draws a monogram).
         image:            companyImage.select(r),
+        // Canonical Advantage.Bid listing page for the "View Details" primary action (in-ecosystem).
+        profile_url:      mpProfileUrl(r.bd_profile_path),
         // Phase 2: whether this listing is linked to a seller with live auctions. The card
         // lazily fetches the auction list from /marketplace/:id/auctions only when true.
         has_auctions:     !!r.has_auctions,

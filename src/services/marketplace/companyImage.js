@@ -5,23 +5,24 @@
  * company profile cards.
  *
  * WHY THIS EXISTS: image fallback logic must live in ONE place (not scattered across
- * frontend components), and it must honor the platform's standing image-ownership
- * policy. That policy (see bdDirectoryService.js and directoryImportService.js) is:
- * Brilliant Directories / unclaimed-organization logos are DELIBERATELY WITHHELD until
- * an organization is claimed. This selector never surfaces a BD-sourced or unclaimed
- * `organizations.logo_url`. The only images it treats as approved-for-public-display are:
+ * frontend components). Owner-approved image hierarchy (2026-07-18) — the Marketplace now
+ * surfaces the company's own Brilliant Directories listing imagery, since these are public
+ * directory listings on advantage.bid that the platform owner controls:
  *
- *   1. The linked seller's own logo        (seller_profiles.logo_url — seller-owned, Cloudinary)
- *   2. The linked seller's syndicated auction cover (auctions.cover_image_url — already public)
+ *   1. Linked seller's own logo             (seller_profiles.logo_url — seller-owned, Cloudinary)
+ *   2. Linked seller's syndicated auction cover (auctions.cover_image_url — already public)
+ *   3. BD company logo                       (bd_metadata.bd_image_url, type 'logo')
+ *   4. BD listing photo / cover              (bd_metadata.bd_image_url, type 'photo')
+ *   5. BD default directory asset            (bd_metadata.bd_image_url, type 'default')
+ *   6. null → frontend draws a monogram      (absolute final fallback only)
  *
- * Everything else resolves to `null`, and the frontend renders branded category
- * artwork (and finally a monogram). The company->seller link (organizations.
- * linked_seller_profile_id) is admin-confirmed, so an approved image only ever appears
- * for a company an administrator has deliberately connected to a real Advantage seller.
+ * The company->seller link (organizations.linked_seller_profile_id) and the platform-managed
+ * organizations.logo_url are never read/overwritten here — claimed-org and linked-seller
+ * imagery stays authoritative. BD images live on www.advantage.bid, so cloudinaryDerivative
+ * leaves them untouched (we only transform assets we own).
  *
- * FUTURE-PROOFING: the return shape carries `kind` (logo vs. photo) and `source` so a
- * future admin image-approval/override column can slot in here without a card redesign
- * or another migration. When such a field exists, add it as priority 0 in `select()`.
+ * FUTURE-PROOFING: the return shape carries `kind` (logo | photo | default) and `source` so a
+ * future admin image-approval/override column can slot in as priority 0 without a redesign.
  */
 
 // A Cloudinary delivery URL we control -> we can request a right-sized, optimized derivative
@@ -44,8 +45,8 @@ const LOGO_TX  = 'c_limit,w_480,h_360,q_auto,f_auto,dpr_auto';
 /**
  * Select the best approved image for a marketplace organization row.
  * @param {object} row expects (any may be null):
- *   { seller_logo_url, linked_auction_cover_url }
- * @returns {{url:string, kind:'logo'|'photo', source:string} | null}
+ *   { seller_logo_url, linked_auction_cover_url, bd_image_url, bd_image_type }
+ * @returns {{url:string, kind:'logo'|'photo'|'default', source:string} | null}
  */
 function select(row = {}) {
   // Priority 0 (future): an admin-approved organization image/override would go here.
@@ -60,7 +61,15 @@ function select(row = {}) {
     return { url: cloudinaryDerivative(row.linked_auction_cover_url, PHOTO_TX), kind: 'photo', source: 'auction_cover' };
   }
 
-  // 3+. No approved image — frontend renders branded category artwork, then a monogram.
+  // 3–5. The company's own Brilliant Directories listing image (logo / photo / default asset).
+  if (row.bd_image_url) {
+    const t = row.bd_image_type;
+    if (t === 'logo')    return { url: row.bd_image_url, kind: 'logo',    source: 'bd_logo' };
+    if (t === 'default') return { url: row.bd_image_url, kind: 'default', source: 'bd_default' };
+    return { url: row.bd_image_url, kind: 'photo', source: 'bd_photo' }; // 'photo' or unknown
+  }
+
+  // 6. No image at all — frontend draws a monogram (absolute final fallback).
   return null;
 }
 
