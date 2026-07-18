@@ -55,13 +55,17 @@ router.get('/map-config', (req, res) => {
 // Privacy posture (Phase 1): only public, geocoded, non-sample company records are
 // returned. PII (phone / email) and deliberately-withheld logos are NOT surfaced.
 // Raw BD profession_id stays in bd_metadata so the taxonomy can be refined later.
+// `label` is the PLURAL group label (used by the map legend); `singular` is the
+// individual-entity label shown on a single company's profile card. They are kept as
+// separate display values on purpose — a card must never inherit the plural legend text.
 const MP_CATEGORY = {
-  '3': { key: 'auction_houses',        label: 'Auction Houses' },
-  '4': { key: 'estate_sale_companies', label: 'Estate Sale Companies' },
-  '5': { key: 'appraisers',            label: 'Appraisers' },
+  '3': { key: 'auction_houses',        label: 'Auction Houses',        singular: 'Auction House' },
+  '4': { key: 'estate_sale_companies', label: 'Estate Sale Companies', singular: 'Estate Sale Company' },
+  '5': { key: 'appraisers',            label: 'Appraisers',            singular: 'Appraiser' },
 };
-const MP_DEFAULT = { key: 'estate_services', label: 'Other Estate Services' };
+const MP_DEFAULT = { key: 'estate_services', label: 'Other Estate Services', singular: 'Estate Service' };
 const mpCategory = (professionId) => MP_CATEGORY[String(professionId)] || MP_DEFAULT;
+const companyImage = require('../services/marketplace/companyImage');
 
 // Strip HTML/entities and collapse whitespace into a plain card blurb.
 function mpBlurb(html, max = 260) {
@@ -73,23 +77,39 @@ function mpBlurb(html, max = 260) {
 router.get('/marketplace', async (req, res, next) => {
   try {
     const { rows } = await db.query(
-      `SELECT id, name, city, state, lat, lng, website_url, description,
-              bd_metadata->>'profession_id' AS profession_id,
-              (linked_seller_profile_id IS NOT NULL) AS linked,
-              (linked_seller_profile_id IS NOT NULL AND EXISTS (
+      `SELECT o.id, o.name, o.city, o.state, o.lat, o.lng, o.website_url, o.description,
+              o.bd_metadata->>'profession_id' AS profession_id,
+              (o.linked_seller_profile_id IS NOT NULL) AS linked,
+              -- Only APPROVED, seller-owned imagery is surfaced. BD / unclaimed-org logos stay
+              -- withheld by policy (never selected here). sp.logo_url is the linked seller's own
+              -- logo; the LATERAL pulls the cover of that seller's soonest-closing syndicated auction.
+              sp.logo_url AS seller_logo_url,
+              lac.cover_image_url AS linked_auction_cover_url,
+              (o.linked_seller_profile_id IS NOT NULL AND EXISTS (
                  SELECT 1 FROM auctions a
-                  WHERE a.seller_id = organizations.linked_seller_profile_id
+                  WHERE a.seller_id = o.linked_seller_profile_id
                     AND a.state IN ('published','active') AND a.is_archived IS NOT TRUE
                     AND a.marketplace_status = 'syndicated')) AS has_auctions
-         FROM organizations
-        WHERE source = 'bd_import'
-          AND lat IS NOT NULL AND lng IS NOT NULL
-          AND name IS NOT NULL AND btrim(name) <> ''
-          AND (bd_sync_status IS NULL OR bd_sync_status <> 'removed')  -- reconciled-away listings drop off
-          AND lower(name) NOT LIKE 'sample %'
-          AND lower(name) NOT LIKE 'test %'
-          AND lower(name) NOT LIKE 'demo %'
-        ORDER BY name ASC`
+         FROM organizations o
+         LEFT JOIN seller_profiles sp ON sp.id = o.linked_seller_profile_id
+         LEFT JOIN LATERAL (
+             SELECT a.cover_image_url
+               FROM auctions a
+              WHERE a.seller_id = o.linked_seller_profile_id
+                AND a.state IN ('published','active') AND a.is_archived IS NOT TRUE
+                AND a.marketplace_status = 'syndicated'
+                AND a.cover_image_url IS NOT NULL
+              ORDER BY a.end_time ASC NULLS LAST
+              LIMIT 1
+         ) lac ON o.linked_seller_profile_id IS NOT NULL
+        WHERE o.source = 'bd_import'
+          AND o.lat IS NOT NULL AND o.lng IS NOT NULL
+          AND o.name IS NOT NULL AND btrim(o.name) <> ''
+          AND (o.bd_sync_status IS NULL OR o.bd_sync_status <> 'removed')  -- reconciled-away listings drop off
+          AND lower(o.name) NOT LIKE 'sample %'
+          AND lower(o.name) NOT LIKE 'test %'
+          AND lower(o.name) NOT LIKE 'demo %'
+        ORDER BY o.name ASC`
     );
 
     // Deterministic de-stacking: where several records share identical coordinates
@@ -108,18 +128,23 @@ router.get('/marketplace', async (req, res, next) => {
         lng += 0.00013 * n * Math.sin(ang);
       }
       return {
-        id:           r.id,
-        name:         r.name,
-        category:     cat.label,
-        category_key: cat.key,
-        city:         r.city || null,
-        state:        r.state || null,
+        id:               r.id,
+        name:             r.name,
+        category:         cat.label,      // plural — legend/group label
+        category_singular: cat.singular,  // singular — individual company card label
+        category_key:     cat.key,
+        city:             r.city || null,
+        state:            r.state || null,
         lat, lng,
-        website:      r.website_url || null,
-        blurb:        mpBlurb(r.description),
+        website:          r.website_url || null,
+        blurb:            mpBlurb(r.description),
+        linked:           !!r.linked,
+        // Approved, policy-respecting card image (linked seller logo / auction cover) or null.
+        // When null the card renders branded category artwork, then a monogram. Never a BD logo.
+        image:            companyImage.select(r),
         // Phase 2: whether this listing is linked to a seller with live auctions. The card
         // lazily fetches the auction list from /marketplace/:id/auctions only when true.
-        has_auctions: !!r.has_auctions,
+        has_auctions:     !!r.has_auctions,
       };
     });
 
