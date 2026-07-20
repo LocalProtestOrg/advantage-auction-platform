@@ -116,10 +116,14 @@ router.get('/events/:id', asyncRoute(async (req, res) => {
   const ev = await eventsService.getById(req.params.id);
   if (!ev) throw svcErr(404, 'EVENT_NOT_FOUND', 'Event not found.');
   await orgsService.assertOwner(req.user.id, ev.organization_id);
-  const images = await eventsService.listImages(ev.id);
+  const [images, plan] = await Promise.all([
+    eventsService.listImages(ev.id),
+    eventsService.getPlanPublic(ev.organization_id),
+  ]);
   res.json({
     success: true,
     event: serializeEvent(ev),
+    image_limit: plan ? plan.max_event_images : null,   // null = unlimited (Gold)
     images: images.map((i) => ({ id: i.id, url: i.url, position: i.position, is_cover: i.is_cover })),
   });
 }));
@@ -147,6 +151,26 @@ router.post('/events/:id/images', asyncRoute(async (req, res) => {
   const { url, isCover } = req.body || {};
   const img = await eventsService.addImage(req.user.id, req.params.id, url, { isCover: !!isCover });
   res.status(201).json({ success: true, image: { id: img.id, url: img.url, position: img.position, is_cover: img.is_cover } });
+}));
+
+// POST /api/org/events/:id/images/bulk — attach many uploaded URLs at once (Advantage Media
+// Uploader). The plan photo cap is enforced across the batch; overage is reported as `skipped`.
+router.post('/events/:id/images/bulk', asyncRoute(async (req, res) => {
+  const b = req.body || {};
+  const result = await eventsService.addImagesBulk(req.user.id, req.params.id, b.images || b.urls || []);
+  res.status(201).json({
+    success: true,
+    added: result.added.map((i) => ({ id: i.id, url: i.url, position: i.position, is_cover: i.is_cover })),
+    skipped: result.skipped,
+    limit: result.limit,
+  });
+}));
+
+// PATCH /api/org/events/:id/images/order — persist drag-reorder + cover selection
+router.patch('/events/:id/images/order', asyncRoute(async (req, res) => {
+  const b = req.body || {};
+  const images = await eventsService.reorderImages(req.user.id, req.params.id, b.order || [], b.coverId || null);
+  res.json({ success: true, images: images.map((i) => ({ id: i.id, url: i.url, position: i.position, is_cover: i.is_cover })) });
 }));
 
 // DELETE /api/org/events/:id/images/:imageId

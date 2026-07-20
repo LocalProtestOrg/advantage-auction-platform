@@ -24,6 +24,7 @@
 </div>
 <script src="/widgets/shared/auth-refresh.js"></script>
 <script src="/org/portal.js"></script>
+<script src="/widgets/shared/media-uploader.js"></script>
 <script>
 (function () {
   if (!ORG.guard()) return;
@@ -33,7 +34,7 @@
   var msg = $('msg'), body = $('body');
   if (!id) { body.innerHTML = '<div class="msg err" style="display:block">No event id.</div>'; return; }
 
-  var current = null, images = [], markets = [], cats = [];
+  var current = null, images = [], markets = [], cats = [], imageLimit = null, uploader = null;
   function toLocalInput(iso) { if (!iso) return ''; var d = new Date(iso); if (isNaN(d)) return ''; var p = function (n) { return String(n).padStart(2, '0'); }; return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()) + 'T' + p(d.getHours()) + ':' + p(d.getMinutes()); }
   function showErr(t) { msg.className = 'msg err'; msg.textContent = t; window.scrollTo(0, 0); }
   function showOk(t) { msg.className = 'msg ok'; msg.textContent = t; }
@@ -47,6 +48,7 @@
     fetch('/api/public/event-categories').then(function (r) { return r.json(); }),
   ]).then(function (res) {
     current = res[0].event; images = res[0].images || []; markets = res[1].data || []; cats = res[2].data || [];
+    imageLimit = (res[0].image_limit === undefined ? null : res[0].image_limit);
     render();
     if (new URLSearchParams(location.search).get('created')) showOk('Draft created. Add photos, then submit for review.');
   }).catch(function (e) { body.innerHTML = '<div class="msg err" style="display:block">' + ORG.esc(e.message) + '</div>'; });
@@ -84,8 +86,8 @@
       + '<div class="row"><div><label>ZIP</label><input id="zip" value="' + ORG.esc(e.zip || '') + '"' + dis + ' /></div>'
       + '<div><label>External link</label><input id="externalUrl" type="url" value="' + ORG.esc(e.external_url || '') + '"' + dis + ' /></div></div></div>'
 
-      + '<div class="card"><h2>Photos</h2><div class="imgs" id="imgs"></div>'
-      + (editable ? '<div class="dropz" id="dropz">＋ Click to upload a photo</div><input id="file" type="file" accept="image/*" hidden />' : '')
+      + '<div class="card"><h2>Photos</h2>'
+      + (editable ? '<div id="mediaUploader"></div>' : '<div class="imgs" id="imgs"></div>')
       + '</div>'
 
       + (editable
@@ -94,8 +96,32 @@
           + '<button class="btn ghost" id="archiveBtn" style="margin-left:auto">Archive</button></div>'
         : '');
 
-    renderImages();
-    if (editable) wireEditable();
+    if (editable) { mountUploader(); wireEditable(); } else { renderImages(); }
+  }
+
+  // Reusable Advantage Media Uploader — the Events module only configures it (signature source +
+  // persistence callbacks); all upload mechanics live in the shared component.
+  function mountUploader() {
+    if (uploader) { uploader.destroy(); uploader = null; }
+    uploader = AdvantageMedia.mount({
+      el: '#mediaUploader',
+      accept: 'image',
+      maxFiles: (imageLimit == null ? Infinity : imageLimit),
+      existing: images,
+      getSignature: function () { return ORG.api('POST', '/api/uploads/signature', { context: 'event_images', resourceId: id }); },
+      onAttach: function (uploads) {
+        return ORG.api('POST', '/api/org/events/' + id + '/images/bulk', { images: uploads })
+          .then(function (d) { images = images.concat(d.added); return d.added; });
+      },
+      onReorder: function (order, coverId) {
+        return ORG.api('PATCH', '/api/org/events/' + id + '/images/order', { order: order, coverId: coverId })
+          .then(function (d) { images = d.images; return d.images; });
+      },
+      onRemove: function (imgId) {
+        return ORG.api('DELETE', '/api/org/events/' + id + '/images/' + imgId)
+          .then(function () { images = images.filter(function (x) { return x.id !== imgId; }); });
+      },
+    });
   }
 
   function renderImages() {
@@ -129,16 +155,7 @@
   }
 
   function wireEditable() {
-    $('dropz').addEventListener('click', function () { $('file').click(); });
-    $('file').addEventListener('change', function () {
-      var f = this.files && this.files[0]; if (!f) return;
-      $('dropz').textContent = 'Uploading…';
-      ORG.uploadImage(f).then(function (url) {
-        return ORG.api('POST', '/api/org/events/' + id + '/images', { url: url });
-      }).then(function (d) {
-        images.push(d.image); renderImages(); $('dropz').textContent = '＋ Click to upload a photo'; $('file').value = '';
-      }).catch(function (e) { $('dropz').textContent = '＋ Click to upload a photo'; showErr(e.message); });
-    });
+    // Photo upload/reorder/cover/remove is handled by the Advantage Media Uploader (mountUploader).
     $('saveBtn').addEventListener('click', function () {
       msg.className = 'msg'; $('saveBtn').disabled = true;
       ORG.api('PATCH', '/api/org/events/' + id, collect()).then(function (d) {

@@ -76,6 +76,21 @@ class CloudinaryService {
   async destroy(publicId) {
     return cloudinary.uploader.destroy(publicId);
   }
+
+  /**
+   * Sign a set of upload params for a browser-side DIRECT upload (bytes never touch Railway).
+   * Returns only the signature; the api_secret never leaves the server.
+   * @param {Object} paramsToSign  e.g. { folder, timestamp } — must match exactly what the client POSTs
+   * @returns {string}
+   */
+  signUpload(paramsToSign) {
+    return cloudinary.utils.api_sign_request(paramsToSign, process.env.CLOUDINARY_API_SECRET);
+  }
+
+  /** Public (non-secret) config the browser needs to build a signed upload request. */
+  publicConfig() {
+    return { cloud_name: process.env.CLOUDINARY_CLOUD_NAME, api_key: process.env.CLOUDINARY_API_KEY };
+  }
 }
 
 module.exports = new CloudinaryService();

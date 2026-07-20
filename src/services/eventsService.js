@@ -249,6 +249,79 @@ async function removeImage(userId, eventId, imageId) {
   });
 }
 
+/**
+ * Attach many already-uploaded image URLs in one call (the Advantage Media Uploader flow).
+ * Enforces the plan cap across the whole batch (NULL = unlimited, e.g. Gold): accepts up to the
+ * remaining allowance and reports how many were skipped. The first-ever image becomes the cover.
+ */
+async function addImagesBulk(userId, eventId, urls) {
+  const list = (Array.isArray(urls) ? urls : [])
+    .map((u) => (typeof u === 'string' ? u : (u && u.url) || null))
+    .filter(Boolean);
+  if (!list.length) throw svcErr(400, 'IMAGES_REQUIRED', 'At least one image URL is required.');
+  return withTransaction(async (client) => {
+    const ev = await loadOwnedEvent(client, eventId, userId);
+    if (!EDITABLE_STATES.has(ev.status)) {
+      throw svcErr(409, 'EVENT_NOT_EDITABLE', 'Images can only be changed on draft or rejected events.');
+    }
+    const plan = await getPlanForOrg(client, ev.organization_id);
+    const { rows: agg } = await client.query(
+      'SELECT count(*)::int c, COALESCE(max(position), -1)::int m FROM event_images WHERE event_id=$1', [eventId]);
+    const existing = agg[0].c;
+    let nextPos = agg[0].m + 1;
+    const cap = plan.max_event_images;                       // NULL = unlimited
+    const remaining = cap == null ? Infinity : Math.max(0, cap - existing);
+    const accept = remaining === Infinity ? list : list.slice(0, remaining);
+    const skipped = list.length - accept.length;
+
+    const added = [];
+    for (const url of accept) {
+      const isCover = existing === 0 && added.length === 0;  // first-ever image is the cover
+      const { rows } = await client.query(
+        'INSERT INTO event_images (event_id, url, position, is_cover) VALUES ($1,$2,$3,$4) RETURNING *',
+        [eventId, url, nextPos, isCover]);
+      added.push(rows[0]);
+      nextPos += 1;
+    }
+    await audit(client, 'event.images_added', eventId, userId, { added: added.length, skipped });
+    return { added, skipped, limit: cap };
+  });
+}
+
+/**
+ * Persist a new image order and cover selection. `orderedIds` must be image ids of this event;
+ * `coverId` (optional) sets the cover, otherwise the first item in the new order becomes cover.
+ */
+async function reorderImages(userId, eventId, orderedIds, coverId) {
+  if (!Array.isArray(orderedIds) || !orderedIds.length) {
+    throw svcErr(400, 'ORDER_REQUIRED', 'An ordered list of image ids is required.');
+  }
+  return withTransaction(async (client) => {
+    const ev = await loadOwnedEvent(client, eventId, userId);
+    if (!EDITABLE_STATES.has(ev.status)) {
+      throw svcErr(409, 'EVENT_NOT_EDITABLE', 'Images can only be changed on draft or rejected events.');
+    }
+    const { rows: imgs } = await client.query('SELECT id FROM event_images WHERE event_id=$1', [eventId]);
+    const owned = new Set(imgs.map((r) => r.id));
+    for (const idv of orderedIds) {
+      if (!owned.has(idv)) throw svcErr(400, 'INVALID_IMAGE', 'An image id does not belong to this event.');
+    }
+    for (let i = 0; i < orderedIds.length; i += 1) {
+      await client.query('UPDATE event_images SET position=$1 WHERE id=$2 AND event_id=$3', [i, orderedIds[i], eventId]);
+    }
+    const cover = coverId && owned.has(coverId) ? coverId : orderedIds[0];
+    await client.query('UPDATE event_images SET is_cover = (id = $1) WHERE event_id = $2', [cover, eventId]);
+    await audit(client, 'event.images_reordered', eventId, userId, { count: orderedIds.length, cover });
+    const { rows } = await client.query('SELECT * FROM event_images WHERE event_id=$1 ORDER BY position ASC', [eventId]);
+    return rows;
+  });
+}
+
+/** Public wrapper: the org's effective plan row (used by the portal to show the image allowance). */
+async function getPlanPublic(orgId) {
+  return getPlanForOrg(db, orgId);
+}
+
 // ── Admin moderation transitions (authorization enforced at the route via roleMiddleware) ──
 async function applyAdminTransition(adminId, eventId, opts) {
   return withTransaction(async (client) => {
@@ -295,7 +368,7 @@ module.exports = {
   deriveOrganizerBadge,
   getById, listForOrg, listImages, countActiveEvents, countListingsThisMonth,
   createDraft, updateDraft, submit, archiveByOwner,
-  addImage, removeImage,
+  addImage, addImagesBulk, reorderImages, removeImage, getPlanPublic,
   adminPublish, adminReject, adminReturnToDraft, adminArchive,
   assertCanFeature,
 };
