@@ -38,6 +38,8 @@
   function showErr(t) { msg.className = 'msg err'; msg.textContent = t; window.scrollTo(0, 0); }
   function showOk(t) { msg.className = 'msg ok'; msg.textContent = t; }
   function opts(rows, val) { return rows.map(function (r) { return '<option value="' + ORG.esc(r.slug) + '"' + (r.slug === val ? ' selected' : '') + '>' + ORG.esc(r.name) + '</option>'; }).join(''); }
+  var EVENT_TYPES = [['estate_sale', 'Estate Sale'], ['in_person_auction', 'In-Person Auction'], ['tag_sale', 'Tag Sale'], ['moving_sale', 'Moving Sale'], ['business_liquidation', 'Business Liquidation'], ['other', 'Other']];
+  function typeOpts(val) { return '<option value="">Select a type…</option>' + EVENT_TYPES.map(function (t) { return '<option value="' + t[0] + '"' + (t[0] === val ? ' selected' : '') + '>' + t[1] + '</option>'; }).join(''); }
 
   Promise.all([
     ORG.api('GET', '/api/org/events/' + encodeURIComponent(id)),
@@ -64,7 +66,10 @@
       + '<label>Title <span class="req">*</span></label><input id="title" maxlength="160" value="' + ORG.esc(e.title) + '"' + dis + ' />'
       + '<div class="row"><div><label>Market <span class="req">*</span></label><select id="market"' + dis + '>' + opts(markets, e.market) + '</select></div>'
       + '<div><label>Category</label><select id="category"' + dis + '><option value="">—</option>' + opts(cats, e.category) + '</select></div></div>'
-      + '<label>Description</label><textarea id="description" maxlength="4000"' + dis + '>' + ORG.esc(e.description || '') + '</textarea></div>'
+      + '<label>Event type</label><select id="eventType"' + dis + '>' + typeOpts(e.event_type) + '</select>'
+      + '<label>Description</label><textarea id="description" maxlength="4000"' + dis + '>' + ORG.esc(e.description || '') + '</textarea>'
+      + '<div class="row"><div><label>Contact email</label><input id="contactEmail" type="email" maxlength="160" value="' + ORG.esc(e.contact_email || '') + '"' + dis + ' /></div>'
+      + '<div><label>Contact phone</label><input id="contactPhone" maxlength="40" value="' + ORG.esc(e.contact_phone || '') + '"' + dis + ' /></div></div></div>'
 
       + '<div class="card"><h2>When &amp; where</h2>'
       + '<div class="row"><div><label>Starts <span class="req">*</span></label><input id="startAt" type="datetime-local" value="' + toLocalInput(e.start_at) + '"' + dis + ' /></div>'
@@ -115,6 +120,7 @@
   function collect() {
     return {
       title: $('title').value.trim(), marketSlug: $('market').value, categorySlug: $('category').value || null,
+      eventType: $('eventType').value || null, contactEmail: $('contactEmail').value.trim() || null, contactPhone: $('contactPhone').value.trim() || null,
       description: $('description').value.trim() || null, venueName: $('venueName').value.trim() || null,
       address: $('address').value.trim() || null, city: $('city').value.trim() || null, state: $('state').value.trim() || null,
       zip: $('zip').value.trim() || null, startAt: $('startAt').value || null, endAt: $('endAt').value || null,

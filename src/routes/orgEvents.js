@@ -48,8 +48,9 @@ function serializeOrg(o) {
 function serializeEvent(e) {
   return {
     id: e.id, slug: e.slug, status: e.status, source: e.source,
-    market: e.market_slug, category: e.category_slug,
+    market: e.market_slug, category: e.category_slug, event_type: e.event_type,
     title: e.title, description: e.description,
+    contact_email: e.contact_email, contact_phone: e.contact_phone,
     venue_name: e.venue_name, address: e.address, city: e.city, state: e.state, zip: e.zip,
     lat: e.lat, lng: e.lng, start_at: e.start_at, end_at: e.end_at, timezone: e.timezone,
     external_url: e.external_url, is_featured: e.is_featured, review_reason: e.review_reason,
