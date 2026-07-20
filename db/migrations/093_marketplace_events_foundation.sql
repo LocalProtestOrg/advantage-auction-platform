@@ -31,7 +31,9 @@ ALTER TABLE events ADD COLUMN IF NOT EXISTS internal_lat                    DOUB
 ALTER TABLE events ADD COLUMN IF NOT EXISTS internal_lng                    DOUBLE PRECISION;
 ALTER TABLE events ADD COLUMN IF NOT EXISTS location_fingerprint           TEXT;
 ALTER TABLE events ADD COLUMN IF NOT EXISTS geocoding_status               TEXT;
+ALTER TABLE events ADD COLUMN IF NOT EXISTS geocoding_error                TEXT;
 ALTER TABLE events ADD COLUMN IF NOT EXISTS geocoding_source               TEXT;
+ALTER TABLE events ADD COLUMN IF NOT EXISTS geocoded_at                    TIMESTAMPTZ;
 ALTER TABLE events ADD COLUMN IF NOT EXISTS coordinates_manually_overridden BOOLEAN NOT NULL DEFAULT FALSE;
 
 ALTER TABLE events ADD COLUMN IF NOT EXISTS archived_at TIMESTAMPTZ;

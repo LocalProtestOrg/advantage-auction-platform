@@ -84,7 +84,11 @@
       + '<div class="row"><div><label>City</label><input id="city" value="' + ORG.esc(e.city || '') + '"' + dis + ' /></div>'
       + '<div><label>State</label><input id="state" value="' + ORG.esc(e.state || '') + '"' + dis + ' /></div></div>'
       + '<div class="row"><div><label>ZIP</label><input id="zip" value="' + ORG.esc(e.zip || '') + '"' + dis + ' /></div>'
-      + '<div><label>External link</label><input id="externalUrl" type="url" value="' + ORG.esc(e.external_url || '') + '"' + dis + ' /></div></div></div>'
+      + '<div><label>External link</label><input id="externalUrl" type="url" value="' + ORG.esc(e.external_url || '') + '"' + dis + ' /></div></div>'
+      + '<label>Address visibility</label><select id="addressPrivacy"' + dis + '>'
+      + '<option value="hidden_until"' + (e.address_privacy_mode !== 'exact' ? ' selected' : '') + '>Hide exact address until 24 hours before the sale starts (recommended)</option>'
+      + '<option value="exact"' + (e.address_privacy_mode === 'exact' ? ' selected' : '') + '>Show the full address publicly</option>'
+      + '</select></div>'
 
       + '<div class="card"><h2>Photos</h2>'
       + (editable ? '<div id="mediaUploader"></div>' : '<div class="imgs" id="imgs"></div>')
@@ -151,6 +155,9 @@
       address: $('address').value.trim() || null, city: $('city').value.trim() || null, state: $('state').value.trim() || null,
       zip: $('zip').value.trim() || null, startAt: $('startAt').value || null, endAt: $('endAt').value || null,
       timezone: $('timezone').value, externalUrl: $('externalUrl').value.trim() || null,
+      addressPrivacyMode: $('addressPrivacy').value,
+      addressRevealTrigger: $('addressPrivacy').value === 'hidden_until' ? 'hours_before_start' : 'none',
+      addressRevealHoursBefore: $('addressPrivacy').value === 'hidden_until' ? 24 : null,
     };
   }
 

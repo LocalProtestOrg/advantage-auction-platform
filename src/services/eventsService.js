@@ -30,6 +30,8 @@ const FIELD_MAP = {
   eventType: 'event_type', contactEmail: 'contact_email', contactPhone: 'contact_phone',
   venueName: 'venue_name', address: 'address', city: 'city', state: 'state', zip: 'zip',
   lat: 'lat', lng: 'lng', startAt: 'start_at', endAt: 'end_at', timezone: 'timezone', externalUrl: 'external_url',
+  addressPrivacyMode: 'address_privacy_mode', addressRevealTrigger: 'address_reveal_trigger',
+  addressRevealHoursBefore: 'address_reveal_hours_before',
 };
 
 const hasOwn = (o, k) => Object.prototype.hasOwnProperty.call(o, k);
@@ -128,14 +130,17 @@ async function createDraft(userId, org, input = {}) {
       `INSERT INTO events
          (slug, organization_id, source, market_slug, category_slug, title, description,
           event_type, contact_email, contact_phone,
-          venue_name, address, city, state, zip, lat, lng, start_at, end_at, timezone, external_url, status)
-       VALUES ($1,$2,'organization',$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,'draft')
+          venue_name, address, city, state, zip, lat, lng, start_at, end_at, timezone, external_url,
+          address_privacy_mode, address_reveal_trigger, address_reveal_hours_before, status)
+       VALUES ($1,$2,'organization',$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,'draft')
        RETURNING *`,
       [slug, org.id, input.marketSlug, input.categorySlug || null, title, input.description || null,
        input.eventType || null, input.contactEmail || null, input.contactPhone || null,
        input.venueName || null, input.address || null, input.city || null, input.state || null, input.zip || null,
        num(input.lat), num(input.lng), input.startAt, input.endAt || null,
-       input.timezone || 'America/New_York', input.externalUrl || null]);
+       input.timezone || 'America/New_York', input.externalUrl || null,
+       input.addressPrivacyMode || 'exact', input.addressRevealTrigger || 'none',
+       input.addressRevealHoursBefore != null ? input.addressRevealHoursBefore : null]);
     const ev = rows[0];
     await audit(client, 'event.created', ev.id, userId, { title: ev.title, market: ev.market_slug });
     return ev;

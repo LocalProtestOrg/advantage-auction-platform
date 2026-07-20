@@ -82,6 +82,12 @@
         <div><label>ZIP</label><input id="zip" maxlength="12" /></div>
         <div><label>External link</label><input id="externalUrl" type="url" placeholder="https://…" /></div>
       </div>
+      <label>Address visibility</label>
+      <select id="addressPrivacy">
+        <option value="hidden_until">Hide exact address until 24 hours before the sale starts (recommended)</option>
+        <option value="exact">Show the full address publicly</option>
+      </select>
+      <p class="hint">The full address is published 24 hours before the start time; until then buyers see the city and ZIP.</p>
       <p class="hint">You’ll add photos on the next step, after the draft is created.</p>
     </div>
 
@@ -143,6 +149,9 @@
       endAt: $('endAt').value || null,
       timezone: $('timezone').value,
       externalUrl: $('externalUrl').value.trim() || null,
+      addressPrivacyMode: $('addressPrivacy').value,
+      addressRevealTrigger: $('addressPrivacy').value === 'hidden_until' ? 'hours_before_start' : 'none',
+      addressRevealHoursBefore: $('addressPrivacy').value === 'hidden_until' ? 24 : null,
     };
     if (!hasOrg) {
       body.organization = { name: $('orgName').value.trim(), contactEmail: $('orgEmail').value.trim(), contactPhone: $('orgPhone').value.trim() };
