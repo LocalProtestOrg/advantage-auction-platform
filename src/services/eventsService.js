@@ -27,6 +27,7 @@ const EDITABLE_STATES = new Set(['draft', 'rejected']); // owner may edit / chan
 // camelCase input → column, for create/update allowlists
 const FIELD_MAP = {
   title: 'title', description: 'description', marketSlug: 'market_slug', categorySlug: 'category_slug',
+  eventType: 'event_type', contactEmail: 'contact_email', contactPhone: 'contact_phone',
   venueName: 'venue_name', address: 'address', city: 'city', state: 'state', zip: 'zip',
   lat: 'lat', lng: 'lng', startAt: 'start_at', endAt: 'end_at', timezone: 'timezone', externalUrl: 'external_url',
 };
@@ -49,17 +50,35 @@ function deriveOrganizerBadge(event, org) {
 
 async function getPlanForOrg(runner, orgId) {
   const { rows } = await runner.query(
-    `SELECT p.plan_tier, p.max_event_images, p.max_active_events, p.can_feature_events
+    `SELECT p.plan_tier, p.max_event_images, p.max_active_events,
+            p.max_listings_per_month, p.search_placement_tier, p.can_feature_events
        FROM organizations o JOIN organization_plans p ON p.plan_tier = o.plan_tier
       WHERE o.id = $1`, [orgId]);
   if (!rows.length) throw svcErr(404, 'ORG_NOT_FOUND', 'Organization not found.');
   return rows[0];
 }
 
+// Limit columns use NULL = unlimited and 0 = none. `atLimit(count, limit)` returns true only
+// when a finite limit is set and reached; NULL always passes.
+const atLimit = (count, limit) => limit != null && count >= limit;
+// A plan with a 0 (not NULL) listing cap grants NO Marketplace Event listings (e.g. Appraiser).
+const planAllowsListings = (plan) => plan.max_active_events !== 0 && plan.max_listings_per_month !== 0;
+
 async function countActiveEvents(orgId, runner) {
   const { rows } = await (runner || db).query(
     `SELECT count(*)::int c FROM events WHERE organization_id = $1 AND status = ANY($2)`,
     [orgId, ACTIVE_STATES]);
+  return rows[0].c;
+}
+
+// Listings submitted by this org in the current calendar month (excluding one event id, so a
+// rejected event can be re-submitted without counting itself). Drives the Silver 1/month cap.
+async function countListingsThisMonth(orgId, runner, excludeEventId) {
+  const { rows } = await (runner || db).query(
+    `SELECT count(*)::int c FROM events
+      WHERE organization_id = $1 AND id <> $2
+        AND submitted_at >= date_trunc('month', now())`,
+    [orgId, excludeEventId || '00000000-0000-0000-0000-000000000000']);
   return rows[0].c;
 }
 
@@ -98,14 +117,22 @@ async function createDraft(userId, org, input = {}) {
 
   return withTransaction(async (client) => {
     await orgs.assertOwner(userId, org.id, client);
+    // Membership gate: plans with a 0 listing cap (e.g. Appraiser) get no Marketplace Events.
+    const plan = await getPlanForOrg(client, org.id);
+    if (!planAllowsListings(plan)) {
+      throw svcErr(403, 'PLAN_NO_EVENT_LISTINGS',
+        'Your membership plan does not include Marketplace Event listings.');
+    }
     const slug = await generateUniqueSlug('events', title, client);
     const { rows } = await client.query(
       `INSERT INTO events
          (slug, organization_id, source, market_slug, category_slug, title, description,
+          event_type, contact_email, contact_phone,
           venue_name, address, city, state, zip, lat, lng, start_at, end_at, timezone, external_url, status)
-       VALUES ($1,$2,'organization',$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,'draft')
+       VALUES ($1,$2,'organization',$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,'draft')
        RETURNING *`,
       [slug, org.id, input.marketSlug, input.categorySlug || null, title, input.description || null,
+       input.eventType || null, input.contactEmail || null, input.contactPhone || null,
        input.venueName || null, input.address || null, input.city || null, input.state || null, input.zip || null,
        num(input.lat), num(input.lng), input.startAt, input.endAt || null,
        input.timezone || 'America/New_York', input.externalUrl || null]);
@@ -147,10 +174,22 @@ async function submit(userId, eventId) {
       throw svcErr(409, 'INVALID_TRANSITION', `Cannot submit from ${ev.status}.`);
     }
     const plan = await getPlanForOrg(client, ev.organization_id);
-    const active = await countActiveEvents(ev.organization_id, client);
-    if (active >= plan.max_active_events) {
-      throw svcErr(422, 'ACTIVE_EVENT_LIMIT',
-        `Your plan allows ${plan.max_active_events} active events. Archive one to submit another.`);
+    // Active-listing cap (NULL = unlimited). Individual = 1.
+    if (plan.max_active_events != null) {
+      const active = await countActiveEvents(ev.organization_id, client);
+      if (atLimit(active, plan.max_active_events)) {
+        throw svcErr(422, 'ACTIVE_EVENT_LIMIT',
+          `Your plan allows ${plan.max_active_events} active event${plan.max_active_events === 1 ? '' : 's'}. Archive one to submit another.`);
+      }
+    }
+    // Monthly-listing cap (NULL = unlimited). Silver = 1/month; the future $35 additional-listing
+    // workflow attaches at this boundary (charging is NOT implemented — quota only).
+    if (plan.max_listings_per_month != null) {
+      const thisMonth = await countListingsThisMonth(ev.organization_id, client, eventId);
+      if (atLimit(thisMonth, plan.max_listings_per_month)) {
+        throw svcErr(422, 'MONTHLY_LISTING_LIMIT',
+          `Your plan includes ${plan.max_listings_per_month} event listing${plan.max_listings_per_month === 1 ? '' : 's'} per month.`);
+      }
     }
     const { rows } = await client.query(
       `UPDATE events SET status='submitted', submitted_at=now(), review_reason=NULL, updated_at=now()
@@ -184,7 +223,9 @@ async function addImage(userId, eventId, url, { isCover = false } = {}) {
     }
     const plan = await getPlanForOrg(client, ev.organization_id);
     const { rows: cnt } = await client.query('SELECT count(*)::int c FROM event_images WHERE event_id=$1', [eventId]);
-    if (cnt[0].c >= plan.max_event_images) {
+    // Image cap (NULL = unlimited, e.g. Gold; 125 for Silver/Individual). Gold sellers may add
+    // hundreds; the 10-at-a-time restriction was a BD platform limit and is not reproduced here.
+    if (atLimit(cnt[0].c, plan.max_event_images)) {
       throw svcErr(422, 'IMAGE_LIMIT', `Your plan allows ${plan.max_event_images} images per event.`);
     }
     const position = cnt[0].c;
@@ -252,7 +293,7 @@ async function assertCanFeature(orgId, client) {
 module.exports = {
   STATUSES, ACTIVE_STATES, EDITABLE_STATES,
   deriveOrganizerBadge,
-  getById, listForOrg, listImages, countActiveEvents,
+  getById, listForOrg, listImages, countActiveEvents, countListingsThisMonth,
   createDraft, updateDraft, submit, archiveByOwner,
   addImage, removeImage,
   adminPublish, adminReject, adminReturnToDraft, adminArchive,
