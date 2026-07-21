@@ -91,6 +91,16 @@ router.get('/events', asyncRoute(async (req, res) => {
   if (city) { params.push('%' + city + '%'); where.push(`e.city ILIKE $${params.length}`); }
   const state = (req.query.state || '').trim();
   if (state) { params.push(state.toUpperCase()); where.push(`UPPER(e.state) = $${params.length}`); }
+  // Tenant scoping for company/organization widgets — filter by a STABLE organization UUID, never
+  // by name. An invalid id yields zero rows (never a cross-org leak), mirroring the auction widget.
+  const orgId = (req.query.organization_id || '').trim();
+  if (orgId) {
+    if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(orgId)) {
+      params.push(orgId); where.push(`e.organization_id = $${params.length}`);
+    } else {
+      where.push('false');
+    }
+  }
   const limit = clampInt(req.query.limit, 12, 1, 50);
   const offset = clampInt(req.query.offset, 0, 0, 10000);
   params.push(limit); const li = params.length;

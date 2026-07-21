@@ -19,6 +19,9 @@
 (function () {
   'use strict';
 
+  var WIDGET_VERSION = '1.0.0'; // bump on release; pair with a ?v= cache-buster on the <script src>.
+  window.__ADV_MARKETPLACE_FEED__ = WIDGET_VERSION;
+
   var script = document.currentScript;
   var rawBase = script && script.dataset.apiBase;
   var API_BASE = (rawBase === undefined ? 'https://bid.advantage.bid' : String(rawBase).replace(/\/$/, ''));
@@ -128,16 +131,19 @@
 
   function activate(MC) {
     var feed = document.getElementById(CONTAINER_ID);
-    if (!feed) return;
-    MC.renderSkeletons(feed, 8);
+    if (!feed || feed.__abMktInit) return; // guard against a double-included script re-initializing
+    feed.__abMktInit = true;
+    MC.renderSkeletons(feed, 8); // loading state
     Promise.all([
       TYPES.indexOf('auctions') >= 0 ? loadAuctions() : Promise.resolve([]),
       TYPES.indexOf('events') >= 0 ? loadEvents() : Promise.resolve([])
     ]).then(function (res) {
       allItems = (res[0] || []).concat(res[1] || []);
       allItems.sort(unifiedSort);
-      render(MC);
-    }).catch(function () { feed.innerHTML = ''; });
+      render(MC); // empty state handled inside render()
+    }).catch(function () {
+      feed.innerHTML = '<div class="mkt-empty">The marketplace is unavailable right now. Please try again shortly.</div>';
+    });
   }
 
   if (window.MktComponents) {
