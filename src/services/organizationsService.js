@@ -33,6 +33,42 @@ async function getPlan(planTier) {
   return rows[0] || null;
 }
 
+/** All assignable plans/tiers (for an admin picker). */
+async function listPlans() {
+  const { rows } = await db.query(
+    `SELECT plan_tier, max_event_images, max_active_events, max_listings_per_month,
+            search_placement_tier, can_feature_events
+       FROM organization_plans
+      ORDER BY search_placement_tier ASC, plan_tier ASC`);
+  return rows;
+}
+
+/**
+ * Admin: assign an organization's membership tier and re-sync its plan capabilities.
+ * Validates the tier, updates organizations.plan_tier, reconciles plan-sourced capabilities to the
+ * new tier (admin grants/overrides preserved), and audits the change. Authorization is enforced at
+ * the route (admin only). Transactional.
+ */
+async function setPlanTier(actorUserId, orgId, planTier) {
+  if (!planTier) throw svcErr(400, 'PLAN_REQUIRED', 'A plan tier is required.');
+  return withTransaction(async (client) => {
+    const plan = await client.query('SELECT plan_tier FROM organization_plans WHERE plan_tier = $1', [planTier]);
+    if (!plan.rows.length) throw svcErr(400, 'UNKNOWN_PLAN', `Unknown plan tier: ${planTier}.`);
+    const cur = await client.query('SELECT id, plan_tier FROM organizations WHERE id = $1', [orgId]);
+    if (!cur.rows.length) throw svcErr(404, 'ORG_NOT_FOUND', 'Organization not found.');
+    const prev = cur.rows[0].plan_tier;
+    const upd = await client.query(
+      'UPDATE organizations SET plan_tier = $2, updated_at = now() WHERE id = $1 RETURNING *',
+      [orgId, planTier]);
+    await capabilityService.syncPlanCapabilities(orgId, planTier, client);
+    await auditService.logEvent(client, {
+      eventType: 'organization.plan_changed', entityType: 'organization', entityId: orgId,
+      actorId: actorUserId, metadata: { from: prev, to: planTier },
+    });
+    return upd.rows[0];
+  });
+}
+
 /** The user's single primary organization (owner membership preferred). One-org-per-user in P1. */
 async function getPrimaryOrgForUser(userId) {
   const { rows } = await db.query(
@@ -155,6 +191,8 @@ async function updateProfile(userId, orgId, input = {}) {
 module.exports = {
   svcErr,
   getPlan,
+  listPlans,
+  setPlanTier,
   getPrimaryOrgForUser,
   getById,
   isOwner,

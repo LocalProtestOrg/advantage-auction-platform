@@ -11,10 +11,25 @@ const authMiddleware = require('../middleware/authMiddleware');
 const roleMiddleware = require('../middleware/roleMiddleware');
 const capabilityService = require('../services/capabilityService');
 const configService = require('../services/configService');
+const organizationsService = require('../services/organizationsService');
 const orgLifecycle = require('../services/organizationLifecycleService');
 const { asyncRoute, svcErr } = require('../utils/apiError');
 
 router.use(authMiddleware, roleMiddleware(['admin']));
+
+// Assignable membership plans/tiers (for the admin picker)
+router.get('/plans', asyncRoute(async (req, res) => {
+  const plans = await organizationsService.listPlans();
+  res.json({ success: true, plans });
+}));
+
+// Assign an organization's membership tier (plan). Re-syncs the org's plan capabilities.
+router.put('/:orgId/plan', asyncRoute(async (req, res) => {
+  const planTier = (req.body || {}).plan_tier;
+  if (!planTier) throw svcErr(400, 'PLAN_REQUIRED', 'plan_tier is required.');
+  const org = await organizationsService.setPlanTier(req.user.id, req.params.orgId, planTier);
+  res.json({ success: true, organization: { id: org.id, name: org.name, plan_tier: org.plan_tier } });
+}));
 
 // Effective capabilities for an organization
 router.get('/:orgId/capabilities', asyncRoute(async (req, res) => {

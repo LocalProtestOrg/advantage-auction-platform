@@ -83,9 +83,10 @@ the BD snippets. No auction / bid / payment / settlement code was touched.
   browser upload need a real Cloudinary account in a browser; only unit-guarded here.
 - **Event geocoding is not runtime-verified** and needs `MAPBOX_GEOCODING_TOKEN`; degrades silently
   without it.
-- **Membership tier assignment has no admin UI/endpoint.** Tiers are seeded and enforced, but
-  setting an org's `plan_tier` to a retailer tier is currently a raw UPDATE (a future admin action).
-  Until an org is assigned a tier, it stays on the default `free` plan.
+- **Membership tier assignment endpoint added** — `PUT /api/admin/partners/:orgId/plan` (admin-only)
+  assigns a tier and re-syncs plan capabilities; `GET /api/admin/partners/plans` lists tiers. Not yet
+  runtime-verified against a DB. A tier-picker admin UI is still pending; until an org is assigned a
+  tier it stays on the default `free` plan.
 - **Hide-Address "register for reminders" is display-only.** The reveal notice is shown, but no
   reminder-subscription endpoint was built (deferred).
 - **Sitemap not wired.** `getSitemapEntries` now includes events, but no `/sitemap.xml` route
