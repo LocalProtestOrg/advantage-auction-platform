@@ -200,6 +200,7 @@ app.get('/sitemap.xml', async (req, res) => {
     '/seller-faq.html',
     '/browse-categories.html',
     '/browse-locations.html',
+    '/all-events.html',
     '/featured-auctions.html',
     '/ending-soon.html',
     '/past-auctions.html',
@@ -219,6 +220,9 @@ app.get('/sitemap.xml', async (req, res) => {
     }
     for (const l of entries.lots) {
       urls.push(urlEl(`${base}/lot.html?lotId=${l.id}`, lastmodDate(l.lastmod)));
+    }
+    for (const ev of (entries.events || [])) {
+      urls.push(urlEl(`${base}/event.html?slug=${encodeURIComponent(ev.slug)}`, lastmodDate(ev.lastmod)));
     }
   } catch (e) {
     // FAIL-SAFE: fall through with just the static pages already collected.

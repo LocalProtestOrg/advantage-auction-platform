@@ -9,6 +9,7 @@ const express = require('express');
 const router = express.Router();
 const authMiddleware = require('../middleware/authMiddleware');
 const roleMiddleware = require('../middleware/roleMiddleware');
+const db = require('../db');
 const capabilityService = require('../services/capabilityService');
 const configService = require('../services/configService');
 const organizationsService = require('../services/organizationsService');
@@ -16,6 +17,18 @@ const orgLifecycle = require('../services/organizationLifecycleService');
 const { asyncRoute, svcErr } = require('../utils/apiError');
 
 router.use(authMiddleware, roleMiddleware(['admin']));
+
+// Organization picker for the memberships UI (name search; returns the current tier).
+router.get('/organizations', asyncRoute(async (req, res) => {
+  const q = (req.query.q || '').trim();
+  const params = []; let where = '';
+  if (q) { params.push('%' + q + '%'); where = 'WHERE name ILIKE $1'; }
+  params.push(Math.min(parseInt(req.query.limit, 10) || 50, 200));
+  const { rows } = await db.query(
+    `SELECT id, name, city, state, plan_tier FROM organizations ${where}
+      ORDER BY name ASC LIMIT $${params.length}`, params);
+  res.json({ success: true, organizations: rows });
+}));
 
 // Assignable membership plans/tiers (for the admin picker)
 router.get('/plans', asyncRoute(async (req, res) => {
