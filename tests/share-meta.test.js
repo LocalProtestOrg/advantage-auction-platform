@@ -362,6 +362,6 @@ describe('getSitemapEntries', () => {
   test('DB error → empty arrays (fail-safe, never throws)', async () => {
     db.query.mockRejectedValue(new Error('boom'));
     const e = await svc.getSitemapEntries();
-    expect(e).toEqual({ auctions: [], lots: [] });
+    expect(e).toEqual({ auctions: [], lots: [], events: [] });
   });
 });
