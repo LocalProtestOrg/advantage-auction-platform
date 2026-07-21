@@ -18,6 +18,7 @@
 
 const db = require('../db');
 const { publicBaseUrl } = require('../lib/publicUrls');
+const addressPrivacy = require('./eventAddressPrivacy');
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 function validUuid(id) { return typeof id === 'string' && UUID_RE.test(id); }
@@ -141,6 +142,55 @@ async function getLotMeta(id) {
 }
 
 /**
+ * getEventMeta(slug) — visibility-gated single Marketplace-Event read (id is a SLUG, not a UUID).
+ * Location is routed through the Hide-Address-Until engine so OG/JSON-LD NEVER expose the exact
+ * address or precise coordinates while hidden — only the general area survives to structured data.
+ * @returns {Promise<object|null>}
+ */
+async function getEventMeta(slug) {
+  if (!slug || typeof slug !== 'string') return null;
+  try {
+    const { rows } = await db.query(
+      `SELECT e.id, e.slug, e.title, e.description, e.event_type,
+              e.venue_name, e.address, e.city, e.state, e.zip, e.lat, e.lng,
+              e.address_privacy_mode, e.address_reveal_trigger, e.address_reveal_at, e.address_reveal_hours_before,
+              e.start_at, e.end_at,
+              o.name AS org_name,
+              (SELECT url FROM event_images ei WHERE ei.event_id = e.id ORDER BY is_cover DESC, position ASC LIMIT 1) AS cover_url
+         FROM events e
+         LEFT JOIN organizations o ON o.id = e.organization_id
+        WHERE e.slug = $1 AND e.status = 'published' AND (e.end_at IS NULL OR e.end_at >= now())
+        LIMIT 1`,
+      [slug]
+    );
+    if (!rows.length) return null;
+    const r = rows[0];
+    const loc = addressPrivacy.publicLocationView(r); // privacy-safe: exact address/coords only when revealed
+    const description = clean(r.description, 160) || 'Estate sale & marketplace event on Advantage.Bid.';
+    return {
+      title:        clean(r.title, 200) || 'Marketplace Event',
+      description,
+      image:        r.cover_url || null,
+      url:          `${base()}/event.html?slug=${encodeURIComponent(r.slug)}`,
+      type:         'website',
+      startDate:    r.start_at || null,
+      endDate:      r.end_at || null,
+      organizer:    r.org_name || null,
+      address:      loc.address || null,   // null while hidden
+      city:         loc.city || null,
+      state:        loc.state || null,
+      zip:          loc.zip || null,
+      lat:          loc.lat,               // null while hidden
+      lng:          loc.lng,
+      addressHidden: loc.address_hidden,
+      siteName:     'Advantage.Bid',
+    };
+  } catch (e) {
+    return null;
+  }
+}
+
+/**
  * getSitemapEntries() — visibility-gated URL inventory for the dynamic
  * /sitemap.xml route. Returns public auctions and their lots (lots only for
  * auctions that are themselves publicly visible), each with a lastmod date.
@@ -154,7 +204,7 @@ async function getLotMeta(id) {
  */
 async function getSitemapEntries() {
   const VISIBLE = `a.state IN ('published', 'active', 'closed') AND a.is_archived IS NOT TRUE`;
-  const out = { auctions: [], lots: [] };
+  const out = { auctions: [], lots: [], events: [] };
   try {
     const a = await db.query(
       `SELECT a.id,
@@ -182,7 +232,20 @@ async function getSitemapEntries() {
   } catch (e) {
     // Leave lots empty.
   }
+  try {
+    const ev = await db.query(
+      `SELECT e.slug,
+              COALESCE(e.updated_at, e.created_at) AS lastmod
+         FROM events e
+        WHERE e.status = 'published' AND (e.end_at IS NULL OR e.end_at >= now())
+        ORDER BY COALESCE(e.updated_at, e.created_at) DESC
+        LIMIT 2000`
+    );
+    out.events = (ev.rows || []).map(r => ({ slug: r.slug, lastmod: r.lastmod || null }));
+  } catch (e) {
+    // Leave events empty.
+  }
   return out;
 }
 
-module.exports = { getAuctionMeta, getLotMeta, getSitemapEntries, validUuid, clean };
+module.exports = { getAuctionMeta, getLotMeta, getEventMeta, getSitemapEntries, validUuid, clean };

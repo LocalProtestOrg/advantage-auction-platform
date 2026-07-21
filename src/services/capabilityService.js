@@ -22,6 +22,21 @@ async function grantPlanCapabilities(organizationId, planTier, runner) {
     [organizationId, planTier]);
 }
 
+/**
+ * Reconcile plan-sourced capabilities to a NEW plan tier: drop the old plan's caps that the new
+ * plan no longer grants, then add the new plan's caps. Admin grants/overrides (source != 'plan')
+ * are preserved. Used when an admin changes an organization's tier.
+ */
+async function syncPlanCapabilities(organizationId, planTier, runner) {
+  const r = runner || db;
+  await r.query(
+    `DELETE FROM organization_capabilities
+      WHERE organization_id = $1 AND source = 'plan'
+        AND capability NOT IN (SELECT capability FROM plan_capabilities WHERE plan_tier = $2)`,
+    [organizationId, planTier]);
+  await grantPlanCapabilities(organizationId, planTier, r);
+}
+
 async function getEffectiveCapabilities(organizationId) {
   const { rows } = await db.query(
     'SELECT capability FROM organization_capabilities WHERE organization_id = $1 AND enabled = true', [organizationId]);
@@ -45,4 +60,4 @@ async function setCapability(organizationId, capability, enabled, source = 'gran
     [organizationId, capability, enabled, source]);
 }
 
-module.exports = { getPlanCapabilities, grantPlanCapabilities, getEffectiveCapabilities, hasCapability, setCapability };
+module.exports = { getPlanCapabilities, grantPlanCapabilities, syncPlanCapabilities, getEffectiveCapabilities, hasCapability, setCapability };

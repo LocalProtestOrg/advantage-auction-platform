@@ -27,8 +27,11 @@ const EDITABLE_STATES = new Set(['draft', 'rejected']); // owner may edit / chan
 // camelCase input → column, for create/update allowlists
 const FIELD_MAP = {
   title: 'title', description: 'description', marketSlug: 'market_slug', categorySlug: 'category_slug',
+  eventType: 'event_type', contactEmail: 'contact_email', contactPhone: 'contact_phone',
   venueName: 'venue_name', address: 'address', city: 'city', state: 'state', zip: 'zip',
   lat: 'lat', lng: 'lng', startAt: 'start_at', endAt: 'end_at', timezone: 'timezone', externalUrl: 'external_url',
+  addressPrivacyMode: 'address_privacy_mode', addressRevealTrigger: 'address_reveal_trigger',
+  addressRevealHoursBefore: 'address_reveal_hours_before',
 };
 
 const hasOwn = (o, k) => Object.prototype.hasOwnProperty.call(o, k);
@@ -49,17 +52,35 @@ function deriveOrganizerBadge(event, org) {
 
 async function getPlanForOrg(runner, orgId) {
   const { rows } = await runner.query(
-    `SELECT p.plan_tier, p.max_event_images, p.max_active_events, p.can_feature_events
+    `SELECT p.plan_tier, p.max_event_images, p.max_active_events,
+            p.max_listings_per_month, p.search_placement_tier, p.can_feature_events
        FROM organizations o JOIN organization_plans p ON p.plan_tier = o.plan_tier
       WHERE o.id = $1`, [orgId]);
   if (!rows.length) throw svcErr(404, 'ORG_NOT_FOUND', 'Organization not found.');
   return rows[0];
 }
 
+// Limit columns use NULL = unlimited and 0 = none. `atLimit(count, limit)` returns true only
+// when a finite limit is set and reached; NULL always passes.
+const atLimit = (count, limit) => limit != null && count >= limit;
+// A plan with a 0 (not NULL) listing cap grants NO Marketplace Event listings (e.g. Appraiser).
+const planAllowsListings = (plan) => plan.max_active_events !== 0 && plan.max_listings_per_month !== 0;
+
 async function countActiveEvents(orgId, runner) {
   const { rows } = await (runner || db).query(
     `SELECT count(*)::int c FROM events WHERE organization_id = $1 AND status = ANY($2)`,
     [orgId, ACTIVE_STATES]);
+  return rows[0].c;
+}
+
+// Listings submitted by this org in the current calendar month (excluding one event id, so a
+// rejected event can be re-submitted without counting itself). Drives the Silver 1/month cap.
+async function countListingsThisMonth(orgId, runner, excludeEventId) {
+  const { rows } = await (runner || db).query(
+    `SELECT count(*)::int c FROM events
+      WHERE organization_id = $1 AND id <> $2
+        AND submitted_at >= date_trunc('month', now())`,
+    [orgId, excludeEventId || '00000000-0000-0000-0000-000000000000']);
   return rows[0].c;
 }
 
@@ -98,17 +119,28 @@ async function createDraft(userId, org, input = {}) {
 
   return withTransaction(async (client) => {
     await orgs.assertOwner(userId, org.id, client);
+    // Membership gate: plans with a 0 listing cap (e.g. Appraiser) get no Marketplace Events.
+    const plan = await getPlanForOrg(client, org.id);
+    if (!planAllowsListings(plan)) {
+      throw svcErr(403, 'PLAN_NO_EVENT_LISTINGS',
+        'Your membership plan does not include Marketplace Event listings.');
+    }
     const slug = await generateUniqueSlug('events', title, client);
     const { rows } = await client.query(
       `INSERT INTO events
          (slug, organization_id, source, market_slug, category_slug, title, description,
-          venue_name, address, city, state, zip, lat, lng, start_at, end_at, timezone, external_url, status)
-       VALUES ($1,$2,'organization',$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,'draft')
+          event_type, contact_email, contact_phone,
+          venue_name, address, city, state, zip, lat, lng, start_at, end_at, timezone, external_url,
+          address_privacy_mode, address_reveal_trigger, address_reveal_hours_before, status)
+       VALUES ($1,$2,'organization',$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,'draft')
        RETURNING *`,
       [slug, org.id, input.marketSlug, input.categorySlug || null, title, input.description || null,
+       input.eventType || null, input.contactEmail || null, input.contactPhone || null,
        input.venueName || null, input.address || null, input.city || null, input.state || null, input.zip || null,
        num(input.lat), num(input.lng), input.startAt, input.endAt || null,
-       input.timezone || 'America/New_York', input.externalUrl || null]);
+       input.timezone || 'America/New_York', input.externalUrl || null,
+       input.addressPrivacyMode || 'exact', input.addressRevealTrigger || 'none',
+       input.addressRevealHoursBefore != null ? input.addressRevealHoursBefore : null]);
     const ev = rows[0];
     await audit(client, 'event.created', ev.id, userId, { title: ev.title, market: ev.market_slug });
     return ev;
@@ -147,10 +179,22 @@ async function submit(userId, eventId) {
       throw svcErr(409, 'INVALID_TRANSITION', `Cannot submit from ${ev.status}.`);
     }
     const plan = await getPlanForOrg(client, ev.organization_id);
-    const active = await countActiveEvents(ev.organization_id, client);
-    if (active >= plan.max_active_events) {
-      throw svcErr(422, 'ACTIVE_EVENT_LIMIT',
-        `Your plan allows ${plan.max_active_events} active events. Archive one to submit another.`);
+    // Active-listing cap (NULL = unlimited). Individual = 1.
+    if (plan.max_active_events != null) {
+      const active = await countActiveEvents(ev.organization_id, client);
+      if (atLimit(active, plan.max_active_events)) {
+        throw svcErr(422, 'ACTIVE_EVENT_LIMIT',
+          `Your plan allows ${plan.max_active_events} active event${plan.max_active_events === 1 ? '' : 's'}. Archive one to submit another.`);
+      }
+    }
+    // Monthly-listing cap (NULL = unlimited). Silver = 1/month; the future $35 additional-listing
+    // workflow attaches at this boundary (charging is NOT implemented — quota only).
+    if (plan.max_listings_per_month != null) {
+      const thisMonth = await countListingsThisMonth(ev.organization_id, client, eventId);
+      if (atLimit(thisMonth, plan.max_listings_per_month)) {
+        throw svcErr(422, 'MONTHLY_LISTING_LIMIT',
+          `Your plan includes ${plan.max_listings_per_month} event listing${plan.max_listings_per_month === 1 ? '' : 's'} per month.`);
+      }
     }
     const { rows } = await client.query(
       `UPDATE events SET status='submitted', submitted_at=now(), review_reason=NULL, updated_at=now()
@@ -184,7 +228,9 @@ async function addImage(userId, eventId, url, { isCover = false } = {}) {
     }
     const plan = await getPlanForOrg(client, ev.organization_id);
     const { rows: cnt } = await client.query('SELECT count(*)::int c FROM event_images WHERE event_id=$1', [eventId]);
-    if (cnt[0].c >= plan.max_event_images) {
+    // Image cap (NULL = unlimited, e.g. Gold; 125 for Silver/Individual). Gold sellers may add
+    // hundreds; the 10-at-a-time restriction was a BD platform limit and is not reproduced here.
+    if (atLimit(cnt[0].c, plan.max_event_images)) {
       throw svcErr(422, 'IMAGE_LIMIT', `Your plan allows ${plan.max_event_images} images per event.`);
     }
     const position = cnt[0].c;
@@ -206,6 +252,79 @@ async function removeImage(userId, eventId, imageId) {
     await audit(client, 'event.image_removed', eventId, userId, { image_id: imageId });
     return { removed: true };
   });
+}
+
+/**
+ * Attach many already-uploaded image URLs in one call (the Advantage Media Uploader flow).
+ * Enforces the plan cap across the whole batch (NULL = unlimited, e.g. Gold): accepts up to the
+ * remaining allowance and reports how many were skipped. The first-ever image becomes the cover.
+ */
+async function addImagesBulk(userId, eventId, urls) {
+  const list = (Array.isArray(urls) ? urls : [])
+    .map((u) => (typeof u === 'string' ? u : (u && u.url) || null))
+    .filter(Boolean);
+  if (!list.length) throw svcErr(400, 'IMAGES_REQUIRED', 'At least one image URL is required.');
+  return withTransaction(async (client) => {
+    const ev = await loadOwnedEvent(client, eventId, userId);
+    if (!EDITABLE_STATES.has(ev.status)) {
+      throw svcErr(409, 'EVENT_NOT_EDITABLE', 'Images can only be changed on draft or rejected events.');
+    }
+    const plan = await getPlanForOrg(client, ev.organization_id);
+    const { rows: agg } = await client.query(
+      'SELECT count(*)::int c, COALESCE(max(position), -1)::int m FROM event_images WHERE event_id=$1', [eventId]);
+    const existing = agg[0].c;
+    let nextPos = agg[0].m + 1;
+    const cap = plan.max_event_images;                       // NULL = unlimited
+    const remaining = cap == null ? Infinity : Math.max(0, cap - existing);
+    const accept = remaining === Infinity ? list : list.slice(0, remaining);
+    const skipped = list.length - accept.length;
+
+    const added = [];
+    for (const url of accept) {
+      const isCover = existing === 0 && added.length === 0;  // first-ever image is the cover
+      const { rows } = await client.query(
+        'INSERT INTO event_images (event_id, url, position, is_cover) VALUES ($1,$2,$3,$4) RETURNING *',
+        [eventId, url, nextPos, isCover]);
+      added.push(rows[0]);
+      nextPos += 1;
+    }
+    await audit(client, 'event.images_added', eventId, userId, { added: added.length, skipped });
+    return { added, skipped, limit: cap };
+  });
+}
+
+/**
+ * Persist a new image order and cover selection. `orderedIds` must be image ids of this event;
+ * `coverId` (optional) sets the cover, otherwise the first item in the new order becomes cover.
+ */
+async function reorderImages(userId, eventId, orderedIds, coverId) {
+  if (!Array.isArray(orderedIds) || !orderedIds.length) {
+    throw svcErr(400, 'ORDER_REQUIRED', 'An ordered list of image ids is required.');
+  }
+  return withTransaction(async (client) => {
+    const ev = await loadOwnedEvent(client, eventId, userId);
+    if (!EDITABLE_STATES.has(ev.status)) {
+      throw svcErr(409, 'EVENT_NOT_EDITABLE', 'Images can only be changed on draft or rejected events.');
+    }
+    const { rows: imgs } = await client.query('SELECT id FROM event_images WHERE event_id=$1', [eventId]);
+    const owned = new Set(imgs.map((r) => r.id));
+    for (const idv of orderedIds) {
+      if (!owned.has(idv)) throw svcErr(400, 'INVALID_IMAGE', 'An image id does not belong to this event.');
+    }
+    for (let i = 0; i < orderedIds.length; i += 1) {
+      await client.query('UPDATE event_images SET position=$1 WHERE id=$2 AND event_id=$3', [i, orderedIds[i], eventId]);
+    }
+    const cover = coverId && owned.has(coverId) ? coverId : orderedIds[0];
+    await client.query('UPDATE event_images SET is_cover = (id = $1) WHERE event_id = $2', [cover, eventId]);
+    await audit(client, 'event.images_reordered', eventId, userId, { count: orderedIds.length, cover });
+    const { rows } = await client.query('SELECT * FROM event_images WHERE event_id=$1 ORDER BY position ASC', [eventId]);
+    return rows;
+  });
+}
+
+/** Public wrapper: the org's effective plan row (used by the portal to show the image allowance). */
+async function getPlanPublic(orgId) {
+  return getPlanForOrg(db, orgId);
 }
 
 // ── Admin moderation transitions (authorization enforced at the route via roleMiddleware) ──
@@ -252,9 +371,9 @@ async function assertCanFeature(orgId, client) {
 module.exports = {
   STATUSES, ACTIVE_STATES, EDITABLE_STATES,
   deriveOrganizerBadge,
-  getById, listForOrg, listImages, countActiveEvents,
+  getById, listForOrg, listImages, countActiveEvents, countListingsThisMonth,
   createDraft, updateDraft, submit, archiveByOwner,
-  addImage, removeImage,
+  addImage, addImagesBulk, reorderImages, removeImage, getPlanPublic,
   adminPublish, adminReject, adminReturnToDraft, adminArchive,
   assertCanFeature,
 };

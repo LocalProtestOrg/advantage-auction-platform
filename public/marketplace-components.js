@@ -30,6 +30,15 @@
     return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   }
 
+  function fmtEventDate(iso) {
+    if (!iso) return '';
+    return new Date(iso).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+  }
+
+  function prettify(s) {
+    return String(s || '').replace(/_/g, ' ').replace(/\b\w/g, function (m) { return m.toUpperCase(); });
+  }
+
   /* ── Predicates ──────────────────────────────────────────────────────── */
 
   function isEndingSoon(iso) {
@@ -152,6 +161,81 @@
     body.appendChild(meta);
     a.appendChild(body);
     return a;
+  }
+
+  /* ── Event card ──────────────────────────────────────────────────────── */
+
+  /**
+   * makeEventCard(event, opts)
+   * Renders a Marketplace Event through the SHARED .auction-card shell so events and auctions sit
+   * in one discovery grid with one visual language. Privacy-safe: shows only the general area
+   * (city/state), never a hidden street address. opts.featuredBadge forces the featured badge.
+   */
+  function makeEventCard(event, opts) {
+    opts = opts || {};
+    var base = opts.base || '';
+
+    var a = document.createElement('a');
+    a.className = 'auction-card';
+    a.href = base + '/event.html?slug=' + encodeURIComponent(event.slug || '');
+
+    /* image */
+    var imgDiv = document.createElement('div');
+    imgDiv.className = 'auction-card-img';
+    if (event.cover_image_url) {
+      imgDiv.style.backgroundImage = 'url(' + encodeURI(event.cover_image_url) + ')';
+    }
+
+    /* badges */
+    var badges = document.createElement('div');
+    badges.className = 'auction-badges';
+    if (opts.featuredBadge || event.is_featured) {
+      setElem(badges, 'span', 'auction-badge badge-featured', '⭐ Featured');
+    } else if (event.start_at) {
+      setElem(badges, 'span', 'auction-badge badge-upcoming', fmtEventDate(event.start_at));
+    }
+    imgDiv.appendChild(badges);
+
+    var typeLabel = prettify(event.event_type || event.category || '');
+    if (typeLabel) {
+      setElem(imgDiv, 'div', 'auction-card-type-tag', typeLabel);
+    }
+    a.appendChild(imgDiv);
+
+    /* body */
+    var body = document.createElement('div');
+    body.className = 'auction-card-body';
+
+    if (event.organization && event.organization.name) {
+      setElem(body, 'div', 'auction-card-seller', event.organization.name);
+    }
+    setElem(body, 'div', 'auction-card-title', event.title || 'Marketplace Event');
+    var area = [event.city, event.state].filter(Boolean).join(', ');
+    if (area) {
+      setElem(body, 'div', 'auction-card-location', area);
+    }
+
+    /* meta row — the sale date/range (events have no bidding) */
+    var meta = document.createElement('div');
+    meta.className = 'auction-card-meta';
+    setElem(meta, 'span', '', fmtEventDate(event.start_at) + (event.end_at ? ' – ' + fmtEventDate(event.end_at) : ''));
+    body.appendChild(meta);
+
+    a.appendChild(body);
+    return a;
+  }
+
+  /* ── Unified marketplace card (common framework entry point) ──────────── */
+
+  /**
+   * makeMarketplaceCard(item, opts)
+   * The single entry point for a unified discovery grid: dispatches to the type-specific renderer
+   * by `content_type`. Auctions remain the default so existing callers are unaffected; future
+   * Marketplace Listings register another branch here rather than a parallel grid.
+   */
+  function makeMarketplaceCard(item, opts) {
+    if (item && item.content_type === 'event') return makeEventCard(item, opts);
+    return makeAuctionCard(item, opts);
   }
 
   /* ── Lot card ────────────────────────────────────────────────────────── */
@@ -382,11 +466,15 @@
     fmtMoney:           fmtMoney,
     fmtCountdown:       fmtCountdown,
     fmtDate:            fmtDate,
+    fmtEventDate:       fmtEventDate,
+    prettify:           prettify,
     isEndingSoon:       isEndingSoon,
     isNew:              isNew,
     urgencyClass:       urgencyClass,
     setElem:            setElem,
     makeAuctionCard:    makeAuctionCard,
+    makeEventCard:      makeEventCard,
+    makeMarketplaceCard: makeMarketplaceCard,
     makeLotCard:        makeLotCard,
     loadDiscoveryRail:  loadDiscoveryRail,
     renderSkeletons:    renderSkeletons,

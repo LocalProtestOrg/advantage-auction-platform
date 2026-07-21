@@ -13,6 +13,7 @@ const express = require('express');
 const router = express.Router();
 const db = require('../db');
 const eventsService = require('../services/eventsService');
+const addressPrivacy = require('../services/eventAddressPrivacy');
 const { asyncRoute, svcErr } = require('../utils/apiError');
 
 const PUBLIC_CACHE = 's-maxage=60, stale-while-revalidate=30';
@@ -44,10 +45,18 @@ function clampInt(v, def, min, max) {
 }
 
 function serialize(r, images) {
+  // Address is gated by the Hide-Address-Until engine. `loc` never contains the precise internal
+  // coordinates, and omits the exact address + precise marker until the reveal fires (BD parity).
+  const loc = addressPrivacy.publicLocationView(r);
   return {
+    content_type: 'event', // shared-marketplace discriminator (auctions/events/future listings)
     id: r.id, slug: r.slug, title: r.title, description: r.description,
-    category: r.category_slug, market: r.market_slug,
-    venue_name: r.venue_name, city: r.city, state: r.state, zip: r.zip, lat: r.lat, lng: r.lng,
+    category: r.category_slug, market: r.market_slug, event_type: r.event_type || null,
+    venue_name: loc.venue_name, city: loc.city, state: loc.state, zip: loc.zip,
+    address: loc.address, lat: loc.lat, lng: loc.lng,
+    address_hidden: loc.address_hidden, address_reveal_at: loc.address_reveal_at,
+    reveal_notice: loc.reveal_notice,
+    contact_email: r.contact_email || undefined,
     start_at: r.start_at, end_at: r.end_at, timezone: r.timezone, external_url: r.external_url,
     is_featured: r.is_featured,
     organizer_badge: eventsService.deriveOrganizerBadge({ source: r.source }, { verification_status: r.org_verif }),
@@ -61,9 +70,10 @@ function serialize(r, images) {
   };
 }
 
-// GET /api/public/events?market=&category=&limit=&offset=
+// GET /api/public/events?market=&category=&event_type=&q=&city=&state=&limit=&offset=
+// Discovery parity with /api/public/auctions: text + city/state/type filters and tier-aware ranking.
 router.get('/events', asyncRoute(async (req, res) => {
-  const { market, category } = req.query;
+  const { market, category, event_type } = req.query;
   const params = []; const where = ["e.status = 'published'", '(e.end_at IS NULL OR e.end_at >= now())'];
   if (market) {
     const m = await db.query('SELECT 1 FROM event_markets WHERE slug = $1 AND is_active = true', [market]);
@@ -71,20 +81,44 @@ router.get('/events', asyncRoute(async (req, res) => {
     params.push(market); where.push(`e.market_slug = $${params.length}`);
   }
   if (category) { params.push(category); where.push(`e.category_slug = $${params.length}`); }
+  if (event_type) { params.push(event_type); where.push(`e.event_type = $${params.length}`); }
+  const q = (req.query.q || '').trim();
+  if (q) {
+    params.push('%' + q + '%');
+    where.push(`(e.title ILIKE $${params.length} OR e.description ILIKE $${params.length} OR e.city ILIKE $${params.length} OR e.venue_name ILIKE $${params.length})`);
+  }
+  const city = (req.query.city || '').trim();
+  if (city) { params.push('%' + city + '%'); where.push(`e.city ILIKE $${params.length}`); }
+  const state = (req.query.state || '').trim();
+  if (state) { params.push(state.toUpperCase()); where.push(`UPPER(e.state) = $${params.length}`); }
+  // Tenant scoping for company/organization widgets — filter by a STABLE organization UUID, never
+  // by name. An invalid id yields zero rows (never a cross-org leak), mirroring the auction widget.
+  const orgId = (req.query.organization_id || '').trim();
+  if (orgId) {
+    if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(orgId)) {
+      params.push(orgId); where.push(`e.organization_id = $${params.length}`);
+    } else {
+      where.push('false');
+    }
+  }
   const limit = clampInt(req.query.limit, 12, 1, 50);
   const offset = clampInt(req.query.offset, 0, 0, 10000);
   params.push(limit); const li = params.length;
   params.push(offset); const oi = params.length;
   const { rows } = await db.query(
-    `SELECT e.id, e.slug, e.title, e.description, e.category_slug, e.market_slug, e.venue_name, e.city, e.state, e.zip,
-            e.lat, e.lng, e.start_at, e.end_at, e.timezone, e.external_url, e.is_featured, e.source,
+    `SELECT e.id, e.slug, e.title, e.description, e.category_slug, e.market_slug, e.event_type, e.contact_email,
+            e.venue_name, e.address, e.city, e.state, e.zip, e.lat, e.lng,
+            e.address_privacy_mode, e.address_reveal_trigger, e.address_reveal_at, e.address_reveal_hours_before,
+            e.start_at, e.end_at, e.timezone, e.external_url, e.is_featured, e.source,
             e.attribution_source, e.attribution_url,
             o.name AS org_name, o.slug AS org_slug, o.logo_url AS org_logo, o.website_url AS org_website,
             o.verification_status AS org_verif,
             (SELECT url FROM event_images ei WHERE ei.event_id = e.id ORDER BY is_cover DESC, position ASC LIMIT 1) AS cover_url
-       FROM events e LEFT JOIN organizations o ON o.id = e.organization_id
+       FROM events e
+       LEFT JOIN organizations o ON o.id = e.organization_id
+       LEFT JOIN organization_plans p ON p.plan_tier = o.plan_tier
       WHERE ${where.join(' AND ')}
-      ORDER BY e.is_featured DESC, e.start_at ASC
+      ORDER BY e.is_featured DESC, COALESCE(p.search_placement_tier, 3) ASC, e.start_at ASC
       LIMIT $${li} OFFSET $${oi}`, params);
   res.set('Cache-Control', PUBLIC_CACHE);
   res.json({ success: true, data: rows.map((r) => serialize(r)) });

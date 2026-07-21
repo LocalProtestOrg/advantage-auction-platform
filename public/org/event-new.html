@@ -39,8 +39,22 @@
         <div><label>Market <span class="req">*</span></label><select id="market" required></select></div>
         <div><label>Category</label><select id="category"></select></div>
       </div>
+      <label>Event type</label>
+      <select id="eventType">
+        <option value="">Select a type…</option>
+        <option value="estate_sale">Estate Sale</option>
+        <option value="in_person_auction">In-Person Auction</option>
+        <option value="tag_sale">Tag Sale</option>
+        <option value="moving_sale">Moving Sale</option>
+        <option value="business_liquidation">Business Liquidation</option>
+        <option value="other">Other</option>
+      </select>
       <label>Description</label>
       <textarea id="description" maxlength="4000"></textarea>
+      <div class="row">
+        <div><label>Contact email</label><input id="contactEmail" type="email" maxlength="160" autocomplete="email" /></div>
+        <div><label>Contact phone</label><input id="contactPhone" maxlength="40" autocomplete="tel" /></div>
+      </div>
     </div>
 
     <div class="card">
@@ -68,6 +82,12 @@
         <div><label>ZIP</label><input id="zip" maxlength="12" /></div>
         <div><label>External link</label><input id="externalUrl" type="url" placeholder="https://…" /></div>
       </div>
+      <label>Address visibility</label>
+      <select id="addressPrivacy">
+        <option value="hidden_until">Hide exact address until 24 hours before the sale starts (recommended)</option>
+        <option value="exact">Show the full address publicly</option>
+      </select>
+      <p class="hint">The full address is published 24 hours before the start time; until then buyers see the city and ZIP.</p>
       <p class="hint">You’ll add photos on the next step, after the draft is created.</p>
     </div>
 
@@ -90,8 +110,9 @@
     sel.innerHTML = (placeholder ? '<option value="">' + placeholder + '</option>' : '')
       + rows.map(function (r) { return '<option value="' + ORG.esc(r.slug) + '">' + ORG.esc(r.name) + '</option>'; }).join('');
   }
-  // Prefill market from ?market= (BD deep link)
+  // Prefill market + event type from the query string (BD deep link)
   var qMarket = new URLSearchParams(location.search).get('market');
+  var qType = new URLSearchParams(location.search).get('type');
 
   Promise.all([
     ORG.api('GET', '/api/org/profile'),
@@ -103,6 +124,7 @@
     fill($('market'), (res[1].data || []), 'Select a market…');
     fill($('category'), (res[2].data || []), 'Select a category…');
     if (qMarket) $('market').value = qMarket;
+    if (qType) $('eventType').value = qType;
   }).catch(function (e) { showErr(e.message); });
 
   function showErr(t) { msg.className = 'msg err'; msg.textContent = t; window.scrollTo(0, 0); }
@@ -114,6 +136,9 @@
       title: $('title').value.trim(),
       marketSlug: $('market').value,
       categorySlug: $('category').value || null,
+      eventType: $('eventType').value || null,
+      contactEmail: $('contactEmail').value.trim() || null,
+      contactPhone: $('contactPhone').value.trim() || null,
       description: $('description').value.trim() || null,
       venueName: $('venueName').value.trim() || null,
       address: $('address').value.trim() || null,
@@ -124,6 +149,9 @@
       endAt: $('endAt').value || null,
       timezone: $('timezone').value,
       externalUrl: $('externalUrl').value.trim() || null,
+      addressPrivacyMode: $('addressPrivacy').value,
+      addressRevealTrigger: $('addressPrivacy').value === 'hidden_until' ? 'hours_before_start' : 'none',
+      addressRevealHoursBefore: $('addressPrivacy').value === 'hidden_until' ? 24 : null,
     };
     if (!hasOrg) {
       body.organization = { name: $('orgName').value.trim(), contactEmail: $('orgEmail').value.trim(), contactPhone: $('orgPhone').value.trim() };

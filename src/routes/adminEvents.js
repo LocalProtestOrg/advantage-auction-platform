@@ -14,6 +14,7 @@ const authMiddleware = require('../middleware/authMiddleware');
 const roleMiddleware = require('../middleware/roleMiddleware');
 const db = require('../db');
 const eventsService = require('../services/eventsService');
+const eventGeocodingService = require('../services/eventGeocodingService');
 const { asyncRoute, svcErr } = require('../utils/apiError');
 
 router.use(authMiddleware, roleMiddleware(['admin']));
@@ -73,7 +74,17 @@ router.get('/:id', asyncRoute(async (req, res) => {
 // POST /api/admin/events/:id/publish  — Approve & Publish
 router.post('/:id/publish', asyncRoute(async (req, res) => {
   const ev = await eventsService.adminPublish(req.user.id, req.params.id);
+  // Enrichment only — never blocks publish. Populates the two-tier privacy coordinates
+  // (public offset marker + precise internal point) for the map; degrades silently if the
+  // geocoder is unconfigured. The time-based address reveal works with or without a marker.
+  eventGeocodingService.geocodeEventSafe(ev.id).catch(() => {});
   res.json({ success: true, event: serializeAdminEvent(ev) });
+}));
+
+// POST /api/admin/events/:id/geocode  — admin manual re-geocode (force past a manual pin)
+router.post('/:id/geocode', asyncRoute(async (req, res) => {
+  const result = await eventGeocodingService.geocodeEventSafe(req.params.id, { force: true });
+  res.json({ success: true, result });
 }));
 
 // POST /api/admin/events/:id/reject  (reason required)

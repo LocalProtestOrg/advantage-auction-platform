@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="robots" content="noindex" />
+<title>Advantage Marketplace — BD Embed Preview</title>
+<style>
+  body{margin:0;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;color:#0B1B2B;background:#FBFAF7}
+  .page{max-width:1120px;margin:0 auto;padding:26px 18px 70px}
+  h1{font-size:24px;margin:0 0 4px}
+  .sub{color:#637488;margin:0 0 26px;font-size:14px}
+  section{background:#fff;border:1px solid #ECE8E0;border-radius:16px;padding:18px 18px 22px;margin:0 0 22px}
+  h2{font-size:17px;margin:0 0 4px}
+  .note{color:#637488;font-size:13px;margin:0 0 14px}
+  code{background:#f2f3f5;border-radius:5px;padding:1px 5px;font-size:12.5px}
+  .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:0 0 14px}
+  input{flex:1;min-width:240px;border:1px solid #dce3ea;border-radius:8px;padding:9px 11px;font-size:14px}
+  button{border:0;background:#0B1B2B;color:#fff;border-radius:8px;padding:9px 15px;font-weight:700;cursor:pointer}
+</style>
+</head>
+<body>
+<div class="page">
+  <h1>Advantage Marketplace — Brilliant Directories embed preview</h1>
+  <p class="sub">Local test fixture for each embed configuration. Serve this from <code>bid.advantage.bid/widgets/bd-embed-preview.html</code> so the public feeds are same-origin. Production BD snippets set <code>data-api-base="https://bid.advantage.bid"</code>.</p>
+
+  <!-- 1) Unified /all-events marketplace (auctions + events, one grid) -->
+  <section>
+    <h2>1 · Unified marketplace (BD <code>/all-events</code>)</h2>
+    <p class="note">Auctions + Marketplace Events in one grid via <code>marketplace-feed.js</code>.</p>
+    <div id="marketplace-feed"></div>
+  </section>
+
+  <!-- 2) City / market-scoped Events -->
+  <section>
+    <h2>2 · City / market-scoped Events</h2>
+    <p class="note">Events for one market via <code>events.js</code> + <code>data-market</code>.</p>
+    <div data-advantage-events data-market="houston" data-limit="8"></div>
+  </section>
+
+  <!-- 3) Organization / company-scoped Events -->
+  <section>
+    <h2>3 · Organization / company-scoped Events</h2>
+    <p class="note">Only one organization's events, filtered by a stable UUID. Paste a real organization id, or open this page with <code>?org=&lt;uuid&gt;</code>.</p>
+    <div class="row">
+      <input id="orgInput" placeholder="organization UUID (e.g. aa000000-0000-4000-8000-000000000201)" />
+      <button id="orgGo" type="button">Load</button>
+    </div>
+    <div id="orgHost"><div data-advantage-events data-organization-id="" data-limit="8"></div></div>
+  </section>
+</div>
+
+<script>
+  // Inject an organization id from ?org= BEFORE the widget script initializes (so the org-scoped
+  // demo works on load). The Load button re-mounts a fresh container for iterative testing.
+  (function () {
+    var org = new URLSearchParams(location.search).get('org') || '';
+    var host = document.getElementById('orgHost');
+    if (org) host.firstElementChild.setAttribute('data-organization-id', org);
+    document.getElementById('orgInput').value = org;
+    document.getElementById('orgGo').addEventListener('click', function () {
+      var id = document.getElementById('orgInput').value.trim();
+      host.innerHTML = '<div data-advantage-events data-organization-id="' + id.replace(/"/g, '') + '" data-limit="8"></div>';
+      // events.js only auto-inits matched containers once; nudge it for the freshly-inserted node.
+      if (window.__ADV_EVENTS_REINIT__) window.__ADV_EVENTS_REINIT__();
+      else location.search = '?org=' + encodeURIComponent(id);
+    });
+  })();
+</script>
+
+<!-- Shared Advantage widgets (identical to the production BD snippets, minus the absolute api base) -->
+<link rel="stylesheet" href="/marketplace.css" />
+<script src="/marketplace-components.js"></script>
+<script src="/widgets/marketplace-feed.js" data-api-base="" data-types="auctions,events" data-container="marketplace-feed"></script>
+<script async src="/widgets/events.js?v=1"></script>
+</body>
+</html>
