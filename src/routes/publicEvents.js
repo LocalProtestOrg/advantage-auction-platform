@@ -49,6 +49,7 @@ function serialize(r, images) {
   // coordinates, and omits the exact address + precise marker until the reveal fires (BD parity).
   const loc = addressPrivacy.publicLocationView(r);
   return {
+    content_type: 'event', // shared-marketplace discriminator (auctions/events/future listings)
     id: r.id, slug: r.slug, title: r.title, description: r.description,
     category: r.category_slug, market: r.market_slug, event_type: r.event_type || null,
     venue_name: loc.venue_name, city: loc.city, state: loc.state, zip: loc.zip,
@@ -69,9 +70,10 @@ function serialize(r, images) {
   };
 }
 
-// GET /api/public/events?market=&category=&limit=&offset=
+// GET /api/public/events?market=&category=&event_type=&q=&city=&state=&limit=&offset=
+// Discovery parity with /api/public/auctions: text + city/state/type filters and tier-aware ranking.
 router.get('/events', asyncRoute(async (req, res) => {
-  const { market, category } = req.query;
+  const { market, category, event_type } = req.query;
   const params = []; const where = ["e.status = 'published'", '(e.end_at IS NULL OR e.end_at >= now())'];
   if (market) {
     const m = await db.query('SELECT 1 FROM event_markets WHERE slug = $1 AND is_active = true', [market]);
@@ -79,6 +81,16 @@ router.get('/events', asyncRoute(async (req, res) => {
     params.push(market); where.push(`e.market_slug = $${params.length}`);
   }
   if (category) { params.push(category); where.push(`e.category_slug = $${params.length}`); }
+  if (event_type) { params.push(event_type); where.push(`e.event_type = $${params.length}`); }
+  const q = (req.query.q || '').trim();
+  if (q) {
+    params.push('%' + q + '%');
+    where.push(`(e.title ILIKE $${params.length} OR e.description ILIKE $${params.length} OR e.city ILIKE $${params.length} OR e.venue_name ILIKE $${params.length})`);
+  }
+  const city = (req.query.city || '').trim();
+  if (city) { params.push('%' + city + '%'); where.push(`e.city ILIKE $${params.length}`); }
+  const state = (req.query.state || '').trim();
+  if (state) { params.push(state.toUpperCase()); where.push(`UPPER(e.state) = $${params.length}`); }
   const limit = clampInt(req.query.limit, 12, 1, 50);
   const offset = clampInt(req.query.offset, 0, 0, 10000);
   params.push(limit); const li = params.length;
@@ -92,9 +104,11 @@ router.get('/events', asyncRoute(async (req, res) => {
             o.name AS org_name, o.slug AS org_slug, o.logo_url AS org_logo, o.website_url AS org_website,
             o.verification_status AS org_verif,
             (SELECT url FROM event_images ei WHERE ei.event_id = e.id ORDER BY is_cover DESC, position ASC LIMIT 1) AS cover_url
-       FROM events e LEFT JOIN organizations o ON o.id = e.organization_id
+       FROM events e
+       LEFT JOIN organizations o ON o.id = e.organization_id
+       LEFT JOIN organization_plans p ON p.plan_tier = o.plan_tier
       WHERE ${where.join(' AND ')}
-      ORDER BY e.is_featured DESC, e.start_at ASC
+      ORDER BY e.is_featured DESC, COALESCE(p.search_placement_tier, 3) ASC, e.start_at ASC
       LIMIT $${li} OFFSET $${oi}`, params);
   res.set('Cache-Control', PUBLIC_CACHE);
   res.json({ success: true, data: rows.map((r) => serialize(r)) });
