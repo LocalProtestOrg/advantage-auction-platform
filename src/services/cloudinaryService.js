@@ -1,11 +1,10 @@
 'use strict';
 
-// TODO signed uploads: generate signed upload params server-side and let browser upload directly
-// TODO direct browser uploads: expose a /api/uploads/signature endpoint for client-side SDK use
-// TODO Cloudinary AI transforms: apply generative fill, background removal via Cloudinary AI URLs
-// TODO WebP optimization: append f_auto,q_auto to delivery URLs for automatic format + quality
-// TODO thumbnail generation: derive thumbnail URL via c_fill,w_300,h_300 transformation
-// TODO CDN optimization: use Cloudinary fetch URLs to proxy and optimize third-party images
+// Signed + direct browser uploads: DONE — see src/services/mediaUploadService.js (signUpload below)
+//   and POST /api/uploads/signature. WebP + thumbnail optimization is applied at delivery-URL time
+//   by the shared widgets (q_auto,f_auto,c_fill…), e.g. public/widgets/shared/gallery.js.
+// Still future (NOT part of Marketplace Events): Cloudinary AI transforms (generative fill /
+//   background removal) and CDN fetch-URL proxying of third-party images.
 
 const { v2: cloudinary } = require('cloudinary');
 

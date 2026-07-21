@@ -1,12 +1,16 @@
 # Marketplace Events — Review Checkpoint (Increments 2–9)
 
-**Branch:** `feat/marketplace-events` — 8 commits off `main` @ `f2fc250`. **Local only; not pushed,
-not deployed, no PR.** 35 files changed (+3,497 / −90). One additive migration. Test suite:
-**702 passed / 0 failed** (10 DB-backed suites skip outside their scratch branch).
+**Phase status: ✅ COMPLETE — owner-accepted 2026-07-20. PR #83 open, ready for merge. No further
+Marketplace Events development in this phase (Increment 10 deferred — see §Deferred).**
 
-**Status:** feature-complete for the public product surface, but **inert in production until** (a)
-migration 093 is applied, (b) organizations are assigned membership tiers, and (c) the owner embeds
-the BD snippets. No auction / bid / payment / settlement code was touched.
+**Branch:** `feat/marketplace-events` — pushed to **PR #83** (base `main` @ `f2fc250`). One additive
+migration (093). Test suite: **715 passed / 0 failed** (10 DB-backed suites skip outside their scratch
+branch). Includes Increments 2–9 plus two accepted follow-ups (admin tier-assignment endpoint + UI,
+and sitemap events).
+
+**Deployment status:** **inert in production until** (a) migration 093 is applied, (b) organizations
+are assigned membership tiers (via `/admin/memberships.html`), and (c) the owner embeds the BD
+snippets. No auction / bid / payment / settlement code was touched.
 
 ---
 
