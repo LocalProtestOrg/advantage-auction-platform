@@ -13,6 +13,7 @@
 const crypto = require('crypto');
 const db = require('../db');
 const { sendEmail } = require('./emailService');
+const { resolveUserContactEmail } = require('./recipientService');
 
 const VERIFY_TTL_MINUTES = parseInt(process.env.EMAIL_VERIFY_TTL_MINUTES || '10080', 10); // 7 days
 
@@ -69,7 +70,10 @@ async function sendWelcome(userId, email, { baseUrl } = {}) {
     const base = String(baseUrl || process.env.PUBLIC_APP_URL || 'https://bid.advantage.bid').replace(/\/+$/, '');
     const link = `${base}/api/auth/verify-email?token=${rawToken}`;
     const { subject, html, text } = buildWelcomeEmail(link);
-    await sendEmail({ to: email, subject, html, text });
+    // Route through the central resolver so a bridge account (namespaced users.email) would receive
+    // at its real contact_email; native registrations resolve to the same typed address as before.
+    const to = (await resolveUserContactEmail(userId)) || email;
+    await sendEmail({ to, subject, html, text });
     return { ok: true };
   } catch (err) {
     console.error('[emailVerification] welcome send failed:', err.message);

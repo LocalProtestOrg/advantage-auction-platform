@@ -14,6 +14,7 @@
 require('dotenv').config();
 const Sentry         = require('@sentry/node');
 const db             = require('../db/index');
+const { recipientEmailSql } = require('../services/recipientService');
 const { sendEmail }  = require('../services/emailService');
 const { sendSMS }    = require('../services/smsService');
 const auctionService = require('../services/auctionService');
@@ -41,7 +42,7 @@ const LEASE_TIMEOUT_SEC = 120;   // release a stuck 'processing' lease after a c
 // If no preferences row exists, email defaults to true; SMS defaults to false.
 async function getUserDeliveryInfo(userId) {
   const res = await db.query(
-    `SELECT u.email,
+    `SELECT ${recipientEmailSql('u')} AS email,
             COALESCE(np.email_enabled,  true)  AS email_enabled,
             COALESCE(np.sms_enabled,    false) AS sms_enabled,
             COALESCE(np.sms_consent,    false) AS sms_consent,

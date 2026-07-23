@@ -4,9 +4,11 @@
  * bridgeCodeService — short-lived, single-use, HASHED opaque handoff codes + validation helpers.
  *
  * The raw code is a 256-bit random value returned once to the caller and NEVER stored (only its
- * sha256 is persisted). Redemption is ATOMIC single-use at the DB level, so replay and races cannot
- * yield a second success. Destinations are an allowlist of route KEYS → internal paths (never a URL
- * supplied by the browser/BD), which prevents open-redirects.
+ * sha256 is persisted). It also carries the authenticated identity CLAIMS (email/name) captured at
+ * the server-to-server exchange, so the browser never sees them. Redemption is claimed atomically
+ * together with identity provisioning in bridgeIdentityService.redeemAndProvision (one transaction,
+ * rollback-safe: a provisioning failure does NOT burn the code). Destinations are an allowlist of
+ * route KEYS → internal paths (never a URL supplied by the browser/BD), preventing open-redirects.
  */
 
 const crypto = require('crypto');
@@ -26,8 +28,13 @@ function resolveDest(key) {
   return Object.prototype.hasOwnProperty.call(ALLOWED_DEST, key) ? ALLOWED_DEST[key] : ALLOWED_DEST.dashboard;
 }
 function isDest(key) { return Object.prototype.hasOwnProperty.call(ALLOWED_DEST, key); }
+
 function normalizeMemberId(v) { return String(v == null ? '' : v).trim(); }
 function isMemberId(v) { return /^[0-9]{1,12}$/.test(v); }
+function normalizeName(v) { return String(v == null ? '' : v).trim().slice(0, 100); }
+function normalizeEmail(v) { return String(v == null ? '' : v).trim().toLowerCase(); }
+function isEmail(v) { return typeof v === 'string' && v.length <= 254 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v); }
+
 function sha256(s) { return crypto.createHash('sha256').update(String(s)).digest('hex'); }
 
 function safeEqual(a, b) {
@@ -37,26 +44,22 @@ function safeEqual(a, b) {
   return crypto.timingSafeEqual(ba, bb);
 }
 
-async function mint(bdUserId, dest) {
+// Mint an opaque code and persist its hash + the authenticated identity claims. claims = { email,
+// firstName, lastName } — captured server-side at exchange; the browser only ever receives `raw`.
+async function mint(bdUserId, dest, claims) {
   const raw = crypto.randomBytes(32).toString('base64url'); // 256-bit opaque; carries no identity
   const expiresAt = new Date(Date.now() + TTL_MS);
+  const c = claims || {};
   await db.query(
-    'INSERT INTO bd_login_codes (code_hash, bd_user_id, dest, expires_at) VALUES ($1,$2,$3,$4)',
-    [sha256(raw), String(bdUserId), String(dest), expiresAt]);
+    `INSERT INTO bd_login_codes
+       (code_hash, bd_user_id, dest, expires_at, provider_email, provider_first_name, provider_last_name)
+     VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+    [sha256(raw), String(bdUserId), String(dest), expiresAt, c.email || null, c.firstName || null, c.lastName || null]);
   return raw;
 }
 
-async function redeem(rawCode) {
-  // Atomic single-use: claim ONLY an unused, unexpired row. Anything else (unknown/expired/replayed)
-  // returns no row → no identity, no session.
-  const { rows } = await db.query(
-    `UPDATE bd_login_codes SET used_at = now()
-      WHERE code_hash = $1 AND used_at IS NULL AND expires_at > now()
-      RETURNING bd_user_id, dest`,
-    [sha256(String(rawCode == null ? '' : rawCode))]);
-  return rows[0] || null;
-}
-
 module.exports = {
-  TTL_MS, ALLOWED_DEST, resolveDest, isDest, normalizeMemberId, isMemberId, sha256, safeEqual, mint, redeem,
+  TTL_MS, ALLOWED_DEST, resolveDest, isDest,
+  normalizeMemberId, isMemberId, normalizeName, normalizeEmail, isEmail,
+  sha256, safeEqual, mint,
 };

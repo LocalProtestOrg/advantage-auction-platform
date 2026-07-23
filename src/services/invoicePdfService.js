@@ -16,6 +16,7 @@
 
 const db = require('../db');
 const doc = require('./documentService');
+const { recipientEmailSql } = require('./recipientService');
 
 // One invoice == one lot in the current per-lot payment model. The lot table is
 // written to iterate an array so consolidated multi-lot invoices later need no
@@ -40,7 +41,7 @@ async function getInvoiceData(invoiceId) {
             l.lot_number,
             l.title           AS lot_title,
             a.title           AS auction_title,
-            u.email           AS buyer_email,
+            ${recipientEmailSql('u')} AS buyer_email,
             u.full_name       AS buyer_name,
             p.status          AS payment_status,
             p.charged_at      AS payment_date,
@@ -248,7 +249,7 @@ async function getCombinedInvoiceData(combinedInvoiceId) {
             b.paid_at,
             b.payment_id,
             a.title      AS auction_title,
-            u.email      AS buyer_email,
+            ${recipientEmailSql('u')} AS buyer_email,
             u.full_name  AS buyer_name,
             p.status     AS payment_status,
             p.charged_at AS payment_date

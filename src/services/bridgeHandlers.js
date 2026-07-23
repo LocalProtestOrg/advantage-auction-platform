@@ -11,7 +11,10 @@
  */
 
 const crypto = require('crypto');
-const { safeEqual, normalizeMemberId, isMemberId, isDest, resolveDest } = require('./bridgeCodeService');
+const {
+  safeEqual, normalizeMemberId, isMemberId, isDest, resolveDest,
+  normalizeEmail, isEmail, normalizeName,
+} = require('./bridgeCodeService');
 
 // ── Server-to-server issuance (BD → app), authenticated by the shared secret ──
 async function handleExchange(input, ctx) {
@@ -28,7 +31,14 @@ async function handleExchange(input, ctx) {
   if (!isMemberId(memberId)) return { status: 400, json: { ok: false, error: 'member id must be numeric' } };
   if (!isDest(dest)) return { status: 400, json: { ok: false, error: 'destination not allowlisted' } };
 
-  const code = await ctx.mintCode(memberId, dest);
+  // A real, deliverable member email is REQUIRED so a bridge account is never created without a real
+  // inbox (its namespaced users.email is undeliverable). Trusted because it arrives only on the
+  // secret-authenticated server-to-server request — never from the browser.
+  const email = normalizeEmail(body.email);
+  if (!isEmail(email)) return { status: 400, json: { ok: false, error: 'valid member email required' } };
+  const claims = { email, firstName: normalizeName(body.first_name), lastName: normalizeName(body.last_name) };
+
+  const code = await ctx.mintCode(memberId, dest, claims);
   // Browser-facing value: ONLY the opaque code.
   return { status: 200, json: { ok: true, redirect_url: ctx.publicAppUrl + '/auth/bd/return?code=' + encodeURIComponent(code) } };
 }
@@ -67,13 +77,13 @@ const ERROR_HEADERS = Object.assign({ 'Content-Type': 'text/html; charset=utf-8'
 // ── Browser redemption → transparent seed ──
 async function handleReturn(input, ctx) {
   const code = (input && input.query && input.query.code) || '';
-  const redeemed = await ctx.redeemCode(code); // { bd_user_id, dest } or null (atomic single-use)
-  if (!redeemed) {
+  // Atomic redeem + provision (single-use claim and identity provisioning share one transaction).
+  const result = await ctx.redeemAndProvision(code); // { dest, userId, role } or null
+  if (!result) {
     return { status: 400, headers: ERROR_HEADERS, html: errorPage() }; // failed/expired/replayed/unknown → NO JWT
   }
-  const identity = await ctx.linkOrCreate(redeemed.bd_user_id); // { userId, role } — buyer for a new member
-  const jwt = ctx.signJwt({ id: identity.userId, role: identity.role }); // SAME login JWT, same claims
-  const seed = ctx.buildSeed(jwt, resolveDest(redeemed.dest));
+  const jwt = ctx.signJwt({ id: result.userId, role: result.role }); // SAME login JWT, same claims
+  const seed = ctx.buildSeed(jwt, resolveDest(result.dest));
   return { status: 200, headers: seed.headers, html: seed.html };
 }
 
