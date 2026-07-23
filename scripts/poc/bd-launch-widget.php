@@ -22,7 +22,7 @@ if ($member_id === '' || !ctype_digit($member_id)) {
 
     $redirect_url = '';
     if (function_exists('curl_init')) {
-        $ch = curl_init($poc_host . '/auth/bd/exchange');
+        $ch = curl_init($poc_host . '/api/auth/bd/exchange');
         curl_setopt_array($ch, array(
             CURLOPT_POST => true,
             CURLOPT_RETURNTRANSFER => true,

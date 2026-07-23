@@ -32,6 +32,20 @@ router.post('/api/auth/bd/exchange', express.json({ limit: '8kb' }), limiter, as
       { bridgeKeyHeader: req.get('X-Bridge-Key'), body: req.body },
       { secret: bridgeSecret(), publicAppUrl: publicAppUrl(), mintCode: codeService.mint }
     );
+    // TEMP NON-PRODUCTION DIAGNOSTIC — remove before any production rollout. On a rejection only,
+    // log the SHAPE of both secrets (defined?, length, equality) and a truncated SHA-256 fingerprint
+    // of each. A truncated hash is non-reversible, so the secret itself is never exposed.
+    if (out.status !== 200) {
+      const crypto = require('crypto');
+      const envSecret = process.env.BD_BRIDGE_SECRET || '';
+      const hdr = req.get('X-Bridge-Key') || '';
+      const fp = (s) => (s ? crypto.createHash('sha256').update(s).digest('hex').slice(0, 8) : 'none');
+      console.log(
+        '[identity-bridge][DEBUG] env_defined=%s env_len=%d hdr_present=%s hdr_len=%d equal=%s env_fp=%s hdr_fp=%s',
+        Boolean(process.env.BD_BRIDGE_SECRET), envSecret.length,
+        Boolean(req.get('X-Bridge-Key')), hdr.length, envSecret === hdr, fp(envSecret), fp(hdr)
+      );
+    }
     console.log('[identity-bridge] exchange:', out.status === 200 ? 'issued' : ('rejected — ' + (out.json && out.json.error)));
     return res.status(out.status).json(out.json);
   } catch (e) {
