@@ -64,7 +64,10 @@ router.get('/auth/bd/return', limiter, async (req, res) => {
     console.log('[identity-bridge] return:', out.status === 200 ? 'seeded (identity verified)' : 'rejected');
     return res.set(out.headers).status(out.status).send(out.html);
   } catch (e) {
-    console.error('[identity-bridge] return error');
+    // TEMP NON-PRODUCTION DIAGNOSTIC — surface the real rejection reason (pg code + message) so a
+    // redeem-succeeds-but-linkOrCreate-fails case is not masked by the generic error page. The code
+    // itself is never logged. Remove/trim before production.
+    console.error('[identity-bridge] return error:', (e && e.code) ? ('[' + e.code + '] ') : '', (e && e.message) ? e.message : e);
     return res.set(handlers.ERROR_HEADERS).status(500).send(handlers.errorPage());
   }
 });

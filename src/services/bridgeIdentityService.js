@@ -9,6 +9,8 @@
  *  - NEVER merges accounts on email; NEVER infers organization ownership (orgs stay unclaimed).
  */
 
+const crypto = require('crypto');
+const bcrypt = require('bcrypt');
 const db = require('../db');
 const { withTransaction } = require('../utils/withTransaction');
 
@@ -45,11 +47,15 @@ async function linkOrCreate(bdUserId, opts) {
     // NON-PRODUCTION placeholder email: guarantees a NEW account and never links to an existing one
     // by email. The production bridge uses the verified BD email + an email-verification confirmation.
     const email = (opts && opts.email) || ('bd-' + id + '@bridge.invalid');
+    // Bridge accounts never authenticate by password. Satisfy the required password_hash column with a
+    // valid bcrypt hash of random bytes — a password nobody holds — so bcrypt.compare can never match.
+    const unusablePassword = crypto.randomBytes(32).toString('base64');
+    const passwordHash = await bcrypt.hash(unusablePassword, 10);
     const ins = await client.query(
-      `INSERT INTO users (email, role, is_active, auth_source, email_verified)
-       VALUES ($1, 'buyer', true, 'bd_bridge', false)
+      `INSERT INTO users (email, password_hash, role, is_active, auth_source, email_verified)
+       VALUES ($1, $2, 'buyer', true, 'bd_bridge', false)
        RETURNING id, role`,
-      [email]);
+      [email, passwordHash]);
     const user = ins.rows[0];
     await client.query(
       `INSERT INTO external_identities (user_id, provider, provider_subject, linked_at, last_verified_at)
