@@ -320,6 +320,13 @@ if (process.env.NODE_ENV !== 'production') {
 
 // ── Production route mounts ───────────────────────────────────────────────────
 app.use('/api/auth', authRoutes);
+
+// BD → Advantage.Bid identity bridge (Option B). NON-PRODUCTION + flag-gated: mounts NOTHING unless
+// IDENTITY_BRIDGE_ENABLED === 'true', so production authentication is unaffected by default.
+if (require('./src/lib/bridgeConfig').bridgeEnabled()) {
+  app.use(require('./src/routes/authBridge'));
+  console.log('[identity-bridge] ENABLED (non-production feature flag on)');
+}
 app.use('/api/auctions', auctionRoutes);
 app.use('/api/payments', paymentRoutes);
 app.use('/api/admin/agreements', adminAgreementsRoutes);
