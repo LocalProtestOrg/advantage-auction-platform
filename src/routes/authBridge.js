@@ -56,6 +56,7 @@ router.post('/api/auth/bd/exchange', express.json({ limit: '8kb' }), limiter, as
 
 // Browser lands with ONLY the opaque code → transparent seed page (JWT in the inline script only).
 router.get('/auth/bd/return', limiter, async (req, res) => {
+  console.log('[identity-bridge] return route entered'); // TEMP non-prod: unconditional; no code value logged
   try {
     const out = await handlers.handleReturn(
       { query: req.query },

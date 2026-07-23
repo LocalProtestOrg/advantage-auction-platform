@@ -52,8 +52,8 @@ async function linkOrCreate(bdUserId, opts) {
     const unusablePassword = crypto.randomBytes(32).toString('base64');
     const passwordHash = await bcrypt.hash(unusablePassword, 10);
     const ins = await client.query(
-      `INSERT INTO users (email, password_hash, role, is_active, auth_source, email_verified)
-       VALUES ($1, $2, 'buyer', true, 'bd_bridge', false)
+      `INSERT INTO users (email, password_hash, role, auth_source)
+       VALUES ($1, $2, 'buyer', 'bd_bridge')
        RETURNING id, role`,
       [email, passwordHash]);
     const user = ins.rows[0];
