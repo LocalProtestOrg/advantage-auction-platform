@@ -108,23 +108,17 @@
   }
   function homeBody() {
     var u = state.user;
-    if (u.role !== 'admin' && !state.isSeller) {
-      var sk = '';
-      for (var i = 0; i < 4; i++) sk += '<div class="adv-card"><div class="adv-skeleton" style="width:44%"></div>' +
-        '<div class="adv-skeleton" style="height:26px;width:52%;margin-top:12px"></div></div>';
-      return greetingHtml('Loading your latest activity…') + '<div id="adv-home-live"><div class="adv-grid">' + sk + '</div></div>';
-    }
-    var cards, note;
     if (u.role === 'admin') {
-      cards = [statCard('🟢', 'Live auctions'), statCard('🕒', 'Ending soon'), statCard('✅', 'Awaiting approval'),
+      var cards = [statCard('🟢', 'Live auctions'), statCard('🕒', 'Ending soon'), statCard('✅', 'Awaiting approval'),
                statCard('🧾', 'Invoice issues'), statCard('💳', 'Stripe mode'), statCard('📡', 'Sync health')];
-      note = 'Your administrator command center. Live operational tiles arrive in Phase 6.';
-    } else {
-      cards = [statCard('🟢', 'Active auctions'), statCard('✏️', 'Drafts'), statCard('🔨', 'Bids today'),
-               statCard('🧾', 'Unpaid invoices'), statCard('📦', 'Pickups'), statCard('💰', 'Gross sales')];
-      note = 'Your seller command center. Live metrics and quick actions arrive in Phase 4.';
+      return greetingHtml('Your administrator command center. Live operational tiles arrive in Phase 6.') +
+        '<div class="adv-grid">' + cards.join('') + '</div>';
     }
-    return greetingHtml(note) + '<div class="adv-grid">' + cards.join('') + '</div>';
+    var sk = '';
+    for (var i = 0; i < 4; i++) sk += '<div class="adv-card"><div class="adv-skeleton" style="width:44%"></div>' +
+      '<div class="adv-skeleton" style="height:26px;width:52%;margin-top:12px"></div></div>';
+    return greetingHtml(state.isSeller ? 'Loading your business…' : 'Loading your latest activity…') +
+      '<div id="adv-home-live"><div class="adv-grid">' + sk + '</div></div>';
   }
 
   // ---- Buyer Home — live data (Phase 3), attention-first ----
@@ -226,6 +220,87 @@
       '<a class="adv-btn ghost" href="#sellers">🏪 Following (' + follow.length + ')</a></div>';
 
     host.innerHTML = chips + attnCard + endCard + actions;
+  }
+
+  // ================= SELLER HOME (Phase 4) — the Seller Command Center =================
+  function metricCard(emoji, value, label) {
+    return '<div class="adv-card adv-stat"><div class="adv-stat-top"><span class="adv-stat-emoji">' + emoji + '</span></div>' +
+      '<div class="adv-stat-num">' + esc(String(value)) + '</div><div class="adv-stat-label">' + esc(label) + '</div></div>'; }
+  function stateLabel(s) { var m = { draft: 'Draft', submitted: 'Submitted for review', under_review: 'Under review',
+    published: 'Published', active: 'Live now', closed: 'Closed', rejected: 'Needs changes' }; return m[s] || s; }
+  function relTime(iso) { if (!iso) return ''; var ms = Date.now() - new Date(iso).getTime(); if (ms < 0) return 'just now';
+    var m = Math.floor(ms / 60000), h = Math.floor(m / 60), d = Math.floor(h / 24);
+    if (d >= 1) return d + 'd ago'; if (h >= 1) return h + 'h ago'; if (m >= 1) return m + 'm ago'; return 'just now'; }
+  function sEdit(id, label) { return '<a class="adv-btn primary" style="flex:none;padding:7px 13px" href="/seller-create.html?id=' + encodeURIComponent(id) + '">' + esc(label) + '</a>'; }
+  function sView(id, label) { return '<a class="adv-btn ghost" style="flex:none;padding:7px 13px" href="/auction-view.html?id=' + encodeURIComponent(id) + '">' + esc(label) + '</a>'; }
+
+  async function loadSellerHome() {
+    var host = document.getElementById('adv-home-live'); if (!host) return;
+    var r = await Promise.all([
+      apiGet('/api/sellers/me/dashboard').catch(function () { return { ok: false }; }),
+      apiGet('/api/seller/settlements/me').catch(function () { return { ok: false }; })
+    ]);
+    if (state.route !== 'home') return;
+    var setStatus = function (t) { var s = document.getElementById('adv-home-status'); if (s) s.textContent = t; };
+    if (r[0].status === 403) { // seller agreement not yet signed
+      host.innerHTML = emptyCard('📝', 'Complete your seller agreement',
+        'Sign your Advantage seller agreement to open your dashboard and start listing.', '<a class="adv-btn primary" href="/sign-agreement.html">Review &amp; sign</a>');
+      setStatus('One quick step to get started.'); return;
+    }
+    var d = (r[0].ok && r[0].body && r[0].body.data) || { summary: {}, auctions: [] };
+    var auctions = d.auctions || [], sum = d.summary || {};
+    var fin = (r[1].ok && r[1].body && r[1].body.data) || null;
+    if (!auctions.length) {
+      host.innerHTML = emptyCard('🚀', 'Welcome to your Seller Command Center',
+        "List your first auction and start receiving bids — we'll guide you through it.", '<a class="adv-btn primary" href="/seller-create.html">Create your first auction</a>');
+      setStatus("Let's get your first auction live."); return;
+    }
+
+    var drafts = auctions.filter(function (a) { return a.state === 'draft' && !a.revision_note; });
+    var rejected = auctions.filter(function (a) { return a.state === 'rejected'; });
+    var revision = auctions.filter(function (a) { return a.revision_note && a.state === 'draft'; });
+    var live = auctions.filter(function (a) { return a.state === 'published' || a.state === 'active'; });
+    var ending = live.filter(function (a) { var ms = a.end_time ? new Date(a.end_time) - Date.now() : null; return ms != null && ms > 0 && ms < 48 * 3600 * 1000; });
+
+    var attn = '';
+    rejected.slice(0, 3).forEach(function (a) { attn += attnRow('⚠️', 'bad', 'Needs changes — ' + (a.title || 'Auction'), a.rejection_reason || 'Advantage requested changes', sEdit(a.id, 'Revise')); });
+    revision.slice(0, 3).forEach(function (a) { attn += attnRow('✏️', 'warn', 'Revision requested — ' + (a.title || 'Auction'), a.revision_note || 'Please update and resubmit', sEdit(a.id, 'Edit')); });
+    drafts.slice(0, 3).forEach(function (a) { attn += attnRow('📝', 'info', 'Finish your draft — ' + (a.title || 'Untitled auction'), 'Complete and submit for review', sEdit(a.id, 'Continue')); });
+    ending.slice(0, 3).forEach(function (a) { attn += attnRow('⏳', 'warn', 'Ending soon — ' + (a.title || 'Auction'), 'Ends ' + timeLeft(a.end_time), sView(a.id, 'View')); });
+    var attnCard = attn
+      ? '<div class="adv-card"><div style="font-weight:800;font-size:14px">Needs your attention</div>' + attn + '</div>'
+      : '<div class="adv-card"><div class="adv-empty" style="padding:22px"><span class="emoji">✅</span><h3>Everything\'s running smoothly</h3><p>No auctions need action right now.</p></div></div>';
+
+    var bits = [];
+    if (rejected.length) bits.push(rejected.length + ' needing changes');
+    if (drafts.length) bits.push(drafts.length + ' draft' + (drafts.length > 1 ? 's' : ''));
+    if (ending.length) bits.push(ending.length + ' ending soon');
+    setStatus(bits.length ? ('You have ' + bits.join(' · ') + '.') : (live.length + ' auction' + (live.length === 1 ? '' : 's') + ' live. All running smoothly.'));
+
+    var biz = '<div class="adv-section-title">Business today</div><div class="adv-grid" style="margin:0 0 4px">' +
+      statLink('/dashboard/seller.html', '🟢', live.length, 'Active auctions', live.length ? 'good' : null, 'live') +
+      statLink('/dashboard/seller.html', '📝', drafts.length, 'Drafts', drafts.length ? 'warn' : null, 'finish') +
+      metricCard('👀', sum.total_watchlist_adds || 0, 'Watchers') +
+      metricCard('🙋', sum.total_bidder_conversions || 0, 'Bidders') +
+      (fin ? metricCard('💰', money((fin.summary && fin.summary.lifetime_gross_cents) || 0), 'Gross sales') : '') +
+      (fin ? statLink('/seller-settlements.html', '🏦', (fin.summary && fin.summary.pending_settlements) || 0, 'Pending payouts', (fin.summary && fin.summary.pending_settlements > 0) ? 'info' : null, 'view') : '') +
+      '</div>';
+
+    var actions = '<div class="adv-section-title">Quick actions</div><div class="adv-row adv-wrap">' +
+      '<a class="adv-btn primary" href="/seller-create.html">➕ Create auction</a>' +
+      '<a class="adv-btn ghost" href="/dashboard/seller.html">🗂️ Manage auctions</a>' +
+      '<a class="adv-btn ghost" href="/dashboard/seller.html">📝 Drafts</a>' +
+      '<a class="adv-btn ghost" href="/seller-settlements.html">💰 Settlements</a></div>';
+
+    var acts = auctions.slice(0, 6).map(function (a) {
+      var editable = a.state === 'draft' || a.state === 'rejected';
+      return '<div class="adv-row" style="justify-content:space-between;gap:10px;padding:10px 0;border-top:1px solid var(--line)">' +
+        '<div style="min-width:0"><div style="font-weight:600;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + esc(a.title || 'Untitled auction') + '</div>' +
+        '<div class="adv-muted" style="font-size:11.5px">' + esc(stateLabel(a.state)) + ' · ' + relTime(a.created_at) + '</div></div>' +
+        (editable ? sEdit(a.id, 'Edit') : sView(a.id, 'View')) + '</div>'; }).join('');
+    var activityCard = '<div class="adv-section-title">Recent activity</div><div class="adv-card">' + acts + '</div>';
+
+    host.innerHTML = attnCard + biz + actions + activityCard;
   }
 
   // ---- shared section helpers ----
@@ -478,7 +553,9 @@
     state.route = item;
     stopTicker();
     var main = document.getElementById('adv-main'); if (main) main.innerHTML = sectionBody(item);
-    if (item === 'home' && document.getElementById('adv-home-live')) loadBuyerHome();
+    if (item === 'home' && document.getElementById('adv-home-live')) {
+      if (state.isSeller && state.user.role !== 'admin') loadSellerHome(); else loadBuyerHome();
+    }
     if (document.getElementById('adv-sec-live')) {
       if (item === 'watchlist') loadWatchlist();
       else if (item === 'purchases') loadPurchases();

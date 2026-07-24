@@ -160,3 +160,31 @@ describe('buyer sections wired on existing APIs (Watchlist / Purchases / Sellers
     expect(src).not.toMatch(/bd\/exchange|bd\/return|BD_BRIDGE/); // never touches the bridge
   });
 });
+
+describe('Seller Command Center (Phase 4) — real data only', () => {
+  const src = read('public', 'widgets', 'shared', 'member-shell.js');
+  test('loads the seller dashboard + settlements reads', () => {
+    expect(src).toContain('/api/sellers/me/dashboard');
+    expect(src).toContain('/api/seller/settlements/me');
+  });
+  test('handles the seller-agreement gate (403 → sign)', () => {
+    expect(src).toMatch(/status\s*===\s*403/);
+    expect(src).toContain('/sign-agreement.html');
+  });
+  test('quick actions deep-link to the working seller pages', () => {
+    expect(src).toContain('/seller-create.html');
+    expect(src).toContain('/dashboard/seller.html');
+    expect(src).toContain('/seller-settlements.html');
+  });
+  test('surfaces only supported metrics (no fabricated "bids today" / "lots sold")', () => {
+    expect(src).toContain('Active auctions');
+    expect(src).toContain('Watchers');
+    expect(src).toContain('Bidders');
+    expect(src).toContain('Gross sales');
+    expect(src).not.toContain('Bids today');
+    expect(src).not.toContain('Lots sold');
+  });
+  test('Home routes sellers to the seller command center', () => {
+    expect(src).toMatch(/state\.isSeller\s*&&\s*state\.user\.role\s*!==\s*'admin'\)\s*loadSellerHome/);
+  });
+});
