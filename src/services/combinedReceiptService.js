@@ -93,16 +93,18 @@ async function assembleEmailData(combinedInvoiceId, pdfData) {
     [data.auctionId, data.buyerUserId]
   )).rows[0] || {};
 
+  const cityState = [a.city, a.address_state].filter(Boolean).join(', ') || null;
   const address = [
     a.street_address,
-    [a.city, a.address_state].filter(Boolean).join(', '),
+    cityState,
     a.zip,
   ].filter(Boolean).join(', ') || null;
 
   return {
     ...data,
     pickup: {
-      address,
+      address,                 // FULL street address — PAID/verified buyers only
+      areaSummary: cityState,  // approved pre-payment location (city/state) — UNPAID buyers
       tier: pa.assigned_tier || null,
       recommended: windowLabel(pa.slot_start, pa.slot_end, a.timezone),
       published: windowLabel(a.pickup_window_start, a.pickup_window_end, a.timezone),
@@ -234,9 +236,12 @@ function buildPaymentRequiredEmail(data, { reminderNo } = {}) {
     : 'Payment is required before your items can be picked up or released.';
   const p = data.pickup || {};
 
-  const pickupHtml = (p.address || p.published)
+  // PRIVACY: unpaid buyers must NOT see the full street address — it stays hidden until payment is
+  // verified. Show only the approved pre-payment location (city/state); the exact address reveals on
+  // payment via buildSuccessPackageEmail.
+  const pickupHtml = (p.areaSummary || p.published)
     ? ('<div style="font-size:12px;color:#64748b;margin:12px 0">' +
-        (p.address ? ('Pickup location: ' + esc(p.address) + '<br>') : '') +
+        (p.areaSummary ? ('Pickup area: ' + esc(p.areaSummary) + ' — exact address provided once payment is confirmed<br>') : '') +
         (p.published ? ('Pickup window: ' + esc(p.published)) : '') +
       '</div>')
     : '';
