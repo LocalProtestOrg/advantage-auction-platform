@@ -96,3 +96,27 @@ describe('member shell guarantees', () => {
     expect(src).not.toContain('buyer-nav');
   });
 });
+
+describe('buyer Home wires live data via existing APIs (Phase 3)', () => {
+  const src = read('public', 'widgets', 'shared', 'member-shell.js');
+  const html = read('public', 'app.html');
+  test('page loads the shared bid kit before the shell', () => {
+    expect(html).toContain('/widgets/shared/bid-utils.js');
+    expect(html).toContain('/widgets/shared/bid-status.js');
+  });
+  test('home fetches watchlist, my-bids, combined invoices, following', () => {
+    for (const p of ['/api/watchlist', '/api/lots/my-bids', '/api/invoices/mine/combined', '/api/sellers/following'])
+      expect(src).toContain(p);
+  });
+  test('reuses BidStatus.deriveBidderStatus rather than reinventing bid logic', () => {
+    expect(src).toContain('BidStatus.deriveBidderStatus');
+  });
+  test('payment-due detection matches the invoice payable statuses', () => {
+    for (const s of ['issued', 'payment_required', 'payment_failed']) expect(src).toContain(s);
+  });
+  test('attention CTAs deep-link to the working pay/lot/browse pages', () => {
+    expect(src).toContain('/invoices.html');
+    expect(src).toContain('/lot.html?id=');
+    expect(src).toContain('/auction.html');
+  });
+});

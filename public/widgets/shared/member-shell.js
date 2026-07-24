@@ -101,25 +101,131 @@
       '</span><span class="adv-chip info">soon</span></div><div class="adv-stat-num">—</div>' +
       '<div class="adv-stat-label">' + esc(label) + '</div></div>';
   }
-  function homeBody() {
+  function greetingHtml(sub) {
     var u = state.user, hi = (u.full_name || u.email || '').split(/\s+/)[0] || 'there';
+    return '<div style="font-size:21px;font-weight:800;letter-spacing:-.015em;margin:0 2px 2px">Welcome back, ' + esc(hi) + '</div>' +
+      '<div class="adv-muted" id="adv-home-status" style="margin:2px 2px 16px;font-size:13.5px">' + esc(sub || '') + '</div>';
+  }
+  function homeBody() {
+    var u = state.user;
+    if (u.role !== 'admin' && !state.isSeller) {
+      var sk = '';
+      for (var i = 0; i < 4; i++) sk += '<div class="adv-card"><div class="adv-skeleton" style="width:44%"></div>' +
+        '<div class="adv-skeleton" style="height:26px;width:52%;margin-top:12px"></div></div>';
+      return greetingHtml('Loading your latest activity…') + '<div id="adv-home-live"><div class="adv-grid">' + sk + '</div></div>';
+    }
     var cards, note;
     if (u.role === 'admin') {
       cards = [statCard('🟢', 'Live auctions'), statCard('🕒', 'Ending soon'), statCard('✅', 'Awaiting approval'),
                statCard('🧾', 'Invoice issues'), statCard('💳', 'Stripe mode'), statCard('📡', 'Sync health')];
       note = 'Your administrator command center. Live operational tiles arrive in Phase 6.';
-    } else if (state.isSeller) {
+    } else {
       cards = [statCard('🟢', 'Active auctions'), statCard('✏️', 'Drafts'), statCard('🔨', 'Bids today'),
                statCard('🧾', 'Unpaid invoices'), statCard('📦', 'Pickups'), statCard('💰', 'Gross sales')];
       note = 'Your seller command center. Live metrics and quick actions arrive in Phase 4.';
-    } else {
-      cards = [statCard('👀', 'Watching'), statCard('🏆', 'Winning'), statCard('🔁', 'Outbid'),
-               statCard('💳', 'Payment due'), statCard('📦', 'Pickup scheduled'), statCard('💬', 'Unread updates')];
-      note = 'Your buyer command center. Live summary cards and activity arrive in Phase 3.';
     }
-    return '<div style="font-size:20px;font-weight:800;letter-spacing:-.01em;margin:2px 2px 2px">Welcome back, ' + esc(hi) + '</div>' +
-      '<div class="adv-muted" style="margin:2px 2px 14px">' + esc(note) + '</div>' +
-      '<div class="adv-grid">' + cards.join('') + '</div>';
+    return greetingHtml(note) + '<div class="adv-grid">' + cards.join('') + '</div>';
+  }
+
+  // ---- Buyer Home — live data (Phase 3), attention-first ----
+  function money(c) { try { if (window.BidUtils && window.BidUtils.formatUSD) return window.BidUtils.formatUSD(c); } catch (e) {}
+    return '$' + ((Number(c) || 0) / 100).toFixed(2); }
+  function classifyKey(lot) { try { if (window.BidStatus && window.BidStatus.deriveBidderStatus) return window.BidStatus.deriveBidderStatus(lot).key; } catch (e) {}
+    return lot.viewer_is_high_bidder ? 'winning' : (lot.viewer_has_bid ? 'outbid' : 'watching'); }
+  function msLeft(iso) { if (!iso) return null; return new Date(iso).getTime() - Date.now(); }
+  function timeLeft(iso) { var ms = msLeft(iso); if (ms == null) return ''; if (ms <= 0) return 'Ended';
+    var m = Math.floor(ms / 60000), h = Math.floor(m / 60), d = Math.floor(h / 24);
+    if (d >= 1) return d + 'd ' + (h % 24) + 'h'; if (h >= 1) return h + 'h ' + (m % 60) + 'm'; return Math.max(1, m) + 'm'; }
+  function isPayable(i) { return ['issued', 'unpaid', 'payment_required', 'failed', 'payment_failed'].indexOf(String(i.status || '').toLowerCase()) !== -1; }
+
+  function statLink(href, emoji, num, label, tone, chipText) {
+    return '<a class="adv-card adv-stat" href="' + href + '" style="text-decoration:none;color:inherit">' +
+      '<div class="adv-stat-top"><span class="adv-stat-emoji">' + emoji + '</span>' +
+      (num > 0 && tone ? '<span class="adv-chip ' + tone + '">' + esc(chipText) + '</span>' : '') + '</div>' +
+      '<div class="adv-stat-num">' + num + '</div><div class="adv-stat-label">' + esc(label) + '</div></a>';
+  }
+  function attnRow(emoji, tone, title, sub, cta) {
+    return '<div class="adv-row" style="justify-content:space-between;gap:12px;padding:11px 0;border-top:1px solid var(--line)">' +
+      '<div class="adv-row" style="gap:11px;min-width:0"><span class="adv-chip ' + tone + '" style="flex:none">' + emoji + '</span>' +
+      '<div style="min-width:0"><div style="font-weight:700;font-size:13.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + esc(title) + '</div>' +
+      '<div class="adv-muted" style="font-size:12px">' + esc(sub) + '</div></div></div>' + cta + '</div>';
+  }
+  function endRow(l) {
+    var k = classifyKey(l), tone = k === 'winning' ? 'good' : (k === 'outbid' ? 'bad' : 'info'),
+        kl = k === 'winning' ? 'Winning' : (k === 'outbid' ? 'Outbid' : 'Watching');
+    return '<div class="adv-row" style="justify-content:space-between;gap:10px;padding:10px 0;border-top:1px solid var(--line)">' +
+      '<div style="min-width:0"><div style="font-weight:700;font-size:13.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' +
+        (l.lot_number != null ? ('#' + esc(l.lot_number) + ' ') : '') + esc(l.title || 'Lot') + '</div>' +
+      '<div class="adv-row" style="gap:8px;margin-top:3px"><span class="adv-chip ' + tone + '">' + kl + '</span>' +
+      '<span class="adv-muted" style="font-size:12px">Current ' + money(l.current_bid_cents) + '</span></div></div>' +
+      '<div style="text-align:right;flex:none"><span class="adv-chip warn">⏳ ' + esc(timeLeft(l.closes_at)) + '</span>' +
+      '<div style="margin-top:6px"><a class="adv-btn ghost" style="padding:6px 12px" href="/lot.html?id=' + encodeURIComponent(l.id) + '">View</a></div></div></div>';
+  }
+
+  async function loadBuyerHome() {
+    var host = document.getElementById('adv-home-live'); if (!host) return;
+    var r = await Promise.all([
+      apiGet('/api/watchlist').catch(function () { return { ok: false }; }),
+      apiGet('/api/lots/my-bids').catch(function () { return { ok: false }; }),
+      apiGet('/api/invoices/mine/combined').catch(function () { return { ok: false }; }),
+      apiGet('/api/sellers/following').catch(function () { return { ok: false }; })
+    ]);
+    if (state.route !== 'home') return; // user navigated away while loading
+    var watch = (r[0].ok && r[0].body && r[0].body.data) || [];
+    var bids = (r[1].ok && r[1].body && r[1].body.data) || [];
+    var inv = (r[2].ok && r[2].body && r[2].body.invoices) || [];
+    var follow = (r[3].ok && r[3].body && r[3].body.data) || [];
+
+    var openWatch = watch.filter(function (l) { return l.state === 'open'; });
+    var openBids = bids.filter(function (l) { return l.state === 'open'; });
+    var winning = openBids.filter(function (l) { return classifyKey(l) === 'winning'; });
+    var outbid = openBids.filter(function (l) { return classifyKey(l) === 'outbid'; });
+    var unpaid = inv.filter(isPayable);
+
+    var attn = '';
+    unpaid.slice(0, 3).forEach(function (i) {
+      attn += attnRow('💳', 'warn', 'Payment due — ' + (i.auction_title || 'Auction'),
+        money(i.total_cents) + ' · Invoice ' + (i.invoice_number || ''),
+        '<a class="adv-btn primary" style="flex:none" href="/invoices.html">Pay now</a>'); });
+    outbid.slice(0, 3).forEach(function (l) {
+      attn += attnRow('🔁', 'bad', "You've been outbid — " + (l.title || 'Lot'),
+        'Current bid ' + money(l.current_bid_cents) + ' · ends ' + timeLeft(l.closes_at),
+        '<a class="adv-btn ghost" style="flex:none" href="/lot.html?id=' + encodeURIComponent(l.id) + '">Re-bid</a>'); });
+    var attnCard = attn
+      ? '<div class="adv-card"><div style="font-weight:800;font-size:14px">Needs your attention</div>' + attn + '</div>'
+      : '<div class="adv-card"><div class="adv-empty" style="padding:22px"><span class="emoji">🎉</span><h3>You\'re all caught up</h3><p>No payments due and no lots need action right now.</p></div></div>';
+
+    var bits = [];
+    if (unpaid.length) bits.push(unpaid.length + ' payment' + (unpaid.length > 1 ? 's' : '') + ' due');
+    if (outbid.length) bits.push(outbid.length + ' outbid');
+    if (winning.length) bits.push(winning.length + ' winning');
+    var st = document.getElementById('adv-home-status');
+    if (st) st.textContent = bits.length ? ('You have ' + bits.join(' · ') + '.')
+      : ("You're watching " + openWatch.length + ' lot' + (openWatch.length === 1 ? '' : 's') + '. Nothing needs action.');
+
+    var chips = '<div class="adv-grid" style="margin:0 0 16px">' +
+      statLink('#watchlist', '👀', openWatch.length, 'Watching', null) +
+      statLink('#auctions', '🏆', winning.length, 'Winning', 'good', '✓') +
+      statLink('#auctions', '🔁', outbid.length, 'Outbid', 'bad', 'action') +
+      statLink('#purchases', '💳', unpaid.length, 'Payment due', 'warn', 'pay') + '</div>';
+
+    var byId = {};
+    openWatch.concat(openBids).forEach(function (l) { if (l.closes_at && msLeft(l.closes_at) > 0) byId[l.id] = l; });
+    var ending = Object.keys(byId).map(function (k) { return byId[k]; })
+      .sort(function (a, b) { return new Date(a.closes_at) - new Date(b.closes_at); }).slice(0, 5);
+    var endCard = ending.length
+      ? '<div class="adv-section-title">What\'s happening</div><div class="adv-card">' +
+        '<div class="adv-row" style="justify-content:space-between"><div style="font-weight:800;font-size:14px">Ending soon</div>' +
+        '<a class="adv-chip info" href="#watchlist" style="text-decoration:none">Watchlist</a></div>' + ending.map(endRow).join('') + '</div>'
+      : '';
+
+    var actions = '<div class="adv-section-title">Quick actions</div><div class="adv-row adv-wrap">' +
+      '<a class="adv-btn primary" href="/auction.html">🔨 Browse auctions</a>' +
+      '<a class="adv-btn ghost" href="#watchlist">❤️ Watchlist</a>' +
+      '<a class="adv-btn ghost" href="#purchases">📦 Purchases</a>' +
+      '<a class="adv-btn ghost" href="#sellers">🏪 Following (' + follow.length + ')</a></div>';
+
+    host.innerHTML = chips + attnCard + endCard + actions;
   }
 
   function sellBody() {
@@ -154,6 +260,7 @@
     var item = Nav.byId(route) && Nav.visibleNavFor(navCtx()).some(function (i) { return i.id === route; }) ? route : 'home';
     state.route = item;
     var main = document.getElementById('adv-main'); if (main) main.innerHTML = sectionBody(item);
+    if (item === 'home' && document.getElementById('adv-home-live')) loadBuyerHome();
     var title = document.getElementById('adv-title'); var navItem = Nav.byId(item);
     if (title && navItem) title.textContent = navItem.label;
     document.querySelectorAll('.adv-nav-item[data-route]').forEach(function (a) {
