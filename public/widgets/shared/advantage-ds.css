@@ -184,6 +184,13 @@
   .adv-bottomnav .adv-nav-item { position:relative; }
 }
 
+/* ---- Inputs ---- */
+.adv-inp { width:100%; font:inherit; font-size:14px; padding:9px 12px; border:1px solid var(--line);
+  border-radius:10px; background:var(--surface); color:var(--text); }
+.adv-inp:focus { outline:2px solid var(--accent); outline-offset:1px; border-color:var(--accent); }
+.adv-inp:disabled { background:var(--surface-2); }
+select.adv-btn { -webkit-appearance:none; appearance:none; }
+
 /* ---- Utility ---- */
 .adv-row { display:flex; align-items:center; gap:10px; }
 .adv-wrap { flex-wrap:wrap; }

@@ -120,3 +120,43 @@ describe('buyer Home wires live data via existing APIs (Phase 3)', () => {
     expect(src).toContain('/auction.html');
   });
 });
+
+describe('buyer sections wired on existing APIs (Watchlist / Purchases / Sellers / Account)', () => {
+  const src = read('public', 'widgets', 'shared', 'member-shell.js');
+  test('Watchlist: loads + live countdown ticker + sorting + correct remove param', () => {
+    expect(src).toContain("apiGet('/api/watchlist')");
+    expect(src).toContain("'/api/watchlist/remove'");
+    expect(src).toMatch(/lotId:\s*lotId/);         // remove body uses {lotId} (camelCase, matches API)
+    expect(src).toContain('data-cd');               // countdown elements
+    expect(src).toMatch(/setInterval\(tickTock/);   // live ticker
+    for (const s of ['ending', 'auction', 'added']) expect(src).toContain(s); // sort modes
+  });
+  test('Purchases: combined invoices + PDF + pickup via summary + status timeline', () => {
+    expect(src).toContain('/api/invoices/mine/combined');
+    expect(src).toContain('/api/invoices/combined/');
+    expect(src).toContain("'/api/auctions/'");      // per-auction pickup summary lookup
+    expect(src).toContain("'/summary'");
+    expect(src).toContain('exact address after payment'); // privacy-safe pre-payment pickup
+    expect(src).toContain('stageTimeline');
+  });
+  test('Sellers: following + reuses public marketplace feed + unfollow', () => {
+    expect(src).toContain('/api/sellers/following');
+    expect(src).toContain('/api/public/auctions?seller_id=');
+    expect(src).toContain('seller_display_name');
+    expect(src).toMatch(/method:\s*'DELETE'/);      // unfollow
+  });
+  test('Account: edits name/phone via PATCH; email read-only; safe links', () => {
+    expect(src).toContain("'/api/auth/me'");
+    expect(src).toMatch(/method:\s*'PATCH'/);
+    expect(src).toContain('full_name');
+    expect(src).toContain('/billing.html');
+    expect(src).toContain('/forgot-password.html');
+    expect(src).toContain('account-managed');       // email shown read-only
+  });
+  test('the shell never touches Stripe or the bridge directly (payment defers to /invoices.html)', () => {
+    for (const s of ['charge-combined', 'charge-lot', 'setup-intent', 'client_secret'])
+      expect(src).not.toContain(s);
+    expect(src).not.toMatch(/js\.stripe|Stripe\(/);            // no Stripe SDK / client
+    expect(src).not.toMatch(/bd\/exchange|bd\/return|BD_BRIDGE/); // never touches the bridge
+  });
+});
