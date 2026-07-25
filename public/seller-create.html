@@ -275,7 +275,17 @@
 
 <div id="status-banner"></div>
 
-<div class="card">
+<!-- Seller-onboarding gate: shown IN PLACE OF the form until the member has a seller profile AND
+     holds current Seller Agreement access. Server-authoritative — POST /api/auctions enforces the
+     same rule, so this is UX, not the security boundary. -->
+<div class="card" id="seller-gate-card" style="display:none">
+  <h1 id="gate-h1">Complete your seller setup</h1>
+  <p class="subtitle" id="gate-sub"></p>
+  <div id="gate-cta" style="margin-top:1rem;display:flex;gap:0.6rem;flex-wrap:wrap"></div>
+  <p style="margin-top:1.1rem"><a href="/app.html" style="color:#2563eb;text-decoration:none">← Back to my dashboard</a></p>
+</div>
+
+<div class="card" id="create-card" style="display:none">
   <h1 id="page-h1">Create Auction</h1>
   <p class="subtitle" id="page-subtitle">Describe the sale event. You'll add individual lots after saving.</p>
 
@@ -502,23 +512,41 @@
     const btn = document.getElementById('btn-draft');      if (btn) btn.textContent = 'Save Changes';
   }
 
-  fetch('/api/sellers/me', { headers: { Authorization: 'Bearer ' + token } })
-    .then(r => r.json())
-    .then(d => {
-      if (d.success) {
-        sellerProfileId = d.data.id;
-        // Phase C.2: reveal Preview Start/End only for professional seller types
-        // (server-authoritative regardless). Others never see it.
-        var PRO_TYPES = ['auction_house', 'estate_sale_company', 'professional_liquidator'];
-        if (PRO_TYPES.indexOf(d.data.seller_type) !== -1) {
-          var row = document.getElementById('preview-times-row');
-          if (row) row.style.display = '';
-        }
-      } else {
-        showBanner('Seller profile not found. Contact support.', 'error');
-      }
+  // Server-authoritative onboarding gate (POST /api/auctions enforces the same rule). The form
+  // (#create-card) stays hidden until the member has a seller profile AND current agreement access.
+  function showSellerGate(kind) {
+    var gate = document.getElementById('seller-gate-card'); if (gate) gate.style.display = '';
+    var h1 = document.getElementById('gate-h1'), sub = document.getElementById('gate-sub'), cta = document.getElementById('gate-cta');
+    var ret = encodeURIComponent(location.pathname + location.search);
+    if (kind === 'needs_agreement') {
+      h1.textContent = 'Accept your Seller Agreement';
+      sub.textContent = 'To protect buyers and sellers, please review and accept the current Advantage.Bid Seller Agreement before creating an auction.';
+      cta.innerHTML = '<a class="btn btn-primary" href="/sign-agreement.html?onboarding=1">Complete Seller Setup</a>';
+    } else {
+      h1.textContent = 'Complete your seller setup before creating an auction';
+      sub.textContent = 'To protect buyers and sellers, Advantage.Bid requires every seller to complete their seller profile and accept the current Seller Agreement before listing an auction.';
+      cta.innerHTML = '<a class="btn btn-primary" href="/become-seller.html?next=' + ret + '">Become a Seller</a>';
+    }
+  }
+  function revealCreateForm(profile) {
+    var card = document.getElementById('create-card'); if (card) card.style.display = '';
+    sellerProfileId = profile.id;
+    var PRO_TYPES = ['auction_house', 'estate_sale_company', 'professional_liquidator'];
+    if (PRO_TYPES.indexOf(profile.seller_type) !== -1) { var row = document.getElementById('preview-times-row'); if (row) row.style.display = ''; }
+  }
+  if (!token) { location.href = '/login.html?next=' + encodeURIComponent(location.pathname + location.search); }
+  else fetch('/api/agreements/onboarding-status', { headers: { Authorization: 'Bearer ' + token } })
+    .then(function (r) { if (r.status === 401) { location.href = '/login.html?next=' + encodeURIComponent(location.pathname + location.search); throw new Error('auth'); } return r.json(); })
+    .then(function (o) {
+      var d = o && o.data;
+      if (!o || !o.success || !d) { showBanner('Could not load your seller status. Please refresh.', 'error'); return; }
+      if (d.is_seller === false) { showSellerGate('not_seller'); return; }         // State 1
+      if (d.dashboard_access === false) { showSellerGate('needs_agreement'); return; } // State 2
+      return fetch('/api/sellers/me', { headers: { Authorization: 'Bearer ' + token } })  // State 3
+        .then(function (r) { return r.json(); })
+        .then(function (s) { if (s && s.success) revealCreateForm(s.data); else showSellerGate('not_seller'); });
     })
-    .catch(() => showBanner('Could not load seller profile.', 'error'));
+    .catch(function (e) { if (e && e.message === 'auth') return; showBanner('Could not load your seller status. Please refresh.', 'error'); });
 
   // ── Image upload zones ──────────────────────────────────────────────────────
   function wireImageZone(zoneId, inputId, previewId, statusId, onUploaded) {
