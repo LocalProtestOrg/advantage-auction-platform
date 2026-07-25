@@ -234,11 +234,95 @@
   function sEdit(id, label) { return '<a class="adv-btn primary" style="flex:none;padding:7px 13px" href="/seller-create.html?id=' + encodeURIComponent(id) + '">' + esc(label) + '</a>'; }
   function sView(id, label) { return '<a class="adv-btn ghost" style="flex:none;padding:7px 13px" href="/auction-view.html?id=' + encodeURIComponent(id) + '">' + esc(label) + '</a>'; }
 
+  // ---- Sell workspace (auction management, organized by lifecycle) ----
+  function sellerNextAction(a) {
+    var s = a.state;
+    if (s === 'draft' || s === 'rejected') return sEdit(a.id, s === 'rejected' ? 'Revise' : (a.revision_note ? 'Edit' : 'Continue'));
+    if (s === 'submitted' || s === 'under_review') return '<a class="adv-btn ghost" style="flex:none;padding:7px 13px" href="/seller-create.html?id=' + encodeURIComponent(a.id) + '">View</a>';
+    return sView(a.id, s === 'closed' ? 'Results' : 'Manage');
+  }
+  function auctionCard(a) {
+    var s = a.state, tone = { draft: 'info', submitted: 'accent', under_review: 'accent', published: 'good', active: 'good', closed: 'info', rejected: 'bad' }[s] || 'info';
+    var timing = '';
+    if (s === 'active' || s === 'published') timing = a.end_time ? ('Ends ' + (fmtWindow(a.end_time) || relTime(a.end_time))) : '';
+    else if (s === 'closed') timing = a.end_time ? ('Closed ' + relTime(a.end_time)) : '';
+    else timing = 'Created ' + relTime(a.created_at);
+    var reason = a.rejection_reason || a.revision_note || '';
+    return '<div class="adv-card"><div class="adv-row" style="justify-content:space-between;gap:10px">' +
+      '<div style="min-width:0"><div style="font-weight:700;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + esc(a.title || 'Untitled auction') + '</div>' +
+      '<div class="adv-row" style="gap:8px;margin-top:5px;flex-wrap:wrap"><span class="adv-chip ' + tone + '">' + esc(stateLabel(s)) + '</span>' +
+      (timing ? ('<span class="adv-muted" style="font-size:12px">' + esc(timing) + '</span>') : '') +
+      (reason ? ('<span class="adv-muted" style="font-size:12px">· ' + esc(reason) + '</span>') : '') + '</div></div>' +
+      sellerNextAction(a) + '</div></div>';
+  }
+  async function loadSellWorkspace() {
+    var r = await apiGet('/api/sellers/me/dashboard').catch(function () { return { ok: false }; });
+    if (state.route !== 'sell') return;
+    var host = document.getElementById('adv-sec-live'); if (!host) return;
+    if (r.status === 403) { host.innerHTML = emptyCard('📝', 'Complete your seller agreement',
+      'Sign your Advantage seller agreement to open your workspace.', '<a class="adv-btn primary" href="/sign-agreement.html">Review &amp; sign</a>'); return; }
+    var auctions = (r.ok && r.body && r.body.data && r.body.data.auctions) || [];
+    if (!auctions.length) { host.innerHTML = emptyCard('🚀', 'Ready for your first auction?',
+      "List your first auction and start receiving bids — we'll guide you through it.", '<a class="adv-btn primary" href="/seller-create.html">Create auction</a>'); return; }
+    var g = { needs: [], live: [], upcoming: [], review: [], draft: [], closed: [] };
+    auctions.forEach(function (a) {
+      if (a.state === 'rejected' || (a.state === 'draft' && a.revision_note)) g.needs.push(a);
+      else if (a.state === 'active') g.live.push(a);
+      else if (a.state === 'published') g.upcoming.push(a);
+      else if (a.state === 'submitted' || a.state === 'under_review') g.review.push(a);
+      else if (a.state === 'draft') g.draft.push(a);
+      else if (a.state === 'closed') g.closed.push(a);
+    });
+    var group = function (title, list, emoji) { return list.length
+      ? '<div class="adv-section-title">' + emoji + ' ' + title + ' (' + list.length + ')</div><div style="display:grid;gap:12px">' + list.map(auctionCard).join('') + '</div>' : ''; };
+    host.innerHTML =
+      '<div class="adv-row" style="justify-content:space-between;margin:0 2px 14px;flex-wrap:wrap;gap:8px">' +
+        '<div class="adv-muted" style="font-size:13.5px">' + auctions.length + ' auction' + (auctions.length === 1 ? '' : 's') + '</div>' +
+        '<a class="adv-btn primary" href="/seller-create.html" style="padding:8px 14px">➕ Create auction</a></div>' +
+      group('Needs attention', g.needs, '⚠️') + group('Live now', g.live, '🟢') + group('Upcoming', g.upcoming, '🗓️') +
+      group('Under review', g.review, '🔎') + group('Drafts', g.draft, '📝') + group('Recently closed', g.closed, '✅');
+  }
+
+  // ---- Seller analytics (real, decision-supporting metrics only) ----
+  async function loadSellerAnalytics() {
+    var r = await Promise.all([
+      apiGet('/api/sellers/me/dashboard').catch(function () { return { ok: false }; }),
+      apiGet('/api/seller/settlements/me').catch(function () { return { ok: false }; })
+    ]);
+    if (state.route !== 'analytics') return;
+    var host = document.getElementById('adv-sec-live'); if (!host) return;
+    if (r[0].status === 403) { host.innerHTML = emptyCard('📝', 'Complete your seller agreement',
+      'Sign your agreement to see how your auctions are performing.', '<a class="adv-btn primary" href="/sign-agreement.html">Review &amp; sign</a>'); return; }
+    var d = (r[0].ok && r[0].body && r[0].body.data) || { summary: {}, auctions: [] };
+    var sum = d.summary || {}, auctions = d.auctions || [], fin = (r[1].ok && r[1].body && r[1].body.data) || null;
+    if (!auctions.length) { host.innerHTML = emptyCard('📊', 'Your numbers will appear here',
+      "Once you run an auction, you'll see watchers, bidders, and sales at a glance.", '<a class="adv-btn primary" href="/seller-create.html">Create auction</a>'); return; }
+    var cards = '<div class="adv-grid" style="margin:0 0 8px">' +
+      metricCard('👀', sum.total_watchlist_adds || 0, 'Watchers') +
+      metricCard('🙋', sum.total_bidder_conversions || 0, 'Bidders') +
+      metricCard('📣', sum.total_views || 0, 'Marketing views') +
+      (fin ? metricCard('💰', money((fin.summary && fin.summary.lifetime_gross_cents) || 0), 'Gross sales') : '') +
+      (fin ? metricCard('🏦', (fin.summary && fin.summary.total_settled) || 0, 'Settled auctions') : '') +
+      (fin ? metricCard('⏳', (fin.summary && fin.summary.pending_settlements) || 0, 'Pending payouts') : '') + '</div>';
+    var perf = auctions.filter(function (a) { return (Number(a.watchlist_adds) || 0) + (Number(a.bidder_conversions) || 0) > 0; })
+      .sort(function (a, b) { return (Number(b.bidder_conversions) || 0) - (Number(a.bidder_conversions) || 0) || (Number(b.watchlist_adds) || 0) - (Number(a.watchlist_adds) || 0); }).slice(0, 6);
+    var perfCard = perf.length ? ('<div class="adv-section-title">Auction performance</div><div class="adv-card">' +
+      perf.map(function (a) { var w = Number(a.watchlist_adds) || 0, bd = Number(a.bidder_conversions) || 0, conv = w ? Math.round(bd / w * 100) : null;
+        return '<div class="adv-row" style="justify-content:space-between;gap:10px;padding:10px 0;border-top:1px solid var(--line)">' +
+          '<div style="min-width:0"><div style="font-weight:600;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + esc(a.title || 'Auction') + '</div>' +
+          '<div class="adv-muted" style="font-size:11.5px">' + esc(stateLabel(a.state)) + '</div></div>' +
+          '<div class="adv-row" style="gap:8px;flex:none"><span class="adv-chip info">👀 ' + w + '</span><span class="adv-chip accent">🙋 ' + bd + '</span>' +
+          (conv != null ? ('<span class="adv-chip good">' + conv + '%</span>') : '') + '</div></div>'; }).join('') + '</div>') : '';
+    host.innerHTML = '<div class="adv-muted" style="margin:0 2px 14px;font-size:13.5px">How your auctions are performing — real numbers only.</div>' + cards + perfCard;
+  }
+
   async function loadSellerHome() {
     var host = document.getElementById('adv-home-live'); if (!host) return;
     var r = await Promise.all([
       apiGet('/api/sellers/me/dashboard').catch(function () { return { ok: false }; }),
-      apiGet('/api/seller/settlements/me').catch(function () { return { ok: false }; })
+      apiGet('/api/seller/settlements/me').catch(function () { return { ok: false }; }),
+      apiGet('/api/lots/my-bids').catch(function () { return { ok: false }; }),          // unified: their buying side too
+      apiGet('/api/invoices/mine/combined').catch(function () { return { ok: false }; })
     ]);
     if (state.route !== 'home') return;
     var setStatus = function (t) { var s = document.getElementById('adv-home-status'); if (s) s.textContent = t; };
@@ -300,7 +384,19 @@
         (editable ? sEdit(a.id, 'Edit') : sView(a.id, 'View')) + '</div>'; }).join('');
     var activityCard = '<div class="adv-section-title">Recent activity</div><div class="adv-card">' + acts + '</div>';
 
-    host.innerHTML = attnCard + biz + actions + activityCard;
+    // Unified: this seller is also a buyer — surface their buying attention in one glance.
+    var bBids = (r[2].ok && r[2].body && r[2].body.data) || [];
+    var bInv = (r[3].ok && r[3].body && r[3].body.invoices) || [];
+    var outbidN = bBids.filter(function (l) { return l.state === 'open' && classifyKey(l) === 'outbid'; }).length;
+    var dueN = bInv.filter(isPayable).length;
+    var buyBanner = (outbidN || dueN)
+      ? '<a href="#' + (dueN ? 'purchases' : 'auctions') + '" style="text-decoration:none"><div class="adv-card" style="background:var(--accent-wash);border-color:transparent;margin-bottom:14px">' +
+        '<div class="adv-row" style="justify-content:space-between;gap:10px"><div class="adv-row" style="gap:10px"><span style="font-size:17px">🛍️</span>' +
+        '<div style="font-weight:700;font-size:13px;color:var(--accent-ink)">Also for you as a buyer</div></div>' +
+        '<div style="font-size:12.5px;color:var(--accent-ink)">' + [dueN ? (dueN + ' payment' + (dueN > 1 ? 's' : '') + ' due') : '', outbidN ? (outbidN + ' outbid') : ''].filter(Boolean).join(' · ') + ' ›</div></div></div></a>'
+      : '';
+
+    host.innerHTML = buyBanner + attnCard + biz + actions + activityCard;
   }
 
   // ---- shared section helpers ----
@@ -536,8 +632,8 @@
       case 'watchlist':
       case 'purchases':
       case 'sellers':   return '<div id="adv-sec-live">' + skeletonGrid() + '</div>';
-      case 'sell':      return sellBody();
-      case 'analytics': return stub('📊', 'Analytics', 'Meaningful performance and activity metrics, built on real captured data. Arrives in Phase 5.');
+      case 'sell':      return (state.isSeller && state.user.role !== 'admin') ? ('<div id="adv-sec-live">' + skeletonGrid() + '</div>') : sellBody();
+      case 'analytics': return (state.user.role === 'admin') ? stub('📊', 'Analytics', 'Platform-wide analytics arrive with the admin overview in Phase 6.') : ('<div id="adv-sec-live">' + skeletonGrid() + '</div>');
       case 'messages':  return '<div class="adv-card"><div class="adv-row" style="justify-content:space-between;margin-bottom:6px">' +
                           '<div style="font-weight:800">Updates &amp; Notifications</div>' +
                           '<span class="adv-chip accent">Conversations — coming later</span></div>' +
@@ -561,6 +657,8 @@
       else if (item === 'purchases') loadPurchases();
       else if (item === 'sellers') loadSellers();
       else if (item === 'account') loadAccount();
+      else if (item === 'sell') loadSellWorkspace();
+      else if (item === 'analytics') loadSellerAnalytics();
     }
     var title = document.getElementById('adv-title'); var navItem = Nav.byId(item);
     if (title && navItem) title.textContent = navItem.label;

@@ -188,3 +188,36 @@ describe('Seller Command Center (Phase 4) — real data only', () => {
     expect(src).toMatch(/state\.isSeller\s*&&\s*state\.user\.role\s*!==\s*'admin'\)\s*loadSellerHome/);
   });
 });
+
+describe('Seller Workspace + Analytics (Phase 5) — real data, unified experience', () => {
+  const src = read('public', 'widgets', 'shared', 'member-shell.js');
+  test('Sell workspace organizes auctions by lifecycle (workflow, not a table)', () => {
+    for (const g of ['Needs attention', 'Live now', 'Upcoming', 'Under review', 'Drafts', 'Recently closed'])
+      expect(src).toContain(g);
+    expect(src).toContain('loadSellWorkspace');
+  });
+  test('Sell is the enroll surface for non-sellers, the workspace for sellers', () => {
+    expect(src).toMatch(/case 'sell':\s*return \(state\.isSeller && state\.user\.role !== 'admin'\)/);
+    expect(src).toContain('sellBody');
+  });
+  test('Analytics surfaces only supported metrics (no fabrication)', () => {
+    expect(src).toContain('loadSellerAnalytics');
+    for (const m of ['Watchers', 'Bidders', 'Marketing views', 'Gross sales'])
+      expect(src).toContain(m);
+    expect(src).not.toContain('Conversion rate package'); // guard: no invented reporting metrics
+    expect(src).not.toContain('Revenue forecast');
+  });
+  test('encouraging empty states (celebrate the next action, not "No X")', () => {
+    expect(src).toContain('Ready for your first auction?');
+    expect(src).not.toMatch(/>No auctions\.?</);
+    expect(src).not.toMatch(/>No drafts\.?</);
+  });
+  test('unified: the seller Home surfaces the member\'s buying attention too', () => {
+    expect(src).toContain('Also for you as a buyer');
+    expect(src).toContain("apiGet('/api/lots/my-bids')");   // buying side fetched on the seller home
+  });
+  test('router dispatches sell + analytics loaders', () => {
+    expect(src).toMatch(/item === 'sell'\)\s*loadSellWorkspace/);
+    expect(src).toMatch(/item === 'analytics'\)\s*loadSellerAnalytics/);
+  });
+});
