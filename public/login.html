@@ -256,18 +256,9 @@
       window.location.href = next;
       return;
     }
-    if (role === 'seller') {
-      window.location.href = '/seller-dashboard.html';
-    } else if (role === 'admin') {
-      // Admins have no seller_profile and cannot use the seller dashboard;
-      // /admin/index.html provides their landing with diagnostics + links
-      // to existing /admin/* tools.
-      window.location.href = '/admin/index.html';
-    } else {
-      // New/returning buyers land on the public auctions discovery page, never
-      // routed into a specific seeded/demo auction (QA: confusing landing).
-      window.location.href = '/';
-    }
+    // Unified member shell — one adaptive workspace that shows the right Home for a
+    // buyer, seller, or admin (role resolved server-side via /api/auth/me). No mode switch.
+    window.location.href = '/app.html';
   }
 
   // ── Auto-select tab from ?tab=register ───────────────────────────────────

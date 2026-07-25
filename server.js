@@ -240,6 +240,15 @@ app.get('/sitemap.xml', async (req, res) => {
 app.get('/how-it-works', (req, res) => res.sendFile(path.join(__dirname, 'public', 'how-it-works.html')));
 app.get('/how-it-works.html', (req, res) => res.redirect(301, '/how-it-works'));
 
+// Route legacy signed-in pages into the unified member shell (/app.html). Additive + reversible: the
+// old page files remain in the repo, but these redirects win because they run before express.static.
+// Does NOT modify the BD auth bridge — the bridge still lands on /dashboard.html, which now forwards
+// members into the unified shell. The role-aware shell shows the right Home (buyer/seller/admin).
+app.get(['/app', '/home'], (req, res) => res.redirect(302, '/app.html'));
+app.get(['/account', '/account.html'], (req, res) => res.redirect(302, '/app.html#account'));
+app.get(['/dashboard', '/dashboard.html'], (req, res) => res.redirect(302, '/app.html'));
+app.get('/seller-dashboard.html', (req, res) => res.redirect(302, '/app.html'));
+
 // Static frontend — must be before routes and 404 handler
 app.use(express.static(path.join(__dirname, 'public')));
 

@@ -184,8 +184,56 @@ describe('Seller Command Center (Phase 4) — real data only', () => {
     expect(src).not.toContain('Bids today');
     expect(src).not.toContain('Lots sold');
   });
-  test('Home routes sellers to the seller command center', () => {
-    expect(src).toMatch(/state\.isSeller\s*&&\s*state\.user\.role\s*!==\s*'admin'\)\s*loadSellerHome/);
+  test('Home routes each role to its own command center', () => {
+    expect(src).toMatch(/role === 'admin'\)\s*loadAdminHome/);
+    expect(src).toMatch(/else if \(state\.isSeller\)\s*loadSellerHome/);
+    expect(src).toContain('else loadBuyerHome');
+  });
+});
+
+describe('Unified Member Shell routing correction (Phase B)', () => {
+  const server = read('server.js');
+  const login = read('public', 'login.html');
+  const nav = read('public', 'widgets', 'shared', 'buyer-nav.js');
+  test('legacy signed-in pages redirect into the shell (before express.static)', () => {
+    const idx = server.indexOf("app.use(express.static");
+    const before = server.slice(0, idx);
+    expect(before).toMatch(/'\/account', '\/account\.html'.*'\/app\.html#account'/s);
+    expect(before).toMatch(/'\/dashboard', '\/dashboard\.html'.*'\/app\.html'/s);
+    expect(before).toContain("'/seller-dashboard.html'");
+  });
+  test('login sends every role to the unified shell (no legacy dashboards)', () => {
+    expect(login).toContain("window.location.href = '/app.html'");
+    expect(login).not.toContain('/seller-dashboard.html');
+    expect(login).not.toMatch(/href = '\/admin\/index\.html'/);
+  });
+  test('the header account menu enters the shell, not /account.html', () => {
+    expect(nav).toContain('/app.html');
+    expect(nav).not.toContain('/account.html');
+  });
+});
+
+describe('Admin Command Center (Phase 6) — operational, real data only', () => {
+  const src = read('public', 'widgets', 'shared', 'member-shell.js');
+  test('loads the real admin auction queue + Stripe config', () => {
+    expect(src).toContain('/api/admin/auctions?state=submitted,under_review,active');
+    expect(src).toContain('/api/payments/config');
+  });
+  test('Stripe mode is derived from the real publishable key (TEST/LIVE), not hardcoded', () => {
+    expect(src).toContain("pk_live");
+    expect(src).toContain("pk_test");
+    expect(src).not.toMatch(/Stripe mode['"]?\s*[:=]\s*['"]TEST['"]/); // not a fabricated constant
+  });
+  test('attention queue links to the real moderation tool; tools link to existing admin pages', () => {
+    expect(src).toContain('/admin/moderation.html');
+    for (const p of ['/admin/invoices.html', '/admin/settlement-review.html', '/admin/verification.html',
+      '/admin/agreements.html', '/admin/users.html', '/admin/marketplace-config.html', '/admin/index.html'])
+      expect(src).toContain(p);
+  });
+  test('admin Home shows no placeholder stat cards (real counts only)', () => {
+    // the old stub used statCard(...'Live auctions') placeholders; admin now loads real data
+    expect(src).not.toContain("statCard('🟢', 'Live auctions')");
+    expect(src).toContain('loadAdminHome');
   });
 });
 

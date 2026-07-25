@@ -233,8 +233,8 @@
 
     var profilePop = token
       ? '<div class="bn-pop bn-profile-pop" id="bn-profile-pop" role="menu">' +
-          '<a href="/account.html" role="menuitem">Profile</a>' +
-          '<a href="/account.html" role="menuitem">Account</a>' +
+          '<a href="/app.html" role="menuitem">My dashboard</a>' +
+          '<a href="/app.html#account" role="menuitem">Account</a>' +
           '<a href="/search.html?status=active" role="menuitem">Register to Bid</a>' +
           '<hr>' +
           '<button type="button" class="bn-item" data-bn-logout role="menuitem">Logout</button>' +

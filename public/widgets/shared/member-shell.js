@@ -109,10 +109,10 @@
   function homeBody() {
     var u = state.user;
     if (u.role === 'admin') {
-      var cards = [statCard('🟢', 'Live auctions'), statCard('🕒', 'Ending soon'), statCard('✅', 'Awaiting approval'),
-               statCard('🧾', 'Invoice issues'), statCard('💳', 'Stripe mode'), statCard('📡', 'Sync health')];
-      return greetingHtml('Your administrator command center. Live operational tiles arrive in Phase 6.') +
-        '<div class="adv-grid">' + cards.join('') + '</div>';
+      var ska = '';
+      for (var k = 0; k < 4; k++) ska += '<div class="adv-card"><div class="adv-skeleton" style="width:44%"></div>' +
+        '<div class="adv-skeleton" style="height:26px;width:52%;margin-top:12px"></div></div>';
+      return greetingHtml('Loading operational status…') + '<div id="adv-home-live"><div class="adv-grid">' + ska + '</div></div>';
     }
     var sk = '';
     for (var i = 0; i < 4; i++) sk += '<div class="adv-card"><div class="adv-skeleton" style="width:44%"></div>' +
@@ -399,6 +399,50 @@
     host.innerHTML = buyBanner + attnCard + biz + actions + activityCard;
   }
 
+  // ================= ADMIN HOME (Phase 6) — operational, attention-first =================
+  function adminTool(emoji, label, href) {
+    return '<a class="adv-btn ghost" href="' + href + '" style="justify-content:flex-start">' + emoji + ' ' + esc(label) + '</a>'; }
+  async function loadAdminHome() {
+    var host = document.getElementById('adv-home-live'); if (!host) return;
+    var r = await Promise.all([
+      apiGet('/api/admin/auctions?state=submitted,under_review,active&limit=100').catch(function () { return { ok: false }; }),
+      apiGet('/api/payments/config').catch(function () { return { ok: false }; })
+    ]);
+    if (state.route !== 'home') return;
+    var setStatus = function (t) { var s = document.getElementById('adv-home-status'); if (s) s.textContent = t; };
+    var auctions = (r[0].ok && r[0].body && r[0].body.data) || [];
+    var pk = (r[1].ok && r[1].body && r[1].body.publishableKey) || '';
+    var stripeMode = pk.indexOf('pk_live') === 0 ? 'LIVE' : (pk.indexOf('pk_test') === 0 ? 'TEST' : 'unknown');
+    var awaiting = auctions.filter(function (a) { return a.state === 'submitted' || a.state === 'under_review'; });
+    var live = auctions.filter(function (a) { return a.state === 'active'; });
+    var ending = live.filter(function (a) { var ms = a.end_time ? new Date(a.end_time) - Date.now() : null; return ms != null && ms > 0 && ms < 48 * 3600 * 1000; });
+
+    var attn = awaiting.slice(0, 6).map(function (a) {
+      return attnRow('📋', 'warn', 'Awaiting review — ' + (a.title || 'Auction'), 'Submitted ' + (relTime(a.updated_at || a.created_at) || 'recently'),
+        '<a class="adv-btn primary" style="flex:none" href="/admin/moderation.html">Review</a>'); }).join('');
+    var attnCard = attn
+      ? '<div class="adv-card"><div style="font-weight:800;font-size:14px">Needs your attention</div>' + attn + '</div>'
+      : '<div class="adv-card"><div class="adv-empty" style="padding:22px"><span class="emoji">✅</span><h3>Review queue is clear</h3><p>No auctions are waiting for approval right now.</p></div></div>';
+    setStatus(awaiting.length ? (awaiting.length + ' auction' + (awaiting.length > 1 ? 's' : '') + ' awaiting review · ' + live.length + ' live.') : (live.length + ' auction' + (live.length === 1 ? '' : 's') + ' live. Review queue clear.'));
+
+    var status = '<div class="adv-section-title">Operational status</div><div class="adv-grid" style="margin:0 0 4px">' +
+      statLink('/admin/moderation.html', '📋', awaiting.length, 'Awaiting review', awaiting.length ? 'warn' : null, 'review') +
+      metricCard('🟢', live.length, 'Live auctions') +
+      metricCard('⏳', ending.length, 'Ending soon') +
+      '<div class="adv-card adv-stat"><div class="adv-stat-top"><span class="adv-stat-emoji">💳</span><span class="adv-chip ' + (stripeMode === 'LIVE' ? 'bad' : 'info') + '">' + esc(stripeMode) + '</span></div><div class="adv-stat-num" style="font-size:19px">Payments</div><div class="adv-stat-label">Stripe mode</div></div>' +
+      '</div>';
+
+    var tools = '<div class="adv-section-title">Admin tools</div><div class="adv-grid" style="grid-template-columns:repeat(auto-fill,minmax(200px,1fr))">' +
+      adminTool('📋', 'Auction moderation', '/admin/moderation.html') + adminTool('🧾', 'Invoices', '/admin/invoices.html') +
+      adminTool('💰', 'Settlement review', '/admin/settlement-review.html') + adminTool('✅', 'Verification', '/admin/verification.html') +
+      adminTool('📝', 'Agreements', '/admin/agreements.html') + adminTool('👤', 'Members', '/admin/users.html') +
+      adminTool('🛍️', 'Buyers', '/admin/buyers.html') + adminTool('🏪', 'Marketplace', '/admin/marketplace-config.html') +
+      adminTool('📅', 'Events', '/admin/events.html') + adminTool('📊', 'Launch readiness', '/admin/launch-readiness.html') +
+      adminTool('🛠️', 'Full admin backend', '/admin/index.html') + '</div>';
+
+    host.innerHTML = attnCard + status + tools;
+  }
+
   // ---- shared section helpers ----
   function skeletonGrid(n) { var s = ''; n = n || 3;
     for (var i = 0; i < n; i++) s += '<div class="adv-card"><div class="adv-skeleton" style="width:55%"></div>' +
@@ -633,7 +677,10 @@
       case 'purchases':
       case 'sellers':   return '<div id="adv-sec-live">' + skeletonGrid() + '</div>';
       case 'sell':      return (state.isSeller && state.user.role !== 'admin') ? ('<div id="adv-sec-live">' + skeletonGrid() + '</div>') : sellBody();
-      case 'analytics': return (state.user.role === 'admin') ? stub('📊', 'Analytics', 'Platform-wide analytics arrive with the admin overview in Phase 6.') : ('<div id="adv-sec-live">' + skeletonGrid() + '</div>');
+      case 'analytics': return (state.user.role === 'admin')
+        ? (stub('📊', 'Platform analytics', 'Operational reports and launch readiness live in the admin backend.') +
+           '<div style="margin-top:-6px"><a class="adv-btn primary" href="/admin/launch-readiness.html">Open launch readiness</a></div>')
+        : ('<div id="adv-sec-live">' + skeletonGrid() + '</div>');
       case 'messages':  return '<div class="adv-card"><div class="adv-row" style="justify-content:space-between;margin-bottom:6px">' +
                           '<div style="font-weight:800">Updates &amp; Notifications</div>' +
                           '<span class="adv-chip accent">Conversations — coming later</span></div>' +
@@ -650,7 +697,9 @@
     stopTicker();
     var main = document.getElementById('adv-main'); if (main) main.innerHTML = sectionBody(item);
     if (item === 'home' && document.getElementById('adv-home-live')) {
-      if (state.isSeller && state.user.role !== 'admin') loadSellerHome(); else loadBuyerHome();
+      if (state.user.role === 'admin') loadAdminHome();
+      else if (state.isSeller) loadSellerHome();
+      else loadBuyerHome();
     }
     if (document.getElementById('adv-sec-live')) {
       if (item === 'watchlist') loadWatchlist();
