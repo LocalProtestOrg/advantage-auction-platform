@@ -211,6 +211,17 @@ describe('Unified Member Shell routing correction (Phase B)', () => {
     expect(nav).toContain('/app.html');
     expect(nav).not.toContain('/account.html');
   });
+  test('watchlist unifies to the shell tab; my-bids intentionally kept (no shell view yet)', () => {
+    const idx = server.indexOf("app.use(express.static");
+    const before = server.slice(0, idx);
+    expect(before).toMatch(/'\/watchlist\.html'.*'\/app\.html#watchlist'/s);   // redirect added
+    expect(before).not.toMatch(/'\/my-bids\.html'/);                            // my-bids NOT redirected
+    expect(nav).toContain('href="/app.html#watchlist"');                        // heart icon points to shell
+    expect(nav).not.toContain('/watchlist.html');                              // no legacy watchlist link left in nav
+    const home = read('public', 'index.html');
+    expect(home).toContain('/app.html#watchlist');                              // marketplace menu Watchlist → shell
+    expect(home).toContain('/my-bids.html');                                    // marketplace menu My bids retained
+  });
 });
 
 describe('Admin Command Center (Phase 6) — operational, real data only', () => {

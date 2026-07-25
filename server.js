@@ -248,6 +248,7 @@ app.get(['/app', '/home'], (req, res) => res.redirect(302, '/app.html'));
 app.get(['/account', '/account.html'], (req, res) => res.redirect(302, '/app.html#account'));
 app.get(['/dashboard', '/dashboard.html'], (req, res) => res.redirect(302, '/app.html'));
 app.get('/seller-dashboard.html', (req, res) => res.redirect(302, '/app.html'));
+app.get('/watchlist.html', (req, res) => res.redirect(302, '/app.html#watchlist')); // shell has a full Watchlist tab (my-bids.html intentionally kept — no shell equivalent yet)
 
 // Static frontend — must be before routes and 404 handler
 app.use(express.static(path.join(__dirname, 'public')));

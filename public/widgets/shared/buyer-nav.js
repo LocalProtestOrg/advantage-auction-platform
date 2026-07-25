@@ -221,7 +221,7 @@
         soundBtn +
         '<button class="bn-icon bn-profile" type="button" aria-haspopup="true" aria-expanded="false" ' +
           'aria-controls="bn-profile-pop" aria-label="Account menu">' + ICON_USER + '</button>' +
-        '<a class="bn-icon" href="/watchlist.html" aria-label="Watchlist" title="Watchlist">' + ICON_HEART + '</a>' +
+        '<a class="bn-icon" href="/app.html#watchlist" aria-label="Watchlist" title="Watchlist">' + ICON_HEART + '</a>' +
         burgerBtn;
     } else {
       actionsHtml =
