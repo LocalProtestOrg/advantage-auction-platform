@@ -171,9 +171,9 @@ describe('Seller Command Center (Phase 4) — real data only', () => {
     expect(src).toMatch(/status\s*===\s*403/);
     expect(src).toContain('/sign-agreement.html');
   });
-  test('quick actions deep-link to the working seller pages', () => {
+  test('quick actions deep-link to the working seller surfaces', () => {
     expect(src).toContain('/seller-create.html');
-    expect(src).toContain('/dashboard/seller.html');
+    expect(src).toContain('#sell'); // in-shell workspace (Issue 2: was /dashboard/seller.html)
     expect(src).toContain('/seller-settlements.html');
   });
   test('surfaces only supported metrics (no fabricated "bids today" / "lots sold")', () => {

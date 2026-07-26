@@ -319,7 +319,18 @@
     }
   }
 
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', mount);
-  else mount();
+  // Issue 6: on every buyer-nav page (watchlist, invoices, billing, payment, pickup, search, account…)
+  // lazy-load the "Return to auction" anchor so a member is never stranded away from the live auction.
+  // The auction/lot pages set RTA_SUPPRESS and load it themselves; here we render the button.
+  function ensureReturnToAuction() {
+    if (window.ReturnToAuction || document.querySelector('script[data-rta]')) return;
+    var s = document.createElement('script');
+    s.src = '/widgets/shared/return-to-auction.js';
+    s.setAttribute('data-rta', '');
+    document.head.appendChild(s);
+  }
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', function () { mount(); ensureReturnToAuction(); });
+  else { mount(); ensureReturnToAuction(); }
   window.BuyerNav = { mount: mount, goBack: goBack };
 })();

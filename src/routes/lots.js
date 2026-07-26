@@ -210,7 +210,10 @@ router.get('/my-bids', authMiddleware, async (req, res, next) => {
     const result = await db.query(
       `SELECT l.id, l.auction_id, l.lot_number, l.title, l.state,
               l.current_bid_cents, l.winning_amount_cents, l.bid_count,
-              l.closes_at, l.extended_until, l.thumbnail_url,
+              l.closes_at, l.extended_until,
+              COALESCE(l.thumbnail_url,
+                (SELECT image_url FROM lot_images li WHERE li.lot_id = l.id ORDER BY li.sort_order ASC LIMIT 1)
+              ) AS thumbnail_url,
               l.current_winner_user_id, l.winning_buyer_user_id,
               pb.max_amount_cents AS viewer_max
          FROM lot_proxy_bids pb

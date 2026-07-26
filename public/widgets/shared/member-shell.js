@@ -362,8 +362,8 @@
     setStatus(bits.length ? ('You have ' + bits.join(' · ') + '.') : (live.length + ' auction' + (live.length === 1 ? '' : 's') + ' live. All running smoothly.'));
 
     var biz = '<div class="adv-section-title">Business today</div><div class="adv-grid" style="margin:0 0 4px">' +
-      statLink('/dashboard/seller.html', '🟢', live.length, 'Active auctions', live.length ? 'good' : null, 'live') +
-      statLink('/dashboard/seller.html', '📝', drafts.length, 'Drafts', drafts.length ? 'warn' : null, 'finish') +
+      statLink('#sell', '🟢', live.length, 'Active auctions', live.length ? 'good' : null, 'live') +
+      statLink('#sell', '📝', drafts.length, 'Drafts', drafts.length ? 'warn' : null, 'finish') +
       metricCard('👀', sum.total_watchlist_adds || 0, 'Watchers') +
       metricCard('🙋', sum.total_bidder_conversions || 0, 'Bidders') +
       (fin ? metricCard('💰', money((fin.summary && fin.summary.lifetime_gross_cents) || 0), 'Gross sales') : '') +
@@ -372,8 +372,8 @@
 
     var actions = '<div class="adv-section-title">Quick actions</div><div class="adv-row adv-wrap">' +
       '<a class="adv-btn primary" href="/seller-create.html">➕ Create auction</a>' +
-      '<a class="adv-btn ghost" href="/dashboard/seller.html">🗂️ Manage auctions</a>' +
-      '<a class="adv-btn ghost" href="/dashboard/seller.html">📝 Drafts</a>' +
+      '<a class="adv-btn ghost" href="#sell">🗂️ Manage auctions</a>' +
+      '<a class="adv-btn ghost" href="#sell">📝 Drafts</a>' +
       '<a class="adv-btn ghost" href="/seller-settlements.html">💰 Settlements</a></div>';
 
     var acts = auctions.slice(0, 6).map(function (a) {
@@ -515,6 +515,74 @@
     if (state.route !== 'watchlist') return;
     wlData = (r.ok && r.body && r.body.data) || [];
     renderWatchlist();
+  }
+
+  // ================= MY AUCTIONS (Issue 7) =================
+  // The buyer's/seller's auction home: auctions they're bidding in, winning/outbid, won, and (sellers)
+  // their own. Derived from existing APIs — my-bids grouped by auction_id, combined invoices for won,
+  // seller dashboard for own — enriched with the auction title/cover/state via /summary.
+  function myAuctionCard(a) {
+    var live = a.state === 'active', tone = a._tone || (live ? 'good' : 'info');
+    var img = a.cover_image_url || a.banner_image_url;
+    var thumb = img
+      ? '<img src="' + esc(img) + '" alt="" style="width:64px;height:48px;border-radius:8px;object-fit:cover;flex:none;background:var(--surface-2)">'
+      : '<div style="width:64px;height:48px;border-radius:8px;background:var(--surface-2);display:grid;place-items:center;flex:none;font-size:18px">🔨</div>';
+    return '<div class="adv-card" style="display:flex;gap:12px;align-items:center">' + thumb +
+      '<div style="min-width:0;flex:1"><div style="font-weight:700;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + esc(a.title || 'Auction') + '</div>' +
+      '<div class="adv-row" style="gap:8px;margin-top:5px;flex-wrap:wrap"><span class="adv-chip ' + tone + '">' + esc(a._label || (live ? 'Live now' : stateLabel(a.state))) + '</span>' +
+      (a._note ? ('<span class="adv-muted" style="font-size:12px">' + esc(a._note) + '</span>') : '') + '</div></div>' +
+      '<a class="adv-btn ' + (live ? 'primary' : 'ghost') + '" style="flex:none;padding:7px 13px" href="/auction-view.html?id=' + encodeURIComponent(a.id) + '">' + (live ? 'Bid' : 'View') + '</a></div>';
+  }
+  async function loadMyAuctions() {
+    var host = document.getElementById('adv-sec-live'); if (!host) return;
+    var calls = [apiGet('/api/lots/my-bids').catch(function () { return { ok: false }; }),
+                 apiGet('/api/invoices/mine/combined').catch(function () { return { ok: false }; })];
+    if (state.isSeller && state.user.role !== 'admin') calls.push(apiGet('/api/sellers/me/dashboard').catch(function () { return { ok: false }; }));
+    var r = await Promise.all(calls);
+    if (state.route !== 'auctions') return;
+    var bids = (r[0].ok && r[0].body && r[0].body.data) || [];
+    var inv = (r[1].ok && r[1].body && r[1].body.invoices) || [];
+    var mine = (r[2] && r[2].ok && r[2].body && r[2].body.data && r[2].body.data.auctions) || [];
+
+    // group my-bids lots by auction; classify the auction by its strongest lot state
+    var byAuction = {};
+    bids.forEach(function (l) {
+      var a = byAuction[l.auction_id] || (byAuction[l.auction_id] = { id: l.auction_id, winning: 0, outbid: 0, open: 0 });
+      var k = classifyKey(l);
+      if (l.state === 'open') { a.open++; if (k === 'winning') a.winning++; else if (k === 'outbid') a.outbid++; }
+    });
+    var wonIds = {}; inv.forEach(function (i) { if (String(i.status || '').toLowerCase() === 'paid' || isPayable(i)) wonIds[i.auction_id] = i; });
+
+    // build the display list (dedup: won/mine take precedence over bidding)
+    var seen = {}, list = [];
+    Object.keys(wonIds).forEach(function (aid) { var i = wonIds[aid]; seen[aid] = true;
+      list.push({ id: aid, title: i.auction_title, state: 'closed', _tone: isPayable(i) ? 'warn' : 'good', _label: isPayable(i) ? 'Payment due' : 'Won', _note: i.invoice_number || '' }); });
+    Object.keys(byAuction).forEach(function (aid) { if (seen[aid]) return; seen[aid] = true; var a = byAuction[aid];
+      var tone = a.outbid ? 'bad' : (a.winning ? 'good' : 'info'), label = a.outbid ? 'Outbid' : (a.winning ? 'Winning' : 'Bidding');
+      list.push({ id: aid, title: 'Auction', state: 'active', _tone: tone, _label: label, _note: a.open + ' active lot' + (a.open === 1 ? '' : 's') }); });
+    mine.forEach(function (a) { if (seen[a.id]) return; seen[a.id] = true;
+      list.push({ id: a.id, title: a.title, state: a.state, _label: 'Your auction · ' + stateLabel(a.state) }); });
+
+    if (!list.length) { host.innerHTML = emptyCard('🔨', 'Your auctions live here',
+      "Bid on a lot and the auction shows up here — with your winning, outbid, won, and pickup status.", '<a class="adv-btn primary" href="/auction.html">Browse auctions</a>'); return; }
+
+    var sellerSec = state.isSeller ? '<div style="margin-bottom:14px"><a class="adv-btn primary" href="#sell">📈 Go to my Seller Workspace</a></div>' : '';
+    host.innerHTML = '<div class="adv-muted" style="margin:0 2px 14px;font-size:13.5px">Auctions you\'re bidding in, have won, or ' + (state.isSeller ? 'are running.' : 'have participated in.') + '</div>' +
+      sellerSec + '<div style="display:grid;gap:12px" id="my-auctions-list">' + list.map(myAuctionCard).join('') +
+      '<div style="text-align:center;margin-top:6px"><a class="adv-btn ghost" href="/auction.html">Browse all auctions</a></div></div>';
+    // enrich titles/covers for bidding-derived auctions (which only had lot data)
+    enrichMyAuctions(list.filter(function (a) { return a.title === 'Auction'; }));
+  }
+  async function enrichMyAuctions(items) {
+    await Promise.all(items.slice(0, 12).map(function (a) {
+      return apiGet('/api/auctions/' + a.id + '/summary').then(function (s) {
+        var d = s.body && s.body.data; if (!d) return; a.title = d.title || 'Auction'; a.cover_image_url = d.cover_image_url; a.banner_image_url = d.banner_image_url;
+        var host = document.getElementById('my-auctions-list'); if (!host) return;
+        // re-render this card in place
+        var cards = host.querySelectorAll('.adv-card');
+        for (var i = 0; i < cards.length; i++) { if (cards[i].querySelector('[href*="' + a.id + '"]')) { cards[i].outerHTML = myAuctionCard(a); break; } }
+      }).catch(function () {});
+    }));
   }
 
   // ================= PURCHASES =================
@@ -702,8 +770,7 @@
   function sectionBody(route) {
     switch (route) {
       case 'home':      return homeBody();
-      case 'auctions':  return stub('🔨', 'Auctions', "Browse live auctions, ending soon, and the ones you've bid in.") +
-                          '<div style="margin-top:-6px"><a class="adv-btn primary" href="/auction.html">Browse all auctions</a></div>';
+      case 'auctions':  return '<div id="adv-sec-live">' + skeletonGrid() + '</div>';
       case 'watchlist':
       case 'purchases':
       case 'sellers':   return '<div id="adv-sec-live">' + skeletonGrid() + '</div>';
@@ -739,6 +806,7 @@
       else if (item === 'account') loadAccount();
       else if (item === 'sell') loadSellWorkspace();
       else if (item === 'analytics') loadSellerAnalytics();
+      else if (item === 'auctions') loadMyAuctions();
     }
     var title = document.getElementById('adv-title'); var navItem = Nav.byId(item);
     if (title && navItem) title.textContent = navItem.label;
@@ -758,6 +826,11 @@
     var bell = document.getElementById('adv-bell');
     if (bell) bell.addEventListener('click', function () { setRoute('messages'); });
     window.addEventListener('hashchange', function () { setRoute((location.hash || '#home').slice(1)); });
+    // Issue 3: when the member returns to this tab (e.g. after bidding on a lot page in another tab),
+    // re-run the current section so Home/Watchlist/My Auctions reflect the latest activity.
+    document.addEventListener('visibilitychange', function () {
+      if (document.visibilityState === 'visible' && state.user) setRoute(state.route);
+    });
   }
 
   function renderApp() {

@@ -878,6 +878,8 @@
 <script src="/widgets/shared/bid-utils.js"></script>
 <script src="/widgets/shared/pickup-tiers.js"></script>
 <script src="/socket.io/socket.io.js"></script>
+<script>window.RTA_SUPPRESS = true;</script>
+<script src="/widgets/shared/return-to-auction.js"></script>
 <script src="/widgets/shared/buyer-nav.js"></script>
 <script>
   const token  = localStorage.getItem('token');
@@ -1327,6 +1329,9 @@
   // ── Render lot metadata ───────────────────────────────────────────────────────
   function renderLot(lot) {
     currentAuctionId = lot.auction_id;   // used by smartBack() ("Back To Auction")
+    // Issue 6: remember the active auction for the cross-page "Return to auction" anchor. This page
+    // renders its own back-nav, so RTA_SUPPRESS suppresses the floating button here.
+    try { if (window.ReturnToAuction && lot.state === 'open') window.ReturnToAuction.set({ id: lot.auction_id, title: lot.auction_title, endTime: lot.closes_at }); } catch (e) {}
     isHistoricalLot = lot.auction_public_type === 'historical_archive';
     currentLotTitle = lot.title || '';
     renderLotStatus(lot);

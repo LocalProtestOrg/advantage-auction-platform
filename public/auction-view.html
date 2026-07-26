@@ -736,6 +736,8 @@
 <script src="/widgets/shared/bid-utils.js"></script>
 <script src="/widgets/shared/pickup-tiers.js"></script>
 <script src="/socket.io/socket.io.js"></script>
+<script>window.RTA_SUPPRESS = true;</script>
+<script src="/widgets/shared/return-to-auction.js"></script>
 <script src="/widgets/shared/buyer-nav.js"></script>
 
 <script>
@@ -901,6 +903,14 @@
       const d = data.data;
       currentSellerId = d.seller_id;
       auctionSummary = d;
+      // Issue 6: remember this as the active auction (for the "Return to auction" anchor on other
+      // pages) while it's live; clear it once closed. This page renders its own nav, so RTA_SUPPRESS.
+      try {
+        if (window.ReturnToAuction) {
+          if (d.state === 'active' || d.state === 'published') window.ReturnToAuction.set({ id: auctionId, title: d.title, endTime: d.end_time });
+          else if (d.state === 'closed') window.ReturnToAuction.clear();
+        }
+      } catch (e) {}
       try { populatePickupTab(); populateTermsTab(); renderAuctionFacts(); } catch (e) { /* tabs are best-effort */ }
 
       // Historical archive auctions: never display the (internal placeholder) date;

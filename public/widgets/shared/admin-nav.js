@@ -12,6 +12,17 @@
   if (window.__adminNavInstalled) return;
   window.__adminNavInstalled = true;
 
+  // Admin pages historically did not load the shared session guard, so their tokens never slid and a
+  // single transient 401 hard-logged the admin out. Load auth-refresh.js (idempotent) here so every
+  // admin page gets sliding refresh + resilient 401 handling (re-verify before logout), matching the
+  // hardened buyer pages. Load ASAP so it wraps fetch before the page's API calls resolve.
+  if (!window.__authRefreshInstalled && !document.querySelector('script[data-auth-refresh]')) {
+    var ar = document.createElement('script');
+    ar.src = '/widgets/shared/auth-refresh.js';
+    ar.setAttribute('data-auth-refresh', '');
+    (document.head || document.documentElement).appendChild(ar);
+  }
+
   var HOME = '/admin/'; // canonical Admin Home route (serves admin/index.html)
 
   var CSS =

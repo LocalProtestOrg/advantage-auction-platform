@@ -988,7 +988,7 @@
       el.innerHTML='<div class="halo"></div>'+((d.state==='ending'||d.state==='coming')?'<div class="ping"></div>':'')+PIN_SVG;
       el.addEventListener('mouseenter',function(){ highlight(d.id,true); showPreview(d); });
       el.addEventListener('mouseleave',function(){ highlight(d.id,false); hidePreview(); });
-      el.addEventListener('click',function(){ hidePreview(); location.href=d.href; });
+      el.addEventListener('click',function(e){ e.stopPropagation(); hidePreview(); openAuctionCard(d); });
       new maplibregl.Marker({element:el,anchor:'bottom'}).setLngLat([d.lng,d.lat]).addTo(map);
       d._el=el; markersById[d.id]=d;
       setTimeout(function(){ el.classList.add('bloom'); }, reduce?0:(220+i*120));
@@ -1007,6 +1007,25 @@
     var elp=hoverPopup.getElement(); if(elp) elp.style.pointerEvents='none';
   }
   function hidePreview(){ if(hoverPopup){ hoverPopup.remove(); hoverPopup=null; } }
+  // Issue 1 (OAT#4): clicking an auction pin opens the standard Auction Card popup (image, status,
+  // title, location, time remaining) with a primary "View Auction" CTA — the user only enters the
+  // auction on that click. Reuses the hover-preview markup; the card is interactive (no pointerEvents
+  // none) and dismissable. Fewer accidental page loads + a familiar map interaction.
+  var cardPopup=null;
+  function openAuctionCard(d){
+    if(cardPopup){ cardPopup.remove(); cardPopup=null; }
+    var tagtxt={live:'LIVE',ending:'ENDING SOON',coming:'COMING SOON',historical:'PAST'}[d.state];
+    var tagbg={live:'#B5273B',ending:'#E0922E',coming:'#1FB6A6',historical:'#8aa0b8'}[d.state];
+    var miTxt=(d.mi!=null?(' · '+d.mi+' mi'):'');
+    var tail=d.state==='historical'?(' · '+d.lots+' lots'):(' · '+d.end);
+    var cta=d.state==='historical'?'View Results':'View Auction';
+    var html='<div class="pv"><div class="img" style="background-image:'+d.bg+'"><span class="tagchip" style="background:'+tagbg+'">'+tagtxt+'</span></div>'+
+      '<div class="body"><div class="t">'+d.t+'</div><div class="s">📍 '+(d.city||'')+miTxt+tail+'</div>'+
+      '<a href="'+d.href+'" style="display:block;margin-top:10px;text-align:center;background:#B5273B;color:#fff;font-weight:700;font-size:.86rem;text-decoration:none;padding:9px 12px;border-radius:8px">'+cta+'</a>'+
+      '</div></div>';
+    cardPopup=new maplibregl.Popup({closeButton:true,closeOnClick:true,offset:26,className:'preview',maxWidth:'260px'}).setLngLat([d.lng,d.lat]).setHTML(html).addTo(map);
+    cardPopup.on('close',function(){ cardPopup=null; });
+  }
   function startAmbient(){
     if(reduce) return;
     ambientTimer=setInterval(function(){
