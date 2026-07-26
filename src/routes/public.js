@@ -18,6 +18,15 @@ const router  = express.Router();
 const db      = require('../db');
 const { auctionScoreSQL } = require('../services/discoveryRankingService');
 const { buildLotSearch, clampInt } = require('../services/searchService');
+const { brandedColSql } = require('../lib/sellerBranding');
+// Buyer-facing seller-identity columns: NULL unless the seller is a professional type WITH branding
+// enabled. Private/other/unknown are always anonymous. Applied at the query so buyer feeds never even
+// select hidden identity. (The public company DIRECTORY on advantage.bid is separate and NOT scrubbed.)
+const B_NAME = brandedColSql('sp.display_name');
+const B_LOGO = brandedColSql('sp.logo_url');
+const B_LOC  = brandedColSql('sp.location_label');
+const B_BIO  = brandedColSql('sp.bio');
+const B_PROFILE_ID = brandedColSql('sp.id');
 
 const LIVE_CACHE   = 's-maxage=30, stale-while-revalidate=10';
 const PUBLIC_CACHE = 's-maxage=60, stale-while-revalidate=30';
@@ -411,9 +420,9 @@ router.get('/auctions', async (req, res, next) => {
              COUNT(l.id) FILTER (WHERE l.shippable = true)::int AS shippable_lot_count,
              COUNT(l.id) FILTER (WHERE l.winning_amount_cents IS NOT NULL)::int AS sold_lot_count,
              COALESCE(SUM(l.bid_count), 0)::int AS total_bids,
-             sp.display_name    AS seller_display_name,
-             sp.location_label  AS seller_location_label,
-             sp.logo_url        AS seller_logo_url,
+             ${B_NAME}    AS seller_display_name,
+             ${B_LOC}  AS seller_location_label,
+             ${B_LOGO}        AS seller_logo_url,
              COUNT(*) OVER()    AS total_count
         FROM auctions a
         LEFT JOIN seller_profiles sp ON sp.id = a.seller_id
@@ -504,9 +513,9 @@ router.get('/auctions/near', async (req, res, next) => {
                  a.marketplace_priority,
                  COUNT(l.id)::int AS lot_count,
                  COUNT(l.id) FILTER (WHERE l.shippable = true)::int AS shippable_lot_count,
-                 sp.display_name    AS seller_display_name,
-                 sp.location_label  AS seller_location_label,
-                 sp.logo_url        AS seller_logo_url,
+                 ${B_NAME}    AS seller_display_name,
+                 ${B_LOC}  AS seller_location_label,
+                 ${B_LOGO}        AS seller_logo_url,
                  6371.0 * acos(
                    LEAST(1.0,
                      cos(radians(a.lat)) * cos(radians($1::float))
@@ -568,11 +577,11 @@ router.get('/auctions/:id', async (req, res, next) => {
              a.banner_image_url,
              a.created_at,
              COUNT(l.id)::int   AS lot_count,
-             sp.id              AS seller_profile_id,
-             sp.display_name    AS seller_display_name,
-             sp.bio             AS seller_bio,
-             sp.location_label  AS seller_location_label,
-             sp.logo_url        AS seller_logo_url,
+             ${B_PROFILE_ID}              AS seller_profile_id,
+             ${B_NAME}    AS seller_display_name,
+             ${B_BIO}             AS seller_bio,
+             ${B_LOC}  AS seller_location_label,
+             ${B_LOGO}        AS seller_logo_url,
              sp.seller_type
         FROM auctions a
         LEFT JOIN seller_profiles sp ON sp.id = a.seller_id
@@ -688,9 +697,9 @@ router.get('/featured-lots', async (req, res, next) => {
              a.address_state    AS auction_address_state,
              a.end_time         AS auction_end_time,
              a.cover_image_url  AS auction_cover_image_url,
-             sp.display_name    AS seller_display_name,
-             sp.location_label  AS seller_location_label,
-             sp.logo_url        AS seller_logo_url
+             ${B_NAME}    AS seller_display_name,
+             ${B_LOC}  AS seller_location_label,
+             ${B_LOGO}        AS seller_logo_url
         FROM lots l
         JOIN auctions a ON a.id = l.auction_id
         LEFT JOIN seller_profiles sp ON sp.id = a.seller_id
@@ -783,9 +792,9 @@ router.get('/featured-auctions', async (req, res, next) => {
                    a.marketplace_priority,
                    COUNT(lo.id)::int AS lot_count,
                    COUNT(lo.id) FILTER (WHERE lo.shippable = true)::int AS shippable_lot_count,
-                   sp.display_name    AS seller_display_name,
-                   sp.location_label  AS seller_location_label,
-                   sp.logo_url        AS seller_logo_url,
+                   ${B_NAME}    AS seller_display_name,
+                   ${B_LOC}  AS seller_location_label,
+                   ${B_LOGO}        AS seller_logo_url,
                    CASE
                      WHEN a.lat IS NOT NULL AND a.lng IS NOT NULL
                      THEN 6371.0 * acos(
@@ -831,9 +840,9 @@ router.get('/featured-auctions', async (req, res, next) => {
                a.created_at,
                COUNT(lo.id)::int AS lot_count,
                COUNT(lo.id) FILTER (WHERE lo.shippable = true)::int AS shippable_lot_count,
-               sp.display_name    AS seller_display_name,
-               sp.location_label  AS seller_location_label,
-               sp.logo_url        AS seller_logo_url
+               ${B_NAME}    AS seller_display_name,
+               ${B_LOC}  AS seller_location_label,
+               ${B_LOGO}        AS seller_logo_url
           FROM auctions a
           LEFT JOIN seller_profiles sp ON sp.id = a.seller_id
           LEFT JOIN lots lo ON lo.auction_id = a.id AND lo.state != 'withdrawn'
@@ -870,7 +879,7 @@ router.get('/featured-videos', async (req, res, next) => {
              a.address_state AS auction_address_state,
              a.state         AS auction_state,
              a.end_time      AS auction_end_time,
-             sp.display_name AS seller_display_name
+             ${B_NAME} AS seller_display_name
         FROM auction_walkthrough_videos v
         JOIN auctions a ON a.id = v.auction_id
         LEFT JOIN seller_profiles sp ON sp.id = a.seller_id
@@ -1013,7 +1022,7 @@ router.get('/lots/search', async (req, res, next) => {
              a.title AS auction_title, a.state AS auction_state,
              a.city AS auction_city, a.address_state AS auction_address_state,
              a.end_time AS auction_end_time, a.public_auction_type AS auction_public_type,
-             sp.display_name AS seller_display_name,
+             ${B_NAME} AS seller_display_name,
              COUNT(*) OVER() AS total_count
         FROM lots l
         JOIN auctions a ON a.id = l.auction_id
@@ -1091,7 +1100,7 @@ router.get('/lots/ending-soon', async (req, res, next) => {
              a.title            AS auction_title,
              a.state            AS auction_state,
              a.end_time         AS auction_end_time,
-             sp.display_name    AS seller_display_name
+             ${B_NAME}    AS seller_display_name
         FROM lots l
         JOIN auctions a ON a.id = l.auction_id
         LEFT JOIN seller_profiles sp ON sp.id = a.seller_id
@@ -1152,7 +1161,7 @@ router.get('/lots/recently-added', async (req, res, next) => {
              a.title            AS auction_title,
              a.state            AS auction_state,
              a.end_time         AS auction_end_time,
-             sp.display_name    AS seller_display_name
+             ${B_NAME}    AS seller_display_name
         FROM lots l
         JOIN auctions a ON a.id = l.auction_id
         LEFT JOIN seller_profiles sp ON sp.id = a.seller_id
@@ -1211,7 +1220,7 @@ router.get('/lots/trending', async (req, res, next) => {
              a.title            AS auction_title,
              a.state            AS auction_state,
              a.end_time         AS auction_end_time,
-             sp.display_name    AS seller_display_name
+             ${B_NAME}    AS seller_display_name
         FROM lots l
         JOIN auctions a ON a.id = l.auction_id
         LEFT JOIN seller_profiles sp ON sp.id = a.seller_id

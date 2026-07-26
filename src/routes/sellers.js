@@ -4,6 +4,7 @@ const router = express.Router();
 const auth = require('../middleware/authMiddleware');
 const requireSellerAgreement = require('../middleware/requireSellerAgreement');
 const db = require('../db');
+const { brandedColSql, isProfessional } = require('../lib/sellerBranding');
 const agreementService = require('../services/agreementService');
 
 // Self-service seller enablement is restricted to non-professional seller types.
@@ -21,16 +22,40 @@ const SELF_SERVE_SELLER_TYPES = ['private', 'business', 'other'];
 router.get('/me', auth, async (req, res, next) => {
   try {
     const result = await db.query(
-      'SELECT id, user_id, seller_type FROM seller_profiles WHERE user_id = $1',
+      'SELECT id, user_id, seller_type, show_branding_to_buyers FROM seller_profiles WHERE user_id = $1',
       [req.user.id]
     );
     if (!result.rows[0]) {
       return res.status(404).json({ success: false, message: 'Seller profile not found' });
     }
-    return res.json({ success: true, data: result.rows[0] });
+    const row = result.rows[0];
+    // Whether the "Display company branding to buyers" preference is eligible for this seller.
+    // Only professional/business types can ever brand to buyers; private/other/unknown never can.
+    row.branding_eligible = isProfessional(row.seller_type);
+    return res.json({ success: true, data: row });
   } catch (err) {
     next(err);
   }
+});
+
+// PATCH /api/sellers/me/branding — professional sellers set the "Display company branding to buyers"
+// preference. Server-authoritative: private/other/unknown types can never enable branding (403), so
+// the preference can never expose an anonymous seller's identity.
+router.patch('/me/branding', auth, async (req, res, next) => {
+  try {
+    const sp = (await db.query('SELECT id, seller_type FROM seller_profiles WHERE user_id = $1', [req.user.id])).rows[0];
+    if (!sp) return res.status(404).json({ success: false, message: 'Seller profile not found' });
+    if (!isProfessional(sp.seller_type)) {
+      return res.status(403).json({ success: false, code: 'BRANDING_NOT_ELIGIBLE',
+        message: 'Company branding is available only to professional seller accounts. Private sellers always remain anonymous to buyers.' });
+    }
+    const enabled = req.body && req.body.show_branding_to_buyers === true;
+    const upd = await db.query(
+      'UPDATE seller_profiles SET show_branding_to_buyers = $2, updated_at = now() WHERE id = $1 RETURNING id, seller_type, show_branding_to_buyers',
+      [sp.id, enabled]
+    );
+    return res.json({ success: true, data: upd.rows[0] });
+  } catch (err) { next(err); }
 });
 
 // POST /api/sellers/enroll
@@ -250,18 +275,20 @@ router.get('/me/audience', auth, async (req, res, next) => {
 router.get('/following', auth, async (req, res, next) => {
   try {
     const { rows } = await db.query(
+      // Buyer-facing: NEVER expose personal seller contact (no email/phone). Seller name is shown only
+      // for a professional seller with branding enabled (buyer-privacy policy); otherwise NULL and the
+      // buyer UI falls back to a generic label. Private/other/unknown are always anonymous.
       `SELECT sf.seller_id,
               sf.created_at AS followed_at,
-              u.email       AS seller_email,
+              ${brandedColSql('sp.display_name')} AS seller_display_name,
               sp.seller_type,
               COUNT(a.id)::int AS active_auction_count
          FROM seller_followers sf
          JOIN seller_profiles sp ON sp.id = sf.seller_id
-         JOIN users u             ON u.id  = sp.user_id
          LEFT JOIN auctions a     ON a.seller_id = sp.id
                                  AND a.state IN ('published', 'active')
         WHERE sf.user_id = $1
-        GROUP BY sf.seller_id, sf.created_at, u.email, sp.seller_type
+        GROUP BY sf.seller_id, sf.created_at, sp.display_name, sp.seller_type, sp.show_branding_to_buyers
         ORDER BY sf.created_at DESC`,
       [req.user.id]
     );

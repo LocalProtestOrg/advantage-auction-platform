@@ -642,9 +642,40 @@
           acLink('💳', 'Payment methods', 'Add or update your saved card', '/billing.html') +
           acLink('🔒', 'Password', 'Reset your password', '/forgot-password.html') +
           '<div class="adv-row" style="justify-content:space-between;padding:11px 0;border-top:1px solid var(--line)"><div class="adv-row" style="gap:11px"><span style="font-size:17px">🔔</span><div><div style="font-weight:600;font-size:13.5px">Notification preferences</div><div class="adv-muted" style="font-size:12px">Choose what updates you receive</div></div></div><span class="adv-chip info">coming soon</span></div></div>' +
+        '<div id="ac-branding"></div>' +
         '<div class="adv-card"><button class="adv-btn ghost" id="ac-logout" style="width:100%;justify-content:center">Log out</button></div></div>';
     var sv = document.getElementById('ac-save'); if (sv) sv.addEventListener('click', accountSave);
     var lo = document.getElementById('ac-logout'); if (lo) lo.addEventListener('click', function () { try { localStorage.removeItem('token'); } catch (e) {} location.href = '/login.html'; });
+    if (state.isSeller && state.user.role !== 'admin') loadBrandingSetting();
+  }
+  // "Display company branding to buyers" — professional/business sellers only. Private sellers are
+  // always anonymous and never see an effective opt-in.
+  async function loadBrandingSetting() {
+    var host = document.getElementById('ac-branding'); if (!host) return;
+    var r = await apiGet('/api/sellers/me').catch(function () { return { ok: false }; });
+    var d = r.ok && r.body && r.body.data; if (!d || !d.branding_eligible) return; // private/other → no opt-in
+    var on = d.show_branding_to_buyers !== false;
+    host.innerHTML = '<div class="adv-card"><div style="font-weight:800;font-size:14px;margin-bottom:2px">Company branding</div>' +
+      '<div class="adv-row" style="justify-content:space-between;padding:11px 0;gap:12px">' +
+        '<div><div style="font-weight:600;font-size:13.5px">Display company branding to buyers</div>' +
+        '<div class="adv-muted" style="font-size:12px">Show your company name and logo on auction listings. When off, buyers see only Advantage.Bid.</div></div>' +
+        '<button class="adv-btn ' + (on ? 'primary' : 'ghost') + '" id="ac-brand-toggle" style="flex:none" aria-pressed="' + on + '">' + (on ? 'On' : 'Off') + '</button></div>' +
+        '<span id="ac-brand-msg" class="adv-muted" style="font-size:12.5px"></span></div>';
+    var btn = document.getElementById('ac-brand-toggle');
+    if (btn) btn.addEventListener('click', function () { setBranding(!(btn.getAttribute('aria-pressed') === 'true')); });
+  }
+  async function setBranding(next) {
+    var btn = document.getElementById('ac-brand-toggle'), msg = document.getElementById('ac-brand-msg');
+    if (msg) msg.textContent = 'Saving…';
+    try {
+      var res = await fetch('/api/sellers/me/branding', { method: 'PATCH', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token() }, body: JSON.stringify({ show_branding_to_buyers: next }) });
+      var b = null; try { b = await res.json(); } catch (e) {}
+      if (res.ok && b && b.data) {
+        var on = b.data.show_branding_to_buyers !== false;
+        if (btn) { btn.setAttribute('aria-pressed', on); btn.textContent = on ? 'On' : 'Off'; btn.className = 'adv-btn ' + (on ? 'primary' : 'ghost') + ''; btn.style.flex = 'none'; }
+        if (msg) msg.textContent = '✓ Saved';
+      } else if (msg) msg.textContent = (b && (b.message || b.error)) || 'Could not save';
+    } catch (e) { if (msg) msg.textContent = 'Could not save'; }
   }
   async function accountSave() {
     var nameEl = document.getElementById('ac-name'), phoneEl = document.getElementById('ac-phone'), msg = document.getElementById('ac-msg');
