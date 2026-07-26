@@ -1,10 +1,10 @@
 /* ============================================================================
-   Advantage member navigation model + role-aware visibility.
-   Pure + isomorphic: usable in the browser (window.AdvNav) AND requirable in Node
-   (module.exports) so navigation-by-role is unit-testable without a DOM.
-   Role/permission data comes from the existing server-enforced model:
-     role ∈ {buyer, seller, admin}; isSeller derived from a seller_profile.
-   Client visibility is cosmetic only — the server remains authoritative.
+   Advantage member navigation model — ONE account, THREE experiences.
+   "Stupid Easy": the interface adapts to the user's current task (Buying / Selling /
+   Administration) instead of forcing one combined nav on everyone. Pure + isomorphic:
+   usable in the browser (window.AdvNav) AND requirable in Node so navigation-by-mode
+   is unit-testable without a DOM. Client visibility is cosmetic; the server remains
+   authoritative for who is actually a seller/admin.
    ========================================================================== */
 (function (root, factory) {
   var api = factory();
@@ -13,57 +13,96 @@
 })(typeof self !== 'undefined' ? self : this, function () {
   'use strict';
 
-  // Every destination. `roles` = which base roles see it; `sellerOnly` items appear for a buyer
-  // who also has a seller profile (buyer+seller) and for sellers. `primaryMobile` marks the ≤5 items
-  // shown in the mobile bottom nav (highest-frequency); the rest live in the "More" sheet.
-  var NAV = [
-    { id: 'home',      label: 'Home',      emoji: '🏠', href: '#home',      roles: ['buyer', 'seller', 'admin'], primaryMobile: true },
-    { id: 'auctions',  label: 'Auctions',  emoji: '🔨', href: '#auctions',  roles: ['buyer', 'seller', 'admin'], primaryMobile: true },
-    { id: 'watchlist', label: 'Watchlist', emoji: '❤️', href: '#watchlist', roles: ['buyer', 'seller', 'admin'], primaryMobile: true },
-    { id: 'purchases', label: 'Purchases', emoji: '📦', href: '#purchases', roles: ['buyer', 'seller', 'admin'], primaryMobile: true },
-    { id: 'sellers',   label: 'Sellers',   emoji: '🏪', href: '#sellers',   roles: ['buyer', 'seller', 'admin'] },
-    { id: 'sell',      label: 'Sell',      emoji: '📈', href: '#sell',      roles: ['buyer', 'seller', 'admin'] },
-    { id: 'analytics', label: 'Analytics', emoji: '📊', href: '#analytics', roles: ['seller', 'admin'] },
-    { id: 'messages',  label: 'Messages',  emoji: '💬', href: '#messages',  roles: ['buyer', 'seller', 'admin'] },
-    { id: 'account',   label: 'Account',   emoji: '⚙️', href: '#account',   roles: ['buyer', 'seller', 'admin'], primaryMobile: true }
+  // Section ids map to in-shell loaders; items with `external:true` deep-link out of the shell.
+  // `primaryMobile` marks the items shown in the mobile bottom nav (highest-frequency; ≤5).
+
+  // ── BUYING experience — feels like a marketplace, never like auction software ──
+  var BUYING = [
+    { id: 'home',      label: 'Home',      emoji: '🏠', href: '#home',      primaryMobile: true },
+    { id: 'watchlist', label: 'Watchlist', emoji: '❤️', href: '#watchlist', primaryMobile: true },
+    { id: 'auctions',  label: 'My Bids',   emoji: '🎟️', href: '#auctions',  primaryMobile: true },
+    { id: 'purchases', label: 'Purchases', emoji: '📦', href: '#purchases', primaryMobile: true },
+    { id: 'messages',  label: 'Messages',  emoji: '💬', href: '#messages' },
+    { id: 'account',   label: 'Account',   emoji: '⚙️', href: '#account',   primaryMobile: true }
   ];
 
-  // Normalize the identity signals into a base role we trust.
+  // ── SELLING experience — an efficient operational workspace ──
+  var SELLING = [
+    { id: 'home',      label: 'Home',           emoji: '🏠', href: '#home',                    primaryMobile: true },
+    { id: 'sell',      label: 'My Auctions',    emoji: '🔨', href: '#sell',                    primaryMobile: true },
+    { id: 'create',    label: 'Create Auction', emoji: '➕', href: '/seller-create.html', external: true, primaryMobile: true },
+    { id: 'analytics', label: 'Sale Stats',     emoji: '📊', href: '#analytics' },
+    { id: 'payments',  label: 'Payments',       emoji: '💰', href: '/seller-settlements.html', external: true },
+    { id: 'messages',  label: 'Messages',       emoji: '💬', href: '#messages' },
+    { id: 'account',   label: 'Account',        emoji: '⚙️', href: '#account',                 primaryMobile: true }
+  ];
+
+  // ── ADMINISTRATION experience — a dedicated operational workspace ──
+  var ADMIN = [
+    { id: 'home',     label: 'Home',       emoji: '🏠', href: '#home',                 primaryMobile: true },
+    { id: 'moderate', label: 'Moderation', emoji: '📋', href: '/admin/moderation.html', external: true, primaryMobile: true },
+    { id: 'invoices', label: 'Invoices',   emoji: '🧾', href: '/admin/invoices.html',  external: true, primaryMobile: true },
+    { id: 'members',  label: 'Members',    emoji: '👤', href: '/admin/users.html',     external: true },
+    { id: 'messages', label: 'Messages',   emoji: '💬', href: '#messages' },
+    { id: 'account',  label: 'Account',    emoji: '⚙️', href: '#account',              primaryMobile: true }
+  ];
+
+  var MODES = { buying: BUYING, selling: SELLING, admin: ADMIN };
+
   function normalizeRole(role) {
     var r = String(role || '').toLowerCase();
     return (r === 'buyer' || r === 'seller' || r === 'admin') ? r : null;
   }
 
-  /**
-   * visibleNavFor({ role, isSeller }) → ordered nav items this member should see.
-   * - No/invalid role (logged-out) → [] (the shell shows the logged-out state instead).
-   * - Buyer → all buyer items (Analytics hidden: buyer analytics ships in a later phase).
-   * - Buyer WITH a seller profile → buyer items + seller-only items (Analytics).
-   * - Seller/Admin → their full set. Admin sees everything (superset), server-guarded.
-   * Note: "Sell" is always visible — for a non-seller it's the education/enroll surface.
-   */
-  function visibleNavFor(ctx) {
+  // Which experiences a user may switch between (progressive disclosure — no switch for a pure buyer).
+  function availableModes(ctx) {
     ctx = ctx || {};
     var role = normalizeRole(ctx.role);
     if (!role) return [];
-    var isSeller = role === 'seller' || role === 'admin' || !!ctx.isSeller;
-    return NAV.filter(function (item) {
-      if (item.roles.indexOf(role) !== -1) return true;
-      // seller-scoped items (e.g. Analytics) also show for a buyer who has a seller profile
-      if (isSeller && item.roles.indexOf('seller') !== -1) return true;
-      return false;
-    });
+    if (role === 'admin') return ['admin', 'selling', 'buying']; // admin default + "view as" for testing
+    if (role === 'seller' || ctx.isSeller) return ['buying', 'selling']; // buyer-first, can switch to selling
+    return ['buying']; // pure buyer — never sees a switch
+  }
+
+  // The experience a user lands in by default: buyer-first for everyone except admins.
+  function defaultMode(ctx) {
+    var modes = availableModes(ctx);
+    if (!modes.length) return null;
+    return modes[0];
+  }
+
+  // Resolve a requested mode to one the user is actually allowed (falls back to their default).
+  function resolveMode(ctx, requested) {
+    var modes = availableModes(ctx);
+    if (requested && modes.indexOf(requested) !== -1) return requested;
+    return modes[0] || null;
+  }
+
+  /**
+   * visibleNavFor({ role, isSeller, mode }) → ordered nav items for the resolved experience.
+   * No/invalid role (logged-out) → []. An unavailable/absent mode resolves to the user's default.
+   */
+  function visibleNavFor(ctx) {
+    ctx = ctx || {};
+    var mode = resolveMode(ctx, ctx.mode);
+    if (!mode) return [];
+    return MODES[mode].slice();
   }
 
   function primaryMobileNav(ctx) {
     return visibleNavFor(ctx).filter(function (i) { return i.primaryMobile; });
   }
 
-  function byId(id) {
-    for (var i = 0; i < NAV.length; i++) if (NAV[i].id === id) return NAV[i];
+  // Look up an item within a given (or resolved) experience.
+  function byId(id, ctx) {
+    var list = (ctx ? visibleNavFor(ctx) : BUYING.concat(SELLING, ADMIN));
+    for (var i = 0; i < list.length; i++) if (list[i].id === id) return list[i];
     return null;
   }
 
-  return { NAV: NAV, normalizeRole: normalizeRole, visibleNavFor: visibleNavFor,
-           primaryMobileNav: primaryMobileNav, byId: byId };
+  return {
+    MODES: MODES, BUYING: BUYING, SELLING: SELLING, ADMIN: ADMIN,
+    normalizeRole: normalizeRole, availableModes: availableModes, defaultMode: defaultMode,
+    resolveMode: resolveMode, visibleNavFor: visibleNavFor, primaryMobileNav: primaryMobileNav, byId: byId
+  };
 });

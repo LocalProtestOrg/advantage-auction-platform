@@ -11,46 +11,57 @@ const Nav = require('../../public/widgets/shared/member-nav-config.js');
 const read = (...p) => fs.readFileSync(path.join(__dirname, '..', '..', ...p), 'utf8');
 const ids = (arr) => arr.map((i) => i.id);
 
-describe('navigation visibility by role', () => {
-  test('logged-out (no/invalid role) → no nav', () => {
+describe('one account, three experiences — mode-aware navigation', () => {
+  const ids = (arr) => arr.map((i) => i.id);
+
+  test('logged-out (no/invalid role) → no nav, no modes', () => {
     expect(Nav.visibleNavFor({ role: null })).toEqual([]);
-    expect(Nav.visibleNavFor({ role: 'nonsense' })).toEqual([]);
-    expect(Nav.visibleNavFor({})).toEqual([]);
+    expect(Nav.availableModes({ role: 'nonsense' })).toEqual([]);
   });
 
-  test('buyer → all buyer destinations, Analytics hidden', () => {
-    const v = ids(Nav.visibleNavFor({ role: 'buyer', isSeller: false }));
-    expect(v).toEqual(['home', 'auctions', 'watchlist', 'purchases', 'sellers', 'sell', 'messages', 'account']);
-    expect(v).not.toContain('analytics');
-    expect(v).toContain('sell'); // Sell is visible to non-sellers (education/enroll surface)
+  test('BUYING experience — a clean marketplace nav (no seller ops)', () => {
+    const v = ids(Nav.visibleNavFor({ role: 'buyer', mode: 'buying' }));
+    expect(v).toEqual(['home', 'watchlist', 'auctions', 'purchases', 'messages', 'account']);
+    for (const sellerOnly of ['sell', 'analytics', 'create', 'payments']) expect(v).not.toContain(sellerOnly);
   });
 
-  test('buyer WITH a seller profile → buyer set + Analytics', () => {
-    const v = ids(Nav.visibleNavFor({ role: 'buyer', isSeller: true }));
-    expect(v).toContain('analytics');
-    expect(v.length).toBe(9);
+  test('SELLING experience — an operational workspace with plain-language labels', () => {
+    const v = Nav.visibleNavFor({ role: 'seller', mode: 'selling' });
+    expect(ids(v)).toEqual(['home', 'sell', 'create', 'analytics', 'payments', 'messages', 'account']);
+    expect(v.find((i) => i.id === 'sell').label).toBe('My Auctions');       // not "Workspace"
+    expect(v.find((i) => i.id === 'analytics').label).toBe('Sale Stats');   // not "Analytics"
+    expect(v.find((i) => i.id === 'payments').label).toBe('Payments');      // not "Settlement"
+    expect(v.find((i) => i.id === 'create').external).toBe(true);
   });
 
-  test('seller → full set (9)', () => {
-    expect(ids(Nav.visibleNavFor({ role: 'seller' }))).toHaveLength(9);
+  test('ADMIN experience — a dedicated operational nav (not buyer/seller-shaped)', () => {
+    const v = ids(Nav.visibleNavFor({ role: 'admin', mode: 'admin' }));
+    expect(v).toEqual(['home', 'moderate', 'invoices', 'members', 'messages', 'account']);
   });
 
-  test('admin → full set (9), superset', () => {
-    const v = ids(Nav.visibleNavFor({ role: 'admin' }));
-    expect(v).toHaveLength(9);
-    expect(v).toEqual(expect.arrayContaining(['analytics', 'account', 'home']));
+  test('progressive disclosure — a pure buyer has ONE experience (never a switch)', () => {
+    expect(Nav.availableModes({ role: 'buyer', isSeller: false })).toEqual(['buying']);
+    expect(Nav.defaultMode({ role: 'buyer' })).toBe('buying');
   });
 
-  test('mobile primary nav = 5 highest-frequency items', () => {
-    const m = ids(Nav.primaryMobileNav({ role: 'buyer' }));
-    expect(m).toEqual(['home', 'auctions', 'watchlist', 'purchases', 'account']);
+  test('buyer+seller can switch Buying⇄Selling, buyer-first by default', () => {
+    expect(Nav.availableModes({ role: 'buyer', isSeller: true })).toEqual(['buying', 'selling']);
+    expect(Nav.defaultMode({ role: 'buyer', isSeller: true })).toBe('buying');
   });
 
-  test('the 9 approved destinations exist with the right emojis', () => {
-    const wanted = { home: '🏠', auctions: '🔨', watchlist: '❤️', purchases: '📦', sellers: '🏪',
-      sell: '📈', analytics: '📊', messages: '💬', account: '⚙️' };
-    for (const id of Object.keys(wanted)) expect(Nav.byId(id).emoji).toBe(wanted[id]);
-    expect(Nav.NAV).toHaveLength(9);
+  test('admin defaults to Admin with view-as for testing', () => {
+    expect(Nav.defaultMode({ role: 'admin' })).toBe('admin');
+    expect(Nav.availableModes({ role: 'admin' })).toEqual(['admin', 'selling', 'buying']);
+  });
+
+  test('resolveMode never grants an experience the user is not allowed', () => {
+    expect(Nav.resolveMode({ role: 'buyer' }, 'selling')).toBe('buying'); // buyer cannot enter selling
+    expect(Nav.resolveMode({ role: 'buyer', isSeller: true }, 'selling')).toBe('selling');
+    expect(Nav.resolveMode({ role: 'admin' }, 'buying')).toBe('buying');
+  });
+
+  test('mobile primary nav is the highest-frequency subset of the active experience', () => {
+    expect(ids(Nav.primaryMobileNav({ role: 'buyer', mode: 'buying' }))).toEqual(['home', 'watchlist', 'auctions', 'purchases', 'account']);
   });
 
   test('normalizeRole only trusts buyer/seller/admin', () => {
@@ -69,6 +80,30 @@ describe('parallel /app.html route is additive + wired to shared assets', () => 
     expect(html).toContain('/widgets/shared/auth-refresh.js');
     expect(html).toContain('id="adv-shell-root"');
     expect(html).toContain('noindex');
+  });
+});
+
+describe('experience switch — shell wiring (Stupid Easy)', () => {
+  const src = read('public', 'widgets', 'shared', 'member-shell.js');
+  test('mode is persisted and resolved to an allowed experience on boot', () => {
+    expect(src).toContain("'ab_active_mode'");
+    expect(src).toContain('Nav.resolveMode');
+    expect(src).toContain('function switchMode');
+  });
+  test('a pure buyer sees "Start selling", not a mode switch', () => {
+    expect(src).toContain('Start selling');
+    expect(src).toContain('modeSwitchHtml');
+    expect(src).toMatch(/Switch to /);
+  });
+  test('Home, Sell, and Analytics content follow the active mode', () => {
+    expect(src).toMatch(/mode === 'selling'\)\s*loadSellerHome/);
+    expect(src).toMatch(/case 'sell':\s*return \(state\.mode === 'selling'\)/);
+  });
+  test('switching resets to Home and re-renders (no stale section)', () => {
+    const body = src.slice(src.indexOf('function switchMode'), src.indexOf('function switchMode') + 320);
+    expect(body).toContain("state.route = 'home'");
+    expect(body).toContain('renderApp()');
+    expect(body).toContain('writeMode');
   });
 });
 
@@ -184,9 +219,9 @@ describe('Seller Command Center (Phase 4) — real data only', () => {
     expect(src).not.toContain('Bids today');
     expect(src).not.toContain('Lots sold');
   });
-  test('Home routes each role to its own command center', () => {
-    expect(src).toMatch(/role === 'admin'\)\s*loadAdminHome/);
-    expect(src).toMatch(/else if \(state\.isSeller\)\s*loadSellerHome/);
+  test('Home follows the active EXPERIENCE (mode), not the raw role', () => {
+    expect(src).toMatch(/mode === 'admin'\)\s*loadAdminHome/);
+    expect(src).toMatch(/mode === 'selling'\)\s*loadSellerHome/);
     expect(src).toContain('else loadBuyerHome');
   });
 });
@@ -255,8 +290,8 @@ describe('Seller Workspace + Analytics (Phase 5) — real data, unified experien
       expect(src).toContain(g);
     expect(src).toContain('loadSellWorkspace');
   });
-  test('Sell is the enroll surface for non-sellers, the workspace for sellers', () => {
-    expect(src).toMatch(/case 'sell':\s*return \(state\.isSeller && state\.user\.role !== 'admin'\)/);
+  test('Sell renders the workspace in Selling mode, the education/enroll surface otherwise', () => {
+    expect(src).toMatch(/case 'sell':\s*return \(state\.mode === 'selling'\)/);
     expect(src).toContain('sellBody');
   });
   test('Analytics surfaces only supported metrics (no fabrication)', () => {

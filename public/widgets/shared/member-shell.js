@@ -10,7 +10,10 @@
   'use strict';
   var Nav = (typeof window !== 'undefined' && window.AdvNav);
   var LOGIN = '/login.html?next=' + encodeURIComponent('/app.html');
-  var mountEl, state = { user: null, isSeller: false, sellerType: null, route: 'home' };
+  var mountEl, state = { user: null, isSeller: false, sellerType: null, route: 'home', mode: 'buying' };
+  var MODE_KEY = 'ab_active_mode';
+  function readMode() { try { return localStorage.getItem(MODE_KEY); } catch (e) { return null; } }
+  function writeMode(m) { try { localStorage.setItem(MODE_KEY, m); } catch (e) {} }
 
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
     return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
@@ -49,21 +52,47 @@
   function initials(u) { var n = (u.full_name || u.email || '?').trim();
     var p = n.split(/\s+/); return ((p[0] || '')[0] || '' ) + (p.length > 1 ? (p[p.length - 1][0] || '') : ''); }
 
-  function navCtx() { return { role: state.user.role, isSeller: state.isSeller }; }
+  function navCtx() { return { role: state.user.role, isSeller: state.isSeller, mode: state.mode }; }
+  var MODE_META = { buying: { label: 'Buying', sub: 'Marketplace' }, selling: { label: 'Selling', sub: 'Seller workspace' }, admin: { label: 'Admin', sub: 'Operations' } };
 
   function navItemHtml(item, mobile) {
+    // External items deep-link out of the shell (plain link); section items hash-route in-shell.
+    if (item.external) {
+      return '<a class="adv-nav-item" href="' + item.href + '">' +
+        '<span class="adv-nav-emoji" aria-hidden="true">' + item.emoji + '</span>' +
+        '<span>' + esc(item.label) + '</span></a>';
+    }
     var cur = item.id === state.route ? ' aria-current="page"' : '';
     return '<a class="adv-nav-item" href="' + item.href + '" data-route="' + item.id + '"' + cur + '>' +
       '<span class="adv-nav-emoji" aria-hidden="true">' + item.emoji + '</span>' +
       '<span>' + esc(item.label) + '</span></a>';
   }
 
+  // The mode switch — the heart of "one account, three experiences". A pure buyer never sees it;
+  // instead they get a single "Start selling" entry (progressive disclosure). Sellers toggle
+  // Buying⇄Selling; admins get a "View as" set for testing.
+  function modeSwitchHtml() {
+    var modes = Nav.availableModes(navCtx());
+    if (modes.length <= 1) {
+      // pure buyer → gentle "Start selling" entry (becomes the switch once they're a seller)
+      return '<a class="adv-nav-item" href="/become-seller.html">' +
+        '<span class="adv-nav-emoji" aria-hidden="true">📈</span><span>Start selling</span></a>';
+    }
+    var btns = modes.filter(function (m) { return m !== state.mode; }).map(function (m) {
+      return '<button class="adv-btn ghost" style="width:100%;justify-content:flex-start;margin-top:6px" data-mode="' + m + '">' +
+        '⇄ Switch to ' + esc(MODE_META[m].label) + '</button>';
+    }).join('');
+    return btns;
+  }
+
   function railHtml() {
     var items = Nav.visibleNavFor(navCtx()).map(function (i) { return navItemHtml(i, false); }).join('');
+    var m = MODE_META[state.mode] || MODE_META.buying;
     return '<aside class="adv-rail">' +
       '<div class="adv-brand"><div class="adv-brand-mark">A</div>' +
-        '<div><div class="adv-brand-name">Advantage</div><div class="adv-brand-sub">Member dashboard</div></div></div>' +
+        '<div><div class="adv-brand-name">Advantage</div><div class="adv-brand-sub">' + esc(m.sub) + '</div></div></div>' +
       '<nav class="adv-nav" aria-label="Primary">' + items + '</nav>' +
+      '<div class="adv-rail-foot" id="adv-mode-switch">' + modeSwitchHtml() + '</div>' +
       '<div class="adv-rail-foot"><button class="adv-nav-item" id="adv-logout">' +
         '<span class="adv-nav-emoji" aria-hidden="true">↩︎</span><span>Log out</span></button></div>' +
     '</aside>';
@@ -75,15 +104,26 @@
   }
 
   function headerHtml() {
-    var u = state.user, roleLabel = state.isSeller && u.role === 'buyer' ? 'Buyer · Seller' : u.role;
+    var u = state.user, m = MODE_META[state.mode] || MODE_META.buying;
     return '<header class="adv-header">' +
       '<div class="adv-mobile-brand"><div class="adv-brand-mark">A</div><div class="adv-brand-name">Advantage</div></div>' +
-      '<h1 id="adv-title">Home</h1><div class="adv-header-spacer"></div>' +
+      '<h1 id="adv-title">Home</h1>' +
+      '<span class="adv-chip info" id="adv-mode-chip" style="margin-left:8px">' + esc(m.label) + '</span>' +
+      '<div class="adv-header-spacer"></div>' +
       '<button class="adv-icon-btn" id="adv-bell" aria-label="Updates and notifications">🔔<span class="adv-dot"></span></button>' +
       '<div class="adv-user"><div class="adv-avatar" aria-hidden="true">' + esc(initials(u).toUpperCase()) + '</div>' +
         '<div class="adv-user-meta"><div class="adv-user-name">' + esc(u.full_name || u.email) + '</div>' +
-        '<div class="adv-user-role">' + esc(roleLabel) + '</div></div></div>' +
+        '<div class="adv-user-role">' + esc(m.label) + '</div></div></div>' +
     '</header>';
+  }
+
+  // Switch experience: persist, reset to Home, re-render the whole frame.
+  function switchMode(m) {
+    var resolved = Nav.resolveMode(navCtx(), m);
+    if (!resolved || resolved === state.mode) return;
+    state.mode = resolved; writeMode(resolved); state.route = 'home';
+    try { history.replaceState(null, '', '#home'); } catch (e) {}
+    renderApp();
   }
 
   function frameHtml() {
@@ -107,18 +147,14 @@
       '<div class="adv-muted" id="adv-home-status" style="margin:2px 2px 16px;font-size:13.5px">' + esc(sub || '') + '</div>';
   }
   function homeBody() {
-    var u = state.user;
-    if (u.role === 'admin') {
-      var ska = '';
-      for (var k = 0; k < 4; k++) ska += '<div class="adv-card"><div class="adv-skeleton" style="width:44%"></div>' +
-        '<div class="adv-skeleton" style="height:26px;width:52%;margin-top:12px"></div></div>';
-      return greetingHtml('Loading operational status…') + '<div id="adv-home-live"><div class="adv-grid">' + ska + '</div></div>';
-    }
+    // Home content follows the active EXPERIENCE (mode), not the raw role — so a seller in Buying
+    // mode gets the clean buyer Home, and the same person in Selling mode gets the workspace Home.
     var sk = '';
     for (var i = 0; i < 4; i++) sk += '<div class="adv-card"><div class="adv-skeleton" style="width:44%"></div>' +
       '<div class="adv-skeleton" style="height:26px;width:52%;margin-top:12px"></div></div>';
-    return greetingHtml(state.isSeller ? 'Loading your business…' : 'Loading your latest activity…') +
-      '<div id="adv-home-live"><div class="adv-grid">' + sk + '</div></div>';
+    var loadingMsg = state.mode === 'admin' ? 'Loading operational status…'
+      : (state.mode === 'selling' ? 'Loading your business…' : 'Loading your latest activity…');
+    return greetingHtml(loadingMsg) + '<div id="adv-home-live"><div class="adv-grid">' + sk + '</div></div>';
   }
 
   // ---- Buyer Home — live data (Phase 3), attention-first ----
@@ -778,11 +814,8 @@
       case 'watchlist':
       case 'purchases':
       case 'sellers':   return '<div id="adv-sec-live">' + skeletonGrid() + '</div>';
-      case 'sell':      return (state.isSeller && state.user.role !== 'admin') ? ('<div id="adv-sec-live">' + skeletonGrid() + '</div>') : sellBody();
-      case 'analytics': return (state.user.role === 'admin')
-        ? (stub('📊', 'Platform analytics', 'Operational reports and launch readiness live in the admin backend.') +
-           '<div style="margin-top:-6px"><a class="adv-btn primary" href="/admin/launch-readiness.html">Open launch readiness</a></div>')
-        : ('<div id="adv-sec-live">' + skeletonGrid() + '</div>');
+      case 'sell':      return (state.mode === 'selling') ? ('<div id="adv-sec-live">' + skeletonGrid() + '</div>') : sellBody();
+      case 'analytics': return '<div id="adv-sec-live">' + skeletonGrid() + '</div>';
       case 'messages':  return '<div class="adv-card"><div class="adv-row" style="justify-content:space-between;margin-bottom:6px">' +
                           '<div style="font-weight:800">Updates &amp; Notifications</div>' +
                           '<span class="adv-chip accent">Conversations — coming later</span></div>' +
@@ -794,13 +827,15 @@
   }
 
   function setRoute(route) {
-    var item = Nav.byId(route) && Nav.visibleNavFor(navCtx()).some(function (i) { return i.id === route; }) ? route : 'home';
+    // A route is valid only if it's an in-shell section within the ACTIVE experience.
+    var inMode = Nav.visibleNavFor(navCtx()).some(function (i) { return i.id === route && !i.external; });
+    var item = inMode ? route : 'home';
     state.route = item;
     stopTicker();
     var main = document.getElementById('adv-main'); if (main) main.innerHTML = sectionBody(item);
     if (item === 'home' && document.getElementById('adv-home-live')) {
-      if (state.user.role === 'admin') loadAdminHome();
-      else if (state.isSeller) loadSellerHome();
+      if (state.mode === 'admin') loadAdminHome();
+      else if (state.mode === 'selling') loadSellerHome();
       else loadBuyerHome();
     }
     if (document.getElementById('adv-sec-live')) {
@@ -812,7 +847,7 @@
       else if (item === 'analytics') loadSellerAnalytics();
       else if (item === 'auctions') loadMyAuctions();
     }
-    var title = document.getElementById('adv-title'); var navItem = Nav.byId(item);
+    var title = document.getElementById('adv-title'); var navItem = Nav.byId(item, navCtx());
     if (title && navItem) title.textContent = navItem.label;
     document.querySelectorAll('.adv-nav-item[data-route]').forEach(function (a) {
       if (a.getAttribute('data-route') === item) a.setAttribute('aria-current', 'page');
@@ -829,6 +864,10 @@
     if (lo) lo.addEventListener('click', function () { try { localStorage.removeItem('token'); } catch (e) {} location.href = '/'; });
     var bell = document.getElementById('adv-bell');
     if (bell) bell.addEventListener('click', function () { setRoute('messages'); });
+    // Experience switch (Switch to Buying / Selling; admin "View as").
+    document.querySelectorAll('[data-mode]').forEach(function (b) {
+      b.addEventListener('click', function () { switchMode(b.getAttribute('data-mode')); });
+    });
     window.addEventListener('hashchange', function () { setRoute((location.hash || '#home').slice(1)); });
     // Issue 3: when the member returns to this tab (e.g. after bidding on a lot page in another tab),
     // re-run the current section so Home/Watchlist/My Auctions reflect the latest activity.
@@ -858,6 +897,10 @@
         state.isSeller = !!(sp && (sp.seller_profile || sp.seller_type || sp.id));
         state.sellerType = sp && (sp.seller_type || (sp.seller_profile && sp.seller_profile.seller_type)) || null;
       } catch (e) { state.isSeller = false; }
+      // Resolve the active experience: a remembered mode the user is still allowed, else their default
+      // (buyer-first for everyone; admins default to Admin). Progressive disclosure — a pure buyer only
+      // ever has 'buying', so they never see a switch.
+      state.mode = Nav.resolveMode({ role: state.user.role, isSeller: state.isSeller }, readMode());
       renderApp();
     } catch (e) { renderError(); }
   }
