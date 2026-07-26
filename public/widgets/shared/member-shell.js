@@ -214,7 +214,7 @@
       : '';
 
     var actions = '<div class="adv-section-title">Quick actions</div><div class="adv-row adv-wrap">' +
-      '<a class="adv-btn primary" href="/auction.html">🔨 Browse auctions</a>' +
+      '<a class="adv-btn primary" href="/">🔨 Browse auctions</a>' +
       '<a class="adv-btn ghost" href="#watchlist">❤️ Watchlist</a>' +
       '<a class="adv-btn ghost" href="#purchases">📦 Purchases</a>' +
       '<a class="adv-btn ghost" href="#sellers">🏪 Following (' + follow.length + ')</a></div>';
@@ -260,7 +260,7 @@
     if (state.route !== 'sell') return;
     var host = document.getElementById('adv-sec-live'); if (!host) return;
     if (r.status === 403) { host.innerHTML = emptyCard('📝', 'Complete your seller agreement',
-      'Sign your Advantage seller agreement to open your workspace.', '<a class="adv-btn primary" href="/sign-agreement.html">Review &amp; sign</a>'); return; }
+      'Sign your Advantage seller agreement to open your workspace.', '<a class="adv-btn primary" href="/sign-agreement.html?onboarding=1">Review &amp; sign</a>'); return; }
     var auctions = (r.ok && r.body && r.body.data && r.body.data.auctions) || [];
     if (!auctions.length) { host.innerHTML = emptyCard('🚀', 'Ready for your first auction?',
       "List your first auction and start receiving bids — we'll guide you through it.", '<a class="adv-btn primary" href="/seller-create.html">Create auction</a>'); return; }
@@ -292,7 +292,7 @@
     if (state.route !== 'analytics') return;
     var host = document.getElementById('adv-sec-live'); if (!host) return;
     if (r[0].status === 403) { host.innerHTML = emptyCard('📝', 'Complete your seller agreement',
-      'Sign your agreement to see how your auctions are performing.', '<a class="adv-btn primary" href="/sign-agreement.html">Review &amp; sign</a>'); return; }
+      'Sign your agreement to see how your auctions are performing.', '<a class="adv-btn primary" href="/sign-agreement.html?onboarding=1">Review &amp; sign</a>'); return; }
     var d = (r[0].ok && r[0].body && r[0].body.data) || { summary: {}, auctions: [] };
     var sum = d.summary || {}, auctions = d.auctions || [], fin = (r[1].ok && r[1].body && r[1].body.data) || null;
     if (!auctions.length) { host.innerHTML = emptyCard('📊', 'Your numbers will appear here',
@@ -328,7 +328,7 @@
     var setStatus = function (t) { var s = document.getElementById('adv-home-status'); if (s) s.textContent = t; };
     if (r[0].status === 403) { // seller agreement not yet signed
       host.innerHTML = emptyCard('📝', 'Complete your seller agreement',
-        'Sign your Advantage seller agreement to open your dashboard and start listing.', '<a class="adv-btn primary" href="/sign-agreement.html">Review &amp; sign</a>');
+        'Sign your Advantage seller agreement to open your dashboard and start listing.', '<a class="adv-btn primary" href="/sign-agreement.html?onboarding=1">Review &amp; sign</a>');
       setStatus('One quick step to get started.'); return;
     }
     var d = (r[0].ok && r[0].body && r[0].body.data) || { summary: {}, auctions: [] };
@@ -487,7 +487,7 @@
   function renderWatchlist() {
     var host = document.getElementById('adv-sec-live'); if (!host) return;
     if (!wlData.length) { host.innerHTML = emptyCard('❤️', 'Your watchlist is empty',
-      'Tap the heart on any lot to track it here — with live status and countdowns.', '<a class="adv-btn primary" href="/auction.html">Browse auctions</a>'); return; }
+      'Tap the heart on any lot to track it here — with live status and countdowns.', '<a class="adv-btn primary" href="/">Browse auctions</a>'); return; }
     var open = wlData.filter(function (l) { return l.state === 'open'; });
     var ended = wlData.filter(function (l) { return l.state !== 'open'; });
     var sorted = open.slice();
@@ -564,12 +564,12 @@
       list.push({ id: a.id, title: a.title, state: a.state, _label: 'Your auction · ' + stateLabel(a.state) }); });
 
     if (!list.length) { host.innerHTML = emptyCard('🔨', 'Your auctions live here',
-      "Bid on a lot and the auction shows up here — with your winning, outbid, won, and pickup status.", '<a class="adv-btn primary" href="/auction.html">Browse auctions</a>'); return; }
+      "Bid on a lot and the auction shows up here — with your winning, outbid, won, and pickup status.", '<a class="adv-btn primary" href="/">Browse auctions</a>'); return; }
 
     var sellerSec = state.isSeller ? '<div style="margin-bottom:14px"><a class="adv-btn primary" href="#sell">📈 Go to my Seller Workspace</a></div>' : '';
     host.innerHTML = '<div class="adv-muted" style="margin:0 2px 14px;font-size:13.5px">Auctions you\'re bidding in, have won, or ' + (state.isSeller ? 'are running.' : 'have participated in.') + '</div>' +
       sellerSec + '<div style="display:grid;gap:12px" id="my-auctions-list">' + list.map(myAuctionCard).join('') +
-      '<div style="text-align:center;margin-top:6px"><a class="adv-btn ghost" href="/auction.html">Browse all auctions</a></div></div>';
+      '<div style="text-align:center;margin-top:6px"><a class="adv-btn ghost" href="/">Browse all auctions</a></div></div>';
     // enrich titles/covers for bidding-derived auctions (which only had lot data)
     enrichMyAuctions(list.filter(function (a) { return a.title === 'Auction'; }));
   }
@@ -612,7 +612,7 @@
     var host = document.getElementById('adv-sec-live'); if (!host) return;
     var inv = (r.ok && r.body && r.body.invoices) || [];
     if (!inv.length) { host.innerHTML = emptyCard('📦', 'No purchases yet',
-      "When you win a lot, your invoice, payment, and pickup details show up here.", '<a class="adv-btn primary" href="/auction.html">Browse auctions</a>'); return; }
+      "When you win a lot, your invoice, payment, and pickup details show up here.", '<a class="adv-btn primary" href="/">Browse auctions</a>'); return; }
     var payable = inv.filter(isPayable), paid = inv.filter(function (i) { return String(i.status || '').toLowerCase() === 'paid'; });
     var other = inv.filter(function (i) { return !isPayable(i) && String(i.status || '').toLowerCase() !== 'paid'; });
     var head = '<div class="adv-muted" style="margin:0 2px 14px;font-size:13.5px">' +
@@ -713,7 +713,7 @@
         '<div id="ac-branding"></div>' +
         '<div class="adv-card"><button class="adv-btn ghost" id="ac-logout" style="width:100%;justify-content:center">Log out</button></div></div>';
     var sv = document.getElementById('ac-save'); if (sv) sv.addEventListener('click', accountSave);
-    var lo = document.getElementById('ac-logout'); if (lo) lo.addEventListener('click', function () { try { localStorage.removeItem('token'); } catch (e) {} location.href = '/login.html'; });
+    var lo = document.getElementById('ac-logout'); if (lo) lo.addEventListener('click', function () { try { localStorage.removeItem('token'); } catch (e) {} location.href = '/'; });
     if (state.isSeller && state.user.role !== 'admin') loadBrandingSetting();
   }
   // "Display company branding to buyers" — professional/business sellers only. Private sellers are
@@ -759,7 +759,11 @@
   }
 
   function sellBody() {
-    if (state.isSeller) return stub('📈', 'Sell — command center', 'Create & manage auctions, lots, settlements and payouts. Full experience arrives in Phase 4.');
+    // Admins are internal operators — never route them through buyer-facing seller onboarding.
+    if (state.user.role === 'admin') return '<div class="adv-card"><div class="adv-empty"><span class="emoji">🛠️</span>' +
+      '<h3>Seller operations</h3><p>Manage sellers, auctions and settlements from the admin backend.</p>' +
+      '<p style="margin-top:14px"><a class="adv-btn primary" href="/admin/moderation.html">Auction moderation</a> ' +
+      '<a class="adv-btn ghost" href="/admin/users.html">Sellers &amp; members</a></p></div></div>';
     return '<div class="adv-card"><div class="adv-empty"><span class="emoji">📈</span>' +
       '<h3>Sell with Advantage</h3><p>List with Advantage as a private seller or professional auction house. ' +
       'Learn how it works and get started.</p><p style="margin-top:14px">' +
@@ -822,7 +826,7 @@
       a.addEventListener('click', function (e) { e.preventDefault(); setRoute(a.getAttribute('data-route')); });
     });
     var lo = document.getElementById('adv-logout');
-    if (lo) lo.addEventListener('click', function () { try { localStorage.removeItem('token'); } catch (e) {} location.href = '/login.html'; });
+    if (lo) lo.addEventListener('click', function () { try { localStorage.removeItem('token'); } catch (e) {} location.href = '/'; });
     var bell = document.getElementById('adv-bell');
     if (bell) bell.addEventListener('click', function () { setRoute('messages'); });
     window.addEventListener('hashchange', function () { setRoute((location.hash || '#home').slice(1)); });

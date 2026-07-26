@@ -208,6 +208,10 @@ app.get('/sitemap.xml', async (req, res) => {
     '/how-sellers-get-paid.html',
     '/after-estate-sale.html',
     '/downsizing-liquidation.html',
+    '/events.html',
+    '/terms.html',
+    '/privacy.html',
+    '/buyer-terms.html',
   ];
 
   const urls = staticPaths.map(p => urlEl(base + p, null));

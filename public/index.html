@@ -28,12 +28,29 @@
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
-  "@type": "Organization",
-  "name": "Advantage.Bid",
-  "url": "https://bid.advantage.bid",
-  "logo": "https://bid.advantage.bid/img/social-card.png",
-  "description": "Online auction marketplace for estate, liquidation, and consignment inventory. Discover auctions near you and bid on individual lots.",
-  "slogan": "Get The Advantage."
+  "@graph": [
+    {
+      "@type": "Organization",
+      "@id": "https://bid.advantage.bid/#organization",
+      "name": "Advantage.Bid",
+      "url": "https://bid.advantage.bid",
+      "logo": "https://bid.advantage.bid/img/social-card.png",
+      "description": "Online auction marketplace for estate, liquidation, and consignment inventory. Discover auctions near you and bid on individual lots.",
+      "slogan": "Get The Advantage."
+    },
+    {
+      "@type": "WebSite",
+      "@id": "https://bid.advantage.bid/#website",
+      "url": "https://bid.advantage.bid",
+      "name": "Advantage.Bid",
+      "publisher": { "@id": "https://bid.advantage.bid/#organization" },
+      "potentialAction": {
+        "@type": "SearchAction",
+        "target": { "@type": "EntryPoint", "urlTemplate": "https://bid.advantage.bid/search.html?q={search_term_string}" },
+        "query-input": "required name=search_term_string"
+      }
+    }
+  ]
 }
 </script>
 <!--

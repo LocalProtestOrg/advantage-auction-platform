@@ -88,7 +88,7 @@
       try {
         var st = await (await fetch('/api/agreements/onboarding-status', { headers: { Authorization: 'Bearer ' + authToken } })).json();
         if (st && st.success && st.data && st.data.is_seller) {
-          if (st.data.dashboard_access) { location.href = '/seller-dashboard.html'; return; }
+          if (st.data.dashboard_access) { location.href = '/app.html'; return; }
           location.href = '/sign-agreement.html?onboarding=1'; return;
         }
       } catch (e) { /* fall through to the form */ }
@@ -144,7 +144,7 @@
         // Route to the correct seller destination: dashboard if already accessible,
         // otherwise the agreement step (which enables the dashboard once signed).
         var ob = json.data && json.data.onboarding;
-        if (ob && ob.dashboard_access) { location.href = '/seller-dashboard.html'; return; }
+        if (ob && ob.dashboard_access) { location.href = '/app.html'; return; }
         location.href = '/sign-agreement.html?onboarding=1';
       } catch (e) {
         err.textContent = 'Network error. Please try again.';

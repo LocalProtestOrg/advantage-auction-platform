@@ -117,7 +117,7 @@ describe('buyer Home wires live data via existing APIs (Phase 3)', () => {
   test('attention CTAs deep-link to the working pay/lot/browse pages', () => {
     expect(src).toContain('/invoices.html');
     expect(src).toContain('/lot.html?id=');
-    expect(src).toContain('/auction.html');
+    expect(src).toContain('href="/"'); // canonical marketplace discovery (was broken /auction.html)
   });
 });
 

@@ -1,6 +1,9 @@
-User-agent: *
+# Advantage.Bid — robots policy
+# Public marketplace, auctions, lots, and educational pages are open to search + AI crawlers.
+# Authenticated / member / seller / admin surfaces are disallowed everywhere.
 
-# Private / authenticated pages — do not index
+User-agent: *
+Disallow: /app.html
 Disallow: /dashboard
 Disallow: /seller-dashboard
 Disallow: /seller-create.html
@@ -13,12 +16,49 @@ Disallow: /billing.html
 Disallow: /invoices.html
 Disallow: /payment.html
 Disallow: /add-card.html
+Disallow: /payout-profile.html
+Disallow: /seller-settlements.html
+Disallow: /become-seller.html
 Disallow: /login.html
 Disallow: /forgot-password.html
 Disallow: /reset-password.html
 Disallow: /sign-agreement.html
 Disallow: /verify-documents.html
 Disallow: /demo.html
+Disallow: /org/
+Disallow: /admin/
+Disallow: /api/
+
+# AI-powered search crawlers — explicitly allowed on public content, blocked on private surfaces.
+# (Advantage.Bid is a discovery marketplace; public auctions/lots/education should be AI-discoverable.)
+User-agent: GPTBot
+User-agent: OAI-SearchBot
+User-agent: ClaudeBot
+User-agent: anthropic-ai
+User-agent: PerplexityBot
+User-agent: Google-Extended
+Disallow: /app.html
+Disallow: /dashboard
+Disallow: /seller-dashboard
+Disallow: /seller-create.html
+Disallow: /lot-builder
+Disallow: /account.html
+Disallow: /watchlist.html
+Disallow: /my-bids.html
+Disallow: /my-agreements.html
+Disallow: /billing.html
+Disallow: /invoices.html
+Disallow: /payment.html
+Disallow: /add-card.html
+Disallow: /payout-profile.html
+Disallow: /seller-settlements.html
+Disallow: /become-seller.html
+Disallow: /login.html
+Disallow: /forgot-password.html
+Disallow: /reset-password.html
+Disallow: /sign-agreement.html
+Disallow: /verify-documents.html
+Disallow: /org/
 Disallow: /admin/
 Disallow: /api/
 

@@ -48,7 +48,7 @@ describe('Issue 2: become-seller.html frontend error handling', () => {
     expect(h).not.toContain("json.message || 'Could not enable selling");
   });
   test('routes to the correct seller destination on success', () => {
-    expect(h).toContain("location.href = '/seller-dashboard.html'");
+    expect(h).toContain("location.href = '/app.html'"); // canonical shell (was /seller-dashboard.html hop)
     expect(h).toContain('/sign-agreement.html?onboarding=1');
   });
   test('validates the phone number before submitting', () => {

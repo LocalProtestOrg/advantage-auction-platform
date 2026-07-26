@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="noindex, nofollow" />
   <title>Create Auction - Advantage Auction</title>
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
   <style>
@@ -270,7 +271,7 @@
 
 <header>
   <span class="brand">Advantage Auction</span>
-  <a href="/seller-dashboard.html">My Auctions</a>
+  <a href="/app.html">My Auctions</a>
 </header>
 
 <div id="status-banner"></div>
@@ -830,7 +831,7 @@
 
         showBanner('Auction details saved.', 'success');
         document.getElementById('btn-draft').disabled = true;
-        setTimeout(() => { window.location.href = '/seller-dashboard.html'; }, 1000);
+        setTimeout(() => { window.location.href = '/app.html'; }, 1000);
       } catch (err) {
         showBanner('Error: ' + err.message, 'error');
       }
