@@ -5,6 +5,7 @@ const multer   = require('multer');
 const router   = express.Router();
 const auth     = require('../middleware/authMiddleware');
 const cloudinaryService = require('../services/cloudinaryService');
+const mediaUploadService = require('../services/mediaUploadService');
 
 const MAX_SIZE_BYTES = 10 * 1024 * 1024; // 10 MB
 
@@ -37,6 +38,22 @@ function requireSellerOrAdmin(req, res, next) {
   }
   next();
 }
+
+// POST /api/uploads/signature — reusable signed direct-to-storage upload (Advantage Media Uploader).
+// Any logged-in user may ask; the per-context authorize() guard enforces ownership/editability.
+// The browser uploads bytes DIRECTLY to Cloudinary with the returned params — never through Railway.
+router.post('/signature', auth, async (req, res, next) => {
+  try {
+    const { context, resourceId } = req.body || {};
+    const payload = await mediaUploadService.signUpload({ user: req.user, context, resourceId });
+    return res.json(Object.assign({ success: true }, payload));
+  } catch (err) {
+    if (err && err.status) {
+      return res.status(err.status).json({ success: false, code: err.code, message: err.message });
+    }
+    return next(err);
+  }
+});
 
 // POST /api/uploads/image
 router.post(

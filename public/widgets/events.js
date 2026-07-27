@@ -1,16 +1,22 @@
-/* Advantage.Bid — Local Events embeddable widget (Phase 1).
+/* Advantage.Bid — Marketplace Events embeddable widget.
  *
- * Drop-in for Brilliant Directories city pages (or any site). Renders published events
- * from the Railway public API into a shadow root (CSS-isolated from the host page).
+ * Drop-in for Brilliant Directories city/company pages (or any site). Renders published events
+ * from the Railway public API into a shadow root (CSS-isolated from the host page). Read-only;
+ * no auth, no credentials, no host-page globals touched.
  *
- *   <div data-advantage-events data-market="houston" data-limit="12"></div>
- *   <script async src="https://bid.advantage.bid/widgets/events.js"></script>
+ *   Market-scoped:       <div data-advantage-events data-market="houston" data-limit="12"></div>
+ *   Organization-scoped: <div data-advantage-events data-organization-id="<org-uuid>" data-limit="12"></div>
+ *   <script async src="https://bid.advantage.bid/widgets/events.js?v=1"></script>
  *
  * Data + links resolve to the origin this script is served from (bid.advantage.bid).
- * Read-only; no auth; no host-page globals touched.
+ * Safe to include more than once — each container initializes at most once.
  */
 (function () {
   'use strict';
+
+  var WIDGET_VERSION = '1.0.0'; // bump on release; pair with a ?v= cache-buster on the <script src>.
+  if (window.__ADV_EVENTS_WIDGET__) { /* script already loaded; re-run init only */ }
+  window.__ADV_EVENTS_WIDGET__ = WIDGET_VERSION;
 
   function base() {
     try {
@@ -58,6 +64,7 @@
   function render(container) {
     var market = container.getAttribute('data-market') || '';
     var category = container.getAttribute('data-category') || '';
+    var orgId = container.getAttribute('data-organization-id') || '';
     var limit = Math.min(48, Math.max(1, parseInt(container.getAttribute('data-limit'), 10) || 12));
     var root = container.attachShadow ? container.attachShadow({ mode: 'open' }) : container;
     root.innerHTML = '<style>' + STYLE + '</style><div class="g"><div class="msg">Loading events…</div></div>';
@@ -65,14 +72,18 @@
     var q = ['limit=' + limit];
     if (market) q.push('market=' + encodeURIComponent(market));
     if (category) q.push('category=' + encodeURIComponent(category));
+    if (orgId) q.push('organization_id=' + encodeURIComponent(orgId));
     fetch(BASE + '/api/public/events?' + q.join('&')).then(function (r) { return r.json(); }).then(function (d) {
       var rows = (d && d.data) || [];
       if (!rows.length) { g.innerHTML = '<div class="msg">No upcoming events right now.</div>'; return; }
       g.innerHTML = rows.map(card).join('');
-      var all = document.createElement('a'); all.className = 'all';
-      all.href = BASE + '/events.html' + (market ? ('?market=' + encodeURIComponent(market)) : '');
-      all.textContent = 'View all events →';
-      g.parentNode.appendChild(all);
+      // Only the market-scoped "view all" link makes sense; an org page stays on its own listing.
+      if (!orgId) {
+        var all = document.createElement('a'); all.className = 'all';
+        all.href = BASE + '/events.html' + (market ? ('?market=' + encodeURIComponent(market)) : '');
+        all.textContent = 'View all events →';
+        g.parentNode.appendChild(all);
+      }
     }).catch(function () { g.innerHTML = '<div class="msg">Events are unavailable right now.</div>'; });
   }
 
@@ -80,5 +91,7 @@
     var nodes = document.querySelectorAll('[data-advantage-events]');
     Array.prototype.forEach.call(nodes, function (c) { if (c.__abEventsInit) return; c.__abEventsInit = true; render(c); });
   }
+  // Idempotent re-init for host pages that insert containers dynamically (already-mounted ones skip).
+  window.__ADV_EVENTS_REINIT__ = init;
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
 })();

@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Marketplace — Auctions & Estate Sales | Advantage.Bid</title>
+<meta name="description" content="Discover live online auctions and in-person estate sales, tag sales, and liquidations across the Advantage.Bid marketplace." />
+<link rel="canonical" href="https://bid.advantage.bid/all-events.html" />
+<meta property="og:type" content="website" />
+<meta property="og:site_name" content="Advantage.Bid" />
+<meta property="og:title" content="Marketplace — Auctions & Estate Sales | Advantage.Bid" />
+<meta property="og:description" content="Live online auctions and in-person estate sales in one marketplace." />
+<meta property="og:image" content="https://bid.advantage.bid/img/social-card.png" />
+<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/marketplace.css" />
+<style>
+  /* Shared Advantage "Living Map" tokens — identical to auction-view.html / event.html */
+  :root{ --ink:#0B1B2B; --paper:#FBFAF7; --surface:#fff; --muted:#637488; --hair:#ECE8E0; --accent:#2F6BFF; --live:#B5273B; }
+  *{box-sizing:border-box} body{margin:0;background:var(--paper);color:var(--ink);font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+  .wrap{max-width:1200px;margin:0 auto;padding:26px 20px 64px}
+  h1{font-family:"Fraunces","Georgia",serif;font-weight:600;font-size:clamp(28px,4vw,42px);line-height:1.05;letter-spacing:-.01em;margin:6px 0 6px}
+  .lede{color:var(--muted);font-size:16px;max-width:60ch;margin:0 0 22px}
+  footer{border-top:1px solid var(--hair);color:var(--muted);font-size:13px;text-align:center;padding:26px 16px}
+  @media (prefers-reduced-motion: reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>The Advantage Marketplace</h1>
+  <p class="lede">Live online auctions and in-person estate sales, tag sales, and liquidations — one place to discover them all.</p>
+  <div id="marketplace-feed"></div>
+</div>
+<footer>© Advantage.Bid — the estate &amp; liquidation marketplace</footer>
+
+<script src="/widgets/shared/buyer-nav.js"></script>
+<script src="/marketplace-components.js"></script>
+<!-- Unified feed: same-origin API, auctions + events rendered through one card framework -->
+<script src="/widgets/marketplace-feed.js" data-api-base="" data-types="auctions,events" data-container="marketplace-feed"></script>
+</body>
+</html>

@@ -34,6 +34,7 @@ const shareMetaService = require('../services/shareMetaService');
 const PAGES = {
   '/auction-view.html': { kind: 'auction', idParams: ['auctionId', 'id'] },
   '/lot.html':          { kind: 'lot',     idParams: ['lotId', 'id'] },
+  '/event.html':        { kind: 'event',   idParams: ['slug'] },
 };
 
 // Read + cache the base HTML for each page ONCE at module load. If a read fails,
@@ -150,6 +151,39 @@ function buildAuctionEvent(meta, url, image) {
   });
 }
 
+// Build the schema.org Event object for a Marketplace Event (a PHYSICAL, in-person event, unlike
+// the auction's VirtualLocation). Privacy-safe: while the address is hidden, only the general area
+// (city/region) reaches the Place — never the street or precise geo.
+function buildMarketplaceEvent(meta, url, image) {
+  const ev = omitEmpty({
+    '@type': 'Event',
+    name: meta.title || null,
+    description: meta.description || null,
+    url,
+    image,
+    startDate: isoOrNull(meta.startDate),
+    endDate: isoOrNull(meta.endDate),
+    eventAttendanceMode: 'https://schema.org/OfflineEventAttendanceMode',
+    eventStatus: 'https://schema.org/EventScheduled',
+    organizer: { '@type': 'Organization', name: meta.organizer || 'Advantage.Bid' },
+  });
+  const addr = omitEmpty({
+    '@type': 'PostalAddress',
+    streetAddress: meta.addressHidden ? null : (meta.address || null),
+    addressLocality: meta.city || null,
+    addressRegion: meta.state || null,
+    postalCode: meta.zip || null,
+    addressCountry: 'US',
+  });
+  const place = { '@type': 'Place' };
+  if (Object.keys(addr).length > 1) place.address = addr;
+  if (!meta.addressHidden && meta.lat != null && meta.lng != null) {
+    place.geo = { '@type': 'GeoCoordinates', latitude: meta.lat, longitude: meta.lng };
+  }
+  if (Object.keys(place).length > 1) ev.location = place;
+  return ev;
+}
+
 // Build the schema.org Product object for a lot. Emits `offers` ONLY when a
 // positive cent price is present (meta.priceCents). `url`/`image` are absolute.
 function buildLotProduct(meta, url, image) {
@@ -195,6 +229,10 @@ function buildJsonLd(kind, meta, url, image) {
   if (kind === 'auction') {
     graph.push(buildAuctionEvent(meta, url, image));
     crumbs.push({ name: meta.title || 'Auction', url });
+  } else if (kind === 'event') {
+    graph.push(buildMarketplaceEvent(meta, url, image));
+    crumbs.push({ name: 'Events', url: b + '/events.html' });
+    crumbs.push({ name: meta.title || 'Event', url });
   } else {
     graph.push(buildLotProduct(meta, url, image));
     if (meta.auctionId) {
@@ -228,9 +266,10 @@ module.exports = async function shareMeta(req, res, next) {
     if (!id) return next();
 
     // Load meta (visibility-gated, fail-open). null → Phase-1 static serves.
-    const meta = page.kind === 'auction'
-      ? await shareMetaService.getAuctionMeta(id)
-      : await shareMetaService.getLotMeta(id);
+    let meta;
+    if (page.kind === 'auction') meta = await shareMetaService.getAuctionMeta(id);
+    else if (page.kind === 'event') meta = await shareMetaService.getEventMeta(id);
+    else meta = await shareMetaService.getLotMeta(id);
     if (!meta) return next();
 
     // Split at the FIRST </head>; never touch anything from </head> onward.
@@ -275,6 +314,7 @@ module.exports.stripPhase1Tags = stripPhase1Tags;
 module.exports.buildBlock = buildBlock;
 module.exports.buildJsonLd = buildJsonLd;
 module.exports.buildAuctionEvent = buildAuctionEvent;
+module.exports.buildMarketplaceEvent = buildMarketplaceEvent;
 module.exports.buildLotProduct = buildLotProduct;
 module.exports.buildBreadcrumb = buildBreadcrumb;
 module.exports.jsonLdScript = jsonLdScript;

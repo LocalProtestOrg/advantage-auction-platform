@@ -53,6 +53,7 @@
     { href: '/admin/events.html', label: 'Events' },
     { href: '/admin/invoices.html', label: 'Invoices' },
     { href: '/admin/marketplace-config.html', label: 'Marketplace Config' },
+    { href: '/admin/memberships.html', label: 'Memberships' },
   ];
 
   function isActive(href) {

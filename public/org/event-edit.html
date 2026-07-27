@@ -24,6 +24,7 @@
 </div>
 <script src="/widgets/shared/auth-refresh.js"></script>
 <script src="/org/portal.js"></script>
+<script src="/widgets/shared/media-uploader.js"></script>
 <script>
 (function () {
   if (!ORG.guard()) return;
@@ -33,11 +34,13 @@
   var msg = $('msg'), body = $('body');
   if (!id) { body.innerHTML = '<div class="msg err" style="display:block">No event id.</div>'; return; }
 
-  var current = null, images = [], markets = [], cats = [];
+  var current = null, images = [], markets = [], cats = [], imageLimit = null, uploader = null;
   function toLocalInput(iso) { if (!iso) return ''; var d = new Date(iso); if (isNaN(d)) return ''; var p = function (n) { return String(n).padStart(2, '0'); }; return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()) + 'T' + p(d.getHours()) + ':' + p(d.getMinutes()); }
   function showErr(t) { msg.className = 'msg err'; msg.textContent = t; window.scrollTo(0, 0); }
   function showOk(t) { msg.className = 'msg ok'; msg.textContent = t; }
   function opts(rows, val) { return rows.map(function (r) { return '<option value="' + ORG.esc(r.slug) + '"' + (r.slug === val ? ' selected' : '') + '>' + ORG.esc(r.name) + '</option>'; }).join(''); }
+  var EVENT_TYPES = [['estate_sale', 'Estate Sale'], ['in_person_auction', 'In-Person Auction'], ['tag_sale', 'Tag Sale'], ['moving_sale', 'Moving Sale'], ['business_liquidation', 'Business Liquidation'], ['other', 'Other']];
+  function typeOpts(val) { return '<option value="">Select a type…</option>' + EVENT_TYPES.map(function (t) { return '<option value="' + t[0] + '"' + (t[0] === val ? ' selected' : '') + '>' + t[1] + '</option>'; }).join(''); }
 
   Promise.all([
     ORG.api('GET', '/api/org/events/' + encodeURIComponent(id)),
@@ -45,6 +48,7 @@
     fetch('/api/public/event-categories').then(function (r) { return r.json(); }),
   ]).then(function (res) {
     current = res[0].event; images = res[0].images || []; markets = res[1].data || []; cats = res[2].data || [];
+    imageLimit = (res[0].image_limit === undefined ? null : res[0].image_limit);
     render();
     if (new URLSearchParams(location.search).get('created')) showOk('Draft created. Add photos, then submit for review.');
   }).catch(function (e) { body.innerHTML = '<div class="msg err" style="display:block">' + ORG.esc(e.message) + '</div>'; });
@@ -64,7 +68,10 @@
       + '<label>Title <span class="req">*</span></label><input id="title" maxlength="160" value="' + ORG.esc(e.title) + '"' + dis + ' />'
       + '<div class="row"><div><label>Market <span class="req">*</span></label><select id="market"' + dis + '>' + opts(markets, e.market) + '</select></div>'
       + '<div><label>Category</label><select id="category"' + dis + '><option value="">—</option>' + opts(cats, e.category) + '</select></div></div>'
-      + '<label>Description</label><textarea id="description" maxlength="4000"' + dis + '>' + ORG.esc(e.description || '') + '</textarea></div>'
+      + '<label>Event type</label><select id="eventType"' + dis + '>' + typeOpts(e.event_type) + '</select>'
+      + '<label>Description</label><textarea id="description" maxlength="4000"' + dis + '>' + ORG.esc(e.description || '') + '</textarea>'
+      + '<div class="row"><div><label>Contact email</label><input id="contactEmail" type="email" maxlength="160" value="' + ORG.esc(e.contact_email || '') + '"' + dis + ' /></div>'
+      + '<div><label>Contact phone</label><input id="contactPhone" maxlength="40" value="' + ORG.esc(e.contact_phone || '') + '"' + dis + ' /></div></div></div>'
 
       + '<div class="card"><h2>When &amp; where</h2>'
       + '<div class="row"><div><label>Starts <span class="req">*</span></label><input id="startAt" type="datetime-local" value="' + toLocalInput(e.start_at) + '"' + dis + ' /></div>'
@@ -77,10 +84,14 @@
       + '<div class="row"><div><label>City</label><input id="city" value="' + ORG.esc(e.city || '') + '"' + dis + ' /></div>'
       + '<div><label>State</label><input id="state" value="' + ORG.esc(e.state || '') + '"' + dis + ' /></div></div>'
       + '<div class="row"><div><label>ZIP</label><input id="zip" value="' + ORG.esc(e.zip || '') + '"' + dis + ' /></div>'
-      + '<div><label>External link</label><input id="externalUrl" type="url" value="' + ORG.esc(e.external_url || '') + '"' + dis + ' /></div></div></div>'
+      + '<div><label>External link</label><input id="externalUrl" type="url" value="' + ORG.esc(e.external_url || '') + '"' + dis + ' /></div></div>'
+      + '<label>Address visibility</label><select id="addressPrivacy"' + dis + '>'
+      + '<option value="hidden_until"' + (e.address_privacy_mode !== 'exact' ? ' selected' : '') + '>Hide exact address until 24 hours before the sale starts (recommended)</option>'
+      + '<option value="exact"' + (e.address_privacy_mode === 'exact' ? ' selected' : '') + '>Show the full address publicly</option>'
+      + '</select></div>'
 
-      + '<div class="card"><h2>Photos</h2><div class="imgs" id="imgs"></div>'
-      + (editable ? '<div class="dropz" id="dropz">＋ Click to upload a photo</div><input id="file" type="file" accept="image/*" hidden />' : '')
+      + '<div class="card"><h2>Photos</h2>'
+      + (editable ? '<div id="mediaUploader"></div>' : '<div class="imgs" id="imgs"></div>')
       + '</div>'
 
       + (editable
@@ -89,8 +100,32 @@
           + '<button class="btn ghost" id="archiveBtn" style="margin-left:auto">Archive</button></div>'
         : '');
 
-    renderImages();
-    if (editable) wireEditable();
+    if (editable) { mountUploader(); wireEditable(); } else { renderImages(); }
+  }
+
+  // Reusable Advantage Media Uploader — the Events module only configures it (signature source +
+  // persistence callbacks); all upload mechanics live in the shared component.
+  function mountUploader() {
+    if (uploader) { uploader.destroy(); uploader = null; }
+    uploader = AdvantageMedia.mount({
+      el: '#mediaUploader',
+      accept: 'image',
+      maxFiles: (imageLimit == null ? Infinity : imageLimit),
+      existing: images,
+      getSignature: function () { return ORG.api('POST', '/api/uploads/signature', { context: 'event_images', resourceId: id }); },
+      onAttach: function (uploads) {
+        return ORG.api('POST', '/api/org/events/' + id + '/images/bulk', { images: uploads })
+          .then(function (d) { images = images.concat(d.added); return d.added; });
+      },
+      onReorder: function (order, coverId) {
+        return ORG.api('PATCH', '/api/org/events/' + id + '/images/order', { order: order, coverId: coverId })
+          .then(function (d) { images = d.images; return d.images; });
+      },
+      onRemove: function (imgId) {
+        return ORG.api('DELETE', '/api/org/events/' + id + '/images/' + imgId)
+          .then(function () { images = images.filter(function (x) { return x.id !== imgId; }); });
+      },
+    });
   }
 
   function renderImages() {
@@ -115,24 +150,19 @@
   function collect() {
     return {
       title: $('title').value.trim(), marketSlug: $('market').value, categorySlug: $('category').value || null,
+      eventType: $('eventType').value || null, contactEmail: $('contactEmail').value.trim() || null, contactPhone: $('contactPhone').value.trim() || null,
       description: $('description').value.trim() || null, venueName: $('venueName').value.trim() || null,
       address: $('address').value.trim() || null, city: $('city').value.trim() || null, state: $('state').value.trim() || null,
       zip: $('zip').value.trim() || null, startAt: $('startAt').value || null, endAt: $('endAt').value || null,
       timezone: $('timezone').value, externalUrl: $('externalUrl').value.trim() || null,
+      addressPrivacyMode: $('addressPrivacy').value,
+      addressRevealTrigger: $('addressPrivacy').value === 'hidden_until' ? 'hours_before_start' : 'none',
+      addressRevealHoursBefore: $('addressPrivacy').value === 'hidden_until' ? 24 : null,
     };
   }
 
   function wireEditable() {
-    $('dropz').addEventListener('click', function () { $('file').click(); });
-    $('file').addEventListener('change', function () {
-      var f = this.files && this.files[0]; if (!f) return;
-      $('dropz').textContent = 'Uploading…';
-      ORG.uploadImage(f).then(function (url) {
-        return ORG.api('POST', '/api/org/events/' + id + '/images', { url: url });
-      }).then(function (d) {
-        images.push(d.image); renderImages(); $('dropz').textContent = '＋ Click to upload a photo'; $('file').value = '';
-      }).catch(function (e) { $('dropz').textContent = '＋ Click to upload a photo'; showErr(e.message); });
-    });
+    // Photo upload/reorder/cover/remove is handled by the Advantage Media Uploader (mountUploader).
     $('saveBtn').addEventListener('click', function () {
       msg.className = 'msg'; $('saveBtn').disabled = true;
       ORG.api('PATCH', '/api/org/events/' + id, collect()).then(function (d) {

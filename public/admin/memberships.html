@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="robots" content="noindex" />
+<title>Membership Tiers - Advantage.Bid Admin</title>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/org/portal.css" />
+<style>
+  .orow{display:flex;align-items:center;gap:12px;justify-content:space-between;padding:11px 14px;border:1px solid #ECE8E0;border-radius:12px;background:#fff;margin-bottom:8px}
+  .orow .who{min-width:0}
+  .orow .nm{font-weight:700}
+  .orow .loc{font-size:12.5px;color:#637488}
+  .tier{font-size:11px;font-weight:800;border-radius:999px;padding:3px 9px;background:#eef2f6;color:#334155;white-space:nowrap}
+  .caps{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+  .cap{font-size:11px;font-weight:700;border-radius:999px;padding:3px 9px;background:#e8f0fe;color:#1c3d6e}
+  .planopt{color:#637488;font-size:12.5px;margin-top:4px}
+</style>
+</head>
+<body>
+<script src="/widgets/shared/admin-nav.js"></script>
+<div class="wrap">
+  <h1 class="page">Membership Tiers</h1>
+  <p class="sub">Assign an organization's Marketplace membership tier. Changing a tier re-syncs its plan capabilities; admin-granted capabilities are preserved.</p>
+  <div id="msg" class="msg"></div>
+
+  <div class="card" style="padding:14px 16px">
+    <label style="margin-top:0">Find an organization</label>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <input id="q" placeholder="Search by name…" style="flex:1;min-width:220px" />
+      <button class="btn ghost" id="searchBtn" type="button">Search</button>
+    </div>
+  </div>
+
+  <div id="list"></div>
+
+  <div class="card" id="panel" style="display:none">
+    <h2 id="pName" style="margin-top:0"></h2>
+    <div class="planopt" id="pLoc"></div>
+    <label>Membership tier</label>
+    <select id="plan"></select>
+    <div class="planopt" id="planSummary"></div>
+    <div style="display:flex;gap:8px;margin-top:14px">
+      <button class="btn primary" id="assignBtn" type="button">Assign tier</button>
+      <span class="tier" id="curTier"></span>
+    </div>
+    <label style="margin-top:16px">Effective capabilities</label>
+    <div class="caps" id="caps"><span class="planopt">Loading…</span></div>
+  </div>
+</div>
+
+<script src="/admin/events-admin.js"></script>
+<script>
+(function () {
+  if (!AE.requireAdmin()) return;
+  var $ = function (id) { return document.getElementById(id); };
+  var msg = $('msg'), plans = [], selected = null;
+
+  function prettify(s) { return String(s || '').replace(/_/g, ' ').replace(/\b\w/g, function (m) { return m.toUpperCase(); }); }
+  function showErr(t) { msg.className = 'msg err'; msg.textContent = t; window.scrollTo(0, 0); }
+  function showOk(t) { msg.className = 'msg ok'; msg.textContent = t; }
+  function unlimited(v) { return v == null ? 'unlimited' : v; }
+  function planSummary(p) {
+    if (!p) return '';
+    return 'Photos: ' + unlimited(p.max_event_images) + ' · Active listings: ' + unlimited(p.max_active_events)
+      + ' · Per month: ' + unlimited(p.max_listings_per_month) + ' · Search tier ' + (p.search_placement_tier != null ? p.search_placement_tier : '—');
+  }
+
+  // Load assignable tiers once.
+  AE.api('GET', '/api/admin/partners/plans').then(function (d) {
+    plans = d.plans || [];
+    $('plan').innerHTML = plans.map(function (p) { return '<option value="' + AE.esc(p.plan_tier) + '">' + AE.esc(prettify(p.plan_tier)) + '</option>'; }).join('');
+  }).catch(function (e) { showErr(e.message); });
+
+  function search() {
+    var q = $('q').value.trim();
+    $('list').innerHTML = '<div class="loading">Loading…</div>';
+    AE.api('GET', '/api/admin/partners/organizations' + (q ? '?q=' + encodeURIComponent(q) : '')).then(function (d) {
+      var rows = d.organizations || [];
+      if (!rows.length) { $('list').innerHTML = '<div class="card empty">No organizations found.</div>'; return; }
+      $('list').innerHTML = rows.map(function (o) {
+        return '<div class="orow"><div class="who"><div class="nm">' + AE.esc(o.name) + '</div>'
+          + '<div class="loc">' + AE.esc([o.city, o.state].filter(Boolean).join(', ') || '—') + '</div></div>'
+          + '<div style="display:flex;gap:10px;align-items:center"><span class="tier">' + AE.esc(prettify(o.plan_tier)) + '</span>'
+          + '<button class="btn ghost sel" data-id="' + AE.esc(o.id) + '">Select</button></div></div>';
+      }).join('');
+      Array.prototype.forEach.call($('list').querySelectorAll('.sel'), function (b) {
+        b.addEventListener('click', function () { select(rows.filter(function (o) { return o.id === b.dataset.id; })[0]); });
+      });
+    }).catch(function (e) { showErr(e.message); });
+  }
+
+  function select(o) {
+    if (!o) return;
+    selected = o;
+    $('panel').style.display = '';
+    $('pName').textContent = o.name;
+    $('pLoc').textContent = [o.city, o.state].filter(Boolean).join(', ');
+    $('plan').value = o.plan_tier;
+    $('curTier').textContent = 'Current: ' + prettify(o.plan_tier);
+    $('planSummary').textContent = planSummary(plans.filter(function (p) { return p.plan_tier === $('plan').value; })[0]);
+    loadCaps(o.id);
+    $('panel').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+
+  function loadCaps(orgId) {
+    $('caps').innerHTML = '<span class="planopt">Loading…</span>';
+    AE.api('GET', '/api/admin/partners/' + encodeURIComponent(orgId) + '/capabilities').then(function (d) {
+      var caps = d.capabilities || [];
+      $('caps').innerHTML = caps.length ? caps.map(function (c) { return '<span class="cap">' + AE.esc(c) + '</span>'; }).join('') : '<span class="planopt">None</span>';
+    }).catch(function () { $('caps').innerHTML = '<span class="planopt">Unavailable</span>'; });
+  }
+
+  $('plan').addEventListener('change', function () {
+    $('planSummary').textContent = planSummary(plans.filter(function (p) { return p.plan_tier === $('plan').value; })[0]);
+  });
+
+  $('assignBtn').addEventListener('click', function () {
+    if (!selected) return;
+    var tier = $('plan').value;
+    $('assignBtn').disabled = true; msg.className = 'msg';
+    AE.api('PUT', '/api/admin/partners/' + encodeURIComponent(selected.id) + '/plan', { plan_tier: tier }).then(function (d) {
+      selected.plan_tier = d.organization.plan_tier;
+      $('curTier').textContent = 'Current: ' + prettify(selected.plan_tier);
+      $('assignBtn').disabled = false;
+      showOk('Tier updated to ' + prettify(selected.plan_tier) + '.');
+      loadCaps(selected.id);
+      search(); // refresh the list chips
+    }).catch(function (e) { $('assignBtn').disabled = false; showErr(e.message); });
+  });
+
+  $('searchBtn').addEventListener('click', search);
+  $('q').addEventListener('keydown', function (e) { if (e.key === 'Enter') search(); });
+  search();
+})();
+</script>
+</body>
+</html>
