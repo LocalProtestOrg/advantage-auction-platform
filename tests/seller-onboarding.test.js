@@ -39,9 +39,10 @@ describe('Issue 1: Start Selling CTAs route to /become-seller.html', () => {
 
 describe('Issue 2: become-seller.html frontend error handling', () => {
   const h = read('public/become-seller.html');
-  test('a 401 re-authenticates and preserves the /become-seller.html destination', () => {
+  test('a 401 re-authenticates and preserves this destination (path + query, incl. seller_type)', () => {
     expect(h).toContain('res.status === 401');
-    expect(h).toContain("'/login.html?next=' + encodeURIComponent('/become-seller.html')");
+    expect(h).toContain("'/login.html?next=' + selfNext()"); // selfNext preserves ?seller_type across login
+    expect(h).toContain('location.pathname + location.search');
   });
   test('reads the specific server error (message OR error), not only message', () => {
     expect(h).toContain('json.message || json.error');

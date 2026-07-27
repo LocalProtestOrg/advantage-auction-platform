@@ -526,7 +526,12 @@
     } else {
       h1.textContent = 'Complete your seller setup before creating an auction';
       sub.textContent = 'To protect buyers and sellers, Advantage.Bid requires every seller to complete their seller profile and accept the current Seller Agreement before listing an auction.';
-      cta.innerHTML = '<a class="btn btn-primary" href="/become-seller.html?next=' + ret + '">Become a Seller</a>';
+      // Carry a seller_type hint forward so /seller-create.html?seller_type=business|private preselects
+      // it on the enrollment page (the software remembers the customer's earlier choice).
+      var st = '';
+      try { var v = (new URLSearchParams(location.search).get('seller_type') || '').trim().toLowerCase();
+        if (['private', 'business', 'other'].indexOf(v) !== -1) st = '&seller_type=' + v; } catch (e) {}
+      cta.innerHTML = '<a class="btn btn-primary" href="/become-seller.html?next=' + ret + st + '">Become a Seller</a>';
     }
   }
   function revealCreateForm(profile) {

@@ -77,10 +77,30 @@
 
     function show(id) { document.getElementById(id).style.display = ''; document.getElementById('loading').style.display = 'none'; }
 
+    // Carry the customer's earlier choice forward: preselect the seller-type dropdown from
+    // ?seller_type=. Self-serve canonical values are private|business|other (professional types are
+    // admin-assigned only). Invalid/missing → the page default, no error. The dropdown stays editable.
+    var SELF_SERVE_TYPES = ['private', 'business', 'other'];
+    function requestedSellerType() {
+      try {
+        var v = new URLSearchParams(location.search).get('seller_type');
+        v = (v || '').trim().toLowerCase();
+        return SELF_SERVE_TYPES.indexOf(v) !== -1 ? v : null;
+      } catch (e) { return null; }
+    }
+    function preselectSellerType() {
+      var t = requestedSellerType();
+      if (!t) return;
+      var sel = document.getElementById('seller-type');
+      if (sel) sel.value = t; // remains editable so the customer can correct it before submitting
+    }
+    // Preserve the whole path+query (incl. seller_type) across a login round-trip.
+    function selfNext() { return encodeURIComponent(location.pathname + location.search); }
+
     async function init() {
+      preselectSellerType();
       if (!authToken) {
-        var next = encodeURIComponent('/become-seller.html');
-        document.getElementById('login-link').href = '/login.html?next=' + next;
+        document.getElementById('login-link').href = '/login.html?next=' + selfNext();
         show('need-login');
         return;
       }
@@ -125,10 +145,10 @@
           headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + authToken },
           body: JSON.stringify(payload),
         });
-        // Session expired / no longer valid: re-authenticate, preserving this destination.
+        // Session expired / no longer valid: re-authenticate, preserving this destination (+ seller_type).
         if (res.status === 401) {
           localStorage.removeItem('token');
-          location.href = '/login.html?next=' + encodeURIComponent('/become-seller.html');
+          location.href = '/login.html?next=' + selfNext();
           return;
         }
         var json = {};
