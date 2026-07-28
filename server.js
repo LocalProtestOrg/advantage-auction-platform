@@ -196,6 +196,7 @@ app.get('/sitemap.xml', async (req, res) => {
     '/how-it-works',
     '/how-to-buy.html',
     '/start-selling.html',
+    '/faq.html',
     '/buyer-faq.html',
     '/seller-faq.html',
     '/browse-categories.html',
