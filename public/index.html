@@ -468,8 +468,8 @@
         <a class="srow" href="/browse-categories.html"><div class="k">🗂</div><div>Browse by category</div></a>
         <a class="srow" href="/browse-locations.html"><div class="k">📍</div><div>Browse by location</div></a>
       </div>
-      <div class="sfilters"><span>Browse:</span>
-        <a class="f" href="/search.html?mode=auctions">Auctions</a>
+      <div class="sfilters"><span>View:</span>
+        <a class="f" id="view-list-link" href="https://www.advantage.bid/all-events">☰ List view (all events)</a>
         <a class="f" href="/search.html?mode=lots">Lots</a>
         <a class="f" href="/past-auctions.html">Past auctions</a>
         <a class="f" href="/how-to-buy.html">How to buy</a>
@@ -1205,6 +1205,18 @@
     });
   })();
 })();
+</script>
+<script>
+  // List|Map continuity: carry the map's current filters (from ?q/&city/&state/&zip/&type) back to the
+  // canonical public List View so switching views never loses the customer's context.
+  (function () {
+    try {
+      var link = document.getElementById('view-list-link'); if (!link) return;
+      var src = new URLSearchParams(location.search), keep = new URLSearchParams();
+      ['q', 'city', 'state', 'zip', 'type'].forEach(function (k) { var v = src.get(k); if (v) keep.set(k, v); });
+      var s = keep.toString(); if (s) link.href = 'https://www.advantage.bid/all-events?' + s;
+    } catch (e) {}
+  })();
 </script>
 </body>
 </html>

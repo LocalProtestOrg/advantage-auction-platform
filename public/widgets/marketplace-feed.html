@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>Advantage Marketplace Feed</title>
+  <style>
+    html, body { margin: 0; background: #f8fafc; }
+    @media (prefers-color-scheme: dark) { html, body { background: #f8fafc; } }
+  </style>
+</head>
+<body>
+  <!--
+    Embeddable unified marketplace List View (auctions + estate sales), powered by Railway.
+    Brilliant Directories embeds this on /all-events, e.g.:
+      <iframe src="https://bid.advantage.bid/widgets/marketplace-feed.html"
+              style="width:100%;height:1200px;border:0" loading="lazy"></iframe>
+    Filters (?q=&city=&state=&zip=&type=) pass straight through to the feed and to the Map handoff,
+    so switching List⇄Map preserves the customer's context.
+  -->
+  <div id="advantage-marketplace-feed"></div>
+  <script src="/widgets/marketplace-feed.js"></script>
+</body>
+</html>

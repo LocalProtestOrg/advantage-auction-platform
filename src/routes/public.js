@@ -313,6 +313,94 @@ router.post('/feedback', feedbackLimiter, express.json({ limit: '32kb' }), async
 // ── GET /api/public/auctions ──────────────────────────────────────────────────
 // Paginated, filterable auction discovery feed.
 //
+// ── GET /api/public/marketplace/feed ────────────────────────────────────────────
+// THE unified public Marketplace Feed — one source of truth, one search implementation. Returns
+// auctions AND estate-sale events normalized into a single event-card shape, so BD's /all-events page
+// (and the Railway marketplace) render the SAME cards from the SAME API. Server-side search + pagination
+// for scalability; the UNION projection is extensible to more event types and radius later.
+//
+// Query params (all optional): q (title/city/company keyword) · city (partial) · state (exact, 2-letter)
+//   · zip (prefix) · type (auction | estate_sale | all, default all) · sort (soonest|newest, default
+//   soonest) · limit (1–48, default 24) · offset. Seller identity honors the buyer-privacy policy
+//   (private sellers anonymous via the branded company expression).
+router.get('/marketplace/feed', async (req, res, next) => {
+  try {
+    const q = req.query;
+    const type = ['auction', 'estate_sale'].includes(String(q.type)) ? String(q.type) : 'all';
+    const limit  = Math.min(Math.max(parseInt(q.limit, 10) || 24, 1), 48);
+    const offset = Math.max(parseInt(q.offset, 10) || 0, 0);
+    const newest = q.sort === 'newest';
+
+    const params = [];
+    const outer = [];
+    if (type !== 'all') { params.push(type); outer.push(`feed.kind = $${params.length}`); }
+    if (q.q && String(q.q).trim()) {
+      params.push('%' + String(q.q).trim().slice(0, 100) + '%');
+      const i = params.length;
+      outer.push(`(feed.title ILIKE $${i} OR feed.city ILIKE $${i} OR feed.company ILIKE $${i})`);
+    }
+    if (q.city && String(q.city).trim()) { params.push('%' + String(q.city).trim() + '%'); outer.push(`feed.city ILIKE $${params.length}`); }
+    if (q.state && String(q.state).trim()) { params.push(String(q.state).trim().toUpperCase()); outer.push(`upper(feed.state) = $${params.length}`); }
+    if (q.zip && String(q.zip).trim()) { params.push(String(q.zip).trim().replace(/[^0-9]/g, '').slice(0, 5) + '%'); outer.push(`feed.zip LIKE $${params.length}`); }
+
+    const outerWhere = outer.length ? ('WHERE ' + outer.join(' AND ')) : '';
+    const orderBy = newest ? 'feed.created_ts DESC NULLS LAST' : 'feed.is_featured DESC, feed.sort_ts ASC NULLS LAST';
+    params.push(limit); const limIdx = params.length;
+    params.push(offset); const offIdx = params.length;
+
+    const sql = `
+      WITH feed AS (
+        SELECT 'auction'::text AS kind, a.id::text AS ref_id, NULL::text AS slug,
+               a.title, a.city, a.address_state AS state, a.zip, a.lat, a.lng,
+               COALESCE(a.cover_image_url, a.banner_image_url) AS image_url,
+               ${B_NAME} AS company, a.state AS lifecycle,
+               a.start_time AS start_ts, a.end_time AS end_ts,
+               COALESCE(a.end_time, a.start_time, a.created_at) AS sort_ts,
+               a.created_at AS created_ts, a.is_featured
+          FROM auctions a
+          LEFT JOIN seller_profiles sp ON sp.id = a.seller_id
+         WHERE a.state IN ('published','active') AND a.is_archived IS NOT TRUE
+           AND a.marketplace_status = 'syndicated'
+        UNION ALL
+        SELECT 'estate_sale'::text AS kind, e.id::text AS ref_id, e.slug,
+               e.title, e.city, e.state, e.zip, e.lat, e.lng,
+               (SELECT url FROM event_images ei WHERE ei.event_id = e.id ORDER BY is_cover DESC, position ASC LIMIT 1) AS image_url,
+               o.name AS company, e.status AS lifecycle,
+               e.start_at AS start_ts, e.end_at AS end_ts,
+               COALESCE(e.start_at, e.created_at) AS sort_ts,
+               e.created_at AS created_ts, e.is_featured
+          FROM events e
+          LEFT JOIN organizations o ON o.id = e.organization_id
+         WHERE e.status = 'published' AND (e.end_at IS NULL OR e.end_at >= now())
+      )
+      SELECT kind, ref_id, slug, title, city, state, zip, lat, lng, image_url, company,
+             lifecycle, start_ts, end_ts, is_featured, COUNT(*) OVER() AS total_count
+        FROM feed
+        ${outerWhere}
+       ORDER BY ${orderBy}
+       LIMIT $${limIdx} OFFSET $${offIdx}`;
+
+    const { rows } = await db.query(sql, params);
+    const total = rows.length ? parseInt(rows[0].total_count, 10) : 0;
+    const items = rows.map((r) => ({
+      type: r.kind,                                  // 'auction' | 'estate_sale'
+      id: r.ref_id,
+      title: r.title,
+      city: r.city, state: r.state, zip: r.zip, lat: r.lat, lng: r.lng,
+      image_url: r.image_url || null,
+      company: r.company || null,                    // null = anonymous private seller (policy)
+      status: r.lifecycle,
+      starts_at: r.start_ts, ends_at: r.end_ts,
+      is_featured: !!r.is_featured,
+      url: r.kind === 'auction'
+        ? '/auction-view.html?auctionId=' + encodeURIComponent(r.ref_id)
+        : '/event.html?slug=' + encodeURIComponent(r.slug || ''),
+    }));
+    res.set('Cache-Control', PUBLIC_CACHE);
+    return res.json({ success: true, data: items, total, offset, limit, has_more: offset + items.length < total });
+  } catch (err) { next(err); }
+});
+
 // Query params:
 //   state          — published | active | closed   (default: published + active)
 //   city           — partial match, case-insensitive
