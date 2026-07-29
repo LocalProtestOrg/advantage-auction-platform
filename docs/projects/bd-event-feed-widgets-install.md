@@ -7,56 +7,64 @@ code, no duplicate data, no Railway secrets in BD.
 **BD API is read-only (GET-only) — I cannot create Widget Manager widgets programmatically.** These are
 the exact copy-paste blocks + placement for the owner to add in BD.
 
-## Recommended embed: IFRAME + auto-resize helper (no inner scrollbar, scrolls to top on paging)
+## Recommended embed: IFRAME (in the widget) + helper script (in Footer Scripts)
 
-Create three BD Custom Widgets (HTML tab), paste one block each, then place each widget on its page.
-Each block is an iframe (unique `id` + `data-adv-widget="marketplace-feed"`) followed by the shared
-`marketplace-embed.js` helper. The helper listens for `postMessage` from the widget and (a) sets the
-iframe's exact height so it never grows its own scrollbar, and (b) smooth-scrolls the BD page to the top
-of the results after a page change. It **only** trusts messages whose `event.origin` is
-`https://bid.advantage.bid`, that come from that specific iframe, and that carry the expected
-`source`/`type`/`widget` fields — no wildcard trust, and it never touches the widget's cross-origin DOM.
+**Important — how BD treats pasted markup:** BD's content editor **strips `<script>` tags and custom
+attributes** (`id`, `data-*`) from widget HTML. So the helper CANNOT live inside the widget content, and
+the iframe cannot be relied on to keep an `id`. The helper therefore (a) is loaded once from BD **Footer
+Scripts** (which allows scripts) and (b) finds the widget iframe by its **`src`** (which BD preserves).
 
-> **Geolocation:** `allow="geolocation"` lets the cross-origin iframe use "Use my location" (the typed
-> Location field works regardless). `style="width:100%"` keeps it responsive full-width.
-> **Height:** `min-height` is only the initial floor before the first resize message; the helper then
-> sets an explicit height matching the content. Optionally set a sticky-header offset for the paging
-> scroll with `<html data-adv-header-offset="90">` (px) — or leave it off.
+**Step A — the widget (BD Custom Widget → HTML tab), one per page.** Just the iframe:
 
 ### 1. Advantage All Events → page `/all-events`
 ```html
-<iframe id="adv-all-events" data-adv-widget="marketplace-feed"
-        src="https://bid.advantage.bid/widgets/marketplace-feed.html?preset=all-events"
+<iframe src="https://bid.advantage.bid/widgets/marketplace-feed.html?preset=all-events"
         title="Advantage.Bid — All Events" loading="lazy" allow="geolocation"
         style="width:100%; min-height:800px; border:0; display:block"></iframe>
-<script src="https://bid.advantage.bid/widgets/marketplace-embed.js"></script>
 ```
 
 ### 2. Advantage Auctions Only → page `/auctions`
 ```html
-<iframe id="adv-auctions" data-adv-widget="marketplace-feed"
-        src="https://bid.advantage.bid/widgets/marketplace-feed.html?preset=auctions"
+<iframe src="https://bid.advantage.bid/widgets/marketplace-feed.html?preset=auctions"
         title="Advantage.Bid — Auctions" loading="lazy" allow="geolocation"
         style="width:100%; min-height:800px; border:0; display:block"></iframe>
-<script src="https://bid.advantage.bid/widgets/marketplace-embed.js"></script>
 ```
 
 ### 3. Advantage Estate Sales Only → page `/estate-sales`
 ```html
-<iframe id="adv-estate-sales" data-adv-widget="marketplace-feed"
-        src="https://bid.advantage.bid/widgets/marketplace-feed.html?preset=estate-sales"
+<iframe src="https://bid.advantage.bid/widgets/marketplace-feed.html?preset=estate-sales"
         title="Advantage.Bid — Estate Sales" loading="lazy" allow="geolocation"
         style="width:100%; min-height:800px; border:0; display:block"></iframe>
+```
+
+**Step B — the helper (once, in BD Footer Scripts / a script-allowed area).** This is what makes the
+iframe auto-size and the page scroll to the results on paging. Add it once for the whole site:
+```html
+<!-- Optional: clear a sticky BD header on the paging scroll. Inspect your real header height and set it
+     here (the helper also auto-detects a sticky/fixed header if you omit this): -->
+<script>window.ADV_SCROLL_OFFSET = 190;</script>
 <script src="https://bid.advantage.bid/widgets/marketplace-embed.js"></script>
 ```
 
-> The helper is idempotent and multi-iframe safe: including `marketplace-embed.js` more than once, or
-> placing several widgets on one page, is fine — it routes each message to the matching iframe by
-> `event.source`. It **only accepts messages** from `https://bid.advantage.bid` and validates every field.
+The helper listens for `postMessage` from the widget and (a) sets the iframe's exact height so it never
+grows its own scrollbar, and (b) after a pagination click, smooth-scrolls the **main BD page** to the top
+of the widget/results. It finds the iframe by `src` (so BD stripping `id`/attributes is fine), routes each
+message to the matching iframe by `event.source`, sets `overflow-anchor:none` on the iframe so a growing
+height can't pin the viewport, and scrolls after two animation frames plus one re-assert (to absorb late
+image-load resizes). It is idempotent and multi-iframe safe.
 
-### Fully-inline alternative (no external helper script)
-If you prefer not to load the helper, paste this after the iframe instead (repeat per iframe, changing
-the `id`). Same strict validation:
+**Security:** it trusts a message ONLY when `event.origin === https://bid.advantage.bid`, it comes from one
+of THIS page's widget iframes (`event.source` match), and it carries the expected `source`/`type`/`widget`
+fields. No wildcard trust; it never reads the widget's cross-origin DOM.
+
+> **Geolocation:** `allow="geolocation"` lets the cross-origin iframe use "Use my location" (the typed
+> Location field works regardless). `style="width:100%"` keeps it responsive full-width. `min-height` is
+> only the pre-resize floor; the helper then sets the exact height.
+> **Scroll offset precedence:** `window.ADV_SCROLL_OFFSET` → `data-adv-scroll-offset` on the iframe/html
+> (if BD keeps it) → auto-detected sticky-header height → 0. A small 12px breathing room is always added.
+
+### Fully-inline alternative (if you can put a `<script>` right next to the iframe)
+Only works where BD does NOT strip scripts (e.g., a raw-HTML block). Give the iframe an `id` and:
 ```html
 <iframe id="adv-all-events" src="https://bid.advantage.bid/widgets/marketplace-feed.html?preset=all-events"
         title="Advantage.Bid — All Events" loading="lazy" allow="geolocation"
@@ -64,7 +72,7 @@ the `id`). Same strict validation:
 <script>
 (function () {
   var FRAME = document.getElementById('adv-all-events');
-  var ORIGIN = 'https://bid.advantage.bid', MIN = 400, MAX = 20000, HEADER_OFFSET = 90; // px
+  var ORIGIN = 'https://bid.advantage.bid', MIN = 400, MAX = 20000, OFFSET = 190; // px header offset
   window.addEventListener('message', function (e) {
     if (e.origin !== ORIGIN) return;                          // strict origin
     if (!FRAME || e.source !== FRAME.contentWindow) return;    // must be THIS iframe
@@ -72,11 +80,13 @@ the `id`). Same strict validation:
     if (!d || d.source !== 'advantage-bid-widget' || d.widget !== 'marketplace-feed') return;
     if (d.type === 'resize') {
       var h = parseInt(d.height, 10); if (!isFinite(h)) return;
-      FRAME.style.minHeight = '0px';
+      FRAME.style.overflowAnchor = 'none'; FRAME.style.minHeight = '0px';
       FRAME.style.height = Math.max(MIN, Math.min(MAX, h)) + 'px';
     } else if (d.type === 'scroll-to-widget') {
-      var y = FRAME.getBoundingClientRect().top + window.pageYOffset - HEADER_OFFSET;
-      window.scrollTo({ top: Math.max(0, y), behavior: 'smooth' });
+      requestAnimationFrame(function () { requestAnimationFrame(function () {
+        var y = FRAME.getBoundingClientRect().top + window.scrollY - OFFSET;
+        window.scrollTo({ top: Math.max(0, y), behavior: 'smooth' });
+      }); });
     }
   }, false);
 })();

@@ -56,17 +56,47 @@ describe('embed.decide — scroll routing', () => {
   });
 });
 
+describe('embed.resolveOffsetValue — sticky-header offset precedence', () => {
+  test('global window value wins over everything', () => {
+    expect(embed.resolveOffsetValue(190, '50', '20', 80)).toBe(190);
+  });
+  test('then iframe attr, then html attr, then auto-detected fallback', () => {
+    expect(embed.resolveOffsetValue(undefined, '150', '20', 80)).toBe(150);
+    expect(embed.resolveOffsetValue(undefined, null, '120', 80)).toBe(120);
+    expect(embed.resolveOffsetValue(undefined, null, null, 64)).toBe(64);
+    expect(embed.resolveOffsetValue(undefined, null, null, undefined)).toBe(0);
+  });
+  test('ignores non-numeric/NaN configured values, falls through', () => {
+    expect(embed.resolveOffsetValue(NaN, 'abc', '', 40)).toBe(40);
+  });
+});
+
+describe('embed helper — BD-robust iframe detection', () => {
+  const src = fs.readFileSync(path.join(__dirname, '..', 'public', 'widgets', 'marketplace-embed.js'), 'utf8');
+  test('detects the widget by src (BD-preserved), not only by stripped id/data attrs', () => {
+    expect(src).toContain('iframe[src*="/widgets/marketplace-feed.html"]');
+    expect(src).toContain('data-adv-widget='); // also honors the attr when BD keeps it
+  });
+  test('prevents scroll anchoring + scrolls after double rAF with a re-assert', () => {
+    expect(src).toContain("overflowAnchor = 'none'");
+    expect(src).toMatch(/requestAnimationFrame\([\s\S]{0,80}requestAnimationFrame/);
+    expect(src).toContain('setTimeout');
+  });
+});
+
 describe('BD wrapper doc — all three widgets present + strict validation', () => {
-  test('each wrapper has a unique iframe id + data-adv-widget + correct preset', () => {
-    for (const [id, preset] of [['adv-all-events', 'all-events'], ['adv-auctions', 'auctions'], ['adv-estate-sales', 'estate-sales']]) {
-      expect(doc).toContain('id="' + id + '"');
-      expect(doc).toContain('preset=' + preset);
-    }
-    expect(doc).toContain('data-adv-widget="marketplace-feed"');
+  test('all three presets present + helper loaded from a script-allowed area (Footer Scripts)', () => {
+    for (const preset of ['all-events', 'auctions', 'estate-sales']) expect(doc).toContain('preset=' + preset);
     expect(doc).toContain('marketplace-embed.js');
+    expect(doc).toMatch(/Footer Scripts/i);
+  });
+  test('doc explains BD strips scripts/attrs and the helper detects by src', () => {
+    expect(doc).toMatch(/strip/i);
+    expect(doc).toMatch(/by (its )?`?src`?/i);
+    expect(doc).toContain('window.ADV_SCROLL_OFFSET');
   });
   test('doc states strict origin validation and no wildcard trust', () => {
     expect(doc).toContain('https://bid.advantage.bid');
-    expect(doc).toMatch(/only accepts messages|strict|validate/i);
+    expect(doc).toMatch(/No wildcard trust|strict|validate/i);
   });
 });
