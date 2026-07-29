@@ -79,6 +79,13 @@ Change `data-preset` to `auctions` or `estate-sales` for the other two pages. Us
   published estate-sale events). When none are live it shows a friendly "no events — try nationwide"
   state. It populates automatically as sellers publish.
 - CORS for `/api/public/*` and `/widgets/*` is `*`; BD (`www.advantage.bid`) can embed and call them.
+- **Iframe embedding (framing):** Helmet sets `X-Frame-Options: SAMEORIGIN` site-wide, which blocks
+  cross-origin embedding. `src/middleware/widgetFraming.js` makes a scoped exception for `/widgets/*`
+  ONLY: it drops `X-Frame-Options` and sets `Content-Security-Policy: frame-ancestors
+  https://advantage.bid https://www.advantage.bid`. So only those two BD origins may frame the widgets;
+  every other route keeps SAMEORIGIN. Note `advantage.bid` 301-redirects to `www.advantage.bid`, so the
+  real parent origin is the `www` host — both are allowlisted. If BD ever serves the embedding page from
+  a different origin (e.g. a preview/editor host), add that origin to the list in that middleware.
 - The geocoding provider token stays server-side (never in BD or the browser).
 
 ---
