@@ -19,7 +19,18 @@
     Filters (?q=&city=&state=&zip=&type=) pass straight through to the feed and to the Map handoff,
     so switching List⇄Map preserves the customer's context.
   -->
+  <!-- Preset comes from ?preset=all-events|auctions|estate-sales (the widget reads it); the SERVER
+       enforces the event type regardless of any client tampering. -->
   <div id="advantage-marketplace-feed"></div>
+  <script>
+    // Reflect ?preset from the iframe URL onto the mount element (belt-and-suspenders; the widget also
+    // reads the URL directly). Only the three known presets are honored.
+    (function () { try {
+      var p = (new URLSearchParams(location.search).get('preset') || '').toLowerCase();
+      if (['all-events', 'auctions', 'estate-sales'].indexOf(p) !== -1)
+        document.getElementById('advantage-marketplace-feed').setAttribute('data-preset', p);
+    } catch (e) {} })();
+  </script>
   <script src="/widgets/marketplace-feed.js"></script>
 </body>
 </html>

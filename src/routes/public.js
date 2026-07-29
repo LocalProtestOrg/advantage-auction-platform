@@ -221,7 +221,8 @@ router.get('/marketplace/:orgId/auctions', async (req, res, next) => {
 // audit_log for future triage. Public + unauthenticated, so: per-IP rate limit, honeypot,
 // strict validation, header-injection-safe subject/reply-to, and HTML-escaped bodies. No
 // mail credentials ever touch the client. Errors never leak internals.
-const { feedbackLimiter } = require('../middleware/rateLimit');
+const { feedbackLimiter, normalLimiter } = require('../middleware/rateLimit');
+const geocodeProvider = require('../services/geocoding/mapboxProvider');
 const { sendEmail } = require('../services/emailService');
 const { writeAuditLog } = require('../lib/auditLog');
 
@@ -313,6 +314,30 @@ router.post('/feedback', feedbackLimiter, express.json({ limit: '32kb' }), async
 // ── GET /api/public/auctions ──────────────────────────────────────────────────
 // Paginated, filterable auction discovery feed.
 //
+// ── GET /api/public/geocode ─────────────────────────────────────────────────────
+// Resolve a free-text location ("Adrian, MI" · "49221" · "417 Seminole Dr, Tecumseh, MI" ·
+// "Lenawee County" · "Downtown Houston") to a lat/lng search point for the Marketplace Feed's radius
+// search. Server-side proxy to the platform's approved geocoding provider — the provider token stays
+// on the server and is NEVER exposed to the browser/BD. Rate-limited. Returns a neutral shape; never a
+// provider/vendor name or internal error. Degrades to {ok:false, reason:'unavailable'} if geocoding is
+// not configured, so the widget can fall back to nationwide/text search.
+router.get('/geocode', normalLimiter, async (req, res) => {
+  try {
+    const query = String(req.query.q || '').trim().slice(0, 160);
+    if (!query) return res.status(400).json({ ok: false, reason: 'empty' });
+    const r = await geocodeProvider.geocode(query);
+    if (r && r.ok) {
+      res.set('Cache-Control', 'public, max-age=86400'); // resolved coordinates are stable
+      return res.json({ ok: true, lat: r.lat, lng: r.lng, label: r.normalized || query });
+    }
+    if (r && r.status === 'unconfigured') return res.json({ ok: false, reason: 'unavailable' });
+    if (r && (r.status === 'failed' || r.status === 'insufficient_location')) return res.json({ ok: false, reason: 'no_match' });
+    return res.json({ ok: false, reason: 'no_match' });
+  } catch (e) {
+    return res.json({ ok: false, reason: 'unavailable' });
+  }
+});
+
 // ── GET /api/public/marketplace/feed ────────────────────────────────────────────
 // THE unified public Marketplace Feed — one source of truth, one search implementation. Returns
 // auctions AND estate-sale events normalized into a single event-card shape, so BD's /all-events page
@@ -326,10 +351,23 @@ router.post('/feedback', feedbackLimiter, express.json({ limit: '32kb' }), async
 router.get('/marketplace/feed', async (req, res, next) => {
   try {
     const q = req.query;
-    const type = ['auction', 'estate_sale'].includes(String(q.type)) ? String(q.type) : 'all';
+    // SERVER-ENFORCED preset locks the event type; a client cannot widen an Auctions/Estate-Sales
+    // preset to the other type by tampering with the request (correctness, not privacy — data is public).
+    const PRESET_TYPE = { 'all-events': 'all', auctions: 'auction', 'estate-sales': 'estate_sale' };
+    var type;
+    if (q.preset && Object.prototype.hasOwnProperty.call(PRESET_TYPE, String(q.preset))) type = PRESET_TYPE[String(q.preset)];
+    else type = ['auction', 'estate_sale'].includes(String(q.type)) ? String(q.type) : 'all';
+
     const limit  = Math.min(Math.max(parseInt(q.limit, 10) || 24, 1), 48);
     const offset = Math.max(parseInt(q.offset, 10) || 0, 0);
-    const newest = q.sort === 'newest';
+
+    // Location search point + radius (miles). 'nationwide'/absent radius = no distance filter.
+    const lat = parseFloat(q.lat), lng = parseFloat(q.lng);
+    const hasGeo = Number.isFinite(lat) && Number.isFinite(lng) && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180;
+    let radiusMi = null;
+    if (hasGeo && q.radius != null && String(q.radius).toLowerCase() !== 'nationwide') {
+      const r = parseFloat(q.radius); if (Number.isFinite(r) && r > 0) radiusMi = Math.min(r, 3000);
+    }
 
     const params = [];
     const outer = [];
@@ -342,9 +380,23 @@ router.get('/marketplace/feed', async (req, res, next) => {
     if (q.city && String(q.city).trim()) { params.push('%' + String(q.city).trim() + '%'); outer.push(`feed.city ILIKE $${params.length}`); }
     if (q.state && String(q.state).trim()) { params.push(String(q.state).trim().toUpperCase()); outer.push(`upper(feed.state) = $${params.length}`); }
     if (q.zip && String(q.zip).trim()) { params.push(String(q.zip).trim().replace(/[^0-9]/g, '').slice(0, 5) + '%'); outer.push(`feed.zip LIKE $${params.length}`); }
-
     const outerWhere = outer.length ? ('WHERE ' + outer.join(' AND ')) : '';
-    const orderBy = newest ? 'feed.created_ts DESC NULLS LAST' : 'feed.is_featured DESC, feed.sort_ts ASC NULLS LAST';
+
+    // Distance (miles) via Haversine when a search point is supplied; NULL when the row has no coords.
+    let distExpr = 'NULL::float';
+    if (hasGeo) {
+      params.push(lat); const la = params.length; params.push(lng); const lo = params.length;
+      distExpr = `CASE WHEN feed.lat IS NOT NULL AND feed.lng IS NOT NULL THEN 3959.0 * acos(LEAST(1, GREATEST(-1, `
+        + `sin(radians($${la})) * sin(radians(feed.lat)) + cos(radians($${la})) * cos(radians(feed.lat)) * cos(radians(feed.lng) - radians($${lo}))))) ELSE NULL END`;
+    }
+    const radiusClause = radiusMi != null ? (function () { params.push(radiusMi); return `WHERE x.distance_mi IS NOT NULL AND x.distance_mi <= $${params.length}`; })() : '';
+
+    // Sort: nearest only makes sense with a search point; else featured/soonest or newest.
+    let orderBy;
+    if (q.sort === 'nearest' && hasGeo) orderBy = 'x.distance_mi ASC NULLS LAST, x.sort_ts ASC NULLS LAST';
+    else if (q.sort === 'newest') orderBy = 'x.created_ts DESC NULLS LAST';
+    else orderBy = 'x.is_featured DESC, x.sort_ts ASC NULLS LAST';
+
     params.push(limit); const limIdx = params.length;
     params.push(offset); const offIdx = params.length;
 
@@ -372,11 +424,17 @@ router.get('/marketplace/feed', async (req, res, next) => {
           FROM events e
           LEFT JOIN organizations o ON o.id = e.organization_id
          WHERE e.status = 'published' AND (e.end_at IS NULL OR e.end_at >= now())
+      ),
+      x AS (
+        SELECT kind, ref_id, slug, title, city, state, zip, lat, lng, image_url, company,
+               lifecycle, start_ts, end_ts, created_ts, is_featured, ${distExpr} AS distance_mi
+          FROM feed
+          ${outerWhere}
       )
       SELECT kind, ref_id, slug, title, city, state, zip, lat, lng, image_url, company,
-             lifecycle, start_ts, end_ts, is_featured, COUNT(*) OVER() AS total_count
-        FROM feed
-        ${outerWhere}
+             lifecycle, start_ts, end_ts, is_featured, distance_mi, COUNT(*) OVER() AS total_count
+        FROM x
+        ${radiusClause}
        ORDER BY ${orderBy}
        LIMIT $${limIdx} OFFSET $${offIdx}`;
 
@@ -392,6 +450,7 @@ router.get('/marketplace/feed', async (req, res, next) => {
       status: r.lifecycle,
       starts_at: r.start_ts, ends_at: r.end_ts,
       is_featured: !!r.is_featured,
+      distance_mi: (r.distance_mi != null ? Math.round(Number(r.distance_mi) * 10) / 10 : null),
       url: r.kind === 'auction'
         ? '/auction-view.html?auctionId=' + encodeURIComponent(r.ref_id)
         : '/event.html?slug=' + encodeURIComponent(r.slug || ''),
