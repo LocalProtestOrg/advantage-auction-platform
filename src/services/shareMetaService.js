@@ -18,6 +18,7 @@
 
 const db = require('../db');
 const { publicBaseUrl } = require('../lib/publicUrls');
+const { brandedColSql } = require('../lib/sellerBranding');
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 function validUuid(id) { return typeof id === 'string' && UUID_RE.test(id); }
@@ -55,7 +56,9 @@ async function getAuctionMeta(id) {
               a.end_time,
               a.cover_image_url,
               a.banner_image_url,
-              sp.display_name AS seller_display_name
+              -- Buyer-privacy: NULL for private sellers (and pros who opted out), so a private
+              -- seller's name can never reach the organizer field in OG/JSON-LD. Same rule as the feed.
+              ${brandedColSql('sp.display_name')} AS seller_display_name
          FROM auctions a
          LEFT JOIN seller_profiles sp ON sp.id = a.seller_id
         WHERE a.id = $1

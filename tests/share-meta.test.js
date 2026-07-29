@@ -75,6 +75,17 @@ describe('getAuctionMeta', () => {
     expect(await svc.getAuctionMeta(UUID)).toBeNull();
   });
 
+  test('PRIVACY: query applies the seller-branding rule (private sellers never named)', async () => {
+    db.query.mockResolvedValueOnce({ rows: [{ title: 'T', subtitle: null, description: null,
+      cover_image_url: null, banner_image_url: null, seller_display_name: null }] });
+    await svc.getAuctionMeta(UUID);
+    const sql = db.query.mock.calls[0][0];
+    // The organizer column must be gated by the professional-type CASE, so a private
+    // seller's display_name is NULL in the result and can't reach OG/JSON-LD.
+    expect(sql).toMatch(/auction_house/);
+    expect(sql).toMatch(/show_branding_to_buyers/);
+  });
+
   test('invalid uuid → null WITHOUT querying', async () => {
     expect(await svc.getAuctionMeta('not-a-uuid')).toBeNull();
     expect(db.query).not.toHaveBeenCalled();
