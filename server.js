@@ -124,6 +124,11 @@ io.on('connection', (socket) => {
 // HTML pages use inline <script> blocks; it can be enabled with nonces later.
 app.use(helmet({ contentSecurityPolicy: false }));
 
+// Framing exception — ONLY /widgets/* may be embedded by the approved BD parent origins.
+// Drops X-Frame-Options (SAMEORIGIN can't allowlist) and sets a narrow CSP frame-ancestors
+// for those routes only; every other route keeps helmet's SAMEORIGIN. See the module.
+app.use(require('./src/middleware/widgetFraming'));
+
 // CORS
 // Public discovery endpoints and widget assets are designed for cross-origin consumption by BD.
 app.use((req, res, next) => {
