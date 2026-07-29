@@ -103,6 +103,46 @@ describe('Feed WIDGET — true numbered pagination (no infinite scroll / no Load
   });
 });
 
+describe('Feed WIDGET — dynamic iframe height + pagination scroll (postMessage)', () => {
+  test('posts a strictly-shaped resize message (source/type/widget/height)', () => {
+    expect(widget).toContain("MSG_SRC = 'advantage-bid-widget'");
+    expect(widget).toContain("WIDGET_ID = 'marketplace-feed'");
+    expect(widget).toMatch(/source: MSG_SRC, type: 'resize', widget: WIDGET_ID, height: h/);
+  });
+  test('restricts the outgoing target origin to the approved BD parents (not blind wildcard)', () => {
+    expect(widget).toContain('function parentTargetOrigin');
+    expect(widget).toContain("'https://www.advantage.bid'");
+    expect(widget).toContain("'https://advantage.bid'");
+  });
+  test('measures with ResizeObserver + guards oscillation/loops (debounce + threshold)', () => {
+    expect(widget).toContain('ResizeObserver');
+    expect(widget).toContain('function measureHeight');
+    expect(widget).toMatch(/Math\.abs\(h - lastPostedHeight\) < 3/); // ignore sub-3px jitter
+    expect(widget).toContain('function scheduleHeight');             // debounced
+  });
+  test('re-measures on load, results, images, and resize', () => {
+    expect(widget).toMatch(/postHeight\(true\)/);         // after render/results
+    expect(widget).toContain("addEventListener('resize', scheduleHeight)");
+    expect(widget).toMatch(/tagName === 'IMG'[\s\S]{0,40}scheduleHeight/); // image load
+  });
+  test('posts scroll-to-widget ONLY on an intentional pagination action', () => {
+    expect(widget).toMatch(/type: 'scroll-to-widget', widget: WIDGET_ID, target: 'results-top'/);
+    // scroll post is gated behind the pagination flag (scrollTop), inside the iframe branch
+    expect(widget).toMatch(/if \(scrollTop\) \{[\s\S]{0,240}postScroll\(\)/);
+    // initial load + filter apply use scrollTop=false → no scroll message
+    expect(widget).toMatch(/function apply\(\)[\s\S]{0,80}load\(true, false\)/);
+    expect(widget).toMatch(/load\(true, false\);\s*\n\s*track\('loaded'/); // initial render load = no scroll
+  });
+  test('resets residual internal iframe scroll on page change', () => {
+    expect(widget).toContain('function resetInternalScroll');
+    expect(widget).toMatch(/window\.scrollTo\(0, 0\)/);
+  });
+  test('the widget document forces NO vertical scrollbar (no overflow-y:auto/scroll / fixed height)', () => {
+    expect(widget).not.toMatch(/overflow-y:\s*(auto|scroll)/);
+    expect(widget).not.toMatch(/overflow:\s*(auto|scroll)/);
+  });
+});
+
 describe('GET /api/public/geocode — server-side proxy, token never exposed', () => {
   const g = pub.slice(pub.indexOf("router.get('/geocode'"), pub.indexOf("// ── GET /api/public/marketplace/feed"));
   test('proxies the platform geocoder and returns only {ok,lat,lng,label}', () => {

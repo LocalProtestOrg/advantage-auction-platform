@@ -37,6 +37,44 @@
   function loadLoc() { try { return JSON.parse(localStorage.getItem(LOC_KEY) || 'null'); } catch (e) { return null; } }
   function saveLoc(l) { try { l ? localStorage.setItem(LOC_KEY, JSON.stringify(l)) : localStorage.removeItem(LOC_KEY); } catch (e) {} }
 
+  // ---- parent (Brilliant Directories) iframe coordination via postMessage ----
+  // The widget measures its own rendered height and asks the parent to size the iframe to it, so the
+  // iframe never grows its own inner scrollbar. On an intentional pagination action it also asks the
+  // parent to scroll to the top of the widget. Only layout data (a height integer / a scroll intent)
+  // ever leaves the frame; we never read the parent DOM. The parent validates every message strictly.
+  var WIDGET_ID = 'marketplace-feed', MSG_SRC = 'advantage-bid-widget';
+  var lastPostedHeight = 0, heightTimer = null;
+  function inIframe() { try { return window.parent && window.parent !== window; } catch (e) { return true; } }
+  // Restrict the outgoing target to the approved BD parent origin when derivable from the referrer;
+  // fall back to '*' only for this non-sensitive layout payload (the parent still validates on receipt).
+  function parentTargetOrigin() {
+    try { var o = new URL(document.referrer).origin;
+      if (o === 'https://www.advantage.bid' || o === 'https://advantage.bid') return o; } catch (e) {}
+    return '*';
+  }
+  function post(msg) { if (!inIframe()) return; try { window.parent.postMessage(msg, parentTargetOrigin()); } catch (e) {} }
+  function measureHeight() {
+    var b = document.body, d = document.documentElement;
+    return Math.ceil(Math.max(b ? b.scrollHeight : 0, b ? b.offsetHeight : 0, d ? d.scrollHeight : 0)) + 4;
+  }
+  // Debounced + oscillation-guarded height post (skips sub-3px jitter to avoid resize loops).
+  function postHeight(force) {
+    var h = measureHeight();
+    if (!force && Math.abs(h - lastPostedHeight) < 3) return;
+    lastPostedHeight = h;
+    post({ source: MSG_SRC, type: 'resize', widget: WIDGET_ID, height: h });
+  }
+  function scheduleHeight() { if (heightTimer) return; heightTimer = setTimeout(function () { heightTimer = null; postHeight(false); }, 100); }
+  function postScroll() { post({ source: MSG_SRC, type: 'scroll-to-widget', widget: WIDGET_ID, target: 'results-top' }); }
+  function resetInternalScroll() { try { window.scrollTo(0, 0); } catch (e) {} } // reset any residual inner scroll
+  function observeSize() {
+    try { if (window.ResizeObserver) { new ResizeObserver(scheduleHeight).observe(document.body); } } catch (e) {}
+    // Fallbacks for no ResizeObserver + genuine responsive/layout/image events (height-only, never scroll).
+    try { window.addEventListener('resize', scheduleHeight); } catch (e) {}
+    try { window.addEventListener('load', function () { postHeight(true); }); } catch (e) {}
+    try { document.addEventListener('load', function (e) { if (e.target && e.target.tagName === 'IMG') scheduleHeight(); }, true); } catch (e) {}
+  }
+
   var CSS = ''
     + '.amf{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;color:#0f172a;max-width:1120px;margin:0 auto;padding:0 14px 40px}'
     + '.amf *{box-sizing:border-box}'
@@ -294,8 +332,12 @@
         state.totalPages = pg.totalPages || 1;
         if (pg.currentPage) state.page = pg.currentPage;
         paint();
-        if (scrollTop) scrollToResults();
-      }).catch(function () { if (seq !== reqSeq) return; state.loading = false; renderError(); });
+        postHeight(true);                                  // content changed → resize the iframe
+        if (scrollTop) {                                   // intentional pagination action only
+          if (inIframe()) { resetInternalScroll(); postScroll(); }
+          else scrollToResults();                          // standalone (non-embedded) fallback
+        }
+      }).catch(function () { if (seq !== reqSeq) return; state.loading = false; renderError(); postHeight(true); });
   }
 
   // Move the viewport to the top of the RESULT area only — within the iframe's own document
@@ -398,6 +440,8 @@
     if (saved && Number.isFinite(saved.lat) && Number.isFinite(saved.lng)) { state.loc = { label: saved.label || 'your location', lat: saved.lat, lng: saved.lng }; if (saved.radius != null) state.radius = saved.radius; state.sort = 'nearest'; }
     if (!document.getElementById('amf-style')) { var st = document.createElement('style'); st.id = 'amf-style'; st.textContent = CSS; document.head.appendChild(st); }
     render();
+    observeSize();       // begin measuring + posting height to the parent iframe (embedded case only)
+    postHeight(true);    // initial height ASAP (before results arrive), so the parent can size the frame
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', mount); else mount();
   window.AdvantageMarketplaceFeed = { mount: mount };

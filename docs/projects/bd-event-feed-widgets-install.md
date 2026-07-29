@@ -7,34 +7,80 @@ code, no duplicate data, no Railway secrets in BD.
 **BD API is read-only (GET-only) — I cannot create Widget Manager widgets programmatically.** These are
 the exact copy-paste blocks + placement for the owner to add in BD.
 
-## Recommended embed: IFRAME (simplest, style-isolated, no CORS surface)
+## Recommended embed: IFRAME + auto-resize helper (no inner scrollbar, scrolls to top on paging)
 
 Create three BD Custom Widgets (HTML tab), paste one block each, then place each widget on its page.
+Each block is an iframe (unique `id` + `data-adv-widget="marketplace-feed"`) followed by the shared
+`marketplace-embed.js` helper. The helper listens for `postMessage` from the widget and (a) sets the
+iframe's exact height so it never grows its own scrollbar, and (b) smooth-scrolls the BD page to the top
+of the results after a page change. It **only** trusts messages whose `event.origin` is
+`https://bid.advantage.bid`, that come from that specific iframe, and that carry the expected
+`source`/`type`/`widget` fields — no wildcard trust, and it never touches the widget's cross-origin DOM.
 
-> **Geolocation:** a cross-origin iframe only gets the Geolocation API if the parent grants it via
-> `allow="geolocation"` — without it the "Use my location" button is blocked by browser Permissions
-> Policy (the typed Location field still works). The blocks below include it. The `style="width:100%"`
-> makes the embed responsive full-width; it fills whatever column BD places it in.
+> **Geolocation:** `allow="geolocation"` lets the cross-origin iframe use "Use my location" (the typed
+> Location field works regardless). `style="width:100%"` keeps it responsive full-width.
+> **Height:** `min-height` is only the initial floor before the first resize message; the helper then
+> sets an explicit height matching the content. Optionally set a sticky-header offset for the paging
+> scroll with `<html data-adv-header-offset="90">` (px) — or leave it off.
 
 ### 1. Advantage All Events → page `/all-events`
 ```html
-<iframe src="https://bid.advantage.bid/widgets/marketplace-feed.html?preset=all-events"
+<iframe id="adv-all-events" data-adv-widget="marketplace-feed"
+        src="https://bid.advantage.bid/widgets/marketplace-feed.html?preset=all-events"
         title="Advantage.Bid — All Events" loading="lazy" allow="geolocation"
-        style="width:100%; min-height:1300px; border:0; display:block"></iframe>
+        style="width:100%; min-height:800px; border:0; display:block"></iframe>
+<script src="https://bid.advantage.bid/widgets/marketplace-embed.js"></script>
 ```
 
 ### 2. Advantage Auctions Only → page `/auctions`
 ```html
-<iframe src="https://bid.advantage.bid/widgets/marketplace-feed.html?preset=auctions"
+<iframe id="adv-auctions" data-adv-widget="marketplace-feed"
+        src="https://bid.advantage.bid/widgets/marketplace-feed.html?preset=auctions"
         title="Advantage.Bid — Auctions" loading="lazy" allow="geolocation"
-        style="width:100%; min-height:1300px; border:0; display:block"></iframe>
+        style="width:100%; min-height:800px; border:0; display:block"></iframe>
+<script src="https://bid.advantage.bid/widgets/marketplace-embed.js"></script>
 ```
 
 ### 3. Advantage Estate Sales Only → page `/estate-sales`
 ```html
-<iframe src="https://bid.advantage.bid/widgets/marketplace-feed.html?preset=estate-sales"
+<iframe id="adv-estate-sales" data-adv-widget="marketplace-feed"
+        src="https://bid.advantage.bid/widgets/marketplace-feed.html?preset=estate-sales"
         title="Advantage.Bid — Estate Sales" loading="lazy" allow="geolocation"
-        style="width:100%; min-height:1300px; border:0; display:block"></iframe>
+        style="width:100%; min-height:800px; border:0; display:block"></iframe>
+<script src="https://bid.advantage.bid/widgets/marketplace-embed.js"></script>
+```
+
+> The helper is idempotent and multi-iframe safe: including `marketplace-embed.js` more than once, or
+> placing several widgets on one page, is fine — it routes each message to the matching iframe by
+> `event.source`. It **only accepts messages** from `https://bid.advantage.bid` and validates every field.
+
+### Fully-inline alternative (no external helper script)
+If you prefer not to load the helper, paste this after the iframe instead (repeat per iframe, changing
+the `id`). Same strict validation:
+```html
+<iframe id="adv-all-events" src="https://bid.advantage.bid/widgets/marketplace-feed.html?preset=all-events"
+        title="Advantage.Bid — All Events" loading="lazy" allow="geolocation"
+        style="width:100%; min-height:800px; border:0; display:block"></iframe>
+<script>
+(function () {
+  var FRAME = document.getElementById('adv-all-events');
+  var ORIGIN = 'https://bid.advantage.bid', MIN = 400, MAX = 20000, HEADER_OFFSET = 90; // px
+  window.addEventListener('message', function (e) {
+    if (e.origin !== ORIGIN) return;                          // strict origin
+    if (!FRAME || e.source !== FRAME.contentWindow) return;    // must be THIS iframe
+    var d = e.data;
+    if (!d || d.source !== 'advantage-bid-widget' || d.widget !== 'marketplace-feed') return;
+    if (d.type === 'resize') {
+      var h = parseInt(d.height, 10); if (!isFinite(h)) return;
+      FRAME.style.minHeight = '0px';
+      FRAME.style.height = Math.max(MIN, Math.min(MAX, h)) + 'px';
+    } else if (d.type === 'scroll-to-widget') {
+      var y = FRAME.getBoundingClientRect().top + window.pageYOffset - HEADER_OFFSET;
+      window.scrollTo({ top: Math.max(0, y), behavior: 'smooth' });
+    }
+  }, false);
+})();
+</script>
 ```
 
 ## Alternative embed: SCRIPT (inherits page width, no iframe; CORS is allowlisted `*`)
