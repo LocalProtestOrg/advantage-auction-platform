@@ -7,6 +7,13 @@ Directories and evaluate the real card design and interaction against populated 
 **Status:** LIVE in production (created 2026-07-29). **Do not clean up until the owner approves the
 visual design.**
 
+**Pagination top-up (2026-07-29):** `scripts/qa/add-widget-qa-pagination-fixtures.js` brought each preset
+to **26 marked records** (auctions **26** → 3 pages, estate sales **26** → 3 pages, all-events **52** →
+5 pages) so the numbered pagination is visibly exercised. The 6 + 6 named "showcase" fixtures below are
+unchanged; the top-up added 20 auctions + 20 events with generated `TEST —` titles across a wider city
+pool, the **same marker**, and the same safety design (no lots, future end dates, direct INSERT,
+city/state only). The single cleanup script removes all of them (they share the marker).
+
 - **Marker (every record):** `widget_visual_qa_2026_07`
   - Auctions → `auctions.admin_notes->>'qa_marker'` (jsonb)
   - Estate sales → `events.review_reason` (text, admin-internal — **not** in the public event API).
