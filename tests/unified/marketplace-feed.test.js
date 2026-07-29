@@ -36,6 +36,73 @@ describe('GET /api/public/marketplace/feed — unified + server-enforced presets
   });
 });
 
+describe('Feed pagination — server-side page/pageSize + metadata contract', () => {
+  const h = pub.slice(pub.indexOf("router.get('/marketplace/feed'"), pub.indexOf("router.get('/auctions'"));
+  test('page size is centralized and defaults to 12', () => {
+    expect(pub).toContain('FEED_PAGE_SIZE = 12');
+    expect(h).toContain('FEED_PAGE_SIZE');
+  });
+  test('accepts page + pageSize and computes offset server-side (not browser-only)', () => {
+    expect(h).toContain('q.page');
+    expect(h).toContain('q.pageSize');
+    expect(h).toMatch(/offset\s*=\s*\(page - 1\) \* pageSize/);
+    expect(h).toContain('LIMIT $'); // still a bounded server query
+  });
+  test('response exposes the full numbered-pagination metadata', () => {
+    expect(h).toContain('pagination: {');
+    for (const k of ['currentPage', 'pageSize', 'totalItems', 'totalPages', 'hasPreviousPage', 'hasNextPage'])
+      expect(h).toContain(k);
+    expect(h).toContain('Math.ceil(total / limit)');
+  });
+  test('legacy offset/limit fields kept for backward compatibility', () => {
+    expect(h).toMatch(/total, offset, limit, has_more/);
+  });
+});
+
+describe('Feed WIDGET — true numbered pagination (no infinite scroll / no Load More)', () => {
+  test('page size 12; requests one page from the server', () => {
+    expect(widget).toContain('PAGE_SIZE = 12');
+    expect(widget).toMatch(/apiParams\(\{ page: state\.page, pageSize: PAGE_SIZE \}\)/);
+  });
+  test('renders Previous / numbered / Next controls with a11y + active state', () => {
+    expect(widget).toContain('function paginationHtml');
+    expect(widget).toContain('‹ Previous');
+    expect(widget).toContain('Next ›');
+    expect(widget).toContain('aria-label="Pagination"');
+    expect(widget).toContain('aria-current="page"');
+    expect(widget).toMatch(/cur <= 1 \? ' disabled'/);   // Previous disabled on page 1
+    expect(widget).toMatch(/cur >= tp \? ' disabled'/);   // Next disabled on last page
+  });
+  test('compact window with ellipses for many pages', () => {
+    expect(widget).toContain('function pageWindow');
+    expect(widget).toContain("out.push('…')");
+    expect(widget).toMatch(/total <= 7/); // full render only for small counts
+  });
+  test('is NOT infinite scroll and NOT Load More', () => {
+    expect(widget).not.toMatch(/Show more/);
+    expect(widget).not.toMatch(/scroll'[\s\S]{0,60}load\(/); // no scroll-triggered loading
+    expect(widget).not.toContain('IntersectionObserver');
+  });
+  test('any filter/search/sort/location/radius change resets to page 1', () => {
+    expect(widget).toMatch(/function apply\(\)\s*\{\s*state\.page = 1/);
+  });
+  test('page change preserves preset + filters and updates the iframe URL', () => {
+    expect(widget).toContain('function updateUrl');
+    expect(widget).toContain("u.searchParams.set('page'");
+    expect(widget).toContain("u.searchParams.set('preset', state.preset)");
+    expect(widget).toContain('window.history.replaceState');
+    // page restored from URL on load
+    expect(widget).toMatch(/URLSearchParams\(location\.search\)\.get\('page'\)/);
+  });
+  test('page selection: loads only that page, scrolls to result top, guards races/dupes', () => {
+    expect(widget).toContain('function goToPage');
+    expect(widget).toMatch(/n === state\.page/);       // no duplicate request for the current page
+    expect(widget).toContain('function scrollToResults');
+    expect(widget).toContain('reqSeq');                 // stale-response race guard
+    expect(widget).toMatch(/if \(seq !== reqSeq\) return/);
+  });
+});
+
 describe('GET /api/public/geocode — server-side proxy, token never exposed', () => {
   const g = pub.slice(pub.indexOf("router.get('/geocode'"), pub.indexOf("// ── GET /api/public/marketplace/feed"));
   test('proxies the platform geocoder and returns only {ok,lat,lng,label}', () => {

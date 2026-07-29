@@ -17,7 +17,7 @@
   var MAP_URL  = API_BASE + '/';
   var LIST_URL = 'https://www.advantage.bid/all-events';
   var LOC_KEY  = 'ab_feed_loc';          // shared across all three presets
-  var PAGE = 24;
+  var PAGE_SIZE = 12;                     // event cards per page (server default is the same, centralized)
   var PRESET_TYPE = { 'all-events': 'all', 'auctions': 'auction', 'estate-sales': 'estate_sale' };
 
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
@@ -82,6 +82,14 @@
     + '.amf-empty .e{font-size:34px;display:block;margin-bottom:10px}.amf-empty h3{color:#0f172a;font-size:17px;margin:0 0 4px}'
     + '.amf-empty .acts{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-top:14px}'
     + '.amf-more{text-align:center;margin-top:22px}'
+    + '.amf-pag{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;align-items:center;margin:26px 0 4px}'
+    + '.amf-pg{font:inherit;font-weight:700;font-size:14px;min-width:40px;height:40px;padding:0 12px;border:1px solid #e2e8f0;border-radius:10px;background:#fff;color:#0f172a;cursor:pointer;display:inline-flex;align-items:center;justify-content:center}'
+    + '.amf-pg:hover:not(:disabled):not(.is-active){background:#f1f5f9;border-color:#cbd5e1}'
+    + '.amf-pg:focus-visible{outline:2px solid #2563eb;outline-offset:2px}'
+    + '.amf-pg.is-active{background:#0f172a;color:#fff;border-color:#0f172a;cursor:default}'
+    + '.amf-pg:disabled{opacity:.4;cursor:not-allowed}'
+    + '.amf-pg-ell{min-width:24px;text-align:center;color:#94a3b8;font-weight:700}'
+    + '@media(max-width:560px){.amf-pg-prev,.amf-pg-next{width:100%;order:1;margin-top:4px}}'
     + '.amf-skel{border-radius:14px;height:250px;background:linear-gradient(90deg,#eef1f5 25%,#e2e8f0 37%,#eef1f5 63%);background-size:400% 100%;animation:amfsh 1.3s ease infinite}'
     + '@keyframes amfsh{0%{background-position:100% 0}100%{background-position:0 0}}'
     + '.amf-sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)}'
@@ -119,9 +127,9 @@
   }
 
   // ---- state ----
-  var root, state = {
+  var root, reqSeq = 0, state = {
     preset: 'all-events', type: 'all', loc: null, radius: 50, sort: null,
-    items: [], total: 0, loading: false
+    items: [], total: 0, page: 1, totalPages: 1, loading: false
   };
 
   function activeType() { // server-enforced by preset; type chips only apply within all-events
@@ -194,7 +202,7 @@
     root.innerHTML = '<section class="amf" aria-label="Advantage marketplace events">' + controlsHtml() +
       '<div id="amf-results">' + skeletons() + '</div></section>';
     wire();
-    load(true);
+    load(true, false);
     track('loaded', { has_location: !!state.loc, radius: state.radius });
   }
 
@@ -257,25 +265,104 @@
     }, function () { if (s) s.innerHTML = 'Location permission was declined — type a location instead.'; }, { timeout: 8000, maximumAge: 300000 });
   }
 
-  function apply() { syncStatus(); load(true); }
+  // ANY filter/search/sort/location/radius change resets to page 1 (req 9).
+  function apply() { state.page = 1; updateUrl(); syncStatus(); load(true, false); }
 
-  function load(reset) {
-    if (state.loading) return; state.loading = true;
-    if (reset) { state.items = []; $('#amf-results', root).innerHTML = skeletons(); }
-    fetch(API_BASE + '/api/public/marketplace/feed?' + apiParams({ limit: PAGE, offset: state.items.length }).toString())
-      .then(function (r) { return r.json(); }).then(function (d) {
-        state.loading = false;
-        var got = (d && d.data) || []; state.total = (d && d.total) || 0;
-        state.items = state.items.concat(got); paint(d && d.has_more);
-      }).catch(function () { state.loading = false; renderError(); });
+  // Persist the current page (and preset) in the iframe's own URL so a refresh/back keeps the page.
+  function updateUrl() {
+    try {
+      var u = new URL(window.location.href);
+      u.searchParams.set('preset', state.preset);
+      if (state.page > 1) u.searchParams.set('page', String(state.page)); else u.searchParams.delete('page');
+      window.history.replaceState(null, '', u.toString());
+    } catch (e) {}
   }
-  function paint(hasMore) {
+
+  // load(showSkeleton, scrollTop) — fetches ONLY the current page from the server. A monotonic
+  // request token (reqSeq) makes stale responses no-ops, preventing races on rapid page/filter changes.
+  function load(showSkeleton, scrollTop) {
+    var seq = ++reqSeq;
+    state.loading = true;
+    if (showSkeleton) { var h = $('#amf-results', root); if (h) h.innerHTML = skeletons(); }
+    fetch(API_BASE + '/api/public/marketplace/feed?' + apiParams({ page: state.page, pageSize: PAGE_SIZE }).toString())
+      .then(function (r) { return r.json(); }).then(function (d) {
+        if (seq !== reqSeq) return;                 // a newer request superseded this one — ignore
+        state.loading = false;
+        state.items = (d && d.data) || [];
+        var pg = (d && d.pagination) || {};
+        state.total = pg.totalItems != null ? pg.totalItems : ((d && d.total) || 0);
+        state.totalPages = pg.totalPages || 1;
+        if (pg.currentPage) state.page = pg.currentPage;
+        paint();
+        if (scrollTop) scrollToResults();
+      }).catch(function () { if (seq !== reqSeq) return; state.loading = false; renderError(); });
+  }
+
+  // Move the viewport to the top of the RESULT area only — within the iframe's own document
+  // (a cross-origin iframe cannot and must not scroll the parent BD page).
+  function scrollToResults() {
+    try {
+      var el = $('#amf-results', root) || root;
+      var top = el.getBoundingClientRect().top + (window.pageYOffset || 0) - 8;
+      window.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
+    } catch (e) {}
+  }
+
+  function goToPage(n) {
+    n = parseInt(n, 10);
+    if (!n || n < 1 || n > state.totalPages || n === state.page) return;  // no duplicate/invalid requests
+    state.page = n; updateUrl(); track('page_changed', { page: n });
+    load(true, true);
+  }
+
+  // Compact page window with ellipses, e.g. 1 … 7 8 9 … 24 (req 6). Up to 7 pages render in full.
+  function pageWindow(cur, total) {
+    var out = [];
+    if (total <= 7) { for (var i = 1; i <= total; i++) out.push(i); return out; }
+    var start = Math.max(2, cur - 1), end = Math.min(total - 1, cur + 1);
+    if (cur <= 3) { start = 2; end = 4; }
+    if (cur >= total - 2) { start = total - 3; end = total - 1; }
+    out.push(1);
+    if (start > 2) out.push('…');
+    for (var j = start; j <= end; j++) out.push(j);
+    if (end < total - 1) out.push('…');
+    out.push(total);
+    return out;
+  }
+  function paginationHtml() {
+    var cur = state.page, tp = state.totalPages;
+    if (tp <= 1) return '';
+    var parts = ['<nav class="amf-pag" role="navigation" aria-label="Pagination">'];
+    parts.push('<button class="amf-pg amf-pg-prev" type="button" data-page="' + (cur - 1) + '"' +
+      (cur <= 1 ? ' disabled' : '') + ' aria-label="Previous page">‹ Previous</button>');
+    pageWindow(cur, tp).forEach(function (p) {
+      if (p === '…') { parts.push('<span class="amf-pg-ell" aria-hidden="true">…</span>'); return; }
+      parts.push('<button class="amf-pg amf-pg-num' + (p === cur ? ' is-active' : '') + '" type="button" data-page="' + p + '"' +
+        (p === cur ? ' aria-current="page"' : '') + ' aria-label="' + (p === cur ? 'Current page, page ' + p : 'Go to page ' + p) + '">' + p + '</button>');
+    });
+    parts.push('<button class="amf-pg amf-pg-next" type="button" data-page="' + (cur + 1) + '"' +
+      (cur >= tp ? ' disabled' : '') + ' aria-label="Next page">Next ›</button>');
+    parts.push('</nav>');
+    return parts.join('');
+  }
+  function countLabel() {
+    var start = (state.page - 1) * PAGE_SIZE + 1, end = start + state.items.length - 1;
+    return start + '–' + end + ' of ' + state.total + ' event' + (state.total === 1 ? '' : 's') + (state.loc ? (' near ' + state.loc.label) : '');
+  }
+
+  function paint() {
     var host = $('#amf-results', root), cnt = $('#amf-count', root);
-    if (!state.items.length) { renderEmpty(); track('no_results', { has_location: !!state.loc, radius: state.radius }); if (cnt) cnt.textContent = ''; return; }
-    if (cnt) cnt.textContent = state.total + ' event' + (state.total === 1 ? '' : 's') + (state.loc ? (' near ' + state.loc.label) : '');
-    host.innerHTML = '<div class="amf-grid">' + state.items.map(card).join('') + '</div>' +
-      (hasMore ? '<div class="amf-more"><button class="amf-btn ghost" id="amf-more">Show more</button></div>' : '');
-    var more = $('#amf-more', root); if (more) more.addEventListener('click', function () { load(false); });
+    if (!state.items.length) {
+      // Empty page beyond the first (e.g. a stale deep link) — fall back to page 1 once.
+      if (state.page > 1) { state.page = 1; updateUrl(); load(true, false); return; }
+      renderEmpty(); track('no_results', { has_location: !!state.loc, radius: state.radius }); if (cnt) cnt.textContent = ''; return;
+    }
+    if (cnt) cnt.textContent = countLabel();
+    host.innerHTML = '<div class="amf-grid">' + state.items.map(card).join('') + '</div>' + paginationHtml();
+    root.querySelectorAll('.amf-pg[data-page]').forEach(function (b) {
+      if (b.disabled) return;
+      b.addEventListener('click', function () { goToPage(b.getAttribute('data-page')); });
+    });
     host.querySelectorAll('.amf-card').forEach(function (a) { a.addEventListener('click', function () { track('card_opened', { type: a.getAttribute('data-cardtype') }); }); });
   }
   function renderEmpty() {
@@ -294,7 +381,7 @@
   function renderError() {
     $('#amf-results', root).innerHTML = '<div class="amf-state"><p>We couldn\'t load events just now.</p>' +
       '<p style="margin-top:10px"><button class="amf-btn primary" id="amf-retry">Try again</button></p></div>';
-    var b = $('#amf-retry', root); if (b) b.addEventListener('click', function () { load(true); });
+    var b = $('#amf-retry', root); if (b) b.addEventListener('click', function () { load(true, false); });
   }
 
   function mount() {
@@ -304,6 +391,8 @@
     var mp = (root.getAttribute('data-preset') || '').toLowerCase();
     var up = ''; try { up = (new URLSearchParams(location.search).get('preset') || '').toLowerCase(); } catch (e) {}
     state.preset = PRESET_TYPE[mp] ? mp : (PRESET_TYPE[up] ? up : 'all-events');
+    // restore the requested page from the URL (?page=), so a refresh/back keeps the result page
+    try { var pg = parseInt(new URLSearchParams(location.search).get('page'), 10); if (pg >= 1) state.page = pg; } catch (e) {}
     // restore shared location + radius
     var saved = loadLoc();
     if (saved && Number.isFinite(saved.lat) && Number.isFinite(saved.lng)) { state.loc = { label: saved.label || 'your location', lat: saved.lat, lng: saved.lng }; if (saved.radius != null) state.radius = saved.radius; state.sort = 'nearest'; }

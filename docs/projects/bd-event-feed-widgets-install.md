@@ -87,6 +87,19 @@ Change `data-preset` to `auctions` or `estate-sales` for the other two pages. Us
   real parent origin is the `www` host — both are allowlisted. If BD ever serves the embedding page from
   a different origin (e.g. a preview/editor host), add that origin to the list in that middleware.
 - The geocoding provider token stays server-side (never in BD or the browser).
+- **Pagination (List view):** true numbered pagination — `Previous 1 2 … Next`, **12 cards per page**
+  (centralized: `FEED_PAGE_SIZE` in `src/routes/public.js` and `PAGE_SIZE` in the widget). The API
+  paginates at the query level (`?page=&pageSize=`, `LIMIT/OFFSET` + `COUNT(*) OVER()`) and returns
+  `pagination { currentPage, pageSize, totalItems, totalPages, hasPreviousPage, hasNextPage }` (legacy
+  `total/offset/limit/has_more` kept). Any filter/search/sort/location/radius change resets to page 1;
+  changing pages preserves preset + all filters and writes `?page=` into the iframe URL (refresh/back
+  keeps the page). Page changes scroll to the top of the result area **within the iframe only** (never
+  the parent BD page). No infinite scroll, no Load-More.
+- **Pagination × Map:** the **List** view is paginated (12/page). The **Map** is a separate Railway
+  view that loads its own bounded dataset (`/api/public/auctions`, capped at 60) — it is NOT the feed
+  endpoint and does NOT paginate; it shows all matching pins in the area, which is the correct map UX.
+  The List→Map hand-off carries location/radius/type/sort but deliberately **omits `page`** (a map of
+  one arbitrary 12-item page would be misleading). No unbounded map request is ever created.
 
 ---
 

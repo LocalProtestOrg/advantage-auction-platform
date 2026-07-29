@@ -30,6 +30,10 @@ const B_PROFILE_ID = brandedColSql('sp.id');
 
 const LIVE_CACHE   = 's-maxage=30, stale-while-revalidate=10';
 const PUBLIC_CACHE = 's-maxage=60, stale-while-revalidate=30';
+
+// Default number of event cards per page in the unified marketplace feed. Centralized so the
+// page size for all three widget presets (all-events / auctions / estate-sales) changes in one place.
+const FEED_PAGE_SIZE = 12;
 const SLOW_CACHE   = 's-maxage=300, stale-while-revalidate=60';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -358,8 +362,19 @@ router.get('/marketplace/feed', async (req, res, next) => {
     if (q.preset && Object.prototype.hasOwnProperty.call(PRESET_TYPE, String(q.preset))) type = PRESET_TYPE[String(q.preset)];
     else type = ['auction', 'estate_sale'].includes(String(q.type)) ? String(q.type) : 'all';
 
-    const limit  = Math.min(Math.max(parseInt(q.limit, 10) || 24, 1), 48);
-    const offset = Math.max(parseInt(q.offset, 10) || 0, 0);
+    // Pagination — page-based (page + pageSize) is the primary contract; legacy offset/limit is still
+    // honored for any older caller. Page size is centralized in FEED_PAGE_SIZE (see top of file).
+    const pageSize = Math.min(Math.max(parseInt(q.pageSize, 10) || parseInt(q.limit, 10) || FEED_PAGE_SIZE, 1), 48);
+    let page, limit, offset;
+    if (q.page != null) {
+      page   = Math.max(parseInt(q.page, 10) || 1, 1);
+      limit  = pageSize;
+      offset = (page - 1) * pageSize;
+    } else {
+      limit  = Math.min(Math.max(parseInt(q.limit, 10) || 24, 1), 48);
+      offset = Math.max(parseInt(q.offset, 10) || 0, 0);
+      page   = Math.floor(offset / limit) + 1;
+    }
 
     // Location search point + radius (miles). 'nationwide'/absent radius = no distance filter.
     const lat = parseFloat(q.lat), lng = parseFloat(q.lng);
@@ -455,8 +470,23 @@ router.get('/marketplace/feed', async (req, res, next) => {
         ? '/auction-view.html?auctionId=' + encodeURIComponent(r.ref_id)
         : '/event.html?slug=' + encodeURIComponent(r.slug || ''),
     }));
+    const totalPages = Math.max(1, Math.ceil(total / limit));
     res.set('Cache-Control', PUBLIC_CACHE);
-    return res.json({ success: true, data: items, total, offset, limit, has_more: offset + items.length < total });
+    return res.json({
+      success: true,
+      data: items,
+      // Legacy fields (kept for backward compatibility).
+      total, offset, limit, has_more: offset + items.length < total,
+      // Primary numbered-pagination contract.
+      pagination: {
+        currentPage: page,
+        pageSize: limit,
+        totalItems: total,
+        totalPages,
+        hasPreviousPage: page > 1,
+        hasNextPage: page < totalPages,
+      },
+    });
   } catch (err) { next(err); }
 });
 
