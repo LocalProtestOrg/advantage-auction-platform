@@ -427,7 +427,7 @@ router.get('/marketplace/feed', async (req, res, next) => {
       ),
       x AS (
         SELECT kind, ref_id, slug, title, city, state, zip, lat, lng, image_url, company,
-               lifecycle, start_ts, end_ts, created_ts, is_featured, ${distExpr} AS distance_mi
+               lifecycle, start_ts, end_ts, sort_ts, created_ts, is_featured, ${distExpr} AS distance_mi
           FROM feed
           ${outerWhere}
       )
