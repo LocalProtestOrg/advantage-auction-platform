@@ -11,24 +11,29 @@ the exact copy-paste blocks + placement for the owner to add in BD.
 
 Create three BD Custom Widgets (HTML tab), paste one block each, then place each widget on its page.
 
+> **Geolocation:** a cross-origin iframe only gets the Geolocation API if the parent grants it via
+> `allow="geolocation"` — without it the "Use my location" button is blocked by browser Permissions
+> Policy (the typed Location field still works). The blocks below include it. The `style="width:100%"`
+> makes the embed responsive full-width; it fills whatever column BD places it in.
+
 ### 1. Advantage All Events → page `/all-events`
 ```html
 <iframe src="https://bid.advantage.bid/widgets/marketplace-feed.html?preset=all-events"
-        title="Advantage.Bid — All Events" loading="lazy"
+        title="Advantage.Bid — All Events" loading="lazy" allow="geolocation"
         style="width:100%; min-height:1300px; border:0; display:block"></iframe>
 ```
 
 ### 2. Advantage Auctions Only → page `/auctions`
 ```html
 <iframe src="https://bid.advantage.bid/widgets/marketplace-feed.html?preset=auctions"
-        title="Advantage.Bid — Auctions" loading="lazy"
+        title="Advantage.Bid — Auctions" loading="lazy" allow="geolocation"
         style="width:100%; min-height:1300px; border:0; display:block"></iframe>
 ```
 
 ### 3. Advantage Estate Sales Only → page `/estate-sales`
 ```html
 <iframe src="https://bid.advantage.bid/widgets/marketplace-feed.html?preset=estate-sales"
-        title="Advantage.Bid — Estate Sales" loading="lazy"
+        title="Advantage.Bid — Estate Sales" loading="lazy" allow="geolocation"
         style="width:100%; min-height:1300px; border:0; display:block"></iframe>
 ```
 
