@@ -67,12 +67,25 @@
   function scheduleHeight() { if (heightTimer) return; heightTimer = setTimeout(function () { heightTimer = null; postHeight(false); }, 100); }
   function postScroll() { post({ source: MSG_SRC, type: 'scroll-to-widget', widget: WIDGET_ID, target: 'results-top' }); }
   function resetInternalScroll() { try { window.scrollTo(0, 0); } catch (e) {} } // reset any residual inner scroll
+  // The BD parent may attach its listener AFTER we've already posted our initial height (its helper
+  // loads from footer scripts). So we also answer an explicit height request from a trusted BD parent —
+  // this closes the load-order race deterministically. We validate the parent origin + envelope (req 16).
+  function isTrustedParentOrigin(o) { return o === 'https://www.advantage.bid' || o === 'https://advantage.bid'; }
+  function onParentMessage(e) {
+    try {
+      if (!isTrustedParentOrigin(e.origin)) return;
+      var d = e.data;
+      if (!d || d.source !== 'advantage-bid-embed' || d.widget !== WIDGET_ID) return;
+      if (d.type === 'request-resize') postHeight(true);
+    } catch (err) {}
+  }
   function observeSize() {
     try { if (window.ResizeObserver) { new ResizeObserver(scheduleHeight).observe(document.body); } } catch (e) {}
     // Fallbacks for no ResizeObserver + genuine responsive/layout/image events (height-only, never scroll).
     try { window.addEventListener('resize', scheduleHeight); } catch (e) {}
     try { window.addEventListener('load', function () { postHeight(true); }); } catch (e) {}
     try { document.addEventListener('load', function (e) { if (e.target && e.target.tagName === 'IMG') scheduleHeight(); }, true); } catch (e) {}
+    try { window.addEventListener('message', onParentMessage); } catch (e) {}
   }
 
   var CSS = ''

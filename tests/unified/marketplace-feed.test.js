@@ -141,6 +141,13 @@ describe('Feed WIDGET — dynamic iframe height + pagination scroll (postMessage
     expect(widget).not.toMatch(/overflow-y:\s*(auto|scroll)/);
     expect(widget).not.toMatch(/overflow:\s*(auto|scroll)/);
   });
+  test('answers a request-resize ONLY from a trusted BD parent origin (closes load-order race)', () => {
+    expect(widget).toContain('function isTrustedParentOrigin');
+    expect(widget).toContain("=== 'https://www.advantage.bid'");
+    expect(widget).toMatch(/d\.source !== 'advantage-bid-embed'/);
+    expect(widget).toMatch(/d\.type === 'request-resize'/);
+    expect(widget).toContain("addEventListener('message', onParentMessage)");
+  });
 });
 
 describe('GET /api/public/geocode — server-side proxy, token never exposed', () => {

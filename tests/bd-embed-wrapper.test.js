@@ -82,6 +82,11 @@ describe('embed helper — BD-robust iframe detection', () => {
     expect(src).toMatch(/requestAnimationFrame\([\s\S]{0,80}requestAnimationFrame/);
     expect(src).toContain('setTimeout');
   });
+  test('requests an initial height from each iframe (handshake) using the widget origin', () => {
+    expect(src).toContain('function requestResize');
+    expect(src).toMatch(/postMessage\(\{ source: 'advantage-bid-embed', type: 'request-resize', widget: WIDGET \}, ORIGIN\)/);
+    expect(src).toMatch(/setTimeout\(requestResize/);
+  });
 });
 
 describe('BD wrapper doc — all three widgets present + strict validation', () => {

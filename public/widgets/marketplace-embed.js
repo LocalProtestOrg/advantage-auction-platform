@@ -106,6 +106,14 @@
     return [].slice.call(document.querySelectorAll(
       'iframe[data-adv-widget="' + WIDGET + '"], iframe[src*="/widgets/marketplace-feed.html"]'));
   }
+  // Ask each widget iframe to (re-)post its height. Closes the load-order race when this helper
+  // (loaded from BD footer scripts) starts listening after the widget already posted its first height.
+  function requestResize() {
+    var fs = frames();
+    for (var i = 0; i < fs.length; i++) {
+      try { if (fs[i].contentWindow) fs[i].contentWindow.postMessage({ source: 'advantage-bid-embed', type: 'request-resize', widget: WIDGET }, ORIGIN); } catch (e) {}
+    }
+  }
   function init() {
     if (!frames().length) return;
     window.addEventListener('message', function (e) {
@@ -124,6 +132,12 @@
         return;                                            // handled by the matching frame
       }
     }, false);
+    // Prompt an initial height even if the widget posted before we were listening; retry for a
+    // late-injected iframe, and again once images/layout have settled on window load.
+    requestResize();
+    setTimeout(requestResize, 400);
+    setTimeout(requestResize, 1200);
+    try { window.addEventListener('load', requestResize); } catch (e) {}
   }
 
   if (typeof window !== 'undefined' && typeof document !== 'undefined') {
