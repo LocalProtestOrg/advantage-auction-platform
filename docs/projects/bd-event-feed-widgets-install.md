@@ -80,3 +80,90 @@ Change `data-preset` to `auctions` or `estate-sales` for the other two pages. Us
   state. It populates automatically as sellers publish.
 - CORS for `/api/public/*` and `/widgets/*` is `*`; BD (`www.advantage.bid`) can embed and call them.
 - The geocoding provider token stays server-side (never in BD or the browser).
+
+---
+
+# Event SEO Architecture (search-engine discovery of every auction & estate sale)
+
+**Design principle:** the BD widget is a *human* discovery/filtering surface; it is **not** the crawl
+path. Search engines discover and index each auction and estate sale through the **Railway detail pages
++ the XML sitemap**, which are independent of the widget. The widget being embedded (or not) has zero
+effect on indexability.
+
+## Three roles, kept separate
+
+| Layer | Responsibility | Indexable? |
+|---|---|---|
+| **Railway detail pages** (`/auction-view.html?auctionId=`, `/event.html?slug=`, `/lot.html?lotId=`) | The SEO unit of record: unique title, meta description, canonical, server-rendered content, and Event/Product JSON-LD — all built from Railway data. | **Yes — the canonical indexable pages.** |
+| **BD widgets** (All Events / Auctions / Estate Sales) | Human discovery + location/type/sort filtering. Live display only. Embed page is `noindex`. | No (by design). |
+| **Listing pages** (`/all-events`, `/auctions`, `/estate-sales`) | Indexable intro copy + normal internal links; a browse entry point. They **do not replace** the detail pages. | Yes (intro/links), but they are not the per-event unit. |
+
+## Canonical URL strategy
+
+- Every auction: `https://bid.advantage.bid/auction-view.html?auctionId=<uuid>` — self-canonical.
+- Every estate sale: `https://bid.advantage.bid/event.html?slug=<slug>` — self-canonical.
+- Every lot: `https://bid.advantage.bid/lot.html?lotId=<uuid>` — self-canonical.
+- `bid.advantage.bid` (Railway) is the **single canonical host** for all event content. BD pages must
+  **not** duplicate event records natively; they link to these canonical URLs. Railway = source of truth.
+
+## How it works (server-side, same HTML for every visitor — never bot-only)
+
+- `src/middleware/shareMeta.js` runs before `express.static` on GET of the three detail pages. It is
+  fast, fail-open (any error → the static file serves), and:
+  - Strips the static fallback tags and injects **entity-specific** `<title>`, `<meta description>`,
+    `<link canonical>`, OG/Twitter, and a JSON-LD `<script>` — all from Railway (`shareMetaService`).
+  - For estate sales it also **server-renders a privacy-safe summary** (image, `<h1>`, organizer,
+    date, city/state, description) into the `#content` mount, so the initial HTML carries meaningful,
+    crawlable content. The client SPA overwrites `#content` on load, so humans get the full app while
+    crawlers/no-JS get real content. The **same markup is served to every client** — no dynamic
+    rendering for bots.
+- **JSON-LD** (`schema.org/Event`):
+  - Auctions → `eventAttendanceMode: OnlineEventAttendanceMode`, `VirtualLocation`.
+  - Estate sales → `eventAttendanceMode: OfflineEventAttendanceMode`, `Place` with a `PostalAddress`
+    carrying **only `addressLocality` (city) + `addressRegion` (state)** — never a street address.
+  - `eventStatus: EventScheduled`; `startDate`/`endDate`/`image`/`url`/`name`/`description` included;
+    `organizer` only when a public organization name exists (never a private individual). `offers`
+    (on lots) only when a real price exists.
+
+## Privacy in structured data
+
+Private seller names, emails, phone numbers, and **street addresses are never emitted** in meta tags,
+JSON-LD, or the server-rendered summary. Estate-sale location is city + state only. Private-seller
+auctions stay anonymous (no organizer name) via the platform's server-side branding rule.
+
+## XML sitemap (`/sitemap.xml`, dynamic)
+
+- Server route in `server.js`, before `express.static`, fed by `shareMetaService.getSitemapEntries()`.
+- Lists static marketing pages **plus** every publicly-visible **auction**, **lot**, and
+  **estate-sale event** URL, each with `<lastmod>`. Caps: 2000 auctions / 3000 lots / 2000 events.
+- **Auto-updates** because it queries Railway live on each request (1-hour cache): a record appears
+  when it becomes eligible and drops when it is closed out of eligibility / cancelled / archived —
+  no manual regeneration.
+  - Auctions: `state IN (published, active, closed)` AND not archived — closed auctions are **kept**
+    (useful historical pages).
+  - Events: `status = 'published'` — cancelled/archived events (status ≠ published) drop out.
+- Referenced by `robots.txt` (`Sitemap: https://bid.advantage.bid/sitemap.xml`). Submit this URL in
+  Google Search Console.
+
+## robots / noindex / status behavior
+
+- `public/robots.txt` **allows** `/auction-view.html`, `/event.html`, `/lot.html` and all public
+  content (only member/seller/admin/api surfaces are `Disallow`ed). No `noindex` on detail pages.
+- **Closed auctions:** remain 200 + indexable + in sitemap (historical value).
+- **Cancelled / removed events:** `status` leaves `published` → no rich meta, dropped from sitemap;
+  the detail API 404s so the page shows an "unavailable" state (de-indexes over time).
+
+## Verification (run after deploy)
+
+```bash
+# Auction detail — unique title + Event JSON-LD (already live)
+curl -s "https://bid.advantage.bid/auction-view.html?auctionId=<uuid>" | grep -E "<title>|ld\+json|OnlineEvent"
+# Estate-sale detail — unique title + Offline Event JSON-LD + server-rendered <h1>
+curl -s "https://bid.advantage.bid/event.html?slug=<slug>"          | grep -E "<title>|ld\+json|OfflineEvent|<h1>"
+# Sitemap includes auctions AND events
+curl -s "https://bid.advantage.bid/sitemap.xml" | grep -c "auction-view.html\|event.html?slug="
+# robots allows them
+curl -s "https://bid.advantage.bid/robots.txt" | grep -i "event\|auction\|Sitemap"
+```
+Paste the event JSON-LD into Google's Rich Results Test — it validates as an `Event`. Unit coverage:
+`tests/share-meta.test.js` (42 tests: event meta, privacy, JSON-LD, body injection, sitemap).

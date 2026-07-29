@@ -6,7 +6,8 @@
  *    close them during QA, so NO closeout emails / payouts / settlements fire.
  *  - Direct INSERTs only (no publishAuction/enroll services) → NO follower fan-out / notifications.
  *  - Every record carries the marker widget_visual_qa_2026_07 (auctions.admin_notes->>'qa_marker'
- *    [jsonb], events.attribution_source [text]) so cleanup is exact.
+ *    [jsonb], events.review_reason [text, admin-internal — NOT in the public event API]) so cleanup
+ *    is exact. NB: attribution_source is NOT used — it renders publicly ("Listing sourced from …").
  *  - No real customer/seller records touched; no private street addresses; branded seller identity only
  *    for professional sellers (private seller stays anonymous via the platform's server-side rule).
  * Idempotent: refuses to double-insert if marked fixtures already exist.
@@ -54,7 +55,7 @@ const EVENTS = [
   const manifest = [];
   try {
     const existing = (await c.query(
-      "SELECT (SELECT count(*) FROM auctions WHERE admin_notes->>'qa_marker' = $1) a, (SELECT count(*) FROM events WHERE attribution_source = $1) e", [MARKER])).rows[0];
+      "SELECT (SELECT count(*) FROM auctions WHERE admin_notes->>'qa_marker' = $1) a, (SELECT count(*) FROM events WHERE review_reason = $1) e", [MARKER])).rows[0];
     if (Number(existing.a) + Number(existing.e) > 0) {
       console.log('SKIP: marked fixtures already exist (' + existing.a + ' auctions, ' + existing.e + ' events). Clean up first to re-create.');
       process.exit(0);
@@ -81,7 +82,7 @@ const EVENTS = [
       await c.query(
         `INSERT INTO events (id, organization_id, title, description, city, state, zip, lat, lng, timezone,
            start_at, end_at, status, source, category_slug, market_slug, is_featured, venue_name,
-           attribution_source, slug, created_at)
+           review_reason, slug, created_at)
          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,'published','admin','estate_sales','houston',$13,$14,$15,$16,now())`,
         [id, org, title, 'Temporary visual-QA fixture. Not a real sale.', city, st, zip, lat, lng, TZ,
          D(sd), D(ed), feat, city + ' (test venue)', MARKER, slug]);

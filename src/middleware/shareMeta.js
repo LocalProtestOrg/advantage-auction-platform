@@ -34,6 +34,7 @@ const shareMetaService = require('../services/shareMetaService');
 const PAGES = {
   '/auction-view.html': { kind: 'auction', idParams: ['auctionId', 'id'] },
   '/lot.html':          { kind: 'lot',     idParams: ['lotId', 'id'] },
+  '/event.html':        { kind: 'event',   idParams: ['slug'] },
 };
 
 // Read + cache the base HTML for each page ONCE at module load. If a read fails,
@@ -150,6 +151,37 @@ function buildAuctionEvent(meta, url, image) {
   });
 }
 
+// Build the schema.org Event object for an estate sale. In-person event, so:
+// OfflineEventAttendanceMode + a Place location carrying ONLY city/state
+// (addressLocality/addressRegion) — never a street address (privacy). Organizer
+// is the owning organization's public name, included only when present.
+function buildEstateSaleEvent(meta, url, image) {
+  const address = omitEmpty({
+    '@type': 'PostalAddress',
+    addressLocality: meta.city || null,
+    addressRegion: meta.state || null,
+    addressCountry: 'US',
+  });
+  const place = omitEmpty({
+    '@type': 'Place',
+    name: [meta.city, meta.state].filter(Boolean).join(', ') || null,
+    address: Object.keys(address).length > 1 ? address : null,
+  });
+  return omitEmpty({
+    '@type': 'Event',
+    name: meta.title || null,
+    description: meta.description || null,
+    url,
+    image,
+    startDate: isoOrNull(meta.startDate),
+    endDate: isoOrNull(meta.endDate),
+    eventAttendanceMode: 'https://schema.org/OfflineEventAttendanceMode',
+    eventStatus: 'https://schema.org/EventScheduled',
+    organizer: meta.organizer ? { '@type': 'Organization', name: meta.organizer } : null,
+    location: Object.keys(place).length > 1 ? place : { '@type': 'Place', name: 'United States' },
+  });
+}
+
 // Build the schema.org Product object for a lot. Emits `offers` ONLY when a
 // positive cent price is present (meta.priceCents). `url`/`image` are absolute.
 function buildLotProduct(meta, url, image) {
@@ -186,6 +218,57 @@ function buildBreadcrumb(items) {
   };
 }
 
+// ── Server-rendered event body (Phase 4) ─────────────────────────────────────
+// Human-readable date (range) for the server-rendered summary. UTC-safe: formats
+// the calendar date so crawlers/no-JS visitors see meaningful, stable content.
+function formatEventDate(startIso, endIso) {
+  const s = isoOrNull(startIso);
+  if (!s) return '';
+  try {
+    const opt = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', timeZone: 'UTC' };
+    const ds = new Date(s).toLocaleDateString('en-US', opt);
+    const e = isoOrNull(endIso);
+    if (e) {
+      const de = new Date(e).toLocaleDateString('en-US', opt);
+      if (de !== ds) return ds + ' – ' + de;
+    }
+    return ds;
+  } catch (err) { return ''; }
+}
+
+// Build a server-rendered, privacy-safe summary for the estate-sale detail page.
+// It reuses event.html's own class names so it renders correctly without JS, and
+// is injected INTO the #content mount — the client SPA overwrites #content on
+// load, so real users see the full app while crawlers/no-JS see this real HTML.
+// Every visitor is served the same markup (no bot-only rendering).
+function buildEventBody(meta) {
+  const place = [meta.city, meta.state].filter((v) => v).join(', ');
+  const dt = formatEventDate(meta.startDate, meta.endDate);
+  const img = meta.image ? absoluteImage(meta.image) : null;
+  const parts = [];
+  if (img) parts.push(`<img src="${escapeHtml(img)}" alt="${escapeHtml(meta.title)}" `
+    + `style="width:100%;max-height:420px;object-fit:cover;border-radius:20px" />`);
+  if (meta.category) parts.push(`<div class="cat" style="margin-top:16px">${escapeHtml(String(meta.category).replace(/_/g, ' '))}</div>`);
+  parts.push(`<h1>${escapeHtml(meta.title)}</h1>`);
+  if (meta.organizer) parts.push(`<div class="orgrow"><span>by <b>${escapeHtml(meta.organizer)}</b></span></div>`);
+  parts.push('<div class="meta">');
+  if (dt) parts.push(`<div class="r"><span class="ic">📅</span><span><b>${escapeHtml(dt)}</b></span></div>`);
+  if (place) parts.push(`<div class="r"><span class="ic">📍</span><span>${escapeHtml(place)}</span></div>`);
+  parts.push('</div>');
+  if (meta.description) parts.push(`<div class="desc">${escapeHtml(meta.description)}</div>`);
+  return parts.join('\n      ');
+}
+
+// Replace the #content loading placeholder in the (already-split) body with the
+// server-rendered summary. Fail-open: if the exact placeholder isn't found, the
+// body is returned unchanged (head meta + JSON-LD still applied).
+function injectEventBody(rest, meta) {
+  const PLACEHOLDER = '<div id="content"><div class="loading">Loading…</div></div>';
+  if (rest.indexOf(PLACEHOLDER) === -1) return rest;
+  const filled = '<div id="content">\n      ' + buildEventBody(meta) + '\n    </div>';
+  return rest.replace(PLACEHOLDER, filled);
+}
+
 // Assemble the full @graph JSON-LD script for the given entity kind + meta.
 // Fail-open is handled by the caller; this may throw and be caught there.
 function buildJsonLd(kind, meta, url, image) {
@@ -195,6 +278,10 @@ function buildJsonLd(kind, meta, url, image) {
   if (kind === 'auction') {
     graph.push(buildAuctionEvent(meta, url, image));
     crumbs.push({ name: meta.title || 'Auction', url });
+  } else if (kind === 'event') {
+    graph.push(buildEstateSaleEvent(meta, url, image));
+    crumbs.push({ name: 'Estate Sales', url: b + '/estate-sales' });
+    crumbs.push({ name: meta.title || 'Estate Sale', url });
   } else {
     graph.push(buildLotProduct(meta, url, image));
     if (meta.auctionId) {
@@ -228,9 +315,10 @@ module.exports = async function shareMeta(req, res, next) {
     if (!id) return next();
 
     // Load meta (visibility-gated, fail-open). null → Phase-1 static serves.
-    const meta = page.kind === 'auction'
-      ? await shareMetaService.getAuctionMeta(id)
-      : await shareMetaService.getLotMeta(id);
+    let meta;
+    if (page.kind === 'auction')     meta = await shareMetaService.getAuctionMeta(id);
+    else if (page.kind === 'event')  meta = await shareMetaService.getEventMeta(id);
+    else                             meta = await shareMetaService.getLotMeta(id);
     if (!meta) return next();
 
     // Split at the FIRST </head>; never touch anything from </head> onward.
@@ -257,7 +345,16 @@ module.exports = async function shareMeta(req, res, next) {
     }
 
     const block = '  ' + buildBlock(title, description, url, image) + jsonLd + '\n';
-    const html = cleanedHead + block + rest;
+
+    // For events, also server-render a privacy-safe summary into the #content
+    // mount so the initial HTML carries meaningful, crawlable event content
+    // (the SPA overwrites it on load). Fail-open per-injection.
+    let body = rest;
+    if (page.kind === 'event') {
+      try { body = injectEventBody(rest, meta); } catch (e) { body = rest; }
+    }
+
+    const html = cleanedHead + block + body;
 
     res.set('Content-Type', 'text/html; charset=utf-8');
     res.set('Cache-Control', 'public, max-age=300');
@@ -275,6 +372,10 @@ module.exports.stripPhase1Tags = stripPhase1Tags;
 module.exports.buildBlock = buildBlock;
 module.exports.buildJsonLd = buildJsonLd;
 module.exports.buildAuctionEvent = buildAuctionEvent;
+module.exports.buildEstateSaleEvent = buildEstateSaleEvent;
+module.exports.buildEventBody = buildEventBody;
+module.exports.injectEventBody = injectEventBody;
+module.exports.formatEventDate = formatEventDate;
 module.exports.buildLotProduct = buildLotProduct;
 module.exports.buildBreadcrumb = buildBreadcrumb;
 module.exports.jsonLdScript = jsonLdScript;

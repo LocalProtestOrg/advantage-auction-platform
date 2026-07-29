@@ -9,7 +9,9 @@ visual design.**
 
 - **Marker (every record):** `widget_visual_qa_2026_07`
   - Auctions → `auctions.admin_notes->>'qa_marker'` (jsonb)
-  - Estate sales → `events.attribution_source` (text)
+  - Estate sales → `events.review_reason` (text, admin-internal — **not** in the public event API).
+    NB: `attribution_source` is intentionally NOT used as the marker — it renders publicly as
+    "Listing sourced from …" on the event detail page. Existing fixtures were re-marked accordingly.
 - **Every visible title begins with `TEST — `.**
 - **Create script:** `scripts/qa/create-widget-qa-fixtures.js` (idempotent; refuses to double-insert)
 - **Cleanup script:** `scripts/qa/cleanup-widget-qa-fixtures.js` (dry-run by default; `--apply` to delete)

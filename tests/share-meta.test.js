@@ -86,6 +86,54 @@ describe('getAuctionMeta', () => {
   });
 });
 
+describe('getEventMeta (estate sale)', () => {
+  const SLUG = 'test-adrian-estate-sale-1a3fd930';
+
+  test('found → mapped fields, city/state only (never street address)', async () => {
+    db.query.mockResolvedValueOnce({ rows: [{
+      title: 'Adrian Whole-Home Estate Sale',
+      description: '  Everything   must go  ',
+      city: 'Adrian', state: 'MI',
+      start_at: '2026-08-01T14:00:00Z', end_at: '2026-08-02T20:00:00Z',
+      category_slug: 'estate_sales', status: 'published',
+      org_name: 'Advantage Auction Company',
+      image_url: 'https://res.cloudinary.com/e.jpg',
+    }] });
+    const m = await svc.getEventMeta(SLUG);
+    expect(m.title).toBe('Adrian Whole-Home Estate Sale');
+    expect(m.description).toBe('Everything must go');
+    expect(m.city).toBe('Adrian');
+    expect(m.state).toBe('MI');
+    expect(m.organizer).toBe('Advantage Auction Company');
+    expect(m.url).toBe('https://bid.advantage.bid/event.html?slug=' + SLUG);
+    // PRIVACY: the meta object must not carry any street/address/venue field.
+    expect(Object.keys(m)).not.toContain('address');
+    expect(Object.keys(m)).not.toContain('venue_name');
+  });
+
+  test('description falls back to a location-aware default', async () => {
+    db.query.mockResolvedValueOnce({ rows: [{ title: 'Sale', description: null, city: 'Adrian',
+      state: 'MI', start_at: null, end_at: null, category_slug: null, status: 'published',
+      org_name: null, image_url: null }] });
+    const m = await svc.getEventMeta(SLUG);
+    expect(m.description).toMatch(/Adrian, MI/);
+    expect(m.organizer).toBeNull();
+    expect(m.image).toBeNull();
+  });
+
+  test('invalid slug → null WITHOUT querying', async () => {
+    expect(await svc.getEventMeta('bad slug!!')).toBeNull();
+    expect(db.query).not.toHaveBeenCalled();
+  });
+
+  test('not found → null; DB error → null (fail-open)', async () => {
+    db.query.mockResolvedValueOnce({ rows: [] });
+    expect(await svc.getEventMeta(SLUG)).toBeNull();
+    db.query.mockRejectedValueOnce(new Error('boom'));
+    expect(await svc.getEventMeta(SLUG)).toBeNull();
+  });
+});
+
 describe('getLotMeta', () => {
   test('found → lot title + first image', async () => {
     db.query.mockResolvedValueOnce({ rows: [{
@@ -264,6 +312,77 @@ describe('buildAuctionEvent', () => {
   });
 });
 
+describe('buildEstateSaleEvent (estate sale / event)', () => {
+  const URL = 'https://bid.advantage.bid/event.html?slug=adrian-estate-sale';
+  const IMG = 'https://bid.advantage.bid/img/social-card.png';
+
+  test('in-person event → Offline mode + Place with city/state, NO street address', () => {
+    const ev = mw.buildEstateSaleEvent(
+      { title: 'Adrian Whole-Home Estate Sale', description: 'Everything must go',
+        startDate: '2026-08-01T14:00:00Z', endDate: '2026-08-02T20:00:00Z',
+        city: 'Adrian', state: 'MI', organizer: 'Advantage Auction Company' },
+      URL, IMG);
+    expect(ev['@type']).toBe('Event');
+    expect(ev.eventAttendanceMode).toBe('https://schema.org/OfflineEventAttendanceMode');
+    expect(ev.location['@type']).toBe('Place');
+    expect(ev.location.address.addressLocality).toBe('Adrian');
+    expect(ev.location.address.addressRegion).toBe('MI');
+    // PRIVACY: no street address anywhere in the serialized JSON-LD.
+    expect(JSON.stringify(ev)).not.toMatch(/streetAddress/);
+    expect(ev.organizer).toEqual({ '@type': 'Organization', name: 'Advantage Auction Company' });
+  });
+
+  test('missing city/state → generic Place, still valid; no organizer omitted cleanly', () => {
+    const ev = mw.buildEstateSaleEvent(
+      { title: 'Estate Sale', description: null, startDate: null, endDate: null,
+        city: null, state: null, organizer: null },
+      URL, IMG);
+    expect(ev.location['@type']).toBe('Place');
+    expect('organizer' in ev).toBe(false);
+    expect('startDate' in ev).toBe(false);
+  });
+
+  test('buildEventBody: privacy-safe visible summary, no street address, escaped', () => {
+    const html = mw.buildEventBody({
+      title: 'Adrian <Estate> Sale', description: 'Fine goods', city: 'Adrian', state: 'MI',
+      startDate: '2026-08-01T14:00:00Z', endDate: '2026-08-02T20:00:00Z',
+      organizer: 'Advantage Auction Company', image: '/img/social-card.png', category: 'estate_sales',
+    });
+    expect(html).toMatch(/<h1>Adrian &lt;Estate&gt; Sale<\/h1>/);
+    expect(html).toMatch(/Adrian, MI/);
+    expect(html).toMatch(/Advantage Auction Company/);
+    expect(html).toMatch(/<img /);
+    expect(html).not.toMatch(/venue|street/i);
+  });
+
+  test('injectEventBody: fills the #content mount; leaves body unchanged if placeholder absent', () => {
+    const rest = '</head><body><div class="wrap"><div id="content"><div class="loading">Loading…</div></div></div></body></html>';
+    const out = mw.injectEventBody(rest, { title: 'X', city: 'Adrian', state: 'MI', startDate: '2026-08-01T00:00:00Z' });
+    expect(out).toMatch(/<div id="content">\s*[\s\S]*<h1>X<\/h1>/);
+    expect(out).not.toMatch(/class="loading"/);
+    const noph = '<body><div id="content">already</div></body>';
+    expect(mw.injectEventBody(noph, { title: 'X' })).toBe(noph); // fail-open, unchanged
+  });
+
+  test('buildJsonLd(event) → @graph Event + Estate Sales breadcrumb', () => {
+    const script = mw.buildJsonLd('event',
+      { title: 'Adrian Estate Sale', description: 'd', city: 'Adrian', state: 'MI',
+        startDate: '2026-08-01T00:00:00Z', organizer: 'AAC' },
+      URL, IMG);
+    const json = JSON.parse(script.replace(/^<script[^>]*>/, '').replace(/<\/script>$/, '').replace(/\\u003c/g, '<'));
+    expect(json['@graph'][0]['@type']).toBe('Event');
+    expect(json['@graph'][0].eventAttendanceMode).toBe('https://schema.org/OfflineEventAttendanceMode');
+    const crumb = json['@graph'].find((n) => n['@type'] === 'BreadcrumbList');
+    expect(crumb.itemListElement.some((i) => i.name === 'Estate Sales')).toBe(true);
+  });
+
+  test('formatEventDate: single day + range', () => {
+    expect(mw.formatEventDate('2026-08-01T00:00:00Z', null)).toMatch(/August 1, 2026/);
+    expect(mw.formatEventDate('2026-08-01T00:00:00Z', '2026-08-03T00:00:00Z')).toMatch(/–/);
+    expect(mw.formatEventDate(null, null)).toBe('');
+  });
+});
+
 describe('buildLotProduct', () => {
   test('price present → offers emitted with formatted price', () => {
     const p = mw.buildLotProduct(
@@ -353,15 +472,17 @@ describe('getSitemapEntries', () => {
   test('maps auction + lot rows to id/lastmod', async () => {
     db.query
       .mockResolvedValueOnce({ rows: [{ id: 'a1', lastmod: '2026-07-01T00:00:00Z' }] })
-      .mockResolvedValueOnce({ rows: [{ id: 'l1', lastmod: '2026-07-02T00:00:00Z' }] });
+      .mockResolvedValueOnce({ rows: [{ id: 'l1', lastmod: '2026-07-02T00:00:00Z' }] })
+      .mockResolvedValueOnce({ rows: [{ slug: 'e1', lastmod: '2026-07-03T00:00:00Z' }] });
     const e = await svc.getSitemapEntries();
     expect(e.auctions).toEqual([{ id: 'a1', lastmod: '2026-07-01T00:00:00Z' }]);
     expect(e.lots).toEqual([{ id: 'l1', lastmod: '2026-07-02T00:00:00Z' }]);
+    expect(e.events).toEqual([{ slug: 'e1', lastmod: '2026-07-03T00:00:00Z' }]);
   });
 
   test('DB error → empty arrays (fail-safe, never throws)', async () => {
     db.query.mockRejectedValue(new Error('boom'));
     const e = await svc.getSitemapEntries();
-    expect(e).toEqual({ auctions: [], lots: [] });
+    expect(e).toEqual({ auctions: [], lots: [], events: [] });
   });
 });

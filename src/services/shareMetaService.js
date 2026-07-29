@@ -22,6 +22,11 @@ const { publicBaseUrl } = require('../lib/publicUrls');
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 function validUuid(id) { return typeof id === 'string' && UUID_RE.test(id); }
 
+// Event slugs are lowercase alnum words joined by single hyphens (<=200 chars).
+// Validating here keeps a hostile ?slug= value out of the DB read entirely.
+const SLUG_RE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/i;
+function validSlug(s) { return typeof s === 'string' && s.length <= 200 && SLUG_RE.test(s); }
+
 // Collapse all whitespace to single spaces, trim, and truncate to `max`
 // characters (adding an ellipsis when truncated). Returns '' for null/empty.
 function clean(s, max) {
@@ -141,6 +146,67 @@ async function getLotMeta(id) {
 }
 
 /**
+ * getEventMeta(slug) — visibility-gated single estate-sale / event read for the
+ * event detail page (/event.html?slug=). Mirrors the public read at
+ * src/routes/publicEvents.js:94 (status = 'published'; ended events remain
+ * viewable for historical value, so they still get rich meta).
+ *
+ * PRIVACY: exposes only city + state as location. The street `address` and
+ * `venue_name` are deliberately NOT returned, so no private street address can
+ * reach the meta tags, JSON-LD, or the server-rendered summary. Organizer is the
+ * owning organization's public name (events are company/organization-owned and
+ * that name is already shown on the public page) — never a private individual.
+ * @returns {Promise<object|null>}
+ */
+async function getEventMeta(slug) {
+  if (!validSlug(slug)) return null;
+  try {
+    const { rows } = await db.query(
+      `SELECT e.title,
+              e.description,
+              e.city,
+              e.state,
+              e.start_at,
+              e.end_at,
+              e.category_slug,
+              e.status,
+              o.name AS org_name,
+              (SELECT url FROM event_images ei
+                WHERE ei.event_id = e.id
+                ORDER BY is_cover DESC, position ASC
+                LIMIT 1) AS image_url
+         FROM events e
+         LEFT JOIN organizations o ON o.id = e.organization_id
+        WHERE e.slug = $1
+          AND e.status = 'published'
+        LIMIT 1`,
+      [slug]
+    );
+    if (!rows.length) return null;
+    const r = rows[0];
+    const place = [clean(r.city), clean(r.state)].filter(Boolean).join(', ');
+    const description = clean(r.description, 160)
+      || (place ? `Estate sale in ${place} — details on Advantage.Bid.` : 'Estate sale details on Advantage.Bid.');
+    return {
+      title:       clean(r.title, 200) || 'Estate Sale',
+      description,
+      image:       r.image_url || null,
+      url:         `${base()}/event.html?slug=${encodeURIComponent(slug)}`,
+      type:        'website',
+      startDate:   r.start_at || null,
+      endDate:     r.end_at || null,
+      city:        clean(r.city) || null,
+      state:       clean(r.state) || null,
+      category:    r.category_slug || null,
+      organizer:   clean(r.org_name) || null,
+      siteName:    'Advantage.Bid',
+    };
+  } catch (e) {
+    return null;
+  }
+}
+
+/**
  * getSitemapEntries() — visibility-gated URL inventory for the dynamic
  * /sitemap.xml route. Returns public auctions and their lots (lots only for
  * auctions that are themselves publicly visible), each with a lastmod date.
@@ -154,7 +220,7 @@ async function getLotMeta(id) {
  */
 async function getSitemapEntries() {
   const VISIBLE = `a.state IN ('published', 'active', 'closed') AND a.is_archived IS NOT TRUE`;
-  const out = { auctions: [], lots: [] };
+  const out = { auctions: [], lots: [], events: [] };
   try {
     const a = await db.query(
       `SELECT a.id,
@@ -182,7 +248,22 @@ async function getSitemapEntries() {
   } catch (e) {
     // Leave lots empty.
   }
+  try {
+    // Published estate-sale events. The detail page 200s for any published event
+    // (ended ones included, for historical value), so all are safe to list.
+    const ev = await db.query(
+      `SELECT e.slug,
+              COALESCE(e.updated_at, e.published_at, e.created_at) AS lastmod
+         FROM events e
+        WHERE e.status = 'published' AND e.slug IS NOT NULL
+        ORDER BY COALESCE(e.updated_at, e.published_at, e.created_at) DESC
+        LIMIT 2000`
+    );
+    out.events = (ev.rows || []).map(r => ({ slug: r.slug, lastmod: r.lastmod || null }));
+  } catch (e) {
+    // Leave events empty.
+  }
   return out;
 }
 
-module.exports = { getAuctionMeta, getLotMeta, getSitemapEntries, validUuid, clean };
+module.exports = { getAuctionMeta, getLotMeta, getEventMeta, getSitemapEntries, validUuid, validSlug, clean };
