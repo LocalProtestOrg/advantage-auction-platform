@@ -1,0 +1,623 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="noindex, nofollow" />
+  <title>Imported Events Review - Advantage Auction Admin</title>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <style>
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#f1f5f9;color:#0f172a}
+    .wrap{max-width:1200px;margin:0 auto;padding:1.25rem 1rem 4rem}
+    .top{display:flex;align-items:center;gap:.75rem;margin-bottom:1rem;flex-wrap:wrap}
+    h1{font-size:1.4rem}
+    .crumb{font-size:.8rem;color:#64748b}
+    .crumb a{color:#2563eb;text-decoration:none}
+    .spacer{flex:1}
+    .btn{font:inherit;font-size:.8rem;font-weight:600;color:#0f172a;background:#fff;border:1px solid #cbd5e1;border-radius:7px;padding:6px 11px;cursor:pointer}
+    .btn:hover{background:#f8fafc}.btn:disabled{opacity:.55;cursor:default}
+    .btn-pri{background:#2563eb;color:#fff;border-color:#2563eb}.btn-pri:hover{background:#1d4ed8}
+    .btn-ok{background:#16a34a;color:#fff;border-color:#16a34a}.btn-ok:hover{background:#15803d}
+    .btn-danger{background:#fff;color:#b91c1c;border-color:#fecaca}.btn-danger:hover{background:#fef2f2}
+    .panel{background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:.9rem 1rem;margin-bottom:1rem}
+    .controls{display:flex;gap:.6rem;align-items:end;flex-wrap:wrap}
+    label{display:block;font-size:.7rem;text-transform:uppercase;letter-spacing:.04em;color:#64748b;margin-bottom:3px}
+    select,input,textarea{font:inherit;font-size:.85rem;padding:6px 8px;border:1px solid #cbd5e1;border-radius:7px;background:#fff;color:#0f172a}
+    .summary{display:flex;gap:1.25rem;flex-wrap:wrap;font-size:.85rem;color:#334155;align-items:center}
+    .summary b{color:#0f172a}
+    .breakdown{display:flex;gap:.35rem;flex-wrap:wrap;margin-top:.5rem}
+    .chip{font-size:.72rem;font-weight:700;background:#f1f5f9;border:1px solid #e2e8f0;border-radius:999px;padding:2px 9px;color:#475569}
+    .toolbar{display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;margin-bottom:.7rem}
+    .toolbar .grow{flex:1}
+    /* Approve-all is intentionally distinct and NOT the dominant action. */
+    .aa-box{border:1px dashed #f59e0b;background:#fffbeb;border-radius:9px;padding:.5rem .7rem;display:flex;gap:.5rem;align-items:center;flex-wrap:wrap}
+    .aa-box .aa-note{font-size:.74rem;color:#92400e;flex:1;min-width:180px}
+    .btn-aa{background:#fff;color:#b45309;border:1px solid #f59e0b;font-weight:800}
+    .btn-aa:hover{background:#fef3c7}
+    .cards{display:flex;flex-direction:column;gap:.6rem}
+    .card{background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:.75rem .85rem;display:flex;gap:.75rem;align-items:flex-start}
+    .card.sel{border-color:#2563eb;box-shadow:0 0 0 1px #2563eb inset}
+    .card .cb{margin-top:.25rem}
+    .card .body{flex:1;min-width:0}
+    .card h3{font-size:1rem;margin-bottom:.15rem;word-break:break-word}
+    .card .meta{font-size:.8rem;color:#475569;margin-bottom:.35rem}
+    .card .meta span{white-space:nowrap}
+    .badges{display:flex;gap:.35rem;flex-wrap:wrap;margin:.3rem 0}
+    .badge{font-size:.7rem;font-weight:700;border-radius:6px;padding:2px 7px;border:1px solid #e2e8f0;background:#f8fafc;color:#334155;display:inline-flex;gap:4px;align-items:center}
+    .badge .sym{font-weight:800}
+    .b-exact{background:#dcfce7;border-color:#bbf7d0;color:#166534}
+    .b-possible{background:#fef9c3;border-color:#fde68a;color:#854d0e}
+    .b-none{background:#f1f5f9;border-color:#e2e8f0;color:#475569}
+    .b-auto{background:#e0f2fe;border-color:#bae6fd;color:#075985}
+    .note{font-size:.76rem;color:#7c2d12;background:#fff7ed;border:1px solid #fed7aa;border-radius:6px;padding:3px 7px;margin-top:.3rem;display:inline-block}
+    .imgnote{font-size:.72rem;color:#64748b;margin-top:.25rem}
+    .act{display:flex;gap:.35rem;flex-wrap:wrap;margin-top:.5rem}
+    .act .btn{padding:4px 10px;font-size:.75rem}
+    .pager{display:flex;gap:.5rem;align-items:center;justify-content:center;margin-top:1rem;font-size:.82rem;color:#475569}
+    .state{padding:2.5rem 1rem;text-align:center;color:#64748b}
+    .state h2{color:#334155;font-size:1.05rem;margin-bottom:.4rem}
+    .msg{font-size:.85rem;color:#64748b;min-height:1.1rem;margin:.2rem 0 .6rem}
+    a.ext{color:#2563eb;text-decoration:none;font-weight:600}
+    a.ext:hover{text-decoration:underline}
+    /* Toasts */
+    #toasts{position:fixed;right:1rem;bottom:1rem;display:flex;flex-direction:column;gap:.5rem;z-index:80}
+    .toast{background:#0f172a;color:#fff;border-radius:8px;padding:.6rem .85rem;font-size:.82rem;box-shadow:0 6px 20px rgba(0,0,0,.25);max-width:340px}
+    .toast.ok{background:#166534}.toast.err{background:#b91c1c}
+    /* Modal */
+    .overlay{position:fixed;inset:0;background:rgba(15,23,42,.55);display:flex;align-items:flex-start;justify-content:center;padding:2.5rem 1rem;z-index:90;overflow:auto}
+    .dialog{background:#fff;border-radius:12px;max-width:720px;width:100%;padding:1.1rem 1.2rem;box-shadow:0 20px 60px rgba(0,0,0,.35)}
+    .dialog h2{font-size:1.15rem;margin-bottom:.2rem;word-break:break-word}
+    .dialog .dl-close{float:right;background:#f1f5f9;border:none;border-radius:7px;width:30px;height:30px;font-size:1rem;cursor:pointer;color:#334155}
+    .dl-sec{margin:.7rem 0;padding-top:.6rem;border-top:1px solid #f1f5f9}
+    .dl-sec h3{font-size:.72rem;text-transform:uppercase;letter-spacing:.04em;color:#64748b;margin-bottom:.35rem}
+    .dl-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:.5rem .9rem;font-size:.83rem}
+    .dl-grid div span{display:block;color:#94a3b8;font-size:.68rem;text-transform:uppercase;letter-spacing:.03em}
+    .dl-desc{font-size:.86rem;line-height:1.55;color:#334155;white-space:pre-wrap;word-break:break-word}
+    .prov{font-size:.78rem;border:1px solid #e2e8f0;border-radius:8px;padding:.5rem .6rem;margin-bottom:.4rem;background:#f8fafc}
+    .imgs{display:flex;gap:.4rem;flex-wrap:wrap}
+    .imgs img{width:96px;height:72px;object-fit:cover;border-radius:6px;border:1px solid #e2e8f0}
+    .dl-actions{display:flex;gap:.5rem;flex-wrap:wrap;margin-top:1rem;padding-top:.8rem;border-top:1px solid #f1f5f9}
+    textarea{width:100%;min-height:70px;resize:vertical}
+    .filters-active{font-size:.78rem;color:#475569;background:#f8fafc;border:1px solid #e2e8f0;border-radius:7px;padding:.4rem .6rem;margin:.5rem 0}
+    :focus-visible{outline:2px solid #2563eb;outline-offset:2px}
+    @media (max-width:640px){ select,input{width:100%} .controls>div{width:100%} }
+    @media (prefers-reduced-motion:reduce){*{transition:none!important}}
+    .visually-hidden{position:absolute!important;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="top">
+      <div>
+        <div class="crumb"><a href="/admin/">&larr; Admin</a></div>
+        <img src="/img/advantage-logo.svg" alt="Advantage.Bid" style="height:24px;width:auto;display:block;margin:2px 0 6px" />
+        <h1>Imported Events Review</h1>
+      </div>
+      <div class="spacer"></div>
+      <button class="btn" onclick="adminLogout()">Log out</button>
+    </div>
+
+    <div class="panel">
+      <div class="controls">
+        <div>
+          <label for="fSource">Source platform</label>
+          <select id="fSource"><option value="">All sources</option></select>
+        </div>
+        <div>
+          <label for="fMarket">Market</label>
+          <select id="fMarket"><option value="">All markets</option></select>
+        </div>
+        <div style="flex:1;min-width:200px">
+          <label for="fQ">Search title, city, state, or organizer</label>
+          <input id="fQ" type="text" placeholder="Search" autocomplete="off" />
+        </div>
+        <div>
+          <label>&nbsp;</label>
+          <button class="btn" id="fClear">Clear filters</button>
+        </div>
+      </div>
+      <div class="summary" style="margin-top:.7rem" aria-live="polite">
+        <span><b id="sTotal">0</b> total pending</span>
+        <span><b id="sFiltered">0</b> in current filter</span>
+        <span><b id="sSelected">0</b> selected</span>
+      </div>
+      <div class="breakdown" id="sBreakdown"></div>
+    </div>
+
+    <div class="panel">
+      <div class="toolbar">
+        <button class="btn" id="bSelectAll">Select all visible</button>
+        <button class="btn" id="bClearSel">Clear selection</button>
+        <span class="grow"></span>
+        <button class="btn btn-ok" id="bApprove">Approve selected</button>
+        <button class="btn btn-danger" id="bReject">Reject selected</button>
+      </div>
+      <div class="aa-box">
+        <div class="aa-note">
+          <b>Approve All</b> publishes every event in the current filter at once. It is guarded by an exact-count
+          check and will stop if the queue has changed.
+        </div>
+        <button class="btn btn-aa" id="bApproveAll">Approve All in filter</button>
+      </div>
+    </div>
+
+    <div id="status" class="msg" role="status" aria-live="polite"></div>
+    <div id="content"><div class="state">Loading review queue&hellip;</div></div>
+    <div id="pager" class="pager" hidden></div>
+  </div>
+
+  <div id="toasts" aria-live="assertive" aria-atomic="true"></div>
+
+  <script>
+  const token = localStorage.getItem('token');
+  if (!token) { window.location.href = '/login.html'; }
+  (function checkAdmin(){ try { if (JSON.parse(atob(token.split('.')[1])).role !== 'admin') throw 0; } catch { document.body.innerHTML='<div style="padding:4rem;text-align:center"><h2>Access Denied</h2><p style="color:#666;margin-top:1rem">Administrator access required.</p><a href="/login.html" style="color:#2563eb">Login</a></div>'; throw new Error('not admin'); } })();
+  function adminLogout(){ localStorage.removeItem('token'); sessionStorage.clear(); window.location.href='/login.html'; }
+  window.adminLogout = adminLogout;
+
+  const API = '/api/admin/event-imports';
+  function api(method, url, body){
+    const o = { method, headers: { 'Content-Type':'application/json', 'Authorization':'Bearer '+token } };
+    if (body !== undefined) o.body = JSON.stringify(body);
+    return fetch(url, o).then(async r => { const j = await r.json().catch(()=>({})); return { status:r.status, ok:r.ok, body:j }; })
+      .then(res => { if (res.status===401){ adminLogout(); throw new Error('expired'); } return res; });
+  }
+  // Escape ALL imported/source-controlled content before it touches the DOM.
+  function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+  const EXT = ' target="_blank" rel="nofollow noopener noreferrer"';
+  function extLink(url, label){ if(!url) return ''; return '<a class="ext" href="'+esc(url)+'"'+EXT+'>'+esc(label||url)+' &#8599;</a>'; }
+  function fdatetime(s){ if(!s) return '-'; try { return new Date(s).toLocaleString('en-US',{month:'short',day:'numeric',year:'numeric',hour:'numeric',minute:'2-digit'}); } catch(e){ return '-'; } }
+  function toast(msg, kind){ const t=document.createElement('div'); t.className='toast'+(kind?' '+kind:''); t.textContent=msg; document.getElementById('toasts').appendChild(t); setTimeout(()=>{t.style.opacity='0';setTimeout(()=>t.remove(),300);},4200); }
+
+  // Analytics preparation ONLY. Structures actions with a stable vocabulary so a future
+  // analytics layer can consume them. No GA4/GTM here; this is a no-op unless a host hook
+  // is present. Action names are fixed: queue_viewed, import_detail_reviewed, import_approved,
+  // import_rejected, bulk_approval, bulk_rejection, approve_all_attempt, approve_all_result.
+  function emit(action, data){ try { if (typeof window.onAdminReviewEvent === 'function') window.onAdminReviewEvent(action, data||{}); } catch(e){} }
+
+  const MAX_BULK = 500; // mirror the API hard cap
+  const STATE = {
+    sources: [],
+    filters: { sourceId:'', market:'', q:'', page:1, limit:25 },
+    list: { items:[], total:0, page:1, limit:25, pages:1 },
+    totalPending: 0,
+    selected: new Set(),
+    busy: false,
+  };
+
+  // ---- Company-match label: never color alone (symbol + words). ----
+  function matchLabel(status){
+    if (status==='exact')    return { cls:'b-exact',    sym:'●', text:'Exact company match' };
+    if (status==='possible') return { cls:'b-possible', sym:'◐', text:'Possible company match' };
+    return { cls:'b-none', sym:'○', text:'No company match' };
+  }
+  function methodLabel(im){
+    if (!im) return 'New import';
+    if (im.match_via) return 'Matched via '+esc(String(im.match_via));
+    if (im.outcome && im.outcome!=='created') return esc(String(im.outcome));
+    return 'New import';
+  }
+
+  function setBusy(b){ STATE.busy=b; }
+  function updateSummary(){
+    document.getElementById('sTotal').textContent = STATE.totalPending;
+    document.getElementById('sFiltered').textContent = STATE.list.total;
+    document.getElementById('sSelected').textContent = STATE.selected.size;
+  }
+  function renderBreakdown(){
+    const host=document.getElementById('sBreakdown');
+    const withPending=(STATE.sources||[]).filter(s=>Number(s.pending_count)>0);
+    if(!withPending.length){ host.innerHTML=''; return; }
+    host.innerHTML='<span class="chip" style="background:#eef2ff;color:#3730a3;border-color:#c7d2fe">Source breakdown</span>'+
+      withPending.map(s=>'<span class="chip">'+esc(s.name||s.key||'source')+': <b>'+Number(s.pending_count)+'</b></span>').join('');
+  }
+
+  function activeFilterText(){
+    const parts=[];
+    if(STATE.filters.sourceId){ const s=STATE.sources.find(x=>x.id===STATE.filters.sourceId); parts.push('Source: '+esc(s?(s.name||s.key):STATE.filters.sourceId)); }
+    if(STATE.filters.market){ parts.push('Market: '+esc(STATE.filters.market)); }
+    if(STATE.filters.q){ parts.push('Search: "'+esc(STATE.filters.q)+'"'); }
+    return parts.length ? parts.join(' | ') : 'No filters (all pending imports)';
+  }
+
+  function cardHtml(it){
+    const m = matchLabel(it.company_match_status);
+    const loc = [it.city, it.state].filter(Boolean).join(', ');
+    const checked = STATE.selected.has(it.id) ? ' checked' : '';
+    const dup = it.import && it.import.duplicate_reason ? '<div class="note">Import note: '+esc(it.import.duplicate_reason)+'</div>' : '';
+    // The list API returns image_count only (no URLs); thumbnails render in the detail view
+    // and only when the media policy allows mirrored media.
+    const imgNote = it.image_count ? '<div class="imgnote">'+Number(it.image_count)+' image(s) - review in detail</div>' : '';
+    return '<div class="card'+(checked?' sel':'')+'" data-id="'+esc(it.id)+'">'+
+      '<input class="cb" type="checkbox" data-sel="'+esc(it.id)+'"'+checked+' aria-label="Select '+esc(it.title||'event')+'" />'+
+      '<div class="body">'+
+        '<h3>'+esc(it.title||'(Untitled import)')+'</h3>'+
+        '<div class="meta"><span>'+fdatetime(it.start_at)+'</span> &middot; <span>'+(esc(loc)||'Location unknown')+'</span> &middot; <span>Organizer: '+esc(it.organizer||'Unknown')+'</span></div>'+
+        '<div class="meta"><span>Source: '+esc(it.source_platform||'-')+'</span> &middot; <span>Imported '+fdatetime(it.imported_at)+'</span> &middot; <span>'+methodLabel(it.import)+'</span></div>'+
+        '<div class="badges">'+
+          '<span class="badge '+m.cls+'"><span class="sym" aria-hidden="true">'+m.sym+'</span>'+m.text+'</span>'+
+          '<span class="badge">Media: '+esc(it.media_policy||'-')+'</span>'+
+          '<span class="badge '+(it.auto_publish_eligible?'b-auto':'')+'">Auto-publish: '+(it.auto_publish_eligible?'eligible':'no')+'</span>'+
+          (it.market?'<span class="badge">Market: '+esc(it.market)+'</span>':'')+
+        '</div>'+
+        dup + imgNote +
+        '<div class="act">'+
+          '<button class="btn btn-pri" data-review="'+esc(it.id)+'">Review</button>'+
+          '<button class="btn btn-ok" data-approve="'+esc(it.id)+'">Approve</button>'+
+          '<button class="btn btn-danger" data-reject="'+esc(it.id)+'">Reject</button>'+
+        '</div>'+
+      '</div>'+
+    '</div>';
+  }
+
+  function render(){
+    updateSummary();
+    const host=document.getElementById('content');
+    const items=STATE.list.items||[];
+    if(!items.length){
+      const filtered = STATE.filters.sourceId||STATE.filters.market||STATE.filters.q;
+      host.innerHTML = '<div class="state">'+
+        (filtered
+          ? '<h2>No imports match these filters</h2><p>Try clearing the filters to see the full queue.</p><p style="margin-top:.7rem"><button class="btn" id="emClear">Clear filters</button></p>'
+          : '<h2>The review queue is empty</h2><p>No imported events are waiting for review.</p>')+'</div>';
+      const emc=document.getElementById('emClear'); if(emc) emc.onclick=clearFilters;
+      document.getElementById('pager').hidden=true;
+      return;
+    }
+    host.innerHTML='<div class="cards">'+items.map(cardHtml).join('')+'</div>';
+    wireCards();
+    renderPager();
+  }
+
+  function renderPager(){
+    const p=document.getElementById('pager');
+    if(STATE.list.pages<=1){ p.hidden=true; return; }
+    p.hidden=false;
+    p.innerHTML='<button class="btn" id="pgPrev"'+(STATE.list.page<=1?' disabled':'')+'>Previous</button>'+
+      '<span>Page <b>'+STATE.list.page+'</b> of <b>'+STATE.list.pages+'</b></span>'+
+      '<button class="btn" id="pgNext"'+(STATE.list.page>=STATE.list.pages?' disabled':'')+'>Next</button>';
+    const pv=document.getElementById('pgPrev'), nx=document.getElementById('pgNext');
+    if(pv) pv.onclick=()=>{ if(STATE.filters.page>1){ STATE.filters.page--; loadQueue(); } };
+    if(nx) nx.onclick=()=>{ if(STATE.filters.page<STATE.list.pages){ STATE.filters.page++; loadQueue(); } };
+  }
+
+  function wireCards(){
+    document.querySelectorAll('[data-sel]').forEach(cb=>cb.onchange=()=>{
+      const id=cb.getAttribute('data-sel');
+      if(cb.checked) STATE.selected.add(id); else STATE.selected.delete(id);
+      const card=cb.closest('.card'); if(card) card.classList.toggle('sel',cb.checked);
+      updateSummary();
+    });
+    document.querySelectorAll('[data-review]').forEach(b=>b.onclick=()=>openDetail(b.getAttribute('data-review')));
+    document.querySelectorAll('[data-approve]').forEach(b=>b.onclick=()=>approveOne(b.getAttribute('data-approve'), b));
+    document.querySelectorAll('[data-reject]').forEach(b=>b.onclick=()=>rejectOne(b.getAttribute('data-reject'), b));
+  }
+
+  // ---- Remove a processed item from the visible queue without a full reload. ----
+  function dropCard(id){
+    STATE.selected.delete(id);
+    STATE.list.items = STATE.list.items.filter(x=>x.id!==id);
+    STATE.list.total = Math.max(0, STATE.list.total-1);
+    STATE.totalPending = Math.max(0, STATE.totalPending-1);
+    const el=document.querySelector('.card[data-id="'+cssEscape(id)+'"]'); if(el) el.remove();
+    updateSummary();
+    if(!STATE.list.items.length) render(); // show empty/no-results state
+  }
+  function cssEscape(s){ return String(s).replace(/["\\]/g,'\\$&'); }
+
+  // ---- Single approve / reject (guards against duplicate submissions) ----
+  async function approveOne(id, btn){
+    if(STATE.busy) return; setBusy(true);
+    const card=btn.closest('.card'); if(card) card.querySelectorAll('button').forEach(b=>b.disabled=true);
+    try{
+      const res=await api('POST', API+'/queue/'+encodeURIComponent(id)+'/approve');
+      if(res.ok && res.body && res.body.success){ emit('import_approved',{id}); toast('Event approved and published.','ok'); dropCard(id); }
+      else if(res.status===409){ toast('This event is no longer pending (already actioned). Removing it.','err'); emit('import_approved',{id,skipped:true}); dropCard(id); }
+      else { toast('Approve failed: '+esc((res.body&&res.body.message)||'error'),'err'); if(card) card.querySelectorAll('button').forEach(b=>b.disabled=false); }
+    }catch(e){ toast('Approve failed. Please retry.','err'); if(card) card.querySelectorAll('button').forEach(b=>b.disabled=false); }
+    finally{ setBusy(false); }
+  }
+  function rejectOne(id, btn){
+    // Reason is OPTIONAL per the API contract; the dialog allows an empty reason.
+    openReasonDialog('Reject this imported event?', async (reason)=>{
+      if(STATE.busy) return; setBusy(true);
+      const card=btn.closest('.card'); if(card) card.querySelectorAll('button').forEach(b=>b.disabled=true);
+      try{
+        const res=await api('POST', API+'/queue/'+encodeURIComponent(id)+'/reject', { reason: reason||undefined });
+        if(res.ok && res.body && res.body.success){ emit('import_rejected',{id}); toast('Event rejected.','ok'); dropCard(id); }
+        else if(res.status===409){ toast('This event is no longer pending. Removing it.','err'); dropCard(id); }
+        else { toast('Reject failed: '+esc((res.body&&res.body.message)||'error'),'err'); if(card) card.querySelectorAll('button').forEach(b=>b.disabled=false); }
+      }catch(e){ toast('Reject failed. Please retry.','err'); if(card) card.querySelectorAll('button').forEach(b=>b.disabled=false); }
+      finally{ setBusy(false); }
+    });
+  }
+
+  // ---- Bulk actions (respect the 500-id cap) ----
+  function selectedIds(){ return Array.from(STATE.selected); }
+  function bulkApprove(){
+    let ids=selectedIds(); if(!ids.length){ toast('Select one or more events first.'); return; }
+    let capped=false; if(ids.length>MAX_BULK){ ids=ids.slice(0,MAX_BULK); capped=true; }
+    confirmDialog('Approve '+ids.length+' selected event(s)?',
+      (capped?'Only the first '+MAX_BULK+' selected will be processed (per-request cap).<br>':'')+'Approved events are published immediately.',
+      async ()=>{
+        if(STATE.busy) return; setBusy(true);
+        emit('bulk_approval',{count:ids.length});
+        try{
+          const res=await api('POST', API+'/bulk-approve', { ids });
+          const d=(res.body&&res.body.data)||{};
+          if(res.ok && res.body && res.body.success){ toast('Approved '+(d.approved||0)+', skipped '+(d.skipped||0)+'.','ok'); emit('bulk_approval',{count:ids.length,approved:d.approved,skipped:d.skipped,done:true}); STATE.selected.clear(); loadQueue(); }
+          else { toast('Bulk approve failed: '+esc((res.body&&res.body.message)||'error'),'err'); }
+        }catch(e){ toast('Bulk approve failed.','err'); }
+        finally{ setBusy(false); }
+      });
+  }
+  function bulkReject(){
+    let ids=selectedIds(); if(!ids.length){ toast('Select one or more events first.'); return; }
+    let capped=false; if(ids.length>MAX_BULK){ ids=ids.slice(0,MAX_BULK); capped=true; }
+    openReasonDialog('Reject '+ids.length+' selected event(s)?', async (reason)=>{
+      if(STATE.busy) return; setBusy(true);
+      emit('bulk_rejection',{count:ids.length});
+      try{
+        const res=await api('POST', API+'/bulk-reject', { ids, reason: reason||undefined });
+        const d=(res.body&&res.body.data)||{};
+        if(res.ok && res.body && res.body.success){ toast('Rejected '+(d.rejected||0)+', skipped '+(d.skipped||0)+'.','ok'); emit('bulk_rejection',{count:ids.length,rejected:d.rejected,skipped:d.skipped,done:true}); STATE.selected.clear(); loadQueue(); }
+        else { toast('Bulk reject failed: '+esc((res.body&&res.body.message)||'error'),'err'); }
+      }catch(e){ toast('Bulk reject failed.','err'); }
+      finally{ setBusy(false); }
+    }, (capped?'Only the first '+MAX_BULK+' selected will be processed (per-request cap).':''));
+  }
+
+  // ---- Approve All (high risk; exact-count guarded; never silently retries) ----
+  function approveAll(){
+    const expectedCount = STATE.list.total;
+    if(!expectedCount){ toast('There is nothing to approve in the current filter.'); return; }
+    const body='<p>This will publish <b>'+expectedCount+'</b> event(s) matching the current filter, all at once.</p>'+
+      '<div class="filters-active"><b>Active filters:</b><br>'+activeFilterText()+'</div>'+
+      '<p style="font-size:.82rem;color:#92400e">The server re-counts under a lock. If the number has changed, nothing is published and you will be asked to refresh.</p>';
+    confirmDialog('Approve All in the current filter?', body, async ()=>{
+      if(STATE.busy) return; setBusy(true);
+      emit('approve_all_attempt',{expectedCount, filters:{sourceId:STATE.filters.sourceId,market:STATE.filters.market,q:STATE.filters.q}});
+      try{
+        const res=await api('POST', API+'/approve-all', {
+          expectedCount,
+          sourceId: STATE.filters.sourceId||undefined,
+          market: STATE.filters.market||undefined,
+          q: STATE.filters.q||undefined,
+        });
+        if(res.ok && res.body && res.body.success){
+          const d=res.body.data||{};
+          emit('approve_all_result',{ok:true,approved:d.approved,expectedCount});
+          toast('Approve All complete: published '+(d.approved||0)+'.','ok');
+          STATE.selected.clear(); loadQueue();
+        } else if(res.status===409 && res.body && res.body.code==='APPROVE_ALL_COUNT_MISMATCH'){
+          // NEVER auto-retry. Explain the queue changed and require a manual refresh.
+          const d=res.body.data||{};
+          emit('approve_all_result',{ok:false,mismatch:true,expected:d.expectedCount,actual:d.actualCount});
+          confirmDialog('The queue changed - nothing was published',
+            '<p>You expected <b>'+esc(String(d.expectedCount))+'</b> event(s), but the queue now has <b>'+esc(String(d.actualCount))+'</b>. '+
+            'For safety, Approve All published nothing.</p><p style="margin-top:.5rem">Refresh the queue and review again before retrying.</p>',
+            ()=>loadQueue(), { okLabel:'Refresh queue', noCancel:true });
+        } else {
+          emit('approve_all_result',{ok:false});
+          toast('Approve All failed: '+esc((res.body&&res.body.message)||'error'),'err');
+        }
+      }catch(e){ emit('approve_all_result',{ok:false}); toast('Approve All failed.','err'); }
+      finally{ setBusy(false); }
+    }, { okLabel:'Yes, Approve All', danger:true });
+  }
+
+  // ---- Detail drawer/modal ----
+  async function openDetail(id){
+    emit('import_detail_reviewed',{id});
+    const res=await api('GET', API+'/queue/'+encodeURIComponent(id)).catch(()=>null);
+    if(!res || !res.ok || !res.body || !res.body.success){ toast('Could not load event detail.','err'); return; }
+    const d=res.body.data;
+    const org=d.organizer||{};
+    const loc=[d.venue_name,d.address,[d.city,d.state].filter(Boolean).join(', '),d.zip].filter(Boolean).join(' &middot; ');
+    // Images: render thumbnails ONLY when the media policy permits mirrored media; otherwise
+    // list external source links (imported URLs are never rendered as trusted inline media).
+    const mirror = d.source && d.source.media_policy==='mirror';
+    let imgs='';
+    if(d.images && d.images.length){
+      imgs = mirror
+        ? '<div class="imgs">'+d.images.map(im=>'<img src="'+esc(im.url)+'" alt="'+esc(im.alt_text||'')+'" loading="lazy" />').join('')+'</div>'
+        : '<div class="imgnote">'+d.images.length+' image(s) available under a link-only policy (not mirrored):</div><div class="badges">'+
+            d.images.map((im,i)=>extLink(im.source_url||im.url,'Image '+(i+1))).join(' ')+'</div>';
+    }
+    const cands=(d.company_match&&d.company_match.candidates)||[];
+    const m=matchLabel(d.company_match&&d.company_match.status);
+    const html =
+      '<h2>'+esc(d.title||'(Untitled import)')+'</h2>'+
+      '<div class="badges" style="margin-top:.3rem">'+
+        '<span class="badge '+m.cls+'"><span class="sym" aria-hidden="true">'+m.sym+'</span>'+m.text+'</span>'+
+        '<span class="badge">Media: '+esc((d.source&&d.source.media_policy)||'-')+'</span>'+
+        '<span class="badge '+((d.source&&d.source.auto_publish_eligible)?'b-auto':'')+'">Auto-publish: '+((d.source&&d.source.auto_publish_eligible)?'eligible':'no')+'</span>'+
+        '<span class="badge">Status: '+esc(d.status||'-')+'</span>'+
+      '</div>'+
+      (d.description?'<div class="dl-sec"><h3>Description</h3><div class="dl-desc">'+esc(d.description)+'</div></div>':'')+
+      '<div class="dl-sec"><h3>Event details</h3><div class="dl-grid">'+
+        '<div><span>Starts</span>'+fdatetime(d.start_at)+'</div>'+
+        '<div><span>Ends</span>'+fdatetime(d.end_at)+'</div>'+
+        '<div><span>Timezone</span>'+esc(d.timezone||'-')+'</div>'+
+        '<div><span>Location</span>'+(loc||'-')+'</div>'+
+        '<div><span>Category</span>'+esc(d.category||'-')+'</div>'+
+        '<div><span>Market</span>'+esc(d.market||'-')+' ('+esc(d.market_resolved_via||'-')+')</div>'+
+        '<div><span>Organizer</span>'+esc(org.name||'-')+'</div>'+
+        '<div><span>Organizer site</span>'+(org.website_url?extLink(org.website_url,'Website'):'-')+'</div>'+
+      '</div></div>'+
+      '<div class="dl-sec"><h3>Outbound links</h3><div class="badges">'+
+        (d.external_url?extLink(d.external_url,'Source listing'):'')+' '+
+        (d.registration_url?extLink(d.registration_url,'Register'):'')+' '+
+        (d.bidding_url?extLink(d.bidding_url,'Bidding'):'')+
+        (!(d.external_url||d.registration_url||d.bidding_url)?'<span style="color:#94a3b8;font-size:.8rem">None</span>':'')+
+      '</div></div>'+
+      (imgs?'<div class="dl-sec"><h3>Images</h3>'+imgs+'</div>':'')+
+      '<div class="dl-sec"><h3>Import metadata</h3><div class="dl-grid">'+
+        '<div><span>Import run ID</span>'+esc((d.import&&d.import.run_id)||'-')+'</div>'+
+        '<div><span>Imported at</span>'+fdatetime(d.import&&d.import.imported_at)+'</div>'+
+        '<div><span>Run trigger</span>'+esc((d.import&&d.import.run_trigger)||'-')+'</div>'+
+        '<div><span>Match method</span>'+methodLabel(d.import)+'</div>'+
+        '<div><span>Market resolved via</span>'+esc((d.import&&d.import.market_via)||d.market_resolved_via||'-')+'</div>'+
+        '<div><span>Duplicate / import reason</span>'+esc((d.import&&d.import.duplicate_reason)||'None')+'</div>'+
+      '</div></div>'+
+      '<div class="dl-sec"><h3>Source attribution / provenance</h3>'+
+        ((d.attribution&&d.attribution.length)?d.attribution.map(a=>
+          '<div class="prov"><b>'+esc(a.source_platform||a.source_name||'Source')+'</b> &middot; id '+esc(a.source_event_id||'-')+
+          ' &middot; sync: '+esc(a.sync_status||'-')+'<br>'+
+          (a.source_url?extLink(a.source_url,'Original source'):'<span style="color:#94a3b8">No source URL</span>')+
+          ' &middot; first imported '+fdatetime(a.first_imported_at)+'</div>').join('')
+          :'<div style="color:#94a3b8;font-size:.82rem">No provenance rows.</div>')+
+      '</div>'+
+      '<div class="dl-sec"><h3>Company-match candidates</h3>'+
+        (cands.length?'<div class="badges">'+cands.map(c=>'<span class="badge '+(c.exact?'b-exact':'b-possible')+'">'+esc(c.name)+(c.exact?' (exact)':'')+'</span>').join('')+'</div>'
+          :'<div style="color:#94a3b8;font-size:.82rem">No directory organizations match this organizer.</div>')+
+      '</div>'+
+      '<div class="dl-actions">'+
+        (d.is_pending?
+          '<button class="btn btn-ok" id="dlApprove">Approve and publish</button>'+
+          '<button class="btn btn-danger" id="dlReject">Reject</button>'
+          :'<span style="color:#64748b;font-size:.82rem">This event is '+esc(d.status||'')+' and is no longer pending.</span>')+
+        '<button class="btn" id="dlClose2">Close</button>'+
+      '</div>';
+    const close=openModal(html);
+    const ap=document.getElementById('dlApprove'), rj=document.getElementById('dlReject'), c2=document.getElementById('dlClose2');
+    if(c2) c2.onclick=close;
+    if(ap) ap.onclick=async ()=>{ if(STATE.busy) return; setBusy(true); ap.disabled=true; if(rj) rj.disabled=true;
+      try{ const r=await api('POST', API+'/queue/'+encodeURIComponent(id)+'/approve');
+        if(r.ok&&r.body&&r.body.success){ emit('import_approved',{id,via:'detail'}); toast('Event approved and published.','ok'); dropCard(id); close(); }
+        else if(r.status===409){ toast('No longer pending. Removing it.','err'); dropCard(id); close(); }
+        else { toast('Approve failed.','err'); ap.disabled=false; if(rj) rj.disabled=false; }
+      }catch(e){ toast('Approve failed.','err'); ap.disabled=false; if(rj) rj.disabled=false; } finally{ setBusy(false); } };
+    if(rj) rj.onclick=()=>{ close(); rejectOneById(id); };
+  }
+  function rejectOneById(id){
+    openReasonDialog('Reject this imported event?', async (reason)=>{
+      if(STATE.busy) return; setBusy(true);
+      try{ const r=await api('POST', API+'/queue/'+encodeURIComponent(id)+'/reject', { reason: reason||undefined });
+        if(r.ok&&r.body&&r.body.success){ emit('import_rejected',{id,via:'detail'}); toast('Event rejected.','ok'); dropCard(id); }
+        else if(r.status===409){ toast('No longer pending. Removing it.','err'); dropCard(id); }
+        else { toast('Reject failed.','err'); }
+      }catch(e){ toast('Reject failed.','err'); } finally{ setBusy(false); }
+    });
+  }
+
+  // ---- Accessible modal / dialog primitives ----
+  let lastFocused=null;
+  function openModal(innerHtml){
+    lastFocused=document.activeElement;
+    const ov=document.createElement('div'); ov.className='overlay';
+    const dlg=document.createElement('div'); dlg.className='dialog'; dlg.setAttribute('role','dialog'); dlg.setAttribute('aria-modal','true');
+    dlg.innerHTML='<button class="dl-close" aria-label="Close dialog">&times;</button>'+innerHtml;
+    ov.appendChild(dlg); document.body.appendChild(ov);
+    function close(){ ov.remove(); document.removeEventListener('keydown',onKey); if(lastFocused&&lastFocused.focus) lastFocused.focus(); }
+    function onKey(e){ if(e.key==='Escape') close(); if(e.key==='Tab') trap(e); }
+    function trap(e){ const f=dlg.querySelectorAll('button,a[href],input,select,textarea,[tabindex]:not([tabindex="-1"])'); if(!f.length) return;
+      const first=f[0], last=f[f.length-1];
+      if(e.shiftKey && document.activeElement===first){ e.preventDefault(); last.focus(); }
+      else if(!e.shiftKey && document.activeElement===last){ e.preventDefault(); first.focus(); } }
+    dlg.querySelector('.dl-close').onclick=close;
+    ov.addEventListener('mousedown',(e)=>{ if(e.target===ov) close(); });
+    document.addEventListener('keydown',onKey);
+    setTimeout(()=>{ const focusable=dlg.querySelector('button,a[href],input,select,textarea'); (focusable||dlg).focus(); },0);
+    return close;
+  }
+  function confirmDialog(title, bodyHtml, onOk, opts){
+    opts=opts||{};
+    const html='<h2>'+esc(title)+'</h2><div style="font-size:.9rem;color:#334155;margin-top:.5rem">'+bodyHtml+'</div>'+
+      '<div class="dl-actions">'+
+        '<button class="btn '+(opts.danger?'btn-aa':'btn-pri')+'" id="cfOk">'+esc(opts.okLabel||'Confirm')+'</button>'+
+        (opts.noCancel?'':'<button class="btn" id="cfNo">Cancel</button>')+
+      '</div>';
+    const close=openModal(html);
+    document.getElementById('cfOk').onclick=()=>{ close(); if(onOk) onOk(); };
+    const no=document.getElementById('cfNo'); if(no) no.onclick=close;
+  }
+  function openReasonDialog(title, onSubmit, extraNote){
+    const html='<h2>'+esc(title)+'</h2>'+
+      (extraNote?'<div class="note" style="margin:.4rem 0">'+esc(extraNote)+'</div>':'')+
+      '<label for="rsn" style="margin-top:.6rem">Reason (optional)</label>'+
+      '<textarea id="rsn" placeholder="Optional reason for the audit log"></textarea>'+
+      '<div class="dl-actions">'+
+        '<button class="btn btn-danger" id="rsnOk">Reject</button>'+
+        '<button class="btn" id="rsnNo">Cancel</button>'+
+      '</div>';
+    const close=openModal(html);
+    document.getElementById('rsnNo').onclick=close;
+    document.getElementById('rsnOk').onclick=()=>{ const v=(document.getElementById('rsn').value||'').trim(); close(); onSubmit(v); };
+  }
+
+  // ---- Filters ----
+  let qTimer=null;
+  function readFilters(){
+    STATE.filters.sourceId=document.getElementById('fSource').value||'';
+    STATE.filters.market=document.getElementById('fMarket').value||'';
+    STATE.filters.q=(document.getElementById('fQ').value||'').trim();
+    STATE.filters.page=1;
+  }
+  function clearFilters(){
+    document.getElementById('fSource').value='';
+    document.getElementById('fMarket').value='';
+    document.getElementById('fQ').value='';
+    readFilters(); loadQueue();
+  }
+
+  // ---- Load queue ----
+  async function loadQueue(){
+    const host=document.getElementById('content');
+    host.innerHTML='<div class="state">Loading review queue&hellip;</div>';
+    document.getElementById('status').textContent='';
+    const f=STATE.filters;
+    const qs=new URLSearchParams();
+    qs.set('page', f.page); qs.set('limit', f.limit);
+    if(f.sourceId) qs.set('sourceId', f.sourceId);
+    if(f.market) qs.set('market', f.market);
+    if(f.q) qs.set('q', f.q);
+    try{
+      const res=await api('GET', API+'/queue?'+qs.toString());
+      if(!res.ok || !res.body || !res.body.success){ host.innerHTML='<div class="state"><h2>Could not load the queue</h2><p>Please try again.</p><p style="margin-top:.6rem"><button class="btn" id="rt">Retry</button></p></div>'; const rt=document.getElementById('rt'); if(rt) rt.onclick=loadQueue; return; }
+      STATE.list={ items:res.body.items||[], total:res.body.total||0, page:res.body.page||1, limit:res.body.limit||f.limit, pages:res.body.pages||1 };
+      // Total pending (unfiltered) is refreshed only when there are no filters, so the
+      // "total pending" summary stays meaningful; with filters we keep the last known total.
+      if(!(f.sourceId||f.market||f.q)) STATE.totalPending=STATE.list.total;
+      else if(STATE.totalPending<STATE.list.total) STATE.totalPending=STATE.list.total;
+      emit('queue_viewed',{ total:STATE.list.total, page:STATE.list.page, filtered:!!(f.sourceId||f.market||f.q) });
+      render();
+    }catch(e){
+      if(String(e.message)==='expired') return;
+      host.innerHTML='<div class="state"><h2>Could not load the queue</h2><p>Please try again.</p><p style="margin-top:.6rem"><button class="btn" id="rt">Retry</button></p></div>';
+      const rt=document.getElementById('rt'); if(rt) rt.onclick=loadQueue;
+    }
+  }
+
+  // ---- Bootstrap ----
+  (function init(){
+    // Sources (filter + breakdown), then markets, then the queue.
+    Promise.all([
+      api('GET', API+'/sources').catch(()=>({body:{data:[]}})),
+      api('GET', '/api/public/event-markets').catch(()=>({body:{data:[]}})),
+    ]).then(([sRes, mRes])=>{
+      STATE.sources=(sRes.body&&sRes.body.data)||[];
+      const src=document.getElementById('fSource');
+      src.innerHTML='<option value="">All sources</option>'+STATE.sources.map(s=>'<option value="'+esc(s.id)+'">'+esc(s.name||s.key||'source')+'</option>').join('');
+      const markets=(mRes.body&&mRes.body.data)||[];
+      const mk=document.getElementById('fMarket');
+      mk.innerHTML='<option value="">All markets</option>'+markets.map(m=>'<option value="'+esc(m.slug)+'">'+esc(m.name||m.slug)+'</option>').join('');
+      renderBreakdown();
+    }).finally(()=>{ loadQueue(); });
+
+    document.getElementById('fSource').onchange=()=>{ readFilters(); loadQueue(); };
+    document.getElementById('fMarket').onchange=()=>{ readFilters(); loadQueue(); };
+    document.getElementById('fQ').addEventListener('input', ()=>{ clearTimeout(qTimer); qTimer=setTimeout(()=>{ readFilters(); loadQueue(); }, 350); });
+    document.getElementById('fClear').onclick=clearFilters;
+
+    document.getElementById('bSelectAll').onclick=()=>{ (STATE.list.items||[]).forEach(it=>STATE.selected.add(it.id)); document.querySelectorAll('[data-sel]').forEach(cb=>{cb.checked=true; const c=cb.closest('.card'); if(c) c.classList.add('sel');}); updateSummary(); };
+    document.getElementById('bClearSel').onclick=()=>{ STATE.selected.clear(); document.querySelectorAll('[data-sel]').forEach(cb=>{cb.checked=false; const c=cb.closest('.card'); if(c) c.classList.remove('sel');}); updateSummary(); };
+    document.getElementById('bApprove').onclick=bulkApprove;
+    document.getElementById('bReject').onclick=bulkReject;
+    document.getElementById('bApproveAll').onclick=approveAll;
+  })();
+  </script>
+  <script src="/widgets/shared/admin-nav.js"></script>
+</body>
+</html>

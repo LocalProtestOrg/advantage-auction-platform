@@ -51,6 +51,7 @@
     { href: '/admin/verification.html', label: 'Verification' },
     { href: '/admin/agreements.html', label: 'Agreements' },
     { href: '/admin/events.html', label: 'Events' },
+    { href: '/admin/imported-events.html', label: 'Imported Events' },
     { href: '/admin/invoices.html', label: 'Invoices' },
     { href: '/admin/marketplace-config.html', label: 'Marketplace Config' },
   ];
