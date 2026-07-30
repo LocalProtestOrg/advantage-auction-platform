@@ -246,6 +246,9 @@ function buildEventBody(meta) {
   const dt = formatEventDate(meta.startDate, meta.endDate);
   const img = meta.image ? absoluteImage(meta.image) : null;
   const parts = [];
+  // Crawlable breadcrumb with INTERNAL links (the Advantage.Bid page is always primary/canonical).
+  parts.push('<nav class="crumbs" aria-label="Breadcrumb"><a href="/">Home</a> › '
+    + `<a href="/events.html">Events</a> › <span aria-current="page">${escapeHtml(meta.title)}</span></nav>`);
   if (img) parts.push(`<img src="${escapeHtml(img)}" alt="${escapeHtml(meta.title)}" `
     + `style="width:100%;max-height:420px;object-fit:cover;border-radius:20px" />`);
   if (meta.category) parts.push(`<div class="cat" style="margin-top:16px">${escapeHtml(String(meta.category).replace(/_/g, ' '))}</div>`);
