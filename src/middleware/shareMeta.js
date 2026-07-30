@@ -317,6 +317,27 @@ module.exports = async function shareMeta(req, res, next) {
     }
     if (!id) return next();
 
+    // Imported-event lifecycle: an ENDED or SOURCE-REMOVED imported event must not be
+    // indexed. Emit robots noindex,follow (crawlers drop it but still follow the internal
+    // links to active events) with NO entity block, JSON-LD, or server-rendered body — the
+    // SPA renders the "sale has ended"/"no longer available" state from the API. The helper
+    // fails safe to null (indexes normally) pre-migration-099. Runs before getEventMeta so
+    // it authoritatively overrides indexing even for a removed-but-not-yet-ended event.
+    if (page.kind === 'event') {
+      let lifecycle = null;
+      try { lifecycle = await shareMetaService.getEventExpiryState(id); } catch (e) { lifecycle = null; }
+      if (lifecycle) {
+        const cut = template.indexOf('</head>');
+        if (cut !== -1) {
+          const h = template.slice(0, cut).replace(/<meta\s+name=["']robots["'][^>]*>\s*/i, '');
+          const robots = '  <meta name="robots" content="noindex,follow" />\n';
+          res.set('Content-Type', 'text/html; charset=utf-8');
+          res.set('Cache-Control', 'no-store');
+          return res.send(h + robots + template.slice(cut));
+        }
+      }
+    }
+
     // Load meta (visibility-gated, fail-open). null → Phase-1 static serves.
     let meta;
     if (page.kind === 'auction')     meta = await shareMetaService.getAuctionMeta(id);

@@ -182,6 +182,7 @@ async function getEventMeta(slug) {
          LEFT JOIN organizations o ON o.id = e.organization_id
         WHERE e.slug = $1
           AND e.status = 'published'
+          AND NOT (e.source = 'imported' AND e.end_at IS NOT NULL AND e.end_at < now())
         LIMIT 1`,
       [slug]
     );
@@ -204,6 +205,44 @@ async function getEventMeta(slug) {
       organizer:   clean(r.org_name) || null,
       siteName:    'Advantage.Bid',
     };
+  } catch (e) {
+    return null;
+  }
+}
+
+/**
+ * getEventExpiryState(slug) — lifecycle state of an IMPORTED event for the
+ * SEO/indexing decision. Returns:
+ *   'removed'  — the upstream source retracted the listing (all source rows removed) → 410/noindex
+ *   'expired'  — an imported event whose end has passed → minimal page + noindex
+ *   null       — active, non-imported, unknown, or unavailable (index normally)
+ *
+ * FAIL-SAFE: never throws — returns null on any error (e.g. event_sources absent
+ * pre-migration-099), so the caller indexes the page as it does today.
+ *
+ * @returns {Promise<'removed'|'expired'|null>}
+ */
+async function getEventExpiryState(slug) {
+  if (!validSlug(slug)) return null;
+  try {
+    const { rows } = await db.query(
+      `SELECT
+          (e.source = 'imported' AND e.end_at IS NOT NULL AND e.end_at < now()) AS expired,
+          EXISTS (
+            SELECT 1 FROM event_sources es
+             WHERE es.event_id = e.id AND es.sync_status = 'removed'
+               AND NOT EXISTS (SELECT 1 FROM event_sources es2
+                                WHERE es2.event_id = e.id AND es2.sync_status = 'active')
+          ) AS removed
+         FROM events e
+        WHERE e.slug = $1 AND e.status = 'published'
+        LIMIT 1`,
+      [slug]
+    );
+    if (!rows.length) return null;
+    if (rows[0].removed) return 'removed';
+    if (rows[0].expired) return 'expired';
+    return null;
   } catch (e) {
     return null;
   }
@@ -252,13 +291,15 @@ async function getSitemapEntries() {
     // Leave lots empty.
   }
   try {
-    // Published estate-sale events. The detail page 200s for any published event
-    // (ended ones included, for historical value), so all are safe to list.
+    // Published estate-sale events. Org/admin events (incl. ended ones) stay listed
+    // for historical value; ENDED IMPORTED events are dropped — their detail page
+    // serves only a minimal noindex "ended" state, so they must not be in the sitemap.
     const ev = await db.query(
       `SELECT e.slug,
               COALESCE(e.updated_at, e.published_at, e.created_at) AS lastmod
          FROM events e
         WHERE e.status = 'published' AND e.slug IS NOT NULL
+          AND NOT (e.source = 'imported' AND e.end_at IS NOT NULL AND e.end_at < now())
         ORDER BY COALESCE(e.updated_at, e.published_at, e.created_at) DESC
         LIMIT 2000`
     );
@@ -269,4 +310,4 @@ async function getSitemapEntries() {
   return out;
 }
 
-module.exports = { getAuctionMeta, getLotMeta, getEventMeta, getSitemapEntries, validUuid, validSlug, clean };
+module.exports = { getAuctionMeta, getLotMeta, getEventMeta, getEventExpiryState, getSitemapEntries, validUuid, validSlug, clean };

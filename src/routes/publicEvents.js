@@ -103,6 +103,39 @@ router.get('/events/:slug', asyncRoute(async (req, res) => {
       WHERE e.slug = $1 AND e.status = 'published' LIMIT 1`, [req.params.slug]);
   if (!rows.length) throw svcErr(404, 'EVENT_NOT_FOUND', 'Event not found.');
   const r = rows[0];
+
+  // Imported-event lifecycle (source='imported' only; org/admin events are unaffected):
+  //  • source-removed  → 410 Gone (the upstream source retracted the listing)
+  //  • ended           → 200 with a DELIBERATELY MINIMAL payload (no title/description/
+  //                      images/organizer/urls). Zero third-party content is served after
+  //                      expiry; the page renders a "sale has ended" state + active events.
+  // event_sources is migration 099+; the removed probe fails safe (treated as not-removed)
+  // if the table is absent, so this is safe to deploy ahead of the migration.
+  if (r.source === 'imported') {
+    let removed = false;
+    try {
+      const rm = await db.query(
+        `SELECT EXISTS (
+                  SELECT 1 FROM event_sources es
+                   WHERE es.event_id = $1 AND es.sync_status = 'removed'
+                     AND NOT EXISTS (SELECT 1 FROM event_sources es2
+                                      WHERE es2.event_id = $1 AND es2.sync_status = 'active')
+                ) AS removed`, [r.id]);
+      removed = !!(rm.rows[0] && rm.rows[0].removed);
+    } catch (e) { removed = false; }
+    if (removed) {
+      res.set('Cache-Control', 'no-store');
+      return res.status(410).json({
+        success: false,
+        error: { code: 'EVENT_REMOVED', message: 'This listing is no longer available.' },
+      });
+    }
+    if (r.end_at && new Date(r.end_at).getTime() < Date.now()) {
+      res.set('Cache-Control', PUBLIC_CACHE);
+      return res.json({ success: true, data: { expired: true, slug: r.slug, city: r.city, state: r.state, market: r.market_slug } });
+    }
+  }
+
   const images = (await db.query(
     'SELECT url, position, is_cover FROM event_images WHERE event_id = $1 ORDER BY position ASC', [r.id])).rows;
   const cover = (images.find((i) => i.is_cover) || images[0] || {}).url;

@@ -88,8 +88,56 @@
   }
   function section(title, cards) { return cards.length ? '<div class="sec"><h2>' + esc(title) + '</h2><div class="grid">' + cards.map(eventCard).join('') + '</div></div>' : ''; }
 
-  fetch(API + encodeURIComponent(slug)).then(function (r) { return r.json(); }).then(function (res) {
+  // Breadcrumbs — crawlable INTERNAL links (title optional for the ended/gone states).
+  function crumbsHtml(title) {
+    return '<nav class="crumbs" aria-label="Breadcrumb"><a href="/">Home</a><span class="sep">›</span>'
+      + '<a href="/events.html">Events</a>' + (title ? '<span class="sep">›</span><span aria-current="page">' + esc(title) + '</span>' : '') + '</nav>';
+  }
+
+  // Keep exploring Advantage.Bid — related local events, nearby events, and companies
+  // with public profiles. Every card links to an INTERNAL /event.html?slug= page.
+  function loadRelated() {
+    fetch(API + encodeURIComponent(slug) + '/related').then(function (r) { return r.json(); }).then(function (rr) {
+      var d = (rr && rr.data) || {}; var host = document.getElementById('related'); if (!host) return;
+      var cos = (d.companies || []).length
+        ? '<div class="sec"><h2>Companies with events here</h2><div class="cos">' + d.companies.map(function (c) {
+            return '<span class="co">' + (c.logo_url ? '<img src="' + esc(c.logo_url) + '" alt="">' : '') + esc(c.name) + '</span>'; }).join('') + '</div></div>' : '';
+      host.innerHTML = section('More events in this area', d.related || []) + section('Nearby events', d.nearby || []) + cos;
+    }).catch(function () {});
+  }
+
+  // An IMPORTED event that has ended: the API returns a deliberately minimal payload
+  // (no title/description/images/urls). Keep the visitor on Advantage.Bid with active
+  // events; nothing from the external source is shown.
+  function renderExpired(d) {
+    document.title = 'This sale has ended - Advantage.Bid';
+    var place = [d.city, d.state].filter(Boolean).join(', ');
+    content.innerHTML = crumbsHtml('Sale ended')
+      + '<div class="hero none"></div>'
+      + '<h1>This sale has ended</h1>'
+      + '<p class="desc">This listing is no longer active' + (place ? ' in ' + esc(place) : '') + '. Explore other events happening near you below.</p>'
+      + '<div class="cta"><a class="btn ghost" href="/events.html">Browse all events</a></div>'
+      + '<div id="related"></div>';
+    loadRelated();
+  }
+
+  // The upstream source retracted this listing → the API returns 410 Gone.
+  function renderGone() {
+    document.title = 'Listing unavailable - Advantage.Bid';
+    content.innerHTML = crumbsHtml('Unavailable')
+      + '<div class="hero none"></div>'
+      + '<h1>This listing is no longer available</h1>'
+      + '<p class="desc">The source removed this listing. It’s no longer shown on Advantage.Bid.</p>'
+      + '<div class="cta"><a class="btn ghost" href="/events.html">Browse all events</a></div>';
+  }
+
+  fetch(API + encodeURIComponent(slug)).then(function (r) {
+    if (r.status === 410) { renderGone(); return null; }
+    return r.json();
+  }).then(function (res) {
+    if (res === null) return; // 410 already handled
     if (!res || !res.data) { content.innerHTML = '<div class="err">This event isn’t available.</div>'; return; }
+    if (res.data.expired) { renderExpired(res.data); return; }
     var e = res.data, org = e.organization;
     document.title = e.title + ' - Advantage.Bid';
     if (e.description) { var md = document.querySelector('meta[name=description]'); if (md) md.setAttribute('content', String(e.description).slice(0, 155)); }
@@ -100,8 +148,7 @@
       ? '<div class="gallery">' + e.images.map(function (im) { return '<img src="' + esc(im.url) + '" alt="" loading="lazy">'; }).join('') + '</div>' : '';
 
     // Breadcrumbs — crawlable INTERNAL links.
-    var crumbs = '<nav class="crumbs" aria-label="Breadcrumb"><a href="/">Home</a><span class="sep">›</span>'
-      + '<a href="/events.html">Events</a><span class="sep">›</span><span aria-current="page">' + esc(e.title) + '</span></nav>';
+    var crumbs = crumbsHtml(e.title);
 
     // External CTA — clear, intentional, opens a new tab, and says the visitor is leaving Advantage.Bid.
     var extUrl = e.registration_url || e.bidding_url || e.external_url;
@@ -130,14 +177,7 @@
       + (e.attribution_source ? '<div class="attrib">Listing sourced from ' + esc(e.attribution_source) + (e.attribution_url ? ' (<a href="' + esc(e.attribution_url) + '"' + EXT + '>source ↗</a>)' : '') + '. Not hosted or endorsed by Advantage.Bid.</div>' : '')
       + '<div id="related"></div>';
 
-    // Keep exploring Advantage.Bid — related local events, nearby events, and companies.
-    fetch(API + encodeURIComponent(slug) + '/related').then(function (r) { return r.json(); }).then(function (rr) {
-      var d = (rr && rr.data) || {}; var host = document.getElementById('related'); if (!host) return;
-      var cos = (d.companies || []).length
-        ? '<div class="sec"><h2>Companies with events here</h2><div class="cos">' + d.companies.map(function (c) {
-            return '<span class="co">' + (c.logo_url ? '<img src="' + esc(c.logo_url) + '" alt="">' : '') + esc(c.name) + '</span>'; }).join('') + '</div></div>' : '';
-      host.innerHTML = section('More events in this area', d.related || []) + section('Nearby events', d.nearby || []) + cos;
-    }).catch(function () {});
+    loadRelated();
   }).catch(function () { content.innerHTML = '<div class="err">Couldn’t load this event. Please try again.</div>'; });
 })();
 </script>
