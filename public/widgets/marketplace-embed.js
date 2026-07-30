@@ -137,6 +137,9 @@
         if (action.type === 'resize') {
           f.style.overflowAnchor = 'none';                 // don't let the iframe anchor the scroll as it grows
           f.style.minHeight = '0px';                       // release the initial floor so short states shrink
+          // Assign the child-reported height AS-IS. Never add SPACING/padding here: the child measures
+          // its true content height, and adding to it would feed back into the child's next measurement
+          // and creep the iframe taller each cycle. SPACING is for the scroll offset ONLY (see offsetFor).
           f.style.height = action.height + 'px';
         } else if (action.type === 'scroll') {
           scrollToWidget(f);

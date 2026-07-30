@@ -44,8 +44,16 @@
     return '*';
   }
   function post(msg) { if (!inIframe()) return; try { window.parent.postMessage(msg, parentTargetOrigin()); } catch (e) {} }
-  function measureHeight() { var b = document.body, d = document.documentElement;
-    return Math.ceil(Math.max(b ? b.scrollHeight : 0, b ? b.offsetHeight : 0, d ? d.scrollHeight : 0)) + 4; }
+  function measureHeight() {
+    // TRUE content-wrapper height (viewport-INDEPENDENT). Never document(Element).scrollHeight: <html>
+    // fills the iframe viewport so its scrollHeight tracks the parent-assigned height and (with a buffer)
+    // creeps the iframe taller every cycle. The wrapper height is stable → converges. body.scrollHeight
+    // is a safe fallback (does not inflate to the viewport). Matters most in the short empty state.
+    var el = root || document.getElementById('advantage-featured-items');
+    var h = el ? el.getBoundingClientRect().height : 0;
+    if (!h && document.body) h = document.body.scrollHeight;
+    return Math.ceil(h) + 2;
+  }
   function postHeight(force) { var h = measureHeight(); if (!force && Math.abs(h - lastPostedHeight) < 3) return;
     lastPostedHeight = h; post({ source: MSG_SRC, type: 'resize', widget: WIDGET_ID, height: h }); }
   function scheduleHeight() { if (heightTimer) return; heightTimer = setTimeout(function () { heightTimer = null; postHeight(false); }, 100); }

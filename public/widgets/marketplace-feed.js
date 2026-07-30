@@ -54,8 +54,17 @@
   }
   function post(msg) { if (!inIframe()) return; try { window.parent.postMessage(msg, parentTargetOrigin()); } catch (e) {} }
   function measureHeight() {
-    var b = document.body, d = document.documentElement;
-    return Math.ceil(Math.max(b ? b.scrollHeight : 0, b ? b.offsetHeight : 0, d ? d.scrollHeight : 0)) + 4;
+    // Measure the TRUE content-wrapper height (the widget's own root element), which shrink-wraps its
+    // content and is INDEPENDENT of the iframe's assigned viewport height. Do NOT use
+    // document(Element).scrollHeight: <html> fills the iframe viewport, so its scrollHeight equals the
+    // parent-assigned iframe height whenever content is shorter — combined with a growth buffer that made
+    // every cycle report a taller value, creeping the iframe down forever. Content height is stable, so
+    // measuring the wrapper converges. body.scrollHeight is a safe fallback (body shrink-wraps content;
+    // unlike <html> it does NOT inflate to the viewport).
+    var el = root || document.getElementById('advantage-marketplace-feed');
+    var h = el ? el.getBoundingClientRect().height : 0;
+    if (!h && document.body) h = document.body.scrollHeight;
+    return Math.ceil(h) + 2;
   }
   // Debounced + oscillation-guarded height post (skips sub-3px jitter to avoid resize loops).
   function postHeight(force) {
