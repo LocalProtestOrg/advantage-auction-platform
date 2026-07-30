@@ -167,7 +167,9 @@
       + '<div class="meta">'
       + '<div class="r"><span class="ic">📅</span><span><b>' + fmtRange(e.start_at, e.end_at) + '</b></span></div>'
       + (loc ? '<div class="r"><span class="ic">📍</span><span>' + esc(loc) + '</span></div>' : '')
-      + (e.address_pending ? '<div class="r"><span class="ic">🔒</span><span style="color:#637488">Address will be released closer to the sale.</span></div>' : '')
+      + (e.event_format === 'online'
+          ? '<div class="r"><span class="ic">💻</span><span style="color:#637488">Online event - no physical sale address required.</span></div>'
+          : (e.address_pending ? '<div class="r"><span class="ic">🔒</span><span style="color:#637488">Address will be released closer to the sale.</span></div>' : ''))
       + '</div>'
       + (e.description ? '<div class="desc">' + esc(e.description) + '</div>' : '')
       + gallery

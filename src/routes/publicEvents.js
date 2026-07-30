@@ -53,6 +53,7 @@ function serialize(r, images) {
     registration_url: r.registration_url || undefined, bidding_url: r.bidding_url || undefined,
     organizer_name: r.organizer_name || undefined,
     organizer_website_url: r.organizer_website_url || undefined,
+    event_format: r.event_format || undefined,
     // Imported events may publish before the exact street address is public. We never return the
     // street itself (privacy); this flag lets the page show the release disclosure instead.
     address_pending: (r.source === 'imported' && !r.address) || undefined,
@@ -86,7 +87,7 @@ router.get('/events', asyncRoute(async (req, res) => {
   const { rows } = await db.query(
     `SELECT e.id, e.slug, e.title, e.description, e.category_slug, e.market_slug, e.venue_name, e.city, e.state, e.zip,
             e.lat, e.lng, e.start_at, e.end_at, e.timezone, e.external_url, e.is_featured, e.source,
-            e.address, e.organizer_website_url, e.attribution_source, e.attribution_url,
+            e.address, e.organizer_website_url, e.event_format, e.attribution_source, e.attribution_url,
             o.name AS org_name, o.slug AS org_slug, o.logo_url AS org_logo, o.website_url AS org_website,
             o.verification_status AS org_verif,
             (SELECT url FROM event_images ei WHERE ei.event_id = e.id ORDER BY is_cover DESC, position ASC LIMIT 1) AS cover_url
