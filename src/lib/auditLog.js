@@ -49,8 +49,22 @@ async function writeAuditLog({
     metadata ? JSON.stringify(metadata) : null,
   ];
   try {
-    const runner = client || db;
-    const result = await runner.query(sql, params);
+    // Transactional audit is BEST-EFFORT and must never poison the caller's transaction. A failed
+    // INSERT inside an open transaction aborts the whole transaction (so the caller's COMMIT silently
+    // becomes a ROLLBACK) — which would let an admin "approve" while the event stays draft. Isolate
+    // the audit write in a SAVEPOINT so a failure rolls back only the audit, leaving the caller intact.
+    if (client) {
+      await client.query('SAVEPOINT audit_write');
+      try {
+        const result = await client.query(sql, params);
+        await client.query('RELEASE SAVEPOINT audit_write');
+        return result.rows[0];
+      } catch (err) {
+        await client.query('ROLLBACK TO SAVEPOINT audit_write').catch(() => {});
+        throw err; // handled below → returns null; the caller's transaction is NOT poisoned
+      }
+    }
+    const result = await db.query(sql, params);
     return result.rows[0];
   } catch (err) {
     console.error('[audit] write failed', { event_type, entity_type, entity_id, error: err.message });
