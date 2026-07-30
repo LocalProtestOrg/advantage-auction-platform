@@ -243,3 +243,26 @@ curl -s "https://bid.advantage.bid/robots.txt" | grep -i "event\|auction\|Sitema
 ```
 Paste the event JSON-LD into Google's Rich Results Test — it validates as an `Event`. Unit coverage:
 `tests/share-meta.test.js` (42 tests: event meta, privacy, JSON-LD, body injection, sitemap).
+
+---
+
+# Featured Items Available Now — BD embed (reuses the Event Feed embed stack)
+
+Separate widget, same proven iframe + `postMessage` + dynamic-height + parent-scroll architecture. It
+shows ranked, diversified ACTIVE auction lots and links each card to the canonical Railway lot page.
+Railway (`/api/public/discovery/items`) is the sole source of truth; the crawlable page is `/items`.
+
+**No new Footer Script is required.** The `marketplace-embed.js` helper you already added to BD Footer
+Scripts now also powers this widget (it detects the iframe by `src` and accepts `widget:"featured-items"`).
+Existing Event Feed widgets are unaffected.
+
+**Widget (BD Custom Widget → HTML tab), placed at the bottom of the target page:**
+```html
+<iframe src="https://bid.advantage.bid/widgets/featured-items.html?placement=event_feed_footer"
+        title="Advantage.Bid — Featured Items Available Now" loading="lazy" allow="geolocation"
+        style="width:100%; min-height:800px; border:0; display:block"></iframe>
+```
+`placement` may be `event_feed_footer` · `auctions_footer` · `estate_sales_footer` · `homepage` ·
+`standalone` (the server validates it and caps pagination at 6 pages / 72 items regardless of input).
+Height auto-fits and the page scrolls to the results on paging via the existing footer helper. While no
+eligible live inventory exists, the widget shows the approved empty state (a link to active auctions).

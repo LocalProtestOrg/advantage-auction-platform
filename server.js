@@ -210,6 +210,7 @@ app.get('/sitemap.xml', async (req, res) => {
     '/ending-soon.html',
     '/past-auctions.html',
     '/search.html',
+    '/items',
     '/shipping-available.html',
     '/how-sellers-get-paid.html',
     '/after-estate-sale.html',
@@ -245,6 +246,119 @@ app.get('/sitemap.xml', async (req, res) => {
   res.set('Content-Type', 'application/xml');
   res.set('Cache-Control', 'public, max-age=3600');
   return res.send(xml);
+});
+
+// ── GET /items — crawlable, server-rendered "Featured Items Available Now" discovery page ──
+// The canonical, independently-indexable Railway page behind the BD widget: real HTML + lot links
+// before any JS, numbered ?page pagination, WebPage + ItemList + BreadcrumbList JSON-LD. The BD
+// iframe is a display surface; THIS page is what crawlers and AI systems read. Fail-open to a minimal
+// page on any error. Individual lot pages carry their own Product JSON-LD (shareMeta) + are sitemapped.
+app.get('/items', async (req, res) => {
+  const { publicBaseUrl } = require('./src/lib/publicUrls');
+  const discoveryService = require('./src/services/discoveryService');
+  const b = publicBaseUrl().replace(/\/+$/, '');
+  const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  try {
+    let page = Math.max(parseInt(req.query.page, 10) || 1, 1);
+    const result = await discoveryService.getFeaturedItems({ page, placement: 'standalone', sort: 'featured' });
+    page = result.pagination.page;
+    const { data, pagination } = result;
+    const pageUrl = (n) => b + '/items' + (n > 1 ? ('?page=' + n) : '');
+    const canonical = pageUrl(page);
+    const title = 'Featured Items Available Now' + (page > 1 ? (' — Page ' + page) : '') + ' | Advantage.Bid';
+    const desc = 'Discover standout items from live auctions on Advantage.Bid — furniture, art, jewelry, tools, décor and more, available to bid on now.';
+
+    // Server-rendered card list (crawlable anchors → canonical lot pages).
+    const cards = data.map((it) => {
+      const loc = [it.location && it.location.city, it.location && it.location.state].filter(Boolean).join(', ');
+      const price = it.pricing && it.pricing.currentBid != null
+        ? ('Current bid $' + it.pricing.currentBid.toLocaleString('en-US'))
+        : (it.pricing && it.pricing.startingPrice != null ? ('Starting bid $' + it.pricing.startingPrice.toLocaleString('en-US')) : '');
+      const img = it.primaryImage && it.primaryImage.url
+        ? `<img src="${esc(it.primaryImage.url)}" alt="${esc((it.primaryImage.alt) || it.title)}" loading="lazy" width="400" height="300">`
+        : '<span class="ph" aria-hidden="true"></span>';
+      return `<li class="c"><a href="${esc(it.canonicalUrl)}">${img}`
+        + `<span class="t">${esc(it.title)}</span>`
+        + (price ? `<span class="p">${esc(price)}</span>` : '')
+        + (loc ? `<span class="m">${esc(loc)}</span>` : '')
+        + `</a></li>`;
+    }).join('');
+
+    // Numbered pagination (crawlable links).
+    let pag = '';
+    if (pagination.totalPages > 1) {
+      const parts = [];
+      if (pagination.hasPrevious) parts.push(`<a rel="prev" href="${esc(pageUrl(page - 1))}">‹ Previous</a>`);
+      for (let n = 1; n <= pagination.totalPages; n++) parts.push(n === page ? `<span aria-current="page">${n}</span>` : `<a href="${esc(pageUrl(n))}">${n}</a>`);
+      if (pagination.hasNext) parts.push(`<a rel="next" href="${esc(pageUrl(page + 1))}">Next ›</a>`);
+      pag = `<nav class="pg" aria-label="Featured items pagination">${parts.join('')}</nav>`;
+    }
+
+    const body = data.length
+      ? `<ol class="grid">${cards}</ol>${pag}`
+      : `<div class="empty"><p>New items are being added. Explore active auctions available now.</p><a class="btn" href="${esc(b)}/all-auctions.html">Browse active auctions</a></div>`;
+
+    // JSON-LD: WebPage + BreadcrumbList + ItemList (ListItem → canonical lot URLs). No Product here —
+    // ItemList truthfully models a discovery collection without asserting fixed-price retail.
+    const graph = [
+      { '@type': 'WebPage', name: 'Featured Items Available Now', description: desc, url: canonical },
+      { '@type': 'BreadcrumbList', itemListElement: [
+        { '@type': 'ListItem', position: 1, name: 'Home', item: b + '/' },
+        { '@type': 'ListItem', position: 2, name: 'Featured Items', item: b + '/items' },
+      ] },
+      { '@type': 'ItemList', name: 'Featured Items Available Now', numberOfItems: data.length,
+        itemListElement: data.map((it, i) => ({
+          '@type': 'ListItem', position: (page - 1) * pagination.limit + i + 1,
+          url: it.canonicalUrl, name: it.title,
+        })) },
+    ];
+    const jsonLd = `<script type="application/ld+json">${JSON.stringify({ '@context': 'https://schema.org', '@graph': graph }).replace(/</g, '\\u003c')}</script>`;
+
+    const relPrev = pagination.hasPrevious ? `<link rel="prev" href="${esc(pageUrl(page - 1))}">` : '';
+    const relNext = pagination.hasNext ? `<link rel="next" href="${esc(pageUrl(page + 1))}">` : '';
+
+    const html = `<!doctype html><html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>${esc(title)}</title>
+<meta name="description" content="${esc(desc)}">
+<meta name="robots" content="index,follow">
+<link rel="canonical" href="${esc(canonical)}">${relPrev}${relNext}
+<meta property="og:type" content="website"><meta property="og:title" content="${esc(title)}">
+<meta property="og:description" content="${esc(desc)}"><meta property="og:url" content="${esc(canonical)}">
+<meta property="og:image" content="${esc(b)}/img/social-card.png"><meta name="twitter:card" content="summary_large_image">
+${jsonLd}
+<style>
+ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;color:#0f172a;margin:0;background:#f8fafc}
+ .wrap{max-width:1180px;margin:0 auto;padding:22px 16px 60px}
+ h1{font-size:26px;margin:0 0 4px}.lead{color:#64748b;margin:0 0 18px}
+ .grid{list-style:none;padding:0;margin:0;display:grid;gap:18px;grid-template-columns:repeat(4,1fr)}
+ @media(max-width:1024px){.grid{grid-template-columns:repeat(3,1fr)}}
+ @media(max-width:760px){.grid{grid-template-columns:repeat(2,1fr)}}
+ @media(max-width:520px){.grid{grid-template-columns:1fr}}
+ .c a{display:flex;flex-direction:column;background:#fff;border:1px solid #e6e9ef;border-radius:16px;overflow:hidden;text-decoration:none;color:inherit}
+ .c img,.c .ph{width:100%;aspect-ratio:4/3;object-fit:cover;background:#eef1f5;display:block}
+ .c .t{font-weight:700;font-size:15px;padding:12px 14px 2px}.c .p{font-weight:800;padding:0 14px}.c .m{color:#64748b;font-size:12.5px;padding:2px 14px 14px}
+ .pg{display:flex;gap:6px;justify-content:center;flex-wrap:wrap;margin:26px 0}
+ .pg a,.pg span{min-width:40px;height:40px;display:inline-flex;align-items:center;justify-content:center;padding:0 12px;border:1px solid #e2e8f0;border-radius:10px;font-weight:700;text-decoration:none;color:#0f172a}
+ .pg span[aria-current]{background:#0f172a;color:#fff;border-color:#0f172a}
+ .empty{text-align:center;padding:50px 20px;color:#64748b}.btn{display:inline-block;margin-top:8px;background:#2563eb;color:#fff;padding:10px 18px;border-radius:11px;text-decoration:none;font-weight:700}
+</style></head><body>
+<div class="wrap">
+<h1>Featured Items Available Now</h1>
+<p class="lead">Discover standout finds from auctions happening now.</p>
+${body}
+</div></body></html>`;
+
+    res.set('Content-Type', 'text/html; charset=utf-8');
+    res.set('Cache-Control', 'public, max-age=120');
+    return res.send(html);
+  } catch (e) {
+    res.set('Content-Type', 'text/html; charset=utf-8');
+    return res.send('<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Featured Items | Advantage.Bid</title>'
+      + '<meta name="robots" content="index,follow"><link rel="canonical" href="' + esc(b) + '/items"></head>'
+      + '<body><h1>Featured Items Available Now</h1><p>Explore active auctions available now on Advantage.Bid.</p>'
+      + '<a href="' + esc(b) + '/all-auctions.html">Browse active auctions</a></body></html>');
+  }
 });
 
 // Clean, canonical URL for the seller "How It Works" experience — serve the file at

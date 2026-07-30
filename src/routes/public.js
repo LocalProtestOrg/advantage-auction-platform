@@ -17,6 +17,7 @@ const express = require('express');
 const router  = express.Router();
 const db      = require('../db');
 const { auctionScoreSQL } = require('../services/discoveryRankingService');
+const discoveryService = require('../services/discoveryService');
 const { buildLotSearch, clampInt } = require('../services/searchService');
 const { brandedColSql } = require('../lib/sellerBranding');
 // Buyer-facing seller-identity columns: NULL unless the seller is a professional type WITH branding
@@ -1183,6 +1184,36 @@ router.get('/config', async (req, res, next) => {
 //   address_state, city, shippable, status (active|upcoming|closed),
 //   ending_soon, sort (ending_soon|newest|most_bids), limit (1–50), offset.
 // Realized prices are withheld for closed lots (anonymous endpoint, #20.1).
+// ── GET /api/public/discovery/items ──────────────────────────────────────────
+// "Featured Items Available Now" — ranked + diversified eligible ACTIVE auction lots for
+// visual discovery. Railway is the sole source of truth. Public, read-only, card-sized fields
+// only (no bid history / full images / terms / private seller / reserve / location precision).
+//
+// Public params (V1 — validated + used; nothing else is honored):
+//   page       1..6         (placement is capped at 6 pages of 12 = 72 items)
+//   limit      1..12        (defaults to 12)
+//   placement  allowlisted  (defaults to 'standalone')
+//   sort       'featured'   (only supported value in V1)
+router.get('/discovery/items', normalLimiter, async (req, res, next) => {
+  try {
+    const result = await discoveryService.getFeaturedItems({
+      page: req.query.page,
+      limit: req.query.limit,
+      placement: req.query.placement,
+      sort: req.query.sort,
+    });
+    // Short public cache + conditional-request support (ranked list is cached ~3 min server-side).
+    const etag = 'W/"disc-' + Buffer.from(JSON.stringify([
+      result.context.placement, result.context.sort, result.pagination.page,
+      result.pagination.limit, result.pagination.total, result.context.generatedAt,
+    ])).toString('base64') + '"';
+    if (req.headers['if-none-match'] === etag) { res.status(304).end(); return; }
+    res.set('ETag', etag);
+    res.set('Cache-Control', PUBLIC_CACHE);
+    return res.json(result);
+  } catch (err) { next(err); }
+});
+
 router.get('/lots/search', async (req, res, next) => {
   try {
     const { where, params, orderBy } = buildLotSearch(req.query);

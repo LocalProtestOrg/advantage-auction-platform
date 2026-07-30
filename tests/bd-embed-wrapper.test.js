@@ -75,7 +75,8 @@ describe('embed helper — BD-robust iframe detection', () => {
   const src = fs.readFileSync(path.join(__dirname, '..', 'public', 'widgets', 'marketplace-embed.js'), 'utf8');
   test('detects the widget by src (BD-preserved), not only by stripped id/data attrs', () => {
     expect(src).toContain('iframe[src*="/widgets/marketplace-feed.html"]');
-    expect(src).toContain('data-adv-widget='); // also honors the attr when BD keeps it
+    expect(src).toContain('iframe[src*="/widgets/featured-items.html"]'); // second widget, additive
+    expect(src).toContain('data-adv-widget'); // also honors the attr when BD keeps it
   });
   test('prevents scroll anchoring + scrolls after double rAF with a re-assert', () => {
     expect(src).toContain("overflowAnchor = 'none'");
@@ -84,7 +85,7 @@ describe('embed helper — BD-robust iframe detection', () => {
   });
   test('requests an initial height from each iframe (handshake) using the widget origin', () => {
     expect(src).toContain('function requestResize');
-    expect(src).toMatch(/postMessage\(\{ source: 'advantage-bid-embed', type: 'request-resize', widget: WIDGET \}, ORIGIN\)/);
+    expect(src).toMatch(/source: 'advantage-bid-embed', type: 'request-resize', widget: widgetOf\(fs\[i\]\)/);
     expect(src).toMatch(/setTimeout\(requestResize/);
   });
 });

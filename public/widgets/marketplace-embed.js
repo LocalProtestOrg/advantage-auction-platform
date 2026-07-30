@@ -27,7 +27,11 @@
 (function () {
   'use strict';
   var ORIGIN = 'https://bid.advantage.bid';   // the ONLY trusted message origin
-  var SRC = 'advantage-bid-widget', WIDGET = 'marketplace-feed';
+  var SRC = 'advantage-bid-widget';
+  // Known Advantage widgets this helper serves (additive — Event Feed + Featured Items share the
+  // exact same embed/resize/scroll contract). Adding a widget here does not change event-feed behavior.
+  var WIDGETS = ['marketplace-feed', 'featured-items'];
+  var WIDGET = 'marketplace-feed';             // back-compat export/default
   var MIN = 400, MAX = 20000, SPACING = 12;    // height clamp (px) + breathing room above results
 
   // PURE decision function (no DOM). Given the parts of a received message, decide what to do.
@@ -38,7 +42,7 @@
     var max = typeof opts.max === 'number' ? opts.max : MAX;
     if (evtOrigin !== ORIGIN) return null;                                  // strict origin allowlist
     if (!isThisFrame) return null;                                          // must be one of OUR iframes
-    if (!data || data.source !== SRC || data.widget !== WIDGET) return null; // expected envelope
+    if (!data || data.source !== SRC || WIDGETS.indexOf(data.widget) === -1) return null; // expected envelope + known widget
     if (data.type === 'resize') {
       var h = parseInt(data.height, 10);
       if (!isFinite(h)) return null;
@@ -104,14 +108,22 @@
 
   function frames() {
     return [].slice.call(document.querySelectorAll(
-      'iframe[data-adv-widget="' + WIDGET + '"], iframe[src*="/widgets/marketplace-feed.html"]'));
+      'iframe[data-adv-widget], iframe[src*="/widgets/marketplace-feed.html"], iframe[src*="/widgets/featured-items.html"]'));
+  }
+  // Which widget a given iframe hosts (for the targeted request-resize handshake).
+  function widgetOf(f) {
+    var src = (f && f.getAttribute('src')) || '';
+    if (src.indexOf('/widgets/featured-items.html') !== -1) return 'featured-items';
+    var attr = f && f.getAttribute('data-adv-widget');
+    if (attr && WIDGETS.indexOf(attr) !== -1) return attr;
+    return 'marketplace-feed';
   }
   // Ask each widget iframe to (re-)post its height. Closes the load-order race when this helper
   // (loaded from BD footer scripts) starts listening after the widget already posted its first height.
   function requestResize() {
     var fs = frames();
     for (var i = 0; i < fs.length; i++) {
-      try { if (fs[i].contentWindow) fs[i].contentWindow.postMessage({ source: 'advantage-bid-embed', type: 'request-resize', widget: WIDGET }, ORIGIN); } catch (e) {}
+      try { if (fs[i].contentWindow) fs[i].contentWindow.postMessage({ source: 'advantage-bid-embed', type: 'request-resize', widget: widgetOf(fs[i]) }, ORIGIN); } catch (e) {}
     }
   }
   function init() {
@@ -146,5 +158,5 @@
   }
   // Node/CommonJS test hook — exposes the pure fns without running any DOM code.
   if (typeof module !== 'undefined' && module.exports)
-    module.exports = { decide: decide, resolveOffsetValue: resolveOffsetValue, ORIGIN: ORIGIN, MIN: MIN, MAX: MAX, WIDGET: WIDGET, SRC: SRC };
+    module.exports = { decide: decide, resolveOffsetValue: resolveOffsetValue, ORIGIN: ORIGIN, MIN: MIN, MAX: MAX, WIDGET: WIDGET, WIDGETS: WIDGETS, SRC: SRC };
 })();

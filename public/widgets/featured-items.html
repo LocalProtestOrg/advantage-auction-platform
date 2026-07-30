@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>Advantage.Bid — Featured Items Available Now</title>
+  <style>
+    html, body { margin: 0; background: #f8fafc; }
+  </style>
+</head>
+<body>
+  <!--
+    Embeddable "Featured Items Available Now" widget, powered by Railway.
+    Brilliant Directories embeds this at the bottom of a page, e.g.:
+      <iframe src="https://bid.advantage.bid/widgets/featured-items.html?placement=event_feed_footer"
+              style="width:100%;min-height:800px;border:0" loading="lazy" allow="geolocation"></iframe>
+    Dynamic height + parent-scroll-on-paging are handled by the shared marketplace-embed.js
+    footer helper (same one the Event Feed widgets use). This crawlable content lives on the
+    Railway /items discovery page; this iframe is a display surface (noindex).
+    ?placement=event_feed_footer|auctions_footer|estate_sales_footer|homepage|standalone
+    (the SERVER validates placement and caps pagination at 6 pages regardless of input).
+  -->
+  <div id="advantage-featured-items"></div>
+  <script>
+    (function () { try {
+      var p = (new URLSearchParams(location.search).get('placement') || '').toLowerCase();
+      var ok = ['event_feed_footer','auctions_footer','estate_sales_footer','homepage','standalone'];
+      if (ok.indexOf(p) !== -1) document.getElementById('advantage-featured-items').setAttribute('data-placement', p);
+    } catch (e) {} })();
+  </script>
+  <script src="/widgets/featured-items.js"></script>
+</body>
+</html>
