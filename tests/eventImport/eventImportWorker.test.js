@@ -1,0 +1,229 @@
+'use strict';
+
+// Commit 14 — scheduled Event Import Worker. Hermetic: the engine (runImport), db, audit, and
+// runLog are mocked, so these exercise the worker's orchestration + governance guarantees:
+// draft-only (never auto-publish), reuse of the engine, partial-failure isolation, weekly-cap
+// passthrough, crash-recovery reaping, scheduled locking, idempotent ticks, and run summaries.
+
+jest.mock('../../src/db', () => ({ query: jest.fn(), connect: jest.fn() }));
+jest.mock('../../src/services/eventImport', () => ({ runImport: jest.fn() }));
+jest.mock('../../src/services/eventImport/runLog', () => ({ finishRun: jest.fn(async () => {}) }));
+jest.mock('../../src/lib/auditLog', () => ({ writeAuditLog: jest.fn(async () => ({ id: 'AUD' })) }));
+
+const db = require('../../src/db');
+const { runImport } = require('../../src/services/eventImport');
+const runLog = require('../../src/services/eventImport/runLog');
+const { writeAuditLog } = require('../../src/lib/auditLog');
+const worker = require('../../src/workers/eventImportWorker');
+
+const SRC = (over) => Object.assign({ id: 'src-1', key: 'aac-csv', name: 'AAC CSV', kind: 'csv', weekly_cap: 75, auto_publish: false, status: 'active' }, over || {});
+const okResult = (over) => Object.assign({ applied: true, claimed: true, runId: 'RUN1', status: 'completed', capped: false, remainingAvailable: 73, counters: { fetched: 3, eligible: 3, created: 2, updated: 1, skipped_duplicate: 0, skipped_quality: 0, skipped_ambiguous: 0, failed: 0 } }, over || {});
+
+beforeEach(() => {
+  db.query.mockReset(); runImport.mockReset(); runLog.finishRun.mockClear(); writeAuditLog.mockClear();
+  worker._resetForTest();
+});
+
+// ── config / enable gate ─────────────────────────────────────────────────────
+describe('cfg (idle by default; env-driven schedule)', () => {
+  test('disabled unless EVENT_IMPORT_WORKER_ENABLED=true', () => {
+    expect(worker.cfg({}).enabled).toBe(false);
+    expect(worker.cfg({ EVENT_IMPORT_WORKER_ENABLED: 'true' }).enabled).toBe(true);
+  });
+  test('DISABLED overrides ENABLED', () => {
+    expect(worker.cfg({ EVENT_IMPORT_WORKER_ENABLED: 'true', EVENT_IMPORT_WORKER_DISABLED: 'true' }).enabled).toBe(false);
+  });
+  test('weekday/hour default to Monday 03:00 ET and clamp', () => {
+    const d = worker.cfg({});
+    expect(d.weekday).toBe(1); expect(d.hour).toBe(3);
+    const c = worker.cfg({ EVENT_IMPORT_SCHEDULE_WEEKDAY: '4', EVENT_IMPORT_SCHEDULE_HOUR: '22' });
+    expect(c.weekday).toBe(4); expect(c.hour).toBe(22);
+    expect(worker.cfg({ EVENT_IMPORT_SCHEDULE_HOUR: '99' }).hour).toBe(23); // clamped
+  });
+});
+
+describe('due / etNow', () => {
+  test('due only on the configured weekday + hour', () => {
+    expect(worker.due({ weekday: 1, hour: 3 }, { weekday: 1, hour: 3 })).toBe(true);
+    expect(worker.due({ weekday: 2, hour: 3 }, { weekday: 1, hour: 3 })).toBe(false);
+    expect(worker.due({ weekday: 1, hour: 4 }, { weekday: 1, hour: 3 })).toBe(false);
+  });
+  test('etNow returns ET wall-clock parts (Mon 2026-08-03 03:30 ET)', () => {
+    const et = worker.etNow(new Date('2026-08-03T07:30:00Z')); // EDT (UTC-4) → 03:30 ET Monday
+    expect(et).toMatchObject({ date: '2026-08-03', hour: 3, weekday: 1 });
+  });
+});
+
+// ── active sources ───────────────────────────────────────────────────────────
+describe('activeSources', () => {
+  test('selects only active sources', async () => {
+    db.query.mockResolvedValueOnce({ rows: [SRC()] });
+    const rows = await worker.activeSources();
+    expect(rows.length).toBe(1);
+    expect(db.query.mock.calls[0][0]).toMatch(/WHERE status = 'active'/);
+  });
+});
+
+// ── runOneSource: reuse engine, draft-only, recover from failures ─────────────
+describe('runOneSource', () => {
+  test('reuses the engine and ALWAYS forces draft-only (noAutoPublish:true)', async () => {
+    db.query.mockResolvedValue({ rows: [] });   // reapStaleRun query
+    runImport.mockResolvedValueOnce(okResult());
+    const r = await worker.runOneSource(SRC(), { trigger: 'scheduled', scheduledFor: '2026-08-03', apply: true });
+    expect(r.ok).toBe(true);
+    expect(r.counters).toMatchObject({ created: 2, updated: 1 });
+    const arg = runImport.mock.calls[0][0];
+    expect(arg).toMatchObject({ sourceKey: 'aac-csv', apply: true, trigger: 'scheduled', scheduledFor: '2026-08-03', noAutoPublish: true });
+    expect(typeof arg.withTransaction).toBe('function'); // transactional writer wired
+  });
+
+  test('a connector/source failure is caught (does not throw) and reported', async () => {
+    db.query.mockResolvedValue({ rows: [] });
+    runImport.mockRejectedValueOnce(new Error('connector unreachable'));
+    const r = await worker.runOneSource(SRC(), { trigger: 'scheduled', scheduledFor: '2026-08-03', apply: true });
+    expect(r.ok).toBe(false);
+    expect(r.error).toMatch(/connector unreachable/);
+  });
+
+  test('a lost scheduled claim (another replica owns it) is surfaced, not an error', async () => {
+    db.query.mockResolvedValue({ rows: [] });
+    runImport.mockResolvedValueOnce({ claimed: false, reason: 'run_claim_lost' });
+    const r = await worker.runOneSource(SRC(), { trigger: 'scheduled', scheduledFor: '2026-08-03', apply: true });
+    expect(r.ok).toBe(true);
+    expect(r.claimed).toBe(false);
+    expect(r.reason).toBe('run_claim_lost');
+  });
+
+  test('weekly cap result is passed through (capped surfaced)', async () => {
+    db.query.mockResolvedValue({ rows: [] });
+    runImport.mockResolvedValueOnce(okResult({ capped: true, remainingAvailable: 0, counters: { created: 2, updated: 0, skipped_duplicate: 0, skipped_quality: 0, skipped_ambiguous: 0, failed: 0 } }));
+    const r = await worker.runOneSource(SRC({ weekly_cap: 2 }), { trigger: 'scheduled', scheduledFor: '2026-08-03', apply: true });
+    expect(r.capped).toBe(true);
+    expect(r.counters.created).toBe(2);
+  });
+
+  test('manual/dry runs skip the stale-run reaper', async () => {
+    runImport.mockResolvedValueOnce(okResult({ applied: false, claimed: undefined }));
+    await worker.runOneSource(SRC(), { trigger: 'manual', apply: false });
+    // no reap query issued (db.query only used inside reapStaleRun for scheduled+apply)
+    expect(db.query).not.toHaveBeenCalled();
+  });
+});
+
+// ── crash recovery: reap stale running runs ──────────────────────────────────
+describe('reapStaleRun', () => {
+  test('marks a stale running scheduled run as failed (visibility) and counts it', async () => {
+    db.query.mockResolvedValueOnce({ rows: [{ id: 'STALE1' }] });
+    const n = await worker.reapStaleRun('src-1', '2026-08-03');
+    expect(n).toBe(1);
+    expect(db.query.mock.calls[0][0]).toMatch(/status = 'running'[\s\S]*make_interval/);
+    expect(runLog.finishRun).toHaveBeenCalledTimes(1);
+    expect(runLog.finishRun.mock.calls[0][2]).toMatchObject({ status: 'failed' });
+  });
+  test('no stale runs → nothing reaped', async () => {
+    db.query.mockResolvedValueOnce({ rows: [] });
+    expect(await worker.reapStaleRun('src-1', '2026-08-03')).toBe(0);
+    expect(runLog.finishRun).not.toHaveBeenCalled();
+  });
+});
+
+// ── full cycle: partial failure isolation + audit ────────────────────────────
+describe('runScheduledCycle', () => {
+  test('continues after one source fails; audits a PARTIAL cycle', async () => {
+    db.query
+      .mockResolvedValueOnce({ rows: [SRC({ key: 'a' }), SRC({ id: 'src-2', key: 'b' })] }) // activeSources
+      .mockResolvedValue({ rows: [] }); // subsequent reapStaleRun queries
+    runImport
+      .mockResolvedValueOnce(okResult({ counters: { created: 2, updated: 0, skipped_duplicate: 1, skipped_quality: 0, skipped_ambiguous: 0, failed: 0 } }))
+      .mockRejectedValueOnce(new Error('source b down'));
+    const summary = await worker.runScheduledCycle('2026-08-03', { apply: true });
+    expect(summary.sources_total).toBe(2);
+    expect(summary.sources_failed).toBe(1);
+    expect(summary.counts).toMatchObject({ imported: 2, duplicates: 1, errors: 1 });
+    expect(runImport).toHaveBeenCalledTimes(2); // second source still attempted
+    expect(writeAuditLog).toHaveBeenCalledTimes(1);
+    expect(writeAuditLog.mock.calls[0][0].event_type).toBe('event_import_cycle_partial');
+  });
+
+  test('all sources succeed → audits a COMPLETED cycle with aggregate counts', async () => {
+    db.query
+      .mockResolvedValueOnce({ rows: [SRC({ key: 'a' }), SRC({ id: 'src-2', key: 'b' })] })
+      .mockResolvedValue({ rows: [] });
+    runImport
+      .mockResolvedValueOnce(okResult({ counters: { created: 2, updated: 1, skipped_duplicate: 0, skipped_quality: 1, skipped_ambiguous: 0, failed: 0 } }))
+      .mockResolvedValueOnce(okResult({ counters: { created: 3, updated: 0, skipped_duplicate: 2, skipped_quality: 0, skipped_ambiguous: 1, failed: 0 } }));
+    const summary = await worker.runScheduledCycle('2026-08-03', { apply: true });
+    expect(summary.counts).toEqual({ imported: 5, updated: 1, skipped: 2, duplicates: 2, errors: 0 });
+    expect(summary.sources_failed).toBe(0);
+    expect(writeAuditLog.mock.calls[0][0].event_type).toBe('event_import_cycle_completed');
+    expect(writeAuditLog.mock.calls[0][0].entity_type).toBe('event_import_scheduler');
+  });
+
+  test('a dry-run cycle writes no scheduler audit row', async () => {
+    db.query.mockResolvedValueOnce({ rows: [SRC()] }).mockResolvedValue({ rows: [] });
+    runImport.mockResolvedValueOnce(okResult({ applied: false }));
+    await worker.runScheduledCycle(null, { apply: false, trigger: 'manual' });
+    expect(writeAuditLog).not.toHaveBeenCalled();
+  });
+});
+
+// ── summaries ────────────────────────────────────────────────────────────────
+describe('summarize', () => {
+  test('aggregates imported/updated/skipped/duplicates/errors and per-source detail', () => {
+    const s = worker.summarize('2026-08-03', Date.now() - 10, [
+      { source: 'a', ok: true, status: 'completed', runId: 'R1', counters: { created: 4, updated: 2, skipped_duplicate: 3, skipped_quality: 1, skipped_ambiguous: 1, failed: 1 } },
+      { source: 'b', ok: false, error: 'boom', counters: {} },
+    ]);
+    expect(s.counts).toEqual({ imported: 4, updated: 2, skipped: 2, duplicates: 3, errors: 2 }); // failed(1)+source-failure(1)
+    expect(s.sources_total).toBe(2);
+    expect(s.sources_failed).toBe(1);
+    expect(typeof s.duration_ms).toBe('number');
+    expect(s.sources[1]).toMatchObject({ source: 'b', ok: false, error: 'boom' });
+  });
+});
+
+// ── scheduled execution + idempotency (tick) ─────────────────────────────────
+describe('tick — scheduled execution + duplicate prevention', () => {
+  const MON_0330_ET = new Date('2026-08-03T07:30:00Z'); // Monday 03:30 ET (default schedule)
+  const TUE_0330_ET = new Date('2026-08-04T07:30:00Z'); // Tuesday (not due)
+
+  test('does nothing when disabled', async () => {
+    delete process.env.EVENT_IMPORT_WORKER_ENABLED;
+    await worker.tick(MON_0330_ET);
+    expect(db.query).not.toHaveBeenCalled();
+    expect(runImport).not.toHaveBeenCalled();
+  });
+
+  test('does nothing when enabled but not due', async () => {
+    process.env.EVENT_IMPORT_WORKER_ENABLED = 'true';
+    await worker.tick(TUE_0330_ET);
+    expect(db.query).not.toHaveBeenCalled();
+    delete process.env.EVENT_IMPORT_WORKER_ENABLED;
+  });
+
+  test('runs the cycle when enabled + due, and NOT again for the same date (idempotent)', async () => {
+    process.env.EVENT_IMPORT_WORKER_ENABLED = 'true';
+    db.query.mockResolvedValue({ rows: [] });      // activeSources → none (keeps it light)
+    await worker.tick(MON_0330_ET);
+    const callsAfterFirst = db.query.mock.calls.length;
+    expect(callsAfterFirst).toBeGreaterThan(0);    // the cycle queried active sources
+    await worker.tick(MON_0330_ET);                // same ET date → guarded, no second cycle
+    expect(db.query.mock.calls.length).toBe(callsAfterFirst);
+    delete process.env.EVENT_IMPORT_WORKER_ENABLED;
+  });
+});
+
+// ── manual / dry-run service API ─────────────────────────────────────────────
+describe('runNow / runAllNow', () => {
+  test('runNow defaults to a DRY RUN (apply=false) for one source', async () => {
+    db.query.mockResolvedValueOnce({ rows: [SRC()] }); // source lookup
+    runImport.mockResolvedValueOnce(okResult({ applied: false, claimed: undefined }));
+    const r = await worker.runNow({ sourceKey: 'aac-csv' });
+    expect(r.ok).toBe(true);
+    expect(runImport.mock.calls[0][0]).toMatchObject({ apply: false, trigger: 'manual', noAutoPublish: true });
+  });
+  test('runNow throws on an unknown source', async () => {
+    db.query.mockResolvedValueOnce({ rows: [] });
+    await expect(worker.runNow({ sourceKey: 'nope' })).rejects.toThrow(/Unknown import source/);
+  });
+});

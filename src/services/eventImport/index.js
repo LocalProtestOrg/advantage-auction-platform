@@ -89,7 +89,9 @@ async function runImport(opts) {
             const geo = await geocode.geocodeEvent(rec.canonical, {}, { geocodeFn: opts.geocodeFn, now: nowIso, sleep: opts.sleep, bucket: opts.bucket });
             await withTransaction(async (client) => {
               eventId = await writer.createImported(client, writerCtx(rec, raw, geo, mr, src, dd));
-              if (src.auto_publish) await writer.publishImported(client, eventId, writerCtx(rec, raw, geo, mr, src, dd));
+              // noAutoPublish is a hard caller override (used by the scheduled worker): imports stay
+              // in DRAFT for the Admin Review Queue even if a source is configured to auto_publish.
+              if (src.auto_publish && !opts.noAutoPublish) await writer.publishImported(client, eventId, writerCtx(rec, raw, geo, mr, src, dd));
             });
             counters.images_queued += (rec.canonical.images || []).length;
           }
