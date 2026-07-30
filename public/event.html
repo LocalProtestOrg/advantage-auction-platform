@@ -163,10 +163,11 @@
       + '<h1>' + esc(e.title) + '</h1>'
       + '<div class="orgrow"><span class="badge ' + badgeClass(e.organizer_badge) + '">' + esc(e.organizer_badge || 'Community Organizer') + '</span>'
       + (org ? '<span>by <b>' + esc(org.name) + '</b></span>' + (org.website_url ? ' · <a href="' + esc(org.website_url) + '"' + EXT + '>Website ↗</a>' : '')
-             : (e.organizer_name ? '<span>by <b>' + esc(e.organizer_name) + '</b></span>' : (e.organizer_badge === 'Advantage' ? '<span>Presented by Advantage</span>' : ''))) + '</div>'
+             : (e.organizer_name ? '<span>by <b>' + esc(e.organizer_name) + '</b></span>' + (e.organizer_website_url ? ' · <a href="' + esc(e.organizer_website_url) + '"' + EXT + '>Organizer website ↗</a>' : '') : (e.organizer_badge === 'Advantage' ? '<span>Presented by Advantage</span>' : ''))) + '</div>'
       + '<div class="meta">'
       + '<div class="r"><span class="ic">📅</span><span><b>' + fmtRange(e.start_at, e.end_at) + '</b></span></div>'
       + (loc ? '<div class="r"><span class="ic">📍</span><span>' + esc(loc) + '</span></div>' : '')
+      + (e.address_pending ? '<div class="r"><span class="ic">🔒</span><span style="color:#637488">Address will be released closer to the sale.</span></div>' : '')
       + '</div>'
       + (e.description ? '<div class="desc">' + esc(e.description) + '</div>' : '')
       + gallery
