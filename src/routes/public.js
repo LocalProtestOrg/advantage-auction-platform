@@ -1190,9 +1190,14 @@ router.get('/config', async (req, res, next) => {
 // only (no bid history / full images / terms / private seller / reserve / location precision).
 //
 // Public params (V1 — validated + used; nothing else is honored):
-//   page       1..6         (placement is capped at 6 pages of 12 = 72 items)
+//   page       1..6         (this placement is capped at 6 pages of 12 = 72 items)
 //   limit      1..12        (defaults to 12)
-//   placement  allowlisted  (defaults to 'standalone')
+//   placement  allowlisted  (defaults to 'standalone'). V1 ROLE: analytics segmentation, cache
+//              partitioning, and a future extension point ONLY. It does NOT currently influence
+//              eligibility, ranking, diversity, or presentation — every placement returns the SAME
+//              ranked inventory (intentional in V1 for predictable, testable behavior). Later versions
+//              MAY make it placement-aware (homepage diversity, category emphasis, city relevance,
+//              personalization) without changing this contract. No speculative per-placement ranking in V1.
 //   sort       'featured'   (only supported value in V1)
 router.get('/discovery/items', normalLimiter, async (req, res, next) => {
   try {

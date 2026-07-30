@@ -264,5 +264,10 @@ Existing Event Feed widgets are unaffected.
 ```
 `placement` may be `event_feed_footer` · `auctions_footer` · `estate_sales_footer` · `homepage` ·
 `standalone` (the server validates it and caps pagination at 6 pages / 72 items regardless of input).
+**V1 note:** `placement` currently affects only analytics segmentation and server-side cache
+partitioning — it does **not** change which items appear, their ranking, or the layout. Every placement
+returns the same ranked inventory. It is a deliberate future extension point (later versions may make
+discovery placement-aware — e.g. homepage diversity, category emphasis, city relevance, or
+personalization — without changing this embed code).
 Height auto-fits and the page scrolls to the results on paging via the existing footer helper. While no
 eligible live inventory exists, the widget shows the approved empty state (a link to active auctions).

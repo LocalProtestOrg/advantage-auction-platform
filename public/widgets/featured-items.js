@@ -16,6 +16,10 @@
   var MAX_PAGES = 6;
   var WIDGET_ID = 'featured-items', MSG_SRC = 'advantage-bid-widget';
   var ACTIVE_AUCTIONS_URL = 'https://www.advantage.bid/all-auctions';
+  // placement identifies WHERE this widget is embedded. V1: used only to tag analytics + preserve URL
+  // state (and server-side for cache partitioning). It does NOT change the layout or the items shown —
+  // every placement renders the same ranked inventory and the same grid. Reserved as a future extension
+  // point (placement-aware discovery) without changing this widget.
   var PLACEMENTS = ['event_feed_footer', 'auctions_footer', 'estate_sales_footer', 'homepage', 'standalone'];
 
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {

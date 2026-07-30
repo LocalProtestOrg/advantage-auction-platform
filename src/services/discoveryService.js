@@ -33,6 +33,15 @@ const EXPLORE_RATIO = 0.17; // ~2 of every 12 slots reserved for exploratory (lo
 const MAX_PER_AUCTION_PAGE = 3;   // <=25% of a 12-card page from one auction
 const MAX_CONSECUTIVE_AUCTION = 2;
 
+// PLACEMENT (V1 scope): identifies WHERE the widget is embedded. Today it serves only three purposes —
+// (1) analytics segmentation (client tags events with it), (2) cache partitioning (each placement gets
+// its own ranked-list cache bucket), and (3) validation/echo. It does NOT influence eligibility, ranking,
+// diversity, or presentation: every placement runs the identical eligibility query + diversity interleave
+// and returns the SAME ranked inventory. This is intentional in V1 for predictable, testable behavior.
+// DEVELOPER NOTE — future extension point: placement is deliberately designed so later versions can
+// safely make discovery placement-aware (e.g. homepage diversity, category emphasis, city relevance, or
+// personalized recommendations) WITHOUT changing the public API or the widget. Do NOT add speculative
+// per-placement ranking differences in V1.
 const ALLOWED_PLACEMENTS = ['event_feed_footer', 'auctions_footer', 'estate_sales_footer', 'homepage', 'standalone'];
 const ALLOWED_SORTS = ['featured'];
 
@@ -191,6 +200,8 @@ function shapeItem(r) {
 }
 
 // ── Cache (ranked+diversified shaped list per placement|sort) ───────────────────
+// NB: `placement` here is only the cache-partition key — buildList's OUTPUT does not depend on it
+// (eligibilitySql() and rankAndDiversify() receive no placement). Same inventory for every placement.
 const _cache = new Map();
 async function buildList(placement, sort) {
   const { rows } = await db.query(eligibilitySql());
@@ -215,7 +226,8 @@ function _clearCache() { _cache.clear(); } // test hook
  * @param {object} opts
  *   page      {number} 1-based (clamped to [1, MAX_PAGES])
  *   limit     {number} clamped to [1, PAGE_SIZE]
- *   placement {string} allowlisted; defaults to 'standalone'
+ *   placement {string} allowlisted; defaults to 'standalone'. V1: analytics segmentation + cache
+ *             partitioning + future extension point ONLY — does not change eligibility/ranking/output.
  *   sort      {string} allowlisted; defaults to 'featured'
  *   (INTERNAL/future: buyerId, sessionId, filters — accepted here, NOT exposed publicly in V1)
  * @returns {Promise<{data, pagination, context}>}
