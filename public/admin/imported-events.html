@@ -84,6 +84,31 @@
     @media (max-width:640px){ select,input{width:100%} .controls>div{width:100%} }
     @media (prefers-reduced-motion:reduce){*{transition:none!important}}
     .visually-hidden{position:absolute!important;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+    /* Tabs */
+    .tabs{display:flex;gap:.3rem;margin-bottom:1rem;border-bottom:1px solid #e2e8f0}
+    .tab{font:inherit;font-size:.85rem;font-weight:700;color:#64748b;background:none;border:none;border-bottom:2px solid transparent;padding:.5rem .8rem;cursor:pointer;margin-bottom:-1px}
+    .tab.active{color:#2563eb;border-bottom-color:#2563eb}
+    .tab:hover{color:#0f172a}
+    /* Operations panel */
+    .ops{display:flex;gap:.9rem;flex-wrap:wrap;align-items:center}
+    .ops .st{display:flex;gap:.4rem;align-items:center;font-size:.82rem;color:#334155}
+    .dot{width:9px;height:9px;border-radius:50%;flex:0 0 auto;border:1px solid rgba(0,0,0,.15)}
+    .dot-on{background:#16a34a}.dot-off{background:#94a3b8}.dot-run{background:#f59e0b}
+    .ops .grow{flex:1}
+    .ops-run{display:flex;gap:.5rem;flex-wrap:wrap;align-items:end;margin-top:.7rem}
+    .runstable{width:100%;border-collapse:collapse;background:#fff;border:1px solid #e2e8f0;border-radius:10px;overflow:hidden;font-size:.8rem}
+    .runstable th,.runstable td{text-align:left;padding:.5rem .55rem;border-bottom:1px solid #f1f5f9;white-space:nowrap;vertical-align:middle}
+    .runstable th{background:#f8fafc;color:#475569;font-size:.66rem;text-transform:uppercase;letter-spacing:.04em}
+    .runstable tr:last-child td{border-bottom:none}
+    .runstable tr.clickable{cursor:pointer}.runstable tr.clickable:hover td{background:#f8fafc}
+    .num{font-variant-numeric:tabular-nums;text-align:right}
+    .rid{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.72rem;color:#64748b}
+    .st{font-weight:700;font-size:.7rem;border-radius:999px;padding:2px 8px;display:inline-block}
+    .st-completed{background:#dcfce7;color:#166534}.st-partial{background:#fef9c3;color:#854d0e}
+    .st-failed{background:#fee2e2;color:#991b1b}.st-running{background:#e0f2fe;color:#075985}
+    .trig{font-size:.7rem;font-weight:700;border-radius:6px;padding:2px 7px;border:1px solid #e2e8f0;background:#f8fafc;color:#475569}
+    .runwrap{overflow-x:auto}
+    .result-line{font-size:.85rem;margin:.2rem 0}
   </style>
 </head>
 <body>
@@ -95,9 +120,37 @@
         <h1>Imported Events Review</h1>
       </div>
       <div class="spacer"></div>
+      <button class="btn" id="opsRefresh" title="Refresh status + queue">Refresh</button>
       <button class="btn" onclick="adminLogout()">Log out</button>
     </div>
 
+    <!-- Operations: worker status + manual run controls (reuses the Commit 14 scheduler service). -->
+    <div class="panel" id="opsPanel">
+      <div class="ops">
+        <div class="st"><span class="dot dot-off" id="schDot"></span><span id="schStatus">Scheduler: loading&hellip;</span></div>
+        <div class="st" id="schSchedule" style="color:#64748b"></div>
+        <div class="st" id="workerState" style="color:#64748b"></div>
+        <div class="grow"></div>
+        <div class="st" id="lastRun" style="color:#64748b"></div>
+      </div>
+      <div class="ops-run">
+        <div>
+          <label for="mSource">Manual run source</label>
+          <select id="mSource"><option value="">All enabled sources</option></select>
+        </div>
+        <button class="btn" id="mDry" title="Preview only. Writes nothing.">Dry Run</button>
+        <button class="btn btn-pri" id="mRun" title="Import now. Creates DRAFTS for review (never publishes).">Run Import Now</button>
+        <span class="grow"></span>
+      </div>
+      <div id="mResult" aria-live="polite"></div>
+    </div>
+
+    <div class="tabs" role="tablist">
+      <button class="tab active" id="tabQueue" role="tab" aria-selected="true" aria-controls="view-queue">Review Queue</button>
+      <button class="tab" id="tabRuns" role="tab" aria-selected="false" aria-controls="view-runs">Run History</button>
+    </div>
+
+    <div id="view-queue" role="tabpanel" aria-labelledby="tabQueue">
     <div class="panel">
       <div class="controls">
         <div>
@@ -145,6 +198,35 @@
     <div id="status" class="msg" role="status" aria-live="polite"></div>
     <div id="content"><div class="state">Loading review queue&hellip;</div></div>
     <div id="pager" class="pager" hidden></div>
+    </div><!-- /view-queue -->
+
+    <div id="view-runs" role="tabpanel" aria-labelledby="tabRuns" hidden>
+      <div class="panel">
+        <div class="controls">
+          <div>
+            <label for="rSource">Source</label>
+            <select id="rSource"><option value="">All sources</option></select>
+          </div>
+          <div>
+            <label for="rStatus">Status</label>
+            <select id="rStatus">
+              <option value="">All</option><option value="completed">Completed</option>
+              <option value="partial">Partial</option><option value="failed">Failed</option><option value="running">Running</option>
+            </select>
+          </div>
+          <div>
+            <label for="rTrigger">Trigger</label>
+            <select id="rTrigger"><option value="">All</option><option value="scheduled">Scheduled</option><option value="manual">Manual</option><option value="backfill">Backfill</option></select>
+          </div>
+          <div>
+            <label>&nbsp;</label>
+            <button class="btn" id="rRefresh">Refresh</button>
+          </div>
+        </div>
+      </div>
+      <div id="runsContent"><div class="state">Loading run history&hellip;</div></div>
+      <div id="runsPager" class="pager" hidden></div>
+    </div>
   </div>
 
   <div id="toasts" aria-live="assertive" aria-atomic="true"></div>
@@ -590,6 +672,161 @@
     }
   }
 
+  // ---- Operations: worker status + manual runs (reuses the Commit 14 scheduler service) ----
+  function fdur(ms){ if(ms==null) return '-'; if(ms<1000) return ms+'ms'; return (ms/1000).toFixed(1)+'s'; }
+  function shortId(id){ return id ? String(id).slice(0,8) : '-'; }
+
+  async function loadStatus(){
+    try{
+      const res=await api('GET', API+'/status');
+      if(!res.ok || !res.body || !res.body.success) throw 0;
+      const d=res.body.data, s=d.scheduler, w=d.worker;
+      const dot=document.getElementById('schDot'); dot.className='dot '+(w.running_now?'dot-run':(s.enabled?'dot-on':'dot-off'));
+      document.getElementById('schStatus').textContent='Scheduler: '+(s.enabled?'Enabled':'Disabled (idle)');
+      document.getElementById('schSchedule').textContent=s.schedule_label||'';
+      document.getElementById('workerState').textContent=w.running_now ? ('Running now: '+((w.running_run&&w.running_run.source_key)||'')) : ('Active sources: '+d.sources.active);
+      const lr=w.last_run;
+      document.getElementById('lastRun').textContent=lr ? ('Last run: '+fdatetime(lr.started_at)+' ('+lr.status+')') : 'No runs yet';
+    }catch(e){ document.getElementById('schStatus').textContent='Scheduler: status unavailable'; }
+  }
+
+  function runManual(apply){
+    const sel=document.getElementById('mSource'); const sourceKey=sel.value; const all=!sourceKey;
+    const label=all ? 'all enabled sources' : ('source "'+(sel.options[sel.selectedIndex]?sel.options[sel.selectedIndex].text:sourceKey)+'"');
+    const title=apply ? ('Run import now for '+label+'?') : ('Dry run '+label+'?');
+    const body=apply
+      ? '<p>This imports '+esc(label)+' now. New events are created as <b>DRAFTS</b> for review - nothing is published automatically.</p>'
+      : '<p>This previews '+esc(label)+'. It writes <b>nothing</b> (no events, no run record).</p>';
+    confirmDialog(title, body, ()=>doRun(apply, sourceKey, all), { okLabel: apply?'Run import':'Dry run', danger: apply });
+  }
+  async function doRun(apply, sourceKey, all){
+    if(STATE.busy) return; setBusy(true);
+    const btns=[document.getElementById('mRun'), document.getElementById('mDry')]; btns.forEach(b=>b&&(b.disabled=true));
+    const host=document.getElementById('mResult'); host.innerHTML='<div class="msg">'+(apply?'Running import':'Running dry run')+'&hellip;</div>';
+    try{
+      const res=await api('POST', API+'/run', all?{apply}:{apply,sourceKey});
+      if(res.ok && res.body && res.body.success){
+        renderRunResult(res.body.data);
+        toast(apply?'Import run complete.':'Dry run complete.','ok');
+        if(apply){ loadStatus(); loadQueue(); if(currentView==='runs'){ RUNS.filters.page=1; loadRuns(); } }
+      } else {
+        host.innerHTML='<div class="result-line" style="color:#b91c1c">'+esc((res.body&&res.body.message)||'Run failed.')+'</div>';
+        toast('Run failed.','err');
+      }
+    }catch(e){ host.innerHTML='<div class="result-line" style="color:#b91c1c">Run failed.</div>'; toast('Run failed.','err'); }
+    finally{ setBusy(false); btns.forEach(b=>b&&(b.disabled=false)); }
+  }
+  function runHeadline(data){
+    const t=data.sources_total||0, f=data.sources_failed||0;
+    if(data.dryRun) return { cls:'st-running', text:'Dry run complete (nothing written)' };
+    if(f>0 && f<t) return { cls:'st-partial', text:'Partial success' };
+    if(f>0 && f===t) return { cls:'st-failed', text:'Run failed' };
+    return { cls:'st-completed', text:'Complete success' };
+  }
+  // Operator-facing interpretation of each source outcome (error visibility).
+  function sourceNote(s){
+    const c=s.counters||{};
+    if(s.ok===false || s.error) return 'Connector failure: '+esc(s.error||'unknown error');
+    if(s.capped) return 'Weekly cap reached (stopped at the cap)';
+    if((c.fetched||0)===0) return 'Empty source - no records returned';
+    if((c.created||0)===0 && (c.updated||0)===0 && (c.skipped_duplicate||0)>0) return 'Mostly duplicates - nothing new imported';
+    return 'Imported '+(c.created||0)+', updated '+(c.updated||0)+', duplicates '+(c.skipped_duplicate||0);
+  }
+  function renderRunResult(data){
+    const h=runHeadline(data), c=data.counts||{};
+    const perSource=(data.sources||[]).map(s=>'<div class="result-line">&bull; <b>'+esc(s.source)+'</b>: '+sourceNote(s)+'</div>').join('');
+    document.getElementById('mResult').innerHTML=
+      '<div class="panel" style="margin-top:.6rem">'+
+        '<div><span class="st '+h.cls+'">'+esc(h.text)+'</span>'+(data.dryRun?' <span class="trig">dry run</span>':' <span class="trig">manual</span>')+'</div>'+
+        '<div class="summary" style="margin-top:.5rem">'+
+          '<span>Imported <b>'+(c.imported||0)+'</b></span><span>Updated <b>'+(c.updated||0)+'</b></span>'+
+          '<span>Skipped <b>'+(c.skipped||0)+'</b></span><span>Duplicates <b>'+(c.duplicates||0)+'</b></span>'+
+          '<span>Errors <b>'+(c.errors||0)+'</b></span>'+
+        '</div>'+perSource+
+      '</div>';
+  }
+
+  // ---- Run history workbench ----
+  const RUNS={ filters:{ sourceId:'', status:'', trigger:'', page:1, limit:25 }, list:{ items:[], total:0, page:1, pages:1 } };
+  let runsLoaded=false;
+  let currentView='queue';
+
+  function stPill(s){ return '<span class="st st-'+esc(s)+'">'+esc((s||'').toUpperCase())+'</span>'; }
+  async function loadRuns(){
+    const host=document.getElementById('runsContent'); host.innerHTML='<div class="state">Loading run history&hellip;</div>';
+    const f=RUNS.filters; const qs=new URLSearchParams(); qs.set('page',f.page); qs.set('limit',f.limit);
+    if(f.sourceId) qs.set('sourceId',f.sourceId); if(f.status) qs.set('status',f.status); if(f.trigger) qs.set('trigger',f.trigger);
+    try{
+      const res=await api('GET', API+'/runs?'+qs.toString());
+      if(!res.ok || !res.body || !res.body.success){ host.innerHTML='<div class="state"><h2>Could not load run history</h2><p style="margin-top:.6rem"><button class="btn" id="runsRetry">Retry</button></p></div>'; const b=document.getElementById('runsRetry'); if(b) b.onclick=loadRuns; return; }
+      RUNS.list={ items:res.body.items||[], total:res.body.total||0, page:res.body.page||1, pages:res.body.pages||1 };
+      renderRuns();
+    }catch(e){ if(String(e.message)==='expired') return; host.innerHTML='<div class="state"><h2>Could not load run history</h2><p style="margin-top:.6rem"><button class="btn" id="runsRetry">Retry</button></p></div>'; const b=document.getElementById('runsRetry'); if(b) b.onclick=loadRuns; }
+  }
+  function renderRuns(){
+    const items=RUNS.list.items||[]; const host=document.getElementById('runsContent');
+    if(!items.length){ host.innerHTML='<div class="state"><h2>No import runs yet</h2><p>Scheduled and manual runs appear here. Dry runs are previews and are not recorded.</p></div>'; document.getElementById('runsPager').hidden=true; return; }
+    host.innerHTML='<div class="runwrap"><table class="runstable"><thead><tr>'+
+      '<th>Run</th><th>Source</th><th>Trigger</th><th>Started</th><th>Finished</th><th>Duration</th><th>Status</th>'+
+      '<th class="num">Imported</th><th class="num">Updated</th><th class="num">Skipped</th><th class="num">Dupes</th><th class="num">Errors</th></tr></thead><tbody>'+
+      items.map(r=>'<tr class="clickable" data-run="'+esc(r.id)+'" aria-label="View run '+esc(shortId(r.id))+'">'+
+        '<td class="rid">'+esc(shortId(r.id))+'</td>'+
+        '<td>'+esc(r.source_name||r.source_key||'-')+'</td>'+
+        '<td><span class="trig">'+esc(r.trigger)+'</span></td>'+
+        '<td>'+fdatetime(r.started_at)+'</td>'+
+        '<td>'+(r.finished_at?fdatetime(r.finished_at):'-')+'</td>'+
+        '<td>'+fdur(r.duration_ms)+'</td>'+
+        '<td>'+stPill(r.status)+(r.capped?' <span class="trig">cap</span>':'')+'</td>'+
+        '<td class="num">'+(r.imported||0)+'</td><td class="num">'+(r.updated||0)+'</td>'+
+        '<td class="num">'+(r.skipped||0)+'</td><td class="num">'+(r.duplicates||0)+'</td>'+
+        '<td class="num">'+(r.errors||0)+'</td></tr>').join('')+'</tbody></table></div>';
+    document.querySelectorAll('[data-run]').forEach(tr=>{ const go=()=>openRunDetail(tr.getAttribute('data-run')); tr.onclick=go; tr.tabIndex=0; tr.setAttribute('role','button'); tr.onkeydown=(e)=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); go(); } }; });
+    renderRunsPager();
+  }
+  function renderRunsPager(){
+    const p=document.getElementById('runsPager'); if(RUNS.list.pages<=1){ p.hidden=true; return; }
+    p.hidden=false;
+    p.innerHTML='<button class="btn" id="rpPrev"'+(RUNS.list.page<=1?' disabled':'')+'>Previous</button><span>Page <b>'+RUNS.list.page+'</b> of <b>'+RUNS.list.pages+'</b></span><button class="btn" id="rpNext"'+(RUNS.list.page>=RUNS.list.pages?' disabled':'')+'>Next</button>';
+    const pv=document.getElementById('rpPrev'), nx=document.getElementById('rpNext');
+    if(pv) pv.onclick=()=>{ if(RUNS.filters.page>1){ RUNS.filters.page--; loadRuns(); } };
+    if(nx) nx.onclick=()=>{ if(RUNS.filters.page<RUNS.list.pages){ RUNS.filters.page++; loadRuns(); } };
+  }
+  async function openRunDetail(id){
+    const res=await api('GET', API+'/runs/'+encodeURIComponent(id)).catch(()=>null);
+    if(!res || !res.ok || !res.body || !res.body.success){ toast('Could not load run detail.','err'); return; }
+    const d=res.body.data, r=d.run, items=d.items||[];
+    const rows=items.length ? items.map(it=>'<div class="prov"><b>'+esc(it.outcome)+'</b>'+(it.source_event_id?' &middot; '+esc(it.source_event_id):'')+(it.match_via?' &middot; via '+esc(it.match_via):'')+
+        (it.reason?'<br>reason: '+esc(it.reason):'')+(it.error?'<br><span style="color:#b91c1c">error: '+esc(it.error)+'</span>':'')+'</div>').join('')
+      : '<div style="color:#94a3b8;font-size:.82rem">No per-record items recorded for this run.</div>';
+    const close=openModal('<h2>Import run '+esc(shortId(r.id))+'</h2>'+
+      '<div class="badges" style="margin-top:.3rem">'+stPill(r.status)+'<span class="trig">'+esc(r.trigger)+'</span>'+(r.capped?'<span class="trig">cap reached</span>':'')+'</div>'+
+      '<div class="dl-sec"><h3>Summary</h3><div class="dl-grid">'+
+        '<div><span>Source</span>'+esc(r.source_name||r.source_key||'-')+'</div>'+
+        '<div><span>Started</span>'+fdatetime(r.started_at)+'</div>'+
+        '<div><span>Finished</span>'+(r.finished_at?fdatetime(r.finished_at):'-')+'</div>'+
+        '<div><span>Duration</span>'+fdur(r.duration_ms)+'</div>'+
+        '<div><span>Imported</span>'+(r.imported||0)+'</div>'+
+        '<div><span>Updated</span>'+(r.updated||0)+'</div>'+
+        '<div><span>Skipped</span>'+(r.skipped||0)+'</div>'+
+        '<div><span>Duplicates</span>'+(r.duplicates||0)+'</div>'+
+        '<div><span>Errors</span>'+(r.errors||0)+'</div>'+
+      '</div>'+(r.last_error?'<div class="result-line" style="color:#b91c1c;margin-top:.4rem">Last error: '+esc(r.last_error)+'</div>':'')+'</div>'+
+      '<div class="dl-sec"><h3>Per-record trail</h3>'+rows+'</div>'+
+      '<div class="dl-actions"><button class="btn" id="rdClose">Close</button></div>');
+    const cb=document.getElementById('rdClose'); if(cb) cb.onclick=close;
+  }
+
+  function switchView(which){
+    currentView=which; const q=which==='queue';
+    document.getElementById('view-queue').hidden=!q;
+    document.getElementById('view-runs').hidden=q;
+    document.getElementById('tabQueue').classList.toggle('active',q);
+    document.getElementById('tabRuns').classList.toggle('active',!q);
+    document.getElementById('tabQueue').setAttribute('aria-selected',q?'true':'false');
+    document.getElementById('tabRuns').setAttribute('aria-selected',!q?'true':'false');
+    if(!q && !runsLoaded){ runsLoaded=true; loadRuns(); }
+  }
+
   // ---- Bootstrap ----
   (function init(){
     // Sources (filter + breakdown), then markets, then the queue.
@@ -603,8 +840,14 @@
       const markets=(mRes.body&&mRes.body.data)||[];
       const mk=document.getElementById('fMarket');
       mk.innerHTML='<option value="">All markets</option>'+markets.map(m=>'<option value="'+esc(m.slug)+'">'+esc(m.name||m.slug)+'</option>').join('');
+      // Manual-run + run-history source pickers reuse the same source list.
+      const sourceOpts=STATE.sources.map(s=>'<option value="'+esc(s.key||'')+'">'+esc(s.name||s.key||'source')+'</option>').join('');
+      document.getElementById('mSource').innerHTML='<option value="">All enabled sources</option>'+STATE.sources.filter(s=>s.status==='active').map(s=>'<option value="'+esc(s.key||'')+'">'+esc(s.name||s.key||'source')+'</option>').join('');
+      document.getElementById('rSource').innerHTML='<option value="">All sources</option>'+STATE.sources.map(s=>'<option value="'+esc(s.id)+'">'+esc(s.name||s.key||'source')+'</option>').join('');
       renderBreakdown();
     }).finally(()=>{ loadQueue(); });
+
+    loadStatus();
 
     document.getElementById('fSource').onchange=()=>{ readFilters(); loadQueue(); };
     document.getElementById('fMarket').onchange=()=>{ readFilters(); loadQueue(); };
@@ -616,6 +859,21 @@
     document.getElementById('bApprove').onclick=bulkApprove;
     document.getElementById('bReject').onclick=bulkReject;
     document.getElementById('bApproveAll').onclick=approveAll;
+
+    // Operations: manual run controls + status refresh.
+    document.getElementById('mDry').onclick=()=>runManual(false);
+    document.getElementById('mRun').onclick=()=>runManual(true);
+    document.getElementById('opsRefresh').onclick=()=>{ loadStatus(); loadQueue(); if(currentView==='runs') loadRuns(); };
+
+    // Tabs.
+    document.getElementById('tabQueue').onclick=()=>switchView('queue');
+    document.getElementById('tabRuns').onclick=()=>switchView('runs');
+
+    // Run history filters + refresh.
+    document.getElementById('rSource').onchange=(e)=>{ RUNS.filters.sourceId=e.target.value; RUNS.filters.page=1; loadRuns(); };
+    document.getElementById('rStatus').onchange=(e)=>{ RUNS.filters.status=e.target.value; RUNS.filters.page=1; loadRuns(); };
+    document.getElementById('rTrigger').onchange=(e)=>{ RUNS.filters.trigger=e.target.value; RUNS.filters.page=1; loadRuns(); };
+    document.getElementById('rRefresh').onclick=()=>{ RUNS.filters.page=1; loadRuns(); };
   })();
   </script>
   <script src="/widgets/shared/admin-nav.js"></script>
