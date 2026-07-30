@@ -85,7 +85,9 @@ function resolve(input, rules) {
  * DB-backed resolve. Loads active markets + curated rules, resolves, and on fallback records the
  * metro in market_candidates (idempotent upsert). Fail-open: returns national on any error.
  */
-async function resolveWithDb(db, input) {
+async function resolveWithDb(db, input, opts) {
+  opts = opts || {};
+  const record = opts.record !== false; // dry-run passes record:false → no market_candidates write
   try {
     const markets = (await db.query(
       `SELECT slug, center_lat, center_lng, radius_km FROM event_markets
@@ -97,7 +99,7 @@ async function resolveWithDb(db, input) {
 
     const out = resolve(input, { markets, zipRules, cityRules, fallback: FALLBACK });
 
-    if (out.via === 'fallback') {
+    if (out.via === 'fallback' && record) {
       const key = candidateKey(input.city, input.state);
       if (key) {
         await db.query(
