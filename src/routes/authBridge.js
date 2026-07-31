@@ -16,6 +16,7 @@ const { bridgeSecret, publicAppUrl } = require('../lib/bridgeConfig');
 const codeService = require('../services/bridgeCodeService');
 const identityService = require('../services/bridgeIdentityService');
 const handlers = require('./../services/bridgeHandlers');
+const { setSessionCookie } = require('../lib/sessionCookie');
 
 const limiter = rateLimit
   ? rateLimit({ windowMs: 60000, max: 60, standardHeaders: true, legacyHeaders: false })
@@ -49,7 +50,11 @@ router.get('/auth/bd/return', limiter, async (req, res) => {
       { redeemAndProvision: identityService.redeemAndProvision, signJwt, buildSeed: handlers.buildSeed }
     );
     console.log('[identity-bridge] return:', out.status === 200 ? 'accepted' : 'rejected (invalid or expired code)');
-    return res.set(out.headers).status(out.status).send(out.html);
+    res.set(out.headers);
+    // Establish the server-side session cookie the HTML gate reads, so the bridged member lands on
+    // /app.html directly (no bounce through /login). Same JWT as the localStorage token in the seed.
+    if (out.status === 200 && out.jwt) setSessionCookie(res, out.jwt);
+    return res.status(out.status).send(out.html);
   } catch (e) {
     console.error('[identity-bridge] return: error (provisioning failed)');
     return res.set(handlers.ERROR_HEADERS).status(500).send(handlers.errorPage());

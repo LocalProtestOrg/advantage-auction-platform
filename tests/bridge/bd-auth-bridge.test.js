@@ -72,8 +72,9 @@ describe('exchange — issuance, auth, validation', () => {
   test('arbitrary destination injection is rejected (400); resolveDest never yields a URL', async () => {
     expect((await exchange({ bd_user_id: '367', dest: 'https://evil.example', email: EMAIL })).r.status).toBe(400);
     expect((await exchange({ bd_user_id: '367', dest: 'admin', email: EMAIL })).r.status).toBe(400);
-    expect(codeSvc.resolveDest('https://evil.example')).toBe('/dashboard.html');
-    expect(codeSvc.resolveDest('anything-else')).toBe('/dashboard.html');
+    // Unknown/injected keys fall back to the safe canonical dashboard path (never a supplied URL).
+    expect(codeSvc.resolveDest('https://evil.example')).toBe('/app.html');
+    expect(codeSvc.resolveDest('anything-else')).toBe('/app.html');
   });
 });
 
@@ -112,11 +113,18 @@ describe('return — atomic redeem+provision → transparent seed', () => {
     expect(out.headers.Location).toBeUndefined();
     for (const v of Object.values(out.headers)) expect(String(v)).not.toMatch(/JWT\./);
   });
-  test('the seed uses location.replace("/dashboard.html") and shows no technical success UI', async () => {
+  test('the seed uses location.replace("/app.html") (canonical) and shows no technical success UI', async () => {
     const { out } = await returnRun({ provisioned: { dest: 'dashboard', userId: 'user-367', role: 'buyer' } });
-    expect(out.html).toContain('location.replace("/dashboard.html")');
+    expect(out.html).toContain('location.replace("/app.html")');
     expect(out.html).toContain('localStorage.setItem("token"');
     expect(out.html.toLowerCase()).not.toMatch(/success|welcome|signed in|you are now|authenticated/);
+  });
+  test('handleReturn returns the JWT on success (so the route sets the session cookie) but NOT on failure', async () => {
+    const ok = await returnRun({ provisioned: { dest: 'dashboard', userId: 'user-367', role: 'buyer' } });
+    expect(typeof ok.out.jwt).toBe('string');
+    expect(ok.out.jwt).toContain('JWT.buyer.user-367');
+    const bad = await returnRun({ provisioned: null });
+    expect(bad.out.jwt).toBeUndefined(); // failed/expired/replayed → no JWT, no cookie
   });
 });
 

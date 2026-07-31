@@ -18,7 +18,7 @@ const TTL_MS = 120000; // 2 minutes
 
 // Route KEY → internal path. The browser/BD only ever supplies a KEY; the path is resolved here.
 const ALLOWED_DEST = {
-  dashboard: '/dashboard.html',
+  dashboard: '/app.html', // canonical Unified Member Dashboard (was legacy /dashboard.html)
   'create-event': '/org/event-new.html',
   'manage-events': '/org/events.html',
   'create-auction': '/seller-create.html',

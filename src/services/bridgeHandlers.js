@@ -84,7 +84,10 @@ async function handleReturn(input, ctx) {
   }
   const jwt = ctx.signJwt({ id: result.userId, role: result.role }); // SAME login JWT, same claims
   const seed = ctx.buildSeed(jwt, resolveDest(result.dest));
-  return { status: 200, headers: seed.headers, html: seed.html };
+  // Return the JWT so the route can also set the server-side session cookie the HTML gate reads —
+  // otherwise the seed page (localStorage only) would land on a gated page with no cookie and bounce
+  // through /login. Same JWT, so the cookie and the localStorage Bearer token are identical.
+  return { status: 200, headers: seed.headers, html: seed.html, jwt };
 }
 
 module.exports = { handleExchange, handleReturn, buildSeed, errorPage, ERROR_HEADERS, SEED_SECURITY_HEADERS };
