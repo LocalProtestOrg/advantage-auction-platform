@@ -144,4 +144,10 @@ describe('source-level guarantees', () => {
     expect(pub).toMatch(/e\.lat,\s*e\.lng/);
     expect(pub).not.toMatch(/internal_lat/);
   });
+  test('seller/admin event input CANNOT set public coordinates directly; geocoding is wired post-commit', () => {
+    const es = fs.readFileSync('src/services/eventsService.js', 'utf8');
+    expect(es).not.toMatch(/lat: 'lat', lng: 'lng'/);            // lat/lng removed from the input allowlist
+    expect(es).not.toMatch(/num\(input\.lat\), num\(input\.lng\)/); // not inserted from client input
+    expect(es).toMatch(/eventGeo\.geocodeEventSafe/);             // address-based geocode wired
+  });
 });

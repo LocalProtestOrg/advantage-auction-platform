@@ -15,6 +15,7 @@
 const db = require('../db');
 const auditService = require('./auditService');
 const orgs = require('./organizationsService');
+const eventGeo = require('./eventGeocodingService');
 const { withTransaction } = require('../utils/withTransaction');
 const { generateUniqueSlug } = require('../utils/slug');
 
@@ -24,12 +25,17 @@ const STATUSES = ['draft', 'submitted', 'published', 'rejected', 'archived'];
 const ACTIVE_STATES = ['submitted', 'published'];      // count toward max_active_events
 const EDITABLE_STATES = new Set(['draft', 'rejected']); // owner may edit / change images
 
-// camelCase input → column, for create/update allowlists
+// camelCase input → column, for create/update allowlists.
+// NOTE: lat/lng are intentionally NOT client-settable. Public coordinates are a server-derived privacy
+// OFFSET of the geocoded address (two-tier model, migration 102); a caller can never write the public
+// marker (or an exact point) directly. Address changes trigger a re-geocode post-commit.
 const FIELD_MAP = {
   title: 'title', description: 'description', marketSlug: 'market_slug', categorySlug: 'category_slug',
   venueName: 'venue_name', address: 'address', city: 'city', state: 'state', zip: 'zip',
-  lat: 'lat', lng: 'lng', startAt: 'start_at', endAt: 'end_at', timezone: 'timezone', externalUrl: 'external_url',
+  startAt: 'start_at', endAt: 'end_at', timezone: 'timezone', externalUrl: 'external_url',
 };
+// Address fields whose change warrants a re-geocode.
+const GEO_FIELDS = new Set(['address', 'city', 'state', 'zip']);
 
 const hasOwn = (o, k) => Object.prototype.hasOwnProperty.call(o, k);
 const num = (v) => (v === '' || v == null ? null : (Number.isFinite(+v) ? +v : null));
@@ -96,31 +102,36 @@ async function createDraft(userId, org, input = {}) {
   if (!input.marketSlug) throw svcErr(400, 'EVENT_MARKET_REQUIRED', 'A market is required.');
   if (!input.startAt) throw svcErr(400, 'EVENT_START_REQUIRED', 'A start date/time is required.');
 
-  return withTransaction(async (client) => {
+  const ev = await withTransaction(async (client) => {
     await orgs.assertOwner(userId, org.id, client);
     const slug = await generateUniqueSlug('events', title, client);
     const { rows } = await client.query(
       `INSERT INTO events
          (slug, organization_id, source, market_slug, category_slug, title, description,
-          venue_name, address, city, state, zip, lat, lng, start_at, end_at, timezone, external_url, status)
-       VALUES ($1,$2,'organization',$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,'draft')
+          venue_name, address, city, state, zip, start_at, end_at, timezone, external_url, status)
+       VALUES ($1,$2,'organization',$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,'draft')
        RETURNING *`,
       [slug, org.id, input.marketSlug, input.categorySlug || null, title, input.description || null,
        input.venueName || null, input.address || null, input.city || null, input.state || null, input.zip || null,
-       num(input.lat), num(input.lng), input.startAt, input.endAt || null,
+       input.startAt, input.endAt || null,
        input.timezone || 'America/New_York', input.externalUrl || null]);
-    const ev = rows[0];
-    await audit(client, 'event.created', ev.id, userId, { title: ev.title, market: ev.market_slug });
-    return ev;
+    const created = rows[0];
+    await audit(client, 'event.created', created.id, userId, { title: created.title, market: created.market_slug });
+    return created;
   });
+  // Future automatic geocoding (Part 5): geocode the address server-side, storing the precise point in
+  // internal_lat/lng and the privacy OFFSET in public lat/lng. Fire-and-forget, post-commit — never
+  // blocks or fails the save (a provider outage just leaves a retryable status).
+  eventGeo.geocodeEventSafe(ev.id).catch(() => {});
+  return ev;
 }
 
 /** Owner edit — allowed only in draft/rejected. */
 async function updateDraft(userId, eventId, input = {}) {
-  return withTransaction(async (client) => {
-    const ev = await loadOwnedEvent(client, eventId, userId);
-    if (!EDITABLE_STATES.has(ev.status)) {
-      throw svcErr(409, 'EVENT_NOT_EDITABLE', `Only draft or rejected events can be edited (current: ${ev.status}).`);
+  const ev = await withTransaction(async (client) => {
+    const current = await loadOwnedEvent(client, eventId, userId);
+    if (!EDITABLE_STATES.has(current.status)) {
+      throw svcErr(409, 'EVENT_NOT_EDITABLE', `Only draft or rejected events can be edited (current: ${current.status}).`);
     }
     const sets = []; const vals = [];
     for (const key of Object.keys(FIELD_MAP)) {
@@ -137,6 +148,11 @@ async function updateDraft(userId, eventId, input = {}) {
     await audit(client, 'event.updated', eventId, userId, { fields: sets.map((s) => s.split(' = ')[0]) });
     return rows[0];
   });
+  // Re-geocode (offset-safe) only when an address field actually changed.
+  if (Object.keys(input).some((k) => GEO_FIELDS.has(FIELD_MAP[k] || k))) {
+    eventGeo.geocodeEventSafe(eventId, { force: true }).catch(() => {});
+  }
+  return ev;
 }
 
 /** Owner submit (draft|rejected → submitted). Enforces the active-event plan limit here. */
