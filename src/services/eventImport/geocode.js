@@ -23,7 +23,8 @@ function toLocation(canonical, existing) {
     city: canonical.city || null,
     address_state: canonical.state || null,
     zip: canonical.zip || null,
-    lat: existing.lat, lng: existing.lng,
+    // Coordinate-presence signal is the INTERNAL (precise) tier — two-tier model (migration 102).
+    lat: existing.internal_lat, lng: existing.internal_lng,
     location_fingerprint: existing.location_fingerprint,
     // events have no coordinates_manually_overridden → undefined → treated as not overridden
   };
@@ -48,7 +49,10 @@ function isRetryableResult(r) {
  */
 async function geocodeEvent(canonical, existing, ctx) {
   ctx = ctx || {}; existing = existing || {};
-  const carry = { lat: existing.lat != null ? existing.lat : null, lng: existing.lng != null ? existing.lng : null,
+  // Preserve the EXISTING PRECISE point on skip/failure (never blank it); the writer stores this into
+  // internal_lat/lng and derives the public offset from it. carry.lat/lng are the INTERNAL tier.
+  const carry = { lat: existing.internal_lat != null ? existing.internal_lat : null,
+    lng: existing.internal_lng != null ? existing.internal_lng : null,
     location_fingerprint: existing.location_fingerprint || null };
 
   const decision = shouldGeocodeEvent(canonical, existing, { force: ctx.force });

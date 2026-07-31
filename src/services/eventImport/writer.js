@@ -11,6 +11,23 @@
 const crypto = require('crypto');
 const { generateUniqueSlug } = require('../../utils/slug');
 const { writeAuditLog } = require('../../lib/auditLog');
+const eventGeo = require('../eventGeocodingService');
+
+/**
+ * Persist the two-tier coordinates for a just-written event, in the SAME transaction.
+ *  - Writes the precise internal point ONLY when this run produced a fresh geocode (never blanks a
+ *    previously stored precise point on a skip/failure).
+ *  - Always (re)derives the PUBLIC lat/lng as the deterministic offset of whatever precise point is on
+ *    file — pure computation, no provider call. Never invents a location when there is no precise point.
+ */
+async function applyGeo(client, eventId, geo) {
+  geo = geo || {};
+  if (geo.geocoded === true && geo.lat != null && geo.lng != null) {
+    await client.query('UPDATE events SET internal_lat = $2, internal_lng = $3 WHERE id = $1',
+      [eventId, geo.lat, geo.lng]);
+  }
+  await eventGeo.deriveAndStorePublicOffset(client, eventId);
+}
 
 const sha256 = (s) => crypto.createHash('sha256').update(String(s == null ? '' : s)).digest('hex');
 const jsonb = (v) => (v == null ? null : JSON.stringify(v));
@@ -33,7 +50,10 @@ function buildEventRow(ctx) {
     title: c.title, subtitle: c.subtitle || null, description: c.description || null,
     venue_name: c.venue_name || null, address: c.address || null,
     city: c.city || null, state: c.state || null, zip: c.zip || null,
-    lat: geo.lat != null ? geo.lat : null, lng: geo.lng != null ? geo.lng : null,
+    // Two-tier (migration 102): the PUBLIC lat/lng marker is a deterministic privacy OFFSET derived
+    // post-insert by applyGeo() (keyed on the event id). The geocoder's precise point goes to
+    // internal_lat/lng, never here. Set NULL at build time; applyGeo() fills it in-transaction.
+    lat: null, lng: null,
     timezone: c.timezone || 'America/New_York',
     start_at: c.start_at, end_at: c.end_at,
     external_url: c.external_url || null,
@@ -109,6 +129,7 @@ async function createImported(client, ctx) {
   const ph = cols.map((_, i) => '$' + (i + 1)).join(',');
   const { rows } = await client.query(`INSERT INTO events (${cols.join(',')}) VALUES (${ph}) RETURNING id`, vals);
   const eventId = rows[0].id;
+  await applyGeo(client, eventId, ctx.geo);
   await insertImages(client, eventId, ctx.canonical.images);
   await writeProvenance(client, eventId, ctx);
   await audit(client, 'event.imported.created', eventId, ctx, { market: (ctx.market || {}).marketSlug });
@@ -122,6 +143,7 @@ async function updateImported(client, eventId, ctx) {
   for (const k of UPDATABLE) { vals.push(row[k]); sets.push(`${k} = $${vals.length}`); }
   vals.push(eventId);
   await client.query(`UPDATE events SET ${sets.join(', ')}, updated_at = now() WHERE id = $${vals.length}`, vals);
+  await applyGeo(client, eventId, ctx.geo);
   if (ctx.imagesChanged) {
     await client.query('DELETE FROM event_images WHERE event_id = $1', [eventId]);
     await insertImages(client, eventId, ctx.canonical.images);

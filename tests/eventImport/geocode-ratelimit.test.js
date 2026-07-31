@@ -52,14 +52,16 @@ describe('withBackoff', () => {
 describe('geocode — shouldGeocodeEvent (reuses the seam, fingerprint-gated)', () => {
   const canonical = { address: '123 Main St', city: 'Adrian', state: 'MI', zip: '49221' };
   const fp = geo.eventLocationFingerprint(canonical);
+  // Two-tier (migration 102): the coordinate-presence tier is internal_lat/lng (the precise point),
+  // not the public lat/lng (which is the offset marker).
   test('skips when location unchanged AND coordinates on file', () => {
-    expect(geo.shouldGeocodeEvent(canonical, { lat: 41.9, lng: -84.0, location_fingerprint: fp }).geocode).toBe(false);
+    expect(geo.shouldGeocodeEvent(canonical, { internal_lat: 41.9, internal_lng: -84.0, location_fingerprint: fp }).geocode).toBe(false);
   });
   test('geocodes when coordinates missing', () => {
     expect(geo.shouldGeocodeEvent(canonical, {}).geocode).toBe(true);
   });
   test('geocodes when the location fingerprint changed', () => {
-    expect(geo.shouldGeocodeEvent(canonical, { lat: 1, lng: 1, location_fingerprint: 'OLD' }).geocode).toBe(true);
+    expect(geo.shouldGeocodeEvent(canonical, { internal_lat: 1, internal_lng: 1, location_fingerprint: 'OLD' }).geocode).toBe(true);
   });
   test('does not request when there is no usable location at all', () => {
     expect(geo.shouldGeocodeEvent({ address: null, city: null, state: null, zip: null }, {}).geocode).toBe(false);
@@ -76,13 +78,13 @@ describe('geocode — geocodeEvent (throttle + backoff + fingerprint + fail-open
   test('unchanged location → skipped, existing coords carried, no provider call', async () => {
     const fp = geo.eventLocationFingerprint(canonical);
     let called = false; const gf = async () => { called = true; return { ok: true }; };
-    const out = await geo.geocodeEvent(canonical, { lat: 1, lng: 2, location_fingerprint: fp }, { geocodeFn: gf });
+    const out = await geo.geocodeEvent(canonical, { internal_lat: 1, internal_lng: 2, location_fingerprint: fp }, { geocodeFn: gf });
     expect(out).toMatchObject({ geocoded: false, reason: 'unchanged', lat: 1, lng: 2 });
     expect(called).toBe(false);
   });
   test('provider failure PRESERVES existing coordinates', async () => {
     const gf = async () => ({ ok: false, status: 'no_result', error: 'none' });
-    const out = await geo.geocodeEvent(canonical, { lat: 10, lng: 20, location_fingerprint: 'OLD' }, { geocodeFn: gf });
+    const out = await geo.geocodeEvent(canonical, { internal_lat: 10, internal_lng: 20, location_fingerprint: 'OLD' }, { geocodeFn: gf });
     expect(out).toMatchObject({ geocoded: false, geocoding_status: 'no_result', lat: 10, lng: 20 });
   });
   test('retries transient failures, throttling before each attempt', async () => {
@@ -96,7 +98,7 @@ describe('geocode — geocodeEvent (throttle + backoff + fingerprint + fail-open
   });
   test('a thrown provider → fail-open, coordinates preserved, status failed', async () => {
     const gf = async () => { throw new Error('boom'); };
-    const out = await geo.geocodeEvent(canonical, { lat: 5, lng: 6 }, { geocodeFn: gf, retries: 0, sleep: async () => {}, rand: () => 0.5 });
+    const out = await geo.geocodeEvent(canonical, { internal_lat: 5, internal_lng: 6 }, { geocodeFn: gf, retries: 0, sleep: async () => {}, rand: () => 0.5 });
     expect(out).toMatchObject({ geocoded: false, geocoding_status: 'failed', lat: 5, lng: 6 });
   });
 });
