@@ -377,6 +377,24 @@ app.get(['/dashboard', '/dashboard.html'], (req, res) => res.redirect(302, '/app
 app.get('/seller-dashboard.html', (req, res) => res.redirect(302, '/app.html'));
 app.get('/watchlist.html', (req, res) => res.redirect(302, '/app.html#watchlist')); // shell has a full Watchlist tab (my-bids.html intentionally kept — no shell equivalent yet)
 
+// Central logout: clear the server session cookie, then a tiny no-store page clears the client's
+// localStorage token and redirects to the login page. Every logout button navigates here so a
+// single path invalidates both halves of the session. Safe for already-logged-out users.
+app.get('/logout', (req, res) => {
+  require('./src/lib/sessionCookie').clearSessionCookie(res);
+  res.set('Cache-Control', 'no-store, must-revalidate');
+  res.type('html').send(
+    '<!doctype html><html><head><meta charset="utf-8"><meta name="robots" content="noindex,nofollow">' +
+    '<title>Signing out…</title></head><body>' +
+    '<script>try{localStorage.removeItem("token");sessionStorage.clear();}catch(e){}' +
+    'location.replace("/login.html?loggedout=1");</script>Signing out…</body></html>'
+  );
+});
+
+// SERVER-SIDE AUTH GATE for private HTML pages — MUST run before express.static so a protected
+// page is never served to an unauthenticated browser (client-side guards are now defense-in-depth).
+app.use(require('./src/middleware/htmlAuthGate'));
+
 // Static frontend — must be before routes and 404 handler
 app.use(express.static(path.join(__dirname, 'public')));
 

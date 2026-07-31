@@ -31,7 +31,9 @@
     if (loggingOut) return; loggingOut = true;
     try { localStorage.removeItem('token'); } catch (e) {}
     var next = encodeURIComponent(location.pathname + location.search + location.hash);
-    location.href = '/login.html?next=' + next;
+    var go = function () { location.href = '/login.html?next=' + next; };
+    // Also clear the server session cookie so the HTML gate can't re-admit an expired session.
+    try { _fetch('/api/auth/logout', { method: 'POST' }).then(go, go); } catch (e) { go(); }
   }
   // Re-verify the session ONCE (coalesced). Resolves true if the token is still valid, false if expired.
   function stillAuthed() {

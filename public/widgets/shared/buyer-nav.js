@@ -261,8 +261,7 @@
     Array.prototype.forEach.call(header.querySelectorAll('[data-bn-logout]'), function (el) {
       el.addEventListener('click', function (e) {
         e.preventDefault();
-        try { localStorage.removeItem('token'); } catch (_) {}
-        location.href = '/';
+        location.href = '/logout'; // central logout: clears server cookie + client token, then redirects
       });
     });
 

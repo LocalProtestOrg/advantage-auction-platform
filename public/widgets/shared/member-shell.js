@@ -749,7 +749,7 @@
         '<div id="ac-branding"></div>' +
         '<div class="adv-card"><button class="adv-btn ghost" id="ac-logout" style="width:100%;justify-content:center">Log out</button></div></div>';
     var sv = document.getElementById('ac-save'); if (sv) sv.addEventListener('click', accountSave);
-    var lo = document.getElementById('ac-logout'); if (lo) lo.addEventListener('click', function () { try { localStorage.removeItem('token'); } catch (e) {} location.href = '/'; });
+    var lo = document.getElementById('ac-logout'); if (lo) lo.addEventListener('click', function () { location.href = '/logout'; });
     if (state.isSeller && state.user.role !== 'admin') loadBrandingSetting();
   }
   // "Display company branding to buyers" — professional/business sellers only. Private sellers are
@@ -861,7 +861,7 @@
       a.addEventListener('click', function (e) { e.preventDefault(); setRoute(a.getAttribute('data-route')); });
     });
     var lo = document.getElementById('adv-logout');
-    if (lo) lo.addEventListener('click', function () { try { localStorage.removeItem('token'); } catch (e) {} location.href = '/'; });
+    if (lo) lo.addEventListener('click', function () { location.href = '/logout'; });
     var bell = document.getElementById('adv-bell');
     if (bell) bell.addEventListener('click', function () { setRoute('messages'); });
     // Experience switch (Switch to Buying / Selling; admin "View as").

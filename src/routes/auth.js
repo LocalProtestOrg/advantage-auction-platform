@@ -6,6 +6,7 @@ const auth = require('../middleware/authMiddleware');
 const { normalLimiter, strictLimiter } = require('../middleware/rateLimit');
 const { requestReset, resetPassword } = require('../services/passwordResetService');
 const emailVerificationService = require('../services/emailVerificationService');
+const { setSessionCookie, clearSessionCookie } = require('../lib/sessionCookie');
 
 const router = express.Router();
 const JWT_SECRET = process.env.JWT_SECRET;
@@ -35,6 +36,7 @@ router.post('/register', normalLimiter, async (req, res) => {
     // Fire-and-forget — registration must never fail because email delivery did, and
     // nothing downstream gates on verification.
     emailVerificationService.sendWelcome(user.id, email).catch(() => {});
+    setSessionCookie(res, token); // server-side session for the HTML gate (same JWT)
     res.json({ success: true, token, data: { user: { id: user.id } } });
   } catch (err) {
     if (err.code === '23505') {
@@ -101,11 +103,28 @@ router.post('/login', strictLimiter, async (req, res) => {
       process.env.JWT_SECRET,
       { expiresIn: process.env.JWT_EXPIRES_IN || '24h' }
     );
+    setSessionCookie(res, token); // server-side session for the HTML gate (same JWT)
     res.json({ success: true, token });
   } catch (err) {
     console.error('[auth] login failed:', { email, error: err.message });
     return res.status(500).json({ success: false, error: err.message });
   }
+});
+
+// POST /api/auth/session — establish/refresh the server-side session cookie from a valid Bearer
+// token. Used by the login page to seed the cookie for pre-existing localStorage-only sessions so
+// the HTML gate authenticates their next navigation (auth middleware already sets the cookie).
+router.post('/session', auth, (req, res) => {
+  res.json({ success: true });
+});
+
+// POST /api/auth/logout — clear the server-side session cookie. The client also clears its
+// localStorage token; the GET /logout page route (server.js) does both + redirects. Unauthenticated
+// callers are fine — clearing an absent cookie is a no-op.
+router.post('/logout', (req, res) => {
+  clearSessionCookie(res);
+  res.set('Cache-Control', 'no-store');
+  res.json({ success: true });
 });
 
 // GET /api/auth/me

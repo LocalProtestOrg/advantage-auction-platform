@@ -30,13 +30,14 @@ router.put('/platform', authMiddleware, roleMiddleware(['admin']), asyncRoute(as
   res.json({ success: true });
 }));
 
-// Partner self-service: the acting org's effective config + overrides.
-router.get('/org', authMiddleware, asyncRoute(async (req, res) => {
+// Partner self-service: the acting org's effective config + overrides. Org/partner management is a
+// seller/admin capability — a plain buyer must not read or write org config even for their own org.
+router.get('/org', authMiddleware, roleMiddleware(['seller', 'admin']), asyncRoute(async (req, res) => {
   const org = await orgsService.getPrimaryOrgForUser(req.user.id);
   if (!org) throw svcErr(404, 'NO_ORGANIZATION', 'No organization for this account.');
   res.json({ success: true, organization: { id: org.id, slug: org.slug }, config: await configService.getAll(org.id) });
 }));
-router.put('/org', authMiddleware, asyncRoute(async (req, res) => {
+router.put('/org', authMiddleware, roleMiddleware(['seller', 'admin']), asyncRoute(async (req, res) => {
   const org = await orgsService.getPrimaryOrgForUser(req.user.id);
   if (!org) throw svcErr(404, 'NO_ORGANIZATION', 'No organization for this account.');
   const { key, value } = req.body || {};

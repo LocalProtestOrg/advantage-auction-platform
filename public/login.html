@@ -252,13 +252,16 @@
     var next   = params.get('next');
     // Same-origin relative path only: must start with a single '/' (not '//' or
     // '/\' which browsers treat as a protocol-relative absolute URL → open redirect).
-    if (next && next.charAt(0) === '/' && next.charAt(1) !== '/' && next.charAt(1) !== '\\') {
-      window.location.href = next;
-      return;
-    }
-    // Unified member shell — one adaptive workspace that shows the right Home for a
-    // buyer, seller, or admin (role resolved server-side via /api/auth/me). No mode switch.
-    window.location.href = '/app.html';
+    var dest = (next && next.charAt(0) === '/' && next.charAt(1) !== '/' && next.charAt(1) !== '\\')
+      ? next : '/app.html'; // else the unified member shell (role resolved server-side).
+    // Establish the server-side session cookie (used by the HTML page gate) from the Bearer token
+    // BEFORE navigating — otherwise a pre-existing localStorage-only session would hit the gate
+    // with no cookie and bounce back here. Best-effort; navigate regardless.
+    var token = localStorage.getItem('token');
+    var go = function () { window.location.href = dest; };
+    if (token) {
+      fetch('/api/auth/session', { method: 'POST', headers: { 'Authorization': 'Bearer ' + token } }).then(go, go);
+    } else { go(); }
   }
 
   // ── Auto-select tab from ?tab=register ───────────────────────────────────
@@ -267,8 +270,18 @@
     if (p.get('tab') === 'register') showTab('register');
   }());
 
+  // ── Post-logout: clear any stale client token and stay on the login form ──
+  (function () {
+    var p = new URLSearchParams(window.location.search);
+    if (p.get('loggedout') === '1') {
+      try { localStorage.removeItem('token'); sessionStorage.clear(); } catch (e) {}
+    }
+  }());
+
   // ── If already logged in, redirect immediately ────────────────────────────
   (function () {
+    var p = new URLSearchParams(window.location.search);
+    if (p.get('loggedout') === '1') return; // just logged out — do not auto-redirect back in
     var token = localStorage.getItem('token');
     if (!token) return;
     try {

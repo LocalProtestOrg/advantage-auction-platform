@@ -72,12 +72,14 @@
     if (history.length > 1 && sameOriginReferrer()) history.back();
     else location.href = HOME;
   }
+  // Route every admin logout through the central /logout endpoint (clears the server session
+  // cookie, then the client token, then redirects to login). Loaded AFTER each admin page's inline
+  // adminLogout(), so this override makes all admin logout buttons invalidate the full session.
   function doLogout(e) {
     if (e) e.preventDefault();
-    if (typeof window.adminLogout === 'function') { window.adminLogout(); return; }
-    try { localStorage.removeItem('token'); sessionStorage.clear(); } catch (_) {}
-    location.href = '/login.html';
+    location.href = '/logout';
   }
+  window.adminLogout = doLogout;
 
   function mount() {
     if (document.getElementById('admin-nav')) return;

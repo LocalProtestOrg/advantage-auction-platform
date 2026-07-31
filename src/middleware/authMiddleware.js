@@ -1,5 +1,6 @@
 // Authentication middleware (JWT-based, hardened)
 const jwt = require('jsonwebtoken');
+const { setSessionCookie } = require('../lib/sessionCookie');
 
 if (!process.env.JWT_SECRET) {
   throw new Error('JWT_SECRET is not configured');
@@ -25,6 +26,10 @@ const authMiddleware = (req, res, next) => {
       id: decoded.id,
       role: decoded.role
     };
+    // Mirror the (valid) token into the server-readable session cookie so the HTML gate can
+    // authenticate plain browser navigations, and so pre-existing localStorage-only sessions get
+    // a cookie on their next API call. Refreshed below if a fresh token is minted. Best-effort.
+    let cookieToken = token;
     // Sliding session renewal: when more than half the token's lifetime has
     // elapsed, mint a fresh token and return it in a response header. The client
     // fetch wrapper (public/widgets/shared/auth-refresh.js) swaps it into
@@ -41,9 +46,11 @@ const authMiddleware = (req, res, next) => {
             { expiresIn: process.env.JWT_EXPIRES_IN || '24h' }
           );
           res.set('X-Refreshed-Token', fresh);
+          cookieToken = fresh;
         }
       }
     } catch (_) { /* renewal is best-effort; ignore */ }
+    try { setSessionCookie(res, cookieToken); } catch (_) { /* never block */ }
     next();
   });
 };

@@ -118,8 +118,10 @@ describe('member shell guarantees', () => {
     expect(src).toContain("/api/sellers/me");
     expect(src).toContain('Bearer');
   });
-  test('logout clears the token and returns to native login', () => {
-    expect(src).toMatch(/removeItem\(['"]token['"]\)/);
+  test('logout routes through /logout (clears server cookie + client token) and returns to login', () => {
+    // Logout now navigates to the central /logout endpoint, which clears the HttpOnly session
+    // cookie server-side, clears the client token, and redirects to the native login page.
+    expect(src).toContain('/logout');
     expect(src).toContain('/login.html');
   });
   test('Messages is framed as Updates & Notifications, not two-way messaging', () => {
@@ -238,7 +240,9 @@ describe('Unified Member Shell routing correction (Phase B)', () => {
     expect(before).toContain("'/seller-dashboard.html'");
   });
   test('login sends every role to the unified shell (no legacy dashboards)', () => {
-    expect(login).toContain("window.location.href = '/app.html'");
+    // redirectAfterAuth defaults to the unified shell then navigates (window.location.href = dest).
+    expect(login).toContain("'/app.html'");
+    expect(login).toContain('window.location.href = dest');
     expect(login).not.toContain('/seller-dashboard.html');
     expect(login).not.toMatch(/href = '\/admin\/index\.html'/);
   });
