@@ -353,15 +353,37 @@ router.get('/geocode', normalLimiter, async (req, res) => {
 //   · zip (prefix) · type (auction | estate_sale | all, default all) · sort (soonest|newest, default
 //   soonest) · limit (1–48, default 24) · offset. Seller identity honors the buyer-privacy policy
 //   (private sellers anonymous via the branded company expression).
+// Resolve the effective event type from the feed query. SERVER-ENFORCED preset locks the type for the
+// type-specific presets (auctions / estate-sales) so a tampered request can never widen them. The
+// all-events preset is NOT locked: it honors the widget's All/Auctions/Estate-Sales chip (?type=),
+// which the combined widget sends alongside preset=all-events. Pure + exported for tests.
+const FEED_PRESET_TYPE = { 'all-events': 'all', auctions: 'auction', 'estate-sales': 'estate_sale' };
+function resolveFeedType(q) {
+  q = q || {};
+  if (q.preset && Object.prototype.hasOwnProperty.call(FEED_PRESET_TYPE, String(q.preset))) {
+    const t = FEED_PRESET_TYPE[String(q.preset)];
+    if (t === 'all' && ['auction', 'estate_sale'].includes(String(q.type))) return String(q.type);
+    return t;
+  }
+  return ['auction', 'estate_sale'].includes(String(q.type)) ? String(q.type) : 'all';
+}
+// Resolve the search point + radius. radiusMi is null (no distance filter) when there is no valid geo
+// point or radius is 'nationwide'/absent — so nationwide is never confused with a finite radius. Pure.
+function resolveFeedGeo(q) {
+  q = q || {};
+  const lat = parseFloat(q.lat), lng = parseFloat(q.lng);
+  const hasGeo = Number.isFinite(lat) && Number.isFinite(lng) && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180;
+  let radiusMi = null;
+  if (hasGeo && q.radius != null && String(q.radius).toLowerCase() !== 'nationwide') {
+    const r = parseFloat(q.radius); if (Number.isFinite(r) && r > 0) radiusMi = Math.min(r, 3000);
+  }
+  return { lat, lng, hasGeo, radiusMi };
+}
+
 router.get('/marketplace/feed', async (req, res, next) => {
   try {
     const q = req.query;
-    // SERVER-ENFORCED preset locks the event type; a client cannot widen an Auctions/Estate-Sales
-    // preset to the other type by tampering with the request (correctness, not privacy — data is public).
-    const PRESET_TYPE = { 'all-events': 'all', auctions: 'auction', 'estate-sales': 'estate_sale' };
-    var type;
-    if (q.preset && Object.prototype.hasOwnProperty.call(PRESET_TYPE, String(q.preset))) type = PRESET_TYPE[String(q.preset)];
-    else type = ['auction', 'estate_sale'].includes(String(q.type)) ? String(q.type) : 'all';
+    const type = resolveFeedType(q);
 
     // Pagination — page-based (page + pageSize) is the primary contract; legacy offset/limit is still
     // honored for any older caller. Page size is centralized in FEED_PAGE_SIZE (see top of file).
@@ -378,12 +400,7 @@ router.get('/marketplace/feed', async (req, res, next) => {
     }
 
     // Location search point + radius (miles). 'nationwide'/absent radius = no distance filter.
-    const lat = parseFloat(q.lat), lng = parseFloat(q.lng);
-    const hasGeo = Number.isFinite(lat) && Number.isFinite(lng) && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180;
-    let radiusMi = null;
-    if (hasGeo && q.radius != null && String(q.radius).toLowerCase() !== 'nationwide') {
-      const r = parseFloat(q.radius); if (Number.isFinite(r) && r > 0) radiusMi = Math.min(r, 3000);
-    }
+    const { lat, lng, hasGeo, radiusMi } = resolveFeedGeo(q);
 
     const params = [];
     const outer = [];
@@ -1474,3 +1491,6 @@ router.get('/config/widgets/:slug', async (req, res, next) => {
 });
 
 module.exports = router;
+// Exported for regression tests (pure query-contract helpers).
+module.exports.resolveFeedType = resolveFeedType;
+module.exports.resolveFeedGeo = resolveFeedGeo;

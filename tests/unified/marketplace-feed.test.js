@@ -23,16 +23,19 @@ describe('GET /api/public/marketplace/feed — unified + server-enforced presets
     expect(h).toContain('${B_NAME} AS company'); // private-seller anonymity
   });
   test('preset LOCKS the type server-side (client cannot widen auctions↔estate-sales)', () => {
-    expect(h).toContain("PRESET_TYPE = { 'all-events': 'all', auctions: 'auction', 'estate-sales': 'estate_sale' }");
-    expect(h).toMatch(/q\.preset[\s\S]*PRESET_TYPE\[String\(q\.preset\)\]/);
+    // Resolution now lives in the exported resolveFeedType() helper (behaviorally covered in
+    // marketplace-feed-filters.test.js). The type-specific presets stay locked; all-events honors ?type.
+    expect(pub).toContain("FEED_PRESET_TYPE = { 'all-events': 'all', auctions: 'auction', 'estate-sales': 'estate_sale' }");
+    expect(pub).toMatch(/function resolveFeedType[\s\S]*FEED_PRESET_TYPE\[String\(q\.preset\)\]/);
+    expect(h).toContain('resolveFeedType(q)');
   });
   test('radius search: Haversine miles from a lat/lng search point, radius filter + nearest sort', () => {
     expect(h).toContain('3959.0 * acos');           // miles
     expect(h).toContain('radians');
     expect(h).toContain('distance_mi');
-    expect(h).toMatch(/x\.distance_mi <= \$/);       // radius filter
+    expect(h).toMatch(/x\.distance_mi <= \$/);       // radius filter (SQL stays in the route)
     expect(h).toContain("q.sort === 'nearest'");
-    expect(h).toMatch(/nationwide/);                 // nationwide = no distance filter
+    expect(pub).toMatch(/nationwide/);               // nationwide = no distance filter (in resolveFeedGeo)
   });
 });
 
