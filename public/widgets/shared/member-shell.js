@@ -93,8 +93,8 @@
     var items = Nav.visibleNavFor(navCtx()).map(function (i) { return navItemHtml(i, false); }).join('');
     var m = MODE_META[state.mode] || MODE_META.buying;
     return '<aside class="adv-rail">' +
-      '<div class="adv-brand"><div class="adv-brand-mark">A</div>' +
-        '<div><div class="adv-brand-name">Advantage</div><div class="adv-brand-sub">' + esc(m.sub) + '</div></div></div>' +
+      '<a class="adv-brand" href="https://advantage.bid" style="text-decoration:none" aria-label="Advantage.Bid home"><div class="adv-brand-mark">A</div>' +
+        '<div><div class="adv-brand-name">Advantage</div><div class="adv-brand-sub">' + esc(m.sub) + '</div></div></a>' +
       '<nav class="adv-nav" aria-label="Primary">' + items + '</nav>' +
       '<div class="adv-rail-foot" id="adv-mode-switch">' + modeSwitchHtml() + '</div>' +
       '<div class="adv-rail-foot"><button class="adv-nav-item" id="adv-logout">' +
@@ -110,7 +110,7 @@
   function headerHtml() {
     var u = state.user, m = MODE_META[state.mode] || MODE_META.buying;
     return '<header class="adv-header">' +
-      '<div class="adv-mobile-brand"><div class="adv-brand-mark">A</div><div class="adv-brand-name">Advantage</div></div>' +
+      '<a class="adv-mobile-brand" href="https://advantage.bid" style="text-decoration:none" aria-label="Advantage.Bid home"><div class="adv-brand-mark">A</div><div class="adv-brand-name">Advantage</div></a>' +
       '<h1 id="adv-title">Home</h1>' +
       '<span class="adv-chip info" id="adv-mode-chip" style="margin-left:8px">' + esc(m.label) + '</span>' +
       '<div class="adv-header-spacer"></div>' +
