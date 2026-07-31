@@ -1,82 +1,142 @@
 'use strict';
 
 // Executes the real BD sitewide script (scripts/bd/bd-header-session-aware.js) against mocked browser
-// globals to prove the unified login/logout handoff: EXACT-path only, correct Railway targets, no
-// substring "login" match, and the header-reflect path is short-circuited on the login/logout pages.
+// globals to prove: (Part 1) the exact-path login/logout handoff, and (Part 2) the four-state header
+// matrix — one, non-duplicated control based on BD-session + Railway-session presence.
 
 const fs = require('fs');
 const SRC = fs.readFileSync('scripts/bd/bd-header-session-aware.js', 'utf8');
 
-function run(pathname, search) {
-  const calls = { replaced: [], fetched: false, domReady: false };
-  const location = {
-    pathname: pathname,
-    search: search || '',
-    href: 'https://www.advantage.bid' + pathname + (search || ''),
-    replace: function (u) { calls.replaced.push(u); },
-    assign: function (u) { calls.replaced.push(u); },
+// ---- minimal DOM ----
+function makeAnchor(href, text, opts) {
+  opts = opts || {};
+  return {
+    _attrs: { href: href },
+    textContent: text,
+    style: {},
+    _native: opts.native || [],           // native selectors this anchor sits inside
+    getAttribute(k) { return k in this._attrs ? this._attrs[k] : null; },
+    setAttribute(k, v) { this._attrs[k] = v; },
+    closest(sel) {
+      if (sel === 'li') return null;       // login anchors modeled without an <li> wrapper
+      return this._native.indexOf(sel) !== -1 ? { querySelector() { return null; } } : null;
+    },
   };
-  const document = {
+}
+function makeDoc(anchors, nativePresent) {
+  return {
     readyState: 'complete',
-    querySelectorAll: function () { calls.domReady = true; return []; },
-    addEventListener: function () {},
+    addEventListener() {},
+    querySelector(sel) { return nativePresent.indexOf(sel) !== -1 ? {} : null; },
+    querySelectorAll(sel) { return sel === 'a[href]' ? anchors : []; },
   };
-  const fetch = function () {
-    calls.fetched = true;
-    return Promise.resolve({ ok: true, json: function () { return Promise.resolve({ authenticated: false }); } });
+}
+function exec({ pathname = '/', search = '', anchors = [], native = [], authed = null }) {
+  const calls = { replaced: [], fetched: false };
+  const location = {
+    pathname, search, href: 'https://www.advantage.bid' + pathname + search,
+    replace(u) { calls.replaced.push(u); }, assign(u) { calls.replaced.push(u); },
   };
-  const setTimeout = function () {};
-  // The IIFE reads `location`/`document`/`fetch`/`setTimeout` from this injected scope.
+  const document = makeDoc(anchors, native);
+  const fetch = () => { calls.fetched = true; return Promise.resolve({ ok: true, json: () => Promise.resolve({ authenticated: authed }) }); };
+  const setTimeout = () => {};
   // eslint-disable-next-line no-new-func
   new Function('location', 'document', 'fetch', 'setTimeout', SRC)(location, document, fetch, setTimeout);
-  return calls;
+  return { calls, anchors, document };
 }
+const flush = () => new Promise((r) => global.setTimeout(r, 0));
+const login = () => makeAnchor('https://bid.advantage.bid/login.html', 'Login');
 
-describe('unified logout (Part 1)', () => {
-  test('/login?action=loggedout → hands off to the Railway logout endpoint (clears both sessions)', () => {
-    const c = run('/login', '?action=loggedout');
-    expect(c.replaced).toEqual(['https://bid.advantage.bid/logout']);
-    expect(c.fetched).toBe(false);           // short-circuits before the header logic
+// ================= PART 2 — the four-state matrix =================
+describe('header state matrix', () => {
+  test('B. Railway session only → convert Login → My Account (app.html#home)', async () => {
+    const a = login();
+    exec({ anchors: [a], native: [], authed: true });
+    await flush();
+    expect(a.textContent).toBe('My Account');
+    expect(a.getAttribute('href')).toBe('https://bid.advantage.bid/app.html#home');
+    expect(a.style.display).not.toBe('none');
   });
-  test('/login/?action=loggedout (trailing slash) → same handoff', () => {
-    const c = run('/login/', '?action=loggedout');
-    expect(c.replaced).toEqual(['https://bid.advantage.bid/logout']);
+
+  test('A. BD + Railway session → hide the public control, do NOT convert (native dropdown wins)', async () => {
+    const a = login();
+    const r = exec({ anchors: [a], native: ['.logged-in-member-header'], authed: true });
+    await flush();
+    expect(a.style.display).toBe('none');
+    expect(a.getAttribute('data-adv-hidden')).toBe('1');
+    expect(a.textContent).toBe('Login');            // never became a 2nd "My Account"
+    expect(r.calls.fetched).toBe(false);            // short-circuited on BD auth; no probe needed
   });
-  test('loggedout with extra params still matches', () => {
-    const c = run('/login', '?action=loggedout&x=1');
-    expect(c.replaced).toEqual(['https://bid.advantage.bid/logout']);
+
+  test('D. BD session only → hide the redundant public control', async () => {
+    const a = login();
+    exec({ anchors: [a], native: ['.header-member-account-links'], authed: false });
+    await flush();
+    expect(a.style.display).toBe('none');
+    expect(a.textContent).toBe('Login');
+  });
+
+  test('C. neither session → leave Login unchanged', async () => {
+    const a = login();
+    exec({ anchors: [a], native: [], authed: false });
+    await flush();
+    expect(a.textContent).toBe('Login');
+    expect(a.getAttribute('href')).toBe('https://bid.advantage.bid/login.html');
+    expect(a.style.display).not.toBe('none');
+  });
+
+  test('mobile BD signature (.member_sidebar / #member_sidebar_toggle) is detected → hide', async () => {
+    for (const sig of ['.member_sidebar', '#member_sidebar_toggle', '.user_sidebar', '.toggle-member-info']) {
+      const a = login();
+      exec({ anchors: [a], native: [sig], authed: true });
+      await flush();
+      expect(a.style.display).toBe('none');
+    }
+  });
+
+  test('the native dropdown’s own links are never hidden or converted', async () => {
+    const a = login();
+    const dropLink = makeAnchor('/account/login-settings', 'Account', { native: ['.logged-in-member-header'] });
+    exec({ anchors: [a, dropLink], native: ['.logged-in-member-header'], authed: true });
+    await flush();
+    expect(a.style.display).toBe('none');            // public control hidden
+    expect(dropLink.style.display).not.toBe('none'); // dropdown item untouched
+    expect(dropLink.getAttribute('data-adv-hidden')).toBeNull();
+  });
+
+  test('a previously-created "My Account" anchor is hidden if a BD session appears (no duplicate)', async () => {
+    const a = makeAnchor('https://bid.advantage.bid/app.html#home', 'My Account');
+    a.setAttribute('data-adv-session', 'railway');
+    exec({ anchors: [a], native: ['.logged-in-member-header'], authed: true });
+    await flush();
+    expect(a.style.display).toBe('none');
   });
 });
 
-describe('retired BD login form (Part 1)', () => {
-  test('/login → hands off to the Railway login page', () => {
-    const c = run('/login', '');
-    expect(c.replaced).toEqual(['https://bid.advantage.bid/login.html']);
-    expect(c.fetched).toBe(false);
+// ================= PART 1 — exact-path handoff (must not regress) =================
+describe('unified logout / retired login handoff', () => {
+  test('/login?action=loggedout → Railway logout endpoint', () => {
+    expect(exec({ pathname: '/login', search: '?action=loggedout' }).calls.replaced)
+      .toEqual(['https://bid.advantage.bid/logout']);
   });
-  test('/login/ (trailing slash) → same handoff', () => {
-    const c = run('/login/', '');
-    expect(c.replaced).toEqual(['https://bid.advantage.bid/login.html']);
+  test('/login/?action=loggedout (trailing slash) → Railway logout', () => {
+    expect(exec({ pathname: '/login/', search: '?action=loggedout' }).calls.replaced)
+      .toEqual(['https://bid.advantage.bid/logout']);
   });
-});
-
-describe('exact-path safety — never a substring "login" match', () => {
-  test.each([
-    ['/', ''],
-    ['/login-help', ''],
-    ['/account/login', ''],
-    ['/blog/login-tips', ''],
-    ['/members', ''],
-    ['/all-events', ''],
-  ])('%s%s → no redirect; header logic runs instead', (p, q) => {
-    const c = run(p, q);
-    expect(c.replaced).toEqual([]);          // no login/logout handoff
-    expect(c.fetched).toBe(true);            // Part 2 (session-status probe) runs
+  test('/login → Railway login page', () => {
+    expect(exec({ pathname: '/login' }).calls.replaced).toEqual(['https://bid.advantage.bid/login.html']);
+  });
+  test('/login/ → Railway login page', () => {
+    expect(exec({ pathname: '/login/' }).calls.replaced).toEqual(['https://bid.advantage.bid/login.html']);
   });
 });
 
-describe('no redirect loop', () => {
-  test('handoff targets a DIFFERENT origin (bid.advantage.bid) than where the script runs (www)', () => {
+describe('exact-path safety + no loop', () => {
+  test.each([['/'], ['/login-help'], ['/account/login'], ['/blog/login-tips'], ['/members']])(
+    '%s → no login/logout redirect', (p) => {
+      expect(exec({ pathname: p, anchors: [], native: [], authed: false }).calls.replaced).toEqual([]);
+    });
+  test('handoffs target bid.advantage.bid (different origin than www) — no loop', () => {
     ['https://bid.advantage.bid/logout', 'https://bid.advantage.bid/login.html'].forEach((u) => {
       expect(u.indexOf('https://bid.advantage.bid/')).toBe(0);
       expect(u).not.toMatch(/^https:\/\/www\.advantage\.bid/);
