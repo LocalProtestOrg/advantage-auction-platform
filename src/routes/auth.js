@@ -6,7 +6,7 @@ const auth = require('../middleware/authMiddleware');
 const { normalLimiter, strictLimiter } = require('../middleware/rateLimit');
 const { requestReset, resetPassword } = require('../services/passwordResetService');
 const emailVerificationService = require('../services/emailVerificationService');
-const { setSessionCookie, clearSessionCookie } = require('../lib/sessionCookie');
+const { setSessionCookie, clearSessionCookie, readSessionToken } = require('../lib/sessionCookie');
 
 const router = express.Router();
 const JWT_SECRET = process.env.JWT_SECRET;
@@ -125,6 +125,36 @@ router.post('/logout', (req, res) => {
   clearSessionCookie(res);
   res.set('Cache-Control', 'no-store');
   res.json({ success: true });
+});
+
+// GET /api/auth/session-status — MINIMAL cross-origin session probe for the Advantage.Bid public
+// header on BD (www.advantage.bid). Reads the host-only aap_session cookie (a same-site subrequest,
+// so the SameSite=Lax cookie IS sent), verifies the JWT, and returns ONLY a boolean. No id, email,
+// role, or token ever leaves here. Credentialed CORS is locked to the approved Advantage.Bid hosts;
+// any other origin gets no Access-Control-Allow-Origin and cannot read the response. It is a simple
+// GET (no custom request headers) so browsers send it WITHOUT a CORS preflight. Fails safe: any
+// error → { authenticated: false }, never throws to the caller, never blocks the page.
+const SESSION_STATUS_ORIGINS = new Set([
+  'https://www.advantage.bid',
+  'https://advantage.bid',
+]);
+router.get('/session-status', (req, res) => {
+  const origin = req.headers.origin;
+  if (origin && SESSION_STATUS_ORIGINS.has(origin)) {
+    res.header('Access-Control-Allow-Origin', origin);      // exact origin (never '*' with credentials)
+    res.header('Access-Control-Allow-Credentials', 'true');
+    res.header('Vary', 'Origin');
+  }
+  res.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+  let authenticated = false;
+  try {
+    const token = readSessionToken(req);
+    if (token && process.env.JWT_SECRET) {
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      authenticated = !!(decoded && decoded.id && decoded.role);
+    }
+  } catch (_) { authenticated = false; }
+  return res.json({ authenticated });
 });
 
 // GET /api/auth/me
