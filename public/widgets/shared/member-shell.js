@@ -21,7 +21,11 @@
   function token() { try { return localStorage.getItem('token'); } catch (e) { return null; } }
 
   async function apiGet(path) {
-    var res = await fetch(path, { headers: { Authorization: 'Bearer ' + token() } });
+    // Send the Bearer token when we have one, and ALWAYS send the session cookie (same-origin) so a
+    // valid cookie session authenticates even when localStorage has no/stale token. The server
+    // (authMiddleware) accepts either carrier of the same JWT.
+    var headers = {}; var t = token(); if (t) headers.Authorization = 'Bearer ' + t;
+    var res = await fetch(path, { headers: headers, credentials: 'same-origin' });
     var body = null; try { body = await res.json(); } catch (e) {}
     return { ok: res.ok, status: res.status, body: body };
   }
@@ -884,10 +888,12 @@
 
   async function boot() {
     renderLoading();
-    if (!token()) return renderLoggedOut();
+    // Do NOT bail on a missing localStorage token — a valid session cookie authenticates the request.
+    // Let the (cookie-or-Bearer) API call decide: 401 with no token → "please sign in"; 401 with a
+    // stale token → "session expired"; success → render the dashboard.
     try {
       var me = await apiGet('/api/auth/me');
-      if (me.status === 401) return renderUnauthorized();
+      if (me.status === 401) return token() ? renderUnauthorized() : renderLoggedOut();
       if (!me.ok || !me.body || !me.body.data) return renderError();
       state.user = me.body.data;
       // seller detail is best-effort; a non-seller simply has no profile
