@@ -447,7 +447,7 @@ router.get('/marketplace/feed', async (req, res, next) => {
          WHERE a.state IN ('published','active') AND a.is_archived IS NOT TRUE
            AND a.marketplace_status = 'syndicated'
         UNION ALL
-        SELECT 'estate_sale'::text AS kind, e.id::text AS ref_id, e.slug,
+        SELECT (CASE WHEN e.sale_type = 'auction' THEN 'auction' ELSE 'estate_sale' END)::text AS kind, e.id::text AS ref_id, e.slug,
                e.title, e.city, e.state, e.zip, e.lat, e.lng,
                (SELECT url FROM event_images ei WHERE ei.event_id = e.id ORDER BY is_cover DESC, position ASC LIMIT 1) AS image_url,
                o.name AS company, e.status AS lifecycle,
@@ -484,9 +484,12 @@ router.get('/marketplace/feed', async (req, res, next) => {
       starts_at: r.start_ts, ends_at: r.end_ts,
       is_featured: !!r.is_featured,
       distance_mi: (r.distance_mi != null ? Math.round(Number(r.distance_mi) * 10) / 10 : null),
-      url: r.kind === 'auction'
-        ? '/auction-view.html?auctionId=' + encodeURIComponent(r.ref_id)
-        : '/event.html?slug=' + encodeURIComponent(r.slug || ''),
+      // Route by SOURCE, not kind: events (incl. sale_type='auction') carry a slug and open the event
+      // page; native auctions (no slug) open the auction page. So an auction-EVENT is classified as an
+      // auction yet still links to /event.html (its bidding/registration link lives on the event page).
+      url: r.slug
+        ? '/event.html?slug=' + encodeURIComponent(r.slug)
+        : '/auction-view.html?auctionId=' + encodeURIComponent(r.ref_id),
     }));
     const totalPages = Math.max(1, Math.ceil(total / limit));
     res.set('Cache-Control', PUBLIC_CACHE);

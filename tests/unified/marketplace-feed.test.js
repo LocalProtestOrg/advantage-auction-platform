@@ -15,8 +15,8 @@ const widget = read('public', 'widgets', 'marketplace-feed.js');
 describe('GET /api/public/marketplace/feed — unified + server-enforced presets + radius', () => {
   const h = pub.slice(pub.indexOf("router.get('/marketplace/feed'"), pub.indexOf("router.get('/auctions'"));
   test('UNIONs auctions AND estate-sale events; visibility + privacy enforced server-side', () => {
-    expect(h).toContain("'auction'::text AS kind");
-    expect(h).toContain("'estate_sale'::text AS kind");
+    expect(h).toContain("'auction'::text AS kind");                       // native auctions
+    expect(h).toMatch(/CASE WHEN e\.sale_type = 'auction' THEN 'auction' ELSE 'estate_sale' END/); // events classified by sale_type
     expect(h).toContain('UNION ALL');
     expect(h).toContain("marketplace_status = 'syndicated'");
     expect(h).toContain("e.status = 'published'");

@@ -103,3 +103,26 @@ describe('9-10. cache correctness (URL-keyed CDN cache)', () => {
     ['type', 'lat', 'lng', 'radius', 'page'].forEach((k) => expect(widget).toContain("'" + k + "'"));
   });
 });
+
+describe('event classification — sale_type drives the Auctions vs Estate Sales filter', () => {
+  const src = fs.readFileSync('src/routes/public.js', 'utf8');
+  test('the events branch classifies sale_type=auction as kind=auction, everything else estate_sale', () => {
+    expect(src).toMatch(/CASE WHEN e\.sale_type = 'auction' THEN 'auction' ELSE 'estate_sale' END/);
+    // native auctions branch is unchanged (still a fixed 'auction')
+    expect(src).toMatch(/SELECT 'auction'::text AS kind, a\.id::text AS ref_id/);
+  });
+  test('unknown/NULL sale_type falls back to estate_sale (safe default via the ELSE branch)', () => {
+    // Only the exact literal 'auction' yields an auction; other/NULL take the ELSE → estate_sale.
+    expect(src).not.toMatch(/sale_type\s*<>\s*'estate_sale'/); // never "anything-but-estate-sale = auction"
+  });
+  test('the type filter keys on feed.kind, so preset=auctions includes auction-events + native auctions', () => {
+    expect(src).toMatch(/feed\.kind = \$\$\{params\.length\}/);
+    expect(resolveFeedType({ preset: 'auctions' })).toBe('auction');
+    expect(resolveFeedType({ preset: 'estate-sales' })).toBe('estate_sale');
+  });
+  test('URL routes by SOURCE (slug) not kind: an auction-event still opens the event page', () => {
+    // events (incl. auction-events) have a slug → /event.html; native auctions (no slug) → /auction-view.html
+    expect(src).toMatch(/url: r\.slug[\s\S]*\/event\.html\?slug=[\s\S]*\/auction-view\.html\?auctionId=/);
+    expect(src).not.toMatch(/url: r\.kind === 'auction'/); // old kind-based routing is gone
+  });
+});
