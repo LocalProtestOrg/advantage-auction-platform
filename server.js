@@ -158,6 +158,14 @@ app.options('/{*path}', (req, res) => {
   res.sendStatus(200);
 });
 
+// GA4 tag injection (part 1 of 2) — MUST run BEFORE shareMeta so that the HTML
+// shareMeta res.send()s for /auction-view.html, /lot.html and /event.html (and the
+// /items SSR page below) gets the tag added on the way out. shareMeta itself is
+// untouched; this only wraps res.send. Fail-open and idempotent.
+// Controlled by ANALYTICS_TAG_ENABLED + GA4_MEASUREMENT_ID. See
+// docs/analytics/AAC_ANALYTICS.md and src/middleware/analyticsTag.js.
+app.use(require('./src/middleware/analyticsTag').patch);
+
 // Server-side share-meta injection — MUST run before express.static so shared
 // links to /auction-view.html and /lot.html get per-entity OG/Twitter/canonical
 // meta. Fast, head-only, and fail-open (any error falls through to static).
@@ -377,23 +385,11 @@ app.get(['/dashboard', '/dashboard.html'], (req, res) => res.redirect(302, '/app
 app.get('/seller-dashboard.html', (req, res) => res.redirect(302, '/app.html'));
 app.get('/watchlist.html', (req, res) => res.redirect(302, '/app.html#watchlist')); // shell has a full Watchlist tab (my-bids.html intentionally kept — no shell equivalent yet)
 
-// Central logout: clear the server session cookie, then a tiny no-store page clears the client's
-// localStorage token and redirects to the login page. Every logout button navigates here so a
-// single path invalidates both halves of the session. Safe for already-logged-out users.
-app.get('/logout', (req, res) => {
-  require('./src/lib/sessionCookie').clearSessionCookie(res);
-  res.set('Cache-Control', 'no-store, must-revalidate');
-  res.type('html').send(
-    '<!doctype html><html><head><meta charset="utf-8"><meta name="robots" content="noindex,nofollow">' +
-    '<title>Signing out…</title></head><body>' +
-    '<script>try{localStorage.removeItem("token");sessionStorage.clear();}catch(e){}' +
-    'location.replace("/login.html?loggedout=1");</script>Signing out…</body></html>'
-  );
-});
-
-// SERVER-SIDE AUTH GATE for private HTML pages — MUST run before express.static so a protected
-// page is never served to an unauthenticated browser (client-side guards are now defense-in-depth).
-app.use(require('./src/middleware/htmlAuthGate'));
+// GA4 tag injection (part 2 of 2) — MUST run immediately BEFORE express.static so
+// the ~47 plain static HTML pages are tagged too (express.static streams files and
+// never calls res.send, so the patch above cannot reach them). Excludes /widgets/*,
+// /admin/*, /org/*, /prototype/*. Fail-open: falls through to static on any error.
+app.use(require('./src/middleware/analyticsTag').serve);
 
 // Static frontend — must be before routes and 404 handler
 app.use(express.static(path.join(__dirname, 'public')));
@@ -441,7 +437,6 @@ const adminVerificationRoutes   = require('./src/routes/adminVerification');
 const verificationRoutes        = require('./src/routes/verification');
 const orgEventsRoutes           = require('./src/routes/orgEvents');
 const adminEventsRoutes         = require('./src/routes/adminEvents');
-const adminEventImportsRoutes   = require('./src/routes/adminEventImports');
 const publicEventsRoutes        = require('./src/routes/publicEvents');
 const adminMarketplaceRoutes    = require('./src/routes/adminMarketplace');
 const adminMarketplaceLinkRoutes = require('./src/routes/adminMarketplaceLinks');
@@ -490,7 +485,6 @@ app.use('/api/admin/verification', adminVerificationRoutes);
 app.use('/api/admin/buyers', adminBuyersRoutes);
 app.use('/api/admin/users', adminUsersRoutes);
 app.use('/api/admin/events', adminEventsRoutes);
-app.use('/api/admin/event-imports', adminEventImportsRoutes);
 app.use('/api/admin/marketplace', adminMarketplaceRoutes);
 app.use('/api/admin/marketplace-links', adminMarketplaceLinkRoutes);
 app.use('/api/admin/partners', adminPartnersRoutes);
@@ -684,9 +678,6 @@ server.listen(PORT, () => {
     // Daily BD -> marketplace sync (00:00 America/New_York). Self-gates on env; the
     // scheduler no-ops unless enabled (prod + BD_API_KEY, and not MARKETPLACE_SYNC_DISABLED).
     spawnWorker(path.join(__dirname, 'src/workers/directorySyncWorker.js'));
-    // Scheduled Event Import worker (weekly, draft-only, review-queue gated). Self-gates on env;
-    // stays idle unless EVENT_IMPORT_WORKER_ENABLED=true, so it is inert until the owner activates it.
-    spawnWorker(path.join(__dirname, 'src/workers/eventImportWorker.js'));
     // #1 real-time: bridge Postgres NOTIFY (from web + worker processes) to
     // socket.io. Polling on the clients remains the permanent fallback.
     require('./src/lib/realtime').startListener(io)
