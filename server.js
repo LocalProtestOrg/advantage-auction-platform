@@ -159,6 +159,14 @@ app.options('/{*path}', (req, res) => {
   res.sendStatus(200);
 });
 
+// Analytics tag — MOUNT A (patch). Wraps res.send so any HTML sent by a later handler
+// (shareMeta for /auction-view.html, /lot.html, /event.html; the /items SSR page) is
+// tagged on the way out. MUST be after canonicalHost (308 alias fires first) and CORS,
+// and immediately before shareMeta (which res.send()s and never reaches express.static).
+// Fail-open, idempotent, head-only, and env-gated (ANALYTICS_TAG_ENABLED). shareMeta is
+// not modified. See docs/analytics/ANALYTICS_INTEGRATION_SPEC.md §2–§4.
+app.use(require('./src/middleware/analyticsTag').patch);
+
 // Server-side share-meta injection — MUST run before express.static so shared
 // links to /auction-view.html and /lot.html get per-entity OG/Twitter/canonical
 // meta. Fast, head-only, and fail-open (any error falls through to static).
@@ -395,6 +403,14 @@ app.get('/logout', (req, res) => {
 // SERVER-SIDE AUTH GATE for private HTML pages — MUST run before express.static so a protected
 // page is never served to an unauthenticated browser (client-side guards are now defense-in-depth).
 app.use(require('./src/middleware/htmlAuthGate'));
+
+// Analytics tag — MOUNT B (serve). Injects into the plain static HTML pages that
+// express.static would stream (Mount A only sees res.send responses). MUST be AFTER
+// htmlAuthGate — an unauthenticated private-page request is already redirected before
+// this can read a file from disk, so the gate is never bypassed — and immediately
+// BEFORE express.static, with nothing between. Fail-open + env-gated; non-.html paths
+// fall straight through to express.static. See docs/analytics/ANALYTICS_INTEGRATION_SPEC.md §2–§4.
+app.use(require('./src/middleware/analyticsTag').serve);
 
 // Static frontend — must be before routes and 404 handler
 app.use(express.static(path.join(__dirname, 'public')));
