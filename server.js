@@ -2,6 +2,7 @@ require('dotenv').config();
 const Sentry     = require('@sentry/node');
 const express    = require('express');
 const path       = require('path');
+const fs         = require('fs');
 const http       = require('http');
 const { fork }   = require('child_process');
 const { Server } = require('socket.io');
@@ -373,7 +374,22 @@ ${body}
 // Clean, canonical URL for the seller "How It Works" experience — serve the file at
 // the extensionless /how-it-works (its canonical), and 301 the .html form to it so
 // existing links consolidate. Must run before express.static.
-app.get('/how-it-works', (req, res) => res.sendFile(path.join(__dirname, 'public', 'how-it-works.html')));
+//
+// Served via res.send (NOT res.sendFile) so the analytics patch (Mount A, mounted above) injects the
+// GA tag on the way out — exactly like every other public marketing page. res.sendFile streams the file
+// past res.send and would leave this high-value page as the one untagged public page. The HTML is read
+// once and cached (mirrors the static file express.static would have served). Fail-safe: on any read
+// error we fall back to res.sendFile so the page always serves (untagged) rather than erroring.
+const HOW_IT_WORKS_FILE = path.join(__dirname, 'public', 'how-it-works.html');
+let _howItWorksHtml = null;
+app.get('/how-it-works', (req, res) => {
+  try {
+    if (_howItWorksHtml == null) _howItWorksHtml = fs.readFileSync(HOW_IT_WORKS_FILE, 'utf8');
+    return res.type('html').send(_howItWorksHtml);
+  } catch (e) {
+    return res.sendFile(HOW_IT_WORKS_FILE);
+  }
+});
 app.get('/how-it-works.html', (req, res) => res.redirect(301, '/how-it-works'));
 
 // Route legacy signed-in pages into the unified member shell (/app.html). Additive + reversible: the

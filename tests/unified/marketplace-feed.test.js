@@ -184,8 +184,17 @@ describe('the Feed WIDGET engine — one renderer, three presets, location + rad
     expect(widget).toContain('type="range"');
     expect(widget).toContain('Within ');
     expect(widget).toContain("'nationwide'");
-    expect(widget).toMatch(/addEventListener\('change'[\s\S]{0,120}apply\(\)/); // apply on release, not while dragging
+    expect(widget).toMatch(/addEventListener\('change'[\s\S]{0,140}apply\(\)/); // apply on release, not while dragging
     expect(widget).toMatch(/addEventListener\('input'/);                       // live label while dragging
+  });
+  test('distance slider is active on first load — NOT gated on a resolved location', () => {
+    // A first-time visitor must be able to adjust the radius before any search, so the value applies to
+    // their first location search. The slider must not render disabled just because no location is set yet.
+    expect(widget).not.toMatch(/radiusDisabled = state\.loc \? '' : ' disabled'/); // old location-gate removed
+    expect(widget).toMatch(/var radiusDisabled = ''/);                             // always enabled at render
+    expect(widget).toMatch(/function enableRadius\([\s\S]{0,160}rg\.disabled = false/); // never re-disables
+    // radius reaches the server only when a location is set → an always-on slider never changes nationwide results
+    expect(widget).toMatch(/if \(state\.loc\) \{ p\.set\('lat'/);
   });
   test('Use-My-Location only requests permission on click; typed field works if denied', () => {
     expect(widget).toContain('Use my location');

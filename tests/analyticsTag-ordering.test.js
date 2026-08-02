@@ -61,4 +61,17 @@ describe('analyticsTag mount ordering in server.js', () => {
     expect(mountPatch).toBeLessThan(firstApi);
     expect(mountServe).toBeLessThan(firstApi);
   });
+
+  test('/how-it-works is served via res.send so Mount A tags it (not res.sendFile, which streams past)', () => {
+    const routeStart = src.indexOf("app.get('/how-it-works',");
+    const routeEnd = src.indexOf("app.get('/how-it-works.html'");
+    expect(routeStart).toBeGreaterThan(-1);
+    expect(routeEnd).toBeGreaterThan(routeStart);
+    const route = src.slice(routeStart, routeEnd);
+    expect(route).toMatch(/res\.type\('html'\)\.send\(/);     // primary path is res.send → patchable
+    expect(route).toMatch(/catch[\s\S]*res\.sendFile/);       // sendFile kept only as fail-safe fallback
+    expect(routeStart).toBeGreaterThan(mountPatch);           // route runs after Mount A → wrapper active
+    // the 301 from the .html form to the canonical extensionless URL is preserved
+    expect(src).toMatch(/app\.get\('\/how-it-works\.html',[\s\S]{0,80}redirect\(301, '\/how-it-works'\)/);
+  });
 });

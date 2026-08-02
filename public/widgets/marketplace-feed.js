@@ -228,7 +228,12 @@
       : [['', 'Ending soon'], ['newest', 'Recently added']];
     var sortSel = '<label class="amf-sr" for="amf-sort">Sort</label><select class="amf-sort" id="amf-sort" aria-label="Sort events">' +
       sortOpts.map(function (o) { return '<option value="' + o[0] + '"' + ((state.sort || '') === o[0] ? ' selected' : '') + '>' + o[1] + '</option>'; }).join('') + '</select>';
-    var radiusDisabled = state.loc ? '' : ' disabled';
+    // The distance slider is ALWAYS interactive — from first page load, before any search. A first-time
+    // visitor can set the radius up front and have it apply to their very first location search. (It was
+    // previously gated on state.loc, so it stayed locked until a location resolved — i.e. until after the
+    // first search fired.) Radius only reaches the server once a location is set (see apiParams), so an
+    // always-on slider changes nothing about nationwide results; it just lets the value be chosen early.
+    var radiusDisabled = '';
     return '<div class="amf-controls">' +
       '<div class="amf-locrow">' +
         '<div class="amf-field"><label class="amf-lab" for="amf-loc">Location</label>' +
@@ -281,7 +286,10 @@
         var v = parseInt(rg.value, 10); state.radius = v >= 255 ? 'nationwide' : v;
         var vlab = $('#amf-radius-v', root); if (vlab) vlab.textContent = radiusLabel(); rg.setAttribute('aria-valuetext', radiusLabel());
       });
-      rg.addEventListener('change', function () { track('radius_changed', { radius: state.radius }); persist(); apply(); });
+      // On release: keep the chosen value (state.radius is already live from 'input'; persist it) and
+      // re-search ONLY when a location is set — radius has no effect on nationwide results. When no
+      // location yet, the value is retained so it applies to the visitor's first location search.
+      rg.addEventListener('change', function () { track('radius_changed', { radius: state.radius }); persist(); if (state.loc) apply(); });
     }
   }
   function refreshControls() { root.querySelectorAll('[data-type]').forEach(function (b) { b.setAttribute('aria-pressed', b.getAttribute('data-type') === state.type); }); }
@@ -311,7 +319,9 @@
     if (!loc) state.sort = state.sort === 'nearest' ? null : state.sort;
     persist(); enableRadius(!!loc); syncStatus(); refreshSort(); apply();
   }
-  function enableRadius(on) { var rg = $('#amf-radius', root); if (rg) { rg.disabled = !on; if (on && state.radius !== 'nationwide') rg.value = state.radius; var v = $('#amf-radius-v', root); if (v) v.textContent = radiusLabel(); } }
+  // The slider stays interactive regardless of location (the `on` arg now only reflects whether a
+  // location is set, for callers' readability); we keep the control enabled and just sync its value/label.
+  function enableRadius(on) { var rg = $('#amf-radius', root); if (rg) { rg.disabled = false; if (state.radius !== 'nationwide') rg.value = state.radius; var v = $('#amf-radius-v', root); if (v) v.textContent = radiusLabel(); } }
   function refreshSort() { var sort = $('#amf-sort', root); if (!sort) return;
     var opts = state.loc ? [['nearest', 'Nearest'], ['', 'Ending soon'], ['newest', 'Recently added']] : [['', 'Ending soon'], ['newest', 'Recently added']];
     sort.innerHTML = opts.map(function (o) { return '<option value="' + o[0] + '"' + ((state.sort || '') === o[0] ? ' selected' : '') + '>' + o[1] + '</option>'; }).join(''); }
