@@ -154,8 +154,8 @@
     var extUrl = e.registration_url || e.bidding_url || e.external_url;
     var extLabel = e.bidding_url ? 'Bid on the original website' : 'View the original listing';
     var leaving = extUrl ? '<div class="leaving"><p class="lead">This sale is hosted on an external website.</p>'
-      + '<p class="sub">Register, bid, and see full host details on the original site — you’ll leave Advantage.Bid in a new tab.</p>'
-      + '<a class="btn primary" href="' + esc(extUrl) + '"' + EXT + '>' + esc(extLabel) + ' ↗ <span class="ext">— leaves Advantage.Bid</span></a></div>' : '';
+      + '<p class="sub">Register, bid, and see full host details on the original site. You will leave Advantage.Bid in a new tab.</p>'
+      + '<a class="btn primary" href="' + esc(extUrl) + '"' + EXT + '>' + esc(extLabel) + ' ↗ <span class="ext">(leaves Advantage.Bid)</span></a></div>' : '';
 
     content.innerHTML = crumbs
       + '<div class="hero' + (e.cover_image_url ? '' : ' none') + '"' + (e.cover_image_url ? ' style="background-image:url(\'' + esc(e.cover_image_url) + '\')"' : '') + '></div>'

@@ -476,7 +476,7 @@
        "submit for review" step here — Advantage publishes auctions once your
        lots are ready. -->
   <div class="actions-help" id="create-help" style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:0.85rem 1rem;margin-bottom:0.75rem;color:#1e3a8a;font-size:0.85rem;line-height:1.5;">
-    <strong>Your work is saved as a draft.</strong> The moment you click below, your auction is saved to your account — you won't lose anything. You can come back and keep editing anytime, then add lots in the Lot Studio. Most sellers complete their catalog in an afternoon.
+    <strong>Your work is saved as a draft.</strong> The moment you click below, your auction is saved to your account. You will not lose anything. You can come back and keep editing at any time, then add lots in the Lot Studio. Most sellers complete their catalog in an afternoon.
   </div>
   <div class="actions">
     <button id="btn-draft" class="btn btn-primary">Save Auction to Draft &amp; Add Lots</button>
@@ -834,7 +834,7 @@
           }).catch(() => null);
         }
 
-        showBanner('✓ Saved to draft — your work is safe. Keep editing or add lots anytime.', 'success');
+        showBanner('✓ Saved to Draft. Your work is safe. You can keep editing or add lots at any time.', 'success');
         document.getElementById('btn-draft').disabled = true;
         setTimeout(() => { window.location.href = '/app.html'; }, 1000);
       } catch (err) {

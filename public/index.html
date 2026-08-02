@@ -1193,7 +1193,7 @@
         .then(function(r){ return r.json().then(function(j){ return {ok:r.ok,j:j}; }); })
         .then(function(res){
           if(res.ok && res.j && res.j.success){
-            setNote(res.j.message||'Thank you — your feedback was sent.','ok');
+            setNote(res.j.message||'Thank you. Your feedback was sent.','ok');
             form.reset();
             setTimeout(close, 1400);
           } else {
