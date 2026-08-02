@@ -95,12 +95,12 @@ async function main() {
 
   if (!DRY) {
     const createdIds = res.items.filter((i) => i.outcome === 'created' && i.eventId).map((i) => i.eventId);
-    let published = 0;
-    if (createdIds.length) {
-      const u = await db.query(`UPDATE events SET status='published', published_at=now(), updated_at=now()
-        WHERE id = ANY($1::uuid[]) AND source='imported' AND status='draft' RETURNING id`, [createdIds]);
-      published = u.rowCount;
-    }
+    // Self-healing publish: publish EVERY imported draft with a future end, not just this run's
+    // creations. This recovers drafts left behind by any prior interrupted or partial run (the
+    // "partial refresh recovers on the next run" guarantee). Idempotent; ended drafts are left alone.
+    const u = await db.query(`UPDATE events SET status='published', published_at=now(), updated_at=now()
+      WHERE source='imported' AND status='draft' AND (end_at IS NULL OR end_at >= now()) RETURNING id`);
+    const published = u.rowCount;
     // Online-aware two-tier geocoding of the newly published PHYSICAL events (online → no pin).
     let geocoded = 0; const targets = await eventGeo.findMissingEventCoordinates(200);
     for (const e of targets) { const r = await eventGeo.geocodeEvent(e.id); if (r.ok && !r.skipped) geocoded++; }
