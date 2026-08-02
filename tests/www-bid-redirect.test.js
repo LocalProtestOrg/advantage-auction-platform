@@ -1,22 +1,16 @@
 'use strict';
 
 // Canonical-host redirect: www.bid.advantage.bid must permanently redirect to bid.advantage.bid, and
-// nothing else may be affected. The middleware is the very first in server.js so it precedes any auth
-// gate/CORS. (Behavioral proof of the exact logic below; source assertion guards its placement.)
+// nothing else may be affected. Tests the real middleware module (src/middleware/canonicalHost.js) and
+// verifies server.js mounts it before the CORS block.
 
 const fs = require('fs');
+const canonicalHost = require('../src/middleware/canonicalHost');
 
-// Replicate the exact predicate/response the middleware uses, to prove the behavior deterministically.
-function redirectMiddleware(req, res, next) {
-  if (req.hostname === 'www.bid.advantage.bid') {
-    return res.redirect(308, 'https://bid.advantage.bid' + req.originalUrl);
-  }
-  next();
-}
 function run(hostname, originalUrl) {
   const calls = { redirect: null, next: false };
   const res = { redirect: (code, url) => { calls.redirect = { code, url }; } };
-  redirectMiddleware({ hostname, originalUrl }, res, () => { calls.next = true; });
+  canonicalHost({ hostname, originalUrl }, res, () => { calls.next = true; });
   return calls;
 }
 
@@ -40,13 +34,12 @@ describe('www.bid.advantage.bid → bid.advantage.bid', () => {
   });
 });
 
-describe('placement in server.js', () => {
+describe('server.js mounts the redirect before CORS', () => {
   const src = fs.readFileSync('server.js', 'utf8');
-  test('redirect is defined and runs before the CORS block', () => {
-    const redirectIdx = src.indexOf("req.hostname === 'www.bid.advantage.bid'");
+  test('canonicalHost is mounted and runs before the CORS block', () => {
+    const mountIdx = src.indexOf("require('./src/middleware/canonicalHost')");
     const corsIdx = src.indexOf('Access-Control-Allow-Origin');
-    expect(redirectIdx).toBeGreaterThan(-1);
-    expect(src).toContain("res.redirect(308, 'https://bid.advantage.bid' + req.originalUrl)");
-    expect(redirectIdx).toBeLessThan(corsIdx); // first, before auth/CORS
+    expect(mountIdx).toBeGreaterThan(-1);
+    expect(mountIdx).toBeLessThan(corsIdx);
   });
 });

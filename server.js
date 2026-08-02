@@ -81,6 +81,7 @@ log.info('startup', 'Advantage Auction Platform', {
 
 const app = express();
 app.set('trust proxy', 1); // Railway sits behind a proxy; req.ip must use X-Forwarded-For
+app.use(require('./src/middleware/canonicalHost')); // www.bid.advantage.bid → bid.advantage.bid (first, before any gate/CORS)
 const server = http.createServer(app);
 
 // Allowed origins for CORS + socket.io. FRONTEND_URL may be a comma-separated
