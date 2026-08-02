@@ -476,10 +476,10 @@
        "submit for review" step here — Advantage publishes auctions once your
        lots are ready. -->
   <div class="actions-help" id="create-help" style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:0.85rem 1rem;margin-bottom:0.75rem;color:#1e3a8a;font-size:0.85rem;line-height:1.5;">
-    <strong>Next:</strong> Create your auction and add lots in the Lot Studio. You can keep editing everything here while you build your catalog. Most sellers complete their entire auction catalog in an afternoon.
+    <strong>Your work is saved as a draft.</strong> The moment you click below, your auction is saved to your account — you won't lose anything. You can come back and keep editing anytime, then add lots in the Lot Studio. Most sellers complete their catalog in an afternoon.
   </div>
   <div class="actions">
-    <button id="btn-draft" class="btn btn-primary">Create Auction &amp; Add Lots</button>
+    <button id="btn-draft" class="btn btn-primary">Save Auction to Draft &amp; Add Lots</button>
   </div>
 </div>
 
@@ -510,7 +510,7 @@
     const h1  = document.getElementById('page-h1');       if (h1)  h1.textContent  = 'Edit Auction Details';
     const sub = document.getElementById('page-subtitle');  if (sub) sub.textContent = "Update your auction-level details, then save. Lots are managed separately from the Lot Studio.";
     const help = document.getElementById('create-help');   if (help) help.style.display = 'none';
-    const btn = document.getElementById('btn-draft');      if (btn) btn.textContent = 'Save Changes';
+    const btn = document.getElementById('btn-draft');      if (btn) btn.textContent = 'Save Auction to Draft';
   }
 
   // Server-authoritative onboarding gate (POST /api/auctions enforces the same rule). The form
@@ -834,7 +834,7 @@
           }).catch(() => null);
         }
 
-        showBanner('Auction details saved.', 'success');
+        showBanner('✓ Saved to draft — your work is safe. Keep editing or add lots anytime.', 'success');
         document.getElementById('btn-draft').disabled = true;
         setTimeout(() => { window.location.href = '/app.html'; }, 1000);
       } catch (err) {
