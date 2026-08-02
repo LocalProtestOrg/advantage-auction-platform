@@ -392,6 +392,11 @@ app.get('/watchlist.html', (req, res) => res.redirect(302, '/app.html#watchlist'
 // /admin/*, /org/*, /prototype/*. Fail-open: falls through to static on any error.
 app.use(require('./src/middleware/analyticsTag').serve);
 
+// SERVER-SIDE AUTH GATE for private HTML pages — MUST run before express.static so a protected page is
+// never served to an unauthenticated browser (client-side guards are defense-in-depth). Restored: it
+// was inadvertently dropped from server.js during concurrent analytics work.
+app.use(require('./src/middleware/htmlAuthGate'));
+
 // Static frontend — must be before routes and 404 handler
 app.use(express.static(path.join(__dirname, 'public')));
 
