@@ -42,7 +42,8 @@ function get(url) { return new Promise((resolve) => {
   req.on('error', () => resolve({ status: 0, body: '' })); req.on('timeout', () => { req.destroy(); resolve({ status: 0, body: '' }); }); }); }
 function ld(html) { const re = /<script[^>]*application\/ld\+json[^>]*>([\s\S]*?)<\/script>/gi; let m;
   while ((m = re.exec(html)) !== null) { try { const j = JSON.parse(m[1]); for (const o of (Array.isArray(j) ? j : [j])) if (o && (o['@type'] === 'SaleEvent' || o['@type'] === 'Event' || o.startDate)) return o; } catch (e) {} } return null; }
-function imgs(o) { let a = (o && o.image) || []; if (typeof a === 'string') a = [a]; return a.filter((u) => typeof u === 'string' && /picturescdn\.estatesales\.net\//.test(u)).slice(0, 8); }
+function imgs(o) { let a = (o && o.image) || []; if (typeof a === 'string') a = [a];
+  return [...new Set(a.filter((u) => typeof u === 'string' && /picturescdn\.estatesales\.net\//.test(u)))].slice(0, 8); }
 function classify(o, name, org) {
   const online = (o.location && o.location['@type'] === 'VirtualLocation') || /online/.test(String(o.eventAttendanceMode || '').toLowerCase());
   const auction = online || /\bauction\b|bidding/i.test(name || '');

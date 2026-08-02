@@ -88,7 +88,8 @@ async function insertImages(client, eventId, images) {
     await client.query(
       `INSERT INTO event_images (event_id, url, position, is_cover, source_url, content_hash, alt_text)
        VALUES ($1,$2,$3,$4,$5,$6,$7)
-       ON CONFLICT (event_id, position) DO NOTHING`,
+       ON CONFLICT DO NOTHING`,   // skip on ANY image constraint (position OR content_hash) — a source
+                                  // that lists the same photo twice must never abort the import.
       [eventId, im.url, im.position != null ? im.position : i, (im.position != null ? im.position : i) === 0, im.url, sha256(im.url), im.caption || null]);
   }
 }
