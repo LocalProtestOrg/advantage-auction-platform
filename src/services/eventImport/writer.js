@@ -12,6 +12,7 @@ const crypto = require('crypto');
 const { generateUniqueSlug } = require('../../utils/slug');
 const { writeAuditLog } = require('../../lib/auditLog');
 const eventGeo = require('../eventGeocodingService');
+const { evaluatePublication } = require('./publicationGate');
 
 /**
  * Persist the two-tier coordinates for a just-written event, in the SAME transaction.
@@ -154,13 +155,33 @@ async function updateImported(client, eventId, ctx) {
   return eventId;
 }
 
-/** Publish an imported event: draft → published. Bypasses plan quotas (never reads organization_plans). */
+/**
+ * Publish an imported event: draft → published. Bypasses plan quotas (never reads organization_plans).
+ * HARD PUBLICATION GATE: an imported event may go public ONLY when it passes evaluatePublication (host
+ * company identified + a company-controlled destination + basic quality/privacy/date/image conditions).
+ * A failing event stays draft and is audited with its reasons — never published-first-research-later.
+ * Pass ctx.skipGate=true only for a trusted caller that already evaluated the gate.
+ */
 async function publishImported(client, eventId, ctx) {
+  ctx = ctx || {};
+  if (!ctx.skipGate) {
+    const ev = (await client.query(
+      `SELECT e.source, e.title, e.start_at, e.end_at, e.event_format, e.city, e.state, e.lat, e.lng,
+              e.organizer_name, e.organizer_website_url, e.registration_url, e.bidding_url,
+              (SELECT count(*)::int FROM event_images ei WHERE ei.event_id = e.id) AS image_count
+         FROM events e WHERE e.id = $1 AND e.source = 'imported' AND e.status = 'draft'`, [eventId])).rows[0];
+    if (!ev) return false;                                  // not an imported draft (already published / wrong source)
+    const gate = evaluatePublication(ev);
+    if (!gate.ready) {
+      await audit(client, 'event.publish_held', eventId, ctx, { via: 'import', reasons: gate.reasons });
+      return false;
+    }
+  }
   const { rows } = await client.query(
     `UPDATE events SET status = 'published', published_at = now(), updated_at = now()
       WHERE id = $1 AND source = 'imported' AND status = 'draft'
       RETURNING id`, [eventId]);
-  if (rows[0]) await audit(client, 'event.published', eventId, ctx || {}, { via: 'import' });
+  if (rows[0]) await audit(client, 'event.published', eventId, ctx, { via: 'import' });
   return rows.length > 0;
 }
 

@@ -78,14 +78,37 @@ describe('writer.updateImported', () => {
 });
 
 describe('writer.publishImported', () => {
-  test('draft→published gated on source=imported AND status=draft; bypasses quotas', async () => {
-    const db = fakeClient((sql) => (/UPDATE events SET status = 'published'/.test(sql) ? { rows: [{ id: 'EV1' }] } : { rows: [] }));
+  // A gate-passing imported draft: host company named + a company-controlled URL + dates/location/image.
+  const READY_ROW = {
+    source: 'imported', title: 'Nice Estate Sale', start_at: '2999-01-01T15:00:00Z', end_at: '2999-01-02T20:00:00Z',
+    event_format: 'live', city: 'Houston', state: 'TX', organizer_name: 'Smith Estate Sales',
+    organizer_website_url: 'https://smithestatesales.com', image_count: 4,
+  };
+  const gateAwareClient = (row) => fakeClient((sql) => {
+    if (/FROM events e WHERE e\.id/.test(sql)) return { rows: row ? [row] : [] };       // publication-gate fetch
+    if (/UPDATE events SET status = 'published'/.test(sql)) return { rows: [{ id: 'EV1' }] };
+    return { rows: [] };
+  });
+
+  test('publishes only when the publication gate passes; bypasses quotas', async () => {
+    const db = gateAwareClient(READY_ROW);
     const ok = await writer.publishImported(db, 'EV1', CTX);
     expect(ok).toBe(true);
     const q = db.find(/UPDATE events SET status = 'published'/);
     expect(q.sql).toMatch(/source = 'imported' AND status = 'draft'/);
     expect(db.all(/organization_plans/).length).toBe(0);
     expect(writeAuditLog).toHaveBeenCalledWith(expect.objectContaining({ event_type: 'event.published' }));
+  });
+  test('HOLDS (does not publish) when the only destination is the discovery source', async () => {
+    const db = gateAwareClient({ ...READY_ROW, organizer_website_url: 'https://www.estatesales.net/x' });
+    const ok = await writer.publishImported(db, 'EV1', CTX);
+    expect(ok).toBe(false);
+    expect(db.all(/UPDATE events SET status = 'published'/).length).toBe(0);  // never published
+    expect(writeAuditLog).toHaveBeenCalledWith(expect.objectContaining({ event_type: 'event.publish_held' }));
+  });
+  test('skipGate=true publishes the raw primitive (trusted caller)', async () => {
+    const db = gateAwareClient(null); // no gate fetch needed
+    expect(await writer.publishImported(db, 'EV1', { ...CTX, skipGate: true })).toBe(true);
   });
   test('returns false when nothing was in draft', async () => {
     const db = fakeClient(() => ({ rows: [] }));

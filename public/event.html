@@ -50,6 +50,45 @@
   .cos{display:flex;gap:10px;flex-wrap:wrap}.co{display:flex;align-items:center;gap:8px;background:var(--surface);border:1px solid var(--hair);border-radius:999px;padding:6px 12px;font-weight:700;font-size:13px}
   .co img{width:22px;height:22px;border-radius:50%;object-fit:cover}
   .loading,.err{padding:60px 16px;text-align:center;color:var(--muted)}
+  /* Customer-facing event TYPE badge (Estate Sale / Online Auction / …) — never how it was ingested. */
+  .typebadge{display:inline-block;font-size:11px;font-weight:800;letter-spacing:.03em;text-transform:uppercase;border-radius:999px;padding:4px 11px;background:#eef2f6;color:#40536a}
+  /* Responsive title — long titles must not dominate the fold or overflow. */
+  h1{overflow-wrap:break-word;word-break:break-word;text-wrap:balance;max-width:22ch}
+  @media(max-width:600px){ h1{font-size:clamp(22px,6.4vw,29px);max-width:none} .hero{max-height:260px} }
+  /* Clickable photos */
+  .hero{cursor:zoom-in} .gallery img{cursor:zoom-in;transition:filter .12s} .gallery img:hover{filter:brightness(.94)}
+  .hero:focus-visible,.gallery img:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+  .gcount{font-size:12.5px;color:var(--muted);margin:0 0 8px}
+  /* Lightbox */
+  #lb{position:fixed;inset:0;z-index:60;display:none;background:rgba(8,12,20,.92);align-items:center;justify-content:center;flex-direction:column}
+  #lb.open{display:flex}
+  #lb .lbimg{max-width:94vw;max-height:82vh;object-fit:contain;border-radius:8px;box-shadow:0 20px 60px rgba(0,0,0,.5);background:#111}
+  #lb .lbbar{position:absolute;top:0;left:0;right:0;display:flex;align-items:center;justify-content:space-between;padding:14px 16px;color:#fff}
+  #lb .lbcount{font-weight:700;font-size:14px}
+  #lb .lbx,#lb .lbnav{border:0;background:rgba(255,255,255,.14);color:#fff;border-radius:999px;cursor:pointer;font-size:20px;line-height:1;display:flex;align-items:center;justify-content:center}
+  #lb .lbx{width:44px;height:44px;font-size:26px}
+  #lb .lbnav{position:absolute;top:50%;transform:translateY(-50%);width:52px;height:52px}
+  #lb .lbprev{left:14px} #lb .lbnext{right:14px}
+  #lb .lbx:hover,#lb .lbnav:hover{background:rgba(255,255,255,.28)}
+  #lb .lbx:focus-visible,#lb .lbnav:focus-visible{outline:3px solid #fff;outline-offset:2px}
+  @media(max-width:600px){ #lb .lbnav{width:44px;height:44px} }
+  /* External company CTA card */
+  .hostcta{background:var(--surface);border:1px solid var(--hair);border-radius:16px;padding:16px 18px;margin:18px 0}
+  .hostcta .lead{font-weight:700;font-size:14.5px;margin:0 0 3px}
+  .hostcta .sub{color:var(--muted);font-size:13px;margin:0 0 12px}
+  /* Footer (mirrors the public Advantage.Bid footer links) */
+  footer.site{background:#0B1B2B;color:#c7d2e0;margin-top:48px}
+  footer.site .fin{max-width:920px;margin:0 auto;padding:34px 20px 26px;display:grid;grid-template-columns:1.4fr 1fr 1fr 1fr;gap:24px}
+  @media(max-width:700px){footer.site .fin{grid-template-columns:1fr 1fr}}
+  @media(max-width:420px){footer.site .fin{grid-template-columns:1fr}}
+  footer.site .fbrand{font-family:"Fraunces","Georgia",serif;font-weight:700;font-size:20px;color:#fff}
+  footer.site .fbrand span{color:#5b8cff}
+  footer.site .ftag{font-size:13px;color:#8ea3bd;margin-top:8px;line-height:1.5;max-width:26ch}
+  footer.site h4{font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:#8ea3bd;margin:0 0 10px}
+  footer.site a{display:block;color:#c7d2e0;font-size:14px;padding:4px 0;text-decoration:none}
+  footer.site a:hover{color:#fff;text-decoration:underline}
+  footer.site .fbot{border-top:1px solid rgba(255,255,255,.1)}
+  footer.site .fbotin{max-width:920px;margin:0 auto;padding:16px 20px;display:flex;flex-wrap:wrap;gap:10px;justify-content:space-between;font-size:12.5px;color:#8ea3bd}
   @media (prefers-reduced-motion: reduce){*{transition:none!important}}
 </style>
 </head>
@@ -58,6 +97,51 @@
 <div class="wrap">
   <div id="content"><div class="loading">Loading…</div></div>
 </div>
+
+<!-- Accessible photo lightbox (dialog). Hidden until opened; controlled by the script. -->
+<div id="lb" role="dialog" aria-modal="true" aria-label="Event photo viewer" aria-hidden="true">
+  <div class="lbbar">
+    <span class="lbcount" id="lbcount" aria-live="polite"></span>
+    <button class="lbx" id="lbx" type="button" aria-label="Close photo viewer">&times;</button>
+  </div>
+  <button class="lbnav lbprev" id="lbprev" type="button" aria-label="Previous photo">&#8249;</button>
+  <img class="lbimg" id="lbimg" alt="" />
+  <button class="lbnav lbnext" id="lbnext" type="button" aria-label="Next photo">&#8250;</button>
+</div>
+
+<!-- Site footer — mirrors the public Advantage.Bid footer (existing links + legal pages only). -->
+<footer class="site" role="contentinfo">
+  <div class="fin">
+    <div>
+      <div class="fbrand">Advantage<span>.Bid</span></div>
+      <p class="ftag">The discovery marketplace for estate auctions, estate sales, and liquidation events.</p>
+    </div>
+    <div>
+      <h4>Discover</h4>
+      <a href="/events.html">Browse Events</a>
+      <a href="/featured-auctions.html">Featured Auctions</a>
+      <a href="/how-to-buy.html">How to Buy</a>
+    </div>
+    <div>
+      <h4>Sell</h4>
+      <a href="/start-selling.html">Start Selling</a>
+      <a href="/how-sellers-get-paid.html">How Sellers Get Paid</a>
+      <a href="/seller-faq.html">Seller FAQ</a>
+    </div>
+    <div>
+      <h4>Support</h4>
+      <a href="/faq.html">Help &amp; FAQ</a>
+      <a href="/privacy.html">Privacy Policy</a>
+      <a href="/terms.html">Terms of Service</a>
+      <a href="mailto:info@advantage.bid">Contact Us</a>
+    </div>
+  </div>
+  <div class="fbot"><div class="fbotin">
+    <span>&copy; <span id="fyear">2026</span> Advantage Auction Company. All rights reserved.</span>
+    <span>Advantage.Bid</span>
+  </div></div>
+</footer>
+<script>try{document.getElementById('fyear').textContent=new Date().getFullYear();}catch(e){}</script>
 <script>
 (function () {
   var content = document.getElementById('content');
@@ -68,9 +152,17 @@
   function fmtRange(a, b) {
     if (!a) return '';
     try {
-      var da = new Date(a), o = { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' };
-      var s = da.toLocaleString('en-US', o);
-      if (b) { var d2 = new Date(b); s += ' to ' + d2.toLocaleString('en-US', { hour: 'numeric', minute: '2-digit' }); }
+      var da = new Date(a);
+      var dOpts = { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' };
+      var tOpts = { hour: 'numeric', minute: '2-digit' };
+      var s = da.toLocaleDateString('en-US', dOpts) + ', ' + da.toLocaleTimeString('en-US', tOpts);
+      if (b) {
+        var d2 = new Date(b);
+        // Multi-day events must show the END DATE, not just an end time (never collapse to one misleading day).
+        var sameDay = da.toDateString() === d2.toDateString();
+        s += ' to ' + (sameDay ? d2.toLocaleTimeString('en-US', tOpts)
+                               : (d2.toLocaleDateString('en-US', dOpts) + ', ' + d2.toLocaleTimeString('en-US', tOpts)));
+      }
       return s;
     } catch (e) { return ''; }
   }
@@ -131,6 +223,64 @@
       + '<div class="cta"><a class="btn ghost" href="/events.html">Browse all events</a></div>';
   }
 
+  // External CTA label — explicit, never vague. "Visit {Company}" when we have a name, else a type-based
+  // website label. Long names fall back to a website label to avoid an oversized button.
+  function hostCtaLabel(e) {
+    var t = String(e.event_type_label || '').toLowerCase();
+    var name = e.host_company || '';
+    if (name && name.length <= 34) return 'Visit ' + name;
+    if (t.indexOf('auction') >= 0) return 'Visit the Auction Website';
+    if (t.indexOf('estate') >= 0) return 'Visit the Estate Sale Website';
+    return 'View Event Details';
+  }
+
+  // ── Accessible photo lightbox (dialog): prev/next, close, counter, Esc/arrows, swipe, focus trap,
+  //    body-scroll lock, returns focus to the opener. Uses the static #lb dialog in the body. ──────────
+  var LB = (function () {
+    var el = document.getElementById('lb'), img = document.getElementById('lbimg'),
+        cnt = document.getElementById('lbcount'), bx = document.getElementById('lbx'),
+        pv = document.getElementById('lbprev'), nx = document.getElementById('lbnext');
+    var list = [], title = '', i = 0, opener = null, touchX = null;
+    function draw() {
+      var it = list[i] || {}; img.src = it.url || '';
+      img.alt = it.alt || (title ? (title + ' photo ' + (i + 1)) : 'Event photo ' + (i + 1));
+      cnt.textContent = (i + 1) + ' of ' + list.length;
+      var multi = list.length > 1; pv.style.display = nx.style.display = multi ? 'flex' : 'none';
+    }
+    function onKey(ev) {
+      if (ev.key === 'Escape') { close(); }
+      else if (ev.key === 'ArrowRight') { next(); }
+      else if (ev.key === 'ArrowLeft') { prev(); }
+      else if (ev.key === 'Tab') {
+        var f = [pv, nx, bx].filter(function (b) { return b.offsetParent !== null; });
+        var cur = f.indexOf(document.activeElement); if (cur === -1) cur = 0;
+        ev.preventDefault(); f[(cur + (ev.shiftKey ? -1 : 1) + f.length) % f.length].focus();
+      }
+    }
+    function open(idx, from) {
+      if (!list.length) return;
+      i = Math.max(0, Math.min(list.length - 1, idx || 0)); opener = from || null;
+      draw(); el.classList.add('open'); el.setAttribute('aria-hidden', 'false');
+      document.body.style.overflow = 'hidden'; bx.focus();
+      document.addEventListener('keydown', onKey);
+    }
+    function close() {
+      el.classList.remove('open'); el.setAttribute('aria-hidden', 'true');
+      document.body.style.overflow = ''; document.removeEventListener('keydown', onKey);
+      if (opener && opener.focus) opener.focus();
+    }
+    function next() { if (list.length > 1) { i = (i + 1) % list.length; draw(); } }
+    function prev() { if (list.length > 1) { i = (i - 1 + list.length) % list.length; draw(); } }
+    bx.addEventListener('click', close); nx.addEventListener('click', next); pv.addEventListener('click', prev);
+    el.addEventListener('click', function (ev) { if (ev.target === el) close(); });
+    el.addEventListener('touchstart', function (ev) { touchX = ev.touches[0].clientX; }, { passive: true });
+    el.addEventListener('touchend', function (ev) {
+      if (touchX == null) return; var dx = ev.changedTouches[0].clientX - touchX;
+      if (Math.abs(dx) > 40) { if (dx < 0) next(); else prev(); } touchX = null;
+    });
+    return { set: function (arr, t) { list = arr || []; title = t || ''; i = 0; }, open: open, close: close };
+  })();
+
   fetch(API + encodeURIComponent(slug)).then(function (r) {
     if (r.status === 410) { renderGone(); return null; }
     return r.json();
@@ -138,32 +288,44 @@
     if (res === null) return; // 410 already handled
     if (!res || !res.data) { content.innerHTML = '<div class="err">This event isn’t available.</div>'; return; }
     if (res.data.expired) { renderExpired(res.data); return; }
-    var e = res.data, org = e.organization;
+    var e = res.data;
     document.title = e.title + ' - Advantage.Bid';
     if (e.description) { var md = document.querySelector('meta[name=description]'); if (md) md.setAttribute('content', String(e.description).slice(0, 155)); }
 
+    // Photo set for the gallery + lightbox (cover first if it is not already among the images).
+    var imgs = (e.images || []).map(function (im) { return { url: im.url, alt: im.alt_text || '' }; });
+    if (!imgs.length && e.cover_image_url) imgs = [{ url: e.cover_image_url, alt: '' }];
+    LB.set(imgs, e.title);
+
     var loc = [e.venue_name, e.address, [e.city, e.state].filter(Boolean).join(', '), e.zip].filter(Boolean).join(' · ');
     var mapsQ = e.lat != null && e.lng != null ? (e.lat + ',' + e.lng) : [e.venue_name, e.address, e.city, e.state, e.zip].filter(Boolean).join(' ');
-    var gallery = (e.images || []).length > 1
-      ? '<div class="gallery">' + e.images.map(function (im) { return '<img src="' + esc(im.url) + '" alt="" loading="lazy">'; }).join('') + '</div>' : '';
 
-    // Breadcrumbs — crawlable INTERNAL links.
-    var crumbs = crumbsHtml(e.title);
+    // Gallery thumbnails — each opens the lightbox at its index. Conservative alt text (no fabricated
+    // object claims): the source alt when present, else "{title} photo N".
+    var gallery = imgs.length > 1
+      ? '<p class="gcount">' + imgs.length + ' photos - tap any photo to view</p><div class="gallery">'
+        + imgs.map(function (im, i) { return '<img src="' + esc(im.url) + '" alt="' + esc(im.alt || (e.title + ' photo ' + (i + 1))) + '" loading="lazy" tabindex="0" role="button" aria-label="View photo ' + (i + 1) + ' of ' + imgs.length + '" data-lb="' + i + '">'; }).join('')
+        + '</div>' : '';
 
-    // External CTA — clear, intentional, opens a new tab, and says the visitor is leaving Advantage.Bid.
-    var extUrl = e.registration_url || e.bidding_url || e.external_url;
-    var extLabel = e.bidding_url ? 'Bid on the original website' : 'View the original listing';
-    var leaving = extUrl ? '<div class="leaving"><p class="lead">This sale is hosted on an external website.</p>'
-      + '<p class="sub">Register, bid, and see full host details on the original site. You will leave Advantage.Bid in a new tab.</p>'
-      + '<a class="btn primary" href="' + esc(extUrl) + '"' + EXT + '>' + esc(extLabel) + ' ↗ <span class="ext">(leaves Advantage.Bid)</span></a></div>' : '';
+    // Verified host byline. Imported events show the ACTUAL organizer (plain text); org-authored events
+    // link the name to the internal Advantage.Bid company profile. The owner/importer org is never shown.
+    var hp = e.host_company_profile;
+    var byline = hp
+      ? '<span>' + esc(e.event_type_label || 'Event') + ' by <a href="/company.html?slug=' + esc(hp.slug) + '"><b>' + esc(hp.name) + '</b></a></span>'
+      : (e.host_company ? '<span>' + esc(e.event_type_label || 'Event') + ' by <b>' + esc(e.host_company) + '</b></span>' : '');
 
-    content.innerHTML = crumbs
-      + '<div class="hero' + (e.cover_image_url ? '' : ' none') + '"' + (e.cover_image_url ? ' style="background-image:url(\'' + esc(e.cover_image_url) + '\')"' : '') + '></div>'
-      + (e.category ? '<div class="cat" style="margin-top:16px">' + esc(e.category.replace(/_/g, ' ')) + '</div>' : '')
+    // External CTA — ONLY to a verified, company-controlled destination (server already rejected the
+    // discovery source + competitors). No "original listing" language; opens a new tab; nofollow.
+    var host = e.host_external_url
+      ? '<div class="hostcta"><p class="lead">This event is conducted by ' + esc(e.host_company || 'the host company') + '.</p>'
+        + '<p class="sub">View complete event information on the company’s website. Opens in a new tab.</p>'
+        + '<a class="btn primary" href="' + esc(e.host_external_url) + '"' + EXT + '>' + esc(hostCtaLabel(e)) + '</a></div>' : '';
+
+    content.innerHTML = crumbsHtml(e.title)
+      + '<div class="hero' + (e.cover_image_url ? '' : ' none') + '"' + (e.cover_image_url ? ' style="background-image:url(\'' + esc(e.cover_image_url) + '\')" role="button" tabindex="0" aria-label="View event photos" data-lb="0"' : '') + '></div>'
+      + '<div style="margin-top:16px"><span class="typebadge">' + esc(e.event_type_label || 'Sale Event') + '</span></div>'
       + '<h1>' + esc(e.title) + '</h1>'
-      + '<div class="orgrow"><span class="badge ' + badgeClass(e.organizer_badge) + '">' + esc(e.organizer_badge || 'Community Organizer') + '</span>'
-      + (org ? '<span>by <b>' + esc(org.name) + '</b></span>' + (org.website_url ? ' · <a href="' + esc(org.website_url) + '"' + EXT + '>Website ↗</a>' : '')
-             : (e.organizer_name ? '<span>by <b>' + esc(e.organizer_name) + '</b></span>' + (e.organizer_website_url ? ' · <a href="' + esc(e.organizer_website_url) + '"' + EXT + '>Organizer website ↗</a>' : '') : (e.organizer_badge === 'Advantage' ? '<span>Presented by Advantage</span>' : ''))) + '</div>'
+      + (byline ? '<div class="orgrow">' + byline + '</div>' : '')
       + '<div class="meta">'
       + '<div class="r"><span class="ic">📅</span><span><b>' + fmtRange(e.start_at, e.end_at) + '</b></span></div>'
       + (loc ? '<div class="r"><span class="ic">📍</span><span>' + esc(loc) + '</span></div>' : '')
@@ -173,12 +335,18 @@
       + '</div>'
       + (e.description ? '<div class="desc">' + esc(e.description) + '</div>' : '')
       + gallery
-      + leaving
+      + host
       + '<div class="cta">'
       + (mapsQ ? '<a class="btn ghost" href="https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(mapsQ) + '"' + EXT + '>Get directions ↗</a>' : '')
       + '</div>'
-      + (e.attribution_source ? '<div class="attrib">Listing sourced from ' + esc(e.attribution_source) + (e.attribution_url ? ' (<a href="' + esc(e.attribution_url) + '"' + EXT + '>source ↗</a>)' : '') + '. Not hosted or endorsed by Advantage.Bid.</div>' : '')
       + '<div id="related"></div>';
+
+    // Wire photo clicks (hero + thumbnails) → lightbox, with keyboard support.
+    Array.prototype.forEach.call(content.querySelectorAll('[data-lb]'), function (el) {
+      var idx = parseInt(el.getAttribute('data-lb'), 10) || 0;
+      el.addEventListener('click', function () { LB.open(idx, el); });
+      el.addEventListener('keydown', function (ev) { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); LB.open(idx, el); } });
+    });
 
     loadRelated();
   }).catch(function () { content.innerHTML = '<div class="err">Couldn’t load this event. Please try again.</div>'; });

@@ -173,6 +173,8 @@ async function getEventMeta(slug) {
               e.end_at,
               e.category_slug,
               e.status,
+              e.source,
+              e.organizer_name,
               o.name AS org_name,
               (SELECT url FROM event_images ei
                 WHERE ei.event_id = e.id
@@ -202,7 +204,10 @@ async function getEventMeta(slug) {
       city:        clean(r.city) || null,
       state:       clean(r.state) || null,
       category:    r.category_slug || null,
-      organizer:   clean(r.org_name) || null,
+      // Organizer in JSON-LD must be the ACTUAL host, never the owner/importer org. For imported events
+      // that is the source organizer (organizer_name); for org/admin events it is the organization name.
+      // Omitted entirely when unknown — we never assert an unverified/incorrect organizer.
+      organizer:   clean(r.source === 'imported' ? r.organizer_name : r.org_name) || null,
       siteName:    'Advantage.Bid',
     };
   } catch (e) {

@@ -13,6 +13,7 @@ const express = require('express');
 const router = express.Router();
 const db = require('../db');
 const eventsService = require('../services/eventsService');
+const { pickHostDestination, classifyExternalUrl } = require('../lib/externalUrlPolicy');
 const { asyncRoute, svcErr } = require('../utils/apiError');
 
 const PUBLIC_CACHE = 's-maxage=60, stale-while-revalidate=30';
@@ -44,29 +45,43 @@ function clampInt(v, def, min, max) {
 }
 
 function serialize(r, images) {
+  const imported = r.source === 'imported';
+  // Public outbound destination: ONLY a classifier-approved, company-controlled URL. The discovery-source
+  // listing (external_url / attribution_url) is NEVER offered publicly — it stays internal for provenance.
+  const dest = pickHostDestination({
+    registration_url: r.registration_url, bidding_url: r.bidding_url, organizer_website_url: r.organizer_website_url,
+  });
+  // Internal Advantage.Bid host profile: ONLY for genuine host orgs (organization/admin-authored events).
+  // Imported events are assigned to the fixed owner/importer tenant, which is NOT the real host — so it is
+  // never surfaced publicly as the host (this is what wrongly produced "by Advantage Auction Company").
+  const hostProfile = (!imported && r.org_slug)
+    ? {
+        name: r.org_name, slug: r.org_slug, logo_url: r.org_logo || null,
+        website_url: (r.org_website && classifyExternalUrl(r.org_website).ok) ? r.org_website : undefined,
+        verification_status: r.org_verif,
+      }
+    : null;
+  // Public host company NAME: imported → the actual organizer from the source listing; org/admin → the org.
+  const hostCompany = imported ? (r.organizer_name || undefined) : (r.org_name || undefined);
   return {
     id: r.id, slug: r.slug, title: r.title, description: r.description,
     category: r.category_slug, market: r.market_slug,
     venue_name: r.venue_name, city: r.city, state: r.state, zip: r.zip, lat: r.lat, lng: r.lng,
-    start_at: r.start_at, end_at: r.end_at, timezone: r.timezone, external_url: r.external_url,
-    // Outbound targets for imported events (present only after migration 100; undefined→omitted otherwise).
-    registration_url: r.registration_url || undefined, bidding_url: r.bidding_url || undefined,
-    organizer_name: r.organizer_name || undefined,
-    organizer_website_url: r.organizer_website_url || undefined,
+    start_at: r.start_at, end_at: r.end_at, timezone: r.timezone,
     event_format: r.event_format || undefined,
-    // Imported events may publish before the exact street address is public. We never return the
-    // street itself (privacy); this flag lets the page show the release disclosure instead.
-    address_pending: (r.source === 'imported' && !r.address) || undefined,
-    is_imported: r.source === 'imported' || undefined,
+    event_type_label: eventsService.eventTypeLabel(r),   // customer-facing type; replaces "Imported Listing"
+    host_company: hostCompany,                            // the real host name (no owner-org substitution)
+    host_company_profile: hostProfile || undefined,       // internal Advantage.Bid profile, host orgs only
+    host_external_url: dest ? dest.url : undefined,        // approved company-controlled destination, or omitted
+    // Imported events may publish before the exact street address is public; never return the street
+    // (privacy) — this flag lets the page show the release disclosure instead.
+    address_pending: (imported && !r.address) || undefined,
     is_featured: r.is_featured,
-    organizer_badge: eventsService.deriveOrganizerBadge({ source: r.source }, { verification_status: r.org_verif }),
     cover_image_url: r.cover_url || null,
-    images: images ? images.map((i) => ({ url: i.url, position: i.position, is_cover: i.is_cover })) : undefined,
-    organization: r.org_slug
-      ? { name: r.org_name, slug: r.org_slug, logo_url: r.org_logo, website_url: r.org_website, verification_status: r.org_verif }
-      : null,
-    attribution_source: r.attribution_source || undefined,
-    attribution_url: r.attribution_url || undefined,
+    images: images ? images.map((i) => ({ url: i.url, position: i.position, is_cover: i.is_cover, alt_text: i.alt_text || undefined })) : undefined,
+    // Intentionally NOT exposed publicly (product policy): external_url (discovery-source listing),
+    // attribution_source, attribution_url, is_imported, raw organizer_website_url, and the owner/importer
+    // organization object. These remain available only through authenticated admin/import surfaces.
   };
 }
 
@@ -86,8 +101,9 @@ router.get('/events', asyncRoute(async (req, res) => {
   params.push(offset); const oi = params.length;
   const { rows } = await db.query(
     `SELECT e.id, e.slug, e.title, e.description, e.category_slug, e.market_slug, e.venue_name, e.city, e.state, e.zip,
-            e.lat, e.lng, e.start_at, e.end_at, e.timezone, e.external_url, e.is_featured, e.source,
-            e.address, e.organizer_website_url, e.event_format, e.attribution_source, e.attribution_url,
+            e.lat, e.lng, e.start_at, e.end_at, e.timezone, e.is_featured, e.source,
+            e.address, e.organizer_name, e.organizer_website_url, e.registration_url, e.bidding_url,
+            e.sale_type, e.event_format,
             o.name AS org_name, o.slug AS org_slug, o.logo_url AS org_logo, o.website_url AS org_website,
             o.verification_status AS org_verif,
             (SELECT url FROM event_images ei WHERE ei.event_id = e.id ORDER BY is_cover DESC, position ASC LIMIT 1) AS cover_url
@@ -142,7 +158,7 @@ router.get('/events/:slug', asyncRoute(async (req, res) => {
   }
 
   const images = (await db.query(
-    'SELECT url, position, is_cover FROM event_images WHERE event_id = $1 ORDER BY position ASC', [r.id])).rows;
+    'SELECT url, position, is_cover, alt_text FROM event_images WHERE event_id = $1 ORDER BY position ASC', [r.id])).rows;
   const cover = (images.find((i) => i.is_cover) || images[0] || {}).url;
   res.set('Cache-Control', PUBLIC_CACHE);
   res.json({ success: true, data: serialize({ ...r, cover_url: cover }, images) });
@@ -158,12 +174,13 @@ router.get('/events/:slug/related', asyncRoute(async (req, res) => {
   if (!ev) throw svcErr(404, 'EVENT_NOT_FOUND', 'Event not found.');
 
   const CARD_COLS = `e.slug, e.title, e.city, e.state, e.start_at, e.end_at, e.market_slug, e.source,
+    e.sale_type, e.event_format,
     (SELECT url FROM event_images ei WHERE ei.event_id = e.id ORDER BY is_cover DESC, position ASC LIMIT 1) AS cover_url,
     o.verification_status AS org_verif`;
   const cardOf = (r) => ({
     slug: r.slug, title: r.title, city: r.city, state: r.state, start_at: r.start_at, end_at: r.end_at,
     market: r.market_slug, cover_image_url: r.cover_url || null,
-    organizer_badge: eventsService.deriveOrganizerBadge({ source: r.source }, { verification_status: r.org_verif }),
+    event_type_label: eventsService.eventTypeLabel(r),   // customer-facing type; never "Imported Listing"
     url: '/event.html?slug=' + encodeURIComponent(r.slug || ''),
   });
 
@@ -185,10 +202,13 @@ router.get('/events/:slug/related', asyncRoute(async (req, res) => {
       .filter((r) => r.dist <= 100).slice(0, 6).map(cardOf);
   }
 
+  // Only GENUINE host organizations (organization/admin-authored events) — never the fixed owner/importer
+  // tenant that imported events are assigned to (that org is not a real host and must not be surfaced).
   const companies = ev.market_slug ? (await db.query(
     `SELECT DISTINCT o.name, o.slug, o.logo_url
        FROM events e JOIN organizations o ON o.id = e.organization_id
       WHERE e.status = 'published' AND e.market_slug = $1 AND o.slug IS NOT NULL
+        AND e.source <> 'imported'
         AND ($2::uuid IS NULL OR o.id <> $2)
       LIMIT 4`, [ev.market_slug, ev.organization_id || null])).rows
     .map((o) => ({ name: o.name, slug: o.slug, logo_url: o.logo_url || null })) : [];

@@ -53,6 +53,21 @@ function deriveOrganizerBadge(event, org) {
   return 'Community Organizer';
 }
 
+/**
+ * Customer-facing event TYPE label (never how the event entered the system). Replaces the internal
+ * "Imported Listing" badge on public surfaces. Derived from sale_type + event_format with a safe,
+ * non-misleading fallback of "Sale Event".
+ */
+function eventTypeLabel(event) {
+  const e = event || {};
+  const st = String(e.sale_type || '').toLowerCase();
+  const fmt = String(e.event_format || '').toLowerCase();
+  if (st === 'auction') return fmt === 'online' ? 'Online Auction' : (fmt === 'live' ? 'Live Auction' : 'Auction');
+  if (st === 'estate_sale') return 'Estate Sale';
+  if (fmt === 'online') return 'Online Sale';
+  return 'Sale Event';
+}
+
 async function getPlanForOrg(runner, orgId) {
   const { rows } = await runner.query(
     `SELECT p.plan_tier, p.max_event_images, p.max_active_events, p.can_feature_events
@@ -267,7 +282,7 @@ async function assertCanFeature(orgId, client) {
 
 module.exports = {
   STATUSES, ACTIVE_STATES, EDITABLE_STATES,
-  deriveOrganizerBadge,
+  deriveOrganizerBadge, eventTypeLabel,
   getById, listForOrg, listImages, countActiveEvents,
   createDraft, updateDraft, submit, archiveByOwner,
   addImage, removeImage,

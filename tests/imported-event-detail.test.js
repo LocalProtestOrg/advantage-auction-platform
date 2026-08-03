@@ -37,10 +37,13 @@ describe('event.html — Advantage.Bid page primary, external secondary + signpo
     // no external link uses a bare rel="noopener" (must be the full triplet)
     expect(html).not.toMatch(/rel="noopener"(?! noreferrer)/);
   });
-  test('external CTA is clear + intentional and says the visitor is leaving Advantage.Bid', () => {
-    expect(html).toMatch(/leaves Advantage\.Bid/);
-    expect(html).toMatch(/hosted on an external website/);
-    expect(html).toMatch(/e\.registration_url \|\| e\.bidding_url \|\| e\.external_url/);
+  test('external CTA links ONLY to a verified company-controlled destination (never the discovery source)', () => {
+    // The page uses the server-approved host_external_url (classifier already rejected discovery/competitors),
+    // never the raw external_url/registration/bidding fields, and never "original listing" language.
+    expect(html).toMatch(/e\.host_external_url/);
+    expect(html).toMatch(/This event is conducted by/);
+    expect(html).not.toMatch(/e\.registration_url \|\| e\.bidding_url \|\| e\.external_url/);
+    expect(html).not.toMatch(/hosted on an external website/);
   });
   test('breadcrumbs use crawlable INTERNAL links', () => {
     expect(html).toMatch(/class="crumbs"[\s\S]*href="\/"[\s\S]*href="\/events\.html"/);
