@@ -134,7 +134,7 @@ describe('Feed WIDGET — dynamic iframe height + pagination scroll (postMessage
     expect(widget).toMatch(/if \(scrollTop\) \{[\s\S]{0,240}postScroll\(\)/);
     // initial load + filter apply use scrollTop=false → no scroll message
     expect(widget).toMatch(/function apply\(\)[\s\S]{0,80}load\(true, false\)/);
-    expect(widget).toMatch(/load\(true, false\);\s*\n\s*track\('loaded'/); // initial render load = no scroll
+    expect(widget).toMatch(/load\(true, false\)[\s\S]{0,160}track\('loaded'/); // initial render load = no scroll (bootDeferLoad line may sit between)
   });
   test('resets residual internal iframe scroll on page change', () => {
     expect(widget).toContain('function resetInternalScroll');
@@ -228,5 +228,48 @@ describe('the Feed WIDGET engine — one renderer, three presets, location + rad
   test('List|Map continuity carries location + filters', () => {
     expect(widget).toContain('function mapHref');
     expect(widget).toContain("target=\"_top\"");
+  });
+});
+
+describe('the Feed WIDGET — BD city-page location context (iframe URL init)', () => {
+  test('reads city/state, coordinates, and radius from the iframe URL', () => {
+    expect(widget).toContain('function readUrlLocation');
+    expect(widget).toMatch(/q\.get\('lat'\)/);
+    expect(widget).toMatch(/q\.get\('lng'\)/);
+    expect(widget).toMatch(/q\.get\('city'\)/);
+    expect(widget).toMatch(/q\.get\('state'\)/);
+    expect(widget).toMatch(/q\.get\('radius'\)/);
+    expect(widget).toContain("=== 'nationwide'");         // radius=nationwide honored
+  });
+  test('coordinates are validated (lat/lng ranges, reject 0,0)', () => {
+    expect(widget).toMatch(/Math\.abs\(lat\) <= 90/);
+    expect(widget).toMatch(/Math\.abs\(lng\) <= 180/);
+    expect(widget).toMatch(/lat === 0 && lng === 0/);
+  });
+  test('city/state is geocoded honestly (no fabricated coords) via the shared geocode path', () => {
+    expect(widget).toContain('function initFromCityPage');
+    expect(widget).toMatch(/geocode\(query\)/);
+    expect(widget).toMatch(/setLocation\(\{ label:[^}]*lat: r\.lat/);
+    // failure degrades to a truthful nationwide state, never invents a market
+    expect(widget).toMatch(/location_resolution_failed[\s\S]{0,120}source: 'city_page'/);
+  });
+  test('precedence: URL location wins over stored preference; else stored; else nationwide', () => {
+    // URL coords set loc directly; city/state defers to geocode; only the else-branch restores loadLoc()
+    expect(widget).toMatch(/if \(urlLoc && urlLoc\.coords\)/);
+    expect(widget).toMatch(/else if \(urlLoc && \(urlLoc\.city \|\| urlLoc\.state\)\)/);
+    expect(widget).toMatch(/else \{[\s\S]{0,200}var saved = loadLoc\(\)/);
+  });
+  test('a pending city geocode owns the first load (no wrong-market flash)', () => {
+    expect(widget).toContain('bootDeferLoad');
+    expect(widget).toMatch(/if \(!bootDeferLoad\) load\(true, false\)/);
+    expect(widget).toMatch(/if \(pendingGeocode\) initFromCityPage/);
+  });
+  test('city-page auto-init fires a DISTINCT analytics event (not user location_submitted)', () => {
+    expect(widget).toContain("track('city_page_init'");
+  });
+  test('changing distance never clears the city; a change resets to page 1 (unchanged guarantees)', () => {
+    // setLocation persists loc; apply() (used by radius change) resets page but keeps state.loc
+    expect(widget).toMatch(/function apply\(\)\s*\{\s*state\.page = 1/);
+    expect(widget).toMatch(/function setLocation/);
   });
 });

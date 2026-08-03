@@ -267,7 +267,8 @@
     root.innerHTML = '<section class="amf" aria-label="Advantage marketplace events">' + controlsHtml() +
       '<div id="amf-results">' + skeletons() + '</div></section>';
     wire();
-    load(true, false);
+    if (!bootDeferLoad) load(true, false);   // a pending city-page geocode does the first load instead
+    bootDeferLoad = false;
     track('loaded', { has_location: !!state.loc, radius: state.radius });
   }
 
@@ -458,6 +459,54 @@
     var b = $('#amf-retry', root); if (b) b.addEventListener('click', function () { load(true, false); });
   }
 
+  // ── City-page context from the iframe URL ──────────────────────────────────────
+  // A BD city/location page embeds the widget with its own city/state (or coordinates) so the visitor
+  // sees nearby events on first load WITHOUT retyping the city. Accepts either explicit coordinates
+  // (lat/lng[/label]) or a city+state to geocode honestly, plus an optional radius (miles or
+  // 'nationwide'). No per-city hardcoding — the embedding page supplies the values via dynamic tags.
+  function readUrlLocation() {
+    try {
+      var q = new URLSearchParams(location.search);
+      var out = {};
+      var lat = parseFloat(q.get('lat')), lng = parseFloat(q.get('lng'));
+      if (Number.isFinite(lat) && Number.isFinite(lng) && Math.abs(lat) <= 90 && Math.abs(lng) <= 180
+          && !(lat === 0 && lng === 0)) {
+        out.coords = { lat: lat, lng: lng };
+      }
+      var city = (q.get('city') || '').trim();
+      var stat = (q.get('state') || '').trim();
+      var label = (q.get('label') || '').trim();
+      if (city) out.city = city;
+      if (stat) out.state = stat;
+      out.label = label || (city && stat ? city + ', ' + stat : (city || stat || ''));
+      var r = (q.get('radius') || '').trim().toLowerCase();
+      if (r === 'nationwide') out.radius = 'nationwide';
+      else if (r) { var n = parseInt(r, 10); if (Number.isFinite(n) && n > 0) out.radius = Math.min(255, Math.max(5, n)); }
+      return (out.coords || out.city || out.state) ? out : null;
+    } catch (e) { return null; }
+  }
+
+  // Honest geocode of the BD city-page context, reusing the shared geocode → setLocation path (status
+  // line, radius slider, sort, persistence, page-1 reset, load). Runs after first paint. On success the
+  // results snap to the city; on failure it degrades truthfully to nationwide (never fabricates a market).
+  function initFromCityPage(query, label) {
+    track('city_page_init', {});               // distinct from a user-typed 'location_submitted'
+    var s = $('#amf-loc-status', root); if (s) s.innerHTML = 'Finding <b>' + esc(label || query) + '</b>…';
+    geocode(query).then(function (r) {
+      if (r && r.ok) {
+        track('location_resolved', { source: 'city_page' });
+        var inp = $('#amf-loc', root); if (inp) inp.value = label || r.label || query;
+        setLocation({ label: label || r.label || query, lat: r.lat, lng: r.lng });
+      } else {
+        track('location_resolution_failed', { reason: (r && r.reason) || 'no_match', source: 'city_page' });
+        var st = $('#amf-loc-status', root); if (st) st.innerHTML = locStatusHtml();  // truthful nationwide
+        apply();
+      }
+    });
+  }
+
+  var bootDeferLoad = false;  // when true, render() skips its initial load (a pending city geocode owns it)
+
   function mount() {
     root = document.getElementById('advantage-marketplace-feed');
     if (!root) { root = document.createElement('div'); root.id = 'advantage-marketplace-feed'; document.body.appendChild(root); }
@@ -467,11 +516,31 @@
     state.preset = PRESET_TYPE[mp] ? mp : (PRESET_TYPE[up] ? up : 'all-events');
     // restore the requested page from the URL (?page=), so a refresh/back keeps the result page
     try { var pg = parseInt(new URLSearchParams(location.search).get('page'), 10); if (pg >= 1) state.page = pg; } catch (e) {}
-    // restore shared location + radius
-    var saved = loadLoc();
-    if (saved && Number.isFinite(saved.lat) && Number.isFinite(saved.lng)) { state.loc = { label: saved.label || 'your location', lat: saved.lat, lng: saved.lng }; if (saved.radius != null) state.radius = saved.radius; state.sort = 'nearest'; }
+    // ── Location precedence ────────────────────────────────────────────────────────
+    // 1/2. Explicit widget coords OR BD city-page city/state (from the iframe URL)  → wins.
+    //   4. Stored visitor preference (shared ab_feed_loc across presets)            → fallback.
+    //   5. Nationwide (no location)                                                 → last resort.
+    // (3. A visitor-entered location overrides during the session via setLocation, which persists.)
+    var urlLoc = readUrlLocation();
+    if (urlLoc && urlLoc.radius != null) state.radius = urlLoc.radius;   // honor ?radius= incl. 'nationwide'
+    var pendingGeocode = null;
+    if (urlLoc && urlLoc.coords) {
+      // Explicit coordinates: use directly (no geocode round-trip).
+      state.loc = { label: urlLoc.label || 'your area', lat: urlLoc.coords.lat, lng: urlLoc.coords.lng };
+      if (!state.sort) state.sort = 'nearest';
+    } else if (urlLoc && (urlLoc.city || urlLoc.state)) {
+      // City/state from the BD page: geocode honestly after first paint. Suppress the initial nationwide
+      // load so the visitor never sees a wrong-market flash before the city resolves.
+      pendingGeocode = { query: [urlLoc.city, urlLoc.state].filter(Boolean).join(', '), label: urlLoc.label };
+      bootDeferLoad = true;
+    } else {
+      // No city-page context → restore the visitor's stored preference.
+      var saved = loadLoc();
+      if (saved && Number.isFinite(saved.lat) && Number.isFinite(saved.lng)) { state.loc = { label: saved.label || 'your location', lat: saved.lat, lng: saved.lng }; if (saved.radius != null) state.radius = saved.radius; state.sort = 'nearest'; }
+    }
     if (!document.getElementById('amf-style')) { var st = document.createElement('style'); st.id = 'amf-style'; st.textContent = CSS; document.head.appendChild(st); }
     render();
+    if (pendingGeocode) initFromCityPage(pendingGeocode.query, pendingGeocode.label);  // deferred honest geocode
     observeSize();       // begin measuring + posting height to the parent iframe (embedded case only)
     postHeight(true);    // initial height ASAP (before results arrive), so the parent can size the frame
   }
