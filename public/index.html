@@ -72,6 +72,10 @@
     --panel:rgba(255,255,255,.92); --panelText:#0B1B2B;
     --r:18px; --ease:cubic-bezier(.22,.7,.2,1); --spring:cubic-bezier(.34,1.4,.5,1);
     --sky1:rgba(47,107,255,.10); --sky2:transparent;
+    /* Floating-header offset — shared so the map key + view selector always begin BELOW the
+       header. --hdr-h is refined at runtime from the real header height (syncHeaderH). */
+    --hdr-top:max(14px,env(safe-area-inset-top)); --hdr-h:56px;
+    --hdr-offset:calc(var(--hdr-top) + var(--hdr-h) + 10px);
   }
   *{box-sizing:border-box}
   html,body{height:100%}
@@ -257,12 +261,24 @@
           background:rgba(47,107,255,.06);border:1px solid var(--hair);border-radius:8px;padding:6px 4px;cursor:pointer;transition:background .14s,color .14s}
   .legend-tools button:hover{background:rgba(47,107,255,.15);color:var(--ink)}
   .legend-tools button:active{background:rgba(47,107,255,.24)}
-  .legend-browse{display:flex;align-items:center;justify-content:center;gap:7px;margin-top:8px;padding:9px 8px;
-        font-size:11.5px;font-weight:800;color:var(--ink);text-decoration:none;background:rgba(47,107,255,.08);
-        border:1px solid var(--hair);border-radius:9px;transition:background .14s,color .14s;cursor:pointer}
-  .legend-browse:hover{background:rgba(47,107,255,.16)}
-  .legend-browse:focus-visible{outline:none;box-shadow:0 0 0 2px var(--accentSoft)}
-  .legend-browse svg{width:14px;height:14px;flex:0 0 auto;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round}
+  /* ── Shared List View | Map View segmented selector (top control area) ── */
+  .viewseg{position:fixed;z-index:39;top:var(--hdr-offset);left:14px;display:inline-flex;gap:3px;padding:3px;
+          border-radius:999px;background:var(--capsule);backdrop-filter:saturate(150%) blur(14px);-webkit-backdrop-filter:saturate(150%) blur(14px);
+          border:1px solid var(--capsuleBorder);box-shadow:0 8px 22px rgba(8,16,28,.18);opacity:0;transform:translateY(-6px);
+          transition:opacity .6s var(--ease) .4s,transform .6s var(--ease) .4s}
+  .viewseg.in{opacity:1;transform:none}
+  .viewseg-opt{font-size:12.5px;font-weight:800;letter-spacing:.005em;padding:8px 15px;min-height:36px;display:inline-flex;align-items:center;
+          border-radius:999px;color:var(--muted);text-decoration:none;cursor:pointer;white-space:nowrap;transition:background .14s,color .14s}
+  .viewseg-opt:hover{color:var(--ink)}
+  .viewseg-opt.on{background:var(--ink);color:#fff;cursor:default}
+  .viewseg-opt:focus-visible{outline:none;box-shadow:0 0 0 2px var(--accentSoft)}
+  @media(max-width:880px){
+    /* Center below the floating header so it never collides with the bottom-left map key. */
+    .viewseg{left:50%;transform:translate(-50%,-6px);top:var(--hdr-offset)}
+    .viewseg.in{transform:translateX(-50%)}
+    /* Drop the transient welcome HUD below the centered selector so they never overlap. */
+    #hud{top:calc(var(--hdr-offset) + 52px)}
+  }
   .lg-pin{flex:0 0 auto;width:16px;height:16px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;
           background:var(--c);box-shadow:0 1px 3px rgba(8,16,28,.28)}
   .lg-pin svg{width:10px;height:10px;display:block;fill:#fff}
@@ -309,14 +325,23 @@
   @media(max-width:560px){ .fb-panel{width:100vw} .fb-tab span{display:inline} }
   @media(max-width:880px){ body.mp-open .fb-tab{display:none} }
   @media(max-width:880px){
-    /* Sit above the bottom-sheet peek (~92px) and above its z-index so both the FAB
-       and the opened panel stay tappable over the drawer. */
-    .legend{display:none;left:12px;right:auto;bottom:calc(160px + env(safe-area-inset-bottom));width:220px;z-index:39;
-            max-height:calc(100vh - 230px);overflow-y:auto}
+    /* The expanded map key is anchored from the TOP, beginning below the floating header and
+       the centered view selector — so its collapse control is never hidden behind (or able to
+       trigger) the header brand/search/location/account controls. It is capped to the space
+       above the FAB + bottom-sheet peek and scrolls internally. z-index stays BELOW the header
+       (40) — the fix is position, not a z-index war, so the header remains usable. */
+    .legend{display:none;left:12px;right:auto;top:calc(var(--hdr-offset) + 46px);bottom:auto;width:220px;z-index:39;
+            padding-top:14px;max-height:calc(100dvh - var(--hdr-offset) - 46px - 168px - env(safe-area-inset-bottom));
+            overflow-y:auto;-webkit-overflow-scrolling:touch}
     .legend.open{display:block}
-    .legend-close{display:block}
+    .legend-close{display:flex;align-items:center;justify-content:center;width:44px;height:44px;top:2px;right:2px;font-size:23px}
     .legend-fab{display:inline-flex;z-index:39;bottom:calc(104px + env(safe-area-inset-bottom))}
     .legend.open ~ .legend-fab{opacity:.35}
+  }
+  @supports not (height:100dvh){
+    @media(max-width:880px){
+      .legend{max-height:calc(100vh - var(--hdr-offset) - 46px - 168px - env(safe-area-inset-bottom))}
+    }
   }
   /* Premium company card (mp-card2) sits above other floating surfaces */
   .maplibregl-popup.mp-card2{z-index:41}
@@ -404,16 +429,23 @@
 
   <div id="hud"><div class="count" id="count">Looking around you…</div><div class="deltas" id="deltas"></div></div>
 
+  <!-- Shared List View | Map View selector (mirrors the List View results toggle). Map View is
+       the current view; List View carries the customer's URL state to the canonical list. -->
+  <nav class="viewseg" id="viewSeg" aria-label="View">
+    <a class="viewseg-opt" id="segListLink" href="https://www.advantage.bid/all-events">List View</a>
+    <a class="viewseg-opt on" href="/" aria-current="page">Map View</a>
+  </nav>
+
   <div id="drawer">
     <div class="dwrap">
       <div class="grab" id="grab"></div>
       <div class="dhead">
-        <div class="dtitle" id="dTitle">Auctions near you</div>
-        <div class="dsub" id="dSub">Hover a marker to preview · drag up for the full list</div>
+        <div class="dtitle" id="dTitle">Events Near You</div>
+        <div class="dsub" id="dSub">Hover a card or marker to preview · drag up for the full list</div>
         <div class="dtabs">
-          <button class="dtab on" data-f="near">Near you</button>
-          <button class="dtab" data-f="ending">Ending soon</button>
-          <button class="dtab" data-f="coming">Coming soon</button>
+          <button class="dtab on" data-f="near">Near You</button>
+          <button class="dtab" data-f="ending">Ending Soon</button>
+          <button class="dtab" data-f="coming">Upcoming</button>
           <button class="dtab" data-f="archive">Past</button>
         </div>
       </div>
@@ -675,15 +707,21 @@
     if(c&&c.styleLight){ CFG.provider=c.provider||CFG.provider; CFG.styleLight=c.styleLight; CFG.styleDark=c.styleDark||c.styleLight; }
   }).catch(function(){}).then(boot);
 
-  function degrade(){ $('intro').classList.add('gone'); $('top').classList.add('in'); $('drawer').classList.add('in'); loadCore().then(function(){ buildList('near'); revealHUD(); }); }
+  function degrade(){ $('intro').classList.add('gone'); revealChrome(); $('drawer').classList.add('in'); loadCore().then(function(){ buildList('near'); revealHUD(); }); }
+  // Reveal the floating header + the shared view selector together, and keep --hdr-h synced to
+  // the real header height so the mobile map key / selector always begin below it (Part 3/4).
+  function syncHeaderH(){ try{ var t=document.querySelector('.top'); if(t){ var h=Math.round(t.getBoundingClientRect().height); if(h>0) document.documentElement.style.setProperty('--hdr-h', h+'px'); } }catch(e){} }
+  function revealChrome(){ var t=$('top'); if(t) t.classList.add('in'); var v=$('viewSeg'); if(v) v.classList.add('in'); syncHeaderH(); }
+  window.addEventListener('resize', syncHeaderH);
+  window.addEventListener('orientationchange', function(){ setTimeout(syncHeaderH, 250); });
 
   function onMapLoad(){
     reskinSoon();
     var dataReady=loadCore();
     function settle(){ dataReady.then(function(){ addMarkers(DATA); $('drawer').classList.add('in'); buildList('near'); revealHUD(); startAmbient(); mpInit(); }); }
-    if(reduce){ $('intro').classList.add('gone'); $('top').classList.add('in'); dataReady.then(function(){ frameData(true); settle(); }); return; }
+    if(reduce){ $('intro').classList.add('gone'); revealChrome(); dataReady.then(function(){ frameData(true); settle(); }); return; }
     setTimeout(function(){ $('intro').classList.add('gone'); }, 1500);
-    setTimeout(function(){ $('top').classList.add('in'); }, 2350);
+    setTimeout(revealChrome, 2350);
     setTimeout(function(){ dataReady.then(function(){ frameData(false); map.once('moveend', settle); }); }, 2650);
     // safety: if data is slow, still settle after a few seconds
     setTimeout(function(){ if(!started){ started=true; settle(); } }, 6000);
@@ -693,7 +731,7 @@
      A SEPARATE layer from the auction beacons: its own GeoJSON source ('mp'), its own CSS,
      its own registry. Auction pins/API/geocoding/interactions are untouched. If the BD fetch
      fails, auctions keep working and only the company rows read 0. Camera is never moved here. */
-  var MP = { records:[], counts:{}, active:{}, loaded:false, card:null };
+  var MP = { records:[], counts:{}, active:{}, statusHidden:{}, loaded:false, card:null };
   // STATUS filters (secondary) — toggle the native-auction beacons by timing. Not event TYPES.
   var MP_EVENTS = [
     { key:'live',   label:'Live Now',     color:'var(--live)' },
@@ -843,7 +881,7 @@
     var now=Date.now(), s=r.start_at?new Date(r.start_at).getTime():null, e=r.end_at?new Date(r.end_at).getTime():null;
     if(e&&e<now) return 'Ended';
     if(s&&s>now) return 'Upcoming';
-    return 'In progress';
+    return 'Live Now';
   }
   function mpEventCardHTML(r){
     var loc=[r.city,r.state].filter(Boolean).join(', '), when='';
@@ -969,18 +1007,18 @@
     MP_CATS.forEach(function(c){ html+=mpRow('mp',c.key,c.color,c.glyph,c.label,(MP.counts&&MP.counts[c.key])||0); });
     html+='<div class="legend-tools"><button type="button" data-tool="show">Show All</button>'
       +'<button type="button" data-tool="hide">Hide All</button><button type="button" data-tool="reset">Reset</button></div>';
-    // Prefer a traditional list over the map — the Marketplace spans estate sales, auctions, and
-    // other public estate events, so this links to the broader canonical Advantage.Bid events page
-    // (same tab; the user stays inside the Advantage ecosystem).
-    html+='<a class="legend-browse" href="https://www.advantage.bid/all-events">'
-      +'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg>List View</a>';
+    // The List View entry point now lives in the shared top-of-map segmented selector
+    // (List View | Map View), so the map key stays focused on types, statuses, and layers.
     el.innerHTML=html;
     mpWireLegend();
   }
   function mpSetRow(row, on){
     var kind=row.getAttribute('data-kind'), key=row.getAttribute('data-key');
     row.querySelector('input').checked=on; row.classList.toggle('off', !on); row.setAttribute('aria-checked', on?'true':'false');
-    if(kind==='auction') mpToggleAuctions(key, on); else MP.active[key]=on;
+    // 'auction' rows are STATUS filters (native-auction beacons); 'mp' rows are event-type /
+    // company categories. Track both so the drawer mirrors the map (Part 5 sync).
+    if(kind==='auction'){ mpToggleAuctions(key, on); MP.statusHidden[key]=!on; }
+    else MP.active[key]=on;
   }
   function mpSetAll(kindFilter, on){
     var el=document.getElementById('legend'); if(!el) return;
@@ -989,11 +1027,12 @@
       mpSetRow(row, on);
     });
     mpApplyFilter();  // single marketplace source update + fade
+    if(typeof mpRefreshDrawer==='function') mpRefreshDrawer();  // keep the drawer in sync
   }
   function mpWireLegend(){
     var el=document.getElementById('legend'); if(!el) return;
     el.querySelectorAll('.legend-row').forEach(function(row){
-      function toggle(){ var on=!row.querySelector('input').checked; mpSetRow(row,on); if(row.getAttribute('data-kind')==='mp') mpApplyFilter(); }
+      function toggle(){ var on=!row.querySelector('input').checked; mpSetRow(row,on); if(row.getAttribute('data-kind')==='mp') mpApplyFilter(); if(typeof mpRefreshDrawer==='function') mpRefreshDrawer(); }
       row.addEventListener('click', toggle);
       row.addEventListener('keydown', function(ev){ if(ev.key===' '||ev.key==='Enter'){ ev.preventDefault(); toggle(); } });
     });
@@ -1079,7 +1118,7 @@
   }
   function showPreview(d){
     if(reduce) return;
-    var tagtxt={live:'LIVE',ending:'ENDING SOON',coming:'COMING SOON',historical:'PAST'}[d.state];
+    var tagtxt={live:'LIVE',ending:'ENDING SOON',coming:'UPCOMING',historical:'PAST'}[d.state];
     var tagbg={live:'#B5273B',ending:'#E0922E',coming:'#1FB6A6',historical:'#8aa0b8'}[d.state];
     var miTxt=(d.mi!=null?(' · '+d.mi+' mi'):'');
     var tail=d.state==='historical'?(' · '+d.lots+' lots'):(' · '+d.end);
@@ -1097,7 +1136,7 @@
   var cardPopup=null;
   function openAuctionCard(d){
     if(cardPopup){ cardPopup.remove(); cardPopup=null; }
-    var tagtxt={live:'LIVE',ending:'ENDING SOON',coming:'COMING SOON',historical:'PAST'}[d.state];
+    var tagtxt={live:'LIVE',ending:'ENDING SOON',coming:'UPCOMING',historical:'PAST'}[d.state];
     var tagbg={live:'#B5273B',ending:'#E0922E',coming:'#1FB6A6',historical:'#8aa0b8'}[d.state];
     var miTxt=(d.mi!=null?(' · '+d.mi+' mi'):'');
     var tail=d.state==='historical'?(' · '+d.lots+' lots'):(' · '+d.end);
@@ -1120,19 +1159,44 @@
 
   /* ── Drawer list + map⇄card sync ──────────────────────────────────────── */
   var F={near:function(d){return d.state!=='historical';},ending:function(d){return d.state==='ending';},coming:function(d){return d.state==='coming';},archive:function(d){return d.state==='historical';}};
-  var TT={near:'Events near you',ending:'Ending soon',coming:'Upcoming',archive:'Past auctions'};
+  var TT={near:'Events Near You',ending:'Ending Soon',coming:'Upcoming',archive:'Past Auctions'};
   // Public events → drawer cards (same shape as auctions), so the drawer matches the map instead of
   // showing zero. Links go to the canonical /event.html?slug page.
   function evToDrawer(r){
     var now=Date.now(), s=r.start_at?new Date(r.start_at).getTime():null, e=r.end_at?new Date(r.end_at).getTime():null;
     var st=(e&&e<now)?'historical':((s&&s>now)?'coming':'live');
-    var end=st==='coming'?('Opens '+shortDate(r.start_at)):(st==='historical'?'Ended':(r.end_at?('Ends '+shortDate(r.end_at)):'In progress'));
+    var end=st==='coming'?('Opens '+shortDate(r.start_at)):(st==='historical'?'Ended':(r.end_at?('Ends '+shortDate(r.end_at)):'Live now'));
     return { id:r.id, t:(r.event_type_label?r.event_type_label+': ':'')+ (r.name||'Event'), city:[r.city,r.state].filter(Boolean).join(', '),
       state:st, lots:0, end:end, lng:r.lng, lat:r.lat, mi:null,
       bg:(r.image_url?("url('"+esc(r.image_url)+"'),"+GRAD[0]):GRAD[0]), href:r.url, isEvent:true };
   }
   function mpRefreshDrawer(){ var on=document.querySelector('.dtab.on'); buildList(on?on.dataset.f:'near'); }
-  function source(f){ return f==='archive'?ARCH:DATA.concat(EVENTS_MAP.map(evToDrawer)); }
+  // Drawer honours the legend filters so it never contradicts the map: event-type rows
+  // (event_auction / event_estate_sale) gate events; status rows gate native-auction beacons.
+  // Company/professional rows never touch the event drawer.
+  function activeEvents(){ return EVENTS_MAP.filter(function(r){ return MP.active[r.category_key]!==false; }); }
+  function activeAuctions(){ return DATA.filter(function(d){ return !MP.statusHidden[d.state]; }); }
+  function source(f){ return f==='archive'?ARCH:activeAuctions().concat(activeEvents().map(evToDrawer)); }
+  // Part 1: hovering / focusing an event drawer card opens the matching marker preview on the map.
+  // Connect by STABLE map id (the event card's data-id IS the marker's MP.byId key, 'ev-<uuid>') —
+  // never by title text — and reuse the single event popup renderer (mpOpenCard → mpEventCardHTML)
+  // so there is no second preview implementation. Hover-capable pointers only; on touch the card's
+  // anchor navigates as before (no extra tap).
+  var HOVERABLE=false; try{ HOVERABLE=window.matchMedia('(hover:hover) and (pointer:fine)').matches; }catch(e){}
+  function mpPreviewEvent(mapId){
+    if(!map) return;
+    var rec=MP.byId&&MP.byId[mapId];
+    if(!rec||!rec.isEvent) return;
+    var coords=[rec.lng,rec.lat];
+    function open(){ mpOpenCard({ properties:{ id:rec.id, cat:rec.category_key, name:rec.name },
+      geometry:{ type:'Point', coordinates:coords } }); }
+    // Pan (never zoom) to bring an off-screen marker into view so the preview is visible.
+    try{
+      var p=map.project(coords), vw=window.innerWidth, vh=window.innerHeight, pad=90;
+      if(p.x<pad||p.x>vw-pad||p.y<pad||p.y>vh-pad){ map.easeTo({center:coords,duration:420}); map.once('moveend',open); return; }
+    }catch(e){}
+    open();
+  }
   function buildList(f){
     var list=$('list'); list.innerHTML=''; $('dTitle').textContent=TT[f];
     var q=($('sInput').value||'').toLowerCase();
@@ -1143,7 +1207,7 @@
       return;
     }
     rows.forEach(function(d){
-      var tg={live:'● Live',ending:'⏱ Ending soon',coming:'◷ Coming soon',historical:'Past'}[d.state];
+      var tg={live:'● Live Now',ending:'⏱ Ending Soon',coming:'◷ Upcoming',historical:'Past'}[d.state];
       var miTxt=(d.mi!=null?(' · '+d.mi+' mi'):'');
       var when=d.state==='coming'?d.end:(d.state==='historical'?(d.lots+' lots'):(d.end+(d.lots?(' · '+d.lots+' lots'):'')));
       var c=document.createElement('a'); c.className='card'; c.dataset.id=d.id; c.href=d.href;
@@ -1152,6 +1216,12 @@
         '<div class="r"><span class="tag '+d.state+'">'+tg+'</span><span class="when">'+when+'</span></div></div>';
       c.addEventListener('mouseenter',function(){ highlight(d.id,true); });
       c.addEventListener('mouseleave',function(){ highlight(d.id,false); });
+      if(d.isEvent && HOVERABLE){
+        // Hover OR keyboard focus opens/updates the map preview; the preview persists until another
+        // card is hovered, the map is clicked, or the card's close control is used (no flicker).
+        c.addEventListener('mouseenter',function(){ mpPreviewEvent(d.id); });
+        c.addEventListener('focus',function(){ mpPreviewEvent(d.id); });
+      }
       list.appendChild(c);
     });
   }
@@ -1284,14 +1354,18 @@
 })();
 </script>
 <script>
-  // List|Map continuity: carry the map's current filters (from ?q/&city/&state/&zip/&type) back to the
-  // canonical public List View so switching views never loses the customer's context.
+  // List|Map continuity: carry the map's current state back to the canonical public List View so
+  // switching views never loses the customer's context. Preserves search, location, type, radius,
+  // sort, and preset — a nationwide search is never reset to a local default.
   (function () {
     try {
-      var link = document.getElementById('view-list-link'); if (!link) return;
       var src = new URLSearchParams(location.search), keep = new URLSearchParams();
-      ['q', 'city', 'state', 'zip', 'type'].forEach(function (k) { var v = src.get(k); if (v) keep.set(k, v); });
-      var s = keep.toString(); if (s) link.href = 'https://www.advantage.bid/all-events?' + s;
+      ['q','city','state','zip','type','radius','sort','preset','lat','lng','near']
+        .forEach(function (k) { var v = src.get(k); if (v) keep.set(k, v); });
+      var s = keep.toString(); if (!s) return;
+      ['view-list-link','segListLink'].forEach(function (id) {
+        var link = document.getElementById(id); if (link) link.href = 'https://www.advantage.bid/all-events?' + s;
+      });
     } catch (e) {}
   })();
 </script>

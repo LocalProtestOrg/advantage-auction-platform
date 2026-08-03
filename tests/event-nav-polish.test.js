@@ -12,9 +12,11 @@ const read = (...p) => fs.readFileSync(path.join(__dirname, '..', ...p), 'utf8')
 describe('Item 1 — Map View / List View labels (display-mode switch, not "Browse All Events")', () => {
   const index = read('public', 'index.html');
   const widget = read('public', 'widgets', 'marketplace-feed.js');
-  test('map page uses "List View" for the display switch, not "Browse All Events"', () => {
-    expect(index).toMatch(/class="legend-browse"[\s\S]{0,220}List View<\/a>/);
+  test('map page uses the shared "List View | Map View" selector, not "Browse All Events"', () => {
+    expect(index).toMatch(/class="viewseg"[\s\S]{0,260}>List View<\/a>[\s\S]{0,160}>Map View<\/a>/);
     expect(index).not.toContain('>Browse All Events</a>');
+    // the standalone lower-left List View button was removed from the map key
+    expect(index).not.toMatch(/class="legend-browse"/);
   });
   test('the feed widget toggle uses the paired "List View" / "Map View" labels', () => {
     expect(widget).toMatch(/aria-current="true">List View<\/a>/);

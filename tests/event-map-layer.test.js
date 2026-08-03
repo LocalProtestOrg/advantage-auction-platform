@@ -70,9 +70,9 @@ describe('map client — event markers on the shared mp layer', () => {
     expect(index).toMatch(/>View Event</);
     expect(index).toMatch(/href="'\+mpEsc\(r\.url\)/);
   });
-  test('the right drawer reads "Events near you" and uses the event dataset', () => {
-    expect(index).toMatch(/near:'Events near you'/);
-    expect(index).toMatch(/DATA\.concat\(EVENTS_MAP\.map\(evToDrawer\)\)/);
+  test('the right drawer reads "Events Near You" and uses the event dataset', () => {
+    expect(index).toMatch(/near:'Events Near You'/);
+    expect(index).toMatch(/activeEvents\(\)\.map\(evToDrawer\)/);
     expect(index).not.toMatch(/near:'Auctions near you'/);
   });
 });
