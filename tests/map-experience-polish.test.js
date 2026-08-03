@@ -40,7 +40,8 @@ describe('Part 1 — drawer event card hover/focus previews the matching marker'
     expect(index).toMatch(/var c=document\.createElement\('a'\); c\.className='card'; c\.dataset\.id=d\.id; c\.href=d\.href;/);
   });
   test('the preview may pan (not zoom) to bring an off-screen marker into view', () => {
-    expect(index).toMatch(/map\.easeTo\(\{center:coords,duration:420\}\); map\.once\('moveend',open\);/);
+    expect(index).toMatch(/MP\._previewPan=true; map\.easeTo\(\{center:coords,duration:420\}\);/);
+    expect(index).toMatch(/open\(\); MP\._previewPan=false;/);
   });
 });
 

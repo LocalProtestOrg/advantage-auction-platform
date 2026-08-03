@@ -449,6 +449,7 @@
           <button class="dtab" data-f="archive">Past</button>
         </div>
       </div>
+      <div class="sr-only" id="drawerLive" role="status" aria-live="polite"></div>
       <div class="dlist" id="list"><div class="dempty">Loading auctions…</div></div>
     </div>
   </div>
@@ -662,7 +663,8 @@
       mi:(a.distance_km!=null?Math.max(1,Math.round(a.distance_km*0.621371)):null),
       bg: cover ? ("url('"+esc(cover)+"'),"+GRAD[i%GRAD.length]) : GRAD[i%GRAD.length],
       href:'/auction-view.html?auctionId='+encodeURIComponent(a.id),
-      endsToday:(st==='ending')
+      endsToday:(st==='ending'),
+      _start:(a.start_time?new Date(a.start_time).getTime():null)   // sort tie-breaker
     };
   }
   function j(u){ return fetch(u).then(function(r){return r.json();}).then(function(d){return (d&&d.data)||[];}).catch(function(){return [];}); }
@@ -701,13 +703,15 @@
     // Tapping anywhere on the map (outside a pin) collapses it — matching desktop,
     // where moving the pointer away dismisses it.
     map.on('click',hidePreview);
+    // Keep "Events Near You" in sync with the visible map area (viewport-scoped drawer).
+    map.on('moveend', scheduleDrawerRefresh);
   }
   // resolve basemap config first (non-blocking: falls back to CARTO), then boot the map
   fetch('/api/public/map-config').then(function(r){return r.json();}).then(function(c){
     if(c&&c.styleLight){ CFG.provider=c.provider||CFG.provider; CFG.styleLight=c.styleLight; CFG.styleDark=c.styleDark||c.styleLight; }
   }).catch(function(){}).then(boot);
 
-  function degrade(){ $('intro').classList.add('gone'); revealChrome(); $('drawer').classList.add('in'); loadCore().then(function(){ buildList('near'); revealHUD(); }); }
+  function degrade(){ $('intro').classList.add('gone'); revealChrome(); $('drawer').classList.add('in'); loadCore().then(function(){ drawerReady=true; buildList('near'); revealHUD(); }); }
   // Reveal the floating header + the shared view selector together, and keep --hdr-h synced to
   // the real header height so the mobile map key / selector always begin below it (Part 3/4).
   function syncHeaderH(){ try{ var t=document.querySelector('.top'); if(t){ var h=Math.round(t.getBoundingClientRect().height); if(h>0) document.documentElement.style.setProperty('--hdr-h', h+'px'); } }catch(e){} }
@@ -718,7 +722,7 @@
   function onMapLoad(){
     reskinSoon();
     var dataReady=loadCore();
-    function settle(){ dataReady.then(function(){ addMarkers(DATA); $('drawer').classList.add('in'); buildList('near'); revealHUD(); startAmbient(); mpInit(); }); }
+    function settle(){ dataReady.then(function(){ addMarkers(DATA); $('drawer').classList.add('in'); drawerReady=true; buildList('near'); revealHUD(); startAmbient(); mpInit(); }); }
     if(reduce){ $('intro').classList.add('gone'); revealChrome(); dataReady.then(function(){ frameData(true); settle(); }); return; }
     setTimeout(function(){ $('intro').classList.add('gone'); }, 1500);
     setTimeout(revealChrome, 2350);
@@ -1168,15 +1172,54 @@
     var end=st==='coming'?('Opens '+shortDate(r.start_at)):(st==='historical'?'Ended':(r.end_at?('Ends '+shortDate(r.end_at)):'Live now'));
     return { id:r.id, t:(r.event_type_label?r.event_type_label+': ':'')+ (r.name||'Event'), city:[r.city,r.state].filter(Boolean).join(', '),
       state:st, lots:0, end:end, lng:r.lng, lat:r.lat, mi:null,
-      bg:(r.image_url?("url('"+esc(r.image_url)+"'),"+GRAD[0]):GRAD[0]), href:r.url, isEvent:true };
+      bg:(r.image_url?("url('"+esc(r.image_url)+"'),"+GRAD[0]):GRAD[0]), href:r.url, isEvent:true, _start:s };
   }
   function mpRefreshDrawer(){ var on=document.querySelector('.dtab.on'); buildList(on?on.dataset.f:'near'); }
+  // Refresh the viewport-scoped drawer after map movement settles (moveend covers pan, zoom,
+  // fitBounds, flyTo/easeTo, My Location, city/radius search). Debounced so momentum/rapid gestures
+  // don't rebuild continuously; skipped during a preview-driven pan so hover/focus is not disrupted.
+  var _drawerRefreshTimer=null, drawerReady=false;
+  function scheduleDrawerRefresh(){
+    if(!drawerReady || (MP && MP._previewPan)) return;
+    if(_drawerRefreshTimer) clearTimeout(_drawerRefreshTimer);
+    _drawerRefreshTimer=setTimeout(function(){ _drawerRefreshTimer=null; if(MP && MP._previewPan) return; mpRefreshDrawer(); }, 140);
+  }
   // Drawer honours the legend filters so it never contradicts the map: event-type rows
   // (event_auction / event_estate_sale) gate events; status rows gate native-auction beacons.
   // Company/professional rows never touch the event drawer.
   function activeEvents(){ return EVENTS_MAP.filter(function(r){ return MP.active[r.category_key]!==false; }); }
   function activeAuctions(){ return DATA.filter(function(d){ return !MP.statusHidden[d.state]; }); }
   function source(f){ return f==='archive'?ARCH:activeAuctions().concat(activeEvents().map(evToDrawer)); }
+  // ── Viewport eligibility ──────────────────────────────────────────────
+  // "Events Near You" = eligible events whose coordinates fall inside the map's CURRENT visible
+  // bounds (map.getBounds()) — never title/city text or a stale search center. MapLibre's
+  // LngLatBounds.contains handles wrapped bounds (antimeridian) internally. Records without
+  // coordinates cannot be placed on the map and are excluded from the viewport-scoped tabs.
+  function inViewport(d){
+    if(d.lng==null||d.lat==null) return false;
+    try{ var b=map&&map.getBounds&&map.getBounds(); if(!b) return true; return b.contains([+d.lng,+d.lat]); }
+    catch(e){ return true; }
+  }
+  // Ordering: nearest to the visible map center first, then earliest start, then title (stable).
+  function distFromCenter(d){
+    try{ var c=map.getCenter(); var dlat=(+d.lat)-c.lat, dlng=((+d.lng)-c.lng)*Math.cos(c.lat*Math.PI/180); return dlat*dlat+dlng*dlng; }
+    catch(e){ return 0; }
+  }
+  function sortForViewport(rows){
+    return rows.slice().sort(function(a,b){
+      var da=distFromCenter(a), db=distFromCenter(b); if(da!==db) return da-db;
+      var sa=(a._start==null?Infinity:a._start), sb=(b._start==null?Infinity:b._start); if(sa!==sb) return sa-sb;
+      return String(a.t||'').localeCompare(String(b.t||''));
+    });
+  }
+  // Escape hatch for an empty viewport: the canonical List View, carrying any current URL state.
+  function listViewHref(){
+    try{
+      var src=new URLSearchParams(location.search), keep=new URLSearchParams();
+      ['q','city','state','zip','type','radius','sort','preset','lat','lng','near'].forEach(function(k){ var v=src.get(k); if(v) keep.set(k,v); });
+      var s=keep.toString(); return 'https://www.advantage.bid/all-events'+(s?('?'+s):'');
+    }catch(e){ return 'https://www.advantage.bid/all-events'; }
+  }
   // Part 1: hovering / focusing an event drawer card opens the matching marker preview on the map.
   // Connect by STABLE map id (the event card's data-id IS the marker's MP.byId key, 'ev-<uuid>') —
   // never by title text — and reuse the single event popup renderer (mpOpenCard → mpEventCardHTML)
@@ -1190,20 +1233,37 @@
     var coords=[rec.lng,rec.lat];
     function open(){ mpOpenCard({ properties:{ id:rec.id, cat:rec.category_key, name:rec.name },
       geometry:{ type:'Point', coordinates:coords } }); }
-    // Pan (never zoom) to bring an off-screen marker into view so the preview is visible.
+    // Pan (never zoom) to bring an off-screen marker into view so the preview is visible. Flag the
+    // move as preview-driven so its moveend does NOT rebuild the drawer (which would drop the hover
+    // / focus the customer is mid-interaction with).
     try{
       var p=map.project(coords), vw=window.innerWidth, vh=window.innerHeight, pad=90;
-      if(p.x<pad||p.x>vw-pad||p.y<pad||p.y>vh-pad){ map.easeTo({center:coords,duration:420}); map.once('moveend',open); return; }
+      if(p.x<pad||p.x>vw-pad||p.y<pad||p.y>vh-pad){ MP._previewPan=true; map.easeTo({center:coords,duration:420}); map.once('moveend',function(){ open(); MP._previewPan=false; }); return; }
     }catch(e){}
     open();
   }
+  var _lastAnnounced=null;
+  function announceVisible(count){                 // a11y: announce the visible count only when it changes
+    if(count==null || count===_lastAnnounced) return; _lastAnnounced=count;
+    var el=$('drawerLive'); if(!el) return;
+    el.textContent=(count===0?'No events visible in this area.':(count+(count===1?' event':' events')+' visible on the map.'));
+  }
   function buildList(f){
-    var list=$('list'); list.innerHTML=''; $('dTitle').textContent=TT[f];
+    var list=$('list');
+    // Preserve keyboard focus across the rebuild.
+    var focusedId=null; try{ var ae=document.activeElement; if(ae&&ae.classList&&ae.classList.contains('card')&&list.contains(ae)) focusedId=ae.dataset.id; }catch(e){}
+    list.innerHTML=''; $('dTitle').textContent=TT[f];
     var q=($('sInput').value||'').toLowerCase();
+    var viewport=(f!=='archive');                  // Events Near You / Ending Soon / Upcoming follow the visible map
     var rows=source(f).filter(F[f]).filter(function(d){return !q||d.t.toLowerCase().indexOf(q)>=0||(d.city||'').toLowerCase().indexOf(q)>=0;});
-    $('dSub').textContent=rows.length+(f==='archive'?' completed auctions':((rows.length===1?' event':' events')+' · hover to preview on the map'));
+    if(viewport){ rows=sortForViewport(rows.filter(inViewport)); }
+    // Count + subtitle reflect what is actually visible on the map (never the full dataset).
+    if(f==='archive'){ $('dSub').textContent=rows.length+' completed auctions'; }
+    else { $('dSub').textContent=(rows.length===0?'No events visible in this area':(rows.length+(rows.length===1?' event':' events')+' visible on the map')); }
+    announceVisible(viewport?rows.length:null);
     if(!rows.length){
-      list.innerHTML='<div class="dempty">'+(f==='archive'?'No past auctions to show yet.':'No events to show here right now.')+'<br><a href="/search.html">Browse all events →</a></div>';
+      if(f==='archive'){ list.innerHTML='<div class="dempty">No past auctions to show yet.<br><a href="/search.html">Browse all events &rarr;</a></div>'; }
+      else { list.innerHTML='<div class="dempty">No events are visible in this area.<br>Move or zoom the map to explore other events.<br><a href="'+listViewHref()+'">Open List View &rarr;</a></div>'; }
       return;
     }
     rows.forEach(function(d){
@@ -1224,6 +1284,11 @@
       }
       list.appendChild(c);
     });
+    // Restore focus: same card if still visible, else a sensible nearby control (the active tab).
+    if(focusedId){ try{
+      var again=list.querySelector('.card[data-id="'+focusedId+'"]');
+      if(again) again.focus(); else { var tab=document.querySelector('.dtab.on'); if(tab) tab.focus(); }
+    }catch(e){} }
   }
   function highlight(id,on){ var d=markersById[id]; if(d&&d._el)d._el.classList.toggle('active',on); var c=document.querySelector('.card[data-id="'+id+'"]'); if(c)c.classList.toggle('active',on); }
 
