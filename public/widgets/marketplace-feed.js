@@ -181,7 +181,11 @@
     var dist = (it.distance_mi != null) ? ('<div class="amf-dist">' + it.distance_mi + ' mi away</div>') : '';
     var meta = ['<div>' + esc(whenLabel(it)) + '</div>', loc ? ('<div>' + esc(loc) + '</div>') : '',
       it.company ? ('<div>by ' + esc(it.company) + '</div>') : '', dist].filter(Boolean).join('');
-    return '<a class="amf-card" href="' + API_BASE + esc(it.url) + '" data-cardtype="' + it.type + '">' + img +
+    // target="_top" so a card opens the canonical Railway detail page in the TOP window. Without it,
+    // a click inside the BD iframe navigates the iframe to event.html/auction-view.html, which Railway
+    // refuses to frame cross-origin (X-Frame-Options: SAMEORIGIN) → a blank/gray frame. The Map link
+    // uses _top for the same reason.
+    return '<a class="amf-card" target="_top" href="' + API_BASE + esc(it.url) + '" data-cardtype="' + it.type + '">' + img +
       '<div class="amf-body">' + badge(it) + '<h3 class="amf-title">' + esc(it.title || 'Untitled event') + '</h3>' +
       '<div class="amf-meta">' + meta + '</div><div class="amf-cta">' + cta(it) + '</div></div></a>';
   }

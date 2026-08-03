@@ -146,7 +146,10 @@
     var closes = it.availability && it.availability.closesAt ? ('Ends ' + relTime(it.availability.closesAt)) : '';
     var auctionLine = (it.auction && it.auction.title) ? ('<div>from ' + esc(it.auction.title) + '</div>') : '';
     var meta = [closes ? '<div>' + esc(closes) + '</div>' : '', loc ? '<div>' + esc(loc) + '</div>' : '', auctionLine].filter(Boolean).join('');
-    return '<a class="fi-card" href="' + esc(it.canonicalUrl) + '" data-lot="' + esc(it.id) + '">' +
+    // target="_top" so a card opens the canonical Railway lot page in the TOP window; without it a click
+    // inside the BD iframe navigates the iframe to lot.html, which Railway blocks from cross-origin
+    // framing (X-Frame-Options: SAMEORIGIN) → a blank/gray frame.
+    return '<a class="fi-card" target="_top" href="' + esc(it.canonicalUrl) + '" data-lot="' + esc(it.id) + '">' +
       '<div class="fi-imgwrap">' + img + '<div class="fi-badges">' + badgesHtml(it) + '</div></div>' +
       '<div class="fi-body"><h3 class="fi-title">' + esc(it.title || 'Untitled lot') + '</h3>' +
       priceHtml(it) + '<div class="fi-meta">' + meta + '</div><div class="fi-cta">View item →</div></div></a>';

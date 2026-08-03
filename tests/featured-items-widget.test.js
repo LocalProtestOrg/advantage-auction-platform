@@ -25,8 +25,10 @@ describe('Featured Items WIDGET — premium image-first discovery grid', () => {
     expect(widget).not.toMatch(/carousel|scroll-snap/i);
     expect(widget).toContain('aspect-ratio:4/3'); // reserved image space → no layout shift
   });
-  test('whole card is a single anchor to the canonical lot page (no nested interactive els)', () => {
-    expect(widget).toMatch(/<a class="fi-card" href="' \+ esc\(it\.canonicalUrl\)/);
+  test('whole card is a single anchor to the canonical lot page, opening TOP-level (no nested interactive els)', () => {
+    // target="_top" so a click opens lot.html full-screen instead of inside the cross-origin BD iframe
+    // (which Railway blocks via X-Frame-Options → blank/gray). See tests/event-card-routing.test.js.
+    expect(widget).toMatch(/<a class="fi-card" target="_top" href="' \+ esc\(it\.canonicalUrl\)/);
     expect(widget).not.toMatch(/<button[^>]*>[^<]*<a/); // no nested interactive
   });
   test('true numbered pagination, 12/page, capped at 6 pages', () => {
