@@ -111,7 +111,7 @@
     var u = state.user, m = MODE_META[state.mode] || MODE_META.buying;
     return '<header class="adv-header">' +
       '<a class="adv-mobile-brand" href="https://advantage.bid" style="text-decoration:none" aria-label="Advantage.Bid home"><div class="adv-brand-mark">A</div><div class="adv-brand-name">Advantage</div></a>' +
-      '<h1 id="adv-title">Home</h1>' +
+      '<h1 id="adv-title">Dashboard Home</h1>' +
       '<span class="adv-chip info" id="adv-mode-chip" style="margin-left:8px">' + esc(m.label) + '</span>' +
       '<div class="adv-header-spacer"></div>' +
       '<button class="adv-icon-btn" id="adv-bell" aria-label="Updates and notifications">🔔<span class="adv-dot"></span></button>' +

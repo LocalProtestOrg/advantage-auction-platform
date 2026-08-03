@@ -18,7 +18,7 @@
 
   // ── BUYING experience — feels like a marketplace, never like auction software ──
   var BUYING = [
-    { id: 'home',      label: 'Home',      emoji: '🏠', href: '#home',      primaryMobile: true },
+    { id: 'home',      label: 'Dashboard Home',      emoji: '🏠', href: '#home',      primaryMobile: true },
     { id: 'watchlist', label: 'Watchlist', emoji: '❤️', href: '#watchlist', primaryMobile: true },
     { id: 'auctions',  label: 'My Bids',   emoji: '🎟️', href: '#auctions',  primaryMobile: true },
     { id: 'purchases', label: 'Purchases', emoji: '📦', href: '#purchases', primaryMobile: true },
@@ -28,7 +28,7 @@
 
   // ── SELLING experience — an efficient operational workspace ──
   var SELLING = [
-    { id: 'home',      label: 'Home',           emoji: '🏠', href: '#home',                    primaryMobile: true },
+    { id: 'home',      label: 'Dashboard Home',           emoji: '🏠', href: '#home',                    primaryMobile: true },
     { id: 'sell',      label: 'My Auctions',    emoji: '🔨', href: '#sell',                    primaryMobile: true },
     { id: 'create',    label: 'Create Auction', emoji: '➕', href: '/seller-create.html', external: true, primaryMobile: true },
     { id: 'analytics', label: 'Sale Stats',     emoji: '📊', href: '#analytics' },
@@ -39,7 +39,7 @@
 
   // ── ADMINISTRATION experience — a dedicated operational workspace ──
   var ADMIN = [
-    { id: 'home',     label: 'Home',       emoji: '🏠', href: '#home',                 primaryMobile: true },
+    { id: 'home',     label: 'Dashboard Home',       emoji: '🏠', href: '#home',                 primaryMobile: true },
     { id: 'moderate', label: 'Moderation', emoji: '📋', href: '/admin/moderation.html', external: true, primaryMobile: true },
     { id: 'invoices', label: 'Invoices',   emoji: '🧾', href: '/admin/invoices.html',  external: true, primaryMobile: true },
     { id: 'members',  label: 'Members',    emoji: '👤', href: '/admin/users.html',     external: true },

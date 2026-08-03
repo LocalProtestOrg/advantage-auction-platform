@@ -160,17 +160,19 @@
   function relTime(iso) { if (!iso) return ''; var ms = new Date(iso).getTime() - Date.now(); var a = Math.abs(ms);
     var m = Math.round(a / 60000), h = Math.round(m / 60), d = Math.round(h / 24);
     var v = d >= 1 ? (d + 'd') : (h >= 1 ? (h + 'h') : (Math.max(1, m) + 'm')); return ms > 0 ? ('in ' + v) : v; }
+  // STATUS line (timing) — separate from the TYPE badge. Never returns a type word.
   function whenLabel(it) {
-    if (it.type === 'estate_sale') { if (it.starts_at) { try { return new Date(it.starts_at).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' }); } catch (e) {} } return 'Estate sale'; }
+    if (it.type === 'estate_sale') { if (it.starts_at) { try { return new Date(it.starts_at).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' }); } catch (e) {} } return ''; }
     if (it.status === 'active' && it.ends_at) return 'Ends ' + relTime(it.ends_at);
     if (it.starts_at && new Date(it.starts_at).getTime() > Date.now()) return 'Starts ' + relTime(it.starts_at);
-    return 'Live auction';
+    return 'Live now';
   }
+  // Primary badge is the customer-facing event TYPE, never a timing status like "Coming soon". Timing
+  // status is shown separately in the meta line (whenLabel). Mirrors the event-detail type vocabulary.
   function badge(it) {
-    if (it.type === 'estate_sale') return '<span class="amf-badge amf-b-sale">Estate Sale</span>';
-    if (it.status === 'active') { var soon = it.ends_at && (new Date(it.ends_at).getTime() - Date.now()) < 24 * 3600 * 1000;
-      return soon ? '<span class="amf-badge amf-b-soon">Ending soon</span>' : '<span class="amf-badge amf-b-live">Live auction</span>'; }
-    return '<span class="amf-badge amf-b-up">Coming soon</span>';
+    return it.type === 'estate_sale'
+      ? '<span class="amf-badge amf-b-sale">Estate Sale</span>'
+      : '<span class="amf-badge amf-b-up">Auction</span>';
   }
   function cta(it) { return it.type === 'estate_sale' ? 'View estate sale →' : (it.status === 'active' ? 'Bid now →' : 'View auction →'); }
   function card(it) {
@@ -256,8 +258,8 @@
     '</div>' +
     '<div class="amf-bar">' + typeSeg +
       '<div class="amf-right">' + sortSel +
-        '<div class="amf-toggle"><a href="#" aria-current="true">List</a>' +
-        '<a id="amf-map" href="' + mapHref() + '" target="_top">Map</a></div></div>' +
+        '<div class="amf-toggle"><a href="#" aria-current="true">List View</a>' +
+        '<a id="amf-map" href="' + mapHref() + '" target="_top">Map View</a></div></div>' +
     '</div>' +
     '<div class="amf-count" id="amf-count" role="status" aria-live="polite"></div>';
   }

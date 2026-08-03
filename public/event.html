@@ -62,7 +62,10 @@
   /* Lightbox */
   #lb{position:fixed;inset:0;z-index:60;display:none;background:rgba(8,12,20,.92);align-items:center;justify-content:center;flex-direction:column}
   #lb.open{display:flex}
-  #lb .lbimg{max-width:94vw;max-height:82vh;object-fit:contain;border-radius:8px;box-shadow:0 20px 60px rgba(0,0,0,.5);background:#111}
+  /* Fill the viewport: the image box is 94vw x 90vh and the photo is contained within it (aspect
+     preserved, never cropped). Sizing the box (not just max caps) makes even a modest-resolution source
+     use most of the screen. Source integrity is preserved (no larger CDN variant is available). */
+  #lb .lbimg{width:94vw;height:90vh;max-width:94vw;max-height:90vh;object-fit:contain;border-radius:8px;box-shadow:0 20px 60px rgba(0,0,0,.5);background:transparent}
   #lb .lbbar{position:absolute;top:0;left:0;right:0;display:flex;align-items:center;justify-content:space-between;padding:14px 16px;color:#fff}
   #lb .lbcount{font-weight:700;font-size:14px}
   #lb .lbx,#lb .lbnav{border:0;background:rgba(255,255,255,.14);color:#fff;border-radius:999px;cursor:pointer;font-size:20px;line-height:1;display:flex;align-items:center;justify-content:center}
@@ -93,7 +96,7 @@
 </style>
 </head>
 <body>
-<header><div class="hin"><a class="brand" href="/">Advantage<span>.Bid</span></a><a class="hlink" href="/events.html">Events</a><div class="sp"></div><a class="hlink" href="/">🗺 Map</a></div></header>
+<header><div class="hin"><a class="brand" href="https://advantage.bid">Advantage<span>.Bid</span></a><a class="hlink" href="/events.html">Events</a><div class="sp"></div><a class="hlink" href="/">🗺 Map</a></div></header>
 <div class="wrap">
   <div id="content"><div class="loading">Loading…</div></div>
 </div>
