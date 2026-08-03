@@ -164,3 +164,45 @@ describe('shareMeta JSON-LD organizer is the real host, never the owner org for 
     expect(s).toMatch(/r\.source === 'imported' \? r\.organizer_name : r\.org_name/);
   });
 });
+
+describe('refresh populator cannot bypass the publication gate', () => {
+  const refresh = read('scripts', 'refresh-estatesales-national.js');
+  test('runs the SHARED evaluatePublication before publishing (reuses publicationGate.js)', () => {
+    expect(refresh).toMatch(/require\('\.\.\/src\/services\/eventImport\/publicationGate'\)/);
+    expect(refresh).toMatch(/evaluatePublication\(d\)/);
+  });
+  test('no unguarded bulk-publish UPDATE and no skipGate in the routine', () => {
+    // the old bypass was a single UPDATE ... WHERE source='imported' AND status='draft' AND (end_at ...)
+    expect(refresh).not.toMatch(/UPDATE events SET status='published'[\s\S]{0,120}WHERE source='imported' AND status='draft' AND \(end_at/);
+    expect(refresh).not.toMatch(/skipGate:\s*true/); // never passes skipGate to bypass the gate
+    // per-event publish is id-scoped
+    expect(refresh).toMatch(/WHERE id=\$1 AND source='imported' AND status='draft'/);
+  });
+  test('held events are counted with reasons (auditable log)', () => {
+    expect(refresh).toMatch(/held\+\+/);
+    expect(refresh).toMatch(/heldReasons/);
+  });
+});
+
+describe('additional gate/classifier cases from the remediation spec', () => {
+  test('verified event-SPECIFIC company URL is preferred over the homepage', () => {
+    const dest = policy.pickHostDestination({
+      registration_url: 'https://acme-estates.com/sales/2026-spring',
+      organizer_website_url: 'https://acme-estates.com',
+    });
+    expect(dest.url).toBe('https://acme-estates.com/sales/2026-spring');
+  });
+  test('verified company HOMEPAGE is used as the fallback when no event page exists', () => {
+    const dest = policy.pickHostDestination({ organizer_website_url: 'https://acme-estates.com' });
+    expect(dest.url).toBe('https://acme-estates.com');
+  });
+  test('a competitor auction platform (K-BID) as the only destination → held', () => {
+    expect(policy.classifyExternalUrl('https://www.k-bid.com/auction/list?affiliate=481577').ok).toBe(false);
+    expect(policy.pickHostDestination({ bidding_url: 'https://www.k-bid.com/auction/list?affiliate=1' })).toBeNull();
+  });
+  test('native (organization) events are unaffected by the imported host/url gate', () => {
+    const r = evaluatePublication({ source: 'organization', title: 'Community Auction',
+      start_at: '2999-01-01T00:00:00Z', end_at: '2999-01-02T00:00:00Z', city: 'Austin', state: 'TX', image_count: 1 });
+    expect(r.ready).toBe(true);
+  });
+});

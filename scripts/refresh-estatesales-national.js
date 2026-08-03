@@ -18,6 +18,7 @@ const https = require('https');
 const db = require('../src/db');
 const { withTransaction } = require('../src/utils/withTransaction');
 const { runImport } = require('../src/services/eventImport');
+const { evaluatePublication } = require('../src/services/eventImport/publicationGate');
 const eventGeo = require('../src/services/eventGeocodingService');
 
 const DRY = process.argv.includes('--dry-run');
@@ -95,16 +96,31 @@ async function main() {
 
   if (!DRY) {
     const createdIds = res.items.filter((i) => i.outcome === 'created' && i.eventId).map((i) => i.eventId);
-    // Self-healing publish: publish EVERY imported draft with a future end, not just this run's
-    // creations. This recovers drafts left behind by any prior interrupted or partial run (the
-    // "partial refresh recovers on the next run" guarantee). Idempotent; ended drafts are left alone.
-    const u = await db.query(`UPDATE events SET status='published', published_at=now(), updated_at=now()
-      WHERE source='imported' AND status='draft' AND (end_at IS NULL OR end_at >= now()) RETURNING id`);
-    const published = u.rowCount;
+    // GOVERNED self-healing publish (recovers drafts from any prior interrupted/partial run). Every
+    // imported draft is checked against the SHARED publication gate (evaluatePublication) — an event
+    // becomes public ONLY with a verified host company + a company-controlled destination + valid
+    // quality/privacy/date/image. Held events stay draft with their reasons logged. No bulk UPDATE may
+    // bypass the gate, and skipGate is never used here. An event that has lost its verified destination
+    // is simply not re-published (held), consistent with lifecycle policy.
+    const drafts = (await db.query(
+      `SELECT e.id, e.source, e.title, e.start_at, e.end_at, e.event_format, e.city, e.state, e.lat, e.lng,
+              e.organizer_name, e.organizer_website_url, e.registration_url, e.bidding_url,
+              (SELECT count(*)::int FROM event_images ei WHERE ei.event_id = e.id) AS image_count
+         FROM events e
+        WHERE e.source = 'imported' AND e.status = 'draft' AND (e.end_at IS NULL OR e.end_at >= now())`)).rows;
+    let published = 0, held = 0; const heldReasons = {};
+    for (const d of drafts) {
+      const g = evaluatePublication(d);
+      if (!g.ready) { held++; g.reasons.forEach((x) => { heldReasons[x] = (heldReasons[x] || 0) + 1; }); continue; }
+      const up = await db.query(
+        `UPDATE events SET status='published', published_at=now(), updated_at=now()
+          WHERE id=$1 AND source='imported' AND status='draft' RETURNING id`, [d.id]);
+      if (up.rowCount) published++;
+    }
     // Online-aware two-tier geocoding of the newly published PHYSICAL events (online → no pin).
     let geocoded = 0; const targets = await eventGeo.findMissingEventCoordinates(200);
     for (const e of targets) { const r = await eventGeo.geocodeEvent(e.id); if (r.ok && !r.skipped) geocoded++; }
-    console.log(`[refresh] created ${createdIds.length}, published ${published}, geocoded ${geocoded} (new physical events).`);
+    console.log(`[refresh] created ${createdIds.length}, published ${published}, held ${held} ${JSON.stringify(heldReasons)}, geocoded ${geocoded} (new physical events).`);
   }
 }
 main().catch((e) => { console.error('[refresh] FAILED:', e && e.message); process.exitCode = 1; }).finally(() => db.pool.end());
