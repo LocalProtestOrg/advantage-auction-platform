@@ -330,6 +330,16 @@
   .maplibregl-popup.mp-card .maplibregl-popup-content{padding:0;border-radius:16px;overflow:hidden;box-shadow:0 18px 44px rgba(8,16,28,.30);width:262px;max-width:78vw}
   .maplibregl-popup.mp-card .maplibregl-popup-tip{border-top-color:#fff}
   .maplibregl-popup.mp-card .maplibregl-popup-close-button{font-size:19px;color:#fff;padding:2px 8px;z-index:2;text-shadow:0 1px 3px rgba(0,0,0,.4)}
+  /* Event preview card (map marker → event) */
+  .mpc-ev{width:262px;max-width:78vw;background:#fff}
+  .mpc-ev-img{width:100%;height:132px;background:#eef0f3 center/cover no-repeat}
+  .mpc-ev-b{padding:12px 14px 14px}
+  .mpc-ev-badge{display:inline-block;font-size:10.5px;font-weight:800;letter-spacing:.03em;text-transform:uppercase;color:#40536a;background:#eef2f6;border-radius:999px;padding:3px 9px;margin-bottom:7px}
+  .mpc-ev-t{font-family:"Fraunces","Georgia",serif;font-weight:600;font-size:16px;line-height:1.2;color:var(--ink);margin-bottom:3px}
+  .mpc-ev-host{font-size:12.5px;color:#3a4a5c;margin-bottom:4px}
+  .mpc-ev-m{font-size:12.5px;color:var(--muted);margin-bottom:11px}
+  .mpc-ev-cta{display:block;text-align:center;background:var(--live);color:#fff;font-weight:800;font-size:13.5px;text-decoration:none;border-radius:10px;padding:10px 12px}
+  .mpc-ev-cta:hover{filter:brightness(1.06)}
   .mpc-head{padding:14px 14px 12px;color:#fff;display:flex;gap:11px;align-items:center}
   .mpc-mono{flex:0 0 auto;width:44px;height:44px;border-radius:12px;background:rgba(255,255,255,.22);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:17px;letter-spacing:.02em}
   .mpc-h-t{min-width:0}
@@ -625,7 +635,7 @@
   }
   function j(u){ return fetch(u).then(function(r){return r.json();}).then(function(d){return (d&&d.data)||[];}).catch(function(){return [];}); }
 
-  var DATA=[], ARCH=[], archiveLoaded=false;
+  var DATA=[], ARCH=[], archiveLoaded=false, EVENTS_MAP=[];
   function loadCore(){
     return Promise.all([ j('/api/public/auctions?state=active&limit=60'), j('/api/public/auctions?state=published&limit=60') ])
       .then(function(r){ var rows=[].concat(r[0],r[1]); DATA=rows.map(toD); return DATA; });
@@ -684,10 +694,11 @@
      its own registry. Auction pins/API/geocoding/interactions are untouched. If the BD fetch
      fails, auctions keep working and only the company rows read 0. Camera is never moved here. */
   var MP = { records:[], counts:{}, active:{}, loaded:false, card:null };
+  // STATUS filters (secondary) — toggle the native-auction beacons by timing. Not event TYPES.
   var MP_EVENTS = [
-    { key:'live',   label:'Live Auctions',     color:'var(--live)' },
-    { key:'ending', label:'Ending Soon',       color:'var(--ending)' },
-    { key:'coming', label:'Upcoming Auctions', color:'var(--coming)' }
+    { key:'live',   label:'Live Now',     color:'var(--live)' },
+    { key:'ending', label:'Ending Soon',  color:'var(--ending)' },
+    { key:'coming', label:'Upcoming',     color:'var(--coming)' }
   ];
   var MP_CATS = [
     { key:'estate_sale_companies', label:'Estate Sale Companies', color:'#16A34A', glyph:'house' },
@@ -695,7 +706,14 @@
     { key:'appraisers',            label:'Appraisers',            color:'#E0A82E', glyph:'lens'  },
     { key:'estate_services',       label:'Other Estate Services', color:'#475569', glyph:'dots'  }
   ];
-  var MP_CAT_BY_KEY = {}; MP_CATS.forEach(function(c){ MP_CAT_BY_KEY[c.key]=c; MP.active[c.key]=true; });
+  // Public EVENT markers (real event TYPES) — plotted on the SAME 'mp' GeoJSON source so clustering,
+  // toggling, and filtering are reused. Distinct colors from the company/professional pins.
+  var MP_EVENT_CATS = [
+    { key:'event_auction',     label:'Auctions',     color:'#B5273B', glyph:'gavel' },
+    { key:'event_estate_sale', label:'Estate Sales', color:'#7C3AED', glyph:'house' }
+  ];
+  var MP_ALL_CATS = MP_CATS.concat(MP_EVENT_CATS);
+  var MP_CAT_BY_KEY = {}; MP_ALL_CATS.forEach(function(c){ MP_CAT_BY_KEY[c.key]=c; MP.active[c.key]=true; });
   // Glyph inner paths (24×24, inherit fill from parent). Distinguish by SHAPE, not colour alone.
   var MP_GLYPH = {
     house:'<path d="M12 3 3 11h2.4v9H10v-5h4v5h4.6v-9H21z"/>',
@@ -818,12 +836,42 @@
       else { requestAnimationFrame(function(){ requestAnimationFrame(run); }); }
     }catch(e){}
   }
+  // Event preview: type badge, title, verified host, date range, city/state, status, and a "View Event"
+  // button to the canonical Railway event page. Never links to the discovery source; never shows the
+  // owner/importer org as host.
+  function mpEventStatus(r){
+    var now=Date.now(), s=r.start_at?new Date(r.start_at).getTime():null, e=r.end_at?new Date(r.end_at).getTime():null;
+    if(e&&e<now) return 'Ended';
+    if(s&&s>now) return 'Upcoming';
+    return 'In progress';
+  }
+  function mpEventCardHTML(r){
+    var loc=[r.city,r.state].filter(Boolean).join(', '), when='';
+    try{ if(r.start_at){ var d1=new Date(r.start_at); when=d1.toLocaleDateString('en-US',{month:'short',day:'numeric'});
+      if(r.end_at){ var d2=new Date(r.end_at); if(d2.toDateString()!==d1.toDateString()) when+=' to '+d2.toLocaleDateString('en-US',{month:'short',day:'numeric'}); } } }catch(e){}
+    var img=r.image_url?'<div class="mpc-ev-img" style="background-image:url(\''+mpEsc(r.image_url)+'\')"></div>':'';
+    return '<div class="mpc-ev">'+img+'<div class="mpc-ev-b">'
+      +'<span class="mpc-ev-badge">'+mpEsc(r.event_type_label||'Sale Event')+'</span>'
+      +'<div class="mpc-ev-t">'+mpEsc(r.name)+'</div>'
+      +(r.host_company?'<div class="mpc-ev-host">by '+mpEsc(r.host_company)+'</div>':'')
+      +'<div class="mpc-ev-m">'+[when,loc,mpEventStatus(r)].filter(Boolean).map(mpEsc).join(' &middot; ')+'</div>'
+      +'<a class="mpc-ev-cta" href="'+mpEsc(r.url)+'">View Event</a></div></div>';
+  }
   function mpOpenCard(f){
     var p=f.properties;
     var coords=f.geometry.coordinates;
-    var dir='https://www.google.com/maps/dir/?api=1&destination='+encodeURIComponent(coords[1]+','+coords[0]);
     var rec=(MP.byId&&MP.byId[p.id])||null;
     if(MP.card) MP.card.remove();
+    // Public EVENT marker → event preview (not a company card).
+    if(rec && rec.isEvent){
+      MP.card=new maplibregl.Popup({className:'mp-card',closeButton:true,closeOnClick:true,offset:26,maxWidth:'none'})
+        .setLngLat(coords).setHTML(mpEventCardHTML(rec)).addTo(map);
+      document.body.classList.add('mp-open');
+      MP.card.on('close', function(){ document.body.classList.remove('mp-open'); });
+      mpFitCardIntoView();
+      return;
+    }
+    var dir='https://www.google.com/maps/dir/?api=1&destination='+encodeURIComponent(coords[1]+','+coords[0]);
     var MPf=window.MarketplaceProfile;
     if(MPf && rec){
       // Premium profile card (reusable component). Full record carries the approved image
@@ -913,9 +961,11 @@
   function mpBuildLegend(){
     var el=document.getElementById('legend'); if(!el) return;
     var html='<button class="legend-close" id="legendClose" type="button" aria-label="Hide map key">&times;</button>';
-    html+='<div class="legend-sec">Events</div>';
+    html+='<div class="legend-sec">Event Type</div>';
+    MP_EVENT_CATS.forEach(function(c){ html+=mpRow('mp',c.key,c.color,c.glyph,c.label,(MP.counts&&MP.counts[c.key])||0); });
+    html+='<div class="legend-sec">Status</div>';
     MP_EVENTS.forEach(function(e){ html+=mpRow('auction',e.key,e.color,'',e.label,mpAuctionCount(e.key)); });
-    html+='<div class="legend-sec">Marketplace</div>';
+    html+='<div class="legend-sec">Marketplace / Professionals</div>';
     MP_CATS.forEach(function(c){ html+=mpRow('mp',c.key,c.color,c.glyph,c.label,(MP.counts&&MP.counts[c.key])||0); });
     html+='<div class="legend-tools"><button type="button" data-tool="show">Show All</button>'
       +'<button type="button" data-tool="hide">Hide All</button><button type="button" data-tool="reset">Reset</button></div>';
@@ -958,24 +1008,40 @@
     if(fab) fab.onclick=function(){ var open=el.classList.toggle('open'); fab.setAttribute('aria-expanded',open?'true':'false'); };
     if(cl) cl.onclick=function(){ el.classList.remove('open'); if(fab) fab.setAttribute('aria-expanded','false'); };
   }
+  // Map an events/map API record → an MP.records entry on the shared 'mp' source. Event ids are
+  // prefixed so they never collide with company ids; isEvent drives the event preview card.
+  function evToMp(r){
+    return { id:'ev-'+r.id, name:r.title, category_key:(r.type==='auction'?'event_auction':'event_estate_sale'),
+      lat:+r.lat, lng:+r.lng, city:r.city||'', state:r.state||'', isEvent:true, slug:r.slug, url:r.url,
+      image_url:r.cover_image_url||null, event_type_label:r.event_type_label, start_at:r.start_at, end_at:r.end_at,
+      host_company:r.host_company||null };
+  }
   function mpInit(){
     if(MP.loaded) return; MP.loaded=true;
     try{ if(window.MarketplaceProfile) MarketplaceProfile.injectStyles(); }catch(e){}
-    mpBuildLegend();  // event rows work immediately, independent of BD
-    fetch('/api/public/marketplace').then(function(r){return r.json();}).then(function(j){
-      if(!j || !j.success) throw new Error('marketplace unavailable');
-      MP.records=(j.data||[]).filter(function(r){ return r.lat!=null && r.lng!=null; });
-      MP.byId={}; MP.records.forEach(function(r){ MP.byId[r.id]=r; });  // full record (image obj intact) for the card
-      MP.counts=j.counts||{};
-      var pending=MP_CATS.length;
-      function mpDone(){ mpAddLayers(); mpBuildLegend(); mpDeepLink(); }
-      MP_CATS.forEach(function(c){
+    mpBuildLegend();  // rows work immediately, independent of the fetches
+    // Load company/professional pins AND public event markers. Either failing leaves the other working.
+    Promise.all([
+      fetch('/api/public/marketplace').then(function(r){return r.json();}).catch(function(){return {success:false};}),
+      fetch('/api/public/events/map').then(function(r){return r.json();}).catch(function(){return {success:false};})
+    ]).then(function(res){
+      var mk=res[0]||{}, ev=res[1]||{};
+      var companyRecs=(mk.success&&mk.data?mk.data:[]).filter(function(r){ return r.lat!=null && r.lng!=null; });
+      var eventRecs=(ev.success&&ev.data?ev.data:[]).filter(function(r){ return r.lat!=null && r.lng!=null; }).map(evToMp);
+      EVENTS_MAP=eventRecs;                                       // for the drawer
+      MP.records=companyRecs.concat(eventRecs);
+      MP.byId={}; MP.records.forEach(function(r){ MP.byId[r.id]=r; });
+      MP.counts=Object.assign({}, mk.counts||{}, {
+        event_auction:(ev.counts&&ev.counts.auction)||0, event_estate_sale:(ev.counts&&ev.counts.estate_sale)||0 });
+      var pending=MP_ALL_CATS.length;
+      function mpDone(){ mpAddLayers(); mpBuildLegend(); mpDeepLink(); if(typeof mpRefreshDrawer==='function') mpRefreshDrawer(); }
+      MP_ALL_CATS.forEach(function(c){
         var img=new Image(60,80);
         img.onload=function(){ try{ if(!map.hasImage('mp-'+c.key)) map.addImage('mp-'+c.key,img,{pixelRatio:2}); }catch(e){} if(--pending===0){ mpDone(); } };
         img.onerror=function(){ if(--pending===0){ mpDone(); } };
         img.src='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(mpPinSVG(c.color,c.glyph));
       });
-    }).catch(function(){ /* BD unavailable — auctions unaffected; company rows stay at 0 */ });
+    }).catch(function(){});
   }
   // Shareable company deep-link: /?company=<uuid> flies to and opens that company's profile
   // card once the marketplace layer is ready. Silently no-ops for unknown/missing ids.
@@ -1054,15 +1120,26 @@
 
   /* ── Drawer list + map⇄card sync ──────────────────────────────────────── */
   var F={near:function(d){return d.state!=='historical';},ending:function(d){return d.state==='ending';},coming:function(d){return d.state==='coming';},archive:function(d){return d.state==='historical';}};
-  var TT={near:'Auctions near you',ending:'Ending soon',coming:'Coming soon',archive:'Past auctions'};
-  function source(f){ return f==='archive'?ARCH:DATA; }
+  var TT={near:'Events near you',ending:'Ending soon',coming:'Upcoming',archive:'Past auctions'};
+  // Public events → drawer cards (same shape as auctions), so the drawer matches the map instead of
+  // showing zero. Links go to the canonical /event.html?slug page.
+  function evToDrawer(r){
+    var now=Date.now(), s=r.start_at?new Date(r.start_at).getTime():null, e=r.end_at?new Date(r.end_at).getTime():null;
+    var st=(e&&e<now)?'historical':((s&&s>now)?'coming':'live');
+    var end=st==='coming'?('Opens '+shortDate(r.start_at)):(st==='historical'?'Ended':(r.end_at?('Ends '+shortDate(r.end_at)):'In progress'));
+    return { id:r.id, t:(r.event_type_label?r.event_type_label+': ':'')+ (r.name||'Event'), city:[r.city,r.state].filter(Boolean).join(', '),
+      state:st, lots:0, end:end, lng:r.lng, lat:r.lat, mi:null,
+      bg:(r.image_url?("url('"+esc(r.image_url)+"'),"+GRAD[0]):GRAD[0]), href:r.url, isEvent:true };
+  }
+  function mpRefreshDrawer(){ var on=document.querySelector('.dtab.on'); buildList(on?on.dataset.f:'near'); }
+  function source(f){ return f==='archive'?ARCH:DATA.concat(EVENTS_MAP.map(evToDrawer)); }
   function buildList(f){
     var list=$('list'); list.innerHTML=''; $('dTitle').textContent=TT[f];
     var q=($('sInput').value||'').toLowerCase();
     var rows=source(f).filter(F[f]).filter(function(d){return !q||d.t.toLowerCase().indexOf(q)>=0||(d.city||'').toLowerCase().indexOf(q)>=0;});
-    $('dSub').textContent=rows.length+(f==='archive'?' completed auctions':' auctions · hover to preview on the map');
+    $('dSub').textContent=rows.length+(f==='archive'?' completed auctions':((rows.length===1?' event':' events')+' · hover to preview on the map'));
     if(!rows.length){
-      list.innerHTML='<div class="dempty">'+(f==='archive'?'No past auctions to show yet.':'No auctions to show here right now.')+'<br><a href="/search.html?mode=auctions">Browse all auctions →</a></div>';
+      list.innerHTML='<div class="dempty">'+(f==='archive'?'No past auctions to show yet.':'No events to show here right now.')+'<br><a href="/search.html">Browse all events →</a></div>';
       return;
     }
     rows.forEach(function(d){

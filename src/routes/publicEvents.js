@@ -115,6 +115,42 @@ router.get('/events', asyncRoute(async (req, res) => {
   res.json({ success: true, data: rows.map((r) => serialize(r)) });
 }));
 
+// GET /api/public/events/map — eligible PHYSICAL public events WITH coordinates, for the marketplace map.
+// Only published + non-expired events that already passed the publication gate (draft/held are excluded by
+// status); online events have null coords and are naturally excluded (they remain in List View). Never
+// exposes the discovery source, the owner/importer org as host, or a private street address.
+// Optional ?type=auction|estate_sale. Returns { data, counts:{auction,estate_sale} }.
+router.get('/events/map', asyncRoute(async (req, res) => {
+  const type = String(req.query.type || '').toLowerCase();
+  const where = ["e.status = 'published'", '(e.end_at IS NULL OR e.end_at >= now())',
+    'e.lat IS NOT NULL', 'e.lng IS NOT NULL'];
+  if (type === 'auction') where.push("e.sale_type = 'auction'");
+  else if (type === 'estate_sale') where.push("(e.sale_type IS DISTINCT FROM 'auction')");
+  const { rows } = await db.query(
+    `SELECT e.id, e.slug, e.title, e.city, e.state, e.lat, e.lng, e.sale_type, e.event_format,
+            e.start_at, e.end_at, e.source, e.organizer_name, o.name AS org_name,
+            (SELECT url FROM event_images ei WHERE ei.event_id = e.id ORDER BY is_cover DESC, position ASC LIMIT 1) AS cover_url
+       FROM events e LEFT JOIN organizations o ON o.id = e.organization_id
+      WHERE ${where.join(' AND ')}
+      ORDER BY e.start_at ASC NULLS LAST`);
+  const data = rows.map((r) => {
+    const kind = r.sale_type === 'auction' ? 'auction' : 'estate_sale';
+    // Verified host: imported → the actual organizer (never the owner/importer org); org-authored → the org.
+    const host = r.source === 'imported' ? (r.organizer_name || undefined) : (r.org_name || undefined);
+    return {
+      id: r.id, slug: r.slug, title: r.title, city: r.city, state: r.state,
+      lat: r.lat, lng: r.lng,                       // privacy-safe public offset coords (migration 102)
+      type: kind, event_type_label: eventsService.eventTypeLabel(r),
+      cover_image_url: r.cover_url || null, start_at: r.start_at, end_at: r.end_at,
+      host_company: host,
+      url: '/event.html?slug=' + encodeURIComponent(r.slug || ''),
+    };
+  });
+  const counts = data.reduce((m, d) => { m[d.type] = (m[d.type] || 0) + 1; return m; }, { auction: 0, estate_sale: 0 });
+  res.set('Cache-Control', PUBLIC_CACHE);
+  res.json({ success: true, data, counts });
+}));
+
 // GET /api/public/events/:slug — single published event + all images
 router.get('/events/:slug', asyncRoute(async (req, res) => {
   const { rows } = await db.query(

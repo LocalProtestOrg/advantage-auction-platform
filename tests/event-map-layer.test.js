@@ -1,0 +1,78 @@
+'use strict';
+
+/**
+ * Imported/native events on the marketplace map: the public /events/map endpoint + the client event
+ * marker layer, legend (EVENT TYPE), preview card, and drawer. Source-level assertions (the codebase's
+ * pattern for endpoint contracts + map wiring).
+ */
+const fs = require('fs');
+const path = require('path');
+const read = (...p) => fs.readFileSync(path.join(__dirname, '..', ...p), 'utf8');
+const pub = read('src', 'routes', 'publicEvents.js');
+const index = read('public', 'index.html');
+
+describe('GET /api/public/events/map — eligible physical events with coordinates', () => {
+  const h = pub.slice(pub.indexOf("router.get('/events/map'"), pub.indexOf("// GET /api/public/events/:slug"));
+  test('is registered BEFORE /events/:slug (no route shadowing)', () => {
+    expect(pub.indexOf("router.get('/events/map'")).toBeGreaterThan(-1);
+    expect(pub.indexOf("router.get('/events/map'")).toBeLessThan(pub.indexOf("router.get('/events/:slug'"));
+  });
+  test('returns only published, non-expired events WITH coordinates (online → null coords → excluded)', () => {
+    expect(h).toMatch(/e\.status = 'published'/);
+    expect(h).toMatch(/e\.end_at IS NULL OR e\.end_at >= now\(\)/);
+    expect(h).toMatch(/e\.lat IS NOT NULL/);
+    expect(h).toMatch(/e\.lng IS NOT NULL/);
+  });
+  test('supports ?type=auction | estate_sale', () => {
+    expect(h).toMatch(/e\.sale_type = 'auction'/);
+    expect(h).toMatch(/e\.sale_type IS DISTINCT FROM 'auction'/);
+  });
+  test('normalizes to auction / estate_sale and a customer type label (never "Imported")', () => {
+    expect(h).toMatch(/sale_type === 'auction' \? 'auction' : 'estate_sale'/);
+    expect(h).toMatch(/eventsService\.eventTypeLabel\(r\)/);
+    expect(h).not.toMatch(/Imported/);
+  });
+  test('host = the real organizer for imported (never the owner org); url is the internal event page', () => {
+    expect(h).toMatch(/r\.source === 'imported' \? \(r\.organizer_name \|\| undefined\) : \(r\.org_name/);
+    expect(h).toMatch(/url: '\/event\.html\?slug='/);
+  });
+  test('never exposes the discovery source / external_url / attribution', () => {
+    expect(h).not.toMatch(/attribution_source|attribution_url|external_url/);
+  });
+  test('returns counts by type', () => {
+    expect(h).toMatch(/counts = data\.reduce/);
+    expect(h).toMatch(/\{ auction: 0, estate_sale: 0 \}/);
+  });
+});
+
+describe('map client — event markers on the shared mp layer', () => {
+  test('defines EVENT TYPE categories (Auctions / Estate Sales) distinct from company pins', () => {
+    expect(index).toMatch(/MP_EVENT_CATS = \[/);
+    expect(index).toMatch(/event_auction[\s\S]{0,40}Auctions/);
+    expect(index).toMatch(/event_estate_sale[\s\S]{0,40}Estate Sales/);
+    expect(index).toMatch(/MP_ALL_CATS = MP_CATS\.concat\(MP_EVENT_CATS\)/);
+  });
+  test('loads /api/public/events/map and adds event records to the map source', () => {
+    expect(index).toMatch(/\/api\/public\/events\/map/);
+    expect(index).toMatch(/function evToMp/);
+    expect(index).toMatch(/isEvent:true/);
+    expect(index).toMatch(/EVENTS_MAP=eventRecs/);
+  });
+  test('legend exposes EVENT TYPE (with real counts), STATUS, and MARKETPLACE sections', () => {
+    expect(index).toMatch(/>Event Type</);
+    expect(index).toMatch(/>Status</);
+    expect(index).toMatch(/>Marketplace \/ Professionals</);
+    expect(index).toMatch(/MP_EVENT_CATS\.forEach[\s\S]{0,120}MP\.counts/);
+  });
+  test('event marker opens an event preview → canonical event page (View Event), not the discovery source', () => {
+    expect(index).toMatch(/function mpEventCardHTML/);
+    expect(index).toMatch(/rec && rec\.isEvent/);
+    expect(index).toMatch(/>View Event</);
+    expect(index).toMatch(/href="'\+mpEsc\(r\.url\)/);
+  });
+  test('the right drawer reads "Events near you" and uses the event dataset', () => {
+    expect(index).toMatch(/near:'Events near you'/);
+    expect(index).toMatch(/DATA\.concat\(EVENTS_MAP\.map\(evToDrawer\)\)/);
+    expect(index).not.toMatch(/near:'Auctions near you'/);
+  });
+});
