@@ -271,14 +271,14 @@
   function relTime(iso) { if (!iso) return ''; var ms = Date.now() - new Date(iso).getTime(); if (ms < 0) return 'just now';
     var m = Math.floor(ms / 60000), h = Math.floor(m / 60), d = Math.floor(h / 24);
     if (d >= 1) return d + 'd ago'; if (h >= 1) return h + 'h ago'; if (m >= 1) return m + 'm ago'; return 'just now'; }
-  function sEdit(id, label) { return '<a class="adv-btn primary" style="flex:none;padding:7px 13px" href="/seller-create.html?id=' + encodeURIComponent(id) + '">' + esc(label) + '</a>'; }
+  function sEdit(id, label) { return '<a class="adv-btn primary" style="flex:none;padding:7px 13px" href="/seller-create.html?edit=' + encodeURIComponent(id) + '">' + esc(label) + '</a>'; }
   function sView(id, label) { return '<a class="adv-btn ghost" style="flex:none;padding:7px 13px" href="/auction-view.html?id=' + encodeURIComponent(id) + '">' + esc(label) + '</a>'; }
 
   // ---- Sell workspace (auction management, organized by lifecycle) ----
   function sellerNextAction(a) {
     var s = a.state;
     if (s === 'draft' || s === 'rejected') return sEdit(a.id, s === 'rejected' ? 'Revise' : (a.revision_note ? 'Edit' : 'Continue'));
-    if (s === 'submitted' || s === 'under_review') return '<a class="adv-btn ghost" style="flex:none;padding:7px 13px" href="/seller-create.html?id=' + encodeURIComponent(a.id) + '">View</a>';
+    if (s === 'submitted' || s === 'under_review') return '<a class="adv-btn ghost" style="flex:none;padding:7px 13px" href="/seller-create.html?edit=' + encodeURIComponent(a.id) + '">View</a>';
     return sView(a.id, s === 'closed' ? 'Results' : 'Manage');
   }
   function auctionCard(a) {

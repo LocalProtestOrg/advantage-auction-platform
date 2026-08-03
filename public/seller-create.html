@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="robots" content="noindex, nofollow" />
-  <title>Create Auction - Advantage Auction</title>
+  <title>Create Auction - Advantage.Bid</title>
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -270,7 +270,7 @@
 <body>
 
 <header>
-  <span class="brand">Advantage Auction</span>
+  <span class="brand">Advantage.Bid</span>
   <a href="/app.html">My Auctions</a>
 </header>
 
@@ -354,6 +354,12 @@
     <div class="field">
       <label for="pickup-end">Pickup Window End</label>
       <input type="datetime-local" id="pickup-end" />
+    </div>
+  </div>
+
+  <div class="field" style="margin-top:-0.5rem">
+    <div style="font-size:0.78rem;color:#64748b">
+      Pickup must begin at least <strong>48 hours after the auction closes</strong>, and can never be scheduled before it closes. (Professional sellers may set their own pickup timing.)
     </div>
   </div>
 
@@ -501,12 +507,16 @@
   // The PATCH gate enforces draft-only editing + ownership SERVER-SIDE, so this
   // is presentation only — a locked auction is refused regardless of this UI.
   function isUuidLike(v) { return typeof v === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v); }
-  const EDIT_ID = new URLSearchParams(location.search).get('edit');
+  // `edit` is the canonical edit parameter. `id` is accepted as an alias so existing links
+  // (e.g. the unified member shell and any bookmarks) resolve to the same draft instead of a
+  // blank create form — the fix that prevents accidental duplicate auctions.
+  const _createParams = new URLSearchParams(location.search);
+  const EDIT_ID = _createParams.get('edit') || _createParams.get('id');
   const IS_EDIT = isUuidLike(EDIT_ID);
   let existingVideo = null; // most-recent walkthrough video row (edit mode)
 
   if (IS_EDIT) {
-    document.title = 'Edit Auction Details - Advantage Auction';
+    document.title = 'Edit Auction Details - Advantage.Bid';
     const h1  = document.getElementById('page-h1');       if (h1)  h1.textContent  = 'Edit Auction Details';
     const sub = document.getElementById('page-subtitle');  if (sub) sub.textContent = "Update your auction-level details, then save. Lots are managed separately from the Lot Studio.";
     const help = document.getElementById('create-help');   if (help) help.style.display = 'none';

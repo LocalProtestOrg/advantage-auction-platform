@@ -720,6 +720,12 @@ router.get('/:lotId', optionalAuth, async (req, res, next) => {
       lot.next_min_bid_cents = nextMinBidCents(lot.starting_bid_cents || 100, lot.current_bid_cents || 0, override);
     }
 
+    // Buyer's premium (basis points) from the effective billing terms, so the lot page can
+    // show the buyer their premium % and estimated total live while bidding. Same source and
+    // 1800 (18%) fallback as the auction detail endpoint (src/routes/auctions.js).
+    try { lot.buyer_premium_bps = (await require('../services/billingTermsService').resolveEffectiveTerms(lot.auction_id)).buyer_premium_bps; }
+    catch (e) { lot.buyer_premium_bps = 1800; }
+
     let viewerMaxCents = null;
     if (req.user) {
       try {

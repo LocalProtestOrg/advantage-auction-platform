@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="robots" content="noindex, nofollow" />
-  <title>Lot Creation Studio - Advantage Auction</title>
+  <title>Lot Creation Studio - Advantage.Bid</title>
 
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -799,7 +799,7 @@
 
     <!-- ── Header ─────────────────────────────────────────── -->
     <header>
-      <div class="brand">Advantage Auction Platform</div>
+      <div class="brand">Advantage.Bid</div>
       <h1>Lot Creation Studio</h1>
       <div class="header-sub" id="auction-context">Preparing new lot</div>
       <!-- Updated by updateLotNumberContext() - shows "Creating Lot #N" or
@@ -1081,11 +1081,13 @@
           <hr class="form-divider" />
 
           <div class="form-actions">
-            <button class="btn btn-primary" onclick="handleSaveDraft()">Save Lot to Draft</button>
-            <button class="btn" id="add-lot-btn" onclick="handleAddToAuction()">Add to Auction</button>
+            <!-- The primary action persists the lot to the seller's account server-side (POST/PUT
+                 /api/lots) — it survives leaving the page, logout, and returning to edit later. The
+                 in-browser autosave below is only an unsaved-form safety net, never the saved copy. -->
+            <button class="btn btn-primary" id="add-lot-btn" onclick="handleAddToAuction()">Save Lot to Auction</button>
             <button class="btn btn-danger" id="cancel-edit-btn" onclick="cancelEdit()" style="display:none">Cancel Edit</button>
             <button class="btn" onclick="resetForm()">Clear</button>
-            <span class="draft-indicator" id="draft-indicator">&#10003; Lot saved to this auction</span>
+            <span class="draft-indicator" id="draft-indicator">&#10003; Draft autosaved in this browser</span>
             <span class="upload-status-indicator" id="upload-status-indicator" style="display:none;color:#b45309;font-size:0.85rem;margin-left:0.5rem"></span>
           </div>
 
@@ -1372,7 +1374,7 @@
           if (addBtn.textContent === 'Adding…' || addBtn.textContent === 'Saving…') {
             // Save was already triggered; leave its label/disabled alone.
           } else {
-            addBtn.textContent = editingLotId ? 'Save Changes' : 'Add to Auction';
+            addBtn.textContent = editingLotId ? 'Save Changes' : 'Save Lot to Auction';
           }
         }
       }
@@ -1749,7 +1751,7 @@
       }
 
       var addBtn = document.getElementById('add-lot-btn');
-      if (addBtn) { addBtn.disabled = true; addBtn.textContent = editingLotId ? 'Saving…' : 'Adding…'; }
+      if (addBtn) { addBtn.disabled = true; addBtn.textContent = 'Saving…'; }
 
       var selectedTier  = document.querySelector('input[name="pickup-tier"]:checked');
       var startingBidRaw = parseFloat(document.getElementById('starting-bid').value) || 0;
@@ -1844,7 +1846,7 @@
           .then(function (data) {
             if (!data) return;
             if (!data.success) {
-              if (addBtn) { addBtn.disabled = false; addBtn.textContent = 'Add to Auction'; }
+              if (addBtn) { addBtn.disabled = false; addBtn.textContent = 'Save Lot to Auction'; }
               alert('Failed to save lot: ' + (data.message || 'Unknown error') + '\n\nYour draft has been preserved.');
               return;
             }
@@ -1866,7 +1868,7 @@
             });
           })
           .catch(function () {
-            if (addBtn) { addBtn.disabled = false; addBtn.textContent = 'Add to Auction'; }
+            if (addBtn) { addBtn.disabled = false; addBtn.textContent = 'Save Lot to Auction'; }
             alert('Failed to save lot - network error. Your draft has been preserved.');
           });
       }
@@ -1879,7 +1881,7 @@
       window.__editingLotNumber = null;
       updateLotNumberContext();
       var addBtn = document.getElementById('add-lot-btn');
-      if (addBtn) { addBtn.textContent = 'Add to Auction'; addBtn.disabled = false; }
+      if (addBtn) { addBtn.textContent = 'Save Lot to Auction'; addBtn.disabled = false; }
       var cancelBtn = document.getElementById('cancel-edit-btn');
       if (cancelBtn) cancelBtn.style.display = 'none';
 

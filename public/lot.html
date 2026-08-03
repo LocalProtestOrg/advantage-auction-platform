@@ -714,7 +714,7 @@
 <body>
 
 <header>
-  <span class="brand">Advantage Auction</span>
+  <span class="brand">Advantage.Bid</span>
   <a href="javascript:smartBack()" class="back" aria-label="Back to auction catalog">← Back To Auction</a>
 </header>
 
@@ -815,6 +815,28 @@
                  autocomplete="off"
                  style="width:100%; padding:0.5rem 0.75rem; border:1.5px solid #e2e8f0; border-radius:6px;
                         font-size:0.9rem; color:#374151; background:#f8fafc;" />
+        </div>
+      </div>
+
+      <!-- Buyer's premium + estimated total (live). Always visible while a lot is open so the
+           buyer understands their full commitment BEFORE bidding. Structured as line items so a
+           sales-tax row can be added later without redesign (tax is calculated after auction close). -->
+      <div id="cost-breakdown" style="display:none; background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; padding:0.7rem 0.85rem; margin-top:0.15rem; font-size:0.9rem; color:#374151;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.35rem;">
+          <span>Current bid</span><span id="cb-current" style="font-weight:600;">&mdash;</span>
+        </div>
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.35rem;">
+          <span>Buyer's premium (<span id="cb-premium-pct">&mdash;</span>)</span><span id="cb-premium-amt" style="font-weight:600;">&mdash;</span>
+        </div>
+        <div id="cb-tax-row" style="display:none; justify-content:space-between; align-items:center; margin-bottom:0.35rem;">
+          <span>Estimated sales tax</span><span id="cb-tax-amt" style="font-weight:600;">&mdash;</span>
+        </div>
+        <div style="display:flex; justify-content:space-between; align-items:center; padding-top:0.45rem; border-top:1px solid #e2e8f0;">
+          <span style="font-weight:700; color:#0f172a;">Estimated total if you win</span>
+          <span id="cb-total" style="font-weight:800; color:#0f172a; font-size:1.02rem;">&mdash;</span>
+        </div>
+        <div id="cb-note" style="margin-top:0.45rem; font-size:0.76rem; color:#64748b; line-height:1.4;">
+          Buyer's premium is added to your winning bid. Sales tax, if applicable, is calculated after the auction closes.
         </div>
       </div>
 
@@ -941,6 +963,8 @@
   // display still agrees with the server and never reads NaN/$0.00.
   let startingBidCents  = 100;
   let bidIncrementCents = 500;
+  let buyerPremiumBps   = 1800; // effective buyer's premium (basis points); set from the lot payload
+  let lastCurrentBidCents = 0;  // last rendered current bid, so the estimated total tracks live updates
   let hasBids           = false;
   let realizedHidden    = false;  // #20.1: anonymous + closed lot → price gated
   let isHistoricalLot = false;    // historical archive lot → no price/bid data at all
@@ -1338,7 +1362,7 @@
     if (window.__lotSocket && window.__lotSocket.connected && currentAuctionId) window.__lotSocket.emit('joinAuction', currentAuctionId);
     document.title = isHistoricalLot
       ? (lot.title || 'Lot') + ' - Advantage Auction Company Historical Archive'
-      : (lot.title || '') + ' - Advantage Auction';
+      : (lot.title || '') + ' - Advantage.Bid';
     // OP-D: prefix title with "Lot #N · " when lot_number is set. Historical archive
     // lots show the clean title ONCE (category + lot number live in the subhead beneath).
     const numPrefix = (lot.lot_number != null) ? ('Lot #' + lot.lot_number + ' · ') : '';
@@ -1391,6 +1415,7 @@
     // fall back to platform defaults so a missing/NaN field never surfaces as
     // "$NaN" or a misleading "$0.00".
     startingBidCents  = Number(lot.starting_bid_cents) > 0 ? Number(lot.starting_bid_cents) : 100;
+    buyerPremiumBps   = Number(lot.buyer_premium_bps) > 0 ? Number(lot.buyer_premium_bps) : 1800;
     // Prefer the SERVER-RESOLVED increment (#16) so display == validation; fall
     // back to the lot column, then the $5 house default.
     bidIncrementCents = Number(lot.effective_bid_increment_cents) > 0 ? Number(lot.effective_bid_increment_cents)
@@ -1417,6 +1442,16 @@
       setCurrentBid(hasBids ? curCents : startingBidCents);
       updateHint(curCents);
     }
+
+    // Buyer's premium + estimated total: show while the lot is open (bidding possible),
+    // for both signed-in bidders and guests. setCurrentBid() then keeps the total live.
+    (function () {
+      const cbBox = document.getElementById('cost-breakdown');
+      if (!cbBox) return;
+      const showCost = !isHistoricalLot && !realizedHidden && lot.state === 'open';
+      cbBox.style.display = showCost ? 'block' : 'none';
+      if (showCost) updateCostBreakdown();
+    })();
 
     // Item detail fields. (Historical archive: lot number is shown in the subhead
     // beneath the title, not here, to avoid repeating it.)
@@ -1766,6 +1801,40 @@
     let c = Number(cents);
     if (!Number.isFinite(c) || c <= 0) c = startingBidCents; // never show $NaN / $0.00
     el.innerHTML = '$' + Math.round(c / 100).toLocaleString('en-US') + ' <span>USD</span>'; // #3 whole-dollar
+    lastCurrentBidCents = c;
+    updateCostBreakdown();   // keep the estimated total in sync with the live current bid
+  }
+
+  // Cost math kept as discrete line items (bid → premium → tax → total) so a sales-tax
+  // line can be switched on later without reworking the UI. Tax is 0 today (calculated
+  // after the auction closes, per platform policy).
+  function computeTotals(baseCents, premiumBps) {
+    const bid     = Math.max(0, Math.round(Number(baseCents) || 0));
+    const premium = Math.round(bid * (Number(premiumBps) || 0) / 10000);
+    const tax     = 0;
+    return { bidCents: bid, premiumCents: premium, taxCents: tax, totalCents: bid + premium + tax };
+  }
+  function usdWhole(cents) { return '$' + Math.round((Number(cents) || 0) / 100).toLocaleString('en-US'); }
+
+  // Refresh the premium/estimated-total panel. Base = the buyer's own entered max bid or bid
+  // amount when present (their real commitment), otherwise the live current bid. Called whenever
+  // the current bid changes and whenever the buyer types a bid/max bid.
+  function updateCostBreakdown() {
+    const box = document.getElementById('cost-breakdown');
+    if (!box || box.style.display === 'none') return;
+    let base = lastCurrentBidCents;
+    const bi = document.getElementById('bid-input');
+    const mi = document.getElementById('max-bid-input');
+    const typedMax = mi ? parseMoney(mi.value) : NaN;
+    const typedBid = bi ? parseMoney(bi.value) : NaN;
+    if (Number.isFinite(typedMax) && typedMax > 0)      base = Math.round(typedMax * 100);
+    else if (Number.isFinite(typedBid) && typedBid > 0) base = Math.round(typedBid * 100);
+    const t = computeTotals(base, buyerPremiumBps);
+    const set = (id, v) => { const e = document.getElementById(id); if (e) e.textContent = v; };
+    set('cb-current',     usdWhole(lastCurrentBidCents));
+    set('cb-premium-pct', (buyerPremiumBps / 100) + '%');
+    set('cb-premium-amt', '+' + usdWhole(t.premiumCents));
+    set('cb-total',       usdWhole(t.totalCents));
   }
 
   function flashBidDisplay() {
@@ -1897,6 +1966,12 @@
 
   document.getElementById('bid-input').addEventListener('keydown', e => {
     if (e.key === 'Enter') document.getElementById('btn-bid').click();
+  });
+
+  // Live estimated-total update as the buyer types a bid amount or a max bid.
+  ['bid-input', 'max-bid-input'].forEach(function (id) {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener('input', updateCostBreakdown);
   });
 
   // #7: secondary "increase your maximum bid" — focuses the existing proxy max input.
