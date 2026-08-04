@@ -28,6 +28,7 @@ const MEMBER_PAGES = new Set([
   '/app.html', '/my-bids.html', '/invoices.html', '/my-agreements.html',
   '/verify-documents.html', '/sign-agreement.html', '/billing.html', '/add-card.html',
   '/payment.html', '/auction.html', '/account.html', '/watchlist.html', '/dashboard.html',
+  '/appraiser-welcome.html', // post-checkout onboarding (any signed-in member)
 ]);
 const SELLER_PAGES = new Set([
   '/seller-create.html', '/seller-dashboard.html', '/lot-builder.html',

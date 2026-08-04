@@ -35,9 +35,10 @@ async function hasCapability(organizationId, capability) {
   return rows.length > 0;
 }
 
-/** Admin: grant/revoke a capability beyond plan (source 'grant' | 'override'). */
-async function setCapability(organizationId, capability, enabled, source = 'grant') {
-  await db.query(
+/** Admin/system: grant/revoke a capability beyond plan (source 'plan' | 'grant' | 'override').
+ *  Optional `runner` (a transaction client) lets callers make the grant atomic with related writes. */
+async function setCapability(organizationId, capability, enabled, source = 'grant', runner) {
+  await (runner || db).query(
     `INSERT INTO organization_capabilities (organization_id, capability, enabled, source)
        VALUES ($1, $2, $3, $4)
      ON CONFLICT (organization_id, capability)

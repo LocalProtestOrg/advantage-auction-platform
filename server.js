@@ -466,6 +466,7 @@ const imageProcessingRoutes     = require('./src/routes/imageProcessing');
 const uploadsRoutes             = require('./src/routes/uploads');
 const publicRoutes              = require('./src/routes/public');
 const analyticsRoutes           = require('./src/routes/analytics');
+const appraiserRoutes           = require('./src/routes/appraiser');
 const adminAgreementsRoutes     = require('./src/routes/adminAgreements');
 const adminBuyersRoutes         = require('./src/routes/adminBuyers');
 const adminUsersRoutes          = require('./src/routes/adminUsers');
@@ -554,6 +555,7 @@ app.use('/api/org', orgEventsRoutes);
 app.use('/api/legal', legalRoutes);
 app.use('/api/config', configRoutes);
 app.use('/api/analytics', analyticsRoutes);
+app.use('/api/appraiser', appraiserRoutes);
 
 // Root is served by express.static → public/index.html (the live marketplace).
 // (The old app.get('/')→demo.html route was dead code — static precedes it — and

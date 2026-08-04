@@ -1223,6 +1223,24 @@ class PaymentService {
     if (event.type === 'charge.refunded') {
       return this._handleChargeRefunded(obj);
     }
+
+    // ── Professional-membership subscription events (Phase 2A: Appraiser). ──────
+    // Delegated to appraiserMembershipService, which no-ops for any subscription that is not an
+    // Appraiser membership (so other future subscription products are unaffected). Reuses this
+    // same signature-verified + idempotent (stripe_webhook_events) pipeline — no second endpoint.
+    // Lazy-required to avoid a require cycle at module load.
+    if (event.type === 'checkout.session.completed'
+      || event.type === 'customer.subscription.created'
+      || event.type === 'customer.subscription.updated'
+      || event.type === 'customer.subscription.deleted'
+      || event.type === 'invoice.paid'
+      || event.type === 'invoice.payment_failed') {
+      const appraiser = require('./appraiserMembershipService');
+      if (event.type === 'checkout.session.completed') return appraiser.handleCheckoutCompleted(obj);
+      if (event.type === 'invoice.paid') return appraiser.handleInvoicePaid(obj);
+      if (event.type === 'invoice.payment_failed') return appraiser.handleInvoicePaymentFailed(obj);
+      return appraiser.handleSubscriptionEvent(obj, event.type); // subscription.created/updated/deleted
+    }
     // All other event types are acknowledged without action. The row is still
     // marked 'processed' so we do not re-acquire on every delivery.
   }

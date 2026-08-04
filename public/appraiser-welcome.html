@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="noindex, nofollow" />
+  <title>Appraiser Membership - Advantage.Bid</title>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <style>
+    :root { color-scheme: light; }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f4f6f9; color: #0f172a; }
+    .wrap { max-width: 520px; margin: 0 auto; padding: 2.75rem 1.15rem 3rem; }
+    .card { background: #fff; border: 1px solid #e6eaef; border-radius: 14px; padding: 2rem 1.7rem; box-shadow: 0 10px 30px rgba(15,23,42,.06); text-align: center; }
+    .check { width: 58px; height: 58px; border-radius: 50%; background: #dcfce7; display: grid; place-items: center; margin: 0 auto 1rem; }
+    .check svg { width: 30px; height: 30px; stroke: #16a34a; }
+    h1 { font-size: 1.5rem; margin: 0 0 .5rem; letter-spacing: -.01em; }
+    p.sub { color: #475569; font-size: .95rem; line-height: 1.5; margin: 0 0 1.4rem; }
+    button.cta { width: 100%; background: #1d4ed8; color: #fff; border: 0; border-radius: 10px; padding: .95rem 1rem; font-size: 1rem; font-weight: 800; cursor: pointer; }
+    button.cta:hover { background: #1e40af; }
+    button.ghost { background: #eef2f7; color: #0f172a; margin-top: .7rem; }
+    button.ghost:hover { background: #e2e8f0; }
+    .spin { width: 34px; height: 34px; border: 3px solid #e2e8f0; border-top-color: #1d4ed8; border-radius: 50%; margin: .5rem auto 1rem; animation: sp 0.9s linear infinite; }
+    @keyframes sp { to { transform: rotate(360deg); } }
+    @media (prefers-reduced-motion: reduce) { .spin { animation: none; } }
+    .muted { color: #64748b; font-size: .88rem; }
+    .foot { text-align: center; font-size: .8rem; color: #94a3b8; margin-top: 1.2rem; }
+    .foot a { color: #2563eb; text-decoration: none; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card" id="card" role="status" aria-live="polite">
+      <div class="spin" aria-hidden="true"></div>
+      <h1>Finalizing your membership…</h1>
+      <p class="sub muted">We are confirming your payment securely. This takes just a moment.</p>
+    </div>
+    <div class="foot"><a href="/appraiser-membership.html">Membership &amp; billing</a> &nbsp;·&nbsp; <a href="mailto:info@advantage.bid">Contact support</a></div>
+  </div>
+
+  <script src="/widgets/shared/analytics.js"></script>
+  <script src="/widgets/shared/auth-refresh.js"></script>
+  <script src="/widgets/shared/buyer-nav.js"></script>
+  <script>
+    (function () {
+      var token = localStorage.getItem('token');
+      var card = document.getElementById('card');
+      if (!token) { location.href = '/login.html?next=' + encodeURIComponent('/appraiser-welcome.html'); return; }
+      function track(ev, meta) { try { window.AAPAnalytics && AAPAnalytics.track(ev, meta || {}); } catch (e) {} }
+
+      // Authoritative activation comes from the verified Stripe webhook, NOT the success redirect.
+      // Poll the server for the real membership status (the webhook may land a moment after redirect).
+      var tries = 0, MAX = 8, announced = false;
+      function renderActive() {
+        if (announced) return; announced = true;
+        track('appraiser_membership_activated', { plan: 'annual' });
+        card.innerHTML = ''
+          + '<div class="check"><svg viewBox="0 0 24 24" fill="none" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></div>'
+          + '<h1>Appraiser Membership Active</h1>'
+          + '<p class="sub">Welcome to Advantage.Bid. Your annual Appraiser membership is active. Next, complete your appraiser profile so it is ready for the directory.</p>'
+          + '<button class="cta" id="profileBtn" type="button">Complete Your Appraiser Profile</button>'
+          + '<button class="cta ghost" id="manageBtn" type="button">Manage Membership</button>';
+        document.getElementById('profileBtn').addEventListener('click', function () { location.href = '/org/profile.html'; });
+        document.getElementById('manageBtn').addEventListener('click', function () { location.href = '/appraiser-membership.html'; });
+      }
+      function renderPending() {
+        card.innerHTML = ''
+          + '<h1>Payment received</h1>'
+          + '<p class="sub muted">Thanks. Your membership is being finalized and will be active shortly. You can safely leave this page; your access will appear in your account once confirmed.</p>'
+          + '<button class="cta" id="manageBtn" type="button">Go to Membership &amp; Billing</button>';
+        document.getElementById('manageBtn').addEventListener('click', function () { location.href = '/appraiser-membership.html'; });
+      }
+      function poll() {
+        fetch('/api/appraiser/membership', { headers: { 'Authorization': 'Bearer ' + token } })
+          .then(function (r) { return r.ok ? r.json() : null; })
+          .then(function (d) {
+            if (d && d.success && d.membership && d.membership.active) { renderActive(); return; }
+            if (++tries >= MAX) { renderPending(); return; }
+            setTimeout(poll, 1500);
+          })
+          .catch(function () { if (++tries >= MAX) renderPending(); else setTimeout(poll, 1500); });
+      }
+      poll();
+    })();
+  </script>
+</body>
+</html>
