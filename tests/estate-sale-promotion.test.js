@@ -145,10 +145,16 @@ describe('customer pages — simple language, correct SEO/gating', () => {
     expect(welcome).toMatch(/\/api\/estate-sale\/promotion/);
     expect(welcome).not.toMatch(/session_id.*activated|\?success=1/);
   });
-  test('dashboard shows the Purchased / Ready to Use card + Create Estate Sale', () => {
+  test('dashboard card is action-oriented (Ready to Use + Create Your Estate Sale)', () => {
     expect(dash).toMatch(/Ready to Use/);
     expect(dash).toMatch(/Estate Sale Promotion/);
-    expect(dash).toMatch(/Create Estate Sale/);
+    expect(dash).toMatch(/Create Your Estate Sale/);
+    expect(dash).not.toMatch(/Purchased and ready/);
+  });
+  test('landing CTA stays "Promote My Estate Sale" and auto-continues after sign-in', () => {
+    expect((landing.match(/Promote My Estate Sale/g) || []).length).toBeGreaterThanOrEqual(2);
+    expect(landing).toMatch(/sessionStorage\.setItem\('es_intent','1'\)/);
+    expect(landing).toMatch(/sessionStorage\.getItem\('es_intent'\)\)\{ sessionStorage\.removeItem\('es_intent'\); start\(\)/);
   });
 });
 

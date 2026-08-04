@@ -102,22 +102,27 @@
       if(new URLSearchParams(location.search).get('canceled')) document.getElementById('canceledNote').style.display='block';
       var msg=document.getElementById('msg');
       function track(ev){ try{ window.AAPAnalytics && AAPAnalytics.track(ev,{}); }catch(e){} }
+      // The software determines the path automatically:
+      //  • not signed in  → sign in / create account, then AUTO-continue here (no second click)
+      //  • signed in, no promotion yet → straight to Stripe TEST checkout
+      //  • signed in, already have one → their dashboard (never a double charge)
       function start(){
         var token=localStorage.getItem('token');
-        if(!token){ location.href='/login.html?next='+encodeURIComponent('/promote-estate-sale.html'); return; }
+        if(!token){ sessionStorage.setItem('es_intent','1'); location.href='/login.html?next='+encodeURIComponent('/promote-estate-sale.html'); return; }
         track('promote_estate_sale_started');
         msg.className='msg'; msg.textContent='One moment…';
-        // If they already bought (or have a sale in progress), take them to their dashboard, not checkout.
         fetch('/api/estate-sale/promotion',{headers:{Authorization:'Bearer '+token}}).then(function(r){return r.ok?r.json():null;}).then(function(d){
           if(d && (d.has_available || (d.estate_sales&&d.estate_sales.length))){ location.href='/my-estate-sales.html'; return; }
           var key=(window.crypto&&crypto.randomUUID)?crypto.randomUUID():String(Date.now());
           return fetch('/api/estate-sale/checkout-session',{method:'POST',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json','Idempotency-Key':key}})
-            .then(function(r){ if(r.status===401){ localStorage.removeItem('token'); location.href='/login.html?next='+encodeURIComponent('/promote-estate-sale.html'); return null; } return r.json(); })
+            .then(function(r){ if(r.status===401){ localStorage.removeItem('token'); sessionStorage.setItem('es_intent','1'); location.href='/login.html?next='+encodeURIComponent('/promote-estate-sale.html'); return null; } return r.json(); })
             .then(function(j){ if(!j) return; if(j.success&&j.url){ location.href=j.url; return; } msg.className='msg err'; msg.textContent=j.message||'Could not start checkout. Please try again.'; });
         }).catch(function(){ msg.className='msg err'; msg.textContent='Network error. Please try again.'; });
       }
       document.getElementById('cta').addEventListener('click',start);
       document.getElementById('cta2').addEventListener('click',start);
+      // Seamless continuation: if the visitor just signed in after clicking the CTA, proceed automatically.
+      if(localStorage.getItem('token') && sessionStorage.getItem('es_intent')){ sessionStorage.removeItem('es_intent'); start(); }
     })();
   </script>
 </body>
