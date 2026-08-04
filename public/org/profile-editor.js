@@ -281,14 +281,24 @@
     var loc = [c.city, c.state].filter(Boolean).join(', ');
     var logoStyle = c.logo ? 'background-image:url(\'' + esc(c.logo) + '\')' : '';
     var logoInner = c.logo ? '' : '<span class="ini">' + esc(initials(name)) + '</span>';
+    // Directory-card layout: type · name · location · tagline · short description · (years / up to
+    // 3 specialties) · website · contact. Only shown when present, so the card never grows needlessly.
+    var specialties = (Array.isArray(S.pd.appraisal_types) ? S.pd.appraisal_types : []).slice(0, 3);
+    var years = S.pd.years_in_business;
+    var web = c.website ? String(c.website).replace(/^https?:\/\//i, '').replace(/\/$/, '') : '';
+    var metaBits = [];
+    if (years) metaBits.push('<span class="yr">' + esc(String(years)) + ' yrs in business</span>');
+    if (specialties.length) metaBits.push('<span class="spx">' + specialties.map(function (s) { return '<span class="sp">' + esc(s) + '</span>'; }).join('') + '</span>');
     $('prev').innerHTML =
       '<div class="cov' + (c.cover ? '' : ' empty') + '" style="' + (c.cover ? 'background-image:url(\'' + esc(c.cover) + '\')' : '') + '"></div>'
       + '<div class="body"><div class="logo" style="' + logoStyle + '">' + logoInner + '</div>'
-      + '<div class="cat">' + esc(primaryLabel()) + '</div>'
-      + '<div class="nm">' + esc(name) + (S.verified ? ' <span class="vf">Verified</span>' : '') + '</div>'
+      + '<div class="cat">' + esc(primaryLabel()) + (S.verified ? ' <span class="vf">Verified</span>' : '') + '</div>'
+      + '<div class="nm">' + esc(name) + '</div>'
       + (loc ? '<div class="loc">📍 ' + esc(loc) + '</div>' : '')
-      + '<div class="newp">New profile</div>'
+      + (S.pd.tagline ? '<div class="tagl">' + esc(S.pd.tagline) + '</div>' : '')
       + (c.short_description ? '<div class="desc">' + esc(c.short_description) + '</div>' : '<div class="desc muted2">Add a short description to introduce your business.</div>')
+      + (metaBits.length ? '<div class="metaline">' + metaBits.join('') + '</div>' : '')
+      + (web ? '<div class="weblink">🔗 ' + esc(web) + '</div>' : '')
       + '<a class="cta" href="#" onclick="return false">Contact ' + esc(primaryLabel()) + '</a></div>';
   }
   function fieldFilled(f) {
@@ -303,14 +313,18 @@
     visibleSections().forEach(function (s) { s.fields.forEach(function (f) { var w = f.weight == null ? 1 : f.weight; if (w <= 0) return; total += w; if (fieldFilled(f)) got += w; }); });
     return total ? Math.round(got / total * 100) : 0;
   }
+  function impactOf(w) { return w >= 2 ? 'High Impact' : 'Medium Impact'; } // weight 0 fields are never suggested
   function renderMeter() {
     var pct = completeness(), done = pct >= 100;
     var todo = [];
-    visibleSections().forEach(function (s) { s.fields.forEach(function (f) { if ((f.weight == null ? 1 : f.weight) <= 0) return; if (!fieldFilled(f)) todo.push({ key: f.key, msg: SUGG[f.key] || ('Add ' + f.label.toLowerCase()) }); }); });
+    visibleSections().forEach(function (s) { s.fields.forEach(function (f) { var w = f.weight == null ? 1 : f.weight; if (w <= 0) return; if (!fieldFilled(f)) todo.push({ key: f.key, msg: SUGG[f.key] || ('Add ' + f.label.toLowerCase()), w: w }); }); });
+    // Surface the highest-impact gaps first, so the guidance encourages the most valuable additions.
+    todo.sort(function (a, b) { return b.w - a.w; });
     todo = todo.slice(0, 4);
     var items = done
       ? '<li class="done">Your profile has the details buyers look for</li>'
-      : todo.map(function (x) { return '<li><button type="button" class="jump" data-k="' + esc(x.key) + '">' + esc(x.msg) + '</button></li>'; }).join('');
+      : todo.map(function (x) { return '<li><button type="button" class="jump" data-k="' + esc(x.key) + '">' + esc(x.msg) + '</button>'
+          + '<span class="impact ' + (x.w >= 2 ? 'high' : 'med') + '">' + impactOf(x.w) + '</span></li>'; }).join('');
     $('meter').innerHTML =
       '<div class="top"><span class="pct">' + pct + '%</span><span class="lbl">' + (done ? 'Profile complete' : 'Profile completeness') + '</span></div>'
       + '<div class="pp-bar"><i style="width:' + pct + '%"></i></div>'
@@ -328,19 +342,29 @@
     b.profileData = S.pd;
     return b;
   }
+  // Non-interruptive "✓ Saved just now" indicator that ages to "✓ Saved N minutes ago".
+  var savedAt = null, savedTimer = null;
+  function relTime(t) {
+    var s = Math.floor((Date.now() - t) / 1000);
+    if (s < 45) return 'just now';
+    var m = Math.round(s / 60);
+    if (m < 60) return m + (m === 1 ? ' minute ago' : ' minutes ago');
+    var h = Math.round(m / 60); return h + (h === 1 ? ' hour ago' : ' hours ago');
+  }
+  function renderSaved() { var el = $('saveStatus'); if (el && savedAt) { el.className = 'status ok'; el.textContent = '✓ Saved ' + relTime(savedAt); } }
+  function markSaved() { savedAt = Date.now(); renderSaved(); if (!savedTimer) savedTimer = setInterval(renderSaved, 30000); }
   function save(after) {
     var b = collect();
     if (!b.name) { showErr('Business name is required.'); return; }
     if (b.contactEmail && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(b.contactEmail)) { showErr('Enter a valid contact email.'); fieldErr('email', 'Enter a valid email address.'); return; }
     if (!S.hasOrg && !b.contactEmail && !b.contactPhone) { showErr('Add a business email or phone to create your profile.'); return; }
-    var btn = $('saveBtn'); btn.disabled = true; $('saveStatus').textContent = 'Saving…'; msg.className = 'msg';
+    var btn = $('saveBtn'); btn.disabled = true; $('saveStatus').className = 'status'; $('saveStatus').textContent = 'Saving…'; msg.className = 'msg';
     ORG.api('POST', '/api/org/profile', b).then(function (d) {
-      btn.disabled = false; $('saveStatus').textContent = '';
+      btn.disabled = false;
       S.hasOrg = true; if (d.organization) { S.slug = d.organization.slug; if (d.organization.profile_data) { S.published = d.organization.profile_data.published === true; S.reviewStatus = d.organization.profile_data.review_status || S.reviewStatus; } }
-      if (typeof after === 'function') after();
-      else showOk('Saved.' + (d.completeness != null ? (' Your profile is ' + d.completeness + '% complete.') : ''));
-      render(); window.scrollTo(0, 0);
-    }).catch(function (e) { btn.disabled = false; $('saveStatus').textContent = ''; showErr(e.message); });
+      if (typeof after === 'function') { after(); render(); window.scrollTo(0, 0); } // structural change (submit for review)
+      else { markSaved(); } // routine save — no full re-render, editing is never interrupted
+    }).catch(function (e) { btn.disabled = false; $('saveStatus').className = 'status'; $('saveStatus').textContent = ''; showErr(e.message); });
   }
   function preview() {
     if (!S.slug) { showErr('Save your profile first, then preview it.'); return; }

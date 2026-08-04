@@ -28,8 +28,8 @@ const PROFESSIONAL_TYPES = {
   cleanout_company: { label: 'Clean-out Company', singular: 'Clean-out Company' },
 };
 
-const APPRAISAL_TYPES = ['Fine Art', 'Antiques', 'Jewelry', 'Coins', 'Firearms', 'Watches', 'Furniture',
-  'Mid Century', 'Asian Art', 'Books', 'Sports Memorabilia', 'Military', 'Toys', 'General Household', 'Commercial Assets'];
+const APPRAISAL_TYPES = ['Antiques', 'Asian Art', 'Books', 'Coins', 'Commercial Assets', 'Fine Art', 'Firearms',
+  'Furniture', 'General Household', 'Jewelry', 'Mid Century', 'Military', 'Sports Memorabilia', 'Toys', 'Watches'];
 const CERTS = ['ASA', 'ISA', 'AAA', 'USPAP', 'Other'];
 const US_STATES = ['AL', 'AK', 'AZ', 'AR', 'CA', 'CO', 'CT', 'DE', 'DC', 'FL', 'GA', 'HI', 'ID', 'IL', 'IN', 'IA',
   'KS', 'KY', 'LA', 'ME', 'MD', 'MA', 'MI', 'MN', 'MS', 'MO', 'MT', 'NE', 'NV', 'NH', 'NJ', 'NM', 'NY', 'NC', 'ND',
@@ -63,7 +63,7 @@ const SECTIONS = [
   {
     id: 'service', title: 'Service Area', applies: 'all',
     fields: [
-      { key: 'service_area', label: 'Service Area', type: 'text', weight: 1, placeholder: 'e.g. Greater Houston, Texas' },
+      { key: 'service_area', label: 'Primary Service Area', type: 'text', weight: 1, placeholder: 'e.g. Greater Houston, Texas' },
       { key: 'states_served', label: 'States Served', type: 'states', weight: 1, placeholder: 'Add a state and press Enter' },
       { key: 'city', label: 'City', type: 'text', core: true, weight: 1 },
       { key: 'state', label: 'State', type: 'text', core: true, weight: 1 },
@@ -75,7 +75,8 @@ const SECTIONS = [
     id: 'appraiser', title: 'Appraisal Services', applies: ['appraiser'],
     fields: [
       { key: 'appraisal_types', label: 'Appraisal Types', type: 'chips', weight: 3, suggestions: APPRAISAL_TYPES },
-      { key: 'certifications', label: 'Professional Certifications', type: 'chips', weight: 2, suggestions: CERTS },
+      { key: 'certifications', label: 'Professional Certifications', type: 'chips', weight: 2, suggestions: CERTS,
+        hint: 'Add only credentials you actually hold (for example ASA, ISA, AAA, USPAP).' },
       { key: 'years_experience', label: 'Years of Appraisal Experience', type: 'number', weight: 1 },
       { key: 'appraisal_purposes', label: 'Appraisal Purposes', type: 'toggle-group', weight: 2, options: [
         ['insurance_appraisals', 'Insurance'], ['estate_appraisals', 'Estate'], ['donation_appraisals', 'Donation'],

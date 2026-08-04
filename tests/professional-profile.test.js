@@ -123,7 +123,7 @@ describe('nav + editor', () => {
   test('live preview shows NO placeholder stars and only real verification', () => {
     expect(editor).not.toMatch(/★/);
     expect(editor).toMatch(/S\.verified \? ' <span class="vf">Verified/); // badge gated on real verification
-    expect(editor).toMatch(/New profile/); // neutral review state
+    expect(editor).toMatch(/Contact ' \+ esc\(primaryLabel\(\)\)/); // type-aware CTA, no rating shown
   });
   test('completeness suggestions scroll to the field + clarify publication is separate', () => {
     expect(editor).toMatch(/class="jump" data-k=/);
@@ -191,6 +191,49 @@ describe('API — publication gate + reuse (unchanged endpoints)', () => {
   });
   test('POST persists sanitized profile_data (published can never be set through it)', () => {
     expect(org).toMatch(/profileSchema\.sanitizeProfileData\(b\.profileData\)/);
+  });
+});
+
+describe('Phase 3B polish', () => {
+  const editor = read('public', 'org', 'profile-editor.js');
+  const css = read('public', 'org', 'profile.css');
+  test('appraisal type suggestions are alphabetized with all 15 kept', () => {
+    expect(S.APPRAISAL_TYPES).toHaveLength(15);
+    expect(S.APPRAISAL_TYPES).toEqual(S.APPRAISAL_TYPES.slice().sort());
+  });
+  test('no duplicated Service Area heading (section title != field label)', () => {
+    const sec = S.SECTIONS.find((s) => s.id === 'service');
+    const f = sec.fields.find((x) => x.key === 'service_area');
+    expect(sec.title).toBe('Service Area');
+    expect(f.label).toBe('Primary Service Area');
+    expect(f.label).not.toBe(sec.title);
+  });
+  test('certification field clarifies these are real credentials', () => {
+    const f = S.SECTIONS.find((s) => s.id === 'appraiser').fields.find((x) => x.key === 'certifications');
+    expect(f.hint).toMatch(/only credentials you actually hold/i);
+  });
+  test('phone formats to (xxx) xxx-xxxx and website normalizes protocol (no duplicate)', () => {
+    expect(editor).toMatch(/d\.slice\(0, 3\).*d\.slice\(3, 6\).*d\.slice\(6\)/);
+    expect(editor).toMatch(/!\/\^https\?:\\\/\\\/\/i\.test\(v\).*v = 'https:\/\/' \+ v/);
+  });
+  test('preview card is a richer directory card (tagline, years, specialties, website, contact)', () => {
+    expect(editor).toMatch(/S\.pd\.tagline \? '<div class="tagl">/);
+    expect(editor).toMatch(/yrs in business/);
+    expect(editor).toMatch(/appraisal_types.*\.slice\(0, 3\)/);
+    expect(editor).toMatch(/class="weblink"/);
+    expect(editor).toMatch(/Contact ' \+ esc\(primaryLabel\(\)\)/);
+  });
+  test('save confirmation ages from "just now" without interrupting editing', () => {
+    expect(editor).toMatch(/'✓ Saved ' \+ relTime\(savedAt\)/);
+    expect(editor).toMatch(/return 'just now'/);
+    expect(editor).toMatch(/minutes ago/);
+    // routine save does NOT trigger a full re-render (only submit-for-review does)
+    expect(editor).toMatch(/else \{ markSaved\(\); \}/);
+  });
+  test('completeness suggestions carry High/Medium impact labels', () => {
+    expect(editor).toMatch(/function impactOf\(w\) \{ return w >= 2 \? 'High Impact' : 'Medium Impact'/);
+    expect(editor).toMatch(/class="impact /);
+    expect(css).toMatch(/\.pp-sugg \.impact\.high/);
   });
 });
 
