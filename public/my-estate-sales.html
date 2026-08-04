@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="robots" content="noindex, nofollow" />
+<title>My Estate Sales - Advantage.Bid</title>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&display=swap" rel="stylesheet">
+<style>
+  :root{--ink:#0B1B2B;--paper:#FBFAF7;--surface:#fff;--muted:#5b6b7e;--hair:#ECE8E0;--accent:#2F6BFF;--live:#B5273B;--ok:#16A34A;--warn:#E0922E;--serif:"Fraunces",Georgia,serif}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--paper);color:var(--ink);font-family:system-ui,-apple-system,'Segoe UI',Roboto,sans-serif}
+  .wrap{max-width:720px;margin:0 auto;padding:2.2rem 1.15rem 4rem}
+  h1{font-family:var(--serif);font-weight:700;font-size:1.7rem;margin:0 0 .3rem}
+  .sub{color:var(--muted);font-size:.95rem;margin:0 0 1.4rem}
+  .promo{background:linear-gradient(135deg,#0f172a,#1e3a8a);color:#fff;border-radius:16px;padding:20px 22px;margin-bottom:20px;display:flex;gap:16px;align-items:center;flex-wrap:wrap}
+  .promo .t{flex:1;min-width:180px}
+  .promo .pill{display:inline-block;font-size:11px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;background:#16a34a;color:#fff;border-radius:999px;padding:3px 10px;margin-bottom:6px}
+  .promo h2{font-family:var(--serif);font-weight:600;font-size:18px;margin:0 0 3px}
+  .promo p{margin:0;font-size:13.5px;color:#c7d2e0}
+  .btn{background:var(--live);color:#fff;border:0;border-radius:11px;padding:12px 20px;font-weight:800;font-size:15px;cursor:pointer;text-decoration:none;white-space:nowrap;display:inline-block}
+  .btn.ghost{background:#fff;color:var(--ink);border:1px solid var(--hair)}.btn.ghost:hover{border-color:var(--accent);color:var(--accent)}
+  .btn.light{background:#fff;color:#0f172a}
+  .sale{background:var(--surface);border:1px solid var(--hair);border-radius:14px;padding:14px 16px;margin-bottom:12px;display:flex;gap:14px;align-items:center}
+  .sale .meta{flex:1;min-width:0}
+  .sale .nm{font-weight:750;font-size:15.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .sale .dt{font-size:12.5px;color:var(--muted);margin-top:2px}
+  .chip{font-size:11px;font-weight:800;border-radius:999px;padding:3px 9px}
+  .chip.draft{background:#f1f5f9;color:#475569}.chip.submitted{background:#fef3c7;color:#92400e}.chip.published{background:#dcfce7;color:#15803d}.chip.rejected{background:#fee2e2;color:#b91c1c}
+  .reason{background:#fff7ed;border:1px solid #fed7aa;color:#9a3412;border-radius:10px;padding:9px 12px;font-size:13px;margin:6px 0 0}
+  .empty{background:var(--surface);border:1px solid var(--hair);border-radius:16px;padding:30px 20px;text-align:center;color:var(--muted)}
+  .empty .big{font-family:var(--serif);font-size:19px;color:var(--ink);margin-bottom:8px}
+  .loading{padding:40px;text-align:center;color:var(--muted)}
+  .foot{text-align:center;font-size:12.5px;color:#94a3b8;margin-top:20px}.foot a{color:#2563eb}
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>My Estate Sales</h1>
+    <div class="sub">Manage your estate sale listings and their status.</div>
+    <div id="body"><div class="loading">Loading…</div></div>
+    <div class="foot"><a href="/promote-estate-sale.html">Promote another estate sale</a></div>
+  </div>
+  <script>
+    (function(){
+      var token=localStorage.getItem('token'); var body=document.getElementById('body');
+      if(!token){ location.href='/login.html?next='+encodeURIComponent('/my-estate-sales.html'); return; }
+      function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
+      function fmt(d){ if(!d) return ''; try{ return new Date(d).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}); }catch(e){ return ''; } }
+      var LABEL={draft:'Draft',submitted:'In Review',published:'Published',rejected:'Needs Changes'};
+      fetch('/api/estate-sale/promotion',{headers:{Authorization:'Bearer '+token}}).then(function(r){ if(r.status===401){ localStorage.removeItem('token'); location.href='/login.html?next='+encodeURIComponent('/my-estate-sales.html'); return null; } return r.json(); })
+        .then(function(d){ if(!d) return; render(d); }).catch(function(){ body.innerHTML='<div class="empty">We couldn’t load your estate sales. Please refresh.</div>'; });
+
+      function render(d){
+        var html='';
+        if(d.has_available){
+          html+='<div class="promo"><div class="t"><span class="pill">Ready to Use</span><h2>Estate Sale Promotion</h2><p>Purchased and ready. Create your estate sale listing now.</p></div>'
+            +'<a class="btn light" href="/create-estate-sale.html">Create Estate Sale</a></div>';
+        }
+        var sales=d.estate_sales||[];
+        if(sales.length){
+          html+=sales.map(function(s){
+            var st=s.status||'draft', dt=[fmt(s.start_at), s.end_at?('to '+fmt(s.end_at)):''].filter(Boolean).join(' ');
+            var action = (st==='draft'||st==='rejected') ? '<a class="btn ghost" href="/create-estate-sale.html?id='+encodeURIComponent(s.id)+'">Edit</a>'
+              : (st==='published' ? '<a class="btn ghost" href="/event.html?slug='+encodeURIComponent(s.slug||'')+'">View</a>' : '');
+            return '<div class="sale"><div class="meta"><div class="nm">'+esc(s.title||'Untitled estate sale')+'</div>'
+              +(dt?'<div class="dt">'+esc(dt)+'</div>':'')
+              +(st==='rejected'&&s.review_reason?'<div class="reason"><b>Needs changes:</b> '+esc(s.review_reason)+'</div>':'')
+              +'</div><span class="chip '+st+'">'+esc(LABEL[st]||st)+'</span>'+action+'</div>';
+          }).join('');
+        }
+        if(!d.has_available && !sales.length){
+          html='<div class="empty"><div class="big">You haven’t promoted an estate sale yet</div>'
+            +'<p style="margin:0 0 16px">Advertise your estate sale to nearby shoppers for a one-time $39.</p>'
+            +'<a class="btn" href="/promote-estate-sale.html">Promote My Estate Sale</a></div>';
+        }
+        body.innerHTML=html;
+      }
+    })();
+  </script>
+</body>
+</html>

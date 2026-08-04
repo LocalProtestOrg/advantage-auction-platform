@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="robots" content="noindex, nofollow" />
+<title>Create Your Estate Sale - Advantage.Bid</title>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&display=swap" rel="stylesheet">
+<style>
+  :root{--ink:#0B1B2B;--paper:#FBFAF7;--surface:#fff;--muted:#5b6b7e;--hair:#ECE8E0;--accent:#2F6BFF;--live:#B5273B;--ok:#16A34A;--serif:"Fraunces",Georgia,serif}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--paper);color:var(--ink);font-family:system-ui,-apple-system,'Segoe UI',Roboto,sans-serif}
+  .wrap{max-width:640px;margin:0 auto;padding:2rem 1.15rem 4rem}
+  h1{font-family:var(--serif);font-weight:700;font-size:1.7rem;margin:0 0 .3rem}
+  .sub{color:var(--muted);font-size:.95rem;margin:0 0 1.3rem}
+  .card{background:var(--surface);border:1px solid var(--hair);border-radius:16px;padding:20px;margin-bottom:16px}
+  .card h2{font-family:var(--serif);font-weight:600;font-size:17px;margin:0 0 12px}
+  label{display:block;font-size:12.5px;font-weight:700;color:#334155;margin:13px 0 5px}label:first-of-type{margin-top:0}
+  input,textarea,select{width:100%;border:1.5px solid var(--hair);border-radius:10px;padding:11px 12px;font:inherit;font-size:15px;background:#fff;color:var(--ink)}
+  input:focus,textarea:focus,select:focus{outline:none;border-color:var(--accent)}
+  textarea{min-height:96px;resize:vertical}
+  .row{display:grid;grid-template-columns:1fr 1fr;gap:0 14px}@media(max-width:520px){.row{grid-template-columns:1fr}}
+  .hint{font-size:12px;color:var(--muted);margin-top:4px}
+  .req{color:var(--live)}
+  .btn{border:0;border-radius:12px;padding:13px 22px;font-weight:800;font-size:15px;cursor:pointer;text-decoration:none;display:inline-block}
+  .btn.primary{background:var(--live);color:#fff}.btn.primary:hover{filter:brightness(1.06)}
+  .btn.ghost{background:#fff;color:var(--ink);border:1px solid var(--hair)}.btn.ghost:hover{border-color:var(--accent);color:var(--accent)}
+  .btn:disabled{opacity:.55;cursor:default}
+  .bar{position:sticky;bottom:0;background:linear-gradient(180deg,rgba(251,250,247,0),var(--paper) 40%);padding:14px 0 6px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+  .status{font-size:13px;font-weight:700}.status.ok{color:var(--ok)}
+  .msg{padding:11px 14px;border-radius:11px;font-size:14px;font-weight:600;margin:0 0 14px;display:none}
+  .msg.err{display:block;background:#fee2e2;color:#b91c1c}.msg.ok{display:block;background:#dcfce7;color:#15803d}
+  .photos{display:flex;gap:10px;flex-wrap:wrap;margin-top:8px}
+  .ph{width:104px;height:78px;border-radius:10px;border:1px solid var(--hair);background:#eef0f3 center/cover no-repeat;position:relative}
+  .ph .rm{position:absolute;top:4px;right:4px;width:22px;height:22px;border-radius:50%;border:0;background:rgba(8,14,24,.6);color:#fff;cursor:pointer}
+  .addph{width:104px;height:78px;border-radius:10px;border:1.6px dashed #cbd3dd;background:#f8fafc;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;color:var(--muted);font-weight:800;font-size:12px;cursor:pointer}
+  .addph:hover{border-color:var(--accent);color:var(--accent)}
+  .loading{padding:40px;text-align:center;color:var(--muted)}
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Create Your Estate Sale</h1>
+    <div class="sub">Tell shoppers about your sale. We’ll review it before it goes live.</div>
+    <div id="msg" class="msg" role="status" aria-live="polite"></div>
+    <div id="body"><div class="loading">Loading…</div></div>
+  </div>
+  <script>
+  (function(){
+    var token=localStorage.getItem('token'); var body=document.getElementById('body'), msg=document.getElementById('msg');
+    if(!token){ location.href='/login.html?next='+encodeURIComponent('/create-estate-sale.html'); return; }
+    var H={Authorization:'Bearer '+token}, HJ={Authorization:'Bearer '+token,'Content-Type':'application/json'};
+    var evId=null, images=[];
+    function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
+    function showErr(t){ msg.className='msg err'; msg.textContent=t; window.scrollTo(0,0); }
+    function showOk(t){ msg.className='msg ok'; msg.textContent=t; }
+    function toLocal(iso){ if(!iso) return ''; try{ var d=new Date(iso); var p=function(n){return String(n).padStart(2,'0');}; return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate())+'T'+p(d.getHours())+':'+p(d.getMinutes()); }catch(e){ return ''; } }
+    function $(id){ return document.getElementById(id); }
+
+    // Decide the target listing: ?id=, else an existing draft/rejected sale, else new (needs a promotion).
+    var qid=new URLSearchParams(location.search).get('id');
+    fetch('/api/estate-sale/promotion',{headers:H}).then(function(r){return r.ok?r.json():null;}).then(function(d){
+      if(!d){ showErr('Please sign in again.'); return; }
+      var sales=d.estate_sales||[];
+      var target = qid ? sales.filter(function(s){return s.id===qid;})[0]
+        : sales.filter(function(s){return s.status==='draft'||s.status==='rejected';})[0];
+      if(target){ evId=target.id; loadEvent(target.id); }
+      else if(d.has_available){ render(null); }
+      else { location.href='/promote-estate-sale.html'; }
+    }).catch(function(){ showErr('We couldn’t load the page. Please refresh.'); });
+
+    function loadEvent(id){
+      fetch('/api/org/events/'+id,{headers:H}).then(function(r){return r.json();})
+        .then(function(res){ images=(res.images||[]); render(res.event||{}); })
+        .catch(function(){ render(null); });
+    }
+
+    function render(ev){
+      ev=ev||{};
+      var status=ev.status||'new';
+      var canEdit = status==='new'||status==='draft'||status==='rejected';
+      body.innerHTML=
+        (status==='rejected'&&ev.review_reason?'<div class="msg err" style="display:block"><b>Needs changes:</b> '+esc(ev.review_reason)+'</div>':'')
+        +'<div class="card"><h2>About your sale</h2>'
+        +'<label for="title">Sale title <span class="req">*</span></label><input id="title" maxlength="140" value="'+esc(ev.title||'')+'" placeholder="e.g. Downsizing Estate Sale — Furniture, Tools, Collectibles" />'
+        +'<label for="desc">Description</label><textarea id="desc" placeholder="What will shoppers find? Furniture, jewelry, tools, antiques…">'+esc(ev.description||'')+'</textarea>'
+        +'<div class="row"><div><label for="startAt">Starts <span class="req">*</span></label><input id="startAt" type="datetime-local" value="'+toLocal(ev.start_at)+'" /></div>'
+        +'<div><label for="endAt">Ends</label><input id="endAt" type="datetime-local" value="'+toLocal(ev.end_at)+'" /></div></div>'
+        +'<label for="tz">Time zone</label><select id="tz">'+['America/New_York:Eastern','America/Chicago:Central','America/Denver:Mountain','America/Los_Angeles:Pacific'].map(function(o){var p=o.split(':');return '<option value="'+p[0]+'"'+((ev.timezone||'America/New_York')===p[0]?' selected':'')+'>'+p[1]+'</option>';}).join('')+'</select>'
+        +'</div>'
+        +'<div class="card"><h2>Where is it?</h2>'
+        +'<label for="address">Street address</label><input id="address" value="'+esc(ev.address||'')+'" placeholder="123 Main St" />'
+        +'<div class="hint">Your exact address stays private until close to the sale. Shoppers see your city and area on the map.</div>'
+        +'<div class="row"><div><label for="city">City <span class="req">*</span></label><input id="city" value="'+esc(ev.city||'')+'" /></div>'
+        +'<div><label for="state">State <span class="req">*</span></label><input id="state" maxlength="2" value="'+esc(ev.state||'')+'" placeholder="TX" /></div></div>'
+        +'<label for="zip">ZIP</label><input id="zip" value="'+esc(ev.zip||'')+'" style="max-width:160px" /></div>'
+        +'<div class="card"><h2>Photos</h2>'+(evId?'<div class="photos" id="photos"></div>':'<div class="hint">Save your sale first, then add photos.</div>')+'</div>'
+        +'<div class="bar"><button class="btn primary" id="saveBtn" type="button">Save</button>'
+        +'<button class="btn ghost" id="submitBtn" type="button">Submit for Review</button>'
+        +'<span class="status" id="st"></span></div>';
+      if(!canEdit){ ['title','desc','startAt','endAt','tz','address','city','state','zip'].forEach(function(id){ var el=$(id); if(el) el.disabled=true; }); $('submitBtn').style.display='none'; }
+      $('saveBtn').addEventListener('click', function(){ save(false); });
+      $('submitBtn').addEventListener('click', function(){ save(true); });
+      if(evId) paintPhotos();
+    }
+
+    function collect(){
+      return { title:$('title').value.trim(), description:$('desc').value.trim(), startAt:$('startAt').value||null, endAt:$('endAt').value||null,
+        timezone:$('tz').value, address:$('address').value.trim(), city:$('city').value.trim(), state:$('state').value.trim().toUpperCase(), zip:$('zip').value.trim() };
+    }
+    function save(thenSubmit){
+      var b=collect();
+      if(!b.title){ showErr('Please add a sale title.'); return; }
+      if(!b.startAt){ showErr('Please add a start date and time.'); return; }
+      if(!b.city||!b.state){ showErr('Please add the city and state.'); return; }
+      var btn=$('saveBtn'); btn.disabled=true; $('st').className='status'; $('st').textContent='Saving…'; msg.className='msg';
+      var p = evId ? fetch('/api/org/events/'+evId,{method:'PATCH',headers:HJ,body:JSON.stringify(b)})
+        : fetch('/api/estate-sale/events',{method:'POST',headers:HJ,body:JSON.stringify(b)});
+      p.then(function(r){ return r.json().then(function(j){return {ok:r.ok,j:j};}); }).then(function(res){
+        btn.disabled=false;
+        if(!res.ok || !res.j.success){ $('st').textContent=''; showErr((res.j&&res.j.message)||'Could not save. Please try again.'); return; }
+        var ev=res.j.event; var first=!evId; evId=ev.id;
+        $('st').className='status ok'; $('st').textContent='✓ Saved';
+        if(first){ render(ev); } // now has an id → photos section appears
+        if(thenSubmit) submit();
+      }).catch(function(){ btn.disabled=false; $('st').textContent=''; showErr('Network error. Please try again.'); });
+    }
+    function submit(){
+      if(!evId) return;
+      var btn=$('submitBtn'); btn.disabled=true; $('st').textContent='Submitting…';
+      fetch('/api/estate-sale/events/'+evId+'/submit',{method:'POST',headers:H}).then(function(r){return r.json().then(function(j){return {ok:r.ok,j:j};});}).then(function(res){
+        btn.disabled=false;
+        if(res.ok && res.j.success){ try{ window.AAPAnalytics && AAPAnalytics.track('estate_sale_submitted',{}); }catch(e){} location.href='/my-estate-sales.html'; return; }
+        $('st').textContent=''; showErr((res.j&&res.j.message)||'Could not submit. Please try again.');
+      }).catch(function(){ btn.disabled=false; $('st').textContent=''; showErr('Network error. Please try again.'); });
+    }
+
+    // ── photos ──
+    function paintPhotos(){
+      var box=$('photos'); if(!box) return; box.innerHTML='';
+      images.forEach(function(im){ var url=im.url||im.secure_url; var g=document.createElement('div'); g.className='ph'; g.style.backgroundImage='url("'+url+'")';
+        g.innerHTML='<button class="rm" type="button" aria-label="Remove photo">×</button>';
+        g.querySelector('.rm').addEventListener('click', function(){ removePhoto(im.id); }); box.appendChild(g); });
+      var add=document.createElement('button'); add.type='button'; add.className='addph'; add.setAttribute('aria-label','Add photo'); add.innerHTML='<span>＋</span>Add Photo';
+      add.addEventListener('click', pickPhoto); box.appendChild(add);
+    }
+    function pickPhoto(){
+      var inp=document.createElement('input'); inp.type='file'; inp.accept='image/*'; inp.style.display='none';
+      inp.addEventListener('change', function(){ if(inp.files&&inp.files[0]) uploadPhoto(inp.files[0]); inp.remove(); });
+      document.body.appendChild(inp); inp.click();
+    }
+    function uploadPhoto(file){
+      var fd=new FormData(); fd.append('image',file);
+      fetch('/api/org/upload-image',{method:'POST',headers:H,body:fd}).then(function(r){return r.json();}).then(function(d){
+        if(!d.success||!d.secure_url) throw new Error(d.message||'Upload failed');
+        return fetch('/api/org/events/'+evId+'/images',{method:'POST',headers:HJ,body:JSON.stringify({url:d.secure_url})}).then(function(r){return r.json();});
+      }).then(function(){ return refreshPhotos(); })
+        .catch(function(e){ showErr(e.message||'Could not add photo.'); });
+    }
+    function removePhoto(id){ fetch('/api/org/events/'+evId+'/images/'+id,{method:'DELETE',headers:H}).then(function(){ images=images.filter(function(i){return i.id!==id;}); paintPhotos(); }).catch(function(){}); }
+    function refreshPhotos(){ return fetch('/api/org/events/'+evId,{headers:H}).then(function(r){return r.ok?r.json():{images:[]};}).then(function(d){ images=(d.images||[]); paintPhotos(); }).catch(function(){ paintPhotos(); }); }
+  })();
+  </script>
+</body>
+</html>

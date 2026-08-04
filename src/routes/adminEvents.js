@@ -73,12 +73,15 @@ router.get('/:id', asyncRoute(async (req, res) => {
 // POST /api/admin/events/:id/publish  — Approve & Publish
 router.post('/:id/publish', asyncRoute(async (req, res) => {
   const ev = await eventsService.adminPublish(req.user.id, req.params.id);
+  // Estate Sale Promotion listings get a homeowner "your sale is live" email (fire-and-forget).
+  require('../services/estateSalePromotionService').notifyModeration(ev, 'published').catch(() => {});
   res.json({ success: true, event: serializeAdminEvent(ev) });
 }));
 
 // POST /api/admin/events/:id/reject  (reason required)
 router.post('/:id/reject', asyncRoute(async (req, res) => {
   const ev = await eventsService.adminReject(req.user.id, req.params.id, (req.body || {}).reason);
+  require('../services/estateSalePromotionService').notifyModeration(ev, 'needs_changes', (req.body || {}).reason).catch(() => {});
   res.json({ success: true, event: serializeAdminEvent(ev) });
 }));
 

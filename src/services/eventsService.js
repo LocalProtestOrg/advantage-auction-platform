@@ -120,16 +120,19 @@ async function createDraft(userId, org, input = {}) {
   const ev = await withTransaction(async (client) => {
     await orgs.assertOwner(userId, org.id, client);
     const slug = await generateUniqueSlug('events', title, client);
+    // sale_type is server-decided (never asked of the customer). Only the Estate Sale Promotion flow
+    // passes saleType='estate_sale'; organizer-created events leave it NULL as before.
+    const saleType = input.saleType === 'estate_sale' ? 'estate_sale' : (input.saleType === 'auction' ? 'auction' : null);
     const { rows } = await client.query(
       `INSERT INTO events
          (slug, organization_id, source, market_slug, category_slug, title, description,
-          venue_name, address, city, state, zip, start_at, end_at, timezone, external_url, status)
-       VALUES ($1,$2,'organization',$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,'draft')
+          venue_name, address, city, state, zip, start_at, end_at, timezone, external_url, sale_type, status)
+       VALUES ($1,$2,'organization',$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,'draft')
        RETURNING *`,
       [slug, org.id, input.marketSlug, input.categorySlug || null, title, input.description || null,
        input.venueName || null, input.address || null, input.city || null, input.state || null, input.zip || null,
        input.startAt, input.endAt || null,
-       input.timezone || 'America/New_York', input.externalUrl || null]);
+       input.timezone || 'America/New_York', input.externalUrl || null, saleType]);
     const created = rows[0];
     await audit(client, 'event.created', created.id, userId, { title: created.title, market: created.market_slug });
     return created;
@@ -174,6 +177,12 @@ async function updateDraft(userId, eventId, input = {}) {
 async function submit(userId, eventId) {
   return withTransaction(async (client) => {
     const ev = await loadOwnedEvent(client, eventId, userId);
+    // Estate sales are a paid, one-time Estate Sale Promotion product — they are submitted ONLY through
+    // estateSalePromotionService (which consumes the promotion). The free events capability must never
+    // publish an estate sale for free, so this organizer path refuses them.
+    if (ev.sale_type === 'estate_sale') {
+      throw svcErr(403, 'ESTATE_SALE_PROMOTION_REQUIRED', 'Estate sales are submitted through the Estate Sale Promotion.');
+    }
     if (!['draft', 'rejected'].includes(ev.status)) {
       throw svcErr(409, 'INVALID_TRANSITION', `Cannot submit from ${ev.status}.`);
     }

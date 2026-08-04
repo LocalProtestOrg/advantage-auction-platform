@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="robots" content="noindex, nofollow" />
+<title>Estate Sale Promotion - Advantage.Bid</title>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&display=swap" rel="stylesheet">
+<style>
+  :root{--ink:#0B1B2B;--paper:#FBFAF7;--surface:#fff;--muted:#5b6b7e;--hair:#ECE8E0;--accent:#2F6BFF;--live:#B5273B;--ok:#16A34A}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--paper);color:var(--ink);font-family:system-ui,-apple-system,'Segoe UI',Roboto,sans-serif}
+  .wrap{max-width:520px;margin:0 auto;padding:3rem 1.15rem}
+  .card{background:var(--surface);border:1px solid var(--hair);border-radius:16px;padding:2rem 1.7rem;box-shadow:0 10px 30px rgba(15,23,42,.06);text-align:center}
+  .check{width:58px;height:58px;border-radius:50%;background:#dcfce7;display:grid;place-items:center;margin:0 auto 1rem}
+  .check svg{width:30px;height:30px;stroke:#16a34a}
+  h1{font-family:"Fraunces",Georgia,serif;font-weight:700;font-size:1.6rem;margin:0 0 .5rem}
+  p.sub{color:#475569;font-size:.98rem;line-height:1.5;margin:0 0 1.4rem}
+  .btn{display:block;width:100%;background:var(--live);color:#fff;border:0;border-radius:11px;padding:.95rem 1rem;font-size:1rem;font-weight:800;cursor:pointer;text-decoration:none}
+  .btn:hover{filter:brightness(1.06)}
+  .spin{width:34px;height:34px;border:3px solid #e2e8f0;border-top-color:var(--live);border-radius:50%;margin:.5rem auto 1rem;animation:sp .9s linear infinite}
+  @keyframes sp{to{transform:rotate(360deg)}}@media(prefers-reduced-motion:reduce){.spin{animation:none}}
+  .muted{color:var(--muted);font-size:.9rem}
+  .foot{text-align:center;font-size:.8rem;color:#94a3b8;margin-top:1.2rem}.foot a{color:#2563eb}
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card" id="card" role="status" aria-live="polite">
+      <div class="spin" aria-hidden="true"></div>
+      <h1>Confirming your promotion…</h1>
+      <p class="sub muted">We're confirming your payment securely. This takes just a moment.</p>
+    </div>
+    <div class="foot"><a href="/my-estate-sales.html">My Estate Sales</a> &nbsp;·&nbsp; <a href="mailto:info@advantage.bid">Contact support</a></div>
+  </div>
+  <script src="/widgets/shared/analytics.js"></script>
+  <script>
+    (function(){
+      var token=localStorage.getItem('token'); var card=document.getElementById('card');
+      if(!token){ location.href='/login.html?next='+encodeURIComponent('/estate-sale-welcome.html'); return; }
+      var tries=0, MAX=8, done=false;
+      function track(ev){ try{ window.AAPAnalytics && AAPAnalytics.track(ev,{}); }catch(e){} }
+      function ready(){
+        if(done) return; done=true; track('estate_sale_promotion_activated');
+        card.innerHTML='<div class="check"><svg viewBox="0 0 24 24" fill="none" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></div>'
+          +'<h1>You’re all set!</h1><p class="sub">Your Estate Sale Promotion has been activated. Now let’s tell shoppers about your sale.</p>'
+          +'<a class="btn" href="/create-estate-sale.html">Create Your Estate Sale</a>';
+      }
+      function pending(){
+        card.innerHTML='<h1>Payment received</h1><p class="sub muted">Thanks! We’re finalizing your Estate Sale Promotion. You can safely continue — it will be ready in your account shortly.</p>'
+          +'<a class="btn" href="/my-estate-sales.html">Go to My Estate Sales</a>';
+      }
+      function poll(){
+        fetch('/api/estate-sale/promotion',{headers:{Authorization:'Bearer '+token}}).then(function(r){return r.ok?r.json():null;})
+          .then(function(d){ if(d && (d.has_available || (d.estate_sales&&d.estate_sales.length))){ ready(); return; } if(++tries>=MAX){ pending(); return; } setTimeout(poll,1500); })
+          .catch(function(){ if(++tries>=MAX) pending(); else setTimeout(poll,1500); });
+      }
+      poll();
+    })();
+  </script>
+</body>
+</html>

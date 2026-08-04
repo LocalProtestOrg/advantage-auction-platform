@@ -21,6 +21,9 @@ Disallow: /seller-settlements.html
 Disallow: /become-seller.html
 Disallow: /appraiser-membership.html
 Disallow: /appraiser-welcome.html
+Disallow: /estate-sale-welcome.html
+Disallow: /create-estate-sale.html
+Disallow: /my-estate-sales.html
 Disallow: /login.html
 Disallow: /forgot-password.html
 Disallow: /reset-password.html
@@ -57,6 +60,9 @@ Disallow: /seller-settlements.html
 Disallow: /become-seller.html
 Disallow: /appraiser-membership.html
 Disallow: /appraiser-welcome.html
+Disallow: /estate-sale-welcome.html
+Disallow: /create-estate-sale.html
+Disallow: /my-estate-sales.html
 Disallow: /login.html
 Disallow: /forgot-password.html
 Disallow: /reset-password.html

@@ -1236,7 +1236,13 @@ class PaymentService {
       || event.type === 'invoice.paid'
       || event.type === 'invoice.payment_failed') {
       const appraiser = require('./appraiserMembershipService');
-      if (event.type === 'checkout.session.completed') return appraiser.handleCheckoutCompleted(obj);
+      if (event.type === 'checkout.session.completed') {
+        // Route one-time products by metadata.product_type; subscription checkouts go to the appraiser
+        // handler (which ignores non-subscription sessions). New one-time products add a branch here.
+        const productType = obj.metadata && obj.metadata.product_type;
+        if (productType === 'estate_sale_promotion') return require('./estateSalePromotionService').handleCheckoutCompleted(obj);
+        return appraiser.handleCheckoutCompleted(obj);
+      }
       if (event.type === 'invoice.paid') return appraiser.handleInvoicePaid(obj);
       if (event.type === 'invoice.payment_failed') return appraiser.handleInvoicePaymentFailed(obj);
       return appraiser.handleSubscriptionEvent(obj, event.type); // subscription.created/updated/deleted
