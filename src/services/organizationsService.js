@@ -159,6 +159,34 @@ async function updateProfile(userId, orgId, input = {}) {
   });
 }
 
+/**
+ * Admin-only: mark a specific professional credential verified/unverified for an org. The public
+ * `verified` marker derives ONLY from this record. Stored under profile_data.verified_credentials
+ * keyed by the uppercased credential — WITHOUT the admin id (only { verified_at }); the acting admin
+ * is recorded in audit_log for auditability, never exposed to owners or the public. Users can never
+ * reach this path (route is admin-gated; sanitizeProfileData drops verified_credentials on user saves).
+ */
+async function setCredentialVerification(adminId, orgId, credential, verified) {
+  const key = String(credential || '').trim().toUpperCase();
+  if (!key) throw svcErr(400, 'CREDENTIAL_REQUIRED', 'A credential is required.');
+  const nowIso = new Date().toISOString();
+  return withTransaction(async (client) => {
+    const { rows } = await client.query('SELECT profile_data FROM organizations WHERE id = $1 FOR UPDATE', [orgId]);
+    if (!rows.length) throw svcErr(404, 'ORG_NOT_FOUND', 'Organization not found.');
+    const pd = (rows[0].profile_data && typeof rows[0].profile_data === 'object') ? rows[0].profile_data : {};
+    const vc = (pd.verified_credentials && typeof pd.verified_credentials === 'object') ? pd.verified_credentials : {};
+    if (verified) vc[key] = { verified_at: nowIso }; else delete vc[key];
+    pd.verified_credentials = vc;
+    const upd = await client.query('UPDATE organizations SET profile_data = $1::jsonb, updated_at = now() WHERE id = $2 RETURNING id', [JSON.stringify(pd), orgId]);
+    await auditService.logEvent(client, {
+      eventType: verified ? 'credential.verified' : 'credential.unverified',
+      entityType: 'organization', entityId: orgId, actorId: adminId,
+      metadata: { credential: key, verified: !!verified, verified_by: adminId, verified_at: nowIso },
+    });
+    return { organization_id: upd.rows[0].id, credential: key, verified: !!verified };
+  });
+}
+
 module.exports = {
   svcErr,
   getPlan,
@@ -170,4 +198,5 @@ module.exports = {
   hasOwner,
   onboardOrganization,
   updateProfile,
+  setCredentialVerification,
 };

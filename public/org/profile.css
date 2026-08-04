@@ -48,6 +48,9 @@
 .ppc .metaline .yr{font-size:11.5px;font-weight:700;color:#40536a}
 .ppc .metaline .spx{display:flex;flex-wrap:wrap;gap:4px}
 .ppc .metaline .sp{font-size:10.5px;font-weight:700;color:#0f172a;background:#eef2f7;border-radius:999px;padding:2px 8px}
+.ppc .creds{display:flex;flex-wrap:wrap;gap:4px;margin:0 0 9px}
+.ppc .creds .cr{font-size:10.5px;font-weight:700;color:#1e3a8a;background:#eef4ff;border:1px solid #d6e2ff;border-radius:999px;padding:2px 8px}
+.ppc .creds .cr.v{color:#15803d;background:#dcfce7;border-color:#bbf7d0}
 .ppc .weblink{font-size:11.5px;color:var(--accent);font-weight:700;margin:0 0 10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .ppc .cta{display:block;text-align:center;background:var(--live);color:#fff;font-weight:800;font-size:13.5px;text-decoration:none;border-radius:10px;padding:10px}
 .pp-previewhint{font-size:11.5px;color:var(--muted);text-align:center;margin-top:8px}

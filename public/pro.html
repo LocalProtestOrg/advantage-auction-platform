@@ -43,6 +43,8 @@
   .item .l{font-size:12px;font-weight:800;letter-spacing:.03em;text-transform:uppercase;color:var(--muted);margin-bottom:4px}
   .item .v{font-size:14.5px;color:#1f2937;overflow-wrap:anywhere}
   .tags{display:flex;flex-wrap:wrap;gap:6px}.tags .tg{font-size:12.5px;font-weight:700;color:#0f172a;background:#eef2f7;border-radius:999px;padding:4px 11px}
+  .tags .tg.cred{background:#eef4ff;color:#1e3a8a;border:1px solid #d6e2ff}
+  .tags .tg.cred.v{background:#dcfce7;color:#15803d;border:1px solid #bbf7d0}
   .side .row{display:flex;gap:10px;align-items:flex-start;font-size:14px;color:#1f2937;padding:9px 0;border-bottom:1px solid #f1f5f9;overflow-wrap:anywhere}
   .side .row:last-child{border-bottom:0}.side .row .k{color:var(--muted);width:20px;text-align:center;flex:0 0 auto}
   .side .row a{overflow-wrap:anywhere}
@@ -114,10 +116,13 @@
     var contactCard = rows ? '<div class="card"><h2>Contact</h2>'+rows+'</div>' : '';
 
     // Sections (already non-empty), About, Gallery, Social — each suppressed when empty.
+    function credChips(list){ return '<div class="tags">'+(list||[]).map(function(cr){
+      return cr.verified ? '<span class="tg cred v">✓ Verified '+esc(cr.name)+'</span>' : '<span class="tg cred">'+esc(cr.name)+'</span>'; }).join('')+'</div>'; }
     var mainSecs=(p.sections||[]).map(function(s){
       return '<div class="card"><h2>'+esc(s.title)+'</h2><div class="items">'+s.items.map(function(it){
+        if(it.kind==='credentials'){ return '<div class="item"><div class="v">'+credChips(it.value)+'</div></div>'; }
         var v = it.kind==='tags' ? '<div class="tags">'+(it.value||[]).map(function(x){return '<span class="tg">'+esc(x)+'</span>';}).join('')+'</div>' : esc(it.value);
-        return '<div class="item"><div class="l">'+esc(it.label)+'</div><div class="v">'+v+'</div></div>';
+        return '<div class="item">'+(it.label?'<div class="l">'+esc(it.label)+'</div>':'')+'<div class="v">'+v+'</div></div>';
       }).join('')+'</div></div>';
     }).join('');
     var about = p.about ? '<div class="card">'+(h.headshot?'<div class="headshot" style="background-image:url(\''+esc(h.headshot)+'\')"></div>':'')+'<h2>About</h2><div class="about">'+esc(p.about)+'</div></div>' : '';

@@ -237,6 +237,87 @@ describe('Phase 3B polish', () => {
   });
 });
 
+describe('Phase 3C — labels, business address, claimed vs verified credentials', () => {
+  const editor = read('public', 'org', 'profile-editor.js');
+  const pro = read('public', 'pro.html');
+  const admin = read('src', 'routes', 'adminPartners.js');
+  const svc = read('src', 'services', 'organizationsService.js');
+  function field(secId, key) { return S.SECTIONS.find((s) => s.id === secId).fields.find((f) => f.key === key); }
+
+  test('labels: Years of Experience, Business Address (+helper), Professional Credentials (+helper)', () => {
+    expect(field('appraiser', 'years_experience').label).toBe('Years of Experience');
+    const addr = field('service', 'office_address');
+    expect(addr.label).toBe('Business Address');
+    expect(addr.hint).toBe('Optional. Add this only if customers should visit your location.');
+    expect(addr.weight).toBe(0); // never required for completeness
+    const cred = field('appraiser', 'certifications');
+    expect(cred.label).toBe('Professional Credentials');
+    expect(cred.hint).toBe('Add only credentials you actually hold.');
+  });
+
+  test('claimed credentials de-dup and default to unverified', () => {
+    expect(S.credentialView({ certifications: ['ASA', 'asa', 'USPAP', ''] })).toEqual([
+      { name: 'ASA', verified: false }, { name: 'USPAP', verified: false }]);
+  });
+  test('a credential is verified ONLY via admin verified_credentials', () => {
+    const v = S.credentialView({ certifications: ['ASA', 'ISA'], verified_credentials: { ISA: { verified_at: 'x' } } });
+    expect(v).toEqual([{ name: 'ASA', verified: false }, { name: 'ISA', verified: true }]);
+  });
+  test('public view: Professional Credentials section, claimed neutral + verified marked, no admin leak', () => {
+    const org = { slug: 's', name: 'N', verification_status: 'community', city: 'H', state: 'TX',
+      profile_data: { certifications: ['ASA', 'ISA'], office_address: '1 Main St', verified_credentials: { ISA: { verified_at: '2026', verified_by: 'admin-uuid' } } } };
+    const view = S.buildProfileView(org, ['appraiser']);
+    const sec = view.sections.find((s) => s.title === 'Professional Credentials');
+    expect(sec.items[0].kind).toBe('credentials');
+    expect(sec.items[0].value).toEqual([{ name: 'ASA', verified: false }, { name: 'ISA', verified: true }]);
+    const json = JSON.stringify(view);
+    expect(json).not.toContain('admin-uuid'); // admin id never surfaces
+    expect(json).not.toContain('verified_by');
+    expect(json).not.toContain('verified_at');
+    // org is community, not verified → org-level verified stays false (credential verification is separate)
+    expect(view.header.verified).toBe(false);
+  });
+  test('empty credentials → no Professional Credentials section', () => {
+    const view = S.buildProfileView({ slug: 's', name: 'N', verification_status: 'unverified', profile_data: {} }, ['appraiser']);
+    expect(view.sections.some((s) => s.title === 'Professional Credentials')).toBe(false);
+  });
+  test('business address shows only when entered; excluded from JSON-LD structured data', () => {
+    const withAddr = S.buildProfileView({ slug: 's', name: 'N', verification_status: 'unverified', city: 'H', state: 'TX', profile_data: { office_address: '1 Main St' } }, ['appraiser']);
+    expect(withAddr.sections.find((s) => s.title === 'Details').items.some((i) => i.label === 'Business Address' && i.value === '1 Main St')).toBe(true);
+    expect(withAddr.header).not.toHaveProperty('office_address');
+    // pro.html JSON-LD uses only addressLocality (city/state), never the street address
+    expect(pro).toMatch(/addressLocality:h\.location/);
+    expect(pro).not.toMatch(/office_address|streetAddress/);
+  });
+
+  test('users can NEVER set verification (sanitize drops verified_credentials)', () => {
+    const out = S.sanitizeProfileData({ certifications: ['ASA'], verified_credentials: { ASA: { verified_at: 'x' } }, published: true });
+    expect('verified_credentials' in out).toBe(false);
+    expect('published' in out).toBe(false);
+    expect(out.certifications).toEqual(['ASA']);
+  });
+  test('verification is admin-only + audited; membership never verifies', () => {
+    expect(admin).toMatch(/router\.post\('\/:orgId\/credentials'/);
+    expect(admin).toMatch(/roleMiddleware\(\['admin'\]\)/); // whole router is admin-gated
+    expect(svc).toMatch(/function setCredentialVerification\(adminId, orgId, credential, verified\)/);
+    expect(svc).toMatch(/eventType: verified \? 'credential\.verified'/); // audited
+    expect(svc).toMatch(/verified_by: adminId/); // audit records the admin, not profile_data
+    // credentialView reads ONLY verified_credentials — never verification_status or any membership flag
+    expect(read('src', 'lib', 'professionalProfileSchema.js')).toMatch(/function credentialView\(pd\)[\s\S]{0,400}pd\.verified_credentials/);
+  });
+
+  test('editor preview shows up to 3 credentials, verified marked only when real; no em dashes', () => {
+    expect(editor).toMatch(/S\.pd\.certifications.*\.slice\(0, 3\)/);
+    expect(editor).toMatch(/vc\[k\] \? '<span class="cr v">✓ '/);
+    const noComments = editor.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/[^\n]*/g, '$1');
+    expect(noComments).not.toContain('—'); // no em dash in rendered copy (comments excluded)
+  });
+  test('public page renders "Verified {name}" only for verified credentials', () => {
+    expect(pro).toMatch(/cr\.verified \? '<span class="tg cred v">✓ Verified '/);
+    expect(pro).toMatch(/'<span class="tg cred">'\+esc\(cr\.name\)/); // claimed = neutral
+  });
+});
+
 describe('scope guard — BD appraisers + billing untouched', () => {
   test('no Phase 3 code references bd_import, and none touches billing/checkout/subscription', () => {
     const files = ['public/org/profile-editor.js', 'public/pro.html', 'src/lib/professionalProfileSchema.js', 'src/routes/orgEvents.js'];

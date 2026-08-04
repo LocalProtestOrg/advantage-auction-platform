@@ -289,6 +289,11 @@
     var metaBits = [];
     if (years) metaBits.push('<span class="yr">' + esc(String(years)) + ' yrs in business</span>');
     if (specialties.length) metaBits.push('<span class="spx">' + specialties.map(function (s) { return '<span class="sp">' + esc(s) + '</span>'; }).join('') + '</span>');
+    // Up to 3 claimed credentials; only an admin-verified credential gets a check (never implied).
+    var vc = (S.pd.verified_credentials && typeof S.pd.verified_credentials === 'object') ? S.pd.verified_credentials : {};
+    var creds = (Array.isArray(S.pd.certifications) ? S.pd.certifications : []).slice(0, 3);
+    var credHtml = creds.length ? '<div class="creds">' + creds.map(function (cc) {
+      var k = String(cc).trim().toUpperCase(); return vc[k] ? '<span class="cr v">✓ ' + esc(cc) + '</span>' : '<span class="cr">' + esc(cc) + '</span>'; }).join('') + '</div>' : '';
     $('prev').innerHTML =
       '<div class="cov' + (c.cover ? '' : ' empty') + '" style="' + (c.cover ? 'background-image:url(\'' + esc(c.cover) + '\')' : '') + '"></div>'
       + '<div class="body"><div class="logo" style="' + logoStyle + '">' + logoInner + '</div>'
@@ -298,6 +303,7 @@
       + (S.pd.tagline ? '<div class="tagl">' + esc(S.pd.tagline) + '</div>' : '')
       + (c.short_description ? '<div class="desc">' + esc(c.short_description) + '</div>' : '<div class="desc muted2">Add a short description to introduce your business.</div>')
       + (metaBits.length ? '<div class="metaline">' + metaBits.join('') + '</div>' : '')
+      + credHtml
       + (web ? '<div class="weblink">🔗 ' + esc(web) + '</div>' : '')
       + '<a class="cta" href="#" onclick="return false">Contact ' + esc(primaryLabel()) + '</a></div>';
   }

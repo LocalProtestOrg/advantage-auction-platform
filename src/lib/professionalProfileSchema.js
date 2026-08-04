@@ -67,7 +67,7 @@ const SECTIONS = [
       { key: 'states_served', label: 'States Served', type: 'states', weight: 1, placeholder: 'Add a state and press Enter' },
       { key: 'city', label: 'City', type: 'text', core: true, weight: 1 },
       { key: 'state', label: 'State', type: 'text', core: true, weight: 1 },
-      { key: 'office_address', label: 'Office Address', type: 'text', weight: 0, hint: 'Optional.' },
+      { key: 'office_address', label: 'Business Address', type: 'text', weight: 0, hint: 'Optional. Add this only if customers should visit your location.' },
       { key: 'virtual_services', label: 'Offers Virtual or Online Services', type: 'toggle', weight: 0 },
     ],
   },
@@ -75,9 +75,9 @@ const SECTIONS = [
     id: 'appraiser', title: 'Appraisal Services', applies: ['appraiser'],
     fields: [
       { key: 'appraisal_types', label: 'Appraisal Types', type: 'chips', weight: 3, suggestions: APPRAISAL_TYPES },
-      { key: 'certifications', label: 'Professional Certifications', type: 'chips', weight: 2, suggestions: CERTS,
-        hint: 'Add only credentials you actually hold (for example ASA, ISA, AAA, USPAP).' },
-      { key: 'years_experience', label: 'Years of Appraisal Experience', type: 'number', weight: 1 },
+      { key: 'certifications', label: 'Professional Credentials', type: 'chips', weight: 2, suggestions: CERTS,
+        hint: 'Add only credentials you actually hold.' },
+      { key: 'years_experience', label: 'Years of Experience', type: 'number', weight: 1 },
       { key: 'appraisal_purposes', label: 'Appraisal Purposes', type: 'toggle-group', weight: 2, options: [
         ['insurance_appraisals', 'Insurance'], ['estate_appraisals', 'Estate'], ['donation_appraisals', 'Donation'],
         ['divorce_appraisals', 'Divorce'], ['bankruptcy_appraisals', 'Bankruptcy'], ['probate_appraisals', 'Probate'],
@@ -194,6 +194,22 @@ function completeness(org, pd, typeKeys) {
 function professionalTypesFrom(capabilityKeys) { return (capabilityKeys || []).filter(function (k) { return PROFESSIONAL_TYPES[k]; }); }
 function primaryTypeLabel(typeKeys) { var k = (typeKeys || []).find(function (t) { return PROFESSIONAL_TYPES[t]; }); return k ? PROFESSIONAL_TYPES[k].singular : 'Professional'; }
 
+/** Normalize a credential name to its lookup key (case-insensitive, trimmed). */
+function credentialKey(name) { return String(name == null ? '' : name).trim().toUpperCase(); }
+/**
+ * Claimed credentials (profile_data.certifications) → display list, each flagged verified ONLY when a
+ * matching admin record exists in profile_data.verified_credentials. Emits neither admin ids nor
+ * timestamps — public-safe. Users cannot influence `verified` (verified_credentials is admin-only).
+ */
+function credentialView(pd) {
+  var claimed = Array.isArray(pd && pd.certifications) ? pd.certifications : [];
+  var vc = (pd && pd.verified_credentials && typeof pd.verified_credentials === 'object') ? pd.verified_credentials : {};
+  var seen = {};
+  return claimed.map(function (c) { return String(c).trim(); }).filter(function (c) { // de-dup, drop empties
+    if (!c) return false; var k = credentialKey(c); if (seen[k]) return false; seen[k] = 1; return true;
+  }).map(function (c) { return { name: c, verified: !!vc[credentialKey(c)] }; });
+}
+
 /**
  * Read-only public view model — used by the public endpoint AND the owner preview so both render
  * identically. Emits ONLY non-empty values (empty sections suppressed downstream). NEVER fabricates
@@ -214,14 +230,17 @@ function buildProfileView(org, typeKeys) {
   push('Languages', pd.languages);
   push('Business Hours', pd.hours);
   if (pd.virtual_services === true) details.push({ label: 'Virtual or Online Services', value: 'Available', kind: 'text' });
+  // Business Address is shown ONLY when the professional intentionally entered it (never inferred).
+  // It is excluded from JSON-LD (city/state remain independent) per the address-privacy policy.
+  push('Business Address', pd.office_address);
   if (details.length) sections.push({ id: 'details', title: 'Details', items: details });
 
   // Appraisal Services
   if ((typeKeys || []).indexOf('appraiser') >= 0) {
     var ap = [];
     if (ne(pd.appraisal_types)) ap.push({ label: 'Appraisal Types', value: pd.appraisal_types, kind: 'tags' });
-    if (ne(pd.certifications)) ap.push({ label: 'Professional Certifications', value: pd.certifications, kind: 'tags' });
-    if (pd.years_experience != null && String(pd.years_experience) !== '') ap.push({ label: 'Years of Appraisal Experience', value: String(pd.years_experience), kind: 'text' });
+    // Certifications are rendered in their own "Professional Credentials" section (claimed vs verified) below.
+    if (pd.years_experience != null && String(pd.years_experience) !== '') ap.push({ label: 'Years of Experience', value: String(pd.years_experience), kind: 'text' });
     var purposes = [['insurance_appraisals', 'Insurance'], ['estate_appraisals', 'Estate'], ['donation_appraisals', 'Donation'],
       ['divorce_appraisals', 'Divorce'], ['bankruptcy_appraisals', 'Bankruptcy'], ['probate_appraisals', 'Probate'],
       ['fair_market_value', 'Fair Market Value'], ['replacement_value', 'Replacement Value']].filter(function (o) { return pd[o[0]]; }).map(function (o) { return o[1]; });
@@ -231,6 +250,12 @@ function buildProfileView(org, typeKeys) {
     if (options.length) ap.push({ label: 'Options', value: options, kind: 'tags' });
     if (ap.length) sections.push({ id: 'appraiser', title: 'Appraisal Services', items: ap });
   }
+
+  // Professional Credentials — CLAIMED (user-entered) shown neutrally; only a credential with an
+  // admin-approved record in profile_data.verified_credentials shows a "Verified" marker. Users can
+  // never set the verified flag (sanitizeProfileData drops verified_credentials). Hidden when none.
+  var creds = credentialView(pd);
+  if (creds.length) sections.push({ id: 'professional_credentials', title: 'Professional Credentials', items: [{ label: '', value: creds, kind: 'credentials' }] });
 
   // Credentials
   var cr = [];
@@ -263,5 +288,5 @@ function buildProfileView(org, typeKeys) {
 module.exports = {
   SECTIONS, CORE_COLUMNS, PROFESSIONAL_TYPES, APPRAISAL_TYPES, CERTS, US_STATES, EXTRA_WRITABLE,
   flatFields, profileDataKeys, keyTypes, sanitizeProfileData, sectionsForTypes, completeness,
-  professionalTypesFrom, primaryTypeLabel, buildProfileView,
+  professionalTypesFrom, primaryTypeLabel, buildProfileView, credentialView, credentialKey,
 };

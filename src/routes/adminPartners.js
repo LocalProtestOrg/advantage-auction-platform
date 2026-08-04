@@ -12,6 +12,7 @@ const roleMiddleware = require('../middleware/roleMiddleware');
 const capabilityService = require('../services/capabilityService');
 const configService = require('../services/configService');
 const orgLifecycle = require('../services/organizationLifecycleService');
+const orgsService = require('../services/organizationsService');
 const { asyncRoute, svcErr } = require('../utils/apiError');
 
 router.use(authMiddleware, roleMiddleware(['admin']));
@@ -28,6 +29,16 @@ router.post('/:orgId/capabilities', asyncRoute(async (req, res) => {
   if (!capability) throw svcErr(400, 'CAPABILITY_REQUIRED', 'capability is required.');
   await capabilityService.setCapability(req.params.orgId, capability, enabled !== false, 'override');
   res.json({ success: true });
+}));
+
+// Mark a specific professional credential verified/unverified (admin-only, audited). This is the
+// ONLY way the public "Verified {credential}" marker can appear. Membership/org-verification never
+// set it. A future document-review workflow would call this after evidence is reviewed.
+router.post('/:orgId/credentials', asyncRoute(async (req, res) => {
+  const { credential, verified } = req.body || {};
+  if (!credential) throw svcErr(400, 'CREDENTIAL_REQUIRED', 'credential is required.');
+  const result = await orgsService.setCredentialVerification(req.user.id, req.params.orgId, credential, verified !== false);
+  res.json({ success: true, ...result });
 }));
 
 // Set an organization config override
