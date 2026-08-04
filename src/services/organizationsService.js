@@ -126,13 +126,20 @@ async function onboardOrganization(userId, input = {}) {
 
 /** Owner-only profile update (safe fields only; never slug/plan/verification). */
 async function updateProfile(userId, orgId, input = {}) {
-  const ALLOWED = ['name', 'type', 'contact_email', 'contact_phone', 'website_url', 'logo_url', 'city', 'state'];
+  const ALLOWED = ['name', 'type', 'contact_email', 'contact_phone', 'website_url', 'logo_url', 'city', 'state',
+    'description', 'cover_image_url', 'profile_data'];
   const sets = [];
   const vals = [];
   for (const col of ALLOWED) {
     if (Object.prototype.hasOwnProperty.call(input, col)) {
-      vals.push(input[col]);
-      sets.push(`${col} = $${vals.length}`);
+      if (col === 'profile_data') {
+        // JSONB column — bind as a stringified object with an explicit cast.
+        vals.push(JSON.stringify(input[col] || {}));
+        sets.push(`profile_data = $${vals.length}::jsonb`);
+      } else {
+        vals.push(input[col]);
+        sets.push(`${col} = $${vals.length}`);
+      }
     }
   }
   if (!sets.length) throw svcErr(400, 'NO_FIELDS', 'No updatable fields provided.');

@@ -18,6 +18,8 @@ const multer = require('multer');
 const cloudinaryService = require('../services/cloudinaryService');
 const requireOrgCapability = require('../middleware/requireOrgCapability');
 const resolveActingOrg = require('../middleware/resolveActingOrg');
+const capabilityService = require('../services/capabilityService');
+const profileSchema = require('../lib/professionalProfileSchema');
 
 router.use(authMiddleware); // all org routes require a logged-in user (req.user.id)
 router.use(resolveActingOrg); // sets req.actingOrg (header-selected or primary org fallback)
@@ -42,6 +44,8 @@ function serializeOrg(o) {
     plan_tier: o.plan_tier, verification_status: o.verification_status,
     contact_email: o.contact_email, contact_phone: o.contact_phone,
     website_url: o.website_url, logo_url: o.logo_url, city: o.city, state: o.state,
+    description: o.description || '', cover_image_url: o.cover_image_url || null,
+    profile_data: o.profile_data || {},
     created_at: o.created_at,
   };
 }
@@ -60,26 +64,61 @@ function serializeEvent(e) {
 // camelCase profile input → snake columns for updateProfile
 function mapOrgUpdate(b) {
   const M = { name: 'name', type: 'type', contactEmail: 'contact_email', contactPhone: 'contact_phone',
-    websiteUrl: 'website_url', logoUrl: 'logo_url', city: 'city', state: 'state' };
+    websiteUrl: 'website_url', logoUrl: 'logo_url', city: 'city', state: 'state',
+    shortDescription: 'description', coverUrl: 'cover_image_url' };
   const out = {};
   for (const k of Object.keys(M)) if (hasOwn(b, k)) out[M[k]] = b[k];
   return out;
 }
+// The org's professional type keys (capabilities that are professional types).
+async function orgProfessionalTypes(orgId) {
+  if (!orgId) return [];
+  try {
+    const caps = await capabilityService.getEffectiveCapabilities(orgId);
+    return profileSchema.professionalTypesFrom(Array.from(caps));
+  } catch (e) { return []; }
+}
 
-// GET /api/org/profile — the caller's organization (or null if not onboarded yet)
-router.get('/profile', asyncRoute(async (req, res) => {
-  const org = req.actingOrg;
-  res.json({ success: true, organization: serializeOrg(org) });
+// GET /api/org/profile-schema — the reusable Professional Profile field schema (drives the editor).
+router.get('/profile-schema', asyncRoute(async (req, res) => {
+  res.json({ success: true, sections: profileSchema.SECTIONS, professional_types: profileSchema.PROFESSIONAL_TYPES });
 }));
 
-// POST /api/org/profile — onboard (create) if none, else update the profile
+// GET /api/org/profile — the caller's organization (or null if not onboarded yet) + professional
+// types, completeness, and an owner PREVIEW view model (identical shape to the public view).
+router.get('/profile', asyncRoute(async (req, res) => {
+  const org = req.actingOrg;
+  if (!org) return res.json({ success: true, organization: null, professional_types: [], completeness: 0, preview: null });
+  const types = await orgProfessionalTypes(org.id);
+  const s = serializeOrg(org);
+  res.json({
+    success: true,
+    organization: s,
+    professional_types: types,
+    completeness: profileSchema.completeness(s, s.profile_data, types),
+    preview: profileSchema.buildProfileView(s, types),
+  });
+}));
+
+// POST /api/org/profile — onboard (create) if none, else update. Persists core columns +
+// description + cover + validated profile_data (JSONB). Merges profile_data over existing.
 router.post('/profile', asyncRoute(async (req, res) => {
   const b = req.body || {};
-  const existing = req.actingOrg;
-  const org = existing
-    ? await orgsService.updateProfile(req.user.id, existing.id, mapOrgUpdate(b))
-    : await orgsService.onboardOrganization(req.user.id, b);
-  res.status(existing ? 200 : 201).json({ success: true, organization: serializeOrg(org) });
+  let org = req.actingOrg;
+  const created = !org;
+  if (!org) org = await orgsService.onboardOrganization(req.user.id, b);
+  const updates = mapOrgUpdate(b);
+  if (hasOwn(b, 'profileData')) {
+    const existing = (org.profile_data && typeof org.profile_data === 'object') ? org.profile_data : {};
+    updates.profile_data = Object.assign({}, existing, profileSchema.sanitizeProfileData(b.profileData));
+  }
+  if (Object.keys(updates).length) org = await orgsService.updateProfile(req.user.id, org.id, updates);
+  const types = await orgProfessionalTypes(org.id);
+  const s = serializeOrg(org);
+  res.status(created ? 201 : 200).json({
+    success: true, organization: s, professional_types: types,
+    completeness: profileSchema.completeness(s, s.profile_data, types),
+  });
 }));
 
 // GET /api/org/events — the org's events + plan usage

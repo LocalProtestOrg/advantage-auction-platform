@@ -221,6 +221,32 @@ router.get('/marketplace/:orgId/auctions', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
+// ── GET /api/public/professionals/:slug ───────────────────────────────────────
+// Public professional profile view (Phase 3). Served ONLY when the owner has explicitly
+// published (profile_data->>'published' = 'true') — incomplete/native professional orgs are never
+// auto-exposed. Reuses the shared profile view builder so it matches the owner preview exactly.
+// Never returns internal/admin columns; contact fields are the business details the professional
+// chose to publish.
+const profileSchemaPub = require('../lib/professionalProfileSchema');
+const capabilityServicePub = require('../services/capabilityService');
+router.get('/professionals/:slug', async (req, res, next) => {
+  try {
+    const slug = String(req.params.slug || '').toLowerCase();
+    const { rows } = await db.query(
+      `SELECT id, slug, name, type, city, state, description, logo_url, cover_image_url,
+              contact_email, contact_phone, website_url, verification_status, profile_data
+         FROM organizations
+        WHERE lower(slug) = $1 AND (profile_data->>'published') = 'true'
+        LIMIT 1`, [slug]);
+    const org = rows[0];
+    if (!org) return res.status(404).json({ success: false, message: 'Profile not found' });
+    let types = [];
+    try { types = profileSchemaPub.professionalTypesFrom(Array.from(await capabilityServicePub.getEffectiveCapabilities(org.id))); } catch (e) { types = []; }
+    res.set('Cache-Control', PUBLIC_CACHE);
+    res.json({ success: true, profile: profileSchemaPub.buildProfileView(org, types) });
+  } catch (err) { next(err); }
+});
+
 // ── POST /api/public/feedback ─────────────────────────────────────────────────
 // Marketplace feedback → emailed to info@advantage.bid (existing SES infra) + recorded in
 // audit_log for future triage. Public + unauthenticated, so: per-IP rate limit, honeypot,
