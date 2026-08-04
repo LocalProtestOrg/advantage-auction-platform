@@ -3,21 +3,21 @@
 /**
  * Professional Profile schema — the SINGLE source of truth for the reusable professional profile
  * experience (Phase 3). Drives: the editor form rendering, server-side validation of profile_data,
- * and the public profile view. Adding a new professional type = add its capability key to a section's
- * `applies` list (or add a new section) — no new editor, no per-type code paths.
+ * completeness, and the public profile view. Adding a professional type = add its capability key to a
+ * section's `applies` list (or add a section) — no new editor, no per-type code paths.
  *
  * Persistence:
- *   - CORE fields map to existing organizations COLUMNS (name, description, contact_email,
- *     contact_phone, website_url, logo_url, cover_image_url, city, state).
- *   - Every other field is stored in organizations.profile_data (JSONB), keyed by `key`.
+ *   CORE fields → existing organizations COLUMNS (name, description, contact_email, contact_phone,
+ *     website_url, logo_url, cover_image_url, city, state). Everything else → organizations.profile_data.
  *
- * Field types → stored shape: text|textarea|tel|email|url|select|hours → string; number → number;
- *   chips → string[]; toggle → boolean; image → string(url); gallery → string[].
+ * Types → stored shape: text|textarea|tel|email|url|select|hours → string; number → number;
+ *   chips|states|gallery → string[]; toggle → boolean; image → string(url); toggle-group → booleans.
  *
- * `applies`: 'all' (every professional type) OR an array of capability keys (e.g. ['appraiser']).
+ * Publication is moderation-gated: the user can only set review_status ('draft'|'submitted'); the
+ * `published` flag is NOT user-writable (admin/moderation only) so a paid signup can never make
+ * itself directory-visible by a checkbox. Completeness never counts optional fields (weight 0).
  */
 
-// Professional type registry (capability key → display). Extend as new memberships ship.
 const PROFESSIONAL_TYPES = {
   appraiser: { label: 'Appraiser', singular: 'Appraiser' },
   auction_house: { label: 'Auction House', singular: 'Auction House' },
@@ -31,36 +31,44 @@ const PROFESSIONAL_TYPES = {
 const APPRAISAL_TYPES = ['Fine Art', 'Antiques', 'Jewelry', 'Coins', 'Firearms', 'Watches', 'Furniture',
   'Mid Century', 'Asian Art', 'Books', 'Sports Memorabilia', 'Military', 'Toys', 'General Household', 'Commercial Assets'];
 const CERTS = ['ASA', 'ISA', 'AAA', 'USPAP', 'Other'];
+const US_STATES = ['AL', 'AK', 'AZ', 'AR', 'CA', 'CO', 'CT', 'DE', 'DC', 'FL', 'GA', 'HI', 'ID', 'IL', 'IN', 'IA',
+  'KS', 'KY', 'LA', 'ME', 'MD', 'MA', 'MI', 'MN', 'MS', 'MO', 'MT', 'NE', 'NV', 'NH', 'NJ', 'NM', 'NY', 'NC', 'ND',
+  'OH', 'OK', 'OR', 'PA', 'RI', 'SC', 'SD', 'TN', 'TX', 'UT', 'VT', 'VA', 'WA', 'WV', 'WI', 'WY'];
 
 // Core fields (persisted to columns). key → column.
 const CORE_COLUMNS = {
   name: 'name', short_description: 'description', phone: 'contact_phone', email: 'contact_email',
   website: 'website_url', logo: 'logo_url', cover: 'cover_image_url', city: 'city', state: 'state',
 };
+// profile_data keys the user may set beyond the rendered fields (never `published`).
+const EXTRA_WRITABLE = ['review_status'];
 
 const SECTIONS = [
   {
     id: 'general', title: 'General Information', applies: 'all',
     fields: [
-      { key: 'logo', label: 'Logo', type: 'image', core: true, weight: 3, hint: 'Upload your business logo (square works best).' },
-      { key: 'cover', label: 'Cover / Banner Image', type: 'image', core: true, weight: 1, hint: 'A wide banner shown on your public profile.' },
+      { key: 'logo', label: 'Logo', type: 'image', core: true, weight: 3, guidance: 'Square, at least 400 by 400 pixels.' },
+      { key: 'cover', label: 'Cover Image', type: 'image', core: true, weight: 1, guidance: 'Wide landscape, about 1600 by 600 pixels.' },
       { key: 'name', label: 'Business Name', type: 'text', core: true, required: true, weight: 3, max: 120 },
       { key: 'tagline', label: 'Business Tagline', type: 'text', weight: 1, max: 140, placeholder: 'A short line that sums up what you do' },
+    ],
+  },
+  {
+    id: 'about', title: 'About Your Business', applies: 'all',
+    fields: [
       { key: 'short_description', label: 'Short Description', type: 'textarea', core: true, weight: 2, max: 400, hint: 'One or two sentences shown on cards and previews.' },
-      { key: 'bio', label: 'Full Biography / About', type: 'textarea', weight: 2, max: 4000 },
-      { key: 'years_in_business', label: 'Years in Business', type: 'number', weight: 1 },
-      { key: 'owner_name', label: 'Owner / Lead', type: 'text', weight: 1, max: 120, hint: 'Optional.' },
-      { key: 'phone', label: 'Business Phone', type: 'tel', core: true, weight: 2 },
-      { key: 'email', label: 'Email', type: 'email', core: true, weight: 2 },
-      { key: 'website', label: 'Website', type: 'url', core: true, weight: 1, placeholder: 'https://…' },
-      { key: 'service_area', label: 'Service Area', type: 'text', weight: 1, placeholder: 'e.g. Greater Houston, TX' },
-      { key: 'states_served', label: 'States Served', type: 'chips', weight: 1, placeholder: 'Add a state and press Enter' },
+      { key: 'bio', label: 'Full Biography', type: 'textarea', weight: 2, max: 4000 },
+    ],
+  },
+  {
+    id: 'service', title: 'Service Area', applies: 'all',
+    fields: [
+      { key: 'service_area', label: 'Service Area', type: 'text', weight: 1, placeholder: 'e.g. Greater Houston, Texas' },
+      { key: 'states_served', label: 'States Served', type: 'states', weight: 1, placeholder: 'Add a state and press Enter' },
       { key: 'city', label: 'City', type: 'text', core: true, weight: 1 },
       { key: 'state', label: 'State', type: 'text', core: true, weight: 1 },
       { key: 'office_address', label: 'Office Address', type: 'text', weight: 0, hint: 'Optional.' },
-      { key: 'virtual_services', label: 'Offers virtual / online services', type: 'toggle', weight: 0 },
-      { key: 'languages', label: 'Languages Spoken', type: 'chips', weight: 0 },
-      { key: 'hours', label: 'Business Hours', type: 'textarea', weight: 0, placeholder: 'e.g. Mon–Fri 9–5, weekends by appointment' },
+      { key: 'virtual_services', label: 'Offers Virtual or Online Services', type: 'toggle', weight: 0 },
     ],
   },
   {
@@ -68,7 +76,7 @@ const SECTIONS = [
     fields: [
       { key: 'appraisal_types', label: 'Appraisal Types', type: 'chips', weight: 3, suggestions: APPRAISAL_TYPES },
       { key: 'certifications', label: 'Professional Certifications', type: 'chips', weight: 2, suggestions: CERTS },
-      { key: 'years_experience', label: 'Years Experience', type: 'number', weight: 1 },
+      { key: 'years_experience', label: 'Years of Appraisal Experience', type: 'number', weight: 1 },
       { key: 'appraisal_purposes', label: 'Appraisal Purposes', type: 'toggle-group', weight: 2, options: [
         ['insurance_appraisals', 'Insurance'], ['estate_appraisals', 'Estate'], ['donation_appraisals', 'Donation'],
         ['divorce_appraisals', 'Divorce'], ['bankruptcy_appraisals', 'Bankruptcy'], ['probate_appraisals', 'Probate'],
@@ -79,193 +87,180 @@ const SECTIONS = [
     ],
   },
   {
-    id: 'credentials', title: 'Credentials', applies: 'all',
+    id: 'credentials', title: 'Credentials and Experience', applies: 'all',
     fields: [
-      { key: 'associations', label: 'Professional Associations', type: 'chips', weight: 1 },
-      { key: 'licenses', label: 'Licenses', type: 'chips', weight: 1 },
+      { key: 'years_in_business', label: 'Years in Business', type: 'number', weight: 1 },
+      { key: 'owner_name', label: 'Owner or Lead', type: 'text', weight: 0, max: 120, hint: 'Optional.' },
+      { key: 'languages', label: 'Languages', type: 'chips', weight: 0 },
+      { key: 'associations', label: 'Professional Associations', type: 'chips', weight: 0 },
+      { key: 'licenses', label: 'Licenses', type: 'chips', weight: 0 },
       { key: 'awards', label: 'Awards', type: 'chips', weight: 0 },
       { key: 'education', label: 'Education', type: 'chips', weight: 0 },
       { key: 'memberships', label: 'Memberships', type: 'chips', weight: 0 },
     ],
   },
   {
-    id: 'trust', title: 'Trust & Media', applies: 'all',
+    id: 'contact', title: 'Contact and Availability', applies: 'all',
     fields: [
-      { key: 'headshot', label: 'Headshot', type: 'image', weight: 1, hint: 'Optional — a photo of you or your lead.' },
-      { key: 'gallery', label: 'Business Photos', type: 'gallery', weight: 1, hint: 'Showcase your work (future-ready gallery).' },
+      { key: 'phone', label: 'Business Phone', type: 'tel', core: true, weight: 2 },
+      { key: 'email', label: 'Contact Email', type: 'email', core: true, weight: 2 },
+      { key: 'website', label: 'Website', type: 'url', core: true, weight: 1, placeholder: 'yourbusiness.com' },
+      { key: 'hours', label: 'Business Hours', type: 'textarea', weight: 0, placeholder: 'e.g. Mon to Fri, 9 to 5. Weekends by appointment.' },
     ],
   },
   {
-    id: 'social', title: 'Social', applies: 'all',
+    id: 'trust', title: 'Trust and Media', applies: 'all',
     fields: [
-      { key: 'facebook', label: 'Facebook', type: 'url', weight: 0, placeholder: 'https://facebook.com/…' },
-      { key: 'instagram', label: 'Instagram', type: 'url', weight: 0, placeholder: 'https://instagram.com/…' },
-      { key: 'linkedin', label: 'LinkedIn', type: 'url', weight: 0, placeholder: 'https://linkedin.com/…' },
+      { key: 'headshot', label: 'Headshot', type: 'image', weight: 0, guidance: 'Optional. A photo of you or your lead.' },
+      { key: 'gallery', label: 'Business Photos', type: 'gallery', weight: 1, hint: 'Showcase your work.' },
+    ],
+  },
+  {
+    id: 'social', title: 'Social Links', applies: 'all',
+    fields: [
+      { key: 'facebook', label: 'Facebook', type: 'url', weight: 0, placeholder: 'facebook.com/yourbusiness' },
+      { key: 'instagram', label: 'Instagram', type: 'url', weight: 0, placeholder: 'instagram.com/yourbusiness' },
+      { key: 'linkedin', label: 'LinkedIn', type: 'url', weight: 0, placeholder: 'linkedin.com/company/yourbusiness' },
       { key: 'youtube', label: 'YouTube', type: 'url', weight: 0 },
       { key: 'tiktok', label: 'TikTok', type: 'url', weight: 0 },
     ],
   },
   {
-    id: 'seo', title: 'Search & Visibility', applies: 'all',
+    id: 'seo', title: 'Search Appearance', applies: 'all',
     fields: [
-      { key: 'headline', label: 'Professional Headline', type: 'text', weight: 1, max: 160 },
-      { key: 'seo_description', label: 'SEO Description', type: 'textarea', weight: 1, max: 320 },
+      { key: 'headline', label: 'Search Headline', type: 'text', weight: 0, max: 160 },
+      { key: 'seo_description', label: 'Search Description', type: 'textarea', weight: 0, max: 320 },
       { key: 'keywords', label: 'Service Keywords', type: 'chips', weight: 0 },
-      { key: 'published', label: 'List my profile publicly', type: 'toggle', weight: 0, hint: 'When on, your public profile page is viewable by anyone with the link.' },
     ],
   },
 ];
 
-// ── Derived helpers ──────────────────────────────────────────────────────────
-function flatFields() { return SECTIONS.reduce((a, s) => a.concat(s.fields.map((f) => ({ ...f, section: s.id }))), []); }
-
-// Every profile_data key (non-core, and the individual toggle-group option keys).
+// ── derived helpers ──
+function flatFields() { return SECTIONS.reduce(function (a, s) { return a.concat(s.fields.map(function (f) { return Object.assign({ section: s.id }, f); })); }, []); }
 function profileDataKeys() {
-  const keys = new Set();
-  flatFields().forEach((f) => {
+  var keys = new Set(EXTRA_WRITABLE);
+  flatFields().forEach(function (f) {
     if (f.core) return;
-    if (f.type === 'toggle-group') (f.options || []).forEach(([k]) => keys.add(k));
+    if (f.type === 'toggle-group') (f.options || []).forEach(function (o) { keys.add(o[0]); });
     else keys.add(f.key);
   });
   return keys;
 }
-
-function typeMap(f) { // coerce type for a field key
-  if (f.type === 'chips' || f.type === 'gallery') return 'array';
-  if (f.type === 'toggle') return 'boolean';
-  if (f.type === 'number') return 'number';
-  return 'string';
-}
-
-// key → coarse type across all fields (including toggle-group option keys as boolean).
 function keyTypes() {
-  const m = {};
-  flatFields().forEach((f) => {
-    if (f.type === 'toggle-group') (f.options || []).forEach(([k]) => { m[k] = 'boolean'; });
-    else m[f.key] = typeMap(f);
+  var m = { review_status: 'enum' };
+  flatFields().forEach(function (f) {
+    if (f.type === 'toggle-group') (f.options || []).forEach(function (o) { m[o[0]] = 'boolean'; });
+    else if (f.type === 'chips' || f.type === 'states' || f.type === 'gallery') m[f.key] = 'array';
+    else if (f.type === 'toggle') m[f.key] = 'boolean';
+    else if (f.type === 'number') m[f.key] = 'number';
+    else m[f.key] = 'string';
   });
   return m;
 }
-
-/** Sanitize a client-supplied profile_data object → only whitelisted keys, coerced by type. */
+/** Sanitize client profile_data → whitelisted keys only, coerced by type. `published` is never accepted. */
 function sanitizeProfileData(input) {
-  const allowed = profileDataKeys();
-  const types = keyTypes();
-  const out = {};
+  var allowed = profileDataKeys(); var types = keyTypes(); var out = {};
   if (!input || typeof input !== 'object') return out;
-  Object.keys(input).forEach((k) => {
-    if (!allowed.has(k)) return;
-    const v = input[k];
-    const t = types[k];
-    if (t === 'array') out[k] = Array.isArray(v) ? v.map((x) => String(x)).filter(Boolean).slice(0, 60) : [];
+  Object.keys(input).forEach(function (k) {
+    if (!allowed.has(k) || k === 'published') return;
+    var v = input[k], t = types[k];
+    if (t === 'array') out[k] = Array.isArray(v) ? v.map(function (x) { return String(x).trim(); }).filter(Boolean).slice(0, 60) : [];
     else if (t === 'boolean') out[k] = v === true || v === 'true' || v === 1;
-    else if (t === 'number') { const n = Number(v); out[k] = Number.isFinite(n) ? n : null; }
+    else if (t === 'number') { var n = Number(v); out[k] = Number.isFinite(n) ? n : null; }
+    else if (t === 'enum') out[k] = (v === 'submitted' ? 'submitted' : 'draft');
     else out[k] = v == null ? '' : String(v).slice(0, 8000);
   });
   return out;
 }
-
-/** Which sections apply to an org given its professional type keys (capabilities). */
 function sectionsForTypes(typeKeys) {
-  const set = new Set(typeKeys || []);
-  return SECTIONS.filter((s) => s.applies === 'all' || (s.applies || []).some((t) => set.has(t)));
+  var set = new Set(typeKeys || []);
+  return SECTIONS.filter(function (s) { return s.applies === 'all' || (s.applies || []).some(function (t) { return set.has(t); }); });
 }
-
-/** Completeness 0..100 for the applicable fields (weighted). */
-function completeness(org, profileData, typeKeys) {
-  const secs = sectionsForTypes(typeKeys);
-  let total = 0, got = 0;
-  const filled = (f) => {
-    if (f.type === 'toggle-group') return (f.options || []).some(([k]) => profileData[k]);
-    let v;
-    if (f.core) v = org[CORE_COLUMNS[f.key]];
-    else v = profileData[f.key];
-    if (f.type === 'chips' || f.type === 'gallery') return Array.isArray(v) && v.length > 0;
+function completeness(org, pd, typeKeys) {
+  var total = 0, got = 0; pd = pd || {};
+  function filled(f) {
+    if (f.type === 'toggle-group') return (f.options || []).some(function (o) { return pd[o[0]]; });
+    var v = f.core ? org[CORE_COLUMNS[f.key]] : pd[f.key];
+    if (f.type === 'chips' || f.type === 'states' || f.type === 'gallery') return Array.isArray(v) && v.length > 0;
     if (f.type === 'toggle') return v === true;
     return v != null && String(v).trim() !== '';
-  };
-  secs.forEach((s) => s.fields.forEach((f) => {
-    const w = f.weight == null ? 1 : f.weight;
-    if (w <= 0) return; // weight 0 fields don't count toward completeness
-    total += w;
-    if (filled(f)) got += w;
-  }));
-  return total ? Math.round((got / total) * 100) : 0;
+  }
+  sectionsForTypes(typeKeys).forEach(function (s) { s.fields.forEach(function (f) {
+    var w = f.weight == null ? 1 : f.weight; if (w <= 0) return; total += w; if (filled(f)) got += w;
+  }); });
+  return total ? Math.round(got / total * 100) : 0;
 }
-
-/** From an org's effective capability keys, the subset that are professional types (for section gating + labels). */
-function professionalTypesFrom(capabilityKeys) {
-  return (capabilityKeys || []).filter((k) => PROFESSIONAL_TYPES[k]);
-}
-function primaryTypeLabel(typeKeys) {
-  const k = (typeKeys || []).find((t) => PROFESSIONAL_TYPES[t]);
-  return k ? PROFESSIONAL_TYPES[k].singular : 'Professional';
-}
+function professionalTypesFrom(capabilityKeys) { return (capabilityKeys || []).filter(function (k) { return PROFESSIONAL_TYPES[k]; }); }
+function primaryTypeLabel(typeKeys) { var k = (typeKeys || []).find(function (t) { return PROFESSIONAL_TYPES[t]; }); return k ? PROFESSIONAL_TYPES[k].singular : 'Professional'; }
 
 /**
- * Reusable, read-only profile VIEW model built from the schema — used by the public professional
- * endpoint AND the owner preview so both render identically. Emits only non-empty values; never
- * leaks internal/admin columns. Contact fields are business contact details the professional
- * chooses to publish (not buyer-privacy-governed auction data).
+ * Read-only public view model — used by the public endpoint AND the owner preview so both render
+ * identically. Emits ONLY non-empty values (empty sections suppressed downstream). NEVER fabricates
+ * trust: `verified` reflects the real organizations.verification_status only; no ratings are emitted.
  */
 function buildProfileView(org, typeKeys) {
-  const pd = (org && org.profile_data) || {};
-  const nonEmpty = (v) => (Array.isArray(v) ? v.length > 0 : v != null && String(v).trim() !== '');
-  const sections = [];
-  sectionsForTypes(typeKeys).forEach((s) => {
-    if (s.id === 'general' || s.id === 'trust' || s.id === 'social' || s.id === 'seo') return; // rendered specially below
-    const items = [];
-    s.fields.forEach((f) => {
-      if (f.type === 'toggle-group') {
-        const on = (f.options || []).filter(([k]) => pd[k]).map(([, lbl]) => lbl);
-        if (on.length) items.push({ label: f.label, value: on, kind: 'tags' });
-      } else if (f.type === 'chips') {
-        if (nonEmpty(pd[f.key])) items.push({ label: f.label, value: pd[f.key], kind: 'tags' });
-      } else if (f.type === 'toggle') {
-        if (pd[f.key] === true) items.push({ label: f.label, value: 'Yes', kind: 'text' });
-      } else if (!f.core) {
-        if (nonEmpty(pd[f.key])) items.push({ label: f.label, value: String(pd[f.key]), kind: 'text' });
-      }
-    });
-    if (items.length) sections.push({ id: s.id, title: s.title, items });
-  });
+  var pd = (org && org.profile_data) || {};
+  var ne = function (v) { return Array.isArray(v) ? v.length > 0 : v != null && String(v).trim() !== ''; };
+  var sections = [];
 
-  // "General details" block (the non-header general fields worth showing publicly)
-  const details = [];
-  const gPush = (label, v) => { if (nonEmpty(v)) details.push({ label, value: Array.isArray(v) ? v : String(v), kind: Array.isArray(v) ? 'tags' : 'text' }); };
-  gPush('Years in Business', pd.years_in_business);
-  gPush('Owner / Lead', pd.owner_name);
-  gPush('Service Area', pd.service_area);
-  gPush('States Served', pd.states_served);
-  gPush('Languages', pd.languages);
-  gPush('Hours', pd.hours);
-  if (pd.virtual_services === true) details.push({ label: 'Virtual / Online Services', value: 'Available', kind: 'text' });
-  if (details.length) sections.unshift({ id: 'details', title: 'Details', items: details });
+  // Details (from Service Area + general Credentials fields)
+  var details = [];
+  var push = function (label, v, kind) { if (ne(v)) details.push({ label: label, value: v, kind: kind || (Array.isArray(v) ? 'tags' : 'text') }); };
+  push('Service Area', pd.service_area);
+  push('States Served', pd.states_served);
+  push('Years in Business', pd.years_in_business != null ? String(pd.years_in_business) : '');
+  push('Owner or Lead', pd.owner_name);
+  push('Languages', pd.languages);
+  push('Business Hours', pd.hours);
+  if (pd.virtual_services === true) details.push({ label: 'Virtual or Online Services', value: 'Available', kind: 'text' });
+  if (details.length) sections.push({ id: 'details', title: 'Details', items: details });
 
-  const socials = [['facebook', 'Facebook'], ['instagram', 'Instagram'], ['linkedin', 'LinkedIn'], ['youtube', 'YouTube'], ['tiktok', 'TikTok']]
-    .filter(([k]) => nonEmpty(pd[k])).map(([k, label]) => ({ network: label, url: pd[k] }));
+  // Appraisal Services
+  if ((typeKeys || []).indexOf('appraiser') >= 0) {
+    var ap = [];
+    if (ne(pd.appraisal_types)) ap.push({ label: 'Appraisal Types', value: pd.appraisal_types, kind: 'tags' });
+    if (ne(pd.certifications)) ap.push({ label: 'Professional Certifications', value: pd.certifications, kind: 'tags' });
+    if (pd.years_experience != null && String(pd.years_experience) !== '') ap.push({ label: 'Years of Appraisal Experience', value: String(pd.years_experience), kind: 'text' });
+    var purposes = [['insurance_appraisals', 'Insurance'], ['estate_appraisals', 'Estate'], ['donation_appraisals', 'Donation'],
+      ['divorce_appraisals', 'Divorce'], ['bankruptcy_appraisals', 'Bankruptcy'], ['probate_appraisals', 'Probate'],
+      ['fair_market_value', 'Fair Market Value'], ['replacement_value', 'Replacement Value']].filter(function (o) { return pd[o[0]]; }).map(function (o) { return o[1]; });
+    if (purposes.length) ap.push({ label: 'Appraisal Purposes', value: purposes, kind: 'tags' });
+    var options = [['written_reports', 'Written Reports'], ['remote_appraisals', 'Remote Appraisals'], ['travel_available', 'Travel Available'],
+      ['appointment_required', 'Appointment Required'], ['free_consultation', 'Free Initial Consultation']].filter(function (o) { return pd[o[0]]; }).map(function (o) { return o[1]; });
+    if (options.length) ap.push({ label: 'Options', value: options, kind: 'tags' });
+    if (ap.length) sections.push({ id: 'appraiser', title: 'Appraisal Services', items: ap });
+  }
+
+  // Credentials
+  var cr = [];
+  [['associations', 'Professional Associations'], ['licenses', 'Licenses'], ['awards', 'Awards'], ['education', 'Education'], ['memberships', 'Memberships']]
+    .forEach(function (o) { if (ne(pd[o[0]])) cr.push({ label: o[1], value: pd[o[0]], kind: 'tags' }); });
+  if (cr.length) sections.push({ id: 'credentials', title: 'Credentials', items: cr });
+
+  var socials = [['facebook', 'Facebook'], ['instagram', 'Instagram'], ['linkedin', 'LinkedIn'], ['youtube', 'YouTube'], ['tiktok', 'TikTok']]
+    .filter(function (o) { return ne(pd[o[0]]); }).map(function (o) { return { network: o[1], url: pd[o[0]] }; });
 
   return {
     slug: org.slug,
     header: {
       logo: org.logo_url || null, cover: org.cover_image_url || null, headshot: pd.headshot_url || null,
       name: org.name, tagline: pd.tagline || '', category: primaryTypeLabel(typeKeys),
-      location: [org.city, org.state].filter(Boolean).join(', '),
-      short_description: org.description || '', verified: org.verification_status === 'verified',
+      location: [org.city, org.state].filter(Boolean).join(', '), short_description: org.description || '',
+      verified: org.verification_status === 'verified', // REAL verification only — never inferred
     },
     contact: { phone: org.contact_phone || null, email: org.contact_email || null, website: org.website_url || null },
     about: pd.bio || '',
-    sections,
+    sections: sections,
     gallery: Array.isArray(pd.gallery) ? pd.gallery : [],
     social: socials,
     seo: { headline: pd.headline || '', description: pd.seo_description || org.description || '', keywords: Array.isArray(pd.keywords) ? pd.keywords : [] },
-    published: pd.published === true,
+    published: pd.published === true, review_status: pd.review_status || 'draft',
     professional_types: typeKeys || [],
   };
 }
 
 module.exports = {
-  SECTIONS, CORE_COLUMNS, PROFESSIONAL_TYPES, APPRAISAL_TYPES, CERTS,
+  SECTIONS, CORE_COLUMNS, PROFESSIONAL_TYPES, APPRAISAL_TYPES, CERTS, US_STATES, EXTRA_WRITABLE,
   flatFields, profileDataKeys, keyTypes, sanitizeProfileData, sectionsForTypes, completeness,
   professionalTypesFrom, primaryTypeLabel, buildProfileView,
 };

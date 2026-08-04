@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<!-- Public professional profiles are served only when the owner has published; kept noindex until
-     directory/SEO publication is enabled by the owner (structured data is emitted for that future). -->
+<!-- Served only when the owner's profile is published (admin/moderation-gated). Kept noindex until
+     directory/SEO publication is enabled by the owner; structured data is emitted for that future. -->
 <meta name="robots" content="noindex" />
 <title>Professional Profile - Advantage.Bid</title>
 <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
@@ -15,124 +15,148 @@
   *{box-sizing:border-box}
   body{margin:0;background:var(--paper);color:var(--ink);font-family:system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;-webkit-font-smoothing:antialiased}
   a{color:var(--accent);text-decoration:none}
-  .serif{font-family:"Fraunces","Georgia",serif}
   .previewbar{background:#0f172a;color:#fff;font-size:13px;font-weight:600;padding:9px 16px;display:flex;gap:12px;align-items:center;justify-content:center;flex-wrap:wrap}
+  .previewbar b{background:#334155;color:#fff;border-radius:6px;padding:2px 9px}
   .previewbar a{color:#a9c6ff;font-weight:800}
-  .wrap{max-width:920px;margin:0 auto;padding:0 16px 60px}
-  .cover{height:200px;border-radius:0 0 20px 20px;background:linear-gradient(120deg,#1e3a8a,#2F6BFF) center/cover no-repeat;margin:0 -16px}
-  @media(min-width:940px){.cover{margin:0;border-radius:20px;margin-top:18px}}
-  .head{display:flex;gap:18px;align-items:flex-end;margin-top:-46px;padding:0 4px}
-  .logo{width:104px;height:104px;border-radius:20px;border:4px solid #fff;background:#eef2f7 center/cover no-repeat;box-shadow:0 8px 24px rgba(8,16,28,.18);flex:0 0 auto}
-  .head .ht{flex:1;min-width:0;padding-bottom:6px}
-  .cat{font-size:12px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:#40536a}
-  h1.nm{font-family:"Fraunces","Georgia",serif;font-weight:700;font-size:clamp(24px,4vw,34px);margin:2px 0 3px;line-height:1.1}
-  .vf{display:inline-block;font-size:12px;font-weight:800;color:#15803d;background:#dcfce7;border-radius:999px;padding:2px 10px;margin-left:8px;vertical-align:middle}
-  .tag{font-size:15px;color:#334155}
-  .loc{font-size:13.5px;color:var(--muted);margin-top:4px}
-  .rate{color:#f59e0b;letter-spacing:2px;font-size:15px;margin-top:6px}.rate small{color:#94a3b8;font-size:12px;letter-spacing:0;margin-left:6px}
-  .ctas{display:flex;gap:10px;flex-wrap:wrap;margin:18px 4px 0}
-  .btn{border:0;border-radius:12px;padding:12px 18px;font-weight:800;font-size:14.5px;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;gap:8px}
+  .wrap{max-width:920px;margin:0 auto;padding:0 16px}
+  .cover{height:190px;border-radius:0 0 20px 20px;background:linear-gradient(120deg,#1e3a8a,#2F6BFF) center/cover no-repeat;margin:0 -16px}
+  @media(min-width:952px){.cover{margin:18px 0 0;border-radius:20px}}
+  .hero{padding:0 4px}
+  .avatar{width:104px;height:104px;border-radius:22px;border:4px solid #fff;background:#eef2f7 center/cover no-repeat;box-shadow:0 8px 24px rgba(8,16,28,.18);margin-top:-46px;display:grid;place-items:center}
+  .avatar .ini{font-family:"Fraunces","Georgia",serif;font-weight:700;font-size:38px;color:#64748b}
+  .cat{font-size:12px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:#40536a;margin-top:14px}
+  h1.nm{font-family:"Fraunces","Georgia",serif;font-weight:700;font-size:clamp(24px,4vw,34px);line-height:1.12;margin:3px 0 4px;overflow-wrap:anywhere}
+  .vf{display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:800;color:#15803d;background:#dcfce7;border-radius:999px;padding:3px 11px;margin:4px 0 2px}
+  .tag{font-size:15.5px;color:#334155;max-width:60ch;overflow-wrap:anywhere}
+  .loc{font-size:13.5px;color:var(--muted);margin-top:5px}
+  .newp{display:inline-block;font-size:12px;font-weight:700;color:#64748b;background:#f1f5f9;border-radius:999px;padding:3px 10px;margin-top:8px}
+  .ctas{display:flex;gap:10px;flex-wrap:wrap;margin:18px 0 0}
+  .btn{border:0;border-radius:12px;padding:12px 18px;font-weight:800;font-size:14.5px;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;gap:8px;max-width:100%;overflow:hidden;text-overflow:ellipsis}
   .btn.primary{background:var(--live);color:#fff}.btn.ghost{background:#fff;color:var(--ink);border:1px solid var(--hair)}
   .btn.ghost:hover{border-color:var(--accent);color:var(--accent)}
-  .grid{display:grid;grid-template-columns:1fr 300px;gap:24px;margin-top:26px;align-items:start}
+  .grid{display:grid;grid-template-columns:minmax(0,1fr) 280px;gap:24px;margin-top:26px;align-items:start}
   @media(max-width:820px){.grid{grid-template-columns:1fr}}
   .card{background:var(--surface);border:1px solid var(--hair);border-radius:16px;padding:20px;margin-bottom:18px}
   .card h2{font-family:"Fraunces","Georgia",serif;font-weight:600;font-size:18px;margin:0 0 12px}
-  .about{font-size:15px;line-height:1.6;color:#1f2937;white-space:pre-wrap}
+  .about{font-size:15px;line-height:1.6;color:#1f2937;white-space:pre-wrap;overflow-wrap:anywhere}
   .items{display:flex;flex-direction:column;gap:12px}
   .item .l{font-size:12px;font-weight:800;letter-spacing:.03em;text-transform:uppercase;color:var(--muted);margin-bottom:4px}
-  .item .v{font-size:14.5px;color:#1f2937}
-  .tags{display:flex;flex-wrap:wrap;gap:6px}
-  .tags .tg{font-size:12.5px;font-weight:700;color:#0f172a;background:#eef2f7;border-radius:999px;padding:4px 11px}
-  .side .row{display:flex;gap:10px;align-items:center;font-size:14px;color:#1f2937;padding:8px 0;border-bottom:1px solid #f1f5f9}
-  .side .row:last-child{border-bottom:0}.side .row .k{color:var(--muted);width:20px;text-align:center}
-  .gal{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
-  .gal .g{aspect-ratio:4/3;border-radius:10px;background:#eef0f3 center/cover no-repeat;border:1px solid var(--hair)}
-  .headshot{width:72px;height:72px;border-radius:14px;background:#eef2f7 center/cover no-repeat;border:1px solid var(--hair);float:right;margin:0 0 8px 12px}
-  .social{display:flex;gap:8px;flex-wrap:wrap}
-  .social a{font-size:13px;font-weight:700;background:#eef4ff;color:#1e3a8a;border:1px solid #d6e2ff;border-radius:999px;padding:6px 12px}
-  .center{padding:80px 20px;text-align:center;color:var(--muted)}
-  .center .big{font-family:"Fraunces","Georgia",serif;font-size:22px;color:var(--ink);margin-bottom:8px}
-  .foot{text-align:center;color:#94a3b8;font-size:12.5px;margin-top:26px}
+  .item .v{font-size:14.5px;color:#1f2937;overflow-wrap:anywhere}
+  .tags{display:flex;flex-wrap:wrap;gap:6px}.tags .tg{font-size:12.5px;font-weight:700;color:#0f172a;background:#eef2f7;border-radius:999px;padding:4px 11px}
+  .side .row{display:flex;gap:10px;align-items:flex-start;font-size:14px;color:#1f2937;padding:9px 0;border-bottom:1px solid #f1f5f9;overflow-wrap:anywhere}
+  .side .row:last-child{border-bottom:0}.side .row .k{color:var(--muted);width:20px;text-align:center;flex:0 0 auto}
+  .side .row a{overflow-wrap:anywhere}
+  .headshot{width:74px;height:74px;border-radius:14px;background:#eef2f7 center/cover no-repeat;border:1px solid var(--hair);float:right;margin:0 0 8px 12px}
+  .gal{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.gal .g{aspect-ratio:4/3;border-radius:10px;background:#eef0f3 center/cover no-repeat;border:1px solid var(--hair)}
+  .social{display:flex;gap:8px;flex-wrap:wrap}.social a{font-size:13px;font-weight:700;background:#eef4ff;color:#1e3a8a;border:1px solid #d6e2ff;border-radius:999px;padding:6px 12px}
+  .center{padding:80px 20px;text-align:center;color:var(--muted)}.center .big{font-family:"Fraunces","Georgia",serif;font-size:22px;color:var(--ink);margin-bottom:8px}
+  /* shared public footer treatment (mirrors event.html) */
+  footer.site{margin-top:40px;background:#0B1B2B;color:#c7d2e0}
+  footer.site .fin{max-width:920px;margin:0 auto;display:grid;grid-template-columns:1.6fr 1fr 1fr 1fr;gap:24px;padding:34px 20px 22px}
+  @media(max-width:700px){footer.site .fin{grid-template-columns:1fr 1fr}}
+  footer.site .fbrand{font-family:"Fraunces","Georgia",serif;font-weight:700;font-size:19px;color:#fff}.fbrand span{color:#5b8cff}
+  footer.site .ftag{font-size:13px;color:#9fb0c4;line-height:1.5;margin:6px 0 0;max-width:34ch}
+  footer.site h4{font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:#7f93ab;margin:0 0 10px}
+  footer.site a{display:block;color:#c7d2e0;font-size:13.5px;padding:4px 0}footer.site a:hover{color:#fff}
+  footer.site .fbot{border-top:1px solid rgba(255,255,255,.08)}
+  footer.site .fbotin{max-width:920px;margin:0 auto;display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:14px 20px;font-size:12px;color:#7f93ab}
 </style>
 </head>
 <body>
-<div id="preview" style="display:none"></div>
+<div id="preview"></div>
 <div class="wrap" id="wrap"><div class="center">Loading…</div></div>
+<div id="ftr"></div>
 <div id="jsonld"></div>
 <script>
 (function(){
-  var params = new URLSearchParams(location.search);
-  var slug = params.get('slug'); var isPreview = params.get('preview') === '1';
-  var wrap = document.getElementById('wrap');
+  var params=new URLSearchParams(location.search);
+  var slug=params.get('slug'); var isPreview=params.get('preview')==='1';
+  var wrap=document.getElementById('wrap');
   function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
-  function center(big,sub){wrap.innerHTML='<div class="center"><div class="big">'+esc(big)+'</div><p>'+esc(sub||'')+'</p></div>';}
+  function center(big,sub){wrap.innerHTML='<div class="center"><div class="big">'+esc(big)+'</div><p>'+esc(sub||'')+'</p></div>';renderFooter();}
+  function initials(n){return (String(n||'').trim().split(/\s+/).slice(0,2).map(function(w){return w[0];}).join('')||'A').toUpperCase();}
   if(!slug){center('Profile not found','No profile was specified.');return;}
 
   if(isPreview){
-    var token = localStorage.getItem('token');
-    if(!token){ location.href='/login.html?next='+encodeURIComponent(location.pathname+location.search); return; }
+    var token=localStorage.getItem('token');
+    if(!token){location.href='/login.html?next='+encodeURIComponent(location.pathname+location.search);return;}
+    document.getElementById('preview').innerHTML='<div class="previewbar"><b>Profile Preview</b> Only you can see this. Not yet listed in the directory. &nbsp;<a href="/org/profile.html">Edit Profile</a></div>';
     fetch('/api/org/profile',{headers:{Authorization:'Bearer '+token}}).then(function(r){return r.json();})
-      .then(function(d){ if(d && d.success && d.preview){ document.getElementById('preview').style.display='block'; document.getElementById('preview').innerHTML='<div class="previewbar">Preview of your public profile'+(d.preview.published?'':' — not published yet (only you can see this)')+' &nbsp;·&nbsp; <a href="/org/profile.html">Edit Profile</a></div>'; render(d.preview, true); }
-        else center('Nothing to preview yet','Create your profile first.'); })
-      .catch(function(){ center('Could not load preview','Please try again.'); });
+      .then(function(d){ if(d&&d.success&&d.preview) render(d.preview,true); else center('Nothing to preview yet','Create your profile first.'); })
+      .catch(function(){center('Could not load preview','Please try again.');});
   } else {
-    fetch('/api/public/professionals/'+encodeURIComponent(slug)).then(function(r){ if(r.status===404) throw new Error('404'); return r.json(); })
-      .then(function(d){ if(d && d.success && d.profile) render(d.profile, false); else center('Profile not available',''); })
-      .catch(function(e){ if(e.message==='404') center('Profile not public yet','This professional has not published their profile.'); else center('Could not load profile',''); });
+    fetch('/api/public/professionals/'+encodeURIComponent(slug)).then(function(r){if(r.status===404)throw new Error('404');return r.json();})
+      .then(function(d){ if(d&&d.success&&d.profile) render(d.profile,false); else center('Profile not available',''); })
+      .catch(function(e){ if(e.message==='404') center('Profile not available','This profile has not been published.'); else center('Could not load profile',''); });
   }
 
   function render(p, preview){
-    var h=p.header||{}, c=p.contact||{};
-    var stars='★★★★★';
-    var editBtn = preview ? '<a class="btn ghost" href="/org/profile.html">✎ Edit Profile</a>' : '';
+    var h=p.header||{}, c=p.contact||{}, cat=h.category||'Professional';
+    // Hero — vertical hierarchy, no overlap. Logo shows initials when no image (never a blank tile).
+    var avatar = h.logo ? '<div class="avatar" style="background-image:url(\''+esc(h.logo)+'\')"></div>'
+      : '<div class="avatar"><span class="ini">'+esc(initials(h.name))+'</span></div>';
+    // Trust: Verified ONLY when the org is genuinely verified. No ratings/stars are ever shown.
+    var verified = h.verified ? '<div class="vf">✓ Verified</div>' : '';
+    var newp = h.verified ? '' : '<div class="newp">New Profile</div>';
+
     var ctas='';
-    if(c.phone) ctas+='<a class="btn primary" href="tel:'+esc(c.phone)+'">Call</a>';
-    if(c.email) ctas+='<a class="btn ghost" href="mailto:'+esc(c.email)+'">Email</a>';
-    if(c.website) ctas+='<a class="btn ghost" href="'+esc(c.website)+'" target="_blank" rel="noopener">Website</a>';
-    ctas+=editBtn;
+    if(c.phone)   ctas+='<a class="btn primary" href="tel:'+esc(c.phone)+'">Call '+esc(cat)+'</a>';
+    if(c.email)   ctas+='<a class="btn ghost" href="mailto:'+esc(c.email)+'">Email '+esc(cat)+'</a>';
+    if(c.website) ctas+='<a class="btn ghost" href="'+esc(c.website)+'" target="_blank" rel="nofollow noopener noreferrer">Visit Website</a>';
+    if(preview)   ctas+='<a class="btn ghost" href="/org/profile.html">Edit Profile</a>';
 
-    var side='';
-    if(c.phone) side+='<div class="row"><span class="k">📞</span><span>'+esc(c.phone)+'</span></div>';
-    if(c.email) side+='<div class="row"><span class="k">✉</span><span>'+esc(c.email)+'</span></div>';
-    if(c.website) side+='<div class="row"><span class="k">🔗</span><a href="'+esc(c.website)+'" target="_blank" rel="noopener">Website</a></div>';
-    if(h.location) side+='<div class="row"><span class="k">📍</span><span>'+esc(h.location)+'</span></div>';
+    // Contact card — only rows that exist; hidden entirely if empty.
+    var rows='';
+    if(c.phone)   rows+='<div class="row"><span class="k">📞</span><span>'+esc(c.phone)+'</span></div>';
+    if(c.email)   rows+='<div class="row"><span class="k">✉</span><span>'+esc(c.email)+'</span></div>';
+    if(c.website) rows+='<div class="row"><span class="k">🔗</span><a href="'+esc(c.website)+'" target="_blank" rel="nofollow noopener noreferrer">Website</a></div>';
+    if(h.location)rows+='<div class="row"><span class="k">📍</span><span>'+esc(h.location)+'</span></div>';
+    var contactCard = rows ? '<div class="card"><h2>Contact</h2>'+rows+'</div>' : '';
 
+    // Sections (already non-empty), About, Gallery, Social — each suppressed when empty.
     var mainSecs=(p.sections||[]).map(function(s){
       return '<div class="card"><h2>'+esc(s.title)+'</h2><div class="items">'+s.items.map(function(it){
-        var val = it.kind==='tags' ? '<div class="tags">'+(it.value||[]).map(function(v){return '<span class="tg">'+esc(v)+'</span>';}).join('')+'</div>' : esc(it.value);
-        return '<div class="item"><div class="l">'+esc(it.label)+'</div><div class="v">'+val+'</div></div>';
+        var v = it.kind==='tags' ? '<div class="tags">'+(it.value||[]).map(function(x){return '<span class="tg">'+esc(x)+'</span>';}).join('')+'</div>' : esc(it.value);
+        return '<div class="item"><div class="l">'+esc(it.label)+'</div><div class="v">'+v+'</div></div>';
       }).join('')+'</div></div>';
     }).join('');
-
     var about = p.about ? '<div class="card">'+(h.headshot?'<div class="headshot" style="background-image:url(\''+esc(h.headshot)+'\')"></div>':'')+'<h2>About</h2><div class="about">'+esc(p.about)+'</div></div>' : '';
+    var lead = h.short_description ? '<div class="card"><div class="about">'+esc(h.short_description)+'</div></div>' : '';
     var gallery = (p.gallery&&p.gallery.length) ? '<div class="card"><h2>Photos</h2><div class="gal">'+p.gallery.map(function(u){return '<div class="g" style="background-image:url(\''+esc(u)+'\')"></div>';}).join('')+'</div></div>' : '';
-    var social = (p.social&&p.social.length) ? '<div class="card"><h2>Connect</h2><div class="social">'+p.social.map(function(s){return '<a href="'+esc(s.url)+'" target="_blank" rel="noopener">'+esc(s.network)+'</a>';}).join('')+'</div></div>' : '';
+    var social = (p.social&&p.social.length) ? '<div class="card"><h2>Connect</h2><div class="social">'+p.social.map(function(s){return '<a href="'+esc(s.url)+'" target="_blank" rel="nofollow noopener noreferrer">'+esc(s.network)+'</a>';}).join('')+'</div></div>' : '';
+    var mainCol = lead+about+mainSecs+gallery+social;
 
     wrap.innerHTML=
       '<div class="cover" style="'+(h.cover?'background-image:url(\''+esc(h.cover)+'\')':'')+'"></div>'
-      +'<div class="head"><div class="logo" style="'+(h.logo?'background-image:url(\''+esc(h.logo)+'\')':'')+'"></div>'
-      +'<div class="ht"><div class="cat">'+esc(h.category||'Professional')+'</div>'
-      +'<h1 class="nm">'+esc(h.name||'')+(h.verified?'<span class="vf">Verified</span>':'')+'</h1>'
+      +'<div class="hero">'+avatar
+      +'<div class="cat">'+esc(cat)+'</div>'+verified
+      +'<h1 class="nm">'+esc(h.name||'')+'</h1>'
       +(h.tagline?'<div class="tag">'+esc(h.tagline)+'</div>':'')
       +(h.location?'<div class="loc">📍 '+esc(h.location)+'</div>':'')
-      +'<div class="rate">'+stars+'<small>New profile</small></div></div></div>'
-      +'<div class="ctas">'+ctas+'</div>'
-      +'<div class="grid"><div class="main">'
-      +(h.short_description?'<div class="card"><div class="about">'+esc(h.short_description)+'</div></div>':'')
-      +about+mainSecs+gallery+social+'</div>'
-      +'<aside class="side"><div class="card"><h2>Contact</h2>'+(side||'<div class="v" style="color:#94a3b8">No contact details yet</div>')+'</div></aside></div>'
-      +'<div class="foot">Powered by Advantage.Bid</div>';
+      +newp
+      +'<div class="ctas">'+ctas+'</div></div>'
+      +'<div class="grid"><div class="main">'+(mainCol||'')+'</div>'
+      +(contactCard?'<aside class="side">'+contactCard+'</aside>':'')+'</div>';
+    renderFooter();
 
-    // JSON-LD structured data (real data only)
     try{
       var ld={"@context":"https://schema.org","@type":"LocalBusiness",name:h.name,description:(p.seo&&p.seo.description)||h.short_description||undefined,
         image:h.logo||h.cover||undefined,telephone:c.phone||undefined,url:c.website||undefined,
         address:h.location?{"@type":"PostalAddress",addressLocality:h.location}:undefined};
       Object.keys(ld).forEach(function(k){if(ld[k]===undefined)delete ld[k];});
-      var s=document.createElement('script');s.type='application/ld+json';s.textContent=JSON.stringify(ld);document.getElementById('jsonld').appendChild(s);
+      var sc=document.createElement('script');sc.type='application/ld+json';sc.textContent=JSON.stringify(ld);document.getElementById('jsonld').appendChild(sc);
     }catch(e){}
     document.title=(h.name||'Professional Profile')+' - Advantage.Bid';
+  }
+
+  function renderFooter(){
+    document.getElementById('ftr').innerHTML=
+      '<footer class="site" role="contentinfo"><div class="fin">'
+      +'<div><div class="fbrand">Advantage<span>.Bid</span></div><p class="ftag">The discovery marketplace for estate auctions, estate sales, and liquidation events.</p></div>'
+      +'<div><h4>Discover</h4><a href="/events.html">Browse Events</a><a href="/featured-auctions.html">Featured Auctions</a><a href="/how-to-buy.html">How to Buy</a></div>'
+      +'<div><h4>Sell</h4><a href="/start-selling.html">Start Selling</a><a href="/how-sellers-get-paid.html">How Sellers Get Paid</a><a href="/seller-faq.html">Seller FAQ</a></div>'
+      +'<div><h4>Support</h4><a href="/faq.html">Help &amp; FAQ</a><a href="/privacy.html">Privacy Policy</a><a href="/terms.html">Terms of Service</a><a href="mailto:info@advantage.bid">Contact Us</a></div>'
+      +'</div><div class="fbot"><div class="fbotin"><span>&copy; '+(new Date().getFullYear())+' Advantage Auction Company. All rights reserved.</span><span>Advantage.Bid</span></div></div></footer>';
   }
 })();
 </script>
