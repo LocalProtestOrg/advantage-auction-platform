@@ -62,6 +62,8 @@ describe('gating — the $39 promotion is the required, non-bypassable gate', ()
     expect(service).toMatch(/UPDATE one_time_purchases SET status='consumed'/);
     // resubmit after rejection: already-consumed promotion is reused (no new charge)
     expect(service).toMatch(/if \(promo\.status === 'paid'\)/);
+    // ON CONFLICT must match the PARTIAL unique index (predicate required, or Postgres errors)
+    expect(service).toMatch(/ON CONFLICT \(stripe_checkout_session_id\) WHERE stripe_checkout_session_id IS NOT NULL DO NOTHING/);
   });
   test('membership is derived only from the verified webhook (never the success redirect)', () => {
     expect(service).toMatch(/function handleCheckoutCompleted/);

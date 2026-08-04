@@ -73,7 +73,7 @@ async function createCheckoutSession(userId, origin) {
   await db.query(
     `INSERT INTO one_time_purchases (user_id, organization_id, product_type, status, stripe_customer_id, stripe_checkout_session_id, amount_cents, currency)
        VALUES ($1,$2,$3,'pending',$4,$5,3900,'usd')
-     ON CONFLICT (stripe_checkout_session_id) DO NOTHING`,
+     ON CONFLICT (stripe_checkout_session_id) WHERE stripe_checkout_session_id IS NOT NULL DO NOTHING`,
     [userId, orgId, PRODUCT_TYPE, customerId, session.id]);
   analyticsService.insertEvent({ event_type: 'estate_sale_checkout_redirected', metadata: { product: PRODUCT_TYPE } }, null).catch(() => {});
   return { url: session.url, id: session.id };
