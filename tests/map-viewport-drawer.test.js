@@ -103,9 +103,10 @@ describe('regression — drawer never draws company/professional records', () =>
 
 describe('regression — sibling surfaces + payments unaffected (cross-checks)', () => {
   test('Dashboard Home, photo enlargement, Stripe test posture, company/event layers intact', () => {
-    const shell = fs.readFileSync(path.join(__dirname, '..', 'public', 'widgets', 'shared', 'member-shell.js'), 'utf8');
+    const shell = fs.readFileSync(path.join(__dirname, '..', 'public', 'widgets', 'shared', 'member-chrome.js'), 'utf8');
     const event = fs.readFileSync(path.join(__dirname, '..', 'public', 'event.html'), 'utf8');
-    expect(shell).toMatch(/<h1 id="adv-title">Dashboard Home<\/h1>/);
+    expect(shell).toContain('<h1 id="adv-title">');
+    expect(shell).toMatch(/Dashboard Home/);
     expect(event).toMatch(/#lb \.lbimg\{[^}]*width:94vw;height:90vh/);
     expect(index).toMatch(/MP_EVENT_CATS = \[/);
     expect(index).toMatch(/cluster:true, clusterRadius:46, clusterMaxZoom:12/);

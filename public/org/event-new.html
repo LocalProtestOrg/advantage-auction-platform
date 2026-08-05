@@ -8,13 +8,14 @@
 <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/widgets/shared/advantage-ds.css" />
 <link rel="stylesheet" href="/org/portal.css" />
 </head>
 <body>
-<div id="hdr"></div>
+<div id="adv-shell-root"></div>
+<div id="org-content" hidden>
 <div class="wrap">
-  <h1 class="page">Create Event</h1>
-  <p class="sub">Save a draft, add photos, then submit for review. Advantage publishes approved events.</p>
+  <p class="sub">Save a draft, add photos, then submit. Your published events appear on Advantage.bid.</p>
   <div id="msg" class="msg"></div>
 
   <form id="form">
@@ -77,12 +78,16 @@
     </div>
   </form>
 </div>
+</div>
 <script src="/widgets/shared/auth-refresh.js"></script>
+<script src="/widgets/shared/member-nav-config.js"></script>
+<script src="/widgets/shared/member-chrome.js"></script>
 <script src="/org/portal.js"></script>
 <script>
-(function () {
+(async function () {
   if (!ORG.guard()) return;
-  document.getElementById('hdr').innerHTML = ORG.header('new');
+  var ctx = await AdvChrome.mountStandalone({ activeHref: '/org/event-new.html', title: 'Create Event' });
+  if (!ctx) return;
   var $ = function (id) { return document.getElementById(id); };
   var msg = $('msg'), hasOrg = false;
 

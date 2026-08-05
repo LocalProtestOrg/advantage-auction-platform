@@ -87,6 +87,10 @@
 .adv-nav-emoji { font-size:16px; width:20px; text-align:center; }
 .adv-nav-badge { margin-left:auto; background:var(--bad); color:#fff; font-size:11px; font-weight:800;
   min-width:18px; height:18px; padding:0 5px; border-radius:9px; display:grid; place-items:center; }
+/* Rail section heading/divider (e.g. "Professional Marketplace", "Buying") */
+.adv-nav-section { margin:12px 12px 4px; padding-top:10px; border-top:1px solid rgba(255,255,255,.08);
+  font-size:10.5px; font-weight:800; letter-spacing:.08em; text-transform:uppercase; color:#94a3b8; }
+.adv-nav-section:first-child { border-top:0; padding-top:0; margin-top:2px; }
 .adv-rail-foot { margin-top:auto; padding-top:12px; border-top:1px solid rgba(255,255,255,.08); }
 
 /* ---- Header ---- */
@@ -182,7 +186,13 @@
   .adv-bottomnav .adv-nav-emoji { font-size:19px; width:auto; }
   .adv-bottomnav .adv-nav-badge { position:absolute; top:2px; right:22%; margin:0; }
   .adv-bottomnav .adv-nav-item { position:relative; }
+  /* Mobile "More" sheet — professional overflow nav (sits just above the bottom bar) */
+  .adv-moresheet:not([hidden]) { display:block; position:fixed; left:0; right:0; bottom:58px; z-index:21;
+    background:var(--surface); border-top:1px solid var(--line); box-shadow:0 -10px 30px -18px rgba(15,23,42,.5);
+    padding:8px; max-height:60vh; overflow:auto; }
+  .adv-moresheet .adv-nav-item { padding:11px 12px; }
 }
+.adv-moresheet { display:none; } /* desktop: never shown (the rail carries the full nav) */
 
 /* ---- Inputs ---- */
 .adv-inp { width:100%; font:inherit; font-size:14px; padding:9px 12px; border:1px solid var(--line);

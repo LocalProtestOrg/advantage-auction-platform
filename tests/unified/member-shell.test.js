@@ -157,10 +157,12 @@ describe('experience switch — shell wiring (Stupid Easy)', () => {
     expect(src).toContain('Nav.resolveMode');
     expect(src).toContain('function switchMode');
   });
-  test('a pure buyer sees "Start selling", not a mode switch', () => {
-    expect(src).toContain('Start selling');
-    expect(src).toContain('modeSwitchHtml');
-    expect(src).toMatch(/Switch to /);
+  test('a pure buyer sees "Start selling", not a mode switch (chrome rendered by AdvChrome)', () => {
+    const chrome = read('public', 'widgets', 'shared', 'member-chrome.js');
+    expect(chrome).toContain('Start selling'); // the progressive-disclosure entry lives in the shared chrome
+    expect(chrome).toContain('modeSwitch');
+    expect(chrome).toMatch(/Switch to /);
+    expect(src).toContain('Chrome.rail');       // member-shell delegates its chrome to the shared source
   });
   test('Home, Sell, and Analytics content follow the active mode', () => {
     expect(src).toMatch(/mode === 'selling'\)\s*loadSellerHome/);

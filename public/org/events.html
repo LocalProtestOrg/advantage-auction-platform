@@ -8,22 +8,29 @@
 <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/widgets/shared/advantage-ds.css" />
 <link rel="stylesheet" href="/org/portal.css" />
 </head>
 <body>
-<div id="hdr"></div>
+<!-- Unified Marketplace shell mounts here; the page content below is moved into it. -->
+<div id="adv-shell-root"></div>
+<div id="org-content" hidden>
 <div class="wrap">
-  <h1 class="page">My Events</h1>
   <p class="sub">Create and manage local events. Published events appear on Advantage.bid city pages.</p>
   <div id="usage" class="card" style="display:none"></div>
   <div id="content"><div class="loading">Loading…</div></div>
 </div>
+</div>
 <script src="/widgets/shared/auth-refresh.js"></script>
+<script src="/widgets/shared/member-nav-config.js"></script>
+<script src="/widgets/shared/member-chrome.js"></script>
 <script src="/org/portal.js"></script>
 <script>
-(function () {
+(async function () {
   if (!ORG.guard()) return;
-  document.getElementById('hdr').innerHTML = ORG.header('events');
+  // Wrap this page in the SAME unified Marketplace shell as /app.html (single shared source).
+  var ctx = await AdvChrome.mountStandalone({ activeHref: '/org/events.html', title: 'My Events' });
+  if (!ctx) return;
   var content = document.getElementById('content'), usage = document.getElementById('usage');
   ORG.api('GET', '/api/org/events').then(function (d) {
     if (d.plan) {

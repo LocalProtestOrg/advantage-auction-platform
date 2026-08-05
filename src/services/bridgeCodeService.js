@@ -22,7 +22,7 @@ const ALLOWED_DEST = {
   'create-event': '/org/event-new.html',
   'manage-events': '/org/events.html',
   'create-auction': '/seller-create.html',
-  'manage-auctions': '/dashboard/seller.html',
+  'manage-auctions': '/app.html#sell', // canonical unified "Manage Online Auctions" (was legacy /dashboard/seller.html)
 };
 function resolveDest(key) {
   return Object.prototype.hasOwnProperty.call(ALLOWED_DEST, key) ? ALLOWED_DEST[key] : ALLOWED_DEST.dashboard;

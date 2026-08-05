@@ -9,8 +9,9 @@
 (function () {
   'use strict';
   var Nav = (typeof window !== 'undefined' && window.AdvNav);
+  var Chrome = (typeof window !== 'undefined' && window.AdvChrome); // shared chrome renderer (single source)
   var LOGIN = '/login.html?next=' + encodeURIComponent('/app.html');
-  var mountEl, state = { user: null, isSeller: false, sellerType: null, route: 'home', mode: 'buying', isBdMember: false, businessAdminUrl: null, isEventOrganizer: false };
+  var mountEl, state = { user: null, isSeller: false, sellerType: null, route: 'home', mode: 'buying', isBdMember: false, businessAdminUrl: null, isEventOrganizer: false, sellerReady: false };
   var MODE_KEY = 'ab_active_mode';
   function readMode() { try { return localStorage.getItem(MODE_KEY); } catch (e) { return null; } }
   function writeMode(m) { try { localStorage.setItem(MODE_KEY, m); } catch (e) {} }
@@ -52,74 +53,20 @@
     '<p style="margin-top:14px"><button class="adv-btn primary" id="adv-retry">Try again</button></p></div>') + '</div>';
     var b = document.getElementById('adv-retry'); if (b) b.addEventListener('click', boot); }
 
-  // ---- chrome ----
-  function initials(u) { var n = (u.full_name || u.email || '?').trim();
-    var p = n.split(/\s+/); return ((p[0] || '')[0] || '' ) + (p.length > 1 ? (p[p.length - 1][0] || '') : ''); }
-
-  function navCtx() { return { role: state.user.role, isSeller: state.isSeller, mode: state.mode, isBdMember: state.isBdMember, businessAdminUrl: state.businessAdminUrl, isEventOrganizer: state.isEventOrganizer }; }
-  var MODE_META = { buying: { label: 'Buying', sub: 'Marketplace' }, selling: { label: 'Selling', sub: 'Seller workspace' }, admin: { label: 'Admin', sub: 'Operations' } };
-
-  function navItemHtml(item, mobile) {
-    // External items deep-link out of the shell (plain link); section items hash-route in-shell.
-    if (item.external) {
-      return '<a class="adv-nav-item" href="' + item.href + '">' +
-        '<span class="adv-nav-emoji" aria-hidden="true">' + item.emoji + '</span>' +
-        '<span>' + esc(item.label) + '</span></a>';
-    }
-    var cur = item.id === state.route ? ' aria-current="page"' : '';
-    return '<a class="adv-nav-item" href="' + item.href + '" data-route="' + item.id + '"' + cur + '>' +
-      '<span class="adv-nav-emoji" aria-hidden="true">' + item.emoji + '</span>' +
-      '<span>' + esc(item.label) + '</span></a>';
+  // ---- chrome (rendered by the shared AdvChrome module — the single sidebar/header source) ----
+  function navCtx() { return { role: state.user.role, isSeller: state.isSeller, mode: state.mode, isBdMember: state.isBdMember, businessAdminUrl: state.businessAdminUrl, isEventOrganizer: state.isEventOrganizer, sellerReady: state.sellerReady }; }
+  // Full chrome context for AdvChrome: identity + role + the in-shell routing flags. inShell:true means
+  // section items hash-route in place (data-route) and member-shell's wire() handles the clicks.
+  function chromeCtx() {
+    return {
+      user: state.user, isSeller: state.isSeller, sellerType: state.sellerType, mode: state.mode,
+      isBdMember: state.isBdMember, businessAdminUrl: state.businessAdminUrl, isEventOrganizer: state.isEventOrganizer,
+      sellerReady: state.sellerReady, inShell: true, activeRoute: state.route,
+    };
   }
-
-  // The mode switch — the heart of "one account, three experiences". A pure buyer never sees it;
-  // instead they get a single "Start selling" entry (progressive disclosure). Sellers toggle
-  // Buying⇄Selling; admins get a "View as" set for testing.
-  function modeSwitchHtml() {
-    var modes = Nav.availableModes(navCtx());
-    if (modes.length <= 1) {
-      // pure buyer → gentle "Start selling" entry (becomes the switch once they're a seller)
-      return '<a class="adv-nav-item" href="/become-seller.html">' +
-        '<span class="adv-nav-emoji" aria-hidden="true">📈</span><span>Start selling</span></a>';
-    }
-    var btns = modes.filter(function (m) { return m !== state.mode; }).map(function (m) {
-      return '<button class="adv-btn ghost" style="width:100%;justify-content:flex-start;margin-top:6px" data-mode="' + m + '">' +
-        '⇄ Switch to ' + esc(MODE_META[m].label) + '</button>';
-    }).join('');
-    return btns;
-  }
-
-  function railHtml() {
-    var items = Nav.visibleNavFor(navCtx()).map(function (i) { return navItemHtml(i, false); }).join('');
-    var m = MODE_META[state.mode] || MODE_META.buying;
-    return '<aside class="adv-rail">' +
-      '<a class="adv-brand" href="https://advantage.bid" style="text-decoration:none" aria-label="Advantage.Bid home"><div class="adv-brand-mark">A</div>' +
-        '<div><div class="adv-brand-name">Advantage</div><div class="adv-brand-sub">' + esc(m.sub) + '</div></div></a>' +
-      '<nav class="adv-nav" aria-label="Primary">' + items + '</nav>' +
-      '<div class="adv-rail-foot" id="adv-mode-switch">' + modeSwitchHtml() + '</div>' +
-      '<div class="adv-rail-foot"><button class="adv-nav-item" id="adv-logout">' +
-        '<span class="adv-nav-emoji" aria-hidden="true">↩︎</span><span>Log out</span></button></div>' +
-    '</aside>';
-  }
-
-  function bottomNavHtml() {
-    var items = Nav.primaryMobileNav(navCtx()).map(function (i) { return navItemHtml(i, true); }).join('');
-    return '<nav class="adv-bottomnav" aria-label="Primary mobile">' + items + '</nav>';
-  }
-
-  function headerHtml() {
-    var u = state.user, m = MODE_META[state.mode] || MODE_META.buying;
-    return '<header class="adv-header">' +
-      '<a class="adv-mobile-brand" href="https://advantage.bid" style="text-decoration:none" aria-label="Advantage.Bid home"><div class="adv-brand-mark">A</div><div class="adv-brand-name">Advantage</div></a>' +
-      '<h1 id="adv-title">Dashboard Home</h1>' +
-      '<span class="adv-chip info" id="adv-mode-chip" style="margin-left:8px">' + esc(m.label) + '</span>' +
-      '<div class="adv-header-spacer"></div>' +
-      '<button class="adv-icon-btn" id="adv-bell" aria-label="Updates and notifications">🔔<span class="adv-dot"></span></button>' +
-      '<div class="adv-user"><div class="adv-avatar" aria-hidden="true">' + esc(initials(u).toUpperCase()) + '</div>' +
-        '<div class="adv-user-meta"><div class="adv-user-name">' + esc(u.full_name || u.email) + '</div>' +
-        '<div class="adv-user-role">' + esc(m.label) + '</div></div></div>' +
-    '</header>';
-  }
+  function railHtml() { return Chrome.rail(chromeCtx()); }
+  function bottomNavHtml() { return Chrome.bottomNav(chromeCtx()); }
+  function headerHtml() { return Chrome.header(chromeCtx()); }
 
   // Switch experience: persist, reset to Home, re-render the whole frame.
   function switchMode(m) {
@@ -130,10 +77,7 @@
     renderApp();
   }
 
-  function frameHtml() {
-    return '<div class="adv"><div class="adv-app">' + railHtml() + headerHtml() +
-      '<main class="adv-main" id="adv-main"></main>' + bottomNavHtml() + '</div></div>';
-  }
+  function frameHtml() { return Chrome.frame(chromeCtx()); }
 
   // ---- Phase-2 section stubs (bodies land in Phase 3+) ----
   function stub(emoji, title, line) {
@@ -868,6 +812,7 @@
     if (lo) lo.addEventListener('click', function () { location.href = '/logout'; });
     var bell = document.getElementById('adv-bell');
     if (bell) bell.addEventListener('click', function () { setRoute('messages'); });
+    if (Chrome && Chrome.wireMore) Chrome.wireMore(); // mobile "More" sheet toggle (professional nav)
     // Experience switch (Switch to Buying / Selling; admin "View as").
     document.querySelectorAll('[data-mode]').forEach(function (b) {
       b.addEventListener('click', function () { switchMode(b.getAttribute('data-mode')); });
@@ -901,6 +846,8 @@
       state.businessAdminUrl = me.body.data.business_admin_url || null;
       // Provisioned professionals get My Events / Create Event (org member + events capability).
       state.isEventOrganizer = me.body.data.event_organizer === true;
+      // seller_ready: Marketplace seller setup complete → Create/Manage Online Auction nav + no onboarding CTA.
+      state.sellerReady = me.body.data.seller_ready === true;
       // seller detail is best-effort; a non-seller simply has no profile
       try {
         var s = await apiGet('/api/sellers/me');

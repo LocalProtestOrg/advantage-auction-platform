@@ -16,13 +16,13 @@ function publicAppUrl() {
   return (process.env.PUBLIC_APP_URL || 'https://bid.advantage.bid').replace(/\/+$/, '');
 }
 
-// The BD member's Business Administration home (billing / membership / directory), used by the
-// Railway member shell's "Business Administration" return link. It MUST be a native BD member page —
-// never BD's `default_account_home_url` (currently `enter-auctions`, which is the bridge INTO Railway),
-// or the return link would loop the member straight back into the app. Configurable so BD admin can
-// point it at the exact loop-free member-area slug; the default is BD's member account root.
+// The BD member's Business Administration workspace (membership / billing / company listing / leads /
+// reviews / QR / account), used by the member shell's "Business Administration" return link. This is
+// BD's real authenticated member area (`/account`) — NOT the `/business-administration` marketing/intro
+// landing (which re-prompts login and routes outward), and NOT `default_account_home_url` (`enter-auctions`,
+// the bridge INTO Railway → would loop). Configurable via env for BD admin.
 function bdMemberAdminUrl() {
-  return (process.env.BD_MEMBER_ADMIN_URL || 'https://www.advantage.bid/business-administration').replace(/\/+$/, '');
+  return (process.env.BD_MEMBER_ADMIN_URL || 'https://www.advantage.bid/account').replace(/\/+$/, '');
 }
 
 module.exports = { bridgeEnabled, bridgeSecret, publicAppUrl, bdMemberAdminUrl };

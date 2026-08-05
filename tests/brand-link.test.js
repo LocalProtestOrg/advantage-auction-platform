@@ -13,7 +13,8 @@ const authPages = {
   'public/forgot-password.html': read('public/forgot-password.html'),
   'public/reset-password.html': read('public/reset-password.html'),
 };
-const shell = read('public/widgets/shared/member-shell.js');
+// The shell chrome (rail + header brand) is rendered by the shared AdvChrome module.
+const shell = read('public/widgets/shared/member-chrome.js');
 
 describe('auth-surface brand wordmark → apex marketing site', () => {
   for (const [file, src] of Object.entries(authPages)) {

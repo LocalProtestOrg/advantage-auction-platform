@@ -8,6 +8,7 @@ const { requestReset, resetPassword } = require('../services/passwordResetServic
 const emailVerificationService = require('../services/emailVerificationService');
 const { setSessionCookie, clearSessionCookie, readSessionToken } = require('../lib/sessionCookie');
 const { bdMemberAdminUrl } = require('../lib/bridgeConfig');
+const agreementService = require('../services/agreementService');
 
 const router = express.Router();
 const JWT_SECRET = process.env.JWT_SECRET;
@@ -177,6 +178,14 @@ router.get('/me', auth, async (req, res) => {
       [req.user.id]
     );
     if (!rows[0]) return res.status(404).json({ success: false, error: 'User not found' });
+    // seller_ready: Marketplace seller setup complete — a seller_profile AND a satisfied agreement gate
+    // (signed, admin-waived, or grandfathered). Single server-authoritative signal; the client never
+    // re-derives entitlement. Drives the three-state seller CTA + the "Create/Manage Online Auction" nav.
+    let sellerReady = false;
+    try {
+      const sp = (await db.query('SELECT id FROM seller_profiles WHERE user_id = $1', [req.user.id])).rows[0];
+      if (sp) sellerReady = (await agreementService.dashboardAccess(sp.id)).access === true;
+    } catch (_) { sellerReady = false; }
     // Business Administration (BD member area) is offered only to members who actually came from BD;
     // native buyers/sellers have no BD dashboard to return to. The URL is server-authoritative.
     // event_organizer drives the My Events / Create Event marketplace nav (org member + events capability).
@@ -184,6 +193,7 @@ router.get('/me', auth, async (req, res) => {
     return res.json({ success: true, data: Object.assign(rows[0], {
       bd_member: bdMember,
       event_organizer: rows[0].event_organizer === true,
+      seller_ready: sellerReady,
       business_admin_url: bdMember ? bdMemberAdminUrl() : null,
     }) });
   } catch (err) {

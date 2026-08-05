@@ -68,6 +68,52 @@
     ];
   }
 
+  // ── Online-auction management (for sellers who completed Marketplace setup — ctx.sellerReady) ──
+  // A DIFFERENT workflow/product from events (Create Event ≠ Create Online Auction — kept separate).
+  // "Manage Online Auctions" reuses the in-shell seller workspace (#sell); "Create Online Auction"
+  // deep-links to the hosted-auction builder.
+  function auctionSellerItems() {
+    return [
+      { id: 'createAuction', label: 'Create Online Auction',  emoji: '🔨', href: '/seller-create.html', external: true },
+      { id: 'sell',          label: 'Manage Online Auctions', emoji: '📊', href: '#sell' }
+    ];
+  }
+
+  // A capability-aware account (an event organizer and/or a Marketplace-ready seller) gets a single
+  // professional-first list instead of the buyer-first mode nav.
+  function isProfessionalExperience(ctx) { return !!(ctx && (ctx.isEventOrganizer || ctx.sellerReady)); }
+
+  // ── Professional Marketplace features — DATA-DRIVEN registry ──
+  // Every professional tool is one entry: an entitlement predicate + the item(s) it contributes, in
+  // display order. Future features (Seller Analytics, My Lots, Invoices, Settlements, …) are added by
+  // inserting a row here — the section, headings, and rendering need no restructuring.
+  var PROFESSIONAL_FEATURES = [
+    { key: 'events',   when: function (c) { return c.isEventOrganizer; },              items: function () { return eventOrganizerItems(); } }, // My Events, Create Event
+    { key: 'auctions', when: function (c) { return c.sellerReady; },                   items: function () { return auctionSellerItems(); } }, // Create/Manage Online Auction
+    // ── future professional tools slot in here (capability-gated), e.g.:
+    // { key: 'analytics',   when: function (c) { return c.sellerReady; }, items: function () { return [{ id:'analytics', label:'Seller Analytics', emoji:'📈', href:'#analytics' }]; } },
+    // { key: 'lots',        when: function (c) { return c.sellerReady; }, items: function () { return [{ id:'lots', label:'My Lots', emoji:'📦', href:'/dashboard/lots.html', external:true }]; } },
+    // { key: 'invoices',    when: function (c) { return c.sellerReady; }, items: function () { return [{ id:'sellerInvoices', label:'Invoices', emoji:'🧾', href:'/invoices.html', external:true }]; } },
+    // { key: 'settlements', when: function (c) { return c.sellerReady; }, items: function () { return [{ id:'settlements', label:'Settlements', emoji:'💰', href:'/seller-settlements.html', external:true }]; } },
+    { key: 'bizadmin', when: function (c) { return c.isBdMember && c.businessAdminUrl; }, items: function (c) { return [businessAdminItem(c.businessAdminUrl)]; } }, // Business Administration
+  ];
+  function professionalMarketplaceItems(ctx) {
+    var out = [];
+    PROFESSIONAL_FEATURES.forEach(function (f) { if (f.when(ctx)) out = out.concat(f.items(ctx)); });
+    return out;
+  }
+
+  // Professional-first, grouped into labelled sections. Business Administration lives INSIDE the
+  // Professional Marketplace group (it's a professional function). Buying is preserved below it.
+  function professionalSections(ctx) {
+    var sections = [{ id: 'home', heading: null, items: [BUYING[0]] }]; // Dashboard Home (no heading)
+    var pro = professionalMarketplaceItems(ctx);
+    if (pro.length) sections.push({ id: 'professional', heading: 'Professional Marketplace', items: pro });
+    sections.push({ id: 'buying', heading: 'Buying', items: [BUYING[1], BUYING[2], BUYING[3]] }); // Watchlist, My Bids, Purchases
+    sections.push({ id: 'general', heading: null, items: [BUYING[4], BUYING[5]] });               // Messages, Account
+    return sections;
+  }
+
   function normalizeRole(role) {
     var r = String(role || '').toLowerCase();
     return (r === 'buyer' || r === 'seller' || r === 'admin') ? r : null;
@@ -101,18 +147,28 @@
    * visibleNavFor({ role, isSeller, mode }) → ordered nav items for the resolved experience.
    * No/invalid role (logged-out) → []. An unavailable/absent mode resolves to the user's default.
    */
-  function visibleNavFor(ctx) {
+  /**
+   * visibleSectionsFor(ctx) → ordered [{ id, heading|null, items:[...] }]. The single source of nav
+   * structure. Professionals get grouped sections (Dashboard Home / Professional Marketplace / Buying /
+   * general); everyone else gets one unlabelled section (the mode nav). Rail rendering reads sections
+   * (headings); flat consumers read visibleNavFor (below).
+   */
+  function visibleSectionsFor(ctx) {
     ctx = ctx || {};
     var mode = resolveMode(ctx, ctx.mode);
     if (!mode) return [];
+    if (mode !== 'admin' && isProfessionalExperience(ctx)) return professionalSections(ctx);
     var items = MODES[mode].slice();
-    // Provisioned professionals get marketplace event management (My Events / Create Event) surfaced
-    // right in the dashboard. Server decides eligibility (org member + events capability).
-    if (ctx.isEventOrganizer) items = items.concat(eventOrganizerItems());
-    // BD members get a "Business Administration" return link appended to their nav (never for
-    // native-only accounts, which have no BD member area). Server decides who is a BD member.
+    // BD members (non-professional) still get a "Business Administration" return link appended.
     if (ctx.isBdMember && ctx.businessAdminUrl) items.push(businessAdminItem(ctx.businessAdminUrl));
-    return items;
+    return [{ id: mode, heading: null, items: items }];
+  }
+
+  // Flat ordered items (backward-compatible) — the concatenation of every section's items.
+  function visibleNavFor(ctx) {
+    var out = [];
+    visibleSectionsFor(ctx).forEach(function (s) { out = out.concat(s.items); });
+    return out;
   }
 
   function primaryMobileNav(ctx) {
@@ -129,6 +185,7 @@
   return {
     MODES: MODES, BUYING: BUYING, SELLING: SELLING, ADMIN: ADMIN,
     normalizeRole: normalizeRole, availableModes: availableModes, defaultMode: defaultMode,
-    resolveMode: resolveMode, visibleNavFor: visibleNavFor, primaryMobileNav: primaryMobileNav, byId: byId
+    resolveMode: resolveMode, visibleSectionsFor: visibleSectionsFor, visibleNavFor: visibleNavFor,
+    isProfessionalExperience: isProfessionalExperience, primaryMobileNav: primaryMobileNav, byId: byId
   };
 });

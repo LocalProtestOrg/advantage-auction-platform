@@ -26,7 +26,7 @@ describe('Item 1 — Map View / List View labels (display-mode switch, not "Brow
 
 describe('Item 3 — the Advantage.Bid brand/logo links to https://advantage.bid', () => {
   const event = read('public', 'event.html');
-  const shell = read('public', 'widgets', 'shared', 'member-shell.js');
+  const shell = read('public', 'widgets', 'shared', 'member-chrome.js'); // shared chrome renders the brand
   test('event-detail brand goes to advantage.bid (not the marketplace root)', () => {
     expect(event).toMatch(/<a class="brand" href="https:\/\/advantage\.bid">Advantage<span>\.Bid<\/span><\/a>/);
   });
@@ -40,13 +40,14 @@ describe('Item 3 — the Advantage.Bid brand/logo links to https://advantage.bid
 
 describe('Item 4 — dashboard "Home" reads "Dashboard Home" (never an ambiguous "Home")', () => {
   const nav = read('public', 'widgets', 'shared', 'member-nav-config.js');
-  const shell = read('public', 'widgets', 'shared', 'member-shell.js');
+  const shell = read('public', 'widgets', 'shared', 'member-chrome.js'); // shared chrome renders the header
   test('every nav config home item is labeled "Dashboard Home"', () => {
     expect((nav.match(/label: 'Dashboard Home'/g) || []).length).toBe(3);
     expect(nav).not.toMatch(/label: 'Home'/);
   });
   test('the shell title default is "Dashboard Home"', () => {
-    expect(shell).toMatch(/<h1 id="adv-title">Dashboard Home<\/h1>/);
+    expect(shell).toContain('<h1 id="adv-title">');
+    expect(shell).toMatch(/\|\| 'Dashboard Home'/); // default title when no section is set
   });
 });
 

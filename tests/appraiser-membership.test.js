@@ -208,7 +208,7 @@ describe('routing / SEO gates', () => {
 
 describe('regression — sibling surfaces + payment posture unaffected', () => {
   test('Dashboard Home, photo enlargement, map viewport, existing webhook events intact', () => {
-    expect(read('public', 'widgets', 'shared', 'member-shell.js')).toMatch(/Dashboard Home/);
+    expect(read('public', 'widgets', 'shared', 'member-chrome.js')).toMatch(/Dashboard Home/);
     expect(read('public', 'event.html')).toMatch(/#lb \.lbimg\{[^}]*width:94vw;height:90vh/);
     expect(read('public', 'index.html')).toMatch(/map\.on\('moveend', scheduleDrawerRefresh\)/);
     const pay = read('src', 'services', 'paymentService.js');

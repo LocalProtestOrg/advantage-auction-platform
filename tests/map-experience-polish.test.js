@@ -156,9 +156,10 @@ describe('regression — existing map behavior is preserved', () => {
 
 describe('regression — sibling surfaces unaffected (cross-checks)', () => {
   test('Dashboard Home label + event photo enlargement remain', () => {
-    const shell = read('public', 'widgets', 'shared', 'member-shell.js');
+    const shell = read('public', 'widgets', 'shared', 'member-chrome.js'); // shared chrome renders the header
     const event = read('public', 'event.html');
-    expect(shell).toMatch(/<h1 id="adv-title">Dashboard Home<\/h1>/);
+    expect(shell).toContain('<h1 id="adv-title">');
+    expect(shell).toMatch(/Dashboard Home/);
     expect(event).toMatch(/#lb \.lbimg\{[^}]*width:94vw;height:90vh/);
   });
   test('auction/event cards in the feed still badge by TYPE, never "Coming soon"', () => {
