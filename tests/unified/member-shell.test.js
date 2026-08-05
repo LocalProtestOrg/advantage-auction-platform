@@ -71,6 +71,73 @@ describe('one account, three experiences — mode-aware navigation', () => {
   });
 });
 
+describe('unified BD ↔ Marketplace navigation — "Business Administration" return link', () => {
+  const BD = { isBdMember: true, businessAdminUrl: 'https://www.advantage.bid/account' };
+
+  test('BD members get a "Business Administration" item appended to every experience', () => {
+    for (const ctx of [
+      Object.assign({ role: 'buyer', mode: 'buying' }, BD),
+      Object.assign({ role: 'seller', mode: 'selling' }, BD),
+      Object.assign({ role: 'admin', mode: 'admin' }, BD),
+    ]) {
+      const biz = Nav.visibleNavFor(ctx).find((i) => i.id === 'bizadmin');
+      expect(biz).toBeTruthy();
+      expect(biz.label).toBe('Business Administration');
+      expect(biz.external).toBe(true);                        // deep-links out of the shell
+      expect(biz.href).toBe('https://www.advantage.bid/account');
+    }
+  });
+
+  test('the item is reachable on mobile (primaryMobile → bottom nav, since the rail is hidden ≤860px)', () => {
+    const mobile = Nav.primaryMobileNav(Object.assign({ role: 'seller', mode: 'selling' }, BD));
+    expect(mobile.map((i) => i.id)).toContain('bizadmin');
+  });
+
+  test('native-only accounts (no BD identity) never see Business Administration', () => {
+    expect(ids(Nav.visibleNavFor({ role: 'buyer', mode: 'buying' }))).not.toContain('bizadmin');
+    // isBdMember true but no URL resolved → still not shown (server withholds the URL for non-members)
+    expect(ids(Nav.visibleNavFor({ role: 'buyer', mode: 'buying', isBdMember: true }))).not.toContain('bizadmin');
+    // a URL present but not a BD member → not shown
+    expect(ids(Nav.visibleNavFor({ role: 'buyer', mode: 'buying', businessAdminUrl: BD.businessAdminUrl }))).not.toContain('bizadmin');
+  });
+
+  test('logged-out users never get the item (no role → empty nav)', () => {
+    expect(Nav.visibleNavFor(Object.assign({ role: null }, BD))).toEqual([]);
+  });
+
+  test('label never exposes a platform/technology name ("Railway")', () => {
+    const biz = Nav.visibleNavFor(Object.assign({ role: 'seller', mode: 'selling' }, BD)).find((i) => i.id === 'bizadmin');
+    expect(biz.label.toLowerCase()).not.toContain('railway');
+  });
+});
+
+describe('member shell wires the BD-member flag + Business Administration URL from /me', () => {
+  const src = read('public', 'widgets', 'shared', 'member-shell.js');
+  test('boot reads bd_member + business_admin_url and feeds them into the nav context', () => {
+    expect(src).toContain('me.body.data.bd_member === true');
+    expect(src).toContain('me.body.data.business_admin_url');
+    expect(src).toMatch(/isBdMember:\s*state\.isBdMember/);
+    expect(src).toMatch(/businessAdminUrl:\s*state\.businessAdminUrl/);
+  });
+});
+
+describe('GET /api/auth/me exposes the BD-member signal (server-authoritative)', () => {
+  const auth = read('src', 'routes', 'auth.js');
+  const cfg = read('src', 'lib', 'bridgeConfig.js');
+  test('/me derives bd_member from a brilliant_directories external identity', () => {
+    expect(auth).toMatch(/EXISTS \(SELECT 1 FROM external_identities/);
+    expect(auth).toContain("ei.provider = 'brilliant_directories'");
+    expect(auth).toContain('bd_member');
+  });
+  test('business_admin_url is returned ONLY for BD members (null otherwise)', () => {
+    expect(auth).toMatch(/business_admin_url: bdMember \? bdMemberAdminUrl\(\) : null/);
+  });
+  test('the BD admin URL is configurable and must not be BDs bridge/account-home default', () => {
+    expect(cfg).toContain('BD_MEMBER_ADMIN_URL');
+    expect(cfg).toMatch(/enter-auctions/); // the loop hazard is documented in the config
+  });
+});
+
 describe('parallel /app.html route is additive + wired to shared assets', () => {
   const html = read('public', 'app.html');
   test('loads the design system, nav config, shell, and shared auth-refresh', () => {

@@ -153,9 +153,13 @@ describe('feature flag + existing auth untouched', () => {
     expect(server).toMatch(/if \(require\('\.\/src\/lib\/bridgeConfig'\)\.bridgeEnabled\(\)\)/);
     expect(server).toMatch(/require\('\.\/src\/routes\/authBridge'\)/);
   });
-  test('existing username/password login is unchanged (no bridge code in auth.js)', () => {
+  test('existing username/password login is unchanged (no bridge REDEMPTION/PROVISIONING in auth.js)', () => {
     const auth = fs.readFileSync(path.join(__dirname, '..', '..', 'src', 'routes', 'auth.js'), 'utf8');
-    expect(auth).not.toMatch(/bd\/exchange|bd\/return|bridge|external_identit/i);
+    // The security boundary: the standard login router must never mint/redeem bridge codes or
+    // provision identities — that lives only in authBridge.js / bridge services.
+    expect(auth).not.toMatch(/bd\/exchange|bd\/return|redeemAndProvision|mintCode|bd_login_codes|provisionWithinTxn/i);
+    // external_identities may be READ (e.g. /me's bd_member flag) but NEVER written by the login router.
+    expect(auth).not.toMatch(/INSERT\s+INTO\s+external_identities|UPDATE\s+external_identities/i);
     expect(auth).toMatch(/jwt\.sign/); // the login JWT the bridge reuses still lives here, untouched
   });
 });

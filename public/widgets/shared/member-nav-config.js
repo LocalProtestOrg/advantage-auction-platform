@@ -49,6 +49,25 @@
 
   var MODES = { buying: BUYING, selling: SELLING, admin: ADMIN };
 
+  // ── Cross-application link — "Business Administration" (BD member area) ──
+  // Appended to every experience for members who came from BD (ctx.isBdMember), so a professional can
+  // move back to Business Administration (billing / membership / directory) the same way they came in.
+  // `external` deep-links out of the shell; `primaryMobile` keeps it reachable in the mobile bottom nav
+  // (the rail is hidden ≤860px). The href is server-authoritative (passed in via ctx.businessAdminUrl).
+  function businessAdminItem(url) {
+    return { id: 'bizadmin', label: 'Business Administration', emoji: '🏢', href: String(url), external: true, primaryMobile: true };
+  }
+
+  // ── Marketplace event management (for provisioned professionals — ctx.isEventOrganizer) ──
+  // My Events / Create Event live in the organization workspace; deep-link out of the shell so an
+  // eligible professional reaches event creation/management straight from the Marketplace dashboard.
+  function eventOrganizerItems() {
+    return [
+      { id: 'events',      label: 'My Events',    emoji: '📅', href: '/org/events.html',   external: true, primaryMobile: true },
+      { id: 'createEvent', label: 'Create Event', emoji: '➕', href: '/org/event-new.html', external: true }
+    ];
+  }
+
   function normalizeRole(role) {
     var r = String(role || '').toLowerCase();
     return (r === 'buyer' || r === 'seller' || r === 'admin') ? r : null;
@@ -86,7 +105,14 @@
     ctx = ctx || {};
     var mode = resolveMode(ctx, ctx.mode);
     if (!mode) return [];
-    return MODES[mode].slice();
+    var items = MODES[mode].slice();
+    // Provisioned professionals get marketplace event management (My Events / Create Event) surfaced
+    // right in the dashboard. Server decides eligibility (org member + events capability).
+    if (ctx.isEventOrganizer) items = items.concat(eventOrganizerItems());
+    // BD members get a "Business Administration" return link appended to their nav (never for
+    // native-only accounts, which have no BD member area). Server decides who is a BD member.
+    if (ctx.isBdMember && ctx.businessAdminUrl) items.push(businessAdminItem(ctx.businessAdminUrl));
+    return items;
   }
 
   function primaryMobileNav(ctx) {

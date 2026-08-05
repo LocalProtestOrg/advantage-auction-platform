@@ -10,7 +10,7 @@
   'use strict';
   var Nav = (typeof window !== 'undefined' && window.AdvNav);
   var LOGIN = '/login.html?next=' + encodeURIComponent('/app.html');
-  var mountEl, state = { user: null, isSeller: false, sellerType: null, route: 'home', mode: 'buying' };
+  var mountEl, state = { user: null, isSeller: false, sellerType: null, route: 'home', mode: 'buying', isBdMember: false, businessAdminUrl: null, isEventOrganizer: false };
   var MODE_KEY = 'ab_active_mode';
   function readMode() { try { return localStorage.getItem(MODE_KEY); } catch (e) { return null; } }
   function writeMode(m) { try { localStorage.setItem(MODE_KEY, m); } catch (e) {} }
@@ -56,7 +56,7 @@
   function initials(u) { var n = (u.full_name || u.email || '?').trim();
     var p = n.split(/\s+/); return ((p[0] || '')[0] || '' ) + (p.length > 1 ? (p[p.length - 1][0] || '') : ''); }
 
-  function navCtx() { return { role: state.user.role, isSeller: state.isSeller, mode: state.mode }; }
+  function navCtx() { return { role: state.user.role, isSeller: state.isSeller, mode: state.mode, isBdMember: state.isBdMember, businessAdminUrl: state.businessAdminUrl, isEventOrganizer: state.isEventOrganizer }; }
   var MODE_META = { buying: { label: 'Buying', sub: 'Marketplace' }, selling: { label: 'Selling', sub: 'Seller workspace' }, admin: { label: 'Admin', sub: 'Operations' } };
 
   function navItemHtml(item, mobile) {
@@ -896,6 +896,11 @@
       if (me.status === 401) return token() ? renderUnauthorized() : renderLoggedOut();
       if (!me.ok || !me.body || !me.body.data) return renderError();
       state.user = me.body.data;
+      // BD members get a "Business Administration" return link (server-authoritative flag + URL).
+      state.isBdMember = me.body.data.bd_member === true;
+      state.businessAdminUrl = me.body.data.business_admin_url || null;
+      // Provisioned professionals get My Events / Create Event (org member + events capability).
+      state.isEventOrganizer = me.body.data.event_organizer === true;
       // seller detail is best-effort; a non-seller simply has no profile
       try {
         var s = await apiGet('/api/sellers/me');

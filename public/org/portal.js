@@ -56,9 +56,32 @@
     header: function (active) {
       var tabs = [['events', 'My Events', '/org/events.html'], ['new', 'Create Event', '/org/event-new.html'], ['profile', 'Professional Profile', '/org/profile.html']];
       var nav = tabs.map(function (t) { return '<a href="' + t[2] + '"' + (t[0] === active ? ' class="on"' : '') + '>' + t[1] + '</a>'; }).join('');
+      // Launch containment: for BD-managed professional businesses, Business Administration (in BD) is the
+      // source of truth for the company listing — so hide the duplicate Railway profile editor. Runs after
+      // the header mounts; leaves appraisers, native orgs, routes, and data untouched. (Future: reconcile
+      // the Railway profile down to internal seller-identity fields only.)
+      setTimeout(function () { try { ORG._containProfileEditor(active); } catch (e) {} }, 0);
       return '<header class="pbar"><div class="in"><a class="brand" href="/org/events.html">Advantage<span>.Bid</span></a>'
         + '<nav>' + nav + '</nav><div class="sp"></div>'
         + '<a class="who" href="/">← Back to site</a></div></header>';
+    },
+    // Org types whose company listing is managed in BD (Business Administration), not Railway.
+    _bdManagedBusinessTypes: {
+      auction_company: 1, auction_house: 1, estate_sale_company: 1, professional_liquidator: 1,
+      consignment_company: 1, moving_company: 1, cleanout_company: 1, clean_out_company: 1,
+    },
+    /** Hide the Railway "Professional Profile" tab for BD-managed professional businesses (appraisers keep it). */
+    _containProfileEditor: async function (active) {
+      try {
+        var me = await ORG.api('GET', '/api/auth/me');
+        if (!(me.data && me.data.bd_member)) return; // only BD-managed members
+        var prof = await ORG.api('GET', '/api/org/profile');
+        var type = prof && prof.organization && prof.organization.type;
+        if (!ORG._bdManagedBusinessTypes[type]) return; // appraisers & non-business orgs keep the editor
+        var link = document.querySelector('header.pbar nav a[href="/org/profile.html"]');
+        if (link && link.parentNode) link.parentNode.removeChild(link);
+        if (active === 'profile') location.replace('/org/events.html'); // don't strand them on the hidden editor
+      } catch (e) { /* fail open — never block the portal on this check */ }
     },
   };
   window.ORG = ORG;

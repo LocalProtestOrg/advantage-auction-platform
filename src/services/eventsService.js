@@ -25,6 +25,14 @@ const STATUSES = ['draft', 'submitted', 'published', 'rejected', 'archived'];
 const ACTIVE_STATES = ['submitted', 'published'];      // count toward max_active_events
 const EDITABLE_STATES = new Set(['draft', 'rejected']); // owner may edit / change images
 
+// Professional companies publish their events directly (no review queue) — the member who creates the
+// event takes it straight to published. Homeowner estate sales (a paid, reviewed product) are excluded
+// upstream in submit(); individual/non-professional organizers still go through review.
+const AUTO_PUBLISH_ORG_TYPES = new Set([
+  'auction_company', 'auction_house', 'estate_sale_company', 'professional_liquidator',
+  'consignment_company', 'moving_company', 'cleanout_company', 'clean_out_company',
+]);
+
 // camelCase input → column, for create/update allowlists.
 // NOTE: lat/lng are intentionally NOT client-settable. Public coordinates are a server-derived privacy
 // OFFSET of the geocoded address (two-tier model, migration 102); a caller can never write the public
@@ -191,6 +199,16 @@ async function submit(userId, eventId) {
     if (active >= plan.max_active_events) {
       throw svcErr(422, 'ACTIVE_EVENT_LIMIT',
         `Your plan allows ${plan.max_active_events} active events. Archive one to submit another.`);
+    }
+    // Professional companies skip the review queue: their events go member → published directly.
+    const { rows: orgRow } = await client.query('SELECT type FROM organizations WHERE id=$1', [ev.organization_id]);
+    const orgType = orgRow[0] && orgRow[0].type;
+    if (AUTO_PUBLISH_ORG_TYPES.has(orgType)) {
+      const { rows } = await client.query(
+        `UPDATE events SET status='published', submitted_at=now(), published_at=now(), review_reason=NULL, updated_at=now()
+          WHERE id=$1 RETURNING *`, [eventId]);
+      await audit(client, 'event.published', eventId, userId, { auto: true, reason: 'professional_company_auto_publish', org_type: orgType });
+      return rows[0];
     }
     const { rows } = await client.query(
       `UPDATE events SET status='submitted', submitted_at=now(), review_reason=NULL, updated_at=now()

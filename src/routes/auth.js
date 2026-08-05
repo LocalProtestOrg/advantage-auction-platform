@@ -7,6 +7,7 @@ const { normalLimiter, strictLimiter } = require('../middleware/rateLimit');
 const { requestReset, resetPassword } = require('../services/passwordResetService');
 const emailVerificationService = require('../services/emailVerificationService');
 const { setSessionCookie, clearSessionCookie, readSessionToken } = require('../lib/sessionCookie');
+const { bdMemberAdminUrl } = require('../lib/bridgeConfig');
 
 const router = express.Router();
 const JWT_SECRET = process.env.JWT_SECRET;
@@ -165,11 +166,26 @@ router.get('/session-status', (req, res) => {
 router.get('/me', auth, async (req, res) => {
   try {
     const { rows } = await db.query(
-      'SELECT id, email, role, full_name, phone FROM users WHERE id = $1',
+      `SELECT id, email, role, full_name, phone,
+              EXISTS (SELECT 1 FROM external_identities ei
+                       WHERE ei.user_id = users.id AND ei.provider = 'brilliant_directories') AS bd_member,
+              EXISTS (SELECT 1 FROM organization_members m
+                        JOIN organization_capabilities c ON c.organization_id = m.organization_id
+                       WHERE m.user_id = users.id AND m.status = 'active'
+                         AND c.capability = 'events' AND c.enabled = true) AS event_organizer
+         FROM users WHERE id = $1`,
       [req.user.id]
     );
     if (!rows[0]) return res.status(404).json({ success: false, error: 'User not found' });
-    return res.json({ success: true, data: rows[0] });
+    // Business Administration (BD member area) is offered only to members who actually came from BD;
+    // native buyers/sellers have no BD dashboard to return to. The URL is server-authoritative.
+    // event_organizer drives the My Events / Create Event marketplace nav (org member + events capability).
+    const bdMember = rows[0].bd_member === true;
+    return res.json({ success: true, data: Object.assign(rows[0], {
+      bd_member: bdMember,
+      event_organizer: rows[0].event_organizer === true,
+      business_admin_url: bdMember ? bdMemberAdminUrl() : null,
+    }) });
   } catch (err) {
     console.error('[auth] /me failed:', err.message);
     return res.status(500).json({ success: false, error: 'Failed to load user' });

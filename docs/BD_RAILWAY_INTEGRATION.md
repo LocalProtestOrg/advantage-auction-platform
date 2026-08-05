@@ -277,3 +277,31 @@ Every future BD/Railway authentication change **must**:
 3. Identify any required **manual BD action** (Custom CSS Head paste, menu, widget, setting).
 4. **Compare the live BD source against the repo artifact after the manual paste** (they drift silently otherwise — see §16).
 5. Run the full §17 login/logout matrix on desktop and mobile before considering the change complete.
+
+---
+
+## 20. Two-Way Navigation — Business Administration ⇄ Marketplace (Phase 4C)
+
+One Advantage.Bid product; the customer moves between **Business Administration** (BD) and the **Marketplace** (the app) without thinking about platforms. The word "Railway" never appears in any customer-facing surface.
+
+### 20.1 Marketplace → Business Administration (Railway side — implemented in this repo)
+- The member shell shows BD members a primary nav item **"Business Administration"** that returns them to their BD member area.
+- **Who sees it:** only members with a `brilliant_directories` external identity. `GET /api/auth/me` returns a server-authoritative `bd_member` boolean and, for BD members only, `business_admin_url`. Native-only buyers/sellers/admins never see the item.
+- **What it means (scope-locked):** Business Administration = **BD-owned** professional membership, recurring billing, and the company directory listing. Railway never manages professional billing or the customer-facing company listing (see §21).
+- **Where:** appended to every experience (Buying / Selling / Admin) in `member-nav-config.js` (`visibleNavFor`); rendered in the desktop rail and, because it is `primaryMobile`, in the mobile bottom nav (the rail is hidden ≤860px). Files: `src/routes/auth.js` (`/me`), `src/lib/bridgeConfig.js` (`bdMemberAdminUrl`), `public/widgets/shared/member-nav-config.js`, `public/widgets/shared/member-shell.js`.
+- **Destination:** `BD_MEMBER_ADMIN_URL` (env; default `https://www.advantage.bid/business-administration`).
+- **⚠️ Redirect-loop hazard:** this URL **must** be a native BD member-area page. It must **not** be BD's `default_account_home_url` (currently `enter-auctions`, which is the bridge INTO the app — §6); pointing there would loop the member straight back into the Marketplace. Confirm the exact loop-free BD member slug with BD admin before deploy.
+
+### 20.2 Business Administration → Marketplace (BD side — manual BD action, not in this repo)
+Add a primary action **"Open Marketplace"** in the BD Member Dashboard linking to:
+
+```
+https://bid.advantage.bid/app.html#home
+```
+
+- The existing identity bridge (§5) authenticates the member on arrival; no second login. (Today the native BD Dashboard already routes through `enter-auctions` → bridge → app; "Open Marketplace" is the explicit, labeled entry point requested by the Product Owner.)
+- Label it **"Open Marketplace"** — never "Railway" or any platform/technology name.
+- Placement: BD Member Dashboard primary actions (Widget Manager / member menu). Add to the §14 manual-configuration inventory when pasted.
+
+### 20.3 Verification (run before considering complete)
+BD member → BD dashboard → **Open Marketplace** → app dashboard (no second login, no flash) → create/manage events → **Business Administration** → BD member area (no loop, no re-login while the BD session is alive). Desktop and mobile. Plus the full §17 auth matrix.
