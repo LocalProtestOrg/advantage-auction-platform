@@ -317,4 +317,10 @@ describe('runNow / runAllNow', () => {
     db.query.mockResolvedValueOnce({ rows: [] });
     await expect(worker.runNow({ sourceKey: 'nope' })).rejects.toThrow(/Unknown import source/);
   });
+  test('runAllNow threads autoPublish into the gated engine path (verification run parity)', async () => {
+    db.query.mockResolvedValueOnce({ rows: [SRC()] }).mockResolvedValue({ rows: [] });
+    runImport.mockResolvedValueOnce(okResult());
+    await worker.runAllNow({ apply: true, autoPublish: true });
+    expect(runImport.mock.calls[0][0]).toMatchObject({ apply: true, noAutoPublish: false }); // gated publish on
+  });
 });

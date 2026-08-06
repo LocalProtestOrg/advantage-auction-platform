@@ -285,9 +285,11 @@ async function runNow({ sourceKey, apply = false, trigger = 'manual', limit } = 
   if (!source) throw new Error('Unknown import source: ' + sourceKey);
   return runOneSource(source, { trigger, scheduledFor: null, apply: !!apply, limit });
 }
-// runAllNow: every active source once (manual trigger). apply defaults FALSE (dry run).
-async function runAllNow({ apply = false, trigger = 'manual' } = {}) {
-  return runScheduledCycle(null, { apply: !!apply, trigger });
+// runAllNow: every active source once (manual trigger). apply defaults FALSE (dry run). autoPublish
+// threads into the SAME gated path the scheduler uses (writer.publishImported + publicationGate stay
+// authoritative per event) so an owner verification run exercises exactly what a scheduled run does.
+async function runAllNow({ apply = false, trigger = 'manual', autoPublish = false } = {}) {
+  return runScheduledCycle(null, { apply: !!apply, trigger, autoPublish: !!autoPublish });
 }
 
 // ── Health monitoring (runs even when imports are disabled/not-due) ───────────
