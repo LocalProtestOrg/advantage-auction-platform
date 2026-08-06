@@ -32,6 +32,8 @@ const { withTransaction } = require('../utils/withTransaction');
 const { runImport } = require('../services/eventImport');
 const runLog = require('../services/eventImport/runLog');
 const { writeAuditLog } = require('../lib/auditLog');
+const health = require('../services/eventImport/health');
+const { sendEmail } = require('../services/emailService');
 
 const CHECK_INTERVAL_MS = 60_000;          // evaluate the schedule every minute
 const STALE_RUN_MINUTES = 30;              // a scheduled run 'running' longer than this is treated as crashed
@@ -49,14 +51,23 @@ function logLine(obj) {
   catch (_) { /* logging must never throw */ }
 }
 
-// Configuration (all env-driven; idle unless explicitly enabled).
+// Configuration (all env-driven; idle unless explicitly enabled). Runs entirely on Railway (forked by
+// server.js) — never depends on a developer workstation being online.
 function cfg(env = process.env) {
   const on = String(env.EVENT_IMPORT_WORKER_ENABLED || '').toLowerCase() === 'true';
   const off = String(env.EVENT_IMPORT_WORKER_DISABLED || '').toLowerCase() === 'true';
+  // DAILY by default — estate sales often last only 1–3 days, so weekly cannot sustain inventory.
+  // Set EVENT_IMPORT_SCHEDULE_DAILY=false to fall back to a single weekday run.
+  const daily = String(env.EVENT_IMPORT_SCHEDULE_DAILY || 'true').toLowerCase() !== 'false';
+  // Gated auto-publish: when true, qualifying imports publish through the HARD publicationGate
+  // (writer.publishImported); anything failing a rule stays draft with recorded reasons. Off → draft-only.
+  const autoPublish = String(env.EVENT_IMPORT_AUTOPUBLISH_ENABLED || '').toLowerCase() === 'true';
   return {
     enabled: on && !off,
-    weekday: clampInt(env.EVENT_IMPORT_SCHEDULE_WEEKDAY, 1, 0, 6), // 0=Sun..6=Sat, default Monday
+    daily,
+    weekday: clampInt(env.EVENT_IMPORT_SCHEDULE_WEEKDAY, 1, 0, 6), // 0=Sun..6=Sat, default Monday (weekly mode)
     hour: clampInt(env.EVENT_IMPORT_SCHEDULE_HOUR, 3, 0, 23),      // ET hour, default 03:00 (off-peak)
+    autoPublish,
   };
 }
 
@@ -70,8 +81,10 @@ function etNow(d = new Date()) {
   return { date: p.year + '-' + p.month + '-' + p.day, hour: parseInt(p.hour, 10) % 24, weekday: WD[p.weekday] };
 }
 
-// Due when the ET wall clock is on the configured weekday within the configured hour.
+// Due when the ET wall clock is within the configured hour — every day (daily mode) or on the
+// configured weekday (weekly mode). The once-per-ET-date guard + the DB claim keep it to one run/day.
 function due(et, schedule) {
+  if (schedule.daily) return et.hour === schedule.hour;
   return et.weekday === schedule.weekday && et.hour === schedule.hour;
 }
 
@@ -114,7 +127,10 @@ async function runOneSource(source, o) {
       trigger,
       scheduledFor: o.scheduledFor || null,
       limit: o.limit,
-      noAutoPublish: true,          // GOVERNANCE: never auto-publish from the scheduler
+      // GATED auto-publish: only when the caller opts in (scheduler with EVENT_IMPORT_AUTOPUBLISH_ENABLED).
+      // The per-source auto_publish flag AND the hard publicationGate still both apply in the engine, so
+      // this only ever publishes events that pass every trust/quality/privacy/date rule; the rest stay draft.
+      noAutoPublish: o.autoPublish !== true,
       db,
       withTransaction,
     });
@@ -175,9 +191,9 @@ async function runScheduledCycle(scheduledFor, opts) {
   try { sources = await activeSources(); }
   catch (e) { logLine({ evt: 'cycle_error', error: String(e && e.message) }); return summarize(scheduledFor, startedMs, [], { error: String(e && e.message) }); }
 
-  logLine({ evt: 'cycle_start', scheduledFor: scheduledFor || null, trigger, apply, sources: sources.length });
+  logLine({ evt: 'cycle_start', scheduledFor: scheduledFor || null, trigger, apply, autoPublish: !!opts.autoPublish, sources: sources.length });
   const results = [];
-  for (const s of sources) results.push(await runOneSource(s, { trigger, scheduledFor, apply }));
+  for (const s of sources) results.push(await runOneSource(s, { trigger, scheduledFor, apply, autoPublish: !!opts.autoPublish }));
 
   const summary = summarize(scheduledFor, startedMs, results, { trigger, apply });
   logLine(Object.assign({ evt: 'cycle_end' }, summary.counts, { sources_total: summary.sources_total, sources_failed: summary.sources_failed, duration_ms: summary.duration_ms }));
@@ -204,6 +220,51 @@ async function runAllNow({ apply = false, trigger = 'manual' } = {}) {
   return runScheduledCycle(null, { apply: !!apply, trigger });
 }
 
+// ── Health monitoring (runs even when imports are disabled/not-due) ───────────
+let lastHealthKey = null;          // once-per-ET-hour routine health guard
+let lastCriticalAlertDate = null;  // once-per-ET-date critical-email guard (no spam)
+let priorSnapshot = null;          // prior snapshot for sharp-drop detection
+
+// Compute + persist the inventory/health snapshot, log it, and email CRITICAL alerts (once/day).
+// Never throws — monitoring must not crash the worker.
+async function runHealthCheck(nowDate, o) {
+  o = o || {};
+  try {
+    const et = etNow(nowDate);
+    const hourKey = et.date + 'T' + et.hour;
+    if (!o.afterCycle && lastHealthKey === hourKey) return null; // routine: at most once per hour
+    lastHealthKey = hourKey;
+    const snap = await health.inventorySnapshot(db);
+    const alerts = health.evaluateAlerts(snap, health.thresholds(), { prior: priorSnapshot, now: nowDate ? nowDate.getTime() : Date.now() });
+    priorSnapshot = snap;
+    logLine({ evt: 'health', afterCycle: !!o.afterCycle, snapshot: snap, alerts });
+    try {
+      await writeAuditLog({
+        event_type: alerts.some((a) => a.level === 'critical') ? 'event_inventory_alert' : 'event_inventory_health',
+        entity_type: 'event_import_scheduler', entity_id: AUDIT_ENTITY_ID, actor_id: null,
+        metadata: Object.assign({ snapshot: snap, alerts }, o.summary ? { run_counts: o.summary.counts, sources: o.summary.sources } : {}),
+      });
+    } catch (_) { /* audit best-effort */ }
+    // Critical-alert EMAIL is opt-in (EVENT_INVENTORY_ALERTS_ENABLED=true) so it never surprises in dev
+    // or before the owner is ready; the snapshot + audit row above are always recorded regardless.
+    const emailOn = String(process.env.EVENT_INVENTORY_ALERTS_ENABLED || '').toLowerCase() === 'true';
+    const criticals = alerts.filter((a) => a.level === 'critical');
+    if (emailOn && criticals.length && lastCriticalAlertDate !== et.date) {
+      lastCriticalAlertDate = et.date;
+      try {
+        await sendEmail({
+          to: 'info@advantage.bid',
+          subject: `Advantage.Bid — event inventory alert (${criticals.length})`,
+          text: 'Event inventory health alerts:\n' + criticals.map((a) => `- [${a.code}] ${a.message}`).join('\n')
+            + `\n\nActive auctions: ${snap.active_auctions}. Active estate sales: ${snap.active_estate_sales}. `
+            + `Total active public: ${snap.total_active_public}. Last successful import: ${snap.last_success_run || 'never'}.`,
+        });
+      } catch (e) { logLine({ evt: 'alert_email_failed', error: String(e && e.message) }); }
+    }
+    return { snapshot: snap, alerts };
+  } catch (e) { logLine({ evt: 'health_error', error: String(e && e.message) }); return null; }
+}
+
 // ── Scheduler loop ───────────────────────────────────────────────────────────
 let ticking = false;        // reentrancy guard (one tick at a time in this process)
 let lastCycleDate = null;   // once-per-ET-date guard (this process)
@@ -213,12 +274,15 @@ async function tick(nowDate) {
   ticking = true;
   try {
     const c = cfg();
+    // Monitoring runs regardless of enabled/due — a stalled or disabled worker must still surface alerts.
+    await runHealthCheck(nowDate);
     if (!c.enabled) return;
     const et = etNow(nowDate);
     if (!due(et, c)) return;
     if (lastCycleDate === et.date) return;   // already handled this date in this process
     lastCycleDate = et.date;                 // claim the date in-process BEFORE running (the DB claim is authoritative across processes)
-    await runScheduledCycle(et.date, { apply: true, trigger: 'scheduled' });
+    const summary = await runScheduledCycle(et.date, { apply: true, trigger: 'scheduled', autoPublish: c.autoPublish });
+    await runHealthCheck(nowDate, { afterCycle: true, summary });
   } catch (e) {
     logLine({ evt: 'tick_error', error: String(e && e.message) }); // the scheduler must never crash the worker
   } finally {
@@ -239,8 +303,8 @@ if (require.main === module) {
 
 module.exports = {
   cfg, etNow, due, clampInt, activeSources, reapStaleRun,
-  runOneSource, runScheduledCycle, runNow, runAllNow, summarize, tick,
+  runOneSource, runScheduledCycle, runNow, runAllNow, summarize, tick, runHealthCheck,
   CHECK_INTERVAL_MS, STALE_RUN_MINUTES, AUDIT_ENTITY_ID,
-  // Test-only: reset the in-process scheduler guards between cases.
-  _resetForTest: () => { ticking = false; lastCycleDate = null; },
+  // Test-only: reset the in-process scheduler + health guards between cases.
+  _resetForTest: () => { ticking = false; lastCycleDate = null; lastHealthKey = null; lastCriticalAlertDate = null; priorSnapshot = null; },
 };

@@ -43,10 +43,24 @@ describe('cfg (idle by default; env-driven schedule)', () => {
 });
 
 describe('due / etNow', () => {
-  test('due only on the configured weekday + hour', () => {
-    expect(worker.due({ weekday: 1, hour: 3 }, { weekday: 1, hour: 3 })).toBe(true);
-    expect(worker.due({ weekday: 2, hour: 3 }, { weekday: 1, hour: 3 })).toBe(false);
-    expect(worker.due({ weekday: 1, hour: 4 }, { weekday: 1, hour: 3 })).toBe(false);
+  test('WEEKLY mode: due only on the configured weekday + hour', () => {
+    const wk = { daily: false, weekday: 1, hour: 3 };
+    expect(worker.due({ weekday: 1, hour: 3 }, wk)).toBe(true);
+    expect(worker.due({ weekday: 2, hour: 3 }, wk)).toBe(false);
+    expect(worker.due({ weekday: 1, hour: 4 }, wk)).toBe(false);
+  });
+  test('DAILY mode (default): due EVERY day at the configured hour', () => {
+    const d = { daily: true, hour: 3 };
+    expect(worker.due({ weekday: 1, hour: 3 }, d)).toBe(true);
+    expect(worker.due({ weekday: 4, hour: 3 }, d)).toBe(true); // any weekday
+    expect(worker.due({ weekday: 4, hour: 4 }, d)).toBe(false); // wrong hour
+  });
+  test('cfg defaults to DAILY with gated auto-publish OFF', () => {
+    const c = worker.cfg({});
+    expect(c.daily).toBe(true);
+    expect(c.autoPublish).toBe(false);
+    expect(worker.cfg({ EVENT_IMPORT_SCHEDULE_DAILY: 'false' }).daily).toBe(false);
+    expect(worker.cfg({ EVENT_IMPORT_AUTOPUBLISH_ENABLED: 'true' }).autoPublish).toBe(true);
   });
   test('etNow returns ET wall-clock parts (Mon 2026-08-03 03:30 ET)', () => {
     const et = worker.etNow(new Date('2026-08-03T07:30:00Z')); // EDT (UTC-4) → 03:30 ET Monday
@@ -66,7 +80,7 @@ describe('activeSources', () => {
 
 // ── runOneSource: reuse engine, draft-only, recover from failures ─────────────
 describe('runOneSource', () => {
-  test('reuses the engine and ALWAYS forces draft-only (noAutoPublish:true)', async () => {
+  test('draft-only by DEFAULT (noAutoPublish:true when autoPublish not opted in)', async () => {
     db.query.mockResolvedValue({ rows: [] });   // reapStaleRun query
     runImport.mockResolvedValueOnce(okResult());
     const r = await worker.runOneSource(SRC(), { trigger: 'scheduled', scheduledFor: '2026-08-03', apply: true });
@@ -75,6 +89,13 @@ describe('runOneSource', () => {
     const arg = runImport.mock.calls[0][0];
     expect(arg).toMatchObject({ sourceKey: 'aac-csv', apply: true, trigger: 'scheduled', scheduledFor: '2026-08-03', noAutoPublish: true });
     expect(typeof arg.withTransaction).toBe('function'); // transactional writer wired
+  });
+
+  test('GATED auto-publish: autoPublish:true → noAutoPublish:false (engine + publicationGate still gate each event)', async () => {
+    db.query.mockResolvedValue({ rows: [] });
+    runImport.mockResolvedValueOnce(okResult());
+    await worker.runOneSource(SRC(), { trigger: 'scheduled', scheduledFor: '2026-08-03', apply: true, autoPublish: true });
+    expect(runImport.mock.calls[0][0]).toMatchObject({ noAutoPublish: false });
   });
 
   test('a connector/source failure is caught (does not throw) and reported', async () => {
@@ -184,31 +205,35 @@ describe('summarize', () => {
 
 // ── scheduled execution + idempotency (tick) ─────────────────────────────────
 describe('tick — scheduled execution + duplicate prevention', () => {
-  const MON_0330_ET = new Date('2026-08-03T07:30:00Z'); // Monday 03:30 ET (default schedule)
-  const TUE_0330_ET = new Date('2026-08-04T07:30:00Z'); // Tuesday (not due)
+  const MON_0330_ET = new Date('2026-08-03T07:30:00Z'); // Monday 03:30 ET → hour 3 (daily default: DUE)
+  const TUE_0530_ET = new Date('2026-08-04T09:30:00Z'); // Tuesday 05:30 ET → hour 5 (NOT the scheduled hour)
+  // Safe rows so the always-on health check completes cleanly in these hermetic mocks.
+  const HEALTH_ROW = { rows: [{ t: null, n: 0, status: 'completed', started_at: null }] };
 
-  test('does nothing when disabled', async () => {
+  test('does not IMPORT when disabled (health monitoring may still run)', async () => {
     delete process.env.EVENT_IMPORT_WORKER_ENABLED;
+    db.query.mockResolvedValue(HEALTH_ROW);
     await worker.tick(MON_0330_ET);
-    expect(db.query).not.toHaveBeenCalled();
+    expect(runImport).not.toHaveBeenCalled(); // the import cycle is gated off
+  });
+
+  test('does not IMPORT when enabled but not due (wrong hour)', async () => {
+    process.env.EVENT_IMPORT_WORKER_ENABLED = 'true';
+    db.query.mockResolvedValue(HEALTH_ROW);
+    await worker.tick(TUE_0530_ET);
     expect(runImport).not.toHaveBeenCalled();
-  });
-
-  test('does nothing when enabled but not due', async () => {
-    process.env.EVENT_IMPORT_WORKER_ENABLED = 'true';
-    await worker.tick(TUE_0330_ET);
-    expect(db.query).not.toHaveBeenCalled();
     delete process.env.EVENT_IMPORT_WORKER_ENABLED;
   });
 
-  test('runs the cycle when enabled + due, and NOT again for the same date (idempotent)', async () => {
+  test('runs the cycle when enabled + due (daily), and NOT again for the same date (idempotent)', async () => {
     process.env.EVENT_IMPORT_WORKER_ENABLED = 'true';
-    db.query.mockResolvedValue({ rows: [] });      // activeSources → none (keeps it light)
+    db.query.mockImplementation((sql) => (/FROM import_sources WHERE status = 'active'/.test(sql) ? { rows: [] } : HEALTH_ROW));
     await worker.tick(MON_0330_ET);
-    const callsAfterFirst = db.query.mock.calls.length;
-    expect(callsAfterFirst).toBeGreaterThan(0);    // the cycle queried active sources
+    const sourceCalls = db.query.mock.calls.filter((c) => /import_sources WHERE status = 'active'/.test(c[0])).length;
+    expect(sourceCalls).toBe(1);                   // the cycle queried active sources once
     await worker.tick(MON_0330_ET);                // same ET date → guarded, no second cycle
-    expect(db.query.mock.calls.length).toBe(callsAfterFirst);
+    const sourceCalls2 = db.query.mock.calls.filter((c) => /import_sources WHERE status = 'active'/.test(c[0])).length;
+    expect(sourceCalls2).toBe(1);                  // still 1 — no second cycle
     delete process.env.EVENT_IMPORT_WORKER_ENABLED;
   });
 });
