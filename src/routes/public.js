@@ -591,7 +591,12 @@ router.get('/auctions', async (req, res, next) => {
     if (q.q && typeof q.q === 'string' && q.q.trim().length > 0) {
       params.push(`%${q.q.trim().slice(0, 100)}%`);
       const ki = params.length;
-      where.push(`(a.title ILIKE $${ki} OR a.subtitle ILIKE $${ki} OR a.description ILIKE $${ki} OR a.city ILIKE $${ki} OR sp.display_name ILIKE $${ki})`);
+      // The seller NAME participates in search matching ONLY when the seller is publicly brandable
+      // (professional type + branding on) — a private/individual/branding-off seller's name must not be
+      // an enumeration vector. The auction stays fully searchable by its own public content (title,
+      // subtitle, description, city) regardless of who the seller is.
+      where.push(`(a.title ILIKE $${ki} OR a.subtitle ILIKE $${ki} OR a.description ILIKE $${ki} OR a.city ILIKE $${ki} `
+        + `OR (${brandingVisibleSql('sp.seller_type', 'sp.show_branding_to_buyers')} AND sp.display_name ILIKE $${ki}))`);
     }
 
     // Tenant-scoped feeds for company-specific widgets. Filtering uses STABLE UUIDs (never a

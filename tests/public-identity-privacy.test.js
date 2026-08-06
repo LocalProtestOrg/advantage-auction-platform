@@ -72,6 +72,32 @@ describe('GAP-3 — public professional profile requires an APPROVED professiona
   });
 });
 
+describe('search-match residual — private seller names are not a public enumeration vector', () => {
+  const src = read('src', 'routes', 'public.js');
+  // the free-text `q` matcher in GET /api/public/auctions
+  const qBlock = src.slice(src.indexOf('if (q.q && typeof q.q'), src.indexOf('if (q.q && typeof q.q') + 1400);
+
+  test('1/3/4. seller NAME matches search ONLY when publicly brandable (professional + branding on)', () => {
+    expect(qBlock).toMatch(/brandingVisibleSql\('sp\.seller_type', 'sp\.show_branding_to_buyers'\)\} AND sp\.display_name ILIKE/);
+    // the policy itself: private/other/unknown/branding-off are not brandable
+    expect(sb.brandingVisible('private', true)).toBe(false);
+    expect(sb.brandingVisible('other', true)).toBe(false);
+    expect(sb.brandingVisible(null, true)).toBe(false);
+    expect(sb.brandingVisible('business', false)).toBe(false); // branding disabled
+    expect(sb.brandingVisible('business', true)).toBe(true);   // professional + branding on → searchable
+  });
+  test('2. the seller name never participates unconditionally (old ungated form is gone)', () => {
+    expect(qBlock).not.toMatch(/city ILIKE \S+ OR sp\.display_name ILIKE/); // old: "... OR a.city ILIKE $x OR sp.display_name ILIKE"
+    expect(qBlock).toMatch(/AND sp\.display_name ILIKE/);                    // name only appears behind the branding gate
+  });
+  test('5/6/7. the auction stays searchable by its own public content (title/subtitle/description/city)', () => {
+    expect(qBlock).toMatch(/a\.title ILIKE \S+ OR a\.subtitle ILIKE \S+ OR a\.description ILIKE \S+ OR a\.city ILIKE/);
+  });
+  test('8. result payloads remain anonymized via brandedColSql (unchanged)', () => {
+    expect(src).toMatch(/const B_NAME = brandedColSql\('sp\.display_name'\)/);
+  });
+});
+
 describe('centralized identity policy — endpoints do not invent their own rules', () => {
   test('sellerBranding (auctions) + organizerPrivacy (events) + professionalProfileSchema (profiles) are the 3 authoritative sources', () => {
     expect(typeof sb.brandingVisible).toBe('function');
