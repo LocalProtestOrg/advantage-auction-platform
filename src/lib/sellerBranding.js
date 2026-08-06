@@ -54,7 +54,19 @@ function brandedColSql(col, st, pref) {
     + `AND COALESCE(${pref}, true) THEN ${col} ELSE NULL END`;
 }
 
+/**
+ * SQL boolean predicate — TRUE only when this seller's identity may be publicly shown (professional
+ * type AND branding preference on). Use in a WHERE so a private/individual/branding-off seller yields
+ * NO row (a public seller-profile endpoint then 404s instead of leaking identity). Same rule as
+ * brandingVisible()/brandedColSql().
+ */
+function brandingVisibleSql(st, pref) {
+  st = st || 'sp.seller_type';
+  pref = pref || 'sp.show_branding_to_buyers';
+  return `(${st} IN ('auction_house','estate_sale_company','professional_liquidator','business') AND COALESCE(${pref}, true))`;
+}
+
 module.exports = {
   PROFESSIONAL_TYPES, isProfessional, brandingVisible,
-  scrubSellerIdentity, scrubRows, brandedColSql, IDENTITY_FIELDS,
+  scrubSellerIdentity, scrubRows, brandedColSql, brandingVisibleSql, IDENTITY_FIELDS,
 };

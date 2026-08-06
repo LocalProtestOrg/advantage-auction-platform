@@ -19,7 +19,7 @@ const db      = require('../db');
 const { auctionScoreSQL } = require('../services/discoveryRankingService');
 const discoveryService = require('../services/discoveryService');
 const { buildLotSearch, clampInt } = require('../services/searchService');
-const { brandedColSql } = require('../lib/sellerBranding');
+const { brandedColSql, brandingVisibleSql } = require('../lib/sellerBranding');
 const { organizerColSql } = require('../lib/organizerPrivacy');
 // Buyer-facing seller-identity columns: NULL unless the seller is a professional type WITH branding
 // enabled. Private/other/unknown are always anonymous. Applied at the query so buyer feeds never even
@@ -241,8 +241,14 @@ router.get('/professionals/:slug', async (req, res, next) => {
         LIMIT 1`, [slug]);
     const org = rows[0];
     if (!org) return res.status(404).json({ success: false, message: 'Profile not found' });
+    // Type gate (fail closed): a public professional profile is served ONLY when the org holds an
+    // APPROVED professional type (appraiser / auction_house / estate_sale_company / professional_liquidator /
+    // consignment_company / moving_company / cleanout_company — professionalProfileSchema.PROFESSIONAL_TYPES,
+    // derived from the org's capabilities). Individual/homeowner/private/importer/system orgs and any org
+    // without an approved professional type → 404. Never invents a type.
     let types = [];
     try { types = profileSchemaPub.professionalTypesFrom(Array.from(await capabilityServicePub.getEffectiveCapabilities(org.id))); } catch (e) { types = []; }
+    if (!types.length) return res.status(404).json({ success: false, message: 'Profile not found' });
     res.set('Cache-Control', PUBLIC_CACHE);
     res.json({ success: true, profile: profileSchemaPub.buildProfileView(org, types) });
   } catch (err) { next(err); }
@@ -1161,8 +1167,11 @@ router.get('/locations', async (req, res, next) => {
 });
 
 // ── GET /api/public/sellers/:sellerId/profile ─────────────────────────────────
-// Public seller profile. Only visible if the seller has at least one
-// published, active, or closed auction (prevents scraping private drafts).
+// Public PROFESSIONAL seller profile. Returns identity ONLY for a professional seller whose branding
+// is buyer-visible (sellerBranding policy, enforced in the WHERE so hidden identity is never selected)
+// AND who has ≥1 published/active/closed auction. Private/individual/branding-off/unknown sellers →
+// 404 (fail closed): an anonymous "profile" has no customer value and must not imply a private seller
+// has a public profile page.
 router.get('/sellers/:sellerId/profile', async (req, res, next) => {
   try {
     const { sellerId } = req.params;
@@ -1184,6 +1193,7 @@ router.get('/sellers/:sellerId/profile', async (req, res, next) => {
         FROM seller_profiles sp
         LEFT JOIN auctions a ON a.seller_id = sp.id
        WHERE sp.id = $1
+         AND ${brandingVisibleSql('sp.seller_type', 'sp.show_branding_to_buyers')}
          AND EXISTS (
                SELECT 1 FROM auctions ea
                 WHERE ea.seller_id = sp.id
@@ -1192,6 +1202,7 @@ router.get('/sellers/:sellerId/profile', async (req, res, next) => {
        GROUP BY sp.id
     `, [sellerId]);
 
+    // No row → not a public professional seller → 404 (private/individual/branding-off/unknown all fail here).
     if (!rows.length) return res.status(404).json({ success: false, message: 'Seller not found' });
     res.set('Cache-Control', SLOW_CACHE);
     return res.json({ success: true, data: rows[0] });
