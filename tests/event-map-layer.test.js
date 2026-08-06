@@ -45,6 +45,41 @@ describe('GET /api/public/events/map — eligible physical events with coordinat
   });
 });
 
+// Regression for the Phase-5C map-visibility investigation: an ACTIVE event with no coordinates
+// (an online auction) must be EXCLUDED from the geographic map but still eligible for the list/feed.
+// Map and list share the SAME active-eligibility gate (published + not expired); the map only ADDS a
+// coordinate requirement on top of it. This is expected behavior, not a bug — locking it here so a
+// future change can neither leak coordless/expired events onto the map nor drop them from the list.
+describe('map vs. list eligibility parity — coordless (online) events are listed but not mapped', () => {
+  const list = pub.slice(pub.indexOf("router.get('/events'"), pub.indexOf("// GET /api/public/events/map"));
+  const map = pub.slice(pub.indexOf("router.get('/events/map'"), pub.indexOf("// GET /api/public/events/:slug"));
+  const ACTIVE_STATUS = /e\.status = 'published'/;
+  const ACTIVE_NOTEXPIRED = /e\.end_at IS NULL OR e\.end_at >= now\(\)/;
+
+  test('the LIST endpoint gates on active (published + not expired) and does NOT require coordinates', () => {
+    expect(list).toMatch(ACTIVE_STATUS);
+    expect(list).toMatch(ACTIVE_NOTEXPIRED);
+    expect(list).not.toMatch(/e\.lat IS NOT NULL/);   // coordless active events REMAIN in the list
+    expect(list).not.toMatch(/e\.lng IS NOT NULL/);
+  });
+  test('the MAP endpoint uses the SAME active gate PLUS a coordinate requirement', () => {
+    expect(map).toMatch(ACTIVE_STATUS);               // identical active-eligibility as the list
+    expect(map).toMatch(ACTIVE_NOTEXPIRED);
+    expect(map).toMatch(/e\.lat IS NOT NULL/);         // ...map ADDS coords (online → excluded)
+    expect(map).toMatch(/e\.lng IS NOT NULL/);
+  });
+  test('EXPIRED events are excluded from BOTH map and list (no republish-onto-map path)', () => {
+    // Both slices carry the not-expired predicate; neither drops it.
+    expect((list.match(/end_at >= now\(\)/g) || []).length).toBeGreaterThan(0);
+    expect((map.match(/end_at >= now\(\)/g) || []).length).toBeGreaterThan(0);
+  });
+  test('map counts are computed from the SAME returned rows the markers use (no phantom counts)', () => {
+    // counts reduce over `data` — the exact array serialized to markers — so a badge can never
+    // claim events that were not returned (and vice-versa).
+    expect(map).toMatch(/counts = data\.reduce/);
+  });
+});
+
 describe('map client — event markers on the shared mp layer', () => {
   test('defines EVENT TYPE categories (Auctions / Estate Sales) distinct from company pins', () => {
     expect(index).toMatch(/MP_EVENT_CATS = \[/);
