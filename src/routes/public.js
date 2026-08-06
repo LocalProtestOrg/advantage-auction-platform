@@ -20,6 +20,7 @@ const { auctionScoreSQL } = require('../services/discoveryRankingService');
 const discoveryService = require('../services/discoveryService');
 const { buildLotSearch, clampInt } = require('../services/searchService');
 const { brandedColSql } = require('../lib/sellerBranding');
+const { organizerColSql } = require('../lib/organizerPrivacy');
 // Buyer-facing seller-identity columns: NULL unless the seller is a professional type WITH branding
 // enabled. Private/other/unknown are always anonymous. Applied at the query so buyer feeds never even
 // select hidden identity. (The public company DIRECTORY on advantage.bid is separate and NOT scrubbed.)
@@ -476,7 +477,7 @@ router.get('/marketplace/feed', async (req, res, next) => {
         SELECT (CASE WHEN e.sale_type = 'auction' THEN 'auction' ELSE 'estate_sale' END)::text AS kind, e.id::text AS ref_id, e.slug,
                e.title, e.city, e.state, e.zip, e.lat, e.lng,
                (SELECT url FROM event_images ei WHERE ei.event_id = e.id ORDER BY is_cover DESC, position ASC LIMIT 1) AS image_url,
-               o.name AS company, e.status AS lifecycle,
+               ${organizerColSql('o.name')} AS company, e.status AS lifecycle, -- individual organizers stay anonymous
                e.start_at AS start_ts, e.end_at AS end_ts,
                COALESCE(e.start_at, e.created_at) AS sort_ts,
                e.created_at AS created_ts, e.is_featured

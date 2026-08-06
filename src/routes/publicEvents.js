@@ -14,6 +14,7 @@ const router = express.Router();
 const db = require('../db');
 const eventsService = require('../services/eventsService');
 const { pickHostDestination, classifyExternalUrl } = require('../lib/externalUrlPolicy');
+const { isPublicOrganizer, PROFESSIONAL_ORG_TYPES } = require('../lib/organizerPrivacy');
 const { asyncRoute, svcErr } = require('../utils/apiError');
 
 const PUBLIC_CACHE = 's-maxage=60, stale-while-revalidate=30';
@@ -51,18 +52,20 @@ function serialize(r, images) {
   const dest = pickHostDestination({
     registration_url: r.registration_url, bidding_url: r.bidding_url, organizer_website_url: r.organizer_website_url,
   });
-  // Internal Advantage.Bid host profile: ONLY for genuine host orgs (organization/admin-authored events).
-  // Imported events are assigned to the fixed owner/importer tenant, which is NOT the real host — so it is
-  // never surfaced publicly as the host (this is what wrongly produced "by Advantage Auction Company").
-  const hostProfile = (!imported && r.org_slug)
+  // Internal Advantage.Bid host profile: ONLY for genuine host orgs (organization/admin-authored events)
+  // that are PROFESSIONAL organizations. An individual/homeowner organizer (e.g. the $39 Estate Sale
+  // Promotion auto-org, type NULL) is NEVER surfaced publicly — name/slug/logo stay private.
+  const publicOrg = !imported && isPublicOrganizer(r.org_type);
+  const hostProfile = (publicOrg && r.org_slug)
     ? {
         name: r.org_name, slug: r.org_slug, logo_url: r.org_logo || null,
         website_url: (r.org_website && classifyExternalUrl(r.org_website).ok) ? r.org_website : undefined,
         verification_status: r.org_verif,
       }
     : null;
-  // Public host company NAME: imported → the actual organizer from the source listing; org/admin → the org.
-  const hostCompany = imported ? (r.organizer_name || undefined) : (r.org_name || undefined);
+  // Public host company NAME: imported → the actual organizer from the source listing; org/admin → the
+  // org name ONLY for a professional organizer, else omitted (individual privacy).
+  const hostCompany = imported ? (r.organizer_name || undefined) : (publicOrg ? (r.org_name || undefined) : undefined);
   return {
     id: r.id, slug: r.slug, title: r.title, description: r.description,
     category: r.category_slug, market: r.market_slug,
@@ -105,7 +108,7 @@ router.get('/events', asyncRoute(async (req, res) => {
             e.address, e.organizer_name, e.organizer_website_url, e.registration_url, e.bidding_url,
             e.sale_type, e.event_format,
             o.name AS org_name, o.slug AS org_slug, o.logo_url AS org_logo, o.website_url AS org_website,
-            o.verification_status AS org_verif,
+            o.type AS org_type, o.verification_status AS org_verif,
             (SELECT url FROM event_images ei WHERE ei.event_id = e.id ORDER BY is_cover DESC, position ASC LIMIT 1) AS cover_url
        FROM events e LEFT JOIN organizations o ON o.id = e.organization_id
       WHERE ${where.join(' AND ')}
@@ -128,15 +131,16 @@ router.get('/events/map', asyncRoute(async (req, res) => {
   else if (type === 'estate_sale') where.push("(e.sale_type IS DISTINCT FROM 'auction')");
   const { rows } = await db.query(
     `SELECT e.id, e.slug, e.title, e.city, e.state, e.lat, e.lng, e.sale_type, e.event_format,
-            e.start_at, e.end_at, e.source, e.organizer_name, o.name AS org_name,
+            e.start_at, e.end_at, e.source, e.organizer_name, o.name AS org_name, o.type AS org_type,
             (SELECT url FROM event_images ei WHERE ei.event_id = e.id ORDER BY is_cover DESC, position ASC LIMIT 1) AS cover_url
        FROM events e LEFT JOIN organizations o ON o.id = e.organization_id
       WHERE ${where.join(' AND ')}
       ORDER BY e.start_at ASC NULLS LAST`);
   const data = rows.map((r) => {
     const kind = r.sale_type === 'auction' ? 'auction' : 'estate_sale';
-    // Verified host: imported → the actual organizer (never the owner/importer org); org-authored → the org.
-    const host = r.source === 'imported' ? (r.organizer_name || undefined) : (r.org_name || undefined);
+    // Verified host: imported → the actual organizer (never the owner/importer org); org-authored → the
+    // org name ONLY for a professional organizer, else omitted (individual privacy).
+    const host = r.source === 'imported' ? (r.organizer_name || undefined) : (isPublicOrganizer(r.org_type) ? (r.org_name || undefined) : undefined);
     return {
       id: r.id, slug: r.slug, title: r.title, city: r.city, state: r.state,
       lat: r.lat, lng: r.lng,                       // privacy-safe public offset coords (migration 102)
@@ -155,7 +159,7 @@ router.get('/events/map', asyncRoute(async (req, res) => {
 router.get('/events/:slug', asyncRoute(async (req, res) => {
   const { rows } = await db.query(
     `SELECT e.*, o.name AS org_name, o.slug AS org_slug, o.logo_url AS org_logo, o.website_url AS org_website,
-            o.verification_status AS org_verif
+            o.type AS org_type, o.verification_status AS org_verif
        FROM events e LEFT JOIN organizations o ON o.id = e.organization_id
       WHERE e.slug = $1 AND e.status = 'published' LIMIT 1`, [req.params.slug]);
   if (!rows.length) throw svcErr(404, 'EVENT_NOT_FOUND', 'Event not found.');
@@ -238,15 +242,16 @@ router.get('/events/:slug/related', asyncRoute(async (req, res) => {
       .filter((r) => r.dist <= 100).slice(0, 6).map(cardOf);
   }
 
-  // Only GENUINE host organizations (organization/admin-authored events) — never the fixed owner/importer
-  // tenant that imported events are assigned to (that org is not a real host and must not be surfaced).
+  // Only GENUINE, PROFESSIONAL host organizations (organization/admin-authored events) — never the fixed
+  // owner/importer tenant, and never an individual/homeowner organizer (type NULL) whose identity is private.
   const companies = ev.market_slug ? (await db.query(
     `SELECT DISTINCT o.name, o.slug, o.logo_url
        FROM events e JOIN organizations o ON o.id = e.organization_id
       WHERE e.status = 'published' AND e.market_slug = $1 AND o.slug IS NOT NULL
         AND e.source <> 'imported'
+        AND lower(o.type) = ANY($3)
         AND ($2::uuid IS NULL OR o.id <> $2)
-      LIMIT 4`, [ev.market_slug, ev.organization_id || null])).rows
+      LIMIT 4`, [ev.market_slug, ev.organization_id || null, PROFESSIONAL_ORG_TYPES])).rows
     .map((o) => ({ name: o.name, slug: o.slug, logo_url: o.logo_url || null })) : [];
 
   res.set('Cache-Control', PUBLIC_CACHE);

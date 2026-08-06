@@ -120,10 +120,11 @@ describe('public event serializer no longer leaks the discovery source (publicEv
     expect(s).toMatch(/host_external_url:/);
     expect(s).toMatch(/pickHostDestination\(/);
   });
-  test('the owner/importer org is not surfaced as host for imported events', () => {
+  test('host profile only for a NON-imported, PROFESSIONAL host org (individual organizers stay private)', () => {
     const s = src.slice(src.indexOf('function serialize'), src.indexOf('// GET /api/public/events?'));
     expect(s).toMatch(/const imported = r\.source === 'imported'/);
-    expect(s).toMatch(/!imported && r\.org_slug/); // internal host profile only for non-imported host orgs
+    expect(s).toMatch(/publicOrg = !imported && isPublicOrganizer\(r\.org_type\)/); // professional-only gate
+    expect(s).toMatch(/hostProfile = \(publicOrg && r\.org_slug\)/);
   });
 });
 
@@ -158,10 +159,10 @@ describe('event.html no longer shows importer terminology or the discovery sourc
   });
 });
 
-describe('shareMeta JSON-LD organizer is the real host, never the owner org for imported', () => {
+describe('shareMeta JSON-LD organizer is the real host, never the owner org, never a private individual', () => {
   const s = read('src', 'services', 'shareMetaService.js');
-  test('organizer resolves to organizer_name for imported, org_name otherwise', () => {
-    expect(s).toMatch(/r\.source === 'imported' \? r\.organizer_name : r\.org_name/);
+  test('organizer = organizer_name for imported; org_name ONLY for a professional organizer (else null)', () => {
+    expect(s).toMatch(/r\.source === 'imported' \? r\.organizer_name : \(isPublicOrganizer\(r\.org_type\) \? r\.org_name : null\)/);
   });
 });
 

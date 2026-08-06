@@ -19,6 +19,7 @@
 const db = require('../db');
 const { publicBaseUrl } = require('../lib/publicUrls');
 const { brandedColSql } = require('../lib/sellerBranding');
+const { isPublicOrganizer } = require('../lib/organizerPrivacy');
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 function validUuid(id) { return typeof id === 'string' && UUID_RE.test(id); }
@@ -176,6 +177,7 @@ async function getEventMeta(slug) {
               e.source,
               e.organizer_name,
               o.name AS org_name,
+              o.type AS org_type,
               (SELECT url FROM event_images ei
                 WHERE ei.event_id = e.id
                 ORDER BY is_cover DESC, position ASC
@@ -204,10 +206,10 @@ async function getEventMeta(slug) {
       city:        clean(r.city) || null,
       state:       clean(r.state) || null,
       category:    r.category_slug || null,
-      // Organizer in JSON-LD must be the ACTUAL host, never the owner/importer org. For imported events
-      // that is the source organizer (organizer_name); for org/admin events it is the organization name.
-      // Omitted entirely when unknown — we never assert an unverified/incorrect organizer.
-      organizer:   clean(r.source === 'imported' ? r.organizer_name : r.org_name) || null,
+      // Organizer in JSON-LD/OG must be the ACTUAL host, never the owner/importer org, and never a private
+      // individual. Imported → the source organizer (a directory company); org/admin → the org name ONLY
+      // for a PROFESSIONAL organizer (individual/homeowner organizers stay anonymous). Omitted when unknown.
+      organizer:   clean(r.source === 'imported' ? r.organizer_name : (isPublicOrganizer(r.org_type) ? r.org_name : null)) || null,
       siteName:    'Advantage.Bid',
     };
   } catch (e) {

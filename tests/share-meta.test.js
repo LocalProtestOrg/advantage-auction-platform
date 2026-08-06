@@ -107,7 +107,7 @@ describe('getEventMeta (estate sale)', () => {
       city: 'Adrian', state: 'MI',
       start_at: '2026-08-01T14:00:00Z', end_at: '2026-08-02T20:00:00Z',
       category_slug: 'estate_sales', status: 'published',
-      org_name: 'Advantage Auction Company',
+      org_name: 'Advantage Auction Company', org_type: 'estate_sale_company',
       image_url: 'https://res.cloudinary.com/e.jpg',
     }] });
     const m = await svc.getEventMeta(SLUG);
@@ -115,7 +115,7 @@ describe('getEventMeta (estate sale)', () => {
     expect(m.description).toBe('Everything must go');
     expect(m.city).toBe('Adrian');
     expect(m.state).toBe('MI');
-    expect(m.organizer).toBe('Advantage Auction Company');
+    expect(m.organizer).toBe('Advantage Auction Company'); // professional organizer → named
     expect(m.url).toBe('https://bid.advantage.bid/event.html?slug=' + SLUG);
     // PRIVACY: the meta object must not carry any street/address/venue field.
     expect(Object.keys(m)).not.toContain('address');
@@ -125,11 +125,19 @@ describe('getEventMeta (estate sale)', () => {
   test('description falls back to a location-aware default', async () => {
     db.query.mockResolvedValueOnce({ rows: [{ title: 'Sale', description: null, city: 'Adrian',
       state: 'MI', start_at: null, end_at: null, category_slug: null, status: 'published',
-      org_name: null, image_url: null }] });
+      org_name: null, org_type: null, image_url: null }] });
     const m = await svc.getEventMeta(SLUG);
     expect(m.description).toMatch(/Adrian, MI/);
     expect(m.organizer).toBeNull();
     expect(m.image).toBeNull();
+  });
+
+  test('PRIVACY (GAP-2): an INDIVIDUAL organizer is never named in JSON-LD/OG, even with an org name', async () => {
+    db.query.mockResolvedValueOnce({ rows: [{ title: 'Home Estate Sale', description: 'Everything must go',
+      city: 'Adrian', state: 'MI', start_at: null, end_at: null, category_slug: 'estate_sales', status: 'published',
+      source: 'organization', org_name: 'Jane Homeowner Estate Sale', org_type: null, image_url: null }] });
+    const m = await svc.getEventMeta(SLUG);
+    expect(m.organizer).toBeNull(); // individual org (type null) → organizer scrubbed, no personal identity
   });
 
   test('invalid slug → null WITHOUT querying', async () => {

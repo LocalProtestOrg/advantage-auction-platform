@@ -32,8 +32,8 @@ describe('GET /api/public/events/map — eligible physical events with coordinat
     expect(h).toMatch(/eventsService\.eventTypeLabel\(r\)/);
     expect(h).not.toMatch(/Imported/);
   });
-  test('host = the real organizer for imported (never the owner org); url is the internal event page', () => {
-    expect(h).toMatch(/r\.source === 'imported' \? \(r\.organizer_name \|\| undefined\) : \(r\.org_name/);
+  test('host = the real organizer for imported; org-authored ONLY for a professional organizer (individual privacy)', () => {
+    expect(h).toMatch(/r\.source === 'imported' \? \(r\.organizer_name \|\| undefined\) : \(isPublicOrganizer\(r\.org_type\)/);
     expect(h).toMatch(/url: '\/event\.html\?slug='/);
   });
   test('never exposes the discovery source / external_url / attribution', () => {
