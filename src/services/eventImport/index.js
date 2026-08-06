@@ -44,9 +44,11 @@ async function runImport(opts) {
   const src = (await db.query('SELECT * FROM import_sources WHERE key = $1', [opts.sourceKey])).rows[0];
   if (!src) throw new Error('Unknown import source: ' + opts.sourceKey);
   const config = src.config || {};
-  const fieldMap = config.field_map || opts.fieldMap || {};
+  const connector = opts.connector || getConnector(src.kind, config.connector);
+  // A live connector (gsa/feed) emits canonical-shaped payloads + carries an identity fieldMap; a csv
+  // source supplies its own declarative field_map. Precedence: explicit config/opts, then the connector's.
+  const fieldMap = config.field_map || opts.fieldMap || (connector && connector.fieldMap) || {};
   const defaults = config.defaults || {};
-  const connector = opts.connector || getConnector(src.kind);
   const cap = Math.min(src.weekly_cap || GLOBAL_CREATE_CAP, GLOBAL_CREATE_CAP);
 
   let run = null;

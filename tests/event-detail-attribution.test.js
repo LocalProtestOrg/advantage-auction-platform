@@ -80,10 +80,13 @@ describe('publicationGate.evaluatePublication', () => {
   test('ready when host + company URL + dates + location + image are all present', () => {
     expect(evaluatePublication(base).ready).toBe(true);
   });
-  test('held when the only destination is the discovery source (host_url_missing)', () => {
+  test('host_url_missing is a WARNING, not a hard block (ratified 5D/5F outbound-link policy)', () => {
+    // Only destination is the discovery source → no company-controlled outbound URL. The event still
+    // PUBLISHES (stands on its own, no outbound button); host_url_missing is recorded as a warning.
     const r = evaluatePublication({ ...base, organizer_website_url: 'https://www.estatesales.net/x' });
-    expect(r.ready).toBe(false);
-    expect(r.reasons).toContain('host_url_missing');
+    expect(r.ready).toBe(true);
+    expect(r.reasons).not.toContain('host_url_missing');
+    expect(r.warnings).toContain('host_url_missing');
   });
   test('held when the host company is unnamed', () => {
     const r = evaluatePublication({ ...base, organizer_name: '' });

@@ -173,15 +173,16 @@ async function publishImported(client, eventId, ctx) {
     if (!ev) return false;                                  // not an imported draft (already published / wrong source)
     const gate = evaluatePublication(ev);
     if (!gate.ready) {
-      await audit(client, 'event.publish_held', eventId, ctx, { via: 'import', reasons: gate.reasons });
+      await audit(client, 'event.publish_held', eventId, ctx, { via: 'import', reasons: gate.reasons, warnings: gate.warnings });
       return false;
     }
+    ctx._warnings = gate.warnings;                           // carry non-blocking notes into the publish audit
   }
   const { rows } = await client.query(
     `UPDATE events SET status = 'published', published_at = now(), updated_at = now()
       WHERE id = $1 AND source = 'imported' AND status = 'draft'
       RETURNING id`, [eventId]);
-  if (rows[0]) await audit(client, 'event.published', eventId, ctx, { via: 'import' });
+  if (rows[0]) await audit(client, 'event.published', eventId, ctx, { via: 'import', warnings: (ctx && ctx._warnings) || [] });
   return rows.length > 0;
 }
 

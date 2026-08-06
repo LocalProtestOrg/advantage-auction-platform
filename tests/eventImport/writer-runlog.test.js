@@ -99,11 +99,21 @@ describe('writer.publishImported', () => {
     expect(db.all(/organization_plans/).length).toBe(0);
     expect(writeAuditLog).toHaveBeenCalledWith(expect.objectContaining({ event_type: 'event.published' }));
   });
-  test('HOLDS (does not publish) when the only destination is the discovery source', async () => {
+  test('PUBLISHES with a host_url_missing WARNING when the only destination is the discovery source', async () => {
+    // Ratified 5D/5F outbound-link policy: no company-controlled URL is a warning, not a hard block —
+    // the host COMPANY is still named, so the event publishes (no outbound button).
     const db = gateAwareClient({ ...READY_ROW, organizer_website_url: 'https://www.estatesales.net/x' });
     const ok = await writer.publishImported(db, 'EV1', CTX);
+    expect(ok).toBe(true);
+    expect(db.all(/UPDATE events SET status = 'published'/).length).toBe(1);
+    expect(writeAuditLog).toHaveBeenCalledWith(expect.objectContaining({ event_type: 'event.published',
+      metadata: expect.objectContaining({ warnings: ['host_url_missing'] }) }));
+  });
+  test('HOLDS (does not publish) when the host COMPANY is unnamed (hard block)', async () => {
+    const db = gateAwareClient({ ...READY_ROW, organizer_name: '' });
+    const ok = await writer.publishImported(db, 'EV1', CTX);
     expect(ok).toBe(false);
-    expect(db.all(/UPDATE events SET status = 'published'/).length).toBe(0);  // never published
+    expect(db.all(/UPDATE events SET status = 'published'/).length).toBe(0);
     expect(writeAuditLog).toHaveBeenCalledWith(expect.objectContaining({ event_type: 'event.publish_held' }));
   });
   test('skipGate=true publishes the raw primitive (trusted caller)', async () => {

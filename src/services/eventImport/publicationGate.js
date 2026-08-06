@@ -10,10 +10,15 @@
  * approval, and audits) can act or hold the record for review.
  *
  * Reason codes (internal only, never shown to the public):
- *   title_missing · invalid_dates · expired_event · location_missing · image_missing ·
- *   host_company_missing · host_url_missing
- * (Ambiguous-company matching / stronger org verification are handled in the admin Review Queue and are
- *  out of this function's scope; this is the deterministic minimum bar for publication.)
+ *   HARD (block publication):  title_missing · invalid_dates · expired_event · location_missing ·
+ *                              image_missing · host_company_missing
+ *   WARNING (do NOT block):    host_url_missing
+ *
+ * Outbound-link policy (ratified Phase 5D §7 / 5F): a missing company-controlled outbound URL must NOT
+ * block an otherwise-complete, trustworthy event — the Advantage.Bid event page stands on its own with
+ * no outbound button (we NEVER substitute the discovery-source/competitor URL). The host COMPANY must
+ * still be identified (host_company_missing stays hard); only the URL is downgraded to a warning.
+ * (Ambiguous-company matching / stronger org verification are handled in the admin Review Queue.)
  */
 
 const { pickHostDestination } = require('../../lib/externalUrlPolicy');
@@ -21,7 +26,9 @@ const { pickHostDestination } = require('../../lib/externalUrlPolicy');
 function toMs(v) { const t = v ? new Date(v).getTime() : NaN; return Number.isFinite(t) ? t : null; }
 
 /**
- * evaluatePublication(event, opts) → { ready: boolean, reasons: string[] }
+ * evaluatePublication(event, opts) → { ready: boolean, reasons: string[], warnings: string[] }
+ *   reasons  = HARD blockers (ready is false iff reasons is non-empty)
+ *   warnings = non-blocking notes recorded for the audit trail (currently: host_url_missing)
  * event fields used: source, title, start_at, end_at, event_format, city, state, lat, lng,
  *   organizer_name, registration_url, bidding_url, organizer_website_url, and an image signal
  *   (image_count | images[] | cover_image_url).
@@ -32,6 +39,7 @@ function evaluatePublication(event, opts) {
   const requireImage = opts.requireImage !== false;   // imported policy requires >= 1 image by default
   const e = event || {};
   const reasons = [];
+  const warnings = [];
 
   if (!e.title || !String(e.title).trim()) reasons.push('title_missing');
 
@@ -51,13 +59,13 @@ function evaluatePublication(event, opts) {
     : (Array.isArray(e.images) ? e.images.length : (e.cover_image_url ? 1 : 0));
   if (requireImage && !(imageCount > 0)) reasons.push('image_missing');
 
-  // Host company + company-controlled destination — required only for externally discovered events.
+  // Host company + company-controlled destination — evaluated only for externally discovered events.
   if (e.source === 'imported') {
-    if (!e.organizer_name || !String(e.organizer_name).trim()) reasons.push('host_company_missing');
-    if (!pickHostDestination(e)) reasons.push('host_url_missing');  // only the discovery source / no company URL
+    if (!e.organizer_name || !String(e.organizer_name).trim()) reasons.push('host_company_missing'); // HARD
+    if (!pickHostDestination(e)) warnings.push('host_url_missing');  // WARNING: publish w/ no outbound link
   }
 
-  return { ready: reasons.length === 0, reasons };
+  return { ready: reasons.length === 0, reasons, warnings };
 }
 
 module.exports = { evaluatePublication };
