@@ -68,6 +68,72 @@ describe('due / etNow', () => {
   });
 });
 
+// ── TWICE-WEEKLY (multi-day) scheduling — Phase 5C ────────────────────────────
+describe('multi-day scheduling (EVENT_IMPORT_SCHEDULE_DAYS)', () => {
+  test('parseDays: "1,4" → [1,4]; dedups, sorts, drops out-of-range/garbage; empty → null', () => {
+    expect(worker.parseDays('1,4')).toEqual([1, 4]);
+    expect(worker.parseDays('4,1,1')).toEqual([1, 4]);
+    expect(worker.parseDays('7,-1,x,3')).toEqual([3]);
+    expect(worker.parseDays('')).toBeNull();
+    expect(worker.parseDays(undefined)).toBeNull();
+  });
+  test('cfg: DAYS produces a multi-day schedule and wins over DAILY/WEEKDAY', () => {
+    const c = worker.cfg({ EVENT_IMPORT_SCHEDULE_DAYS: '1,4', EVENT_IMPORT_SCHEDULE_DAILY: 'true', EVENT_IMPORT_SCHEDULE_WEEKDAY: '2' });
+    expect(c.days).toEqual([1, 4]);
+    expect(worker.describeSchedule(c)).toMatchObject({ mode: 'multi_day', days: [1, 4], day_labels: ['Monday', 'Thursday'], hour: 3, timezone: 'America/New_York' });
+    expect(worker.scheduleDayset(c)).toEqual([1, 4]);
+  });
+  const TW = { days: [1, 4], daily: true, weekday: 1, hour: 3 }; // Mon & Thu 03:00
+  test('Monday 03:00 ET is due', () => { expect(worker.due({ weekday: 1, hour: 3 }, TW)).toBe(true); });
+  test('Thursday 03:00 ET is due', () => { expect(worker.due({ weekday: 4, hour: 3 }, TW)).toBe(true); });
+  test('Tuesday 03:00 ET is NOT due', () => { expect(worker.due({ weekday: 2, hour: 3 }, TW)).toBe(false); });
+  test('Monday 04:00 ET (right day, wrong hour) is NOT due', () => { expect(worker.due({ weekday: 1, hour: 4 }, TW)).toBe(false); });
+
+  test('nextScheduledRun points to the next Mon/Thu at the configured hour (DST-aware)', () => {
+    // Tue 2026-08-04 05:30 ET → next window is Thu 2026-08-06 03:00 ET
+    const n1 = worker.nextScheduledRun(TW, new Date('2026-08-04T09:30:00Z'));
+    expect(n1).toMatchObject({ et_date: '2026-08-06', weekday: 4, hour: 3 });
+    // Thu 2026-08-06 05:30 ET (this window passed) → next is Mon 2026-08-10 03:00 ET
+    const n2 = worker.nextScheduledRun(TW, new Date('2026-08-06T09:30:00Z'));
+    expect(n2).toMatchObject({ et_date: '2026-08-10', weekday: 1, hour: 3 });
+    // Mon 2026-08-03 01:00 ET (today's window not yet passed) → today
+    const n3 = worker.nextScheduledRun(TW, new Date('2026-08-03T05:00:00Z'));
+    expect(n3).toMatchObject({ et_date: '2026-08-03', weekday: 1, hour: 3 });
+  });
+
+  test('lastExpectedWindow returns the most recent passed Mon/Thu window as an instant', () => {
+    // Fri 2026-08-07 12:00 ET → last window was Thu 2026-08-06 03:00 ET
+    const lw = worker.lastExpectedWindow(TW, new Date('2026-08-07T16:00:00Z'));
+    expect(lw.et_date).toBe('2026-08-06');
+    expect(worker.etNow(lw.at)).toMatchObject({ date: '2026-08-06', hour: 3, weekday: 4 });
+  });
+
+  test('DST: 03:00 ET holds across the fall-back boundary (Nov 2026)', () => {
+    // Mon 2026-11-02 is EST (UTC-5): 03:00 ET = 08:00Z
+    expect(worker.due(worker.etNow(new Date('2026-11-02T08:00:00Z')), TW)).toBe(true);
+    // and the summer side EDT (UTC-4): 03:00 ET = 07:00Z
+    expect(worker.due(worker.etNow(new Date('2026-08-06T07:00:00Z')), TW)).toBe(true);
+  });
+
+  test('tick: Monday and Thursday each run once in the same week (distinct ET dates)', async () => {
+    process.env.EVENT_IMPORT_WORKER_ENABLED = 'true';
+    process.env.EVENT_IMPORT_SCHEDULE_DAYS = '1,4';
+    const HEALTH_ROW = { rows: [{ t: null, n: 0, status: 'completed', started_at: null }] };
+    db.query.mockImplementation((sql) => (/import_sources WHERE status = 'active'/.test(sql) ? { rows: [] } : HEALTH_ROW));
+    const cycles = () => db.query.mock.calls.filter((c) => /import_sources WHERE status = 'active'/.test(c[0])).length;
+    await worker.tick(new Date('2026-08-03T07:30:00Z')); // Mon 03:30 ET
+    expect(cycles()).toBe(1);
+    await worker.tick(new Date('2026-08-03T07:31:00Z')); // same Mon date → no re-run
+    expect(cycles()).toBe(1);
+    await worker.tick(new Date('2026-08-06T07:30:00Z')); // Thu 03:30 ET → a second run
+    expect(cycles()).toBe(2);
+    await worker.tick(new Date('2026-08-04T07:30:00Z')); // Tue → not a scheduled day
+    expect(cycles()).toBe(2);
+    delete process.env.EVENT_IMPORT_WORKER_ENABLED;
+    delete process.env.EVENT_IMPORT_SCHEDULE_DAYS;
+  });
+});
+
 // ── active sources ───────────────────────────────────────────────────────────
 describe('activeSources', () => {
   test('selects only active sources', async () => {

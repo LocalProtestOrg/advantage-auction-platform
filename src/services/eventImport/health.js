@@ -17,7 +17,8 @@ function thresholds(env = process.env) {
     minActiveAuctions:    n('EVENT_MIN_ACTIVE_AUCTIONS', 1),      // conservative: current active auctions ≈ 2
     minActiveEstateSales: n('EVENT_MIN_ACTIVE_ESTATE_SALES', 1),  // conservative: current active estate sales ≈ 2
     minTotalActive:       n('EVENT_MIN_TOTAL_ACTIVE', 3),         // conservative: current total active ≈ 4
-    staleRunHours:        n('EVENT_IMPORT_STALE_HOURS', 36),      // "no successful import in 36h"
+    staleRunHours:        n('EVENT_IMPORT_STALE_HOURS', 36),      // fixed-window fallback (daily/legacy modes)
+    missedWindowGraceHours: n('EVENT_IMPORT_MISSED_WINDOW_GRACE_HOURS', 6), // grace after a scheduled window before "missed"
     dropPct:              n('EVENT_INVENTORY_DROP_PCT', 60),      // sharp drop vs prior snapshot
     zeroEligibleRuns:     n('EVENT_IMPORT_ZERO_ELIGIBLE_RUNS', 3),// N consecutive runs with 0 new eligible
   };
@@ -57,8 +58,21 @@ function ageHours(iso, now = Date.now()) {
 function evaluateAlerts(snap, t = thresholds(), opts = {}) {
   const now = opts.now || Date.now();
   const alerts = [];
-  if (ageHours(snap.last_success_run, now) > t.staleRunHours) {
+  // Freshness: schedule-aware when a scheduled window is supplied (correct for twice-weekly, whose
+  // 3–4 day gaps would trip a fixed hours threshold); otherwise fall back to the fixed staleRunHours.
+  if (opts.expectedWindow) {
+    const windowMs = new Date(opts.expectedWindow).getTime();
+    const cutoff = windowMs + (t.missedWindowGraceHours || 6) * 3.6e6;
+    const lastOk = snap.last_success_run ? new Date(snap.last_success_run).getTime() : 0;
+    if (now >= cutoff && lastOk < windowMs) {
+      alerts.push({ level: 'critical', code: 'missed_window', message: `No successful import since the scheduled ${opts.expectedWindowLabel || opts.expectedWindow} window (last: ${snap.last_success_run || 'never'})` });
+    }
+  } else if (ageHours(snap.last_success_run, now) > t.staleRunHours) {
     alerts.push({ level: 'critical', code: 'stale_import', message: `No successful event import in ${t.staleRunHours}h (last: ${snap.last_success_run || 'never'})` });
+  }
+  // The worker is off while the schedule says it should be running — surfaced, not emailed (warn).
+  if (opts.workerEnabled === false) {
+    alerts.push({ level: 'warn', code: 'worker_disabled', message: 'Event import worker is disabled (EVENT_IMPORT_WORKER_ENABLED is not true)' });
   }
   if (snap.last_run && snap.last_run.status === 'failed') {
     alerts.push({ level: 'critical', code: 'run_failed', message: `Last event-import run FAILED at ${snap.last_run.started_at}` });

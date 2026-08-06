@@ -51,6 +51,37 @@ describe('evaluateAlerts — fail conditions', () => {
   });
 });
 
+describe('schedule-aware freshness (twice-weekly) — missed_window replaces fixed staleRunHours', () => {
+  const healthy = { active_auctions: 5, active_estate_sales: 5, total_active_public: 10, last_success_run: HRS(2), last_run: { status: 'completed' } };
+  // Twice-weekly gaps are 3–4 days; a fixed 36h stale check must NOT fire when a scheduled window is supplied.
+  test('60h since last success but BEFORE the last expected window → no missed_window (healthy gap)', () => {
+    const window = HRS(1); // most recent Mon/Thu window was 1h ago
+    const a = health.evaluateAlerts(Object.assign({}, healthy, { last_success_run: HRS(60) }), health.thresholds({}), { now: NOW, expectedWindow: window, expectedWindowLabel: 'Thursday' });
+    expect(a.some((x) => x.code === 'stale_import')).toBe(false); // fixed check is bypassed when a window is given
+    expect(a.some((x) => x.code === 'missed_window')).toBe(false); // within grace of the just-passed window
+  });
+  test('a scheduled window passed (+grace) with no successful run since → critical missed_window', () => {
+    const window = HRS(12); // window was 12h ago, > 6h grace
+    const a = health.evaluateAlerts(Object.assign({}, healthy, { last_success_run: HRS(80) }), health.thresholds({}), { now: NOW, expectedWindow: window, expectedWindowLabel: 'Monday' });
+    expect(a.find((x) => x.code === 'missed_window' && x.level === 'critical')).toBeTruthy();
+  });
+  test('within grace after the window → no missed_window yet', () => {
+    const window = HRS(3); // 3h ago, < 6h grace
+    const a = health.evaluateAlerts(Object.assign({}, healthy, { last_success_run: HRS(80) }), health.thresholds({}), { now: NOW, expectedWindow: window });
+    expect(a.some((x) => x.code === 'missed_window')).toBe(false);
+  });
+  test('worker disabled → warn worker_disabled (surfaced, not emailed)', () => {
+    const a = health.evaluateAlerts(healthy, health.thresholds({}), { now: NOW, workerEnabled: false });
+    const wd = a.find((x) => x.code === 'worker_disabled');
+    expect(wd).toBeTruthy();
+    expect(wd.level).toBe('warn');
+  });
+  test('zero-created / duplicate-only run is NOT a failure (status completed → no run_failed)', () => {
+    const a = health.evaluateAlerts(Object.assign({}, healthy, { last_run: { status: 'completed', created: 0 } }), health.thresholds({}), { now: NOW, expectedWindow: HRS(1) });
+    expect(a.some((x) => x.code === 'run_failed')).toBe(false);
+  });
+});
+
 describe('inventorySnapshot — computes active counts + run health', () => {
   test('counts active by type and reads last run', async () => {
     db.query

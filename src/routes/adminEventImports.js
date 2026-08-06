@@ -25,6 +25,7 @@ const { withTransaction } = require('../utils/withTransaction');
 const db = require('../db');
 const reviewQueue = require('../services/eventImport/reviewQueue');
 const worker = require('../workers/eventImportWorker');
+const health = require('../services/eventImport/health');
 const { writeAuditLog } = require('../lib/auditLog');
 
 router.use(authMiddleware, roleMiddleware(['admin']));
@@ -158,7 +159,8 @@ function mapRun(r) {
 // from the shared DB: whether a run is in progress + the most recent run). No secrets exposed.
 router.get('/status', asyncRoute(async (req, res) => {
   const c = worker.cfg();
-  const WD = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  const sched = worker.describeSchedule(c);
+  const next = worker.nextScheduledRun(c);
   const running = (await db.query(
     `SELECT r.id, r.source_id, s.key AS source_key, r.trigger, r.started_at
        FROM import_runs r LEFT JOIN import_sources s ON s.id = r.source_id
@@ -167,21 +169,38 @@ router.get('/status', asyncRoute(async (req, res) => {
     `SELECT r.*, s.key AS source_key, s.name AS source_name
        FROM import_runs r LEFT JOIN import_sources s ON s.id = r.source_id
       ORDER BY r.started_at DESC LIMIT 1`)).rows[0] || null;
+  const lastScheduled = (await db.query(
+    `SELECT r.*, s.key AS source_key, s.name AS source_name
+       FROM import_runs r LEFT JOIN import_sources s ON s.id = r.source_id
+      WHERE r.trigger = 'scheduled' ORDER BY r.started_at DESC LIMIT 1`)).rows[0] || null;
   const activeSources = (await db.query(`SELECT count(*)::int AS n FROM import_sources WHERE status = 'active'`)).rows[0].n;
+  // Live inventory + health so the owner can verify without a second call. Never fatal.
+  let inventory = null; let alerts = [];
+  try {
+    inventory = await health.inventorySnapshot(db);
+    const lw = c.enabled ? worker.lastExpectedWindow(c) : null;
+    alerts = health.evaluateAlerts(inventory, health.thresholds(), {
+      expectedWindow: lw ? lw.iso : null, expectedWindowLabel: lw ? lw.label : null, workerEnabled: c.enabled,
+    });
+  } catch (_) { /* health is best-effort in the status view */ }
   res.json({
     success: true,
     data: {
       scheduler: {
-        enabled: c.enabled, cadence: 'weekly', weekday: c.weekday, weekday_label: WD[c.weekday],
-        hour: c.hour, timezone: 'America/New_York',
-        schedule_label: 'Weekly on ' + WD[c.weekday] + ' at ' + String(c.hour).padStart(2, '0') + ':00 America/New_York',
+        enabled: c.enabled, autoPublish: c.autoPublish,
+        cadence: sched.mode, days: sched.days, day_labels: sched.day_labels,
+        hour: sched.hour, timezone: sched.timezone, schedule_label: sched.label,
+        next_scheduled_run: next,
       },
       worker: {
         running_now: !!running,
         running_run: running ? { id: running.id, source_key: running.source_key, trigger: running.trigger, started_at: running.started_at } : null,
         last_run: last ? mapRun(last) : null,
+        last_scheduled_run: lastScheduled ? mapRun(lastScheduled) : null,
       },
       sources: { active: activeSources },
+      inventory,
+      alerts,
     },
   });
 }));

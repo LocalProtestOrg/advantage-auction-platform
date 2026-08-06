@@ -39,11 +39,20 @@ const CHECK_INTERVAL_MS = 60_000;          // evaluate the schedule every minute
 const STALE_RUN_MINUTES = 30;              // a scheduled run 'running' longer than this is treated as crashed
 const AUDIT_ENTITY_ID = '00000000-0000-4000-8000-0000000000e1'; // sentinel entity id for scheduler audit rows
 const WD = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
+const WD_LONG = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
 function clampInt(v, def, min, max) {
   const n = parseInt(v, 10);
   if (!Number.isFinite(n)) return def;
   return Math.min(max, Math.max(min, n));
+}
+
+// Parse EVENT_IMPORT_SCHEDULE_DAYS="1,4" → sorted unique [1,4] (0=Sun..6=Sat). Empty/invalid → null.
+function parseDays(raw) {
+  const s = String(raw || '').trim();
+  if (!s) return null;
+  const days = [...new Set(s.split(',').map((x) => parseInt(x, 10)).filter((n) => Number.isInteger(n) && n >= 0 && n <= 6))].sort((a, b) => a - b);
+  return days.length ? days : null;
 }
 
 function logLine(obj) {
@@ -56,14 +65,19 @@ function logLine(obj) {
 function cfg(env = process.env) {
   const on = String(env.EVENT_IMPORT_WORKER_ENABLED || '').toLowerCase() === 'true';
   const off = String(env.EVENT_IMPORT_WORKER_DISABLED || '').toLowerCase() === 'true';
-  // DAILY by default — estate sales often last only 1–3 days, so weekly cannot sustain inventory.
-  // Set EVENT_IMPORT_SCHEDULE_DAILY=false to fall back to a single weekday run.
+  // Schedule precedence (highest first):
+  //   1. EVENT_IMPORT_SCHEDULE_DAYS="1,4" → multi-day (the PRODUCTION setting: Monday & Thursday).
+  //   2. EVENT_IMPORT_SCHEDULE_DAILY=true → every day (estate sales last 1–3 days).
+  //   3. EVENT_IMPORT_SCHEDULE_WEEKDAY   → a single weekday (legacy weekly mode).
+  // `days` wins when present, so DAILY/WEEKDAY stay for backward compatibility but are overridden.
+  const days = parseDays(env.EVENT_IMPORT_SCHEDULE_DAYS);
   const daily = String(env.EVENT_IMPORT_SCHEDULE_DAILY || 'true').toLowerCase() !== 'false';
   // Gated auto-publish: when true, qualifying imports publish through the HARD publicationGate
   // (writer.publishImported); anything failing a rule stays draft with recorded reasons. Off → draft-only.
   const autoPublish = String(env.EVENT_IMPORT_AUTOPUBLISH_ENABLED || '').toLowerCase() === 'true';
   return {
     enabled: on && !off,
+    days,                                                         // [1,4] when multi-day; null otherwise
     daily,
     weekday: clampInt(env.EVENT_IMPORT_SCHEDULE_WEEKDAY, 1, 0, 6), // 0=Sun..6=Sat, default Monday (weekly mode)
     hour: clampInt(env.EVENT_IMPORT_SCHEDULE_HOUR, 3, 0, 23),      // ET hour, default 03:00 (off-peak)
@@ -81,11 +95,67 @@ function etNow(d = new Date()) {
   return { date: p.year + '-' + p.month + '-' + p.day, hour: parseInt(p.hour, 10) % 24, weekday: WD[p.weekday] };
 }
 
-// Due when the ET wall clock is within the configured hour — every day (daily mode) or on the
-// configured weekday (weekly mode). The once-per-ET-date guard + the DB claim keep it to one run/day.
+// The weekday-set the schedule fires on: explicit multi-day list, all 7 (daily), or one weekday.
+function scheduleDayset(schedule) {
+  if (schedule.days && schedule.days.length) return schedule.days;
+  if (schedule.daily) return [0, 1, 2, 3, 4, 5, 6];
+  return [schedule.weekday];
+}
+
+// Due when the ET wall clock is within the configured hour AND today is a scheduled weekday.
+// Multi-day (days) wins over daily wins over single weekday. The once-per-ET-date guard + the DB
+// claim keep it to one run per scheduled date, across restarts and replicas.
 function due(et, schedule) {
-  if (schedule.daily) return et.hour === schedule.hour;
-  return et.weekday === schedule.weekday && et.hour === schedule.hour;
+  if (et.hour !== schedule.hour) return false;
+  return scheduleDayset(schedule).includes(et.weekday);
+}
+
+// Human-readable schedule (for logs, /status, and the owner report). Reflects the active mode.
+function scheduleLabel(schedule) {
+  const at = ' at ' + String(schedule.hour).padStart(2, '0') + ':00 America/New_York';
+  if (schedule.days && schedule.days.length) return schedule.days.map((d) => WD_LONG[d]).join(' & ') + at;
+  if (schedule.daily) return 'Daily' + at;
+  return 'Weekly on ' + WD_LONG[schedule.weekday] + at;
+}
+
+// A structured schedule description for API/reporting payloads.
+function describeSchedule(schedule) {
+  const set = scheduleDayset(schedule);
+  const mode = (schedule.days && schedule.days.length) ? 'multi_day' : (schedule.daily ? 'daily' : 'weekly');
+  return {
+    mode, days: set, day_labels: set.map((d) => WD_LONG[d]),
+    hour: schedule.hour, timezone: 'America/New_York', label: scheduleLabel(schedule),
+  };
+}
+
+// The next ET date (at the configured hour) the schedule will fire, from `nowDate`. DST-aware:
+// it walks forward over ET wall-clock dates, skipping today if this hour has already passed.
+function nextScheduledRun(schedule, nowDate = new Date()) {
+  const set = scheduleDayset(schedule);
+  for (let i = 0; i <= 8; i++) {
+    const et = etNow(new Date(nowDate.getTime() + i * 86400000));
+    if (!set.includes(et.weekday)) continue;
+    if (i === 0 && et.hour >= schedule.hour) continue;   // today's window already passed
+    return { et_date: et.date, weekday: et.weekday, hour: schedule.hour,
+      label: WD_LONG[et.weekday] + ' ' + et.date + ' at ' + String(schedule.hour).padStart(2, '0') + ':00 ET' };
+  }
+  return null;
+}
+
+// The most recent scheduled window that has ALREADY passed, as a real instant (DST-aware). Used by
+// the monitor to decide "we missed a Monday/Thursday window" without a fixed hour threshold that a
+// twice-weekly (3–4 day) cadence would otherwise trip between every run.
+function lastExpectedWindow(schedule, nowDate = new Date()) {
+  const set = scheduleDayset(schedule);
+  for (let h = 0; h <= 8 * 24; h++) {
+    const cand = new Date(nowDate.getTime() - h * 3.6e6);
+    const et = etNow(cand);
+    if (set.includes(et.weekday) && et.hour === schedule.hour) {
+      return { at: cand, iso: cand.toISOString(), et_date: et.date,
+        label: WD_LONG[et.weekday] + ' ' + et.date + ' at ' + String(schedule.hour).padStart(2, '0') + ':00 ET' };
+    }
+  }
+  return null;
 }
 
 // The enabled sources the scheduler processes (draft/paused/disabled are excluded).
@@ -234,15 +304,27 @@ async function runHealthCheck(nowDate, o) {
     const hourKey = et.date + 'T' + et.hour;
     if (!o.afterCycle && lastHealthKey === hourKey) return null; // routine: at most once per hour
     lastHealthKey = hourKey;
+    const c = o.cfg || cfg();
+    const now = nowDate || new Date();
     const snap = await health.inventorySnapshot(db);
-    const alerts = health.evaluateAlerts(snap, health.thresholds(), { prior: priorSnapshot, now: nowDate ? nowDate.getTime() : Date.now() });
+    // Schedule-aware "missed window" replaces a fixed stale-hours alert: a twice-weekly cadence is
+    // 3–4 days apart, so a fixed 36h threshold would fire between every run. We alert only when a
+    // scheduled window has passed (+grace) with no successful run since it.
+    const lw = c.enabled ? lastExpectedWindow(c, now) : null;
+    const next = nextScheduledRun(c, now);
+    const alerts = health.evaluateAlerts(snap, health.thresholds(), {
+      prior: priorSnapshot, now: now.getTime(),
+      expectedWindow: lw ? lw.iso : null, expectedWindowLabel: lw ? lw.label : null,
+      workerEnabled: c.enabled,
+    });
     priorSnapshot = snap;
-    logLine({ evt: 'health', afterCycle: !!o.afterCycle, snapshot: snap, alerts });
+    const scheduleInfo = { enabled: c.enabled, schedule: describeSchedule(c), next_scheduled_run: next, last_expected_window: lw ? lw.label : null };
+    logLine({ evt: 'health', afterCycle: !!o.afterCycle, snapshot: snap, alerts, schedule: scheduleInfo });
     try {
       await writeAuditLog({
         event_type: alerts.some((a) => a.level === 'critical') ? 'event_inventory_alert' : 'event_inventory_health',
         entity_type: 'event_import_scheduler', entity_id: AUDIT_ENTITY_ID, actor_id: null,
-        metadata: Object.assign({ snapshot: snap, alerts }, o.summary ? { run_counts: o.summary.counts, sources: o.summary.sources } : {}),
+        metadata: Object.assign({ snapshot: snap, alerts, schedule: scheduleInfo }, o.summary ? { run_counts: o.summary.counts, sources: o.summary.sources } : {}),
       });
     } catch (_) { /* audit best-effort */ }
     // Critical-alert EMAIL is opt-in (EVENT_INVENTORY_ALERTS_ENABLED=true) so it never surprises in dev
@@ -292,8 +374,10 @@ async function tick(nowDate) {
 
 if (require.main === module) {
   const c = cfg();
+  const nxt = nextScheduledRun(c);
   console.log(c.enabled
-    ? '[event-import] scheduler active - weekly on weekday ' + c.weekday + ' at ' + c.hour + ':00 America/New_York (draft-only; review-queue gated)'
+    ? '[event-import] scheduler active - ' + scheduleLabel(c) + (c.autoPublish ? ' (gated auto-publish)' : ' (draft-only; review-queue gated)')
+      + '; next: ' + (nxt ? nxt.label : 'n/a')
     : '[event-import] scheduler idle - disabled (set EVENT_IMPORT_WORKER_ENABLED=true); worker stays alive, no runs');
   // Always run the interval so the process stays alive and re-evaluates each minute; runs fire only
   // when enabled AND due. Enabling later (which restarts the service) activates the schedule.
@@ -302,7 +386,8 @@ if (require.main === module) {
 }
 
 module.exports = {
-  cfg, etNow, due, clampInt, activeSources, reapStaleRun,
+  cfg, etNow, due, clampInt, parseDays, activeSources, reapStaleRun,
+  scheduleDayset, scheduleLabel, describeSchedule, nextScheduledRun, lastExpectedWindow,
   runOneSource, runScheduledCycle, runNow, runAllNow, summarize, tick, runHealthCheck,
   CHECK_INTERVAL_MS, STALE_RUN_MINUTES, AUDIT_ENTITY_ID,
   // Test-only: reset the in-process scheduler + health guards between cases.
