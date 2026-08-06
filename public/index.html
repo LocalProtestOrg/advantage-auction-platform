@@ -191,6 +191,7 @@
   .when{color:var(--muted);font-size:12px}
   .dempty{padding:22px 14px;text-align:center;color:var(--muted);font-size:13.5px}
   .dempty a{color:var(--accent);font-weight:700}
+  .dsection{padding:12px 14px 4px;font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
 
   #search{position:fixed;inset:0;z-index:60;display:none;background:rgba(7,13,22,.5);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
   #search.open{display:block;animation:fade .25s ease}
@@ -669,7 +670,7 @@
   }
   function j(u){ return fetch(u).then(function(r){return r.json();}).then(function(d){return (d&&d.data)||[];}).catch(function(){return [];}); }
 
-  var DATA=[], ARCH=[], archiveLoaded=false, EVENTS_MAP=[];
+  var DATA=[], ARCH=[], archiveLoaded=false, EVENTS_MAP=[], ONLINE_AUCTIONS=[];
   function loadCore(){
     return Promise.all([ j('/api/public/auctions?state=active&limit=60'), j('/api/public/auctions?state=published&limit=60') ])
       .then(function(r){ var rows=[].concat(r[0],r[1]); DATA=rows.map(toD); return DATA; });
@@ -1066,12 +1067,17 @@
     // Load company/professional pins AND public event markers. Either failing leaves the other working.
     Promise.all([
       fetch('/api/public/marketplace').then(function(r){return r.json();}).catch(function(){return {success:false};}),
-      fetch('/api/public/events/map').then(function(r){return r.json();}).catch(function(){return {success:false};})
+      fetch('/api/public/events/map').then(function(r){return r.json();}).catch(function(){return {success:false};}),
+      // Online (coordless) auctions can't be map pins, so /events/map excludes them by design. Pull them
+      // from the auction feed so the drawer can list them (list-only, never a fabricated geographic pin).
+      fetch('/api/public/marketplace/feed?preset=auctions&pageSize=48').then(function(r){return r.json();}).catch(function(){return {success:false};})
     ]).then(function(res){
-      var mk=res[0]||{}, ev=res[1]||{};
+      var mk=res[0]||{}, ev=res[1]||{}, au=res[2]||{};
       var companyRecs=(mk.success&&mk.data?mk.data:[]).filter(function(r){ return r.lat!=null && r.lng!=null; });
       var eventRecs=(ev.success&&ev.data?ev.data:[]).filter(function(r){ return r.lat!=null && r.lng!=null; }).map(evToMp);
       EVENTS_MAP=eventRecs;                                       // for the drawer
+      // Online auctions = feed auctions with no coordinates (physical auctions already appear on the map).
+      ONLINE_AUCTIONS=(au.success&&au.data?au.data:[]).filter(function(r){ return r.type==='auction' && r.lat==null && r.lng==null; }).map(feedToDrawer);
       MP.records=companyRecs.concat(eventRecs);
       MP.byId={}; MP.records.forEach(function(r){ MP.byId[r.id]=r; });
       MP.counts=Object.assign({}, mk.counts||{}, {
@@ -1174,6 +1180,21 @@
       state:st, lots:0, end:end, lng:r.lng, lat:r.lat, mi:null,
       bg:(r.image_url?("url('"+esc(r.image_url)+"'),"+GRAD[0]):GRAD[0]), href:r.url, isEvent:true, _start:s };
   }
+  // Marketplace-feed auction item → drawer card (for online/coordless auctions surfaced list-only).
+  function feedToDrawer(r){
+    var now=Date.now(), s=r.starts_at?new Date(r.starts_at).getTime():null, e=r.ends_at?new Date(r.ends_at).getTime():null;
+    var st=(e&&e<now)?'historical':((s&&s>now)?'coming':'live');
+    var end=st==='coming'?('Opens '+shortDate(r.starts_at)):(st==='historical'?'Ended':(r.ends_at?('Ends '+shortDate(r.ends_at)):'Live now'));
+    return { id:'oa-'+r.id, t:'Online Auction: '+(r.title||'Auction'), city:[r.city,r.state].filter(Boolean).join(', ')||'Online · nationwide',
+      state:st, lots:0, end:end, lng:null, lat:null, mi:null,
+      bg:(r.image_url?("url('"+esc(r.image_url)+"'),"+GRAD[0]):GRAD[0]), href:r.url||'#', isEvent:false, _start:s, _online:true };
+  }
+  // Online auctions matching the current tab (live/upcoming/ending), excluding ended, honoring search.
+  function onlineAuctionsFor(f,q){
+    if(f==='archive') return [];
+    return ONLINE_AUCTIONS.filter(F[f]).filter(function(d){return d.state!=='historical';})
+      .filter(function(d){return !q||d.t.toLowerCase().indexOf(q)>=0||(d.city||'').toLowerCase().indexOf(q)>=0;});
+  }
   function mpRefreshDrawer(){ var on=document.querySelector('.dtab.on'); buildList(on?on.dataset.f:'near'); }
   // Refresh the viewport-scoped drawer after map movement settles (moveend covers pan, zoom,
   // fitBounds, flyTo/easeTo, My Location, city/radius search). Debounced so momentum/rapid gestures
@@ -1257,22 +1278,29 @@
     var viewport=(f!=='archive');                  // Events Near You / Ending Soon / Upcoming follow the visible map
     var rows=source(f).filter(F[f]).filter(function(d){return !q||d.t.toLowerCase().indexOf(q)>=0||(d.city||'').toLowerCase().indexOf(q)>=0;});
     if(viewport){ rows=sortForViewport(rows.filter(inViewport)); }
-    // Count + subtitle reflect what is actually visible on the map (never the full dataset).
+    // Online (coordless) auctions surfaced list-only for non-archive tabs — never viewport-filtered.
+    var onlineRows=onlineAuctionsFor(f,q);
+    // Count + subtitle reflect what is actually visible on the map, plus any online auctions listed below.
     if(f==='archive'){ $('dSub').textContent=rows.length+' completed auctions'; }
-    else { $('dSub').textContent=(rows.length===0?'No events visible in this area':(rows.length+(rows.length===1?' event':' events')+' visible on the map')); }
+    else {
+      var mapTxt=(rows.length===0?'No events on the map here':(rows.length+(rows.length===1?' event':' events')+' on the map'));
+      $('dSub').textContent=mapTxt+(onlineRows.length?(' · '+onlineRows.length+' online auction'+(onlineRows.length===1?'':'s')):'');
+    }
     announceVisible(viewport?rows.length:null);
-    if(!rows.length){
+    if(!rows.length && !onlineRows.length){
       if(f==='archive'){ list.innerHTML='<div class="dempty">No past auctions to show yet.<br><a href="/search.html">Browse all events &rarr;</a></div>'; }
       else { list.innerHTML='<div class="dempty">No events are visible in this area.<br>Move or zoom the map to explore other events.<br><a href="'+listViewHref()+'">Open List View &rarr;</a></div>'; }
       return;
     }
-    rows.forEach(function(d){
+    // One card renderer for both viewport events and online auctions. Online cards carry no map pin, so
+    // they never trigger a map preview (isEvent=false) — they simply link to the canonical event page.
+    function makeCard(d){
       var tg={live:'● Live Now',ending:'⏱ Ending Soon',coming:'◷ Upcoming',historical:'Past'}[d.state];
       var miTxt=(d.mi!=null?(' · '+d.mi+' mi'):'');
       var when=d.state==='coming'?d.end:(d.state==='historical'?(d.lots+' lots'):(d.end+(d.lots?(' · '+d.lots+' lots'):'')));
       var c=document.createElement('a'); c.className='card'; c.dataset.id=d.id; c.href=d.href;
       c.innerHTML='<div class="ph" style="background-image:'+d.bg+'"></div><div class="meta"><div class="t">'+d.t+'</div>'+
-        '<div class="s">📍 '+(d.city||'Location TBA')+miTxt+'</div>'+
+        '<div class="s">'+(d._online?'🌐 ':'📍 ')+(d.city||'Location TBA')+miTxt+'</div>'+
         '<div class="r"><span class="tag '+d.state+'">'+tg+'</span><span class="when">'+when+'</span></div></div>';
       c.addEventListener('mouseenter',function(){ highlight(d.id,true); });
       c.addEventListener('mouseleave',function(){ highlight(d.id,false); });
@@ -1282,8 +1310,14 @@
         c.addEventListener('mouseenter',function(){ mpPreviewEvent(d.id); });
         c.addEventListener('focus',function(){ mpPreviewEvent(d.id); });
       }
-      list.appendChild(c);
-    });
+      return c;
+    }
+    rows.forEach(function(d){ list.appendChild(makeCard(d)); });
+    if(onlineRows.length){
+      var hdr=document.createElement('div'); hdr.className='dsection';
+      hdr.textContent='Online auctions · nationwide'; list.appendChild(hdr);
+      onlineRows.forEach(function(d){ list.appendChild(makeCard(d)); });
+    }
     // Restore focus: same card if still visible, else a sensible nearby control (the active tab).
     if(focusedId){ try{
       var again=list.querySelector('.card[data-id="'+focusedId+'"]');
@@ -1298,7 +1332,9 @@
     var nearIds=DATA.filter(F.near).map(function(d){return d.id;}); var n=nearIds.length;
     var countEl=$('count'), del=$('deltas');
     $('hud').classList.add('in');
-    if(!n){ countEl.innerHTML='No live auctions right now, <b>browse upcoming</b>'; }
+    if(!n){ countEl.innerHTML=(ONLINE_AUCTIONS&&ONLINE_AUCTIONS.length)
+      ? ('<b>'+ONLINE_AUCTIONS.length+'</b> online auction'+(ONLINE_AUCTIONS.length===1?'':'s')+' live, <b>browse below</b>')
+      : 'Live auctions &amp; upcoming events, <b>browse below</b>'; }
     else if(prev&&prev.ids){
       var fresh=nearIds.filter(function(id){return prev.ids.indexOf(id)<0;}).length;
       var closing=DATA.filter(function(d){return d.endsToday;}).length;

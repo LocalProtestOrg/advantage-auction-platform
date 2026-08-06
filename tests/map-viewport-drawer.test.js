@@ -68,9 +68,10 @@ describe('drawer title, count, and empty-state copy', () => {
   test('title stays "Events Near You"', () => {
     expect(index).toMatch(/near:'Events Near You'/);
   });
-  test('the count reflects what is visible on the map', () => {
-    expect(index).toMatch(/\+' visible on the map'/);
-    expect(index).toMatch(/'No events visible in this area'/);
+  test('the count reflects what is on the map, plus any online auctions listed below', () => {
+    expect(index).toMatch(/\+' on the map'/);
+    expect(index).toMatch(/'No events on the map here'/);
+    expect(index).toMatch(/online auction/);   // subtitle also surfaces the coordless online-auction count
   });
   test('empty-state copy is the approved wording with a List View escape hatch (no em dash)', () => {
     expect(index).toMatch(/No events are visible in this area\.<br>Move or zoom the map to explore other events\.<br><a href="'\+listViewHref\(\)\+'"/);
