@@ -18,6 +18,7 @@ const router  = express.Router();
 const db      = require('../db');
 const { auctionScoreSQL } = require('../services/discoveryRankingService');
 const discoveryService = require('../services/discoveryService');
+const { coverImageSql } = require('../lib/govSurplusPlaceholder');
 const { buildLotSearch, clampInt } = require('../services/searchService');
 const { brandedColSql, brandingVisibleSql } = require('../lib/sellerBranding');
 const { organizerColSql } = require('../lib/organizerPrivacy');
@@ -501,7 +502,7 @@ router.get('/marketplace/feed', async (req, res, next) => {
         SELECT (CASE WHEN e.sale_type = 'auction' THEN 'auction' ELSE 'estate_sale' END)::text AS kind,
                (CASE WHEN e.sale_type = 'auction' THEN 'partner_event' ELSE 'estate_sale' END)::text AS source_family, e.id::text AS ref_id, e.slug,
                e.title, e.city, e.state, e.zip, e.lat, e.lng,
-               (SELECT url FROM event_images ei WHERE ei.event_id = e.id ORDER BY is_cover DESC, position ASC LIMIT 1) AS image_url,
+               ${coverImageSql('(SELECT url FROM event_images ei WHERE ei.event_id = e.id ORDER BY is_cover DESC, position ASC LIMIT 1)')} AS image_url,
                ${organizerColSql('o.name')} AS company, e.status AS lifecycle, -- individual organizers stay anonymous
                e.start_at AS start_ts, e.end_at AS end_ts,
                COALESCE(e.start_at, e.created_at) AS sort_ts,
