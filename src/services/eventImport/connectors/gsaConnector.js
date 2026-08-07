@@ -27,6 +27,16 @@ function localDate(v) { const t = String(v == null ? '' : v).trim(); return /^\d
 // Active + Preview (scheduled) sales are current/upcoming; anything else is skipped. Case-insensitive.
 function isCurrent(status) { const s = String(status || '').toLowerCase(); return s === 'active' || s === 'preview'; }
 
+// Only ingest a PUBLICLY displayable cover image. GSA's imageURL points at the authenticated PPMS image
+// API (www.ppms.gov/gw/auction/ppms/api/…), which returns HTTP 401 to anonymous/public requests and cannot
+// be hotlinked on the public marketplace — storing it yields a broken image plus a wasted 401 request on
+// every card render. Excluding it lets the card use the branded placeholder fallback. Canonical-model
+// contract: a stored event image URL must be publicly renderable. No re-hosting; Railway stays the truth.
+function isPubliclyDisplayableImage(u) {
+  try { const host = new URL(u).hostname.toLowerCase(); return host !== 'ppms.gov' && !host.endsWith('.ppms.gov'); }
+  catch (e) { return false; }
+}
+
 module.exports = {
   key: 'gsa',
   kind: 'rest',
@@ -61,8 +71,8 @@ module.exports = {
       seenSale.add(saleNo);
 
       const itemUrl = typeof r.itemDescURL === 'string' && /^https?:\/\//i.test(r.itemDescURL) ? r.itemDescURL : null;
-      const images = (typeof r.imageURL === 'string' && /^https?:\/\//i.test(r.imageURL))
-        ? [{ url: r.imageURL, position: 0 }] : [];
+      const rawImageUrl = (typeof r.imageURL === 'string' && /^https?:\/\//i.test(r.imageURL)) ? r.imageURL : null;
+      const images = (rawImageUrl && isPubliclyDisplayableImage(rawImageUrl)) ? [{ url: rawImageUrl, position: 0 }] : [];
       const descParts = [r.lotDescript, r.instruction].filter((x) => x && String(x).trim());
       const payload = {
         title: (r.itemName && String(r.itemName).trim()) || ('GSA Federal Surplus Auction ' + saleNo),

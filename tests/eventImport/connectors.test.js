@@ -49,6 +49,18 @@ describe('gsaConnector', () => {
     expect(r.payload.end_date).toBe('2999-01-05');
     expect(r.images).toEqual([{ url: 'https://img.example.gov/1.jpg', position: 0 }]);
   });
+  test('drops non-public (PPMS-authenticated) cover images; keeps publicly displayable ones (regression)', async () => {
+    // GSA's real imageURL is the authenticated PPMS image API (401 to the public) — must NOT be ingested,
+    // so the card falls back to the branded placeholder instead of a broken image + wasted 401 per render.
+    http.fetchJson.mockResolvedValueOnce({ Results: [
+      ROW({ saleNo: 'PPMS', imageURL: 'https://www.ppms.gov/gw/auction/ppms/api/v1/auction/image/21QSCS26002001.jpg' }),
+      ROW({ saleNo: 'PUB',  imageURL: 'https://img.example.gov/public.jpg' }),
+    ] });
+    const recs = await collect(gsa.fetch({ config: {} }));
+    const byId = Object.fromEntries(recs.map((r) => [r.sourceEventId, r]));
+    expect(byId.PPMS.images).toEqual([]);                                                   // authenticated PPMS URL dropped
+    expect(byId.PUB.images).toEqual([{ url: 'https://img.example.gov/public.jpg', position: 0 }]); // public URL kept
+  });
   test('skips non-current (sold/closed) statuses and rows without a date range', async () => {
     http.fetchJson.mockResolvedValueOnce({ Results: [ROW({ saleNo: 'A', auctionStatus: 'Sold' }), ROW({ saleNo: 'B', aucEndDt: null }), ROW({ saleNo: 'C', auctionStatus: 'Preview' })] });
     const recs = await collect(gsa.fetch({ config: {} }));
