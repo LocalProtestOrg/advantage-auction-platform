@@ -16,8 +16,10 @@
 
 .ob-body{margin:0;background:var(--ob-paper);color:var(--ob-ink);font-family:var(--ob-body);-webkit-font-smoothing:antialiased;line-height:1.55}
 .ob-body *{box-sizing:border-box}
-/* Unify headings across every onboarding page that opts into .ob-body (Fraunces display face). */
-.ob-body h1,.ob-body h2{font-family:var(--ob-serif)}
+/* Unify headings across every onboarding page that opts into .ob-body (Fraunces display face).
+   `!important` retires legacy per-page display fonts (e.g. Quicksand) so the whole onboarding
+   experience shares ONE heading typeface — scoped to font-family only, under .ob-body only. */
+.ob-body h1,.ob-body h2,.ob-body h3{font-family:var(--ob-serif)!important}
 .ob-body a{color:var(--ob-accent);text-decoration:none}
 .ob-body a:hover{text-decoration:underline}
 .ob-wrap{max-width:var(--ob-maxw);margin:0 auto;padding:0 18px}
