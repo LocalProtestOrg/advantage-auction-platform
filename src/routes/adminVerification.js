@@ -61,6 +61,16 @@ router.get('/sellers/:sellerProfileId/publication-gate', async (req, res, next) 
   } catch (err) { mapErr(res, err, next); }
 });
 
+// Professional Seller business identity for review (admin sees the FULL EIN; seller responses mask it).
+router.get('/sellers/:sellerProfileId/business', async (req, res, next) => {
+  try {
+    if (!isUuid(req.params.sellerProfileId)) return res.status(400).json({ success: false, message: 'Invalid seller id' });
+    const info = await v.getBusinessInfo(req.params.sellerProfileId, { includeEin: true });
+    if (!info) return res.status(404).json({ success: false, message: 'Seller not found' });
+    return res.json({ success: true, data: info });
+  } catch (err) { mapErr(res, err, next); }
+});
+
 router.get('/requests/:id', async (req, res, next) => {
   try {
     if (!isUuid(req.params.id)) return res.status(400).json({ success: false, message: 'Invalid request id' });

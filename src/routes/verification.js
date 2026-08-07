@@ -42,4 +42,26 @@ router.post('/requests/:id/documents', auth, idempotency, async (req, res, next)
   } catch (err) { mapErr(res, err, next); }
 });
 
+// ── Professional Seller business verification (self-service) ──────────────────
+// GET  /business         current business verification status + (EIN-masked) business info + gate
+// POST /business         save business info AND upload one business document in a single call
+router.get('/business', auth, async (req, res, next) => {
+  try { return res.json({ success: true, data: await v.businessVerificationStatus(req.user.id) }); }
+  catch (err) { mapErr(res, err, next); }
+});
+
+router.post('/business', auth, idempotency, async (req, res, next) => {
+  try {
+    const b = req.body || {};
+    const out = await v.submitBusinessVerification(req.user.id, {
+      businessInfo: b.business_info || null,
+      category: b.category,
+      filename: b.filename,
+      contentType: b.content_type,
+      dataBase64: b.data_base64,
+    });
+    return res.status(201).json({ success: true, data: out });
+  } catch (err) { mapErr(res, err, next); }
+});
+
 module.exports = router;

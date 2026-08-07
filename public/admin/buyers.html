@@ -107,13 +107,63 @@
           +(b.registrations&&b.registrations.length
               ? '<table><thead><tr><th>Auction</th><th>State</th><th>Status</th><th>Paddle</th><th>Pickup</th><th></th></tr><tbody>'+regRows+'</tbody></table>'
               : '<div class="msg">No registrations.</div>')
+          +taxExemptHtml(b)
           +'<div class="msg" id="pmsg"></div></div>';
         const act2 = async (verb, body) => { const r = await api('POST','/api/admin/buyers/'+id+'/'+verb, body); if(r.success){ loadProfile(id); search(); } else $('#pmsg').textContent=r.message||'Action failed.'; };
         if($('#suspend'))    $('#suspend').addEventListener('click',()=>{ const reason=prompt('Reason for suspension?')||''; act2('suspend',{reason}); });
         if($('#reactivate')) $('#reactivate').addEventListener('click',()=>act2('reactivate',{}));
         document.querySelectorAll('[data-revoke]').forEach(btn=>btn.addEventListener('click',()=>{ const reason=prompt('Reason for revoking this registration?')||''; act2('registrations/'+btn.dataset.revoke+'/revoke',{reason}); }));
         document.querySelectorAll('[data-reinstate]').forEach(btn=>btn.addEventListener('click',()=>act2('registrations/'+btn.dataset.reinstate+'/reinstate',{})));
+        wireTaxExempt(id, b);
       }catch(e){ p.innerHTML='<div class="panel msg">Failed to load profile.</div>'; }
+    }
+
+    // ── Buyer sales-tax exemption review ────────────────────────────────────────
+    function taxExemptHtml(b){
+      const e = b.tax_exemption;
+      let html = '<h3 style="margin:18px 0 6px;font-size:1rem">Sales tax exemption</h3>';
+      html += '<div class="rows"><span>Authoritative status</span><strong>'
+        + '<span class="badge '+(b.tax_exemption&&b.tax_exemption.tax_exempt?'ok':'neutral')+'">tax_exempt = '+(b.tax_exemption&&b.tax_exemption.tax_exempt?'true':'false')+'</span></strong></div>';
+      if(!e){ return html + '<div class="msg">No exemption request submitted.</div>'; }
+      html += '<div class="rows">'
+        + '<span>Request status</span><strong>'+esc(e.status)+'</strong>'
+        + '<span>Type</span><strong>'+esc(e.exemption_type||'—')+'</strong>'
+        + '<span>State / jurisdiction</span><strong>'+esc(e.jurisdiction_state||'—')+'</strong>'
+        + '<span>Certificate #</span><strong>'+esc(e.certificate_number||'—')+'</strong>'
+        + '<span>Effective</span><strong>'+(e.effective_date?esc(String(e.effective_date).slice(0,10)):'—')+'</strong>'
+        + '<span>Expires</span><strong>'+(e.expiration_date?esc(String(e.expiration_date).slice(0,10)):'—')+'</strong>'
+        + '<span>Document</span><strong>'+(e.has_document?'<a href="#" id="tx-dl">view certificate</a>':'none')+'</strong>'
+        + '</div>'
+        + '<div class="rows">'
+        + '<span>Set state</span><input type="text" id="tx-a-state" maxlength="2" value="'+esc(e.jurisdiction_state||'')+'">'
+        + '<span>Effective date</span><input type="date" id="tx-a-eff" value="'+(e.effective_date?esc(String(e.effective_date).slice(0,10)):'')+'">'
+        + '<span>Expiration date</span><input type="date" id="tx-a-exp" value="'+(e.expiration_date?esc(String(e.expiration_date).slice(0,10)):'')+'">'
+        + '<span>Admin notes</span><input type="text" id="tx-a-notes" value="'+esc(e.admin_notes||'')+'">'
+        + '</div>'
+        + '<button class="btn btn-go" id="tx-approve">Approve exemption</button>'
+        + '<button class="btn btn-mut" id="tx-moreinfo">Request more info</button>'
+        + '<button class="btn btn-danger" id="tx-reject">Reject</button>';
+      return html;
+    }
+    function wireTaxExempt(id, b){
+      const e = b.tax_exemption; if(!e) return;
+      const dl = document.getElementById('tx-dl');
+      if(dl) dl.addEventListener('click', async ev => { ev.preventDefault();
+        const r = await api('GET','/api/admin/buyers/tax-exemptions/'+e.id+'/document');
+        if(r.url) window.open(r.url,'_blank'); else $('#pmsg').textContent = r.message||'Could not open document.';
+      });
+      const review = async status => {
+        const body = { status,
+          jurisdiction_state: (document.getElementById('tx-a-state').value||'').toUpperCase()||null,
+          effective_date: document.getElementById('tx-a-eff').value||null,
+          expiration_date: document.getElementById('tx-a-exp').value||null,
+          admin_notes: document.getElementById('tx-a-notes').value||null };
+        const r = await api('POST','/api/admin/buyers/'+id+'/tax-exemption/review', body);
+        if(r.success){ loadProfile(id); } else $('#pmsg').textContent = r.message||'Review failed.';
+      };
+      if($('#tx-approve'))  $('#tx-approve').addEventListener('click',()=>review('approved'));
+      if($('#tx-moreinfo')) $('#tx-moreinfo').addEventListener('click',()=>review('more_info'));
+      if($('#tx-reject'))   $('#tx-reject').addEventListener('click',()=>review('rejected'));
     }
 
     $('#go').addEventListener('click',search);

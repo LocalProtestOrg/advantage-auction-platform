@@ -34,16 +34,89 @@
       <h1>Verification documents</h1>
       <div class="muted">Advantage.Bid has requested the documents below. Your files are stored privately and reviewed only by Advantage staff. You can keep using your seller dashboard while these are reviewed.</div>
     </div>
+    <div id="biz"></div>
     <div id="list"></div>
   </div>
   <script>
     var token = localStorage.getItem('token');
     var list = document.getElementById('list');
+    var biz  = document.getElementById('biz');
     var CAT_LABEL = {
       government_id:'Government-issued ID', passport:'Passport', business_license:'Business license',
       tax_document:'Tax document', proof_of_ownership:'Proof of ownership', receipt_invoice:'Receipt or invoice',
-      estate_authority:'Estate authority', probate_letter:'Probate letter', other:'Other document'
+      estate_authority:'Estate authority', probate_letter:'Probate letter',
+      ein_verification:'IRS EIN confirmation (CP575 / 147C)', business_registration:'State business registration',
+      other:'Other document'
     };
+    var PRO_TYPES = ['auction_house','estate_sale_company','professional_liquidator'];
+    var BIZ_STATUS = {
+      not_submitted:{c:'b-submitted',t:'Documents Needed'}, documents_needed:{c:'b-submitted',t:'Documents Needed'},
+      under_review:{c:'b-submitted',t:'Under Review'}, approved:{c:'b-approved',t:'Approved'},
+      more_info:{c:'b-more_info',t:'Additional Information Needed'}, rejected:{c:'b-rejected',t:'Additional Information Needed'}
+    };
+    async function loadBusiness(){
+      if(!token) return;
+      var d;
+      try{ var r = await fetch('/api/verification/business', { headers:{ Authorization:'Bearer '+token } }); var j = await r.json(); d = j && j.data; }catch(e){ return; }
+      if(!d || !d.business_info || PRO_TYPES.indexOf(d.business_info.seller_type) === -1){ biz.innerHTML=''; return; } // professionals only
+      var info = d.business_info, meta = BIZ_STATUS[d.status] || BIZ_STATUS.not_submitted;
+      var cats = (d.accepted_categories||['ein_verification','business_registration','business_license']).map(function(c){
+        return '<option value="'+esc(c)+'">'+esc(CAT_LABEL[c]||c)+'</option>';
+      }).join('');
+      var gateNote = (d.gate && d.gate.blocked)
+        ? '<div class="muted" style="margin:.4rem 0">Advantage.Bid must verify your business before your first sale can go live. You can keep building auctions and your catalog in the meantime.</div>' : '';
+      biz.innerHTML = '<div class="card">'
+        + '<h1>Business verification</h1>'
+        + '<div class="muted">Provide your business details and at least one supporting document (IRS EIN confirmation, state registration, or business license). Stored privately; reviewed only by Advantage staff.</div>'
+        + '<p><span class="badge '+meta.c+'">'+meta.t+'</span></p>'
+        + gateNote
+        + '<div class="cat">'
+        + '<label>Legal business name</label><br><input type="text" id="bz-legal" value="'+esc(info.legal_business_name||'')+'" style="width:100%;padding:.5rem;margin:.2rem 0"><br>'
+        + '<label>DBA / business name (if different)</label><br><input type="text" id="bz-dba" value="'+esc(info.dba_name||'')+'" style="width:100%;padding:.5rem;margin:.2rem 0"><br>'
+        + '<label>EIN'+(info.ein_on_file?(' (on file: '+esc(info.ein||'')+')'):'')+'</label><br><input type="text" id="bz-ein" placeholder="XX-XXXXXXX" style="width:100%;padding:.5rem;margin:.2rem 0"><br>'
+        + '<label>Business address</label><br><input type="text" id="bz-addr" value="'+esc(info.address_line1||'')+'" placeholder="Street address" style="width:100%;padding:.5rem;margin:.2rem 0">'
+        + '<input type="text" id="bz-city" value="'+esc(info.city||'')+'" placeholder="City" style="width:48%;padding:.5rem;margin:.2rem 4% .2rem 0">'
+        + '<input type="text" id="bz-state" value="'+esc(info.state||'')+'" placeholder="State" style="width:22%;padding:.5rem;margin:.2rem 4% .2rem 0">'
+        + '<input type="text" id="bz-zip" value="'+esc(info.postal_code||'')+'" placeholder="ZIP" style="width:22%;padding:.5rem;margin:.2rem 0"><br>'
+        + '<label>Document type</label><br><select id="bz-cat" style="width:100%;padding:.5rem;margin:.2rem 0">'+cats+'</select><br>'
+        + '<label>Document file (PDF, JPG, or PNG)</label><br><input type="file" id="bz-file" accept="image/*,application/pdf"><br>'
+        + '<button id="bz-up">Submit business verification</button> <span class="msg" id="bz-msg"></span>'
+        + '</div></div>';
+      var btn = document.getElementById('bz-up');
+      if(btn) btn.addEventListener('click', submitBusiness);
+    }
+    function submitBusiness(){
+      var msg = document.getElementById('bz-msg'); msg.className='msg'; msg.textContent='';
+      var fileEl = document.getElementById('bz-file'); var f = fileEl && fileEl.files && fileEl.files[0];
+      if(!f){ msg.className='msg err'; msg.textContent=' Choose a document file.'; return; }
+      if(f.size > 15*1024*1024){ msg.className='msg err'; msg.textContent=' File exceeds 15 MB.'; return; }
+      var reader = new FileReader();
+      reader.onload = async function(){
+        var btn = document.getElementById('bz-up'); btn.disabled = true; msg.textContent=' Uploading…';
+        try{
+          var res = await fetch('/api/verification/business', {
+            method:'POST', headers:{ 'Content-Type':'application/json', Authorization:'Bearer '+token },
+            body: JSON.stringify({
+              business_info: {
+                legal_business_name: document.getElementById('bz-legal').value || null,
+                dba_name: document.getElementById('bz-dba').value || null,
+                ein: document.getElementById('bz-ein').value || null,
+                address_line1: document.getElementById('bz-addr').value || null,
+                city: document.getElementById('bz-city').value || null,
+                state: document.getElementById('bz-state').value || null,
+                postal_code: document.getElementById('bz-zip').value || null
+              },
+              category: document.getElementById('bz-cat').value,
+              filename: f.name, content_type: f.type, data_base64: String(reader.result)
+            })
+          });
+          var json = await res.json();
+          if(res.ok && json.success){ msg.className='msg ok'; msg.textContent=' Submitted for review.'; loadBusiness(); }
+          else { msg.className='msg err'; msg.textContent=' '+(json.message||'Submission failed.'); btn.disabled=false; }
+        }catch(e){ msg.className='msg err'; msg.textContent=' Network error.'; btn.disabled=false; }
+      };
+      reader.readAsDataURL(f);
+    }
     function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,function(c){return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]);}); }
 
     async function load(){
@@ -96,6 +169,7 @@
       reader.readAsDataURL(f);
     }
     load();
+    loadBusiness();
   </script>
 </body>
 </html>

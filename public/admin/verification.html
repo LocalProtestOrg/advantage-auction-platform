@@ -48,6 +48,11 @@
       <div id="dups"></div>
     </div>
 
+    <div class="card" id="bizCard" style="display:none">
+      <h2>Business information (professional seller)</h2>
+      <div id="bizInfo" class="muted">—</div>
+    </div>
+
     <div class="card" id="reqCard" style="display:none">
       <h2>Request verification documents</h2>
       <div class="cats" id="cats"></div>
@@ -62,7 +67,7 @@
   </div>
   <script>
     var token = localStorage.getItem('token');
-    var CATS = ['government_id','passport','business_license','tax_document','proof_of_ownership','receipt_invoice','estate_authority','probate_letter','other'];
+    var CATS = ['government_id','passport','business_license','tax_document','proof_of_ownership','receipt_invoice','estate_authority','probate_letter','ein_verification','business_registration','other'];
     var sp = '';
     function H(p,opt){ opt=opt||{}; opt.headers=Object.assign({Authorization:'Bearer '+token},opt.headers||{}); return fetch(p,opt).then(function(r){return r.json().then(function(j){return {ok:r.ok,j:j};});}); }
     function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,function(c){return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]);}); }
@@ -79,8 +84,20 @@
       document.getElementById('reqCard').style.display='';
       document.getElementById('listCard').style.display='';
       m.textContent='Publication gate: '+(g.j.data.blocked?'BLOCKED ('+g.j.data.reason+')':'not blocked ('+g.j.data.reason+')');
-      loadDups(); loadReqs();
+      loadDups(); loadReqs(); loadBusiness();
     };
+    var PRO_TYPES = ['auction_house','estate_sale_company','professional_liquidator'];
+    async function loadBusiness(){
+      var b = await H('/api/admin/verification/sellers/'+sp+'/business');
+      var card = document.getElementById('bizCard'), el = document.getElementById('bizInfo');
+      if(!b.ok || !b.j.data || PRO_TYPES.indexOf(b.j.data.seller_type) === -1){ card.style.display='none'; return; }
+      var d = b.j.data; card.style.display='';
+      el.innerHTML = '<div><strong>Seller type:</strong> '+esc(d.seller_type||'—')+'</div>'
+        + '<div><strong>Legal business name:</strong> '+esc(d.legal_business_name||'—')+'</div>'
+        + '<div><strong>DBA:</strong> '+esc(d.dba_name||'—')+'</div>'
+        + '<div><strong>EIN:</strong> '+esc(d.ein||'—')+'</div>'
+        + '<div><strong>Address:</strong> '+esc([d.address_line1,d.city,d.state,d.postal_code].filter(Boolean).join(', ')||'—')+'</div>';
+    }
     async function loadDups(){
       var d = await H('/api/admin/verification/sellers/'+sp+'/duplicates');
       var el = document.getElementById('dups');

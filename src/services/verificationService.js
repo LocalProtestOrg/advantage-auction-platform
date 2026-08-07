@@ -20,8 +20,12 @@ const MIME_TO_EXT = { 'application/pdf': 'pdf', 'image/jpeg': 'jpg', 'image/png'
 
 const CATEGORIES = [
   'government_id', 'passport', 'business_license', 'tax_document',
-  'proof_of_ownership', 'receipt_invoice', 'estate_authority', 'probate_letter', 'other',
+  'proof_of_ownership', 'receipt_invoice', 'estate_authority', 'probate_letter',
+  'ein_verification', 'business_registration', 'other',
 ];
+// Business credentials accepted for Professional Seller business verification (at least one required):
+// IRS EIN confirmation (CP575 / 147C / equivalent), state registration/formation, or a business license.
+const BUSINESS_DOCUMENT_CATEGORIES = ['ein_verification', 'business_registration', 'business_license'];
 const RISK_LEVELS = ['low', 'medium', 'high'];
 const MAX_BYTES = 15 * 1024 * 1024; // 15 MB per document
 const SIGNED_URL_TTL_SECONDS = 300;
@@ -103,6 +107,116 @@ async function openRequestsForUser(userId) {
     r.categories = (await db.query('SELECT category FROM verification_request_categories WHERE request_id = $1 ORDER BY category', [r.id])).rows.map((x) => x.category);
   }
   return rows;
+}
+
+// ── Professional Seller business verification (self-initiated; reuses requests + documents) ─────
+// Mask an EIN for client responses: show only the last 4 (e.g. "**-***6789"). Never return the raw EIN
+// to a seller/buyer client; admin review reads the full value server-side only.
+function maskEin(ein) {
+  const s = String(ein || '').replace(/\D/g, '');
+  if (!s) return null;
+  return '**-***' + s.slice(-4);
+}
+
+// Upsert the seller's business identity (Legal Business Name, DBA, EIN, business address) onto
+// seller_identity. Only provided fields overwrite; nulls preserve existing values (COALESCE).
+async function saveBusinessInfo(sellerProfileId, info = {}, actorId = null) {
+  const i = info || {};
+  await db.query(
+    `INSERT INTO seller_identity
+       (seller_profile_id, legal_name, dba_name, ein, address_line1, address_line2, city, state, postal_code, country, updated_by, updated_at)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11, now())
+     ON CONFLICT (seller_profile_id) DO UPDATE SET
+       legal_name    = COALESCE(EXCLUDED.legal_name, seller_identity.legal_name),
+       dba_name      = COALESCE(EXCLUDED.dba_name, seller_identity.dba_name),
+       ein           = COALESCE(EXCLUDED.ein, seller_identity.ein),
+       address_line1 = COALESCE(EXCLUDED.address_line1, seller_identity.address_line1),
+       address_line2 = COALESCE(EXCLUDED.address_line2, seller_identity.address_line2),
+       city          = COALESCE(EXCLUDED.city, seller_identity.city),
+       state         = COALESCE(EXCLUDED.state, seller_identity.state),
+       postal_code   = COALESCE(EXCLUDED.postal_code, seller_identity.postal_code),
+       country       = COALESCE(EXCLUDED.country, seller_identity.country),
+       updated_by    = $11, updated_at = now()`,
+    [sellerProfileId, i.legal_business_name || null, i.dba_name || null, i.ein || null,
+     i.address_line1 || null, i.address_line2 || null, i.city || null, i.state || null,
+     i.postal_code || null, i.country || null, actorId ?? null]);
+}
+
+// Read business identity + seller_type. EIN is MASKED unless includeEin (admin review only).
+async function getBusinessInfo(sellerProfileId, { includeEin = false } = {}) {
+  const r = (await db.query(
+    `SELECT sp.seller_type, si.legal_name, si.dba_name, si.ein,
+            si.address_line1, si.address_line2, si.city, si.state, si.postal_code, si.country
+       FROM seller_profiles sp LEFT JOIN seller_identity si ON si.seller_profile_id = sp.id
+      WHERE sp.id = $1`, [sellerProfileId])).rows[0];
+  if (!r) return null;
+  return {
+    seller_type: r.seller_type || null,
+    legal_business_name: r.legal_name || null,
+    dba_name: r.dba_name || null,
+    ein: includeEin ? (r.ein || null) : maskEin(r.ein),
+    ein_on_file: !!r.ein,
+    address_line1: r.address_line1 || null, address_line2: r.address_line2 || null,
+    city: r.city || null, state: r.state || null, postal_code: r.postal_code || null, country: r.country || null,
+  };
+}
+
+// Find the seller's live business verification request (non-terminal) or create one tagged with the
+// acceptable business categories. Self-initiated (no admin-request email). Idempotent.
+async function getOrCreateOpenBusinessRequest(sellerProfileId, actorId = null) {
+  const existing = (await db.query(
+    `SELECT vr.* FROM verification_requests vr
+      WHERE vr.seller_profile_id = $1 AND vr.status IN ('open','submitted','more_info')
+        AND EXISTS (SELECT 1 FROM verification_request_categories c
+                     WHERE c.request_id = vr.id AND c.category = ANY($2))
+      ORDER BY vr.created_at DESC LIMIT 1`, [sellerProfileId, BUSINESS_DOCUMENT_CATEGORIES])).rows[0];
+  if (existing) return existing;
+  const req = (await db.query(
+    `INSERT INTO verification_requests (seller_profile_id, requested_by, status, message)
+     VALUES ($1,$2,'open',$3) RETURNING *`,
+    [sellerProfileId, actorId ?? null, 'Professional Seller business verification'])).rows[0];
+  for (const cat of BUSINESS_DOCUMENT_CATEGORIES) {
+    await db.query(`INSERT INTO verification_request_categories (request_id, category) VALUES ($1,$2) ON CONFLICT DO NOTHING`, [req.id, cat]);
+  }
+  return req;
+}
+
+// Seller self-service: save business info AND upload one business document in a single call. Reuses the
+// secure uploadDocument path (validation + private storage + audit). Returns { request_id, status, document }.
+async function submitBusinessVerification(userId, { businessInfo, category, filename, contentType, dataBase64 }) {
+  const spId = await sellerProfileIdForUser(userId);
+  if (!spId) throw new VerificationError('SELLER_NOT_FOUND', 'Seller profile not found', 404);
+  if (!BUSINESS_DOCUMENT_CATEGORIES.includes(category)) {
+    throw new VerificationError('INVALID_CATEGORY', `Business document category must be one of: ${BUSINESS_DOCUMENT_CATEGORIES.join(', ')}`, 400);
+  }
+  if (businessInfo) await saveBusinessInfo(spId, businessInfo, userId);
+  const req = await getOrCreateOpenBusinessRequest(spId, userId);
+  const document = await uploadDocument(req.id, userId, { category, filename, contentType, dataBase64 });
+  return { request_id: req.id, status: 'submitted', document };
+}
+
+// Seller-facing business verification status (drives the Business Verification area). Maps the underlying
+// request status to the launch statuses. 'not_submitted' when no business request exists yet.
+async function businessVerificationStatus(userId) {
+  const spId = await sellerProfileIdForUser(userId);
+  if (!spId) return { status: 'not_submitted', business_info: null, gate: { blocked: false } };
+  const req = (await db.query(
+    `SELECT vr.id, vr.status, vr.message, vr.reviewed_at FROM verification_requests vr
+      WHERE vr.seller_profile_id = $1
+        AND EXISTS (SELECT 1 FROM verification_request_categories c
+                     WHERE c.request_id = vr.id AND c.category = ANY($2))
+      ORDER BY vr.created_at DESC LIMIT 1`, [spId, BUSINESS_DOCUMENT_CATEGORIES])).rows[0];
+  // Map request.status → launch labels. approved → Approved; more_info → Additional Information Needed;
+  // submitted → Under Review; open/none → Documents Needed / Not Submitted.
+  const map = { approved: 'approved', more_info: 'more_info', submitted: 'under_review', rejected: 'rejected', open: 'documents_needed' };
+  return {
+    status: req ? (map[req.status] || 'under_review') : 'not_submitted',
+    request_id: req ? req.id : null,
+    admin_message: req ? req.message : null,
+    business_info: await getBusinessInfo(spId),          // EIN masked
+    accepted_categories: BUSINESS_DOCUMENT_CATEGORIES,
+    gate: await publicationGate(spId),                    // authoritative first-sale gate
+  };
 }
 
 // ── Document upload (seller) ─────────────────────────────────────────────────
@@ -292,4 +406,7 @@ module.exports = {
   setRisk, hasApprovedVerification, publicationGate, duplicateWarnings,
   sellerPublicationStatus, requireVerificationForProfessional, isProfessionalSellerType,
   PROFESSIONAL_VERIFICATION_PENDING_MESSAGE,
+  // Professional business verification (self-service)
+  BUSINESS_DOCUMENT_CATEGORIES, maskEin, saveBusinessInfo, getBusinessInfo,
+  getOrCreateOpenBusinessRequest, submitBusinessVerification, businessVerificationStatus,
 };

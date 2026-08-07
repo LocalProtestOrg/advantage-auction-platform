@@ -10,6 +10,7 @@ const role    = require('../middleware/roleMiddleware');
 const db      = require('../db');
 const { writeAuditLog } = require('../lib/auditLog');
 const { buildBuyerSearch, clampInt } = require('../services/searchService');
+const taxExemption = require('../services/taxExemptionService');
 
 router.use(auth, role(['admin']));
 
@@ -71,6 +72,8 @@ router.get('/:userId', async (req, res, next) => {
              (SELECT COUNT(*)::int FROM lots WHERE current_winner_user_id = $1 AND state = 'open')   AS currently_winning,
              (SELECT COUNT(*)::int FROM lots WHERE winning_buyer_user_id = $1 AND state = 'closed')  AS lots_won`, [userId])).rows[0];
 
+    const tax_exemption = await taxExemption.getForAdmin(userId); // null when the buyer never submitted
+
     return res.json({ success: true, data: {
       id: u.id, email: u.email, role: u.role, is_active: u.is_active, created_at: u.created_at,
       card_on_file: !!card_on_file,
@@ -78,8 +81,44 @@ router.get('/:userId', async (req, res, next) => {
       accepted_current_terms: accepted_current,
       bidding_activity: act,
       registrations,
+      tax_exemption,
     }});
   } catch (err) { next(err); }
+});
+
+// ── Buyer tax-exemption review (admin authoritative) ─────────────────────────
+// GET  /:userId/tax-exemption            full exemption record for review
+// GET  /tax-exemptions/:id/document      short-lived signed URL for the private certificate
+// POST /:userId/tax-exemption/review     approve | reject | more_info (+ dates/state/type/notes)
+router.get('/:userId/tax-exemption', async (req, res, next) => {
+  try {
+    const rec = await taxExemption.getForAdmin(req.params.userId);
+    if (!rec) return res.status(404).json({ success: false, message: 'No tax-exemption request for this buyer' });
+    return res.json({ success: true, data: rec });
+  } catch (err) { next(err); }
+});
+
+router.get('/tax-exemptions/:id/document', async (req, res, next) => {
+  try { return res.json({ success: true, ...(await taxExemption.documentDownloadUrl(req.params.id)) }); }
+  catch (err) {
+    if (err && err.status && err.code) return res.status(err.status).json({ success: false, code: err.code, message: err.message });
+    next(err);
+  }
+});
+
+router.post('/:userId/tax-exemption/review', async (req, res, next) => {
+  try {
+    const b = req.body || {};
+    const out = await taxExemption.reviewExemption(req.params.userId, req.user.id, {
+      status: b.status, admin_notes: b.admin_notes,
+      effective_date: b.effective_date, expiration_date: b.expiration_date,
+      jurisdiction_state: b.jurisdiction_state, exemption_type: b.exemption_type,
+    });
+    return res.json({ success: true, data: out });
+  } catch (err) {
+    if (err && err.status && err.code) return res.status(err.status).json({ success: false, code: err.code, message: err.message });
+    next(err);
+  }
 });
 
 async function setActive(userId, active, actorId, reason) {
