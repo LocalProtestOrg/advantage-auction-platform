@@ -33,6 +33,7 @@ const { runImport } = require('../services/eventImport');
 const runLog = require('../services/eventImport/runLog');
 const { writeAuditLog } = require('../lib/auditLog');
 const health = require('../services/eventImport/health');
+const marketplaceIntegrity = require('../services/marketplaceIntegrity');
 const { sendEmail } = require('../services/emailService');
 
 const CHECK_INTERVAL_MS = 60_000;          // evaluate the schedule every minute
@@ -345,6 +346,28 @@ async function runHealthCheck(nowDate, o) {
         });
       } catch (e) { logLine({ evt: 'alert_email_failed', error: String(e && e.message) }); }
     }
+    // ── Continuous Marketplace Integrity monitoring (Phase 6A) ──────────────────
+    // Every scheduled run (and each routine hourly check) verifies the canonical DB tally against the
+    // live public APIs + SEO surfaces, logging/auditing any anomaly. Opt-in (EVENT_INTEGRITY_MONITOR_
+    // ENABLED=true) + needs PUBLIC_BASE_URL; never throws into the worker path.
+    try {
+      const monitorOn = String(process.env.EVENT_INTEGRITY_MONITOR_ENABLED || '').toLowerCase() === 'true';
+      const base = process.env.PUBLIC_BASE_URL || (process.env.FRONTEND_URL || '').split(',')[0];
+      if (monitorOn && base) {
+        const result = await marketplaceIntegrity.verify({ db, baseUrl: base, live: true });
+        const anomalies = result.checks.filter((chk) => chk.status !== 'PASS');
+        logLine({ evt: 'marketplace_integrity', overall: result.overall, anomalies: anomalies.map((a) => ({ surface: a.surface, status: a.status, detail: a.detail })) });
+        if (result.overall !== 'PASS') {
+          try {
+            await writeAuditLog({
+              event_type: result.overall === 'FAIL' ? 'marketplace_integrity_fail' : 'marketplace_integrity_warning',
+              entity_type: 'event_import_scheduler', entity_id: AUDIT_ENTITY_ID, actor_id: null,
+              metadata: { overall: result.overall, canonical: result.canonical, anomalies },
+            });
+          } catch (_) { /* audit best-effort */ }
+        }
+      }
+    } catch (e) { logLine({ evt: 'integrity_monitor_error', error: String(e && e.message) }); }
     return { snapshot: snap, alerts };
   } catch (e) { logLine({ evt: 'health_error', error: String(e && e.message) }); return null; }
 }

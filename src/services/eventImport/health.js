@@ -10,6 +10,7 @@
  */
 
 const db0 = require('../../db');
+const { activeEventSql } = require('../../lib/marketplaceVisibility');
 
 function thresholds(env = process.env) {
   const n = (k, d) => { const v = parseInt(env[k], 10); return Number.isFinite(v) ? v : d; };
@@ -26,9 +27,10 @@ function thresholds(env = process.env) {
 
 // Snapshot of public inventory + import-run health. Read-only.
 async function inventorySnapshot(db = db0) {
+  // Canonical visibility predicate (single definition — src/lib/marketplaceVisibility.js).
   const active = (await db.query(
-    `SELECT sale_type, count(*)::int n FROM events
-      WHERE status = 'published' AND (end_at IS NULL OR end_at >= now()) GROUP BY 1`)).rows;
+    `SELECT e.sale_type, count(*)::int n FROM events e
+      WHERE ${activeEventSql('e')} GROUP BY e.sale_type`)).rows;
   const byType = active.reduce((m, r) => { m[r.sale_type || 'other'] = r.n; return m; }, {});
   const totalActive = active.reduce((s, r) => s + r.n, 0);
   const lastSuccess = (await db.query("SELECT max(finished_at) t FROM import_runs WHERE status = 'completed'")).rows[0].t;

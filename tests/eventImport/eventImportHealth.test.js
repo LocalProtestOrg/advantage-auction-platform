@@ -92,7 +92,7 @@ describe('inventorySnapshot — computes active counts + run health', () => {
     const snap = await health.inventorySnapshot(db);
     expect(snap).toMatchObject({ active_auctions: 2, active_estate_sales: 3, total_active_public: 5 });
     expect(snap.last_run).toMatchObject({ trigger: 'scheduled', status: 'completed' });
-    // the active-inventory query respects the public date gate
-    expect(db.query.mock.calls[0][0]).toMatch(/status = 'published' AND \(end_at IS NULL OR end_at >= now\(\)\)/);
+    // the active-inventory query respects the canonical public visibility predicate (alias-agnostic)
+    expect(db.query.mock.calls[0][0]).toMatch(/\.status = 'published' AND \([\w.]*end_at IS NULL OR [\w.]*end_at >= now\(\)\)/);
   });
 });
