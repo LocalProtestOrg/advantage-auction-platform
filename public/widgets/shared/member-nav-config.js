@@ -95,7 +95,7 @@
     // { key: 'lots',        when: function (c) { return c.sellerReady; }, items: function () { return [{ id:'lots', label:'My Lots', emoji:'📦', href:'/dashboard/lots.html', external:true }]; } },
     // { key: 'invoices',    when: function (c) { return c.sellerReady; }, items: function () { return [{ id:'sellerInvoices', label:'Invoices', emoji:'🧾', href:'/invoices.html', external:true }]; } },
     // { key: 'settlements', when: function (c) { return c.sellerReady; }, items: function () { return [{ id:'settlements', label:'Settlements', emoji:'💰', href:'/seller-settlements.html', external:true }]; } },
-    { key: 'bizadmin', when: function (c) { return c.isBdMember && c.businessAdminUrl; }, items: function (c) { return [businessAdminItem(c.businessAdminUrl)]; } }, // Business Administration
+    // (Business Administration is no longer here — it is pinned to the TOP of the nav; see visibleSectionsFor.)
   ];
   function professionalMarketplaceItems(ctx) {
     var out = [];
@@ -103,8 +103,8 @@
     return out;
   }
 
-  // Professional-first, grouped into labelled sections. Business Administration lives INSIDE the
-  // Professional Marketplace group (it's a professional function). Buying is preserved below it.
+  // Professional-first, grouped into labelled sections (Business Administration is pinned above these
+  // by visibleSectionsFor). Professional Marketplace tools, then Buying, are preserved below.
   function professionalSections(ctx) {
     var sections = [{ id: 'home', heading: null, items: [BUYING[0]] }]; // Dashboard Home (no heading)
     var pro = professionalMarketplaceItems(ctx);
@@ -157,11 +157,15 @@
     ctx = ctx || {};
     var mode = resolveMode(ctx, ctx.mode);
     if (!mode) return [];
-    if (mode !== 'admin' && isProfessionalExperience(ctx)) return professionalSections(ctx);
-    var items = MODES[mode].slice();
-    // BD members (non-professional) still get a "Business Administration" return link appended.
-    if (ctx.isBdMember && ctx.businessAdminUrl) items.push(businessAdminItem(ctx.businessAdminUrl));
-    return [{ id: mode, heading: null, items: items }];
+    // Business Administration is the gateway BACK to the BD admin area. Pin it to the very TOP for any
+    // member who came from BD, so if they land in the Railway app it is the first thing they see. Its
+    // own section (no heading) → the existing inter-section spacing separates it from the app nav below.
+    var sections = [];
+    if (ctx.isBdMember && ctx.businessAdminUrl) {
+      sections.push({ id: 'bizadmin', heading: null, items: [businessAdminItem(ctx.businessAdminUrl)] });
+    }
+    if (mode !== 'admin' && isProfessionalExperience(ctx)) return sections.concat(professionalSections(ctx));
+    return sections.concat([{ id: mode, heading: null, items: MODES[mode].slice() }]);
   }
 
   // Flat ordered items (backward-compatible) — the concatenation of every section's items.
