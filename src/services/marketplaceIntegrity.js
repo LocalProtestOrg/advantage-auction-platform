@@ -72,10 +72,19 @@ async function verify({ db, baseUrl, fetchImpl, live = true } = {}) {
     checks.push(countCheck('map:auction', canonical.expect.map_auction, mapCounts ? mapCounts.auction : null));
     checks.push(countCheck('map:estate_sale', canonical.expect.map_estate_sale, mapCounts ? mapCounts.estate_sale : null));
 
-    // ── Marketplace family (company/professional directory) count parity ──
+    // ── Professionals directory count parity (/api/public/marketplace) — NOT the Marketplace family ──
     const mkt = await safeFetch(`${base}/api/public/marketplace`, fetchImpl);
     const mktTotal = mkt.json && (mkt.json.total != null ? mkt.json.total : (Array.isArray(mkt.json.data) ? mkt.json.data.length : null));
-    checks.push(countCheck('marketplace:companies', canonical.expect.marketplace_companies, mkt.ok ? mktTotal : null));
+    checks.push(countCheck('professionals:directory', canonical.expect.professionals_total, mkt.ok ? mktTotal : null));
+
+    // ── Canonical family/professionals counts endpoint (drives the map key — inventory, not pins) ──
+    const cnt = await safeFetch(`${base}/api/public/marketplace/counts`, fetchImpl);
+    const cf = (cnt.json && cnt.json.families) || null, cp = (cnt.json && cnt.json.professionals) || null;
+    checks.push(countCheck('counts:advantage_auction', canonical.families.advantage_auction, cf ? cf.advantage_auction : null));
+    checks.push(countCheck('counts:partner_event', canonical.families.partner_event, cf ? cf.partner_event : null));
+    checks.push(countCheck('counts:estate_sale', canonical.families.estate_sale, cf ? cf.estate_sale : null));
+    checks.push(countCheck('counts:marketplace_items', canonical.families.marketplace, cf ? cf.marketplace : null));
+    checks.push(countCheck('counts:professionals_total', canonical.professionals.total, cp ? cp.total : null));
 
     // ── Vocabulary integrity: every feed item carries an owner-locked family_label ──
     const av = await safeFetch(`${base}/api/public/marketplace/feed?preset=auctions&page=1&pageSize=12`, fetchImpl);
@@ -137,11 +146,12 @@ function formatReport(result) {
   lines.push(`OVERALL:   ${result.overall}`);
   lines.push('');
   const c = result.canonical;
-  lines.push('Canonical DB tally (single source of truth) — the four marketplace families:');
-  const fam = c.families || {};
+  lines.push('Canonical DB tally (single source of truth) — the four customer-facing product families:');
+  const fam = c.families || {}, prof = c.professionals || {};
   lines.push(`  Advantage.Bid Auctions: ${fam.advantage_auction}  ·  Auction Partner Events: ${fam.partner_event}` +
-    `  ·  Estate Sales: ${fam.estate_sale}  ·  Marketplace: ${fam.marketplace}`);
-  lines.push(`  (events with coords — auction=${c.events.auction_with_coords} estate=${c.events.estate_sale_with_coords})`);
+    `  ·  Estate Sales: ${fam.estate_sale}  ·  Marketplace (fixed-price): ${fam.marketplace}`);
+  lines.push(`  Professionals (directory, separate): total=${prof.total}` +
+    ` — estate-sale cos=${prof.estate_sale_companies} auction houses=${prof.auction_houses} appraisers=${prof.appraisers}`);
   lines.push('');
   lines.push('Surface checks:');
   for (const chk of result.checks) {

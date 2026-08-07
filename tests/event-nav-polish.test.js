@@ -53,10 +53,10 @@ describe('Item 4 — dashboard "Home" reads "Dashboard Home" (never an ambiguous
 
 describe('Item 6 — card badge shows event TYPE, not a timing status', () => {
   const widget = read('public', 'widgets', 'marketplace-feed.js');
-  test('badge() returns the type (Auction / Estate Sale), never "Coming soon"/"Live auction"', () => {
+  test('badge() shows the owner-locked family label (from the API), never a timing status', () => {
     const b = widget.slice(widget.indexOf('function badge'), widget.indexOf('function cta'));
-    expect(b).toMatch(/>Estate Sale</);
-    expect(b).toMatch(/>Auction</);
+    expect(b).toMatch(/it\.family_label \|\|/);   // owner-locked family label first
+    expect(b).toMatch(/Estate Sales/);            // back-compat fallback label
     expect(b).not.toMatch(/Coming soon/);
     expect(b).not.toMatch(/Live auction/);
     expect(b).not.toMatch(/Ending soon/);

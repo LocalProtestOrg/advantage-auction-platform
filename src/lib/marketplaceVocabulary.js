@@ -14,13 +14,23 @@
  */
 
 const FAMILIES = {
-  advantage_auction: { key: 'advantage_auction', label: 'Advantage.Bid Auctions', tip: 'Auctions hosted directly on Advantage.Bid.' },
-  partner_event:     { key: 'partner_event',     label: 'Auction Partner Events', tip: 'Auctions run by partner auction companies, listed on Advantage.Bid.' },
-  estate_sale:       { key: 'estate_sale',       label: 'Estate Sales',           tip: 'In-person estate sales from verified estate-sale companies.' },
-  marketplace:       { key: 'marketplace',       label: 'Marketplace',            tip: 'Auction houses, estate-sale companies and appraisers in the directory.' },
+  advantage_auction: { key: 'advantage_auction', label: 'Advantage.Bid Auctions', tip: 'Live auctions hosted directly on Advantage.Bid.' },
+  partner_event:     { key: 'partner_event',     label: 'Auction Partner Events', tip: 'Auction events posted or imported from professional auction companies.' },
+  estate_sale:       { key: 'estate_sale',       label: 'Estate Sales',           tip: 'Current estate sale events.' },
+  marketplace:       { key: 'marketplace',       label: 'Marketplace',            tip: 'Fixed-price items available through Advantage.Bid.' },
 };
 
 const ORDER = ['advantage_auction', 'partner_event', 'estate_sale', 'marketplace'];
+
+// PROFESSIONALS is a SEPARATE directory concept — never presented as Marketplace (product) inventory.
+const PROFESSIONALS = {
+  section: { label: 'Professionals', tip: 'Professional companies and service providers.' },
+  categories: {
+    estate_sale_companies: { key: 'estate_sale_companies', label: 'Estate Sale Companies' },
+    auction_houses:        { key: 'auction_houses',        label: 'Auction Houses' },
+    appraisers:            { key: 'appraisers',            label: 'Appraisers' },
+  },
+};
 
 // Classify a marketplace-feed row → family key.
 //   feedKind: the feed's `type` ('auction' | 'estate_sale'); isNative: true for the native auctions table.
@@ -31,4 +41,4 @@ function familyForFeedItem(feedKind, isNative) {
 
 function labelForFamily(key) { return (FAMILIES[key] || {}).label || null; }
 
-module.exports = { FAMILIES, ORDER, familyForFeedItem, labelForFamily };
+module.exports = { FAMILIES, ORDER, PROFESSIONALS, familyForFeedItem, labelForFamily };

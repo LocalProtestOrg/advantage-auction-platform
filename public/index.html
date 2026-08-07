@@ -192,6 +192,8 @@
   .dempty{padding:22px 14px;text-align:center;color:var(--muted);font-size:13.5px}
   .dempty a{color:var(--accent);font-weight:700}
   .dsection{padding:12px 14px 4px;font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+  .lg-i{opacity:.5;font-size:11px;cursor:help}
+  .legend-sec:focus{outline:2px solid var(--accent);outline-offset:2px;border-radius:4px}
 
   #search{position:fixed;inset:0;z-index:60;display:none;background:rgba(7,13,22,.5);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
   #search.open{display:block;animation:fade .25s ease}
@@ -671,6 +673,9 @@
   function j(u){ return fetch(u).then(function(r){return r.json();}).then(function(d){return (d&&d.data)||[];}).catch(function(){return [];}); }
 
   var DATA=[], ARCH=[], archiveLoaded=false, EVENTS_MAP=[], ONLINE_AUCTIONS=[];
+  // Canonical INVENTORY counts (from /api/public/marketplace/counts) — family + professionals totals.
+  // These drive the legend numbers; they are inventory totals, NOT map-pin/viewport counts.
+  var CANON_COUNTS={ families:{ advantage_auction:0, partner_event:0, estate_sale:0, marketplace:0 }, professionals:{ estate_sale_companies:0, auction_houses:0, appraisers:0, total:0 } };
   function loadCore(){
     return Promise.all([ j('/api/public/auctions?state=active&limit=60'), j('/api/public/auctions?state=published&limit=60') ])
       .then(function(r){ var rows=[].concat(r[0],r[1]); DATA=rows.map(toD); return DATA; });
@@ -1006,27 +1011,40 @@
   }
   // Hover tooltips replace inline helper text (owner-locked). Keyed by legend row key.
   var LEGEND_TIPS={
-    event_auction:'Auctions run by partner auction companies, listed on Advantage.Bid.',
-    event_estate_sale:'In-person estate sales from verified estate-sale companies.',
-    live:'Advantage.Bid Auctions — live now.', ending:'Advantage.Bid Auctions — ending soon.', coming:'Advantage.Bid Auctions — upcoming.',
-    estate_sale_companies:'Estate-sale companies in the Marketplace directory.',
-    auction_houses:'Auction houses in the Marketplace directory.',
-    appraisers:'Appraisers in the Marketplace directory.'
+    event_auction:'Auction events posted or imported from professional auction companies.',
+    event_estate_sale:'Current estate sale events.',
+    marketplace_items:'Fixed-price items available through Advantage.Bid.',
+    live:'Live auctions hosted directly on Advantage.Bid.', ending:'Advantage.Bid auctions ending soon.', coming:'Upcoming Advantage.Bid auctions.',
+    estate_sale_companies:'Estate-sale companies in the Professionals directory.',
+    auction_houses:'Auction houses in the Professionals directory.',
+    appraisers:'Appraisers in the Professionals directory.'
   };
+  // Section header with a hover/focus tooltip (ⓘ). Counts below come from CANON_COUNTS (canonical
+  // INVENTORY totals) — never from map pins or the current viewport.
+  function legendSec(label,tip){ return '<div class="legend-sec" tabindex="0" title="'+esc(tip)+'">'+esc(label)+' <span class="lg-i" aria-hidden="true">ⓘ</span></div>'; }
   function mpBuildLegend(){
     var el=document.getElementById('legend'); if(!el) return;
+    var f=(CANON_COUNTS&&CANON_COUNTS.families)||{}, pr=(CANON_COUNTS&&CANON_COUNTS.professionals)||{};
     var html='<button class="legend-close" id="legendClose" type="button" aria-label="Hide map key">&times;</button>';
-    html+='<div class="legend-sec" title="Auctions hosted directly on Advantage.Bid.">Advantage.Bid Auctions</div>';
+    // 1) ADVANTAGE.BID AUCTIONS — native auctions hosted on Advantage.Bid (status breakdown).
+    html+=legendSec('Advantage.Bid Auctions','Live auctions hosted directly on Advantage.Bid.');
     MP_EVENTS.forEach(function(e){ html+=mpRow('auction',e.key,e.color,'',e.label,mpAuctionCount(e.key)); });
-    html+='<div class="legend-sec" title="Listings from partner auction companies and estate-sale companies.">Events</div>';
-    MP_EVENT_CATS.forEach(function(c){ html+=mpRow('mp',c.key,c.color,c.glyph,c.label,(MP.counts&&MP.counts[c.key])||0); });
-    html+='<div class="legend-sec" title="Auction houses, estate-sale companies and appraisers in the directory.">Marketplace</div>';
-    // Owner-locked: the confusing "Other Estate Services" row is removed from the legend.
-    MP_CATS.filter(function(c){ return c.key!=='estate_services'; }).forEach(function(c){ html+=mpRow('mp',c.key,c.color,c.glyph,c.label,(MP.counts&&MP.counts[c.key])||0); });
+    // 2) AUCTION PARTNER EVENTS — canonical partner_event inventory (incl. coordinate-less online auctions).
+    html+=legendSec('Auction Partner Events','Auction events posted or imported from professional auction companies.');
+    html+=mpRow('mp','event_auction','#B5273B','gavel','Auction Partner Events',f.partner_event||0);
+    // 3) ESTATE SALES — canonical estate_sale inventory (full active total, not just plottable pins).
+    html+=legendSec('Estate Sales','Current estate sale events.');
+    html+=mpRow('mp','event_estate_sale','#7C3AED','house','Estate Sales',f.estate_sale||0);
+    // 4) MARKETPLACE — fixed-price Advantage.Bid items ONLY (never directory companies).
+    html+=legendSec('Marketplace','Fixed-price items available through Advantage.Bid.');
+    html+=mpRow('mp','marketplace_items','#0EA5E9','dots','Marketplace',f.marketplace||0);
+    // 5) PROFESSIONALS — the directory (separate from the Marketplace product family). No "Other Estate…".
+    html+=legendSec('Professionals','Professional companies and service providers.');
+    MP_CATS.filter(function(c){ return c.key!=='estate_services'; }).forEach(function(c){
+      html+=mpRow('mp',c.key,c.color,c.glyph,c.label,(pr[c.key]!=null?pr[c.key]:((MP.counts&&MP.counts[c.key])||0)));
+    });
     html+='<div class="legend-tools"><button type="button" data-tool="show">Show All</button>'
       +'<button type="button" data-tool="hide">Hide All</button><button type="button" data-tool="reset">Reset</button></div>';
-    // The List View entry point now lives in the shared top-of-map segmented selector
-    // (List View | Map View), so the map key stays focused on types, statuses, and layers.
     el.innerHTML=html;
     mpWireLegend();
   }
@@ -1083,9 +1101,12 @@
       fetch('/api/public/events/map').then(function(r){return r.json();}).catch(function(){return {success:false};}),
       // Online (coordless) auctions can't be map pins, so /events/map excludes them by design. Pull them
       // from the auction feed so the drawer can list them (list-only, never a fabricated geographic pin).
-      fetch('/api/public/marketplace/feed?preset=auctions&page=1&pageSize=48').then(function(r){return r.json();}).catch(function(){return {success:false};})
+      fetch('/api/public/marketplace/feed?preset=auctions&page=1&pageSize=48').then(function(r){return r.json();}).catch(function(){return {success:false};}),
+      // Canonical family + professionals INVENTORY counts for the legend (never viewport/pin-derived).
+      fetch('/api/public/marketplace/counts').then(function(r){return r.json();}).catch(function(){return {success:false};})
     ]).then(function(res){
-      var mk=res[0]||{}, ev=res[1]||{}, au=res[2]||{};
+      var mk=res[0]||{}, ev=res[1]||{}, au=res[2]||{}, cc=res[3]||{};
+      if(cc&&cc.success){ CANON_COUNTS={ families:cc.families||CANON_COUNTS.families, professionals:cc.professionals||CANON_COUNTS.professionals }; }
       var companyRecs=(mk.success&&mk.data?mk.data:[]).filter(function(r){ return r.lat!=null && r.lng!=null; });
       var eventRecs=(ev.success&&ev.data?ev.data:[]).filter(function(r){ return r.lat!=null && r.lng!=null; }).map(evToMp);
       EVENTS_MAP=eventRecs;                                       // for the drawer

@@ -22,6 +22,7 @@ const { buildLotSearch, clampInt } = require('../services/searchService');
 const { brandedColSql, brandingVisibleSql } = require('../lib/sellerBranding');
 const { organizerColSql } = require('../lib/organizerPrivacy');
 const { labelForFamily } = require('../lib/marketplaceVocabulary');
+const { canonicalCounts } = require('../lib/marketplaceVisibility');
 // Buyer-facing seller-identity columns: NULL unless the seller is a professional type WITH branding
 // enabled. Private/other/unknown are always anonymous. Applied at the query so buyer feeds never even
 // select hidden identity. (The public company DIRECTORY on advantage.bid is separate and NOT scrubbed.)
@@ -413,6 +414,22 @@ function resolveFeedGeo(q) {
   }
   return { lat, lng, hasGeo, radiusMi };
 }
+
+// GET /api/public/marketplace/counts — the CANONICAL family + professionals counts for the map key and
+// any surface that needs headline totals. Sourced from marketplaceVisibility.canonicalCounts (the single
+// source of truth) so the browser never computes independent totals. Counts are INVENTORY totals, not
+// map-pin/viewport counts: Auction Partner Events includes coordinate-less online auctions.
+router.get('/marketplace/counts', async (req, res, next) => {
+  try {
+    const c = await canonicalCounts(db);
+    res.set('Cache-Control', PUBLIC_CACHE);
+    res.json({
+      success: true,
+      families: c.families,          // advantage_auction | partner_event | estate_sale | marketplace (fixed-price)
+      professionals: c.professionals, // estate_sale_companies | auction_houses | appraisers | total (directory — NOT a family)
+    });
+  } catch (err) { next(err); }
+});
 
 router.get('/marketplace/feed', async (req, res, next) => {
   try {

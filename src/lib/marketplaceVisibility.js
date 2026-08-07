@@ -59,8 +59,23 @@ async function canonicalCounts(db) {
   const nativeAuctions = (await db.query(
     `SELECT count(*)::int AS n FROM auctions a WHERE ${activeNativeAuctionSql('a')}`)).rows[0].n;
 
-  const companies = (await db.query(
-    `SELECT count(*)::int AS n FROM organizations o WHERE ${activeMarketplaceCompanySql('o')}`)).rows[0].n;
+  // PROFESSIONALS directory (a SEPARATE concept from the Marketplace product family). Broken out by
+  // profession so the map key can show each category. profession_id: 3=auction houses, 4=estate-sale
+  // companies, 5=appraisers.
+  const prof = (await db.query(
+    `SELECT (o.bd_metadata->>'profession_id') AS pid, count(*)::int AS n FROM organizations o
+      WHERE ${activeMarketplaceCompanySql('o')} GROUP BY 1`)).rows;
+  const companies = prof.reduce((s, r) => s + r.n, 0);
+  const professionals = { estate_sale_companies: 0, auction_houses: 0, appraisers: 0, total: companies };
+  for (const r of prof) {
+    if (r.pid === '3') professionals.auction_houses += r.n;
+    else if (r.pid === '4') professionals.estate_sale_companies += r.n;
+    else if (r.pid === '5') professionals.appraisers += r.n;
+  }
+
+  // MARKETPLACE = fixed-price Advantage.Bid items ONLY (locked product rule). No such inventory table
+  // exists yet, so the count is authoritatively 0 — NEVER the professional-directory count.
+  const marketplaceItems = 0;
 
   return {
     events: {
@@ -71,13 +86,13 @@ async function canonicalCounts(db) {
       estate_sale_with_coords: estate.coord,
     },
     native_auctions: nativeAuctions,
-    marketplace_companies: companies,
-    // The four owner-locked marketplace families (Phase 5F vocabulary) as authoritative counts:
+    professionals,                                  // directory companies (NOT a product family)
+    // The four owner-locked customer-facing product families (locked vocabulary) as authoritative counts:
     families: {
-      advantage_auction: nativeAuctions,  // Advantage.Bid Auctions
-      partner_event: auction.n,           // Auction Partner Events
+      advantage_auction: nativeAuctions,  // Advantage.Bid Auctions (native hosted auctions)
+      partner_event: auction.n,           // Auction Partner Events (imported/partner auction EVENTS)
       estate_sale: estate.n,              // Estate Sales
-      marketplace: companies,             // Marketplace (directory)
+      marketplace: marketplaceItems,      // Marketplace = fixed-price items only (0 until implemented)
     },
     // Derived expectations for each canonical public API (what the integrity suite asserts):
     expect: {
@@ -86,7 +101,8 @@ async function canonicalCounts(db) {
       feed_estate_sales: estate.n,                            // /marketplace/feed?preset=estate-sales
       map_auction:  auction.coord,                            // /events/map counts.auction (coord-gated, events-only)
       map_estate_sale: estate.coord,                          // /events/map counts.estate_sale
-      marketplace_companies: companies,                       // /marketplace total
+      professionals_total: companies,                         // /marketplace total (directory, NOT Marketplace family)
+      marketplace_items: marketplaceItems,                    // Marketplace product family (fixed-price)
     },
     at: new Date().toISOString(),
   };

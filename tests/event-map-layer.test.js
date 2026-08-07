@@ -81,9 +81,9 @@ describe('map vs. list eligibility parity — coordless (online) events are list
 });
 
 describe('map client — event markers on the shared mp layer', () => {
-  test('defines EVENT TYPE categories (Auctions / Estate Sales) distinct from company pins', () => {
+  test('defines event marker categories (Auction Partner Events / Estate Sales) distinct from company pins', () => {
     expect(index).toMatch(/MP_EVENT_CATS = \[/);
-    expect(index).toMatch(/event_auction[\s\S]{0,40}Auctions/);
+    expect(index).toMatch(/event_auction[\s\S]{0,60}Auction Partner Events/);
     expect(index).toMatch(/event_estate_sale[\s\S]{0,40}Estate Sales/);
     expect(index).toMatch(/MP_ALL_CATS = MP_CATS\.concat\(MP_EVENT_CATS\)/);
   });
@@ -93,11 +93,14 @@ describe('map client — event markers on the shared mp layer', () => {
     expect(index).toMatch(/isEvent:true/);
     expect(index).toMatch(/EVENTS_MAP=eventRecs/);
   });
-  test('legend exposes the owner-locked families: Advantage.Bid Auctions, Events, Marketplace', () => {
-    expect(index).toMatch(/>Advantage\.Bid Auctions</);
-    expect(index).toMatch(/>Events</);
-    expect(index).toMatch(/>Marketplace</);
-    expect(index).toMatch(/MP_EVENT_CATS\.forEach[\s\S]{0,120}MP\.counts/);
+  test('legend exposes the five owner-locked sections with canonical inventory counts', () => {
+    expect(index).toMatch(/legendSec\('Advantage\.Bid Auctions'/);
+    expect(index).toMatch(/legendSec\('Auction Partner Events'/);
+    expect(index).toMatch(/legendSec\('Estate Sales'/);
+    expect(index).toMatch(/legendSec\('Marketplace'/);
+    expect(index).toMatch(/legendSec\('Professionals'/);
+    // Auction Partner Events count comes from the CANONICAL family total, never map pins.
+    expect(index).toMatch(/'Auction Partner Events',f\.partner_event\|\|0/);
   });
   test('event marker opens an event preview → canonical event page (View Event), not the discovery source', () => {
     expect(index).toMatch(/function mpEventCardHTML/);

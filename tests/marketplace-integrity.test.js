@@ -6,15 +6,18 @@
 const { canonicalCounts, activeEventSql, activeNativeAuctionSql } = require('../src/lib/marketplaceVisibility');
 const { verify, formatReport } = require('../src/services/marketplaceIntegrity');
 
-// A db whose canonicalCounts queries return the given event rows + native-auction + company counts.
-function fakeDb(eventRows, nativeN, companiesN = 7) {
+// A db whose canonicalCounts queries return event rows + native-auction count + professionals rows.
+// profRows: [{ pid, n }] for the professionals GROUP BY (default: 7 estate-sale companies).
+function fakeDb(eventRows, nativeN, profRows) {
+  profRows = profRows || [{ pid: '4', n: 7 }];
   return { query: async (sql) => {
     if (/FROM events e/.test(sql)) return { rows: eventRows };
     if (/FROM auctions a/.test(sql)) return { rows: [{ n: nativeN }] };
-    if (/FROM organizations o/.test(sql)) return { rows: [{ n: companiesN }] };
+    if (/FROM organizations o/.test(sql)) return { rows: profRows };
     return { rows: [] };
   } };
 }
+const PROF_TOTAL = (profRows) => (profRows || [{ pid: '4', n: 7 }]).reduce((s, r) => s + r.n, 0);
 // A fetch keyed by URL substring → { ok, status, text() }. Missing entries → 404.
 function fakeFetch(map) {
   return async (url) => {
@@ -35,13 +38,14 @@ describe('marketplaceVisibility — one canonical definition', () => {
     expect(activeEventSql('e')).toBe("e.status = 'published' AND (e.end_at IS NULL OR e.end_at >= now())");
     expect(activeNativeAuctionSql('a')).toMatch(/a\.state IN \('published','active'\).*a\.is_archived IS NOT TRUE.*a\.marketplace_status = 'syndicated'/);
   });
-  test('canonicalCounts tallies the four families + native auctions and derives per-API expectations', async () => {
-    const c = await canonicalCounts(fakeDb(EVENTS, 3, 9));
-    expect(c.events).toMatchObject({ auction: 55, estate_sale: 2, total: 57, auction_with_coords: 0, estate_sale_with_coords: 2 });
+  test('families: Marketplace is fixed-price (0), GSA-style auctions count as partner_event not advantage_auction', async () => {
+    const c = await canonicalCounts(fakeDb(EVENTS, 3, [{ pid: '4', n: 5 }, { pid: '3', n: 3 }, { pid: '5', n: 1 }]));
+    // 55 auction EVENTS are Auction Partner Events, NOT Advantage.Bid Auctions (which is the 3 native).
+    expect(c.families).toEqual({ advantage_auction: 3, partner_event: 55, estate_sale: 2, marketplace: 0 });
     expect(c.native_auctions).toBe(3);
-    expect(c.marketplace_companies).toBe(9);
-    expect(c.families).toEqual({ advantage_auction: 3, partner_event: 55, estate_sale: 2, marketplace: 9 });
-    expect(c.expect).toMatchObject({ feed_all_events: 60, feed_auctions: 58, feed_estate_sales: 2, map_auction: 0, map_estate_sale: 2, marketplace_companies: 9 });
+    // Professionals is a SEPARATE directory concept (never the Marketplace family count).
+    expect(c.professionals).toEqual({ estate_sale_companies: 5, auction_houses: 3, appraisers: 1, total: 9 });
+    expect(c.expect).toMatchObject({ feed_auctions: 58, professionals_total: 9, marketplace_items: 0 });
   });
 });
 
@@ -51,9 +55,10 @@ const okFetch = () => fakeFetch({
   'preset=auctions&page=1&pageSize=1': { total: 55 },
   'preset=estate-sales&page=1&pageSize=1': { total: 2 },
   '/events/map': { counts: { auction: 0, estate_sale: 2 } },
-  '/api/public/marketplace': { total: 7, data: [] },
   'preset=all-events&page=1&pageSize=12': { total: 57, data: Array.from({ length: 12 }, () => ({ type: 'auction' })) },
   'preset=auctions&page=1&pageSize=12': AUC_ITEMS,
+  '/api/public/marketplace/counts': { success: true, families: { advantage_auction: 0, partner_event: 55, estate_sale: 2, marketplace: 0 }, professionals: { estate_sale_companies: 7, auction_houses: 0, appraisers: 0, total: 7 } },
+  '/api/public/marketplace': { total: 7, data: [] },
   '/sitemap.xml': '<urlset><url><loc>https://bid.advantage.bid/event.html?slug=x</loc></url></urlset>',
   '/api/public/events?limit=1': { data: [{ slug: 'sample-event' }] },
   '/event.html?slug=sample-event': '<link rel="canonical" href="..."><script type="application/ld+json">{"@type":"Event"}</script>',

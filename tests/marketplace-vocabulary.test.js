@@ -37,19 +37,53 @@ describe('feed API exposes the family + owner-locked family_label (additive, bac
   });
 });
 
-describe('homepage map legend uses the four labels + drops "Other Estate…" + tooltips', () => {
-  test('the four locked labels appear in the legend', () => {
-    expect(index).toMatch(/>Advantage\.Bid Auctions</);
-    expect(index).toMatch(/Auction Partner Events/);
-    expect(index).toMatch(/label:'Estate Sales'/);
-    expect(index).toMatch(/>Marketplace</);
+describe('homepage map legend — five owner-locked sections, canonical counts, tooltips', () => {
+  test('sections: Advantage.Bid Auctions, Auction Partner Events, Estate Sales, Marketplace, Professionals', () => {
+    for (const s of ['Advantage\\.Bid Auctions', 'Auction Partner Events', 'Estate Sales', 'Marketplace', 'Professionals']) {
+      expect(index).toMatch(new RegExp("legendSec\\('" + s + "'"));
+    }
   });
-  test('the confusing "Other Estate Services" row is excluded from the legend', () => {
-    expect(index).toMatch(/c\.key!=='estate_services'/);       // filtered out of the rendered legend
+  test('family counts come from CANONICAL inventory (CANON_COUNTS.families), NOT map pins/viewport', () => {
+    expect(index).toMatch(/marketplace\/counts/);                     // fetched from the canonical endpoint
+    expect(index).toMatch(/'Auction Partner Events',f\.partner_event/); // partner_event inventory total
+    expect(index).toMatch(/'Estate Sales',f\.estate_sale/);
+    expect(index).toMatch(/'Marketplace',f\.marketplace/);            // Marketplace = fixed-price family, not directory
   });
-  test('legend rows carry hover tooltips (helper text replaced by title=)', () => {
+  test('Professionals is a SEPARATE section (directory), counts from professionals.*', () => {
+    expect(index).toMatch(/legendSec\('Professionals'/);
+    expect(index).toMatch(/pr\[c\.key\]/);                            // professional rows use professionals counts
+  });
+  test('the confusing "Other Estate Services" row is excluded', () => {
+    expect(index).toMatch(/c\.key!=='estate_services'/);
+  });
+  test('tooltips: hover + keyboard focus (title on rows and sections, tabindex on sections)', () => {
     expect(index).toMatch(/LEGEND_TIPS/);
     expect(index).toMatch(/title="'\+esc\(tip\)\+'"/);
+    expect(index).toMatch(/legendSec\(label,tip\)\{[\s\S]{0,120}tabindex="0" title=/);
+  });
+});
+
+describe('canonical counts endpoint + Marketplace-vs-Professionals rule', () => {
+  test('/api/public/marketplace/counts exposes families + professionals from canonicalCounts', () => {
+    expect(publicRoutes).toMatch(/\/marketplace\/counts/);
+    expect(publicRoutes).toMatch(/families: c\.families/);
+    expect(publicRoutes).toMatch(/professionals: c\.professionals/);
+    expect(publicRoutes).toMatch(/canonicalCounts/);
+  });
+});
+
+describe('MARKETPLACE_ARCHITECTURE.md exists at repo root with the locked rules', () => {
+  const p = path.join(__dirname, '..', 'MARKETPLACE_ARCHITECTURE.md');
+  test('the permanent architecture document exists', () => {
+    expect(fs.existsSync(p)).toBe(true);
+  });
+  test('documents the four families + Marketplace=fixed-price + Professionals separate + no viewport counts', () => {
+    const md = fs.readFileSync(p, 'utf8');
+    for (const s of ['Advantage.Bid Auctions', 'Auction Partner Events', 'Estate Sales', 'Marketplace']) expect(md).toContain(s);
+    expect(md).toMatch(/fixed-price/i);
+    expect(md).toMatch(/Professionals/);
+    expect(md).toMatch(/never.*map pins|never.*viewport|not.*from map pins/i);
+    expect(md).toMatch(/GSA.*partner_event|partner_event.*GSA/i);
   });
 });
 
