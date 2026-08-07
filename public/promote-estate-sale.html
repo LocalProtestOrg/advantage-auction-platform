@@ -11,61 +11,52 @@
 <meta property="og:description" content="Advertise your estate sale to nearby shoppers. One-time $39. No subscription." />
 <meta property="og:type" content="website" />
 <meta property="og:url" content="https://bid.advantage.bid/promote-estate-sale.html" />
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content="Promote Your Estate Sale for $39 - Advantage.Bid" />
+<meta name="twitter:description" content="Advertise your estate sale to nearby shoppers. One-time $39. No subscription." />
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/widgets/shared/onboarding.css" />
 <script type="application/ld+json">
 { "@context":"https://schema.org","@type":"Service","name":"Estate Sale Promotion","serviceType":"Estate sale advertising",
   "provider":{"@type":"Organization","name":"Advantage.Bid","url":"https://bid.advantage.bid"},
   "areaServed":"US","description":"Advertise a single estate sale to nearby shoppers on Advantage.Bid.",
   "offers":{"@type":"Offer","price":"39.00","priceCurrency":"USD","url":"https://bid.advantage.bid/promote-estate-sale.html"} }
 </script>
+<script type="application/ld+json">
+{ "@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[
+  {"@type":"ListItem","position":1,"name":"Advantage.Bid","item":"https://bid.advantage.bid/"},
+  {"@type":"ListItem","position":2,"name":"Promote Your Estate Sale","item":"https://bid.advantage.bid/promote-estate-sale.html"}]}
+</script>
 <style>
-  :root{--ink:#0B1B2B;--paper:#FBFAF7;--surface:#fff;--muted:#5b6b7e;--hair:#ECE8E0;--accent:#2F6BFF;--live:#B5273B;--ok:#16A34A;--serif:"Fraunces",Georgia,serif}
-  *{box-sizing:border-box}
-  body{margin:0;background:var(--paper);color:var(--ink);font-family:system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;-webkit-font-smoothing:antialiased;line-height:1.5}
-  a{color:var(--accent);text-decoration:none}
-  .wrap{max-width:820px;margin:0 auto;padding:0 18px}
-  .hero{text-align:center;padding:54px 18px 34px}
-  .kick{font-size:12.5px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--live)}
-  h1{font-family:var(--serif);font-weight:700;font-size:clamp(30px,6vw,46px);line-height:1.08;margin:12px 0 10px;letter-spacing:-.01em}
-  .lede{font-size:18px;color:#33414f;max-width:60ch;margin:0 auto 8px}
-  .price{font-family:var(--serif);font-weight:700;font-size:22px;margin:18px 0 4px}.price b{color:var(--live)}
-  .subprice{font-size:13.5px;color:var(--muted)}
-  .cta{display:inline-flex;align-items:center;gap:9px;background:var(--live);color:#fff;font-weight:800;font-size:17px;border:0;border-radius:12px;padding:15px 28px;cursor:pointer;margin-top:20px;box-shadow:0 10px 26px rgba(181,39,59,.28);text-decoration:none}
-  .cta:hover{filter:brightness(1.06)}
-  .msg{font-size:13.5px;margin-top:12px;min-height:1em}.msg.err{color:var(--live)}
-  .banner{max-width:560px;margin:18px auto 0;background:#fff7ed;border:1px solid #fed7aa;color:#9a3412;border-radius:10px;padding:10px 14px;font-size:14px}
-  .grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:20px 0 8px}
-  @media(max-width:640px){.grid{grid-template-columns:1fr}}
-  .card{background:var(--surface);border:1px solid var(--hair);border-radius:14px;padding:18px 20px}
-  .card h3{font-family:var(--serif);font-weight:600;font-size:17px;margin:0 0 6px}
-  .card p{font-size:14.5px;color:#475569;margin:0}
-  .incl{background:var(--surface);border:1px solid var(--hair);border-radius:16px;padding:22px 24px;margin:14px 0}
-  .incl h2{font-family:var(--serif);font-weight:600;font-size:20px;margin:0 0 12px}
-  .incl ul{list-style:none;margin:0;padding:0}
-  .incl li{position:relative;padding:7px 0 7px 30px;font-size:15.5px}
-  .incl li::before{content:"✓";position:absolute;left:0;top:7px;color:var(--ok);font-weight:800}
-  .steps{display:flex;gap:12px;flex-wrap:wrap;justify-content:center;margin:8px 0 4px;color:var(--muted);font-size:13.5px}
-  .steps b{color:var(--ink)}
-  .section{text-align:center;padding:22px 0}
-  .foot{border-top:1px solid var(--hair);margin-top:30px;padding:22px 0 40px;text-align:center;color:#94a3b8;font-size:13px}
-  .foot a{color:var(--muted)}
+  /* Page-specific accents on top of the shared onboarding design system. */
+  .price{font-family:var(--ob-serif);font-weight:700;font-size:22px;margin:18px 0 4px}.price b{color:var(--ob-live)}
+  .subprice{font-size:13.5px;color:var(--ob-muted)}
+  .banner{max-width:560px;margin:18px auto 0;background:#fff7ed;border:1px solid #fed7aa;color:var(--ob-warn);border-radius:10px;padding:10px 14px;font-size:14px}
+  .msg{font-size:13.5px;margin-top:12px;min-height:1em}.msg.err{color:var(--ob-live)}
 </style>
 </head>
-<body>
-  <div class="wrap">
-    <div class="hero">
-      <div class="kick">Estate Sale Promotion</div>
-      <h1>Promote your estate sale to nearby shoppers</h1>
-      <p class="lede">Reach families and collectors looking for estate sales in your area. We put your sale on the map, in search, and in front of the right shoppers.</p>
+<body class="ob-body">
+  <div class="ob-wrap">
+    <div class="ob-hero">
+      <div class="ob-kick">Estate Sale Promotion</div>
+      <h1 class="ob-h1">Promote your estate sale to nearby shoppers</h1>
+      <p class="ob-lede">Reach families and collectors looking for estate sales in your area. We put your sale on the map, in search, and in front of the right shoppers.</p>
       <div class="price">One flat fee of <b>$39</b></div>
       <div class="subprice">One-time payment. No subscription. No membership.</div>
-      <button class="cta" id="cta" type="button">Promote My Estate Sale</button>
+      <div><button class="ob-cta ob-cta-live" id="cta" type="button" style="margin-top:20px">Promote My Estate Sale</button></div>
       <div class="msg" id="msg"></div>
       <div class="banner" id="canceledNote" style="display:none">No worries — you weren't charged. You can start whenever you're ready.</div>
     </div>
 
-    <div class="incl">
+    <!-- The first screen answers the three questions before the visitor scrolls. -->
+    <div class="ob-answers">
+      <div class="ob-ans"><p class="ob-ans-q">What am I doing?</p><p class="ob-ans-a">Advertising one estate sale to nearby shoppers for a one-time $39.</p></div>
+      <div class="ob-ans"><p class="ob-ans-q">What happens next?</p><p class="ob-ans-a">Pay once, add your sale details and photos, we review it, and it goes live.</p></div>
+      <div class="ob-ans"><p class="ob-ans-q">Will my info be public?</p><p class="ob-ans-a">Your sale listing is public; your personal account details are never published.</p></div>
+    </div>
+
+    <div class="ob-incl">
       <h2>What's included</h2>
       <ul>
         <li>A dedicated listing page for your estate sale on Advantage.Bid</li>
@@ -77,19 +68,19 @@
       </ul>
     </div>
 
-    <div class="grid">
-      <div class="card"><h3>Why Advantage.Bid</h3><p>Shoppers come to us specifically to discover estate sales, auctions, and liquidation events near them. Your sale sits right where they're already looking.</p></div>
-      <div class="card"><h3>Simple and quick</h3><p>Pay once, tell us about your sale, and submit it for review. Most listings are reviewed within one business day.</p></div>
-      <div class="card"><h3>Found everywhere</h3><p>Your published sale appears on our map, in search results, and is structured so Google and AI search tools can surface it.</p></div>
-      <div class="card"><h3>No strings attached</h3><p>This is a one-time $39 promotion for a single estate sale. There's no recurring bill and nothing to cancel.</p></div>
+    <div class="ob-grid">
+      <div class="ob-card"><h3>Why Advantage.Bid</h3><p>Shoppers come to us specifically to discover estate sales, auctions, and liquidation events near them. Your sale sits right where they're already looking.</p></div>
+      <div class="ob-card"><h3>Simple and quick</h3><p>Pay once, tell us about your sale, and submit it for review. Most listings are reviewed within one business day.</p></div>
+      <div class="ob-card"><h3>Found everywhere</h3><p>Your published sale appears on our map, in search results, and is structured so Google and AI search tools can surface it.</p></div>
+      <div class="ob-card"><h3>No strings attached</h3><p>This is a one-time $39 promotion for a single estate sale. There's no recurring bill and nothing to cancel.</p></div>
     </div>
 
-    <div class="section">
-      <div class="steps"><span><b>1.</b> Pay $39</span> <span><b>2.</b> Tell us about your sale</span> <span><b>3.</b> We review it</span> <span><b>4.</b> It goes live</span></div>
-      <button class="cta" id="cta2" type="button">Promote My Estate Sale</button>
+    <div class="ob-section">
+      <div class="ob-steps"><span><b>1.</b> Pay $39</span> <span><b>2.</b> Tell us about your sale</span> <span><b>3.</b> We review it</span> <span><b>4.</b> It goes live</span></div>
+      <div><button class="ob-cta ob-cta-live" id="cta2" type="button" style="margin-top:14px">Promote My Estate Sale</button></div>
     </div>
 
-    <div class="foot">
+    <div class="ob-foot">
       <a href="/terms.html">Terms of Use</a> &nbsp;·&nbsp; <a href="/privacy.html">Privacy Policy</a> &nbsp;·&nbsp; <a href="mailto:info@advantage.bid">Contact Us</a>
       <div style="margin-top:8px">© <span id="yr">2026</span> Advantage Auction Company</div>
     </div>

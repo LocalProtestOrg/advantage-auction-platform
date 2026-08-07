@@ -6,40 +6,31 @@
   <meta name="robots" content="noindex" />
   <title>Become a Seller - Advantage.Bid</title>
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-  <style>
-    * { box-sizing: border-box; }
-    body { font-family: -apple-system, Segoe UI, Roboto, sans-serif; margin: 0; background: #f1f5f9; color: #1f2937; }
-    .wrap { max-width: 560px; margin: 2rem auto; padding: 0 1rem; }
-    .card { background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 1.5rem 1.6rem; }
-    h1 { font-size: 1.4rem; margin: 0 0 0.4rem; }
-    .sub { color: #64748b; font-size: 0.92rem; line-height: 1.55; margin: 0 0 1.2rem; }
-    .steps { display: flex; gap: 0.5rem; font-size: 0.74rem; color: #64748b; margin-bottom: 1.2rem; flex-wrap: wrap; }
-    .steps span { background: #eff6ff; border: 1px solid #bfdbfe; color: #1e3a8a; border-radius: 999px; padding: 0.2rem 0.7rem; }
-    label { display: block; font-size: 0.84rem; color: #334155; font-weight: 600; margin: 1rem 0 0.3rem; }
-    input[type=text], input[type=tel], select { width: 100%; padding: 0.6rem 0.7rem; border: 1px solid #cbd5e1; border-radius: 7px; font: inherit; }
-    .hint { font-size: 0.78rem; color: #94a3b8; margin: 0.3rem 0 0; }
-    button { background: #2563eb; color: #fff; border: 0; border-radius: 8px; padding: 0.75rem 1.3rem; font: inherit; font-weight: 600; cursor: pointer; margin-top: 1.4rem; width: 100%; }
-    button[disabled] { opacity: 0.5; cursor: not-allowed; }
-    .err { color: #dc2626; font-size: 0.86rem; margin-top: 0.8rem; }
-    .ok { color: #166534; }
-    .reassure { background: #f8fafc; border: 1px solid #e5e7eb; border-radius: 8px; padding: 0.85rem 1rem; font-size: 0.82rem; color: #475569; line-height: 1.5; margin-top: 1.3rem; }
-    a { color: #2563eb; }
-  </style>
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/widgets/shared/onboarding.css" />
 </head>
-<body>
-  <div class="wrap">
-    <p style="margin:0 0 1rem"><a href="/app.html" style="font-size:0.86rem;font-weight:600;text-decoration:none">&larr; Return to dashboard</a></p>
-    <div class="card">
-      <div id="loading" class="sub">Loading…</div>
+<body class="ob-body">
+  <div class="ob-topbar"><a class="ob-back" href="/app.html">&larr; Return to dashboard</a></div>
+  <div class="ob-wrap ob-narrow" style="padding-bottom:40px">
+    <div id="loading" class="ob-lede" style="text-align:center;padding:46px 0">Loading…</div>
 
-      <div id="form-wrap" style="display:none">
-        <h1>Become a Seller</h1>
-        <p class="sub">Turn your account into a seller account. Complete your seller profile and accept the seller agreement, and your seller dashboard is enabled immediately. No application, no approval queue, no waiting.</p>
-        <div class="steps">
-          <span>1 · Complete profile</span>
-          <span>2 · Accept agreement</span>
-          <span>3 · Start building</span>
-        </div>
+    <div id="form-wrap" style="display:none">
+      <div class="ob-hero" style="padding:24px 0 6px">
+        <div class="ob-kick">Start selling</div>
+        <h1 class="ob-h1" style="font-size:clamp(26px,5vw,34px)">Become a Seller</h1>
+        <p class="ob-lede">Turn your account into a seller account in minutes — no application, no approval queue, no waiting.</p>
+      </div>
+
+      <!-- The first screen answers the three questions before the visitor scrolls. -->
+      <div class="ob-answers">
+        <div class="ob-ans"><p class="ob-ans-q">What am I doing?</p><p class="ob-ans-a">Enabling your seller dashboard so you can create auctions and events.</p></div>
+        <div class="ob-ans"><p class="ob-ans-q">What happens next?</p><p class="ob-ans-a">Complete your profile, accept the seller agreement, and your dashboard is enabled right away.</p></div>
+        <div class="ob-ans"><p class="ob-ans-q">Will my info be public?</p><p class="ob-ans-a">No — your personal profile stays private. Only the auctions and events you publish are shown.</p></div>
+      </div>
+
+      <div class="ob-panel ob-form" style="margin-top:16px">
+        <div class="ob-steps" style="justify-content:flex-start;margin:0 0 6px"><span><b>1.</b> Complete profile</span><span><b>2.</b> Accept agreement</span><span><b>3.</b> Start building</span></div>
 
         <label for="seller-type">What best describes you?</label>
         <select id="seller-type">
@@ -48,26 +39,31 @@
           <option value="other">Other</option>
         </select>
 
-        <label for="legal-name">Your full legal name <span style="color:#dc2626">*</span></label>
+        <label for="legal-name">Your full legal name <span class="req">*</span></label>
         <input type="text" id="legal-name" placeholder="e.g. Jane Q. Seller" />
-        <p class="hint">Used on your seller agreement and payout records.</p>
+        <p class="ob-hint">Used on your seller agreement and payout records. Never shown publicly.</p>
 
-        <label for="phone">Phone <span style="color:#dc2626">*</span></label>
+        <label for="phone">Phone <span class="req">*</span></label>
         <input type="tel" id="phone" placeholder="(555) 555-1234" />
-        <p class="hint">So Advantage can reach you about your auction. Stored on your account; not shown publicly.</p>
+        <p class="ob-hint">So we can reach you about your auction. Stored on your account; not shown publicly.</p>
 
-        <button id="submit-btn" type="button">Continue to seller agreement →</button>
-        <div class="err" id="form-err"></div>
+        <button id="submit-btn" type="button" class="ob-cta ob-cta-full" style="margin-top:18px">Continue to seller agreement →</button>
+        <div class="ob-err" id="form-err"></div>
 
-        <div class="reassure">
-          <strong>No identity verification required to start.</strong> You can build and submit your first auction right away. Advantage may request verification later only if risk indicators appear (e.g. chargebacks or unusually high-value activity).
+        <div class="ob-callout ob-privacy" style="margin-top:16px">
+          <strong>Your profile stays private.</strong> Your personal information is never published as a searchable profile — only the auctions and events you choose to publish are visible. No identity verification is required to start; we may request it later only if risk indicators appear.
         </div>
       </div>
+    </div>
 
-      <div id="need-login" style="display:none">
-        <h1>Sign in to continue</h1>
-        <p class="sub">You need an account before you can enable selling. Sign in or create a free account first. It only takes a moment.</p>
-        <a id="login-link" href="/login.html"><button type="button">Sign in / Create account</button></a>
+    <div id="need-login" style="display:none">
+      <div class="ob-hero" style="padding:24px 0 6px">
+        <div class="ob-kick">Start selling</div>
+        <h1 class="ob-h1" style="font-size:clamp(26px,5vw,34px)">Sign in to continue</h1>
+        <p class="ob-lede">You need an account before you can enable selling. Sign in or create a free account — it only takes a moment.</p>
+      </div>
+      <div class="ob-panel" style="text-align:center">
+        <a id="login-link" href="/login.html" class="ob-cta">Sign in / Create account</a>
       </div>
     </div>
   </div>

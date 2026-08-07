@@ -1,0 +1,106 @@
+/* ==========================================================================
+   Advantage.Bid Onboarding Design System (Phase 6A)
+   The single, governing visual language for every onboarding / conversion page.
+   Codified from the refined estate-sale-promotion brand. Use these `ob-` classes;
+   do not reinvent per-page styles. Self-contained (prefixed) so it never collides.
+   ========================================================================== */
+
+:root{
+  --ob-ink:#0B1B2B; --ob-paper:#FBFAF7; --ob-surface:#fff; --ob-muted:#5b6b7e;
+  --ob-hair:#ECE8E0; --ob-accent:#2F6BFF; --ob-accent-ink:#1e46b8; --ob-live:#B5273B;
+  --ob-ok:#16A34A; --ob-warn:#9a3412; --ob-serif:"Fraunces",Georgia,serif;
+  --ob-body:system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
+  --ob-maxw:860px; --ob-radius:14px; --ob-radius-lg:18px;
+  --ob-shadow:0 10px 30px -12px rgba(11,27,43,.18); --ob-shadow-cta:0 10px 26px rgba(47,107,255,.26);
+}
+
+.ob-body{margin:0;background:var(--ob-paper);color:var(--ob-ink);font-family:var(--ob-body);-webkit-font-smoothing:antialiased;line-height:1.55}
+.ob-body *{box-sizing:border-box}
+.ob-body a{color:var(--ob-accent);text-decoration:none}
+.ob-body a:hover{text-decoration:underline}
+.ob-wrap{max-width:var(--ob-maxw);margin:0 auto;padding:0 18px}
+.ob-narrow{max-width:600px}
+
+/* Top bar / back link */
+.ob-topbar{max-width:var(--ob-maxw);margin:0 auto;padding:16px 18px 0}
+.ob-back{font-size:14px;font-weight:600;color:var(--ob-muted)}
+
+/* Hero */
+.ob-hero{text-align:center;padding:48px 18px 30px}
+.ob-kick{font-size:12.5px;font-weight:800;letter-spacing:.09em;text-transform:uppercase;color:var(--ob-live)}
+.ob-hero h1,.ob-h1{font-family:var(--ob-serif);font-weight:700;font-size:clamp(30px,6vw,46px);line-height:1.08;letter-spacing:-.01em;margin:12px 0 10px;text-wrap:balance}
+.ob-lede{font-size:18px;color:#33414f;max-width:60ch;margin:0 auto 8px}
+
+/* The first-screen "three answers" — every onboarding page answers these before scroll */
+.ob-answers{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:22px 0 6px}
+.ob-answers .ob-ans{background:var(--ob-surface);border:1px solid var(--ob-hair);border-radius:12px;padding:14px 16px;text-align:left}
+.ob-ans .ob-ans-q{font-size:11.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--ob-muted);margin:0 0 4px}
+.ob-ans .ob-ans-a{font-size:14.5px;color:var(--ob-ink);margin:0}
+@media(max-width:640px){.ob-answers{grid-template-columns:1fr}}
+
+/* Buttons — one primary, one secondary, used everywhere */
+.ob-cta{display:inline-flex;align-items:center;justify-content:center;gap:9px;background:var(--ob-accent);color:#fff;font-weight:800;font-size:17px;font-family:var(--ob-body);border:0;border-radius:12px;padding:15px 28px;cursor:pointer;box-shadow:var(--ob-shadow-cta);text-decoration:none}
+.ob-cta:hover{filter:brightness(1.06);text-decoration:none}
+.ob-cta[disabled]{opacity:.55;cursor:not-allowed;box-shadow:none}
+.ob-cta.ob-cta-live{background:var(--ob-live);box-shadow:0 10px 26px rgba(181,39,59,.26)}
+.ob-cta-2{display:inline-flex;align-items:center;gap:8px;background:transparent;color:var(--ob-accent);font-weight:700;font-size:15px;border:1px solid #cdd7e6;border-radius:11px;padding:12px 20px;cursor:pointer;text-decoration:none}
+.ob-cta-2:hover{background:#f3f6fc;text-decoration:none}
+.ob-cta-full{width:100%}
+
+/* Cards & feature grid */
+.ob-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:20px 0 8px}
+@media(max-width:640px){.ob-grid{grid-template-columns:1fr}}
+.ob-card{background:var(--ob-surface);border:1px solid var(--ob-hair);border-radius:var(--ob-radius);padding:18px 20px}
+.ob-card h3{font-family:var(--ob-serif);font-weight:600;font-size:17px;margin:0 0 6px}
+.ob-card p{font-size:14.5px;color:#475569;margin:0}
+
+/* Included / benefit checklist */
+.ob-incl{background:var(--ob-surface);border:1px solid var(--ob-hair);border-radius:var(--ob-radius-lg);padding:22px 24px;margin:14px 0}
+.ob-incl h2{font-family:var(--ob-serif);font-weight:600;font-size:20px;margin:0 0 12px}
+.ob-incl ul{list-style:none;margin:0;padding:0}
+.ob-incl li{position:relative;padding:7px 0 7px 30px;font-size:15.5px}
+.ob-incl li::before{content:"✓";position:absolute;left:0;top:7px;color:var(--ob-ok);font-weight:800}
+
+/* Process steps */
+.ob-steps{display:flex;gap:12px;flex-wrap:wrap;justify-content:center;margin:8px 0 4px;color:var(--ob-muted);font-size:13.5px}
+.ob-steps span{background:#fff;border:1px solid var(--ob-hair);border-radius:999px;padding:6px 12px}
+.ob-steps b{color:var(--ob-ink)}
+
+/* Callouts — privacy (private/pro), success, warning */
+.ob-callout{border-radius:12px;padding:14px 16px;font-size:14.5px;line-height:1.55;margin:16px 0;border:1px solid}
+.ob-callout strong{font-weight:700}
+.ob-callout.ob-privacy{background:#f4f8ff;border-color:#d5e2fb;color:#294a86}
+.ob-callout.ob-privacy-pro{background:#f2fbf5;border-color:#c9ecd5;color:#1a6b3a}
+.ob-callout.ob-success{background:#f2fbf5;border-color:#c9ecd5;color:#166534}
+.ob-callout.ob-warn{background:#fff7ed;border-color:#fed7aa;color:var(--ob-warn)}
+
+/* Forms */
+.ob-form label{display:block;font-size:13.5px;color:#334155;font-weight:600;margin:16px 0 5px}
+.ob-form .req{color:var(--ob-live)}
+.ob-form input[type=text],.ob-form input[type=tel],.ob-form input[type=email],.ob-form select,.ob-form textarea{
+  width:100%;padding:11px 12px;border:1px solid #cbd5e1;border-radius:9px;font:inherit;background:#fff;color:var(--ob-ink)}
+.ob-form input:focus,.ob-form select:focus,.ob-form textarea:focus{outline:2px solid var(--ob-accent);outline-offset:1px;border-color:var(--ob-accent)}
+.ob-hint{font-size:12.5px;color:#94a3b8;margin:5px 0 0}
+.ob-err{color:var(--ob-live);font-size:14px;margin-top:12px;min-height:1em}
+
+/* Panel (a single centered card page, e.g. a funnel form) */
+.ob-panel{background:var(--ob-surface);border:1px solid var(--ob-hair);border-radius:var(--ob-radius-lg);padding:26px 26px;box-shadow:var(--ob-shadow)}
+
+/* FAQ */
+.ob-faq{margin:18px 0}
+.ob-faq details{background:var(--ob-surface);border:1px solid var(--ob-hair);border-radius:12px;padding:2px 16px;margin:10px 0}
+.ob-faq summary{cursor:pointer;font-weight:700;font-size:15.5px;padding:12px 0;list-style:none}
+.ob-faq summary::-webkit-details-marker{display:none}
+.ob-faq summary::after{content:"+";float:right;color:var(--ob-muted);font-weight:800}
+.ob-faq details[open] summary::after{content:"–"}
+.ob-faq details p{margin:0 0 14px;color:#475569;font-size:14.5px}
+
+/* Section + footer */
+.ob-section{text-align:center;padding:24px 0}
+.ob-section h2{font-family:var(--ob-serif);font-weight:600;font-size:clamp(22px,4vw,28px);margin:0 0 8px}
+.ob-foot{border-top:1px solid var(--ob-hair);margin-top:30px;padding:22px 0 44px;text-align:center;color:#94a3b8;font-size:13px}
+.ob-foot a{color:var(--ob-muted)}
+
+/* Accessibility + motion */
+.ob-body :focus-visible{outline:2px solid var(--ob-accent);outline-offset:2px;border-radius:4px}
+@media (prefers-reduced-motion: reduce){.ob-body *{transition:none!important;animation:none!important}}
