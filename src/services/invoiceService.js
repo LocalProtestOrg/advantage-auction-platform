@@ -1,4 +1,5 @@
 const db = require('../db');
+const billingTerms = require('./billingTermsService');
 
 // Phase 2C: invoices are keyed by the natural pair (lot_id, buyer_user_id) — a lot
 // has a single winner, so that pair uniquely identifies a buyer's invoice. This lets
@@ -11,17 +12,19 @@ const db = require('../db');
 // if one already exists for (lot_id, buyer_user_id) it is left untouched. Returns
 // the row ONLY when newly inserted (so the caller can email just the new ones);
 // returns undefined when an invoice already existed.
-async function createIssuedInvoice(client, { auctionId, lotId, buyerUserId, amountCents }) {
-  const amount = amountCents || 0;
+async function createIssuedInvoice(client, { auctionId, lotId, buyerUserId, amountCents, buyerPremiumCents }) {
+  const hammer = amountCents || 0;
+  const premium = buyerPremiumCents || 0;              // authoritative lot-level buyer premium (0 for legacy callers)
+  const total = hammer + premium;
   const { rows } = await (client || db).query(
     `INSERT INTO invoices
        (payment_id, buyer_user_id, auction_id, lot_id, amount_cents,
         hammer_cents, buyer_premium_cents, sales_tax_cents, shipping_cents, total_cents, status)
      VALUES (NULL, $1, $2, $3, $4,
-             $4, 0, 0, 0, $4, 'issued')
+             $5, $6, 0, 0, $4, 'issued')
      ON CONFLICT (lot_id, buyer_user_id) DO NOTHING
      RETURNING *`,
-    [buyerUserId, auctionId, lotId, amount]
+    [buyerUserId, auctionId, lotId, total, hammer, premium]
   );
   return rows[0]; // undefined if it already existed
 }
@@ -41,10 +44,9 @@ async function createInvoice(client, payment) {
              $5, 0, 0, 0, $5, 'paid')
      ON CONFLICT (lot_id, buyer_user_id) DO UPDATE
        SET status       = 'paid',
-           payment_id   = EXCLUDED.payment_id,
-           amount_cents = EXCLUDED.amount_cents,
-           hammer_cents = EXCLUDED.hammer_cents,
-           total_cents  = EXCLUDED.total_cents
+           payment_id   = EXCLUDED.payment_id
+       -- Preserve the authoritative hammer / buyer_premium / total split written at issuance;
+       -- a payment-success only links the payment and flips status (never re-flattens the amounts).
      RETURNING *`,
     [payment.id, payment.buyer_user_id, payment.auction_id, payment.lot_id, amount]
   );
@@ -66,6 +68,9 @@ async function issueInvoicesForAuctionWinners(auctionId) {
         AND winning_amount_cents IS NOT NULL`,
     [auctionId]
   );
+  // Effective buyer-premium bps for THIS auction (individual → fixed 18%; professional → their rate).
+  // Resolved once; each lot's premium is computed from its own hammer via the authoritative model.
+  const terms = await billingTerms.resolveEffectiveTerms(auctionId);
   const createdIds = [];
   for (const w of winners) {
     try {
@@ -74,6 +79,7 @@ async function issueInvoicesForAuctionWinners(auctionId) {
         lotId: w.lot_id,
         buyerUserId: w.buyer_user_id,
         amountCents: w.winning_amount_cents,
+        buyerPremiumCents: billingTerms.lotBuyerPremiumCents(w.winning_amount_cents, terms.buyer_premium_bps),
       });
       if (inv && inv.id) createdIds.push(inv.id);
     } catch (e) {

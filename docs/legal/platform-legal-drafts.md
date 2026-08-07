@@ -9,7 +9,8 @@
 
 ## buyer_terms — Buyer Terms & Conditions (DRAFT v1)
 By registering to bid on Advantage.Bid you agree to these terms. **Bidding:** bids are binding offers; a
-**buyer's premium** is added to the hammer price and is **displayed live** during bidding. **Payment:** only
+**buyer's premium** is added to the hammer price and is **displayed live** during bidding (a fixed 18% on
+individual‑seller lots; professional sellers set their own premium, shown live). **Payment:** only
 **debit and credit cards** are accepted; a temporary card‑verification authorization under $1 may be placed at
 signup or when you change cards. **Winning & settlement:** winning bids create a payment obligation; applicable
 **tax is calculated after the auction closes**. **Pickup/shipping:** lots are collected during the published
@@ -21,8 +22,9 @@ listing organization ("Partner").
 ## seller_agreement — Seller / Partner Agreement (DRAFT v1)
 This agreement governs organizations ("Partners") listing auctions on Advantage.Bid. **Marketplace syndication:**
 Partner auctions are **automatically syndicated** to the Advantage.Bid marketplace; only Platform Administrators
-control marketplace visibility (feature/hide/remove). **Fees:** commissions/fees, where applicable, are configured
-per Partner and disclosed separately; at launch there is no platform commission (payment processing ~3% only).
+control marketplace visibility (feature/hide/remove). **Fees:** individual sellers pay no platform commission (Advantage's revenue on individual sales is the fixed
+18% buyer's premium); admin‑approved professional sellers keep their own buyer's premium and pay Advantage a
+**2% software fee on hammer‑price sales**. Any additional per‑Partner fees are configured and disclosed separately.
 **Content:** Partners are responsible for accurate listings, lawful items, and honoring winning bids and pickup
 commitments. **Final submission** locks seller editing; Advantage publishes auctions. **Platform rights:** Advantage
 may moderate, unpublish, or remove listings that violate policy.

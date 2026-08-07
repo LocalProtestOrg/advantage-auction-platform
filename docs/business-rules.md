@@ -30,7 +30,7 @@
 21. Minimum starting bid must remain admin-editable and support seller-facing visibility only when enabled.
 22. Buyer premium must display live while buyer changes bid amount.
 23. Tax is calculated only after auction close.
-24. Seller commission and buyer premium must be editable.
+24. Buyer premium + seller-fee policy (owner-approved launch policy; single source of truth `src/services/billingTermsService.js` + `src/lib/settlementPolicy.js`; supersedes the 0% pilot buyer premium and the legacy 10% seller fee): INDIVIDUAL sellers (private/business/other/untyped) are charged a fixed 18% buyer premium, computed independently per winning lot; 100% of it is Advantage revenue; individuals cannot change it and pay no seller platform fee. PROFESSIONAL sellers (auction_house/estate_sale_company/professional_liquidator) control their own buyer premium (auction override → seller default → 18% fallback), keep that premium, and pay Advantage a 2% software fee on the hammer. Professional buyer-premium controls remain admin/seller-editable; individuals' 18% is fixed and non-overridable.
 25. System design must allow future lot-level pricing overrides.
 26. Bid increments must follow an editable increment schedule.
 27. Where increment ranges are expressed as ranges, the system should support admin-configurable default values per range.

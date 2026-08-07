@@ -5,28 +5,39 @@
  * policy constants (owner-approved 2026-07-10). Pure module, no DB, no side
  * effects, so services, routes, and tests share ONE definition.
  *
- * See project memory `project_launch_settlement_policy`. Governing rules:
- *  - Seller PLATFORM fee at launch is 0% (the legacy flat 10% is retired).
- *  - The credit-card PROCESSING fee reimbursed from the settlement is the ACTUAL
- *    Stripe expense for the auction (captured per charge), NOT a flat percentage.
- *    That figure is computed by the settlement engine from real Stripe data and
- *    is intentionally NOT a constant here.
+ * Owner-approved launch policy (supersedes the retired flat 10% AND the 0%-for-everyone pilot):
+ *  - INDIVIDUAL sellers (private / business / other / untyped): NO seller platform fee (0%). Advantage
+ *    revenue on an individual sale is the buyer premium (see billingTermsService), not a seller fee.
+ *  - PROFESSIONAL sellers (auction_house / estate_sale_company / professional_liquidator): Advantage
+ *    charges a 2% software/platform fee on the hammer. The professional's buyer premium is the SELLER's.
+ *  - The credit-card PROCESSING fee reimbursed from the settlement is the ACTUAL Stripe expense for the
+ *    auction (captured per charge), NOT a flat percentage — computed by the settlement engine from real
+ *    Stripe data and intentionally NOT a constant here.
  *  - All settlement money math is cents-safe integer arithmetic.
  */
+const { PROFESSIONAL_SELLER_TYPES } = require('../constants/sellerTypes');
 
 // ── Seller platform fee ────────────────────────────────────────────────────────
-// 0% at launch. Kept as a rate (not just a literal 0) so a future policy change
-// is a one-line edit here and nowhere else.
-const PLATFORM_FEE_RATE = 0;
+// Individual = 0%; professional = 2% of hammer. Kept as rates so a policy change is a one-line edit.
+const PLATFORM_FEE_RATE     = 0;     // individual (Advantage revenue is the buyer premium instead)
+const PRO_PLATFORM_FEE_RATE = 0.02;  // professional software fee on hammer
+
+function isProfessionalSellerType(t) {
+  return PROFESSIONAL_SELLER_TYPES.indexOf(String(t || '').toLowerCase()) !== -1;
+}
 
 /**
- * Cents-safe seller platform fee for a gross amount. Always integer cents.
- * @param {number} grossCents integer cents
- * @returns {number} integer cents (0 while PLATFORM_FEE_RATE is 0)
+ * Cents-safe seller platform fee for a gross (hammer) amount, by seller type. Always integer cents.
+ * Professionals → 2% of hammer; individuals (default) → 0. Rounding matches billingTermsService
+ * (Math.round == floor(x+0.5) for the non-negative gross amounts settled here).
+ * @param {number} grossCents integer cents (hammer)
+ * @param {string} [sellerType] seller_profiles.seller_type (defaults to individual → 0%)
+ * @returns {number} integer cents
  */
-function platformFeeCents(grossCents) {
+function platformFeeCents(grossCents, sellerType) {
   const g = Number.isFinite(grossCents) ? Math.trunc(grossCents) : 0;
-  return Math.round(g * PLATFORM_FEE_RATE);
+  const rate = isProfessionalSellerType(sellerType) ? PRO_PLATFORM_FEE_RATE : PLATFORM_FEE_RATE;
+  return Math.round(g * rate);
 }
 
 // ── Settlement adjustments (owner-approved, Decision 4) ────────────────────────
@@ -93,6 +104,8 @@ const SETTLEMENT_AUDIT_EVENTS = Object.freeze({
 
 module.exports = {
   PLATFORM_FEE_RATE,
+  PRO_PLATFORM_FEE_RATE,
+  isProfessionalSellerType,
   platformFeeCents,
   ADJUSTMENT_TYPE,
   sumAdjustments,

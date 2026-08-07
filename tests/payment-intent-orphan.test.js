@@ -79,6 +79,11 @@ describe('createPaymentIntent — Sub-batch 2 reorder', () => {
       if (/SELECT state, winning_buyer_user_id, winning_amount_cents FROM lots/.test(sql)) {
         return { rows: [{ state: 'closed', winning_buyer_user_id: userId, winning_amount_cents: 1234 }] };
       }
+      // billingTermsService.resolveEffectiveTerms — effective buyer-premium terms for the auction
+      // (added when the charge began including buyer premium). Individual seller → fixed 18%.
+      if (/SELECT a\.buyer_premium_bps, sp\.seller_type, st\.buyer_premium_pct/.test(sql)) {
+        return { rows: [{ buyer_premium_bps: null, seller_type: 'private', buyer_premium_pct: null }] };
+      }
       if (/SELECT id, status FROM payments\s+WHERE lot_id = \$1 AND buyer_user_id = \$2 AND status IN/.test(sql)) {
         return { rows: [] };
       }

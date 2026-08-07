@@ -78,7 +78,13 @@ function sellerSettlementDetailView({ auctionId, auction, sp, totals, marketing 
     marketing_charges_cents: t.marketing_deduction_cents || 0,
     stripe_processing_cents: t.credit_card_processing_fee_cents || 0,
     platform_fee_cents: t.seller_platform_fee_cents || 0,
-    platform_fee_pct: '0.00%',
+    // Derive the displayed rate from the ACTUAL fee vs gross hammer (individual → 0.00%,
+    // professional → 2.00%) rather than hardcoding — keeps the seller statement truthful per seller type.
+    platform_fee_pct: (() => {
+      const gross = Number(t.gross_sales_cents) || 0;
+      const fee = Number(t.seller_platform_fee_cents) || 0;
+      return (gross > 0 ? (fee / gross * 100) : 0).toFixed(2) + '%';
+    })(),
     net_seller_payment_cents: paid ? (sp.final_amount_paid_cents || 0) : (t.net_seller_proceeds_cents || 0),
     payment: sp ? { method: sp.payment_method_used || null, reference: sp.payout_reference || null, paid_date: sp.paid_at || null } : null,
     timeline: sellerTimeline(sp),

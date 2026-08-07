@@ -259,6 +259,16 @@ async function updateAuction(auctionId, userId, updates, actorRole, options = {}
     if (updates.buyer_premium_bps !== undefined && updates.buyer_premium_bps !== null) {
       const bp = Number(updates.buyer_premium_bps);
       if (!Number.isInteger(bp) || bp < 0 || bp > 2500) throw new Error('buyer_premium_bps must be an integer 0-2500 (basis points; 0-25%)');
+      // INDIVIDUAL sellers have a FIXED 18% buyer premium (100% Advantage revenue) — reject any override
+      // attempt at write time. Server-authoritative; resolveEffectiveTerms also ignores a stored override
+      // for individuals as defense-in-depth, so the charged rate is 18% even if this were bypassed.
+      const stRes = await db.query(
+        `SELECT sp.seller_type FROM auctions a
+           LEFT JOIN seller_profiles sp ON sp.id = a.seller_id WHERE a.id = $1`, [auctionId]);
+      const sellerType = stRes.rows[0] ? stRes.rows[0].seller_type : null;
+      if (!isProfessional(sellerType) && bp !== 1800) {
+        throw new Error('Buyer premium is fixed at 18% for individual sellers and cannot be overridden');
+      }
     }
     if (updates.bid_increment_cents !== undefined && updates.bid_increment_cents !== null) {
       const inc = Number(updates.bid_increment_cents);
@@ -781,20 +791,27 @@ async function closeAuction(auctionId, actorId = null) {
     // after close, even if the process crashes immediately after COMMIT.
     // Figures are computed from the in-transaction results array; using pool connections
     // here would read stale lot data (winning amounts not yet committed).
-    // Seller platform fee = 0% at launch (single source of truth: settlementPolicy).
-    // The legacy flat 10% is retired; the credit-card processing reimbursement is a
-    // separate actual-Stripe-cost line handled by the settlement engine, not here.
+    //
+    // Settlement uses the ONE authoritative model (billingTermsService) — the SAME numbers as the
+    // buyer invoice and the post-close reconciler, so there is no preview/actual divergence:
+    //   • INDIVIDUAL seller → buyer premium is 100% Advantage revenue; seller receives the hammer;
+    //     no hammer platform fee.
+    //   • PROFESSIONAL seller → seller keeps their buyer premium; Advantage takes a 2% software fee
+    //     on the hammer.
+    const billingTerms = require('./billingTermsService');
     const sellerUserId = auctionRes.rows[0].seller_user_id;
-    const grossRevenueCents = results.reduce((sum, r) => sum + (r.winning_amount_cents ?? 0), 0);
-    const platformFeeCentsValue = platformFeeCents(grossRevenueCents);
-    const sellerPayoutCents = grossRevenueCents - platformFeeCentsValue;
+    const hammerLots = results.filter(r => r.winning_amount_cents != null).map(r => r.winning_amount_cents);
+    const grossRevenueCents = hammerLots.reduce((sum, v) => sum + (v || 0), 0);
+    const terms = await billingTerms.resolveEffectiveTerms(auctionId, client);
+    const buyerPremiumCents = billingTerms.buyerPremiumForLots(hammerLots, terms.buyer_premium_bps);
+    const s = billingTerms.settlement({ sellerType: terms.seller_type, hammerCents: grossRevenueCents, buyerPremiumCents });
     const pref = await getSellerPayoutPreference(sellerUserId);
     await client.query(
       `INSERT INTO seller_payouts
-         (auction_id, seller_user_id, gross_revenue_cents, platform_fee_cents, seller_payout_cents, payout_method)
-       VALUES ($1, $2, $3, $4, $5, $6)
+         (auction_id, seller_user_id, gross_revenue_cents, buyer_premium_cents, platform_fee_cents, seller_payout_cents, payout_method)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
        ON CONFLICT (auction_id) DO NOTHING`,
-      [auctionId, sellerUserId, grossRevenueCents, platformFeeCentsValue, sellerPayoutCents, pref ? pref.payout_method : null]
+      [auctionId, sellerUserId, grossRevenueCents, s.buyer_premium_cents, s.platform_fee_cents, s.seller_payout_cents, pref ? pref.payout_method : null]
     );
 
     await client.query('COMMIT');
@@ -811,11 +828,11 @@ async function closeAuction(auctionId, actorId = null) {
       .then(() => console.log(`[reporting] generated auction report for auction_id=${auctionId}`))
       .catch(err => console.error(`[reporting] failed for auction_id=${auctionId}:`, err.message));
 
-    // Buyer Premium Phase 1 (PREVIEW only): compute + store the BP/split/commission
-    // settlement breakdown on seller_payouts. Best-effort, post-commit — NEVER
-    // changes the live flat-10% payout written above.
-    require('./billingTermsService').storeSettlementPreview(auctionId)
-      .catch(err => console.error(`[billingTerms] preview store failed for auction_id=${auctionId}:`, err.message));
+    // Post-commit reconciler: re-derive the SAME authoritative settlement from committed winning lots
+    // and stamp terms_snapshot onto seller_payouts. Idempotent — writes the identical numbers the
+    // in-transaction INSERT above already stored (same billingTermsService model), plus the snapshot.
+    require('./billingTermsService').storeSettlement(auctionId)
+      .catch(err => console.error(`[billingTerms] settlement store failed for auction_id=${auctionId}:`, err.message));
 
     // Buyer-Centric Global Pickup Scheduling: generate the consolidated per-buyer pickup
     // plan now that all winners are known (before payment). Best-effort, post-commit —

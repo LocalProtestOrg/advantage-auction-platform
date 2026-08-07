@@ -2,6 +2,7 @@
 const db             = require('../db');
 const auditService   = require('./auditService');
 const invoiceService = require('./invoiceService');
+const billingTerms   = require('./billingTermsService');
 const Stripe         = require('stripe');
 
 // Pin Stripe API version. Pin target matches the SDK 22.0.2 default; pinning
@@ -262,6 +263,12 @@ class PaymentService {
         [lotId, userId]
       );
 
+      // Authoritative charge = hammer + buyer premium for THIS lot (individual → fixed 18%;
+      // professional → their configured rate). The PaymentIntent amount must equal the invoice total.
+      const terms = await billingTerms.resolveEffectiveTerms(auctionId, client);
+      const chargeCents = lot.winning_amount_cents
+        + billingTerms.lotBuyerPremiumCents(lot.winning_amount_cents, terms.buyer_premium_bps);
+
       // Insert pending payment row WITHOUT intent_id. The intent will be
       // attached in tx2 after the Stripe call succeeds. The partial unique
       // index idx_payments_unique_active enforces single-pending per (lot,
@@ -270,7 +277,7 @@ class PaymentService {
         `INSERT INTO payments (auction_id, lot_id, buyer_user_id, amount_cents, status, payment_intent_id)
          VALUES ($1, $2, $3, $4, 'pending', NULL)
          RETURNING id, amount_cents, created_at`,
-        [auctionId, lotId, userId, lot.winning_amount_cents]
+        [auctionId, lotId, userId, chargeCents]
       );
       paymentId        = inserted.rows[0].id;
       amountCents      = inserted.rows[0].amount_cents;

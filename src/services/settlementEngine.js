@@ -52,7 +52,10 @@ function computeSettlementTotals(i = {}) {
 
   const outstanding  = Math.max(0, expected - collected);
   const netCollected = collected - refunds;                  // collected-basis (Decision 2)
-  const platformFee  = platformFeeCents(netCollected);       // 0% at launch
+  // Seller platform fee: individual → 0%; professional → 2% of HAMMER (billingTermsService policy).
+  // Basis is gross hammer sales (NOT netCollected, which includes buyer premium), matching the
+  // authoritative seller_payouts figure written at close.
+  const platformFee  = platformFeeCents(grossSales, i.sellerType);
   const netProceeds  = netCollected + adj.net_cents - marketing - stripeFee - platformFee;
 
   return {
@@ -113,6 +116,12 @@ async function assembleSettlementInputs(auctionId) {
     `SELECT COALESCE(SUM(winning_amount_cents),0)::bigint AS gross
        FROM lots WHERE auction_id = $1 AND winning_amount_cents IS NOT NULL`, [auctionId]);
 
+  // Seller type governs the platform fee (professional → 2% of hammer; individual → 0%).
+  const stRes = await db.query(
+    `SELECT sp.seller_type FROM auctions a
+       LEFT JOIN seller_profiles sp ON sp.id = a.seller_id WHERE a.id = $1`, [auctionId]);
+  const sellerType = stRes.rows[0] ? stRes.rows[0].seller_type : null;
+
   // Expected / collected / outstanding from per-buyer combined invoices (Design C).
   const invRes = await db.query(
     `SELECT
@@ -142,6 +151,7 @@ async function assembleSettlementInputs(auctionId) {
   const marketing   = await readMarketingCharges(auctionId);    // None for now
 
   return {
+    sellerType,
     grossSalesCents:                Number(grossRes.rows[0].gross),
     buyerPaymentsExpectedCents:     Number(invRes.rows[0].expected),
     buyerPaymentsCollectedCents:    Number(invRes.rows[0].collected),

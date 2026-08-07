@@ -16,20 +16,23 @@
  */
 
 const db = require('../db');
+const billingTerms = require('./billingTermsService');
 
 // ── Pure helpers (unit-testable, no DB) ──────────────────────────────────────
 
-// Grand total across a buyer's winning lots. Buyer premium / sales tax / shipping
-// are $0 at launch; credits SUBTRACT. Accepts an array of lot rows (winning_amount_cents)
-// or plain line objects (hammerCents), so it can be unit-tested without a DB.
-function computeTotals(lots) {
+// Grand total across a buyer's winning lots. Buyer premium is computed PER LOT from the effective
+// buyer-premium bps (opts.buyerPremiumBps) using the authoritative billingTermsService model — each
+// lot's premium is rounded before aggregation, so the combined premium == Σ lot-level premiums. Sales
+// tax / shipping are $0 until activated; credits SUBTRACT. Accepts lot rows (winning_amount_cents) or
+// plain line objects (hammerCents), so it stays unit-testable without a DB.
+function computeTotals(lots, opts = {}) {
   const list = Array.isArray(lots) ? lots : [];
   const hammerCents = list.reduce((sum, l) => {
     if (l == null) return sum;
     const v = l.winning_amount_cents != null ? l.winning_amount_cents : l.hammerCents;
     return sum + (Number(v) || 0);
   }, 0);
-  const buyerPremiumCents = 0;
+  const buyerPremiumCents = billingTerms.buyerPremiumForLots(list, opts.buyerPremiumBps || 0);
   const salesTaxCents = 0;
   const shippingCents = 0;
   const creditsCents = 0;
@@ -72,7 +75,9 @@ async function aggregateBuyerTotals(auctionId, buyerUserId) {
         AND winning_amount_cents IS NOT NULL`,
     [auctionId, buyerUserId]
   );
-  return computeTotals(rows);
+  // The effective buyer-premium bps is authoritative (individual → fixed 18%; professional → their rate).
+  const terms = await billingTerms.resolveEffectiveTerms(auctionId);
+  return computeTotals(rows, { buyerPremiumBps: terms.buyer_premium_bps });
 }
 
 // Issue (UPSERT) one combined header per distinct winning buyer in the auction.

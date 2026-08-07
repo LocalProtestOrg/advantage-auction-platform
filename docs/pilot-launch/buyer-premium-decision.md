@@ -1,5 +1,13 @@
 # Buyer Premium — Pilot Launch Decision
 
+> ⚠️ **SUPERSEDED (2026-08-07).** The 0% pilot buyer premium AND the 10% seller-side platform
+> fee described below are **no longer in effect**. The owner-approved launch policy is now:
+> **individual sellers → a fixed 18% buyer premium (100% Advantage revenue, no seller platform
+> fee); professional sellers → seller-controlled buyer premium (kept by the seller) plus a 2%
+> Advantage software fee on the hammer.** The single source of truth is
+> `src/services/billingTermsService.js` (with `src/lib/settlementPolicy.js` for the seller fee).
+> This document is retained for historical context only — do not implement from it.
+
 *Last updated: 2026-05-11 | Pilot-Safe Payments Sprint*
 *Owner: Advantage Auction / Human Operator*
 

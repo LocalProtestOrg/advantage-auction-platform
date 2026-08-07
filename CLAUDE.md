@@ -33,6 +33,8 @@ You are working on the Advantage Auction Platform.
 - Advantage can override featured lots
 - Dimensions are optional, size category is required
 - Buyer premium must be shown live during bidding
+- Buyer premium + seller-fee policy (single source of truth: `src/services/billingTermsService.js`; seller fee in `src/lib/settlementPolicy.js`): INDIVIDUAL sellers (private/business/other/untyped) are charged a FIXED 18% buyer premium, calculated independently per winning lot from that lot's hammer; 100% of that premium is Advantage revenue; individuals cannot change it (server-enforced) and pay no seller platform fee. PROFESSIONAL sellers (auction_house/estate_sale_company/professional_liquidator) control their own buyer premium (auction override → seller default → 18% fallback), keep that premium themselves, and pay Advantage a 2% software fee on the hammer. The prior 0% pilot buyer premium and the legacy 10% seller fee are retired.
+- A professional seller may register, build a dashboard, create an auction, and build a catalog before Advantage approves their business, but an unapproved professional's first sale must not become publicly sellable until approved — enforced by the existing verification publication gate (`verificationService.publicationGate`), not a second system.
 - Tax is calculated after auction close
 - Only debit and credit cards are accepted
 - Buyer card verification uses a temporary random charge under $1 at signup and card change
