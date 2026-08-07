@@ -1070,7 +1070,7 @@
       fetch('/api/public/events/map').then(function(r){return r.json();}).catch(function(){return {success:false};}),
       // Online (coordless) auctions can't be map pins, so /events/map excludes them by design. Pull them
       // from the auction feed so the drawer can list them (list-only, never a fabricated geographic pin).
-      fetch('/api/public/marketplace/feed?preset=auctions&pageSize=48').then(function(r){return r.json();}).catch(function(){return {success:false};})
+      fetch('/api/public/marketplace/feed?preset=auctions&page=1&pageSize=48').then(function(r){return r.json();}).catch(function(){return {success:false};})
     ]).then(function(res){
       var mk=res[0]||{}, ev=res[1]||{}, au=res[2]||{};
       var companyRecs=(mk.success&&mk.data?mk.data:[]).filter(function(r){ return r.lat!=null && r.lng!=null; });
