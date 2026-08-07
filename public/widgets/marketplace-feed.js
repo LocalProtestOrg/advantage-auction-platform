@@ -170,9 +170,11 @@
   // Primary badge is the customer-facing event TYPE, never a timing status like "Coming soon". Timing
   // status is shown separately in the meta line (whenLabel). Mirrors the event-detail type vocabulary.
   function badge(it) {
-    return it.type === 'estate_sale'
-      ? '<span class="amf-badge amf-b-sale">Estate Sale</span>'
-      : '<span class="amf-badge amf-b-up">Auction</span>';
+    // Owner-locked vocabulary from the canonical API (family_label): Advantage.Bid Auctions /
+    // Auction Partner Events / Estate Sales. Falls back to the legacy label for back-compat.
+    var lbl = it.family_label || (it.type === 'estate_sale' ? 'Estate Sales' : 'Auction');
+    var cls = it.type === 'estate_sale' ? 'amf-b-sale' : 'amf-b-up';
+    return '<span class="amf-badge ' + cls + '">' + esc(lbl) + '</span>';
   }
   function cta(it) { return it.type === 'estate_sale' ? 'View estate sale →' : (it.status === 'active' ? 'Bid now →' : 'View auction →'); }
   function card(it) {

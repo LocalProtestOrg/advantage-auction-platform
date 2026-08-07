@@ -52,3 +52,10 @@ describe('homepage map legend uses the four labels + drops "Other Estate…" + t
     expect(index).toMatch(/title="'\+esc\(tip\)\+'"/);
   });
 });
+
+describe('marketplace-feed widget uses the owner-locked family_label', () => {
+  const widget = fs.readFileSync(path.join(__dirname, '..', 'public', 'widgets', 'marketplace-feed.js'), 'utf8');
+  test('card badge reads it.family_label (from the canonical API), with a back-compat fallback', () => {
+    expect(widget).toMatch(/it\.family_label \|\|/);
+  });
+});
