@@ -29,15 +29,31 @@ describe('onboarding.css — the shared design system exists with the core compo
   });
 });
 
-describe('every audited onboarding page adopts the shared system', () => {
-  test('all four link onboarding.css', () => {
-    expect(links(becomeSeller)).toBe(true);
-    expect(links(promote)).toBe(true);
-    expect(links(appraiser)).toBe(true);
-    expect(links(createEs)).toBe(true);
+// Every Railway onboarding page (Phase 6B) — all must adopt the shared design system.
+const ONBOARDING_PAGES = [
+  'become-seller', 'promote-estate-sale', 'create-estate-sale', 'appraiser-membership',
+  'appraiser-welcome', 'estate-sale-welcome', 'after-estate-sale', 'sign-agreement',
+  'verify-documents', 'seller-faq', 'seller-pilot', 'how-sellers-get-paid', 'seller-create',
+];
+
+describe('every Railway onboarding page adopts the shared system', () => {
+  test.each(ONBOARDING_PAGES)('%s links onboarding.css, loads Fraunces, and uses class="ob-body"', (name) => {
+    const h = read('public', name + '.html');
+    expect(links(h)).toBe(true);
+    expect(h).toMatch(/family=Fraunces/);
+    expect(h).toMatch(/<body[^>]*\bob-body\b/);
   });
-  test('the Fraunces display face is loaded consistently', () => {
-    for (const h of [becomeSeller, promote, appraiser, createEs]) expect(h).toMatch(/family=Fraunces/);
+});
+
+describe('ADVANTAGE_DESIGN_SYSTEM.md — the governing design document', () => {
+  const md = read('docs', 'design', 'ADVANTAGE_DESIGN_SYSTEM.md');
+  test('exists and covers the required standards', () => {
+    for (const s of ['Brand philosophy', 'Stupid Easy', 'Trust-first', 'Mobile-first', 'Accessibility',
+      'Typography', 'Spacing', 'Colors', 'Hero pattern', 'Three-question strip', 'Why Advantage.Bid',
+      'Cards', 'Forms', 'Buttons', 'Tables', 'Callouts', 'FAQ', 'Progress indicators', 'Empty states',
+      'Loading states', 'Dashboard', 'Privacy messaging', 'Microcopy', 'terminology', 'SEO', 'Email']) {
+      expect(md).toMatch(new RegExp(s, 'i'));
+    }
   });
 });
 
