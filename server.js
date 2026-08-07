@@ -306,7 +306,7 @@ app.get('/items', async (req, res) => {
 
     const body = data.length
       ? `<ol class="grid">${cards}</ol>${pag}`
-      : `<div class="empty"><p>New items are being added. Explore active auctions available now.</p><a class="btn" href="${esc(b)}/all-auctions.html">Browse active auctions</a></div>`;
+      : `<div class="empty"><p>New items are being added. Explore active auctions available now.</p><a class="btn" href="${esc(b)}/search.html?mode=auctions&amp;status=active">Browse active auctions</a></div>`;
 
     // JSON-LD: WebPage + BreadcrumbList + ItemList (ListItem → canonical lot URLs). No Product here —
     // ItemList truthfully models a discovery collection without asserting fixed-price retail.
@@ -367,7 +367,7 @@ ${body}
     return res.send('<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Featured Items | Advantage.Bid</title>'
       + '<meta name="robots" content="index,follow"><link rel="canonical" href="' + esc(b) + '/items"></head>'
       + '<body><h1>Featured Items Available Now</h1><p>Explore active auctions available now on Advantage.Bid.</p>'
-      + '<a href="' + esc(b) + '/all-auctions.html">Browse active auctions</a></body></html>');
+      + '<a href="' + esc(b) + '/search.html?mode=auctions&amp;status=active">Browse active auctions</a></body></html>');
   }
 });
 
@@ -649,10 +649,8 @@ app.get('/api/health', async (req, res) => {
 // Sentry error handler — must be before the 404 and generic error handlers
 if (process.env.SENTRY_DSN) Sentry.setupExpressErrorHandler(app);
 
-// 404
-app.use((req, res) => {
-  res.status(404).json({ error: 'Route not found' });
-});
+// 404 — JSON for API / non-HTML clients (contract unchanged); branded HTML for browser page requests.
+app.use(require('./src/middleware/notFound').notFoundHandler);
 
 // Global error handler
 app.use((err, req, res, next) => {
