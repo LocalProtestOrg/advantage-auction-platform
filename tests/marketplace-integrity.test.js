@@ -6,11 +6,12 @@
 const { canonicalCounts, activeEventSql, activeNativeAuctionSql } = require('../src/lib/marketplaceVisibility');
 const { verify, formatReport } = require('../src/services/marketplaceIntegrity');
 
-// A db whose two canonicalCounts queries return the given event rows + native-auction count.
-function fakeDb(eventRows, nativeN) {
+// A db whose canonicalCounts queries return the given event rows + native-auction + company counts.
+function fakeDb(eventRows, nativeN, companiesN = 7) {
   return { query: async (sql) => {
     if (/FROM events e/.test(sql)) return { rows: eventRows };
     if (/FROM auctions a/.test(sql)) return { rows: [{ n: nativeN }] };
+    if (/FROM organizations o/.test(sql)) return { rows: [{ n: companiesN }] };
     return { rows: [] };
   } };
 }
@@ -34,20 +35,25 @@ describe('marketplaceVisibility — one canonical definition', () => {
     expect(activeEventSql('e')).toBe("e.status = 'published' AND (e.end_at IS NULL OR e.end_at >= now())");
     expect(activeNativeAuctionSql('a')).toMatch(/a\.state IN \('published','active'\).*a\.is_archived IS NOT TRUE.*a\.marketplace_status = 'syndicated'/);
   });
-  test('canonicalCounts tallies events + native auctions and derives per-API expectations', async () => {
-    const c = await canonicalCounts(fakeDb(EVENTS, 3));
+  test('canonicalCounts tallies the four families + native auctions and derives per-API expectations', async () => {
+    const c = await canonicalCounts(fakeDb(EVENTS, 3, 9));
     expect(c.events).toMatchObject({ auction: 55, estate_sale: 2, total: 57, auction_with_coords: 0, estate_sale_with_coords: 2 });
     expect(c.native_auctions).toBe(3);
-    expect(c.expect).toMatchObject({ feed_all_events: 60, feed_auctions: 58, feed_estate_sales: 2, map_auction: 0, map_estate_sale: 2 });
+    expect(c.marketplace_companies).toBe(9);
+    expect(c.families).toEqual({ advantage_auction: 3, partner_event: 55, estate_sale: 2, marketplace: 9 });
+    expect(c.expect).toMatchObject({ feed_all_events: 60, feed_auctions: 58, feed_estate_sales: 2, map_auction: 0, map_estate_sale: 2, marketplace_companies: 9 });
   });
 });
 
+const AUC_ITEMS = { total: 55, data: Array.from({ length: 12 }, (_, i) => ({ type: 'auction', family: i ? 'partner_event' : 'advantage_auction', family_label: i ? 'Auction Partner Events' : 'Advantage.Bid Auctions' })) };
 const okFetch = () => fakeFetch({
   'preset=all-events&page=1&pageSize=1': { total: 57 },
   'preset=auctions&page=1&pageSize=1': { total: 55 },
   'preset=estate-sales&page=1&pageSize=1': { total: 2 },
   '/events/map': { counts: { auction: 0, estate_sale: 2 } },
+  '/api/public/marketplace': { total: 7, data: [] },
   'preset=all-events&page=1&pageSize=12': { total: 57, data: Array.from({ length: 12 }, () => ({ type: 'auction' })) },
+  'preset=auctions&page=1&pageSize=12': AUC_ITEMS,
   '/sitemap.xml': '<urlset><url><loc>https://bid.advantage.bid/event.html?slug=x</loc></url></urlset>',
   '/api/public/events?limit=1': { data: [{ slug: 'sample-event' }] },
   '/event.html?slug=sample-event': '<link rel="canonical" href="..."><script type="application/ld+json">{"@type":"Event"}</script>',
@@ -121,6 +127,7 @@ describe('DB-only mode + report', () => {
     const txt = formatReport(r);
     expect(txt).toMatch(/MARKETPLACE INTEGRITY REPORT/);
     expect(txt).toMatch(/OVERALL:\s+PASS/);
-    expect(txt).toMatch(/auction=55/);
+    expect(txt).toMatch(/Auction Partner Events: 55/);
+    expect(txt).toMatch(/Advantage\.Bid Auctions:/);
   });
 });

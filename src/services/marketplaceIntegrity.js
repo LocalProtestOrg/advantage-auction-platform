@@ -72,6 +72,22 @@ async function verify({ db, baseUrl, fetchImpl, live = true } = {}) {
     checks.push(countCheck('map:auction', canonical.expect.map_auction, mapCounts ? mapCounts.auction : null));
     checks.push(countCheck('map:estate_sale', canonical.expect.map_estate_sale, mapCounts ? mapCounts.estate_sale : null));
 
+    // ── Marketplace family (company/professional directory) count parity ──
+    const mkt = await safeFetch(`${base}/api/public/marketplace`, fetchImpl);
+    const mktTotal = mkt.json && (mkt.json.total != null ? mkt.json.total : (Array.isArray(mkt.json.data) ? mkt.json.data.length : null));
+    checks.push(countCheck('marketplace:companies', canonical.expect.marketplace_companies, mkt.ok ? mktTotal : null));
+
+    // ── Vocabulary integrity: every feed item carries an owner-locked family_label ──
+    const av = await safeFetch(`${base}/api/public/marketplace/feed?preset=auctions&page=1&pageSize=12`, fetchImpl);
+    if (av.ok && av.json) {
+      const items = av.json.data || [];
+      const okFam = items.every((x) => x.family_label && ['advantage_auction', 'partner_event'].includes(x.family));
+      checks.push({ surface: 'vocabulary:family-labels', category: 'schema',
+        expected: 'every auction item has family + owner-locked family_label',
+        actual: okFam ? 'all labeled' : 'missing/invalid family_label', status: (items.length === 0 || okFam) ? PASS : FAIL,
+        detail: okFam ? 'Advantage.Bid Auctions / Auction Partner Events labels present' : 'a feed item lacks the canonical family label' });
+    }
+
     // ── Pagination integrity: total ≥ returned page, presets are honored (auctions≠estate leak) ──
     const p1 = await safeFetch(`${base}/api/public/marketplace/feed?preset=all-events&page=1&pageSize=12`, fetchImpl);
     if (p1.ok && p1.json) {
@@ -121,10 +137,11 @@ function formatReport(result) {
   lines.push(`OVERALL:   ${result.overall}`);
   lines.push('');
   const c = result.canonical;
-  lines.push('Canonical DB tally (single source of truth):');
-  lines.push(`  events: auction=${c.events.auction} estate_sale=${c.events.estate_sale} total=${c.events.total}` +
-    ` | with-coords: auction=${c.events.auction_with_coords} estate=${c.events.estate_sale_with_coords}`);
-  lines.push(`  native auctions: ${c.native_auctions}`);
+  lines.push('Canonical DB tally (single source of truth) — the four marketplace families:');
+  const fam = c.families || {};
+  lines.push(`  Advantage.Bid Auctions: ${fam.advantage_auction}  ·  Auction Partner Events: ${fam.partner_event}` +
+    `  ·  Estate Sales: ${fam.estate_sale}  ·  Marketplace: ${fam.marketplace}`);
+  lines.push(`  (events with coords — auction=${c.events.auction_with_coords} estate=${c.events.estate_sale_with_coords})`);
   lines.push('');
   lines.push('Surface checks:');
   for (const chk of result.checks) {

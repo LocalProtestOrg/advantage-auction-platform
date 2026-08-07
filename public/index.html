@@ -751,9 +751,11 @@
   ];
   // Public EVENT markers (real event TYPES) — plotted on the SAME 'mp' GeoJSON source so clustering,
   // toggling, and filtering are reused. Distinct colors from the company/professional pins.
+  // Owner-locked vocabulary (Phase 5F) — mirrors src/lib/marketplaceVocabulary.js. event_auction markers
+  // are imported/partner auction events; native Advantage.Bid auctions are the Status beacons below.
   var MP_EVENT_CATS = [
-    { key:'event_auction',     label:'Auctions',     color:'#B5273B', glyph:'gavel' },
-    { key:'event_estate_sale', label:'Estate Sales', color:'#7C3AED', glyph:'house' }
+    { key:'event_auction',     label:'Auction Partner Events', color:'#B5273B', glyph:'gavel' },
+    { key:'event_estate_sale', label:'Estate Sales',           color:'#7C3AED', glyph:'house' }
   ];
   var MP_ALL_CATS = MP_CATS.concat(MP_EVENT_CATS);
   var MP_CAT_BY_KEY = {}; MP_ALL_CATS.forEach(function(c){ MP_CAT_BY_KEY[c.key]=c; MP.active[c.key]=true; });
@@ -997,19 +999,30 @@
   function mpRow(kind,key,color,glyph,label,n){
     var muted = (n===0);  // zero-count → visually muted, but the filter stays ON (checked)
     var pin='<span class="lg-pin" style="--c:'+color+'">'+(glyph?('<svg viewBox="0 0 24 24">'+MP_GLYPH[glyph]+'</svg>'):'')+'</span>';
-    return '<div class="legend-row'+(muted?' muted':'')+'" data-kind="'+kind+'" data-key="'+key+'" role="checkbox" aria-checked="true" tabindex="0">'
+    var tip=LEGEND_TIPS[key]||label;
+    return '<div class="legend-row'+(muted?' muted':'')+'" data-kind="'+kind+'" data-key="'+key+'" role="checkbox" aria-checked="true" tabindex="0" title="'+esc(tip)+'">'
       +'<input type="checkbox" checked tabindex="-1" aria-hidden="true">'+pin
       +'<span class="lg-name">'+label+'</span><span class="lg-n">'+n+'</span></div>';
   }
+  // Hover tooltips replace inline helper text (owner-locked). Keyed by legend row key.
+  var LEGEND_TIPS={
+    event_auction:'Auctions run by partner auction companies, listed on Advantage.Bid.',
+    event_estate_sale:'In-person estate sales from verified estate-sale companies.',
+    live:'Advantage.Bid Auctions — live now.', ending:'Advantage.Bid Auctions — ending soon.', coming:'Advantage.Bid Auctions — upcoming.',
+    estate_sale_companies:'Estate-sale companies in the Marketplace directory.',
+    auction_houses:'Auction houses in the Marketplace directory.',
+    appraisers:'Appraisers in the Marketplace directory.'
+  };
   function mpBuildLegend(){
     var el=document.getElementById('legend'); if(!el) return;
     var html='<button class="legend-close" id="legendClose" type="button" aria-label="Hide map key">&times;</button>';
-    html+='<div class="legend-sec">Event Type</div>';
-    MP_EVENT_CATS.forEach(function(c){ html+=mpRow('mp',c.key,c.color,c.glyph,c.label,(MP.counts&&MP.counts[c.key])||0); });
-    html+='<div class="legend-sec">Status</div>';
+    html+='<div class="legend-sec" title="Auctions hosted directly on Advantage.Bid.">Advantage.Bid Auctions</div>';
     MP_EVENTS.forEach(function(e){ html+=mpRow('auction',e.key,e.color,'',e.label,mpAuctionCount(e.key)); });
-    html+='<div class="legend-sec">Marketplace / Professionals</div>';
-    MP_CATS.forEach(function(c){ html+=mpRow('mp',c.key,c.color,c.glyph,c.label,(MP.counts&&MP.counts[c.key])||0); });
+    html+='<div class="legend-sec" title="Listings from partner auction companies and estate-sale companies.">Events</div>';
+    MP_EVENT_CATS.forEach(function(c){ html+=mpRow('mp',c.key,c.color,c.glyph,c.label,(MP.counts&&MP.counts[c.key])||0); });
+    html+='<div class="legend-sec" title="Auction houses, estate-sale companies and appraisers in the directory.">Marketplace</div>';
+    // Owner-locked: the confusing "Other Estate Services" row is removed from the legend.
+    MP_CATS.filter(function(c){ return c.key!=='estate_services'; }).forEach(function(c){ html+=mpRow('mp',c.key,c.color,c.glyph,c.label,(MP.counts&&MP.counts[c.key])||0); });
     html+='<div class="legend-tools"><button type="button" data-tool="show">Show All</button>'
       +'<button type="button" data-tool="hide">Hide All</button><button type="button" data-tool="reset">Reset</button></div>';
     // The List View entry point now lives in the shared top-of-map segmented selector

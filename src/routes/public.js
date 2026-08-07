@@ -21,6 +21,7 @@ const discoveryService = require('../services/discoveryService');
 const { buildLotSearch, clampInt } = require('../services/searchService');
 const { brandedColSql, brandingVisibleSql } = require('../lib/sellerBranding');
 const { organizerColSql } = require('../lib/organizerPrivacy');
+const { labelForFamily } = require('../lib/marketplaceVocabulary');
 // Buyer-facing seller-identity columns: NULL unless the seller is a professional type WITH branding
 // enabled. Private/other/unknown are always anonymous. Applied at the query so buyer feeds never even
 // select hidden identity. (The public company DIRECTORY on advantage.bid is separate and NOT scrubbed.)
@@ -468,7 +469,7 @@ router.get('/marketplace/feed', async (req, res, next) => {
 
     const sql = `
       WITH feed AS (
-        SELECT 'auction'::text AS kind, a.id::text AS ref_id, NULL::text AS slug,
+        SELECT 'auction'::text AS kind, 'advantage_auction'::text AS source_family, a.id::text AS ref_id, NULL::text AS slug,
                a.title, a.city, a.address_state AS state, a.zip, a.lat, a.lng,
                COALESCE(a.cover_image_url, a.banner_image_url) AS image_url,
                ${B_NAME} AS company, a.state AS lifecycle,
@@ -480,7 +481,8 @@ router.get('/marketplace/feed', async (req, res, next) => {
          WHERE a.state IN ('published','active') AND a.is_archived IS NOT TRUE
            AND a.marketplace_status = 'syndicated'
         UNION ALL
-        SELECT (CASE WHEN e.sale_type = 'auction' THEN 'auction' ELSE 'estate_sale' END)::text AS kind, e.id::text AS ref_id, e.slug,
+        SELECT (CASE WHEN e.sale_type = 'auction' THEN 'auction' ELSE 'estate_sale' END)::text AS kind,
+               (CASE WHEN e.sale_type = 'auction' THEN 'partner_event' ELSE 'estate_sale' END)::text AS source_family, e.id::text AS ref_id, e.slug,
                e.title, e.city, e.state, e.zip, e.lat, e.lng,
                (SELECT url FROM event_images ei WHERE ei.event_id = e.id ORDER BY is_cover DESC, position ASC LIMIT 1) AS image_url,
                ${organizerColSql('o.name')} AS company, e.status AS lifecycle, -- individual organizers stay anonymous
@@ -492,12 +494,12 @@ router.get('/marketplace/feed', async (req, res, next) => {
          WHERE e.status = 'published' AND (e.end_at IS NULL OR e.end_at >= now())
       ),
       x AS (
-        SELECT kind, ref_id, slug, title, city, state, zip, lat, lng, image_url, company,
+        SELECT kind, source_family, ref_id, slug, title, city, state, zip, lat, lng, image_url, company,
                lifecycle, start_ts, end_ts, sort_ts, created_ts, is_featured, ${distExpr} AS distance_mi
           FROM feed
           ${outerWhere}
       )
-      SELECT kind, ref_id, slug, title, city, state, zip, lat, lng, image_url, company,
+      SELECT kind, source_family, ref_id, slug, title, city, state, zip, lat, lng, image_url, company,
              lifecycle, start_ts, end_ts, is_featured, distance_mi, COUNT(*) OVER() AS total_count
         FROM x
         ${radiusClause}
@@ -507,7 +509,9 @@ router.get('/marketplace/feed', async (req, res, next) => {
     const { rows } = await db.query(sql, params);
     const total = rows.length ? parseInt(rows[0].total_count, 10) : 0;
     const items = rows.map((r) => ({
-      type: r.kind,                                  // 'auction' | 'estate_sale'
+      type: r.kind,                                  // 'auction' | 'estate_sale' (unchanged; back-compat)
+      family: r.source_family,                       // 'advantage_auction' | 'partner_event' | 'estate_sale'
+      family_label: labelForFamily(r.source_family), // owner-locked display label (Phase 5F vocabulary)
       id: r.ref_id,
       title: r.title,
       city: r.city, state: r.state, zip: r.zip, lat: r.lat, lng: r.lng,

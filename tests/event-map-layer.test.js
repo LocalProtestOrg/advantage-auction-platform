@@ -93,10 +93,10 @@ describe('map client — event markers on the shared mp layer', () => {
     expect(index).toMatch(/isEvent:true/);
     expect(index).toMatch(/EVENTS_MAP=eventRecs/);
   });
-  test('legend exposes EVENT TYPE (with real counts), STATUS, and MARKETPLACE sections', () => {
-    expect(index).toMatch(/>Event Type</);
-    expect(index).toMatch(/>Status</);
-    expect(index).toMatch(/>Marketplace \/ Professionals</);
+  test('legend exposes the owner-locked families: Advantage.Bid Auctions, Events, Marketplace', () => {
+    expect(index).toMatch(/>Advantage\.Bid Auctions</);
+    expect(index).toMatch(/>Events</);
+    expect(index).toMatch(/>Marketplace</);
     expect(index).toMatch(/MP_EVENT_CATS\.forEach[\s\S]{0,120}MP\.counts/);
   });
   test('event marker opens an event preview → canonical event page (View Event), not the discovery source', () => {

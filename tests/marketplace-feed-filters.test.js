@@ -108,8 +108,8 @@ describe('event classification — sale_type drives the Auctions vs Estate Sales
   const src = fs.readFileSync('src/routes/public.js', 'utf8');
   test('the events branch classifies sale_type=auction as kind=auction, everything else estate_sale', () => {
     expect(src).toMatch(/CASE WHEN e\.sale_type = 'auction' THEN 'auction' ELSE 'estate_sale' END/);
-    // native auctions branch is unchanged (still a fixed 'auction')
-    expect(src).toMatch(/SELECT 'auction'::text AS kind, a\.id::text AS ref_id/);
+    // native auctions branch still a fixed 'auction' kind (+ Phase 5F advantage_auction family tag)
+    expect(src).toMatch(/SELECT 'auction'::text AS kind, 'advantage_auction'::text AS source_family, a\.id::text AS ref_id/);
   });
   test('unknown/NULL sale_type falls back to estate_sale (safe default via the ELSE branch)', () => {
     // Only the exact literal 'auction' yields an auction; other/NULL take the ELSE → estate_sale.

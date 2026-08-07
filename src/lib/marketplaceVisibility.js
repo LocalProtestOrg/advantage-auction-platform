@@ -31,6 +31,15 @@ function eventKindSql(alias = 'e') {
   return `(CASE WHEN ${alias}.sale_type = 'auction' THEN 'auction' ELSE 'estate_sale' END)`;
 }
 
+// A directory company is publicly listable (the "Marketplace" family) when it is a real, geocoded,
+// non-sample BD-imported organization that has not been reconciled away.
+function activeMarketplaceCompanySql(alias = 'o') {
+  return `${alias}.source = 'bd_import' AND ${alias}.lat IS NOT NULL AND ${alias}.lng IS NOT NULL`
+    + ` AND ${alias}.name IS NOT NULL AND btrim(${alias}.name) <> ''`
+    + ` AND (${alias}.bd_sync_status IS NULL OR ${alias}.bd_sync_status <> 'removed')`
+    + ` AND lower(${alias}.name) NOT LIKE 'sample %' AND lower(${alias}.name) NOT LIKE 'test %' AND lower(${alias}.name) NOT LIKE 'demo %'`;
+}
+
 /**
  * canonicalCounts(db) → the authoritative public inventory tally. This is the source of truth the
  * integrity suite holds every public API and surface to. Read-only; never throws to the caller path.
@@ -50,6 +59,9 @@ async function canonicalCounts(db) {
   const nativeAuctions = (await db.query(
     `SELECT count(*)::int AS n FROM auctions a WHERE ${activeNativeAuctionSql('a')}`)).rows[0].n;
 
+  const companies = (await db.query(
+    `SELECT count(*)::int AS n FROM organizations o WHERE ${activeMarketplaceCompanySql('o')}`)).rows[0].n;
+
   return {
     events: {
       auction: auction.n,
@@ -59,6 +71,14 @@ async function canonicalCounts(db) {
       estate_sale_with_coords: estate.coord,
     },
     native_auctions: nativeAuctions,
+    marketplace_companies: companies,
+    // The four owner-locked marketplace families (Phase 5F vocabulary) as authoritative counts:
+    families: {
+      advantage_auction: nativeAuctions,  // Advantage.Bid Auctions
+      partner_event: auction.n,           // Auction Partner Events
+      estate_sale: estate.n,              // Estate Sales
+      marketplace: companies,             // Marketplace (directory)
+    },
     // Derived expectations for each canonical public API (what the integrity suite asserts):
     expect: {
       feed_all_events: nativeAuctions + auction.n + estate.n, // /marketplace/feed?preset=all-events
@@ -66,6 +86,7 @@ async function canonicalCounts(db) {
       feed_estate_sales: estate.n,                            // /marketplace/feed?preset=estate-sales
       map_auction:  auction.coord,                            // /events/map counts.auction (coord-gated, events-only)
       map_estate_sale: estate.coord,                          // /events/map counts.estate_sale
+      marketplace_companies: companies,                       // /marketplace total
     },
     at: new Date().toISOString(),
   };
