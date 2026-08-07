@@ -22,6 +22,11 @@ const mkAuction = async (withStart) => {
 const addLot = async (auctionId, n) => (await db.query(
   "INSERT INTO lots (auction_id, lot_number, title, size_category, starting_bid_cents, state) VALUES ($1,$2,$3,'A',100,'open') RETURNING id",
   [auctionId, n || 1, 'Lot ' + (n || 1)])).rows[0].id;
+// A lot the seller explicitly withdrew while the auction was still a Draft (state + flag, as prod does).
+const addWithdrawnLot = async (auctionId, n) => (await db.query(
+  "INSERT INTO lots (auction_id, lot_number, title, size_category, starting_bid_cents, state, is_withdrawn) VALUES ($1,$2,$3,'A',100,'withdrawn',true) RETURNING id",
+  [auctionId, n, 'Withdrawn Lot ' + n])).rows[0].id;
+const lotRow = async (id) => (await db.query('SELECT state, is_withdrawn, closes_at FROM lots WHERE id=$1', [id])).rows[0];
 const addBid = async (auctionId, lotId, cents) => db.query(
   'INSERT INTO bids (lot_id, auction_id, bidder_user_id, amount_cents) VALUES ($1,$2,$3,$4)', [lotId, auctionId, BUYER, cents]);
 const winningCount = async (userId) => (await db.query("SELECT count(*)::int c FROM notifications_queue WHERE user_id=$1 AND type='WINNING'", [userId])).rows[0].c;
@@ -53,6 +58,56 @@ suite('LR-P0-1 publish guard', () => {
     const lot = (await db.query('SELECT closes_at FROM lots WHERE auction_id=$1', [id])).rows[0];
     expect(lot.closes_at).toBeTruthy();
     expect((await db.query('SELECT end_time FROM auctions WHERE id=$1', [id])).rows[0].end_time).toBeTruthy();
+  });
+});
+
+suite('H-2 publish never resurrects withdrawn lots (seller intent authoritative)', () => {
+  const future = () => new Date(Date.now() + 3600e3).toISOString();
+
+  test('1. a withdrawn lot stays withdrawn after publish (no closes_at, not reopened)', async () => {
+    const id = await mkAuction(future());
+    await addLot(id, 1);                                  // an open lot so the publish guard passes
+    const w = await addWithdrawnLot(id, 2);
+    const pub = await auctionService.publishAuction(id);
+    expect(pub.state).toBe('published');
+    const wl = await lotRow(w);
+    expect(wl.state).toBe('withdrawn');                   // still withdrawn
+    expect(wl.is_withdrawn).toBe(true);                   // flag preserved (no inconsistent row)
+    expect(wl.closes_at).toBeNull();                      // never scheduled → not biddable
+  });
+
+  test('2. an open lot publishes normally (scheduled with closes_at)', async () => {
+    const id = await mkAuction(future());
+    const o = await addLot(id, 1);
+    await auctionService.publishAuction(id);
+    const ol = await lotRow(o);
+    expect(ol.state).toBe('open');
+    expect(ol.closes_at).toBeTruthy();
+  });
+
+  test('3. a mixed auction publishes correctly (open scheduled, withdrawn untouched)', async () => {
+    const id = await mkAuction(future());
+    const o = await addLot(id, 1);
+    const w = await addWithdrawnLot(id, 2);
+    const pub = await auctionService.publishAuction(id);
+    expect(pub.state).toBe('published');
+    const ol = await lotRow(o), wl = await lotRow(w);
+    expect(ol).toMatchObject({ state: 'open' });
+    expect(ol.closes_at).toBeTruthy();
+    expect(wl).toMatchObject({ state: 'withdrawn', is_withdrawn: true });
+    expect(wl.closes_at).toBeNull();
+  });
+
+  test('4. a seller cannot accidentally relist a withdrawn lot via publish', async () => {
+    const id = await mkAuction(future());
+    await addLot(id, 1);
+    const w = await addWithdrawnLot(id, 2);
+    await auctionService.publishAuction(id);
+    // The withdrawn lot is absent from the biddable/catalog set (state='open' with a close time).
+    const biddable = (await db.query(
+      "SELECT id FROM lots WHERE auction_id=$1 AND state='open' AND closes_at IS NOT NULL", [id])).rows.map((r) => r.id);
+    expect(biddable).not.toContain(w);
+    expect((await lotRow(w)).state).toBe('withdrawn');
   });
 });
 

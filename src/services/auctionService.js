@@ -614,10 +614,10 @@ async function publishAuction(auctionId, actorId = null) {
       [auctionId]
     );
 
-    await client.query(
-      `UPDATE lots SET state = 'open' WHERE auction_id = $1 AND state = 'withdrawn'`,
-      [auctionId]
-    );
+    // Seller intent is authoritative: a lot withdrawn while the auction was still a Draft MUST stay
+    // withdrawn across Publish. Lots are created 'open' by default, so the only rows ever in 'withdrawn'
+    // are ones a seller/admin explicitly pulled — never resurrect them. (The close-schedule query below
+    // targets only state='open', so withdrawn lots correctly get no closes_at and stay out of the catalog.)
 
     // #18: generate the staggered close schedule from the seller's start_time so
     // lots close sequentially (Lot 1 closes one interval after start, each later
