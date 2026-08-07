@@ -27,11 +27,16 @@ function localDate(v) { const t = String(v == null ? '' : v).trim(); return /^\d
 // Active + Preview (scheduled) sales are current/upcoming; anything else is skipped. Case-insensitive.
 function isCurrent(status) { const s = String(status || '').toLowerCase(); return s === 'active' || s === 'preview'; }
 
-// Only ingest a PUBLICLY displayable cover image. GSA's imageURL points at the authenticated PPMS image
-// API (www.ppms.gov/gw/auction/ppms/api/…), which returns HTTP 401 to anonymous/public requests and cannot
-// be hotlinked on the public marketplace — storing it yields a broken image plus a wasted 401 request on
-// every card render. Excluding it lets the card use the branded placeholder fallback. Canonical-model
-// contract: a stored event image URL must be publicly renderable. No re-hosting; Railway stays the truth.
+// Only ingest a PUBLICLY displayable cover image. GSA's imageURL points at the PPMS image endpoint
+// (www.ppms.gov/gw/auction/ppms/api/…). Server-side re-hosting was investigated and PROVEN not possible
+// with our credentials: our api.data.gov GSA_API_KEY authenticates the DATA API (api.gsa.gov → 200), but
+// the PPMS image endpoint requires an INTERACTIVE SESSION LOGIN token — every method (api_key query/header,
+// Authorization: Bearer, X-Api-Key, Referer, browser UA) returns 401 {"error":"Token expired or invalid",
+// "message":"Please login again"}. The GSA record carries no alternative image field, and the gsaauctions.gov
+// listing page is a JS shell with no og:image. So GSA images cannot be legitimately/securely fetched to
+// re-host into Cloudinary/event_images. Excluding the un-fetchable URL lets the card use the branded
+// placeholder (canonical-model contract: a stored event image URL must be publicly renderable). Railway
+// stays the source of truth; no duplicate storage. Revisit only if GSA exposes a public image URL/feed.
 function isPubliclyDisplayableImage(u) {
   try { const host = new URL(u).hostname.toLowerCase(); return host !== 'ppms.gov' && !host.endsWith('.ppms.gov'); }
   catch (e) { return false; }
