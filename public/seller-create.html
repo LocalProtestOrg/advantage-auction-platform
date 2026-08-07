@@ -279,6 +279,10 @@
 
 <div id="status-banner"></div>
 
+<!-- Business-verification notice (professional first sale): non-alarming, persistent. Populated from the
+     auction's publication_status when Advantage must approve the business before the first sale goes live. -->
+<div id="verification-notice" class="ob-note" role="status" style="display:none;margin:12px 0;padding:14px 16px;border:1px solid #D9CBA3;background:#FBF6E7;border-radius:12px;color:#5A4A21;font-size:14.5px;line-height:1.5"></div>
+
 <!-- Seller-onboarding gate: shown IN PLACE OF the form until the member has a seller profile AND
      holds current Seller Agreement access. Server-authoritative — POST /api/auctions enforces the
      same rule, so this is UX, not the security boundary. -->
@@ -714,6 +718,11 @@
       const d = await r.json();
       if (!d.success || !d.data) { showBanner(d.message || d.error || 'Could not load this auction for editing.', 'error'); return; }
       const a = d.data;
+      // Non-alarming professional business-verification notice (server-authoritative message).
+      if (a.publication_status && a.publication_status.blocked && a.publication_status.message) {
+        const n = document.getElementById('verification-notice');
+        if (n) { n.textContent = a.publication_status.message; n.style.display = 'block'; }
+      }
       const set = (id, v) => { const el = document.getElementById(id); if (el != null && v != null) el.value = v; };
       set('auction-title', a.title || '');
       set('auction-subtitle', a.subtitle || '');

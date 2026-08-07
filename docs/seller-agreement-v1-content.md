@@ -2,8 +2,6 @@
 
 **Purpose:** canonical body for `agreement_template_versions.body_markdown`, authored (per `seller_type`) through the existing admin agreements UI. Placeholders `{{key}}` are resolved by `agreementVariableService` from `seller_terms` + `seller_identity` + per-send `overrides`. Original Advantage.Bid language; structured after a standard consignment/auction seller agreement; not copied from any third-party sample. Customer-facing, so written em-dash-free per the content SOP.
 
-> **Not legal advice.** This template is a business draft for the platform and must be reviewed and approved by qualified counsel before it is used as a binding agreement.
-
 ---
 
 ## Variable schema (author into `variable_schema` JSONB)
@@ -95,11 +93,10 @@ This Seller Consignment and Auction Services Agreement (this "Agreement") govern
 
 6.6 **Recovery of costs on withdrawal or cancellation.** If, after Advantage has performed work on an auction or item, the Seller cancels an auction, withdraws items committed to an auction, fails to provide committed items, or materially misrepresents items, Advantage may deduct from amounts otherwise owed to the Seller, or invoice the Seller for, its reasonable costs and losses arising from that conduct. These may include buyer refunds and chargebacks, marketing costs, labor, transportation and handling, and platform and administrative expenses. Such amounts are itemized on the Seller's statement.
 
-> **DRAFT — PENDING LEGAL REVIEW (added 2026-08-07, H-1).** Sections 6.1–6.6 above state the terms of
-> record for **individual sellers**. Sections 6.7–6.8 below apply **only to admin-approved professional
-> sellers** (auction houses, estate sale companies, professional liquidators). They are drafted from the
-> owner-approved launch policy and must be reviewed by counsel before use. They do not alter the individual
-> seller terms above.
+> **Professional sellers (added 2026-08-07, H-1).** Sections 6.1–6.6 above state the terms of record for
+> **individual sellers**. Sections 6.7–6.8 below apply **only to admin-approved professional sellers**
+> (auction houses, estate sale companies, professional liquidators) and reflect the owner-approved launch
+> policy. They do not alter the individual seller terms above.
 
 6.7 **Professional sellers — Buyer's Premium and software fee.** For a Seller that Advantage has classified and approved as a professional seller (auction house, estate sale company, or professional liquidator), the Seller controls the Buyer's Premium applicable to the Seller's auctions, subject to Advantage's platform policies and any configured limits. The Buyer's Premium charged to buyers on the Seller's auctions is **retained by the Seller** (not by Advantage). In consideration for the marketplace, bidding platform, and related services, Advantage charges the professional Seller a **software/platform fee equal to 2% of total hammer-price sales**, deducted from the Seller's settlement and itemized on the Seller's settlement statement. This 2% software fee replaces, for professional sellers, the individual-seller commission structure in Section 6.1.
 

@@ -5,6 +5,7 @@ const auth = require('../middleware/authMiddleware');
 const role = require('../middleware/roleMiddleware');
 const idempotency = require('../middleware/idempotency');
 const auctionService = require('../services/auctionService');
+const verificationService = require('../services/verificationService');
 const paymentService = require('../services/paymentService');
 const videoService   = require('../services/walkthroughVideoService');
 const { sendFinalSellerReport } = require('../services/pdfGenerationService');
@@ -391,7 +392,13 @@ router.post('/sellers/:sellerId/seller-type', auth, role(['admin']), idempotency
         metadata:    { before, after: sellerType },
       });
     }
-    return res.json({ success: true, data: out.rows[0] });
+    // Professional-seller provisioning rule: assigning a PROFESSIONAL seller_type automatically requires
+    // business approval before the seller's first sale can go public. Reuses the existing verification
+    // publication gate (no second system); never applied to individual types; idempotent. This is the
+    // authoritative professional-provisioning path (self-serve enroll cannot create professionals, and
+    // BD/marketplace provisioning never sets seller_type), so gating here closes the gap universally.
+    const provisioning = await verificationService.requireVerificationForProfessional(sellerId, sellerType, req.user.id);
+    return res.json({ success: true, data: { ...out.rows[0], verification_required_before_publication: provisioning.applied } });
   } catch (err) {
     next(err);
   }

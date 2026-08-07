@@ -252,6 +252,14 @@ router.get('/:auctionId', authMiddleware, async (req, res) => {
     if (!auction) {
       return res.status(404).json({ success: false, message: 'Auction not found' });
     }
+    // Seller-facing publication status: when an unapproved professional's first sale is awaiting business
+    // verification, surface a clear, non-alarming message (the seller's work is saved; Advantage approval
+    // is the only remaining step). Non-fatal — a status lookup failure must never break the auction view.
+    if (auction.seller_id) {
+      try {
+        auction.publication_status = await require('../services/verificationService').sellerPublicationStatus(auction.seller_id);
+      } catch (e) { /* best-effort; omit status rather than fail the view */ }
+    }
     return res.json({ success: true, data: auction });
   } catch (err) {
     console.error('Get Auction Error:', err);

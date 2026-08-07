@@ -9,6 +9,7 @@
 const crypto = require('crypto');
 const db = require('../db/index');
 const { writeAuditLog } = require('../lib/auditLog');
+const { PROFESSIONAL_SELLER_TYPES } = require('../constants/sellerTypes');
 const cloudinaryService = require('./cloudinaryService');
 const { v2: cloudinary } = require('cloudinary');
 const { sendEmail } = require('./emailService');
@@ -211,6 +212,47 @@ async function publicationGate(sellerProfileId) {
   return { blocked: true, reason: 'verification_required' };
 }
 
+// Single source of the seller-facing publication status + message. Non-alarming: when the seller's first
+// sale is awaiting business verification, the copy makes clear the work is saved, they can keep preparing,
+// and Advantage business approval is the only remaining step. Returns null message when not blocked.
+const PROFESSIONAL_VERIFICATION_PENDING_MESSAGE =
+  'Your auction is ready. Advantage.Bid needs to verify your business before your first sale can go live. '
+  + 'Your work is saved — you can keep preparing your auction and catalog while we complete verification.';
+
+async function sellerPublicationStatus(sellerProfileId) {
+  const gate = await publicationGate(sellerProfileId);
+  return {
+    blocked: !!gate.blocked,
+    reason: gate.reason,
+    message: gate.blocked ? PROFESSIONAL_VERIFICATION_PENDING_MESSAGE : null,
+  };
+}
+
+// Professional-seller provisioning rule: when a seller_profiles row is (re)assigned a PROFESSIONAL
+// seller_type, its business must be approved before the FIRST sale can go public. This engages the SAME
+// publication gate used everywhere (no second system) by setting verification_required_before_publication.
+// INDIVIDUAL types are never gated here, and an already-required flag is left untouched (idempotent). An
+// already-approved professional keeps publishing — publicationGate opens once an approved verification exists.
+function isProfessionalSellerType(t) {
+  return PROFESSIONAL_SELLER_TYPES.indexOf(String(t || '').toLowerCase()) !== -1;
+}
+
+async function requireVerificationForProfessional(sellerProfileId, sellerType, actorId = null, runner = db) {
+  if (!isProfessionalSellerType(sellerType)) return { applied: false, changed: false };
+  const changed = (await runner.query(
+    `UPDATE seller_profiles
+        SET verification_required_before_publication = true
+      WHERE id = $1 AND verification_required_before_publication IS DISTINCT FROM true
+      RETURNING id`, [sellerProfileId])).rowCount > 0;
+  if (changed) {
+    await writeAuditLog({
+      event_type: 'seller_verification_required_auto', entity_type: 'seller_profile', entity_id: sellerProfileId,
+      actor_id: actorId ?? null, metadata: { seller_type: sellerType, reason: 'professional_provisioning' },
+    });
+  }
+  return { applied: true, changed };
+}
+
 // ── Fraud foundation: passive duplicate warnings (admin-surfaced, never blocks) ─
 async function duplicateWarnings(sellerProfileId) {
   const warnings = [];
@@ -248,4 +290,6 @@ module.exports = {
   createRequest, getRequest, listForSeller, openRequestsForUser,
   uploadDocument, reviewDocument, reviewRequest, documentDownloadUrl,
   setRisk, hasApprovedVerification, publicationGate, duplicateWarnings,
+  sellerPublicationStatus, requireVerificationForProfessional, isProfessionalSellerType,
+  PROFESSIONAL_VERIFICATION_PENDING_MESSAGE,
 };
