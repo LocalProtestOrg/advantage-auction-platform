@@ -474,7 +474,12 @@ router.get('/marketplace/feed', async (req, res, next) => {
       distExpr = `CASE WHEN feed.lat IS NOT NULL AND feed.lng IS NOT NULL THEN 3959.0 * acos(LEAST(1, GREATEST(-1, `
         + `sin(radians($${la})) * sin(radians(feed.lat)) + cos(radians($${la})) * cos(radians(feed.lat)) * cos(radians(feed.lng) - radians($${lo}))))) ELSE NULL END`;
     }
-    const radiusClause = radiusMi != null ? (function () { params.push(radiusMi); return `WHERE x.distance_mi IS NOT NULL AND x.distance_mi <= $${params.length}`; })() : '';
+    // A finite radius keeps: PHYSICAL events within the radius, PLUS online/nationwide events (no coords →
+    // distance NULL) which are available to a searcher anywhere. Excluding the coordless ones made a radius
+    // search return near-empty results once online (e.g. GSA) auctions dominated inventory — this matches the
+    // homepage map's approved behavior, which surfaces "Online auctions · nationwide" alongside local results.
+    // The `nearest` sort (distance ASC NULLS LAST) still lists the closest physical events first, online after.
+    const radiusClause = radiusMi != null ? (function () { params.push(radiusMi); return `WHERE x.distance_mi IS NULL OR x.distance_mi <= $${params.length}`; })() : '';
 
     // Sort: nearest only makes sense with a search point; else featured/soonest or newest.
     let orderBy;
