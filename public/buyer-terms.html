@@ -45,9 +45,19 @@
   <script src="/widgets/shared/buyer-nav.js"></script>
   <script>
     const token = localStorage.getItem('token');
-    // #5: preserve the return URL through the flow so accepting terms never
-    // dead-ends - we send the bidder back to the auction/lot they came from.
-    const NEXT = new URLSearchParams(location.search).get('next') || '';
+    // #5: preserve the return URL through the flow so accepting terms never dead-ends — we send the
+    // bidder back to the auction/lot they came from. SECURITY: only a safe, SAME-ORIGIN internal path is
+    // honored (never an open redirect). Anything that isn't a single-slash-rooted path — '//host',
+    // 'https://evil', 'javascript:…', or a cross-origin URL — is rejected and we fall back to no return.
+    function safeInternalNext(raw) {
+      if (!raw) return '';
+      try {
+        if (!/^\/(?!\/)[^\s]*$/.test(raw)) return '';           // must start with exactly one '/'
+        const u = new URL(raw, location.origin);
+        return u.origin === location.origin ? (u.pathname + u.search + u.hash) : '';
+      } catch (e) { return ''; }
+    }
+    const NEXT = safeInternalNext(new URLSearchParams(location.search).get('next') || '');
 
     // Minimal, safe markdown renderer (headings, lists, bold, paragraphs).
     function esc(s) { return String(s).replace(/[&<>]/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;' }[c])); }

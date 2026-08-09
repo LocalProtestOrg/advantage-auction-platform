@@ -1103,7 +1103,7 @@
       form.innerHTML =
         '<div style="text-align:center; padding:0.5rem 0;">' +
         '<p style="color:#374151; margin:0 0 0.8rem; font-size:0.92rem; line-height:1.4;">Accept the AAC Buyer Terms &amp; Conditions to bid on this auction.</p>' +
-        '<a href="/buyer-terms.html" style="display:block; background:#1d4ed8; color:#fff; padding:0.75rem 1rem; border-radius:8px; text-decoration:none; font-weight:600;">Review &amp; Accept Terms</a></div>';
+        '<a href="/buyer-terms.html?next=' + encodeURIComponent(location.pathname + location.search) + '" style="display:block; background:#1d4ed8; color:#fff; padding:0.75rem 1rem; border-radius:8px; text-decoration:none; font-weight:600;">Review &amp; Accept Terms</a></div>';
       return;
     }
 
@@ -1249,14 +1249,25 @@
 
   // ── #1 socket.io push (accelerates the poll; polling stays the fallback) ─────
   function startLotRealtime() {
-    if (typeof io !== 'function') return;  // client unavailable → polling only
+    // Missed-event recovery: browsers throttle BOTH setInterval and socket delivery for hidden tabs, so a
+    // backgrounded device can miss the anti-snipe extension (and its poll can be coalesced) and let its
+    // local countdown cross zero prematurely. On regaining visibility/focus, reconcile with the server's
+    // authoritative lot state at once. Registered regardless of socket availability (polling-only clients
+    // benefit too); refreshLotNow is a no-op for guests (no token) and self-guards against re-entrancy.
+    const reconcile = () => { if (token) refreshLotNow(); };
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) reconcile(); });
+    window.addEventListener('focus', reconcile);
+
+    if (typeof io !== 'function') return;  // socket unavailable → polling + visibility reconcile only
     let socket;
     try { socket = io({ auth: { token: token || undefined } }); } catch (e) { return; }
     window.__lotSocket = socket;
     let t = null;
     const soon = () => { clearTimeout(t); t = setTimeout(refreshLotNow, 150); };
     const joinIfReady = () => { if (currentAuctionId) socket.emit('joinAuction', currentAuctionId); };
-    socket.on('connect', joinIfReady);
+    // On (re)connect, rejoin the room AND reconcile — recovers any bid/extension/close events that fired
+    // during a transient disconnect (the socket handlers alone can't replay messages missed while down).
+    socket.on('connect', () => { joinIfReady(); reconcile(); });
     socket.on('lot:update', m => { if (m && m.lot_id === lotId) { if (m.closes_at && currentClosesAt && m.closes_at !== currentClosesAt) { if (window.BuyerChime) BuyerChime.play('extended'); const _b = document.getElementById('countdown-bar'); if (_b) { _b.classList.add('extended'); setTimeout(() => _b.classList.remove('extended'), 800); } } soon(); } });
     socket.on('lot:winning', m => { if (m && m.lot_id === lotId) { if (window.BuyerChime) BuyerChime.play('bid'); refreshLotNow(); } });
     socket.on('lot:outbid',  m => { if (m && m.lot_id === lotId) { if (window.BuyerChime) BuyerChime.play('outbid'); refreshLotNow(); } });
@@ -1278,10 +1289,16 @@
     function tick() {
       const remaining = end - Date.now();
       if (remaining <= 0) {
-        val.textContent = 'Ended';
-        if (bar) { bar.classList.remove('urgent', 'warn'); bar.classList.add('ended'); }
+        // Server-authoritative reconciliation: NEVER declare the lot ended from the LOCAL clock alone. A
+        // late bid may have extended closes_at via a realtime message this device missed (e.g. a
+        // backgrounded/throttled tab). Stop the local tick and re-fetch the authoritative closes_at/state —
+        // refreshLotNow() restarts the countdown if the lot was extended, or applies the closed state only
+        // once the SERVER confirms 'closed'. The 3s poll keeps running as a backstop either way.
         clearInterval(countdownTimer);
         countdownTimer = null;
+        val.textContent = 'Closing…';
+        if (bar) { bar.classList.remove('urgent', 'warn'); }
+        refreshLotNow();
         return;
       }
       const h = Math.floor(remaining / 3600000);
@@ -1308,21 +1325,26 @@
 
   // ── Closed state ──────────────────────────────────────────────────────────────
   function applyClosedState() {
-    document.getElementById('bid-input').disabled     = true;
-    document.getElementById('max-bid-input').disabled = true;
-    document.getElementById('btn-bid').disabled       = true;
-    document.getElementById('closed-banner').style.display = 'block';
+    // Defensive: the bid form is REPLACED by the registration/terms/card gate for
+    // non-registered viewers, so these inputs may be absent. Skip whatever is missing
+    // rather than throwing before the closed state renders. Registered bidders (all
+    // elements present) behave exactly as before.
+    const bidInput = document.getElementById('bid-input');    if (bidInput) bidInput.disabled = true;
+    const maxInput = document.getElementById('max-bid-input'); if (maxInput) maxInput.disabled = true;
+    const bidBtn   = document.getElementById('btn-bid');       if (bidBtn)   bidBtn.disabled   = true;
+    const banner   = document.getElementById('closed-banner');
+    if (banner) banner.style.display = 'block';
     const label = document.querySelector('.bid-display .label');
     if (label) label.innerHTML = isHistoricalLot ? 'Historical Auction' : 'Final Bid';
-    if (isHistoricalLot) {
-      document.getElementById('closed-banner').textContent = 'Historical auction archive, reference only';
+    if (isHistoricalLot && banner) {
+      banner.textContent = 'Historical auction archive, reference only';
     }
     const wrap = document.getElementById('countdown-wrap');
     const val  = document.getElementById('countdown-val');
     if (val && val.textContent !== 'Ended') {
       val.textContent = 'Ended';
       val.className   = 'ended';
-      wrap.style.display = 'flex';
+      if (wrap) wrap.style.display = 'flex';
     }
     stopRefresh();
   }
