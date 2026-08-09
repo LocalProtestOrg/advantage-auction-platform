@@ -41,7 +41,7 @@
       padding: 0.85rem 1.5rem;
       display: flex;
       align-items: center;
-      justify-content: space-between;
+      justify-content: flex-end;
     }
     header .brand { color: #fff; font-weight: 700; font-size: 1rem; letter-spacing: 0.02em; }
     header .back  { color: #aaa; font-size: 0.82rem; text-decoration: none; }
@@ -714,7 +714,8 @@
 <body>
 
 <header>
-  <span class="brand">Advantage.Bid</span>
+  <!-- Canonical brand lives in the shared buyer-nav (clickable, → /). This bar carries
+       only the "Back To Auction" control; the redundant non-clickable brand was removed (Phase 2). -->
   <a href="javascript:smartBack()" class="back" aria-label="Back to auction catalog">← Back To Auction</a>
 </header>
 
@@ -1642,6 +1643,7 @@
 
   // ── Lightbox ─────────────────────────────────────────────────────────────────
   let lbIndex = 0;
+  let lbHistoryActive = false;   // true while a same-URL history entry is held for the open lightbox
 
   function openLightbox(index) {
     if (!imageRows.length) return;
@@ -1649,16 +1651,37 @@
     const lb  = document.getElementById('lightbox');
     lb.classList.add('open');
     document.body.style.overflow = 'hidden';
+    // Back should first CLOSE the image (not leave the lot). Push one same-URL history
+    // entry when the lightbox opens so popstate can intercept the first Back. Guard
+    // against duplicate entries when re-opening or paging through images.
+    if (!lbHistoryActive) { history.pushState({ aacLightbox: true }, ''); lbHistoryActive = true; }
     lbShow(lbIndex);
   }
 
-  function closeLightbox() {
+  // Visually close the lightbox (no history side-effects).
+  function closeLightboxVisual() {
     document.getElementById('lightbox').classList.remove('open');
     document.body.style.overflow = '';
     const img = document.getElementById('lb-img');
     img.src = '';
     img.classList.remove('loaded');
   }
+
+  // Close via UI (button / backdrop / Esc): also pop our own pushed entry so history
+  // stays clean and a later Back has no dangling no-op state.
+  function closeLightbox() {
+    closeLightboxVisual();
+    if (lbHistoryActive) { lbHistoryActive = false; history.back(); }
+  }
+
+  // Browser Back while the lightbox is open: the entry was just popped, so only close
+  // visually (never call history.back again). A second Back then leaves the lot normally.
+  window.addEventListener('popstate', () => {
+    if (document.getElementById('lightbox').classList.contains('open')) {
+      lbHistoryActive = false;
+      closeLightboxVisual();
+    }
+  });
 
   function lbShow(index) {
     lbIndex = index;

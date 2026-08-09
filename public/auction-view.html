@@ -41,7 +41,7 @@
       padding: 0.9rem 1.5rem;
       display: flex;
       align-items: center;
-      justify-content: space-between;
+      justify-content: flex-end;
     }
     .brand { color: #fff; font-weight: 700; font-size: 1rem; }
     .header-right { display: flex; align-items: center; gap: 1.25rem; }
@@ -631,7 +631,8 @@
 <body>
 
 <header>
-  <span class="brand">Advantage.Bid</span>
+  <!-- Canonical brand lives in the shared buyer-nav (clickable, → /). This bar carries
+       only the lot count; the redundant non-clickable brand was removed (Phase 2). -->
   <div class="header-right">
     <span class="lot-count" id="lot-count"></span>
   </div>
@@ -886,6 +887,10 @@
     var mount = document.getElementById('marketplace-seller-cta-mount');
     if (!mount || typeof window.AAPMarketplaceSellerCta === 'undefined') return;
     window.AAPMarketplaceSellerCta.init(mount, {
+      // Canonical Start Selling conversion page is on-platform /become-seller.html (Phase 2).
+      // Passed via the widget's documented `url` config override; analytics events still fire
+      // (auction_id attribution is carried in the analytics context payload below).
+      url: '/become-seller.html',
       context: { auction_id: auctionId || null }
     });
   }
