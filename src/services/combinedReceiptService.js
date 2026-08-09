@@ -168,8 +168,10 @@ function buildSuccessPackageEmail(data) {
     '<div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:12px 14px;margin:14px 0;font-size:13px;color:#14532d">' +
       '<div style="font-weight:700;margin-bottom:4px">Pickup</div>' +
       (p.address ? ('<div><strong>Location:</strong> ' + esc(p.address) + '</div>') : '') +
-      (p.recommended ? ('<div><strong>Recommended arrival:</strong> ' + esc(p.recommended) + '</div>') : '') +
-      (p.published ? ('<div><strong>Pickup window:</strong> ' + esc(p.published) + '</div>') : '') +
+      // Required pickup window FIRST (authoritative), then the advisory arrival time (Owner polish, Task 2).
+      (p.published ? ('<div><strong>Pickup Date / Time:</strong> ' + esc(p.published) + '</div>') : '') +
+      (p.recommended ? ('<div><strong>Recommended Arrival Time:</strong> ' + esc(p.recommended) + '</div>') : '') +
+      (p.recommended ? ('<div style="margin-top:4px;font-size:12px;color:#166534">Recommended arrival times help create an orderly pickup process by allowing smaller items to be removed first, reducing congestion and helping prevent loading delays or accidental damage. You may arrive any time during the pickup date/time above.</div>') : '') +
     '</div>';
 
   const html =
@@ -206,8 +208,9 @@ function buildSuccessPackageEmail(data) {
     '',
     'Pickup:',
     p.address ? ('  Location: ' + p.address) : null,
-    p.recommended ? ('  Recommended arrival: ' + p.recommended) : null,
-    p.published ? ('  Pickup window: ' + p.published) : null,
+    p.published ? ('  Pickup Date / Time: ' + p.published) : null,
+    p.recommended ? ('  Recommended Arrival Time: ' + p.recommended) : null,
+    p.recommended ? ('  Recommended arrival times help create an orderly pickup process by allowing smaller items to be removed first, reducing congestion and helping prevent loading delays or accidental damage. You may arrive any time during the pickup date/time above.') : null,
     '',
     invoicesUrl ? ('View My Purchases: ' + invoicesUrl) : null,
     'Need help? ' + SUPPORT_EMAIL,
@@ -242,7 +245,7 @@ function buildPaymentRequiredEmail(data, { reminderNo } = {}) {
   const pickupHtml = (p.areaSummary || p.published)
     ? ('<div style="font-size:12px;color:#64748b;margin:12px 0">' +
         (p.areaSummary ? ('Pickup area: ' + esc(p.areaSummary) + ' — exact address provided once payment is confirmed<br>') : '') +
-        (p.published ? ('Pickup window: ' + esc(p.published)) : '') +
+        (p.published ? ('Pickup Date / Time: ' + esc(p.published)) : '') +
       '</div>')
     : '';
 
