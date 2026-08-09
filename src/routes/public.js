@@ -979,8 +979,12 @@ router.get('/featured-lots', async (req, res, next) => {
 });
 
 // ── GET /api/public/featured-auctions ────────────────────────────────────────
-// Featured auction feed for marketplace widgets.
-// Only returns published/active auctions with marketplace_priority > 0.
+// Featured auction feed for marketplace widgets. Native Advantage.Bid Auctions only (the `auctions`
+// table) — never events (Auction Partner Events / GSA / Estate Sales) or fixed-price Marketplace items.
+// Returns ELIGIBLE published/active, non-archived auctions ordered by ranking_score: featured auctions
+// (marketplace_priority > 0) rank first via a featured_base boost, then the freshest — so a normally-
+// published auction still appears (it is not gated on an explicit priority flag). Empty only when no
+// eligible auction exists. An image is NOT required for eligibility.
 //
 // Optional query params:
 //   lat        — latitude  for "near me" filtering
@@ -1074,7 +1078,9 @@ router.get('/featured-auctions', async (req, res, next) => {
               LEFT JOIN seller_profiles sp ON sp.id = a.seller_id
               LEFT JOIN lots lo ON lo.auction_id = a.id AND lo.state != 'withdrawn'
              WHERE a.state IN ('published', 'active') AND a.is_archived IS NOT TRUE
-               AND a.marketplace_priority > 0
+               -- Eligible published/active auctions. NOT gated on an explicit marketplace_priority, so a
+               -- normally-published auction appears; featured (priority > 0) auctions still rank first via
+               -- ranking_score (auctionScoreSQL gives them a featured_base boost).
              GROUP BY a.id, sp.id
           ) sub
          WHERE sub.distance_km IS NULL OR sub.distance_km <= $3::float
@@ -1110,7 +1116,8 @@ router.get('/featured-auctions', async (req, res, next) => {
           LEFT JOIN seller_profiles sp ON sp.id = a.seller_id
           LEFT JOIN lots lo ON lo.auction_id = a.id AND lo.state != 'withdrawn'
          WHERE a.state IN ('published', 'active') AND a.is_archived IS NOT TRUE
-           AND a.marketplace_priority > 0
+           -- Eligible published/active auctions. NOT gated on an explicit marketplace_priority, so a
+           -- normally-published auction appears; featured (priority > 0) auctions rank first via the score.
          GROUP BY a.id, sp.id
          ORDER BY ${auctionScoreSQL('a')} DESC, a.id ASC
          LIMIT $1
