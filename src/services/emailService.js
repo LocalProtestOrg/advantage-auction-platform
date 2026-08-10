@@ -32,13 +32,17 @@ const {
   SMTP_FROM,
   SMTP_PORT,
   SMTP_SECURE,
-  EMAIL_REPLY_TO = 'advantageauction.bid@gmail.com',
+  EMAIL_REPLY_TO,
 } = process.env;
 
 // EMAIL_FROM falls back to SMTP_FROM then SMTP_USER so a sender identity is
 // always present. NOTE: under SES, SMTP_USER is the SMTP *username* (not an
 // email), so EMAIL_FROM (or SMTP_FROM) MUST be a verified @advantage.bid sender.
 const EMAIL_FROM = process.env.EMAIL_FROM || SMTP_FROM || SMTP_USER || 'noreply@advantageauction.bid';
+
+// Reply-To honors the EMAIL_REPLY_TO env var (set it to support@advantage.bid). When
+// unset it falls back to the branded From address — never a hardcoded personal inbox.
+const EFFECTIVE_REPLY_TO = EMAIL_REPLY_TO || EMAIL_FROM;
 
 // One-time guard: warn if the resolved From is not a plausible email address
 // (e.g. EMAIL_FROM/SMTP_FROM unset and the SES username fell through).
@@ -101,7 +105,7 @@ async function sendEmail({ to, subject, html, text, attachments, replyTo }) {
       ...(text ? { text } : {}),
       ...(Array.isArray(attachments) && attachments.length ? { attachments } : {}),
       // Per-message reply-to (e.g. a feedback submitter's address) overrides the default.
-      replyTo: replyTo || EMAIL_REPLY_TO,
+      replyTo: replyTo || EFFECTIVE_REPLY_TO,
     });
     console.log(`[email] Sent "${subject}" to ${to} - messageId: ${info.messageId}`);
     return { messageId: info.messageId };

@@ -102,7 +102,7 @@ async function sendOperationalCloseEmail(auctionId) {
   lines.push('');
   lines.push('This is an operational notice. Pickup scheduling and final settlement details will follow.');
   lines.push('');
-  lines.push('- Advantage Auction');
+  lines.push('- Advantage.Bid');
 
   const transporter = buildTransporter();
 

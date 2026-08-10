@@ -69,12 +69,12 @@ async function emailRequest(sellerProfileId, cats) {
     const list = cats.map((c) => '<li>' + c.replace(/_/g, ' ') + '</li>').join('');
     await sendEmail({
       to,
-      subject: 'Document verification requested for your Advantage Auction seller account',
-      html: `<p>Advantage Auction has requested verification documents for your seller account.</p>
+      subject: 'Document verification requested for your Advantage.Bid seller account',
+      html: `<p>Advantage.Bid has requested verification documents for your seller account.</p>
              <p>Requested documents:</p><ul>${list}</ul>
              <p><a href="${link}">Securely upload your documents</a></p>
              <p>Your documents are stored privately and reviewed only by Advantage staff.</p>`,
-      text: `Advantage Auction has requested verification documents (${cats.join(', ')}). Upload securely at: ${link}`,
+      text: `Advantage.Bid has requested verification documents (${cats.join(', ')}). Upload securely at: ${link}`,
     });
   } catch (e) { /* best-effort */ }
 }

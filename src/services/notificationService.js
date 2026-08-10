@@ -148,7 +148,7 @@ class NotificationService {
     
     const templates = {
       [NOTIFICATION_TYPES.OUTBID]: {
-        subject: '😢 You\'ve been outbid - Advantage Auctions',
+        subject: '😢 You\'ve been outbid - Advantage.Bid',
         body: `
 You have been outbid on: ${data.lotTitle}
 
@@ -161,7 +161,7 @@ ${new Date().toISOString()}
       },
       
       [NOTIFICATION_TYPES.AUCTION_WON]: {
-        subject: '🎉 Congratulations! You Won - Advantage Auctions',
+        subject: '🎉 Congratulations! You Won - Advantage.Bid',
         body: `
 Congratulations! You won: ${data.lotTitle}
 
@@ -175,7 +175,7 @@ ${new Date().toISOString()}
       },
       
       [NOTIFICATION_TYPES.PAYMENT_CONFIRMED]: {
-        subject: '✅ Payment Confirmed - Advantage Auctions',
+        subject: '✅ Payment Confirmed - Advantage.Bid',
         body: `
 Payment confirmed for: ${data.lotTitle}
 
@@ -189,7 +189,7 @@ ${new Date().toISOString()}
       },
       
       [NOTIFICATION_TYPES.PICKUP_SCHEDULED]: {
-        subject: '📦 Your Pickup Slot Assigned - Advantage Auctions',
+        subject: '📦 Your Pickup Slot Assigned - Advantage.Bid',
         body: `
 Pickup slot scheduled for: ${data.lotTitle}
 
@@ -204,7 +204,7 @@ ${new Date().toISOString()}
       },
       
       [NOTIFICATION_TYPES.REGISTRATION_CONFIRMATION]: {
-        subject: '👋 Welcome to Advantage Auctions',
+        subject: '👋 Welcome to Advantage.Bid',
         body: `
 Welcome! Your account has been created.
 

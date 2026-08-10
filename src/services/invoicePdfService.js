@@ -215,7 +215,7 @@ async function buildInvoicePdf(data) {
     pdf.font('Helvetica').fontSize(8).fillColor(doc.BRAND.slate);
     pdf.text(
       'Only applicable charges are shown. Buyer premium, sales tax, and shipping appear when they apply. ' +
-      'Advantage Auction never stores your full card details. Questions? Reply to your receipt email.',
+      'Advantage.Bid never stores your full card details. Questions? Reply to your receipt email.',
       left, 720, { width: W, align: 'center' }
     );
     pdf.fillColor('#000000');

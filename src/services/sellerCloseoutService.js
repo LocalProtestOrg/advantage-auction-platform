@@ -182,7 +182,7 @@ function buildEmail({ auctionTitle, auctionId, report, invoices, unsold, pickups
   }
   t.push('');
   t.push('The bundled buyer-invoice PDF is attached.');
-  t.push('- Advantage Auction');
+  t.push('- Advantage.Bid');
 
   // ── HTML ──
   const row = (label, val) => `<tr><td style="padding:2px 12px 2px 0;color:#64748b">${esc(label)}</td><td style="padding:2px 0;text-align:right;font-weight:600">${esc(val)}</td></tr>`;
@@ -199,7 +199,7 @@ function buildEmail({ auctionTitle, auctionId, report, invoices, unsold, pickups
 
   const html =
     '<div style="font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif;max-width:640px;margin:0 auto;color:#1f2937">' +
-      '<div style="font-weight:800;font-size:18px;color:#0f172a;padding:8px 0 2px">Advantage Auction - Seller Closeout</div>' +
+      '<div style="font-weight:800;font-size:18px;color:#0f172a;padding:8px 0 2px">Advantage.Bid - Seller Closeout</div>' +
       `<div style="font-size:14px;color:#64748b;margin-bottom:14px">${esc(auctionTitle)}</div>` +
       '<h3 style="font-size:13px;text-transform:uppercase;letter-spacing:.04em;color:#0f172a">Settlement Summary</h3>' +
       `<table style="border-collapse:collapse;font-size:14px">${settlementRows}</table>` +

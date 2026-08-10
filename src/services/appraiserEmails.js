@@ -2,7 +2,7 @@
 
 /**
  * Appraiser membership transactional emails. Inline-HTML builders in the platform convention
- * (Advantage.Bid header, system-ui, signed "Advantage Auction Company"), returning
+ * (Advantage.Bid header, system-ui, signed "Advantage.Bid"), returning
  * { subject, html, text } for emailService.sendEmail. No legal/refund language is invented.
  */
 
@@ -22,7 +22,7 @@ function shell(title, bodyHtml) {
       <p style="margin:22px 0 0;font-size:12.5px;color:#8a97a6">Questions? Contact us at
         <a href="mailto:${SUPPORT}" style="color:#2563eb">${SUPPORT}</a>.</p>
     </div>
-    <p style="text-align:center;color:#9aa6b3;font-size:11.5px;margin:14px 0 0">Advantage Auction Company</p>
+    <p style="text-align:center;color:#9aa6b3;font-size:11.5px;margin:14px 0 0">Advantage.Bid</p>
   </div></body></html>`;
 }
 
@@ -40,7 +40,7 @@ function buildActivatedEmail() {
     <p style="margin:0 0 4px;font-size:14.5px;line-height:1.5">Next, complete your Appraiser profile so it is ready for the directory.</p>
     ${btn(profileUrl, 'Complete Your Appraiser Profile')}
     <p style="margin:0;font-size:12.5px;color:#5b6b7e">You can manage billing, renewal, and cancellation any time from your account.</p>`);
-  const text = `Your Appraiser Membership is active.\n\nComplete your Appraiser profile: ${profileUrl}\n\nYou can manage billing and renewal from your account.\n\nAdvantage Auction Company`;
+  const text = `Your Appraiser Membership is active.\n\nComplete your Appraiser profile: ${profileUrl}\n\nYou can manage billing and renewal from your account.\n\nAdvantage.Bid`;
   return { subject, html, text };
 }
 
@@ -52,7 +52,7 @@ function buildPaymentFailedEmail() {
     <p style="margin:0 0 10px;font-size:14.5px;line-height:1.5">We were unable to process the payment for your ${BRAND} Appraiser membership. Your access continues for now while we retry.</p>
     <p style="margin:0 0 4px;font-size:14.5px;line-height:1.5">Please update your payment method to avoid an interruption.</p>
     ${btn(manageUrl, 'Update Payment Method')}`);
-  const text = `We could not process your Appraiser membership payment. Your access continues for now while we retry.\n\nUpdate your payment method: ${manageUrl}\n\nAdvantage Auction Company`;
+  const text = `We could not process your Appraiser membership payment. Your access continues for now while we retry.\n\nUpdate your payment method: ${manageUrl}\n\nAdvantage.Bid`;
   return { subject, html, text };
 }
 
@@ -65,7 +65,7 @@ function buildCanceledEmail(endDateStr) {
     <p style="margin:0 0 10px;font-size:14.5px;line-height:1.5">Your ${BRAND} Appraiser membership is set to cancel.${when}</p>
     <p style="margin:0 0 4px;font-size:14.5px;line-height:1.5">Changed your mind? You can resume any time before it ends.</p>
     ${btn(manageUrl, 'Manage Membership')}`);
-  const text = `Your Appraiser membership is set to cancel.${when}\n\nManage membership: ${manageUrl}\n\nAdvantage Auction Company`;
+  const text = `Your Appraiser membership is set to cancel.${when}\n\nManage membership: ${manageUrl}\n\nAdvantage.Bid`;
   return { subject, html, text };
 }
 

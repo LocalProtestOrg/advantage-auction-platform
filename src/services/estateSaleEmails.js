@@ -17,7 +17,7 @@ function shell(title, bodyHtml) {
       ${bodyHtml}
       <p style="margin:22px 0 0;font-size:12.5px;color:#8a97a6">Questions? Contact us at <a href="mailto:${SUPPORT}" style="color:#2563eb">${SUPPORT}</a>.</p>
     </div>
-    <p style="text-align:center;color:#9aa6b3;font-size:11.5px;margin:14px 0 0">Advantage Auction Company</p>
+    <p style="text-align:center;color:#9aa6b3;font-size:11.5px;margin:14px 0 0">Advantage.Bid</p>
   </div></body></html>`;
 }
 function btn(href, label) { return `<p style="margin:16px 0"><a href="${href}" style="display:inline-block;background:#2563eb;color:#fff;font-weight:700;font-size:14px;text-decoration:none;padding:11px 18px;border-radius:10px">${label}</a></p>`; }
@@ -30,7 +30,7 @@ function buildReceiptEmail() {
     <p style="margin:0 0 10px;font-size:14.5px;line-height:1.5">We received your payment of <b>$39.00</b> for one Estate Sale Promotion on Advantage.Bid.</p>
     <p style="margin:0 0 4px;font-size:14.5px;line-height:1.5">You're all set to create your estate sale listing.</p>
     ${btn(url, 'Create Your Estate Sale')}`);
-  const text = `Thank you. We received your $39.00 payment for one Estate Sale Promotion.\n\nCreate your estate sale: ${url}\n\nAdvantage Auction Company`;
+  const text = `Thank you. We received your $39.00 payment for one Estate Sale Promotion.\n\nCreate your estate sale: ${url}\n\nAdvantage.Bid`;
   return { subject, html, text };
 }
 /** Submitted for review. */
@@ -41,7 +41,7 @@ function buildReceivedEmail() {
     <p style="margin:0 0 10px;font-size:14.5px;line-height:1.5">Thanks for submitting your estate sale. Our team reviews every listing before it goes live, usually within one business day.</p>
     <p style="margin:0 0 4px;font-size:14.5px;line-height:1.5">We'll email you as soon as it's published.</p>
     ${btn(url, 'View My Estate Sale')}`);
-  const text = `Thanks for submitting your estate sale. We review every listing before it goes live, usually within one business day. We'll email you when it's published.\n\n${url}\n\nAdvantage Auction Company`;
+  const text = `Thanks for submitting your estate sale. We review every listing before it goes live, usually within one business day. We'll email you when it's published.\n\n${url}\n\nAdvantage.Bid`;
   return { subject, html, text };
 }
 /** Approved & published. */
@@ -52,7 +52,7 @@ function buildPublishedEmail(extra) {
   const html = shell('Your estate sale is live', `
     <p style="margin:0 0 10px;font-size:14.5px;line-height:1.5">Great news. Your estate sale is now published on Advantage.Bid and visible to shoppers on the map and in search.</p>
     ${btn(url, 'View My Live Listing')}`);
-  const text = `Your estate sale is now live on Advantage.Bid, visible to shoppers on the map and in search.\n\n${url}\n\nAdvantage Auction Company`;
+  const text = `Your estate sale is now live on Advantage.Bid, visible to shoppers on the map and in search.\n\n${url}\n\nAdvantage.Bid`;
   return { subject, html, text };
 }
 /** Needs changes (rejected with a reason). */
@@ -65,7 +65,7 @@ function buildNeedsChangesEmail(extra) {
     ${reason ? `<p style="margin:0 0 10px;font-size:14px;line-height:1.5;background:#fff7ed;border:1px solid #fed7aa;border-radius:10px;padding:10px 12px;color:#9a3412"><b>What to update:</b> ${reason.replace(/[<>&]/g, '')}</p>` : ''}
     <p style="margin:0 0 4px;font-size:14.5px;line-height:1.5">Make the update and resubmit. There is no additional charge to resubmit the same listing.</p>
     ${btn(url, 'Edit My Estate Sale')}`);
-  const text = `Our reviewers asked for a small update before your estate sale can be published.${reason ? `\n\nWhat to update: ${reason}` : ''}\n\nMake the update and resubmit (no additional charge to resubmit the same listing): ${url}\n\nAdvantage Auction Company`;
+  const text = `Our reviewers asked for a small update before your estate sale can be published.${reason ? `\n\nWhat to update: ${reason}` : ''}\n\nMake the update and resubmit (no additional charge to resubmit the same listing): ${url}\n\nAdvantage.Bid`;
   return { subject, html, text };
 }
 

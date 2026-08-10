@@ -86,7 +86,7 @@ function buildEmail(type, payload, toAddress) {
     return {
       to: toAddress,
       subject: 'Your recommended pickup arrival window',
-      text: `Congratulations on your winning bid!\n\nFor a faster pickup, we recommend arriving between ${rf} and ${rt}.\n\n${winLine}\n\nAdvantage Auction Company`,
+      text: `Congratulations on your winning bid!\n\nFor a faster pickup, we recommend arriving between ${rf} and ${rt}.\n\n${winLine}\n\nAdvantage.Bid`,
       html: `
         <div style="font-family:system-ui,-apple-system,sans-serif;max-width:520px;margin:0 auto;color:#111;">
           <div style="background:#111;color:#fff;padding:1rem 1.25rem;border-radius:10px 10px 0 0;font-weight:700;">Advantage.Bid</div>
@@ -95,7 +95,7 @@ function buildEmail(type, payload, toAddress) {
             <p style="font-size:.92rem;line-height:1.6;color:#374151;margin:0 0 .9rem;">Congratulations on your winning bid! For a faster pickup, we recommend arriving between:</p>
             <p style="font-size:1.3rem;font-weight:700;margin:0 0 .9rem;">${rf} to ${rt}</p>
             <p style="font-size:.9rem;line-height:1.6;color:#374151;margin:0 0 .5rem;">${winLine}</p>
-            <p style="font-size:.8rem;color:#71717a;margin:1rem 0 0;">Advantage Auction Company</p>
+            <p style="font-size:.8rem;color:#71717a;margin:1rem 0 0;">Advantage.Bid</p>
           </div>
         </div>`.trim(),
     };
@@ -274,9 +274,9 @@ function buildEmail(type, payload, toAddress) {
     return {
       to:      toAddress,
       subject: `Your auction was not approved: ${title}`,
-      text:    `Advantage Auction has reviewed your auction "${title}" and is unable to approve it.\n\nReason: ${reason}\n\nYou may create a new auction submission from your dashboard once you have addressed the feedback above: ${dashUrl}`,
+      text:    `Advantage.Bid has reviewed your auction "${title}" and is unable to approve it.\n\nReason: ${reason}\n\nYou may create a new auction submission from your dashboard once you have addressed the feedback above: ${dashUrl}`,
       html:    `
-        <p>Advantage Auction has reviewed your auction <strong>${escHtml(title)}</strong> and is unable to approve it.</p>
+        <p>Advantage.Bid has reviewed your auction <strong>${escHtml(title)}</strong> and is unable to approve it.</p>
         <p><strong>Reason from the review team:</strong></p>
         <blockquote style="border-left:3px solid #dc2626; padding-left:12px; color:#333;">${escHtml(reason)}</blockquote>
         <p>You may create a new auction submission from your dashboard once you have addressed the feedback above.</p>
@@ -296,9 +296,9 @@ function buildEmail(type, payload, toAddress) {
     return {
       to:      toAddress,
       subject: `Revisions requested on your auction: ${title}`,
-      text:    `Advantage Auction has returned your auction "${title}" to draft for revisions.\n\nReason: ${reason}\n\nYou can edit your auction and re-submit it from your dashboard: ${dashUrl}`,
+      text:    `Advantage.Bid has returned your auction "${title}" to draft for revisions.\n\nReason: ${reason}\n\nYou can edit your auction and re-submit it from your dashboard: ${dashUrl}`,
       html:    `
-        <p>Advantage Auction has returned your auction <strong>${escHtml(title)}</strong> to draft for revisions.</p>
+        <p>Advantage.Bid has returned your auction <strong>${escHtml(title)}</strong> to draft for revisions.</p>
         <p><strong>Reason from the review team:</strong></p>
         <blockquote style="border-left:3px solid #c8a86b; padding-left:12px; color:#333;">${escHtml(reason)}</blockquote>
         <p>You can edit your auction and re-submit it from your dashboard.</p>

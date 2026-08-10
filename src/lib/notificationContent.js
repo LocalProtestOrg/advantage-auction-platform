@@ -90,7 +90,7 @@ function buildLotEmail(type, ctx) {
 
   const html =
     '<div style="font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif;max-width:520px;margin:0 auto;color:#1f2937">' +
-      '<div style="font-weight:800;font-size:18px;color:#0f172a;padding:8px 0 12px">Advantage Auction</div>' +
+      '<div style="font-weight:800;font-size:18px;color:#0f172a;padding:8px 0 12px">Advantage.Bid</div>' +
       (img ? ('<img src="' + escHtml(img) + '" alt="" style="width:100%;max-height:260px;object-fit:cover;border-radius:10px;margin-bottom:14px">') : '') +
       (auctionTitle ? ('<div style="font-size:13px;color:#64748b;margin-bottom:2px">' + escHtml(auctionTitle) + '</div>') : '') +
       '<div style="font-size:17px;font-weight:700;margin-bottom:10px">' + refEsc + '</div>' +

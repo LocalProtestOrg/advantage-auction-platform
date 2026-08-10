@@ -40,7 +40,7 @@ async function emailLink(agreement, rawToken) {
     await sendEmail({
       to,
       subject: 'Action required: review and sign your seller agreement',
-      html: `<p>Your Advantage Auction seller agreement is ready to review and sign.</p>
+      html: `<p>Your Advantage.Bid seller agreement is ready to review and sign.</p>
              <p><a href="${link}">Review &amp; sign your agreement</a></p>
              <p>This link expires on ${exp}.</p>`,
       text: `Review and sign your seller agreement: ${link}\nThis link expires on ${exp}.`,
@@ -237,10 +237,10 @@ async function emailSignedPdf(agreement, buffer) {
     if (!to) return;
     await sendEmail({
       to,
-      subject: 'Your signed Advantage Auction seller agreement',
-      html: `<p>Thank you. Your Advantage Auction seller agreement has been signed.</p>
+      subject: 'Your signed Advantage.Bid seller agreement',
+      html: `<p>Thank you. Your Advantage.Bid seller agreement has been signed.</p>
              <p>A copy of the signed agreement is attached as a PDF for your records. You can also download it any time from your account.</p>`,
-      text: 'Your Advantage Auction seller agreement has been signed. A copy is attached as a PDF for your records. You can also download it any time from your account.',
+      text: 'Your Advantage.Bid seller agreement has been signed. A copy is attached as a PDF for your records. You can also download it any time from your account.',
       attachments: [{ filename: `advantage-seller-agreement-${agreement.id}.pdf`, content: buffer, contentType: 'application/pdf' }],
     });
     const u = await db.query(`UPDATE agreements SET signed_pdf_emailed_at=now(), updated_at=now() WHERE id=$1 AND signed_pdf_emailed_at IS NULL RETURNING id`, [agreement.id]);

@@ -27,7 +27,7 @@ function buildWelcomeEmail(link) {
     'Welcome to Advantage.Bid.\n\n' +
     'Your account is ready. You can browse auctions, save favorites, add a card, and bid right away.\n\n' +
     'When you have a moment, confirm your email address (optional, but it helps secure your account):\n' +
-    link + '\n\nAdvantage Auction Company';
+    link + '\n\nAdvantage.Bid';
   const html = `
   <div style="font-family:system-ui,-apple-system,sans-serif;max-width:520px;margin:0 auto;color:#111;">
     <div style="background:#111;color:#fff;padding:1rem 1.25rem;border-radius:10px 10px 0 0;font-weight:700;font-size:1.05rem;">Advantage.Bid</div>
@@ -47,7 +47,7 @@ function buildWelcomeEmail(link) {
       <p style="font-size:0.8rem;line-height:1.5;color:#71717a;margin:0 0 0.5rem;">
         Or paste this link into your browser:<br><a href="${link}" style="color:#111;word-break:break-all;">${link}</a>
       </p>
-      <p style="font-size:0.8rem;color:#71717a;margin:1rem 0 0;">Advantage Auction Company</p>
+      <p style="font-size:0.8rem;color:#71717a;margin:1rem 0 0;">Advantage.Bid</p>
     </div>
   </div>`;
   return { subject, html, text };
