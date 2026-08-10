@@ -100,7 +100,7 @@
       <!-- 9. Payment Information -->
       <div class="card">
         <div style="display:flex;align-items:center;margin-bottom:.7rem"><h2 style="margin:0">Payment Information</h2><div style="flex:1"></div>
-          <div class="actions"><button class="btn" id="recalc">Recalculate</button> <button class="btn btn-pri" id="mark-paid">Mark Paid</button></div>
+          <div class="actions"><button class="btn" id="recalc">Recalculate</button> <button class="btn" id="mark-paid">Mark Paid (Check)</button> <button class="btn btn-pri" id="pay-seller" style="display:none">Pay Seller (Direct Deposit)</button></div>
         </div>
         <div id="payment-info"></div>
       </div>
@@ -140,6 +140,16 @@
     <label class="f" style="display:flex;align-items:center;gap:.5rem;font-weight:600"><input type="checkbox" id="pay-confirm" /> I confirm this payment was actually completed.</label>
     <div class="msg" id="paid-msg"></div>
     <div style="display:flex;gap:.6rem;margin-top:1rem"><button class="btn btn-pri" id="paid-save">Confirm Mark Paid</button><button class="btn" id="paid-cancel">Cancel</button></div>
+  </div></div>
+
+  <!-- Pay Seller (Direct Deposit) modal - REAL money movement via Stripe transfer -->
+  <div class="modal-bg" id="ps-modal"><div class="modal">
+    <h3>Pay Seller: Direct Deposit</h3>
+    <p style="font-size:.86rem;margin-bottom:.5rem;color:#991b1b;font-weight:700">This will move real money. A Stripe transfer of the net amount below will be sent to the seller's verified bank account. This cannot be undone from here.</p>
+    <div id="ps-detail" style="font-size:.9rem;margin-bottom:.6rem"></div>
+    <label class="f" style="display:flex;align-items:center;gap:.5rem;font-weight:600"><input type="checkbox" id="ps-confirm" /> I confirm pickup/fulfillment is complete and authorize this payment.</label>
+    <div class="msg" id="ps-msg"></div>
+    <div style="display:flex;gap:.6rem;margin-top:1rem"><button class="btn btn-pri" id="ps-save">Confirm &amp; Pay Seller</button><button class="btn" id="ps-cancel">Cancel</button></div>
   </div></div>
 
   <script>
@@ -235,8 +245,13 @@
 
       // lock / gate controls
       const disabled = locked || !enabled;
-      ['add-credit','add-debit','recalc','mark-paid'].forEach(id => { $(id).disabled = disabled; });
+      ['add-credit','add-debit','recalc'].forEach(id => { $(id).disabled = disabled; });
+      // Method-aware: Check → Mark Paid (records external payment); Direct Deposit → Pay Seller (real Stripe transfer).
+      const dd = !!(d.readiness.is_direct_deposit && d.readiness.connect_enabled);
+      $('mark-paid').style.display = dd ? 'none' : '';
       $('mark-paid').disabled = disabled || !d.readiness.can_mark_paid;
+      $('pay-seller').style.display = dd ? '' : 'none';
+      $('pay-seller').disabled = disabled || !d.readiness.can_pay_seller;
     }
 
     function load() {
@@ -283,6 +298,23 @@
       btn.disabled=false;
       if (j.success) { $('paid-modal').style.display='none'; load(); }
       else { $('paid-msg').className='msg err'; $('paid-msg').textContent = j.message || (http===409?'Settlements are not enabled.':'Could not mark paid.'); }
+    });
+
+    // Pay Seller (Direct Deposit) modal - initiates a REAL Stripe transfer at Admin approval.
+    $('pay-seller').addEventListener('click', () => {
+      $('ps-msg').textContent=''; $('ps-confirm').checked=false;
+      const net = D.summary.net_seller_proceeds_cents; const pm = D.payout_profile || {};
+      $('ps-detail').innerHTML = 'Seller: <b>'+esc(D.auction.seller_name)+'</b><br>Net Seller Payment: <b>'+money(net)+'</b><br>Destination: <b>'+esc(pm.bank_name||'Verified bank')+(pm.last4?(' •••• '+esc(pm.last4)):'')+'</b>';
+      $('ps-modal').style.display='flex';
+    });
+    $('ps-cancel').addEventListener('click', ()=>$('ps-modal').style.display='none');
+    $('ps-save').addEventListener('click', async () => {
+      if (!$('ps-confirm').checked) { $('ps-msg').className='msg err'; $('ps-msg').textContent='Please confirm to authorize this payment.'; return; }
+      const btn=$('ps-save'); btn.disabled=true; $('ps-msg').className='msg'; $('ps-msg').textContent='Sending transfer…';
+      const { http, j } = await api('POST','/api/admin/settlements/'+encodeURIComponent(auctionId)+'/pay-seller', { final_amount_cents: D.summary.net_seller_proceeds_cents, confirmed_completed:true });
+      btn.disabled=false;
+      if (j.success) { $('ps-modal').style.display='none'; load(); }
+      else { $('ps-msg').className='msg err'; $('ps-msg').textContent = j.message || (http===409?'Direct Deposit is not enabled.':'Could not pay seller.'); }
     });
 
     if (!auctionId) { $('status').textContent = 'No auction specified. Open this page as settlement-review.html?auction=<id>.'; }

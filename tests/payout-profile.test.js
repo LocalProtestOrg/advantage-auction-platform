@@ -14,30 +14,43 @@ describe('payoutProfileStatus', () => {
       check_city: 'Detroit', check_state: 'MI', check_postal_code: '48226',
     })).toBe(pp.PAYOUT_STATUS.READY);
   });
-  test('ach: no Stripe ref → Needs Attention, with ref → Ready', () => {
+  test('ach (Direct Deposit): READY only when Stripe Connect transfers+payouts are active', () => {
+    // Legacy Customer-SetupIntent ref alone is NOT payable → needs attention (must onboard via Connect).
     expect(pp.payoutProfileStatus({ payout_method: 'ach' })).toBe(pp.PAYOUT_STATUS.NEEDS_ATTENTION);
-    expect(pp.payoutProfileStatus({ payout_method: 'ach', stripe_bank_account_ref: 'ba_123' })).toBe(pp.PAYOUT_STATUS.READY);
+    expect(pp.payoutProfileStatus({ payout_method: 'ach', stripe_bank_account_ref: 'ba_123' })).toBe(pp.PAYOUT_STATUS.NEEDS_ATTENTION);
+    expect(pp.payoutProfileStatus({ payout_method: 'ach', connect_transfers_active: true })).toBe(pp.PAYOUT_STATUS.NEEDS_ATTENTION);
+    expect(pp.payoutProfileStatus({ payout_method: 'ach', connect_transfers_active: true, connect_payouts_enabled: true })).toBe(pp.PAYOUT_STATUS.READY);
   });
 });
 
 describe('maskedPayoutSummary — never leaks confidential banking data', () => {
   const achRow = {
     payout_method: 'ach',
-    stripe_bank_account_ref: 'ba_SECRET_TOKEN_123',
-    ach_routing_last4: '9999',      // even a last4 routing must not surface
+    stripe_account_id: 'acct_SECRET_123',            // Connect acct id — not surfaced in masked summary
+    stripe_bank_account_ref: 'ba_SECRET_TOKEN_123',  // legacy Customer ref — must not surface
+    ach_routing_last4: '9999',                       // even a last4 routing must not surface
     ach_account_last4: '4831',
     ach_account_name: 'Jane Roe',
-    bank_name: 'Example Bank',
-    ach_account_type: 'checking',
-    is_verified: true,
+    connect_status: 'ready',
+    connect_details_submitted: true,
+    connect_transfers_active: true,
+    connect_payouts_enabled: true,
+    connect_disabled_reason: null,
+    connect_bank_name: 'Example Bank',
+    connect_bank_last4: '4831',
   };
-  test('ACH masked summary exposes only safe display fields', () => {
+  test('ACH (Direct Deposit) masked summary exposes only safe Connect display fields', () => {
     const m = pp.maskedPayoutSummary(achRow);
-    expect(m).toEqual({ method: 'ach', status: 'ready', bank_name: 'Example Bank', account_type: 'checking', last4: '4831', verified: true });
+    expect(m).toEqual({
+      method: 'ach', status: 'ready', connect_status: 'ready', details_submitted: true,
+      transfers_active: true, payouts_enabled: true, disabled_reason: null,
+      bank_name: 'Example Bank', last4: '4831', verified: true,
+    });
   });
-  test('the serialized ACH summary contains no Stripe ref / routing / account-name', () => {
+  test('the serialized ACH summary contains no Stripe ref / acct id / routing / account-name', () => {
     const json = JSON.stringify(pp.maskedPayoutSummary(achRow));
     expect(json).not.toContain('ba_SECRET_TOKEN_123');
+    expect(json).not.toContain('acct_SECRET_123');     // Connect account id not surfaced
     expect(json).not.toContain('stripe_bank_account_ref');
     expect(json).not.toContain('9999');                // routing last4
     expect(json).not.toContain('ach_routing_last4');

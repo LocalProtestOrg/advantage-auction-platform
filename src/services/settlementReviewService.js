@@ -127,11 +127,25 @@ async function assembleSettlementReview(auctionId) {
       payment_note: sp.payment_note || null,
       paid_by_user_id: sp.paid_by_user_id || null,
       final_amount_paid_cents: sp.final_amount_paid_cents,
+      stripe_transfer_id: sp.stripe_transfer_id || null,           // Direct Deposit transfer id (if paid via Connect)
+      transfer_payout_status: sp.payout_status || null,            // processing | released | reversed | failed
     } : null,
-    readiness: {
-      warnings: readinessWarnings({ totals, payoutStatus, prefMethod: (pref && pref.payout_method) || null, stripeIncomplete }),
-      can_mark_paid: !isPaid && payoutStatus === PAYOUT_STATUS.READY && totals.outstanding_balance_cents === 0,
-    },
+    readiness: (() => {
+      const { stripeConnectEnabled } = require('../lib/launchGuards');
+      const { connectPayoutReady } = require('./settlementEngine');
+      const baseReady = !isPaid && payoutStatus === PAYOUT_STATUS.READY && totals.outstanding_balance_cents === 0;
+      const isDirectDeposit = (pref && pref.payout_method) === 'ach';
+      return {
+        warnings: readinessWarnings({ totals, payoutStatus, prefMethod: (pref && pref.payout_method) || null, stripeIncomplete }),
+        can_mark_paid: baseReady,                                  // Check path (records external payment)
+        // Direct Deposit path (real Stripe transfer): additionally requires Connect enabled + a
+        // payout-ready Connected Account + positive net. This is what gates the "Pay Seller" button.
+        can_pay_seller: baseReady && isDirectDeposit && stripeConnectEnabled(process.env)
+          && connectPayoutReady(pref) && totals.net_seller_proceeds_cents > 0,
+        connect_enabled: stripeConnectEnabled(process.env),
+        is_direct_deposit: isDirectDeposit,
+      };
+    })(),
     timeline,
   };
 }

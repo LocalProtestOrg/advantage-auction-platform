@@ -14,11 +14,18 @@ const role = require('../middleware/roleMiddleware');
 const review = require('../services/settlementReviewService');
 const engine = require('../services/settlementEngine');
 const adjustments = require('../services/settlementAdjustmentService');
-const { sellerSettlementsEnabled } = require('../lib/launchGuards');
+const { sellerSettlementsEnabled, stripeConnectEnabled } = require('../lib/launchGuards');
 
 function requireSettlementsEnabled(req, res, next) {
   if (!sellerSettlementsEnabled(process.env)) {
     return res.status(409).json({ success: false, message: 'Seller settlements are not enabled. Review is read-only until settlements are turned on.' });
+  }
+  next();
+}
+
+function requireConnectEnabled(req, res, next) {
+  if (!stripeConnectEnabled(process.env)) {
+    return res.status(409).json({ success: false, message: 'Stripe Connect Direct Deposit is not enabled.' });
   }
   next();
 }
@@ -73,6 +80,22 @@ router.post('/:auctionId/mark-paid', auth, role(['admin']), requireSettlementsEn
     res.json({ success: true, data: result });
   } catch (err) {
     if (err instanceof engine.MarkPaidError) return res.status(422).json({ success: false, message: err.message });
+    next(err);
+  }
+});
+
+// Pay Seller (Direct Deposit) — ACTUALLY moves money via a Stripe transfer at Admin approval.
+// Gated by BOTH SELLER_SETTLEMENTS_ENABLED and STRIPE_CONNECT_ENABLED. All money-movement
+// safeguards live in engine.paySellerViaTransfer (readiness, amount match, dup/idempotency).
+router.post('/:auctionId/pay-seller', auth, role(['admin']), requireSettlementsEnabled, requireConnectEnabled, async (req, res, next) => {
+  try {
+    const { final_amount_cents, confirmed_completed } = req.body || {};
+    const result = await engine.paySellerViaTransfer(req.params.auctionId, {
+      finalAmountCents: final_amount_cents, confirmedCompleted: confirmed_completed, actorId: req.user.id,
+    });
+    res.json({ success: true, data: result });
+  } catch (err) {
+    if (err instanceof engine.PaySellerError) return res.status(422).json({ success: false, message: err.message });
     next(err);
   }
 });

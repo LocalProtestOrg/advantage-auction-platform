@@ -1254,6 +1254,23 @@ class PaymentService {
       if (event.type === 'invoice.payment_failed') return appraiser.handleInvoicePaymentFailed(obj);
       return appraiser.handleSubscriptionEvent(obj, event.type); // subscription.created/updated/deleted
     }
+
+    // ── Stripe Connect events (seller Direct Deposit). Reuses this same signature-verified +
+    // idempotent pipeline — no second endpoint. account.updated / payout.* carry event.account
+    // (the connected account); transfer.* are platform events. Lazy-required to avoid cycles. ──
+    if (event.type === 'account.updated') {
+      return require('./stripeConnectService').applyAccountUpdated(obj);
+    }
+    if (event.type === 'transfer.created' || event.type === 'transfer.reversed') {
+      return require('./settlementEngine').applyTransferEvent(event.type, obj);
+    }
+    if (event.type === 'payout.paid' || event.type === 'payout.failed') {
+      // Connected-account payout health (aggregate; not per-settlement). event.account is the acct id.
+      const failed = event.type === 'payout.failed';
+      const failureMessage = failed ? (obj.failure_message || obj.failure_code || 'payout failed') : null;
+      return require('./stripeConnectService').applyPayoutEvent(event.account || null, { failed, failureMessage });
+    }
+
     // All other event types are acknowledged without action. The row is still
     // marked 'processed' so we do not re-acquire on every delivery.
   }

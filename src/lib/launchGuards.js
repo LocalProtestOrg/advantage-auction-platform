@@ -22,4 +22,14 @@ function combinedInvoicingEnabled(env = process.env) {
   return !!(env && env.COMBINED_INVOICING_ENABLED === 'true');
 }
 
-module.exports = { isInvoicePaid, sellerSettlementsEnabled, combinedInvoicingEnabled };
+// V1.0 Stripe Connect manual-control Direct Deposit is OFF unless STRIPE_CONNECT_ENABLED is
+// exactly 'true'. Default (unset) = disabled: no Connect account is created, the seller
+// Direct Deposit UI is hidden, and Admin "Pay Seller" (Stripe transfer) is unavailable — so
+// deploying this code changes nothing until the owner enables Connect in the Stripe Dashboard
+// AND sets this flag. Real seller-money movement stays gated behind BOTH this and
+// SELLER_SETTLEMENTS_ENABLED.
+function stripeConnectEnabled(env = process.env) {
+  return !!(env && env.STRIPE_CONNECT_ENABLED === 'true');
+}
+
+module.exports = { isInvoicePaid, sellerSettlementsEnabled, combinedInvoicingEnabled, stripeConnectEnabled };

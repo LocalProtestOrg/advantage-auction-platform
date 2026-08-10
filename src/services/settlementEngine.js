@@ -307,6 +307,138 @@ async function markSettlementPaid(auctionId, {
   }
 }
 
+// ── Direct Deposit (Stripe Connect transfer) — Admin-triggered release ───────────────────
+// Separate from the check Mark Paid path above. Money moves ONLY here, only at explicit Admin
+// approval, only after all safeguards pass. Buyer funds stay on the platform until this runs.
+class PaySellerError extends Error {}
+
+// PURE: the Connected Account can actually receive AND pay out a transfer.
+function connectPayoutReady(pref) {
+  return !!(pref && pref.stripe_account_id && pref.connect_transfers_active && pref.connect_payouts_enabled);
+}
+
+/**
+ * PURE guard for Direct Deposit "Pay Seller". Throws PaySellerError or returns {ok:true}.
+ * Enforces every money-movement safeguard so no wrong/duplicate/early transfer can occur.
+ */
+function assertPaySellerAllowed(state, input) {
+  const s = state || {}, i = input || {};
+  if (!s.hasSettlementRow) throw new PaySellerError('No settlement exists for this auction yet.');
+  if (s.settlementStatus === SETTLEMENT_STATUS.PAID) throw new PaySellerError('Settlement is already paid and is immutable.');
+  if (s.existingTransferId) throw new PaySellerError('A Stripe transfer already exists for this settlement.');
+  if (s.payoutMethod !== 'ach') throw new PaySellerError('Seller payout method is not Direct Deposit.');
+  if (!s.connectReady) throw new PaySellerError('Seller Direct Deposit is not ready (Stripe onboarding incomplete or payouts disabled).');
+  if (!i.confirmedCompleted) throw new PaySellerError('Explicit confirmation that fulfillment is complete is required.');
+  const net = Math.trunc(Number(s.netProceedsCents));
+  const finalAmt = Math.trunc(Number(i.finalAmountCents));
+  if (!Number.isFinite(finalAmt)) throw new PaySellerError('A final net payment amount is required.');
+  if (finalAmt !== net) throw new PaySellerError('Final amount (' + finalAmt + ') does not match the calculated settlement (' + net + ').');
+  if (net <= 0) throw new PaySellerError('Net seller proceeds must be greater than zero.');
+  return { ok: true };
+}
+
+/**
+ * Admin-approved Direct Deposit. Locks the settlement row, verifies the guard, creates ONE
+ * Stripe Transfer to the seller's Connected Account (idempotency-keyed), records the transfer
+ * id + immutable final snapshot, and sets settlement_status='paid' + payout_status='processing'
+ * (a transfer.created webhook flips it to 'released'). If the transfer throws, NOTHING is marked
+ * paid and the state stays retry-safe. Duplicate/concurrent calls are blocked by the FOR UPDATE
+ * lock + the unique stripe_transfer_id index + the idempotency key.
+ */
+async function paySellerViaTransfer(auctionId, { actorId = null, confirmedCompleted = false, finalAmountCents } = {}) {
+  const totals = await computeSettlement(auctionId);
+  const client = await db.connect();
+  try {
+    await client.query('BEGIN');
+    const spRes = await client.query('SELECT * FROM seller_payouts WHERE auction_id = $1 FOR UPDATE', [auctionId]);
+    const sp = spRes.rows[0];
+    const pref = sp ? await getSellerPayoutPreference(sp.seller_user_id) : null;
+
+    assertPaySellerAllowed({
+      hasSettlementRow: !!sp,
+      settlementStatus: sp && sp.settlement_status,
+      existingTransferId: sp && sp.stripe_transfer_id,
+      payoutMethod: pref && pref.payout_method,
+      connectReady: connectPayoutReady(pref),
+      netProceedsCents: totals.net_seller_proceeds_cents,
+    }, { finalAmountCents, confirmedCompleted });
+
+    const vRes = await client.query('SELECT COALESCE(MAX(version),0) AS maxv FROM settlement_snapshots WHERE auction_id = $1', [auctionId]);
+    const finalVersion = Number(vRes.rows[0].maxv) + 1;
+    const net = totals.net_seller_proceeds_cents;
+
+    // Create the Stripe Transfer (platform balance → seller Connected Account). Stable, per-auction
+    // idempotency key: a retry after a partial failure returns the SAME transfer, never a second one.
+    let transfer;
+    try {
+      const stripe = require('./stripeConnectService').getStripe();
+      transfer = await stripe.transfers.create({
+        amount: net,
+        currency: 'usd',
+        destination: pref.stripe_account_id,
+        metadata: {
+          auction_id: String(auctionId),
+          seller_user_id: String(sp.seller_user_id),
+          settlement_version: String(finalVersion),
+          platform: 'advantage.bid',
+        },
+      }, { idempotencyKey: 'settlement-transfer:' + auctionId });
+    } catch (e) {
+      await client.query('ROLLBACK').catch(() => {});
+      throw new PaySellerError('Stripe transfer failed: ' + (e && e.message ? e.message : 'unknown error'));
+    }
+
+    await client.query(
+      `INSERT INTO settlement_snapshots (auction_id, seller_user_id, version, snapshot, is_final, created_by_user_id)
+       VALUES ($1, $2, $3, $4, true, $5)`,
+      [auctionId, sp.seller_user_id, finalVersion, JSON.stringify(totals), actorId]);
+
+    await client.query(
+      `UPDATE seller_payouts SET
+         settlement_status = 'paid', settlement_version = $2,
+         seller_payout_cents = $3, final_amount_paid_cents = $3,
+         paid_at = now(), paid_by_user_id = $4,
+         payment_method_used = 'ach', payout_reference = $5,
+         stripe_transfer_id = $5, transfer_initiated_at = now(),
+         payout_status = 'processing', updated_at = now()
+       WHERE auction_id = $1`,
+      [auctionId, finalVersion, net, actorId, transfer.id]);
+
+    await auditService.logEvent(client, {
+      eventType: SETTLEMENT_AUDIT_EVENTS.SETTLEMENT_MARKED_PAID,
+      entityType: 'seller_payout', entityId: sp.id, auctionId, actorId,
+      metadata: { final_version: finalVersion, final_amount_cents: net, payment_method: 'direct_deposit', stripe_transfer_id: transfer.id },
+    });
+    await client.query('COMMIT');
+    return { paid: true, final_version: finalVersion, final_amount_cents: net, stripe_transfer_id: transfer.id, payout_status: 'processing' };
+  } catch (e) {
+    await client.query('ROLLBACK').catch(() => {});
+    throw e;
+  } finally {
+    client.release();
+  }
+}
+
+// Webhook: transfer.created confirms the transfer; transfer.reversed flags a reversal. Idempotent
+// (matches on stripe_transfer_id). Never marks a settlement paid — that already happened at approval.
+async function applyTransferEvent(eventType, transfer) {
+  if (!transfer || !transfer.id) return { updated: 0 };
+  if (eventType === 'transfer.created') {
+    const r = await db.query(
+      `UPDATE seller_payouts SET payout_status='released', updated_at=now()
+         WHERE stripe_transfer_id=$1 AND payout_status='processing'`, [transfer.id]);
+    return { updated: r.rowCount, payout_status: 'released' };
+  }
+  if (eventType === 'transfer.reversed') {
+    const r = await db.query(
+      `UPDATE seller_payouts SET payout_status='reversed',
+         transfer_failure_message=$2, updated_at=now()
+         WHERE stripe_transfer_id=$1`, [transfer.id, 'Transfer reversed by Stripe/platform']);
+    return { updated: r.rowCount, payout_status: 'reversed' };
+  }
+  return { updated: 0 };
+}
+
 module.exports = {
   computeSettlementTotals, // pure
   readMarketingCharges,
@@ -318,4 +450,10 @@ module.exports = {
   assertMarkPaidAllowed,    // pure
   markSettlementPaid,
   MarkPaidError,
+  // Direct Deposit (Stripe Connect):
+  connectPayoutReady,       // pure
+  assertPaySellerAllowed,   // pure
+  paySellerViaTransfer,
+  applyTransferEvent,
+  PaySellerError,
 };

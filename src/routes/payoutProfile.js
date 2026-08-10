@@ -12,7 +12,11 @@ const router = express.Router();
 const auth = require('../middleware/authMiddleware');
 const role = require('../middleware/roleMiddleware');
 const svc = require('../services/payoutProfileService');
+const connect = require('../services/stripeConnectService');
 const { maskedPayoutSummary, payoutProfileStatus } = require('../lib/payoutProfile');
+const { stripeConnectEnabled } = require('../lib/launchGuards');
+
+const APP_BASE = (process.env.PUBLIC_APP_URL || 'https://bid.advantage.bid').replace(/\/+$/, '');
 
 function serialize(pref) {
   return {
@@ -20,13 +24,40 @@ function serialize(pref) {
     status: payoutProfileStatus(pref),
     tax_status: (pref && pref.tax_status) || 'not_started',
     setup_completed_at: (pref && pref.setup_completed_at) || null,
+    connect_enabled: stripeConnectEnabled(),   // UI shows Direct Deposit only when true
   };
+}
+
+function requireConnectEnabled(req, res, next) {
+  if (!stripeConnectEnabled()) {
+    return res.status(409).json({ success: false, message: 'Direct Deposit is not available yet. Please use Check for now.' });
+  }
+  next();
 }
 
 // Seller reads their OWN profile (masked).
 router.get('/me', auth, role(['seller']), async (req, res, next) => {
   try { res.json({ success: true, data: serialize(await svc.getProfile(req.user.id)) }); }
   catch (err) { next(err); }
+});
+
+// Direct Deposit (Stripe Connect): start/resume Stripe-hosted onboarding. Returns a one-time URL.
+router.post('/me/connect/onboard', auth, role(['seller']), requireConnectEnabled, async (req, res, next) => {
+  try {
+    const link = await connect.createOnboardingLink(req.user.id, {
+      returnUrl: APP_BASE + '/payout-profile.html?connect=return',
+      refreshUrl: APP_BASE + '/payout-profile.html?connect=refresh',
+    });
+    res.json({ success: true, data: { url: link.url } });
+  } catch (err) { next(err); }
+});
+
+// Direct Deposit: refresh + return the seller's live Connect status (safe fields only).
+router.get('/me/connect/status', auth, role(['seller']), requireConnectEnabled, async (req, res, next) => {
+  try {
+    await connect.refreshAccountStatus(req.user.id);       // pulls live Stripe status, persists safe fields
+    res.json({ success: true, data: serialize(await svc.getProfile(req.user.id)) });
+  } catch (err) { next(err); }
 });
 
 // Seller saves their OWN check details. (ACH uses the Stripe SetupIntent endpoints below.)

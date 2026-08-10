@@ -58,26 +58,23 @@
         </div>
       </div>
 
-      <!-- ACH -->
+      <!-- Direct Deposit (Stripe Connect) -->
       <div class="card hide" id="sec-ach">
-        <h2>Bank Account (ACH)</h2>
+        <h2>Direct Deposit</h2>
         <div id="ach-saved" class="hide">
           <div class="masked">
-            <div class="big" id="ach-line">Checking Account •••• 0000</div>
+            <div class="big" id="ach-line">Direct Deposit Ready</div>
             <div class="kv"><span>Bank Name</span><span id="ach-bank">Not set</span></div>
-            <div class="kv"><span>Account Type</span><span id="ach-type">Not set</span></div>
-            <div class="kv"><span>Status</span><span id="ach-verified" class="verified">Verified</span></div>
+            <div class="kv"><span>Account</span><span id="ach-type">••••</span></div>
+            <div class="kv"><span>Status</span><span id="ach-verified" class="verified">Ready</span></div>
             <div class="kv"><span>Last Updated</span><span id="ach-updated">Not set</span></div>
           </div>
-          <button class="secondary" id="ach-update">Update Bank Account</button>
+          <button class="secondary" id="ach-update">Update Payout Details</button>
         </div>
         <div id="ach-connect">
-          <label class="f" for="ach-name">Name on Account</label>
-          <input class="t" id="ach-name" autocomplete="name" placeholder="Full name" />
-          <label class="f" for="ach-email">Email</label>
-          <input class="t" id="ach-email" type="email" autocomplete="email" placeholder="you@example.com" />
-          <button id="ach-connect-btn">Connect Bank Account</button>
-          <div class="reassure">Your banking information is securely managed through Stripe. Advantage.Bid never stores your routing or account numbers.</div>
+          <p id="ach-status-note" style="margin:0 0 .6rem">Set up secure direct deposit through Stripe. You'll be taken to Stripe to verify your identity and add your bank account.</p>
+          <button id="ach-connect-btn">Set Up Direct Deposit</button>
+          <div class="reassure">Your banking information is securely collected and stored by Stripe. Advantage.Bid never sees or stores your routing or account numbers.</div>
           <div class="msg" id="ach-msg"></div>
         </div>
       </div>
@@ -137,16 +134,31 @@
       const p = (data && data.profile) || { method: null };
       const status = (data && data.status) || 'incomplete';
       const badge = $('status-badge'); badge.className = 'status ' + status; badge.textContent = STATUS_LABEL[status] || 'Incomplete';
-      // method selection
-      selectMethod(p.method || null, false);
-      // ACH masked display
-      if (p.method === 'ach' && p.last4) {
-        $('ach-saved').classList.remove('hide'); $('ach-connect').classList.add('hide');
-        $('ach-line').textContent = (cap(p.account_type) || 'Bank') + ' Account •••• ' + p.last4;
-        $('ach-bank').textContent = p.bank_name || 'Not set';
-        $('ach-type').textContent = cap(p.account_type) || 'Not set';
-        const v = $('ach-verified'); v.textContent = p.verified ? 'Verified' : 'Pending Verification'; v.className = p.verified ? 'verified' : '';
-        $('ach-updated').textContent = data.setup_completed_at ? new Date(data.setup_completed_at).toLocaleDateString() : 'Not set';
+      // Direct Deposit visibility: only when Stripe Connect is enabled server-side.
+      const connectEnabled = !!(data && data.connect_enabled);
+      $('m-ach').style.display = connectEnabled ? '' : 'none';
+      // method selection (fall back to check if ACH is hidden)
+      let method = p.method || null;
+      if (method === 'ach' && !connectEnabled) method = 'check';
+      selectMethod(method, false);
+      // Direct Deposit (Connect) status display
+      if (p.method === 'ach') {
+        const ready = !!(p.transfers_active && p.payouts_enabled);
+        if (ready) {
+          $('ach-saved').classList.remove('hide'); $('ach-connect').classList.add('hide');
+          $('ach-line').textContent = 'Direct Deposit Ready';
+          $('ach-bank').textContent = p.bank_name || 'On file with Stripe';
+          $('ach-type').textContent = p.last4 ? ('•••• ' + p.last4) : 'On file with Stripe';
+          const v = $('ach-verified'); v.textContent = 'Ready'; v.className = 'verified';
+          $('ach-updated').textContent = data.setup_completed_at ? new Date(data.setup_completed_at).toLocaleDateString() : 'Not set';
+        } else {
+          $('ach-saved').classList.add('hide'); $('ach-connect').classList.remove('hide');
+          const note = $('ach-status-note');
+          if (p.connect_status === 'restricted') note.textContent = 'Stripe needs more information before you can receive direct deposits. Continue setup to resolve it.';
+          else if (p.details_submitted) note.textContent = 'Your Stripe setup is being reviewed. You can resume or update it below.';
+          else note.textContent = 'Set up secure direct deposit through Stripe. You’ll verify your identity and add your bank account.';
+          $('ach-connect-btn').textContent = p.stripe_account_id ? 'Resume Direct Deposit Setup' : 'Set Up Direct Deposit';
+        }
       } else { $('ach-saved').classList.add('hide'); $('ach-connect').classList.remove('hide'); }
       // check prefill
       if (p.method === 'check') {
@@ -187,39 +199,29 @@
       } catch (e) { if (e.message !== 'unauthorized') setMsg('tax-msg', 'Could not save.'); }
     });
 
-    // ACH connect via Stripe (SetupIntent + us_bank_account / Financial Connections)
+    // Direct Deposit onboarding via Stripe Connect (hosted). Redirects to Stripe; the seller
+    // returns to ?connect=return where we refresh live status. Advantage.Bid never sees bank data.
     $('ach-connect-btn').addEventListener('click', async () => {
-      const name = $('ach-name').value.trim(), email = $('ach-email').value.trim();
-      if (!name || !email) { setMsg('ach-msg', 'Please enter the name on the account and an email.'); return; }
-      const btn = $('ach-connect-btn'); btn.disabled = true; const t = btn.textContent; btn.textContent = 'Connecting…'; setMsg('ach-msg', '');
+      const btn = $('ach-connect-btn'); btn.disabled = true; const t = btn.textContent; btn.textContent = 'Opening Stripe…'; setMsg('ach-msg', '');
       try {
-        const si = await api('POST', '/api/payout-profile/me/ach/setup-intent');
-        if (!si.success || !si.data.client_secret || !si.data.publishable_key) { setMsg('ach-msg', 'Bank connection is temporarily unavailable.'); return; }
-        const stripe = Stripe(si.data.publishable_key);
-        const clientSecret = si.data.client_secret;
-        const collected = await stripe.collectBankAccountForSetup({
-          clientSecret,
-          params: { payment_method_type: 'us_bank_account', payment_method_data: { billing_details: { name, email } } },
-          expand: ['payment_method'],
-        });
-        if (collected.error) { setMsg('ach-msg', collected.error.message || 'Bank connection was cancelled.'); return; }
-        let result = collected.setupIntent;
-        if (result && result.status === 'requires_confirmation') {
-          const confirmed = await stripe.confirmUsBankAccountSetup(clientSecret);
-          if (confirmed.error) { setMsg('ach-msg', confirmed.error.message || 'Could not confirm the bank account.'); return; }
-          result = confirmed.setupIntent;
-        }
-        const done = await api('POST', '/api/payout-profile/me/ach/confirm', { setup_intent_id: (result && result.id) || si.data.setup_intent_id });
-        if (done.success) { render(done.data); setMsg('ach-msg', 'Bank account connected.', true); }
-        else setMsg('ach-msg', done.message || 'Could not save the bank account.');
-      } catch (e) { if (e.message !== 'unauthorized') setMsg('ach-msg', 'Could not connect the bank account. Please try again.'); }
-      finally { btn.disabled = false; btn.textContent = t; }
+        const d = await api('POST', '/api/payout-profile/me/connect/onboard');
+        if (d.success && d.data && d.data.url) { location.href = d.data.url; return; }
+        setMsg('ach-msg', d.message || 'Direct Deposit setup is temporarily unavailable.');
+        btn.disabled = false; btn.textContent = t;
+      } catch (e) { if (e.message !== 'unauthorized') { setMsg('ach-msg', 'Could not start Direct Deposit setup. Please try again.'); btn.disabled = false; btn.textContent = t; } }
     });
 
-    // Load
-    api('GET', '/api/payout-profile/me').then(d => {
-      if (d.success) { render(d.data); $('loading').classList.add('hide'); $('app').classList.remove('hide'); }
-      else $('loading').textContent = 'Could not load your payout profile.';
+    // Load: if returning from Stripe hosted onboarding, refresh live Connect status first.
+    const connectReturn = /[?&]connect=(return|refresh)/.test(location.search);
+    const loadUrl = connectReturn ? '/api/payout-profile/me/connect/status' : '/api/payout-profile/me';
+    const loadMethod = connectReturn ? 'GET' : 'GET';
+    api(loadMethod, loadUrl).then(d => {
+      if (d.success) {
+        render(d.data); $('loading').classList.add('hide'); $('app').classList.remove('hide');
+        if (connectReturn && d.data && d.data.profile && d.data.profile.method === 'ach') {
+          setMsg('ach-msg', (d.data.profile.transfers_active && d.data.profile.payouts_enabled) ? 'Direct Deposit is ready.' : 'Setup received. Stripe is finishing verification.', d.data.profile.payouts_enabled);
+        }
+      } else $('loading').textContent = 'Could not load your payout profile.';
     }).catch(e => { if (e.message !== 'unauthorized') $('loading').textContent = 'Could not load your payout profile.'; });
   })();
   </script>

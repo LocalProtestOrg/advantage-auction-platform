@@ -18,8 +18,12 @@ const TAX_STATUS_LABEL = Object.freeze({ not_started: 'Not Started', in_progress
 function isCheckComplete(p) {
   return !!(p && p.check_payee_name && p.check_address_line1 && p.check_city && p.check_state && p.check_postal_code);
 }
+// Direct Deposit (ach) is READY only when the Stripe Connected Account can actually receive a
+// transfer AND pay it out — i.e. transfers capability active + payouts enabled. A legacy
+// Customer-SetupIntent bank ref alone is NOT payable and reads as needs_attention (must onboard
+// via Connect). This is what lets Admin's "Pay Seller" run safely.
 function isAchComplete(p) {
-  return !!(p && p.stripe_bank_account_ref); // Stripe-managed reference present = ready
+  return !!(p && p.connect_transfers_active && p.connect_payouts_enabled);
 }
 
 /** Overall readiness: does enough information exist to complete a payout? */
@@ -39,13 +43,18 @@ function maskedPayoutSummary(pref) {
   if (!pref || !pref.payout_method) return { method: null, status: PAYOUT_STATUS.INCOMPLETE };
   const status = payoutProfileStatus(pref);
   if (pref.payout_method === 'ach') {
+    // Direct Deposit via Stripe Connect. Safe display only — never bank credentials.
     return {
       method: 'ach',
       status,
-      bank_name: pref.bank_name || null,
-      account_type: pref.ach_account_type || null, // 'checking' | 'savings'
-      last4: pref.ach_account_last4 || null,        // display only, e.g. 4831
-      verified: !!pref.is_verified,
+      connect_status: pref.connect_status || (pref.stripe_account_id ? 'onboarding' : 'not_started'),
+      details_submitted: !!pref.connect_details_submitted,
+      transfers_active: !!pref.connect_transfers_active,
+      payouts_enabled: !!pref.connect_payouts_enabled,
+      disabled_reason: pref.connect_disabled_reason || null,
+      bank_name: pref.connect_bank_name || pref.bank_name || null,
+      last4: pref.connect_bank_last4 || pref.ach_account_last4 || null, // display only
+      verified: !!pref.connect_payouts_enabled,
     };
   }
   return {
