@@ -9,6 +9,7 @@ const { buildReportPdf }        = require('../services/pdfGenerationService');
 const { sendEmail }             = require('../services/emailService');
 const db                        = require('../db/index');
 const { canMutateAuction, canDeleteAuction, lockErrorMessage } = require('./lots');
+const { isProfessional }  = require('../services/sellerTypeRules'); // seller-class gate (starting price is professional-only)
 const registrationService = require('../services/auctionRegistrationService'); // #20
 const agreementService    = require('../services/agreementService'); // seller agreement gate
 
@@ -151,13 +152,31 @@ router.post('/:auctionId/lots', authMiddleware, async (req, res) => {
     if (!isUuid(auctionId)) {
       return res.status(400).json({ success: false, message: 'Invalid auction ID' });
     }
+    // Edit-lock gate (submission lock) — PARITY with POST /api/lots. Without this, this path
+    // could add lots to an already-submitted auction (bypassing the "catalog final after
+    // submission" rule for Individual sellers). Admin/business bypass per canMutateAuction.
+    const gate = await canMutateAuction(req.user.id, req.user.role, auctionId);
+    if (!gate.allowed) {
+      return res.status(403).json({ success: false, message: lockErrorMessage(gate.reason) });
+    }
     const {
       title, description, starting_price, pickup_category, category,
       condition, material, era, maker_artist, weight, dimensions, shippable,
     } = req.body;
+    // Professional-only starting price — PARITY with the Phase C.2 gate on POST /api/lots.
+    // Non-professional (non-admin) sellers cannot set a lot start price; it defaults to $1.
+    // Server-authoritative (frontend hiding is UX only).
+    let effStartingPrice = starting_price;
+    if (req.user.role !== 'admin') {
+      const st = await db.query(
+        `SELECT sp.seller_type FROM auctions a JOIN seller_profiles sp ON sp.id = a.seller_id WHERE a.id = $1`,
+        [auctionId]
+      );
+      if (!st.rows[0] || !isProfessional(st.rows[0].seller_type)) effStartingPrice = undefined; // → $1 default in lotService.createLot
+    }
     const lotData = {
       title, description,
-      startingPrice: starting_price,
+      startingPrice: effStartingPrice,
       pickupCategory: pickup_category,
       category, condition, material, era,
       makerArtist: maker_artist,

@@ -258,6 +258,9 @@ router.post('/', auth, async (req, res, next) => {
     // starting_bid + reserve ignored → null (existing $1 fallback / no reserve).
     const proAllowed        = await proSettingsAllowedForAuction(req.user.role, auctionId);
     const effStartingBid    = proAllowed ? (starting_bid_cents || null) : null;
+    // Bid increment is professional-only too (individual sellers use the platform default
+    // ladder; a per-lot flat override is a professional setting). Non-pro → null (platform default).
+    const effBidIncrement   = proAllowed ? (bid_increment_cents || null) : null;
     const effReserveCents   = proAllowed ? (reserve_cents || null)      : null;
     const effReserveVisible = proAllowed ? (reserve_visible === true)   : false;
     const dimsValidated = validateDimensions(dimensions); // null if invalid → stored as NULL
@@ -266,7 +269,7 @@ router.post('/', auth, async (req, res, next) => {
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10::jsonb,
                (SELECT COALESCE(MAX(lot_number), 0) + 1 FROM lots WHERE auction_id = $1))
        RETURNING *`,
-      [auctionId, title, description, effSize, effPickup, bid_increment_cents || null, effStartingBid, effReserveCents, effReserveVisible, dimsValidated ? JSON.stringify(dimsValidated) : null]
+      [auctionId, title, description, effSize, effPickup, effBidIncrement, effStartingBid, effReserveCents, effReserveVisible, dimsValidated ? JSON.stringify(dimsValidated) : null]
     );
     // INT-2: audit lot creation. Non-blocking — helper swallows errors.
     const created = result.rows[0];
@@ -531,6 +534,8 @@ router.put('/:lotId', auth, async (req, res, next) => {
     // (never destroys an admin-set reserve); only a pro-supplied value writes.
     const proAllowed        = await proSettingsAllowedForLot(req.user.role, req.params.lotId);
     const effStartingBid    = proAllowed ? (starting_bid_cents || null) : null;
+    // Bid increment is professional-only (parity with starting bid). Non-pro → platform default.
+    const effBidIncrement   = proAllowed ? (bid_increment_cents || null) : null;
     const effReserveCents   = proAllowed ? (reserve_cents != null ? reserve_cents : null) : null;
     const effReserveVisible = proAllowed ? (typeof reserve_visible === 'boolean' ? reserve_visible : null) : null;
     // INT-2: snapshot the columns that this UPDATE writes so we can compute
@@ -591,7 +596,7 @@ router.put('/:lotId', auth, async (req, res, next) => {
         category        || null,
         effTier,
         effPickupUpd,
-        bid_increment_cents  || null,
+        effBidIncrement,         // Phase C.2: null (platform default) for non-professional sellers
         effStartingBid,          // Phase C.2: null for non-professional sellers
         condition       || null,
         material        || null,
