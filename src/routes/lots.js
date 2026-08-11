@@ -78,7 +78,7 @@ async function userOwnsLot(userId, userRole, lotId) {
 // surgical implementation; a full capability/RBAC system is deferred.
 //
 // Returns { allowed: boolean, reason: string }. Reasons: 'admin',
-// 'draft', 'business_seller_bypass', 'auction_locked_after_submission',
+// 'draft', 'professional_seller', 'auction_locked_after_submission',
 // 'auction_not_found', 'lot_not_found'.
 async function canMutateAuction(userId, userRole, auctionId) {
   if (userRole === 'admin') return { allowed: true, reason: 'admin' };
@@ -92,7 +92,11 @@ async function canMutateAuction(userId, userRole, auctionId) {
   if (!rows[0]) return { allowed: false, reason: 'auction_not_found' };
   const { state, seller_type } = rows[0];
   if (state === 'draft')               return { allowed: true,  reason: 'draft' };
-  if (seller_type === 'business')      return { allowed: true,  reason: 'business_seller_bypass' };
+  // Owner policy: post-submission catalog edits follow the PROFESSIONAL classification, not the
+  // legacy 'business' seller_type. Professionals may edit after publication (their approved
+  // workflow); Individual sellers (private/business/other/untyped) are locked once submitted.
+  // Admin always overrides (handled above).
+  if (isProfessional(seller_type))     return { allowed: true,  reason: 'professional_seller' };
   return { allowed: false, reason: 'auction_locked_after_submission' };
 }
 

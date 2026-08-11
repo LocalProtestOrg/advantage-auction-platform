@@ -291,7 +291,8 @@ router.get('/:auctionId', authMiddleware, async (req, res) => {
 // proposed transition. So a private seller PATCHing { state: 'submitted' }
 // on a draft auction passes (draft → allowed). PATCHing any field on a
 // submitted auction is blocked (state lock). Admin always bypasses.
-// Business sellers bypass for non-draft auctions per governance spec.
+// Professional sellers may edit after publication (approved Professional workflow);
+// Individual sellers (private/business/other) are locked once submitted.
 router.patch('/:auctionId', authMiddleware, async (req, res) => {
   try {
     const { auctionId } = req.params;

@@ -70,3 +70,28 @@ describe('regression guard: the gated POST /api/lots path still gates starting b
     expect(lotsRoute).toMatch(/proSettingsAllowedForAuction\(req\.user\.role, auctionId\)/);
   });
 });
+
+describe('catalog-edit lock follows the PROFESSIONAL classification (owner policy)', () => {
+  // Isolate canMutateAuction.
+  const gateFn = (() => {
+    const start = lotsRoute.indexOf('async function canMutateAuction');
+    const end = lotsRoute.indexOf('async function canMutateLot');
+    return lotsRoute.slice(start, end > start ? end : start + 900);
+  })();
+  test('post-submission edits are allowed for professionals (not the legacy business bypass)', () => {
+    expect(gateFn).toMatch(/if \(isProfessional\(seller_type\)\)\s*return \{ allowed: true,\s*reason: 'professional_seller' \}/);
+  });
+  test('the legacy business_seller_bypass is gone from the gate logic', () => {
+    expect(gateFn).not.toMatch(/seller_type\s*===\s*'business'/);
+    expect(gateFn).not.toMatch(/business_seller_bypass/);
+  });
+  test('admin still overrides; draft still open; everyone else locked after submission', () => {
+    expect(gateFn).toMatch(/if \(userRole === 'admin'\) return \{ allowed: true, reason: 'admin' \}/);
+    expect(gateFn).toMatch(/if \(state === 'draft'\)\s*return \{ allowed: true,\s*reason: 'draft' \}/);
+    expect(gateFn).toMatch(/return \{ allowed: false, reason: 'auction_locked_after_submission' \}/);
+  });
+  test('no residual business bypass anywhere in the two route files', () => {
+    expect(lotsRoute).not.toMatch(/seller_type\s*===\s*'business'/);
+    expect(auctionsRoute).not.toMatch(/seller_type\s*===\s*'business'/);
+  });
+});
