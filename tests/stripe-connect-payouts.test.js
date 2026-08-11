@@ -14,6 +14,18 @@ const read = (p) => fs.readFileSync(path.join(__dirname, '..', p), 'utf8');
 jest.mock('../src/db', () => ({ query: jest.fn(), connect: jest.fn() }));
 const db = require('../src/db');
 
+// Mock the Stripe SDK so Connect status sync can be exercised without network (v2 shape).
+jest.mock('stripe', () => {
+  const retrieve = jest.fn();
+  const factory = jest.fn(() => ({ v2: { core: { accounts: { retrieve }, accountLinks: { create: jest.fn() } } } }));
+  factory.__retrieve = retrieve;
+  return factory;
+});
+const stripeMock = require('stripe');
+const _origKey = process.env.STRIPE_SECRET_KEY;
+beforeAll(() => { process.env.STRIPE_SECRET_KEY = _origKey || 'sk_test_dummy_for_unit_tests'; });
+afterAll(() => { if (_origKey === undefined) delete process.env.STRIPE_SECRET_KEY; else process.env.STRIPE_SECRET_KEY = _origKey; });
+
 const { stripeConnectEnabled } = require('../src/lib/launchGuards');
 const connect = require('../src/services/stripeConnectService');
 const engine = require('../src/services/settlementEngine');
@@ -32,38 +44,56 @@ describe('STRIPE_CONNECT_ENABLED launch flag', () => {
   });
 });
 
-// ── PURE: Connect account-status mapper (no raw bank data ever) ──────────────────────────
-describe('mapAccountToStatus (pure)', () => {
-  test('fully onboarded → ready + safe bank display', () => {
-    const m = connect.mapAccountToStatus({
-      id: 'acct_1', capabilities: { transfers: 'active' }, payouts_enabled: true, details_submitted: true,
-      requirements: { disabled_reason: null },
-      external_accounts: { data: [{ object: 'bank_account', bank_name: 'Test Bank', last4: '6789', routing_number: '110000000', account_number: 'SECRET' }] },
-    });
+// ── PURE: Accounts-v2 status mapper (no raw bank data ever) ──────────────────────────────
+// Shapes mirror stripe.v2.core.accounts.retrieve (configuration.recipient.capabilities.stripe_balance).
+const V2_READY = {
+  id: 'acct_1',
+  configuration: { recipient: { capabilities: { stripe_balance: {
+    stripe_transfers: { status: 'active' }, payouts: { status: 'active' },
+  } } } },
+  requirements: { summary: { minimum_deadline: { status: 'up_to_date' } } },
+};
+const V2_ONBOARDING = {
+  id: 'acct_2',
+  configuration: { recipient: { capabilities: { stripe_balance: {
+    stripe_transfers: { status: 'restricted', status_details: [{ code: 'requirements_past_due' }] },
+    payouts: { status: 'restricted', status_details: [{ code: 'requirements_past_due' }] },
+  } } } },
+  requirements: { summary: { minimum_deadline: { status: 'past_due' } } },
+};
+const V2_RESTRICTED = {
+  id: 'acct_3',
+  configuration: { recipient: { capabilities: { stripe_balance: {
+    stripe_transfers: { status: 'restricted', status_details: [{ code: 'rejected.other' }] },
+    payouts: { status: 'restricted', status_details: [{ code: 'rejected.other' }] },
+  } } } },
+  requirements: { summary: { minimum_deadline: { status: 'up_to_date' } } }, // submitted, but Stripe restricted
+};
+describe('mapAccountToStatus (pure, Accounts v2)', () => {
+  test('fully onboarded (both caps active) → ready', () => {
+    const m = connect.mapAccountToStatus(V2_READY);
     expect(m.connect_status).toBe('ready');
     expect(m.connect_transfers_active).toBe(true);
     expect(m.connect_payouts_enabled).toBe(true);
     expect(m.connect_details_submitted).toBe(true);
-    expect(m.connect_bank_name).toBe('Test Bank');
-    expect(m.connect_bank_last4).toBe('6789');
-    // SECURITY: mapper never carries routing/account numbers.
-    const json = JSON.stringify(m);
-    expect(json).not.toContain('110000000');
-    expect(json).not.toContain('SECRET');
+    expect(connect.isConnectReady(m)).toBe(true);
+    // SECURITY: mapper never carries any bank number/display beyond safe nulls in v1.0.
     expect(Object.keys(m)).not.toContain('routing_number');
     expect(Object.keys(m)).not.toContain('account_number');
   });
-  test('incomplete onboarding → onboarding', () => {
-    const m = connect.mapAccountToStatus({ id: 'acct_2', capabilities: { transfers: 'inactive' }, payouts_enabled: false, details_submitted: false });
+  test('incomplete onboarding (past_due) → onboarding, not ready', () => {
+    const m = connect.mapAccountToStatus(V2_ONBOARDING);
     expect(m.connect_status).toBe('onboarding');
+    expect(m.connect_transfers_active).toBe(false);
     expect(connect.isConnectReady(m)).toBe(false);
   });
-  test('restricted (disabled_reason) → restricted', () => {
-    const m = connect.mapAccountToStatus({ id: 'acct_3', capabilities: { transfers: 'inactive' }, payouts_enabled: false, details_submitted: true, requirements: { disabled_reason: 'requirements.past_due' } });
+  test('submitted but Stripe-restricted → restricted with reason', () => {
+    const m = connect.mapAccountToStatus(V2_RESTRICTED);
     expect(m.connect_status).toBe('restricted');
-    expect(m.connect_disabled_reason).toBe('requirements.past_due');
+    expect(m.connect_disabled_reason).toBe('rejected.other');
+    expect(connect.isConnectReady(m)).toBe(false);
   });
-  test('isConnectReady requires transfers active AND payouts enabled', () => {
+  test('isConnectReady requires transfers active AND payouts active', () => {
     expect(connect.isConnectReady({ connect_transfers_active: true, connect_payouts_enabled: true })).toBe(true);
     expect(connect.isConnectReady({ connect_transfers_active: true, connect_payouts_enabled: false })).toBe(false);
     expect(connect.isConnectReady({ connect_transfers_active: false, connect_payouts_enabled: true })).toBe(false);
@@ -144,18 +174,26 @@ describe('webhook: applyTransferEvent', () => {
 });
 
 describe('webhook: applyAccountUpdated / applyPayoutEvent', () => {
-  test('account.updated persists mapped status keyed by connected account id', async () => {
-    db.query.mockResolvedValueOnce({ rowCount: 1 });
-    const r = await connect.applyAccountUpdated({ id: 'acct_7', capabilities: { transfers: 'active' }, payouts_enabled: true, details_submitted: true });
+  beforeEach(() => { stripeMock.__retrieve.mockReset(); });
+  test('account.updated re-syncs authoritative v2 status and persists by account id', async () => {
+    stripeMock.__retrieve.mockResolvedValueOnce(V2_READY);       // live v2 retrieve
+    db.query.mockResolvedValueOnce({ rowCount: 1 });             // the UPDATE
+    const r = await connect.applyAccountUpdated({ id: 'acct_1' });
+    expect(stripeMock.__retrieve).toHaveBeenCalledWith('acct_1', expect.objectContaining({ include: expect.any(Array) }));
     expect(r.updated).toBe(1);
     const [sql, params] = db.query.mock.calls[0];
     expect(sql).toMatch(/UPDATE seller_payout_preferences/);
     expect(sql).toMatch(/WHERE stripe_account_id=\$1/);
-    expect(params[0]).toBe('acct_7');
+    expect(params[0]).toBe('acct_1');
   });
-  test('account.updated with no id is a no-op', async () => {
+  test('account.updated with no id is a no-op (never crashes)', async () => {
     expect(await connect.applyAccountUpdated({})).toEqual({ updated: 0 });
     expect(db.query).not.toHaveBeenCalled();
+  });
+  test('account.updated swallows a retrieve error (webhook must not crash)', async () => {
+    stripeMock.__retrieve.mockRejectedValueOnce(new Error('stripe down'));
+    const r = await connect.applyAccountUpdated({ id: 'acct_9' });
+    expect(r.updated).toBe(0);
   });
   test('applyPayoutEvent updates by connected account id', async () => {
     db.query.mockResolvedValueOnce({ rowCount: 1 });
