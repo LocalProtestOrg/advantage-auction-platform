@@ -3,6 +3,7 @@ const db             = require('../db');
 const auditService   = require('./auditService');
 const invoiceService = require('./invoiceService');
 const billingTerms   = require('./billingTermsService');
+const taxService     = require('./taxCalculationService');
 const Stripe         = require('stripe');
 
 // Pin Stripe API version. Pin target matches the SDK 22.0.2 default; pinning
@@ -306,6 +307,19 @@ class PaymentService {
       client.release();
     }
 
+    // ── Sales tax (flag-gated) ─────────────────────────────────────────────
+    // Grow the charge to (hammer + buyer premium) + tax before creating the intent, using the
+    // BUYER's address for jurisdiction. Fail-safe: if tax is required but cannot be produced, fail
+    // the still-pending row and surface a recoverable error — never create an untaxed intent.
+    const taxableBaseCents = amountCents;
+    try {
+      amountCents = await this._applyTaxToPayment({ paymentId, buyerUserId: userId, taxableBaseCents });
+    } catch (taxErr) {
+      await this._failPendingPayment(paymentId, 'tax:' + (taxErr.code || 'error'));
+      throw taxErr;
+    }
+    const salesTaxCents = amountCents - taxableBaseCents;
+
     // ── External call OUTSIDE any DB transaction ───────────────────────────
     // Stripe idempotency key: prefer the HTTP Idempotency-Key the client sent,
     // so retries within Stripe's 24h idempotency window collapse to the same
@@ -411,14 +425,16 @@ class PaymentService {
     }
 
     return {
-      id:                paymentId,
-      lot_id:            lotId,
-      auction_id:        auctionId,
-      amount_cents:      amountCents,
-      status:            'pending',
-      created_at:        paymentCreatedAt,
-      payment_intent_id: intent.id,
-      client_secret:     intent.client_secret,
+      id:                 paymentId,
+      lot_id:             lotId,
+      auction_id:         auctionId,
+      amount_cents:       amountCents,          // hammer + buyer premium + sales tax (what will be charged)
+      taxable_base_cents: taxableBaseCents,     // hammer + buyer premium
+      sales_tax_cents:    salesTaxCents,        // Stripe Tax (0 when the feature is disabled)
+      status:             'pending',
+      created_at:         paymentCreatedAt,
+      payment_intent_id:  intent.id,
+      client_secret:      intent.client_secret,
     };
   }
 
@@ -517,6 +533,25 @@ class PaymentService {
     }
     client.release();
 
+    // ── Sales tax (flag-gated) for the off-session auto-charge ─────────────
+    // Buyer address must already be on file (this is a background charge, no interactive prompt).
+    // If it isn't, skip → the caller marks the invoice payment_required and reminds the buyer to
+    // complete their tax address + pay on-session (where the address is collected). A calc failure
+    // is a transient 'failed' so the settlement worker retries later — never an untaxed off-session charge.
+    if (taxService.taxEnabled()) {
+      try {
+        const bai = (await db.query(
+          `SELECT hammer_cents, buyer_premium_cents FROM buyer_auction_invoices WHERE id = $1`,
+          [combinedInvoiceId])).rows[0] || {};
+        const taxableBaseCents = (bai.hammer_cents || 0) + (bai.buyer_premium_cents || 0);
+        amountCents = await this._applyTaxToPayment({ paymentId, buyerUserId, taxableBaseCents, currentAmountCents: amountCents });
+      } catch (taxErr) {
+        await this._failPendingPayment(paymentId, 'tax:' + (taxErr.code || 'error'));
+        if (taxErr.code === 'BUYER_TAX_ADDRESS_REQUIRED') return { skipped: 'tax_address_required', paymentId };
+        return { status: 'failed', paymentId, reason: 'tax_' + String(taxErr.code || 'error').toLowerCase() };
+      }
+    }
+
     // 3. Stripe off-session confirm. External call OUTSIDE any DB transaction.
     const stripeKey = idempotencyKey || ('combined:' + combinedInvoiceId);
     let intent;
@@ -612,12 +647,12 @@ class PaymentService {
   // header + per-lot invoices in one shot. Mirrors createPaymentIntent's tx1/Stripe/tx2
   // idempotency discipline. Returns { client_secret, amount_cents }.
   async createCombinedPaymentIntent(userId, combinedInvoiceId, idempotencyKey) {
-    let paymentId, amountCents, auctionId;
+    let paymentId, amountCents, auctionId, taxableBaseCents;
     const client = await db.connect();
     try {
       await client.query('BEGIN');
       const baiRes = await client.query(
-        `SELECT id, auction_id, buyer_user_id, total_cents, status
+        `SELECT id, auction_id, buyer_user_id, hammer_cents, buyer_premium_cents, total_cents, status
            FROM buyer_auction_invoices WHERE id = $1 FOR UPDATE`,
         [combinedInvoiceId]
       );
@@ -627,6 +662,8 @@ class PaymentService {
       if (bai.status === 'paid' || bai.status === 'void') throw new Error(`This invoice is already ${bai.status}`);
       if (!bai.total_cents || bai.total_cents <= 0) throw new Error('This invoice has no payable amount');
       auctionId = bai.auction_id;
+      // Taxable base = hammer + buyer premium (Owner policy; excludes shipping/credits, which are $0 at V1.0).
+      taxableBaseCents = (bai.hammer_cents || 0) + (bai.buyer_premium_cents || 0);
 
       // Retire an orphaned stale pending (no intent, >60s) so a fresh attempt can proceed.
       await client.query(
@@ -659,7 +696,7 @@ class PaymentService {
         // A combined charge is already pending/paid for this (auction, buyer) — reuse
         // the in-flight intent's client_secret so the buyer resumes the same payment.
         const ex = (await db.query(
-          `SELECT p.payment_intent_id, p.amount_cents FROM payments p
+          `SELECT p.payment_intent_id, p.amount_cents, p.sales_tax_cents FROM payments p
              JOIN buyer_auction_invoices b ON b.auction_id = p.auction_id AND b.buyer_user_id = p.buyer_user_id
             WHERE b.id = $1 AND p.lot_id IS NULL AND p.status = 'pending' AND p.payment_intent_id IS NOT NULL
             ORDER BY p.created_at DESC LIMIT 1`,
@@ -667,13 +704,27 @@ class PaymentService {
         )).rows[0];
         if (ex && ex.payment_intent_id) {
           const pi = await getStripe().paymentIntents.retrieve(ex.payment_intent_id);
-          return { client_secret: pi.client_secret, amount_cents: ex.amount_cents };
+          const taxC = ex.sales_tax_cents || 0;
+          return {
+            client_secret: pi.client_secret,
+            amount_cents: ex.amount_cents,
+            taxable_base_cents: ex.amount_cents - taxC,   // derived (avoids a hard dependency on the new column here)
+            sales_tax_cents: taxC,
+          };
         }
         throw new Error('A payment for this invoice is already in progress. Please wait a moment and try again.');
       }
       throw error;
     }
     client.release();
+
+    // ── Sales tax (flag-gated) — add tax on the (hammer + buyer premium) base before the intent. ──
+    try {
+      amountCents = await this._applyTaxToPayment({ paymentId, buyerUserId: userId, taxableBaseCents, currentAmountCents: amountCents });
+    } catch (taxErr) {
+      await this._failPendingPayment(paymentId, 'tax:' + (taxErr.code || 'error'));
+      throw taxErr;
+    }
 
     const stripeKey = idempotencyKey || ('combined-onsession:' + combinedInvoiceId);
     let intent;
@@ -690,7 +741,12 @@ class PaymentService {
       throw stripeErr;
     }
     await db.query(`UPDATE payments SET payment_intent_id = $1 WHERE id = $2 AND payment_intent_id IS NULL`, [intent.id, paymentId]);
-    return { client_secret: intent.client_secret, amount_cents: amountCents };
+    return {
+      client_secret: intent.client_secret,
+      amount_cents: amountCents,                                      // base + sales tax (what will be charged)
+      taxable_base_cents: taxableBaseCents,
+      sales_tax_cents: amountCents - taxableBaseCents,
+    };
   }
 
   async recordPaymentSuccess(paymentId, paymentProviderId) {
@@ -726,6 +782,8 @@ class PaymentService {
       if (payment.status === 'paid') {
         await client.query('ROLLBACK');
         console.log(`[payment] recordPaymentSuccess: payment ${paymentId} already paid — skipping`);
+        // Idempotent retry: if a prior success recorded the payment but not the tax transaction, catch up.
+        await this._finalizeTaxTransaction(paymentId);
         return { payment_id: paymentId, status: 'paid', charged_at: null };
       }
 
@@ -786,6 +844,11 @@ class PaymentService {
     } finally {
       client.release();
     }
+
+    // Record the authoritative Stripe Tax Transaction now that the payment is committed as paid.
+    // Idempotent + best-effort (guarded by stripe_tax_transaction_id + a stable idempotency key);
+    // a failure here never affects the already-committed payment. No-op when tax is disabled.
+    await this._finalizeTaxTransaction(paymentId);
 
     // Fire-and-forget events run outside the transaction so a failure here
     // cannot trigger a spurious ROLLBACK on an already-committed transaction.
@@ -1120,6 +1183,13 @@ class PaymentService {
       persistClient.release();
     }
 
+    // On a FULL refund, reverse the recorded Stripe Tax Transaction so the collected tax is credited
+    // back correctly. Idempotent + best-effort; no-op when tax is disabled or no transaction exists.
+    // V1.0 handles full reversals only (matches the full-refund → full-reversal refund model).
+    if (isFullRefund) {
+      await this._reverseTaxForPayment(paymentId);
+    }
+
     return {
       payment_id:          paymentId,
       status:              newStatus,
@@ -1128,6 +1198,108 @@ class PaymentService {
       refunded_at:         refundedAt,
       refunded_amount_cents_total: newRefundedTotal,
     };
+  }
+
+  // ── Stripe Tax helpers (all flag-gated; no-ops when STRIPE_TAX_ENABLED is off) ──────────────
+  //
+  // Load the buyer's confirmed tax address (jurisdiction evidence). Owner policy: jurisdiction is
+  // the BUYER address, never the auction pickup address. Returns null when incomplete.
+  async _loadBuyerTaxAddress(buyerUserId) {
+    const u = (await db.query(
+      `SELECT tax_address_line1, tax_address_line2, tax_city, tax_state, tax_postal_code, tax_country
+         FROM users WHERE id = $1`, [buyerUserId])).rows[0];
+    if (!u) return null;
+    return {
+      line1:       u.tax_address_line1,
+      line2:       u.tax_address_line2,
+      city:        u.tax_city,
+      state:       u.tax_state,
+      postal_code: u.tax_postal_code,
+      country:     u.tax_country || 'US',
+    };
+  }
+
+  // Release a still-transitional pending payment row (no intent attached) so a retry can proceed.
+  // Used by the tax fail-safe: if tax cannot be calculated we must NOT charge the buyer.
+  async _failPendingPayment(paymentId, reason) {
+    try {
+      await db.query(
+        `UPDATE payments SET status = 'failed', last_attempted_at = now()
+          WHERE id = $1 AND status = 'pending' AND payment_intent_id IS NULL`,
+        [paymentId]);
+    } catch (e) { console.error('[tax] failPendingPayment cleanup failed', { paymentId, reason, error: e.message }); }
+  }
+
+  // Compute sales tax for a taxable base and, when tax applies, grow the payment's charge amount and
+  // persist the tax provenance. Returns the FINAL charge amount (base when tax is off/exempt/$0).
+  // Throws taxService.TaxCalculationError when tax is required but cannot be produced (fail-safe):
+  // the caller must fail the pending payment and surface a recoverable error — never charge without tax.
+  async _applyTaxToPayment({ paymentId, buyerUserId, taxableBaseCents, currentAmountCents }) {
+    // Tax is computed on taxableBaseCents (hammer + buyer premium — Owner policy) and ADDED on top of
+    // the current charge (which equals the taxable base for single lots, or the combined total for
+    // combined invoices, where shipping/credits are $0 at V1.0). Returns the final charge amount.
+    const current = (currentAmountCents == null) ? taxableBaseCents : currentAmountCents;
+    if (!taxService.taxEnabled()) return current; // exact pre-tax behavior; no Stripe call
+    const address = await this._loadBuyerTaxAddress(buyerUserId);
+    const t = await taxService.computeTax({
+      buyerUserId,
+      taxableBaseCents,
+      address,
+      reference: 'payment:' + paymentId,
+    });
+    const chargeCents = current + (t.taxCents || 0);
+    await db.query(
+      `UPDATE payments
+          SET amount_cents               = $1,
+              taxable_base_cents         = $2,
+              sales_tax_cents            = $3,
+              stripe_tax_calculation_id  = $4
+        WHERE id = $5`,
+      [chargeCents, taxableBaseCents, t.taxCents || 0, t.calculationId || null, paymentId]);
+    return chargeCents;
+  }
+
+  // Record the authoritative Stripe Tax Transaction after a payment is paid. Idempotent: guarded by
+  // stripe_tax_transaction_id IS NULL plus a stable Stripe idempotency key. Best-effort and safe to
+  // re-run (webhook retries). No-op when the flag is off or the payment carries no calculation id.
+  async _finalizeTaxTransaction(paymentId) {
+    if (!taxService.taxEnabled()) return;
+    try {
+      const p = (await db.query(
+        `SELECT stripe_tax_calculation_id, stripe_tax_transaction_id FROM payments WHERE id = $1`,
+        [paymentId])).rows[0];
+      if (!p || !p.stripe_tax_calculation_id || p.stripe_tax_transaction_id) return; // nothing to do / already recorded
+      const txId = await taxService.recordTransaction({
+        calculationId: p.stripe_tax_calculation_id,
+        reference: 'payment:' + paymentId,
+      });
+      if (txId) {
+        await db.query(`UPDATE payments SET stripe_tax_transaction_id = $1 WHERE id = $2 AND stripe_tax_transaction_id IS NULL`, [txId, paymentId]);
+      }
+    } catch (e) {
+      // Never let tax bookkeeping break the (already-committed) payment. Log loudly for reconciliation.
+      console.error('[tax] finalizeTaxTransaction failed — MANUAL TAX RECONCILIATION MAY BE REQUIRED', { paymentId, error: e.message });
+    }
+  }
+
+  // Reverse the recorded Tax Transaction in full when a payment is fully refunded. Idempotent.
+  async _reverseTaxForPayment(paymentId) {
+    if (!taxService.taxEnabled()) return;
+    try {
+      const p = (await db.query(
+        `SELECT stripe_tax_transaction_id, stripe_tax_reversal_id FROM payments WHERE id = $1`,
+        [paymentId])).rows[0];
+      if (!p || !p.stripe_tax_transaction_id || p.stripe_tax_reversal_id) return;
+      const revId = await taxService.reverseFullTransaction({
+        originalTransactionId: p.stripe_tax_transaction_id,
+        reference: 'refund:' + paymentId,
+      });
+      if (revId) {
+        await db.query(`UPDATE payments SET stripe_tax_reversal_id = $1 WHERE id = $2 AND stripe_tax_reversal_id IS NULL`, [revId, paymentId]);
+      }
+    } catch (e) {
+      console.error('[tax] reverseTaxForPayment failed — MANUAL TAX REVERSAL MAY BE REQUIRED', { paymentId, error: e.message });
+    }
   }
 
   async getPaymentStatus(paymentId) {

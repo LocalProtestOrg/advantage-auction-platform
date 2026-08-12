@@ -904,6 +904,7 @@
 <script>window.RTA_SUPPRESS = true;</script>
 <script src="/widgets/shared/return-to-auction.js"></script>
 <script src="/widgets/shared/buyer-nav.js"></script>
+<script src="/widgets/shared/tax-address.js"></script>
 <script>
   const token  = localStorage.getItem('token');
   const params = new URLSearchParams(location.search);
@@ -2037,28 +2038,44 @@
     btn.disabled = true;
     btn.textContent = 'Please wait…';
     try {
-      const [cfg, intentRes] = await Promise.all([
-        fetch('/api/payments/config').then(r => r.json()).catch(() => ({})),
-        fetch('/api/payments/charge-lot', {
+      const cfg = await fetch('/api/payments/config').then(r => r.json()).catch(() => ({}));
+      const taxOn = !!cfg.taxEnabled;
+      // When sales tax is active, ensure the buyer has a billing address BEFORE the tax calculation,
+      // so they see the final tax-inclusive amount on the next screen (and no wasted round-trip).
+      if (taxOn && window.TaxAddress) {
+        const ta = await fetch('/api/payments/tax-address', { headers: { Authorization: 'Bearer ' + token } }).then(r => r.json()).catch(() => null);
+        if (!(ta && ta.data && ta.data.complete)) { await window.TaxAddress.collect(token); }
+      }
+      const baseKey = 'pay-' + lotId + '-' + currentUserId;
+      // Tax off → stable key (unchanged behavior). Tax on → fresh key per attempt; the DB partial-unique
+      // index still prevents duplicate active charges, so double-click safety is preserved.
+      async function charge(key) {
+        const r = await fetch('/api/payments/charge-lot', {
           method:  'POST',
-          headers: {
-            'Content-Type':    'application/json',
-            'Authorization':   'Bearer ' + token,
-            'Idempotency-Key': 'pay-' + lotId + '-' + currentUserId,
-          },
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token, 'Idempotency-Key': key },
           body: JSON.stringify({ auction_id: currentAuctionId, lot_id: lotId }),
-        }).then(r => r.json()),
-      ]);
-      if (!intentRes.success) throw new Error(intentRes.message || 'Payment initiation failed');
+        });
+        const j = await r.json();
+        if (r.status === 422 && j.code === 'BUYER_TAX_ADDRESS_REQUIRED' && window.TaxAddress) {
+          await window.TaxAddress.collect(token);
+          return charge(baseKey + '-' + Date.now());  // fresh slot after saving the address
+        }
+        if (!j.success) throw new Error(j.message || 'Payment initiation failed');
+        return j.data;
+      }
+      const data = await charge(taxOn ? baseKey + '-' + Date.now() : baseKey);
       const qs = new URLSearchParams({
-        client_secret: intentRes.data.client_secret,
-        amount:        intentRes.data.amount_cents,
+        client_secret: data.client_secret,
+        amount:        data.amount_cents,
+        base:          (data.taxable_base_cents != null ? data.taxable_base_cents : data.amount_cents),
+        tax:           (data.sales_tax_cents || 0),
         lot_id:        lotId,
         auction_id:    currentAuctionId || '',
       });
       if (cfg.publishableKey) qs.set('pk', cfg.publishableKey);
       window.location.href = '/payment.html?' + qs.toString();
     } catch (err) {
+      if (err && err.message === 'cancelled') { btn.disabled = false; btn.textContent = 'Pay Now'; return; }
       setStatus(err.message, 'err');
       btn.disabled = false;
       btn.textContent = 'Pay Now';

@@ -147,15 +147,26 @@ async function settleCombined(combinedInvoiceId, stripePaymentIntentId, paymentI
       return { alreadyPaid: true };
     }
 
+    // Reflect any sales tax the buyer was actually charged (Stripe Tax) onto the combined header, so
+    // receipts/admin views show the tax-inclusive total. Tax is $0 when the tax feature is disabled,
+    // so total_cents is unchanged in that (default) case. Tax is aggregate at the header (not per-lot).
+    let taxCents = 0, chargedTotalCents = null;
+    if (paymentId) {
+      const pay = (await client.query('SELECT sales_tax_cents, amount_cents FROM payments WHERE id = $1', [paymentId])).rows[0];
+      if (pay) { taxCents = pay.sales_tax_cents || 0; chargedTotalCents = pay.amount_cents; }
+    }
+
     await client.query(
       `UPDATE buyer_auction_invoices
           SET status = 'paid',
               paid_at = now(),
               payment_id = COALESCE($2, payment_id),
               stripe_payment_intent_id = COALESCE($3, stripe_payment_intent_id),
+              sales_tax_cents = $4,
+              total_cents = COALESCE($5, total_cents),
               updated_at = now()
         WHERE id = $1`,
-      [combinedInvoiceId, paymentId || null, stripePaymentIntentId || null]
+      [combinedInvoiceId, paymentId || null, stripePaymentIntentId || null, taxCents, chargedTotalCents]
     );
 
     if (paymentId) {
@@ -177,6 +188,14 @@ async function settleCombined(combinedInvoiceId, stripePaymentIntentId, paymentI
     );
 
     await client.query('COMMIT');
+
+    // Record the authoritative Stripe Tax Transaction for this combined charge (idempotent, best-effort,
+    // no-op when tax is disabled). Lazy-require avoids a paymentService↔combinedInvoiceService cycle.
+    if (paymentId) {
+      try { await require('./paymentService')._finalizeTaxTransaction(paymentId); }
+      catch (e) { console.error('[tax] combined finalizeTaxTransaction failed', { paymentId, error: e.message }); }
+    }
+
     return { settled: true };
   } catch (err) {
     await client.query('ROLLBACK').catch(() => {});

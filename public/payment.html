@@ -180,6 +180,13 @@
     <h1>Complete Your Payment</h1>
     <div class="amount" id="display-amount">-</div>
     <div class="lot-label" id="display-lot"></div>
+    <!-- Tax breakdown (shown only when sales tax applies) so the buyer sees the tax-inclusive total
+         BEFORE confirming. Populated from the base/tax URL params set by the charge step. -->
+    <div id="tax-breakdown" style="display:none;margin:.75rem auto 0;max-width:280px;font-size:.85rem;color:#374151;text-align:left">
+      <div style="display:flex;justify-content:space-between;padding:.15rem 0"><span>Subtotal</span><span id="bd-subtotal"></span></div>
+      <div style="display:flex;justify-content:space-between;padding:.15rem 0"><span>Sales tax</span><span id="bd-tax"></span></div>
+      <div style="display:flex;justify-content:space-between;padding:.3rem 0;border-top:1px solid #e5e7eb;margin-top:.2rem;font-weight:700;color:#111"><span>Total</span><span id="bd-total"></span></div>
+    </div>
     <hr class="divider" />
 
     <div id="payment-form">
@@ -209,6 +216,16 @@
     if (amountCents) {
       document.getElementById('display-amount').textContent =
         '$' + (amountCents / 100).toFixed(2);
+    }
+    // Show the Subtotal / Sales tax / Total breakdown when a tax amount was calculated for this charge.
+    const taxCents  = parseInt(params.get('tax')  || '0', 10);
+    const baseCents = parseInt(params.get('base') || '0', 10);
+    if (taxCents > 0) {
+      const money = c => '$' + (c / 100).toFixed(2);
+      document.getElementById('bd-subtotal').textContent = money(baseCents || (amountCents - taxCents));
+      document.getElementById('bd-tax').textContent      = money(taxCents);
+      document.getElementById('bd-total').textContent    = money(amountCents);
+      document.getElementById('tax-breakdown').style.display = '';
     }
     if (lotId) {
       document.getElementById('display-lot').textContent = 'Lot ' + lotId.slice(0, 8) + '…';

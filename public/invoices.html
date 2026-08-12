@@ -35,6 +35,7 @@
 </head>
 <body>
   <script src="/widgets/shared/buyer-nav.js"></script>
+  <script src="/widgets/shared/tax-address.js"></script>
   <div class="wrap">
     <h1>Past Invoices</h1>
     <div class="sub">One invoice per auction you purchased, with payment status.</div>
@@ -65,15 +66,26 @@
       if(!token){location.href='/login.html?next='+encodeURIComponent('/invoices.html');return;}
       const old=btn.textContent; btn.disabled=true; btn.textContent='Starting…';
       try{
-        const [cfg,intentRes]=await Promise.all([
-          fetch('/api/payments/config').then(r=>r.json()).catch(()=>({})),
-          fetch('/api/payments/charge-combined',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token,'Idempotency-Key':'pay-combined-'+combinedInvoiceId},body:JSON.stringify({combined_invoice_id:combinedInvoiceId})}).then(r=>r.json())
-        ]);
-        if(!intentRes.success)throw new Error(intentRes.message||'Payment could not be started.');
-        const qs=new URLSearchParams({client_secret:intentRes.data.client_secret,amount:intentRes.data.amount_cents});
+        const cfg=await fetch('/api/payments/config').then(r=>r.json()).catch(()=>({}));
+        const taxOn=!!cfg.taxEnabled;
+        // Ensure a billing address before the tax calculation when sales tax is active.
+        if(taxOn && window.TaxAddress){
+          const ta=await fetch('/api/payments/tax-address',{headers:{Authorization:'Bearer '+token}}).then(r=>r.json()).catch(()=>null);
+          if(!(ta&&ta.data&&ta.data.complete)){ await window.TaxAddress.collect(token); }
+        }
+        const baseKey='pay-combined-'+combinedInvoiceId;
+        async function charge(key){
+          const r=await fetch('/api/payments/charge-combined',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token,'Idempotency-Key':key},body:JSON.stringify({combined_invoice_id:combinedInvoiceId})});
+          const j=await r.json();
+          if(r.status===422&&j.code==='BUYER_TAX_ADDRESS_REQUIRED'&&window.TaxAddress){ await window.TaxAddress.collect(token); return charge(baseKey+'-'+Date.now()); }
+          if(!j.success)throw new Error(j.message||'Payment could not be started.');
+          return j.data;
+        }
+        const data=await charge(taxOn?baseKey+'-'+Date.now():baseKey);
+        const qs=new URLSearchParams({client_secret:data.client_secret,amount:data.amount_cents,base:(data.taxable_base_cents!=null?data.taxable_base_cents:data.amount_cents),tax:(data.sales_tax_cents||0)});
         if(cfg.publishableKey)qs.set('pk',cfg.publishableKey);
         location.href='/payment.html?'+qs.toString();
-      }catch(e){alert(e.message||'Could not start payment. Please try again.');btn.disabled=false;btn.textContent=old;}
+      }catch(e){ if(e&&e.message==='cancelled'){btn.disabled=false;btn.textContent=old;return;} alert(e.message||'Could not start payment. Please try again.');btn.disabled=false;btn.textContent=old;}
     }
 
     // Authenticated combined-invoice PDF download: the endpoint requires a Bearer

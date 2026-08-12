@@ -35,20 +35,26 @@ async function createIssuedInvoice(client, { auctionId, lotId, buyerUserId, amou
 //                       invoice_number (not in the SET list, so it is preserved)
 // Always called from recordPaymentSuccess after the payment row is 'paid'.
 async function createInvoice(client, payment) {
-  const amount = payment.amount_cents;
+  const amount = payment.amount_cents;                 // what the buyer actually paid = base + sales tax
+  const tax    = payment.sales_tax_cents || 0;         // Stripe Tax (0 when the tax feature is disabled)
+  const baseForInsert = Math.max(0, amount - tax);     // hammer+premium fallback used ONLY when no issued invoice exists
   const { rows } = await (client || db).query(
     `INSERT INTO invoices
        (payment_id, buyer_user_id, auction_id, lot_id, amount_cents,
         hammer_cents, buyer_premium_cents, sales_tax_cents, shipping_cents, total_cents, status)
      VALUES ($1, $2, $3, $4, $5,
-             $5, 0, 0, 0, $5, 'paid')
+             $6, 0, $7, 0, $5, 'paid')
      ON CONFLICT (lot_id, buyer_user_id) DO UPDATE
-       SET status       = 'paid',
-           payment_id   = EXCLUDED.payment_id
-       -- Preserve the authoritative hammer / buyer_premium / total split written at issuance;
-       -- a payment-success only links the payment and flips status (never re-flattens the amounts).
+       -- Preserve the authoritative hammer / buyer_premium split written at issuance; a payment-success
+       -- links the payment, flips status, and records the sales tax actually charged (total/amount grow
+       -- by that tax). When tax is disabled sales_tax_cents=0, so amount/total are unchanged vs issuance.
+       SET status          = 'paid',
+           payment_id      = EXCLUDED.payment_id,
+           sales_tax_cents = EXCLUDED.sales_tax_cents,
+           amount_cents    = EXCLUDED.amount_cents,
+           total_cents     = EXCLUDED.total_cents
      RETURNING *`,
-    [payment.id, payment.buyer_user_id, payment.auction_id, payment.lot_id, amount]
+    [payment.id, payment.buyer_user_id, payment.auction_id, payment.lot_id, amount, baseForInsert, tax]
   );
   return rows[0];
 }
