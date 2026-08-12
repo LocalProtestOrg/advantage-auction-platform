@@ -353,6 +353,18 @@
     </div>
   </div>
 
+  <!-- Professional-only: Buyer Premium. Hidden by default; revealed by JS only for
+       professional seller types when editing an auction. Server (auctionService.updateAuction)
+       is authoritative — it accepts this only from a professional owner and ignores it for
+       individual sellers, whose premium stays fixed. Stored as buyer_premium_bps (percent × 100). -->
+  <div class="row" id="buyer-premium-row" style="display:none">
+    <div class="field">
+      <label for="buyer-premium-pct">Buyer Premium (%)</label>
+      <input type="number" id="buyer-premium-pct" min="0" max="25" step="0.5" placeholder="18" />
+      <p class="hint">This percentage is added to the winning bid and charged to the buyer. It is yours to keep (a 2% platform fee applies). Leave at your standard rate if unsure.</p>
+    </div>
+  </div>
+
   <div class="row">
     <div class="field">
       <label for="pickup-start">Pickup Window Start</label>
@@ -555,7 +567,13 @@
     var card = document.getElementById('create-card'); if (card) card.style.display = '';
     sellerProfileId = profile.id;
     var PRO_TYPES = ['auction_house', 'estate_sale_company', 'professional_liquidator'];
-    if (PRO_TYPES.indexOf(profile.seller_type) !== -1) { var row = document.getElementById('preview-times-row'); if (row) row.style.display = ''; }
+    if (PRO_TYPES.indexOf(profile.seller_type) !== -1) {
+      var row = document.getElementById('preview-times-row'); if (row) row.style.display = '';
+      // Buyer Premium is an auction-level setting the server accepts via PATCH (edit) only,
+      // so we surface it when editing an existing auction. Create sets defaults; the pro can
+      // then tune the premium from Edit Auction Details.
+      if (IS_EDIT) { var bp = document.getElementById('buyer-premium-row'); if (bp) bp.style.display = ''; }
+    }
   }
   if (!token) { location.href = '/login.html?next=' + encodeURIComponent(location.pathname + location.search); }
   else fetch('/api/agreements/onboarding-status', { headers: { Authorization: 'Bearer ' + token } })
@@ -739,6 +757,9 @@
       if (a.preview_end)   set('preview-end',   toLocal(a.preview_end));
       if (a.pickup_window_start) set('pickup-start', toLocal(a.pickup_window_start));
       if (a.pickup_window_end)   set('pickup-end',   toLocal(a.pickup_window_end));
+      // Buyer Premium (professional self-service): the API returns the effective premium in
+      // basis points; show it as a percentage. Only meaningful when the row is revealed for pros.
+      if (a.buyer_premium_bps != null) set('buyer-premium-pct', (Number(a.buyer_premium_bps) / 100));
       // The stored street_address may already include an appended unit; put the whole
       // value back into line 1 and leave line 2 empty so it round-trips unchanged.
       set('street-address', a.street_address || '');
@@ -830,6 +851,14 @@
         banner_image_url:    bannerImageUrl || undefined,
         cover_image_url:     coverImageUrl  || undefined,
       };
+      // Buyer Premium (professional self-service). Only sent when the pro-only control is
+      // visible; the server accepts it solely from a professional owner and ignores it for
+      // individuals (whose premium is fixed). Percent → basis points.
+      const bpRow = document.getElementById('buyer-premium-row');
+      if (bpRow && bpRow.style.display !== 'none') {
+        const bpPct = parseFloat(document.getElementById('buyer-premium-pct').value);
+        if (isFinite(bpPct)) patch.buyer_premium_bps = Math.round(bpPct * 100);
+      }
       try {
         const res = await fetch('/api/auctions/' + EDIT_ID, {
           method:  'PATCH',

@@ -182,7 +182,26 @@ async function updateAuction(auctionId, userId, updates, actorRole, options = {}
     'timezone', 'default_starting_bid_cents', 'increment_ladder', 'marketing_selection',
     // Buyer Premium Phase 1: per-auction override of the internal BP split + hammer commission.
     'aac_bp_share_bps', 'aac_hammer_commission_bps'];
-  const effectiveAllowed = actorRole === 'admin' ? [...allowed, ...adminOnly] : allowed;
+  // Professional sellers may self-manage a small set of auction-level pricing fields on
+  // their OWN auction (owner policy — V1.0 Professional self-service). Individuals never
+  // can (they keep the plain `allowed` list); admin already gets everything via adminOnly.
+  // Ownership is still enforced by the seller_id WHERE clause in the UPDATE below.
+  let sellerTypeForAuth = null;
+  if (actorRole !== 'admin') {
+    const stAuth = await db.query(
+      `SELECT sp.seller_type FROM auctions a JOIN seller_profiles sp ON sp.id = a.seller_id WHERE a.id = $1`,
+      [auctionId]
+    );
+    sellerTypeForAuth = stAuth.rows[0] ? stAuth.rows[0].seller_type : null;
+  }
+  const isProAuthor = actorRole !== 'admin' && isProfessional(sellerTypeForAuth);
+  // Auction-level Professional self-service fields. Buyer Premium is the auction's
+  // buyer_premium_bps (billingTermsService.resolveEffectiveTerms prefers it over the seller
+  // default). Bid increment stays a per-lot control (enforced in src/routes/lots.js), not here.
+  const professionalSelfService = ['buyer_premium_bps'];
+  const effectiveAllowed = actorRole === 'admin'
+    ? [...allowed, ...adminOnly]
+    : (isProAuthor ? [...allowed, ...professionalSelfService] : allowed);
 
   // Gate state transitions separately from the generic whitelist. Defense-in-
   // depth on top of GOV-1's route-layer canMutateAuction gate — also protects
@@ -251,6 +270,16 @@ async function updateAuction(auctionId, userId, updates, actorRole, options = {}
     if (!ptRes.rows[0] || !isProfessional(ptRes.rows[0].seller_type)) {
       delete updates.preview_start;
       delete updates.preview_end;
+    }
+  }
+
+  // Professional self-service validation (non-admin professional owner). Mirrors the admin
+  // range check. No individual-fixed-18% guard is needed here because individuals never reach
+  // this branch — buyer_premium_bps is not in their effectiveAllowed, so it is dropped for them.
+  if (isProAuthor && updates.buyer_premium_bps !== undefined && updates.buyer_premium_bps !== null) {
+    const bp = Number(updates.buyer_premium_bps);
+    if (!Number.isInteger(bp) || bp < 0 || bp > 2500) {
+      throw new Error('Buyer premium must be a whole number between 0% and 25%.');
     }
   }
 

@@ -95,3 +95,66 @@ describe('catalog-edit lock follows the PROFESSIONAL classification (owner polic
     expect(auctionsRoute).not.toMatch(/seller_type\s*===\s*'business'/);
   });
 });
+
+// ── V1.0 Professional self-service (owner-approved) ──────────────────────────
+// Professionals may customize their auctions themselves: (1) manage the catalog after
+// submission/publication, (2) set custom starting prices [already covered above],
+// (3) set the auction Buyer Premium, (4) set the per-lot Bid Increment. Individuals must
+// never gain these. Server stays authoritative; UI mirrors the server rule.
+const auctionServiceSrc = read('src/services/auctionService.js');
+const lotsStudioHtml    = read('public/dashboard/lots.html');
+const sellerDashHtml    = read('public/seller-dashboard.html');
+const sellerCreateHtml  = read('public/seller-create.html');
+
+describe('Professional Buyer Premium self-service (updateAuction, auction-level)', () => {
+  test('a professional-OWNER gate is derived from the auction seller_type', () => {
+    expect(auctionServiceSrc).toMatch(/const isProAuthor = actorRole !== 'admin' && isProfessional\(sellerTypeForAuth\)/);
+    expect(auctionServiceSrc).toMatch(/SELECT sp\.seller_type FROM auctions a JOIN seller_profiles sp/);
+  });
+  test('buyer_premium_bps is writable ONLY for a professional owner (individuals keep the plain allow-list)', () => {
+    expect(auctionServiceSrc).toMatch(/professionalSelfService = \['buyer_premium_bps'\]/);
+    expect(auctionServiceSrc).toMatch(/isProAuthor \? \[\.\.\.allowed, \.\.\.professionalSelfService\] : allowed/);
+  });
+  test('buyer_premium_bps stays in adminOnly so a non-admin non-pro seller can never write it', () => {
+    const adminOnlyBlock = auctionServiceSrc.slice(auctionServiceSrc.indexOf('const adminOnly'), auctionServiceSrc.indexOf('const adminOnly') + 400);
+    expect(adminOnlyBlock).toMatch(/'buyer_premium_bps'/);
+  });
+  test('professional buyer premium is range-validated (0–2500 bps = 0–25%)', () => {
+    expect(auctionServiceSrc).toMatch(/if \(isProAuthor && updates\.buyer_premium_bps/);
+    expect(auctionServiceSrc).toMatch(/bp < 0 \|\| bp > 2500/);
+  });
+  test('price fields incl. buyer_premium_bps remain locked once the auction is ACTIVE', () => {
+    const activeLocked = auctionServiceSrc.slice(auctionServiceSrc.indexOf('ACTIVE_LOCKED'), auctionServiceSrc.indexOf('ACTIVE_LOCKED') + 200);
+    expect(activeLocked).toMatch(/'buyer_premium_bps'/);
+  });
+  test('the professional Buyer Premium control is a percent input surfaced in the auction editor', () => {
+    expect(sellerCreateHtml).toMatch(/id="buyer-premium-row"/);
+    expect(sellerCreateHtml).toMatch(/id="buyer-premium-pct"/);
+    expect(sellerCreateHtml).toMatch(/patch\.buyer_premium_bps = Math\.round\(bpPct \* 100\)/);
+  });
+});
+
+describe('Professional catalog editing UI mirrors the server rule (no legacy business bypass)', () => {
+  test('lot studio lock no longer bypasses on the legacy business seller_type', () => {
+    expect(lotsStudioHtml).not.toMatch(/if \(sellerType === 'business'\) return/);
+  });
+  test('lot studio lock bypasses only for the three professional seller types', () => {
+    expect(lotsStudioHtml).toMatch(/PRO_TYPES_LOCK = \['auction_house', 'estate_sale_company', 'professional_liquidator'\]/);
+  });
+  test('seller dashboard exposes catalog controls to professionals after submission (not individuals)', () => {
+    expect(sellerDashHtml).toMatch(/proCanManageNow = isProfessionalSeller\(\)/);
+    expect(sellerDashHtml).toMatch(/canManageCatalog = isEditable \|\| proCanManageNow/);
+    // Submit-for-review stays draft-only (one-shot), not gated on canManageCatalog.
+    expect(sellerDashHtml).toMatch(/\$\{isEditable \? `<button class="btn btn-secondary btn-sm" data-submit-auction/);
+  });
+});
+
+describe('Professional Bid Increment self-service is surfaced in the lot studio (server already gates it)', () => {
+  test('the lot studio has a bid-increment control revealed with the pro-only group', () => {
+    expect(lotsStudioHtml).toMatch(/id="bid-increment-form-group"/);
+    expect(lotsStudioHtml).toMatch(/'starting-bid-form-group', 'bid-increment-form-group', 'reserve-form-group'/);
+  });
+  test('the lot studio sends bid_increment_cents (server ignores it for non-pros)', () => {
+    expect(lotsStudioHtml).toMatch(/bid_increment_cents: bidIncrementRaw > 0 \? Math\.round\(bidIncrementRaw \* 100\) : null/);
+  });
+});

@@ -1038,6 +1038,26 @@
             </div>
           </div>
 
+          <!-- Bid Increment is a professional-only control (parity with Starting Bid). Hidden
+               by default (failsafe); revealed by JS only for admins and professional seller
+               types. Non-professional sellers → platform default ladder. Server
+               (src/routes/lots.js) is authoritative regardless of this. -->
+          <div class="form-group" id="bid-increment-form-group" style="display:none">
+            <label class="form-label" for="bid-increment">Bid Increment</label>
+            <div class="input-prefix-wrap">
+              <span class="input-prefix">$</span>
+              <input
+                class="form-input"
+                type="number"
+                id="bid-increment"
+                placeholder="Platform default"
+                min="1"
+                step="1"
+              />
+            </div>
+            <div class="inline-toggle-sub" style="margin-top:0.4rem">The amount each new bid must rise by. Leave blank to use the platform's standard increments.</div>
+          </div>
+
           <!-- Reserve Price: hidden by default. Revealed by JS only when
                the authenticated seller's profile reports seller_type='business'.
                Failsafe - any error fetching the profile leaves reserve hidden.
@@ -1755,6 +1775,7 @@
 
       var selectedTier  = document.querySelector('input[name="pickup-tier"]:checked');
       var startingBidRaw = parseFloat(document.getElementById('starting-bid').value) || 0;
+      var bidIncrementRaw = parseFloat(document.getElementById('bid-increment').value) || 0;
       var dimensionsRaw = document.getElementById('lot-dimensions').value.trim();
 
       var payload = {
@@ -1763,6 +1784,9 @@
         size_category:      selectedTier ? selectedTier.value : null,
         pickup_category:    selectedTier ? selectedTier.value : null,
         starting_bid_cents: startingBidRaw > 0 ? Math.round(startingBidRaw * 100) : null,
+        // Professional-only bid increment. Sent for all, but the server ignores it for
+        // non-professional sellers (authoritative) → platform default ladder.
+        bid_increment_cents: bidIncrementRaw > 0 ? Math.round(bidIncrementRaw * 100) : null,
         // Phase C.2: professional-only reserve visibility toggle. Sent for all,
         // but the server ignores it for non-professional sellers (authoritative).
         reserve_visible:    !!(document.getElementById('reserve-toggle') && document.getElementById('reserve-toggle').checked),
@@ -1890,6 +1914,7 @@
       document.getElementById('lot-dimensions').value = '';
       document.getElementById('lot-category').value   = '';
       document.getElementById('starting-bid').value   = '';
+      document.getElementById('bid-increment').value  = '';
       document.getElementById('reserve-toggle').checked = false;
 
       var defaultTier = document.querySelector('input[name="pickup-tier"][value="B"]');
@@ -2043,7 +2068,7 @@
     (function gateProfessionalControls() {
       var PRO_TYPES = ['auction_house', 'estate_sale_company', 'professional_liquidator'];
       function reveal(show) {
-        ['starting-bid-form-group', 'reserve-form-group'].forEach(function (id) {
+        ['starting-bid-form-group', 'bid-increment-form-group', 'reserve-form-group'].forEach(function (id) {
           var el = document.getElementById(id);
           if (el) el.style.display = show ? '' : 'none';
         });
@@ -2118,7 +2143,12 @@
 
         if (!state)                    return;                  // unknown state, don't lock pre-emptively
         if (state === 'draft')         return;                  // editable
-        if (sellerType === 'business') return;                  // business seller bypass per governance spec
+        // Professional sellers may continue managing their catalog after submission/publication
+        // (mirrors the server-authoritative canMutateAuction rule, which allows isProfessional()).
+        // Individual sellers (private / business / other / untyped) stay LOCKED once submitted —
+        // the prior `sellerType === 'business'` bypass here was the legacy-classification bug.
+        var PRO_TYPES_LOCK = ['auction_house', 'estate_sale_company', 'professional_liquidator'];
+        if (PRO_TYPES_LOCK.indexOf(sellerType) !== -1) return;
 
         applyLotStudioLock(state);
       }).catch(function (err) {
@@ -2636,6 +2666,7 @@
       document.getElementById('lot-desc').value       = lot.description || '';
       document.getElementById('lot-dimensions').value = (lot.dimensions && typeof lot.dimensions === 'object' && typeof lot.dimensions.text === 'string') ? lot.dimensions.text : '';
       document.getElementById('starting-bid').value   = lot.starting_bid_cents ? (lot.starting_bid_cents / 100) : '';
+      document.getElementById('bid-increment').value  = lot.bid_increment_cents ? (lot.bid_increment_cents / 100) : '';
       var rtEdit = document.getElementById('reserve-toggle');   // Phase C.2: reflect stored reserve visibility
       if (rtEdit) rtEdit.checked = !!lot.reserve_visible;
 
