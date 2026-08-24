@@ -54,6 +54,7 @@
     { href: '/admin/imported-events.html', label: 'Imported Events' },
     { href: '/admin/invoices.html', label: 'Invoices' },
     { href: '/admin/marketplace-config.html', label: 'Marketplace Config' },
+    { href: '/admin/sales.html', label: 'Sales & Marketing' },
   ];
 
   function isActive(href) {

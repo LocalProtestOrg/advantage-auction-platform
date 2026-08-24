@@ -1,0 +1,472 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="noindex, nofollow" />
+  <title>Sales &amp; Marketing - Advantage Admin</title>
+  <style>
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#f8fafc;color:#0f172a}
+    .wrap{max-width:1180px;margin:0 auto;padding:1rem}
+    h1{font-size:1.35rem;margin:.4rem 0 .2rem}
+    .sub{color:#64748b;font-size:.85rem;margin-bottom:1rem}
+    .tabs{display:flex;gap:6px;border-bottom:2px solid #e2e8f0;margin-bottom:1.1rem;flex-wrap:wrap}
+    .tabs button{background:none;border:none;padding:.6rem 1rem;font-size:.9rem;font-weight:700;color:#64748b;cursor:pointer;border-bottom:3px solid transparent;margin-bottom:-2px}
+    .tabs button.active{color:#111827;border-bottom-color:#2563eb}
+    .card{background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:1.1rem 1.2rem;margin-bottom:1rem}
+    .card h2{font-size:1rem;margin-bottom:.2rem}
+    .card h3{font-size:.86rem;color:#334155;margin:.9rem 0 .3rem}
+    .card p,.card li{font-size:.85rem;line-height:1.55;color:#334155}
+    .card ul{margin:.3rem 0 .3rem 1.1rem}
+    .muted{color:#64748b}
+    .linkgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:.5rem}
+    .linkgrid a{display:block;padding:.5rem .7rem;background:#f1f5f9;border:1px solid #e2e8f0;border-radius:8px;color:#1d4ed8;text-decoration:none;font-size:.82rem;font-weight:600}
+    .linkgrid a:hover{background:#e0e7ff}
+    .linkgrid a small{display:block;color:#64748b;font-weight:400;font-size:.72rem;margin-top:2px}
+    .copyblock{position:relative;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:.7rem .8rem;margin:.4rem 0;font-size:.82rem;white-space:pre-wrap;line-height:1.5}
+    .copyblock .copy{position:absolute;top:.5rem;right:.5rem;background:#111827;color:#fff;border:none;border-radius:6px;padding:.25rem .6rem;font-size:.72rem;font-weight:700;cursor:pointer}
+    .copyblock .copy.done{background:#16a34a}
+    .tmpl-title{font-weight:700;font-size:.82rem;color:#0f172a;margin-top:.8rem}
+    details{border:1px solid #e2e8f0;border-radius:8px;padding:.5rem .7rem;margin:.4rem 0;background:#fff}
+    details summary{cursor:pointer;font-weight:700;font-size:.85rem;color:#0f172a}
+    details[open] summary{margin-bottom:.4rem}
+    .bar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:1rem;align-items:center}
+    .bar input,.bar select{padding:.45rem .55rem;border:1px solid #cbd5e1;border-radius:7px;font-size:.82rem}
+    .bar input[type=text]{min-width:180px}
+    .bar button{padding:.45rem .9rem;border:none;border-radius:7px;background:#111827;color:#fff;font-weight:700;cursor:pointer;font-size:.82rem}
+    .bar .chk{display:inline-flex;align-items:center;gap:4px;font-size:.78rem;color:#334155;background:#f1f5f9;border:1px solid #e2e8f0;border-radius:7px;padding:.35rem .55rem}
+    .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:.6rem;margin-bottom:1rem}
+    .stat{background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:.6rem .7rem}
+    .stat .n{font-size:1.3rem;font-weight:800;color:#111827}
+    .stat .l{font-size:.68rem;text-transform:uppercase;letter-spacing:.04em;color:#64748b}
+    table{width:100%;border-collapse:collapse;background:#fff;border:1px solid #e2e8f0;border-radius:10px;overflow:hidden}
+    th,td{text-align:left;padding:.5rem .55rem;font-size:.8rem;border-bottom:1px solid #f1f5f9}
+    th{background:#f8fafc;color:#475569;font-size:.68rem;text-transform:uppercase;letter-spacing:.03em}
+    tr.click{cursor:pointer}tr.click:hover{background:#f8fafc}
+    .tier{display:inline-block;font-size:.66rem;font-weight:800;border-radius:999px;padding:2px 8px}
+    .t1{background:#fef3c7;color:#92400e}.t2{background:#dbeafe;color:#1e40af}.t3{background:#e2e8f0;color:#475569}.t4{background:#f1f5f9;color:#94a3b8}
+    .pill{display:inline-block;font-size:.66rem;font-weight:700;border-radius:999px;padding:2px 8px;background:#e0e7ff;color:#3730a3}
+    .flag-no{color:#dc2626;font-weight:700}.flag-yes{color:#16a34a;font-weight:700}.flag-unk{color:#94a3b8}
+    .btn{padding:.4rem .8rem;border:none;border-radius:7px;font-weight:700;cursor:pointer;font-size:.8rem}
+    .b-blue{background:#2563eb;color:#fff}.b-ghost{background:#f1f5f9;color:#111827;border:1px solid #e2e8f0}
+    #drawer{position:fixed;top:0;right:0;width:min(560px,96vw);height:100%;background:#fff;box-shadow:-8px 0 30px rgba(0,0,0,.15);padding:1.2rem;overflow-y:auto;display:none;z-index:50}
+    #drawer h2{font-size:1.05rem;margin-bottom:.5rem}
+    #drawer label{display:block;font-size:.7rem;text-transform:uppercase;color:#64748b;margin:.5rem 0 .15rem}
+    #drawer input,#drawer select,#drawer textarea{width:100%;padding:.45rem .55rem;border:1px solid #cbd5e1;border-radius:7px;font-size:.83rem;font-family:inherit}
+    .row2{display:grid;grid-template-columns:1fr 1fr;gap:.5rem}
+    .note-item{font-size:.8rem;border-left:3px solid #e2e8f0;padding:.35rem .6rem;margin-bottom:.4rem;background:#f8fafc;border-radius:0 6px 6px 0}
+    .note-item .meta{color:#94a3b8;font-size:.68rem}
+    .msg{font-size:.82rem;color:#64748b;margin:.4rem 0;min-height:1rem}
+    .close-x{float:right;background:none;border:none;font-size:1.3rem;cursor:pointer;color:#94a3b8}
+    .callout{background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:.6rem .8rem;font-size:.8rem;color:#92400e;margin:.5rem 0}
+  </style>
+</head>
+<body>
+  <script src="/widgets/shared/admin-nav.js"></script>
+  <div class="wrap">
+    <h1>Sales &amp; Marketing Toolbox</h1>
+    <div class="sub">Everything a rep needs to find estate-sale-company prospects, understand them, reach out, demo Advantage.Bid, follow up, and convert them into Professional Sellers. Get The Advantage.</div>
+
+    <div class="tabs">
+      <button id="tab-toolbox" class="active" onclick="showTab('toolbox')">Sales Toolbox</button>
+      <button id="tab-prospects" onclick="showTab('prospects')">Prospects</button>
+      <button id="tab-playbook" onclick="showTab('playbook')">Scripts &amp; Playbook</button>
+      <button id="tab-training" onclick="showTab('training')">Rep Onboarding</button>
+    </div>
+
+    <!-- ============ TOOLBOX (links + pitch + Q&A) ============ -->
+    <div id="pane-toolbox">
+      <div class="card">
+        <h2>Quick Links</h2>
+        <h3>Product</h3>
+        <div class="linkgrid" id="links-product"></div>
+        <h3>Signup &amp; Onboarding</h3>
+        <div class="linkgrid" id="links-signup"></div>
+        <h3>Demo &amp; Reference</h3>
+        <div class="linkgrid" id="links-demo"></div>
+        <div class="callout" id="demo-gap"></div>
+      </div>
+
+      <div class="card">
+        <h2>The Pitch</h2>
+        <div id="pitch-blocks"></div>
+        <h3>Professional Seller value proposition</h3>
+        <ul id="valueprop"></ul>
+      </div>
+
+      <div class="card">
+        <h2>"No Website" Playbook</h2>
+        <p class="muted">The highest-value segment: an active estate-sale company with no independent website. Advantage.Bid gives them a branded company presence AND online-auction capability without building their own site.</p>
+        <div id="nowebsite"></div>
+      </div>
+
+      <div class="card">
+        <h2>Sales Q&amp;A / Knowledge Base</h2>
+        <p class="muted">Grounded in current product behavior. If a prospect asks something not covered here, say you will confirm rather than guess.</p>
+        <div id="qa"></div>
+      </div>
+    </div>
+
+    <!-- ============ PROSPECTS ============ -->
+    <div id="pane-prospects" style="display:none">
+      <div class="stats" id="stats"></div>
+      <div class="bar">
+        <input type="text" id="f-search" placeholder="Search company..." />
+        <input type="text" id="f-state" placeholder="State" maxlength="2" style="width:70px" />
+        <select id="f-tier"><option value="">All tiers</option><option value="1">Tier 1</option><option value="2">Tier 2</option><option value="3">Tier 3</option><option value="4">Lower/Competitive</option></select>
+        <select id="f-status"><option value="">All statuses</option></select>
+        <label class="chk"><input type="checkbox" id="f-nowebsite" /> No website</label>
+        <label class="chk"><input type="checkbox" id="f-noauctions" /> No auctions</label>
+        <label class="chk"><input type="checkbox" id="f-hasemail" /> Has email</label>
+        <label class="chk"><input type="checkbox" id="f-hasphone" /> Has phone</label>
+        <button onclick="loadProspects()">Filter</button>
+        <button class="b-ghost" style="background:#dcfce7;border-color:#86efac;color:#166534" onclick="openDrawer()">+ New Prospect</button>
+      </div>
+      <div class="msg" id="prospects-msg"></div>
+      <table>
+        <thead><tr><th>Company</th><th>Location</th><th>Tier</th><th>Score</th><th>Website</th><th>Auctions</th><th>Status</th><th>Contact</th></tr></thead>
+        <tbody id="prospects-body"></tbody>
+      </table>
+    </div>
+
+    <!-- ============ SCRIPTS & PLAYBOOK ============ -->
+    <div id="pane-playbook" style="display:none">
+      <div class="card"><h2>Outreach Message Library</h2><p class="muted">Ready-to-use, editable, non-spammy. Copy, personalize the [brackets], and send.</p><div id="outreach"></div></div>
+      <div class="card"><h2>Phone Scripts</h2><div id="phone"></div></div>
+      <div class="card"><h2>Discovery Questions</h2><p class="muted">A conversation, not an interrogation. Weave these in naturally.</p><div id="discovery"></div></div>
+      <div class="card"><h2>Objection Handling</h2><p class="muted">Position Advantage.Bid as a supplement to their existing business, never a replacement. Never disparage competitors.</p><div id="objections"></div></div>
+      <div class="card"><h2>Demo Playbook (10-15 min)</h2><div id="demo"></div></div>
+    </div>
+
+    <!-- ============ TRAINING ============ -->
+    <div id="pane-training" style="display:none">
+      <div class="card"><h2>New Sales Rep Onboarding Checklist</h2><ol id="checklist" style="margin-left:1.1rem"></ol></div>
+    </div>
+  </div>
+
+  <!-- Prospect create/edit drawer -->
+  <div id="drawer">
+    <button class="close-x" onclick="closeDrawer()">&times;</button>
+    <h2 id="drawer-title">New Prospect</h2>
+    <div id="drawer-score" class="muted" style="font-size:.8rem;margin-bottom:.4rem"></div>
+    <label>Company Name *</label><input id="d-company" />
+    <div class="row2"><div><label>City</label><input id="d-city" /></div><div><label>State</label><input id="d-state" maxlength="2" /></div></div>
+    <div class="row2"><div><label>ZIP</label><input id="d-zip" /></div><div><label>Service Area</label><input id="d-area" /></div></div>
+    <div class="row2"><div><label>Business Phone</label><input id="d-phone" /></div><div><label>Business Email</label><input id="d-email" /></div></div>
+    <label>Website</label><input id="d-website" placeholder="Leave blank if none found" />
+    <div class="row2">
+      <div><label>Website Status</label><select id="d-webstatus"></select></div>
+      <div><label>Independent Website?</label><select id="d-indie"></select></div>
+    </div>
+    <label>Social URL (e.g. Facebook business)</label><input id="d-social" />
+    <div class="row2">
+      <div><label>Estate Sales Offered?</label><select id="d-estate"></select></div>
+      <div><label>Online Auctions Offered?</label><select id="d-auction"></select></div>
+    </div>
+    <label>Auction Platform Used (if any)</label><input id="d-platform" />
+    <label>Source URL (for verification)</label><input id="d-source" />
+    <div class="row2">
+      <div><label>Contact Status</label><select id="d-status"></select></div>
+      <div><label>Next Follow-Up</label><input id="d-followup" type="date" /></div>
+    </div>
+    <div style="margin-top:.8rem;display:flex;gap:.5rem"><button class="btn b-blue" onclick="saveProspect()">Save</button><button class="btn b-ghost" onclick="closeDrawer()">Cancel</button></div>
+    <div class="msg" id="drawer-msg"></div>
+
+    <div id="notes-wrap" style="display:none;margin-top:1rem;border-top:1px solid #e2e8f0;padding-top:.8rem">
+      <h3 style="font-size:.85rem;margin-bottom:.4rem">Activity Log</h3>
+      <div style="display:flex;gap:.4rem;margin-bottom:.5rem">
+        <select id="note-type" style="width:110px"><option value="note">Note</option><option value="call">Call</option><option value="email">Email</option><option value="sms">SMS</option><option value="demo">Demo</option></select>
+        <input id="note-body" placeholder="Log a contact attempt or note..." style="flex:1" />
+        <button class="btn b-blue" onclick="addNote()">Add</button>
+      </div>
+      <div id="notes-list"></div>
+    </div>
+  </div>
+
+  <script>
+    const token = localStorage.getItem('token');
+    if (!token) location.href = '/login.html?next=' + encodeURIComponent('/admin/sales.html');
+    async function api(method, url, body) {
+      const opts = { method, headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token } };
+      if (body) opts.body = JSON.stringify(body);
+      const r = await fetch(url, opts);
+      if (r.status === 401) { localStorage.removeItem('token'); location.href = '/login.html'; throw new Error('Session expired'); }
+      return r.json();
+    }
+    function esc(s){return (s==null?'':String(s)).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+    function showTab(t){['toolbox','prospects','playbook','training'].forEach(x=>{document.getElementById('pane-'+x).style.display=x===t?'':'none';document.getElementById('tab-'+x).classList.toggle('active',x===t);});if(t==='prospects'){loadStats();loadProspects();}}
+
+    // ---- Copy helper ----
+    function copyBlock(btn){const txt=btn.parentElement.getAttribute('data-copy')||btn.parentElement.innerText;navigator.clipboard.writeText(txt).then(()=>{btn.textContent='Copied';btn.classList.add('done');setTimeout(()=>{btn.textContent='Copy';btn.classList.remove('done');},1400);});}
+    function block(text){return '<div class="copyblock" data-copy="'+esc(text)+'"><button class="copy" onclick="copyBlock(this)">Copy</button>'+esc(text)+'</div>';}
+    function tmpl(title,text){return '<div class="tmpl-title">'+esc(title)+'</div>'+block(text);}
+
+    // ================= CONTENT (grounded in real product behavior) =================
+    // Canonical domains: bid.advantage.bid = the platform (auctions/marketplace); www.advantage.bid = marketing site.
+    const PRODUCT_LINKS = [
+      ['Platform home (upcoming auctions)','https://bid.advantage.bid/','Public marketplace of live/upcoming auctions'],
+      ['Estate Sales landing','https://www.advantage.bid/estate-sales','Canonical public Estate Sales page'],
+      ['How It Works','https://bid.advantage.bid/how-it-works.html','Buyer + seller overview'],
+      ['How Sellers Get Paid','https://bid.advantage.bid/how-sellers-get-paid.html','Payout explainer'],
+      ['Seller FAQ','https://bid.advantage.bid/seller-faq.html','Common seller questions'],
+      ['Past Auctions','https://bid.advantage.bid/past-auctions.html','Track record / social proof'],
+    ];
+    const SIGNUP_LINKS = [
+      ['Start Selling','https://bid.advantage.bid/start-selling.html','Top-of-funnel seller entry'],
+      ['Become a Seller (signup)','https://bid.advantage.bid/become-seller.html','Professional Seller enrollment'],
+      ['Create an Estate Sale','https://bid.advantage.bid/create-estate-sale.html','Estate-sale event creation'],
+      ['Seller Dashboard','https://bid.advantage.bid/seller-dashboard.html','Where sellers manage auctions/lots'],
+      ['Login','https://bid.advantage.bid/login.html','Account sign-in'],
+    ];
+    const DEMO_LINKS = [
+      ['Featured Auctions','https://bid.advantage.bid/featured-auctions.html','Show curated live inventory'],
+      ['How To Buy','https://bid.advantage.bid/how-to-buy.html','Walk a prospect through bidding'],
+    ];
+    const DEMO_GAP = 'Demo gap: there is no dedicated seeded demo Professional Seller account or scripted sample auction/storefront wired for sales use yet. Until one exists, demo live public auctions + a real seller dashboard on a screen-share. Recommend building a persistent demo seller + sample auction (see Recommendations).';
+
+    const PITCH = [
+      ['15-second explanation','Advantage.Bid is an online auction marketplace and professional selling platform. Estate-sale companies, auction houses, and liquidators list items, run online auctions, and reach buyers nationwide, with bidding, payments, and payouts handled for them.'],
+      ['30-second pitch','Advantage.Bid lets your estate-sale business add online auctions without building your own website or auction software. You get a branded company presence, catalog tools, buyer registration and bidding, secure card payments, and direct-deposit payouts, all in one place. You keep running your in-person sales; we help you reach buyers beyond the room and sell the higher-value items online.'],
+      ['60-second pitch','Most estate-sale companies do a great job in person, but the higher-value pieces and the buyers who cannot attend are left on the table. Advantage.Bid is an online auction marketplace built for professional sellers. You list a catalog, set your terms, and run an online auction that anyone can bid in. We handle buyer accounts, live buyer-premium display, soft-close anti-sniping, secure card payments, invoicing, and sales tax at checkout. When the auction closes, you review the settlement and we pay you by direct deposit or check after admin approval, so the money is controlled and predictable. If you do not have your own website, Advantage.Bid also becomes your professional online presence: a branded company page where buyers discover your business, your upcoming sales, and your auctions. You keep your existing estate-sale model; we add an online channel and the technology behind it. Get The Advantage.'],
+    ];
+    const VALUEPROP = [
+      'Add online auctions to an existing estate-sale business with no new software to build',
+      'Reach buyers beyond the physical sale, including out-of-town bidders',
+      'Sell higher-value items online before or after the in-person sale',
+      'A branded professional company presence within Advantage.Bid',
+      'Buyer registration, bidding, and secure card payment infrastructure included',
+      'Catalog and lot management with a seller dashboard',
+      'Live buyer-premium display and soft-close anti-sniping build buyer trust',
+      'Invoicing and sales-tax handling at checkout',
+      'Direct-deposit or check payouts, released after admin-reviewed settlement',
+      'Nationwide marketplace discoverability',
+      'Configurable buyer premium and a negotiable platform fee for professionals',
+    ];
+    const NOWEBSITE = [
+      ['What to show them','On Advantage.Bid your company gets a branded presence where customers can discover your business, view your upcoming sales and auctions, browse inventory, and contact you, without you having to build and maintain your own website and auction platform.'],
+      ['Accurate framing (important)','Do NOT say we build or host an independent website or domain that they own. Say: "a website-like, branded company presence within Advantage.Bid" or "your online home for sales and auctions on Advantage.Bid." That is exactly what the product provides.'],
+      ['Why it lands','A company relying on Facebook, a directory listing, or word of mouth suddenly gets a professional, discoverable presence PLUS auction capability in one step. That is a bigger upgrade for them than for a company that already has a polished site.'],
+    ];
+    const QA = [
+      ['What is Advantage.Bid?','An online auction marketplace and professional selling platform for estate-sale companies, auction houses, and liquidators (and individual sellers).'],
+      ['Who can sell?','Individuals and professional sellers. Professional seller types are auction_house, estate_sale_company, and professional_liquidator, assigned by Advantage.Bid.'],
+      ['How do Professional Seller accounts work?','A company enrolls, is verified, accepts the seller agreement, and sets up payouts (Stripe Connect). Professionals can set custom starting prices, configure their buyer premium and bid increments, and edit their catalog after submission.'],
+      ['How much does it cost / what is the platform fee?','Advantage.Bid charges professional sellers a software/platform fee on hammer-price sales. The default is 4%. It is set per seller and can be negotiated by Advantage.Bid admin.'],
+      ['Can rates be negotiated?','Yes. The professional platform fee is configurable per seller by Advantage.Bid admin. Sellers cannot change their own fee.'],
+      ['Who determines the buyer\'s premium?','Individual sellers have a fixed 18% buyer premium. Professional sellers can configure their own buyer premium for their auctions. Buyer premium is shown live during bidding.'],
+      ['How are payments handled?','Buyers pay by debit or credit card through the platform. Card verification uses a small temporary charge at signup/card change.'],
+      ['How do sellers get paid?','Payouts go out by direct deposit or check after an admin-reviewed settlement. Buyer funds stay under platform control until admin approval, using separate charges and transfers. There is no automatic seller transfer at buyer payment.'],
+      ['How does sales tax work?','Sales tax is calculated at checkout based on the buyer, handled by the platform, and is not part of seller proceeds. Sellers do not receive tax as income.'],
+      ['Can a company run estate sales and auctions?','Yes. Advantage.Bid supplements the in-person estate-sale business with an online auction channel; it does not replace it.'],
+      ['Can they sell individual items?','Yes, items are listed as lots within an auction catalog.'],
+      ['Can they edit auction catalogs?','Professional sellers can edit their catalog after submission. Individual sellers\' catalogs lock after submission (admin can override).'],
+      ['How does bidding work / what is soft close?','Each lot closes on a staggered schedule (about one minute apart). A bid placed in the final two minutes extends that lot by two minutes, which prevents last-second sniping.'],
+      ['Who handles buyer accounts?','Advantage.Bid handles buyer registration, identity/paddle numbers, bidding, favorites, notifications, and payment.'],
+      ['What does the seller remain responsible for?','Describing and photographing items accurately, honoring the sale, and fulfilling pickup/handoff to winning buyers per the auction terms.'],
+    ];
+    const OUTREACH = [
+      ['Email: cold introduction','Subject: Online auctions for [Company]\n\nHi [Name],\n\nI came across [Company] while looking at estate-sale companies in [City/State]. I work with Advantage.Bid, an online auction marketplace built for estate-sale professionals.\n\nMany companies like yours use us to add online bidding to their sales, reach buyers who cannot attend in person, and move higher-value items online, without building their own auction software.\n\nWould you be open to a short 10-minute look at how it works?\n\nBest,\n[Your Name]\n[Phone] | Advantage.Bid'],
+      ['Email: estate-sale company, no online auctions','Subject: A simple way to add online bidding at [Company]\n\nHi [Name],\n\nYour in-person estate sales clearly work. The opportunity I see is the buyers who cannot make it and the higher-value pieces that deserve competitive bidding.\n\nAdvantage.Bid lets you run an online auction alongside your sale: you list a catalog, we handle bidder accounts, payments, and payouts. You keep doing what you do; we add the online channel.\n\nCould I show you a 10-minute demo this week?\n\n[Your Name], Advantage.Bid'],
+      ['Email: company without a website','Subject: A professional online home for [Company]\n\nHi [Name],\n\nIf [Company] does not have its own website yet, Advantage.Bid can give you a branded company presence where customers discover your business, see your upcoming sales and auctions, and browse inventory, plus full online-auction capability, without you having to build or maintain a site.\n\nHappy to show you what your company presence would look like. Do you have 10 minutes this week?\n\n[Your Name], Advantage.Bid'],
+      ['Email: has website, no auctions','Subject: Add online auctions to [Company]\'s site strategy\n\nHi [Name],\n\nYour site does a nice job showing who you are. Advantage.Bid adds the piece most estate-sale sites do not have: real online bidding with buyer accounts, payments, and payouts handled for you. You can link to your Advantage.Bid auctions right from your site.\n\nWorth a quick 10-minute look?\n\n[Your Name], Advantage.Bid'],
+      ['Email: follow-up after no response','Subject: Re: online auctions for [Company]\n\nHi [Name],\n\nFloating this back to the top of your inbox. If adding online bidding to your sales is interesting, I can show you the whole thing in about 10 minutes, no obligation.\n\nIs this week or next better?\n\n[Your Name], Advantage.Bid'],
+      ['Email: follow-up after a phone call','Subject: Great talking with you\n\nHi [Name],\n\nThanks for the few minutes today. As promised, here is a quick overview of Advantage.Bid and a look at live auctions: https://bid.advantage.bid/\n\nWhen you are ready, the seller signup is here: https://bid.advantage.bid/become-seller.html\n\nHappy to do a full walkthrough whenever it suits you.\n\n[Your Name], Advantage.Bid'],
+      ['Email: demo invitation','Subject: 10-minute Advantage.Bid walkthrough?\n\nHi [Name],\n\nI would love to show you how an online auction runs on Advantage.Bid, from listing a catalog to buyers bidding to getting paid. It takes about 10 minutes.\n\nWould [day/time] or [day/time] work for a quick screen-share?\n\n[Your Name], Advantage.Bid'],
+      ['Email: post-demo follow-up','Subject: Your Advantage.Bid next steps\n\nHi [Name],\n\nThanks for your time today. Recapping what stood out for [Company]: [benefit 1], [benefit 2].\n\nWhenever you are ready, seller signup is here: https://bid.advantage.bid/become-seller.html. I will help you through onboarding and your first auction.\n\n[Your Name], Advantage.Bid'],
+      ['Email: signup follow-up','Subject: Ready when you are\n\nHi [Name],\n\nJust checking whether you had any questions before starting your Advantage.Bid seller account. Signup: https://bid.advantage.bid/become-seller.html. I can hop on a call and set it up with you.\n\n[Your Name], Advantage.Bid'],
+      ['Email: just checking in','Subject: Checking in\n\nHi [Name],\n\nNo agenda here, just seeing whether online auctions are on your radar for the next few months. If timing is better later, tell me when to circle back.\n\n[Your Name], Advantage.Bid'],
+      ['Email: re-engagement after 30+ days','Subject: Worth another look?\n\nHi [Name],\n\nWe have added [new item/feature] since we last spoke, and more estate-sale companies are running online auctions with us. If it is worth a fresh 10 minutes, I would be glad to show you what is new.\n\n[Your Name], Advantage.Bid'],
+      ['SMS: intro','Hi [Name], this is [Your Name] with Advantage.Bid. We help estate-sale companies add online auctions and a branded company page. Open to a quick 10-min look this week?'],
+      ['SMS: follow-up','Hi [Name], following up on Advantage.Bid for [Company]. Happy to show you online bidding in ~10 min. Does this week work?'],
+      ['Contact form','Hello, I work with Advantage.Bid, an online auction marketplace for estate-sale companies. We help businesses like [Company] add online bidding and a branded company presence without building their own platform. Could someone reach me at [phone/email] for a quick 10-minute overview? Thank you.'],
+      ['Social DM','Hi [Company]! We help estate-sale companies run online auctions and get a professional company presence on Advantage.Bid. Would you be open to a quick look? Happy to share details here or by email.'],
+    ];
+    const PHONE = [
+      ['Opening','Hi, is this [Name]? Great. This is [Your Name] with Advantage.Bid. We help estate-sale companies add online auctions. Do you have two minutes, or is there a better time?'],
+      ['Voicemail','Hi [Name], this is [Your Name] with Advantage.Bid. We help estate-sale companies run online auctions and reach more buyers. I would love to show you a quick 10-minute demo. You can reach me at [phone]. Thanks, and I will follow up by email.'],
+      ['Gatekeeper','Hi, I am hoping you can help me. I work with Advantage.Bid and I would like to reach whoever handles the online side of your estate sales. Who would that be, and what is the best way to reach them?'],
+      ['30-second pitch','Advantage.Bid lets you add online auctions to your estate sales without building your own website or software. We handle bidder accounts, payments, and payouts; you keep running your sales. It is a way to reach buyers who cannot attend and to get competitive bids on your best pieces.'],
+      ['Discovery transition','Can I ask a couple of quick questions to see whether this is even a fit for how you work?'],
+      ['Demo invitation','The easiest way to see it is a 10-minute screen-share. I can show a live auction, the seller dashboard, and how you get paid. Would [day/time] work?'],
+      ['Closing / signup','It sounds like [recap fit]. The next step is a quick seller signup and I will help you set up your first auction. Want me to send the link and walk through it together?'],
+    ];
+    const DISCOVERY = [
+      'Do you currently run any online auctions, or is it all in-person right now?',
+      'About how many estate sales do you do in a month or a year?',
+      'Does the company have its own website, or do people mostly find you another way?',
+      'How do customers usually find out about your upcoming sales?',
+      'What happens to your higher-value items, and to anything that does not sell?',
+      'Do you use any auction or listing platform today?',
+      'Do you keep an email or customer list?',
+      'Do you already photograph and catalog inventory?',
+      'Would reaching buyers who cannot attend in person be valuable to you?',
+      'Who handles technology and marketing on your team?',
+      'What is the biggest challenge you have had with selling online?',
+    ];
+    const OBJECTIONS = [
+      ['We don\'t do auctions.','Totally fine, most of our estate-sale companies did not either. Think of it as an add-on: your in-person sale stays exactly the same, and online bidding just opens a second channel for the pieces that deserve it.'],
+      ['Our estate sales work fine.','Good, that is the foundation. This is not about fixing what works; it is about capturing the buyers who cannot attend and getting competitive bids on your best items.'],
+      ['We already have a website.','Perfect. You can link your Advantage.Bid auctions from your site. We add the bidding, payments, and payouts that most sites do not handle.'],
+      ['We don\'t have a website.','Then this is an even bigger step up: Advantage.Bid gives you a branded company presence where buyers find you, plus full auction capability, without you building or maintaining a site.'],
+      ['We\'re too small.','No minimum size. You can run a single auction with a handful of lots. Many smaller companies like the reach without added overhead.'],
+      ['We\'re too busy.','Understood. We keep setup light, and I will personally help you launch your first auction so it is not extra work on your plate.'],
+      ['Technology is too complicated.','It is built for non-technical sellers. If you can post photos and fill in a few fields, you can run an auction. I will walk you through it.'],
+      ['We use Facebook.','Great for awareness. The gap Facebook leaves is real bidding, buyer accounts, secure payment, and payouts. Advantage.Bid handles all of that and can complement your Facebook presence.'],
+      ['We use a listing service.','That helps people find your sales. Advantage.Bid adds the transaction: online bidding, payment, and payout. Many companies use both.'],
+      ['We already use another auction platform.','Makes sense. Plenty of sellers compare, and our buyer premium and platform fee are negotiable for professionals. Worth a 10-minute look to compare?'],
+      ['How much does it cost?','For professionals there is a platform fee on hammer-price sales; the default is 4% and it is negotiable per seller. Buyer premium is configurable and is the seller\'s. There is no cost to look.'],
+      ['Why should I pay a platform fee?','It covers the buyer accounts, bidding technology, secure payments, invoicing, and payouts, so you do not build or maintain any of it. It only applies to sales you actually make.'],
+      ['Our customers want in-person sales.','Keep them. Online bidding runs alongside the in-person sale and reaches the buyers who are not in the room, without changing your on-site experience.'],
+      ['I don\'t want to change how my company operates.','You do not have to. This is additive. Start with one auction and see how it fits before doing anything more.'],
+      ['Maybe later.','Fair. Can I check back in [timeframe]? In the meantime I will send a short overview so it is there when the timing is right.'],
+    ];
+    const DEMO = [
+      ['1. Marketplace / ecosystem','Open bid.advantage.bid. Show live/upcoming auctions. Benefit: real buyers and activity. Ask: "Do these look like the kinds of items you handle?"'],
+      ['2. Company presence','Show a professional seller/company presence. Benefit: your business is discoverable here. Ask: "Do you have a website today, or would this be your main online home?"'],
+      ['3. Create / manage an auction','Show the seller create flow and dashboard. Benefit: listing is straightforward. Ask: "How do you catalog items now?"'],
+      ['4. Catalog / lots','Show lots with photos, descriptions, starting price, increments. Benefit: professionals control pricing and increments. Ask: "What kinds of items would you list first?"'],
+      ['5. Buyer experience','Open a lot as a buyer would. Benefit: clean, trustworthy bidding. Ask: "Would your buyers find this easy?"'],
+      ['6. Bidding + soft close','Explain live buyer premium and 2-minute soft-close extension. Benefit: fair, sniping-resistant. Ask: "Ever lose a sale to a last-second grab?"'],
+      ['7. Payments','Explain card payments handled by the platform. Benefit: no chasing checks. Ask: "How do you collect payment today?"'],
+      ['8. Seller dashboard','Show auctions, lots, and results. Benefit: one place to manage everything. Ask: "Who on your team would use this?"'],
+      ['9. Getting paid','Explain admin-reviewed settlement then direct-deposit or check payout; tax handled separately. Benefit: predictable, controlled. Ask: "How would you want to be paid?"'],
+      ['10. Estate-sale visibility + marketplace','Show the Estate Sales page and nationwide discovery. Benefit: more eyes on your sales. Ask: "Where are most of your buyers today?"'],
+      ['11. Signup / onboarding','Open become-seller.html. Benefit: quick start with your help. Ask: "Want to set up your account together now?"'],
+    ];
+    const CHECKLIST = [
+      'Understand what Advantage.Bid is (read the 15/30/60-second pitches).',
+      'Learn the Professional Seller benefits and value proposition.',
+      'Learn pricing basics: default 4% platform fee (negotiable per seller), 18% individual buyer premium, configurable professional buyer premium.',
+      'Learn the demo flow and practice it once end-to-end on live pages.',
+      'Learn the prospect tiers (Golden / High-Value / Possible / Lower).',
+      'Research a company before contacting it; record the source URL so leads are verifiable.',
+      'Do outreach using the message library; personalize the brackets.',
+      'Log every contact attempt in the prospect Activity Log.',
+      'Schedule the next follow-up date on the prospect.',
+      'Run the 10-15 minute demo.',
+      'Send the signup path (become-seller.html) and offer to help onboard.',
+      'Follow through to Professional Seller onboarding and mark the prospect converted.',
+    ];
+
+    // ---- render toolbox ----
+    function linkCard(a){return '<a href="'+a[1]+'" target="_blank" rel="noopener">'+esc(a[0])+'<small>'+esc(a[2])+'</small></a>';}
+    document.getElementById('links-product').innerHTML = PRODUCT_LINKS.map(linkCard).join('');
+    document.getElementById('links-signup').innerHTML = SIGNUP_LINKS.map(linkCard).join('');
+    document.getElementById('links-demo').innerHTML = DEMO_LINKS.map(linkCard).join('');
+    document.getElementById('demo-gap').textContent = DEMO_GAP;
+    document.getElementById('pitch-blocks').innerHTML = PITCH.map(x=>tmpl(x[0],x[1])).join('');
+    document.getElementById('valueprop').innerHTML = VALUEPROP.map(v=>'<li>'+esc(v)+'</li>').join('');
+    document.getElementById('nowebsite').innerHTML = NOWEBSITE.map(x=>'<h3>'+esc(x[0])+'</h3>'+block(x[1])).join('');
+    document.getElementById('qa').innerHTML = QA.map(x=>'<details><summary>'+esc(x[0])+'</summary><p>'+esc(x[1])+'</p></details>').join('');
+    document.getElementById('outreach').innerHTML = OUTREACH.map(x=>tmpl(x[0],x[1])).join('');
+    document.getElementById('phone').innerHTML = PHONE.map(x=>tmpl(x[0],x[1])).join('');
+    document.getElementById('discovery').innerHTML = '<ul>'+DISCOVERY.map(d=>'<li>'+esc(d)+'</li>').join('')+'</ul>'+block(DISCOVERY.join('\n'));
+    document.getElementById('objections').innerHTML = OBJECTIONS.map(x=>'<details><summary>'+esc(x[0])+'</summary>'+block(x[1])+'</details>').join('');
+    document.getElementById('demo').innerHTML = DEMO.map(x=>'<h3>'+esc(x[0])+'</h3><p>'+esc(x[1])+'</p>').join('');
+    document.getElementById('checklist').innerHTML = CHECKLIST.map(c=>'<li style="margin-bottom:.35rem;font-size:.85rem">'+esc(c)+'</li>').join('');
+
+    // ================= PROSPECTS =================
+    let META = null, EDIT_ID = null;
+    async function loadMeta(){ if(META) return META; const r=await api('GET','/api/admin/sales/meta'); META=r.data; return META; }
+    function opts(arr,labels){return arr.map(v=>'<option value="'+v+'">'+esc(labels?labels[v]||v:v)+'</option>').join('');}
+
+    async function initProspectControls(){
+      await loadMeta();
+      document.getElementById('f-status').innerHTML='<option value="">All statuses</option>'+opts(META.contact_status,META.contact_status_label);
+      document.getElementById('d-status').innerHTML=opts(META.contact_status,META.contact_status_label);
+      document.getElementById('d-webstatus').innerHTML=opts(META.website_status);
+      const tri=opts(META.tristate);
+      document.getElementById('d-indie').innerHTML=tri;
+      document.getElementById('d-estate').innerHTML=tri;
+      document.getElementById('d-auction').innerHTML=tri;
+    }
+
+    async function loadStats(){
+      const r=await api('GET','/api/admin/sales/stats'); const s=r.data||{};
+      const cells=[['Total','total'],['Tier 1','tier1'],['Tier 2','tier2'],['No Website','no_website'],['No Auctions','no_auctions'],['Has Email','has_email'],['Has Phone','has_phone'],['Contacted','contacted'],['Interested','interested'],['Demos','demos'],['Conversions','conversions']];
+      document.getElementById('stats').innerHTML=cells.map(c=>'<div class="stat"><div class="n">'+(s[c[1]]||0)+'</div><div class="l">'+c[0]+'</div></div>').join('');
+    }
+
+    function flag(v,goodWhenNo){const t=(v||'unknown');if(t==='no')return '<span class="'+(goodWhenNo?'flag-yes':'flag-no')+'">no</span>';if(t==='yes')return '<span class="'+(goodWhenNo?'flag-no':'flag-yes')+'">yes</span>';return '<span class="flag-unk">?</span>';}
+
+    async function loadProspects(){
+      await initProspectControls();
+      const q=new URLSearchParams();
+      const g=id=>document.getElementById(id).value.trim();
+      if(g('f-search'))q.set('search',g('f-search'));
+      if(g('f-state'))q.set('state',g('f-state'));
+      if(g('f-tier'))q.set('tier',g('f-tier'));
+      if(g('f-status'))q.set('contact_status',g('f-status'));
+      if(document.getElementById('f-nowebsite').checked)q.set('no_website','true');
+      if(document.getElementById('f-noauctions').checked)q.set('no_auctions','true');
+      if(document.getElementById('f-hasemail').checked)q.set('has_email','true');
+      if(document.getElementById('f-hasphone').checked)q.set('has_phone','true');
+      document.getElementById('prospects-msg').textContent='Loading...';
+      const r=await api('GET','/api/admin/sales/prospects?'+q.toString());
+      const rows=r.data||[];
+      document.getElementById('prospects-msg').textContent=rows.length?'':'No prospects match. Add one, or import a verified dataset (see toolbox).';
+      document.getElementById('prospects-body').innerHTML=rows.map(p=>
+        '<tr class="click" onclick="openDrawer(\''+p.id+'\')">'+
+        '<td><strong>'+esc(p.company_name)+'</strong>'+(p.website?'':' <span class="pill">no site</span>')+'</td>'+
+        '<td>'+esc([p.city,p.state].filter(Boolean).join(', '))+'</td>'+
+        '<td><span class="tier t'+(p.prospect_tier||3)+'">'+esc((p.tier_label||'').replace('Tier ',''))+'</span></td>'+
+        '<td>'+(p.lead_score==null?'':p.lead_score)+'</td>'+
+        '<td>'+flag(p.independent_website,true)+'</td>'+
+        '<td>'+flag(p.online_auctions_offered,true)+'</td>'+
+        '<td>'+esc(p.contact_status_label||'')+'</td>'+
+        '<td>'+(p.business_phone?esc(p.business_phone):'<span class="flag-unk">'+(p.business_email?esc(p.business_email):'not found')+'</span>')+'</td>'+
+        '</tr>').join('');
+    }
+
+    function openDrawer(id){
+      EDIT_ID=id||null;
+      document.getElementById('drawer').style.display='block';
+      document.getElementById('drawer-title').textContent=id?'Edit Prospect':'New Prospect';
+      document.getElementById('drawer-msg').textContent='';
+      document.getElementById('notes-wrap').style.display=id?'block':'none';
+      const set=(k,v)=>{document.getElementById(k).value=v||'';};
+      if(!id){['d-company','d-city','d-state','d-zip','d-area','d-phone','d-email','d-website','d-social','d-platform','d-source','d-followup'].forEach(k=>set(k,''));
+        document.getElementById('d-webstatus').value='unknown';document.getElementById('d-indie').value='unknown';document.getElementById('d-estate').value='yes';document.getElementById('d-auction').value='unknown';document.getElementById('d-status').value='new_lead';document.getElementById('drawer-score').textContent='';return;}
+      api('GET','/api/admin/sales/prospects/'+id).then(r=>{const p=r.data;if(!p)return;
+        set('d-company',p.company_name);set('d-city',p.city);set('d-state',p.state);set('d-zip',p.zip);set('d-area',p.service_area);
+        set('d-phone',p.business_phone);set('d-email',p.business_email);set('d-website',p.website);set('d-social',p.social_url);
+        set('d-platform',p.auction_platform_used);set('d-source',p.source_url);
+        document.getElementById('d-webstatus').value=p.website_status||'unknown';document.getElementById('d-indie').value=p.independent_website||'unknown';
+        document.getElementById('d-estate').value=p.estate_sales_offered||'unknown';document.getElementById('d-auction').value=p.online_auctions_offered||'unknown';
+        document.getElementById('d-status').value=p.contact_status||'new_lead';
+        set('d-followup',p.next_follow_up_at?String(p.next_follow_up_at).slice(0,10):'');
+        document.getElementById('drawer-score').textContent=(p.tier_label||'')+' | score '+(p.lead_score==null?'?':p.lead_score);
+        renderNotes(p.notes||[]);
+      });
+    }
+    function closeDrawer(){document.getElementById('drawer').style.display='none';}
+
+    function drawerPayload(){
+      const g=id=>document.getElementById(id).value.trim();
+      return {company_name:g('d-company'),city:g('d-city'),state:g('d-state'),zip:g('d-zip'),service_area:g('d-area'),
+        business_phone:g('d-phone'),business_email:g('d-email'),website:g('d-website'),website_status:document.getElementById('d-webstatus').value,
+        social_url:g('d-social'),independent_website:document.getElementById('d-indie').value,estate_sales_offered:document.getElementById('d-estate').value,
+        online_auctions_offered:document.getElementById('d-auction').value,auction_platform_used:g('d-platform'),source_url:g('d-source'),
+        contact_status:document.getElementById('d-status').value,next_follow_up_at:g('d-followup')||null};
+    }
+    async function saveProspect(){
+      const body=drawerPayload();
+      if(!body.company_name){document.getElementById('drawer-msg').textContent='Company name is required.';return;}
+      document.getElementById('drawer-msg').textContent='Saving...';
+      const r=EDIT_ID?await api('PATCH','/api/admin/sales/prospects/'+EDIT_ID,body):await api('POST','/api/admin/sales/prospects',body);
+      if(!r.success){document.getElementById('drawer-msg').textContent='Failed: '+(r.message||'error');return;}
+      closeDrawer();loadStats();loadProspects();
+    }
+    function renderNotes(notes){document.getElementById('notes-list').innerHTML=(notes||[]).map(n=>'<div class="note-item"><div>'+esc(n.body||'('+n.activity_type+')')+'</div><div class="meta">'+esc(n.activity_type)+' | '+esc(n.author_email||'system')+' | '+new Date(n.created_at).toLocaleString()+'</div></div>').join('')||'<p class="muted" style="font-size:.8rem">No activity yet.</p>';}
+    async function addNote(){
+      if(!EDIT_ID)return;
+      const body=document.getElementById('note-body').value.trim();const type=document.getElementById('note-type').value;
+      if(!body)return;
+      await api('POST','/api/admin/sales/prospects/'+EDIT_ID+'/notes',{activity_type:type,body:body});
+      document.getElementById('note-body').value='';
+      const r=await api('GET','/api/admin/sales/prospects/'+EDIT_ID);renderNotes(r.data.notes||[]);
+    }
+  </script>
+</body>
+</html>
