@@ -88,8 +88,10 @@ describe('contact-status pipeline vocabulary', () => {
 describe('authorization + privacy (source-level guards)', () => {
   const routeSrc = read('src/routes/adminSales.js');
   const serverSrc = read('server.js');
-  test('every sales route is admin-gated (router.use auth + role admin)', () => {
-    expect(routeSrc).toMatch(/router\.use\(auth, role\(\['admin'\]\)\)/);
+  test('every sales route is permission-gated (auth + sales.view; Super Admins bypass via rbac)', () => {
+    // Converted from role(['admin']) to permission-based so Marketing/Sales staff can use it while
+    // Super Admins retain access and all other roles are denied server-side.
+    expect(routeSrc).toMatch(/router\.use\(auth, requirePermission\('sales\.view'\)\)/);
   });
   test('sales routes are mounted under /api/admin (behind the admin surface)', () => {
     expect(serverSrc).toMatch(/app\.use\('\/api\/admin\/sales', adminSalesRoutes\)/);

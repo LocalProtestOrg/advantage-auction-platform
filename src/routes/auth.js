@@ -106,6 +106,8 @@ router.post('/login', strictLimiter, async (req, res) => {
       { expiresIn: process.env.JWT_EXPIRES_IN || '24h' }
     );
     setSessionCookie(res, token); // server-side session for the HTML gate (same JWT)
+    // Best-effort last-login stamp (used by Staff & Permissions). Never blocks or fails the login.
+    db.query('UPDATE users SET last_login_at = now() WHERE id = $1', [user.id]).catch(() => {});
     res.json({ success: true, token });
   } catch (err) {
     console.error('[auth] login failed:', { email, error: err.message });

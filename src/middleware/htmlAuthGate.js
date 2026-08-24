@@ -16,6 +16,16 @@
 
 const jwt = require('jsonwebtoken');
 const { readSessionToken } = require('../lib/sessionCookie');
+const db = require('../db');
+const rbac = require('../lib/rbac');
+
+// Admin HTML pages that permitted NON-admin staff may reach, keyed to the required permission.
+// Any /admin page NOT listed here stays Super-Admin-only (unchanged behavior). Server APIs remain
+// the authoritative data gate regardless of page access.
+const ADMIN_PAGE_PERMISSIONS = {
+  '/admin/sales.html': 'sales.view',
+  '/admin/staff.html': 'staff.view',
+};
 
 // Tier requirements. Admin pages need 'admin'; clear seller-management pages need seller|admin;
 // everything else private just needs a valid session (any role) — the APIs enforce finer access.
@@ -63,7 +73,7 @@ function safeNext(originalUrl) {
   return originalUrl;
 }
 
-module.exports = function htmlAuthGate(req, res, next) {
+module.exports = async function htmlAuthGate(req, res, next) {
   if (req.method !== 'GET' && req.method !== 'HEAD') return next();
   const roles = requirement(req.path);
   if (!roles) return next(); // public page/asset — let static serve it
@@ -77,11 +87,22 @@ module.exports = function htmlAuthGate(req, res, next) {
   try { decoded = jwt.verify(token, process.env.JWT_SECRET); } catch (_) { return toLogin(); }
   if (!decoded || !decoded.id || !decoded.role) return toLogin();
 
-  if (!roles.includes(decoded.role)) {
-    // Authenticated but insufficient role → safe authorized destination (their own home shell).
-    return res.redirect(302, '/app.html');
+  if (roles.includes(decoded.role)) return next(); // authorized by role (admins pass all /admin pages)
+
+  // Not authorized by role. One exception: a NON-admin staff member reaching a specific admin page
+  // they hold the permission for (e.g. Marketing → /admin/sales.html). Only for mapped pages; only a
+  // DB lookup for non-admins (admins already returned above). Everything else → safe home shell.
+  const perm = ADMIN_PAGE_PERMISSIONS[req.path];
+  if (perm) {
+    try {
+      const u = (await db.query('SELECT id, role, staff_role, staff_active FROM users WHERE id = $1', [decoded.id])).rows[0];
+      const ov = u ? (await db.query('SELECT permission, effect FROM staff_permission_overrides WHERE user_id = $1', [decoded.id])).rows : [];
+      if (u && rbac.hasPermission({ ...u, overrides: ov }, perm)) return next();
+    } catch (e) {
+      console.error('[htmlAuthGate] staff permission check failed:', e.message);
+    }
   }
-  return next(); // authorized — express.static serves the page
+  return res.redirect(302, '/app.html');
 };
 
 module.exports.requirement = requirement;

@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="noindex, nofollow" />
+  <title>Staff &amp; Permissions - Advantage Admin</title>
+  <style>
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#f8fafc;color:#0f172a}
+    .wrap{max-width:1080px;margin:0 auto;padding:1rem}
+    h1{font-size:1.35rem;margin:.4rem 0 .2rem}
+    .sub{color:#64748b;font-size:.85rem;margin-bottom:1rem}
+    .card{background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:1.1rem 1.2rem;margin-bottom:1rem}
+    .card h2{font-size:1rem;margin-bottom:.6rem}
+    table{width:100%;border-collapse:collapse}
+    th,td{text-align:left;padding:.5rem .55rem;font-size:.82rem;border-bottom:1px solid #f1f5f9;vertical-align:middle}
+    th{background:#f8fafc;color:#475569;font-size:.68rem;text-transform:uppercase;letter-spacing:.03em}
+    .pill{display:inline-block;font-size:.66rem;font-weight:800;border-radius:999px;padding:2px 8px}
+    .on{background:#dcfce7;color:#166534}.off{background:#fee2e2;color:#991b1b}.super{background:#fef3c7;color:#92400e}
+    select,input{padding:.4rem .5rem;border:1px solid #cbd5e1;border-radius:7px;font-size:.82rem;font-family:inherit}
+    .btn{padding:.4rem .75rem;border:none;border-radius:7px;font-weight:700;cursor:pointer;font-size:.78rem}
+    .b-blue{background:#2563eb;color:#fff}.b-ghost{background:#f1f5f9;color:#111827;border:1px solid #e2e8f0}.b-warn{background:#fee2e2;color:#991b1b}
+    .bar{display:flex;gap:8px;flex-wrap:wrap;align-items:end;margin-bottom:.5rem}
+    .bar label{display:block;font-size:.68rem;text-transform:uppercase;color:#64748b;margin-bottom:.15rem}
+    .msg{font-size:.82rem;color:#64748b;margin:.5rem 0;min-height:1rem}
+    .tempbox{background:#ecfdf5;border:1px solid #6ee7b7;border-radius:8px;padding:.7rem .9rem;margin:.5rem 0;font-size:.85rem;color:#065f46;display:none}
+    .tempbox code{background:#064e3b;color:#fff;padding:.15rem .5rem;border-radius:6px;font-size:.9rem}
+    .denied{background:#fff7ed;border:1px solid #fdba74;border-radius:10px;padding:1rem;color:#9a3412;font-size:.9rem;display:none}
+    .rolegrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:.5rem;font-size:.78rem}
+    .rolegrid .r{border:1px solid #e2e8f0;border-radius:8px;padding:.5rem .6rem;background:#f8fafc}
+    .rolegrid .r b{display:block;margin-bottom:.2rem}
+  </style>
+</head>
+<body>
+  <script src="/widgets/shared/admin-nav.js"></script>
+  <div class="wrap">
+    <h1>Staff &amp; Permissions</h1>
+    <div class="sub">Create staff accounts and assign role-based access. Only the Super Admin / Owner can manage staff. Access is enforced server-side; hiding a link never grants or blocks access by itself.</div>
+
+    <div id="denied" class="denied">You do not have access to Staff &amp; Permissions. This area is limited to the Super Admin / Owner.</div>
+
+    <div id="content" style="display:none">
+      <div class="card">
+        <h2>Add Staff</h2>
+        <div class="bar">
+          <div><label>Full Name</label><input id="c-name" placeholder="Jane Doe" /></div>
+          <div><label>Email</label><input id="c-email" placeholder="name@example.com" style="min-width:220px" /></div>
+          <div><label>Role</label><select id="c-role"></select></div>
+          <button class="btn b-blue" onclick="createStaff()">Create Staff</button>
+        </div>
+        <div id="temp-create" class="tempbox"></div>
+        <div class="msg" id="create-msg"></div>
+      </div>
+
+      <div class="card">
+        <h2>Staff Accounts</h2>
+        <div class="msg" id="list-msg"></div>
+        <table>
+          <thead><tr><th>Staff</th><th>Email</th><th>Role</th><th>Status</th><th>Last Login</th><th>Actions</th></tr></thead>
+          <tbody id="staff-body"></tbody>
+        </table>
+        <div id="temp-reset" class="tempbox"></div>
+      </div>
+
+      <div class="card">
+        <h2>Role Reference</h2>
+        <div class="rolegrid" id="roles"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const token = localStorage.getItem('token');
+    if (!token) location.href = '/login.html?next=' + encodeURIComponent('/admin/staff.html');
+    async function api(method, url, body) {
+      const opts = { method, headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token } };
+      if (body) opts.body = JSON.stringify(body);
+      const r = await fetch(url, opts);
+      const j = await r.json().catch(() => ({}));
+      return { status: r.status, ok: r.ok, json: j };
+    }
+    function esc(s){return (s==null?'':String(s)).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+    let ROLE_KEYS = [], ROLES = {};
+
+    async function init() {
+      // Gate the page content on staff.view (Super Admin). Non-super staff see the denied notice.
+      const me = await api('GET', '/api/admin/staff/me');
+      const isSuper = me.ok && me.json.data && me.json.data.is_super_admin;
+      if (!isSuper) { document.getElementById('denied').style.display = 'block'; return; }
+      document.getElementById('content').style.display = 'block';
+      const roles = await api('GET', '/api/admin/staff/roles');
+      if (roles.ok) {
+        ROLES = roles.json.data.roles; ROLE_KEYS = roles.json.data.role_keys;
+        document.getElementById('c-role').innerHTML = ROLE_KEYS.map(k => '<option value="'+k+'">'+esc(ROLES[k].label)+'</option>').join('');
+        document.getElementById('roles').innerHTML = ROLE_KEYS.map(k => {
+          const r = ROLES[k]; const perms = r.permissions === '*' ? 'ALL permissions' : r.permissions.join(', ');
+          return '<div class="r"><b>'+esc(r.label)+'</b><span style="color:#64748b">'+esc(perms)+'</span></div>';
+        }).join('');
+      }
+      loadStaff();
+    }
+
+    async function loadStaff() {
+      document.getElementById('list-msg').textContent = 'Loading...';
+      const r = await api('GET', '/api/admin/staff');
+      if (!r.ok) { document.getElementById('list-msg').textContent = 'Failed to load staff.'; return; }
+      document.getElementById('list-msg').textContent = '';
+      const rows = r.json.data || [];
+      document.getElementById('staff-body').innerHTML = rows.map(u => {
+        const roleOpts = ROLE_KEYS.map(k => '<option value="'+k+'"'+(u.staff_role===k?' selected':'')+'>'+esc(ROLES[k].label)+'</option>').join('');
+        const statusPill = u.is_super_admin ? '<span class="pill super">Super Admin</span>'
+          : (u.staff_active ? '<span class="pill on">Active</span>' : '<span class="pill off">Inactive</span>');
+        const last = u.last_login_at ? new Date(u.last_login_at).toLocaleString() : '-';
+        // Super Admin/Owner rows are protected: no role/deactivate controls (lockout safety).
+        const controls = u.is_super_admin
+          ? '<span style="color:#94a3b8;font-size:.75rem">Owner (protected)</span>'
+          : '<select onchange="changeRole(\''+u.id+'\',this.value)">'+roleOpts+'</select> '
+            + '<button class="btn '+(u.staff_active?'b-warn':'b-blue')+'" onclick="toggleActive(\''+u.id+'\','+(u.staff_active? 'false':'true')+')">'+(u.staff_active?'Deactivate':'Activate')+'</button> '
+            + '<button class="btn b-ghost" onclick="resetPw(\''+u.id+'\')">Reset Password</button>';
+        return '<tr><td>'+esc(u.full_name||'-')+'</td><td>'+esc(u.email)+'</td><td>'+esc(u.staff_role_label||u.staff_role||'-')+'</td><td>'+statusPill+'</td><td>'+esc(last)+'</td><td>'+controls+'</td></tr>';
+      }).join('');
+    }
+
+    async function createStaff() {
+      const full_name = document.getElementById('c-name').value.trim();
+      const email = document.getElementById('c-email').value.trim();
+      const staff_role = document.getElementById('c-role').value;
+      document.getElementById('create-msg').textContent = 'Saving...';
+      document.getElementById('temp-create').style.display = 'none';
+      const r = await api('POST', '/api/admin/staff', { full_name, email, staff_role });
+      if (!r.ok) { document.getElementById('create-msg').textContent = 'Failed: ' + (r.json.message || r.status); return; }
+      document.getElementById('create-msg').textContent = r.json.data.created ? 'Staff account created.' : 'Existing account granted staff role.';
+      document.getElementById('c-name').value=''; document.getElementById('c-email').value='';
+      if (r.json.temp_password) {
+        const box = document.getElementById('temp-create');
+        box.style.display = 'block';
+        box.innerHTML = 'Temporary password for <b>'+esc(email)+'</b> (shown once - share securely, then have them change it): <code>'+esc(r.json.temp_password)+'</code>';
+      }
+      loadStaff();
+    }
+    async function changeRole(id, staff_role) {
+      const r = await api('PATCH', '/api/admin/staff/' + id, { staff_role });
+      if (!r.ok) alert('Failed: ' + (r.json.message || r.status));
+      loadStaff();
+    }
+    async function toggleActive(id, active) {
+      const r = await api('PATCH', '/api/admin/staff/' + id, { staff_active: active });
+      if (!r.ok) alert('Failed: ' + (r.json.message || r.status));
+      loadStaff();
+    }
+    async function resetPw(id) {
+      if (!confirm('Issue a new temporary password for this staff member?')) return;
+      const r = await api('POST', '/api/admin/staff/' + id + '/reset-password');
+      if (!r.ok) { alert('Failed: ' + (r.json.message || r.status)); return; }
+      const box = document.getElementById('temp-reset');
+      box.style.display = 'block';
+      box.innerHTML = 'New temporary password for <b>'+esc(r.json.data.email)+'</b> (shown once): <code>'+esc(r.json.temp_password)+'</code>';
+    }
+    init();
+  </script>
+</body>
+</html>

@@ -42,7 +42,10 @@
     '#admin-nav a:focus-visible,#admin-nav button:focus-visible{outline:2px solid #fbbf24;outline-offset:2px}' +
     '@media (max-width:600px){#admin-nav .an-brand{display:none}}';
 
-  // Only sections that actually exist and are actively used in production.
+  // Sections in production. `perm` (optional) is the permission required to SEE the link for a
+  // non-Super-Admin staff member; links with no `perm` are Super-Admin-only. Super Admins see all.
+  // This is presentation only; server-side authorization (requirePermission / role gates) is
+  // authoritative and blocks any direct navigation a link might otherwise imply.
   var LINKS = [
     { href: HOME, label: 'Admin Home' },
     { href: '/admin/moderation.html', label: 'Moderation' },
@@ -54,8 +57,22 @@
     { href: '/admin/imported-events.html', label: 'Imported Events' },
     { href: '/admin/invoices.html', label: 'Invoices' },
     { href: '/admin/marketplace-config.html', label: 'Marketplace Config' },
-    { href: '/admin/sales.html', label: 'Sales & Marketing' },
+    { href: '/admin/sales.html', label: 'Sales & Marketing', perm: 'sales.view' },
+    { href: '/admin/staff.html', label: 'Staff & Permissions', perm: 'staff.view' },
   ];
+
+  // Resolved from /api/admin/staff/me. Until it resolves we render nothing sensitive (only chrome).
+  var STAFF = { is_super_admin: false, permissions: [], staff_role: null, loaded: false };
+  function canSee(link) {
+    if (STAFF.is_super_admin) return true;
+    return !!(link.perm && STAFF.permissions.indexOf(link.perm) !== -1);
+  }
+  function badgeLabel() {
+    if (STAFF.is_super_admin) return 'ADMIN';
+    if (STAFF.staff_role === 'marketing') return 'MARKETING';
+    if (STAFF.staff_role) return String(STAFF.staff_role).toUpperCase();
+    return 'STAFF';
+  }
 
   function isActive(href) {
     var p = location.pathname;
@@ -82,26 +99,47 @@
   }
   window.adminLogout = doLogout;
 
-  function mount() {
-    if (document.getElementById('admin-nav')) return;
-    var style = document.createElement('style'); style.textContent = CSS; document.head.appendChild(style);
-    var linksHtml = LINKS.map(function (l) {
+  function renderLinks(header) {
+    var linksHtml = LINKS.filter(canSee).map(function (l) {
       var active = isActive(l.href);
       return '<a href="' + l.href + '"' + (active ? ' class="active" aria-current="page"' : '') + '>' + l.label + '</a>';
     }).join('');
+    var nav = header.querySelector('.an-links'); if (nav) nav.innerHTML = linksHtml;
+    var badge = header.querySelector('.an-badge'); if (badge) badge.textContent = badgeLabel();
+  }
+
+  function mount() {
+    if (document.getElementById('admin-nav')) return;
+    var style = document.createElement('style'); style.textContent = CSS; document.head.appendChild(style);
     var header = document.createElement('header');
     header.id = 'admin-nav';
     header.innerHTML =
       '<div class="an-inner">' +
         '<button class="an-back" type="button" aria-label="Go back">&#8592; Back</button>' +
         '<a class="an-brand" href="' + HOME + '">Advantage Admin</a>' +
-        '<nav class="an-links" aria-label="Admin sections">' + linksHtml + '</nav>' +
-        '<span class="an-badge">ADMIN</span>' +
+        '<nav class="an-links" aria-label="Admin sections"></nav>' +
+        '<span class="an-badge">&nbsp;</span>' +
         '<div class="an-auth"><a data-an-logout tabindex="0" role="button">Log out</a></div>' +
       '</div>';
     document.body.insertBefore(header, document.body.firstChild);
     header.querySelector('.an-back').addEventListener('click', goBack);
     header.querySelector('[data-an-logout]').addEventListener('click', doLogout);
+
+    // Resolve the caller's permissions, then render only the links they may use. The nav starts empty
+    // (no sensitive links shown before we know who they are).
+    var tok = null; try { tok = localStorage.getItem('token'); } catch (e) {}
+    fetch('/api/admin/staff/me', { headers: tok ? { Authorization: 'Bearer ' + tok } : {} })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (j) {
+        if (j && j.success && j.data) {
+          STAFF.is_super_admin = !!j.data.is_super_admin;
+          STAFF.permissions = j.data.permissions || [];
+          STAFF.staff_role = j.data.staff_role;
+        }
+        STAFF.loaded = true;
+        renderLinks(header);
+      })
+      .catch(function () { STAFF.loaded = true; renderLinks(header); });
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', mount);

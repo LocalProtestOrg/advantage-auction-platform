@@ -9,11 +9,15 @@
 const express = require('express');
 const router = express.Router();
 const auth = require('../middleware/authMiddleware');
-const role = require('../middleware/roleMiddleware');
+const requirePermission = require('../middleware/requirePermission');
 const idempotency = require('../middleware/idempotency');
 const svc = require('../services/salesProspectService');
 
-router.use(auth, role(['admin']));
+// Sales & Marketing is permission-gated (not admin-only) so Marketing/Sales staff can use it while
+// Super Admins retain access via the rbac bypass. Reads need sales.view; writes need
+// sales.manage_prospects (see per-route guards below). Non-staff (buyer/seller) and other staff roles
+// are denied server-side regardless of the UI.
+router.use(auth, requirePermission('sales.view'));
 
 // Funnel + inventory stats for the dashboard.
 router.get('/stats', async (req, res, next) => {
@@ -53,19 +57,19 @@ router.get('/prospects/:id', async (req, res, next) => {
 });
 
 // Create a prospect (tier + lead score derived server-side).
-router.post('/prospects', idempotency, async (req, res, next) => {
+router.post('/prospects', requirePermission('sales.manage_prospects'), idempotency, async (req, res, next) => {
   try { return res.status(201).json({ success: true, data: await svc.createProspect(req.body, req.user.id) }); }
   catch (err) { if (err.status) return res.status(err.status).json({ success: false, message: err.message }); next(err); }
 });
 
 // Update a prospect (re-scores; a status change is auto-logged to the timeline).
-router.patch('/prospects/:id', async (req, res, next) => {
+router.patch('/prospects/:id', requirePermission('sales.manage_prospects'), async (req, res, next) => {
   try { return res.json({ success: true, data: await svc.updateProspect(req.params.id, req.body, req.user.id) }); }
   catch (err) { if (err.status) return res.status(err.status).json({ success: false, message: err.message }); next(err); }
 });
 
 // Log a contact attempt / note against a prospect.
-router.post('/prospects/:id/notes', async (req, res, next) => {
+router.post('/prospects/:id/notes', requirePermission('sales.manage_prospects'), async (req, res, next) => {
   try {
     const p = await svc.getProspect(req.params.id);
     if (!p) return res.status(404).json({ success: false, message: 'Prospect not found' });
