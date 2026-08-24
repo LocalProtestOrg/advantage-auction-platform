@@ -4,9 +4,9 @@ const { platformFeeCents } = require('../lib/settlementPolicy');
 async function generateAuctionReport(auctionId) {
   const auctionRes = await db.query(
     // Deployed schema column is end_time; aliased to ends_at to preserve the
-    // downstream auction.ends_at / report.auction_ends_at interface. seller_type governs the
-    // platform fee (professional → 2% of hammer; individual → 0%).
-    `SELECT a.id, a.title, a.end_time AS ends_at, sp.seller_type
+    // downstream auction.ends_at / report.auction_ends_at interface. seller_type + platform_fee_bps
+    // govern the platform fee (professional → per-seller rate of hammer, DEFAULT 4%; individual → 0%).
+    `SELECT a.id, a.title, a.end_time AS ends_at, sp.seller_type, sp.platform_fee_bps
        FROM auctions a LEFT JOIN seller_profiles sp ON sp.id = a.seller_id
       WHERE a.id = $1`,
     [auctionId]
@@ -66,9 +66,9 @@ async function generateAuctionReport(auctionId) {
   const highest_sale_lot = highestLotRes.rows[0] || null;
 
   // Seller platform fee by seller type (single source of truth: settlementPolicy): individual → 0%,
-  // professional → 2% of hammer. The legacy flat 10% is retired. The credit-card processing
+  // professional → the seller's configured rate of hammer (DEFAULT 4%). The credit-card processing
   // reimbursement is a separate, actual-Stripe-cost line computed by the settlement engine, not here.
-  const calcFee = (gross) => platformFeeCents(gross, auction.seller_type);
+  const calcFee = (gross) => platformFeeCents(gross, auction.seller_type, auction.platform_fee_bps);
 
   const lots = lotsRes.rows.map(row => {
     const gross     = row.winning_amount_cents ?? 0;

@@ -404,6 +404,57 @@ router.post('/sellers/:sellerId/seller-type', auth, role(['admin']), idempotency
   }
 });
 
+// POST /api/admin/sellers/:sellerId/platform-fee — set a Professional Seller's Advantage.Bid
+// platform/software fee (per-seller, DEFAULT 4%). ADMIN ONLY (server-authoritative; sellers have no
+// route to change their own fee). Accepts a decimal percent (e.g. 3.75) OR basis points; stores bps.
+// This fee is deducted from the professional seller's proceeds at settlement — it is NOT the buyer
+// premium, sales tax, or Stripe fee. Individual sellers are unaffected (settlement applies 0% to them).
+router.post('/sellers/:sellerId/platform-fee', auth, role(['admin']), idempotency, async (req, res, next) => {
+  try {
+    const { sellerId } = req.params;
+    const { MAX_PLATFORM_FEE_BPS } = require('../lib/settlementPolicy');
+    // Accept either platform_fee_percent (decimal %) or platform_fee_bps (integer basis points).
+    let bps;
+    if (req.body && req.body.platform_fee_bps != null) {
+      bps = Number(req.body.platform_fee_bps);
+    } else if (req.body && req.body.platform_fee_percent != null) {
+      const pct = Number(req.body.platform_fee_percent);
+      bps = Math.round(pct * 100); // 3.75% → 375 bps
+    } else {
+      return res.status(400).json({ success: false, message: 'platform_fee_percent (e.g. 4.00) is required' });
+    }
+    if (!Number.isFinite(bps) || !Number.isInteger(bps) || bps < 0 || bps > MAX_PLATFORM_FEE_BPS) {
+      return res.status(400).json({
+        success: false,
+        message: `Platform fee must be a number between 0% and ${MAX_PLATFORM_FEE_BPS / 100}% (max ${MAX_PLATFORM_FEE_BPS} bps).`,
+      });
+    }
+    const cur = await db.query(
+      `SELECT id, user_id, seller_type, platform_fee_bps FROM seller_profiles WHERE id = $1`, [sellerId]);
+    if (!cur.rows[0]) {
+      return res.status(404).json({ success: false, message: 'Seller profile not found' });
+    }
+    const before = cur.rows[0].platform_fee_bps;
+    const out = await db.query(
+      `UPDATE seller_profiles SET platform_fee_bps = $1 WHERE id = $2
+       RETURNING id, user_id, seller_type, platform_fee_bps`,
+      [bps, sellerId]);
+    // Audit only on an actual change (idempotent no-op re-set still returns 200 without a misleading event).
+    if (before !== bps) {
+      await writeAuditLog({
+        event_type:  'seller_platform_fee_changed',
+        entity_type: 'seller_profile',
+        entity_id:   sellerId,
+        actor_id:    req.user.id,
+        metadata:    { before_bps: before, after_bps: bps, before_pct: before != null ? before / 100 : null, after_pct: bps / 100 },
+      });
+    }
+    return res.json({ success: true, data: { ...out.rows[0], platform_fee_percent: bps / 100 } });
+  } catch (err) {
+    next(err);
+  }
+});
+
 // GET /api/admin/lots/:lotId/ai-verification
 // AI Catalog Assistant Phase 2A: admin visibility into the verification
 // provenance for a lot — the ORIGINAL AI output, the seller's button
@@ -1151,6 +1202,7 @@ router.get('/sellers', auth, role(['admin']), async (req, res, next) => {
       `SELECT sp.id              AS seller_profile_id,
               sp.seller_type,
               sp.capabilities,
+              sp.platform_fee_bps,
               sp.created_at      AS profile_created_at,
               u.id               AS user_id,
               u.email,

@@ -200,8 +200,11 @@
       // buyer funds
       $('buyer-funds').innerHTML = kv('Expected Buyer Payments', money(bf.expected_cents)) + kv('Collected Buyer Payments', money(bf.collected_cents)) + kv('Outstanding Buyer Payments', money(bf.outstanding_cents)) + kv('Failed Payments', esc(bf.failed_cents)) + kv('Refunds', money(bf.refunds_cents)) + '<div class="kv" style="border-top:1px solid #e2e8f0;margin-top:.3rem;padding-top:.5rem"><span class="k">Net Collected</span><span class="v">'+money(bf.net_collected_cents)+'</span></div>';
 
+      // Platform fee rate ACTUALLY applied to this settlement (per-seller; 0% for individuals).
+      const feePct = ((Number(s.seller_platform_fee_bps) || 0) / 100).toFixed(2) + '%';
+
       // stripe
-      $('stripe').innerHTML = kv('Actual Stripe Processing Cost', money(d.stripe.actual_processing_cents)) + kv('Processing Recovery', money(d.stripe.actual_processing_cents)) + kv('Balance Transaction Status', d.stripe.balance_transaction_incomplete ? 'Not Yet Captured' : 'Captured') + kv('Platform Fee', '0.00%');
+      $('stripe').innerHTML = kv('Actual Stripe Processing Cost', money(d.stripe.actual_processing_cents)) + kv('Processing Recovery', money(d.stripe.actual_processing_cents)) + kv('Balance Transaction Status', d.stripe.balance_transaction_incomplete ? 'Not Yet Captured' : 'Captured') + kv('Platform Fee', feePct);
 
       // formula
       const f = [];
@@ -212,7 +215,7 @@
       f.push(['Less Debits', neg(s.adjustments.debit_cents), 'op']);
       f.push(['Less Marketing Charges', neg(s.marketing_deduction_cents), 'op']);
       f.push(['Less Actual Stripe Processing', neg(s.credit_card_processing_fee_cents), 'op']);
-      f.push(['Less Platform Fee (0.00%)', neg(s.seller_platform_fee_cents), 'op']);
+      f.push(['Less Platform Fee (' + feePct + ')', neg(s.seller_platform_fee_cents), 'op']);
       f.push(['Net Seller Payment', money(s.net_seller_proceeds_cents), 'final']);
       $('formula').innerHTML = f.map(([k,v,cls]) => '<div class="row '+(cls==='sub'?'sub':cls==='final'?'final':'')+'"><span class="'+(cls==='op'?'op':'')+'">'+esc(k)+'</span><span>'+v+'</span></div>').join('');
 

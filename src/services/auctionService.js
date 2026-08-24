@@ -825,22 +825,22 @@ async function closeAuction(auctionId, actorId = null) {
     // buyer invoice and the post-close reconciler, so there is no preview/actual divergence:
     //   • INDIVIDUAL seller → buyer premium is 100% Advantage revenue; seller receives the hammer;
     //     no hammer platform fee.
-    //   • PROFESSIONAL seller → seller keeps their buyer premium; Advantage takes a 2% software fee
-    //     on the hammer.
+    //   • PROFESSIONAL seller → seller keeps their buyer premium; Advantage takes a per-seller
+    //     software fee on the hammer (DEFAULT 4%, configurable per seller via platform_fee_bps).
     const billingTerms = require('./billingTermsService');
     const sellerUserId = auctionRes.rows[0].seller_user_id;
     const hammerLots = results.filter(r => r.winning_amount_cents != null).map(r => r.winning_amount_cents);
     const grossRevenueCents = hammerLots.reduce((sum, v) => sum + (v || 0), 0);
     const terms = await billingTerms.resolveEffectiveTerms(auctionId, client);
     const buyerPremiumCents = billingTerms.buyerPremiumForLots(hammerLots, terms.buyer_premium_bps);
-    const s = billingTerms.settlement({ sellerType: terms.seller_type, hammerCents: grossRevenueCents, buyerPremiumCents });
+    const s = billingTerms.settlement({ sellerType: terms.seller_type, hammerCents: grossRevenueCents, buyerPremiumCents, platformFeeBps: terms.platform_fee_bps });
     const pref = await getSellerPayoutPreference(sellerUserId);
     await client.query(
       `INSERT INTO seller_payouts
-         (auction_id, seller_user_id, gross_revenue_cents, buyer_premium_cents, platform_fee_cents, seller_payout_cents, payout_method)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)
+         (auction_id, seller_user_id, gross_revenue_cents, buyer_premium_cents, platform_fee_cents, platform_fee_bps, seller_payout_cents, payout_method)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
        ON CONFLICT (auction_id) DO NOTHING`,
-      [auctionId, sellerUserId, grossRevenueCents, s.buyer_premium_cents, s.platform_fee_cents, s.seller_payout_cents, pref ? pref.payout_method : null]
+      [auctionId, sellerUserId, grossRevenueCents, s.buyer_premium_cents, s.platform_fee_cents, (s.platform_fee_bps != null ? s.platform_fee_bps : null), s.seller_payout_cents, pref ? pref.payout_method : null]
     );
 
     await client.query('COMMIT');

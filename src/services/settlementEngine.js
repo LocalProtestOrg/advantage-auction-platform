@@ -29,7 +29,7 @@ const db = require('../db');
 const auditService = require('./auditService');
 const { listAdjustments } = require('./settlementAdjustmentService');
 const { getSellerPayoutPreference } = require('./payoutPreferenceService');
-const { platformFeeCents, sumAdjustments, SETTLEMENT_AUDIT_EVENTS, SETTLEMENT_STATUS } = require('../lib/settlementPolicy');
+const { platformFeeCents, isProfessionalSellerType, DEFAULT_PRO_PLATFORM_FEE_BPS, sumAdjustments, SETTLEMENT_AUDIT_EVENTS, SETTLEMENT_STATUS } = require('../lib/settlementPolicy');
 
 class MarkPaidError extends Error {}
 
@@ -52,10 +52,10 @@ function computeSettlementTotals(i = {}) {
 
   const outstanding  = Math.max(0, expected - collected);
   const netCollected = collected - refunds;                  // collected-basis (Decision 2)
-  // Seller platform fee: individual → 0%; professional → 2% of HAMMER (billingTermsService policy).
-  // Basis is gross hammer sales (NOT netCollected, which includes buyer premium), matching the
-  // authoritative seller_payouts figure written at close.
-  const platformFee  = platformFeeCents(grossSales, i.sellerType);
+  // Seller platform fee: individual → 0%; professional → per-seller rate of HAMMER (DEFAULT 4%,
+  // seller_profiles.platform_fee_bps). Basis is gross hammer sales (NOT netCollected, which includes
+  // buyer premium), matching the authoritative seller_payouts figure written at close.
+  const platformFee  = platformFeeCents(grossSales, i.sellerType, i.sellerPlatformFeeBps);
   const netProceeds  = netCollected + adj.net_cents - marketing - stripeFee - platformFee;
 
   return {
@@ -69,7 +69,10 @@ function computeSettlementTotals(i = {}) {
     adjustments:                      { credit_cents: adj.credit_cents, debit_cents: adj.debit_cents, net_cents: adj.net_cents },
     marketing_deduction_cents:        marketing,
     credit_card_processing_fee_cents: stripeFee,
-    seller_platform_fee_cents:        platformFee, // always 0 at launch
+    seller_platform_fee_bps:          isProfessionalSellerType(i.sellerType)
+                                        ? (i.sellerPlatformFeeBps == null ? DEFAULT_PRO_PLATFORM_FEE_BPS : Math.trunc(Number(i.sellerPlatformFeeBps)))
+                                        : 0,        // rate actually applied (0 for individuals)
+    seller_platform_fee_cents:        platformFee, // hammer × rate (0 for individuals)
     net_seller_proceeds_cents:        netProceeds,
     final_amount_owed_cents:          netProceeds,
   };
@@ -116,11 +119,13 @@ async function assembleSettlementInputs(auctionId) {
     `SELECT COALESCE(SUM(winning_amount_cents),0)::bigint AS gross
        FROM lots WHERE auction_id = $1 AND winning_amount_cents IS NOT NULL`, [auctionId]);
 
-  // Seller type governs the platform fee (professional → 2% of hammer; individual → 0%).
+  // Seller type + per-seller rate govern the platform fee (professional → platform_fee_bps of hammer,
+  // DEFAULT 4%; individual → 0%).
   const stRes = await db.query(
-    `SELECT sp.seller_type FROM auctions a
+    `SELECT sp.seller_type, sp.platform_fee_bps FROM auctions a
        LEFT JOIN seller_profiles sp ON sp.id = a.seller_id WHERE a.id = $1`, [auctionId]);
   const sellerType = stRes.rows[0] ? stRes.rows[0].seller_type : null;
+  const sellerPlatformFeeBps = stRes.rows[0] ? stRes.rows[0].platform_fee_bps : null;
 
   // Expected / collected / outstanding from per-buyer combined invoices (Design C).
   const invRes = await db.query(
@@ -152,6 +157,7 @@ async function assembleSettlementInputs(auctionId) {
 
   return {
     sellerType,
+    sellerPlatformFeeBps,
     grossSalesCents:                Number(grossRes.rows[0].gross),
     buyerPaymentsExpectedCents:     Number(invRes.rows[0].expected),
     buyerPaymentsCollectedCents:    Number(invRes.rows[0].collected),
@@ -195,8 +201,12 @@ async function recalculateSettlement(auctionId, actorId = null) {
       [auctionId, sp.seller_user_id, nextVersion, JSON.stringify(totals), actorId]);
 
     await client.query(
-      `UPDATE seller_payouts SET settlement_version = $2, seller_payout_cents = $3, updated_at = now() WHERE auction_id = $1`,
-      [auctionId, nextVersion, totals.net_seller_proceeds_cents]);
+      `UPDATE seller_payouts SET settlement_version = $2, seller_payout_cents = $3,
+              platform_fee_bps = $4, platform_fee_cents = $5, updated_at = now()
+        WHERE auction_id = $1`,
+      [auctionId, nextVersion, totals.net_seller_proceeds_cents,
+       (totals.seller_platform_fee_bps != null ? totals.seller_platform_fee_bps : null),
+       totals.seller_platform_fee_cents]);
 
     await auditService.logEvent(client, {
       eventType: nextVersion === 1 ? SETTLEMENT_AUDIT_EVENTS.SETTLEMENT_CREATED : SETTLEMENT_AUDIT_EVENTS.SETTLEMENT_RECALCULATED,
@@ -397,12 +407,15 @@ async function paySellerViaTransfer(auctionId, { actorId = null, confirmedComple
       `UPDATE seller_payouts SET
          settlement_status = 'paid', settlement_version = $2,
          seller_payout_cents = $3, final_amount_paid_cents = $3,
+         platform_fee_bps = $6, platform_fee_cents = $7,
          paid_at = now(), paid_by_user_id = $4,
          payment_method_used = 'ach', payout_reference = $5,
          stripe_transfer_id = $5, transfer_initiated_at = now(),
          payout_status = 'processing', updated_at = now()
        WHERE auction_id = $1`,
-      [auctionId, finalVersion, net, actorId, transfer.id]);
+      [auctionId, finalVersion, net, actorId, transfer.id,
+       (totals.seller_platform_fee_bps != null ? totals.seller_platform_fee_bps : null),
+       totals.seller_platform_fee_cents]);
 
     await auditService.logEvent(client, {
       eventType: SETTLEMENT_AUDIT_EVENTS.SETTLEMENT_MARKED_PAID,

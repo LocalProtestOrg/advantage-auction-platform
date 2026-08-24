@@ -37,8 +37,12 @@ describe('settlement-review.html workbench', () => {
     expect(HTML).toContain('does not send money');          // accurate Mark Paid wording
   });
 
-  test('platform fee is shown as 0.00%', () => {
-    expect(HTML).toContain('0.00%');
+  test('platform fee rate is rendered dynamically from the settlement (per-seller), not hardcoded', () => {
+    // The fee % now reflects the rate ACTUALLY applied (0.00% individual, per-seller for professionals),
+    // derived from seller_platform_fee_bps — no longer a hardcoded literal.
+    expect(HTML).toContain('seller_platform_fee_bps');
+    expect(HTML).toContain("feePct");
+    expect(HTML).not.toContain("kv('Platform Fee', '0.00%')"); // the old hardcoded literal is gone
   });
 
   test('copy SOP: no customer-facing AI terminology and no em/en dashes', () => {

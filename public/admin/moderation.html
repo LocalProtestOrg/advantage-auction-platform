@@ -2010,6 +2010,33 @@
     });
   }
 
+  // Set a Professional Seller's Advantage.Bid platform fee (%) via the admin-only endpoint. Sends a
+  // decimal percent; the server validates + stores basis points and audits the change (before → after).
+  // Reverts the visible value on failure. Applies to professional sellers at settlement.
+  function setSellerPlatformFee(sellerProfileId, email, input) {
+    const prev = input.dataset.prev || '';
+    const pct  = parseFloat(input.value);
+    if (input.value === prev) return;
+    if (!isFinite(pct) || pct < 0 || pct > 25) {
+      showMsg('sellers-status', 'Platform fee must be between 0% and 25%.', true);
+      input.value = prev; return;
+    }
+    input.disabled = true;
+    showMsg('sellers-status', 'Updating platform fee for ' + (email || 'seller') + '…');
+    api('POST', `/api/admin/sellers/${sellerProfileId}/platform-fee`, { platform_fee_percent: pct }).then(data => {
+      if (!data.success) {
+        showMsg('sellers-status', 'Failed: ' + (data.message || 'unknown'), true);
+        input.value = prev; input.disabled = false; return;
+      }
+      const applied = (data.data && data.data.platform_fee_percent != null) ? Number(data.data.platform_fee_percent).toFixed(2) : pct.toFixed(2);
+      input.value = applied; input.dataset.prev = applied; input.disabled = false;
+      showMsg('sellers-status', 'Platform fee updated to ' + applied + '% for ' + (email || 'seller') + '.');
+    }).catch(err => {
+      showMsg('sellers-status', 'Failed: ' + err.message, true);
+      input.value = prev; input.disabled = false;
+    });
+  }
+
   function loadSellers(search) {
     showMsg('sellers-status', 'Loading…');
     api('GET', '/api/admin/sellers?search=' + encodeURIComponent(search)).then(data => {
@@ -2065,6 +2092,25 @@
           typeSel.dataset.prev = s.seller_type || '';
           typeSel.onchange = () => setSellerType(s.seller_profile_id, s.email, typeSel);
           row.appendChild(typeSel);
+
+          // Advantage.Bid Platform Fee (%) — per-Professional-Seller software fee (default 4.00%).
+          // Editable by admin only (this endpoint is admin-gated server-side). It is applied to
+          // PROFESSIONAL sellers at settlement; individual sellers are unaffected. Separate from the
+          // buyer premium. Rendered as a small percent input with a % suffix.
+          const feeWrap = document.createElement('label');
+          feeWrap.style.cssText = 'display:inline-flex;align-items:center;gap:0.25rem;flex-shrink:0;font-size:0.72rem;color:#374151';
+          feeWrap.title = 'Advantage.Bid platform/software fee retained from this professional seller’s sales (default 4.00%). Not the buyer premium.';
+          feeWrap.appendChild(document.createTextNode('Platform Fee'));
+          const feeInput = document.createElement('input');
+          feeInput.type = 'number'; feeInput.min = '0'; feeInput.max = '25'; feeInput.step = '0.05';
+          const curBps = (s.platform_fee_bps != null) ? Number(s.platform_fee_bps) : 400;
+          feeInput.value = (curBps / 100).toFixed(2);
+          feeInput.dataset.prev = feeInput.value;
+          feeInput.style.cssText = 'width:64px;font-size:0.75rem;padding:0.25rem 0.4rem;border:1px solid #d1d5db;border-radius:6px';
+          feeInput.onchange = () => setSellerPlatformFee(s.seller_profile_id, s.email, feeInput);
+          feeWrap.appendChild(feeInput);
+          feeWrap.appendChild(document.createTextNode('%'));
+          row.appendChild(feeWrap);
         }
 
         // SMA-S1a: surface suspension status from the is_active value the

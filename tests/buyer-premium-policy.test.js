@@ -124,28 +124,31 @@ describe('Settlement — preview == actual (one model)', () => {
   });
 
   test('[#12] professional settlement pays the seller their buyer premium', () => {
+    // Default professional platform fee is now 4% (per-seller configurable).
     const s = bt.settlement({ sellerType: 'auction_house', hammerCents: 100000, buyerPremiumCents: 15000 });
     expect(s.seller_gross_cents).toBe(115000);              // hammer + their own premium
-    expect(s.seller_payout_cents).toBe(115000 - 2000);      // less the 2% software fee
+    expect(s.seller_payout_cents).toBe(115000 - 4000);      // less the 4% default software fee
   });
 
-  test('[#13] professional pays Advantage a 2% software fee on the hammer', () => {
+  test('[#13] professional pays Advantage the default 4% software fee on the hammer', () => {
     const s = bt.settlement({ sellerType: 'estate_sale_company', hammerCents: 100000, buyerPremiumCents: 0 });
-    expect(s.platform_fee_cents).toBe(2000);
-    expect(s.advantage_revenue_cents).toBe(2000); // the professional premium is NOT Advantage revenue
-    expect(sp.platformFeeCents(100000, 'estate_sale_company')).toBe(2000);
+    expect(s.platform_fee_cents).toBe(4000);
+    expect(s.platform_fee_bps).toBe(400);                  // rate applied is snapshotted on the settlement
+    expect(s.advantage_revenue_cents).toBe(4000); // the professional premium is NOT Advantage revenue
+    expect(sp.platformFeeCents(100000, 'estate_sale_company')).toBe(4000);
     expect(sp.platformFeeCents(100000, 'private')).toBe(0);
   });
 });
 
 // ── No obsolete rules remain in executable logic ───────────────────────────────
 describe('Obsolete financial rules are gone from executable logic', () => {
-  test('[#14] there is no active 10% platform fee anywhere in the model', () => {
-    // Professional fee is 2%, individual is 0% — never 10%.
-    expect(sp.PRO_PLATFORM_FEE_RATE).toBe(0.02);
+  test('[#14] there is no active 10% or legacy 2% platform fee constant in the model', () => {
+    // Professional DEFAULT fee is 4%, individual is 0% — never 10%, and the legacy 2% is gone.
+    expect(sp.PRO_PLATFORM_FEE_RATE).toBe(0.04);
     expect(sp.PLATFORM_FEE_RATE).toBe(0);
+    expect(sp.DEFAULT_PRO_PLATFORM_FEE_BPS).toBe(400);
     expect(sp.platformFeeCents(100000, 'auction_house')).not.toBe(10000);
-    expect(bt.PRO_PLATFORM_FEE_BPS).toBe(200);
+    expect(bt.DEFAULT_PRO_PLATFORM_FEE_BPS).toBe(400);
   });
 
   test('[#15] the 0% buyer-premium pilot rule is NOT active (individual BP is 18%, not 0)', () => {

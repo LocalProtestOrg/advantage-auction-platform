@@ -79,7 +79,8 @@ function sellerSettlementDetailView({ auctionId, auction, sp, totals, marketing 
     stripe_processing_cents: t.credit_card_processing_fee_cents || 0,
     platform_fee_cents: t.seller_platform_fee_cents || 0,
     // Derive the displayed rate from the ACTUAL fee vs gross hammer (individual → 0.00%,
-    // professional → 2.00%) rather than hardcoding — keeps the seller statement truthful per seller type.
+    // professional → their configured rate, default 4.00%) rather than hardcoding — keeps the seller
+    // statement truthful per seller and consistent with the rate actually applied at settlement.
     platform_fee_pct: (() => {
       const gross = Number(t.gross_sales_cents) || 0;
       const fee = Number(t.seller_platform_fee_cents) || 0;

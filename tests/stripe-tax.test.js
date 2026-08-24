@@ -141,8 +141,8 @@ describe('SETTLEMENT PROTECTION — tax NEVER enters seller proceeds (matrix K/L
 
   test('professional seller payout excludes tax entirely', () => {
     const s = billing.settlement({ sellerType: 'auction_house', hammerCents: 10000, buyerPremiumCents: 1800 });
-    expect(s.platform_fee_cents).toBe(200);           // 2% of hammer only
-    expect(s.seller_payout_cents).toBe(11600);        // hammer + premium − 2% fee (10000+1800−200); tax is not present
+    expect(s.platform_fee_cents).toBe(400);           // default 4% of hammer only (10000 × 4%)
+    expect(s.seller_payout_cents).toBe(11400);        // hammer + premium − 4% fee (10000+1800−400); tax is not present
   });
 
   test('adding sales tax to the buyer charge does not change the seller settlement', () => {

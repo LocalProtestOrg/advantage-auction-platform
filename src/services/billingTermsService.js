@@ -14,13 +14,14 @@
  * PROFESSIONAL sellers (auction_house / estate_sale_company / professional_liquidator — admin-approved):
  *   • The seller CONTROLS the buyer premium: auction override → seller default → platform fallback (18%).
  *   • The seller keeps their buyer premium (it is NOT Advantage revenue).
- *   • Advantage charges the professional a 2% software/platform fee on total hammer-price sales.
+ *   • Advantage charges the professional a per-seller software/platform fee on total hammer-price
+ *     sales — DEFAULT 4%, admin-configurable per seller (seller_profiles.platform_fee_bps).
  */
 const db = require('../db');
 const { PROFESSIONAL_SELLER_TYPES } = require('../constants/sellerTypes');
 
 const DEFAULT_BUYER_PREMIUM_BPS = 1800;  // 18% — individual FIXED rate + professional fallback
-const PRO_PLATFORM_FEE_BPS      = 200;   // 2% of hammer — Advantage software fee for professionals
+const DEFAULT_PRO_PLATFORM_FEE_BPS = 400; // 4% of hammer — professional software-fee DEFAULT (per-seller override wins)
 const INDIVIDUAL_PLATFORM_FEE_BPS = 0;   // individuals: no hammer fee (Advantage revenue is the buyer premium)
 
 const roundHalfUp = (n) => Math.floor(Number(n || 0) + 0.5);
@@ -56,15 +57,20 @@ function buyerPremiumForLots(lots, bps) {
 // The ONE settlement model. Given the seller type + aggregate hammer + already-summed buyer premium,
 // returns what the buyer pays, Advantage's revenue, and the seller's payout — the SAME numbers used
 // for both the preview and the actual payout (no divergence).
-function settlement({ sellerType, hammerCents, buyerPremiumCents }) {
+function settlement({ sellerType, hammerCents, buyerPremiumCents, platformFeeBps }) {
   const h = Math.max(0, Math.round(Number(hammerCents) || 0));
   const bp = Math.max(0, Math.round(Number(buyerPremiumCents) || 0));
   const buyer_total_cents = h + bp;
   if (isProfessional(sellerType)) {
-    const platform_fee_cents = lotBuyerPremiumCents(h, PRO_PLATFORM_FEE_BPS); // 2% of hammer only
+    // Per-seller software fee (basis points). DEFAULT 4% only when no per-seller rate is supplied.
+    const feeBps = (platformFeeBps == null || !Number.isFinite(Number(platformFeeBps)))
+      ? DEFAULT_PRO_PLATFORM_FEE_BPS
+      : Math.max(0, Math.round(Number(platformFeeBps)));
+    const platform_fee_cents = lotBuyerPremiumCents(h, feeBps); // configured % of hammer only
     return {
       seller_type: 'professional', hammer_cents: h, buyer_premium_cents: bp, buyer_total_cents,
-      platform_fee_cents,                                    // Advantage 2% software fee
+      platform_fee_bps: feeBps,                              // rate actually applied (snapshot/reporting)
+      platform_fee_cents,                                    // Advantage software fee (hammer × rate)
       advantage_revenue_cents: platform_fee_cents,           // professional BP is NOT Advantage revenue
       seller_gross_cents: h + bp,                            // seller keeps hammer + their own premium
       seller_payout_cents: h + bp - platform_fee_cents,
@@ -72,6 +78,7 @@ function settlement({ sellerType, hammerCents, buyerPremiumCents }) {
   }
   return {                                                   // individual
     seller_type: 'individual', hammer_cents: h, buyer_premium_cents: bp, buyer_total_cents,
+    platform_fee_bps: 0,                                     // individuals: no seller platform fee
     platform_fee_cents: INDIVIDUAL_PLATFORM_FEE_BPS,         // 0 — no hammer fee
     advantage_revenue_cents: bp,                             // 100% of the buyer premium
     seller_gross_cents: h,                                   // seller receives the hammer only
@@ -82,7 +89,7 @@ function settlement({ sellerType, hammerCents, buyerPremiumCents }) {
 // Resolve the effective terms for an auction from the DB (seller type + configured overrides).
 async function resolveEffectiveTerms(auctionId, client = db) {
   const a = (await client.query(
-    `SELECT a.buyer_premium_bps, sp.seller_type, st.buyer_premium_pct
+    `SELECT a.buyer_premium_bps, sp.seller_type, sp.platform_fee_bps, st.buyer_premium_pct
        FROM auctions a
        LEFT JOIN seller_profiles sp ON sp.id = a.seller_id
        LEFT JOIN seller_terms st ON st.seller_profile_id = sp.id AND st.superseded_at IS NULL
@@ -92,7 +99,14 @@ async function resolveEffectiveTerms(auctionId, client = db) {
     : a.buyer_premium_bps != null ? 'auction'
       : a.buyer_premium_pct != null ? 'seller'
         : 'default';
-  return { buyer_premium_bps, seller_type: a.seller_type || null, is_professional: isProfessional(a.seller_type), source };
+  // Per-seller platform fee (professional only): the configured rate, or the 4% default when unset.
+  // Individuals report 0 — the column never applies to them.
+  const platform_fee_bps = !isProfessional(a.seller_type) ? 0
+    : (a.platform_fee_bps != null ? Number(a.platform_fee_bps) : DEFAULT_PRO_PLATFORM_FEE_BPS);
+  return {
+    buyer_premium_bps, platform_fee_bps,
+    seller_type: a.seller_type || null, is_professional: isProfessional(a.seller_type), source,
+  };
 }
 
 // Effective terms + full settlement for an auction's current winning-lot totals (used by admin views
@@ -107,7 +121,7 @@ async function getSettlement(auctionId, client = db) {
   const buyerPremiumCents = buyerPremiumForLots(rows, terms.buyer_premium_bps);
   return {
     effective_terms: terms,
-    settlement: settlement({ sellerType: terms.seller_type, hammerCents, buyerPremiumCents }),
+    settlement: settlement({ sellerType: terms.seller_type, hammerCents, buyerPremiumCents, platformFeeBps: terms.platform_fee_bps }),
   };
 }
 
@@ -121,15 +135,16 @@ async function storeSettlement(auctionId) {
     await db.query(
       `UPDATE seller_payouts
           SET buyer_premium_cents = $2, platform_fee_cents = $3, gross_revenue_cents = $4,
-              seller_payout_cents = $5, terms_snapshot = $6, updated_at = now()
+              seller_payout_cents = $5, platform_fee_bps = $6, terms_snapshot = $7, updated_at = now()
         WHERE auction_id = $1`,
       [auctionId, s.buyer_premium_cents, s.platform_fee_cents, s.hammer_cents,
-       s.seller_payout_cents, JSON.stringify({ effective_terms, settlement: s })]);
+       s.seller_payout_cents, (s.platform_fee_bps != null ? s.platform_fee_bps : null),
+       JSON.stringify({ effective_terms, settlement: s })]);
   } catch (e) { console.error('[billingTerms] storeSettlement failed (non-fatal):', e.message); }
 }
 
 module.exports = {
-  DEFAULT_BUYER_PREMIUM_BPS, PRO_PLATFORM_FEE_BPS, INDIVIDUAL_PLATFORM_FEE_BPS,
+  DEFAULT_BUYER_PREMIUM_BPS, DEFAULT_PRO_PLATFORM_FEE_BPS, INDIVIDUAL_PLATFORM_FEE_BPS,
   isProfessional, effectiveBuyerPremiumBps, lotBuyerPremiumCents, buyerPremiumForLots, settlement,
   resolveEffectiveTerms, getSettlement, storeSettlement,
   // Back-compat alias (old name) so existing admin/close callers keep working during the transition.

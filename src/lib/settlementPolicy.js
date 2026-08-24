@@ -9,7 +9,8 @@
  *  - INDIVIDUAL sellers (private / business / other / untyped): NO seller platform fee (0%). Advantage
  *    revenue on an individual sale is the buyer premium (see billingTermsService), not a seller fee.
  *  - PROFESSIONAL sellers (auction_house / estate_sale_company / professional_liquidator): Advantage
- *    charges a 2% software/platform fee on the hammer. The professional's buyer premium is the SELLER's.
+ *    charges a per-seller software/platform fee on the hammer (DEFAULT 4%, admin-configurable per
+ *    seller via seller_profiles.platform_fee_bps). The professional's buyer premium is the SELLER's.
  *  - The credit-card PROCESSING fee reimbursed from the settlement is the ACTUAL Stripe expense for the
  *    auction (captured per charge), NOT a flat percentage — computed by the settlement engine from real
  *    Stripe data and intentionally NOT a constant here.
@@ -18,9 +19,13 @@
 const { PROFESSIONAL_SELLER_TYPES } = require('../constants/sellerTypes');
 
 // ── Seller platform fee ────────────────────────────────────────────────────────
-// Individual = 0%; professional = 2% of hammer. Kept as rates so a policy change is a one-line edit.
-const PLATFORM_FEE_RATE     = 0;     // individual (Advantage revenue is the buyer premium instead)
-const PRO_PLATFORM_FEE_RATE = 0.02;  // professional software fee on hammer
+// Individual = 0%; professional = per-seller rate (DEFAULT 4%), configured on
+// seller_profiles.platform_fee_bps (integer basis points). Individuals ignore the column.
+const PLATFORM_FEE_RATE             = 0;    // individual (Advantage revenue is the buyer premium instead)
+const DEFAULT_PRO_PLATFORM_FEE_BPS  = 400;  // professional software-fee DEFAULT (4.00% of hammer)
+const MAX_PLATFORM_FEE_BPS          = 2500; // validation ceiling (25%), mirrors buyer_premium_bps
+// Back-compat: the professional default expressed as a rate (some legacy tests import this).
+const PRO_PLATFORM_FEE_RATE         = DEFAULT_PRO_PLATFORM_FEE_BPS / 10000;
 
 function isProfessionalSellerType(t) {
   return PROFESSIONAL_SELLER_TYPES.indexOf(String(t || '').toLowerCase()) !== -1;
@@ -28,16 +33,23 @@ function isProfessionalSellerType(t) {
 
 /**
  * Cents-safe seller platform fee for a gross (hammer) amount, by seller type. Always integer cents.
- * Professionals → 2% of hammer; individuals (default) → 0. Rounding matches billingTermsService
- * (Math.round == floor(x+0.5) for the non-negative gross amounts settled here).
+ *   • Individual (or untyped)  → 0 (the column is ignored; Advantage revenue is the buyer premium).
+ *   • Professional             → hammer × rate, where the rate is the seller's configured
+ *                                platform_fee_bps (per-seller, admin-set). Falls back to the 4%
+ *                                DEFAULT only when no per-seller value is supplied.
+ * Rounding matches billingTermsService (Math.round == floor(x+0.5) for non-negative gross amounts).
  * @param {number} grossCents integer cents (hammer)
  * @param {string} [sellerType] seller_profiles.seller_type (defaults to individual → 0%)
+ * @param {number} [platformFeeBps] the seller's configured rate in basis points (professionals only)
  * @returns {number} integer cents
  */
-function platformFeeCents(grossCents, sellerType) {
+function platformFeeCents(grossCents, sellerType, platformFeeBps) {
   const g = Number.isFinite(grossCents) ? Math.trunc(grossCents) : 0;
-  const rate = isProfessionalSellerType(sellerType) ? PRO_PLATFORM_FEE_RATE : PLATFORM_FEE_RATE;
-  return Math.round(g * rate);
+  if (!isProfessionalSellerType(sellerType)) return 0; // individuals: no seller platform fee
+  const bps = (platformFeeBps == null || !Number.isFinite(Number(platformFeeBps)))
+    ? DEFAULT_PRO_PLATFORM_FEE_BPS
+    : Math.max(0, Math.trunc(Number(platformFeeBps)));
+  return Math.round(g * bps / 10000);
 }
 
 // ── Settlement adjustments (owner-approved, Decision 4) ────────────────────────
@@ -105,6 +117,8 @@ const SETTLEMENT_AUDIT_EVENTS = Object.freeze({
 module.exports = {
   PLATFORM_FEE_RATE,
   PRO_PLATFORM_FEE_RATE,
+  DEFAULT_PRO_PLATFORM_FEE_BPS,
+  MAX_PLATFORM_FEE_BPS,
   isProfessionalSellerType,
   platformFeeCents,
   ADJUSTMENT_TYPE,
