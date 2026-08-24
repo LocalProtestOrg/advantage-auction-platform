@@ -2051,7 +2051,7 @@
       sellers.forEach(s => {
         const row = el('div', 'row-item');
         const main = el('div', 'row-main');
-        main.appendChild(el('div', 'row-title', s.email));
+        main.appendChild(el('div', 'row-title', s.email + (s.is_demo ? '  ◆ DEMO' : '')));
         const caps = s.capabilities ? Object.keys(s.capabilities).filter(k => s.capabilities[k]) : [];
         const metaParts = [
           s.seller_type,

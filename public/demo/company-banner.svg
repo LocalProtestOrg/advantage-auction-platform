@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="360" viewBox="0 0 1200 360" role="img" aria-label="Heritage and Home Estate Services (demo banner)">
+  <defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#243b53"/><stop offset="1" stop-color="#3b5b8a"/></linearGradient></defs>
+  <rect width="1200" height="360" fill="url(#g)"/>
+  <text x="60" y="170" font-family="Georgia, serif" font-size="56" fill="#ffffff">Heritage &amp; Home Estate Services</text>
+  <text x="62" y="220" font-family="-apple-system, sans-serif" font-size="26" fill="#cdd9e5">Estate Sales &amp; Online Auctions - Serving the Greater Region</text>
+  <rect x="60" y="260" width="150" height="40" rx="20" fill="#ffffff" opacity="0.15"/>
+  <text x="135" y="286" font-family="-apple-system, sans-serif" font-size="18" font-weight="700" fill="#ffffff" text-anchor="middle">DEMO</text>
+</svg>

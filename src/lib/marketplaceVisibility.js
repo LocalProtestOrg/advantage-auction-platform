@@ -21,9 +21,14 @@ function activeEventSql(alias = 'e') {
   return `${alias}.status = 'published' AND (${alias}.end_at IS NULL OR ${alias}.end_at >= now())`;
 }
 
-// A native auction is publicly listable when published/active, not archived, and marketplace-syndicated.
+// A native auction is publicly listable when published/active, not archived, marketplace-syndicated,
+// and NOT a sales-demo auction. Demo auctions are also set to marketplace_status='hidden', so this
+// is-demo clause is defense-in-depth: it keeps the demo out of the public feed even if someone later
+// re-syndicates it. Because canonicalCounts() uses this same predicate, the integrity suite stays
+// consistent (demo is excluded everywhere identically).
 function activeNativeAuctionSql(alias = 'a') {
-  return `${alias}.state IN ('published','active') AND ${alias}.is_archived IS NOT TRUE AND ${alias}.marketplace_status = 'syndicated'`;
+  return `${alias}.state IN ('published','active') AND ${alias}.is_archived IS NOT TRUE`
+    + ` AND ${alias}.marketplace_status = 'syndicated' AND ${alias}.is_demo IS NOT TRUE`;
 }
 
 // Canonical event type classification (mirrors the public feed): auction vs estate_sale.

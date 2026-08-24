@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="600" viewBox="0 0 800 600" role="img" aria-label="Tools & Workshop (demo image)">
+  <rect width="800" height="600" fill="#eef4ef"/>
+  <rect x="24" y="24" width="752" height="552" fill="none" stroke="#3b8a5b" stroke-width="3" stroke-dasharray="10 8" opacity="0.5"/>
+  <circle cx="400" cy="250" r="90" fill="none" stroke="#3b8a5b" stroke-width="6" opacity="0.8"/>
+  <text x="400" y="262" font-family="Georgia, 'Times New Roman', serif" font-size="54" fill="#3b8a5b" text-anchor="middle" opacity="0.85">A.B</text>
+  <text x="400" y="400" font-family="Georgia, serif" font-size="40" fill="#1f2937" text-anchor="middle">Tools & Workshop</text>
+  <text x="400" y="446" font-family="-apple-system, Segoe UI, sans-serif" font-size="22" fill="#6b7280" text-anchor="middle">Advantage.Bid Sample Catalog</text>
+  <rect x="330" y="500" width="140" height="34" rx="17" fill="#3b8a5b" opacity="0.9"/>
+  <text x="400" y="523" font-family="-apple-system, sans-serif" font-size="18" font-weight="700" fill="#ffffff" text-anchor="middle">DEMO</text>
+</svg>

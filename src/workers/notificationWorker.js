@@ -758,6 +758,7 @@ async function runAuctionStateTransitions() {
     const due = await db.query(`
       SELECT a.id, a.title FROM auctions a
       WHERE a.state = 'active'
+        AND a.is_demo IS NOT TRUE   -- sales-demo auctions never auto-close (no payouts/settlement/tax)
         AND (
           (a.end_time IS NOT NULL AND a.end_time <= NOW())
           OR (

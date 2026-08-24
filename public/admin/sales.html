@@ -219,11 +219,17 @@
       ['Seller Dashboard','https://bid.advantage.bid/seller-dashboard.html','Where sellers manage auctions/lots'],
       ['Login','https://bid.advantage.bid/login.html','Account sign-in'],
     ];
+    // Permanent sales-demo environment (fictional "Heritage & Home Estate Services" +
+    // "The Maplewood Estate Collection"). is_demo, hidden from the public marketplace, never closes.
+    const DEMO_AUCTION_ID = '00000000-0000-4000-a000-0000000d0003';
     const DEMO_LINKS = [
-      ['Featured Auctions','https://bid.advantage.bid/featured-auctions.html','Show curated live inventory'],
-      ['How To Buy','https://bid.advantage.bid/how-to-buy.html','Walk a prospect through bidding'],
+      ['View Demo Auction','https://bid.advantage.bid/auction-view.html?auctionId=' + DEMO_AUCTION_ID,'The Maplewood Estate Collection (18 lots)'],
+      ['View Demo Company Presence','https://bid.advantage.bid/auction-view.html?auctionId=' + DEMO_AUCTION_ID,'Branded Heritage & Home company identity on the auction page'],
+      ['Open a Demo Lot','https://bid.advantage.bid/auction-view.html?auctionId=' + DEMO_AUCTION_ID,'Open the auction, then click any lot for detail + bidding'],
+      ['Professional Seller Dashboard','https://bid.advantage.bid/seller-dashboard.html','Log in as the demo seller (password set by your sales manager; never stored in code)'],
+      ['How To Buy (buyer explainer)','https://bid.advantage.bid/how-to-buy.html','Reference for the buyer experience'],
     ];
-    const DEMO_GAP = 'Demo gap: there is no dedicated seeded demo Professional Seller account or scripted sample auction/storefront wired for sales use yet. Until one exists, demo live public auctions + a real seller dashboard on a screen-share. Recommend building a persistent demo seller + sample auction (see Recommendations).';
+    const DEMO_GAP = 'Demo environment is LIVE: "Heritage & Home Estate Services" (fictional) + "The Maplewood Estate Collection" (18 lots). It is marked is_demo, hidden from the public marketplace, and never closes, so it creates no real payouts, Stripe activity, or tax. To demo the Seller Dashboard, ask your sales manager for the demo-seller login (deliberately not stored in code). If the demo ever looks altered, an admin can restore it with: node scripts/demo-environment.js reset';
 
     const PITCH = [
       ['15-second explanation','Advantage.Bid is an online auction marketplace and professional selling platform. Estate-sale companies, auction houses, and liquidators list items, run online auctions, and reach buyers nationwide, with bidding, payments, and payouts handled for them.'],
@@ -321,18 +327,22 @@
       ['I don\'t want to change how my company operates.','You do not have to. This is additive. Start with one auction and see how it fits before doing anything more.'],
       ['Maybe later.','Fair. Can I check back in [timeframe]? In the meantime I will send a short overview so it is there when the timing is right.'],
     ];
+    // Each step: OPEN (exact page) / SHOW (feature) / SAY (benefit) / ASK (discovery). Uses the
+    // permanent demo environment so the run is identical every time.
+    const DAU = 'https://bid.advantage.bid/auction-view.html?auctionId=' + DEMO_AUCTION_ID;
     const DEMO = [
-      ['1. Marketplace / ecosystem','Open bid.advantage.bid. Show live/upcoming auctions. Benefit: real buyers and activity. Ask: "Do these look like the kinds of items you handle?"'],
-      ['2. Company presence','Show a professional seller/company presence. Benefit: your business is discoverable here. Ask: "Do you have a website today, or would this be your main online home?"'],
-      ['3. Create / manage an auction','Show the seller create flow and dashboard. Benefit: listing is straightforward. Ask: "How do you catalog items now?"'],
-      ['4. Catalog / lots','Show lots with photos, descriptions, starting price, increments. Benefit: professionals control pricing and increments. Ask: "What kinds of items would you list first?"'],
-      ['5. Buyer experience','Open a lot as a buyer would. Benefit: clean, trustworthy bidding. Ask: "Would your buyers find this easy?"'],
-      ['6. Bidding + soft close','Explain live buyer premium and 2-minute soft-close extension. Benefit: fair, sniping-resistant. Ask: "Ever lose a sale to a last-second grab?"'],
-      ['7. Payments','Explain card payments handled by the platform. Benefit: no chasing checks. Ask: "How do you collect payment today?"'],
-      ['8. Seller dashboard','Show auctions, lots, and results. Benefit: one place to manage everything. Ask: "Who on your team would use this?"'],
-      ['9. Getting paid','Explain admin-reviewed settlement then direct-deposit or check payout; tax handled separately. Benefit: predictable, controlled. Ask: "How would you want to be paid?"'],
-      ['10. Estate-sale visibility + marketplace','Show the Estate Sales page and nationwide discovery. Benefit: more eyes on your sales. Ask: "Where are most of your buyers today?"'],
-      ['11. Signup / onboarding','Open become-seller.html. Benefit: quick start with your help. Ask: "Want to set up your account together now?"'],
+      ['1. The marketplace (context, 60s)','OPEN: bid.advantage.bid  |  SHOW: live/upcoming public auctions.  |  SAY: "This is the buyer marketplace your sales would reach."  |  ASK: "Do these look like the kinds of items you handle?"'],
+      ['2. Company presence','OPEN: the demo auction (' + DAU + ')  |  SHOW: the "Heritage & Home Estate Services" branding at the top.  |  SAY: "This is a branded company presence on Advantage.Bid - even with no website of your own."  |  ASK: "Do you have a website today, or would this be your main online home?"'],
+      ['3. The auction + catalog','OPEN: same demo auction  |  SHOW: The Maplewood Estate Collection, 18 lots with photos, titles, descriptions.  |  SAY: "A full estate catalog, presented professionally."  |  ASK: "What kinds of items would you list first?"'],
+      ['4. Lot detail','OPEN: click any lot (e.g. the sideboard or the sterling tea service)  |  SHOW: photos, condition/era, current bid, bid count.  |  SAY: "Every lot gets its own clean detail page."  |  ASK: "How do you catalog items now?"'],
+      ['5. Bidding + buyer premium','OPEN: the lot detail  |  SHOW: the bidding box and the live buyer-premium line.  |  SAY: "Buyers always see the premium up front - it builds trust."  |  ASK: "Would your buyers find this easy?"'],
+      ['6. Soft close (anti-sniping)','OPEN: the lot detail  |  SHOW: the closing time.  |  SAY: "Lots close a minute apart, and a bid in the last two minutes extends that lot two minutes - no last-second sniping."  |  ASK: "Ever lose a sale to a last-second grab?"'],
+      ['7. Watchlist / favorites','OPEN: a lot  |  SHOW: the watch/favorite control.  |  SAY: "Buyers save favorites and get reminders."  |  ASK: "Do your buyers ask to be notified about specific pieces?"'],
+      ['8. Payments','OPEN: (explain from the lot)  |  SHOW: card checkout concept.  |  SAY: "Buyers pay by card through the platform - no chasing checks."  |  ASK: "How do you collect payment today?"'],
+      ['9. Seller dashboard','OPEN: seller-dashboard.html (logged in as the demo seller)  |  SHOW: auctions, lots, catalog management.  |  SAY: "One place to run everything - and professionals set their own starting prices, buyer premium, and bid increments."  |  ASK: "Who on your team would use this?"'],
+      ['10. Getting paid + settlement','OPEN: seller dashboard / explain  |  SHOW: settlement concept.  |  SAY: "After the sale, Advantage.Bid reviews the settlement and pays you by direct deposit or check. Sales tax is handled at checkout and never comes out of your proceeds."  |  ASK: "How would you want to be paid?"'],
+      ['11. Admin: professional controls','OPEN: Admin > Sales & Marketing shows Platform Fee (%).  |  SAY: "Professional pricing starts at our standard platform rate, and commercial terms can be discussed with Advantage.Bid."  |  ASK: "What would make the numbers work for you?"'],
+      ['12. Signup / onboarding','OPEN: become-seller.html  |  SHOW: the enrollment path.  |  SAY: "We can start your account today and I will help set up your first auction."  |  ASK: "Want to set it up together now?"'],
     ];
     const CHECKLIST = [
       'Understand what Advantage.Bid is (read the 15/30/60-second pitches).',

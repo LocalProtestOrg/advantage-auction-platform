@@ -1054,7 +1054,7 @@ router.post('/payments/:paymentId/record-success', auth, role(['admin']), async 
 router.get('/diagnostics/auctions', auth, role(['admin']), async (req, res, next) => {
   try {
     const [statesRes, openLotsRes, recentRes] = await Promise.all([
-      db.query(`SELECT state, COUNT(*)::int AS count FROM auctions GROUP BY state ORDER BY state`),
+      db.query(`SELECT state, COUNT(*)::int AS count FROM auctions WHERE is_demo IS NOT TRUE GROUP BY state ORDER BY state`),
       db.query(`SELECT COUNT(*)::int AS count FROM lots WHERE state = 'open'`),
       db.query(`
         SELECT a.id, a.title, a.state, a.created_at,
@@ -1203,6 +1203,7 @@ router.get('/sellers', auth, role(['admin']), async (req, res, next) => {
               sp.seller_type,
               sp.capabilities,
               sp.platform_fee_bps,
+              sp.is_demo,
               sp.created_at      AS profile_created_at,
               u.id               AS user_id,
               u.email,
