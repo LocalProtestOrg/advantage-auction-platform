@@ -86,11 +86,15 @@ describe('inventorySnapshot — computes active counts + run health', () => {
   test('counts active by type and reads last run', async () => {
     db.query
       .mockResolvedValueOnce({ rows: [{ sale_type: 'auction', n: 2 }, { sale_type: 'estate_sale', n: 3 }] }) // active by type
+      .mockResolvedValueOnce({ rows: [{ n: 4 }] })         // native active auctions
       .mockResolvedValueOnce({ rows: [{ t: HRS(5) }] })   // last success
       .mockResolvedValueOnce({ rows: [{ t: HRS(1) }] })   // last attempt
       .mockResolvedValueOnce({ rows: [{ trigger: 'scheduled', status: 'completed', created: 4 }] }); // last run
     const snap = await health.inventorySnapshot(db);
     expect(snap).toMatchObject({ active_auctions: 2, active_estate_sales: 3, total_active_public: 5 });
+    // separated auction inventory: external (events) + native (auctions), with target status
+    expect(snap).toMatchObject({ external_auctions: 2, native_auctions: 4, total_public_auctions: 6 });
+    expect(snap.auction_inventory).toMatchObject({ status: 'CRITICAL', target: 100 }); // 2 external < 50
     expect(snap.last_run).toMatchObject({ trigger: 'scheduled', status: 'completed' });
     // the active-inventory query respects the canonical public visibility predicate (alias-agnostic)
     expect(db.query.mock.calls[0][0]).toMatch(/\.status = 'published' AND \([\w.]*end_at IS NULL OR [\w.]*end_at >= now\(\)\)/);

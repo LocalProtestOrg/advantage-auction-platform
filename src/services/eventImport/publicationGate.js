@@ -12,7 +12,7 @@
  * Reason codes (internal only, never shown to the public):
  *   HARD (block publication):  title_missing · invalid_dates · expired_event · location_missing ·
  *                              image_missing · host_company_missing
- *   WARNING (do NOT block):    host_url_missing
+ *   WARNING (do NOT block):    host_url_missing · image_placeholder_used (gov-surplus branded placeholder)
  *
  * Outbound-link policy (ratified Phase 5D §7 / 5F): a missing company-controlled outbound URL must NOT
  * block an otherwise-complete, trustworthy event — the Advantage.Bid event page stands on its own with
@@ -22,6 +22,7 @@
  */
 
 const { pickHostDestination } = require('../../lib/externalUrlPolicy');
+const { isGovSurplus, isNonPublicImage } = require('../../lib/govSurplusPlaceholder');
 
 function toMs(v) { const t = v ? new Date(v).getTime() : NaN; return Number.isFinite(t) ? t : null; }
 
@@ -55,9 +56,20 @@ function evaluatePublication(event, opts) {
   const online = String(e.event_format || '').toLowerCase() === 'online';
   if (!online && !(e.city && e.state) && !(e.lat != null && e.lng != null)) reasons.push('location_missing');
 
-  const imageCount = e.image_count != null ? Number(e.image_count)
-    : (Array.isArray(e.images) ? e.images.length : (e.cover_image_url ? 1 : 0));
-  if (requireImage && !(imageCount > 0)) reasons.push('image_missing');
+  // Image requirement. A real, publicly-displayable image satisfies it. GSA / Federal-Surplus auctions
+  // have login-gated (ppms.gov 401) source photos that cannot be re-hosted, so a real image is
+  // impossible — but every public surface renders the branded gov-surplus placeholder for them
+  // (see govSurplusPlaceholder). For those events the requirement is satisfied by the guaranteed
+  // placeholder (recorded as a warning, never a hard block). All OTHER imported events still require a
+  // real image, so the quality bar is unchanged for estate sales and non-gov sources.
+  const rawImage = e.cover_image_url || (Array.isArray(e.images) && e.images.length ? e.images[0] : null);
+  const usableImage = rawImage && !isNonPublicImage(rawImage) ? rawImage : null;
+  const imageCount = e.image_count != null ? Number(e.image_count) : (usableImage ? 1 : 0);
+  const govSurplusPlaceholderApplies = isGovSurplus(e.external_url) && !usableImage;
+  if (requireImage && !(imageCount > 0)) {
+    if (govSurplusPlaceholderApplies) warnings.push('image_placeholder_used');
+    else reasons.push('image_missing');
+  }
 
   // Host company + company-controlled destination — evaluated only for externally discovered events.
   if (e.source === 'imported') {

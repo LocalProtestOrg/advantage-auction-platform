@@ -42,4 +42,4 @@ function coverImageSql(realImageExpr, extCol = 'e.external_url') {
   return `COALESCE(${usable}, CASE WHEN ${extCol} ILIKE '%gsaauctions.gov%' THEN '${GOV_SURPLUS_PLACEHOLDER}' END)`;
 }
 
-module.exports = { GOV_SURPLUS_PLACEHOLDER, isGovSurplus, eventImage, coverImageSql };
+module.exports = { GOV_SURPLUS_PLACEHOLDER, isGovSurplus, isNonPublicImage, eventImage, coverImageSql };

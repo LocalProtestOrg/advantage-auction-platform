@@ -133,6 +133,12 @@
         <div class="grow"></div>
         <div class="st" id="lastRun" style="color:#64748b"></div>
       </div>
+      <!-- Auction inventory health (native vs external, target, HEALTHY/LOW/CRITICAL) + active alerts. -->
+      <div class="ops" style="border-top:1px solid #eef2f7;margin-top:.5rem;padding-top:.5rem">
+        <div class="st"><strong>Auction inventory:</strong>&nbsp;<span id="invAuctions">loading&hellip;</span></div>
+        <div class="grow"></div>
+        <div class="st" id="invAlerts" style="color:#b91c1c"></div>
+      </div>
       <div class="ops-run">
         <div>
           <label for="mSource">Manual run source</label>
@@ -687,6 +693,19 @@
       document.getElementById('workerState').textContent=w.running_now ? ('Running now: '+((w.running_run&&w.running_run.source_key)||'')) : ('Active sources: '+d.sources.active);
       const lr=w.last_run;
       document.getElementById('lastRun').textContent=lr ? ('Last run: '+fdatetime(lr.started_at)+' ('+lr.status+')') : 'No runs yet';
+      // Auction inventory health (external/syndicated + native, target status).
+      const inv=d.inventory||{}; const ai=inv.auction_inventory||{};
+      const colors={HEALTHY:'#166534',LOW:'#b45309',CRITICAL:'#b91c1c'};
+      const el=document.getElementById('invAuctions');
+      if(el){
+        el.innerHTML='Native '+ (inv.native_auctions!=null?inv.native_auctions:'-')
+          +' &middot; External '+(inv.external_auctions!=null?inv.external_auctions:'-')
+          +' &middot; Target '+(ai.target||100)
+          +' &middot; <b style="color:'+(colors[ai.status]||'#334155')+'">'+(ai.status||'-')+'</b>';
+      }
+      const al=(d.alerts||[]).filter(a=>/auction/i.test(a.code)||a.level==='critical');
+      const ae=document.getElementById('invAlerts');
+      if(ae) ae.textContent = al.length ? ('⚠ '+al.map(a=>a.message).join('  |  ')) : '';
     }catch(e){ document.getElementById('schStatus').textContent='Scheduler: status unavailable'; }
   }
 
