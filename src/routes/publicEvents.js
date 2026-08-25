@@ -110,7 +110,7 @@ router.get('/events', asyncRoute(async (req, res) => {
             e.sale_type, e.event_format,
             o.name AS org_name, o.slug AS org_slug, o.logo_url AS org_logo, o.website_url AS org_website,
             o.type AS org_type, o.verification_status AS org_verif,
-            ${coverImageSql('(SELECT url FROM event_images ei WHERE ei.event_id = e.id ORDER BY is_cover DESC, position ASC LIMIT 1)')} AS cover_url
+            ${coverImageSql('(SELECT url FROM event_images ei WHERE ei.event_id = e.id ORDER BY is_cover DESC, position ASC LIMIT 1)', 'e.external_url', 'e.sale_type')} AS cover_url
        FROM events e LEFT JOIN organizations o ON o.id = e.organization_id
       WHERE ${where.join(' AND ')}
       ORDER BY e.is_featured DESC, e.start_at ASC
@@ -202,7 +202,7 @@ router.get('/events/:slug', asyncRoute(async (req, res) => {
     'SELECT url, position, is_cover, alt_text FROM event_images WHERE event_id = $1 ORDER BY position ASC', [r.id])).rows;
   // Real cover if present; else the branded placeholder for a GSA/Federal Surplus listing (login-gated
   // source photo). Derived from external_url server-side; external_url itself is never serialized.
-  const cover = eventImage((images.find((i) => i.is_cover) || images[0] || {}).url, r.external_url);
+  const cover = eventImage((images.find((i) => i.is_cover) || images[0] || {}).url, r.external_url, r.sale_type);
   res.set('Cache-Control', PUBLIC_CACHE);
   res.json({ success: true, data: serialize({ ...r, cover_url: cover }, images) });
 }));
@@ -218,7 +218,7 @@ router.get('/events/:slug/related', asyncRoute(async (req, res) => {
 
   const CARD_COLS = `e.slug, e.title, e.city, e.state, e.start_at, e.end_at, e.market_slug, e.source,
     e.sale_type, e.event_format,
-    ${coverImageSql('(SELECT url FROM event_images ei WHERE ei.event_id = e.id ORDER BY is_cover DESC, position ASC LIMIT 1)')} AS cover_url,
+    ${coverImageSql('(SELECT url FROM event_images ei WHERE ei.event_id = e.id ORDER BY is_cover DESC, position ASC LIMIT 1)', 'e.external_url', 'e.sale_type')} AS cover_url,
     o.verification_status AS org_verif`;
   const cardOf = (r) => ({
     slug: r.slug, title: r.title, city: r.city, state: r.state, start_at: r.start_at, end_at: r.end_at,
