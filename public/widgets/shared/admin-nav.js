@@ -57,6 +57,7 @@
     { href: '/admin/imported-events.html', label: 'Imported Events' },
     { href: '/admin/invoices.html', label: 'Invoices' },
     { href: '/admin/marketplace-config.html', label: 'Marketplace Config' },
+    { href: '/admin/follower-emails.html', label: 'Follower Emails' },
     { href: '/admin/sales.html', label: 'Sales & Marketing', perm: 'sales.view' },
     { href: '/admin/staff.html', label: 'Staff & Permissions', perm: 'staff.view' },
   ];

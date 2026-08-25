@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="noindex, nofollow" />
+  <title>Follower Emails - Advantage Admin</title>
+  <style>
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#f8fafc;color:#0f172a}
+    .wrap{max-width:1100px;margin:0 auto;padding:1rem}
+    h1{font-size:1.35rem;margin:.4rem 0 .2rem}
+    .sub{color:#64748b;font-size:.85rem;margin-bottom:1rem}
+    .card{background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:1.1rem 1.2rem;margin-bottom:1rem}
+    .card h2{font-size:1rem;margin-bottom:.6rem}
+    table{width:100%;border-collapse:collapse}
+    th,td{text-align:left;padding:.5rem .55rem;font-size:.82rem;border-bottom:1px solid #f1f5f9;vertical-align:middle}
+    th{background:#f8fafc;color:#475569;font-size:.68rem;text-transform:uppercase;letter-spacing:.03em}
+    .pill{display:inline-block;font-size:.66rem;font-weight:800;border-radius:999px;padding:2px 8px;background:#e0e7ff;color:#3730a3}
+    .on{background:#dcfce7;color:#166534}.off{background:#fee2e2;color:#991b1b}.sched{background:#fef3c7;color:#92400e}
+    .btn{padding:.35rem .7rem;border:none;border-radius:7px;font-weight:700;cursor:pointer;font-size:.76rem}
+    .b-ghost{background:#f1f5f9;color:#111827;border:1px solid #e2e8f0}.b-warn{background:#fee2e2;color:#991b1b}.b-ok{background:#dcfce7;color:#166534}
+    .msg{font-size:.82rem;color:#64748b;margin:.5rem 0;min-height:1rem}
+    .denied{background:#fff7ed;border:1px solid #fdba74;border-radius:10px;padding:1rem;color:#9a3412;font-size:.9rem;display:none}
+    .muted{color:#94a3b8}
+  </style>
+</head>
+<body>
+  <script src="/widgets/shared/admin-nav.js"></script>
+  <div class="wrap">
+    <h1>Follower Emails</h1>
+    <div class="sub">Professional Seller "Notify Your Followers" campaigns. Advantage.Bid owns and delivers to the member database — recipient identities and contact details are never shown here or to sellers. You can disable a seller's follower-email tool at any time.</div>
+    <div id="denied" class="denied">You do not have access to this area.</div>
+    <div id="content" style="display:none">
+      <div class="msg" id="msg"></div>
+      <div class="card">
+        <h2>Recent campaigns</h2>
+        <table>
+          <thead><tr><th>Seller</th><th>Event</th><th>Status</th><th>Audience</th><th>Targeted</th><th>Delivered</th><th>Failed</th><th>Privilege</th></tr></thead>
+          <tbody id="rows"><tr><td colspan="8" class="muted">Loading…</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+  <script>
+    const token = localStorage.getItem('token');
+    async function api(method, url, body) {
+      const opts = { method, headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token } };
+      if (body) opts.body = JSON.stringify(body);
+      const r = await fetch(url, opts);
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(d.message || d.error || ('HTTP ' + r.status));
+      return d;
+    }
+    function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
+    function statusPill(s){ var c = s==='queued'?'on':(s==='scheduled'?'sched':'off'); return '<span class="pill '+c+'">'+esc(s)+'</span>'; }
+
+    async function load() {
+      try {
+        const d = await api('GET', '/api/admin/follower-emails/campaigns');
+        const rows = d.campaigns || [];
+        const tb = document.getElementById('rows');
+        if (!rows.length) { tb.innerHTML = '<tr><td colspan="8" class="muted">No campaigns yet.</td></tr>'; return; }
+        tb.innerHTML = rows.map(function (c) {
+          var priv = c.seller && c.seller.follower_email_enabled;
+          var btn = c.seller && c.seller.id
+            ? '<button class="btn ' + (priv ? 'b-warn' : 'b-ok') + '" data-seller="' + esc(c.seller.id) + '" data-enable="' + (priv ? '0' : '1') + '">' + (priv ? 'Disable' : 'Enable') + '</button>'
+            : '<span class="muted">—</span>';
+          return '<tr><td>' + esc((c.seller && c.seller.name) || '—') + '<br><span class="muted">' + esc((c.seller && c.seller.seller_type) || '') + '</span></td>'
+            + '<td>' + esc((c.event && c.event.title) || '—') + '<br><span class="muted">' + esc((c.event && c.event.sale_type) || '') + '</span></td>'
+            + '<td>' + statusPill(c.status) + '</td>'
+            + '<td>' + (c.audience_estimate || 0) + '</td>'
+            + '<td>' + (c.targeted_count || 0) + '</td>'
+            + '<td>' + (c.delivered_count || 0) + '</td>'
+            + '<td>' + (c.failed_count || 0) + '</td>'
+            + '<td>' + btn + '</td></tr>';
+        }).join('');
+        Array.prototype.forEach.call(tb.querySelectorAll('button[data-seller]'), function (b) {
+          b.addEventListener('click', function () {
+            var enable = b.dataset.enable === '1';
+            if (!enable && !confirm('Disable follower emails for this seller? Scheduled campaigns will be canceled.')) return;
+            b.disabled = true;
+            api('POST', '/api/admin/follower-emails/sellers/' + encodeURIComponent(b.dataset.seller) + '/privilege', { enabled: enable })
+              .then(function () { document.getElementById('msg').textContent = 'Updated.'; load(); })
+              .catch(function (e) { b.disabled = false; document.getElementById('msg').textContent = e.message; });
+          });
+        });
+      } catch (e) {
+        if (/40[13]/.test(e.message) || /access|admin/i.test(e.message)) { document.getElementById('denied').style.display = 'block'; }
+        else { document.getElementById('msg').textContent = e.message; }
+      }
+    }
+    (function () {
+      if (!token) { document.getElementById('denied').style.display = 'block'; return; }
+      document.getElementById('content').style.display = 'block';
+      load();
+    })();
+  </script>
+</body>
+</html>

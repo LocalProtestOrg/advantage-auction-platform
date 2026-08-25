@@ -19,6 +19,7 @@
   <p class="sub">Create and manage local events. Published events appear on Advantage.bid city pages.</p>
   <div id="usage" class="card" style="display:none"></div>
   <div id="content"><div class="loading">Loading…</div></div>
+  <div id="fcHistory"></div>
 </div>
 </div>
 <script src="/widgets/shared/auth-refresh.js"></script>
@@ -57,6 +58,24 @@
   }).catch(function (err) {
     content.innerHTML = '<div class="msg err" style="display:block">' + ORG.esc(err.message) + '</div>';
   });
+
+  // Follower announcement history (Professional Sellers only; hidden when empty). Aggregate counts only —
+  // recipient identities/emails are never exposed to sellers.
+  ORG.api('GET', '/api/org/follower-campaigns').then(function (d) {
+    var rows = (d && d.campaigns) || [];
+    var host = document.getElementById('fcHistory'); if (!host || !rows.length) return;
+    function chip(s) { return '<span class="pill">' + ORG.esc(s) + '</span>'; }
+    host.innerHTML = '<div class="card" style="margin-top:18px"><h2 style="margin:0 0 4px">Follower announcements</h2>'
+      + '<p class="sub" style="margin:0 0 12px">Emails Advantage.Bid sent to your followers on your behalf.</p>'
+      + '<div class="elist">' + rows.map(function (c) {
+        var stat = (c.status === 'queued')
+          ? ('Sent to ' + (c.targeted_count || 0) + ' · delivered ' + (c.delivered_count || 0) + (c.failed_count ? (' · failed ' + c.failed_count) : ''))
+          : (c.status === 'scheduled' ? 'Scheduled — sends when published' : c.status);
+        return '<div class="erow"><div class="meta"><div class="t">' + ORG.esc(c.event_title || 'Event') + '</div>'
+          + '<div class="s">' + chip(c.status) + ' &nbsp; ' + ORG.esc(stat) + (c.queued_at ? (' · ' + ORG.fmtDate(c.queued_at)) : '') + '</div></div>'
+          + (c.event_slug ? ('<div class="go"><a class="btn ghost" href="/event.html?slug=' + encodeURIComponent(c.event_slug) + '">View</a></div>') : '') + '</div>';
+      }).join('') + '</div></div>';
+  }).catch(function () { /* silent — not a professional seller / none yet */ });
 })();
 </script>
 </body>

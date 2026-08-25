@@ -20,6 +20,8 @@ const requireOrgCapability = require('../middleware/requireOrgCapability');
 const resolveActingOrg = require('../middleware/resolveActingOrg');
 const capabilityService = require('../services/capabilityService');
 const profileSchema = require('../lib/professionalProfileSchema');
+const followerCampaignService = require('../services/followerCampaignService');
+const db = require('../db');
 
 router.use(authMiddleware); // all org routes require a logged-in user (req.user.id)
 router.use(resolveActingOrg); // sets req.actingOrg (header-selected or primary org fallback)
@@ -171,6 +173,11 @@ router.patch('/events/:id', asyncRoute(async (req, res) => {
 // POST /api/org/events/:id/submit — draft|rejected → submitted (active-event limit + 'events' capability enforced)
 router.post('/events/:id/submit', requireOrgCapability('events'), asyncRoute(async (req, res) => {
   const ev = await eventsService.submit(req.user.id, req.params.id);
+  // Professional companies auto-publish on submit. When (and only when) the event actually reached
+  // 'published', fire the seller's opted-in follower campaign — best-effort, never blocks the response.
+  if (ev && ev.status === 'published') {
+    require('../services/followerCampaignService').activateOnPublish(ev).catch(() => {});
+  }
   res.json({ success: true, event: serializeEvent(ev) });
 }));
 
@@ -191,6 +198,79 @@ router.post('/events/:id/images', asyncRoute(async (req, res) => {
 router.delete('/events/:id/images/:imageId', asyncRoute(async (req, res) => {
   await eventsService.removeImage(req.user.id, req.params.id, req.params.imageId);
   res.json({ success: true });
+}));
+
+// ── Notify Your Followers (Professional Seller follower-email campaigns) ───────────────────────────────
+// Advantage.Bid owns the member/contact database: these endpoints NEVER return follower emails, phone
+// numbers, names, or recipient lists — only aggregate audience counts + the seller's own campaign metadata.
+
+// Build a safe preview view-model (what a follower will approximately receive) from an event + message.
+async function buildCampaignPreview(ev, message) {
+  const cover = (await db.query(
+    'SELECT url FROM event_images WHERE event_id=$1 ORDER BY is_cover DESC, position ASC LIMIT 1', [ev.id])).rows[0];
+  let companyName = null;
+  if (ev.organization_id) {
+    const org = (await db.query('SELECT name FROM organizations WHERE id=$1', [ev.organization_id])).rows[0];
+    companyName = org && org.name;
+  }
+  return {
+    company_name: companyName || 'Your company',
+    event_title: ev.title || 'Your event',
+    sale_type: ev.sale_type || null,
+    image_url: (cover && cover.url) || null,
+    date_line: followerCampaignService.dateLine(ev.start_at, ev.timezone),
+    location_line: [ev.city, ev.state].filter(Boolean).join(', ') || null,
+    custom_message: message != null ? String(message).slice(0, followerCampaignService.MAX_MESSAGE_LEN) : null,
+    cta_label: 'View Event',
+  };
+}
+
+// GET /api/org/events/:id/follower-campaign — eligibility, audience estimate, current campaign, preview.
+router.get('/events/:id/follower-campaign', asyncRoute(async (req, res) => {
+  const ev = await eventsService.getById(req.params.id);
+  if (!ev) throw svcErr(404, 'EVENT_NOT_FOUND', 'Event not found.');
+  await orgsService.assertOwner(req.user.id, ev.organization_id);
+  const seller = await followerCampaignService.resolveSellerForEvent(ev);
+  const eligible = followerCampaignService.sellerCanEmailFollowers(seller);
+  const campaign = await followerCampaignService.getCampaignForEvent(ev.id);
+  const audience = eligible && seller ? await followerCampaignService.estimateAudience(seller.id) : 0;
+  res.json({
+    success: true,
+    eligible,
+    audience_estimate: audience,
+    max_message_len: followerCampaignService.MAX_MESSAGE_LEN,
+    already_published: ev.status === 'published',
+    campaign,
+    preview: await buildCampaignPreview(ev, (campaign && campaign.custom_message) || ''),
+  });
+}));
+
+// PUT /api/org/events/:id/follower-campaign — opt in/out + custom message (before publish).
+router.put('/events/:id/follower-campaign', asyncRoute(async (req, res) => {
+  const ev = await eventsService.getById(req.params.id);
+  if (!ev) throw svcErr(404, 'EVENT_NOT_FOUND', 'Event not found.');
+  await orgsService.assertOwner(req.user.id, ev.organization_id);
+  const b = req.body || {};
+  const campaign = await followerCampaignService.upsertScheduledCampaign({
+    event: ev, userId: req.user.id, enabled: !!b.enabled, customMessage: b.message,
+  });
+  const seller = await followerCampaignService.resolveSellerForEvent(ev);
+  const audience = seller ? await followerCampaignService.estimateAudience(seller.id) : 0;
+  res.json({
+    success: true,
+    enabled: !!campaign,
+    audience_estimate: audience,
+    campaign: campaign ? followerCampaignService.serializeCampaign(campaign, null) : null,
+    preview: await buildCampaignPreview(ev, b.message || ''),
+  });
+}));
+
+// GET /api/org/follower-campaigns — the acting seller's campaign history (counts only).
+router.get('/follower-campaigns', asyncRoute(async (req, res) => {
+  const sp = (await db.query('SELECT id FROM seller_profiles WHERE user_id=$1', [req.user.id])).rows[0];
+  if (!sp) return res.json({ success: true, campaigns: [] });
+  const campaigns = await followerCampaignService.listCampaignsForSeller(sp.id);
+  res.json({ success: true, campaigns });
 }));
 
 // POST /api/org/upload-image — upload one image to Cloudinary, return secure_url.

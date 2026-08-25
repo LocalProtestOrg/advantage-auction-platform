@@ -44,6 +44,8 @@ async function getUserDeliveryInfo(userId) {
   const res = await db.query(
     `SELECT ${recipientEmailSql('u')} AS email,
             COALESCE(np.email_enabled,  true)  AS email_enabled,
+            COALESCE(np.follower_emails_enabled, true) AS follower_emails_enabled,
+            COALESCE(u.is_active, true)         AS is_active,
             COALESCE(np.sms_enabled,    false) AS sms_enabled,
             COALESCE(np.sms_consent,    false) AS sms_consent,
             np.phone_number
@@ -388,6 +390,26 @@ async function deliver(row) {
 
     console.log(`[notify] ${row.type} → user ${row.user_id} for ${content.lotRef(lot)}`);
     const emailMsg = content.buildLotEmail(row.type, { lot, auction, toAddress: userInfo.email });
+    const result = await sendEmail(emailMsg);
+    if (result.skipped) throw new Error('SMTP not configured — delivery skipped');
+    return { sent: true };
+  }
+
+  // ── FOLLOWER_EVENT — Professional Seller "Notify Your Followers" marketing announcement ──
+  // Defense-in-depth: re-check email_enabled AND the follower-marketing opt-out AND suppression AND
+  // active account at SEND time (they were also checked at enqueue). Any failure = terminal skip, never
+  // a retry. Recipient contact data is only ever used here inside delivery — never returned to a seller.
+  if (row.type === 'FOLLOWER_EVENT') {
+    const followerCampaign = require('../services/followerCampaignService');
+    const userInfo = await getUserDeliveryInfo(row.user_id);
+    if (!userInfo) throw new Error(`User ${row.user_id} not found`);
+    if (!userInfo.email_enabled) return { skipped: true, reason: 'email disabled' };
+    if (!userInfo.follower_emails_enabled) return { skipped: true, reason: 'follower emails opted out' };
+    if (!userInfo.is_active) return { skipped: true, reason: 'inactive account' };
+    const supp = await db.query('SELECT 1 FROM email_suppressions WHERE lower(email) = lower($1)', [userInfo.email]);
+    if (supp.rows.length) return { skipped: true, reason: 'suppressed' };
+    console.log(`[notify] FOLLOWER_EVENT → user ${row.user_id} for campaign ${payload.campaign_id || 'unknown'}`);
+    const emailMsg = followerCampaign.buildQueueEmail(payload, row.user_id, userInfo.email);
     const result = await sendEmail(emailMsg);
     if (result.skipped) throw new Error('SMTP not configured — delivery skipped');
     return { sent: true };

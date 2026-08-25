@@ -89,6 +89,8 @@
       + (editable ? '<div class="dropz" id="dropz">＋ Click to upload a photo</div><input id="file" type="file" accept="image/*" hidden />' : '')
       + '</div>'
 
+      + '<div id="followerSection"></div>'
+
       + (editable
         ? '<div class="btnrow"><button class="btn ghost" id="saveBtn">Save changes</button>'
           + '<button class="btn primary" id="submitBtn">Submit for review →</button>'
@@ -97,6 +99,88 @@
 
     renderImages();
     if (editable) wireEditable();
+    loadFollowerSection();
+  }
+
+  // ── Notify Your Followers ─────────────────────────────────────────────────────
+  var followerState = null; // { eligible, audience_estimate, campaign, preview, max_message_len, already_published }
+  function loadFollowerSection() {
+    var host = $('followerSection'); if (!host) return;
+    ORG.api('GET', '/api/org/events/' + encodeURIComponent(id) + '/follower-campaign')
+      .then(function (d) { followerState = d; renderFollowerSection(); })
+      .catch(function () { host.innerHTML = ''; }); // silent: feature simply not shown if unavailable
+  }
+  function esc(s) { return ORG.esc(s == null ? '' : String(s)); }
+  function renderFollowerSection() {
+    var host = $('followerSection'), d = followerState; if (!host || !d) return;
+    if (!d.eligible) { host.innerHTML = ''; return; } // only professional sellers with the privilege
+    var editable = (current.status === 'draft' || current.status === 'rejected');
+    var c = d.camp || d.campaign;
+    // Published: show read-only campaign status.
+    if (d.already_published || (c && c.status === 'queued')) {
+      var sent = c ? (c.delivered_count || 0) : 0, tgt = c ? (c.targeted_count || 0) : 0;
+      host.innerHTML = '<div class="card"><h2>Notify Your Followers</h2>'
+        + (c && c.status === 'queued'
+          ? '<p class="hint">This event was announced to your followers. Delivered ' + sent + ' of ' + tgt + '.</p>'
+          : '<p class="hint">This event is published. Follower announcements can only be enabled before publishing.</p>')
+        + '</div>';
+      return;
+    }
+    var on = !!(c && c.status === 'scheduled');
+    var maxLen = d.max_message_len || 500;
+    var msgVal = (c && c.custom_message) || '';
+    host.innerHTML = '<div class="card"><h2>Notify Your Followers</h2>'
+      + '<p class="hint" style="margin-top:-4px">Let your Advantage.Bid followers know about this event. Advantage.Bid sends the email on your behalf — your followers\' contact details always stay private.</p>'
+      + '<label style="display:flex;gap:9px;align-items:flex-start;cursor:pointer;font-weight:600">'
+      + '<input type="checkbox" id="fcEnabled"' + (on ? ' checked' : '') + (editable ? '' : ' disabled') + ' style="margin-top:3px;width:auto"> '
+      + '<span>Email my followers when this event is published<br><span style="font-weight:400;color:#6b7280;font-size:13px" id="fcAudience">Notify approximately ' + (d.audience_estimate || 0) + ' follower' + ((d.audience_estimate === 1) ? '' : 's') + '</span></span></label>'
+      + '<div id="fcBody" ' + (on ? '' : 'hidden') + ' style="margin-top:12px">'
+      + '<label>Message to your followers <span style="color:#6b7280;font-weight:400">(optional)</span></label>'
+      + '<textarea id="fcMessage" maxlength="' + maxLen + '"' + (editable ? '' : ' disabled') + ' placeholder="We have a great collection coming up this weekend — we hope you\'ll take a look!">' + esc(msgVal) + '</textarea>'
+      + '<div class="hint" style="text-align:right"><span id="fcCount">' + msgVal.length + '</span>/' + maxLen + '</div>'
+      + '<div style="margin-top:6px"><b style="font-size:13px">Preview</b><div id="fcPreview" style="margin-top:6px"></div></div>'
+      + (editable ? '<button class="btn ghost" id="fcSave" style="margin-top:10px">Save follower notification</button> <span id="fcSaveMsg" class="hint"></span>' : '')
+      + '</div></div>';
+    renderPreview((c && c.custom_message) || '');
+    if (editable) wireFollowerSection();
+  }
+  function renderPreview(message) {
+    var p = (followerState && followerState.preview) || {};
+    var el = $('fcPreview'); if (!el) return;
+    var img = p.image_url ? '<div style="height:120px;background:#eef2f7 center/cover no-repeat url(\'' + esc(p.image_url) + '\')"></div>' : '';
+    var when = p.date_line ? '<div style="font-size:12.5px;color:#374151">' + esc(p.date_line) + '</div>' : '';
+    var where = p.location_line ? '<div style="font-size:12.5px;color:#374151">' + esc(p.location_line) + '</div>' : '';
+    var custom = message ? '<div style="margin:8px 0;padding:8px 10px;background:#f8fafc;border:1px solid #e6eaef;border-radius:8px;font-size:13px">' + esc(message) + '</div>' : '';
+    el.innerHTML = '<div style="border:1px solid #e6eaef;border-radius:10px;overflow:hidden;max-width:360px">'
+      + '<div style="background:#0f172a;padding:9px 12px;color:#fff;font-weight:800;font-size:13px">Advantage<span style="color:#5b8cff">.Bid</span></div>'
+      + img
+      + '<div style="padding:11px 12px">'
+      + '<div style="font-weight:700;font-size:13.5px;color:#0f172a">' + esc(p.company_name || 'Your company') + '</div>'
+      + '<div style="font-size:14px;margin:2px 0 6px">' + esc(p.event_title || 'Your event') + '</div>'
+      + when + where + custom
+      + '<div style="margin-top:8px"><span style="display:inline-block;background:#2563eb;color:#fff;font-weight:700;font-size:12.5px;padding:7px 13px;border-radius:8px">' + esc(p.cta_label || 'View Event') + '</span></div>'
+      + '</div></div>';
+  }
+  function wireFollowerSection() {
+    var cb = $('fcEnabled'), bodyEl = $('fcBody'), ta = $('fcMessage'), cnt = $('fcCount');
+    if (cb) cb.addEventListener('change', function () { if (bodyEl) bodyEl.hidden = !cb.checked; });
+    if (ta) ta.addEventListener('input', function () { if (cnt) cnt.textContent = ta.value.length; renderPreview(ta.value); });
+    var save = $('fcSave');
+    if (save) save.addEventListener('click', function () {
+      save.disabled = true; var sm = $('fcSaveMsg'); if (sm) sm.textContent = 'Saving…';
+      saveFollowerCampaign().then(function () { if (sm) sm.textContent = 'Saved.'; save.disabled = false; })
+        .catch(function (e) { if (sm) sm.textContent = e.message; save.disabled = false; });
+    });
+  }
+  function saveFollowerCampaign() {
+    var cb = $('fcEnabled'), ta = $('fcMessage');
+    if (!cb) return Promise.resolve();
+    return ORG.api('PUT', '/api/org/events/' + encodeURIComponent(id) + '/follower-campaign',
+      { enabled: !!cb.checked, message: (ta && ta.value) || '' })
+      .then(function (d) {
+        if (followerState) { followerState.campaign = d.campaign; followerState.audience_estimate = d.audience_estimate; }
+        var a = $('fcAudience'); if (a && d.audience_estimate != null) a.textContent = 'Notify approximately ' + d.audience_estimate + ' follower' + (d.audience_estimate === 1 ? '' : 's');
+      });
   }
 
   function renderImages() {
@@ -147,8 +231,10 @@
     });
     $('submitBtn').addEventListener('click', function () {
       msg.className = 'msg'; $('submitBtn').disabled = true;
-      // Save any edits first, then submit
+      // Save any edits first, then persist the follower-notification choice, then submit. Capturing the
+      // opt-in BEFORE submit ensures a professional auto-publish fires the campaign on the same request.
       ORG.api('PATCH', '/api/org/events/' + id, collect())
+        .then(function () { return ($('fcEnabled') ? saveFollowerCampaign().catch(function () {}) : Promise.resolve()); })
         .then(function () { return ORG.api('POST', '/api/org/events/' + id + '/submit'); })
         .then(function () { location.href = '/org/events.html'; })
         .catch(function (e) { $('submitBtn').disabled = false; showErr(e.message); });

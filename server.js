@@ -557,6 +557,8 @@ app.use('/api/image-processing', imageProcessingRoutes);
 app.use('/api/uploads', uploadsRoutes);
 app.use('/api/public', publicRoutes);
 app.use('/api/public', publicEventsRoutes);   // event feed (+ restricted CORS); falls through public.js
+app.use('/api/public/follower-emails', require('./src/routes/publicFollowerEmails')); // one-click unsubscribe (no auth)
+app.use('/api/admin/follower-emails', require('./src/routes/adminFollowerEmails'));    // admin campaign review + privilege
 app.use('/api/org/claim', orgClaimRoutes);
 app.use('/api/org', orgEventsRoutes);
 app.use('/api/legal', legalRoutes);
