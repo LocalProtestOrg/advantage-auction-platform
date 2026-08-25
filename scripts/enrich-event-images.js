@@ -21,7 +21,7 @@ const DRY = process.argv.includes('--dry');
               (SELECT count(*)::int FROM event_images ei WHERE ei.event_id = e.id
                  AND coalesce(ei.url,'') NOT ILIKE '%ppms.gov%') AS usable_images
          FROM events e
-        WHERE e.source = 'imported' AND e.sale_type = 'auction' AND e.status = 'published'`)).rows;
+        WHERE e.source = 'imported' AND e.sale_type = 'auction' AND e.status IN ('draft','published')`)).rows;
     for (const e of rows) {
       out.examined++;
       if (e.usable_images > 0) { out.reasons['already_has_image'] = (out.reasons['already_has_image'] || 0) + 1; continue; }

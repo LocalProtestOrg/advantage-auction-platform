@@ -41,9 +41,10 @@ describe('parseAuctionState + auctionToPayload', () => {
     expect(payload.organizer_name).toBeTruthy();
     expect(payload.external_url).not.toMatch(/estatesales|govdeals|publicsurplus|bidsquare|auctionzip|hibid/i);
   });
-  test('images are left empty at ingestion (enrichment re-hosts the og:image to Cloudinary)', () => {
+  test('surfaces the auction primary_image (public CloudFront) inline so it publishes with a real image', () => {
     const { images } = c.auctionToPayload(c.parseAuctionState(pageHtml()), 'America/Chicago');
-    expect(images).toEqual([]);
+    expect(images.length).toBe(1);
+    expect(images[0].url).toMatch(/cloudfront\.net\/.+\.jpeg$/);
   });
   test('an auction with no end_time is rejected (never-expire guard)', () => {
     expect(c.auctionToPayload(c.parseAuctionState(pageHtml({ end_time: null })), 'America/Chicago')).toBeNull();

@@ -48,9 +48,15 @@ async function resolveCandidates(event, deps = {}) {
   if (!url || !/^https?:\/\//i.test(url)) return [];
   let host = ''; try { host = new URL(url).hostname; } catch (_) { return []; }
   if (SKIP_DETAIL_HOSTS.test(host)) return []; // login-gated / directory / JS-shell → placeholder stays
-  const fetchText = deps.fetchText || ((u) => require('../http').fetchText(u, { timeoutMs: 20000, maxBytes: 4 * 1024 * 1024 }));
+  // http.fetchText returns { ok, text }; normalize to the body string. A test may inject a fetchText
+  // that returns a plain string.
+  const fetchText = deps.fetchText || (async (u) => {
+    const r = await require('./http').fetchText(u, { timeoutMs: 20000, maxBytes: 4 * 1024 * 1024 });
+    return r && r.ok && typeof r.text === 'string' ? r.text : null;
+  });
   let html;
   try { html = await fetchText(url); } catch (_) { return []; }
+  if (typeof html !== 'string') return [];
   return extractImageCandidates(html, url);
 }
 

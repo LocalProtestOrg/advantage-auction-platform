@@ -21,14 +21,19 @@ const DRY = process.argv.includes('--dry');
   const db = await pool.connect();
   const out = { scanned: 0, published: { auction: 0, estate_sale: 0, other: 0 }, blocked: 0, blockReasons: {} };
   try {
+    // Images live in event_images (not a column on events). Count only PUBLICLY-USABLE images
+    // (login-gated ppms.gov images do not count), matching the gate/govSurplusPlaceholder logic.
     const rows = (await db.query(
-      `SELECT id, sale_type, source, title, start_at, end_at, event_format, city, state, lat, lng,
-              organizer_name, registration_url, bidding_url, organizer_website_url, external_url, cover_image_url
-         FROM events
-        WHERE source = 'imported' AND status = 'draft'`)).rows;
+      `SELECT e.id, e.sale_type, e.source, e.title, e.start_at, e.end_at, e.event_format, e.city, e.state,
+              e.lat, e.lng, e.organizer_name, e.registration_url, e.bidding_url, e.organizer_website_url,
+              e.external_url,
+              (SELECT count(*)::int FROM event_images ei
+                 WHERE ei.event_id = e.id AND coalesce(ei.url,'') NOT ILIKE '%ppms.gov%') AS image_count
+         FROM events e
+        WHERE e.source = 'imported' AND e.status = 'draft'`)).rows;
     out.scanned = rows.length;
     for (const e of rows) {
-      const r = evaluatePublication(e, {});
+      const r = evaluatePublication(e, {}); // e.image_count drives the image check
       if (r.ready) {
         if (!DRY) {
           // Guarded: re-assert the row is still an imported draft at write time.

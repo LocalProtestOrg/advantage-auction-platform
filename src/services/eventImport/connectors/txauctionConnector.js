@@ -27,7 +27,13 @@ const DEFAULT_CAP = 15;                          // gentle per-run cap (respect 
 const CRAWL_DELAY_MS = 3000;
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-const firstLoc = (xml) => { const locs = (xml.match(/<loc>([^<]+)<\/loc>/gi) || []).map((s) => s.replace(/<\/?loc>/gi, '')); return locs; };
+const locsOf = (xml) => (typeof xml === 'string' ? xml : '').match(/<loc>([^<]+)<\/loc>/gi) || [];
+const firstLoc = (xml) => locsOf(xml).map((s) => s.replace(/<\/?loc>/gi, ''));
+// fetchText returns { ok, status, text }; return the body text only on a usable 2xx, else null.
+async function getText(url, opts) {
+  const r = await fetchText(url, opts);
+  return r && r.ok && typeof r.text === 'string' ? r.text : null;
+}
 
 // Extract + parse window.__APOLLO_STATE__ from an auction page's HTML. Returns the Auction node or null.
 function parseAuctionState(html) {
@@ -46,6 +52,12 @@ function auctionToPayload(a, tz) {
   if (!end) return null;                                  // need a reliable end for expiration
   const loc = a.auction_location || {};
   const org = (loc.line_1 && String(loc.line_1).trim()) || 'Gaston & Sheehan Auctioneers';
+  // Surface the auction's public CloudFront cover image INLINE so the event publishes with a real,
+  // event-specific image on every (incl. scheduled) run — no dependency on a later enrichment pass.
+  // The image-enrichment pass can still re-host it into Cloudinary with provenance.
+  const pi = a.primary_image || {};
+  const coverUrl = pi.large || pi.medium || pi.url || pi.small || null;
+  const images = (coverUrl && /^https?:\/\//i.test(coverUrl)) ? [{ url: coverUrl, position: 0 }] : [];
   return {
     payload: {
       title: String(a.title).trim(),
@@ -61,8 +73,8 @@ function auctionToPayload(a, tz) {
       external_url: a.public_url || null,                 // ORIGINAL host auction page (never a directory)
       bidding_url: a.public_url || null,
     },
-    // Image is enriched from the page's og:image (CloudFront) and re-hosted to Cloudinary w/ provenance.
-    images: [],
+    // Real event-specific cover image (public CloudFront). Enrichment may re-host it to Cloudinary.
+    images,
   };
 }
 
@@ -80,21 +92,24 @@ module.exports = {
     const fetchOpts = { timeoutMs: 30000, maxBytes: 8 * 1024 * 1024, signal };
 
     // 1. Auctions sitemap-index → per-auction sitemap URLs (each ends in /sitemap/auction/{id}).
-    let indexXml; try { indexXml = await fetchText(SITEMAP_INDEX, fetchOpts); } catch (_) { return; }
+    let indexXml; try { indexXml = await getText(SITEMAP_INDEX, fetchOpts); } catch (_) { return; }
+    if (!indexXml) return;
     const auctionSitemaps = firstLoc(indexXml).filter((u) => /\/sitemap\/auction\/\d+/.test(u));
 
     const seen = new Set(); let n = 0;
     for (const sm of auctionSitemaps) {
       if (n >= cap) return;
       await sleep(CRAWL_DELAY_MS);
-      let smXml; try { smXml = await fetchText(sm, fetchOpts); } catch (_) { continue; }
+      let smXml; try { smXml = await getText(sm, fetchOpts); } catch (_) { continue; }
+      if (!smXml) continue;
       // The per-auction sitemap's first URL is the auction page (/auctions/{id}-{slug}); lots follow.
       const pageUrl = firstLoc(smXml).find((u) => /\/auctions\/\d+-/.test(u));
       if (!pageUrl || seen.has(pageUrl)) continue;
       seen.add(pageUrl);
 
       await sleep(CRAWL_DELAY_MS);
-      let html; try { html = await fetchText(pageUrl, fetchOpts); } catch (_) { continue; }
+      let html; try { html = await getText(pageUrl, fetchOpts); } catch (_) { continue; }
+      if (!html) continue;
       const auction = parseAuctionState(html);
       const mapped = auctionToPayload(auction, tz);
       if (!mapped) continue;
