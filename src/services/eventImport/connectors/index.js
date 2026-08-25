@@ -10,12 +10,15 @@
 const csvConnector = require('./csvConnector');
 const gsaConnector = require('./gsaConnector');
 const feedConnector = require('./feedConnector');
+const txauctionConnector = require('./txauctionConnector');
 
 // Logical names (config.connector) + a kind fallback for sources that only set `kind`.
 const REGISTRY = {
   csv: csvConnector,
   gsa: gsaConnector,
   feed: feedConnector,
+  txauction: txauctionConnector,   // Gaston & Sheehan (Treasury/USMS/local gov auctions); select via config.connector
+
   // kind fallbacks (import_sources.kind is constrained to csv|rest|rss|xml|json|partner|manual):
   rest: gsaConnector,
   rss: feedConnector,
