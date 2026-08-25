@@ -19,12 +19,12 @@ const DRY = process.argv.includes('--dry');
     const rows = (await db.query(
       `SELECT e.id, e.sale_type, e.external_url,
               (SELECT count(*)::int FROM event_images ei WHERE ei.event_id = e.id
-                 AND coalesce(ei.url,'') NOT ILIKE '%ppms.gov%') AS usable_images
+                 AND coalesce(ei.url,'') ILIKE '%res.cloudinary.com%') AS managed_images
          FROM events e
         WHERE e.source = 'imported' AND e.sale_type = 'auction' AND e.status IN ('draft','published')`)).rows;
     for (const e of rows) {
       out.examined++;
-      if (e.usable_images > 0) { out.reasons['already_has_image'] = (out.reasons['already_has_image'] || 0) + 1; continue; }
+      if (e.managed_images > 0) { out.reasons['already_has_image'] = (out.reasons['already_has_image'] || 0) + 1; continue; }
       const r = DRY
         ? { enriched: false, reason: require('../src/services/eventImport/imageEnrichment').candidateImageUrl(e) ? 'would_attempt' : 'no_public_image_available' }
         : await enrichEvent(e, { db });

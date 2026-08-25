@@ -32,6 +32,11 @@ const LOGIN_GATED_HINT = /login|sign\s?in|token expired|unauthor/i;
 // hosts only). Kept deliberately small and explicit.
 const SKIP_DETAIL_HOSTS = /(ppms\.gov|gsaauctions\.gov|estatesales\.(net|org|com)|bidsquare\.com|auctionzip\.com|hibid\.com)/i;
 
+// A "managed" image already lives in our own storage (Cloudinary) — no re-host needed. Everything else
+// that a connector stored inline (e.g. image.invaluable.com / *.cloudfront.net) is a third-party HOTLINK
+// we should pull into managed storage with provenance so the card never depends on a fragile external URL.
+function isManagedImage(u) { return /res\.cloudinary\.com/i.test(String(u || '')); }
+
 // Ordered CANDIDATE public image URLs for an event (best first). Sync fast-path returns a feed-supplied
 // image; otherwise the async resolver fetches the ORIGINAL-HOST detail page and extracts candidates.
 function candidateImageUrl(event) {
@@ -85,10 +90,22 @@ function isUsableImageResponse(r) {
   return { ok: true };
 }
 
-// Does the event already have a usable stored image?
-async function hasUsableStoredImage(db, eventId) {
+// Does the event already have a usable MANAGED image (in our own storage)? Third-party hotlinks do not
+// count — they should be pulled into managed storage.
+async function hasManagedImage(db, eventId) {
   const rows = (await db.query('SELECT url FROM event_images WHERE event_id = $1', [eventId])).rows;
-  return rows.some((r) => r.url && !isNonPublicImage(r.url));
+  return rows.some((r) => r.url && isManagedImage(r.url) && !isNonPublicImage(r.url));
+}
+
+// Stored third-party HOTLINKS for an event that we could re-host (publicly fetchable, not already managed,
+// not login-gated, not a directory host). These are tried FIRST as re-host candidates.
+async function storedHotlinkCandidates(db, eventId) {
+  const rows = (await db.query('SELECT url FROM event_images WHERE event_id = $1 ORDER BY position ASC', [eventId])).rows;
+  return rows.map((r) => r.url).filter((u) => {
+    if (!u || !/^https?:\/\//i.test(u) || isManagedImage(u) || isNonPublicImage(u)) return false;
+    let host = ''; try { host = new URL(u).hostname; } catch (_) { return false; }
+    return !SKIP_DETAIL_HOSTS.test(host);
+  });
 }
 
 /**
@@ -100,8 +117,12 @@ async function enrichEvent(event, deps = {}) {
   const doFetch = deps.fetchImage || fetchImage;
   const uploadBuffer = deps.uploadBuffer || (async (buf, opts) => require('../cloudinaryService').uploadBuffer(buf, opts));
   try {
-    if (await hasUsableStoredImage(db, event.id)) return { enriched: false, reason: 'already_has_image' };
-    const candidates = await resolveCandidates(event, deps);
+    if (await hasManagedImage(db, event.id)) return { enriched: false, reason: 'already_has_image' };
+    // Re-host any stored third-party hotlink FIRST (connectors surface inline images so events publish
+    // immediately; enrichment then pulls those into managed storage). Fall back to the detail-page resolver.
+    const stored = await storedHotlinkCandidates(db, event.id);
+    const detail = await resolveCandidates(event, deps);
+    const candidates = [...new Set([...stored, ...detail])];
     if (!candidates.length) return { enriched: false, reason: 'no_public_image_available' };
 
     // Try candidates in order (best first); store the FIRST that validates as a genuine public image.
@@ -122,9 +143,13 @@ async function enrichEvent(event, deps = {}) {
       if (!hostedUrl) { lastReason = 'rehost_failed'; continue; }
 
       let host = ''; try { host = new URL(candidate).hostname; } catch (_) {}
+      // Replace any non-managed hotlink rows with the single managed cover (keeps the card on our storage
+      // and frees position 0). Managed rows (if any) are left untouched by the WHERE clause.
+      await db.query("DELETE FROM event_images WHERE event_id = $1 AND url NOT ILIKE '%res.cloudinary.com%'", [event.id]);
       await db.query(
         `INSERT INTO event_images (event_id, url, position, is_cover, source_url, source_host, retrieved_at)
-         VALUES ($1, $2, 0, true, $3, $4, now())`,
+         VALUES ($1, $2, 0, true, $3, $4, now())
+         ON CONFLICT DO NOTHING`,
         [event.id, hostedUrl, candidate, host]);
       return { enriched: true, reason: 'stored', url: hostedUrl, source_url: candidate };
     }
@@ -135,4 +160,4 @@ async function enrichEvent(event, deps = {}) {
   }
 }
 
-module.exports = { enrichEvent, candidateImageUrl, resolveCandidates, isUsableImageResponse, fetchImage };
+module.exports = { enrichEvent, candidateImageUrl, resolveCandidates, isUsableImageResponse, fetchImage, isManagedImage, hasManagedImage, storedHotlinkCandidates };

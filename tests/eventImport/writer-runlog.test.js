@@ -116,6 +116,23 @@ describe('writer.publishImported', () => {
     expect(db.all(/UPDATE events SET status = 'published'/).length).toBe(0);
     expect(writeAuditLog).toHaveBeenCalledWith(expect.objectContaining({ event_type: 'event.publish_held' }));
   });
+  test('AUTO-PUBLISHES a GSA gov-surplus auction with NO real image (placeholder) — gate needs external_url', async () => {
+    // Regression: the publish-time gate fetch must select external_url + sale_type so isGovSurplus() can
+    // grant the branded placeholder. Without external_url, GSA drafts (0 real images) wrongly held as
+    // image_missing and silently stayed draft on every scheduled run.
+    const GSA_ROW = {
+      source: 'imported', title: 'MISC COMPUTER EQUIPMENT', start_at: '2999-01-01T15:00:00Z', end_at: '2999-01-02T20:00:00Z',
+      event_format: 'online', city: 'DC', state: 'DC', organizer_name: 'U.S. General Services Administration',
+      external_url: 'https://www.gsaauctions.gov/auctions/x', sale_type: 'auction', image_count: 0,
+    };
+    const db = gateAwareClient(GSA_ROW);
+    const ok = await writer.publishImported(db, 'EV1', CTX);
+    expect(ok).toBe(true);
+    // the gate fetch MUST include external_url (else gov-surplus placeholder credit is lost)
+    expect(db.find(/FROM events e WHERE e\.id/).sql).toMatch(/e\.external_url/);
+    expect(writeAuditLog).toHaveBeenCalledWith(expect.objectContaining({ event_type: 'event.published',
+      metadata: expect.objectContaining({ warnings: expect.arrayContaining(['image_placeholder_used']) }) }));
+  });
   test('skipGate=true publishes the raw primitive (trusted caller)', async () => {
     const db = gateAwareClient(null); // no gate fetch needed
     expect(await writer.publishImported(db, 'EV1', { ...CTX, skipGate: true })).toBe(true);

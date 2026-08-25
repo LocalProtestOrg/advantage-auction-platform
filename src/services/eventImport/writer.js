@@ -168,6 +168,7 @@ async function publishImported(client, eventId, ctx) {
     const ev = (await client.query(
       `SELECT e.source, e.title, e.start_at, e.end_at, e.event_format, e.city, e.state, e.lat, e.lng,
               e.organizer_name, e.organizer_website_url, e.registration_url, e.bidding_url,
+              e.external_url, e.sale_type,
               (SELECT count(*)::int FROM event_images ei WHERE ei.event_id = e.id) AS image_count
          FROM events e WHERE e.id = $1 AND e.source = 'imported' AND e.status = 'draft'`, [eventId])).rows[0];
     if (!ev) return false;                                  // not an imported draft (already published / wrong source)
