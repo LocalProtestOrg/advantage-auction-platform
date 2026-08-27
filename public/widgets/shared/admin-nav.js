@@ -100,6 +100,17 @@
   }
   window.adminLogout = doLogout;
 
+  // Publish the ACTUAL rendered header height as a CSS variable (--admin-nav-h) on <html>, so any admin
+  // page can offset fixed/absolute overlays (e.g. side drawers, modals) by the real height rather than a
+  // hardcoded guess. The header is sticky (in normal flow), so page CONTENT needs no offset — this var is
+  // for elements taken OUT of flow. It stays correct when the nav wraps to multiple lines (measured live).
+  function setNavHeightVar(header) {
+    try {
+      var h = Math.ceil((header.getBoundingClientRect && header.getBoundingClientRect().height) || header.offsetHeight || 0);
+      if (h > 0) document.documentElement.style.setProperty('--admin-nav-h', h + 'px');
+    } catch (e) { /* non-fatal: overlays fall back to 0px */ }
+  }
+
   function renderLinks(header) {
     var linksHtml = LINKS.filter(canSee).map(function (l) {
       var active = isActive(l.href);
@@ -107,6 +118,7 @@
     }).join('');
     var nav = header.querySelector('.an-links'); if (nav) nav.innerHTML = linksHtml;
     var badge = header.querySelector('.an-badge'); if (badge) badge.textContent = badgeLabel();
+    setNavHeightVar(header); // links/badge just changed the height — republish
   }
 
   function mount() {
@@ -125,6 +137,15 @@
     document.body.insertBefore(header, document.body.firstChild);
     header.querySelector('.an-back').addEventListener('click', goBack);
     header.querySelector('[data-an-logout]').addEventListener('click', doLogout);
+
+    // Measure now and keep --admin-nav-h in sync as the header wraps/unwraps (viewport resize, link
+    // population, font load). ResizeObserver catches multi-line wrap changes that a resize event misses.
+    setNavHeightVar(header);
+    try {
+      if (typeof ResizeObserver === 'function') { new ResizeObserver(function () { setNavHeightVar(header); }).observe(header); }
+    } catch (e) { /* ignore */ }
+    window.addEventListener('resize', function () { setNavHeightVar(header); });
+    window.addEventListener('load', function () { setNavHeightVar(header); });
 
     // Resolve the caller's permissions, then render only the links they may use. The nav starts empty
     // (no sensitive links shown before we know who they are).

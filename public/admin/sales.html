@@ -50,7 +50,9 @@
     .flag-no{color:#dc2626;font-weight:700}.flag-yes{color:#16a34a;font-weight:700}.flag-unk{color:#94a3b8}
     .btn{padding:.4rem .8rem;border:none;border-radius:7px;font-weight:700;cursor:pointer;font-size:.8rem}
     .b-blue{background:#2563eb;color:#fff}.b-ghost{background:#f1f5f9;color:#111827;border:1px solid #e2e8f0}
-    #drawer{position:fixed;top:0;right:0;width:min(560px,96vw);height:100%;background:#fff;box-shadow:-8px 0 30px rgba(0,0,0,.15);padding:1.2rem;overflow-y:auto;display:none;z-index:50}
+    /* Start the drawer BELOW the sticky Admin header (measured live via --admin-nav-h, so it stays correct
+       when the header wraps to multiple rows) and scroll internally. Fallback 0px if the var is unset. */
+    #drawer{position:fixed;top:var(--admin-nav-h,0px);right:0;width:min(560px,96vw);height:calc(100% - var(--admin-nav-h,0px));background:#fff;box-shadow:-8px 0 30px rgba(0,0,0,.15);padding:1.2rem;overflow-y:auto;display:none;z-index:50}
     #drawer h2{font-size:1.05rem;margin-bottom:.5rem}
     #drawer label{display:block;font-size:.7rem;text-transform:uppercase;color:#64748b;margin:.5rem 0 .15rem}
     #drawer input,#drawer select,#drawer textarea{width:100%;padding:.45rem .55rem;border:1px solid #cbd5e1;border-radius:7px;font-size:.83rem;font-family:inherit}
