@@ -25,7 +25,7 @@ router.get('/stats', async (req, res, next) => {
   catch (err) { next(err); }
 });
 
-// Reference metadata for the UI (status/tier vocab) — keeps the client in sync with the server.
+// Reference metadata for the UI (status/tier/priority vocab) — keeps the client in sync with the server.
 router.get('/meta', (req, res) => {
   res.json({
     success: true,
@@ -36,8 +36,19 @@ router.get('/meta', (req, res) => {
       website_status: svc.WEBSITE_STATUS,
       tristate: svc.TRISTATE,
       activity_types: svc.ACTIVITY_TYPES,
+      business_types: svc.BUSINESS_TYPES,
+      business_type_label: svc.BUSINESS_TYPE_LABEL,
+      lead_priority: svc.LEAD_PRIORITY,
+      lead_priority_label: svc.LEAD_PRIORITY_LABEL,
+      opportunity_type_label: svc.OPPORTUNITY_TYPE_LABEL,
     },
   });
+});
+
+// Sales reps available for lead assignment (staff only — never non-staff members).
+router.get('/reps', async (req, res, next) => {
+  try { return res.json({ success: true, data: await svc.listReps() }); }
+  catch (err) { next(err); }
 });
 
 // Filtered prospect list (geographic + pipeline filters via query string).
@@ -76,6 +87,23 @@ router.post('/prospects/:id/notes', requirePermission('sales.manage_prospects'),
     const note = await svc.addNote(req.params.id, req.user.id, req.body.activity_type, req.body.body);
     return res.status(201).json({ success: true, data: note });
   } catch (err) { next(err); }
+});
+
+// Quick "Contacted" action — records contacted status + timestamp + the acting rep; keeps history.
+router.post('/prospects/:id/contacted', requirePermission('sales.manage_prospects'), async (req, res, next) => {
+  try { return res.json({ success: true, data: await svc.markContacted(req.params.id, req.user.id, (req.body || {}).note) }); }
+  catch (err) { if (err.status) return res.status(err.status).json({ success: false, message: err.message }); next(err); }
+});
+
+// Bulk import/refresh — writes ONLY research columns; never overwrites CRM activity. Dedup-aware.
+router.post('/import', requirePermission('sales.manage_prospects'), async (req, res, next) => {
+  try {
+    const records = Array.isArray(req.body && req.body.records) ? req.body.records : [];
+    if (!records.length) return res.status(400).json({ success: false, message: 'records[] required' });
+    if (records.length > 2000) return res.status(400).json({ success: false, message: 'max 2000 records per import' });
+    const summary = await svc.importProspects(records, { source: (req.body.source || 'manual_import'), actorId: req.user.id });
+    return res.json({ success: true, data: summary });
+  } catch (err) { if (err.status) return res.status(err.status).json({ success: false, message: err.message }); next(err); }
 });
 
 module.exports = router;

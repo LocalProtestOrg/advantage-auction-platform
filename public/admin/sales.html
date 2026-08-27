@@ -108,24 +108,29 @@
       </div>
     </div>
 
-    <!-- ============ PROSPECTS ============ -->
+    <!-- ============ PROSPECTS (work queue) ============ -->
     <div id="pane-prospects" style="display:none">
       <div class="stats" id="stats"></div>
+      <div id="quickbar" style="display:flex;flex-wrap:wrap;gap:.4rem;margin:.2rem 0 .6rem"></div>
       <div class="bar">
-        <input type="text" id="f-search" placeholder="Search company..." />
-        <input type="text" id="f-state" placeholder="State" maxlength="2" style="width:70px" />
-        <select id="f-tier"><option value="">All tiers</option><option value="1">Tier 1</option><option value="2">Tier 2</option><option value="3">Tier 3</option><option value="4">Lower/Competitive</option></select>
+        <input type="text" id="f-search" placeholder="Search company / city / phone / email..." style="min-width:220px" />
+        <input type="text" id="f-state" placeholder="State" maxlength="2" style="width:64px" />
+        <select id="f-biztype"><option value="">All types</option></select>
+        <select id="f-priority"><option value="">All priorities</option></select>
         <select id="f-status"><option value="">All statuses</option></select>
+        <select id="f-assigned"><option value="">All reps</option><option value="unassigned">Unassigned</option></select>
+        <select id="f-followup"><option value="">Any follow-up</option><option value="due">Due (today + overdue)</option><option value="overdue">Overdue</option><option value="due_today">Due today</option><option value="upcoming">Upcoming</option></select>
         <label class="chk"><input type="checkbox" id="f-nowebsite" /> No website</label>
-        <label class="chk"><input type="checkbox" id="f-noauctions" /> No auctions</label>
+        <label class="chk"><input type="checkbox" id="f-noauctions" /> No online auctions</label>
         <label class="chk"><input type="checkbox" id="f-hasemail" /> Has email</label>
         <label class="chk"><input type="checkbox" id="f-hasphone" /> Has phone</label>
-        <button onclick="loadProspects()">Filter</button>
+        <button onclick="applyFilters()">Filter</button>
+        <button class="b-ghost" onclick="resetFilters()">Reset</button>
         <button class="b-ghost" style="background:#dcfce7;border-color:#86efac;color:#166534" onclick="openDrawer()">+ New Prospect</button>
       </div>
       <div class="msg" id="prospects-msg"></div>
       <table>
-        <thead><tr><th>Company</th><th>Location</th><th>Tier</th><th>Score</th><th>Website</th><th>Auctions</th><th>Status</th><th>Contact</th></tr></thead>
+        <thead><tr><th>Company</th><th>Location</th><th>Type</th><th>Priority</th><th>Website</th><th>Auctions</th><th>Status</th><th>Contact</th><th>Assigned</th><th>Actions</th></tr></thead>
         <tbody id="prospects-body"></tbody>
       </table>
     </div>
@@ -161,15 +166,27 @@
     </div>
     <label>Social URL (e.g. Facebook business)</label><input id="d-social" />
     <div class="row2">
+      <div><label>Business Type</label><select id="d-biztype"></select></div>
+      <div><label>Lead Priority</label><select id="d-priority"></select></div>
+    </div>
+    <div class="row2">
       <div><label>Estate Sales Offered?</label><select id="d-estate"></select></div>
       <div><label>Online Auctions Offered?</label><select id="d-auction"></select></div>
     </div>
     <label>Auction Platform Used (if any)</label><input id="d-platform" />
-    <label>Source URL (for verification)</label><input id="d-source" />
+    <div class="row2">
+      <div><label>Source URL (for verification)</label><input id="d-source" /></div>
+      <div><label>Contact Source</label><input id="d-contactsource" placeholder="Where contact info was found" /></div>
+    </div>
     <div class="row2">
       <div><label>Contact Status</label><select id="d-status"></select></div>
-      <div><label>Next Follow-Up</label><input id="d-followup" type="date" /></div>
+      <div><label>Assigned To</label><select id="d-assigned"></select></div>
     </div>
+    <div class="row2">
+      <div><label>Next Follow-Up</label><input id="d-followup" type="date" /></div>
+      <div style="display:flex;align-items:end"><button class="btn b-blue" style="width:100%;background:#166534" onclick="markContactedDrawer()">✓ Mark Contacted</button></div>
+    </div>
+    <div id="d-suggested" style="margin-top:.5rem;font-size:.78rem;color:#475569"></div>
     <div style="margin-top:.8rem;display:flex;gap:.5rem"><button class="btn b-blue" onclick="saveProspect()">Save</button><button class="btn b-ghost" onclick="closeDrawer()">Cancel</button></div>
     <div class="msg" id="drawer-msg"></div>
 
@@ -376,29 +393,96 @@
     document.getElementById('demo').innerHTML = DEMO.map(x=>'<h3>'+esc(x[0])+'</h3><p>'+esc(x[1])+'</p>').join('');
     document.getElementById('checklist').innerHTML = CHECKLIST.map(c=>'<li style="margin-bottom:.35rem;font-size:.85rem">'+esc(c)+'</li>').join('');
 
-    // ================= PROSPECTS =================
-    let META = null, EDIT_ID = null;
+    // ================= PROSPECTS (work queue) =================
+    let META = null, EDIT_ID = null, REPS = [], QUICK = { not_contacted: false, actionable: false };
     async function loadMeta(){ if(META) return META; const r=await api('GET','/api/admin/sales/meta'); META=r.data; return META; }
+    async function loadReps(){ if(REPS.length) return REPS; const r=await api('GET','/api/admin/sales/reps'); REPS=r.data||[]; return REPS; }
     function opts(arr,labels){return arr.map(v=>'<option value="'+v+'">'+esc(labels?labels[v]||v:v)+'</option>').join('');}
+    function repName(r){ return (r.email||'').split('@')[0]; }
 
+    let CONTROLS_READY=false;
     async function initProspectControls(){
-      await loadMeta();
+      if(CONTROLS_READY) return; CONTROLS_READY=true;
+      await loadMeta(); await loadReps();
       document.getElementById('f-status').innerHTML='<option value="">All statuses</option>'+opts(META.contact_status,META.contact_status_label);
+      document.getElementById('f-biztype').innerHTML='<option value="">All types</option>'+opts(META.business_types,META.business_type_label);
+      document.getElementById('f-priority').innerHTML='<option value="">All priorities</option>'+opts(META.lead_priority,META.lead_priority_label);
+      const repOpts=REPS.map(r=>'<option value="'+r.id+'">'+esc(repName(r))+(r.staff_role?(' ('+r.staff_role+')'):'')+'</option>').join('');
+      document.getElementById('f-assigned').innerHTML='<option value="">All reps</option><option value="unassigned">Unassigned</option>'+repOpts;
+      document.getElementById('d-assigned').innerHTML='<option value="">Unassigned</option>'+repOpts;
       document.getElementById('d-status').innerHTML=opts(META.contact_status,META.contact_status_label);
       document.getElementById('d-webstatus').innerHTML=opts(META.website_status);
+      document.getElementById('d-biztype').innerHTML='<option value="">—</option>'+opts(META.business_types,META.business_type_label);
+      document.getElementById('d-priority').innerHTML='<option value="">Auto</option>'+opts(META.lead_priority,META.lead_priority_label);
       const tri=opts(META.tristate);
-      document.getElementById('d-indie').innerHTML=tri;
-      document.getElementById('d-estate').innerHTML=tri;
-      document.getElementById('d-auction').innerHTML=tri;
+      document.getElementById('d-indie').innerHTML=tri;document.getElementById('d-estate').innerHTML=tri;document.getElementById('d-auction').innerHTML=tri;
+      renderQuickbar();
     }
+
+    const QUICK_CHIPS=[
+      ['🔥 Hot Leads',()=>setFilters({priority:'hot'})],
+      ['🌐 No Website',()=>setFilters({nowebsite:true})],
+      ['🔨 No Online Auctions',()=>setFilters({noauctions:true})],
+      ['📞 Not Contacted',()=>setFilters({notcontacted:true})],
+      ['📅 Follow-Up Due',()=>setFilters({followup:'due'})],
+      ['⭐ Interested',()=>setFilters({status:'interested'})],
+      ['✅ Converted',()=>setFilters({status:'professional_seller'})],
+      ['All',()=>resetFilters(true)],
+    ];
+    function renderQuickbar(){
+      document.getElementById('quickbar').innerHTML=QUICK_CHIPS.map((c,i)=>
+        '<button class="btn b-ghost" style="font-size:.74rem" onclick="QUICK_CHIPS['+i+'][1]()">'+c[0]+'</button>').join('');
+    }
+
+    function resetFilters(reload){
+      ['f-search','f-state'].forEach(id=>document.getElementById(id).value='');
+      ['f-biztype','f-priority','f-status','f-assigned','f-followup'].forEach(id=>document.getElementById(id).value='');
+      ['f-nowebsite','f-noauctions','f-hasemail','f-hasphone'].forEach(id=>document.getElementById(id).checked=false);
+      QUICK={not_contacted:false,actionable:false};
+      if(reload!==false) loadProspects();
+    }
+    function setFilters(obj){
+      resetFilters(false);
+      if(obj.priority)document.getElementById('f-priority').value=obj.priority;
+      if(obj.status)document.getElementById('f-status').value=obj.status;
+      if(obj.biztype)document.getElementById('f-biztype').value=obj.biztype;
+      if(obj.followup)document.getElementById('f-followup').value=obj.followup;
+      if(obj.nowebsite)document.getElementById('f-nowebsite').checked=true;
+      if(obj.noauctions)document.getElementById('f-noauctions').checked=true;
+      if(obj.notcontacted)QUICK.not_contacted=true;
+      if(obj.actionable)QUICK.actionable=true;
+      loadProspects();
+    }
+    function applyFilters(){ loadProspects(); }
 
     async function loadStats(){
+      await initProspectControls();
       const r=await api('GET','/api/admin/sales/stats'); const s=r.data||{};
-      const cells=[['Total','total'],['Tier 1','tier1'],['Tier 2','tier2'],['No Website','no_website'],['No Auctions','no_auctions'],['Has Email','has_email'],['Has Phone','has_phone'],['Contacted','contacted'],['Interested','interested'],['Demos','demos'],['Conversions','conversions']];
-      document.getElementById('stats').innerHTML=cells.map(c=>'<div class="stat"><div class="n">'+(s[c[1]]||0)+'</div><div class="l">'+c[0]+'</div></div>').join('');
+      const cells=[
+        ['Total Prospects','total',null],['Actionable','actionable',{actionable:true}],
+        ['🔥 Hot','hot',{priority:'hot'}],['🌐 No Website','no_website',{nowebsite:true}],
+        ['🔨 No Online Auctions','no_auctions',{noauctions:true}],['📞 Not Contacted','not_contacted',{notcontacted:true}],
+        ['📅 Follow-Ups Due','follow_ups_due',{followup:'due'}],['⭐ Interested','interested',{status:'interested'}],
+        ['Demo Requested','demo_requested',{status:'demo_scheduled'}],['Estate Cos','estate_companies',{biztype:'estate_sale_company'}],
+        ['Auction Houses','auction_houses',{biztype:'auction_house'}],['✅ Converted','converted',{status:'professional_seller'}]];
+      document.getElementById('stats').innerHTML=cells.map((c,i)=>
+        '<div class="stat" '+(c[2]?'style="cursor:pointer" onclick="statFilter('+i+')"':'')+'><div class="n">'+(s[c[1]]||0)+'</div><div class="l">'+c[0]+'</div></div>').join('');
+      window.__statCells=cells;
     }
+    function statFilter(i){ const c=window.__statCells[i]; if(c&&c[2]) setFilters(c[2]); }
 
     function flag(v,goodWhenNo){const t=(v||'unknown');if(t==='no')return '<span class="'+(goodWhenNo?'flag-yes':'flag-no')+'">no</span>';if(t==='yes')return '<span class="'+(goodWhenNo?'flag-no':'flag-yes')+'">yes</span>';return '<span class="flag-unk">?</span>';}
+    function prioBadge(p){const c={hot:'#dc2626',warm:'#d97706',standard:'#64748b'}[p]||'#64748b';const l={hot:'HOT',warm:'WARM',standard:'STD'}[p]||'—';return '<span style="background:'+c+';color:#fff;font-size:.6rem;font-weight:800;border-radius:999px;padding:2px 7px">'+l+'</span>';}
+    function actionBtns(p){
+      const stop='event.stopPropagation();';
+      let h='<div style="display:flex;gap:3px;flex-wrap:wrap">';
+      h+='<button title="Mark Contacted" onclick="'+stop+'markContacted(\''+p.id+'\')" style="border:none;border-radius:6px;background:#166534;color:#fff;font-size:.66rem;font-weight:700;padding:3px 6px;cursor:pointer">✓ Contacted</button>';
+      if(p.business_email)h+='<a title="Email" href="mailto:'+esc(p.business_email)+'" onclick="'+stop+'" style="text-decoration:none;border:1px solid #cbd5e1;border-radius:6px;padding:3px 6px;font-size:.66rem">✉</a>';
+      if(p.business_phone)h+='<a title="Call" href="tel:'+esc(String(p.business_phone).replace(/[^0-9+]/g,''))+'" onclick="'+stop+'" style="text-decoration:none;border:1px solid #cbd5e1;border-radius:6px;padding:3px 6px;font-size:.66rem">☎</a>';
+      if(p.website)h+='<a title="Visit Website" href="'+esc(p.website)+'" target="_blank" rel="noopener" onclick="'+stop+'" style="text-decoration:none;border:1px solid #cbd5e1;border-radius:6px;padding:3px 6px;font-size:.66rem">🌐</a>';
+      if(p.source_url)h+='<a title="Source" href="'+esc(p.source_url)+'" target="_blank" rel="noopener" onclick="'+stop+'" style="text-decoration:none;border:1px solid #cbd5e1;border-radius:6px;padding:3px 6px;font-size:.66rem">🔎</a>';
+      return h+'</div>';
+    }
 
     async function loadProspects(){
       await initProspectControls();
@@ -406,59 +490,89 @@
       const g=id=>document.getElementById(id).value.trim();
       if(g('f-search'))q.set('search',g('f-search'));
       if(g('f-state'))q.set('state',g('f-state'));
-      if(g('f-tier'))q.set('tier',g('f-tier'));
+      if(g('f-biztype'))q.set('business_type',g('f-biztype'));
+      if(g('f-priority'))q.set('lead_priority',g('f-priority'));
       if(g('f-status'))q.set('contact_status',g('f-status'));
+      if(g('f-assigned'))q.set('assigned_rep_user_id',g('f-assigned'));
+      if(g('f-followup'))q.set('follow_up',g('f-followup'));
       if(document.getElementById('f-nowebsite').checked)q.set('no_website','true');
       if(document.getElementById('f-noauctions').checked)q.set('no_auctions','true');
       if(document.getElementById('f-hasemail').checked)q.set('has_email','true');
       if(document.getElementById('f-hasphone').checked)q.set('has_phone','true');
+      if(QUICK.not_contacted)q.set('not_contacted','true');
+      if(QUICK.actionable)q.set('actionable','true');
+      q.set('exclude_dnc','true');
       document.getElementById('prospects-msg').textContent='Loading...';
       const r=await api('GET','/api/admin/sales/prospects?'+q.toString());
       const rows=r.data||[];
-      document.getElementById('prospects-msg').textContent=rows.length?'':'No prospects match. Add one, or import a verified dataset (see toolbox).';
-      document.getElementById('prospects-body').innerHTML=rows.map(p=>
-        '<tr class="click" onclick="openDrawer(\''+p.id+'\')">'+
-        '<td><strong>'+esc(p.company_name)+'</strong>'+(p.website?'':' <span class="pill">no site</span>')+'</td>'+
+      document.getElementById('prospects-msg').textContent=rows.length?(rows.length+' prospect'+(rows.length===1?'':'s')):'No prospects match these filters.';
+      document.getElementById('prospects-body').innerHTML=rows.map(p=>{
+        const contact=p.business_phone?esc(p.business_phone):(p.business_email?esc(p.business_email):'<span class="flag-unk">no contact</span>');
+        const fu=p.next_follow_up_at?('<div style="font-size:.66rem;color:#b45309">↻ '+String(p.next_follow_up_at).slice(0,10)+'</div>'):'';
+        return '<tr class="click" onclick="openDrawer(\''+p.id+'\')">'+
+        '<td><strong>'+esc(p.company_name)+'</strong>'+(p.website?'':' <span class="pill">no site</span>')+fu+'</td>'+
         '<td>'+esc([p.city,p.state].filter(Boolean).join(', '))+'</td>'+
-        '<td><span class="tier t'+(p.prospect_tier||3)+'">'+esc((p.tier_label||'').replace('Tier ',''))+'</span></td>'+
-        '<td>'+(p.lead_score==null?'':p.lead_score)+'</td>'+
+        '<td style="font-size:.72rem">'+esc(p.business_type_label||'—')+'</td>'+
+        '<td>'+prioBadge(p.lead_priority)+'</td>'+
         '<td>'+flag(p.independent_website,true)+'</td>'+
         '<td>'+flag(p.online_auctions_offered,true)+'</td>'+
-        '<td>'+esc(p.contact_status_label||'')+'</td>'+
-        '<td>'+(p.business_phone?esc(p.business_phone):'<span class="flag-unk">'+(p.business_email?esc(p.business_email):'not found')+'</span>')+'</td>'+
-        '</tr>').join('');
+        '<td style="font-size:.72rem">'+esc(p.contact_status_label||'')+'</td>'+
+        '<td style="font-size:.72rem">'+contact+'</td>'+
+        '<td style="font-size:.68rem">'+esc(p.assigned_rep_email?p.assigned_rep_email.split('@')[0]:'—')+'</td>'+
+        '<td>'+actionBtns(p)+'</td>'+
+        '</tr>';}).join('');
+    }
+
+    async function markContacted(id){
+      try{ await api('POST','/api/admin/sales/prospects/'+id+'/contacted',{}); loadStats(); loadProspects(); }
+      catch(e){ alert('Failed: '+e.message); }
+    }
+    async function markContactedDrawer(){ if(!EDIT_ID)return; await markContacted(EDIT_ID); openDrawer(EDIT_ID); }
+
+    function suggestedOutreach(p){
+      const map={both:'"No Website" Pitch + Online Auction Pitch',website:'"No Website" Pitch',online_auction:'Add Online Auctions Pitch',general:'Estate Sale / Auction House Pitch'};
+      let s=map[p.opportunity_type]||'General Professional Seller Pitch';
+      if(p.business_type==='estate_sale_company')s='Estate Sale Company Pitch — '+s;
+      else if(p.business_type==='auction_house')s='Auction House Pitch — '+s;
+      return s;
     }
 
     function openDrawer(id){
       EDIT_ID=id||null;
+      initProspectControls().then(()=>{
       document.getElementById('drawer').style.display='block';
       document.getElementById('drawer-title').textContent=id?'Edit Prospect':'New Prospect';
-      document.getElementById('drawer-msg').textContent='';
+      document.getElementById('drawer-msg').textContent='';document.getElementById('d-suggested').textContent='';
       document.getElementById('notes-wrap').style.display=id?'block':'none';
       const set=(k,v)=>{document.getElementById(k).value=v||'';};
-      if(!id){['d-company','d-city','d-state','d-zip','d-area','d-phone','d-email','d-website','d-social','d-platform','d-source','d-followup'].forEach(k=>set(k,''));
-        document.getElementById('d-webstatus').value='unknown';document.getElementById('d-indie').value='unknown';document.getElementById('d-estate').value='yes';document.getElementById('d-auction').value='unknown';document.getElementById('d-status').value='new_lead';document.getElementById('drawer-score').textContent='';return;}
+      if(!id){['d-company','d-city','d-state','d-zip','d-area','d-phone','d-email','d-website','d-social','d-platform','d-source','d-contactsource','d-followup'].forEach(k=>set(k,''));
+        document.getElementById('d-webstatus').value='unknown';document.getElementById('d-indie').value='unknown';document.getElementById('d-estate').value='yes';document.getElementById('d-auction').value='unknown';document.getElementById('d-status').value='new_lead';document.getElementById('d-biztype').value='';document.getElementById('d-priority').value='';document.getElementById('d-assigned').value='';document.getElementById('drawer-score').textContent='';return;}
       api('GET','/api/admin/sales/prospects/'+id).then(r=>{const p=r.data;if(!p)return;
         set('d-company',p.company_name);set('d-city',p.city);set('d-state',p.state);set('d-zip',p.zip);set('d-area',p.service_area);
         set('d-phone',p.business_phone);set('d-email',p.business_email);set('d-website',p.website);set('d-social',p.social_url);
-        set('d-platform',p.auction_platform_used);set('d-source',p.source_url);
+        set('d-platform',p.auction_platform_used);set('d-source',p.source_url);set('d-contactsource',p.contact_source);
         document.getElementById('d-webstatus').value=p.website_status||'unknown';document.getElementById('d-indie').value=p.independent_website||'unknown';
         document.getElementById('d-estate').value=p.estate_sales_offered||'unknown';document.getElementById('d-auction').value=p.online_auctions_offered||'unknown';
-        document.getElementById('d-status').value=p.contact_status||'new_lead';
+        document.getElementById('d-status').value=p.contact_status||'new_lead';document.getElementById('d-biztype').value=p.business_type||'';
+        document.getElementById('d-priority').value=p.priority_locked?(p.lead_priority||''):'';document.getElementById('d-assigned').value=p.assigned_rep_user_id||'';
         set('d-followup',p.next_follow_up_at?String(p.next_follow_up_at).slice(0,10):'');
-        document.getElementById('drawer-score').textContent=(p.tier_label||'')+' | score '+(p.lead_score==null?'?':p.lead_score);
+        document.getElementById('drawer-score').textContent=(p.lead_priority_label||'')+' priority · '+(p.tier_label||'')+' · score '+(p.lead_score==null?'?':p.lead_score)+(p.is_actionable?' · actionable':' · NOT actionable (no phone/email)');
+        document.getElementById('d-suggested').innerHTML='<b>Suggested outreach:</b> '+esc(suggestedOutreach(p))+' — see the <a href="#" onclick="showTab(\'playbook\');return false;">Scripts & Playbook</a> tab.'+(p.contact_source?('<br><span class="muted">Contact source: '+esc(p.contact_source)+'</span>'):'')+(p.last_contacted_by_email?('<br><span class="muted">Last contacted by '+esc(p.last_contacted_by_email.split('@')[0])+'</span>'):'');
         renderNotes(p.notes||[]);
+      });
       });
     }
     function closeDrawer(){document.getElementById('drawer').style.display='none';}
 
     function drawerPayload(){
       const g=id=>document.getElementById(id).value.trim();
+      const gp=id=>document.getElementById(id).value;
       return {company_name:g('d-company'),city:g('d-city'),state:g('d-state'),zip:g('d-zip'),service_area:g('d-area'),
-        business_phone:g('d-phone'),business_email:g('d-email'),website:g('d-website'),website_status:document.getElementById('d-webstatus').value,
-        social_url:g('d-social'),independent_website:document.getElementById('d-indie').value,estate_sales_offered:document.getElementById('d-estate').value,
-        online_auctions_offered:document.getElementById('d-auction').value,auction_platform_used:g('d-platform'),source_url:g('d-source'),
-        contact_status:document.getElementById('d-status').value,next_follow_up_at:g('d-followup')||null};
+        business_phone:g('d-phone'),business_email:g('d-email'),website:g('d-website'),website_status:gp('d-webstatus'),
+        social_url:g('d-social'),independent_website:gp('d-indie'),estate_sales_offered:gp('d-estate'),
+        online_auctions_offered:gp('d-auction'),auction_platform_used:g('d-platform'),source_url:g('d-source'),contact_source:g('d-contactsource'),
+        business_type:gp('d-biztype')||null,lead_priority:gp('d-priority')||null,assigned_rep_user_id:gp('d-assigned')||null,
+        contact_status:gp('d-status'),next_follow_up_at:g('d-followup')||null};
     }
     async function saveProspect(){
       const body=drawerPayload();
