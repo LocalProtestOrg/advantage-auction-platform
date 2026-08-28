@@ -161,7 +161,7 @@ describe('Phase 4E — professional-first navigation ordering', () => {
     // Administration is no longer here — it is pinned to the top section (see visibleSectionsFor).
     const ready = Nav.visibleSectionsFor({ role: 'buyer', mode: 'buying', isEventOrganizer: true, sellerReady: true, isBdMember: true, businessAdminUrl: 'x' });
     const pro = ready.find((s) => s.heading === 'Professional Marketplace');
-    expect(pro.items.map((i) => i.id)).toEqual(['events', 'createEvent', 'storefront', 'createAuction', 'sell']);
+    expect(pro.items.map((i) => i.id)).toEqual(['events', 'createEvent', 'storefront', 'mpOrders', 'createAuction', 'sell']);
   });
   test('Business Administration is the FIRST item across experiences (buyer, professional, admin)', () => {
     const first = (ctx) => (Nav.visibleNavFor(ctx)[0] || {}).id;

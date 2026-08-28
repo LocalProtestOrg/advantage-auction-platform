@@ -1390,6 +1390,16 @@ class PaymentService {
   async _dispatchWebhookEvent(event) {
     const obj = event.data.object;
 
+    // ── Fixed-price Marketplace orders (Buy Now). These reuse THIS same signature-verified + idempotent
+    // pipeline — no second webhook endpoint. Routed by metadata.product_type so auction PaymentIntents are
+    // untouched. Lazy-required to avoid a require cycle. ──
+    if ((event.type === 'payment_intent.succeeded'
+        || event.type === 'payment_intent.payment_failed'
+        || event.type === 'payment_intent.canceled')
+        && obj && obj.metadata && obj.metadata.product_type === 'marketplace_order') {
+      return require('./marketplaceOrderService').handleIntentEvent(event.type, obj);
+    }
+
     if (event.type === 'payment_intent.succeeded') {
       return this._handlePaymentIntentSucceeded(obj);
     }
@@ -1400,6 +1410,10 @@ class PaymentService {
       return this._handlePaymentIntentCanceled(obj);
     }
     if (event.type === 'charge.refunded') {
+      // A Dashboard/out-of-band refund on a Marketplace charge reconciles to the marketplace order first;
+      // if it is not one of ours, fall through to the auction refund reconcile.
+      const handled = await require('./marketplaceOrderService').tryHandleChargeRefunded(obj);
+      if (handled) return;
       return this._handleChargeRefunded(obj);
     }
 

@@ -6,6 +6,7 @@
   <title>Marketplace Item · Advantage.Bid</title>
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
   <link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@600;700&family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <script src="https://js.stripe.com/v3/"></script>
   <style>
     *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
     body{font-family:Inter,-apple-system,sans-serif;color:#0f172a;background:#f6f8fb}
@@ -19,32 +20,76 @@
     h1{font-family:Fraunces,serif;font-size:28px;line-height:1.15}
     .price{font-family:Fraunces;font-size:34px;font-weight:700;margin:12px 0}
     .pill{display:inline-block;font-size:12px;font-weight:700;border-radius:999px;padding:3px 10px;background:#eef2ff;color:#3730a3;margin-right:6px}
+    .pill-sold{background:#fee2e2;color:#991b1b}
     .card{background:#fff;border:1px solid #e6eaef;border-radius:14px;padding:20px}
     .btn{display:inline-flex;align-items:center;gap:7px;border:none;border-radius:10px;padding:12px 20px;font-weight:700;font-size:15px;cursor:pointer;font-family:inherit;text-decoration:none}
     .btn-primary{background:#2563eb;color:#fff}.btn-ghost{background:#fff;color:#0f172a;border:1px solid #e6eaef}
+    .btn[disabled]{opacity:.5;cursor:not-allowed}
     .desc{white-space:pre-line;color:#334155;margin-top:14px;line-height:1.6}
     .meta{color:#64748b;font-size:14px;margin:6px 0}
     .crumb{color:#64748b;font-size:13px;margin-bottom:14px}
+    label{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}
+    input,select{width:100%;padding:9px 11px;border:1px solid #d7dde5;border-radius:8px;font-family:inherit;font-size:14px}
+    .row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+    .lines{width:100%;border-collapse:collapse;margin:6px 0}
+    .lines td{padding:4px 0;font-size:14px}
+    .lines .tot td{border-top:1px solid #e2e8f0;padding-top:8px;font-weight:800;font-size:16px}
+    #card-el{padding:11px;border:1px solid #d7dde5;border-radius:8px;background:#fff}
+    .err{color:#b91c1c;font-size:13px;margin-top:8px}
+    .ok{color:#166534}
+    .modal{position:fixed;inset:0;background:rgba(15,23,42,.5);display:none;align-items:flex-start;justify-content:center;padding:24px;overflow:auto;z-index:50}
+    .modal.on{display:flex}
+    .sheet{background:#fff;border-radius:16px;max-width:460px;width:100%;padding:22px;margin-top:24px}
+    .sheet h3{font-family:Fraunces;font-size:20px;margin-bottom:4px}
   </style>
 </head>
 <body>
   <div class="wrap" id="app"><p style="color:#64748b">Loading…</p></div>
+  <div class="modal" id="modal"><div class="sheet" id="sheet"></div></div>
   <script>
     var ID=new URLSearchParams(location.search).get('id')||'';
+    var token=localStorage.getItem('token')||'';
+    var CFG={checkout_enabled:false,stripe_publishable_key:null};
+    var ITEM=null, ORDER=null, stripe=null, cardEl=null;
     function esc(s){return (s==null?'':String(s)).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
-    function money(c){return '$'+((c||0)/100).toLocaleString(undefined,{minimumFractionDigits:0});}
-    fetch('/api/public/storefront/item/'+encodeURIComponent(ID)).then(function(r){return r.json();}).then(function(res){
+    function money(c){return '$'+((c||0)/100).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});}
+    function uuid(){return (crypto&&crypto.randomUUID)?crypto.randomUUID():('mo-'+Date.now()+'-'+Math.round(Math.random()*1e9));}
+    function authHdr(){return token?{Authorization:'Bearer '+token}:{}; }
+
+    Promise.all([
+      fetch('/api/public/storefront/item/'+encodeURIComponent(ID)).then(function(r){return r.json();}),
+      fetch('/api/marketplace/config',{headers:authHdr()}).then(function(r){return r.json();}).catch(function(){return {};})
+    ]).then(function(a){
+      var res=a[0]; if(a[1]&&a[1].data)CFG=a[1].data;
       if(!res.success){document.getElementById('app').innerHTML='<h1>Item not available</h1><p class="meta">This item may have sold or been removed.</p><p style="margin-top:16px"><a class="btn btn-primary" href="/">Explore Advantage.Bid</a></p>';return;}
-      var it=res.data;render(it);
+      ITEM=res.data;render();
     }).catch(function(){document.getElementById('app').textContent='Unable to load item.';});
-    function render(it){
+
+    function render(){
+      var it=ITEM;
       document.title=it.title+' · Advantage.Bid';
       var imgs=(it.images&&it.images.length?it.images:(it.thumbnail_url?[it.thumbnail_url]:[]));
       var main=imgs[0]?('<img id="main" src="'+esc(imgs[0])+'" alt="'+esc(it.title)+'">'):'<div style="aspect-ratio:4/3;background:#eef2f7;border-radius:14px"></div>';
       var thumbs=imgs.length>1?('<div class="thumbs">'+imgs.map(function(u){return '<img src="'+esc(u)+'" onclick="document.getElementById(\'main\').src=this.src" alt="thumbnail">';}).join('')+'</div>'):'';
       var loc=[it.city,it.state].filter(Boolean).join(', ');
       var sellerLink=it.storefront_slug?('<a href="/pro/'+esc(it.storefront_slug)+'">'+esc(it.seller_name)+'</a>'):esc(it.seller_name);
-      var jsonld={'@context':'https://schema.org','@type':'Product',name:it.title,image:imgs,description:it.description||undefined,offers:{'@type':'Offer',price:((it.price_cents||0)/100).toFixed(2),priceCurrency:'USD',availability:'https://schema.org/InStock'}};
+      var jsonld={'@context':'https://schema.org','@type':'Product',name:it.title,image:imgs,description:it.description||undefined,offers:{'@type':'Offer',price:((it.price_cents||0)/100).toFixed(2),priceCurrency:'USD',availability:it.status==='active'?'https://schema.org/InStock':'https://schema.org/SoldOut'}};
+
+      var status=it.status||'active';
+      var buyBox;
+      if(status==='sold'){
+        buyBox='<div class="card" style="margin:16px 0"><span class="pill pill-sold">SOLD</span><p class="meta" style="margin:10px 0 0">This item has been sold.</p></div>';
+      } else if(status==='pending_purchase'){
+        buyBox='<div class="card" style="margin:16px 0"><span class="pill">Sale in progress</span><p class="meta" style="margin:10px 0 0">This item is temporarily unavailable while another buyer completes checkout. Check back shortly.</p></div>';
+      } else if(CFG.checkout_enabled){
+        buyBox='<div class="card" style="margin:16px 0"><div style="font-weight:700;margin-bottom:8px">Buy this item</div>'+
+          '<p class="meta" style="margin:0 0 12px">Secure checkout through Advantage.Bid. '+(it.shippable?'Shipping or local pickup.':'Local pickup.')+'</p>'+
+          '<button class="btn btn-primary" id="buyNow">Buy Now · '+money(it.price_cents)+'</button>'+
+          (it.storefront_slug?' <a class="btn btn-ghost" href="/pro/'+esc(it.storefront_slug)+'#contact">Contact Seller</a>':'')+'</div>';
+      } else {
+        buyBox='<div class="card" style="margin:16px 0"><div style="font-weight:700;margin-bottom:8px">Interested in this item?</div><p class="meta" style="margin:0 0 12px">Contact '+esc(it.seller_name)+' to purchase or ask questions.</p>'+(it.storefront_slug?'<a class="btn btn-primary" href="/pro/'+esc(it.storefront_slug)+'#contact">Contact Seller</a>':'')+'</div>';
+      }
+
       document.getElementById('app').innerHTML=
         '<div class="crumb"><a href="/">Advantage.Bid</a> › Marketplace › '+sellerLink+'</div>'+
         '<div class="grid"><div class="gallery">'+main+thumbs+'</div>'+
@@ -52,10 +97,118 @@
         '<div class="price">'+money(it.price_cents)+'</div>'+
         '<div style="margin:8px 0">'+(it.condition?'<span class="pill">'+esc(it.condition)+'</span>':'')+(it.shippable?'<span class="pill">Shipping available</span>':'<span class="pill">Local pickup</span>')+(it.source_lot_id?'<span class="pill">Previously at auction</span>':'')+'</div>'+
         (loc?'<div class="meta">📍 '+esc(loc)+'</div>':'')+
-        '<div class="card" style="margin:16px 0"><div style="font-weight:700;margin-bottom:8px">Interested in this item?</div><p class="meta" style="margin:0 0 12px">Contact '+esc(it.seller_name)+' to purchase or ask questions.</p>'+(it.storefront_slug?'<a class="btn btn-primary" href="/pro/'+esc(it.storefront_slug)+'#contact">Contact Seller</a>':'')+'</div>'+
+        buyBox+
         (it.description?'<div class="desc">'+esc(it.description)+'</div>':'')+
         '</div></div>'+
         '<script type="application/ld+json">'+JSON.stringify(jsonld).replace(/</g,'\\u003c')+'<\/script>';
+      var b=document.getElementById('buyNow'); if(b)b.addEventListener('click',startCheckout);
+    }
+
+    function openModal(html){document.getElementById('sheet').innerHTML=html;document.getElementById('modal').classList.add('on');}
+    function closeModal(){document.getElementById('modal').classList.remove('on');}
+
+    function startCheckout(){
+      if(!token){location.href='/login.html?next='+encodeURIComponent(location.pathname+location.search);return;}
+      var it=ITEM;
+      var methodSel=it.shippable?
+        '<label>Fulfillment</label><select id="fm"><option value="pickup">Local pickup</option><option value="shipping">Shipping</option></select>':
+        '<input type="hidden" id="fm" value="pickup"><div class="meta">Local pickup only</div>';
+      openModal(
+        '<h3>Checkout</h3><div class="meta">'+esc(it.title)+' · '+money(it.price_cents)+'</div>'+
+        methodSel+
+        '<div id="addrWrap"></div>'+
+        '<div class="err" id="coErr"></div>'+
+        '<div style="margin-top:16px;display:flex;gap:8px"><button class="btn btn-primary" id="toReview">Continue</button><button class="btn btn-ghost" id="coCancel">Cancel</button></div>'
+      );
+      document.getElementById('coCancel').addEventListener('click',closeModal);
+      var fm=document.getElementById('fm');
+      function renderAddr(){
+        var shipping=(fm.value==='shipping');
+        document.getElementById('addrWrap').innerHTML=
+          '<label>'+(shipping?'Shipping / billing address':'Billing address (for tax)')+'</label>'+
+          '<input id="a_name" placeholder="Full name">'+
+          '<input id="a_line1" placeholder="Address line 1" style="margin-top:8px">'+
+          '<input id="a_line2" placeholder="Address line 2 (optional)" style="margin-top:8px">'+
+          '<div class="row" style="margin-top:8px"><input id="a_city" placeholder="City"><input id="a_state" placeholder="State" maxlength="2"></div>'+
+          '<div class="row" style="margin-top:8px"><input id="a_zip" placeholder="ZIP"><input id="a_country" placeholder="Country" value="US"></div>';
+      }
+      renderAddr(); if(fm.tagName==='SELECT')fm.addEventListener('change',renderAddr);
+      document.getElementById('toReview').addEventListener('click',toReview);
+    }
+
+    function collectAddr(){
+      function v(id){return (document.getElementById(id)||{}).value||'';}
+      return {name:v('a_name'),line1:v('a_line1'),line2:v('a_line2'),city:v('a_city'),state:v('a_state'),postal_code:v('a_zip'),country:v('a_country')||'US'};
+    }
+
+    function toReview(){
+      var it=ITEM, method=document.getElementById('fm').value, addr=collectAddr();
+      var errEl=document.getElementById('coErr'); errEl.textContent='';
+      document.getElementById('toReview').disabled=true;
+      fetch('/api/marketplace/orders/quote',{method:'POST',headers:Object.assign({'Content-Type':'application/json'},authHdr()),
+        body:JSON.stringify({item_id:it.id,fulfillment_method:method,address:addr})})
+        .then(function(r){return r.json();}).then(function(res){
+          document.getElementById('toReview').disabled=false;
+          if(!res.success){errEl.textContent=res.message||'Could not calculate your order.';return;}
+          showReview(res.data,method,addr);
+        }).catch(function(){document.getElementById('toReview').disabled=false;errEl.textContent='Network error.';});
+    }
+
+    function showReview(q,method,addr){
+      var b=q.breakdown;
+      var lines='<table class="lines">'+
+        '<tr><td>Item</td><td align="right">'+money(b.item_price_cents)+'</td></tr>'+
+        (b.shipping_cents>0?'<tr><td>Shipping</td><td align="right">'+money(b.shipping_cents)+'</td></tr>':'')+
+        (b.tax_cents>0?'<tr><td>Sales tax</td><td align="right">'+money(b.tax_cents)+'</td></tr>':(q.tax_enabled?'<tr><td>Sales tax</td><td align="right">'+money(0)+'</td></tr>':''))+
+        '<tr class="tot"><td>Total</td><td align="right">'+money(b.total_charge_cents)+'</td></tr></table>';
+      openModal('<h3>Review your order</h3><div class="meta">'+esc(ITEM.title)+' · '+(method==='shipping'?'Shipping':'Local pickup')+'</div>'+
+        lines+
+        '<label>Card details</label><div id="card-el"></div>'+
+        '<div class="err" id="payErr"></div>'+
+        '<div style="margin-top:16px;display:flex;gap:8px"><button class="btn btn-primary" id="payBtn">Pay '+money(b.total_charge_cents)+'</button><button class="btn btn-ghost" id="payCancel">Back</button></div>'+
+        '<p class="meta" style="margin-top:10px;font-size:12px">You will be charged by Advantage.Bid. The seller receives their proceeds after fulfillment.</p>');
+      document.getElementById('payCancel').addEventListener('click',startCheckout);
+      if(!CFG.stripe_publishable_key){document.getElementById('payErr').textContent='Payments are not configured.';return;}
+      stripe=Stripe(CFG.stripe_publishable_key);
+      var elements=stripe.elements();
+      cardEl=elements.create('card'); cardEl.mount('#card-el');
+      document.getElementById('payBtn').addEventListener('click',function(){pay(method,addr);});
+    }
+
+    function pay(method,addr){
+      var payBtn=document.getElementById('payBtn'), errEl=document.getElementById('payErr');
+      errEl.textContent=''; payBtn.disabled=true; payBtn.textContent='Processing…';
+      var body={item_id:ITEM.id,fulfillment_method:method,address:addr};
+      if(method==='shipping')body.ship_to=addr;
+      fetch('/api/marketplace/orders',{method:'POST',headers:Object.assign({'Content-Type':'application/json','Idempotency-Key':uuid()},authHdr()),body:JSON.stringify(body)})
+        .then(function(r){return r.json();}).then(function(res){
+          if(!res.success){payBtn.disabled=false;payBtn.textContent='Try again';errEl.textContent=res.message||'Could not start payment.';return;}
+          ORDER=res.data.order;
+          return stripe.confirmCardPayment(res.data.client_secret,{payment_method:{card:cardEl}}).then(function(cr){
+            if(cr.error){payBtn.disabled=false;payBtn.textContent='Try again';errEl.textContent=cr.error.message||'Payment failed.';return;}
+            pollOrder(ORDER.id,0);
+          });
+        }).catch(function(){payBtn.disabled=false;payBtn.textContent='Try again';errEl.textContent='Network error.';});
+    }
+
+    function pollOrder(orderId,tries){
+      fetch('/api/marketplace/orders/'+encodeURIComponent(orderId),{headers:authHdr()}).then(function(r){return r.json();}).then(function(res){
+        var o=res.data;
+        if(o&&o.payment_status==='paid'){return confirmed(o);}
+        if(tries>20){return confirmed(o,true);}
+        setTimeout(function(){pollOrder(orderId,tries+1);},1500);
+      }).catch(function(){setTimeout(function(){pollOrder(orderId,tries+1);},1500);});
+    }
+
+    function confirmed(o,slow){
+      var next=(o&&o.fulfillment_method==='shipping')?'The seller will prepare and ship your item.':'The seller will prepare your item and mark it ready for pickup.';
+      openModal('<h3 class="ok">✓ Order confirmed</h3>'+
+        '<div class="meta">Order '+esc(o?o.order_number:'')+'</div>'+
+        '<p style="margin:12px 0"><b>'+esc(ITEM.title)+'</b></p>'+
+        (o?'<table class="lines"><tr class="tot"><td>Paid</td><td align="right">'+money(o.total_charge_cents)+'</td></tr></table>':'')+
+        '<p class="meta" style="margin:10px 0">'+esc(next)+'</p>'+
+        (slow?'<p class="meta">Your payment is processing. You will see it in your purchases shortly.</p>':'')+
+        '<div style="margin-top:16px;display:flex;gap:8px"><a class="btn btn-primary" href="/marketplace-purchases.html">My Purchases</a><button class="btn btn-ghost" onclick="location.reload()">Done</button></div>');
     }
   </script>
 </body>

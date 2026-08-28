@@ -172,10 +172,14 @@ async function listPublicForSeller(sellerId, limit = 200, runner = db) {
   return rows;
 }
 async function getPublicItem(id, runner = db) {
+  // Public statuses: 'active' (purchasable), 'pending_purchase' (temporarily held during a checkout),
+  // and 'sold' (shown as SOLD). 'draft'/'removed' remain non-public (404). The item page reads status
+  // to decide Buy Now vs. SOLD vs. temporarily-unavailable.
   const { rows } = await runner.query(
-    `SELECT mi.*, sp.storefront_slug, COALESCE(sp.display_name, sp.metadata->>'display_name', sp.metadata->>'business_name') AS seller_name
+    `SELECT mi.*, sp.storefront_slug,
+            COALESCE(sp.display_name, sp.metadata->>'display_name', sp.metadata->>'business_name') AS seller_name
        FROM marketplace_items mi JOIN seller_profiles sp ON sp.id = mi.seller_id
-      WHERE mi.id = $1 AND mi.status = 'active'`, [id]);
+      WHERE mi.id = $1 AND mi.status IN ('active','pending_purchase','sold')`, [id]);
   return rows[0] || null;
 }
 // For the closed-lot "now in Marketplace" banner.

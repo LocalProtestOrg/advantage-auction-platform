@@ -32,4 +32,13 @@ function stripeConnectEnabled(env = process.env) {
   return !!(env && env.STRIPE_CONNECT_ENABLED === 'true');
 }
 
-module.exports = { isInvoicePaid, sellerSettlementsEnabled, combinedInvoicingEnabled, stripeConnectEnabled };
+// Fixed-price Marketplace Buy Now checkout is OFF unless MARKETPLACE_CHECKOUT_ENABLED is exactly 'true'.
+// Default (unset) = disabled: the public item page keeps the "Contact Seller" path and the checkout API
+// refuses to create orders/PaymentIntents. Deploying the commerce code changes nothing for real buyers
+// until the owner sets this flag. Stripe LIVE is a SEPARATE gate (STRIPE_SECRET_KEY mode) — this flag
+// never activates live money on its own.
+function marketplaceCheckoutEnabled(env = process.env) {
+  return !!(env && env.MARKETPLACE_CHECKOUT_ENABLED === 'true');
+}
+
+module.exports = { isInvoicePaid, sellerSettlementsEnabled, combinedInvoicingEnabled, stripeConnectEnabled, marketplaceCheckoutEnabled };

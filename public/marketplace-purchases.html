@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>My Marketplace Purchases · Advantage.Bid</title>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@600;700&family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:Inter,-apple-system,sans-serif;color:#0f172a;background:#f6f8fb}
+    .wrap{max-width:860px;margin:0 auto;padding:24px 18px}
+    a{color:#2563eb;text-decoration:none}
+    h1{font-family:Fraunces,serif;font-size:26px;margin-bottom:4px}
+    .sub{color:#64748b;font-size:14px;margin-bottom:18px}
+    .order{background:#fff;border:1px solid #e6eaef;border-radius:14px;padding:16px 18px;margin-bottom:14px;display:flex;gap:14px}
+    .order img{width:76px;height:76px;object-fit:cover;border-radius:10px;border:1px solid #e6eaef;background:#eef2f7}
+    .t{font-weight:700}
+    .pill{display:inline-block;font-size:12px;font-weight:700;border-radius:999px;padding:3px 10px;margin-right:6px}
+    .pill-paid{background:#dcfce7;color:#166534}.pill-refunded{background:#fee2e2;color:#991b1b}
+    .pill-ful{background:#eef2ff;color:#3730a3}
+    .meta{color:#64748b;font-size:13px;margin:3px 0}
+    .money{font-family:Fraunces;font-weight:700}
+    .err{color:#b91c1c;font-size:13px}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>My Marketplace Purchases</h1>
+    <div class="sub">Fixed-price items you've purchased through Advantage.Bid.</div>
+    <div id="list"><p class="meta">Loading…</p></div>
+  </div>
+  <script>
+    var token=localStorage.getItem('token')||'';
+    function esc(s){return (s==null?'':String(s)).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
+    function money(c){return '$'+((c||0)/100).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});}
+    function dt(v){try{return new Date(v).toLocaleDateString();}catch(e){return '';}}
+    if(!token){location.href='/login.html?next=/marketplace-purchases.html';}
+
+    fetch('/api/marketplace/orders/mine',{headers:{Authorization:'Bearer '+token}}).then(function(r){return r.json();}).then(function(res){
+      if(!res.success){document.getElementById('list').innerHTML='<p class="err">'+esc(res.message||'Could not load purchases.')+'</p>';return;}
+      var rows=res.data||[];
+      if(!rows.length){document.getElementById('list').innerHTML='<p class="meta">You have no Marketplace purchases yet. <a href="/">Explore the Marketplace</a></p>';return;}
+      document.getElementById('list').innerHTML=rows.map(card).join('');
+    }).catch(function(){document.getElementById('list').innerHTML='<p class="err">Network error.</p>';});
+
+    function card(o){
+      var pay=o.refund_status==='refunded'?'<span class="pill pill-refunded">Refunded</span>':'<span class="pill pill-paid">Paid</span>';
+      var ful='<span class="pill pill-ful">'+esc((o.fulfillment_status||'').replace(/_/g,' '))+'</span>';
+      var seller=o.storefront_slug?('<a href="/pro/'+esc(o.storefront_slug)+'">'+esc(o.seller_name||'Seller')+'</a>'):esc(o.seller_name||'Seller');
+      var img=o.thumbnail_url?'<img src="'+esc(o.thumbnail_url)+'" alt="'+esc(o.item_title)+'">':'<div style="width:76px;height:76px;border-radius:10px;background:#eef2f7"></div>';
+      var track=o.tracking_number?('<div class="meta">Tracking: '+esc(o.tracking_carrier||'')+' '+esc(o.tracking_number)+'</div>'):'';
+      return '<div class="order">'+img+'<div style="flex:1"><div class="t">'+esc(o.item_title||'Item')+'</div>'+
+        '<div class="meta">Sold by '+seller+'</div>'+
+        '<div class="meta">Order '+esc(o.order_number)+' · '+dt(o.created_at)+' · '+(o.fulfillment_method==='shipping'?'Shipping':'Local pickup')+'</div>'+
+        track+
+        '<div style="margin-top:6px">'+pay+ful+'</div></div>'+
+        '<div style="text-align:right"><div class="money">'+money(o.total_charge_cents)+'</div></div></div>';
+    }
+  </script>
+</body>
+</html>

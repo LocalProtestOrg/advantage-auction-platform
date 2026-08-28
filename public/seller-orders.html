@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Marketplace Orders · Advantage.Bid</title>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@600;700&family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:Inter,-apple-system,sans-serif;color:#0f172a;background:#f6f8fb}
+    .wrap{max-width:960px;margin:0 auto;padding:24px 18px}
+    a{color:#2563eb;text-decoration:none}
+    h1{font-family:Fraunces,serif;font-size:26px;margin-bottom:4px}
+    .sub{color:#64748b;font-size:14px;margin-bottom:18px}
+    .order{background:#fff;border:1px solid #e6eaef;border-radius:14px;padding:16px 18px;margin-bottom:14px}
+    .top{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap}
+    .t{font-weight:700}
+    .pill{display:inline-block;font-size:12px;font-weight:700;border-radius:999px;padding:3px 10px;margin-right:6px}
+    .pill-paid{background:#dcfce7;color:#166534}.pill-refunded{background:#fee2e2;color:#991b1b}
+    .pill-ful{background:#eef2ff;color:#3730a3}.pill-elig{background:#fef9c3;color:#854d0e}
+    .meta{color:#64748b;font-size:13px;margin:3px 0}
+    .btn{border:none;border-radius:9px;padding:8px 14px;font-weight:700;font-size:13px;cursor:pointer;font-family:inherit;background:#2563eb;color:#fff;margin:6px 6px 0 0}
+    .btn-ghost{background:#fff;color:#0f172a;border:1px solid #e6eaef}
+    input{padding:7px 9px;border:1px solid #d7dde5;border-radius:7px;font-family:inherit;font-size:13px;margin:6px 6px 0 0}
+    .err{color:#b91c1c;font-size:13px}
+    .money{font-family:Fraunces;font-weight:700}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Marketplace Orders</h1>
+    <div class="sub">Fixed-price sales from your storefront. Advantage.Bid handles payment and settlement.</div>
+    <div id="list"><p class="meta">Loading…</p></div>
+  </div>
+  <script>
+    var token=localStorage.getItem('token')||'';
+    function esc(s){return (s==null?'':String(s)).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
+    function money(c){return '$'+((c||0)/100).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});}
+    function dt(v){try{return new Date(v).toLocaleDateString();}catch(e){return '';}}
+    function hdr(){return {Authorization:'Bearer '+token};}
+    if(!token){location.href='/login.html?next=/seller-orders.html';}
+
+    function load(){
+      fetch('/api/marketplace/seller/orders',{headers:hdr()}).then(function(r){return r.json();}).then(function(res){
+        if(!res.success){document.getElementById('list').innerHTML='<p class="err">'+esc(res.message||'Could not load orders.')+'</p>';return;}
+        var rows=res.data||[];
+        if(!rows.length){document.getElementById('list').innerHTML='<p class="meta">No Marketplace orders yet.</p>';return;}
+        document.getElementById('list').innerHTML=rows.map(card).join('');
+        rows.forEach(wire);
+      }).catch(function(){document.getElementById('list').innerHTML='<p class="err">Network error.</p>';});
+    }
+
+    function actions(o){
+      if(o.payment_status!=='paid')return '';
+      var a='';
+      if(o.fulfillment_method==='pickup'){
+        if(o.fulfillment_status==='unfulfilled')a+='<button class="btn" data-act="ready_for_pickup" data-id="'+o.id+'">Mark Ready for Pickup</button>';
+        if(o.fulfillment_status==='unfulfilled'||o.fulfillment_status==='ready_for_pickup')a+='<button class="btn" data-act="picked_up" data-id="'+o.id+'">Pickup Complete</button>';
+      } else {
+        if(o.fulfillment_status==='unfulfilled')a+='<input placeholder="Carrier" id="c_'+o.id+'"><input placeholder="Tracking #" id="t_'+o.id+'"><button class="btn" data-act="shipped" data-id="'+o.id+'">Mark Shipped</button>';
+        if(o.fulfillment_status==='shipped')a+='<button class="btn" data-act="complete" data-id="'+o.id+'">Mark Complete</button>';
+      }
+      return a;
+    }
+
+    function card(o){
+      var pay=o.refund_status==='refunded'?'<span class="pill pill-refunded">Refunded</span>':'<span class="pill pill-paid">Paid</span>';
+      var ful='<span class="pill pill-ful">'+esc((o.fulfillment_status||'').replace(/_/g,' '))+'</span>';
+      var elig=o.payout_eligible?'<span class="pill pill-elig">Payout eligible</span>':'';
+      var track=o.tracking_number?('<div class="meta">Tracking: '+esc(o.tracking_carrier||'')+' '+esc(o.tracking_number)+'</div>'):'';
+      return '<div class="order"><div class="top"><div>'+
+        '<div class="t">'+esc(o.item_title||'Item')+'</div>'+
+        '<div class="meta">Order '+esc(o.order_number)+' · '+dt(o.created_at)+' · '+(o.fulfillment_method==='shipping'?'Shipping':'Local pickup')+'</div>'+
+        '<div class="meta">Buyer: '+esc(o.buyer_name||'—')+(o.buyer_email?' · '+esc(o.buyer_email):'')+'</div>'+
+        (o.ship_to?'<div class="meta">Ship to: '+esc(JSON.stringify(o.ship_to).replace(/[{}"]/g,' '))+'</div>':'')+
+        track+
+        '</div><div style="text-align:right"><div class="money">'+money(o.item_price_cents)+'</div>'+
+        '<div class="meta">Your proceeds: '+money(o.seller_proceeds_cents)+'</div></div></div>'+
+        '<div style="margin-top:8px">'+pay+ful+elig+'</div>'+
+        '<div>'+actions(o)+'</div></div>';
+    }
+
+    function wire(o){
+      document.querySelectorAll('[data-id="'+o.id+'"]').forEach(function(btn){
+        btn.addEventListener('click',function(){
+          var act=btn.getAttribute('act')||btn.getAttribute('data-act');
+          var body={action:act};
+          if(act==='shipped'){body.tracking_carrier=(document.getElementById('c_'+o.id)||{}).value||'';body.tracking_number=(document.getElementById('t_'+o.id)||{}).value||'';}
+          btn.disabled=true;
+          fetch('/api/marketplace/seller/orders/'+o.id+'/fulfillment',{method:'POST',headers:Object.assign({'Content-Type':'application/json'},hdr()),body:JSON.stringify(body)})
+            .then(function(r){return r.json();}).then(function(res){if(!res.success){alert(res.message||'Could not update.');btn.disabled=false;}else load();})
+            .catch(function(){alert('Network error.');btn.disabled=false;});
+        });
+      });
+    }
+    load();
+  </script>
+</body>
+</html>

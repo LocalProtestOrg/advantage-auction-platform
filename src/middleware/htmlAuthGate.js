@@ -40,10 +40,12 @@ const MEMBER_PAGES = new Set([
   '/payment.html', '/auction.html', '/account.html', '/watchlist.html', '/dashboard.html',
   '/appraiser-welcome.html', // post-checkout onboarding (any signed-in member)
   '/estate-sale-welcome.html', '/create-estate-sale.html', '/my-estate-sales.html', // Estate Sale Promotion (any signed-in member)
+  '/marketplace-purchases.html', // buyer's fixed-price Marketplace purchases (any signed-in member)
 ]);
 const SELLER_PAGES = new Set([
   '/seller-create.html', '/seller-dashboard.html', '/lot-builder.html',
   '/seller-settlements.html', '/payout-profile.html',
+  '/seller-orders.html', // Professional Seller Marketplace orders + fulfillment
 ]);
 // Directory prefixes → allowed roles. Only .html (or the bare dir) is gated; JS/CSS assets under
 // these dirs are non-sensitive UI code and are served normally.

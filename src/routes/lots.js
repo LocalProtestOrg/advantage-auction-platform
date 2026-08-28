@@ -745,6 +745,16 @@ router.get('/:lotId', optionalAuth, async (req, res, next) => {
         viewerMaxCents = pm.rows[0] ? pm.rows[0].max_amount_cents : null;
       } catch (e) { console.error('[lots] viewer proxy-max fetch failed', e.message); }
     }
+    // Closed-auction recovery link (Part 16): a lot that went UNSOLD (no winner — includes reserve-not-met)
+    // and is now an ACTIVE Marketplace listing surfaces that item id so the public lot page can offer
+    // "Now available in Marketplace". This NEVER rewrites the historical auction result (still unsold).
+    if (lot.state === 'closed' && !lot.winning_buyer_user_id) {
+      try {
+        const listing = await require('../services/marketplaceItemService').listingForLot(lot.id);
+        if (listing) lot.marketplace_item_id = listing.id;
+      } catch (e) { /* non-fatal — recovery link is best-effort */ }
+    }
+
     res.json({ success: true, data: redactRealizedPrice(annotateViewerBidState(lot, req.user && req.user.id, viewerMaxCents), !!req.user) });
   } catch (err) {
     next(err);
