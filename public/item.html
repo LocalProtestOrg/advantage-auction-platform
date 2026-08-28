@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Marketplace Item · Advantage.Bid</title>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@600;700&family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:Inter,-apple-system,sans-serif;color:#0f172a;background:#f6f8fb}
+    .wrap{max-width:1000px;margin:0 auto;padding:24px 18px}
+    a{color:#2563eb;text-decoration:none}
+    .grid{display:grid;grid-template-columns:1.1fr 1fr;gap:26px}
+    @media(max-width:760px){.grid{grid-template-columns:1fr}}
+    .gallery img{width:100%;border-radius:14px;border:1px solid #e6eaef;background:#eef2f7;aspect-ratio:4/3;object-fit:cover}
+    .thumbs{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
+    .thumbs img{width:72px;height:72px;object-fit:cover;border-radius:8px;border:1px solid #e6eaef;cursor:pointer}
+    h1{font-family:Fraunces,serif;font-size:28px;line-height:1.15}
+    .price{font-family:Fraunces;font-size:34px;font-weight:700;margin:12px 0}
+    .pill{display:inline-block;font-size:12px;font-weight:700;border-radius:999px;padding:3px 10px;background:#eef2ff;color:#3730a3;margin-right:6px}
+    .card{background:#fff;border:1px solid #e6eaef;border-radius:14px;padding:20px}
+    .btn{display:inline-flex;align-items:center;gap:7px;border:none;border-radius:10px;padding:12px 20px;font-weight:700;font-size:15px;cursor:pointer;font-family:inherit;text-decoration:none}
+    .btn-primary{background:#2563eb;color:#fff}.btn-ghost{background:#fff;color:#0f172a;border:1px solid #e6eaef}
+    .desc{white-space:pre-line;color:#334155;margin-top:14px;line-height:1.6}
+    .meta{color:#64748b;font-size:14px;margin:6px 0}
+    .crumb{color:#64748b;font-size:13px;margin-bottom:14px}
+  </style>
+</head>
+<body>
+  <div class="wrap" id="app"><p style="color:#64748b">Loading…</p></div>
+  <script>
+    var ID=new URLSearchParams(location.search).get('id')||'';
+    function esc(s){return (s==null?'':String(s)).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
+    function money(c){return '$'+((c||0)/100).toLocaleString(undefined,{minimumFractionDigits:0});}
+    fetch('/api/public/storefront/item/'+encodeURIComponent(ID)).then(function(r){return r.json();}).then(function(res){
+      if(!res.success){document.getElementById('app').innerHTML='<h1>Item not available</h1><p class="meta">This item may have sold or been removed.</p><p style="margin-top:16px"><a class="btn btn-primary" href="/">Explore Advantage.Bid</a></p>';return;}
+      var it=res.data;render(it);
+    }).catch(function(){document.getElementById('app').textContent='Unable to load item.';});
+    function render(it){
+      document.title=it.title+' · Advantage.Bid';
+      var imgs=(it.images&&it.images.length?it.images:(it.thumbnail_url?[it.thumbnail_url]:[]));
+      var main=imgs[0]?('<img id="main" src="'+esc(imgs[0])+'" alt="'+esc(it.title)+'">'):'<div style="aspect-ratio:4/3;background:#eef2f7;border-radius:14px"></div>';
+      var thumbs=imgs.length>1?('<div class="thumbs">'+imgs.map(function(u){return '<img src="'+esc(u)+'" onclick="document.getElementById(\'main\').src=this.src" alt="thumbnail">';}).join('')+'</div>'):'';
+      var loc=[it.city,it.state].filter(Boolean).join(', ');
+      var sellerLink=it.storefront_slug?('<a href="/pro/'+esc(it.storefront_slug)+'">'+esc(it.seller_name)+'</a>'):esc(it.seller_name);
+      var jsonld={'@context':'https://schema.org','@type':'Product',name:it.title,image:imgs,description:it.description||undefined,offers:{'@type':'Offer',price:((it.price_cents||0)/100).toFixed(2),priceCurrency:'USD',availability:'https://schema.org/InStock'}};
+      document.getElementById('app').innerHTML=
+        '<div class="crumb"><a href="/">Advantage.Bid</a> › Marketplace › '+sellerLink+'</div>'+
+        '<div class="grid"><div class="gallery">'+main+thumbs+'</div>'+
+        '<div><h1>'+esc(it.title)+'</h1><div class="meta">Sold by '+sellerLink+'</div>'+
+        '<div class="price">'+money(it.price_cents)+'</div>'+
+        '<div style="margin:8px 0">'+(it.condition?'<span class="pill">'+esc(it.condition)+'</span>':'')+(it.shippable?'<span class="pill">Shipping available</span>':'<span class="pill">Local pickup</span>')+(it.source_lot_id?'<span class="pill">Previously at auction</span>':'')+'</div>'+
+        (loc?'<div class="meta">📍 '+esc(loc)+'</div>':'')+
+        '<div class="card" style="margin:16px 0"><div style="font-weight:700;margin-bottom:8px">Interested in this item?</div><p class="meta" style="margin:0 0 12px">Contact '+esc(it.seller_name)+' to purchase or ask questions.</p>'+(it.storefront_slug?'<a class="btn btn-primary" href="/pro/'+esc(it.storefront_slug)+'#contact">Contact Seller</a>':'')+'</div>'+
+        (it.description?'<div class="desc">'+esc(it.description)+'</div>':'')+
+        '</div></div>'+
+        '<script type="application/ld+json">'+JSON.stringify(jsonld).replace(/</g,'\\u003c')+'<\/script>';
+    }
+  </script>
+</body>
+</html>

@@ -14,6 +14,7 @@ function fakeDb(eventRows, nativeN, profRows) {
     if (/FROM events e/.test(sql)) return { rows: eventRows };
     if (/FROM auctions a/.test(sql)) return { rows: [{ n: nativeN }] };
     if (/FROM organizations o/.test(sql)) return { rows: profRows };
+    if (/FROM marketplace_items m/.test(sql)) return { rows: [{ n: 0 }] }; // no fixed-price items in these fixtures
     return { rows: [] };
   } };
 }

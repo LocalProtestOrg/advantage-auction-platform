@@ -416,6 +416,41 @@ app.get('/logout', (req, res) => {
   );
 });
 
+// ── GET /pro/:slug — public Professional Seller Storefront, server-rendered SEO (mirrors shareMeta) ──
+// Serves the storefront.html shell with per-seller <title>/meta/canonical/OG + LocalBusiness JSON-LD
+// injected into the head. Draft/demo storefronts get noindex. Fail-open to the raw shell (client renders).
+let _storefrontTpl = null;
+function storefrontTemplate() {
+  if (_storefrontTpl == null) { try { _storefrontTpl = fs.readFileSync(path.join(__dirname, 'public', 'storefront.html'), 'utf8'); } catch (e) { _storefrontTpl = ''; } }
+  return _storefrontTpl;
+}
+app.get('/pro/:slug', async (req, res, next) => {
+  const tpl = storefrontTemplate();
+  if (!tpl) return next();
+  try {
+    const meta = await require('./src/services/storefrontService').ssrMeta(req.params.slug);
+    const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    if (!meta) { // unknown/unpublished slug: serve the shell (client shows "not found"), noindex
+      return res.send(tpl.replace('<!-- SSR-META -->', '<meta name="robots" content="noindex">'));
+    }
+    const head = [
+      `<title>${esc(meta.title)}</title>`,
+      `<meta name="description" content="${esc(meta.description)}">`,
+      `<link rel="canonical" href="${esc(meta.canonical)}">`,
+      meta.noindex ? '<meta name="robots" content="noindex">' : '<meta name="robots" content="index,follow">',
+      `<meta property="og:type" content="website">`,
+      `<meta property="og:title" content="${esc(meta.title)}">`,
+      `<meta property="og:description" content="${esc(meta.description)}">`,
+      `<meta property="og:url" content="${esc(meta.canonical)}">`,
+      meta.image ? `<meta property="og:image" content="${esc(meta.image)}">` : '',
+      `<meta name="twitter:card" content="summary_large_image">`,
+    ].filter(Boolean).join('');
+    const jsonld = `<script type="application/ld+json">${JSON.stringify(meta.jsonld).replace(/</g, '\\u003c')}</script>`;
+    const html = tpl.replace('<!-- SSR-META -->', head).replace('<!-- SSR-JSONLD -->', jsonld);
+    return res.send(html);
+  } catch (e) { return res.send(tpl); } // fail-open
+});
+
 // SERVER-SIDE AUTH GATE for private HTML pages — MUST run before express.static so a protected
 // page is never served to an unauthenticated browser (client-side guards are now defense-in-depth).
 app.use(require('./src/middleware/htmlAuthGate'));
@@ -557,6 +592,8 @@ app.use('/api/image-processing', imageProcessingRoutes);
 app.use('/api/uploads', uploadsRoutes);
 app.use('/api/public', publicRoutes);
 app.use('/api/public', publicEventsRoutes);   // event feed (+ restricted CORS); falls through public.js
+app.use('/api/public/storefront', require('./src/routes/publicStorefront')); // public seller storefront data + item detail + inquiry
+app.use('/api/seller-storefront', require('./src/routes/sellerStorefront')); // seller storefront mgmt + marketplace inventory + conversion (auth)
 app.use('/api/public/follower-emails', require('./src/routes/publicFollowerEmails')); // one-click unsubscribe (no auth)
 app.use('/api/admin/follower-emails', require('./src/routes/adminFollowerEmails'));    // admin campaign review + privilege
 app.use('/api/org/claim', orgClaimRoutes);

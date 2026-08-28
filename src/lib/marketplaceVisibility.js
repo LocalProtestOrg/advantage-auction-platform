@@ -36,6 +36,11 @@ function eventKindSql(alias = 'e') {
   return `(CASE WHEN ${alias}.sale_type = 'auction' THEN 'auction' ELSE 'estate_sale' END)`;
 }
 
+// A fixed-price Marketplace item is publicly listable when it is active and not a demo record.
+function activeMarketplaceItemSql(alias = 'm') {
+  return `${alias}.status = 'active' AND ${alias}.is_demo IS NOT TRUE`;
+}
+
 // A directory company is publicly listable (the "Marketplace" family) when it is a real, geocoded,
 // non-sample BD-imported organization that has not been reconciled away.
 function activeMarketplaceCompanySql(alias = 'o') {
@@ -78,9 +83,10 @@ async function canonicalCounts(db) {
     else if (r.pid === '5') professionals.appraisers += r.n;
   }
 
-  // MARKETPLACE = fixed-price Advantage.Bid items ONLY (locked product rule). No such inventory table
-  // exists yet, so the count is authoritatively 0 — NEVER the professional-directory count.
-  const marketplaceItems = 0;
+  // MARKETPLACE = fixed-price Advantage.Bid items ONLY (locked product rule). Now backed by the
+  // marketplace_items table: active, non-demo listings only (demo excluded like auctions/events).
+  const marketplaceItems = (await db.query(
+    `SELECT count(*)::int AS n FROM marketplace_items m WHERE ${activeMarketplaceItemSql('m')}`)).rows[0].n;
 
   return {
     events: {
@@ -113,4 +119,4 @@ async function canonicalCounts(db) {
   };
 }
 
-module.exports = { activeEventSql, activeNativeAuctionSql, eventKindSql, canonicalCounts };
+module.exports = { activeEventSql, activeNativeAuctionSql, activeMarketplaceItemSql, eventKindSql, canonicalCounts };
