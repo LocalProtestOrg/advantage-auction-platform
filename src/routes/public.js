@@ -905,11 +905,12 @@ router.get('/auctions/:id/lots', async (req, res, next) => {
              l.shippable,
              l.shipping_cost_cents,
              l.shipping_notes,
+             l.lot_number_display,
              COUNT(*) OVER() AS total_count
         FROM lots l
        WHERE l.auction_id = $1
          AND l.state != 'withdrawn'
-       ORDER BY l.lot_number ASC
+       ORDER BY l.lot_number ASC, l.lot_number_display ASC
        LIMIT $2 OFFSET $3
     `, [id, limit, offset]);
 
@@ -969,7 +970,7 @@ router.get('/featured-lots', async (req, res, next) => {
        WHERE l.is_featured = true
          AND l.state != 'withdrawn'
          AND ${stateClause}
-       ORDER BY ${auctionScoreSQL('a')} DESC, l.lot_number ASC, l.id ASC
+       ORDER BY ${auctionScoreSQL('a')} DESC, l.lot_number ASC, l.lot_number_display ASC, l.id ASC
        LIMIT $1
     `, [limit]);
 

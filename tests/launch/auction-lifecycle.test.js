@@ -13,6 +13,7 @@ const suite = SCRATCH_OK ? describe : describe.skip;
 
 const db = require('../../src/db');
 const auctionService = require('../../src/services/auctionService');
+const bidService = require('../../src/services/bidService');
 
 let SELLER_PROFILE, BUYER, stamp;
 const mkAuction = async (withStart) => {
@@ -27,6 +28,11 @@ const addLotWithReserve = async (auctionId, n, reserveCents) => (await db.query(
   "INSERT INTO lots (auction_id, lot_number, title, size_category, starting_bid_cents, state, reserve_cents) VALUES ($1,$2,$3,'A',100,'open',$4) RETURNING id",
   [auctionId, n || 1, 'Reserve Lot ' + (n || 1), reserveCents])).rows[0].id;
 const lotOutcome = async (id) => (await db.query('SELECT state, winning_buyer_user_id, winning_amount_cents, reserve_not_met FROM lots WHERE id=$1', [id])).rows[0];
+// An OPEN, biddable lot with an explicit public start price and (optional) confidential reserve.
+const addBiddableLot = async (auctionId, n, startCents, reserveCents) => (await db.query(
+  `INSERT INTO lots (auction_id, lot_number, title, size_category, starting_bid_cents, reserve_cents, state, closes_at, current_bid_cents, bid_count)
+   VALUES ($1,$2,$3,'A',$4,$5,'open', now() + interval '1 day', 0, 0) RETURNING id`,
+  [auctionId, n || 1, 'Biddable ' + (n || 1), startCents, reserveCents == null ? null : reserveCents])).rows[0].id;
 // A lot the seller explicitly withdrew while the auction was still a Draft (state + flag, as prod does).
 const addWithdrawnLot = async (auctionId, n) => (await db.query(
   "INSERT INTO lots (auction_id, lot_number, title, size_category, starting_bid_cents, state, is_withdrawn) VALUES ($1,$2,$3,'A',100,'withdrawn',true) RETURNING id",
@@ -192,5 +198,37 @@ suite('RESERVE-1 authoritative reserve gate at close', () => {
          AND NOT EXISTS (SELECT 1 FROM payments p WHERE p.lot_id=l.id AND p.status IN ('pending','paid'))`,
       [lot])).rows[0];
     expect(eligible).toBeTruthy();
+  });
+});
+
+// PUBLIC start price = the minimum opening bid. CONFIDENTIAL reserve is NOT a bid floor — a max bid below
+// reserve must be accepted. These are distinct concepts (the whole point of Phase 4).
+suite('START-1 start price vs reserve at bid time (real bidService)', () => {
+  test('a max/opening bid BELOW the public start price is rejected with a clear starting-bid message', async () => {
+    const id = await mkAuction(new Date(Date.now() + 3600e3).toISOString());
+    const lot = await addBiddableLot(id, 1, 10000, 70000); // start $100, reserve $700
+    await db.query("UPDATE auctions SET state='active' WHERE id=$1", [id]);
+    await expect(bidService.createBid(lot, BUYER, { maxBid: 5000 })) // $50 < $100 start
+      .rejects.toMatchObject({ code: 'BELOW_STARTING_BID', message: expect.stringContaining('starts at $100.00') });
+  });
+
+  test('a max bid BELOW the confidential reserve (but at/above start) is ACCEPTED', async () => {
+    const id = await mkAuction(new Date(Date.now() + 3600e3).toISOString());
+    const lot = await addBiddableLot(id, 1, 10000, 70000); // start $100, reserve $700
+    await db.query("UPDATE auctions SET state='active' WHERE id=$1", [id]);
+    const bid = await bidService.createBid(lot, BUYER, { maxBid: 50000 }); // $500 < $700 reserve → valid
+    expect(bid).toBeTruthy();
+    // The PUBLIC current bid opens at the start price ($100) — NOT jumped to the max or the reserve.
+    const row = (await db.query('SELECT current_bid_cents, reserve_cents FROM lots WHERE id=$1', [lot])).rows[0];
+    expect(row.current_bid_cents).toBe(10000);   // opens at start, buyer's $500 max stays confidential
+    expect(row.current_bid_cents).toBeLessThan(row.reserve_cents); // reserve not met, not disclosed
+  });
+
+  test('the opening bid AT the start price is accepted', async () => {
+    const id = await mkAuction(new Date(Date.now() + 3600e3).toISOString());
+    const lot = await addBiddableLot(id, 1, 10000, null);
+    await db.query("UPDATE auctions SET state='active' WHERE id=$1", [id]);
+    const bid = await bidService.createBid(lot, BUYER, { maxBid: 10000 });
+    expect(bid).toBeTruthy();
   });
 });

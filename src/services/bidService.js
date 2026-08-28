@@ -278,6 +278,14 @@ async function createBid(lotId, userId, { amount, maxBid, max_bid_cents }) {
     const startingBidCents = lot.starting_bid_cents || 100;
     const minAllowed = nextMinCents(startingBidCents, currentBidCents, override);
     if (submittedMaxCents < minAllowed) {
+      // Opening bid below the PUBLIC starting price → a clear, specific message (start price is the
+      // minimum opening amount; it is NOT the confidential reserve). Once bidding has begun, fall back to
+      // the normal increment message. A below-reserve bid is NEVER rejected here — reserve is not a floor.
+      if (currentBidCents === 0 && submittedMaxCents < startingBidCents) {
+        const e = new Error(`Bidding for this lot starts at $${(startingBidCents / 100).toFixed(2)}.`);
+        e.code = 'BELOW_STARTING_BID';
+        throw e;
+      }
       throw new Error(`Bid must be at least $${(minAllowed / 100).toFixed(2)}`);
     }
 

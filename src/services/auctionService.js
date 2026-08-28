@@ -670,7 +670,7 @@ async function publishAuction(auctionId, actorId = null) {
     if (startTime) {
       await client.query(
         `WITH ordered AS (
-           SELECT id, ROW_NUMBER() OVER (ORDER BY lot_number ASC NULLS LAST, created_at ASC) AS pos
+           SELECT id, ROW_NUMBER() OVER (ORDER BY lot_number ASC NULLS LAST, lot_number_display ASC NULLS LAST, created_at ASC) AS pos
              FROM lots
             WHERE auction_id = $1 AND state = 'open'
          )

@@ -79,7 +79,7 @@ async function loadUnsoldLots(auctionId) {
     `SELECT lot_number, title
        FROM lots
       WHERE auction_id = $1 AND state = 'closed' AND winning_buyer_user_id IS NULL
-      ORDER BY lot_number ASC`,
+      ORDER BY lot_number ASC, lot_number_display ASC`,
     [auctionId]
   ).catch(() => ({ rows: [] }));
   return rows;
@@ -111,7 +111,7 @@ async function loadNoShows(auctionId) {
        JOIN lots l ON l.id = mp.lot_id
        LEFT JOIN users u ON u.id = mp.buyer_user_id
       WHERE l.auction_id = $1 AND mp.status IN ('missed','rescheduled')
-      ORDER BY l.lot_number ASC`,
+      ORDER BY l.lot_number ASC, l.lot_number_display ASC`,
     [auctionId]
   ).catch(() => ({ rows: [] }));
   return rows;

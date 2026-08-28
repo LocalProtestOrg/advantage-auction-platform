@@ -273,7 +273,7 @@ async function getCombinedInvoiceData(combinedInvoiceId) {
       WHERE l.auction_id = $1
         AND l.winning_buyer_user_id = $2
         AND l.state = 'closed'
-      ORDER BY l.lot_number ASC NULLS LAST`,
+      ORDER BY l.lot_number ASC NULLS LAST, l.lot_number_display ASC NULLS LAST`,
     [r.auction_id, r.buyer_user_id]
   );
 

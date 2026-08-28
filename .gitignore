@@ -64,3 +64,9 @@ docs/historical-auctions/archive/
 
 # Generated auction report PDFs (build artifacts, not source).
 reports/
+
+# Demo auction source images (bulky binaries, ~195MB): uploaded to Cloudinary by
+# scripts/seed-demo-auction.js, so they belong neither in the repo nor on the server.
+# The CSV catalog + importer script ARE version-controlled (source of truth).
+demo-data/heritage-home-demo-auction/images/
+demo-data/heritage-home-demo-auction/*.xlsx

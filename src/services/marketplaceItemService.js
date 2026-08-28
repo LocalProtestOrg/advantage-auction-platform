@@ -49,7 +49,7 @@ async function listUnsoldEligible(sellerId, runner = db) {
             (SELECT count(*)::int FROM marketplace_items mi WHERE mi.source_lot_id = l.id) AS converted
      ${UNSOLD_JOIN}
        AND NOT EXISTS (SELECT 1 FROM marketplace_items mi WHERE mi.source_lot_id = l.id)
-     ORDER BY a.end_time DESC NULLS LAST, l.lot_number ASC`, [sellerId]);
+     ORDER BY a.end_time DESC NULLS LAST, l.lot_number ASC, l.lot_number_display ASC`, [sellerId]);
   return rows;
 }
 

@@ -1492,7 +1492,8 @@
     titleEl.className = 'card-title';
     titleEl.href = detailsUrl;
     titleEl.style.textDecoration = 'none';
-    const numPrefix = (lot.lot_number != null) ? ('Lot #' + lot.lot_number + ' · ') : '';
+    const _ln = (lot.lot_number_display != null && lot.lot_number_display !== '') ? lot.lot_number_display : lot.lot_number;
+    const numPrefix = (_ln != null) ? ('Lot #' + _ln + ' · ') : '';
     titleEl.textContent = numPrefix + (lot.title || 'Untitled');
     // #2 winning/outbid chip - initial state from the per-viewer serializer flag.
     const chip = document.createElement('span');
@@ -1779,7 +1780,7 @@
           var price = (l.current_bid_cents != null && l.current_bid_cents > 0) ? BidUtils.formatUSD(l.current_bid_cents) : 'No bids yet'; // #3 whole-dollar
           var img = '<img src="' + (l.thumbnail_url ? esc(l.thumbnail_url) : '/img/lot-placeholder.svg') + '" alt="" style="width:100%;aspect-ratio:4/3;object-fit:cover" onerror="this.onerror=null;this.src=\'/img/lot-placeholder.svg\'">'; // #13 professional fallback
           return '<a class="wl-card" href="/lot.html?lotId=' + encodeURIComponent(l.id) + '">' + img +
-            '<div class="b"><div class="t">Lot #' + esc(l.lot_number) + ' · ' + esc(l.title || '') + '</div>' +
+            '<div class="b"><div class="t">Lot #' + esc((l.lot_number_display != null && l.lot_number_display !== '') ? l.lot_number_display : l.lot_number) + ' · ' + esc(l.title || '') + '</div>' +
             '<div class="s">' + esc(price) + ' · ' + esc(l.state) + '</div></div></a>';
         }).join('') + '</div>';
       })

@@ -66,7 +66,7 @@ async function createLot(auctionId, userId, data) {
 // Get lots for an auction
 async function getLotsByAuction(auctionId) {
   const result = await db.query(
-    `SELECT * FROM lots WHERE auction_id = $1 ORDER BY lot_number ASC NULLS LAST, created_at ASC`,
+    `SELECT * FROM lots WHERE auction_id = $1 ORDER BY lot_number ASC NULLS LAST, lot_number_display ASC NULLS LAST, created_at ASC`,
     [auctionId]
   );
   return result.rows;

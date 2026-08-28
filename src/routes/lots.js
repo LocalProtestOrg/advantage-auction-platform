@@ -326,7 +326,7 @@ router.get('/auction/:auctionId', optionalAuth, async (req, res, next) => {
     if (arch && arch.is_archived) return res.status(404).json({ success: false, message: 'Auction not available' });
 
     const result = await db.query(
-      `SELECT id, auction_id, lot_number, title, description,
+      `SELECT id, auction_id, lot_number, lot_number_display, title, description,
               category, size_category, pickup_category,
               condition, material, era, maker_artist, weight, dimensions,
               shippable, shipping_cost_cents, shipping_notes,
@@ -339,7 +339,7 @@ router.get('/auction/:auctionId', optionalAuth, async (req, res, next) => {
        FROM lots
        WHERE auction_id = $1
          AND state != 'withdrawn'
-       ORDER BY created_at ASC`,
+       ORDER BY lot_number ASC NULLS LAST, lot_number_display ASC NULLS LAST, created_at ASC`,
       [req.params.auctionId]
     );
 
@@ -681,7 +681,7 @@ router.get('/:lotId/winner-status', authMiddleware, async (req, res, next) => {
 router.get('/:lotId', optionalAuth, async (req, res, next) => {
   try {
     const result = await db.query(
-      `SELECT id, auction_id, lot_number, title, description,
+      `SELECT id, auction_id, lot_number, lot_number_display, title, description,
               category, size_category, pickup_category,
               condition, material, era, maker_artist, weight, dimensions,
               shippable, shipping_cost_cents, shipping_notes,
