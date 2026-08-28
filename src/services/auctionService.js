@@ -757,7 +757,7 @@ async function closeAuction(auctionId, actorId = null) {
     // from slipping a new bid in between the top-bid read and the lot state write.
     // Withdrawn lots are excluded — they are already settled and must not be re-opened.
     const lotsRes = await client.query(
-      `SELECT id FROM lots WHERE auction_id = $1 AND state != 'withdrawn' FOR UPDATE`,
+      `SELECT id, reserve_cents FROM lots WHERE auction_id = $1 AND state != 'withdrawn' FOR UPDATE`,
       [auctionId]
     );
 
@@ -774,14 +774,20 @@ async function closeAuction(auctionId, actorId = null) {
       );
 
       const topBid = bidRes.rows[0];
+      // Authoritative reserve gate: a lot sells only if the top bid meets its reserve. If a reserve is
+      // set and the top bid is below it, the lot closes UNSOLD (reserve not met) — no winner, and thus
+      // (downstream all filter on non-null winner) no invoice, no payout, no winner notification.
+      const reserve = lot.reserve_cents != null ? Number(lot.reserve_cents) : null;
+      const reserveNotMet = !!(topBid && reserve != null && topBid.amount_cents < reserve);
 
-      if (topBid) {
+      if (topBid && !reserveNotMet) {
         const winningCents = topBid.amount_cents;
         await client.query(
           `UPDATE lots
            SET state = 'closed',
                winning_buyer_user_id = $1,
-               winning_amount_cents = $2
+               winning_amount_cents = $2,
+               reserve_not_met = false
            WHERE id = $3 AND state != 'closed'`,
           [topBid.bidder_user_id, winningCents, lot.id]
         );
@@ -795,14 +801,16 @@ async function closeAuction(auctionId, actorId = null) {
           winning_amount_cents: winningCents
         });
       } else {
+        // No sale: either no bids, or the reserve was not met. Never assign a winner/invoice/payout.
         await client.query(
-          `UPDATE lots SET state = 'closed' WHERE id = $1 AND state != 'closed'`,
-          [lot.id]
+          `UPDATE lots SET state = 'closed', reserve_not_met = $2 WHERE id = $1 AND state != 'closed'`,
+          [lot.id, reserveNotMet]
         );
         results.push({
           lot_id: lot.id,
           winner_user_id: null,
-          winning_amount_cents: null
+          winning_amount_cents: null,
+          reserve_not_met: reserveNotMet
         });
       }
     }

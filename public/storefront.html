@@ -86,6 +86,7 @@
     var token = null; try { token = localStorage.getItem('token'); } catch (e) {}
     function esc(s){return (s==null?'':String(s)).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
     function money(c){return '$'+((c||0)/100).toLocaleString(undefined,{minimumFractionDigits:0});}
+    function fmtDate(v){try{var dt=new Date(v);if(isNaN(dt))return '';return dt.toLocaleDateString(undefined,{month:'short',day:'numeric'});}catch(e){return '';}}
     function toast(m){var t=document.getElementById('toast');t.textContent=m;t.style.display='block';setTimeout(function(){t.style.display='none';},2600);}
     function ping(type,extra){try{navigator.sendBeacon&&navigator.sendBeacon('/api/analytics/events',new Blob([JSON.stringify(Object.assign({type:type,seller_id:(DATA&&DATA.seller&&DATA.seller.id)||null},extra||{}))],{type:'application/json'}));}catch(e){}}
     var DATA=null;
@@ -107,6 +108,7 @@
       var cover=cfg.hero_image?('<div class="hero-cover" style="background-image:url('+esc(cfg.hero_image)+')"></div>'):'';
       var cta='<div class="hero-cta">'+
         (d.auctions.length?'<a class="btn btn-primary" href="#auctions">View Auctions</a>':'')+
+        ((d.events&&d.events.length&&vis.events!==false)?'<a class="btn btn-ghost" href="#events">Estate Sales</a>':'')+
         (d.marketplace.length?'<a class="btn btn-ghost" href="#shop">Shop Marketplace</a>':'')+
         '<button class="btn hero-follow" id="followBtn">☆ Follow ('+d.follower_count+')</button>'+
         (vis.contact!==false?'<a class="btn hero-ghost btn-ghost" href="#contact">Request a Consultation</a>':'')+'</div>';
@@ -129,6 +131,15 @@
           var img=a.image?'<img src="'+esc(a.image)+'" alt="'+esc(a.title)+'">':'<div class="ph"></div>';
           var loc=[a.city,a.state].filter(Boolean).join(', ')||'Online';
           return '<a class="card prod" href="/auction-view.html?auctionId='+esc(a.id)+'" onclick="ping(\'storefront_cta_click\',{cta:\'auction\'})">'+img+'<div class="body"><div class="t">'+esc(a.title)+'</div><div class="meta"><span class="pill">'+esc(a.auction_state==="active"?"Bidding open":"Upcoming")+'</span><span>'+esc(loc)+'</span></div></div></a>';
+        }).join('')+'</div></section>';
+      }
+      // Upcoming estate sales / events (seller's own, via authoritative org link)
+      if(vis.events!==false && d.events && d.events.length){
+        html+='<section id="events"><div class="sec-head"><h2>Upcoming Estate Sales</h2><div class="sec-sub">In-person sales & events from '+esc(s.name)+'</div></div><div class="grid grid-3">'+d.events.map(function(ev){
+          var img=ev.image?'<img src="'+esc(ev.image)+'" alt="'+esc(ev.title)+'">':'<div class="ph"></div>';
+          var loc=[ev.city,ev.state].filter(Boolean).join(', ')||(ev.event_format==='online'?'Online':'');
+          var when=ev.start_at?fmtDate(ev.start_at):'';
+          return '<a class="card prod" href="'+esc(ev.url)+'" onclick="ping(\'storefront_cta_click\',{cta:\'event\'})">'+img+'<div class="body"><div class="t">'+esc(ev.title)+'</div><div class="meta">'+(when?'<span class="pill">'+esc(when)+'</span>':'')+(loc?'<span>'+esc(loc)+'</span>':'')+'</div></div></a>';
         }).join('')+'</div></section>';
       }
       // Marketplace / Shop

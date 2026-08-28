@@ -921,7 +921,7 @@ async function runLotAutoClose() {
       // raced ahead of us (extended closes_at via soft-close, or already
       // closed the lot).
       const lotRes = await client.query(
-        `SELECT id, auction_id, lot_number, title, closes_at, state
+        `SELECT id, auction_id, lot_number, title, closes_at, state, reserve_cents
            FROM lots
           WHERE id = $1
           FOR UPDATE`,
@@ -942,13 +942,19 @@ async function runLotAutoClose() {
         [lot.id]
       );
       const topBid = bidRes.rows[0];
+      // Authoritative reserve gate (same rule as auctionService.closeAuction): a below-reserve top bid
+      // closes the lot UNSOLD (reserve not met) with no winner — so the auction-level settlement/invoice
+      // pass (which filters on a non-null winner) correctly excludes it. No-reserve behavior unchanged.
+      const reserve = lot.reserve_cents != null ? Number(lot.reserve_cents) : null;
+      const reserveNotMet = !!(topBid && reserve != null && topBid.amount_cents < reserve);
 
-      if (topBid) {
+      if (topBid && !reserveNotMet) {
         await client.query(
           `UPDATE lots
               SET state                 = 'closed',
                   winning_buyer_user_id = $1,
-                  winning_amount_cents  = $2
+                  winning_amount_cents  = $2,
+                  reserve_not_met       = false
             WHERE id = $3`,
           [topBid.bidder_user_id, topBid.amount_cents, lot.id]
         );
@@ -957,8 +963,8 @@ async function runLotAutoClose() {
         // combined package (per buyer+auction), so no WINNING enqueue at lot close.
       } else {
         await client.query(
-          `UPDATE lots SET state = 'closed' WHERE id = $1`,
-          [lot.id]
+          `UPDATE lots SET state = 'closed', reserve_not_met = $2 WHERE id = $1`,
+          [lot.id, reserveNotMet]
         );
       }
 

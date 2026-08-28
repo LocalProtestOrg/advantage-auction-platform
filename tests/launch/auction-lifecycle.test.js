@@ -22,6 +22,11 @@ const mkAuction = async (withStart) => {
 const addLot = async (auctionId, n) => (await db.query(
   "INSERT INTO lots (auction_id, lot_number, title, size_category, starting_bid_cents, state) VALUES ($1,$2,$3,'A',100,'open') RETURNING id",
   [auctionId, n || 1, 'Lot ' + (n || 1)])).rows[0].id;
+// A lot carrying a seller reserve (professional feature). starting_bid stays $1; reserve is the sell floor.
+const addLotWithReserve = async (auctionId, n, reserveCents) => (await db.query(
+  "INSERT INTO lots (auction_id, lot_number, title, size_category, starting_bid_cents, state, reserve_cents) VALUES ($1,$2,$3,'A',100,'open',$4) RETURNING id",
+  [auctionId, n || 1, 'Reserve Lot ' + (n || 1), reserveCents])).rows[0].id;
+const lotOutcome = async (id) => (await db.query('SELECT state, winning_buyer_user_id, winning_amount_cents, reserve_not_met FROM lots WHERE id=$1', [id])).rows[0];
 // A lot the seller explicitly withdrew while the auction was still a Draft (state + flag, as prod does).
 const addWithdrawnLot = async (auctionId, n) => (await db.query(
   "INSERT INTO lots (auction_id, lot_number, title, size_category, starting_bid_cents, state, is_withdrawn) VALUES ($1,$2,$3,'A',100,'withdrawn',true) RETURNING id",
@@ -133,5 +138,59 @@ suite('LR-P1-1 winner notification enqueue + dedupe', () => {
     const before = await winningCount(BUYER);
     await auctionService.closeAuction(id);
     expect(await winningCount(BUYER)).toBe(before); // no double-email
+  });
+});
+
+// Authoritative reserve enforcement: a lot sells ONLY if the top bid meets its reserve. Below-reserve →
+// closes UNSOLD with no winner (so no invoice/payout/winner-notification). No reserve → behavior unchanged.
+suite('RESERVE-1 authoritative reserve gate at close', () => {
+  test('top bid BELOW reserve → lot closes UNSOLD (no winner, reserve_not_met, no WINNING email)', async () => {
+    const id = await mkAuction(new Date(Date.now() - 3600e3).toISOString());
+    const lot = await addLotWithReserve(id, 1, 10000); // reserve $100
+    await addBid(id, lot, 6000);                        // top bid $60 — below reserve
+    await db.query("UPDATE auctions SET state='active' WHERE id=$1", [id]);
+    const before = await winningCount(BUYER);
+    await auctionService.closeAuction(id);
+    expect(await lotOutcome(lot)).toMatchObject({
+      state: 'closed', winning_buyer_user_id: null, winning_amount_cents: null, reserve_not_met: true
+    });
+    expect(await winningCount(BUYER)).toBe(before);     // reserve-not-met never enters the winner path
+  });
+
+  test('top bid AT reserve → lot SELLS normally (winner assigned, reserve_not_met false)', async () => {
+    const id = await mkAuction(new Date(Date.now() - 3600e3).toISOString());
+    const lot = await addLotWithReserve(id, 1, 10000);
+    await addBid(id, lot, 10000);                       // meets reserve exactly
+    await db.query("UPDATE auctions SET state='active' WHERE id=$1", [id]);
+    await auctionService.closeAuction(id);
+    expect(await lotOutcome(lot)).toMatchObject({
+      state: 'closed', winning_buyer_user_id: BUYER, winning_amount_cents: 10000, reserve_not_met: false
+    });
+  });
+
+  test('NO reserve → winner logic unchanged (reserve_not_met stays false)', async () => {
+    const id = await mkAuction(new Date(Date.now() - 3600e3).toISOString());
+    const lot = await addLot(id, 1);                    // reserve_cents NULL
+    await addBid(id, lot, 200);
+    await db.query("UPDATE auctions SET state='active' WHERE id=$1", [id]);
+    await auctionService.closeAuction(id);
+    expect(await lotOutcome(lot)).toMatchObject({
+      state: 'closed', winning_buyer_user_id: BUYER, winning_amount_cents: 200, reserve_not_met: false
+    });
+  });
+
+  test('below-reserve unsold lot is Marketplace-eligible (authoritative UNSOLD, null winner)', async () => {
+    const id = await mkAuction(new Date(Date.now() - 3600e3).toISOString());
+    const lot = await addLotWithReserve(id, 1, 50000);
+    await addBid(id, lot, 9000);
+    await db.query("UPDATE auctions SET state='active' WHERE id=$1", [id]);
+    await auctionService.closeAuction(id);
+    // Same predicate marketplaceItemService.UNSOLD_JOIN uses: closed, not withdrawn, no winner, no payment.
+    const eligible = (await db.query(
+      `SELECT 1 FROM lots l WHERE l.id=$1 AND l.state='closed' AND l.is_withdrawn IS NOT TRUE
+         AND l.winning_buyer_user_id IS NULL
+         AND NOT EXISTS (SELECT 1 FROM payments p WHERE p.lot_id=l.id AND p.status IN ('pending','paid'))`,
+      [lot])).rows[0];
+    expect(eligible).toBeTruthy();
   });
 });

@@ -116,7 +116,7 @@ async function getPublicData(slug) {
   const sp = await resolveBySlug(slug);
   if (!sp || !sp.storefront_published) throw err(404, 'STOREFRONT_NOT_FOUND', 'Storefront not found.');
   const cfg = sp.storefront || {};
-  const [auctions, past, items, followers] = await Promise.all([
+  const [auctions, past, items, followers, events] = await Promise.all([
     db.query(`SELECT id, title, subtitle, city, address_state AS state, start_time, end_time, state AS auction_state,
                      COALESCE(cover_image_url, banner_image_url) AS image, public_auction_type
                 FROM auctions WHERE seller_id = $1 AND state IN ('published','active') AND is_archived IS NOT TRUE
@@ -126,6 +126,17 @@ async function getPublicData(slug) {
                 ORDER BY end_time DESC NULLS LAST LIMIT 8`, [sp.id]),
     marketplaceItems.listPublicForSeller(sp.id, 24),
     db.query('SELECT count(*)::int n FROM seller_followers WHERE seller_id = $1', [sp.id]),
+    // Upcoming estate sales / events — AUTHORITATIVELY the seller's own, via the admin-set org link
+    // (organizations.linked_seller_profile_id → this seller_profile). No name/fuzzy matching, no
+    // auto-claiming of imported orgs; only PUBLISHED, not-yet-ended events. Street address never exposed.
+    db.query(`SELECT e.slug, e.title, e.city, e.state, e.start_at, e.end_at, e.sale_type, e.event_format,
+                     (SELECT url FROM event_images ei WHERE ei.event_id = e.id ORDER BY is_cover DESC, position ASC LIMIT 1) AS image
+                FROM events e
+                JOIN organizations o ON o.id = e.organization_id
+               WHERE o.linked_seller_profile_id = $1
+                 AND e.status = 'published'
+                 AND (e.end_at IS NULL OR e.end_at >= now())
+               ORDER BY e.start_at ASC NULLS LAST LIMIT 8`, [sp.id]),
   ]);
   return {
     seller: {
@@ -143,8 +154,14 @@ async function getPublicData(slug) {
     auctions: auctions.rows,
     past_auctions: past.rows,
     marketplace: items,
+    events: events.rows.map((e) => ({
+      slug: e.slug, title: e.title, city: e.city, state: e.state,
+      start_at: e.start_at, end_at: e.end_at,
+      sale_type: e.sale_type, event_format: e.event_format,
+      image: e.image || null, url: '/event.html?slug=' + encodeURIComponent(e.slug || ''),
+    })),
     follower_count: followers.rows[0].n,
-    counts: { auctions: auctions.rows.length, marketplace: items.length, past: past.rows.length },
+    counts: { auctions: auctions.rows.length, marketplace: items.length, past: past.rows.length, events: events.rows.length },
   };
 }
 

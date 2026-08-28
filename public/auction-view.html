@@ -1003,6 +1003,27 @@
   function renderSellerBar(followerCount) {
     const bar = document.getElementById('seller-bar');
     bar.innerHTML = '';
+
+    // Storefront cross-link — only present when the summary API exposed a published, brandable storefront
+    // (server-gated by professional + branding-on + storefront_published). No slug → no attribution shown.
+    const slug = auctionSummary && auctionSummary.storefront_slug;
+    if (slug) {
+      const name = (auctionSummary && auctionSummary.storefront_seller_name) || null;
+      if (name) {
+        const by = document.createElement('span');
+        by.className = 'seller-presented';
+        by.textContent = 'Presented by ' + name;
+        by.style.cssText = 'font-weight:700;color:#334155';
+        bar.appendChild(by);
+      }
+      const link = document.createElement('a');
+      link.className = 'btn-storefront';
+      link.href = '/pro/' + encodeURIComponent(slug);
+      link.textContent = 'View Storefront';
+      link.style.cssText = 'text-decoration:none;font-weight:700;color:#1d4ed8;padding:6px 12px;border:1px solid #bfdbfe;border-radius:8px;background:#eff6ff';
+      bar.appendChild(link);
+    }
+
     const countEl = document.createElement('span');
     countEl.id          = 'follower-count-display';
     countEl.textContent = followerCount + ' follower' + (followerCount === 1 ? '' : 's');

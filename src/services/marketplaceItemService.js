@@ -28,9 +28,9 @@ async function sellerForUser(userId, runner = db) {
   return rows[0] || null;
 }
 
-// The authoritative "unsold + resaleable" predicate for a lot owned by :sellerId. (No reserve enforcement
-// exists at close today, so unsold = closed with no winner; reserve_not_met becomes covered automatically
-// if reserve enforcement is enabled later — see owner report.)
+// The authoritative "unsold + resaleable" predicate for a lot owned by :sellerId. Reserve enforcement is
+// live: a lot whose reserve was not met closes with NO winner (reserve_not_met=true), so it is already
+// covered by this null-winner predicate — no separate clause needed. conversion_reason distinguishes it.
 const UNSOLD_JOIN = `
   FROM lots l
   JOIN auctions a ON a.id = l.auction_id
@@ -44,7 +44,7 @@ const UNSOLD_JOIN = `
 async function listUnsoldEligible(sellerId, runner = db) {
   const { rows } = await runner.query(
     `SELECT l.id, l.title, l.description, l.category, l.condition, l.thumbnail_url,
-            l.reserve_cents, l.starting_bid_cents, l.current_bid_cents, l.bid_count,
+            l.reserve_cents, l.reserve_not_met, l.starting_bid_cents, l.current_bid_cents, l.bid_count,
             a.id AS auction_id, a.title AS auction_title, a.city, a.address_state AS state, a.zip,
             (SELECT count(*)::int FROM marketplace_items mi WHERE mi.source_lot_id = l.id) AS converted
      ${UNSOLD_JOIN}
@@ -98,7 +98,7 @@ async function convertLotToListing(lotId, actingUserId, opts = {}) {
     if (!price || price <= 0) throw err(422, 'PRICE_REQUIRED', 'Set a Marketplace price (no reserve/start price was available to default from).');
     const images = await lotImages(lotId, client);
     const e = opts.edits || {};
-    const reason = lot.bid_count > 0 ? 'unsold' : 'no_bids';
+    const reason = lot.reserve_not_met ? 'reserve_not_met' : (lot.bid_count > 0 ? 'unsold' : 'no_bids');
 
     const { rows } = await client.query(
       `INSERT INTO marketplace_items

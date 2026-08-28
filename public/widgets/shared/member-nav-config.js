@@ -74,6 +74,7 @@
   // deep-links to the hosted-auction builder.
   function auctionSellerItems() {
     return [
+      { id: 'storefront',    label: 'My Storefront',          emoji: '🏪', href: '/seller-storefront.html', external: true, primaryMobile: true },
       { id: 'createAuction', label: 'Create Online Auction',  emoji: '🔨', href: '/seller-create.html', external: true },
       { id: 'sell',          label: 'Manage Online Auctions', emoji: '📊', href: '#sell' }
     ];

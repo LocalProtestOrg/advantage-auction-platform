@@ -12,6 +12,7 @@ const { canMutateAuction, canDeleteAuction, lockErrorMessage } = require('./lots
 const { isProfessional }  = require('../services/sellerTypeRules'); // seller-class gate (starting price is professional-only)
 const registrationService = require('../services/auctionRegistrationService'); // #20
 const agreementService    = require('../services/agreementService'); // seller agreement gate
+const { brandingVisible } = require('../lib/sellerBranding'); // canonical public seller-identity gate
 
 function isUuid(v) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(v);
@@ -208,18 +209,35 @@ router.get('/:auctionId/summary', async (req, res) => {
               a.city, a.address_state, a.zip, a.street_address, a.start_time, a.end_time,
               a.pickup_window_start, a.pickup_window_end, a.timezone,
               a.banner_image_url, a.cover_image_url, a.shipping_available,
+              sp.seller_type, sp.show_branding_to_buyers, sp.storefront_slug, sp.storefront_published,
+              COALESCE(sp.display_name, sp.metadata->>'display_name', sp.metadata->>'business_name') AS seller_display_name,
               COUNT(sf.id)::int AS follower_count
          FROM auctions a
          LEFT JOIN seller_followers sf ON sf.seller_id = a.seller_id
+         LEFT JOIN seller_profiles sp  ON sp.id = a.seller_id
         WHERE a.id = $1
           AND a.is_archived IS NOT TRUE   -- #22: archived auctions are not public
-        GROUP BY a.id`,
+        GROUP BY a.id, sp.seller_type, sp.show_branding_to_buyers, sp.storefront_slug, sp.storefront_published,
+                 sp.display_name, sp.metadata`,
       [auctionId]
     );
     if (!rows[0]) {
       return res.status(404).json({ success: false, message: 'Auction not found' });
     }
     const row = rows[0];
+    // Public storefront cross-link — ONLY when the seller's identity is publicly brandable (professional +
+    // branding-on) AND their storefront is actually published. Otherwise no attribution/slug leaks. The
+    // reserve/private-seller privacy rules are unaffected (this exposes only public storefront presence).
+    const showBrand = brandingVisible(row.seller_type, row.show_branding_to_buyers);
+    if (showBrand && row.storefront_published && row.storefront_slug) {
+      row.storefront_slug = row.storefront_slug;
+      row.storefront_seller_name = row.seller_display_name || null;
+    } else {
+      row.storefront_slug = null;
+      row.storefront_seller_name = null;
+    }
+    delete row.seller_type; delete row.show_branding_to_buyers;
+    delete row.storefront_published; delete row.seller_display_name;
     // Buyer-facing EFFECTIVE buyer premium (auction override → seller default → 18%).
     // BP only — never the internal AAC/seller split. (Buyer Premium Phase 1 surface.)
     try { row.buyer_premium_bps = (await require('../services/billingTermsService').resolveEffectiveTerms(auctionId)).buyer_premium_bps; }
