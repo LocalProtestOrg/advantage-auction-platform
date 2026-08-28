@@ -90,23 +90,28 @@ function getTransporter() {
  * @returns {Promise<object>} { messageId } on success, { skipped: true } if unconfigured
  * @throws on delivery failure
  */
-async function sendEmail({ to, subject, html, text, attachments, replyTo, headers }) {
+async function sendEmail({ to, subject, html, text, attachments, replyTo, headers, fromName, bcc }) {
   if (!isConfigured()) {
     console.warn('[email] SMTP/SES not configured - skipping delivery to', to);
     return { skipped: true };
   }
 
   try {
+    // The technical From address ALWAYS stays the verified EMAIL_FROM sender (SPF/DKIM/DMARC alignment
+    // is preserved). `fromName` only sets the friendly display name — e.g. "Kym Witt — Advantage.Bid"
+    // <notifications@advantage.bid> — so a rep's identity is visible without a per-mailbox SES identity.
+    const from = fromName ? `${String(fromName).replace(/["\r\n<>]/g, '').trim()} <${EMAIL_FROM}>` : EMAIL_FROM;
     const info = await getTransporter().sendMail({
-      from:    EMAIL_FROM,
+      from,
       to,
       subject,
       html,
       ...(text ? { text } : {}),
+      ...(bcc ? { bcc } : {}),
       ...(Array.isArray(attachments) && attachments.length ? { attachments } : {}),
       // Custom SMTP headers (e.g. List-Unsubscribe / List-Unsubscribe-Post for one-click unsubscribe).
       ...(headers && typeof headers === 'object' ? { headers } : {}),
-      // Per-message reply-to (e.g. a feedback submitter's address) overrides the default.
+      // Per-message reply-to (e.g. the assigned sales rep's approved @advantage.bid address).
       replyTo: replyTo || EFFECTIVE_REPLY_TO,
     });
     console.log(`[email] Sent "${subject}" to ${to} - messageId: ${info.messageId}`);

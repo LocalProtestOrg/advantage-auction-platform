@@ -20,6 +20,8 @@ const PERMISSIONS = [
   'staff.view', 'staff.manage',
   // Sales / Marketing
   'sales.view', 'sales.manage_prospects', 'sales.edit_scripts', 'sales.view_demo',
+  'sales.send_email',   // send 1:1 representative prospect outreach (as the assigned rep's identity)
+  'sales.manage_reps',  // approve/manage rep outreach identities (Super Admin / owner only)
   // Auction operations
   'auctions.view', 'auctions.create', 'auctions.edit', 'auctions.manage_catalog', 'auctions.submit',
   // Auction approval
@@ -43,7 +45,9 @@ const ROLES = {
   },
   marketing: {
     label: 'Marketing / Sales',
-    permissions: ['sales.view', 'sales.manage_prospects', 'sales.edit_scripts', 'sales.view_demo'],
+    // Marketing/Sales reps can view + manage prospects + send their own 1:1 outreach. They do NOT get
+    // sales.manage_reps (approving outreach sender identities is a Super-Admin/owner action).
+    permissions: ['sales.view', 'sales.manage_prospects', 'sales.edit_scripts', 'sales.view_demo', 'sales.send_email'],
   },
   auction_ops: {
     label: 'Auction Operations',

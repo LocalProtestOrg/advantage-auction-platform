@@ -12,6 +12,11 @@ const auth = require('../middleware/authMiddleware');
 const requirePermission = require('../middleware/requirePermission');
 const idempotency = require('../middleware/idempotency');
 const svc = require('../services/salesProspectService');
+const outreach = require('../services/salesOutreachService');
+
+// The acting staff context (id + super-admin flag) is resolved by requirePermission → req.staff.
+// Identity/authorization for outreach is derived from this + the prospect's assignment, NEVER from body.
+function actingStaff(req) { return { id: req.user.id, is_super_admin: !!(req.staff && req.staff.is_super_admin) }; }
 
 // Sales & Marketing is permission-gated (not admin-only) so Marketing/Sales staff can use it while
 // Super Admins retain access via the rbac bypass. Reads need sales.view; writes need
@@ -104,6 +109,58 @@ router.post('/import', requirePermission('sales.manage_prospects'), async (req, 
     const summary = await svc.importProspects(records, { source: (req.body.source || 'manual_import'), actorId: req.user.id });
     return res.json({ success: true, data: summary });
   } catch (err) { if (err.status) return res.status(err.status).json({ success: false, message: err.message }); next(err); }
+});
+
+// ── Representative-based prospect outreach ─────────────────────────────────────────────────────────
+const okErr = (res, err, next) => { if (err.status) return res.status(err.status).json({ success: false, code: err.code, message: err.message }); next(err); };
+
+// Outreach template catalog (for the composer dropdown).
+router.get('/outreach/templates', (req, res) => res.json({ success: true, data: require('../services/salesOutreachTemplates').catalog() }));
+
+// Composer view-model for a prospect: assigned-rep identity (or what's required), recipient, suggested template.
+router.get('/prospects/:id/outreach', async (req, res, next) => {
+  try { return res.json({ success: true, data: await outreach.buildComposer(req.params.id, actingStaff(req)) }); }
+  catch (err) { okErr(res, err, next); }
+});
+
+// Render a specific template for the composer (rep may then edit before sending).
+router.get('/prospects/:id/outreach/template/:key', async (req, res, next) => {
+  try {
+    const r = await outreach.renderForComposer(req.params.id, req.params.key, actingStaff(req));
+    if (r instanceof Error) return res.status(r.status || 400).json({ success: false, message: r.message });
+    return res.json({ success: true, data: r });
+  } catch (err) { okErr(res, err, next); }
+});
+
+// Outreach email history for a prospect (aggregate CRM record; internal only).
+router.get('/prospects/:id/outreach/history', async (req, res, next) => {
+  try { return res.json({ success: true, data: await outreach.listOutreachForProspect(req.params.id) }); }
+  catch (err) { next(err); }
+});
+
+// Send one representative outreach email. Requires sales.send_email. Identity/recipient are server-derived.
+router.post('/prospects/:id/email', requirePermission('sales.send_email'), idempotency, async (req, res, next) => {
+  try {
+    const b = req.body || {};
+    const r = await outreach.sendOutreach({
+      prospectId: req.params.id, actingStaff: actingStaff(req),
+      templateKey: b.template_key, subject: b.subject, message: b.message, followUpDays: b.follow_up_days,
+    });
+    return res.json({ success: true, data: r });
+  } catch (err) { okErr(res, err, next); }
+});
+
+// Rep outreach identities — Admin (sales.manage_reps) only.
+router.get('/reps/profiles', requirePermission('sales.manage_reps'), async (req, res, next) => {
+  try { return res.json({ success: true, data: await outreach.listRepProfiles() }); }
+  catch (err) { next(err); }
+});
+router.post('/reps/:userId/profile', requirePermission('sales.manage_reps'), async (req, res, next) => {
+  try {
+    const b = req.body || {};
+    const r = await outreach.upsertRepProfile({ userId: req.params.userId, displayName: b.display_name, outreachEmail: b.outreach_email, enabled: b.outreach_enabled }, req.user.id);
+    return res.json({ success: true, data: r });
+  } catch (err) { okErr(res, err, next); }
 });
 
 module.exports = router;

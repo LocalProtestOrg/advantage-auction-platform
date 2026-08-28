@@ -62,6 +62,18 @@
     .msg{font-size:.82rem;color:#64748b;margin:.4rem 0;min-height:1rem}
     .close-x{float:right;background:none;border:none;font-size:1.3rem;cursor:pointer;color:#94a3b8}
     .callout{background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:.6rem .8rem;font-size:.8rem;color:#92400e;margin:.5rem 0}
+    /* Outreach composer modal — starts below the sticky admin header (--admin-nav-h) and scrolls. */
+    .cx-overlay{position:fixed;inset:0;background:rgba(15,23,42,.5);display:none;align-items:flex-start;justify-content:center;padding:calc(var(--admin-nav-h,0px) + 1.4rem) 1rem 1.4rem;z-index:70;overflow:auto}
+    .cx-modal{background:#fff;border-radius:12px;max-width:640px;width:100%;padding:1.4rem;box-shadow:0 20px 60px rgba(0,0,0,.3);position:relative}
+    .cx-modal h2{font-size:1.05rem;margin-bottom:.3rem}
+    .cx-modal label{display:block;font-size:.7rem;text-transform:uppercase;color:#64748b;margin:.6rem 0 .15rem}
+    .cx-modal input,.cx-modal select,.cx-modal textarea{width:100%;padding:.5rem .6rem;border:1px solid #cbd5e1;border-radius:7px;font-size:.85rem;font-family:inherit}
+    .cx-modal input[readonly]{background:#f8fafc;color:#475569}
+    .cx-rep{background:#f5f3ff;border:1px solid #ddd6fe;border-radius:8px;padding:.5rem .7rem;font-size:.8rem;color:#5b21b6;margin-bottom:.2rem}
+    .cx-warn{background:#fff7ed;border:1px solid #fed7aa;border-radius:8px;padding:.5rem .7rem;font-size:.8rem;color:#9a3412;margin-bottom:.2rem}
+    .cx-actions{display:flex;gap:.5rem;margin-top:.9rem;flex-wrap:wrap}
+    .cx-note{font-size:.72rem;color:#94a3b8;margin-top:.6rem;line-height:1.4}
+    #cx-preview{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:.8rem;margin-top:.6rem;font-size:.83rem;white-space:pre-wrap;line-height:1.5}
   </style>
 </head>
 <body>
@@ -189,7 +201,11 @@
       <div style="display:flex;align-items:end"><button class="btn b-blue" style="width:100%;background:#166534" onclick="markContactedDrawer()">✓ Mark Contacted</button></div>
     </div>
     <div id="d-suggested" style="margin-top:.5rem;font-size:.78rem;color:#475569"></div>
-    <div style="margin-top:.8rem;display:flex;gap:.5rem"><button class="btn b-blue" onclick="saveProspect()">Save</button><button class="btn b-ghost" onclick="closeDrawer()">Cancel</button></div>
+    <div style="margin-top:.8rem;display:flex;gap:.5rem;flex-wrap:wrap">
+      <button class="btn b-blue" onclick="saveProspect()">Save</button>
+      <button class="btn b-ghost" onclick="closeDrawer()">Cancel</button>
+      <button class="btn b-blue" id="d-emailbtn" style="margin-left:auto;background:#7c3aed;display:none" onclick="openComposer()">✉ Email Prospect</button>
+    </div>
     <div class="msg" id="drawer-msg"></div>
 
     <div id="notes-wrap" style="display:none;margin-top:1rem;border-top:1px solid #e2e8f0;padding-top:.8rem">
@@ -200,6 +216,29 @@
         <button class="btn b-blue" onclick="addNote()">Add</button>
       </div>
       <div id="notes-list"></div>
+    </div>
+  </div>
+
+  <!-- Representative outreach composer -->
+  <div id="composer" class="cx-overlay">
+    <div class="cx-modal">
+      <button class="close-x" onclick="closeComposer()">&times;</button>
+      <h2>Email Prospect</h2>
+      <div id="cx-identity"></div>
+      <label>To (verified business email)</label><input id="cx-to" readonly />
+      <label>Template</label><select id="cx-template" onchange="onTemplateChange()"></select>
+      <label>Subject</label><input id="cx-subject" />
+      <label>Message</label><textarea id="cx-message" rows="10"></textarea>
+      <label>Follow-Up</label>
+      <select id="cx-followup"><option value="">No follow-up reminder</option><option value="3">Remind me in 3 days</option><option value="7">Remind me in 7 days</option><option value="14">Remind me in 14 days</option></select>
+      <div id="cx-preview" style="display:none"></div>
+      <div class="cx-actions">
+        <button class="btn b-ghost" onclick="previewComposer()">Preview</button>
+        <button class="btn b-blue" id="cx-send" onclick="sendComposer()">Send Email</button>
+        <button class="btn b-ghost" onclick="closeComposer()">Cancel</button>
+      </div>
+      <div class="msg" id="cx-msg"></div>
+      <div class="cx-note">Sent through Advantage.Bid as the assigned representative (Reply-To goes to their Advantage.Bid inbox). Advantage.Bid branding + signature are added automatically, a copy is archived to the company mailbox, and the send is recorded in this prospect's history and marks it Contacted.</div>
     </div>
   </div>
 
@@ -548,7 +587,7 @@
       document.getElementById('notes-wrap').style.display=id?'block':'none';
       const set=(k,v)=>{document.getElementById(k).value=v||'';};
       if(!id){['d-company','d-city','d-state','d-zip','d-area','d-phone','d-email','d-website','d-social','d-platform','d-source','d-contactsource','d-followup'].forEach(k=>set(k,''));
-        document.getElementById('d-webstatus').value='unknown';document.getElementById('d-indie').value='unknown';document.getElementById('d-estate').value='yes';document.getElementById('d-auction').value='unknown';document.getElementById('d-status').value='new_lead';document.getElementById('d-biztype').value='';document.getElementById('d-priority').value='';document.getElementById('d-assigned').value='';document.getElementById('drawer-score').textContent='';return;}
+        document.getElementById('d-webstatus').value='unknown';document.getElementById('d-indie').value='unknown';document.getElementById('d-estate').value='yes';document.getElementById('d-auction').value='unknown';document.getElementById('d-status').value='new_lead';document.getElementById('d-biztype').value='';document.getElementById('d-priority').value='';document.getElementById('d-assigned').value='';document.getElementById('drawer-score').textContent='';document.getElementById('d-emailbtn').style.display='none';return;}
       api('GET','/api/admin/sales/prospects/'+id).then(r=>{const p=r.data;if(!p)return;
         set('d-company',p.company_name);set('d-city',p.city);set('d-state',p.state);set('d-zip',p.zip);set('d-area',p.service_area);
         set('d-phone',p.business_phone);set('d-email',p.business_email);set('d-website',p.website);set('d-social',p.social_url);
@@ -560,6 +599,7 @@
         set('d-followup',p.next_follow_up_at?String(p.next_follow_up_at).slice(0,10):'');
         document.getElementById('drawer-score').textContent=(p.lead_priority_label||'')+' priority · '+(p.tier_label||'')+' · score '+(p.lead_score==null?'?':p.lead_score)+(p.is_actionable?' · actionable':' · NOT actionable (no phone/email)');
         document.getElementById('d-suggested').innerHTML='<b>Suggested outreach:</b> '+esc(suggestedOutreach(p))+' — see the <a href="#" onclick="showTab(\'playbook\');return false;">Scripts & Playbook</a> tab.'+(p.contact_source?('<br><span class="muted">Contact source: '+esc(p.contact_source)+'</span>'):'')+(p.last_contacted_by_email?('<br><span class="muted">Last contacted by '+esc(p.last_contacted_by_email.split('@')[0])+'</span>'):'');
+        document.getElementById('d-emailbtn').style.display=(p.business_email&&String(p.business_email).trim())?'':'none';
         renderNotes(p.notes||[]);
       });
       });
@@ -593,6 +633,62 @@
       document.getElementById('note-body').value='';
       const r=await api('GET','/api/admin/sales/prospects/'+EDIT_ID);renderNotes(r.data.notes||[]);
     }
+
+    // ================= OUTREACH COMPOSER =================
+    let CX_DATA=null;
+    function cxMsg(t){document.getElementById('cx-msg').textContent=t||'';}
+    function openComposer(){
+      if(!EDIT_ID)return;
+      const cx=document.getElementById('composer');
+      cx.style.display='flex';cxMsg('Loading…');document.getElementById('cx-preview').style.display='none';
+      api('GET','/api/admin/sales/prospects/'+EDIT_ID+'/outreach').then(r=>{
+        if(!r.success){cxMsg(r.message||'Failed to load');return;}
+        CX_DATA=r.data;cxMsg('');
+        document.getElementById('cx-to').value=CX_DATA.recipient_email||'';
+        const idBox=document.getElementById('cx-identity');const sendBtn=document.getElementById('cx-send');
+        if(CX_DATA.identity){
+          idBox.className='cx-rep';
+          idBox.innerHTML='<b>Representative:</b> '+esc(CX_DATA.identity.display_name)+' &nbsp;·&nbsp; <b>Reply-To:</b> '+esc(CX_DATA.identity.reply_to);
+          sendBtn.disabled=false;
+        }else{
+          idBox.className='cx-warn';
+          idBox.innerHTML='⚠ '+esc((CX_DATA.requires&&CX_DATA.requires.message)||'Assign a representative first, then Save.');
+          sendBtn.disabled=true;
+        }
+        const sel=document.getElementById('cx-template');
+        sel.innerHTML=(CX_DATA.templates||[]).map(t=>'<option value="'+t.key+'"'+(t.key===CX_DATA.suggested_key?' selected':'')+'>'+esc(t.label)+(t.key===CX_DATA.suggested_key?' (suggested)':'')+'</option>').join('');
+        if(CX_DATA.suggested){document.getElementById('cx-subject').value=CX_DATA.suggested.subject||'';document.getElementById('cx-message').value=CX_DATA.suggested.body||'';}
+        document.getElementById('cx-followup').value='';
+        if(!CX_DATA.has_email){cxMsg('This prospect has no business email. Use the Call action instead.');sendBtn.disabled=true;}
+      }).catch(e=>cxMsg(e.message));
+    }
+    function onTemplateChange(){
+      if(!EDIT_ID)return;const key=document.getElementById('cx-template').value;
+      api('GET','/api/admin/sales/prospects/'+EDIT_ID+'/outreach/template/'+encodeURIComponent(key)).then(r=>{
+        if(r.success&&r.data){document.getElementById('cx-subject').value=r.data.subject||'';document.getElementById('cx-message').value=r.data.body||'';document.getElementById('cx-preview').style.display='none';}
+      });
+    }
+    function previewComposer(){
+      const pv=document.getElementById('cx-preview');
+      const rep=(CX_DATA&&CX_DATA.identity)?CX_DATA.identity:{display_name:'(assigned representative)',reply_to:''};
+      pv.textContent='Subject: '+document.getElementById('cx-subject').value+'\n\n'+document.getElementById('cx-message').value+'\n\n--\n'+rep.display_name+'\nAdvantage.Bid\n'+rep.reply_to;
+      pv.style.display=(pv.style.display==='none')?'block':'none';
+    }
+    function sendComposer(){
+      if(!EDIT_ID)return;
+      const btn=document.getElementById('cx-send');
+      const body={template_key:document.getElementById('cx-template').value,subject:document.getElementById('cx-subject').value,message:document.getElementById('cx-message').value,follow_up_days:document.getElementById('cx-followup').value||null};
+      if(!body.subject.trim()||!body.message.trim()){cxMsg('Subject and message are required.');return;}
+      btn.disabled=true;cxMsg('Sending…');
+      // Direct fetch to include an Idempotency-Key (double-click / duplicate-send protection).
+      fetch('/api/admin/sales/prospects/'+EDIT_ID+'/email',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token,'Idempotency-Key':'cx-'+EDIT_ID+'-'+Date.now()},body:JSON.stringify(body)})
+        .then(r=>r.json()).then(r=>{
+          if(!r.success){cxMsg('Could not send: '+(r.message||'error'));btn.disabled=false;return;}
+          if(r.data&&r.data.status==='sent'){cxMsg('✓ Email sent. Prospect marked Contacted.');setTimeout(function(){closeComposer();openDrawer(EDIT_ID);loadStats();loadProspects();},900);}
+          else{cxMsg('Send failed: '+((r.data&&r.data.error)||'unknown')+' — your draft is kept.');btn.disabled=false;}
+        }).catch(e=>{cxMsg('Send error: '+e.message+' — your draft is kept.');btn.disabled=false;});
+    }
+    function closeComposer(){document.getElementById('composer').style.display='none';}
   </script>
 </body>
 </html>
