@@ -134,6 +134,7 @@
         <select id="f-status"><option value="">All statuses</option></select>
         <select id="f-assigned"><option value="">All reps</option><option value="unassigned">Unassigned</option></select>
         <select id="f-followup"><option value="">Any follow-up</option><option value="due">Due (today + overdue)</option><option value="overdue">Overdue</option><option value="due_today">Due today</option><option value="upcoming">Upcoming</option></select>
+        <select id="f-source" title="Research source"><option value="">All sources</option><option value="google_places">Google Places</option><option value="osm_overpass">OpenStreetMap</option><option value="manual">Manual</option><option value="sample_seed">Sample</option></select>
         <label class="chk"><input type="checkbox" id="f-nowebsite" /> No website</label>
         <label class="chk"><input type="checkbox" id="f-noauctions" /> No online auctions</label>
         <label class="chk"><input type="checkbox" id="f-hasemail" /> Has email</label>
@@ -477,7 +478,7 @@
 
     function resetFilters(reload){
       ['f-search','f-state'].forEach(id=>document.getElementById(id).value='');
-      ['f-biztype','f-priority','f-status','f-assigned','f-followup'].forEach(id=>document.getElementById(id).value='');
+      ['f-biztype','f-priority','f-status','f-assigned','f-followup','f-source'].forEach(id=>document.getElementById(id).value='');
       ['f-nowebsite','f-noauctions','f-hasemail','f-hasphone'].forEach(id=>document.getElementById(id).checked=false);
       QUICK={not_contacted:false,actionable:false};
       if(reload!==false) loadProspects();
@@ -536,6 +537,7 @@
       if(g('f-status'))q.set('contact_status',g('f-status'));
       if(g('f-assigned'))q.set('assigned_rep_user_id',g('f-assigned'));
       if(g('f-followup'))q.set('follow_up',g('f-followup'));
+      if(g('f-source'))q.set('source',g('f-source'));
       if(document.getElementById('f-nowebsite').checked)q.set('no_website','true');
       if(document.getElementById('f-noauctions').checked)q.set('no_auctions','true');
       if(document.getElementById('f-hasemail').checked)q.set('has_email','true');

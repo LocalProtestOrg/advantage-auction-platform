@@ -68,6 +68,7 @@ function dedupKeys(p) {
     normalized_name: normalizeName(p.company_name),
     website_domain: extractDomain(p.website),
     normalized_phone: normalizePhone(p.business_phone),
+    google_place_id: (p.google_place_id && String(p.google_place_id).trim()) || null,
   };
 }
 
@@ -266,10 +267,13 @@ function normalizeResearch(rec = {}) {
     website: rec.website, website_status: rec.website_status, social_url: rec.social_url, source_url: rec.source_url,
     contact_source: rec.contact_source, estate_sales_offered: rec.estate_sales_offered, online_auctions_offered: rec.online_auctions_offered,
     auction_platform_used: rec.auction_platform_used, independent_website: rec.independent_website, business_type: rec.business_type });
+  n.google_place_id = (rec.google_place_id && String(rec.google_place_id).trim()) || null;
   return n;
 }
 async function findDuplicate(k, n) {
   const clauses = []; const params = [];
+  // Google Place ID is the strongest signal — check it first.
+  if (k.google_place_id) { params.push(k.google_place_id); clauses.push(`google_place_id = $${params.length}`); }
   if (k.website_domain) { params.push(k.website_domain); clauses.push(`website_domain = $${params.length}`); }
   if (k.normalized_phone) { params.push(k.normalized_phone); clauses.push(`normalized_phone = $${params.length}`); }
   if (k.normalized_name) {
@@ -309,13 +313,13 @@ async function importProspects(records, opts = {}) {
              prospect_tier=$19, lead_score=$20,
              lead_priority = CASE WHEN priority_locked THEN lead_priority ELSE $21 END,
              normalized_name=COALESCE($22,normalized_name), website_domain=COALESCE($23,website_domain),
-             normalized_phone=COALESCE($24,normalized_phone),
+             normalized_phone=COALESCE($24,normalized_phone), google_place_id=COALESCE($26,google_place_id),
              source=COALESCE(source,$25), last_verified_at=now(), updated_at=now()
            WHERE id=$1`,
           [existing.id, n.city, n.state, n.zip, n.service_area, n.business_phone, n.business_email, n.website,
            n.website_status, n.social_url, n.source_url, n.contact_source, n.estate_sales_offered, n.online_auctions_offered,
            n.auction_platform_used, n.independent_website, n.business_type, s.opportunity_type, s.tier, s.lead_score,
-           s.lead_priority, k.normalized_name, k.website_domain, k.normalized_phone, source]);
+           s.lead_priority, k.normalized_name, k.website_domain, k.normalized_phone, source, k.google_place_id]);
         res.updated++;
       } else {
         await db.query(
@@ -323,12 +327,12 @@ async function importProspects(records, opts = {}) {
              (company_name, city, state, zip, service_area, business_phone, business_email, website,
               website_status, social_url, source_url, contact_source, estate_sales_offered, online_auctions_offered,
               auction_platform_used, independent_website, business_type, opportunity_type, prospect_tier, lead_score,
-              lead_priority, normalized_name, website_domain, normalized_phone, contact_status, source, last_verified_at)
-           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,'new_lead',$25, now())`,
+              lead_priority, normalized_name, website_domain, normalized_phone, contact_status, source, google_place_id, last_verified_at)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,'new_lead',$25,$26, now())`,
           [n.company_name, n.city, n.state, n.zip, n.service_area, n.business_phone, n.business_email, n.website,
            n.website_status, n.social_url, n.source_url, n.contact_source, n.estate_sales_offered, n.online_auctions_offered,
            n.auction_platform_used, n.independent_website, n.business_type, s.opportunity_type, s.tier, s.lead_score,
-           s.lead_priority, k.normalized_name, k.website_domain, k.normalized_phone, source]);
+           s.lead_priority, k.normalized_name, k.website_domain, k.normalized_phone, source, k.google_place_id]);
         res.inserted++;
       }
     } catch (e) { res.rejected++; }
@@ -346,6 +350,7 @@ async function listProspects(q = {}) {
   if (q.business_type) add('business_type = $?', q.business_type);
   if (q.lead_priority) add('lead_priority = $?', q.lead_priority);
   if (q.website_status) add('website_status = $?', q.website_status);
+  if (q.source) add('source = $?', q.source);
   if (q.contact_status) add('contact_status = $?', q.contact_status);
   if (q.assigned_rep_user_id) {
     if (q.assigned_rep_user_id === 'unassigned') w.push('assigned_rep_user_id IS NULL');
