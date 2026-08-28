@@ -446,7 +446,8 @@ app.get('/pro/:slug', async (req, res, next) => {
       `<meta name="twitter:card" content="summary_large_image">`,
     ].filter(Boolean).join('');
     const jsonld = `<script type="application/ld+json">${JSON.stringify(meta.jsonld).replace(/</g, '\\u003c')}</script>`;
-    const html = tpl.replace('<!-- SSR-META -->', head).replace('<!-- SSR-JSONLD -->', jsonld);
+    // Strip the static <title> so the SSR one is the ONLY title crawlers see, then inject meta + JSON-LD.
+    const html = tpl.replace(/<title>[\s\S]*?<\/title>/i, '').replace('<!-- SSR-META -->', head).replace('<!-- SSR-JSONLD -->', jsonld);
     return res.send(html);
   } catch (e) { return res.send(tpl); } // fail-open
 });
