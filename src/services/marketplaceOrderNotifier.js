@@ -9,6 +9,7 @@
 
 const db = require('../db');
 const { sendEmail } = require('./emailService');
+const company = require('../lib/companyContact');
 
 const APP_BASE = (process.env.APP_BASE_URL || 'https://bid.advantage.bid').replace(/\/+$/, '');
 const money = (c) => '$' + ((Number(c) || 0) / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -57,7 +58,7 @@ async function sendPaid(orderId) {
       <p style="margin:16px 0 4px"><b>Fulfillment:</b> ${method}</p>
       <p style="color:#555;margin:0 0 16px">${esc(next)}</p>
       <p><a href="${APP_BASE}/app.html#purchases" style="background:#1d4ed8;color:#fff;text-decoration:none;padding:10px 16px;border-radius:8px">View your purchases</a></p>
-      <p style="color:#888;font-size:12px;margin-top:20px">Advantage.Bid</p>
+      <p style="color:#475569;font-size:13px;margin-top:20px">Need help? <a href="mailto:info@advantage.bid" style="color:#2563eb">info@advantage.bid</a> · <a href="${company.TEL_HREF}" style="color:#2563eb">${company.PHONE_DISPLAY}</a></p>
     </div>`;
     await sendEmail({ to: o.buyer_email, subject: `Order confirmed — ${o.item_title} (${o.order_number})`, html,
       text: `Order ${o.order_number} confirmed. ${o.item_title}. Total ${money(o.total_charge_cents)}. Fulfillment: ${method}. ${next}` });
@@ -75,7 +76,7 @@ async function sendPaid(orderId) {
       ${ship}
       <p style="color:#555;margin:12px 0">Your proceeds after the platform fee: <b>${money(o.seller_proceeds_cents)}</b> (settled by Advantage.Bid after fulfillment).</p>
       <p><a href="${APP_BASE}/seller-orders.html" style="background:#1d4ed8;color:#fff;text-decoration:none;padding:10px 16px;border-radius:8px">Manage this order</a></p>
-      <p style="color:#888;font-size:12px;margin-top:20px">Advantage.Bid</p>
+      <p style="color:#475569;font-size:13px;margin-top:20px">Need help? <a href="mailto:info@advantage.bid" style="color:#2563eb">info@advantage.bid</a> · <a href="${company.TEL_HREF}" style="color:#2563eb">${company.PHONE_DISPLAY}</a></p>
     </div>`;
     await sendEmail({ to: o.seller_email, subject: `Item sold — ${o.item_title} (${o.order_number})`, html,
       text: `You sold ${o.item_title} (order ${o.order_number}). Fulfillment: ${method}. Buyer: ${o.buyer_name || ''} ${o.buyer_email || ''}. Manage: ${APP_BASE}/seller-orders.html` });
@@ -90,7 +91,7 @@ async function sendRefunded(orderId) {
     <p style="color:#555;margin:0 0 16px">Order <b>${esc(o.order_number)}</b> · ${esc(o.seller_name || 'Seller')}</p>
     <p style="margin:0 0 12px">${esc(o.item_title)}</p>
     <p style="margin:0 0 12px">A refund of <b>${money(o.refunded_amount_cents || o.total_charge_cents)}</b> has been issued to your original payment method.</p>
-    <p style="color:#888;font-size:12px;margin-top:20px">Advantage.Bid</p>
+    <p style="color:#475569;font-size:13px;margin-top:20px">Need help? <a href="mailto:info@advantage.bid" style="color:#2563eb">info@advantage.bid</a> · <a href="${company.TEL_HREF}" style="color:#2563eb">${company.PHONE_DISPLAY}</a></p>
   </div>`;
   await sendEmail({ to: o.buyer_email, subject: `Refund processed — ${o.item_title} (${o.order_number})`, html,
     text: `Refund of ${money(o.refunded_amount_cents || o.total_charge_cents)} processed for order ${o.order_number} (${o.item_title}).` });

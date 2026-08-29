@@ -28,6 +28,7 @@ let SITE_URL = '';
 try { SITE_URL = require('../lib/publicUrls').publicBaseUrl(); } catch (_e) { SITE_URL = ''; }
 
 const SUPPORT_EMAIL = 'info@advantage.bid';
+const company = require('../lib/companyContact');
 
 // Email visibility: record every combined invoice/receipt send in audit_log. Best-effort.
 async function logEmail(eventType, { combinedInvoiceId, to, result, reason, messageId }) {
@@ -191,7 +192,8 @@ function buildSuccessPackageEmail(data) {
       '<table style="width:100%;border-collapse:collapse;font-size:14px;margin-top:12px">' + summaryRowsHtml(data.summary) + '</table>' +
       pickupHtml +
       (invoicesUrl ? ('<p style="margin:16px 0 4px">' + button(invoicesUrl, 'View My Purchases', '#2563eb') + button('mailto:' + SUPPORT_EMAIL, 'Need Help?', '#475569') + '</p>') : '') +
-      '<p style="font-size:12px;color:#94a3b8;margin-top:14px">Advantage.Bid never stores your full card details.</p>' +
+      '<p style="font-size:13px;color:#475569;margin-top:14px">Need help? <a href="mailto:' + SUPPORT_EMAIL + '" style="color:#2563eb">' + SUPPORT_EMAIL + '</a> · <a href="' + company.TEL_HREF + '" style="color:#2563eb">' + company.PHONE_DISPLAY + '</a></p>' +
+      '<p style="font-size:12px;color:#94a3b8;margin-top:6px">Advantage.Bid never stores your full card details.</p>' +
     '</div>';
 
   const textLines = [
@@ -213,7 +215,7 @@ function buildSuccessPackageEmail(data) {
     p.recommended ? ('  Recommended arrival times help create an orderly pickup process by allowing smaller items to be removed first, reducing congestion and helping prevent loading delays or accidental damage. You may arrive any time during the pickup date/time above.') : null,
     '',
     invoicesUrl ? ('View My Purchases: ' + invoicesUrl) : null,
-    'Need help? ' + SUPPORT_EMAIL,
+    'Need help? ' + SUPPORT_EMAIL + ' · ' + company.PHONE_DISPLAY,
   ].filter((l) => l !== null);
 
   return {
