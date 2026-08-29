@@ -24,8 +24,11 @@ const cloudinary = require('../src/services/cloudinaryService');
 const { parseLotNumber } = require('../src/lib/lotNumber');
 
 const SELLER = '00000000-0000-4000-a000-0000000d0002';   // Heritage & Home (DEMO) seller_profile
-const AUCTION = '00000000-0000-4000-a000-0000000d0100';  // NEW canonical demo auction
-const OLD_AUCTION = '00000000-0000-4000-a000-0000000d0007'; // legacy demo auction to remove
+const AUCTION = '00000000-0000-4000-a000-0000000d0003';  // canonical demo auction (referenced by Sales Toolbox + outreach)
+// Aborted/duplicate demo auctions to remove. NOT d0007 — that is the storefront's legitimate PAST-SALE
+// portfolio piece + the unsold→Marketplace conversion demo (a past auction is not a competing catalog).
+const REMOVE_AUCTIONS = ['00000000-0000-4000-a000-0000000d0100'];
+const IMAGE_FOLDER = 'demo-heritage-auction';            // Cloudinary folder — reuse ONLY images THIS importer uploaded
 const DIR = path.join(__dirname, '..', 'demo-data', 'heritage-home-demo-auction');
 const CSV = path.join(DIR, 'Example Auction.csv');
 const IMAGES = path.join(DIR, 'images');
@@ -97,11 +100,14 @@ function localImagesFor(key) {
     if (!sp) { console.error('DEMO seller missing — run scripts/demo-environment.js + seed-demo-storefront.js first.'); process.exit(1); }
     if (!sp.is_demo) { console.error('REFUSE: target seller is not is_demo.'); process.exit(2); }
 
-    // Snapshot existing demo-auction images so a re-run reuses uploaded URLs (no re-upload).
+    // Snapshot images THIS importer previously uploaded (identified by the Cloudinary folder) so a re-run of
+    // the SAME catalog reuses them without re-uploading. We NEVER reuse images from a different prior catalog
+    // (e.g. the old d0003 lots) — matching only our folder guarantees a new lot never inherits a stale photo.
     const prior = {};
     for (const r of (await q(
       `SELECT l.lot_number_display AS d, li.image_url AS url, li.sort_order AS so
-         FROM lots l JOIN lot_images li ON li.lot_id = l.id WHERE l.auction_id=$1`, [AUCTION])).rows) {
+         FROM lots l JOIN lot_images li ON li.lot_id = l.id
+        WHERE l.auction_id=$1 AND li.image_url LIKE '%/' || $2 || '/%'`, [AUCTION, IMAGE_FOLDER])).rows) {
       const k = String(r.d || '').toLowerCase(); (prior[k] = prior[k] || []).push({ url: r.url, so: r.so });
     }
     Object.values(prior).forEach((a) => a.sort((x, y) => x.so - y.so));
@@ -152,7 +158,7 @@ function localImagesFor(key) {
         const files = localImagesFor(ln.display);
         for (const f of files) {
           const buf = fs.readFileSync(path.join(IMAGES, f));
-          const up = await cloudinary.uploadBuffer(buf, { folder: 'demo-heritage-auction',
+          const up = await cloudinary.uploadBuffer(buf, { folder: IMAGE_FOLDER,
             public_id: 'lot-' + ln.display.toLowerCase() + '-' + f.match(/_(\d+)\.jpg$/i)[1], overwrite: true });
           urls.push(up.secure_url); report.uploaded++;
         }
@@ -169,8 +175,14 @@ function localImagesFor(key) {
       if (pos % 25 === 0) console.log('  …imported', pos, 'lots');
     }
 
-    // Remove the legacy contradictory demo auction (cascades its lots/images). DEMO-scoped.
-    const oldDel = await q('DELETE FROM auctions WHERE id=$1 AND is_demo=true RETURNING id', [OLD_AUCTION]);
+    // Remove legacy/aborted contradictory demo auctions. Delete their lots first (lots→children cascade),
+    // then the auction row — robust whether or not auctions→lots cascades. DEMO-scoped only (is_demo guard).
+    const toRemove = (await q('SELECT id FROM auctions WHERE id = ANY($1) AND is_demo=true', [REMOVE_AUCTIONS])).rows.map((r) => r.id);
+    if (toRemove.length) {
+      await q('DELETE FROM lots WHERE auction_id = ANY($1)', [toRemove]);
+      await q('DELETE FROM auctions WHERE id = ANY($1)', [toRemove]);
+    }
+    const oldDel = { rowCount: toRemove.length };
 
     await q('COMMIT');
 
@@ -181,7 +193,7 @@ function localImagesFor(key) {
     console.log('  lots with images ', report.withImg, '| lots WITHOUT image:', report.noImg.length ? report.noImg.join(',') : 'none');
     console.log('  images uploaded  ', report.uploaded, '| reused', report.reused);
     console.log('  lots w/ binding reserve (reserve>start):', report.realReserve, '(reserve VALUES intentionally not printed)');
-    console.log('  legacy demo auction d0007 removed:', oldDel.rowCount === 1 ? 'yes' : 'not present');
+    console.log('  legacy demo auctions removed:', oldDel.rowCount);
     process.exit(0);
   } catch (e) {
     try { await q('ROLLBACK'); } catch (_) {}
