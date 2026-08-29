@@ -42,6 +42,7 @@
     .sheet{background:#fff;border-radius:16px;max-width:460px;width:100%;padding:22px;margin-top:24px}
     .sheet h3{font-family:Fraunces;font-size:20px;margin-bottom:4px}
   </style>
+  <script src="/widgets/shared/lot-image.js"></script>
 </head>
 <body>
   <div class="wrap" id="app"><p style="color:#64748b">Loading…</p></div>
@@ -69,7 +70,7 @@
       var it=ITEM;
       document.title=it.title+' · Advantage.Bid';
       var imgs=(it.images&&it.images.length?it.images:(it.thumbnail_url?[it.thumbnail_url]:[]));
-      var main=imgs[0]?('<img id="main" src="'+esc(imgs[0])+'" alt="'+esc(it.title)+'">'):'<div style="aspect-ratio:4/3;background:#eef2f7;border-radius:14px"></div>';
+      var main=AdvLotImage.img(imgs[0], it.title, 'id="main"');
       var thumbs=imgs.length>1?('<div class="thumbs">'+imgs.map(function(u){return '<img src="'+esc(u)+'" onclick="document.getElementById(\'main\').src=this.src" alt="thumbnail">';}).join('')+'</div>'):'';
       var loc=[it.city,it.state].filter(Boolean).join(', ');
       var sellerLink=it.storefront_slug?('<a href="/pro/'+esc(it.storefront_slug)+'">'+esc(it.seller_name)+'</a>'):esc(it.seller_name);

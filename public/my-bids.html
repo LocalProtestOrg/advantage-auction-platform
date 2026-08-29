@@ -25,6 +25,7 @@
     .mb-rows{display:grid;grid-template-columns:auto 1fr;gap:2px 8px;font-size:12.5px}
     .mb-rows span{color:#64748b}.mb-rows strong{text-align:right}
   </style>
+  <script src="/widgets/shared/lot-image.js"></script>
 </head>
 <body>
   <div class="wrap">
@@ -48,7 +49,7 @@
       const s = BidStatus.deriveBidderStatus(lot);
       const c = TONE[s.tone]||TONE.neutral;
       const closesAt = lot.extended_until || lot.closes_at || null;
-      const img = lot.thumbnail_url ? '<img src="'+esc(lot.thumbnail_url)+'" alt="" loading="lazy">' : '<div class="ph"></div>';
+      const img = AdvLotImage.img(lot.thumbnail_url, lot.title||'', 'loading="lazy"');
       const cur = (lot.current_bid_cents!=null) ? BidUtils.formatUSD(lot.current_bid_cents) : '-';
       const mx  = (s.maxBidCents!=null) ? BidUtils.formatUSD(s.maxBidCents) : '-';
       const num = (lot.lot_number!=null) ? ('Lot #'+lot.lot_number+' · ') : '';

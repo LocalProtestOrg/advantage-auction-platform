@@ -73,6 +73,7 @@
     .demo-ribbon{background:#fef3c7;color:#92400e;text-align:center;font-size:13px;font-weight:700;padding:7px}
     .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#0f172a;color:#fff;padding:11px 18px;border-radius:10px;font-size:14px;display:none;z-index:50}
   </style>
+  <script src="/widgets/shared/lot-image.js"></script>
 </head>
 <body>
   <div id="demo-ribbon"></div>
@@ -128,7 +129,7 @@
       // Auctions
       if(vis.auctions!==false && d.auctions.length){
         html+='<section id="auctions"><div class="sec-head"><h2>Current & Upcoming Auctions</h2></div><div class="grid grid-3">'+d.auctions.map(function(a){
-          var img=a.image?'<img src="'+esc(a.image)+'" alt="'+esc(a.title)+'">':'<div class="ph"></div>';
+          var img=AdvLotImage.img(a.image, a.title);
           var loc=[a.city,a.state].filter(Boolean).join(', ')||'Online';
           return '<a class="card prod" href="/auction-view.html?auctionId='+esc(a.id)+'" onclick="ping(\'storefront_cta_click\',{cta:\'auction\'})">'+img+'<div class="body"><div class="t">'+esc(a.title)+'</div><div class="meta"><span class="pill">'+esc(a.auction_state==="active"?"Bidding open":"Upcoming")+'</span><span>'+esc(loc)+'</span></div></div></a>';
         }).join('')+'</div></section>';
@@ -136,7 +137,7 @@
       // Upcoming estate sales / events (seller's own, via authoritative org link)
       if(vis.events!==false && d.events && d.events.length){
         html+='<section id="events"><div class="sec-head"><h2>Upcoming Estate Sales</h2><div class="sec-sub">In-person sales & events from '+esc(s.name)+'</div></div><div class="grid grid-3">'+d.events.map(function(ev){
-          var img=ev.image?'<img src="'+esc(ev.image)+'" alt="'+esc(ev.title)+'">':'<div class="ph"></div>';
+          var img=AdvLotImage.img(ev.image, ev.title);
           var loc=[ev.city,ev.state].filter(Boolean).join(', ')||(ev.event_format==='online'?'Online':'');
           var when=ev.start_at?fmtDate(ev.start_at):'';
           return '<a class="card prod" href="'+esc(ev.url)+'" onclick="ping(\'storefront_cta_click\',{cta:\'event\'})">'+img+'<div class="body"><div class="t">'+esc(ev.title)+'</div><div class="meta">'+(when?'<span class="pill">'+esc(when)+'</span>':'')+(loc?'<span>'+esc(loc)+'</span>':'')+'</div></div></a>';
@@ -146,7 +147,7 @@
       if(vis.marketplace!==false){
         html+='<section id="shop"><div class="sec-head"><div><h2>Shop Available Items</h2><div class="sec-sub">Available now from '+esc(s.name)+'</div></div></div>';
         html+= d.marketplace.length? ('<div class="grid grid-4">'+d.marketplace.map(function(m){
-          var img=(m.thumbnail_url||(m.images&&m.images[0]))?'<img src="'+esc(m.thumbnail_url||m.images[0])+'" alt="'+esc(m.title)+'">':'<div class="ph"></div>';
+          var img=AdvLotImage.img(m.thumbnail_url||(m.images&&m.images[0]), m.title);
           var loc=[m.city,m.state].filter(Boolean).join(', ');
           return '<a class="card prod" href="/item.html?id='+esc(m.id)+'" onclick="ping(\'storefront_cta_click\',{cta:\'item\'})">'+img+'<div class="body"><div class="t">'+esc(m.title)+'</div><div class="price">'+money(m.price_cents)+'</div><div class="meta">'+(loc?'<span>'+esc(loc)+'</span>':'')+(m.shippable?'<span class="pill">Ships</span>':'')+(m.source_lot_id?'<span class="pill">From auction</span>':'')+'</div></div></a>';
         }).join('')+'</div>') : '<div class="empty">No items listed right now — check back soon.</div>';
@@ -155,7 +156,7 @@
       // Past auctions / portfolio
       if(vis.past!==false && d.past_auctions.length){
         html+='<section id="past"><div class="sec-head"><h2>Past Sales</h2><div class="sec-sub">A portfolio of completed sales</div></div><div class="grid grid-4">'+d.past_auctions.map(function(a){
-          var img=a.image?'<img src="'+esc(a.image)+'" alt="'+esc(a.title)+'">':'<div class="ph"></div>';
+          var img=AdvLotImage.img(a.image, a.title);
           return '<a class="card prod" href="/auction-view.html?auctionId='+esc(a.id)+'">'+img+'<div class="body"><div class="t">'+esc(a.title)+'</div><div class="meta"><span>'+esc([a.city,a.state].filter(Boolean).join(', '))+'</span></div></div></a>';
         }).join('')+'</div></section>';
       }

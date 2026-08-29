@@ -29,6 +29,7 @@
     .wl-actions button{color:#991b1b;border-left:1px solid #f1f5f9}
     .wl-actions a:hover,.wl-actions button:hover{background:#f8fafc}
   </style>
+  <script src="/widgets/shared/lot-image.js"></script>
 </head>
 <body>
   <div class="wrap">
@@ -52,7 +53,7 @@
       const s = BidStatus.deriveBidderStatus(lot);
       const c = TONE[s.tone]||TONE.neutral;
       const closesAt = lot.extended_until || lot.closes_at || null;
-      const img = lot.thumbnail_url ? '<img src="'+esc(lot.thumbnail_url)+'" alt="" loading="lazy">' : '<div class="ph"></div>';
+      const img = AdvLotImage.img(lot.thumbnail_url, lot.title||'', 'loading="lazy"');
       const cur = (lot.current_bid_cents!=null) ? BidUtils.formatUSD(lot.current_bid_cents) : '-';
       const num = (lot.lot_number!=null) ? ('Lot #'+lot.lot_number+' · ') : '';
       const lotUrl = '/lot.html?lotId='+encodeURIComponent(lot.id);

@@ -52,6 +52,7 @@
     .empty{padding:2.5rem;text-align:center;color:#64748b}
     .more{display:block;margin:18px auto 0;padding:10px 20px;border:1.5px solid #cbd5e1;background:#fff;border-radius:8px;font-weight:700;cursor:pointer}
   </style>
+  <script src="/widgets/shared/lot-image.js"></script>
 </head>
 <body>
   <div class="wrap">
@@ -95,8 +96,8 @@
       const cur = hist ? 'Historical archive'
                 : (l.current_bid_cents!=null && l.current_bid_cents>0) ? ('Current bid '+usd(l.current_bid_cents))
                 : ('Starts at '+ (usd(l.starting_bid_cents)||'$1.00'));
-      const img = '<img src="'+(l.thumbnail_url?esc(l.thumbnail_url):'/img/lot-placeholder.svg')+'" alt="" loading="lazy" onerror="this.onerror=null;this.src=\'/img/lot-placeholder.svg\'">'; // #13 professional fallback
-      const num = l.lot_number!=null ? ('Lot #'+l.lot_number+' · ') : '';
+      const img = AdvLotImage.img(l.thumbnail_url, l.title || '', 'loading="lazy"'); // official Advantage.Bid fallback when no real image
+      const num = l.lot_number!=null ? ('Lot #'+(l.lot_number_display||l.lot_number)+' · ') : '';
       const loc = [l.auction_city, l.auction_address_state].filter(Boolean).join(', ');
       const tl = (l.lot_state==='open' && l.closes_at) ? (' · '+timeLeft(l.closes_at)+' left') : (l.lot_state==='closed'?' · Closed':'');
       return '<a class="card" href="/lot.html?lotId='+encodeURIComponent(l.id)+'">'
@@ -107,7 +108,7 @@
         +'<div class="price">'+cur+'</div></div></a>';
     }
     function auctionCard(a){
-      const img = '<img src="'+(a.cover_image_url?esc(a.cover_image_url):'/img/lot-placeholder.svg')+'" alt="" loading="lazy" onerror="this.onerror=null;this.src=\'/img/lot-placeholder.svg\'">'; // #13 professional fallback
+      const img = AdvLotImage.img(a.cover_image_url, a.title || '', 'loading="lazy"'); // official Advantage.Bid fallback when no real image
       const loc = [a.city, a.address_state].filter(Boolean).join(', ');
       const dist = (a.distance_km!=null) ? (' · '+Math.max(1,Math.round(a.distance_km*0.621371))+' mi') : '';
       return '<a class="card" href="/auction-view.html?auctionId='+encodeURIComponent(a.id)+'">'

@@ -710,6 +710,7 @@
       #main-image-wrap{ max-height:62vh; }
     }
   </style>
+  <script src="/widgets/shared/lot-image.js"></script>
 </head>
 <body>
 
@@ -1563,9 +1564,19 @@
 
     if (!imageRows.length) {
       document.getElementById('main-skeleton').classList.add('hidden');
-      const nm = document.getElementById('no-image-msg');
-      nm.textContent = isHistoricalLot ? 'Historical image unavailable.' : 'No images';
-      nm.style.display = '';
+      if (isHistoricalLot) {
+        const nm = document.getElementById('no-image-msg');
+        nm.textContent = 'Historical image unavailable.';
+        nm.style.display = '';
+      } else {
+        // No supplied photo → the official Advantage.Bid placeholder (presentation only; the lot still
+        // truthfully has zero images for the seller/admin/import side).
+        document.getElementById('no-image-msg').style.display = 'none';
+        const main = document.getElementById('main-image');
+        main.src = (window.AdvLotImage ? AdvLotImage.PLACEHOLDER : '/img/lot-placeholder.png');
+        main.style.display = 'block';
+        main.classList.add('loaded');
+      }
       return;
     }
 

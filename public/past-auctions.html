@@ -51,6 +51,7 @@
     footer{background:#0f172a;color:#94a3b8;margin-top:2rem;padding:1.5rem 1rem;text-align:center;font-size:.85rem}
     footer a{color:#cbd5e1;text-decoration:none;margin:0 .4rem}
   </style>
+  <script src="/widgets/shared/lot-image.js"></script>
 </head>
 <body>
   <script src="/widgets/shared/buyer-nav.js"></script>
@@ -77,7 +78,7 @@
       // Historical archive auctions: never display the (internal placeholder) date or
       // bid/price figures; show a subtle "Historical Auction" indicator instead.
       var hist = a.public_auction_type === 'historical_archive';
-      var img = a.cover_image_url ? '<img src="'+esc(a.cover_image_url)+'" alt="" loading="lazy">' : '';
+      var img = AdvLotImage.img(a.cover_image_url, a.title||'', 'loading="lazy"');
       var lots = (a.lot_count!=null) ? a.lot_count : 0;
       var bids = (a.total_bids!=null) ? a.total_bids : 0;
       return '<a class="card" href="/auction-view.html?auctionId='+encodeURIComponent(a.id)+'">'
