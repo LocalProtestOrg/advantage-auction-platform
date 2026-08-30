@@ -24,6 +24,7 @@ const auditService = require('./auditService');
 const analyticsService = require('./analyticsService');
 const emailService = require('./emailService');
 const estateSaleEmails = require('./estateSaleEmails');
+const ownerAlertService = require('./ownerAlertService'); // best-effort owner SMS (submit + purchase)
 
 const STRIPE_API_VERSION = '2026-03-25.dahlia';
 const PRODUCT_TYPE = 'estate_sale_promotion';
@@ -108,6 +109,10 @@ async function handleCheckoutCompleted(session) {
   });
   if (res.transitioned && userId) {
     sendReceiptEmail(userId).catch(() => {});
+    // Owner operational SMS: a marketing package was genuinely purchased. Fires ONLY on the pending->paid
+    // transition (res.transitioned), so duplicate/retried webhook deliveries (idempotent handler +
+    // stripe_webhook_events) never re-alert. Best-effort + non-blocking — never affects the webhook result.
+    ownerAlertService.notifyOwnerMarketingPackagePurchased({ userId, packageName: 'Estate Sale Promotion' }).catch(() => {});
     analyticsService.insertEvent({ event_type: 'estate_sale_promotion_activated', metadata: { product: PRODUCT_TYPE } }, null).catch(() => {});
   }
 }
@@ -175,6 +180,10 @@ async function submitEstateSale(userId, eventId) {
     return rows[0];
   });
   sendLifecycleEmail(userId, 'received').catch(() => {});
+  // Owner operational SMS: an estate sale was submitted for review. submitEstateSale only reaches here on a
+  // real draft/rejected -> submitted transition (guarded above), so this is one alert per genuine submission
+  // cycle; a rejected->resubmit is a new cycle and alerts again. Best-effort + non-blocking.
+  ownerAlertService.notifyOwnerEstateSaleSubmitted(out.id).catch(() => {});
   analyticsService.insertEvent({ event_type: 'estate_sale_submitted', metadata: { product: PRODUCT_TYPE } }, null).catch(() => {});
   return out;
 }

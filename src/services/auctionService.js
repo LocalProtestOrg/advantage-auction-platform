@@ -7,6 +7,7 @@ const { validateAuctionSchedule, assertStartBeforeEnd, ScheduleRuleError, isProf
 const verificationService = require('./verificationService'); // publication gate (verification-required)
 const { combinedInvoicingEnabled } = require('./../lib/launchGuards'); // Design C flag gate at close
 const { platformFeeCents } = require('../lib/settlementPolicy'); // seller platform fee = 0% (shared)
+const ownerAlertService = require('./ownerAlertService'); // best-effort owner SMS on submit-for-review
 
 // #18: default gap between consecutive lot closings (AAC timed model). Lot N
 // closes at start_time + N * this interval. Editable config is a post-launch
@@ -456,6 +457,14 @@ async function updateAuction(auctionId, userId, updates, actorRole, options = {}
       actor_id:    userId,
       metadata:    { changed_fields: changed, actor_role: actorRole || 'unknown' },
     }).catch(() => {});
+
+    // Owner operational SMS: fire ONLY on the authoritative transition INTO 'submitted' (the moderation
+    // queue trigger). A plain edit, or editing an already-submitted auction, has no state change so this
+    // never fires; a legitimate resubmission (draft/rejected -> submitted) is a new transition and alerts
+    // again. Best-effort + fully non-blocking — a provider outage must never fail a valid submission.
+    if (enteredSubmitted) {
+      ownerAlertService.notifyOwnerAuctionSubmitted(auctionId).catch(() => {});
+    }
   } catch (_) { /* audit failures are non-blocking by design */ }
 
   // Geocoding trigger: a seller or admin changed the auction location. Fire-and-forget
