@@ -50,4 +50,31 @@ function hasNoRealImage(lot) {
   return primaryRealImage(lot) == null;
 }
 
-module.exports = { PLACEHOLDER_URL, isRealImageUrl, primaryRealImage, imageOrPlaceholder, lotDisplayImage, hasNoRealImage };
+// ── Auction / sale COVER images ──────────────────────────────────────────────────────────────────────
+// Same rule as lots: a real seller cover shows normally; otherwise the official square placeholder (which
+// the client renders object-fit:contain so the logo is never cropped). NOTE: the branded partner-EVENT
+// placeholders (auction-partner-placeholder.svg, gsa-surplus-placeholder.svg) are intentional event
+// imagery and are deliberately NOT listed here — this is auctions only.
+const LEGACY_AUCTION_COVER_DEFAULTS = ['/img/social-card.png'];
+function isLegacyAuctionCoverDefault(u) {
+  if (u == null) return false;
+  const s = String(u);
+  return LEGACY_AUCTION_COVER_DEFAULTS.some((d) => s.indexOf(d) !== -1);
+}
+// The raw stored cover for an auction (cover first, then banner). Truthful — may be null.
+function auctionCoverUrl(a) { return a ? (a.cover_image_url || a.banner_image_url || null) : null; }
+// True when the auction has a genuine seller-supplied cover (not empty, not the placeholder, not a legacy
+// default graphic). This is the truth signal — the placeholder never makes it read true.
+function hasRealAuctionCover(a) {
+  const u = auctionCoverUrl(a);
+  return isRealImageUrl(u) && !isLegacyAuctionCoverDefault(u);
+}
+// DISPLAY cover for an auction: its real cover, or the placeholder. Does NOT mutate the auction.
+function auctionCoverOrPlaceholder(a) {
+  return hasRealAuctionCover(a) ? auctionCoverUrl(a) : PLACEHOLDER_URL;
+}
+
+module.exports = {
+  PLACEHOLDER_URL, isRealImageUrl, primaryRealImage, imageOrPlaceholder, lotDisplayImage, hasNoRealImage,
+  LEGACY_AUCTION_COVER_DEFAULTS, isLegacyAuctionCoverDefault, auctionCoverUrl, hasRealAuctionCover, auctionCoverOrPlaceholder,
+};
