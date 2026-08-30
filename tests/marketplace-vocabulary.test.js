@@ -39,19 +39,27 @@ describe('feed API exposes the family + owner-locked family_label (additive, bac
 
 describe('homepage map legend — five owner-locked sections, canonical counts, tooltips', () => {
   test('sections: Advantage.Bid Auctions, Auction Partner Events, Estate Sales, Marketplace, Professionals', () => {
+    // Each owner-locked section is emitted via section('<label>', …) (which renders legendSec + its rows,
+    // and is omitted when it has zero visible rows — the zero-count cleanup).
     for (const s of ['Advantage\\.Bid Auctions', 'Auction Partner Events', 'Estate Sales', 'Marketplace', 'Professionals']) {
-      expect(index).toMatch(new RegExp("legendSec\\('" + s + "'"));
+      expect(index).toMatch(new RegExp("section\\('" + s + "'"));
     }
+    expect(index).toMatch(/function legendSec\(/); // section() still renders the labelled header
   });
   test('family counts come from CANONICAL inventory (CANON_COUNTS.families), NOT map pins/viewport', () => {
     expect(index).toMatch(/marketplace\/counts/);                     // fetched from the canonical endpoint
-    expect(index).toMatch(/'Auction Partner Events',f\.partner_event/); // partner_event inventory total
-    expect(index).toMatch(/'Estate Sales',f\.estate_sale/);
-    expect(index).toMatch(/'Marketplace',f\.marketplace/);            // Marketplace = fixed-price family, not directory
+    expect(index).toMatch(/n:f\.partner_event/);                      // partner_event inventory total
+    expect(index).toMatch(/n:f\.estate_sale/);
+    expect(index).toMatch(/n:f\.marketplace/);                        // Marketplace = fixed-price family, not directory
   });
   test('Professionals is a SEPARATE section (directory), counts from professionals.*', () => {
-    expect(index).toMatch(/legendSec\('Professionals'/);
+    expect(index).toMatch(/section\('Professionals'/);
     expect(index).toMatch(/pr\[c\.key\]/);                            // professional rows use professionals counts
+  });
+  test('zero-count legend cleanup: rows filtered by count>0 and empty sections/key hidden', () => {
+    expect(index).toMatch(/LegendVisibility\.visibleItems/);          // rows shown only when count>0
+    expect(index).toMatch(/legend-visibility\.js/);                   // shared pure helper included
+    expect(index).toMatch(/if\(totalRows===0\)\{[\s\S]{0,80}display='none'/); // whole key hidden when empty
   });
   test('the confusing "Other Estate Services" row is excluded', () => {
     expect(index).toMatch(/c\.key!=='estate_services'/);

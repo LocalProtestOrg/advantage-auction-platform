@@ -406,6 +406,7 @@
 
   @media (prefers-reduced-motion: reduce){ *{animation:none !important;transition-duration:.001ms !important} }
 </style>
+  <script src="/widgets/shared/legend-visibility.js"></script>
 </head>
 <body class="peek">
   <h1 class="sr-only">Current estate, liquidation, and consignment auctions near you. Advantage.Bid</h1>
@@ -1032,28 +1033,42 @@
   function legendSec(label,tip){ return '<div class="legend-sec" tabindex="0" title="'+esc(tip)+'">'+esc(label)+' <span class="lg-i" aria-hidden="true">ⓘ</span></div>'; }
   function mpBuildLegend(){
     var el=document.getElementById('legend'); if(!el) return;
+    var fab=document.getElementById('legendFab');
     var f=(CANON_COUNTS&&CANON_COUNTS.families)||{}, pr=(CANON_COUNTS&&CANON_COUNTS.professionals)||{};
-    var html='<button class="legend-close" id="legendClose" type="button" aria-label="Hide map key">&times;</button>';
-    // 1) ADVANTAGE.BID AUCTIONS — native auctions hosted on Advantage.Bid (status breakdown).
-    html+=legendSec('Advantage.Bid Auctions','Live auctions hosted directly on Advantage.Bid.');
-    MP_EVENTS.forEach(function(e){ html+=mpRow('auction',e.key,e.color,'',e.label,mpAuctionCount(e.key)); });
+    var body=''; var totalRows=0;
+    // A section renders ONLY the rows whose count>0 (LegendVisibility), and is omitted entirely — header,
+    // divider and all — when it has none. Keeps the key consistent with the actual public inventory.
+    function section(label,tip,rowDefs){
+      var visible=LegendVisibility.visibleItems(rowDefs,function(r){ return r.n; });
+      if(!visible.length) return;
+      body+=legendSec(label,tip);
+      visible.forEach(function(r){ body+=mpRow(r.kind,r.key,r.color,r.glyph,r.label,r.n); });
+      totalRows+=visible.length;
+    }
+    // 1) ADVANTAGE.BID AUCTIONS — native auction STATUS breakdown (Live Now / Ending Soon / Upcoming).
+    section('Advantage.Bid Auctions','Live auctions hosted directly on Advantage.Bid.',
+      MP_EVENTS.map(function(e){ return {kind:'auction',key:e.key,color:e.color,glyph:'',label:e.label,n:mpAuctionCount(e.key)}; }));
     // 2) AUCTION PARTNER EVENTS — canonical partner_event inventory (incl. coordinate-less online auctions).
-    html+=legendSec('Auction Partner Events','Auction events posted or imported from professional auction companies.');
-    html+=mpRow('mp','event_auction','#B5273B','gavel','Auction Partner Events',f.partner_event||0);
+    section('Auction Partner Events','Auction events posted or imported from professional auction companies.',
+      [{kind:'mp',key:'event_auction',color:'#B5273B',glyph:'gavel',label:'Auction Partner Events',n:f.partner_event||0}]);
     // 3) ESTATE SALES — canonical estate_sale inventory (full active total, not just plottable pins).
-    html+=legendSec('Estate Sales','Current estate sale events.');
-    html+=mpRow('mp','event_estate_sale','#7C3AED','house','Estate Sales',f.estate_sale||0);
+    section('Estate Sales','Current estate sale events.',
+      [{kind:'mp',key:'event_estate_sale',color:'#7C3AED',glyph:'house',label:'Estate Sales',n:f.estate_sale||0}]);
     // 4) MARKETPLACE — fixed-price Advantage.Bid items ONLY (never directory companies).
-    html+=legendSec('Marketplace','Fixed-price items available through Advantage.Bid.');
-    html+=mpRow('mp','marketplace_items','#0EA5E9','dots','Marketplace',f.marketplace||0);
+    section('Marketplace','Fixed-price items available through Advantage.Bid.',
+      [{kind:'mp',key:'marketplace_items',color:'#0EA5E9',glyph:'dots',label:'Marketplace',n:f.marketplace||0}]);
     // 5) PROFESSIONALS — the directory (separate from the Marketplace product family). No "Other Estate…".
-    html+=legendSec('Professionals','Professional companies and service providers.');
-    MP_CATS.filter(function(c){ return c.key!=='estate_services'; }).forEach(function(c){
-      html+=mpRow('mp',c.key,c.color,c.glyph,c.label,(pr[c.key]!=null?pr[c.key]:((MP.counts&&MP.counts[c.key])||0)));
-    });
-    html+='<div class="legend-tools"><button type="button" data-tool="show">Show All</button>'
-      +'<button type="button" data-tool="hide">Hide All</button><button type="button" data-tool="reset">Reset</button></div>';
-    el.innerHTML=html;
+    section('Professionals','Professional companies and service providers.',
+      MP_CATS.filter(function(c){ return c.key!=='estate_services'; }).map(function(c){
+        return {kind:'mp',key:c.key,color:c.color,glyph:c.glyph,label:c.label,n:(pr[c.key]!=null?pr[c.key]:((MP.counts&&MP.counts[c.key])||0))};
+      }));
+    // Nothing to show anywhere → hide the entire key (and its reopen button); no empty box or dividers.
+    if(totalRows===0){ el.style.display='none'; el.classList.remove('open'); if(fab) fab.style.display='none'; el.innerHTML=''; return; }
+    el.style.display=''; if(fab) fab.style.display='';
+    el.innerHTML='<button class="legend-close" id="legendClose" type="button" aria-label="Hide map key">&times;</button>'
+      + body
+      + '<div class="legend-tools"><button type="button" data-tool="show">Show All</button>'
+      + '<button type="button" data-tool="hide">Hide All</button><button type="button" data-tool="reset">Reset</button></div>';
     mpWireLegend();
   }
   function mpSetRow(row, on){
