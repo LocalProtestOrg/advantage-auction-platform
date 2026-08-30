@@ -33,8 +33,13 @@ const { runImport } = require('../services/eventImport');
 const runLog = require('../services/eventImport/runLog');
 const { writeAuditLog } = require('../lib/auditLog');
 const health = require('../services/eventImport/health');
+const reportEmail = require('../services/eventImport/reportEmail');
 const marketplaceIntegrity = require('../services/marketplaceIntegrity');
 const { sendEmail } = require('../services/emailService');
+
+// Owner import emails are opt-in (same flag that gates health alerts). The per-run summary is sent after
+// each SCHEDULED cycle; the health monitor emails ONLY genuine pipeline failures (not below-target supply).
+function importEmailsOn(env = process.env) { return String(env.EVENT_INVENTORY_ALERTS_ENABLED || '').toLowerCase() === 'true'; }
 
 const CHECK_INTERVAL_MS = 60_000;          // evaluate the schedule every minute
 const STALE_RUN_MINUTES = 30;              // a scheduled run 'running' longer than this is treated as crashed
@@ -275,6 +280,15 @@ async function runScheduledCycle(scheduledFor, opts) {
         entity_type: 'event_import_scheduler', entity_id: AUDIT_ENTITY_ID, actor_id: null, metadata: summary,
       });
     } catch (_) { /* audit is best-effort; never affects operation */ }
+    // Per-run summary email — clear SUCCESS / NO NEW EVENTS / PARTIAL FAILURE / FAILED subject + breakdown.
+    // Only for real scheduled cycles (not manual dry-runs) and only when import emails are enabled.
+    if (trigger === 'scheduled' && importEmailsOn()) {
+      try {
+        const msg = reportEmail.buildRunSummaryEmail(summary);
+        await sendEmail({ to: 'info@advantage.bid', subject: msg.subject, text: msg.text });
+        logLine({ evt: 'run_summary_emailed', state: msg.subject });
+      } catch (e) { logLine({ evt: 'run_summary_email_failed', error: String(e && e.message) }); }
+    }
   }
   return summary;
 }
@@ -330,19 +344,24 @@ async function runHealthCheck(nowDate, o) {
         metadata: Object.assign({ snapshot: snap, alerts, schedule: scheduleInfo }, o.summary ? { run_counts: o.summary.counts, sources: o.summary.sources } : {}),
       });
     } catch (_) { /* audit best-effort */ }
-    // Critical-alert EMAIL is opt-in (EVENT_INVENTORY_ALERTS_ENABLED=true) so it never surprises in dev
-    // or before the owner is ready; the snapshot + audit row above are always recorded regardless.
-    const emailOn = String(process.env.EVENT_INVENTORY_ALERTS_ENABLED || '').toLowerCase() === 'true';
-    const criticals = alerts.filter((a) => a.level === 'critical');
-    if (emailOn && criticals.length && lastCriticalAlertDate !== et.date) {
+    // Critical-alert EMAIL is opt-in (EVENT_INVENTORY_ALERTS_ENABLED=true). It fires ONLY for genuine
+    // PIPELINE failures (missed window / run failed / stale / inventory collapse) — NOT for "inventory
+    // below the aspirational target", which a healthy importer can hit when the compliant supply is
+    // simply smaller than the goal. That below-target signal is still logged + audited above and shown in
+    // the twice-weekly run summary; emailing it daily is exactly the misleading "importer failing" alarm
+    // this change removes. The snapshot + audit row are always recorded regardless of email.
+    const emailOn = importEmailsOn();
+    const emailable = reportEmail.emailableCriticals(alerts);
+    if (emailOn && emailable.length && lastCriticalAlertDate !== et.date) {
       lastCriticalAlertDate = et.date;
       try {
         await sendEmail({
           to: 'info@advantage.bid',
-          subject: `Advantage.Bid — event inventory alert (${criticals.length})`,
-          text: 'Event inventory health alerts:\n' + criticals.map((a) => `- [${a.code}] ${a.message}`).join('\n')
+          subject: `Advantage.Bid Event Import — attention needed (${emailable.length})`,
+          text: 'The scheduled event importer needs attention:\n' + emailable.map((a) => `- [${a.code}] ${a.message}`).join('\n')
             + `\n\nActive auctions: ${snap.active_auctions}. Active estate sales: ${snap.active_estate_sales}. `
-            + `Total active public: ${snap.total_active_public}. Last successful import: ${snap.last_success_run || 'never'}.`,
+            + `Total active public: ${snap.total_active_public}. Last successful import: ${snap.last_success_run || 'never'}.`
+            + '\n\n(Inventory-below-target is reported in the twice-weekly run summary, not here.)',
         });
       } catch (e) { logLine({ evt: 'alert_email_failed', error: String(e && e.message) }); }
     }
