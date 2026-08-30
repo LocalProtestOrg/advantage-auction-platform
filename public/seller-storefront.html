@@ -32,14 +32,14 @@
 </head>
 <body>
   <div class="wrap">
-    <h1>My Storefront</h1>
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:1rem;flex-wrap:wrap"><h1>My Storefront</h1><a id="headerView" class="btn b-ghost" target="_blank" style="display:none">View My Storefront ↗</a></div>
     <div class="sub">Your professional business home on Advantage.Bid — <span id="pubUrl"></span></div>
     <div id="denied" class="denied">A public storefront is available to <b>Professional Sellers</b>. Contact Advantage.Bid to upgrade your account.</div>
     <div id="content" style="display:none">
       <div class="tabs">
         <button id="t-store" class="active" onclick="tab('store')">Storefront</button>
-        <button id="t-market" onclick="tab('market')">Marketplace Items</button>
-        <button id="t-unsold" onclick="tab('unsold')">Unsold Inventory</button>
+        <button id="t-market" onclick="tab('market')">Items for Sale</button>
+        <button id="t-unsold" onclick="tab('unsold')">From Auctions</button>
         <button id="t-leads" onclick="tab('leads')">Inquiries</button>
       </div>
       <div class="msg" id="msg"></div>
@@ -61,16 +61,22 @@
       </div>
 
       <div id="pane-market" style="display:none">
-        <div class="card"><h3 style="margin-bottom:.5rem">Add a Marketplace item</h3>
-          <label>Title</label><input id="m-title">
-          <div class="row2"><div><label>Price (USD)</label><input id="m-price" type="number" min="0" step="1"></div><div><label>Condition</label><input id="m-cond" placeholder="Good, Excellent…"></div></div>
-          <label>Description</label><textarea id="m-desc" rows="3"></textarea>
+        <div class="card"><h3 style="margin-bottom:.5rem">Add an Item</h3>
+          <p class="hint" style="margin:-.2rem 0 .7rem">List one of your items for sale at a fixed price. Add photos, a price, and a description — then it goes live in your shop. <span id="addedCount"></span></p>
+          <label>Photos</label>
+          <div id="m-photos" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:.5rem"></div>
+          <label class="btn b-ghost" style="display:inline-block;cursor:pointer;margin-bottom:.4rem">➕ Add Photos<input type="file" id="m-file" accept="image/*" multiple style="display:none" onchange="uploadPhotos(this)"></label>
+          <span class="hint" id="upStatus" style="margin-left:.5rem"></span>
+          <label>Title</label><input id="m-title" placeholder="e.g. Victorian Walnut Side Table">
+          <div class="row2"><div><label>Price (USD)</label><input id="m-price" type="number" min="0" step="1" placeholder="450"></div><div><label>Category</label><input id="m-cat" placeholder="Furniture, Lighting, Art…"></div></div>
+          <label>Condition</label><input id="m-cond" placeholder="Excellent, Very Good, Good…">
+          <label>Description</label><textarea id="m-desc" rows="3" placeholder="Describe the piece — era, maker, dimensions, condition notes…"></textarea>
           <div class="row2"><div><label>City</label><input id="m-city"></div><div><label>State</label><input id="m-state" maxlength="2"></div></div>
-          <label class="toggle"><input type="checkbox" id="m-ship" style="width:auto"> Shipping available</label>
-          <label>Image URLs (comma separated, optional)</label><input id="m-images" placeholder="https://…, https://…">
-          <div style="margin-top:.8rem"><button class="btn b-blue" onclick="addItem()">List Item</button></div>
+          <label class="toggle"><input type="checkbox" id="m-ship" style="width:auto" onchange="document.getElementById('m-shiprow').style.display=this.checked?'':'none'"> Offer shipping (buyers can also pick up locally)</label>
+          <div id="m-shiprow" style="display:none"><label>Flat shipping price (USD)</label><input id="m-shipcost" type="number" min="0" step="1" placeholder="25"></div>
+          <div style="margin-top:.8rem"><button class="btn b-blue" onclick="addItem(this)">Add Item</button></div>
         </div>
-        <div class="card"><h3 style="margin-bottom:.5rem">Your listings</h3><table><thead><tr><th>Item</th><th>Price</th><th>Status</th><th>Source</th><th></th></tr></thead><tbody id="itemsBody"><tr><td colspan="5" class="hint">Loading…</td></tr></tbody></table></div>
+        <div class="card"><h3 style="margin-bottom:.5rem">Your items</h3><table><thead><tr><th>Item</th><th>Price</th><th>Status</th><th>Source</th><th></th></tr></thead><tbody id="itemsBody"><tr><td colspan="5" class="hint">Loading…</td></tr></tbody></table></div>
       </div>
 
       <div id="pane-unsold" style="display:none">
@@ -113,7 +119,10 @@
       document.getElementById('s-hours').value=c.hours||'';
       document.getElementById('s-fb').value=(c.socials||{}).facebook||'';
       document.getElementById('s-ig').value=(c.socials||{}).instagram||'';
-      if(d.public_url){document.getElementById('pubUrl').innerHTML='<a href="'+esc(d.public_url)+'" target="_blank">'+esc(d.public_url)+'</a>';document.getElementById('viewBtn').href=d.public_url;}
+      if(d.public_url){document.getElementById('pubUrl').innerHTML='<a href="'+esc(d.public_url)+'" target="_blank">'+esc(d.public_url)+'</a>';document.getElementById('viewBtn').href=d.public_url;
+        var hv=document.getElementById('headerView'); if(hv){hv.href=d.public_url; hv.style.display=d.published?'':'none';}}
+      // Deep-link straight to a tab (e.g. the "Add Item" nav → ?tab=market) so listing an item is one click.
+      try{var qp=new URLSearchParams(location.search).get('tab'); if(qp&&['store','market','unsold','leads'].indexOf(qp)>=0)tab(qp);}catch(e){}
     }
     async function saveStore(){
       var g=function(id){return document.getElementById(id).value.trim();};
@@ -127,14 +136,56 @@
     async function loadItems(){
       var r=await api('GET','/api/seller-storefront/items');var rows=r.data||[];
       document.getElementById('itemsBody').innerHTML=rows.length?rows.map(function(m){
-        return '<tr><td>'+esc(m.title)+'</td><td>'+money(m.price_cents)+'</td><td><span class="pill">'+esc(m.status)+'</span></td><td>'+(m.source_lot_id?'Auction':'Direct')+'</td><td>'+(m.status!=='removed'?'<button class="btn b-warn" onclick="removeItem(\''+m.id+'\')">Remove</button>':'')+'</td></tr>';
-      }).join(''):'<tr><td colspan="5" class="hint">No listings yet. Add one above, or move an unsold lot from Unsold Inventory.</td></tr>';
+        return '<tr><td>'+esc(m.title)+'</td><td>'+money(m.price_cents)+'</td><td><span class="pill">'+esc(m.status)+'</span></td><td>'+(m.source_lot_id?'From auction':'Added by you')+'</td><td>'+(m.status!=='removed'?'<button class="btn b-warn" onclick="removeItem(\''+m.id+'\')">Remove</button>':'')+'</td></tr>';
+      }).join(''):'<tr><td colspan="5" class="hint">No items yet. Use “Add an Item” above to list your first piece for sale.</td></tr>';
     }
-    async function addItem(){
+    // Uploaded photos for the item being added (real seller photos → Cloudinary via /api/uploads/image).
+    var UPLOADED=[]; var ADDED=0;
+    function renderPhotos(){
+      document.getElementById('m-photos').innerHTML=UPLOADED.map(function(u,i){
+        return '<div style="position:relative"><img src="'+esc(u)+'" alt="" style="width:64px;height:64px;object-fit:cover;border-radius:8px;border:1px solid #e6eaef">'
+          +'<button type="button" onclick="rmPhoto('+i+')" title="Remove" style="position:absolute;top:-6px;right:-6px;background:#b91c1c;color:#fff;border:none;border-radius:50%;width:18px;height:18px;font-size:12px;line-height:1;cursor:pointer">×</button></div>';
+      }).join('');
+    }
+    function rmPhoto(i){UPLOADED.splice(i,1);renderPhotos();}
+    async function uploadPhotos(input){
+      var files=Array.prototype.slice.call(input.files||[]); input.value='';
+      if(!files.length)return;
+      var st=document.getElementById('upStatus');
+      for(var k=0;k<files.length;k++){
+        st.textContent='Uploading '+(k+1)+' of '+files.length+'…';
+        try{
+          var fd=new FormData(); fd.append('image',files[k]);
+          var res=await fetch('/api/uploads/image',{method:'POST',headers:{Authorization:'Bearer '+token},body:fd});
+          var j=await res.json();
+          if(j&&j.success&&j.secure_url){UPLOADED.push(j.secure_url);renderPhotos();}
+          else{st.textContent=(j&&j.message)||'Upload failed'; break;}
+        }catch(e){st.textContent='Upload error'; break;}
+      }
+      st.textContent=UPLOADED.length+' photo'+(UPLOADED.length!==1?'s':'')+' ready';
+    }
+    async function addItem(btn){
       var g=function(id){return document.getElementById(id).value.trim();};
       var price=Math.round(parseFloat(g('m-price'))*100);
-      var body={title:g('m-title'),price_cents:price,condition:g('m-cond'),description:g('m-desc'),city:g('m-city'),state:g('m-state'),shippable:document.getElementById('m-ship').checked,images:g('m-images').split(',').map(function(x){return x.trim();}).filter(Boolean)};
-      try{var r=await api('POST','/api/seller-storefront/items',body);if(r.success){msg('Item listed.',true);['m-title','m-price','m-cond','m-desc','m-city','m-state','m-images'].forEach(function(i){document.getElementById(i).value='';});loadItems();}else msg(r.message||'Failed');}catch(e){msg('Error');}
+      if(!g('m-title')){msg('Please add a title.');return;}
+      if(!(price>0)){msg('Please add a price.');return;}
+      var ship=document.getElementById('m-ship').checked;
+      var body={title:g('m-title'),price_cents:price,category:g('m-cat')||null,condition:g('m-cond'),description:g('m-desc'),
+        city:g('m-city'),state:g('m-state'),shippable:ship,
+        shipping_cost_cents:(ship&&g('m-shipcost'))?Math.round(parseFloat(g('m-shipcost'))*100):null,
+        images:UPLOADED.slice()};
+      if(btn){btn.disabled=true;btn.textContent='Adding…';}
+      try{var r=await api('POST','/api/seller-storefront/items',body);
+        if(r.success){
+          ADDED++; document.getElementById('addedCount').textContent='· '+ADDED+' added this session';
+          msg('✓ Item added — it’s live in your shop. Add another below.',true);
+          // Clear item-specific fields; KEEP city/state + shipping choice so the next of many items inherits them.
+          ['m-title','m-price','m-cat','m-cond','m-desc'].forEach(function(i){document.getElementById(i).value='';});
+          UPLOADED=[]; renderPhotos(); document.getElementById('upStatus').textContent='';
+          document.getElementById('m-title').focus(); loadItems();
+        } else msg(r.message||'Failed');
+      }catch(e){msg('Error');}
+      if(btn){btn.disabled=false;btn.textContent='Add Item';}
     }
     async function removeItem(id){if(!confirm('Remove this listing?'))return;await api('PATCH','/api/seller-storefront/items/'+id,{status:'removed'});loadItems();}
     async function loadUnsold(){

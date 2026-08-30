@@ -75,7 +75,8 @@
   function auctionSellerItems() {
     return [
       { id: 'storefront',    label: 'My Storefront',          emoji: '🏪', href: '/seller-storefront.html', external: true, primaryMobile: true },
-      { id: 'mpOrders',      label: 'Marketplace Orders',     emoji: '📦', href: '/seller-orders.html', external: true },
+      { id: 'addItem',       label: 'Add Item',               emoji: '🏷️', href: '/seller-storefront.html?tab=market', external: true, primaryMobile: true },
+      { id: 'mpOrders',      label: 'Store Orders',           emoji: '📦', href: '/seller-orders.html', external: true },
       { id: 'createAuction', label: 'Create Online Auction',  emoji: '🔨', href: '/seller-create.html', external: true },
       { id: 'sell',          label: 'Manage Online Auctions', emoji: '📊', href: '#sell' }
     ];

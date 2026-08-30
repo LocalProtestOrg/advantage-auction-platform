@@ -124,7 +124,7 @@ async function getPublicData(slug) {
     db.query(`SELECT id, title, city, address_state AS state, end_time, COALESCE(cover_image_url, banner_image_url) AS image
                 FROM auctions WHERE seller_id = $1 AND state = 'closed' AND is_archived IS NOT TRUE
                 ORDER BY end_time DESC NULLS LAST LIMIT 8`, [sp.id]),
-    marketplaceItems.listPublicForSeller(sp.id, 24),
+    marketplaceItems.listPublicForSeller(sp.id, 100), // a retail dealer may stock many items; show the full shop
     db.query('SELECT count(*)::int n FROM seller_followers WHERE seller_id = $1', [sp.id]),
     // Upcoming estate sales / events — AUTHORITATIVELY the seller's own, via the admin-set org link
     // (organizations.linked_seller_profile_id → this seller_profile). No name/fuzzy matching, no

@@ -107,12 +107,15 @@
       var logo=s.logo_url?('<div class="hero-logo" style="background-image:url('+esc(s.logo_url)+')"></div>'):('<div class="hero-logo">'+esc((s.name||'?').slice(0,1))+'</div>');
       var badges='<div class="hero-badges">'+(s.is_professional?'<span class="badge badge-pro">Professional Seller</span>':'')+(s.location_label?'<span class="badge badge-loc">'+esc(s.location_label)+'</span>':'')+'</div>';
       var cover=cfg.hero_image?('<div class="hero-cover" style="background-image:url('+esc(cfg.hero_image)+')"></div>'):'';
+      // Shop becomes the PRIMARY hero action for a retail-first seller (items, no auctions) so an antique
+      // store reads as a shop; an auction/estate seller still leads with auctions/estate sales.
+      var shopPrimary=(!d.auctions.length && d.marketplace.length);
       var cta='<div class="hero-cta">'+
         (d.auctions.length?'<a class="btn btn-primary" href="#auctions">View Auctions</a>':'')+
-        ((d.events&&d.events.length&&vis.events!==false)?'<a class="btn btn-ghost" href="#events">Estate Sales</a>':'')+
-        (d.marketplace.length?'<a class="btn btn-ghost" href="#shop">Shop Marketplace</a>':'')+
+        ((d.events&&d.events.length&&vis.events!==false)?'<a class="btn '+(d.auctions.length?'btn-ghost':'btn-primary')+'" href="#events">Estate Sales</a>':'')+
+        (d.marketplace.length?'<a class="btn '+(shopPrimary?'btn-primary':'btn-ghost')+'" href="#shop">Shop Now</a>':'')+
         '<button class="btn hero-follow" id="followBtn">☆ Follow ('+d.follower_count+')</button>'+
-        (vis.contact!==false?'<a class="btn hero-ghost btn-ghost" href="#contact">Request a Consultation</a>':'')+'</div>';
+        (vis.contact!==false?'<a class="btn hero-ghost btn-ghost" href="#contact">Contact</a>':'')+'</div>';
       var hero='<div class="hero">'+cover+'<div class="hero-inner">'+logo+'<div class="hero-main">'+badges+'<h1>'+esc(s.name)+'</h1>'+(cfg.tagline?'<p class="tagline">'+esc(cfg.tagline)+'</p>':'')+cta+'</div></div></div>';
 
       var html=hero+'<div class="wrap">';
@@ -143,14 +146,15 @@
           return '<a class="card prod" href="'+esc(ev.url)+'" onclick="ping(\'storefront_cta_click\',{cta:\'event\'})">'+img+'<div class="body"><div class="t">'+esc(ev.title)+'</div><div class="meta">'+(when?'<span class="pill">'+esc(when)+'</span>':'')+(loc?'<span>'+esc(loc)+'</span>':'')+'</div></div></a>';
         }).join('')+'</div></section>';
       }
-      // Marketplace / Shop
-      if(vis.marketplace!==false){
-        html+='<section id="shop"><div class="sec-head"><div><h2>Shop Available Items</h2><div class="sec-sub">Available now from '+esc(s.name)+'</div></div></div>';
-        html+= d.marketplace.length? ('<div class="grid grid-4">'+d.marketplace.map(function(m){
+      // Shop — the fixed-price store. Hidden entirely when empty (consistent with the other sections; no
+      // "check back soon" placeholder cluttering a storefront that simply has no items yet).
+      if(vis.marketplace!==false && d.marketplace.length){
+        html+='<section id="shop"><div class="sec-head"><div><h2>Shop</h2><div class="sec-sub">'+d.marketplace.length+' item'+(d.marketplace.length!==1?'s':'')+' available now from '+esc(s.name)+'</div></div></div>';
+        html+= ('<div class="grid grid-4">'+d.marketplace.map(function(m){
           var img=AdvLotImage.img(m.thumbnail_url||(m.images&&m.images[0]), m.title);
           var loc=[m.city,m.state].filter(Boolean).join(', ');
           return '<a class="card prod" href="/item.html?id='+esc(m.id)+'" onclick="ping(\'storefront_cta_click\',{cta:\'item\'})">'+img+'<div class="body"><div class="t">'+esc(m.title)+'</div><div class="price">'+money(m.price_cents)+'</div><div class="meta">'+(loc?'<span>'+esc(loc)+'</span>':'')+(m.shippable?'<span class="pill">Ships</span>':'')+(m.source_lot_id?'<span class="pill">From auction</span>':'')+'</div></div></a>';
-        }).join('')+'</div>') : '<div class="empty">No items listed right now — check back soon.</div>';
+        }).join('')+'</div>');
         html+='</section>';
       }
       // Past auctions / portfolio
@@ -174,8 +178,8 @@
       html+='<section><div class="follow-cta"><h2>Never miss a sale</h2><p>Follow '+esc(s.name)+' and Advantage.Bid will notify you when they publish new sales, auctions, and items.</p><button class="btn btn-primary" id="followBtn2">☆ Follow this company</button></div></section>';
       // Contact / consultation
       if(vis.contact!==false){
-        html+='<section id="contact"><div class="sec-head"><h2>Need help with an estate?</h2></div><div class="contact-grid"><div class="card" style="padding:20px">'+
-          '<h3 style="font-size:18px;margin-bottom:10px">Request a Consultation</h3><form id="inqForm">'+
+        html+='<section id="contact"><div class="sec-head"><h2>Get in touch</h2></div><div class="contact-grid"><div class="card" style="padding:20px">'+
+          '<h3 style="font-size:18px;margin-bottom:10px">Send a message</h3><form id="inqForm">'+
           '<label>Your name *</label><input id="i-name" required maxlength="120">'+
           '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px"><div><label>Phone</label><input id="i-phone" maxlength="40"></div><div><label>Email</label><input id="i-email" type="email" maxlength="160"></div></div>'+
           '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px"><div><label>City</label><input id="i-city" maxlength="120"></div><div><label>Service needed</label><input id="i-service" maxlength="120" placeholder="Estate sale, appraisal…"></div></div>'+
