@@ -684,7 +684,7 @@
   var DATA=[], ARCH=[], archiveLoaded=false, EVENTS_MAP=[], ONLINE_AUCTIONS=[];
   // Canonical INVENTORY counts (from /api/public/marketplace/counts) — family + professionals totals.
   // These drive the legend numbers; they are inventory totals, NOT map-pin/viewport counts.
-  var CANON_COUNTS={ families:{ advantage_auction:0, partner_event:0, estate_sale:0, marketplace:0 }, professionals:{ estate_sale_companies:0, auction_houses:0, appraisers:0, total:0 } };
+  var CANON_COUNTS={ families:{ advantage_auction:0, partner_event:0, estate_sale:0, marketplace:0 }, professionals:{ estate_sale_companies:0, auction_houses:0, appraisers:0, total:0 }, statuses:{ upcoming:0, native_upcoming:0, event_upcoming:0 } };
   function loadCore(){
     return Promise.all([ j('/api/public/auctions?state=active&limit=60'), j('/api/public/auctions?state=published&limit=60') ])
       .then(function(r){ var rows=[].concat(r[0],r[1]); DATA=rows.map(toD); return DATA; });
@@ -792,7 +792,14 @@
   function mpAuctionCount(state){ var n=0; for(var id in markersById){ if(markersById[id] && markersById[id].state===state) n++; } return n; }
   function mpToggleAuctions(state, show){ for(var id in markersById){ var d=markersById[id]; if(d && d.state===state && d._el) d._el.style.display = show ? '' : 'none'; } }
   function mpFC(){
-    return { type:'FeatureCollection', features: MP.records.filter(function(r){ return MP.active[r.category_key]; }).map(function(r){
+    // Category filter (WHAT) AND the Upcoming status filter (WHEN): when the user hides "Upcoming", the
+    // upcoming EVENT markers hide too — so the Upcoming legend row and the map agree (same eligibility as
+    // the count). Live/Ending markers (native auctions) are toggled separately via mpToggleAuctions.
+    return { type:'FeatureCollection', features: MP.records.filter(function(r){
+        if(!MP.active[r.category_key]) return false;
+        if(r._upcoming && MP.statusHidden && MP.statusHidden.coming) return false;
+        return true;
+      }).map(function(r){
       return { type:'Feature', geometry:{type:'Point',coordinates:[r.lng,r.lat]},
         properties:{ id:r.id, name:r.name, cat:r.category_key, icon:'mp-'+r.category_key, category:r.category,
           city:r.city||'', state:r.state||'', website:mpSafeUrl(r.website)||'', blurb:r.blurb||'',
@@ -1045,9 +1052,14 @@
       visible.forEach(function(r){ body+=mpRow(r.kind,r.key,r.color,r.glyph,r.label,r.n); });
       totalRows+=visible.length;
     }
-    // 1) ADVANTAGE.BID AUCTIONS — native auction STATUS breakdown (Live Now / Ending Soon / Upcoming).
-    section('Advantage.Bid Auctions','Live auctions hosted directly on Advantage.Bid.',
-      MP_EVENTS.map(function(e){ return {kind:'auction',key:e.key,color:e.color,glyph:'',label:e.label,n:mpAuctionCount(e.key)}; }));
+    // 1) ADVANTAGE.BID AUCTIONS — event STATUS breakdown (WHEN). Live Now / Ending Soon preserve their
+    // native-auction semantics (map beacons). UPCOMING is cross-family: it counts ALL public upcoming
+    // events (native auctions + partner/imported events) from the canonical statuses.upcoming total, so a
+    // full calendar of upcoming partner events is never hidden merely because native auctions are 0.
+    var st = (CANON_COUNTS && CANON_COUNTS.statuses) || {};
+    var statusCount = function (key) { return key === 'coming' ? (st.upcoming || 0) : mpAuctionCount(key); };
+    section('Advantage.Bid Auctions','Live and upcoming auctions & events on Advantage.Bid.',
+      MP_EVENTS.map(function(e){ return {kind:'auction',key:e.key,color:e.color,glyph:'',label:e.label,n:statusCount(e.key)}; }));
     // 2) AUCTION PARTNER EVENTS — canonical partner_event inventory (incl. coordinate-less online auctions).
     section('Auction Partner Events','Auction events posted or imported from professional auction companies.',
       [{kind:'mp',key:'event_auction',color:'#B5273B',glyph:'gavel',label:'Auction Partner Events',n:f.partner_event||0}]);
@@ -1076,7 +1088,12 @@
     row.querySelector('input').checked=on; row.classList.toggle('off', !on); row.setAttribute('aria-checked', on?'true':'false');
     // 'auction' rows are STATUS filters (native-auction beacons); 'mp' rows are event-type /
     // company categories. Track both so the drawer mirrors the map (Part 5 sync).
-    if(kind==='auction'){ mpToggleAuctions(key, on); MP.statusHidden[key]=!on; }
+    if(kind==='auction'){
+      mpToggleAuctions(key, on); MP.statusHidden[key]=!on;
+      // Upcoming is cross-family: toggling it must also show/hide the upcoming EVENT markers (via mpFC),
+      // so the map matches the cross-family Upcoming count — not only native auctions.
+      if(key==='coming' && typeof mpApplyFilter==='function') mpApplyFilter();
+    }
     else MP.active[key]=on;
   }
   function mpSetAll(kindFilter, on){
@@ -1112,6 +1129,7 @@
     return { id:'ev-'+r.id, name:r.title, category_key:(r.type==='auction'?'event_auction':'event_estate_sale'),
       lat:+r.lat, lng:+r.lng, city:r.city||'', state:r.state||'', isEvent:true, slug:r.slug, url:r.url,
       image_url:r.cover_image_url||null, event_type_label:r.event_type_label, start_at:r.start_at, end_at:r.end_at,
+      _upcoming:(r.start_at?new Date(r.start_at).getTime()>Date.now():false),  // same "not yet started" rule as the Upcoming count
       host_company:r.host_company||null };
   }
   function mpInit(){
@@ -1129,7 +1147,7 @@
       fetch('/api/public/marketplace/counts').then(function(r){return r.json();}).catch(function(){return {success:false};})
     ]).then(function(res){
       var mk=res[0]||{}, ev=res[1]||{}, au=res[2]||{}, cc=res[3]||{};
-      if(cc&&cc.success){ CANON_COUNTS={ families:cc.families||CANON_COUNTS.families, professionals:cc.professionals||CANON_COUNTS.professionals }; }
+      if(cc&&cc.success){ CANON_COUNTS={ families:cc.families||CANON_COUNTS.families, professionals:cc.professionals||CANON_COUNTS.professionals, statuses:cc.statuses||CANON_COUNTS.statuses }; }
       var companyRecs=(mk.success&&mk.data?mk.data:[]).filter(function(r){ return r.lat!=null && r.lng!=null; });
       var eventRecs=(ev.success&&ev.data?ev.data:[]).filter(function(r){ return r.lat!=null && r.lng!=null; }).map(evToMp);
       EVENTS_MAP=eventRecs;                                       // for the drawer

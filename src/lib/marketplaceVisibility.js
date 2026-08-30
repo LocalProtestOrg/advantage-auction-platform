@@ -69,6 +69,16 @@ async function canonicalCounts(db) {
   const nativeAuctions = (await db.query(
     `SELECT count(*)::int AS n FROM auctions a WHERE ${activeNativeAuctionSql('a')}`)).rows[0].n;
 
+  // UPCOMING status (WHEN, across every family — distinct from the WHAT/type family counts). A public
+  // event/auction is "upcoming" when it passes the SAME public-visibility predicate AND has not started.
+  // Native auctions and partner/imported EVENTS live in different tables (auctions vs events), so summing
+  // them cannot double-count. Native "upcoming" = a syndicated, non-demo native auction still in
+  // 'published' (not yet 'active'), matching the homepage classify() 'coming' semantics.
+  const nativeUpcoming = (await db.query(
+    `SELECT count(*)::int AS n FROM auctions a WHERE ${activeNativeAuctionSql('a')} AND a.state = 'published'`)).rows[0].n;
+  const eventUpcoming = (await db.query(
+    `SELECT count(*)::int AS n FROM events e WHERE ${activeEventSql('e')} AND e.start_at IS NOT NULL AND e.start_at > now()`)).rows[0].n;
+
   // PROFESSIONALS directory (a SEPARATE concept from the Marketplace product family). Broken out by
   // profession so the map key can show each category. profession_id: 3=auction houses, 4=estate-sale
   // companies, 5=appraisers.
@@ -97,6 +107,14 @@ async function canonicalCounts(db) {
       estate_sale_with_coords: estate.coord,
     },
     native_auctions: nativeAuctions,
+    // Cross-family event STATUS counts (WHEN). Upcoming spans native auctions + partner/imported events;
+    // Live/Ending remain native-auction concepts on the map key (preserved semantics). Deduped by design
+    // (separate source tables). Feeds the homepage "Upcoming" legend count.
+    statuses: {
+      upcoming: nativeUpcoming + eventUpcoming,
+      native_upcoming: nativeUpcoming,
+      event_upcoming: eventUpcoming,
+    },
     professionals,                                  // directory companies (NOT a product family)
     // The four owner-locked customer-facing product families (locked vocabulary) as authoritative counts:
     families: {

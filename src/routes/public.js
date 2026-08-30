@@ -428,6 +428,7 @@ router.get('/marketplace/counts', async (req, res, next) => {
       success: true,
       families: c.families,          // advantage_auction | partner_event | estate_sale | marketplace (fixed-price)
       professionals: c.professionals, // estate_sale_companies | auction_houses | appraisers | total (directory — NOT a family)
+      statuses: c.statuses,          // upcoming (cross-family) | native_upcoming | event_upcoming — WHEN, not WHAT
     });
   } catch (err) { next(err); }
 });
