@@ -24,6 +24,13 @@
   'use strict';
 
   var CONTAINER_ID = 'aap-featured-auctions';
+  // The official square Advantage.Bid placeholder for auctions with no real cover. Because this widget is
+  // embedded cross-origin (on the BD marketing site), the asset MUST be an absolute URL to the Railway
+  // app — a root-relative path would resolve to the BD host and 404. Resolved in init() from data-api-base
+  // (or this script's own origin). Rendered object-fit:contain so the square logo is never cropped.
+  var SCRIPT_ORIGIN = '';
+  try { var _cs = document.currentScript; if (_cs && _cs.src) SCRIPT_ORIGIN = new URL(_cs.src).origin; } catch (e) { /* older browsers */ }
+  var PLACEHOLDER = '/img/lot-placeholder.png';
 
   function esc(str) {
     if (str == null) return '';
@@ -59,6 +66,9 @@
       '.aap-card{border:1px solid ' + bdr + ';border-radius:10px;overflow:hidden;background:' + bg + ';transition:box-shadow .15s;}',
       '.aap-card:hover{box-shadow:0 4px 16px rgba(0,0,0,.12);}',
       '.aap-thumb{width:100%;height:160px;object-fit:cover;display:block;}',
+      // Placeholder (square logo) fallback: CONTAIN so the logo stays fully visible/recognizable — never
+      // cropped/zoomed/stretched into a "narrow short" fragment. Real covers keep object-fit:cover above.
+      '.aap-thumb-ph{width:100%;height:160px;object-fit:contain;background:#fff;padding:16px;box-sizing:border-box;display:block;}',
       '.aap-no-img{width:100%;height:160px;display:flex;align-items:center;justify-content:center;background:' + noImg + ';color:' + noImgFg + ';font-size:13px;}',
       '.aap-body{padding:12px 14px;}',
       '.aap-badge{display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;letter-spacing:.04em;margin-bottom:6px;}',
@@ -84,9 +94,12 @@
     var badge = a.state === 'active'
       ? '<span class="aap-badge aap-live">LIVE NOW</span>'
       : '<span class="aap-badge aap-upcoming">UPCOMING</span>';
+    // Real seller cover → normal cover/crop. No real cover → the official square Advantage.Bid logo,
+    // CONTAINED (never the old cropped wide/short fragment). Presentation only; the auction record is
+    // unchanged and still has no cover.
     var thumb = a.cover_image_url
       ? '<img class="aap-thumb" src="' + esc(a.cover_image_url) + '" alt="' + esc(a.title) + '" loading="lazy">'
-      : '<div class="aap-no-img">No Image</div>';
+      : '<img class="aap-thumb-ph" src="' + esc(PLACEHOLDER) + '" alt="' + esc(a.title || 'Advantage.Bid') + '" loading="lazy">';
     var lots = a.lot_count
       ? '<p class="aap-lots">' + a.lot_count + ' lot' + (a.lot_count !== 1 ? 's' : '') +
         (a.shippable_lot_count ? ' &middot; ' + a.shippable_lot_count + ' ship nationwide' : '') + '</p>'
@@ -123,6 +136,11 @@
     var radiusKm  = Math.min(Math.max(parseInt(container.dataset.radiusKm, 10) || 200, 1), 800);
     var useGeo    = container.dataset.useGeolocation === 'true';
     var dark      = container.dataset.theme === 'dark';
+
+    // Resolve the ABSOLUTE placeholder URL (cross-origin embed): prefer the configured API host, else this
+    // widget script's own origin, else same-origin. Guarantees the square logo loads from the Railway app.
+    var assetBase = apiBase || SCRIPT_ORIGIN || '';
+    PLACEHOLDER = assetBase + '/img/lot-placeholder.png';
 
     injectStyles(dark);
 

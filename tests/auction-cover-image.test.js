@@ -68,6 +68,27 @@ describe('placeholder is rendered CONTAINED, real covers keep crop (client helpe
   });
 });
 
+describe('BD Featured Auctions widget (marketing-site homepage section)', () => {
+  const widget = fs.readFileSync(path.join(__dirname, '..', 'public', 'widgets', 'featured-auctions.js'), 'utf8');
+  test('coverless auction renders the official square placeholder (contained), NOT "No Image" or a wide logo', () => {
+    expect(widget).toMatch(/aap-thumb-ph/);
+    expect(widget).toMatch(/src="' \+ esc\(PLACEHOLDER\)/);
+    expect(widget).not.toMatch(/<div class="aap-no-img">No Image<\/div>/); // old text tile removed
+    expect(widget).not.toMatch(/advantage-logo\.svg|social-card\.png/);     // never a wide logo
+  });
+  test('placeholder is contained (never cropped/zoomed) while real covers keep cover/crop', () => {
+    expect(widget).toMatch(/\.aap-thumb-ph\{[^}]*object-fit:contain/);
+    expect(widget).toMatch(/\.aap-thumb\{[^}]*object-fit:cover/); // real covers unchanged
+  });
+  test('placeholder URL is ABSOLUTE (cross-origin embed on the BD site resolves to the Railway app)', () => {
+    expect(widget).toMatch(/PLACEHOLDER = assetBase \+ '\/img\/lot-placeholder\.png'/);
+    expect(widget).toMatch(/assetBase = apiBase \|\| SCRIPT_ORIGIN/);
+  });
+  test('a real cover still renders normally', () => {
+    expect(widget).toMatch(/a\.cover_image_url\s*\?\s*'<img class="aap-thumb"/);
+  });
+});
+
 describe('CASE 10 — existing LOT-image fallback remains intact', () => {
   test('lot helpers still resolve real image vs placeholder', () => {
     expect(img.lotDisplayImage({ images: ['https://a/1.jpg'] })).toBe('https://a/1.jpg');
