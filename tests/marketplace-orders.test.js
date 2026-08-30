@@ -42,11 +42,12 @@ beforeEach(() => {
 
 // ── Money math ─────────────────────────────────────────────────────────────────────────────────────────
 describe('platform fee + seller proceeds (owner rules)', () => {
-  test('fee = seller platform_fee_bps of item price; default 4%', () => {
-    expect(svc.feeBpsForSeller({ platform_fee_bps: 400 })).toBe(400);
-    expect(svc.feeBpsForSeller({ platform_fee_bps: 300 })).toBe(300);
-    expect(svc.feeBpsForSeller({ platform_fee_bps: null })).toBe(400); // default
-    expect(svc.feeBpsForSeller({})).toBe(400);
+  test('storefront selling fee is a FLAT 11%, DECOUPLED from the auction platform_fee_bps column', () => {
+    expect(svc.STOREFRONT_FEE_BPS).toBe(1100);
+    // Flat: ignores any per-seller auction platform_fee_bps (that column stays an auction-only input).
+    expect(svc.feeBpsForSeller({ platform_fee_bps: 400 })).toBe(1100);
+    expect(svc.feeBpsForSeller({ platform_fee_bps: 250 })).toBe(1100);
+    expect(svc.feeBpsForSeller({})).toBe(1100);
   });
 
   test('$1000 item @ 4% → fee $40; @ 3% → $30 (fee is on ITEM PRICE only)', () => {
@@ -70,6 +71,61 @@ describe('platform fee + seller proceeds (owner rules)', () => {
   test('platform fee is not a buyer-facing charge (total excludes fee)', () => {
     const b = svc.computeBreakdown({ itemPriceCents: 50000, shippingCents: 0, taxCents: 0, feeBps: 400 });
     expect(b.total_charge_cents).toBe(50000); // buyer pays exactly item (+shipping+tax); fee is seller-side
+  });
+});
+
+// ── Owner-authoritative FLAT 11% storefront selling fee (cases A–K) ──────────────────────────────────
+describe('flat 11% storefront selling fee', () => {
+  const billingTerms = require('../src/services/billingTermsService');
+  // A NEW order uses the flat rate from feeBpsForSeller (11%); computeBreakdown then applies it.
+  const newOrder = (item, ship = 0, tax = 0) =>
+    svc.computeBreakdown({ itemPriceCents: item, shippingCents: ship, taxCents: tax, feeBps: svc.feeBpsForSeller({}) });
+
+  test('A. $100.00 item → selling fee $11.00', () => {
+    expect(newOrder(10000).platform_fee_cents).toBe(1100);
+  });
+  test('B. $1,000.00 item → selling fee $110.00', () => {
+    expect(newOrder(100000).platform_fee_cents).toBe(11000);
+  });
+  test('C. $1,000 item + $75 shipping → fee stays $110 (shipping excluded from base)', () => {
+    const b = newOrder(100000, 7500);
+    expect(b.platform_fee_cents).toBe(11000);
+    expect(b.seller_proceeds_cents).toBe(100000 + 7500 - 11000); // item + shipping − 11% = $965
+  });
+  test('D. sales tax does NOT increase the 11% fee', () => {
+    const b = newOrder(100000, 0, 8250);
+    expect(b.platform_fee_cents).toBe(11000);          // unchanged by tax
+    expect(b.total_charge_cents).toBe(100000 + 8250);  // buyer pays item + tax
+  });
+  test('E. seller proceeds = item + shipping − 11% (tax never in proceeds)', () => {
+    const b = newOrder(100000, 7500, 8250);
+    expect(b.seller_proceeds_cents).toBe(96500);       // 1000 + 75 − 110
+  });
+  test('F. NO double processing deduction — fee is exactly 11%, not 11% + 3%', () => {
+    const b = newOrder(100000);
+    expect(b.platform_fee_cents).toBe(11000);          // not 14000, not 11000+3000
+    expect(b.seller_proceeds_cents).toBe(89000);       // exactly item − 11%
+  });
+  test('G. a HISTORICAL order (its own snapshot bps) is NOT recalculated to 11%', () => {
+    // computeBreakdown honors the bps passed in — a replay of an old 4% order still computes 4%.
+    expect(svc.computeBreakdown({ itemPriceCents: 100000, shippingCents: 0, taxCents: 0, feeBps: 400 }).platform_fee_cents).toBe(4000);
+  });
+  test('I/K. AUCTION economics unchanged — decoupled from the storefront fee', () => {
+    // The auction professional fee constant + the per-seller auction column are untouched.
+    expect(billingTerms.DEFAULT_PRO_PLATFORM_FEE_BPS).toBe(400);
+    // Auction settlement still reads the seller's platform_fee_bps (e.g. a negotiated 250 stays 250)…
+    const s = billingTerms.settlement({ sellerType: 'auction_house', hammerCents: 100000, buyerPremiumCents: 18000, platformFeeBps: 250 });
+    expect(s.platform_fee_bps).toBe(250);
+    expect(s.platform_fee_cents).toBe(2500); // 2.5% of hammer — auction math intact
+    // …while the STOREFRONT fee ignores that column entirely (flat 11%).
+    expect(svc.feeBpsForSeller({ platform_fee_bps: 250 })).toBe(1100);
+  });
+  test('J. Individual seller auction economics unchanged (no platform fee)', () => {
+    const s = billingTerms.settlement({ sellerType: 'private', hammerCents: 100000, buyerPremiumCents: 18000, platformFeeBps: 0 });
+    expect(s.platform_fee_cents).toBe(0);
+  });
+  test('internal allocation is reporting-only (8% + 3% = the flat 11%)', () => {
+    expect(svc.STOREFRONT_FEE_ADVANTAGE_BPS + svc.STOREFRONT_FEE_PROCESSING_BPS).toBe(svc.STOREFRONT_FEE_BPS);
   });
 });
 

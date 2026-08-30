@@ -74,7 +74,7 @@ async function sendPaid(orderId) {
       <p style="margin:8px 0"><b>Fulfillment:</b> ${method}</p>
       <p style="margin:8px 0"><b>Buyer:</b> ${esc(o.buyer_name || 'Buyer')}${o.buyer_email ? ' · ' + esc(o.buyer_email) : ''}</p>
       ${ship}
-      <p style="color:#555;margin:12px 0">Your proceeds after the platform fee: <b>${money(o.seller_proceeds_cents)}</b> (settled by Advantage.Bid after fulfillment).</p>
+      <p style="color:#555;margin:12px 0">Your proceeds after the flat 11% selling fee (includes credit card processing): <b>${money(o.seller_proceeds_cents)}</b> (settled by Advantage.Bid after fulfillment).</p>
       <p><a href="${APP_BASE}/seller-orders.html" style="background:#1d4ed8;color:#fff;text-decoration:none;padding:10px 16px;border-radius:8px">Manage this order</a></p>
       <p style="color:#475569;font-size:13px;margin-top:20px">Need help? <a href="mailto:info@advantage.bid" style="color:#2563eb">info@advantage.bid</a> · <a href="${company.TEL_HREF}" style="color:#2563eb">${company.PHONE_DISPLAY}</a></p>
     </div>`;

@@ -35,6 +35,17 @@ const { marketplaceCheckoutEnabled } = require('../lib/launchGuards');
 const STRIPE_API_VERSION = '2026-03-25.dahlia'; // matches paymentService/taxCalculationService pin
 const CLAIM_TTL_MINUTES = 30;                    // an in-flight checkout holds a one-of-one item this long
 
+// FLAT Professional Storefront selling fee (owner-authoritative): 11% of the ITEM PRICE, INCLUSIVE of
+// credit-card/payment processing. Customer-facing promise: "Flat 11% selling fee, including credit card
+// processing." The 8% Advantage.Bid + 3% processing split is an internal BUSINESS ALLOCATION only — the
+// seller is never charged 11% + a separate processing %. This is DECOUPLED from the auction professional
+// fee (seller_profiles.platform_fee_bps, ~4% of hammer, used by billingTermsService for AUCTION
+// settlement): storefront/Buy-Now sales use this flat rate, so auction economics are unaffected.
+const STOREFRONT_FEE_BPS = 1100; // 11.00%
+// Internal accounting allocation of the flat fee (reporting only; NOT extra deductions).
+const STOREFRONT_FEE_ADVANTAGE_BPS = 800; // 8% Advantage.Bid
+const STOREFRONT_FEE_PROCESSING_BPS = 300; // 3% processing allocation (Advantage.Bid absorbs any real-cost delta)
+
 function err(status, code, message) { const e = new Error(message); e.status = status; e.code = code; return e; }
 function getStripe() {
   if (!process.env.STRIPE_SECRET_KEY) throw new Error('STRIPE_SECRET_KEY is not set');
@@ -42,10 +53,11 @@ function getStripe() {
 }
 
 // ── Money ────────────────────────────────────────────────────────────────────────────────────────────
-// The seller's configured Professional Seller platform rate (per-seller override; default 4%). Reused
-// verbatim from the auction settlement model — ONE rate governs applicable Professional Seller sales.
-function feeBpsForSeller(seller) {
-  return seller.platform_fee_bps != null ? Number(seller.platform_fee_bps) : billingTerms.DEFAULT_PRO_PLATFORM_FEE_BPS;
+// The Professional Storefront selling fee is a FLAT 11% for every fixed-price sale — NOT the per-seller
+// auction platform_fee_bps (which stays exclusively an auction-settlement input). The `seller` arg is
+// accepted for call-site compatibility but the storefront rate is intentionally uniform.
+function feeBpsForSeller(/* seller */) {
+  return STOREFRONT_FEE_BPS;
 }
 // Deterministic, cents-safe breakdown. platform fee = bps of ITEM PRICE only.
 function computeBreakdown({ itemPriceCents, shippingCents, taxCents, feeBps }) {
@@ -418,6 +430,7 @@ async function getForSeller(orderId, sellerUserId) {
 }
 
 module.exports = {
+  STOREFRONT_FEE_BPS, STOREFRONT_FEE_ADVANTAGE_BPS, STOREFRONT_FEE_PROCESSING_BPS,
   feeBpsForSeller, computeBreakdown, loadItemForPurchase, quote, createOrder,
   handleIntentEvent, tryHandleChargeRefunded, markOrderPaid, refundOrder, applyRefundState,
   relistItem, updateFulfillment, releaseOrder, listForBuyer, listForSeller,
