@@ -32,6 +32,17 @@ router.get('/search', asyncRoute(async (req, res) => {
 // POST /api/org/claim/:orgId — claim a shell (owner set; 0 capabilities until verified)
 router.post('/:orgId', asyncRoute(async (req, res) => {
   const org = await lifecycle.claim(req.user.id, req.params.orgId);
+  // Free Business Listing welcome — sent ONCE on the successful claim transition (claim() throws
+  // ALREADY_CLAIMED on repeat, so this fires at most once per listing). Best-effort; never blocks.
+  (async () => {
+    try {
+      const u = (await db.query('SELECT email FROM users WHERE id = $1', [req.user.id])).rows[0];
+      if (u && u.email) {
+        const m = require('../services/businessListingEmails').buildWelcomeEmail({ companyName: org.name, claimed: true });
+        await require('../services/emailService').sendEmail({ to: u.email, ...m });
+      }
+    } catch (e) { console.error('[org-claim] welcome email best-effort failed:', e.message); }
+  })();
   res.status(201).json({ success: true, organization: { id: org.id, slug: org.slug, name: org.name, lifecycle_state: org.lifecycle_state } });
 }));
 

@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="noindex" />
+  <title>Get Your Free Business Listing - Advantage.Bid</title>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/widgets/shared/onboarding.css" />
+  <style>
+    .gl-results { margin-top:14px; display:flex; flex-direction:column; gap:8px; }
+    .gl-item { border:1px solid #e2e8f0; border-radius:10px; padding:12px 14px; display:flex; justify-content:space-between; align-items:center; gap:10px; background:#fff; }
+    .gl-item .nm { font-weight:700; font-size:0.95rem; color:#0f172a; }
+    .gl-item .loc { color:#64748b; font-size:0.82rem; }
+    .gl-claim { background:#1d4ed8; color:#fff; border:none; border-radius:8px; padding:8px 14px; font-weight:700; font-size:0.82rem; cursor:pointer; white-space:nowrap; }
+    .gl-claim:disabled { opacity:.6; cursor:default; }
+    .gl-none { color:#64748b; font-size:0.9rem; padding:10px 0; }
+    .gl-or { text-align:center; color:#94a3b8; font-size:0.8rem; text-transform:uppercase; letter-spacing:.06em; margin:14px 0 8px; }
+    .gl-row { display:flex; gap:10px; }
+    .gl-row input { flex:1; }
+  </style>
+  <script src="/widgets/shared/company-contact.js"></script>
+</head>
+<body class="ob-body">
+  <div class="ob-topbar"><a class="ob-back" href="/free-business-listing.html">&larr; Free Business Listing</a></div>
+  <div class="ob-wrap ob-narrow" style="padding-bottom:40px">
+    <div id="loading" class="ob-lede" style="text-align:center;padding:46px 0">Loading…</div>
+
+    <!-- Already manages an org -->
+    <div id="has-org" style="display:none">
+      <div class="ob-hero" style="padding:24px 0 6px">
+        <div class="ob-kick">Free business listing</div>
+        <h1 class="ob-h1" style="font-size:clamp(26px,5vw,34px)">You already manage a business</h1>
+        <p class="ob-lede" id="has-org-name">Head to your business portal to update your profile and events.</p>
+      </div>
+      <div class="ob-panel" style="text-align:center"><a href="/org/profile.html" class="ob-cta">Go to my business portal</a></div>
+    </div>
+
+    <!-- Search + claim / create -->
+    <div id="finder" style="display:none">
+      <div class="ob-hero" style="padding:24px 0 6px">
+        <div class="ob-kick">Free business listing</div>
+        <h1 class="ob-h1" style="font-size:clamp(26px,5vw,34px)">Find or create your business</h1>
+        <p class="ob-lede">Search first — your company may already be on Advantage.Bid. If it's here, claim it. If not, create a new free listing.</p>
+      </div>
+
+      <div class="ob-panel ob-form" style="margin-top:16px">
+        <label for="q">Search by company name</label>
+        <div class="gl-row">
+          <input type="text" id="q" placeholder="e.g. Heritage &amp; Home Estate Services" />
+          <input type="text" id="st" maxlength="2" placeholder="State" style="max-width:80px" />
+        </div>
+        <button id="search-btn" type="button" class="ob-cta ob-cta-full" style="margin-top:12px">Search</button>
+        <div class="ob-err" id="err"></div>
+
+        <div id="results" class="gl-results"></div>
+
+        <div class="gl-or">or</div>
+        <a href="/org/profile.html?new=1" class="ob-cta ob-cta-full" style="display:block;text-align:center;text-decoration:none;background:#0f172a">Create a new business listing →</a>
+        <p class="ob-hint" style="margin-top:12px">
+          Claiming a listing makes you its owner. To protect businesses, publishing under a claimed listing unlocks after Advantage.Bid verifies your ownership. A brand-new listing you create is yours to manage right away.
+        </p>
+      </div>
+    </div>
+
+    <!-- Need login -->
+    <div id="need-login" style="display:none">
+      <div class="ob-hero" style="padding:24px 0 6px">
+        <div class="ob-kick">Free business listing</div>
+        <h1 class="ob-h1" style="font-size:clamp(26px,5vw,34px)">Sign in to continue</h1>
+        <p class="ob-lede">Create a free Advantage.Bid account (or sign in) to claim or create your business listing.</p>
+      </div>
+      <div class="ob-panel" style="text-align:center"><a id="login-link" href="/login.html" class="ob-cta">Sign in / Create account</a></div>
+    </div>
+  </div>
+
+  <script>
+    var authToken = localStorage.getItem('token');
+    function show(id){ document.getElementById(id).style.display=''; document.getElementById('loading').style.display='none'; }
+    function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];}); }
+    function selfNext(){ return encodeURIComponent(location.pathname + location.search); }
+
+    async function api(method, path, body){
+      var opt={ method:method, headers:{ Authorization:'Bearer '+authToken } };
+      if(body!==undefined){ opt.headers['Content-Type']='application/json'; opt.body=JSON.stringify(body); }
+      var r=await fetch(path,opt); var d={}; try{ d=await r.json(); }catch(e){}
+      if(r.status===401){ localStorage.removeItem('token'); location.href='/login.html?next='+selfNext(); throw new Error('unauth'); }
+      if(!r.ok || d.success===false){ var e=new Error(d.message||('Request failed ('+r.status+')')); e.code=d.code; throw e; }
+      return d;
+    }
+
+    async function init(){
+      if(!authToken){ document.getElementById('login-link').href='/login.html?next='+selfNext(); show('need-login'); return; }
+      // If the user already owns an organization, send them to the portal (no duplicate).
+      try {
+        var prof = await api('GET','/api/org/profile');
+        if(prof && prof.organization){
+          document.getElementById('has-org-name').textContent = 'You manage “'+ (prof.organization.name||'your business') +'”. Head to your business portal to update your profile and events.';
+          show('has-org'); return;
+        }
+      } catch(e){ /* fall through to finder */ }
+      show('finder');
+    }
+
+    function renderResults(list){
+      var box=document.getElementById('results');
+      if(!list || !list.length){ box.innerHTML='<div class="gl-none">No matching businesses found. You can create a new listing below.</div>'; return; }
+      box.innerHTML = list.map(function(o){
+        var loc=[o.city,o.state].filter(Boolean).join(', ');
+        return '<div class="gl-item"><div><div class="nm">'+esc(o.name)+'</div>'+(loc?'<div class="loc">'+esc(loc)+'</div>':'')+'</div>'
+          + '<button class="gl-claim" data-id="'+esc(o.id)+'">Claim this business</button></div>';
+      }).join('');
+      Array.prototype.forEach.call(box.querySelectorAll('.gl-claim'), function(btn){
+        btn.onclick=function(){ claim(btn.getAttribute('data-id'), btn); };
+      });
+    }
+
+    async function doSearch(){
+      var err=document.getElementById('err'); err.textContent='';
+      var q=document.getElementById('q').value.trim();
+      var st=document.getElementById('st').value.trim();
+      if(q.length<2){ err.textContent='Enter at least 2 characters.'; return; }
+      var btn=document.getElementById('search-btn'); btn.disabled=true; btn.textContent='Searching…';
+      try {
+        var qs='?q='+encodeURIComponent(q)+(st?('&state='+encodeURIComponent(st)):'');
+        var d=await api('GET','/api/org/claim/search'+qs);
+        renderResults(d.results||[]);
+      } catch(e){ err.textContent=e.message||'Search failed.'; }
+      btn.disabled=false; btn.textContent='Search';
+    }
+
+    async function claim(orgId, btn){
+      var err=document.getElementById('err'); err.textContent='';
+      btn.disabled=true; btn.textContent='Claiming…';
+      try {
+        await api('POST','/api/org/claim/'+encodeURIComponent(orgId));
+        // Claimed: owner set, verification pending. Send them to their profile to complete it.
+        location.href='/org/profile.html?claimed=1';
+      } catch(e){
+        err.textContent = e.code==='ALREADY_CLAIMED' ? 'That business has already been claimed. Contact Advantage.Bid if this is your company.' : (e.message||'Could not claim this business.');
+        btn.disabled=false; btn.textContent='Claim this business';
+      }
+    }
+
+    document.getElementById('search-btn').onclick=doSearch;
+    document.getElementById('q').addEventListener('keydown',function(e){ if(e.key==='Enter') doSearch(); });
+    init();
+  </script>
+</body>
+</html>

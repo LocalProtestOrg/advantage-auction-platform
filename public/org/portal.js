@@ -63,6 +63,9 @@
       setTimeout(function () { try { ORG._containProfileEditor(active); } catch (e) {} }, 0);
       return '<header class="pbar"><div class="in"><a class="brand" href="/org/events.html">Advantage<span>.Bid</span></a>'
         + '<nav>' + nav + '</nav><div class="sp"></div>'
+        // Tasteful, non-disruptive upsell: a free listing can promote events; running online auctions and
+        // selling directly is Professional Seller (optional upgrade, never required). Links to the Pro page.
+        + '<a class="who" href="/professional-sellers.html" title="Run online auctions or sell directly through Advantage.Bid" style="font-weight:700;color:#1d4ed8">Sell on Advantage.Bid →</a>'
         + '<a class="who" href="/">← Back to site</a></div></header>';
     },
     // Org types whose company listing is managed in BD (Business Administration), not Railway.

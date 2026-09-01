@@ -115,6 +115,19 @@ router.post('/profile', asyncRoute(async (req, res) => {
     updates.profile_data = Object.assign({}, existing, profileSchema.sanitizeProfileData(b.profileData));
   }
   if (Object.keys(updates).length) org = await orgsService.updateProfile(req.user.id, org.id, updates);
+  // Free Business Listing welcome — sent ONCE, only on the first-create transition (dedup is inherent:
+  // `created` is true only when this POST onboarded a brand-new org). Best-effort; never blocks the save.
+  if (created) {
+    (async () => {
+      try {
+        const u = (await db.query('SELECT email FROM users WHERE id = $1', [req.user.id])).rows[0];
+        if (u && u.email) {
+          const m = require('../services/businessListingEmails').buildWelcomeEmail({ companyName: org.name, claimed: false });
+          await require('../services/emailService').sendEmail({ to: u.email, ...m });
+        }
+      } catch (e) { console.error('[org] welcome email (create) best-effort failed:', e.message); }
+    })();
+  }
   const types = await orgProfessionalTypes(org.id);
   const s = serializeOrg(org);
   res.status(created ? 201 : 200).json({
