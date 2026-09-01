@@ -6,11 +6,16 @@ const requireSellerAgreement = require('../middleware/requireSellerAgreement');
 const db = require('../db');
 const { brandedColSql, isProfessional } = require('../lib/sellerBranding');
 const agreementService = require('../services/agreementService');
+const organizationsService = require('../services/organizationsService');
+const verificationService = require('../services/verificationService');
+const professionalSellerEmails = require('../services/professionalSellerEmails');
+const { sendEmail } = require('../services/emailService');
+const { PROFESSIONAL_SELLER_TYPES, SELLER_TYPE_LABELS } = require('../constants/sellerTypes');
 
-// Self-service seller enablement is restricted to non-professional seller types.
-// Professional types (auction_house, estate_sale_company, professional_liquidator)
-// carry scheduling exemptions and are assigned by an admin via the seller-type
-// endpoint — never self-claimed during onboarding.
+// Self-service seller enablement (the individual /enroll path) is restricted to non-professional
+// seller types. Professional types (auction_house, estate_sale_company, professional_liquidator) are
+// enrolled through the SEPARATE /apply-professional path below, which sets the professional type but
+// keeps publication gated behind admin business verification (never self-claimed as trusted).
 const SELF_SERVE_SELLER_TYPES = ['private', 'business', 'other'];
 
 // GET /api/sellers/me
@@ -147,6 +152,131 @@ router.post('/enroll', auth, async (req, res, next) => {
       success: true,
       token,
       data: { seller_profile_id: sellerProfileId, role: newRole, onboarding },
+    });
+  } catch (err) {
+    await client.query('ROLLBACK').catch(() => {});
+    next(err);
+  } finally {
+    client.release();
+  }
+});
+
+// POST /api/sellers/apply-professional
+// Self-service PROFESSIONAL Seller enrollment. Unlike /enroll (individual), this accepts a professional
+// seller_type (auction_house | estate_sale_company | professional_liquidator) and sets it on the profile,
+// BUT it never grants trust: it immediately engages the SAME publication gate used everywhere
+// (verification_required_before_publication) so the first sale cannot go live until Advantage.Bid verifies
+// the business. It also creates/links the seller's own Railway organization (never claims another company's
+// imported directory shell by name — that is the separate claim flow). Dashboard access still requires the
+// signed agreement; payouts still require Stripe Connect. Fully idempotent + resumable.
+router.post('/apply-professional', auth, async (req, res, next) => {
+  const client = await db.connect();
+  try {
+    const userRow = (await client.query('SELECT id, role, email, full_name, phone FROM users WHERE id = $1', [req.user.id])).rows[0];
+    if (!userRow) {
+      return res.status(401).json({ success: false, message: 'Your session is no longer valid. Please sign in again.' });
+    }
+
+    const body = req.body || {};
+    const sellerType = (body.seller_type || '').toString().trim().toLowerCase();
+    // Server-authoritative: only real professional types are accepted here. Anything else is rejected
+    // (never silently downgraded) so the caller knows the professional path needs a valid type.
+    if (!PROFESSIONAL_SELLER_TYPES.includes(sellerType)) {
+      return res.status(400).json({ success: false, code: 'INVALID_PROFESSIONAL_TYPE',
+        message: 'Please choose a valid professional seller type (auction house, estate sale company, or professional liquidator).' });
+    }
+    const companyName = (body.company_name || body.display_name || '').toString().trim();
+    const legalName   = (body.legal_name || body.full_name || '').toString().trim() || null;
+    const phone       = (body.phone || '').toString().trim() || null;
+    const state       = (body.state || '').toString().trim().toUpperCase().slice(0, 8) || null;
+    if (!companyName) {
+      return res.status(400).json({ success: false, code: 'COMPANY_REQUIRED', message: 'A company or business name is required.' });
+    }
+
+    await client.query('BEGIN');
+    const existing = (await client.query('SELECT id FROM seller_profiles WHERE user_id = $1', [req.user.id])).rows[0];
+    if (!existing) {
+      if (!phone) { await client.query('ROLLBACK'); return res.status(400).json({ success: false, message: 'A phone number is required to enroll.' }); }
+      if (phone.replace(/\D/g, '').length < 10) { await client.query('ROLLBACK'); return res.status(400).json({ success: false, message: 'Please enter a valid phone number.' }); }
+    }
+
+    let sellerProfileId;
+    if (existing) {
+      sellerProfileId = existing.id;
+      // Upgrade an existing (e.g. individual) profile to the professional type; fill display_name if empty.
+      await client.query(
+        `UPDATE seller_profiles SET seller_type = $2,
+                display_name = COALESCE(NULLIF(display_name, ''), $3), updated_at = now()
+          WHERE id = $1`, [sellerProfileId, sellerType, companyName]);
+    } else {
+      sellerProfileId = (await client.query(
+        `INSERT INTO seller_profiles (user_id, seller_type, display_name) VALUES ($1, $2, $3) RETURNING id`,
+        [req.user.id, sellerType, companyName])).rows[0].id;
+    }
+
+    // SAFETY GATE (non-negotiable): a professional's first sale cannot publish until an admin verifies the
+    // business. Selecting "Auction House" on a form therefore grants NO privileged publish capability.
+    await verificationService.requireVerificationForProfessional(sellerProfileId, sellerType, req.user.id, client);
+
+    // Promote buyer → seller (admins keep their role); backfill contact fields only when empty.
+    await client.query(
+      `UPDATE users SET role = CASE WHEN role = 'buyer' THEN 'seller' ELSE role END,
+              full_name = COALESCE(full_name, $2), phone = COALESCE(phone, $3) WHERE id = $1`,
+      [req.user.id, legalName, phone]);
+    const newRole = (await client.query('SELECT role FROM users WHERE id = $1', [req.user.id])).rows[0].role;
+    await client.query('COMMIT');
+
+    // Post-commit side effects are best-effort (enrollment already committed).
+    const token = jwt.sign({ id: req.user.id, role: newRole }, process.env.JWT_SECRET, { expiresIn: process.env.JWT_EXPIRES_IN || '24h' });
+    let organizationId = null, organizationLinked = false;
+    try {
+      // One org per user: reuse the seller's existing org, else create THEIR OWN org (source 'onboarding').
+      // We deliberately do NOT match/claim an imported BD directory shell by name — that would let someone
+      // take over a business just by typing its name. Associating an imported listing is the separate,
+      // ownership-verified claim flow.
+      let org = await organizationsService.getPrimaryOrgForUser(req.user.id);
+      if (!org) {
+        org = await organizationsService.onboardOrganization(req.user.id, {
+          name: companyName, type: sellerType, contactEmail: userRow.email || undefined,
+          contactPhone: phone || undefined, state: state || undefined,
+        });
+      }
+      if (org) {
+        organizationId = org.id;
+        // Link org ↔ seller_profile, honoring the one-org-per-seller_profile unique index.
+        const linkRes = await db.query(
+          `UPDATE organizations SET linked_seller_profile_id = $2, linked_seller_at = COALESCE(linked_seller_at, now())
+            WHERE id = $1 AND NOT EXISTS (SELECT 1 FROM organizations WHERE linked_seller_profile_id = $2 AND id <> $1)
+            RETURNING id`, [org.id, sellerProfileId]);
+        organizationLinked = linkRes.rowCount > 0;
+      }
+    } catch (e) { console.error('[apply-professional] org link best-effort failed:', e.message); }
+
+    let onboarding = null;
+    try {
+      await agreementService.autoSendAgreement(sellerProfileId, req.user.id);
+      onboarding = await agreementService.getOnboardingStatus(req.user.id);
+    } catch (_) { /* best-effort */ }
+
+    try {
+      if (userRow.email) {
+        const m = professionalSellerEmails.buildApplicationEmail({ companyName, sellerTypeLabel: SELLER_TYPE_LABELS[sellerType] });
+        await sendEmail({ to: userRow.email, ...m });
+      }
+    } catch (e) { console.error('[apply-professional] welcome email best-effort failed:', e.message); }
+
+    return res.status(existing ? 200 : 201).json({
+      success: true,
+      token,
+      data: {
+        seller_profile_id: sellerProfileId,
+        seller_type: sellerType,
+        role: newRole,
+        verification_required: true,           // publication gated until admin business verification
+        organization_id: organizationId,
+        organization_linked: organizationLinked,
+        onboarding,
+      },
     });
   } catch (err) {
     await client.query('ROLLBACK').catch(() => {});

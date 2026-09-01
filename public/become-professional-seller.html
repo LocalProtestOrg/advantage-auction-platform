@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="noindex" />
+  <title>Become a Professional Seller - Advantage.Bid</title>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/widgets/shared/onboarding.css" />
+  <script src="/widgets/shared/company-contact.js"></script>
+</head>
+<body class="ob-body">
+  <div class="ob-topbar"><a class="ob-back" href="/professional-sellers.html">&larr; Back to Professional Sellers</a></div>
+  <div class="ob-wrap ob-narrow" style="padding-bottom:40px">
+    <div id="loading" class="ob-lede" style="text-align:center;padding:46px 0">Loading…</div>
+
+    <!-- Enrollment form -->
+    <div id="form-wrap" style="display:none">
+      <div class="ob-hero" style="padding:24px 0 6px">
+        <div class="ob-kick">Professional selling</div>
+        <h1 class="ob-h1" style="font-size:clamp(26px,5vw,34px)">Become a Professional Seller</h1>
+        <p class="ob-lede">Enroll your auction house, estate sale company, or liquidation business. You can start now and finish each onboarding step when you're ready.</p>
+      </div>
+
+      <div class="ob-answers">
+        <div class="ob-ans"><p class="ob-ans-q">What am I doing?</p><p class="ob-ans-a">Enrolling your business as a Professional Seller and enabling your seller dashboard.</p></div>
+        <div class="ob-ans"><p class="ob-ans-q">What happens next?</p><p class="ob-ans-a">Accept your Professional Seller agreement; Advantage.Bid verifies your business before your first sale goes live.</p></div>
+        <div class="ob-ans"><p class="ob-ans-q">Do I need a paid membership?</p><p class="ob-ans-a">No. Becoming a Professional Seller never requires a directory membership.</p></div>
+      </div>
+
+      <div class="ob-panel ob-form" style="margin-top:16px">
+        <div class="ob-steps" style="justify-content:flex-start;margin:0 0 6px"><span><b>1.</b> Enroll business</span><span><b>2.</b> Accept agreement</span><span><b>3.</b> Verify + payouts</span></div>
+
+        <label for="seller-type">What kind of professional business are you?</label>
+        <select id="seller-type">
+          <option value="estate_sale_company">Estate Sale Company</option>
+          <option value="auction_house">Auction House</option>
+          <option value="professional_liquidator">Professional Liquidator</option>
+        </select>
+
+        <label for="company-name">Company / business name <span class="req">*</span></label>
+        <input type="text" id="company-name" placeholder="e.g. Heritage &amp; Home Estate Services" />
+        <p class="ob-hint">This is your business name for your Professional Seller account and agreement.</p>
+
+        <label for="legal-name">Your full legal name <span class="req">*</span></label>
+        <input type="text" id="legal-name" placeholder="e.g. Jane Q. Owner" />
+        <p class="ob-hint">The authorized representative accepting the agreement. Never shown publicly.</p>
+
+        <div style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap">
+          <div style="flex:2;min-width:180px">
+            <label for="phone">Business phone <span class="req">*</span></label>
+            <input type="tel" id="phone" placeholder="(555) 555-1234" style="width:100%" />
+          </div>
+          <div style="flex:1;min-width:90px">
+            <label for="state">State</label>
+            <input type="text" id="state" maxlength="2" placeholder="NJ" style="width:100%" />
+          </div>
+        </div>
+
+        <button id="submit-btn" type="button" class="ob-cta ob-cta-full" style="margin-top:18px">Continue to Professional Seller agreement →</button>
+        <div class="ob-err" id="form-err"></div>
+
+        <div class="ob-callout" style="margin-top:16px">
+          <strong>Publishing unlocks after verification.</strong> You can build your catalog right away — your first sale goes live once Advantage.Bid has verified your business. Direct-deposit payouts are set up during onboarding.
+        </div>
+        <p class="ob-hint" style="margin-top:14px;text-align:center">Questions? Call Advantage.Bid at <a data-adv-tel style="font-weight:700"></a></p>
+      </div>
+    </div>
+
+    <!-- Already a professional seller -->
+    <div id="already" style="display:none">
+      <div class="ob-hero" style="padding:24px 0 6px">
+        <div class="ob-kick">Professional selling</div>
+        <h1 class="ob-h1" style="font-size:clamp(26px,5vw,34px)">You're already set up</h1>
+        <p class="ob-lede">Your Professional Seller account is active. Head to your dashboard to continue.</p>
+      </div>
+      <div class="ob-panel" style="text-align:center"><a href="/app.html" class="ob-cta">Go to my dashboard</a></div>
+    </div>
+
+    <!-- Need login -->
+    <div id="need-login" style="display:none">
+      <div class="ob-hero" style="padding:24px 0 6px">
+        <div class="ob-kick">Professional selling</div>
+        <h1 class="ob-h1" style="font-size:clamp(26px,5vw,34px)">Sign in to continue</h1>
+        <p class="ob-lede">You need an account before enrolling as a Professional Seller. Sign in or create a free account — it only takes a moment.</p>
+      </div>
+      <div class="ob-panel" style="text-align:center"><a id="login-link" href="/login.html" class="ob-cta">Sign in / Create account</a></div>
+    </div>
+  </div>
+
+  <script>
+    var authToken = localStorage.getItem('token');
+    function show(id){ document.getElementById(id).style.display=''; document.getElementById('loading').style.display='none'; }
+
+    var PRO_TYPES = ['estate_sale_company','auction_house','professional_liquidator'];
+    function requestedType(){
+      try { var v = (new URLSearchParams(location.search).get('seller_type')||'').trim().toLowerCase();
+        return PRO_TYPES.indexOf(v)!==-1 ? v : null; } catch(e){ return null; }
+    }
+    function preselect(){ var t=requestedType(); if(!t) return; var sel=document.getElementById('seller-type'); if(sel) sel.value=t; }
+    function selfNext(){ return encodeURIComponent(location.pathname + location.search); }
+
+    async function init(){
+      preselect();
+      if(!authToken){ document.getElementById('login-link').href='/login.html?next='+selfNext(); show('need-login'); return; }
+      // Resume: if already a professional seller with dashboard access, send to dashboard; if a seller still
+      // owes the agreement, route there; otherwise show the enrollment form.
+      try {
+        var st = await (await fetch('/api/agreements/onboarding-status',{headers:{Authorization:'Bearer '+authToken}})).json();
+        if(st && st.success && st.data && st.data.is_seller){
+          if(!st.data.dashboard_access){ location.href='/sign-agreement.html?onboarding=1'; return; }
+        }
+      } catch(e){ /* fall through to the form */ }
+      // Prefill from the account where available (best-effort).
+      try {
+        var me = await (await fetch('/api/auth/me',{headers:{Authorization:'Bearer '+authToken}})).json();
+        if(me && me.success && me.data){
+          if(me.data.full_name) document.getElementById('legal-name').value = me.data.full_name;
+          if(me.data.phone) document.getElementById('phone').value = me.data.phone;
+        }
+      } catch(e){}
+      show('form-wrap');
+    }
+
+    document.getElementById('submit-btn').onclick = async function(){
+      var err=document.getElementById('form-err'); err.textContent='';
+      var sellerType=document.getElementById('seller-type').value;
+      var companyName=document.getElementById('company-name').value.trim();
+      var legalName=document.getElementById('legal-name').value.trim();
+      var phone=document.getElementById('phone').value.trim();
+      var state=document.getElementById('state').value.trim();
+      if(!companyName){ err.textContent='Please enter your company or business name.'; return; }
+      if(!legalName){ err.textContent='Please enter your full legal name.'; return; }
+      if(!phone || phone.replace(/\D/g,'').length<10){ err.textContent='Please enter a valid business phone number.'; return; }
+      var btn=document.getElementById('submit-btn'); btn.disabled=true; btn.textContent='Enrolling your business…';
+      try {
+        var res = await fetch('/api/sellers/apply-professional',{
+          method:'POST',
+          headers:{'Content-Type':'application/json',Authorization:'Bearer '+authToken},
+          body: JSON.stringify({ seller_type:sellerType, company_name:companyName, legal_name:legalName, phone:phone, state:state }),
+        });
+        if(res.status===401){ localStorage.removeItem('token'); location.href='/login.html?next='+selfNext(); return; }
+        var json={}; try { json=await res.json(); } catch(_){}
+        if(!res.ok || !json.success){
+          err.textContent = json.message || json.error || 'We could not complete enrollment. Please try again.';
+          btn.disabled=false; btn.textContent='Continue to Professional Seller agreement →'; return;
+        }
+        if(json.token) localStorage.setItem('token', json.token);
+        var ob = json.data && json.data.onboarding;
+        if(ob && ob.dashboard_access){ location.href='/app.html'; return; }
+        location.href='/sign-agreement.html?onboarding=1';
+      } catch(e){
+        err.textContent='Network error. Please try again.';
+        btn.disabled=false; btn.textContent='Continue to Professional Seller agreement →';
+      }
+    };
+
+    init();
+  </script>
+</body>
+</html>
