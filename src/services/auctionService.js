@@ -121,6 +121,19 @@ async function createAuction(data) {
   );
   const created = result.rows[0];
 
+  // Demo isolation: any auction created by a DEMO seller is marked is_demo + hidden so it can NEVER
+  // reach the public marketplace/feed/widget (all of which exclude is_demo). Server-authoritative — a
+  // sales prospect exploring the demo seller account cannot create real public marketplace inventory.
+  if (created) {
+    try {
+      const demoSeller = (await db.query('SELECT is_demo FROM seller_profiles WHERE id = $1', [sellerId])).rows[0];
+      if (demoSeller && demoSeller.is_demo === true) {
+        await db.query(`UPDATE auctions SET is_demo = true, marketplace_status = 'hidden' WHERE id = $1`, [created.id]);
+        created.is_demo = true; created.marketplace_status = 'hidden';
+      }
+    } catch (e) { console.error('[demo] create-auction is_demo tagging failed:', e.message); }
+  }
+
   // Phase C: record an admin override of the schedule rule (non-blocking audit;
   // visible in History). Only reached when an admin supplied an override reason.
   if (created && scheduleOverride) {

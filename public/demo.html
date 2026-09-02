@@ -3,17 +3,117 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Advantage.Bid</title>
-  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
   <meta name="robots" content="noindex, nofollow" />
-  <!-- The live marketplace is the current demo experience. This stale demo page now
-       redirects to the homepage so there is a single source of truth. -->
-  <meta http-equiv="refresh" content="0; url=/" />
-  <link rel="canonical" href="/" />
-  <script>location.replace('/');</script>
-  <style>body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#f8fafc;color:#334155;text-align:center;padding:3rem 1rem}a{color:#2563eb;font-weight:700;text-decoration:none}</style>
+  <title>Explore Advantage.Bid</title>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/marketplace.css" />
+  <style>
+    body{background:#fff}
+    .hero{background:linear-gradient(160deg,#0f172a 0%,#1e3a5f 100%);padding:4rem 1.5rem 3rem}
+    .in{max-width:920px;margin:0 auto}
+    .eyebrow{display:inline-block;font-size:.72rem;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:#93c5fd;background:rgba(59,130,246,.15);border:1px solid rgba(147,197,253,.25);padding:.28rem .85rem;border-radius:99px;margin-bottom:1rem}
+    .hero h1{font-size:clamp(2rem,4.8vw,2.9rem);font-weight:800;line-height:1.1;letter-spacing:-.03em;color:#fff;margin-bottom:.75rem}
+    .hero p{color:#94a3b8;font-size:1.05rem;line-height:1.6;max-width:640px}
+    .sec{max-width:920px;margin:0 auto;padding:0 1.5rem}
+    .cards{display:grid;grid-template-columns:1fr 1fr;gap:1.1rem;margin:2rem auto}
+    @media (max-width:680px){.cards{grid-template-columns:1fr}}
+    .card{background:#fff;border:1px solid #e5e7eb;border-radius:16px;padding:1.5rem}
+    .card h2{font-size:1.15rem;font-weight:800;margin:.3rem 0 .3rem}
+    .card p{color:#475569;font-size:.9rem;line-height:1.55;margin:0 0 1rem}
+    .card ul{margin:0 0 1rem;padding-left:1.1rem;color:#475569;font-size:.86rem;line-height:1.5}
+    .btn{display:inline-block;background:#1d4ed8;color:#fff;font-weight:700;font-size:.95rem;padding:.75rem 1.4rem;border-radius:9px;text-decoration:none;border:none;cursor:pointer}
+    .btn:hover{background:#1e40af}
+    .btn.ghost{background:#f1f5f9;color:#111827;border:1px solid #e2e8f0}
+    .cred{font-size:.78rem;color:#64748b;margin-top:.6rem}
+    .cred code{background:#f1f5f9;padding:1px 6px;border-radius:5px;color:#0f172a}
+    .steps{display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin:1.5rem auto}
+    @media (max-width:680px){.steps{grid-template-columns:1fr}}
+    .step{border:1px solid #e5e7eb;border-radius:12px;padding:1rem 1.1rem;background:#f8fafc}
+    .step h3{font-size:.95rem;font-weight:800;margin:0 0 .3rem}
+    .step p{font-size:.85rem;color:#475569;margin:0;line-height:1.5}
+    .see{display:flex;gap:.6rem;flex-wrap:wrap;margin:.5rem 0 0}
+    .disclaimer{background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;padding:.8rem 1rem;font-size:.85rem;color:#1e40af;margin:1.5rem auto}
+    .band{background:#0f172a;color:#fff;text-align:center;padding:3rem 1.5rem;margin-top:2.5rem}
+    .band h2{font-size:1.4rem;font-weight:800;margin-bottom:.4rem}
+    .band p{color:#94a3b8;margin-bottom:0}
+    .msg{font-size:.85rem;min-height:1.1rem;margin:.5rem 0}.msg.err{color:#fca5a5}
+    h2.sh{font-size:1.4rem;font-weight:800;margin:2rem 0 .3rem;letter-spacing:-.02em}
+    p.ss{color:#64748b;font-size:.95rem;margin-bottom:.4rem}
+  </style>
+  <script src="/widgets/shared/company-contact.js"></script>
 </head>
 <body>
-  Redirecting to the Advantage.Bid marketplace… <a href="/">Continue</a>
+<section class="hero">
+  <div class="in">
+    <div class="eyebrow">Private Demo · Advantage.Bid</div>
+    <h1>Explore Advantage.Bid</h1>
+    <p>See how easy it is to run online auctions, build a catalog, manage a professional storefront, and put your auctions on your own website — hands-on, in the real product. This is a private demo; nothing here creates real charges or messages.</p>
+    <div class="msg" id="msg"></div>
+  </div>
+</section>
+
+<div class="sec">
+  <div class="cards">
+    <div class="card">
+      <div style="font-size:1.6rem" aria-hidden="true">🏢</div>
+      <h2>Try the Seller experience</h2>
+      <p>Step into a Professional Seller account. Create an auction, add lots and photos, manage your storefront, and see the “Add Auctions to Your Website” widget — all in the real dashboard.</p>
+      <button class="btn" id="seller-btn" type="button">Enter Seller Demo →</button>
+      <div class="cred">Or sign in with <code>demo-seller@advantage.bid</code> / <code>DemoExplore2025!</code></div>
+    </div>
+    <div class="card">
+      <div style="font-size:1.6rem" aria-hidden="true">🛍️</div>
+      <h2>Try the Buyer experience</h2>
+      <p>See what your bidders see: browse auctions and lots, add favorites, and follow how bidding and pickup work.</p>
+      <button class="btn ghost" id="buyer-btn" type="button">Enter Buyer Demo →</button>
+      <div class="cred">Or sign in with <code>demo-buyer@advantage.bid</code> / <code>DemoExplore2025!</code></div>
+    </div>
+  </div>
+
+  <h2 class="sh">How selling works — built to be easy</h2>
+  <p class="ss">Professional Sellers publish on their own schedule; individuals get a quick Advantage.Bid review first.</p>
+  <div class="steps">
+    <div class="step"><h3>1. Create your auction</h3><p>Give it a title and dates. Start at your pace — save and come back anytime.</p></div>
+    <div class="step"><h3>2. Add your lots &amp; photos</h3><p>Build your catalog item by item, right from your phone or computer.</p></div>
+    <div class="step"><h3>3. Publish</h3><p>Verified professional sellers publish and go live — no waiting on us.</p></div>
+    <div class="step"><h3>4. Reach more buyers</h3><p>Your auctions appear on Advantage.Bid and, with the white-label widget, on your own company website too.</p></div>
+  </div>
+
+  <h2 class="sh">See it live</h2>
+  <p class="ss">What buyers and the public actually see:</p>
+  <div class="see">
+    <a class="btn ghost" href="/auction-view.html?auctionId=00000000-0000-4000-a000-0000000d0003" target="_blank" rel="noopener">🔨 A finished auction: The Maplewood Estate Collection →</a>
+    <a class="btn ghost" href="/pro/heritage-home-estate-services" target="_blank" rel="noopener">🏪 A professional storefront →</a>
+  </div>
+
+  <div class="disclaimer">
+    <b>This is a demo.</b> The seller and buyer demo accounts are safe to explore — they can’t create real charges, payouts, emails, or public listings, and everything resets to a clean state for the next person.
+  </div>
+</div>
+
+<section class="band">
+  <h2>Ready to get started for real?</h2>
+  <p>Become a Professional Seller at <a href="/professional-sellers.html" style="color:#93c5fd;font-weight:700">bid.advantage.bid</a> — or, if you ever need help, we’re always just a phone call away at <a data-adv-tel style="color:#93c5fd;font-weight:700"></a>.</p>
+</section>
+
+<script>
+  function msg(t){ var m=document.getElementById('msg'); m.className='msg err'; m.textContent=t||''; }
+  async function enter(role){
+    var email = role==='seller' ? 'demo-seller@advantage.bid' : 'demo-buyer@advantage.bid';
+    var btn = document.getElementById(role+'-btn'); var label = btn.textContent; btn.disabled=true; btn.textContent='Loading…';
+    try {
+      // Real authentication — the demo accounts log in through the normal /api/auth/login (no bypass).
+      var r = await fetch('/api/auth/login', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ email: email, password: 'DemoExplore2025!' }) });
+      var d = await r.json();
+      if (!r.ok || !d.success || !d.token) { msg((d && d.error) || 'Could not start the demo. You can sign in with the credentials shown.'); btn.disabled=false; btn.textContent=label; return; }
+      localStorage.setItem('token', d.token);
+      location.href = role==='seller' ? '/seller-dashboard.html' : '/app.html';
+    } catch(e){ msg('Network error — you can sign in with the credentials shown above.'); btn.disabled=false; btn.textContent=label; }
+  }
+  document.getElementById('seller-btn').onclick=function(){ enter('seller'); };
+  document.getElementById('buyer-btn').onclick=function(){ enter('buyer'); };
+</script>
 </body>
 </html>

@@ -6,6 +6,7 @@ const { strictLimiter } = require('../middleware/rateLimit');
 const auth = require('../middleware/authMiddleware');
 const role = require('../middleware/roleMiddleware');
 const idempotency = require('../middleware/idempotency');
+const { blockDemoSideEffects } = require('../middleware/demoGuard');
 const paymentService = require('../services/paymentService');
 const cardService = require('../services/cardService'); // #20 STEP 4 card-on-file
 const taxService = require('../services/taxCalculationService');
@@ -71,7 +72,7 @@ router.put('/tax-address', auth, async (req, res) => {
 
 // #20 STEP 4: card-on-file (Stripe TEST, no charge).
 // POST /api/payments/setup-intent — create a SetupIntent to save a card.
-router.post('/setup-intent', auth, async (req, res) => {
+router.post('/setup-intent', auth, blockDemoSideEffects, async (req, res) => {
   try {
     const data = await cardService.createSetupIntent(req.user.id);
     return res.json({ success: true, data });
@@ -83,7 +84,7 @@ router.post('/setup-intent', auth, async (req, res) => {
 
 // POST /api/payments/card-on-file — after the client confirms the SetupIntent,
 // record the saved PM as the default + a verified marker. No charge.
-router.post('/card-on-file', auth, async (req, res) => {
+router.post('/card-on-file', auth, blockDemoSideEffects, async (req, res) => {
   try {
     const data = await cardService.recordCardOnFile(req.user.id);
     return res.json({ success: true, data });
@@ -123,7 +124,7 @@ router.get('/card-summary', auth, async (req, res) => {
 // sellers' auctions. Without this, becoming a seller would silently revoke the
 // ability to pay for won lots. (Self-bidding on one's OWN auction is blocked
 // server-side in bidService.createBid, so a seller can never pay themselves.)
-router.post('/charge-lot', strictLimiter, auth, role(['buyer', 'seller', 'admin']), idempotency, async (req, res) => {
+router.post('/charge-lot', strictLimiter, auth, role(['buyer', 'seller', 'admin']), blockDemoSideEffects, idempotency, async (req, res) => {
   const idempotencyKey = req.headers['idempotency-key'];
   if (!idempotencyKey) {
     return res.status(400).json({ error: 'Missing Idempotency-Key' });
@@ -149,7 +150,7 @@ router.post('/charge-lot', strictLimiter, auth, role(['buyer', 'seller', 'admin'
 // POST /api/payments/charge-combined — start an ON-SESSION payment for an unpaid
 // combined invoice (the whole auction at once). Returns a client_secret for payment.html;
 // the webhook null-lot branch settles the combined header + per-lot invoices on success.
-router.post('/charge-combined', strictLimiter, auth, role(['buyer', 'seller', 'admin']), idempotency, async (req, res) => {
+router.post('/charge-combined', strictLimiter, auth, role(['buyer', 'seller', 'admin']), blockDemoSideEffects, idempotency, async (req, res) => {
   const idempotencyKey = req.headers['idempotency-key'];
   if (!idempotencyKey) return res.status(400).json({ error: 'Missing Idempotency-Key' });
   const { combined_invoice_id } = req.body;

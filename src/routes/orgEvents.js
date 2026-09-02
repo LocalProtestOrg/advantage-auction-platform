@@ -11,6 +11,7 @@
 const express = require('express');
 const router = express.Router();
 const authMiddleware = require('../middleware/authMiddleware');
+const { blockDemoSideEffects } = require('../middleware/demoGuard');
 const orgsService = require('../services/organizationsService');
 const eventsService = require('../services/eventsService');
 const { asyncRoute, svcErr } = require('../utils/apiError');
@@ -282,7 +283,7 @@ router.get('/events/:id/follower-campaign', asyncRoute(async (req, res) => {
 }));
 
 // PUT /api/org/events/:id/follower-campaign — opt in/out + custom message (before publish).
-router.put('/events/:id/follower-campaign', asyncRoute(async (req, res) => {
+router.put('/events/:id/follower-campaign', blockDemoSideEffects, asyncRoute(async (req, res) => {
   const ev = await eventsService.getById(req.params.id);
   if (!ev) throw svcErr(404, 'EVENT_NOT_FOUND', 'Event not found.');
   await orgsService.assertOwner(req.user.id, ev.organization_id);

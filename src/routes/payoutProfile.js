@@ -10,6 +10,7 @@
 const express = require('express');
 const router = express.Router();
 const auth = require('../middleware/authMiddleware');
+const { blockDemoSideEffects } = require('../middleware/demoGuard');
 const role = require('../middleware/roleMiddleware');
 const svc = require('../services/payoutProfileService');
 const connect = require('../services/stripeConnectService');
@@ -42,7 +43,7 @@ router.get('/me', auth, role(['seller']), async (req, res, next) => {
 });
 
 // Direct Deposit (Stripe Connect): start/resume Stripe-hosted onboarding. Returns a one-time URL.
-router.post('/me/connect/onboard', auth, role(['seller']), requireConnectEnabled, async (req, res, next) => {
+router.post('/me/connect/onboard', auth, role(['seller']), blockDemoSideEffects, requireConnectEnabled, async (req, res, next) => {
   try {
     const link = await connect.createOnboardingLink(req.user.id, {
       returnUrl: APP_BASE + '/payout-profile.html?connect=return',
@@ -77,13 +78,13 @@ router.put('/me', auth, role(['seller']), async (req, res, next) => {
 
 // ACH via Stripe (current flow: SetupIntent + us_bank_account / Financial Connections).
 // Step 1: seller starts ACH setup — server returns a SetupIntent client_secret.
-router.post('/me/ach/setup-intent', auth, role(['seller']), async (req, res, next) => {
+router.post('/me/ach/setup-intent', auth, role(['seller']), blockDemoSideEffects, async (req, res, next) => {
   try { res.json({ success: true, data: await svc.createAchSetupIntent(req.user.id) }); }
   catch (err) { if (/configured/i.test(err.message)) return res.status(503).json({ success: false, message: 'Bank connection is temporarily unavailable.' }); next(err); }
 });
 // Step 2: after Stripe.js completes collection/confirmation, seller confirms — server
 // retrieves the SetupIntent and stores only the Stripe reference + safe display.
-router.post('/me/ach/confirm', auth, role(['seller']), async (req, res, next) => {
+router.post('/me/ach/confirm', auth, role(['seller']), blockDemoSideEffects, async (req, res, next) => {
   try { res.json({ success: true, data: serialize(await svc.confirmAchSetupIntent(req.user.id, (req.body || {}).setup_intent_id)) }); }
   catch (err) {
     if (/required|No US bank|does not belong/i.test(err.message)) return res.status(422).json({ success: false, message: err.message });
