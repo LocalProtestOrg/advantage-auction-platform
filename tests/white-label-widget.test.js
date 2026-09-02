@@ -175,6 +175,18 @@ describe('loader (/widgets/company-auctions.js)', () => {
   });
 });
 
+// ── Marketing surfaces advertise the now-certified feature ──────────────────────
+describe('white-label marketing copy (post-certification)', () => {
+  test('professional-sellers.html advertises "host auctions on your own website"', () => {
+    const p = read('public', 'professional-sellers.html');
+    expect(p).toMatch(/host auctions on your own website/i);
+    expect(p).toMatch(/white-label/i);
+  });
+  test('the Free -> Pro upgrade panel lists the widget benefit', () => {
+    expect(read('public', 'widgets', 'shared', 'pro-upgrade-panel.js')).toMatch(/host auctions on your own website/i);
+  });
+});
+
 // ── Dashboard install card ───────────────────────────────────────────────────────
 describe('seller dashboard install card', () => {
   const dash = read('public', 'seller-dashboard.html');

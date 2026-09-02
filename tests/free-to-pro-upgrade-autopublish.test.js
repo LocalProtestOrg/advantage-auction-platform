@@ -40,10 +40,10 @@ describe('Professional Seller upgrade panel', () => {
     expect(panel).toMatch(/Keep your existing business profile/i);
     expect(panel).toMatch(/no new account|same company/i);
   });
-  test('does NOT advertise the (unverified) white-label auction widget', () => {
-    expect(panel).not.toMatch(/white.?label/i);
-    expect(panel).not.toMatch(/host auctions on your own website/i);
-    expect(panel).not.toMatch(/\bwidget\b/i);
+  test('advertises the now-certified white-label "host auctions on your own website" widget', () => {
+    expect(panel).toMatch(/host auctions on your own website/i);
+    expect(panel).toMatch(/white-label/i);
+    expect(panel).toMatch(/\bwidget\b/i);
   });
   test('is rendered in the Free Business Listing portal (submit-listing + portal home), gated for non-pros', () => {
     const submit = read('public', 'org', 'submit-listing.html');

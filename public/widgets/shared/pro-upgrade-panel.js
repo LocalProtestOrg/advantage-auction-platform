@@ -1,13 +1,14 @@
 /* Professional Seller upgrade panel — shared, tasteful, NON-forced upsell shown inside the Free Business
    Listing portal. One source of truth for the copy so submit-listing + events render an identical panel.
    Benefits are limited to VERIFIED, live Professional Seller capabilities (auctions are admin-published,
-   which is fine to advertise as "run online auctions"). The embed-on-your-own-site capability is
-   intentionally NOT listed because it is not yet a verified, self-serve, brand-removable product.
-   Accessible: labelled region, heading, list, and a real focusable link. Free listing stays fully
-   usable without upgrading. */
+   which is fine to advertise as "run online auctions"). The white-label "host auctions on your own
+   website" widget is now a certified, live feature (Seller Dashboard > Add Auctions to Your Website), so
+   it IS listed. Accessible: labelled region, heading, list, and a real focusable link. Free listing stays
+   fully usable without upgrading. */
 (function () {
   var BENEFITS = [
     ['🔨', 'Run online auctions', 'Host professional online auctions on Advantage.Bid.'],
+    ['🌐', 'Host auctions on your own website', 'Embed a white-label auction widget on your company site — your brand front-and-center, Advantage.Bid powers the auctions.'],
     ['🎛️', 'Professional auction controls', 'Set starting prices and reserves, and configure your buyer’s premium and bid increments.'],
     ['🏪', 'Branded Professional Storefront', 'A branded storefront with fixed-price Buy Now selling.'],
     ['🧭', 'Marketplace selling & orders', 'List fixed-price items, sell through checkout, and manage your Storefront orders.'],
