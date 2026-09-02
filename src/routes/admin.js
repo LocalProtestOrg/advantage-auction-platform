@@ -493,6 +493,9 @@ router.patch('/auctions/:auctionId/publish', auth, role(['admin']), idempotency,
     const { auctionId } = req.params;
     const result = await auctionService.publishAuction(auctionId, req.user.id);
 
+    // Compliance decision-support scan on admin publish — best-effort, non-blocking.
+    require('../services/complianceService').scanAuctionSafe(auctionId);
+
     // Fan-out NEW_AUCTION notifications to seller followers after commit.
     // Guarded: failure here must never affect the publish response.
     enqueueNewAuctionNotifications(result).catch(err => {

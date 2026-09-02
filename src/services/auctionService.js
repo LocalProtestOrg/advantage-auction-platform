@@ -1035,11 +1035,14 @@ async function sellerSubmitAuction(auctionId, userId) {
     // on an already-published auction throws 'already published' BEFORE the SMS, so the alert fires once).
     const auction = await publishAuction(auctionId, userId);
     ownerAlertService.notifyOwnerProfessionalAuctionPublished(auctionId).catch(() => {});
+    // Compliance decision-support scan — best-effort, NON-BLOCKING; never delays/fails publication.
+    require('./complianceService').scanAuctionSafe(auctionId);
     return { auto_published: true, auction };
   }
   // Ineligible professional or Individual/Private → existing submit-for-review path (AUCTION_SUBMITTED SMS
   // fires from updateAuction). Individuals never reach the auto-publish branch above.
   const auction = await updateAuction(auctionId, userId, { state: 'submitted' }, 'seller');
+  require('./complianceService').scanAuctionSafe(auctionId); // best-effort; supports the admin review queue
   return { auto_published: false, auction };
 }
 

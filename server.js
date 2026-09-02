@@ -602,6 +602,7 @@ app.use('/api/admin/follower-emails', require('./src/routes/adminFollowerEmails'
 app.use('/api/org/claim', orgClaimRoutes);
 app.use('/api/org', orgEventsRoutes);
 app.use('/api/admin/business-listings', require('./src/routes/adminBusinessListings'));
+app.use('/api/admin/compliance', require('./src/routes/adminCompliance')); // admin-only auction compliance review
 app.use('/api/legal', legalRoutes);
 app.use('/api/config', configRoutes);
 app.use('/api/analytics', analyticsRoutes);

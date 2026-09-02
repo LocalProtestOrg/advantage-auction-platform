@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="noindex, nofollow" />
+  <title>Compliance Review — Advantage Admin</title>
+  <style>
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#f8fafc;color:#0f172a}
+    .wrap{max-width:1120px;margin:0 auto;padding:1rem}
+    h1{font-size:1.35rem;margin:.4rem 0 .2rem}
+    .sub{color:#64748b;font-size:.85rem;margin-bottom:1rem}
+    .note{background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:.6rem .8rem;font-size:.8rem;color:#1e40af;margin-bottom:1rem}
+    .tabs{display:flex;gap:6px;border-bottom:2px solid #e2e8f0;margin-bottom:1rem;flex-wrap:wrap}
+    .tabs button{background:none;border:none;padding:.55rem 1rem;font-size:.88rem;font-weight:700;color:#64748b;cursor:pointer;border-bottom:3px solid transparent;margin-bottom:-2px}
+    .tabs button.active{color:#111827;border-bottom-color:#2563eb}
+    table{width:100%;border-collapse:collapse;background:#fff;border:1px solid #e2e8f0;border-radius:10px;overflow:hidden}
+    th,td{text-align:left;padding:.55rem .6rem;font-size:.82rem;border-bottom:1px solid #f1f5f9;vertical-align:top}
+    th{background:#f8fafc;color:#475569;font-size:.68rem;text-transform:uppercase;letter-spacing:.03em}
+    .pill{display:inline-block;font-size:.66rem;font-weight:800;border-radius:999px;padding:2px 8px}
+    .s-high{background:#fee2e2;color:#991b1b}.s-medium{background:#fef9c3;color:#854d0e}.s-low{background:#e0e7ff;color:#3730a3}.s-none{background:#dcfce7;color:#166534}
+    .btn{padding:.4rem .8rem;border:none;border-radius:7px;font-weight:700;cursor:pointer;font-size:.78rem}
+    .b-blue{background:#2563eb;color:#fff}.b-green{background:#166534;color:#fff}.b-amber{background:#b45309;color:#fff}.b-red{background:#b91c1c;color:#fff}.b-ghost{background:#f1f5f9;color:#111827;border:1px solid #e2e8f0}
+    .msg{font-size:.85rem;color:#64748b;margin:.5rem 0;min-height:1rem}.msg.err{color:#b91c1c}.msg.ok{color:#166534}
+    #drawer{position:fixed;top:var(--admin-nav-h,0);right:0;width:min(640px,97vw);height:calc(100% - var(--admin-nav-h,0px));background:#fff;box-shadow:-8px 0 30px rgba(0,0,0,.15);padding:1.2rem;overflow-y:auto;display:none;z-index:50}
+    #drawer h2{font-size:1.05rem;margin-bottom:.3rem}
+    .kv{font-size:.85rem;color:#334155;margin:.2rem 0}
+    .flagcard{border:1px solid #e2e8f0;border-radius:10px;padding:.7rem .8rem;margin:.5rem 0;background:#fff}
+    .flagcard .lot{font-weight:700;font-size:.9rem}
+    .flagcard .meta{font-size:.78rem;color:#64748b;margin:.2rem 0}
+    .flag-actions{display:flex;gap:.4rem;flex-wrap:wrap;margin-top:.5rem}
+    .close-x{float:right;background:none;border:none;font-size:1.3rem;cursor:pointer;color:#94a3b8}
+    .aacts{display:flex;gap:.5rem;flex-wrap:wrap;margin:.6rem 0 1rem}
+    a{color:#1d4ed8}
+  </style>
+</head>
+<body>
+  <script src="/widgets/shared/admin-nav.js"></script>
+  <div class="wrap">
+    <h1>Auction Compliance Review</h1>
+    <div class="sub">Recently published Professional auctions and the lots that may deserve a look.</div>
+    <div class="note"><b>Decision support, not legal advice.</b> Flags are conservative screening indicators (“possible compliance concern — review suggested”), not determinations that an item is legal or illegal. Use your judgment; legal/regulatory coverage will expand over time.</div>
+    <div class="tabs">
+      <button class="active" data-f="needs_review" onclick="setTab('needs_review',this)">Needs Review</button>
+      <button data-f="flagged" onclick="setTab('flagged',this)">Flagged</button>
+      <button data-f="reviewed" onclick="setTab('reviewed',this)">Reviewed</button>
+      <button data-f="all" onclick="setTab('all',this)">Recent Professional Auctions</button>
+    </div>
+    <div class="msg" id="msg"></div>
+    <table>
+      <thead><tr><th>Auction</th><th>Company</th><th>Published</th><th>State</th><th>Lots</th><th>Open flags</th><th>Severity</th><th>Status</th><th></th></tr></thead>
+      <tbody id="rows"><tr><td colspan="9" style="color:#64748b">Loading…</td></tr></tbody>
+    </table>
+  </div>
+
+  <div id="drawer" aria-label="Auction compliance detail">
+    <button class="close-x" onclick="closeDrawer()" aria-label="Close">&times;</button>
+    <h2 id="d-title">Auction</h2>
+    <div id="d-body"></div>
+  </div>
+
+  <script>
+    var token = localStorage.getItem('token');
+    if (!token) location.href = '/login.html?next=' + encodeURIComponent('/admin/compliance.html');
+    var STATE = 'needs_review';
+    function $(id){return document.getElementById(id);}
+    function esc(s){return (s==null?'':String(s)).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
+    function say(t,cls){var m=$('msg');m.className='msg'+(cls?' '+cls:'');m.textContent=t||'';}
+    async function api(method,url,body){
+      var opt={method:method,headers:{Authorization:'Bearer '+token}};
+      if(body!==undefined){opt.headers['Content-Type']='application/json';opt.body=JSON.stringify(body);}
+      var r=await fetch(url,opt);var d={};try{d=await r.json();}catch(e){}
+      if(r.status===401){localStorage.removeItem('token');location.href='/login.html';throw new Error('Session expired');}
+      if(!r.ok||d.success===false){throw new Error(d.message||('Request failed ('+r.status+')'));}
+      return d;
+    }
+    function sevPill(s){ if(!s) return '<span class="pill s-none">none</span>'; return '<span class="pill s-'+esc(s)+'">'+esc(s)+'</span>'; }
+    function setTab(f,btn){STATE=f;Array.prototype.forEach.call(document.querySelectorAll('.tabs button'),function(b){b.classList.toggle('active',b===btn);});load();}
+
+    async function load(){
+      say('');
+      try{
+        var d=await api('GET','/api/admin/compliance/auctions?filter='+encodeURIComponent(STATE)+'&limit=100');
+        var rows=d.auctions||[];
+        if(!rows.length){$('rows').innerHTML='<tr><td colspan="9" style="color:#64748b">Nothing here.</td></tr>';return;}
+        $('rows').innerHTML=rows.map(function(a){
+          var rs = a.review_status==='needs_review'?'<span class="pill s-medium">needs review</span>':(a.review_status==='reviewed'?'<span class="pill s-none">reviewed</span>':'<span class="pill s-none">no flags</span>');
+          return '<tr><td><b>'+esc(a.title||'Untitled')+'</b></td><td>'+esc(a.company||'—')+'</td>'
+            +'<td>'+(a.published_at?new Date(a.published_at).toLocaleDateString():'—')+'</td>'
+            +'<td>'+esc(a.auction_state||'—')+'</td><td>'+a.lot_count+'</td><td>'+a.open_flags+'</td>'
+            +'<td>'+sevPill(a.max_severity)+'</td><td>'+rs+'</td>'
+            +'<td><button class="btn b-blue" onclick="openDrawer(\''+a.id+'\')">Open</button></td></tr>';
+        }).join('');
+      }catch(e){say(e.message,'err');}
+    }
+
+    async function openDrawer(auctionId){
+      say('');
+      try{
+        var d=await api('GET','/api/admin/compliance/auctions/'+encodeURIComponent(auctionId));
+        var a=d.auction; var flags=d.flags||[];
+        $('d-title').textContent=a.title||'Auction';
+        var head='<p class="kv"><b>Company:</b> '+esc(a.company||'—')+' · <b>State:</b> '+esc(a.auction_state||'—')+' · <b>Auction state:</b> '+esc(a.state)+'</p>'
+          +'<div class="aacts">'
+          +'<button class="btn b-ghost" onclick="rescan(\''+a.id+'\')">Re-scan</button>'
+          +(a.seller_email?('<a class="btn b-ghost" href="mailto:'+esc(a.seller_email)+'">Contact seller</a>'):'')
+          +'<button class="btn b-red" onclick="unpublish(\''+a.id+'\')">Unpublish auction</button>'
+          +'</div>';
+        var body = flags.length ? flags.map(function(f){
+          var jur = f.jurisdiction ? esc(f.jurisdiction) : 'Needs review / not determined';
+          return '<div class="flagcard"><div class="lot">Lot '+esc(f.lot_number||'?')+': '+esc(f.lot_title||'')+'</div>'
+            +'<div class="meta">'+sevPill(f.severity)+' &nbsp; '+esc(f.reason||'')+'</div>'
+            +'<div class="meta">Category: '+esc(f.category||f.rule_code||'—')+' · Matched: “'+esc(f.matched_term||'')+'” · Jurisdiction: '+jur+' · Status: '+esc(f.status)+(f.lot_state==='withdrawn'?' · <b>lot withdrawn</b>':'')+'</div>'
+            +(f.admin_notes?('<div class="meta">Note: '+esc(f.admin_notes)+'</div>'):'')
+            +'<div class="flag-actions">'
+            +'<button class="btn b-green" onclick="review(\''+f.id+'\',\'reviewed_allowed\',\''+a.id+'\')">Reviewed — Allowed</button>'
+            +'<button class="btn b-ghost" onclick="review(\''+f.id+'\',\'cleared\',\''+a.id+'\')">Clear (no issue)</button>'
+            +(f.lot_state!=='withdrawn'?('<button class="btn b-red" onclick="withdraw(\''+f.lot_id+'\',\''+f.id+'\',\''+a.id+'\')">Withdraw lot</button>'):'')
+            +'</div></div>';
+        }).join('') : '<p class="kv" style="color:#166534">No compliance flags on this auction.</p>';
+        $('d-body').innerHTML=head+body;
+        $('drawer').style.display='block';
+      }catch(e){say(e.message,'err');}
+    }
+    function closeDrawer(){$('drawer').style.display='none';}
+
+    async function review(flagId,status,auctionId){
+      var notes = status==='cleared' ? (prompt('Optional note (why this is fine):')||'') : '';
+      try{ await api('POST','/api/admin/compliance/flags/'+encodeURIComponent(flagId)+'/review',{status:status,notes:notes}); say('Flag updated.','ok'); openDrawer(auctionId); load(); }
+      catch(e){ say(e.message,'err'); }
+    }
+    async function withdraw(lotId,flagId,auctionId){
+      if(!confirm('Withdraw this lot from the auction? It will no longer be visible to buyers.'))return;
+      var notes=prompt('Reason (recorded):')||'';
+      try{ await api('POST','/api/admin/compliance/lots/'+encodeURIComponent(lotId)+'/withdraw',{flag_id:flagId,notes:notes}); say('Lot withdrawn.','ok'); openDrawer(auctionId); load(); }
+      catch(e){ say(e.message,'err'); }
+    }
+    async function unpublish(auctionId){
+      if(!confirm('Unpublish the ENTIRE auction (return to draft)? Use for serious concerns only.'))return;
+      var notes=prompt('Reason (recorded):')||'';
+      try{ await api('POST','/api/admin/compliance/auctions/'+encodeURIComponent(auctionId)+'/unpublish',{notes:notes}); say('Auction unpublished.','ok'); closeDrawer(); load(); }
+      catch(e){ say(e.message,'err'); }
+    }
+    async function rescan(auctionId){
+      try{ var d=await api('POST','/api/admin/compliance/auctions/'+encodeURIComponent(auctionId)+'/rescan'); say('Re-scanned.','ok'); openDrawer(auctionId); load(); }
+      catch(e){ say(e.message,'err'); }
+    }
+    load();
+  </script>
+</body>
+</html>

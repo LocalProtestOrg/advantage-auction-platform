@@ -49,6 +49,7 @@
   var LINKS = [
     { href: HOME, label: 'Admin Home' },
     { href: '/admin/moderation.html', label: 'Moderation' },
+    { href: '/admin/compliance.html', label: 'Compliance' },
     { href: '/admin/users.html', label: 'Users' },
     { href: '/admin/buyers.html', label: 'Buyers' },
     { href: '/admin/verification.html', label: 'Verification' },
