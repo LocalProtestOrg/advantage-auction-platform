@@ -30,6 +30,7 @@ Disallow: /reset-password.html
 Disallow: /sign-agreement.html
 Disallow: /verify-documents.html
 Disallow: /demo.html
+Disallow: /demo/
 Disallow: /org/
 Disallow: /admin/
 Disallow: /api/
@@ -68,6 +69,8 @@ Disallow: /forgot-password.html
 Disallow: /reset-password.html
 Disallow: /sign-agreement.html
 Disallow: /verify-documents.html
+Disallow: /demo.html
+Disallow: /demo/
 Disallow: /org/
 Disallow: /admin/
 Disallow: /api/

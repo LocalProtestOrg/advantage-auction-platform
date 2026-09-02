@@ -12,6 +12,7 @@ const professionalSellerEmails = require('../services/professionalSellerEmails')
 const { sendEmail } = require('../services/emailService');
 const { PROFESSIONAL_SELLER_TYPES, SELLER_TYPE_LABELS } = require('../constants/sellerTypes');
 const widgetService = require('../services/widgetService');
+const { isDemoUser } = require('../middleware/demoGuard');
 
 // Self-service seller enablement (the individual /enroll path) is restricted to non-professional
 // seller types. Professional types (auction_house, estate_sale_company, professional_liquidator) are
@@ -294,6 +295,12 @@ router.post('/apply-professional', auth, async (req, res, next) => {
 // preview URL. Returns eligible:false (not an error) when the caller isn't a professional seller yet.
 router.get('/me/widget', auth, async (req, res, next) => {
   try {
+    // Demo accounts NEVER receive a real, production-usable widget key or install code. Instead the
+    // dashboard offers a safe visual example (the fictional example company website), so a sales prospect
+    // can SEE the feature without being handed credentials for a real embed. Server-authoritative (is_demo).
+    if (await isDemoUser(req.user.id)) {
+      return res.json({ success: true, eligible: false, demo: true, example_url: '/demo/example-company-website.html' });
+    }
     const elig = await widgetService.eligibilityForUser(req.user.id);
     if (!elig.eligible) return res.json({ success: true, eligible: false, reason: elig.reason });
     const key = await widgetService.ensureWidgetKey(elig.org.id);

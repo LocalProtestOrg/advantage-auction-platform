@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="noindex, nofollow" />
+  <title>Brookfield Estate Auctions — Example Company Website</title>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    /* This is a fictional example website used only to demonstrate how a Professional Seller's own
+       company site could look after adding their Advantage.Bid auctions. It is NOT a real business. */
+    *,*::before,*::after{box-sizing:border-box}
+    body{margin:0;font-family:'Inter',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;color:#1a2233;background:#fbfaf7}
+    a{color:inherit}
+    .demo-banner{background:#0f172a;color:#e2e8f0;font-size:.82rem;text-align:center;padding:.5rem 1rem;letter-spacing:.01em}
+    .demo-banner b{color:#fff}
+    .demo-banner a{color:#93c5fd;font-weight:700;text-decoration:none}
+    /* Fictional company chrome */
+    header.site{background:#fff;border-bottom:1px solid #ece7dc}
+    .bar{max-width:1140px;margin:0 auto;padding:1rem 1.5rem;display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap}
+    .brand{display:flex;align-items:center;gap:.7rem}
+    .mark{width:42px;height:42px;border-radius:9px;background:linear-gradient(135deg,#8a6d3b,#5b4522);color:#fff;font-family:'Playfair Display',serif;font-weight:800;font-size:1.25rem;display:flex;align-items:center;justify-content:center}
+    .brand .nm{font-family:'Playfair Display',serif;font-weight:800;font-size:1.2rem;color:#3a2e18;line-height:1}
+    .brand .sub{font-size:.68rem;letter-spacing:.16em;text-transform:uppercase;color:#a08a63;margin-top:2px}
+    nav.site{display:flex;gap:1.4rem;font-size:.9rem;font-weight:600}
+    nav.site a{text-decoration:none;color:#4a4033;padding:.2rem 0;border-bottom:2px solid transparent}
+    nav.site a.active,nav.site a:hover{border-bottom-color:#8a6d3b;color:#3a2e18}
+    @media(max-width:720px){nav.site{display:none}}
+    /* Hero */
+    .hero{background:linear-gradient(rgba(30,22,10,.62),rgba(30,22,10,.62)),radial-gradient(circle at 30% 30%,#6b5433,#2c2113);color:#fff;padding:4.5rem 1.5rem}
+    .hero .in{max-width:1140px;margin:0 auto}
+    .hero h1{font-family:'Playfair Display',serif;font-size:clamp(2.1rem,5vw,3.2rem);font-weight:800;line-height:1.08;margin:0 0 .8rem;max-width:16ch}
+    .hero p{font-size:1.08rem;color:#e9e2d3;max-width:52ch;line-height:1.6;margin:0 0 1.6rem}
+    .hero .cta{display:inline-block;background:#c79a4b;color:#231a09;font-weight:700;padding:.8rem 1.6rem;border-radius:8px;text-decoration:none}
+    /* Sections */
+    main{max-width:1140px;margin:0 auto;padding:0 1.5rem}
+    section.blk{padding:3.5rem 0;border-bottom:1px solid #efe9dc}
+    .kicker{font-size:.72rem;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:#a07f3d;margin:0 0 .5rem}
+    h2.ttl{font-family:'Playfair Display',serif;font-size:clamp(1.6rem,3.4vw,2.2rem);font-weight:800;color:#2c2416;margin:0 0 .5rem}
+    .lead{color:#5b5443;font-size:1rem;line-height:1.65;max-width:62ch;margin:0 0 1.2rem}
+    .grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:1.4rem;margin-top:1.6rem}
+    @media(max-width:760px){.grid3{grid-template-columns:1fr}}
+    .svc{background:#fff;border:1px solid #ece5d7;border-radius:12px;padding:1.4rem}
+    .svc h3{font-family:'Playfair Display',serif;font-size:1.15rem;margin:.2rem 0 .4rem;color:#2c2416}
+    .svc p{font-size:.9rem;color:#5b5443;line-height:1.55;margin:0}
+    /* The auctions widget lives naturally in the page. The note frames it for the sales prospect. */
+    .widget-frame{border:1px solid #ece5d7;border-radius:14px;background:#fff;padding:.6rem;margin-top:1.4rem;box-shadow:0 1px 3px rgba(60,45,20,.06)}
+    .widget-frame iframe{width:100%;min-height:520px;border:0;display:block;border-radius:10px}
+    .hint{background:#f2f7f2;border:1px solid #cfe6cf;border-radius:10px;color:#245c33;font-size:.88rem;line-height:1.5;padding:.8rem 1rem;margin-top:1rem}
+    .hint b{color:#173d21}
+    /* Contact */
+    .contact-grid{display:grid;grid-template-columns:1.1fr 1fr;gap:2rem;margin-top:1.4rem}
+    @media(max-width:760px){.contact-grid{grid-template-columns:1fr}}
+    .contact dl{margin:0}
+    .contact dt{font-size:.72rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:#a07f3d;margin-top:1rem}
+    .contact dd{margin:.15rem 0 0;font-size:1rem;color:#3a3324}
+    .map{background:linear-gradient(135deg,#efe7d6,#ded2b8);border-radius:12px;min-height:180px;display:flex;align-items:center;justify-content:center;color:#8a7a58;font-size:.85rem}
+    footer.site{background:#241c0f;color:#cdbfa4;padding:2.5rem 1.5rem;font-size:.85rem}
+    footer.site .in{max-width:1140px;margin:0 auto;display:flex;justify-content:space-between;gap:1rem;flex-wrap:wrap;align-items:center}
+    footer.site .fnote{color:#9a8b6f;font-size:.78rem;max-width:52ch}
+  </style>
+</head>
+<body>
+  <div class="demo-banner">
+    <b>Example Company Website</b> — a fictional demonstration of how your auctions could appear on your own site.
+    &nbsp;<a href="/demo.html">← Back to the Advantage.Bid demo</a>
+  </div>
+
+  <header class="site">
+    <div class="bar">
+      <div class="brand">
+        <div class="mark" aria-hidden="true">B</div>
+        <div>
+          <div class="nm">Brookfield Estate Auctions</div>
+          <div class="sub">Estate Sales &amp; Fine Auctions</div>
+        </div>
+      </div>
+      <nav class="site" aria-label="Example site navigation">
+        <a href="#home">Home</a>
+        <a href="#about">About</a>
+        <a href="#auctions" class="active">Upcoming Auctions</a>
+        <a href="#services">Services</a>
+        <a href="#contact">Contact</a>
+      </nav>
+    </div>
+  </header>
+
+  <section class="hero" id="home">
+    <div class="in">
+      <h1>Trusted estate auctions for our community</h1>
+      <p>For three generations, Brookfield has helped families and collectors buy and sell with confidence. Browse our upcoming auctions below and register to bid.</p>
+      <a class="cta" href="#auctions">View Upcoming Auctions →</a>
+    </div>
+  </section>
+
+  <main>
+    <section class="blk" id="auctions">
+      <p class="kicker">Now &amp; Coming Soon</p>
+      <h2 class="ttl">Upcoming Auctions</h2>
+      <p class="lead">Our current and upcoming auctions appear here automatically — always up to date. Click any auction to see the full catalog, register, and place your bids.</p>
+
+      <!-- The auctions below are rendered by the seller's Advantage.Bid website widget, shown here in
+           demonstration mode. In a real installation this is the seller's own live auction inventory. -->
+      <div class="widget-frame">
+        <iframe title="Brookfield Estate Auctions — auctions" src="/embed/auctions.html?demo=1" loading="lazy"></iframe>
+      </div>
+
+      <div class="hint">
+        <b>How this works:</b> Once you publish your auctions on Advantage.Bid, they can appear right here on your
+        own company website — automatically. You never re-enter anything; new auctions show up on their own, and
+        bidding happens securely on the Advantage.Bid platform.
+      </div>
+    </section>
+
+    <section class="blk" id="about">
+      <p class="kicker">About Us</p>
+      <h2 class="ttl">A family name you can trust</h2>
+      <p class="lead">Brookfield Estate Auctions is a full-service estate auction house serving the region with professional
+        appraisal, cataloging, and sale management. Our team handles everything from a single collection to a complete estate.</p>
+    </section>
+
+    <section class="blk" id="services">
+      <p class="kicker">What We Do</p>
+      <h2 class="ttl">Our Services</h2>
+      <div class="grid3">
+        <div class="svc"><h3>Estate Auctions</h3><p>Full-service online auctions for estates, downsizing, and collections — professionally cataloged and marketed.</p></div>
+        <div class="svc"><h3>Appraisals</h3><p>Fair, experienced valuations for fine art, antiques, jewelry, and household contents.</p></div>
+        <div class="svc"><h3>Estate Cleanouts</h3><p>Respectful, coordinated cleanout and sale management from start to finish.</p></div>
+      </div>
+    </section>
+
+    <section class="blk" id="contact">
+      <p class="kicker">Get in Touch</p>
+      <h2 class="ttl">Contact Brookfield</h2>
+      <div class="contact-grid">
+        <div class="contact">
+          <p class="lead">Questions about buying, selling, or an upcoming auction? We'd love to hear from you.</p>
+          <dl>
+            <dt>Phone</dt><dd>(555) 018-2200 <span style="color:#a08a63;font-size:.82rem">· example number</span></dd>
+            <dt>Email</dt><dd>hello@brookfield-example.test</dd>
+            <dt>Gallery</dt><dd>128 Founders Way, Brookfield <span style="color:#a08a63;font-size:.82rem">· example address</span></dd>
+          </dl>
+        </div>
+        <div class="map" aria-hidden="true">Map placeholder</div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site">
+    <div class="in">
+      <div>© Brookfield Estate Auctions — Example Company Website</div>
+      <div class="fnote">This is a fictional demonstration website created by Advantage.Bid to illustrate the white-label auction widget. Brookfield Estate Auctions is not a real business, and the contact details shown are examples only.</div>
+    </div>
+  </footer>
+
+  <script>
+    // Auto-resize the auctions widget iframe to its content (same validated handshake as the certified
+    // loader: accept height messages only from THIS iframe's window, and only a numeric height).
+    (function () {
+      var frame = document.querySelector('.widget-frame iframe');
+      if (!frame) return;
+      window.addEventListener('message', function (e) {
+        try {
+          if (e.origin !== window.location.origin) return;      // same-origin embed only
+          if (!frame.contentWindow || e.source !== frame.contentWindow) return;
+          var d = e.data;
+          if (!d || d.type !== 'adv-wl-height') return;
+          var h = Number(d.height);
+          if (isFinite(h) && h > 0 && h < 20000) frame.style.minHeight = Math.ceil(h) + 'px';
+        } catch (err) {}
+      });
+    })();
+  </script>
+</body>
+</html>

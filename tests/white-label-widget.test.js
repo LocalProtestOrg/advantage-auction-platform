@@ -194,7 +194,7 @@ describe('seller dashboard install card', () => {
     expect(dash).toMatch(/\/api\/sellers\/me\/widget/);
     expect(dash).toMatch(/Add Auctions to Your Website/);
     expect(dash).toMatch(/Copy Code/);
-    expect(dash).toMatch(/if \(!d \|\| !d\.success \|\| !d\.eligible\) return/); // section stays hidden
+    expect(dash).toMatch(/if \(!d\.eligible\) return/); // section stays hidden for non-professional (non-demo) sellers
     expect(dash).toMatch(/preview_url/);
   });
 });

@@ -36,6 +36,36 @@
   function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
   function q(name){try{return new URLSearchParams(location.search).get(name)||'';}catch(e){return '';}}
   var KEY = q('key');
+  // Demo-only presentation mode (?demo=1): reuses the EXACT certified rendering below, fed by protected
+  // illustrative data — NO key, NO API call, NO install code. Used only inside the private sales demo's
+  // example company website so a prospect can SEE what the widget looks like in context. The keyed
+  // production path (below) is unchanged. View buttons link to a real PUBLIC auction on the platform.
+  var DEMO = q('demo') === '1';
+  function demoCover(a, b) {
+    var svg = '<svg xmlns="http://www.w3.org/2000/svg" width="480" height="300">'
+      + '<defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1">'
+      + '<stop offset="0" stop-color="' + a + '"/><stop offset="1" stop-color="' + b + '"/>'
+      + '</linearGradient></defs><rect width="480" height="300" fill="url(#g)"/></svg>';
+    return 'data:image/svg+xml,' + encodeURIComponent(svg);
+  }
+  function demoData() {
+    var MAPLE = '/auction-view.html?auctionId=00000000-0000-4000-a000-0000000d0003';
+    return {
+      company: { name: 'Brookfield Estate Auctions' },
+      current: [
+        { title: 'The Maplewood Estate Collection', lots: 146, city: 'Maplewood', state: 'NJ',
+          cover_image_url: demoCover('#1e3a5f', '#0f172a'), href: MAPLE },
+      ],
+      upcoming: [
+        { title: 'Fine Art & Antiques — Fall Sale', lots: 88, city: 'Ridgewood', state: 'NJ',
+          start_time: '2026-10-04T15:00:00Z', cover_image_url: demoCover('#334155', '#1e293b'), href: MAPLE },
+        { title: 'Mid-Century Modern & Design', lots: 54, city: 'Montclair', state: 'NJ',
+          start_time: '2026-10-18T15:00:00Z', cover_image_url: demoCover('#3f6212', '#1a2e05'), href: MAPLE },
+        { title: 'Jewelry, Coins & Collectibles', lots: 120, city: 'Summit', state: 'NJ',
+          start_time: '2026-11-01T15:00:00Z', cover_image_url: demoCover('#7c2d12', '#431407'), href: MAPLE },
+      ],
+    };
+  }
   // Only ever send a numeric height to the parent; the loader validates source + shape. No data leaves here.
   function postHeight(){
     try {
@@ -74,6 +104,7 @@
     postHeight();
   }
 
+  if (DEMO){ render(demoData()); window.addEventListener('load', postHeight); window.addEventListener('resize', postHeight); setTimeout(postHeight, 300); return; }
   if (!KEY){ document.getElementById('wl-root').innerHTML = '<div class="wl-empty">Auction widget is not configured.</div>'; postHeight(); return; }
   fetch('/api/public/widget/auctions?key=' + encodeURIComponent(KEY))
     .then(function(r){ return r.json(); })

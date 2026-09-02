@@ -144,3 +144,87 @@ describe('admin/CRM isolation unchanged', () => {
     expect(read('src', 'routes', 'adminSales.js')).toMatch(/requirePermission/);
   });
 });
+
+// ── FINAL POLISH: example company website + safe website-widget demonstration ─────
+describe('example company website (website-widget sales demonstration)', () => {
+  const example = read('public', 'demo', 'example-company-website.html');
+  const embed = read('public', 'embed', 'auctions.html');
+
+  test('the example company website exists and is noindex (not publicly promoted)', () => {
+    expect(example).toMatch(/name="robots" content="noindex, nofollow"/);
+    expect(read('public', 'robots.txt')).toMatch(/Disallow: \/demo\//);
+  });
+  test('it presents a clearly fictional company + is labeled an example/demo', () => {
+    expect(example).toMatch(/Brookfield Estate Auctions/);
+    expect(example).toMatch(/Example Company Website/i);
+    expect(example).toMatch(/not a real business/i);
+  });
+  test('it embeds the CERTIFIED widget rendering in demo mode (no key, no API)', () => {
+    expect(example).toMatch(/\/embed\/auctions\.html\?demo=1/);
+  });
+  test('NO production-usable widget key is exposed to the prospect', () => {
+    expect(example).not.toMatch(/wgt_[a-f0-9]{36}/);      // never a real key
+    expect(read('public', 'demo.html')).not.toMatch(/wgt_[a-f0-9]{36}/);
+  });
+  test('NO prospect-usable install/embed code is exposed on the example site', () => {
+    expect(example).not.toMatch(/data-advantage-auctions/);   // the real install snippet's marker
+    expect(example).not.toMatch(/company-auctions\.js/);      // the real installable loader
+    expect(example).not.toMatch(/Copy Code|Install code/i);
+  });
+
+  test('the certified embed page adds a demo-only branch that reuses the SAME rendering (no key, no fetch)', () => {
+    expect(embed).toMatch(/q\('demo'\) === '1'/);
+    expect(embed).toMatch(/render\(demoData\(\)\)/);
+    // demoData carries NO key and links to a real PUBLIC auction (bidding on the platform)
+    expect(embed).toMatch(/0000000d0003/);
+    expect(embed).not.toMatch(/wgt_[a-f0-9]{36}/);
+  });
+  test('the certified KEYED production path is unchanged (still fetches the tenant feed by key)', () => {
+    expect(embed).toMatch(/fetch\('\/api\/public\/widget\/auctions\?key=' \+ encodeURIComponent\(KEY\)\)/);
+  });
+});
+
+describe('demo landing links prospects to the website-widget preview', () => {
+  const page = read('public', 'demo.html');
+  test('demo.html links to the example company website with clear seller wording', () => {
+    expect(page).toMatch(/\/demo\/example-company-website\.html/);
+    expect(page).toMatch(/on your (own )?(company )?website|Website Widget/i);
+  });
+});
+
+describe('demo-seller dashboard widget experience (safe accommodation, prod path intact)', () => {
+  const sellers = read('src', 'routes', 'sellers.js');
+  const dash = read('public', 'seller-dashboard.html');
+
+  test('/me/widget short-circuits demo accounts to a safe example (NO real key issued)', () => {
+    // The isDemoUser check must appear before any ensureWidgetKey call and return demo:true w/o a key.
+    const body = sellers.slice(sellers.indexOf("router.get('/me/widget'"), sellers.indexOf("router.post('/me/widget/rotate'"));
+    expect(body).toMatch(/isDemoUser\(req\.user\.id\)/);
+    expect(body).toMatch(/demo: true/);
+    expect(body).toMatch(/example_url/);
+    // demo branch precedes the real key issuance
+    expect(body.indexOf('isDemoUser')).toBeLessThan(body.indexOf('ensureWidgetKey'));
+  });
+  test('the REAL eligible Professional Seller widget experience is unchanged (key + embed still returned)', () => {
+    const body = sellers.slice(sellers.indexOf("router.get('/me/widget'"), sellers.indexOf("router.post('/me/widget/rotate'"));
+    expect(body).toMatch(/eligible: true, key,/);
+    expect(body).toMatch(/embed_code: widgetService\.buildEmbedCode/);
+    expect(body).toMatch(/preview_url:/);
+  });
+  test('dashboard renders a demo example link (no Copy Code) for demo accounts, keeps Copy Code for real pros', () => {
+    expect(dash).toMatch(/d\.demo/);
+    expect(dash).toMatch(/See How This Looks on Your Website/);
+    // the certified installable path (Copy Code / Install code) is still present for eligible pros
+    expect(dash).toMatch(/Copy Code/);
+    expect(dash).toMatch(/Install code/);
+  });
+});
+
+describe('certified white-label widget tenant isolation remains intact', () => {
+  const svc = read('src', 'services', 'widgetService.js');
+  test('key still resolves to exactly one org and the feed still uses the canonical public predicate', () => {
+    expect(svc).toMatch(/profile_data->>'widget_key' = \$1/);           // opaque token → one org
+    expect(svc).toMatch(/activeNativeAuctionSql/);                       // never leaks private/demo auctions
+    expect(svc).toMatch(/eligibilityForUser/);                          // config derived from req.user's org
+  });
+});
