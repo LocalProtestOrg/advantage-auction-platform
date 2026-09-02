@@ -30,8 +30,10 @@ function handlerBody(marker) {
 describe('public marketplace feed exposes no private PII', () => {
   const body = handlerBody("router.get('/marketplace'");
 
-  test('queries only the public directory mirror (source = bd_import)', () => {
-    expect(body).toMatch(/source\s*=\s*'bd_import'/);
+  test('uses the canonical directory eligibility helper (one source of truth, no divergent inline filter)', () => {
+    // Directory eligibility now lives in marketplaceVisibility.activeMarketplaceCompanySql (origin-agnostic:
+    // bd_import OR a published, professionally-typed native org) — the feed must call it, not re-implement it.
+    expect(body).toMatch(/activeMarketplaceCompanySql\('o'\)/);
   });
 
   test('does not select or return contact PII', () => {

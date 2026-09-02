@@ -185,10 +185,14 @@ async function updateDraft(userId, eventId, input = {}) {
 async function submit(userId, eventId) {
   return withTransaction(async (client) => {
     const ev = await loadOwnedEvent(client, eventId, userId);
-    // Estate sales are a paid, one-time Estate Sale Promotion product — they are submitted ONLY through
-    // estateSalePromotionService (which consumes the promotion). The free events capability must never
-    // publish an estate sale for free, so this organizer path refuses them.
-    if (ev.sale_type === 'estate_sale') {
+    const { rows: orgRow } = await client.query('SELECT type FROM organizations WHERE id=$1', [ev.organization_id]);
+    const orgType = orgRow[0] && orgRow[0].type;
+    // Decision #2: a PROFESSIONAL organization may publish its own estate sales through the org portal
+    // using its FREE event allowance — event type is NOT a proxy for account type. An INDIVIDUAL /
+    // non-professional org still uses the paid one-time $39 Estate Sale Promotion (a different customer +
+    // economic model, handled by estateSalePromotionService — not this path). The plan's active-event cap
+    // below still applies, so a professional estate sale consumes one of the free slots like any event.
+    if (ev.sale_type === 'estate_sale' && !AUTO_PUBLISH_ORG_TYPES.has(orgType)) {
       throw svcErr(403, 'ESTATE_SALE_PROMOTION_REQUIRED', 'Estate sales are submitted through the Estate Sale Promotion.');
     }
     if (!['draft', 'rejected'].includes(ev.status)) {
@@ -201,8 +205,6 @@ async function submit(userId, eventId) {
         `Your plan allows ${plan.max_active_events} active events. Archive one to submit another.`);
     }
     // Professional companies skip the review queue: their events go member → published directly.
-    const { rows: orgRow } = await client.query('SELECT type FROM organizations WHERE id=$1', [ev.organization_id]);
-    const orgType = orgRow[0] && orgRow[0].type;
     if (AUTO_PUBLISH_ORG_TYPES.has(orgType)) {
       const { rows } = await client.query(
         `UPDATE events SET status='published', submitted_at=now(), published_at=now(), review_reason=NULL, updated_at=now()

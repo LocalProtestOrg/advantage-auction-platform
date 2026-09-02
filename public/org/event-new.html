@@ -40,6 +40,12 @@
         <div><label>Market <span class="req">*</span></label><select id="market" required></select></div>
         <div><label>Category</label><select id="category"></select></div>
       </div>
+      <label>Sale type <span class="req">*</span></label>
+      <select id="saleType">
+        <option value="estate_sale">Estate Sale</option>
+        <option value="auction">Auction / Auction Event</option>
+      </select>
+      <p class="hint">Professional companies may promote their own upcoming estate sales and auctions on the free plan (no per-sale fee).</p>
       <label>Description</label>
       <textarea id="description" maxlength="4000"></textarea>
     </div>
@@ -119,6 +125,7 @@
       title: $('title').value.trim(),
       marketSlug: $('market').value,
       categorySlug: $('category').value || null,
+      saleType: $('saleType').value || null,
       description: $('description').value.trim() || null,
       venueName: $('venueName').value.trim() || null,
       address: $('address').value.trim() || null,

@@ -7,9 +7,10 @@ const { canonicalCounts, activeEventSql, activeNativeAuctionSql } = require('../
 const { verify, formatReport } = require('../src/services/marketplaceIntegrity');
 
 // A db whose canonicalCounts queries return event rows + native-auction count + professionals rows.
-// profRows: [{ pid, n }] for the professionals GROUP BY (default: 7 estate-sale companies).
+// profRows: [{ cat, n }] for the professionals GROUP BY (categories now resolved in SQL to
+// 'auction_houses'|'estate_sale_companies'|'appraisers'|'other'; default: 7 estate-sale companies).
 function fakeDb(eventRows, nativeN, profRows) {
-  profRows = profRows || [{ pid: '4', n: 7 }];
+  profRows = profRows || [{ cat: 'estate_sale_companies', n: 7 }];
   return { query: async (sql) => {
     if (/FROM events e/.test(sql)) return { rows: eventRows };
     if (/FROM auctions a/.test(sql)) return { rows: [{ n: nativeN }] };
@@ -18,7 +19,7 @@ function fakeDb(eventRows, nativeN, profRows) {
     return { rows: [] };
   } };
 }
-const PROF_TOTAL = (profRows) => (profRows || [{ pid: '4', n: 7 }]).reduce((s, r) => s + r.n, 0);
+const PROF_TOTAL = (profRows) => (profRows || [{ cat: 'estate_sale_companies', n: 7 }]).reduce((s, r) => s + r.n, 0);
 // A fetch keyed by URL substring → { ok, status, text() }. Missing entries → 404.
 function fakeFetch(map) {
   return async (url) => {
@@ -40,7 +41,7 @@ describe('marketplaceVisibility — one canonical definition', () => {
     expect(activeNativeAuctionSql('a')).toMatch(/a\.state IN \('published','active'\).*a\.is_archived IS NOT TRUE.*a\.marketplace_status = 'syndicated'/);
   });
   test('families: Marketplace is fixed-price (0), GSA-style auctions count as partner_event not advantage_auction', async () => {
-    const c = await canonicalCounts(fakeDb(EVENTS, 3, [{ pid: '4', n: 5 }, { pid: '3', n: 3 }, { pid: '5', n: 1 }]));
+    const c = await canonicalCounts(fakeDb(EVENTS, 3, [{ cat: 'estate_sale_companies', n: 5 }, { cat: 'auction_houses', n: 3 }, { cat: 'appraisers', n: 1 }]));
     // 55 auction EVENTS are Auction Partner Events, NOT Advantage.Bid Auctions (which is the 3 native).
     expect(c.families).toEqual({ advantage_auction: 3, partner_event: 55, estate_sale: 2, marketplace: 0 });
     expect(c.native_auctions).toBe(3);

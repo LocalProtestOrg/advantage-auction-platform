@@ -23,7 +23,7 @@ const { buildLotSearch, clampInt } = require('../services/searchService');
 const { brandedColSql, brandingVisibleSql } = require('../lib/sellerBranding');
 const { organizerColSql } = require('../lib/organizerPrivacy');
 const { labelForFamily } = require('../lib/marketplaceVocabulary');
-const { canonicalCounts } = require('../lib/marketplaceVisibility');
+const { canonicalCounts, activeMarketplaceCompanySql } = require('../lib/marketplaceVisibility');
 // Buyer-facing seller-identity columns: NULL unless the seller is a professional type WITH branding
 // enabled. Private/other/unknown are always anonymous. Applied at the query so buyer feeds never even
 // select hidden identity. (The public company DIRECTORY on advantage.bid is separate and NOT scrubbed.)
@@ -133,13 +133,7 @@ router.get('/marketplace', async (req, res, next) => {
               ORDER BY a.end_time ASC NULLS LAST
               LIMIT 1
          ) lac ON o.linked_seller_profile_id IS NOT NULL
-        WHERE o.source = 'bd_import'
-          AND o.lat IS NOT NULL AND o.lng IS NOT NULL
-          AND o.name IS NOT NULL AND btrim(o.name) <> ''
-          AND (o.bd_sync_status IS NULL OR o.bd_sync_status <> 'removed')  -- reconciled-away listings drop off
-          AND lower(o.name) NOT LIKE 'sample %'
-          AND lower(o.name) NOT LIKE 'test %'
-          AND lower(o.name) NOT LIKE 'demo %'
+        WHERE ${activeMarketplaceCompanySql('o')}
         ORDER BY o.name ASC`
     );
 

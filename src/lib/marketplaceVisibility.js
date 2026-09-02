@@ -41,13 +41,29 @@ function activeMarketplaceItemSql(alias = 'm') {
   return `${alias}.status = 'active' AND ${alias}.is_demo IS NOT TRUE`;
 }
 
-// A directory company is publicly listable (the "Marketplace" family) when it is a real, geocoded,
-// non-sample BD-imported organization that has not been reconciled away.
+// The admin-granted professional-type capabilities (professionalProfileSchema.PROFESSIONAL_TYPES). A
+// NATIVE org qualifies for the professionals directory only when it holds one of these — never self-set.
+const PROFESSIONAL_CAPABILITY_SQL_LIST =
+  "'appraiser','auction_house','estate_sale_company','professional_liquidator','consignment_company','moving_company','cleanout_company'";
+
+// A directory company is publicly listable when it is a real, geocoded, non-sample organization —
+// ORIGIN-AGNOSTIC (Decision #1): a BD-imported listing OR a legitimate NATIVE Railway organization that
+// is (a) in a public lifecycle, (b) admin-PUBLISHED (profile_data.published — never user-writable), and
+// (c) holds an admin-granted professional-type capability. Native orgs therefore appear on the SAME terms
+// as BD imports, but only after the SAME moderation (publication + verified professional type) — no
+// self-service spam, and the $39 individual/hidden orgs (unpublished, no pro capability) are excluded.
 function activeMarketplaceCompanySql(alias = 'o') {
-  return `${alias}.source = 'bd_import' AND ${alias}.lat IS NOT NULL AND ${alias}.lng IS NOT NULL`
+  const common = `${alias}.lat IS NOT NULL AND ${alias}.lng IS NOT NULL`
     + ` AND ${alias}.name IS NOT NULL AND btrim(${alias}.name) <> ''`
     + ` AND (${alias}.bd_sync_status IS NULL OR ${alias}.bd_sync_status <> 'removed')`
     + ` AND lower(${alias}.name) NOT LIKE 'sample %' AND lower(${alias}.name) NOT LIKE 'test %' AND lower(${alias}.name) NOT LIKE 'demo %'`;
+  const bd = `${alias}.source = 'bd_import'`;
+  const native = `(${alias}.source <> 'bd_import'`
+    + ` AND ${alias}.lifecycle_state IN ('active_partner','verified')`
+    + ` AND (${alias}.profile_data->>'published') = 'true'`
+    + ` AND EXISTS (SELECT 1 FROM organization_capabilities oc WHERE oc.organization_id = ${alias}.id`
+    + ` AND oc.enabled = true AND oc.capability IN (${PROFESSIONAL_CAPABILITY_SQL_LIST})))`;
+  return `(${bd} OR ${native}) AND ${common}`;
 }
 
 /**
@@ -82,15 +98,26 @@ async function canonicalCounts(db) {
   // PROFESSIONALS directory (a SEPARATE concept from the Marketplace product family). Broken out by
   // profession so the map key can show each category. profession_id: 3=auction houses, 4=estate-sale
   // companies, 5=appraisers.
+  // Category = BD profession_id (3=auction houses, 4=estate-sale companies, 5=appraisers) when present,
+  // else the native org's admin-granted professional capability. `companies` (total) is origin-agnostic;
+  // buckets sum to it (a native org with no matching category falls to 'other', still counted in total).
   const prof = (await db.query(
-    `SELECT (o.bd_metadata->>'profession_id') AS pid, count(*)::int AS n FROM organizations o
+    `SELECT COALESCE(
+              CASE o.bd_metadata->>'profession_id'
+                WHEN '3' THEN 'auction_houses' WHEN '4' THEN 'estate_sale_companies' WHEN '5' THEN 'appraisers' END,
+              cap.cat, 'other') AS cat, count(*)::int AS n
+       FROM organizations o
+       LEFT JOIN LATERAL (
+         SELECT CASE WHEN bool_or(capability = 'auction_house') THEN 'auction_houses'
+                     WHEN bool_or(capability = 'estate_sale_company') THEN 'estate_sale_companies'
+                     WHEN bool_or(capability = 'appraiser') THEN 'appraisers' END AS cat
+           FROM organization_capabilities WHERE organization_id = o.id AND enabled = true
+       ) cap ON true
       WHERE ${activeMarketplaceCompanySql('o')} GROUP BY 1`)).rows;
   const companies = prof.reduce((s, r) => s + r.n, 0);
   const professionals = { estate_sale_companies: 0, auction_houses: 0, appraisers: 0, total: companies };
   for (const r of prof) {
-    if (r.pid === '3') professionals.auction_houses += r.n;
-    else if (r.pid === '4') professionals.estate_sale_companies += r.n;
-    else if (r.pid === '5') professionals.appraisers += r.n;
+    if (professionals[r.cat] !== undefined) professionals[r.cat] += r.n;
   }
 
   // MARKETPLACE = fixed-price Advantage.Bid items ONLY (locked product rule). Now backed by the
@@ -137,4 +164,4 @@ async function canonicalCounts(db) {
   };
 }
 
-module.exports = { activeEventSql, activeNativeAuctionSql, activeMarketplaceItemSql, eventKindSql, canonicalCounts };
+module.exports = { activeEventSql, activeNativeAuctionSql, activeMarketplaceItemSql, activeMarketplaceCompanySql, eventKindSql, canonicalCounts };

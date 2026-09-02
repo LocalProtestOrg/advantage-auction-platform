@@ -49,8 +49,10 @@ describe('migration 105 — generic one-time purchase + nationwide market', () =
 describe('gating — the $39 promotion is the required, non-bypassable gate', () => {
   const events = read('src', 'services', 'eventsService.js');
   const service = read('src', 'services', 'estateSalePromotionService.js');
-  test('estate sales cannot be submitted via the free organizer path', () => {
-    expect(events).toMatch(/if \(ev\.sale_type === 'estate_sale'\)/);
+  test('estate sales via the free organizer path are gated to professional orgs (individuals still need the $39 promotion)', () => {
+    // Owner decision: a PROFESSIONAL org may post its own estate sales free; a non-professional org/individual
+    // is still routed to the paid $39 Estate Sale Promotion. Event type is not a proxy for account type.
+    expect(events).toMatch(/ev\.sale_type === 'estate_sale' && !AUTO_PUBLISH_ORG_TYPES\.has\(orgType\)/);
     expect(events).toMatch(/ESTATE_SALE_PROMOTION_REQUIRED/);
   });
   test('createDraft sets sale_type only from the server (never asked of the customer)', () => {
