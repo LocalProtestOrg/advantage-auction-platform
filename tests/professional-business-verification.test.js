@@ -121,7 +121,11 @@ describe('Publication gate + admin review (reused)', () => {
 
   test('[#8] building an auction/catalog is not gated (gate lives only in the publish path)', () => {
     const src = fs.readFileSync(require.resolve('../src/services/auctionService'), 'utf8');
-    expect((src.match(/publicationGate/g) || []).length).toBe(1);
+    // Gate lives only in the publish path (publishAuction) + the auto-publish eligibility read — never in
+    // the build/edit (updateAuction) path.
+    const updateBody = src.slice(src.indexOf('async function updateAuction'), src.indexOf('async function assessAuctionDeletable'));
+    expect(updateBody).not.toMatch(/publicationGate/);
+    expect(src.slice(src.indexOf('async function publishAuction'))).toMatch(/publicationGate/);
     const lots = fs.readFileSync(require.resolve('../src/services/lotService'), 'utf8');
     expect(lots).not.toMatch(/publicationGate/);
   });

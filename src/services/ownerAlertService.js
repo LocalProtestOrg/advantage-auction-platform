@@ -39,6 +39,7 @@ const ALERT_TYPES = {
   ESTATE_SALE_SUBMITTED: 'estate_sale_submitted',
   MARKETING_PACKAGE_PURCHASED: 'marketing_package_purchased',
   BUSINESS_LISTING_SUBMITTED: 'business_listing_submitted',
+  PROFESSIONAL_AUCTION_PUBLISHED: 'professional_auction_published',
 };
 
 // ── Recipient routing (role-ready) ────────────────────────────────────────────
@@ -49,6 +50,7 @@ const PER_TYPE_ENV = {
   [ALERT_TYPES.ESTATE_SALE_SUBMITTED]: 'OWNER_ALERT_PHONE_ESTATE_SALES',
   [ALERT_TYPES.MARKETING_PACKAGE_PURCHASED]: 'OWNER_ALERT_PHONE_MARKETING',
   [ALERT_TYPES.BUSINESS_LISTING_SUBMITTED]: 'OWNER_ALERT_PHONE_LISTINGS',
+  [ALERT_TYPES.PROFESSIONAL_AUCTION_PUBLISHED]: 'OWNER_ALERT_PHONE_AUCTIONS',
 };
 
 function recipientsFor(alertType) {
@@ -127,6 +129,19 @@ function buildBusinessListingSubmittedMessage({ companyName, businessType, selle
     + `${bt ? `Type: ${bt}\n` : ''}`
     + `${emailLine(sellerEmail)}\n\n`
     + `Review:\n${url}`;
+}
+
+// Informational (NOT an approval request): a verified/active Professional Seller auto-published an auction.
+function buildProfessionalAuctionPublishedMessage({ companyName, title, state, lots, sellerEmail, url }) {
+  const st = sanitizeField(state, 24);
+  const n = (lots != null && !Number.isNaN(Number(lots))) ? Number(lots) : null;
+  return `Advantage.Bid: Professional auction published.\n\n`
+    + `${sanitizeField(title) || 'Untitled auction'}\n`
+    + `${sellerLine(companyName)}`
+    + `${emailLine(sellerEmail)}\n`
+    + `${st ? `State: ${st}\n` : ''}`
+    + `${n != null ? `Lots: ${n}\n` : ''}`
+    + `\nReview:\n${url}`;
 }
 
 // ── Transport ──────────────────────────────────────────────────────────────────
@@ -238,6 +253,33 @@ async function notifyOwnerBusinessListingSubmitted({ companyName, businessType, 
   }
 }
 
+// Informational owner alert for an auto-published Professional auction. Best-effort; never throws.
+// Deduplication is the caller's responsibility (fired once, only after the authoritative draft→published
+// transition in publishAuction succeeds; a retry hits "already published" and never reaches this).
+async function notifyOwnerProfessionalAuctionPublished(auctionId) {
+  try {
+    if (!ownerAlertConfigured()) return sendOwnerAlert(ALERT_TYPES.PROFESSIONAL_AUCTION_PUBLISHED, '');
+    const row = (await db.query(
+      `SELECT a.title, a.address_state AS state,
+              COALESCE(sp.display_name, sp.metadata->>'display_name', sp.metadata->>'business_name') AS company_name,
+              u.email AS seller_email,
+              (SELECT COUNT(*)::int FROM lots l WHERE l.auction_id = a.id AND l.state <> 'withdrawn') AS lots
+         FROM auctions a
+         LEFT JOIN seller_profiles sp ON sp.id = a.seller_id
+         LEFT JOIN users u ON u.id = sp.user_id
+        WHERE a.id = $1`, [auctionId])).rows[0];
+    if (!row) { console.warn(`[owner-alert] pro-auction ${auctionId} not found - no alert`); return { skipped: true, reason: 'not_found' }; }
+    const message = buildProfessionalAuctionPublishedMessage({
+      companyName: row.company_name, title: row.title, state: row.state, lots: row.lots,
+      sellerEmail: row.seller_email, url: adminUrl('/admin/moderation.html'),
+    });
+    return await sendOwnerAlert(ALERT_TYPES.PROFESSIONAL_AUCTION_PUBLISHED, message);
+  } catch (err) {
+    console.error('[owner-alert] professional-auction-published alert error:', err.message);
+    return { skipped: true, reason: 'error' };
+  }
+}
+
 module.exports = {
   ALERT_TYPES,
   isE164,
@@ -249,9 +291,11 @@ module.exports = {
   buildEstateSaleSubmittedMessage,
   buildMarketingPackageMessage,
   buildBusinessListingSubmittedMessage,
+  buildProfessionalAuctionPublishedMessage,
   sendOwnerAlert,
   notifyOwnerAuctionSubmitted,
   notifyOwnerEstateSaleSubmitted,
   notifyOwnerMarketingPackagePurchased,
   notifyOwnerBusinessListingSubmitted,
+  notifyOwnerProfessionalAuctionPublished,
 };

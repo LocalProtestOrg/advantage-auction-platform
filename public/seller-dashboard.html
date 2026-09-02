@@ -720,7 +720,7 @@ function renderAuctionCard(container, auction) {
         <button class="btn btn-secondary btn-sm" data-toggle-lots="${auction.id}">View Lots</button>
         ${canManageCatalog ? `<a href="/seller-create.html?edit=${auction.id}" class="btn btn-secondary btn-sm">Edit Auction Details</a>` : ''}
         ${canManageCatalog ? `<a href="/dashboard/lots.html?auctionId=${auction.id}" class="btn btn-primary btn-sm">${isEditable ? '+ Add Lot' : 'Manage Lots'}</a>` : ''}
-        ${isEditable ? `<button class="btn btn-secondary btn-sm" data-submit-auction="${auction.id}" data-auction-title="${escHtml(auction.title || 'Untitled')}">Submit for AAC Review</button>` : ''}
+        ${isEditable ? `<button class="btn btn-secondary btn-sm" data-submit-auction="${auction.id}" data-auction-title="${escHtml(auction.title || 'Untitled')}">${isProfessionalSeller() ? 'Publish Auction' : 'Submit for AAC Review'}</button>` : ''}
         <button class="btn btn-ghost btn-sm" data-history="${auction.id}" data-auction-title="${escHtml(auction.title || 'Untitled')}" title="View moderation and lifecycle history">History</button>
       </div>
     </div>
@@ -870,39 +870,41 @@ function fmtDateTime(iso) {
 // server-side edit-lock (GOV-1) prevents the seller from further mutations
 // on this auction or its lots until Advantage returns it to draft.
 async function submitAuctionForReview(auctionId, title, btn) {
-  const ok = window.confirm(
-    'Submit "' + title + '" to Advantage for review?\n\n' +
-    'After submission:\n' +
-    '  • You will NOT be able to edit this auction or its lots\n' +
-    '  • Advantage will review and either publish or contact you with feedback\n' +
-    '  • If changes are needed, Advantage can return it to draft\n\n' +
-    'Submit only after you have added all your lots and reviewed everything.\n' +
-    'Continue?'
-  );
+  // Eligible verified Professional Sellers publish directly; the SERVER is authoritative (a pro whose
+  // verification is still pending is safely routed to review). Copy reflects the seller's expected path.
+  const pro = (typeof isProfessionalSeller === 'function') && isProfessionalSeller();
+  const ok = window.confirm(pro
+    ? ('Publish "' + title + '" now?\n\n' +
+       'Your auction will go live on Advantage.Bid and appear anywhere you\'ve embedded your auctions.\n' +
+       'Publish only after you have added all your lots and reviewed everything.\n\nContinue?')
+    : ('Submit "' + title + '" to Advantage for review?\n\n' +
+       'After submission:\n' +
+       '  • You will NOT be able to edit this auction or its lots\n' +
+       '  • Advantage will review and either publish or contact you with feedback\n' +
+       '  • If changes are needed, Advantage can return it to draft\n\n' +
+       'Submit only after you have added all your lots and reviewed everything.\nContinue?'));
   if (!ok) return;
 
   btn.disabled = true;
   const originalLabel = btn.textContent;
-  btn.textContent = 'Submitting…';
+  btn.textContent = pro ? 'Publishing…' : 'Submitting…';
 
   try {
-    const r = await api('/api/auctions/' + auctionId, {
-      method: 'PATCH',
-      body:   JSON.stringify({ state: 'submitted' }),
-    });
+    const r = await api('/api/auctions/' + auctionId + '/submit', { method: 'POST' });
     if (r && r.success) {
-      showBanner('Auction submitted for Advantage review. Editing is now locked until review completes.', 'success');
-      // Reload to refresh card state, hide submit/edit CTAs, show submitted callout
+      showBanner(r.auto_published
+        ? 'Your auction is now live on Advantage.Bid.'
+        : 'Auction submitted for Advantage review. Editing is now locked until review completes.', 'success');
       setTimeout(function () { window.location.reload(); }, 1500);
     } else {
       btn.disabled = false;
       btn.textContent = originalLabel;
-      showBanner('Submit failed: ' + (r && r.message ? r.message : 'unknown error'), 'error');
+      showBanner((pro ? 'Publish failed: ' : 'Submit failed: ') + (r && r.message ? r.message : 'unknown error'), 'error');
     }
   } catch (err) {
     btn.disabled = false;
     btn.textContent = originalLabel;
-    showBanner('Submit failed: ' + (err && err.message ? err.message : 'network error'), 'error');
+    showBanner((pro ? 'Publish failed: ' : 'Submit failed: ') + (err && err.message ? err.message : 'network error'), 'error');
   }
 }
 

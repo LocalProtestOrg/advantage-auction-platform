@@ -39,7 +39,7 @@ You are working on the Advantage Auction Platform.
 - Only debit and credit cards are accepted
 - Buyer card verification uses a temporary random charge under $1 at signup and card change
 - Seller final submission is single-use and locks seller editing
-- Advantage publishes auctions, not sellers
+- Auction publication (owner governance, updated 2026-09): Individual/Private sellers submit for Advantage (Admin) review and publication. VERIFIED + ACTIVE + ELIGIBLE Professional Sellers may publish their own qualifying auctions directly (no routine Admin approval) — via the same publicationGate/validation authority. Advantage.Bid retains full post-publication moderation authority over ALL auctions (review/hold/unpublish/suspend). (Supersedes the prior blanket "Advantage publishes auctions, not sellers" rule, which now applies only to Individual/Private sellers.)
 - Each lot starts at $1 by default unless admin overrides it
 - Bid increments must follow the approved editable increment ladder
 - Buyers must be able to save favorite lots and view them on a dedicated page

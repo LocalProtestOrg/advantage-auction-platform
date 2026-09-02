@@ -345,6 +345,32 @@ router.patch('/:auctionId', authMiddleware, async (req, res) => {
   }
 });
 
+// ── POST /:auctionId/submit — the seller's authoritative "submit / publish" action ──────────────────
+// Eligible verified+active Professional Sellers PUBLISH their own auction directly (no routine Admin
+// approval); everyone else submits for Admin review. Ownership + eligibility are server-enforced from the
+// authenticated user (tenant isolation). publicationGate + all publish validations remain authoritative.
+router.post('/:auctionId/submit', authMiddleware, async (req, res) => {
+  try {
+    const { auctionId } = req.params;
+    if (!isUuid(auctionId)) return res.status(400).json({ success: false, message: 'Invalid auction ID' });
+    // Reuse the route-layer mutation gate (ownership + edit-lock) before the state action.
+    const gate = await canMutateAuction(req.user.id, req.user.role, auctionId);
+    if (!gate.allowed) return res.status(403).json({ success: false, message: lockErrorMessage(gate.reason) });
+    const out = await auctionService.sellerSubmitAuction(auctionId, req.user.id);
+    return res.json({ success: true, auto_published: !!out.auto_published, data: out.auction });
+  } catch (err) {
+    if (err && err.code === 'SCHEDULE_RULE_VIOLATION') {
+      return res.status(422).json({ success: false, code: err.code,
+        message: (err.violations && err.violations[0] && err.violations[0].message) || err.message, violations: err.violations || [] });
+    }
+    // publishAuction validation codes (START_TIME_REQUIRED / AUCTION_HAS_NO_LOTS / VERIFICATION_REQUIRED)
+    if (err && err.status && err.code) return res.status(err.status).json({ success: false, code: err.code, message: err.message });
+    if (err && /already published/i.test(err.message || '')) return res.status(409).json({ success: false, code: 'ALREADY_PUBLISHED', message: err.message });
+    console.error('Submit Auction Error:', err);
+    return res.status(500).json({ success: false, message: err.message });
+  }
+});
+
 // ── Walkthrough video ownership helper ───────────────────────────────────────
 async function userOwnsAuctionForVideo(userId, role, auctionId) {
   if (role === 'admin') return true;

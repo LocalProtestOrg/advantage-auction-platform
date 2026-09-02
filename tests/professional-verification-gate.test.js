@@ -77,10 +77,12 @@ describe('Unapproved professional can build; only first sale is gated', () => {
   const lotsSrc = fs.readFileSync(require.resolve('../src/services/lotService'), 'utf8');
 
   test('[#5] creating/editing an auction is NOT gated — the gate lives only in the publish path', () => {
-    // publicationGate is consulted exactly once in auctionService: inside publishAuction (publish only),
-    // never in updateAuction / draft / submit. So building and editing are never blocked by verification.
-    const gateHits = (auctionServiceSrc.match(/publicationGate/g) || []).length;
-    expect(gateHits).toBe(1);
+    // publicationGate lives ONLY in the publish path (publishAuction enforces it; the Professional
+    // auto-publish eligibility check reads it to route publish-vs-submit) — NEVER in the build/edit
+    // (updateAuction) path. So building and editing are never blocked by verification.
+    const updateBody = auctionServiceSrc.slice(auctionServiceSrc.indexOf('async function updateAuction'), auctionServiceSrc.indexOf('async function assessAuctionDeletable'));
+    expect(updateBody).not.toMatch(/publicationGate/);
+    expect(auctionServiceSrc.slice(auctionServiceSrc.indexOf('async function publishAuction'))).toMatch(/publicationGate/);
     // A non-admin seller can only move draft → submitted; every other state write is dropped.
     expect(auctionServiceSrc).toMatch(/updates\.state === 'submitted'/);
     expect(auctionServiceSrc).toMatch(/All other non-admin state requests silently dropped/);

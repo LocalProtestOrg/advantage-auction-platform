@@ -997,6 +997,52 @@ async function closeAuction(auctionId, actorId = null) {
   }
 }
 
+// ── Professional Seller auction auto-publish (owner governance change) ─────────
+// Individual/Private sellers keep the submission → Admin-review workflow. A VERIFIED + ACTIVE + ELIGIBLE
+// Professional Seller may publish their own qualifying auction directly (no routine Admin approval), while
+// Advantage.Bid retains full post-publication moderation. Eligibility is decided SERVER-SIDE from the
+// authenticated user + authoritative seller/profile records — never a client-supplied field.
+async function professionalAutoPublishEligibility(auctionId, userId) {
+  const row = (await db.query(
+    `SELECT a.state, sp.id AS seller_profile_id, sp.user_id AS owner_id, sp.seller_type,
+            COALESCE(u.is_active, true) AS is_active
+       FROM auctions a
+       JOIN seller_profiles sp ON sp.id = a.seller_id
+       JOIN users u ON u.id = sp.user_id
+      WHERE a.id = $1`, [auctionId])).rows[0];
+  if (!row) return { eligible: false, reason: 'not_found', ownerId: null };
+  const owns = String(row.owner_id) === String(userId);
+  if (!owns) return { eligible: false, reason: 'not_owner', ownerId: row.owner_id, sellerProfileId: row.seller_profile_id, state: row.state };
+  if (!isProfessional(row.seller_type)) return { eligible: false, reason: 'not_professional', ownerId: row.owner_id, sellerProfileId: row.seller_profile_id, state: row.state };
+  if (row.is_active === false) return { eligible: false, reason: 'inactive', ownerId: row.owner_id, sellerProfileId: row.seller_profile_id, state: row.state };
+  // Verified/active = the SAME publication gate used everywhere is not blocking (business verification done).
+  const gate = await verificationService.publicationGate(row.seller_profile_id);
+  if (gate.blocked) return { eligible: false, reason: 'verification_required', ownerId: row.owner_id, sellerProfileId: row.seller_profile_id, state: row.state };
+  return { eligible: true, reason: 'ok', ownerId: row.owner_id, sellerProfileId: row.seller_profile_id, state: row.state };
+}
+
+// The authoritative seller SUBMIT action. Ownership is verified server-side (tenant isolation). For an
+// eligible Professional Seller it PUBLISHES via the single publishAuction authority (which enforces
+// publicationGate + start_time + lots), then fires the informational owner SMS — NO AUCTION_SUBMITTED.
+// Everyone else takes the existing submit → Admin-review path (updateAuction fires AUCTION_SUBMITTED).
+async function sellerSubmitAuction(auctionId, userId) {
+  const elig = await professionalAutoPublishEligibility(auctionId, userId);
+  if (elig.reason === 'not_found') { const e = new Error('Auction not found'); e.status = 404; e.code = 'NOT_FOUND'; throw e; }
+  if (elig.reason === 'not_owner') { const e = new Error('You do not have access to this auction.'); e.status = 403; e.code = 'FORBIDDEN'; throw e; }
+
+  if (elig.eligible) {
+    // draft → published (publishAuction validates gate/start_time/lots and throws actionable codes; a retry
+    // on an already-published auction throws 'already published' BEFORE the SMS, so the alert fires once).
+    const auction = await publishAuction(auctionId, userId);
+    ownerAlertService.notifyOwnerProfessionalAuctionPublished(auctionId).catch(() => {});
+    return { auto_published: true, auction };
+  }
+  // Ineligible professional or Individual/Private → existing submit-for-review path (AUCTION_SUBMITTED SMS
+  // fires from updateAuction). Individuals never reach the auto-publish branch above.
+  const auction = await updateAuction(auctionId, userId, { state: 'submitted' }, 'seller');
+  return { auto_published: false, auction };
+}
+
 module.exports = {
   createAuction,
   getSellerAuctions,
@@ -1006,6 +1052,8 @@ module.exports = {
   assessAuctionDeletable,
   hardDeleteAuction,
   publishAuction,
+  professionalAutoPublishEligibility,
+  sellerSubmitAuction,
   closeAuction,
   // Exported for unit-testing the Phase C override decision without a DB.
   enforceScheduleRule,
