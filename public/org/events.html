@@ -20,9 +20,11 @@
   <div id="usage" class="card" style="display:none"></div>
   <div id="content"><div class="loading">Loading…</div></div>
   <div id="fcHistory"></div>
+  <div id="proUpgrade"></div>
 </div>
 </div>
 <script src="/widgets/shared/auth-refresh.js"></script>
+<script src="/widgets/shared/pro-upgrade-panel.js"></script>
 <script src="/widgets/shared/member-nav-config.js"></script>
 <script src="/widgets/shared/member-chrome.js"></script>
 <script src="/org/portal.js"></script>
@@ -76,6 +78,15 @@
           + (c.event_slug ? ('<div class="go"><a class="btn ghost" href="/event.html?slug=' + encodeURIComponent(c.event_slug) + '">View</a></div>') : '') + '</div>';
       }).join('') + '</div></div>';
   }).catch(function () { /* silent — not a professional seller / none yet */ });
+
+  // Tasteful, non-forced Professional Seller upgrade panel — shown only when the user is NOT already a
+  // professional seller (so we never invite an existing pro to "upgrade"). /api/sellers/me 404s for
+  // non-sellers; a professional seller_type hides it; individual/private sellers still see it.
+  ORG.api('GET', '/api/sellers/me').then(function (d) {
+    var t = d && d.data && d.data.seller_type;
+    var isPro = ['auction_house', 'estate_sale_company', 'professional_liquidator'].indexOf(t) !== -1;
+    if (!isPro && window.AdvProUpgrade) window.AdvProUpgrade.render('proUpgrade');
+  }).catch(function () { if (window.AdvProUpgrade) window.AdvProUpgrade.render('proUpgrade'); });
 })();
 </script>
 </body>

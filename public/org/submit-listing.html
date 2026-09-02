@@ -46,6 +46,7 @@
   <div id="body"><div class="loading" style="padding:2rem;color:#64748b">Loading…</div></div>
 </div>
 <script src="/widgets/shared/auth-refresh.js"></script>
+<script src="/widgets/shared/pro-upgrade-panel.js"></script>
 <script src="/org/portal.js"></script>
 <script>
 (async function () {
@@ -118,8 +119,8 @@
         + (org.slug ? '<a class="btn ghost" href="/pro.html?slug=' + encodeURIComponent(org.slug) + '" target="_blank" rel="noopener">View public profile</a>' : '')
         + '</div></div>';
     }
-    // Tasteful, non-required Professional Seller upsell (transactional selling is a separate upgrade).
-    html += '<div class="card"><p style="margin:0;font-size:.9rem;color:#334155"><b>Want to sell directly through Advantage.Bid?</b> Running online auctions and Buy Now selling is <a href="/professional-sellers.html">Professional Seller</a> — an optional upgrade, never required for your free listing.</p></div>';
+    // Tasteful, non-required Professional Seller upgrade panel (shared source; transactional selling upgrade).
+    html += (window.AdvProUpgrade ? window.AdvProUpgrade.html() : '');
 
     $('body').innerHTML = html;
 
