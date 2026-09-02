@@ -600,6 +600,7 @@ app.use('/api/public/follower-emails', require('./src/routes/publicFollowerEmail
 app.use('/api/admin/follower-emails', require('./src/routes/adminFollowerEmails'));    // admin campaign review + privilege
 app.use('/api/org/claim', orgClaimRoutes);
 app.use('/api/org', orgEventsRoutes);
+app.use('/api/admin/business-listings', require('./src/routes/adminBusinessListings'));
 app.use('/api/legal', legalRoutes);
 app.use('/api/config', configRoutes);
 app.use('/api/analytics', analyticsRoutes);

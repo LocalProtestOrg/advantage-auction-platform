@@ -54,7 +54,7 @@
     },
     /** Render the shared portal header with the active-tab highlighted. */
     header: function (active) {
-      var tabs = [['events', 'My Events', '/org/events.html'], ['new', 'Create Event', '/org/event-new.html'], ['profile', 'Professional Profile', '/org/profile.html']];
+      var tabs = [['events', 'My Events', '/org/events.html'], ['new', 'Create Event', '/org/event-new.html'], ['profile', 'Professional Profile', '/org/profile.html'], ['submit', 'Listing Status', '/org/submit-listing.html']];
       var nav = tabs.map(function (t) { return '<a href="' + t[2] + '"' + (t[0] === active ? ' class="on"' : '') + '>' + t[1] + '</a>'; }).join('');
       // Launch containment: for BD-managed professional businesses, Business Administration (in BD) is the
       // source of truth for the company listing — so hide the duplicate Railway profile editor. Runs after

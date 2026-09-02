@@ -136,6 +136,29 @@ router.post('/profile', asyncRoute(async (req, res) => {
   });
 }));
 
+// POST /api/org/submit-listing — the owner submits their Free Business Listing for admin review.
+// Sets profile_data.review_status='submitted' + a REQUESTED professional type (advisory; admin is
+// authoritative and grants the actual capability at approval). Best-effort: confirmation email + owner
+// operational SMS. Publication requires admin APPROVE & PUBLISH (never self-serve).
+router.post('/submit-listing', asyncRoute(async (req, res) => {
+  const review = require('../services/businessListingReviewService');
+  const out = await review.submitForReview(req.user.id, { requestedType: (req.body || {}).business_type || (req.body || {}).requested_type });
+  // Best-effort notifications (never block the submission outcome).
+  (async () => {
+    try {
+      const u = (await db.query('SELECT email FROM users WHERE id = $1', [req.user.id])).rows[0];
+      if (u && u.email) {
+        const m = require('../services/businessListingEmails').buildSubmittedEmail({ companyName: out.name });
+        await require('../services/emailService').sendEmail({ to: u.email, ...m });
+      }
+      require('../services/ownerAlertService').notifyOwnerBusinessListingSubmitted({
+        companyName: out.name, businessType: out.requested_type, ownerEmail: u && u.email,
+      }).catch(() => {});
+    } catch (e) { console.error('[org] submit-listing notify best-effort failed:', e.message); }
+  })();
+  res.json({ success: true, review_status: out.review_status, requested_type: out.requested_type });
+}));
+
 // GET /api/org/events — the org's events + plan usage
 router.get('/events', asyncRoute(async (req, res) => {
   const org = req.actingOrg;

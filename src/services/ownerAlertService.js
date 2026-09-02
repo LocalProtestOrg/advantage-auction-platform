@@ -38,6 +38,7 @@ const ALERT_TYPES = {
   AUCTION_SUBMITTED: 'auction_submitted',
   ESTATE_SALE_SUBMITTED: 'estate_sale_submitted',
   MARKETING_PACKAGE_PURCHASED: 'marketing_package_purchased',
+  BUSINESS_LISTING_SUBMITTED: 'business_listing_submitted',
 };
 
 // ── Recipient routing (role-ready) ────────────────────────────────────────────
@@ -47,6 +48,7 @@ const PER_TYPE_ENV = {
   [ALERT_TYPES.AUCTION_SUBMITTED]: 'OWNER_ALERT_PHONE_AUCTIONS',
   [ALERT_TYPES.ESTATE_SALE_SUBMITTED]: 'OWNER_ALERT_PHONE_ESTATE_SALES',
   [ALERT_TYPES.MARKETING_PACKAGE_PURCHASED]: 'OWNER_ALERT_PHONE_MARKETING',
+  [ALERT_TYPES.BUSINESS_LISTING_SUBMITTED]: 'OWNER_ALERT_PHONE_LISTINGS',
 };
 
 function recipientsFor(alertType) {
@@ -116,6 +118,15 @@ function buildMarketingPackageMessage({ packageName, sellerName, sellerEmail, ev
     + `${emailLine(sellerEmail)}\n`
     + `${ev ? `Event: ${ev}\n` : ''}`
     + `\nAdmin:\n${url}`;
+}
+
+function buildBusinessListingSubmittedMessage({ companyName, businessType, sellerEmail, url }) {
+  const bt = sanitizeField(businessType);
+  return `Advantage.Bid: Business listing submitted for review.\n\n`
+    + `${sanitizeField(companyName) || 'Unnamed business'}\n`
+    + `${bt ? `Type: ${bt}\n` : ''}`
+    + `${emailLine(sellerEmail)}\n\n`
+    + `Review:\n${url}`;
 }
 
 // ── Transport ──────────────────────────────────────────────────────────────────
@@ -213,6 +224,20 @@ async function notifyOwnerMarketingPackagePurchased({ userId, packageName, event
   }
 }
 
+async function notifyOwnerBusinessListingSubmitted({ companyName, businessType, ownerEmail } = {}) {
+  try {
+    if (!ownerAlertConfigured()) return sendOwnerAlert(ALERT_TYPES.BUSINESS_LISTING_SUBMITTED, '');
+    const message = buildBusinessListingSubmittedMessage({
+      companyName, businessType, sellerEmail: ownerEmail,
+      url: adminUrl('/admin/business-listings.html'),
+    });
+    return await sendOwnerAlert(ALERT_TYPES.BUSINESS_LISTING_SUBMITTED, message);
+  } catch (err) {
+    console.error('[owner-alert] business-listing alert error:', err.message);
+    return { skipped: true, reason: 'error' };
+  }
+}
+
 module.exports = {
   ALERT_TYPES,
   isE164,
@@ -223,8 +248,10 @@ module.exports = {
   buildAuctionSubmittedMessage,
   buildEstateSaleSubmittedMessage,
   buildMarketingPackageMessage,
+  buildBusinessListingSubmittedMessage,
   sendOwnerAlert,
   notifyOwnerAuctionSubmitted,
   notifyOwnerEstateSaleSubmitted,
   notifyOwnerMarketingPackagePurchased,
+  notifyOwnerBusinessListingSubmitted,
 };

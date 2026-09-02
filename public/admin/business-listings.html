@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="noindex, nofollow" />
+  <title>Business Listings — Advantage Admin</title>
+  <style>
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#f8fafc;color:#0f172a}
+    .wrap{max-width:1100px;margin:0 auto;padding:1rem}
+    h1{font-size:1.35rem;margin:.4rem 0 .2rem}
+    .sub{color:#64748b;font-size:.85rem;margin-bottom:1rem}
+    .tabs{display:flex;gap:6px;border-bottom:2px solid #e2e8f0;margin-bottom:1rem;flex-wrap:wrap}
+    .tabs button{background:none;border:none;padding:.55rem 1rem;font-size:.88rem;font-weight:700;color:#64748b;cursor:pointer;border-bottom:3px solid transparent;margin-bottom:-2px}
+    .tabs button.active{color:#111827;border-bottom-color:#2563eb}
+    table{width:100%;border-collapse:collapse;background:#fff;border:1px solid #e2e8f0;border-radius:10px;overflow:hidden}
+    th,td{text-align:left;padding:.55rem .6rem;font-size:.82rem;border-bottom:1px solid #f1f5f9;vertical-align:top}
+    th{background:#f8fafc;color:#475569;font-size:.68rem;text-transform:uppercase;letter-spacing:.03em}
+    .pill{display:inline-block;font-size:.66rem;font-weight:800;border-radius:999px;padding:2px 8px}
+    .p-ok{background:#dcfce7;color:#166534}.p-no{background:#fee2e2;color:#991b1b}.p-warn{background:#fef9c3;color:#854d0e}
+    .btn{padding:.4rem .8rem;border:none;border-radius:7px;font-weight:700;cursor:pointer;font-size:.78rem}
+    .b-blue{background:#2563eb;color:#fff}.b-green{background:#166534;color:#fff}.b-amber{background:#b45309;color:#fff}.b-red{background:#b91c1c;color:#fff}.b-ghost{background:#f1f5f9;color:#111827;border:1px solid #e2e8f0}
+    .msg{font-size:.85rem;color:#64748b;margin:.5rem 0;min-height:1rem}
+    .msg.err{color:#b91c1c}.msg.ok{color:#166534}
+    #drawer{position:fixed;top:var(--admin-nav-h,0);right:0;width:min(560px,96vw);height:calc(100% - var(--admin-nav-h,0px));background:#fff;box-shadow:-8px 0 30px rgba(0,0,0,.15);padding:1.2rem;overflow-y:auto;display:none;z-index:50}
+    #drawer h2{font-size:1.05rem;margin-bottom:.4rem}
+    #drawer label{display:block;font-size:.72rem;text-transform:uppercase;color:#64748b;margin:.6rem 0 .15rem}
+    #drawer input,#drawer select,#drawer textarea{width:100%;padding:.45rem .55rem;border:1px solid #cbd5e1;border-radius:7px;font-size:.85rem;font-family:inherit}
+    .row2{display:grid;grid-template-columns:1fr 1fr;gap:.5rem}
+    .dupwarn{background:#fff7ed;border:1px solid #fed7aa;border-radius:8px;padding:.5rem .7rem;font-size:.8rem;color:#9a3412;margin:.5rem 0}
+    .kv{font-size:.85rem;color:#334155;margin:.2rem 0}
+    .kv b{color:#0f172a}
+    .close-x{float:right;background:none;border:none;font-size:1.3rem;cursor:pointer;color:#94a3b8}
+    .actions{display:flex;gap:.5rem;flex-wrap:wrap;margin-top:1rem}
+  </style>
+</head>
+<body>
+  <script src="/widgets/shared/admin-nav.js"></script>
+  <div class="wrap">
+    <h1>Free Business Listings</h1>
+    <div class="sub">Review companies that submitted a native business listing. <b>Approve &amp; Publish</b> grants the professional type, geocodes, sets the public state, and makes the company searchable — no manual database edits.</div>
+    <div class="tabs">
+      <button class="active" data-s="submitted" onclick="setTab('submitted',this)">Awaiting Review</button>
+      <button data-s="changes_requested" onclick="setTab('changes_requested',this)">Changes Requested</button>
+      <button data-s="published" onclick="setTab('published',this)">Published</button>
+      <button data-s="rejected" onclick="setTab('rejected',this)">Rejected</button>
+    </div>
+    <div class="msg" id="msg"></div>
+    <table>
+      <thead><tr><th>Company</th><th>Requested type</th><th>Location</th><th>Contact</th><th>Complete</th><th>Located</th><th>Submitted</th><th></th></tr></thead>
+      <tbody id="rows"><tr><td colspan="8" style="color:#64748b">Loading…</td></tr></tbody>
+    </table>
+  </div>
+
+  <div id="drawer" aria-label="Review business listing">
+    <button class="close-x" onclick="closeDrawer()" aria-label="Close">&times;</button>
+    <h2 id="d-name">Business</h2>
+    <div id="d-body"></div>
+  </div>
+
+  <script>
+    var token = localStorage.getItem('token');
+    if (!token) location.href = '/login.html?next=' + encodeURIComponent('/admin/business-listings.html');
+    var STATE = 'submitted';
+    function $(id){return document.getElementById(id);}
+    function esc(s){return (s==null?'':String(s)).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
+    function say(t,cls){var m=$('msg');m.className='msg'+(cls?' '+cls:'');m.textContent=t||'';}
+    async function api(method,url,body){
+      var opt={method:method,headers:{Authorization:'Bearer '+token}};
+      if(body!==undefined){opt.headers['Content-Type']='application/json';opt.body=JSON.stringify(body);}
+      var r=await fetch(url,opt);var d={};try{d=await r.json();}catch(e){}
+      if(r.status===401){localStorage.removeItem('token');location.href='/login.html';throw new Error('Session expired');}
+      if(!r.ok||d.success===false){var e=new Error(d.message||('Request failed ('+r.status+')'));e.code=d.code;e.data=d;throw e;}
+      return d;
+    }
+    var TYPE_LABELS={estate_sale_company:'Estate Sale Company',auction_house:'Auction House',professional_liquidator:'Professional Liquidator',consignment_company:'Consignment Company',moving_company:'Moving Company',cleanout_company:'Clean-out Company',appraiser:'Appraiser'};
+
+    function setTab(s,btn){STATE=s;Array.prototype.forEach.call(document.querySelectorAll('.tabs button'),function(b){b.classList.toggle('active',b===btn);});load();}
+
+    async function load(){
+      say('');
+      try{
+        var d=await api('GET','/api/admin/business-listings?status='+encodeURIComponent(STATE));
+        var rows=d.listings||[];
+        if(!rows.length){$('rows').innerHTML='<tr><td colspan="8" style="color:#64748b">No listings in this state.</td></tr>';return;}
+        $('rows').innerHTML=rows.map(function(o){
+          return '<tr>'
+            +'<td><b>'+esc(o.name)+'</b>'+(o.is_claim?' <span class="pill p-warn">claim</span>':'')+'</td>'
+            +'<td>'+esc(TYPE_LABELS[o.requested_type]||o.requested_type||'—')+'</td>'
+            +'<td>'+esc([o.city,o.state].filter(Boolean).join(', ')||'—')+'</td>'
+            +'<td>'+(o.has_email?'✉':'')+' '+(o.has_phone?'☎':'')+((!o.has_email&&!o.has_phone)?'—':'')+'</td>'
+            +'<td>'+(o.completeness||0)+'%</td>'
+            +'<td>'+(o.geocoded?'<span class="pill p-ok">yes</span>':'<span class="pill p-no">no</span>')+'</td>'
+            +'<td>'+(o.submitted_at?new Date(o.submitted_at).toLocaleDateString():'—')+'</td>'
+            +'<td><button class="btn b-blue" onclick="openDrawer(\''+o.id+'\')">Review</button></td>'
+          +'</tr>';
+        }).join('');
+      }catch(e){say(e.message,'err');}
+    }
+
+    async function openDrawer(orgId){
+      say('');
+      try{
+        var d=await api('GET','/api/admin/business-listings/'+encodeURIComponent(orgId));
+        var o=d.organization;
+        $('d-name').textContent=o.name||'Business';
+        var typeOpts=Object.keys(TYPE_LABELS).map(function(k){return '<option value="'+k+'"'+(k===(o.requested_type)?' selected':'')+'>'+TYPE_LABELS[k]+'</option>';}).join('');
+        var dup=(d.duplicates||[]).length?('<div class="dupwarn"><b>Possible existing business:</b> '+d.duplicates.map(function(x){return esc(x.name)+' ('+esc([x.city,x.state].filter(Boolean).join(', '))+', '+esc(x.source)+')';}).join('; ')+'. Review before approving to avoid a duplicate public profile.</div>'):'';
+        var pr=d.publish_ready||{};
+        var readyLine=pr.ok?'<span class="pill p-ok">ready to publish</span>':'<span class="pill p-no">missing: '+esc((pr.missing||[]).join(', '))+'</span>';
+        $('d-body').innerHTML=
+          dup
+          +'<p class="kv"><b>Status:</b> '+esc(o.review_status)+' · '+readyLine+'</p>'
+          +'<p class="kv"><b>Owner:</b> '+esc(d.owner_email||'—')+'</p>'
+          +'<p class="kv"><b>Location:</b> '+esc([o.address,o.city,o.state,o.zip].filter(Boolean).join(', ')||'—')+(o.lat!=null?' · located':' · not located')+'</p>'
+          +'<p class="kv"><b>Website:</b> '+(o.website_url?'<a href="'+esc(o.website_url)+'" target="_blank" rel="noopener">'+esc(o.website_url)+'</a>':'—')+'</p>'
+          +'<p class="kv"><b>Contact:</b> '+esc(o.contact_email||'')+' '+esc(o.contact_phone||'')+'</p>'
+          +'<p class="kv"><b>Description:</b> '+esc((o.description||'—').slice(0,400))+'</p>'
+          +'<label for="ap-type">Confirm professional type</label><select id="ap-type">'+typeOpts+'</select>'
+          +'<div id="geo-fields" style="display:none"><p class="kv" style="color:#9a3412;margin-top:.5rem">Location could not be found automatically. Confirm the address on the profile, or enter coordinates:</p>'
+          +'<div class="row2"><div><label>Latitude</label><input id="ap-lat" type="text" placeholder="40.73" /></div><div><label>Longitude</label><input id="ap-lng" type="text" placeholder="-74.00" /></div></div></div>'
+          +'<div class="actions">'
+          +'<button class="btn b-green" id="approveBtn">Approve &amp; Publish</button>'
+          +'<button class="btn b-amber" onclick="reqChanges(\''+o.id+'\')">Request Changes</button>'
+          +'<button class="btn b-red" onclick="doReject(\''+o.id+'\')">Reject</button>'
+          +'</div>';
+        $('drawer').style.display='block';
+        $('approveBtn').onclick=function(){approve(o.id);};
+      }catch(e){say(e.message,'err');}
+    }
+    function closeDrawer(){$('drawer').style.display='none';}
+
+    async function approve(orgId){
+      var btn=$('approveBtn');btn.disabled=true;btn.textContent='Publishing…';
+      var body={type:$('ap-type').value};
+      var latEl=$('ap-lat'),lngEl=$('ap-lng');
+      if(latEl&&latEl.value.trim())body.lat=latEl.value.trim();
+      if(lngEl&&lngEl.value.trim())body.lng=lngEl.value.trim();
+      try{
+        var d=await api('POST','/api/admin/business-listings/'+encodeURIComponent(orgId)+'/approve',body);
+        say('Approved & published: '+d.name+' is now searchable.','ok');
+        closeDrawer();load();
+      }catch(e){
+        if(e.code==='LOCATION_NEEDS_REVIEW'){
+          $('geo-fields').style.display='block';
+          say('Location needs review — confirm the address or enter coordinates, then Approve again.','err');
+        } else { say(e.message,'err'); }
+        btn.disabled=false;btn.textContent='Approve & Publish';
+      }
+    }
+    async function reqChanges(orgId){
+      var reason=prompt('What change is needed? (shown to the company)');
+      if(reason===null)return;
+      try{await api('POST','/api/admin/business-listings/'+encodeURIComponent(orgId)+'/request-changes',{reason:reason});say('Changes requested.','ok');closeDrawer();load();}
+      catch(e){say(e.message,'err');}
+    }
+    async function doReject(orgId){
+      var reason=prompt('Reason for rejection (recorded; shown to the company):');
+      if(reason===null)return;
+      try{await api('POST','/api/admin/business-listings/'+encodeURIComponent(orgId)+'/reject',{reason:reason});say('Listing rejected.','ok');closeDrawer();load();}
+      catch(e){say(e.message,'err');}
+    }
+    load();
+  </script>
+</body>
+</html>

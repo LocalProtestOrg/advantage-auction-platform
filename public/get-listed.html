@@ -136,8 +136,8 @@
       btn.disabled=true; btn.textContent='Claiming…';
       try {
         await api('POST','/api/org/claim/'+encodeURIComponent(orgId));
-        // Claimed: owner set, verification pending. Send them to their profile to complete it.
-        location.href='/org/profile.html?claimed=1';
+        // Claimed: owner set. Send them to complete their profile, then submit for review to go live.
+        location.href='/org/profile.html?claimed=1&next=submit';
       } catch(e){
         err.textContent = e.code==='ALREADY_CLAIMED' ? 'That business has already been claimed. Contact Advantage.Bid if this is your company.' : (e.message||'Could not claim this business.');
         btn.disabled=false; btn.textContent='Claim this business';

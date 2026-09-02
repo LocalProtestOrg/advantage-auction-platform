@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="robots" content="noindex" />
+<title>Submit Business for Review - Advantage.Bid</title>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/org/portal.css" />
+<style>
+  .wrap { max-width: 720px; margin: 0 auto; padding: 1.25rem; }
+  .page { font-size: 1.4rem; margin: .5rem 0 .2rem; }
+  .sub { color: #64748b; font-size: .9rem; margin-bottom: 1rem; }
+  .card { background:#fff; border:1px solid #e2e8f0; border-radius:12px; padding:1.1rem 1.2rem; margin-bottom:1rem; }
+  .status { border-radius:10px; padding:.8rem 1rem; font-size:.9rem; margin-bottom:1rem; border:1px solid; }
+  .st-draft { background:#f1f5f9; border-color:#e2e8f0; color:#334155; }
+  .st-submitted { background:#fef9c3; border-color:#fde68a; color:#854d0e; }
+  .st-changes { background:#ffedd5; border-color:#fed7aa; color:#9a3412; }
+  .st-rejected { background:#fee2e2; border-color:#fecaca; color:#991b1b; }
+  .st-published { background:#dcfce7; border-color:#bbf7d0; color:#166534; }
+  .checklist { list-style:none; padding:0; margin:.5rem 0 0; }
+  .checklist li { display:flex; align-items:center; gap:.5rem; font-size:.9rem; padding:.25rem 0; color:#334155; }
+  .checklist .ok { color:#16a34a; font-weight:800; }
+  .checklist .no { color:#dc2626; font-weight:800; }
+  label { display:block; font-size:.8rem; font-weight:700; color:#334155; margin:.6rem 0 .2rem; }
+  select, input { width:100%; padding:.5rem .6rem; border:1px solid #cbd5e1; border-radius:8px; font-size:.9rem; font-family:inherit; }
+  .btnrow { display:flex; gap:.6rem; flex-wrap:wrap; margin-top:1rem; }
+  .btn { padding:.6rem 1.1rem; border:none; border-radius:8px; font-weight:700; font-size:.9rem; cursor:pointer; text-decoration:none; display:inline-block; }
+  .btn.primary { background:#1d4ed8; color:#fff; }
+  .btn.primary:disabled { opacity:.6; cursor:default; }
+  .btn.ghost { background:#f1f5f9; color:#111827; border:1px solid #e2e8f0; }
+  .msg { font-size:.88rem; margin:.6rem 0; min-height:1rem; }
+  .msg.err { color:#b91c1c; } .msg.ok { color:#166534; }
+  .hint { color:#64748b; font-size:.82rem; margin:.3rem 0 0; }
+  a { color:#1d4ed8; }
+</style>
+</head>
+<body>
+<div id="hdr"></div>
+<div class="wrap">
+  <h1 class="page">Submit your business for review</h1>
+  <p class="sub">Once approved, your company profile can appear in Advantage.Bid search and you can promote eligible upcoming estate sales and auctions. Approval is reviewed by our team — it is not automatic.</p>
+  <div id="msg" class="msg" role="status" aria-live="polite"></div>
+  <div id="body"><div class="loading" style="padding:2rem;color:#64748b">Loading…</div></div>
+</div>
+<script src="/widgets/shared/auth-refresh.js"></script>
+<script src="/org/portal.js"></script>
+<script>
+(async function () {
+  if (!ORG.guard()) return;
+  document.getElementById('hdr').innerHTML = ORG.header('submit');
+  var $ = function (id) { return document.getElementById(id); };
+  var msg = $('msg');
+  function say(t, cls) { msg.className = 'msg' + (cls ? ' ' + cls : ''); msg.textContent = t || ''; }
+
+  var TYPES = [
+    ['estate_sale_company', 'Estate Sale Company'], ['auction_house', 'Auction House'],
+    ['professional_liquidator', 'Professional Liquidator'], ['consignment_company', 'Consignment Company'],
+    ['moving_company', 'Moving Company'], ['cleanout_company', 'Clean-out Company'], ['appraiser', 'Appraiser'],
+  ];
+
+  function statusBanner(s) {
+    var map = {
+      submitted: ['st-submitted', 'In review — we’ll email you when it’s approved. You can keep editing your profile meanwhile.'],
+      changes_requested: ['st-changes', 'Changes requested — please update your profile and resubmit.'],
+      rejected: ['st-rejected', 'This listing was not approved. Contact us if you believe this was in error.'],
+      published: ['st-published', 'Approved and live — your company profile can appear in Advantage.Bid search.'],
+      draft: ['st-draft', 'Not yet submitted.'],
+    }[s] || ['st-draft', ''];
+    return '<div class="status ' + map[0] + '">' + ORG.esc(map[1]) + '</div>';
+  }
+
+  function checklistItem(ok, label) {
+    return '<li><span class="' + (ok ? 'ok' : 'no') + '" aria-hidden="true">' + (ok ? '✓' : '✗') + '</span><span>' + ORG.esc(label) + (ok ? '' : ' (needed)') + '</span></li>';
+  }
+
+  function render(prof) {
+    var org = prof.organization;
+    if (!org) {
+      $('body').innerHTML = '<div class="card"><p>You don’t have a business listing yet.</p>'
+        + '<p><a class="btn primary" href="/get-listed.html">Get your free business listing →</a></p></div>';
+      return;
+    }
+    var pv = prof.preview || {};
+    var status = (pv.review_status) || 'draft';
+    var hasName = !!(org.name && org.name.trim());
+    var hasLoc = !!((org.city && org.state));
+    var hasContact = !!(org.contact_email || org.contact_phone);
+    var hasDesc = !!(org.description && org.description.trim());
+    var ready = hasName && hasLoc && hasContact && hasDesc;
+    var requested = (pv.professional_types && pv.professional_types[0]) || org.type || 'estate_sale_company';
+
+    var html = statusBanner(status);
+    html += '<div class="card"><h2 style="font-size:1.05rem;margin:0 0 .3rem">' + ORG.esc(org.name || 'Your business') + '</h2>';
+    html += '<p class="hint">Complete these before submitting:</p><ul class="checklist">'
+      + checklistItem(hasName, 'Company name')
+      + checklistItem(hasLoc, 'City and state')
+      + checklistItem(hasContact, 'Business email or phone')
+      + checklistItem(hasDesc, 'Short description')
+      + '</ul>';
+    html += '<p class="hint" style="margin-top:.6rem"><a href="/org/profile.html">Edit business profile →</a></p></div>';
+
+    if (status !== 'published') {
+      html += '<div class="card"><label for="btype">Business type</label>'
+        + '<select id="btype" aria-label="Business type">'
+        + TYPES.map(function (t) { return '<option value="' + t[0] + '"' + (t[0] === requested ? ' selected' : '') + '>' + t[1] + '</option>'; }).join('')
+        + '</select><p class="hint">This is the classification you’re requesting. Advantage.Bid confirms it during review.</p>'
+        + '<div class="btnrow"><button class="btn primary" id="submitBtn"' + (ready ? '' : ' disabled') + '>'
+        + (status === 'changes_requested' ? 'Resubmit for review' : 'Submit business for review') + '</button>'
+        + '<a class="btn ghost" href="/org/profile.html">Edit profile</a></div>'
+        + (ready ? '' : '<p class="hint">Complete the checklist above to enable submission.</p>') + '</div>';
+    } else {
+      html += '<div class="card"><div class="btnrow">'
+        + '<a class="btn primary" href="/org/event-new.html">Add an upcoming event</a>'
+        + '<a class="btn ghost" href="/org/profile.html">Edit business profile</a>'
+        + (org.slug ? '<a class="btn ghost" href="/pro.html?slug=' + encodeURIComponent(org.slug) + '" target="_blank" rel="noopener">View public profile</a>' : '')
+        + '</div></div>';
+    }
+    // Tasteful, non-required Professional Seller upsell (transactional selling is a separate upgrade).
+    html += '<div class="card"><p style="margin:0;font-size:.9rem;color:#334155"><b>Want to sell directly through Advantage.Bid?</b> Running online auctions and Buy Now selling is <a href="/professional-sellers.html">Professional Seller</a> — an optional upgrade, never required for your free listing.</p></div>';
+
+    $('body').innerHTML = html;
+
+    var btn = $('submitBtn');
+    if (btn) btn.onclick = async function () {
+      say('');
+      btn.disabled = true; btn.textContent = 'Submitting…';
+      try {
+        var r = await ORG.api('POST', '/api/org/submit-listing', { business_type: $('btype').value });
+        say('Submitted for review. We’ll email you when it’s approved.', 'ok');
+        setTimeout(function () { location.reload(); }, 900);
+      } catch (e) {
+        say(e.message || 'Could not submit. Please try again.', 'err');
+        btn.disabled = false; btn.textContent = 'Submit business for review';
+      }
+    };
+  }
+
+  try {
+    var prof = await ORG.api('GET', '/api/org/profile');
+    render(prof);
+  } catch (e) { say(e.message || 'Could not load your business.', 'err'); $('body').innerHTML = ''; }
+})();
+</script>
+</body>
+</html>
