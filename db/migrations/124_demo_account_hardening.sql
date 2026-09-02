@@ -11,7 +11,7 @@ UPDATE users SET is_demo = true
 -- 2) The demo seller's profile: is_demo + a professional type so the demo demonstrates the Professional
 --    Seller experience (auto-publish, storefront, widget). is_demo keeps all its content out of public.
 UPDATE seller_profiles sp
-   SET is_demo = true, seller_type = 'estate_sale_company', updated_at = now()
+   SET is_demo = true, seller_type = 'estate_sale_company'
  WHERE sp.user_id = (SELECT id FROM users WHERE email = 'demo-seller@advantage.bid');
 
 -- 3) Isolate every auction owned by the demo seller from the public marketplace/feed/widget
