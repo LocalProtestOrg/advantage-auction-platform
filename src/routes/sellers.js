@@ -11,6 +11,7 @@ const verificationService = require('../services/verificationService');
 const professionalSellerEmails = require('../services/professionalSellerEmails');
 const { sendEmail } = require('../services/emailService');
 const { PROFESSIONAL_SELLER_TYPES, SELLER_TYPE_LABELS } = require('../constants/sellerTypes');
+const widgetService = require('../services/widgetService');
 
 // Self-service seller enablement (the individual /enroll path) is restricted to non-professional
 // seller types. Professional types (auction_house, estate_sale_company, professional_liquidator) are
@@ -284,6 +285,38 @@ router.post('/apply-professional', auth, async (req, res, next) => {
   } finally {
     client.release();
   }
+});
+
+// ── Professional Seller white-label Website Auction Widget ─────────────────────
+// GET /api/sellers/me/widget — the caller's OWN widget config (tenant-scoped: the org is derived from
+// req.user's owned membership, NEVER a client-supplied id). Eligible = a Professional Seller whose org is
+// linked to their own professional seller_profile. Returns the opaque public key + copyable embed code +
+// preview URL. Returns eligible:false (not an error) when the caller isn't a professional seller yet.
+router.get('/me/widget', auth, async (req, res, next) => {
+  try {
+    const elig = await widgetService.eligibilityForUser(req.user.id);
+    if (!elig.eligible) return res.json({ success: true, eligible: false, reason: elig.reason });
+    const key = await widgetService.ensureWidgetKey(elig.org.id);
+    const a = await widgetService.listPublicAuctions(elig.sellerProfileId);
+    const base = (process.env.APP_BASE_URL || 'https://bid.advantage.bid').replace(/\/+$/, '');
+    return res.json({
+      success: true, eligible: true, key, company_name: elig.org.name,
+      embed_code: widgetService.buildEmbedCode(key, base),
+      preview_url: base + '/embed/auctions.html?key=' + encodeURIComponent(key),
+      auction_count: a.current.length + a.upcoming.length,
+    });
+  } catch (err) { next(err); }
+});
+
+// POST /api/sellers/me/widget/rotate — rotate the key (revokes the old embed). Owner-scoped like GET.
+router.post('/me/widget/rotate', auth, async (req, res, next) => {
+  try {
+    const elig = await widgetService.eligibilityForUser(req.user.id);
+    if (!elig.eligible) return res.status(403).json({ success: false, code: 'WIDGET_NOT_ELIGIBLE', message: 'A Professional Seller account is required to manage the website widget.' });
+    const key = await widgetService.rotateWidgetKey(elig.org.id);
+    const base = (process.env.APP_BASE_URL || 'https://bid.advantage.bid').replace(/\/+$/, '');
+    return res.json({ success: true, key, embed_code: widgetService.buildEmbedCode(key, base), preview_url: base + '/embed/auctions.html?key=' + encodeURIComponent(key) });
+  } catch (err) { next(err); }
 });
 
 // GET /api/sellers/me/dashboard

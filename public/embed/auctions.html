@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="robots" content="noindex, nofollow" />
+<title>Auctions</title>
+<style>
+  /* White-label: the embedded presentation carries NO Advantage.Bid visual branding. The host company's
+     brand stays front-and-center on its own page; this iframe shows only their auctions. Transaction,
+     auth, and legal identification happen on the linked bid.advantage.bid platform (necessary + truthful). */
+  *,*::before,*::after{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#1f2937;background:transparent}
+  .wl-wrap{max-width:1100px;margin:0 auto;padding:8px}
+  .wl-co{font-size:1.05rem;font-weight:800;margin:6px 4px 10px;color:#111827}
+  .wl-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:14px}
+  .wl-card{border:1px solid #e5e7eb;border-radius:12px;overflow:hidden;background:#fff;display:flex;flex-direction:column}
+  .wl-thumb{width:100%;aspect-ratio:16/10;object-fit:cover;background:#f3f4f6;display:block}
+  .wl-body{padding:10px 12px 12px;display:flex;flex-direction:column;gap:6px;flex:1}
+  .wl-title{font-weight:700;font-size:.95rem;line-height:1.3;color:#111827;margin:0}
+  .wl-meta{font-size:.8rem;color:#6b7280}
+  .wl-chip{display:inline-block;font-size:.66rem;font-weight:800;letter-spacing:.03em;text-transform:uppercase;border-radius:999px;padding:2px 8px;width:fit-content}
+  .wl-live{background:#dcfce7;color:#166534}
+  .wl-up{background:#dbeafe;color:#1e40af}
+  .wl-cta{margin-top:auto;display:inline-block;text-align:center;text-decoration:none;font-weight:700;font-size:.85rem;padding:.55rem .9rem;border-radius:9px;background:#111827;color:#fff}
+  .wl-cta:hover{background:#374151}
+  .wl-empty{padding:26px 12px;text-align:center;color:#6b7280;font-size:.9rem}
+  .wl-sec{font-size:.72rem;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:#9ca3af;margin:14px 4px 6px}
+</style>
+</head>
+<body>
+<div class="wl-wrap"><div id="wl-root"><div class="wl-empty">Loading auctions…</div></div></div>
+<script>
+(function () {
+  function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
+  function q(name){try{return new URLSearchParams(location.search).get(name)||'';}catch(e){return '';}}
+  var KEY = q('key');
+  // Only ever send a numeric height to the parent; the loader validates source + shape. No data leaves here.
+  function postHeight(){
+    try {
+      var h = document.documentElement.scrollHeight || document.body.scrollHeight || 0;
+      if (window.parent && window.parent !== window) window.parent.postMessage({ type: 'adv-wl-height', height: h }, '*');
+    } catch(e){}
+  }
+  function fmtDate(t){ if(!t) return ''; try{return new Date(t).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});}catch(e){return '';} }
+
+  function card(a, live){
+    var loc = [a.city, a.state].filter(Boolean).map(esc).join(', ');
+    var when = live ? 'Bidding open now' : (a.start_time ? ('Starts ' + esc(fmtDate(a.start_time))) : 'Upcoming');
+    var img = a.cover_image_url ? '<img class="wl-thumb" src="' + esc(a.cover_image_url) + '" alt="' + esc(a.title||'Auction') + '" loading="lazy">' : '<div class="wl-thumb"></div>';
+    return '<div class="wl-card">' + img + '<div class="wl-body">'
+      + '<span class="wl-chip ' + (live?'wl-live':'wl-up') + '">' + (live?'Live':'Upcoming') + '</span>'
+      + '<p class="wl-title">' + esc(a.title||'Auction') + '</p>'
+      + '<div class="wl-meta">' + esc(when) + (a.lots?(' · ' + a.lots + ' lot' + (a.lots===1?'':'s')):'') + '</div>'
+      + (loc?('<div class="wl-meta">' + loc + '</div>'):'')
+      // target=_top so a click navigates the visitor to the auction on bid.advantage.bid (auth/bidding there)
+      + '<a class="wl-cta" href="' + esc(a.href) + '" target="_top" rel="noopener">' + (live?'Bid Now':'View Auction') + '</a>'
+      + '</div></div>';
+  }
+
+  function render(data){
+    var root = document.getElementById('wl-root');
+    var cur = (data && data.current) || [], up = (data && data.upcoming) || [];
+    if (!cur.length && !up.length){
+      root.innerHTML = '<div class="wl-empty">No auctions are scheduled right now. Please check back soon.</div>';
+      postHeight(); return;
+    }
+    var html = '';
+    if (data.company && data.company.name) html += '<div class="wl-co">' + esc(data.company.name) + ' — Auctions</div>';
+    if (cur.length){ html += '<div class="wl-sec">Live now</div><div class="wl-grid">' + cur.map(function(a){return card(a,true);}).join('') + '</div>'; }
+    if (up.length){ html += '<div class="wl-sec">Upcoming</div><div class="wl-grid">' + up.map(function(a){return card(a,false);}).join('') + '</div>'; }
+    root.innerHTML = html;
+    postHeight();
+  }
+
+  if (!KEY){ document.getElementById('wl-root').innerHTML = '<div class="wl-empty">Auction widget is not configured.</div>'; postHeight(); return; }
+  fetch('/api/public/widget/auctions?key=' + encodeURIComponent(KEY))
+    .then(function(r){ return r.json(); })
+    .then(function(d){ render(d || {}); })
+    .catch(function(){ document.getElementById('wl-root').innerHTML = '<div class="wl-empty">Auctions are temporarily unavailable.</div>'; postHeight(); });
+
+  window.addEventListener('load', postHeight);
+  window.addEventListener('resize', postHeight);
+  setTimeout(postHeight, 1200);
+})();
+</script>
+</body>
+</html>

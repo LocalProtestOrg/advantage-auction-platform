@@ -387,6 +387,13 @@
 
 <div id="auctions-container"></div>
 
+<!-- ── Website Auction Widget (white-label embed for the seller's own site) ─────── -->
+<section id="widget-section" aria-labelledby="widget-h" style="display:none;max-width:1000px;margin:1.5rem auto;padding:1.25rem;border:1px solid #e2e8f0;border-radius:14px;background:#fff">
+  <h2 id="widget-h" style="font-size:1.15rem;font-weight:800;margin:0 0 .25rem">Add Auctions to Your Website</h2>
+  <p style="color:#475569;font-size:.9rem;margin:0 0 1rem;line-height:1.55">Show your Advantage.Bid auctions on your own company website. Your brand stays front-and-center; Advantage.Bid powers the auctions. It updates automatically — no second catalog to maintain.</p>
+  <div id="widget-body" style="color:#64748b;font-size:.9rem">Loading…</div>
+</section>
+
 <!-- ── Add Lot template (cloned per auction) ───────────────────────── -->
 <template id="tmpl-add-lot-form">
   <div class="lot-form-row" style="display:none" data-form="add">
@@ -1183,6 +1190,52 @@ async function loadAudience() {
 // ── Boot ──────────────────────────────────────────────────────────────────────
 loadDashboard();
 loadAudience();
+</script>
+<script>
+/* Website Auction Widget card — self-contained. Fetches the caller's OWN widget config (server derives the
+   org from the auth token; no client id is trusted). Shows the install code + a live preview only for
+   eligible Professional Sellers; otherwise the section stays hidden. */
+(function () {
+  var tok = localStorage.getItem('token');
+  if (!tok) return;
+  function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
+  fetch('/api/sellers/me/widget', { headers: { Authorization: 'Bearer ' + tok } })
+    .then(function (r) { return r.json(); })
+    .then(function (d) {
+      if (!d || !d.success || !d.eligible) return; // section stays hidden for non-professional sellers
+      var sec = document.getElementById('widget-section');
+      var body = document.getElementById('widget-body');
+      var empty = (d.auction_count || 0) === 0
+        ? '<p style="color:#92400e;background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:.6rem .8rem;font-size:.85rem;margin:0 0 .9rem">You have no published auctions yet. The widget installs now and will automatically show your auctions as soon as they go live.</p>'
+        : '';
+      body.innerHTML = empty
+        + '<label style="display:block;font-size:.72rem;font-weight:800;text-transform:uppercase;letter-spacing:.04em;color:#64748b;margin:0 0 .3rem">Install code</label>'
+        + '<textarea id="wl-code" readonly rows="3" style="width:100%;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:.8rem;padding:.6rem;border:1px solid #cbd5e1;border-radius:8px;background:#f8fafc;color:#0f172a;resize:vertical">' + esc(d.embed_code) + '</textarea>'
+        + '<div style="display:flex;gap:.5rem;flex-wrap:wrap;margin:.6rem 0 1rem">'
+        + '<button id="wl-copy" type="button" style="background:#1d4ed8;color:#fff;border:none;border-radius:8px;padding:.55rem 1.1rem;font-weight:700;font-size:.85rem;cursor:pointer">Copy Code</button>'
+        + '<a href="' + esc(d.preview_url) + '" target="_blank" rel="noopener" style="background:#f1f5f9;color:#111827;border:1px solid #e2e8f0;border-radius:8px;padding:.55rem 1.1rem;font-weight:700;font-size:.85rem;text-decoration:none">Open preview</a>'
+        + '</div>'
+        + '<details style="margin:0 0 1rem"><summary style="cursor:pointer;font-weight:700;font-size:.85rem;color:#0f172a">How to install</summary>'
+        + '<ol style="color:#475569;font-size:.85rem;line-height:1.6;margin:.5rem 0 0;padding-left:1.1rem">'
+        + '<li>Copy the install code above.</li>'
+        + '<li>Paste it into your website where you want your auctions to appear — or send it to your website person, IT, or web agency to add.</li>'
+        + '<li>That’s it. Your auctions appear automatically and stay up to date.</li>'
+        + '<li>Prefer help? Advantage.Bid can install it for you when you grant access to your site.</li>'
+        + '</ol></details>'
+        + '<label style="display:block;font-size:.72rem;font-weight:800;text-transform:uppercase;letter-spacing:.04em;color:#64748b;margin:0 0 .4rem">Live preview</label>'
+        + '<div style="border:1px solid #e2e8f0;border-radius:10px;overflow:hidden;background:#fff"><iframe title="Auction widget preview" src="' + esc(d.preview_url) + '" style="width:100%;min-height:340px;border:0;display:block"></iframe></div>';
+      sec.style.display = '';
+      var btn = document.getElementById('wl-copy');
+      if (btn) btn.onclick = function () {
+        var ta = document.getElementById('wl-code');
+        try { ta.select(); } catch (e) {}
+        (navigator.clipboard ? navigator.clipboard.writeText(d.embed_code) : Promise.reject())
+          .then(function () { btn.textContent = 'Copied ✓'; setTimeout(function(){ btn.textContent='Copy Code'; }, 1600); })
+          .catch(function () { try { document.execCommand('copy'); btn.textContent = 'Copied ✓'; setTimeout(function(){ btn.textContent='Copy Code'; }, 1600); } catch (e) {} });
+      };
+    })
+    .catch(function () { /* non-blocking — leave the section hidden */ });
+})();
 </script>
 </body>
 </html>

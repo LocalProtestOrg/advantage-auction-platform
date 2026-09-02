@@ -594,6 +594,7 @@ app.use('/api/uploads', uploadsRoutes);
 app.use('/api/public', publicRoutes);
 app.use('/api/public', publicEventsRoutes);   // event feed (+ restricted CORS); falls through public.js
 app.use('/api/public/storefront', require('./src/routes/publicStorefront')); // public seller storefront data + item detail + inquiry
+app.use('/api/public/widget', require('./src/routes/publicWidget')); // white-label company auction widget feed (token-scoped, public)
 app.use('/api/seller-storefront', require('./src/routes/sellerStorefront')); // seller storefront mgmt + marketplace inventory + conversion (auth)
 app.use('/api/marketplace', require('./src/routes/marketplaceOrders')); // fixed-price Buy Now checkout + buyer/seller/admin order mgmt (auth; flag-gated)
 app.use('/api/public/follower-emails', require('./src/routes/publicFollowerEmails')); // one-click unsubscribe (no auth)
