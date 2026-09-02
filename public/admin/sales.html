@@ -62,6 +62,18 @@
     .msg{font-size:.82rem;color:#64748b;margin:.4rem 0;min-height:1rem}
     .close-x{float:right;background:none;border:none;font-size:1.3rem;cursor:pointer;color:#94a3b8}
     .callout{background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:.6rem .8rem;font-size:.8rem;color:#92400e;margin:.5rem 0}
+    /* Resource Center (send-to-prospect cards) */
+    .rescat{font-size:.72rem;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:#0f766e;margin:1rem 0 .45rem}
+    .reslist{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:.7rem}
+    .rescard{border:1px solid #e2e8f0;border-radius:10px;padding:.75rem .85rem;background:#fff;display:flex;flex-direction:column;gap:.35rem}
+    .rescard .rt{font-weight:700;font-size:.9rem;color:#0f172a}
+    .rescard .rd{font-size:.78rem;color:#475569;line-height:1.45}
+    .rescard .rw{font-size:.74rem;color:#0f766e;background:#f0fdfa;border:1px solid #99f6e4;border-radius:6px;padding:.3rem .5rem;line-height:1.4}
+    .rescard .ra{display:flex;gap:.4rem;flex-wrap:wrap;margin-top:auto;padding-top:.35rem}
+    .rescard .ra a,.rescard .ra button{font-size:.76rem;font-weight:700;border-radius:6px;padding:.35rem .7rem;text-decoration:none;cursor:pointer;border:1px solid transparent}
+    .rescard .ra .open{background:#1d4ed8;color:#fff}
+    .rescard .ra .copy{background:#f1f5f9;color:#0f172a;border-color:#e2e8f0}
+    .rescard .ra .copy.done{background:#16a34a;color:#fff;border-color:#16a34a}
     /* Outreach composer modal — starts below the sticky admin header (--admin-nav-h) and scrolls. */
     .cx-overlay{position:fixed;inset:0;background:rgba(15,23,42,.5);display:none;align-items:flex-start;justify-content:center;padding:calc(var(--admin-nav-h,0px) + 1.4rem) 1rem 1.4rem;z-index:70;overflow:auto}
     .cx-modal{background:#fff;border-radius:12px;max-width:640px;width:100%;padding:1.4rem;box-shadow:0 20px 60px rgba(0,0,0,.3);position:relative}
@@ -92,6 +104,12 @@
     <!-- ============ TOOLBOX (links + pitch + Q&A) ============ -->
     <div id="pane-toolbox">
       <div class="card">
+        <h2>📤 Send to a Prospect — Resource Center</h2>
+        <p class="muted">The right link for each moment in the conversation. <b>Open</b> it yourself on a call, or <b>Copy Link</b> to send it to a prospect. Every link is a clean Advantage.Bid page — no tracking, nothing to configure.</p>
+        <div id="resource-center"></div>
+      </div>
+
+      <div class="card">
         <h2>Quick Links</h2>
         <h3>Product</h3>
         <div class="linkgrid" id="links-product"></div>
@@ -118,6 +136,7 @@
       <div class="card">
         <h2>Sales Q&amp;A / Knowledge Base</h2>
         <p class="muted">Grounded in current product behavior. If a prospect asks something not covered here, say you will confirm rather than guess.</p>
+        <div class="callout" style="background:#eff6ff;border-color:#bfdbfe;color:#1e40af"><b>Pricing note:</b> platform-fee and buyer-premium figures mentioned below are being finalized in a central pricing update. Before quoting exact rates to a prospect, confirm the current numbers with the owner.</div>
         <div id="qa"></div>
       </div>
     </div>
@@ -266,15 +285,19 @@
     const PRODUCT_LINKS = [
       ['Platform home (upcoming auctions)','https://bid.advantage.bid/','Public marketplace of live/upcoming auctions'],
       ['Estate Sales landing','https://www.advantage.bid/estate-sales','Canonical public Estate Sales page'],
-      ['How It Works','https://bid.advantage.bid/how-it-works.html','Buyer + seller overview'],
+      ['How It Works','https://bid.advantage.bid/how-it-works','Buyer + seller overview'],
       ['How Sellers Get Paid','https://bid.advantage.bid/how-sellers-get-paid.html','Payout explainer'],
       ['Seller FAQ','https://bid.advantage.bid/seller-faq.html','Common seller questions'],
       ['Past Auctions','https://bid.advantage.bid/past-auctions.html','Track record / social proof'],
     ];
     const SIGNUP_LINKS = [
       ['Start Selling','https://bid.advantage.bid/start-selling.html','Top-of-funnel seller entry'],
-      ['Become a Seller (signup)','https://bid.advantage.bid/become-seller.html','Professional Seller enrollment'],
-      ['Create an Estate Sale','https://bid.advantage.bid/create-estate-sale.html','Estate-sale event creation'],
+      ['Professional Seller — Overview','https://bid.advantage.bid/professional-sellers.html','Marketing page for auction houses, estate-sale companies & liquidators'],
+      ['Professional Seller — Signup','https://bid.advantage.bid/become-professional-seller.html','Self-service Professional Seller application / onboarding'],
+      ['Individual Seller — Signup','https://bid.advantage.bid/become-seller.html?seller_type=private','For a private individual selling an estate/collection (no auction experience needed)'],
+      ['Free Business Listing — Learn More','https://bid.advantage.bid/free-business-listing.html','Free-listing landing for companies not yet ready for the full platform'],
+      ['Free Business Listing — Claim / Get Listed','https://bid.advantage.bid/get-listed.html','Search for and claim (or create) a free business listing'],
+      ['Create an Estate Sale','https://bid.advantage.bid/create-estate-sale.html','Estate-sale event creation (signed-in members)'],
       ['Seller Dashboard','https://bid.advantage.bid/seller-dashboard.html','Where sellers manage auctions/lots'],
       ['Login','https://bid.advantage.bid/login.html','Account sign-in'],
     ];
@@ -282,15 +305,49 @@
     // "The Maplewood Estate Collection"). is_demo, hidden from the public marketplace, never closes.
     const DEMO_AUCTION_ID = '00000000-0000-4000-a000-0000000d0003';
     const DEMO_LINKS = [
+      ['🎬 Interactive Sales Demo','https://bid.advantage.bid/demo.html','The certified demo: one-click “Enter Seller Demo” / “Enter Buyer Demo”. Safe to send to a qualified prospect — sign-in appears right on that page.'],
+      ['🌐 Website Widget Example','https://bid.advantage.bid/demo/example-company-website.html','Shows a prospect how their Advantage.Bid auctions appear automatically on their own company website.'],
       ['📞 Official Advantage.Bid Line','tel:+15516557050','(551) 655-7050 — the official Advantage.Bid company phone number. Share this with prospects and sellers; your own email identity is used for Reply-To on outreach.'],
       ['⭐ View Professional Storefront Demo','https://bid.advantage.bid/pro/heritage-home-estate-services','Heritage & Home’s full branded business home: hero, about, services, auctions, Shop (Marketplace), past sales, follow, testimonials, contact. Show this to a company with no website: “Your company can have this on Advantage.Bid.”'],
-      ['View Demo Auction','https://bid.advantage.bid/auction-view.html?auctionId=' + DEMO_AUCTION_ID,'The Maplewood Estate Collection — full 146-lot estate catalog with real photos, A/B supplemental lots, starting bids & confidential reserves'],
-      ['View Demo Company Presence','https://bid.advantage.bid/auction-view.html?auctionId=' + DEMO_AUCTION_ID,'Branded Heritage & Home company identity on the auction page'],
+      ['View Demo Auction','https://bid.advantage.bid/auction-view.html?auctionId=' + DEMO_AUCTION_ID,'The Maplewood Estate Collection — full estate catalog with real photos, A/B supplemental lots, starting bids & confidential reserves'],
       ['Open a Demo Lot','https://bid.advantage.bid/auction-view.html?auctionId=' + DEMO_AUCTION_ID,'Open the auction, then click any lot for detail + bidding'],
-      ['Professional Seller Dashboard','https://bid.advantage.bid/seller-dashboard.html','Log in as the demo seller (password set by your sales manager; never stored in code)'],
+      ['Professional Seller Dashboard (demo)','https://bid.advantage.bid/demo.html','Use “Enter Seller Demo” at bid.advantage.bid/demo.html — sign-in appears on that page. Nothing to memorize.'],
       ['How To Buy (buyer explainer)','https://bid.advantage.bid/how-to-buy.html','Reference for the buyer experience'],
     ];
-    const DEMO_GAP = 'Demo environment is LIVE: "Heritage & Home Estate Services" (fictional) + "The Maplewood Estate Collection" (18 lots). It is marked is_demo, hidden from the public marketplace, and never closes, so it creates no real payouts, Stripe activity, or tax. To demo the Seller Dashboard, ask your sales manager for the demo-seller login (deliberately not stored in code). If the demo ever looks altered, an admin can restore it with: node scripts/demo-environment.js reset';
+    const DEMO_GAP = 'Demo environment is LIVE and certified at bid.advantage.bid/demo.html: one-click Enter Seller Demo / Enter Buyer Demo (sign-in appears on that page — nothing to memorize). It uses the fictional "Heritage & Home Estate Services" + "The Maplewood Estate Collection". Demo accounts are marked is_demo: they create no real charges, payouts, emails, or public listings, so the demo is always safe to show. If the demo ever looks altered, an admin can restore it with: node scripts/demo-environment.js reset';
+
+    // Send-to-prospect Resource Center. Each item: [title, url, description, useWhen, sendable].
+    // All clean canonical Advantage.Bid URLs (verified). "sendable" adds a Copy Link button.
+    const RESOURCE_CENTER = [
+      ['🎬 Start Here — Sales Demos', [
+        ['Interactive Sales Demo','https://bid.advantage.bid/demo.html','Let a prospect explore Advantage.Bid as both a Professional Seller and a buyer, in a protected demo environment.','You are ready to let a prospect experience the product hands-on.',true],
+        ['Website Widget Example','https://bid.advantage.bid/demo/example-company-website.html','Show how a seller’s Advantage.Bid auctions can appear automatically on their existing company website.','The prospect wants to understand how Advantage.Bid works with their own website.',true],
+        ['Professional Storefront Example','https://bid.advantage.bid/pro/heritage-home-estate-services','A full branded seller presence on Advantage.Bid — hero, about, services, auctions, past sales, contact.','Showing a company (especially one with no website) what a branded presence looks like.',true],
+        ['Completed Auction Example','https://bid.advantage.bid/auction-view.html?auctionId=' + DEMO_AUCTION_ID,'The Maplewood Estate Collection — what a finished online auction looks like from the buyer/public side.','Showing what a real completed online auction looks like.',true],
+      ]],
+      ['🏢 Professional Seller', [
+        ['Professional Seller — Overview','https://bid.advantage.bid/professional-sellers.html','Marketing/education page for auction houses, estate-sale companies, and liquidators.','Introducing Advantage.Bid to a professional company.',true],
+        ['Professional Seller — Signup','https://bid.advantage.bid/become-professional-seller.html','The self-service Professional Seller application / onboarding.','The prospect is ready to sign up as a professional.',true],
+      ]],
+      ['🆓 Free Business Listing / Lead Gen', [
+        ['Free Business Listing — Learn More','https://bid.advantage.bid/free-business-listing.html','Explains the free listing and its benefits, then sends them to claim it.','The company isn’t ready to become a Professional Seller yet — start free.',true],
+        ['Claim / Get Listed','https://bid.advantage.bid/get-listed.html','The actual flow to search for and claim (or create) a free business listing.','The prospect wants to claim their free listing now.',true],
+      ]],
+      ['👤 Individual Seller', [
+        ['Individual Seller — Signup','https://bid.advantage.bid/become-seller.html?seller_type=private','For an individual selling an estate, collection, or household contents. No auction experience required.','The prospect is a private individual, not a business.',true],
+      ]],
+      ['🛍️ Buyer Experience', [
+        ['Buyer Demo','https://bid.advantage.bid/demo.html','Use “Enter Buyer Demo” to show exactly what bidders see — browse, favorites, and bidding. “This is what your bidders see.”','You want to show the prospect the buyer side.',true],
+        ['How To Buy','https://bid.advantage.bid/how-to-buy.html','Public buyer explainer.','The prospect asks how buying/bidding works.',true],
+      ]],
+      ['🌐 Website / White-Label Feature', [
+        ['Website Widget Example','https://bid.advantage.bid/demo/example-company-website.html','“Once you publish your auctions on Advantage.Bid, they can automatically appear right on your existing company website.”','The prospect asks whether this works with their current website.',true],
+      ]],
+      ['ℹ️ Support / Company', [
+        ['Call Advantage.Bid','tel:+15516557050','Official support line (551) 655-7050. “If you ever need help, we’re always just a phone call away.”','A prospect or seller needs a human.',false],
+        ['General Email','mailto:info@advantage.bid','info@advantage.bid — the official general Advantage.Bid email.','A prospect prefers email.',false],
+      ]],
+    ];
 
     const PITCH = [
       ['15-second explanation','Advantage.Bid is an online auction marketplace and professional selling platform. Estate-sale companies, auction houses, and liquidators list items, run online auctions, and reach buyers nationwide, with bidding, payments, and payouts handled for them.'],
@@ -421,6 +478,25 @@
     ];
 
     // ---- render toolbox ----
+    // Copy a clean canonical URL to the clipboard (send-to-prospect). Reads the URL from data-url so no
+    // URL is ever interpolated into an inline handler string.
+    function copyLink(btn){
+      const url=btn.getAttribute('data-url')||'';
+      navigator.clipboard.writeText(url).then(()=>{const o=btn.textContent;btn.textContent='Copied!';btn.classList.add('done');setTimeout(()=>{btn.textContent=o;btn.classList.remove('done');},1400);});
+    }
+    function resCard(r){
+      const sendable=r[4];
+      return '<div class="rescard">'
+        +'<div class="rt">'+esc(r[0])+'</div>'
+        +'<div class="rd">'+esc(r[2])+'</div>'
+        +(r[3]?'<div class="rw"><b>Use when:</b> '+esc(r[3])+'</div>':'')
+        +'<div class="ra">'
+        +'<a class="open" href="'+esc(r[1])+'" target="_blank" rel="noopener">Open</a>'
+        +(sendable?'<button class="copy" type="button" data-url="'+esc(r[1])+'" onclick="copyLink(this)">Copy Link</button>':'')
+        +'</div></div>';
+    }
+    document.getElementById('resource-center').innerHTML = RESOURCE_CENTER.map(g=>
+      '<div class="rescat">'+esc(g[0])+'</div><div class="reslist">'+g[1].map(resCard).join('')+'</div>').join('');
     function linkCard(a){return '<a href="'+a[1]+'" target="_blank" rel="noopener">'+esc(a[0])+'<small>'+esc(a[2])+'</small></a>';}
     document.getElementById('links-product').innerHTML = PRODUCT_LINKS.map(linkCard).join('');
     document.getElementById('links-signup').innerHTML = SIGNUP_LINKS.map(linkCard).join('');
