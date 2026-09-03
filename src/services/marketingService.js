@@ -57,14 +57,34 @@ class MarketingService {
       sellerUserId = callerUserId;
     }
 
+    // Resolve the confirmed package price (Concept A — seller charge) from the authoritative packages
+    // table so we can freeze the INTERNAL allocation snapshot (Concept B). Look up by id or name.
+    const pkgRes = await db.query(
+      `SELECT id, price_cents FROM marketing_packages
+        WHERE is_active = true AND (id::text = $1 OR name = $1) ORDER BY display_order LIMIT 1`,
+      [String(package_type)]);
+    const pkg = pkgRes.rows[0] || null;
+
     const result = await db.query(
-      `INSERT INTO marketing_jobs (auction_id, seller_user_id, package_type, budget, target_radius_miles)
-       VALUES ($1, $2, $3, $4, $5)
+      `INSERT INTO marketing_jobs (auction_id, seller_user_id, package_type, budget, target_radius_miles, package_id)
+       VALUES ($1, $2, $3, $4, $5, $6)
        RETURNING *`,
-      [auctionId, sellerUserId, package_type, budget ?? null, target_radius_miles ?? 30]
+      [auctionId, sellerUserId, package_type, budget ?? null, target_radius_miles ?? 30, pkg ? pkg.id : null]
     );
 
     const job = result.rows[0];
+
+    // Freeze the internal marketing allocation snapshot at package confirmation (direct_max + growth base).
+    // This is Advantage.Bid's INTERNAL accounting only — it never charges the seller and never creates a
+    // seller-facing balance. (The seller-facing package CHARGE / collection is a separate, owner-gated
+    // decision — see VS-AUDIT-1 — and is intentionally NOT performed here.) Best-effort + idempotent.
+    if (pkg && pkg.price_cents != null) {
+      try {
+        const marketingLedger = require('./marketingLedgerService');
+        await marketingLedger.freezeAllocation({ marketingJobId: job.id, auctionId, packagePriceCents: pkg.price_cents });
+      } catch (e) { console.error('[marketing] allocation freeze failed (non-fatal):', e.message); }
+    }
+
     triggerMarketingWorkflow(job);
     return job;
   }
