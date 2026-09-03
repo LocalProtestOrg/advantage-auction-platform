@@ -35,6 +35,16 @@ UPDATE auctions a
    AND a.pricing_model IS NULL
    AND (a.state IN ('published', 'active', 'closed') OR a.is_archived IS TRUE);
 
+-- Defensive: freeze any remaining live/historical auction with NO matching seller_profile (orphaned or
+-- NULL seller_id — e.g. archived sample data) so nothing live/historical is ever left unfrozen. These
+-- have no seller and never produce a real payout; legacy with platform 0 / processing 0 is correct.
+UPDATE auctions
+   SET pricing_model = 'legacy', processing_fee_bps = 0,
+       platform_fee_bps = COALESCE(platform_fee_bps, 0),
+       pricing_snapshot_at = COALESCE(pricing_snapshot_at, now())
+ WHERE pricing_model IS NULL
+   AND (state IN ('published', 'active', 'closed') OR is_archived IS TRUE);
+
 -- ── seller_payouts: processing kept SEPARATE from the platform fee (never collapsed) ─
 ALTER TABLE seller_payouts ADD COLUMN IF NOT EXISTS processing_fee_bps   INTEGER;
 ALTER TABLE seller_payouts ADD COLUMN IF NOT EXISTS processing_fee_cents INTEGER NOT NULL DEFAULT 0;
