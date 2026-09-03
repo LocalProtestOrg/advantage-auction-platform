@@ -125,11 +125,21 @@ function statusLabel(status) {
 }
 
 // Assemble the plain-text + HTML seller closeout body from the gathered sections.
-function buildEmail({ auctionTitle, auctionId, report, invoices, unsold, pickups, noShows, settlementsOn }) {
+function buildEmail({ auctionTitle, auctionId, report, invoices, unsold, pickups, noShows, settlementsOn, settlement }) {
   const summary = (report && report.summary) || {};
   const grossCents = summary.gross_revenue_cents || 0;
   const paidCount = invoices.filter((i) => i.status === 'paid').length;
   const unpaidCount = invoices.filter((i) => i.status === 'payment_required').length;
+
+  // Authoritative settlement figures (platform + processing + marketing kept SEPARATE; payout never < 0).
+  // The seller NEVER sees internal marketing spend (60/40) or the Growth Pool, or a negative/shortfall amount.
+  const s = settlement || null;
+  const platformFeeCents   = s ? (s.seller_platform_fee_cents || 0) : (summary.platform_fee_cents || 0);
+  const processingFeeCents = s ? (s.credit_card_processing_fee_cents || 0) : 0;
+  const marketingCents     = s ? (s.marketing_deduction_cents || 0) : 0;
+  const finalPayoutCents   = s ? (s.final_payout_cents != null ? s.final_payout_cents : Math.max(0, s.net_seller_proceeds_cents || 0)) : (summary.seller_payout_cents || 0);
+  const noPayout           = settlementsOn && finalPayoutCents === 0;
+  const NO_PAYOUT_MSG = 'No payout is due for this auction: the sale proceeds were not enough to cover the applicable auction charges, so no payment, direct deposit, or check will be issued.';
 
   // ── Plain text ──
   const t = [];
@@ -141,8 +151,11 @@ function buildEmail({ auctionTitle, auctionId, report, invoices, unsold, pickups
   t.push(`  Unique buyers: ${summary.unique_buyers_count ?? '—'}`);
   t.push(`  Gross Sales: ${doc.money(grossCents)}`);
   if (settlementsOn) {
-    t.push(`  Platform Fee: ${doc.money(summary.platform_fee_cents || 0)}`);
-    t.push(`  Net Seller Payout: ${doc.money(summary.seller_payout_cents || 0)}`);
+    t.push(`  Advantage.Bid Platform Fee: ${doc.money(platformFeeCents)}`);
+    t.push(`  Payment Processing Fee: ${doc.money(processingFeeCents)}`);
+    if (marketingCents > 0) t.push(`  Marketing Package: ${doc.money(marketingCents)}`);
+    t.push(`  Net Seller Payout: ${doc.money(finalPayoutCents)}`);
+    if (noPayout) t.push(`  ${NO_PAYOUT_MSG}`);
   }
   t.push('');
   t.push(`PAYMENT STATUS  (paid ${paidCount} / payment-required ${unpaidCount} / ${invoices.length} buyer invoice(s))`);
@@ -188,8 +201,14 @@ function buildEmail({ auctionTitle, auctionId, report, invoices, unsold, pickups
   const row = (label, val) => `<tr><td style="padding:2px 12px 2px 0;color:#64748b">${esc(label)}</td><td style="padding:2px 0;text-align:right;font-weight:600">${esc(val)}</td></tr>`;
   const settlementRows = row('Gross Sales', doc.money(grossCents)) +
     (settlementsOn
-      ? row('Platform Fee', doc.money(summary.platform_fee_cents || 0)) + row('Net Seller Payout', doc.money(summary.seller_payout_cents || 0))
+      ? row('Advantage.Bid Platform Fee', doc.money(platformFeeCents)) +
+        row('Payment Processing Fee', doc.money(processingFeeCents)) +
+        (marketingCents > 0 ? row('Marketing Package', doc.money(marketingCents)) : '') +
+        row('Net Seller Payout', doc.money(finalPayoutCents))
       : '');
+  const noPayoutHtml = noPayout
+    ? `<p style="font-size:13px;color:#92400e;background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:8px 10px;margin:8px 0">${esc(NO_PAYOUT_MSG)}</p>`
+    : '';
   const invRows = invoices.map((inv) => (
     `<tr><td style="padding:4px 12px 4px 0">${esc(inv.invoice_number || '—')}</td>` +
     `<td style="padding:4px 12px 4px 0">${esc(inv.buyer_email || inv.buyer_name || 'buyer')}</td>` +
@@ -203,6 +222,7 @@ function buildEmail({ auctionTitle, auctionId, report, invoices, unsold, pickups
       `<div style="font-size:14px;color:#64748b;margin-bottom:14px">${esc(auctionTitle)}</div>` +
       '<h3 style="font-size:13px;text-transform:uppercase;letter-spacing:.04em;color:#0f172a">Settlement Summary</h3>' +
       `<table style="border-collapse:collapse;font-size:14px">${settlementRows}</table>` +
+      noPayoutHtml +
       `<h3 style="font-size:13px;text-transform:uppercase;letter-spacing:.04em;color:#0f172a">Payment Status: ${paidCount} paid / ${unpaidCount} payment-required</h3>` +
       `<table style="width:100%;border-collapse:collapse;font-size:13px">${invRows}</table>` +
       '<p style="font-size:12px;color:#94a3b8;margin-top:16px">Buyer roster, unsold lots, pickup and no-show details are in the attached bundled buyer-invoice PDF and the plain-text copy of this message.</p>' +
@@ -239,8 +259,20 @@ async function generateAndSend(auctionId) {
     loadNoShows(auctionId),
   ]);
 
+  // Authoritative settlement (marketing package deduction + processing + shortfall). Only when settlements
+  // are live. Record the internal shortfall/loss EXACTLY ONCE (idempotent) so a zero-payout is captured for
+  // Advantage.Bid accounting — never invoiced/charged/carried to the seller.
+  let settlement = null;
+  if (settlementsOn) {
+    try {
+      const settlementEngine = require('./settlementEngine');
+      settlement = await settlementEngine.computeSettlement(auctionId);
+      await settlementEngine.recordSettlementShortfall(auctionId).catch((e) => console.error('[seller-closeout] shortfall record failed:', e.message));
+    } catch (e) { console.error('[seller-closeout] settlement compute failed:', e.message); }
+  }
+
   const { subject, html, text } = buildEmail({
-    auctionTitle: meta.title, auctionId, report, invoices, unsold, pickups, noShows, settlementsOn,
+    auctionTitle: meta.title, auctionId, report, invoices, unsold, pickups, noShows, settlementsOn, settlement,
   });
 
   // Bundled all-buyer-invoice PDF (best-effort attachment).

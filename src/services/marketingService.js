@@ -1,5 +1,6 @@
 const db = require('../db');
 const { triggerMarketingWorkflow } = require('./marketingWorkflow');
+const marketingEligibilityService = require('./marketingEligibilityService');
 
 // MarketingService skeleton
 class MarketingService {
@@ -57,6 +58,22 @@ class MarketingService {
       sellerUserId = callerUserId;
     }
 
+    // Server-authoritative eligibility gate (cannot be bypassed by a stale UI): the 48-hour cutoff + the
+    // clothing/apparel >50% rule, evaluated from the CURRENT catalog. Enforced for sellers; admins retain
+    // override authority. The eligibility snapshot is recorded on the job for auditability (not billing).
+    const eligibility = await marketingEligibilityService.evaluateAuction(auctionId);
+    if (!isAdmin && !eligibility.available) {
+      const e = new Error(
+        eligibility.reason === 'too_much_clothing'
+          ? "Marketing packages aren't available for auctions where more than half of the catalog is clothing/apparel."
+          : eligibility.reason === 'past_cutoff'
+            ? 'Marketing packages are available until 48 hours before the auction closes.'
+            : 'Marketing packages are not available for this auction right now.');
+      e.code = 'MARKETING_UNAVAILABLE';
+      throw e;
+    }
+    const snap = eligibility.snapshot || {};
+
     // Resolve the confirmed package price (Concept A — seller charge) from the authoritative packages
     // table so we can freeze the INTERNAL allocation snapshot (Concept B). Look up by id or name.
     const pkgRes = await db.query(
@@ -66,10 +83,12 @@ class MarketingService {
     const pkg = pkgRes.rows[0] || null;
 
     const result = await db.query(
-      `INSERT INTO marketing_jobs (auction_id, seller_user_id, package_type, budget, target_radius_miles, package_id)
-       VALUES ($1, $2, $3, $4, $5, $6)
+      `INSERT INTO marketing_jobs (auction_id, seller_user_id, package_type, budget, target_radius_miles, package_id,
+         elig_total_lots, elig_clothing_lots, elig_clothing_pct_bps, elig_rule_version, elig_evaluated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, now())
        RETURNING *`,
-      [auctionId, sellerUserId, package_type, budget ?? null, target_radius_miles ?? 30, pkg ? pkg.id : null]
+      [auctionId, sellerUserId, package_type, budget ?? null, target_radius_miles ?? 30, pkg ? pkg.id : null,
+       snap.total_valid_lots ?? null, snap.clothing_lots ?? null, snap.clothing_pct_bps ?? null, snap.rule_version ?? null]
     );
 
     const job = result.rows[0];

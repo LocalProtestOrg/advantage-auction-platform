@@ -63,6 +63,12 @@ function computeSettlementTotals(i = {}) {
   const isV2 = i.pricingModel === 'v2_separated';
   const processingFee = isV2 ? processingFeeCents(grossSales, i.processingFeeBps) : stripeFee;
   const netProceeds  = netCollected + adj.net_cents - marketing - processingFee - platformFee;
+  // SETTLEMENT SHORTFALL POLICY (owner-authoritative): when applicable deductions exceed proceeds, the
+  // settlement computes accurately (net may be negative) but NO negative/zero payout is ever paid. The
+  // amount actually payable is clamped to >= 0; the unrecovered remainder is an internal business loss
+  // (recorded via recordSettlementShortfall) — never invoiced, charged, carried forward, or clawed back.
+  const final_payout_cents = Math.max(0, netProceeds);
+  const shortfall_cents    = Math.max(0, -netProceeds);
 
   return {
     gross_sales_cents:                grossSales,
@@ -81,8 +87,10 @@ function computeSettlementTotals(i = {}) {
                                         ? (i.sellerPlatformFeeBps == null ? DEFAULT_PRO_PLATFORM_FEE_BPS : Math.trunc(Number(i.sellerPlatformFeeBps)))
                                         : 0,        // rate actually applied (0 for individuals)
     seller_platform_fee_cents:        platformFee, // hammer × rate (0 for individuals)
-    net_seller_proceeds_cents:        netProceeds,
+    net_seller_proceeds_cents:        netProceeds,        // accurate (MAY be negative)
     final_amount_owed_cents:          netProceeds,
+    final_payout_cents:               final_payout_cents, // amount actually payable (never < 0)
+    shortfall_cents:                  shortfall_cents,    // unrecovered internal loss (never seller-collectible)
   };
 }
 
@@ -92,8 +100,64 @@ function computeSettlementTotals(i = {}) {
 // deduct: returns "None". When a real purchase record with price + payment status is
 // added, extend this to read it (deducting only amounts paid FROM proceeds, never
 // double-deducting amounts paid separately). Never hard-codes package prices.
-async function readMarketingCharges(/* auctionId */) {
-  return { charges: [], deduction_cents: 0, note: 'None', source: 'no-authoritative-purchase-record' };
+async function readMarketingCharges(auctionId) {
+  // Concept A (seller charge): the purchased marketing package price snapshotted on marketing_jobs at
+  // confirmation. Deducted from proceeds during settlement. Non-refundable. Only priced packages count
+  // (Basic $0 contributes nothing). Existing pre-migration jobs have NULL price → 0 (no retroactive charge).
+  if (!auctionId) return { charges: [], deduction_cents: 0, note: 'None', source: 'no-authoritative-purchase-record' };
+  const r = await db.query(
+    `SELECT COALESCE(SUM(package_price_cents),0)::bigint AS total,
+            (array_agg(id) FILTER (WHERE package_price_cents > 0))[1] AS job_id
+       FROM marketing_jobs
+      WHERE auction_id = $1 AND package_price_cents IS NOT NULL AND package_price_cents > 0`, [auctionId]);
+  const cents = Number(r.rows[0].total) || 0;
+  return cents > 0
+    ? { charges: [{ type: 'marketing_package', amount_cents: cents }], deduction_cents: cents, marketing_job_id: r.rows[0].job_id, note: 'Marketing package', source: 'marketing_jobs.package_price_cents' }
+    : { charges: [], deduction_cents: 0, note: 'None', source: 'no-authoritative-purchase-record' };
+}
+
+/**
+ * Record the settlement shortfall/business loss for an auction EXACTLY ONCE (PK upsert on auction_id).
+ * Idempotent + retry-safe. Writes the auditable loss fact + stamps seller_payouts. NEVER charges/invoices
+ * the seller, NEVER carries a balance forward. When there is no shortfall, clears any stale figure.
+ */
+async function recordSettlementShortfall(auctionId) {
+  const totals = await computeSettlement(auctionId);
+  const shortfall = Math.max(0, Number(totals.shortfall_cents) || 0);
+  const marketing = Number(totals.marketing_deduction_cents) || 0;
+  const client = await db.connect();
+  try {
+    await client.query('BEGIN');
+    const sp = (await client.query('SELECT seller_user_id FROM seller_payouts WHERE auction_id = $1 FOR UPDATE', [auctionId])).rows[0];
+    if (!sp) { await client.query('ROLLBACK'); return { ok: false, reason: 'no_settlement' }; }
+    await client.query(
+      `UPDATE seller_payouts SET marketing_charge_cents = $2, shortfall_cents = $3,
+              shortfall_recorded_at = CASE WHEN $3 > 0 THEN now() ELSE NULL END, updated_at = now()
+        WHERE auction_id = $1`, [auctionId, marketing, shortfall]);
+    if (shortfall > 0) {
+      const totalDeductions = (Number(totals.seller_platform_fee_cents) || 0) + (Number(totals.credit_card_processing_fee_cents) || 0) + marketing;
+      const grossProceeds = Number(totals.net_collected_cents) || 0;
+      const recovered = Math.max(0, totalDeductions - shortfall);
+      const mkt = await readMarketingCharges(auctionId);
+      await client.query(
+        `INSERT INTO settlement_shortfalls
+           (auction_id, seller_user_id, marketing_job_id, gross_proceeds_cents, total_deductions_cents,
+            amount_recovered_cents, unrecovered_shortfall_cents, marketing_charge_cents, platform_fee_cents,
+            processing_fee_cents, reason, loss_type, breakdown)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'proceeds_insufficient','settlement_shortfall',$11)
+         ON CONFLICT (auction_id) DO UPDATE SET
+           gross_proceeds_cents = EXCLUDED.gross_proceeds_cents, total_deductions_cents = EXCLUDED.total_deductions_cents,
+           amount_recovered_cents = EXCLUDED.amount_recovered_cents, unrecovered_shortfall_cents = EXCLUDED.unrecovered_shortfall_cents,
+           marketing_charge_cents = EXCLUDED.marketing_charge_cents, platform_fee_cents = EXCLUDED.platform_fee_cents,
+           processing_fee_cents = EXCLUDED.processing_fee_cents, breakdown = EXCLUDED.breakdown, updated_at = now()`,
+        [auctionId, sp.seller_user_id, mkt.marketing_job_id || null, grossProceeds, totalDeductions, recovered, shortfall,
+         marketing, Number(totals.seller_platform_fee_cents) || 0, Number(totals.credit_card_processing_fee_cents) || 0,
+         JSON.stringify(totals)]);
+    }
+    await client.query('COMMIT');
+    return { ok: true, shortfall_cents: shortfall };
+  } catch (e) { await client.query('ROLLBACK').catch(() => {}); throw e; }
+  finally { client.release(); }
 }
 
 // ── Actual Stripe fee capture (Decision 1), best-effort, read-time ─────────────
@@ -472,6 +536,7 @@ async function applyTransferEvent(eventType, transfer) {
 module.exports = {
   computeSettlementTotals, // pure
   readMarketingCharges,
+  recordSettlementShortfall,
   captureStripeFeeForPayment,
   assembleSettlementInputs,
   computeSettlement,
