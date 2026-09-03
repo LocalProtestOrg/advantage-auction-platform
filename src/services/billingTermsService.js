@@ -23,6 +23,7 @@ const { PROFESSIONAL_SELLER_TYPES } = require('../constants/sellerTypes');
 const DEFAULT_BUYER_PREMIUM_BPS = 1800;  // 18% — individual FIXED rate + professional fallback
 const DEFAULT_PRO_PLATFORM_FEE_BPS = 400; // 4% of hammer — professional software-fee DEFAULT (per-seller override wins)
 const INDIVIDUAL_PLATFORM_FEE_BPS = 0;   // individuals: no hammer fee (Advantage revenue is the buyer premium)
+const DEFAULT_PROCESSING_FEE_BPS = 300;  // 3% of hammer — seller-facing card-processing fee (SEPARATE from platform)
 
 const roundHalfUp = (n) => Math.floor(Number(n || 0) + 0.5);
 const isProfessional = (t) => PROFESSIONAL_SELLER_TYPES.indexOf(String(t || '').toLowerCase()) !== -1;
@@ -57,10 +58,19 @@ function buyerPremiumForLots(lots, bps) {
 // The ONE settlement model. Given the seller type + aggregate hammer + already-summed buyer premium,
 // returns what the buyer pays, Advantage's revenue, and the seller's payout — the SAME numbers used
 // for both the preview and the actual payout (no divergence).
-function settlement({ sellerType, hammerCents, buyerPremiumCents, platformFeeBps }) {
+function settlement({ sellerType, hammerCents, buyerPremiumCents, platformFeeBps, processingFeeBps, pricingModel }) {
   const h = Math.max(0, Math.round(Number(hammerCents) || 0));
   const bp = Math.max(0, Math.round(Number(buyerPremiumCents) || 0));
   const buyer_total_cents = h + bp;
+  // Processing fee is a SEPARATE seller-facing deduction, applied ONLY under the centralized v2 model.
+  // Legacy auctions (pricing_model !== 'v2_separated') carry NO flat processing deduction — their prior
+  // economics are preserved exactly (processing handled by the settlement workbench's actual-Stripe line).
+  const isV2 = pricingModel === 'v2_separated';
+  const procBps = !isV2 ? 0
+    : (processingFeeBps == null || !Number.isFinite(Number(processingFeeBps)))
+      ? DEFAULT_PROCESSING_FEE_BPS
+      : Math.max(0, Math.round(Number(processingFeeBps)));
+  const processing_fee_cents = roundHalfUp(h * procBps / 10000); // 3% of hammer (own base — never fee-on-fee)
   if (isProfessional(sellerType)) {
     // Per-seller software fee (basis points). DEFAULT 4% only when no per-seller rate is supplied.
     const feeBps = (platformFeeBps == null || !Number.isFinite(Number(platformFeeBps)))
@@ -70,41 +80,66 @@ function settlement({ sellerType, hammerCents, buyerPremiumCents, platformFeeBps
     return {
       seller_type: 'professional', hammer_cents: h, buyer_premium_cents: bp, buyer_total_cents,
       platform_fee_bps: feeBps,                              // rate actually applied (snapshot/reporting)
-      platform_fee_cents,                                    // Advantage software fee (hammer × rate)
-      advantage_revenue_cents: platform_fee_cents,           // professional BP is NOT Advantage revenue
+      platform_fee_cents,                                    // Advantage software fee (hammer × rate) — SEPARATE
+      processing_fee_bps: procBps,                           // card-processing fee rate — SEPARATE from platform
+      processing_fee_cents,                                  // hammer × processing rate (0 for legacy)
+      advantage_revenue_cents: platform_fee_cents + processing_fee_cents, // platform + processing (BP is seller's)
       seller_gross_cents: h + bp,                            // seller keeps hammer + their own premium
-      seller_payout_cents: h + bp - platform_fee_cents,
+      seller_payout_cents: h + bp - platform_fee_cents - processing_fee_cents,
     };
   }
   return {                                                   // individual
     seller_type: 'individual', hammer_cents: h, buyer_premium_cents: bp, buyer_total_cents,
     platform_fee_bps: 0,                                     // individuals: no seller platform fee
     platform_fee_cents: INDIVIDUAL_PLATFORM_FEE_BPS,         // 0 — no hammer fee
-    advantage_revenue_cents: bp,                             // 100% of the buyer premium
+    processing_fee_bps: procBps,                             // card-processing fee rate — SEPARATE
+    processing_fee_cents,                                    // hammer × processing rate (0 for legacy)
+    advantage_revenue_cents: bp + processing_fee_cents,      // buyer premium (100%) + processing fee
     seller_gross_cents: h,                                   // seller receives the hammer only
-    seller_payout_cents: h,
+    seller_payout_cents: h - processing_fee_cents,           // hammer minus 3% processing (v2); hammer (legacy)
   };
 }
 
 // Resolve the effective terms for an auction from the DB (seller type + configured overrides).
 async function resolveEffectiveTerms(auctionId, client = db) {
   const a = (await client.query(
-    `SELECT a.buyer_premium_bps, sp.seller_type, sp.platform_fee_bps, st.buyer_premium_pct
+    `SELECT a.buyer_premium_bps, a.platform_fee_bps AS snap_platform_bps,
+            a.processing_fee_bps AS snap_processing_bps, a.pricing_model,
+            sp.seller_type, sp.platform_fee_bps AS seller_platform_bps, st.buyer_premium_pct
        FROM auctions a
        LEFT JOIN seller_profiles sp ON sp.id = a.seller_id
        LEFT JOIN seller_terms st ON st.seller_profile_id = sp.id AND st.superseded_at IS NULL
       WHERE a.id = $1`, [auctionId])).rows[0] || {};
+  const pricing_model = a.pricing_model || 'legacy';
+  const isV2 = pricing_model === 'v2_separated';
+
+  // v2 auctions read their FROZEN publish-time snapshot (immutable — future config/seller changes never
+  // alter an already-published auction). Legacy auctions resolve exactly as before + 0 processing.
+  if (isV2) {
+    const buyer_premium_bps = a.buyer_premium_bps != null
+      ? Math.max(0, Number(a.buyer_premium_bps))
+      : effectiveBuyerPremiumBps(a.seller_type, { sellerPct: a.buyer_premium_pct });
+    return {
+      buyer_premium_bps,
+      platform_fee_bps: a.snap_platform_bps != null ? Number(a.snap_platform_bps)
+        : (!isProfessional(a.seller_type) ? 0 : DEFAULT_PRO_PLATFORM_FEE_BPS),
+      processing_fee_bps: a.snap_processing_bps != null ? Number(a.snap_processing_bps) : DEFAULT_PROCESSING_FEE_BPS,
+      pricing_model,
+      seller_type: a.seller_type || null, is_professional: isProfessional(a.seller_type), source: 'snapshot',
+    };
+  }
+
   const buyer_premium_bps = effectiveBuyerPremiumBps(a.seller_type, { auctionBps: a.buyer_premium_bps, sellerPct: a.buyer_premium_pct });
   const source = !isProfessional(a.seller_type) ? 'individual_fixed'
     : a.buyer_premium_bps != null ? 'auction'
       : a.buyer_premium_pct != null ? 'seller'
         : 'default';
   // Per-seller platform fee (professional only): the configured rate, or the 4% default when unset.
-  // Individuals report 0 — the column never applies to them.
+  // Individuals report 0 — the column never applies to them. Legacy processing = 0 (never charged).
   const platform_fee_bps = !isProfessional(a.seller_type) ? 0
-    : (a.platform_fee_bps != null ? Number(a.platform_fee_bps) : DEFAULT_PRO_PLATFORM_FEE_BPS);
+    : (a.seller_platform_bps != null ? Number(a.seller_platform_bps) : DEFAULT_PRO_PLATFORM_FEE_BPS);
   return {
-    buyer_premium_bps, platform_fee_bps,
+    buyer_premium_bps, platform_fee_bps, processing_fee_bps: 0, pricing_model,
     seller_type: a.seller_type || null, is_professional: isProfessional(a.seller_type), source,
   };
 }
@@ -121,7 +156,11 @@ async function getSettlement(auctionId, client = db) {
   const buyerPremiumCents = buyerPremiumForLots(rows, terms.buyer_premium_bps);
   return {
     effective_terms: terms,
-    settlement: settlement({ sellerType: terms.seller_type, hammerCents, buyerPremiumCents, platformFeeBps: terms.platform_fee_bps }),
+    settlement: settlement({
+      sellerType: terms.seller_type, hammerCents, buyerPremiumCents,
+      platformFeeBps: terms.platform_fee_bps, processingFeeBps: terms.processing_fee_bps,
+      pricingModel: terms.pricing_model,
+    }),
   };
 }
 
@@ -135,16 +174,19 @@ async function storeSettlement(auctionId) {
     await db.query(
       `UPDATE seller_payouts
           SET buyer_premium_cents = $2, platform_fee_cents = $3, gross_revenue_cents = $4,
-              seller_payout_cents = $5, platform_fee_bps = $6, terms_snapshot = $7, updated_at = now()
+              seller_payout_cents = $5, platform_fee_bps = $6,
+              processing_fee_bps = $8, processing_fee_cents = $9,
+              terms_snapshot = $7, updated_at = now()
         WHERE auction_id = $1`,
       [auctionId, s.buyer_premium_cents, s.platform_fee_cents, s.hammer_cents,
        s.seller_payout_cents, (s.platform_fee_bps != null ? s.platform_fee_bps : null),
-       JSON.stringify({ effective_terms, settlement: s })]);
+       JSON.stringify({ effective_terms, settlement: s }),
+       (s.processing_fee_bps != null ? s.processing_fee_bps : 0), (s.processing_fee_cents || 0)]);
   } catch (e) { console.error('[billingTerms] storeSettlement failed (non-fatal):', e.message); }
 }
 
 module.exports = {
-  DEFAULT_BUYER_PREMIUM_BPS, DEFAULT_PRO_PLATFORM_FEE_BPS, INDIVIDUAL_PLATFORM_FEE_BPS,
+  DEFAULT_BUYER_PREMIUM_BPS, DEFAULT_PRO_PLATFORM_FEE_BPS, INDIVIDUAL_PLATFORM_FEE_BPS, DEFAULT_PROCESSING_FEE_BPS,
   isProfessional, effectiveBuyerPremiumBps, lotBuyerPremiumCents, buyerPremiumForLots, settlement,
   resolveEffectiveTerms, getSettlement, storeSettlement,
   // Back-compat alias (old name) so existing admin/close callers keep working during the transition.

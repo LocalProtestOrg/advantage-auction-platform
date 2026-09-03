@@ -675,6 +675,39 @@ async function publishAuction(auctionId, actorId = null) {
       [auctionId]
     );
 
+    // PRICING SNAPSHOT (centralized-pricing v2): freeze the applicable economics BEFORE bidding, exactly
+    // once, and only for an auction that was never frozen (pricing_model IS NULL — i.e. a draft published
+    // after cutover). Legacy auctions (pricing_model='legacy') and already-frozen v2 auctions are left
+    // untouched, so future config/seller-rate changes can never alter a published auction. Platform and
+    // processing are kept SEPARATE: professional → per-seller platform rate (or config default) + 3%
+    // processing; individual → 0% platform + 3% processing. Buyer premium is frozen to the effective rate.
+    try {
+      const billingTerms = require('./billingTermsService');
+      const pricingConfig = require('./pricingConfigService');
+      const sp = (await client.query(
+        `SELECT sp.seller_type, sp.platform_fee_bps AS seller_platform_bps, st.buyer_premium_pct, a.buyer_premium_bps
+           FROM auctions a
+           LEFT JOIN seller_profiles sp ON sp.id = a.seller_id
+           LEFT JOIN seller_terms st ON st.seller_profile_id = sp.id AND st.superseded_at IS NULL
+          WHERE a.id = $1`, [auctionId])).rows[0] || {};
+      const isPro = billingTerms.isProfessional(sp.seller_type);
+      const buyerPremiumBps = billingTerms.effectiveBuyerPremiumBps(sp.seller_type, { auctionBps: sp.buyer_premium_bps, sellerPct: sp.buyer_premium_pct });
+      const platformBps = isPro
+        ? (sp.seller_platform_bps != null ? Number(sp.seller_platform_bps) : await pricingConfig.currentProPlatformBps())
+        : 0;
+      const processingBps = await pricingConfig.currentProcessingBps();
+      await client.query(
+        `UPDATE auctions
+            SET platform_fee_bps = $2, processing_fee_bps = $3, buyer_premium_bps = $4,
+                pricing_model = 'v2_separated', pricing_snapshot_at = now()
+          WHERE id = $1 AND pricing_model IS NULL`,
+        [auctionId, platformBps, processingBps, buyerPremiumBps]);
+    } catch (e) {
+      // A snapshot failure must not break publication; a NULL pricing_model settles safely as legacy
+      // (processing 0) and can be re-frozen on re-publish. Surface for diagnostics.
+      console.error('[pricing] publish snapshot failed for auction_id=' + auctionId + ':', e.message);
+    }
+
     // Seller intent is authoritative: a lot withdrawn while the auction was still a Draft MUST stay
     // withdrawn across Publish. Lots are created 'open' by default, so the only rows ever in 'withdrawn'
     // are ones a seller/admin explicitly pulled — never resurrect them. (The close-schedule query below
@@ -863,14 +896,22 @@ async function closeAuction(auctionId, actorId = null) {
     const grossRevenueCents = hammerLots.reduce((sum, v) => sum + (v || 0), 0);
     const terms = await billingTerms.resolveEffectiveTerms(auctionId, client);
     const buyerPremiumCents = billingTerms.buyerPremiumForLots(hammerLots, terms.buyer_premium_bps);
-    const s = billingTerms.settlement({ sellerType: terms.seller_type, hammerCents: grossRevenueCents, buyerPremiumCents, platformFeeBps: terms.platform_fee_bps });
+    // Processing fee is kept SEPARATE from the platform fee (v2 auctions only; legacy = 0). The frozen
+    // publish-time snapshot (terms.pricing_model + processing_fee_bps) governs — never live config.
+    const s = billingTerms.settlement({
+      sellerType: terms.seller_type, hammerCents: grossRevenueCents, buyerPremiumCents,
+      platformFeeBps: terms.platform_fee_bps, processingFeeBps: terms.processing_fee_bps,
+      pricingModel: terms.pricing_model,
+    });
     const pref = await getSellerPayoutPreference(sellerUserId);
     await client.query(
       `INSERT INTO seller_payouts
-         (auction_id, seller_user_id, gross_revenue_cents, buyer_premium_cents, platform_fee_cents, platform_fee_bps, seller_payout_cents, payout_method)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+         (auction_id, seller_user_id, gross_revenue_cents, buyer_premium_cents, platform_fee_cents, platform_fee_bps,
+          processing_fee_bps, processing_fee_cents, seller_payout_cents, payout_method)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
        ON CONFLICT (auction_id) DO NOTHING`,
-      [auctionId, sellerUserId, grossRevenueCents, s.buyer_premium_cents, s.platform_fee_cents, (s.platform_fee_bps != null ? s.platform_fee_bps : null), s.seller_payout_cents, pref ? pref.payout_method : null]
+      [auctionId, sellerUserId, grossRevenueCents, s.buyer_premium_cents, s.platform_fee_cents, (s.platform_fee_bps != null ? s.platform_fee_bps : null),
+       (s.processing_fee_bps != null ? s.processing_fee_bps : 0), (s.processing_fee_cents || 0), s.seller_payout_cents, pref ? pref.payout_method : null]
     );
 
     await client.query('COMMIT');

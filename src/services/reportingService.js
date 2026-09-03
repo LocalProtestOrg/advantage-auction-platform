@@ -1,12 +1,14 @@
 const db = require('../db');
-const { platformFeeCents } = require('../lib/settlementPolicy');
+const { platformFeeCents, processingFeeCents } = require('../lib/settlementPolicy');
 
 async function generateAuctionReport(auctionId) {
   const auctionRes = await db.query(
     // Deployed schema column is end_time; aliased to ends_at to preserve the
     // downstream auction.ends_at / report.auction_ends_at interface. seller_type + platform_fee_bps
     // govern the platform fee (professional → per-seller rate of hammer, DEFAULT 4%; individual → 0%).
-    `SELECT a.id, a.title, a.end_time AS ends_at, sp.seller_type, sp.platform_fee_bps
+    `SELECT a.id, a.title, a.end_time AS ends_at, sp.seller_type,
+            COALESCE(a.platform_fee_bps, sp.platform_fee_bps) AS platform_fee_bps,
+            a.processing_fee_bps, a.pricing_model
        FROM auctions a LEFT JOIN seller_profiles sp ON sp.id = a.seller_id
       WHERE a.id = $1`,
     [auctionId]
@@ -66,13 +68,17 @@ async function generateAuctionReport(auctionId) {
   const highest_sale_lot = highestLotRes.rows[0] || null;
 
   // Seller platform fee by seller type (single source of truth: settlementPolicy): individual → 0%,
-  // professional → the seller's configured rate of hammer (DEFAULT 4%). The credit-card processing
-  // reimbursement is a separate, actual-Stripe-cost line computed by the settlement engine, not here.
-  const calcFee = (gross) => platformFeeCents(gross, auction.seller_type, auction.platform_fee_bps);
+  // professional → the configured rate of hammer (DEFAULT 4%). Processing fee is kept SEPARATE: for v2
+  // (centralized-pricing) auctions it is the frozen 3%-of-hammer snapshot; legacy auctions carry 0 here
+  // (their credit-card processing is the actual-Stripe-cost line in the settlement workbench).
+  const isV2 = auction.pricing_model === 'v2_separated';
+  const calcFee  = (gross) => platformFeeCents(gross, auction.seller_type, auction.platform_fee_bps);
+  const calcProc = (gross) => (isV2 ? processingFeeCents(gross, auction.processing_fee_bps) : 0);
 
   const lots = lotsRes.rows.map(row => {
     const gross     = row.winning_amount_cents ?? 0;
     const fee       = calcFee(gross);
+    const proc      = calcProc(gross);
     const bid_count = row.bid_count;
     const intensity = bid_count > 10 ? 'high' : bid_count > 5 ? 'medium' : 'low';
     return {
@@ -87,13 +93,15 @@ async function generateAuctionReport(auctionId) {
       winner_email:         row.winner_email,
       gross_amount_cents:   gross,
       fee_amount_cents:     fee,
-      net_amount_cents:     gross - fee,
+      processing_fee_cents: proc,
+      net_amount_cents:     gross - fee - proc,
     };
   });
 
   const gross_revenue_cents = summary.total_revenue_cents;
   const platform_fee_cents  = calcFee(gross_revenue_cents);
-  const seller_payout_cents = gross_revenue_cents - platform_fee_cents;
+  const processing_fee_cents = calcProc(gross_revenue_cents);
+  const seller_payout_cents = gross_revenue_cents - platform_fee_cents - processing_fee_cents;
 
   return {
     auction_id:           auctionId,
@@ -109,6 +117,8 @@ async function generateAuctionReport(auctionId) {
       highest_sale_lot,
       gross_revenue_cents,
       platform_fee_cents,
+      processing_fee_cents,
+      processing_fee_bps: isV2 ? Number(auction.processing_fee_bps || 0) : 0,
       seller_payout_cents,
     },
     lots,

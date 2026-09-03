@@ -58,6 +58,7 @@
     { href: '/admin/business-listings.html', label: 'Business Listings' },
     { href: '/admin/imported-events.html', label: 'Imported Events' },
     { href: '/admin/invoices.html', label: 'Invoices' },
+    { href: '/admin/pricing.html', label: 'Pricing & Fees', perm: 'seller_platform_fee.view' },
     { href: '/admin/marketplace-config.html', label: 'Marketplace Config' },
     { href: '/admin/follower-emails.html', label: 'Follower Emails' },
     { href: '/admin/sales.html', label: 'Sales & Marketing', perm: 'sales.view' },

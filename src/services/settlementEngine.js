@@ -29,7 +29,7 @@ const db = require('../db');
 const auditService = require('./auditService');
 const { listAdjustments } = require('./settlementAdjustmentService');
 const { getSellerPayoutPreference } = require('./payoutPreferenceService');
-const { platformFeeCents, isProfessionalSellerType, DEFAULT_PRO_PLATFORM_FEE_BPS, sumAdjustments, SETTLEMENT_AUDIT_EVENTS, SETTLEMENT_STATUS } = require('../lib/settlementPolicy');
+const { platformFeeCents, processingFeeCents, isProfessionalSellerType, DEFAULT_PRO_PLATFORM_FEE_BPS, sumAdjustments, SETTLEMENT_AUDIT_EVENTS, SETTLEMENT_STATUS } = require('../lib/settlementPolicy');
 
 class MarkPaidError extends Error {}
 
@@ -47,7 +47,7 @@ function computeSettlementTotals(i = {}) {
   const refunds      = cents(i.refundsCents);
   const failed       = cents(i.failedPaymentsCents);
   const marketing    = cents(i.marketingDeductionCents);
-  const stripeFee    = cents(i.stripeFeeCents);              // ACTUAL Stripe cost; 0 only when unavailable
+  const stripeFee    = cents(i.stripeFeeCents);              // ACTUAL Stripe cost (reconciliation); never a seller charge under v2
   const adj          = sumAdjustments(i.adjustments);        // unified credit/debit: credit adds, debit subtracts
 
   const outstanding  = Math.max(0, expected - collected);
@@ -56,7 +56,13 @@ function computeSettlementTotals(i = {}) {
   // seller_profiles.platform_fee_bps). Basis is gross hammer sales (NOT netCollected, which includes
   // buyer premium), matching the authoritative seller_payouts figure written at close.
   const platformFee  = platformFeeCents(grossSales, i.sellerType, i.sellerPlatformFeeBps);
-  const netProceeds  = netCollected + adj.net_cents - marketing - stripeFee - platformFee;
+  // Processing fee (owner-authoritative 2026-09-03): under the centralized v2 model the seller-facing
+  // processing deduction is a FIXED 3% of hammer (the frozen snapshot), and the ACTUAL Stripe cost is
+  // NOT deducted again (reconciliation only) — no double processing charge. Legacy auctions keep the
+  // prior behavior: the actual Stripe cost IS the processing deduction and there is no flat 3%.
+  const isV2 = i.pricingModel === 'v2_separated';
+  const processingFee = isV2 ? processingFeeCents(grossSales, i.processingFeeBps) : stripeFee;
+  const netProceeds  = netCollected + adj.net_cents - marketing - processingFee - platformFee;
 
   return {
     gross_sales_cents:                grossSales,
@@ -68,7 +74,9 @@ function computeSettlementTotals(i = {}) {
     net_collected_cents:              netCollected,
     adjustments:                      { credit_cents: adj.credit_cents, debit_cents: adj.debit_cents, net_cents: adj.net_cents },
     marketing_deduction_cents:        marketing,
-    credit_card_processing_fee_cents: stripeFee,
+    credit_card_processing_fee_cents: processingFee,          // amount actually DEDUCTED (v2: 3% flat; legacy: actual Stripe)
+    processing_fee_bps:               isV2 ? Math.max(0, cents(i.processingFeeBps)) : 0,
+    actual_stripe_cost_cents:         stripeFee,               // internal reconciliation ONLY — never a second deduction
     seller_platform_fee_bps:          isProfessionalSellerType(i.sellerType)
                                         ? (i.sellerPlatformFeeBps == null ? DEFAULT_PRO_PLATFORM_FEE_BPS : Math.trunc(Number(i.sellerPlatformFeeBps)))
                                         : 0,        // rate actually applied (0 for individuals)
@@ -122,10 +130,17 @@ async function assembleSettlementInputs(auctionId) {
   // Seller type + per-seller rate govern the platform fee (professional → platform_fee_bps of hammer,
   // DEFAULT 4%; individual → 0%).
   const stRes = await db.query(
-    `SELECT sp.seller_type, sp.platform_fee_bps FROM auctions a
-       LEFT JOIN seller_profiles sp ON sp.id = a.seller_id WHERE a.id = $1`, [auctionId]);
-  const sellerType = stRes.rows[0] ? stRes.rows[0].seller_type : null;
-  const sellerPlatformFeeBps = stRes.rows[0] ? stRes.rows[0].platform_fee_bps : null;
+    `SELECT sp.seller_type, sp.platform_fee_bps AS seller_platform_bps,
+            a.platform_fee_bps AS snap_platform_bps, a.processing_fee_bps, a.pricing_model
+       FROM auctions a LEFT JOIN seller_profiles sp ON sp.id = a.seller_id WHERE a.id = $1`, [auctionId]);
+  const row = stRes.rows[0] || {};
+  const sellerType = row.seller_type || null;
+  const pricingModel = row.pricing_model || 'legacy';
+  // v2 auctions use the FROZEN platform snapshot; legacy uses the live per-seller rate (unchanged).
+  const sellerPlatformFeeBps = (pricingModel === 'v2_separated' && row.snap_platform_bps != null)
+    ? row.snap_platform_bps
+    : row.seller_platform_bps;
+  const processingFeeBps = row.processing_fee_bps;
 
   // Expected / collected / outstanding from per-buyer combined invoices (Design C).
   const invRes = await db.query(
@@ -158,6 +173,8 @@ async function assembleSettlementInputs(auctionId) {
   return {
     sellerType,
     sellerPlatformFeeBps,
+    pricingModel,
+    processingFeeBps,
     grossSalesCents:                Number(grossRes.rows[0].gross),
     buyerPaymentsExpectedCents:     Number(invRes.rows[0].expected),
     buyerPaymentsCollectedCents:    Number(invRes.rows[0].collected),

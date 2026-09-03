@@ -24,6 +24,11 @@ const { PROFESSIONAL_SELLER_TYPES } = require('../constants/sellerTypes');
 const PLATFORM_FEE_RATE             = 0;    // individual (Advantage revenue is the buyer premium instead)
 const DEFAULT_PRO_PLATFORM_FEE_BPS  = 400;  // professional software-fee DEFAULT (4.00% of hammer)
 const MAX_PLATFORM_FEE_BPS          = 2500; // validation ceiling (25%), mirrors buyer_premium_bps
+// Owner-authoritative (2026-09-03): a seller-facing credit-card/payment-processing fee, kept SEPARATE
+// from the platform/software fee (never collapsed into one "commission"). Applies to BOTH professional
+// and individual auctions governed by the centralized pricing model. It is a fixed 3%-of-hammer POLICY
+// rate — NOT the exact per-transaction Stripe cost (that is captured separately for reconciliation only).
+const DEFAULT_PROCESSING_FEE_BPS    = 300;  // 3.00% of hammer — seller-facing processing fee
 // Back-compat: the professional default expressed as a rate (some legacy tests import this).
 const PRO_PLATFORM_FEE_RATE         = DEFAULT_PRO_PLATFORM_FEE_BPS / 10000;
 
@@ -49,6 +54,22 @@ function platformFeeCents(grossCents, sellerType, platformFeeBps) {
   const bps = (platformFeeBps == null || !Number.isFinite(Number(platformFeeBps)))
     ? DEFAULT_PRO_PLATFORM_FEE_BPS
     : Math.max(0, Math.trunc(Number(platformFeeBps)));
+  return Math.round(g * bps / 10000);
+}
+
+/**
+ * Cents-safe credit-card/payment-processing fee for a gross (hammer) amount. Kept independent of the
+ * platform fee — each fee is computed from the SAME authoritative hammer base (never fee-on-fee).
+ * Returns 0 when bps is null/invalid (legacy auctions carry processing_fee_bps = 0 → no deduction).
+ * @param {number} grossCents integer cents (hammer)
+ * @param {number} [processingBps] processing rate in basis points (from the frozen auction snapshot)
+ * @returns {number} integer cents
+ */
+function processingFeeCents(grossCents, processingBps) {
+  const g = Number.isFinite(grossCents) ? Math.trunc(grossCents) : 0;
+  const bps = (processingBps == null || !Number.isFinite(Number(processingBps)))
+    ? 0
+    : Math.max(0, Math.trunc(Number(processingBps)));
   return Math.round(g * bps / 10000);
 }
 
@@ -118,9 +139,11 @@ module.exports = {
   PLATFORM_FEE_RATE,
   PRO_PLATFORM_FEE_RATE,
   DEFAULT_PRO_PLATFORM_FEE_BPS,
+  DEFAULT_PROCESSING_FEE_BPS,
   MAX_PLATFORM_FEE_BPS,
   isProfessionalSellerType,
   platformFeeCents,
+  processingFeeCents,
   ADJUSTMENT_TYPE,
   sumAdjustments,
   SETTLEMENT_STATUS,

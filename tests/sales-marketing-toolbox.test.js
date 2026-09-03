@@ -104,8 +104,11 @@ describe('Toolbox exposes nothing unsafe and does not change pricing', () => {
     expect(sales).toMatch(/info@advantage\.bid/);
     expect(sales).not.toMatch(/731|224-3669|7312243669/);
   });
-  test('a pricing advisory tells reps to confirm rates (no numbers invented by this task)', () => {
-    expect(sales).toMatch(/confirm the current numbers with the owner/i);
+  test('pricing guidance states platform + processing separately (never one "7% fee")', () => {
+    expect(sales).toMatch(/4% Advantage\.Bid platform\/software fee/i);
+    expect(sales).toMatch(/3% credit-card processing fee/i);
+    expect(sales).toMatch(/never (describe them as a single|as one)/i);
+    expect(sales).toMatch(/no seller fees charged from Advantage\.Bid/i);
   });
   test('this task did not touch the storefront fee or professional platform-fee code', () => {
     // pricing lives elsewhere; the Toolbox only references it. Guard the fee sources are untouched here.

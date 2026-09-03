@@ -40,16 +40,20 @@ async function createSellerPayoutRecord(auctionId) {
 
   const result = await db.query(
     `INSERT INTO seller_payouts
-       (auction_id, seller_user_id, gross_revenue_cents, platform_fee_cents, seller_payout_cents, payout_method)
-     VALUES ($1, $2, $3, $4, $5, $6)
+       (auction_id, seller_user_id, gross_revenue_cents, platform_fee_cents,
+        processing_fee_bps, processing_fee_cents, seller_payout_cents, payout_method)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
      ON CONFLICT (auction_id) DO NOTHING
      RETURNING *`,
     [
       auctionId,
       sellerUserId,
-      // generateAuctionReport nests these figures under report.summary
+      // generateAuctionReport nests these figures under report.summary. Processing is kept SEPARATE
+      // from the platform fee (0 for legacy auctions; 3% snapshot for v2).
       report.summary.gross_revenue_cents,
       report.summary.platform_fee_cents,
+      report.summary.processing_fee_bps || 0,
+      report.summary.processing_fee_cents || 0,
       report.summary.seller_payout_cents,
       pref ? pref.payout_method : null
     ]

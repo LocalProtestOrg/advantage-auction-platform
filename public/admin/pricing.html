@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="noindex, nofollow" />
+  <title>Pricing &amp; Fees — Advantage Admin</title>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <style>
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#f8fafc;color:#0f172a}
+    .wrap{max-width:900px;margin:0 auto;padding:1rem}
+    h1{font-size:1.35rem;margin:.4rem 0 .2rem}
+    .sub{color:#64748b;font-size:.85rem;margin-bottom:1rem}
+    .card{background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:1.1rem 1.2rem;margin-bottom:1rem}
+    .card h2{font-size:1rem;margin-bottom:.15rem}
+    .card .note{color:#64748b;font-size:.8rem;margin-bottom:.7rem}
+    .row{display:flex;align-items:center;justify-content:space-between;gap:1rem;padding:.55rem 0;border-top:1px solid #f1f5f9}
+    .row:first-of-type{border-top:none}
+    .row .lbl{font-size:.9rem;font-weight:600}
+    .row .lbl small{display:block;font-weight:400;color:#94a3b8;font-size:.74rem;margin-top:2px}
+    .val{font-size:1rem;font-weight:800;color:#0f172a}
+    .derived{color:#64748b;font-weight:700}
+    .pill{display:inline-block;font-size:.66rem;font-weight:800;text-transform:uppercase;letter-spacing:.04em;border-radius:999px;padding:2px 8px;margin-left:.4rem}
+    .pill.edit{background:#dbeafe;color:#1e40af}
+    .pill.ro{background:#f1f5f9;color:#64748b}
+    .pill.derived{background:#f8fafc;color:#94a3b8;border:1px solid #e2e8f0}
+    input[type=number]{width:80px;padding:.35rem .5rem;border:1px solid #cbd5e1;border-radius:7px;font-size:.9rem;text-align:right}
+    button{background:#1d4ed8;color:#fff;border:none;border-radius:7px;padding:.4rem .9rem;font-weight:700;font-size:.82rem;cursor:pointer}
+    button:disabled{opacity:.5;cursor:default}
+    .msg{font-size:.85rem;min-height:1.1rem;margin:.5rem 0;color:#166534}
+    .msg.err{color:#b91c1c}
+    .banner{background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:.6rem .8rem;font-size:.82rem;color:#1e40af;margin-bottom:1rem}
+  </style>
+  <script src="/widgets/shared/admin-nav.js"></script>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Pricing &amp; Fees</h1>
+    <div class="sub">The authoritative, centralized Advantage.Bid pricing. Changes apply to <b>new</b> auctions only — published auctions keep the pricing frozen at publish, and executed agreements never change.</div>
+    <div class="banner">The <b>platform/software fee</b> and the <b>credit-card processing fee</b> are always kept <b>separate</b>. The 7% figure is only a derived total for reference — it is never edited directly.</div>
+    <div class="msg" id="msg"></div>
+
+    <div class="card">
+      <h2>Auctions — Professional Seller</h2>
+      <div class="note">Standard rates. A professional seller may have a negotiated platform rate on their account; processing stays 3% unless separately authorized.</div>
+      <div class="row">
+        <div class="lbl">Advantage.Bid Platform / Software Fee <span class="pill edit">Editable</span><small>Percentage of hammer price</small></div>
+        <div><input type="number" id="pro-platform" step="0.01" min="0" max="25"> % <button data-key="pricing.auction.professional.platform_fee_bps" data-input="pro-platform">Save</button></div>
+      </div>
+      <div class="row">
+        <div class="lbl">Credit-Card / Payment-Processing Fee <span class="pill edit">Editable</span><small>Percentage of hammer price · covers Stripe processing cost</small></div>
+        <div><input type="number" id="proc" step="0.01" min="0" max="25"> % <button data-key="pricing.auction.processing_fee_bps" data-input="proc">Save</button></div>
+      </div>
+      <div class="row">
+        <div class="lbl derived">Total seller-side deduction <span class="pill derived">Derived</span><small>Platform + processing — calculated, not editable</small></div>
+        <div class="val derived" id="pro-total">—</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Auctions — Individual / Private Seller</h2>
+      <div class="row">
+        <div class="lbl">Advantage.Bid Seller Fee <span class="pill ro">Read-only</span></div>
+        <div class="val" id="ind-platform">—</div>
+      </div>
+      <div class="row">
+        <div class="lbl">Credit-Card / Payment-Processing Fee <span class="pill ro">Read-only</span><small>Same processing rate as professional</small></div>
+        <div class="val" id="ind-proc">—</div>
+      </div>
+      <div class="row">
+        <div class="lbl">Standard Buyer's Premium <span class="pill ro">Read-only</span><small>Paid by the buyer, retained by Advantage.Bid — not a seller fee</small></div>
+        <div class="val" id="ind-bp">—</div>
+      </div>
+      <div class="row">
+        <div class="lbl derived">Total seller-side deduction <span class="pill derived">Derived</span></div>
+        <div class="val derived" id="ind-total">—</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Professional Storefront (fixed-price)</h2>
+      <div class="row">
+        <div class="lbl">Seller Fee <span class="pill ro">Read-only</span><small>On item price only — shipping &amp; tax excluded; processing included (no extra 3%)</small></div>
+        <div class="val" id="sf-fee">—</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Other Products</h2>
+      <div class="row"><div class="lbl">Individual Estate Sale Event <span class="pill ro">Read-only</span><small>Billed via Stripe</small></div><div class="val" id="estate">—</div></div>
+      <div class="row"><div class="lbl">Appraiser Membership <span class="pill ro">Read-only</span><small>Billed via Stripe · per year</small></div><div class="val" id="appraiser">—</div></div>
+      <div class="row"><div class="lbl">Marketing Packages <span class="pill ro">Read-only</span><small>Managed in Marketplace Config</small></div><div class="val" style="font-size:.85rem;color:#64748b">$0 / $99 / $249</div></div>
+    </div>
+  </div>
+
+<script>
+  var tok = localStorage.getItem('token');
+  function money(c){ return '$' + (Number(c||0)/100).toFixed(2); }
+  function pct(bps){ return (Number(bps||0)/100).toFixed(2).replace(/\.00$/,'') + '%'; }
+  function msg(t,err){ var m=document.getElementById('msg'); m.textContent=t||''; m.className='msg'+(err?' err':''); }
+
+  function render(d){
+    var p = d.auction.professional, i = d.auction.individual;
+    document.getElementById('pro-platform').value = (p.platform_fee_bps/100);
+    document.getElementById('proc').value = (p.processing_fee_bps/100);
+    document.getElementById('pro-total').textContent = pct(p.total_seller_deduction_bps);
+    document.getElementById('ind-platform').textContent = pct(i.platform_fee_bps);
+    document.getElementById('ind-proc').textContent = pct(i.processing_fee_bps);
+    document.getElementById('ind-bp').textContent = pct(i.buyer_premium_bps);
+    document.getElementById('ind-total').textContent = pct(i.total_seller_deduction_bps);
+    document.getElementById('sf-fee').textContent = pct(d.storefront.seller_fee_bps) + ' (processing included)';
+    document.getElementById('estate').textContent = money(d.estate_sale.price_cents);
+    document.getElementById('appraiser').textContent = money(d.appraiser.price_cents) + ' / year';
+  }
+
+  async function load(){
+    try{
+      var r = await fetch('/api/admin/pricing', { headers:{ Authorization:'Bearer '+tok } });
+      if(r.status===401||r.status===403){ msg('You do not have permission to view pricing.', true); return; }
+      var d = await r.json(); if(d && d.success) render(d.data);
+    }catch(e){ msg('Could not load pricing.', true); }
+  }
+
+  document.querySelectorAll('button[data-key]').forEach(function(btn){
+    btn.onclick = async function(){
+      var key = btn.getAttribute('data-key');
+      var pctVal = Number(document.getElementById(btn.getAttribute('data-input')).value);
+      if(!isFinite(pctVal) || pctVal<0 || pctVal>25){ msg('Enter a percentage between 0 and 25.', true); return; }
+      var bps = Math.round(pctVal*100);
+      btn.disabled=true;
+      try{
+        var r = await fetch('/api/admin/pricing', { method:'PUT', headers:{'Content-Type':'application/json',Authorization:'Bearer '+tok}, body: JSON.stringify({ key: key, bps: bps }) });
+        var d = await r.json();
+        if(!r.ok || !d.success){ msg((d && d.message) || 'Save failed.', true); btn.disabled=false; return; }
+        render(d.data); msg('Saved. New auctions will use the updated rate.');
+      }catch(e){ msg('Save failed.', true); }
+      btn.disabled=false;
+    };
+  });
+
+  load();
+</script>
+</body>
+</html>
