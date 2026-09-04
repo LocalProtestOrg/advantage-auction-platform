@@ -54,13 +54,18 @@ function isConfigured() {
   return Boolean(SMTP_HOST && SMTP_USER && SMTP_PASS);
 }
 
-// Lazy singleton transport - reused across sends.
-let _transporter = null;
-function getTransporter() {
-  if (_transporter) return _transporter;
+// Optional dedicated marketing SES configuration set (reputation/event isolation). Unset = no header,
+// so behavior is unchanged until the Owner creates one and sets the env var.
+const SES_MARKETING_CONFIGURATION_SET = process.env.SES_MARKETING_CONFIGURATION_SET || null;
+
+// Lazy singleton transports. TRANSACTIONAL isolation: marketing uses its OWN pooled connection set so a
+// marketing burst can never starve the transactional pool (auth/bids/invoices keep their connections).
+let _transporter = null;         // transactional (default) — unchanged
+let _marketingTransporter = null;
+function buildTransport(maxConnections) {
   const port   = parseInt(SMTP_PORT || '587', 10);
   const secure = SMTP_SECURE === 'true' || SMTP_SECURE === '1' || port === 465;
-  _transporter = nodemailer.createTransport({
+  return nodemailer.createTransport({
     host: SMTP_HOST,
     port,
     secure,
@@ -68,13 +73,21 @@ function getTransporter() {
     // Pool connections so a burst at auction close doesn't pay a fresh STARTTLS
     // handshake per message and respects SES connection limits deliberately.
     pool: true,
-    maxConnections: 5,
+    maxConnections,
     maxMessages:    100,
     connectionTimeout: 15_000,
     greetingTimeout:   10_000,
     socketTimeout:     30_000,
   });
+}
+function getTransporter() {
+  if (!_transporter) _transporter = buildTransport(5);
   return _transporter;
+}
+// Separate, smaller marketing pool — deliberately capped so bulk marketing yields to transactional mail.
+function getMarketingTransporter() {
+  if (!_marketingTransporter) _marketingTransporter = buildTransport(2);
+  return _marketingTransporter;
 }
 
 /**
@@ -90,7 +103,7 @@ function getTransporter() {
  * @returns {Promise<object>} { messageId } on success, { skipped: true } if unconfigured
  * @throws on delivery failure
  */
-async function sendEmail({ to, subject, html, text, attachments, replyTo, headers, fromName, bcc }) {
+async function sendEmail({ to, subject, html, text, attachments, replyTo, headers, fromName, bcc, mailStream }) {
   if (!isConfigured()) {
     console.warn('[email] SMTP/SES not configured - skipping delivery to', to);
     return { skipped: true };
@@ -101,7 +114,14 @@ async function sendEmail({ to, subject, html, text, attachments, replyTo, header
     // is preserved). `fromName` only sets the friendly display name — e.g. "Kym Witt — Advantage.Bid"
     // <notifications@advantage.bid> — so a rep's identity is visible without a per-mailbox SES identity.
     const from = fromName ? `${String(fromName).replace(/["\r\n<>]/g, '').trim()} <${EMAIL_FROM}>` : EMAIL_FROM;
-    const info = await getTransporter().sendMail({
+    const isMarketing = mailStream === 'marketing';
+    // Marketing uses its own pool; when an SES marketing configuration set is configured, tag the message
+    // so bounces/complaints/deliveries publish to the marketing event destination (reputation isolation).
+    const mergedHeaders = Object.assign({},
+      (headers && typeof headers === 'object' ? headers : {}),
+      (isMarketing && SES_MARKETING_CONFIGURATION_SET ? { 'X-SES-CONFIGURATION-SET': SES_MARKETING_CONFIGURATION_SET } : {}));
+    const transporter = isMarketing ? getMarketingTransporter() : getTransporter();
+    const info = await transporter.sendMail({
       from,
       to,
       subject,
@@ -110,7 +130,7 @@ async function sendEmail({ to, subject, html, text, attachments, replyTo, header
       ...(bcc ? { bcc } : {}),
       ...(Array.isArray(attachments) && attachments.length ? { attachments } : {}),
       // Custom SMTP headers (e.g. List-Unsubscribe / List-Unsubscribe-Post for one-click unsubscribe).
-      ...(headers && typeof headers === 'object' ? { headers } : {}),
+      ...(Object.keys(mergedHeaders).length ? { headers: mergedHeaders } : {}),
       // Per-message reply-to (e.g. the assigned sales rep's approved @advantage.bid address).
       replyTo: replyTo || EFFECTIVE_REPLY_TO,
     });
@@ -124,4 +144,4 @@ async function sendEmail({ to, subject, html, text, attachments, replyTo, header
   }
 }
 
-module.exports = { sendEmail };
+module.exports = { sendEmail, isConfigured, marketingConfigurationSet: () => SES_MARKETING_CONFIGURATION_SET, EMAIL_FROM };

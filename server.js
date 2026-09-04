@@ -579,6 +579,7 @@ app.use('/api/admin/pickup', adminPickupRoutes);
 app.use('/api/admin/launch-readiness', adminLaunchReadinessRoutes);
 app.use('/api/admin/settlements', adminSettlementsRoutes);
 app.use('/api/admin/subscribers', require('./src/routes/adminSubscribers'));
+app.use('/api/admin/marketing-campaigns', require('./src/routes/adminMarketingCampaigns'));
 app.use('/api/admin/contact', adminContactRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/agreements', agreementsRoutes);
@@ -606,6 +607,7 @@ app.use('/api/seller-storefront', require('./src/routes/sellerStorefront')); // 
 app.use('/api/marketplace', require('./src/routes/marketplaceOrders')); // fixed-price Buy Now checkout + buyer/seller/admin order mgmt (auth; flag-gated)
 app.use('/api/public/follower-emails', require('./src/routes/publicFollowerEmails')); // one-click unsubscribe (no auth)
 app.use('/api/public/subscribers', require('./src/routes/publicSubscribe')); // first-party newsletter signup (collection only)
+app.use('/api/public/marketing-email', require('./src/routes/publicMarketingEmail')); // marketing unsubscribe + click (no auth, token-signed)
 app.use('/api/admin/follower-emails', require('./src/routes/adminFollowerEmails'));    // admin campaign review + privilege
 app.use('/api/org/claim', orgClaimRoutes);
 app.use('/api/org', orgEventsRoutes);

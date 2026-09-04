@@ -120,15 +120,21 @@ async function evaluateContact({ contact, campaignId = null, marketingClass = nu
   // 5. Geography (email geo is independent from the paid 30-mile radius).
   if (!geoMatches(geoStrategy, contact)) return { eligible: false, reason: REASON.GEO_MISMATCH };
 
-  // 6. Frequency + spacing (config-driven).
+  // 6. Frequency + spacing (config-driven). Layered caps: per-day, per-7d, per-30d, min spacing.
   if (contact.id) {
     const cap = await marketingConfig.getInt('marketing.email.frequency_cap_per_30d', 4);
+    const perDay = await marketingConfig.getInt('marketing.email.max_per_day', 1);
+    const per7d = await marketingConfig.getInt('marketing.email.max_per_7d', 3);
     const spacingHours = await marketingConfig.getInt('marketing.email.min_spacing_hours', 48);
     const recent = (await r.query(
-      `SELECT count(*)::int AS c, max(created_at) AS last_at
+      `SELECT count(*)::int AS c, max(created_at) AS last_at,
+              count(*) FILTER (WHERE created_at > now() - interval '1 day')::int  AS c1d,
+              count(*) FILTER (WHERE created_at > now() - interval '7 days')::int AS c7d
          FROM marketing_campaign_recipients
         WHERE contact_id = $1 AND status IN ('queued','sent') AND created_at > now() - interval '30 days'`,
       [contact.id])).rows[0];
+    if (recent && recent.c1d >= perDay) return { eligible: false, reason: REASON.FREQUENCY_CAPPED, detail: `${recent.c1d}/${perDay} in 1d` };
+    if (recent && recent.c7d >= per7d) return { eligible: false, reason: REASON.FREQUENCY_CAPPED, detail: `${recent.c7d}/${per7d} in 7d` };
     if (recent && recent.c >= cap) return { eligible: false, reason: REASON.FREQUENCY_CAPPED, detail: `${recent.c}/${cap} in 30d` };
     if (recent && recent.last_at) {
       const gap = await r.query(`SELECT (now() - $1::timestamptz) < ($2 || ' hours')::interval AS too_soon`, [recent.last_at, String(spacingHours)]);
