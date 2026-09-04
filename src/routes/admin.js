@@ -491,7 +491,10 @@ router.post('/auctions/:auctionId/publish', auth, role(['admin']), idempotency, 
 router.patch('/auctions/:auctionId/publish', auth, role(['admin']), idempotency, async (req, res, next) => {
   try {
     const { auctionId } = req.params;
-    const result = await auctionService.publishAuction(auctionId, req.user.id);
+    // Admin/Super-Admin may publish below the 30-lot minimum ONLY with an explicit override reason
+    // (server-authoritative RBAC via role(['admin']); reason required; audited in publishAuction).
+    const result = await auctionService.publishAuction(auctionId, req.user.id,
+      { actorRole: 'admin', overrideReason: (req.body && (req.body.override_reason || req.body.overrideReason)) || null });
 
     // Compliance decision-support scan on admin publish — best-effort, non-blocking.
     require('../services/complianceService').scanAuctionSafe(auctionId);

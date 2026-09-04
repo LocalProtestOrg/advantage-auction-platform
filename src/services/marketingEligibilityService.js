@@ -11,12 +11,16 @@
 const db = require('../db');
 const elig = require('../lib/marketingEligibility');
 
-// Build the SQL predicate for clothing categories that mirrors marketingEligibility.isClothingCategory
-// (case-insensitive; startsWith 'clothing' OR contains 'apparel'/'clothes'). Kept in one place.
+// Clothing predicate: prefer the CONTROLLED category_key ('clothing') where present; fall back to the
+// legacy free-text matcher for historical/imported lots that predate the controlled taxonomy (category_key
+// NULL). Mirrors lotCategories.isClothingKey + marketingEligibility.isClothingCategory.
 const CLOTHING_SQL = `(
-  lower(coalesce(category,'')) LIKE 'clothing%'
-  OR lower(coalesce(category,'')) LIKE '%apparel%'
-  OR lower(coalesce(category,'')) LIKE '%clothes%'
+  lower(coalesce(category_key,'')) = 'clothing'
+  OR (category_key IS NULL AND (
+       lower(coalesce(category,'')) LIKE 'clothing%'
+       OR lower(coalesce(category,'')) LIKE '%apparel%'
+       OR lower(coalesce(category,'')) LIKE '%clothes%'
+  ))
 )`;
 
 /**

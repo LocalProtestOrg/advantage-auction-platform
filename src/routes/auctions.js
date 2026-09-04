@@ -340,6 +340,11 @@ router.patch('/:auctionId', authMiddleware, async (req, res) => {
         adminOverrideAvailable: !!err.adminOverrideAvailable,
       });
     }
+    // 30-lot minimum not met on a submit/publish transition → 422 with progress detail.
+    if (err && err.code === 'MINIMUM_LOTS_NOT_MET') {
+      return res.status(422).json({ success: false, code: err.code, message: err.message,
+        valid_lots: err.valid_lots, required: err.required, adminOverrideAvailable: !!err.adminOverrideAvailable });
+    }
     console.error('Update Auction Error:', err);
     return res.status(500).json({ success: false, message: err.message });
   }

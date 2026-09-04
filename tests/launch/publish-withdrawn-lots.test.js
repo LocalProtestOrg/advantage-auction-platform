@@ -28,7 +28,7 @@ function fakeClient() {
       const s = String(sql);
       queries.push(s);
       if (/FROM auctions WHERE id = \$1 FOR UPDATE/.test(s)) return { rows: [{ id: 'A', state: 'draft', seller_id: 'S', start_time: FUTURE }] };
-      if (/count\(\*\)::int AS c FROM lots/.test(s)) return { rows: [{ c: 2 }] };
+      if (/count\(\*\)::int AS c FROM lots/.test(s)) return { rows: [{ c: 30 }] }; // >=30 so the 30-lot minimum passes; this suite tests withdrawn-lot exclusion
       if (/UPDATE\s+auctions[\s\S]*state = 'published'[\s\S]*RETURNING/.test(s)) return { rows: [{ id: 'A', state: 'published', start_time: FUTURE }] };
       return { rows: [] };
     }),

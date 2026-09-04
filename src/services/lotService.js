@@ -33,13 +33,13 @@ async function createLot(auctionId, userId, data) {
     `INSERT INTO lots (
        auction_id, title, description,
        starting_bid_cents, bid_increment_cents,
-       pickup_category, category,
+       pickup_category, category, category_key,
        condition, material, era, maker_artist, weight,
        dimensions, shippable,
        lot_number,
        state
      )
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,
              (SELECT COALESCE(MAX(lot_number), 0) + 1 FROM lots WHERE auction_id = $1),
              'open')
      RETURNING *`,
@@ -51,6 +51,7 @@ async function createLot(auctionId, userId, data) {
       bidIncrement  ? Math.round(Number(bidIncrement)  * 100) : 500,
       pickupCategory || null,
       category       || null,
+      require('../constants/lotCategories').normalizeToCategoryKey(category),
       condition      || null,
       material       || null,
       era            || null,
@@ -105,6 +106,7 @@ async function updateLot(lotId, userId, updates) {
     startingPrice: 'starting_bid_cents',
     bidIncrement:  'bid_increment_cents',
     pickupCategory:'pickup_category',
+    category:      'category',
     state:         'state'
   };
 
@@ -118,6 +120,13 @@ async function updateLot(lotId, userId, updates) {
       }
       index++;
     }
+  }
+
+  // Keep the normalized controlled key in sync whenever the free-text category changes.
+  if (updates.category !== undefined) {
+    fields.push(`category_key = $${index}`);
+    values.push(require('../constants/lotCategories').normalizeToCategoryKey(updates.category));
+    index++;
   }
 
   if (fields.length === 0) {
@@ -168,13 +177,13 @@ async function adminCreateLot(auctionId, data) {
     `INSERT INTO lots (
        auction_id, title, description,
        starting_bid_cents, bid_increment_cents,
-       pickup_category, category,
+       pickup_category, category, category_key,
        condition, material, era, maker_artist, weight,
        dimensions, shippable,
        lot_number,
        state
      )
-     VALUES ($1,$2,$3,$4,500,$5,$6,$7,$8,$9,$10,$11,$12,$13,
+     VALUES ($1,$2,$3,$4,500,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,
              (SELECT COALESCE(MAX(lot_number), 0) + 1 FROM lots WHERE auction_id = $1),
              'open')
      RETURNING *`,
@@ -185,6 +194,7 @@ async function adminCreateLot(auctionId, data) {
       startingPrice ? Math.round(Number(startingPrice) * 100) : 100,
       pickupCategory || null,
       category       || null,
+      require('../constants/lotCategories').normalizeToCategoryKey(category),
       condition      || null,
       material       || null,
       era            || null,

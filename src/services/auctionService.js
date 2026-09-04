@@ -14,6 +14,34 @@ const ownerAlertService = require('./ownerAlertService'); // best-effort owner S
 // follow-up; 60s is the AAC default.
 const LOT_CLOSE_INTERVAL_SECONDS = 60;
 
+// Minimum valid lots a seller-created online auction needs before it can be SUBMITTED or PUBLISHED.
+// Drafts may be built freely below this; the minimum is enforced only at the submit/publish transition.
+const MIN_LOTS_FOR_SUBMISSION = 30;
+
+// Authoritative valid-lot counter — the ONE definition shared by publish/submit + marketing eligibility.
+// Valid = not withdrawn (matches every other valid-lot query in the codebase). Withdrawn/removed lots
+// cannot be used to reach the minimum.
+async function countValidLots(auctionId, runner = db) {
+  const r = await runner.query(
+    "SELECT count(*)::int AS c FROM lots WHERE auction_id = $1 AND state <> 'withdrawn'", [auctionId]);
+  return r.rows[0] ? r.rows[0].c : 0;
+}
+
+// Shared minimum-lots gate for a submit/publish transition. Admin + a non-empty reason overrides (audited);
+// otherwise throws an actionable MINIMUM_LOTS_NOT_MET (422). Returns { overridden, validLots } on pass.
+async function enforceMinimumLots(auctionId, { actorRole, overrideReason, runner = db } = {}) {
+  const validLots = await countValidLots(auctionId, runner);
+  if (validLots >= MIN_LOTS_FOR_SUBMISSION) return { overridden: false, validLots };
+  const isAdmin = actorRole === 'admin';
+  const hasReason = overrideReason != null && String(overrideReason).trim().length > 0;
+  if (isAdmin && hasReason) return { overridden: true, validLots };
+  const need = MIN_LOTS_FOR_SUBMISSION - validLots;
+  const e = new Error(`This auction needs at least ${MIN_LOTS_FOR_SUBMISSION} lots before it can be submitted or published. You currently have ${validLots}. Add ${need} more to continue.`);
+  e.code = 'MINIMUM_LOTS_NOT_MET'; e.status = 422;
+  e.valid_lots = validLots; e.required = MIN_LOTS_FOR_SUBMISSION; e.adminOverrideAvailable = isAdmin;
+  throw e;
+}
+
 // Fields that define WHERE an auction is. A change to any of them re-triggers
 // geocoding for the homepage map; a change to anything else must not.
 const LOCATION_FIELDS = ['street_address', 'city', 'address_state', 'zip'];
@@ -271,6 +299,15 @@ async function updateAuction(auctionId, userId, updates, actorRole, options = {}
     }
   }
 
+  // 30-LOT MINIMUM: a seller-created online auction needs >= 30 valid lots to submit or publish. Enforced
+  // server-side on the submit/publish transition (covers Individual submit AND the seller PATCH state=submitted
+  // path). Admin + a reason overrides (audited). Drafts below 30 are untouched (this only runs on transition).
+  let minLotsOverride = null;
+  if (submitOrPublish) {
+    const mres = await enforceMinimumLots(auctionId, { actorRole, overrideReason: options.overrideReason });
+    if (mres.overridden) minLotsOverride = { valid_lots: mres.validLots, required: MIN_LOTS_FOR_SUBMISSION, reason: options.overrideReason };
+  }
+
   // Phase C.2: Preview Start/End are professional-only. For non-professional
   // (non-admin) sellers, strip preview fields from the update so they are never
   // written — existing values are preserved (grandfathering of existing auctions).
@@ -431,6 +468,17 @@ async function updateAuction(auctionId, userId, updates, actorRole, options = {}
   // Phase C: record an admin override of the schedule rule (non-blocking;
   // visible in the auction History timeline). Only set when an admin proceeded
   // past a violation with an override reason.
+  // Admin override of the 30-lot minimum (explicit, reason-required, audited — actor/auction/count/reason).
+  if (minLotsOverride) {
+    writeAuditLog({
+      event_type:  'minimum_lots_overridden',
+      entity_type: 'auction',
+      entity_id:   auctionId,
+      auction_id:  auctionId,
+      actor_id:    userId,
+      metadata: { valid_lots: minLotsOverride.valid_lots, required: minLotsOverride.required, override_reason: minLotsOverride.reason, phase: 'update' },
+    }).catch(() => {});
+  }
   if (scheduleOverride) {
     writeAuditLog({
       event_type:  'schedule_rule_overridden',
@@ -610,7 +658,7 @@ async function getAuctionById(auctionId, userId) {
   return result.rows[0] || null;
 }
 
-async function publishAuction(auctionId, actorId = null) {
+async function publishAuction(auctionId, actorId = null, options = {}) {
   const client = await db.connect();
   try {
     await client.query('BEGIN');
@@ -647,6 +695,23 @@ async function publishAuction(auctionId, actorId = null) {
       const e = new Error('This auction has no lots. Add at least one lot before publishing.');
       e.code = 'AUCTION_HAS_NO_LOTS'; e.status = 422;
       throw e;
+    }
+
+    // 30-LOT MINIMUM (server-authoritative, applies to the publish authority — covers admin direct-publish
+    // and Professional auto-publish via sellerSubmitAuction). Admin + a reason overrides (audited). The
+    // ≥1-lot guard above remains non-overridable (a real auction always needs at least one lot).
+    let minLotsOverridden = false;
+    if (lotCountRes.rows[0].c < MIN_LOTS_FOR_SUBMISSION) {
+      const isAdmin = options.actorRole === 'admin';
+      const hasReason = options.overrideReason != null && String(options.overrideReason).trim().length > 0;
+      if (isAdmin && hasReason) { minLotsOverridden = true; }
+      else {
+        const need = MIN_LOTS_FOR_SUBMISSION - lotCountRes.rows[0].c;
+        const e = new Error(`This auction needs at least ${MIN_LOTS_FOR_SUBMISSION} lots before it can be published. It currently has ${lotCountRes.rows[0].c}. Add ${need} more to continue.`);
+        e.code = 'MINIMUM_LOTS_NOT_MET'; e.status = 422;
+        e.valid_lots = lotCountRes.rows[0].c; e.required = MIN_LOTS_FOR_SUBMISSION; e.adminOverrideAvailable = isAdmin;
+        throw e;
+      }
     }
 
     // Verification publication gate: ONLY blocks when the seller is explicitly
@@ -754,6 +819,15 @@ async function publishAuction(auctionId, actorId = null) {
     });
 
     await client.query('COMMIT');
+
+    // Admin override of the 30-lot minimum at publish (explicit, reason-required, audited).
+    if (minLotsOverridden) {
+      writeAuditLog({
+        event_type: 'minimum_lots_overridden', entity_type: 'auction', entity_id: auctionId,
+        auction_id: auctionId, actor_id: actorId,
+        metadata: { valid_lots: lotCountRes.rows[0].c, required: MIN_LOTS_FOR_SUBMISSION, override_reason: options.overrideReason, phase: 'publish' },
+      }).catch(() => {});
+    }
 
     // Geocoding recovery attempt: an auction reaching the public map with no marker
     // is the exact defect this exists to prevent, so publish is the last chance to
@@ -1111,6 +1185,9 @@ module.exports = {
   publishAuction,
   professionalAutoPublishEligibility,
   sellerSubmitAuction,
+  MIN_LOTS_FOR_SUBMISSION,
+  countValidLots,
+  enforceMinimumLots,
   closeAuction,
   // Exported for unit-testing the Phase C override decision without a DB.
   enforceScheduleRule,

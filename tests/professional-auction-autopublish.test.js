@@ -148,6 +148,6 @@ describe('regression', () => {
     expect(read('src', 'services', 'auctionService.js')).toMatch(/if \(enteredSubmitted\) \{\s*ownerAlertService\.notifyOwnerAuctionSubmitted\(auctionId\)/);
   });
   test('admin publication path is unchanged (publishAuction still called from admin route)', () => {
-    expect(read('src', 'routes', 'admin.js')).toMatch(/auctionService\.publishAuction\(auctionId, req\.user\.id\)/);
+    expect(read('src', 'routes', 'admin.js')).toMatch(/auctionService\.publishAuction\(auctionId, req\.user\.id,/); // now passes admin override options (actorRole+reason)
   });
 });
