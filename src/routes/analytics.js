@@ -23,6 +23,8 @@
 const express    = require('express');
 const rateLimit  = require('express-rate-limit');
 const { insertEvent, insertBatch } = require('../services/analyticsService');
+const auth = require('../middleware/authMiddleware');
+const behavioralIdentity = require('../services/behavioralIdentityService');
 
 const router = express.Router();
 
@@ -55,6 +57,18 @@ router.post('/events', analyticsLimiter, (req, res) => {
   } else if (body && typeof body === 'object') {
     insertEvent(body, ip);
   }
+});
+
+// ── POST /api/analytics/identify (AUTHENTICATED) ────────────────────────────────
+// Explicit anonymous→known linkage on an authoritative first-party action. Requires a valid session so
+// the user_id is server-derived (never client-asserted). Idempotent; never a speculative merge.
+router.post('/identify', auth, express.json(), async (req, res, next) => {
+  try {
+    const visitorId = req.body && req.body.visitor_id;
+    const source = (req.body && req.body.source) || 'login';
+    const link = await behavioralIdentity.link({ visitorId, userId: req.user.id, source });
+    return res.json({ success: !!link, linked: !!link });
+  } catch (e) { next(e); }
 });
 
 module.exports = router;

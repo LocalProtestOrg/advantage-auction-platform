@@ -15,6 +15,7 @@
 
 const crypto = require('crypto');
 const db     = require('../db');
+const pageIntent = require('../lib/pageIntentRegistry');
 
 // ── Known event types ──────────────────────────────────────────────────────────
 // New types are allowed (stored as-is) — this set is used for metrics only.
@@ -113,6 +114,13 @@ async function insertEvent(raw, ip) {
     const clientTs   = safeTs(raw.client_ts);
     const metadata   = sanitizeMetadata(raw.metadata);
 
+    // Phase 4F: durable first-party anonymous visitor id (not identity), controlled category key, and a
+    // SERVER-classified page intent (from the path — never trusted from the client, so it can't be spoofed).
+    const visitorId  = safeText(raw.visitor_id, 64);
+    const categoryKey = safeText(raw.category_key, 48);
+    let pageIntentVal = null;
+    try { const cls = pageIntent.classify(pageUrl || raw.page_url); if (cls) pageIntentVal = cls.intent; } catch (_) { pageIntentVal = null; }
+
     const metaJson = JSON.stringify(metadata);
     if (metaJson.length > MAX_METADATA_BYTES) return;
 
@@ -120,12 +128,12 @@ async function insertEvent(raw, ip) {
       `INSERT INTO analytics_events
          (event_type, session_id, device_type, page_url, referrer,
           widget_name, auction_id, seller_id, city, state_code,
-          metadata, client_ts, ip_hash)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)`,
+          metadata, client_ts, ip_hash, visitor_id, page_intent, category_key)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)`,
       [
         eventType, sessionId, deviceType, pageUrl, referrer,
         widgetName, auctionId, sellerId, city, stateCode,
-        metaJson, clientTs, hashIp(ip),
+        metaJson, clientTs, hashIp(ip), visitorId, pageIntentVal, categoryKey,
       ]
     );
   } catch (err) {

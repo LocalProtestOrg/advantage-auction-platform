@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="noindex, nofollow" />
+  <title>Behavioral Audiences - Advantage Admin</title>
+  <style>
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#f8fafc;color:#0f172a}
+    .wrap{max-width:1150px;margin:0 auto;padding:1rem}
+    h1{font-size:1.3rem;margin:.4rem 0 .3rem}
+    p.lede{color:#64748b;font-size:.85rem;margin-bottom:1rem}
+    .bar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:1rem}
+    button{padding:.5rem 1rem;border:none;border-radius:7px;background:#111827;color:#fff;font-weight:700;cursor:pointer;font-size:.85rem}
+    button.alt{background:#2563eb}
+    .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:1rem}
+    .card{background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:1rem}
+    .card h3{font-size:1rem;margin-bottom:.2rem}
+    .fam{display:inline-block;font-size:.62rem;font-weight:800;text-transform:uppercase;letter-spacing:.04em;border-radius:999px;padding:2px 8px;background:#e0e7ff;color:#3730a3;margin-bottom:.4rem}
+    .fam.seller{background:#fee2e2;color:#991b1b}.fam.professional{background:#fef3c7;color:#92610a}.fam.buyer{background:#dcfce7;color:#166534}.fam.interest{background:#e0e7ff;color:#3730a3}.fam.local{background:#cffafe;color:#155e75}
+    .n{font-size:2rem;font-weight:800;line-height:1}
+    .lbl{font-size:.7rem;text-transform:uppercase;color:#64748b}
+    .row{font-size:.8rem;color:#475569;margin:.3rem 0}
+    .row b{color:#0f172a}
+    .chips{display:flex;gap:5px;flex-wrap:wrap;margin-top:.4rem}
+    .chip{font-size:.62rem;font-weight:700;border-radius:999px;padding:2px 7px;background:#e2e8f0;color:#334155}
+    .chip.off{background:#fee2e2;color:#991b1b}
+    .msg{font-size:.82rem;color:#64748b;margin:.5rem 0}
+    .members{margin-top:.5rem;font-size:.78rem}
+    table{width:100%;border-collapse:collapse}td,th{padding:.3rem .4rem;border-bottom:1px solid #f1f5f9;text-align:left;font-size:.76rem}
+  </style>
+</head>
+<body>
+  <script src="/widgets/shared/admin-nav.js"></script>
+  <script src="/widgets/shared/admin-contact-actions.js"></script>
+  <div class="wrap">
+    <h1>Behavioral Audiences</h1>
+    <p class="lede">First-party retargeting audiences derived from real Advantage.Bid behavior. Read-only planning &mdash; no campaign is sent here. Google/Meta are not connected; A7 is off. Converted members exit automatically.</p>
+    <div class="bar">
+      <button id="refresh" class="alt">Refresh from recent behavior</button>
+      <span class="msg" id="msg"></span>
+    </div>
+    <div class="grid" id="grid"></div>
+  </div>
+  <script>
+    const token=localStorage.getItem('token');
+    if(!token) location.href='/login.html';
+    window.adminLogout=function(){localStorage.removeItem('token');location.href='/login.html';};
+    function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
+    async function api(method,url){
+      const r=await fetch(url,{method,headers:{Authorization:'Bearer '+token}});
+      if(r.status===401){localStorage.removeItem('token');location.href='/login.html';throw new Error('expired');}
+      return r.json();
+    }
+    async function load(){
+      document.getElementById('msg').textContent='Loading…';
+      const d=await api('GET','/api/admin/audiences');
+      document.getElementById('msg').textContent=d.note||'';
+      const grid=document.getElementById('grid');grid.innerHTML='';
+      (d.audiences||[]).forEach(a=>{
+        const card=document.createElement('div');card.className='card';
+        card.innerHTML=
+          '<span class="fam '+esc(a.family)+'">'+esc(a.family)+'</span>'+
+          '<h3>'+esc(a.audience_key)+'</h3>'+
+          '<div class="n">'+a.audience_size+'</div><div class="lbl">members</div>'+
+          '<div class="row" style="margin-top:.5rem">'+esc(a.opportunity)+'</div>'+
+          '<div class="row"><b>Why:</b> '+esc(a.why)+' (avg level '+esc(a.evidence_strength.avg_level)+')</div>'+
+          '<div class="row"><b>Geography:</b> '+esc(a.geography)+' · <b>Category:</b> '+esc(a.category)+'</div>'+
+          '<div class="row"><b>Goal:</b> '+esc(a.intended_conversion)+'</div>'+
+          '<div class="row"><b>Exit:</b> '+esc(a.exclusions)+'</div>'+
+          '<div class="chips">'+a.channel_readiness.map(c=>'<span class="chip '+(c.enabled?'':'off')+'">'+esc(c.channel)+(c.enabled?'':' off')+'</span>').join('')+'</div>'+
+          '<div class="members" data-key="'+esc(a.audience_key)+'"><button class="alt" style="margin-top:.6rem;font-size:.75rem;padding:.35rem .7rem" onclick="viewMembers(this,\''+esc(a.audience_key)+'\')">View known members</button></div>';
+        grid.appendChild(card);
+      });
+    }
+    window.viewMembers=async function(btn,key){
+      btn.disabled=true;btn.textContent='Loading…';
+      const d=await api('GET','/api/admin/audiences/'+encodeURIComponent(key)+'/members');
+      const box=btn.parentElement;
+      const known=(d.members||[]).filter(m=>m.user_id);
+      const anon=(d.members||[]).length-known.length;
+      let h='<table><thead><tr><th>Member</th><th>Since</th><th>Contact</th></tr></thead><tbody>';
+      if(!(d.members||[]).length) h+='<tr><td colspan="3">No active members yet.</td></tr>';
+      known.forEach(m=>{ h+='<tr><td>'+esc(m.name||m.email||m.scope_type)+'</td><td>'+esc((m.entered_at||'').slice(0,10))+'</td><td class="c" data-uid="'+esc(m.user_id)+'"></td></tr>'; });
+      if(anon>0) h+='<tr><td colspan="3">+ '+anon+' anonymous visitor(s) (no identity exposed)</td></tr>';
+      h+='</tbody></table>';
+      box.innerHTML=h;
+      box.querySelectorAll('.c').forEach(td=>{ if(window.AdminContactActions) AdminContactActions.mount(td,{userId:td.dataset.uid}); });
+    };
+    document.getElementById('refresh').onclick=async function(){
+      this.disabled=true;document.getElementById('msg').textContent='Recomputing signals + membership…';
+      await api('POST','/api/admin/audiences/refresh');
+      this.disabled=false;load();
+    };
+    load();
+  </script>
+</body>
+</html>

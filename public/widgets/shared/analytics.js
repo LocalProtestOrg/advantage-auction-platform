@@ -32,6 +32,9 @@ window.AAPAnalytics = (function () {
   var SESSION_KEY    = 'aap_session_id';
   var SESSION_TS_KEY = 'aap_session_ts';
   var SESSION_TTL_MS = 30 * 60 * 1000;  // 30-minute idle TTL
+  var VISITOR_KEY    = 'aap_visitor_id';     // durable FIRST-PARTY anonymous id (return-visit recency)
+  var VISITOR_TS_KEY = 'aap_visitor_ts';
+  var VISITOR_TTL_MS = 365 * 24 * 60 * 60 * 1000;  // ~1yr rotation; NOT identity, NO fingerprinting
 
   // ── Session ID ─────────────────────────────────────────────────────────────
   // Random token, regenerated after 30 minutes of inactivity.
@@ -58,6 +61,21 @@ window.AAPAnalytics = (function () {
     }
   }
 
+  // ── Visitor ID ─────────────────────────────────────────────────────────────
+  // Durable first-party anonymous id for return-visit recency/frequency signals. Rotates after ~1yr of
+  // inactivity. Never linked to auth here (linkage is an explicit server action on login/subscribe).
+  function _getVisitorId() {
+    try {
+      var now = Date.now();
+      var stored = localStorage.getItem(VISITOR_KEY);
+      var ts = parseInt(localStorage.getItem(VISITOR_TS_KEY) || '0', 10);
+      if (stored && (now - ts) < VISITOR_TTL_MS) { localStorage.setItem(VISITOR_TS_KEY, String(now)); return stored; }
+      var id = 'v_' + Math.random().toString(36).slice(2, 12) + Math.random().toString(36).slice(2, 12);
+      localStorage.setItem(VISITOR_KEY, id); localStorage.setItem(VISITOR_TS_KEY, String(now));
+      return id;
+    } catch (e) { return 'v_' + Math.random().toString(36).slice(2, 18); }
+  }
+
   // ── Device type ────────────────────────────────────────────────────────────
   function _deviceType() {
     var w = (window.innerWidth || document.documentElement.clientWidth || 0);
@@ -72,6 +90,7 @@ window.AAPAnalytics = (function () {
     return {
       event_type:  eventType,
       session_id:  _getSessionId(),
+      visitor_id:  _getVisitorId(),
       device_type: _deviceType(),
       page_url:    typeof location !== 'undefined' ? location.href : null,
       referrer:    typeof document !== 'undefined' ? (document.referrer || null) : null,
@@ -104,6 +123,7 @@ window.AAPAnalytics = (function () {
         if (context.seller_id)   payload.seller_id   = String(context.seller_id);
         if (context.city)        payload.city        = String(context.city);
         if (context.state_code)  payload.state_code  = String(context.state_code);
+        if (context.category_key) payload.category_key = String(context.category_key);
       }
 
       // Attach event-specific metadata
@@ -150,11 +170,17 @@ window.AAPAnalytics = (function () {
     } catch (e) {}
   }
 
+  // ── page ─────────────────────────────────────────────────────────────────
+  // Convenience: fire a first-party page_view (server classifies page_intent from the path).
+  function page(context) { track('page_view', {}, context); }
+
   return {
     track:          track,
     trackBatch:     trackBatch,
+    page:           page,
     _getSessionId:  _getSessionId,   // exposed for testing only
-    _v:             1,
+    _getVisitorId:  _getVisitorId,   // exposed for testing only
+    _v:             2,
   };
 
 })();

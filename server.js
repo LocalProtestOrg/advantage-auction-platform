@@ -580,6 +580,7 @@ app.use('/api/admin/launch-readiness', adminLaunchReadinessRoutes);
 app.use('/api/admin/settlements', adminSettlementsRoutes);
 app.use('/api/admin/subscribers', require('./src/routes/adminSubscribers'));
 app.use('/api/admin/marketing-campaigns', require('./src/routes/adminMarketingCampaigns'));
+app.use('/api/admin/audiences', require('./src/routes/adminAudiences'));
 app.use('/api/admin/contact', adminContactRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/agreements', agreementsRoutes);
