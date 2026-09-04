@@ -30,8 +30,9 @@ const qaMaxCycles = () => getInt('marketing.qa_max_cycles', policy.DEFAULT_QA_MA
 const qaRequiredBeforeRelease = () => getBool('marketing.qa_required_before_release', true);
 const factualSourceRequired = () => getBool('marketing.factual_source_required', true);
 const fullCircleRequired = () => getBool('marketing.full_circle_required', true);
+const a9PublishEnabled = () => getBool('marketing.a9_publish_enabled', false);   // A9 stays DRAFT-only until enabled
 
 module.exports = {
   directSpendMaxBps, eventLocalRadiusMiles, growthMonthlyAdditionalAuthorityCents, qaMaxCycles,
-  qaRequiredBeforeRelease, factualSourceRequired, fullCircleRequired,
+  qaRequiredBeforeRelease, factualSourceRequired, fullCircleRequired, a9PublishEnabled,
 };

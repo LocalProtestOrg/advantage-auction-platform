@@ -558,6 +558,9 @@
   }
 
   if (auctionId) refreshProgress();
+  // Re-pull the authoritative X/30 when returning to this tab — so withdraw/restore/delete performed on
+  // another page (which don't touch this counter directly) are reflected without a manual reload.
+  window.addEventListener('focus', function () { if (auctionId) refreshProgress(); });
 
   // ── Image state ──────────────────────────────────────────────────────────────
   // Each entry: { objectUrl: string, file: File }
