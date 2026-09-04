@@ -351,9 +351,10 @@
 
 <div class="card">
   <div class="card-title">Add Lot</div>
-  <p style="font-size:.85rem;color:#475569;background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:.6rem .8rem;margin:.2rem 0 1rem">
+  <p style="font-size:.85rem;color:#475569;background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:.6rem .8rem;margin:.2rem 0 .6rem">
     Online auctions need at least <b>30 lots</b> before they can be submitted or published. Build your catalog at your own pace and save as you go — you can leave and come back anytime. Need help? We're always just a phone call away: <a data-adv-tel style="color:#1d4ed8;font-weight:600"></a>.
   </p>
+  <div id="lot-progress" role="status" aria-live="polite" style="display:none;font-weight:700;font-size:.95rem;border-radius:8px;padding:.55rem .8rem;margin:0 0 1rem"></div>
 
   <div class="columns">
 
@@ -531,15 +532,32 @@
   if (!token)     location.href = '/login.html';
   if (!auctionId) document.getElementById('auction-label').textContent = 'No auction ID in URL';
 
-  if (auctionId) {
-    fetch('/api/lots/auction/' + auctionId)
-      .then(r => r.json()).catch(() => null)
-      .then(d => {
-        const count = d && d.data ? d.data.length : 0;
-        document.getElementById('auction-label').textContent =
-          'Auction ' + auctionId.slice(0, 8) + '… (' + count + ' lot' + (count === 1 ? '' : 's') + ')';
-      });
+  // Authoritative "X of 30" progress — the count + minimum come from the SERVER (/seller endpoint returns
+  // progress computed from valid, non-withdrawn lots). The client only DISPLAYS it; it never decides the rule.
+  async function refreshProgress() {
+    if (!auctionId) return;
+    try {
+      const r = await fetch('/api/lots/auction/' + auctionId + '/seller', { headers: { Authorization: 'Bearer ' + token } });
+      const d = await r.json();
+      const count = (d && d.data) ? d.data.length : 0;
+      document.getElementById('auction-label').textContent =
+        'Auction ' + auctionId.slice(0, 8) + '… (' + count + ' lot' + (count === 1 ? '' : 's') + ')';
+      const p = d && d.progress;
+      const el = document.getElementById('lot-progress');
+      if (p && el) {
+        el.style.display = '';
+        if (p.meets_minimum) {
+          el.style.background = '#f0fdf4'; el.style.border = '1px solid #bbf7d0'; el.style.color = '#166534';
+          el.textContent = p.valid_lot_count + ' of ' + p.minimum + ' lots added — your auction has enough lots to submit or publish. ✓';
+        } else {
+          el.style.background = '#fffbeb'; el.style.border = '1px solid #fde68a'; el.style.color = '#92400e';
+          el.textContent = p.valid_lot_count + ' of ' + p.minimum + ' lots added — ' + p.remaining + ' more to go.';
+        }
+      }
+    } catch (e) { /* non-fatal: progress display is best-effort */ }
   }
+
+  if (auctionId) refreshProgress();
 
   // ── Image state ──────────────────────────────────────────────────────────────
   // Each entry: { objectUrl: string, file: File }
@@ -762,6 +780,7 @@
 
       lotsAdded++;
       updateCounter();
+      refreshProgress(); // re-pull the authoritative X-of-30 after adding a lot
       showBanner('Lot saved! (' + title + ')', 'success');
       document.getElementById('btn-another').style.display = 'inline-block';
 

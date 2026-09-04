@@ -308,7 +308,20 @@ router.get('/auction/:auctionId/seller', auth, async (req, res, next) => {
        ORDER BY l.created_at ASC`,
       [req.params.auctionId]
     );
-    res.json({ success: true, data: result.rows });
+    // Authoritative submit/publish progress (server-computed; the 30-lot rule lives ONLY on the server).
+    // The returned rows are already the VALID lots (state <> 'withdrawn'), so their count is authoritative.
+    const { MIN_LOTS_FOR_SUBMISSION } = require('../services/auctionService');
+    const validCount = result.rows.length;
+    res.json({
+      success: true,
+      data: result.rows,
+      progress: {
+        valid_lot_count: validCount,
+        minimum: MIN_LOTS_FOR_SUBMISSION,
+        meets_minimum: validCount >= MIN_LOTS_FOR_SUBMISSION,
+        remaining: Math.max(0, MIN_LOTS_FOR_SUBMISSION - validCount),
+      },
+    });
   } catch (err) {
     next(err);
   }

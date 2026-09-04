@@ -34,12 +34,20 @@ describe('unified FAQ hub (/faq.html)', () => {
 
 describe('navigation consistency — one FAQ item', () => {
   test('marketing headers link a single "FAQ" → /faq.html (no split Buyer/Seller FAQ nav)', () => {
+    // The shared public-nav widget provides the single FAQ link for migrated pages; the rest still inline it.
+    const navWidget = fs.readFileSync(path.join(__dirname, '..', '..', 'public', 'widgets', 'shared', 'public-nav.js'), 'utf8');
+    expect(navWidget).toContain("href: '/faq.html'");
+    expect(navWidget).not.toMatch(/Seller FAQ|Buyer FAQ/);
     for (const f of ['how-to-buy.html', 'start-selling.html', 'how-it-works.html', 'seller-faq.html', 'buyer-faq.html']) {
       const html = read(f);
-      const header = html.slice(html.indexOf('<header'), html.indexOf('</header>'));
-      expect(header).toContain('href="/faq.html"');
-      expect(header).not.toMatch(/nav-link[^"]*">Seller FAQ<\/a>/);
-      expect(header).not.toMatch(/nav-link[^"]*">Buyer FAQ<\/a>/);
+      if (html.includes('data-adv-public-nav')) {
+        expect(html).toContain('widgets/shared/public-nav.js'); // FAQ link comes from the shared widget
+      } else {
+        const header = html.slice(html.indexOf('<header'), html.indexOf('</header>'));
+        expect(header).toContain('href="/faq.html"');
+      }
+      expect(html).not.toMatch(/nav-link[^"]*">Seller FAQ<\/a>/);
+      expect(html).not.toMatch(/nav-link[^"]*">Buyer FAQ<\/a>/);
     }
   });
   test('/faq.html is in the sitemap static list', () => {
