@@ -12,8 +12,23 @@
    ========================================================================== */
 (function () {
   'use strict';
+  // Landing capture of ad click IDs (server-side, first-party). Captured once per page load if present.
+  // NEVER re-appended to any Advantage.Bid link; the value only travels to our own capture endpoint.
+  function captureClickIds() {
+    try {
+      var q = new URLSearchParams(location.search);
+      var payload = { visitor_id: (window.AAPAnalytics && window.AAPAnalytics._getVisitorId) ? window.AAPAnalytics._getVisitorId() : null,
+        consent: window.__ADV_CONSENT || null, source: location.hostname };
+      var any = false;
+      ['gclid', 'gbraid', 'wbraid', 'fbclid'].forEach(function (t) { var v = q.get(t); if (v) { payload[t] = v; any = true; } });
+      if (!any) return;
+      fetch('/api/analytics/click-id', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload), keepalive: true }).catch(function () {});
+    } catch (e) { /* never break the page */ }
+  }
+
   function fire() {
     try {
+      captureClickIds();
       var ctx = {};
       if (window.__ADV_CATEGORY_KEY) ctx.category_key = String(window.__ADV_CATEGORY_KEY);
       if (window.__ADV_AUCTION_ID) ctx.auction_id = String(window.__ADV_AUCTION_ID);

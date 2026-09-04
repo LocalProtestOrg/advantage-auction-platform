@@ -25,6 +25,7 @@ const rateLimit  = require('express-rate-limit');
 const { insertEvent, insertBatch } = require('../services/analyticsService');
 const auth = require('../middleware/authMiddleware');
 const behavioralIdentity = require('../services/behavioralIdentityService');
+const clickIds = require('../services/clickIdService');
 
 const router = express.Router();
 
@@ -59,6 +60,18 @@ router.post('/events', analyticsLimiter, (req, res) => {
   }
 });
 
+// ── POST /api/analytics/click-id ────────────────────────────────────────────────
+// First-party landing capture of ad click IDs (server-side). Fire-and-forget; capture != authorized use.
+router.post('/click-id', analyticsLimiter, express.json({ limit: '8kb' }), (req, res) => {
+  const b = req.body || {};
+  res.status(202).json({ accepted: true });
+  const params = {};
+  clickIds.TYPES.forEach((t) => { if (b[t]) params[t] = b[t]; });
+  if (Object.keys(params).length) {
+    clickIds.capture({ scopeId: b.visitor_id, params, consentState: b.consent || null, source: b.source || null }).catch(() => {});
+  }
+});
+
 // ── POST /api/analytics/identify (AUTHENTICATED) ────────────────────────────────
 // Explicit anonymous→known linkage on an authoritative first-party action. Requires a valid session so
 // the user_id is server-derived (never client-asserted). Idempotent; never a speculative merge.
@@ -67,6 +80,7 @@ router.post('/identify', auth, express.json(), async (req, res, next) => {
     const visitorId = req.body && req.body.visitor_id;
     const source = (req.body && req.body.source) || 'login';
     const link = await behavioralIdentity.link({ visitorId, userId: req.user.id, source });
+    if (link) { await clickIds.linkToUser(visitorId, req.user.id).catch(() => {}); }
     return res.json({ success: !!link, linked: !!link });
   } catch (e) { next(e); }
 });

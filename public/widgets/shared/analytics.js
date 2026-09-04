@@ -76,6 +76,15 @@ window.AAPAnalytics = (function () {
     } catch (e) { return 'v_' + Math.random().toString(36).slice(2, 18); }
   }
 
+  // ── Consent snapshot (set by consent-banner.js; stamped on every event at write time) ──────
+  function _consent() {
+    try {
+      if (window.__ADV_CONSENT) return window.__ADV_CONSENT;
+      var v = JSON.parse(localStorage.getItem('aap_consent') || 'null');
+      return v || null;
+    } catch (e) { return null; }
+  }
+
   // ── Device type ────────────────────────────────────────────────────────────
   function _deviceType() {
     var w = (window.innerWidth || document.documentElement.clientWidth || 0);
@@ -95,6 +104,7 @@ window.AAPAnalytics = (function () {
       page_url:    typeof location !== 'undefined' ? location.href : null,
       referrer:    typeof document !== 'undefined' ? (document.referrer || null) : null,
       client_ts:   new Date().toISOString(),
+      consent:     _consent(),
     };
   }
 

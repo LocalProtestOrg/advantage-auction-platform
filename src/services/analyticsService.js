@@ -121,6 +121,19 @@ async function insertEvent(raw, ip) {
     let pageIntentVal = null;
     try { const cls = pageIntent.classify(pageUrl || raw.page_url); if (cls) pageIntentVal = cls.intent; } catch (_) { pageIntentVal = null; }
 
+    // Phase 4G: stamp the consent state that applied WHEN THIS EVENT WAS WRITTEN. Client reports its
+    // current first-party consent snapshot (set by the banner); the authoritative history is
+    // consent_records. Only the three boolean categories are stored (no PII).
+    let consentState = null;
+    if (raw.consent && typeof raw.consent === 'object') {
+      consentState = JSON.stringify({
+        analytics: raw.consent.analytics === true,
+        personalization: raw.consent.personalization === true,
+        advertising: raw.consent.advertising === true,
+        policy_version: typeof raw.consent.policy_version === 'string' ? raw.consent.policy_version.slice(0, 16) : null,
+      });
+    }
+
     const metaJson = JSON.stringify(metadata);
     if (metaJson.length > MAX_METADATA_BYTES) return;
 
@@ -128,12 +141,12 @@ async function insertEvent(raw, ip) {
       `INSERT INTO analytics_events
          (event_type, session_id, device_type, page_url, referrer,
           widget_name, auction_id, seller_id, city, state_code,
-          metadata, client_ts, ip_hash, visitor_id, page_intent, category_key)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)`,
+          metadata, client_ts, ip_hash, visitor_id, page_intent, category_key, consent_state)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)`,
       [
         eventType, sessionId, deviceType, pageUrl, referrer,
         widgetName, auctionId, sellerId, city, stateCode,
-        metaJson, clientTs, hashIp(ip), visitorId, pageIntentVal, categoryKey,
+        metaJson, clientTs, hashIp(ip), visitorId, pageIntentVal, categoryKey, consentState,
       ]
     );
   } catch (err) {

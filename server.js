@@ -581,6 +581,7 @@ app.use('/api/admin/settlements', adminSettlementsRoutes);
 app.use('/api/admin/subscribers', require('./src/routes/adminSubscribers'));
 app.use('/api/admin/marketing-campaigns', require('./src/routes/adminMarketingCampaigns'));
 app.use('/api/admin/audiences', require('./src/routes/adminAudiences'));
+app.use('/api/admin/director', require('./src/routes/adminDirector'));
 app.use('/api/admin/contact', adminContactRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/agreements', agreementsRoutes);
@@ -609,6 +610,8 @@ app.use('/api/marketplace', require('./src/routes/marketplaceOrders')); // fixed
 app.use('/api/public/follower-emails', require('./src/routes/publicFollowerEmails')); // one-click unsubscribe (no auth)
 app.use('/api/public/subscribers', require('./src/routes/publicSubscribe')); // first-party newsletter signup (collection only)
 app.use('/api/public/marketing-email', require('./src/routes/publicMarketingEmail')); // marketing unsubscribe + click (no auth, token-signed)
+app.use('/api/public/consent', require('./src/routes/publicConsent')); // first-party consent (visitor-scoped, no auth)
+app.use('/api/public/onsite', require('./src/routes/publicOnsite')); // onsite personalization treatment (consent + auth gated)
 app.use('/api/admin/follower-emails', require('./src/routes/adminFollowerEmails'));    // admin campaign review + privilege
 app.use('/api/org/claim', orgClaimRoutes);
 app.use('/api/org', orgEventsRoutes);
