@@ -85,6 +85,7 @@ describe('platform-fact audiences', () => {
     expect(s).toMatch(/NOT EXISTS \(SELECT 1 FROM bids/);            // registered non-bidder / watcher no-bid
     expect(s).toMatch(/FROM watchlists w JOIN lots l/);              // watcher/no-bid
     expect(s).toMatch(/agreements a WHERE a\.seller_profile_id/);    // abandoned seller = no signed agreement
+    expect(s).toMatch(/sp\.user_id IS NOT NULL/);                    // never write a null scope (org-linked profile)
     expect(s).toMatch(/SELLER_SIGNUP_ABANDONMENT/);                  // authoritative abandonment signal
   });
 });

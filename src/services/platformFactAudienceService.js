@@ -20,6 +20,7 @@ async function syncAudience(r, audienceKey, qualifiedSql, params, windowDays) {
   const keys = new Set();
   let entered = 0;
   for (const q of qualified) {
+    if (!q.scope_id) continue;   // defensive: never write a null scope (e.g. org-linked seller_profile w/o user_id)
     keys.add(q.scope_type + '|' + q.scope_id);
     const ins = await r.query(
       `INSERT INTO marketing_audience_members (audience_key, scope_type, scope_id, last_qualified_at, expires_at, evidence, definition_version)
@@ -92,14 +93,16 @@ async function abandonedSellerSignup(r, thresholdHours = 24) {
     `SELECT 'user' AS scope_type, sp.user_id::text AS scope_id,
             jsonb_build_object('reason','enrolled but no signed agreement') AS evidence, sp.id AS seller_profile_id
        FROM seller_profiles sp
-      WHERE sp.created_at < now() - ($1 || ' hours')::interval
+      WHERE sp.user_id IS NOT NULL
+        AND sp.created_at < now() - ($1 || ' hours')::interval
         AND sp.agreement_waived_at IS NULL
         AND NOT EXISTS (SELECT 1 FROM agreements a WHERE a.seller_profile_id = sp.id AND a.status IN ('signed','countersigned'))`;
   const res = await syncAudience(r, 'abandoned_individual_seller_signup', qualifiedSql, [String(thresholdHours)], 21);
   // Mirror to a signal for the onsite abandoned-seller-resume playbook.
   const { rows: q } = await r.query(qualifiedSql, [String(thresholdHours)]);
-  const activeIds = new Set(q.map((x) => x.scope_id));
+  const activeIds = new Set(q.map((x) => x.scope_id).filter(Boolean));
   for (const x of q) {
+    if (!x.scope_id) continue;
     await r.query(
       `INSERT INTO marketing_signals (scope_type, scope_id, signal_type, level, active, reason, derived_by_version, expires_at)
        VALUES ('user',$1,'SELLER_SIGNUP_ABANDONMENT',4,true,'enrolled, no signed agreement',$2, now() + interval '21 days')
