@@ -61,6 +61,7 @@
     { href: '/admin/pricing.html', label: 'Pricing & Fees', perm: 'seller_platform_fee.view' },
     { href: '/admin/marketplace-config.html', label: 'Marketplace Config' },
     { href: '/admin/follower-emails.html', label: 'Follower Emails' },
+    { href: '/admin/subscribers.html', label: 'Subscribers', perm: 'members.view' },
     { href: '/admin/sales.html', label: 'Sales & Marketing', perm: 'sales.view' },
     { href: '/admin/staff.html', label: 'Staff & Permissions', perm: 'staff.view' },
   ];

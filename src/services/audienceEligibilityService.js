@@ -44,8 +44,25 @@ const REASON = {
 // 'withdrawn' are NOT sufficient — permission must be affirmatively established.
 const PERMITTED_BASES = new Set(['platform_relationship', 'explicit_opt_in', 'follower_optin']);
 
+// Great-circle distance in miles. Centroid-to-point — used for approximate proximity, never presented
+// to a recipient as exact household distance.
+function haversineMiles(aLat, aLng, bLat, bLng) {
+  const toRad = (d) => (d * Math.PI) / 180;
+  const R = 3958.7613;
+  const dLat = toRad(bLat - aLat);
+  const dLng = toRad(bLng - aLng);
+  const s = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(aLat)) * Math.cos(toRad(bLat)) * Math.sin(dLng / 2) ** 2;
+  return 2 * R * Math.asin(Math.min(1, Math.sqrt(s)));
+}
+
 function geoMatches(strategy, contact) {
   if (!strategy || strategy === 'nationwide_or_interest' || strategy === 'nationwide') return true;
+  // Radius strategy (email geography — INDEPENDENT from the paid 30-mile advertising radius).
+  if (strategy.kind === 'radius' || (strategy.radius_miles && (strategy.lat != null))) {
+    const lat = contact.latitude, lng = contact.longitude;
+    if (lat == null || lng == null) return false;   // no coordinates → excluded from radius (fail closed)
+    return haversineMiles(Number(strategy.lat), Number(strategy.lng), Number(lat), Number(lng)) <= Number(strategy.radius_miles);
+  }
   if (strategy.state && contact.address_state) return String(strategy.state).toUpperCase() === String(contact.address_state).toUpperCase();
   if (Array.isArray(strategy.states) && strategy.states.length) {
     return !!contact.address_state && strategy.states.map((s) => String(s).toUpperCase()).includes(String(contact.address_state).toUpperCase());
@@ -53,6 +70,7 @@ function geoMatches(strategy, contact) {
   if (Array.isArray(strategy.zips) && strategy.zips.length) {
     return !!contact.zip && strategy.zips.includes(String(contact.zip));
   }
+  if (strategy.city && contact.city) return String(strategy.city).toLowerCase() === String(contact.city).toLowerCase();
   // A geo strategy that specifies constraints but the contact can't satisfy → fail closed.
   return false;
 }
@@ -151,4 +169,39 @@ async function buildAudienceSpec({ campaignId = null, marketingClass = null, geo
   };
 }
 
-module.exports = { evaluateContact, buildAudienceSpec, REASON, PERMITTED_BASES };
+/**
+ * Admin PREVIEW/PLANNING count of first-party subscribers for a geography — NOT a send, NOT a raw list.
+ * Returns { potential, eligible, strategy }. `potential` = permissioned, non-demo contacts matching the
+ * geography; `eligible` additionally excludes suppressed + hard-bounced/complaint addresses. Email radius
+ * is INDEPENDENT of the paid 30-mile advertising rule. Exact counts only — never invents numbers.
+ */
+async function previewAudience({ lat = null, lng = null, radiusMiles = null, state = null, city = null } = {}, runner) {
+  const r = runner || db;
+  const params = [];
+  let geoWhere = 'TRUE';
+  let strategy;
+  if (radiusMiles != null && lat != null && lng != null) {
+    params.push(Number(lat), Number(lng), Number(radiusMiles));
+    geoWhere = `(mc.latitude IS NOT NULL AND mc.longitude IS NOT NULL AND
+      3958.7613 * acos(LEAST(1, GREATEST(-1,
+        sin(radians($1)) * sin(radians(mc.latitude)) +
+        cos(radians($1)) * cos(radians(mc.latitude)) * cos(radians(mc.longitude) - radians($2))))) <= $3)`;
+    strategy = { kind: 'radius', lat: Number(lat), lng: Number(lng), radius_miles: Number(radiusMiles) };
+  } else if (state) { params.push(state); geoWhere = 'upper(mc.address_state) = upper($1)'; strategy = { state }; }
+  else if (city) { params.push(city); geoWhere = 'lower(mc.city) = lower($1)'; strategy = { city }; }
+  else { strategy = { kind: 'nationwide' }; }
+
+  const base = `FROM marketing_contacts mc
+    WHERE mc.is_demo = false
+      AND mc.permission_basis IN ('platform_relationship','explicit_opt_in','follower_optin')
+      AND ${geoWhere}`;
+  const potential = (await r.query(`SELECT count(*)::int AS c ${base}`, params)).rows[0].c;
+  const eligible = (await r.query(
+    `SELECT count(*)::int AS c ${base}
+       AND NOT EXISTS (SELECT 1 FROM email_suppressions s WHERE s.normalized_email = mc.normalized_email)
+       AND NOT EXISTS (SELECT 1 FROM email_deliverability d WHERE d.normalized_email = mc.normalized_email AND (d.hard_bounced OR d.complaint))`,
+    params)).rows[0].c;
+  return { potential, eligible, strategy };
+}
+
+module.exports = { evaluateContact, buildAudienceSpec, previewAudience, haversineMiles, REASON, PERMITTED_BASES };

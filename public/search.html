@@ -190,5 +190,8 @@
     if(params.get('mode')==='auctions'){ mode='auctions'; document.querySelectorAll('.modes button').forEach(x=>x.classList.toggle('active',x.dataset.mode==='auctions')); }
     loadCategories().then(()=>{ if(params.get('category')) $('#category').value=params.get('category'); run(false); });
   </script>
+<!-- First-party subscriber signup (collection only) -->
+<div data-adv-subscribe data-placement="auctions_listing" data-variant="card" style="margin:2rem auto;max-width:720px;padding:0 1rem"></div>
+<script src="/widgets/shared/subscribe-widget.js" defer></script>
 </body>
 </html>

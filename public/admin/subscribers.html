@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="noindex, nofollow" />
+  <title>Subscribers - Advantage Admin</title>
+  <style>
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#f8fafc;color:#0f172a}
+    .wrap{max-width:1150px;margin:0 auto;padding:1rem}
+    h1{font-size:1.3rem;margin:.4rem 0 .3rem}
+    p.lede{color:#64748b;font-size:.85rem;margin-bottom:1rem}
+    .bar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:1rem}
+    .bar input,.bar select{padding:.5rem .6rem;border:1px solid #cbd5e1;border-radius:7px;font-size:.85rem}
+    .bar input[type=text]{flex:1;min-width:200px}
+    .bar button{padding:.5rem 1rem;border:none;border-radius:7px;background:#111827;color:#fff;font-weight:700;cursor:pointer}
+    table{width:100%;border-collapse:collapse;background:#fff;border:1px solid #e2e8f0;border-radius:10px;overflow:hidden}
+    th,td{text-align:left;padding:.5rem .6rem;font-size:.8rem;border-bottom:1px solid #f1f5f9;vertical-align:top}
+    th{background:#f8fafc;color:#475569;font-size:.68rem;text-transform:uppercase;letter-spacing:.04em}
+    .pill{display:inline-block;font-size:.66rem;font-weight:700;border-radius:999px;padding:2px 8px}
+    .ok{background:#dcfce7;color:#166534}.warn{background:#fef9c3;color:#854d0e}.bad{background:#fee2e2;color:#991b1b}.neu{background:#e2e8f0;color:#334155}
+    .msg{font-size:.82rem;color:#64748b;margin:.5rem 0}
+    .panel{background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:1rem;margin-bottom:1.2rem}
+    .panel h2{font-size:1rem;margin-bottom:.2rem}.panel .note{font-size:.75rem;color:#94a3b8;margin-bottom:.6rem}
+    .preview-out{display:flex;gap:1.5rem;flex-wrap:wrap;margin-top:.7rem}
+    .stat-box{background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:.7rem 1.1rem;min-width:150px}
+    .stat-box .n{font-size:1.6rem;font-weight:800;color:#0f172a}.stat-box .l{font-size:.7rem;text-transform:uppercase;color:#64748b;letter-spacing:.04em}
+  </style>
+</head>
+<body>
+  <script src="/widgets/shared/admin-nav.js"></script>
+  <script src="/widgets/shared/admin-contact-actions.js"></script>
+  <div class="wrap">
+    <h1>First-Party Subscribers</h1>
+    <p class="lede">Advantage.Bid's own voluntarily-subscribed audience. Search, view geography &amp; permission, and preview eligible audience around an event. This is read-only planning &mdash; there is no send here.</p>
+
+    <div class="panel">
+      <h2>Geographic Audience Preview</h2>
+      <div class="note">Preview only. Email radius is independent of the paid 30-mile advertising rule. No email is sent.</div>
+      <div class="bar">
+        <input type="text" id="pv-auction" placeholder="Auction ID (uses its coordinates)" />
+        <span style="align-self:center;color:#94a3b8;font-size:.8rem">or</span>
+        <input type="text" id="pv-state" placeholder="State (e.g. TX)" style="max-width:120px" />
+        <input type="text" id="pv-city" placeholder="City" style="max-width:150px" />
+        <select id="pv-radius">
+          <option value="">Radius…</option>
+          <option value="10">10 mi</option><option value="25">25 mi</option><option value="30">30 mi</option>
+          <option value="50">50 mi</option><option value="100">100 mi</option>
+        </select>
+        <button id="pv-go">Preview</button>
+        <button id="pv-nation" style="background:#334155">Nationwide</button>
+      </div>
+      <div class="msg" id="pv-msg"></div>
+      <div class="preview-out" id="pv-out" style="display:none">
+        <div class="stat-box"><div class="n" id="pv-potential">0</div><div class="l">Potential subscribers</div></div>
+        <div class="stat-box"><div class="n" id="pv-eligible">0</div><div class="l">Eligible after permission/suppression</div></div>
+        <div class="stat-box"><div class="n" id="pv-strategy" style="font-size:.9rem;font-weight:600"></div><div class="l">Strategy</div></div>
+      </div>
+    </div>
+
+    <div class="bar">
+      <input type="text" id="q" placeholder="Search name or email…" />
+      <input type="text" id="f-state" placeholder="State" style="max-width:110px" />
+      <input type="text" id="f-city" placeholder="City" style="max-width:140px" />
+      <select id="f-source"><option value="">Any source</option><option value="footer">Footer</option><option value="all_events">All Events</option><option value="auctions_listing">Auctions</option><option value="estate_sales_listing">Estate Sales</option><option value="auction_detail">Auction detail</option><option value="estate_sale_detail">Estate sale detail</option><option value="marketplace">Marketplace</option><option value="other">Other</option></select>
+      <select id="f-perm"><option value="">Any permission</option><option value="explicit_opt_in">Explicit opt-in</option><option value="platform_relationship">Platform relationship</option><option value="follower_optin">Follower opt-in</option><option value="unknown">Unknown</option><option value="withdrawn">Withdrawn</option></select>
+      <select id="f-supp"><option value="">Any deliverability</option><option value="clean">Clean</option><option value="suppressed">Suppressed</option></select>
+      <button id="go">Search</button>
+    </div>
+    <div class="msg" id="listmsg">Loading…</div>
+    <table>
+      <thead><tr><th>Name</th><th>Email</th><th>Location</th><th>Geo</th><th>Source</th><th>Permission</th><th>Status</th><th>Follows</th><th>Contact</th></tr></thead>
+      <tbody id="rows"></tbody>
+    </table>
+  </div>
+  <script>
+    const token=localStorage.getItem('token');
+    if(!token) location.href='/login.html';
+    window.adminLogout=function(){localStorage.removeItem('token');location.href='/login.html';};
+    function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
+    function fdate(s){try{return s?new Date(s).toLocaleDateString():'-'}catch(e){return '-'}}
+    async function api(url){
+      const r=await fetch(url,{headers:{Authorization:'Bearer '+token}});
+      if(r.status===401){localStorage.removeItem('token');location.href='/login.html';throw new Error('Session expired');}
+      return r.json();
+    }
+    function permPill(b){
+      if(b==='explicit_opt_in'||b==='platform_relationship'||b==='follower_optin')return '<span class="pill ok">'+esc(b)+'</span>';
+      if(b==='withdrawn')return '<span class="pill bad">withdrawn</span>';
+      return '<span class="pill neu">'+esc(b||'unknown')+'</span>';
+    }
+    function statusPill(r){
+      if(r.suppressed||r.undeliverable)return '<span class="pill bad">suppressed</span>';
+      return '<span class="pill ok">clean</span>';
+    }
+    async function search(){
+      const p=new URLSearchParams();
+      const q=document.getElementById('q').value.trim();if(q)p.set('q',q);
+      const st=document.getElementById('f-state').value.trim();if(st)p.set('state',st);
+      const ci=document.getElementById('f-city').value.trim();if(ci)p.set('city',ci);
+      const so=document.getElementById('f-source').value;if(so)p.set('source',so);
+      const pm=document.getElementById('f-perm').value;if(pm)p.set('permission',pm);
+      const su=document.getElementById('f-supp').value;if(su)p.set('suppression',su);
+      p.set('limit','100');
+      document.getElementById('listmsg').textContent='Searching…';
+      const d=await api('/api/admin/subscribers?'+p.toString());
+      const rows=(d&&d.subscribers)||[];
+      document.getElementById('listmsg').textContent=(d.total||rows.length)+' subscriber(s)';
+      const tb=document.getElementById('rows');tb.innerHTML='';
+      rows.forEach(r=>{
+        const tr=document.createElement('tr');
+        tr.innerHTML=
+          '<td>'+esc(r.full_name||'-')+'</td>'+
+          '<td>'+esc(r.normalized_email)+'</td>'+
+          '<td>'+esc([r.city,r.address_state].filter(Boolean).join(', ')||'-')+(r.zip?' '+esc(r.zip):'')+'</td>'+
+          '<td><span class="pill neu">'+esc(r.geography_precision||'unknown')+'</span></td>'+
+          '<td>'+esc(r.sources||'-')+'</td>'+
+          '<td>'+permPill(r.permission_basis)+'</td>'+
+          '<td>'+statusPill(r)+'</td>'+
+          '<td>'+(r.seller_follows||0)+'</td>'+
+          '<td class="contact"></td>';
+        tb.appendChild(tr);
+        if(r.user_id&&window.AdminContactActions){AdminContactActions.mount(tr.querySelector('.contact'),{userId:r.user_id});}
+        else{tr.querySelector('.contact').innerHTML='<button class="pill neu" style="border:0;cursor:pointer" onclick="navigator.clipboard&&navigator.clipboard.writeText(\''+esc(r.normalized_email)+'\')">Copy Email</button>';}
+      });
+    }
+    async function preview(nationwide){
+      const p=new URLSearchParams();
+      const aid=document.getElementById('pv-auction').value.trim();
+      const st=document.getElementById('pv-state').value.trim();
+      const ci=document.getElementById('pv-city').value.trim();
+      const rad=document.getElementById('pv-radius').value;
+      if(nationwide){/* no params = nationwide */}
+      else if(aid){p.set('auction_id',aid);if(rad)p.set('radius_miles',rad);}
+      else if(st){p.set('state',st);}
+      else if(ci){p.set('city',ci);}
+      else{document.getElementById('pv-msg').textContent='Enter an auction ID (+radius), a state, a city, or choose Nationwide.';return;}
+      document.getElementById('pv-msg').textContent='Calculating…';
+      const d=await api('/api/admin/subscribers/preview?'+p.toString());
+      if(!d.success){document.getElementById('pv-msg').textContent=d.message||'Preview failed.';return;}
+      if(d.resolvable===false){document.getElementById('pv-msg').textContent=d.message||'Not resolvable.';document.getElementById('pv-out').style.display='none';return;}
+      document.getElementById('pv-msg').textContent=d.note||'';
+      document.getElementById('pv-out').style.display='';
+      document.getElementById('pv-potential').textContent=d.potential;
+      document.getElementById('pv-eligible').textContent=d.eligible;
+      document.getElementById('pv-strategy').textContent=JSON.stringify(d.strategy);
+    }
+    document.getElementById('go').onclick=search;
+    document.getElementById('pv-go').onclick=()=>preview(false);
+    document.getElementById('pv-nation').onclick=()=>preview(true);
+    document.getElementById('q').addEventListener('keydown',e=>{if(e.key==='Enter')search();});
+    search();
+  </script>
+</body>
+</html>

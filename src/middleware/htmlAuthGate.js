@@ -25,6 +25,7 @@ const rbac = require('../lib/rbac');
 const ADMIN_PAGE_PERMISSIONS = {
   '/admin/sales.html': 'sales.view',
   '/admin/staff.html': 'staff.view',
+  '/admin/subscribers.html': 'members.view',
 };
 
 // Tier requirements. Admin pages need 'admin'; clear seller-management pages need seller|admin;
