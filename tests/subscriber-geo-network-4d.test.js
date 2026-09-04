@@ -118,6 +118,21 @@ describe('subscriberService.signup', () => {
   });
 });
 
+// ── 2b. attachSource persists signup attribution (regression: was dropped) ───
+describe('marketingContactService.attachSource attribution', () => {
+  const svc = require('../src/services/marketingContactService');
+  test('writes signup_placement / referrer / source_domain', async () => {
+    const calls = [];
+    const runner = { query: async (sql, params) => { calls.push({ sql, params }); return { rows: [{ id: 's1' }] }; } };
+    await svc.attachSource('c1', { sourceType: 'newsletter_signup', sourceRecordId: 'footer', signupPlacement: 'footer', referrer: '/events', sourceDomain: 'advantage.bid' }, runner);
+    const ins = calls.find(c => /INSERT INTO marketing_contact_sources/.test(c.sql));
+    expect(ins.sql).toMatch(/signup_placement/);
+    expect(ins.params).toContain('footer');
+    expect(ins.params).toContain('advantage.bid');
+    expect(ins.sql).not.toMatch(/UPDATE marketing_contacts\b/);   // never touches the contact's permission
+  });
+});
+
 // ── 3. audienceEligibilityService — radius geography + preview ────────────────
 describe('audienceEligibilityService radius + preview', () => {
   const svc = require('../src/services/audienceEligibilityService');

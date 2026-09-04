@@ -64,17 +64,25 @@ async function upsertContact({ email, userId = null, fullName = null, city = nul
  */
 async function attachSource(contactId, { sourceType, sourceRecordId = null, importSourceId = null, importRunId = null,
   importRunItemId = null, originalEmail = null, acquisitionDate = null, consentEvidence = null,
-  vendorPermittedUses = null, batchRef = null } = {}, runner) {
+  vendorPermittedUses = null, batchRef = null, signupPlacement = null, referrer = null, sourceDomain = null } = {}, runner) {
   const r = runner || db;
+  // On repeat signup for the same (contact, source_type, record) we refresh the attribution fields so a
+  // later placement/referrer isn't lost, while the row itself stays deduped.
   const { rows } = await r.query(
     `INSERT INTO marketing_contact_sources
        (contact_id, source_type, source_record_id, import_source_id, import_run_id, import_run_item_id,
-        original_email, acquisition_date, consent_evidence, vendor_permitted_uses, batch_ref)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
-     ON CONFLICT (contact_id, source_type, source_record_id) DO NOTHING
+        original_email, acquisition_date, consent_evidence, vendor_permitted_uses, batch_ref,
+        signup_placement, referrer, source_domain)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
+     ON CONFLICT (contact_id, source_type, source_record_id) DO UPDATE SET
+       signup_placement = COALESCE(EXCLUDED.signup_placement, marketing_contact_sources.signup_placement),
+       referrer         = COALESCE(EXCLUDED.referrer, marketing_contact_sources.referrer),
+       source_domain    = COALESCE(EXCLUDED.source_domain, marketing_contact_sources.source_domain),
+       consent_evidence = COALESCE(EXCLUDED.consent_evidence, marketing_contact_sources.consent_evidence)
      RETURNING *`,
     [contactId, sourceType, sourceRecordId, importSourceId, importRunId, importRunItemId,
-      originalEmail, acquisitionDate, consentEvidence, vendorPermittedUses ? JSON.stringify(vendorPermittedUses) : null, batchRef]);
+      originalEmail, acquisitionDate, consentEvidence, vendorPermittedUses ? JSON.stringify(vendorPermittedUses) : null, batchRef,
+      signupPlacement, referrer, sourceDomain]);
   return rows[0] || null;
 }
 
