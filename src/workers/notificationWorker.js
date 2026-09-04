@@ -406,7 +406,9 @@ async function deliver(row) {
     if (!userInfo.email_enabled) return { skipped: true, reason: 'email disabled' };
     if (!userInfo.follower_emails_enabled) return { skipped: true, reason: 'follower emails opted out' };
     if (!userInfo.is_active) return { skipped: true, reason: 'inactive account' };
-    const supp = await db.query('SELECT 1 FROM email_suppressions WHERE lower(email) = lower($1)', [userInfo.email]);
+    const supp = await db.query(
+      'SELECT 1 FROM email_suppressions WHERE COALESCE(normalized_email, lower(btrim(email))) = lower(btrim($1))',
+      [userInfo.email]);
     if (supp.rows.length) return { skipped: true, reason: 'suppressed' };
     console.log(`[notify] FOLLOWER_EVENT → user ${row.user_id} for campaign ${payload.campaign_id || 'unknown'}`);
     const emailMsg = followerCampaign.buildQueueEmail(payload, row.user_id, userInfo.email);

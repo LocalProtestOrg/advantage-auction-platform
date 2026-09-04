@@ -41,7 +41,8 @@ const ELIGIBLE_JOIN = `
    AND COALESCE(np.email_enabled, true) = true
    AND COALESCE(np.follower_emails_enabled, true) = true
    AND COALESCE(u.is_active, true) = true
-   AND lower(COALESCE(NULLIF(u.contact_email,''), u.email)) NOT IN (SELECT lower(email) FROM email_suppressions)`;
+   AND lower(btrim(COALESCE(NULLIF(u.contact_email,''), u.email))) NOT IN
+       (SELECT COALESCE(normalized_email, lower(btrim(email))) FROM email_suppressions)`;
 
 /**
  * Resolve the seller_profiles row that OWNS an event, via the org owner user (the only reliably-populated

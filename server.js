@@ -527,6 +527,8 @@ const adminStaffRoutes          = require('./src/routes/adminStaff');
 const adminPickupRoutes         = require('./src/routes/adminPickup');
 const legalRoutes               = require('./src/routes/legal');
 const configRoutes              = require('./src/routes/config');
+const adminContactRoutes        = require('./src/routes/adminContact');
+const sesFeedbackRoutes         = require('./src/routes/sesFeedback');
 
 // ── Database-backed routes (frontend API shape) ───────────────────────────────
 
@@ -576,6 +578,7 @@ app.use('/api/admin/staff', adminStaffRoutes);
 app.use('/api/admin/pickup', adminPickupRoutes);
 app.use('/api/admin/launch-readiness', adminLaunchReadinessRoutes);
 app.use('/api/admin/settlements', adminSettlementsRoutes);
+app.use('/api/admin/contact', adminContactRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/agreements', agreementsRoutes);
 app.use('/api/verification', verificationRoutes);
@@ -583,6 +586,7 @@ app.use('/api/tax-exemption', taxExemptionRoutes);
 app.use('/api/lots', lotRoutes);
 app.use('/api/terms', termsRoutes);
 app.use('/api/marketing', marketingRoutes);
+app.use('/api/ses', sesFeedbackRoutes);
 app.use('/api/payout-preferences', payoutPreferencesRoutes);
 app.use('/api/payout-profile', payoutProfileRoutes);
 app.use('/api/seller/settlements', sellerSettlementsRoutes);

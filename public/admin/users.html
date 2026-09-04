@@ -40,6 +40,7 @@
 </head>
 <body>
   <script src="/widgets/shared/admin-nav.js"></script>
+  <script src="/widgets/shared/admin-contact-actions.js"></script>
   <div class="wrap">
     <h1>User Management</h1>
     <div class="bar">
@@ -94,6 +95,7 @@
       const d=(await api('GET','/api/admin/users/'+id)).data;
       el.innerHTML=
         '<h2>'+esc(d.full_name||d.email)+' <span class="pill role">'+esc(d.role)+'</span> '+(d.is_active===false?'<span class="pill off">Suspended</span>':'<span class="pill on">Active</span>')+'</h2>'+
+        '<div id="d-quick-contact" style="margin:.25rem 0 .75rem"></div>'+
         '<div class="grid">'+
           '<div><label>Email</label>'+esc(d.email)+'</div>'+
           '<div><label>Phone</label>'+esc(d.phone||'-')+'</div>'+
@@ -127,6 +129,7 @@
       const susp=document.getElementById('d-susp'),act=document.getElementById('d-act');
       if(susp)susp.onclick=()=>setStatus(id,'suspended');
       if(act)act.onclick=()=>setStatus(id,'active');
+      if(window.AdminContactActions)AdminContactActions.mount(document.getElementById('d-quick-contact'),{userId:id});
       document.getElementById('d-contact').onclick=()=>saveContact(id);
       document.getElementById('d-addnote').onclick=()=>addNote(id);
     }

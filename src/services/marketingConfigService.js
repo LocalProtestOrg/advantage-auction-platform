@@ -31,8 +31,12 @@ const qaRequiredBeforeRelease = () => getBool('marketing.qa_required_before_rele
 const factualSourceRequired = () => getBool('marketing.factual_source_required', true);
 const fullCircleRequired = () => getBool('marketing.full_circle_required', true);
 const a9PublishEnabled = () => getBool('marketing.a9_publish_enabled', false);   // A9 stays DRAFT-only until enabled
+const a7SendEnabled = () => getBool('marketing.a7_send_enabled', false);         // A7 autonomous email sending OFF (Phase 4C)
+const adminSmsEnabled = () => getBool('marketing.admin_sms_enabled', false);     // Admin Quick-Contact SMS gated (Twilio pending)
 
 module.exports = {
+  raw, getInt, getBool,
   directSpendMaxBps, eventLocalRadiusMiles, growthMonthlyAdditionalAuthorityCents, qaMaxCycles,
   qaRequiredBeforeRelease, factualSourceRequired, fullCircleRequired, a9PublishEnabled,
+  a7SendEnabled, adminSmsEnabled,
 };
