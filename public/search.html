@@ -53,6 +53,7 @@
     .more{display:block;margin:18px auto 0;padding:10px 20px;border:1.5px solid #cbd5e1;background:#fff;border-radius:8px;font-weight:700;cursor:pointer}
   </style>
   <script src="/widgets/shared/lot-image.js"></script>
+  <script src="/widgets/shared/legend-visibility.js"></script>
 </head>
 <body>
   <div class="wrap">
@@ -156,7 +157,10 @@
 
     async function loadCategories(){
       try{ const d=await (await fetch('/api/public/categories')).json();
-        (d.data||[]).forEach(c=>{ const o=document.createElement('option'); o.value=c.category; o.textContent=c.category+' ('+c.lot_count+')'; $('#category').appendChild(o); });
+        // Hide zero-count categories (an authoritative 0 is useless as a filter). Unknown counts are kept
+        // (never treat still-loading/missing as zero). The "All Categories" default option is untouched.
+        (d.data||[]).forEach(c=>{ if(!window.LegendVisibility.keepUnlessZero(c.lot_count)) return;
+          const o=document.createElement('option'); o.value=c.category; o.textContent=c.category+' ('+c.lot_count+')'; $('#category').appendChild(o); });
       }catch(e){}
     }
 

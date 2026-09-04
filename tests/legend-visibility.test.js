@@ -5,7 +5,7 @@
  * Rule: a status (Live Now / Ending Soon / Upcoming) shows only when its current count > 0; when all are
  * zero the section (and, if nothing else is visible, the whole key) is hidden. Same logic the page uses.
  */
-const { visibleItems, anyVisible } = require('../public/widgets/shared/legend-visibility.js');
+const { visibleItems, anyVisible, keepUnlessZero, isAuthoritativeZero, isKnownCount } = require('../public/widgets/shared/legend-visibility.js');
 
 // Mirrors index.html MP_EVENTS (the three status legend items).
 const STATUS = [{ key: 'live', label: 'Live Now' }, { key: 'ending', label: 'Ending Soon' }, { key: 'coming', label: 'Upcoming' }];
@@ -45,5 +45,50 @@ describe('robustness (no fake/inflated counts)', () => {
   test('anyVisible drives the whole-key hide', () => {
     expect(anyVisible(STATUS, { live: 1, ending: 0, coming: 0 })).toBe(true);
     expect(anyVisible(STATUS, { live: 0, ending: 0, coming: 0 })).toBe(false);
+  });
+});
+
+// keepUnlessZero — the §3-correct predicate for surfaces that may render before data loads
+// (e.g. the search category dropdown). Hide ONLY an authoritative zero; never a false zero.
+describe('keepUnlessZero (unknown is NOT an authoritative zero)', () => {
+  test('authoritative zeros are hidden: 0, "0", negative', () => {
+    expect(keepUnlessZero(0)).toBe(false);
+    expect(keepUnlessZero('0')).toBe(false);
+    expect(keepUnlessZero(-1)).toBe(false);
+    expect(isAuthoritativeZero(0)).toBe(true);
+    expect(isAuthoritativeZero('0')).toBe(true);
+  });
+  test('positive counts are shown: number and numeric string', () => {
+    expect(keepUnlessZero(3)).toBe(true);
+    expect(keepUnlessZero('12')).toBe(true);
+    expect(keepUnlessZero(2.5)).toBe(true);
+  });
+  test('UNKNOWN / loading / API-error are kept (not falsely hidden as zero)', () => {
+    expect(keepUnlessZero(null)).toBe(true);
+    expect(keepUnlessZero(undefined)).toBe(true);
+    expect(keepUnlessZero('')).toBe(true);
+    expect(keepUnlessZero(NaN)).toBe(true);
+    expect(keepUnlessZero('abc')).toBe(true);
+    expect(isKnownCount(undefined)).toBe(false);
+    expect(isAuthoritativeZero(undefined)).toBe(false);   // not authoritative → never hidden as zero
+  });
+});
+
+// Mirrors search.html loadCategories(): a category option renders only when its lot_count is not an
+// authoritative zero. Same shared rule; "All Categories" default is added separately (never filtered).
+describe('search category dropdown zero-hiding', () => {
+  const optionsFor = (cats) => cats.filter((c) => keepUnlessZero(c.lot_count)).map((c) => c.category);
+  test('drops zero-lot categories, keeps positive', () => {
+    const cats = [{ category: 'Furniture', lot_count: 12 }, { category: 'Coins', lot_count: 0 }, { category: 'Art', lot_count: 3 }];
+    expect(optionsFor(cats)).toEqual(['Furniture', 'Art']);
+  });
+  test('numeric-string counts handled', () => {
+    expect(optionsFor([{ category: 'A', lot_count: '0' }, { category: 'B', lot_count: '5' }])).toEqual(['B']);
+  });
+  test('unknown lot_count is kept (never hidden as a false zero)', () => {
+    expect(optionsFor([{ category: 'A', lot_count: undefined }, { category: 'B', lot_count: null }])).toEqual(['A', 'B']);
+  });
+  test('all zero → no category options (only the untouched All default would remain)', () => {
+    expect(optionsFor([{ category: 'A', lot_count: 0 }, { category: 'B', lot_count: 0 }])).toEqual([]);
   });
 });
