@@ -111,7 +111,7 @@ function makeHarness() {
       }
       if (/UPDATE growth_pool SET balance_cents = balance_cents \+ \$1/.test(sql)) { st.growth += params[0]; return { rows: [], rowCount: 1 }; }
       if (/UPDATE growth_pool SET balance_cents = balance_cents - \$1/.test(sql)) { st.growth -= params[0]; return { rows: [], rowCount: 1 }; }
-      if (/SELECT balance_cents FROM growth_pool WHERE id = 1 FOR UPDATE/.test(sql)) return { rows: [{ balance_cents: st.growth }], rowCount: 1 };
+      if (/SELECT balance_cents.* FROM growth_pool WHERE id = 1 FOR UPDATE/.test(sql)) return { rows: [{ balance_cents: st.growth, reserved_cents: 0 }], rowCount: 1 };
       if (/SELECT id FROM growth_pool_ledger WHERE idempotency_key = \$1/.test(sql)) { const has = st.growthKeys.has(params[0]); return { rows: has ? [{ id: 'x' }] : [], rowCount: has ? 1 : 0 }; }
       if (/INSERT INTO growth_monthly_authority/.test(sql)) { const m = params[0]; if (!st.month[m]) st.month[m] = { month: m, additional_authority_cents: params[1], owner_granted_cents: 0, spent_beyond_pool_cents: 0 }; return { rows: [], rowCount: 1 }; }
       if (/SELECT \* FROM growth_monthly_authority WHERE month = \$1 FOR UPDATE/.test(sql)) { const a = st.month[params[0]]; return { rows: a ? [a] : [], rowCount: a ? 1 : 0 }; }

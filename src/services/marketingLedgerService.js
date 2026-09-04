@@ -181,8 +181,9 @@ async function growthSpend({ amountCents, campaignId, marketId, idempotencyKey, 
     await client.query('BEGIN');
     const dup = await client.query(`SELECT id FROM growth_pool_ledger WHERE idempotency_key = $1`, [idempotencyKey]);
     if (dup.rows[0]) { await client.query('COMMIT'); return { ok: true, idempotent: true }; }
-    const pool = (await client.query('SELECT balance_cents FROM growth_pool WHERE id = 1 FOR UPDATE')).rows[0];
-    const balance = cents(pool.balance_cents);
+    const pool = (await client.query('SELECT balance_cents, COALESCE(reserved_cents,0) AS reserved_cents FROM growth_pool WHERE id = 1 FOR UPDATE')).rows[0];
+    // Non-reserved (free) pool balance — funds held by active portfolio reservations are NOT spendable here.
+    const balance = Math.max(0, cents(pool.balance_cents) - cents(pool.reserved_cents));
     const fromPool = Math.min(balance, amt);
     const beyond = amt - fromPool;
     // Ensure a monthly authority row (snapshot the config ceiling for the month).
