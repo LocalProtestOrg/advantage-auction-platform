@@ -59,10 +59,13 @@ describe('seller-settlements.html (static UI)', () => {
     expect(HTML).not.toMatch(/PLATFORM_FEE|\*\s*0\.1\b/);  // no fee math in the UI
   });
   test('payment explanations + attribution Not Available present', () => {
-    expect(HTML).toContain('Only the actual payment processing costs charged by Stripe are recovered.');
+    // Platform + processing explained separately (no "actual Stripe pass-through" framing).
+    expect(HTML).toContain('Advantage.Bid Platform/Software Fee');
+    expect(HTML).toContain('Payment Processing');
+    expect(HTML).toContain('3% payment-processing fee on the hammer price');
+    expect(HTML).not.toContain('Only the actual payment processing costs charged by Stripe are recovered.');
     expect(HTML).toContain('Coming in a Future Update');
     expect(HTML).toContain('Not Available');
-    expect(HTML).toContain('0.00%');
   });
   test('copy SOP: no AI, no em/en dashes; inline JS parses', () => {
     expect(HTML).not.toMatch(/\bAI\b/);

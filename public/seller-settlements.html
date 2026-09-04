@@ -113,11 +113,12 @@
 
     function renderHistory(list) {
       if (!list.length) { $('history').innerHTML = '<p class="muted" style="font-size:.88rem">No settlements yet. Your settlements will appear here after your auctions close.</p>'; return; }
-      $('history').innerHTML = '<table><thead><tr><th>Status</th><th>Auction</th><th>Closed</th><th class="num">Gross Sales</th><th class="num">Platform Fee</th><th class="num">Net Payment</th><th>Method</th><th>Reference</th><th>Paid</th></tr></thead><tbody>' +
+      $('history').innerHTML = '<table><thead><tr><th>Status</th><th>Auction</th><th>Closed</th><th class="num">Gross Sales</th><th class="num">Platform Fee</th><th class="num">Processing</th><th class="num">Net Payment</th><th>Method</th><th>Reference</th><th>Paid</th></tr></thead><tbody>' +
         list.map(x => '<tr class="clickable" data-a="'+esc(x.auction_id)+'">'
           + '<td><span class="st '+stClass(x.status_label)+'">'+esc(x.status_label)+'</span></td>'
           + '<td>'+esc(x.auction_title)+'</td><td>'+day(x.close_date)+'</td>'
           + '<td class="num">'+money(x.gross_sales_cents)+'</td><td class="num">'+money(x.platform_fee_cents)+'</td>'
+          + '<td class="num">'+money(x.payment_processing_cents)+'</td>'
           + '<td class="num"><strong>'+money(x.net_seller_payment_cents)+'</strong></td>'
           + '<td>'+esc(x.payment_method?x.payment_method.toUpperCase():'')+'</td><td>'+esc(x.payment_reference||'')+'</td><td>'+(x.paid_date?day(x.paid_date):'')+'</td></tr>').join('') + '</tbody></table>';
       document.querySelectorAll('tr[data-a]').forEach(tr => tr.addEventListener('click', () => openDetail(tr.getAttribute('data-a'))));
@@ -138,19 +139,23 @@
         f.push(['Net Collected', money(bp.net_collected_cents), 'sub']);
         f.push(['Plus Credits', d.credits_cents?('+'+money(d.credits_cents)):money(0), '']);
         f.push(['Less Debits', neg(d.debits_cents), '']);
-        f.push(['Less Marketing Charges', neg(d.marketing_charges_cents), '']);
-        f.push(['Less Actual Stripe Processing', neg(d.stripe_processing_cents), '']);
-        f.push(['Less Platform Fee ('+d.platform_fee_pct+')', neg(d.platform_fee_cents), '']);
+        if (d.marketing_package_cents) f.push(['Less Marketing Package', neg(d.marketing_package_cents), '']);
+        // Platform/Software Fee and Payment Processing are SEPARATE deductions, never a combined commission.
+        f.push(['Less '+(d.platform_fee_label||'Advantage.Bid Platform/Software Fee')+' ('+d.platform_fee_pct+')', neg(d.platform_fee_cents), '']);
+        f.push(['Less '+(d.payment_processing_label||'Payment Processing')+' ('+(d.payment_processing_pct||'')+')', neg(d.payment_processing_cents), '']);
         f.push(['Net Seller Payment', money(d.net_seller_payment_cents), 'final']);
         $('d-formula').innerHTML = f.map(([k,v,c]) => '<div class="kv '+(c==='sub'?'sub':c==='final'?'final':'')+'"><span class="k">'+esc(k)+'</span><span class="v">'+v+'</span></div>').join('');
+        if (d.proceeds_insufficient) {
+          $('d-formula').innerHTML += '<p style="font-size:.85rem;color:#92400e;background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:.6rem .8rem;margin:.6rem 0 0">No payout is due for this auction: the sale proceeds were not enough to cover the applicable auction charges, so no payment will be issued.</p>';
+        }
 
         const p = d.payment || {};
         $('d-payment').innerHTML = kv('Payment Method', esc(p.method?p.method.toUpperCase():'Not set')) + kv('Payment Reference', esc(p.reference||'Not set')) + kv('Payment Date', p.paid_date?day(p.paid_date):'Not set') + kv('Status', esc(d.status_label));
 
         $('d-explain').innerHTML =
-          kv('Actual Stripe Processing', 'Only the actual payment processing costs charged by Stripe are recovered.') +
-          kv('Platform Fee', 'Currently 0.00%.') +
-          kv('Marketing Charges', 'Only purchased marketing services are deducted.') +
+          kv('Advantage.Bid Platform/Software Fee', 'Advantage.Bid’s fee for the auction platform and software. Individual sellers: 0%. Professional sellers: the rate in your agreement (standard 4% of hammer).') +
+          kv('Payment Processing', 'A 3% payment-processing fee on the hammer price. Shown separately from the platform fee.') +
+          kv('Marketing Package', 'Only a marketing package you purchased is deducted.') +
           kv('Credits', 'Amounts added to your settlement.') +
           kv('Debits', 'Amounts deducted from your settlement.');
 

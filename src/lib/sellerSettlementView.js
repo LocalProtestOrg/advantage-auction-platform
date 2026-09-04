@@ -24,7 +24,10 @@ function sellerTimeline(sp) {
   return steps;
 }
 
-// One history-table row from the stored payout figures (authoritative). Seller-safe.
+const nonNeg = (v) => Math.max(0, Number(v) || 0); // seller never sees a negative amount to be paid
+
+// One history-table row from the stored payout figures (authoritative snapshot). Seller-safe. Platform and
+// processing are kept SEPARATE (never a combined "commission"). Net payout is clamped to >= 0.
 function sellerSettlementListItem(row) {
   const paid = row.settlement_status === 'paid';
   return {
@@ -34,8 +37,10 @@ function sellerSettlementListItem(row) {
     status: row.settlement_status,
     status_label: sellerStatusLabel(row.settlement_status),
     gross_sales_cents: row.gross_revenue_cents || 0,
-    platform_fee_cents: row.platform_fee_cents || 0,
-    net_seller_payment_cents: paid ? (row.final_amount_paid_cents || 0) : (row.seller_payout_cents || 0),
+    platform_fee_cents: row.platform_fee_cents || 0,             // Advantage.Bid Platform/Software Fee
+    payment_processing_cents: row.processing_fee_cents || 0,     // Payment Processing (separate)
+    marketing_package_cents: row.marketing_charge_cents || 0,    // Marketing Package (separate)
+    net_seller_payment_cents: nonNeg(paid ? row.final_amount_paid_cents : row.seller_payout_cents),
     payment_method: row.payment_method_used || null,
     payment_reference: row.payout_reference || null,
     paid_date: row.paid_at || null,
@@ -75,18 +80,28 @@ function sellerSettlementDetailView({ auctionId, auction, sp, totals, marketing 
     },
     credits_cents: adj.credit_cents || 0,
     debits_cents: adj.debit_cents || 0,
-    marketing_charges_cents: t.marketing_deduction_cents || 0,
-    stripe_processing_cents: t.credit_card_processing_fee_cents || 0,
-    platform_fee_cents: t.seller_platform_fee_cents || 0,
-    // Derive the displayed rate from the ACTUAL fee vs gross hammer (individual → 0.00%,
-    // professional → their configured rate, default 4.00%) rather than hardcoding — keeps the seller
-    // statement truthful per seller and consistent with the rate actually applied at settlement.
+    // SEPARATE, itemized deductions (never collapsed into a "commission"):
+    marketing_package_cents: t.marketing_deduction_cents || 0,           // Marketing Package
+    payment_processing_cents: t.credit_card_processing_fee_cents || 0,   // Payment Processing (policy amount deducted)
+    payment_processing_label: 'Payment Processing',
+    platform_fee_cents: t.seller_platform_fee_cents || 0,                // Advantage.Bid Platform/Software Fee
+    platform_fee_label: 'Advantage.Bid Platform/Software Fee',
+    // Rates derived from the ACTUAL applied fee vs gross hammer (individual → 0.00% platform; professional →
+    // their frozen/configured rate). Truthful per seller; NOT recomputed from today's global config.
     platform_fee_pct: (() => {
-      const gross = Number(t.gross_sales_cents) || 0;
-      const fee = Number(t.seller_platform_fee_cents) || 0;
+      const gross = Number(t.gross_sales_cents) || 0; const fee = Number(t.seller_platform_fee_cents) || 0;
       return (gross > 0 ? (fee / gross * 100) : 0).toFixed(2) + '%';
     })(),
-    net_seller_payment_cents: paid ? (sp.final_amount_paid_cents || 0) : (t.net_seller_proceeds_cents || 0),
+    payment_processing_pct: (() => {
+      const gross = Number(t.gross_sales_cents) || 0; const proc = Number(t.credit_card_processing_fee_cents) || 0;
+      return (gross > 0 ? (proc / gross * 100) : 0).toFixed(2) + '%';
+    })(),
+    // Net payout is clamped to >= 0 — a seller never sees a negative amount. Any unrecovered remainder is
+    // Advantage.Bid's internal shortfall (NOT shown here). Uses final_payout_cents (max(0,net)) when available.
+    net_seller_payment_cents: nonNeg(paid ? sp.final_amount_paid_cents
+      : (t.final_payout_cents != null ? t.final_payout_cents : t.net_seller_proceeds_cents)),
+    proceeds_insufficient: !paid && (t.final_payout_cents != null ? t.final_payout_cents : t.net_seller_proceeds_cents) <= 0
+      && ((t.seller_platform_fee_cents || 0) + (t.credit_card_processing_fee_cents || 0) + (t.marketing_deduction_cents || 0)) > 0,
     payment: sp ? { method: sp.payment_method_used || null, reference: sp.payout_reference || null, paid_date: sp.paid_at || null } : null,
     timeline: sellerTimeline(sp),
     marketing: marketing || null,
