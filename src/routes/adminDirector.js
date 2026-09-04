@@ -22,6 +22,11 @@ const growthBridge = require('./../services/growthBridgeService');
 const membership = require('./../services/audienceMembershipService');
 const learningService = require('./../services/marketingLearningService');
 const onsite = require('./../services/onsiteService');
+const baseline = require('./../services/baselineReportService');
+const marketDx = require('./../services/marketDiagnosisService');
+const auctionDx = require('./../services/liveAuctionDiagnosisService');
+const crmRanking = require('./../services/crmRankingService');
+const platformFacts = require('./../services/platformFactAudienceService');
 
 router.use(express.json());
 router.use(auth, requirePermission('members.view'));
@@ -60,7 +65,50 @@ router.get('/qa/:audienceKey', async (req, res, next) => {
   catch (e) { next(e); }
 });
 
+// ── READ: 4H evidence surfaces ──
+router.get('/baseline', async (req, res, next) => {
+  try { res.json({ success: true, baseline: await baseline.latest(), subscriber_placement: await baseline.subscriberPlacement() }); } catch (e) { next(e); }
+});
+router.get('/market-diagnosis', async (req, res, next) => {
+  try { res.json({ success: true, markets: await marketDx.diagnoseAll() }); } catch (e) { next(e); }
+});
+router.get('/auction-diagnosis', async (req, res, next) => {
+  try { res.json({ success: true, auctions: await auctionDx.diagnoseCurrent() }); } catch (e) { next(e); }
+});
+router.get('/crm-ranking', async (req, res, next) => {
+  try { res.json({ success: true, ...(await crmRanking.rank({ limit: 50 })) }); } catch (e) { next(e); }
+});
+// Director DAILY readiness — the "is the engine alive + what's actionable today" aggregate.
+router.get('/daily', async (req, res, next) => {
+  try {
+    const counts = await membership.counts();
+    const q = async (sql) => Number((await db.query(sql)).rows[0].n);
+    const eventsToday = await q(`SELECT count(*)::int n FROM analytics_events WHERE received_at > now() - interval '24 hours'`);
+    const eventsWithVisitor = await q(`SELECT count(*)::int n FROM analytics_events WHERE visitor_id IS NOT NULL AND received_at > now() - interval '24 hours'`);
+    const identityLinks = await q(`SELECT count(*)::int n FROM behavioral_identity_links`);
+    const signals = await q(`SELECT count(*)::int n FROM marketing_signals WHERE active=true`);
+    const onsiteToday = await q(`SELECT count(*)::int n FROM marketing_onsite_treatments WHERE shown_at > now() - interval '24 hours'`);
+    res.json({ success: true, daily: {
+      behavioral_events_24h: eventsToday, behavioral_events_24h_with_visitor: eventsWithVisitor,
+      identity_links: identityLinks, active_signals: signals, onsite_treatments_24h: onsiteToday,
+      audiences: counts,
+      registered_non_bidder: counts['registered_non_bidder'] || 0,
+      watcher_no_bid: counts['watcher_no_bid'] || 0,
+      local_event_interest: counts['local_event_interest'] || 0,
+      abandoned_seller_signup: counts['abandoned_individual_seller_signup'] || 0,
+      watcher_ending_soon_transactional: 'wired (marketing.watcher_ending_soon.enabled)',
+      engine_receiving_input: eventsWithVisitor > 0,
+    } });
+  } catch (e) { next(e); }
+});
+
 // ── WRITE / ACTION (Super Admin; all pass production enforcement) ──
+router.post('/baseline/snapshot', superOnly, async (req, res, next) => {
+  try { res.json({ success: true, ...(await baseline.snapshot()) }); } catch (e) { next(e); }
+});
+router.post('/platform-facts/refresh', superOnly, async (req, res, next) => {
+  try { res.json({ success: true, refreshed: await platformFacts.refreshAll() }); } catch (e) { next(e); }
+});
 router.post('/decisions', superOnly, async (req, res, next) => {
   try {
     const b = req.body || {};

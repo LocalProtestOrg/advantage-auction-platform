@@ -193,8 +193,8 @@ describe('onsiteService.chooseTreatment', () => {
     expect(t).toBeNull();
   });
   test('category interest requires matching live inventory', () => {
-    expect(onsite.chooseTreatment({ pagePath: '/search.html', signals: S('CATEGORY_INTEREST'), hasMatchingInventory: false })).toBeNull();
-    expect(onsite.chooseTreatment({ pagePath: '/search.html', signals: S('CATEGORY_INTEREST'), hasMatchingInventory: true }).playbook_key).toBe('category_relevance');
+    expect(onsite.chooseTreatment({ pagePath: '/search.html', signals: S('CATEGORY_INTEREST'), hasCategoryInventory: false })).toBeNull();
+    expect(onsite.chooseTreatment({ pagePath: '/search.html', signals: S('CATEGORY_INTEREST'), hasCategoryInventory: true }).playbook_key).toBe('category_relevance');
   });
   test('anonymous engaged visitor → contextual subscribe', () => {
     const t = onsite.chooseTreatment({ pagePath: '/event.html', pageIntent: 'estate_sale_interest', isAnonymous: true, signals: S() });

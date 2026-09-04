@@ -86,6 +86,25 @@ const AUDIENCES = {
     conversion_exit: 'Ages out of "recent" by decay.', recency_window_days: 21,
     geography: 'aware', category: 'none', allowed_channels: ['a7_email', 'onsite'], success_outcome: 'purchase_completed',
   },
+  // ── Platform-FACT audiences (Phase 4H): computed from authoritative platform state, NOT page events ──
+  registered_non_bidder: {
+    family: 'buyer', platform_fact: true, purpose: 'Registered users who have never placed a qualifying bid.',
+    qualifying: [{ signal: 'PLATFORM_FACT', minLevel: 1 }], exclude_signals: [],
+    conversion_exit: 'Removed on first bid.', recency_window_days: 60,
+    geography: 'none', category: 'none', allowed_channels: ['a7_email', 'onsite'], success_outcome: 'bid_placed',
+  },
+  watcher_no_bid: {
+    family: 'buyer', platform_fact: true, purpose: 'Users watching a lot/auction they have not bid on (still actionable).',
+    qualifying: [{ signal: 'PLATFORM_FACT', minLevel: 1 }], exclude_signals: [],
+    conversion_exit: 'Removed on bid, or when the watched item closes/withdraws.', recency_window_days: 30,
+    geography: 'none', category: 'none', allowed_channels: ['onsite'], success_outcome: 'bid_placed',
+  },
+  local_event_interest: {
+    family: 'local', platform_fact: true, purpose: 'Permissioned subscribers within range of an upcoming event.',
+    qualifying: [{ signal: 'PLATFORM_FACT', minLevel: 1 }], exclude_signals: [],
+    conversion_exit: 'Expires with the event window.', recency_window_days: 21,
+    geography: 'aware', category: 'none', allowed_channels: ['a7_email', 'onsite'], success_outcome: 'purchase_completed',
+  },
   dormant_buyer: {
     family: 'buyer', purpose: 'Previously active buyers who have gone quiet (win-back).',
     qualifying: [{ signal: 'DORMANT_BUYER', minLevel: 1 }], exclude_signals: ['RECENT_BUYER'],

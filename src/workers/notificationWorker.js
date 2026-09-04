@@ -22,6 +22,7 @@ const sellerCloseoutService = require('../services/sellerCloseoutService'); // D
 const auditService   = require('../services/auditService');
 const realtime       = require('../lib/realtime'); // #1 real-time push (pg NOTIFY)
 const content        = require('../lib/notificationContent'); // enriched templates + staleness
+const marketingConfig = require('../services/marketingConfigService'); // watcher ENDING_SOON gate (transactional)
 
 if (process.env.SENTRY_DSN) {
   Sentry.init({ dsn: process.env.SENTRY_DSN, environment: process.env.NODE_ENV || 'development' });
@@ -602,12 +603,14 @@ const ENDING_SOON_WINDOW_MIN   = 10;       // lots closing within N minutes
 const ENDING_SOON_DEDUP_MIN    = 5;        // suppress if already queued within N minutes
 
 async function enqueueEndingSoon() {
-  return; // Batch A: ENDING_SOON disabled — never enqueue (unreferenced, kept for rollback).
-  try {                                    // eslint-disable-line no-unreachable
-    // Single INSERT … SELECT with a NOT EXISTS dedup guard.
-    // Finds every distinct bidder on any active lot closing within the window,
-    // then skips any (user, lot) pair that already has an ENDING_SOON row
-    // created within the dedup window.
+  try {
+    // TRANSACTIONAL watcher/bidder closing reminder (Phase 4H repair). This is NOT marketing: it is NOT
+    // routed through A7, NOT gated by newsletter permission, and NOT relabeled marketing. It reminds a
+    // user who explicitly WATCHED (or bid on) a lot that it is closing soon. Gated by an operational
+    // config flag so product can toggle it. Soft-close aware (uses extended_until). ONE reminder per
+    // (user, lot) ever — the dedup has NO time window — so a watcher is never spammed across scans.
+    const enabled = await marketingConfig.getBool('marketing.watcher_ending_soon.enabled', false);
+    if (!enabled) return;
     const res = await db.query(
       `INSERT INTO notifications_queue (user_id, type, payload)
        SELECT DISTINCT
@@ -616,35 +619,27 @@ async function enqueueEndingSoon() {
               jsonb_build_object(
                 'lot_id',        l.id::text,
                 'visible_cents', l.current_bid_cents,
-                'closes_at',     l.closes_at
+                'closes_at',     COALESCE(l.extended_until, l.closes_at)
               )
        FROM   lots l
        JOIN   (
-                -- Engaged bidders: at least one bid within 80% of current price
-                SELECT b.bidder_user_id AS user_id, b.lot_id
-                FROM   bids b
-                WHERE  b.amount_cents >= (
-                         SELECT current_bid_cents FROM lots WHERE id = b.lot_id
-                       ) * 0.8
-
+                -- Engaged bidders on the lot
+                SELECT b.bidder_user_id AS user_id, b.lot_id FROM bids b
                 UNION
-
-                -- Watchlist users: following the lot regardless of bid history
-                SELECT w.user_id, w.lot_id
-                FROM   watchlists w
+                -- Watchlist users (the gap this repair addresses: a watcher who never bid)
+                SELECT w.user_id, w.lot_id FROM watchlists w
               ) candidates ON candidates.lot_id = l.id
-       WHERE  l.state     IN ('open', 'active')
-         AND  l.closes_at BETWEEN NOW()
+       WHERE  l.state IN ('open', 'active')
+         AND  candidates.user_id IS NOT NULL
+         AND  COALESCE(l.extended_until, l.closes_at) BETWEEN NOW()
                                AND NOW() + ($1 || ' minutes')::interval
          AND  NOT EXISTS (
-                SELECT 1
-                FROM   notifications_queue nq
+                SELECT 1 FROM notifications_queue nq
                 WHERE  nq.user_id            = candidates.user_id
                   AND  nq.type               = 'ENDING_SOON'
                   AND  nq.payload->>'lot_id' = l.id::text
-                  AND  nq.created_at         > NOW() - ($2 || ' minutes')::interval
               )`,
-      [ENDING_SOON_WINDOW_MIN, ENDING_SOON_DEDUP_MIN]
+      [ENDING_SOON_WINDOW_MIN]
     );
 
     if (res.rowCount > 0) {
@@ -743,6 +738,12 @@ async function enqueueAuctionBeginsSoon() {
 console.log(`[notify] AUCTION_BEGINS_SOON scheduler started — scanning every ${AUCTION_BEGINS_SOON_INTERVAL_MS / 1000}s`);
 setInterval(enqueueAuctionBeginsSoon, AUCTION_BEGINS_SOON_INTERVAL_MS);
 enqueueAuctionBeginsSoon();
+
+// ENDING_SOON — TRANSACTIONAL watcher/bidder closing reminder (Phase 4H). Self-gates on
+// marketing.watcher_ending_soon.enabled; one reminder per (user, lot); soft-close aware. NOT marketing.
+console.log(`[notify] ENDING_SOON (watcher) scheduler started — scanning every ${ENDING_SOON_INTERVAL_MS / 1000}s`);
+setInterval(enqueueEndingSoon, ENDING_SOON_INTERVAL_MS);
+enqueueEndingSoon();
 
 // ── AUCTION_STATE scheduler (PUB-7) ────────────────────────────────────────────
 // Time-driven state transitions:

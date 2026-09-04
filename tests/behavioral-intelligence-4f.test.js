@@ -15,7 +15,7 @@ const ev = (t, pi, ck, d) => ({ event_type: t, page_intent: pi, category_key: ck
 // ── 1. Page-intent registry (one helper; no scattered path checks) ───────────
 describe('pageIntentRegistry', () => {
   test('classifies seller / buyer / home; unknown → null', () => {
-    expect(intent.classify('/become-a-seller.html').intent).toBe('seller_intent_high');
+    expect(intent.classify('/become-seller.html').intent).toBe('seller_intent_high');
     expect(intent.classify('/professional-sellers.html').intent).toBe('professional_seller_intent');
     expect(intent.classify('/event.html?slug=x').intent).toBe('estate_sale_interest');
     expect(intent.classify('/auction-view.html?auctionId=1').intent).toBe('event_interest');

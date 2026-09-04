@@ -258,6 +258,16 @@
     // BEFORE navigating — otherwise a pre-existing localStorage-only session would hit the gate
     // with no cookie and bounce back here. Best-effort; navigate regardless.
     var token = localStorage.getItem('token');
+    // Explicit anonymous→known identity linkage (first-party). Best-effort, once, non-blocking. The
+    // visitor_id is the durable first-party id set by the tracker; user_id is derived server-side.
+    try {
+      var vid = localStorage.getItem('aap_visitor_id');
+      if (token && vid && !localStorage.getItem('aap_identified')) {
+        localStorage.setItem('aap_identified', '1');
+        fetch('/api/analytics/identify', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+          body: JSON.stringify({ visitor_id: vid, source: 'login' }) }).catch(function () {});
+      }
+    } catch (e) { /* never block auth */ }
     var go = function () { window.location.href = dest; };
     if (token) {
       fetch('/api/auth/session', { method: 'POST', headers: { 'Authorization': 'Bearer ' + token } }).then(go, go);

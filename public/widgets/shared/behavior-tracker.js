@@ -26,8 +26,19 @@
     } catch (e) { /* never break the page */ }
   }
 
+  // Ensure the consent banner is present (one shared integration point). It self-suppresses once a
+  // choice exists and publishes window.__ADV_CONSENT for the tracker.
+  function ensureConsentBanner() {
+    try {
+      if (window.__ADV_CONSENT || document.querySelector('.adv-consent') || document.getElementById('adv-consent-styles')) return;
+      var s = document.createElement('script'); s.src = '/widgets/shared/consent-banner.js'; s.defer = true;
+      document.head.appendChild(s);
+    } catch (e) { /* never break the page */ }
+  }
+
   function fire() {
     try {
+      ensureConsentBanner();
       captureClickIds();
       var ctx = {};
       if (window.__ADV_CATEGORY_KEY) ctx.category_key = String(window.__ADV_CATEGORY_KEY);

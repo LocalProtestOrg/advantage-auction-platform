@@ -31,7 +31,7 @@ router.get('/treatment', limiter, async (req, res, next) => {
 
     const cls = pageIntentRegistry.classify(path);
     const treatment = await onsite.treatmentFor({ scopeType: 'visitor', scopeId: visitorId, pagePath: path,
-      pageIntent: cls ? cls.intent : null, hasMatchingInventory: false });
+      pageIntent: cls ? cls.intent : null });
     return res.json({ treatment: treatment || null });
   } catch (e) { next(e); }
 });

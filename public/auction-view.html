@@ -578,6 +578,8 @@
     .lot-card{ border:1px solid var(--hair); border-radius:18px;
                transition:transform .18s var(--ease),box-shadow .18s; }
     .lot-card:hover{ transform:translateY(-4px); box-shadow:0 18px 38px rgba(8,16,28,.14); }
+    /* Targeted-lot ad landing: subtly highlight the advertised lot; neighbors stay in normal catalog order. */
+    .lot-card.adv-highlight{ box-shadow:0 0 0 3px var(--accent,#2F6BFF), 0 18px 38px rgba(8,16,28,.18); border-color:var(--accent,#2F6BFF); }
     .card-img img{ transition:opacity .25s, transform 6s ease; transform-origin:center; }
     .lot-card:hover .card-img img.loaded{ transform:scale(1.05); }
     .card-title{ font-weight:600; font-size:.98rem; color:var(--ink); }
@@ -1204,6 +1206,7 @@
       grid.innerHTML = '';
       lots.forEach(lot => grid.appendChild(buildCard(lot, imageMap[lot.id])));
       gridKey = computeGridKey(auctionState, lots);
+      focusTargetLot();   // targeted-lot ad landing: position at the advertised lot (once, after render)
 
     } catch (err) {
       grid.innerHTML = '<div class="state-msg"><strong>Could not load auction.</strong>' + esc(err.message) + '</div>';
@@ -1376,6 +1379,25 @@
   }
   function cssEsc(s) { return (window.CSS && CSS.escape) ? CSS.escape(s) : String(s).replace(/"/g, '\\"'); }
   function cardFor(lotId) { return lotId ? grid.querySelector('[data-lot-id="' + cssEsc(lotId) + '"]') : null; }
+
+  // Targeted lot ad landing (Phase 4H §17-18): when an ad promotes ONE lot, land on THIS auction catalog
+  // positioned at the advertised lot with neighbors still visible/discoverable — NOT an isolated lot page.
+  // ?lot=<lotId> (or ?lotId=) scrolls to + subtly highlights the lot once, after data loads. A missing /
+  // invalid / withdrawn / closed lot id fails gracefully (catalog loads normally). No tracking in the URL.
+  let targetLotFocused = false;
+  function focusTargetLot() {
+    if (targetLotFocused) return;
+    const targetLot = params.get('lot') || params.get('lotId');
+    if (!targetLot) return;
+    const card = cardFor(targetLot);
+    if (!card) return;                 // not in this catalog (withdrawn/closed/invalid) → normal catalog
+    targetLotFocused = true;
+    try {
+      card.classList.add('adv-highlight');
+      card.setAttribute('tabindex', '-1');
+      card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    } catch (e) { /* positioning is best-effort; catalog remains fully usable */ }
+  }
 
   // ── #1 catalog polling fallback (always on, independent of the socket) ───────
   function computeGridKey(state, lots) {

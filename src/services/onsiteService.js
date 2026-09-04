@@ -35,12 +35,12 @@ const PLAYBOOKS = [
   },
   {
     key: 'category_relevance', audience_key: 'category_interest_buyer',
-    guard: (c) => c.signals.has('CATEGORY_INTEREST') && c.hasMatchingInventory,   // NO inventory → no treatment
+    guard: (c) => c.signals.has('CATEGORY_INTEREST') && c.hasCategoryInventory,   // NO live inventory → no treatment
     build: (c) => ({ headline: 'More in the categories you follow', body: 'Fresh lots matching your interests are up for auction now.', cta_label: 'Browse matching lots', cta_href: '/search.html?mode=lots', reason: 'observed category interest + matching live inventory' }),
   },
   {
     key: 'estate_local_event', audience_key: 'estate_sale_browser',
-    guard: (c) => c.signals.has('ESTATE_SALE_INTEREST') && c.hasMatchingInventory,
+    guard: (c) => c.signals.has('ESTATE_SALE_INTEREST') && c.hasEventInventory,    // NO current event → no treatment
     build: () => ({ headline: 'Estate sales near you', body: 'Upcoming estate sales in your area are listed now.', cta_label: 'See estate sales', cta_href: '/events.html', reason: 'estate-sale interest + upcoming local events' }),
   },
   {
@@ -77,7 +77,7 @@ function chooseTreatment(ctx = {}) {
 }
 
 // Resolve a visitor's active signal types (+ linked-user existing-seller flag) and choose one treatment.
-async function treatmentFor({ scopeType = 'visitor', scopeId, pagePath, pageIntent, hasMatchingInventory = false }, runner) {
+async function treatmentFor({ scopeType = 'visitor', scopeId, pagePath, pageIntent }, runner) {
   const r = runner || db;
   if (!scopeId) return null;
   const { rows: sigRows } = await r.query(
@@ -89,7 +89,16 @@ async function treatmentFor({ scopeType = 'visitor', scopeId, pagePath, pageInte
   const link = (await r.query('SELECT user_id FROM behavioral_identity_links WHERE visitor_id = $1 AND user_id IS NOT NULL LIMIT 1', [scopeId])).rows[0];
   if (link) { userId = link.user_id; const sp = await r.query('SELECT 1 FROM seller_profiles WHERE user_id = $1', [userId]); isExistingSeller = sp.rowCount > 0; }
   const isAnonymous = !userId;
-  const treatment = chooseTreatment({ pagePath, pageIntent, signals, isExistingSeller, hasMatchingInventory, isAnonymous });
+  // LIVE inventory context (§10): a category/estate treatment only fires when real open inventory / a
+  // current event actually exists. No matching inventory → those playbooks are skipped (fallback).
+  let hasCategoryInventory = false; let hasEventInventory = false;
+  if (signals.has('CATEGORY_INTEREST')) {
+    hasCategoryInventory = (await r.query(`SELECT 1 FROM lots WHERE state IN ('open','active') LIMIT 1`)).rowCount > 0;
+  }
+  if (signals.has('ESTATE_SALE_INTEREST')) {
+    hasEventInventory = (await r.query(`SELECT 1 FROM events WHERE status='published' AND (end_at IS NULL OR end_at >= now()) LIMIT 1`)).rowCount > 0;
+  }
+  const treatment = chooseTreatment({ pagePath, pageIntent, signals, isExistingSeller, hasCategoryInventory, hasEventInventory, isAnonymous });
   if (treatment) {
     await r.query(
       `INSERT INTO marketing_onsite_treatments (playbook_key, scope_type, scope_id, page_path, audience_key, treatment_version, reason)

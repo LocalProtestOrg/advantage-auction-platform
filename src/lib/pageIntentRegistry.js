@@ -10,29 +10,35 @@
 
 // Ordered rules: first match wins. `test` is a RegExp on the URL PATH (lowercased, no query).
 // `intent` is the durable label; `weight` is a base contribution to signal strength (1=weak..3=high).
+// Rules are validated against ACTUAL production routes (Phase 4H). More-specific rules come first so a
+// post-conversion/account page never falls through to a generic buyer/discovery classification.
 const RULES = [
-  // ── Seller acquisition funnel ──
-  { test: /^\/(seller-signup|start-selling)(\/|$|\.html)/, intent: 'seller_intent_high', weight: 3, funnel: 'seller_signup_entry' },
-  { test: /^\/become-professional-seller/,                 intent: 'professional_seller_intent', weight: 3 },
-  { test: /^\/professional-sellers/,                       intent: 'professional_seller_intent', weight: 2 },
-  { test: /^\/(sell|become-a-seller|sell-with-us)(\/|$|\.html)/, intent: 'seller_intent_high', weight: 3 },
-  { test: /^\/(seller-pricing|how-sellers-get-paid|fees)/, intent: 'seller_consideration_high', weight: 2 },
-  { test: /^\/(seller-faq|seller-help|seller-pilot)/,      intent: 'seller_consideration', weight: 2 },
-  { test: /^\/(downsizing-liquidation|after-estate-sale|start-selling-tips|seller-tips)/, intent: 'seller_education', weight: 1 },
-  { test: /^\/(create-estate-sale|promote-estate-sale|my-estate-sales)/, intent: 'seller_intent_high', weight: 3, funnel: 'seller_signup_entry' },
-  { test: /^\/free-business-listing|^\/get-listed/,        intent: 'professional_seller_intent', weight: 2 },
+  // ── Account / post-conversion FIRST (must not read as buyer discovery or acquisition intent) ──
+  // A buyer's own purchases page is ACCOUNT context, not marketplace discovery (Phase 4H / 3J fix).
+  { test: /^\/marketplace-purchases/,                     intent: 'account', weight: 0 },
+  { test: /^\/(account|my-bids|watchlist|invoices|my-agreements|payout-profile|billing|seller-dashboard|seller-settlements)/, intent: 'account', weight: 0 },
+  // Post-conversion SELLER context (created/own an estate sale) — NOT buyer estate-sale interest (3J fix).
+  { test: /^\/(estate-sale-welcome|my-estate-sales|appraiser-welcome)/, intent: 'seller_post_conversion', weight: 0 },
 
-  // ── Buyer discovery / merchandise ──
-  { test: /^\/auction-view/,        intent: 'event_interest', weight: 2 },        // single auction detail
+  // ── Seller acquisition funnel (REAL routes) ──
+  // become-seller.html (no "a") is the canonical individual-seller intent page (3J fix).
+  { test: /^\/(start-selling|become-seller|create-estate-sale|promote-estate-sale)(\/|$|\.html)/, intent: 'seller_intent_high', weight: 3, funnel: 'seller_signup_entry' },
+  { test: /^\/(become-professional-seller|professional-sellers)/, intent: 'professional_seller_intent', weight: 2 },
+  { test: /^\/(free-business-listing|get-listed)/,        intent: 'professional_seller_intent', weight: 2 },
+  { test: /^\/how-sellers-get-paid/,                      intent: 'seller_consideration_high', weight: 2 },
+  { test: /^\/(seller-faq|seller-pilot)/,                 intent: 'seller_consideration', weight: 2 },
+  { test: /^\/(downsizing-liquidation|after-estate-sale)/, intent: 'seller_education', weight: 1 },
+
+  // ── Buyer discovery / merchandise (REAL routes) ──
+  { test: /^\/auction-view/,        intent: 'event_interest', weight: 2 },        // single auction detail (catalog)
   { test: /^\/event\.html|^\/event(\/|$)/, intent: 'estate_sale_interest', weight: 2 }, // event/estate-sale detail
   { test: /^\/events(\/|$|\.html)/, intent: 'estate_sale_interest', weight: 1 },  // All Events listing
-  { test: /^\/search(\/|$|\.html)/, intent: 'buyer_discovery', weight: 1 },       // auctions/lots search
-  { test: /^\/(auctions|upcoming-auctions|featured-auctions|ending-soon)/, intent: 'auction_interest', weight: 1 },
-  { test: /^\/(estate-sales|estate-sale)/, intent: 'estate_sale_interest', weight: 1 },
-  { test: /^\/(marketplace|browse-categories|browse-locations)/, intent: 'marketplace_interest', weight: 1 },
+  { test: /^\/(search|lot)(\/|$|\.html)/, intent: 'buyer_discovery', weight: 1 }, // auctions/lots search + lot detail
+  { test: /^\/(featured-auctions|ending-soon|featured-lots)/, intent: 'auction_interest', weight: 1 },
+  { test: /^\/(browse-categories|browse-locations)/, intent: 'marketplace_interest', weight: 1 },
   { test: /^\/(how-to-buy|buyer-faq|how-it-works)/, intent: 'buyer_education', weight: 1 },
 
-  // ── Subscriber / home ──
+  // ── Home ──
   { test: /^\/(index)?(\.html)?$|^\/$/, intent: 'home_discovery', weight: 1 },
 ];
 

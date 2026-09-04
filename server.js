@@ -786,6 +786,9 @@ server.listen(PORT, () => {
     // Scheduled Event Import worker (weekly, draft-only, review-queue gated). Self-gates on env;
     // stays idle unless EVENT_IMPORT_WORKER_ENABLED=true, so it is inert until the owner activates it.
     spawnWorker(path.join(__dirname, 'src/workers/eventImportWorker.js'));
+    // Marketing audience auto-refresh (platform-fact + behavioral). Self-gates on
+    // marketing.behavioral.enabled; never sends/spends/connects a provider.
+    spawnWorker(path.join(__dirname, 'src/workers/marketingRefreshWorker.js'));
     // #1 real-time: bridge Postgres NOTIFY (from web + worker processes) to
     // socket.io. Polling on the clients remains the permanent fallback.
     require('./src/lib/realtime').startListener(io)
