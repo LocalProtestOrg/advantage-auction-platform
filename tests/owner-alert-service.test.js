@@ -235,3 +235,61 @@ describe('trigger wiring is bound to authoritative, deduped transitions', () => 
     expect(estateSrc).toMatch(/notifyOwnerMarketingPackagePurchased\([^)]*\)\.catch\(\(\) => \{\}\)/);
   });
 });
+
+// ── Controlled owner-alert TEST path (no fake transaction) ───────────────────
+describe('controlled owner-alert test (sendTestAlert)', () => {
+  test('buildTestMessage is clearly labeled TEST, carries no seller/customer PII, sanitizes the note', () => {
+    const m = svc.buildTestMessage({ note: 'hi\n\nthere & ok' });
+    expect(m).toContain('Owner alert TEST');
+    expect(m).toContain('controlled test of operational SMS alerts');
+    expect(m).toContain('Note: hi there & ok');   // newlines stripped, ampersand kept
+    expect(m).not.toMatch(/Email:|Seller:/);       // no PII fields
+    expect(m).toContain('https://bid.advantage.bid/admin/moderation.html');
+    expect(m).not.toMatch(/\n\n\n/);               // no blank-line injection
+  });
+  test('OWNER_ALERT_TEST routes to the primary owner number', () => {
+    expect(svc.recipientsFor(svc.ALERT_TYPES.OWNER_ALERT_TEST)).toEqual([OWNER]);
+  });
+  test('configured: sends exactly ONE labeled test SMS to the owner', async () => {
+    const r = await svc.sendTestAlert({ note: 'smoke' });
+    expect(sendSMS).toHaveBeenCalledTimes(1);
+    expect(sendSMS.mock.calls[0][0].to).toBe(OWNER);
+    expect(sendSMS.mock.calls[0][0].message).toContain('Owner alert TEST');
+    expect(r).toMatchObject({ attempted: 1, sent: 1, failed: 0, skipped: false });
+  });
+  test('unconfigured: does NOT send and reports not_configured (safe to run anytime)', async () => {
+    process.env.OWNER_ALERT_PHONE_E164 = '';
+    const r = await svc.sendTestAlert({ note: 'smoke' });
+    expect(sendSMS).not.toHaveBeenCalled();
+    expect(r).toMatchObject({ skipped: true, reason: 'not_configured' });
+  });
+  test('provider failure is swallowed (never throws)', async () => {
+    sendSMS.mockRejectedValueOnce(new Error('twilio down'));
+    const r = await svc.sendTestAlert({ note: 'smoke' });
+    expect(r).toMatchObject({ attempted: 1, sent: 0, failed: 1 });
+  });
+  test('result object never leaks the phone number or message body', async () => {
+    const r = await svc.sendTestAlert({ note: 'smoke' });
+    expect(JSON.stringify(r)).not.toContain(OWNER);
+    expect(Object.keys(r).sort()).toEqual(['attempted', 'failed', 'sent', 'skipped']);
+  });
+});
+
+// ── Admin owner-alerts route (Super-Admin only; status leaks no secrets) ──────
+describe('admin owner-alerts route', () => {
+  const r = read('src', 'routes', 'adminOwnerAlerts.js');
+  test('Super-Admin gate (auth + role admin); explicitly operational, not customer marketing', () => {
+    expect(r).toMatch(/router\.use\(auth, role\(\['admin'\]\)\)/);
+    expect(r).toMatch(/customer marketing SMS[\s\S]*prohibited/i);
+  });
+  test('status returns booleans only — never the phone number or Twilio secret values', () => {
+    expect(r).toMatch(/owner_number_present/);
+    expect(r).toMatch(/twilio_configured/);
+    expect(r).not.toMatch(/OWNER_ALERT_PHONE_E164\s*[,}]/);   // never echoes the value in the response object
+    expect(r).not.toMatch(/value:\s*process\.env\.OWNER_ALERT_PHONE_E164/);
+  });
+  test('test send is audited', () => {
+    expect(r).toMatch(/owner_alert_test_sent/);
+    expect(r).toMatch(/sendTestAlert/);
+  });
+});

@@ -40,6 +40,7 @@ const ALERT_TYPES = {
   MARKETING_PACKAGE_PURCHASED: 'marketing_package_purchased',
   BUSINESS_LISTING_SUBMITTED: 'business_listing_submitted',
   PROFESSIONAL_AUCTION_PUBLISHED: 'professional_auction_published',
+  OWNER_ALERT_TEST: 'owner_alert_test',
 };
 
 // ── Recipient routing (role-ready) ────────────────────────────────────────────
@@ -51,6 +52,8 @@ const PER_TYPE_ENV = {
   [ALERT_TYPES.MARKETING_PACKAGE_PURCHASED]: 'OWNER_ALERT_PHONE_MARKETING',
   [ALERT_TYPES.BUSINESS_LISTING_SUBMITTED]: 'OWNER_ALERT_PHONE_LISTINGS',
   [ALERT_TYPES.PROFESSIONAL_AUCTION_PUBLISHED]: 'OWNER_ALERT_PHONE_AUCTIONS',
+  // A controlled test always routes to the PRIMARY owner number (no per-team override).
+  [ALERT_TYPES.OWNER_ALERT_TEST]: null,
 };
 
 function recipientsFor(alertType) {
@@ -142,6 +145,17 @@ function buildProfessionalAuctionPublishedMessage({ companyName, title, state, l
     + `${st ? `State: ${st}\n` : ''}`
     + `${n != null ? `Lots: ${n}\n` : ''}`
     + `\nReview:\n${url}`;
+}
+
+// A clearly-labeled controlled TEST message. Carries no seller/customer PII — only an optional short,
+// sanitized operator note and the fixed admin URL. Used to verify the operational-alert pipe end-to-end
+// WITHOUT creating any auction/estate-sale/marketing/financial record.
+function buildTestMessage({ note } = {}) {
+  const n = sanitizeField(note, 100);
+  return `Advantage.Bid: Owner alert TEST.\n\n`
+    + `This is a controlled test of operational SMS alerts. No action needed.\n`
+    + `${n ? `Note: ${n}\n` : ''}`
+    + `\nAdmin:\n${adminUrl('/admin/moderation.html')}`;
 }
 
 // ── Transport ──────────────────────────────────────────────────────────────────
@@ -280,11 +294,26 @@ async function notifyOwnerProfessionalAuctionPublished(auctionId) {
   }
 }
 
+// Controlled owner-alert self-test. Composes a clearly-labeled TEST message and sends it through the SAME
+// transport + config gating as real alerts. If OWNER_ALERT_PHONE_E164 / Twilio are not configured it does
+// NOT send — it returns a skipped result so callers can report "not configured" cleanly (no error thrown).
+async function sendTestAlert({ note } = {}) {
+  try {
+    if (!ownerAlertConfigured()) return sendOwnerAlert(ALERT_TYPES.OWNER_ALERT_TEST, '');
+    return await sendOwnerAlert(ALERT_TYPES.OWNER_ALERT_TEST, buildTestMessage({ note }));
+  } catch (err) {
+    console.error('[owner-alert] test alert error:', err.message);
+    return { skipped: true, reason: 'error' };
+  }
+}
+
 module.exports = {
   ALERT_TYPES,
   isE164,
   recipientsFor,
   ownerAlertConfigured,
+  buildTestMessage,
+  sendTestAlert,
   sanitizeField,
   adminUrl,
   buildAuctionSubmittedMessage,
