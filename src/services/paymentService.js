@@ -1434,6 +1434,7 @@ class PaymentService {
         // handler (which ignores non-subscription sessions). New one-time products add a branch here.
         const productType = obj.metadata && obj.metadata.product_type;
         if (productType === 'estate_sale_promotion') return require('./estateSalePromotionService').handleCheckoutCompleted(obj);
+        if (productType === 'marketing_package' || productType === 'additional_promotion') return require('./marketingPackagePurchaseService').handleCheckoutCompleted(obj);
         return appraiser.handleCheckoutCompleted(obj);
       }
       if (event.type === 'invoice.paid') return appraiser.handleInvoicePaid(obj);
