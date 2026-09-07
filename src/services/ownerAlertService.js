@@ -23,6 +23,7 @@
  *     never the phone number, the message body, or seller PII.
  */
 
+const crypto = require('crypto');
 const db = require('../db');
 const { sendSMS } = require('./smsService');
 
@@ -32,6 +33,23 @@ const ADMIN_BASE = (process.env.APP_BASE_URL || 'https://bid.advantage.bid').rep
 // E.164: leading '+', country digit 1-9, then 7-14 more digits.
 const E164_RE = /^\+[1-9]\d{7,14}$/;
 function isE164(n) { return typeof n === 'string' && E164_RE.test(n.trim()); }
+
+// Parse a comma-separated recipient string → trimmed, VALIDATED (E.164), DEDUPED list. Malformed entries
+// are dropped safely (never throws). Used for OWNER_ALERT_PHONE_E164S and any per-team multi override.
+function parseRecipients(raw) {
+  const out = [];
+  const seen = new Set();
+  for (const part of String(raw || '').split(',')) {
+    const n = part.trim();
+    if (isE164(n) && !seen.has(n)) { seen.add(n); out.push(n); }
+  }
+  return out;
+}
+
+// Non-reversible recipient tag for per-recipient idempotency + audit. NEVER stores the phone number.
+function recipientHash(n) { return crypto.createHash('sha256').update(String(n || '')).digest('hex').slice(0, 16); }
+// Masked recipient for logs (last 4 only) — never the full number.
+function maskRecipient(n) { const s = String(n || ''); return s.length >= 4 ? '…' + s.slice(-4) : '…'; }
 
 // Alert type constants (also used as the per-team env routing keys).
 const ALERT_TYPES = {
@@ -56,12 +74,18 @@ const PER_TYPE_ENV = {
   [ALERT_TYPES.OWNER_ALERT_TEST]: null,
 };
 
+// Resolve the VALIDATED, DEDUPED recipient list for an alert type. Precedence:
+//   1. a per-team override env for this type (may itself be a comma list), else
+//   2. OWNER_ALERT_PHONE_E164S (comma-separated multi list — Owner + Joey + …), else
+//   3. OWNER_ALERT_PHONE_E164 (the original single-recipient variable — backward compatible).
+// Every operational alert is delivered independently to EACH number in this list.
 function recipientsFor(alertType) {
-  const primary = (process.env.OWNER_ALERT_PHONE_E164 || '').trim();
   const perTypeEnv = PER_TYPE_ENV[alertType];
-  const perType = perTypeEnv ? (process.env[perTypeEnv] || '').trim() : '';
-  const chosen = perType || primary;
-  return chosen ? [chosen] : [];
+  const perType = perTypeEnv ? (process.env[perTypeEnv] || '') : '';
+  if (perType && parseRecipients(perType).length) return parseRecipients(perType);
+  const multi = process.env.OWNER_ALERT_PHONE_E164S || '';
+  if (parseRecipients(multi).length) return parseRecipients(multi);
+  return parseRecipients(process.env.OWNER_ALERT_PHONE_E164 || '');
 }
 
 function ownerAlertConfigured() {
@@ -159,11 +183,12 @@ function buildTestMessage({ note } = {}) {
 }
 
 // ── Transport ──────────────────────────────────────────────────────────────────
-// Sends one composed message to every routed recipient. Never throws. Logs the alert type + outcome only.
+// Sends one composed message to EVERY routed recipient, independently. Never throws. A failure to one
+// recipient never prevents another. Logs alert type + masked recipient (last 4) + outcome only.
 async function sendOwnerAlert(alertType, message) {
-  const recipients = recipientsFor(alertType).filter(isE164);
+  const recipients = recipientsFor(alertType);
   if (!recipients.length) {
-    console.warn(`[owner-alert] ${alertType} not sent - OWNER_ALERT_PHONE_E164 not configured (or invalid)`);
+    console.warn(`[owner-alert] ${alertType} not sent - no valid owner-alert recipient configured`);
     return { attempted: 0, sent: 0, failed: 0, skipped: true, reason: 'not_configured' };
   }
   let sent = 0, failed = 0, provider_sid = null, provider_status = null, last_error = null;
@@ -172,54 +197,75 @@ async function sendOwnerAlert(alertType, message) {
       const r = await sendSMS({ to, message });
       sent++;
       if (!provider_sid && r) { provider_sid = r.sid || null; provider_status = r.status || null; }
-      console.log(`[owner-alert] ${alertType} delivered`);
+      console.log(`[owner-alert] ${alertType} delivered to ${maskRecipient(to)}`);
     } catch (err) {
       failed++;
       last_error = (err && err.message ? err.message : 'send_failed').slice(0, 300);
-      console.error(`[owner-alert] ${alertType} send failed: ${err.message}`);
+      console.error(`[owner-alert] ${alertType} send failed for ${maskRecipient(to)}: ${err.message}`);
       if (process.env.SENTRY_DSN) { try { require('@sentry/node').captureException(err); } catch (_) { /* ignore */ } }
     }
   }
-  // provider_sid / provider_status are NOT secrets or PII — safe to surface for the audit log.
   return { attempted: recipients.length, sent, failed, skipped: false, provider_sid, provider_status, last_error };
 }
 
-// Durable, idempotent send: at most ONE successful owner SMS per logical event (dedup on alert_type+entity),
-// surviving request/worker/webhook retries, restarts, and deploys. Persists an audit row (no secrets, no
-// phone number). Best-effort: a logging failure falls back to a direct send; a send failure is retryable.
-async function sendOwnerAlertOnce({ alertType, entityType, entityId, message }) {
-  const dedupKey = `${alertType}:${entityId}`;
+// Idempotent send to ONE recipient (dedup on alert_type:entity:recipient_hash). Never throws.
+async function sendToRecipientOnce(alertType, entityType, entityId, message, to) {
+  const rhash = recipientHash(to);
+  const dedupKey = `${alertType}:${entityId}:${rhash}`;
   let rowId = null;
   try {
     const ins = await db.query(
-      `INSERT INTO owner_alert_log (alert_type, entity_type, entity_id, dedup_key, status, first_attempt_at, attempts)
-       VALUES ($1,$2,$3,$4,'pending', now(), 0) ON CONFLICT (dedup_key) DO NOTHING RETURNING id`,
-      [alertType, entityType, String(entityId), dedupKey]);
+      `INSERT INTO owner_alert_log (alert_type, entity_type, entity_id, recipient_hash, dedup_key, status, first_attempt_at, attempts)
+       VALUES ($1,$2,$3,$4,$5,'pending', now(), 0) ON CONFLICT (dedup_key) DO NOTHING RETURNING id`,
+      [alertType, entityType, String(entityId), rhash, dedupKey]);
     if (ins.rows[0]) { rowId = ins.rows[0].id; }
     else {
       const ex = (await db.query(`SELECT id, status FROM owner_alert_log WHERE dedup_key = $1`, [dedupKey])).rows[0];
       if (!ex) throw new Error('dedup row vanished');
       rowId = ex.id;
-      if (ex.status === 'sent') { console.log(`[owner-alert] ${alertType} already sent (dedup) — skipping`); return { attempted: 0, sent: 0, failed: 0, skipped: true, reason: 'already_sent' }; }
-      if (ex.status === 'pending') { return { attempted: 0, sent: 0, failed: 0, skipped: true, reason: 'in_flight' }; }
-      // status 'failed' or 'skipped' → allow a genuine retry.
-      await db.query(`UPDATE owner_alert_log SET status='pending', updated_at=now() WHERE id=$1`, [rowId]);
+      if (ex.status === 'sent') return { sent: false, skipped: true, reason: 'already_sent' };
+      if (ex.status === 'pending') return { sent: false, skipped: true, reason: 'in_flight' };
+      await db.query(`UPDATE owner_alert_log SET status='pending', updated_at=now() WHERE id=$1`, [rowId]); // retry a prior failure
     }
   } catch (e) {
-    console.error('[owner-alert] dedup log unavailable, direct send fallback:', e.message);
-    return sendOwnerAlert(alertType, message);
+    // Dedup log unavailable → best-effort direct send to THIS recipient (do not block delivery).
+    console.error('[owner-alert] dedup log unavailable for a recipient, direct send fallback:', e.message);
+    try { const r = await sendSMS({ to, message }); console.log(`[owner-alert] ${alertType} delivered to ${maskRecipient(to)} (fallback)`); return { sent: true, provider_sid: r && r.sid, provider_status: r && r.status }; }
+    catch (err) { return { sent: false, failed: true, last_error: (err.message || 'send_failed').slice(0, 300) }; }
   }
-  const res = await sendOwnerAlert(alertType, message);
   try {
-    if (res.skipped) {
-      await db.query(`UPDATE owner_alert_log SET status='skipped', last_error=$2, attempts=attempts+1, updated_at=now() WHERE id=$1`, [rowId, (res.reason || 'skipped').slice(0, 300)]);
-    } else if (res.sent > 0) {
-      await db.query(`UPDATE owner_alert_log SET status='sent', provider_sid=$2, provider_status=$3, attempts=attempts+1, sent_at=now(), updated_at=now() WHERE id=$1`, [rowId, res.provider_sid || null, res.provider_status || null]);
-    } else {
-      await db.query(`UPDATE owner_alert_log SET status='failed', last_error=$2, attempts=attempts+1, updated_at=now() WHERE id=$1`, [rowId, (res.last_error || 'send_failed').slice(0, 300)]);
-    }
-  } catch (e) { console.error('[owner-alert] dedup log update failed:', e.message); }
-  return res;
+    const r = await sendSMS({ to, message });
+    console.log(`[owner-alert] ${alertType} delivered to ${maskRecipient(to)}`);
+    await db.query(`UPDATE owner_alert_log SET status='sent', provider_sid=$2, provider_status=$3, attempts=attempts+1, sent_at=now(), updated_at=now() WHERE id=$1`, [rowId, (r && r.sid) || null, (r && r.status) || null]).catch(() => {});
+    return { sent: true, provider_sid: r && r.sid, provider_status: r && r.status };
+  } catch (err) {
+    const msg = (err && err.message ? err.message : 'send_failed').slice(0, 300);
+    console.error(`[owner-alert] ${alertType} send failed for ${maskRecipient(to)}: ${err.message}`);
+    if (process.env.SENTRY_DSN) { try { require('@sentry/node').captureException(err); } catch (_) { /* ignore */ } }
+    await db.query(`UPDATE owner_alert_log SET status='failed', last_error=$2, attempts=attempts+1, updated_at=now() WHERE id=$1`, [rowId, msg]).catch(() => {});
+    return { sent: false, failed: true, last_error: msg };
+  }
+}
+
+// Durable, idempotent, MULTI-RECIPIENT send: delivers to every configured recipient, tracking delivery
+// state PER RECIPIENT so one recipient's prior success/failure never suppresses another's. At most ONE
+// successful SMS per (event, recipient) across retries/restarts/deploys. Best-effort; never throws.
+async function sendOwnerAlertOnce({ alertType, entityType, entityId, message }) {
+  const recipients = recipientsFor(alertType);
+  if (!recipients.length) {
+    console.warn(`[owner-alert] ${alertType} not sent - no valid owner-alert recipient configured`);
+    return { attempted: 0, sent: 0, failed: 0, skipped: true, reason: 'not_configured' };
+  }
+  let sent = 0, failed = 0, skippedCount = 0, provider_sid = null, provider_status = null, last_error = null;
+  for (const to of recipients) {
+    const r = await sendToRecipientOnce(alertType, entityType, entityId, message, to);
+    if (r.sent) { sent++; if (!provider_sid) { provider_sid = r.provider_sid || null; provider_status = r.provider_status || null; } }
+    else if (r.skipped) { skippedCount++; }
+    else { failed++; if (r.last_error) last_error = r.last_error; }
+  }
+  // Aggregate: 'skipped' true only when NOTHING was sent/failed (all recipients already handled).
+  const allSkipped = sent === 0 && failed === 0 && skippedCount > 0;
+  return { attempted: recipients.length, sent, failed, skipped: allSkipped, reason: allSkipped ? 'already_sent' : undefined, provider_sid, provider_status, last_error };
 }
 
 // ── Context loaders + public notify functions ──────────────────────────────────
@@ -382,6 +428,9 @@ async function sendTestAlert({ note, testId } = {}) {
 module.exports = {
   ALERT_TYPES,
   isE164,
+  parseRecipients,
+  recipientHash,
+  maskRecipient,
   recipientsFor,
   ownerAlertConfigured,
   buildTestMessage,

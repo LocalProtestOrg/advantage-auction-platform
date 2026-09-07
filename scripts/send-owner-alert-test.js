@@ -18,9 +18,11 @@ const ownerAlerts = require('../src/services/ownerAlertService');
   const result = await ownerAlerts.sendTestAlert({ note });
   console.log('[owner-alert-test] result:', JSON.stringify(result));
   if (result.skipped && result.reason === 'not_configured') {
-    console.log('[owner-alert-test] NOT SENT — set TWILIO_ACCOUNT_SID / TWILIO_AUTH_TOKEN / TWILIO_FROM_NUMBER and OWNER_ALERT_PHONE_E164, then re-run.');
+    console.log('[owner-alert-test] NOT SENT — set Twilio (SID/token + Messaging Service or from-number) and OWNER_ALERT_PHONE_E164S / OWNER_ALERT_PHONE_E164, then re-run.');
   } else if (result.sent > 0) {
-    console.log('[owner-alert-test] SENT — one controlled test message delivered to the configured owner number.');
+    console.log(`[owner-alert-test] SENT — delivered to ${result.sent} of ${result.attempted} configured owner-alert recipient(s). failed=${result.failed || 0}`);
+  } else if (result.skipped) {
+    console.log(`[owner-alert-test] SKIPPED (${result.reason}) — already delivered to all recipients for this test key.`);
   }
   process.exit(0);
 })().catch((e) => { console.error('[owner-alert-test] error:', e.message); process.exit(1); });

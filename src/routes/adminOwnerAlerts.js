@@ -24,13 +24,14 @@ router.use(auth, role(['admin']));
 
 // Presence/validity only — no secret values ever leave the server (no phone number, no SID, no token).
 router.get('/status', (req, res) => {
-  const primary = (process.env.OWNER_ALERT_PHONE_E164 || '').trim();
   const messagingServicePresent = !!process.env.TWILIO_MESSAGING_SERVICE_SID;
+  // COUNT of validated recipients only — never the numbers themselves.
+  const recipientCount = ownerAlerts.recipientsFor(ownerAlerts.ALERT_TYPES.AUCTION_SUBMITTED).length;
   return res.json({
     success: true,
     data: {
-      owner_number_present: !!primary,
-      owner_number_valid_e164: ownerAlerts.isE164(primary),
+      owner_recipient_count: recipientCount,
+      multi_recipient_configured: !!process.env.OWNER_ALERT_PHONE_E164S,
       twilio_configured: smsService.isConfigured(),
       sender_mode: messagingServicePresent ? 'messaging_service' : (process.env.TWILIO_FROM_NUMBER ? 'from_number' : 'none'),
       ready: ownerAlerts.ownerAlertConfigured() && smsService.isConfigured(),

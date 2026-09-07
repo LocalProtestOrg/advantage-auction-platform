@@ -59,7 +59,9 @@ async function sendSMS({ to, message }) {
 
   const result = await twilio.messages.create(params);
 
-  console.log(`[sms] Sent to ${to} via ${c.messagingServiceSid ? 'messaging-service' : 'from-number'} — sid: ${result.sid}, status: ${result.status}`);
+  // Mask the recipient in logs (last 4 only) — never log full numbers, credentials, or the body.
+  const masked = (typeof to === 'string' && to.length >= 4) ? ('…' + to.slice(-4)) : '…';
+  console.log(`[sms] Sent to ${masked} via ${c.messagingServiceSid ? 'messaging-service' : 'from-number'} — sid: ${result.sid}, status: ${result.status}`);
   return result;
 }
 

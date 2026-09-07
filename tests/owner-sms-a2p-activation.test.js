@@ -23,7 +23,7 @@ function route(sql, params) {
   const s = String(sql);
   // owner_alert_log dedup INSERT ... ON CONFLICT DO NOTHING RETURNING id
   if (/INSERT INTO owner_alert_log/.test(s)) {
-    const dedup = params[3];
+    const dedup = params[4];   // (alert_type, entity_type, entity_id, recipient_hash, dedup_key, ...)
     if (store.log.has(dedup)) return { rows: [] };                 // conflict → no row returned
     const id = 'row-' + (store.log.size + 1);
     store.log.set(dedup, { id, status: 'pending' });
