@@ -575,6 +575,7 @@ app.use('/api/admin/crm', adminCrmRoutes);
 app.use('/api/admin/sales', adminSalesRoutes);
 app.use('/api/admin/pricing', adminPricingRoutes);
 app.use('/api/admin/pricing-agreements', require('./src/routes/adminPricingAgreements'));
+app.use('/api/admin/owner-alerts', require('./src/routes/adminOwnerAlerts'));
 app.use('/api/admin/staff', adminStaffRoutes);
 app.use('/api/admin/pickup', adminPickupRoutes);
 app.use('/api/admin/launch-readiness', adminLaunchReadinessRoutes);
