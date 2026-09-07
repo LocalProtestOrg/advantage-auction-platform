@@ -1,0 +1,72 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://advantage.bid/contracts/3o/interface_message.schema.json",
+  "title": "Desktop Marketing ↔ VS Code message envelope",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "message_id",
+    "direction",
+    "type",
+    "created_at",
+    "contract_version",
+    "body",
+    "references"
+  ],
+  "properties": {
+    "message_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "direction": {
+      "enum": [
+        "desktop_to_vs",
+        "vs_to_desktop",
+        "desktop_to_owner",
+        "vs_to_owner"
+      ]
+    },
+    "type": {
+      "oneOf": [
+        {
+          "$ref": "https://advantage.bid/contracts/3o/enums.schema.json#/$defs/DesktopToVS"
+        },
+        {
+          "$ref": "https://advantage.bid/contracts/3o/enums.schema.json#/$defs/VSToDesktop"
+        }
+      ]
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "contract_version": {
+      "const": "3O.1"
+    },
+    "body": {
+      "type": "object"
+    },
+    "references": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "artifact URLs, proposal ids, export ids"
+    },
+    "applies_via": {
+      "enum": [
+        "pull_request",
+        "admin_config_editor",
+        "admin_version_registry",
+        "fidelity_review_queue",
+        "report_only"
+      ]
+    },
+    "contains_production_credentials": {
+      "const": false
+    },
+    "contains_recipient_data": {
+      "const": false
+    }
+  }
+}

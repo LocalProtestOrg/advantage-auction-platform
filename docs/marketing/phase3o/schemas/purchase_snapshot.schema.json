@@ -1,0 +1,155 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://advantage.bid/contracts/3o/purchase_snapshot.schema.json",
+  "title": "Immutable purchase snapshot",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "purchase_id",
+    "kind",
+    "identity",
+    "version_id",
+    "auction_id",
+    "amount_paid_cents",
+    "currency",
+    "payment_ref",
+    "purchased_at",
+    "terms_snapshot",
+    "deliverables_snapshot",
+    "discretionary_snapshot",
+    "policy_snapshot",
+    "direct_authority_cents",
+    "growth_base_cents"
+  ],
+  "properties": {
+    "purchase_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "kind": {
+      "enum": [
+        "package_purchase",
+        "promotion_purchase"
+      ]
+    },
+    "identity": {
+      "oneOf": [
+        {
+          "$ref": "https://advantage.bid/contracts/3o/enums.schema.json#/$defs/PackageIdentity"
+        },
+        {
+          "$ref": "https://advantage.bid/contracts/3o/enums.schema.json#/$defs/PromotionIdentity"
+        }
+      ]
+    },
+    "version_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "auction_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "amount_paid_cents": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "currency": {
+      "const": "USD"
+    },
+    "payment_ref": {
+      "type": "string",
+      "minLength": 1,
+      "description": "NOT NULL: no purchase row exists without payment success"
+    },
+    "purchased_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "terms_snapshot": {
+      "type": "object",
+      "required": [
+        "non_refundable_sentence",
+        "seller_copy"
+      ],
+      "properties": {
+        "non_refundable_sentence": {
+          "const": "Marketing packages and additional promotion are non-refundable."
+        },
+        "seller_copy": {
+          "type": "object"
+        }
+      }
+    },
+    "deliverables_snapshot": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "feature_key",
+          "parameters",
+          "seller_label"
+        ],
+        "properties": {
+          "feature_key": {
+            "$ref": "https://advantage.bid/contracts/3o/enums.schema.json#/$defs/FeatureKey"
+          },
+          "parameters": {
+            "type": "object"
+          },
+          "seller_label": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "discretionary_snapshot": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "policy_snapshot": {
+      "type": "object",
+      "required": [
+        "policy_version_id",
+        "direct_capacity_pct",
+        "growth_base_pct"
+      ],
+      "properties": {
+        "policy_version_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "direct_capacity_pct": {
+          "type": "number"
+        },
+        "growth_base_pct": {
+          "type": "number"
+        }
+      },
+      "description": "CONFIDENTIAL — excluded from every seller payload by allowlist"
+    },
+    "direct_authority_cents": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "amount_paid_cents × direct_capacity_pct — a ceiling, never a target"
+    },
+    "growth_base_cents": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "reconstructed": {
+      "type": "boolean",
+      "default": false,
+      "description": "true only for historical rows migrated under migration 140"
+    },
+    "settlement_policy": {
+      "enum": [
+        "original_package_unchanged",
+        "none"
+      ],
+      "description": "package_purchase → original_package_unchanged; promotion_purchase → none (never advanced, never recovered from proceeds)"
+    }
+  }
+}

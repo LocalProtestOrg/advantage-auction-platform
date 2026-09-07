@@ -1,0 +1,61 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://advantage.bid/contracts/3o/owner_resolution.schema.json",
+  "title": "Owner resolution message",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "escalation_id",
+    "resolution",
+    "actor",
+    "at",
+    "reason"
+  ],
+  "properties": {
+    "escalation_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "resolution": {
+      "$ref": "https://advantage.bid/contracts/3o/enums.schema.json#/$defs/OwnerResolution"
+    },
+    "actor": {
+      "type": "string"
+    },
+    "at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "reason": {
+      "type": "string"
+    },
+    "specified_substitute": {
+      "type": [
+        "array",
+        "null"
+      ],
+      "items": {
+        "type": "object",
+        "required": [
+          "feature_key",
+          "parameters"
+        ],
+        "properties": {
+          "feature_key": {
+            "$ref": "https://advantage.bid/contracts/3o/enums.schema.json#/$defs/FeatureKey"
+          },
+          "parameters": {
+            "type": "object"
+          }
+        }
+      }
+    },
+    "external_financial_event_ref": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "description": "Recorded separately; the purchase snapshot never changes"
+    }
+  }
+}

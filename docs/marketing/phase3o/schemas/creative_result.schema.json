@@ -1,0 +1,118 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://advantage.bid/contracts/3o/creative_result.schema.json",
+  "title": "Compositor result → CREATIVE_READY decision",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "brief_id",
+    "asset_ids",
+    "audit",
+    "text_budget_ok",
+    "category_balance_flags",
+    "fidelity_gate",
+    "thumbnail_ok",
+    "a2_qa",
+    "decision"
+  ],
+  "properties": {
+    "brief_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "asset_ids": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "audit": {
+      "type": "object",
+      "required": [
+        "violations",
+        "meaningful_overlaps",
+        "decorative_overlaps",
+        "planes",
+        "roles"
+      ],
+      "properties": {
+        "violations": {
+          "type": "array",
+          "items": {
+            "type": "array"
+          }
+        },
+        "meaningful_overlaps": {
+          "type": "integer"
+        },
+        "decorative_overlaps": {
+          "type": "integer"
+        },
+        "planes": {
+          "type": "object"
+        },
+        "roles": {
+          "type": "object"
+        },
+        "bridging": {}
+      }
+    },
+    "metrics": {
+      "type": "object",
+      "properties": {
+        "merchandise_pct": {
+          "type": "number"
+        },
+        "text_region_pct": {
+          "type": "number"
+        },
+        "upper_half_merch_pct": {
+          "type": "number"
+        },
+        "largest_empty_pct": {
+          "type": "number"
+        }
+      }
+    },
+    "text_budget_ok": {
+      "type": "boolean"
+    },
+    "category_balance_flags": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "fidelity_gate": {
+      "const": "CLEAN"
+    },
+    "thumbnail_ok": {
+      "type": "boolean"
+    },
+    "a2_qa": {
+      "type": "object",
+      "required": [
+        "passed",
+        "claim_manifest_id"
+      ],
+      "properties": {
+        "passed": {
+          "type": "boolean"
+        },
+        "claim_manifest_id": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "decision": {
+      "enum": [
+        "CREATIVE_READY",
+        "RERUN_DIFFERENT_FAMILY",
+        "BLOCKED_FIDELITY_REVIEW"
+      ]
+    }
+  },
+  "x-gate": "decision = CREATIVE_READY requires audit.violations = [] ∧ text_budget_ok ∧ thumbnail_ok ∧ a2_qa.passed"
+}

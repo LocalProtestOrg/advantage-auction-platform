@@ -1,0 +1,205 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://advantage.bid/contracts/3o/creative_brief.schema.json",
+  "title": "Creative brief → compositor job",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "brief_id",
+    "obligation_id",
+    "auction_id",
+    "family",
+    "formats",
+    "objects",
+    "event",
+    "brand_frame",
+    "text_budget",
+    "rule_engine"
+  ],
+  "properties": {
+    "brief_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "obligation_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "auction_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "family": {
+      "$ref": "https://advantage.bid/contracts/3o/enums.schema.json#/$defs/CreativeFamily"
+    },
+    "formats": {
+      "type": "array",
+      "items": {
+        "$ref": "https://advantage.bid/contracts/3o/enums.schema.json#/$defs/CreativeFormat"
+      }
+    },
+    "objects": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": [
+          "lot_id",
+          "fidelity",
+          "roles",
+          "category"
+        ],
+        "properties": {
+          "lot_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "fidelity": {
+            "const": "CLEAN"
+          },
+          "roles": {
+            "type": "array",
+            "items": {
+              "$ref": "https://advantage.bid/contracts/3o/enums.schema.json#/$defs/SpatialRole"
+            }
+          },
+          "category": {
+            "type": "string"
+          },
+          "protected_regions": {
+            "type": "array",
+            "items": {
+              "type": "array",
+              "minItems": 5,
+              "maxItems": 5
+            }
+          }
+        }
+      },
+      "description": "fidelity is constrained to CLEAN at the schema level: REVIEW/FAILED objects cannot be briefed"
+    },
+    "event": {
+      "type": "object",
+      "required": [
+        "title",
+        "city_state",
+        "date",
+        "start_time"
+      ],
+      "properties": {
+        "title": {
+          "type": "string"
+        },
+        "city_state": {
+          "type": "string"
+        },
+        "date": {
+          "type": "string"
+        },
+        "start_time": {
+          "type": "string"
+        },
+        "typography_treatment": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "event-specific type: e.g. red ampersand + italic; gold for a Gold event; never misleading"
+        }
+      }
+    },
+    "brand_frame": {
+      "type": "object",
+      "required": [
+        "logo_width_px",
+        "kicker",
+        "footer_band_px",
+        "footer_wordmark",
+        "footer_wordmark_px",
+        "ground"
+      ],
+      "properties": {
+        "logo_width_px": {
+          "const": 250
+        },
+        "kicker": {
+          "const": "ADVANTAGE.BID PRESENTS"
+        },
+        "footer_band_px": {
+          "const": 120
+        },
+        "footer_wordmark": {
+          "const": "Advantage.Bid"
+        },
+        "footer_wordmark_px": {
+          "const": 64
+        },
+        "ground": {
+          "enum": [
+            "white",
+            "very_light"
+          ]
+        },
+        "navy": {
+          "const": "#182e45"
+        },
+        "red": {
+          "const": "#d62828"
+        }
+      },
+      "description": "STANDARDIZE THE BRAND FRAME. CUSTOMIZE THE EVENT EXPERIENCE."
+    },
+    "text_budget": {
+      "type": "object",
+      "properties": {
+        "max_text_blocks": {
+          "const": 5
+        },
+        "max_words_primary": {
+          "const": 6
+        },
+        "max_words_support": {
+          "const": 10
+        }
+      }
+    },
+    "cobrand": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "properties": {
+        "seller_logo_asset_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "seller_leads": {
+          "const": true
+        }
+      }
+    },
+    "rule_engine": {
+      "type": "object",
+      "required": [
+        "module",
+        "functions"
+      ],
+      "properties": {
+        "module": {
+          "const": "spatial"
+        },
+        "functions": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "audit",
+              "text_budget_audit",
+              "category_balance"
+            ]
+          }
+        }
+      },
+      "description": "The existing rule engine, ported as-is; not re-implemented"
+    }
+  }
+}

@@ -1,0 +1,290 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://advantage.bid/contracts/3o/enums.schema.json",
+  "title": "Phase 3O enumerations",
+  "type": "object",
+  "$defs": {
+    "PackageIdentity": {
+      "type": "string",
+      "enum": [
+        "INCLUDED",
+        "FEATURED",
+        "PREMIUM",
+        "SIGNATURE"
+      ],
+      "description": "Durable identities; price is a versioned attribute, never part of the identity"
+    },
+    "PromotionIdentity": {
+      "type": "string",
+      "enum": [
+        "BOOST",
+        "REACH",
+        "SPOTLIGHT",
+        "CUSTOM"
+      ],
+      "description": ""
+    },
+    "ObligationState": {
+      "type": "string",
+      "enum": [
+        "PLANNED",
+        "CREATIVE_READY",
+        "SCHEDULED",
+        "LIVE",
+        "COMPLETED",
+        "SUBSTITUTED",
+        "MADE_GOOD",
+        "BLOCKED",
+        "NEEDS_OWNER"
+      ],
+      "description": "BLOCKED and NEEDS_OWNER are internal; never rendered to sellers"
+    },
+    "TerminalState": {
+      "type": "string",
+      "enum": [
+        "COMPLETED",
+        "SUBSTITUTED",
+        "MADE_GOOD"
+      ],
+      "description": ""
+    },
+    "Wave": {
+      "type": "string",
+      "enum": [
+        "LAUNCH",
+        "MID",
+        "FINAL",
+        "ANY"
+      ],
+      "description": ""
+    },
+    "Channel": {
+      "type": "string",
+      "enum": [
+        "MARKETPLACE",
+        "EMAIL",
+        "SOCIAL",
+        "PAID",
+        "CREATIVE",
+        "SERVICE",
+        "REPORTING"
+      ],
+      "description": ""
+    },
+    "EvidenceMode": {
+      "type": "string",
+      "enum": [
+        "system_verified",
+        "provider_verified",
+        "manual_verified"
+      ],
+      "description": ""
+    },
+    "LadderRung": {
+      "type": "string",
+      "enum": [
+        "FULFILL",
+        "RETRY",
+        "RESCHEDULE",
+        "ALTERNATE",
+        "SUBSTITUTE",
+        "MADE_GOOD",
+        "ESCALATE"
+      ],
+      "description": ""
+    },
+    "ReadinessState": {
+      "type": "string",
+      "enum": [
+        "NOT_CONFIGURED",
+        "CONFIGURED_UNVERIFIED",
+        "SHADOW_CERTIFIED",
+        "ACTIVE",
+        "PAUSED",
+        "REVOKED"
+      ],
+      "description": ""
+    },
+    "EmailScope": {
+      "type": "string",
+      "enum": [
+        "LOCAL",
+        "REGIONAL",
+        "CATEGORY_SHIPPABLE",
+        "NATIONWIDE",
+        "NONE"
+      ],
+      "description": ""
+    },
+    "CreativeFamily": {
+      "type": "string",
+      "enum": [
+        "CENTERED_WHITE",
+        "LEFT_THIRD_WHITE",
+        "CATEGORY_GROUP",
+        "SINGLE_LOT",
+        "CLOSING_DAYS",
+        "COBRANDED"
+      ],
+      "description": ""
+    },
+    "CreativeFormat": {
+      "type": "string",
+      "enum": [
+        "portrait_1080x1350",
+        "square_1080x1080",
+        "landscape_1200x628",
+        "story_1080x1920",
+        "email_card_600x400"
+      ],
+      "description": ""
+    },
+    "FidelityState": {
+      "type": "string",
+      "enum": [
+        "CLEAN",
+        "REVIEW",
+        "FAILED"
+      ],
+      "description": "Only CLEAN objects may appear in any creative"
+    },
+    "SpatialRole": {
+      "type": "string",
+      "enum": [
+        "WALL",
+        "HERO",
+        "TALL",
+        "SURFACE",
+        "SURFACE_PROVIDER",
+        "FOREGROUND",
+        "LIGHT",
+        "TALL_STRUCTURE",
+        "ANCHOR_H",
+        "TOOL_GROUP",
+        "OUTDOOR"
+      ],
+      "description": ""
+    },
+    "DepthPlane": {
+      "type": "string",
+      "enum": [
+        "BACKGROUND",
+        "MIDGROUND",
+        "FOREGROUND"
+      ],
+      "description": ""
+    },
+    "DirectorDecision": {
+      "type": "string",
+      "enum": [
+        "PLAN",
+        "SELECT_DISCRETIONARY",
+        "SCHEDULE",
+        "SCOPE_AUDIENCE",
+        "ADJUST",
+        "RUNG_ADVANCE",
+        "UPSELL_PROMPT",
+        "ESCALATE"
+      ],
+      "description": "REFUSE, REFUND, REPRICE and HIDE_PACKAGE are deliberately absent"
+    },
+    "DesktopToVS": {
+      "type": "string",
+      "enum": [
+        "RULE_PROPOSAL",
+        "CONFIG_PROPOSAL",
+        "RECIPE_VERSION_PROPOSAL",
+        "CREATIVE_FAMILY_SPEC",
+        "AUDIT_FINDING",
+        "CALIBRATION_REPORT",
+        "OWNER_QUESTION"
+      ],
+      "description": ""
+    },
+    "VSToDesktop": {
+      "type": "string",
+      "enum": [
+        "RUNTIME_EXPORT",
+        "CREATIVE_REVIEW_REQUEST",
+        "CALIBRATION_REQUEST",
+        "IMPLEMENTATION_REPORT",
+        "SCHEMA_DIFF",
+        "ESCALATION_DIGEST"
+      ],
+      "description": ""
+    },
+    "EscalationKind": {
+      "type": "string",
+      "enum": [
+        "LADDER_EXHAUSTED",
+        "FIDELITY_REVIEW_OVERDUE",
+        "HEALTH_PAUSE_NO_ALTERNATE",
+        "READINESS_REVOKED",
+        "PAYMENT_ANOMALY",
+        "POLICY_CONFLICT",
+        "SUBSTITUTION_RATE",
+        "UNRESOLVED_AT_CLOSE"
+      ],
+      "description": ""
+    },
+    "OwnerResolution": {
+      "type": "string",
+      "enum": [
+        "RESUME",
+        "SUBSTITUTE_SPECIFIED",
+        "MANUAL_MAKE_GOOD",
+        "EXTERNAL_FINANCIAL_EVENT",
+        "ACTIVATE_CHANNEL",
+        "DEFER"
+      ],
+      "description": ""
+    },
+    "DependencyClass": {
+      "type": "string",
+      "enum": [
+        "BUILD BLOCKER",
+        "OWNER-PROVIDER ACTIVATION DEPENDENCY",
+        "NOT REQUIRED FOR SOFTWARE CERTIFICATION"
+      ],
+      "description": ""
+    },
+    "FeatureKey": {
+      "type": "string",
+      "enum": [
+        "listing_standard",
+        "listing_card",
+        "performance_standard",
+        "follower_launch_notification",
+        "featured_badge_priority",
+        "category_prominence",
+        "notable_lot_spotlight",
+        "closing_soon_exposure",
+        "creative_collage_general",
+        "share_kit_delivery",
+        "reporting_standard",
+        "homepage_module_run",
+        "shared_edition_inclusion",
+        "social_post_organic",
+        "creative_closing_days",
+        "catalog_readiness_review",
+        "reporting_detailed",
+        "homepage_hero_days",
+        "dedicated_send",
+        "creative_lot_specific",
+        "creative_mid_refresh",
+        "creative_cobranded_variant",
+        "managed_campaign_documents",
+        "recommendations_written",
+        "additional_wave",
+        "closing_soon_extension",
+        "email_touch_additional",
+        "paid_local_promotion",
+        "lot_level_promotion",
+        "reach_expansion_shippable",
+        "managed_review_added_wave",
+        "custom_bundle"
+      ],
+      "description": ""
+    }
+  }
+}

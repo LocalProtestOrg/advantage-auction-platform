@@ -1,0 +1,66 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://advantage.bid/contracts/3o/package_recipe.schema.json",
+  "title": "Package / promotion recipe (a version’s executable content)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "identity",
+    "kind",
+    "ladder_statement_or_increment",
+    "waves",
+    "guaranteed",
+    "discretionary"
+  ],
+  "properties": {
+    "identity": {
+      "oneOf": [
+        {
+          "$ref": "https://advantage.bid/contracts/3o/enums.schema.json#/$defs/PackageIdentity"
+        },
+        {
+          "$ref": "https://advantage.bid/contracts/3o/enums.schema.json#/$defs/PromotionIdentity"
+        }
+      ]
+    },
+    "kind": {
+      "enum": [
+        "package",
+        "promotion"
+      ]
+    },
+    "ladder_statement_or_increment": {
+      "type": "string"
+    },
+    "waves": {
+      "type": "array",
+      "items": {
+        "$ref": "https://advantage.bid/contracts/3o/enums.schema.json#/$defs/Wave"
+      }
+    },
+    "guaranteed": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "feature_key",
+          "parameters"
+        ],
+        "properties": {
+          "feature_key": {
+            "$ref": "https://advantage.bid/contracts/3o/enums.schema.json#/$defs/FeatureKey"
+          },
+          "parameters": {
+            "type": "object"
+          }
+        }
+      }
+    },
+    "discretionary": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  }
+}

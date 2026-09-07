@@ -63,12 +63,15 @@ describe('marketingObligationEngine', () => {
   function fakeStore() {
     const rows = [];
     return { rows, query: async (sql, params) => {
+      // INSERT columns: (purchase_kind, purchase_id, auction_id, obligation_key, feature_key, label, category, channel, ladder_id, wave, state)
       if (/INSERT INTO marketing_obligations/.test(sql)) {
-        const r = { id: 'ob' + (rows.length + 1), purchase_kind: params[0], purchase_id: params[1], auction_id: params[2], obligation_key: params[3], label: params[4], category: params[5], channel: params[6], state: 'planned' };
+        const r = { id: 'ob' + (rows.length + 1), purchase_kind: params[0], purchase_id: params[1], auction_id: params[2], obligation_key: params[3], feature_key: params[4], label: params[5], category: params[6], channel: params[7], ladder_id: params[8], wave: params[9], state: 'planned' };
         rows.push(r); return { rows: [r] };
       }
+      if (/INSERT INTO marketing_obligation_events/.test(sql)) return { rows: [] };
+      if (/SELECT state FROM marketing_obligations WHERE id/.test(sql)) { const r = rows.find((x) => x.id === params[0]); return { rows: r ? [{ state: r.state }] : [] }; }
       if (/SELECT \* FROM marketing_obligations WHERE purchase_kind/.test(sql)) return { rows: rows.filter((r) => r.purchase_kind === params[0] && r.purchase_id === params[1]) };
-      if (/UPDATE marketing_obligations/.test(sql) && /SET state/.test(sql)) { const r = rows.find((x) => x.id === params[0]); if (r) r.state = params[1]; return { rows: r ? [r] : [] }; }
+      if (/UPDATE marketing_obligations/.test(sql) && /state = \$2/.test(sql)) { const r = rows.find((x) => x.id === params[0]); if (r) { r.previous_state = r.state; r.state = params[1]; } return { rows: r ? [r] : [] }; }
       return { rows: [] };
     } };
   }

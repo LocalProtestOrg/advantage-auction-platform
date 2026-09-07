@@ -1,0 +1,98 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://advantage.bid/contracts/3o/escalation_packet.schema.json",
+  "title": "Escalation packet (NEEDS_OWNER)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "escalation_id",
+    "kind",
+    "obligation_ids",
+    "purchase_id",
+    "auction_id",
+    "window",
+    "attempts",
+    "options",
+    "deadline",
+    "created_at",
+    "seller_surface_unchanged"
+  ],
+  "properties": {
+    "escalation_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "kind": {
+      "$ref": "https://advantage.bid/contracts/3o/enums.schema.json#/$defs/EscalationKind"
+    },
+    "obligation_ids": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "purchase_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "auction_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "window": {
+      "type": "object",
+      "properties": {
+        "earliest": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "latest": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
+    "attempts": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "options": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": [
+          "resolution",
+          "consequence"
+        ],
+        "properties": {
+          "resolution": {
+            "$ref": "https://advantage.bid/contracts/3o/enums.schema.json#/$defs/OwnerResolution"
+          },
+          "consequence": {
+            "type": "string"
+          },
+          "deadline": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      }
+    },
+    "deadline": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "seller_surface_unchanged": {
+      "const": true
+    }
+  }
+}

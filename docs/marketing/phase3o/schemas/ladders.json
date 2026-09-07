@@ -1,0 +1,103 @@
+{
+  "ladders": {
+    "L_shared_edition": {
+      "applies": "shared_edition_inclusion, email_touch_additional, reach_expansion_shippable",
+      "rungs": {
+        "FULFILL/RETRY": "Next edition in the window; second edition of the week if editions_per_market_week and the health budget permit",
+        "RESCHEDULE/ALTERNATE": "Shippable/category edition; adjacent-market edition where geography supports it",
+        "SUBSTITUTE": "Additional homepage module run + additional social post + final-days onsite placement; or a shortened dedicated closing send if a slot and the health budget allow",
+        "ESCALATE when": "No edition can send before T−48h and no substitute is available"
+      }
+    },
+    "L_dedicated": {
+      "applies": "dedicated_send",
+      "rungs": {
+        "FULFILL/RETRY": "Alternate slot inside [T−7d, T−3d]; 48h overlap spacing honoured",
+        "RESCHEDULE/ALTERNATE": "Alternate scope by the 3F ladder (regional, category/shippable, nationwide when relevant); stop at the first scope clearing min_audience",
+        "SUBSTITUTE": "Two additional shared-edition inclusions + additional hero days + lot-level promotion; paid promotion where authorized",
+        "ESCALATE when": "Floor unreachable in every scope and substitutes exhausted"
+      }
+    },
+    "L_hero": {
+      "applies": "homepage_hero_days",
+      "rungs": {
+        "FULFILL/RETRY": "Any 2 days inside the window; rotation up to max_concurrent",
+        "RESCHEDULE/ALTERNATE": "Split days across the campaign; rotation share adjusted within config",
+        "SUBSTITUTE": "Extended module run + additional lot-level promotion + additional dedicated closing send where health permits",
+        "ESCALATE when": "Rotation saturated for the entire window and substitutes exhausted"
+      }
+    },
+    "L_module": {
+      "applies": "homepage_module_run",
+      "rungs": {
+        "FULFILL/RETRY": "Any 4 days inside the window",
+        "RESCHEDULE/ALTERNATE": "Split run; category top pin for the difference",
+        "SUBSTITUTE": "Additional social post + targeted onsite promotion + Closing Soon extension",
+        "ESCALATE when": "Never, in practice"
+      }
+    },
+    "L_placement_soft": {
+      "applies": "featured_badge_priority, category_prominence, notable_lot_spotlight, closing_soon_exposure, closing_soon_extension",
+      "rungs": {
+        "FULFILL/RETRY": "Conditional insert retried; placement logging confirms first-seen",
+        "RESCHEDULE/ALTERNATE": "Alternate surface of the same class (category pin ↔ listing priority)",
+        "SUBSTITUTE": "Additional onsite placement of the next class up",
+        "ESCALATE when": "Marketplace delivery surfaces unavailable for the whole window (an incident, not a capacity case)"
+      }
+    },
+    "L_social": {
+      "applies": "social_post_organic",
+      "rungs": {
+        "FULFILL/RETRY": "Next cadence slot; reschedule",
+        "RESCHEDULE/ALTERNATE": "Alternate ACTIVE channel; manual_verified fallback routed here while no channel is ACTIVE",
+        "SUBSTITUTE": "Additional onsite placement + an additional creative in the share kit",
+        "ESCALATE when": "No channel ACTIVE and manual fallback unavailable"
+      }
+    },
+    "L_creative": {
+      "applies": "creative_collage_general, creative_closing_days, creative_lot_specific, creative_mid_refresh, creative_cobranded_variant, share_kit_delivery",
+      "rungs": {
+        "FULFILL/RETRY": "Re-run the compositor with a different family from CREATIVE_FAMILIES",
+        "RESCHEDULE/ALTERNATE": "Category-group or single-lot family when the CLEAN object count is short",
+        "SUBSTITUTE": "Additional lot creative(s) from CLEAN objects",
+        "ESCALATE when": "Fewer than the minimum CLEAN objects for any family (fidelity review overdue)"
+      }
+    },
+    "L_paid": {
+      "applies": "paid_local_promotion, lot_level_promotion",
+      "rungs": {
+        "FULFILL/RETRY": "Flight retried on the same ACTIVE provider within authority",
+        "RESCHEDULE/ALTERNATE": "Alternate ACTIVE provider; owned lot-level placement + social when none is ACTIVE",
+        "SUBSTITUTE": "Owned inventory of comparable value: additional module run, closing-soon extension, additional shared-edition inclusion where eligible",
+        "ESCALATE when": "Never for capacity; only for provider account revocation mid-flight with no owned substitute"
+      }
+    },
+    "L_email_notification": {
+      "applies": "follower_launch_notification",
+      "rungs": {
+        "FULFILL/RETRY": "Send at publish; retry through the queue",
+        "RESCHEDULE/ALTERNATE": "Send within 24h of publish",
+        "SUBSTITUTE": "Not applicable (where-applicable feature completes as not-applicable with reason)",
+        "ESCALATE when": "Never"
+      }
+    },
+    "L_document": {
+      "applies": "catalog_readiness_review, managed_campaign_documents, recommendations_written, managed_review_added_wave",
+      "rungs": {
+        "FULFILL/RETRY": "Regenerate",
+        "RESCHEDULE/ALTERNATE": "—",
+        "SUBSTITUTE": "—",
+        "ESCALATE when": "Never"
+      }
+    },
+    "L_wave": {
+      "applies": "additional_wave, custom_bundle",
+      "rungs": {
+        "FULFILL/RETRY": "Children follow their own ladders",
+        "RESCHEDULE/ALTERNATE": "Children follow their own ladders",
+        "SUBSTITUTE": "Composite completes when every child is terminal",
+        "ESCALATE when": "A child escalates"
+      }
+    }
+  }
+}
