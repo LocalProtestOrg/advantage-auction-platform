@@ -85,6 +85,11 @@ async function scanAuction(auctionId) {
       }
       if (hits.length) { flagged += 1; hits.forEach((h) => { bySeverity[h.rule.severity] = (bySeverity[h.rule.severity] || 0) + 1; }); }
     }
+    // NOTE (Admin Action Required SMS audit): compliance scanning is deliberately DECOUPLED from
+    // notifications + PII (see auction-compliance tests). Open flags are non-blocking decision-support, not
+    // an authoritative "admin must act before the process proceeds" state, so no SMS is wired here — that
+    // would be noise and would violate the established isolation boundary. Classified ADMIN_MAY_REVIEW
+    // (dashboard/admin only). COMPLIANCE_ESCALATION remains reserved for a future explicit escalation state.
     return { ok: true, scanned: lots.length, flagged, created, bySeverity };
   } catch (err) {
     console.error('[compliance] scanAuction failed for', auctionId, '-', err.message);
