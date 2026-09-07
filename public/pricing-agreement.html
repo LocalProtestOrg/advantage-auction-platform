@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="noindex" />
+  <title>Your Advantage.Bid Pricing Agreement</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { font-family: -apple-system, Segoe UI, Roboto, sans-serif; margin: 0; background: #f8fafc; color: #1f2937; }
+    header { background: #0f172a; color: #fff; padding: 1rem 1.25rem; }
+    header h1 { font-size: 1.05rem; margin: 0; font-weight: 600; }
+    main { max-width: 640px; margin: 1.5rem auto; padding: 0 1rem; }
+    .card { background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 1.4rem 1.5rem; box-shadow: 0 1px 3px rgba(15,23,42,.06); }
+    .lead { font-size: 1.15rem; font-weight: 650; margin: 0 0 0.25rem; }
+    .muted { color: #64748b; font-size: 0.9rem; }
+    .fee-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; margin: 1.25rem 0; }
+    .fee { background: #f1f5f9; border-radius: 10px; padding: 0.9rem 1rem; }
+    .fee .n { font-size: 1.6rem; font-weight: 700; color: #0f172a; }
+    .fee .l { font-size: 0.8rem; color: #475569; margin-top: 0.15rem; }
+    .row-line { display: flex; justify-content: space-between; padding: 0.5rem 0; border-bottom: 1px solid #eef2f7; font-size: 0.92rem; }
+    .row-line:last-child { border-bottom: 0; }
+    .summary { background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 10px; padding: 0.9rem 1rem; margin: 1rem 0; font-size: 0.92rem; }
+    button { background: #2563eb; color: #fff; border: 0; border-radius: 8px; padding: 0.8rem 1.2rem; font: inherit; font-weight: 600; cursor: pointer; width: 100%; margin-top: 0.5rem; }
+    button:disabled { opacity: 0.5; cursor: default; }
+    .ok { color: #16a34a; } .err { color: #dc2626; }
+    .confirm { background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 10px; padding: 1rem 1.1rem; }
+    a.back { color: #2563eb; text-decoration: none; font-size: 0.9rem; }
+    .pill { display: inline-block; padding: 0.1rem 0.55rem; border-radius: 999px; font-size: 0.72rem; background: #e2e8f0; }
+  </style>
+</head>
+<body>
+  <header><h1>Advantage.Bid — Your Pricing Agreement</h1></header>
+  <main>
+    <div id="content" class="card"><p class="muted">Loading…</p></div>
+    <p style="margin-top:1rem"><a class="back" href="/dashboard/seller.html">← Back to your dashboard</a></p>
+  </main>
+
+  <script>
+    var token = localStorage.getItem('token');
+    if (!token) { window.location.href = '/login.html'; }
+    function pct(bps) { return (bps == null) ? '—' : (Number(bps) / 100).toFixed(2).replace(/\.00$/, '') + '%'; }
+    function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]; }); }
+
+    async function api(method, path, body) {
+      var res = await fetch('/api/pricing-agreements' + path, {
+        method: method,
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+        body: body ? JSON.stringify(body) : undefined,
+      });
+      if (res.status === 401) { window.location.href = '/login.html'; return {}; }
+      var json = null; try { json = await res.json(); } catch (e) {}
+      return { status: res.status, json: json };
+    }
+
+    function renderPending(d) {
+      var p = d.pending_agreement;
+      var el = document.getElementById('content');
+      el.innerHTML =
+        '<p class="lead">You have a new pricing agreement to review</p>' +
+        '<p class="muted">' + esc(p.agreement_ref) + ' · Version ' + p.version + '</p>' +
+        '<div class="fee-grid">' +
+          '<div class="fee"><div class="n">' + pct(p.platform_fee_bps) + '</div><div class="l">Advantage.Bid platform / software fee</div></div>' +
+          '<div class="fee"><div class="n">' + pct(p.processing_fee_bps) + '</div><div class="l">Payment processing (separate)</div></div>' +
+        '</div>' +
+        '<div class="row-line"><span>When it takes effect</span><strong>' + esc(p.effective_date) + '</strong></div>' +
+        (p.legal_terms_version ? '<div class="row-line"><span>Applicable terms</span><strong>' + esc(p.legal_terms_version) + '</strong></div>' : '') +
+        (p.terms_summary ? '<div class="summary">' + esc(p.terms_summary) + '</div>' :
+          '<div class="summary">Advantage.Bid charges you a platform/software fee of <strong>' + pct(p.platform_fee_bps) + '</strong> of the hammer price on your auctions. Payment processing (' + pct(p.processing_fee_bps) + ') is a separate charge and is not part of this platform fee. Your buyer’s premium is set separately by you and is unchanged.</div>') +
+        '<div id="msg" class="err" style="margin:0.5rem 0"></div>' +
+        '<button id="accept-btn">I understand and accept this agreement</button>';
+      document.getElementById('accept-btn').onclick = function () { accept(p.id); };
+    }
+
+    function renderCurrent(d) {
+      var c = d.current_agreement;
+      var el = document.getElementById('content');
+      if (c) {
+        el.innerHTML =
+          '<div class="confirm"><p class="lead ok">✓ Your pricing agreement is active</p>' +
+          '<p class="muted">' + esc(c.agreement_ref) + ' · Version ' + c.version + ' · accepted ' + (c.accepted_at ? new Date(c.accepted_at).toLocaleDateString() : '') + '</p></div>' +
+          '<div class="fee-grid">' +
+            '<div class="fee"><div class="n">' + pct(c.platform_fee_bps) + '</div><div class="l">Your platform / software fee</div></div>' +
+            '<div class="fee"><div class="n">' + pct(c.processing_fee_bps) + '</div><div class="l">Payment processing (separate)</div></div>' +
+          '</div>' +
+          '<div class="row-line"><span>Effective</span><strong>' + esc(c.effective_date) + '</strong></div>' +
+          (c.terms_summary ? '<div class="summary">' + esc(c.terms_summary) + '</div>' : '');
+      } else {
+        el.innerHTML =
+          '<p class="lead">You’re on standard pricing</p>' +
+          '<div class="fee-grid">' +
+            '<div class="fee"><div class="n">' + pct(d.current_platform_fee_bps) + '</div><div class="l">Your platform / software fee</div></div>' +
+            '<div class="fee"><div class="n">' + pct(d.standard.processing_fee_bps) + '</div><div class="l">Payment processing (separate)</div></div>' +
+          '</div>' +
+          '<p class="muted">No negotiated agreement is on file. If Advantage.Bid offers you negotiated pricing, it will appear here for your acceptance.</p>';
+      }
+    }
+
+    async function accept(id) {
+      var btn = document.getElementById('accept-btn'); if (btn) btn.disabled = true;
+      var r = await api('POST', '/' + id + '/accept');
+      if (r.status === 200 && r.json && r.json.success) { load(); }
+      else {
+        var m = document.getElementById('msg');
+        if (m) m.textContent = (r.json && r.json.message) || 'Could not accept. Please try again.';
+        if (btn) btn.disabled = false;
+      }
+    }
+
+    async function load() {
+      var r = await api('GET', '/mine');
+      var d = r.json && r.json.data;
+      if (!d) { document.getElementById('content').innerHTML = '<p class="err">Could not load your agreement.</p>'; return; }
+      if (d.pending_agreement) renderPending(d); else renderCurrent(d);
+    }
+    load();
+  </script>
+</body>
+</html>

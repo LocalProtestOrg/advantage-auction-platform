@@ -25,6 +25,7 @@
 <body>
   <div class="wrap">
     <h1>My Agreements</h1>
+    <div id="pricing-banner"></div>
     <div id="list"><div class="empty">Loading…</div></div>
   </div>
   <script>
@@ -62,7 +63,26 @@
         div.appendChild(left); div.appendChild(right); list.appendChild(div);
       });
     }
+    async function loadPricing() {
+      try {
+        var res = await fetch('/api/pricing-agreements/mine', { headers: { Authorization: 'Bearer ' + token } });
+        if (!res.ok) return;
+        var json = await res.json(); var d = json && json.data; if (!d) return;
+        var el = document.getElementById('pricing-banner');
+        if (d.pending_agreement) {
+          el.innerHTML = '<div class="row" style="border-color:#bfdbfe;background:#eff6ff">' +
+            '<div><div class="name">Pricing agreement ready to accept ' + badge('sent') + '</div>' +
+            '<div class="muted">Advantage.Bid platform fee ' + (Number(d.pending_agreement.platform_fee_bps) / 100) + '% · effective ' + d.pending_agreement.effective_date + '</div></div>' +
+            '<a class="btn" href="/pricing-agreement.html">Review & Accept</a></div>';
+        } else if (d.current_agreement) {
+          el.innerHTML = '<div class="row"><div><div class="name">Your pricing agreement ' + badge('signed') + '</div>' +
+            '<div class="muted">Platform fee ' + (Number(d.current_agreement.platform_fee_bps) / 100) + '% · processing separate · effective ' + d.current_agreement.effective_date + '</div></div>' +
+            '<a class="btn ghost" href="/pricing-agreement.html">View</a></div>';
+        }
+      } catch (e) { /* non-blocking */ }
+    }
     load();
+    loadPricing();
   </script>
 </body>
 </html>

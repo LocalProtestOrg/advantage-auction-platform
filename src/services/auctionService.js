@@ -749,16 +749,30 @@ async function publishAuction(auctionId, actorId = null, options = {}) {
     try {
       const billingTerms = require('./billingTermsService');
       const pricingConfig = require('./pricingConfigService');
+      const pricingAgreements = require('./sellerPricingAgreementService');
       const sp = (await client.query(
-        `SELECT sp.seller_type, sp.platform_fee_bps AS seller_platform_bps, st.buyer_premium_pct, a.buyer_premium_bps
+        `SELECT a.seller_id AS seller_profile_id, sp.seller_type, sp.platform_fee_bps AS seller_platform_bps,
+                st.buyer_premium_pct, a.buyer_premium_bps
            FROM auctions a
            LEFT JOIN seller_profiles sp ON sp.id = a.seller_id
            LEFT JOIN seller_terms st ON st.seller_profile_id = sp.id AND st.superseded_at IS NULL
           WHERE a.id = $1`, [auctionId])).rows[0] || {};
       const isPro = billingTerms.isProfessional(sp.seller_type);
       const buyerPremiumBps = billingTerms.effectiveBuyerPremiumBps(sp.seller_type, { auctionBps: sp.buyer_premium_bps, sellerPct: sp.buyer_premium_pct });
+      // Applicable PLATFORM fee follows the owner hierarchy: an ACCEPTED + effective negotiated agreement
+      // wins over the bare per-seller override, which wins over the sitewide default. Resolved ONCE here and
+      // frozen into the snapshot below — so a later agreement/version/config change never alters this auction.
+      let agreementBps = null;
+      if (isPro && sp.seller_profile_id) {
+        try { agreementBps = await pricingAgreements.effectivePlatformFeeBps(sp.seller_profile_id, new Date(), client); }
+        catch (_) { agreementBps = null; }
+      }
       const platformBps = isPro
-        ? (sp.seller_platform_bps != null ? Number(sp.seller_platform_bps) : await pricingConfig.currentProPlatformBps())
+        ? pricingAgreements.resolvePlatformFeeBps({
+            agreementBps,
+            sellerOverrideBps: sp.seller_platform_bps,
+            sitewideDefaultBps: await pricingConfig.currentProPlatformBps(),
+          })
         : 0;
       const processingBps = await pricingConfig.currentProcessingBps();
       await client.query(
