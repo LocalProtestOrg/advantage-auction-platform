@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="noindex" />
+  <title>Advantage.Bid — Marketing Packages</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { font-family: -apple-system, Segoe UI, Roboto, sans-serif; margin: 0; background: #f6f8fb; color: #1f2937; }
+    header { background: #0f172a; color: #fff; padding: 1rem 1.25rem; }
+    header h1 { font-size: 1.1rem; margin: 0; }
+    main { max-width: 1040px; margin: 1.25rem auto; padding: 0 1rem; }
+    .note { color: #475569; font-size: 0.9rem; margin: 0.25rem 0 1rem; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 1rem; }
+    .card { background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 1.1rem 1.2rem; display: flex; flex-direction: column; }
+    .card.included { opacity: 0.95; }
+    .tier { font-size: 1.05rem; font-weight: 700; }
+    .price { font-size: 1.7rem; font-weight: 800; margin: 0.3rem 0; }
+    .price small { font-size: 0.8rem; font-weight: 600; color: #64748b; }
+    ul { margin: 0.5rem 0 1rem; padding-left: 1.1rem; font-size: 0.86rem; color: #334155; }
+    ul li { margin: 0.2rem 0; }
+    .email-flag { font-size: 0.8rem; font-weight: 600; color: #1e40af; background: #eff6ff; border-radius: 8px; padding: 0.4rem 0.6rem; margin-bottom: 0.6rem; }
+    button { margin-top: auto; background: #2563eb; color: #fff; border: 0; border-radius: 8px; padding: 0.7rem 1rem; font: inherit; font-weight: 700; cursor: pointer; }
+    button:disabled { opacity: 0.5; cursor: default; }
+    .free { background: #e2e8f0; color: #0f172a; }
+    .refund { font-size: 0.72rem; color: #64748b; margin-top: 0.5rem; }
+    .banner { padding: 0.7rem 1rem; border-radius: 8px; margin-bottom: 1rem; font-size: 0.9rem; display: none; }
+    .ok { background: #f0fdf4; border: 1px solid #bbf7d0; color: #166534; }
+    .err { background: #fef2f2; border: 1px solid #fecaca; color: #991b1b; }
+  </style>
+</head>
+<body>
+  <header><h1>Advantage.Bid — Marketing Packages</h1></header>
+  <main>
+    <div id="banner" class="banner"></div>
+    <p class="note">Choose how far Advantage.Bid promotes your auction. Pick a package, pay securely by card, and we handle the rest.</p>
+    <div id="grid" class="grid"><p class="note">Loading packages…</p></div>
+  </main>
+  <script>
+    var token = localStorage.getItem('token');
+    if (!token) { location.href = '/login.html?next=' + encodeURIComponent('/seller/marketing.html'); }
+    var params = new URLSearchParams(location.search);
+    var auctionId = params.get('auction_id') || params.get('auctionId') || '';
+    function money(c) { return '$' + (Number(c || 0) / 100).toFixed(Number(c) % 100 === 0 ? 0 : 2); }
+    function banner(msg, ok) { var b = document.getElementById('banner'); b.textContent = msg; b.className = 'banner ' + (ok ? 'ok' : 'err'); b.style.display = 'block'; }
+    if (params.get('purchase') === 'success' || params.get('promo') === 'success') banner('Thank you — your purchase is confirmed. Advantage.Bid is setting up your campaign.', true);
+    if (params.get('purchase') === 'canceled' || params.get('promo') === 'canceled') banner('Checkout canceled. No charge was made.', false);
+
+    var EMAIL_FLAG = {
+      premium: 'Featured in an Advantage.Bid auction email to eligible subscribers',
+      signature: 'Dedicated single-auction Advantage.Bid email to eligible subscribers',
+    };
+    async function load() {
+      var res = await fetch('/api/marketing-packages', { headers: { Authorization: 'Bearer ' + token } });
+      if (res.status === 401) { location.href = '/login.html'; return; }
+      var j = await res.json(); var pkgs = (j.data && j.data.packages) || [];
+      var order = { included: 0, featured: 1, premium: 2, signature: 3 };
+      pkgs.sort(function (a, b) { return (order[a.package_key] || 9) - (order[b.package_key] || 9); });
+      var grid = document.getElementById('grid'); grid.innerHTML = '';
+      pkgs.forEach(function (p) {
+        var card = document.createElement('div'); card.className = 'card ' + p.package_key;
+        var benefits = (p.guaranteed || []).slice(0, 8).map(function (b) { return '<li>' + esc(b) + '</li>'; }).join('');
+        var emailFlag = EMAIL_FLAG[p.package_key] ? '<div class="email-flag">✉ ' + EMAIL_FLAG[p.package_key] + '</div>' : '';
+        var isPaid = p.price_cents > 0;
+        card.innerHTML =
+          '<div class="tier">' + esc(p.name) + '</div>' +
+          '<div class="price">' + money(p.price_cents) + (isPaid ? ' <small>one-time</small>' : ' <small>included</small>') + '</div>' +
+          emailFlag +
+          '<ul>' + benefits + '</ul>' +
+          (isPaid
+            ? '<button data-key="' + p.package_key + '">Purchase ' + esc(p.name) + '</button><div class="refund">Non-refundable. Prepaid card only.</div>'
+            : '<button class="free" disabled>Included with every auction</button>');
+        grid.appendChild(card);
+      });
+      grid.querySelectorAll('button[data-key]').forEach(function (btn) {
+        btn.onclick = function () { checkout(btn.getAttribute('data-key'), btn); };
+      });
+    }
+    async function checkout(key, btn) {
+      btn.disabled = true; btn.textContent = 'Redirecting…';
+      var res = await fetch('/api/marketing-packages/checkout', {
+        method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+        body: JSON.stringify({ package_key: key, auction_id: auctionId || undefined }),
+      });
+      var j = await res.json();
+      if (res.ok && j.data && j.data.url) { location.href = j.data.url; }
+      else { banner((j && j.message) || 'Could not start checkout.', false); btn.disabled = false; btn.textContent = 'Purchase'; }
+    }
+    function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]; }); }
+    load();
+  </script>
+</body>
+</html>

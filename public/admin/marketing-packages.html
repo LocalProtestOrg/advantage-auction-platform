@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="noindex" />
+  <title>Admin — Marketing Packages</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { font-family: -apple-system, Segoe UI, Roboto, sans-serif; margin: 0; background: #f8fafc; color: #1f2937; }
+    header { background: #0f172a; color: #fff; padding: 0.9rem 1.25rem; }
+    header h1 { font-size: 1.05rem; margin: 0; }
+    main { max-width: 1100px; margin: 1.25rem auto; padding: 0 1rem; display: grid; gap: 1.1rem; }
+    .card { background: #fff; border: 1px solid #e5e7eb; border-radius: 8px; padding: 1rem 1.1rem; }
+    .card h2 { font-size: 0.95rem; margin: 0 0 0.6rem; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
+    th, td { text-align: left; padding: 0.35rem 0.5rem; border-bottom: 1px solid #eef2f7; }
+    label { display: block; font-size: 0.75rem; color: #475569; margin: 0.4rem 0 0.15rem; }
+    input, textarea, select { width: 100%; padding: 0.4rem 0.5rem; border: 1px solid #cbd5e1; border-radius: 6px; font: inherit; }
+    textarea { min-height: 70px; font-family: ui-monospace, monospace; font-size: 0.76rem; }
+    button { background: #2563eb; color: #fff; border: 0; border-radius: 6px; padding: 0.45rem 0.8rem; font: inherit; cursor: pointer; margin-top: 0.5rem; }
+    .pill { display: inline-block; padding: 0.05rem 0.45rem; border-radius: 999px; font-size: 0.7rem; background: #e2e8f0; }
+    .muted { color: #64748b; font-size: 0.78rem; }
+    #toast { position: fixed; right: 1rem; bottom: 1rem; background: #0f172a; color: #fff; padding: 0.6rem 0.9rem; border-radius: 6px; display: none; }
+    .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem; }
+  </style>
+</head>
+<body>
+  <header><h1>Marketing Packages <span class="pill">Admin</span></h1></header>
+  <main>
+    <section class="card"><h2>Channel readiness</h2><div id="readiness" class="muted">…</div></section>
+
+    <section class="card">
+      <h2>Package versions</h2>
+      <div id="versions" class="muted">…</div>
+      <hr style="border:none;border-top:1px solid #eef2f7;margin:0.8rem 0" />
+      <h2 style="font-size:0.9rem">Create new version</h2>
+      <div class="row2">
+        <div><label>package_key</label>
+          <select id="v-key"><option>featured</option><option>premium</option><option>signature</option><option>included</option></select></div>
+        <div><label>price_cents</label><input id="v-price" type="number" /></div>
+      </div>
+      <label>seller_name</label><input id="v-name" />
+      <label>seller_description</label><input id="v-desc" />
+      <label>seller_benefits (JSON array of strings)</label><textarea id="v-benefits">[]</textarea>
+      <label>guaranteed_deliverables (JSON array of {key,channel,label})</label><textarea id="v-guar">[]</textarea>
+      <label>discretionary_tools (JSON array of {key,channel,label})</label><textarea id="v-disc">[]</textarea>
+      <div class="row2">
+        <div><label>economic_policy_version</label><input id="v-pol" value="v1" /></div>
+        <div><label>effective_from (ISO, optional)</label><input id="v-eff" /></div>
+      </div>
+      <button id="v-create">Create version</button>
+    </section>
+
+    <section class="card">
+      <h2>Economic policy <span class="muted">(confidential)</span></h2>
+      <div id="policies" class="muted">…</div>
+      <div class="row2">
+        <div><label>policy_version</label><input id="p-ver" /></div>
+        <div><label>direct_fulfillment_bps (6000 = 60%)</label><input id="p-bps" type="number" /></div>
+      </div>
+      <button id="p-create">Create policy version</button>
+    </section>
+
+    <section class="card"><h2>Capacity config</h2><div id="capacity" class="muted">…</div></section>
+
+    <section class="card">
+      <h2>Purchases</h2>
+      <div id="purchases" class="muted">…</div>
+    </section>
+  </main>
+  <div id="toast"></div>
+  <script>
+    var token = localStorage.getItem('token');
+    if (!token) location.href = '/login.html';
+    try { var pl = JSON.parse(atob(token.split('.')[1])); if (pl.role !== 'admin') { document.body.innerHTML = '<p style="padding:2rem">Super Admin access required.</p>'; throw new Error('na'); } } catch (e) {}
+    function toast(m, ok) { var t = document.getElementById('toast'); t.textContent = m; t.style.background = ok ? '#166534' : '#0f172a'; t.style.display = 'block'; setTimeout(function () { t.style.display = 'none'; }, 3000); }
+    async function api(method, path, body) {
+      var r = await fetch('/api/admin/marketing-packages' + path, { method: method, headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token }, body: body ? JSON.stringify(body) : undefined });
+      if (r.status === 401) { location.href = '/login.html'; return {}; }
+      var j = null; try { j = await r.json(); } catch (e) {}
+      if (!r.ok) toast((j && j.message) || ('Error ' + r.status), false);
+      return { status: r.status, json: j };
+    }
+    function esc(s) { return String(s == null ? '' : s).replace(/[&<>]/g, function (c) { return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' })[c]; }); }
+    async function loadReadiness() { var r = await api('GET', '/channel-readiness'); document.getElementById('readiness').textContent = JSON.stringify(r.json && r.json.data || {}); }
+    async function loadVersions() {
+      var r = await api('GET', '/versions'); var d = r.json && r.json.data || {}; var html = '<table><thead><tr><th>key</th><th>v</th><th>price</th><th>active</th><th>eff from</th></tr></thead><tbody>';
+      Object.keys(d).forEach(function (k) { (d[k] || []).forEach(function (v) { html += '<tr><td>' + k + '</td><td>' + v.version + '</td><td>$' + (v.price_cents / 100) + '</td><td>' + (v.is_active ? 'yes' : 'no') + '</td><td>' + (v.effective_from || '') + '</td></tr>'; }); });
+      html += '</tbody></table>'; document.getElementById('versions').innerHTML = html;
+    }
+    async function loadPolicies() { var r = await api('GET', '/economic-policies'); var d = r.json && r.json.data || []; document.getElementById('policies').innerHTML = '<table><thead><tr><th>version</th><th>bps</th><th>active</th><th>from</th></tr></thead><tbody>' + d.map(function (p) { return '<tr><td>' + esc(p.policy_version) + '</td><td>' + p.direct_fulfillment_bps + '</td><td>' + (p.is_active ? 'yes' : 'no') + '</td><td>' + (p.effective_from || '') + '</td></tr>'; }).join('') + '</tbody></table>'; }
+    async function loadCapacity() { var r = await api('GET', '/capacity'); document.getElementById('capacity').innerHTML = '<pre style="white-space:pre-wrap;font-size:0.76rem">' + esc(JSON.stringify(r.json && r.json.data || {}, null, 1)) + '</pre>'; }
+    async function loadPurchases() { var r = await api('GET', '/purchases'); var d = r.json && r.json.data || []; document.getElementById('purchases').innerHTML = '<table><thead><tr><th>package</th><th>v</th><th>paid</th><th>status</th><th>when</th></tr></thead><tbody>' + d.map(function (p) { return '<tr><td>' + esc(p.package_key) + '</td><td>' + p.package_version + '</td><td>$' + (p.amount_paid_cents / 100) + '</td><td>' + esc(p.status) + '</td><td>' + (p.purchased_at || '') + '</td></tr>'; }).join('') + '</tbody></table>' || 'none'; }
+    function pj(id, fb) { try { return JSON.parse(document.getElementById(id).value || fb); } catch (e) { toast('Invalid JSON in ' + id, false); throw e; } }
+    document.getElementById('v-create').onclick = async function () {
+      var body = { package_key: document.getElementById('v-key').value, price_cents: Number(document.getElementById('v-price').value),
+        seller_name: document.getElementById('v-name').value, seller_description: document.getElementById('v-desc').value,
+        seller_benefits: pj('v-benefits', '[]'), guaranteed_deliverables: pj('v-guar', '[]'), discretionary_tools: pj('v-disc', '[]'),
+        economic_policy_version: document.getElementById('v-pol').value, effective_from: document.getElementById('v-eff').value || undefined };
+      var r = await api('POST', '/versions', body); if (r.status === 201) { toast('Version created', true); loadVersions(); }
+    };
+    document.getElementById('p-create').onclick = async function () {
+      var r = await api('POST', '/economic-policies', { policy_version: document.getElementById('p-ver').value, direct_fulfillment_bps: Number(document.getElementById('p-bps').value) });
+      if (r.status === 201) { toast('Policy created', true); loadPolicies(); }
+    };
+    loadReadiness(); loadVersions(); loadPolicies(); loadCapacity(); loadPurchases();
+  </script>
+  <script src="/widgets/shared/admin-nav.js"></script>
+</body>
+</html>
