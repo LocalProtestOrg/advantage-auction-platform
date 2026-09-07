@@ -1,0 +1,97 @@
+{
+  "transitions": [
+    {
+      "from": "PLANNED",
+      "to": "CREATIVE_READY",
+      "trigger": "Creative job result accepted",
+      "actor": "Creative service",
+      "guard": "fidelity=CLEAN ∧ audit.violations=∅ ∧ protected intact ∧ text budget ok ∧ A2 QA pass"
+    },
+    {
+      "from": "PLANNED",
+      "to": "SCHEDULED",
+      "trigger": "Reservation confirmed (non-creative feature)",
+      "actor": "Scheduler",
+      "guard": "readiness ∈ {ACTIVE, SHADOW_CERTIFIED} ∧ inside window ∧ health budget ok"
+    },
+    {
+      "from": "CREATIVE_READY",
+      "to": "SCHEDULED",
+      "trigger": "Reservation confirmed",
+      "actor": "Scheduler",
+      "guard": "same as above"
+    },
+    {
+      "from": "SCHEDULED",
+      "to": "LIVE",
+      "trigger": "First evidence row written",
+      "actor": "Execution service",
+      "guard": "evidence.fields ⊇ feature.evidence_fields (first-seen subset)"
+    },
+    {
+      "from": "LIVE",
+      "to": "COMPLETED",
+      "trigger": "Window closed and reconciliation passed",
+      "actor": "Monitor",
+      "guard": "evidence complete ∧ no open attempt ∧ metrics linked"
+    },
+    {
+      "from": "PLANNED|CREATIVE_READY|SCHEDULED|LIVE",
+      "to": "BLOCKED",
+      "trigger": "Precondition failed (readiness, health, slot, review, callback)",
+      "actor": "Monitor",
+      "guard": "a retry is still possible before window.latest − lead"
+    },
+    {
+      "from": "BLOCKED",
+      "to": "previous state",
+      "trigger": "Precondition cleared on re-check",
+      "actor": "Monitor",
+      "guard": "inside window"
+    },
+    {
+      "from": "BLOCKED",
+      "to": "SCHEDULED",
+      "trigger": "Ladder rung 3/4 found an alternate (reschedule / alternate path)",
+      "actor": "Resilience engine",
+      "guard": "rung permissible under health and readiness"
+    },
+    {
+      "from": "PLANNED|SCHEDULED|BLOCKED",
+      "to": "SUBSTITUTED",
+      "trigger": "Rung 5 substitute delivered and evidenced",
+      "actor": "Resilience engine",
+      "guard": "equivalence_table(substitute) ≥ original ∧ substitute obligations COMPLETED"
+    },
+    {
+      "from": "any non-terminal",
+      "to": "NEEDS_OWNER",
+      "trigger": "Rung 7 reached, or Owner-reserved decision type",
+      "actor": "Escalation service",
+      "guard": "packet complete (history, options, deadline)"
+    },
+    {
+      "from": "NEEDS_OWNER",
+      "to": "SCHEDULED|SUBSTITUTED|MADE_GOOD|BLOCKED",
+      "trigger": "Owner resolution message",
+      "actor": "Owner via admin",
+      "guard": "resolution ∈ OWNER_RESOLUTIONS; audit-logged"
+    },
+    {
+      "from": "COMPLETED|SUBSTITUTED|MADE_GOOD",
+      "to": "—",
+      "trigger": "None. Terminal states are immutable; corrections are new evidence rows, never state edits.",
+      "actor": "—",
+      "guard": "—"
+    }
+  ],
+  "invariants": [
+    "Every guaranteed deliverable in a purchase snapshot has exactly one root obligation row; substitutes are additional rows that reference substitute_of.",
+    "State history is append-only: (from, to, at, actor, trigger, evidence_ref?). A row is never updated in place.",
+    "No obligation may enter LIVE without at least one evidence row; no obligation may enter COMPLETED without the reconciliation gate.",
+    "BLOCKED and NEEDS_OWNER are internal states. The seller renderer maps them to the plan line unchanged (“Scheduled as part of your campaign”) and never to a cause.",
+    "A BLOCKED obligation has a deadline = window.latest − channel lead time; the monitor advances the ladder at the deadline rather than letting the window lapse silently.",
+    "Only an Owner resolution can move an obligation out of NEEDS_OWNER; the runtime never times a NEEDS_OWNER row into a terminal state on its own.",
+    "Consent, suppression, frequency caps, readiness and health checks are evaluated at transition time, not at plan time; a transition whose guard fails becomes BLOCKED, never forced."
+  ]
+}

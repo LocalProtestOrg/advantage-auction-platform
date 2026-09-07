@@ -1,0 +1,175 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://advantage.bid/contracts/3o/shared_edition_job.schema.json",
+  "title": "Shared edition builder — job contract (Premium and Signature inclusion)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "edition_id",
+    "idempotency_key",
+    "market",
+    "cadence_slot_at",
+    "config",
+    "candidates",
+    "audience_specification",
+    "cards",
+    "health_budget_ok"
+  ],
+  "properties": {
+    "edition_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "idempotency_key": {
+      "type": "string",
+      "minLength": 1
+    },
+    "market": {
+      "type": "string",
+      "minLength": 1
+    },
+    "cadence_slot_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "config": {
+      "type": "object",
+      "required": [
+        "cards_target",
+        "cards_max",
+        "editions_per_market_week"
+      ],
+      "properties": {
+        "cards_target": {
+          "type": "integer"
+        },
+        "cards_max": {
+          "type": "integer"
+        },
+        "editions_per_market_week": {
+          "type": "integer"
+        }
+      }
+    },
+    "candidates": {
+      "type": "array",
+      "description": "Premium-level auctions in market, ≥72h remaining at send, inclusion obligation not yet fulfilled; ordered by closing date then purchase time",
+      "items": {
+        "type": "object",
+        "required": [
+          "auction_id",
+          "obligation_id",
+          "closes_at",
+          "purchased_at"
+        ],
+        "properties": {
+          "auction_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "obligation_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "closes_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "purchased_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      }
+    },
+    "overflow_action": {
+      "enum": [
+        "second_edition_this_week",
+        "ladder:L_shared_edition",
+        "none"
+      ]
+    },
+    "audience_specification": {
+      "$ref": "https://advantage.bid/contracts/3o/audience_specification.schema.json"
+    },
+    "cards": {
+      "type": "array",
+      "maxItems": 6,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "position",
+          "auction_id",
+          "obligation_id",
+          "collage_asset_id",
+          "title",
+          "location",
+          "closing_date",
+          "lot_count",
+          "tracked_link"
+        ],
+        "properties": {
+          "position": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 6
+          },
+          "auction_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "obligation_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "collage_asset_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "title": {
+            "type": "string"
+          },
+          "location": {
+            "type": "string"
+          },
+          "closing_date": {
+            "type": "string"
+          },
+          "lot_count": {
+            "type": "integer"
+          },
+          "tracked_link": {
+            "type": "string"
+          }
+        },
+        "description": "Equal size; no favouritism; one tracked link each"
+      }
+    },
+    "health_budget_ok": {
+      "type": "boolean"
+    },
+    "send_result": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "properties": {
+        "campaign_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sent_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "delivered_count": {
+          "type": "integer"
+        },
+        "per_card_clicks": {
+          "type": "object"
+        }
+      }
+    }
+  }
+}

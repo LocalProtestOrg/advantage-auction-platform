@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://advantage.bid/contracts/3o/readiness.schema.json",
+  "title": "Channel readiness record",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "channel_key",
+    "state",
+    "checked_at",
+    "preconditions"
+  ],
+  "properties": {
+    "channel_key": {
+      "type": "string"
+    },
+    "state": {
+      "$ref": "https://advantage.bid/contracts/3o/enums.schema.json#/$defs/ReadinessState"
+    },
+    "checked_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "preconditions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "name",
+          "ok"
+        ],
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "ok": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    "owner_action_required": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "fallback_ladder": {
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  }
+}

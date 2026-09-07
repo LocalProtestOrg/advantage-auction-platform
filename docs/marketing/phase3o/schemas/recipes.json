@@ -1,0 +1,464 @@
+[
+  {
+    "identity": "INCLUDED",
+    "kind": "package",
+    "ladder_statement_or_increment": "Your auction is listed and discoverable",
+    "waves": [
+      "ANY"
+    ],
+    "guaranteed": [
+      {
+        "feature_key": "listing_standard",
+        "parameters": {}
+      },
+      {
+        "feature_key": "listing_card",
+        "parameters": {}
+      },
+      {
+        "feature_key": "follower_launch_notification",
+        "parameters": {
+          "where_applicable": true
+        }
+      },
+      {
+        "feature_key": "performance_standard",
+        "parameters": {}
+      }
+    ],
+    "discretionary": [
+      "roundup_inclusion",
+      "onsite_cross_promotion"
+    ]
+  },
+  {
+    "identity": "FEATURED",
+    "kind": "package",
+    "ladder_statement_or_increment": "Your auction stands out across Advantage.Bid",
+    "waves": [
+      "LAUNCH",
+      "FINAL"
+    ],
+    "guaranteed": [
+      {
+        "feature_key": "listing_standard",
+        "parameters": {}
+      },
+      {
+        "feature_key": "listing_card",
+        "parameters": {}
+      },
+      {
+        "feature_key": "follower_launch_notification",
+        "parameters": {}
+      },
+      {
+        "feature_key": "featured_badge_priority",
+        "parameters": {}
+      },
+      {
+        "feature_key": "category_prominence",
+        "parameters": {}
+      },
+      {
+        "feature_key": "notable_lot_spotlight",
+        "parameters": {
+          "lots_max": 3
+        }
+      },
+      {
+        "feature_key": "closing_soon_exposure",
+        "parameters": {}
+      },
+      {
+        "feature_key": "creative_collage_general",
+        "parameters": {
+          "formats": [
+            "square_1080x1080",
+            "portrait_1080x1350"
+          ]
+        }
+      },
+      {
+        "feature_key": "share_kit_delivery",
+        "parameters": {}
+      },
+      {
+        "feature_key": "reporting_standard",
+        "parameters": {}
+      }
+    ],
+    "discretionary": [
+      "targeted_onsite_promotion",
+      "social_post_when_cadence_allows"
+    ]
+  },
+  {
+    "identity": "PREMIUM",
+    "kind": "package",
+    "ladder_statement_or_increment": "Advantage.Bid actively promotes your auction to its broader audience",
+    "waves": [
+      "LAUNCH",
+      "FINAL"
+    ],
+    "guaranteed": [
+      {
+        "feature_key": "listing_standard",
+        "parameters": {}
+      },
+      {
+        "feature_key": "listing_card",
+        "parameters": {}
+      },
+      {
+        "feature_key": "follower_launch_notification",
+        "parameters": {}
+      },
+      {
+        "feature_key": "featured_badge_priority",
+        "parameters": {}
+      },
+      {
+        "feature_key": "category_prominence",
+        "parameters": {}
+      },
+      {
+        "feature_key": "notable_lot_spotlight",
+        "parameters": {
+          "lots_max": 3
+        }
+      },
+      {
+        "feature_key": "closing_soon_exposure",
+        "parameters": {}
+      },
+      {
+        "feature_key": "creative_collage_general",
+        "parameters": {
+          "formats": [
+            "square_1080x1080",
+            "portrait_1080x1350"
+          ]
+        }
+      },
+      {
+        "feature_key": "share_kit_delivery",
+        "parameters": {}
+      },
+      {
+        "feature_key": "homepage_module_run",
+        "parameters": {
+          "days": "config:placement.module.days_per_premium"
+        }
+      },
+      {
+        "feature_key": "shared_edition_inclusion",
+        "parameters": {
+          "cards": 1
+        }
+      },
+      {
+        "feature_key": "social_post_organic",
+        "parameters": {
+          "count": 1
+        }
+      },
+      {
+        "feature_key": "creative_closing_days",
+        "parameters": {}
+      },
+      {
+        "feature_key": "catalog_readiness_review",
+        "parameters": {}
+      },
+      {
+        "feature_key": "reporting_detailed",
+        "parameters": {}
+      }
+    ],
+    "discretionary": [
+      "behavioral_onsite",
+      "email_local_regional_or_interest_additional",
+      "email_final_days",
+      "paid_local_promotion"
+    ]
+  },
+  {
+    "identity": "SIGNATURE",
+    "kind": "package",
+    "ladder_statement_or_increment": "A professionally managed campaign around your strongest merchandise",
+    "waves": [
+      "LAUNCH",
+      "MID",
+      "FINAL"
+    ],
+    "guaranteed": [
+      {
+        "feature_key": "listing_standard",
+        "parameters": {}
+      },
+      {
+        "feature_key": "listing_card",
+        "parameters": {}
+      },
+      {
+        "feature_key": "follower_launch_notification",
+        "parameters": {}
+      },
+      {
+        "feature_key": "featured_badge_priority",
+        "parameters": {}
+      },
+      {
+        "feature_key": "category_prominence",
+        "parameters": {}
+      },
+      {
+        "feature_key": "notable_lot_spotlight",
+        "parameters": {
+          "lots_max": 3
+        }
+      },
+      {
+        "feature_key": "closing_soon_exposure",
+        "parameters": {}
+      },
+      {
+        "feature_key": "creative_collage_general",
+        "parameters": {
+          "formats": [
+            "square_1080x1080",
+            "portrait_1080x1350"
+          ]
+        }
+      },
+      {
+        "feature_key": "share_kit_delivery",
+        "parameters": {}
+      },
+      {
+        "feature_key": "homepage_module_run",
+        "parameters": {
+          "days": "config:placement.module.days_per_premium"
+        }
+      },
+      {
+        "feature_key": "shared_edition_inclusion",
+        "parameters": {
+          "cards": 1
+        }
+      },
+      {
+        "feature_key": "creative_closing_days",
+        "parameters": {}
+      },
+      {
+        "feature_key": "catalog_readiness_review",
+        "parameters": {}
+      },
+      {
+        "feature_key": "homepage_hero_days",
+        "parameters": {
+          "days": "config:placement.hero.days_per_signature"
+        }
+      },
+      {
+        "feature_key": "dedicated_send",
+        "parameters": {
+          "count": 1,
+          "min_audience": "config:email.dedicated.min_audience"
+        }
+      },
+      {
+        "feature_key": "social_post_organic",
+        "parameters": {
+          "count": 3,
+          "waves": [
+            "LAUNCH",
+            "MID",
+            "FINAL"
+          ]
+        }
+      },
+      {
+        "feature_key": "creative_lot_specific",
+        "parameters": {
+          "count": 3
+        }
+      },
+      {
+        "feature_key": "creative_mid_refresh",
+        "parameters": {}
+      },
+      {
+        "feature_key": "creative_cobranded_variant",
+        "parameters": {
+          "conditional": "professional_seller_with_logo"
+        }
+      },
+      {
+        "feature_key": "managed_campaign_documents",
+        "parameters": {}
+      },
+      {
+        "feature_key": "reporting_detailed",
+        "parameters": {}
+      },
+      {
+        "feature_key": "recommendations_written",
+        "parameters": {}
+      }
+    ],
+    "discretionary": [
+      "expanded_interest_and_past_bidder_audiences",
+      "paid_local_regional_national",
+      "paid_lot_level",
+      "retargeting_when_available",
+      "search_when_available",
+      "story_reel_when_assets_exist",
+      "aggregator_listings"
+    ]
+  },
+  {
+    "identity": "BOOST",
+    "kind": "promotion",
+    "ladder_statement_or_increment": "An additional campaign wave",
+    "waves": [
+      "ANY"
+    ],
+    "guaranteed": [
+      {
+        "feature_key": "additional_wave",
+        "parameters": {
+          "children": [
+            "creative_mid_refresh",
+            "social_post_organic:+1",
+            "closing_soon_extension",
+            "shared_edition_inclusion:where_eligible"
+          ]
+        }
+      }
+    ],
+    "discretionary": []
+  },
+  {
+    "identity": "REACH",
+    "kind": "promotion",
+    "ladder_statement_or_increment": "Boost plus an additional email touch, an additional homepage module run, paid local promotion where channels are live",
+    "waves": [
+      "ANY"
+    ],
+    "guaranteed": [
+      {
+        "feature_key": "additional_wave",
+        "parameters": {
+          "children": [
+            "creative_mid_refresh",
+            "social_post_organic:+1",
+            "closing_soon_extension",
+            "shared_edition_inclusion:where_eligible"
+          ]
+        }
+      },
+      {
+        "feature_key": "email_touch_additional",
+        "parameters": {
+          "kind": "shared_edition | dedicated_closing(Signature buyers, calendar+health permitting)"
+        }
+      },
+      {
+        "feature_key": "homepage_module_run",
+        "parameters": {
+          "days": "config:placement.module.days_per_premium",
+          "additional": true
+        }
+      },
+      {
+        "feature_key": "paid_local_promotion",
+        "parameters": {
+          "where_live": true
+        }
+      }
+    ],
+    "discretionary": []
+  },
+  {
+    "identity": "SPOTLIGHT",
+    "kind": "promotion",
+    "ladder_statement_or_increment": "Reach plus lot-level creatives and promotion, regional or national reach for shippable lots, a managed review of the added wave",
+    "waves": [
+      "ANY"
+    ],
+    "guaranteed": [
+      {
+        "feature_key": "additional_wave",
+        "parameters": {
+          "children": [
+            "creative_mid_refresh",
+            "social_post_organic:+1",
+            "closing_soon_extension",
+            "shared_edition_inclusion:where_eligible"
+          ]
+        }
+      },
+      {
+        "feature_key": "email_touch_additional",
+        "parameters": {
+          "kind": "shared_edition | dedicated_closing(Signature buyers, calendar+health permitting)"
+        }
+      },
+      {
+        "feature_key": "homepage_module_run",
+        "parameters": {
+          "days": "config:placement.module.days_per_premium",
+          "additional": true
+        }
+      },
+      {
+        "feature_key": "paid_local_promotion",
+        "parameters": {
+          "where_live": true
+        }
+      },
+      {
+        "feature_key": "creative_lot_specific",
+        "parameters": {
+          "count": 3
+        }
+      },
+      {
+        "feature_key": "lot_level_promotion",
+        "parameters": {}
+      },
+      {
+        "feature_key": "reach_expansion_shippable",
+        "parameters": {
+          "where_eligible": true
+        }
+      },
+      {
+        "feature_key": "managed_review_added_wave",
+        "parameters": {}
+      }
+    ],
+    "discretionary": []
+  },
+  {
+    "identity": "CUSTOM",
+    "kind": "promotion",
+    "ladder_statement_or_increment": "The nearest service bundle the Director can compose for the amount, shown before payment",
+    "waves": [
+      "ANY"
+    ],
+    "guaranteed": [
+      {
+        "feature_key": "custom_bundle",
+        "parameters": {
+          "bounds": "config:promotion.custom.min_cents / max_cents",
+          "composed_from": "FEATURES above; shown before payment; snapshotted"
+        }
+      }
+    ],
+    "discretionary": []
+  }
+]

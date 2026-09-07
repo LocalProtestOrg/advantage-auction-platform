@@ -1,0 +1,154 @@
+{
+  "config_seeds": [
+    {
+      "key": "email.shared.cards_target",
+      "seed": "4",
+      "note": "per edition"
+    },
+    {
+      "key": "email.shared.cards_max",
+      "seed": "6",
+      "note": "per edition"
+    },
+    {
+      "key": "email.shared.editions_per_market_week",
+      "seed": "2",
+      "note": "normal cadence ceiling"
+    },
+    {
+      "key": "email.dedicated.per_market_week",
+      "seed": "2",
+      "note": "normal target maximum"
+    },
+    {
+      "key": "email.dedicated.per_day_global",
+      "seed": "3",
+      "note": "normal target maximum"
+    },
+    {
+      "key": "email.dedicated.overlap_spacing_hours",
+      "seed": "48",
+      "note": "materially overlapping audiences"
+    },
+    {
+      "key": "email.dedicated.min_audience",
+      "seed": "300",
+      "note": "eligible recipients after exclusions"
+    },
+    {
+      "key": "email.dedicated.window_hours",
+      "seed": "168 / 72",
+      "note": "slot inside [T−7d, T−3d]"
+    },
+    {
+      "key": "email.frequency_cap.*",
+      "seed": "from 3F §10",
+      "note": "per contact; always wins"
+    },
+    {
+      "key": "placement.hero.days_per_signature",
+      "seed": "2",
+      "note": "reserved"
+    },
+    {
+      "key": "placement.module.days_per_premium",
+      "seed": "4",
+      "note": "reserved"
+    },
+    {
+      "key": "placement.hero.max_concurrent",
+      "seed": "3",
+      "note": "rotation"
+    },
+    {
+      "key": "placement.closing_soon_hours",
+      "seed": "72",
+      "note": "Featured+ window"
+    },
+    {
+      "key": "commerce.quote_lock_minutes",
+      "seed": "30",
+      "note": ""
+    },
+    {
+      "key": "commerce.version_activation_lead_hours",
+      "seed": "24",
+      "note": "Owner/Super Admin may override with reason"
+    },
+    {
+      "key": "promotion.custom.min_cents / max_cents",
+      "seed": "5000 / 250000",
+      "note": "$50–$2,500"
+    },
+    {
+      "key": "promotion.per_auction_soft_cap_cents",
+      "seed": "500000",
+      "note": "Director review above"
+    },
+    {
+      "key": "promotion.purchase_cutoff_hours",
+      "seed": "72",
+      "note": "hard"
+    },
+    {
+      "key": "promotion.prompt_cutoff_hours",
+      "seed": "120 / 96",
+      "note": "paid-inclusive / owned-only"
+    },
+    {
+      "key": "promotion.live_by_hours",
+      "seed": "24",
+      "note": "every purchased item LIVE by T−24"
+    },
+    {
+      "key": "package.purchase_cutoff_hours",
+      "seed": "48",
+      "note": "existing rule, unchanged"
+    },
+    {
+      "key": "package.apparel_max_share",
+      "seed": "0.50",
+      "note": "existing rule; > 0.50 ineligible"
+    },
+    {
+      "key": "policy.direct_capacity_pct / growth_base_pct",
+      "seed": "60 / 40",
+      "note": "confidential; versioned; never seller-facing"
+    },
+    {
+      "key": "health.pause.complaint_rate / bounce_rate / unsubscribe_rate",
+      "seed": "thresholds",
+      "note": "auto-pause a market calendar"
+    },
+    {
+      "key": "monitor.cadence",
+      "seed": "daily; hourly inside T−96h",
+      "note": "plus immediate on provider callbacks"
+    },
+    {
+      "key": "monitor.blocked_retry_minutes",
+      "seed": "60",
+      "note": "BLOCKED re-check"
+    },
+    {
+      "key": "monitor.live_evidence_tolerance_minutes",
+      "seed": "15",
+      "note": "placement first-seen"
+    },
+    {
+      "key": "escalation.substitution_rate_threshold",
+      "seed": "0.15",
+      "note": "per feature, trailing 30 days"
+    },
+    {
+      "key": "creative.min_clean_objects.{family}",
+      "seed": "CENTERED_WHITE 8 · LEFT_THIRD_WHITE 8 · CATEGORY_GROUP 4 · SINGLE_LOT 1",
+      "note": "family minimums"
+    },
+    {
+      "key": "creative.fidelity_review_sla_hours",
+      "seed": "48",
+      "note": "before FIDELITY_REVIEW_OVERDUE"
+    }
+  ]
+}

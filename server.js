@@ -577,6 +577,7 @@ app.use('/api/admin/pricing', adminPricingRoutes);
 app.use('/api/admin/pricing-agreements', require('./src/routes/adminPricingAgreements'));
 app.use('/api/admin/owner-alerts', require('./src/routes/adminOwnerAlerts'));
 app.use('/api/admin/marketing-packages', require('./src/routes/adminMarketingPackages'));
+app.use('/api/admin/marketing-runtime', require('./src/routes/adminMarketingRuntime'));
 app.use('/api/admin/staff', adminStaffRoutes);
 app.use('/api/admin/pickup', adminPickupRoutes);
 app.use('/api/admin/launch-readiness', adminLaunchReadinessRoutes);
@@ -794,6 +795,9 @@ server.listen(PORT, () => {
     // Marketing audience auto-refresh (platform-fact + behavioral). Self-gates on
     // marketing.behavioral.enabled; never sends/spends/connects a provider.
     spawnWorker(path.join(__dirname, 'src/workers/marketingRefreshWorker.js'));
+    // Phase 3O Marketing Package fulfillment monitor (SHADOW). Self-gates on marketing.pkg.enabled;
+    // advances obligations, never sends/publishes/spends on a non-ACTIVE channel (shadow evidence only).
+    try { require('./src/services/marketingFulfillmentWorker').start(); } catch (e) { log.error('marketing', 'fulfillment monitor start failed', { error: e.message }); }
     // #1 real-time: bridge Postgres NOTIFY (from web + worker processes) to
     // socket.io. Polling on the clients remains the permanent fallback.
     require('./src/lib/realtime').startListener(io)

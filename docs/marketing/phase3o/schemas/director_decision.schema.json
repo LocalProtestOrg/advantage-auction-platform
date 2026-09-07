@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://advantage.bid/contracts/3o/director_decision.schema.json",
+  "title": "Director decision record",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "decision_id",
+    "kind",
+    "purchase_id",
+    "inputs_hash",
+    "authority_cents_remaining",
+    "evidence_line",
+    "outputs",
+    "at"
+  ],
+  "properties": {
+    "decision_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "kind": {
+      "$ref": "https://advantage.bid/contracts/3o/enums.schema.json#/$defs/DirectorDecision"
+    },
+    "purchase_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "obligation_ids": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "inputs_hash": {
+      "type": "string",
+      "description": "hash of snapshot + config version + readiness + health inputs, for replay"
+    },
+    "authority_cents_remaining": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "evidence_line": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Internal reason; never rendered to sellers"
+    },
+    "outputs": {
+      "type": "object"
+    },
+    "at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  }
+}

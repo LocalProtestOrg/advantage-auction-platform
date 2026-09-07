@@ -48,4 +48,22 @@ async function matrix() {
   return out;
 }
 
-module.exports = { statusFor, isExecutable, matrix };
+// ── Phase 3O 6-state readiness (NOT_CONFIGURED/CONFIGURED_UNVERIFIED/SHADOW_CERTIFIED/ACTIVE/PAUSED/REVOKED)
+// Read from the durable marketing_channel_readiness table (seeded by mig 141). Internal channels = ACTIVE;
+// gated externals = SHADOW_CERTIFIED (software built) until an Owner/provider activates them.
+const db = require('../db');
+async function phase3oState(channelKey, runner) {
+  const r = runner || db;
+  const row = (await r.query(`SELECT state FROM marketing_channel_readiness WHERE channel_key=$1`, [String(channelKey || '').toLowerCase()])).rows[0];
+  return row ? row.state : 'NOT_CONFIGURED';
+}
+async function phase3oMatrix(runner) {
+  const r = runner || db;
+  const rows = (await r.query(`SELECT channel_key, state, owner_action_required, fallback_ladder FROM marketing_channel_readiness ORDER BY channel_key`)).rows;
+  return rows;
+}
+// A channel is executable for REAL fulfillment only when ACTIVE. SHADOW_CERTIFIED = software-certified, not
+// real send (evidence marked shadow).
+async function isActive(channelKey, runner) { return (await phase3oState(channelKey, runner)) === 'ACTIVE'; }
+
+module.exports = { statusFor, isExecutable, matrix, phase3oState, phase3oMatrix, isActive };

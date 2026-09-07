@@ -1,0 +1,210 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://advantage.bid/contracts/3o/seller_payload.schema.json",
+  "title": "Seller-facing payload (allowlist renderer output)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "purchase",
+    "plan",
+    "running_now",
+    "completed",
+    "performance",
+    "creative_gallery"
+  ],
+  "properties": {
+    "purchase": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "identity": {
+          "oneOf": [
+            {
+              "$ref": "https://advantage.bid/contracts/3o/enums.schema.json#/$defs/PackageIdentity"
+            },
+            {
+              "$ref": "https://advantage.bid/contracts/3o/enums.schema.json#/$defs/PromotionIdentity"
+            }
+          ]
+        },
+        "price_paid": {
+          "type": "string"
+        },
+        "purchased_on": {
+          "type": "string"
+        },
+        "guaranteed": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "may_include": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "terms": {
+          "type": "string"
+        }
+      }
+    },
+    "plan": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "service": {
+            "type": "string"
+          },
+          "dates": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "running_now": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "service": {
+            "type": "string"
+          },
+          "where": {
+            "type": "string"
+          },
+          "since": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "completed": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "service": {
+            "type": "string"
+          },
+          "where": {
+            "type": "string"
+          },
+          "when": {
+            "type": "string"
+          },
+          "note": {
+            "enum": [
+              null,
+              "Fulfilled with an alternative promotion of comparable or greater value"
+            ]
+          }
+        }
+      }
+    },
+    "performance": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "directly_attributable": {
+          "type": "object"
+        },
+        "associated_during_promotion": {
+          "type": "object"
+        },
+        "whole_auction": {
+          "type": "object"
+        }
+      },
+      "description": "Only allowlisted populated_live fields; edition-level figures labelled edition-level; nothing implies causation"
+    },
+    "creative_gallery": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "recommendations": {
+      "type": [
+        "array",
+        "null"
+      ],
+      "items": {
+        "type": "string"
+      }
+    },
+    "increase_promotion": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "properties": {
+        "eligible": {
+          "type": "boolean"
+        },
+        "products": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "identity": {
+                "$ref": "https://advantage.bid/contracts/3o/enums.schema.json#/$defs/PromotionIdentity"
+              },
+              "price": {
+                "type": "string"
+              },
+              "increment": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "x-forbidden-keys": [
+    "policy",
+    "capacity",
+    "cost",
+    "allocation",
+    "diagnosis",
+    "provider_status",
+    "readiness",
+    "cause",
+    "blocked_reason_code",
+    "equivalence",
+    "authority",
+    "growth",
+    "ladder",
+    "attempts",
+    "escalation"
+  ],
+  "x-forbidden-phrases": [
+    "advertising budget",
+    "your $",
+    "60/40",
+    "growth pool",
+    "fulfilment ceiling",
+    "fulfillment ceiling",
+    "allocation",
+    "guaranteed reach",
+    "guaranteed bidders",
+    "guaranteed sale",
+    "eligible for a refund",
+    "will be refunded",
+    "partial refund",
+    "pro-rata",
+    "credit back",
+    "credit toward",
+    "recipients guaranteed",
+    "impressions guaranteed",
+    "guaranteed to reach",
+    "we guarantee"
+  ]
+}

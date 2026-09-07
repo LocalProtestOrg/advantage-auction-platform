@@ -1,0 +1,168 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://advantage.bid/contracts/3o/dedicated_send_job.schema.json",
+  "title": "Dedicated send builder — job contract (Signature only)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "job_id",
+    "idempotency_key",
+    "purchase_id",
+    "obligation_id",
+    "auction_id",
+    "slot_at",
+    "slot_constraints",
+    "scope_ladder",
+    "creative",
+    "health_budget_ok"
+  ],
+  "properties": {
+    "job_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "idempotency_key": {
+      "type": "string",
+      "minLength": 1
+    },
+    "purchase_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "obligation_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "auction_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "slot_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "slot_constraints": {
+      "type": "object",
+      "required": [
+        "window_start",
+        "window_end",
+        "per_market_week",
+        "per_day_global",
+        "overlap_spacing_hours"
+      ],
+      "properties": {
+        "window_start": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "window_end": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "per_market_week": {
+          "type": "integer"
+        },
+        "per_day_global": {
+          "type": "integer"
+        },
+        "overlap_spacing_hours": {
+          "type": "integer"
+        }
+      }
+    },
+    "scope_ladder": {
+      "type": "array",
+      "description": "Evaluated in order LOCAL → REGIONAL → CATEGORY_SHIPPABLE → NATIONWIDE; stop at the first scope clearing min_audience; never widened to inflate",
+      "items": {
+        "type": "object",
+        "required": [
+          "scope",
+          "pool_after_exclusions",
+          "clears_floor"
+        ],
+        "properties": {
+          "scope": {
+            "$ref": "https://advantage.bid/contracts/3o/enums.schema.json#/$defs/EmailScope"
+          },
+          "pool_after_exclusions": {
+            "type": "integer"
+          },
+          "clears_floor": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    "chosen_scope": {
+      "$ref": "https://advantage.bid/contracts/3o/enums.schema.json#/$defs/EmailScope"
+    },
+    "min_audience": {
+      "type": "integer",
+      "description": "config email.dedicated.min_audience (seed 300)"
+    },
+    "audience_specification": {
+      "$ref": "https://advantage.bid/contracts/3o/audience_specification.schema.json"
+    },
+    "creative": {
+      "type": "object",
+      "required": [
+        "lot_creative_asset_ids",
+        "collage_asset_id",
+        "claim_manifest_id",
+        "qa_passed"
+      ],
+      "properties": {
+        "lot_creative_asset_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "collage_asset_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "claim_manifest_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "qa_passed": {
+          "type": "boolean"
+        }
+      }
+    },
+    "health_budget_ok": {
+      "type": "boolean"
+    },
+    "on_floor_unreachable": {
+      "const": "ladder:L_dedicated"
+    },
+    "send_result": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "properties": {
+        "campaign_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sent_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "recipient_count": {
+          "type": "integer",
+          "description": "from queue rows"
+        },
+        "opens": {
+          "type": "integer"
+        },
+        "clicks": {
+          "type": "integer"
+        }
+      }
+    }
+  }
+}

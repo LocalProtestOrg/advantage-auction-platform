@@ -1,0 +1,243 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://advantage.bid/contracts/3o/evidence.schema.json",
+  "title": "Evidence row",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "evidence_id",
+    "obligation_id",
+    "feature_key",
+    "mode",
+    "recorded_at",
+    "fields"
+  ],
+  "properties": {
+    "evidence_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "obligation_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "feature_key": {
+      "$ref": "https://advantage.bid/contracts/3o/enums.schema.json#/$defs/FeatureKey"
+    },
+    "mode": {
+      "$ref": "https://advantage.bid/contracts/3o/enums.schema.json#/$defs/EvidenceMode"
+    },
+    "recorded_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "provider_ref": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "verified_by": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "description": "manual_verified only: staff id + artefact ref"
+    },
+    "fields": {
+      "type": "object",
+      "description": "Must contain every key in FEATURES[feature_key].evidence_fields before COMPLETED"
+    },
+    "metrics_rows": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "description": "Linked performance rows the closing report may read"
+    }
+  },
+  "x-evidence-fields": {
+    "listing_standard": [
+      "listing_live_at",
+      "auction_id"
+    ],
+    "listing_card": [
+      "asset_id",
+      "rendered_at"
+    ],
+    "performance_standard": [
+      "report_id",
+      "rendered_at"
+    ],
+    "follower_launch_notification": [
+      "campaign_id",
+      "recipient_count",
+      "sent_at"
+    ],
+    "featured_badge_priority": [
+      "placement_reservation_id",
+      "impressions",
+      "clicks",
+      "first_seen_at",
+      "last_seen_at"
+    ],
+    "category_prominence": [
+      "placement_reservation_id",
+      "categories",
+      "impressions",
+      "clicks"
+    ],
+    "notable_lot_spotlight": [
+      "placement_reservation_id",
+      "lot_ids",
+      "impressions",
+      "clicks"
+    ],
+    "closing_soon_exposure": [
+      "placement_reservation_id",
+      "impressions",
+      "clicks"
+    ],
+    "creative_collage_general": [
+      "asset_ids",
+      "family",
+      "audit_violations",
+      "fidelity_gate",
+      "text_budget_ok",
+      "approved_at"
+    ],
+    "share_kit_delivery": [
+      "kit_id",
+      "asset_ids",
+      "delivered_at",
+      "seller_notified_at"
+    ],
+    "reporting_standard": [
+      "report_id",
+      "fields_rendered"
+    ],
+    "homepage_module_run": [
+      "placement_reservation_id",
+      "days",
+      "impressions",
+      "clicks"
+    ],
+    "shared_edition_inclusion": [
+      "campaign_id",
+      "edition_id",
+      "scope",
+      "card_position",
+      "edition_delivered_count",
+      "card_clicks",
+      "sent_at"
+    ],
+    "social_post_organic": [
+      "channel_id",
+      "post_id",
+      "permalink",
+      "published_at",
+      "evidence_mode"
+    ],
+    "creative_closing_days": [
+      "asset_ids",
+      "family",
+      "audit_violations",
+      "fidelity_gate"
+    ],
+    "catalog_readiness_review": [
+      "document_id",
+      "delivered_at",
+      "lots_reviewed"
+    ],
+    "reporting_detailed": [
+      "report_id",
+      "fields_rendered"
+    ],
+    "homepage_hero_days": [
+      "placement_reservation_id",
+      "days",
+      "rotation_share",
+      "impressions",
+      "clicks"
+    ],
+    "dedicated_send": [
+      "campaign_id",
+      "scope",
+      "pools_evaluated",
+      "recipient_count",
+      "sent_at",
+      "opens",
+      "clicks"
+    ],
+    "creative_lot_specific": [
+      "asset_ids",
+      "lot_ids",
+      "family",
+      "audit_violations",
+      "fidelity_gate"
+    ],
+    "creative_mid_refresh": [
+      "asset_ids",
+      "family",
+      "audit_violations",
+      "fidelity_gate"
+    ],
+    "creative_cobranded_variant": [
+      "asset_ids",
+      "seller_logo_asset_id",
+      "audit_violations"
+    ],
+    "managed_campaign_documents": [
+      "plan_document_id",
+      "mid_review_document_id",
+      "closing_report_document_id"
+    ],
+    "recommendations_written": [
+      "document_id"
+    ],
+    "additional_wave": [
+      "wave_id",
+      "child_obligation_ids"
+    ],
+    "closing_soon_extension": [
+      "placement_reservation_id",
+      "impressions",
+      "clicks"
+    ],
+    "email_touch_additional": [
+      "campaign_id",
+      "kind",
+      "scope",
+      "recipient_count_or_edition_delivered",
+      "sent_at"
+    ],
+    "paid_local_promotion": [
+      "provider",
+      "campaign_ref",
+      "impressions",
+      "clicks",
+      "ran_from",
+      "ran_to"
+    ],
+    "lot_level_promotion": [
+      "provider_or_channel",
+      "lot_ids",
+      "campaign_ref",
+      "impressions",
+      "clicks"
+    ],
+    "reach_expansion_shippable": [
+      "campaign_id",
+      "scope",
+      "recipient_count_or_edition_delivered"
+    ],
+    "managed_review_added_wave": [
+      "document_id"
+    ],
+    "custom_bundle": [
+      "bundle_snapshot_id",
+      "child_obligation_ids"
+    ]
+  }
+}

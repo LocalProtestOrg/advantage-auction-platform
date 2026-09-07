@@ -1,0 +1,505 @@
+{
+  "features": [
+    {
+      "feature_key": "listing_standard",
+      "channel": "MARKETPLACE",
+      "seller_label": "Listed and discoverable on Advantage.Bid",
+      "window": "P → T",
+      "wave": "ANY",
+      "evidence_mode": "system_verified",
+      "evidence_fields": [
+        "listing_live_at",
+        "auction_id"
+      ],
+      "ladder": "none",
+      "notes": "Auto-COMPLETED at publish; exists so every package has a full ledger."
+    },
+    {
+      "feature_key": "listing_card",
+      "channel": "CREATIVE",
+      "seller_label": "Auction listing card",
+      "window": "P → T",
+      "wave": "ANY",
+      "evidence_mode": "system_verified",
+      "evidence_fields": [
+        "asset_id",
+        "rendered_at"
+      ],
+      "ladder": "none",
+      "notes": ""
+    },
+    {
+      "feature_key": "performance_standard",
+      "channel": "REPORTING",
+      "seller_label": "Standard auction performance information",
+      "window": "T → T+7d",
+      "wave": "ANY",
+      "evidence_mode": "system_verified",
+      "evidence_fields": [
+        "report_id",
+        "rendered_at"
+      ],
+      "ladder": "none",
+      "notes": ""
+    },
+    {
+      "feature_key": "follower_launch_notification",
+      "channel": "EMAIL",
+      "seller_label": "Launch notification to followers",
+      "window": "P → P+24h",
+      "wave": "LAUNCH",
+      "evidence_mode": "provider_verified",
+      "evidence_fields": [
+        "campaign_id",
+        "recipient_count",
+        "sent_at"
+      ],
+      "ladder": "L_email_notification",
+      "notes": "Where applicable: only when the seller has followers with a mailable basis."
+    },
+    {
+      "feature_key": "featured_badge_priority",
+      "channel": "MARKETPLACE",
+      "seller_label": "Featured badge and listing priority",
+      "window": "P → T",
+      "wave": "ANY",
+      "evidence_mode": "system_verified",
+      "evidence_fields": [
+        "placement_reservation_id",
+        "impressions",
+        "clicks",
+        "first_seen_at",
+        "last_seen_at"
+      ],
+      "ladder": "L_placement_soft",
+      "notes": ""
+    },
+    {
+      "feature_key": "category_prominence",
+      "channel": "MARKETPLACE",
+      "seller_label": "Prominence in its categories",
+      "window": "P → T",
+      "wave": "ANY",
+      "evidence_mode": "system_verified",
+      "evidence_fields": [
+        "placement_reservation_id",
+        "categories",
+        "impressions",
+        "clicks"
+      ],
+      "ladder": "L_placement_soft",
+      "notes": ""
+    },
+    {
+      "feature_key": "notable_lot_spotlight",
+      "channel": "MARKETPLACE",
+      "seller_label": "Notable-lot spotlight (up to 3 lots)",
+      "window": "P+24h → T",
+      "wave": "LAUNCH",
+      "evidence_mode": "system_verified",
+      "evidence_fields": [
+        "placement_reservation_id",
+        "lot_ids",
+        "impressions",
+        "clicks"
+      ],
+      "ladder": "L_placement_soft",
+      "notes": "parameters.lots_max = 3; lots chosen by the Director from CLEAN-object, non-apparel lots."
+    },
+    {
+      "feature_key": "closing_soon_exposure",
+      "channel": "MARKETPLACE",
+      "seller_label": "Closing Soon exposure",
+      "window": "T−72h → T",
+      "wave": "FINAL",
+      "evidence_mode": "system_verified",
+      "evidence_fields": [
+        "placement_reservation_id",
+        "impressions",
+        "clicks"
+      ],
+      "ladder": "L_placement_soft",
+      "notes": "Window length from config placement.closing_soon_hours."
+    },
+    {
+      "feature_key": "creative_collage_general",
+      "channel": "CREATIVE",
+      "seller_label": "Professional general auction collage (square + portrait)",
+      "window": "P−48h → LAUNCH send",
+      "wave": "LAUNCH",
+      "evidence_mode": "system_verified",
+      "evidence_fields": [
+        "asset_ids",
+        "family",
+        "audit_violations",
+        "fidelity_gate",
+        "text_budget_ok",
+        "approved_at"
+      ],
+      "ladder": "L_creative",
+      "notes": "Gate: fidelity CLEAN objects only; spatial.audit violations = 0; protected regions intact."
+    },
+    {
+      "feature_key": "share_kit_delivery",
+      "channel": "CREATIVE",
+      "seller_label": "Creative and share assets delivered to you",
+      "window": "CREATIVE_READY → LAUNCH+24h",
+      "wave": "LAUNCH",
+      "evidence_mode": "system_verified",
+      "evidence_fields": [
+        "kit_id",
+        "asset_ids",
+        "delivered_at",
+        "seller_notified_at"
+      ],
+      "ladder": "L_creative",
+      "notes": ""
+    },
+    {
+      "feature_key": "reporting_standard",
+      "channel": "REPORTING",
+      "seller_label": "Standard promotion reporting with campaign window",
+      "window": "LIVE → T+7d",
+      "wave": "ANY",
+      "evidence_mode": "system_verified",
+      "evidence_fields": [
+        "report_id",
+        "fields_rendered"
+      ],
+      "ladder": "none",
+      "notes": ""
+    },
+    {
+      "feature_key": "homepage_module_run",
+      "channel": "MARKETPLACE",
+      "seller_label": "Homepage feature run (4 days)",
+      "window": "P → T",
+      "wave": "LAUNCH",
+      "evidence_mode": "system_verified",
+      "evidence_fields": [
+        "placement_reservation_id",
+        "days",
+        "impressions",
+        "clicks"
+      ],
+      "ladder": "L_module",
+      "notes": "parameters.days = config placement.module.days_per_premium (4); any days inside the window."
+    },
+    {
+      "feature_key": "shared_edition_inclusion",
+      "channel": "EMAIL",
+      "seller_label": "Featured in an Advantage.Bid auction email to eligible subscribers",
+      "window": "P → T−48h",
+      "wave": "LAUNCH",
+      "evidence_mode": "provider_verified",
+      "evidence_fields": [
+        "campaign_id",
+        "edition_id",
+        "scope",
+        "card_position",
+        "edition_delivered_count",
+        "card_clicks",
+        "sent_at"
+      ],
+      "ladder": "L_shared_edition",
+      "notes": "Card is one of cards_target 4 / cards_max 6; equal size; no favouritism."
+    },
+    {
+      "feature_key": "social_post_organic",
+      "channel": "SOCIAL",
+      "seller_label": "Advantage.Bid social promotion",
+      "window": "P → T",
+      "wave": "ANY",
+      "evidence_mode": "provider_verified",
+      "evidence_fields": [
+        "channel_id",
+        "post_id",
+        "permalink",
+        "published_at",
+        "evidence_mode"
+      ],
+      "ladder": "L_social",
+      "notes": "parameters.count per tier; Signature spreads 3 posts across LAUNCH/MID/FINAL."
+    },
+    {
+      "feature_key": "creative_closing_days",
+      "channel": "CREATIVE",
+      "seller_label": "Closing-days creative",
+      "window": "T−96h → T−24h",
+      "wave": "FINAL",
+      "evidence_mode": "system_verified",
+      "evidence_fields": [
+        "asset_ids",
+        "family",
+        "audit_violations",
+        "fidelity_gate"
+      ],
+      "ladder": "L_creative",
+      "notes": ""
+    },
+    {
+      "feature_key": "catalog_readiness_review",
+      "channel": "SERVICE",
+      "seller_label": "Catalog readiness review with written recommendations",
+      "window": "purchase → P+48h",
+      "wave": "LAUNCH",
+      "evidence_mode": "system_verified",
+      "evidence_fields": [
+        "document_id",
+        "delivered_at",
+        "lots_reviewed"
+      ],
+      "ladder": "L_document",
+      "notes": "Generated from catalog diagnosis; delivered to the seller dashboard; never mentions economics or provider state."
+    },
+    {
+      "feature_key": "reporting_detailed",
+      "channel": "REPORTING",
+      "seller_label": "Detailed campaign reporting",
+      "window": "LIVE → T+7d",
+      "wave": "ANY",
+      "evidence_mode": "system_verified",
+      "evidence_fields": [
+        "report_id",
+        "fields_rendered"
+      ],
+      "ladder": "none",
+      "notes": "Detailed analytics allowlist; populated_live fields only."
+    },
+    {
+      "feature_key": "homepage_hero_days",
+      "channel": "MARKETPLACE",
+      "seller_label": "Homepage hero days (2 days)",
+      "window": "P → T",
+      "wave": "LAUNCH",
+      "evidence_mode": "system_verified",
+      "evidence_fields": [
+        "placement_reservation_id",
+        "days",
+        "rotation_share",
+        "impressions",
+        "clicks"
+      ],
+      "ladder": "L_hero",
+      "notes": "parameters.days = config placement.hero.days_per_signature (2); collision management via rotation up to max_concurrent."
+    },
+    {
+      "feature_key": "dedicated_send",
+      "channel": "EMAIL",
+      "seller_label": "A dedicated Advantage.Bid email campaign featuring your auction",
+      "window": "T−7d → T−3d",
+      "wave": "MID",
+      "evidence_mode": "provider_verified",
+      "evidence_fields": [
+        "campaign_id",
+        "scope",
+        "pools_evaluated",
+        "recipient_count",
+        "sent_at",
+        "opens",
+        "clicks"
+      ],
+      "ladder": "L_dedicated",
+      "notes": "Single subject; 3F scope ladder; min_audience 300 after exclusions; never widened to inflate."
+    },
+    {
+      "feature_key": "creative_lot_specific",
+      "channel": "CREATIVE",
+      "seller_label": "Specific-lot creatives (3)",
+      "window": "P−48h → T−48h",
+      "wave": "ANY",
+      "evidence_mode": "system_verified",
+      "evidence_fields": [
+        "asset_ids",
+        "lot_ids",
+        "family",
+        "audit_violations",
+        "fidelity_gate"
+      ],
+      "ladder": "L_creative",
+      "notes": "parameters.count = 3; lots from CLEAN objects; protected regions never cropped."
+    },
+    {
+      "feature_key": "creative_mid_refresh",
+      "channel": "CREATIVE",
+      "seller_label": "Mid-campaign creative refresh",
+      "window": "mid-window ± 24h",
+      "wave": "MID",
+      "evidence_mode": "system_verified",
+      "evidence_fields": [
+        "asset_ids",
+        "family",
+        "audit_violations",
+        "fidelity_gate"
+      ],
+      "ladder": "L_creative",
+      "notes": ""
+    },
+    {
+      "feature_key": "creative_cobranded_variant",
+      "channel": "CREATIVE",
+      "seller_label": "Co-branded variant (professional sellers)",
+      "window": "P−48h → LAUNCH send",
+      "wave": "LAUNCH",
+      "evidence_mode": "system_verified",
+      "evidence_fields": [
+        "asset_ids",
+        "seller_logo_asset_id",
+        "audit_violations"
+      ],
+      "ladder": "L_creative",
+      "notes": "Conditional: only when a professional seller has an approved logo; the seller leads, Advantage.Bid subordinate."
+    },
+    {
+      "feature_key": "managed_campaign_documents",
+      "channel": "SERVICE",
+      "seller_label": "Professionally managed campaign: plan, mid-campaign review, closing report with recommendations",
+      "window": "purchase → T+7d",
+      "wave": "ANY",
+      "evidence_mode": "system_verified",
+      "evidence_fields": [
+        "plan_document_id",
+        "mid_review_document_id",
+        "closing_report_document_id"
+      ],
+      "ladder": "L_document",
+      "notes": "Three documents, each rendered through the seller allowlist."
+    },
+    {
+      "feature_key": "recommendations_written",
+      "channel": "REPORTING",
+      "seller_label": "Written recommendations",
+      "window": "T → T+7d",
+      "wave": "FINAL",
+      "evidence_mode": "system_verified",
+      "evidence_fields": [
+        "document_id"
+      ],
+      "ladder": "L_document",
+      "notes": ""
+    },
+    {
+      "feature_key": "additional_wave",
+      "channel": "MARKETPLACE",
+      "seller_label": "An additional campaign wave",
+      "window": "payment → T−24h",
+      "wave": "ANY",
+      "evidence_mode": "system_verified",
+      "evidence_fields": [
+        "wave_id",
+        "child_obligation_ids"
+      ],
+      "ladder": "L_wave",
+      "notes": "Composite: creative_refresh + social_post_organic(+1) + closing_soon_extension + shared_edition_inclusion where eligible."
+    },
+    {
+      "feature_key": "closing_soon_extension",
+      "channel": "MARKETPLACE",
+      "seller_label": "Extended Closing Soon exposure",
+      "window": "T−120h → T",
+      "wave": "FINAL",
+      "evidence_mode": "system_verified",
+      "evidence_fields": [
+        "placement_reservation_id",
+        "impressions",
+        "clicks"
+      ],
+      "ladder": "L_placement_soft",
+      "notes": ""
+    },
+    {
+      "feature_key": "email_touch_additional",
+      "channel": "EMAIL",
+      "seller_label": "An additional email touch",
+      "window": "payment → T−48h",
+      "wave": "ANY",
+      "evidence_mode": "provider_verified",
+      "evidence_fields": [
+        "campaign_id",
+        "kind",
+        "scope",
+        "recipient_count_or_edition_delivered",
+        "sent_at"
+      ],
+      "ladder": "L_shared_edition",
+      "notes": "kind = shared_edition | dedicated_closing (Signature buyers only, where calendar and health budget allow)."
+    },
+    {
+      "feature_key": "paid_local_promotion",
+      "channel": "PAID",
+      "seller_label": "Local paid promotion",
+      "window": "payment → T−24h",
+      "wave": "ANY",
+      "evidence_mode": "provider_verified",
+      "evidence_fields": [
+        "provider",
+        "campaign_ref",
+        "impressions",
+        "clicks",
+        "ran_from",
+        "ran_to"
+      ],
+      "ladder": "L_paid",
+      "notes": "Only where a paid provider is ACTIVE and authority exists; cost never in seller payloads."
+    },
+    {
+      "feature_key": "lot_level_promotion",
+      "channel": "PAID",
+      "seller_label": "Lot-level promotion",
+      "window": "payment → T−24h",
+      "wave": "ANY",
+      "evidence_mode": "provider_verified",
+      "evidence_fields": [
+        "provider_or_channel",
+        "lot_ids",
+        "campaign_ref",
+        "impressions",
+        "clicks"
+      ],
+      "ladder": "L_paid",
+      "notes": "Falls back to owned lot-level placement + social when no paid provider is ACTIVE."
+    },
+    {
+      "feature_key": "reach_expansion_shippable",
+      "channel": "EMAIL",
+      "seller_label": "Regional or national reach for shippable lots",
+      "window": "payment → T−48h",
+      "wave": "ANY",
+      "evidence_mode": "provider_verified",
+      "evidence_fields": [
+        "campaign_id",
+        "scope",
+        "recipient_count_or_edition_delivered"
+      ],
+      "ladder": "L_shared_edition",
+      "notes": "Only when the eligibility engine confirms shippable lots and a mailable interest pool."
+    },
+    {
+      "feature_key": "managed_review_added_wave",
+      "channel": "SERVICE",
+      "seller_label": "A managed review of the added wave",
+      "window": "payment → T+7d",
+      "wave": "FINAL",
+      "evidence_mode": "system_verified",
+      "evidence_fields": [
+        "document_id"
+      ],
+      "ladder": "L_document",
+      "notes": ""
+    },
+    {
+      "feature_key": "custom_bundle",
+      "channel": "SERVICE",
+      "seller_label": "Your custom promotion bundle (shown before payment)",
+      "window": "payment → T−24h",
+      "wave": "ANY",
+      "evidence_mode": "system_verified",
+      "evidence_fields": [
+        "bundle_snapshot_id",
+        "child_obligation_ids"
+      ],
+      "ladder": "L_wave",
+      "notes": "Composed from the features above; the bundle is snapshotted and shown before payment; children carry their own evidence."
+    }
+  ]
+}

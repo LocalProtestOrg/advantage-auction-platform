@@ -1,0 +1,224 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://advantage.bid/contracts/3o/obligation.schema.json",
+  "title": "Obligation ledger row",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "obligation_id",
+    "purchase_ref",
+    "auction_id",
+    "feature_key",
+    "parameters",
+    "window",
+    "wave",
+    "state",
+    "ladder_id",
+    "seller_label",
+    "state_history",
+    "attempts",
+    "evidence_refs",
+    "created_at"
+  ],
+  "properties": {
+    "obligation_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "purchase_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "id"
+      ],
+      "properties": {
+        "kind": {
+          "enum": [
+            "package_purchase",
+            "promotion_purchase"
+          ]
+        },
+        "id": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "auction_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "feature_key": {
+      "$ref": "https://advantage.bid/contracts/3o/enums.schema.json#/$defs/FeatureKey"
+    },
+    "parameters": {
+      "type": "object",
+      "description": "Copied from the purchase snapshot; config references resolved at plan time and recorded here"
+    },
+    "window": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "earliest",
+        "latest"
+      ],
+      "properties": {
+        "earliest": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "latest": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "must_start_by": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
+    "wave": {
+      "$ref": "https://advantage.bid/contracts/3o/enums.schema.json#/$defs/Wave"
+    },
+    "state": {
+      "$ref": "https://advantage.bid/contracts/3o/enums.schema.json#/$defs/ObligationState"
+    },
+    "ladder_id": {
+      "type": "string",
+      "enum": [
+        "L_shared_edition",
+        "L_dedicated",
+        "L_hero",
+        "L_module",
+        "L_placement_soft",
+        "L_social",
+        "L_creative",
+        "L_paid",
+        "L_email_notification",
+        "L_document",
+        "L_wave",
+        "none"
+      ]
+    },
+    "seller_label": {
+      "type": "string",
+      "description": "The only string about this obligation a seller ever sees"
+    },
+    "substitute_of": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "blocked_reason_code": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "description": "Internal code; never rendered"
+    },
+    "blocked_deadline": {
+      "type": "string",
+      "format": "date-time",
+      "description": "window.latest − channel lead; ladder advances here"
+    },
+    "escalation_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "state_history": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "from",
+          "to",
+          "at",
+          "actor",
+          "trigger"
+        ],
+        "properties": {
+          "from": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "to": {
+            "$ref": "https://advantage.bid/contracts/3o/enums.schema.json#/$defs/ObligationState"
+          },
+          "at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "actor": {
+            "type": "string"
+          },
+          "trigger": {
+            "type": "string"
+          },
+          "evidence_ref": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      }
+    },
+    "attempts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "rung",
+          "action",
+          "at",
+          "result"
+        ],
+        "properties": {
+          "rung": {
+            "$ref": "https://advantage.bid/contracts/3o/enums.schema.json#/$defs/LadderRung"
+          },
+          "action": {
+            "type": "string"
+          },
+          "at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "result": {
+            "enum": [
+              "succeeded",
+              "failed",
+              "skipped"
+            ]
+          },
+          "skip_reason": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "consent | suppression | frequency_cap | readiness | health_budget | window"
+          }
+        }
+      }
+    },
+    "evidence_refs": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  }
+}
