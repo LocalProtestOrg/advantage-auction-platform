@@ -527,7 +527,27 @@ async function applyTransferEvent(eventType, transfer) {
     const r = await db.query(
       `UPDATE seller_payouts SET payout_status='reversed',
          transfer_failure_message=$2, updated_at=now()
-         WHERE stripe_transfer_id=$1`, [transfer.id, 'Transfer reversed by Stripe/platform']);
+         WHERE stripe_transfer_id=$1 RETURNING id, auction_id`, [transfer.id, 'Transfer reversed by Stripe/platform']);
+    // Owner operational SMS (ADMIN ACTION REQUIRED): a seller payout transfer was REVERSED — an authoritative
+    // financial exception requiring admin intervention. Fire once per reversed payout (entity = payout id).
+    // Best-effort; never affects webhook processing. (Dormant until STRIPE_CONNECT_ENABLED transfers exist.)
+    const row = r.rows && r.rows[0];
+    if (row) {
+      (async () => {
+        try {
+          const oa = require('./ownerAlertService');
+          await oa.notifyAdminActionRequired({
+            actionType: oa.ALERT_TYPES.SETTLEMENT_EXCEPTION,
+            entityType: 'seller_payout',
+            entityId: `${row.id}:reversed`,
+            headline: 'Payout transfer reversed — action needed',
+            context: 'A seller payout was reversed by Stripe/platform and needs review.',
+            adminPath: '/admin/settlement-review.html', adminId: row.auction_id, adminParam: 'auction',
+            actionLabel: 'Investigate',
+          });
+        } catch (e) { console.error('[settlement] owner-alert best-effort failed:', e.message); }
+      })().catch(() => {});
+    }
     return { updated: r.rowCount, payout_status: 'reversed' };
   }
   return { updated: 0 };

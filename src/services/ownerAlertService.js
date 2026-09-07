@@ -59,6 +59,11 @@ const ALERT_TYPES = {
   BUSINESS_LISTING_SUBMITTED: 'business_listing_submitted',
   PROFESSIONAL_AUCTION_PUBLISHED: 'professional_auction_published',
   OWNER_ALERT_TEST: 'owner_alert_test',
+  // Admin-Action-Required families (Phase: unified Admin Action Required SMS).
+  PROFESSIONAL_SELLER_VERIFICATION_PENDING: 'professional_seller_verification_pending',
+  PAYOUT_RELEASE_PENDING: 'payout_release_pending',
+  SETTLEMENT_EXCEPTION: 'settlement_exception',
+  COMPLIANCE_ESCALATION: 'compliance_escalation',
 };
 
 // ── Recipient routing (role-ready) ────────────────────────────────────────────
@@ -72,6 +77,11 @@ const PER_TYPE_ENV = {
   [ALERT_TYPES.PROFESSIONAL_AUCTION_PUBLISHED]: 'OWNER_ALERT_PHONE_AUCTIONS',
   // A controlled test always routes to the PRIMARY owner number (no per-team override).
   [ALERT_TYPES.OWNER_ALERT_TEST]: null,
+  // Admin-Action-Required families route to ALL configured owner-alert recipients (no per-team split today).
+  [ALERT_TYPES.PROFESSIONAL_SELLER_VERIFICATION_PENDING]: null,
+  [ALERT_TYPES.PAYOUT_RELEASE_PENDING]: null,
+  [ALERT_TYPES.SETTLEMENT_EXCEPTION]: null,
+  [ALERT_TYPES.COMPLIANCE_ESCALATION]: null,
 };
 
 // Resolve the VALIDATED, DEDUPED recipient list for an alert type. Precedence:
@@ -156,6 +166,36 @@ function buildBusinessListingSubmittedMessage({ companyName, businessType, selle
     + `${bt ? `Type: ${bt}\n` : ''}`
     + `${emailLine(sellerEmail)}\n\n`
     + `Review:\n${url}`;
+}
+
+// ── Reusable ADMIN-ACTION-REQUIRED message + notifier ───────────────────────────
+// Generic, concise, actionable composition for any workflow that enters a state where an Admin/Super Admin
+// must act before the business process can proceed. Future workflows reuse notifyAdminActionRequired()
+// instead of a bespoke Twilio implementation. Carries only context + account email + a direct admin URL.
+function buildAdminActionMessage({ headline, context, email, actionLabel, url }) {
+  const ctx = sanitizeField(context, 96);
+  const em = sanitizeField(email, 120);
+  return `Advantage.Bid: ${sanitizeField(headline, 64) || 'Admin action required'}.\n\n`
+    + `${ctx ? ctx + '\n' : ''}`
+    + `${em ? `Account: ${em}\n` : ''}`
+    + `\n${actionLabel || 'Open'}:\n${url}`;
+}
+
+// Emit an Admin-Action-Required SMS to EVERY configured recipient with per-recipient durable idempotency.
+// Alert on the AUTHORITATIVE transition INTO the action-required state; entityId should be stable for that
+// specific requirement so retries/restarts never re-text, but a genuinely NEW later requirement (distinct
+// entityId, e.g. a new payout row or a re-submission) legitimately alerts again. Never throws.
+async function notifyAdminActionRequired({ actionType, entityType, entityId, headline, context, email, adminPath, adminId, adminParam, actionLabel }) {
+  try {
+    if (!actionType || !entityId) { console.warn('[owner-alert] admin-action missing actionType/entityId'); return { skipped: true, reason: 'bad_args' }; }
+    if (!ownerAlertConfigured()) return sendOwnerAlert(actionType, '');
+    const url = adminUrl(adminPath || '/admin/moderation.html', adminId, adminParam || 'id');
+    const message = buildAdminActionMessage({ headline, context, email, actionLabel, url });
+    return await sendOwnerAlertOnce({ alertType: actionType, entityType: entityType || 'admin_action', entityId, message });
+  } catch (err) {
+    console.error('[owner-alert] admin-action alert error:', err.message);
+    return { skipped: true, reason: 'error' };
+  }
 }
 
 // Informational (NOT an approval request): a verified/active Professional Seller auto-published an auction.
@@ -369,13 +409,21 @@ async function notifyOwnerMarketingPackagePurchased({ userId, purchaseId, packag
   }
 }
 
-async function notifyOwnerBusinessListingSubmitted({ companyName, businessType, ownerEmail } = {}) {
+async function notifyOwnerBusinessListingSubmitted({ companyName, businessType, ownerEmail, organizationId, submittedAt } = {}) {
   try {
     if (!ownerAlertConfigured()) return sendOwnerAlert(ALERT_TYPES.BUSINESS_LISTING_SUBMITTED, '');
     const message = buildBusinessListingSubmittedMessage({
       companyName, businessType, sellerEmail: ownerEmail,
       url: adminUrl('/admin/business-listings.html'),
     });
+    // ADMIN ACTION REQUIRED: pending Approve & Publish. When we have the org id, use per-recipient durable
+    // idempotency (entity = org:submittedAt) so retries never re-text but a genuine RE-submission
+    // (changes_requested → submitted, new submitted_at) legitimately re-alerts. Falls back to a direct send
+    // when no org id is supplied (backward compatible with existing callers/tests).
+    if (organizationId) {
+      const cycle = submittedAt ? new Date(submittedAt).getTime() : '';
+      return await sendOwnerAlertOnce({ alertType: ALERT_TYPES.BUSINESS_LISTING_SUBMITTED, entityType: 'organization', entityId: `${organizationId}:${cycle}`, message });
+    }
     return await sendOwnerAlert(ALERT_TYPES.BUSINESS_LISTING_SUBMITTED, message);
   } catch (err) {
     console.error('[owner-alert] business-listing alert error:', err.message);
@@ -434,6 +482,8 @@ module.exports = {
   recipientsFor,
   ownerAlertConfigured,
   buildTestMessage,
+  buildAdminActionMessage,
+  notifyAdminActionRequired,
   packageLabel,
   sendTestAlert,
   sendOwnerAlertOnce,

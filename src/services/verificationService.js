@@ -259,8 +259,30 @@ async function uploadDocument(requestId, userId, { category, filename, contentTy
         original_filename, content_type, byte_size, status, uploaded_by)
      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'submitted',$9) RETURNING id, category, status, uploaded_at`,
     [requestId, spId, category, up.public_id, sha, v.safeFilename, v.mime, buf.length, userId])).rows[0];
-  await db.query(`UPDATE verification_requests SET status='submitted', updated_at=now() WHERE id=$1 AND status IN ('open','more_info')`, [requestId]);
+  const trans = (await db.query(`UPDATE verification_requests SET status='submitted', updated_at=now() WHERE id=$1 AND status IN ('open','more_info') RETURNING id, updated_at`, [requestId])).rows[0];
   await writeAuditLog({ event_type: 'verification_document_uploaded', entity_type: 'verification_document', entity_id: doc.id, actor_id: userId, metadata: { request_id: requestId, category, sha256: sha } });
+  // Owner operational SMS (ADMIN ACTION REQUIRED): a professional verification is now waiting on admin
+  // review. Fire ONLY on the authoritative transition INTO 'submitted' (a re-upload while already submitted
+  // is a no-op → no re-alert). The entity key includes the transition timestamp so a later
+  // 'more_info'→'submitted' cycle legitimately produces a NEW alert. Best-effort; never blocks the upload.
+  if (trans) {
+    (async () => {
+      try {
+        const oa = require('./ownerAlertService');
+        const em = (await db.query(`SELECT u.email FROM seller_profiles sp JOIN users u ON u.id = sp.user_id WHERE sp.id = $1`, [spId])).rows[0];
+        await oa.notifyAdminActionRequired({
+          actionType: oa.ALERT_TYPES.PROFESSIONAL_SELLER_VERIFICATION_PENDING,
+          entityType: 'verification_request',
+          entityId: `${requestId}:${new Date(trans.updated_at).getTime()}`,
+          headline: 'Seller verification pending approval',
+          context: 'A professional seller submitted verification documents.',
+          email: em && em.email,
+          adminPath: '/admin/verification.html',
+          actionLabel: 'Review',
+        });
+      } catch (e) { console.error('[verify] owner-alert best-effort failed:', e.message); }
+    })().catch(() => {});
+  }
   return { id: doc.id, category: doc.category, status: doc.status };
 }
 

@@ -154,6 +154,7 @@ router.post('/submit-listing', asyncRoute(async (req, res) => {
       }
       require('../services/ownerAlertService').notifyOwnerBusinessListingSubmitted({
         companyName: out.name, businessType: out.requested_type, ownerEmail: u && u.email,
+        organizationId: out.organization_id, submittedAt: out.submitted_at,
       }).catch(() => {});
     } catch (e) { console.error('[org] submit-listing notify best-effort failed:', e.message); }
   })();

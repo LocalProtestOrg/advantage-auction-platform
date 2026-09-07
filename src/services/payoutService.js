@@ -60,7 +60,32 @@ async function createSellerPayoutRecord(auctionId) {
   );
 
   // ON CONFLICT DO NOTHING returns no row if a concurrent insert won the race
-  return result.rows[0] || existing.rows[0];
+  const payout = result.rows[0] || existing.rows[0];
+
+  // Owner operational SMS (ADMIN ACTION REQUIRED): a seller settlement/payout has been created and is now
+  // 'pending_review' — waiting for an admin to review + release (manual settlement is intentional). Fire
+  // ONLY when we actually created the row this call (result.rows[0]) so it's exactly once per payout. Best-
+  // effort; never blocks payout creation. (This path is dormant until SELLER_SETTLEMENTS_ENABLED wires
+  // payout creation into auction close; the authoritative hook is in place for when it goes live.)
+  if (result.rows[0]) {
+    (async () => {
+      try {
+        const oa = require('./ownerAlertService');
+        const em = (await db.query('SELECT email FROM users WHERE id = $1', [sellerUserId])).rows[0];
+        await oa.notifyAdminActionRequired({
+          actionType: oa.ALERT_TYPES.PAYOUT_RELEASE_PENDING,
+          entityType: 'seller_payout',
+          entityId: payout.id,
+          headline: 'Seller payout pending review/release',
+          context: 'A seller settlement is ready for admin review.',
+          email: em && em.email,
+          adminPath: '/admin/settlement-review.html', adminId: auctionId, adminParam: 'auction',
+          actionLabel: 'Review',
+        });
+      } catch (e) { console.error('[payout] owner-alert best-effort failed:', e.message); }
+    })().catch(() => {});
+  }
+  return payout;
 }
 
 module.exports = { createSellerPayoutRecord };

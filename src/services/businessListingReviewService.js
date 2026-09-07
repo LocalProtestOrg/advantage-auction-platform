@@ -81,7 +81,7 @@ async function submitForReview(userId, { requestedType } = {}) {
       eventType: 'org_listing.submitted', entityType: 'organization', entityId: org.id, actorId: userId,
       metadata: { requested_type: type },
     });
-    return { review_status: pd.review_status, requested_type: type, organization_id: org.id, name: org.name };
+    return { review_status: pd.review_status, requested_type: type, organization_id: org.id, name: org.name, submitted_at: pd.submitted_at };
   });
   return out;
 }
