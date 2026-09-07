@@ -183,7 +183,9 @@ describe('P: no credential or recipient exposure', () => {
     const json = JSON.stringify(r);
     expect(json).not.toContain(OWNER);
     expect(json).not.toMatch(/Email:/);
-    expect(Object.keys(r).sort()).toEqual(['attempted', 'failed', 'sent', 'skipped']);
+    // No phone number and no message body ever leak; provider_sid/provider_status/last_error are non-secret.
+    const allowed = new Set(['attempted', 'failed', 'sent', 'skipped', 'reason', 'provider_sid', 'provider_status', 'last_error']);
+    for (const k of Object.keys(r)) expect(allowed.has(k)).toBe(true);
   });
   test('the service source hardcodes NO phone number and NO Twilio credential', () => {
     const src = read('src', 'services', 'ownerAlertService.js');
@@ -271,7 +273,9 @@ describe('controlled owner-alert test (sendTestAlert)', () => {
   test('result object never leaks the phone number or message body', async () => {
     const r = await svc.sendTestAlert({ note: 'smoke' });
     expect(JSON.stringify(r)).not.toContain(OWNER);
-    expect(Object.keys(r).sort()).toEqual(['attempted', 'failed', 'sent', 'skipped']);
+    // No phone number and no message body ever leak; provider_sid/provider_status/last_error are non-secret.
+    const allowed = new Set(['attempted', 'failed', 'sent', 'skipped', 'reason', 'provider_sid', 'provider_status', 'last_error']);
+    for (const k of Object.keys(r)) expect(allowed.has(k)).toBe(true);
   });
 });
 

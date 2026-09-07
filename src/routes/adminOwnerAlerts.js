@@ -17,20 +17,23 @@ const router = express.Router();
 const auth = require('../middleware/authMiddleware');
 const role = require('../middleware/roleMiddleware');
 const ownerAlerts = require('../services/ownerAlertService');
+const smsService = require('../services/smsService');
 const { writeAuditLog } = require('../lib/auditLog');
 
 router.use(auth, role(['admin']));
 
-// Presence/validity only — no secret values ever leave the server.
+// Presence/validity only — no secret values ever leave the server (no phone number, no SID, no token).
 router.get('/status', (req, res) => {
   const primary = (process.env.OWNER_ALERT_PHONE_E164 || '').trim();
+  const messagingServicePresent = !!process.env.TWILIO_MESSAGING_SERVICE_SID;
   return res.json({
     success: true,
     data: {
       owner_number_present: !!primary,
       owner_number_valid_e164: ownerAlerts.isE164(primary),
-      twilio_configured: !!(process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN && process.env.TWILIO_FROM_NUMBER),
-      ready: ownerAlerts.ownerAlertConfigured() && !!(process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN && process.env.TWILIO_FROM_NUMBER),
+      twilio_configured: smsService.isConfigured(),
+      sender_mode: messagingServicePresent ? 'messaging_service' : (process.env.TWILIO_FROM_NUMBER ? 'from_number' : 'none'),
+      ready: ownerAlerts.ownerAlertConfigured() && smsService.isConfigured(),
     },
   });
 });

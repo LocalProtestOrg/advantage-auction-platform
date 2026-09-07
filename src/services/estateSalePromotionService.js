@@ -112,7 +112,7 @@ async function handleCheckoutCompleted(session) {
     // Owner operational SMS: a marketing package was genuinely purchased. Fires ONLY on the pending->paid
     // transition (res.transitioned), so duplicate/retried webhook deliveries (idempotent handler +
     // stripe_webhook_events) never re-alert. Best-effort + non-blocking — never affects the webhook result.
-    ownerAlertService.notifyOwnerMarketingPackagePurchased({ userId, packageName: 'Estate Sale Promotion' }).catch(() => {});
+    ownerAlertService.notifyOwnerMarketingPackagePurchased({ userId, purchaseId: res.purchaseId }).catch(() => {});
     analyticsService.insertEvent({ event_type: 'estate_sale_promotion_activated', metadata: { product: PRODUCT_TYPE } }, null).catch(() => {});
   }
 }
