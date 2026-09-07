@@ -103,6 +103,34 @@
       <table id="terms-history"><thead><tr><th>commission</th><th>premium</th><th>effective_from</th><th>current?</th></tr></thead><tbody></tbody></table>
     </section>
 
+    <!-- Professional Seller pricing agreement (negotiated platform/software fee) -->
+    <section class="card">
+      <h2>Professional Seller Pricing Agreement <span class="muted">(negotiated platform fee · versioned · immutable once accepted)</span></h2>
+      <label>sellerProfileId</label>
+      <input id="pa-seller" placeholder="seller_profile UUID" />
+      <button class="ghost" id="pa-load">Load</button>
+      <div id="pa-summary" class="muted" style="margin-top:0.6rem"></div>
+
+      <hr style="margin:1rem 0;border:none;border-top:1px solid #eef2f7" />
+      <h2 style="margin-top:0;font-size:0.9rem">Issue a proposed agreement</h2>
+      <div class="row">
+        <div><label>Negotiated platform / software fee (%)</label><input id="pa-fee" type="number" step="0.01" placeholder="e.g. 3.50" /></div>
+        <div><label>Effective date</label><input id="pa-effective" type="date" /></div>
+      </div>
+      <div class="row">
+        <div><label>Applicable terms version (optional)</label><input id="pa-legal" placeholder="e.g. pro-terms-v1" /></div>
+        <div><label>Offer expires in (days, optional)</label><input id="pa-expires" type="number" step="1" placeholder="e.g. 30" /></div>
+      </div>
+      <label>Plain-language summary shown to the seller (optional)</label>
+      <textarea id="pa-summary-text" placeholder="e.g. Your Advantage.Bid platform fee will be 3.5% of hammer. Payment processing (3%) is separate and unchanged. Effective on the date above."></textarea>
+      <div class="muted">Payment processing is separate from the platform fee and is never negotiated here.</div>
+      <button id="pa-issue">Issue agreement to seller</button>
+
+      <hr style="margin:1rem 0;border:none;border-top:1px solid #eef2f7" />
+      <h2 style="margin-top:0;font-size:0.9rem">Agreement history</h2>
+      <table id="pa-history"><thead><tr><th>v</th><th>ref</th><th>platform fee</th><th>status</th><th>effective</th><th>accepted</th><th></th></tr></thead><tbody></tbody></table>
+    </section>
+
     <!-- Seller identity -->
     <section class="card">
       <h2>Seller Identity</h2>
@@ -279,6 +307,59 @@
       Object.keys(idFields).forEach(function (el) { var v = document.getElementById(el).value.trim(); if (v !== '') patch[idFields[el]] = v; });
       var r = await api('PUT', '/sellers/' + sid + '/identity', patch);
       if (r.status === 200) { toast('Identity saved', true); }
+    };
+
+    // ── Professional Seller pricing agreement (separate API base) ──
+    async function papi(method, path, body) {
+      var res = await fetch('/api/admin/pricing-agreements' + path, {
+        method: method,
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+        body: body ? JSON.stringify(body) : undefined,
+      });
+      if (res.status === 401) { window.location.href = '/login.html'; return {}; }
+      var json = null; try { json = await res.json(); } catch (e) {}
+      if (!res.ok) { toast((json && json.message) || ('Error ' + res.status), false); }
+      return { status: res.status, json: json };
+    }
+    function pct(bps) { return (bps == null) ? '—' : (Number(bps) / 100).toFixed(2) + '%'; }
+    async function paLoad() {
+      var sid = document.getElementById('pa-seller').value.trim(); if (!sid) return;
+      var r = await papi('GET', '/sellers/' + sid);
+      var d = r.json && r.json.data; if (!d) return;
+      var basisLabel = d.pricing_basis === 'standard' ? 'Standard'
+        : (d.pricing_basis === 'negotiated_agreement' ? 'Negotiated (executed agreement)' : 'Negotiated (override)');
+      var cur = d.current_agreement;
+      document.getElementById('pa-summary').innerHTML =
+        '<strong>Current auction platform fee:</strong> ' + pct(d.current_platform_fee_bps) +
+        ' &nbsp;·&nbsp; <strong>Standard sitewide:</strong> ' + pct(d.standard_platform_fee_bps) +
+        ' &nbsp;·&nbsp; <strong>Processing (separate):</strong> ' + pct(d.processing_fee_bps) +
+        ' &nbsp;·&nbsp; <strong>Pricing basis:</strong> ' + basisLabel +
+        '<br/><strong>Current agreement:</strong> ' + (cur ? (cur.agreement_ref + ' — ' + pct(cur.platform_fee_bps) + ', effective ' + cur.effective_date + ', accepted ' + (cur.accepted_at ? new Date(cur.accepted_at).toLocaleDateString() : '—')) : 'none (standard/override)');
+      var tb = document.querySelector('#pa-history tbody'); tb.innerHTML = '';
+      (d.history || []).forEach(function (row) {
+        var tr = document.createElement('tr');
+        tr.innerHTML = '<td>' + row.version + '</td><td>' + row.agreement_ref + '</td><td>' + pct(row.platform_fee_bps) + '</td><td><span class="pill">' + row.status + '</span></td><td>' + row.effective_date + '</td><td>' + (row.accepted_at ? new Date(row.accepted_at).toLocaleDateString() : '—') + '</td>';
+        var td = document.createElement('td');
+        if (row.status === 'pending' || row.status === 'draft') {
+          var b = document.createElement('button'); b.className = 'secondary'; b.textContent = 'Revoke'; b.style.margin = '0';
+          b.onclick = async function () { var rr = await papi('POST', '/agreements/' + row.id + '/revoke', { reason: 'admin revoke' }); if (rr.status === 200) { toast('Revoked', true); paLoad(); } };
+          td.appendChild(b);
+        }
+        tr.appendChild(td); tb.appendChild(tr);
+      });
+    }
+    document.getElementById('pa-load').onclick = paLoad;
+    document.getElementById('pa-issue').onclick = async function () {
+      var sid = document.getElementById('pa-seller').value.trim(); if (!sid) { toast('Enter a sellerProfileId', false); return; }
+      var feeV = document.getElementById('pa-fee').value.trim();
+      if (feeV === '') { toast('Enter a platform fee %', false); return; }
+      var body = { platform_fee_percent: Number(feeV) };
+      var eff = document.getElementById('pa-effective').value.trim(); if (eff) body.effective_date = eff;
+      var legal = document.getElementById('pa-legal').value.trim(); if (legal) body.legal_terms_version = legal;
+      var exp = document.getElementById('pa-expires').value.trim(); if (exp) body.expires_in_days = Number(exp);
+      var summ = document.getElementById('pa-summary-text').value.trim(); if (summ) body.terms_summary = summ;
+      var r = await papi('POST', '/sellers/' + sid + '/issue', body);
+      if (r.status === 201) { toast('Agreement issued (v' + r.json.data.version + ')', true); document.getElementById('pa-fee').value = ''; paLoad(); }
     };
 
     loadTemplates();
