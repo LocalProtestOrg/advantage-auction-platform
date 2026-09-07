@@ -60,6 +60,22 @@ router.post('/tick', async (req, res, next) => {
   try { return res.json({ success: true, data: await worker.tick() }); } catch (err) { next(err); }
 });
 
+// Bounded Director decisions for a purchase (internal; evidence_line never shown to sellers).
+router.get('/decisions/:purchaseId', async (req, res, next) => {
+  try { return res.json({ success: true, data: await require('../services/directorDecisionService').listForPurchase(req.params.purchaseId) }); }
+  catch (err) { next(err); }
+});
+
+// Paid-allocation balance + reconciliation (confidential; never seller-facing).
+router.get('/allocations/:purchaseId', async (req, res, next) => {
+  try {
+    const alloc = require('../services/paidAllocationBridge');
+    const balance = await alloc.getBalance(req.params.purchaseId);
+    const reconciliation = balance ? await alloc.reconcile(req.params.purchaseId) : null;
+    return res.json({ success: true, data: { balance, reconciliation } });
+  } catch (err) { next(err); }
+});
+
 // Contract catalogue (features/recipes/ladders) read from the authoritative pack.
 router.get('/contract', async (req, res, next) => {
   try { return res.json({ success: true, data: { features: contract.features().length, recipes: contract.recipes().length, ladders: Object.keys(contract.ladders()) } }); }

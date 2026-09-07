@@ -45,6 +45,10 @@ async function advanceObligation(ob, runner, { shadow = true } = {}) {
   }
   if (outcome.action === 'made_good') { await engine.transition(ob.id, 'made_good', { rung: 'MADE_GOOD', reason: 'made good', shadow }, 'runtime', r); return { action: 'made_good' }; }
   if (outcome.action === 'escalate') {
+    // Persist a BOUNDED Director ESCALATE decision (never a prohibited kind) for replay/audit.
+    try { await require('./directorDecisionService').record({ kind: 'ESCALATE', purchaseId: ob.purchase_id, obligationIds: [ob.id],
+      inputs: { channel: ob.channel, channel_state: channelState, attempts: ob.attempts, ladder: ob.ladder_id },
+      authorityCentsRemaining: 0, evidenceLine: 'ladder exhausted on ' + ob.channel + ' (' + channelState + ')', outputs: { trace: outcome.trace } }, r); } catch (_) { /* best-effort */ }
     if ((ob.attempts || 0) >= MAX_ATTEMPTS_BEFORE_OWNER) { await engine.needsOwner(ob.id, { reason: 'automatic fulfillment ladder exhausted (' + ob.channel + ' ' + channelState + ')', options: ['activate_channel', 'manual_make_good', 'substitute_specified'] }, r); return { action: 'needs_owner' }; }
     await engine.block(ob.id, { reason: 'awaiting channel activation (' + ob.channel + ':' + channelState + ')', retryAfter: new Date(Date.now() + 6 * 3600000) }, r);
     return { action: 'blocked_retry' };
