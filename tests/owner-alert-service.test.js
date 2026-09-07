@@ -286,11 +286,11 @@ describe('admin owner-alerts route', () => {
     expect(r).toMatch(/router\.use\(auth, role\(\['admin'\]\)\)/);
     expect(r).toMatch(/customer marketing SMS[\s\S]*prohibited/i);
   });
-  test('status returns booleans only — never the phone number or Twilio secret values', () => {
-    expect(r).toMatch(/owner_number_present/);
+  test('status returns counts/booleans only — never the phone number or Twilio secret values', () => {
+    expect(r).toMatch(/owner_recipient_count/);
     expect(r).toMatch(/twilio_configured/);
-    expect(r).not.toMatch(/OWNER_ALERT_PHONE_E164\s*[,}]/);   // never echoes the value in the response object
     expect(r).not.toMatch(/value:\s*process\.env\.OWNER_ALERT_PHONE_E164/);
+    expect(r).not.toMatch(/owner_number:\s*primary|phone:\s*process\.env/);
   });
   test('test send is audited', () => {
     expect(r).toMatch(/owner_alert_test_sent/);
