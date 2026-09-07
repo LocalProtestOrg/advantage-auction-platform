@@ -84,9 +84,9 @@ function sanitizeField(v, max = 80) {
 
 // Fixed Advantage.Bid admin routes. `id` (when present) is an internal UUID, URL-encoded. No user input
 // is ever placed in the path or host.
-function adminUrl(path, id) {
+function adminUrl(path, id, param = 'id') {
   const clean = '/' + String(path || '').replace(/^\/+/, '');
-  return id ? `${ADMIN_BASE}${clean}?id=${encodeURIComponent(id)}` : `${ADMIN_BASE}${clean}`;
+  return id ? `${ADMIN_BASE}${clean}?${param}=${encodeURIComponent(id)}` : `${ADMIN_BASE}${clean}`;
 }
 
 // Email is REQUIRED by the owner for fast account lookup; show an explicit placeholder if truly absent.
@@ -166,19 +166,60 @@ async function sendOwnerAlert(alertType, message) {
     console.warn(`[owner-alert] ${alertType} not sent - OWNER_ALERT_PHONE_E164 not configured (or invalid)`);
     return { attempted: 0, sent: 0, failed: 0, skipped: true, reason: 'not_configured' };
   }
-  let sent = 0, failed = 0;
+  let sent = 0, failed = 0, provider_sid = null, provider_status = null, last_error = null;
   for (const to of recipients) {
     try {
-      await sendSMS({ to, message });
+      const r = await sendSMS({ to, message });
       sent++;
+      if (!provider_sid && r) { provider_sid = r.sid || null; provider_status = r.status || null; }
       console.log(`[owner-alert] ${alertType} delivered`);
     } catch (err) {
       failed++;
+      last_error = (err && err.message ? err.message : 'send_failed').slice(0, 300);
       console.error(`[owner-alert] ${alertType} send failed: ${err.message}`);
       if (process.env.SENTRY_DSN) { try { require('@sentry/node').captureException(err); } catch (_) { /* ignore */ } }
     }
   }
-  return { attempted: recipients.length, sent, failed, skipped: false };
+  // provider_sid / provider_status are NOT secrets or PII — safe to surface for the audit log.
+  return { attempted: recipients.length, sent, failed, skipped: false, provider_sid, provider_status, last_error };
+}
+
+// Durable, idempotent send: at most ONE successful owner SMS per logical event (dedup on alert_type+entity),
+// surviving request/worker/webhook retries, restarts, and deploys. Persists an audit row (no secrets, no
+// phone number). Best-effort: a logging failure falls back to a direct send; a send failure is retryable.
+async function sendOwnerAlertOnce({ alertType, entityType, entityId, message }) {
+  const dedupKey = `${alertType}:${entityId}`;
+  let rowId = null;
+  try {
+    const ins = await db.query(
+      `INSERT INTO owner_alert_log (alert_type, entity_type, entity_id, dedup_key, status, first_attempt_at, attempts)
+       VALUES ($1,$2,$3,$4,'pending', now(), 0) ON CONFLICT (dedup_key) DO NOTHING RETURNING id`,
+      [alertType, entityType, String(entityId), dedupKey]);
+    if (ins.rows[0]) { rowId = ins.rows[0].id; }
+    else {
+      const ex = (await db.query(`SELECT id, status FROM owner_alert_log WHERE dedup_key = $1`, [dedupKey])).rows[0];
+      if (!ex) throw new Error('dedup row vanished');
+      rowId = ex.id;
+      if (ex.status === 'sent') { console.log(`[owner-alert] ${alertType} already sent (dedup) — skipping`); return { attempted: 0, sent: 0, failed: 0, skipped: true, reason: 'already_sent' }; }
+      if (ex.status === 'pending') { return { attempted: 0, sent: 0, failed: 0, skipped: true, reason: 'in_flight' }; }
+      // status 'failed' or 'skipped' → allow a genuine retry.
+      await db.query(`UPDATE owner_alert_log SET status='pending', updated_at=now() WHERE id=$1`, [rowId]);
+    }
+  } catch (e) {
+    console.error('[owner-alert] dedup log unavailable, direct send fallback:', e.message);
+    return sendOwnerAlert(alertType, message);
+  }
+  const res = await sendOwnerAlert(alertType, message);
+  try {
+    if (res.skipped) {
+      await db.query(`UPDATE owner_alert_log SET status='skipped', last_error=$2, attempts=attempts+1, updated_at=now() WHERE id=$1`, [rowId, (res.reason || 'skipped').slice(0, 300)]);
+    } else if (res.sent > 0) {
+      await db.query(`UPDATE owner_alert_log SET status='sent', provider_sid=$2, provider_status=$3, attempts=attempts+1, sent_at=now(), updated_at=now() WHERE id=$1`, [rowId, res.provider_sid || null, res.provider_status || null]);
+    } else {
+      await db.query(`UPDATE owner_alert_log SET status='failed', last_error=$2, attempts=attempts+1, updated_at=now() WHERE id=$1`, [rowId, (res.last_error || 'send_failed').slice(0, 300)]);
+    }
+  } catch (e) { console.error('[owner-alert] dedup log update failed:', e.message); }
+  return res;
 }
 
 // ── Context loaders + public notify functions ──────────────────────────────────
@@ -199,9 +240,9 @@ async function notifyOwnerAuctionSubmitted(auctionId) {
     if (!row) { console.warn(`[owner-alert] auction ${auctionId} not found - no alert`); return { skipped: true, reason: 'not_found' }; }
     const message = buildAuctionSubmittedMessage({
       title: row.title, sellerName: row.seller_name, sellerEmail: row.seller_email,
-      url: adminUrl('/admin/moderation.html'),
+      url: adminUrl('/admin/moderation.html', auctionId, 'auctionId'),   // deep-links to the specific auction in the review console
     });
-    return await sendOwnerAlert(ALERT_TYPES.AUCTION_SUBMITTED, message);
+    return await sendOwnerAlertOnce({ alertType: ALERT_TYPES.AUCTION_SUBMITTED, entityType: 'auction', entityId: auctionId, message });
   } catch (err) {
     console.error('[owner-alert] auction-submitted alert error:', err.message);
     return { skipped: true, reason: 'error' };
@@ -227,26 +268,55 @@ async function notifyOwnerEstateSaleSubmitted(eventId) {
       title: row.title, sellerName: row.org_name || row.owner_name, sellerEmail: row.seller_email,
       url: adminUrl('/admin/event-detail.html', eventId),
     });
-    return await sendOwnerAlert(ALERT_TYPES.ESTATE_SALE_SUBMITTED, message);
+    return await sendOwnerAlertOnce({ alertType: ALERT_TYPES.ESTATE_SALE_SUBMITTED, entityType: 'event', entityId: eventId, message });
   } catch (err) {
     console.error('[owner-alert] estate-sale-submitted alert error:', err.message);
     return { skipped: true, reason: 'error' };
   }
 }
 
-async function notifyOwnerMarketingPackagePurchased({ userId, packageName, eventTitle } = {}) {
+// Friendly package label from an authoritative product_type + amount. Package IDENTITY comes from the
+// purchase record — NEVER inferred from price. Price is only appended for the owner's quick context, and
+// ANY tier (incl. a future $499 package) is supported because the amount is read, never hard-coded.
+function packageLabel(productType, amountCents) {
+  const map = {
+    estate_sale_promotion: 'Estate Sale Promotion',
+    featured_placement: 'Featured Placement',
+    premium_marketing: 'Premium Marketing',
+    basic_listing: 'Basic Listing',
+  };
+  const name = map[String(productType || '').toLowerCase()] || (productType ? sanitizeField(productType, 48) : 'Marketing package');
+  if (amountCents != null && Number.isFinite(Number(amountCents))) {
+    const dollars = (Number(amountCents) / 100);
+    return `${name} ($${dollars.toFixed(dollars % 1 === 0 ? 0 : 2)})`;
+  }
+  return name;
+}
+
+// A marketing package was SUCCESSFULLY purchased. `purchaseId` (a one_time_purchases id) makes the package
+// identity + amount AUTHORITATIVE (never price-inferred) and provides a durable idempotency key. Falls back
+// to an explicit packageName when a purchase row is not supplied.
+async function notifyOwnerMarketingPackagePurchased({ userId, purchaseId, packageName, packageProductType, amountCents, eventTitle } = {}) {
   try {
     if (!ownerAlertConfigured()) return sendOwnerAlert(ALERT_TYPES.MARKETING_PACKAGE_PURCHASED, '');
-    let sellerName = '', sellerEmail = '';
+    let sellerName = '', sellerEmail = '', productType = packageProductType || null, amt = (amountCents != null ? amountCents : null), eventId = null;
+    if (purchaseId) {
+      const p = (await db.query('SELECT user_id, product_type, amount_cents, event_id FROM one_time_purchases WHERE id = $1', [purchaseId])).rows[0];
+      if (p) { userId = userId || p.user_id; productType = productType || p.product_type; if (amt == null) amt = p.amount_cents; eventId = p.event_id || null; }
+    }
     if (userId) {
       const u = (await db.query('SELECT email, contact_email, full_name FROM users WHERE id = $1', [userId])).rows[0];
       if (u) { sellerName = u.full_name || ''; sellerEmail = u.contact_email || u.email || ''; }
     }
+    const label = packageName || packageLabel(productType, amt);
     const message = buildMarketingPackageMessage({
-      packageName, sellerName, sellerEmail, eventTitle,
-      url: adminUrl('/admin/users.html'),
+      packageName: label, sellerName, sellerEmail, eventTitle,
+      // Direct destination: the specific event if the purchase is linked, else the purchasing seller's account.
+      url: eventId ? adminUrl('/admin/event-detail.html', eventId) : (sellerEmail ? adminUrl('/admin/users.html', sellerEmail, 'q') : adminUrl('/admin/users.html')),
     });
-    return await sendOwnerAlert(ALERT_TYPES.MARKETING_PACKAGE_PURCHASED, message);
+    // Idempotent per purchase when we have a durable purchase id; otherwise a per-user best-effort key.
+    const entityId = purchaseId || `user:${userId || 'unknown'}`;
+    return await sendOwnerAlertOnce({ alertType: ALERT_TYPES.MARKETING_PACKAGE_PURCHASED, entityType: purchaseId ? 'one_time_purchase' : 'user', entityId, message });
   } catch (err) {
     console.error('[owner-alert] marketing-package alert error:', err.message);
     return { skipped: true, reason: 'error' };
@@ -285,9 +355,9 @@ async function notifyOwnerProfessionalAuctionPublished(auctionId) {
     if (!row) { console.warn(`[owner-alert] pro-auction ${auctionId} not found - no alert`); return { skipped: true, reason: 'not_found' }; }
     const message = buildProfessionalAuctionPublishedMessage({
       companyName: row.company_name, title: row.title, state: row.state, lots: row.lots,
-      sellerEmail: row.seller_email, url: adminUrl('/admin/moderation.html'),
+      sellerEmail: row.seller_email, url: adminUrl('/admin/moderation.html', auctionId, 'auctionId'),
     });
-    return await sendOwnerAlert(ALERT_TYPES.PROFESSIONAL_AUCTION_PUBLISHED, message);
+    return await sendOwnerAlertOnce({ alertType: ALERT_TYPES.PROFESSIONAL_AUCTION_PUBLISHED, entityType: 'auction', entityId: auctionId, message });
   } catch (err) {
     console.error('[owner-alert] professional-auction-published alert error:', err.message);
     return { skipped: true, reason: 'error' };
@@ -297,10 +367,12 @@ async function notifyOwnerProfessionalAuctionPublished(auctionId) {
 // Controlled owner-alert self-test. Composes a clearly-labeled TEST message and sends it through the SAME
 // transport + config gating as real alerts. If OWNER_ALERT_PHONE_E164 / Twilio are not configured it does
 // NOT send — it returns a skipped result so callers can report "not configured" cleanly (no error thrown).
-async function sendTestAlert({ note } = {}) {
+async function sendTestAlert({ note, testId } = {}) {
   try {
     if (!ownerAlertConfigured()) return sendOwnerAlert(ALERT_TYPES.OWNER_ALERT_TEST, '');
-    return await sendOwnerAlert(ALERT_TYPES.OWNER_ALERT_TEST, buildTestMessage({ note }));
+    // Audited + idempotent via owner_alert_log. Default key 'manual' guards accidental repeats; a caller
+    // that genuinely wants a fresh test passes a unique testId.
+    return await sendOwnerAlertOnce({ alertType: ALERT_TYPES.OWNER_ALERT_TEST, entityType: 'owner_alert', entityId: testId || 'manual', message: buildTestMessage({ note }) });
   } catch (err) {
     console.error('[owner-alert] test alert error:', err.message);
     return { skipped: true, reason: 'error' };
@@ -313,7 +385,9 @@ module.exports = {
   recipientsFor,
   ownerAlertConfigured,
   buildTestMessage,
+  packageLabel,
   sendTestAlert,
+  sendOwnerAlertOnce,
   sanitizeField,
   adminUrl,
   buildAuctionSubmittedMessage,

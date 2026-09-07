@@ -1133,6 +1133,7 @@
 
       auctions.forEach(a => {
         const card = el('div', 'card');
+        if (a.id) { card.id = 'auction-' + a.id; card.dataset.auctionId = a.id; }
         const header = el('div', 'card-header');
         const info = el('div');
         info.appendChild(el('div', 'card-title', a.title || '(Untitled)'));
@@ -2340,8 +2341,31 @@
   (function initTab() {
     const valid = ['queue', 'videos', 'auctions', 'sellers', 'payouts', 'diag'];
     let tab = 'queue';
-    try { const p = new URLSearchParams(location.search).get('tab'); if (p && valid.includes(p)) tab = p; } catch (_e) {}
+    let deepAuction = null;
+    try {
+      const sp = new URLSearchParams(location.search);
+      const p = sp.get('tab'); if (p && valid.includes(p)) tab = p;
+      // Owner-alert deep link: ?auctionId=<id> opens the Auctions review console focused on that auction.
+      deepAuction = sp.get('auctionId');
+      if (deepAuction && !sp.get('tab')) tab = 'auctions';
+    } catch (_e) {}
     switchTab(tab);
+    // Best-effort focus: poll for the rendered auction card (list loads async), then scroll + highlight.
+    if (deepAuction) {
+      let tries = 0;
+      const timer = setInterval(function () {
+        tries++;
+        const card = document.getElementById('auction-' + deepAuction);
+        if (card) {
+          clearInterval(timer);
+          try {
+            card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            card.style.transition = 'box-shadow .3s'; card.style.boxShadow = '0 0 0 3px #2563eb';
+            setTimeout(function () { card.style.boxShadow = ''; }, 2600);
+          } catch (_e) { /* positioning is best-effort; the review console remains fully usable */ }
+        } else if (tries > 25) { clearInterval(timer); } // ~5s cap; graceful no-op if not in the current filter
+      }, 200);
+    }
   })();
   </script>
 </body>
