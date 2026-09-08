@@ -82,4 +82,38 @@ router.get('/contract', async (req, res, next) => {
   catch (err) { next(err); }
 });
 
+// ── Wave 2 channel execution (Super-Admin; internal — no seller-facing economics) ──
+
+// Director-resolved authoritative inputs for a purchase (auction/dates/catalog/geo/audiences/readiness/authority).
+router.get('/inputs/:purchaseId', async (req, res, next) => {
+  try { return res.json({ success: true, data: await require('../services/directorInputResolver').resolveInputs(req.params.purchaseId) }); }
+  catch (err) { next(err); }
+});
+
+// Truthful campaign performance aggregation feeding the seller allowlist renderer (classified; shadow excluded).
+router.get('/performance/:purchaseId', async (req, res, next) => {
+  try {
+    const engine = require('../services/marketingObligationEngine');
+    const perf = require('../services/performanceAggregationService');
+    const obligations = await engine.listForPurchase('package', req.params.purchaseId).catch(() => []);
+    const data = await perf.aggregate({ purchaseKind: 'package', purchaseId: req.params.purchaseId, obligations, auctionFacts: {} });
+    return res.json({ success: true, data });
+  } catch (err) { next(err); }
+});
+
+// Channel-execution evidence for a purchase's obligations (placement/email/social) — DISTINGUISHES shadow.
+router.get('/evidence/:purchaseId', async (req, res, next) => {
+  try {
+    const engine = require('../services/marketingObligationEngine');
+    const obs = await engine.listForPurchase('package', req.params.purchaseId).catch(() => []);
+    const ids = obs.map((o) => o.id);
+    if (!ids.length) return res.json({ success: true, data: { placement: [], editions: [], dedicated: [], social: [] } });
+    const placement = (await db.query(`SELECT obligation_id, feature_key, impressions, clicks, first_seen_at, last_seen_at, days, shadow FROM marketing_placement_evidence WHERE obligation_id = ANY($1)`, [ids])).rows;
+    const cards = (await db.query(`SELECT c.edition_id, c.auction_id, c.position, c.delivered, c.clicks, e.shadow FROM marketing_email_edition_cards c JOIN marketing_email_editions e ON e.edition_id=c.edition_id WHERE c.obligation_id = ANY($1)`, [ids])).rows;
+    const dedicated = (await db.query(`SELECT obligation_id, chosen_scope, recipient_count, audience_floor, status, shadow FROM marketing_dedicated_sends WHERE obligation_id = ANY($1)`, [ids])).rows;
+    const social = (await db.query(`SELECT obligation_id, wave, provider, status, post_id, permalink, published_at, shadow FROM marketing_social_jobs WHERE obligation_id = ANY($1)`, [ids])).rows;
+    return res.json({ success: true, data: { placement, cards, dedicated, social } });
+  } catch (err) { next(err); }
+});
+
 module.exports = router;
