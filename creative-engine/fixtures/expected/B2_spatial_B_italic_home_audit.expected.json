@@ -1,0 +1,386 @@
+{
+ "rows": [
+  {
+   "lot": "73",
+   "name": "Nierman abstract oil",
+   "role": "WALL",
+   "roles": [
+    "WALL"
+   ],
+   "plane": "BACKGROUND",
+   "anchor": true,
+   "top": 142,
+   "baseline": 529,
+   "z": 10,
+   "edges": [
+    "left"
+   ],
+   "support": null,
+   "shadow": "wall",
+   "contact": false,
+   "in_front_of": [],
+   "behind": [],
+   "checks": [
+    "hung",
+    "signature visible"
+   ]
+  },
+  {
+   "lot": "74",
+   "name": "Chagall lithograph",
+   "role": "WALL",
+   "roles": [
+    "WALL"
+   ],
+   "plane": "BACKGROUND",
+   "anchor": false,
+   "top": 562,
+   "baseline": 697,
+   "z": 9,
+   "edges": [],
+   "support": null,
+   "shadow": "wall",
+   "contact": false,
+   "in_front_of": [],
+   "behind": [
+    "31"
+   ],
+   "checks": [
+    "hung"
+   ]
+  },
+  {
+   "lot": "3",
+   "name": "Cathedral three panel mirror",
+   "role": "WALL",
+   "roles": [
+    "WALL",
+    "TALL"
+   ],
+   "plane": "BACKGROUND",
+   "anchor": false,
+   "top": 160,
+   "baseline": 441,
+   "z": 11,
+   "edges": [
+    "right"
+   ],
+   "support": null,
+   "shadow": "wall",
+   "contact": false,
+   "in_front_of": [],
+   "behind": [
+    "46"
+   ],
+   "checks": [
+    "hung"
+   ]
+  },
+  {
+   "lot": "46",
+   "name": "French bronze torchiere",
+   "role": "TALL",
+   "roles": [
+    "TALL"
+   ],
+   "plane": "MIDGROUND",
+   "anchor": true,
+   "top": 382,
+   "baseline": 1043,
+   "z": 15,
+   "edges": [],
+   "support": null,
+   "shadow": "back",
+   "contact": true,
+   "in_front_of": [
+    "3"
+   ],
+   "behind": [
+    "87",
+    "78"
+   ],
+   "checks": [
+    "grounded"
+   ]
+  },
+  {
+   "lot": "31",
+   "name": "Pair of red wingback chairs",
+   "role": "HERO",
+   "roles": [
+    "HERO"
+   ],
+   "plane": "MIDGROUND",
+   "anchor": true,
+   "top": 558,
+   "baseline": 1057,
+   "z": 20,
+   "edges": [],
+   "support": null,
+   "shadow": "mid",
+   "contact": true,
+   "in_front_of": [
+    "74"
+   ],
+   "behind": [
+    "36",
+    "20",
+    "87",
+    "78"
+   ],
+   "checks": [
+    "grounded"
+   ]
+  },
+  {
+   "lot": "36",
+   "name": "Mahogany pie crust table",
+   "role": "HERO",
+   "roles": [
+    "HERO",
+    "SURFACE_PROVIDER"
+   ],
+   "plane": "MIDGROUND",
+   "anchor": false,
+   "top": 783,
+   "baseline": 1139,
+   "z": 24,
+   "edges": [],
+   "support": null,
+   "shadow": "front",
+   "contact": true,
+   "in_front_of": [
+    "31"
+   ],
+   "behind": [
+    "63",
+    "53",
+    "20"
+   ],
+   "checks": [
+    "grounded"
+   ]
+  },
+  {
+   "lot": "63",
+   "name": "Sterling silver bowl",
+   "role": "SURFACE",
+   "roles": [
+    "SURFACE",
+    "FOREGROUND"
+   ],
+   "plane": "MIDGROUND",
+   "anchor": false,
+   "top": 717,
+   "baseline": 826,
+   "z": 26,
+   "edges": [],
+   "support": "36",
+   "shadow": "mid",
+   "contact": true,
+   "in_front_of": [
+    "36"
+   ],
+   "behind": [],
+   "checks": [
+    "rests on 36"
+   ]
+  },
+  {
+   "lot": "53",
+   "name": "Pair of Chinese porcelain vases",
+   "role": "FOREGROUND",
+   "roles": [
+    "FOREGROUND",
+    "SURFACE"
+   ],
+   "plane": "FOREGROUND",
+   "anchor": false,
+   "top": 1032,
+   "baseline": 1225,
+   "z": 25,
+   "edges": [],
+   "support": null,
+   "shadow": "mid",
+   "contact": true,
+   "in_front_of": [
+    "36"
+   ],
+   "behind": [],
+   "checks": []
+  },
+  {
+   "lot": "20",
+   "name": "Painted Indian document box",
+   "role": "FOREGROUND",
+   "roles": [
+    "FOREGROUND",
+    "SURFACE"
+   ],
+   "plane": "FOREGROUND",
+   "anchor": false,
+   "top": 980,
+   "baseline": 1151,
+   "z": 27,
+   "edges": [],
+   "support": null,
+   "shadow": "front",
+   "contact": true,
+   "in_front_of": [
+    "31",
+    "36"
+   ],
+   "behind": [
+    "11d"
+   ],
+   "checks": []
+  },
+  {
+   "lot": "11d",
+   "name": "Rose quartz sphere",
+   "role": "FOREGROUND",
+   "roles": [
+    "SURFACE",
+    "FOREGROUND"
+   ],
+   "plane": "FOREGROUND",
+   "anchor": false,
+   "top": 1035,
+   "baseline": 1152,
+   "z": 29,
+   "edges": [],
+   "support": null,
+   "shadow": "front",
+   "contact": true,
+   "in_front_of": [
+    "20",
+    "25"
+   ],
+   "behind": [],
+   "checks": []
+  },
+  {
+   "lot": "25",
+   "name": "Boehm pheasant",
+   "role": "FOREGROUND",
+   "roles": [
+    "SURFACE",
+    "FOREGROUND"
+   ],
+   "plane": "FOREGROUND",
+   "anchor": false,
+   "top": 974,
+   "baseline": 1153,
+   "z": 28,
+   "edges": [],
+   "support": null,
+   "shadow": "mid",
+   "contact": true,
+   "in_front_of": [],
+   "behind": [
+    "11d"
+   ],
+   "checks": []
+  },
+  {
+   "lot": "87",
+   "name": "Herend dinnerware set",
+   "role": "FOREGROUND",
+   "roles": [
+    "FOREGROUND"
+   ],
+   "plane": "FOREGROUND",
+   "anchor": false,
+   "top": 975,
+   "baseline": 1154,
+   "z": 30,
+   "edges": [],
+   "support": null,
+   "shadow": "front",
+   "contact": false,
+   "in_front_of": [
+    "46",
+    "31",
+    "78"
+   ],
+   "behind": [
+    "30"
+   ],
+   "checks": []
+  },
+  {
+   "lot": "78",
+   "name": "Female marble bust",
+   "role": "FOREGROUND",
+   "roles": [
+    "FOREGROUND",
+    "SURFACE"
+   ],
+   "plane": "FOREGROUND",
+   "anchor": false,
+   "top": 826,
+   "baseline": 1154,
+   "z": 25,
+   "edges": [],
+   "support": null,
+   "shadow": "front",
+   "contact": true,
+   "in_front_of": [
+    "46",
+    "31"
+   ],
+   "behind": [
+    "87"
+   ],
+   "checks": []
+  },
+  {
+   "lot": "30",
+   "name": "Three Japanese Imari plates",
+   "role": "FOREGROUND",
+   "roles": [
+    "FOREGROUND"
+   ],
+   "plane": "FOREGROUND",
+   "anchor": false,
+   "top": 1056,
+   "baseline": 1276,
+   "z": 40,
+   "edges": [
+    "right",
+    "bottom/band"
+   ],
+   "support": null,
+   "shadow": "front",
+   "contact": false,
+   "in_front_of": [
+    "87"
+   ],
+   "behind": [],
+   "checks": []
+  }
+ ],
+ "summary": {
+  "planes": {
+   "BACKGROUND": 3,
+   "MIDGROUND": 4,
+   "FOREGROUND": 7
+  },
+  "roles": {
+   "WALL": 3,
+   "TALL": 1,
+   "HERO": 2,
+   "SURFACE": 1,
+   "FOREGROUND": 7
+  },
+  "plane_count": 3,
+  "role_count": 5,
+  "meaningful_overlaps": 10,
+  "decorative_overlaps": 5,
+  "violations": [],
+  "bridging": [
+   "46",
+   "31"
+  ]
+ }
+}

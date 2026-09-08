@@ -1,0 +1,282 @@
+{
+ "11a": {
+  "name": "Opal & diamond ring",
+  "cat": "Jewelry",
+  "status": "REVIEW",
+  "w": 524,
+  "h": 609,
+  "bbox": [
+   5,
+   5,
+   518,
+   603
+  ],
+  "opaque_pct": 74.8
+ },
+ "11c": {
+  "name": "Green apophyllite",
+  "cat": "Minerals",
+  "status": "CLEAN",
+  "w": 700,
+  "h": 604,
+  "bbox": [
+   4,
+   4,
+   694,
+   599
+  ],
+  "opaque_pct": 76.2
+ },
+ "11d": {
+  "name": "Rose quartz sphere",
+  "cat": "Minerals",
+  "status": "CLEAN",
+  "w": 585,
+  "h": 700,
+  "bbox": [
+   4,
+   4,
+   580,
+   695
+  ],
+  "opaque_pct": 75.2
+ },
+ "13": {
+  "name": "Silver chocolate pitcher",
+  "cat": "Silver",
+  "status": "CLEAN",
+  "w": 447,
+  "h": 700,
+  "bbox": [
+   4,
+   5,
+   442,
+   694
+  ],
+  "opaque_pct": 48.7
+ },
+ "20": {
+  "name": "Painted Indian document box",
+  "cat": "Collectibles",
+  "status": "CLEAN",
+  "w": 700,
+  "h": 537,
+  "bbox": [
+   6,
+   5,
+   693,
+   532
+  ],
+  "opaque_pct": 80.2
+ },
+ "25": {
+  "name": "Boehm pheasant",
+  "cat": "Porcelain figure",
+  "status": "CLEAN",
+  "w": 422,
+  "h": 700,
+  "bbox": [
+   0,
+   5,
+   418,
+   694
+  ],
+  "opaque_pct": 53.6
+ },
+ "3": {
+  "name": "Cathedral three panel mirror",
+  "cat": "Furniture",
+  "status": "CLEAN",
+  "w": 686,
+  "h": 700,
+  "bbox": [
+   6,
+   4,
+   679,
+   695
+  ],
+  "opaque_pct": 62.7
+ },
+ "30": {
+  "name": "Three Japanese Imari plates",
+  "cat": "Asian ceramics",
+  "status": "CLEAN",
+  "w": 700,
+  "h": 574,
+  "bbox": [
+   4,
+   6,
+   694,
+   568
+  ],
+  "opaque_pct": 50.1
+ },
+ "31": {
+  "name": "Pair of red wingback chairs",
+  "cat": "Furniture",
+  "status": "CLEAN",
+  "w": 700,
+  "h": 509,
+  "bbox": [
+   5,
+   4,
+   694,
+   505
+  ],
+  "opaque_pct": 59.1
+ },
+ "33a": {
+  "name": "Ruby & diamond ring",
+  "cat": "Jewelry",
+  "status": "REVIEW",
+  "w": 700,
+  "h": 610,
+  "bbox": [
+   71,
+   71,
+   600,
+   606
+  ],
+  "opaque_pct": 38.6
+ },
+ "36": {
+  "name": "Mahogany pie crust table",
+  "cat": "Furniture",
+  "status": "CLEAN",
+  "w": 578,
+  "h": 700,
+  "bbox": [
+   4,
+   4,
+   573,
+   694
+  ],
+  "opaque_pct": 27.0
+ },
+ "44a": {
+  "name": "Mido Multifort gold watch",
+  "cat": "Watches",
+  "status": "REVIEW",
+  "w": 663,
+  "h": 700,
+  "bbox": [
+   6,
+   7,
+   656,
+   695
+  ],
+  "opaque_pct": 65.5
+ },
+ "44e": {
+  "name": "Knox Martin etching",
+  "cat": "Works on paper",
+  "status": "CLEAN",
+  "w": 569,
+  "h": 700,
+  "bbox": [
+   3,
+   6,
+   564,
+   689
+  ],
+  "opaque_pct": 90.2
+ },
+ "46": {
+  "name": "French bronze torchiere",
+  "cat": "Sculpture",
+  "status": "CLEAN",
+  "w": 208,
+  "h": 700,
+  "bbox": [
+   2,
+   4,
+   206,
+   694
+  ],
+  "opaque_pct": 37.2
+ },
+ "53": {
+  "name": "Pair of Chinese porcelain vases",
+  "cat": "Porcelain",
+  "status": "CLEAN",
+  "w": 601,
+  "h": 700,
+  "bbox": [
+   4,
+   5,
+   595,
+   695
+  ],
+  "opaque_pct": 62.1
+ },
+ "63": {
+  "name": "Sterling silver bowl",
+  "cat": "Silver",
+  "status": "CLEAN",
+  "w": 700,
+  "h": 524,
+  "bbox": [
+   6,
+   4,
+   694,
+   519
+  ],
+  "opaque_pct": 61.3
+ },
+ "73": {
+  "name": "Nierman abstract oil",
+  "cat": "Fine art",
+  "status": "CLEAN",
+  "w": 700,
+  "h": 489,
+  "bbox": [
+   40,
+   3,
+   693,
+   442
+  ],
+  "opaque_pct": 75.3
+ },
+ "74": {
+  "name": "Chagall lithograph",
+  "cat": "Works on paper",
+  "status": "CLEAN",
+  "w": 700,
+  "h": 397,
+  "bbox": [
+   6,
+   4,
+   691,
+   392
+  ],
+  "opaque_pct": 91.5
+ },
+ "78": {
+  "name": "Female marble bust",
+  "cat": "Sculpture",
+  "status": "CLEAN",
+  "w": 400,
+  "h": 700,
+  "bbox": [
+   4,
+   5,
+   396,
+   699
+  ],
+  "opaque_pct": 57.6
+ },
+ "87": {
+  "name": "Herend dinnerware set",
+  "cat": "Dinnerware",
+  "status": "CLEAN",
+  "w": 700,
+  "h": 320,
+  "bbox": [
+   5,
+   3,
+   693,
+   317
+  ],
+  "opaque_pct": 52.5
+ }
+}

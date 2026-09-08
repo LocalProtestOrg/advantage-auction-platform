@@ -1,0 +1,16 @@
+# nixpacks.toml — the Advantage.Bid Node app PLUS the Phase 3O creative production engine's Python runtime
+# (Pillow + numpy) via nix packages (reproducible; no pip, no heavy ML in the image). The creative engine
+# (creative-engine/produce.py) is spawned on demand by creativeEngineService; if Python were ever absent the
+# service degrades gracefully (jobs → engine_unavailable, never a false fulfillment). rembg/U2Net is an
+# OPTIONAL enhancement (installed separately) — extraction falls back to a deterministic matte without it.
+[phases.setup]
+nixPkgs = ["nodejs_20", "python311", "python311Packages.pillow", "python311Packages.numpy"]
+
+[phases.install]
+cmds = ["npm ci"]
+
+[start]
+cmd = "node server.js"
+
+[variables]
+PYTHON_BIN = "python3.11"
