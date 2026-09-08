@@ -795,6 +795,9 @@ server.listen(PORT, () => {
     // Marketing audience auto-refresh (platform-fact + behavioral). Self-gates on
     // marketing.behavioral.enabled; never sends/spends/connects a provider.
     spawnWorker(path.join(__dirname, 'src/workers/marketingRefreshWorker.js'));
+    // Autonomous email dispatch. Claims due email_dispatch jobs and sends via the certified sendCampaignLive
+    // path. Self-gates on marketing.a7_send_enabled (inert while A7 off); idempotent + bounded retry.
+    spawnWorker(path.join(__dirname, 'src/workers/marketingDispatchWorker.js'));
     // Phase 3O Marketing Package fulfillment monitor (SHADOW). Self-gates on marketing.pkg.enabled;
     // advances obligations, never sends/publishes/spends on a non-ACTIVE channel (shadow evidence only).
     try { require('./src/services/marketingFulfillmentWorker').start(); } catch (e) { log.error('marketing', 'fulfillment monitor start failed', { error: e.message }); }

@@ -24,6 +24,32 @@ async function txt(name) {
   try { const recs = await withTimeout(dns.resolveTxt(name), 4000); return recs.map((r) => r.join('')); }
   catch (_) { return null; }
 }
+async function mx(name) {
+  try { return await withTimeout(dns.resolveMx(name), 4000); }
+  catch (_) { return null; }
+}
+
+// Evaluate SPF against the ACTUAL SES authentication architecture, not just the root From domain. SES uses the
+// custom MAIL FROM (envelope/Return-Path) subdomain for SPF; a correctly-configured custom MAIL FROM has that
+// subdomain's SPF `include:amazonses.com` and/or its MX pointed at `feedback-smtp.<region>.amazonses.com`. So
+// SPF is satisfied if EITHER the root domain OR the SES MAIL FROM domain shows an Amazon SES SPF signal. This
+// does NOT weaken authentication (a real SES SPF/MX signal is still required); it stops flagging an
+// otherwise-correct custom-MAIL-FROM setup as FAIL merely because the root From domain uses another provider.
+function spfHasAmazon(records) {
+  return Array.isArray(records) && records.some((v) => /v=spf1/i.test(v) && /amazonses|include:.*amazon/i.test(v));
+}
+function mxIsSesFeedback(records) {
+  return Array.isArray(records) && records.some((x) => /feedback-smtp\.[a-z0-9-]+\.amazonses\.com/i.test(x && (x.exchange || x)));
+}
+function evaluateSpf({ rootSpf, mailFromSpf, mailFromMx, rootDom, mailFromDom }) {
+  if (spfHasAmazon(rootSpf)) return { status: 'PASS', detail: `SPF include:amazonses on ${rootDom}` };
+  if (spfHasAmazon(mailFromSpf)) return { status: 'PASS', detail: `SES SPF on custom MAIL FROM ${mailFromDom}` };
+  if (mxIsSesFeedback(mailFromMx)) return { status: 'PASS', detail: `SES custom MAIL FROM active (${mailFromDom} MX → feedback-smtp.*.amazonses.com); SPF authenticates via the envelope domain (DKIM-aligned DMARC covers the From domain)` };
+  if ((Array.isArray(rootSpf) && rootSpf.some((v) => /v=spf1/i.test(v))) || (Array.isArray(mailFromSpf) && mailFromSpf.some((v) => /v=spf1/i.test(v)))) {
+    return { status: 'WARN', detail: `SPF present but no Amazon SES include on ${rootDom}/${mailFromDom}; DKIM-aligned DMARC still authenticates SES mail` };
+  }
+  return { status: 'FAIL', detail: `no SPF on ${rootDom} or ${mailFromDom}` };
+}
 async function tableExists(r, name) {
   const q = await r.query('SELECT 1 FROM information_schema.tables WHERE table_name = $1', [name]);
   return q.rowCount > 0;
@@ -41,12 +67,16 @@ async function evaluate(runner) {
   // Sender identity
   set('ses_sender_identity', isConfigured() ? 'PASS' : 'FAIL', `From ${EMAIL_FROM}`);
 
-  // DNS auth (best-effort live lookup on the sending domain)
+  // DNS auth (best-effort live lookup). SPF is evaluated against the ACTUAL SES auth architecture: the root
+  // From domain AND the SES custom MAIL FROM (envelope) subdomain (env SES_MAIL_FROM_DOMAIN, else the SES
+  // convention bounce.<dom>). SES authenticates SPF via the MAIL FROM domain, so a correct custom MAIL FROM
+  // (MX → feedback-smtp.*.amazonses.com and/or SPF include:amazonses.com) satisfies SPF even when the root
+  // From domain uses a different provider.
   const dom = domainOf(EMAIL_FROM) || 'advantage.bid';
-  const spf = await txt(dom);
-  set('spf', spf && spf.some((v) => /v=spf1/i.test(v) && /amazonses|include:.*amazon/i.test(v)) ? 'PASS'
-        : (spf && spf.some((v) => /v=spf1/i.test(v)) ? 'WARN' : 'FAIL'),
-    'SPF TXT on ' + dom + (spf ? '' : ' (not resolvable)'));
+  const mailFromDom = (process.env.SES_MAIL_FROM_DOMAIN || ('bounce.' + dom)).toLowerCase();
+  const [rootSpf, mailFromSpf, mailFromMx] = await Promise.all([txt(dom), txt(mailFromDom), mx(mailFromDom)]);
+  const spfEval = evaluateSpf({ rootSpf, mailFromSpf, mailFromMx, rootDom: dom, mailFromDom });
+  set('spf', spfEval.status, spfEval.detail);
   const dmarc = await txt('_dmarc.' + dom);
   set('dmarc', dmarc && dmarc.some((v) => /v=DMARC1/i.test(v)) ? 'PASS' : 'WARN', '_dmarc.' + dom);
   // DKIM selectors under SES are owner-specific CNAMEs; not runtime-detectable → owner-verified in console.
@@ -88,4 +118,4 @@ async function evaluate(runner) {
   };
 }
 
-module.exports = { evaluate };
+module.exports = { evaluate, evaluateSpf, spfHasAmazon, mxIsSesFeedback };
