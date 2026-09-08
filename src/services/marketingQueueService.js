@@ -35,15 +35,16 @@ async function enqueue(runner, { jobType, payload = {}, idempotencyKey = null, r
   return null;
 }
 
-// Worker-side claim (used only once autonomous marketing is activated — no worker runs in Phase 3A).
-async function claimNext(runner) {
+// Worker-side claim (used once autonomous marketing is activated). Optional jobType scopes the claim to one
+// job kind so a dedicated worker never claims (and fails) an unrelated job type; omit for any-type claim.
+async function claimNext(runner, jobType = null) {
   const r = runner || db;
   const res = await r.query(
     `UPDATE marketing_job_queue SET state='processing', attempts = attempts + 1, updated_at = now()
       WHERE id = (SELECT id FROM marketing_job_queue
-                   WHERE state='queued' AND run_after <= now()
+                   WHERE state='queued' AND run_after <= now() AND ($1::text IS NULL OR job_type = $1)
                    ORDER BY run_after ASC FOR UPDATE SKIP LOCKED LIMIT 1)
-      RETURNING *`);
+      RETURNING *`, [jobType]);
   return res.rows[0] || null;
 }
 async function complete(id, runner) { await (runner || db).query(`UPDATE marketing_job_queue SET state='done', updated_at=now() WHERE id=$1`, [id]); }
