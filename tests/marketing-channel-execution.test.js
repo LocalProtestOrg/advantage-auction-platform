@@ -157,7 +157,7 @@ describe('Owned placement executor', () => {
     await owned.recordExposure(res.id, { impressions: 500, clicks: 5, atIso: '2026-10-02T00:00:00Z' }, runner);
     const out = await owned.reconcile([ob], runner);
     expect(out[0].completed).toBe(true);
-    expect(spy).toHaveBeenCalledWith('o1', 'COMPLETED', expect.anything(), null, runner);
+    expect(spy).toHaveBeenCalledWith('o1', 'completed', expect.anything(), null, runner);
     spy.mockRestore();
   });
 });

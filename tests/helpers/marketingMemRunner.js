@@ -11,9 +11,13 @@
 function makeStore() {
   return {
     reservations: [], placementEvidence: [], editions: [], cards: [], dedicated: [], social: [], perfFacts: [],
-    obligations: {}, suppressions: [], deliverability: {}, _seq: 0,
+    obs: [], events: [], allocations: [], allocEntries: [],
+    purchases: {}, promotions: {}, readiness: [],
+    suppressions: [], deliverability: {}, _seq: 0,
   };
 }
+
+const TERMINAL_OK = ['completed', 'substituted', 'made_good'];
 
 // Column extractor for `INSERT INTO t (a,b,c) VALUES (...) ... RETURNING *`.
 function insertColumns(sql) {
@@ -176,6 +180,130 @@ function makeRunner(store) {
       if (/FROM marketing_dedicated_sends WHERE obligation_id=\$1/.test(s)) {
         const d = store.dedicated.filter((x) => x.obligation_id === params[0]).slice(-1);
         return { rows: d };
+      }
+
+      // ── Obligations (marketingObligationEngine) ──
+      if (/INSERT INTO marketing_obligations \(purchase_kind, purchase_id, auction_id, obligation_key, feature_key/.test(s)) {
+        const [pk, pid, aid, okey, fkey, label, category, channel, ladder, wave] = params;
+        if (store.obs.find((o) => o.purchase_kind === pk && o.purchase_id === pid && o.obligation_key === okey)) return { rows: [] };
+        const row = { id: 'ob_' + (++store._seq), purchase_kind: pk, purchase_id: pid, auction_id: aid, obligation_key: okey,
+          feature_key: fkey, label, category, channel, ladder_id: ladder, wave, state: 'planned', attempts: 0 };
+        store.obs.push(row); return { rows: [row] };
+      }
+      if (/SELECT \* FROM marketing_obligations WHERE purchase_kind = \$1 AND purchase_id = \$2/.test(s)) {
+        const rows = store.obs.filter((o) => o.purchase_kind === params[0] && o.purchase_id === params[1])
+          .sort((a, b) => (a.category + a.obligation_key).localeCompare(b.category + b.obligation_key));
+        return { rows };
+      }
+      if (/SELECT state, auction_id, purchase_id, purchase_kind FROM marketing_obligations WHERE id=\$1/.test(s)) {
+        const o = store.obs.find((x) => x.id === params[0]); return { rows: o ? [o] : [] };
+      }
+      if (/SELECT state FROM marketing_obligations WHERE id ?= ?\$1/.test(s)) {
+        const o = store.obs.find((x) => x.id === params[0]); return { rows: o ? [{ state: o.state }] : [] };
+      }
+      if (/SELECT \* FROM marketing_obligations WHERE id = \$1/.test(s)) {
+        const o = store.obs.find((x) => x.id === params[0]); return { rows: o ? [o] : [] };
+      }
+      if (/UPDATE marketing_obligations SET state = \$2, previous_state = state/.test(s)) { // transition
+        const o = store.obs.find((x) => x.id === params[0]); if (!o) return { rows: [] };
+        o.previous_state = o.state; o.state = params[1];
+        if (params[2]) o.proof = params[2]; if (params[3]) o.notes = params[3]; if (params[4]) o.campaign_id = params[4];
+        if (params[5]) o.terminal_at = '2026-09-07T00:00:00Z';
+        return { rows: [o] };
+      }
+      if (/UPDATE marketing_obligations SET state='blocked'/.test(s)) {
+        const o = store.obs.find((x) => x.id === params[0]); if (!o) return { rows: [] };
+        o.previous_state = o.state; o.state = 'blocked'; o.blocked_reason = params[1]; o.retry_after = params[2]; o.attempts = (o.attempts || 0) + 1;
+        return { rows: [o] };
+      }
+      if (/UPDATE marketing_obligations SET state='needs_owner'/.test(s)) {
+        const o = store.obs.find((x) => x.id === params[0]); if (!o) return { rows: [] };
+        o.previous_state = o.state; o.state = 'needs_owner'; o.needs_owner_reason = params[1]; o.needs_owner_options = params[2];
+        return { rows: [o] };
+      }
+      if (/UPDATE marketing_obligations SET state='substituted'/.test(s)) {
+        const o = store.obs.find((x) => x.id === params[0]); if (o) { o.state = 'substituted'; o.notes = params[1] || o.notes; } return { rows: o ? [o] : [] };
+      }
+      if (/INSERT INTO marketing_obligations \(purchase_kind, purchase_id, auction_id, obligation_key, label, category, channel, state, substitution_of/.test(s)) {
+        const row = { id: 'ob_' + (++store._seq), purchase_kind: params[0], purchase_id: params[1], auction_id: params[2],
+          obligation_key: params[3], label: params[4], category: params[5], channel: params[6], state: 'planned', substitution_of: params[7] };
+        store.obs.push(row); return { rows: [row] };
+      }
+      if (/INSERT INTO marketing_obligation_events/.test(s)) {
+        store.events.push({ obligation_id: params[0], from_state: params[1], to_state: params[2] }); return { rows: [] };
+      }
+
+      // ── Paid allocation ledger ──
+      if (/FROM marketing_package_purchases WHERE id=\$1/.test(s)) {
+        const p = store.purchases[params[0]]; return { rows: p ? [p] : [] };
+      }
+      if (/FROM marketing_additional_promotions WHERE id=\$1/.test(s)) {
+        const p = store.promotions[params[0]]; return { rows: p ? [p] : [] };
+      }
+      if (/INSERT INTO marketing_paid_allocations/.test(s)) {
+        const [pk, pid, ceiling, pv] = params;
+        if (!store.allocations.find((a) => a.purchase_kind === pk && a.purchase_id === pid))
+          store.allocations.push({ id: 'al_' + (++store._seq), purchase_kind: pk, purchase_id: pid, ceiling_cents: ceiling, policy_version: pv, reserved_cents: 0, spent_cents: 0, released_cents: 0 });
+        return { rows: [] };
+      }
+      if (/SELECT \* FROM marketing_paid_allocations WHERE purchase_id=\$1/.test(s)) {
+        const a = store.allocations.find((x) => x.purchase_id === params[0]); return { rows: a ? [a] : [] };
+      }
+      if (/INSERT INTO marketing_paid_allocation_entries/.test(s)) {
+        const idem = params[params.length - 1];
+        if (store.allocEntries.find((e) => e.idempotency_key === idem)) return { rows: [] }; // ON CONFLICT DO NOTHING
+        const et = (/'(RESERVE|SPEND|RELEASE)'/.exec(s) || [])[1] || null; // entry_type is an inline literal
+        const entry = { id: 'en_' + (++store._seq), purchase_id: params[1], entry_type: et, amount_cents: params[2], idempotency_key: idem };
+        store.allocEntries.push(entry); return { rows: [{ id: entry.id }] };
+      }
+      if (/UPDATE marketing_paid_allocations SET reserved_cents = reserved_cents \+ \$2/.test(s)) { // reserve (ceiling-guarded)
+        const a = store.allocations.find((x) => x.purchase_kind === params[0] && x.purchase_id === params[2]);
+        if (!a) return { rows: [] };
+        if (a.reserved_cents + a.spent_cents + params[1] > a.ceiling_cents) return { rows: [] }; // ceiling race → no row
+        a.reserved_cents += params[1]; return { rows: [a] };
+      }
+      if (/spent_cents = spent_cents \+ \$2/.test(s)) { // spend
+        const a = store.allocations.find((x) => x.purchase_kind === params[0] && x.purchase_id === params[2]);
+        if (!a) return { rows: [] };
+        a.reserved_cents = Math.max(0, a.reserved_cents - params[1]); a.spent_cents += params[1]; return { rows: [a] };
+      }
+      if (/released_cents = released_cents \+ \$2/.test(s)) { // release
+        const a = store.allocations.find((x) => x.purchase_kind === params[0] && x.purchase_id === params[2]);
+        if (!a) return { rows: [] };
+        a.reserved_cents = Math.max(0, a.reserved_cents - params[1]); a.released_cents += params[1]; return { rows: [a] };
+      }
+      if (/SELECT entry_type, COALESCE\(SUM\(amount_cents\)/.test(s)) {
+        const by = {}; store.allocEntries.filter((e) => e.purchase_id === params[0]).forEach((e) => { by[e.entry_type] = (by[e.entry_type] || 0) + e.amount_cents; });
+        return { rows: Object.entries(by).map(([entry_type, s2]) => ({ entry_type, s: s2 })) };
+      }
+
+      // ── Desktop bridge aggregates (runtime export) ──
+      if (/SELECT state, count\(\*\)::int n FROM marketing_obligations GROUP BY state/.test(s)) {
+        const by = {}; store.obs.forEach((o) => { by[o.state] = (by[o.state] || 0) + 1; });
+        return { rows: Object.entries(by).map(([state, n]) => ({ state, n })) };
+      }
+      if (/AVG\(attempts\).*FROM marketing_obligations/.test(s)) {
+        const at = store.obs.map((o) => o.attempts || 0);
+        return { rows: [{ avg_attempts: at.length ? at.reduce((a, b) => a + b, 0) / at.length : 0, max_attempts: at.length ? Math.max(...at) : 0 }] };
+      }
+      if (/FROM marketing_obligation_events WHERE rung IS NOT NULL GROUP BY rung/.test(s)) {
+        return { rows: [] };
+      }
+      if (/count\(\*\)::int n FROM marketing_obligations WHERE state='substituted'/.test(s)) {
+        return { rows: [{ n: store.obs.filter((o) => o.state === 'substituted').length }] };
+      }
+      if (/SELECT channel_key, state FROM marketing_channel_readiness/.test(s)) {
+        return { rows: store.readiness.map((x) => ({ channel_key: x.channel_key, state: x.state })) };
+      }
+      if (/INSERT INTO marketing_runtime_exports/.test(s)) { return { rows: [] }; }
+      if (/INSERT INTO marketing_desktop_messages/.test(s)) { return { rows: [{ id: 'dm_' + (++store._seq) }] }; }
+
+      // ── Channel readiness ──
+      if (/SELECT state FROM marketing_channel_readiness WHERE channel_key=\$1/.test(s)) {
+        const rr = store.readiness.find((x) => x.channel_key === params[0]); return { rows: rr ? [{ state: rr.state }] : [] };
+      }
+      if (/SELECT channel_key, state, owner_action_required, fallback_ladder FROM marketing_channel_readiness/.test(s)) {
+        return { rows: store.readiness };
       }
 
       // ── Suppression / deliverability (eligibility authority) ──
