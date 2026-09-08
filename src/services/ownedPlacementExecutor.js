@@ -157,7 +157,7 @@ async function reconcile(obligations, runner) {
     if (!handles(ob.feature_key)) continue;
     const gate = await evidenceComplete(ob, r);
     if (gate.ok) {
-      await obligationEngine.transition(ob.id, 'COMPLETED',
+      await obligationEngine.transition(ob.id, 'completed',
         { proof: gate.evidence, reason: 'owned_placement_evidence', shadow: false }, null, r).catch(() => {});
     }
     out.push({ obligation_id: ob.id, feature_key: ob.feature_key, completed: gate.ok, gate });
