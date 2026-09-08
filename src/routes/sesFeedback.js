@@ -10,7 +10,11 @@
  *     timing-safe check → 401 otherwise. (SNS signature verification can be layered on later; the shared
  *     secret is required regardless.)
  *   - Malformed/unparseable payloads → 400.
- *   - SNS SubscriptionConfirmation is acknowledged but NOT auto-confirmed (no external activation).
+ *   - SNS SubscriptionConfirmation is acknowledged but NOT auto-confirmed (no external activation). For a
+ *     GENUINE, authenticated SubscriptionConfirmation we surface the one-time AWS SubscribeURL to the
+ *     OPERATOR LOG ONLY (Railway logs are Owner-only) so the Owner can visit it exactly once to confirm the
+ *     HTTPS subscription. We never auto-GET it, never persist it to the DB, never return it in the HTTP
+ *     response, and never log the webhook secret. The SubscribeURL host is validated to be genuine AWS SNS.
  *
  * Ingestion is idempotent (provider_event_id) inside sesFeedbackService.
  */
@@ -25,6 +29,13 @@ function timingSafeEqual(a, b) {
   const bb = Buffer.from(String(b || ''));
   if (ba.length !== bb.length) return false;
   return crypto.timingSafeEqual(ba, bb);
+}
+
+// A SubscribeURL is only trusted (and only logged) if it is a genuine AWS SNS HTTPS endpoint. This prevents a
+// forged/mistaken control message from planting an arbitrary URL in the operator log.
+function isAwsSnsSubscribeUrl(u) {
+  try { const p = new URL(String(u)); return p.protocol === 'https:' && /^sns\.[a-z0-9-]+\.amazonaws\.com$/.test(p.hostname); }
+  catch (_) { return false; }
 }
 
 // Capture text/plain bodies (SNS default content type) that the global JSON parser leaves untouched.
@@ -42,9 +53,17 @@ router.post('/feedback', async (req, res) => {
   if (!payload || typeof payload !== 'object') return res.status(400).json({ error: 'Malformed payload' });
 
   if (isSnsControl(payload)) {
-    // Acknowledge but do not auto-confirm — subscription confirmation is an owner action, not automatic.
-    console.log('[ses] SNS control message received (not auto-confirmed):', payload.Type);
-    return res.status(200).json({ ok: true, acknowledged: payload.Type, auto_confirmed: false });
+    // Acknowledge but NEVER auto-confirm — subscription confirmation is an owner action, not automatic.
+    const type = payload.Type;
+    if (type === 'SubscriptionConfirmation' && isAwsSnsSubscribeUrl(payload.SubscribeURL)) {
+      // Operator-log ONLY (Owner-only Railway logs); no DB write, not returned to the caller (AWS SNS), no secret.
+      console.log('[ses] SNS SubscriptionConfirmation (authenticated). To confirm this HTTPS subscription an operator must GET the one-time SubscribeURL below EXACTLY ONCE (never shared, never auto-visited):');
+      console.log('[ses] SubscribeURL: ' + payload.SubscribeURL);
+      console.log('[ses] confirmation-context TopicArn=' + (payload.TopicArn || '?') + ' MessageId=' + (payload.MessageId || '?') + ' Timestamp=' + (payload.Timestamp || '?'));
+      return res.status(200).json({ ok: true, acknowledged: type, auto_confirmed: false, subscribe_url_logged: true });
+    }
+    console.log('[ses] SNS control message received (not auto-confirmed):', type);
+    return res.status(200).json({ ok: true, acknowledged: type, auto_confirmed: false });
   }
 
   const events = parse(payload);
