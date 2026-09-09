@@ -41,6 +41,13 @@
         <tbody id="rows"><tr><td colspan="6" class="muted">Loading…</td></tr></tbody></table>
       <p class="muted">Add a future state Page by creating a row (same shared token env, just a new Page ID). One broken state Page never disables the others or the national fallback.</p>
     </div>
+    <div class="card">
+      <h2>Performance intelligence (read-only toward Facebook / Instagram)</h2>
+      <div id="intel" class="muted">Loading…</div>
+      <p class="muted">Post performance is read on a bounded schedule after each real post (1h · 24h · 72h · 7d · 14d). Missing metrics are recorded as unavailable — never estimated.
+        Comments are observed and classified; drafting a response is a governed switch and <b>publishing replies is disabled by design</b>.</p>
+      <div id="switches"></div>
+    </div>
   </main>
   <script>
     function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
@@ -64,7 +71,36 @@
         document.getElementById('rows').innerHTML = rows || '<tr><td colspan="6" class="muted">No destinations.</td></tr>';
       }catch(e){ document.getElementById('gates').textContent = 'Error loading.'; }
     }
-    load();
+    async function loadIntel(){
+      try{
+        const res = await fetch('/api/admin/marketing-runtime/social-intelligence', { credentials: 'include' });
+        const j = await res.json();
+        if(!j.success){ document.getElementById('intel').textContent = 'Not authorized.'; return; }
+        const d = j.data; const p = d.insights.posts || {}; const w = d.webhook || {}; const e = d.engagement || {};
+        const pill = (on, onTxt, offTxt) => '<span class="pill '+(on?'on':'off')+'">'+(on?onTxt:offTxt)+'</span>';
+        document.getElementById('intel').innerHTML =
+          'Insights ingestion: '+pill(d.insights.gate.enabled,'ON','OFF')+' &nbsp; Real posts: <b>'+(p.real_published||0)+'</b> &nbsp; Polling: <b>'+(p.polling||0)+'</b> &nbsp; Complete: <b>'+(p.complete||0)+'</b> &nbsp; Errors: <b>'+(p.in_error||0)+'</b>'+
+          ' &nbsp; Post snapshots: <b>'+(d.insights.post_snapshots||0)+'</b> &nbsp; Account snapshots: <b>'+(d.insights.account_snapshots||0)+'</b>'+
+          (p.last_ingested_at?(' &nbsp; Last ingested: '+esc(new Date(p.last_ingested_at).toLocaleString())):'')+
+          '<br>Webhook receiver: signing secret '+pill(w.configured&&w.configured.app_secret_present,'present','unset')+' &nbsp; verify token '+pill(w.configured&&w.configured.verify_token_present,'present','unset')+
+          ' &nbsp; deliveries: '+esc((w.deliveries_by_status||[]).map(x=>x.status+' '+x.n).join(', ')||'none')+
+          '<br>Engagement (30d): '+esc((e.by_platform_kind_classification||[]).map(x=>x.platform+' '+x.event_kind+'/'+x.classification+' '+x.n).join(', ')||'none')+
+          ' &nbsp; awaiting human response: <b>'+(e.awaiting_human_response||0)+'</b>'+
+          '<br>Governance: observe '+esc(e.governance&&e.governance.observe)+' · classify '+esc(e.governance&&e.governance.classify)+' · learn '+esc(e.governance&&e.governance.learn)+
+          ' · draft '+esc(e.governance&&e.governance.draft)+' · publish <b>'+esc(e.governance&&e.governance.publish)+'</b>';
+        const sw = [['marketing.social.insights_enabled', d.insights.gate.enabled, 'Insights ingestion (read-only)'],
+                    ['marketing.social.reply_draft_enabled', !!(e.governance && /enabled/.test(e.governance.draft||'')), 'Reply drafting (governed; never publishes)']];
+        document.getElementById('switches').innerHTML = sw.map(([k,v,l]) =>
+          '<div style="margin-top:.4rem"><label><input type="checkbox" data-key="'+esc(k)+'" '+(v?'checked':'')+'> '+esc(l)+' <code>'+esc(k)+'</code></label></div>').join('');
+        document.querySelectorAll('#switches input[type=checkbox]').forEach(cb => cb.addEventListener('change', async () => {
+          cb.disabled = true;
+          try { const r = await fetch('/api/admin/marketing-runtime/social-intelligence/switch', { method: 'PUT', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ key: cb.dataset.key, value: cb.checked }) });
+                const jj = await r.json(); if (!jj.success) { alert(jj.message || 'Update failed'); cb.checked = !cb.checked; } }
+          catch (_) { cb.checked = !cb.checked; } finally { cb.disabled = false; loadIntel(); }
+        }));
+      }catch(e){ document.getElementById('intel').textContent = 'Error loading.'; }
+    }
+    load(); loadIntel();
   </script>
 </body>
 </html>

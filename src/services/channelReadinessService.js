@@ -30,7 +30,8 @@ async function statusFor(channel) {
     case 'paid':
       // Paid is available only if at least one paid destination gate is on.
       if (await marketingConfig.getBool('marketing.destinations.google_ads_enabled', false)) return 'available';
-      if (await marketingConfig.getBool('marketing.destinations.meta_enabled', false)) return 'available';
+      // PAID Meta gate (split from the organic publishing gate marketing.destinations.meta_enabled — mig 146).
+      if (await marketingConfig.getBool('marketing.destinations.meta_ads_enabled', false)) return 'available';
       return 'gated';
     default:
       return 'unavailable';

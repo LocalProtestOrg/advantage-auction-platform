@@ -106,6 +106,53 @@ router.get('/social-destinations', async (req, res, next) => {
   try { return res.json({ success: true, data: await require('../services/socialReadinessService').evaluate() }); }
   catch (err) { next(err); }
 });
+
+// ── Organic social INTELLIGENCE (insights ingestion / engagement governance / webhook) — read-only status ──
+router.get('/social-intelligence', async (req, res, next) => {
+  try {
+    const insights = require('../services/socialInsightsService');
+    const engagement = require('../services/socialEngagementService');
+    const webhook = require('../services/metaWebhookService');
+    const learning = require('../services/socialLearningService');
+    return res.json({ success: true, data: {
+      insights: await insights.status(), engagement: await engagement.summary(null, { sinceDays: 30 }), webhook: await webhook.status(),
+      learning: { minimum_sample: learning.MIN_SAMPLE, material_relative_diff: learning.MATERIAL_RELATIVE_DIFF, dimensions: learning.DIMENSIONS },
+    } });
+  } catch (err) { next(err); }
+});
+// Intelligence switches (NOT the publishing gates — those stay Owner activation decisions). Booleans only.
+const INTELLIGENCE_SWITCHES = ['marketing.social.insights_enabled', 'marketing.social.reply_draft_enabled'];
+router.put('/social-intelligence/switch', async (req, res, next) => {
+  try {
+    const b = req.body || {}; const key = String(b.key || '');
+    if (INTELLIGENCE_SWITCHES.indexOf(key) === -1) return res.status(400).json({ success: false, message: 'Not an editable intelligence switch' });
+    if (typeof b.value !== 'boolean') return res.status(400).json({ success: false, message: 'value must be boolean' });
+    await require('../services/configService').setPlatformConfig(key, b.value);
+    return res.json({ success: true, data: { key, value: b.value } });
+  } catch (err) { next(err); }
+});
+// Manual bounded ingestion tick (read-only toward Meta; inert unless the insights switch is ON and REAL posts exist).
+router.post('/social-intelligence/tick', async (req, res, next) => {
+  try {
+    const insights = require('../services/socialInsightsService');
+    return res.json({ success: true, data: { posts: await insights.runOnce({ max: 10 }), accounts: await insights.snapshotAccounts() } });
+  } catch (err) { next(err); }
+});
+// Read-only identity check of ONE destination: does the referenced token resolve the configured account id?
+// Never enumerates /me/accounts (so other portfolio assets are never touched); never returns the token.
+router.post('/social-destinations/:id/verify', async (req, res, next) => {
+  try {
+    const svc = require('../services/socialDestinationService');
+    const dest = await svc.getById(req.params.id);
+    if (!dest) return res.status(404).json({ success: false, message: 'Destination not found' });
+    const provider = require('../services/metaGraphProvider').buildProvider(dest);
+    const out = await provider.verifyIdentity();
+    const detail = { ...(dest.readiness_detail || {}), identity_check: { at: new Date().toISOString(), ok: out.ok, resolved_id: out.resolved_id || null, name: out.name || null, error: out.error || null } };
+    if (out.ok && dest.platform === 'facebook' && out.linked_instagram_business_account_id) detail.identity_check.linked_instagram_business_account_id = out.linked_instagram_business_account_id;
+    await svc.setReadiness(dest.id, dest.readiness_status, detail);
+    return res.json({ success: true, data: { destination_id: dest.id, ...out } });
+  } catch (err) { next(err); }
+});
 // Upsert a destination (Page ID / IG account ID / credential ENV NAME / scope / active). Rejects raw secrets.
 router.post('/social-destinations', async (req, res, next) => {
   try {

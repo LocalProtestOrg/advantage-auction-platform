@@ -33,6 +33,16 @@ async function generate(runner) {
   const crossoverSize = counts['buyer_showing_seller_intent'] || 0;
   const stopped = await q(`SELECT count(*)::int n FROM marketing_decisions WHERE decision = 'stop'`);
 
+  // Organic social feedback (aggregate, explainable; never headlined) + honest gate states.
+  let social = null; let gates = { a9: false, metaOrganic: false, metaAds: false, google: false, a7: false };
+  try {
+    const cfg = require('./marketingConfigService');
+    gates = { a9: await cfg.getBool('marketing.a9_publish_enabled', false), metaOrganic: await cfg.getBool('marketing.destinations.meta_enabled', false),
+              metaAds: await cfg.getBool('marketing.destinations.meta_ads_enabled', false), google: await cfg.getBool('marketing.destinations.google_ads_enabled', false),
+              a7: await cfg.getBool('marketing.a7_send_enabled', false) };
+  } catch (_) { /* defaults */ }
+  try { social = await require('./socialLearningService').directorSummary(r, { sinceDays: 90 }); } catch (_) { social = null; }
+
   return {
     generated_for: 'owner',
     what_we_noticed: noticed,
@@ -43,10 +53,12 @@ async function generate(runner) {
     what_we_learned: learnings,
     what_we_stopped: stopped[0] ? stopped[0].n : 0,
     what_is_blocked: [
-      { item: 'A7 autonomous email', status: 'OFF (owner SES feedback loop + enable)' },
-      { item: 'Google Ads', status: 'OFF (not connected)' },
-      { item: 'Meta', status: 'OFF (not connected)' },
+      { item: 'A7 autonomous email', status: gates.a7 ? 'ON' : 'OFF (owner SES feedback loop + enable)' },
+      { item: 'Google Ads', status: gates.google ? 'ON' : 'OFF (not connected)' },
+      { item: 'Meta organic publishing (Facebook/Instagram)', status: gates.a9 && gates.metaOrganic ? 'ON' : `OFF (A9=${gates.a9 ? 'on' : 'off'}, Meta provider=${gates.metaOrganic ? 'on' : 'off'})` },
+      { item: 'Meta paid retargeting (Custom Audiences / Conversions API)', status: gates.metaAds ? 'ON' : 'OFF (separate gate; not connected)' },
     ],
+    social_organic: social,
     what_is_next: noticed.slice(0, 3).map((o) => o.subject_ref),
     standing_figures: {
       buyer_seller_crossover_audience: crossoverSize,

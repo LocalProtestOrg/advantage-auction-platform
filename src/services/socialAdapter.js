@@ -19,6 +19,7 @@ const obligationEngine = require('./marketingObligationEngine');
 const { runLadder } = require('./resilienceLadderService');
 const socialDestinations = require('./socialDestinationService');
 const metaGraphProvider = require('./metaGraphProvider');
+const { POLL_LADDER } = require('../lib/socialMetricCatalog');
 
 // Guaranteed wave plans per package identity.
 const WAVE_PLANS = {
@@ -97,11 +98,13 @@ async function publishWave(obligation, { auction, wave, referenceAt, creativeJob
   const copy = buildCopy(auction, wave);
   const readiness = provider.shadow === false ? 'ACTIVE' : 'SHADOW_CERTIFIED';
 
-  // Insert/lock the job row first (attempt counter).
+  // Insert/lock the job row first (attempt counter). Linkage columns (platform / destination / market /
+  // creative / copy style) are recorded at publish time so the intelligence loop can learn by dimension.
   const job = (await r.query(
-    `INSERT INTO marketing_social_jobs (obligation_id, auction_id, wave, provider, status, attempts, shadow, proof)
-     VALUES ($1,$2,$3,$4,'queued_shadow',1,$5,$6::jsonb) RETURNING *`,
-    [obligation.id || null, auction.auction_id, wave, provider.name, provider.shadow !== false, JSON.stringify({ copy })])).rows[0];
+    `INSERT INTO marketing_social_jobs (obligation_id, auction_id, wave, provider, status, attempts, shadow, proof, platform, destination_id, state_code, creative_job_id, copy_style)
+     VALUES ($1,$2,$3,$4,'queued_shadow',1,$5,$6::jsonb,$7,$8,$9,$10,$11) RETURNING *`,
+    [obligation.id || null, auction.auction_id, wave, provider.name, provider.shadow !== false, JSON.stringify({ copy }),
+     platform, provider.destination_id || null, socialDestinations.norm(stateCode), creativeJobId || null, copy.headline || null])).rows[0];
 
   if (!provider.active) {
     const ladder = runLadder('L_social', { readiness, provider: 'INACTIVE' }, { shadow: true });
@@ -119,9 +122,14 @@ async function publishWave(obligation, { auction, wave, referenceAt, creativeJob
 
   const isReal = resp.shadow === false;
   const proof = { post_id: resp.post_id, permalink: resp.permalink, published_at: resp.published_at, provider: resp.provider, copy };
+  // A REAL publish enters the bounded insights ladder (first window h1); shadow publishes never poll a provider.
+  const publishedAt = resp.published_at ? new Date(resp.published_at) : new Date();
+  const firstPoll = isReal ? new Date(publishedAt.getTime() + POLL_LADDER[0].afterMs).toISOString() : null;
   const updated = (await r.query(
-    `UPDATE marketing_social_jobs SET status=$6, post_id=$2, permalink=$3, published_at=$4, proof=$5::jsonb, shadow=$7 WHERE id=$1 RETURNING *`,
-    [job.id, resp.post_id, resp.permalink, resp.published_at, JSON.stringify(proof), isReal ? 'published' : 'published_shadow', !isReal])).rows[0];
+    `UPDATE marketing_social_jobs SET status=$6, post_id=$2, permalink=$3, published_at=$4, proof=$5::jsonb, shadow=$7,
+            insights_status=$8, next_insights_poll_at=$9 WHERE id=$1 RETURNING *`,
+    [job.id, resp.post_id, resp.permalink, resp.published_at || publishedAt.toISOString(), JSON.stringify(proof), isReal ? 'published' : 'published_shadow', !isReal,
+     isReal ? 'pending' : 'not_applicable', firstPoll])).rows[0];
 
   return {
     ok: true, shadow: resp.shadow !== false, job: updated, proof,

@@ -15,7 +15,9 @@ async function channelEnabled(channel) {
   if (channel === 'onsite') return marketingConfig.getBool('marketing.onsite.enabled', false);
   if (channel === 'a7_email' || channel === 'email') return marketingConfig.getBool('marketing.a7_send_enabled', false);
   if (channel === 'google_ads') return marketingConfig.getBool('marketing.destinations.google_ads_enabled', false);
-  if (channel === 'meta') return marketingConfig.getBool('marketing.destinations.meta_enabled', false);
+  // 'meta' here = PAID retargeting (Custom Audiences / CAPI). Its gate is SPLIT from organic publishing
+  // (marketing.destinations.meta_enabled + A9, handled by socialDispatchService) — see mig 146.
+  if (channel === 'meta' || channel === 'meta_ads') return marketingConfig.getBool('marketing.destinations.meta_ads_enabled', false);
   return false;
 }
 

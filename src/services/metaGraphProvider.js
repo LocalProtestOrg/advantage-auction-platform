@@ -21,6 +21,8 @@
  * marketing.destinations.meta_enabled is true AND a ready destination exists; both remain OFF during the build.
  */
 
+const { dig, reduceValue } = require('../lib/socialMetricCatalog');
+
 const DEFAULT_GRAPH_VERSION = process.env.META_GRAPH_VERSION || 'v21.0';
 const GRAPH_BASE = 'https://graph.facebook.com';
 
@@ -88,13 +90,137 @@ function buildProvider(destination, { http = defaultHttp, version = null } = {})
     return { ok: true, provider: 'instagram', post_id: mediaId, permalink, published_at: payload.reference_at || null, shadow: false };
   }
 
+  // ── READ-ONLY intelligence surface (read_insights / pages_read_engagement / instagram_basic /
+  //    instagram_manage_insights / instagram_manage_comments). Every call is a GET; nothing here writes to
+  //    Meta. Errors are sanitized (token never echoed); metric availability is explicit — never fabricated.
+  function redact(msg) { return token ? String(msg || '').split(token).join('[redacted]') : String(msg || ''); }
+  async function graphGet(pathWithQuery) {
+    const sep = pathWithQuery.indexOf('?') === -1 ? '?' : '&';
+    const url = `${GRAPH_BASE}/${ver}/${pathWithQuery}${sep}access_token=${encodeURIComponent(token)}`;
+    let r;
+    try { r = await http(url, { method: 'GET' }); }
+    catch (e) { return { ok: false, code: 'network', message: redact(e && e.message) }; }
+    if (!r || !r.ok || !r.json || r.json.error) {
+      const err = (r && r.json && r.json.error) || {};
+      return { ok: false, code: err.code != null ? String(err.code) : `http_${r && r.status}`, subcode: err.error_subcode || null,
+               message: redact(err.message || `graph_error_${r && r.status}`), status: r && r.status };
+    }
+    return { ok: true, json: r.json };
+  }
+  const notSupportedCode = (res) => res && (String(res.code) === '100' || String(res.code) === '3001' || String(res.code) === '80001');
+  const permissionCode = (res) => res && (String(res.code) === '10' || String(res.code) === '200' || String(res.code) === '190');
+
+  /**
+   * Read insights + object-field metrics for ONE published post/media. Returns
+   * { ok, metrics: { key: { value, availability, provider_metric } }, provider_status, error }.
+   * Unsupported metrics are retried INDIVIDUALLY so one deprecated metric never blanks the others.
+   */
+  async function fetchPostMetrics(postId, cat) {
+    if (!active) return { ok: false, metrics: {}, provider_status: 'error', error: 'provider_inactive' };
+    const metrics = {};
+    const setM = (spec, value, availability) => { metrics[spec.key] = { value: value == null ? null : Number(value), availability, provider_metric: spec.metric }; };
+    let anyError = false; let anyOk = false; let firstError = null;
+
+    // Insights (combined, then per-metric fallback for unsupported ones).
+    const names = cat.insights.map((s) => s.metric).join(',');
+    const combined = await graphGet(`${encodeURIComponent(postId)}/insights?metric=${names}`);
+    if (combined.ok) {
+      const data = Array.isArray(combined.json.data) ? combined.json.data : [];
+      for (const spec of cat.insights) {
+        const entry = data.find((d) => d.name === spec.metric);
+        const v = reduceValue(entry, spec);
+        if (entry && v != null) { setM(spec, v, 'available'); anyOk = true; } else setM(spec, null, 'unavailable');
+      }
+    } else if (notSupportedCode(combined)) {
+      for (const spec of cat.insights) {
+        const one = await graphGet(`${encodeURIComponent(postId)}/insights?metric=${spec.metric}`);
+        if (one.ok) {
+          const entry = (one.json.data || []).find((d) => d.name === spec.metric); const v = reduceValue(entry, spec);
+          if (entry && v != null) { setM(spec, v, 'available'); anyOk = true; } else setM(spec, null, 'unavailable');
+        } else if (notSupportedCode(one)) setM(spec, null, 'not_supported');
+        else { setM(spec, null, 'error'); anyError = true; firstError = firstError || one.message; }
+      }
+    } else {
+      anyError = true; firstError = combined.message;
+      for (const spec of cat.insights) setM(spec, null, permissionCode(combined) ? 'unavailable' : 'error');
+    }
+
+    // Object fields (comments/shares/likes summaries).
+    const fields = await graphGet(`${encodeURIComponent(postId)}?fields=${encodeURIComponent(cat.fields)}`);
+    if (fields.ok) {
+      for (const fm of cat.fieldMap) {
+        const v = dig(fields.json, fm.path);
+        if (fm.fallbackOnly && metrics[fm.key] && metrics[fm.key].availability === 'available') continue;
+        if (typeof v === 'number') { metrics[fm.key] = { value: v, availability: 'available', provider_metric: fm.path.join('.') }; anyOk = true; }
+        else if (!metrics[fm.key]) metrics[fm.key] = { value: null, availability: 'unavailable', provider_metric: fm.path.join('.') };
+      }
+    } else { anyError = true; firstError = firstError || fields.message; }
+
+    const provider_status = anyError ? (anyOk ? 'partial' : 'error') : 'ok';
+    return { ok: anyOk || !anyError, metrics, provider_status, error: anyError ? firstError : null };
+  }
+
+  /** Account-level daily facts (followers etc.). Aggregate only. */
+  async function fetchAccountMetrics(catalog) {
+    if (!active) return { ok: false, metrics: {}, provider_status: 'error', error: 'provider_inactive' };
+    const metrics = {}; let anyError = false; let anyOk = false; let firstError = null;
+    const f = await graphGet(`${encodeURIComponent(accountId)}?fields=${encodeURIComponent(catalog.fields)}`);
+    if (f.ok) {
+      for (const fm of catalog.fieldMap) {
+        const v = dig(f.json, fm.path);
+        if (typeof v === 'number') { metrics[fm.key] = { value: v, availability: 'available', provider_metric: fm.path.join('.') }; anyOk = true; }
+        else metrics[fm.key] = { value: null, availability: 'unavailable', provider_metric: fm.path.join('.') };
+      }
+    } else { anyError = true; firstError = f.message; }
+    for (const spec of catalog.insights || []) {
+      const extra = platform === 'instagram' ? '&metric_type=total_value' : '';
+      const one = await graphGet(`${encodeURIComponent(accountId)}/insights?metric=${spec.metric}&period=${spec.period || 'day'}${extra}`);
+      if (one.ok) {
+        const entry = (one.json.data || []).find((d) => d.name === spec.metric);
+        const v = entry && entry.total_value && typeof entry.total_value.value === 'number' ? entry.total_value.value : reduceValue(entry, spec);
+        metrics[spec.key] = { value: v == null ? null : Number(v), availability: v == null ? 'unavailable' : 'available', provider_metric: spec.metric };
+        if (v != null) anyOk = true;
+      } else if (notSupportedCode(one)) metrics[spec.key] = { value: null, availability: 'not_supported', provider_metric: spec.metric };
+      else { metrics[spec.key] = { value: null, availability: 'error', provider_metric: spec.metric }; anyError = true; firstError = firstError || one.message; }
+    }
+    return { ok: anyOk || !anyError, metrics, provider_status: anyError ? (anyOk ? 'partial' : 'error') : 'ok', error: anyError ? firstError : null };
+  }
+
+  /**
+   * Read comments on ONE of our posts (bounded page; NO author fields requested — data minimization).
+   * Facebook user comments additionally require pages_read_user_content; a permission error is reported as
+   * { ok:false, availability:'unavailable' } — never treated as "no comments".
+   */
+  async function fetchComments(postId, { limit = 50 } = {}) {
+    if (!active) return { ok: false, comments: [], availability: 'error', error: 'provider_inactive' };
+    const fields = platform === 'instagram' ? 'id,text,timestamp' : 'id,message,created_time';
+    const r = await graphGet(`${encodeURIComponent(postId)}/comments?fields=${fields}&limit=${Math.min(100, Math.max(1, limit))}`);
+    if (!r.ok) return { ok: false, comments: [], availability: permissionCode(r) ? 'unavailable' : 'error', error: r.message };
+    const list = Array.isArray(r.json.data) ? r.json.data : [];
+    return { ok: true, availability: 'available', comments: list.map((c) => ({
+      id: c.id, text: c.text != null ? c.text : c.message, occurred_at: c.timestamp || c.created_time || null })) };
+  }
+
+  /** Read-only identity check: does the configured token resolve the configured account id? (Never enumerates /me/accounts.) */
+  async function verifyIdentity() {
+    if (!active) return { ok: false, error: reasonInactive() };
+    const fields = platform === 'instagram' ? 'id,username' : 'id,name,instagram_business_account';
+    const r = await graphGet(`${encodeURIComponent(accountId)}?fields=${fields}`);
+    if (!r.ok) return { ok: false, error: r.message, code: r.code };
+    const j = r.json;
+    return { ok: String(j.id) === String(accountId), resolved_id: j.id, name: j.name || j.username || null,
+             linked_instagram_business_account_id: j.instagram_business_account ? j.instagram_business_account.id : null };
+  }
+  function reasonInactive() { return !token ? 'missing_credential' : 'missing_account_id'; }
+
   return {
     name: 'meta', platform, active, shadow: false,
-    reason: active ? null : (!token ? 'missing_credential' : 'missing_account_id'),
+    reason: active ? null : reasonInactive(),
     async publish(payload) {
       if (!active) return { ok: false, error: this.reason || 'provider_inactive' };
       return platform === 'instagram' ? publishInstagram(payload) : publishFacebook(payload);
     },
+    fetchPostMetrics, fetchAccountMetrics, fetchComments, verifyIdentity,
   };
 }
 

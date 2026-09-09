@@ -50,7 +50,10 @@ const DESTINATIONS = {
       'public consent mechanism for external retargeting',
     ],
     export_shape: { custom_audience_ref: null, members: 'hashed_email[] (never raw)', inclusion: true, consent_flag: true },
-    enabled_config_key: 'marketing.destinations.meta_enabled',
+    // PAID Meta (Custom Audiences / CAPI / Marketing API) has its OWN gate, split from the ORGANIC publishing
+    // gate `marketing.destinations.meta_enabled` (mig 146) — enabling organic posting never authorizes paid retargeting.
+    enabled_config_key: 'marketing.destinations.meta_ads_enabled',
+    organic_publishing_gate: 'marketing.destinations.meta_enabled',
   },
   onsite: {
     label: 'Onsite personalization (first-party)', kind: 'first_party',

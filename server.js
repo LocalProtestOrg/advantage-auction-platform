@@ -474,6 +474,7 @@ app.use(logger);
 // required for signature verification.
 app.use((req, res, next) => {
   if (req.path === '/api/payments/webhook') return next();
+  if (req.path === '/api/meta/webhook') return next();   // Meta X-Hub-Signature-256 needs the raw body
   express.json()(req, res, next);
 });
 
@@ -597,6 +598,7 @@ app.use('/api/lots', lotRoutes);
 app.use('/api/terms', termsRoutes);
 app.use('/api/marketing', marketingRoutes);
 app.use('/api/ses', sesFeedbackRoutes);
+app.use('/api/meta', require('./src/routes/metaWebhook'));   // Meta webhook receiver (verified, idempotent, read-only; 503 until configured)
 app.use('/api/payout-preferences', payoutPreferencesRoutes);
 app.use('/api/payout-profile', payoutProfileRoutes);
 app.use('/api/seller/settlements', sellerSettlementsRoutes);
@@ -801,6 +803,9 @@ server.listen(PORT, () => {
     // Autonomous ORGANIC social dispatch. Claims social_dispatch jobs and publishes via socialAdapter/Meta.
     // DOUBLE self-gated on marketing.a9_publish_enabled + marketing.destinations.meta_enabled (both OFF → inert).
     spawnWorker(path.join(__dirname, 'src/workers/marketingSocialDispatchWorker.js'));
+    // Organic social INSIGHTS ingestion (read-only toward Meta). Self-gated on marketing.social.insights_enabled
+    // and structurally inert until a REAL post exists; never publishes/replies/spends.
+    spawnWorker(path.join(__dirname, 'src/workers/marketingSocialInsightsWorker.js'));
     // Phase 3O Marketing Package fulfillment monitor (SHADOW). Self-gates on marketing.pkg.enabled;
     // advances obligations, never sends/publishes/spends on a non-ACTIVE channel (shadow evidence only).
     try { require('./src/services/marketingFulfillmentWorker').start(); } catch (e) { log.error('marketing', 'fulfillment monitor start failed', { error: e.message }); }

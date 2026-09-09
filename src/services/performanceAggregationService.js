@@ -77,15 +77,24 @@ async function aggregate({ purchaseKind, purchaseId, obligations = [], auctionFa
       } else { internal.shadow_only.push({ feature_key: key, source: 'dedicated_shadow' }); }
     }
 
-    // Social — publication proof (DELIVERED); engagement ATTRIBUTION_UNAVAILABLE unless provider metrics exist.
+    // Social — publication proof (DELIVERED: a REAL provider publish has status 'published' + shadow=false);
+    // engagement/reach are MEASURED only when the insights loop captured AVAILABLE provider metrics
+    // (marketing_social_metric_snapshots), otherwise ATTRIBUTION_UNAVAILABLE. Shadow stays internal.
     const soc = (await r.query(
-      `SELECT count(*) FILTER (WHERE status='published_shadow' AND shadow=false) real_pub,
-              count(*) FILTER (WHERE status='published_shadow') any_pub
+      `SELECT count(*) FILTER (WHERE status='published' AND shadow=false) real_pub,
+              count(*) FILTER (WHERE status IN ('published_shadow','published')) any_pub
          FROM marketing_social_jobs WHERE obligation_id=$1`, [ob.id])).rows[0];
     if (soc) {
       if (Number(soc.real_pub) > 0) {
         metrics[key] = { classification: CLASS.DELIVERED, value: Number(soc.real_pub) };
-        await writeFact(r, { purchaseKind, purchaseId, obligationId: ob.id, metric: `${key}_engagement`, classification: CLASS.UNAVAILABLE, value: null, source: 'social' });
+        const snap = (await r.query(
+          `SELECT ms.metrics FROM marketing_social_metric_snapshots ms JOIN marketing_social_jobs j ON j.id = ms.social_job_id
+            WHERE j.obligation_id=$1 AND j.shadow=false ORDER BY ms.observed_at DESC`, [ob.id])).rows;
+        const sum = (k) => snap.reduce((acc, s) => { const m = s.metrics && s.metrics[k]; return m && m.availability === 'available' && typeof m.value === 'number' ? (acc == null ? 0 : acc) + m.value : acc; }, null);
+        const reach = sum('reach'); const eng = ['reactions', 'comments', 'shares', 'saves', 'clicks'].map(sum).reduce((a, v) => (v == null ? a : (a == null ? 0 : a) + v), null);
+        if (reach != null) await writeFact(r, { purchaseKind, purchaseId, obligationId: ob.id, metric: `${key}_reach`, classification: CLASS.MEASURED, value: reach, source: 'meta_insights' });
+        if (eng != null) { metrics[key] = { classification: CLASS.MEASURED, value: eng }; await writeFact(r, { purchaseKind, purchaseId, obligationId: ob.id, metric: `${key}_engagement`, classification: CLASS.MEASURED, value: eng, source: 'meta_insights' }); }
+        else await writeFact(r, { purchaseKind, purchaseId, obligationId: ob.id, metric: `${key}_engagement`, classification: CLASS.UNAVAILABLE, value: null, source: 'social' });
       } else if (Number(soc.any_pub) > 0) { internal.shadow_only.push({ feature_key: key, source: 'social_shadow' }); }
     }
   }

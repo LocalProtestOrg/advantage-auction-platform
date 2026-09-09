@@ -144,4 +144,19 @@ router.post('/learning', superOnly, async (req, res, next) => {
   catch (e) { res.status(400).json({ success: false, message: e.message }); }
 });
 
+// ── Organic social feedback loop (read: explainable aggregates; write: durable correlational learnings) ──
+router.get('/social-performance', async (req, res, next) => {
+  try {
+    const days = Math.min(365, Math.max(7, Number(req.query.days) || 90));
+    res.json({ success: true, social: await require('./../services/socialLearningService').directorSummary(null, { sinceDays: days }) });
+  } catch (e) { next(e); }
+});
+router.post('/social-learning/record', superOnly, async (req, res, next) => {
+  try {
+    const b = req.body || {};
+    const out = await require('./../services/socialLearningService').recordLearnings(null, { sinceDays: Math.min(365, Math.max(7, Number(b.days) || 90)), dryRun: b.dry_run === true });
+    res.json({ success: true, ...out });
+  } catch (e) { res.status(400).json({ success: false, message: e.message }); }
+});
+
 module.exports = router;

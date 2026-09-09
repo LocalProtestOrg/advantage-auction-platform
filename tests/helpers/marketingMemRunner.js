@@ -10,7 +10,7 @@
 
 function makeStore() {
   return {
-    reservations: [], placementEvidence: [], editions: [], cards: [], dedicated: [], social: [], perfFacts: [],
+    reservations: [], placementEvidence: [], editions: [], cards: [], dedicated: [], social: [], socialSnapshots: [], perfFacts: [],
     obs: [], events: [], allocations: [], allocEntries: [],
     purchases: {}, promotions: {}, readiness: [],
     suppressions: [], deliverability: {}, _seq: 0,
@@ -174,8 +174,12 @@ function makeRunner(store) {
       }
       if (/count\(\*\) FILTER .*FROM marketing_social_jobs WHERE obligation_id=\$1/.test(s)) {
         const jobs = store.social.filter((j) => j.obligation_id === params[0]);
-        return { rows: [{ real_pub: jobs.filter((j) => j.status === 'published_shadow' && j.shadow === false).length,
-                          any_pub: jobs.filter((j) => j.status === 'published_shadow').length }] };
+        return { rows: [{ real_pub: jobs.filter((j) => j.status === 'published' && j.shadow === false).length,
+                          any_pub: jobs.filter((j) => j.status === 'published_shadow' || j.status === 'published').length }] };
+      }
+      if (/SELECT ms\.metrics FROM marketing_social_metric_snapshots ms JOIN marketing_social_jobs j/.test(s)) {
+        const ids = store.social.filter((j) => j.obligation_id === params[0] && j.shadow === false).map((j) => j.id);
+        return { rows: (store.socialSnapshots || []).filter((x) => ids.includes(x.social_job_id)).map((x) => ({ metrics: x.metrics })) };
       }
 
       // ── Performance facts ──

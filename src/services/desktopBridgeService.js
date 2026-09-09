@@ -26,6 +26,13 @@ async function buildRuntimeExport(windowLabel, runner) {
   const ladderOutcomes = (await r.query(`SELECT rung, count(*)::int n FROM marketing_obligation_events WHERE rung IS NOT NULL GROUP BY rung`)).rows;
   const substitutions = (await r.query(`SELECT count(*)::int n FROM marketing_obligations WHERE state='substituted'`)).rows[0].n;
   const readiness = (await r.query(`SELECT channel_key, state FROM marketing_channel_readiness`)).rows;
+  // Organic social aggregates (per-dimension engagement; counts only — no identities, no excerpts, no economics).
+  let socialOrganic = null;
+  try {
+    const s = await require('./socialLearningService').directorSummary(r, { sinceDays: 90 });
+    socialOrganic = { posts_published: s.posts_published, posts_measured: s.posts_measured, overall_engagement_rate: s.overall_engagement_rate,
+      by_dimension: s.by_dimension, honest_gaps: s.honest_gaps, downstream_totals: s.downstream && s.downstream.totals };
+  } catch (_) { socialOrganic = null; }
   const payload = {
     window_label: windowLabel || 'rolling',
     obligations_by_state: byState,
@@ -33,6 +40,7 @@ async function buildRuntimeExport(windowLabel, runner) {
     ladder_outcomes: ladderOutcomes,
     substitutions,
     channel_readiness: readiness,
+    social_organic: socialOrganic,
     generated_note: 'Aggregate + opaque ids only. No names, emails, addresses, card data, recipient records, or credentials.',
   };
   // Assert no PII slipped in.
