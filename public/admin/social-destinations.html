@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="noindex" />
+  <title>Admin — Social Destinations</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { font-family: -apple-system, Segoe UI, Roboto, sans-serif; margin: 0; background: #f8fafc; color: #1f2937; }
+    header { background: #0f172a; color: #fff; padding: 0.9rem 1.25rem; }
+    header h1 { font-size: 1.05rem; margin: 0; }
+    main { max-width: 1000px; margin: 1.25rem auto; padding: 0 1rem; display: grid; gap: 1.1rem; }
+    .card { background: #fff; border: 1px solid #e5e7eb; border-radius: 8px; padding: 1rem 1.1rem; }
+    .card h2 { font-size: 0.95rem; margin: 0 0 0.6rem; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+    th, td { text-align: left; padding: 0.4rem 0.5rem; border-bottom: 1px solid #eef2f7; }
+    .pill { display: inline-block; padding: 0.1rem 0.5rem; border-radius: 999px; font-size: 0.72rem; font-weight: 600; }
+    .ready { background: #dcfce7; color: #166534; }
+    .incomplete { background: #fef9c3; color: #854d0e; }
+    .not_configured { background: #e5e7eb; color: #475569; }
+    .error { background: #fee2e2; color: #991b1b; }
+    .off { background: #e5e7eb; color: #475569; }
+    .on { background: #dcfce7; color: #166534; }
+    .muted { color: #64748b; font-size: 0.78rem; }
+    code { background: #f1f5f9; padding: 0.05rem 0.3rem; border-radius: 4px; font-size: 0.76rem; }
+  </style>
+</head>
+<body>
+  <header><h1>Advantage.Bid — Social Destinations & Readiness</h1></header>
+  <main>
+    <div class="card">
+      <h2>Publish gates</h2>
+      <div id="gates" class="muted">Loading…</div>
+      <p class="muted">Both gates must be ON to publish externally. They are managed by the Owner and remain OFF during setup.
+        Tokens are never shown here — a destination references the <b>name</b> of a Railway env var.</p>
+    </div>
+    <div class="card">
+      <h2>Destinations</h2>
+      <table id="tbl"><thead><tr><th>Destination</th><th>Scope</th><th>Account ID</th><th>Credential</th><th>Active</th><th>Readiness</th></tr></thead>
+        <tbody id="rows"><tr><td colspan="6" class="muted">Loading…</td></tr></tbody></table>
+      <p class="muted">Add a future state Page by creating a row (same shared token env, just a new Page ID). One broken state Page never disables the others or the national fallback.</p>
+    </div>
+  </main>
+  <script>
+    function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+    async function load(){
+      try{
+        const res = await fetch('/api/admin/marketing-runtime/social-destinations', { credentials: 'include' });
+        const j = await res.json();
+        if(!j.success){ document.getElementById('gates').textContent = 'Not authorized.'; return; }
+        const g = j.data.gates;
+        document.getElementById('gates').innerHTML =
+          'A9 publish authorization: <span class="pill '+(g.a9_publish_enabled?'on':'off')+'">'+(g.a9_publish_enabled?'ON':'OFF')+'</span> &nbsp; '+
+          'Meta provider: <span class="pill '+(g.meta_provider_enabled?'on':'off')+'">'+(g.meta_provider_enabled?'ON':'OFF')+'</span> &nbsp; '+
+          'Publishing: <span class="pill '+(g.publish_authorized?'on':'off')+'">'+(g.publish_authorized?'AUTHORIZED':'OFF')+'</span>';
+        const rows = (j.data.destinations||[]).map(d =>
+          '<tr><td>'+esc(d.label)+'</td><td>'+esc(d.scope)+(d.state_code?(' / '+esc(d.state_code)):'')+'</td>'+
+          '<td>'+(d.provider_account_id?esc(d.provider_account_id):'<span class="muted">—</span>')+'</td>'+
+          '<td><code>'+esc(d.credential_env_name||'—')+'</code> '+(d.credential_present?'<span class="pill ready">present</span>':'<span class="pill not_configured">unset</span>')+'</td>'+
+          '<td>'+(d.active?'Yes':'No')+'</td>'+
+          '<td><span class="pill '+esc(d.readiness_status)+'">'+esc((d.readiness_status||'').replace('_',' '))+'</span></td></tr>'
+        ).join('');
+        document.getElementById('rows').innerHTML = rows || '<tr><td colspan="6" class="muted">No destinations.</td></tr>';
+      }catch(e){ document.getElementById('gates').textContent = 'Error loading.'; }
+    }
+    load();
+  </script>
+</body>
+</html>

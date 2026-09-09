@@ -17,6 +17,8 @@ const db = require('../db');
 const marketingConfig = require('./marketingConfigService');
 const obligationEngine = require('./marketingObligationEngine');
 const { runLadder } = require('./resilienceLadderService');
+const socialDestinations = require('./socialDestinationService');
+const metaGraphProvider = require('./metaGraphProvider');
 
 // Guaranteed wave plans per package identity.
 const WAVE_PLANS = {
@@ -44,11 +46,22 @@ const mockProvider = {
   },
 };
 
-// Resolve the ACTIVE provider. FB/IG are gated OFF -> only the mock (shadow) provider is available.
-async function resolveProvider() {
-  const fbOn = await marketingConfig.getBool('marketing.destinations.meta_enabled', false);
-  if (fbOn) return { name: 'meta', active: true, shadow: false, publish: async () => ({ ok: false, error: 'live_provider_not_wired' }) };
-  return mockProvider; // shadow
+/**
+ * Resolve the provider for a platform + geography. When the Meta destination gate is OFF (default), the MOCK
+ * (shadow) provider is returned so the full lifecycle runs without ever contacting a network. When the gate is
+ * ON, the multi-market registry resolves the destination (state override → national fallback); a real
+ * metaGraphProvider is bound to it (active only if its token + account ID are present). No ready destination →
+ * an inactive provider so publishWave routes to readiness/resilience (never a false completion). Page identity
+ * is NEVER hard-coded here — it comes from the registry.
+ */
+async function resolveProvider({ platform = 'facebook', stateCode = null } = {}, runner) {
+  const metaOn = await marketingConfig.getBool('marketing.destinations.meta_enabled', false);
+  if (!metaOn) return mockProvider; // gate OFF → shadow
+  const { destination, reason } = await socialDestinations.resolveDestination({ platform, stateCode }, runner);
+  if (!destination) return { name: 'meta', platform, active: false, shadow: false, reason: 'no_destination', publish: async () => ({ ok: false, error: 'no_destination' }) };
+  const provider = metaGraphProvider.buildProvider(destination);
+  provider.destination_reason = reason; provider.destination_id = destination.id;
+  return provider;
 }
 
 /**
@@ -70,17 +83,17 @@ function buildCopy(auction, wave) {
  * or real) returns its stored proof. Retries increment attempts. Never falsely completes: shadow proof is
  * distinguishable (shadow=true) and does not satisfy a provider_verified obligation.
  */
-async function publishWave(obligation, { auction, wave, referenceAt, creativeJobId }, runner) {
+async function publishWave(obligation, { auction, wave, referenceAt, creativeJobId, platform = 'facebook', stateCode = null, imageUrl = null }, runner) {
   const r = runner || db;
-  const idem = `${obligation.id || auction.auction_id}:${wave}`;
+  const idem = `${obligation.id || auction.auction_id}:${wave}:${platform}`;
   const existing = (await r.query(
-    `SELECT * FROM marketing_social_jobs WHERE obligation_id=$1 AND wave=$2 ORDER BY created_at DESC LIMIT 1`,
-    [obligation.id || null, wave])).rows[0];
-  if (existing && ['published_shadow'].includes(existing.status)) {
+    `SELECT * FROM marketing_social_jobs WHERE obligation_id=$1 AND wave=$2 AND provider LIKE $3 ORDER BY created_at DESC LIMIT 1`,
+    [obligation.id || null, wave, platform === 'instagram' ? '%instagram%' : '%'])).rows[0];
+  if (existing && ['published_shadow', 'published'].includes(existing.status)) {
     return { ok: true, idempotent_replay: true, job: existing };
   }
 
-  const provider = await module.exports.resolveProvider();
+  const provider = await module.exports.resolveProvider({ platform, stateCode }, r);
   const copy = buildCopy(auction, wave);
   const readiness = provider.shadow === false ? 'ACTIVE' : 'SHADOW_CERTIFIED';
 
@@ -97,17 +110,18 @@ async function publishWave(obligation, { auction, wave, referenceAt, creativeJob
     return { ok: false, reason: 'provider_inactive', ladder, job };
   }
 
-  const resp = await provider.publish({ idempotency_key: idem, reference_at: referenceAt, copy, creative_job_id: creativeJobId });
+  const resp = await provider.publish({ idempotency_key: idem, reference_at: referenceAt, copy, creative_job_id: creativeJobId, image_url: imageUrl });
   if (!resp.ok) {
     await r.query(`UPDATE marketing_social_jobs SET status='failed' WHERE id=$1`, [job.id]);
     const ladder = runLadder('L_social', { readiness, provider: 'PUBLISH_FAILED' }, { shadow: true });
     return { ok: false, reason: 'publish_failed', detail: resp.error, ladder, job };
   }
 
+  const isReal = resp.shadow === false;
   const proof = { post_id: resp.post_id, permalink: resp.permalink, published_at: resp.published_at, provider: resp.provider, copy };
   const updated = (await r.query(
-    `UPDATE marketing_social_jobs SET status='published_shadow', post_id=$2, permalink=$3, published_at=$4, proof=$5::jsonb WHERE id=$1 RETURNING *`,
-    [job.id, resp.post_id, resp.permalink, resp.published_at, JSON.stringify(proof)])).rows[0];
+    `UPDATE marketing_social_jobs SET status=$6, post_id=$2, permalink=$3, published_at=$4, proof=$5::jsonb, shadow=$7 WHERE id=$1 RETURNING *`,
+    [job.id, resp.post_id, resp.permalink, resp.published_at, JSON.stringify(proof), isReal ? 'published' : 'published_shadow', !isReal])).rows[0];
 
   return {
     ok: true, shadow: resp.shadow !== false, job: updated, proof,

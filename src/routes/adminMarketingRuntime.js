@@ -101,6 +101,31 @@ router.get('/performance/:purchaseId', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
+// ── Meta organic social destinations (multi-market registry) — Super-Admin; NEVER returns/accepts a token ──
+router.get('/social-destinations', async (req, res, next) => {
+  try { return res.json({ success: true, data: await require('../services/socialReadinessService').evaluate() }); }
+  catch (err) { next(err); }
+});
+// Upsert a destination (Page ID / IG account ID / credential ENV NAME / scope / active). Rejects raw secrets.
+router.post('/social-destinations', async (req, res, next) => {
+  try {
+    const b = req.body || {};
+    // Defense in depth: never let a token-looking value be stored as an identifier or credential_ref.
+    for (const [k, v] of Object.entries(b)) {
+      if (typeof v === 'string' && v.length > 80 && /[A-Za-z0-9]{40,}/.test(v)) {
+        return res.status(400).json({ success: false, message: `Field ${k} looks like a secret. Store the token as a Railway env var and reference its NAME in credential_ref.` });
+      }
+    }
+    const svc = require('../services/socialDestinationService');
+    const saved = await svc.upsert({
+      id: b.id, platform: b.platform, scope: b.scope, stateCode: b.stateCode, marketKey: b.marketKey, label: b.label,
+      providerAccountId: b.providerAccountId, linkedFacebookPageId: b.linkedFacebookPageId,
+      credentialRef: b.credentialRef, priority: b.priority, active: b.active,
+    });
+    return res.json({ success: true, data: svc.toAdminView(saved) });
+  } catch (err) { next(err); }
+});
+
 // Channel-execution evidence for a purchase's obligations (placement/email/social) — DISTINGUISHES shadow.
 router.get('/evidence/:purchaseId', async (req, res, next) => {
   try {
