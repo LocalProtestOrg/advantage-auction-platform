@@ -358,6 +358,44 @@ describe('metaWebhookService — verified, replay-protected, tenant-isolated', (
   });
 });
 
+// ── Readiness re-evaluation preserves the admin Verify (identity_check) result ──
+describe('socialReadinessService.evaluate — identity_check detail survives re-evaluation', () => {
+  const readiness = require('../src/services/socialReadinessService');
+  const identity = { at: '2026-09-09T16:40:00.000Z', ok: true, resolved_id: '449143945236360', name: 'Advantage.Bid', error: null };
+  function runnerFor(rows, writes) {
+    return { query: async (sql, params = []) => {
+      const s = String(sql);
+      if (/FROM marketing_social_destinations ORDER BY/.test(s)) return { rows };
+      if (/UPDATE marketing_social_destinations SET readiness_status=\$2, readiness_detail=\$3::jsonb/.test(s)) { writes.push({ id: params[0], status: params[1], detail: JSON.parse(params[2]) }); return { rows: [] }; }
+      return { rows: [] };
+    } };
+  }
+  beforeEach(() => { process.env.RD_TOK = 'zq-secret-value-77'; });
+  afterEach(() => { delete process.env.RD_TOK; });
+
+  test('status change (not_configured → incomplete) persists checks AND keeps identity_check; admin view shows it', async () => {
+    const writes = [];
+    const rows = [{ ...DEST_FB, credential_ref: 'RD_TOK', active: false, readiness_status: 'not_configured', readiness_detail: { identity_check: identity } }];
+    const out = await readiness.evaluate(runnerFor(rows, writes));
+    expect(writes.length).toBe(1);
+    expect(writes[0].status).toBe('incomplete');
+    expect(writes[0].detail.identity_check).toEqual(identity);
+    expect(writes[0].detail.account_id.status).toBe('PASS'); expect(writes[0].detail.active_flag.status).toBe('FAIL');
+    expect(out.destinations[0].readiness_detail.identity_check).toEqual(identity);
+    expect(out.destinations[0].readiness_status).toBe('incomplete');
+    expect(JSON.stringify(out)).not.toContain('zq-secret-value-77'); // token value never exposed
+  });
+  test('no status change → nothing rewritten, view still carries identity_check; no identity_check → none invented', async () => {
+    const writes = [];
+    const rows = [{ ...DEST_FB, credential_ref: 'RD_TOK', active: false, readiness_status: 'incomplete', readiness_detail: { account_id: { status: 'PASS' }, identity_check: identity } },
+                  { ...DEST_IG, credential_ref: 'RD_TOK', active: false, readiness_status: 'not_configured', readiness_detail: {} }];
+    const out = await readiness.evaluate(runnerFor(rows, writes));
+    expect(writes.length).toBe(1); expect(writes[0].id).toBe('dest-ig'); expect(writes[0].detail.identity_check).toBeUndefined();
+    expect(out.destinations[0].readiness_detail.identity_check).toEqual(identity);
+    expect(out.destinations[1].readiness_detail.identity_check).toBeUndefined();
+  });
+});
+
 // ── Organic vs PAID boundary ──
 describe('retargeting boundary — organic publishing gate never authorizes paid Meta', () => {
   test('executionAuthorization channel meta reads meta_ads_enabled; organic meta_enabled ON leaves paid OFF', async () => {

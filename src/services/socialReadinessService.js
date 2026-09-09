@@ -42,8 +42,12 @@ async function evaluate(runner) {
   const dests = [];
   for (const d of rows) {
     const ev = evaluateDestination(d);
-    if (ev.status !== d.readiness_status) await destinations.setReadiness(d.id, ev.status, ev.checks, r).catch(() => {});
-    dests.push({ ...destinations.toAdminView({ ...d, readiness_status: ev.status, readiness_detail: ev.checks }), evaluation: ev.checks });
+    // Preserve the admin Verify result (identity_check) across re-evaluation: the derived checks are
+    // recomputed every time, but the last provider identity lookup is a durable fact, not a derived check.
+    const prior = (d.readiness_detail && typeof d.readiness_detail === 'object') ? d.readiness_detail : {};
+    const detail = prior.identity_check ? { ...ev.checks, identity_check: prior.identity_check } : { ...ev.checks };
+    if (ev.status !== d.readiness_status) await destinations.setReadiness(d.id, ev.status, detail, r).catch(() => {});
+    dests.push({ ...destinations.toAdminView({ ...d, readiness_status: ev.status, readiness_detail: detail }), evaluation: ev.checks });
   }
   const anyReadyNational = dests.some((d) => d.scope === 'national' && d.readiness_status === 'ready');
   return {
