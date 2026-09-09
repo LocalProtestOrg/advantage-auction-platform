@@ -110,7 +110,36 @@
       "enum": [
         "CREATIVE_READY",
         "RERUN_DIFFERENT_FAMILY",
-        "BLOCKED_FIDELITY_REVIEW"
+        "BLOCKED_FIDELITY_REVIEW",
+        "REGENERATE",
+        "FALLBACK_DEFAULT_FAMILY",
+        "BLOCKED_CALIBRATION",
+        "OWNER_REVIEW",
+        "HARD_FAIL",
+        "NOT_FOR_PUBLICATION"
+      ]
+    },
+    "calibration_score": {
+      "type": "number"
+    },
+    "calibration_breakdown": {
+      "type": "object"
+    },
+    "similarity": {
+      "type": "object"
+    },
+    "seller_mark_leak": {
+      "type": "boolean"
+    },
+    "owner_review_required": {
+      "type": "boolean"
+    },
+    "publication_status": {
+      "enum": [
+        "HELD_FOR_OWNER_REVIEW",
+        "NOT_FOR_PUBLICATION",
+        "OWNER_APPROVED",
+        "OWNER_REJECTED"
       ]
     }
   },

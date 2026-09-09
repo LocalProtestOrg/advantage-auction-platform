@@ -1,0 +1,137 @@
+{
+  "schema_version": "1.0",
+  "reference_id": "REF-01",
+  "identity": {
+    "sha256": "f6579f4cc853e5dde24ac5433918f344538ea7b22e8c8b2b992cae7b1c441f1d",
+    "current_path": "auction/672745885_1643034594033321_942085276301047945_n.jpg",
+    "original_filename": "672745885_1643034594033321_942085276301047945_n.jpg",
+    "width": 1086,
+    "height": 1448,
+    "format_class": "portrait",
+    "aspect_ratio": 0.75
+  },
+  "owner_status": "OWNER_APPROVED",
+  "owner_weight": 1.0,
+  "status_history": [
+    {
+      "date": "2026-09-09",
+      "status": "OWNER_APPROVED",
+      "source": "folder_placement_by_owner",
+      "owner_words": "Owner placed the file in docs/marketing/approved-creative-examples/auction/ as a good example of creative work.",
+      "recorded_by": "Desktop Marketing — Phase 3P"
+    }
+  ],
+  "source": {
+    "seller": "Lewis & Maese",
+    "origin": "Seller-published social creative, Owner-selected",
+    "rights": "Third-party seller artwork selected by the Owner as calibration evidence. Never reproduce, never pass to a generator as image input, never publish. Only the transferable principles leave this record.",
+    "campaign_title_visible": "Rock Specimen & Designer Purse Auction",
+    "event_date_visible": "Tuesday, April 29 · starting at noon CT · Online only",
+    "advantage_bid_visible": false
+  },
+  "classification": {
+    "campaign_class_primary": "auction",
+    "campaign_class_secondary": [
+      "notable_lot"
+    ],
+    "event_product_type": "Online-only specialty auction (mineral specimens + designer purses)",
+    "seller_hierarchy": "seller_led_solo",
+    "visual_family": "PHOTO_STILL_LIFE",
+    "nearest_advantage_family": "CATEGORY_GROUP",
+    "event_mode": "online_only",
+    "merchandise_breadth": "single_category",
+    "owner_folder": "auction"
+  },
+  "visual_read": {
+    "visual_hierarchy": "Title stack top-left (ROCK SPECIMEN dark serif, & and DESIGNER PURSE / AUCTION in orange, AUCTION largest) → date/time/online-only → 'Featuring' line → CTA box → seller logo bottom-left. Merchandise owns the right two-thirds and the whole lower half.",
+    "merchandise_treatment": "One real photographed still life of six mineral specimens (pink agate geode slice, clear quartz point, pyrite cluster, lapis block, labradorite slab, druzy heart) on a white marble surface with natural cast shadows. Not extracted — physically arranged and lit. Purses named in the title are not shown.",
+    "composition_style": "Left text column over a continuous photograph; objects rise from bottom-right toward the top-right so the title sits in the open marble at top-left. Thin orange rule frame around the whole ad.",
+    "typography_treatment": "Formal serif caps for the title with small-caps feel; heavy sans for date and 'ONLINE ONLY'; italic 'Featuring'. Orange as the single accent colour; ornamental divider glyphs.",
+    "information_density": "medium",
+    "branding_hierarchy": "Seller name and descriptor bottom-left at moderate size with the tagline 'Trusted. Experienced. Results.' — identity closes the ad rather than opening it.",
+    "cta_treatment": "One boxed CTA: 'BID ONLINE! LMAuctionCo.com' (cream rounded box, orange outline). Factual — the auction is online-only.",
+    "footer_treatment": "No band. Seller logo + tagline act as the footer; orange frame closes the canvas.",
+    "photographic_style": "Studio still-life photography on marble, soft directional light, real shadows and reflections.",
+    "overlapping_objects": "physical_still_life",
+    "environmental_staged_composition": "Physically staged tabletop still life; the marble surface is the environment.",
+    "negative_space": "modest",
+    "ground": "white",
+    "overall_visual_impact": "high"
+  },
+  "measured": {
+    "light_pixel_pct": 40.9,
+    "dark_pixel_pct": 7.8,
+    "saturated_pixel_pct": 11.7,
+    "dominant_hues": [
+      "magenta 33%",
+      "azure 27%",
+      "red 23%"
+    ],
+    "est_merchandise_share_pct": [
+      50,
+      60
+    ],
+    "est_text_share_pct": [
+      14,
+      20
+    ],
+    "object_count_est": 6,
+    "text_block_count": 5
+  },
+  "strongest_attributes": [
+    "Colour comes entirely from the merchandise (pink, blue, iridescent) on a near-white ground",
+    "Confident serif title with one accent colour and the biggest word being AUCTION",
+    "Real shadows and a real surface make the objects feel present and valuable",
+    "Text column leaves the objects uncovered; nothing overlaps merchandise"
+  ],
+  "transferable_lessons": [
+    "For a single-category specialty auction, a real photographed still life can replace extraction when the seller supplies a clean staged photo",
+    "Light ground + merchandise-supplied colour (validates the 3M.1 white/very-light default)",
+    "One accent colour used for emphasis words and the CTA outline only",
+    "A factual CTA ('online only' → 'bid online at <url>') is acceptable as a single quiet block"
+  ],
+  "do_not_generalize": [
+    "Orange accent palette, ornamental divider glyphs, thin decorative frame border — Lewis & Maese identity",
+    "Seller tagline 'Trusted. Experienced. Results.'",
+    "Marble surface as a signature surface",
+    "Naming merchandise in the title that is not shown (purses) — Advantage.Bid creative must show what it names or name what it shows"
+  ],
+  "text_density_assessment": {
+    "level": "medium",
+    "why_it_works_here": "Five copy blocks, but each is short and stacked in one column; the merchandise never competes with text.",
+    "advantage_bid_budget_note": "Fits the existing 5-block budget exactly; the 'Featuring' line is the one supporting line."
+  },
+  "composition_assessment": {
+    "spatial_logic": "Tabletop still life; objects lean and rest on each other physically.",
+    "gravity_and_grounding": "Real gravity — every specimen rests on the marble with a cast shadow.",
+    "depth": "Photographic depth of field; large geode slice behind, small druzy heart in front.",
+    "scale_strategy": "Natural relative scale; the largest specimen is the tallest and placed at the back.",
+    "edge_handling": "Objects touch or cross the right and bottom edges; nothing identifying is cropped."
+  },
+  "retrieval": {
+    "use_cases": [
+      "single-category specialty auction",
+      "minerals / natural history / decorative objects",
+      "online-only auction announcement",
+      "seller-supplied staged photograph"
+    ],
+    "tags": [
+      "still-life",
+      "light-ground",
+      "one-accent-colour",
+      "serif-title",
+      "factual-cta"
+    ],
+    "avoid_for": [
+      "broad estate auctions (single category only)",
+      "acquisition or brand campaigns"
+    ]
+  },
+  "performance": null,
+  "provenance": {
+    "created_by": "Desktop Marketing (Claude, Cowork) — Phase 3P",
+    "created_at": "2026-09-09T20:31:32Z",
+    "analysis_method": "Direct visual inspection of the full-resolution image; pixel statistics computed from the file; est_* fields are visual estimates. No filename-based inference.",
+    "phase": "3P"
+  }
+}

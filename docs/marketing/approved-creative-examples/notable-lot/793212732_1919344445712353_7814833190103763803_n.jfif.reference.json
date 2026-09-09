@@ -1,0 +1,138 @@
+{
+  "schema_version": "1.0",
+  "reference_id": "REF-13",
+  "identity": {
+    "sha256": "90d1daf4c42c1d546106d2007e27705c6541bf1eed21e2ea91b2d81a64e6501c",
+    "current_path": "notable-lot/793212732_1919344445712353_7814833190103763803_n.jfif",
+    "original_filename": "793212732_1919344445712353_7814833190103763803_n.jfif",
+    "width": 1536,
+    "height": 1024,
+    "format_class": "landscape",
+    "aspect_ratio": 1.5
+  },
+  "owner_status": "OWNER_APPROVED",
+  "owner_weight": 1.0,
+  "status_history": [
+    {
+      "date": "2026-09-09",
+      "status": "OWNER_APPROVED",
+      "source": "folder_placement_by_owner",
+      "owner_words": "Owner placed the file in docs/marketing/approved-creative-examples/notable-lot/ as a good example of creative work.",
+      "recorded_by": "Desktop Marketing — Phase 3P"
+    }
+  ],
+  "source": {
+    "seller": "Lewis & Maese",
+    "origin": "Seller-published social creative, Owner-selected",
+    "rights": "Third-party seller artwork selected by the Owner as calibration evidence. Never reproduce, never pass to a generator as image input, never publish. Only the transferable principles leave this record.",
+    "campaign_title_visible": "Gold & Watches",
+    "event_date_visible": "Sunday, September 13 · 11:00 AM",
+    "advantage_bid_visible": false
+  },
+  "classification": {
+    "campaign_class_primary": "notable_lot",
+    "campaign_class_secondary": [
+      "auction"
+    ],
+    "event_product_type": "Category spotlight (gold coins and luxury watches) — Owner filed under notable-lot",
+    "seller_hierarchy": "seller_led_solo",
+    "visual_family": "LINEUP",
+    "nearest_advantage_family": "CATEGORY_GROUP",
+    "event_mode": "unknown",
+    "merchandise_breadth": "category_group",
+    "owner_folder": "notable-lot"
+  },
+  "visual_read": {
+    "visual_hierarchy": "Seller name top-centre → GOLD (metallic gold letters) & WATCHES (navy) → date (red) → time (navy) → seven watches in one row with mirror reflections → navy footer band with gold stars and the URL. Two gold coins flank the title.",
+    "merchandise_treatment": "Seven watches standing in a row on a reflective white floor, each fully visible (Breitling, Bulgari, two-tone Rolex GMT, Rolex Datejust, Rolex Yacht-Master II, gold rectangular dress watch, Rolex Cellini); American Gold Eagle coin obverse and reverse at the top corners.",
+    "composition_style": "Symmetrical lineup; title centred above; reflections instead of shadows; footer band.",
+    "typography_treatment": "The word GOLD rendered as dimensional gold metal — the Owner's cited example of truthful event typography; & WATCHES in heavy navy sans; date in red condensed caps.",
+    "information_density": "low",
+    "branding_hierarchy": "Seller name and 'AUCTIONS' at the top; URL in the navy footer band.",
+    "cta_treatment": "None; URL band only.",
+    "footer_treatment": "Full-width navy band with the URL in white and gold stars.",
+    "photographic_style": "Clean product photography on a reflective white surface; consistent scale across watches.",
+    "overlapping_objects": "light",
+    "environmental_staged_composition": "A display-case lineup; no room implied.",
+    "negative_space": "modest",
+    "ground": "white",
+    "overall_visual_impact": "high"
+  },
+  "measured": {
+    "light_pixel_pct": 49.7,
+    "dark_pixel_pct": 15.8,
+    "saturated_pixel_pct": 15.0,
+    "dominant_hues": [
+      "orange 82%",
+      "azure 8%",
+      "red 6%"
+    ],
+    "est_merchandise_share_pct": [
+      45,
+      52
+    ],
+    "est_text_share_pct": [
+      12,
+      16
+    ],
+    "object_count_est": 9,
+    "text_block_count": 3
+  },
+  "strongest_attributes": [
+    "GOLD in gold — typography that tells the truth about the merchandise",
+    "A lineup lets buyers compare like objects at a glance; every dial visible",
+    "Coins flanking the title give the two-word title its two subjects (gold / watches)",
+    "Three copy blocks plus the footer band"
+  ],
+  "transferable_lessons": [
+    "Lineups are legitimate for homogeneous category groups (watches, coins, guitars, bottles) — the 3M 'no lineups' language should be scoped to broad scene ads",
+    "Truthful material typography (gold for gold) is approved; never imply materials the lots do not have",
+    "Reflections are an alternative to shadows on a white floor for small precious objects",
+    "Footer band + URL validated again"
+  ],
+  "do_not_generalize": [
+    "Navy/red/gold palette, star ornaments, the seller's condensed sans",
+    "Metallic lettering as a default effect — only when the material claim is true",
+    "Watch brand names are lot facts, not style"
+  ],
+  "text_density_assessment": {
+    "level": "low",
+    "why_it_works_here": "Title, date, time; the row of watches needs no explanation.",
+    "advantage_bid_budget_note": "Under budget; a category spotlight can be this quiet when the objects speak."
+  },
+  "composition_assessment": {
+    "spatial_logic": "Display-case row on a reflective plane.",
+    "gravity_and_grounding": "All seven watches share one floor line; reflections confirm it.",
+    "depth": "Single plane; slight overlaps between adjacent bracelets.",
+    "scale_strategy": "Uniform watch scale for comparison; coins slightly larger than life to hold the corners.",
+    "edge_handling": "Contained; the outer watches sit inside the edges."
+  },
+  "retrieval": {
+    "use_cases": [
+      "category spotlight (watches, coins, jewellery)",
+      "homogeneous lot groups",
+      "truthful material typography",
+      "landscape creative with footer band"
+    ],
+    "tags": [
+      "lineup",
+      "material-typography",
+      "reflections",
+      "footer-band",
+      "category-group",
+      "landscape"
+    ],
+    "avoid_for": [
+      "broad estate auctions",
+      "single-lot",
+      "acquisition"
+    ]
+  },
+  "performance": null,
+  "provenance": {
+    "created_by": "Desktop Marketing (Claude, Cowork) — Phase 3P",
+    "created_at": "2026-09-09T20:31:32Z",
+    "analysis_method": "Direct visual inspection of the full-resolution image; pixel statistics computed from the file; est_* fields are visual estimates. No filename-based inference.",
+    "phase": "3P"
+  }
+}

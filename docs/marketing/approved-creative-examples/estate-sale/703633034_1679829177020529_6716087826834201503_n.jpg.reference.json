@@ -1,0 +1,139 @@
+{
+  "schema_version": "1.0",
+  "reference_id": "REF-09",
+  "identity": {
+    "sha256": "4cd2207ace2e4bab769e9f2e62d6ae1e5d52fd408635a1b0d46e1879d2c4c3ef",
+    "current_path": "estate-sale/703633034_1679829177020529_6716087826834201503_n.jpg",
+    "original_filename": "703633034_1679829177020529_6716087826834201503_n.jpg",
+    "width": 1169,
+    "height": 1776,
+    "format_class": "portrait",
+    "aspect_ratio": 0.66
+  },
+  "owner_status": "OWNER_APPROVED",
+  "owner_weight": 1.0,
+  "status_history": [
+    {
+      "date": "2026-09-09",
+      "status": "OWNER_APPROVED",
+      "source": "folder_placement_by_owner",
+      "owner_words": "Owner placed the file in docs/marketing/approved-creative-examples/estate-sale/ as a good example of creative work.",
+      "recorded_by": "Desktop Marketing — Phase 3P"
+    }
+  ],
+  "source": {
+    "seller": "Lewis & Maese",
+    "origin": "Seller-published social creative, Owner-selected",
+    "rights": "Third-party seller artwork selected by the Owner as calibration evidence. Never reproduce, never pass to a generator as image input, never publish. Only the transferable principles leave this record.",
+    "campaign_title_visible": "Katy Estate Sale",
+    "event_date_visible": "Saturday May 30 & Sunday May 31 · 10:00 AM – 2:00 PM · Katy, TX",
+    "advantage_bid_visible": false
+  },
+  "classification": {
+    "campaign_class_primary": "estate_sale",
+    "campaign_class_secondary": [
+      "geographic_event_promotion"
+    ],
+    "event_product_type": "On-site two-day estate sale",
+    "seller_hierarchy": "seller_led_solo",
+    "visual_family": "ENVIRONMENTAL_ROOM",
+    "nearest_advantage_family": "ENVIRONMENTAL_PHOTO",
+    "event_mode": "on_site",
+    "merchandise_breadth": "broad",
+    "owner_folder": "estate-sale"
+  },
+  "visual_read": {
+    "visual_hierarchy": "Top block on cream: seller name (gold) → KATY ESTATE SALE (very large dark serif caps) → category line → tagline. Middle: full-bleed photograph of the living room. 'KATY, TX' gold plate overlapping the photo's bottom edge. Bottom: two-column dates, dark band with tagline, URL line.",
+    "merchandise_treatment": "One photograph of the actual room — two gold sofas, carved coffee table, rug, lamp, drapes — shown in situ. No extraction; the house is the merchandise context.",
+    "composition_style": "Three horizontal bands: type / photograph / dates. Poster-like, tall portrait. Thin gold border frame.",
+    "typography_treatment": "Wide serif caps for the title with letterspacing; two-column date pair with day names small and dates large; small caps for categories and tagline.",
+    "information_density": "medium",
+    "branding_hierarchy": "Seller name at top in gold; URL in a small line at the very bottom; a seller tagline band above it.",
+    "cta_treatment": "'Visit LMAuctionCo.com for more details' — soft, factual.",
+    "footer_treatment": "Dark band with tagline 'Quality. Heritage. Timeless Style.' then the URL line.",
+    "photographic_style": "Interior / real-estate style photograph of the sale house, natural window light.",
+    "overlapping_objects": "none",
+    "environmental_staged_composition": "Fully environmental — the actual room.",
+    "negative_space": "modest",
+    "ground": "cream",
+    "overall_visual_impact": "high"
+  },
+  "measured": {
+    "light_pixel_pct": 9.9,
+    "dark_pixel_pct": 21.1,
+    "saturated_pixel_pct": 28.7,
+    "dominant_hues": [
+      "red 51%",
+      "orange 48%",
+      "yellow 1%"
+    ],
+    "est_merchandise_share_pct": [
+      52,
+      60
+    ],
+    "est_text_share_pct": [
+      18,
+      24
+    ],
+    "object_count_est": 8,
+    "text_block_count": 6
+  },
+  "strongest_attributes": [
+    "For an on-site sale the environment is shown, not extracted objects — the buyer is being invited into a house",
+    "A very large place-name title (KATY) — the location is the headline",
+    "Two-day date pair as two columns with large day numbers",
+    "Location plate ('KATY, TX') anchored on the photo edge"
+  ],
+  "transferable_lessons": [
+    "On-site estate sales call for an environmental-photograph family; extraction is for online auctions (missing from current families → proposed ENVIRONMENTAL_PHOTO)",
+    "Place-name-led titles for on-site sales",
+    "Multi-day sales: a date-pair block with large day numbers and small hour lines",
+    "A category line and a place plate are enough supporting copy"
+  ],
+  "do_not_generalize": [
+    "Gold border, cream ground, seller taglines ('Luxury finds for the discerning collector', 'Quality. Heritage. Timeless Style.')",
+    "Seller serif faces",
+    "Six copy blocks — the tagline blocks would be dropped for Advantage.Bid"
+  ],
+  "text_density_assessment": {
+    "level": "medium",
+    "why_it_works_here": "Bands separate type from photograph; nothing sits on the merchandise except the small place plate.",
+    "advantage_bid_budget_note": "Advantage.Bid version: seller/presenter, title, category line, date pair, footer = 5; taglines removed."
+  },
+  "composition_assessment": {
+    "spatial_logic": "Real room; no composition of objects needed.",
+    "gravity_and_grounding": "Real.",
+    "depth": "Photographic.",
+    "scale_strategy": "Photograph fills the middle ~55% of the canvas; title block ~25%; dates ~20%.",
+    "edge_handling": "Photograph full-bleed left/right; bands contained."
+  },
+  "retrieval": {
+    "use_cases": [
+      "on-site estate sale",
+      "multi-day sale",
+      "place-name event title",
+      "portrait (4:5 / story) creative",
+      "ENVIRONMENTAL_PHOTO family calibration"
+    ],
+    "tags": [
+      "environmental",
+      "room-photo",
+      "date-pair",
+      "place-plate",
+      "portrait",
+      "bands"
+    ],
+    "avoid_for": [
+      "online-only auctions with no site",
+      "single-lot",
+      "acquisition"
+    ]
+  },
+  "performance": null,
+  "provenance": {
+    "created_by": "Desktop Marketing (Claude, Cowork) — Phase 3P",
+    "created_at": "2026-09-09T20:31:32Z",
+    "analysis_method": "Direct visual inspection of the full-resolution image; pixel statistics computed from the file; est_* fields are visual estimates. No filename-based inference.",
+    "phase": "3P"
+  }
+}

@@ -1,0 +1,3126 @@
+{
+ "job_id": "p3p-west-university",
+ "campaign_class": "estate_sale",
+ "title": "WEST UNIVERSITY — Exclusive West University On-Site Estate Sale (Lewis & Maese)",
+ "index_version": "3P.1.aae47c36f2e1",
+ "gates": {
+  "marketing.a9_publish_enabled": false,
+  "marketing.destinations.meta_enabled": false,
+  "marketing.destinations.meta_ads_enabled": false,
+  "marketing.destinations.google_ads_enabled": false
+ },
+ "no_publish": true,
+ "retrieval": {
+  "confidence": "HIGH",
+  "empty_class": false,
+  "owner_review_required": true,
+  "retrieved": [
+   {
+    "reference_id": "REF-09",
+    "score": 0.871,
+    "lessons": [
+     "On-site estate sales call for an environmental-photograph family; extraction is for online auctions (missing from current families → proposed ENVIRONMENTAL_PHOTO)",
+     "Place-name-led titles for on-site sales",
+     "Multi-day sales: a date-pair block with large day numbers and small hour lines",
+     "A category line and a place plate are enough supporting copy"
+    ],
+    "neutral": false
+   },
+   {
+    "reference_id": "REF-10",
+    "score": 0.72,
+    "lessons": [
+     "When an event title contains contrasting ideas (place + 'Estate Sale'), typography may express the contrast (validates the 3M.3 italic-Home principle; script is one acceptable expression, not a default)",
+     "Left panel + environmental photograph is the second estate-sale layout the Owner accepts",
+     "Icon-led date rows are an accepted device for multi-day on-site events",
+     "Neighbourhood-level location naming"
+    ],
+    "neutral": false
+   },
+   {
+    "reference_id": "REF-04",
+    "score": 0.1045,
+    "lessons": [
+     "Direct calibration for LEFT_THIRD_WHITE: panel ≈ 35–40%, merchandise ≈ 60%, objects may exceed the panel's top",
+     "Object count is not a target — 5 large, well-chosen objects satisfy the Owner",
+     "Cropping a heavy piece at the edge is fine when no identifying detail is lost",
+     "Copy set: seller / title / date / time / URL (matches the 3M default exactly)"
+    ],
+    "neutral": false
+   },
+   {
+    "reference_id": "REF-06",
+    "score": 0.1045,
+    "lessons": [
+     "A mid-campaign refresh should change merchandise selection, scale and arrangement, not the brand frame (validates 'standardize the frame, customize the event')",
+     "Five objects can fill 60% of a landscape canvas when scale is pushed",
+     "Wall art belongs above grounded furniture, not floating beside it"
+    ],
+    "neutral": false
+   },
+   {
+    "reference_id": "REF-05",
+    "score": 0.104,
+    "lessons": [
+     "Footer band + wordmark validated as a brand-frame device (3M.2 navy band)",
+     "A factual catalogue claim (lot count) may be the primary message when it is true at generation time and re-verified before publishing",
+     "The 'one short supporting line' slot may be a category line (≤ 6 words)",
+     "Tall structure at the back + heavy anchors in front is the Owner's preferred vertical logic"
+    ],
+    "neutral": false
+   }
+  ],
+  "excluded_by_avoid_for": [
+   "REF-08",
+   "REF-11",
+   "REF-12"
+  ],
+  "seller_concentration": {
+   "dominant_seller": "Lewis & Maese",
+   "share": 1
+  },
+  "strip_seller_identity": true
+ },
+ "calibration": {
+  "campaign_class": "estate_sale",
+  "family": "ENVIRONMENTAL_PHOTO",
+  "reference_ids": [
+   "REF-09",
+   "REF-10",
+   "REF-04",
+   "REF-06",
+   "REF-05"
+  ],
+  "reference_versions": {
+   "REF-09": "77e8d5a8b6dbbbee506315a504d395d22ed751e9ec4c947abc5ac6864a51a102",
+   "REF-10": "5c50b7ab550be634d865db4a3d5f3214ff79b39242795ff92ba4f166446ccb7e",
+   "REF-04": "2d9ffdccf1e423fd9b0ce11e9facc95badd117efbc7915ca8d617db41cc3df2a",
+   "REF-06": "363e50522142b7f50f7480970bcb3268232fe166f96e09258947f07b7b2b131d",
+   "REF-05": "6b6181efe0e2bc7972243948a04ba5dfaddb525ac54ece40383bf3851560d8d0"
+  },
+  "index_version": "3P.1.aae47c36f2e1",
+  "confidence": "HIGH",
+  "owner_review_required": true,
+  "empty_class": false,
+  "strip_seller_identity": true,
+  "principle_profile": {
+   "hierarchy": [
+    "presenter (the Professional Seller) leads; Advantage.Bid is the visible marketplace partner, subordinate; navy band closes",
+    "one event or message title of 2–6 words; the place name may be the largest word for an on-site sale",
+    "date larger than time"
+   ],
+   "merchandise": {
+    "mode": "photograph",
+    "share_band_pct": [
+     50,
+     60
+    ],
+    "treatment": "environmental — the actual site photograph, event-bound; no extraction; no stock"
+   },
+   "copy": {
+    "budget_blocks": 5,
+    "text_share_max_pct": 24,
+    "supporting_line": "category line ≤ 6 words or none",
+    "cta": "none or one factual",
+    "logistics_block": "allowed: date + hours + neighbourhood"
+   },
+   "typography": {
+    "expressive_allowed": true,
+    "rule": "one element may express contrast or material when truthful; brand faces only"
+   },
+   "ground": "white | very_light",
+   "composition": {
+    "families_allowed": [
+     "ENVIRONMENTAL_PHOTO",
+     "LEFT_THIRD_WHITE"
+    ],
+    "title_position": [
+     "top",
+     "panel"
+    ],
+    "largest_empty_max_pct": 10,
+    "upper_half_merchandise_min_pct": 30
+   },
+   "transferable_lessons": [
+    "On-site estate sales call for an environmental-photograph family; extraction is for online auctions (missing from current families → proposed ENVIRONMENTAL_PHOTO)",
+    "Place-name-led titles for on-site sales",
+    "Multi-day sales: a date-pair block with large day numbers and small hour lines",
+    "A category line and a place plate are enough supporting copy",
+    "When an event title contains contrasting ideas (place + 'Estate Sale'), typography may express the contrast (validates the 3M.3 italic-Home principle; script is one acceptable expression, not a default)",
+    "Left panel + environmental photograph is the second estate-sale layout the Owner accepts",
+    "Icon-led date rows are an accepted device for multi-day on-site events",
+    "Neighbourhood-level location naming",
+    "Direct calibration for LEFT_THIRD_WHITE: panel ≈ 35–40%, merchandise ≈ 60%, objects may exceed the panel's top",
+    "Object count is not a target — 5 large, well-chosen objects satisfy the Owner",
+    "Cropping a heavy piece at the edge is fine when no identifying detail is lost",
+    "Copy set: seller / title / date / time / URL (matches the 3M default exactly)",
+    "A mid-campaign refresh should change merchandise selection, scale and arrangement, not the brand frame (validates 'standardize the frame, customize the event')",
+    "Five objects can fill 60% of a landscape canvas when scale is pushed",
+    "Wall art belongs above grounded furniture, not floating beside it",
+    "Footer band + wordmark validated as a brand-frame device (3M.2 navy band)",
+    "A factual catalogue claim (lot count) may be the primary message when it is true at generation time and re-verified before publishing",
+    "The 'one short supporting line' slot may be a category line (≤ 6 words)",
+    "Tall structure at the back + heavy anchors in front is the Owner's preferred vertical logic"
+   ],
+   "anti_patterns": [],
+   "brand_frame": {
+    "ground": [
+     "white",
+     "very_light"
+    ],
+    "band": "navy Advantage.Bid band closes the canvas",
+    "logo": "Advantage.Bid logo at spec",
+    "accent": "red accent, used once"
+   },
+   "variation_required_from": []
+  },
+  "do_not_copy": {
+   "seller_marks": [
+    "Lewis & Maese",
+    "Lewis and Maese",
+    "LMAuctionCo",
+    "lmauctionco.com",
+    "L&M",
+    "fleur-de-lis"
+   ],
+   "palettes": "any reference palette",
+   "typefaces": "any reference typeface",
+   "ornaments": "flourishes, decorative frames, stars, crests, gold borders, icon logistics rows",
+   "wording": [
+    "Trusted. Experienced. Results.",
+    "Fine Estate Sales & Appraisals",
+    "Central Time",
+    "Luxury finds for the discerning collector",
+    "Quality. Heritage. Timeless Style."
+   ],
+   "layout_signatures": [
+    "4cd2207ace2e4bab769e9f2e62d6ae1e5d52fd408635a1b0d46e1879d2c4c3ef",
+    "6cf2cb6d2e4be25d3cc619553110ef1fc0bc3b4820cb47b62a891483be05bee9",
+    "5982927ac926a11bafbacb08ee650e6703b1edafd6020f75201f2e7278b3a0dc",
+    "dbd84e22fd17cdd9c2eac60cd73257f9a702994e7055fea71532aff3044dad50",
+    "8448d6a901323947dd6420f934717e2f7d9b1e335d8af2702da8ba2f82da2eef"
+   ]
+  },
+  "library_band": {
+   "merchandise": [
+    50,
+    60
+   ],
+   "text": [
+    18,
+    24
+   ],
+   "text_blocks": [
+    5,
+    6
+   ],
+   "references": [
+    "REF-09",
+    "REF-10"
+   ]
+  }
+ },
+ "brief_hash": "b7f85557cd541f5a5bf6fdd2ebfbb0ee3b24fbdf86f41730e7bf1aadced6f2dd",
+ "brief": {
+  "brief_id": "p3p-wu-1788990656553",
+  "obligation_id": "proving-ground",
+  "auction_id": "38aed25b-a94e-4cc6-a468-60b2461689d2",
+  "event_id": "38aed25b-a94e-4cc6-a468-60b2461689d2",
+  "family": "ENVIRONMENTAL_PHOTO",
+  "formats": [
+   "portrait_1080x1350",
+   "square_1080x1080"
+  ],
+  "objects": [],
+  "event": {
+   "title": "Exclusive West University On-Site Estate Sale",
+   "city_state": "Houston, TX",
+   "date": "Saturday, September 19",
+   "start_time": "9:00 AM – 3:00 PM · One day only",
+   "place_name": "West University Area",
+   "neighbourhood": "West University Area",
+   "online_only": false,
+   "sessions": [
+    {
+     "day_label": "Saturday, September 19",
+     "date": "2026-09-19",
+     "start": "2026-09-19T14:00:00.000Z",
+     "end": "2026-09-19T20:00:00.000Z"
+    }
+   ],
+   "typography_treatment": null
+  },
+  "brand_frame": {
+   "logo_width_px": 250,
+   "kicker": "ADVANTAGE.BID PRESENTS",
+   "footer_band_px": 120,
+   "footer_wordmark": "Advantage.Bid",
+   "footer_wordmark_px": 64,
+   "ground": "very_light",
+   "navy": "#182e45",
+   "red": "#d62828"
+  },
+  "text_budget": {
+   "profile": "GENERAL"
+  },
+  "rule_engine": "3M.3",
+  "merchandise_mode": "photograph",
+  "site_photographs": [
+   {
+    "asset_id": "58f9ff301f266f2a7560cfb88d5d0ddb5eaa6daf16e73757a5128ecf5c3560a4",
+    "event_id": "38aed25b-a94e-4cc6-a468-60b2461689d2",
+    "provenance": {
+     "kind": "event_site_photograph",
+     "event_id": "38aed25b-a94e-4cc6-a468-60b2461689d2",
+     "source_page": "https://www.lmauctionco.com/exclusive-west-university-on-site-estate-sale-september-19-2026/",
+     "source_url": "https://image.invaluable.com/privatelabel/connectwp/wp-content/uploads/sites/223/2026/09/IMG_0520-1200x700.jpg",
+     "retrieved_at": "2026-09-09T21:50:56.500Z",
+     "sha256": "58f9ff301f266f2a7560cfb88d5d0ddb5eaa6daf16e73757a5128ecf5c3560a4",
+     "rights": "seller-published public event photograph of this sale; used only for this event (original-host source approved by the Owner)"
+    }
+   },
+   {
+    "asset_id": "426cb9a52fe367162b3a49d0ef6fc943af33fe46e4f8da3f8cb6d8f8db86fbc4",
+    "event_id": "38aed25b-a94e-4cc6-a468-60b2461689d2",
+    "provenance": {
+     "kind": "event_site_photograph",
+     "event_id": "38aed25b-a94e-4cc6-a468-60b2461689d2",
+     "source_page": "https://www.lmauctionco.com/exclusive-west-university-on-site-estate-sale-september-19-2026/",
+     "source_url": "https://image.invaluable.com/privatelabel/connectwp/wp-content/uploads/sites/223/2026/09/IMG_0522-1200x700.jpg",
+     "retrieved_at": "2026-09-09T21:50:56.504Z",
+     "sha256": "426cb9a52fe367162b3a49d0ef6fc943af33fe46e4f8da3f8cb6d8f8db86fbc4",
+     "rights": "seller-published public event photograph of this sale; used only for this event (original-host source approved by the Owner)"
+    }
+   },
+   {
+    "asset_id": "ce83b3ca57ccf7f6440fbde07d869691c867b1419ef814a1b81299331acff222",
+    "event_id": "38aed25b-a94e-4cc6-a468-60b2461689d2",
+    "provenance": {
+     "kind": "event_site_photograph",
+     "event_id": "38aed25b-a94e-4cc6-a468-60b2461689d2",
+     "source_page": "https://www.lmauctionco.com/exclusive-west-university-on-site-estate-sale-september-19-2026/",
+     "source_url": "https://image.invaluable.com/privatelabel/connectwp/wp-content/uploads/sites/223/2026/09/IMG_0526-1-1200x700.jpg",
+     "retrieved_at": "2026-09-09T21:50:56.507Z",
+     "sha256": "ce83b3ca57ccf7f6440fbde07d869691c867b1419ef814a1b81299331acff222",
+     "rights": "seller-published public event photograph of this sale; used only for this event (original-host source approved by the Owner)"
+    }
+   },
+   {
+    "asset_id": "c271077201498e540a6edd2681548a164a0c5583db4c0ded0c939dacf27823f7",
+    "event_id": "38aed25b-a94e-4cc6-a468-60b2461689d2",
+    "provenance": {
+     "kind": "event_site_photograph",
+     "event_id": "38aed25b-a94e-4cc6-a468-60b2461689d2",
+     "source_page": "https://www.lmauctionco.com/exclusive-west-university-on-site-estate-sale-september-19-2026/",
+     "source_url": "https://image.invaluable.com/privatelabel/connectwp/wp-content/uploads/sites/223/2026/09/IMG_0529-1200x700.jpg",
+     "retrieved_at": "2026-09-09T21:50:56.510Z",
+     "sha256": "c271077201498e540a6edd2681548a164a0c5583db4c0ded0c939dacf27823f7",
+     "rights": "seller-published public event photograph of this sale; used only for this event (original-host source approved by the Owner)"
+    }
+   },
+   {
+    "asset_id": "1ff91b8834b40b029199876ecd954a468d7f2701f0d957c3ef8f5e7d9bf6131c",
+    "event_id": "38aed25b-a94e-4cc6-a468-60b2461689d2",
+    "provenance": {
+     "kind": "event_site_photograph",
+     "event_id": "38aed25b-a94e-4cc6-a468-60b2461689d2",
+     "source_page": "https://www.lmauctionco.com/exclusive-west-university-on-site-estate-sale-september-19-2026/",
+     "source_url": "https://image.invaluable.com/privatelabel/connectwp/wp-content/uploads/sites/223/2026/09/IMG_0546-1200x700.jpg",
+     "retrieved_at": "2026-09-09T21:50:56.513Z",
+     "sha256": "1ff91b8834b40b029199876ecd954a468d7f2701f0d957c3ef8f5e7d9bf6131c",
+     "rights": "seller-published public event photograph of this sale; used only for this event (original-host source approved by the Owner)"
+    }
+   },
+   {
+    "asset_id": "1ac3b7f4abee8f74e002e870b535e95e2e3b47c6692d00f5ad97a1e95fbe1cd6",
+    "event_id": "38aed25b-a94e-4cc6-a468-60b2461689d2",
+    "provenance": {
+     "kind": "event_site_photograph",
+     "event_id": "38aed25b-a94e-4cc6-a468-60b2461689d2",
+     "source_page": "https://www.lmauctionco.com/exclusive-west-university-on-site-estate-sale-september-19-2026/",
+     "source_url": "https://image.invaluable.com/privatelabel/connectwp/wp-content/uploads/sites/223/2026/09/IMG_0549-1200x700.jpg",
+     "retrieved_at": "2026-09-09T21:50:56.517Z",
+     "sha256": "1ac3b7f4abee8f74e002e870b535e95e2e3b47c6692d00f5ad97a1e95fbe1cd6",
+     "rights": "seller-published public event photograph of this sale; used only for this event (original-host source approved by the Owner)"
+    }
+   },
+   {
+    "asset_id": "59480090c05ec8f765b4514310eda564f93e654133ff1f46f3cb8f2b55c1294b",
+    "event_id": "38aed25b-a94e-4cc6-a468-60b2461689d2",
+    "provenance": {
+     "kind": "event_site_photograph",
+     "event_id": "38aed25b-a94e-4cc6-a468-60b2461689d2",
+     "source_page": "https://www.lmauctionco.com/exclusive-west-university-on-site-estate-sale-september-19-2026/",
+     "source_url": "https://image.invaluable.com/privatelabel/connectwp/wp-content/uploads/sites/223/2026/09/IMG_0550-1200x700.jpg",
+     "retrieved_at": "2026-09-09T21:50:56.520Z",
+     "sha256": "59480090c05ec8f765b4514310eda564f93e654133ff1f46f3cb8f2b55c1294b",
+     "rights": "seller-published public event photograph of this sale; used only for this event (original-host source approved by the Owner)"
+    }
+   },
+   {
+    "asset_id": "f98c72071da471ec429314d6cf2e6a3d171447ecc0d1e200f434d68ae18b4357",
+    "event_id": "38aed25b-a94e-4cc6-a468-60b2461689d2",
+    "provenance": {
+     "kind": "event_site_photograph",
+     "event_id": "38aed25b-a94e-4cc6-a468-60b2461689d2",
+     "source_page": "https://www.lmauctionco.com/exclusive-west-university-on-site-estate-sale-september-19-2026/",
+     "source_url": "https://image.invaluable.com/privatelabel/connectwp/wp-content/uploads/sites/223/2026/09/IMG_0552-1200x700.jpg",
+     "retrieved_at": "2026-09-09T21:50:56.523Z",
+     "sha256": "f98c72071da471ec429314d6cf2e6a3d171447ecc0d1e200f434d68ae18b4357",
+     "rights": "seller-published public event photograph of this sale; used only for this event (original-host source approved by the Owner)"
+    }
+   }
+  ],
+  "claim_manifest": [
+   {
+    "claim": "title",
+    "value": "Exclusive West University On-Site Estate Sale",
+    "source": "events.title"
+   },
+   {
+    "claim": "venue_name",
+    "value": "West University Area",
+    "source": "events.venue_name"
+   },
+   {
+    "claim": "start_at",
+    "value": "2026-09-19T14:00:00.000Z",
+    "source": "events.start_at"
+   },
+   {
+    "claim": "end_at",
+    "value": "2026-09-19T20:00:00.000Z",
+    "source": "events.end_at"
+   },
+   {
+    "claim": "city_state",
+    "value": "Houston, TX",
+    "source": "events.city/state"
+   },
+   {
+    "claim": "organizer_name",
+    "value": "Lewis & Maese",
+    "source": "events.organizer_name"
+   }
+  ],
+  "cta": {
+   "kind": "none"
+  },
+  "cobrand": {
+   "seller_name": "Lewis & Maese",
+   "seller_logo_asset_id": null,
+   "relationship_line": "in conjunction with Advantage.Bid"
+  },
+  "family_options": {
+   "title_position": "top",
+   "ground": "photograph"
+  },
+  "calibration": {
+   "campaign_class": "estate_sale",
+   "family": "ENVIRONMENTAL_PHOTO",
+   "reference_ids": [
+    "REF-09",
+    "REF-10",
+    "REF-04",
+    "REF-06",
+    "REF-05"
+   ],
+   "reference_versions": {
+    "REF-09": "77e8d5a8b6dbbbee506315a504d395d22ed751e9ec4c947abc5ac6864a51a102",
+    "REF-10": "5c50b7ab550be634d865db4a3d5f3214ff79b39242795ff92ba4f166446ccb7e",
+    "REF-04": "2d9ffdccf1e423fd9b0ce11e9facc95badd117efbc7915ca8d617db41cc3df2a",
+    "REF-06": "363e50522142b7f50f7480970bcb3268232fe166f96e09258947f07b7b2b131d",
+    "REF-05": "6b6181efe0e2bc7972243948a04ba5dfaddb525ac54ece40383bf3851560d8d0"
+   },
+   "index_version": "3P.1.aae47c36f2e1",
+   "confidence": "HIGH",
+   "owner_review_required": true,
+   "empty_class": false,
+   "strip_seller_identity": true,
+   "principle_profile": {
+    "hierarchy": [
+     "presenter (the Professional Seller) leads; Advantage.Bid is the visible marketplace partner, subordinate; navy band closes",
+     "one event or message title of 2–6 words; the place name may be the largest word for an on-site sale",
+     "date larger than time"
+    ],
+    "merchandise": {
+     "mode": "photograph",
+     "share_band_pct": [
+      50,
+      60
+     ],
+     "treatment": "environmental — the actual site photograph, event-bound; no extraction; no stock"
+    },
+    "copy": {
+     "budget_blocks": 5,
+     "text_share_max_pct": 24,
+     "supporting_line": "category line ≤ 6 words or none",
+     "cta": "none or one factual",
+     "logistics_block": "allowed: date + hours + neighbourhood"
+    },
+    "typography": {
+     "expressive_allowed": true,
+     "rule": "one element may express contrast or material when truthful; brand faces only"
+    },
+    "ground": "white | very_light",
+    "composition": {
+     "families_allowed": [
+      "ENVIRONMENTAL_PHOTO",
+      "LEFT_THIRD_WHITE"
+     ],
+     "title_position": [
+      "top",
+      "panel"
+     ],
+     "largest_empty_max_pct": 10,
+     "upper_half_merchandise_min_pct": 30
+    },
+    "transferable_lessons": [
+     "On-site estate sales call for an environmental-photograph family; extraction is for online auctions (missing from current families → proposed ENVIRONMENTAL_PHOTO)",
+     "Place-name-led titles for on-site sales",
+     "Multi-day sales: a date-pair block with large day numbers and small hour lines",
+     "A category line and a place plate are enough supporting copy",
+     "When an event title contains contrasting ideas (place + 'Estate Sale'), typography may express the contrast (validates the 3M.3 italic-Home principle; script is one acceptable expression, not a default)",
+     "Left panel + environmental photograph is the second estate-sale layout the Owner accepts",
+     "Icon-led date rows are an accepted device for multi-day on-site events",
+     "Neighbourhood-level location naming",
+     "Direct calibration for LEFT_THIRD_WHITE: panel ≈ 35–40%, merchandise ≈ 60%, objects may exceed the panel's top",
+     "Object count is not a target — 5 large, well-chosen objects satisfy the Owner",
+     "Cropping a heavy piece at the edge is fine when no identifying detail is lost",
+     "Copy set: seller / title / date / time / URL (matches the 3M default exactly)",
+     "A mid-campaign refresh should change merchandise selection, scale and arrangement, not the brand frame (validates 'standardize the frame, customize the event')",
+     "Five objects can fill 60% of a landscape canvas when scale is pushed",
+     "Wall art belongs above grounded furniture, not floating beside it",
+     "Footer band + wordmark validated as a brand-frame device (3M.2 navy band)",
+     "A factual catalogue claim (lot count) may be the primary message when it is true at generation time and re-verified before publishing",
+     "The 'one short supporting line' slot may be a category line (≤ 6 words)",
+     "Tall structure at the back + heavy anchors in front is the Owner's preferred vertical logic"
+    ],
+    "anti_patterns": [],
+    "brand_frame": {
+     "ground": [
+      "white",
+      "very_light"
+     ],
+     "band": "navy Advantage.Bid band closes the canvas",
+     "logo": "Advantage.Bid logo at spec",
+     "accent": "red accent, used once"
+    },
+    "variation_required_from": []
+   },
+   "do_not_copy": {
+    "seller_marks": [
+     "Lewis & Maese",
+     "Lewis and Maese",
+     "LMAuctionCo",
+     "lmauctionco.com",
+     "L&M",
+     "fleur-de-lis"
+    ],
+    "palettes": "any reference palette",
+    "typefaces": "any reference typeface",
+    "ornaments": "flourishes, decorative frames, stars, crests, gold borders, icon logistics rows",
+    "wording": [
+     "Trusted. Experienced. Results.",
+     "Fine Estate Sales & Appraisals",
+     "Central Time",
+     "Luxury finds for the discerning collector",
+     "Quality. Heritage. Timeless Style."
+    ],
+    "layout_signatures": [
+     "4cd2207ace2e4bab769e9f2e62d6ae1e5d52fd408635a1b0d46e1879d2c4c3ef",
+     "6cf2cb6d2e4be25d3cc619553110ef1fc0bc3b4820cb47b62a891483be05bee9",
+     "5982927ac926a11bafbacb08ee650e6703b1edafd6020f75201f2e7278b3a0dc",
+     "dbd84e22fd17cdd9c2eac60cd73257f9a702994e7055fea71532aff3044dad50",
+     "8448d6a901323947dd6420f934717e2f7d9b1e335d8af2702da8ba2f82da2eef"
+    ]
+   },
+   "library_band": {
+    "merchandise": [
+     50,
+     60
+    ],
+    "text": [
+     18,
+     24
+    ],
+    "text_blocks": [
+     5,
+     6
+    ],
+    "references": [
+     "REF-09",
+     "REF-10"
+    ]
+   }
+  },
+  "campaign_class": "estate_sale",
+  "seller_hierarchy": "seller_led_cobranded"
+ },
+ "anchor": {
+  "path": "C:\\Projects\\advantage-auction-platform\\docs\\marketing\\phase3p\\proving-grounds\\2026-09-09\\assets\\published-anchor.png",
+  "sha256": "00eb8cd3dc54512f2426565176421243fd0e9478450426ff0bbde87902af591b",
+  "note": "currently published — external — not generated; scorer-only negative anchor"
+ },
+ "omissions": [
+  "street address (not yet published by the seller — omitted, not invented)",
+  "seller logo (no seller logo asset in production — the presenter is set in type, no crest)",
+  "category line (kept within the 5-block GENERAL budget)"
+ ],
+ "results": [
+  {
+   "key": "A",
+   "format": "portrait_1080x1350",
+   "family": "ENVIRONMENTAL_PHOTO",
+   "ok": true,
+   "png": "C:\\Projects\\advantage-auction-platform\\docs\\marketing\\phase3p\\proving-grounds\\2026-09-09\\p3p-west-university-A-portrait_1080x1350.png",
+   "thumb": "C:\\Projects\\advantage-auction-platform\\docs\\marketing\\phase3p\\proving-grounds\\2026-09-09\\p3p-west-university-A-portrait_1080x1350_thumb.png",
+   "render_sha256": "1d4b2a182cb1bda6e372aeaafb39b511c60d950e104f5f6a0ba6b62044c79191",
+   "metrics": {
+    "size": [
+     1080,
+     1350
+    ],
+    "merchandise_pct": 50.1,
+    "text_region_pct": 24.5,
+    "combined_pct": 74.5,
+    "largest_empty_pct": 4.3,
+    "upper_half_merch_pct": 33.8,
+    "text_blocks": 5,
+    "text_block_roles": [
+     "presenter",
+     "title",
+     "place_plate",
+     "date",
+     "time"
+    ],
+    "largest_text_px": 134,
+    "hierarchy_ratio": 2.68,
+    "date_gt_time": true,
+    "title_words": 6,
+    "ground_luminance": 0.928,
+    "brand_frame": {
+     "logo": false,
+     "band": true,
+     "wordmark": true
+    },
+    "family": "ENVIRONMENTAL_PHOTO",
+    "variant": "banded",
+    "photo_pct": 50.1,
+    "place_plate_pct": 2.64,
+    "place_plate_ok": true,
+    "copy_over_merchandise": [],
+    "panel_contrast": 12.91,
+    "plate_contrast": 13.86,
+    "title_scale": 1,
+    "photo_share": 1,
+    "extreme": false
+   },
+   "audit": {
+    "profile": "environmental",
+    "violations": []
+   },
+   "budget": {
+    "pass": true,
+    "max": 5,
+    "blocks": 5,
+    "reasons": []
+   },
+   "leak": {
+    "pass": true,
+    "hits": [],
+    "ocr": "unavailable (no OCR engine in the runtime image; every drawn string is checked exactly)",
+    "logo_template_match": "not_available (no seller logo templates on file)"
+   },
+   "provenance": {
+    "pass": true,
+    "reasons": []
+   },
+   "similarity": {
+    "pass": true,
+    "failures": [],
+    "max_reference": {
+     "id": "REF-13",
+     "distance": 0.5367
+    },
+    "self_history_min": null,
+    "published_anchor_distance": 0.8214,
+    "thresholds": {
+     "tau_ref": 0.35,
+     "tau_self": 0.25,
+     "tau_pub": 0.4
+    },
+    "all_reference_distances": [
+     {
+      "id": "REF-01",
+      "distance": 0.8809
+     },
+     {
+      "id": "REF-02",
+      "distance": 0.7762
+     },
+     {
+      "id": "REF-03",
+      "distance": 0.8495
+     },
+     {
+      "id": "REF-04",
+      "distance": 0.9706
+     },
+     {
+      "id": "REF-05",
+      "distance": 0.6648
+     },
+     {
+      "id": "REF-06",
+      "distance": 0.7265
+     },
+     {
+      "id": "REF-07",
+      "distance": 0.9742
+     },
+     {
+      "id": "REF-08",
+      "distance": 0.7845
+     },
+     {
+      "id": "REF-09",
+      "distance": 0.5401
+     },
+     {
+      "id": "REF-10",
+      "distance": 0.6898
+     },
+     {
+      "id": "REF-11",
+      "distance": 0.5873
+     },
+     {
+      "id": "REF-12",
+      "distance": 1.0829
+     },
+     {
+      "id": "REF-13",
+      "distance": 0.5367
+     }
+    ]
+   },
+   "judge": {
+    "available": true,
+    "model": "claude-sonnet-5",
+    "prompt_version": "p3p-judge-v1",
+    "runs": [
+     {
+      "items": [
+       {
+        "n": 1,
+        "score": 4,
+        "reason": "Presenter small at top, single title West University, photo below, navy band closes."
+       },
+       {
+        "n": 2,
+        "score": 3,
+        "reason": "Room feels lived-in, art hangs above grounded furniture, staged environmentally."
+       },
+       {
+        "n": 3,
+        "score": 3,
+        "reason": "Large cabinet and settee anchor scale against smaller chairs and table."
+       },
+       {
+        "n": 4,
+        "score": 3,
+        "reason": "Bold serif title reads confident, contrast with sans subtitle feels truthful to place-led sale."
+       },
+       {
+        "n": 5,
+        "score": 4,
+        "reason": "Colour comes from wood tones and rugs; ground stays cream, red accent used once."
+       },
+       {
+        "n": 6,
+        "score": 2,
+        "reason": "Copy exceeds five-block budget with dual Advantage.Bid mentions and extra subtitle lines."
+       },
+       {
+        "n": 7,
+        "score": 4,
+        "reason": "Title and navy Advantage.Bid band remain legible at small scale."
+       },
+       {
+        "n": 8,
+        "score": 3,
+        "reason": "Photo feels specific and unstaged, though header/footer layout is fairly conventional."
+       },
+       {
+        "n": 9,
+        "score": 4,
+        "reason": "Lewis & Maese reads as presenter, not a rival marketplace identity."
+       },
+       {
+        "n": 10,
+        "score": 2,
+        "reason": "Much better: strong hierarchy and photo staging, but copy budget overage limits love-this."
+       }
+      ],
+      "total": 32,
+      "notes": "Solid environmental estate-sale execution; trim supporting text to meet 5-block copy budget for top marks.",
+      "usage": {
+       "in": 3778,
+       "out": 1743
+      }
+     },
+     {
+      "items": [
+       {
+        "n": 1,
+        "score": 4,
+        "reason": "Presenter leads, single clear title, photo follows, navy band closes."
+       },
+       {
+        "n": 2,
+        "score": 4,
+        "reason": "Room reads authentic; art hung above grounded furniture, small items forward."
+       },
+       {
+        "n": 3,
+        "score": 4,
+        "reason": "Cabinet anchors scale; chairs, lamps, table give confident variation."
+       },
+       {
+        "n": 4,
+        "score": 4,
+        "reason": "Bold serif title contrasts subtitle, truthful to place+estate-sale idea."
+       },
+       {
+        "n": 5,
+        "score": 4,
+        "reason": "Warm wood tones dominate; red accent used once; ground stays quiet."
+       },
+       {
+        "n": 6,
+        "score": 4,
+        "reason": "No slogans, icon piles, or duplicate URLs; copy stays minimal."
+       },
+       {
+        "n": 7,
+        "score": 3,
+        "reason": "Title and wordmark legible small, but presenter line may shrink too much."
+       },
+       {
+        "n": 8,
+        "score": 4,
+        "reason": "Photo feels site-specific, not a swappable stock template."
+       },
+       {
+        "n": 9,
+        "score": 4,
+        "reason": "No competitor or specific seller identity evoked."
+       },
+       {
+        "n": 10,
+        "score": 3,
+        "reason": "Strong, cohesive execution; slight top whitespace keeps it just below perfect."
+       }
+      ],
+      "total": 38,
+      "notes": "Upper text zone borders on exceeding empty-space limit; otherwise faithful to ENVIRONMENTAL_PHOTO brief.",
+      "usage": {
+       "in": 3778,
+       "out": 1774
+      }
+     }
+    ],
+    "average": 35,
+    "disagreement": 6,
+    "flagged": false,
+    "items": [
+     "Hierarchy clarity: the eye enters at the presenter, moves to one title, then to the merchandise.",
+     "Staging: merchandise looks staged by a set designer (heavy things sit, art hangs, small things forward) / arranged for comparison (lineup) / the room is inviting and legible (environmental) / representative items are grounded (acquisition).",
+     "Objects (or the photograph) have confident scale variation and at least one clear anchor.",
+     "Typography is confident and, where expressive, truthful to the event.",
+     "Colour comes from the merchandise; the ground and panels stay quiet.",
+     "Nothing reads as filler: no slogans, icon piles, words on merchandise, duplicate URLs.",
+     "It reads at thumbnail size (headline + wordmark legible when small).",
+     "It would not be mistaken for a template with swapped merchandise (editorial irregularity).",
+     "It does not evoke any specific competitor or seller identity (answer 0 if it does).",
+     "Overall: would the Owner say \"good\" (0), \"much better\" (2), \"love this\" (4)? Justify via items 1–9."
+    ]
+   },
+   "measurable": {
+    "points": 59.63,
+    "out_of": 60,
+    "raw": 53.67,
+    "raw_max": 54,
+    "items": [
+     {
+      "key": "merchandise_forward",
+      "pts": 12,
+      "value": 50.1,
+      "points": 12,
+      "target": [
+       50,
+       60
+      ]
+     },
+     {
+      "key": "restrained_copy",
+      "pts": 8,
+      "value": 24.5,
+      "points": 7.67,
+      "target": [
+       0,
+       24
+      ]
+     },
+     {
+      "key": "copy_count",
+      "pts": 6,
+      "value": 5,
+      "points": 6,
+      "target": "≤ 5"
+     },
+     {
+      "key": "hierarchy_one_title",
+      "pts": 8,
+      "value": 2.68,
+      "points": 8,
+      "target": "largest ≥ 2.2× next; title 2–6 words"
+     },
+     {
+      "key": "date_gt_time",
+      "pts": 3,
+      "value": true,
+      "points": 3,
+      "target": "date box > time box"
+     },
+     {
+      "key": "controlled_occupancy",
+      "pts": 6,
+      "value": 4.3,
+      "points": 6,
+      "target": "≤ 10"
+     },
+     {
+      "key": "merchandise_rises",
+      "pts": 5,
+      "value": 33.8,
+      "points": 5,
+      "target": "≥ 30"
+     },
+     {
+      "key": "depth_diversity",
+      "pts": 6,
+      "value": null,
+      "points": null,
+      "target": "n/a (not a scene family)"
+     },
+     {
+      "key": "light_ground",
+      "pts": 3,
+      "value": 0.928,
+      "points": 3,
+      "target": "≥ 0.85 relative luminance"
+     },
+     {
+      "key": "brand_frame",
+      "pts": 3,
+      "value": {
+       "logo": false,
+       "band": true,
+       "wordmark": true
+      },
+      "points": 3,
+      "target": "band + wordmark (+ logo where the family shows it)"
+     }
+    ]
+   },
+   "score": 94.63,
+   "decision": "OWNER_REVIEW",
+   "hard_failures": [],
+   "score_basis": "measurable_60 + judge_40",
+   "bar": 70,
+   "owner_review": {
+    "required": true,
+    "reasons": [
+     "proving ground — Owner review mandatory",
+     "retrieval flagged owner_review_required"
+    ]
+   },
+   "extreme": false,
+   "publication_status": "HELD_FOR_OWNER_REVIEW",
+   "drawn_text": [
+    "LEWIS & MAESE",
+    "in conjunction with Advantage.Bid",
+    "West University",
+    "Exclusive On-Site Estate Sale",
+    "WEST UNIVERSITY AREA · HOUSTON, TX",
+    "SATURDAY, SEPTEMBER 19",
+    "9:00 AM – 3:00 PM · One day only",
+    "Advantage.Bid"
+   ],
+   "references_used": [
+    "REF-09",
+    "REF-10",
+    "REF-04",
+    "REF-06",
+    "REF-05"
+   ],
+   "principles_applied": [
+    "On-site estate sales call for an environmental-photograph family; extraction is for online auctions (missing from current families → proposed ENVIRONMENTAL_PHOTO)",
+    "Place-name-led titles for on-site sales",
+    "Multi-day sales: a date-pair block with large day numbers and small hour lines",
+    "A category line and a place plate are enough supporting copy",
+    "When an event title contains contrasting ideas (place + 'Estate Sale'), typography may express the contrast (validates the 3M.3 italic-Home principle; script is one acceptable expression, not a default)",
+    "Left panel + environmental photograph is the second estate-sale layout the Owner accepts",
+    "Icon-led date rows are an accepted device for multi-day on-site events",
+    "Neighbourhood-level location naming",
+    "Direct calibration for LEFT_THIRD_WHITE: panel ≈ 35–40%, merchandise ≈ 60%, objects may exceed the panel's top",
+    "Object count is not a target — 5 large, well-chosen objects satisfy the Owner",
+    "Cropping a heavy piece at the edge is fine when no identifying detail is lost",
+    "Copy set: seller / title / date / time / URL (matches the 3M default exactly)",
+    "A mid-campaign refresh should change merchandise selection, scale and arrangement, not the brand frame (validates 'standardize the frame, customize the event')",
+    "Five objects can fill 60% of a landscape canvas when scale is pushed",
+    "Wall art belongs above grounded furniture, not floating beside it",
+    "Footer band + wordmark validated as a brand-frame device (3M.2 navy band)",
+    "A factual catalogue claim (lot count) may be the primary message when it is true at generation time and re-verified before publishing",
+    "The 'one short supporting line' slot may be a category line (≤ 6 words)",
+    "Tall structure at the back + heavy anchors in front is the Owner's preferred vertical logic"
+   ],
+   "assets": [
+    "IMG_0520-1200x700.jpg (58f9ff301f26…)"
+   ]
+  },
+  {
+   "key": "A",
+   "format": "square_1080x1080",
+   "family": "ENVIRONMENTAL_PHOTO",
+   "ok": true,
+   "png": "C:\\Projects\\advantage-auction-platform\\docs\\marketing\\phase3p\\proving-grounds\\2026-09-09\\p3p-west-university-A-square_1080x1080.png",
+   "thumb": "C:\\Projects\\advantage-auction-platform\\docs\\marketing\\phase3p\\proving-grounds\\2026-09-09\\p3p-west-university-A-square_1080x1080_thumb.png",
+   "render_sha256": "a1ce4e2dd0fbd3331c1a8fe67b87ece7098a74402dba1e3bdbc4477cf533f10e",
+   "metrics": {
+    "size": [
+     1080,
+     1080
+    ],
+    "merchandise_pct": 48.5,
+    "text_region_pct": 23.2,
+    "combined_pct": 71.7,
+    "largest_empty_pct": 4.5,
+    "upper_half_merch_pct": 30.9,
+    "text_blocks": 5,
+    "text_block_roles": [
+     "presenter",
+     "title",
+     "place_plate",
+     "date",
+     "time"
+    ],
+    "largest_text_px": 120,
+    "hierarchy_ratio": 3,
+    "date_gt_time": true,
+    "title_words": 6,
+    "ground_luminance": 0.928,
+    "brand_frame": {
+     "logo": false,
+     "band": true,
+     "wordmark": true
+    },
+    "family": "ENVIRONMENTAL_PHOTO",
+    "variant": "banded",
+    "photo_pct": 48.5,
+    "place_plate_pct": 3.3,
+    "place_plate_ok": true,
+    "copy_over_merchandise": [],
+    "panel_contrast": 12.91,
+    "plate_contrast": 13.86,
+    "title_scale": 1,
+    "photo_share": 1,
+    "extreme": false
+   },
+   "audit": {
+    "profile": "environmental",
+    "violations": []
+   },
+   "budget": {
+    "pass": true,
+    "max": 5,
+    "blocks": 5,
+    "reasons": []
+   },
+   "leak": {
+    "pass": true,
+    "hits": [],
+    "ocr": "unavailable (no OCR engine in the runtime image; every drawn string is checked exactly)",
+    "logo_template_match": "not_available (no seller logo templates on file)"
+   },
+   "provenance": {
+    "pass": true,
+    "reasons": []
+   },
+   "similarity": {
+    "pass": true,
+    "failures": [],
+    "max_reference": {
+     "id": "REF-09",
+     "distance": 0.5321
+    },
+    "self_history_min": null,
+    "published_anchor_distance": 0.804,
+    "thresholds": {
+     "tau_ref": 0.35,
+     "tau_self": 0.25,
+     "tau_pub": 0.4
+    },
+    "all_reference_distances": [
+     {
+      "id": "REF-01",
+      "distance": 0.8382
+     },
+     {
+      "id": "REF-02",
+      "distance": 0.8093
+     },
+     {
+      "id": "REF-03",
+      "distance": 0.8351
+     },
+     {
+      "id": "REF-04",
+      "distance": 0.9415
+     },
+     {
+      "id": "REF-05",
+      "distance": 0.6361
+     },
+     {
+      "id": "REF-06",
+      "distance": 0.7119
+     },
+     {
+      "id": "REF-07",
+      "distance": 0.9935
+     },
+     {
+      "id": "REF-08",
+      "distance": 0.7948
+     },
+     {
+      "id": "REF-09",
+      "distance": 0.5321
+     },
+     {
+      "id": "REF-10",
+      "distance": 0.6713
+     },
+     {
+      "id": "REF-11",
+      "distance": 0.5891
+     },
+     {
+      "id": "REF-12",
+      "distance": 1.1073
+     },
+     {
+      "id": "REF-13",
+      "distance": 0.5457
+     }
+    ]
+   },
+   "judge": {
+    "available": true,
+    "model": "claude-sonnet-5",
+    "prompt_version": "p3p-judge-v1",
+    "runs": [
+     {
+      "items": [
+       {
+        "n": 1,
+        "score": 3,
+        "reason": "Presenter atop, single clear title, photo below, navy band closes; hierarchy mostly clean."
+       },
+       {
+        "n": 2,
+        "score": 2,
+        "reason": "Real on-site photo but cluttered—visible cardboard box, cables undercut staged legibility."
+       },
+       {
+        "n": 3,
+        "score": 3,
+        "reason": "Cabinet and chairs give scale variation; cabinet acts as clear anchor."
+       },
+       {
+        "n": 4,
+        "score": 2,
+        "reason": "Bold serif title confident but not visibly expressing place/estate contrast."
+       },
+       {
+        "n": 5,
+        "score": 3,
+        "reason": "Warm wood tones and rugs supply color; ground and panels stay quiet."
+       },
+       {
+        "n": 6,
+        "score": 2,
+        "reason": "No slogans or icon piles, but stray box/cables read as unintended filler."
+       },
+       {
+        "n": 7,
+        "score": 3,
+        "reason": "Bold title and wordmark remain legible at small size."
+       },
+       {
+        "n": 8,
+        "score": 3,
+        "reason": "Specific room details make it feel like a real event, not a swapped template."
+       },
+       {
+        "n": 9,
+        "score": 4,
+        "reason": "No competitor or identifiable seller branding present."
+       },
+       {
+        "n": 10,
+        "score": 2,
+        "reason": "Solid on-brief execution but environmental clutter keeps it at much better, not love."
+       }
+      ],
+      "total": 27,
+      "notes": "Good adherence to brand frame and hierarchy; minor staging clutter (box, cables) and underused typographic contrast keep it from top marks.",
+      "usage": {
+       "in": 3388,
+       "out": 1165
+      }
+     },
+     {
+      "items": [
+       {
+        "n": 1,
+        "score": 4,
+        "reason": "Presenter small top, single bold title, then photo, then navy band closes"
+       },
+       {
+        "n": 2,
+        "score": 2,
+        "reason": "Authentic room but cardboard box and cables undercut staged/set-designer feel"
+       },
+       {
+        "n": 3,
+        "score": 3,
+        "reason": "Cabinet, table, chairs vary scale well; cabinet reads as clear anchor"
+       },
+       {
+        "n": 4,
+        "score": 3,
+        "reason": "Bold serif place-name title with light subtitle contrast is truthful, confident"
+       },
+       {
+        "n": 5,
+        "score": 4,
+        "reason": "Colour comes from wood tones and rug in photo; ground and bands stay neutral"
+       },
+       {
+        "n": 6,
+        "score": 2,
+        "reason": "Visible box, cane, and cables read as clutter/filler rather than curated objects"
+       },
+       {
+        "n": 7,
+        "score": 4,
+        "reason": "Large title and navy wordmark remain legible at small size"
+       },
+       {
+        "n": 8,
+        "score": 3,
+        "reason": "Real on-site photo avoids generic template feel despite standard block layout"
+       },
+       {
+        "n": 9,
+        "score": 4,
+        "reason": "No competitor or seller identity referenced beyond brief brands"
+       },
+       {
+        "n": 10,
+        "score": 2,
+        "reason": "Solid hierarchy and colour discipline, but clutter keeps it at much better, not love"
+       }
+      ],
+      "total": 31,
+      "notes": "Composition and typography meet brief well; main drag is unstaged clutter (box, cables) weakening the set-designer staging principle.",
+      "usage": {
+       "in": 3388,
+       "out": 1304
+      }
+     }
+    ],
+    "average": 29,
+    "disagreement": 4,
+    "flagged": false,
+    "items": [
+     "Hierarchy clarity: the eye enters at the presenter, moves to one title, then to the merchandise.",
+     "Staging: merchandise looks staged by a set designer (heavy things sit, art hangs, small things forward) / arranged for comparison (lineup) / the room is inviting and legible (environmental) / representative items are grounded (acquisition).",
+     "Objects (or the photograph) have confident scale variation and at least one clear anchor.",
+     "Typography is confident and, where expressive, truthful to the event.",
+     "Colour comes from the merchandise; the ground and panels stay quiet.",
+     "Nothing reads as filler: no slogans, icon piles, words on merchandise, duplicate URLs.",
+     "It reads at thumbnail size (headline + wordmark legible when small).",
+     "It would not be mistaken for a template with swapped merchandise (editorial irregularity).",
+     "It does not evoke any specific competitor or seller identity (answer 0 if it does).",
+     "Overall: would the Owner say \"good\" (0), \"much better\" (2), \"love this\" (4)? Justify via items 1–9."
+    ]
+   },
+   "measurable": {
+    "points": 59.33,
+    "out_of": 60,
+    "raw": 53.4,
+    "raw_max": 54,
+    "items": [
+     {
+      "key": "merchandise_forward",
+      "pts": 12,
+      "value": 48.5,
+      "points": 11.4,
+      "target": [
+       50,
+       60
+      ]
+     },
+     {
+      "key": "restrained_copy",
+      "pts": 8,
+      "value": 23.2,
+      "points": 8,
+      "target": [
+       0,
+       24
+      ]
+     },
+     {
+      "key": "copy_count",
+      "pts": 6,
+      "value": 5,
+      "points": 6,
+      "target": "≤ 5"
+     },
+     {
+      "key": "hierarchy_one_title",
+      "pts": 8,
+      "value": 3,
+      "points": 8,
+      "target": "largest ≥ 2.2× next; title 2–6 words"
+     },
+     {
+      "key": "date_gt_time",
+      "pts": 3,
+      "value": true,
+      "points": 3,
+      "target": "date box > time box"
+     },
+     {
+      "key": "controlled_occupancy",
+      "pts": 6,
+      "value": 4.5,
+      "points": 6,
+      "target": "≤ 10"
+     },
+     {
+      "key": "merchandise_rises",
+      "pts": 5,
+      "value": 30.9,
+      "points": 5,
+      "target": "≥ 30"
+     },
+     {
+      "key": "depth_diversity",
+      "pts": 6,
+      "value": null,
+      "points": null,
+      "target": "n/a (not a scene family)"
+     },
+     {
+      "key": "light_ground",
+      "pts": 3,
+      "value": 0.928,
+      "points": 3,
+      "target": "≥ 0.85 relative luminance"
+     },
+     {
+      "key": "brand_frame",
+      "pts": 3,
+      "value": {
+       "logo": false,
+       "band": true,
+       "wordmark": true
+      },
+      "points": 3,
+      "target": "band + wordmark (+ logo where the family shows it)"
+     }
+    ]
+   },
+   "score": 88.33,
+   "decision": "OWNER_REVIEW",
+   "hard_failures": [],
+   "score_basis": "measurable_60 + judge_40",
+   "bar": 70,
+   "owner_review": {
+    "required": true,
+    "reasons": [
+     "proving ground — Owner review mandatory",
+     "retrieval flagged owner_review_required"
+    ]
+   },
+   "extreme": false,
+   "publication_status": "HELD_FOR_OWNER_REVIEW",
+   "drawn_text": [
+    "LEWIS & MAESE",
+    "in conjunction with Advantage.Bid",
+    "West University",
+    "Exclusive On-Site Estate Sale",
+    "WEST UNIVERSITY AREA · HOUSTON, TX",
+    "SATURDAY, SEPTEMBER 19",
+    "9:00 AM – 3:00 PM · One day only",
+    "Advantage.Bid"
+   ],
+   "references_used": [
+    "REF-09",
+    "REF-10",
+    "REF-04",
+    "REF-06",
+    "REF-05"
+   ],
+   "principles_applied": [
+    "On-site estate sales call for an environmental-photograph family; extraction is for online auctions (missing from current families → proposed ENVIRONMENTAL_PHOTO)",
+    "Place-name-led titles for on-site sales",
+    "Multi-day sales: a date-pair block with large day numbers and small hour lines",
+    "A category line and a place plate are enough supporting copy",
+    "When an event title contains contrasting ideas (place + 'Estate Sale'), typography may express the contrast (validates the 3M.3 italic-Home principle; script is one acceptable expression, not a default)",
+    "Left panel + environmental photograph is the second estate-sale layout the Owner accepts",
+    "Icon-led date rows are an accepted device for multi-day on-site events",
+    "Neighbourhood-level location naming",
+    "Direct calibration for LEFT_THIRD_WHITE: panel ≈ 35–40%, merchandise ≈ 60%, objects may exceed the panel's top",
+    "Object count is not a target — 5 large, well-chosen objects satisfy the Owner",
+    "Cropping a heavy piece at the edge is fine when no identifying detail is lost",
+    "Copy set: seller / title / date / time / URL (matches the 3M default exactly)",
+    "A mid-campaign refresh should change merchandise selection, scale and arrangement, not the brand frame (validates 'standardize the frame, customize the event')",
+    "Five objects can fill 60% of a landscape canvas when scale is pushed",
+    "Wall art belongs above grounded furniture, not floating beside it",
+    "Footer band + wordmark validated as a brand-frame device (3M.2 navy band)",
+    "A factual catalogue claim (lot count) may be the primary message when it is true at generation time and re-verified before publishing",
+    "The 'one short supporting line' slot may be a category line (≤ 6 words)",
+    "Tall structure at the back + heavy anchors in front is the Owner's preferred vertical logic"
+   ],
+   "assets": [
+    "IMG_0520-1200x700.jpg (58f9ff301f26…)"
+   ]
+  },
+  {
+   "key": "B",
+   "format": "portrait_1080x1350",
+   "family": "ENVIRONMENTAL_PHOTO",
+   "ok": true,
+   "png": "C:\\Projects\\advantage-auction-platform\\docs\\marketing\\phase3p\\proving-grounds\\2026-09-09\\p3p-west-university-B-portrait_1080x1350.png",
+   "thumb": "C:\\Projects\\advantage-auction-platform\\docs\\marketing\\phase3p\\proving-grounds\\2026-09-09\\p3p-west-university-B-portrait_1080x1350_thumb.png",
+   "render_sha256": "b068c55f5b68fa06d25dc72217656d0e2bab97e7800796050f1b37b01be97d2f",
+   "metrics": {
+    "size": [
+     1080,
+     1350
+    ],
+    "merchandise_pct": 52.3,
+    "text_region_pct": 12.3,
+    "combined_pct": 64.6,
+    "largest_empty_pct": 16.6,
+    "upper_half_merch_pct": 54.1,
+    "text_blocks": 5,
+    "text_block_roles": [
+     "presenter",
+     "title",
+     "date",
+     "time",
+     "place_plate"
+    ],
+    "largest_text_px": 80,
+    "hierarchy_ratio": 1.43,
+    "date_gt_time": true,
+    "title_words": 6,
+    "ground_luminance": 0.928,
+    "brand_frame": {
+     "logo": false,
+     "band": true,
+     "wordmark": true
+    },
+    "family": "ENVIRONMENTAL_PHOTO",
+    "variant": "panel",
+    "photo_pct": 52.3,
+    "place_plate_pct": 1.6,
+    "place_plate_ok": true,
+    "copy_over_merchandise": [],
+    "panel_contrast": 12.91,
+    "plate_contrast": 13.86,
+    "title_scale": 1,
+    "photo_share": 1,
+    "extreme": false
+   },
+   "audit": {
+    "profile": "environmental",
+    "violations": []
+   },
+   "budget": {
+    "pass": true,
+    "max": 5,
+    "blocks": 5,
+    "reasons": []
+   },
+   "leak": {
+    "pass": true,
+    "hits": [],
+    "ocr": "unavailable (no OCR engine in the runtime image; every drawn string is checked exactly)",
+    "logo_template_match": "not_available (no seller logo templates on file)"
+   },
+   "provenance": {
+    "pass": true,
+    "reasons": []
+   },
+   "similarity": {
+    "pass": true,
+    "failures": [],
+    "max_reference": {
+     "id": "REF-11",
+     "distance": 0.5429
+    },
+    "self_history_min": {
+     "id": "p3p-west-university:A:portrait_1080x1350",
+     "distance": 0.5214
+    },
+    "published_anchor_distance": 0.6631,
+    "thresholds": {
+     "tau_ref": 0.35,
+     "tau_self": 0.25,
+     "tau_pub": 0.4
+    },
+    "all_reference_distances": [
+     {
+      "id": "REF-01",
+      "distance": 1.3657
+     },
+     {
+      "id": "REF-02",
+      "distance": 0.9139
+     },
+     {
+      "id": "REF-03",
+      "distance": 0.6028
+     },
+     {
+      "id": "REF-04",
+      "distance": 1.3756
+     },
+     {
+      "id": "REF-05",
+      "distance": 1.0422
+     },
+     {
+      "id": "REF-06",
+      "distance": 1.2939
+     },
+     {
+      "id": "REF-07",
+      "distance": 0.7051
+     },
+     {
+      "id": "REF-08",
+      "distance": 0.8147
+     },
+     {
+      "id": "REF-09",
+      "distance": 0.8632
+     },
+     {
+      "id": "REF-10",
+      "distance": 1.2045
+     },
+     {
+      "id": "REF-11",
+      "distance": 0.5429
+     },
+     {
+      "id": "REF-12",
+      "distance": 0.9656
+     },
+     {
+      "id": "REF-13",
+      "distance": 0.6318
+     }
+    ]
+   },
+   "judge": {
+    "available": true,
+    "model": "claude-sonnet-5",
+    "prompt_version": "p3p-judge-v1",
+    "runs": [
+     {
+      "items": [
+       {
+        "n": 1,
+        "score": 3,
+        "reason": "Presenter small but title and photo clear, order slightly ambiguous"
+       },
+       {
+        "n": 2,
+        "score": 3,
+        "reason": "Grounded furniture, art hung above, rug and bust add environmental credibility"
+       },
+       {
+        "n": 3,
+        "score": 3,
+        "reason": "Chair anchor cropped at edge, table and bust give scale variety"
+       },
+       {
+        "n": 4,
+        "score": 3,
+        "reason": "Bold serif title with red underline is confident and truthful"
+       },
+       {
+        "n": 5,
+        "score": 3,
+        "reason": "Color derives from wood and rug tones, panel stays quiet white"
+       },
+       {
+        "n": 6,
+        "score": 4,
+        "reason": "No slogans or icon clutter, copy is minimal and factual"
+       },
+       {
+        "n": 7,
+        "score": 3,
+        "reason": "Title and navy footer wordmark remain legible at small size"
+       },
+       {
+        "n": 8,
+        "score": 3,
+        "reason": "Specific real room photo feels editorial, not a generic template"
+       },
+       {
+        "n": 9,
+        "score": 4,
+        "reason": "Named presenter is the seller itself, no competitor evocation"
+       },
+       {
+        "n": 10,
+        "score": 3,
+        "reason": "Solid, cohesive execution; strong but not exceptional differentiation"
+       }
+      ],
+      "total": 32,
+      "notes": "Well-executed environmental estate sale ad; hierarchy and staging slightly softened by small presenter text.",
+      "usage": {
+       "in": 3778,
+       "out": 1269
+      }
+     },
+     {
+      "items": [
+       {
+        "n": 1,
+        "score": 3,
+        "reason": "Presenter small at top, title clear, but photo competes for first glance."
+       },
+       {
+        "n": 2,
+        "score": 4,
+        "reason": "Room feels authentic and grounded, art hangs above furniture, legible staging."
+       },
+       {
+        "n": 3,
+        "score": 4,
+        "reason": "Chair anchors foreground, bust and table give strong scale variation."
+       },
+       {
+        "n": 4,
+        "score": 4,
+        "reason": "Bold serif title with red underline expresses place-led emphasis truthfully."
+       },
+       {
+        "n": 5,
+        "score": 4,
+        "reason": "Colour drawn from rug and wood tones; panel stays quiet white/navy."
+       },
+       {
+        "n": 6,
+        "score": 4,
+        "reason": "No slogans, icons, or duplicate text; copy set is minimal and factual."
+       },
+       {
+        "n": 7,
+        "score": 4,
+        "reason": "Bold title and navy footer wordmark remain legible at small scale."
+       },
+       {
+        "n": 8,
+        "score": 3,
+        "reason": "Layout is clean but fairly standard left-photo/right-text split."
+       },
+       {
+        "n": 9,
+        "score": 4,
+        "reason": "No identifiable competitor or seller branding beyond stated names."
+       },
+       {
+        "n": 10,
+        "score": 3,
+        "reason": "Strong adherence overall; minor genericness keeps it just short of love-this."
+       }
+      ],
+      "total": 37,
+      "notes": "Well-balanced environmental estate-sale ad meeting hierarchy, colour, and typography principles; slightly template-like composition prevents top score.",
+      "usage": {
+       "in": 3778,
+       "out": 1244
+      }
+     }
+    ],
+    "average": 34.5,
+    "disagreement": 5,
+    "flagged": false,
+    "items": [
+     "Hierarchy clarity: the eye enters at the presenter, moves to one title, then to the merchandise.",
+     "Staging: merchandise looks staged by a set designer (heavy things sit, art hangs, small things forward) / arranged for comparison (lineup) / the room is inviting and legible (environmental) / representative items are grounded (acquisition).",
+     "Objects (or the photograph) have confident scale variation and at least one clear anchor.",
+     "Typography is confident and, where expressive, truthful to the event.",
+     "Colour comes from the merchandise; the ground and panels stay quiet.",
+     "Nothing reads as filler: no slogans, icon piles, words on merchandise, duplicate URLs.",
+     "It reads at thumbnail size (headline + wordmark legible when small).",
+     "It would not be mistaken for a template with swapped merchandise (editorial irregularity).",
+     "It does not evoke any specific competitor or seller identity (answer 0 if it does).",
+     "Overall: would the Owner say \"good\" (0), \"much better\" (2), \"love this\" (4)? Justify via items 1–9."
+    ]
+   },
+   "measurable": {
+    "points": 47.91,
+    "out_of": 60,
+    "raw": 43.120000000000005,
+    "raw_max": 54,
+    "items": [
+     {
+      "key": "merchandise_forward",
+      "pts": 12,
+      "value": 52.3,
+      "points": 12,
+      "target": [
+       50,
+       60
+      ]
+     },
+     {
+      "key": "restrained_copy",
+      "pts": 8,
+      "value": 12.3,
+      "points": 8,
+      "target": [
+       0,
+       24
+      ]
+     },
+     {
+      "key": "copy_count",
+      "pts": 6,
+      "value": 5,
+      "points": 6,
+      "target": "≤ 5"
+     },
+     {
+      "key": "hierarchy_one_title",
+      "pts": 8,
+      "value": 1.43,
+      "points": 3.12,
+      "target": "largest ≥ 2.2× next; title 2–6 words"
+     },
+     {
+      "key": "date_gt_time",
+      "pts": 3,
+      "value": true,
+      "points": 3,
+      "target": "date box > time box"
+     },
+     {
+      "key": "controlled_occupancy",
+      "pts": 6,
+      "value": 16.6,
+      "points": 0,
+      "target": "≤ 10"
+     },
+     {
+      "key": "merchandise_rises",
+      "pts": 5,
+      "value": 54.1,
+      "points": 5,
+      "target": "≥ 30"
+     },
+     {
+      "key": "depth_diversity",
+      "pts": 6,
+      "value": null,
+      "points": null,
+      "target": "n/a (not a scene family)"
+     },
+     {
+      "key": "light_ground",
+      "pts": 3,
+      "value": 0.928,
+      "points": 3,
+      "target": "≥ 0.85 relative luminance"
+     },
+     {
+      "key": "brand_frame",
+      "pts": 3,
+      "value": {
+       "logo": false,
+       "band": true,
+       "wordmark": true
+      },
+      "points": 3,
+      "target": "band + wordmark (+ logo where the family shows it)"
+     }
+    ]
+   },
+   "score": 82.41,
+   "decision": "OWNER_REVIEW",
+   "hard_failures": [],
+   "score_basis": "measurable_60 + judge_40",
+   "bar": 70,
+   "owner_review": {
+    "required": true,
+    "reasons": [
+     "proving ground — Owner review mandatory",
+     "retrieval flagged owner_review_required"
+    ]
+   },
+   "extreme": false,
+   "publication_status": "HELD_FOR_OWNER_REVIEW",
+   "drawn_text": [
+    "LEWIS & MAESE",
+    "in conjunction with Advantage.Bid",
+    "West",
+    "University",
+    "Exclusive On-Site Estate",
+    "Sale",
+    "SATURDAY",
+    "SEPTEMBER 19",
+    "9:00 AM – 3:00 PM",
+    "One day only",
+    "WEST UNIVERSITY AREA · HOUSTON, TX",
+    "Advantage.Bid"
+   ],
+   "references_used": [
+    "REF-09",
+    "REF-10",
+    "REF-04",
+    "REF-06",
+    "REF-05"
+   ],
+   "principles_applied": [
+    "On-site estate sales call for an environmental-photograph family; extraction is for online auctions (missing from current families → proposed ENVIRONMENTAL_PHOTO)",
+    "Place-name-led titles for on-site sales",
+    "Multi-day sales: a date-pair block with large day numbers and small hour lines",
+    "A category line and a place plate are enough supporting copy",
+    "When an event title contains contrasting ideas (place + 'Estate Sale'), typography may express the contrast (validates the 3M.3 italic-Home principle; script is one acceptable expression, not a default)",
+    "Left panel + environmental photograph is the second estate-sale layout the Owner accepts",
+    "Icon-led date rows are an accepted device for multi-day on-site events",
+    "Neighbourhood-level location naming",
+    "Direct calibration for LEFT_THIRD_WHITE: panel ≈ 35–40%, merchandise ≈ 60%, objects may exceed the panel's top",
+    "Object count is not a target — 5 large, well-chosen objects satisfy the Owner",
+    "Cropping a heavy piece at the edge is fine when no identifying detail is lost",
+    "Copy set: seller / title / date / time / URL (matches the 3M default exactly)",
+    "A mid-campaign refresh should change merchandise selection, scale and arrangement, not the brand frame (validates 'standardize the frame, customize the event')",
+    "Five objects can fill 60% of a landscape canvas when scale is pushed",
+    "Wall art belongs above grounded furniture, not floating beside it",
+    "Footer band + wordmark validated as a brand-frame device (3M.2 navy band)",
+    "A factual catalogue claim (lot count) may be the primary message when it is true at generation time and re-verified before publishing",
+    "The 'one short supporting line' slot may be a category line (≤ 6 words)",
+    "Tall structure at the back + heavy anchors in front is the Owner's preferred vertical logic"
+   ],
+   "assets": [
+    "IMG_0526-1-1200x700.jpg (ce83b3ca57cc…)"
+   ]
+  },
+  {
+   "key": "B",
+   "format": "square_1080x1080",
+   "family": "ENVIRONMENTAL_PHOTO",
+   "ok": true,
+   "png": "C:\\Projects\\advantage-auction-platform\\docs\\marketing\\phase3p\\proving-grounds\\2026-09-09\\p3p-west-university-B-square_1080x1080.png",
+   "thumb": "C:\\Projects\\advantage-auction-platform\\docs\\marketing\\phase3p\\proving-grounds\\2026-09-09\\p3p-west-university-B-square_1080x1080_thumb.png",
+   "render_sha256": "56e485b56ca3756a03bc9c0ffbfc5a69d16b75fa7612f5e4c0f91758d66ff864",
+   "metrics": {
+    "size": [
+     1080,
+     1080
+    ],
+    "merchandise_pct": 51.5,
+    "text_region_pct": 13.2,
+    "combined_pct": 64.7,
+    "largest_empty_pct": 17.2,
+    "upper_half_merch_pct": 54.1,
+    "text_blocks": 5,
+    "text_block_roles": [
+     "presenter",
+     "title",
+     "date",
+     "time",
+     "place_plate"
+    ],
+    "largest_text_px": 84,
+    "hierarchy_ratio": 1.83,
+    "date_gt_time": true,
+    "title_words": 6,
+    "ground_luminance": 0.928,
+    "brand_frame": {
+     "logo": false,
+     "band": true,
+     "wordmark": true
+    },
+    "family": "ENVIRONMENTAL_PHOTO",
+    "variant": "panel",
+    "photo_pct": 51.5,
+    "place_plate_pct": 2.34,
+    "place_plate_ok": true,
+    "copy_over_merchandise": [],
+    "panel_contrast": 12.91,
+    "plate_contrast": 13.86,
+    "title_scale": 1,
+    "photo_share": 1,
+    "extreme": false
+   },
+   "audit": {
+    "profile": "environmental",
+    "violations": []
+   },
+   "budget": {
+    "pass": true,
+    "max": 5,
+    "blocks": 5,
+    "reasons": []
+   },
+   "leak": {
+    "pass": true,
+    "hits": [],
+    "ocr": "unavailable (no OCR engine in the runtime image; every drawn string is checked exactly)",
+    "logo_template_match": "not_available (no seller logo templates on file)"
+   },
+   "provenance": {
+    "pass": true,
+    "reasons": []
+   },
+   "similarity": {
+    "pass": true,
+    "failures": [],
+    "max_reference": {
+     "id": "REF-11",
+     "distance": 0.5532
+    },
+    "self_history_min": {
+     "id": "p3p-west-university:A:square_1080x1080",
+     "distance": 0.5545
+    },
+    "published_anchor_distance": 0.68,
+    "thresholds": {
+     "tau_ref": 0.35,
+     "tau_self": 0.25,
+     "tau_pub": 0.4
+    },
+    "all_reference_distances": [
+     {
+      "id": "REF-01",
+      "distance": 1.3808
+     },
+     {
+      "id": "REF-02",
+      "distance": 0.9218
+     },
+     {
+      "id": "REF-03",
+      "distance": 0.5949
+     },
+     {
+      "id": "REF-04",
+      "distance": 1.3727
+     },
+     {
+      "id": "REF-05",
+      "distance": 1.0445
+     },
+     {
+      "id": "REF-06",
+      "distance": 1.271
+     },
+     {
+      "id": "REF-07",
+      "distance": 0.7177
+     },
+     {
+      "id": "REF-08",
+      "distance": 0.8353
+     },
+     {
+      "id": "REF-09",
+      "distance": 0.891
+     },
+     {
+      "id": "REF-10",
+      "distance": 1.219
+     },
+     {
+      "id": "REF-11",
+      "distance": 0.5532
+     },
+     {
+      "id": "REF-12",
+      "distance": 0.9639
+     },
+     {
+      "id": "REF-13",
+      "distance": 0.6237
+     }
+    ]
+   },
+   "judge": {
+    "available": true,
+    "model": "claude-sonnet-5",
+    "prompt_version": "p3p-judge-v1",
+    "runs": [
+     {
+      "items": [
+       {
+        "n": 1,
+        "score": 3,
+        "reason": "Presenter line small but present, title clear, photo dominant and legible"
+       },
+       {
+        "n": 2,
+        "score": 3,
+        "reason": "Room staged well, art hung above furniture, table set, heavy pieces grounded"
+       },
+       {
+        "n": 3,
+        "score": 3,
+        "reason": "Bust, table, chairs vary in scale; bust and chair act as anchors"
+       },
+       {
+        "n": 4,
+        "score": 3,
+        "reason": "Bold serif title with red underline expresses contrast truthfully to event"
+       },
+       {
+        "n": 5,
+        "score": 3,
+        "reason": "Color mainly from rug and photo; panel and ground stay neutral"
+       },
+       {
+        "n": 6,
+        "score": 3,
+        "reason": "Clean copy, no slogans or icon piles, no duplicate URLs present"
+       },
+       {
+        "n": 7,
+        "score": 3,
+        "reason": "Bold title and navy band remain legible at small size"
+       },
+       {
+        "n": 8,
+        "score": 3,
+        "reason": "Photo feels specific and lived-in, avoiding generic template appearance"
+       },
+       {
+        "n": 9,
+        "score": 4,
+        "reason": "No competitor or specific seller identity evoked in imagery or text"
+       },
+       {
+        "n": 10,
+        "score": 3,
+        "reason": "Strong, cohesive execution; minor polish could push it to love this"
+       }
+      ],
+      "total": 31,
+      "notes": "Solid adherence to ENVIRONMENTAL_PHOTO brief; hierarchy and staging well balanced, minor refinement possible in presenter prominence.",
+      "usage": {
+       "in": 3388,
+       "out": 469
+      }
+     },
+     {
+      "items": [
+       {
+        "n": 1,
+        "score": 3,
+        "reason": "Photo leads, title West University reads clearly, then logistics; presenter line small but present"
+       },
+       {
+        "n": 2,
+        "score": 4,
+        "reason": "Room feels lived-in, art hung above furniture, busts and rugs grounded naturally"
+       },
+       {
+        "n": 3,
+        "score": 3,
+        "reason": "Chairs, table, bust vary in scale; bust and chairs act as anchors"
+       },
+       {
+        "n": 4,
+        "score": 3,
+        "reason": "Serif title bold, red underline accent used once, truthful contrast of place vs sale"
+       },
+       {
+        "n": 5,
+        "score": 3,
+        "reason": "Color mostly from photo warm tones; right panel stays neutral white"
+       },
+       {
+        "n": 6,
+        "score": 3,
+        "reason": "No slogans or icon piles; clean copy blocks, no duplicate URLs"
+       },
+       {
+        "n": 7,
+        "score": 3,
+        "reason": "Bold title and navy band remain legible at small size"
+       },
+       {
+        "n": 8,
+        "score": 2,
+        "reason": "Layout closely matches generic left-panel template, slightly formulaic composition"
+       },
+       {
+        "n": 9,
+        "score": 4,
+        "reason": "No competitor or seller identity evoked beyond generic estate imagery"
+       },
+       {
+        "n": 10,
+        "score": 3,
+        "reason": "Solid, cohesive execution; Owner would likely say much better"
+       }
+      ],
+      "total": 31,
+      "notes": "Strong environmental staging and hierarchy; minor genericness in panel layout keeps it just below top score.",
+      "usage": {
+       "in": 3388,
+       "out": 466
+      }
+     }
+    ],
+    "average": 31,
+    "disagreement": 0,
+    "flagged": false,
+    "items": [
+     "Hierarchy clarity: the eye enters at the presenter, moves to one title, then to the merchandise.",
+     "Staging: merchandise looks staged by a set designer (heavy things sit, art hangs, small things forward) / arranged for comparison (lineup) / the room is inviting and legible (environmental) / representative items are grounded (acquisition).",
+     "Objects (or the photograph) have confident scale variation and at least one clear anchor.",
+     "Typography is confident and, where expressive, truthful to the event.",
+     "Colour comes from the merchandise; the ground and panels stay quiet.",
+     "Nothing reads as filler: no slogans, icon piles, words on merchandise, duplicate URLs.",
+     "It reads at thumbnail size (headline + wordmark legible when small).",
+     "It would not be mistaken for a template with swapped merchandise (editorial irregularity).",
+     "It does not evoke any specific competitor or seller identity (answer 0 if it does).",
+     "Overall: would the Owner say \"good\" (0), \"much better\" (2), \"love this\" (4)? Justify via items 1–9."
+    ]
+   },
+   "measurable": {
+    "points": 48.88,
+    "out_of": 60,
+    "raw": 43.99,
+    "raw_max": 54,
+    "items": [
+     {
+      "key": "merchandise_forward",
+      "pts": 12,
+      "value": 51.5,
+      "points": 12,
+      "target": [
+       50,
+       60
+      ]
+     },
+     {
+      "key": "restrained_copy",
+      "pts": 8,
+      "value": 13.2,
+      "points": 8,
+      "target": [
+       0,
+       24
+      ]
+     },
+     {
+      "key": "copy_count",
+      "pts": 6,
+      "value": 5,
+      "points": 6,
+      "target": "≤ 5"
+     },
+     {
+      "key": "hierarchy_one_title",
+      "pts": 8,
+      "value": 1.83,
+      "points": 3.99,
+      "target": "largest ≥ 2.2× next; title 2–6 words"
+     },
+     {
+      "key": "date_gt_time",
+      "pts": 3,
+      "value": true,
+      "points": 3,
+      "target": "date box > time box"
+     },
+     {
+      "key": "controlled_occupancy",
+      "pts": 6,
+      "value": 17.2,
+      "points": 0,
+      "target": "≤ 10"
+     },
+     {
+      "key": "merchandise_rises",
+      "pts": 5,
+      "value": 54.1,
+      "points": 5,
+      "target": "≥ 30"
+     },
+     {
+      "key": "depth_diversity",
+      "pts": 6,
+      "value": null,
+      "points": null,
+      "target": "n/a (not a scene family)"
+     },
+     {
+      "key": "light_ground",
+      "pts": 3,
+      "value": 0.928,
+      "points": 3,
+      "target": "≥ 0.85 relative luminance"
+     },
+     {
+      "key": "brand_frame",
+      "pts": 3,
+      "value": {
+       "logo": false,
+       "band": true,
+       "wordmark": true
+      },
+      "points": 3,
+      "target": "band + wordmark (+ logo where the family shows it)"
+     }
+    ]
+   },
+   "score": 79.88,
+   "decision": "OWNER_REVIEW",
+   "hard_failures": [],
+   "score_basis": "measurable_60 + judge_40",
+   "bar": 70,
+   "owner_review": {
+    "required": true,
+    "reasons": [
+     "proving ground — Owner review mandatory",
+     "retrieval flagged owner_review_required"
+    ]
+   },
+   "extreme": false,
+   "publication_status": "HELD_FOR_OWNER_REVIEW",
+   "drawn_text": [
+    "LEWIS & MAESE",
+    "in conjunction with Advantage.Bid",
+    "West",
+    "University",
+    "Exclusive On-Site Estate Sale",
+    "SATURDAY",
+    "SEPTEMBER 19",
+    "9:00 AM – 3:00 PM",
+    "One day only",
+    "WEST UNIVERSITY AREA · HOUSTON, TX",
+    "Advantage.Bid"
+   ],
+   "references_used": [
+    "REF-09",
+    "REF-10",
+    "REF-04",
+    "REF-06",
+    "REF-05"
+   ],
+   "principles_applied": [
+    "On-site estate sales call for an environmental-photograph family; extraction is for online auctions (missing from current families → proposed ENVIRONMENTAL_PHOTO)",
+    "Place-name-led titles for on-site sales",
+    "Multi-day sales: a date-pair block with large day numbers and small hour lines",
+    "A category line and a place plate are enough supporting copy",
+    "When an event title contains contrasting ideas (place + 'Estate Sale'), typography may express the contrast (validates the 3M.3 italic-Home principle; script is one acceptable expression, not a default)",
+    "Left panel + environmental photograph is the second estate-sale layout the Owner accepts",
+    "Icon-led date rows are an accepted device for multi-day on-site events",
+    "Neighbourhood-level location naming",
+    "Direct calibration for LEFT_THIRD_WHITE: panel ≈ 35–40%, merchandise ≈ 60%, objects may exceed the panel's top",
+    "Object count is not a target — 5 large, well-chosen objects satisfy the Owner",
+    "Cropping a heavy piece at the edge is fine when no identifying detail is lost",
+    "Copy set: seller / title / date / time / URL (matches the 3M default exactly)",
+    "A mid-campaign refresh should change merchandise selection, scale and arrangement, not the brand frame (validates 'standardize the frame, customize the event')",
+    "Five objects can fill 60% of a landscape canvas when scale is pushed",
+    "Wall art belongs above grounded furniture, not floating beside it",
+    "Footer band + wordmark validated as a brand-frame device (3M.2 navy band)",
+    "A factual catalogue claim (lot count) may be the primary message when it is true at generation time and re-verified before publishing",
+    "The 'one short supporting line' slot may be a category line (≤ 6 words)",
+    "Tall structure at the back + heavy anchors in front is the Owner's preferred vertical logic"
+   ],
+   "assets": [
+    "IMG_0526-1-1200x700.jpg (ce83b3ca57cc…)"
+   ]
+  },
+  {
+   "key": "C",
+   "format": "portrait_1080x1350",
+   "family": "ENVIRONMENTAL_PHOTO",
+   "ok": true,
+   "png": "C:\\Projects\\advantage-auction-platform\\docs\\marketing\\phase3p\\proving-grounds\\2026-09-09\\p3p-west-university-C-portrait_1080x1350.png",
+   "thumb": "C:\\Projects\\advantage-auction-platform\\docs\\marketing\\phase3p\\proving-grounds\\2026-09-09\\p3p-west-university-C-portrait_1080x1350_thumb.png",
+   "render_sha256": "d38265384d94bfffc9d0cd763a9896f768003a3e5714189c2232e9d9356fe20f",
+   "metrics": {
+    "size": [
+     1080,
+     1350
+    ],
+    "merchandise_pct": 49.6,
+    "text_region_pct": 26.2,
+    "combined_pct": 75.8,
+    "largest_empty_pct": 3.3,
+    "upper_half_merch_pct": 32.9,
+    "text_blocks": 5,
+    "text_block_roles": [
+     "presenter",
+     "title",
+     "place_plate",
+     "date",
+     "time"
+    ],
+    "largest_text_px": 134,
+    "hierarchy_ratio": 2.68,
+    "date_gt_time": true,
+    "title_words": 6,
+    "ground_luminance": 0.928,
+    "brand_frame": {
+     "logo": false,
+     "band": true,
+     "wordmark": true
+    },
+    "family": "ENVIRONMENTAL_PHOTO",
+    "variant": "banded",
+    "photo_pct": 49.6,
+    "place_plate_pct": 2.64,
+    "place_plate_ok": true,
+    "copy_over_merchandise": [],
+    "panel_contrast": 12.91,
+    "plate_contrast": 13.86,
+    "title_scale": 1.15,
+    "photo_share": 1.15,
+    "extreme": true
+   },
+   "audit": {
+    "profile": "environmental",
+    "violations": []
+   },
+   "budget": {
+    "pass": true,
+    "max": 5,
+    "blocks": 5,
+    "reasons": []
+   },
+   "leak": {
+    "pass": true,
+    "hits": [],
+    "ocr": "unavailable (no OCR engine in the runtime image; every drawn string is checked exactly)",
+    "logo_template_match": "not_available (no seller logo templates on file)"
+   },
+   "provenance": {
+    "pass": true,
+    "reasons": []
+   },
+   "similarity": {
+    "pass": true,
+    "failures": [],
+    "max_reference": {
+     "id": "REF-13",
+     "distance": 0.5567
+    },
+    "self_history_min": null,
+    "published_anchor_distance": 0.6431,
+    "thresholds": {
+     "tau_ref": 0.35,
+     "tau_self": 0.25,
+     "tau_pub": 0.4
+    },
+    "all_reference_distances": [
+     {
+      "id": "REF-01",
+      "distance": 0.9007
+     },
+     {
+      "id": "REF-02",
+      "distance": 0.8874
+     },
+     {
+      "id": "REF-03",
+      "distance": 0.8645
+     },
+     {
+      "id": "REF-04",
+      "distance": 0.9651
+     },
+     {
+      "id": "REF-05",
+      "distance": 0.578
+     },
+     {
+      "id": "REF-06",
+      "distance": 0.701
+     },
+     {
+      "id": "REF-07",
+      "distance": 1.0965
+     },
+     {
+      "id": "REF-08",
+      "distance": 0.9481
+     },
+     {
+      "id": "REF-09",
+      "distance": 0.6735
+     },
+     {
+      "id": "REF-10",
+      "distance": 0.7428
+     },
+     {
+      "id": "REF-11",
+      "distance": 0.6617
+     },
+     {
+      "id": "REF-12",
+      "distance": 1.1226
+     },
+     {
+      "id": "REF-13",
+      "distance": 0.5567
+     }
+    ]
+   },
+   "judge": {
+    "available": true,
+    "model": "claude-sonnet-5",
+    "prompt_version": "p3p-judge-v1",
+    "runs": [
+     {
+      "items": [
+       {
+        "n": 1,
+        "score": 4,
+        "reason": "Presenter leads, Advantage.Bid subordinate, then bold title, then photo follows brief order"
+       },
+       {
+        "n": 2,
+        "score": 4,
+        "reason": "Room reads as authentic on-site staging, furniture grounded, art hung, small items forward"
+       },
+       {
+        "n": 3,
+        "score": 3,
+        "reason": "Sofa and cabinet anchor the scene with clear scale variation among smaller chairs and tables"
+       },
+       {
+        "n": 4,
+        "score": 3,
+        "reason": "Bold serif title contrasts with softer subtitle, truthful expression of place vs estate-sale idea"
+       },
+       {
+        "n": 5,
+        "score": 4,
+        "reason": "Warm photo tones carry colour; cream ground and navy footer stay quiet, red used once"
+       },
+       {
+        "n": 6,
+        "score": 4,
+        "reason": "No slogans or icon piles; Advantage.Bid mention twice is factual, not decorative filler"
+       },
+       {
+        "n": 7,
+        "score": 3,
+        "reason": "Large bold title and navy wordmark should remain legible at thumbnail scale"
+       },
+       {
+        "n": 8,
+        "score": 3,
+        "reason": "Photo feels genuine and specific though banded layout is fairly conventional template structure"
+       },
+       {
+        "n": 9,
+        "score": 4,
+        "reason": "No evocation of a real competitor; presenter name is the intended fictional seller"
+       },
+       {
+        "n": 10,
+        "score": 3,
+        "reason": "Solid adherence to hierarchy and staging rules; upper-half photo share is borderline minimal"
+       }
+      ],
+      "total": 35,
+      "notes": "Photo occupies roughly 50-55% of canvas, meeting share target; upper-half merchandise coverage is close to the 30% floor, worth checking crop timing.",
+      "usage": {
+       "in": 3778,
+       "out": 1910
+      }
+     },
+     {
+      "items": [
+       {
+        "n": 1,
+        "score": 3,
+        "reason": "Seller then place-title then photo works but multiple subtitle lines dilute single title focus."
+       },
+       {
+        "n": 2,
+        "score": 4,
+        "reason": "Room reads as genuine lived-in environment; heavy pieces grounded, art hung, small items forward."
+       },
+       {
+        "n": 3,
+        "score": 4,
+        "reason": "Sofa anchors scene; chairs and tabletop items give clear scale variation."
+       },
+       {
+        "n": 4,
+        "score": 4,
+        "reason": "Bold serif place-name expresses the estate's character truthfully, no gimmick."
+       },
+       {
+        "n": 5,
+        "score": 2,
+        "reason": "Red accent appears twice (top band + underline), violating single-use rule."
+       },
+       {
+        "n": 6,
+        "score": 3,
+        "reason": "No slogans or icon piles, but extra subtitle and category lines exceed copy budget."
+       },
+       {
+        "n": 7,
+        "score": 4,
+        "reason": "Large title and clear navy wordmark remain legible at thumbnail size."
+       },
+       {
+        "n": 8,
+        "score": 4,
+        "reason": "Specific room photo feels editorial, not a swapped-stock template."
+       },
+       {
+        "n": 9,
+        "score": 4,
+        "reason": "No competitor branding or identity is evoked."
+       },
+       {
+        "n": 10,
+        "score": 2,
+        "reason": "Solid staging and typography, but text overload and repeated accent keep it at much better, not love."
+       }
+      ],
+      "total": 34,
+      "notes": "Photo share appears slightly under the 50-60% target and copy blocks exceed the 5-block budget; red accent used twice instead of once.",
+      "usage": {
+       "in": 3778,
+       "out": 1952
+      }
+     }
+    ],
+    "average": 34.5,
+    "disagreement": 1,
+    "flagged": false,
+    "items": [
+     "Hierarchy clarity: the eye enters at the presenter, moves to one title, then to the merchandise.",
+     "Staging: merchandise looks staged by a set designer (heavy things sit, art hangs, small things forward) / arranged for comparison (lineup) / the room is inviting and legible (environmental) / representative items are grounded (acquisition).",
+     "Objects (or the photograph) have confident scale variation and at least one clear anchor.",
+     "Typography is confident and, where expressive, truthful to the event.",
+     "Colour comes from the merchandise; the ground and panels stay quiet.",
+     "Nothing reads as filler: no slogans, icon piles, words on merchandise, duplicate URLs.",
+     "It reads at thumbnail size (headline + wordmark legible when small).",
+     "It would not be mistaken for a template with swapped merchandise (editorial irregularity).",
+     "It does not evoke any specific competitor or seller identity (answer 0 if it does).",
+     "Overall: would the Owner say \"good\" (0), \"much better\" (2), \"love this\" (4)? Justify via items 1–9."
+    ]
+   },
+   "measurable": {
+    "points": 58.19,
+    "out_of": 60,
+    "raw": 52.370000000000005,
+    "raw_max": 54,
+    "items": [
+     {
+      "key": "merchandise_forward",
+      "pts": 12,
+      "value": 49.6,
+      "points": 11.84,
+      "target": [
+       50,
+       60
+      ]
+     },
+     {
+      "key": "restrained_copy",
+      "pts": 8,
+      "value": 26.2,
+      "points": 6.53,
+      "target": [
+       0,
+       24
+      ]
+     },
+     {
+      "key": "copy_count",
+      "pts": 6,
+      "value": 5,
+      "points": 6,
+      "target": "≤ 5"
+     },
+     {
+      "key": "hierarchy_one_title",
+      "pts": 8,
+      "value": 2.68,
+      "points": 8,
+      "target": "largest ≥ 2.2× next; title 2–6 words"
+     },
+     {
+      "key": "date_gt_time",
+      "pts": 3,
+      "value": true,
+      "points": 3,
+      "target": "date box > time box"
+     },
+     {
+      "key": "controlled_occupancy",
+      "pts": 6,
+      "value": 3.3,
+      "points": 6,
+      "target": "≤ 10"
+     },
+     {
+      "key": "merchandise_rises",
+      "pts": 5,
+      "value": 32.9,
+      "points": 5,
+      "target": "≥ 30"
+     },
+     {
+      "key": "depth_diversity",
+      "pts": 6,
+      "value": null,
+      "points": null,
+      "target": "n/a (not a scene family)"
+     },
+     {
+      "key": "light_ground",
+      "pts": 3,
+      "value": 0.928,
+      "points": 3,
+      "target": "≥ 0.85 relative luminance"
+     },
+     {
+      "key": "brand_frame",
+      "pts": 3,
+      "value": {
+       "logo": false,
+       "band": true,
+       "wordmark": true
+      },
+      "points": 3,
+      "target": "band + wordmark (+ logo where the family shows it)"
+     }
+    ]
+   },
+   "score": 92.69,
+   "decision": "NOT_FOR_PUBLICATION",
+   "hard_failures": [],
+   "score_basis": "measurable_60 + judge_40",
+   "bar": 70,
+   "owner_review": {
+    "required": true,
+    "reasons": [
+     "proving ground — Owner review mandatory",
+     "retrieval flagged owner_review_required"
+    ]
+   },
+   "extreme": true,
+   "publication_status": "NOT_FOR_PUBLICATION",
+   "drawn_text": [
+    "LEWIS & MAESE",
+    "in conjunction with Advantage.Bid",
+    "West University",
+    "Exclusive On-Site Estate Sale",
+    "WEST UNIVERSITY AREA · HOUSTON, TX",
+    "SATURDAY, SEPTEMBER 19",
+    "9:00 AM – 3:00 PM · One day only",
+    "Advantage.Bid",
+    "CALIBRATION EXTREME — NOT FOR PUBLICATION"
+   ],
+   "references_used": [
+    "REF-09",
+    "REF-10",
+    "REF-04",
+    "REF-06",
+    "REF-05"
+   ],
+   "principles_applied": [
+    "On-site estate sales call for an environmental-photograph family; extraction is for online auctions (missing from current families → proposed ENVIRONMENTAL_PHOTO)",
+    "Place-name-led titles for on-site sales",
+    "Multi-day sales: a date-pair block with large day numbers and small hour lines",
+    "A category line and a place plate are enough supporting copy",
+    "When an event title contains contrasting ideas (place + 'Estate Sale'), typography may express the contrast (validates the 3M.3 italic-Home principle; script is one acceptable expression, not a default)",
+    "Left panel + environmental photograph is the second estate-sale layout the Owner accepts",
+    "Icon-led date rows are an accepted device for multi-day on-site events",
+    "Neighbourhood-level location naming",
+    "Direct calibration for LEFT_THIRD_WHITE: panel ≈ 35–40%, merchandise ≈ 60%, objects may exceed the panel's top",
+    "Object count is not a target — 5 large, well-chosen objects satisfy the Owner",
+    "Cropping a heavy piece at the edge is fine when no identifying detail is lost",
+    "Copy set: seller / title / date / time / URL (matches the 3M default exactly)",
+    "A mid-campaign refresh should change merchandise selection, scale and arrangement, not the brand frame (validates 'standardize the frame, customize the event')",
+    "Five objects can fill 60% of a landscape canvas when scale is pushed",
+    "Wall art belongs above grounded furniture, not floating beside it",
+    "Footer band + wordmark validated as a brand-frame device (3M.2 navy band)",
+    "A factual catalogue claim (lot count) may be the primary message when it is true at generation time and re-verified before publishing",
+    "The 'one short supporting line' slot may be a category line (≤ 6 words)",
+    "Tall structure at the back + heavy anchors in front is the Owner's preferred vertical logic"
+   ],
+   "assets": [
+    "IMG_0522-1200x700.jpg (426cb9a52fe3…)"
+   ]
+  },
+  {
+   "key": "C",
+   "format": "square_1080x1080",
+   "family": "ENVIRONMENTAL_PHOTO",
+   "ok": true,
+   "png": "C:\\Projects\\advantage-auction-platform\\docs\\marketing\\phase3p\\proving-grounds\\2026-09-09\\p3p-west-university-C-square_1080x1080.png",
+   "thumb": "C:\\Projects\\advantage-auction-platform\\docs\\marketing\\phase3p\\proving-grounds\\2026-09-09\\p3p-west-university-C-square_1080x1080_thumb.png",
+   "render_sha256": "1045df000ce7f76d5ae43bff6cd3060291e0d36a7fea1bb8aae63665a6df241e",
+   "metrics": {
+    "size": [
+     1080,
+     1080
+    ],
+    "merchandise_pct": 46.2,
+    "text_region_pct": 27.8,
+    "combined_pct": 74,
+    "largest_empty_pct": 3.2,
+    "upper_half_merch_pct": 26.7,
+    "text_blocks": 5,
+    "text_block_roles": [
+     "presenter",
+     "title",
+     "place_plate",
+     "date",
+     "time"
+    ],
+    "largest_text_px": 134,
+    "hierarchy_ratio": 3.35,
+    "date_gt_time": true,
+    "title_words": 6,
+    "ground_luminance": 0.928,
+    "brand_frame": {
+     "logo": false,
+     "band": true,
+     "wordmark": true
+    },
+    "family": "ENVIRONMENTAL_PHOTO",
+    "variant": "banded",
+    "photo_pct": 46.2,
+    "place_plate_pct": 3.3,
+    "place_plate_ok": true,
+    "copy_over_merchandise": [],
+    "panel_contrast": 12.91,
+    "plate_contrast": 13.86,
+    "title_scale": 1.15,
+    "photo_share": 1.15,
+    "extreme": true
+   },
+   "audit": {
+    "profile": "environmental",
+    "violations": []
+   },
+   "budget": {
+    "pass": true,
+    "max": 5,
+    "blocks": 5,
+    "reasons": []
+   },
+   "leak": {
+    "pass": true,
+    "hits": [],
+    "ocr": "unavailable (no OCR engine in the runtime image; every drawn string is checked exactly)",
+    "logo_template_match": "not_available (no seller logo templates on file)"
+   },
+   "provenance": {
+    "pass": true,
+    "reasons": []
+   },
+   "similarity": {
+    "pass": true,
+    "failures": [],
+    "max_reference": {
+     "id": "REF-13",
+     "distance": 0.5703
+    },
+    "self_history_min": null,
+    "published_anchor_distance": 0.6368,
+    "thresholds": {
+     "tau_ref": 0.35,
+     "tau_self": 0.25,
+     "tau_pub": 0.4
+    },
+    "all_reference_distances": [
+     {
+      "id": "REF-01",
+      "distance": 0.8921
+     },
+     {
+      "id": "REF-02",
+      "distance": 0.9484
+     },
+     {
+      "id": "REF-03",
+      "distance": 0.8538
+     },
+     {
+      "id": "REF-04",
+      "distance": 0.9492
+     },
+     {
+      "id": "REF-05",
+      "distance": 0.5933
+     },
+     {
+      "id": "REF-06",
+      "distance": 0.7157
+     },
+     {
+      "id": "REF-07",
+      "distance": 1.0725
+     },
+     {
+      "id": "REF-08",
+      "distance": 0.8926
+     },
+     {
+      "id": "REF-09",
+      "distance": 0.7042
+     },
+     {
+      "id": "REF-10",
+      "distance": 0.7425
+     },
+     {
+      "id": "REF-11",
+      "distance": 0.6588
+     },
+     {
+      "id": "REF-12",
+      "distance": 1.169
+     },
+     {
+      "id": "REF-13",
+      "distance": 0.5703
+     }
+    ]
+   },
+   "judge": {
+    "available": true,
+    "model": "claude-sonnet-5",
+    "prompt_version": "p3p-judge-v1",
+    "runs": [
+     {
+      "items": [
+       {
+        "n": 1,
+        "score": 3,
+        "reason": "Presenter, title, photo, closing band flow well but extra subline competes for attention."
+       },
+       {
+        "n": 2,
+        "score": 4,
+        "reason": "Room reads as a real staged interior, art hung above grounded furniture, legible and inviting."
+       },
+       {
+        "n": 3,
+        "score": 3,
+        "reason": "Cabinet, sofa and wingback chair give clear scale variation and an anchor piece."
+       },
+       {
+        "n": 4,
+        "score": 3,
+        "reason": "Bold serif title is confident but not particularly expressive of contrast or material."
+       },
+       {
+        "n": 5,
+        "score": 4,
+        "reason": "Colour comes from furnishings and rugs; ground and panels remain quiet and neutral."
+       },
+       {
+        "n": 6,
+        "score": 2,
+        "reason": "Extra subline and multiple stacked copy blocks exceed the tight 5-block budget."
+       },
+       {
+        "n": 7,
+        "score": 4,
+        "reason": "Large bold headline and clear navy wordmark remain legible at small sizes."
+       },
+       {
+        "n": 8,
+        "score": 2,
+        "reason": "Header/photo/footer stack feels like a reusable template rather than editorially distinct."
+       },
+       {
+        "n": 9,
+        "score": 4,
+        "reason": "No competitor or seller identity is evoked beyond the named presenter, which is expected."
+       },
+       {
+        "n": 10,
+        "score": 2,
+        "reason": "Solid, on-brief execution but copy overage and template feel keep it at good, not exceptional."
+       }
+      ],
+      "total": 31,
+      "notes": "Photo share appears slightly under the 50-60% target and upper-half merchandise coverage is marginal versus the 30% minimum; copy blocks exceed the 5-block budget, pulling the overall score toward good rather than love-this.",
+      "usage": {
+       "in": 3388,
+       "out": 2023
+      }
+     },
+     {
+      "items": [
+       {
+        "n": 1,
+        "score": 4,
+        "reason": "Clear flow: presenter small, title bold, then photo, navy band closes."
+       },
+       {
+        "n": 2,
+        "score": 4,
+        "reason": "Room looks genuinely staged, furniture grounded, art hung above pieces."
+       },
+       {
+        "n": 3,
+        "score": 3,
+        "reason": "Sofa and dresser anchor scale; some smaller items lack strong contrast."
+       },
+       {
+        "n": 4,
+        "score": 3,
+        "reason": "Serif title confident and legible, but no expressive contrast used."
+       },
+       {
+        "n": 5,
+        "score": 4,
+        "reason": "Warm wood and rug tones carry color; ground stays neutral cream."
+       },
+       {
+        "n": 6,
+        "score": 2,
+        "reason": "Top red testing banner is filler text unrelated to brand frame."
+       },
+       {
+        "n": 7,
+        "score": 4,
+        "reason": "Title and wordmark remain legible at small scale."
+       },
+       {
+        "n": 8,
+        "score": 4,
+        "reason": "Authentic room photo feels specific, not a generic template swap."
+       },
+       {
+        "n": 9,
+        "score": 4,
+        "reason": "Named presenter is expected hierarchy element, not competitor mimicry."
+       },
+       {
+        "n": 10,
+        "score": 3,
+        "reason": "Strong environmental execution marred only by stray calibration banner text."
+       }
+      ],
+      "total": 35,
+      "notes": "Solid ENVIRONMENTAL_PHOTO adherence; remove test banner to reach ideal calibration.",
+      "usage": {
+       "in": 3388,
+       "out": 1409
+      }
+     }
+    ],
+    "average": 33,
+    "disagreement": 4,
+    "flagged": false,
+    "items": [
+     "Hierarchy clarity: the eye enters at the presenter, moves to one title, then to the merchandise.",
+     "Staging: merchandise looks staged by a set designer (heavy things sit, art hangs, small things forward) / arranged for comparison (lineup) / the room is inviting and legible (environmental) / representative items are grounded (acquisition).",
+     "Objects (or the photograph) have confident scale variation and at least one clear anchor.",
+     "Typography is confident and, where expressive, truthful to the event.",
+     "Colour comes from the merchandise; the ground and panels stay quiet.",
+     "Nothing reads as filler: no slogans, icon piles, words on merchandise, duplicate URLs.",
+     "It reads at thumbnail size (headline + wordmark legible when small).",
+     "It would not be mistaken for a template with swapped merchandise (editorial irregularity).",
+     "It does not evoke any specific competitor or seller identity (answer 0 if it does).",
+     "Overall: would the Owner say \"good\" (0), \"much better\" (2), \"love this\" (4)? Justify via items 1–9."
+    ]
+   },
+   "measurable": {
+    "points": 55.13,
+    "out_of": 60,
+    "raw": 49.620000000000005,
+    "raw_max": 54,
+    "items": [
+     {
+      "key": "merchandise_forward",
+      "pts": 12,
+      "value": 46.2,
+      "points": 10.48,
+      "target": [
+       50,
+       60
+      ]
+     },
+     {
+      "key": "restrained_copy",
+      "pts": 8,
+      "value": 27.8,
+      "points": 5.47,
+      "target": [
+       0,
+       24
+      ]
+     },
+     {
+      "key": "copy_count",
+      "pts": 6,
+      "value": 5,
+      "points": 6,
+      "target": "≤ 5"
+     },
+     {
+      "key": "hierarchy_one_title",
+      "pts": 8,
+      "value": 3.35,
+      "points": 8,
+      "target": "largest ≥ 2.2× next; title 2–6 words"
+     },
+     {
+      "key": "date_gt_time",
+      "pts": 3,
+      "value": true,
+      "points": 3,
+      "target": "date box > time box"
+     },
+     {
+      "key": "controlled_occupancy",
+      "pts": 6,
+      "value": 3.2,
+      "points": 6,
+      "target": "≤ 10"
+     },
+     {
+      "key": "merchandise_rises",
+      "pts": 5,
+      "value": 26.7,
+      "points": 4.67,
+      "target": "≥ 30"
+     },
+     {
+      "key": "depth_diversity",
+      "pts": 6,
+      "value": null,
+      "points": null,
+      "target": "n/a (not a scene family)"
+     },
+     {
+      "key": "light_ground",
+      "pts": 3,
+      "value": 0.928,
+      "points": 3,
+      "target": "≥ 0.85 relative luminance"
+     },
+     {
+      "key": "brand_frame",
+      "pts": 3,
+      "value": {
+       "logo": false,
+       "band": true,
+       "wordmark": true
+      },
+      "points": 3,
+      "target": "band + wordmark (+ logo where the family shows it)"
+     }
+    ]
+   },
+   "score": 88.13,
+   "decision": "NOT_FOR_PUBLICATION",
+   "hard_failures": [],
+   "score_basis": "measurable_60 + judge_40",
+   "bar": 70,
+   "owner_review": {
+    "required": true,
+    "reasons": [
+     "proving ground — Owner review mandatory",
+     "retrieval flagged owner_review_required"
+    ]
+   },
+   "extreme": true,
+   "publication_status": "NOT_FOR_PUBLICATION",
+   "drawn_text": [
+    "LEWIS & MAESE",
+    "in conjunction with Advantage.Bid",
+    "West University",
+    "Exclusive On-Site Estate Sale",
+    "WEST UNIVERSITY AREA · HOUSTON, TX",
+    "SATURDAY, SEPTEMBER 19",
+    "9:00 AM – 3:00 PM · One day only",
+    "Advantage.Bid",
+    "CALIBRATION EXTREME — NOT FOR PUBLICATION"
+   ],
+   "references_used": [
+    "REF-09",
+    "REF-10",
+    "REF-04",
+    "REF-06",
+    "REF-05"
+   ],
+   "principles_applied": [
+    "On-site estate sales call for an environmental-photograph family; extraction is for online auctions (missing from current families → proposed ENVIRONMENTAL_PHOTO)",
+    "Place-name-led titles for on-site sales",
+    "Multi-day sales: a date-pair block with large day numbers and small hour lines",
+    "A category line and a place plate are enough supporting copy",
+    "When an event title contains contrasting ideas (place + 'Estate Sale'), typography may express the contrast (validates the 3M.3 italic-Home principle; script is one acceptable expression, not a default)",
+    "Left panel + environmental photograph is the second estate-sale layout the Owner accepts",
+    "Icon-led date rows are an accepted device for multi-day on-site events",
+    "Neighbourhood-level location naming",
+    "Direct calibration for LEFT_THIRD_WHITE: panel ≈ 35–40%, merchandise ≈ 60%, objects may exceed the panel's top",
+    "Object count is not a target — 5 large, well-chosen objects satisfy the Owner",
+    "Cropping a heavy piece at the edge is fine when no identifying detail is lost",
+    "Copy set: seller / title / date / time / URL (matches the 3M default exactly)",
+    "A mid-campaign refresh should change merchandise selection, scale and arrangement, not the brand frame (validates 'standardize the frame, customize the event')",
+    "Five objects can fill 60% of a landscape canvas when scale is pushed",
+    "Wall art belongs above grounded furniture, not floating beside it",
+    "Footer band + wordmark validated as a brand-frame device (3M.2 navy band)",
+    "A factual catalogue claim (lot count) may be the primary message when it is true at generation time and re-verified before publishing",
+    "The 'one short supporting line' slot may be a category line (≤ 6 words)",
+    "Tall structure at the back + heavy anchors in front is the Owner's preferred vertical logic"
+   ],
+   "assets": [
+    "IMG_0522-1200x700.jpg (426cb9a52fe3…)"
+   ]
+  }
+ ],
+ "bar": 70
+}

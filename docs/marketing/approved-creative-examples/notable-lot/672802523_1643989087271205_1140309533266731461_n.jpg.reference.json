@@ -1,0 +1,136 @@
+{
+  "schema_version": "1.0",
+  "reference_id": "REF-12",
+  "identity": {
+    "sha256": "6a37223e52103c47aa083ad12f8e92affefe1693b3c03b1a1f67e244357f4fe7",
+    "current_path": "notable-lot/672802523_1643989087271205_1140309533266731461_n.jpg",
+    "original_filename": "672802523_1643989087271205_1140309533266731461_n.jpg",
+    "width": 1024,
+    "height": 1024,
+    "format_class": "square",
+    "aspect_ratio": 1.0
+  },
+  "owner_status": "OWNER_APPROVED",
+  "owner_weight": 1.0,
+  "status_history": [
+    {
+      "date": "2026-09-09",
+      "status": "OWNER_APPROVED",
+      "source": "folder_placement_by_owner",
+      "owner_words": "Owner placed the file in docs/marketing/approved-creative-examples/notable-lot/ as a good example of creative work.",
+      "recorded_by": "Desktop Marketing — Phase 3P"
+    }
+  ],
+  "source": {
+    "seller": "Lewis & Maese",
+    "origin": "Seller-published social creative, Owner-selected (same campaign as REF-01; seller identified only by the URL)",
+    "rights": "Third-party seller artwork selected by the Owner as calibration evidence. Never reproduce, never pass to a generator as image input, never publish. Only the transferable principles leave this record.",
+    "campaign_title_visible": "Rock Specimen / Designer Purse Auction",
+    "event_date_visible": "Tuesday, April 29 · starting at noon CT · Online only",
+    "advantage_bid_visible": false
+  },
+  "classification": {
+    "campaign_class_primary": "notable_lot",
+    "campaign_class_secondary": [
+      "auction"
+    ],
+    "event_product_type": "Single hero object (backlit quartz crystal on matrix) for a specialty online auction",
+    "seller_hierarchy": "seller_led_solo",
+    "visual_family": "HERO_SINGLE_DARK",
+    "nearest_advantage_family": "SINGLE_LOT",
+    "event_mode": "online_only",
+    "merchandise_breadth": "single_object",
+    "owner_folder": "notable-lot"
+  },
+  "visual_read": {
+    "visual_hierarchy": "One dramatic object fills the right two-thirds and the bottom; the title stack (ROCK SPECIMEN white serif, DESIGNER PURSE / AUCTION orange) sits top-left over the dark ground; date/time/online-only; 'Featuring' line; CTA box bottom-left. Thin orange frame.",
+    "merchandise_treatment": "A single clear quartz crystal on its matrix, backlit so the edges glow, with lens flare highlights; the matrix runs off the bottom edge.",
+    "composition_style": "Hero object on a near-black ground; text column left; the light IS the composition.",
+    "typography_treatment": "Same serif/sans system as REF-01, reversed to white with orange emphasis.",
+    "information_density": "medium",
+    "branding_hierarchy": "No seller logo — only the URL in the CTA box identifies the seller.",
+    "cta_treatment": "Boxed 'BID ONLINE! LMAuctionCo.com' with orange outline on dark.",
+    "footer_treatment": "None; the CTA box and orange frame close the canvas.",
+    "photographic_style": "Dramatic backlit macro photography, dark field, specular highlights.",
+    "overlapping_objects": "none",
+    "environmental_staged_composition": "None — object and light only.",
+    "negative_space": "generous",
+    "ground": "dark",
+    "overall_visual_impact": "very_high"
+  },
+  "measured": {
+    "light_pixel_pct": 3.0,
+    "dark_pixel_pct": 56.6,
+    "saturated_pixel_pct": 6.3,
+    "dominant_hues": [
+      "red 70%",
+      "azure 24%",
+      "orange 6%"
+    ],
+    "est_merchandise_share_pct": [
+      45,
+      55
+    ],
+    "est_text_share_pct": [
+      14,
+      18
+    ],
+    "object_count_est": 1,
+    "text_block_count": 5
+  },
+  "strongest_attributes": [
+    "The only dark-ground ad the Owner approved — and it is a single lit object where darkness makes the light visible",
+    "Generous negative space used deliberately (dark field around the crystal)",
+    "Same campaign as REF-01: the Owner approved a hero-object variant alongside the still-life variant"
+  ],
+  "transferable_lessons": [
+    "Dark ground is justified by a specific trigger — one hero object whose lighting, translucency or reflectivity is the story (validates the 3M.1 decision: dark is a specialised treatment, not an equal default)",
+    "Notable-lot creative = one object, dramatic scale, the same short copy set",
+    "A campaign may pair a hero-object creative with a broader still-life or scene creative"
+  ],
+  "do_not_generalize": [
+    "Orange accent, ornament glyphs, decorative frame — seller identity",
+    "Absence of the seller logo — an Advantage.Bid creative always carries the presenter and the navy footer",
+    "Dark ground for anything other than a lit hero object"
+  ],
+  "text_density_assessment": {
+    "level": "medium",
+    "why_it_works_here": "Reversed type on a dark field reads cleanly because the object leaves the left third empty.",
+    "advantage_bid_budget_note": "At budget."
+  },
+  "composition_assessment": {
+    "spatial_logic": "Object on matrix; the matrix is the ground.",
+    "gravity_and_grounding": "Crystal rises from its matrix at the bottom edge — grounded by the crop.",
+    "depth": "Single plane with photographic depth.",
+    "scale_strategy": "Object ≈ 60% of canvas height; the biggest thing in the frame by far.",
+    "edge_handling": "Matrix exits the bottom and right edges; the crystal itself is whole."
+  },
+  "retrieval": {
+    "use_cases": [
+      "notable lot spotlight",
+      "single hero object",
+      "minerals, glass, crystal, lit or reflective objects",
+      "SINGLE_LOT family calibration",
+      "dark-ground trigger"
+    ],
+    "tags": [
+      "hero-single",
+      "dark-ground",
+      "backlit",
+      "negative-space",
+      "square"
+    ],
+    "avoid_for": [
+      "broad auctions",
+      "estate sales",
+      "any multi-object creative"
+    ]
+  },
+  "performance": null,
+  "provenance": {
+    "created_by": "Desktop Marketing (Claude, Cowork) — Phase 3P",
+    "created_at": "2026-09-09T20:31:32Z",
+    "analysis_method": "Direct visual inspection of the full-resolution image; pixel statistics computed from the file; est_* fields are visual estimates. No filename-based inference.",
+    "phase": "3P"
+  }
+}

@@ -1,0 +1,138 @@
+{
+  "schema_version": "1.0",
+  "reference_id": "REF-04",
+  "identity": {
+    "sha256": "5982927ac926a11bafbacb08ee650e6703b1edafd6020f75201f2e7278b3a0dc",
+    "current_path": "auction/762331735_1761454124898058_7461604525455458713_n.jfif",
+    "original_filename": "762331735_1761454124898058_7461604525455458713_n.jfif",
+    "width": 1536,
+    "height": 1024,
+    "format_class": "landscape",
+    "aspect_ratio": 1.5
+  },
+  "owner_status": "OWNER_APPROVED",
+  "owner_weight": 1.0,
+  "status_history": [
+    {
+      "date": "2026-09-09",
+      "status": "OWNER_APPROVED",
+      "source": "folder_placement_by_owner",
+      "owner_words": "Owner placed the file in docs/marketing/approved-creative-examples/auction/ as a good example of creative work.",
+      "recorded_by": "Desktop Marketing — Phase 3P"
+    }
+  ],
+  "source": {
+    "seller": "Lewis & Maese",
+    "origin": "Seller-published social creative, Owner-selected",
+    "rights": "Third-party seller artwork selected by the Owner as calibration evidence. Never reproduce, never pass to a generator as image input, never publish. Only the transferable principles leave this record.",
+    "campaign_title_visible": "Estate Auction",
+    "event_date_visible": "August 16th · Sunday at 11:00 AM (Central Time)",
+    "advantage_bid_visible": false
+  },
+  "classification": {
+    "campaign_class_primary": "auction",
+    "campaign_class_secondary": [
+      "estate_sale"
+    ],
+    "event_product_type": "Estate auction (broad antiques and decorative arts)",
+    "seller_hierarchy": "seller_led_solo",
+    "visual_family": "LEFT_PANEL_EXTRACTED",
+    "nearest_advantage_family": "LEFT_THIRD_WHITE",
+    "event_mode": "unknown",
+    "merchandise_breadth": "broad",
+    "owner_folder": "auction"
+  },
+  "visual_read": {
+    "visual_hierarchy": "Left ~40%: crest → seller name → ESTATE (navy) / AUCTION (gold, largest) → AUGUST 16TH → Sunday 11:00 AM → navy pill 'LMAuctionCo.com'. Right ~60%: five extracted objects at large scale.",
+    "merchandise_treatment": "Famille-rose Chinese vase (tall centre), gilt-framed landscape painting (top right, wall), amethyst geode on a black stand (foreground right of centre), bronze horse on a wooden base (foreground left, in front of the vase), ornate gilt commode (right, cropped at the edge). Soft contact shadows.",
+    "composition_style": "Left information panel + right merchandise stage on white. Objects overlap with real depth: horse in front of vase, geode in front of commode, painting behind commode.",
+    "typography_treatment": "Serif caps; ESTATE navy, AUCTION gold with flourishes; date large; time smaller; pill button for the URL.",
+    "information_density": "medium",
+    "branding_hierarchy": "Seller crest and name lead top-left; URL in a pill at the bottom of the panel.",
+    "cta_treatment": "URL pill only; no imperative.",
+    "footer_treatment": "No band; the URL pill closes the panel.",
+    "photographic_style": "Extracted catalogue photography, high colour (turquoise/pink vase, purple amethyst, gilt).",
+    "overlapping_objects": "confident",
+    "environmental_staged_composition": "Loose stage: painting high, commode grounded, horse and geode in front. No plinths.",
+    "negative_space": "modest",
+    "ground": "white",
+    "overall_visual_impact": "very_high"
+  },
+  "measured": {
+    "light_pixel_pct": 39.8,
+    "dark_pixel_pct": 11.8,
+    "saturated_pixel_pct": 27.7,
+    "dominant_hues": [
+      "orange 61%",
+      "red 18%",
+      "azure 7%"
+    ],
+    "est_merchandise_share_pct": [
+      52,
+      60
+    ],
+    "est_text_share_pct": [
+      14,
+      18
+    ],
+    "object_count_est": 5,
+    "text_block_count": 4
+  },
+  "strongest_attributes": [
+    "Five objects at large scale outperform fifteen small ones — scale confidence",
+    "The most colourful objects in the auction were chosen (validates 'prefer the more colourful real object')",
+    "Merchandise rises to the very top of the canvas; the title sits mid-left",
+    "Depth is meaningful: each overlap says 'in front of', not 'decorative'"
+  ],
+  "transferable_lessons": [
+    "Direct calibration for LEFT_THIRD_WHITE: panel ≈ 35–40%, merchandise ≈ 60%, objects may exceed the panel's top",
+    "Object count is not a target — 5 large, well-chosen objects satisfy the Owner",
+    "Cropping a heavy piece at the edge is fine when no identifying detail is lost",
+    "Copy set: seller / title / date / time / URL (matches the 3M default exactly)"
+  ],
+  "do_not_generalize": [
+    "Crest, gold flourishes, navy/gold palette, pill button styling",
+    "The seller's serif faces",
+    "'Central Time' phrasing is event-specific"
+  ],
+  "text_density_assessment": {
+    "level": "medium",
+    "why_it_works_here": "Four blocks stacked in one column; the largest word is the event type.",
+    "advantage_bid_budget_note": "Within budget; the URL pill is the seller's footer equivalent — Advantage.Bid uses the navy band instead."
+  },
+  "composition_assessment": {
+    "spatial_logic": "Wall piece high, furniture grounded, small heavy objects in front — consistent with 3M.3 roles.",
+    "gravity_and_grounding": "Commode, horse base and geode stand all sit on one implied floor; the vase's base is hidden behind the horse (acceptable — the vase reads as standing).",
+    "depth": "Three planes; painting and commode back, vase mid, horse and geode front.",
+    "scale_strategy": "Vase and painting as anchors; commode as heavy anchor cropped; two mid-scale foreground objects.",
+    "edge_handling": "Painting and commode exit the top/right edges; nothing identifying lost."
+  },
+  "retrieval": {
+    "use_cases": [
+      "estate auction",
+      "broad antiques auction",
+      "LEFT_THIRD_WHITE family calibration",
+      "landscape format (1200x628-class) creative"
+    ],
+    "tags": [
+      "left-panel",
+      "extracted",
+      "large-scale",
+      "colour-anchors",
+      "depth",
+      "landscape"
+    ],
+    "avoid_for": [
+      "single-lot",
+      "acquisition",
+      "brand"
+    ]
+  },
+  "performance": null,
+  "provenance": {
+    "created_by": "Desktop Marketing (Claude, Cowork) — Phase 3P",
+    "created_at": "2026-09-09T20:31:32Z",
+    "analysis_method": "Direct visual inspection of the full-resolution image; pixel statistics computed from the file; est_* fields are visual estimates. No filename-based inference.",
+    "phase": "3P"
+  }
+}

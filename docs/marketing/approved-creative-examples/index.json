@@ -1,0 +1,1227 @@
+{
+  "index_version": "3P.1.aae47c36f2e1",
+  "built_at": "2026-09-09T21:50:55.264Z",
+  "built_by": "indexer 3P.1 (production creative reference system)",
+  "library_root": "docs/marketing/approved-creative-examples",
+  "schema": "reference.schema.json",
+  "identity_rule": "A reference is identified by identity.sha256 of the image bytes; current_path is informational and may change when the Owner moves a file.",
+  "counts": {
+    "references": 13,
+    "retired": 0,
+    "stubs": 0,
+    "by_status": {
+      "OWNER_APPROVED": 13
+    },
+    "by_owner_folder": {
+      "auction": 8,
+      "estate-sale": 2,
+      "geographic-event": 1,
+      "notable-lot": 2
+    },
+    "by_primary_class": {
+      "auction": 8,
+      "estate_sale": 2,
+      "geographic_event_promotion": 1,
+      "notable_lot": 2
+    },
+    "by_visual_family": {
+      "PHOTO_STILL_LIFE": 1,
+      "SCENE_EXTRACTED": 2,
+      "TILE_GRID": 1,
+      "LEFT_PANEL_EXTRACTED": 2,
+      "CATALOG_SCATTER": 2,
+      "ENVIRONMENTAL_ROOM": 2,
+      "ATMOSPHERIC_SCENE": 1,
+      "HERO_SINGLE_DARK": 1,
+      "LINEUP": 1
+    },
+    "by_seller": {
+      "Lewis & Maese": 13
+    }
+  },
+  "seller_concentration": {
+    "dominant_seller": "Lewis & Maese",
+    "share": 1,
+    "rule": "When one seller supplies more than 60% of the retrieved references, only transferable_lessons reach the brief; seller identity facets are stripped."
+  },
+  "weighting": {
+    "owner_status_weights": {
+      "OWNER_APPROVED": 1,
+      "OWNER_GOLD_STANDARD": 2,
+      "OWNER_DO_NOT_USE": -1,
+      "RETIRED": 0
+    },
+    "relevance_factors": {
+      "primary": 1,
+      "secondary": 0.5,
+      "family_compatible_only": 0.25
+    },
+    "effective_weight": "owner_weight × relevance_factor × facet_similarity (0..1)",
+    "performance": "Campaign performance is stored separately and never changes owner_status or owner_weight."
+  },
+  "class_map": {
+    "estate_sale": [
+      "REF-09",
+      "REF-10"
+    ],
+    "auction": [
+      "REF-01",
+      "REF-02",
+      "REF-03",
+      "REF-04",
+      "REF-05",
+      "REF-06",
+      "REF-07",
+      "REF-08"
+    ],
+    "professional_seller_acquisition": [],
+    "individual_seller_acquisition": [],
+    "buyer_platform_growth": [],
+    "notable_lot": [
+      "REF-12",
+      "REF-13"
+    ],
+    "closing_soon": [],
+    "geographic_event_promotion": [
+      "REF-11"
+    ],
+    "general_brand": []
+  },
+  "empty_classes": [
+    "professional_seller_acquisition",
+    "individual_seller_acquisition",
+    "buyer_platform_growth",
+    "closing_soon",
+    "general_brand"
+  ],
+  "principle_profiles_by_advantage_family": {
+    "CATEGORY_GROUP": {
+      "references": [
+        "REF-01",
+        "REF-03",
+        "REF-13"
+      ],
+      "est_merchandise_share_pct": [
+        45,
+        60
+      ],
+      "est_text_share_pct": [
+        12,
+        34
+      ],
+      "text_block_count": [
+        3,
+        8
+      ],
+      "object_count_est": [
+        6,
+        9
+      ],
+      "information_density": [
+        "medium",
+        "high",
+        "low"
+      ],
+      "ground": [
+        "white",
+        "mixed"
+      ],
+      "note": "Bands are the union of visual estimates across the references in this family; they are calibration evidence, not targets to hit exactly."
+    },
+    "CENTERED_WHITE": {
+      "references": [
+        "REF-02"
+      ],
+      "est_merchandise_share_pct": [
+        62,
+        72
+      ],
+      "est_text_share_pct": [
+        8,
+        12
+      ],
+      "text_block_count": [
+        2,
+        2
+      ],
+      "object_count_est": [
+        11,
+        11
+      ],
+      "information_density": [
+        "low"
+      ],
+      "ground": [
+        "cream"
+      ],
+      "note": "Bands are the union of visual estimates across the references in this family; they are calibration evidence, not targets to hit exactly."
+    },
+    "LEFT_THIRD_WHITE": {
+      "references": [
+        "REF-04",
+        "REF-05",
+        "REF-06"
+      ],
+      "est_merchandise_share_pct": [
+        48,
+        62
+      ],
+      "est_text_share_pct": [
+        14,
+        22
+      ],
+      "text_block_count": [
+        4,
+        5
+      ],
+      "object_count_est": [
+        5,
+        8
+      ],
+      "information_density": [
+        "medium"
+      ],
+      "ground": [
+        "white"
+      ],
+      "note": "Bands are the union of visual estimates across the references in this family; they are calibration evidence, not targets to hit exactly."
+    },
+    "CATALOG_SCATTER": {
+      "references": [
+        "REF-07",
+        "REF-08"
+      ],
+      "est_merchandise_share_pct": [
+        50,
+        85
+      ],
+      "est_text_share_pct": [
+        8,
+        30
+      ],
+      "text_block_count": [
+        2,
+        8
+      ],
+      "object_count_est": [
+        10,
+        12
+      ],
+      "information_density": [
+        "high",
+        "none"
+      ],
+      "ground": [
+        "mixed",
+        "white"
+      ],
+      "note": "Bands are the union of visual estimates across the references in this family; they are calibration evidence, not targets to hit exactly."
+    },
+    "ENVIRONMENTAL_PHOTO": {
+      "references": [
+        "REF-09",
+        "REF-10"
+      ],
+      "est_merchandise_share_pct": [
+        50,
+        60
+      ],
+      "est_text_share_pct": [
+        18,
+        24
+      ],
+      "text_block_count": [
+        5,
+        6
+      ],
+      "object_count_est": [
+        8,
+        9
+      ],
+      "information_density": [
+        "medium"
+      ],
+      "ground": [
+        "cream",
+        "mixed"
+      ],
+      "note": "Bands are the union of visual estimates across the references in this family; they are calibration evidence, not targets to hit exactly."
+    },
+    "NONE": {
+      "references": [
+        "REF-11"
+      ],
+      "est_merchandise_share_pct": [
+        35,
+        45
+      ],
+      "est_text_share_pct": [
+        28,
+        36
+      ],
+      "text_block_count": [
+        7,
+        7
+      ],
+      "object_count_est": [
+        8,
+        8
+      ],
+      "information_density": [
+        "high"
+      ],
+      "ground": [
+        "photograph"
+      ],
+      "note": "Bands are the union of visual estimates across the references in this family; they are calibration evidence, not targets to hit exactly."
+    },
+    "SINGLE_LOT": {
+      "references": [
+        "REF-12"
+      ],
+      "est_merchandise_share_pct": [
+        45,
+        55
+      ],
+      "est_text_share_pct": [
+        14,
+        18
+      ],
+      "text_block_count": [
+        5,
+        5
+      ],
+      "object_count_est": [
+        1,
+        1
+      ],
+      "information_density": [
+        "medium"
+      ],
+      "ground": [
+        "dark"
+      ],
+      "note": "Bands are the union of visual estimates across the references in this family; they are calibration evidence, not targets to hit exactly."
+    }
+  },
+  "global_transferable_profile": {
+    "references": [
+      "REF-01",
+      "REF-02",
+      "REF-03",
+      "REF-04",
+      "REF-05",
+      "REF-06",
+      "REF-07",
+      "REF-08",
+      "REF-09",
+      "REF-10",
+      "REF-11",
+      "REF-12",
+      "REF-13"
+    ],
+    "light_ground_pct": 62,
+    "dark_ground_pct": 8,
+    "footer_band_pct": 85,
+    "median_text_block_count": 5
+  },
+  "applied_decisions": [
+    "d78f1cfe69f7765c3f8a7806ead4ad211882291b12c654a448adfbdb8eb02c48"
+  ],
+  "references": [
+    {
+      "reference_id": "REF-01",
+      "sha256": "f6579f4cc853e5dde24ac5433918f344538ea7b22e8c8b2b992cae7b1c441f1d",
+      "path": "auction/672745885_1643034594033321_942085276301047945_n.jpg",
+      "owner_status": "OWNER_APPROVED",
+      "owner_weight": 1,
+      "stub": false,
+      "seller": "Lewis & Maese",
+      "campaign_class_primary": "auction",
+      "campaign_class_secondary": [
+        "notable_lot"
+      ],
+      "owner_folder": "auction",
+      "visual_family": "PHOTO_STILL_LIFE",
+      "nearest_advantage_family": "CATEGORY_GROUP",
+      "event_mode": "online_only",
+      "merchandise_breadth": "single_category",
+      "seller_hierarchy": "seller_led_solo",
+      "format_class": "portrait",
+      "information_density": "medium",
+      "ground": "white",
+      "tags": [
+        "still-life",
+        "light-ground",
+        "one-accent-colour",
+        "serif-title",
+        "factual-cta"
+      ],
+      "avoid_for": [
+        "broad estate auctions (single category only)",
+        "acquisition or brand campaigns"
+      ],
+      "transferable_lessons": [
+        "For a single-category specialty auction, a real photographed still life can replace extraction when the seller supplies a clean staged photo",
+        "Light ground + merchandise-supplied colour (validates the 3M.1 white/very-light default)",
+        "One accent colour used for emphasis words and the CTA outline only",
+        "A factual CTA ('online only' → 'bid online at <url>') is acceptable as a single quiet block"
+      ],
+      "do_not_generalize": [
+        "Orange accent palette, ornamental divider glyphs, thin decorative frame border — Lewis & Maese identity",
+        "Seller tagline 'Trusted. Experienced. Results.'",
+        "Marble surface as a signature surface",
+        "Naming merchandise in the title that is not shown (purses) — Advantage.Bid creative must show what it names or name what it shows"
+      ],
+      "measured": {
+        "light_pixel_pct": 40.9,
+        "dark_pixel_pct": 7.8,
+        "saturated_pixel_pct": 11.7,
+        "dominant_hues": [
+          "magenta 33%",
+          "azure 27%",
+          "red 23%"
+        ],
+        "est_merchandise_share_pct": [
+          50,
+          60
+        ],
+        "est_text_share_pct": [
+          14,
+          20
+        ],
+        "object_count_est": 6,
+        "text_block_count": 5
+      },
+      "sidecar_hash": "dce13b79a4b093f7a6bac519cb87434a3ef51b1c984e7d34817d6eea072921a3"
+    },
+    {
+      "reference_id": "REF-02",
+      "sha256": "738c3fd0b9fa40f7ce1ac30899e6b20814d3173baf684c96aca04f53f9aeeb30",
+      "path": "auction/700078662_1669701284699985_700289891861455729_n.jpg",
+      "owner_status": "OWNER_APPROVED",
+      "owner_weight": 1,
+      "stub": false,
+      "seller": "Lewis & Maese",
+      "campaign_class_primary": "auction",
+      "campaign_class_secondary": [
+        "estate_sale"
+      ],
+      "owner_folder": "auction",
+      "visual_family": "SCENE_EXTRACTED",
+      "nearest_advantage_family": "CENTERED_WHITE",
+      "event_mode": "unknown",
+      "merchandise_breadth": "broad",
+      "seller_hierarchy": "seller_led_solo",
+      "format_class": "square",
+      "information_density": "low",
+      "ground": "cream",
+      "tags": [
+        "scene",
+        "extracted",
+        "three-planes",
+        "minimal-copy",
+        "title-bottom",
+        "cream-ground",
+        "breadth"
+      ],
+      "avoid_for": [
+        "single-lot spotlights",
+        "acquisition campaigns"
+      ],
+      "transferable_lessons": [
+        "Title-at-bottom is an approved variation of the centered family when merchandise occupies the upper canvas",
+        "Text can be as little as seller + title + date/time for a general auction (validates the 3M default copy set)",
+        "Merchandise share can run ~65–70% with text under ~12% — higher merchandise:text ratio than the current B3 calibration",
+        "Objects may run off the right edge (dining table) when the crop misrepresents nothing",
+        "A warm off-white ground reads as 'very light' and is within the locked default"
+      ],
+      "do_not_generalize": [
+        "Fleur-de-lis crest, gold rules and ornaments, navy border frame — seller identity",
+        "The seller's serif wordmark and 'Fine Estate Sales & Appraisals' descriptor",
+        "Cream tint as a brand colour (Advantage.Bid keeps white/very-light; cream is acceptable only as a warmth adjustment)"
+      ],
+      "measured": {
+        "light_pixel_pct": 37.6,
+        "dark_pixel_pct": 13.4,
+        "saturated_pixel_pct": 28.5,
+        "dominant_hues": [
+          "orange 59%",
+          "red 25%",
+          "azure 12%"
+        ],
+        "est_merchandise_share_pct": [
+          62,
+          72
+        ],
+        "est_text_share_pct": [
+          8,
+          12
+        ],
+        "object_count_est": 11,
+        "text_block_count": 2
+      },
+      "sidecar_hash": "a782af9955991666a46c4340e14373b4c3d52a26a01baf05da42a56175f62e49"
+    },
+    {
+      "reference_id": "REF-03",
+      "sha256": "c331aa710bfa3bbefa5e03b992c2fca6413c007913756f4269f9dcf1031785dc",
+      "path": "auction/727268055_1359584239364161_2304662043940107268_n.jfif",
+      "owner_status": "OWNER_APPROVED",
+      "owner_weight": 1,
+      "stub": false,
+      "seller": "Lewis & Maese",
+      "campaign_class_primary": "auction",
+      "campaign_class_secondary": [
+        "notable_lot"
+      ],
+      "owner_folder": "auction",
+      "visual_family": "TILE_GRID",
+      "nearest_advantage_family": "CATEGORY_GROUP",
+      "event_mode": "in_house_or_online",
+      "merchandise_breadth": "category_group",
+      "seller_hierarchy": "seller_led_solo",
+      "format_class": "square",
+      "information_density": "high",
+      "ground": "mixed",
+      "tags": [
+        "tile-grid",
+        "icon-logistics",
+        "high-density",
+        "brand-names",
+        "product-macro"
+      ],
+      "avoid_for": [
+        "broad estate auctions",
+        "general brand",
+        "any family with the 5-block budget"
+      ],
+      "transferable_lessons": [
+        "For category auctions where facts are the draw (brands, in-house/online, address), a denser icon-led logistics block is acceptable provided merchandise still holds at least half the canvas",
+        "Tiled product photography is a legitimate merchandise treatment for small luxury objects where extraction adds nothing",
+        "Protected-region discipline: watch dials fully visible (validates the 3M protected-region rule)",
+        "Video preview CTA is factual when a real preview exists"
+      ],
+      "do_not_generalize": [
+        "Gold/navy/cream palette, crest, gold icon discs — seller identity",
+        "Seller address, phone and social handles",
+        "Repeating the URL twice — Advantage.Bid uses the single footer wordmark",
+        "Eight copy blocks — over the Advantage.Bid general budget; acceptable only in a category/logistics family with an explicit larger budget"
+      ],
+      "measured": {
+        "light_pixel_pct": 40,
+        "dark_pixel_pct": 5.2,
+        "saturated_pixel_pct": 18.3,
+        "dominant_hues": [
+          "orange 80%",
+          "azure 7%",
+          "cyan 7%"
+        ],
+        "est_merchandise_share_pct": [
+          50,
+          56
+        ],
+        "est_text_share_pct": [
+          28,
+          34
+        ],
+        "object_count_est": 6,
+        "text_block_count": 8
+      },
+      "sidecar_hash": "2594c6b906fc1e0d9ab64e4d7cc8701eafbda939ff3948cd9738f2e6e78b585e"
+    },
+    {
+      "reference_id": "REF-04",
+      "sha256": "5982927ac926a11bafbacb08ee650e6703b1edafd6020f75201f2e7278b3a0dc",
+      "path": "auction/762331735_1761454124898058_7461604525455458713_n.jfif",
+      "owner_status": "OWNER_APPROVED",
+      "owner_weight": 1,
+      "stub": false,
+      "seller": "Lewis & Maese",
+      "campaign_class_primary": "auction",
+      "campaign_class_secondary": [
+        "estate_sale"
+      ],
+      "owner_folder": "auction",
+      "visual_family": "LEFT_PANEL_EXTRACTED",
+      "nearest_advantage_family": "LEFT_THIRD_WHITE",
+      "event_mode": "unknown",
+      "merchandise_breadth": "broad",
+      "seller_hierarchy": "seller_led_solo",
+      "format_class": "landscape",
+      "information_density": "medium",
+      "ground": "white",
+      "tags": [
+        "left-panel",
+        "extracted",
+        "large-scale",
+        "colour-anchors",
+        "depth",
+        "landscape"
+      ],
+      "avoid_for": [
+        "single-lot",
+        "acquisition",
+        "brand"
+      ],
+      "transferable_lessons": [
+        "Direct calibration for LEFT_THIRD_WHITE: panel ≈ 35–40%, merchandise ≈ 60%, objects may exceed the panel's top",
+        "Object count is not a target — 5 large, well-chosen objects satisfy the Owner",
+        "Cropping a heavy piece at the edge is fine when no identifying detail is lost",
+        "Copy set: seller / title / date / time / URL (matches the 3M default exactly)"
+      ],
+      "do_not_generalize": [
+        "Crest, gold flourishes, navy/gold palette, pill button styling",
+        "The seller's serif faces",
+        "'Central Time' phrasing is event-specific"
+      ],
+      "measured": {
+        "light_pixel_pct": 39.8,
+        "dark_pixel_pct": 11.8,
+        "saturated_pixel_pct": 27.7,
+        "dominant_hues": [
+          "orange 61%",
+          "red 18%",
+          "azure 7%"
+        ],
+        "est_merchandise_share_pct": [
+          52,
+          60
+        ],
+        "est_text_share_pct": [
+          14,
+          18
+        ],
+        "object_count_est": 5,
+        "text_block_count": 4
+      },
+      "sidecar_hash": "2d9ffdccf1e423fd9b0ce11e9facc95badd117efbc7915ca8d617db41cc3df2a"
+    },
+    {
+      "reference_id": "REF-05",
+      "sha256": "8448d6a901323947dd6420f934717e2f7d9b1e335d8af2702da8ba2f82da2eef",
+      "path": "auction/768987773_1053905510468704_817358866268751308_n.jfif",
+      "owner_status": "OWNER_APPROVED",
+      "owner_weight": 1,
+      "stub": false,
+      "seller": "Lewis & Maese",
+      "campaign_class_primary": "auction",
+      "campaign_class_secondary": [
+        "estate_sale"
+      ],
+      "owner_folder": "auction",
+      "visual_family": "SCENE_EXTRACTED",
+      "nearest_advantage_family": "LEFT_THIRD_WHITE",
+      "event_mode": "unknown",
+      "merchandise_breadth": "broad",
+      "seller_hierarchy": "seller_led_solo",
+      "format_class": "landscape",
+      "information_density": "medium",
+      "ground": "white",
+      "tags": [
+        "left-panel",
+        "scene",
+        "plinths",
+        "footer-band",
+        "numeral-hero",
+        "category-line",
+        "landscape"
+      ],
+      "avoid_for": [
+        "single-lot",
+        "acquisition"
+      ],
+      "transferable_lessons": [
+        "Footer band + wordmark validated as a brand-frame device (3M.2 navy band)",
+        "A factual catalogue claim (lot count) may be the primary message when it is true at generation time and re-verified before publishing",
+        "The 'one short supporting line' slot may be a category line (≤ 6 words)",
+        "Tall structure at the back + heavy anchors in front is the Owner's preferred vertical logic"
+      ],
+      "do_not_generalize": [
+        "Green/gold palette and the green band — the Advantage.Bid band is navy and does not change per event",
+        "White plinths as literal props (Advantage.Bid uses contact shadows and an implied floor, not furniture-store plinths, unless the Owner asks)",
+        "Seller serif faces and flourish glyphs"
+      ],
+      "measured": {
+        "light_pixel_pct": 53.4,
+        "dark_pixel_pct": 21.3,
+        "saturated_pixel_pct": 17.9,
+        "dominant_hues": [
+          "red 57%",
+          "orange 31%",
+          "rose 10%"
+        ],
+        "est_merchandise_share_pct": [
+          48,
+          56
+        ],
+        "est_text_share_pct": [
+          16,
+          22
+        ],
+        "object_count_est": 8,
+        "text_block_count": 5
+      },
+      "sidecar_hash": "6b6181efe0e2bc7972243948a04ba5dfaddb525ac54ece40383bf3851560d8d0"
+    },
+    {
+      "reference_id": "REF-06",
+      "sha256": "dbd84e22fd17cdd9c2eac60cd73257f9a702994e7055fea71532aff3044dad50",
+      "path": "auction/774318892_1218693031333324_5454511780574557764_n.jfif",
+      "owner_status": "OWNER_APPROVED",
+      "owner_weight": 1,
+      "stub": false,
+      "seller": "Lewis & Maese",
+      "campaign_class_primary": "auction",
+      "campaign_class_secondary": [
+        "estate_sale"
+      ],
+      "owner_folder": "auction",
+      "visual_family": "LEFT_PANEL_EXTRACTED",
+      "nearest_advantage_family": "LEFT_THIRD_WHITE",
+      "event_mode": "unknown",
+      "merchandise_breadth": "broad",
+      "seller_hierarchy": "seller_led_solo",
+      "format_class": "landscape",
+      "information_density": "medium",
+      "ground": "white",
+      "tags": [
+        "left-panel",
+        "extracted",
+        "five-objects",
+        "wall-over-floor",
+        "refresh-variant",
+        "landscape"
+      ],
+      "avoid_for": [
+        "single-lot",
+        "acquisition"
+      ],
+      "transferable_lessons": [
+        "A mid-campaign refresh should change merchandise selection, scale and arrangement, not the brand frame (validates 'standardize the frame, customize the event')",
+        "Five objects can fill 60% of a landscape canvas when scale is pushed",
+        "Wall art belongs above grounded furniture, not floating beside it"
+      ],
+      "do_not_generalize": [
+        "Green/gold palette and band; seller faces and flourishes",
+        "The specific arrangement (table centre, urn front) is one solution, not a slot template"
+      ],
+      "measured": {
+        "light_pixel_pct": 36.6,
+        "dark_pixel_pct": 29.2,
+        "saturated_pixel_pct": 25.4,
+        "dominant_hues": [
+          "red 60%",
+          "orange 40%"
+        ],
+        "est_merchandise_share_pct": [
+          55,
+          62
+        ],
+        "est_text_share_pct": [
+          16,
+          22
+        ],
+        "object_count_est": 5,
+        "text_block_count": 5
+      },
+      "sidecar_hash": "363e50522142b7f50f7480970bcb3268232fe166f96e09258947f07b7b2b131d"
+    },
+    {
+      "reference_id": "REF-07",
+      "sha256": "d5466d9eeb950f8a90ae65187f8e31981491642132ec1179944a7e72d26c4377",
+      "path": "auction/790540822_4060954984197683_2602558076501565505_n.jfif",
+      "owner_status": "OWNER_APPROVED",
+      "owner_weight": 1,
+      "stub": false,
+      "seller": "Lewis & Maese",
+      "campaign_class_primary": "auction",
+      "campaign_class_secondary": [
+        "geographic_event_promotion"
+      ],
+      "owner_folder": "auction",
+      "visual_family": "CATALOG_SCATTER",
+      "nearest_advantage_family": "CATALOG_SCATTER",
+      "event_mode": "in_house_or_online",
+      "merchandise_breadth": "category_group",
+      "seller_hierarchy": "seller_led_solo",
+      "format_class": "landscape",
+      "information_density": "high",
+      "ground": "mixed",
+      "tags": [
+        "scatter",
+        "themed-type",
+        "dark-panel",
+        "icon-logistics",
+        "high-density",
+        "landscape"
+      ],
+      "avoid_for": [
+        "fine estate auctions",
+        "acquisition",
+        "brand",
+        "any campaign where a believable room is the intent"
+      ],
+      "transferable_lessons": [
+        "A catalogue-spread arrangement without gravity is an Owner-accepted family for themed / eclectic auctions — proposed as CATALOG_SCATTER, rationed, never the default",
+        "Themed typography is welcome when the theme is real; it must not spread to every word",
+        "Preview-day logistics for in-person events may use an icon-led block (missing from current rules)",
+        "A dark panel is acceptable for a themed event; the merchandise field remains light"
+      ],
+      "do_not_generalize": [
+        "Black textured panel, gold/red palette, western distressed type — event and seller identity",
+        "'Houston's Premier Choice', phone number, street address",
+        "Eight copy blocks — over the general budget",
+        "Floating objects without grounding must not leak into the scene families where the gravity rule is locked"
+      ],
+      "measured": {
+        "light_pixel_pct": 31.3,
+        "dark_pixel_pct": 31,
+        "saturated_pixel_pct": 20.1,
+        "dominant_hues": [
+          "orange 51%",
+          "red 33%",
+          "rose 8%"
+        ],
+        "est_merchandise_share_pct": [
+          50,
+          58
+        ],
+        "est_text_share_pct": [
+          24,
+          30
+        ],
+        "object_count_est": 10,
+        "text_block_count": 8
+      },
+      "sidecar_hash": "daf58c93c505b47f96b97fbd32494774ac85180973a24c0b8a2c516c1f3b94f1"
+    },
+    {
+      "reference_id": "REF-08",
+      "sha256": "128f8b36c1ca44aaafead4f31769ab8327c30dacd38887d32db728ddad3f9bb1",
+      "path": "auction/800644023_2274522166644689_3549738819247121400_n.jfif",
+      "owner_status": "OWNER_APPROVED",
+      "owner_weight": 1,
+      "stub": false,
+      "seller": "Lewis & Maese",
+      "campaign_class_primary": "auction",
+      "campaign_class_secondary": [
+        "general_brand"
+      ],
+      "owner_folder": "auction",
+      "visual_family": "CATALOG_SCATTER",
+      "nearest_advantage_family": "CATALOG_SCATTER",
+      "event_mode": "unknown",
+      "merchandise_breadth": "broad",
+      "seller_hierarchy": "seller_led_solo",
+      "format_class": "square",
+      "information_density": "none",
+      "ground": "white",
+      "tags": [
+        "scatter",
+        "teaser",
+        "no-logistics",
+        "breadth",
+        "full-canvas",
+        "themed-type",
+        "square"
+      ],
+      "avoid_for": [
+        "closing-soon (needs the date)",
+        "estate sale",
+        "acquisition",
+        "families where the gravity rule is locked"
+      ],
+      "transferable_lessons": [
+        "A LAUNCH-wave teaser may omit date/time entirely; the event details follow in later creative (feeds the Wave model)",
+        "Breadth: tools, vehicles, equipment and outdoor property are legitimate hero merchandise",
+        "Non-literal scale is acceptable in the scatter family when it misrepresents no lot",
+        "Merchandise share can reach ~80% with two copy blocks"
+      ],
+      "do_not_generalize": [
+        "Distressed varsity typography, red/navy/gold — theme and seller identity",
+        "No URL: an Advantage.Bid creative always carries the navy footer wordmark",
+        "Letters/documents shown as merchandise are event-specific"
+      ],
+      "measured": {
+        "light_pixel_pct": 37.4,
+        "dark_pixel_pct": 20.5,
+        "saturated_pixel_pct": 21.7,
+        "dominant_hues": [
+          "orange 45%",
+          "red 32%",
+          "azure 22%"
+        ],
+        "est_merchandise_share_pct": [
+          75,
+          85
+        ],
+        "est_text_share_pct": [
+          8,
+          12
+        ],
+        "object_count_est": 12,
+        "text_block_count": 2
+      },
+      "sidecar_hash": "6f0bcbc5ee0f981c035552e30e53f91cb791aa504cc948e86b1f218d0a859187"
+    },
+    {
+      "reference_id": "REF-09",
+      "sha256": "4cd2207ace2e4bab769e9f2e62d6ae1e5d52fd408635a1b0d46e1879d2c4c3ef",
+      "path": "estate-sale/703633034_1679829177020529_6716087826834201503_n.jpg",
+      "owner_status": "OWNER_APPROVED",
+      "owner_weight": 1,
+      "stub": false,
+      "seller": "Lewis & Maese",
+      "campaign_class_primary": "estate_sale",
+      "campaign_class_secondary": [
+        "geographic_event_promotion"
+      ],
+      "owner_folder": "estate-sale",
+      "visual_family": "ENVIRONMENTAL_ROOM",
+      "nearest_advantage_family": "ENVIRONMENTAL_PHOTO",
+      "event_mode": "on_site",
+      "merchandise_breadth": "broad",
+      "seller_hierarchy": "seller_led_solo",
+      "format_class": "portrait",
+      "information_density": "medium",
+      "ground": "cream",
+      "tags": [
+        "environmental",
+        "room-photo",
+        "date-pair",
+        "place-plate",
+        "portrait",
+        "bands"
+      ],
+      "avoid_for": [
+        "online-only auctions with no site",
+        "single-lot",
+        "acquisition"
+      ],
+      "transferable_lessons": [
+        "On-site estate sales call for an environmental-photograph family; extraction is for online auctions (missing from current families → proposed ENVIRONMENTAL_PHOTO)",
+        "Place-name-led titles for on-site sales",
+        "Multi-day sales: a date-pair block with large day numbers and small hour lines",
+        "A category line and a place plate are enough supporting copy"
+      ],
+      "do_not_generalize": [
+        "Gold border, cream ground, seller taglines ('Luxury finds for the discerning collector', 'Quality. Heritage. Timeless Style.')",
+        "Seller serif faces",
+        "Six copy blocks — the tagline blocks would be dropped for Advantage.Bid"
+      ],
+      "measured": {
+        "light_pixel_pct": 9.9,
+        "dark_pixel_pct": 21.1,
+        "saturated_pixel_pct": 28.7,
+        "dominant_hues": [
+          "red 51%",
+          "orange 48%",
+          "yellow 1%"
+        ],
+        "est_merchandise_share_pct": [
+          52,
+          60
+        ],
+        "est_text_share_pct": [
+          18,
+          24
+        ],
+        "object_count_est": 8,
+        "text_block_count": 6
+      },
+      "sidecar_hash": "77e8d5a8b6dbbbee506315a504d395d22ed751e9ec4c947abc5ac6864a51a102"
+    },
+    {
+      "reference_id": "REF-10",
+      "sha256": "6cf2cb6d2e4be25d3cc619553110ef1fc0bc3b4820cb47b62a891483be05bee9",
+      "path": "estate-sale/720972514_1964000754249437_3399025200176588761_n.jfif",
+      "owner_status": "OWNER_APPROVED",
+      "owner_weight": 1,
+      "stub": false,
+      "seller": "Lewis & Maese",
+      "campaign_class_primary": "estate_sale",
+      "campaign_class_secondary": [
+        "geographic_event_promotion"
+      ],
+      "owner_folder": "estate-sale",
+      "visual_family": "ENVIRONMENTAL_ROOM",
+      "nearest_advantage_family": "ENVIRONMENTAL_PHOTO",
+      "event_mode": "on_site",
+      "merchandise_breadth": "broad",
+      "seller_hierarchy": "seller_led_solo",
+      "format_class": "square",
+      "information_density": "medium",
+      "ground": "mixed",
+      "tags": [
+        "environmental",
+        "left-panel",
+        "script-contrast",
+        "icon-dates",
+        "neighbourhood",
+        "square"
+      ],
+      "avoid_for": [
+        "online-only auctions",
+        "single-lot",
+        "acquisition"
+      ],
+      "transferable_lessons": [
+        "When an event title contains contrasting ideas (place + 'Estate Sale'), typography may express the contrast (validates the 3M.3 italic-Home principle; script is one acceptable expression, not a default)",
+        "Left panel + environmental photograph is the second estate-sale layout the Owner accepts",
+        "Icon-led date rows are an accepted device for multi-day on-site events",
+        "Neighbourhood-level location naming"
+      ],
+      "do_not_generalize": [
+        "Crest, gold script face, brush-stroke underline, navy/gold bands — seller identity",
+        "Social icons in the band — Advantage.Bid's band carries the wordmark only",
+        "Cream panel tint"
+      ],
+      "measured": {
+        "light_pixel_pct": 32.3,
+        "dark_pixel_pct": 16.3,
+        "saturated_pixel_pct": 35.6,
+        "dominant_hues": [
+          "orange 40%",
+          "red 38%",
+          "azure 10%"
+        ],
+        "est_merchandise_share_pct": [
+          50,
+          58
+        ],
+        "est_text_share_pct": [
+          18,
+          24
+        ],
+        "object_count_est": 9,
+        "text_block_count": 5
+      },
+      "sidecar_hash": "5c50b7ab550be634d865db4a3d5f3214ff79b39242795ff92ba4f166446ccb7e"
+    },
+    {
+      "reference_id": "REF-11",
+      "sha256": "504205b3de3223b91617636160242e2dc79c4f7e751afd2e7b22a015c79842bc",
+      "path": "geographic-event/799820637_1578368547000947_3887820092033696613_n.jfif",
+      "owner_status": "OWNER_APPROVED",
+      "owner_weight": 1,
+      "stub": false,
+      "seller": "Lewis & Maese",
+      "campaign_class_primary": "geographic_event_promotion",
+      "campaign_class_secondary": [
+        "general_brand"
+      ],
+      "owner_folder": "geographic-event",
+      "visual_family": "ATMOSPHERIC_SCENE",
+      "nearest_advantage_family": "NONE",
+      "event_mode": "not_an_event",
+      "merchandise_breadth": "representative_non_lot",
+      "seller_hierarchy": "seller_led_solo",
+      "format_class": "square",
+      "information_density": "high",
+      "ground": "photograph",
+      "tags": [
+        "atmospheric",
+        "holiday",
+        "regional-identity",
+        "no-lots",
+        "warm-light",
+        "square"
+      ],
+      "avoid_for": [
+        "any auction or estate-sale creative",
+        "text-density calibration",
+        "merchandise treatment calibration"
+      ],
+      "transferable_lessons": [
+        "Community / holiday posts may use an atmospheric staged scene with representative objects, provided nothing is presented as an auction lot",
+        "Geographic identity can be carried by objects and light, not only by place names",
+        "Tools and work culture are legitimate subjects for Advantage.Bid brand warmth"
+      ],
+      "do_not_generalize": [
+        "Slogans printed onto merchandise (cap, tumbler) — the Owner's stated rule for Advantage.Bid is no words on merchandise",
+        "Seven copy blocks, two taglines and a services band — far over the Advantage.Bid budget",
+        "Patriotic red/navy palette and star ornaments as house style",
+        "Rendered/composited imagery as a substitute for real merchandise in any auction creative"
+      ],
+      "measured": {
+        "light_pixel_pct": 25.1,
+        "dark_pixel_pct": 38.2,
+        "saturated_pixel_pct": 32.4,
+        "dominant_hues": [
+          "red 56%",
+          "rose 23%",
+          "orange 13%"
+        ],
+        "est_merchandise_share_pct": [
+          35,
+          45
+        ],
+        "est_text_share_pct": [
+          28,
+          36
+        ],
+        "object_count_est": 8,
+        "text_block_count": 7
+      },
+      "sidecar_hash": "edfe0ef128027f4e861c6c877e6f3689f27c7e7ebe8fde67b11e34d4eded9e62"
+    },
+    {
+      "reference_id": "REF-12",
+      "sha256": "6a37223e52103c47aa083ad12f8e92affefe1693b3c03b1a1f67e244357f4fe7",
+      "path": "notable-lot/672802523_1643989087271205_1140309533266731461_n.jpg",
+      "owner_status": "OWNER_APPROVED",
+      "owner_weight": 1,
+      "stub": false,
+      "seller": "Lewis & Maese",
+      "campaign_class_primary": "notable_lot",
+      "campaign_class_secondary": [
+        "auction"
+      ],
+      "owner_folder": "notable-lot",
+      "visual_family": "HERO_SINGLE_DARK",
+      "nearest_advantage_family": "SINGLE_LOT",
+      "event_mode": "online_only",
+      "merchandise_breadth": "single_object",
+      "seller_hierarchy": "seller_led_solo",
+      "format_class": "square",
+      "information_density": "medium",
+      "ground": "dark",
+      "tags": [
+        "hero-single",
+        "dark-ground",
+        "backlit",
+        "negative-space",
+        "square"
+      ],
+      "avoid_for": [
+        "broad auctions",
+        "estate sales",
+        "any multi-object creative"
+      ],
+      "transferable_lessons": [
+        "Dark ground is justified by a specific trigger — one hero object whose lighting, translucency or reflectivity is the story (validates the 3M.1 decision: dark is a specialised treatment, not an equal default)",
+        "Notable-lot creative = one object, dramatic scale, the same short copy set",
+        "A campaign may pair a hero-object creative with a broader still-life or scene creative"
+      ],
+      "do_not_generalize": [
+        "Orange accent, ornament glyphs, decorative frame — seller identity",
+        "Absence of the seller logo — an Advantage.Bid creative always carries the presenter and the navy footer",
+        "Dark ground for anything other than a lit hero object"
+      ],
+      "measured": {
+        "light_pixel_pct": 3,
+        "dark_pixel_pct": 56.6,
+        "saturated_pixel_pct": 6.3,
+        "dominant_hues": [
+          "red 70%",
+          "azure 24%",
+          "orange 6%"
+        ],
+        "est_merchandise_share_pct": [
+          45,
+          55
+        ],
+        "est_text_share_pct": [
+          14,
+          18
+        ],
+        "object_count_est": 1,
+        "text_block_count": 5
+      },
+      "sidecar_hash": "2e01354e9f7337ab6667dea7345bb27370b250fe1c7e086b3abb376dcce29152"
+    },
+    {
+      "reference_id": "REF-13",
+      "sha256": "90d1daf4c42c1d546106d2007e27705c6541bf1eed21e2ea91b2d81a64e6501c",
+      "path": "notable-lot/793212732_1919344445712353_7814833190103763803_n.jfif",
+      "owner_status": "OWNER_APPROVED",
+      "owner_weight": 1,
+      "stub": false,
+      "seller": "Lewis & Maese",
+      "campaign_class_primary": "notable_lot",
+      "campaign_class_secondary": [
+        "auction"
+      ],
+      "owner_folder": "notable-lot",
+      "visual_family": "LINEUP",
+      "nearest_advantage_family": "CATEGORY_GROUP",
+      "event_mode": "unknown",
+      "merchandise_breadth": "category_group",
+      "seller_hierarchy": "seller_led_solo",
+      "format_class": "landscape",
+      "information_density": "low",
+      "ground": "white",
+      "tags": [
+        "lineup",
+        "material-typography",
+        "reflections",
+        "footer-band",
+        "category-group",
+        "landscape"
+      ],
+      "avoid_for": [
+        "broad estate auctions",
+        "single-lot",
+        "acquisition"
+      ],
+      "transferable_lessons": [
+        "Lineups are legitimate for homogeneous category groups (watches, coins, guitars, bottles) — the 3M 'no lineups' language should be scoped to broad scene ads",
+        "Truthful material typography (gold for gold) is approved; never imply materials the lots do not have",
+        "Reflections are an alternative to shadows on a white floor for small precious objects",
+        "Footer band + URL validated again"
+      ],
+      "do_not_generalize": [
+        "Navy/red/gold palette, star ornaments, the seller's condensed sans",
+        "Metallic lettering as a default effect — only when the material claim is true",
+        "Watch brand names are lot facts, not style"
+      ],
+      "measured": {
+        "light_pixel_pct": 49.7,
+        "dark_pixel_pct": 15.8,
+        "saturated_pixel_pct": 15,
+        "dominant_hues": [
+          "orange 82%",
+          "azure 8%",
+          "red 6%"
+        ],
+        "est_merchandise_share_pct": [
+          45,
+          52
+        ],
+        "est_text_share_pct": [
+          12,
+          16
+        ],
+        "object_count_est": 9,
+        "text_block_count": 3
+      },
+      "sidecar_hash": "fb8211a21e54f016c390113149f7a73350d1b3a202072c6bc29febd6fd7b26c2"
+    }
+  ],
+  "tasks": [],
+  "foreign": [],
+  "problems": [],
+  "ledger": [
+    {
+      "hash": "d78f1cfe69f7",
+      "action": "LIBRARY_BASELINE",
+      "applied": true,
+      "targets": [
+        "REF-01",
+        "REF-02",
+        "REF-03",
+        "REF-04",
+        "REF-05",
+        "REF-06",
+        "REF-07",
+        "REF-08",
+        "REF-09",
+        "REF-10",
+        "REF-11",
+        "REF-12",
+        "REF-13"
+      ]
+    }
+  ]
+}

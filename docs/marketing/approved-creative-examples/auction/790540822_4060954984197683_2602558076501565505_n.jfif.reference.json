@@ -1,0 +1,140 @@
+{
+  "schema_version": "1.0",
+  "reference_id": "REF-07",
+  "identity": {
+    "sha256": "d5466d9eeb950f8a90ae65187f8e31981491642132ec1179944a7e72d26c4377",
+    "current_path": "auction/790540822_4060954984197683_2602558076501565505_n.jfif",
+    "original_filename": "790540822_4060954984197683_2602558076501565505_n.jfif",
+    "width": 1536,
+    "height": 1024,
+    "format_class": "landscape",
+    "aspect_ratio": 1.5
+  },
+  "owner_status": "OWNER_APPROVED",
+  "owner_weight": 1.0,
+  "status_history": [
+    {
+      "date": "2026-09-09",
+      "status": "OWNER_APPROVED",
+      "source": "folder_placement_by_owner",
+      "owner_words": "Owner placed the file in docs/marketing/approved-creative-examples/auction/ as a good example of creative work.",
+      "recorded_by": "Desktop Marketing — Phase 3P"
+    }
+  ],
+  "source": {
+    "seller": "Lewis & Maese",
+    "origin": "Seller-published social creative, Owner-selected",
+    "rights": "Third-party seller artwork selected by the Owner as calibration evidence. Never reproduce, never pass to a generator as image input, never publish. Only the transferable principles leave this record.",
+    "campaign_title_visible": "Mancave Auction — Houston's Premier Choice",
+    "event_date_visible": "Auction starts Sep 13, 2026 · 11:00 AM CDT · preview times Sept 7–12",
+    "advantage_bid_visible": false
+  },
+  "classification": {
+    "campaign_class_primary": "auction",
+    "campaign_class_secondary": [
+      "geographic_event_promotion"
+    ],
+    "event_product_type": "Themed auction (mancave: taxidermy, sports memorabilia, arcade, Americana) with in-person preview days",
+    "seller_hierarchy": "seller_led_solo",
+    "visual_family": "CATALOG_SCATTER",
+    "nearest_advantage_family": "CATALOG_SCATTER",
+    "event_mode": "in_house_or_online",
+    "merchandise_breadth": "category_group",
+    "owner_folder": "auction"
+  },
+  "visual_read": {
+    "visual_hierarchy": "Left third: black textured panel — seller name (gold) → MANCAVE AUCTION (distressed cream display type) → HOUSTON'S PREMIER CHOICE (red) → icon rows: auction start, address, phone → boxed preview times → red ribbon BID WITH CONFIDENCE → URL. Right two-thirds: ten extracted objects on white.",
+    "merchandise_treatment": "Framed US flag, zebra hide, bear mount, alligator head mount, arcade racing cabinet (centre), framed signed Elway jersey, jackalope and quail mounts, bronze cowboy group, 49ers helmet with gold chain. Light or no shadows; several objects float (flag, hide, mounts).",
+    "composition_style": "Dark information panel + white catalogue spread. Objects arranged as a loose grid with minimal overlap — a curated spread, not a room.",
+    "typography_treatment": "Distressed western/varsity display type for the title, matching the theme; sans for logistics; gold icons; red ribbon.",
+    "information_density": "high",
+    "branding_hierarchy": "Seller name top of panel; URL at the bottom of the panel; theme title dominates.",
+    "cta_treatment": "Red ribbon 'BID WITH CONFIDENCE' (reassurance, not urgency) plus the URL.",
+    "footer_treatment": "No band; the panel's bottom carries the URL.",
+    "photographic_style": "Extracted catalogue photography; mixed lighting across objects.",
+    "overlapping_objects": "light",
+    "environmental_staged_composition": "None — spread layout; no gravity claim.",
+    "negative_space": "modest",
+    "ground": "mixed",
+    "overall_visual_impact": "high"
+  },
+  "measured": {
+    "light_pixel_pct": 31.3,
+    "dark_pixel_pct": 31.0,
+    "saturated_pixel_pct": 20.1,
+    "dominant_hues": [
+      "orange 51%",
+      "red 33%",
+      "rose 8%"
+    ],
+    "est_merchandise_share_pct": [
+      50,
+      58
+    ],
+    "est_text_share_pct": [
+      24,
+      30
+    ],
+    "object_count_est": 10,
+    "text_block_count": 8
+  },
+  "strongest_attributes": [
+    "Themed display typography that truthfully matches the event (validates 'event-specific typography when truthful')",
+    "Dark panel used as a themed treatment while the merchandise field stays white",
+    "Breadth within the theme: taxidermy, memorabilia, arcade, bronze, Americana",
+    "Preview days and address handled as an organised logistics box"
+  ],
+  "transferable_lessons": [
+    "A catalogue-spread arrangement without gravity is an Owner-accepted family for themed / eclectic auctions — proposed as CATALOG_SCATTER, rationed, never the default",
+    "Themed typography is welcome when the theme is real; it must not spread to every word",
+    "Preview-day logistics for in-person events may use an icon-led block (missing from current rules)",
+    "A dark panel is acceptable for a themed event; the merchandise field remains light"
+  ],
+  "do_not_generalize": [
+    "Black textured panel, gold/red palette, western distressed type — event and seller identity",
+    "'Houston's Premier Choice', phone number, street address",
+    "Eight copy blocks — over the general budget",
+    "Floating objects without grounding must not leak into the scene families where the gravity rule is locked"
+  ],
+  "text_density_assessment": {
+    "level": "high",
+    "why_it_works_here": "All logistics live in one dark column; the white field stays clean, so density never touches merchandise.",
+    "advantage_bid_budget_note": "Only allowed under an explicit LOGISTICS budget (in-person previews, address); general families remain at 5 blocks."
+  },
+  "composition_assessment": {
+    "spatial_logic": "Spread / catalogue page. No world implied.",
+    "gravity_and_grounding": "Not claimed; mounts and hides float; arcade cabinet and bronze sit lower, giving a mild sense of floor.",
+    "depth": "Mostly one plane with light overlaps (helmet chain over bronze, jersey over cabinet edge).",
+    "scale_strategy": "Arcade cabinet as the central anchor; the rest roughly equal.",
+    "edge_handling": "Bear and helmet touch the right edge; contained otherwise."
+  },
+  "retrieval": {
+    "use_cases": [
+      "themed / eclectic auction",
+      "sports memorabilia, taxidermy, Americana",
+      "events with preview days and an address",
+      "CATALOG_SCATTER family (rationed)"
+    ],
+    "tags": [
+      "scatter",
+      "themed-type",
+      "dark-panel",
+      "icon-logistics",
+      "high-density",
+      "landscape"
+    ],
+    "avoid_for": [
+      "fine estate auctions",
+      "acquisition",
+      "brand",
+      "any campaign where a believable room is the intent"
+    ]
+  },
+  "performance": null,
+  "provenance": {
+    "created_by": "Desktop Marketing (Claude, Cowork) — Phase 3P",
+    "created_at": "2026-09-09T20:31:32Z",
+    "analysis_method": "Direct visual inspection of the full-resolution image; pixel statistics computed from the file; est_* fields are visual estimates. No filename-based inference.",
+    "phase": "3P"
+  }
+}

@@ -1,0 +1,139 @@
+{
+  "schema_version": "1.0",
+  "reference_id": "REF-10",
+  "identity": {
+    "sha256": "6cf2cb6d2e4be25d3cc619553110ef1fc0bc3b4820cb47b62a891483be05bee9",
+    "current_path": "estate-sale/720972514_1964000754249437_3399025200176588761_n.jfif",
+    "original_filename": "720972514_1964000754249437_3399025200176588761_n.jfif",
+    "width": 1254,
+    "height": 1170,
+    "format_class": "square",
+    "aspect_ratio": 1.07
+  },
+  "owner_status": "OWNER_APPROVED",
+  "owner_weight": 1.0,
+  "status_history": [
+    {
+      "date": "2026-09-09",
+      "status": "OWNER_APPROVED",
+      "source": "folder_placement_by_owner",
+      "owner_words": "Owner placed the file in docs/marketing/approved-creative-examples/estate-sale/ as a good example of creative work.",
+      "recorded_by": "Desktop Marketing — Phase 3P"
+    }
+  ],
+  "source": {
+    "seller": "Lewis & Maese",
+    "origin": "Seller-published social creative, Owner-selected",
+    "rights": "Third-party seller artwork selected by the Owner as calibration evidence. Never reproduce, never pass to a generator as image input, never publish. Only the transferable principles leave this record.",
+    "campaign_title_visible": "Pine Haven Estate Sale — Houston, Texas",
+    "event_date_visible": "Saturday June 13 9AM–2PM · Sunday June 14 10AM–2PM · Pine Haven neighborhood, Houston, Texas",
+    "advantage_bid_visible": false
+  },
+  "classification": {
+    "campaign_class_primary": "estate_sale",
+    "campaign_class_secondary": [
+      "geographic_event_promotion"
+    ],
+    "event_product_type": "On-site two-day neighbourhood estate sale",
+    "seller_hierarchy": "seller_led_solo",
+    "visual_family": "ENVIRONMENTAL_ROOM",
+    "nearest_advantage_family": "ENVIRONMENTAL_PHOTO",
+    "event_mode": "on_site",
+    "merchandise_breadth": "broad",
+    "owner_folder": "estate-sale"
+  },
+  "visual_read": {
+    "visual_hierarchy": "Left ~40% cream panel: crest → seller name → PINE HAVEN (navy serif caps) → 'Estate Sale' (gold calligraphic script with brush underline) → HOUSTON, TEXAS → two calendar-icon rows (day, date large, hours) → pin icon with neighbourhood. Right ~60%: photograph of a room vignette. Bottom: navy band + gold band with URL and social icons.",
+    "merchandise_treatment": "Photograph of the actual vignette: Empire chest with marble top, tripod table, urn-form lamp base, large blue/green/yellow abstract painting, porcelain, brass scales, corner of a striped chair. In situ; no extraction.",
+    "composition_style": "Left panel + right environmental photograph; the photo bleeds to the right and bottom edges above the bands.",
+    "typography_treatment": "Formal navy serif caps for the place name paired with a gold script for 'Estate Sale' — a deliberate formal/soft contrast; icon-led date rows.",
+    "information_density": "medium",
+    "branding_hierarchy": "Seller crest and name lead the panel; URL and social icons in the gold band.",
+    "cta_treatment": "None beyond the URL band.",
+    "footer_treatment": "Two stacked bands (navy, gold) spanning full width with globe icon + URL + Facebook/Instagram icons.",
+    "photographic_style": "Interior photograph, natural light on wood floors; the abstract painting supplies the colour.",
+    "overlapping_objects": "none",
+    "environmental_staged_composition": "Fully environmental — the actual vignette in the house.",
+    "negative_space": "modest",
+    "ground": "mixed",
+    "overall_visual_impact": "high"
+  },
+  "measured": {
+    "light_pixel_pct": 32.3,
+    "dark_pixel_pct": 16.3,
+    "saturated_pixel_pct": 35.6,
+    "dominant_hues": [
+      "orange 40%",
+      "red 38%",
+      "azure 10%"
+    ],
+    "est_merchandise_share_pct": [
+      50,
+      58
+    ],
+    "est_text_share_pct": [
+      18,
+      24
+    ],
+    "object_count_est": 9,
+    "text_block_count": 5
+  },
+  "strongest_attributes": [
+    "Formal caps + script contrast in the title — the same instinct as the Owner's 'Heritage / italic Home' preference",
+    "Icon-led date rows for a two-day sale",
+    "The photograph's painting provides the colour; the panel stays quiet",
+    "Neighbourhood named as the location — geographic promotion inside an estate-sale ad"
+  ],
+  "transferable_lessons": [
+    "When an event title contains contrasting ideas (place + 'Estate Sale'), typography may express the contrast (validates the 3M.3 italic-Home principle; script is one acceptable expression, not a default)",
+    "Left panel + environmental photograph is the second estate-sale layout the Owner accepts",
+    "Icon-led date rows are an accepted device for multi-day on-site events",
+    "Neighbourhood-level location naming"
+  ],
+  "do_not_generalize": [
+    "Crest, gold script face, brush-stroke underline, navy/gold bands — seller identity",
+    "Social icons in the band — Advantage.Bid's band carries the wordmark only",
+    "Cream panel tint"
+  ],
+  "text_density_assessment": {
+    "level": "medium",
+    "why_it_works_here": "Five blocks in one column, two of them icon-led date rows; the photograph is untouched by text.",
+    "advantage_bid_budget_note": "At budget when the date rows count as one 'essential event info' block."
+  },
+  "composition_assessment": {
+    "spatial_logic": "Real room vignette; composition is the photographer's.",
+    "gravity_and_grounding": "Real.",
+    "depth": "Photographic; chest and painting mid, chair corner foreground.",
+    "scale_strategy": "Photograph ~60% width; panel ~40%.",
+    "edge_handling": "Photo bleeds right and bottom; panel contained."
+  },
+  "retrieval": {
+    "use_cases": [
+      "on-site estate sale",
+      "neighbourhood-named sale",
+      "two-day sale with different hours",
+      "left-panel + photograph layout",
+      "typographic contrast in titles"
+    ],
+    "tags": [
+      "environmental",
+      "left-panel",
+      "script-contrast",
+      "icon-dates",
+      "neighbourhood",
+      "square"
+    ],
+    "avoid_for": [
+      "online-only auctions",
+      "single-lot",
+      "acquisition"
+    ]
+  },
+  "performance": null,
+  "provenance": {
+    "created_by": "Desktop Marketing (Claude, Cowork) — Phase 3P",
+    "created_at": "2026-09-09T20:31:32Z",
+    "analysis_method": "Direct visual inspection of the full-resolution image; pixel statistics computed from the file; est_* fields are visual estimates. No filename-based inference.",
+    "phase": "3P"
+  }
+}

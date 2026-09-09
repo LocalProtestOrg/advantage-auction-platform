@@ -1,0 +1,140 @@
+{
+  "schema_version": "1.0",
+  "reference_id": "REF-08",
+  "identity": {
+    "sha256": "128f8b36c1ca44aaafead4f31769ab8327c30dacd38887d32db728ddad3f9bb1",
+    "current_path": "auction/800644023_2274522166644689_3549738819247121400_n.jfif",
+    "original_filename": "800644023_2274522166644689_3549738819247121400_n.jfif",
+    "width": 1024,
+    "height": 1024,
+    "format_class": "square",
+    "aspect_ratio": 1.0
+  },
+  "owner_status": "OWNER_APPROVED",
+  "owner_weight": 1.0,
+  "status_history": [
+    {
+      "date": "2026-09-09",
+      "status": "OWNER_APPROVED",
+      "source": "folder_placement_by_owner",
+      "owner_words": "Owner placed the file in docs/marketing/approved-creative-examples/auction/ as a good example of creative work.",
+      "recorded_by": "Desktop Marketing — Phase 3P"
+    }
+  ],
+  "source": {
+    "seller": "Lewis & Maese",
+    "origin": "Seller-published social creative, Owner-selected (same theme as REF-07)",
+    "rights": "Third-party seller artwork selected by the Owner as calibration evidence. Never reproduce, never pass to a generator as image input, never publish. Only the transferable principles leave this record.",
+    "campaign_title_visible": "Mancave Auction — Houston's Premier Auctioneer",
+    "event_date_visible": "(none shown)",
+    "advantage_bid_visible": false
+  },
+  "classification": {
+    "campaign_class_primary": "auction",
+    "campaign_class_secondary": [
+      "general_brand"
+    ],
+    "event_product_type": "Themed auction teaser (no date or logistics shown)",
+    "seller_hierarchy": "seller_led_solo",
+    "visual_family": "CATALOG_SCATTER",
+    "nearest_advantage_family": "CATALOG_SCATTER",
+    "event_mode": "unknown",
+    "merchandise_breadth": "broad",
+    "owner_folder": "auction"
+  },
+  "visual_read": {
+    "visual_hierarchy": "Seller name top-centre → MANCAVE (navy distressed) / AUCTION (red distressed) with gold stars → twelve objects fill everything else. No date, time, URL or CTA.",
+    "merchandise_treatment": "Bronze eagle, bison mount, pair of axis-hide chairs, black limousine, Cartier watch, Leica camera, yellow MG convertible, bulldozer, pontoon boat, golf cart, handwritten letters, gold coin. Extracted; dense; overlapping; several cropped at the edges; scale deliberately non-literal (the watch is as large as a car).",
+    "composition_style": "Full-canvas catalogue spread on white with the title embedded among the objects. A teaser: the merchandise IS the message.",
+    "typography_treatment": "Distressed varsity caps in navy and red with gold stars; seller name and descriptor in serif caps above.",
+    "information_density": "none",
+    "branding_hierarchy": "Seller name leads; no URL anywhere.",
+    "cta_treatment": "None.",
+    "footer_treatment": "None; objects run to the bottom edge.",
+    "photographic_style": "Extracted catalogue photography; mixed sources.",
+    "overlapping_objects": "confident",
+    "environmental_staged_composition": "None; deliberately non-spatial.",
+    "negative_space": "minimal",
+    "ground": "white",
+    "overall_visual_impact": "very_high"
+  },
+  "measured": {
+    "light_pixel_pct": 37.4,
+    "dark_pixel_pct": 20.5,
+    "saturated_pixel_pct": 21.7,
+    "dominant_hues": [
+      "orange 45%",
+      "red 32%",
+      "azure 22%"
+    ],
+    "est_merchandise_share_pct": [
+      75,
+      85
+    ],
+    "est_text_share_pct": [
+      8,
+      12
+    ],
+    "object_count_est": 12,
+    "text_block_count": 2
+  },
+  "strongest_attributes": [
+    "Pure merchandise teaser — the Owner approves an ad with zero event information",
+    "Vehicles, heavy equipment, a boat and a golf cart: the strongest breadth evidence in the library (not antiques-only)",
+    "Full-canvas occupancy; the title lives inside the merchandise",
+    "Distressed title type carries the theme without any tagline"
+  ],
+  "transferable_lessons": [
+    "A LAUNCH-wave teaser may omit date/time entirely; the event details follow in later creative (feeds the Wave model)",
+    "Breadth: tools, vehicles, equipment and outdoor property are legitimate hero merchandise",
+    "Non-literal scale is acceptable in the scatter family when it misrepresents no lot",
+    "Merchandise share can reach ~80% with two copy blocks"
+  ],
+  "do_not_generalize": [
+    "Distressed varsity typography, red/navy/gold — theme and seller identity",
+    "No URL: an Advantage.Bid creative always carries the navy footer wordmark",
+    "Letters/documents shown as merchandise are event-specific"
+  ],
+  "text_density_assessment": {
+    "level": "none",
+    "why_it_works_here": "Seller name and title only. Nothing else is needed for a teaser.",
+    "advantage_bid_budget_note": "Shows the budget floor: presenter + title + footer is a complete ad."
+  },
+  "composition_assessment": {
+    "spatial_logic": "Spread; objects fill space by silhouette, not by world logic.",
+    "gravity_and_grounding": "Not claimed; vehicles and boat float on white.",
+    "depth": "Overlaps everywhere, none meaning 'in front of' — decorative by the 3M definition, accepted here because no room is implied.",
+    "scale_strategy": "Silhouette-driven: vehicles large, small objects enlarged for legibility.",
+    "edge_handling": "Letters, bulldozer, boat, golf cart and coin cropped at the edges; nothing identifying lost."
+  },
+  "retrieval": {
+    "use_cases": [
+      "launch-wave teaser",
+      "themed auction",
+      "breadth demonstration (vehicles, equipment, outdoor)",
+      "CATALOG_SCATTER family (rationed)"
+    ],
+    "tags": [
+      "scatter",
+      "teaser",
+      "no-logistics",
+      "breadth",
+      "full-canvas",
+      "themed-type",
+      "square"
+    ],
+    "avoid_for": [
+      "closing-soon (needs the date)",
+      "estate sale",
+      "acquisition",
+      "families where the gravity rule is locked"
+    ]
+  },
+  "performance": null,
+  "provenance": {
+    "created_by": "Desktop Marketing (Claude, Cowork) — Phase 3P",
+    "created_at": "2026-09-09T20:31:32Z",
+    "analysis_method": "Direct visual inspection of the full-resolution image; pixel statistics computed from the file; est_* fields are visual estimates. No filename-based inference.",
+    "phase": "3P"
+  }
+}

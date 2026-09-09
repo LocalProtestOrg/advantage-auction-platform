@@ -107,6 +107,43 @@ router.get('/social-destinations', async (req, res, next) => {
   catch (err) { next(err); }
 });
 
+// ── Phase 3P Owner Creative Reference System (Super-Admin) — index, retrieval preview, review queue, Owner feedback ──
+router.get('/creative-references', async (req, res, next) => {
+  try {
+    const idx = require('../services/creativeReference/indexer').loadIndex();
+    return res.json({ success: true, data: { index_version: idx.index_version, built_at: idx.built_at, counts: idx.counts, empty_classes: idx.empty_classes, seller_concentration: idx.seller_concentration,
+      references: idx.references.map((r) => ({ reference_id: r.reference_id, owner_status: r.owner_status, owner_weight: r.owner_weight, campaign_class_primary: r.campaign_class_primary, nearest_advantage_family: r.nearest_advantage_family, seller: r.seller, path: r.path, stub: r.stub })), tasks: idx.tasks || [], problems: idx.problems || [] } });
+  } catch (err) { next(err); }
+});
+router.post('/creative-references/reindex', async (req, res, next) => {
+  try { const out = await require('../services/creativeReference/indexer').buildIndex({ db }); return res.json({ success: true, data: { index_version: out.index.index_version, counts: out.index.counts, tasks: out.tasks, foreign: out.foreign, problems: out.problems, sidecars_written: out.sidecarsWritten } }); }
+  catch (err) { next(err); }
+});
+router.get('/creative-references/retrieve', async (req, res, next) => {
+  try {
+    const q = req.query || {}; const idx = require('../services/creativeReference/indexer').loadIndex();
+    const out = require('../services/creativeReference/retriever').retrieve(idx, { campaign_class: String(q.campaign_class || 'auction'), event_mode: q.event_mode || null, merchandise_breadth: q.merchandise_breadth || null, format_class: q.format_class || null, seller_hierarchy: q.seller_hierarchy || null, requested_family: q.family || null, tags: q.tags ? String(q.tags).split(',') : [] });
+    return res.json({ success: true, data: { ...out, retrieved: out.retrieved.map((r) => ({ reference_id: r.reference_id, score: r.score, relevance: r.relevance, facet_similarity: r.facet_similarity, lessons: r.transferable_lessons })), neutral_fallback: out.neutral_fallback.map((r) => ({ reference_id: r.reference_id, score: r.score, lessons: r.transferable_lessons })) } });
+  } catch (err) { next(err); }
+});
+// Generated creatives awaiting the Owner (no images inline — paths + facts; renders live beside the packet).
+router.get('/creative-reviews', async (req, res, next) => {
+  try {
+    const rows = (await db.query(`SELECT creative_job_id, candidate_key, campaign_class, family, format, score, decision, owner_review_required, publication_status, render_path, created_at FROM marketing_creative_calibrations ORDER BY created_at DESC LIMIT 200`)).rows;
+    const reviews = (await db.query(`SELECT creative_job_id, candidate_key, status, owner_words, note, created_at FROM marketing_creative_owner_reviews ORDER BY created_at DESC LIMIT 200`)).rows;
+    return res.json({ success: true, data: { candidates: rows, reviews } });
+  } catch (err) { next(err); }
+});
+// Owner feedback in the Owner's own words (buttons map to the same words): good / love this / gold standard / don't use / come back 10% on the title.
+router.post('/creative-reviews', async (req, res, next) => {
+  try {
+    const b = req.body || {};
+    if (!b.creative_job_id || !b.words) return res.status(400).json({ success: false, message: 'creative_job_id and words are required' });
+    const out = await require('../services/creativeReference/feedbackLedger').recordOwnerReview({ creativeJobId: String(b.creative_job_id), candidateKey: b.candidate_key ? String(b.candidate_key) : null, words: String(b.words).slice(0, 500), recordedBy: 'admin-ui:' + req.user.id, db });
+    return res.json({ success: true, data: out });
+  } catch (err) { next(err); }
+});
+
 // ── Organic social INTELLIGENCE (insights ingestion / engagement governance / webhook) — read-only status ──
 router.get('/social-intelligence', async (req, res, next) => {
   try {

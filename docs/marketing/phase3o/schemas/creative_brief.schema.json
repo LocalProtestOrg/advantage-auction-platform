@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://advantage.bid/contracts/3o/creative_brief.schema.json",
+  "$id": "https://advantage.bid/contracts/3p/creative_brief.schema.json",
   "title": "Creative brief → compositor job",
   "type": "object",
   "additionalProperties": false,
@@ -40,7 +40,7 @@
     },
     "objects": {
       "type": "array",
-      "minItems": 1,
+      "minItems": 0,
       "items": {
         "type": "object",
         "required": [
@@ -73,10 +73,16 @@
               "minItems": 5,
               "maxItems": 5
             }
+          },
+          "auction_id": {
+            "type": "string"
+          },
+          "asset_id": {
+            "type": "string"
           }
         }
       },
-      "description": "fidelity is constrained to CLEAN at the schema level: REVIEW/FAILED objects cannot be briefed"
+      "description": "fidelity is constrained to CLEAN at the schema level. Phase 3P: required non-empty only when merchandise_mode = lots (briefValidator); each object may carry auction_id which must equal the brief auction_id."
     },
     "event": {
       "type": "object",
@@ -105,6 +111,31 @@
             "null"
           ],
           "description": "event-specific type: e.g. red ampersand + italic; gold for a Gold event; never misleading"
+        },
+        "sessions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "day_label": {
+                "type": "string"
+              },
+              "date": {
+                "type": "string"
+              },
+              "start": {},
+              "end": {}
+            }
+          }
+        },
+        "place_name": {
+          "type": "string"
+        },
+        "neighbourhood": {
+          "type": "string"
+        },
+        "online_only": {
+          "type": "boolean"
         }
       }
     },
@@ -137,7 +168,8 @@
         "ground": {
           "enum": [
             "white",
-            "very_light"
+            "very_light",
+            "photograph"
           ]
         },
         "navy": {
@@ -160,21 +192,33 @@
         },
         "max_words_support": {
           "const": 10
+        },
+        "profile": {
+          "enum": [
+            "GENERAL",
+            "LOGISTICS",
+            "TEASER"
+          ]
+        },
+        "logistics_reason": {
+          "type": "string"
         }
       }
     },
     "cobrand": {
-      "type": [
-        "object",
-        "null"
-      ],
+      "type": "object",
       "properties": {
-        "seller_logo_asset_id": {
-          "type": "string",
-          "minLength": 1
+        "seller_name": {
+          "type": "string"
         },
-        "seller_leads": {
-          "const": true
+        "seller_logo_asset_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "relationship_line": {
+          "type": "string"
         }
       }
     },
@@ -200,6 +244,155 @@
         }
       },
       "description": "The existing rule engine, ported as-is; not re-implemented"
+    },
+    "event_id": {
+      "type": "string"
+    },
+    "campaign_class": {
+      "type": "string"
+    },
+    "seller_hierarchy": {
+      "type": "string"
+    },
+    "calibration": {
+      "type": "object",
+      "description": "Phase 3P reference calibration block (principles.buildCalibration): principle profile + do_not_copy; never a reference image, colour, typeface or seller wording."
+    },
+    "merchandise_mode": {
+      "enum": [
+        "lots",
+        "photograph",
+        "representative",
+        "none"
+      ]
+    },
+    "site_photographs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "asset_id"
+        ],
+        "properties": {
+          "asset_id": {
+            "type": "string"
+          },
+          "provenance_row_id": {
+            "type": "string"
+          },
+          "event_id": {
+            "type": "string"
+          },
+          "provenance": {
+            "type": "object"
+          }
+        }
+      }
+    },
+    "representative_assets": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "asset_id",
+          "rights",
+          "representative_not_lots"
+        ],
+        "properties": {
+          "asset_id": {
+            "type": "string"
+          },
+          "rights": {
+            "type": "string"
+          },
+          "representative_not_lots": {
+            "const": true
+          }
+        }
+      }
+    },
+    "screenshot": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "properties": {
+        "asset_id": {
+          "type": "string"
+        },
+        "provenance": {
+          "type": "object"
+        }
+      }
+    },
+    "claim_manifest": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "claim",
+          "value",
+          "source"
+        ],
+        "properties": {
+          "claim": {
+            "type": "string"
+          },
+          "value": {},
+          "source": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "cta": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "properties": {
+        "kind": {
+          "enum": [
+            "none",
+            "factual"
+          ]
+        },
+        "text": {
+          "type": "string"
+        },
+        "fact_ref": {
+          "type": "string"
+        }
+      }
+    },
+    "family_options": {
+      "type": "object",
+      "properties": {
+        "title_position": {
+          "enum": [
+            "top",
+            "bottom",
+            "panel"
+          ]
+        },
+        "teaser": {
+          "type": "boolean"
+        },
+        "ground": {
+          "enum": [
+            "white",
+            "very_light",
+            "dark_hero",
+            "photograph"
+          ]
+        },
+        "panel_side": {
+          "enum": [
+            "left",
+            "right"
+          ]
+        }
+      }
     }
   }
 }

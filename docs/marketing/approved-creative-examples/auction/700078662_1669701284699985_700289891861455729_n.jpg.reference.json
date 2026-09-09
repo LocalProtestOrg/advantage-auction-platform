@@ -1,0 +1,140 @@
+{
+  "schema_version": "1.0",
+  "reference_id": "REF-02",
+  "identity": {
+    "sha256": "738c3fd0b9fa40f7ce1ac30899e6b20814d3173baf684c96aca04f53f9aeeb30",
+    "current_path": "auction/700078662_1669701284699985_700289891861455729_n.jpg",
+    "original_filename": "700078662_1669701284699985_700289891861455729_n.jpg",
+    "width": 1254,
+    "height": 1254,
+    "format_class": "square",
+    "aspect_ratio": 1.0
+  },
+  "owner_status": "OWNER_APPROVED",
+  "owner_weight": 1.0,
+  "status_history": [
+    {
+      "date": "2026-09-09",
+      "status": "OWNER_APPROVED",
+      "source": "folder_placement_by_owner",
+      "owner_words": "Owner placed the file in docs/marketing/approved-creative-examples/auction/ as a good example of creative work.",
+      "recorded_by": "Desktop Marketing — Phase 3P"
+    }
+  ],
+  "source": {
+    "seller": "Lewis & Maese",
+    "origin": "Seller-published social creative, Owner-selected",
+    "rights": "Third-party seller artwork selected by the Owner as calibration evidence. Never reproduce, never pass to a generator as image input, never publish. Only the transferable principles leave this record.",
+    "campaign_title_visible": "Fine Art & Antiques Auction",
+    "event_date_visible": "Sunday, May 17 · 11AM",
+    "advantage_bid_visible": false
+  },
+  "classification": {
+    "campaign_class_primary": "auction",
+    "campaign_class_secondary": [
+      "estate_sale"
+    ],
+    "event_product_type": "Broad fine art & antiques auction",
+    "seller_hierarchy": "seller_led_solo",
+    "visual_family": "SCENE_EXTRACTED",
+    "nearest_advantage_family": "CENTERED_WHITE",
+    "event_mode": "unknown",
+    "merchandise_breadth": "broad",
+    "owner_folder": "auction"
+  },
+  "visual_read": {
+    "visual_hierarchy": "Seller crest + name top-centre → the merchandise scene fills the middle → the event title runs full width at the bottom in navy serif caps → date/time in a smaller line beneath. Three levels only.",
+    "merchandise_treatment": "Roughly eleven extracted objects composed as one believable stage: two paintings hung as wall pieces (cityscape top-left, colourful abstract bottom-left), gilt oval mirror centre-back, bronze figural fountain/urn as the tall centre, bronze girl statue and marble-top console on the right, bronze horse group on the left, long dining table with chairs running off the right edge, pair of gilt candelabra and two crystal vases in the foreground. Soft grounded shadows.",
+    "composition_style": "Centred editorial scene on a cream ground inside a navy border. Title BELOW the merchandise rather than above; merchandise rises to the seller name.",
+    "typography_treatment": "Wide serif caps in navy with letterspacing; gold rule and small ornament between title and date; seller descriptor in spaced small caps.",
+    "information_density": "low",
+    "branding_hierarchy": "Seller leads at the top with crest; no URL, no tagline. Title and date are the only other copy.",
+    "cta_treatment": "None.",
+    "footer_treatment": "No band; the title and date form the bottom block inside the border.",
+    "photographic_style": "Catalogue-quality extracted object photography composited on a flat cream ground.",
+    "overlapping_objects": "confident",
+    "environmental_staged_composition": "An editorial 'room' without a literal room: wall pieces high, heavy furniture grounded, small objects in front. Exactly the 3M.3 spatial logic.",
+    "negative_space": "minimal",
+    "ground": "cream",
+    "overall_visual_impact": "very_high"
+  },
+  "measured": {
+    "light_pixel_pct": 37.6,
+    "dark_pixel_pct": 13.4,
+    "saturated_pixel_pct": 28.5,
+    "dominant_hues": [
+      "orange 59%",
+      "red 25%",
+      "azure 12%"
+    ],
+    "est_merchandise_share_pct": [
+      62,
+      72
+    ],
+    "est_text_share_pct": [
+      8,
+      12
+    ],
+    "object_count_est": 11,
+    "text_block_count": 2
+  },
+  "strongest_attributes": [
+    "The clearest example in the library of the Owner's stated ideal: stage the merchandise, let the merchandise tell the story",
+    "Only three copy elements (seller, title, date/time) — nothing else is needed",
+    "Wall → grounded furniture → foreground objects, with depth rather than random overlap",
+    "Merchandise reaches the top of the canvas on both sides (validates 3M.2 'merchandise rising beside the title')",
+    "Category breadth: painting, mirror, sculpture, furniture, lighting, glass, decorative bronze"
+  ],
+  "transferable_lessons": [
+    "Title-at-bottom is an approved variation of the centered family when merchandise occupies the upper canvas",
+    "Text can be as little as seller + title + date/time for a general auction (validates the 3M default copy set)",
+    "Merchandise share can run ~65–70% with text under ~12% — higher merchandise:text ratio than the current B3 calibration",
+    "Objects may run off the right edge (dining table) when the crop misrepresents nothing",
+    "A warm off-white ground reads as 'very light' and is within the locked default"
+  ],
+  "do_not_generalize": [
+    "Fleur-de-lis crest, gold rules and ornaments, navy border frame — seller identity",
+    "The seller's serif wordmark and 'Fine Estate Sales & Appraisals' descriptor",
+    "Cream tint as a brand colour (Advantage.Bid keeps white/very-light; cream is acceptable only as a warmth adjustment)"
+  ],
+  "text_density_assessment": {
+    "level": "low",
+    "why_it_works_here": "Two copy blocks plus the logo; the merchandise is the message.",
+    "advantage_bid_budget_note": "Well under the 5-block budget; shows the budget is a ceiling, not a target."
+  },
+  "composition_assessment": {
+    "spatial_logic": "Believable editorial world: art on the wall plane, furniture on the floor plane, small objects on surfaces or in front.",
+    "gravity_and_grounding": "Furniture and statues sit on a common floor with soft contact shadows; paintings and mirror hang.",
+    "depth": "Three clear planes (wall art / mid furniture and sculpture / foreground candelabra and vases).",
+    "scale_strategy": "Anchors: dining table and fountain; supporting mid-scale bronzes; small foreground objects. Varied, not uniform.",
+    "edge_handling": "Dining table exits the right edge; the abstract painting sits flush to the left border. No protected detail is cropped."
+  },
+  "retrieval": {
+    "use_cases": [
+      "broad general auction",
+      "estate auction with fine art and antiques",
+      "CENTERED_WHITE family calibration",
+      "title-below-merchandise variant"
+    ],
+    "tags": [
+      "scene",
+      "extracted",
+      "three-planes",
+      "minimal-copy",
+      "title-bottom",
+      "cream-ground",
+      "breadth"
+    ],
+    "avoid_for": [
+      "single-lot spotlights",
+      "acquisition campaigns"
+    ]
+  },
+  "performance": null,
+  "provenance": {
+    "created_by": "Desktop Marketing (Claude, Cowork) — Phase 3P",
+    "created_at": "2026-09-09T20:31:32Z",
+    "analysis_method": "Direct visual inspection of the full-resolution image; pixel statistics computed from the file; est_* fields are visual estimates. No filename-based inference.",
+    "phase": "3P"
+  }
+}

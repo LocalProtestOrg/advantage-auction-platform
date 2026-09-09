@@ -1,0 +1,137 @@
+{
+  "schema_version": "1.0",
+  "reference_id": "REF-11",
+  "identity": {
+    "sha256": "504205b3de3223b91617636160242e2dc79c4f7e751afd2e7b22a015c79842bc",
+    "current_path": "geographic-event/799820637_1578368547000947_3887820092033696613_n.jfif",
+    "original_filename": "799820637_1578368547000947_3887820092033696613_n.jfif",
+    "width": 1254,
+    "height": 1254,
+    "format_class": "square",
+    "aspect_ratio": 1.0
+  },
+  "owner_status": "OWNER_APPROVED",
+  "owner_weight": 1.0,
+  "status_history": [
+    {
+      "date": "2026-09-09",
+      "status": "OWNER_APPROVED",
+      "source": "folder_placement_by_owner",
+      "owner_words": "Owner placed the file in docs/marketing/approved-creative-examples/geographic-event/ as a good example of creative work.",
+      "recorded_by": "Desktop Marketing — Phase 3P"
+    }
+  ],
+  "source": {
+    "seller": "Lewis & Maese",
+    "origin": "Seller-published social creative, Owner-selected",
+    "rights": "Third-party seller artwork selected by the Owner as calibration evidence. Never reproduce, never pass to a generator as image input, never publish. Only the transferable principles leave this record.",
+    "campaign_title_visible": "Happy Labor Day — Work Builds Stronger Tomorrows",
+    "event_date_visible": "(holiday greeting; no event date)",
+    "advantage_bid_visible": false
+  },
+  "classification": {
+    "campaign_class_primary": "geographic_event_promotion",
+    "campaign_class_secondary": [
+      "general_brand"
+    ],
+    "event_product_type": "Holiday / community goodwill post with Texas identity (Owner filed under geographic-event)",
+    "seller_hierarchy": "seller_led_solo",
+    "visual_family": "ATMOSPHERIC_SCENE",
+    "nearest_advantage_family": "NONE",
+    "event_mode": "not_an_event",
+    "merchandise_breadth": "representative_non_lot",
+    "owner_folder": "geographic-event"
+  },
+  "visual_read": {
+    "visual_hierarchy": "Seller name top-centre → HAPPY LABOR DAY (navy display caps with stars) → 'Work builds stronger tomorrows' → red script wish line → scene → navy band with three service words → red band with URL → 'Bid • Discover • Own'.",
+    "merchandise_treatment": "Representative objects in a staged scene: US flag, Texas-shaped plaque, worn cap and gloves, hand tools on a workbench, insulated tumbler, grill in the background; the cap and tumbler carry printed slogans. No lots are claimed.",
+    "composition_style": "Atmospheric staged scene with golden-hour backlight; type stacked in the sky area; objects along the bottom third; two full-width bands close the ad.",
+    "typography_treatment": "Heavy condensed display caps, a script wish line in red, spaced small caps for services; stars as ornaments.",
+    "information_density": "high",
+    "branding_hierarchy": "Seller name and descriptor top; services band; URL band; tagline — four brand-level elements.",
+    "cta_treatment": "'Bid • Discover • Own' — a brand tagline rather than a CTA.",
+    "footer_treatment": "Navy band (Estate Sales | Auctions | Appraisals) over a red band (URL) with a tagline line beneath.",
+    "photographic_style": "Warm cinematic staged scene — reads as a rendered or heavily composited image rather than catalogue photography.",
+    "overlapping_objects": "physical_still_life",
+    "environmental_staged_composition": "Fully atmospheric; a workbench at sunset with a flag.",
+    "negative_space": "minimal",
+    "ground": "photograph",
+    "overall_visual_impact": "high"
+  },
+  "measured": {
+    "light_pixel_pct": 25.1,
+    "dark_pixel_pct": 38.2,
+    "saturated_pixel_pct": 32.4,
+    "dominant_hues": [
+      "red 56%",
+      "rose 23%",
+      "orange 13%"
+    ],
+    "est_merchandise_share_pct": [
+      35,
+      45
+    ],
+    "est_text_share_pct": [
+      28,
+      36
+    ],
+    "object_count_est": 8,
+    "text_block_count": 7
+  },
+  "strongest_attributes": [
+    "Regional identity (Texas, Americana) expressed through objects and light rather than a map or a slogan alone",
+    "Tools shown as culture — working-class warmth, consistent with the Owner's insistence that tools are a major category",
+    "Confident, large holiday headline"
+  ],
+  "transferable_lessons": [
+    "Community / holiday posts may use an atmospheric staged scene with representative objects, provided nothing is presented as an auction lot",
+    "Geographic identity can be carried by objects and light, not only by place names",
+    "Tools and work culture are legitimate subjects for Advantage.Bid brand warmth"
+  ],
+  "do_not_generalize": [
+    "Slogans printed onto merchandise (cap, tumbler) — the Owner's stated rule for Advantage.Bid is no words on merchandise",
+    "Seven copy blocks, two taglines and a services band — far over the Advantage.Bid budget",
+    "Patriotic red/navy palette and star ornaments as house style",
+    "Rendered/composited imagery as a substitute for real merchandise in any auction creative"
+  ],
+  "text_density_assessment": {
+    "level": "high",
+    "why_it_works_here": "A greeting card tolerates layered messages; it is not selling an event.",
+    "advantage_bid_budget_note": "Not a model for text density. Retrieval must mark this reference 'atmosphere and regional identity only'."
+  },
+  "composition_assessment": {
+    "spatial_logic": "A workbench scene with a sky above; type occupies the sky.",
+    "gravity_and_grounding": "Objects rest on the bench; flag hangs; real-looking shadows.",
+    "depth": "Foreground bench objects, mid grill, background field.",
+    "scale_strategy": "Objects small relative to the type; the headline is the hero.",
+    "edge_handling": "Flag and grill cropped at the sides."
+  },
+  "retrieval": {
+    "use_cases": [
+      "holiday / community greeting",
+      "regional (Texas / Houston) identity",
+      "brand warmth without an event",
+      "tools / work-culture imagery"
+    ],
+    "tags": [
+      "atmospheric",
+      "holiday",
+      "regional-identity",
+      "no-lots",
+      "warm-light",
+      "square"
+    ],
+    "avoid_for": [
+      "any auction or estate-sale creative",
+      "text-density calibration",
+      "merchandise treatment calibration"
+    ]
+  },
+  "performance": null,
+  "provenance": {
+    "created_by": "Desktop Marketing (Claude, Cowork) — Phase 3P",
+    "created_at": "2026-09-09T20:31:32Z",
+    "analysis_method": "Direct visual inspection of the full-resolution image; pixel statistics computed from the file; est_* fields are visual estimates. No filename-based inference.",
+    "phase": "3P"
+  }
+}

@@ -124,9 +124,12 @@
         "CATEGORY_GROUP",
         "SINGLE_LOT",
         "CLOSING_DAYS",
-        "COBRANDED"
+        "COBRANDED",
+        "ENVIRONMENTAL_PHOTO",
+        "CATALOG_SCATTER",
+        "ACQUISITION"
       ],
-      "description": ""
+      "description": "Phase 3O families + Phase 3P: ENVIRONMENTAL_PHOTO (real on-site environment photograph), CATALOG_SCATTER (rationed themed spread, no gravity claim), ACQUISITION (non-collage acquisition/brand message)."
     },
     "CreativeFormat": {
       "type": "string",

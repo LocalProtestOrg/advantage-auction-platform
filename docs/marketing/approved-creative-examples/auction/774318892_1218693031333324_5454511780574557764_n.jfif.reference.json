@@ -1,0 +1,133 @@
+{
+  "schema_version": "1.0",
+  "reference_id": "REF-06",
+  "identity": {
+    "sha256": "dbd84e22fd17cdd9c2eac60cd73257f9a702994e7055fea71532aff3044dad50",
+    "current_path": "auction/774318892_1218693031333324_5454511780574557764_n.jfif",
+    "original_filename": "774318892_1218693031333324_5454511780574557764_n.jfif",
+    "width": 1536,
+    "height": 1024,
+    "format_class": "landscape",
+    "aspect_ratio": 1.5
+  },
+  "owner_status": "OWNER_APPROVED",
+  "owner_weight": 1.0,
+  "status_history": [
+    {
+      "date": "2026-09-09",
+      "status": "OWNER_APPROVED",
+      "source": "folder_placement_by_owner",
+      "owner_words": "Owner placed the file in docs/marketing/approved-creative-examples/auction/ as a good example of creative work.",
+      "recorded_by": "Desktop Marketing — Phase 3P"
+    }
+  ],
+  "source": {
+    "seller": "Lewis & Maese",
+    "origin": "Seller-published social creative, Owner-selected (same campaign as REF-05, alternate composition)",
+    "rights": "Third-party seller artwork selected by the Owner as calibration evidence. Never reproduce, never pass to a generator as image input, never publish. Only the transferable principles leave this record.",
+    "campaign_title_visible": "August Estate Auction — Over 725+ Lots & Growing",
+    "event_date_visible": "Sunday, August 16 · 11:00 AM (CT)",
+    "advantage_bid_visible": false
+  },
+  "classification": {
+    "campaign_class_primary": "auction",
+    "campaign_class_secondary": [
+      "estate_sale"
+    ],
+    "event_product_type": "Estate auction (broad), pre-event announcement — alternate creative for the same event as REF-05",
+    "seller_hierarchy": "seller_led_solo",
+    "visual_family": "LEFT_PANEL_EXTRACTED",
+    "nearest_advantage_family": "LEFT_THIRD_WHITE",
+    "event_mode": "unknown",
+    "merchandise_breadth": "broad",
+    "owner_folder": "auction"
+  },
+  "visual_read": {
+    "visual_hierarchy": "Same left panel as REF-05. Right: five objects at larger scale — gilt-framed mountain landscape high centre (wall), writing table centre (hero), bronze urn on pedestal in front of the table, carved lion group front right, black chinoiserie breakfront right (tall, cropped).",
+    "merchandise_treatment": "Five extracted objects, each large; the urn stands in front of the table, the lion in front of the cabinet, the painting behind the table. Soft shadows, no plinths.",
+    "composition_style": "Left panel + right stage; fewer, bigger objects than REF-05 with more overlap and clearer depth.",
+    "typography_treatment": "Identical to REF-05.",
+    "information_density": "medium",
+    "branding_hierarchy": "Seller leads; URL in the green footer band.",
+    "cta_treatment": "None beyond the URL band.",
+    "footer_treatment": "Full-width green band with gold URL.",
+    "photographic_style": "Extracted catalogue photography; warm wood and gilt tones.",
+    "overlapping_objects": "confident",
+    "environmental_staged_composition": "Implied floor and wall; painting hangs above the table as it would in a room.",
+    "negative_space": "modest",
+    "ground": "white",
+    "overall_visual_impact": "high"
+  },
+  "measured": {
+    "light_pixel_pct": 36.6,
+    "dark_pixel_pct": 29.2,
+    "saturated_pixel_pct": 25.4,
+    "dominant_hues": [
+      "red 60%",
+      "orange 40%"
+    ],
+    "est_merchandise_share_pct": [
+      55,
+      62
+    ],
+    "est_text_share_pct": [
+      16,
+      22
+    ],
+    "object_count_est": 5,
+    "text_block_count": 5
+  },
+  "strongest_attributes": [
+    "Same event, different merchandise selection and scale — the Owner approved both, which shows he values variation within a campaign",
+    "Painting hung above furniture: the wall-over-floor logic of 3M.3 Version B",
+    "Urn in front of table in front of painting: three clean depth planes with five objects"
+  ],
+  "transferable_lessons": [
+    "A mid-campaign refresh should change merchandise selection, scale and arrangement, not the brand frame (validates 'standardize the frame, customize the event')",
+    "Five objects can fill 60% of a landscape canvas when scale is pushed",
+    "Wall art belongs above grounded furniture, not floating beside it"
+  ],
+  "do_not_generalize": [
+    "Green/gold palette and band; seller faces and flourishes",
+    "The specific arrangement (table centre, urn front) is one solution, not a slot template"
+  ],
+  "text_density_assessment": {
+    "level": "medium",
+    "why_it_works_here": "Identical panel to REF-05.",
+    "advantage_bid_budget_note": "At budget."
+  },
+  "composition_assessment": {
+    "spatial_logic": "Room-like: painting on the wall plane, table and cabinet on the floor, urn and lion forward.",
+    "gravity_and_grounding": "Table legs, urn pedestal, lion base and cabinet all meet one implied floor.",
+    "depth": "Three planes with meaningful overlaps (urn/table, lion/cabinet, table/painting).",
+    "scale_strategy": "Painting and cabinet as tall anchors; table as the horizontal anchor; urn and lion as mid-scale foreground.",
+    "edge_handling": "Cabinet exits the right edge; painting frame nearly touches the top."
+  },
+  "retrieval": {
+    "use_cases": [
+      "estate auction",
+      "mid-campaign creative refresh",
+      "LEFT_THIRD_WHITE with few large objects",
+      "landscape creative"
+    ],
+    "tags": [
+      "left-panel",
+      "extracted",
+      "five-objects",
+      "wall-over-floor",
+      "refresh-variant",
+      "landscape"
+    ],
+    "avoid_for": [
+      "single-lot",
+      "acquisition"
+    ]
+  },
+  "performance": null,
+  "provenance": {
+    "created_by": "Desktop Marketing (Claude, Cowork) — Phase 3P",
+    "created_at": "2026-09-09T20:31:32Z",
+    "analysis_method": "Direct visual inspection of the full-resolution image; pixel statistics computed from the file; est_* fields are visual estimates. No filename-based inference.",
+    "phase": "3P"
+  }
+}

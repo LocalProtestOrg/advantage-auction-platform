@@ -806,6 +806,13 @@ server.listen(PORT, () => {
     // Organic social INSIGHTS ingestion (read-only toward Meta). Self-gated on marketing.social.insights_enabled
     // and structurally inert until a REAL post exists; never publishes/replies/spends.
     spawnWorker(path.join(__dirname, 'src/workers/marketingSocialInsightsWorker.js'));
+    // Phase 3P Owner Creative Reference library: reconcile folders/sidecars by content hash and upsert the durable
+    // index at boot (best-effort; adding approved images needs no software change). Never publishes anything.
+    setTimeout(() => {
+      require('./src/services/creativeReference/indexer').buildIndex({ db: require('./src/db') })
+        .then((r) => log.info('creative', `reference index ${r.index.index_version}: ${r.index.counts.references} refs, ${r.tasks.length} task(s), ${r.problems.length} problem(s)`))
+        .catch((e) => log.error('creative', 'reference index build failed', { error: e.message }));
+    }, 15_000);
     // Phase 3O Marketing Package fulfillment monitor (SHADOW). Self-gates on marketing.pkg.enabled;
     // advances obligations, never sends/publishes/spends on a non-ACTIVE channel (shadow evidence only).
     try { require('./src/services/marketingFulfillmentWorker').start(); } catch (e) { log.error('marketing', 'fulfillment monitor start failed', { error: e.message }); }

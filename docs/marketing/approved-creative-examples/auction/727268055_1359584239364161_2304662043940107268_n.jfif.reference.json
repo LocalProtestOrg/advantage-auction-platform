@@ -1,0 +1,138 @@
+{
+  "schema_version": "1.0",
+  "reference_id": "REF-03",
+  "identity": {
+    "sha256": "c331aa710bfa3bbefa5e03b992c2fca6413c007913756f4269f9dcf1031785dc",
+    "current_path": "auction/727268055_1359584239364161_2304662043940107268_n.jfif",
+    "original_filename": "727268055_1359584239364161_2304662043940107268_n.jfif",
+    "width": 1254,
+    "height": 1254,
+    "format_class": "square",
+    "aspect_ratio": 1.0
+  },
+  "owner_status": "OWNER_APPROVED",
+  "owner_weight": 1.0,
+  "status_history": [
+    {
+      "date": "2026-09-09",
+      "status": "OWNER_APPROVED",
+      "source": "folder_placement_by_owner",
+      "owner_words": "Owner placed the file in docs/marketing/approved-creative-examples/auction/ as a good example of creative work.",
+      "recorded_by": "Desktop Marketing — Phase 3P"
+    }
+  ],
+  "source": {
+    "seller": "Lewis & Maese",
+    "origin": "Seller-published social creative, Owner-selected",
+    "rights": "Third-party seller artwork selected by the Owner as calibration evidence. Never reproduce, never pass to a generator as image input, never publish. Only the transferable principles leave this record.",
+    "campaign_title_visible": "Fine Timepieces Auction",
+    "event_date_visible": "Sunday June 28 · 11 AM · In-house or online",
+    "advantage_bid_visible": false
+  },
+  "classification": {
+    "campaign_class_primary": "auction",
+    "campaign_class_secondary": [
+      "notable_lot"
+    ],
+    "event_product_type": "Category auction (watches and fine jewellery) with in-house and online bidding",
+    "seller_hierarchy": "seller_led_solo",
+    "visual_family": "TILE_GRID",
+    "nearest_advantage_family": "CATEGORY_GROUP",
+    "event_mode": "in_house_or_online",
+    "merchandise_breadth": "category_group",
+    "owner_folder": "auction"
+  },
+  "visual_read": {
+    "visual_hierarchy": "Right column: crest → seller name → FINE TIMEPIECES (gold) → AUCTION (very large navy) → brand list → three icon rows (calendar, in-house/online, address) → navy CTA bar → gold footer bar. Left 55%: five photo tiles of watches and jewellery.",
+    "merchandise_treatment": "Rectangular product-photo tiles (diamond Rolex, Cartier, Breitling, Bulgari, jade heart pendant with Cartier bracelet) separated by thin white gutters. Source backgrounds retained (clean marble/cream), not extracted. Every dial and clasp fully visible.",
+    "composition_style": "Grid + information panel. Orderly, catalogue-like; no overlap.",
+    "typography_treatment": "Spaced serif caps; AUCTION dominates; gold icon discs introduce each information row; brand names in a bulleted line.",
+    "information_density": "high",
+    "branding_hierarchy": "Seller crest and name at the top of the panel; URL repeated twice (CTA bar and footer bar) plus social icons.",
+    "cta_treatment": "Navy bar 'VIEW THE VIDEO PREVIEW at LMAUCTIONCO.COM' — a factual CTA pointing to a real asset.",
+    "footer_treatment": "Gold band with the URL and Facebook/Instagram icons, spanning the information column only.",
+    "photographic_style": "Macro product photography on marble; sharp, evenly lit.",
+    "overlapping_objects": "none",
+    "environmental_staged_composition": "None — tiles, not a scene.",
+    "negative_space": "minimal",
+    "ground": "mixed",
+    "overall_visual_impact": "high"
+  },
+  "measured": {
+    "light_pixel_pct": 40.0,
+    "dark_pixel_pct": 5.2,
+    "saturated_pixel_pct": 18.3,
+    "dominant_hues": [
+      "orange 80%",
+      "azure 7%",
+      "cyan 7%"
+    ],
+    "est_merchandise_share_pct": [
+      50,
+      56
+    ],
+    "est_text_share_pct": [
+      28,
+      34
+    ],
+    "object_count_est": 6,
+    "text_block_count": 8
+  },
+  "strongest_attributes": [
+    "Luxury product photography carries the ad even with a dense information column",
+    "Icon-led logistics rows (date, mode, address) make high density scannable",
+    "Brand names as the sell for a category auction (Rolex, Cartier, Breitling, Bulgari)",
+    "Dials, bezels and clasps — the identifying details — are never cropped or overlapped"
+  ],
+  "transferable_lessons": [
+    "For category auctions where facts are the draw (brands, in-house/online, address), a denser icon-led logistics block is acceptable provided merchandise still holds at least half the canvas",
+    "Tiled product photography is a legitimate merchandise treatment for small luxury objects where extraction adds nothing",
+    "Protected-region discipline: watch dials fully visible (validates the 3M protected-region rule)",
+    "Video preview CTA is factual when a real preview exists"
+  ],
+  "do_not_generalize": [
+    "Gold/navy/cream palette, crest, gold icon discs — seller identity",
+    "Seller address, phone and social handles",
+    "Repeating the URL twice — Advantage.Bid uses the single footer wordmark",
+    "Eight copy blocks — over the Advantage.Bid general budget; acceptable only in a category/logistics family with an explicit larger budget"
+  ],
+  "text_density_assessment": {
+    "level": "high",
+    "why_it_works_here": "The density is organised: one column, icon-introduced rows, one dominant word. It reads as a programme, not clutter.",
+    "advantage_bid_budget_note": "Proposes a family-scoped budget: CATEGORY_GROUP with logistics may carry up to 7 blocks; general families stay at 5."
+  },
+  "composition_assessment": {
+    "spatial_logic": "Grid; no spatial world implied.",
+    "gravity_and_grounding": "Not applicable — tiles.",
+    "depth": "None; flat tiles.",
+    "scale_strategy": "Tiles roughly equal; the diamond Rolex gets the largest tile top-left (the eye's entry point).",
+    "edge_handling": "Tiles bleed to the left and top edges; the panel is contained."
+  },
+  "retrieval": {
+    "use_cases": [
+      "watch / jewellery category auction",
+      "small luxury objects",
+      "events with logistics to communicate (in-house + online, address)",
+      "CATEGORY_GROUP family calibration"
+    ],
+    "tags": [
+      "tile-grid",
+      "icon-logistics",
+      "high-density",
+      "brand-names",
+      "product-macro"
+    ],
+    "avoid_for": [
+      "broad estate auctions",
+      "general brand",
+      "any family with the 5-block budget"
+    ]
+  },
+  "performance": null,
+  "provenance": {
+    "created_by": "Desktop Marketing (Claude, Cowork) — Phase 3P",
+    "created_at": "2026-09-09T20:31:32Z",
+    "analysis_method": "Direct visual inspection of the full-resolution image; pixel statistics computed from the file; est_* fields are visual estimates. No filename-based inference.",
+    "phase": "3P"
+  }
+}

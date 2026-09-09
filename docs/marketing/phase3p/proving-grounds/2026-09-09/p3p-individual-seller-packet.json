@@ -1,0 +1,2761 @@
+{
+ "job_id": "p3p-individual-seller",
+ "campaign_class": "individual_seller_acquisition",
+ "title": "INDIVIDUAL SELLER ACQUISITION — empty reference class (Owner review mandatory)",
+ "index_version": "3P.1.aae47c36f2e1",
+ "gates": {
+  "marketing.a9_publish_enabled": false,
+  "marketing.destinations.meta_enabled": false,
+  "marketing.destinations.meta_ads_enabled": false,
+  "marketing.destinations.google_ads_enabled": false
+ },
+ "no_publish": true,
+ "retrieval": {
+  "confidence": "LOW",
+  "empty_class": true,
+  "owner_review_required": true,
+  "retrieved": [
+   {
+    "reference_id": "REF-11",
+    "score": 0.0192,
+    "lessons": [
+     "Community / holiday posts may use an atmospheric staged scene with representative objects, provided nothing is presented as an auction lot",
+     "Geographic identity can be carried by objects and light, not only by place names",
+     "Tools and work culture are legitimate subjects for Advantage.Bid brand warmth"
+    ],
+    "neutral": true
+   }
+  ],
+  "excluded_by_avoid_for": [
+   "REF-01",
+   "REF-02",
+   "REF-04",
+   "REF-05",
+   "REF-06",
+   "REF-07",
+   "REF-08",
+   "REF-09",
+   "REF-10",
+   "REF-13"
+  ],
+  "seller_concentration": {
+   "dominant_seller": "Lewis & Maese",
+   "share": 1
+  },
+  "strip_seller_identity": true
+ },
+ "calibration": {
+  "campaign_class": "individual_seller_acquisition",
+  "family": "ACQUISITION",
+  "reference_ids": [
+   "REF-11"
+  ],
+  "reference_versions": {
+   "REF-11": "edfe0ef128027f4e861c6c877e6f3689f27c7e7ebe8fde67b11e34d4eded9e62"
+  },
+  "index_version": "3P.1.aae47c36f2e1",
+  "confidence": "LOW",
+  "owner_review_required": true,
+  "empty_class": true,
+  "strip_seller_identity": true,
+  "principle_profile": {
+   "hierarchy": [
+    "Advantage.Bid leads; one message; navy band closes",
+    "one event or message title of 2–6 words"
+   ],
+   "merchandise": {
+    "mode": "representative",
+    "share_band_pct": [
+     30,
+     50
+    ],
+    "treatment": "representative Advantage.Bid-owned items, visibly disclosed as representative — never presented as lots"
+   },
+   "copy": {
+    "budget_blocks": 5,
+    "text_share_max_pct": 18,
+    "supporting_line": "category line ≤ 6 words or none",
+    "cta": "none or one factual",
+    "logistics_block": "date + closing"
+   },
+   "typography": {
+    "expressive_allowed": true,
+    "rule": "one element may express contrast or material when truthful; brand faces only"
+   },
+   "ground": "white | very_light",
+   "composition": {
+    "families_allowed": [
+     "ACQUISITION"
+    ],
+    "title_position": [
+     "top",
+     "bottom",
+     "panel"
+    ],
+    "largest_empty_max_pct": 22,
+    "upper_half_merchandise_min_pct": 0
+   },
+   "transferable_lessons": [
+    "Community / holiday posts may use an atmospheric staged scene with representative objects, provided nothing is presented as an auction lot",
+    "Geographic identity can be carried by objects and light, not only by place names",
+    "Tools and work culture are legitimate subjects for Advantage.Bid brand warmth"
+   ],
+   "anti_patterns": [],
+   "brand_frame": {
+    "ground": [
+     "white",
+     "very_light"
+    ],
+    "band": "navy Advantage.Bid band closes the canvas",
+    "logo": "Advantage.Bid logo at spec",
+    "accent": "red accent, used once"
+   },
+   "variation_required_from": []
+  },
+  "do_not_copy": {
+   "seller_marks": [
+    "Lewis & Maese",
+    "Lewis and Maese",
+    "LMAuctionCo",
+    "lmauctionco.com",
+    "L&M",
+    "fleur-de-lis"
+   ],
+   "palettes": "any reference palette",
+   "typefaces": "any reference typeface",
+   "ornaments": "flourishes, decorative frames, stars, crests, gold borders, icon logistics rows",
+   "wording": [
+    "Trusted. Experienced. Results.",
+    "Fine Estate Sales & Appraisals",
+    "Central Time",
+    "Luxury finds for the discerning collector",
+    "Quality. Heritage. Timeless Style."
+   ],
+   "layout_signatures": [
+    "504205b3de3223b91617636160242e2dc79c4f7e751afd2e7b22a015c79842bc"
+   ]
+  },
+  "library_band": null
+ },
+ "brief_hash": "24d321dca121eae164dc31cd062ab7c87307caa7fe81980ef018d193b8fcfcfe",
+ "brief": {
+  "brief_id": "p3p-is-1788990859562",
+  "obligation_id": "proving-ground",
+  "auction_id": "none",
+  "family": "ACQUISITION",
+  "formats": [
+   "portrait_1080x1350",
+   "square_1080x1080"
+  ],
+  "objects": [],
+  "event": {
+   "title": "Individual seller acquisition",
+   "city_state": "online",
+   "date": "",
+   "start_time": "",
+   "online_only": true
+  },
+  "brand_frame": {
+   "logo_width_px": 250,
+   "kicker": "ADVANTAGE.BID PRESENTS",
+   "footer_band_px": 120,
+   "footer_wordmark": "Advantage.Bid",
+   "footer_wordmark_px": 64,
+   "ground": "white",
+   "navy": "#182e45",
+   "red": "#d62828"
+  },
+  "text_budget": {
+   "profile": "GENERAL"
+  },
+  "rule_engine": "3M.3",
+  "merchandise_mode": "representative",
+  "representative_assets": [
+   {
+    "asset_id": "lot31.webp",
+    "rights": "Advantage.Bid-owned demo auction asset (extracted, CLEAN)",
+    "representative_not_lots": true
+   },
+   {
+    "asset_id": "lot46.webp",
+    "rights": "Advantage.Bid-owned demo auction asset (extracted, CLEAN)",
+    "representative_not_lots": true
+   },
+   {
+    "asset_id": "lot36.webp",
+    "rights": "Advantage.Bid-owned demo auction asset (extracted, CLEAN)",
+    "representative_not_lots": true
+   },
+   {
+    "asset_id": "lot53.webp",
+    "rights": "Advantage.Bid-owned demo auction asset (extracted, CLEAN)",
+    "representative_not_lots": true
+   },
+   {
+    "asset_id": "lot63.webp",
+    "rights": "Advantage.Bid-owned demo auction asset (extracted, CLEAN)",
+    "representative_not_lots": true
+   },
+   {
+    "asset_id": "lot3.webp",
+    "rights": "Advantage.Bid-owned demo auction asset (extracted, CLEAN)",
+    "representative_not_lots": true
+   },
+   {
+    "asset_id": "lot87.webp",
+    "rights": "Advantage.Bid-owned demo auction asset (extracted, CLEAN)",
+    "representative_not_lots": true
+   }
+  ],
+  "screenshot": {
+   "asset_id": "c9ab613f35700f066944c65d96194fc900b73a2d6425a03f8b331d1d1fc14c56",
+   "provenance": {
+    "asset": "C:/Users/tyler/AppData/Local/Temp/claude/C--Users-tyler-OneDrive-Documents-Projects-advantage-auction-platform/d680c5ea-dadf-4931-8552-afe29df49fdc/scratchpad/create-auction-screenshot.png",
+    "kind": "production_screenshot",
+    "url": "https://bid.advantage.bid/seller-create.html",
+    "page_title": "Create Auction - Advantage.Bid",
+    "captured_at": "2026-09-09T21:21:54.693Z",
+    "viewport": "1280x900",
+    "identity": "pilot-seller1@advantage.bid (seeded test account, read-only page load)",
+    "sha256": "c9ab613f35700f066944c65d96194fc900b73a2d6425a03f8b331d1d1fc14c56"
+   }
+  },
+  "claim_manifest": [
+   {
+    "claim": "create_own_auction",
+    "value": "sellers create and manage their own online auction on Advantage.Bid",
+    "source": "product: /seller-create.html"
+   },
+   {
+    "claim": "help_phone",
+    "value": "(551) 655-7050",
+    "source": "companyContact.PHONE_DISPLAY"
+   },
+   {
+    "claim": "help_email",
+    "value": "info@advantage.bid",
+    "source": "companyContact.SUPPORT_EMAIL"
+   }
+  ],
+  "cta": {
+   "kind": "none"
+  },
+  "calibration": {
+   "campaign_class": "individual_seller_acquisition",
+   "family": "ACQUISITION",
+   "reference_ids": [
+    "REF-11"
+   ],
+   "reference_versions": {
+    "REF-11": "edfe0ef128027f4e861c6c877e6f3689f27c7e7ebe8fde67b11e34d4eded9e62"
+   },
+   "index_version": "3P.1.aae47c36f2e1",
+   "confidence": "LOW",
+   "owner_review_required": true,
+   "empty_class": true,
+   "strip_seller_identity": true,
+   "principle_profile": {
+    "hierarchy": [
+     "Advantage.Bid leads; one message; navy band closes",
+     "one event or message title of 2–6 words"
+    ],
+    "merchandise": {
+     "mode": "representative",
+     "share_band_pct": [
+      30,
+      50
+     ],
+     "treatment": "representative Advantage.Bid-owned items, visibly disclosed as representative — never presented as lots"
+    },
+    "copy": {
+     "budget_blocks": 5,
+     "text_share_max_pct": 18,
+     "supporting_line": "category line ≤ 6 words or none",
+     "cta": "none or one factual",
+     "logistics_block": "date + closing"
+    },
+    "typography": {
+     "expressive_allowed": true,
+     "rule": "one element may express contrast or material when truthful; brand faces only"
+    },
+    "ground": "white | very_light",
+    "composition": {
+     "families_allowed": [
+      "ACQUISITION"
+     ],
+     "title_position": [
+      "top",
+      "bottom",
+      "panel"
+     ],
+     "largest_empty_max_pct": 22,
+     "upper_half_merchandise_min_pct": 0
+    },
+    "transferable_lessons": [
+     "Community / holiday posts may use an atmospheric staged scene with representative objects, provided nothing is presented as an auction lot",
+     "Geographic identity can be carried by objects and light, not only by place names",
+     "Tools and work culture are legitimate subjects for Advantage.Bid brand warmth"
+    ],
+    "anti_patterns": [],
+    "brand_frame": {
+     "ground": [
+      "white",
+      "very_light"
+     ],
+     "band": "navy Advantage.Bid band closes the canvas",
+     "logo": "Advantage.Bid logo at spec",
+     "accent": "red accent, used once"
+    },
+    "variation_required_from": []
+   },
+   "do_not_copy": {
+    "seller_marks": [
+     "Lewis & Maese",
+     "Lewis and Maese",
+     "LMAuctionCo",
+     "lmauctionco.com",
+     "L&M",
+     "fleur-de-lis"
+    ],
+    "palettes": "any reference palette",
+    "typefaces": "any reference typeface",
+    "ornaments": "flourishes, decorative frames, stars, crests, gold borders, icon logistics rows",
+    "wording": [
+     "Trusted. Experienced. Results.",
+     "Fine Estate Sales & Appraisals",
+     "Central Time",
+     "Luxury finds for the discerning collector",
+     "Quality. Heritage. Timeless Style."
+    ],
+    "layout_signatures": [
+     "504205b3de3223b91617636160242e2dc79c4f7e751afd2e7b22a015c79842bc"
+    ]
+   },
+   "library_band": null
+  },
+  "campaign_class": "individual_seller_acquisition",
+  "seller_hierarchy": "advantage_bid_only"
+ },
+ "anchor": null,
+ "omissions": [
+  "team photograph (no approved real Advantage.Bid team photograph exists — help is copy + the real phone number, never stock or generated people)",
+  "fees / reach / speed claims (no production fact briefed — omitted)"
+ ],
+ "results": [
+  {
+   "key": "A",
+   "format": "portrait_1080x1350",
+   "family": "ACQUISITION",
+   "ok": true,
+   "png": "C:\\Projects\\advantage-auction-platform\\docs\\marketing\\phase3p\\proving-grounds\\2026-09-09\\p3p-individual-seller-A-portrait_1080x1350.png",
+   "thumb": "C:\\Projects\\advantage-auction-platform\\docs\\marketing\\phase3p\\proving-grounds\\2026-09-09\\p3p-individual-seller-A-portrait_1080x1350_thumb.png",
+   "render_sha256": "28ff96bff81fe36da7d486904ac867faae513b47e8e869672aca3bdb24ca6995",
+   "metrics": {
+    "size": [
+     1080,
+     1350
+    ],
+    "merchandise_pct": 33.6,
+    "text_region_pct": 17.4,
+    "combined_pct": 51,
+    "largest_empty_pct": 11.4,
+    "upper_half_merch_pct": 21.5,
+    "text_blocks": 3,
+    "text_block_roles": [
+     "title",
+     "subtitle",
+     "help"
+    ],
+    "largest_text_px": 108,
+    "hierarchy_ratio": 2.84,
+    "date_gt_time": null,
+    "title_words": 5,
+    "ground_luminance": 1,
+    "brand_frame": {
+     "logo": true,
+     "band": true,
+     "wordmark": true
+    },
+    "family": "ACQUISITION",
+    "concept": "A",
+    "representative": true,
+    "objects": 5,
+    "screenshot": false,
+    "copy_over_merchandise": [],
+    "title_scale": 1,
+    "extreme": false
+   },
+   "audit": {
+    "profile": "acquisition",
+    "violations": []
+   },
+   "budget": {
+    "pass": true,
+    "max": 3,
+    "blocks": 3,
+    "reasons": []
+   },
+   "leak": {
+    "pass": true,
+    "hits": [],
+    "ocr": "unavailable (no OCR engine in the runtime image; every drawn string is checked exactly)",
+    "logo_template_match": "not_available (no seller logo templates on file)"
+   },
+   "provenance": {
+    "pass": true,
+    "reasons": []
+   },
+   "similarity": {
+    "pass": true,
+    "failures": [],
+    "max_reference": {
+     "id": "REF-09",
+     "distance": 0.4667
+    },
+    "self_history_min": null,
+    "published_anchor_distance": null,
+    "thresholds": {
+     "tau_ref": 0.35,
+     "tau_self": 0.25,
+     "tau_pub": 0.4
+    },
+    "all_reference_distances": [
+     {
+      "id": "REF-01",
+      "distance": 0.774
+     },
+     {
+      "id": "REF-02",
+      "distance": 0.7291
+     },
+     {
+      "id": "REF-03",
+      "distance": 0.9536
+     },
+     {
+      "id": "REF-04",
+      "distance": 0.963
+     },
+     {
+      "id": "REF-05",
+      "distance": 0.6511
+     },
+     {
+      "id": "REF-06",
+      "distance": 0.5843
+     },
+     {
+      "id": "REF-07",
+      "distance": 1.0326
+     },
+     {
+      "id": "REF-08",
+      "distance": 0.9211
+     },
+     {
+      "id": "REF-09",
+      "distance": 0.4667
+     },
+     {
+      "id": "REF-10",
+      "distance": 0.7496
+     },
+     {
+      "id": "REF-11",
+      "distance": 0.8529
+     },
+     {
+      "id": "REF-12",
+      "distance": 1.0995
+     },
+     {
+      "id": "REF-13",
+      "distance": 0.5842
+     }
+    ]
+   },
+   "judge": {
+    "available": true,
+    "model": "claude-sonnet-5",
+    "prompt_version": "p3p-judge-v1",
+    "runs": [
+     {
+      "items": [
+       {
+        "n": 1,
+        "score": 3,
+        "reason": "Logo top, clear headline, then merchandise below reads well in sequence"
+       },
+       {
+        "n": 2,
+        "score": 3,
+        "reason": "Items grounded with shadows, sized plausibly, feels like a staged grouping"
+       },
+       {
+        "n": 3,
+        "score": 3,
+        "reason": "Lamp, table, chairs, vases show varied scale with statue as anchor"
+       },
+       {
+        "n": 4,
+        "score": 3,
+        "reason": "Serif headline confident, red rule truthful accent, no gimmick fonts"
+       },
+       {
+        "n": 5,
+        "score": 3,
+        "reason": "Red chairs and bronze/blue vases carry color, ground stays white"
+       },
+       {
+        "n": 6,
+        "score": 4,
+        "reason": "No slogans or icon clutter, clean factual copy and disclosure line"
+       },
+       {
+        "n": 7,
+        "score": 3,
+        "reason": "Bold headline and logo would remain legible at small size"
+       },
+       {
+        "n": 8,
+        "score": 2,
+        "reason": "Layout feels somewhat generic stock-photo arrangement, lacks strong editorial quirk"
+       },
+       {
+        "n": 9,
+        "score": 4,
+        "reason": "No competitor or specific seller identity evoked anywhere in image"
+       },
+       {
+        "n": 10,
+        "score": 3,
+        "reason": "Solid, on-brief execution; clean but not exceptionally distinctive overall"
+       }
+      ],
+      "total": 31,
+      "notes": "Strong adherence to hierarchy, merchandise grounding, and copy restraint; slightly generic staging keeps it from top score.",
+      "usage": {
+       "in": 3156,
+       "out": 476
+      }
+     },
+     {
+      "items": [
+       {
+        "n": 1,
+        "score": 3,
+        "reason": "Logo top, clear title, then merchandise row below reads naturally."
+       },
+       {
+        "n": 2,
+        "score": 3,
+        "reason": "Items grounded on floor with shadows, arranged like a lineup for comparison."
+       },
+       {
+        "n": 3,
+        "score": 3,
+        "reason": "Good scale variety; chairs and lamp anchor the composition well."
+       },
+       {
+        "n": 4,
+        "score": 3,
+        "reason": "Bold serif headline with red rule feels confident and truthful to tone."
+       },
+       {
+        "n": 5,
+        "score": 3,
+        "reason": "Reds and bronzes dominate against clean white ground, panels stay quiet."
+       },
+       {
+        "n": 6,
+        "score": 3,
+        "reason": "No slogans or icon piles; disclosure line adds clarity, not filler."
+       },
+       {
+        "n": 7,
+        "score": 3,
+        "reason": "Headline and wordmark remain legible at small size due to strong contrast."
+       },
+       {
+        "n": 8,
+        "score": 2,
+        "reason": "Layout feels somewhat templated despite unique items; composition is generic grid-like."
+       },
+       {
+        "n": 9,
+        "score": 4,
+        "reason": "No competitor or specific seller identity evoked; generic auction house items."
+       },
+       {
+        "n": 10,
+        "score": 3,
+        "reason": "Owner would likely say much better: clean, on-brief, merchandise-forward execution."
+       }
+      ],
+      "total": 30,
+      "notes": "Strong adherence to hierarchy and merchandise grounding; minor staging genericness limits top score.",
+      "usage": {
+       "in": 3156,
+       "out": 461
+      }
+     }
+    ],
+    "average": 30.5,
+    "disagreement": 1,
+    "flagged": false,
+    "items": [
+     "Hierarchy clarity: the eye enters at the presenter, moves to one title, then to the merchandise.",
+     "Staging: merchandise looks staged by a set designer (heavy things sit, art hangs, small things forward) / arranged for comparison (lineup) / the room is inviting and legible (environmental) / representative items are grounded (acquisition).",
+     "Objects (or the photograph) have confident scale variation and at least one clear anchor.",
+     "Typography is confident and, where expressive, truthful to the event.",
+     "Colour comes from the merchandise; the ground and panels stay quiet.",
+     "Nothing reads as filler: no slogans, icon piles, words on merchandise, duplicate URLs.",
+     "It reads at thumbnail size (headline + wordmark legible when small).",
+     "It would not be mistaken for a template with swapped merchandise (editorial irregularity).",
+     "It does not evoke any specific competitor or seller identity (answer 0 if it does).",
+     "Overall: would the Owner say \"good\" (0), \"much better\" (2), \"love this\" (4)? Justify via items 1–9."
+    ]
+   },
+   "measurable": {
+    "points": 60,
+    "out_of": 60,
+    "raw": 46,
+    "raw_max": 46,
+    "items": [
+     {
+      "key": "merchandise_forward",
+      "pts": 12,
+      "value": 33.6,
+      "points": 12,
+      "target": [
+       30,
+       50
+      ]
+     },
+     {
+      "key": "restrained_copy",
+      "pts": 8,
+      "value": 17.4,
+      "points": 8,
+      "target": [
+       0,
+       18
+      ]
+     },
+     {
+      "key": "copy_count",
+      "pts": 6,
+      "value": 3,
+      "points": 6,
+      "target": "≤ 3"
+     },
+     {
+      "key": "hierarchy_one_title",
+      "pts": 8,
+      "value": 2.84,
+      "points": 8,
+      "target": "largest ≥ 2.2× next; title 2–6 words"
+     },
+     {
+      "key": "date_gt_time",
+      "pts": 3,
+      "value": null,
+      "points": null,
+      "target": "date box > time box"
+     },
+     {
+      "key": "controlled_occupancy",
+      "pts": 6,
+      "value": 11.4,
+      "points": 6,
+      "target": "≤ 22"
+     },
+     {
+      "key": "merchandise_rises",
+      "pts": 5,
+      "value": 21.5,
+      "points": null,
+      "target": "n/a"
+     },
+     {
+      "key": "depth_diversity",
+      "pts": 6,
+      "value": null,
+      "points": null,
+      "target": "n/a (not a scene family)"
+     },
+     {
+      "key": "light_ground",
+      "pts": 3,
+      "value": 1,
+      "points": 3,
+      "target": "≥ 0.85 relative luminance"
+     },
+     {
+      "key": "brand_frame",
+      "pts": 3,
+      "value": {
+       "logo": true,
+       "band": true,
+       "wordmark": true
+      },
+      "points": 3,
+      "target": "band + wordmark (+ logo where the family shows it)"
+     }
+    ]
+   },
+   "score": 90.5,
+   "decision": "OWNER_REVIEW",
+   "hard_failures": [],
+   "score_basis": "measurable_60 + judge_40",
+   "bar": 70,
+   "owner_review": {
+    "required": true,
+    "reasons": [
+     "campaign class has no Owner-approved reference",
+     "proving ground — Owner review mandatory",
+     "retrieval flagged owner_review_required"
+    ]
+   },
+   "extreme": false,
+   "publication_status": "HELD_FOR_OWNER_REVIEW",
+   "drawn_text": [
+    "It's built to be easy.",
+    "Create your own online auction on Advantage.Bid.",
+    "Real people help along the way. Call (551) 655-7050.",
+    "Representative items shown — not auction lots",
+    "Advantage.Bid"
+   ],
+   "references_used": [
+    "REF-11"
+   ],
+   "principles_applied": [
+    "Community / holiday posts may use an atmospheric staged scene with representative objects, provided nothing is presented as an auction lot",
+    "Geographic identity can be carried by objects and light, not only by place names",
+    "Tools and work culture are legitimate subjects for Advantage.Bid brand warmth"
+   ],
+   "assets": [
+    "lot31 chairs",
+    "lot46 torchiere",
+    "lot36 table",
+    "lot53 vases",
+    "lot63 bowl (all representative, Advantage.Bid-owned)"
+   ]
+  },
+  {
+   "key": "A",
+   "format": "square_1080x1080",
+   "family": "ACQUISITION",
+   "ok": true,
+   "png": "C:\\Projects\\advantage-auction-platform\\docs\\marketing\\phase3p\\proving-grounds\\2026-09-09\\p3p-individual-seller-A-square_1080x1080.png",
+   "thumb": "C:\\Projects\\advantage-auction-platform\\docs\\marketing\\phase3p\\proving-grounds\\2026-09-09\\p3p-individual-seller-A-square_1080x1080_thumb.png",
+   "render_sha256": "4f74f5bc2bdf632e540284e53a3d9acd78c08dac146e0b4d853a0fef29d3e048",
+   "metrics": {
+    "size": [
+     1080,
+     1080
+    ],
+    "merchandise_pct": 33.5,
+    "text_region_pct": 15.4,
+    "combined_pct": 48.9,
+    "largest_empty_pct": 12.2,
+    "upper_half_merch_pct": 24.4,
+    "text_blocks": 3,
+    "text_block_roles": [
+     "title",
+     "subtitle",
+     "help"
+    ],
+    "largest_text_px": 94,
+    "hierarchy_ratio": 3.13,
+    "date_gt_time": null,
+    "title_words": 5,
+    "ground_luminance": 1,
+    "brand_frame": {
+     "logo": true,
+     "band": true,
+     "wordmark": true
+    },
+    "family": "ACQUISITION",
+    "concept": "A",
+    "representative": true,
+    "objects": 5,
+    "screenshot": false,
+    "copy_over_merchandise": [],
+    "title_scale": 1,
+    "extreme": false
+   },
+   "audit": {
+    "profile": "acquisition",
+    "violations": []
+   },
+   "budget": {
+    "pass": true,
+    "max": 3,
+    "blocks": 3,
+    "reasons": []
+   },
+   "leak": {
+    "pass": true,
+    "hits": [],
+    "ocr": "unavailable (no OCR engine in the runtime image; every drawn string is checked exactly)",
+    "logo_template_match": "not_available (no seller logo templates on file)"
+   },
+   "provenance": {
+    "pass": true,
+    "reasons": []
+   },
+   "similarity": {
+    "pass": true,
+    "failures": [],
+    "max_reference": {
+     "id": "REF-09",
+     "distance": 0.4948
+    },
+    "self_history_min": null,
+    "published_anchor_distance": null,
+    "thresholds": {
+     "tau_ref": 0.35,
+     "tau_self": 0.25,
+     "tau_pub": 0.4
+    },
+    "all_reference_distances": [
+     {
+      "id": "REF-01",
+      "distance": 0.7737
+     },
+     {
+      "id": "REF-02",
+      "distance": 0.7428
+     },
+     {
+      "id": "REF-03",
+      "distance": 0.9418
+     },
+     {
+      "id": "REF-04",
+      "distance": 0.9569
+     },
+     {
+      "id": "REF-05",
+      "distance": 0.6179
+     },
+     {
+      "id": "REF-06",
+      "distance": 0.55
+     },
+     {
+      "id": "REF-07",
+      "distance": 1.0615
+     },
+     {
+      "id": "REF-08",
+      "distance": 0.9576
+     },
+     {
+      "id": "REF-09",
+      "distance": 0.4948
+     },
+     {
+      "id": "REF-10",
+      "distance": 0.7593
+     },
+     {
+      "id": "REF-11",
+      "distance": 0.9466
+     },
+     {
+      "id": "REF-12",
+      "distance": 1.1517
+     },
+     {
+      "id": "REF-13",
+      "distance": 0.5797
+     }
+    ]
+   },
+   "judge": {
+    "available": true,
+    "model": "claude-sonnet-5",
+    "prompt_version": "p3p-judge-v1",
+    "runs": [
+     {
+      "items": [
+       {
+        "n": 1,
+        "score": 3,
+        "reason": "Logo top, single title, then merchandise row below reads clearly"
+       },
+       {
+        "n": 2,
+        "score": 3,
+        "reason": "Items grounded on shadows, sized naturally, disclaimer clarifies representative status"
+       },
+       {
+        "n": 3,
+        "score": 3,
+        "reason": "Statue, table, chairs, vases vary in scale with table as clear anchor"
+       },
+       {
+        "n": 4,
+        "score": 3,
+        "reason": "Bold serif headline with red rule feels confident and brand-consistent"
+       },
+       {
+        "n": 5,
+        "score": 3,
+        "reason": "Warm woods and red chairs supply color against clean white ground"
+       },
+       {
+        "n": 6,
+        "score": 3,
+        "reason": "No slogans or icon clutter, phone CTA is single factual line"
+       },
+       {
+        "n": 7,
+        "score": 3,
+        "reason": "Large headline and logo remain legible at small sizes"
+       },
+       {
+        "n": 8,
+        "score": 2,
+        "reason": "Layout feels like a reusable template despite varied objects"
+       },
+       {
+        "n": 9,
+        "score": 4,
+        "reason": "No competitor or specific seller identity evoked anywhere"
+       },
+       {
+        "n": 10,
+        "score": 3,
+        "reason": "Clean, on-brand, effective acquisition ad; solid but not exceptional"
+       }
+      ],
+      "total": 30,
+      "notes": "Strong adherence to hierarchy, merchandise grounding, and brand frame; minor deduction for template-like composition.",
+      "usage": {
+       "in": 2766,
+       "out": 445
+      }
+     },
+     {
+      "items": [
+       {
+        "n": 1,
+        "score": 3,
+        "reason": "Logo top, clear title, merchandise below reads in order well"
+       },
+       {
+        "n": 2,
+        "score": 3,
+        "reason": "Items grounded on shadows, arranged like a lineup for comparison"
+       },
+       {
+        "n": 3,
+        "score": 3,
+        "reason": "Good scale variation; statue and vases anchor against chairs and table"
+       },
+       {
+        "n": 4,
+        "score": 3,
+        "reason": "Bold serif title with red rule feels confident and on-brand"
+       },
+       {
+        "n": 5,
+        "score": 2,
+        "reason": "Pink chairs dominate color; ground stays white but chairs overpower palette"
+       },
+       {
+        "n": 6,
+        "score": 3,
+        "reason": "Disclaimer present, no icon piles, but duplicate CTA-like phone plus disclaimer text"
+       },
+       {
+        "n": 7,
+        "score": 3,
+        "reason": "Headline and wordmark remain legible at small size"
+       },
+       {
+        "n": 8,
+        "score": 2,
+        "reason": "Layout feels like a stock template with generic furniture placement"
+       },
+       {
+        "n": 9,
+        "score": 4,
+        "reason": "No competitor or seller identity evoked, purely generic staged items"
+       },
+       {
+        "n": 10,
+        "score": 2,
+        "reason": "Solid execution but merchandise dominance and template feel limit love-this rating"
+       }
+      ],
+      "total": 28,
+      "notes": "Clean, legible acquisition ad; slightly template-like staging and pink chair dominance reduce polish.",
+      "usage": {
+       "in": 2766,
+       "out": 446
+      }
+     }
+    ],
+    "average": 29,
+    "disagreement": 2,
+    "flagged": false,
+    "items": [
+     "Hierarchy clarity: the eye enters at the presenter, moves to one title, then to the merchandise.",
+     "Staging: merchandise looks staged by a set designer (heavy things sit, art hangs, small things forward) / arranged for comparison (lineup) / the room is inviting and legible (environmental) / representative items are grounded (acquisition).",
+     "Objects (or the photograph) have confident scale variation and at least one clear anchor.",
+     "Typography is confident and, where expressive, truthful to the event.",
+     "Colour comes from the merchandise; the ground and panels stay quiet.",
+     "Nothing reads as filler: no slogans, icon piles, words on merchandise, duplicate URLs.",
+     "It reads at thumbnail size (headline + wordmark legible when small).",
+     "It would not be mistaken for a template with swapped merchandise (editorial irregularity).",
+     "It does not evoke any specific competitor or seller identity (answer 0 if it does).",
+     "Overall: would the Owner say \"good\" (0), \"much better\" (2), \"love this\" (4)? Justify via items 1–9."
+    ]
+   },
+   "measurable": {
+    "points": 60,
+    "out_of": 60,
+    "raw": 46,
+    "raw_max": 46,
+    "items": [
+     {
+      "key": "merchandise_forward",
+      "pts": 12,
+      "value": 33.5,
+      "points": 12,
+      "target": [
+       30,
+       50
+      ]
+     },
+     {
+      "key": "restrained_copy",
+      "pts": 8,
+      "value": 15.4,
+      "points": 8,
+      "target": [
+       0,
+       18
+      ]
+     },
+     {
+      "key": "copy_count",
+      "pts": 6,
+      "value": 3,
+      "points": 6,
+      "target": "≤ 3"
+     },
+     {
+      "key": "hierarchy_one_title",
+      "pts": 8,
+      "value": 3.13,
+      "points": 8,
+      "target": "largest ≥ 2.2× next; title 2–6 words"
+     },
+     {
+      "key": "date_gt_time",
+      "pts": 3,
+      "value": null,
+      "points": null,
+      "target": "date box > time box"
+     },
+     {
+      "key": "controlled_occupancy",
+      "pts": 6,
+      "value": 12.2,
+      "points": 6,
+      "target": "≤ 22"
+     },
+     {
+      "key": "merchandise_rises",
+      "pts": 5,
+      "value": 24.4,
+      "points": null,
+      "target": "n/a"
+     },
+     {
+      "key": "depth_diversity",
+      "pts": 6,
+      "value": null,
+      "points": null,
+      "target": "n/a (not a scene family)"
+     },
+     {
+      "key": "light_ground",
+      "pts": 3,
+      "value": 1,
+      "points": 3,
+      "target": "≥ 0.85 relative luminance"
+     },
+     {
+      "key": "brand_frame",
+      "pts": 3,
+      "value": {
+       "logo": true,
+       "band": true,
+       "wordmark": true
+      },
+      "points": 3,
+      "target": "band + wordmark (+ logo where the family shows it)"
+     }
+    ]
+   },
+   "score": 89,
+   "decision": "OWNER_REVIEW",
+   "hard_failures": [],
+   "score_basis": "measurable_60 + judge_40",
+   "bar": 70,
+   "owner_review": {
+    "required": true,
+    "reasons": [
+     "campaign class has no Owner-approved reference",
+     "proving ground — Owner review mandatory",
+     "retrieval flagged owner_review_required"
+    ]
+   },
+   "extreme": false,
+   "publication_status": "HELD_FOR_OWNER_REVIEW",
+   "drawn_text": [
+    "It's built to be easy.",
+    "Create your own online auction on Advantage.Bid.",
+    "Real people help along the way. Call (551) 655-7050.",
+    "Representative items shown — not auction lots",
+    "Advantage.Bid"
+   ],
+   "references_used": [
+    "REF-11"
+   ],
+   "principles_applied": [
+    "Community / holiday posts may use an atmospheric staged scene with representative objects, provided nothing is presented as an auction lot",
+    "Geographic identity can be carried by objects and light, not only by place names",
+    "Tools and work culture are legitimate subjects for Advantage.Bid brand warmth"
+   ],
+   "assets": [
+    "lot31 chairs",
+    "lot46 torchiere",
+    "lot36 table",
+    "lot53 vases",
+    "lot63 bowl (all representative, Advantage.Bid-owned)"
+   ]
+  },
+  {
+   "key": "B",
+   "format": "portrait_1080x1350",
+   "family": "ACQUISITION",
+   "ok": true,
+   "png": "C:\\Projects\\advantage-auction-platform\\docs\\marketing\\phase3p\\proving-grounds\\2026-09-09\\p3p-individual-seller-B-portrait_1080x1350.png",
+   "thumb": "C:\\Projects\\advantage-auction-platform\\docs\\marketing\\phase3p\\proving-grounds\\2026-09-09\\p3p-individual-seller-B-portrait_1080x1350_thumb.png",
+   "render_sha256": "da05935fb5a28cafb07c9560973cc9c901f6d084b86be6087bba37a0336a93ae",
+   "metrics": {
+    "size": [
+     1080,
+     1350
+    ],
+    "merchandise_pct": 29.9,
+    "text_region_pct": 18.2,
+    "combined_pct": 48.1,
+    "largest_empty_pct": 11.4,
+    "upper_half_merch_pct": 22.8,
+    "text_blocks": 3,
+    "text_block_roles": [
+     "title",
+     "subtitle",
+     "help"
+    ],
+    "largest_text_px": 118,
+    "hierarchy_ratio": 3.11,
+    "date_gt_time": null,
+    "title_words": 4,
+    "ground_luminance": 1,
+    "brand_frame": {
+     "logo": true,
+     "band": true,
+     "wordmark": true
+    },
+    "family": "ACQUISITION",
+    "concept": "B",
+    "representative": true,
+    "objects": 2,
+    "screenshot": true,
+    "copy_over_merchandise": [],
+    "title_scale": 1,
+    "extreme": false
+   },
+   "audit": {
+    "profile": "acquisition",
+    "violations": []
+   },
+   "budget": {
+    "pass": true,
+    "max": 3,
+    "blocks": 3,
+    "reasons": []
+   },
+   "leak": {
+    "pass": true,
+    "hits": [],
+    "ocr": "unavailable (no OCR engine in the runtime image; every drawn string is checked exactly)",
+    "logo_template_match": "not_available (no seller logo templates on file)"
+   },
+   "provenance": {
+    "pass": true,
+    "reasons": []
+   },
+   "similarity": {
+    "pass": true,
+    "failures": [],
+    "max_reference": {
+     "id": "REF-13",
+     "distance": 0.4137
+    },
+    "self_history_min": {
+     "id": "p3p-individual-seller:A:portrait_1080x1350",
+     "distance": 0.5141
+    },
+    "published_anchor_distance": null,
+    "thresholds": {
+     "tau_ref": 0.35,
+     "tau_self": 0.25,
+     "tau_pub": 0.4
+    },
+    "all_reference_distances": [
+     {
+      "id": "REF-01",
+      "distance": 1.1665
+     },
+     {
+      "id": "REF-02",
+      "distance": 1.1616
+     },
+     {
+      "id": "REF-03",
+      "distance": 0.6552
+     },
+     {
+      "id": "REF-04",
+      "distance": 1.241
+     },
+     {
+      "id": "REF-05",
+      "distance": 0.6986
+     },
+     {
+      "id": "REF-06",
+      "distance": 0.7911
+     },
+     {
+      "id": "REF-07",
+      "distance": 0.9932
+     },
+     {
+      "id": "REF-08",
+      "distance": 0.9142
+     },
+     {
+      "id": "REF-09",
+      "distance": 0.953
+     },
+     {
+      "id": "REF-10",
+      "distance": 0.8727
+     },
+     {
+      "id": "REF-11",
+      "distance": 0.6324
+     },
+     {
+      "id": "REF-12",
+      "distance": 1.1303
+     },
+     {
+      "id": "REF-13",
+      "distance": 0.4137
+     }
+    ]
+   },
+   "judge": {
+    "available": true,
+    "model": "claude-sonnet-5",
+    "prompt_version": "p3p-judge-v1",
+    "runs": [
+     {
+      "items": [
+       {
+        "n": 1,
+        "score": 3,
+        "reason": "Logo top, one bold title, then merchandise and screen below reads clearly."
+       },
+       {
+        "n": 2,
+        "score": 3,
+        "reason": "Table and silver bowl grounded with shadows, scale realistic, feels staged."
+       },
+       {
+        "n": 3,
+        "score": 3,
+        "reason": "Table anchors scale against smaller bowl, but variation could be greater."
+       },
+       {
+        "n": 4,
+        "score": 3,
+        "reason": "Bold serif headline expressive and truthful to confident, human tone of copy."
+       },
+       {
+        "n": 5,
+        "score": 3,
+        "reason": "Wood and silver tones bring color; ground and screen panel stay neutral."
+       },
+       {
+        "n": 6,
+        "score": 3,
+        "reason": "No slogans or icon clutter, though phone number adds slight text density."
+       },
+       {
+        "n": 7,
+        "score": 3,
+        "reason": "Headline and logo remain legible at small size due to bold weight."
+       },
+       {
+        "n": 8,
+        "score": 2,
+        "reason": "Layout resembles a standard SaaS-style ad template with generic UI mockup."
+       },
+       {
+        "n": 9,
+        "score": 4,
+        "reason": "No competitor or specific seller identity is evoked anywhere in the ad."
+       },
+       {
+        "n": 10,
+        "score": 3,
+        "reason": "Clean, on-brand, functional acquisition ad; solid but not visually distinctive."
+       }
+      ],
+      "total": 30,
+      "notes": "Well-executed hierarchy and grounding; slightly generic UI treatment limits editorial distinctiveness.",
+      "usage": {
+       "in": 3156,
+       "out": 468
+      }
+     },
+     {
+      "items": [
+       {
+        "n": 1,
+        "score": 3,
+        "reason": "Logo, headline, then screenshot/items flow clearly top to bottom."
+       },
+       {
+        "n": 2,
+        "score": 3,
+        "reason": "Table and bowl grounded naturally, shadows present, believable staging."
+       },
+       {
+        "n": 3,
+        "score": 3,
+        "reason": "Table anchors large, bowl smaller, good scale contrast."
+       },
+       {
+        "n": 4,
+        "score": 3,
+        "reason": "Bold serif headline confident, truthful to simple message."
+       },
+       {
+        "n": 5,
+        "score": 3,
+        "reason": "Warm wood and silver tones stand out against white ground."
+       },
+       {
+        "n": 6,
+        "score": 3,
+        "reason": "Minimal text, disclosed representative caption, no clutter or icon piles."
+       },
+       {
+        "n": 7,
+        "score": 3,
+        "reason": "Headline and logo bold enough to read small."
+       },
+       {
+        "n": 8,
+        "score": 2,
+        "reason": "Screenshot panel feels templated, slightly generic SaaS layout style."
+       },
+       {
+        "n": 9,
+        "score": 4,
+        "reason": "No competitor or specific seller identity visible."
+       },
+       {
+        "n": 10,
+        "score": 3,
+        "reason": "Much better: clear hierarchy, grounded merchandise, but panel feels stock-like."
+       }
+      ],
+      "total": 30,
+      "notes": "Strong brand clarity and merchandise grounding; UI panel slightly generic reduces editorial distinctiveness.",
+      "usage": {
+       "in": 3156,
+       "out": 436
+      }
+     }
+    ],
+    "average": 30,
+    "disagreement": 0,
+    "flagged": false,
+    "items": [
+     "Hierarchy clarity: the eye enters at the presenter, moves to one title, then to the merchandise.",
+     "Staging: merchandise looks staged by a set designer (heavy things sit, art hangs, small things forward) / arranged for comparison (lineup) / the room is inviting and legible (environmental) / representative items are grounded (acquisition).",
+     "Objects (or the photograph) have confident scale variation and at least one clear anchor.",
+     "Typography is confident and, where expressive, truthful to the event.",
+     "Colour comes from the merchandise; the ground and panels stay quiet.",
+     "Nothing reads as filler: no slogans, icon piles, words on merchandise, duplicate URLs.",
+     "It reads at thumbnail size (headline + wordmark legible when small).",
+     "It would not be mistaken for a template with swapped merchandise (editorial irregularity).",
+     "It does not evoke any specific competitor or seller identity (answer 0 if it does).",
+     "Overall: would the Owner say \"good\" (0), \"much better\" (2), \"love this\" (4)? Justify via items 1–9."
+    ]
+   },
+   "measurable": {
+    "points": 59.7,
+    "out_of": 60,
+    "raw": 45.769999999999996,
+    "raw_max": 46,
+    "items": [
+     {
+      "key": "merchandise_forward",
+      "pts": 12,
+      "value": 29.9,
+      "points": 11.95,
+      "target": [
+       30,
+       50
+      ]
+     },
+     {
+      "key": "restrained_copy",
+      "pts": 8,
+      "value": 18.2,
+      "points": 7.82,
+      "target": [
+       0,
+       18
+      ]
+     },
+     {
+      "key": "copy_count",
+      "pts": 6,
+      "value": 3,
+      "points": 6,
+      "target": "≤ 3"
+     },
+     {
+      "key": "hierarchy_one_title",
+      "pts": 8,
+      "value": 3.11,
+      "points": 8,
+      "target": "largest ≥ 2.2× next; title 2–6 words"
+     },
+     {
+      "key": "date_gt_time",
+      "pts": 3,
+      "value": null,
+      "points": null,
+      "target": "date box > time box"
+     },
+     {
+      "key": "controlled_occupancy",
+      "pts": 6,
+      "value": 11.4,
+      "points": 6,
+      "target": "≤ 22"
+     },
+     {
+      "key": "merchandise_rises",
+      "pts": 5,
+      "value": 22.8,
+      "points": null,
+      "target": "n/a"
+     },
+     {
+      "key": "depth_diversity",
+      "pts": 6,
+      "value": null,
+      "points": null,
+      "target": "n/a (not a scene family)"
+     },
+     {
+      "key": "light_ground",
+      "pts": 3,
+      "value": 1,
+      "points": 3,
+      "target": "≥ 0.85 relative luminance"
+     },
+     {
+      "key": "brand_frame",
+      "pts": 3,
+      "value": {
+       "logo": true,
+       "band": true,
+       "wordmark": true
+      },
+      "points": 3,
+      "target": "band + wordmark (+ logo where the family shows it)"
+     }
+    ]
+   },
+   "score": 89.7,
+   "decision": "OWNER_REVIEW",
+   "hard_failures": [],
+   "score_basis": "measurable_60 + judge_40",
+   "bar": 70,
+   "owner_review": {
+    "required": true,
+    "reasons": [
+     "campaign class has no Owner-approved reference",
+     "proving ground — Owner review mandatory",
+     "retrieval flagged owner_review_required"
+    ]
+   },
+   "extreme": false,
+   "publication_status": "HELD_FOR_OWNER_REVIEW",
+   "drawn_text": [
+    "You can do this.",
+    "Describe your sale, then add your items — one screen",
+    "at a time.",
+    "Real people help along the way. Call (551) 655-7050.",
+    "Representative items shown — not auction lots",
+    "Advantage.Bid"
+   ],
+   "references_used": [
+    "REF-11"
+   ],
+   "principles_applied": [
+    "Community / holiday posts may use an atmospheric staged scene with representative objects, provided nothing is presented as an auction lot",
+    "Geographic identity can be carried by objects and light, not only by place names",
+    "Tools and work culture are legitimate subjects for Advantage.Bid brand warmth"
+   ],
+   "assets": [
+    "production screenshot /seller-create.html (c9ab613f3570…)",
+    "lot63 bowl",
+    "lot53 vases (representative)"
+   ]
+  },
+  {
+   "key": "B",
+   "format": "square_1080x1080",
+   "family": "ACQUISITION",
+   "ok": true,
+   "png": "C:\\Projects\\advantage-auction-platform\\docs\\marketing\\phase3p\\proving-grounds\\2026-09-09\\p3p-individual-seller-B-square_1080x1080.png",
+   "thumb": "C:\\Projects\\advantage-auction-platform\\docs\\marketing\\phase3p\\proving-grounds\\2026-09-09\\p3p-individual-seller-B-square_1080x1080_thumb.png",
+   "render_sha256": "0ec711284d67fdb2d096eb738ee17ee4b673c958eecd2f772d973cc0eb3a43c5",
+   "metrics": {
+    "size": [
+     1080,
+     1080
+    ],
+    "merchandise_pct": 37.1,
+    "text_region_pct": 14.5,
+    "combined_pct": 51.5,
+    "largest_empty_pct": 12.2,
+    "upper_half_merch_pct": 30.7,
+    "text_blocks": 3,
+    "text_block_roles": [
+     "title",
+     "subtitle",
+     "help"
+    ],
+    "largest_text_px": 94,
+    "hierarchy_ratio": 3.13,
+    "date_gt_time": null,
+    "title_words": 4,
+    "ground_luminance": 1,
+    "brand_frame": {
+     "logo": true,
+     "band": true,
+     "wordmark": true
+    },
+    "family": "ACQUISITION",
+    "concept": "B",
+    "representative": true,
+    "objects": 2,
+    "screenshot": true,
+    "copy_over_merchandise": [],
+    "title_scale": 1,
+    "extreme": false
+   },
+   "audit": {
+    "profile": "acquisition",
+    "violations": []
+   },
+   "budget": {
+    "pass": true,
+    "max": 3,
+    "blocks": 3,
+    "reasons": []
+   },
+   "leak": {
+    "pass": true,
+    "hits": [],
+    "ocr": "unavailable (no OCR engine in the runtime image; every drawn string is checked exactly)",
+    "logo_template_match": "not_available (no seller logo templates on file)"
+   },
+   "provenance": {
+    "pass": true,
+    "reasons": []
+   },
+   "similarity": {
+    "pass": true,
+    "failures": [],
+    "max_reference": {
+     "id": "REF-13",
+     "distance": 0.3919
+    },
+    "self_history_min": {
+     "id": "p3p-individual-seller:A:square_1080x1080",
+     "distance": 0.516
+    },
+    "published_anchor_distance": null,
+    "thresholds": {
+     "tau_ref": 0.35,
+     "tau_self": 0.25,
+     "tau_pub": 0.4
+    },
+    "all_reference_distances": [
+     {
+      "id": "REF-01",
+      "distance": 1.1782
+     },
+     {
+      "id": "REF-02",
+      "distance": 1.1083
+     },
+     {
+      "id": "REF-03",
+      "distance": 0.6345
+     },
+     {
+      "id": "REF-04",
+      "distance": 1.2463
+     },
+     {
+      "id": "REF-05",
+      "distance": 0.7067
+     },
+     {
+      "id": "REF-06",
+      "distance": 0.8223
+     },
+     {
+      "id": "REF-07",
+      "distance": 0.9612
+     },
+     {
+      "id": "REF-08",
+      "distance": 0.9666
+     },
+     {
+      "id": "REF-09",
+      "distance": 0.9113
+     },
+     {
+      "id": "REF-10",
+      "distance": 0.8948
+     },
+     {
+      "id": "REF-11",
+      "distance": 0.6404
+     },
+     {
+      "id": "REF-12",
+      "distance": 1.0936
+     },
+     {
+      "id": "REF-13",
+      "distance": 0.3919
+     }
+    ]
+   },
+   "judge": {
+    "available": true,
+    "model": "claude-sonnet-5",
+    "prompt_version": "p3p-judge-v1",
+    "runs": [
+     {
+      "items": [
+       {
+        "n": 1,
+        "score": 4,
+        "reason": "Logo, headline, then table/bowl and app screen flow clearly to navy band"
+       },
+       {
+        "n": 2,
+        "score": 3,
+        "reason": "Table and bowl grounded naturally, casting shadows, feel staged not floating"
+       },
+       {
+        "n": 3,
+        "score": 3,
+        "reason": "Table anchors scale against smaller bowl, good size contrast present"
+       },
+       {
+        "n": 4,
+        "score": 3,
+        "reason": "Bold serif headline confident, red rule adds truthful expressive accent"
+       },
+       {
+        "n": 5,
+        "score": 3,
+        "reason": "Wood and silver tones provide color, ground and panel stay neutral"
+       },
+       {
+        "n": 6,
+        "score": 3,
+        "reason": "Clean layout, minor caption clutter but no slogans or icon piles"
+       },
+       {
+        "n": 7,
+        "score": 4,
+        "reason": "Large bold headline and logo remain legible at small thumbnail size"
+       },
+       {
+        "n": 8,
+        "score": 2,
+        "reason": "Layout feels like a standard split template with swappable screenshot and items"
+       },
+       {
+        "n": 9,
+        "score": 4,
+        "reason": "No competitor or specific seller identity evoked anywhere in creative"
+       },
+       {
+        "n": 10,
+        "score": 3,
+        "reason": "Owner would likely say much better: clear, credible, on-brand execution"
+       }
+      ],
+      "total": 32,
+      "notes": "Strong hierarchy and brand clarity; slight template feel keeps it from top score.",
+      "usage": {
+       "in": 2766,
+       "out": 448
+      }
+     },
+     {
+      "items": [
+       {
+        "n": 1,
+        "score": 4,
+        "reason": "Logo, title, then screenshot/merchandise flow reads clearly top to bottom"
+       },
+       {
+        "n": 2,
+        "score": 3,
+        "reason": "Table and bowl grounded naturally, shadows present, feels staged not floating"
+       },
+       {
+        "n": 3,
+        "score": 3,
+        "reason": "Table is clear anchor, bowl smaller, good scale contrast between the two"
+       },
+       {
+        "n": 4,
+        "score": 3,
+        "reason": "Bold serif title with red rule is confident, matches brand tone truthfully"
+       },
+       {
+        "n": 5,
+        "score": 3,
+        "reason": "Wood and silver tones provide color, ground and screenshot panel stay neutral"
+       },
+       {
+        "n": 6,
+        "score": 3,
+        "reason": "Mostly clean; disclaimer text is helpful but small extra caption adds minor clutter"
+       },
+       {
+        "n": 7,
+        "score": 4,
+        "reason": "Large headline and logo remain legible even scaled down significantly"
+       },
+       {
+        "n": 8,
+        "score": 3,
+        "reason": "Screenshot plus objects combo feels custom, though layout could recur with other items"
+       },
+       {
+        "n": 9,
+        "score": 4,
+        "reason": "No competitor or specific seller branding visible anywhere in creative"
+       },
+       {
+        "n": 10,
+        "score": 3,
+        "reason": "Clear, functional, on-brand; slightly safe but effectively communicates acquisition ease"
+       }
+      ],
+      "total": 33,
+      "notes": "Strong adherence overall; minor deduction for slight caption clutter and template-like screenshot repetition risk.",
+      "usage": {
+       "in": 2766,
+       "out": 482
+      }
+     }
+    ],
+    "average": 32.5,
+    "disagreement": 1,
+    "flagged": false,
+    "items": [
+     "Hierarchy clarity: the eye enters at the presenter, moves to one title, then to the merchandise.",
+     "Staging: merchandise looks staged by a set designer (heavy things sit, art hangs, small things forward) / arranged for comparison (lineup) / the room is inviting and legible (environmental) / representative items are grounded (acquisition).",
+     "Objects (or the photograph) have confident scale variation and at least one clear anchor.",
+     "Typography is confident and, where expressive, truthful to the event.",
+     "Colour comes from the merchandise; the ground and panels stay quiet.",
+     "Nothing reads as filler: no slogans, icon piles, words on merchandise, duplicate URLs.",
+     "It reads at thumbnail size (headline + wordmark legible when small).",
+     "It would not be mistaken for a template with swapped merchandise (editorial irregularity).",
+     "It does not evoke any specific competitor or seller identity (answer 0 if it does).",
+     "Overall: would the Owner say \"good\" (0), \"much better\" (2), \"love this\" (4)? Justify via items 1–9."
+    ]
+   },
+   "measurable": {
+    "points": 60,
+    "out_of": 60,
+    "raw": 46,
+    "raw_max": 46,
+    "items": [
+     {
+      "key": "merchandise_forward",
+      "pts": 12,
+      "value": 37.1,
+      "points": 12,
+      "target": [
+       30,
+       50
+      ]
+     },
+     {
+      "key": "restrained_copy",
+      "pts": 8,
+      "value": 14.5,
+      "points": 8,
+      "target": [
+       0,
+       18
+      ]
+     },
+     {
+      "key": "copy_count",
+      "pts": 6,
+      "value": 3,
+      "points": 6,
+      "target": "≤ 3"
+     },
+     {
+      "key": "hierarchy_one_title",
+      "pts": 8,
+      "value": 3.13,
+      "points": 8,
+      "target": "largest ≥ 2.2× next; title 2–6 words"
+     },
+     {
+      "key": "date_gt_time",
+      "pts": 3,
+      "value": null,
+      "points": null,
+      "target": "date box > time box"
+     },
+     {
+      "key": "controlled_occupancy",
+      "pts": 6,
+      "value": 12.2,
+      "points": 6,
+      "target": "≤ 22"
+     },
+     {
+      "key": "merchandise_rises",
+      "pts": 5,
+      "value": 30.7,
+      "points": null,
+      "target": "n/a"
+     },
+     {
+      "key": "depth_diversity",
+      "pts": 6,
+      "value": null,
+      "points": null,
+      "target": "n/a (not a scene family)"
+     },
+     {
+      "key": "light_ground",
+      "pts": 3,
+      "value": 1,
+      "points": 3,
+      "target": "≥ 0.85 relative luminance"
+     },
+     {
+      "key": "brand_frame",
+      "pts": 3,
+      "value": {
+       "logo": true,
+       "band": true,
+       "wordmark": true
+      },
+      "points": 3,
+      "target": "band + wordmark (+ logo where the family shows it)"
+     }
+    ]
+   },
+   "score": 92.5,
+   "decision": "OWNER_REVIEW",
+   "hard_failures": [],
+   "score_basis": "measurable_60 + judge_40",
+   "bar": 70,
+   "owner_review": {
+    "required": true,
+    "reasons": [
+     "campaign class has no Owner-approved reference",
+     "proving ground — Owner review mandatory",
+     "retrieval flagged owner_review_required"
+    ]
+   },
+   "extreme": false,
+   "publication_status": "HELD_FOR_OWNER_REVIEW",
+   "drawn_text": [
+    "You can do this.",
+    "Describe your sale, then add your items — one screen at a time.",
+    "Real people help along the way. Call (551) 655-7050.",
+    "Representative items shown — not auction lots",
+    "Advantage.Bid"
+   ],
+   "references_used": [
+    "REF-11"
+   ],
+   "principles_applied": [
+    "Community / holiday posts may use an atmospheric staged scene with representative objects, provided nothing is presented as an auction lot",
+    "Geographic identity can be carried by objects and light, not only by place names",
+    "Tools and work culture are legitimate subjects for Advantage.Bid brand warmth"
+   ],
+   "assets": [
+    "production screenshot /seller-create.html (c9ab613f3570…)",
+    "lot63 bowl",
+    "lot53 vases (representative)"
+   ]
+  },
+  {
+   "key": "C",
+   "format": "portrait_1080x1350",
+   "family": "ACQUISITION",
+   "ok": true,
+   "png": "C:\\Projects\\advantage-auction-platform\\docs\\marketing\\phase3p\\proving-grounds\\2026-09-09\\p3p-individual-seller-C-portrait_1080x1350.png",
+   "thumb": "C:\\Projects\\advantage-auction-platform\\docs\\marketing\\phase3p\\proving-grounds\\2026-09-09\\p3p-individual-seller-C-portrait_1080x1350_thumb.png",
+   "render_sha256": "1bff9e95e6540805e1389c9ce4bca78abde27317b23aff1de78ec1f824bb4889",
+   "metrics": {
+    "size": [
+     1080,
+     1350
+    ],
+    "merchandise_pct": 12.4,
+    "text_region_pct": 19,
+    "combined_pct": 31.4,
+    "largest_empty_pct": 16.3,
+    "upper_half_merch_pct": 0,
+    "text_blocks": 4,
+    "text_block_roles": [
+     "title",
+     "subtitle",
+     "contact",
+     "help"
+    ],
+    "largest_text_px": 118,
+    "hierarchy_ratio": 1.97,
+    "date_gt_time": null,
+    "title_words": 3,
+    "ground_luminance": 1,
+    "brand_frame": {
+     "logo": true,
+     "band": true,
+     "wordmark": true
+    },
+    "family": "ACQUISITION",
+    "concept": "C",
+    "representative": true,
+    "objects": 3,
+    "screenshot": false,
+    "copy_over_merchandise": [],
+    "title_scale": 1,
+    "extreme": false
+   },
+   "audit": {
+    "profile": "acquisition",
+    "violations": []
+   },
+   "budget": {
+    "pass": true,
+    "max": 5,
+    "blocks": 4,
+    "reasons": []
+   },
+   "leak": {
+    "pass": true,
+    "hits": [],
+    "ocr": "unavailable (no OCR engine in the runtime image; every drawn string is checked exactly)",
+    "logo_template_match": "not_available (no seller logo templates on file)"
+   },
+   "provenance": {
+    "pass": true,
+    "reasons": []
+   },
+   "similarity": {
+    "pass": true,
+    "failures": [],
+    "max_reference": {
+     "id": "REF-10",
+     "distance": 0.5196
+    },
+    "self_history_min": {
+     "id": "p3p-individual-seller:B:portrait_1080x1350",
+     "distance": 0.3771
+    },
+    "published_anchor_distance": null,
+    "thresholds": {
+     "tau_ref": 0.35,
+     "tau_self": 0.25,
+     "tau_pub": 0.4
+    },
+    "all_reference_distances": [
+     {
+      "id": "REF-01",
+      "distance": 0.8381
+     },
+     {
+      "id": "REF-02",
+      "distance": 0.9979
+     },
+     {
+      "id": "REF-03",
+      "distance": 0.9082
+     },
+     {
+      "id": "REF-04",
+      "distance": 0.9285
+     },
+     {
+      "id": "REF-05",
+      "distance": 0.5641
+     },
+     {
+      "id": "REF-06",
+      "distance": 0.5224
+     },
+     {
+      "id": "REF-07",
+      "distance": 1.1028
+     },
+     {
+      "id": "REF-08",
+      "distance": 0.9137
+     },
+     {
+      "id": "REF-09",
+      "distance": 0.6915
+     },
+     {
+      "id": "REF-10",
+      "distance": 0.5196
+     },
+     {
+      "id": "REF-11",
+      "distance": 0.7401
+     },
+     {
+      "id": "REF-12",
+      "distance": 1.1553
+     },
+     {
+      "id": "REF-13",
+      "distance": 0.5219
+     }
+    ]
+   },
+   "judge": {
+    "available": true,
+    "model": "claude-sonnet-5",
+    "prompt_version": "p3p-judge-v1",
+    "runs": [
+     {
+      "items": [
+       {
+        "n": 1,
+        "score": 3,
+        "reason": "Logo, title, panel, then merchandise flow clearly though panel competes for focus."
+       },
+       {
+        "n": 2,
+        "score": 3,
+        "reason": "Chairs and tea set sit grounded with shadow, staged like a vignette."
+       },
+       {
+        "n": 3,
+        "score": 4,
+        "reason": "Large chairs anchor scene against small china pieces for scale contrast."
+       },
+       {
+        "n": 4,
+        "score": 3,
+        "reason": "Expressive serif headline with red rule feels confident and on-brand."
+       },
+       {
+        "n": 5,
+        "score": 3,
+        "reason": "Red merchandise carries color while panel and ground stay neutral."
+       },
+       {
+        "n": 6,
+        "score": 2,
+        "reason": "Extra supporting lines duplicate message, pushing past the five-block copy budget."
+       },
+       {
+        "n": 7,
+        "score": 4,
+        "reason": "Bold headline and wordmark stay legible even at small thumbnail size."
+       },
+       {
+        "n": 8,
+        "score": 3,
+        "reason": "Layout feels custom-built, not an obvious template with swapped-in objects."
+       },
+       {
+        "n": 9,
+        "score": 4,
+        "reason": "No branding or identifiable seller marks on furniture or china shown."
+       },
+       {
+        "n": 10,
+        "score": 2,
+        "reason": "Solid, on-brief execution but copy overage keeps it from top marks."
+       }
+      ],
+      "total": 31,
+      "notes": "Strong merchandise staging and legibility; trim redundant supporting copy to meet block budget.",
+      "usage": {
+       "in": 3156,
+       "out": 1641
+      }
+     },
+     {
+      "items": [
+       {
+        "n": 1,
+        "score": 3,
+        "reason": "Logo, title, panel, then merchandise flow clearly but panel competes for attention."
+       },
+       {
+        "n": 2,
+        "score": 2,
+        "reason": "Chairs and tea set feel like separate cutouts, not a cohesively staged scene."
+       },
+       {
+        "n": 3,
+        "score": 3,
+        "reason": "Chairs act as large anchor, tea set provides smaller scale contrast."
+       },
+       {
+        "n": 4,
+        "score": 2,
+        "reason": "Bold serif title is confident but generic, not tied to a specific truthful event."
+       },
+       {
+        "n": 5,
+        "score": 3,
+        "reason": "Red accent used sparingly, merchandise supplies most color on light ground."
+       },
+       {
+        "n": 6,
+        "score": 3,
+        "reason": "No slogans or icon piles, but phone/email duplicate contact info creates some redundancy."
+       },
+       {
+        "n": 7,
+        "score": 4,
+        "reason": "Bold headline and navy wordmark remain legible at small size."
+       },
+       {
+        "n": 8,
+        "score": 2,
+        "reason": "Panel plus stock-like furniture photo reads as a swappable template layout."
+       },
+       {
+        "n": 9,
+        "score": 4,
+        "reason": "No identifiable competitor or seller branding present."
+       },
+       {
+        "n": 10,
+        "score": 2,
+        "reason": "Solid but generic execution; feels like a template rather than a distinctive campaign moment."
+       }
+      ],
+      "total": 28,
+      "notes": "Composition follows brief structurally but merchandise staging and typography feel templated rather than editorially distinctive.",
+      "usage": {
+       "in": 3156,
+       "out": 1024
+      }
+     }
+    ],
+    "average": 29.5,
+    "disagreement": 3,
+    "flagged": false,
+    "items": [
+     "Hierarchy clarity: the eye enters at the presenter, moves to one title, then to the merchandise.",
+     "Staging: merchandise looks staged by a set designer (heavy things sit, art hangs, small things forward) / arranged for comparison (lineup) / the room is inviting and legible (environmental) / representative items are grounded (acquisition).",
+     "Objects (or the photograph) have confident scale variation and at least one clear anchor.",
+     "Typography is confident and, where expressive, truthful to the event.",
+     "Colour comes from the merchandise; the ground and panels stay quiet.",
+     "Nothing reads as filler: no slogans, icon piles, words on merchandise, duplicate URLs.",
+     "It reads at thumbnail size (headline + wordmark legible when small).",
+     "It would not be mistaken for a template with swapped merchandise (editorial irregularity).",
+     "It does not evoke any specific competitor or seller identity (answer 0 if it does).",
+     "Overall: would the Owner say \"good\" (0), \"much better\" (2), \"love this\" (4)? Justify via items 1–9."
+    ]
+   },
+   "measurable": {
+    "points": 42.99,
+    "out_of": 60,
+    "raw": 32.96,
+    "raw_max": 46,
+    "items": [
+     {
+      "key": "merchandise_forward",
+      "pts": 12,
+      "value": 12.4,
+      "points": 3.55,
+      "target": [
+       30,
+       50
+      ]
+     },
+     {
+      "key": "restrained_copy",
+      "pts": 8,
+      "value": 19,
+      "points": 7.11,
+      "target": [
+       0,
+       18
+      ]
+     },
+     {
+      "key": "copy_count",
+      "pts": 6,
+      "value": 4,
+      "points": 6,
+      "target": "≤ 5"
+     },
+     {
+      "key": "hierarchy_one_title",
+      "pts": 8,
+      "value": 1.97,
+      "points": 4.3,
+      "target": "largest ≥ 2.2× next; title 2–6 words"
+     },
+     {
+      "key": "date_gt_time",
+      "pts": 3,
+      "value": null,
+      "points": null,
+      "target": "date box > time box"
+     },
+     {
+      "key": "controlled_occupancy",
+      "pts": 6,
+      "value": 16.3,
+      "points": 6,
+      "target": "≤ 22"
+     },
+     {
+      "key": "merchandise_rises",
+      "pts": 5,
+      "value": 0,
+      "points": null,
+      "target": "n/a"
+     },
+     {
+      "key": "depth_diversity",
+      "pts": 6,
+      "value": null,
+      "points": null,
+      "target": "n/a (not a scene family)"
+     },
+     {
+      "key": "light_ground",
+      "pts": 3,
+      "value": 1,
+      "points": 3,
+      "target": "≥ 0.85 relative luminance"
+     },
+     {
+      "key": "brand_frame",
+      "pts": 3,
+      "value": {
+       "logo": true,
+       "band": true,
+       "wordmark": true
+      },
+      "points": 3,
+      "target": "band + wordmark (+ logo where the family shows it)"
+     }
+    ]
+   },
+   "score": 72.49,
+   "decision": "OWNER_REVIEW",
+   "hard_failures": [],
+   "score_basis": "measurable_60 + judge_40",
+   "bar": 70,
+   "owner_review": {
+    "required": true,
+    "reasons": [
+     "campaign class has no Owner-approved reference",
+     "proving ground — Owner review mandatory",
+     "retrieval flagged owner_review_required"
+    ]
+   },
+   "extreme": false,
+   "publication_status": "HELD_FOR_OWNER_REVIEW",
+   "drawn_text": [
+    "Help is here.",
+    "Real people help you create and run your own online",
+    "auction.",
+    "(551) 655-7050",
+    "info@advantage.bid",
+    "It's built to be easy — and you",
+    "are never on your own.",
+    "Representative items shown — not auction lots",
+    "Advantage.Bid"
+   ],
+   "references_used": [
+    "REF-11"
+   ],
+   "principles_applied": [
+    "Community / holiday posts may use an atmospheric staged scene with representative objects, provided nothing is presented as an auction lot",
+    "Geographic identity can be carried by objects and light, not only by place names",
+    "Tools and work culture are legitimate subjects for Advantage.Bid brand warmth"
+   ],
+   "assets": [
+    "lot46 torchiere",
+    "lot31 chairs",
+    "lot87 dinnerware (representative)"
+   ]
+  },
+  {
+   "key": "C",
+   "format": "square_1080x1080",
+   "family": "ACQUISITION",
+   "ok": true,
+   "png": "C:\\Projects\\advantage-auction-platform\\docs\\marketing\\phase3p\\proving-grounds\\2026-09-09\\p3p-individual-seller-C-square_1080x1080.png",
+   "thumb": "C:\\Projects\\advantage-auction-platform\\docs\\marketing\\phase3p\\proving-grounds\\2026-09-09\\p3p-individual-seller-C-square_1080x1080_thumb.png",
+   "render_sha256": "5de97bea5f8fbf25a7af7a284b71d4016072118b3419a02fbb9ee2f2cfa24bf7",
+   "metrics": {
+    "size": [
+     1080,
+     1080
+    ],
+    "merchandise_pct": 16.6,
+    "text_region_pct": 15.2,
+    "combined_pct": 31.8,
+    "largest_empty_pct": 19.3,
+    "upper_half_merch_pct": 6.4,
+    "text_blocks": 4,
+    "text_block_roles": [
+     "title",
+     "subtitle",
+     "contact",
+     "help"
+    ],
+    "largest_text_px": 94,
+    "hierarchy_ratio": 1.96,
+    "date_gt_time": null,
+    "title_words": 3,
+    "ground_luminance": 1,
+    "brand_frame": {
+     "logo": true,
+     "band": true,
+     "wordmark": true
+    },
+    "family": "ACQUISITION",
+    "concept": "C",
+    "representative": true,
+    "objects": 3,
+    "screenshot": false,
+    "copy_over_merchandise": [],
+    "title_scale": 1,
+    "extreme": false
+   },
+   "audit": {
+    "profile": "acquisition",
+    "violations": []
+   },
+   "budget": {
+    "pass": true,
+    "max": 5,
+    "blocks": 4,
+    "reasons": []
+   },
+   "leak": {
+    "pass": true,
+    "hits": [],
+    "ocr": "unavailable (no OCR engine in the runtime image; every drawn string is checked exactly)",
+    "logo_template_match": "not_available (no seller logo templates on file)"
+   },
+   "provenance": {
+    "pass": true,
+    "reasons": []
+   },
+   "similarity": {
+    "pass": true,
+    "failures": [],
+    "max_reference": {
+     "id": "REF-06",
+     "distance": 0.4558
+    },
+    "self_history_min": {
+     "id": "p3p-individual-seller:A:square_1080x1080",
+     "distance": 0.4086
+    },
+    "published_anchor_distance": null,
+    "thresholds": {
+     "tau_ref": 0.35,
+     "tau_self": 0.25,
+     "tau_pub": 0.4
+    },
+    "all_reference_distances": [
+     {
+      "id": "REF-01",
+      "distance": 0.8081
+     },
+     {
+      "id": "REF-02",
+      "distance": 1.0169
+     },
+     {
+      "id": "REF-03",
+      "distance": 0.9792
+     },
+     {
+      "id": "REF-04",
+      "distance": 0.8956
+     },
+     {
+      "id": "REF-05",
+      "distance": 0.5483
+     },
+     {
+      "id": "REF-06",
+      "distance": 0.4558
+     },
+     {
+      "id": "REF-07",
+      "distance": 1.0906
+     },
+     {
+      "id": "REF-08",
+      "distance": 0.9298
+     },
+     {
+      "id": "REF-09",
+      "distance": 0.7108
+     },
+     {
+      "id": "REF-10",
+      "distance": 0.5544
+     },
+     {
+      "id": "REF-11",
+      "distance": 0.8047
+     },
+     {
+      "id": "REF-12",
+      "distance": 1.1439
+     },
+     {
+      "id": "REF-13",
+      "distance": 0.5987
+     }
+    ]
+   },
+   "judge": {
+    "available": true,
+    "model": "claude-sonnet-5",
+    "prompt_version": "p3p-judge-v1",
+    "runs": [
+     {
+      "items": [
+       {
+        "n": 1,
+        "score": 3,
+        "reason": "Logo top, clear title, then panel and merchandise flow left to right well."
+       },
+       {
+        "n": 2,
+        "score": 3,
+        "reason": "Chairs and china grounded with shadows, plausible staged tableau, disclosed as representative."
+       },
+       {
+        "n": 3,
+        "score": 3,
+        "reason": "Chairs anchor scale, china provides smaller detail contrast, good variation."
+       },
+       {
+        "n": 4,
+        "score": 3,
+        "reason": "Bold serif headline truthful to helpful tone, brand faces consistent."
+       },
+       {
+        "n": 5,
+        "score": 3,
+        "reason": "Red chairs bring color, ground and panel stay neutral and quiet."
+       },
+       {
+        "n": 6,
+        "score": 3,
+        "reason": "No slogans or icon piles, but duplicate contact info feels redundant."
+       },
+       {
+        "n": 7,
+        "score": 3,
+        "reason": "Headline and logo remain legible at small size, merchandise identifiable."
+       },
+       {
+        "n": 8,
+        "score": 2,
+        "reason": "Layout feels like a reusable template with swappable panel and image block."
+       },
+       {
+        "n": 9,
+        "score": 4,
+        "reason": "No competitor or specific seller identity evoked anywhere in image."
+       },
+       {
+        "n": 10,
+        "score": 3,
+        "reason": "Solid, clear, on-brand execution; slightly templated but coherent and appealing."
+       }
+      ],
+      "total": 30,
+      "notes": "Strong adherence overall; minor redundancy in contact info and template feel limit top score.",
+      "usage": {
+       "in": 2766,
+       "out": 459
+      }
+     },
+     {
+      "items": [
+       {
+        "n": 1,
+        "score": 3,
+        "reason": "Logo top, one title, panel, then merchandise on right — clear flow."
+       },
+       {
+        "n": 2,
+        "score": 3,
+        "reason": "Chairs and china grounded on floor, arranged like a staged vignette, legible."
+       },
+       {
+        "n": 3,
+        "score": 3,
+        "reason": "Large chairs anchor scale against small china pieces, good variation."
+       },
+       {
+        "n": 4,
+        "score": 3,
+        "reason": "Bold serif headline is confident, brand-consistent, truthful to tone."
+       },
+       {
+        "n": 5,
+        "score": 3,
+        "reason": "Red chairs and china carry color; panel and ground stay neutral."
+       },
+       {
+        "n": 6,
+        "score": 3,
+        "reason": "No slogans or icon clutter, but info panel is text-heavy and empty below."
+       },
+       {
+        "n": 7,
+        "score": 3,
+        "reason": "Headline and wordmark remain legible at small size."
+       },
+       {
+        "n": 8,
+        "score": 2,
+        "reason": "Layout feels template-like with generic panel and stock-photo merchandise."
+       },
+       {
+        "n": 9,
+        "score": 4,
+        "reason": "No competitor or seller identity evoked."
+       },
+       {
+        "n": 10,
+        "score": 2,
+        "reason": "Solid, clean execution but panel emptiness and genericness limit impact."
+       }
+      ],
+      "total": 29,
+      "notes": "Panel below contact info is unused space, risking exceeding empty-area guidance; merchandise disclosure caption is good practice.",
+      "usage": {
+       "in": 2766,
+       "out": 447
+      }
+     }
+    ],
+    "average": 29.5,
+    "disagreement": 1,
+    "flagged": false,
+    "items": [
+     "Hierarchy clarity: the eye enters at the presenter, moves to one title, then to the merchandise.",
+     "Staging: merchandise looks staged by a set designer (heavy things sit, art hangs, small things forward) / arranged for comparison (lineup) / the room is inviting and legible (environmental) / representative items are grounded (acquisition).",
+     "Objects (or the photograph) have confident scale variation and at least one clear anchor.",
+     "Typography is confident and, where expressive, truthful to the event.",
+     "Colour comes from the merchandise; the ground and panels stay quiet.",
+     "Nothing reads as filler: no slogans, icon piles, words on merchandise, duplicate URLs.",
+     "It reads at thumbnail size (headline + wordmark legible when small).",
+     "It would not be mistaken for a template with swapped merchandise (editorial irregularity).",
+     "It does not evoke any specific competitor or seller identity (answer 0 if it does).",
+     "Overall: would the Owner say \"good\" (0), \"much better\" (2), \"love this\" (4)? Justify via items 1–9."
+    ]
+   },
+   "measurable": {
+    "points": 46.76,
+    "out_of": 60,
+    "raw": 35.85,
+    "raw_max": 46,
+    "items": [
+     {
+      "key": "merchandise_forward",
+      "pts": 12,
+      "value": 16.6,
+      "points": 5.57,
+      "target": [
+       30,
+       50
+      ]
+     },
+     {
+      "key": "restrained_copy",
+      "pts": 8,
+      "value": 15.2,
+      "points": 8,
+      "target": [
+       0,
+       18
+      ]
+     },
+     {
+      "key": "copy_count",
+      "pts": 6,
+      "value": 4,
+      "points": 6,
+      "target": "≤ 5"
+     },
+     {
+      "key": "hierarchy_one_title",
+      "pts": 8,
+      "value": 1.96,
+      "points": 4.28,
+      "target": "largest ≥ 2.2× next; title 2–6 words"
+     },
+     {
+      "key": "date_gt_time",
+      "pts": 3,
+      "value": null,
+      "points": null,
+      "target": "date box > time box"
+     },
+     {
+      "key": "controlled_occupancy",
+      "pts": 6,
+      "value": 19.3,
+      "points": 6,
+      "target": "≤ 22"
+     },
+     {
+      "key": "merchandise_rises",
+      "pts": 5,
+      "value": 6.4,
+      "points": null,
+      "target": "n/a"
+     },
+     {
+      "key": "depth_diversity",
+      "pts": 6,
+      "value": null,
+      "points": null,
+      "target": "n/a (not a scene family)"
+     },
+     {
+      "key": "light_ground",
+      "pts": 3,
+      "value": 1,
+      "points": 3,
+      "target": "≥ 0.85 relative luminance"
+     },
+     {
+      "key": "brand_frame",
+      "pts": 3,
+      "value": {
+       "logo": true,
+       "band": true,
+       "wordmark": true
+      },
+      "points": 3,
+      "target": "band + wordmark (+ logo where the family shows it)"
+     }
+    ]
+   },
+   "score": 76.26,
+   "decision": "OWNER_REVIEW",
+   "hard_failures": [],
+   "score_basis": "measurable_60 + judge_40",
+   "bar": 70,
+   "owner_review": {
+    "required": true,
+    "reasons": [
+     "campaign class has no Owner-approved reference",
+     "proving ground — Owner review mandatory",
+     "retrieval flagged owner_review_required"
+    ]
+   },
+   "extreme": false,
+   "publication_status": "HELD_FOR_OWNER_REVIEW",
+   "drawn_text": [
+    "Help is here.",
+    "Real people help you create and run your own online auction.",
+    "(551) 655-7050",
+    "info@advantage.bid",
+    "It's built to be easy — and you are never on",
+    "your own.",
+    "Representative items shown — not auction lots",
+    "Advantage.Bid"
+   ],
+   "references_used": [
+    "REF-11"
+   ],
+   "principles_applied": [
+    "Community / holiday posts may use an atmospheric staged scene with representative objects, provided nothing is presented as an auction lot",
+    "Geographic identity can be carried by objects and light, not only by place names",
+    "Tools and work culture are legitimate subjects for Advantage.Bid brand warmth"
+   ],
+   "assets": [
+    "lot46 torchiere",
+    "lot31 chairs",
+    "lot87 dinnerware (representative)"
+   ]
+  }
+ ],
+ "bar": 70
+}

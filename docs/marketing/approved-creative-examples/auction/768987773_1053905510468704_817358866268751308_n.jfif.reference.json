@@ -1,0 +1,138 @@
+{
+  "schema_version": "1.0",
+  "reference_id": "REF-05",
+  "identity": {
+    "sha256": "8448d6a901323947dd6420f934717e2f7d9b1e335d8af2702da8ba2f82da2eef",
+    "current_path": "auction/768987773_1053905510468704_817358866268751308_n.jfif",
+    "original_filename": "768987773_1053905510468704_817358866268751308_n.jfif",
+    "width": 1536,
+    "height": 1024,
+    "format_class": "landscape",
+    "aspect_ratio": 1.5
+  },
+  "owner_status": "OWNER_APPROVED",
+  "owner_weight": 1.0,
+  "status_history": [
+    {
+      "date": "2026-09-09",
+      "status": "OWNER_APPROVED",
+      "source": "folder_placement_by_owner",
+      "owner_words": "Owner placed the file in docs/marketing/approved-creative-examples/auction/ as a good example of creative work.",
+      "recorded_by": "Desktop Marketing — Phase 3P"
+    }
+  ],
+  "source": {
+    "seller": "Lewis & Maese",
+    "origin": "Seller-published social creative, Owner-selected",
+    "rights": "Third-party seller artwork selected by the Owner as calibration evidence. Never reproduce, never pass to a generator as image input, never publish. Only the transferable principles leave this record.",
+    "campaign_title_visible": "August Estate Auction — Over 725+ Lots & Growing",
+    "event_date_visible": "Sunday, August 16 · 11:00 AM (CT)",
+    "advantage_bid_visible": false
+  },
+  "classification": {
+    "campaign_class_primary": "auction",
+    "campaign_class_secondary": [
+      "estate_sale"
+    ],
+    "event_product_type": "Estate auction (broad), pre-event catalogue-growth announcement",
+    "seller_hierarchy": "seller_led_solo",
+    "visual_family": "SCENE_EXTRACTED",
+    "nearest_advantage_family": "LEFT_THIRD_WHITE",
+    "event_mode": "unknown",
+    "merchandise_breadth": "broad",
+    "owner_folder": "auction"
+  },
+  "visual_read": {
+    "visual_hierarchy": "Left ~35%: seller name (green serif, gold ampersand) → AUGUST ESTATE AUCTION (gold spaced caps) → OVER 725+ LOTS & GROWING (725+ as a huge gold numeral) → category line → Auction begins / date / time. Right ~65%: seven objects on a white stage with white plinths. Green footer band with gold URL.",
+    "merchandise_treatment": "Pair of bronze urns on marble pedestals, black-and-gold chinoiserie breakfront (tall structure at the back), amethyst geode on stand (right), framed drawing leaning at mid-right, green-leather writing table (left-mid), carved wood lion group on a white plinth (centre), pair of red chrome cantilever chairs (right foreground). Soft shadows.",
+    "composition_style": "Editorial set: literal white plinths and a white floor, objects arranged by height (tall back, low front), red chairs as the colour anchor.",
+    "typography_treatment": "Forest-green serif seller name; gold spaced caps; the numeral 725+ as the hero type; small caps for categories; gold flourish dividers.",
+    "information_density": "medium",
+    "branding_hierarchy": "Seller name leads top-left; URL in the footer band only.",
+    "cta_treatment": "None beyond the URL band.",
+    "footer_treatment": "Full-width green band with a thin gold rule and gold 'LMAuctionCo.com' with flourishes.",
+    "photographic_style": "Extracted catalogue photography staged on a white set; consistent soft top light.",
+    "overlapping_objects": "light",
+    "environmental_staged_composition": "A staged showroom floor with plinths — an explicit 'set', not a room.",
+    "negative_space": "modest",
+    "ground": "white",
+    "overall_visual_impact": "high"
+  },
+  "measured": {
+    "light_pixel_pct": 53.4,
+    "dark_pixel_pct": 21.3,
+    "saturated_pixel_pct": 17.9,
+    "dominant_hues": [
+      "red 57%",
+      "orange 31%",
+      "rose 10%"
+    ],
+    "est_merchandise_share_pct": [
+      48,
+      56
+    ],
+    "est_text_share_pct": [
+      16,
+      22
+    ],
+    "object_count_est": 8,
+    "text_block_count": 5
+  },
+  "strongest_attributes": [
+    "A verifiable fact (725+ lots) made into the hero typographic element",
+    "Full-width footer band carrying the URL — closes the ad cleanly",
+    "Tall cabinet gives vertical structure; low furniture and red chairs ground the front (matches the supplemental 3M calibration language almost word for word)",
+    "One short category line, not a pile of labels"
+  ],
+  "transferable_lessons": [
+    "Footer band + wordmark validated as a brand-frame device (3M.2 navy band)",
+    "A factual catalogue claim (lot count) may be the primary message when it is true at generation time and re-verified before publishing",
+    "The 'one short supporting line' slot may be a category line (≤ 6 words)",
+    "Tall structure at the back + heavy anchors in front is the Owner's preferred vertical logic"
+  ],
+  "do_not_generalize": [
+    "Green/gold palette and the green band — the Advantage.Bid band is navy and does not change per event",
+    "White plinths as literal props (Advantage.Bid uses contact shadows and an implied floor, not furniture-store plinths, unless the Owner asks)",
+    "Seller serif faces and flourish glyphs"
+  ],
+  "text_density_assessment": {
+    "level": "medium",
+    "why_it_works_here": "Five blocks, but one is a single huge numeral and one is a category line; the panel reads top-to-bottom in a glance.",
+    "advantage_bid_budget_note": "Exactly at budget; demonstrates that big typography for one fact is preferable to more lines."
+  },
+  "composition_assessment": {
+    "spatial_logic": "Showroom set: back row tall, front row low; objects on plinths and floor.",
+    "gravity_and_grounding": "Everything grounded on the white floor or a plinth; the framed drawing leans against the cabinet.",
+    "depth": "Two to three planes; overlap is light — objects mostly sit beside rather than in front of each other.",
+    "scale_strategy": "Cabinet and urns as tall anchors; table and lion mid; chairs as the colour accent at full scale.",
+    "edge_handling": "Contained; nothing cropped."
+  },
+  "retrieval": {
+    "use_cases": [
+      "estate auction announcement",
+      "catalogue-growth / lots-added message",
+      "landscape creative",
+      "footer-band calibration"
+    ],
+    "tags": [
+      "left-panel",
+      "scene",
+      "plinths",
+      "footer-band",
+      "numeral-hero",
+      "category-line",
+      "landscape"
+    ],
+    "avoid_for": [
+      "single-lot",
+      "acquisition"
+    ]
+  },
+  "performance": null,
+  "provenance": {
+    "created_by": "Desktop Marketing (Claude, Cowork) — Phase 3P",
+    "created_at": "2026-09-09T20:31:32Z",
+    "analysis_method": "Direct visual inspection of the full-resolution image; pixel statistics computed from the file; est_* fields are visual estimates. No filename-based inference.",
+    "phase": "3P"
+  }
+}
