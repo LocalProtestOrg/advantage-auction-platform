@@ -147,7 +147,9 @@ describe('metaGraphProvider — read-only insights (injected HTTP; honest availa
     expect(r.metrics.reactions.value).toBe(7); expect(r.metrics.shares.value).toBe(3); expect(r.metrics.comments.value).toBe(4);
     expect(r.metrics.video_views.availability).toBe('unavailable'); expect(r.metrics.video_views.value).toBeNull();
     expect(calls.every((u) => u.startsWith('https://graph.facebook.com/v21.0/'))).toBe(true);
-    expect(calls.every((u) => /^https:\/\/graph\.facebook\.com\/v21\.0\/449143945236360_100/.test(u))).toBe(true); // only OUR post id
+    // Only OUR post id — plus the one-time Page-token derivation for OUR Page id (never /me/accounts).
+    expect(calls.every((u) => /^https:\/\/graph\.facebook\.com\/v21\.0\/449143945236360(_100|\?fields=access_token)/.test(u))).toBe(true);
+    expect(calls.some((u) => /\/me\/accounts/.test(u))).toBe(false);
   });
   test('unsupported metric → per-metric fallback: not_supported recorded, others still available (never fabricated 0)', async () => {
     const http = async (url) => {
@@ -176,7 +178,7 @@ describe('metaGraphProvider — read-only insights (injected HTTP; honest availa
     const p = meta.buildProvider(DEST_FB, { http });
     const r = await p.fetchComments('P');
     expect(r.ok).toBe(true); expect(r.comments[0]).toEqual({ id: 'c1', text: 'How much?', occurred_at: '2026-09-09T15:00:00+0000' });
-    expect(urls[0]).toMatch(/fields=id,message,created_time&/); expect(urls[0]).not.toMatch(/from/);
+    const cu = urls.find((u) => /\/comments\?/.test(u)); expect(cu).toMatch(/fields=id,message,created_time&/); expect(cu).not.toMatch(/from/);
     const denied = meta.buildProvider(DEST_FB, { http: async () => ({ ok: false, status: 403, json: { error: { code: 200, message: 'pages_read_user_content required' } } }) });
     const d = await denied.fetchComments('P'); expect(d.ok).toBe(false); expect(d.availability).toBe('unavailable');
   });
@@ -247,6 +249,19 @@ describe('socialInsightsService — bounded, idempotent, honest', () => {
     const a1 = await insights.snapshotAccounts({ runner: makeRunner(store), providerFactory: factory(async () => ({})), now: T0 });
     const a2 = await insights.snapshotAccounts({ runner: makeRunner(store), providerFactory: factory(async () => ({})), now: T0 });
     expect(a1.results[0].provider_status).toBe('ok'); expect(a2.results[0].skipped).toBe('already_captured'); expect(store.acct.length).toBe(1);
+  });
+  test('account snapshots run for CONFIGURED destinations even when active=false (read-only never depends on publish activation); unconfigured skipped', async () => {
+    cfg['marketing.social.insights_enabled'] = true;
+    const store = makeStore();
+    store.dests.push({ ...DEST_FB, active: false, readiness_status: 'incomplete' },
+                     { ...DEST_IG, active: false, readiness_status: 'incomplete' },
+                     { ...DEST_FB, id: 'dest-mi', scope: 'state', state_code: 'MI', provider_account_id: null, active: false, readiness_status: 'not_configured' });
+    const seen = [];
+    const out = await insights.snapshotAccounts({ runner: makeRunner(store), providerFactory: (d) => { seen.push(d.id); return factory(async () => ({}))(d); }, now: T0 });
+    expect(out.ran).toBe(true);
+    expect(seen.sort()).toEqual(['dest-fb', 'dest-ig']);
+    expect(store.acct.map((a) => a.destination_id).sort()).toEqual(['dest-fb', 'dest-ig']);
+    expect(store.acct[0].metrics.followers.value).toBe(120);
   });
   test('requestRefresh pulls a REAL post forward at most once per 15 minutes', async () => {
     const store = makeStore(); store.jobs.push(job({ last_insights_at: null }));

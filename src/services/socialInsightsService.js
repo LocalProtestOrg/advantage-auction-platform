@@ -148,12 +148,17 @@ async function runOnce({ max = 10, runner, providerFactory, now = new Date() } =
   return { ran: true, processed: results.length, results };
 }
 
-/** Daily account snapshot for every ACTIVE + ready destination (aggregate followers/reach). Idempotent per day. */
+/**
+ * Daily account snapshot for every CONFIGURED destination (account id + credential present; IG additionally
+ * linked to a Page). Read-only intelligence deliberately does NOT depend on the destination's `active` flag —
+ * that flag authorizes PUBLISH routing, which is a separate Owner decision. Idempotent per day.
+ */
 async function snapshotAccounts({ runner, providerFactory, now = new Date() } = {}) {
   const r = runner || db;
   if (!(await enabled())) return { ran: false, reason: 'insights_disabled', results: [] };
   const day = now.toISOString().slice(0, 10);
-  const dests = (await destinations.list(r)).filter((d) => d.active && d.readiness_status === 'ready' && d.provider_account_id);
+  const { evaluateDestination } = require('./socialReadinessService');
+  const dests = (await destinations.list(r)).filter((d) => d.provider_account_id && evaluateDestination(d).configured);
   const results = [];
   for (const d of dests) {
     const exists = (await r.query(`SELECT 1 FROM marketing_social_account_snapshots WHERE destination_id=$1 AND day=$2`, [d.id, day])).rows.length > 0;

@@ -72,6 +72,7 @@ describe('metaGraphProvider — request construction (injected HTTP; no network)
     if (/\/media\b/.test(url)) return { ok: true, status: 200, json: { id: 'IG_CREATION_1' } };
     if (/fields=permalink/.test(url)) return { ok: true, status: 200, json: { permalink: 'https://instagram.com/p/abc' } };
     if (/\/photos/.test(url)) return { ok: true, status: 200, json: { id: 'FB_POST_1', post_id: 'FB_POST_1' } };
+    if (/fields=access_token/.test(url)) return { ok: true, status: 200, json: { id: 'PAGE9', access_token: 'page-tok' } }; // Page token derivation (FB only)
     return { ok: true, status: 200, json: { id: 'X' } };
   };
   const copy = { headline: 'Now live', factual_manifest: [{ claim: 'title', value: 'Estate Sale' }], url: 'https://bid.advantage.bid/auction/A1' };
@@ -83,10 +84,14 @@ describe('metaGraphProvider — request construction (injected HTTP; no network)
     expect(p.active).toBe(true);
     const r = await p.publish({ copy, image_url: 'https://cdn/x.jpg', reference_at: '2026-09-08' });
     expect(r.ok).toBe(true); expect(r.post_id).toBe('FB_POST_1'); expect(r.provider).toBe('facebook');
-    expect(calls[0].url).toBe('https://graph.facebook.com/v21.0/PAGE9/photos');
-    expect(calls[0].opts.body.url).toBe('https://cdn/x.jpg');
-    expect(calls[0].opts.body.caption).toContain('https://bid.advantage.bid/auction/A1');
-    expect(calls[0].opts.body.access_token).toBe('tok');
+    // Page-scoped publish: the System User token is exchanged ONCE for the Page token (GET /{page}?fields=access_token,
+    // never /me/accounts) and the photo is posted with the PAGE token.
+    expect(calls[0].url).toBe('https://graph.facebook.com/v21.0/PAGE9?fields=access_token&access_token=tok');
+    expect(calls[1].url).toBe('https://graph.facebook.com/v21.0/PAGE9/photos');
+    expect(calls[1].opts.body.url).toBe('https://cdn/x.jpg');
+    expect(calls[1].opts.body.caption).toContain('https://bid.advantage.bid/auction/A1');
+    expect(calls[1].opts.body.access_token).toBe('page-tok');
+    expect(calls.some((c) => /\/me\/accounts/.test(c.url))).toBe(false);
   });
   test('Instagram: two-step media → media_publish → permalink', async () => {
     const p = meta.buildProvider({ platform: 'instagram', provider_account_id: 'IG9', credential_ref: 'SU_TOKEN' }, { http, version: 'v21.0' });

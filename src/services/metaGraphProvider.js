@@ -59,12 +59,31 @@ function buildProvider(destination, { http = defaultHttp, version = null } = {})
   const accountId = destination.provider_account_id;
   const active = !!(token && accountId);
 
+  // Facebook PAGE-scoped endpoints (/{page}/photos, /{page}/feed, /{page}/insights, /{page}/posts, post
+  // insights/comments) must be called with a PAGE access token, not the System User token itself. It is derived
+  // lazily and held in-process only (GET /{page}?fields=access_token, which never enumerates /me/accounts), then
+  // reused for this provider instance. Instagram endpoints accept the System User token directly. If derivation
+  // fails the System User token is used and Meta's error is reported honestly (never a false completion).
+  let pageToken = null; let pageTokenTried = false;
+  async function effectiveToken() {
+    if (platform !== 'facebook' || !active) return token;
+    if (pageToken) return pageToken;
+    if (pageTokenTried) return token;
+    pageTokenTried = true;
+    try {
+      const r = await http(`${GRAPH_BASE}/${ver}/${accountId}?fields=access_token&access_token=${encodeURIComponent(token)}`, { method: 'GET' });
+      if (r && r.ok && r.json && typeof r.json.access_token === 'string' && r.json.access_token) pageToken = r.json.access_token;
+    } catch (_) { pageToken = null; }
+    return pageToken || token;
+  }
+
   async function publishFacebook(payload) {
     const message = composeMessage(payload.copy);
     const image = payload.image_url || null;
     const base = `${GRAPH_BASE}/${ver}/${accountId}`;
     const endpoint = image ? `${base}/photos` : `${base}/feed`;
-    const body = image ? { url: image, caption: message, access_token: token } : { message, access_token: token };
+    const pt = await effectiveToken();
+    const body = image ? { url: image, caption: message, access_token: pt } : { message, access_token: pt };
     const r = await http(endpoint, { method: 'POST', body });
     if (!r.ok || !r.json || (!r.json.id && !r.json.post_id)) return { ok: false, error: (r.json && r.json.error && r.json.error.message) || `graph_error_${r.status}` };
     const postId = r.json.post_id || r.json.id;
@@ -93,10 +112,14 @@ function buildProvider(destination, { http = defaultHttp, version = null } = {})
   // ── READ-ONLY intelligence surface (read_insights / pages_read_engagement / instagram_basic /
   //    instagram_manage_insights / instagram_manage_comments). Every call is a GET; nothing here writes to
   //    Meta. Errors are sanitized (token never echoed); metric availability is explicit — never fabricated.
-  function redact(msg) { return token ? String(msg || '').split(token).join('[redacted]') : String(msg || ''); }
+  function redact(msg) {
+    let out = String(msg || '');
+    for (const t of [token, pageToken]) if (t) out = out.split(t).join('[redacted]');
+    return out;
+  }
   async function graphGet(pathWithQuery) {
     const sep = pathWithQuery.indexOf('?') === -1 ? '?' : '&';
-    const url = `${GRAPH_BASE}/${ver}/${pathWithQuery}${sep}access_token=${encodeURIComponent(token)}`;
+    const url = `${GRAPH_BASE}/${ver}/${pathWithQuery}${sep}access_token=${encodeURIComponent(await effectiveToken())}`;
     let r;
     try { r = await http(url, { method: 'GET' }); }
     catch (e) { return { ok: false, code: 'network', message: redact(e && e.message) }; }
