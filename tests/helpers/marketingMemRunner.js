@@ -162,7 +162,12 @@ function makeRunner(store) {
       if (/UPDATE marketing_social_jobs SET status='failed'/.test(s)) {
         const j = store.social.find((x) => x.id === params[0]); if (j) j.status = 'failed'; return { rows: [] };
       }
-      if (/UPDATE marketing_social_jobs SET status='published_shadow'/.test(s)) {
+      if (/UPDATE marketing_social_jobs SET status=\$6/.test(s)) { // parameterized published/published_shadow
+        const j = store.social.find((x) => x.id === params[0]);
+        if (j) { j.status = params[5]; j.post_id = params[1]; j.permalink = params[2]; j.published_at = params[3]; j.proof = params[4]; j.shadow = params[6]; }
+        return { rows: j ? [j] : [] };
+      }
+      if (/UPDATE marketing_social_jobs SET status='published_shadow'/.test(s)) { // legacy literal form
         const j = store.social.find((x) => x.id === params[0]);
         if (j) { j.status = 'published_shadow'; j.post_id = params[1]; j.permalink = params[2]; j.published_at = params[3]; j.proof = params[4]; }
         return { rows: j ? [j] : [] };
