@@ -149,8 +149,11 @@ function makeRunner(store) {
       }
 
       // ── Social ──
-      if (/SELECT \* FROM marketing_social_jobs WHERE obligation_id=\$1 AND wave=\$2/.test(s)) {
-        const rows = store.social.filter((j) => j.obligation_id === params[0] && j.wave === params[1]);
+      if (/SELECT \* FROM marketing_social_jobs WHERE \(\(\$1::uuid IS NOT NULL AND obligation_id=\$1::uuid\)/.test(s)) {
+        // replay guard: (obligation | null-obligation + subject id) + wave + platform (NULL platform = legacy match)
+        const [obId, wave, platform, subjectId] = params;
+        const rows = store.social.filter((j) => (obId != null ? j.obligation_id === obId : (j.obligation_id == null && String(j.auction_id) === String(subjectId)))
+          && j.wave === wave && (j.platform === platform || j.platform == null));
         return { rows: rows.slice(-1) };
       }
       if (/INSERT INTO marketing_social_jobs/.test(s)) {

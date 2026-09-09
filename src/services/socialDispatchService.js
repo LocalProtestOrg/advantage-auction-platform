@@ -21,11 +21,13 @@ const marketingConfig = require('./marketingConfigService');
 const JOB_TYPE = 'social_dispatch';
 
 /** Producer: durably schedule one platform+wave social post. Idempotent (never enqueued/posted twice). */
-async function enqueueSocialDispatch(runner, { obligationId, auctionId, wave = 'ANY', platform = 'facebook', stateCode = null, imageUrl = null, referenceAt = null, runAfter = null } = {}) {
+async function enqueueSocialDispatch(runner, { obligationId, auctionId, wave = 'ANY', platform = 'facebook', stateCode = null, imageUrl = null, referenceAt = null, runAfter = null, event = null } = {}) {
   if (!auctionId) throw new Error('auctionId required');
   return queue.enqueue(runner, {
     jobType: JOB_TYPE,
-    payload: { obligationId: obligationId || null, auctionId, wave, platform, stateCode, imageUrl, referenceAt },
+    // `event` (optional) = factual event-record subject for event posts (estate sales / professional events):
+    // { event_id, title, url, start_at, end_at, timezone, venue_name, city, state, organizer_name, address?, qa? }.
+    payload: { obligationId: obligationId || null, auctionId, wave, platform, stateCode, imageUrl, referenceAt, event: event || null },
     idempotencyKey: `${JOB_TYPE}:${obligationId || auctionId}:${wave}:${platform}`,
     runAfter,
   });
@@ -47,7 +49,7 @@ async function dispatchClaimed(job, runner) {
   if (!auth.ok) { const e = new Error(`social publish not authorized (a9=${auth.a9}, meta=${auth.meta})`); e.code = 'SOCIAL_UNAUTHORIZED'; throw e; }
 
   const obligation = { id: p.obligationId };
-  const auction = { auction_id: p.auctionId, title: p.title, lot_count: p.lot_count, closing_at: p.closing_at };
+  const auction = { auction_id: p.auctionId, title: p.title, lot_count: p.lot_count, closing_at: p.closing_at, event: p.event || null };
   const out = await socialAdapter.publishWave(obligation, {
     auction, wave: p.wave, referenceAt: p.referenceAt, platform: p.platform, stateCode: p.stateCode, imageUrl: p.imageUrl,
   }, r);

@@ -69,7 +69,41 @@ async function resolveProvider({ platform = 'facebook', stateCode = null } = {},
  * Build the factual-claim manifest for a post — only claims backed by auction facts may appear in copy. Keeps
  * social copy truthful and prevents fabricated guarantees. Links are canonical bid.advantage.bid.
  */
+const STATE_NAMES = { AL: 'Alabama', AK: 'Alaska', AZ: 'Arizona', AR: 'Arkansas', CA: 'California', CO: 'Colorado', CT: 'Connecticut', DE: 'Delaware', FL: 'Florida', GA: 'Georgia', HI: 'Hawaii', ID: 'Idaho', IL: 'Illinois', IN: 'Indiana', IA: 'Iowa', KS: 'Kansas', KY: 'Kentucky', LA: 'Louisiana', ME: 'Maine', MD: 'Maryland', MA: 'Massachusetts', MI: 'Michigan', MN: 'Minnesota', MS: 'Mississippi', MO: 'Missouri', MT: 'Montana', NE: 'Nebraska', NV: 'Nevada', NH: 'New Hampshire', NJ: 'New Jersey', NM: 'New Mexico', NY: 'New York', NC: 'North Carolina', ND: 'North Dakota', OH: 'Ohio', OK: 'Oklahoma', OR: 'Oregon', PA: 'Pennsylvania', RI: 'Rhode Island', SC: 'South Carolina', SD: 'South Dakota', TN: 'Tennessee', TX: 'Texas', UT: 'Utah', VT: 'Vermont', VA: 'Virginia', WA: 'Washington', WV: 'West Virginia', WI: 'Wisconsin', WY: 'Wyoming', DC: 'Washington, DC' };
+const TRACKING_RE = /[?&](utm_[a-z]+|gclid|gbraid|wbraid|fbclid)=/i;
+
+function fmtLocal(iso, tz, opts) { return new Intl.DateTimeFormat('en-US', Object.assign({ timeZone: tz || 'America/New_York' }, opts)).format(new Date(iso)); }
+
+/**
+ * Event copy (estate sales / imported professional events). Every sentence is backed by an event-record fact
+ * carried in factual_manifest; the Professional Seller leads, Advantage.Bid is the marketplace partner; the
+ * link is the clean canonical event page (no tracking parameters). No address unless the record has one;
+ * no attendance/inventory/pricing/outcome claims.
+ */
+function buildEventCopy(ev, wave) {
+  const tz = ev.timezone || 'America/Chicago';
+  const url = ev.url;
+  const day = ev.start_at ? fmtLocal(ev.start_at, tz, { weekday: 'long', month: 'long', day: 'numeric' }) : null;
+  const t1 = ev.start_at ? fmtLocal(ev.start_at, tz, { hour: 'numeric', minute: '2-digit' }) : null;
+  const t2 = ev.end_at ? fmtLocal(ev.end_at, tz, { hour: 'numeric', minute: '2-digit' }) : null;
+  const sameDay = ev.start_at && ev.end_at && fmtLocal(ev.start_at, tz, { dateStyle: 'short' }) === fmtLocal(ev.end_at, tz, { dateStyle: 'short' });
+  const stateName = STATE_NAMES[String(ev.state || '').toUpperCase()] || ev.state || null;
+  const where = [ev.venue_name, [ev.city, stateName].filter(Boolean).join(', ')].filter(Boolean).join(' · ');
+  const lines = [ev.title];
+  if (day && t1 && t2) lines.push(`${day} · ${t1} – ${t2}${sameDay ? ' · One day only' : ''}`);
+  else if (day) lines.push(day);
+  if (ev.organizer_name) lines.push(`Presented by ${ev.organizer_name}, in conjunction with Advantage.Bid.`);
+  if (where) lines.push(where);
+  if (ev.address) lines.push(ev.address);
+  lines.push(`Discover the sale on Advantage.Bid: ${url}`);
+  const claims = [];
+  for (const k of ['title', 'start_at', 'end_at', 'venue_name', 'city', 'state', 'organizer_name', 'address']) if (ev[k]) claims.push({ claim: k, value: ev[k] });
+  return { wave, subject: 'event', event_id: ev.event_id, headline: ev.title, url, message: lines.join('\n'),
+    factual_manifest: claims, link_clean: !TRACKING_RE.test(url), qa: ev.qa || null };
+}
+
 function buildCopy(auction, wave) {
+  if (auction && auction.event) return buildEventCopy(auction.event, wave);
   const url = `https://bid.advantage.bid/auction/${auction.auction_id}`;
   const claims = [];
   if (auction.title) claims.push({ claim: 'title', value: auction.title });
@@ -87,9 +121,14 @@ function buildCopy(auction, wave) {
 async function publishWave(obligation, { auction, wave, referenceAt, creativeJobId, platform = 'facebook', stateCode = null, imageUrl = null }, runner) {
   const r = runner || db;
   const idem = `${obligation.id || auction.auction_id}:${wave}:${platform}`;
+  // Replay guard keyed on (obligation | subject id) + wave + PLATFORM (the provider name is 'meta' for both
+  // Facebook and Instagram, so it cannot distinguish them; legacy rows with NULL platform still match).
   const existing = (await r.query(
-    `SELECT * FROM marketing_social_jobs WHERE obligation_id=$1 AND wave=$2 AND provider LIKE $3 ORDER BY created_at DESC LIMIT 1`,
-    [obligation.id || null, wave, platform === 'instagram' ? '%instagram%' : '%'])).rows[0];
+    `SELECT * FROM marketing_social_jobs
+      WHERE (($1::uuid IS NOT NULL AND obligation_id=$1::uuid) OR ($1::uuid IS NULL AND obligation_id IS NULL AND auction_id=$4))
+        AND wave=$2 AND (platform=$3 OR platform IS NULL)
+      ORDER BY created_at DESC LIMIT 1`,
+    [obligation.id || null, wave, platform, String(auction.auction_id)])).rows[0];
   if (existing && ['published_shadow', 'published'].includes(existing.status)) {
     return { ok: true, idempotent_replay: true, job: existing };
   }

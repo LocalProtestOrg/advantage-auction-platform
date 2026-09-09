@@ -30,6 +30,7 @@ function graphVersion() { return process.env.META_GRAPH_VERSION || DEFAULT_GRAPH
 
 // Compose the caption/message: factual headline + clean canonical link (no query string).
 function composeMessage(copy) {
+  if (copy && typeof copy.message === 'string' && copy.message.trim()) return copy.message.trim(); // pre-composed (event copy)
   const parts = [];
   if (copy && copy.headline) parts.push(copy.headline);
   const title = copy && (copy.factual_manifest || []).find((c) => c.claim === 'title');

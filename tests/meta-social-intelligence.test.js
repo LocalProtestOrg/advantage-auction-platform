@@ -515,6 +515,46 @@ describe('socialAdapter.publishWave — linkage columns + insights scheduling', 
   });
 });
 
+// ── Event-subject copy (professional events / estate sales) + null-obligation replay guard ──
+describe('socialAdapter — event copy is factual, seller-led, clean-linked; replay guard works without an obligation', () => {
+  const { makeStore: mkStore, makeRunner: mkRunner } = require('./helpers/marketingMemRunner');
+  const EV = { event_id: '38aed25b-a94e-4cc6-a468-60b2461689d2', title: 'Exclusive West University On-Site Estate Sale',
+    url: 'https://bid.advantage.bid/event.html?slug=exclusive-west-university-on-site-estate-sale',
+    start_at: '2026-09-19T14:00:00.000Z', end_at: '2026-09-19T20:00:00.000Z', timezone: 'America/Chicago',
+    venue_name: 'West University Area', city: 'Houston', state: 'TX', organizer_name: 'Lewis & Maese' };
+  test('buildCopy(event): date/time in event tz, seller leads, Advantage.Bid partner, no address, clean link, manifest', () => {
+    jest.resetModules();
+    jest.doMock('../src/services/marketingObligationEngine', () => ({ block: async () => {} }));
+    const adapter = require('../src/services/socialAdapter');
+    const copy = adapter.buildCopy({ auction_id: EV.event_id, event: EV }, 'LAUNCH');
+    expect(copy.subject).toBe('event'); expect(copy.headline).toBe(EV.title); expect(copy.url).toBe(EV.url);
+    expect(copy.message).toContain('Saturday, September 19 · 9:00 AM – 3:00 PM · One day only');
+    expect(copy.message).toContain('Presented by Lewis & Maese, in conjunction with Advantage.Bid.');
+    expect(copy.message).toContain('West University Area · Houston, Texas');
+    expect(copy.message).toContain('Discover the sale on Advantage.Bid: ' + EV.url);
+    expect(copy.message).not.toMatch(/\d{3,5}\s+[A-Z][a-z]+\s+(St|Ave|Rd|Blvd|Dr|Ln)\b/); // no street address
+    expect(copy.message).not.toMatch(/guarantee|everything must go|sold out|best deals/i);
+    expect(copy.link_clean).toBe(true); expect(copy.factual_manifest.map((c) => c.claim)).toEqual(['title', 'start_at', 'end_at', 'venue_name', 'city', 'state', 'organizer_name']);
+    const meta = require('../src/services/metaGraphProvider');
+    expect(meta.composeMessage(copy)).toBe(copy.message); // provider posts the composed event message verbatim
+    expect(adapter.buildCopy({ auction_id: EV.event_id, event: { ...EV, url: EV.url + '&utm_source=facebook' } }, 'LAUNCH').link_clean).toBe(false);
+  });
+  test('publishWave without an obligation: same event+wave+platform replays instead of publishing twice; other platform publishes', async () => {
+    jest.resetModules();
+    jest.doMock('../src/services/marketingObligationEngine', () => ({ block: async () => {} }));
+    const adapter = require('../src/services/socialAdapter');
+    const store = mkStore(); const r = mkRunner(store);
+    const args = { auction: { auction_id: EV.event_id, event: EV }, wave: 'LAUNCH', referenceAt: '2026-09-09T20:00:00Z', platform: 'facebook', stateCode: 'TX', imageUrl: 'https://res.cloudinary.com/x/y.png' };
+    const a = await adapter.publishWave({ id: null }, args, r);
+    const b = await adapter.publishWave({ id: null }, args, r);
+    const c = await adapter.publishWave({ id: null }, { ...args, platform: 'instagram' }, r);
+    expect(a.ok).toBe(true); expect(b.idempotent_replay).toBe(true); expect(c.ok).toBe(true); expect(c.idempotent_replay).toBeUndefined();
+    expect(store.social.length).toBe(2); expect(store.social.map((j) => j.platform)).toEqual(['facebook', 'instagram']);
+    expect(store.social[0].state_code).toBe('TX'); expect(store.social[0].auction_id).toBe(EV.event_id);
+    expect(JSON.parse(store.social[0].proof).copy.message).toContain('Presented by Lewis & Maese');
+  });
+});
+
 // ── Worker ──
 describe('marketingSocialInsightsWorker — inert when the switch is OFF', () => {
   test('tick with gate OFF performs no ingestion', async () => {
