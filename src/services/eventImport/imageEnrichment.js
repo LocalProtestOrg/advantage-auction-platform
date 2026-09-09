@@ -65,10 +65,16 @@ async function resolveCandidates(event, deps = {}) {
   return extractImageCandidates(html, url);
 }
 
-function fetchImage(url) {
+const ENRICH_UA = 'AdvantageBid-ImageEnrichment/1.0';
+// Some public image CDNs (e.g. Invaluable's WordPress "privatelabel" uploads used by owner-authorized
+// original-host sources) answer 403 to non-browser user agents while serving the same public file to any
+// browser. On a 403 we retry ONCE with a standard browser UA — same public URL, no auth, no gated path.
+const BROWSER_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36';
+
+function fetchImageOnce(url, ua, requestImpl) {
   return new Promise((resolve) => {
     try {
-      const req = https.request(url, { method: 'GET', timeout: 20000, headers: { 'User-Agent': 'AdvantageBid-ImageEnrichment/1.0', Accept: 'image/*' } }, (resp) => {
+      const req = (requestImpl || https.request)(url, { method: 'GET', timeout: 20000, headers: { 'User-Agent': ua, Accept: 'image/*' } }, (resp) => {
         const chunks = []; let bytes = 0; let aborted = false;
         resp.on('data', (c) => { bytes += c.length; if (bytes > MAX_IMAGE_BYTES) { aborted = true; req.destroy(); return; } chunks.push(c); });
         resp.on('end', () => resolve({ status: resp.statusCode, ctype: String(resp.headers['content-type'] || ''), body: aborted ? null : Buffer.concat(chunks) }));
@@ -78,6 +84,13 @@ function fetchImage(url) {
       req.end();
     } catch (e) { resolve({ status: 0, err: e.message }); }
   });
+}
+
+async function fetchImage(url, deps = {}) {
+  const first = await fetchImageOnce(url, ENRICH_UA, deps.requestImpl);
+  if (first.status !== 403) return first;
+  const retry = await fetchImageOnce(url, BROWSER_UA, deps.requestImpl);
+  return retry.status === 200 ? Object.assign(retry, { ua_fallback: true }) : first;
 }
 
 // Validate a candidate image response is a genuinely-public, usable image (not a login page/401).

@@ -24,7 +24,7 @@
  * run, incl. scheduled) and the enrichment pass can re-host them to Cloudinary with provenance.
  */
 
-const { fetchText } = require('../http');
+const http = require('../http');   // referenced (not destructured) so tests can inject fetchText
 const { IDENTITY_FIELD_MAP } = require('../normalize/identityFieldMap');
 const { localToUtcIso } = require('../../../lib/timezoneUtils');
 
@@ -45,7 +45,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 // fetchText returns { ok, status, text }; return the body only on a usable 2xx, else null.
 async function getText(url, opts) {
-  const r = await fetchText(url, Object.assign({ headers: { 'User-Agent': BROWSER_UA } }, opts));
+  const r = await http.fetchText(url, Object.assign({ headers: { 'User-Agent': BROWSER_UA } }, opts));
   return r && r.ok && typeof r.text === 'string' ? r.text : null;
 }
 
@@ -53,6 +53,7 @@ function decodeEntities(s) {
   return String(s || '')
     .replace(/&amp;/g, '&').replace(/&#x27;|&#39;|&apos;/g, "'").replace(/&quot;/g, '"')
     .replace(/&#x2F;|&#47;/g, '/').replace(/&nbsp;/g, ' ').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
+    .replace(/&#(\d+);/g, (_, n) => String.fromCodePoint(parseInt(n, 10))).replace(/&#x([0-9a-f]+);/gi, (_, h) => String.fromCodePoint(parseInt(h, 16)))
     .replace(/\s+/g, ' ').trim();
 }
 
@@ -105,6 +106,99 @@ function parseImages(html) {
   return ordered.slice(0, MAX_IMAGES).map((url, i) => ({ url, position: i, is_cover: i === 0 }));
 }
 
+// ── Estate sales (WordPress posts, e.g. /exclusive-west-university-on-site-estate-sale-september-19-2026/) ──
+// L&M advertises on-site estate sales as ordinary site posts linked from the home page — NOT as Invaluable
+// catalog pages — so they are invisible to the catalog path above. Same owner-authorized public source, same
+// gentle access, same attribution/original-host rules.
+const HOME_URL = BASE + '/';
+const ESTATE_LINK_RE = /https?:\/\/www\.lmauctionco\.com\/([a-z0-9-]*estate-sale[a-z0-9-]*)\/?/gi;
+
+// Discover estate-sale post links (path slugs) from the home page (or any listing page). Catalog pages and
+// "estate-auction" posts are excluded (auctions are covered by the catalog path).
+function parseEstateSaleLinks(html) {
+  const out = [];
+  for (const m of String(html || '').matchAll(ESTATE_LINK_RE)) {
+    const slug = m[1];
+    if (/auction-catalog|estate-auction/i.test(slug)) continue;
+    if (!out.includes(slug)) out.push(slug);
+  }
+  return out;
+}
+
+function metaContent(html, prop) {
+  const m = String(html || '').match(new RegExp(`<meta[^>]+property=["']${prop}["'][^>]+content=["']([^"']+)["']`, 'i'))
+    || String(html || '').match(new RegExp(`<meta[^>]+content=["']([^"']+)["'][^>]+property=["']${prop}["']`, 'i'));
+  return m ? decodeEntities(m[1]) : null;
+}
+
+// Visible text of a page (scripts/styles removed, tags → spaces, entities decoded).
+function toText(html) {
+  return decodeEntities(String(html || '').replace(/<script[\s\S]*?<\/script>/gi, ' ').replace(/<style[\s\S]*?<\/style>/gi, ' ').replace(/<[^>]+>/g, ' '));
+}
+
+// Post images: og:image first, then the post's own WordPress uploads (public Invaluable-hosted); dedupe; cap.
+// Real event photos only: site chrome (logo/icon/favicon/"cropped-" site icons) and WordPress crops
+// smaller than 400px on either side (thumbnails, 32x32 icons, 1600x300 header banners) are excluded.
+function isEventPhoto(u) {
+  if (/logo|icon|favicon|cropped-/i.test(u)) return false;
+  const m = u.match(/-(\d{2,4})x(\d{2,4})(?:-\d+)?\.(?:jpe?g|png|webp)$/i);
+  if (m && (parseInt(m[1], 10) < 400 || parseInt(m[2], 10) < 400)) return false;
+  return true;
+}
+function parsePostImages(html) {
+  const og = metaContent(html, 'og:image');
+  const uploads = String(html || '').match(/https?:\/\/[^"'\s)]*\/wp-content\/uploads\/[^"'\s)]*\.(?:jpe?g|png|webp)/gi) || [];
+  const all = [...new Set([og, ...uploads].filter(Boolean))].filter((u) => /\.(jpe?g|png|webp)$/i.test(u) && isEventPhoto(u));
+  return all.slice(0, MAX_IMAGES).map((url, i) => ({ url, position: i, is_cover: i === 0 }));
+}
+
+// Parse one estate-sale post → { payload, images } or null. Never invents a date, time, or address.
+function parseEstateSale(html, postUrl, tzHint) {
+  if (!html) return null;
+  const rawTitle = metaContent(html, 'og:title') || (titleFromHtml(html) || '').replace(/\s*[-–—]\s*Lewis\s*&\s*Maese\s*$/i, '');
+  if (!rawTitle) return null;
+  const title = rawTitle.replace(/\s*[|—–-]\s*[A-Z][a-z]+\s+\d{1,2},\s+\d{4}\s*$/, '').trim();   // drop trailing "| September 19, 2026"
+  const text = toText(html);
+  // Date: "Month DD, YYYY" (title first, then body).
+  const dm = (rawTitle + ' ' + text).match(/([A-Z][a-z]+)\s+(\d{1,2}),\s+(\d{4})/);
+  if (!dm || !MONTHS[dm[1].toLowerCase()]) return null;
+  const year = parseInt(dm[3], 10), mon = MONTHS[dm[1].toLowerCase()], day = parseInt(dm[2], 10);
+  // Time range: "9:00 AM – 3:00 PM"
+  const tm = text.match(/(\d{1,2}):(\d{2})\s*(AM|PM)\s*[–—-]\s*(\d{1,2}):(\d{2})\s*(AM|PM)/i);
+  if (!tm) return null;
+  const to24 = (h, ap) => { h = parseInt(h, 10); ap = ap.toUpperCase(); if (ap === 'PM' && h !== 12) h += 12; if (ap === 'AM' && h === 12) h = 0; return h; };
+  const tz = tzHint || DEFAULT_TZ;
+  const pad = (n) => String(n).padStart(2, '0');
+  let startIso, endIso;
+  try {
+    startIso = localToUtcIso(`${year}-${pad(mon)}-${pad(day)}T${pad(to24(tm[1], tm[3]))}:${tm[2]}`, tz);
+    endIso = localToUtcIso(`${year}-${pad(mon)}-${pad(day)}T${pad(to24(tm[4], tm[6]))}:${tm[5]}`, tz);
+  } catch (_) { return null; }
+  if (endIso <= startIso) return null;
+  // Location: "Location: West University Area — Houston, TX" (venue/area is only recorded when stated).
+  const lm = text.match(/Location:\s*([^—–|]+?)\s*[—–-]\s*([A-Za-z .]+?),\s*([A-Z]{2})\b/);
+  const venue = lm ? lm[1].trim() : null;
+  const city = lm ? lm[2].trim() : 'Houston';
+  const state = lm ? lm[3] : 'TX';
+  // Description: the "ABOUT THIS SALE" narrative (+ featured items) as published; bounded.
+  const about = text.match(/ABOUT THIS SALE\s+([\s\S]*?)(?=\s+(?:FEATURED ITEMS|EVENT DETAILS|TERMS & CONDITIONS)\b)/i);
+  const featured = text.match(/FEATURED ITEMS INCLUDE\s+([\s\S]*?)(?=\s+(?:EVENT DETAILS|TERMS & CONDITIONS)\b)/i);
+  const addrNote = text.match(/\(Exact street address[^)]*\)/i);
+  const description = [about && about[1], featured && ('Featured items include: ' + featured[1]), addrNote && addrNote[0]]
+    .filter(Boolean).map((s) => s.replace(/\s+/g, ' ').trim()).join('\n\n').slice(0, 2500) || null;
+  const terms = text.match(/TERMS & CONDITIONS\s+([\s\S]{20,1500}?)(?=\s+(?:Full Terms|Share|Related|Categories|Posted)\b|$)/i);
+  return {
+    payload: {
+      title, description, sale_type: 'estate_sale', event_format: 'live',
+      start_at: startIso, end_at: endIso, timezone: tz,
+      venue_name: venue, city, state,
+      organizer_name: 'Lewis & Maese', external_url: postUrl,
+      terms_text: terms ? terms[1].replace(/\s+/g, ' ').trim() : null,
+    },
+    images: parsePostImages(html),
+  };
+}
+
 // Parse one catalog page → { payload, images } or null (not a usable upcoming auction).
 function parseDetail(html, catalogUrl, tzHint) {
   if (!html) return null;
@@ -143,20 +237,23 @@ module.exports = {
   fieldMap: IDENTITY_FIELD_MAP,
 
   parseUpcomingLinks, parseDetail, titleFromHtml, parseStart, parseImages, refFromPath,  // for unit tests
+  parseEstateSaleLinks, parseEstateSale, parsePostImages, toText,
 
   async *fetch({ config, limit, signal } = {}) {
     config = config || {};
     const tz = config.timezone || DEFAULT_TZ;
     const cap = Math.min(limit != null ? limit : (config.cap || DEFAULT_CAP), config.cap || DEFAULT_CAP);
     const fetchOpts = { timeoutMs: 30000, maxBytes: 8 * 1024 * 1024, signal };
-
-    let listing; try { listing = await getText(UPCOMING_URL, fetchOpts); } catch (_) { return; }
-    if (!listing) return;
-    const paths = parseUpcomingLinks(listing);
-
+    // Optional narrowing (manual runs): only estate-sale slugs listed here are visited.
+    const onlySlugs = Array.isArray(config.only_estate_sale_slugs) ? config.only_estate_sale_slugs : null;
     let n = 0;
+
+    // 1. Auctions — Invaluable catalog pages from the public upcoming listing.
+    let listing = null; try { listing = await getText(UPCOMING_URL, fetchOpts); } catch (_) { listing = null; }
+    const paths = listing ? parseUpcomingLinks(listing) : [];
     for (const path of paths) {
       if (n >= cap) return;
+      if (onlySlugs) break;                          // narrowed run: skip the catalog path entirely
       const catalogUrl = BASE + path;
       await sleep(CRAWL_DELAY_MS);
       let html; try { html = await getText(catalogUrl, fetchOpts); } catch (_) { continue; }
@@ -168,6 +265,29 @@ module.exports = {
         sourceEventId: refFromPath(path),
         sourceUrl: catalogUrl,
         sourceUpdatedAt: null,
+        payload: mapped.payload,
+        images: mapped.images,
+      };
+      n++;
+    }
+
+    // 2. Estate sales — site posts linked from the home page (and the upcoming listing, if any).
+    let home = null; try { home = await getText(HOME_URL, fetchOpts); } catch (_) { home = null; }
+    let slugs = [...new Set([...parseEstateSaleLinks(home), ...parseEstateSaleLinks(listing)])];
+    if (onlySlugs) slugs = slugs.filter((s) => onlySlugs.includes(s));
+    for (const slug of slugs) {
+      if (n >= cap) return;
+      const postUrl = `${BASE}/${slug}/`;
+      await sleep(CRAWL_DELAY_MS);
+      let html; try { html = await getText(postUrl, fetchOpts); } catch (_) { continue; }
+      const mapped = parseEstateSale(html, postUrl, tz);
+      if (!mapped) continue;
+      if (mapped.payload.end_at && new Date(mapped.payload.end_at).getTime() < Date.now()) continue;
+      const modified = metaContent(html, 'article:modified_time');
+      yield {
+        sourceEventId: slug,
+        sourceUrl: postUrl,
+        sourceUpdatedAt: modified || null,
         payload: mapped.payload,
         images: mapped.images,
       };
