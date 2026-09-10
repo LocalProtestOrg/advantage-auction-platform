@@ -25,8 +25,11 @@ class AuthService {
       throw new Error('User account is inactive');
     }
 
-    const validPassword = await bcrypt.compare(password, user.password_hash);
-    if (!validPassword) {
+    // No local password (NULL/empty hash) can never authenticate through password login.
+    const hash = typeof user.password_hash === 'string' && user.password_hash.length ? user.password_hash : null;
+    let validPassword = false;
+    if (hash) { try { validPassword = await bcrypt.compare(String(password), hash); } catch (_) { validPassword = false; } }
+    if (validPassword !== true) {
       throw new Error('Invalid credentials');
     }
 

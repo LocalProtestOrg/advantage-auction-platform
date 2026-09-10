@@ -7,35 +7,23 @@
 // valid browser session authenticate API calls even when no (or a stale) localStorage token exists —
 // e.g. a member who reached /app.html via the BD "My Account" link, whose cookie is valid but whose
 // Bearer token is absent. The cookie is never exposed to JavaScript here and its security is unchanged.
+// Credential resolution (carriers, precedence, signature + expiry) lives in ONE place:
+// src/lib/sessionAuth.js — shared with optionalAuthMiddleware so the two can never drift.
 const jwt = require('jsonwebtoken');
-const { setSessionCookie, readSessionToken } = require('../lib/sessionCookie');
+const { setSessionCookie } = require('../lib/sessionCookie');
+const { resolveSession } = require('../lib/sessionAuth');
 
 if (!process.env.JWT_SECRET) {
   throw new Error('JWT_SECRET is not configured');
 }
 
-function verifyToken(token) {
-  if (!token) return null;
-  try { return jwt.verify(token, process.env.JWT_SECRET); } catch (_) { return null; }
-}
-
 const authMiddleware = (req, res, next) => {
-  const authHeader = req.headers['authorization'];
-  const bearer = authHeader && authHeader.split(' ')[1];
-  const cookieTok = readSessionToken(req);
-
   // Bearer first (primary/compat), then the cookie session (canonical browser session).
-  let decoded = verifyToken(bearer);
-  let token = bearer;
-  let source = 'bearer';
-  if (!decoded && cookieTok) {
-    const cd = verifyToken(cookieTok);
-    if (cd) { decoded = cd; token = cookieTok; source = 'cookie'; }
-  }
+  const { decoded, token, source, presented } = resolveSession(req);
 
   if (!decoded) {
     // Distinguish "no credentials at all" from "credentials present but invalid/expired".
-    if (!bearer && !cookieTok) {
+    if (!presented.bearer && !presented.cookie) {
       console.warn('[auth] missing token:', req.method, req.path);
       return res.status(401).json({ error: 'Authentication required' });
     }

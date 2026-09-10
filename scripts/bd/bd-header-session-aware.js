@@ -3,9 +3,11 @@
  * (Brilliant Directories sitewide script). PLACE IN THE HEADER (before </head>) so the login-page
  * handoff runs before BD's obsolete native login form can paint.
  *
- * PART 1 — exact-path login/logout handoff (unchanged):
+ * PART 1 — exact-path login/logout/signup handoff:
  *   /login                    -> Railway login (retires BD's native login form)
  *   /login?action=loggedout   -> Railway logout (ends the Railway session with BD's)
+ *   /signup                   -> Railway Create Account (retires BD's residual membership sign-up page;
+ *                                one Advantage.Bid account, never a separate BD membership)
  *
  * PART 2 — one, non-duplicated header control based on the real session state:
  *   A. BD session + Railway session -> keep BD's native member dropdown; HIDE the public Login/My
@@ -25,6 +27,7 @@
 (function () {
   'use strict';
   var LOGIN_URL     = 'https://bid.advantage.bid/login.html';     // canonical Railway login
+  var REGISTER_URL  = 'https://bid.advantage.bid/login.html?tab=register'; // canonical Railway sign-up
   var LOGOUT_URL    = 'https://bid.advantage.bid/logout';         // clears cookie + token, lands on login
   var STATUS_URL    = 'https://bid.advantage.bid/api/auth/session-status';
   var DASHBOARD_URL = 'https://bid.advantage.bid/app.html#home';
@@ -37,9 +40,13 @@
     '#member_sidebar_toggle', '.member_sidebar', '.user_sidebar'
   ];
 
-  // ── Part 1: hand off the EXACT public BD login/logout paths to Railway ──────────────────────────
+  // ── Part 1: hand off the EXACT public BD login/logout/signup paths to Railway ───────────────────
   try {
     var path = location.pathname.replace(/\/+$/, '') || '/';
+    if (path === '/signup') {
+      location.replace(REGISTER_URL);   // residual BD membership sign-up -> Railway Create Account
+      return;
+    }
     if (path === '/login') {
       if (/[?&]action=loggedout\b/.test(location.search)) {
         location.replace(LOGOUT_URL);   // BD already ended its session -> also end the Railway session

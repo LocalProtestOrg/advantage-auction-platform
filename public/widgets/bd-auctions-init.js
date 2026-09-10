@@ -28,6 +28,20 @@
 (function () {
   'use strict';
 
+  // ── BD residual sign-up handoff (Advantage.Bid identity rule) ──────────────────────────────────
+  // This script is served by Railway and loaded in the sitewide head of www.advantage.bid, so it can
+  // retire BD's residual membership sign-up page without a BD-admin paste. Same rule as Part 1 of
+  // scripts/bd/bd-header-session-aware.js: EXACT path /signup on the Advantage.Bid BD hosts only ->
+  // Railway Create Account. Never runs on seller/company websites that embed this script.
+  try {
+    var bdHost = (location.hostname || '').toLowerCase();
+    var bdPath = (location.pathname || '/').replace(/\/+$/, '') || '/';
+    if ((bdHost === 'www.advantage.bid' || bdHost === 'advantage.bid') && bdPath === '/signup') {
+      location.replace('https://bid.advantage.bid/login.html?tab=register');
+      return;
+    }
+  } catch (e) { /* never block page rendering */ }
+
   var script  = document.currentScript;
   var API_BASE = (script && script.dataset.apiBase
     ? script.dataset.apiBase.replace(/\/$/, '')

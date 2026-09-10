@@ -13,6 +13,15 @@ const agreementService = require('../services/agreementService');
 const router = express.Router();
 const JWT_SECRET = process.env.JWT_SECRET;
 
+// Login timing equalizer: every password login performs exactly one bcrypt comparison, so the
+// response time does not reveal whether the account exists or has a local password. The hash is of
+// random bytes generated in-process (never a credential, never persisted).
+let TIMING_HASH = null;
+async function timingHash() {
+  if (!TIMING_HASH) TIMING_HASH = await bcrypt.hash(require('crypto').randomBytes(24).toString('hex'), 10);
+  return TIMING_HASH;
+}
+
 // Register
 router.post('/register', normalLimiter, async (req, res) => {
   const { email, password } = req.body;
@@ -86,11 +95,16 @@ router.post('/login', strictLimiter, async (req, res) => {
   try {
     const result = await db.query('SELECT * FROM users WHERE email = $1', [email]);
     const user = result.rows[0];
-    if (!user) {
-      return res.status(401).json({ success: false, error: 'Invalid credentials' });
-    }
-    const validPassword = await bcrypt.compare(password, user.password_hash);
-    if (!validPassword) {
+    // A local password is required for the email/password path. An account without one (e.g. a
+    // future Google/Facebook-only account) can NEVER authenticate here just because password_hash is
+    // NULL. Unknown account, no local password, malformed hash and wrong password all return the
+    // identical generic 401 after one bcrypt comparison — nothing reveals existence or auth source.
+    const hash = user && typeof user.password_hash === 'string' && user.password_hash.length ? user.password_hash : null;
+    let validPassword = false;
+    try {
+      validPassword = await bcrypt.compare(String(password), hash || await timingHash());
+    } catch (_) { validPassword = false; }
+    if (!user || !hash || validPassword !== true) {
       return res.status(401).json({ success: false, error: 'Invalid credentials' });
     }
     // OPS-3: suspended accounts cannot log in. is_active defaults true; admin
@@ -111,7 +125,7 @@ router.post('/login', strictLimiter, async (req, res) => {
     res.json({ success: true, token });
   } catch (err) {
     console.error('[auth] login failed:', { email, error: err.message });
-    return res.status(500).json({ success: false, error: err.message });
+    return res.status(500).json({ success: false, error: 'Login failed. Please try again.' }); // never echo internals
   }
 });
 
