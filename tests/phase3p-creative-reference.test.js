@@ -94,6 +94,7 @@ describe('indexer — reconcile by content hash; Owner never edits JSON', () => 
     const imgs = listImgs(dir); const a = imgs.find((i) => i.category === 'auction'); const b = imgs.filter((i) => i.category === 'auction')[1];
     const dnu = path.join(dir, 'auction', 'do-not-use'); fs.mkdirSync(dnu); fs.renameSync(a.path, path.join(dnu, a.filename)); fs.renameSync(a.path + lib.SIDECAR_SUFFIX, path.join(dnu, a.filename + lib.SIDECAR_SUFFIX));
     fs.unlinkSync(b.path);
+    fs.mkdirSync(path.join(dir, 'individual-seller'), { recursive: true }); // empty category folders are not tracked by git
     fs.copyFileSync(imgs.find((i) => i.category === 'notable-lot').path, path.join(dir, 'individual-seller', 'new-owner-pick.jpg')); // a fresh file → hashes differently? (same bytes) → copy a mutated file instead
     fs.appendFileSync(path.join(dir, 'individual-seller', 'new-owner-pick.jpg'), Buffer.from([0xff, 0xd9, 0x00]));
     fs.mkdirSync(path.join(dir, 'not-a-category')); fs.copyFileSync(imgs[2].path, path.join(dir, 'not-a-category', 'x.jpg'));
