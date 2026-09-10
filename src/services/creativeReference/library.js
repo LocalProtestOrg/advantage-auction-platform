@@ -19,7 +19,7 @@ const FOLDER_CLASS = {
 };
 const CAMPAIGN_CLASSES = ['estate_sale', 'auction', 'professional_seller_acquisition', 'individual_seller_acquisition', 'buyer_platform_growth', 'notable_lot', 'closing_soon', 'geographic_event_promotion', 'general_brand'];
 const STATUSES = ['OWNER_APPROVED', 'OWNER_GOLD_STANDARD', 'OWNER_DO_NOT_USE', 'RETIRED'];
-const STATUS_SOURCES = ['folder_placement_by_owner', 'owner_statement_via_desktop_marketing', 'owner_folder_move', 'admin_ui_button', 'owner_review_of_generated_creative'];
+const STATUS_SOURCES = ['folder_placement_by_owner', 'owner_statement_via_desktop_marketing', 'owner_folder_move', 'admin_ui_button', 'owner_review_of_generated_creative', 'owner_directive_via_vscode_mission'];
 const DEFAULT_WEIGHTS = { OWNER_APPROVED: 1.0, OWNER_GOLD_STANDARD: 2.0, OWNER_DO_NOT_USE: -1.0, RETIRED: 0 };
 const IMAGE_EXT = /\.(jpe?g|jfif|png|webp)$/i;
 const SIDECAR_SUFFIX = '.reference.json';

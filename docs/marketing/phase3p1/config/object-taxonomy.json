@@ -1,0 +1,2014 @@
+{
+  "schema": "object-taxonomy#1.0",
+  "note": "Semantic classes for physical merchandise intelligence. Typical dimensions are real-world defaults in inches used only when the catalogue carries no dimensions; catalogue dimensions always win. spatial_role_candidates map to the 3M.3 SpatialRole enum (plus GROUND for rugs).",
+  "size_classes": {
+    "XS": {
+      "max_in": 8,
+      "note": "jewellery, watches, coins, small figurines"
+    },
+    "S": {
+      "max_in": 20,
+      "note": "vases, bowls, table lamps, mantel clocks, china pieces"
+    },
+    "M": {
+      "max_in": 36,
+      "note": "side tables, dining/side chairs, small sculpture, framed prints"
+    },
+    "L": {
+      "max_in": 60,
+      "note": "wingback/arm chairs, consoles, desks, chests, large paintings, tall clocks"
+    },
+    "XL": {
+      "max_in": 90,
+      "note": "sofas, cabinets, breakfronts, floor lamps, beds, dining tables"
+    },
+    "XXL": {
+      "max_in": 400,
+      "note": "vehicles, tractors, large rugs, boats"
+    }
+  },
+  "planes": [
+    "floor",
+    "wall",
+    "table",
+    "shelf",
+    "pedestal",
+    "ground",
+    "ceiling"
+  ],
+  "attribute_definitions": {
+    "anchor_weight": "0 accent \u00b7 1 supporting \u00b7 2 secondary anchor \u00b7 3 primary anchor",
+    "foreground_suitability": "0 never in front \u00b7 1 rarely \u00b7 2 suitable \u00b7 3 ideal foreground accent",
+    "can_support / can_be_supported_by": "class names; parenthesised annotations are human notes and are stripped by the loader",
+    "allowable_overlap": "as_front: what this object may overlap when it is nearer; as_back: what may overlap it when it is farther",
+    "prohibited_relations": "THROUGH (silhouettes cross interiors on the same plane), FLOATING (no support/baseline), ON:x (resting where it cannot), SCALE conditions, family exclusions",
+    "dominant_ground_object": "sets the scene scale and is never overlapped except by foreground accents at its lower edge"
+  },
+  "classes": [
+    {
+      "semantic_class": "sofa",
+      "family": "furniture",
+      "size_class": "XL",
+      "typical_height_in": 34,
+      "typical_width_in": 84,
+      "plane": "floor",
+      "orientation": "upright",
+      "spatial_role_candidates": [
+        "HERO",
+        "ANCHOR_H"
+      ],
+      "anchor_weight": 3,
+      "foreground_suitability": 0,
+      "can_support": [
+        "cushion",
+        "throw",
+        "small_decor_on_seat(no)"
+      ],
+      "can_be_supported_by": [],
+      "allowable_overlap": {
+        "as_front": [],
+        "as_back": [
+          "foreground_accent_on_lower_edge",
+          "side_table_beside_arm_may_touch_arm_edge",
+          "rug_under"
+        ]
+      },
+      "prohibited_relations": [
+        "THROUGH:table",
+        "THROUGH:chair",
+        "BEHIND:wall_object_lower_than_backrest"
+      ],
+      "grouping": "single",
+      "protected_features": [],
+      "notes": "Major floor anchor. Nothing sits on it except cushions/throws. A side table beside the arm may touch the arm silhouette at the edge but never cross the seat.",
+      "dominant_ground_object": false
+    },
+    {
+      "semantic_class": "loveseat",
+      "family": "furniture",
+      "size_class": "L",
+      "typical_height_in": 34,
+      "typical_width_in": 60,
+      "plane": "floor",
+      "orientation": "upright",
+      "spatial_role_candidates": [
+        "HERO",
+        "ANCHOR_H"
+      ],
+      "anchor_weight": 3,
+      "foreground_suitability": 0,
+      "can_support": [],
+      "can_be_supported_by": [],
+      "allowable_overlap": {
+        "as_front": [],
+        "as_back": [
+          "foreground_accent_on_lower_edge",
+          "rug_under"
+        ]
+      },
+      "prohibited_relations": [
+        "THROUGH:table",
+        "THROUGH:chair"
+      ],
+      "grouping": "single",
+      "protected_features": [],
+      "notes": "",
+      "dominant_ground_object": false
+    },
+    {
+      "semantic_class": "wingback_chair",
+      "family": "furniture",
+      "size_class": "L",
+      "typical_height_in": 46,
+      "typical_width_in": 34,
+      "plane": "floor",
+      "orientation": "upright",
+      "spatial_role_candidates": [
+        "HERO"
+      ],
+      "anchor_weight": 2,
+      "foreground_suitability": 0,
+      "can_support": [],
+      "can_be_supported_by": [],
+      "allowable_overlap": {
+        "as_front": [
+          "lower_edge_of_sofa_or_cabinet_when_in_front"
+        ],
+        "as_back": [
+          "foreground_accent_on_lower_edge",
+          "side_table_beside_touching_arm_edge_only",
+          "rug_under"
+        ]
+      },
+      "prohibited_relations": [
+        "THROUGH:table",
+        "THROUGH:chair",
+        "seat_or_arm_crossed_by_any_object"
+      ],
+      "grouping": "single",
+      "protected_features": [
+        "seat",
+        "arms",
+        "wings"
+      ],
+      "notes": "Medium/large floor anchor. Side table is a companion BESIDE it; the table silhouette may touch the outer arm edge but must not cross seat, arm or wing.",
+      "dominant_ground_object": false
+    },
+    {
+      "semantic_class": "armchair",
+      "family": "furniture",
+      "size_class": "L",
+      "typical_height_in": 36,
+      "typical_width_in": 34,
+      "plane": "floor",
+      "orientation": "upright",
+      "spatial_role_candidates": [
+        "HERO"
+      ],
+      "anchor_weight": 2,
+      "foreground_suitability": 0,
+      "can_support": [],
+      "can_be_supported_by": [],
+      "allowable_overlap": {
+        "as_front": [
+          "lower_edge_of_larger_object"
+        ],
+        "as_back": [
+          "foreground_accent_on_lower_edge"
+        ]
+      },
+      "prohibited_relations": [
+        "THROUGH:table",
+        "THROUGH:chair",
+        "seat_or_arm_crossed_by_any_object"
+      ],
+      "grouping": "single",
+      "protected_features": [
+        "seat",
+        "arms"
+      ],
+      "notes": "",
+      "dominant_ground_object": false
+    },
+    {
+      "semantic_class": "dining_chair",
+      "family": "furniture",
+      "size_class": "M",
+      "typical_height_in": 40,
+      "typical_width_in": 20,
+      "plane": "floor",
+      "orientation": "upright",
+      "spatial_role_candidates": [
+        "SURFACE_PROVIDER(no)",
+        "FOREGROUND",
+        "HERO"
+      ],
+      "anchor_weight": 1,
+      "foreground_suitability": 1,
+      "can_support": [],
+      "can_be_supported_by": [],
+      "allowable_overlap": {
+        "as_front": [
+          "lower_edge_of_dining_table(pushed_in)"
+        ],
+        "as_back": [
+          "foreground_accent_on_lower_edge"
+        ]
+      },
+      "prohibited_relations": [
+        "THROUGH:table_top",
+        "THROUGH:chair"
+      ],
+      "grouping": "pair_or_set",
+      "protected_features": [],
+      "notes": "Pushed-in chairs may overlap a dining table's lower edge/apron; never its top.",
+      "dominant_ground_object": false
+    },
+    {
+      "semantic_class": "side_chair",
+      "family": "furniture",
+      "size_class": "M",
+      "typical_height_in": 36,
+      "typical_width_in": 18,
+      "plane": "floor",
+      "orientation": "upright",
+      "spatial_role_candidates": [
+        "FOREGROUND",
+        "HERO"
+      ],
+      "anchor_weight": 1,
+      "foreground_suitability": 1,
+      "can_support": [],
+      "can_be_supported_by": [],
+      "allowable_overlap": {
+        "as_front": [
+          "lower_edge_of_larger_object"
+        ],
+        "as_back": [
+          "foreground_accent_on_lower_edge"
+        ]
+      },
+      "prohibited_relations": [
+        "THROUGH:any_same_plane_object",
+        "FLOATING:if_plane_is_floor_or_wall_without_support"
+      ],
+      "grouping": "pair_or_single",
+      "protected_features": [],
+      "notes": "",
+      "dominant_ground_object": false
+    },
+    {
+      "semantic_class": "bench",
+      "family": "furniture",
+      "size_class": "M",
+      "typical_height_in": 18,
+      "typical_width_in": 48,
+      "plane": "floor",
+      "orientation": "upright",
+      "spatial_role_candidates": [
+        "ANCHOR_H",
+        "FOREGROUND"
+      ],
+      "anchor_weight": 1,
+      "foreground_suitability": 2,
+      "can_support": [
+        "small_decor"
+      ],
+      "can_be_supported_by": [],
+      "allowable_overlap": {
+        "as_front": [
+          "lower_edge_of_larger_object"
+        ],
+        "as_back": [
+          "foreground_accent_on_lower_edge"
+        ]
+      },
+      "prohibited_relations": [
+        "THROUGH:any_same_plane_object",
+        "FLOATING:if_plane_is_floor_or_wall_without_support"
+      ],
+      "grouping": "single",
+      "protected_features": [],
+      "notes": "",
+      "dominant_ground_object": false
+    },
+    {
+      "semantic_class": "side_table",
+      "family": "furniture",
+      "size_class": "M",
+      "typical_height_in": 26,
+      "typical_width_in": 22,
+      "plane": "floor",
+      "orientation": "upright",
+      "spatial_role_candidates": [
+        "SURFACE_PROVIDER"
+      ],
+      "anchor_weight": 1,
+      "foreground_suitability": 1,
+      "can_support": [
+        "table_lamp",
+        "vase",
+        "bowl",
+        "clock_mantel",
+        "figurine",
+        "book_stack",
+        "small_sculpture"
+      ],
+      "can_be_supported_by": [],
+      "allowable_overlap": {
+        "as_front": [
+          "lower_outer_edge_of_seating_when_beside"
+        ],
+        "as_back": [
+          "objects_on_top",
+          "foreground_accent_on_lower_edge"
+        ]
+      },
+      "prohibited_relations": [
+        "THROUGH:chair",
+        "THROUGH:sofa",
+        "top_wider_than_seating_seat_without_dimensions"
+      ],
+      "grouping": "single",
+      "protected_features": [],
+      "notes": "Smaller companion to seating; BESIDE a chair or sofa arm; top height \u2248 arm height; never larger than the seating it accompanies.",
+      "dominant_ground_object": false
+    },
+    {
+      "semantic_class": "coffee_table",
+      "family": "furniture",
+      "size_class": "M",
+      "typical_height_in": 18,
+      "typical_width_in": 48,
+      "plane": "floor",
+      "orientation": "upright",
+      "spatial_role_candidates": [
+        "ANCHOR_H",
+        "SURFACE_PROVIDER"
+      ],
+      "anchor_weight": 2,
+      "foreground_suitability": 2,
+      "can_support": [
+        "bowl",
+        "book_stack",
+        "vase",
+        "small_sculpture",
+        "tray"
+      ],
+      "can_be_supported_by": [],
+      "allowable_overlap": {
+        "as_front": [
+          "lower_edge_of_sofa_when_in_front"
+        ],
+        "as_back": [
+          "objects_on_top",
+          "foreground_accent_on_lower_edge"
+        ]
+      },
+      "prohibited_relations": [
+        "THROUGH:sofa",
+        "THROUGH:chair"
+      ],
+      "grouping": "single",
+      "protected_features": [],
+      "notes": "Central horizontal anchor in front of seating; overlaps the sofa's lower edge only.",
+      "dominant_ground_object": false
+    },
+    {
+      "semantic_class": "console_table",
+      "family": "furniture",
+      "size_class": "L",
+      "typical_height_in": 32,
+      "typical_width_in": 54,
+      "plane": "floor",
+      "orientation": "upright",
+      "spatial_role_candidates": [
+        "SURFACE_PROVIDER",
+        "ANCHOR_H"
+      ],
+      "anchor_weight": 2,
+      "foreground_suitability": 1,
+      "can_support": [
+        "table_lamp",
+        "vase",
+        "urn",
+        "bowl",
+        "clock_mantel",
+        "figurine",
+        "small_sculpture",
+        "china_group"
+      ],
+      "can_be_supported_by": [],
+      "allowable_overlap": {
+        "as_front": [
+          "lower_edge_of_larger_object"
+        ],
+        "as_back": [
+          "foreground_accent_on_lower_edge"
+        ]
+      },
+      "prohibited_relations": [
+        "THROUGH:any_same_plane_object",
+        "FLOATING:if_plane_is_floor_or_wall_without_support"
+      ],
+      "grouping": "single",
+      "protected_features": [],
+      "notes": "Against a wall; art or mirror hangs above it.",
+      "dominant_ground_object": false
+    },
+    {
+      "semantic_class": "dining_table",
+      "family": "furniture",
+      "size_class": "XL",
+      "typical_height_in": 30,
+      "typical_width_in": 84,
+      "plane": "floor",
+      "orientation": "upright",
+      "spatial_role_candidates": [
+        "ANCHOR_H",
+        "SURFACE_PROVIDER"
+      ],
+      "anchor_weight": 3,
+      "foreground_suitability": 0,
+      "can_support": [
+        "china_group",
+        "vase",
+        "candelabra",
+        "centrepiece",
+        "silver"
+      ],
+      "can_be_supported_by": [],
+      "allowable_overlap": {
+        "as_front": [],
+        "as_back": [
+          "dining_chairs_pushed_in_over_apron",
+          "objects_on_top",
+          "foreground_accent_on_lower_edge"
+        ]
+      },
+      "prohibited_relations": [
+        "THROUGH:chair",
+        "THROUGH:sofa"
+      ],
+      "grouping": "single",
+      "protected_features": [],
+      "notes": "Major horizontal floor anchor; chairs belong with it.",
+      "dominant_ground_object": false
+    },
+    {
+      "semantic_class": "desk",
+      "family": "furniture",
+      "size_class": "L",
+      "typical_height_in": 30,
+      "typical_width_in": 60,
+      "plane": "floor",
+      "orientation": "upright",
+      "spatial_role_candidates": [
+        "ANCHOR_H",
+        "SURFACE_PROVIDER"
+      ],
+      "anchor_weight": 2,
+      "foreground_suitability": 0,
+      "can_support": [
+        "table_lamp",
+        "book_stack",
+        "clock_mantel",
+        "small_decor"
+      ],
+      "can_be_supported_by": [],
+      "allowable_overlap": {
+        "as_front": [
+          "lower_edge_of_larger_object"
+        ],
+        "as_back": [
+          "foreground_accent_on_lower_edge"
+        ]
+      },
+      "prohibited_relations": [
+        "THROUGH:any_same_plane_object",
+        "FLOATING:if_plane_is_floor_or_wall_without_support"
+      ],
+      "grouping": "single",
+      "protected_features": [],
+      "notes": "",
+      "dominant_ground_object": false
+    },
+    {
+      "semantic_class": "cabinet",
+      "family": "furniture",
+      "size_class": "XL",
+      "typical_height_in": 80,
+      "typical_width_in": 60,
+      "plane": "floor",
+      "orientation": "upright",
+      "spatial_role_candidates": [
+        "TALL_STRUCTURE"
+      ],
+      "anchor_weight": 3,
+      "foreground_suitability": 0,
+      "can_support": [
+        "vase",
+        "urn",
+        "bowl",
+        "figurine",
+        "clock_mantel",
+        "china_group(on_top_or_inside)"
+      ],
+      "can_be_supported_by": [],
+      "allowable_overlap": {
+        "as_front": [],
+        "as_back": [
+          "any_smaller_floor_object_in_front",
+          "foreground_accent"
+        ]
+      },
+      "prohibited_relations": [
+        "FLOATING",
+        "THROUGH:any",
+        "in_front_of_smaller_floor_object_with_lower_baseline"
+      ],
+      "grouping": "single",
+      "protected_features": [],
+      "notes": "Large rear vertical anchor (breakfront, armoire, china cabinet). Always grounded; always behind.",
+      "dominant_ground_object": false
+    },
+    {
+      "semantic_class": "chest_of_drawers",
+      "family": "furniture",
+      "size_class": "L",
+      "typical_height_in": 48,
+      "typical_width_in": 40,
+      "plane": "floor",
+      "orientation": "upright",
+      "spatial_role_candidates": [
+        "TALL_STRUCTURE",
+        "SURFACE_PROVIDER"
+      ],
+      "anchor_weight": 2,
+      "foreground_suitability": 0,
+      "can_support": [
+        "table_lamp",
+        "vase",
+        "mirror(leaning)",
+        "clock_mantel",
+        "figurine",
+        "bowl"
+      ],
+      "can_be_supported_by": [],
+      "allowable_overlap": {
+        "as_front": [
+          "lower_edge_of_larger_object"
+        ],
+        "as_back": [
+          "foreground_accent_on_lower_edge"
+        ]
+      },
+      "prohibited_relations": [
+        "THROUGH:any_same_plane_object",
+        "FLOATING:if_plane_is_floor_or_wall_without_support"
+      ],
+      "grouping": "single",
+      "protected_features": [],
+      "notes": "",
+      "dominant_ground_object": false
+    },
+    {
+      "semantic_class": "bookcase",
+      "family": "furniture",
+      "size_class": "XL",
+      "typical_height_in": 78,
+      "typical_width_in": 36,
+      "plane": "floor",
+      "orientation": "upright",
+      "spatial_role_candidates": [
+        "TALL_STRUCTURE"
+      ],
+      "anchor_weight": 2,
+      "foreground_suitability": 0,
+      "can_support": [
+        "book_stack",
+        "vase",
+        "figurine",
+        "china_group"
+      ],
+      "can_be_supported_by": [],
+      "allowable_overlap": {
+        "as_front": [
+          "lower_edge_of_larger_object"
+        ],
+        "as_back": [
+          "foreground_accent_on_lower_edge"
+        ]
+      },
+      "prohibited_relations": [
+        "THROUGH:any_same_plane_object",
+        "FLOATING:if_plane_is_floor_or_wall_without_support"
+      ],
+      "grouping": "single",
+      "protected_features": [],
+      "notes": "",
+      "dominant_ground_object": false
+    },
+    {
+      "semantic_class": "bed",
+      "family": "furniture",
+      "size_class": "XL",
+      "typical_height_in": 50,
+      "typical_width_in": 80,
+      "plane": "floor",
+      "orientation": "upright",
+      "spatial_role_candidates": [
+        "HERO",
+        "ANCHOR_H"
+      ],
+      "anchor_weight": 3,
+      "foreground_suitability": 0,
+      "can_support": [],
+      "can_be_supported_by": [],
+      "allowable_overlap": {
+        "as_front": [
+          "lower_edge_of_larger_object"
+        ],
+        "as_back": [
+          "foreground_accent_on_lower_edge"
+        ]
+      },
+      "prohibited_relations": [
+        "THROUGH:any"
+      ],
+      "grouping": "single",
+      "protected_features": [],
+      "notes": "",
+      "dominant_ground_object": false
+    },
+    {
+      "semantic_class": "table_lamp",
+      "family": "lighting",
+      "size_class": "S",
+      "typical_height_in": 26,
+      "typical_width_in": 14,
+      "plane": "table",
+      "orientation": "upright",
+      "spatial_role_candidates": [
+        "LIGHT",
+        "SURFACE"
+      ],
+      "anchor_weight": 0,
+      "foreground_suitability": 1,
+      "can_support": [],
+      "can_be_supported_by": [
+        "side_table",
+        "console_table",
+        "chest_of_drawers",
+        "desk",
+        "pedestal"
+      ],
+      "allowable_overlap": {
+        "as_front": [
+          "lower_edge_of_larger_object"
+        ],
+        "as_back": [
+          "foreground_accent_on_lower_edge"
+        ]
+      },
+      "prohibited_relations": [
+        "FLOATING",
+        "ON:floor_without_pedestal",
+        "THROUGH:any"
+      ],
+      "grouping": "single",
+      "protected_features": [],
+      "notes": "Supported by a table/console; base sits on the support's top band.",
+      "dominant_ground_object": false
+    },
+    {
+      "semantic_class": "floor_lamp",
+      "family": "lighting",
+      "size_class": "XL",
+      "typical_height_in": 66,
+      "typical_width_in": 18,
+      "plane": "floor",
+      "orientation": "upright",
+      "spatial_role_candidates": [
+        "LIGHT",
+        "TALL"
+      ],
+      "anchor_weight": 1,
+      "foreground_suitability": 0,
+      "can_support": [],
+      "can_be_supported_by": [],
+      "allowable_overlap": {
+        "as_front": [
+          "lower_edge_of_seating_when_slightly_in_front"
+        ],
+        "as_back": [
+          "seating_in_front_overlapping_its_base"
+        ]
+      },
+      "prohibited_relations": [
+        "THROUGH:any",
+        "shorter_than_seating_backrest_without_dimensions"
+      ],
+      "grouping": "single",
+      "protected_features": [],
+      "notes": "Floor-supported vertical, beside or behind seating; taller than any chair.",
+      "dominant_ground_object": false
+    },
+    {
+      "semantic_class": "torchiere",
+      "family": "lighting",
+      "size_class": "XL",
+      "typical_height_in": 68,
+      "typical_width_in": 16,
+      "plane": "floor",
+      "orientation": "upright",
+      "spatial_role_candidates": [
+        "LIGHT",
+        "TALL"
+      ],
+      "anchor_weight": 1,
+      "foreground_suitability": 0,
+      "can_support": [],
+      "can_be_supported_by": [],
+      "allowable_overlap": {
+        "as_front": [
+          "lower_edge_of_larger_object"
+        ],
+        "as_back": [
+          "foreground_accent_on_lower_edge"
+        ]
+      },
+      "prohibited_relations": [
+        "THROUGH:any",
+        "shorter_than_seating_backrest_without_dimensions"
+      ],
+      "grouping": "single",
+      "protected_features": [],
+      "notes": "",
+      "dominant_ground_object": false
+    },
+    {
+      "semantic_class": "chandelier",
+      "family": "lighting",
+      "size_class": "M",
+      "typical_height_in": 30,
+      "typical_width_in": 30,
+      "plane": "ceiling",
+      "orientation": "hung",
+      "spatial_role_candidates": [
+        "WALL"
+      ],
+      "anchor_weight": 0,
+      "foreground_suitability": 0,
+      "can_support": [],
+      "can_be_supported_by": [],
+      "allowable_overlap": {
+        "as_front": [
+          "lower_edge_of_larger_object"
+        ],
+        "as_back": [
+          "foreground_accent_on_lower_edge"
+        ]
+      },
+      "prohibited_relations": [
+        "ON:floor",
+        "ON:table"
+      ],
+      "grouping": "single",
+      "protected_features": [],
+      "notes": "Ceiling plane; shown high, never resting on anything.",
+      "dominant_ground_object": false
+    },
+    {
+      "semantic_class": "candelabra",
+      "family": "lighting",
+      "size_class": "S",
+      "typical_height_in": 20,
+      "typical_width_in": 12,
+      "plane": "table",
+      "orientation": "upright",
+      "spatial_role_candidates": [
+        "SURFACE",
+        "FOREGROUND"
+      ],
+      "anchor_weight": 0,
+      "foreground_suitability": 2,
+      "can_support": [],
+      "can_be_supported_by": [
+        "dining_table",
+        "console_table",
+        "side_table",
+        "pedestal"
+      ],
+      "allowable_overlap": {
+        "as_front": [
+          "lower_edge_of_larger_object"
+        ],
+        "as_back": [
+          "foreground_accent_on_lower_edge"
+        ]
+      },
+      "prohibited_relations": [
+        "THROUGH:any_same_plane_object",
+        "FLOATING:if_plane_is_floor_or_wall_without_support"
+      ],
+      "grouping": "pair",
+      "protected_features": [],
+      "notes": "",
+      "dominant_ground_object": false
+    },
+    {
+      "semantic_class": "vase",
+      "family": "decor",
+      "size_class": "S",
+      "typical_height_in": 14,
+      "typical_width_in": 8,
+      "plane": "table",
+      "orientation": "upright",
+      "spatial_role_candidates": [
+        "SURFACE",
+        "FOREGROUND"
+      ],
+      "anchor_weight": 0,
+      "foreground_suitability": 3,
+      "can_support": [],
+      "can_be_supported_by": [
+        "side_table",
+        "console_table",
+        "dining_table",
+        "chest_of_drawers",
+        "pedestal",
+        "shelf",
+        "cabinet(top)"
+      ],
+      "allowable_overlap": {
+        "as_front": [
+          "lower_edge_of_larger_object"
+        ],
+        "as_back": []
+      },
+      "prohibited_relations": [
+        "larger_than_seating_without_dimensions",
+        "FLOATING"
+      ],
+      "grouping": "single_or_pair",
+      "protected_features": [],
+      "notes": "Tabletop/shelf/pedestal/foreground. A floor vase (\u2265 24 in) is a distinct class instance: plane floor, anchor 1.",
+      "dominant_ground_object": false
+    },
+    {
+      "semantic_class": "floor_vase",
+      "family": "decor",
+      "size_class": "M",
+      "typical_height_in": 30,
+      "typical_width_in": 14,
+      "plane": "floor",
+      "orientation": "upright",
+      "spatial_role_candidates": [
+        "FOREGROUND",
+        "SURFACE"
+      ],
+      "anchor_weight": 1,
+      "foreground_suitability": 2,
+      "can_support": [],
+      "can_be_supported_by": [],
+      "allowable_overlap": {
+        "as_front": [
+          "lower_edge_of_larger_object"
+        ],
+        "as_back": []
+      },
+      "prohibited_relations": [
+        "THROUGH:any_same_plane_object",
+        "FLOATING:if_plane_is_floor_or_wall_without_support"
+      ],
+      "grouping": "single_or_pair",
+      "protected_features": [],
+      "notes": "",
+      "dominant_ground_object": false
+    },
+    {
+      "semantic_class": "urn",
+      "family": "decor",
+      "size_class": "M",
+      "typical_height_in": 24,
+      "typical_width_in": 16,
+      "plane": "pedestal",
+      "orientation": "upright",
+      "spatial_role_candidates": [
+        "SURFACE",
+        "TALL"
+      ],
+      "anchor_weight": 1,
+      "foreground_suitability": 2,
+      "can_support": [],
+      "can_be_supported_by": [
+        "pedestal",
+        "console_table",
+        "floor"
+      ],
+      "allowable_overlap": {
+        "as_front": [
+          "lower_edge_of_larger_object"
+        ],
+        "as_back": [
+          "foreground_accent_on_lower_edge"
+        ]
+      },
+      "prohibited_relations": [
+        "THROUGH:any_same_plane_object",
+        "FLOATING:if_plane_is_floor_or_wall_without_support"
+      ],
+      "grouping": "pair",
+      "protected_features": [],
+      "notes": "",
+      "dominant_ground_object": false
+    },
+    {
+      "semantic_class": "bowl",
+      "family": "decor",
+      "size_class": "S",
+      "typical_height_in": 8,
+      "typical_width_in": 14,
+      "plane": "table",
+      "orientation": "upright",
+      "spatial_role_candidates": [
+        "SURFACE",
+        "FOREGROUND"
+      ],
+      "anchor_weight": 0,
+      "foreground_suitability": 3,
+      "can_support": [],
+      "can_be_supported_by": [
+        "coffee_table",
+        "side_table",
+        "dining_table",
+        "console_table",
+        "shelf"
+      ],
+      "allowable_overlap": {
+        "as_front": [
+          "lower_edge_of_larger_object"
+        ],
+        "as_back": [
+          "foreground_accent_on_lower_edge"
+        ]
+      },
+      "prohibited_relations": [
+        "FLOATING",
+        "as_tall_as_a_table_without_dimensions"
+      ],
+      "grouping": "single",
+      "protected_features": [],
+      "notes": "",
+      "dominant_ground_object": false
+    },
+    {
+      "semantic_class": "silver_group",
+      "family": "decor",
+      "size_class": "S",
+      "typical_height_in": 12,
+      "typical_width_in": 20,
+      "plane": "table",
+      "orientation": "upright",
+      "spatial_role_candidates": [
+        "SURFACE",
+        "FOREGROUND"
+      ],
+      "anchor_weight": 0,
+      "foreground_suitability": 3,
+      "can_support": [],
+      "can_be_supported_by": [
+        "dining_table",
+        "console_table",
+        "side_table",
+        "shelf"
+      ],
+      "allowable_overlap": {
+        "as_front": [
+          "lower_edge_of_larger_object"
+        ],
+        "as_back": [
+          "foreground_accent_on_lower_edge"
+        ]
+      },
+      "prohibited_relations": [
+        "THROUGH:any_same_plane_object",
+        "FLOATING:if_plane_is_floor_or_wall_without_support"
+      ],
+      "grouping": "grouped_tabletop",
+      "protected_features": [],
+      "notes": "",
+      "dominant_ground_object": false
+    },
+    {
+      "semantic_class": "china_group",
+      "family": "household",
+      "size_class": "S",
+      "typical_height_in": 10,
+      "typical_width_in": 30,
+      "plane": "table",
+      "orientation": "flat_group",
+      "spatial_role_candidates": [
+        "SURFACE",
+        "FOREGROUND"
+      ],
+      "anchor_weight": 0,
+      "foreground_suitability": 3,
+      "can_support": [],
+      "can_be_supported_by": [
+        "dining_table",
+        "console_table",
+        "shelf",
+        "cabinet(inside)"
+      ],
+      "allowable_overlap": {
+        "as_front": [
+          "lower_edge_of_larger_object"
+        ],
+        "as_back": [
+          "foreground_accent_on_lower_edge"
+        ]
+      },
+      "prohibited_relations": [
+        "ON:floor",
+        "FLOATING",
+        "scattered_across_the_floor_plane"
+      ],
+      "grouping": "grouped_tabletop_or_shelf",
+      "protected_features": [],
+      "notes": "China is treated as a grouped tabletop/shelf set (a stack, a place setting), never scattered on the floor plane.",
+      "dominant_ground_object": false
+    },
+    {
+      "semantic_class": "figurine",
+      "family": "decor",
+      "size_class": "XS",
+      "typical_height_in": 7,
+      "typical_width_in": 4,
+      "plane": "table",
+      "orientation": "upright",
+      "spatial_role_candidates": [
+        "SURFACE",
+        "FOREGROUND"
+      ],
+      "anchor_weight": 0,
+      "foreground_suitability": 2,
+      "can_support": [],
+      "can_be_supported_by": [
+        "side_table",
+        "console_table",
+        "shelf",
+        "pedestal",
+        "cabinet(top)"
+      ],
+      "allowable_overlap": {
+        "as_front": [
+          "lower_edge_of_larger_object"
+        ],
+        "as_back": [
+          "foreground_accent_on_lower_edge"
+        ]
+      },
+      "prohibited_relations": [
+        "THROUGH:any_same_plane_object",
+        "FLOATING:if_plane_is_floor_or_wall_without_support"
+      ],
+      "grouping": "single_or_group",
+      "protected_features": [],
+      "notes": "",
+      "dominant_ground_object": false
+    },
+    {
+      "semantic_class": "clock_mantel",
+      "family": "decor",
+      "size_class": "S",
+      "typical_height_in": 12,
+      "typical_width_in": 16,
+      "plane": "table",
+      "orientation": "upright",
+      "spatial_role_candidates": [
+        "SURFACE"
+      ],
+      "anchor_weight": 0,
+      "foreground_suitability": 2,
+      "can_support": [],
+      "can_be_supported_by": [
+        "console_table",
+        "chest_of_drawers",
+        "mantel",
+        "shelf"
+      ],
+      "allowable_overlap": {
+        "as_front": [
+          "lower_edge_of_larger_object"
+        ],
+        "as_back": [
+          "foreground_accent_on_lower_edge"
+        ]
+      },
+      "prohibited_relations": [
+        "THROUGH:any_same_plane_object",
+        "FLOATING:if_plane_is_floor_or_wall_without_support"
+      ],
+      "grouping": "single",
+      "protected_features": [],
+      "notes": "",
+      "dominant_ground_object": false
+    },
+    {
+      "semantic_class": "clock_tall",
+      "family": "decor",
+      "size_class": "XL",
+      "typical_height_in": 84,
+      "typical_width_in": 22,
+      "plane": "floor",
+      "orientation": "upright",
+      "spatial_role_candidates": [
+        "TALL_STRUCTURE",
+        "TALL"
+      ],
+      "anchor_weight": 2,
+      "foreground_suitability": 0,
+      "can_support": [],
+      "can_be_supported_by": [],
+      "allowable_overlap": {
+        "as_front": [
+          "lower_edge_of_larger_object"
+        ],
+        "as_back": [
+          "foreground_accent_on_lower_edge"
+        ]
+      },
+      "prohibited_relations": [
+        "FLOATING",
+        "THROUGH:any"
+      ],
+      "grouping": "single",
+      "protected_features": [],
+      "notes": "",
+      "dominant_ground_object": false
+    },
+    {
+      "semantic_class": "book_stack",
+      "family": "household",
+      "size_class": "S",
+      "typical_height_in": 8,
+      "typical_width_in": 10,
+      "plane": "table",
+      "orientation": "flat_group",
+      "spatial_role_candidates": [
+        "SURFACE",
+        "FOREGROUND"
+      ],
+      "anchor_weight": 0,
+      "foreground_suitability": 3,
+      "can_support": [],
+      "can_be_supported_by": [
+        "coffee_table",
+        "side_table",
+        "desk",
+        "shelf"
+      ],
+      "allowable_overlap": {
+        "as_front": [
+          "lower_edge_of_larger_object"
+        ],
+        "as_back": [
+          "foreground_accent_on_lower_edge"
+        ]
+      },
+      "prohibited_relations": [
+        "THROUGH:any_same_plane_object",
+        "FLOATING:if_plane_is_floor_or_wall_without_support"
+      ],
+      "grouping": "single",
+      "protected_features": [],
+      "notes": "",
+      "dominant_ground_object": false
+    },
+    {
+      "semantic_class": "tray",
+      "family": "household",
+      "size_class": "S",
+      "typical_height_in": 3,
+      "typical_width_in": 18,
+      "plane": "table",
+      "orientation": "flat",
+      "spatial_role_candidates": [
+        "SURFACE"
+      ],
+      "anchor_weight": 0,
+      "foreground_suitability": 2,
+      "can_support": [],
+      "can_be_supported_by": [
+        "coffee_table",
+        "console_table",
+        "dining_table"
+      ],
+      "allowable_overlap": {
+        "as_front": [
+          "lower_edge_of_larger_object"
+        ],
+        "as_back": [
+          "foreground_accent_on_lower_edge"
+        ]
+      },
+      "prohibited_relations": [
+        "THROUGH:any_same_plane_object",
+        "FLOATING:if_plane_is_floor_or_wall_without_support"
+      ],
+      "grouping": "single",
+      "protected_features": [],
+      "notes": "",
+      "dominant_ground_object": false
+    },
+    {
+      "semantic_class": "sculpture_small",
+      "family": "art",
+      "size_class": "S",
+      "typical_height_in": 14,
+      "typical_width_in": 10,
+      "plane": "table",
+      "orientation": "upright",
+      "spatial_role_candidates": [
+        "SURFACE",
+        "FOREGROUND"
+      ],
+      "anchor_weight": 0,
+      "foreground_suitability": 3,
+      "can_support": [],
+      "can_be_supported_by": [
+        "side_table",
+        "console_table",
+        "pedestal",
+        "shelf"
+      ],
+      "allowable_overlap": {
+        "as_front": [
+          "lower_edge_of_larger_object"
+        ],
+        "as_back": [
+          "foreground_accent_on_lower_edge"
+        ]
+      },
+      "prohibited_relations": [
+        "THROUGH:any_same_plane_object",
+        "FLOATING:if_plane_is_floor_or_wall_without_support"
+      ],
+      "grouping": "single",
+      "protected_features": [
+        "signature",
+        "face"
+      ],
+      "notes": "Scale-dependent: under 20 in \u2192 table/pedestal.",
+      "dominant_ground_object": false
+    },
+    {
+      "semantic_class": "sculpture_large",
+      "family": "art",
+      "size_class": "L",
+      "typical_height_in": 48,
+      "typical_width_in": 24,
+      "plane": "floor",
+      "orientation": "upright",
+      "spatial_role_candidates": [
+        "HERO",
+        "TALL"
+      ],
+      "anchor_weight": 2,
+      "foreground_suitability": 1,
+      "can_support": [],
+      "can_be_supported_by": [
+        "floor",
+        "pedestal"
+      ],
+      "allowable_overlap": {
+        "as_front": [
+          "lower_edge_of_larger_object"
+        ],
+        "as_back": [
+          "foreground_accent_on_lower_edge"
+        ]
+      },
+      "prohibited_relations": [
+        "THROUGH:any_same_plane_object",
+        "FLOATING:if_plane_is_floor_or_wall_without_support"
+      ],
+      "grouping": "single",
+      "protected_features": [
+        "signature",
+        "face"
+      ],
+      "notes": "Over 36 in \u2192 floor or pedestal; behaves as a floor anchor.",
+      "dominant_ground_object": false
+    },
+    {
+      "semantic_class": "bust",
+      "family": "art",
+      "size_class": "M",
+      "typical_height_in": 22,
+      "typical_width_in": 14,
+      "plane": "pedestal",
+      "orientation": "upright",
+      "spatial_role_candidates": [
+        "SURFACE",
+        "TALL"
+      ],
+      "anchor_weight": 1,
+      "foreground_suitability": 2,
+      "can_support": [],
+      "can_be_supported_by": [
+        "pedestal",
+        "console_table",
+        "cabinet(top)"
+      ],
+      "allowable_overlap": {
+        "as_front": [
+          "lower_edge_of_larger_object"
+        ],
+        "as_back": [
+          "foreground_accent_on_lower_edge"
+        ]
+      },
+      "prohibited_relations": [
+        "THROUGH:any_same_plane_object",
+        "FLOATING:if_plane_is_floor_or_wall_without_support"
+      ],
+      "grouping": "single",
+      "protected_features": [
+        "face"
+      ],
+      "notes": "",
+      "dominant_ground_object": false
+    },
+    {
+      "semantic_class": "pedestal",
+      "family": "furniture",
+      "size_class": "M",
+      "typical_height_in": 36,
+      "typical_width_in": 14,
+      "plane": "floor",
+      "orientation": "upright",
+      "spatial_role_candidates": [
+        "SURFACE_PROVIDER",
+        "TALL"
+      ],
+      "anchor_weight": 1,
+      "foreground_suitability": 1,
+      "can_support": [
+        "bust",
+        "urn",
+        "vase",
+        "sculpture_small",
+        "table_lamp",
+        "floor_vase(no)"
+      ],
+      "can_be_supported_by": [],
+      "allowable_overlap": {
+        "as_front": [
+          "lower_edge_of_larger_object"
+        ],
+        "as_back": [
+          "foreground_accent_on_lower_edge"
+        ]
+      },
+      "prohibited_relations": [
+        "THROUGH:any_same_plane_object",
+        "FLOATING:if_plane_is_floor_or_wall_without_support"
+      ],
+      "grouping": "single",
+      "protected_features": [],
+      "notes": "",
+      "dominant_ground_object": false
+    },
+    {
+      "semantic_class": "painting",
+      "family": "art",
+      "size_class": "L",
+      "typical_height_in": 36,
+      "typical_width_in": 48,
+      "plane": "wall",
+      "orientation": "hung",
+      "spatial_role_candidates": [
+        "WALL"
+      ],
+      "anchor_weight": 1,
+      "foreground_suitability": 0,
+      "can_support": [],
+      "can_be_supported_by": [],
+      "allowable_overlap": {
+        "as_front": [],
+        "as_back": [
+          "any_floor_object_in_front",
+          "lamp_shade_or_tall_object_crossing_its_lower_edge"
+        ]
+      },
+      "prohibited_relations": [
+        "ON:floor",
+        "FLOATING_below_furniture_top_line",
+        "in_front_of_any_floor_object",
+        "contact_shadow"
+      ],
+      "grouping": "single",
+      "protected_features": [
+        "signature",
+        "full_image"
+      ],
+      "notes": "Wall plane. Hangs above furniture; may lean against a wall/cabinet only when declared 'leaning' (then baseline on the floor and tilt shown).",
+      "dominant_ground_object": false
+    },
+    {
+      "semantic_class": "mirror",
+      "family": "art",
+      "size_class": "L",
+      "typical_height_in": 40,
+      "typical_width_in": 30,
+      "plane": "wall",
+      "orientation": "hung",
+      "spatial_role_candidates": [
+        "WALL"
+      ],
+      "anchor_weight": 1,
+      "foreground_suitability": 0,
+      "can_support": [],
+      "can_be_supported_by": [],
+      "allowable_overlap": {
+        "as_front": [
+          "lower_edge_of_larger_object"
+        ],
+        "as_back": [
+          "foreground_accent_on_lower_edge"
+        ]
+      },
+      "prohibited_relations": [
+        "ON:floor_unless_leaning",
+        "in_front_of_any_floor_object",
+        "contact_shadow"
+      ],
+      "grouping": "single",
+      "protected_features": [],
+      "notes": "As painting; a leaning floor mirror is declared 'leaning'.",
+      "dominant_ground_object": false
+    },
+    {
+      "semantic_class": "print",
+      "family": "art",
+      "size_class": "M",
+      "typical_height_in": 24,
+      "typical_width_in": 30,
+      "plane": "wall",
+      "orientation": "hung",
+      "spatial_role_candidates": [
+        "WALL"
+      ],
+      "anchor_weight": 0,
+      "foreground_suitability": 0,
+      "can_support": [],
+      "can_be_supported_by": [],
+      "allowable_overlap": {
+        "as_front": [
+          "lower_edge_of_larger_object"
+        ],
+        "as_back": [
+          "foreground_accent_on_lower_edge"
+        ]
+      },
+      "prohibited_relations": [
+        "ON:floor_unless_leaning",
+        "in_front_of_any_floor_object"
+      ],
+      "grouping": "single",
+      "protected_features": [
+        "signature"
+      ],
+      "notes": "",
+      "dominant_ground_object": false
+    },
+    {
+      "semantic_class": "wall_shelf",
+      "family": "furniture",
+      "size_class": "M",
+      "typical_height_in": 10,
+      "typical_width_in": 36,
+      "plane": "wall",
+      "orientation": "hung",
+      "spatial_role_candidates": [
+        "WALL",
+        "SURFACE_PROVIDER"
+      ],
+      "anchor_weight": 0,
+      "foreground_suitability": 0,
+      "can_support": [
+        "figurine",
+        "vase",
+        "book_stack",
+        "china_group"
+      ],
+      "can_be_supported_by": [],
+      "allowable_overlap": {
+        "as_front": [
+          "lower_edge_of_larger_object"
+        ],
+        "as_back": [
+          "foreground_accent_on_lower_edge"
+        ]
+      },
+      "prohibited_relations": [
+        "THROUGH:any_same_plane_object",
+        "FLOATING:if_plane_is_floor_or_wall_without_support"
+      ],
+      "grouping": "single",
+      "protected_features": [],
+      "notes": "",
+      "dominant_ground_object": false
+    },
+    {
+      "semantic_class": "rug",
+      "family": "textiles",
+      "size_class": "XL",
+      "typical_height_in": 1,
+      "typical_width_in": 96,
+      "plane": "ground",
+      "orientation": "flat",
+      "spatial_role_candidates": [
+        "GROUND"
+      ],
+      "anchor_weight": 1,
+      "foreground_suitability": 0,
+      "can_support": [],
+      "can_be_supported_by": [],
+      "allowable_overlap": {
+        "as_front": [],
+        "as_back": [
+          "any_floor_object_on_top"
+        ]
+      },
+      "prohibited_relations": [
+        "ON:wall",
+        "over_any_floor_object",
+        "vertical_orientation_unless_declared_hung_textile"
+      ],
+      "grouping": "single",
+      "protected_features": [],
+      "notes": "Ground plane under furniture. Rendered as a floor patch beneath anchors, never over them; never vertical unless the lot is a hung textile.",
+      "dominant_ground_object": false
+    },
+    {
+      "semantic_class": "tool_chest",
+      "family": "tools",
+      "size_class": "L",
+      "typical_height_in": 40,
+      "typical_width_in": 30,
+      "plane": "floor",
+      "orientation": "upright",
+      "spatial_role_candidates": [
+        "TOOL_GROUP",
+        "ANCHOR_H"
+      ],
+      "anchor_weight": 2,
+      "foreground_suitability": 1,
+      "can_support": [
+        "hand_tools_group",
+        "power_tool"
+      ],
+      "can_be_supported_by": [],
+      "allowable_overlap": {
+        "as_front": [
+          "lower_edge_of_larger_object"
+        ],
+        "as_back": [
+          "foreground_accent_on_lower_edge"
+        ]
+      },
+      "prohibited_relations": [
+        "FLOATING",
+        "THROUGH:any"
+      ],
+      "grouping": "single",
+      "protected_features": [],
+      "notes": "Heavy ground anchor.",
+      "dominant_ground_object": false
+    },
+    {
+      "semantic_class": "hand_tools_group",
+      "family": "tools",
+      "size_class": "S",
+      "typical_height_in": 12,
+      "typical_width_in": 24,
+      "plane": "table",
+      "orientation": "flat_group",
+      "spatial_role_candidates": [
+        "TOOL_GROUP",
+        "FOREGROUND"
+      ],
+      "anchor_weight": 0,
+      "foreground_suitability": 3,
+      "can_support": [],
+      "can_be_supported_by": [
+        "tool_chest",
+        "workbench",
+        "floor"
+      ],
+      "allowable_overlap": {
+        "as_front": [
+          "lower_edge_of_larger_object"
+        ],
+        "as_back": [
+          "foreground_accent_on_lower_edge"
+        ]
+      },
+      "prohibited_relations": [
+        "THROUGH:any_same_plane_object",
+        "FLOATING:if_plane_is_floor_or_wall_without_support"
+      ],
+      "grouping": "grouped",
+      "protected_features": [],
+      "notes": "",
+      "dominant_ground_object": false
+    },
+    {
+      "semantic_class": "power_tool",
+      "family": "tools",
+      "size_class": "S",
+      "typical_height_in": 12,
+      "typical_width_in": 16,
+      "plane": "table",
+      "orientation": "upright",
+      "spatial_role_candidates": [
+        "TOOL_GROUP",
+        "FOREGROUND"
+      ],
+      "anchor_weight": 0,
+      "foreground_suitability": 3,
+      "can_support": [],
+      "can_be_supported_by": [
+        "tool_chest",
+        "workbench",
+        "floor"
+      ],
+      "allowable_overlap": {
+        "as_front": [
+          "lower_edge_of_larger_object"
+        ],
+        "as_back": [
+          "foreground_accent_on_lower_edge"
+        ]
+      },
+      "prohibited_relations": [
+        "THROUGH:any_same_plane_object",
+        "FLOATING:if_plane_is_floor_or_wall_without_support"
+      ],
+      "grouping": "single",
+      "protected_features": [],
+      "notes": "",
+      "dominant_ground_object": false
+    },
+    {
+      "semantic_class": "tractor",
+      "family": "equipment",
+      "size_class": "XXL",
+      "typical_height_in": 90,
+      "typical_width_in": 140,
+      "plane": "ground",
+      "orientation": "upright",
+      "spatial_role_candidates": [
+        "HERO",
+        "OUTDOOR"
+      ],
+      "anchor_weight": 3,
+      "foreground_suitability": 0,
+      "can_support": [],
+      "can_be_supported_by": [],
+      "allowable_overlap": {
+        "as_front": [
+          "lower_edge_of_larger_object"
+        ],
+        "as_back": [
+          "foreground_accent_on_lower_edge"
+        ]
+      },
+      "prohibited_relations": [
+        "FLOATING",
+        "indoor_scene_without_declared_outdoor_family",
+        "smaller_than_furniture"
+      ],
+      "grouping": "single",
+      "protected_features": [],
+      "notes": "Dominant ground object; sets the scene scale; nothing overlaps it except foreground accents at its lower edge.",
+      "dominant_ground_object": true
+    },
+    {
+      "semantic_class": "vehicle",
+      "family": "equipment",
+      "size_class": "XXL",
+      "typical_height_in": 60,
+      "typical_width_in": 180,
+      "plane": "ground",
+      "orientation": "upright",
+      "spatial_role_candidates": [
+        "HERO",
+        "OUTDOOR"
+      ],
+      "anchor_weight": 3,
+      "foreground_suitability": 0,
+      "can_support": [],
+      "can_be_supported_by": [],
+      "allowable_overlap": {
+        "as_front": [
+          "lower_edge_of_larger_object"
+        ],
+        "as_back": [
+          "foreground_accent_on_lower_edge"
+        ]
+      },
+      "prohibited_relations": [
+        "FLOATING",
+        "smaller_than_furniture"
+      ],
+      "grouping": "single",
+      "protected_features": [],
+      "notes": "",
+      "dominant_ground_object": true
+    },
+    {
+      "semantic_class": "bicycle",
+      "family": "outdoor",
+      "size_class": "L",
+      "typical_height_in": 40,
+      "typical_width_in": 68,
+      "plane": "ground",
+      "orientation": "upright",
+      "spatial_role_candidates": [
+        "OUTDOOR",
+        "FOREGROUND"
+      ],
+      "anchor_weight": 1,
+      "foreground_suitability": 2,
+      "can_support": [],
+      "can_be_supported_by": [],
+      "allowable_overlap": {
+        "as_front": [
+          "lower_edge_of_larger_object"
+        ],
+        "as_back": [
+          "foreground_accent_on_lower_edge"
+        ]
+      },
+      "prohibited_relations": [
+        "THROUGH:any_same_plane_object",
+        "FLOATING:if_plane_is_floor_or_wall_without_support"
+      ],
+      "grouping": "single",
+      "protected_features": [],
+      "notes": "",
+      "dominant_ground_object": false
+    },
+    {
+      "semantic_class": "outdoor_furniture",
+      "family": "outdoor",
+      "size_class": "L",
+      "typical_height_in": 34,
+      "typical_width_in": 60,
+      "plane": "ground",
+      "orientation": "upright",
+      "spatial_role_candidates": [
+        "OUTDOOR",
+        "HERO"
+      ],
+      "anchor_weight": 2,
+      "foreground_suitability": 0,
+      "can_support": [],
+      "can_be_supported_by": [],
+      "allowable_overlap": {
+        "as_front": [
+          "lower_edge_of_larger_object"
+        ],
+        "as_back": [
+          "foreground_accent_on_lower_edge"
+        ]
+      },
+      "prohibited_relations": [
+        "THROUGH:any_same_plane_object",
+        "FLOATING:if_plane_is_floor_or_wall_without_support"
+      ],
+      "grouping": "single",
+      "protected_features": [],
+      "notes": "",
+      "dominant_ground_object": false
+    },
+    {
+      "semantic_class": "jewelry",
+      "family": "jewelry",
+      "size_class": "XS",
+      "typical_height_in": 2,
+      "typical_width_in": 3,
+      "plane": "table",
+      "orientation": "flat",
+      "spatial_role_candidates": [
+        "FOREGROUND"
+      ],
+      "anchor_weight": 0,
+      "foreground_suitability": 3,
+      "can_support": [],
+      "can_be_supported_by": [],
+      "allowable_overlap": {
+        "as_front": [
+          "lower_edge_of_larger_object"
+        ],
+        "as_back": [
+          "foreground_accent_on_lower_edge"
+        ]
+      },
+      "prohibited_relations": [
+        "scene_family_placement_at_room_scale",
+        "scaled_up_beside_furniture_without_category_family"
+      ],
+      "grouping": "category_composition",
+      "protected_features": [
+        "stones",
+        "clasp",
+        "hallmark"
+      ],
+      "notes": "Close-up / category composition only (CATEGORY_GROUP lineup, tile or hero). Never placed at room scale beside furniture.",
+      "dominant_ground_object": false
+    },
+    {
+      "semantic_class": "watch",
+      "family": "jewelry",
+      "size_class": "XS",
+      "typical_height_in": 2,
+      "typical_width_in": 2,
+      "plane": "table",
+      "orientation": "upright",
+      "spatial_role_candidates": [
+        "FOREGROUND"
+      ],
+      "anchor_weight": 0,
+      "foreground_suitability": 3,
+      "can_support": [],
+      "can_be_supported_by": [],
+      "allowable_overlap": {
+        "as_front": [
+          "lower_edge_of_larger_object"
+        ],
+        "as_back": [
+          "foreground_accent_on_lower_edge"
+        ]
+      },
+      "prohibited_relations": [
+        "scene_family_placement_at_room_scale"
+      ],
+      "grouping": "category_composition",
+      "protected_features": [
+        "dial",
+        "bezel",
+        "clasp"
+      ],
+      "notes": "",
+      "dominant_ground_object": false
+    },
+    {
+      "semantic_class": "coin",
+      "family": "collectibles",
+      "size_class": "XS",
+      "typical_height_in": 2,
+      "typical_width_in": 2,
+      "plane": "table",
+      "orientation": "flat",
+      "spatial_role_candidates": [
+        "FOREGROUND"
+      ],
+      "anchor_weight": 0,
+      "foreground_suitability": 3,
+      "can_support": [],
+      "can_be_supported_by": [],
+      "allowable_overlap": {
+        "as_front": [
+          "lower_edge_of_larger_object"
+        ],
+        "as_back": [
+          "foreground_accent_on_lower_edge"
+        ]
+      },
+      "prohibited_relations": [
+        "scene_family_placement_at_room_scale"
+      ],
+      "grouping": "category_composition",
+      "protected_features": [
+        "obverse",
+        "reverse"
+      ],
+      "notes": "",
+      "dominant_ground_object": false
+    },
+    {
+      "semantic_class": "taxidermy_mount",
+      "family": "collectibles",
+      "size_class": "L",
+      "typical_height_in": 30,
+      "typical_width_in": 24,
+      "plane": "wall",
+      "orientation": "hung",
+      "spatial_role_candidates": [
+        "WALL"
+      ],
+      "anchor_weight": 1,
+      "foreground_suitability": 0,
+      "can_support": [],
+      "can_be_supported_by": [],
+      "allowable_overlap": {
+        "as_front": [
+          "lower_edge_of_larger_object"
+        ],
+        "as_back": [
+          "foreground_accent_on_lower_edge"
+        ]
+      },
+      "prohibited_relations": [
+        "ON:floor",
+        "FLOATING_mid_canvas_in_scene_family"
+      ],
+      "grouping": "single",
+      "protected_features": [],
+      "notes": "Wall plane in scene families; free placement only in CATALOG_SCATTER.",
+      "dominant_ground_object": false
+    },
+    {
+      "semantic_class": "musical_instrument",
+      "family": "collectibles",
+      "size_class": "L",
+      "typical_height_in": 40,
+      "typical_width_in": 16,
+      "plane": "floor",
+      "orientation": "upright",
+      "spatial_role_candidates": [
+        "FOREGROUND",
+        "TALL"
+      ],
+      "anchor_weight": 1,
+      "foreground_suitability": 2,
+      "can_support": [],
+      "can_be_supported_by": [
+        "stand",
+        "floor(leaning_declared)"
+      ],
+      "allowable_overlap": {
+        "as_front": [
+          "lower_edge_of_larger_object"
+        ],
+        "as_back": [
+          "foreground_accent_on_lower_edge"
+        ]
+      },
+      "prohibited_relations": [
+        "THROUGH:any_same_plane_object",
+        "FLOATING:if_plane_is_floor_or_wall_without_support"
+      ],
+      "grouping": "single",
+      "protected_features": [
+        "headstock",
+        "label"
+      ],
+      "notes": "",
+      "dominant_ground_object": false
+    },
+    {
+      "semantic_class": "arcade_cabinet",
+      "family": "collectibles",
+      "size_class": "XL",
+      "typical_height_in": 70,
+      "typical_width_in": 28,
+      "plane": "floor",
+      "orientation": "upright",
+      "spatial_role_candidates": [
+        "TALL_STRUCTURE",
+        "HERO"
+      ],
+      "anchor_weight": 2,
+      "foreground_suitability": 0,
+      "can_support": [],
+      "can_be_supported_by": [],
+      "allowable_overlap": {
+        "as_front": [
+          "lower_edge_of_larger_object"
+        ],
+        "as_back": [
+          "foreground_accent_on_lower_edge"
+        ]
+      },
+      "prohibited_relations": [
+        "FLOATING",
+        "THROUGH:any"
+      ],
+      "grouping": "single",
+      "protected_features": [],
+      "notes": "",
+      "dominant_ground_object": false
+    }
+  ],
+  "class_resolution": {
+    "source": "lot.category_key + title/description keyword rules + (optional) image classifier; confidence stored; unresolved \u2192 generic class by size (from image aspect + category family) with anchor_weight 1 and foreground_suitability 1",
+    "owner_review": "a creative whose scene contains any unresolved class in an anchor position is Owner-review flagged"
+  }
+}

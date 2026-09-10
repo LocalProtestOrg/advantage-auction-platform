@@ -225,4 +225,67 @@ router.get('/evidence/:purchaseId', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
+// ── Phase 3P.2 measurement readiness + Paid Growth Director (SHADOW) + assisted service (Super-Admin) ──
+// Nothing here spends, activates a channel or contacts an advertising provider. Cost import records spend facts only.
+router.get('/measurement-readiness', async (req, res, next) => {
+  try { return res.json({ success: true, data: await require('../services/measurement/measurementReadinessService').evaluate(db) }); }
+  catch (err) { next(err); }
+});
+router.get('/conversions/summary', async (req, res, next) => {
+  try {
+    const oa = require('../services/measurement/outcomeAttributionService');
+    const byKey = (await db.query(`SELECT conversion_key, count(*)::int n, max(occurred_at) last_at FROM marketing_conversion_events GROUP BY 1 ORDER BY 1`)).rows;
+    const dispatch = (await db.query(`SELECT provider_dispatch->'meta_capi'->>'status' meta, provider_dispatch->'google_ads'->>'status' google, count(*)::int n FROM marketing_conversion_events GROUP BY 1,2`)).rows;
+    return res.json({ success: true, data: { by_key: byKey, by_class: await oa.classTotals({}, db), provider_dispatch: dispatch } });
+  } catch (err) { next(err); }
+});
+router.post('/paid-growth/run-shadow', async (req, res, next) => {
+  try { return res.json({ success: true, data: await require('../services/paidGrowth/paidGrowthDirector').runShadow({ month: (req.body && req.body.month) || undefined, persist: true }, db) }); }
+  catch (err) { next(err); }
+});
+router.post('/paid-growth/evaluate', async (req, res, next) => {
+  try { return res.json({ success: true, data: await require('../services/paidGrowth/paidGrowthDirector').evaluateCampaigns({}, db) }); }
+  catch (err) { next(err); }
+});
+router.get('/paid-growth/proposals', async (req, res, next) => {
+  try {
+    const month = String((req.query && req.query.month) || new Date().toISOString().slice(0, 7)).slice(0, 7) + '-01';
+    const rows = (await db.query(`SELECT * FROM marketing_paid_growth_proposals WHERE month=$1::date ORDER BY created_at DESC`, [month])).rows;
+    return res.json({ success: true, data: rows });
+  } catch (err) { next(err); }
+});
+router.get('/paid-growth/report', async (req, res, next) => {
+  try {
+    const rep = require('../services/paidGrowth/paidGrowthReport');
+    const kind = String((req.query && req.query.kind) || 'monthly');
+    const data = kind === 'weekly' ? await rep.weekly({}, db) : kind === 'state_changes' ? await rep.stateChanges({}, db) : await rep.monthly({ month: req.query && req.query.month ? String(req.query.month).slice(0, 7) : undefined }, db);
+    return res.json({ success: true, data });
+  } catch (err) { next(err); }
+});
+router.post('/paid-growth/cost-import', async (req, res, next) => {
+  try {
+    const b = req.body || {};
+    if (!['meta_ads', 'google_ads'].includes(b.provider) || !Array.isArray(b.rows)) return res.status(400).json({ success: false, message: 'provider (meta_ads | google_ads) and rows[] are required' });
+    return res.json({ success: true, data: await require('../services/measurement/paidCostIngestionService').ingest(b.provider, b.rows.slice(0, 5000), db) });
+  } catch (err) { next(err); }
+});
+router.post('/paid-growth/reconcile', async (req, res, next) => {
+  try {
+    const b = req.body || {};
+    if (!b.provider || !b.campaign_key || !b.window_start || !b.window_end) return res.status(400).json({ success: false, message: 'provider, campaign_key, window_start and window_end are required' });
+    return res.json({ success: true, data: await require('../services/measurement/providerReconciliationService').reconcile({ provider: b.provider, campaignKey: b.campaign_key, windowStart: b.window_start, windowEnd: b.window_end, note: b.note || null }, db) });
+  } catch (err) { next(err); }
+});
+router.get('/assisted-service-inquiries', async (req, res, next) => {
+  try { return res.json({ success: true, data: await require('../services/assistedServiceService').list({ status: (req.query && req.query.status) || null, limit: req.query && req.query.limit }, db) }); }
+  catch (err) { next(err); }
+});
+router.patch('/assisted-service-inquiries/:id', async (req, res, next) => {
+  try {
+    const out = await require('../services/assistedServiceService').setStatus(req.params.id, req.body && req.body.status, db);
+    if (!out) return res.status(400).json({ success: false, message: 'status must be new, contacted, evaluating or closed' });
+    return res.json({ success: true, data: out });
+  } catch (err) { next(err); }
+});
+
 module.exports = router;

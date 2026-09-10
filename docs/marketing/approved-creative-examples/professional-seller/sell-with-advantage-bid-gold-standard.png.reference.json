@@ -1,0 +1,189 @@
+{
+  "schema_version": "1.1",
+  "reference_id": "REF-20",
+  "identity": {
+    "sha256": "991ab2bd594634d900ad1c897d1de2c14aea360950bfa3aa440b9f1dce0140b1",
+    "current_path": "professional-seller/sell-with-advantage-bid-gold-standard.png",
+    "original_filename": "sell-with-advantage-bid-gold-standard.png",
+    "width": 1254,
+    "height": 1254,
+    "format_class": "square",
+    "aspect_ratio": 1
+  },
+  "owner_status": "OWNER_GOLD_STANDARD",
+  "owner_weight": 2,
+  "status_history": [
+    {
+      "date": "2026-09-11",
+      "status": "OWNER_APPROVED",
+      "source": "folder_placement_by_owner",
+      "owner_words": "Owner placed the file in approved-creative-examples/professional-seller/ (plain class folder = Owner Approved)",
+      "recorded_by": "Desktop Marketing — Phase 3P.2"
+    },
+    {
+      "date": "2026-09-10",
+      "status": "OWNER_GOLD_STANDARD",
+      "source": "owner_directive_via_vscode_mission",
+      "owner_words": "REF-20 + REF-21 — The Owner explicitly promotes both Professional Seller references to: GOLD STANDARD. These are: REF-20, REF-21. Apply Gold Standard status through the proper immutable/reference-ledger mechanism. Do not infer Gold merely from filenames for any other file.",
+      "recorded_by": "VS Code — Phase 3P.1 + 3P.2 production implementation (Owner mission 2026-09-11)"
+    }
+  ],
+  "source": {
+    "seller": "Advantage.Bid",
+    "origin": "Advantage.Bid-led creative produced by the Owner and his creative collaborator after Phase 3P.1 (image-model assisted); Owner-approved by folder placement",
+    "rights": "Advantage.Bid-owned reference creative. Calibration evidence only: the composition teaches attributes; the logo drawn inside it is an image-model rendering and is NOT an approved logo asset (production composites brand-assets/logos); merchandise is representative, not lots; every fact and claim visible is reference-only text unless separately approved.",
+    "campaign_title_visible": "Professional Sellers — Sell More With Advantage.Bid",
+    "event_date_visible": "(none — acquisition)",
+    "advantage_bid_visible": true
+  },
+  "classification": {
+    "campaign_class_primary": "professional_seller_acquisition",
+    "campaign_class_secondary": [
+      "general_brand"
+    ],
+    "event_product_type": "Professional-seller acquisition, CENTERED layout",
+    "seller_hierarchy": "advantage_bid_only",
+    "visual_family": "SCENE_EXTRACTED",
+    "nearest_advantage_family": "ACQUISITION",
+    "event_mode": "not_an_event",
+    "merchandise_breadth": "representative_non_lot",
+    "owner_folder": "professional-seller"
+  },
+  "visual_read": {
+    "visual_hierarchy": "Logo centered at the top → 'PROFESSIONAL SELLERS' spaced caps → 'SELL MORE' (red, huge) → 'WITH ADVANTAGE.BID' (navy) → red swash → support line → four red icons in a row → red CTA 'BECOME A SELLER →' centered → merchandise scene across the lower half → navy band (Real Partnerships / Real Results / A Brighter Tomorrow) + 'You Can Do This.' Script 'Your Inventory Deserves a Bigger Audience.' left; chalkboard category list right.",
+    "merchandise_treatment": "Shop interior: blue-and-white vase, bronze horse, books, gilt painting, trunk, laptop (logo + script), mug 'Sell Smarter.', lamp; objects on a desk; shelving behind.",
+    "composition_style": "Fully centered messaging over a bright shop interior; merchandise below the copy; the same brand frame as the left-column golds.",
+    "typography_treatment": "Uppercase condensed; the headline's key phrase in red; spaced small caps; script accents.",
+    "information_density": "high",
+    "branding_hierarchy": "Logo centered; brand name in the headline; laptop logo.",
+    "cta_treatment": "Red button centered.",
+    "footer_treatment": "Navy band + no footer strip.",
+    "photographic_style": "Image-model rendered bright shop.",
+    "overlapping_objects": "confident",
+    "environmental_staged_composition": "Desk in a shop; shelves behind; laptop and objects supported.",
+    "negative_space": "modest",
+    "ground": "mixed",
+    "overall_visual_impact": "very_high"
+  },
+  "measured": {
+    "light_pixel_pct": 28.4,
+    "dark_pixel_pct": 22.3,
+    "saturated_pixel_pct": 35.7,
+    "dominant_hues": [
+      "red 40%",
+      "cyan 30%",
+      "rose 19%",
+      "red share of saturated 59.0%"
+    ],
+    "est_merchandise_share_pct": [
+      40,
+      50
+    ],
+    "est_text_share_pct": [
+      28,
+      34
+    ],
+    "object_count_est": 11,
+    "text_block_count": 9
+  },
+  "strongest_attributes": [
+    "Centered structure — the Owner explicitly wanted compositional variety and approved this",
+    "'Sell More' as a two-word red headline: business capability in two words",
+    "Icon row horizontal under the headline rather than a column — a different rhythm"
+  ],
+  "transferable_lessons": [
+    "CENTERED messaging is a valid professional-seller structure; the reference system must carry a RANGE (centered, asymmetric, environmental, merchandise-led)",
+    "Professional-seller messaging: capability and ease ('Sell More', 'Reach More Buyers. Move More Inventory.') without showing complicated software",
+    "Audience line 'Professional Sellers' as an eyebrow over the headline"
+  ],
+  "do_not_generalize": [
+    "'Higher Realization' — an outcome claim; reference-only",
+    "The chalkboard category list and mug text — scene accents",
+    "The collaborator's set repeats a bronze rearing horse, a blue-and-white vase, a stack of books with category-name spines, a gilt landscape, a laptop showing the logo and a handwritten script phrase on a mug/board/box. These are the collaborator's props, not required objects; the engine must not learn them as a checklist.",
+    "The filename's 'gold-standard' — the file sits in the plain folder; status is APPROVED until the Owner promotes it"
+  ],
+  "text_density_assessment": {
+    "level": "high",
+    "why_it_works_here": "Centered stack with one red headline; icons in one row.",
+    "advantage_bid_budget_note": "ACQUISITION_RICH ceiling."
+  },
+  "composition_assessment": {
+    "spatial_logic": "Shop desk; shelves behind.",
+    "gravity_and_grounding": "All supported.",
+    "depth": "Shelves back, desk mid, mug/trunk front.",
+    "scale_strategy": "Vase and laptop as anchors.",
+    "edge_handling": "Lamp exits right."
+  },
+  "retrieval": {
+    "use_cases": [
+      "professional seller acquisition",
+      "centered layout",
+      "business-capability messaging",
+      "icon row variant"
+    ],
+    "tags": [
+      "approved",
+      "professional-seller",
+      "centered",
+      "red-headline",
+      "square",
+      "filename-gold"
+    ],
+    "avoid_for": [
+      "individual seller copy",
+      "event advertising",
+      "buyer growth"
+    ]
+  },
+  "performance": null,
+  "provenance": {
+    "created_by": "Desktop Marketing (Claude, Cowork) — Phase 3P.2",
+    "created_at": "2026-09-10T16:08:54Z",
+    "analysis_method": "Direct visual inspection at full resolution; pixel statistics computed from the file; est_* are visual estimates; text transcribed from the image and classified.",
+    "phase": "3P.2"
+  },
+  "text_classification": [
+    {
+      "text": "Sell More With Advantage.Bid",
+      "status": "APPROVED_CAMPAIGN_SPECIFIC_MESSAGE",
+      "role": "headline"
+    },
+    {
+      "text": "Professional Sellers",
+      "status": "REFERENCE_ONLY_TEXT",
+      "role": "label"
+    },
+    {
+      "text": "Reach More Buyers. Move More Inventory.",
+      "status": "REFERENCE_ONLY_TEXT",
+      "role": "support"
+    },
+    {
+      "text": "Higher Realization",
+      "status": "REFERENCE_ONLY_CLAIM_REQUIRES_PRODUCTION_TRUTH",
+      "role": "label"
+    },
+    {
+      "text": "Larger Audience",
+      "status": "REFERENCE_ONLY_CLAIM_REQUIRES_PRODUCTION_TRUTH",
+      "role": "label"
+    },
+    {
+      "text": "Become a Seller",
+      "status": "REFERENCE_ONLY_TEXT",
+      "role": "cta"
+    },
+    {
+      "text": "Your Inventory Deserves a Bigger Audience.",
+      "status": "REFERENCE_ONLY_TEXT",
+      "role": "label"
+    },
+    {
+      "text": "Sell Smarter.",
+      "status": "REFERENCE_ONLY_TEXT",
+      "role": "label"
+    }
+  ],
+  "logo_treatment_in_reference": "Logo lockup in the reference is rendered by the image model (gavel + ADVANTAGE.BID + GET THE ADVANTAGE). Production never reproduces it; it composites brand-assets/logos/advantage-bid-primary.png (or the transparent/white variant) at the prominence rules.",
+  "filename_signal": "gold-standard in the filename; placed in the plain professional-seller folder — recorded as OWNER_APPROVED; promotion is one Owner word away"
+}

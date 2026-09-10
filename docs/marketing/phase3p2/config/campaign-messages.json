@@ -1,0 +1,97 @@
+{
+  "schema": "campaign-messages#1.0",
+  "principle": "Separate APPROVED COMPOSITION from APPROVED MESSAGE from APPROVED CAMPAIGN-SPECIFIC MESSAGE from REFERENCE-ONLY TEXT. A Gold Standard's visible phrases are reference-only unless listed here.",
+  "approved_messages": [
+    {
+      "text": "The Smarter Way to Sell.",
+      "scope": "seller-facing (individual + professional)",
+      "role": "slogan",
+      "source": "logo README (Owner)",
+      "placement": "separate text element near the logo or in the band; never inside the logo asset"
+    },
+    {
+      "text": "The Smarter Way to Shop.",
+      "scope": "buyer-facing",
+      "role": "slogan",
+      "source": "logo README (Owner)",
+      "placement": "as above"
+    },
+    {
+      "text": "You Can Do This.",
+      "scope": "seller encouragement (individual seller primary; used campaign-specifically in buyer/professional creative)",
+      "role": "label/script accent",
+      "source": "Owner 2026-09-10"
+    },
+    {
+      "text": "Estate Sale",
+      "scope": "event type",
+      "role": "event_type",
+      "source": "Owner (3P.1)"
+    },
+    {
+      "text": "Online Auction",
+      "scope": "event type",
+      "role": "event_type",
+      "source": "logo README example"
+    }
+  ],
+  "approved_campaign_specific_messages": [
+    {
+      "text": "Have Items to Sell?",
+      "class": "individual_seller_acquisition",
+      "role": "headline",
+      "source": "Owner 3P.2 brief + REF-14/15 Gold"
+    },
+    {
+      "text": "Turn Your Items Into Cash.",
+      "class": "individual_seller_acquisition",
+      "role": "headline/sub-headline",
+      "source": "Owner 3P.2 brief + REF-14/15 Gold"
+    },
+    {
+      "text": "Amazing Finds Delivered to Your Inbox.",
+      "class": "buyer_platform_growth (email signup)",
+      "role": "headline",
+      "source": "REF-18 Gold"
+    },
+    {
+      "text": "Bid Today. Discover Tomorrow.",
+      "class": "buyer_platform_growth",
+      "role": "headline",
+      "source": "REF-19 Gold"
+    },
+    {
+      "text": "Sell More With Advantage.Bid",
+      "class": "professional_seller_acquisition",
+      "role": "headline",
+      "source": "REF-20 approved"
+    },
+    {
+      "text": "From Inventory to Results.",
+      "class": "professional_seller_acquisition",
+      "role": "headline",
+      "source": "REF-21 approved"
+    }
+  ],
+  "philosophy_lines_owner_authored": [
+    "It's Built to Be Easy.",
+    "Help Is Here."
+  ],
+  "not_approved": [
+    {
+      "text": "The Smarter Way to Bid.",
+      "why": "appears in REF-23; not one of the two approved slogans"
+    },
+    {
+      "text": "Another Happy Seller!",
+      "why": "testimonial implication (REF-16)"
+    },
+    {
+      "text": "Get Top Dollar / Reach Thousands of Serious Bidders / Low Seller Fees / Higher Realization / Keep More of the Proceeds / Join for Free / Over 250 Lots / Global Buyers",
+      "why": "claims \u2014 production truth via the A2 claim manifest or omitted; marketing-package rules forbid promising outcomes"
+    }
+  ],
+  "reference_only_text_rule": "Everything else visible in a reference (benefit rows, band items, footer strips, script accents, chalkboard/mug/box lettering) is reference-only: it informs tone and density, it is never copied as approved copy, and it never carries a claim into production.",
+  "buyer_vs_seller": "Buyer creative uses discovery language (finds, discover, unique, updates, browse); seller creative uses capability/ease language (sell, list, reach, grow, cash). Never seller language in buyer creative by default. REF-17 carries buyer language inside the individual-seller Gold folder \u2014 an open Owner question, not a precedent.",
+  "destinations": "CTA wording ('Start Your Auction Today', 'Join for Free', 'View Auction', 'View Catalog', 'Sign Up') is acceptable only when the production Marketing Director supplies a real approved destination; the engine never invents a signup page, form or URL."
+}

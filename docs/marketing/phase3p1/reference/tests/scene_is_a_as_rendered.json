@@ -1,0 +1,78 @@
+{
+ "name": "individual_seller_A_as_rendered",
+ "size": [
+  1080,
+  1350
+ ],
+ "layers": [
+  {
+   "id": "chairs",
+   "asset": "runtime/assets/lot31.webp",
+   "semantic_class": "wingback_chair",
+   "x": 230,
+   "y": 460,
+   "w": 850,
+   "z": 1,
+   "protected": [
+    [
+     "seat_left",
+     0.06,
+     0.55,
+     0.42,
+     0.8
+    ],
+    [
+     "seat_right",
+     0.58,
+     0.55,
+     0.95,
+     0.8
+    ],
+    [
+     "arm_left",
+     0.02,
+     0.45,
+     0.2,
+     0.7
+    ]
+   ]
+  },
+  {
+   "id": "torchiere",
+   "asset": "runtime/assets/lot46.webp",
+   "semantic_class": "torchiere",
+   "x": 0,
+   "y": 390,
+   "w": 204,
+   "z": 3
+  },
+  {
+   "id": "table",
+   "asset": "runtime/assets/lot36.webp",
+   "semantic_class": "side_table",
+   "x": 75,
+   "y": 500,
+   "w": 462,
+   "z": 2
+  },
+  {
+   "id": "bowl",
+   "asset": "runtime/assets/lot63.webp",
+   "semantic_class": "bowl",
+   "x": 350,
+   "y": 880,
+   "w": 260,
+   "z": 4
+  },
+  {
+   "id": "vases",
+   "asset": "runtime/assets/lot53.webp",
+   "semantic_class": "vase",
+   "x": 850,
+   "y": 780,
+   "w": 230,
+   "z": 4
+  }
+ ],
+ "asset_root_note": "asset paths are relative to creative-runtime-handoff/ (ADB_RUNTIME_ROOT env); the 3M demo objects, Advantage.Bid-owned"
+}

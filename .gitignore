@@ -70,3 +70,6 @@ reports/
 # The CSV catalog + importer script ARE version-controlled (source of truth).
 demo-data/heritage-home-demo-auction/images/
 demo-data/heritage-home-demo-auction/*.xlsx
+
+# Phase 3P.1/3P.2 creative engine scratch (regression re-analysis, OCR caches) — regenerated on demand
+creative-engine/runtime/cache/

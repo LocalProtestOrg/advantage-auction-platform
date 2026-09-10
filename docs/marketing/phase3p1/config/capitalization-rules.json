@@ -1,0 +1,41 @@
+{
+  "schema": "capitalization-rules#1.0",
+  "owner_rule": "Use natural title-style/first-letter capitalization for primary creative headlines and major labels where grammatically appropriate. Do not mechanically uppercase everything. Do not default important headlines to sentence-style lowercase.",
+  "owner_examples": ["It's Built to Be Easy.", "You Can Do This.", "Help Is Here.", "Estate Sale"],
+  "apply_to_roles": ["headline", "event_type", "event_title", "cta", "major_label", "date_day_label", "place_name"],
+  "sentence_case_roles": ["support", "help", "legal", "representative_disclosure", "session_hours"],
+  "fixed_case_tokens": ["Advantage.Bid", "Lewis & Maese", "LMAuctionCo.com", "Herend", "Rolex", "Cartier"],
+  "fixed_case_note": "The public wordmark is always 'Advantage.Bid' (3M rule). The lowercase URL form is never drawn as copy; the footer wordmark is a locked brand-frame constant outside this function.",
+  "title_case": {
+    "always_capitalize": ["first word", "last word", "nouns", "pronouns", "verbs (including Is, Are, Be, Do, Can, Will, Has)", "adjectives", "adverbs", "subordinating conjunctions (If, Because, Than, As, That)", "both parts of a hyphenated compound (On-Site, Two-Day, Mid-Century)", "the word after a colon or an em dash"],
+    "lowercase_unless_first_or_last": {
+      "articles": ["a", "an", "the"],
+      "coordinating_conjunctions": ["and", "but", "or", "nor", "for", "yet", "so"],
+      "short_prepositions_max_3_letters": ["at", "by", "in", "of", "on", "to", "up", "for", "off", "out", "via", "per"],
+      "particles": ["to (infinitive)"]
+    },
+    "apostrophes": "It's, You'll, We're — capitalize the first letter only; never 'It'S'",
+    "ampersand": "kept as typed; 'Fine Art & Antiques Auction'",
+    "numerals_and_dates": "Saturday, September 19 · 9:00 AM – 3:00 PM (AM/PM uppercase by convention)",
+    "trailing_period": "an Owner-style headline may end with a period; the engine preserves the period the copy source carries and never adds one to an event type or a label ('Estate Sale', never 'Estate Sale.')"
+  },
+  "uppercase_allowed": {
+    "roles": ["place_plate (small label bar)", "eyebrow/kicker (e.g. ADVANTAGE.BID PRESENTS — the locked 3M brand-frame constant)", "AM/PM"],
+    "rule": "uppercase is a small-label device; it is never applied to a headline, an event type or an event title"
+  },
+  "never": ["uppercase an entire headline", "sentence-case a headline ('It's built to be easy.')", "change the internal casing of a brand or proper noun", "capitalize a preposition mid-line because it 'looks stronger' ('You Can Do This' keeps 'Do' capitalized because it is a verb, not because of emphasis)"],
+  "tests": [
+    {"in": "It's built to be easy.", "out": "It's Built to Be Easy."},
+    {"in": "you can do this.", "out": "You Can Do This."},
+    {"in": "help is here.", "out": "Help Is Here."},
+    {"in": "estate sale", "out": "Estate Sale"},
+    {"in": "exclusive on-site estate sale", "out": "Exclusive On-Site Estate Sale"},
+    {"in": "fine art & antiques auction", "out": "Fine Art & Antiques Auction"},
+    {"in": "state of the art", "out": "State of the Art"},
+    {"in": "advantage.bid presents", "out": "Advantage.Bid Presents"},
+    {"in": "in conjunction with advantage.bid", "out": "In Conjunction with Advantage.Bid"},
+    {"in": "the one to watch", "out": "The One to Watch"},
+    {"in": "WEST UNIVERSITY", "out": "West University"},
+    {"in": "create your own online auction on Advantage.Bid.", "role": "support", "out": "Create your own online auction on Advantage.Bid."}
+  ]
+}

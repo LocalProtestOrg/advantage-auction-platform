@@ -1,0 +1,189 @@
+{
+  "schema_version": "1.1",
+  "reference_id": "REF-21",
+  "identity": {
+    "sha256": "a8d7dd489f66fe1d99a954a0d26827eafe30b53397549f90cea7f83830660e7b",
+    "current_path": "professional-seller/become-a-seller-advantage-bid-gold-standard.png",
+    "original_filename": "become-a-seller-advantage-bid-gold-standard.png",
+    "width": 1254,
+    "height": 1254,
+    "format_class": "square",
+    "aspect_ratio": 1
+  },
+  "owner_status": "OWNER_GOLD_STANDARD",
+  "owner_weight": 2,
+  "status_history": [
+    {
+      "date": "2026-09-11",
+      "status": "OWNER_APPROVED",
+      "source": "folder_placement_by_owner",
+      "owner_words": "Owner placed the file in approved-creative-examples/professional-seller/ (plain class folder = Owner Approved)",
+      "recorded_by": "Desktop Marketing — Phase 3P.2"
+    },
+    {
+      "date": "2026-09-10",
+      "status": "OWNER_GOLD_STANDARD",
+      "source": "owner_directive_via_vscode_mission",
+      "owner_words": "REF-20 + REF-21 — The Owner explicitly promotes both Professional Seller references to: GOLD STANDARD. These are: REF-20, REF-21. Apply Gold Standard status through the proper immutable/reference-ledger mechanism. Do not infer Gold merely from filenames for any other file.",
+      "recorded_by": "VS Code — Phase 3P.1 + 3P.2 production implementation (Owner mission 2026-09-11)"
+    }
+  ],
+  "source": {
+    "seller": "Advantage.Bid",
+    "origin": "Advantage.Bid-led creative produced by the Owner and his creative collaborator after Phase 3P.1 (image-model assisted); Owner-approved by folder placement",
+    "rights": "Advantage.Bid-owned reference creative. Calibration evidence only: the composition teaches attributes; the logo drawn inside it is an image-model rendering and is NOT an approved logo asset (production composites brand-assets/logos); merchandise is representative, not lots; every fact and claim visible is reference-only text unless separately approved.",
+    "campaign_title_visible": "From Inventory to Results. Sell With Confidence.",
+    "event_date_visible": "(none — acquisition)",
+    "advantage_bid_visible": true
+  },
+  "classification": {
+    "campaign_class_primary": "professional_seller_acquisition",
+    "campaign_class_secondary": [
+      "general_brand"
+    ],
+    "event_product_type": "Professional-seller acquisition, left-copy layout with a serif headline",
+    "seller_hierarchy": "advantage_bid_only",
+    "visual_family": "SCENE_EXTRACTED",
+    "nearest_advantage_family": "ACQUISITION",
+    "event_mode": "not_an_event",
+    "merchandise_breadth": "representative_non_lot",
+    "owner_folder": "professional-seller"
+  },
+  "visual_read": {
+    "visual_hierarchy": "Logo lockup with 'THE SMARTER WAY TO SELL.' as its tagline line → 'From Inventory to Results.' (serif, navy with 'Results.' red) → 'SELL WITH CONFIDENCE.' + red rule → three red icons → red CTA 'START SELLING →' → navy band (List Your Items / Reach Real Buyers / Grow Your Business) + 'You Can Do This.' → footer strip. Right: shop desk with bronze horse, vase, books, laptop, mugs, framed script, lamp.",
+    "merchandise_treatment": "Shop desk vignette.",
+    "composition_style": "Left copy, right scene; serif headline; band closes.",
+    "typography_treatment": "Title-case serif headline with one red word; spaced caps sub-line; script accents.",
+    "information_density": "high",
+    "branding_hierarchy": "Logo lockup with the seller slogan rendered as its tagline (the official asset carries GET THE ADVANTAGE — see note).",
+    "cta_treatment": "Red button.",
+    "footer_treatment": "Navy band + footer strip.",
+    "photographic_style": "Image-model rendered shop.",
+    "overlapping_objects": "confident",
+    "environmental_staged_composition": "Desk vignette.",
+    "negative_space": "minimal",
+    "ground": "mixed",
+    "overall_visual_impact": "very_high"
+  },
+  "measured": {
+    "light_pixel_pct": 28.8,
+    "dark_pixel_pct": 22.4,
+    "saturated_pixel_pct": 34.9,
+    "dominant_hues": [
+      "red 46%",
+      "cyan 26%",
+      "rose 14%",
+      "red share of saturated 60.2%"
+    ],
+    "est_merchandise_share_pct": [
+      45,
+      55
+    ],
+    "est_text_share_pct": [
+      26,
+      32
+    ],
+    "object_count_est": 11,
+    "text_block_count": 8
+  },
+  "strongest_attributes": [
+    "Serif title-case headline with one red word — the capitalization rule and the red-attention rule together",
+    "Slogan placed with the brand, headline separate — the README's distinction, visualised",
+    "Left-copy variant beside the centered REF-20: two structures for one class"
+  ],
+  "transferable_lessons": [
+    "'The Smarter Way to Sell.' sits near the logo as campaign messaging — but it must NOT be baked into the logo asset (README): production places it as a separate text element",
+    "One red word in a serif headline is a refined alternative to the uppercase red-line treatment",
+    "Professional-seller ease/capability language: list, reach, grow"
+  ],
+  "do_not_generalize": [
+    "The slogan rendered as if part of the logo lockup — the official asset's tagline is GET THE ADVANTAGE; never alter the asset",
+    "'Serious Buyers', 'More Exposure' — claims",
+    "The collaborator's set repeats a bronze rearing horse, a blue-and-white vase, a stack of books with category-name spines, a gilt landscape, a laptop showing the logo and a handwritten script phrase on a mug/board/box. These are the collaborator's props, not required objects; the engine must not learn them as a checklist.",
+    "Filename gold-standard; status APPROVED"
+  ],
+  "text_density_assessment": {
+    "level": "high",
+    "why_it_works_here": "Serif headline dominance; three icons; one CTA.",
+    "advantage_bid_budget_note": "ACQUISITION_RICH ceiling."
+  },
+  "composition_assessment": {
+    "spatial_logic": "Desk vignette.",
+    "gravity_and_grounding": "Supported.",
+    "depth": "Shelves back, books/laptop mid, mugs front.",
+    "scale_strategy": "Laptop and lamp anchors.",
+    "edge_handling": "Lamp exits right."
+  },
+  "retrieval": {
+    "use_cases": [
+      "professional seller acquisition",
+      "serif headline with one red word",
+      "slogan-with-logo placement"
+    ],
+    "tags": [
+      "approved",
+      "professional-seller",
+      "serif",
+      "red-word",
+      "left-copy",
+      "square",
+      "filename-gold"
+    ],
+    "avoid_for": [
+      "individual seller copy",
+      "event advertising",
+      "buyer growth"
+    ]
+  },
+  "performance": null,
+  "provenance": {
+    "created_by": "Desktop Marketing (Claude, Cowork) — Phase 3P.2",
+    "created_at": "2026-09-10T16:08:54Z",
+    "analysis_method": "Direct visual inspection at full resolution; pixel statistics computed from the file; est_* are visual estimates; text transcribed from the image and classified.",
+    "phase": "3P.2"
+  },
+  "text_classification": [
+    {
+      "text": "From Inventory to Results.",
+      "status": "APPROVED_CAMPAIGN_SPECIFIC_MESSAGE",
+      "role": "headline"
+    },
+    {
+      "text": "Sell With Confidence.",
+      "status": "REFERENCE_ONLY_TEXT",
+      "role": "support"
+    },
+    {
+      "text": "The Smarter Way to Sell.",
+      "status": "OWNER_APPROVED_MESSAGE",
+      "role": "label"
+    },
+    {
+      "text": "More Exposure",
+      "status": "REFERENCE_ONLY_CLAIM_REQUIRES_PRODUCTION_TRUTH",
+      "role": "label"
+    },
+    {
+      "text": "Serious Buyers",
+      "status": "REFERENCE_ONLY_CLAIM_REQUIRES_PRODUCTION_TRUTH",
+      "role": "label"
+    },
+    {
+      "text": "Start Selling",
+      "status": "REFERENCE_ONLY_TEXT",
+      "role": "cta"
+    },
+    {
+      "text": "Great Sellers Start Here.",
+      "status": "REFERENCE_ONLY_TEXT",
+      "role": "label"
+    },
+    {
+      "text": "Big Finds Brighter Tomorrows.",
+      "status": "REFERENCE_ONLY_TEXT",
+      "role": "label"
+    }
+  ],
+  "logo_treatment_in_reference": "Logo lockup in the reference is rendered by the image model (gavel + ADVANTAGE.BID + GET THE ADVANTAGE). Production never reproduces it; it composites brand-assets/logos/advantage-bid-primary.png (or the transparent/white variant) at the prominence rules. Here the slogan is drawn where the asset's tagline sits — production keeps the asset intact and sets the slogan separately.",
+  "filename_signal": "gold-standard in the filename; plain folder — OWNER_APPROVED"
+}

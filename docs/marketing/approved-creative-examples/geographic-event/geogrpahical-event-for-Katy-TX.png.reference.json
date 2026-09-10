@@ -1,0 +1,174 @@
+{
+  "schema_version": "1.1",
+  "reference_id": "REF-22",
+  "identity": {
+    "sha256": "8e2627374748b91b732ff50c7288ab47807547055a2691df88d69ec0d44142e2",
+    "current_path": "geographic-event/geogrpahical-event-for-Katy-TX.png",
+    "original_filename": "geogrpahical-event-for-Katy-TX.png",
+    "width": 1254,
+    "height": 1254,
+    "format_class": "square",
+    "aspect_ratio": 1.0
+  },
+  "owner_status": "OWNER_APPROVED",
+  "owner_weight": 1.0,
+  "status_history": [
+    {
+      "date": "2026-09-11",
+      "status": "OWNER_APPROVED",
+      "source": "folder_placement_by_owner",
+      "owner_words": "Owner placed the file in approved-creative-examples/geographic-event/ (plain class folder = Owner Approved)",
+      "recorded_by": "Desktop Marketing — Phase 3P.2"
+    }
+  ],
+  "source": {
+    "seller": "Advantage.Bid",
+    "origin": "Advantage.Bid-led creative produced by the Owner and his creative collaborator after Phase 3P.1 (image-model assisted); Owner-approved by folder placement",
+    "rights": "Advantage.Bid-owned reference creative. Calibration evidence only: the composition teaches attributes; the logo drawn inside it is an image-model rendering and is NOT an approved logo asset (production composites brand-assets/logos); merchandise is representative, not lots; every fact and claim visible is reference-only text unless separately approved.",
+    "campaign_title_visible": "Katy, TX — Estate Sale Online Auction — Local Treasures. Real Value.",
+    "event_date_visible": "(none — no date or time shown)",
+    "advantage_bid_visible": true
+  },
+  "classification": {
+    "campaign_class_primary": "geographic_event_promotion",
+    "campaign_class_secondary": [
+      "estate_sale",
+      "auction"
+    ],
+    "event_product_type": "Geographic event promotion — a Katy, TX estate-sale online auction, generic (no date, seller or lots)",
+    "seller_hierarchy": "advantage_bid_only",
+    "visual_family": "ATMOSPHERIC_SCENE",
+    "nearest_advantage_family": "ENVIRONMENTAL_PHOTO",
+    "event_mode": "not_an_event",
+    "merchandise_breadth": "representative_non_lot",
+    "owner_folder": "geographic-event"
+  },
+  "visual_read": {
+    "visual_hierarchy": "Logo → 'KATY, TX' spaced caps (small) → 'ESTATE SALE' (red, largest) / 'ONLINE AUCTION' (navy) → 'Local Treasures. Real Value.' + red swash → three red icons → red CTA 'VIEW AUCTION →' → navy band (Shop Local / Bid Confidently / Real Treasures) + 'You Can Do This.' → footer strip. Right: the Katy water tower and a 'Welcome to KATY' banner, furniture staged outdoors (leather armchair, lamp, chest, bronze horse, books, bluebonnet painting, chalkboard 'Great Finds Local Style.').",
+    "merchandise_treatment": "Outdoor staged vignette in front of a town landmark.",
+    "composition_style": "Copy column left; landmark + merchandise right; band closes.",
+    "typography_treatment": "Uppercase condensed; event type in red; place name small spaced caps; script accent.",
+    "information_density": "high",
+    "branding_hierarchy": "Logo lockup large; no seller.",
+    "cta_treatment": "Red button 'View Auction'.",
+    "footer_treatment": "Navy band + strip.",
+    "photographic_style": "Image-model rendered town scene; bright.",
+    "overlapping_objects": "confident",
+    "environmental_staged_composition": "Merchandise staged on a rug on a town green; water tower behind.",
+    "negative_space": "minimal",
+    "ground": "mixed",
+    "overall_visual_impact": "very_high"
+  },
+  "measured": {
+    "light_pixel_pct": 30.7,
+    "dark_pixel_pct": 24.0,
+    "saturated_pixel_pct": 33.1,
+    "dominant_hues": [
+      "red 31%",
+      "rose 22%",
+      "cyan 20%",
+      "red share of saturated 53.3%"
+    ],
+    "est_merchandise_share_pct": [
+      45,
+      55
+    ],
+    "est_text_share_pct": [
+      26,
+      32
+    ],
+    "object_count_est": 10,
+    "text_block_count": 9
+  },
+  "strongest_attributes": [
+    "WHAT ('Estate Sale / Online Auction') is the loudest thing on the page; WHERE is carried twice — a small place line and an unmistakable landmark",
+    "Local identity through a real-world landmark rather than a map",
+    "Red event type over navy sub-type — the Owner's red-attention rule on the event type"
+  ],
+  "transferable_lessons": [
+    "Geographic creative: event type largest; place as a spaced-caps eyebrow AND an environmental landmark cue",
+    "Landmark imagery is acceptable for GENERIC geographic promotion; a real event prefers its own photographs (3P.1 media hierarchy)",
+    "'Shop Local' as a band item is buyer-facing geographic language"
+  ],
+  "do_not_generalize": [
+    "No date or time — a real geographic event creative must carry WHEN",
+    "The water tower and banner — a specific town's landmarks; never reused for another place; never generated for a real event when authentic media exists",
+    "'Bid Confidently', 'Real Treasures' — reference-only",
+    "The collaborator's set repeats a bronze rearing horse, a blue-and-white vase, a stack of books with category-name spines, a gilt landscape, a laptop showing the logo and a handwritten script phrase on a mug/board/box. These are the collaborator's props, not required objects; the engine must not learn them as a checklist."
+  ],
+  "text_density_assessment": {
+    "level": "high",
+    "why_it_works_here": "Event type dominance carries the page.",
+    "advantage_bid_budget_note": "For a real event: EVENT profile (5–7 blocks) with WHEN mandatory."
+  },
+  "composition_assessment": {
+    "spatial_logic": "Outdoor staging; landmark background.",
+    "gravity_and_grounding": "Furniture on a rug on the ground.",
+    "depth": "Tower far, chair mid, horse/painting front.",
+    "scale_strategy": "Chair anchor; tower as scale of place.",
+    "edge_handling": "Chalkboard exits right."
+  },
+  "retrieval": {
+    "use_cases": [
+      "geographic event promotion",
+      "purchased Marketing Package geographic creative",
+      "event-type-led hierarchy with place cue",
+      "landmark identity"
+    ],
+    "tags": [
+      "approved",
+      "geographic",
+      "event-type-red",
+      "landmark",
+      "outdoor-staging",
+      "square"
+    ],
+    "avoid_for": [
+      "seller/buyer acquisition copy",
+      "notable lot",
+      "real events with authentic media (use the photographs)"
+    ]
+  },
+  "performance": null,
+  "provenance": {
+    "created_by": "Desktop Marketing (Claude, Cowork) — Phase 3P.2",
+    "created_at": "2026-09-10T16:08:54Z",
+    "analysis_method": "Direct visual inspection at full resolution; pixel statistics computed from the file; est_* are visual estimates; text transcribed from the image and classified.",
+    "phase": "3P.2"
+  },
+  "text_classification": [
+    {
+      "text": "Estate Sale",
+      "status": "OWNER_APPROVED_MESSAGE",
+      "role": "event_type"
+    },
+    {
+      "text": "Online Auction",
+      "status": "OWNER_APPROVED_MESSAGE",
+      "role": "event_type"
+    },
+    {
+      "text": "Local Treasures. Real Value.",
+      "status": "REFERENCE_ONLY_TEXT",
+      "role": "support"
+    },
+    {
+      "text": "View Auction",
+      "status": "REFERENCE_ONLY_TEXT",
+      "role": "cta",
+      "note": "acceptable when the destination is the real auction"
+    },
+    {
+      "text": "Shop Local",
+      "status": "REFERENCE_ONLY_TEXT",
+      "role": "label"
+    },
+    {
+      "text": "Great Finds Local Style.",
+      "status": "REFERENCE_ONLY_TEXT",
+      "role": "label"
+    }
+  ],
+  "logo_treatment_in_reference": "Logo lockup in the reference is rendered by the image model (gavel + ADVANTAGE.BID + GET THE ADVANTAGE). Production never reproduces it; it composites brand-assets/logos/advantage-bid-primary.png (or the transparent/white variant) at the prominence rules.",
+  "filename_signal": "none (typo 'geogrpahical' in the filename; indexed by hash)"
+}

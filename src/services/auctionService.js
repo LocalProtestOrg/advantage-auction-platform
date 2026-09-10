@@ -850,6 +850,13 @@ async function publishAuction(auctionId, actorId = null, options = {}) {
     // publication must never depend on a geocoding provider. geocodeAuctionSafe
     // no-ops when coordinates are already present or manually overridden.
     require('./auctionGeocodingService').geocodeAuctionSafe(auctionId).catch(() => {});
+    // First-party conversion ledger (post-commit, fire-and-forget): attributed to the seller's user. Contained — a
+    // measurement failure (sync or async) can never affect publication.
+    try {
+      db.query('SELECT sp.user_id FROM auctions a JOIN seller_profiles sp ON sp.id = a.seller_id WHERE a.id = $1', [auctionId])
+        .then((r) => { if (r && r.rows && r.rows[0]) require('./conversionService').emit('auction_published', { userId: r.rows[0].user_id, subjectType: 'auction', subjectId: auctionId }); })
+        .catch(() => {});
+    } catch (_) { /* measurement never blocks publish */ }
 
     return result.rows[0];
   } catch (error) {

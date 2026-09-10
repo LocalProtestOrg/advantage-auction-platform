@@ -1,0 +1,154 @@
+{
+  "schema": "measurement-readiness-audit#1.0",
+  "instruction": "VS Code inspects PRODUCTION and reports VERIFIED / PARTIAL / MISSING per item with evidence (file, route, event name, screenshot of the diagnostics page). Do not assume any item is present because behavioural intelligence exists. A paid campaign is not ready because Meta/Google can accept an advertisement; readiness = the Director can measure downstream Advantage.Bid outcomes for that campaign's success signal.",
+  "items": [
+    {
+      "key": "meta_pixel",
+      "requirement": "Meta Pixel installed on all public pages with PageView; base code present in the production template",
+      "how_to_verify": "inspect template + network trace",
+      "status": "TO_VERIFY"
+    },
+    {
+      "key": "meta_capi",
+      "requirement": "Meta Conversions API server-side events with event_id deduplication against the pixel",
+      "how_to_verify": "inspect server code + Events Manager diagnostics",
+      "status": "TO_VERIFY"
+    },
+    {
+      "key": "meta_click_id",
+      "requirement": "fbclid captured on landing and persisted (cookie/first-party store) \u2192 _fbc/_fbp available to CAPI",
+      "how_to_verify": "inspect landing middleware + storage",
+      "status": "TO_VERIFY"
+    },
+    {
+      "key": "google_ads_conversion",
+      "requirement": "Google Ads conversion tag or GA4-linked conversions with conversion actions defined",
+      "how_to_verify": "inspect tag + Ads account (read-only)",
+      "status": "TO_VERIFY"
+    },
+    {
+      "key": "google_click_ids",
+      "requirement": "gclid / gbraid / wbraid captured on landing and persisted (\u2265 90 days)",
+      "how_to_verify": "inspect middleware + storage",
+      "status": "TO_VERIFY"
+    },
+    {
+      "key": "first_party_attribution",
+      "requirement": "first-party campaign/session attribution: session record with landing URL, referrer, campaign id, click ids, timestamps; first-touch and last-touch stored",
+      "how_to_verify": "inspect session model + DB",
+      "status": "TO_VERIFY"
+    },
+    {
+      "key": "utm_capture",
+      "requirement": "utm_source/medium/campaign/content/term captured and persisted on the session and carried to registration",
+      "how_to_verify": "inspect middleware + registration write",
+      "status": "TO_VERIFY"
+    },
+    {
+      "key": "behavioral_events",
+      "requirement": "instrumented events: page_view, search, lot_view, watch_lot, bid, purchase, auction_draft_created, auction_published, seller_inquiry, assisted_service_inquiry, email_signup",
+      "how_to_verify": "inspect event catalogue + emitters",
+      "status": "TO_VERIFY"
+    },
+    {
+      "key": "identity_stitching",
+      "requirement": "anonymous session id linked to the user id at registration/login; prior anonymous events re-attributed",
+      "how_to_verify": "inspect auth flow + event store",
+      "status": "TO_VERIFY"
+    },
+    {
+      "key": "anon_to_known",
+      "requirement": "anonymous-to-known attribution policy (which anonymous activity may be attributed after registration; retention; legal basis)",
+      "how_to_verify": "inspect policy doc + implementation",
+      "status": "TO_VERIFY"
+    },
+    {
+      "key": "consent",
+      "requirement": "consent banner/state honoured by pixel, CAPI and first-party tracking; consent stored per session/user",
+      "how_to_verify": "inspect banner + gating code",
+      "status": "TO_VERIFY"
+    },
+    {
+      "key": "suppression",
+      "requirement": "suppression lists: converted buyers/sellers excluded from acquisition audiences; unsubscribe/opt-out honoured; hashed uploads governed",
+      "how_to_verify": "inspect audience service",
+      "status": "TO_VERIFY"
+    },
+    {
+      "key": "retargeting_audiences",
+      "requirement": "first-party audience generation (site visitors, lot viewers, cart/draft abandoners) exported to providers under consent",
+      "how_to_verify": "inspect audience service + provider sync",
+      "status": "TO_VERIFY"
+    },
+    {
+      "key": "conversion_definitions",
+      "requirement": "conversion events defined once, shared by first-party, Meta and Google (registration, seller_inquiry, auction_published, purchase) with values where appropriate",
+      "how_to_verify": "inspect definitions file",
+      "status": "TO_VERIFY"
+    },
+    {
+      "key": "cost_ingestion",
+      "requirement": "daily campaign cost ingestion from Meta Ads and Google Ads APIs into marketing_performance_facts",
+      "how_to_verify": "inspect ingestion jobs",
+      "status": "TO_VERIFY"
+    },
+    {
+      "key": "provider_reconciliation",
+      "requirement": "provider-reported conversions reconciled to first-party outcomes; discrepancies recorded, never silently averaged",
+      "how_to_verify": "inspect reconciliation job",
+      "status": "TO_VERIFY"
+    },
+    {
+      "key": "marketplace_outcome_attribution",
+      "requirement": "campaign \u2192 session \u2192 user \u2192 marketplace action \u2192 transaction/seller outcome joined with attribution classes DELIVERED / MEASURED / INFLUENCED / ATTRIBUTION_UNAVAILABLE",
+      "how_to_verify": "inspect attribution service",
+      "status": "TO_VERIFY"
+    },
+    {
+      "key": "director_facts",
+      "requirement": "Director-accessible performance facts with the signal-state model and checkpoints; Owner report generator",
+      "how_to_verify": "inspect director report service",
+      "status": "TO_VERIFY"
+    }
+  ],
+  "readiness_rule": {
+    "minimum_for_any_paid_activation": [
+      "first_party_attribution",
+      "utm_capture",
+      "behavioral_events (the campaign's success signal event at least)",
+      "conversion_definitions",
+      "cost_ingestion",
+      "consent",
+      "director_facts"
+    ],
+    "minimum_for_retargeting": [
+      "retargeting_audiences",
+      "suppression",
+      "consent"
+    ],
+    "minimum_for_meta": [
+      "meta_pixel",
+      "meta_capi",
+      "meta_click_id"
+    ],
+    "minimum_for_google": [
+      "google_ads_conversion",
+      "google_click_ids"
+    ],
+    "partial_allowed": "a PARTIAL item may be accepted for a bounded experiment (\u2264 $100) if the Director records what cannot be measured and the Owner report says so"
+  },
+  "chain": [
+    "AD IMPRESSION",
+    "CLICK",
+    "ADVANTAGE.BID SESSION",
+    "BEHAVIOR",
+    "REGISTRATION",
+    "BUYER/SELLER INTENT",
+    "MARKETPLACE ACTION",
+    "TRANSACTION / SELLER OUTCOME",
+    "ATTRIBUTION",
+    "DIRECTOR LEARNING",
+    "STOP / MODIFY / SCALE"
+  ],
+  "first_party_truth": "Meta and Google are acquisition/measurement destinations; the authority for marketplace outcomes is Advantage.Bid's own event and transaction data."
+}

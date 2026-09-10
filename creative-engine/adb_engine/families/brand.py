@@ -24,6 +24,10 @@ FONT_FILES = {
     'quicksand-600': 'quicksand-latin-600-normal.ttf', 'quicksand-700': 'quicksand-latin-700-normal.ttf',
     'playfair-700': 'playfair-display-latin-700-normal.ttf', 'playfair-900': 'playfair-display-latin-900-normal.ttf',
     'jost-400': 'jost-latin-400-normal.ttf', 'jost-500': 'jost-latin-500-normal.ttf', 'jost-600': 'jost-latin-600-normal.ttf',
+    # Phase 3P.1/3P.2 additions (bundled OFL faces converted from the same @fontsource packages)
+    'jost-700': 'jost-latin-700-normal.ttf', 'jost-800': 'jost-latin-800-normal.ttf', 'quicksand-500': 'quicksand-latin-500-normal.ttf',
+    'playfair-600': 'playfair-display-latin-600-normal.ttf', 'playfair-700i': 'playfair-display-latin-700-italic.ttf',
+    'pinyon': 'pinyon-script-latin-400-normal.ttf',
 }
 
 FORMATS = {'portrait_1080x1350': (1080, 1350), 'square_1080x1080': (1080, 1080), 'landscape_1200x628': (1200, 628),
@@ -69,7 +73,9 @@ def draw_text(draw, text, x, y, fnt, fill, align='left', box_w=None, tracking=0,
             cx += fnt.getlength(ch) + tracking
     else:
         draw.text((x, y), text, font=fnt, fill=fill)
-    box = dict(text=text, x=int(x), y=int(y), w=int(w), h=int(h), role=role, countable=countable, size=fnt.size)
+    hb = fnt.getbbox('H')
+    box = dict(text=text, x=int(x), y=int(y), w=int(w), h=int(h), role=role, countable=countable, size=fnt.size,
+               cap_h=int(hb[3] - hb[1]), fill=list(fill[:3]) if isinstance(fill, (tuple, list)) else fill)
     if boxes is not None: boxes.append(box)
     return box
 

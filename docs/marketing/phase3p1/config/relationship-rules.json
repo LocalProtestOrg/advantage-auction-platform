@@ -1,0 +1,130 @@
+{
+  "schema": "relationship-rules#1.0",
+  "core_principle": "HEAVY OBJECTS OBEY GRAVITY. WALL OBJECTS OBEY WALLS. FOREGROUND OBJECTS MAY OVERLAP BOTH. OBJECTS ALSO OBEY BELIEVABLE RELATIVE SCALE AND PHYSICAL RELATIONSHIPS.",
+  "edge_types": {
+    "ON": "A rests on B's top surface. Valid iff B.can_support includes A's class (or size class) and A's baseline lies in B's top band (existing 3M.3 surface rule: top \u221210px \u2026 +35% of B height).",
+    "BESIDE": "A and B share the floor plane with adjacent, non-crossing silhouettes; touching at an outer edge is allowed; crossing the interior is not.",
+    "UNDER": "Only for ground-plane objects (rug): A is under B when B's baseline lies inside A's patch and A is drawn behind B.",
+    "HANGS_ABOVE": "Wall object A above floor object B: A's baseline \u2265 B's top \u2212 tolerance (may descend behind B's top edge by \u2264 25% of A's height); A is always behind B.",
+    "IN_FRONT_OF": "A closer than B: A.baseline > B.baseline by \u2265 depth_step and A's z above B; overlap allowed only over B's lower edge region (bottom 35% of B's height) unless A is FOREGROUND-role and B is a wall object.",
+    "FOREGROUND_ACCENT": "Small object (foreground_suitability \u2265 2) overlapping the lower edge of any larger object; the overlap region must lie within the bottom 35% of the larger object's silhouette."
+  },
+  "valid_examples": [
+    {
+      "relation": "ON",
+      "a": "vase",
+      "b": "side_table"
+    },
+    {
+      "relation": "ON",
+      "a": "table_lamp",
+      "b": "console_table"
+    },
+    {
+      "relation": "BESIDE",
+      "a": "side_table",
+      "b": "wingback_chair"
+    },
+    {
+      "relation": "UNDER",
+      "a": "rug",
+      "b": "sofa"
+    },
+    {
+      "relation": "HANGS_ABOVE",
+      "a": "painting",
+      "b": "console_table"
+    },
+    {
+      "relation": "FOREGROUND_ACCENT",
+      "a": "bowl",
+      "b": "sofa"
+    },
+    {
+      "relation": "IN_FRONT_OF",
+      "a": "coffee_table",
+      "b": "sofa"
+    },
+    {
+      "relation": "ON",
+      "a": "china_group",
+      "b": "dining_table"
+    }
+  ],
+  "invalid_examples": [
+    {
+      "violation": "THROUGH",
+      "a": "wingback_chair",
+      "b": "side_table",
+      "why": "same plane, similar baselines, silhouettes cross the chair's seat/arm interior \u2014 Individual Seller A"
+    },
+    {
+      "violation": "THROUGH",
+      "a": "side_table",
+      "b": "wingback_chair"
+    },
+    {
+      "violation": "FLOATING",
+      "a": "painting",
+      "b": "floor",
+      "why": "a painting with its baseline in the floor band and no 'leaning' declaration"
+    },
+    {
+      "violation": "FLOATING",
+      "a": "cabinet",
+      "why": "heavy object without a floor baseline"
+    },
+    {
+      "violation": "SCALE",
+      "a": "vase",
+      "b": "sofa",
+      "why": "vase rendered taller than the sofa without catalogue dimensions"
+    },
+    {
+      "violation": "SCALE",
+      "a": "side_table",
+      "b": "wingback_chair",
+      "why": "table top wider than the chair seat without dimensions \u2014 Individual Seller A"
+    },
+    {
+      "violation": "SCALE",
+      "a": "floor_lamp",
+      "b": "wingback_chair",
+      "why": "floor lamp shorter than the chair without dimensions \u2014 Individual Seller A"
+    },
+    {
+      "violation": "UNSUPPORTED",
+      "a": "table_lamp",
+      "b": "floor",
+      "why": "table lamp needs a support surface"
+    },
+    {
+      "violation": "WALL_IN_FRONT",
+      "a": "painting",
+      "b": "sofa",
+      "why": "wall object drawn in front of a floor object"
+    },
+    {
+      "violation": "ROOM_SCALE_CATEGORY",
+      "a": "jewelry",
+      "b": "sofa",
+      "why": "jewellery placed at room scale beside furniture"
+    }
+  ],
+  "collision_detection": {
+    "same_plane_pairs": "For every pair of floor-plane objects: compute mask intersection at placed size. If intersection > 400px AND |baseline_a \u2212 baseline_b| < depth_step (default 6% of canvas height) AND the intersection touches the back object's interior band (20%\u201380% of its height) \u2192 THROUGH collision (hard fail).",
+    "lower_edge_layering": "If the front object's baseline is lower (closer) by \u2265 depth_step and the intersection lies within the bottom 35% of the back object's silhouette \u2192 valid layering.",
+    "protected_features": "Any intersection covering a protected feature (seat, arms, wings, dial, face, signature) > 15% is a hard fail regardless of depth.",
+    "support_check": "An object whose class has plane table/shelf/pedestal must have an ON edge to a supporter; else UNSUPPORTED (hard fail) unless declared 'floor-standing instance' with dimensions \u2265 24 in.",
+    "wall_check": "Wall objects: no contact shadow; baseline above the floor band + tolerance; never in front of a floor object; unchanged from 3M.3 plus the HANGS_ABOVE tolerance.",
+    "ground_check": "Rug: drawn behind all floor objects, patch never vertical, never over an object."
+  },
+  "scale_model": {
+    "reference": "scene_scale_px_per_in = anchor_pixel_height / anchor_typical_height_in, computed from the primary anchor (anchor_weight 3, or the largest anchor_weight 2).",
+    "placement_height_px": "typical_height_in \u00d7 scene_scale \u00d7 depth_factor(plane, baseline) where depth_factor ranges 0.85 (rear) \u2026 1.25 (foreground)",
+    "tolerance": "\u00b120% for same-plane objects; \u00b135% when the object is FOREGROUND-role and closer",
+    "dimension_priority": "lot.dimensions (catalogue) > class typical; when catalogue dimensions exist they are authoritative and the tolerance applies to them",
+    "violation": "an object outside tolerance relative to the anchor is a SCALE violation; 'vase taller than sofa' is never allowed without catalogue dimensions that prove it",
+    "category_composition_exception": "CATEGORY_GROUP / SINGLE_LOT families use category scale (objects of one class at uniform scale, coins slightly enlarged) \u2014 the room-scale model does not apply there"
+  }
+}

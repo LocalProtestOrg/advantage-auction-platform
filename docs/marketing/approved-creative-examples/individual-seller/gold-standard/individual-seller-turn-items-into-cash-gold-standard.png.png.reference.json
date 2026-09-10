@@ -1,0 +1,229 @@
+{
+  "schema_version": "1.1",
+  "reference_id": "REF-14",
+  "identity": {
+    "sha256": "35ca7c7f593965530d32378d9f4285606fb9427c61a3a49a332818d2256a9b26",
+    "current_path": "individual-seller/gold-standard/individual-seller-turn-items-into-cash-gold-standard.png.png",
+    "original_filename": "individual-seller-turn-items-into-cash-gold-standard.png.png",
+    "width": 1254,
+    "height": 1254,
+    "format_class": "square",
+    "aspect_ratio": 1
+  },
+  "owner_status": "OWNER_GOLD_STANDARD",
+  "owner_weight": 2,
+  "status_history": [
+    {
+      "date": "2026-09-11",
+      "status": "OWNER_GOLD_STANDARD",
+      "source": "folder_placement_by_owner",
+      "owner_words": "Owner placed the file in approved-creative-examples/individual-seller/gold-standard/ (gold-standard sub-folder = Gold Standard under the library convention)",
+      "recorded_by": "Desktop Marketing — Phase 3P.2"
+    }
+  ],
+  "source": {
+    "seller": "Advantage.Bid",
+    "origin": "Advantage.Bid-led creative produced by the Owner and his creative collaborator after Phase 3P.1 (image-model assisted); Owner-approved by folder placement",
+    "rights": "Advantage.Bid-owned reference creative. Calibration evidence only: the composition teaches attributes; the logo drawn inside it is an image-model rendering and is NOT an approved logo asset (production composites brand-assets/logos); merchandise is representative, not lots; every fact and claim visible is reference-only text unless separately approved.",
+    "campaign_title_visible": "Have Items to Sell? Turn Your Items Into Cash.",
+    "event_date_visible": "(none — generic acquisition)",
+    "advantage_bid_visible": true
+  },
+  "classification": {
+    "campaign_class_primary": "individual_seller_acquisition",
+    "campaign_class_secondary": [
+      "general_brand"
+    ],
+    "event_product_type": "Generic individual-seller acquisition (no event)",
+    "seller_hierarchy": "advantage_bid_only",
+    "visual_family": "SCENE_EXTRACTED",
+    "nearest_advantage_family": "ACQUISITION",
+    "event_mode": "not_an_event",
+    "merchandise_breadth": "representative_non_lot",
+    "owner_folder": "individual-seller"
+  },
+  "visual_read": {
+    "visual_hierarchy": "Typeset serif wordmark top-left with 'The Smarter Way to Sell.' → 'Have Items to Sell?' (large navy serif, title case) → red rule → 'Turn Your Items Into Cash.' → support sentence → four outline-icon benefit rows → red CTA 'Start Your Auction Today →' → navy band with three numbered steps and 'You Can Do This.' script → footer strip 'Real People. Real Support. Real Results.' Merchandise fills the right two-thirds and rises behind the headline.",
+    "merchandise_treatment": "A believable living-room vignette: china cabinet at the back, leather wingback chair with a patterned cushion, table lamp, an open cardboard box lettered 'Turn Your Items Into Cash.', gilt landscape, bronze horse, silver tea set, book stack with category spines, blue-and-white vase, mantel clock, trunk with a bronze dog, red toy truck, patterned bowl, rug. Objects rest on a table and the floor; the cabinet is behind; scale is plausible.",
+    "composition_style": "Left copy column over a light haze fading into a warm interior on the right; merchandise rises to the top edge behind the headline; navy band closes.",
+    "typography_treatment": "Title-case serif headline stack (navy) with a red rule; sans support and benefit rows; script accents in navy with red underlines; small-caps footer.",
+    "information_density": "high",
+    "branding_hierarchy": "Advantage.Bid leads (typeset wordmark — see logo note); 'ADVANTAGE.BID' repeated under the CTA; band script; no seller.",
+    "cta_treatment": "One red button 'Start Your Auction Today →' with the URL beneath.",
+    "footer_treatment": "Navy band (three steps + script) then a light footer strip with a three-part tagline.",
+    "photographic_style": "Image-model rendered warm interior, soft window light; merchandise photoreal.",
+    "overlapping_objects": "confident",
+    "environmental_staged_composition": "Editorial room: cabinet (rear), chair (anchor), table with grouped small objects (surface), rug (ground).",
+    "negative_space": "minimal",
+    "ground": "mixed",
+    "overall_visual_impact": "very_high"
+  },
+  "measured": {
+    "light_pixel_pct": 32.4,
+    "dark_pixel_pct": 25.6,
+    "saturated_pixel_pct": 38.3,
+    "dominant_hues": [
+      "red 53%",
+      "cyan 25%",
+      "orange 11%",
+      "red share of saturated 58.4%"
+    ],
+    "est_merchandise_share_pct": [
+      52,
+      60
+    ],
+    "est_text_share_pct": [
+      24,
+      30
+    ],
+    "object_count_est": 16,
+    "text_block_count": 9
+  },
+  "strongest_attributes": [
+    "Seller acquisition that is merchandise-led, warm and aspirational — it does not look like software advertising",
+    "One clear headline question with a one-line answer beneath it",
+    "Navy authority + red attention on a light foundation; merchandise supplies the rest of the colour",
+    "Physically believable staging: chair grounded, cabinet behind, small objects on a real surface"
+  ],
+  "transferable_lessons": [
+    "Acquisition creative may be visually rich when ONE headline dominates and every other block is subordinate and organised (benefit rows, step band)",
+    "Question headline + answer sub-headline is an approved acquisition structure",
+    "Light foundation with a warm interior on one side is within the Owner's 'light' preference",
+    "Red for the rule, the CTA and script underlines; navy for the headline and the band",
+    "A cardboard box as a 'your items' device is an approved narrative prop (representative, no claim)"
+  ],
+  "do_not_generalize": [
+    "The typeset serif 'Advantage.Bid™' wordmark — not an approved logo; production composites the official asset",
+    "The collaborator's prop set (bronze horse, blue-and-white vase, category books, red truck) — The collaborator's set repeats a bronze rearing horse, a blue-and-white vase, a stack of books with category-name spines, a gilt landscape, a laptop showing the logo and a handwritten script phrase on a mug/board/box. These are the collaborator's props, not required objects; the engine must not learn them as a checklist.",
+    "Nine copy blocks as a default — this is the ceiling of the ACQUISITION_RICH profile, not the target",
+    "'Keep More of the Proceeds' and the 'in minutes' promise — claims requiring production truth",
+    "Handwritten phrase on the box — scene accent only"
+  ],
+  "text_density_assessment": {
+    "level": "high",
+    "why_it_works_here": "Every block sits in a fixed slot and the headline is three times the size of anything else; the merchandise still holds more than half the canvas.",
+    "advantage_bid_budget_note": "Defines the ACQUISITION_RICH ceiling (9 blocks in structured slots). The Owner's stated preference for fast comprehension means the 5-block variant remains the feed default; the proving ground tests both."
+  },
+  "composition_assessment": {
+    "spatial_logic": "Room: cabinet on the wall plane behind, chair and table on the floor, small objects on the table, rug under.",
+    "gravity_and_grounding": "All furniture grounded; box on the floor; small objects supported.",
+    "depth": "Three planes with meaningful overlaps (objects in front of chair, chair in front of cabinet).",
+    "scale_strategy": "Chair and cabinet as anchors; table objects at believable scale; the toy truck reads as a toy.",
+    "edge_handling": "Cabinet exits the top; trunk exits the right; nothing identifying cut."
+  },
+  "retrieval": {
+    "use_cases": [
+      "individual seller acquisition",
+      "question-headline acquisition structure",
+      "warm interior + copy column",
+      "ACQUISITION_RICH density ceiling"
+    ],
+    "tags": [
+      "gold",
+      "acquisition",
+      "question-headline",
+      "navy-red",
+      "warm-interior",
+      "benefit-rows",
+      "step-band",
+      "square"
+    ],
+    "avoid_for": [
+      "event advertising (no event facts)",
+      "buyer growth copy",
+      "any campaign where copy must be minimal"
+    ]
+  },
+  "performance": null,
+  "provenance": {
+    "created_by": "Desktop Marketing (Claude, Cowork) — Phase 3P.2",
+    "created_at": "2026-09-10T16:08:54Z",
+    "analysis_method": "Direct visual inspection at full resolution; pixel statistics computed from the file; est_* are visual estimates; text transcribed from the image and classified.",
+    "phase": "3P.2"
+  },
+  "text_classification": [
+    {
+      "text": "Have Items to Sell?",
+      "status": "APPROVED_CAMPAIGN_SPECIFIC_MESSAGE",
+      "role": "headline",
+      "note": "named in the Owner's 3P.2 brief as the approved acquisition concept"
+    },
+    {
+      "text": "Turn Your Items Into Cash.",
+      "status": "APPROVED_CAMPAIGN_SPECIFIC_MESSAGE",
+      "role": "headline",
+      "note": "named in the Owner's 3P.2 brief"
+    },
+    {
+      "text": "The Smarter Way to Sell.",
+      "status": "OWNER_APPROVED_MESSAGE",
+      "role": "label",
+      "note": "seller-facing campaign slogan (logo README)"
+    },
+    {
+      "text": "You Can Do This.",
+      "status": "OWNER_APPROVED_MESSAGE",
+      "role": "label"
+    },
+    {
+      "text": "Create your own online auction in minutes. You're never on your own.",
+      "status": "REFERENCE_ONLY_CLAIM_REQUIRES_PRODUCTION_TRUTH",
+      "role": "support",
+      "note": "'in minutes' needs production truth"
+    },
+    {
+      "text": "Simple Step-by-Step Setup",
+      "status": "REFERENCE_ONLY_TEXT",
+      "role": "label"
+    },
+    {
+      "text": "Reach Real Buyers",
+      "status": "REFERENCE_ONLY_TEXT",
+      "role": "label"
+    },
+    {
+      "text": "Keep More of the Proceeds",
+      "status": "REFERENCE_ONLY_CLAIM_REQUIRES_PRODUCTION_TRUTH",
+      "role": "label"
+    },
+    {
+      "text": "Real People Here to Help",
+      "status": "REFERENCE_ONLY_TEXT",
+      "role": "label"
+    },
+    {
+      "text": "Start Your Auction Today",
+      "status": "REFERENCE_ONLY_TEXT",
+      "role": "cta",
+      "note": "CTA wording acceptable when the destination is real"
+    },
+    {
+      "text": "Create / Upload / Go Live",
+      "status": "REFERENCE_ONLY_TEXT",
+      "role": "label"
+    },
+    {
+      "text": "We market it. You start selling.",
+      "status": "REFERENCE_ONLY_CLAIM_REQUIRES_PRODUCTION_TRUTH",
+      "role": "support"
+    },
+    {
+      "text": "Real People. Real Support. Real Results.",
+      "status": "REFERENCE_ONLY_TEXT",
+      "role": "label"
+    },
+    {
+      "text": "Same Great Things. A Bigger Audience.",
+      "status": "REFERENCE_ONLY_TEXT",
+      "role": "label"
+    },
+    {
+      "text": "Sell • Shop • Discover",
+      "status": "REFERENCE_ONLY_TEXT",
+      "role": "label"
+    }
+  ],
+  "logo_treatment_in_reference": "typeset serif wordmark with red dot and ™ — NOT an approved asset; composition lesson only",
+  "owner_gold_reason": "Owner placed the file in individual-seller/gold-standard; the 3P.2 brief names the 'Have Items to Sell? / Turn Your Items Into Cash.' concept as the intended true Gold Standard",
+  "filename_signal": "gold-standard (double .png extension — a naming slip, not a different status)"
+}

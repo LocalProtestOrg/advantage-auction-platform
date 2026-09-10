@@ -1,0 +1,127 @@
+{
+  "schema": "logo-asset-system#1.0",
+  "authority": "docs/marketing/brand-assets/logos/README.md \u2014 the Owner's usage rules are preserved verbatim there; this file is the machine contract that consumes them.",
+  "absolute_rule": "The creative generator NEVER redraws, regenerates, approximates, typesets, hallucinates or reconstructs the Advantage.Bid logo when a logo treatment is required. The system may choose WHICH approved variant to use; it may not redesign the logo. A typeset 'Advantage.Bid' is not a logo treatment (the footer band wordmark is a locked brand-frame text element, not a logo).",
+  "asset_registry": {
+    "root": "docs/marketing/brand-assets/logos/",
+    "approval": "Only files listed here are authoritative. New files in the folder are NOT authoritative until the Owner identifies them and they are added to this registry (README 'Future Assets').",
+    "variants": [
+      {
+        "key": "primary_horizontal",
+        "file": "advantage-bid-primary.png",
+        "sha256": "d1e654d360f25af552e587601bd4f9fbaee08b3f347b40922c186ca94450169c",
+        "px": [
+          1983,
+          793
+        ],
+        "alpha": false,
+        "ground": "white rectangle",
+        "contains_tagline": "GET THE ADVANTAGE",
+        "use": [
+          "advertisements",
+          "marketing graphics",
+          "headers",
+          "seller and buyer acquisition creative",
+          "larger brand placements",
+          "light or neutral backgrounds"
+        ],
+        "preferred": true
+      },
+      {
+        "key": "primary_transparent",
+        "file": "advantage-bid-transparent.png",
+        "sha256": "8b5fce17b50dea4c15f73b3cfa2e54bd900db22f3106db0ee2d80ea4cd1db561",
+        "px": [
+          1983,
+          793
+        ],
+        "alpha": true,
+        "ground": "transparent",
+        "contains_tagline": "GET THE ADVANTAGE",
+        "use": [
+          "compositing over an approved background",
+          "where a white rectangle would interfere",
+          "backgrounds with sufficient contrast (light or neutral)"
+        ]
+      },
+      {
+        "key": "white_horizontal",
+        "file": "advantage-bid-white.png",
+        "sha256": "98e740bcc1a547c7d015a1bae6cdbcfca32eb86b9aab14a4ff61dd5314a748aa",
+        "px": [
+          1983,
+          793
+        ],
+        "alpha": true,
+        "ground": "transparent \u2014 for dark navy, dark photographic areas, dark panels",
+        "contains_tagline": "GET THE ADVANTAGE",
+        "use": [
+          "navy band (when a logo, not the wordmark, is wanted there)",
+          "dark photographic areas",
+          "dark panels"
+        ],
+        "never": [
+          "light backgrounds"
+        ]
+      },
+      {
+        "key": "ab_icon",
+        "file": "advantage-bid-icon-primary.png",
+        "sha256": "54bdfdd2e3cfbe71e50bc4b42354893bf47c97244c0b46394b5936a9c7520646",
+        "px": [
+          1254,
+          1254
+        ],
+        "alpha": false,
+        "ground": "white rounded square",
+        "contains_tagline": null,
+        "use": [
+          "social profile imagery",
+          "avatars",
+          "app/icon treatments",
+          "compact placements",
+          "square or near-square placements where the full logo would be too small"
+        ],
+        "never": [
+          "as a substitute for the full logo when there is room and full identity matters"
+        ]
+      }
+    ]
+  },
+  "variant_selection": {
+    "inputs": [
+      "campaign class / seller hierarchy",
+      "placement zone background luminance and busyness (measured under the intended logo box)",
+      "available width",
+      "format"
+    ],
+    "rules": [
+      "Advantage.Bid-led creative, light/neutral zone \u2192 primary_transparent over a light ground (or primary_horizontal when the zone is pure white); the white rectangle of primary_horizontal must never sit visibly over a photograph or coloured ground.",
+      "Zone luminance < 0.45 or busy photograph under the box \u2192 white_horizontal, and the zone must be darkened/quieted by layout (a navy panel or a clean dark area), never by editing the logo.",
+      "Available width < 22% of canvas width \u2192 ab_icon is NOT the answer for an ad; re-layout to make room. ab_icon is for avatars/compact placements only.",
+      "Co-brand (Professional Seller-led): the Advantage.Bid mark in the relationship line uses primary_transparent (or white on the band) at 60\u201390% of the seller identity weight (3P.1 prominence rules).",
+      "When uncertain, prefer the approved primary variant with the strongest legibility that does not overwhelm the campaign hierarchy (README)."
+    ]
+  },
+  "compositing_stage": {
+    "position_in_pipeline": "creative composition \u2192 merchandise/environment \u2192 typography \u2192 layout \u2192 [LOGO STAGE: choose variant \u2192 reserve clear space \u2192 composite actual asset] \u2192 prominence/legibility QA \u2192 alteration check",
+    "reserved_zone": "the layout reserves a logo box (width band per prominence rules; clear space \u2265 1\u00d7 logo cap height) BEFORE generation; the generator is told the box is off-limits (no text, no merchandise, no rendered logo) and the box is masked to the ground colour after generation before compositing",
+    "transform_allowed": [
+      "uniform scale (never non-uniform)",
+      "position"
+    ],
+    "transform_forbidden": [
+      "stretch, skew, rotate, crop, recolour, opacity < 100% (except a documented watermark use), drop shadows or outlines added to the asset, tagline removal or substitution, adding a campaign slogan inside the asset"
+    ],
+    "slogans": "'The Smarter Way to Sell.' / '\u2026to Shop.' are separate text elements placed near the logo with their own clear space; never baked into the asset; the asset's own tagline GET THE ADVANTAGE stays as-is (REF-21 shows the slogan drawn where the tagline sits \u2014 production does not do that).",
+    "hash_check": "the composited pixels are compared to the registered asset at the placed scale (normalised cross-correlation \u2265 0.97 inside the box); a mismatch fails QA"
+  },
+  "qa": {
+    "prominence": "3P.1 prominence-rules.json applies unchanged; Advantage.Bid-led lockup width band widened to 30\u201350% of canvas width (REF-15/16/18\u201322 sit near 50%).",
+    "alteration_check": "template match of the registered asset inside the logo box \u2265 0.97; OCR of the box must read ADVANTAGE.BID and (for full variants) GET THE ADVANTAGE; any extra text inside the box \u2192 fail",
+    "rendered_logo_detector": "OCR + template search over the whole render for 'ADVANTAGE.BID' strings or gavel-like marks outside the logo box (e.g. on a laptop screen, a mug, a box): a rendered logo anywhere else \u2192 fail (README: replace with an approved asset \u2014 in practice regenerate with the object surface blank or remove the object); a rendered logo INSIDE the box is masked and replaced by the asset",
+    "legibility_at_feed_proxy": "as 3P.1 (240px proxy; template \u2265 0.85; wordmark OCR)",
+    "fail_action": "REGENERATE the layout with the logo box enlarged/relocated; never shrink the headline first; never scale the logo below the band minimum"
+  },
+  "reference_library_note": "Every 3P.2 reference carries an image-model rendering of the logo. Sidecar field logo_treatment_in_reference records it. The principle extractor never emits 'logo style' lessons; the only logo lesson is placement zone and prominence."
+}

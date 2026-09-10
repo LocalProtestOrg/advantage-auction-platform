@@ -2,3 +2,6 @@ Pillow>=10
 numpy>=1.26
 playwright>=1.45
 # then: python -m playwright install chromium
+# Phase 3P.1/3P.2: OCR for logo QA / seller-mark leak checks, and frame extraction for authentic video selection.
+rapidocr-onnxruntime>=1.2.3
+imageio-ffmpeg>=0.6.0

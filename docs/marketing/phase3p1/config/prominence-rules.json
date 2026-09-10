@@ -1,0 +1,69 @@
+{
+  "schema": "prominence-rules#1.0",
+  "principle": "Prominence is measured as recognisability at social-feed / mobile size, not as raw pixel dimensions. Every rule below is evaluated on the render scaled to a 240px-wide feed proxy (and the 281px thumbnail the 3M pipeline already produces), then reported in canvas pixels for the designer.",
+  "feed_proxy": {"width_px": 240, "note": "≈ a phone feed card at 1× density; the strictest common case"},
+  "brand_identity": {
+    "elements": ["logo_lockup (the real Advantage.Bid logo asset)", "footer_band_wordmark", "relationship_line (co-brand)"],
+    "advantage_bid_led": {
+      "logo_lockup_width_pct_of_canvas": [30, 40],
+      "logo_lockup_min_height_at_feed_proxy_px": 14,
+      "footer_wordmark_cap_height_pct_of_canvas_height": [5.2, 6.5],
+      "clear_space": "≥ 1 × logo cap height on all sides",
+      "position": "logo in the top 22% of the canvas; wordmark in the band",
+      "contrast_min": 4.5,
+      "recognition_test": "at the feed proxy the logo lockup is identifiable as the Advantage.Bid mark (template match ≥ 0.85) and the wordmark OCRs correctly",
+      "first_glance_zone": "logo or wordmark must sit inside the top-third or bottom-band zones the eye scans first; never mid-cluster",
+      "note": "The six proving-ground renders used a 250px lockup (23% of width) — the Owner called it too small in every case. 30–40% is the corrected band; the calibration extreme uses 44%."
+    },
+    "seller_led_cobranded": {
+      "seller_identity": "largest identity element; may be type when no seller logo asset exists in production (never lifted from a reference)",
+      "advantage_bid_identity_weight_ratio": [0.6, 0.9],
+      "identity_weight": "cap-height × width × contrast of the element, normalised; the Advantage.Bid lockup + relationship line together must reach 60–90% of the seller identity's weight — intentionally visible, never competing",
+      "relationship_line_cap_height_pct_of_canvas_height": [2.2, 3.0],
+      "relationship_line_must_include_logo_mark": true,
+      "footer_band_wordmark": "as advantage_bid_led (the band is the platform's, not the seller's)",
+      "never": ["Advantage.Bid larger than the seller identity", "Advantage.Bid identity in the same colour and face as the seller's so the two read as one company"],
+      "note": "West University A/B/C carried a ~20px relationship line without the logo mark; the band wordmark alone did not satisfy the Owner."
+    },
+    "qa": {
+      "checks": ["element present", "size band", "clear space", "contrast", "feed-proxy recognition (template + OCR)", "position zone", "co-brand weight ratio"],
+      "fail": "any check → prominence violation → REGENERATE with the identity block enlarged one step (never by shrinking the headline first)",
+      "report": "canvas px, feed-proxy px, weight ratio, zone"
+    }
+  },
+  "event_type": {
+    "principle": "The viewer must understand WHAT the event is within the first glance. Event Type is a first-class text role.",
+    "roles_order_of_visual_weight": {
+      "event_advertising_seller_led": ["SELLER", "EVENT_TYPE", "EVENT_TITLE (place/name)", "DATE_TIME", "LOCATION", "ADVANTAGE_BID_PARTNERSHIP"],
+      "event_advertising_advantage_bid_led": ["ADVANTAGE_BID", "EVENT_TYPE", "EVENT_TITLE", "DATE_TIME", "LOCATION"],
+      "note": "Order is comprehension order, not size order: SELLER may be smaller than EVENT_TYPE; what must hold is that EVENT_TYPE is never below DATE_TIME in size and never reads as a subtitle."
+    },
+    "sizing": {
+      "event_type_cap_height_min_pct_of_largest_text": 80,
+      "event_type_cap_height_min_pct_of_canvas_height": 4.8,
+      "date_cap_height_max_pct_of_event_type": 85,
+      "modifiers": "qualifiers such as 'Exclusive', 'On-Site', 'Two-Day' are modifiers, set at ≤ 45% of the event type's cap height or moved to the support line; they never dilute the type",
+      "title_unit_patterns": [
+        "TYPE_LED: 'Estate Sale' largest; place/name second line at 60–100% of it (the published West University graphic and the Owner's ask)",
+        "UNIT: place + type as one unit at equal size ('Katy Estate Sale'; 'West University Estate Sale') — allowed when it fits on ≤ 2 lines without orphaning",
+        "TWO_LINE_UNIT: place line / type line, type ≥ 80% of the place line ('Pine Haven' / 'Estate Sale')"
+      ],
+      "forbidden": ["event type as a sentence-case subtitle under a place-name title (West University A/B/C)", "event type wrapped so a word stands alone ('… Estate / Sale')", "event type below date size"]
+    },
+    "vocabulary": {
+      "source": "production event record (event_mode + sale_type); never invented; if the record has no type the creative uses the record's title only and the packet flags it",
+      "values": ["Estate Sale", "Online Auction", "On-Site Auction", "Live Auction", "Online Estate Auction", "Marketplace Sale", "Moving Sale", "Business Liquidation", "Equipment Auction", "Farm Auction", "Consignment Auction"],
+      "capitalization": "title style (Mission 9)"
+    },
+    "qa": {
+      "comprehension_test": "vision judge at feed proxy: 'What kind of event is this?' must answer with the event type; 'Who is running it?' must answer the seller (co-brand) or Advantage.Bid; 'When?' the date",
+      "checks": ["event_type role present in drawn text", "size floors", "not wrapped into an orphan", "not a subtitle pattern", "judge comprehension answers"],
+      "fail": "REGENERATE with the title unit re-set"
+    }
+  },
+  "text_hygiene": {
+    "no_orphan_words": "no headline or event-type line may wrap leaving a single word on its own line",
+    "accent_rule_placement": "a decorative rule (red underline) sits under the whole headline unit, never under a fragment of one word",
+    "max_headline_lines": 2
+  }
+}

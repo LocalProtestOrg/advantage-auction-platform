@@ -1,0 +1,298 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://advantage.bid/contracts/3p1/feedback-record.schema.json",
+  "title": "Owner creative feedback record — attribute-level (Phase 3P.1)",
+  "description": "One record per Owner review of one creative (or one global statement). Written to owner-decisions.jsonl with action CREATIVE_REVIEW or OWNER_RULE. Positive and negative findings are kept apart at attribute level so a rejected creative can still teach an approved message or attribute, and an approved creative can still teach a required fix. Nothing here changes a library owner_status automatically; only explicit statuses do.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "ts",
+    "action",
+    "source",
+    "subject",
+    "owner_words",
+    "verdict",
+    "attributes",
+    "recorded_by"
+  ],
+  "properties": {
+    "ts": {
+      "type": "string"
+    },
+    "action": {
+      "enum": [
+        "CREATIVE_REVIEW",
+        "OWNER_RULE"
+      ]
+    },
+    "schema": {
+      "const": "feedback-record.schema.json#1.0"
+    },
+    "source": {
+      "enum": [
+        "owner_review_of_generated_creative",
+        "owner_statement_via_desktop_marketing",
+        "admin_ui_button",
+        "owner_directive_via_vscode_mission"
+      ]
+    },
+    "subject": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind"
+      ],
+      "properties": {
+        "kind": {
+          "enum": [
+            "generated_creative",
+            "global_rule",
+            "library_reference"
+          ]
+        },
+        "proving_ground": {
+          "type": "string"
+        },
+        "candidate": {
+          "type": "string"
+        },
+        "job_id": {
+          "type": "string"
+        },
+        "campaign_class": {
+          "type": "string"
+        },
+        "family": {
+          "type": "string"
+        },
+        "variant_ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "render_sha256": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Filled by the ingester from the packet; the Owner never supplies hashes."
+        },
+        "reference_id": {
+          "type": "string"
+        }
+      }
+    },
+    "owner_words": {
+      "type": "string",
+      "description": "Verbatim or near-verbatim; never paraphrased into stronger approval."
+    },
+    "verdict": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "overall"
+      ],
+      "properties": {
+        "overall": {
+          "enum": [
+            "GOOD",
+            "OK_NEEDS_WORK",
+            "NO",
+            "GLOBAL_RULE",
+            "NOT_EVALUATED"
+          ]
+        },
+        "set_preference": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "rank": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "of": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "note": {
+              "type": "string"
+            }
+          }
+        },
+        "gold_standard": {
+          "const": false,
+          "description": "Gold Standard is never set from a review record. It requires an explicit SET_STATUS entry with the Owner's words."
+        },
+        "explicitly_not_gold": {
+          "type": "boolean"
+        },
+        "library_admission": {
+          "enum": [
+            "none",
+            "eligible_after_revision",
+            "admit_as_owner_approved"
+          ],
+          "description": "'admit' requires GOOD with no required fixes; GOOD with fixes = eligible_after_revision."
+        },
+        "negative_signature": {
+          "type": "boolean",
+          "description": "NO → the render's layout signature enters the class's negative set."
+        }
+      }
+    },
+    "attributes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "attribute",
+          "polarity",
+          "severity"
+        ],
+        "properties": {
+          "attribute": {
+            "$ref": "#/$defs/Attribute"
+          },
+          "polarity": {
+            "enum": [
+              "positive",
+              "negative"
+            ]
+          },
+          "severity": {
+            "enum": [
+              "required",
+              "strong",
+              "note"
+            ],
+            "description": "required = must change before the creative can be approved; strong = clear preference; note = observation."
+          },
+          "scope": {
+            "enum": [
+              "this_creative",
+              "campaign_class",
+              "family",
+              "global"
+            ]
+          },
+          "note": {
+            "type": "string"
+          },
+          "evidence": {
+            "type": "string",
+            "description": "What in the render shows it (filled by Desktop Marketing from inspection, never invented)."
+          }
+        }
+      }
+    },
+    "messages": {
+      "type": "array",
+      "description": "Copy the Owner explicitly judged. Message approval is independent of the visual verdict.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "text",
+          "status",
+          "scope"
+        ],
+        "properties": {
+          "text": {
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "OWNER_APPROVED_MESSAGE",
+              "OWNER_REJECTED_MESSAGE",
+              "USED_NOT_EVALUATED",
+              "OWNER_AUTHORED_PHILOSOPHY"
+            ]
+          },
+          "scope": {
+            "type": "string"
+          },
+          "role": {
+            "enum": [
+              "headline",
+              "support",
+              "help",
+              "event_type",
+              "cta",
+              "label"
+            ]
+          }
+        }
+      }
+    },
+    "rules": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "rule",
+          "scope",
+          "statement"
+        ],
+        "properties": {
+          "rule": {
+            "type": "string"
+          },
+          "scope": {
+            "enum": [
+              "global",
+              "campaign_class",
+              "family"
+            ]
+          },
+          "statement": {
+            "type": "string"
+          },
+          "examples": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "config_ref": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "recorded_by": {
+      "type": "string"
+    }
+  },
+  "$defs": {
+    "Attribute": {
+      "type": "string",
+      "enum": [
+        "authentic_environmental_photograph",
+        "synthetic_composition_unnecessary",
+        "event_type_prominence",
+        "event_title_prominence",
+        "advantage_bid_identity_prominence",
+        "seller_identity_prominence",
+        "red_accent_use",
+        "headline_capitalization",
+        "headline_message",
+        "physical_relationship_plausibility",
+        "object_scale_believability",
+        "impossible_intersection",
+        "merchandise_coverage",
+        "accidental_white_space",
+        "composition_intelligence",
+        "layout_side_panel_void",
+        "photo_crop_subject_integrity",
+        "title_wrapping",
+        "screenshot_led_execution",
+        "contact_card_dominance",
+        "help_visibility",
+        "overall_visual_execution"
+      ]
+    }
+  }
+}

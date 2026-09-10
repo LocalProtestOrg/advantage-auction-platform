@@ -1,0 +1,164 @@
+{
+  "schema": "paid-growth-policy#1.0",
+  "authority": {
+    "monthly_ceiling_usd": 1000,
+    "nature": "CEILING, not a target; the Director may spend less \u2014 including zero \u2014 when evidence does not justify spend",
+    "allocation": "the Director recommends; the Owner does not set allocations manually",
+    "precedence": [
+      "subscriber health",
+      "attribution quality",
+      "platform safety",
+      "campaign economics",
+      "budget utilisation (last)"
+    ],
+    "never": [
+      "exceed the ceiling",
+      "advance spend against unverified measurement",
+      "publish or promise assisted-service pricing",
+      "activate a channel the Owner has not activated (readiness stays Owner-controlled)"
+    ]
+  },
+  "objectives": [
+    "seller_acquisition",
+    "buyer_acquisition",
+    "event_promotion",
+    "retargeting",
+    "geographic_growth",
+    "creative_audience_experiment",
+    "other_justified"
+  ],
+  "strategic_markets": {
+    "initial": [
+      "Houston Metro",
+      "NYC Tri-State / NYC Metro"
+    ],
+    "nature": "priorities, not permanent restrictions",
+    "assisted_service": {
+      "available_in": [
+        "Houston Metro",
+        "NYC Tri-State / NYC Metro"
+      ],
+      "capabilities": [
+        "auction creation help",
+        "catalog/auction setup assistance",
+        "sale management",
+        "pickup coordination/handling"
+      ],
+      "seller_paths": [
+        "SELF_SERVICE",
+        "ASSISTED_FULL_SERVICE"
+      ],
+      "pricing": "CUSTOM / TO BE DETERMINED AFTER SALE EVALUATION \u2014 never published, never a fixed price in any creative, landing page, form or ad; the Director may use AVAILABILITY as strategic intelligence only",
+      "copy_allowed": [
+        "Hands-on help available in Houston and the NYC area",
+        "Prefer us to run the sale? Ask about assisted service"
+      ],
+      "copy_forbidden": [
+        "any commission percentage",
+        "'from X%'",
+        "'only X%'",
+        "'full service for X'"
+      ]
+    }
+  },
+  "proposal_shape": [
+    "MARKET",
+    "AUDIENCE",
+    "CAMPAIGN",
+    "OBJECTIVE",
+    "CHANNEL",
+    "BUDGET (cap for the window)",
+    "MEASUREMENT_WINDOW",
+    "SUCCESS_SIGNAL (first-party outcome, not a platform metric)",
+    "STOP_CONDITION",
+    "SCALE_CONDITION"
+  ],
+  "proposal_rules": [
+    "every proposal names the first-party success signal (registration, draft, publish, watch, bid, purchase, seller inquiry) and the platform proxy it will be judged against until the signal matures",
+    "every proposal names the measurement it depends on; a proposal whose measurement is MISSING or PARTIAL in the readiness audit cannot be activated",
+    "budget per campaign window \u2264 40% of the monthly ceiling unless a WINNER state justifies more",
+    "at least 10% of any active month is reserved for experiments unless total spend is under $200",
+    "retargeting and suppression audiences require consent-compliant first-party data; otherwise the campaign runs without them and says so"
+  ],
+  "signal_states": {
+    "NO_DATA": {
+      "definition": "spend < $10 or impressions < 500",
+      "action": "wait; check delivery"
+    },
+    "INSUFFICIENT_DATA": {
+      "definition": "clicks < 30 or sessions < 30 and conversions < 3",
+      "action": "continue to the next checkpoint unless the spend pace exceeds the window cap"
+    },
+    "EARLY_SIGNAL": {
+      "definition": "\u2265 30 sessions with an engaged-session rate or a proxy conversion rate outside the pooled baseline by a wide margin (\u2265 2\u00d7 or \u2264 0.5\u00d7) but not yet significant",
+      "action": "note; may shift \u2264 20% of window budget toward or away; no scaling decisions"
+    },
+    "MEANINGFUL_SIGNAL": {
+      "definition": "\u2265 100 sessions or \u2265 10 first-party conversions and a difference from the pooled baseline with p < 0.10 (two-proportion test) or a Bayesian probability \u2265 80%",
+      "action": "shift budget up to 50%; test alternatives against it"
+    },
+    "WINNER": {
+      "definition": "MEANINGFUL_SIGNAL held across two consecutive checkpoints with cost per first-party outcome at or below the objective's target and no subscriber-health or safety flag",
+      "action": "scale within window cap; raise the cap with a reasoned proposal"
+    },
+    "LOSER": {
+      "definition": "\u2265 100 sessions or \u2265 $150 spend with cost per outcome > 2\u00d7 target and no EARLY_SIGNAL of improvement, or any policy/safety/quality flag",
+      "action": "pause; reallocate; record the learning"
+    }
+  },
+  "checkpoints": {
+    "rule": "evaluate continuously at spend/impression/click/conversion thresholds, never on a calendar alone",
+    "thresholds": [
+      "$25 spend or 2,000 impressions (delivery + CTR sanity)",
+      "30 clicks (landing/session quality)",
+      "100 sessions or $150 (state decision)",
+      "each first-party conversion event (downstream review)",
+      "72h after any state change (re-check for regression)"
+    ],
+    "anti_overreaction": [
+      "no LOSER call before 100 sessions or $150 unless a safety/policy flag",
+      "no WINNER call without two checkpoints",
+      "CTR alone never decides",
+      "platform-reported conversions are provisional until reconciled to first-party outcomes"
+    ]
+  },
+  "bounded_actions": [
+    "PAUSE_LOSER",
+    "SHIFT_BUDGET (within the month's ceiling and window caps)",
+    "TEST_ALTERNATIVE (creative, audience, geography, channel)",
+    "SCALE_WINNER (within caps)",
+    "STOP_CAMPAIGN",
+    "PROPOSE (anything outside caps \u2192 Owner)"
+  ],
+  "owner_report": {
+    "cadence": "weekly digest + on any state change; monthly summary",
+    "header": [
+      "MONTHLY_AUTHORITY",
+      "RECOMMENDED_SPEND",
+      "ACTUAL_SPEND",
+      "REMAINING_AUTHORITY"
+    ],
+    "allocation_by": [
+      "objective",
+      "geography",
+      "audience",
+      "channel",
+      "campaign"
+    ],
+    "per_material_campaign": [
+      "WHY WE ARE RUNNING IT",
+      "WHAT WE HAVE LEARNED",
+      "WHAT IT COST",
+      "WHAT HAPPENED AFTER THE CLICK (sessions \u2192 engaged \u2192 registrations \u2192 intent \u2192 marketplace actions \u2192 outcomes)",
+      "WHAT THE DIRECTOR IS DOING NEXT (increase / decrease / stop / continue / reallocate, with the reason)"
+    ],
+    "never_shown": [
+      "Marketing Package internal economics",
+      "60/40 policy",
+      "seller-package margins",
+      "channel media costs attributed to package fulfilment",
+      "Growth Pool mechanics"
+    ],
+    "tone": "plain sentences; numbers with their confidence state; no dashboards required to understand it"
+  }
+}

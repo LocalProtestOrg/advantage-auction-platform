@@ -1,0 +1,60 @@
+{
+  "schema": "variation-requirements#1.0",
+  "owner_statement": "Gold Standards are not intended to force every creative into the same left-copy/right-merchandise arrangement. The reference system should learn a RANGE of successful structures. Centered messaging can be valid. Asymmetric messaging can be valid. Environmental photography can be valid. Merchandise-led composition can be valid. Do not average all Gold Standards into one generic template.",
+  "constants": [
+    "Advantage.Bid identity (official asset, prominence rules)",
+    "physical realism (3P.1)",
+    "light/clean visual character (color-system)",
+    "readability / fast comprehension (copy-density)",
+    "factual integrity (A2, notable-lot contract)",
+    "campaign objective",
+    "restrained copy per profile",
+    "recognizable brand presence (navy band or equivalent close)"
+  ],
+  "variables": [
+    "composition structure: LEFT_COPY | CENTERED | RIGHT_COPY | TOP_COPY_BOTTOM_SCENE | ENVIRONMENTAL_FULL_BLEED | HERO_OBJECT",
+    "merchandise grouping: room vignette | tabletop vignette | outdoor staging | single hero | person + props (generic acquisition only)",
+    "headline location and case (title-case serif | uppercase condensed)",
+    "environmental/photo use",
+    "red emphasis device (word | line | rule | swash | CTA)",
+    "typography balance (serif headline | condensed display)",
+    "CTA placement",
+    "image dominance (merchandise 40\u201360%)",
+    "script accent present or not",
+    "benefit rows: column | row | none",
+    "band content: items | wordmark only"
+  ],
+  "rules": {
+    "no_averaging": "the principle extractor emits per-attribute RANGES and the set of structures seen, never a mean layout; a brief must name the structure chosen and why",
+    "rotation": "for a class with \u2265 2 Gold/approved structures, consecutive creatives for the same objective must not reuse the same structure; the retriever returns the structure list with each reference's structure tagged",
+    "distance": "3P G11 unchanged: signature distance \u2265 \u03c4_ref from every reference (Gold included) and \u2265 \u03c4_self from recent creatives; a Gold is never closer than \u03c4_ref",
+    "prop_checklist_ban": "the recurring collaborator props (bronze horse, blue-and-white vase, category-spine books, laptop with logo, script mug/board/box) are tagged in do_not_generalize; the object selector must not treat them as required; a scene containing \u2265 3 of them together is flagged 'template echo' and regenerated",
+    "structures_seen_3p2": {
+      "individual_seller_acquisition": [
+        "LEFT_COPY room vignette (REF-14/15)",
+        "LEFT_COPY person + props landscape (REF-16)",
+        "LEFT_COPY exterior staging (REF-17)"
+      ],
+      "buyer_platform_growth": [
+        "LEFT_COPY tabletop vignette with form (REF-18)",
+        "LEFT_COPY tabletop vignette with laptop prop (REF-19)"
+      ],
+      "professional_seller_acquisition": [
+        "CENTERED (REF-20)",
+        "LEFT_COPY serif (REF-21)"
+      ],
+      "geographic_event_promotion": [
+        "LEFT_COPY landmark + staging (REF-22)"
+      ],
+      "notable_lot": [
+        "LEFT_COPY hero object (REF-23)"
+      ]
+    },
+    "structures_owner_named_valid_but_unseen": [
+      "asymmetric messaging",
+      "environmental photography full-bleed (seen in 3P references REF-09/10 and West University C)",
+      "merchandise-led with minimal copy (3P REF-02 style) for Advantage.Bid-led classes"
+    ],
+    "proving_ground": "each class generates candidates across \u2265 2 structures so the Owner's next feedback extends the range rather than narrowing it"
+  }
+}

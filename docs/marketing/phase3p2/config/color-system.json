@@ -1,0 +1,67 @@
+{
+  "schema": "color-system#1.0",
+  "owner_statement": "LIGHT / WHITE creative backgrounds are strongly preferred as the normal Advantage.Bid advertising environment. The dark Notable Lot treatment was too dark; the light recreation was substantially preferred. Warm authentic interiors, lightly coloured environments, soft photographic backgrounds and controlled environmental imagery are acceptable when the overall creative remains bright and readable. RED is an important attention colour: it pops, attracts the eye, creates emphasis, adds energy, and works for CTAs, underlines, event-type emphasis, key words and controlled accents. Use red selectively; do not flood. Do not over-constrain into navy-only.",
+  "formula": "LIGHT FOUNDATION + NAVY AUTHORITY + RED ATTENTION + MERCHANDISE COLOUR \u2014 a strong preference, not a rigid formula",
+  "tokens": {
+    "navy_band": "#182e45 (3M.2 locked band)",
+    "navy_logo_wordmark": "#001025 (sampled from the official asset)",
+    "logo_blue": "#0252ba (sampled from the official asset's BID)",
+    "red": "#d62828 (homepage accent; 3M)",
+    "light_grounds": [
+      "#ffffff",
+      "very light warm (#faf9f7 \u2026 #f4f1ec)",
+      "soft photographic light interiors with mean luminance \u2265 0.62 in the copy zone"
+    ]
+  },
+  "roles": {
+    "light_foundation": {
+      "measure": "mean luminance of the canvas excluding the navy band \u2265 0.60 AND the copy zone \u2265 0.72",
+      "evidence": "all 10 new references; the dark Notable Lot version rejected",
+      "note": "a warm interior on one side is light foundation if these hold (REF-14/15/18\u201321 all pass)"
+    },
+    "navy_authority": {
+      "where": [
+        "headline (title-case serif or condensed display)",
+        "band",
+        "sub-type lines",
+        "icon discs in the band"
+      ],
+      "rule": "navy is the structural colour; it is never the attention colour"
+    },
+    "red_attention": {
+      "where": [
+        "ONE red word or line inside the headline (FINDS; Lot; Results.; Estate Sale)",
+        "the CTA button",
+        "the rule/swash under the headline or script",
+        "event-type emphasis",
+        "script underlines"
+      ],
+      "budget": "at most 3 red elements above the band (headline word/line, CTA, one rule or swash) + red icon discs as one group; red share of saturated pixels in the copy zone 35\u201365% (measured 50\u201360% across REF-14, 18\u201323); never a red ground, never a red band, never red body copy",
+      "evidence": "6 of 8 Advantage.Bid-led new references use a red CTA; every one uses a red rule or swash"
+    },
+    "logo_blue_secondary": {
+      "rule": "the logo's own blue may be used as a secondary accent (a headline line, icon discs, a corner panel) \u2014 REF-15/16/17 are Owner-approved with it; it never replaces red as the CTA/attention colour by default and never becomes a blue ground",
+      "evidence": "3 of 10 new references; the Owner's 3M statement against app blue as PRIMARY brand blue still stands \u2014 blue is secondary"
+    },
+    "merchandise_colour": {
+      "rule": "unchanged from 3M: colour comes from real merchandise; grounds and panels stay quiet"
+    }
+  },
+  "dark_treatments": {
+    "status": "exception, not a family default",
+    "allowed_when": "one lit/translucent/reflective hero object where darkness makes the light visible (REF-12) AND the Director records the reason AND Owner review is flagged for the first uses",
+    "not_allowed": "as a Notable Lot default (Owner rejected the dark Bronze Horse), as a 'premium' cue, or to hide weak merchandise",
+    "family_change": "SINGLE_LOT ground default = white/very_light (was dark-permitted in 3P.1 prominence/family rules); dark_hero requires the reason above"
+  },
+  "qa": {
+    "hard": [
+      "copy-zone luminance floor",
+      "no red ground/band",
+      "red element count \u2264 3 above the band"
+    ],
+    "soft": [
+      "red share of saturated pixels band",
+      "navy present in headline or band"
+    ]
+  }
+}

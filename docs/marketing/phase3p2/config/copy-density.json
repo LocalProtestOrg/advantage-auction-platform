@@ -1,0 +1,97 @@
+{
+  "schema": "copy-density#1.0",
+  "owner_statement": "A visually attractive buyer-growth creative was rejected as TOO WORDY; the simplified version was strongly preferred. Advertising should be understood extremely quickly. Do not explain the entire product in one advertisement. ONE PRIMARY IDEA \u00b7 ONE STRONG HEADLINE \u00b7 SHORT SUPPORT \u00b7 ONE CTA. Additional visual information must earn its space. Distribute extra messages across campaign waves.",
+  "profiles": {
+    "FEED_FAST": {
+      "blocks": 5,
+      "slots": [
+        "logo",
+        "headline (\u2264 6 words, one idea)",
+        "one support line (\u2264 10 words)",
+        "one CTA",
+        "navy band (wordmark or \u2264 3 items)"
+      ],
+      "default_for": [
+        "buyer_platform_growth (social feed, mobile, awareness)",
+        "general_brand",
+        "closing_soon",
+        "any paid social placement"
+      ],
+      "note": "the Owner's stated preference; the Director tries this profile FIRST for feed placements"
+    },
+    "ACQUISITION_RICH": {
+      "blocks": 9,
+      "slots": [
+        "logo",
+        "eyebrow/audience line (optional)",
+        "headline (question or statement)",
+        "sub-headline (answer)",
+        "support sentence",
+        "3\u20134 benefit rows (icon + \u2264 4 words)",
+        "one CTA",
+        "navy band (3 items + one script phrase)",
+        "footer tagline strip (optional)"
+      ],
+      "allowed_for": [
+        "individual_seller_acquisition",
+        "professional_seller_acquisition",
+        "buyer_platform_growth (landing/site placements, not feed)"
+      ],
+      "conditions": [
+        "exactly one headline \u2265 2.2\u00d7 any other text",
+        "merchandise \u2265 45% of the field",
+        "every block in its fixed slot; no free-floating extra lines",
+        "no words on merchandise except ONE script accent phrase that carries no claim",
+        "no more than one script accent"
+      ],
+      "evidence": "REF-14/15/18\u201321 \u2014 the Owner's Gold/approved acquisition set runs 8\u20139 blocks in fixed slots; the rejected buyer creative was wordier than REF-18",
+      "ceiling_not_target": true
+    },
+    "EVENT": {
+      "blocks": 7,
+      "slots": [
+        "presenter (seller/logo)",
+        "event type",
+        "event title/place",
+        "date/time (sessions)",
+        "location/place plate",
+        "one support or category line",
+        "CTA",
+        "band"
+      ],
+      "note": "3P.1 GENERAL(5)/LOGISTICS(7) preserved; WHEN is mandatory for a real event"
+    },
+    "NOTABLE_LOT": {
+      "blocks": 7,
+      "slots": [
+        "logo/presenter",
+        "'Notable Lot' label",
+        "lot number + item name (from lot record)",
+        "event name + date (from event record)",
+        "catalogue size (only if true at generation and re-verified at publish)",
+        "CTA to the real catalog",
+        "band"
+      ]
+    },
+    "RESTRAINED_FACTUAL": {
+      "blocks": 4,
+      "slots": [
+        "logo/presenter",
+        "event type + title",
+        "date/place",
+        "band"
+      ]
+    }
+  },
+  "rules": {
+    "one_idea": "a headline carries one idea; two-beat headlines ('Bid Today. Discover Tomorrow.') are one idea with two beats; a headline that lists benefits is two ideas \u2192 reject",
+    "earn_its_space": "each additional block must be a distinct fact/benefit; duplicates (a benefit row repeating a band item) are removed; the buyer 'too wordy' rejection is the anchor",
+    "waves": "the Marketing Director assigns extra messages to LAUNCH / MID / FINAL creatives instead of adding blocks",
+    "claims": "any block that promises an outcome, a fee level, a size or a speed is a claim \u2192 A2 claim manifest with production truth or it is removed",
+    "readability_test": "judge at feed proxy: 'What is this ad asking me to do, in one sentence?' must be answered from the headline + CTA alone"
+  },
+  "scorer": {
+    "hard": "blocks > profile ceiling; two headline-class elements; a benefit list in the headline",
+    "soft": "text_region_pct above the profile band (FEED_FAST \u2264 14, ACQUISITION_RICH \u2264 30, EVENT \u2264 22, NOTABLE_LOT \u2264 26)"
+  }
+}

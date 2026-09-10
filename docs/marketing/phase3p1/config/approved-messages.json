@@ -1,0 +1,40 @@
+{
+  "schema": "approved-messages#1.0",
+  "updated": "2026-09-10T00:00:00Z",
+  "note": "Message approval is independent of visual verdicts. Only OWNER_APPROVED_MESSAGE may be presented as approved copy.",
+  "messages": [
+    {
+      "text": "It's Built to Be Easy.",
+      "status": "OWNER_AUTHORED_PHILOSOPHY",
+      "scope": "individual_seller_acquisition",
+      "role": "headline",
+      "decided_on": "2026-09-10T00:00:00Z",
+      "from_creative": [
+        "individual-seller",
+        "A"
+      ]
+    },
+    {
+      "text": "You Can Do This.",
+      "status": "OWNER_APPROVED_MESSAGE",
+      "scope": "individual_seller_acquisition",
+      "role": "headline",
+      "decided_on": "2026-09-10T00:00:00Z",
+      "from_creative": [
+        "individual-seller",
+        "B"
+      ]
+    },
+    {
+      "text": "Help Is Here.",
+      "status": "USED_NOT_EVALUATED",
+      "scope": "individual_seller_acquisition",
+      "role": "headline",
+      "decided_on": "2026-09-10T00:00:00Z",
+      "from_creative": [
+        "individual-seller",
+        "C"
+      ]
+    }
+  ]
+}

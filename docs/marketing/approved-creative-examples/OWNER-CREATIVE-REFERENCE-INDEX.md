@@ -1,6 +1,6 @@
 # Owner Creative Reference Index
 
-Built 2026-09-09T21:50:55.264Z · index_version 3P.1.aae47c36f2e1 · 13 active reference(s), 0 retired, 0 awaiting a visual read.
+Built 2026-09-10T20:55:07.626Z · index_version 3P.1.769d0461bc92 · 23 active reference(s), 0 retired, 0 awaiting a visual read.
 
 | Ref | Status | Weight | Class | Family | Seller | Path |
 |---|---|---|---|---|---|---|
@@ -12,17 +12,24 @@ Built 2026-09-09T21:50:55.264Z · index_version 3P.1.aae47c36f2e1 · 13 active r
 | REF-06 | OWNER_APPROVED | 1 | auction | LEFT_THIRD_WHITE | Lewis & Maese | auction/774318892_1218693031333324_5454511780574557764_n.jfif |
 | REF-07 | OWNER_APPROVED | 1 | auction | CATALOG_SCATTER | Lewis & Maese | auction/790540822_4060954984197683_2602558076501565505_n.jfif |
 | REF-08 | OWNER_APPROVED | 1 | auction | CATALOG_SCATTER | Lewis & Maese | auction/800644023_2274522166644689_3549738819247121400_n.jfif |
+| REF-19 | OWNER_GOLD_STANDARD | 2 | buyer_platform_growth | ACQUISITION | Advantage.Bid | buyer-growth/gold-standard/buyer-outreach-email-sign-up-gold-standard.png |
+| REF-18 | OWNER_GOLD_STANDARD | 2 | buyer_platform_growth | ACQUISITION | Advantage.Bid | buyer-growth/gold-standard/buyer-outreach-gold-standard.png |
 | REF-09 | OWNER_APPROVED | 1 | estate_sale | ENVIRONMENTAL_PHOTO | Lewis & Maese | estate-sale/703633034_1679829177020529_6716087826834201503_n.jpg |
 | REF-10 | OWNER_APPROVED | 1 | estate_sale | ENVIRONMENTAL_PHOTO | Lewis & Maese | estate-sale/720972514_1964000754249437_3399025200176588761_n.jfif |
 | REF-11 | OWNER_APPROVED | 1 | geographic_event_promotion | NONE | Lewis & Maese | geographic-event/799820637_1578368547000947_3887820092033696613_n.jfif |
+| REF-22 | OWNER_APPROVED | 1 | geographic_event_promotion | ENVIRONMENTAL_PHOTO | Advantage.Bid | geographic-event/geogrpahical-event-for-Katy-TX.png |
+| REF-17 | OWNER_GOLD_STANDARD | 2 | buyer_platform_growth | ENVIRONMENTAL_PHOTO | Advantage.Bid | individual-seller/gold-standard/individual-seller-outreach-turn-your-estate-items-into-cash-at-auction.png |
+| REF-14 | OWNER_GOLD_STANDARD | 2 | individual_seller_acquisition | ACQUISITION | Advantage.Bid | individual-seller/gold-standard/individual-seller-turn-items-into-cash-gold-standard.png.png |
+| REF-15 | OWNER_GOLD_STANDARD | 2 | individual_seller_acquisition | ACQUISITION | Advantage.Bid | individual-seller/gold-standard/individual-seller-turn-items-into-cash-gold-standard.png |
+| REF-16 | OWNER_GOLD_STANDARD | 2 | individual_seller_acquisition | ACQUISITION | Advantage.Bid | individual-seller/gold-standard/individual-seller-turn-items-into-opportunity-gold-standard.png |
 | REF-12 | OWNER_APPROVED | 1 | notable_lot | SINGLE_LOT | Lewis & Maese | notable-lot/672802523_1643989087271205_1140309533266731461_n.jpg |
 | REF-13 | OWNER_APPROVED | 1 | notable_lot | CATEGORY_GROUP | Lewis & Maese | notable-lot/793212732_1919344445712353_7814833190103763803_n.jfif |
+| REF-23 | OWNER_APPROVED | 1 | notable_lot | SINGLE_LOT | Advantage.Bid | notable-lot/notable-lot-advantage-bid.png |
+| REF-21 | OWNER_GOLD_STANDARD | 2 | professional_seller_acquisition | ACQUISITION | Advantage.Bid | professional-seller/become-a-seller-advantage-bid-gold-standard.png |
+| REF-20 | OWNER_GOLD_STANDARD | 2 | professional_seller_acquisition | ACQUISITION | Advantage.Bid | professional-seller/sell-with-advantage-bid-gold-standard.png |
 
 ## Empty classes (Owner review required until a first example is approved)
 
-- professional_seller_acquisition
-- individual_seller_acquisition
-- buyer_platform_growth
 - closing_soon
 - general_brand
 

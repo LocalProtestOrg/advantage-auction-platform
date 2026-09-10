@@ -1,0 +1,36 @@
+{
+  "schema": "coverage-bands#1.0",
+  "definitions": {
+    "merchandise_field": "The canvas minus reserved copy regions (presenter/logo block, headline block, event block, help/support lines, place plate) and minus the navy band. Coverage is measured inside this field, not over the whole canvas, so a bigger headline never 'fixes' a small cluster.",
+    "coverage_pct": "merchandise (or photograph) mask area ÷ merchandise_field area × 100",
+    "cluster_extent": "bounding box of the union of merchandise masks, as a fraction of the merchandise field's width and height",
+    "largest_accidental_void_pct": "largest empty rectangle (existing compose._largest_empty_rect) over the field, excluding regions the scene plan declares intentional",
+    "intentional_negative_space": "declared in the scene plan with a reason (e.g. SINGLE_LOT dark field around a lit object; a deliberate breathing zone beside a headline). Declared regions are excluded from the void measure and reported separately."
+  },
+  "families": {
+    "CENTERED_WHITE":      {"coverage_pct": [55, 72], "cluster_extent_w": [0.85, 1.0], "cluster_extent_h": [0.80, 1.0], "largest_accidental_void_pct": 6,  "upper_field_merch_pct_min": 30},
+    "LEFT_THIRD_WHITE":    {"coverage_pct": [55, 70], "cluster_extent_w": [0.85, 1.0], "cluster_extent_h": [0.80, 1.0], "largest_accidental_void_pct": 8,  "upper_field_merch_pct_min": 30},
+    "CATEGORY_GROUP":      {"coverage_pct": [45, 65], "cluster_extent_w": [0.80, 1.0], "cluster_extent_h": [0.60, 1.0], "largest_accidental_void_pct": 10, "upper_field_merch_pct_min": 0},
+    "SINGLE_LOT":          {"coverage_pct": [40, 70], "cluster_extent_w": [0.55, 1.0], "cluster_extent_h": [0.70, 1.0], "largest_accidental_void_pct": 25, "upper_field_merch_pct_min": 0, "note": "negative space is often intentional here and must be declared; undeclared voids still count"},
+    "CATALOG_SCATTER":     {"coverage_pct": [65, 88], "cluster_extent_w": [0.95, 1.0], "cluster_extent_h": [0.95, 1.0], "largest_accidental_void_pct": 5,  "upper_field_merch_pct_min": 35},
+    "ENVIRONMENTAL_PHOTO": {"coverage_pct": [55, 75], "cluster_extent_w": [1.0, 1.0],  "cluster_extent_h": [0.85, 1.0], "largest_accidental_void_pct": 6,  "upper_field_merch_pct_min": 0, "note": "coverage = photograph area of the field; the photograph should bleed to both side edges"},
+    "ACQUISITION":         {"coverage_pct": [45, 65], "cluster_extent_w": [0.80, 1.0], "cluster_extent_h": [0.70, 1.0], "largest_accidental_void_pct": 8,  "upper_field_merch_pct_min": 25, "note": "Individual Seller C measured 12.4% of the CANVAS (far less of a field that had a contact card in it); Individual Seller A measured 33.6% of the canvas with a full-width cluster and was not criticised for coverage"},
+    "COBRANDED":           {"coverage_pct": [55, 72], "cluster_extent_w": [0.85, 1.0], "cluster_extent_h": [0.80, 1.0], "largest_accidental_void_pct": 6,  "upper_field_merch_pct_min": 30},
+    "CLOSING_DAYS":        {"coverage_pct": [45, 65], "cluster_extent_w": [0.80, 1.0], "cluster_extent_h": [0.70, 1.0], "largest_accidental_void_pct": 8,  "upper_field_merch_pct_min": 20},
+    "RESTRAINED_FACTUAL":  {"coverage_pct": [0, 30],  "cluster_extent_w": [0, 1.0],    "cluster_extent_h": [0, 1.0],    "largest_accidental_void_pct": 30, "upper_field_merch_pct_min": 0, "note": "typography carries the canvas; white space here is by design and is declared as such in the plan"}
+  },
+  "gates": {
+    "hard_floor": "coverage_pct below the family minimum by more than 10 points, or largest_accidental_void_pct above the cap by more than 4 points → HARD FAIL (regenerate), not a partial score. Individual Seller C and West University B fail here.",
+    "soft_band": "inside the band → full points; within 10 points below / 4 points above → linear loss; the scorer's measurable block uses these instead of the 3P bands",
+    "copy_regions_protected": "the cluster may never enter reserved copy regions; a cluster scaled into a copy region is re-planned, not clipped"
+  },
+  "fit_procedure": {
+    "1": "Compute the merchandise field from the layout's reserved copy regions.",
+    "2": "Plan the cluster physically (Mission 5) at scene scale; compute its extent.",
+    "3": "Scale the whole cluster uniformly (relationships and relative scale preserved) so that its extent reaches the family's cluster_extent_w minimum, capped by the scale model's anchor maximum (an anchor may not exceed 100% of the field height for scene families).",
+    "4": "If extent_h is still under the minimum: add height with a tall object (floor lamp, cabinet, tall sculpture, hung wall art above an anchor) from the eligible set — never by stretching, never by enlarging small objects past their scale tolerance.",
+    "5": "If coverage_pct is still under the band: add objects from the eligible set by anchor_weight then foreground_suitability, re-plan, re-audit. Never inflate a small object to fill space (that is how bowls become table-sized).",
+    "6": "Re-measure voids. A void the plan did not declare and that exceeds the cap → reposition the cluster (shift toward the void, re-check copy regions) before considering any other change.",
+    "7": "If the band still cannot be met with the available CLEAN objects, change family (fewer, larger objects: LEFT_THIRD_WHITE; one object: SINGLE_LOT) rather than accept an under-filled canvas."
+  }
+}

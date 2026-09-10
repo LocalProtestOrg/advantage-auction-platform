@@ -307,6 +307,9 @@ async function createBid(lotId, userId, { amount, maxBid, max_bid_cents }) {
         [userId, lot.id]
       );
     } catch (e) { console.error('[bid] watchlist auto-add failed (non-fatal):', e.message); }
+    // First-party conversion ledger (post-commit, fire-and-forget). One row per accepted bid submission; a bid is an
+    // intent outcome, never revenue, so no value is attached.
+    require('./conversionService').emit('bid', { userId, subjectType: 'lot', subjectId: lot.id, idempotencyKey: 'bid:' + lot.id + ':' + userId + ':' + submittedMaxCents });
 
     // #1 real-time: push the new lot state to everyone viewing the auction, plus
     // privacy-safe winning/outbid to the affected users. Best-effort — the bid is

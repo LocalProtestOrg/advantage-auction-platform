@@ -40,9 +40,9 @@ function tempLibrary() {
 const listImgs = (dir) => lib.listLibrary(dir).images;
 
 describe('library — identity + schema + lint', () => {
-  test('all 13 delivered sidecars validate; identity = sha256 of the image bytes; dims parsed for jpg/jfif/png', () => {
+  test('every delivered sidecar validates (the 13 of 3P plus the Owner additions of 3P.1/3P.2); identity = sha256 of the image bytes; dims parsed for jpg/jfif/png', () => {
     const { images, sidecars, foreign } = lib.listLibrary(REAL);
-    expect(images.length).toBe(13); expect(sidecars.length).toBe(13); expect(foreign).toEqual([]);
+    expect(images.length).toBeGreaterThanOrEqual(13); expect(sidecars.length).toBe(images.length); expect(foreign).toEqual([]);
     for (const sc of sidecars) {
       const v = lib.validateSidecar(sc.json); expect(v.errors).toEqual([]);
       const img = images.find((i) => i.rel === sc.json.identity.current_path); expect(img).toBeTruthy();
@@ -69,26 +69,30 @@ describe('indexer — reconcile by content hash; Owner never edits JSON', () => 
   let dir; beforeEach(() => { dir = tempLibrary(); });
   afterEach(() => { fs.rmSync(dir, { recursive: true, force: true }); });
 
-  test('baseline: 13 references, weights recomputed, ledger baseline applied once, index.json + human index written', async () => {
+  test('baseline: every library image is a reference, weights recomputed, ledger applied once, index.json + human index written', async () => {
+    const N = listImgs(dir).length;
     const r = await indexer.buildIndex({ root: dir });
-    expect(r.index.counts.references).toBe(13); expect(r.index.counts.by_status.OWNER_APPROVED).toBe(13);
-    expect(r.index.empty_classes).toEqual(expect.arrayContaining(['individual_seller_acquisition', 'professional_seller_acquisition', 'buyer_platform_growth', 'closing_soon']));
+    expect(r.index.counts.references).toBe(N);
+    expect(Object.values(r.index.counts.by_status).reduce((a, b) => a + b, 0)).toBe(N);
+    expect(r.index.empty_classes).toEqual(expect.arrayContaining(['closing_soon']));
     expect(fs.existsSync(path.join(dir, 'index.json'))).toBe(true); expect(fs.existsSync(path.join(dir, 'OWNER-CREATIVE-REFERENCE-INDEX.md'))).toBe(true);
-    expect(r.index.ledger.filter((l) => l.applied).length).toBe(1);
+    expect(r.index.ledger.filter((l) => l.applied).length).toBeGreaterThanOrEqual(1);
     const again = await indexer.buildIndex({ root: dir, appliedHashes: r.index.applied_decisions });
-    expect(again.index.ledger[0].applied).toBe(false); expect(again.index.index_version).toBe(r.index.index_version); // deterministic + idempotent
+    expect(again.index.ledger.every((l) => !l.applied)).toBe(true); expect(again.index.index_version).toBe(r.index.index_version); // deterministic + idempotent
   });
   test('rename + move to gold-standard/ → same record (hash), path updated, GOLD status + history + weight 2.0', async () => {
-    const img = listImgs(dir).find((i) => i.category === 'estate-sale');
+    const N = listImgs(dir).length;
+    const img = listImgs(dir).find((i) => i.category === 'estate-sale' && !/gold-standard/.test(i.rel));
     const gold = path.join(dir, 'estate-sale', 'gold-standard'); fs.mkdirSync(gold, { recursive: true });
     fs.renameSync(img.path, path.join(gold, 'renamed-by-owner.jpg')); fs.renameSync(img.path + lib.SIDECAR_SUFFIX, path.join(dir, 'estate-sale', 'stray' + lib.SIDECAR_SUFFIX)); // sidecar left behind, renamed
     const r = await indexer.buildIndex({ root: dir });
     const ref = r.index.references.find((x) => x.path === 'estate-sale/gold-standard/renamed-by-owner.jpg');
-    expect(ref).toBeTruthy(); expect(ref.reference_id).toBe('REF-09'); expect(ref.owner_status).toBe('OWNER_GOLD_STANDARD'); expect(ref.owner_weight).toBe(2.0);
+    const moved = JSON.parse(fs.readFileSync(path.join(gold, 'renamed-by-owner.jpg' + lib.SIDECAR_SUFFIX), 'utf8'));
+    expect(ref).toBeTruthy(); expect(ref.reference_id).toBe(moved.reference_id); expect(ref.owner_status).toBe('OWNER_GOLD_STANDARD'); expect(ref.owner_weight).toBe(2.0);
     const sidecar = JSON.parse(fs.readFileSync(path.join(gold, 'renamed-by-owner.jpg' + lib.SIDECAR_SUFFIX), 'utf8'));
     expect(sidecar.status_history[sidecar.status_history.length - 1]).toMatchObject({ status: 'OWNER_GOLD_STANDARD', source: 'owner_folder_move' });
     expect(fs.existsSync(path.join(dir, 'estate-sale', 'stray' + lib.SIDECAR_SUFFIX))).toBe(false); // sidecar follows the image
-    expect(r.index.counts.references).toBe(13);
+    expect(r.index.counts.references).toBe(N);
   });
   test('move to do-not-use/ → negative evidence (-1.0); delete → RETIRED (record kept); new image → stub + task; foreign file reported not indexed', async () => {
     const imgs = listImgs(dir); const a = imgs.find((i) => i.category === 'auction'); const b = imgs.filter((i) => i.category === 'auction')[1];
@@ -134,7 +138,8 @@ describe('retriever — campaign-aware, bounded, honest about empty classes', ()
     expect(a.owner_review_required).toBe(false);
   });
   test('empty class → [] + LOW + owner review + neutral lessons at 0.25 (never fabricated calibration)', () => {
-    const r = retriever.retrieve(index, { campaign_class: 'individual_seller_acquisition', event_mode: 'not_an_event', merchandise_breadth: 'representative_non_lot', format_class: 'portrait', tags: ['breadth', 'light-ground'] });
+    // closing_soon is still an empty class after the 3P.1/3P.2 additions (individual/professional/buyer classes are now filled)
+    const r = retriever.retrieve(index, { campaign_class: 'closing_soon', event_mode: 'not_an_event', merchandise_breadth: 'representative_non_lot', format_class: 'portrait', tags: ['breadth', 'light-ground'] });
     expect(r.retrieved).toEqual([]); expect(r.empty_class).toBe(true); expect(r.confidence).toBe('LOW'); expect(r.owner_review_required).toBe(true);
     expect(r.neutral_fallback.length).toBeGreaterThan(0); expect(r.neutral_fallback.every((x) => x.relevance === 0.25 && x.neutral)).toBe(true);
     expect(r.neutral_fallback.map((x) => x.reference_id)).not.toContain('REF-09'); // avoid_for 'acquisition' respected even for neutral lessons
@@ -271,10 +276,11 @@ describe('feedback ledger — Owner words, Owner sources only, no JSON for the O
   });
   test('appendDecision refuses non-Owner sources (performance/learning can never change a status); records Owner sources verbatim', () => {
     expect(() => feedback.appendDecision({ source: 'performance', action: 'SET_STATUS', status: 'OWNER_GOLD_STANDARD', resolved: { reference_id: 'REF-02' } }, dir)).toThrow(/Owner sources/);
+    const linesBefore = fs.readFileSync(path.join(dir, 'owner-decisions.jsonl'), 'utf8').trim().split('\n').length;
     const out = feedback.appendDecision({ source: 'owner_statement_via_desktop_marketing', owner_words: 'that one is gold standard', resolved: { reference_id: 'REF-02' }, action: 'SET_STATUS', status: 'OWNER_GOLD_STANDARD', recorded_by: 'test' }, dir);
     expect(out.hash).toMatch(/^[a-f0-9]{64}$/);
-    const lines = fs.readFileSync(path.join(dir, 'owner-decisions.jsonl'), 'utf8').trim().split('\n'); expect(lines.length).toBe(2);
-    expect(JSON.parse(lines[1]).owner_words).toBe('that one is gold standard');
+    const lines = fs.readFileSync(path.join(dir, 'owner-decisions.jsonl'), 'utf8').trim().split('\n'); expect(lines.length).toBe(linesBefore + 1);
+    expect(JSON.parse(lines[lines.length - 1]).owner_words).toBe('that one is gold standard');
   });
   test('recordOwnerReview writes a review row + ledger; an approved generated creative can be admitted with Advantage.Bid provenance and the index grows', async () => {
     const writes = [];
@@ -284,9 +290,11 @@ describe('feedback ledger — Owner words, Owner sources only, no JSON for the O
     // admit: render = an existing library image copy (stands in for a generated PNG) → new sidecar with Advantage.Bid provenance
     const png = path.join(os.tmpdir(), 'p3p-render-' + Date.now() + '.png'); fs.copyFileSync(listImgs(dir)[0].path, png); fs.appendFileSync(png, Buffer.from([1, 2, 3]));
     const admitted = await feedback.admitGeneratedCreative({ renderPath: png, category: 'individual-seller', campaignClass: 'individual_seller_acquisition', brief: { family: 'ACQUISITION', merchandise_mode: 'representative', seller_hierarchy: 'advantage_bid_only' }, metrics: { merchandise_pct: 40, text_region_pct: 12, text_blocks: 3, objects: 5 }, calibration: { principle_profile: { transferable_lessons: ['light ground; one message'] } }, ownerWords: 'love this', status: 'OWNER_GOLD_STANDARD', jobId: 'p3p-x', candidateKey: 'A', root: dir });
-    expect(admitted.reference_id).toBe('REF-14');
+    expect(admitted.reference_id).toMatch(/^REF-\d{2,}$/);
+    const nextId = admitted.reference_id;   // the admitted creative is the newest reference (the id after the highest existing one)
+    expect(Number(nextId.slice(4))).toBeGreaterThan(Math.max(...indexer.loadIndex(REAL).references.map((x) => Number(x.reference_id.slice(4)))));
     const idx = indexer.loadIndex(dir);
-    const ref = idx.references.find((x) => x.reference_id === 'REF-14');
+    const ref = idx.references.find((x) => x.reference_id === nextId);
     expect(ref.seller).toBe('Advantage.Bid'); expect(ref.owner_status).toBe('OWNER_GOLD_STANDARD'); expect(ref.path).toMatch(/^individual-seller\/gold-standard\/advantagebid-individual_seller_acquisition-/);
     expect(idx.empty_classes).not.toContain('individual_seller_acquisition'); expect(idx.seller_concentration.share).toBeLessThan(1);
     fs.unlinkSync(png);
@@ -322,17 +330,20 @@ describe('publish isolation + learning boundaries (static)', () => {
   const photo = path.join(REAL, 'estate-sale', '703633034_1679829177020529_6716087826834201503_n.jpg'); // used ONLY as a stand-in photograph for the renderer test, not as a reference
   const copy = { presenter: 'Example Seller', relationship: 'in conjunction with Advantage.Bid', title: 'River Oaks', subtitle: 'On-Site Estate Sale', date: 'Saturday, October 3', time: '9:00 AM – 3:00 PM · One day only', place_plate: 'River Oaks · Houston, TX' };
   test('ENVIRONMENTAL_PHOTO banded + panel render with 5 copy blocks, no copy over merchandise, plate ≤ 6%, date > time, brand band; extreme carries the label', async () => {
-    const a = await bridge.render('ENVIRONMENTAL_PHOTO', { format: 'portrait_1080x1350', variant: 'banded', photo_path: photo, copy, options: {}, out_png: path.join(out, 'a.png') });
+    // 3P.2: the legacy 3P families run ONLY as regression anchors (regression_anchor:true) — never for a new creative
+    const refused = await bridge.render('ENVIRONMENTAL_PHOTO', { format: 'portrait_1080x1350', variant: 'banded', photo_path: photo, copy, options: {}, out_png: path.join(out, 'x.png') });
+    expect(refused.ok).toBe(false); expect(refused.error).toMatch(/regression-only/);
+    const a = await bridge.render('ENVIRONMENTAL_PHOTO', { regression_anchor: true, format: 'portrait_1080x1350', variant: 'banded', photo_path: photo, copy, options: {}, out_png: path.join(out, 'a.png') });
     expect(a.ok).toBe(true); expect(a.metrics.text_blocks).toBe(5); expect(a.metrics.copy_over_merchandise).toEqual([]); expect(a.metrics.place_plate_ok).toBe(true); expect(a.metrics.date_gt_time).toBe(true); expect(a.metrics.brand_frame.band && a.metrics.brand_frame.wordmark).toBe(true);
     expect(a.metrics.merchandise_pct).toBeGreaterThan(40); expect(a.drawn_text).toContain('Advantage.Bid');
-    const b = await bridge.render('ENVIRONMENTAL_PHOTO', { format: 'square_1080x1080', variant: 'panel', photo_path: photo, copy, options: { panel_side: 'left' }, out_png: path.join(out, 'b.png') });
+    const b = await bridge.render('ENVIRONMENTAL_PHOTO', { regression_anchor: true, format: 'square_1080x1080', variant: 'panel', photo_path: photo, copy, options: { panel_side: 'left' }, out_png: path.join(out, 'b.png') });
     expect(b.ok).toBe(true); expect(b.metrics.text_blocks).toBe(5); expect(b.metrics.copy_over_merchandise).toEqual([]);
-    const c = await bridge.render('ENVIRONMENTAL_PHOTO', { format: 'portrait_1080x1350', variant: 'banded', photo_path: photo, copy, options: { title_scale: 1.15, photo_share: 1.15, extreme_label: true }, out_png: path.join(out, 'c.png') });
+    const c = await bridge.render('ENVIRONMENTAL_PHOTO', { regression_anchor: true, format: 'portrait_1080x1350', variant: 'banded', photo_path: photo, copy, options: { title_scale: 1.15, photo_share: 1.15, extreme_label: true }, out_png: path.join(out, 'c.png') });
     expect(c.ok).toBe(true); expect(c.metrics.extreme).toBe(true); expect(c.drawn_text.join(' ')).toMatch(/NOT FOR PUBLICATION/); expect(c.metrics.text_blocks).toBe(5); // label not counted
   }, 120000);
   test('ACQUISITION concept renders with representative disclosure + help line; TEASER budget (3 blocks)', async () => {
     const A = path.join(__dirname, '..', 'creative-engine', 'runtime', 'assets');
-    const r = await bridge.render('ACQUISITION', { format: 'portrait_1080x1350', concept: 'A', copy: { primary: "It's built to be easy.", support: 'Create your own online auction on Advantage.Bid.', help: 'Real people help along the way. Call (551) 655-7050.', disclosure: 'Representative items shown — not auction lots' }, objects: [{ path: path.join(A, 'lot31.webp'), w: 700, cx: 0.6, z: 40, role: 'anchor' }, { path: path.join(A, 'lot46.webp'), w: 210, cx: 0.1, z: 30, role: 'tall' }], screenshot_path: null, out_png: path.join(out, 'acq.png') });
+    const r = await bridge.render('ACQUISITION', { regression_anchor: true, format: 'portrait_1080x1350', concept: 'A', copy: { primary: "It's built to be easy.", support: 'Create your own online auction on Advantage.Bid.', help: 'Real people help along the way. Call (551) 655-7050.', disclosure: 'Representative items shown — not auction lots' }, objects: [{ path: path.join(A, 'lot31.webp'), w: 700, cx: 0.6, z: 40, role: 'anchor' }, { path: path.join(A, 'lot46.webp'), w: 210, cx: 0.1, z: 30, role: 'tall' }], screenshot_path: null, out_png: path.join(out, 'acq.png') });
     expect(r.ok).toBe(true); expect(r.metrics.representative).toBe(true); expect(r.metrics.text_blocks).toBe(3); expect(r.drawn_text.join(' ')).toMatch(/Representative items shown/); expect(r.placed.length).toBe(2);
   }, 120000);
   test('signature: a reference vs itself is 0 (a reference as a candidate HARD FAILS G11); two different references sit ≥ τ_ref apart', async () => {

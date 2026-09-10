@@ -1,0 +1,11 @@
+{
+  "schema": "authentic-media-alignment#1.0",
+  "preserves": "phase3p1/config/media-source-hierarchy.json unchanged",
+  "clarifications": [
+    "For a REAL event (estate sale, auction, geographic event, notable lot): strong seller-uploaded/event photography \u2014 cover image, site photographs, catalogue/lot photography, approved walkthrough-video frames \u2014 outranks generated merchandise. The Director decides whether authentic media is strong enough to anchor (readiness \u2265 70); if yes, no generated merchandise appears.",
+    "Catalogue/lot photography is added explicitly to tier 3/5 sources: a single strong lot photograph may anchor a notable-lot creative (tier 5 with one object) or supplement an environmental photograph.",
+    "Generated/representative merchandise and constructed scenes remain appropriate ONLY for generic buyer acquisition, generic seller acquisition, conceptual brand campaigns and any class where no real event/item is represented. Every such asset carries representative_not_lots and the render carries the disclosure line.",
+    "Generated representative merchandise must never masquerade as inventory: no lot numbers, no 'featured', no event facts beside representative objects; the judge asks 'does this look like it is showing real items from a specific sale?' \u2014 yes for a generic creative \u2192 fail.",
+    "Geographic event: WHAT / WHERE / WHEN / WHY LOOK; a real event uses its own photographs; landmark imagery (REF-22) is for generic geographic promotion only."
+  ]
+}

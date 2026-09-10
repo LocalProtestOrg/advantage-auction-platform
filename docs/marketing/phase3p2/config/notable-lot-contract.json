@@ -1,0 +1,52 @@
+{
+  "schema": "notable-lot-contract#1.0",
+  "definition": "A Notable Lot advertisement is ONE REAL ITEM inside ONE REAL AUCTION/EVENT used as a discovery hook for THE LARGER CATALOG. It is not a general auction advertisement with luxurious imagery.",
+  "structure_to_learn": [
+    "'Notable Lot' label (or the event's own featured-lot label)",
+    "lot number + item name",
+    "event name / type + date",
+    "catalogue size (optional, only if true)",
+    "CTA to the real catalog or lot page",
+    "the item visually dominant (\u2265 45% of the field), the event clearly identified, light ground"
+  ],
+  "fact_sources": {
+    "lot_number": "lot record",
+    "item_identity": "lot record title",
+    "attribution/artist/material/age/provenance": "lot record fields ONLY, verbatim; if absent \u2192 omitted",
+    "date": "event record",
+    "auction_size": "live catalogue count at generation, re-verified at publish (A2 manifest)",
+    "value/estimate": "never shown unless a production estimate field exists and the Owner has enabled estimates in creative",
+    "image": "the lot's own CLEAN photograph(s) \u2014 tier 5 object composition with ONE object, or the lot photo as an environmental/hero image; never a representative object"
+  },
+  "never_invent": [
+    "lot number",
+    "item identity",
+    "attribution",
+    "date",
+    "auction size",
+    "provenance",
+    "value",
+    "artist",
+    "material",
+    "age"
+  ],
+  "training_example": {
+    "reference": "REF-23 (notable-lot-advantage-bid.png)",
+    "facts": [
+      "Lot 7",
+      "19th Century Bronze Horse",
+      "Estate Auction April 2",
+      "Over 250 Lots!"
+    ],
+    "rule": "structure may be learned; these strings are FICTIONAL_TRAINING_FACT_NEVER_PRODUCTION; the claim manifest rejects any of them; the principle extractor strips all facts from notable-lot lessons"
+  },
+  "ground": "light/white default (Owner preferred the light recreation over the dark one); dark only under color-system.json dark_treatments",
+  "cta": "'View Catalog' / 'View Lot' with the real destination from the event/lot record",
+  "qa": [
+    "every fact traces to a lot/event field (G13 provenance extended to facts)",
+    "hero object is the lot's own image",
+    "no representative merchandise in the frame beyond the lot's own photograph context",
+    "event identified (type + date) at EVENT-profile prominence",
+    "light ground unless documented exception"
+  ]
+}

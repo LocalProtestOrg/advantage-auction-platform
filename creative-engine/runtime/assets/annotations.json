@@ -1,0 +1,30 @@
+{
+ "_note": "Per-asset protected-feature rectangles as fractions of the ORIGINAL asset image (Phase 3P.1 Mission 4). The scene planner converts them to the trimmed image; the physical audit checks occlusion > protected_occlusion.",
+ "lot31.webp": {
+  "semantic_class": "wingback_chair",
+  "protected": [
+   [
+    "seat_left",
+    0.06,
+    0.55,
+    0.42,
+    0.8
+   ],
+   [
+    "seat_right",
+    0.58,
+    0.55,
+    0.95,
+    0.8
+   ],
+   [
+    "arm_left",
+    0.02,
+    0.45,
+    0.2,
+    0.7
+   ]
+  ],
+  "source": "docs/marketing/phase3p1/reference/tests/scene_is_a_as_rendered.json"
+ }
+}

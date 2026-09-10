@@ -619,6 +619,8 @@ app.use('/api/public/follower-emails', require('./src/routes/publicFollowerEmail
 app.use('/api/public/subscribers', require('./src/routes/publicSubscribe')); // first-party newsletter signup (collection only)
 app.use('/api/public/marketing-email', require('./src/routes/publicMarketingEmail')); // marketing unsubscribe + click (no auth, token-signed)
 app.use('/api/public/consent', require('./src/routes/publicConsent')); // first-party consent (visitor-scoped, no auth)
+app.use('/api/public/assisted-service', require('./src/routes/publicAssistedService')); // Phase 3P.2 assisted / full-service inquiries (pricing never stated)
+app.use('/api/public/measurement-config', require('./src/routes/publicMeasurement')); // Phase 3P.2 consent-gated measurement loader config (all gates OFF)
 app.use('/api/public/onsite', require('./src/routes/publicOnsite')); // onsite personalization treatment (consent + auth gated)
 app.use('/api/admin/follower-emails', require('./src/routes/adminFollowerEmails'));    // admin campaign review + privilege
 app.use('/api/org/claim', orgClaimRoutes);
@@ -784,6 +786,12 @@ server.on('error', (err) => {
 
 server.listen(PORT, () => {
   log.info('startup', `server listening on port ${PORT}`);
+  // Phase 3P.2: official logo registry check (SHA-256 of every registered lockup). Report-only — a failure blocks the
+  // creative engine's logo stage (which re-checks before compositing), never the platform.
+  try {
+    const ba = require('./src/services/creativeReference/brandAssets').verify();
+    log.info('startup', `brand logo registry ${ba.ok ? 'verified' : 'NOT verified'} (${ba.variants.filter((v) => v.verified).length}/${ba.variants.length})${ba.problems.length ? ': ' + ba.problems.join('; ') : ''}`);
+  } catch (e) { log.info('startup', 'brand logo registry check unavailable: ' + e.message); }
   // Only spawn workers from the primary process — not from forked worker children.
   if (!process.env.AAP_IS_WORKER) {
     spawnWorker(path.join(__dirname, 'src/workers/notificationWorker.js'));

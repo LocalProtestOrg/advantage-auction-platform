@@ -1,0 +1,174 @@
+{
+  "schema_version": "1.1",
+  "reference_id": "REF-19",
+  "identity": {
+    "sha256": "91964f68377321b9a250b49e5ef774f3e687bf6af4514e903a32c6e7254bc00c",
+    "current_path": "buyer-growth/gold-standard/buyer-outreach-email-sign-up-gold-standard.png",
+    "original_filename": "buyer-outreach-email-sign-up-gold-standard.png",
+    "width": 1254,
+    "height": 1254,
+    "format_class": "square",
+    "aspect_ratio": 1
+  },
+  "owner_status": "OWNER_GOLD_STANDARD",
+  "owner_weight": 2,
+  "status_history": [
+    {
+      "date": "2026-09-11",
+      "status": "OWNER_GOLD_STANDARD",
+      "source": "folder_placement_by_owner",
+      "owner_words": "Owner placed the file in approved-creative-examples/buyer-growth/gold-standard/ (gold-standard sub-folder = Gold Standard under the library convention)",
+      "recorded_by": "Desktop Marketing — Phase 3P.2"
+    }
+  ],
+  "source": {
+    "seller": "Advantage.Bid",
+    "origin": "Advantage.Bid-led creative produced by the Owner and his creative collaborator after Phase 3P.1 (image-model assisted); Owner-approved by folder placement",
+    "rights": "Advantage.Bid-owned reference creative. Calibration evidence only: the composition teaches attributes; the logo drawn inside it is an image-model rendering and is NOT an approved logo asset (production composites brand-assets/logos); merchandise is representative, not lots; every fact and claim visible is reference-only text unless separately approved.",
+    "campaign_title_visible": "Bid Today. Discover Tomorrow.",
+    "event_date_visible": "(none — buyer growth)",
+    "advantage_bid_visible": true
+  },
+  "classification": {
+    "campaign_class_primary": "buyer_platform_growth",
+    "campaign_class_secondary": [
+      "general_brand"
+    ],
+    "event_product_type": "Buyer growth — join / browse (filename says 'email-sign-up' but the creative carries 'Join for Free' and a laptop, not a form)",
+    "seller_hierarchy": "advantage_bid_only",
+    "visual_family": "SCENE_EXTRACTED",
+    "nearest_advantage_family": "ACQUISITION",
+    "event_mode": "not_an_event",
+    "merchandise_breadth": "representative_non_lot",
+    "owner_folder": "buyer-growth"
+  },
+  "visual_read": {
+    "visual_hierarchy": "Logo lockup → 'BID TODAY.' (navy) / 'DISCOVER' / 'TOMORROW.' (red) → 'Unique Items. Real Value.' → three red icons (categories) → red CTA 'JOIN FOR FREE →' → 'Great Finds Are Waiting.' with a red swash → navy band (Real People / Secure Bidding / Amazing Finds) + 'You Can Do This.' Right: lamp, framed 'Treasures Find New Homes.', flowers, blue-and-white lamp base, category books, bronze horse, mug 'Good Finds Happen Here.', a laptop showing an Advantage.Bid page.",
+    "merchandise_treatment": "Tabletop vignette with a laptop showing a browse page (image-model rendered UI).",
+    "composition_style": "Copy column left; vignette right; band closes.",
+    "typography_treatment": "Uppercase condensed display, two red lines; red swash; script accents.",
+    "information_density": "high",
+    "branding_hierarchy": "Logo lockup large; logo again on the laptop screen.",
+    "cta_treatment": "Red button 'Join for Free'.",
+    "footer_treatment": "Navy band.",
+    "photographic_style": "Image-model rendered interior.",
+    "overlapping_objects": "confident",
+    "environmental_staged_composition": "Table vignette with a laptop.",
+    "negative_space": "minimal",
+    "ground": "mixed",
+    "overall_visual_impact": "very_high"
+  },
+  "measured": {
+    "light_pixel_pct": 31.7,
+    "dark_pixel_pct": 23.2,
+    "saturated_pixel_pct": 37.9,
+    "dominant_hues": [
+      "cyan 33%",
+      "red 27%",
+      "rose 26%",
+      "red share of saturated 52.6%"
+    ],
+    "est_merchandise_share_pct": [
+      48,
+      56
+    ],
+    "est_text_share_pct": [
+      26,
+      32
+    ],
+    "object_count_est": 10,
+    "text_block_count": 8
+  },
+  "strongest_attributes": [
+    "Two-beat headline (act today / reward tomorrow) with red on the reward",
+    "A laptop showing the platform is used as ONE prop in a warm scene, not as the hero (contrast with the rejected Individual Seller B screenshot-led layout)",
+    "Red CTA, red swash, one red word — controlled"
+  ],
+  "transferable_lessons": [
+    "A product screen may appear as a supporting prop inside a merchandise scene; it must never be the hero (rejected in 3P.1) and must show a real screen in production",
+    "'Join for Free' is acceptable only if buyer registration is free in production truth",
+    "Two-line contrast headlines suit buyer growth"
+  ],
+  "do_not_generalize": [
+    "The rendered laptop UI — production shows a real screenshot or none",
+    "'Join for Free' — claim requiring production truth",
+    "The collaborator's set repeats a bronze rearing horse, a blue-and-white vase, a stack of books with category-name spines, a gilt landscape, a laptop showing the logo and a handwritten script phrase on a mug/board/box. These are the collaborator's props, not required objects; the engine must not learn them as a checklist.",
+    "Filename/content mismatch — index by content"
+  ],
+  "text_density_assessment": {
+    "level": "high",
+    "why_it_works_here": "Headline dominance; three icons; one CTA.",
+    "advantage_bid_budget_note": "As REF-18: test the 5-block cut for feed."
+  },
+  "composition_assessment": {
+    "spatial_logic": "Table vignette.",
+    "gravity_and_grounding": "Laptop and mug on the table; lamp behind.",
+    "depth": "Frame/lamp back, books mid, mug and laptop front.",
+    "scale_strategy": "Laptop and lamp as anchors.",
+    "edge_handling": "Lamp exits top-right."
+  },
+  "retrieval": {
+    "use_cases": [
+      "buyer growth",
+      "join / browse objective",
+      "product screen as a supporting prop",
+      "two-beat headline"
+    ],
+    "tags": [
+      "gold",
+      "buyer",
+      "join",
+      "laptop-prop",
+      "navy-red",
+      "square"
+    ],
+    "avoid_for": [
+      "seller acquisition",
+      "event advertising",
+      "screenshot-led layouts"
+    ]
+  },
+  "performance": null,
+  "provenance": {
+    "created_by": "Desktop Marketing (Claude, Cowork) — Phase 3P.2",
+    "created_at": "2026-09-10T16:08:54Z",
+    "analysis_method": "Direct visual inspection at full resolution; pixel statistics computed from the file; est_* are visual estimates; text transcribed from the image and classified.",
+    "phase": "3P.2"
+  },
+  "text_classification": [
+    {
+      "text": "Bid Today. Discover Tomorrow.",
+      "status": "APPROVED_CAMPAIGN_SPECIFIC_MESSAGE",
+      "role": "headline"
+    },
+    {
+      "text": "Unique Items. Real Value.",
+      "status": "REFERENCE_ONLY_TEXT",
+      "role": "support"
+    },
+    {
+      "text": "Join for Free",
+      "status": "REFERENCE_ONLY_CLAIM_REQUIRES_PRODUCTION_TRUTH",
+      "role": "cta"
+    },
+    {
+      "text": "Great Finds Are Waiting.",
+      "status": "REFERENCE_ONLY_TEXT",
+      "role": "label"
+    },
+    {
+      "text": "Secure Bidding",
+      "status": "REFERENCE_ONLY_TEXT",
+      "role": "label"
+    },
+    {
+      "text": "Extraordinary Finds Every Day.",
+      "status": "REFERENCE_ONLY_TEXT",
+      "role": "label",
+      "note": "rendered on the laptop screen"
+    }
+  ],
+  "logo_treatment_in_reference": "Logo lockup in the reference is rendered by the image model (gavel + ADVANTAGE.BID + GET THE ADVANTAGE). Production never reproduces it; it composites brand-assets/logos/advantage-bid-primary.png (or the transparent/white variant) at the prominence rules.",
+  "owner_gold_reason": "Owner placed the file in buyer-growth/gold-standard",
+  "filename_signal": "gold-standard (name appears swapped with the sibling)"
+}

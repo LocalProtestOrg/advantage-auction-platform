@@ -1,0 +1,175 @@
+{
+  "schema_version": "1.1",
+  "reference_id": "REF-23",
+  "identity": {
+    "sha256": "a434a180ae7e11ae033a267d6cc31c0d0c62a437d3ad6bb6dc78f48cbba224c1",
+    "current_path": "notable-lot/notable-lot-advantage-bid.png",
+    "original_filename": "notable-lot-advantage-bid.png",
+    "width": 1254,
+    "height": 1254,
+    "format_class": "square",
+    "aspect_ratio": 1.0
+  },
+  "owner_status": "OWNER_APPROVED",
+  "owner_weight": 1.0,
+  "status_history": [
+    {
+      "date": "2026-09-11",
+      "status": "OWNER_APPROVED",
+      "source": "folder_placement_by_owner",
+      "owner_words": "Owner placed the file in approved-creative-examples/notable-lot/ (plain class folder = Owner Approved)",
+      "recorded_by": "Desktop Marketing — Phase 3P.2"
+    }
+  ],
+  "source": {
+    "seller": "Advantage.Bid",
+    "origin": "Advantage.Bid-led creative produced by the Owner and his creative collaborator after Phase 3P.1 (image-model assisted); Owner-approved by folder placement; the LIGHT recreation the Owner preferred over a dark treatment (the dark version is not in the library)",
+    "rights": "Advantage.Bid-owned reference creative. Calibration evidence only: the composition teaches attributes; the logo drawn inside it is an image-model rendering and is NOT an approved logo asset (production composites brand-assets/logos); merchandise is representative, not lots; every fact and claim visible is reference-only text unless separately approved. TRAINING / CALIBRATION EXAMPLE: 'Lot 7', '19th Century Bronze Horse', 'Estate Auction April 2', 'Over 250 Lots!' are fictional facts and must never enter production factual memory.",
+    "campaign_title_visible": "Notable Lot — Lot 7 — 19th Century Bronze Horse — Estate Auction April 2 — Over 250 Lots!",
+    "event_date_visible": "April 2 (FICTIONAL — training example)",
+    "advantage_bid_visible": true
+  },
+  "classification": {
+    "campaign_class_primary": "notable_lot",
+    "campaign_class_secondary": [
+      "auction"
+    ],
+    "event_product_type": "Notable-lot structure demonstration: one hero item inside one event as a hook to the catalog (fictional facts)",
+    "seller_hierarchy": "advantage_bid_only",
+    "visual_family": "HERO_SINGLE_LIGHT",
+    "nearest_advantage_family": "SINGLE_LOT",
+    "event_mode": "not_an_event",
+    "merchandise_breadth": "single_object",
+    "owner_folder": "notable-lot"
+  },
+  "visual_read": {
+    "visual_hierarchy": "Logo (with 'THE SMARTER WAY TO BID.' as tagline — not an approved slogan) → 'Notable' (navy serif) / 'Lot' (red serif) + red rule → 'LOT 7' → '19TH CENTURY BRONZE HORSE' → gold ornament → 'ESTATE AUCTION' (red) / 'APRIL 2' → 'OVER 250 LOTS!' → red CTA 'VIEW CATALOG →' → script 'Extraordinary Finds Await.' → navy band (Exceptional Items / Global Buyers / Trusted Bidding) + 'You Can Do This.' Right: a large rearing bronze horse on a marble base, books, vase, flowers, gilt painting; bright interior.",
+    "merchandise_treatment": "One hero object at roughly half the canvas, photoreal, on a table with supporting props behind; light background.",
+    "composition_style": "Hero object right, copy column left; light interior; band closes.",
+    "typography_treatment": "Serif 'Notable / Lot' with red; spaced caps for lot facts; red event line; script accent.",
+    "information_density": "medium",
+    "branding_hierarchy": "Logo lockup large; band.",
+    "cta_treatment": "Red button 'View Catalog' — leads (conceptually) to the catalog.",
+    "footer_treatment": "Navy band.",
+    "photographic_style": "Image-model rendered bright interior; hero object crisp.",
+    "overlapping_objects": "light",
+    "environmental_staged_composition": "Hero on a table; props behind; window light.",
+    "negative_space": "modest",
+    "ground": "mixed",
+    "overall_visual_impact": "very_high"
+  },
+  "measured": {
+    "light_pixel_pct": 32.1,
+    "dark_pixel_pct": 20.7,
+    "saturated_pixel_pct": 32.6,
+    "dominant_hues": [
+      "red 48%",
+      "cyan 25%",
+      "orange 12%",
+      "red share of saturated 58.2%"
+    ],
+    "est_merchandise_share_pct": [
+      45,
+      55
+    ],
+    "est_text_share_pct": [
+      22,
+      28
+    ],
+    "object_count_est": 6,
+    "text_block_count": 8
+  },
+  "strongest_attributes": [
+    "The item dominates; the event stays identified; the CTA goes to the catalog — the Notable Lot contract in one image",
+    "LIGHT hero treatment — the Owner preferred this over the dark version (a direct correction of the 3P dark-hero trigger)",
+    "Lot facts in a clear typographic ladder: lot number → item → event → date → catalogue size → CTA"
+  ],
+  "transferable_lessons": [
+    "Notable Lot = ONE real item in ONE real event as the hook to the LARGER catalog; the fact ladder (lot, item, event, date, size, CTA) is the structure to learn",
+    "Light ground is the default even for a single hero object; dark is now the exception that needs a specific reason (a lit/translucent object) AND Owner review",
+    "'Notable Lot' as a label above the item name is an approved device"
+  ],
+  "do_not_generalize": [
+    "EVERY fact in this image is fictional: Lot 7, 19th century, bronze horse, April 2, 250 lots — never into production memory; production facts come only from the event and lot records",
+    "'The Smarter Way to Bid.' — not an approved slogan (the approved buyer slogan is 'The Smarter Way to Shop.')",
+    "'Global Buyers', 'Exceptional Items' — claims",
+    "The horse — the collaborator's prop"
+  ],
+  "text_density_assessment": {
+    "level": "medium",
+    "why_it_works_here": "Facts are a ladder; the object is the message.",
+    "advantage_bid_budget_note": "NOTABLE_LOT profile: label, item, event, date, catalogue size (if true), CTA, band = 7."
+  },
+  "composition_assessment": {
+    "spatial_logic": "Hero on a table, props behind.",
+    "gravity_and_grounding": "Base on the table.",
+    "depth": "Window/painting back, vase/books mid, horse front.",
+    "scale_strategy": "Hero ≈ 55% of canvas height.",
+    "edge_handling": "Horse's tail exits the right; whole object otherwise visible."
+  },
+  "retrieval": {
+    "use_cases": [
+      "notable lot structure",
+      "light hero treatment",
+      "lot fact ladder",
+      "catalog CTA"
+    ],
+    "tags": [
+      "approved",
+      "notable-lot",
+      "hero-light",
+      "fact-ladder",
+      "training-example",
+      "square"
+    ],
+    "avoid_for": [
+      "any use of its facts",
+      "broad auctions",
+      "acquisition"
+    ]
+  },
+  "performance": null,
+  "provenance": {
+    "created_by": "Desktop Marketing (Claude, Cowork) — Phase 3P.2",
+    "created_at": "2026-09-10T16:08:54Z",
+    "analysis_method": "Direct visual inspection at full resolution; pixel statistics computed from the file; est_* are visual estimates; text transcribed from the image and classified.",
+    "phase": "3P.2"
+  },
+  "text_classification": [
+    {
+      "text": "Notable Lot",
+      "status": "OWNER_APPROVED_MESSAGE",
+      "role": "label",
+      "note": "Owner-defined class label"
+    },
+    {
+      "text": "View Catalog",
+      "status": "REFERENCE_ONLY_TEXT",
+      "role": "cta",
+      "note": "acceptable when the destination is the real catalog"
+    },
+    {
+      "text": "Lot 7 / 19th Century Bronze Horse / Estate Auction April 2 / Over 250 Lots!",
+      "status": "FICTIONAL_TRAINING_FACT_NEVER_PRODUCTION",
+      "role": "label"
+    },
+    {
+      "text": "The Smarter Way to Bid.",
+      "status": "REFERENCE_ONLY_TEXT",
+      "role": "label",
+      "note": "not an approved slogan"
+    },
+    {
+      "text": "Extraordinary Finds Await.",
+      "status": "REFERENCE_ONLY_TEXT",
+      "role": "label"
+    },
+    {
+      "text": "Global Buyers",
+      "status": "REFERENCE_ONLY_CLAIM_REQUIRES_PRODUCTION_TRUTH",
+      "role": "label"
+    }
+  ],
+  "logo_treatment_in_reference": "Logo lockup in the reference is rendered by the image model (gavel + ADVANTAGE.BID + GET THE ADVANTAGE). Production never reproduces it; it composites brand-assets/logos/advantage-bid-primary.png (or the transparent/white variant) at the prominence rules. The tagline drawn under the logo is not the asset's tagline.",
+  "training_example": true
+}

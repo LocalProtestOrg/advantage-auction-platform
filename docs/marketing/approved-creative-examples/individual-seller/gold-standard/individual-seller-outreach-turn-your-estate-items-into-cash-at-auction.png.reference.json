@@ -1,0 +1,185 @@
+{
+  "schema_version": "1.1",
+  "reference_id": "REF-17",
+  "identity": {
+    "sha256": "57889b64ba61dc1fe3b1bb81c2c829b6abecb3a73ac3d1a2dcc5e13741bcbf70",
+    "current_path": "individual-seller/gold-standard/individual-seller-outreach-turn-your-estate-items-into-cash-at-auction.png",
+    "original_filename": "individual-seller-outreach-turn-your-estate-items-into-cash-at-auction.png",
+    "width": 1254,
+    "height": 1254,
+    "format_class": "square",
+    "aspect_ratio": 1
+  },
+  "owner_status": "OWNER_GOLD_STANDARD",
+  "owner_weight": 2,
+  "status_history": [
+    {
+      "date": "2026-09-11",
+      "status": "OWNER_GOLD_STANDARD",
+      "source": "folder_placement_by_owner",
+      "owner_words": "Owner placed the file in approved-creative-examples/individual-seller/gold-standard/ (gold-standard sub-folder = Gold Standard under the library convention)",
+      "recorded_by": "Desktop Marketing — Phase 3P.2"
+    }
+  ],
+  "source": {
+    "seller": "Advantage.Bid",
+    "origin": "Advantage.Bid-led creative produced by the Owner and his creative collaborator after Phase 3P.1 (image-model assisted); Owner-approved by folder placement",
+    "rights": "Advantage.Bid-owned reference creative. Calibration evidence only: the composition teaches attributes; the logo drawn inside it is an image-model rendering and is NOT an approved logo asset (production composites brand-assets/logos); merchandise is representative, not lots; every fact and claim visible is reference-only text unless separately approved.",
+    "campaign_title_visible": "Estate Sale Online Auction — Quality Finds. Real Value. Right From Home.",
+    "event_date_visible": "(none — no date, place or seller)",
+    "advantage_bid_visible": true
+  },
+  "classification": {
+    "campaign_class_primary": "buyer_platform_growth",
+    "campaign_class_secondary": [
+      "estate_sale",
+      "individual_seller_acquisition"
+    ],
+    "event_product_type": "Generic estate-sale-online-auction creative; Owner filed under individual-seller gold, but the copy is buyer-facing ('Browse & Bid Today', 'Explore / Bid / Win')",
+    "seller_hierarchy": "advantage_bid_only",
+    "visual_family": "ATMOSPHERIC_SCENE",
+    "nearest_advantage_family": "ENVIRONMENTAL_PHOTO",
+    "event_mode": "not_an_event",
+    "merchandise_breadth": "representative_non_lot",
+    "owner_folder": "individual-seller",
+    "content_reads_as": "buyer_platform_growth / estate_sale promotional creative (Owner decision 2026-09-11): its buyer copy is never seller-acquisition copy; for individual_seller_acquisition it is imagery/layout evidence only"
+  },
+  "visual_read": {
+    "visual_hierarchy": "Logo lockup → 'ESTATE SALE' (navy) / 'ONLINE AUCTION' (blue) uppercase → spaced-caps support → four blue icon rows (categories + local pickup) → blue CTA 'BROWSE & BID TODAY →' → navy band (Explore / Bid / Win) + 'You Can Do This.' → footer strip. Right: a stone house with boxwoods and, in front of it, furniture staged outdoors on a rug.",
+    "merchandise_treatment": "Chest of drawers with a lamp and blue-and-white jars, gilt paintings, a tufted armchair, coffee table with books and a plant, trunk, bronze horse, a chalkboard 'Great Pieces Find New Homes.' — staged on a rug in front of the house.",
+    "composition_style": "Copy column left over a light haze; environmental house exterior right; merchandise on the lawn; band closes.",
+    "typography_treatment": "Uppercase condensed display in navy/blue; script accents with a blue underline.",
+    "information_density": "high",
+    "branding_hierarchy": "Logo lockup large; band script; no seller, no event facts.",
+    "cta_treatment": "Blue button 'Browse & Bid Today'.",
+    "footer_treatment": "Navy band + footer strip.",
+    "photographic_style": "Image-model rendered exterior with staged furniture; bright daylight.",
+    "overlapping_objects": "confident",
+    "environmental_staged_composition": "Furniture staged outdoors in front of a house — a 'the estate' environment, not a room.",
+    "negative_space": "minimal",
+    "ground": "mixed",
+    "overall_visual_impact": "very_high"
+  },
+  "measured": {
+    "light_pixel_pct": 30.1,
+    "dark_pixel_pct": 22.8,
+    "saturated_pixel_pct": 31.1,
+    "dominant_hues": [
+      "cyan 32%",
+      "red 26%",
+      "azure 21%",
+      "red share of saturated 26.2%"
+    ],
+    "est_merchandise_share_pct": [
+      50,
+      58
+    ],
+    "est_text_share_pct": [
+      24,
+      30
+    ],
+    "object_count_est": 12,
+    "text_block_count": 9
+  },
+  "strongest_attributes": [
+    "Event type as the headline ('Estate Sale / Online Auction') — the prominence the Owner asked for",
+    "The house itself as the environment — an estate reads as an estate",
+    "Merchandise-led and bright"
+  ],
+  "transferable_lessons": [
+    "'Estate Sale' + 'Online Auction' stacked as a two-line event-type headline is an approved pattern for generic estate-auction creative",
+    "An exterior with staged merchandise is an acceptable environmental treatment for GENERIC estate creative (a real event uses its real photographs)",
+    "Category icon rows may name what buyers will find"
+  ],
+  "do_not_generalize": [
+    "The buyer-facing copy as SELLER acquisition copy — the folder says seller, the words say buyer; see the unresolved question in the 3P.2 report",
+    "The house — generic; a real event never borrows an exterior",
+    "'Convenient Local Pickup' — a service claim requiring production truth",
+    "Absence of date/place — a real estate-sale creative must carry its facts"
+  ],
+  "text_density_assessment": {
+    "level": "high",
+    "why_it_works_here": "Same structured slots as the seller golds.",
+    "advantage_bid_budget_note": "ACQUISITION_RICH ceiling; for a real event the EVENT profiles apply instead."
+  },
+  "composition_assessment": {
+    "spatial_logic": "Lawn scene: chest and chair grounded on a rug; small objects on surfaces; house behind.",
+    "gravity_and_grounding": "Believable.",
+    "depth": "House far, furniture mid, trunk and horse foreground.",
+    "scale_strategy": "Chair and chest as anchors.",
+    "edge_handling": "Chalkboard and house exit the right; contained left."
+  },
+  "retrieval": {
+    "use_cases": [
+      "generic estate-sale / online-auction creative",
+      "event-type-as-headline calibration",
+      "exterior environment treatment",
+      "seller outreach imagery (not copy)"
+    ],
+    "tags": [
+      "gold",
+      "estate",
+      "event-type-headline",
+      "exterior",
+      "blue-accent",
+      "square"
+    ],
+    "avoid_for": [
+      "seller-acquisition COPY (buyer wording)",
+      "real event creative (no facts; generic house)",
+      "notable lot"
+    ],
+    "copy_restricted_classes": [
+      "individual_seller_acquisition"
+    ]
+  },
+  "performance": null,
+  "provenance": {
+    "created_by": "Desktop Marketing (Claude, Cowork) — Phase 3P.2",
+    "created_at": "2026-09-10T16:08:54Z",
+    "analysis_method": "Direct visual inspection at full resolution; pixel statistics computed from the file; est_* are visual estimates; text transcribed from the image and classified.",
+    "phase": "3P.2"
+  },
+  "text_classification": [
+    {
+      "text": "Estate Sale",
+      "status": "OWNER_APPROVED_MESSAGE",
+      "role": "event_type",
+      "note": "Owner-named event type"
+    },
+    {
+      "text": "Online Auction",
+      "status": "OWNER_APPROVED_MESSAGE",
+      "role": "event_type",
+      "note": "logo README example"
+    },
+    {
+      "text": "Quality Finds. Real Value. Right From Home.",
+      "status": "REFERENCE_ONLY_TEXT",
+      "role": "support"
+    },
+    {
+      "text": "Browse & Bid Today",
+      "status": "REFERENCE_ONLY_TEXT",
+      "role": "cta"
+    },
+    {
+      "text": "Convenient Local Pickup",
+      "status": "REFERENCE_ONLY_CLAIM_REQUIRES_PRODUCTION_TRUTH",
+      "role": "label"
+    },
+    {
+      "text": "Explore / Bid / Win",
+      "status": "REFERENCE_ONLY_TEXT",
+      "role": "label"
+    },
+    {
+      "text": "Unique Finds. New Possibilities.",
+      "status": "REFERENCE_ONLY_TEXT",
+      "role": "label"
+    }
+  ],
+  "logo_treatment_in_reference": "Logo lockup in the reference is rendered by the image model (gavel + ADVANTAGE.BID + GET THE ADVANTAGE). Production never reproduces it; it composites brand-assets/logos/advantage-bid-primary.png (or the transparent/white variant) at the prominence rules.",
+  "owner_gold_reason": "Owner placed the file in individual-seller/gold-standard",
+  "filename_signal": "none"
+}

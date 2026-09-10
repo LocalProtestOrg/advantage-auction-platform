@@ -1,0 +1,83 @@
+{
+  "schema": "media-source-hierarchy#1.0",
+  "principle": "For event-specific campaigns the Director evaluates real seller/event media BEFORE deciding to manufacture a collage. A real photograph taken by a person is more convincing than unnecessary synthetic composition (Owner, 2026-09-10). Collage is a fallback, never the default.",
+  "provenance_gate": {
+    "required_fields": ["asset_sha256", "event_id", "uploaded_by_or_source_page", "retrieved_at", "rights"],
+    "rule": "Every candidate must be bound to the campaign's event_id before scoring. Media from any other event, seller, or a stock source is never a candidate. An asset whose event binding cannot be shown is excluded, not scored low."
+  },
+  "readiness_threshold": 70,
+  "tiers": [
+    {
+      "tier": 1,
+      "key": "seller_cover_image",
+      "label": "Excellent seller/event cover image",
+      "source": "event.cover_image_asset_id",
+      "eligibility": ["is_photograph (not a composed graphic: text/logo contamination ≤ 1 small watermark-class region, no headline-class text)", "provenance_gate"],
+      "hard_gates": ["min_long_edge_px >= 1200", "sharpness_norm >= 0.35", "clipped_highlights_pct <= 6", "text_contamination == none_or_watermark", "subject_integrity: primary subject not cut by the frame edge in the required crops"],
+      "scored_criteria": {"sharpness": 15, "exposure_and_colour": 10, "merchandise_visibility": 20, "clutter_free": 15, "invitation (a room or scene a buyer wants to enter)": 15, "aspect_suitability (4:5 and 1:1 crops keep the subject)": 15, "representative_value (shows what the sale is)": 10},
+      "notes": "Many seller 'cover images' are the seller's own finished advertisements. Those fail is_photograph and are routed to the published-anchor role (negative similarity anchor), never used as a photograph. The West University Facebook cover is the recorded example."
+    },
+    {
+      "tier": 2,
+      "key": "walkthrough_video_frame",
+      "label": "Excellent seller-uploaded walkthrough/video frame",
+      "source": "event.walkthrough_video_asset_ids[] → frame selection (Mission 3)",
+      "eligibility": ["video provenance_gate", "frame selected by the frame-selection pipeline (never the first frame by default)"],
+      "hard_gates": ["frame_sharpness_norm >= 0.30", "motion_blur_score <= 0.25", "no person/hand/phone occupying > 5% of the frame", "text_contamination == none", "aspect: 4:5 or 1:1 crop keeps the subject", "min_source_height_px >= 1080 after crop, or the format is downscaled honestly (no upscaling beyond 1.25×)"],
+      "scored_criteria": {"sharpness": 15, "motion_stability": 10, "exposure_and_colour": 10, "merchandise_visibility": 20, "obstruction_free": 15, "representative_value": 15, "aspect_suitability": 15}
+    },
+    {
+      "tier": 3,
+      "key": "single_environmental_photograph",
+      "label": "Strong authentic environmental photograph",
+      "source": "event.site_photographs[] (seller-uploaded or seller-published for THIS event)",
+      "eligibility": ["provenance_gate", "is_photograph"],
+      "hard_gates": ["min_long_edge_px >= 1080", "sharpness_norm >= 0.30", "clipped_highlights_pct <= 6", "dark_pct <= 25", "text_contamination == none_or_price_tags_only", "subject_integrity in required crops"],
+      "scored_criteria": {"sharpness": 12, "exposure_and_colour": 10, "merchandise_visibility_and_variety": 20, "clutter_free (boxes, cables, bags, people, tags)": 18, "invitation": 15, "aspect_suitability": 15, "representative_value": 10}
+    },
+    {
+      "tier": 4,
+      "key": "multiple_environmental_photographs",
+      "label": "Multiple strong authentic environmental photographs",
+      "source": "≥ 2 tier-3-ready photographs of different rooms/scenes",
+      "eligibility": ["each photograph passes tier 3 hard gates", "scenes are visually distinct (perceptual distance ≥ 0.35)"],
+      "layouts": ["primary + one secondary (never a 3-tile grid unless the family explicitly allows it)", "sequential creative (LAUNCH uses photo 1, MID uses photo 2) preferred over multi-tile"],
+      "scored_criteria": {"best_single_score": 50, "distinctness": 20, "combined_representative_value": 30}
+    },
+    {
+      "tier": 5,
+      "key": "editorial_object_composition",
+      "label": "Individual merchandise images requiring editorial composition",
+      "source": "CLEAN extracted objects of THIS auction (3M extraction gate) — the 3M.3 scene families with Phase 3P.1 physical intelligence",
+      "eligibility": ["merchandise_mode = lots", "≥ 3 CLEAN objects with semantic classes resolved (Mission 4)", "scene plan passes the physical audit (Mission 5)"],
+      "when": "Tiers 1–4 have no candidate ≥ readiness_threshold, OR the campaign is a notable-lot / category spotlight where object photography is the point, OR the Director records a factual reason the environment should not be shown."
+    },
+    {
+      "tier": 6,
+      "key": "restrained_branded_factual",
+      "label": "Restrained branded factual creative when source media is inadequate",
+      "source": "no merchandise imagery; brand frame + event facts (event type, title, date/time, place) + optional single CLEAN lot photograph as a small inset",
+      "eligibility": ["always available"],
+      "rule": "Never manufacture a collage to avoid this tier. A quiet factual creative is an acceptable outcome; an implausible collage is not."
+    }
+  ],
+  "director_decision": {
+    "algorithm": [
+      "1. Enumerate all event-bound media; drop anything failing the provenance gate or is_photograph (composed graphics → anchor role).",
+      "2. Score every candidate on its tier's criteria; apply hard gates first (a failed gate = not ready, not 'low').",
+      "3. Walk tiers 1 → 6; select the first tier with a ready candidate (score ≥ readiness_threshold). Within a tier choose the highest score; ties → the more representative.",
+      "4. A lower tier may override a higher one only with a recorded reason (e.g. tier-1 cover is a tight detail shot; tier-3 room shows the sale better) and the score difference must exceed 10.",
+      "5. Record the full decision trail in the packet: every candidate, its scores, gates failed, the tier chosen, the reason, and why collage was or was not built.",
+      "6. Owner review flag when: the chosen tier is 2 (first three uses), the override rule fired, or all media scored < 60."
+    ],
+    "never": ["use media not bound to this event_id", "use a composed seller graphic as a photograph", "use stock or generated imagery", "default to collage because objects exist", "pick the first frame of a video by position", "enhance media in a way that invents detail (no generative fill, no super-resolution > 1.25×); crop, straighten, exposure and white balance only"]
+  },
+  "scoring_normalisation": {
+    "sharpness_norm": "variance of the Laplacian of the luminance, divided by the 90th-percentile value across the event's own media set (so a set of soft phone photos still ranks internally) and clamped to [0,1]; absolute floor: Laplacian variance ≥ 300 at 1200px long edge",
+    "clipped_highlights_pct": "share of pixels with luminance > 245",
+    "dark_pct": "share of pixels with luminance < 40",
+    "clutter": "detector or vision-judge count of: cardboard boxes, cables, plastic bags, price stickers, people, phones, trash, cleaning items; each instance −3, capped at −18",
+    "invitation": "vision-judge 0–4: would a buyer want to walk into this room; scaled to the criterion weight",
+    "aspect_suitability": "the subject bounding region (furniture + art mass) must fit inside a 4:5 and a 1:1 crop with ≥ 90% of its area retained"
+  }
+}

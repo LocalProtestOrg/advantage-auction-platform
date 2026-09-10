@@ -196,6 +196,14 @@ async function settleCombined(combinedInvoiceId, stripePaymentIntentId, paymentI
       catch (e) { console.error('[tax] combined finalizeTaxTransaction failed', { paymentId, error: e.message }); }
     }
 
+    // First-party conversion ledger (post-commit, fire-and-forget). Value = the charged invoice total. Contained — a
+    // measurement failure can never affect settlement.
+    try {
+      db.query('SELECT total_cents FROM buyer_auction_invoices WHERE id = $1', [combinedInvoiceId])
+        .then((r) => require('./conversionService').emit('purchase', { userId: bai.buyer_user_id, subjectType: 'buyer_auction_invoice', subjectId: combinedInvoiceId, valueCents: r && r.rows && r.rows[0] ? r.rows[0].total_cents : null }))
+        .catch(() => {});
+    } catch (_) { /* measurement never blocks settlement */ }
+
     return { settled: true };
   } catch (err) {
     await client.query('ROLLBACK').catch(() => {});

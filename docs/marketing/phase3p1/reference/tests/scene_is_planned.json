@@ -1,0 +1,80 @@
+{
+ "name": "individual_seller_planned",
+ "size": [
+  1080,
+  1350
+ ],
+ "layers": [
+  {
+   "id": "torchiere",
+   "asset": "runtime/assets/lot46.webp",
+   "semantic_class": "torchiere",
+   "x": 40,
+   "y": 250.86956521739125,
+   "w": 219.6273291925466,
+   "z": 1
+  },
+  {
+   "id": "chairs",
+   "asset": "runtime/assets/lot31.webp",
+   "semantic_class": "wingback_chair",
+   "x": 330,
+   "y": 580,
+   "w": 687.62278978389,
+   "z": 2,
+   "protected": [
+    [
+     "seat_left",
+     0.06,
+     0.55,
+     0.42,
+     0.8
+    ],
+    [
+     "seat_right",
+     0.58,
+     0.55,
+     0.95,
+     0.8
+    ],
+    [
+     "arm_left",
+     0.02,
+     0.45,
+     0.2,
+     0.7
+    ]
+   ]
+  },
+  {
+   "id": "table",
+   "asset": "runtime/assets/lot36.webp",
+   "semantic_class": "side_table",
+   "x": 150,
+   "y": 817.391304347826,
+   "w": 233.35403726708077,
+   "z": 3
+  },
+  {
+   "id": "vases",
+   "asset": "runtime/assets/lot53.webp",
+   "semantic_class": "vase",
+   "x": 208.3385093167702,
+   "y": 673.2173913043478,
+   "w": 130.65217391304347,
+   "z": 4,
+   "support": "table"
+  },
+  {
+   "id": "bowl",
+   "asset": "runtime/assets/lot63.webp",
+   "semantic_class": "bowl",
+   "x": 620,
+   "y": 1031.304347826087,
+   "w": 145.20411549950217,
+   "z": 5,
+   "floor_accent": true
+  }
+ ],
+ "asset_root_note": "asset paths are relative to creative-runtime-handoff/ (ADB_RUNTIME_ROOT env); the 3M demo objects, Advantage.Bid-owned"
+}

@@ -1,0 +1,28 @@
+{
+  "schema": "physical-audit-thresholds#1.0",
+  "source": "Phase 3P.1 reference implementation docs/marketing/phase3p1/reference/physical_audit.py; values kept here so the engine never hard-codes them",
+  "depth_step_frac": 0.06,
+  "interior_band": [0.20, 0.80],
+  "lower_edge_band": 0.35,
+  "scale_tolerance": 0.20,
+  "scale_tolerance_foreground": 0.35,
+  "min_overlap_px": 400,
+  "protected_occlusion": 0.15,
+  "depth_factor_range": [0.85, 1.25],
+  "floor_standing_min_in": 24,
+  "violation_to_planner_step": {
+    "through": "establish_relationships",
+    "deep-overlap": "establish_relationships",
+    "protected-occluded": "establish_relationships",
+    "scale": "estimate_relative_scale",
+    "unsupported": "establish_relationships",
+    "surface-float": "fill_secondary_space",
+    "support-class": "establish_relationships",
+    "wall-in-front": "establish_planes",
+    "ground-over-object": "establish_planes",
+    "coverage": "coverage_fit",
+    "void": "coverage_fit",
+    "copy-region": "coverage_fit"
+  },
+  "negative_signature_tau": 0.30
+}

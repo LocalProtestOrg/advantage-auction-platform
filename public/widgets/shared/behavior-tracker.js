@@ -26,6 +26,24 @@
     } catch (e) { /* never break the page */ }
   }
 
+  // First-party campaign attribution: landing URL + referrer for campaign-bearing (UTM / click id) or external
+  // arrivals, once per landing per session. The server classifies the channel; internal navigation is ignored.
+  function captureTouch() {
+    try {
+      var q = location.search || '';
+      var ref = document.referrer || '';
+      var external = ref && ref.indexOf(location.protocol + '//' + location.host) !== 0 && !/(^|\.)advantage\.bid$/i.test((ref.split('/')[2] || ''));
+      if (!/[?&](utm_[a-z]+|gclid|gbraid|wbraid|fbclid)=/i.test(q) && !external) return;
+      var key = 'aap_touch_' + (location.pathname + q).slice(0, 180);
+      try { if (sessionStorage.getItem(key)) return; sessionStorage.setItem(key, '1'); } catch (e) { /* storage blocked → still send once */ }
+      var A = window.AAPAnalytics || {};
+      var payload = { visitor_id: A._getVisitorId ? A._getVisitorId() : null, session_id: A._getSessionId ? A._getSessionId() : null,
+        landing_url: location.href, referrer: ref || null, consent: window.__ADV_CONSENT || null };
+      if (!payload.visitor_id) return;
+      fetch('/api/analytics/touch', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload), keepalive: true }).catch(function () {});
+    } catch (e) { /* never break the page */ }
+  }
+
   // Ensure the consent banner is present (one shared integration point). It self-suppresses once a
   // choice exists and publishes window.__ADV_CONSENT for the tracker.
   function ensureConsentBanner() {
@@ -36,18 +54,28 @@
     } catch (e) { /* never break the page */ }
   }
 
+  // Consent-gated advertising measurement loader (does nothing unless an Owner gate is ON and advertising consent is granted).
+  function ensureAdMeasurement() {
+    try {
+      if (window.AdvMeasurement || document.getElementById('adv-ad-measurement')) return;
+      var s = document.createElement('script'); s.id = 'adv-ad-measurement'; s.src = '/widgets/shared/ad-measurement.js'; s.defer = true;
+      document.head.appendChild(s);
+    } catch (e) { /* never break the page */ }
+  }
+
   function fire() {
     try {
       ensureConsentBanner();
+      ensureAdMeasurement();
       captureClickIds();
       var ctx = {};
       if (window.__ADV_CATEGORY_KEY) ctx.category_key = String(window.__ADV_CATEGORY_KEY);
       if (window.__ADV_AUCTION_ID) ctx.auction_id = String(window.__ADV_AUCTION_ID);
-      if (window.AAPAnalytics && window.AAPAnalytics.page) { window.AAPAnalytics.page(ctx); return; }
+      if (window.AAPAnalytics && window.AAPAnalytics.page) { window.AAPAnalytics.page(ctx); captureTouch(); return; }
       // AAPAnalytics not present → load it, then fire once.
       var s = document.createElement('script');
       s.src = '/widgets/shared/analytics.js';
-      s.onload = function () { try { window.AAPAnalytics && window.AAPAnalytics.page && window.AAPAnalytics.page(ctx); } catch (e) {} };
+      s.onload = function () { try { window.AAPAnalytics && window.AAPAnalytics.page && window.AAPAnalytics.page(ctx); captureTouch(); } catch (e) {} };
       s.onerror = function () { /* analytics must never affect the page */ };
       document.head.appendChild(s);
     } catch (e) { /* swallow — tracking must never break the page */ }

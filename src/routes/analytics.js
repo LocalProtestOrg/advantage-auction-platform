@@ -26,6 +26,7 @@ const { insertEvent, insertBatch } = require('../services/analyticsService');
 const auth = require('../middleware/authMiddleware');
 const behavioralIdentity = require('../services/behavioralIdentityService');
 const clickIds = require('../services/clickIdService');
+const attribution = require('../services/attributionService');
 
 const router = express.Router();
 
@@ -72,6 +73,19 @@ router.post('/click-id', analyticsLimiter, express.json({ limit: '8kb' }), (req,
   }
 });
 
+// ── POST /api/analytics/touch ──────────────────────────────────────────────────
+// First-party campaign/session attribution (Phase 3P.2): landing URL + referrer (+ UTM / click ids parsed server-side)
+// for campaign-bearing or external arrivals. Internal navigation is not a touch. Fire-and-forget; nothing leaves the
+// platform. Raw click-id values are stored only by /click-id; a touch keeps the click type and a hash.
+router.post('/touch', analyticsLimiter, express.json({ limit: '8kb' }), (req, res) => {
+  const b = req.body || {};
+  res.status(202).json({ accepted: true });
+  if (typeof b.visitor_id !== 'string' || typeof b.landing_url !== 'string') return;
+  attribution.recordTouch({ visitorId: b.visitor_id, sessionId: typeof b.session_id === 'string' ? b.session_id : null,
+    landingUrl: b.landing_url.slice(0, 2000), referrer: typeof b.referrer === 'string' ? b.referrer.slice(0, 1000) : null,
+    consentState: b.consent && typeof b.consent === 'object' ? b.consent : null }).catch(() => {});
+});
+
 // ── POST /api/analytics/identify (AUTHENTICATED) ────────────────────────────────
 // Explicit anonymous→known linkage on an authoritative first-party action. Requires a valid session so
 // the user_id is server-derived (never client-asserted). Idempotent; never a speculative merge.
@@ -81,6 +95,8 @@ router.post('/identify', auth, express.json(), async (req, res, next) => {
     const source = (req.body && req.body.source) || 'login';
     const link = await behavioralIdentity.link({ visitorId, userId: req.user.id, source });
     if (link) { await clickIds.linkToUser(visitorId, req.user.id).catch(() => {}); }
+    // Campaign attribution follows the same explicit linkage (90-day look-back; never speculative).
+    if (link) { await attribution.stitch({ visitorId, userId: req.user.id, source }).catch(() => {}); }
     return res.json({ success: !!link, linked: !!link });
   } catch (e) { next(e); }
 });

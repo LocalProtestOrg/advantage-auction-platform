@@ -39,11 +39,39 @@ function bandFor(family, index) {
 }
 
 const HEX_RE = /#[0-9a-f]{3,8}\b/i, PX_RE = /\b\d+(\.\d+)?\s*px\b/i;
+// Phase 3P.2 anti-averaging: the collaborator prop checklist and any logo-style lesson never leave the extractor.
+const PROP_TERMS = ['bronze horse', 'rearing horse', 'blue-and-white', 'blue and white vase', 'category spine', 'category-spine', 'spine books', 'laptop', 'mug', 'chalkboard'];
+const LOGO_STYLE = /\blogo\b[^.;]{0,40}\b(style|font|typeface|typeset|colou?r|shape|design|lettering|rendering|redraw)|\b(typeset|redraw|recreate|render)[^.;]{0,30}\blogo\b/i;
+const COPY_LESSON = /\b(copy|headline|wording|message|messages|cta|slogan|phrase|tagline|text|words?)\b/i;
+function trainingFacts() {
+  try { return require('../../../docs/marketing/phase3p2/config/notable-lot-contract.json').training_example.facts || []; } catch (_) { return []; }
+}
+function approvedTexts() {
+  try {
+    const m = require('../../../docs/marketing/phase3p2/config/campaign-messages.json');
+    return [...m.approved_messages.map((x) => x.text), ...m.approved_campaign_specific_messages.map((x) => x.text), ...(m.philosophy_lines_owner_authored || [])];
+  } catch (_) { return []; }
+}
+/** Lessons that may leave the extractor for this reference (ranges and attributes only). */
+function lessonsFor(r) {
+  const facts = trainingFacts().map((f) => f.toLowerCase());
+  return (r.transferable_lessons || []).filter((l) => {
+    const t = String(l); const lo = t.toLowerCase();
+    if (PROP_TERMS.some((w) => lo.includes(w))) return false;           // prop-checklist ban
+    if (LOGO_STYLE.test(t)) return false;                                 // no logo-style lessons (placement/prominence only)
+    if (r.imagery_only && COPY_LESSON.test(t)) return false;              // imagery/layout evidence only for this class
+    if (r.training_example && (facts.some((f) => lo.includes(f.toLowerCase())) || /\blot\s*\d+/i.test(t) || /\b(1[0-9]|20)(th|st|nd|rd)\s+century\b/i.test(t))) return false;
+    return true;
+  });
+}
 /** Scan a calibration block for leaked identity or coordinates. Returns [] when clean. */
 function leakScan(obj, sellerMarks) {
   const s = JSON.stringify(obj.principle_profile || obj);
   const hits = [];
   if (HEX_RE.test(s)) hits.push('hex colour');
+  for (const w of PROP_TERMS) if (s.toLowerCase().includes(w)) hits.push('collaborator prop: ' + w);
+  if (LOGO_STYLE.test(s)) hits.push('logo-style lesson');
+  for (const f of trainingFacts()) if (f && s.toLowerCase().includes(f.toLowerCase())) hits.push('fictional training fact: ' + f);
   if (PX_RE.test(s)) hits.push('pixel value');
   for (const f of lib.FONT_NAMES) if (new RegExp('\\b' + f + '\\b', 'i').test(s)) hits.push('typeface: ' + f);
   for (const m of (sellerMarks || lib.KNOWN_SELLER_MARKS)) if (m && s.toLowerCase().includes(String(m).toLowerCase())) hits.push('seller mark: ' + m);
@@ -59,7 +87,7 @@ function buildCalibration(index, retrieval, need, sellerMarks) {
   const band = bandFor(family, index);
   const profile = TEXT_PROFILES[need.text_profile || 'GENERAL'] || TEXT_PROFILES.GENERAL;
   const used = retrieval.empty_class ? retrieval.neutral_fallback : retrieval.retrieved;
-  const lessons = [...new Set(used.flatMap((r) => r.transferable_lessons || []))];
+  const lessons = [...new Set(used.flatMap((r) => lessonsFor(r)))];
   const negatives = retrieval.negatives.flatMap((n) => n.anti_patterns || []);
   const hierarchy = [];
   if (need.seller_hierarchy === 'seller_led_cobranded') hierarchy.push('presenter (the Professional Seller) leads; Advantage.Bid is the visible marketplace partner, subordinate; navy band closes');
@@ -87,11 +115,15 @@ function buildCalibration(index, retrieval, need, sellerMarks) {
       anti_patterns: negatives,
       brand_frame: BRAND_FRAME,
       variation_required_from: need.variation_required_from || [],
+      // Phase 3P.2: attribute RANGES + the set of structures the Owner's references show — never a mean layout.
+      structures_seen: retrieval.structures_seen || [],
+      structure_rule: 'name the structure chosen and why; consecutive creatives for the same objective rotate structure; a Gold is evidence, not a template',
+      imagery_only_references: retrieval.imagery_only || [],
     },
     do_not_copy: {
       seller_marks: (sellerMarks && sellerMarks.seller_marks) || lib.KNOWN_SELLER_MARKS,
       palettes: 'any reference palette', typefaces: 'any reference typeface', ornaments: 'flourishes, decorative frames, stars, crests, gold borders, icon logistics rows',
-      wording: (sellerMarks && sellerMarks.wording) || [],
+      wording: ((sellerMarks && sellerMarks.wording) || []).filter((w) => !approvedTexts().some((a) => a.toLowerCase().replace(/[.!?]+$/, '') === String(w).toLowerCase().replace(/[.!?]+$/, ''))),
       layout_signatures: used.map((r) => r.sha256),
     },
     library_band: band.library_band || null,
@@ -101,4 +133,4 @@ function buildCalibration(index, retrieval, need, sellerMarks) {
   return calibration;
 }
 
-module.exports = { buildCalibration, bandFor, leakScan, FAMILY_BANDS, TEXT_PROFILES, BRAND_FRAME };
+module.exports = { buildCalibration, bandFor, leakScan, lessonsFor, FAMILY_BANDS, TEXT_PROFILES, BRAND_FRAME, PROP_TERMS };

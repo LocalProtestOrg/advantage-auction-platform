@@ -64,6 +64,8 @@ function readLedger(root) {
   });
 }
 
+const KNOWN_ACTIONS = new Set(['SET_STATUS', 'RECLASSIFY', 'LIBRARY_BASELINE', 'LIBRARY_EXPANSION', 'CALIBRATION_NOTE', 'ADD_GENERATED', 'CREATIVE_REVIEW', 'OWNER_RULE']);
+
 function applyLedgerEntry(entry, bySha, byRefId, applied, hash) {
   if (!entry || applied.has(hash)) return { applied: false, reason: applied.has(hash) ? 'already_applied' : 'malformed' };
   const targets = [];
@@ -80,12 +82,22 @@ function applyLedgerEntry(entry, bySha, byRefId, applied, hash) {
     }
     return { applied: true, targets: targets.map((t) => t.json.reference_id) };
   }
-  if (entry.action === 'RECLASSIFY' && targets.length && entry.payload && entry.payload.campaign_class_primary) {
-    for (const t of targets) { t.json.classification.campaign_class_primary = entry.payload.campaign_class_primary; t.dirty = true; }
+  if (entry.action === 'RECLASSIFY' && targets.length && entry.payload && lib.STATUS_SOURCES.includes(entry.source)) {
+    const pl = entry.payload;
+    for (const t of targets) {
+      if (pl.campaign_class_primary && lib.CAMPAIGN_CLASSES.includes(pl.campaign_class_primary)) t.json.classification.campaign_class_primary = pl.campaign_class_primary;
+      if (Array.isArray(pl.campaign_class_secondary)) t.json.classification.campaign_class_secondary = pl.campaign_class_secondary.filter((c) => lib.CAMPAIGN_CLASSES.includes(c));
+      if (Array.isArray(pl.copy_restricted_classes)) t.json.retrieval.copy_restricted_classes = pl.copy_restricted_classes.filter((c) => lib.CAMPAIGN_CLASSES.includes(c));
+      if (pl.content_reads_as) t.json.classification.content_reads_as = String(pl.content_reads_as).slice(0, 400);
+      t.dirty = true;
+    }
     return { applied: true, targets: targets.map((t) => t.json.reference_id) };
   }
-  // LIBRARY_BASELINE / CALIBRATION_NOTE / ADD_GENERATED: recorded (mirror), no sidecar mutation here.
-  return { applied: true, targets: targets.map((t) => t.json.reference_id), noop: true };
+  // Recognised records that carry no sidecar mutation (mirrored to the DB / feedback tables by feedbackLedger):
+  // LIBRARY_BASELINE / LIBRARY_EXPANSION / CALIBRATION_NOTE / ADD_GENERATED / CREATIVE_REVIEW / OWNER_RULE.
+  if (KNOWN_ACTIONS.has(entry.action)) return { applied: true, targets: targets.map((t) => t.json.reference_id), noop: true };
+  // Unknown actions are preserved in the ledger and reported as unapplied — never dropped, never guessed.
+  return { applied: false, reason: 'unknown_action:' + entry.action };
 }
 
 /**
@@ -215,7 +227,9 @@ function composeIndex(sidecars, root, weights, appliedHashes) {
       campaign_class_primary: j.classification.campaign_class_primary, campaign_class_secondary: j.classification.campaign_class_secondary, owner_folder: j.classification.owner_folder,
       visual_family: j.classification.visual_family, nearest_advantage_family: j.classification.nearest_advantage_family, event_mode: j.classification.event_mode, merchandise_breadth: j.classification.merchandise_breadth,
       seller_hierarchy: j.classification.seller_hierarchy, format_class: j.identity.format_class, information_density: j.visual_read.information_density, ground: j.visual_read.ground,
-      tags: j.retrieval.tags, avoid_for: j.retrieval.avoid_for, transferable_lessons: j.transferable_lessons, do_not_generalize: j.do_not_generalize, measured: j.measured, sidecar_hash: lib.sha256Text(JSON.stringify(j)) })),
+      tags: j.retrieval.tags, avoid_for: j.retrieval.avoid_for, copy_restricted_classes: j.retrieval.copy_restricted_classes || [], transferable_lessons: j.transferable_lessons, do_not_generalize: j.do_not_generalize, measured: j.measured,
+      training_example: j.training_example === true, filename_signal: j.filename_signal || null, text_classification: j.text_classification || [], content_reads_as: j.classification.content_reads_as || null,
+      sidecar_hash: lib.sha256Text(JSON.stringify(j)) })),
   };
 }
 function pct(arr, fn) { return arr.length ? Math.round((arr.filter(fn).length / arr.length) * 100) : 0; }
