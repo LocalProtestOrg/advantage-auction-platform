@@ -49,7 +49,8 @@ function classifyChannel({ utm = {}, clickType = null, referrerHost = null }) {
 const isPaid = (ch) => ch === 'paid_social' || ch === 'paid_search';
 
 function campaignKey({ utm = {}, channel }) {
-  if (utm.utm_campaign) return (String(utm.utm_source || 'unknown').toLowerCase() + ':' + String(utm.utm_campaign).toLowerCase()).slice(0, 160);
+  // Normalised the same way as the cost side (paidCostIngestionService.campaignKeyFor): lower case, whitespace → '_'.
+  if (utm.utm_campaign) return (String(utm.utm_source || 'unknown').toLowerCase() + ':' + String(utm.utm_campaign).trim().toLowerCase().replace(/\s+/g, '_')).slice(0, 160);
   return isPaid(channel) ? channel + ':unlabelled' : null;
 }
 

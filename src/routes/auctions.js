@@ -80,7 +80,7 @@ router.post('/', authMiddleware, async (req, res) => {
       overrideReason: req.body.override_reason,
     });
 
-    if (auction && auction.id) require('../services/conversionService').emit('auction_draft_created', { userId: req.user.id, subjectType: 'auction', subjectId: auction.id });
+    if (auction && auction.id) require('../services/conversionService').emit('auction_draft_created', { ...require('../services/conversionService').ctxFromReq(req), userId: req.user.id, subjectType: 'auction', subjectId: auction.id });
     return res.status(201).json({ success: true, data: auction });
   } catch (err) {
     // Phase C: seller-type schedule violation → 422 with the explanation.

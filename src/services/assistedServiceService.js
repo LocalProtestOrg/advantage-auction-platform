@@ -54,7 +54,7 @@ function marketFor({ state = null, city = null } = {}) {
 const clip = (v, n) => { if (v == null) return null; const s = String(v).replace(/[\r\n\t\x00-\x1F\x7F]+/g, ' ').trim(); return s ? s.slice(0, n) : null; };
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
-async function submit(body = {}, { ip = '', userId = null } = {}, runner) {
+async function submit(body = {}, { ip = '', userId = null, measurement = null } = {}, runner) {
   const r = runner || db;
   const email = clip(body.email, 200);
   const phone = clip(body.phone, 40);
@@ -71,7 +71,7 @@ async function submit(body = {}, { ip = '', userId = null } = {}, runner) {
      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,true,$12) RETURNING id, created_at`,
     [clip(body.name, 160), email, phone, city, state, market, path, clip(body.message, 2000), clip(body.source_page, 300), clip(body.visitor_id, 64), userId, ipHash]);
   const id = ins.rows[0].id;
-  require('./conversionService').emit('assisted_service_inquiry', { userId, visitorId: clip(body.visitor_id, 64), subjectType: 'assisted_service_inquiry', subjectId: id, market });
+  require('./conversionService').emit('assisted_service_inquiry', { ...(measurement || {}), userId, visitorId: clip(body.visitor_id, 64), subjectType: 'assisted_service_inquiry', subjectId: id, market });
   return { ok: true, id, market };
 }
 

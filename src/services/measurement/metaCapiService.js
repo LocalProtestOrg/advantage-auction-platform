@@ -20,7 +20,7 @@ const crypto = require('crypto');
 const defs = require('../../lib/conversionDefinitions');
 const guard = require('./assetIdentityGuard');
 
-const GRAPH_VERSION = 'v21.0';
+const GRAPH_VERSION = process.env.META_GRAPH_VERSION || 'v21.0';
 const sha = (v) => crypto.createHash('sha256').update(String(v).trim().toLowerCase()).digest('hex');
 
 /** _fbc format per Meta: fb.1.<creation ms>.<fbclid> */
@@ -30,20 +30,23 @@ function fbcFrom(fbclid, capturedAt) {
   return 'fb.1.' + ms + '.' + String(fbclid).trim();
 }
 
-function buildEvent(conversion, { email = null, externalId = null, fbclid = null, fbclidCapturedAt = null, fbp = null, clientIp = null, userAgent = null, sourceUrl = null } = {}) {
+function buildEvent(conversion, { email = null, externalId = null, fbclid = null, fbclidCapturedAt = null, fbc = null, fbp = null, clientIp = null, userAgent = null, sourceUrl = null } = {}) {
   const def = defs.get(conversion.conversion_key);
   if (!def || !def.meta_event) return null;
   const user_data = {};
   if (email) user_data.em = [sha(email)];
   if (externalId || conversion.user_id) user_data.external_id = [sha(externalId || conversion.user_id)];
-  const fbc = fbcFrom(fbclid, fbclidCapturedAt); if (fbc) user_data.fbc = fbc;
-  if (fbp) user_data.fbp = fbp;
+  // _fbc: the browser cookie when present (set by the Pixel), else derived from the first-party captured fbclid.
+  const fbcVal = (typeof fbc === 'string' && /^fb\.\d\.\d+\./.test(fbc)) ? fbc : fbcFrom(fbclid, fbclidCapturedAt); if (fbcVal) user_data.fbc = fbcVal;
+  if (typeof fbp === 'string' && /^fb\.\d\.\d+\./.test(fbp)) user_data.fbp = fbp;
   if (clientIp) user_data.client_ip_address = clientIp;
   if (userAgent) user_data.client_user_agent = userAgent;
   const ev = {
     event_name: def.meta_event,
     event_time: Math.floor(new Date(conversion.occurred_at || Date.now()).getTime() / 1000),
-    event_id: String(conversion.id),                  // dedup key shared with the browser pixel's eventID
+    // Dedup key: the browser Pixel's eventID for the same conversion when the browser also sent it (provider_event_id),
+    // else the first-party conversion id (server-only conversion — nothing to deduplicate against).
+    event_id: String(conversion.provider_event_id || conversion.id),
     action_source: 'website',
     user_data,
     custom_data: { conversion_key: conversion.conversion_key },
@@ -71,15 +74,24 @@ async function loadConfig() {
 /** Presence check only — never returns, logs or echoes the value. */
 const tokenPresent = () => Boolean(process.env.META_CAPI_ACCESS_TOKEN && String(process.env.META_CAPI_ACCESS_TOKEN).length > 20);
 
-async function send(events, { advertisingConsent = false } = {}) {
-  const cfg = await loadConfig();
+/**
+ * Send server events. testEventCode (from Events Manager → Test events) marks them as TEST events: they appear only in
+ * the Test Events view and are excluded from reporting and optimisation — used for labelled verification only.
+ * Returns the receipt (events_received, fbtrace_id) — never the credential.
+ */
+async function send(events, { advertisingConsent = false, testEventCode = null, cfg: cfgIn = null } = {}) {
+  const cfg = cfgIn || await loadConfig();
   const d = decide({ cfg, tokenPresent: tokenPresent(), advertisingConsent });
   if (d.status !== 'ready') return { sent: false, decision: d };
+  const body = { data: events };
+  if (testEventCode && /^[A-Za-z0-9]{4,32}$/.test(String(testEventCode))) body.test_event_code = String(testEventCode);
   const res = await fetch('https://graph.facebook.com/' + GRAPH_VERSION + '/' + encodeURIComponent(String(cfg.datasetId)) + '/events', {
     method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + process.env.META_CAPI_ACCESS_TOKEN },
-    body: JSON.stringify({ data: events }),
+    body: JSON.stringify(body),
   });
-  return { sent: res.ok, status: res.status, decision: d };
+  let j = null; try { j = await res.json(); } catch (_) { j = null; }
+  const err = j && j.error ? { code: j.error.code, type: j.error.type, message: String(j.error.message || '').split(process.env.META_CAPI_ACCESS_TOKEN || '\u0000').join('[credential]').slice(0, 200) } : null;
+  return { sent: res.ok && !err, status: res.status, decision: d, events_received: j && j.events_received != null ? j.events_received : null, fbtrace_id: j && j.fbtrace_id ? j.fbtrace_id : null, test: !!body.test_event_code, error: err };
 }
 
 module.exports = { buildEvent, decide, loadConfig, tokenPresent, send, fbcFrom, sha, GRAPH_VERSION };

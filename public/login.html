@@ -382,16 +382,20 @@
     btn.disabled = true;
     btn.textContent = 'Creating account…';
 
+    // One event id shared by the consent-gated Pixel and the server (Conversions API) so Meta counts it once.
+    var metaEventId = 'ev-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 10);
     fetch('/api/auth/register', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: email, password: password, visitor_id: (function () { try { return localStorage.getItem('aap_visitor_id'); } catch (e) { return null; } })() }),
+      body: JSON.stringify({ email: email, password: password, meta_event_id: metaEventId, visitor_id: (function () { try { return localStorage.getItem('aap_visitor_id'); } catch (e) { return null; } })() }),
     })
       .then(function (res) { return res.json(); })
       .then(function (data) {
         if (data.success && data.token) {
           localStorage.setItem('token', data.token);
-          redirectAfterAuth('buyer');
+          var tracked = false;
+          try { tracked = !!(window.AdvMeasurement && window.AdvMeasurement.track('buyer_registered', metaEventId)); } catch (e) { tracked = false; }
+          if (tracked) setTimeout(function () { redirectAfterAuth('buyer'); }, 300); else redirectAfterAuth('buyer');
         } else if (data.success) {
           // Fallback: registration succeeded without token - ask them to log in
           showMsg('register-success', 'Account created! Please log in.');
@@ -421,5 +425,6 @@
   });
 </script>
 
+<script src="/widgets/shared/ad-measurement.js" defer></script>
 </body>
 </html>

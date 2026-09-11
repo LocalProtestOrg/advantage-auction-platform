@@ -309,7 +309,12 @@ describe('publish / spend isolation', () => {
     const dirs = ['src/services/measurement', 'src/services/paidGrowth'];
     const hits = [];
     for (const d of dirs) for (const f of fs.readdirSync(path.join(ROOT, d))) { const s = fs.readFileSync(path.join(ROOT, d, f), 'utf8'); if (/\bfetch\(|https?\.request\(|axios/.test(s)) hits.push(f); }
-    expect(hits).toEqual(['metaCapiService.js']);
+    // metaCapiService: the gated Conversions API sender (POST /events). paidCostIngestionService: the gated READ-ONLY
+    // Insights puller (GET only — it can never create, edit or pay for anything).
+    expect(hits.sort()).toEqual(['metaCapiService.js', 'paidCostIngestionService.js']);
+    const costSrc = fs.readFileSync(path.join(ROOT, 'src/services/measurement/paidCostIngestionService.js'), 'utf8');
+    expect(costSrc).not.toMatch(/method:\s*['"](POST|PUT|PATCH|DELETE)['"]/);
+    expect(costSrc).toMatch(/\/insights\?/);
   });
   test('the migration seeds every measurement / paid gate OFF and the Director in shadow mode', () => {
     const sql = fs.readFileSync(path.join(ROOT, 'db/migrations/149_creative_physical_intelligence_and_measurement.sql'), 'utf8');

@@ -8,22 +8,33 @@
  *                           restate recent days), then mirror the per-campaign day total into marketing_performance_facts
  *                           (purchase_kind 'paid_growth', metric 'paid_spend_cents', classification DELIVERED) so the
  *                           Director reads cost next to outcomes. Paid-growth facts never carry a Marketing Package id.
- *   pull(provider, range)   the provider API puller. REFUSES while the channel's Owner gate is OFF
- *                           (marketing.destinations.meta_ads_enabled / google_ads_enabled) or the account identity is
- *                           unverified — no provider call is made in this phase.
+ *   pull(provider, range)   the provider API puller. REFUSES while its READ gate is OFF or the account identity is
+ *                           unverified. Meta: marketing.measurement.meta_cost_ingestion_enabled (a READ-ONLY gate —
+ *                           separate from the paid-ads gate, which stays OFF); Google: not connected.
+ *   pullMeta(range)         READ-ONLY Meta Ads Insights (spend / impressions / clicks / actions per ad per day) for the
+ *                           Graph-verified Advantage.Bid ad account, with META_ADS_READ_TOKEN (ads_read). It never creates,
+ *                           edits, starts or pays for anything. Each run is recorded as verification evidence.
  * campaign_key joins cost ↔ first-party outcomes: '<utm_source>:<utm_campaign>' — the same key attributionService builds
  * from the landing UTM, so every ad's final URL must carry utm_source + utm_campaign (a launch checklist item).
  */
 const db = require('../../db');
 
-const PROVIDERS = { meta_ads: { gate: 'marketing.destinations.meta_ads_enabled', utm_source: 'facebook' }, google_ads: { gate: 'marketing.destinations.google_ads_enabled', utm_source: 'google' } };
+const PROVIDERS = { meta_ads: { gate: 'marketing.measurement.meta_cost_ingestion_enabled', utm_source: 'facebook' }, google_ads: { gate: 'marketing.destinations.google_ads_enabled', utm_source: 'google' } };
+// Meta Insights action types → the Meta standard event names our conversion definitions map to (reconciliation joins on these).
+const META_ACTIONS = {
+  'offsite_conversion.fb_pixel_complete_registration': 'CompleteRegistration', complete_registration: 'CompleteRegistration',
+  'offsite_conversion.fb_pixel_lead': 'Lead', lead: 'Lead', 'offsite_conversion.fb_pixel_purchase': 'Purchase', purchase: 'Purchase',
+  'offsite_conversion.fb_pixel_add_to_wishlist': 'AddToWishlist', 'offsite_conversion.fb_pixel_add_to_cart': 'AddToCart',
+  'offsite_conversion.fb_pixel_subscribe': 'Subscribe', 'offsite_conversion.fb_pixel_start_trial': 'StartTrial', 'offsite_conversion.fb_pixel_submit_application': 'SubmitApplication',
+};
 const int = (v) => { const n = Math.round(Number(v)); return Number.isFinite(n) && n >= 0 ? n : 0; };
 
 function campaignKeyFor(provider, row) {
   if (row.campaign_key) return String(row.campaign_key).toLowerCase().slice(0, 160);
   const src = (row.utm_source || PROVIDERS[provider].utm_source).toLowerCase();
+  // Convention: an ad's landing URL carries utm_campaign = its campaign name, so cost and sessions share one key.
   const camp = row.utm_campaign || row.campaign_name || row.campaign_id;
-  return (src + ':' + String(camp).toLowerCase()).slice(0, 160);
+  return (src + ':' + String(camp).trim().toLowerCase().replace(/\s+/g, '_')).slice(0, 160);
 }
 
 function normalise(provider, row) {
@@ -63,11 +74,59 @@ async function ingest(provider, rows, runner) {
   return { ...out, campaigns: [...out.campaigns], days: [...out.days] };
 }
 
-async function pull(provider) {
+async function pull(provider, range = {}, runner) {
   const p = PROVIDERS[provider]; if (!p) throw new Error('unknown provider ' + provider);
   let gate = null; try { gate = await require('../configService').get(null, p.gate); } catch (_) { gate = null; }
   if (!(gate === true || gate === 'true')) return { pulled: false, reason: 'GATED_OFF', detail: p.gate + ' is OFF — no provider call made' };
+  if (provider === 'meta_ads') return pullMeta(range, runner);
   return { pulled: false, reason: 'NOT_CONNECTED', detail: 'provider reporting access is an Owner activation step; nothing is pulled until the account identity is verified' };
+}
+
+const ymd = (d) => new Date(d).toISOString().slice(0, 10);
+const metaTokenPresent = () => Boolean(process.env.META_ADS_READ_TOKEN && String(process.env.META_ADS_READ_TOKEN).length > 20);
+
+/** Map one Insights row (level=ad, time_increment=1) to an ingest row. Pure. */
+function metaInsightToRow(x, accountId) {
+  const conv = {};
+  for (const a of x.actions || []) { const ev = META_ACTIONS[a.action_type]; if (ev) conv[ev] = (conv[ev] || 0) + Number(a.value || 0); }
+  return { campaign_id: x.campaign_id, campaign_name: x.campaign_name || null, adset_id: x.adset_id || '', ad_id: x.ad_id || '', date: x.date_start,
+    spend: Number(x.spend || 0), impressions: Number(x.impressions || 0), clicks: Number(x.clicks || 0), provider_conversions: conv, account_ref: accountId };
+}
+
+async function recordEvidence(r, patch) {
+  try {
+    await r.query(`UPDATE platform_config SET value = COALESCE(value, '{}'::jsonb) || $1::jsonb, updated_at = now() WHERE key = 'marketing.measurement.meta_verification'`, [JSON.stringify(patch)]);
+  } catch (_) { /* evidence is best-effort */ }
+}
+
+async function pullMeta({ since = null, until = null } = {}, runner) {
+  const r = runner || db;
+  const cfg = async (k) => { const x = await r.query(`SELECT value FROM platform_config WHERE key=$1`, [k]); return x.rows[0] ? x.rows[0].value : null; };
+  const accountId = await cfg('marketing.measurement.meta_ad_account_id');
+  const id = require('./assetIdentityGuard').check('meta_ad_account', accountId, await cfg('marketing.measurement.meta_ad_account_identity'));
+  if (!id.ok) return { pulled: false, reason: id.reason, detail: id.detail };
+  if (!metaTokenPresent()) return { pulled: false, reason: 'TOKEN_ABSENT', detail: 'META_ADS_READ_TOKEN is not set (presence check only)' };
+  const V = process.env.META_GRAPH_VERSION || 'v21.0';
+  const until_ = until || ymd(Date.now() - 86400000); const since_ = since || ymd(new Date(until_).getTime() - 2 * 86400000);
+  const act = String(accountId).startsWith('act_') ? String(accountId) : 'act_' + accountId;
+  const fields = 'campaign_id,campaign_name,adset_id,ad_id,spend,impressions,clicks,actions,date_start,date_stop';
+  let url = 'https://graph.facebook.com/' + V + '/' + act + '/insights?level=ad&time_increment=1&limit=500&fields=' + fields + '&time_range=' + encodeURIComponent(JSON.stringify({ since: since_, until: until_ }));
+  const rows = []; let pages = 0;
+  while (url && pages < 50) {
+    const res = await fetch(url, { headers: { Authorization: 'Bearer ' + process.env.META_ADS_READ_TOKEN } });
+    let j = null; try { j = await res.json(); } catch (_) { j = null; }
+    if (!res.ok || !j || j.error) {
+      const msg = String((j && j.error && j.error.message) || ('HTTP ' + res.status)).split(process.env.META_ADS_READ_TOKEN || '\u0000').join('[credential]').slice(0, 200);
+      await recordEvidence(r, { cost: { at: new Date().toISOString(), ok: false, account_id: act, since: since_, until: until_, error: msg } });
+      return { pulled: false, reason: 'PROVIDER_ERROR', detail: msg };
+    }
+    for (const x of j.data || []) rows.push(metaInsightToRow(x, act));
+    url = j.paging && j.paging.next ? j.paging.next.replace(/access_token=[^&]+&?/, '') : null; pages += 1;
+  }
+  const out = await ingest('meta_ads', rows, r);
+  const spend = rows.reduce((a, x) => a + Math.round(x.spend * 100), 0);
+  await recordEvidence(r, { cost: { at: new Date().toISOString(), ok: true, account_id: act, since: since_, until: until_, rows: rows.length, spend_cents: spend, upserted: out.upserted } });
+  return { pulled: true, account_id: act, since: since_, until: until_, rows: rows.length, spend_cents: spend, upserted: out.upserted };
 }
 
 async function spendSummary({ from, to } = {}, runner) {
@@ -79,4 +138,4 @@ async function spendSummary({ from, to } = {}, runner) {
   return q.rows.map((x) => ({ ...x, spend_cents: Number(x.spend_cents), impressions: Number(x.impressions), clicks: Number(x.clicks) }));
 }
 
-module.exports = { ingest, pull, normalise, campaignKeyFor, spendSummary, PROVIDERS };
+module.exports = { ingest, pull, pullMeta, metaInsightToRow, normalise, campaignKeyFor, spendSummary, PROVIDERS, META_ACTIONS };

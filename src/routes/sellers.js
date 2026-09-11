@@ -150,7 +150,7 @@ router.post('/enroll', auth, async (req, res, next) => {
       onboarding = await agreementService.getOnboardingStatus(req.user.id);
     } catch (_) { /* enablement already committed; agreement send / status is best-effort */ }
 
-    if (!existing) require('../services/conversionService').emit('seller_registered', { userId: req.user.id, subjectType: 'seller_profile', subjectId: sellerProfileId });
+    if (!existing) require('../services/conversionService').emit('seller_registered', { ...require('../services/conversionService').ctxFromReq(req), userId: req.user.id, subjectType: 'seller_profile', subjectId: sellerProfileId });
     return res.status(existing ? 200 : 201).json({
       success: true,
       token,
@@ -268,7 +268,7 @@ router.post('/apply-professional', auth, async (req, res, next) => {
       }
     } catch (e) { console.error('[apply-professional] welcome email best-effort failed:', e.message); }
 
-    if (!existing) require('../services/conversionService').emit('seller_inquiry', { userId: req.user.id, subjectType: 'seller_profile', subjectId: sellerProfileId });
+    if (!existing) require('../services/conversionService').emit('seller_inquiry', { ...require('../services/conversionService').ctxFromReq(req), userId: req.user.id, subjectType: 'seller_profile', subjectId: sellerProfileId });
     return res.status(existing ? 200 : 201).json({
       success: true,
       token,

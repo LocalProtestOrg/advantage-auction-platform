@@ -104,15 +104,17 @@
         msg.className = 'adv-sub-msg err'; msg.textContent = 'Please enter a valid email address.'; email.focus(); return;
       }
       btn.disabled = true;
+      var metaEventId = 'ev-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 10);   // shared with the consent-gated Pixel (dedup)
       var payload = {
         name: name.value, email: email.value, city: city.value, state: state.value, zip: zip.value,
-        company_url: hp.value, placement: placement, page_path: location.pathname + location.search
+        company_url: hp.value, placement: placement, page_path: location.pathname + location.search, meta_event_id: metaEventId
       };
       fetch(endpointFor(mount), {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
       }).then(function (r) { return r.json().catch(function () { return { success: r.ok }; }); })
         .then(function (d) {
           if (d && d.success) {
+            try { if (window.AdvMeasurement) window.AdvMeasurement.track('email_signup', metaEventId); } catch (e) { /* measurement never blocks */ }
             form.style.display = 'none';
             msg.className = 'adv-sub-msg ok';
             msg.textContent = (d.message) || "You're in! We'll keep you posted about auctions and estate sales near you.";

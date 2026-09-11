@@ -19,7 +19,7 @@ router.post('/add', auth, async (req, res, next) => {
        ON CONFLICT (user_id, lot_id) DO NOTHING`,
       [req.user.id, lotId]
     );
-    require('../services/conversionService').emit('watch_lot', { userId: req.user.id, subjectType: 'lot', subjectId: lotId });
+    require('../services/conversionService').emit('watch_lot', { ...require('../services/conversionService').ctxFromReq(req), userId: req.user.id, subjectType: 'lot', subjectId: lotId });
 
     res.json({ success: true });
   } catch (err) {

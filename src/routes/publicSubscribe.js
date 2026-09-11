@@ -61,7 +61,7 @@ router.post('/', feedbackLimiter, express.json({ limit: '16kb' }), async (req, r
 
     if (!result.ok) return res.status(400).json({ success: false, message: 'Please enter a valid email address.' });
     // First-party conversion ledger (fire-and-forget). Subject is a hash — the address itself is never stored here.
-    require('../services/conversionService').emit('email_signup', { visitorId: typeof b.visitor_id === 'string' ? b.visitor_id.slice(0, 64) : null, subjectType: 'subscriber_email_sha256',
+    require('../services/conversionService').emit('email_signup', { ...require('../services/conversionService').ctxFromReq(req), visitorId: typeof b.visitor_id === 'string' ? b.visitor_id.slice(0, 64) : null, subjectType: 'subscriber_email_sha256',
       subjectId: require('crypto').createHash('sha256').update(String(email).toLowerCase()).digest('hex'), market: [city, state].filter(Boolean).join(', ') || null });
     // Uniform success regardless of subscribed/received/existing — no disclosure.
     return res.json(SUCCESS);

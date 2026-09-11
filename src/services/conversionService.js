@@ -51,7 +51,27 @@ async function dispatchDecisions({ key, userId, visitorId, adConsent }, r) {
   return { meta_capi: m, google_ads: g, advertising_consent: adConsent };
 }
 
-async function record(key, { userId = null, visitorId = null, subjectType = null, subjectId = null, valueCents = null, market = null, idempotencyKey = null, occurredAt = null } = {}, runner) {
+/**
+ * Request context for the Conversions API, read from the request at emit time and NEVER stored: client IP and user
+ * agent (match quality), the Pixel's first-party cookies _fbp / _fbc, the page URL, and the browser's eventID for the
+ * same conversion (body.meta_event_id — shared with the Pixel so Meta counts the conversion once).
+ */
+const EVENT_ID_RE = /^[A-Za-z0-9_-]{8,64}$/;
+function readCookie(req, name) {
+  const raw = (req && req.headers && req.headers.cookie) || '';
+  for (const part of raw.split(';')) { const i = part.indexOf('='); if (i > 0 && part.slice(0, i).trim() === name) { try { return decodeURIComponent(part.slice(i + 1).trim()); } catch (_) { return null; } } }
+  return null;
+}
+function ctxFromReq(req) {
+  try {
+    const b = (req && req.body) || {};
+    const ip = String((req.headers['x-forwarded-for'] || req.ip || '')).split(',')[0].trim() || null;
+    const eventId = typeof b.meta_event_id === 'string' && EVENT_ID_RE.test(b.meta_event_id) ? b.meta_event_id : null;
+    return { eventId, meta: { clientIp: ip, userAgent: String(req.headers['user-agent'] || '').slice(0, 400) || null, fbp: readCookie(req, '_fbp'), fbc: readCookie(req, '_fbc'), sourceUrl: String(req.headers.referer || '').slice(0, 500) || null } };
+  } catch (_) { return { eventId: null, meta: {} }; }
+}
+
+async function record(key, { userId = null, visitorId = null, subjectType = null, subjectId = null, valueCents = null, market = null, idempotencyKey = null, occurredAt = null, eventId = null, meta: metaCtx = null, testEventCode = null } = {}, runner) {
   const r = runner || db;
   try {
     const def = defs.get(key); if (!def) return null;
@@ -59,27 +79,42 @@ async function record(key, { userId = null, visitorId = null, subjectType = null
     const snap = await attribution.snapshot({ userId, visitorId }, r).catch(() => ({ class: 'ATTRIBUTION_UNAVAILABLE' }));
     const adConsent = await consentAdvertising(r, { userId, visitorId });
     const dispatch = await dispatchDecisions({ key, userId, visitorId, adConsent }, r).catch(() => ({ meta_capi: { status: 'gated_off' }, google_ads: { status: 'gated_off' }, advertising_consent: adConsent }));
-    const ins = await r.query(`INSERT INTO marketing_conversion_events (conversion_key, user_id, visitor_id, subject_type, subject_id, value_cents, market, occurred_at, attribution, consent_state, provider_dispatch, idempotency_key)
-        VALUES ($1,$2,$3,$4,$5,$6,$7,COALESCE($8::timestamptz, now()),$9::jsonb,$10::jsonb,$11::jsonb,$12) ON CONFLICT (idempotency_key) DO NOTHING RETURNING id, occurred_at`,
-      [key, userId, visitorId, subjectType, subjectId != null ? String(subjectId) : null, valueCents, market, occurredAt, JSON.stringify(snap), JSON.stringify({ advertising: adConsent }), JSON.stringify(dispatch), idem]);
+    const pev = typeof eventId === 'string' && EVENT_ID_RE.test(eventId) ? eventId : null;
+    const ins = await r.query(`INSERT INTO marketing_conversion_events (conversion_key, user_id, visitor_id, subject_type, subject_id, value_cents, market, occurred_at, attribution, consent_state, provider_dispatch, idempotency_key, provider_event_id)
+        VALUES ($1,$2,$3,$4,$5,$6,$7,COALESCE($8::timestamptz, now()),$9::jsonb,$10::jsonb,$11::jsonb,$12,$13) ON CONFLICT (idempotency_key) DO NOTHING RETURNING id, occurred_at`,
+      [key, userId, visitorId, subjectType, subjectId != null ? String(subjectId) : null, valueCents, market, occurredAt, JSON.stringify(snap), JSON.stringify({ advertising: adConsent }), JSON.stringify(dispatch), idem, pev]);
     if (!ins.rows[0]) return { deduped: true };
-    const row = { id: ins.rows[0].id, occurred_at: ins.rows[0].occurred_at, conversion_key: key, user_id: userId, value_cents: valueCents };
-    if (dispatch.meta_capi.status === 'ready') sendMeta(r, row, adConsent).catch(() => {});
+    const row = { id: ins.rows[0].id, occurred_at: ins.rows[0].occurred_at, conversion_key: key, user_id: userId, visitor_id: visitorId, value_cents: valueCents, provider_event_id: pev };
+    if (dispatch.meta_capi.status === 'ready') sendMeta(r, row, adConsent, metaCtx || {}, testEventCode).catch(() => {});
     return { id: row.id, attribution: snap.class, dispatch: { meta_capi: dispatch.meta_capi.status, google_ads: dispatch.google_ads.status } };
   } catch (_) { return null; }
 }
 
-/** Only reachable when the Owner gate is ON, identity verified, credential present and consent granted. */
-async function sendMeta(r, row, adConsent) {
+/**
+ * Only reachable when the Owner gate is ON, the dataset identity is verified, the credential is present and advertising
+ * consent is granted. Identifiers are hashed by the builder; the email is read here and never stored with the event.
+ */
+async function sendMeta(r, row, adConsent, ctx = {}, testEventCode = null) {
   const meta = require('./measurement/metaCapiService');
-  const ev = meta.buildEvent(row, {});
-  if (!ev) return;
-  const out = await meta.send([ev], { advertisingConsent: adConsent });
+  let email = null, fbclid = null, fbclidAt = null;
+  if (row.user_id) { try { email = ((await r.query('SELECT email FROM users WHERE id=$1', [row.user_id])).rows[0] || {}).email || null; } catch (_) { email = null; } }
+  if (!ctx.fbc) {
+    try {
+      const c = (await r.query(`SELECT click_value, first_seen_at FROM marketing_click_ids WHERE click_type='fbclid' AND ((($1)::uuid IS NOT NULL AND user_id=$1) OR (($2)::text IS NOT NULL AND scope_id=$2)) AND last_seen_at > now() - interval '90 days' ORDER BY last_seen_at DESC LIMIT 1`, [row.user_id || null, row.visitor_id || null])).rows[0];
+      if (c) { fbclid = c.click_value; fbclidAt = c.first_seen_at; }
+    } catch (_) { /* no click id */ }
+  }
+  const ev = meta.buildEvent(row, { email, fbclid, fbclidCapturedAt: fbclidAt, fbc: ctx.fbc || null, fbp: ctx.fbp || null, clientIp: ctx.clientIp || null, userAgent: ctx.userAgent || null, sourceUrl: ctx.sourceUrl || null });
+  if (!ev) return null;
+  const out = await meta.send([ev], { advertisingConsent: adConsent, testEventCode });
+  const status = out.sent ? 'sent' : (out.decision && out.decision.status !== 'ready' ? out.decision.status : 'failed');
   await r.query(`UPDATE marketing_conversion_events SET provider_dispatch = jsonb_set(provider_dispatch, '{meta_capi}', $2::jsonb) WHERE id=$1`,
-    [row.id, JSON.stringify({ status: out.sent ? 'sent' : (out.decision && out.decision.status !== 'ready' ? out.decision.status : 'failed'), http_status: out.status || null, at: new Date().toISOString() })]);
+    [row.id, JSON.stringify({ status, event_id: ev.event_id, http_status: out.status || null, events_received: out.events_received, fbtrace_id: out.fbtrace_id, test: out.test || false,
+      matched_on: Object.keys(ev.user_data), error: out.error ? out.error.message : null, at: new Date().toISOString() })]);
+  return Object.assign({ status, event_id: ev.event_id }, { events_received: out.events_received, fbtrace_id: out.fbtrace_id, test: out.test, error: out.error });
 }
 
 /** Fire-and-forget helper for routes: never awaits into the response path, never throws. */
 function emit(key, opts) { record(key, opts).catch(() => {}); }
 
-module.exports = { record, emit, dispatchDecisions };
+module.exports = { record, emit, dispatchDecisions, ctxFromReq, readCookie, sendMeta };

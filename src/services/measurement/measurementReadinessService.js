@@ -54,6 +54,12 @@ async function evaluate(runner) {
     google_ads: on(await cfg(r, 'marketing.destinations.google_ads_enabled')),
   };
   const metaId = guard.check('meta_dataset', await cfg(r, 'marketing.measurement.meta_dataset_id'), await cfg(r, 'marketing.measurement.meta_dataset_identity'));
+  const adAcctId = guard.check('meta_ad_account', await cfg(r, 'marketing.measurement.meta_ad_account_id'), await cfg(r, 'marketing.measurement.meta_ad_account_identity'));
+  gates.meta_cost_ingestion = on(await cfg(r, 'marketing.measurement.meta_cost_ingestion_enabled'));
+  // Evidence recorded by scripts/meta-measurement-connect.js verify (+ meta-browser-check.js). A Meta item is VERIFIED only
+  // with fresh evidence of the real data path, never on configuration alone.
+  const ev = (await cfg(r, 'marketing.measurement.meta_verification')) || {};
+  const fresh = (e, days) => !!(e && e.ok && e.at && (Date.now() - new Date(e.at).getTime()) <= days * 86400000);
   const googleId = guard.check('google_ads_customer', await cfg(r, 'marketing.measurement.google_ads_customer_id'), await cfg(r, 'marketing.measurement.google_ads_customer_identity'));
   const tracker = read('public/widgets/shared/behavior-tracker.js') || '';
   const analyticsRoute = read('src/routes/analytics.js') || '';
@@ -72,22 +78,29 @@ async function evaluate(runner) {
   };
   const items = [];
 
-  // 1 meta_pixel
+  // 1 meta_pixel — gate ON + Graph-verified Advantage.Bid dataset + real-browser evidence (PageView with consent, nothing without)
+  const pixelOk = gates.meta_pixel && metaId.ok && fresh(ev.browser, 30);
   if (!loader) items.push(item('meta_pixel', 'MISSING', ['no consent-gated pixel loader'], 'build the loader'));
-  else items.push(item('meta_pixel', gates.meta_pixel && metaId.ok ? 'VERIFIED' : 'PARTIAL',
-    ['public/widgets/shared/ad-measurement.js (consent-gated loader, PageView + eventID dedup)', 'GET /api/public/measurement-config (returns the dataset id only when the gate is ON and identity verified)'],
-    gates.meta_pixel && metaId.ok ? null : 'provider activation: Owner records the Advantage.Bid dataset id + identity and turns marketing.measurement.meta_pixel_enabled ON (' + (metaId.ok ? 'gate OFF' : metaId.reason) + ')',
-    { gate: gates.meta_pixel, identity: metaId.ok ? 'verified' : metaId.reason }));
+  else items.push(item('meta_pixel', pixelOk ? 'VERIFIED' : 'PARTIAL',
+    ['public/widgets/shared/ad-measurement.js (consent-gated loader, PageView + eventID dedup)', 'GET /api/public/measurement-config (returns the dataset id only when the gate is ON and identity verified)', 'scripts/meta-browser-check.js (real-browser evidence)'],
+    pixelOk ? null : (!metaId.ok ? 'dataset identity ' + metaId.reason : (!gates.meta_pixel ? 'marketing.measurement.meta_pixel_enabled is OFF' : 'no fresh real-browser evidence (run meta-browser-check + verify)')),
+    { gate: gates.meta_pixel, identity: metaId.ok ? 'verified' : metaId.reason, browser_evidence_at: (ev.browser && ev.browser.at) || null, consent_denied_requests: ev.browser && ev.browser.denied ? ev.browser.denied.requests : null }));
   // 2 meta_capi
   const capiDecision = meta.decide({ cfg: { enabled: gates.meta_capi, datasetId: await cfg(r, 'marketing.measurement.meta_dataset_id'), identity: await cfg(r, 'marketing.measurement.meta_dataset_identity') }, tokenPresent: meta.tokenPresent(), advertisingConsent: true });
-  items.push(item('meta_capi', has('src/services/measurement/metaCapiService.js') ? (capiDecision.status === 'ready' ? 'VERIFIED' : 'PARTIAL') : 'MISSING',
-    ['src/services/measurement/metaCapiService.js (event builder, event_id = first-party conversion id, consent + identity gated)', 'marketing_conversion_events.provider_dispatch records the decision per event'],
-    capiDecision.status === 'ready' ? null : 'provider activation: ' + capiDecision.status + ' — ' + capiDecision.reason, { decision: capiDecision.status, credential_present: meta.tokenPresent() }));
+  // 2 meta_capi — dispatch decision READY + a Meta-acknowledged TEST event carrying the browser-shared event id
+  const capiOk = capiDecision.status === 'ready' && fresh(ev.capi, 30) && fresh(ev.dedup, 30);
+  items.push(item('meta_capi', has('src/services/measurement/metaCapiService.js') ? (capiOk ? 'VERIFIED' : 'PARTIAL') : 'MISSING',
+    ['src/services/measurement/metaCapiService.js (event builder, event_id = the browser-shared meta_event_id else the conversion id, consent + identity gated)', 'marketing_conversion_events.provider_dispatch records the decision + Meta receipt per event'],
+    capiOk ? null : (capiDecision.status !== 'ready' ? capiDecision.status + ' — ' + capiDecision.reason : 'no fresh acknowledged test event (run verify)'),
+    { decision: capiDecision.status, credential_present: meta.tokenPresent(), events_received: ev.capi ? ev.capi.events_received : null, dedup_id_matches: ev.dedup ? !!ev.dedup.ok : null, evidence_at: (ev.capi && ev.capi.at) || null }));
   // 3 meta_click_id
   const fbCapture = tracker.includes("'fbclid'") && analyticsRoute.includes('/click-id');
-  items.push(item('meta_click_id', !fbCapture ? 'MISSING' : (gates.meta_pixel && metaId.ok ? 'VERIFIED' : 'PARTIAL'),
-    ['behavior-tracker.js captures fbclid → POST /api/analytics/click-id → marketing_click_ids (180-day retention)', 'metaCapiService.fbcFrom derives _fbc from the captured fbclid'],
-    gates.meta_pixel && metaId.ok ? null : '_fbp exists only once the Pixel is active (provider activation)', { fbclid_rows: ((live.click_ids || []).find((x) => x.click_type === 'fbclid') || {}).n || 0 }));
+  // 3 meta_click_id — fbclid captured → _fbc sent (proved by the verify test event) + _fbp available (Pixel verified)
+  const clickOk = fbCapture && pixelOk && fresh(ev.click_id, 30);
+  items.push(item('meta_click_id', !fbCapture ? 'MISSING' : (clickOk ? 'VERIFIED' : 'PARTIAL'),
+    ['behavior-tracker.js captures fbclid → POST /api/analytics/click-id → marketing_click_ids (180-day retention)', 'conversions API sends _fbc (cookie, else derived from the captured fbclid) and _fbp (Pixel cookie)'],
+    clickOk ? null : (!pixelOk ? '_fbp exists only once the Pixel is verified' : 'no fresh evidence that a captured fbclid reached the conversions API as _fbc'),
+    { fbclid_rows: ((live.click_ids || []).find((x) => x.click_type === 'fbclid') || {}).n || 0, fbc_evidence_at: (ev.click_id && ev.click_id.at) || null }));
   // 4 google_ads_conversion
   const gDecision = google.decide({ cfg: { enabled: gates.google_conversions, customerId: await cfg(r, 'marketing.measurement.google_ads_customer_id'), identity: await cfg(r, 'marketing.measurement.google_ads_customer_identity'), actions: (await cfg(r, 'marketing.measurement.google_conversion_actions')) || {} }, conversionKey: 'buyer_registered', click: { click_type: 'gclid' }, advertisingConsent: true });
   items.push(item('google_ads_conversion', has('src/services/measurement/googleConversionsService.js') ? (gDecision.status === 'ready' ? 'VERIFIED' : 'PARTIAL') : 'MISSING',
@@ -127,21 +140,28 @@ async function evaluate(runner) {
   const consentOk = (await tableExists(r, 'consent_records')) && has('public/widgets/shared/consent-banner.js') && (!loader || loader.includes('advertising'));
   items.push(item('consent', consentOk ? 'VERIFIED' : 'PARTIAL',
     ['consent-banner.js publishes window.__ADV_CONSENT; consent_records is the append-only history', 'pixel loader requires advertising consent; CAPI / Google upload decide() require advertising consent', 'conversion ledger stamps advertising consent per event'],
-    consentOk ? null : 'consent gating incomplete', { consent_records: live.consent_records }));
+    consentOk ? null : 'consent gating incomplete', { consent_records: live.consent_records, no_consent_refusal_evidence: ev.consent ? { ok: ev.consent.ok, at: ev.consent.at } : null, browser_denied_requests: ev.browser && ev.browser.denied ? ev.browser.denied.requests : null }));
   // 12 suppression
   items.push(item('suppression', has('src/services/audienceEligibilityService.js') && has('src/services/audienceMembershipService.js') ? 'PARTIAL' : 'MISSING',
     ['audienceEligibilityService (suppression / bounce / permission gates)', 'audienceMembershipService exits converted members from acquisition audiences'],
     'no provider (hashed) audience upload exists yet — destinations are OFF; uploads must be built on the eligibility gates before any retargeting', {}));
   // 13 retargeting_audiences
   items.push(item('retargeting_audiences', (await tableExists(r, 'marketing_audience_members')) ? 'PARTIAL' : 'MISSING',
-    ['first-party audiences (marketing_audience_members; platformFactAudienceService)'], 'provider audience sync not built; marketing_audience_destinations all disabled', { active_members: live.audience_members_active }));
+    ['first-party audiences (marketing_audience_members; platformFactAudienceService)', 'Pixel website audiences become available to Meta once the Pixel is verified (consented visitors only)'],
+    'provider audience export intentionally OFF: no first-party list is uploaded to Meta until the Owner approves it (marketing_audience_destinations disabled)' + (adAcctId.ok ? '' : '; ad account not connected'),
+    { active_members: live.audience_members_active, pixel_audiences_possible: pixelOk, custom_audience_terms_accepted: (await cfg(r, 'marketing.measurement.meta_ad_account_identity') || {}).custom_audience_tos_accepted || false }));
   // 14 conversion_definitions
   items.push(item('conversion_definitions', defs.KEYS.length >= 15 && ['buyer_registered', 'seller_inquiry', 'auction_published', 'purchase'].every((k) => defs.get(k) && defs.get(k).meta_event && defs.get(k).google_action) ? 'VERIFIED' : 'PARTIAL',
     ['src/lib/conversionDefinitions.js — one definition shared by the first-party ledger, Meta and Google'], null, { keys: defs.KEYS.length, success_signals: defs.SUCCESS_SIGNALS }));
   // 15 cost_ingestion
-  items.push(item('cost_ingestion', has('src/services/measurement/paidCostIngestionService.js') ? ((gates.meta_ads || gates.google_ads) ? 'PARTIAL' : 'PARTIAL') : 'MISSING',
-    ['paidCostIngestionService.ingest → marketing_paid_cost_facts (+ mirror to marketing_performance_facts, purchase_kind paid_growth)'],
-    'provider reporting pulls are not connected (Meta Ads / Google Ads OFF); manual import path only', { cost_fact_rows: live.cost_fact_rows, meta_ads_gate: gates.meta_ads, google_ads_gate: gates.google_ads }));
+  // 15 cost_ingestion — VERIFIED when the READ-ONLY Meta Insights pull is connected (Graph-verified Advantage.Bid ad account,
+  // read gate ON) and a pull succeeded in the last 3 days. Google Ads is not connected: its own items stay PARTIAL and the
+  // Google channel cannot activate (minimum_for_google).
+  const costOk = gates.meta_cost_ingestion && adAcctId.ok && fresh(ev.cost, 3);
+  items.push(item('cost_ingestion', has('src/services/measurement/paidCostIngestionService.js') ? (costOk ? 'VERIFIED' : 'PARTIAL') : 'MISSING',
+    ['paidCostIngestionService.pullMeta — daily READ-ONLY Meta Ads Insights → marketing_paid_cost_facts (+ mirror to marketing_performance_facts, purchase_kind paid_growth)', 'marketingRefreshWorker.costPass (daily, gated on marketing.measurement.meta_cost_ingestion_enabled)'],
+    costOk ? 'Meta connected; Google Ads cost not connected (Google channel stays unavailable)' : (!adAcctId.ok ? 'Meta ad account identity ' + adAcctId.reason : (!gates.meta_cost_ingestion ? 'marketing.measurement.meta_cost_ingestion_enabled is OFF' : 'no successful Meta cost pull in the last 3 days')),
+    { cost_fact_rows: live.cost_fact_rows, meta_read_gate: gates.meta_cost_ingestion, ad_account_identity: adAcctId.ok ? 'verified' : adAcctId.reason, last_pull: ev.cost ? { at: ev.cost.at, ok: ev.cost.ok, rows: ev.cost.rows, spend_cents: ev.cost.spend_cents } : null, meta_ads_gate: gates.meta_ads, google_ads_gate: gates.google_ads }));
   // 16 provider_reconciliation
   items.push(item('provider_reconciliation', has('src/services/measurement/providerReconciliationService.js') ? 'VERIFIED' : 'MISSING',
     ['providerReconciliationService.reconcile → marketing_provider_reconciliations (both numbers recorded; never averaged)'], null, { reconciliations: live.reconciliations }));

@@ -16,6 +16,7 @@ const behavioralSignals = require('../services/behavioralSignalService');
 const audienceMembership = require('../services/audienceMembershipService');
 
 const FAST_MS = 15 * 60 * 1000;   // platform-fact audiences every 15 min
+const COST_MS = 24 * 60 * 60 * 1000;   // Meta Ads cost facts once a day (READ-ONLY; last 3 days, providers restate)
 const SLOW_MS = 60 * 60 * 1000;   // behavioral signal derivation + behavioral audiences hourly
 
 async function fastPass() {
@@ -35,6 +36,16 @@ async function slowPass() {
   } catch (e) { console.error('[marketingRefresh] slow pass failed:', e.message); }
 }
 
+// Daily READ-ONLY Meta Ads cost pull (spend / impressions / clicks). Self-gates on the read gate
+// marketing.measurement.meta_cost_ingestion_enabled — separate from the paid-ads gate, which is never touched here.
+async function costPass() {
+  try {
+    if (!(await marketingConfig.getBool('marketing.measurement.meta_cost_ingestion_enabled', false))) return;
+    const r = await require('../services/measurement/paidCostIngestionService').pull('meta_ads');
+    console.log('[marketingRefresh] meta cost pull:', JSON.stringify({ pulled: r.pulled, reason: r.reason || null, rows: r.rows || 0, since: r.since || null, until: r.until || null }));
+  } catch (e) { console.error('[marketingRefresh] meta cost pull failed:', e.message); }
+}
+
 if (require.main === module) {
   console.log('[marketingRefresh] worker started (fast 15m / slow 60m; gated on marketing.behavioral.enabled)');
   // Stagger the initial runs so startup isn't spiky.
@@ -42,6 +53,8 @@ if (require.main === module) {
   setTimeout(slowPass, 90_000);
   setInterval(fastPass, FAST_MS);
   setInterval(slowPass, SLOW_MS);
+  setTimeout(costPass, 5 * 60_000);
+  setInterval(costPass, COST_MS);
 }
 
-module.exports = { fastPass, slowPass };
+module.exports = { fastPass, slowPass, costPass };

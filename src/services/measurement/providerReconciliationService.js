@@ -33,7 +33,14 @@ async function reconcile({ provider, campaignKey, windowStart, windowEnd, note =
       WHERE occurred_at >= $2::date AND occurred_at < ($3::date + 1)
         AND (attribution->'last_paid_touch'->>'campaign_key' = $1 OR attribution->'last_touch'->>'campaign_key' = $1)
       GROUP BY conversion_key`, [campaignKey, windowStart, windowEnd])).rows;
-  const firstParty = {}; for (const x of fp) if (defs.get(x.conversion_key)) firstParty[x.conversion_key] = x.n;
+  // Meta reports by standard event name (CompleteRegistration, Lead, …): fold first-party keys onto the same names so the
+  // comparison is like-for-like; other providers compare by conversion key.
+  const firstParty = {};
+  for (const x of fp) {
+    if (!defs.get(x.conversion_key)) continue;
+    const k = provider === 'meta_ads' ? (defs.metaEventFor(x.conversion_key) || x.conversion_key) : x.conversion_key;
+    firstParty[k] = (firstParty[k] || 0) + x.n;
+  }
   const discrepancy = compare(providerTotals, firstParty);
   const ins = await r.query(
     `INSERT INTO marketing_provider_reconciliations (provider, campaign_key, window_start, window_end, provider_reported, first_party, discrepancy, note)

@@ -50,7 +50,7 @@ router.post('/register', normalLimiter, async (req, res) => {
     setSessionCookie(res, token); // server-side session for the HTML gate (same JWT)
     // First-party conversion ledger (fire-and-forget; never affects registration). visitor_id is the anonymous
     // first-party token from the page; the user id is server-derived.
-    require('../services/conversionService').emit('buyer_registered', { userId: user.id, visitorId: typeof (req.body || {}).visitor_id === 'string' ? req.body.visitor_id.slice(0, 64) : null, subjectType: 'user', subjectId: user.id });
+    require('../services/conversionService').emit('buyer_registered', { ...require('../services/conversionService').ctxFromReq(req), userId: user.id, visitorId: typeof (req.body || {}).visitor_id === 'string' ? req.body.visitor_id.slice(0, 64) : null, subjectType: 'user', subjectId: user.id });
     res.json({ success: true, token, data: { user: { id: user.id } } });
   } catch (err) {
     if (err.code === '23505') {

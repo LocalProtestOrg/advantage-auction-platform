@@ -105,13 +105,17 @@
       seller_path: val('as-path'), message: val('as-message'), company_url: val('as-company-url'),
       contact_consent: document.getElementById('as-consent').checked, source_page: location.pathname + location.search };
     try { body.visitor_id = localStorage.getItem('aap_visitor_id'); } catch (err) { /* private mode */ }
+    body.meta_event_id = 'ev-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 10);   // shared with the consent-gated Pixel (dedup)
     if (!body.email && !body.phone) { msg.className = 'as-msg err'; msg.textContent = 'Please share an email address or a phone number so we can reach you.'; return; }
     if (!body.contact_consent) { msg.className = 'as-msg err'; msg.textContent = 'Please confirm we may contact you about your sale.'; return; }
     btn.disabled = true; btn.textContent = 'Sending…';
     fetch('/api/public/assisted-service/inquiry', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
       .then(function (r) { return r.json().catch(function () { return {}; }); })
       .then(function (d) {
-        if (d && d.success) { form.reset(); msg.className = 'as-msg ok'; msg.textContent = d.message || 'Thank you — we will be in touch.'; }
+        if (d && d.success) {
+          try { if (window.AdvMeasurement) window.AdvMeasurement.track('assisted_service_inquiry', body.meta_event_id); } catch (e) { /* measurement never blocks */ }
+          form.reset(); msg.className = 'as-msg ok'; msg.textContent = d.message || 'Thank you — we will be in touch.';
+        }
         else { msg.className = 'as-msg err'; msg.textContent = (d && (d.message || d.error)) || 'Something went wrong. Please try again.'; }
       })
       .catch(function () { msg.className = 'as-msg err'; msg.textContent = 'Something went wrong. Please try again.'; })

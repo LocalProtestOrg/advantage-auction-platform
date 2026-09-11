@@ -24,7 +24,7 @@ router.post('/inquiry', feedbackLimiter, express.json({ limit: '16kb' }), async 
     if (b.company_url) return res.json({ success: true, message: 'Thank you — we will be in touch.' });   // honeypot
     const ip = (req.headers['x-forwarded-for'] || req.ip || '').split(',')[0].trim();
     // First-party conversion ledger (inside submit): assisted_service_inquiry
-    const out = await svc.submit(b, { ip, userId: (req.user && req.user.id) || null });
+    const out = await svc.submit(b, { ip, userId: (req.user && req.user.id) || null, measurement: require('../services/conversionService').ctxFromReq(req) });
     if (!out.ok) return res.status(400).json({ success: false, code: out.code, message: out.message });
     return res.json({ success: true, message: 'Thank you — a member of our team will contact you to talk through your sale.' });
   } catch (e) { next(e); }
