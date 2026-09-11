@@ -251,3 +251,33 @@ describe('Director measurement grain (campaign / ad set / ad / creative)', () =>
     await expect(oa.paidBreakdown({ level: 'keyword' }, db)).rejects.toThrow(/level must be/);
   });
 });
+
+describe('Owner-excluded ad accounts are never connected, pulled or ingested', () => {
+  const OLD = 'act_664514018846795';
+  test('guard: excluded regardless of the act_ prefix; other accounts unaffected', () => {
+    expect(guard.isExcluded(OLD, [OLD])).toBe(true);
+    expect(guard.isExcluded('664514018846795', [OLD])).toBe(true);
+    expect(guard.isExcluded('act_1722514625516256', [OLD])).toBe(false);
+    expect(guard.isExcluded(OLD, null)).toBe(false);
+  });
+  test('the puller refuses an excluded configured account before any network call', async () => {
+    const spy = jest.spyOn(global, 'fetch').mockImplementation(() => { throw new Error('no network'); });
+    try {
+      const ok = { id: OLD, name: 'Advantage.Bid Ads', owner_business: 'Advantage.Bid', verified_at: 'x' };
+      const out = await cost.pullMeta({}, cfgDb({ 'marketing.measurement.meta_ad_account_id': OLD, 'marketing.measurement.meta_ad_account_identity': ok }, [[/meta_ad_account_excluded/, [{ value: [OLD] }]]]));
+      expect(out).toMatchObject({ pulled: false, reason: 'EXCLUDED_BY_OWNER' }); expect(spy).not.toHaveBeenCalled();
+    } finally { spy.mockRestore(); }
+  });
+  test('ingestion drops rows from an excluded account even if they arrive by another path', async () => {
+    const db = fakeDb([[/meta_ad_account_excluded/, [{ value: [OLD] }]], [/SUM\(spend_cents\)/, [{ s: 0 }]]]);
+    const out = await cost.ingest('meta_ads', [{ campaign_id: '1', date: '2026-09-10', spend: 5, account_ref: OLD }, { campaign_id: '2', date: '2026-09-10', spend: 3, account_ref: 'act_1722514625516256' }], db);
+    expect(out.excluded).toBe(1); expect(out.upserted).toBe(1);
+    const inserts = db.calls.filter((c) => /INSERT INTO marketing_paid_cost_facts/.test(c.sql));
+    expect(inserts.length).toBe(1); expect(inserts[0].params[1]).toBe('act_1722514625516256');
+  });
+  test('the connect script refuses an excluded account and the readiness audit reports it', () => {
+    expect(fs.readFileSync(path.join(ROOT, 'scripts/meta-measurement-connect.js'), 'utf8')).toMatch(/is on the Owner exclusion list/);
+    expect(fs.readFileSync(path.join(ROOT, 'src/services/measurement/measurementReadinessService.js'), 'utf8')).toMatch(/EXCLUDED_BY_OWNER/);
+    expect(fs.readFileSync(path.join(ROOT, 'db/migrations/152_meta_ad_account_exclusion.sql'), 'utf8')).toContain('act_664514018846795');
+  });
+});

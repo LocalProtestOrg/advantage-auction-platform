@@ -53,12 +53,20 @@ function normalise(provider, row) {
     provider_metrics: row.provider_metrics && typeof row.provider_metrics === 'object' ? row.provider_metrics : {} };
 }
 
+async function excludedAccounts(r) {
+  try { const x = (await r.query(`SELECT value FROM platform_config WHERE key='marketing.measurement.meta_ad_account_excluded'`)).rows[0]; return x && Array.isArray(x.value) ? x.value : []; }
+  catch (_) { return []; }
+}
+
 async function ingest(provider, rows, runner) {
   const r = runner || db;
-  const out = { provider, received: (rows || []).length, upserted: 0, invalid: 0, campaigns: new Set(), days: new Set() };
+  const out = { provider, received: (rows || []).length, upserted: 0, invalid: 0, excluded: 0, campaigns: new Set(), days: new Set() };
+  // Owner-excluded accounts are never ingested, whatever path the rows came from (belt and braces behind pullMeta).
+  const excluded = provider === 'meta_ads' ? await excludedAccounts(r) : [];
   for (const raw of rows || []) {
     const n = normalise(provider, raw);
     if (!n) { out.invalid += 1; continue; }
+    if (n.account_ref && require('./assetIdentityGuard').isExcluded(n.account_ref, excluded)) { out.excluded += 1; continue; }
     await r.query(
       `INSERT INTO marketing_paid_cost_facts (provider, account_ref, campaign_id, campaign_name, campaign_key, adset_id, ad_id, fact_date, spend_cents, impressions, clicks, provider_conversions,
          adset_name, ad_name, creative_id, reach, link_clicks, provider_metrics)
@@ -141,7 +149,9 @@ async function pullMeta({ since = null, until = null } = {}, runner) {
   const r = runner || db;
   const cfg = async (k) => { const x = await r.query(`SELECT value FROM platform_config WHERE key=$1`, [k]); return x.rows[0] ? x.rows[0].value : null; };
   const accountId = await cfg('marketing.measurement.meta_ad_account_id');
-  const id = require('./assetIdentityGuard').check('meta_ad_account', accountId, await cfg('marketing.measurement.meta_ad_account_identity'));
+  const guardMod = require('./assetIdentityGuard');
+  if (guardMod.isExcluded(accountId, await excludedAccounts(r))) return { pulled: false, reason: 'EXCLUDED_BY_OWNER', detail: 'the configured ad account is on the Owner exclusion list — never pulled' };
+  const id = guardMod.check('meta_ad_account', accountId, await cfg('marketing.measurement.meta_ad_account_identity'));
   if (!id.ok) return { pulled: false, reason: id.reason, detail: id.detail };
   if (!metaTokenPresent()) return { pulled: false, reason: 'TOKEN_ABSENT', detail: 'META_ADS_READ_TOKEN is not set (presence check only)' };
   const V = process.env.META_GRAPH_VERSION || 'v21.0';

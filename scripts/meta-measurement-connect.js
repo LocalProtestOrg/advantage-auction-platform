@@ -13,6 +13,7 @@
      read-probe --ad-account=<act_id>            READ-ONLY: permissions (ads_read yes, ads_management no), campaign / ad set /
                                                 ad / creative structure and Insights metric coverage. Writes nothing but an
                                                 aggregated evidence record (no spend figures, no names).
+     cost-pull [--since=YYYY-MM-DD]             READ-ONLY Insights pull for the canonical ad account (default last 7 days).
      enable-measurement                         turn ON the three MEASUREMENT gates (pixel, conversions API, read-only cost
                                                 ingestion) — refuses unless identities are verified and credentials present.
      verify --test-event-code=<CODE> [--browser-evidence=<file>]
@@ -87,6 +88,7 @@ async function connect() {
   if (!/^\d{8,20}$/.test(datasetId)) throw new Error('--dataset=<numeric dataset id> is required');
   const actId = act ? (act.startsWith('act_') ? act : 'act_' + act) : null;
   if (actId && !/^act_\d{5,20}$/.test(actId)) throw new Error('--ad-account=<act_ numeric id> is malformed');
+  if (actId && guard.isExcluded(actId, (await cfg('marketing.measurement.meta_ad_account_excluded')) || [])) throw new Error('REFUSE: ' + actId + ' is on the Owner exclusion list (never connected, pulled or ingested)');
   const k = readTokenKey();
   const ds = await graph('/' + datasetId + '?fields=id,name,owner_business{id,name},last_fired_time,is_unavailable,creation_time', k);
   if (ds.error) throw new Error('dataset lookup failed: ' + ds.error.message);
@@ -103,6 +105,7 @@ async function connect() {
     const acBiz = await graph('/' + actId + '?fields=business{id,name}', 'META_ADS_READ_TOKEN');
     acIdentity = { id: ac.id, name: ac.name || null, owner_business: (acBiz.business && acBiz.business.name) || null, owner_business_id: (acBiz.business && acBiz.business.id) || null, currency: ac.currency || null,
       account_status: ac.account_status, disable_reason: ac.disable_reason, owner_business_readable: !acBiz.error,
+      owner_confirmed: process.argv.includes('--owner-confirmed') ? { at: now, statement: 'Owner confirmed this is the dedicated Advantage.Bid ad account' } : null,
       custom_audience_tos_accepted: !!(ac.user_tos_accepted && ac.user_tos_accepted.custom_audience_tos), verified_at: now, verified_by: 'graph_api:META_ADS_READ_TOKEN' };
     acCheck = guard.check('meta_ad_account', actId, acIdentity);
     out.ad_account = { id: acIdentity.id, name: acIdentity.name, owner_business: acIdentity.owner_business, currency: acIdentity.currency, status: acIdentity.account_status, custom_audience_tos_accepted: acIdentity.custom_audience_tos_accepted, identity: acCheck.ok ? 'VERIFIED' : acCheck.reason };
@@ -161,6 +164,15 @@ async function readProbe() {
   await mergeEvidence({ read_probe: { at: new Date().toISOString(), ok: out.insights.ok && out.account_read.ok && out.permissions.ads_read && !out.permissions.ads_management, account: act, ads_management_granted: out.permissions.ads_management,
     rows_last_30d: recent, grain_rows_tested: rows.length, lifetime_fields_returned: out.insights.lifetime_fields_returned } });
   return out;
+}
+
+/** READ-ONLY cost pull for the canonical, identity-verified, non-excluded Advantage.Bid ad account. Records evidence. */
+async function costPull() {
+  const paid = await assertPaidOff();
+  const cost = require(path.join(__dirname, '..', 'src', 'services', 'measurement', 'paidCostIngestionService'));
+  const since = arg('since') || new Date(Date.now() - 7 * 86400000).toISOString().slice(0, 10);
+  const out = await cost.pull('meta_ads', { since }, db);
+  return { ...out, ...(await assertPaidOff()), before: paid };
 }
 
 async function enableMeasurement() {
@@ -246,8 +258,8 @@ async function verify() {
 (async () => {
   assertProd();
   const cmd = process.argv[2];
-  const run = { discover, connect, 'read-probe': readProbe, 'enable-measurement': enableMeasurement, verify }[cmd];
-  if (!run) { console.error('usage: discover | connect --dataset= --ad-account= | read-probe --ad-account= | enable-measurement | verify --test-event-code= [--browser-evidence=]'); process.exit(2); }
+  const run = { discover, connect, 'read-probe': readProbe, 'enable-measurement': enableMeasurement, 'cost-pull': costPull, verify }[cmd];
+  if (!run) { console.error('usage: discover | connect --dataset= --ad-account= [--owner-confirmed] | read-probe --ad-account= | enable-measurement | cost-pull [--since=] | verify --test-event-code= [--browser-evidence=]'); process.exit(2); }
   const out = await run();
   console.log(cmd.toUpperCase() + ' ' + scrub(JSON.stringify(out, null, 1)));
   process.exit(0);

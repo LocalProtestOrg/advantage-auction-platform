@@ -54,7 +54,9 @@ async function evaluate(runner) {
     google_ads: on(await cfg(r, 'marketing.destinations.google_ads_enabled')),
   };
   const metaId = guard.check('meta_dataset', await cfg(r, 'marketing.measurement.meta_dataset_id'), await cfg(r, 'marketing.measurement.meta_dataset_identity'));
-  const adAcctId = guard.check('meta_ad_account', await cfg(r, 'marketing.measurement.meta_ad_account_id'), await cfg(r, 'marketing.measurement.meta_ad_account_identity'));
+  const adAcct = await cfg(r, 'marketing.measurement.meta_ad_account_id');
+  const adAcctExcluded = guard.isExcluded(adAcct, (await cfg(r, 'marketing.measurement.meta_ad_account_excluded')) || []);
+  const adAcctId = adAcctExcluded ? { ok: false, reason: 'EXCLUDED_BY_OWNER' } : guard.check('meta_ad_account', adAcct, await cfg(r, 'marketing.measurement.meta_ad_account_identity'));
   gates.meta_cost_ingestion = on(await cfg(r, 'marketing.measurement.meta_cost_ingestion_enabled'));
   // Evidence recorded by scripts/meta-measurement-connect.js verify (+ meta-browser-check.js). A Meta item is VERIFIED only
   // with fresh evidence of the real data path, never on configuration alone.
@@ -161,7 +163,8 @@ async function evaluate(runner) {
   items.push(item('cost_ingestion', has('src/services/measurement/paidCostIngestionService.js') ? (costOk ? 'VERIFIED' : 'PARTIAL') : 'MISSING',
     ['paidCostIngestionService.pullMeta — daily READ-ONLY Meta Ads Insights → marketing_paid_cost_facts (+ mirror to marketing_performance_facts, purchase_kind paid_growth)', 'marketingRefreshWorker.costPass (daily, gated on marketing.measurement.meta_cost_ingestion_enabled)'],
     costOk ? 'Meta connected; Google Ads cost not connected (Google channel stays unavailable)' : (!adAcctId.ok ? 'Meta ad account identity ' + adAcctId.reason : (!gates.meta_cost_ingestion ? 'marketing.measurement.meta_cost_ingestion_enabled is OFF' : 'no successful Meta cost pull in the last 3 days')),
-    { cost_fact_rows: live.cost_fact_rows, meta_read_gate: gates.meta_cost_ingestion, ad_account_identity: adAcctId.ok ? 'verified' : adAcctId.reason, last_pull: ev.cost ? { at: ev.cost.at, ok: ev.cost.ok, rows: ev.cost.rows, spend_cents: ev.cost.spend_cents } : null, meta_ads_gate: gates.meta_ads, google_ads_gate: gates.google_ads }));
+    { cost_fact_rows: live.cost_fact_rows, meta_read_gate: gates.meta_cost_ingestion, ad_account: adAcct || null, ad_account_identity: adAcctId.ok ? 'verified' : adAcctId.reason,
+      excluded_accounts: (await cfg(r, 'marketing.measurement.meta_ad_account_excluded')) || [], last_pull: ev.cost ? { at: ev.cost.at, ok: ev.cost.ok, rows: ev.cost.rows, spend_cents: ev.cost.spend_cents } : null, meta_ads_gate: gates.meta_ads, google_ads_gate: gates.google_ads }));
   // 16 provider_reconciliation
   items.push(item('provider_reconciliation', has('src/services/measurement/providerReconciliationService.js') ? 'VERIFIED' : 'MISSING',
     ['providerReconciliationService.reconcile → marketing_provider_reconciliations (both numbers recorded; never averaged)'], null, { reconciliations: live.reconciliations }));

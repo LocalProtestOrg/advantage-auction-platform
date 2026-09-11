@@ -39,4 +39,12 @@ function check(assetType, configuredId, identity) {
   return { ok: true, asset: assetType };
 }
 
-module.exports = { check, isRealId, DENIED_IDENTITIES };
+/** Owner-excluded ad accounts (platform_config marketing.measurement.meta_ad_account_excluded). act_ prefix-insensitive. */
+const normAct = (v) => String(v == null ? '' : v).trim().replace(/^act_/, '');
+function isExcluded(id, excluded) {
+  if (!Array.isArray(excluded) || !isRealId(id)) return false;
+  const n = normAct(id);
+  return excluded.some((x) => normAct(x) === n);
+}
+
+module.exports = { check, isRealId, isExcluded, DENIED_IDENTITIES };
