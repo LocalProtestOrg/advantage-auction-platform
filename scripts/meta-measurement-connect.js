@@ -14,6 +14,8 @@
                                                 ad / creative structure and Insights metric coverage. Writes nothing but an
                                                 aggregated evidence record (no spend figures, no names).
      cost-pull [--since=YYYY-MM-DD]             READ-ONLY Insights pull for the canonical ad account (default last 7 days).
+     dataset-link                                READ-ONLY: which ad accounts the dataset is connected to, and whether the
+                                                canonical account is the only one. Records the result as evidence.
      enable-measurement                         turn ON the three MEASUREMENT gates (pixel, conversions API, read-only cost
                                                 ingestion) — refuses unless identities are verified and credentials present.
      verify --test-event-code=<CODE> [--browser-evidence=<file>]
@@ -166,6 +168,50 @@ async function readProbe() {
   return out;
 }
 
+/**
+ * READ-ONLY: the dataset ↔ ad account connection. The canonical account must be connected (so Meta can attribute Pixel /
+ * Conversions API events to this account's campaigns) and every excluded account must be absent. Records evidence.
+ */
+async function datasetLink() {
+  await assertPaidOff();
+  const datasetId = await cfg('marketing.measurement.meta_dataset_id');
+  const canonical = await cfg('marketing.measurement.meta_ad_account_id');
+  const excluded = (await cfg('marketing.measurement.meta_ad_account_excluded')) || [];
+  if (!datasetId || !canonical) throw new Error('dataset and canonical ad account must be recorded first (connect)');
+  const K = readTokenKey();
+  // The dataset's own view of its connected ad accounts, and the account's view of its datasets — both read-only.
+  const fromDataset = await graph('/' + datasetId + '?fields=id,name,last_fired_time,is_unavailable', K);
+  const shared = await graph('/' + datasetId + '/shared_accounts?fields=id,account_id,name&limit=50', K);
+  const fromAccount = await graph('/' + canonical + '/adspixels?fields=id,name,owner_business{id,name},last_fired_time&limit=50', K);
+  const datasetsOnAccount = ((fromAccount && fromAccount.data) || []).map((p) => ({ id: p.id, name: p.name, last_fired_time: p.last_fired_time || null }));
+  const connectedAccounts = shared.error ? null : ((shared.data || []).map((a) => ({ id: a.id || ('act_' + a.account_id), name: a.name })));
+  const linked = datasetsOnAccount.some((d) => String(d.id) === String(datasetId));
+  let excludedStillLinked = connectedAccounts ? connectedAccounts.filter((a) => guard.isExcluded(a.id, excluded)).map((a) => a.id) : [];
+  // The dataset's own connected-account list needs business_management (not granted), so check each excluded account
+  // from its own side instead: the dataset must no longer appear on it.
+  const excludedChecks = [];
+  for (const ex of excluded) {
+    const r = await graph('/' + String(ex).replace(/^act_/, 'act_') + '/adspixels?fields=id&limit=50', K);
+    const has = !r.error && ((r.data || []).some((d) => String(d.id) === String(datasetId)));
+    excludedChecks.push({ account: ex, dataset_still_attached: r.error ? 'unreadable: ' + r.error.message : has });
+    if (has) excludedStillLinked = [...new Set([...excludedStillLinked, ex])];
+  }
+  const out = {
+    dataset: fromDataset.error ? { error: fromDataset.error.message } : { id: fromDataset.id, name: fromDataset.name, last_fired_time: fromDataset.last_fired_time || null, is_unavailable: !!fromDataset.is_unavailable },
+    canonical_ad_account: canonical,
+    dataset_visible_on_canonical_account: linked,
+    datasets_on_canonical_account: datasetsOnAccount,
+    connected_ad_accounts_reported_by_dataset: connectedAccounts, connected_accounts_error: shared.error ? shared.error.message : null,
+    excluded_accounts_still_connected: excludedStillLinked,
+    excluded_account_checks: excludedChecks,
+    ok: linked && excludedStillLinked.length === 0,
+  };
+  await mergeEvidence({ dataset_connection: { at: new Date().toISOString(), ok: out.ok, dataset_id: String(datasetId), canonical_ad_account: canonical,
+    dataset_visible_on_canonical_account: linked, connected_ad_accounts: connectedAccounts, excluded_accounts_still_connected: excludedStillLinked, excluded_account_checks: excludedChecks, last_fired_time: out.dataset.last_fired_time || null } });
+  out.paid = await assertPaidOff();
+  return out;
+}
+
 /** READ-ONLY cost pull for the canonical, identity-verified, non-excluded Advantage.Bid ad account. Records evidence. */
 async function costPull() {
   const paid = await assertPaidOff();
@@ -258,8 +304,8 @@ async function verify() {
 (async () => {
   assertProd();
   const cmd = process.argv[2];
-  const run = { discover, connect, 'read-probe': readProbe, 'enable-measurement': enableMeasurement, 'cost-pull': costPull, verify }[cmd];
-  if (!run) { console.error('usage: discover | connect --dataset= --ad-account= [--owner-confirmed] | read-probe --ad-account= | enable-measurement | cost-pull [--since=] | verify --test-event-code= [--browser-evidence=]'); process.exit(2); }
+  const run = { discover, connect, 'read-probe': readProbe, 'enable-measurement': enableMeasurement, 'cost-pull': costPull, 'dataset-link': datasetLink, verify }[cmd];
+  if (!run) { console.error('usage: discover | connect --dataset= --ad-account= [--owner-confirmed] | read-probe --ad-account= | enable-measurement | cost-pull [--since=] | dataset-link | verify --test-event-code= [--browser-evidence=]'); process.exit(2); }
   const out = await run();
   console.log(cmd.toUpperCase() + ' ' + scrub(JSON.stringify(out, null, 1)));
   process.exit(0);

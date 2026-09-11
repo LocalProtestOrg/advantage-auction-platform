@@ -86,7 +86,9 @@ async function evaluate(runner) {
   else items.push(item('meta_pixel', pixelOk ? 'VERIFIED' : 'PARTIAL',
     ['public/widgets/shared/ad-measurement.js (consent-gated loader, PageView + eventID dedup)', 'GET /api/public/measurement-config (returns the dataset id only when the gate is ON and identity verified)', 'scripts/meta-browser-check.js (real-browser evidence)'],
     pixelOk ? null : (!metaId.ok ? 'dataset identity ' + metaId.reason : (!gates.meta_pixel ? 'marketing.measurement.meta_pixel_enabled is OFF' : 'no fresh real-browser evidence (run meta-browser-check + verify)')),
-    { gate: gates.meta_pixel, identity: metaId.ok ? 'verified' : metaId.reason, browser_evidence_at: (ev.browser && ev.browser.at) || null, consent_denied_requests: ev.browser && ev.browser.denied ? ev.browser.denied.requests : null }));
+    { gate: gates.meta_pixel, identity: metaId.ok ? 'verified' : metaId.reason, browser_evidence_at: (ev.browser && ev.browser.at) || null, consent_denied_requests: ev.browser && ev.browser.denied ? ev.browser.denied.requests : null,
+      dataset_connected_to_canonical_ad_account: ev.dataset_connection ? { ok: !!ev.dataset_connection.ok, ad_account: ev.dataset_connection.canonical_ad_account, excluded_still_connected: ev.dataset_connection.excluded_accounts_still_connected || [], at: ev.dataset_connection.at } : 'not checked',
+      dataset_last_fired_time: (ev.dataset_connection && ev.dataset_connection.last_fired_time) || (ev.dataset && ev.dataset.last_fired_time) || null }));
   // 2 meta_capi
   const capiDecision = meta.decide({ cfg: { enabled: gates.meta_capi, datasetId: await cfg(r, 'marketing.measurement.meta_dataset_id'), identity: await cfg(r, 'marketing.measurement.meta_dataset_identity') }, tokenPresent: meta.tokenPresent(), advertisingConsent: true });
   // 2 meta_capi — dispatch decision READY + a Meta-acknowledged TEST event carrying the browser-shared event id
