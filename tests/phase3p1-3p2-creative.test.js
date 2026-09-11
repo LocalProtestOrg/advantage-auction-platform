@@ -34,7 +34,7 @@ const py = (code) => {
   return JSON.parse(r.stdout.trim().split('\n').pop());
 };
 
-describe('title style — 12 rules (capitalization-rules.json)', () => {
+describe('title style — 13 rules (capitalization-rules.json)', () => {
   const cases = [
     ['have items to sell?', 'headline', 'Have Items to Sell?'],
     ['bid today. discover tomorrow.', 'headline', 'Bid Today. Discover Tomorrow.'],
@@ -46,6 +46,7 @@ describe('title style — 12 rules (capitalization-rules.json)', () => {
     ['estate sale in NYC', 'headline', 'Estate Sale in NYC'],                         // short acronym kept
     ['IN CONJUNCTION WITH', 'relationship', 'In Conjunction With'],                   // all-caps source is not trusted as acronyms
     ['one-day estate sale', 'headline', 'One-Day Estate Sale'],                       // hyphenated parts
+    ['ManCave Auction', 'event_title', 'ManCave Auction'],                           // a proper name with internal capitals is kept as written
     ['sell with advantage.bid', 'headline', 'Sell with Advantage.Bid'],               // 'with' stays lower mid-title; fixed-case brand token
     ['Create your own online auction on Advantage.Bid.', 'support', 'Create your own online auction on Advantage.Bid.'], // support lines stay sentence case
   ];

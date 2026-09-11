@@ -1,0 +1,4180 @@
+{
+ "job_id": "p3p1-west-university",
+ "campaign_class": "estate_sale",
+ "title": "West University — revised (authentic photograph · Estate Sale leads · Advantage.Bid mark in the relationship line)",
+ "index_version": "3P.1.769d0461bc92",
+ "gates": {
+  "marketing.a9_publish_enabled": false,
+  "marketing.destinations.meta_enabled": false,
+  "marketing.destinations.meta_ads_enabled": false,
+  "marketing.destinations.google_ads_enabled": false
+ },
+ "no_publish": true,
+ "bar": 70,
+ "retrieval": {
+  "confidence": "HIGH",
+  "empty_class": false,
+  "has_gold_standard": false,
+  "structures_seen": [
+   "ENVIRONMENTAL_FULL_BLEED",
+   "LEFT_COPY"
+  ],
+  "imagery_only": [],
+  "pending_promotion": [],
+  "retrieved": [
+   {
+    "reference_id": "REF-09",
+    "owner_status": "OWNER_APPROVED",
+    "weight": 1,
+    "relevance": 1,
+    "imagery_only": false,
+    "structure": "ENVIRONMENTAL_FULL_BLEED"
+   },
+   {
+    "reference_id": "REF-10",
+    "owner_status": "OWNER_APPROVED",
+    "weight": 1,
+    "relevance": 1,
+    "imagery_only": false,
+    "structure": "ENVIRONMENTAL_FULL_BLEED"
+   },
+   {
+    "reference_id": "REF-17",
+    "owner_status": "OWNER_GOLD_STANDARD",
+    "weight": 2,
+    "relevance": 0.5,
+    "imagery_only": false,
+    "structure": "LEFT_COPY"
+   },
+   {
+    "reference_id": "REF-22",
+    "owner_status": "OWNER_APPROVED",
+    "weight": 1,
+    "relevance": 0.5,
+    "imagery_only": false,
+    "structure": "LEFT_COPY"
+   },
+   {
+    "reference_id": "REF-02",
+    "owner_status": "OWNER_APPROVED",
+    "weight": 1,
+    "relevance": 0.5,
+    "imagery_only": false,
+    "structure": null
+   }
+  ]
+ },
+ "calibration": {
+  "campaign_class": "estate_sale",
+  "family": "ENVIRONMENTAL_PHOTO",
+  "reference_ids": [
+   "REF-09",
+   "REF-10",
+   "REF-17",
+   "REF-22",
+   "REF-02"
+  ],
+  "reference_versions": {
+   "REF-09": "77e8d5a8b6dbbbee506315a504d395d22ed751e9ec4c947abc5ac6864a51a102",
+   "REF-10": "5c50b7ab550be634d865db4a3d5f3214ff79b39242795ff92ba4f166446ccb7e",
+   "REF-17": "759d484332a82acf8897c9674dc2b470b2283351af00e086ee3b35538281f746",
+   "REF-22": "68727155cc86da1b2041c46fe9d970f98a624852735ff0249815d08b1970d0ba",
+   "REF-02": "a782af9955991666a46c4340e14373b4c3d52a26a01baf05da42a56175f62e49"
+  },
+  "index_version": "3P.1.769d0461bc92",
+  "confidence": "HIGH",
+  "owner_review_required": true,
+  "empty_class": false,
+  "strip_seller_identity": true,
+  "principle_profile": {
+   "hierarchy": [
+    "presenter (the Professional Seller) leads; Advantage.Bid is the visible marketplace partner, subordinate; navy band closes",
+    "one event or message title of 2–6 words; the place name may be the largest word for an on-site sale",
+    "date larger than time"
+   ],
+   "merchandise": {
+    "mode": "photograph",
+    "share_band_pct": [
+     50,
+     60
+    ],
+    "treatment": "environmental — the actual site photograph, event-bound; no extraction; no stock"
+   },
+   "copy": {
+    "budget_blocks": 5,
+    "text_share_max_pct": 24,
+    "supporting_line": "category line ≤ 6 words or none",
+    "cta": "none or one factual",
+    "logistics_block": "allowed: date + hours + neighbourhood"
+   },
+   "typography": {
+    "expressive_allowed": true,
+    "rule": "one element may express contrast or material when truthful; brand faces only"
+   },
+   "ground": "white | very_light",
+   "composition": {
+    "families_allowed": [
+     "ENVIRONMENTAL_PHOTO"
+    ],
+    "title_position": [
+     "top",
+     "panel"
+    ],
+    "largest_empty_max_pct": 10,
+    "upper_half_merchandise_min_pct": 30
+   },
+   "transferable_lessons": [
+    "On-site estate sales call for an environmental-photograph family; extraction is for online auctions (missing from current families → proposed ENVIRONMENTAL_PHOTO)",
+    "Place-name-led titles for on-site sales",
+    "Multi-day sales: a date-pair block with large day numbers and small hour lines",
+    "A category line and a place plate are enough supporting copy",
+    "When an event title contains contrasting ideas (place + 'Estate Sale'), typography may express the contrast (validates the 3M.3 italic-Home principle; script is one acceptable expression, not a default)",
+    "Left panel + environmental photograph is the second estate-sale layout the Owner accepts",
+    "Icon-led date rows are an accepted device for multi-day on-site events",
+    "Neighbourhood-level location naming",
+    "'Estate Sale' + 'Online Auction' stacked as a two-line event-type headline is an approved pattern for generic estate-auction creative",
+    "An exterior with staged merchandise is an acceptable environmental treatment for GENERIC estate creative (a real event uses its real photographs)",
+    "Category icon rows may name what buyers will find",
+    "Geographic creative: event type largest; place as a spaced-caps eyebrow AND an environmental landmark cue",
+    "Landmark imagery is acceptable for GENERIC geographic promotion; a real event prefers its own photographs (3P.1 media hierarchy)",
+    "'Shop Local' as a band item is buyer-facing geographic language",
+    "Title-at-bottom is an approved variation of the centered family when merchandise occupies the upper canvas",
+    "Text can be as little as seller + title + date/time for a general auction (validates the 3M default copy set)",
+    "Merchandise share can run ~65–70% with text under ~12% — higher merchandise:text ratio than the current B3 calibration",
+    "Objects may run off the right edge (dining table) when the crop misrepresents nothing",
+    "A warm off-white ground reads as 'very light' and is within the locked default"
+   ],
+   "anti_patterns": [],
+   "brand_frame": {
+    "ground": [
+     "white",
+     "very_light"
+    ],
+    "band": "navy Advantage.Bid band closes the canvas",
+    "logo": "Advantage.Bid logo at spec",
+    "accent": "red accent, used once"
+   },
+   "variation_required_from": [],
+   "structures_seen": [
+    "ENVIRONMENTAL_FULL_BLEED",
+    "LEFT_COPY"
+   ],
+   "structure_rule": "name the structure chosen and why; consecutive creatives for the same objective rotate structure; a Gold is evidence, not a template",
+   "imagery_only_references": []
+  },
+  "do_not_copy": {
+   "seller_marks": [
+    "Lewis & Maese",
+    "Lewis and Maese",
+    "LMAuctionCo",
+    "lmauctionco.com",
+    "L&M",
+    "fleur-de-lis"
+   ],
+   "palettes": "any reference palette",
+   "typefaces": "any reference typeface",
+   "ornaments": "flourishes, decorative frames, stars, crests, gold borders, icon logistics rows",
+   "wording": [
+    "Trusted. Experienced. Results.",
+    "Fine Estate Sales & Appraisals",
+    "Central Time",
+    "Join for Free",
+    "Great Deals",
+    "Luxury finds for the discerning collector",
+    "Quality. Heritage. Timeless Style.",
+    "Bid Confidently",
+    "Real Treasures",
+    "Convenient Local Pickup",
+    "Keep More of the Proceeds",
+    "in minutes",
+    "Another Happy Seller!",
+    "Reach thousands of serious bidders",
+    "Get top dollar",
+    "Low Seller Fees",
+    "The Smarter Way to Bid.",
+    "Global Buyers",
+    "Exceptional Items",
+    "Serious Buyers",
+    "More Exposure",
+    "Higher Realization"
+   ],
+   "layout_signatures": [
+    "4cd2207ace2e4bab769e9f2e62d6ae1e5d52fd408635a1b0d46e1879d2c4c3ef",
+    "6cf2cb6d2e4be25d3cc619553110ef1fc0bc3b4820cb47b62a891483be05bee9",
+    "57889b64ba61dc1fe3b1bb81c2c829b6abecb3a73ac3d1a2dcc5e13741bcbf70",
+    "8e2627374748b91b732ff50c7288ab47807547055a2691df88d69ec0d44142e2",
+    "738c3fd0b9fa40f7ce1ac30899e6b20814d3173baf684c96aca04f53f9aeeb30"
+   ]
+  },
+  "library_band": {
+   "merchandise": [
+    45,
+    60
+   ],
+   "text": [
+    18,
+    32
+   ],
+   "text_blocks": [
+    5,
+    9
+   ],
+   "references": [
+    "REF-09",
+    "REF-10",
+    "REF-22",
+    "REF-17"
+   ]
+  }
+ },
+ "media_decision": {
+  "event_id": "38aed25b-a94e-4cc6-a468-60b2461689d2",
+  "tier_selected": 3,
+  "selected_asset_sha256": "426cb9a52fe367162b3a49d0ef6fc943af33fe46e4f8da3f8cb6d8f8db86fbc4",
+  "selected_asset": "IMG_0522-1200x700.jpg",
+  "tier4_available": false,
+  "tier4_reserved_for": null,
+  "candidates": [
+   {
+    "tier": 3,
+    "kind": "site_photograph",
+    "asset": "IMG_0520-1200x700.jpg",
+    "asset_sha256": "58f9ff301f266f2a7560cfb88d5d0ddb5eaa6daf16e73757a5128ecf5c3560a4",
+    "gates": {
+     "min_long_edge": true,
+     "sharpness": true,
+     "clipped": true,
+     "dark": true,
+     "text": true,
+     "obstruction": false
+    },
+    "score": null,
+    "ready": false,
+    "measures": {
+     "laplacian_var": 383.7,
+     "sharpness_norm": 0.697,
+     "luminance": 150.1,
+     "clipped_pct": 2.59,
+     "dark_pct": 3.84,
+     "text_class": "none",
+     "crop_fit": {
+      "4:5": 0.51,
+      "1:1": 0.613,
+      "2.30:1": 0.805
+     },
+     "nearest_other_distance": 0.5604
+    },
+    "judged": {
+     "clutter_items": 3,
+     "invitation": 2,
+     "obstruction": true,
+     "notes": [
+      "Cluttered antique furniture, visible box and cables reduce appeal.",
+      "Cluttered antique room, box and cord visible, sofa obstructs foreground."
+     ],
+     "model": "claude-sonnet-5"
+    }
+   },
+   {
+    "tier": 3,
+    "kind": "site_photograph",
+    "asset": "IMG_0522-1200x700.jpg",
+    "asset_sha256": "426cb9a52fe367162b3a49d0ef6fc943af33fe46e4f8da3f8cb6d8f8db86fbc4",
+    "gates": {
+     "min_long_edge": true,
+     "sharpness": true,
+     "clipped": true,
+     "dark": true,
+     "text": true
+    },
+    "score": 75.4,
+    "ready": true,
+    "measures": {
+     "laplacian_var": 315.6,
+     "sharpness_norm": 0.573,
+     "luminance": 151,
+     "clipped_pct": 2.98,
+     "dark_pct": 1.31,
+     "text_class": "none",
+     "crop_fit": {
+      "4:5": 0.528,
+      "1:1": 0.643,
+      "2.30:1": 0.777
+     },
+     "nearest_other_distance": 0.5604
+    },
+    "judged": {
+     "clutter_items": 1,
+     "invitation": 2,
+     "obstruction": false,
+     "notes": [
+      "Charming antique-filled room but cluttered with excessive furniture and decor",
+      "Cluttered antique-filled room, charming but overcrowded for real estate presentation"
+     ],
+     "model": "claude-sonnet-5"
+    }
+   },
+   {
+    "tier": 3,
+    "kind": "site_photograph",
+    "asset": "IMG_0526-1-1200x700.jpg",
+    "asset_sha256": "ce83b3ca57ccf7f6440fbde07d869691c867b1419ef814a1b81299331acff222",
+    "gates": {
+     "min_long_edge": true,
+     "sharpness": true,
+     "clipped": false,
+     "dark": true,
+     "text": true
+    },
+    "score": null,
+    "ready": false,
+    "measures": {
+     "laplacian_var": 288.2,
+     "sharpness_norm": 0.524,
+     "luminance": 124.7,
+     "clipped_pct": 6.31,
+     "dark_pct": 17.24,
+     "text_class": "none",
+     "crop_fit": {
+      "4:5": 0.532,
+      "1:1": 0.65,
+      "2.30:1": 0.812
+     },
+     "nearest_other_distance": 0.4831
+    },
+    "judged": "unavailable"
+   },
+   {
+    "tier": 3,
+    "kind": "site_photograph",
+    "asset": "IMG_0529-1200x700.jpg",
+    "asset_sha256": "c271077201498e540a6edd2681548a164a0c5583db4c0ded0c939dacf27823f7",
+    "gates": {
+     "min_long_edge": true,
+     "sharpness": true,
+     "clipped": true,
+     "dark": true,
+     "text": true,
+     "obstruction": false
+    },
+    "score": null,
+    "ready": false,
+    "measures": {
+     "laplacian_var": 235.9,
+     "sharpness_norm": 0.429,
+     "luminance": 125.5,
+     "clipped_pct": 1.63,
+     "dark_pct": 8.99,
+     "text_class": "none",
+     "crop_fit": {
+      "4:5": 0.501,
+      "1:1": 0.618,
+      "2.30:1": 0.785
+     },
+     "nearest_other_distance": 0.5656
+    },
+    "judged": {
+     "clutter_items": 3,
+     "invitation": 1.5,
+     "obstruction": true,
+     "notes": [
+      "Table cluttered with estate-sale china; feels like a shop, not a home.",
+      "Cluttered estate sale table and chairs dominate room, price tags visible."
+     ],
+     "model": "claude-sonnet-5"
+    }
+   },
+   {
+    "tier": 3,
+    "kind": "site_photograph",
+    "asset": "IMG_0546-1200x700.jpg",
+    "asset_sha256": "1ff91b8834b40b029199876ecd954a468d7f2701f0d957c3ef8f5e7d9bf6131c",
+    "gates": {
+     "min_long_edge": true,
+     "sharpness": true,
+     "clipped": true,
+     "dark": true,
+     "text": true,
+     "obstruction": false
+    },
+    "score": null,
+    "ready": false,
+    "measures": {
+     "laplacian_var": 225.5,
+     "sharpness_norm": 0.41,
+     "luminance": 118.7,
+     "clipped_pct": 3.55,
+     "dark_pct": 20.49,
+     "text_class": "none",
+     "crop_fit": {
+      "4:5": 0.516,
+      "1:1": 0.627,
+      "2.30:1": 0.783
+     },
+     "nearest_other_distance": 0.4731
+    },
+    "judged": {
+     "clutter_items": 4,
+     "invitation": 1,
+     "obstruction": true,
+     "notes": [
+      "Cluttered console table with tag, box, cords reduces buyer appeal.",
+      "Cluttered console table, box on floor, staged items reduce appeal."
+     ],
+     "model": "claude-sonnet-5"
+    }
+   },
+   {
+    "tier": 3,
+    "kind": "site_photograph",
+    "asset": "IMG_0549-1200x700.jpg",
+    "asset_sha256": "1ac3b7f4abee8f74e002e870b535e95e2e3b47c6692d00f5ad97a1e95fbe1cd6",
+    "gates": {
+     "min_long_edge": true,
+     "sharpness": true,
+     "clipped": true,
+     "dark": true,
+     "text": true,
+     "obstruction": false
+    },
+    "score": null,
+    "ready": false,
+    "measures": {
+     "laplacian_var": 301.3,
+     "sharpness_norm": 0.547,
+     "luminance": 107.2,
+     "clipped_pct": 1.23,
+     "dark_pct": 14.18,
+     "text_class": "none",
+     "crop_fit": {
+      "4:5": 0.582,
+      "1:1": 0.7,
+      "2.30:1": 0.811
+     },
+     "nearest_other_distance": 0.4831
+    },
+    "judged": {
+     "clutter_items": 5,
+     "invitation": 0,
+     "obstruction": true,
+     "notes": [
+      "Room overcrowded with furniture, boxes, and clutter; needs major staging.",
+      "Room overcrowded with furniture, boxes, and decor; needs major decluttering before listing."
+     ],
+     "model": "claude-sonnet-5"
+    }
+   },
+   {
+    "tier": 3,
+    "kind": "site_photograph",
+    "asset": "IMG_0550-1200x700.jpg",
+    "asset_sha256": "59480090c05ec8f765b4514310eda564f93e654133ff1f46f3cb8f2b55c1294b",
+    "gates": {
+     "min_long_edge": true,
+     "sharpness": true,
+     "clipped": true,
+     "dark": true,
+     "text": true,
+     "obstruction": false
+    },
+    "score": null,
+    "ready": false,
+    "measures": {
+     "laplacian_var": 219.1,
+     "sharpness_norm": 0.398,
+     "luminance": 130,
+     "clipped_pct": 1.26,
+     "dark_pct": 16.2,
+     "text_class": "none",
+     "crop_fit": {
+      "4:5": 0.492,
+      "1:1": 0.613,
+      "2.30:1": 0.784
+     },
+     "nearest_other_distance": 0.5906
+    },
+    "judged": {
+     "clutter_items": 1,
+     "invitation": 1,
+     "obstruction": true,
+     "notes": [
+      "Cluttered with masks, carvings, statues; large horse statue obstructs foreground.",
+      "Cluttered eclectic decor with many masks/statues overwhelms space, reduces buyer appeal"
+     ],
+     "model": "claude-sonnet-5"
+    }
+   },
+   {
+    "tier": 3,
+    "kind": "site_photograph",
+    "asset": "IMG_0552-1200x700.jpg",
+    "asset_sha256": "f98c72071da471ec429314d6cf2e6a3d171447ecc0d1e200f434d68ae18b4357",
+    "gates": {
+     "min_long_edge": true,
+     "sharpness": false,
+     "clipped": true,
+     "dark": true,
+     "text": true
+    },
+    "score": null,
+    "ready": false,
+    "measures": {
+     "laplacian_var": 94.3,
+     "sharpness_norm": 0.171,
+     "luminance": 132.9,
+     "clipped_pct": 0.04,
+     "dark_pct": 9.72,
+     "text_class": "none",
+     "crop_fit": {
+      "4:5": 0.494,
+      "1:1": 0.619,
+      "2.30:1": 0.747
+     },
+     "nearest_other_distance": 0.4731
+    },
+    "judged": "unavailable"
+   }
+  ],
+  "excluded": [],
+  "published_anchor": {
+   "asset_sha256": "00eb8cd3dc54512f2426565176421243fd0e9478450426ff0bbde87902af591b",
+   "path": "C:\\Projects\\advantage-auction-platform\\docs\\marketing\\phase3p\\proving-grounds\\2026-09-09\\assets\\published-anchor.png",
+   "role": "published_anchor",
+   "reason": "composed graphic: headline-class text (LEWIS / & MAESE / ESTATE SALE)"
+  },
+  "override_reason": null,
+  "collage_considered": false,
+  "collage_reason": "authentic photograph ready at tier 3 (Owner rule: a real photograph taken by a person beats manufactured composition)",
+  "owner_review_required": false,
+  "clutter_invitation_source": "vision judge (named item list) — no object detector ships in this runtime",
+  "readiness_threshold": 70,
+  "trail": [
+   {
+    "tier": 1,
+    "kind": "cover",
+    "asset": "event cover (seller-published graphic)",
+    "routed": "anchor_role",
+    "reason": "is_photograph = false (text class signage)"
+   }
+  ],
+  "merchandise_mode": "photograph"
+ },
+ "anchor": {
+  "path": "C:\\Projects\\advantage-auction-platform\\docs\\marketing\\phase3p\\proving-grounds\\2026-09-09\\assets\\published-anchor.png"
+ },
+ "omissions": [
+  "street address (not published by the seller — omitted, not invented)",
+  "seller logo (no seller logo asset in production — the seller is set in type)"
+ ],
+ "deferred": null,
+ "previous": [
+  {
+   "label": "Previous A (GOOD — event type + identity too small)",
+   "png": "C:\\Projects\\advantage-auction-platform\\docs\\marketing\\phase3p\\proving-grounds\\2026-09-09\\p3p-west-university-A-portrait_1080x1350.png"
+  },
+  {
+   "label": "Previous C (best of three — same fixes)",
+   "png": "C:\\Projects\\advantage-auction-platform\\docs\\marketing\\phase3p\\proving-grounds\\2026-09-09\\p3p-west-university-C-portrait_1080x1350.png"
+  }
+ ],
+ "blocked": [],
+ "results": [
+  {
+   "key": "R1",
+   "format": "portrait_1080x1350",
+   "family": "EVENT_PHOTO",
+   "structure": "ENVIRONMENTAL_FULL_BLEED",
+   "profile": "EVENT",
+   "ok": true,
+   "png": "C:\\Projects\\advantage-auction-platform\\docs\\marketing\\phase3p1\\proving-grounds\\2026-09-11\\p3p1-west-university-R1-portrait_1080x1350.png",
+   "thumb": "C:\\Projects\\advantage-auction-platform\\docs\\marketing\\phase3p1\\proving-grounds\\2026-09-11\\p3p1-west-university-R1-portrait_1080x1350_thumb.png",
+   "render_sha256": "14882a53fbe493a317a71129feed1ff6040d60fd33139558ed79ff7045b4bcc1",
+   "metrics": {
+    "size": [
+     1080,
+     1350
+    ],
+    "family": "ENVIRONMENTAL_PHOTO",
+    "structure": null,
+    "profile": "EVENT",
+    "band_h": 159,
+    "merchandise_pct": 34.5,
+    "text_region_pct": 26.9,
+    "coverage": {
+     "field": {
+      "x": 0,
+      "y": 0,
+      "w": 1080,
+      "h": 1191
+     },
+     "field_area_px": 628356,
+     "coverage_pct": 70.6,
+     "cluster_extent_w": 1,
+     "cluster_extent_h": 0.345,
+     "upper_field_merch_pct": 13.1,
+     "largest_accidental_void_pct": 6.2,
+     "largest_accidental_void_field_pct": 7.2,
+     "canvas_merchandise_pct": 34.5,
+     "panels": [],
+     "declared_intentional": []
+    },
+    "coverage_gate": {
+     "pass_": true,
+     "hard_failures": [],
+     "soft": {
+      "coverage_in_band": true,
+      "extent_w_ok": true,
+      "extent_h_ok": false,
+      "void_ok": false,
+      "upper_ok": true
+     }
+    },
+    "prominence": {
+     "context": "seller_led_cobranded",
+     "checks": {
+      "band_wordmark_cap_pct": 5.63,
+      "seller_weight": 302037,
+      "advantage_bid_weight": 225859,
+      "weight_ratio": 0.748,
+      "relationship_cap_pct": 2.22,
+      "relationship_has_logo_mark": true,
+      "feed_proxy_wordmark_ocr": true
+     },
+     "violations": [],
+     "pass_": true
+    },
+    "colour": {
+     "pass_": true,
+     "hard_failures": [],
+     "soft": [
+      "red share of saturated copy-zone pixels 31% outside 35–65%"
+     ],
+     "canvas_luminance": 0.798,
+     "copy_zone_luminance": 0.89,
+     "red_elements": 2,
+     "red_share_saturated_copy_zone_pct": 31.2,
+     "red_band": false,
+     "red_ground": false,
+     "navy_present": true
+    },
+    "event_type": {
+     "checks": {
+      "event_type_cap_px": 87,
+      "largest_text_cap_px": 87,
+      "ratio_to_largest": 1,
+      "pct_of_canvas": 6.44
+     },
+     "violations": [],
+     "pass_": true
+    },
+    "density": {
+     "blocks": 7,
+     "roles": [
+      "presenter",
+      "support",
+      "event_type",
+      "event_title",
+      "date",
+      "place_plate",
+      "band"
+     ],
+     "headline_class_roles": [
+      "event_headline"
+     ],
+     "headline_dominance": 1.81
+    },
+    "copy_over_merchandise": [],
+    "largest_empty_pct": 6.2,
+    "upper_half_merch_pct": 15.1,
+    "text_blocks": 7,
+    "ground_luminance": 0.798,
+    "brand_frame": {
+     "logo": true,
+     "band": true,
+     "wordmark": true
+    },
+    "pattern": "TYPE_LED",
+    "photo_box": {
+     "x": 0,
+     "y": 573,
+     "w": 1080,
+     "h": 411
+    },
+    "identity_scale": 1,
+    "type_scale": 1,
+    "event_type_missing": false
+   },
+   "logo": {
+    "variant": "primary_transparent",
+    "file": "advantage-bid-transparent.png",
+    "sha256": "8b5fce17b50dea4c15f73b3cfa2e54bd900db22f3106db0ee2d80ea4cd1db561",
+    "box": [
+     777,
+     112,
+     254,
+     102
+    ],
+    "scale": 0.12809,
+    "transform": "uniform_scale+position",
+    "reserved_box": [
+     777,
+     112,
+     254,
+     102
+    ],
+    "selection_reason": "light/neutral zone (luminance 1.00) → transparent lockup",
+    "ok": true
+   },
+   "logo_qa": {
+    "logo_source": {
+     "pass_": true,
+     "template_match": 1,
+     "threshold": 0.97,
+     "variant": "primary_transparent",
+     "asset_sha256": "8b5fce17b50dea4c15f73b3cfa2e54bd900db22f3106db0ee2d80ea4cd1db561",
+     "ocr_available": true,
+     "ocr_text": [
+      "ADVANTAGE.BID",
+      "GET THE ADVANTAGE"
+     ],
+     "reads_advantage_bid": true,
+     "reads_tagline": true,
+     "extra_text": []
+    },
+    "rendered_logo_elsewhere": {
+     "pass_": true,
+     "ocr_available": true,
+     "ocr_hits": [],
+     "template_hits": [],
+     "template_threshold": 0.85
+    }
+   },
+   "plan": null,
+   "copy_changes": [
+    {
+     "field": "relationship",
+     "role": "major_label",
+     "before": "In Conjunction with",
+     "after": "In Conjunction With"
+    }
+   ],
+   "copy_check": {
+    "pass": true,
+    "rejections": [],
+    "notes": []
+   },
+   "hygiene": {
+    "pass": true,
+    "violations": []
+   },
+   "density": {
+    "pass": true,
+    "hard": [],
+    "soft": [
+     "text region 26.9% > 22% (EVENT)"
+    ],
+    "ceiling": 7,
+    "blocks": 7,
+    "profile": "EVENT"
+   },
+   "template_echo": {
+    "flagged": false,
+    "props": [],
+    "rule": "the recurring collaborator props (bronze horse, blue-and-white vase, category-spine books, laptop with logo, script mug/board/box) are tagged in do_not_generalize; the object selector must not treat them as required; a scene containing ≥ 3 of them together is flagged 'template echo' and regenerated"
+   },
+   "similarity": {
+    "pass": true,
+    "failures": [],
+    "max_reference": {
+     "id": "REF-23",
+     "distance": 0.4113
+    },
+    "self_history_min": {
+     "id": "p3p-west-university:C:portrait_1080x1350",
+     "distance": 0.3811
+    },
+    "published_anchor_distance": 0.7195,
+    "thresholds": {
+     "tau_ref": 0.35,
+     "tau_self": 0.25,
+     "tau_pub": 0.4
+    },
+    "all_reference_distances": [
+     {
+      "id": "REF-01",
+      "distance": 0.872
+     },
+     {
+      "id": "REF-02",
+      "distance": 1.0001
+     },
+     {
+      "id": "REF-03",
+      "distance": 0.6935
+     },
+     {
+      "id": "REF-04",
+      "distance": 0.9593
+     },
+     {
+      "id": "REF-05",
+      "distance": 0.6735
+     },
+     {
+      "id": "REF-06",
+      "distance": 0.6983
+     },
+     {
+      "id": "REF-07",
+      "distance": 1.0755
+     },
+     {
+      "id": "REF-08",
+      "distance": 0.8418
+     },
+     {
+      "id": "REF-19",
+      "distance": 0.6651
+     },
+     {
+      "id": "REF-18",
+      "distance": 0.6979
+     },
+     {
+      "id": "REF-09",
+      "distance": 0.6825
+     },
+     {
+      "id": "REF-10",
+      "distance": 0.6489
+     },
+     {
+      "id": "REF-11",
+      "distance": 0.58
+     },
+     {
+      "id": "REF-22",
+      "distance": 0.7756
+     },
+     {
+      "id": "REF-17",
+      "distance": 0.8329
+     },
+     {
+      "id": "REF-14",
+      "distance": 0.8372
+     },
+     {
+      "id": "REF-15",
+      "distance": 0.8402
+     },
+     {
+      "id": "REF-16",
+      "distance": 0.897
+     },
+     {
+      "id": "REF-12",
+      "distance": 1.2048
+     },
+     {
+      "id": "REF-13",
+      "distance": 0.5019
+     },
+     {
+      "id": "REF-23",
+      "distance": 0.4113
+     },
+     {
+      "id": "REF-21",
+      "distance": 0.9446
+     },
+     {
+      "id": "REF-20",
+      "distance": 0.4714
+     }
+    ]
+   },
+   "negative_signature_check": {
+    "nearest": {
+     "id": "p3p-west-university:B:square_1080x1080",
+     "distance": 0.5504
+    },
+    "tau_neg": 0.3,
+    "hard": false,
+    "penalty": false
+   },
+   "leak": {
+    "pass": true,
+    "hits": [],
+    "ocr": "unavailable (no OCR engine in the runtime image; every drawn string is checked exactly)",
+    "logo_template_match": "not_available (no seller logo templates on file)"
+   },
+   "provenance": {
+    "pass": true,
+    "reasons": []
+   },
+   "judge": {
+    "available": true,
+    "model": "claude-sonnet-5",
+    "prompt_version": "p3p1-judge-v2",
+    "runs": [
+     {
+      "items": [
+       {
+        "n": 1,
+        "score": 4,
+        "reason": "Presenter top-left, title center, photo below, navy band closes"
+       },
+       {
+        "n": 2,
+        "score": 3,
+        "reason": "Furniture varies in scale, sofa anchors composition well"
+       },
+       {
+        "n": 3,
+        "score": 3,
+        "reason": "Red 'Estate Sale' contrasts navy title, truthful expressive use"
+       },
+       {
+        "n": 4,
+        "score": 4,
+        "reason": "Color comes from room photo; ground and bands stay neutral"
+       },
+       {
+        "n": 5,
+        "score": 4,
+        "reason": "No slogans, icons, or filler; clean logistics block only"
+       },
+       {
+        "n": 6,
+        "score": 3,
+        "reason": "Title and wordmark legible small; photo reads as room"
+       },
+       {
+        "n": 7,
+        "score": 3,
+        "reason": "Real site photo feels editorial, not templated stock swap"
+       },
+       {
+        "n": 8,
+        "score": 0,
+        "reason": "No competitor identity evoked, only presenter and platform named"
+       },
+       {
+        "n": 9,
+        "score": 3,
+        "reason": "Strong hierarchy, honest photo, clean copy; near 'love this'"
+       }
+      ],
+      "physical": {
+       "through": "no",
+       "through_names": "",
+       "wrong_size": "no",
+       "wrong_size_name": "",
+       "supported": "yes"
+      },
+      "comprehension": {
+       "event_type": "estate_sale",
+       "who": "Lewis & Maese with Advantage.Bid",
+       "when": "Saturday, September 19, 9AM-3PM",
+       "platform": "Advantage.Bid",
+       "ask": "Attend the West University estate sale on-site",
+       "masquerade": "no"
+      },
+      "notes": "Solid environmental estate-sale ad meeting hierarchy and honesty principles.",
+      "total": 31,
+      "physical_points": 4
+     },
+     {
+      "items": [
+       {
+        "n": 1,
+        "score": 4,
+        "reason": "Presenter top-left, title centered, photo below—clear flow"
+       },
+       {
+        "n": 2,
+        "score": 3,
+        "reason": "Sofa anchors scene; varied furniture scale reads naturally"
+       },
+       {
+        "n": 3,
+        "score": 3,
+        "reason": "Bold serif title, red accent truthful to sale contrast"
+       },
+       {
+        "n": 4,
+        "score": 3,
+        "reason": "Color from photo and red rule; white ground quiet"
+       },
+       {
+        "n": 5,
+        "score": 4,
+        "reason": "No slogans or icon piles; clean factual logistics only"
+       },
+       {
+        "n": 6,
+        "score": 3,
+        "reason": "Title and navy band legible small; photo reads fine"
+       },
+       {
+        "n": 7,
+        "score": 3,
+        "reason": "Real site photo with irregular layout, not generic template"
+       },
+       {
+        "n": 8,
+        "score": 0,
+        "reason": "No competitor identity evoked"
+       },
+       {
+        "n": 9,
+        "score": 3,
+        "reason": "Strong environmental photo, clear hierarchy, minor polish needed"
+       }
+      ],
+      "physical": {
+       "through": "no",
+       "through_names": "",
+       "wrong_size": "no",
+       "wrong_size_name": "",
+       "supported": "yes"
+      },
+      "comprehension": {
+       "event_type": "estate sale",
+       "who": "Lewis & Maese with Advantage.Bid",
+       "when": "Saturday, September 19, 9am-3pm",
+       "platform": "Advantage.Bid",
+       "ask": "Attend the on-site estate sale in West University",
+       "masquerade": "no"
+      },
+      "notes": "Solid environmental estate-sale ad with clear hierarchy and truthful photo.",
+      "total": 30,
+      "physical_points": 4
+     }
+    ],
+    "points": 30.5,
+    "average": 30.5,
+    "disagreement": 1,
+    "flagged": false,
+    "physical_yes": {
+     "through": false,
+     "wrong_size": false
+    },
+    "comprehension": {
+     "event_type_ok": true,
+     "who_ok": true,
+     "when_ok": true,
+     "platform_ok": true,
+     "masquerade": null,
+     "answers": {
+      "event_type": "estate sale",
+      "who": "Lewis & Maese with Advantage.Bid",
+      "when": "Saturday, September 19, 9am-3pm",
+      "platform": "Advantage.Bid",
+      "ask": "Attend the on-site estate sale in West University",
+      "masquerade": "no"
+     }
+    },
+    "items": [
+     "Hierarchy clarity: the eye enters at the presenter, moves to one title, then to the merchandise.",
+     "Objects (or the photograph) have confident scale variation and at least one clear anchor.",
+     "Typography is confident and, where expressive, truthful to the event.",
+     "Colour comes from the merchandise; the ground and panels stay quiet.",
+     "Nothing reads as filler: no slogans, icon piles, words on merchandise, duplicate URLs.",
+     "It reads at thumbnail size (headline + wordmark legible when small).",
+     "It would not be mistaken for a template with swapped merchandise (editorial irregularity).",
+     "It does not evoke any specific competitor or seller identity (answer 0 if it does).",
+     "Overall: would the Owner say \"good\" (0), \"much better\" (2), \"love this\" (4)? Justify via items 1–9."
+    ]
+   },
+   "measurable": {
+    "points": 59.61,
+    "out_of": 60,
+    "raw": 45.7,
+    "raw_max": 46,
+    "items": [
+     {
+      "key": "merchandise_coverage_field",
+      "pts": 12,
+      "value": 1,
+      "points": 12,
+      "target": [
+       55,
+       75
+      ]
+     },
+     {
+      "key": "accidental_void",
+      "pts": 6,
+      "value": 0.95,
+      "points": 5.7,
+      "target": "≤ 6"
+     },
+     {
+      "key": "hierarchy_incl_event_type",
+      "pts": 10,
+      "value": 1,
+      "points": 10,
+      "target": "event-type rules"
+     },
+     {
+      "key": "identity_prominence",
+      "pts": 8,
+      "value": 1,
+      "points": 8,
+      "target": "prominence-rules"
+     },
+     {
+      "key": "physical_audit_clean",
+      "pts": 8,
+      "value": null,
+      "points": null,
+      "target": "0 violations"
+     },
+     {
+      "key": "copy",
+      "pts": 6,
+      "value": 1,
+      "points": 6,
+      "target": "one headline-class element"
+     },
+     {
+      "key": "depth_planes",
+      "pts": 6,
+      "value": null,
+      "points": null,
+      "target": "≥ 2 planes"
+     },
+     {
+      "key": "light_ground",
+      "pts": 2,
+      "value": 1,
+      "points": 2,
+      "target": "canvas luminance ≥ 0.60"
+     },
+     {
+      "key": "brand_frame",
+      "pts": 2,
+      "value": 1,
+      "points": 2,
+      "target": "logo + band + wordmark"
+     }
+    ]
+   },
+   "score": 90.11,
+   "decision": "OWNER_REVIEW",
+   "hard_failures": [],
+   "regenerate_violations": [],
+   "score_basis": "measurable_60 + judge_40",
+   "bar": 70,
+   "extreme": false,
+   "publication_status": "HELD_FOR_OWNER_REVIEW",
+   "market": null,
+   "notes": "TYPE_LED: \"Estate Sale\" leads in red; West University second; the photograph the Director selected"
+  },
+  {
+   "key": "R1",
+   "format": "square_1080x1080",
+   "family": "EVENT_PHOTO",
+   "structure": "ENVIRONMENTAL_FULL_BLEED",
+   "profile": "EVENT",
+   "ok": true,
+   "png": "C:\\Projects\\advantage-auction-platform\\docs\\marketing\\phase3p1\\proving-grounds\\2026-09-11\\p3p1-west-university-R1-square_1080x1080.png",
+   "thumb": "C:\\Projects\\advantage-auction-platform\\docs\\marketing\\phase3p1\\proving-grounds\\2026-09-11\\p3p1-west-university-R1-square_1080x1080_thumb.png",
+   "render_sha256": "cf5213913ea376dcbc7a249afb48fe1230399741a63e6621eb0a622be543138a",
+   "metrics": {
+    "size": [
+     1080,
+     1080
+    ],
+    "family": "ENVIRONMENTAL_PHOTO",
+    "structure": null,
+    "profile": "EVENT",
+    "band_h": 139,
+    "merchandise_pct": 34.1,
+    "text_region_pct": 21.7,
+    "coverage": {
+     "field": {
+      "x": 0,
+      "y": 0,
+      "w": 1080,
+      "h": 941
+     },
+     "field_area_px": 487620,
+     "coverage_pct": 71.1,
+     "cluster_extent_w": 1,
+     "cluster_extent_h": 0.341,
+     "upper_field_merch_pct": 12.1,
+     "largest_accidental_void_pct": 8.2,
+     "largest_accidental_void_field_pct": 6.5,
+     "canvas_merchandise_pct": 34.1,
+     "panels": [],
+     "declared_intentional": []
+    },
+    "coverage_gate": {
+     "pass_": true,
+     "hard_failures": [],
+     "soft": {
+      "coverage_in_band": true,
+      "extent_w_ok": true,
+      "extent_h_ok": false,
+      "void_ok": false,
+      "upper_ok": true
+     }
+    },
+    "prominence": {
+     "context": "seller_led_cobranded",
+     "checks": {
+      "band_wordmark_cap_pct": 6.39,
+      "seller_weight": 192238,
+      "advantage_bid_weight": 143493,
+      "weight_ratio": 0.746,
+      "relationship_cap_pct": 2.22,
+      "relationship_has_logo_mark": true,
+      "feed_proxy_wordmark_ocr": true
+     },
+     "violations": [],
+     "pass_": true
+    },
+    "colour": {
+     "pass_": true,
+     "hard_failures": [],
+     "soft": [
+      "red share of saturated copy-zone pixels 30% outside 35–65%"
+     ],
+     "canvas_luminance": 0.806,
+     "copy_zone_luminance": 0.909,
+     "red_elements": 2,
+     "red_share_saturated_copy_zone_pct": 30.2,
+     "red_band": false,
+     "red_ground": false,
+     "navy_present": true
+    },
+    "event_type": {
+     "checks": {
+      "event_type_cap_px": 70,
+      "largest_text_cap_px": 70,
+      "ratio_to_largest": 1,
+      "pct_of_canvas": 6.48
+     },
+     "violations": [],
+     "pass_": true
+    },
+    "density": {
+     "blocks": 7,
+     "roles": [
+      "presenter",
+      "support",
+      "event_type",
+      "event_title",
+      "date",
+      "place_plate",
+      "band"
+     ],
+     "headline_class_roles": [
+      "event_headline"
+     ],
+     "headline_dominance": 1.84
+    },
+    "copy_over_merchandise": [],
+    "largest_empty_pct": 8.2,
+    "upper_half_merch_pct": 15.9,
+    "text_blocks": 7,
+    "ground_luminance": 0.806,
+    "brand_frame": {
+     "logo": true,
+     "band": true,
+     "wordmark": true
+    },
+    "pattern": "TYPE_LED",
+    "photo_box": {
+     "x": 0,
+     "y": 454,
+     "w": 1080,
+     "h": 321
+    },
+    "identity_scale": 1,
+    "type_scale": 1,
+    "event_type_missing": false
+   },
+   "logo": {
+    "variant": "primary_transparent",
+    "file": "advantage-bid-transparent.png",
+    "sha256": "8b5fce17b50dea4c15f73b3cfa2e54bd900db22f3106db0ee2d80ea4cd1db561",
+    "box": [
+     828,
+     90,
+     203,
+     81
+    ],
+    "scale": 0.10237,
+    "transform": "uniform_scale+position",
+    "reserved_box": [
+     828,
+     90,
+     203,
+     81
+    ],
+    "selection_reason": "light/neutral zone (luminance 1.00) → transparent lockup",
+    "ok": true
+   },
+   "logo_qa": {
+    "logo_source": {
+     "pass_": true,
+     "template_match": 1,
+     "threshold": 0.97,
+     "variant": "primary_transparent",
+     "asset_sha256": "8b5fce17b50dea4c15f73b3cfa2e54bd900db22f3106db0ee2d80ea4cd1db561",
+     "ocr_available": true,
+     "ocr_text": [
+      "ADVANTAGE.BID",
+      "GET THE ADVANTAGE"
+     ],
+     "reads_advantage_bid": true,
+     "reads_tagline": true,
+     "extra_text": []
+    },
+    "rendered_logo_elsewhere": {
+     "pass_": true,
+     "ocr_available": true,
+     "ocr_hits": [],
+     "template_hits": [],
+     "template_threshold": 0.85
+    }
+   },
+   "plan": null,
+   "copy_changes": [
+    {
+     "field": "relationship",
+     "role": "major_label",
+     "before": "In Conjunction with",
+     "after": "In Conjunction With"
+    }
+   ],
+   "copy_check": {
+    "pass": true,
+    "rejections": [],
+    "notes": []
+   },
+   "hygiene": {
+    "pass": true,
+    "violations": []
+   },
+   "density": {
+    "pass": true,
+    "hard": [],
+    "soft": [],
+    "ceiling": 7,
+    "blocks": 7,
+    "profile": "EVENT"
+   },
+   "template_echo": {
+    "flagged": false,
+    "props": [],
+    "rule": "the recurring collaborator props (bronze horse, blue-and-white vase, category-spine books, laptop with logo, script mug/board/box) are tagged in do_not_generalize; the object selector must not treat them as required; a scene containing ≥ 3 of them together is flagged 'template echo' and regenerated"
+   },
+   "similarity": {
+    "pass": true,
+    "failures": [],
+    "max_reference": {
+     "id": "REF-23",
+     "distance": 0.4164
+    },
+    "self_history_min": {
+     "id": "p3p-west-university:C:portrait_1080x1350",
+     "distance": 0.4143
+    },
+    "published_anchor_distance": 0.6728,
+    "thresholds": {
+     "tau_ref": 0.35,
+     "tau_self": 0.25,
+     "tau_pub": 0.4
+    },
+    "all_reference_distances": [
+     {
+      "id": "REF-01",
+      "distance": 0.8731
+     },
+     {
+      "id": "REF-02",
+      "distance": 1.0275
+     },
+     {
+      "id": "REF-03",
+      "distance": 0.6832
+     },
+     {
+      "id": "REF-04",
+      "distance": 0.9723
+     },
+     {
+      "id": "REF-05",
+      "distance": 0.6955
+     },
+     {
+      "id": "REF-06",
+      "distance": 0.7221
+     },
+     {
+      "id": "REF-07",
+      "distance": 1.0636
+     },
+     {
+      "id": "REF-08",
+      "distance": 0.8131
+     },
+     {
+      "id": "REF-19",
+      "distance": 0.6587
+     },
+     {
+      "id": "REF-18",
+      "distance": 0.6714
+     },
+     {
+      "id": "REF-09",
+      "distance": 0.7144
+     },
+     {
+      "id": "REF-10",
+      "distance": 0.6631
+     },
+     {
+      "id": "REF-11",
+      "distance": 0.5739
+     },
+     {
+      "id": "REF-22",
+      "distance": 0.7605
+     },
+     {
+      "id": "REF-17",
+      "distance": 0.8073
+     },
+     {
+      "id": "REF-14",
+      "distance": 0.8207
+     },
+     {
+      "id": "REF-15",
+      "distance": 0.827
+     },
+     {
+      "id": "REF-16",
+      "distance": 0.9052
+     },
+     {
+      "id": "REF-12",
+      "distance": 1.235
+     },
+     {
+      "id": "REF-13",
+      "distance": 0.5151
+     },
+     {
+      "id": "REF-23",
+      "distance": 0.4164
+     },
+     {
+      "id": "REF-21",
+      "distance": 0.9243
+     },
+     {
+      "id": "REF-20",
+      "distance": 0.4583
+     }
+    ]
+   },
+   "negative_signature_check": {
+    "nearest": {
+     "id": "p3p-west-university:B:square_1080x1080",
+     "distance": 0.5445
+    },
+    "tau_neg": 0.3,
+    "hard": false,
+    "penalty": false
+   },
+   "leak": {
+    "pass": true,
+    "hits": [],
+    "ocr": "unavailable (no OCR engine in the runtime image; every drawn string is checked exactly)",
+    "logo_template_match": "not_available (no seller logo templates on file)"
+   },
+   "provenance": {
+    "pass": true,
+    "reasons": []
+   },
+   "judge": {
+    "available": true,
+    "model": "claude-sonnet-5",
+    "prompt_version": "p3p1-judge-v2",
+    "runs": [
+     {
+      "items": [
+       {
+        "n": 1,
+        "score": 4,
+        "reason": "Presenter top-left, one title center, photo below, band closes"
+       },
+       {
+        "n": 2,
+        "score": 3,
+        "reason": "Sofa and chair anchor room; scale reads naturally"
+       },
+       {
+        "n": 3,
+        "score": 3,
+        "reason": "Bold red/navy contrast is truthful to estate sale event"
+       },
+       {
+        "n": 4,
+        "score": 3,
+        "reason": "Color mainly from photo; white ground stays quiet"
+       },
+       {
+        "n": 5,
+        "score": 4,
+        "reason": "No slogans, icons, or duplicate URLs present"
+       },
+       {
+        "n": 6,
+        "score": 3,
+        "reason": "Title and wordmark legible small; photo reads clearly"
+       },
+       {
+        "n": 7,
+        "score": 3,
+        "reason": "Real event photo avoids templated feel"
+       },
+       {
+        "n": 8,
+        "score": 0,
+        "reason": "No competitor or unrelated seller identity evoked"
+       },
+       {
+        "n": 9,
+        "score": 3,
+        "reason": "Clear hierarchy, honest photo, minimal copy - much better"
+       }
+      ],
+      "physical": {
+       "through": "no",
+       "through_names": "",
+       "wrong_size": "no",
+       "wrong_size_name": "",
+       "supported": "yes"
+      },
+      "comprehension": {
+       "event_type": "estate sale",
+       "who": "Lewis & Maese with Advantage.Bid",
+       "when": "Saturday, September 19, 9am-3pm",
+       "platform": "Advantage.Bid",
+       "ask": "Attend the one-day on-site estate sale in West University",
+       "masquerade": "no"
+      },
+      "notes": "Environmental photo family correctly used; hierarchy and logistics block clear.",
+      "total": 30,
+      "physical_points": 4
+     },
+     {
+      "items": [
+       {
+        "n": 1,
+        "score": 4,
+        "reason": "Presenter top-left, clear title, then photo below; strong flow."
+       },
+       {
+        "n": 2,
+        "score": 3,
+        "reason": "Sofa/chair anchor room; scale varies naturally, believable."
+       },
+       {
+        "n": 3,
+        "score": 3,
+        "reason": "Bold serif/red contrast truthful to estate-sale energy, no gimmick."
+       },
+       {
+        "n": 4,
+        "score": 3,
+        "reason": "Color mainly from photo; ground and bands stay neutral."
+       },
+       {
+        "n": 5,
+        "score": 4,
+        "reason": "No slogans, icons, or duplicate URLs; copy is minimal and factual."
+       },
+       {
+        "n": 6,
+        "score": 4,
+        "reason": "Large title and wordmark remain legible at small size."
+       },
+       {
+        "n": 7,
+        "score": 3,
+        "reason": "Real room photo avoids templated feel; layout still generic-safe."
+       },
+       {
+        "n": 8,
+        "score": 0,
+        "reason": "No competitor or third-party brand referenced."
+       },
+       {
+        "n": 9,
+        "score": 3,
+        "reason": "Clean hierarchy, real photo, solid execution; near 'much better'."
+       }
+      ],
+      "physical": {
+       "through": "no",
+       "through_names": "",
+       "wrong_size": "no",
+       "wrong_size_name": "",
+       "supported": "yes"
+      },
+      "comprehension": {
+       "event_type": "estate sale",
+       "who": "Lewis & Maese with Advantage.Bid",
+       "when": "Saturday, September 19, 9AM-3PM",
+       "platform": "Advantage.Bid",
+       "ask": "Attend the one-day on-site estate sale in West University.",
+       "masquerade": "no"
+      },
+      "notes": "Solid environmental estate-sale ad; real photo grounds authenticity, hierarchy and legibility strong.",
+      "total": 31,
+      "physical_points": 4
+     }
+    ],
+    "points": 30.5,
+    "average": 30.5,
+    "disagreement": 1,
+    "flagged": false,
+    "physical_yes": {
+     "through": false,
+     "wrong_size": false
+    },
+    "comprehension": {
+     "event_type_ok": true,
+     "who_ok": true,
+     "when_ok": true,
+     "platform_ok": true,
+     "masquerade": null,
+     "answers": {
+      "event_type": "estate sale",
+      "who": "Lewis & Maese with Advantage.Bid",
+      "when": "Saturday, September 19, 9AM-3PM",
+      "platform": "Advantage.Bid",
+      "ask": "Attend the one-day on-site estate sale in West University.",
+      "masquerade": "no"
+     }
+    },
+    "items": [
+     "Hierarchy clarity: the eye enters at the presenter, moves to one title, then to the merchandise.",
+     "Objects (or the photograph) have confident scale variation and at least one clear anchor.",
+     "Typography is confident and, where expressive, truthful to the event.",
+     "Colour comes from the merchandise; the ground and panels stay quiet.",
+     "Nothing reads as filler: no slogans, icon piles, words on merchandise, duplicate URLs.",
+     "It reads at thumbnail size (headline + wordmark legible when small).",
+     "It would not be mistaken for a template with swapped merchandise (editorial irregularity).",
+     "It does not evoke any specific competitor or seller identity (answer 0 if it does).",
+     "Overall: would the Owner say \"good\" (0), \"much better\" (2), \"love this\" (4)? Justify via items 1–9."
+    ]
+   },
+   "measurable": {
+    "points": 55.7,
+    "out_of": 60,
+    "raw": 42.7,
+    "raw_max": 46,
+    "items": [
+     {
+      "key": "merchandise_coverage_field",
+      "pts": 12,
+      "value": 1,
+      "points": 12,
+      "target": [
+       55,
+       75
+      ]
+     },
+     {
+      "key": "accidental_void",
+      "pts": 6,
+      "value": 0.4500000000000002,
+      "points": 2.7,
+      "target": "≤ 6"
+     },
+     {
+      "key": "hierarchy_incl_event_type",
+      "pts": 10,
+      "value": 1,
+      "points": 10,
+      "target": "event-type rules"
+     },
+     {
+      "key": "identity_prominence",
+      "pts": 8,
+      "value": 1,
+      "points": 8,
+      "target": "prominence-rules"
+     },
+     {
+      "key": "physical_audit_clean",
+      "pts": 8,
+      "value": null,
+      "points": null,
+      "target": "0 violations"
+     },
+     {
+      "key": "copy",
+      "pts": 6,
+      "value": 1,
+      "points": 6,
+      "target": "one headline-class element"
+     },
+     {
+      "key": "depth_planes",
+      "pts": 6,
+      "value": null,
+      "points": null,
+      "target": "≥ 2 planes"
+     },
+     {
+      "key": "light_ground",
+      "pts": 2,
+      "value": 1,
+      "points": 2,
+      "target": "canvas luminance ≥ 0.60"
+     },
+     {
+      "key": "brand_frame",
+      "pts": 2,
+      "value": 1,
+      "points": 2,
+      "target": "logo + band + wordmark"
+     }
+    ]
+   },
+   "score": 86.2,
+   "decision": "OWNER_REVIEW",
+   "hard_failures": [],
+   "regenerate_violations": [],
+   "score_basis": "measurable_60 + judge_40",
+   "bar": 70,
+   "extreme": false,
+   "publication_status": "HELD_FOR_OWNER_REVIEW",
+   "market": null,
+   "notes": "TYPE_LED: \"Estate Sale\" leads in red; West University second; the photograph the Director selected"
+  },
+  {
+   "key": "R2",
+   "format": "portrait_1080x1350",
+   "family": "EVENT_PHOTO",
+   "structure": "ENVIRONMENTAL_FULL_BLEED",
+   "profile": "EVENT",
+   "ok": true,
+   "png": "C:\\Projects\\advantage-auction-platform\\docs\\marketing\\phase3p1\\proving-grounds\\2026-09-11\\p3p1-west-university-R2-portrait_1080x1350.png",
+   "thumb": "C:\\Projects\\advantage-auction-platform\\docs\\marketing\\phase3p1\\proving-grounds\\2026-09-11\\p3p1-west-university-R2-portrait_1080x1350_thumb.png",
+   "render_sha256": "afeb316657554713739098713b826a5a57ed503f9c1f0517116bd104923880b3",
+   "metrics": {
+    "size": [
+     1080,
+     1350
+    ],
+    "family": "ENVIRONMENTAL_PHOTO",
+    "structure": null,
+    "profile": "EVENT",
+    "band_h": 159,
+    "merchandise_pct": 36.4,
+    "text_region_pct": 25.9,
+    "coverage": {
+     "field": {
+      "x": 0,
+      "y": 0,
+      "w": 1080,
+      "h": 1191
+     },
+     "field_area_px": 652116,
+     "coverage_pct": 71.7,
+     "cluster_extent_w": 1,
+     "cluster_extent_h": 0.364,
+     "upper_field_merch_pct": 23.2,
+     "largest_accidental_void_pct": 4.7,
+     "largest_accidental_void_field_pct": 6.9,
+     "canvas_merchandise_pct": 36.4,
+     "panels": [],
+     "declared_intentional": []
+    },
+    "coverage_gate": {
+     "pass_": true,
+     "hard_failures": [],
+     "soft": {
+      "coverage_in_band": true,
+      "extent_w_ok": true,
+      "extent_h_ok": false,
+      "void_ok": true,
+      "upper_ok": true
+     }
+    },
+    "prominence": {
+     "context": "seller_led_cobranded",
+     "checks": {
+      "band_wordmark_cap_pct": 5.63,
+      "seller_weight": 302037,
+      "advantage_bid_weight": 225859,
+      "weight_ratio": 0.748,
+      "relationship_cap_pct": 2.22,
+      "relationship_has_logo_mark": true,
+      "feed_proxy_wordmark_ocr": true
+     },
+     "violations": [],
+     "pass_": true
+    },
+    "colour": {
+     "pass_": true,
+     "hard_failures": [],
+     "soft": [
+      "red share of saturated copy-zone pixels 14% outside 35–65%"
+     ],
+     "canvas_luminance": 0.791,
+     "copy_zone_luminance": 0.885,
+     "red_elements": 2,
+     "red_share_saturated_copy_zone_pct": 13.5,
+     "red_band": false,
+     "red_ground": false,
+     "navy_present": true
+    },
+    "event_type": {
+     "checks": {
+      "event_type_cap_px": 65,
+      "largest_text_cap_px": 76,
+      "ratio_to_largest": 0.855,
+      "pct_of_canvas": 4.81
+     },
+     "violations": [],
+     "pass_": true
+    },
+    "density": {
+     "blocks": 7,
+     "roles": [
+      "presenter",
+      "support",
+      "event_title",
+      "event_type",
+      "date",
+      "place_plate",
+      "band"
+     ],
+     "headline_class_roles": [
+      "event_headline"
+     ],
+     "headline_dominance": 1.58
+    },
+    "copy_over_merchandise": [],
+    "largest_empty_pct": 4.7,
+    "upper_half_merch_pct": 18.4,
+    "text_blocks": 7,
+    "ground_luminance": 0.791,
+    "brand_frame": {
+     "logo": true,
+     "band": true,
+     "wordmark": true
+    },
+    "pattern": "TWO_LINE_UNIT",
+    "photo_box": {
+     "x": 0,
+     "y": 551,
+     "w": 1080,
+     "h": 433
+    },
+    "identity_scale": 1,
+    "type_scale": 1,
+    "event_type_missing": false
+   },
+   "logo": {
+    "variant": "primary_transparent",
+    "file": "advantage-bid-transparent.png",
+    "sha256": "8b5fce17b50dea4c15f73b3cfa2e54bd900db22f3106db0ee2d80ea4cd1db561",
+    "box": [
+     777,
+     112,
+     254,
+     102
+    ],
+    "scale": 0.12809,
+    "transform": "uniform_scale+position",
+    "reserved_box": [
+     777,
+     112,
+     254,
+     102
+    ],
+    "selection_reason": "light/neutral zone (luminance 1.00) → transparent lockup",
+    "ok": true
+   },
+   "logo_qa": {
+    "logo_source": {
+     "pass_": true,
+     "template_match": 1,
+     "threshold": 0.97,
+     "variant": "primary_transparent",
+     "asset_sha256": "8b5fce17b50dea4c15f73b3cfa2e54bd900db22f3106db0ee2d80ea4cd1db561",
+     "ocr_available": true,
+     "ocr_text": [
+      "ADVANTAGE.BID",
+      "GET THE ADVANTAGE"
+     ],
+     "reads_advantage_bid": true,
+     "reads_tagline": true,
+     "extra_text": []
+    },
+    "rendered_logo_elsewhere": {
+     "pass_": true,
+     "ocr_available": true,
+     "ocr_hits": [],
+     "template_hits": [],
+     "template_threshold": 0.85
+    }
+   },
+   "plan": null,
+   "copy_changes": [
+    {
+     "field": "relationship",
+     "role": "major_label",
+     "before": "In Conjunction with",
+     "after": "In Conjunction With"
+    }
+   ],
+   "copy_check": {
+    "pass": true,
+    "rejections": [],
+    "notes": []
+   },
+   "hygiene": {
+    "pass": true,
+    "violations": []
+   },
+   "density": {
+    "pass": true,
+    "hard": [],
+    "soft": [
+     "text region 25.9% > 22% (EVENT)"
+    ],
+    "ceiling": 7,
+    "blocks": 7,
+    "profile": "EVENT"
+   },
+   "template_echo": {
+    "flagged": false,
+    "props": [],
+    "rule": "the recurring collaborator props (bronze horse, blue-and-white vase, category-spine books, laptop with logo, script mug/board/box) are tagged in do_not_generalize; the object selector must not treat them as required; a scene containing ≥ 3 of them together is flagged 'template echo' and regenerated"
+   },
+   "similarity": {
+    "pass": false,
+    "failures": [
+     "too close to prior creative p3p1-west-university:R1:portrait_1080x1350 (0.0149 < τ_self 0.25)"
+    ],
+    "max_reference": {
+     "id": "REF-23",
+     "distance": 0.4228
+    },
+    "self_history_min": {
+     "id": "p3p1-west-university:R1:portrait_1080x1350",
+     "distance": 0.0149
+    },
+    "published_anchor_distance": 0.7215,
+    "thresholds": {
+     "tau_ref": 0.35,
+     "tau_self": 0.25,
+     "tau_pub": 0.4
+    },
+    "all_reference_distances": [
+     {
+      "id": "REF-01",
+      "distance": 0.8708
+     },
+     {
+      "id": "REF-02",
+      "distance": 1.0044
+     },
+     {
+      "id": "REF-03",
+      "distance": 0.6959
+     },
+     {
+      "id": "REF-04",
+      "distance": 0.9648
+     },
+     {
+      "id": "REF-05",
+      "distance": 0.6761
+     },
+     {
+      "id": "REF-06",
+      "distance": 0.6954
+     },
+     {
+      "id": "REF-07",
+      "distance": 1.0765
+     },
+     {
+      "id": "REF-08",
+      "distance": 0.8523
+     },
+     {
+      "id": "REF-19",
+      "distance": 0.6742
+     },
+     {
+      "id": "REF-18",
+      "distance": 0.704
+     },
+     {
+      "id": "REF-09",
+      "distance": 0.6814
+     },
+     {
+      "id": "REF-10",
+      "distance": 0.6549
+     },
+     {
+      "id": "REF-11",
+      "distance": 0.5927
+     },
+     {
+      "id": "REF-22",
+      "distance": 0.7809
+     },
+     {
+      "id": "REF-17",
+      "distance": 0.8294
+     },
+     {
+      "id": "REF-14",
+      "distance": 0.8375
+     },
+     {
+      "id": "REF-15",
+      "distance": 0.8458
+     },
+     {
+      "id": "REF-16",
+      "distance": 0.903
+     },
+     {
+      "id": "REF-12",
+      "distance": 1.1984
+     },
+     {
+      "id": "REF-13",
+      "distance": 0.5037
+     },
+     {
+      "id": "REF-23",
+      "distance": 0.4228
+     },
+     {
+      "id": "REF-21",
+      "distance": 0.9491
+     },
+     {
+      "id": "REF-20",
+      "distance": 0.4752
+     }
+    ]
+   },
+   "negative_signature_check": {
+    "nearest": {
+     "id": "p3p-west-university:B:square_1080x1080",
+     "distance": 0.5582
+    },
+    "tau_neg": 0.3,
+    "hard": false,
+    "penalty": false
+   },
+   "leak": {
+    "pass": true,
+    "hits": [],
+    "ocr": "unavailable (no OCR engine in the runtime image; every drawn string is checked exactly)",
+    "logo_template_match": "not_available (no seller logo templates on file)"
+   },
+   "provenance": {
+    "pass": true,
+    "reasons": []
+   },
+   "judge": {
+    "available": true,
+    "model": "claude-sonnet-5",
+    "prompt_version": "p3p1-judge-v2",
+    "runs": [
+     {
+      "items": [
+       {
+        "n": 1,
+        "score": 4,
+        "reason": "Presenter, single title, photo, navy band all correctly ordered"
+       },
+       {
+        "n": 2,
+        "score": 3,
+        "reason": "Sofa anchors scene; varied furniture sizes read naturally"
+       },
+       {
+        "n": 3,
+        "score": 3,
+        "reason": "Confident serif title, red rule accent, no false expressiveness"
+       },
+       {
+        "n": 4,
+        "score": 3,
+        "reason": "Color drawn from photo; ground and bands stay neutral"
+       },
+       {
+        "n": 5,
+        "score": 4,
+        "reason": "No slogans, icon piles, or duplicate URLs present"
+       },
+       {
+        "n": 6,
+        "score": 3,
+        "reason": "Title and logo legible small; photo detail may blur"
+       },
+       {
+        "n": 7,
+        "score": 3,
+        "reason": "Real site photo prevents generic template feel"
+       },
+       {
+        "n": 8,
+        "score": 4,
+        "reason": "No competitor identity implied; presenter is legitimate seller"
+       },
+       {
+        "n": 9,
+        "score": 2,
+        "reason": "Solid execution but photo share below 50-60% target range"
+       }
+      ],
+      "physical": {
+       "through": "no",
+       "through_names": "",
+       "wrong_size": "no",
+       "wrong_size_name": "",
+       "supported": "yes"
+      },
+      "comprehension": {
+       "event_type": "estate sale",
+       "who": "Lewis & Maese with Advantage.Bid",
+       "when": "Saturday, September 19, 9am-3pm",
+       "platform": "Advantage.Bid",
+       "ask": "Visit the West University estate sale Saturday Sept 19, 9am-3pm",
+       "masquerade": "no"
+      },
+      "notes": "Photo band undersized relative to 50-60% merchandise share target; otherwise hierarchy and copy are clean and on-principle.",
+      "total": 33,
+      "physical_points": 4
+     },
+     {
+      "items": [
+       {
+        "n": 1,
+        "score": 3,
+        "reason": "Presenter top, title center, photo below, band closes; clear flow."
+       },
+       {
+        "n": 2,
+        "score": 3,
+        "reason": "Sofa anchors scene with varied smaller pieces around it."
+       },
+       {
+        "n": 3,
+        "score": 2,
+        "reason": "Solid serif title but no expressive contrast used."
+       },
+       {
+        "n": 4,
+        "score": 3,
+        "reason": "Color from wood, rug, chair; ground and text stay quiet."
+       },
+       {
+        "n": 5,
+        "score": 4,
+        "reason": "Copy is minimal—date, hours, neighborhood only."
+       },
+       {
+        "n": 6,
+        "score": 3,
+        "reason": "Bold title and photo remain legible at small size."
+       },
+       {
+        "n": 7,
+        "score": 3,
+        "reason": "Real interior photo feels authentic, not a generic template."
+       },
+       {
+        "n": 8,
+        "score": 4,
+        "reason": "Lewis & Maese is the presenter, not a competitor evocation."
+       },
+       {
+        "n": 9,
+        "score": 3,
+        "reason": "Clean hierarchy, honest photo, minimal copy—much better."
+       }
+      ],
+      "physical": {
+       "through": "no",
+       "through_names": "",
+       "wrong_size": "no",
+       "wrong_size_name": "",
+       "supported": "yes"
+      },
+      "comprehension": {
+       "event_type": "estate sale",
+       "who": "Lewis & Maese with Advantage.Bid",
+       "when": "Saturday, September 19, 9am-3pm",
+       "platform": "Advantage.Bid",
+       "ask": "Attend the one-day on-site estate sale at the stated time and place.",
+       "masquerade": "no"
+      },
+      "notes": "Solid environmental estate-sale execution; typography could express more contrast.",
+      "total": 32,
+      "physical_points": 4
+     }
+    ],
+    "points": 32.5,
+    "average": 32.5,
+    "disagreement": 1,
+    "flagged": false,
+    "physical_yes": {
+     "through": false,
+     "wrong_size": false
+    },
+    "comprehension": {
+     "event_type_ok": true,
+     "who_ok": true,
+     "when_ok": true,
+     "platform_ok": true,
+     "masquerade": null,
+     "answers": {
+      "event_type": "estate sale",
+      "who": "Lewis & Maese with Advantage.Bid",
+      "when": "Saturday, September 19, 9am-3pm",
+      "platform": "Advantage.Bid",
+      "ask": "Attend the one-day on-site estate sale at the stated time and place.",
+      "masquerade": "no"
+     }
+    },
+    "items": [
+     "Hierarchy clarity: the eye enters at the presenter, moves to one title, then to the merchandise.",
+     "Objects (or the photograph) have confident scale variation and at least one clear anchor.",
+     "Typography is confident and, where expressive, truthful to the event.",
+     "Colour comes from the merchandise; the ground and panels stay quiet.",
+     "Nothing reads as filler: no slogans, icon piles, words on merchandise, duplicate URLs.",
+     "It reads at thumbnail size (headline + wordmark legible when small).",
+     "It would not be mistaken for a template with swapped merchandise (editorial irregularity).",
+     "It does not evoke any specific competitor or seller identity (answer 0 if it does).",
+     "Overall: would the Owner say \"good\" (0), \"much better\" (2), \"love this\" (4)? Justify via items 1–9."
+    ]
+   },
+   "measurable": {
+    "points": 60,
+    "out_of": 60,
+    "raw": 46,
+    "raw_max": 46,
+    "items": [
+     {
+      "key": "merchandise_coverage_field",
+      "pts": 12,
+      "value": 1,
+      "points": 12,
+      "target": [
+       55,
+       75
+      ]
+     },
+     {
+      "key": "accidental_void",
+      "pts": 6,
+      "value": 1,
+      "points": 6,
+      "target": "≤ 6"
+     },
+     {
+      "key": "hierarchy_incl_event_type",
+      "pts": 10,
+      "value": 1,
+      "points": 10,
+      "target": "event-type rules"
+     },
+     {
+      "key": "identity_prominence",
+      "pts": 8,
+      "value": 1,
+      "points": 8,
+      "target": "prominence-rules"
+     },
+     {
+      "key": "physical_audit_clean",
+      "pts": 8,
+      "value": null,
+      "points": null,
+      "target": "0 violations"
+     },
+     {
+      "key": "copy",
+      "pts": 6,
+      "value": 1,
+      "points": 6,
+      "target": "one headline-class element"
+     },
+     {
+      "key": "depth_planes",
+      "pts": 6,
+      "value": null,
+      "points": null,
+      "target": "≥ 2 planes"
+     },
+     {
+      "key": "light_ground",
+      "pts": 2,
+      "value": 1,
+      "points": 2,
+      "target": "canvas luminance ≥ 0.60"
+     },
+     {
+      "key": "brand_frame",
+      "pts": 2,
+      "value": 1,
+      "points": 2,
+      "target": "logo + band + wordmark"
+     }
+    ]
+   },
+   "score": 0,
+   "decision": "HARD_FAIL",
+   "hard_failures": [
+    {
+     "gate": "G11_anti_similarity",
+     "detail": [
+      "too close to prior creative p3p1-west-university:R1:portrait_1080x1350 (0.0149 < τ_self 0.25)"
+     ]
+    }
+   ],
+   "regenerate_violations": [],
+   "score_basis": "measurable_60 + judge_40",
+   "bar": 70,
+   "extreme": false,
+   "publication_status": "HELD_FOR_OWNER_REVIEW",
+   "market": null,
+   "notes": "TWO_LINE_UNIT: place / type; the red moves to the date"
+  },
+  {
+   "key": "R2",
+   "format": "square_1080x1080",
+   "family": "EVENT_PHOTO",
+   "structure": "ENVIRONMENTAL_FULL_BLEED",
+   "profile": "EVENT",
+   "ok": true,
+   "png": "C:\\Projects\\advantage-auction-platform\\docs\\marketing\\phase3p1\\proving-grounds\\2026-09-11\\p3p1-west-university-R2-square_1080x1080.png",
+   "thumb": "C:\\Projects\\advantage-auction-platform\\docs\\marketing\\phase3p1\\proving-grounds\\2026-09-11\\p3p1-west-university-R2-square_1080x1080_thumb.png",
+   "render_sha256": "d471d22b5f2f8998d386cc041afe522ea3a1ab256ad38d340bb228ac7fe8d75b",
+   "metrics": {
+    "size": [
+     1080,
+     1080
+    ],
+    "family": "ENVIRONMENTAL_PHOTO",
+    "structure": null,
+    "profile": "EVENT",
+    "band_h": 139,
+    "merchandise_pct": 35.9,
+    "text_region_pct": 20.9,
+    "coverage": {
+     "field": {
+      "x": 0,
+      "y": 0,
+      "w": 1080,
+      "h": 941
+     },
+     "field_area_px": 505980,
+     "coverage_pct": 72.1,
+     "cluster_extent_w": 1,
+     "cluster_extent_h": 0.359,
+     "upper_field_merch_pct": 22.1,
+     "largest_accidental_void_pct": 6.5,
+     "largest_accidental_void_field_pct": 6.2,
+     "canvas_merchandise_pct": 35.9,
+     "panels": [],
+     "declared_intentional": []
+    },
+    "coverage_gate": {
+     "pass_": true,
+     "hard_failures": [],
+     "soft": {
+      "coverage_in_band": true,
+      "extent_w_ok": true,
+      "extent_h_ok": false,
+      "void_ok": false,
+      "upper_ok": true
+     }
+    },
+    "prominence": {
+     "context": "seller_led_cobranded",
+     "checks": {
+      "band_wordmark_cap_pct": 6.39,
+      "seller_weight": 192238,
+      "advantage_bid_weight": 143493,
+      "weight_ratio": 0.746,
+      "relationship_cap_pct": 2.22,
+      "relationship_has_logo_mark": true,
+      "feed_proxy_wordmark_ocr": true
+     },
+     "violations": [],
+     "pass_": true
+    },
+    "colour": {
+     "pass_": true,
+     "hard_failures": [],
+     "soft": [
+      "red share of saturated copy-zone pixels 14% outside 35–65%"
+     ],
+     "canvas_luminance": 0.799,
+     "copy_zone_luminance": 0.906,
+     "red_elements": 2,
+     "red_share_saturated_copy_zone_pct": 13.7,
+     "red_band": false,
+     "red_ground": false,
+     "navy_present": true
+    },
+    "event_type": {
+     "checks": {
+      "event_type_cap_px": 52,
+      "largest_text_cap_px": 59,
+      "ratio_to_largest": 0.881,
+      "pct_of_canvas": 4.81
+     },
+     "violations": [],
+     "pass_": true
+    },
+    "density": {
+     "blocks": 7,
+     "roles": [
+      "presenter",
+      "support",
+      "event_title",
+      "event_type",
+      "date",
+      "place_plate",
+      "band"
+     ],
+     "headline_class_roles": [
+      "event_headline"
+     ],
+     "headline_dominance": 1.55
+    },
+    "copy_over_merchandise": [],
+    "largest_empty_pct": 6.5,
+    "upper_half_merch_pct": 19.1,
+    "text_blocks": 7,
+    "ground_luminance": 0.799,
+    "brand_frame": {
+     "logo": true,
+     "band": true,
+     "wordmark": true
+    },
+    "pattern": "TWO_LINE_UNIT",
+    "photo_box": {
+     "x": 0,
+     "y": 437,
+     "w": 1080,
+     "h": 338
+    },
+    "identity_scale": 1,
+    "type_scale": 1,
+    "event_type_missing": false
+   },
+   "logo": {
+    "variant": "primary_transparent",
+    "file": "advantage-bid-transparent.png",
+    "sha256": "8b5fce17b50dea4c15f73b3cfa2e54bd900db22f3106db0ee2d80ea4cd1db561",
+    "box": [
+     828,
+     90,
+     203,
+     81
+    ],
+    "scale": 0.10237,
+    "transform": "uniform_scale+position",
+    "reserved_box": [
+     828,
+     90,
+     203,
+     81
+    ],
+    "selection_reason": "light/neutral zone (luminance 1.00) → transparent lockup",
+    "ok": true
+   },
+   "logo_qa": {
+    "logo_source": {
+     "pass_": true,
+     "template_match": 1,
+     "threshold": 0.97,
+     "variant": "primary_transparent",
+     "asset_sha256": "8b5fce17b50dea4c15f73b3cfa2e54bd900db22f3106db0ee2d80ea4cd1db561",
+     "ocr_available": true,
+     "ocr_text": [
+      "ADVANTAGE.BID",
+      "GET THE ADVANTAGE"
+     ],
+     "reads_advantage_bid": true,
+     "reads_tagline": true,
+     "extra_text": []
+    },
+    "rendered_logo_elsewhere": {
+     "pass_": true,
+     "ocr_available": true,
+     "ocr_hits": [],
+     "template_hits": [],
+     "template_threshold": 0.85
+    }
+   },
+   "plan": null,
+   "copy_changes": [
+    {
+     "field": "relationship",
+     "role": "major_label",
+     "before": "In Conjunction with",
+     "after": "In Conjunction With"
+    }
+   ],
+   "copy_check": {
+    "pass": true,
+    "rejections": [],
+    "notes": []
+   },
+   "hygiene": {
+    "pass": true,
+    "violations": []
+   },
+   "density": {
+    "pass": true,
+    "hard": [],
+    "soft": [],
+    "ceiling": 7,
+    "blocks": 7,
+    "profile": "EVENT"
+   },
+   "template_echo": {
+    "flagged": false,
+    "props": [],
+    "rule": "the recurring collaborator props (bronze horse, blue-and-white vase, category-spine books, laptop with logo, script mug/board/box) are tagged in do_not_generalize; the object selector must not treat them as required; a scene containing ≥ 3 of them together is flagged 'template echo' and regenerated"
+   },
+   "similarity": {
+    "pass": false,
+    "failures": [
+     "too close to prior creative p3p1-west-university:R1:square_1080x1080 (0.0093 < τ_self 0.25)"
+    ],
+    "max_reference": {
+     "id": "REF-23",
+     "distance": 0.4186
+    },
+    "self_history_min": {
+     "id": "p3p1-west-university:R1:square_1080x1080",
+     "distance": 0.0093
+    },
+    "published_anchor_distance": 0.6772,
+    "thresholds": {
+     "tau_ref": 0.35,
+     "tau_self": 0.25,
+     "tau_pub": 0.4
+    },
+    "all_reference_distances": [
+     {
+      "id": "REF-01",
+      "distance": 0.8629
+     },
+     {
+      "id": "REF-02",
+      "distance": 1.0208
+     },
+     {
+      "id": "REF-03",
+      "distance": 0.6746
+     },
+     {
+      "id": "REF-04",
+      "distance": 0.9715
+     },
+     {
+      "id": "REF-05",
+      "distance": 0.6873
+     },
+     {
+      "id": "REF-06",
+      "distance": 0.715
+     },
+     {
+      "id": "REF-07",
+      "distance": 1.0611
+     },
+     {
+      "id": "REF-08",
+      "distance": 0.8206
+     },
+     {
+      "id": "REF-19",
+      "distance": 0.6628
+     },
+     {
+      "id": "REF-18",
+      "distance": 0.6694
+     },
+     {
+      "id": "REF-09",
+      "distance": 0.7099
+     },
+     {
+      "id": "REF-10",
+      "distance": 0.6632
+     },
+     {
+      "id": "REF-11",
+      "distance": 0.582
+     },
+     {
+      "id": "REF-22",
+      "distance": 0.7618
+     },
+     {
+      "id": "REF-17",
+      "distance": 0.8031
+     },
+     {
+      "id": "REF-14",
+      "distance": 0.8131
+     },
+     {
+      "id": "REF-15",
+      "distance": 0.822
+     },
+     {
+      "id": "REF-16",
+      "distance": 0.9109
+     },
+     {
+      "id": "REF-12",
+      "distance": 1.2382
+     },
+     {
+      "id": "REF-13",
+      "distance": 0.5209
+     },
+     {
+      "id": "REF-23",
+      "distance": 0.4186
+     },
+     {
+      "id": "REF-21",
+      "distance": 0.9233
+     },
+     {
+      "id": "REF-20",
+      "distance": 0.4596
+     }
+    ]
+   },
+   "negative_signature_check": {
+    "nearest": {
+     "id": "p3p-west-university:B:square_1080x1080",
+     "distance": 0.544
+    },
+    "tau_neg": 0.3,
+    "hard": false,
+    "penalty": false
+   },
+   "leak": {
+    "pass": true,
+    "hits": [],
+    "ocr": "unavailable (no OCR engine in the runtime image; every drawn string is checked exactly)",
+    "logo_template_match": "not_available (no seller logo templates on file)"
+   },
+   "provenance": {
+    "pass": true,
+    "reasons": []
+   },
+   "judge": {
+    "available": true,
+    "model": "claude-sonnet-5",
+    "prompt_version": "p3p1-judge-v2",
+    "runs": [
+     {
+      "items": [
+       {
+        "n": 1,
+        "score": 3,
+        "reason": "Presenter top-left, title centered, then photo below flows naturally."
+       },
+       {
+        "n": 2,
+        "score": 3,
+        "reason": "Room photo shows varied furniture scale, sofa as clear anchor."
+       },
+       {
+        "n": 3,
+        "score": 3,
+        "reason": "Serif title bold, truthful place-led naming, no false expressive flourish."
+       },
+       {
+        "n": 4,
+        "score": 3,
+        "reason": "Color comes from warm room photo; ground and text stay neutral."
+       },
+       {
+        "n": 5,
+        "score": 4,
+        "reason": "No slogans, icon piles, or duplicate URLs; copy is minimal."
+       },
+       {
+        "n": 6,
+        "score": 3,
+        "reason": "Title and Advantage.Bid band remain legible at small size."
+       },
+       {
+        "n": 7,
+        "score": 3,
+        "reason": "Real interior photo feels specific, not a generic template."
+       },
+       {
+        "n": 8,
+        "score": 0,
+        "reason": "No competitor identity shown, only presenter and platform names."
+       },
+       {
+        "n": 9,
+        "score": 3,
+        "reason": "Clear hierarchy, honest photo, minimal copy; close to much better."
+       }
+      ],
+      "physical": {
+       "through": "no",
+       "through_names": "",
+       "wrong_size": "no",
+       "wrong_size_name": "",
+       "supported": "yes"
+      },
+      "comprehension": {
+       "event_type": "estate sale",
+       "who": "Lewis & Maese",
+       "when": "Saturday, September 19, 9AM-3PM",
+       "platform": "Advantage.Bid",
+       "ask": "Attend the West University estate sale on the listed date",
+       "masquerade": "no"
+      },
+      "notes": "Clean environmental estate-sale ad with strong hierarchy and honest photography.",
+      "total": 29,
+      "physical_points": 4
+     },
+     {
+      "items": [
+       {
+        "n": 1,
+        "score": 3,
+        "reason": "Presenter top, single title, photo below flows well"
+       },
+       {
+        "n": 2,
+        "score": 3,
+        "reason": "Furniture varies in scale; sofa/chair grouping anchors room"
+       },
+       {
+        "n": 3,
+        "score": 2,
+        "reason": "Clean serif title, no expressive contrast device used"
+       },
+       {
+        "n": 4,
+        "score": 3,
+        "reason": "Warm photo tones and red rug carry color; ground quiet"
+       },
+       {
+        "n": 5,
+        "score": 3,
+        "reason": "Minimal copy; no slogans or icon piles present"
+       },
+       {
+        "n": 6,
+        "score": 3,
+        "reason": "Bold title and navy wordmark band read at small size"
+       },
+       {
+        "n": 7,
+        "score": 2,
+        "reason": "Layout follows familiar estate-sale template structure closely"
+       },
+       {
+        "n": 8,
+        "score": 4,
+        "reason": "No competitor identity evoked; presenter name is legitimate"
+       },
+       {
+        "n": 9,
+        "score": 2,
+        "reason": "Solid, clear execution but not distinctive; 'much better' tier"
+       }
+      ],
+      "physical": {
+       "through": "no",
+       "through_names": "",
+       "wrong_size": "no",
+       "wrong_size_name": "",
+       "supported": "yes"
+      },
+      "comprehension": {
+       "event_type": "estate_sale",
+       "who": "Lewis & Maese with Advantage.Bid",
+       "when": "Saturday, September 19, 9AM-3PM",
+       "platform": "Advantage.Bid",
+       "ask": "Attend the West University estate sale on the listed date",
+       "masquerade": "no"
+      },
+      "notes": "Standard, competent environmental-photo estate sale ad with clear hierarchy but conventional structure.",
+      "total": 29,
+      "physical_points": 4
+     }
+    ],
+    "points": 29,
+    "average": 29,
+    "disagreement": 0,
+    "flagged": false,
+    "physical_yes": {
+     "through": false,
+     "wrong_size": false
+    },
+    "comprehension": {
+     "event_type_ok": false,
+     "who_ok": true,
+     "when_ok": true,
+     "platform_ok": true,
+     "masquerade": null,
+     "answers": {
+      "event_type": "estate_sale",
+      "who": "Lewis & Maese with Advantage.Bid",
+      "when": "Saturday, September 19, 9AM-3PM",
+      "platform": "Advantage.Bid",
+      "ask": "Attend the West University estate sale on the listed date",
+      "masquerade": "no"
+     }
+    },
+    "items": [
+     "Hierarchy clarity: the eye enters at the presenter, moves to one title, then to the merchandise.",
+     "Objects (or the photograph) have confident scale variation and at least one clear anchor.",
+     "Typography is confident and, where expressive, truthful to the event.",
+     "Colour comes from the merchandise; the ground and panels stay quiet.",
+     "Nothing reads as filler: no slogans, icon piles, words on merchandise, duplicate URLs.",
+     "It reads at thumbnail size (headline + wordmark legible when small).",
+     "It would not be mistaken for a template with swapped merchandise (editorial irregularity).",
+     "It does not evoke any specific competitor or seller identity (answer 0 if it does).",
+     "Overall: would the Owner say \"good\" (0), \"much better\" (2), \"love this\" (4)? Justify via items 1–9."
+    ]
+   },
+   "measurable": {
+    "points": 59.02,
+    "out_of": 60,
+    "raw": 45.25,
+    "raw_max": 46,
+    "items": [
+     {
+      "key": "merchandise_coverage_field",
+      "pts": 12,
+      "value": 1,
+      "points": 12,
+      "target": [
+       55,
+       75
+      ]
+     },
+     {
+      "key": "accidental_void",
+      "pts": 6,
+      "value": 0.875,
+      "points": 5.25,
+      "target": "≤ 6"
+     },
+     {
+      "key": "hierarchy_incl_event_type",
+      "pts": 10,
+      "value": 1,
+      "points": 10,
+      "target": "event-type rules"
+     },
+     {
+      "key": "identity_prominence",
+      "pts": 8,
+      "value": 1,
+      "points": 8,
+      "target": "prominence-rules"
+     },
+     {
+      "key": "physical_audit_clean",
+      "pts": 8,
+      "value": null,
+      "points": null,
+      "target": "0 violations"
+     },
+     {
+      "key": "copy",
+      "pts": 6,
+      "value": 1,
+      "points": 6,
+      "target": "one headline-class element"
+     },
+     {
+      "key": "depth_planes",
+      "pts": 6,
+      "value": null,
+      "points": null,
+      "target": "≥ 2 planes"
+     },
+     {
+      "key": "light_ground",
+      "pts": 2,
+      "value": 1,
+      "points": 2,
+      "target": "canvas luminance ≥ 0.60"
+     },
+     {
+      "key": "brand_frame",
+      "pts": 2,
+      "value": 1,
+      "points": 2,
+      "target": "logo + band + wordmark"
+     }
+    ]
+   },
+   "score": 0,
+   "decision": "HARD_FAIL",
+   "hard_failures": [
+    {
+     "gate": "G11_anti_similarity",
+     "detail": [
+      "too close to prior creative p3p1-west-university:R1:square_1080x1080 (0.0093 < τ_self 0.25)"
+     ]
+    }
+   ],
+   "regenerate_violations": [
+    {
+     "gate": "judge_comprehension",
+     "detail": {
+      "event_type_ok": false,
+      "who_ok": true,
+      "when_ok": true,
+      "platform_ok": true,
+      "masquerade": null,
+      "answers": {
+       "event_type": "estate_sale",
+       "who": "Lewis & Maese with Advantage.Bid",
+       "when": "Saturday, September 19, 9AM-3PM",
+       "platform": "Advantage.Bid",
+       "ask": "Attend the West University estate sale on the listed date",
+       "masquerade": "no"
+      }
+     }
+    }
+   ],
+   "score_basis": "measurable_60 + judge_40",
+   "bar": 70,
+   "extreme": false,
+   "publication_status": "HELD_FOR_OWNER_REVIEW",
+   "market": null,
+   "notes": "TWO_LINE_UNIT: place / type; the red moves to the date"
+  },
+  {
+   "key": "R3",
+   "format": "portrait_1080x1350",
+   "family": "EVENT_PHOTO",
+   "structure": "ENVIRONMENTAL_FULL_BLEED",
+   "profile": "EVENT",
+   "ok": true,
+   "png": "C:\\Projects\\advantage-auction-platform\\docs\\marketing\\phase3p1\\proving-grounds\\2026-09-11\\p3p1-west-university-R3-portrait_1080x1350.png",
+   "thumb": "C:\\Projects\\advantage-auction-platform\\docs\\marketing\\phase3p1\\proving-grounds\\2026-09-11\\p3p1-west-university-R3-portrait_1080x1350_thumb.png",
+   "render_sha256": "a324f8f89fe2bccf192c46b40b7dc3f14bdc7a4a9e71384581dd602b813d06c2",
+   "metrics": {
+    "size": [
+     1080,
+     1350
+    ],
+    "family": "ENVIRONMENTAL_PHOTO",
+    "structure": null,
+    "profile": "EVENT",
+    "band_h": 159,
+    "merchandise_pct": 27.3,
+    "text_region_pct": 34,
+    "coverage": {
+     "field": {
+      "x": 0,
+      "y": 0,
+      "w": 1080,
+      "h": 1191
+     },
+     "field_area_px": 556722,
+     "coverage_pct": 63,
+     "cluster_extent_w": 1,
+     "cluster_extent_h": 0.273,
+     "upper_field_merch_pct": 0,
+     "largest_accidental_void_pct": 6.5,
+     "largest_accidental_void_field_pct": 12.2,
+     "canvas_merchandise_pct": 27.3,
+     "panels": [],
+     "declared_intentional": []
+    },
+    "coverage_gate": {
+     "pass_": true,
+     "hard_failures": [],
+     "soft": {
+      "coverage_in_band": true,
+      "extent_w_ok": true,
+      "extent_h_ok": false,
+      "void_ok": false,
+      "upper_ok": true
+     }
+    },
+    "prominence": {
+     "context": "seller_led_cobranded",
+     "checks": {
+      "band_wordmark_cap_pct": 5.63,
+      "seller_weight": 302037,
+      "advantage_bid_weight": 381881,
+      "weight_ratio": 1.264,
+      "relationship_cap_pct": 2.89,
+      "relationship_has_logo_mark": true,
+      "feed_proxy_wordmark_ocr": true
+     },
+     "violations": [
+      {
+       "check": "weight_ratio",
+       "message": "Advantage.Bid weight 1.26× the seller's > 0.9 (competes)"
+      }
+     ],
+     "pass_": false
+    },
+    "colour": {
+     "pass_": true,
+     "hard_failures": [],
+     "soft": [],
+     "canvas_luminance": 0.815,
+     "copy_zone_luminance": 0.881,
+     "red_elements": 2,
+     "red_share_saturated_copy_zone_pct": 42.3,
+     "red_band": false,
+     "red_ground": false,
+     "navy_present": true
+    },
+    "event_type": {
+     "checks": {
+      "event_type_cap_px": 113,
+      "largest_text_cap_px": 113,
+      "ratio_to_largest": 1,
+      "pct_of_canvas": 8.37
+     },
+     "violations": [],
+     "pass_": true
+    },
+    "density": {
+     "blocks": 7,
+     "roles": [
+      "presenter",
+      "support",
+      "event_type",
+      "event_title",
+      "date",
+      "place_plate",
+      "band"
+     ],
+     "headline_class_roles": [
+      "event_headline"
+     ],
+     "headline_dominance": 2.35
+    },
+    "copy_over_merchandise": [],
+    "largest_empty_pct": 6.5,
+    "upper_half_merch_pct": 2.4,
+    "text_blocks": 7,
+    "ground_luminance": 0.815,
+    "brand_frame": {
+     "logo": true,
+     "band": true,
+     "wordmark": true
+    },
+    "pattern": "TYPE_LED",
+    "photo_box": {
+     "x": 0,
+     "y": 659,
+     "w": 1080,
+     "h": 325
+    },
+    "identity_scale": 1.3,
+    "type_scale": 1.3,
+    "event_type_missing": false
+   },
+   "logo": {
+    "variant": "primary_transparent",
+    "file": "advantage-bid-transparent.png",
+    "sha256": "8b5fce17b50dea4c15f73b3cfa2e54bd900db22f3106db0ee2d80ea4cd1db561",
+    "box": [
+     701,
+     131,
+     330,
+     132
+    ],
+    "scale": 0.16641,
+    "transform": "uniform_scale+position",
+    "reserved_box": [
+     701,
+     131,
+     330,
+     132
+    ],
+    "selection_reason": "light/neutral zone (luminance 1.00) → transparent lockup",
+    "ok": true
+   },
+   "logo_qa": {
+    "logo_source": {
+     "pass_": true,
+     "template_match": 1,
+     "threshold": 0.97,
+     "variant": "primary_transparent",
+     "asset_sha256": "8b5fce17b50dea4c15f73b3cfa2e54bd900db22f3106db0ee2d80ea4cd1db561",
+     "ocr_available": true,
+     "ocr_text": [
+      "ADVANTAGE.BID",
+      "GET THE ADVANTAGE"
+     ],
+     "reads_advantage_bid": true,
+     "reads_tagline": true,
+     "extra_text": []
+    },
+    "rendered_logo_elsewhere": {
+     "pass_": true,
+     "ocr_available": true,
+     "ocr_hits": [],
+     "template_hits": [],
+     "template_threshold": 0.85
+    }
+   },
+   "plan": null,
+   "copy_changes": [
+    {
+     "field": "relationship",
+     "role": "major_label",
+     "before": "In Conjunction with",
+     "after": "In Conjunction With"
+    }
+   ],
+   "copy_check": {
+    "pass": true,
+    "rejections": [],
+    "notes": []
+   },
+   "hygiene": {
+    "pass": true,
+    "violations": []
+   },
+   "density": {
+    "pass": true,
+    "hard": [],
+    "soft": [
+     "text region 34% > 22% (EVENT)"
+    ],
+    "ceiling": 7,
+    "blocks": 7,
+    "profile": "EVENT"
+   },
+   "template_echo": {
+    "flagged": false,
+    "props": [],
+    "rule": "the recurring collaborator props (bronze horse, blue-and-white vase, category-spine books, laptop with logo, script mug/board/box) are tagged in do_not_generalize; the object selector must not treat them as required; a scene containing ≥ 3 of them together is flagged 'template echo' and regenerated"
+   },
+   "similarity": {
+    "pass": true,
+    "failures": [],
+    "max_reference": {
+     "id": "REF-23",
+     "distance": 0.3891
+    },
+    "self_history_min": null,
+    "published_anchor_distance": 0.6973,
+    "thresholds": {
+     "tau_ref": 0.35,
+     "tau_self": 0.25,
+     "tau_pub": 0.4
+    },
+    "all_reference_distances": [
+     {
+      "id": "REF-01",
+      "distance": 0.8729
+     },
+     {
+      "id": "REF-02",
+      "distance": 1.0202
+     },
+     {
+      "id": "REF-03",
+      "distance": 0.6527
+     },
+     {
+      "id": "REF-04",
+      "distance": 0.9493
+     },
+     {
+      "id": "REF-05",
+      "distance": 0.6651
+     },
+     {
+      "id": "REF-06",
+      "distance": 0.7099
+     },
+     {
+      "id": "REF-07",
+      "distance": 1.0685
+     },
+     {
+      "id": "REF-08",
+      "distance": 0.8612
+     },
+     {
+      "id": "REF-19",
+      "distance": 0.6148
+     },
+     {
+      "id": "REF-18",
+      "distance": 0.6635
+     },
+     {
+      "id": "REF-09",
+      "distance": 0.695
+     },
+     {
+      "id": "REF-10",
+      "distance": 0.6017
+     },
+     {
+      "id": "REF-11",
+      "distance": 0.5772
+     },
+     {
+      "id": "REF-22",
+      "distance": 0.7856
+     },
+     {
+      "id": "REF-17",
+      "distance": 0.8666
+     },
+     {
+      "id": "REF-14",
+      "distance": 0.8421
+     },
+     {
+      "id": "REF-15",
+      "distance": 0.8442
+     },
+     {
+      "id": "REF-16",
+      "distance": 0.8639
+     },
+     {
+      "id": "REF-12",
+      "distance": 1.2334
+     },
+     {
+      "id": "REF-13",
+      "distance": 0.4638
+     },
+     {
+      "id": "REF-23",
+      "distance": 0.3891
+     },
+     {
+      "id": "REF-21",
+      "distance": 0.928
+     },
+     {
+      "id": "REF-20",
+      "distance": 0.4663
+     }
+    ]
+   },
+   "negative_signature_check": {
+    "nearest": {
+     "id": "p3p-west-university:B:square_1080x1080",
+     "distance": 0.5332
+    },
+    "tau_neg": 0.3,
+    "hard": false,
+    "penalty": false
+   },
+   "leak": {
+    "pass": true,
+    "hits": [],
+    "ocr": "unavailable (no OCR engine in the runtime image; every drawn string is checked exactly)",
+    "logo_template_match": "not_available (no seller logo templates on file)"
+   },
+   "provenance": {
+    "pass": true,
+    "reasons": []
+   },
+   "judge": {
+    "available": true,
+    "model": "claude-sonnet-5",
+    "prompt_version": "p3p1-judge-v2",
+    "runs": [
+     {
+      "items": [
+       {
+        "n": 1,
+        "score": 3,
+        "reason": "Presenter top, title clear, photo below leads eye naturally"
+       },
+       {
+        "n": 2,
+        "score": 3,
+        "reason": "Furniture shows scale variety, sofa and cabinet anchor room"
+       },
+       {
+        "n": 3,
+        "score": 3,
+        "reason": "Serif red title contrasts navy place name, truthful expressive use"
+       },
+       {
+        "n": 4,
+        "score": 3,
+        "reason": "Color mostly from photo and red accent, ground stays white"
+       },
+       {
+        "n": 5,
+        "score": 4,
+        "reason": "No slogans or icon clutter, clean logistics block only"
+       },
+       {
+        "n": 6,
+        "score": 3,
+        "reason": "Bold red title and navy band legible at small size"
+       },
+       {
+        "n": 7,
+        "score": 3,
+        "reason": "Real room photo feels specific, not a swappable template"
+       },
+       {
+        "n": 8,
+        "score": 0,
+        "reason": "No competitor branding evoked, only stated partners shown"
+       },
+       {
+        "n": 9,
+        "score": 3,
+        "reason": "Strong hierarchy, real photo, clean copy; near ideal execution"
+       }
+      ],
+      "physical": {
+       "through": "no",
+       "through_names": "",
+       "wrong_size": "no",
+       "wrong_size_name": "",
+       "supported": "yes"
+      },
+      "comprehension": {
+       "event_type": "estate sale",
+       "who": "Lewis & Maese with Advantage.Bid",
+       "when": "Saturday, September 19, 9am-3pm",
+       "platform": "Advantage.Bid",
+       "ask": "Attend the West University estate sale on-site this Saturday",
+       "masquerade": "no"
+      },
+      "notes": "Photo occupies roughly half canvas, meets share and hierarchy targets well.",
+      "total": 29,
+      "physical_points": 4
+     },
+     {
+      "items": [
+       {
+        "n": 1,
+        "score": 3,
+        "reason": "Presenter top-left, title clear, photo below; navy band closes bottom."
+       },
+       {
+        "n": 2,
+        "score": 3,
+        "reason": "Sofa, chair, chest show scale variation; sofa anchors the scene."
+       },
+       {
+        "n": 3,
+        "score": 3,
+        "reason": "Serif/script contrast for Estate Sale vs West University is confident, truthful."
+       },
+       {
+        "n": 4,
+        "score": 3,
+        "reason": "Red accent used once; photo supplies color, ground stays white."
+       },
+       {
+        "n": 5,
+        "score": 3,
+        "reason": "No slogans or icon piles; copy is minimal and factual."
+       },
+       {
+        "n": 6,
+        "score": 3,
+        "reason": "Bold red title and navy band legible at small size."
+       },
+       {
+        "n": 7,
+        "score": 2,
+        "reason": "Layout is fairly standard estate-sale template despite real photo."
+       },
+       {
+        "n": 8,
+        "score": 0,
+        "reason": "No competitor or unrelated seller identity evoked."
+       },
+       {
+        "n": 9,
+        "score": 3,
+        "reason": "Clear hierarchy, real photo, good typography; solidly 'much better'."
+       }
+      ],
+      "physical": {
+       "through": "no",
+       "through_names": "",
+       "wrong_size": "no",
+       "wrong_size_name": "",
+       "supported": "yes"
+      },
+      "comprehension": {
+       "event_type": "estate sale",
+       "who": "Lewis & Maese with Advantage.Bid",
+       "when": "Saturday, September 19, 9am-3pm",
+       "platform": "Advantage.Bid",
+       "ask": "Attend the one-day on-site estate sale in West University Houston.",
+       "masquerade": "no"
+      },
+      "notes": "Clean, brand-consistent, real event photo; minor genericness in layout.",
+      "total": 27,
+      "physical_points": 4
+     }
+    ],
+    "points": 28,
+    "average": 28,
+    "disagreement": 2,
+    "flagged": false,
+    "physical_yes": {
+     "through": false,
+     "wrong_size": false
+    },
+    "comprehension": {
+     "event_type_ok": true,
+     "who_ok": true,
+     "when_ok": true,
+     "platform_ok": true,
+     "masquerade": null,
+     "answers": {
+      "event_type": "estate sale",
+      "who": "Lewis & Maese with Advantage.Bid",
+      "when": "Saturday, September 19, 9am-3pm",
+      "platform": "Advantage.Bid",
+      "ask": "Attend the one-day on-site estate sale in West University Houston.",
+      "masquerade": "no"
+     }
+    },
+    "items": [
+     "Hierarchy clarity: the eye enters at the presenter, moves to one title, then to the merchandise.",
+     "Objects (or the photograph) have confident scale variation and at least one clear anchor.",
+     "Typography is confident and, where expressive, truthful to the event.",
+     "Colour comes from the merchandise; the ground and panels stay quiet.",
+     "Nothing reads as filler: no slogans, icon piles, words on merchandise, duplicate URLs.",
+     "It reads at thumbnail size (headline + wordmark legible when small).",
+     "It would not be mistaken for a template with swapped merchandise (editorial irregularity).",
+     "It does not evoke any specific competitor or seller identity (answer 0 if it does).",
+     "Overall: would the Owner say \"good\" (0), \"much better\" (2), \"love this\" (4)? Justify via items 1–9."
+    ]
+   },
+   "measurable": {
+    "points": 56.41,
+    "out_of": 60,
+    "raw": 43.25,
+    "raw_max": 46,
+    "items": [
+     {
+      "key": "merchandise_coverage_field",
+      "pts": 12,
+      "value": 1,
+      "points": 12,
+      "target": [
+       55,
+       75
+      ]
+     },
+     {
+      "key": "accidental_void",
+      "pts": 6,
+      "value": 0.875,
+      "points": 5.25,
+      "target": "≤ 6"
+     },
+     {
+      "key": "hierarchy_incl_event_type",
+      "pts": 10,
+      "value": 1,
+      "points": 10,
+      "target": "event-type rules"
+     },
+     {
+      "key": "identity_prominence",
+      "pts": 8,
+      "value": 0.75,
+      "points": 6,
+      "target": "prominence-rules"
+     },
+     {
+      "key": "physical_audit_clean",
+      "pts": 8,
+      "value": null,
+      "points": null,
+      "target": "0 violations"
+     },
+     {
+      "key": "copy",
+      "pts": 6,
+      "value": 1,
+      "points": 6,
+      "target": "one headline-class element"
+     },
+     {
+      "key": "depth_planes",
+      "pts": 6,
+      "value": null,
+      "points": null,
+      "target": "≥ 2 planes"
+     },
+     {
+      "key": "light_ground",
+      "pts": 2,
+      "value": 1,
+      "points": 2,
+      "target": "canvas luminance ≥ 0.60"
+     },
+     {
+      "key": "brand_frame",
+      "pts": 2,
+      "value": 1,
+      "points": 2,
+      "target": "logo + band + wordmark"
+     }
+    ]
+   },
+   "score": 84.41,
+   "decision": "NOT_FOR_PUBLICATION",
+   "hard_failures": [],
+   "regenerate_violations": [],
+   "score_basis": "measurable_60 + judge_40",
+   "bar": 70,
+   "extreme": true,
+   "publication_status": "NOT_FOR_PUBLICATION",
+   "market": null,
+   "notes": "Calibration extreme: identity and event type at 1.3×, nothing else enlarged — say \"come back X%\""
+  },
+  {
+   "key": "R3",
+   "format": "square_1080x1080",
+   "family": "EVENT_PHOTO",
+   "structure": "ENVIRONMENTAL_FULL_BLEED",
+   "profile": "EVENT",
+   "ok": true,
+   "png": "C:\\Projects\\advantage-auction-platform\\docs\\marketing\\phase3p1\\proving-grounds\\2026-09-11\\p3p1-west-university-R3-square_1080x1080.png",
+   "thumb": "C:\\Projects\\advantage-auction-platform\\docs\\marketing\\phase3p1\\proving-grounds\\2026-09-11\\p3p1-west-university-R3-square_1080x1080_thumb.png",
+   "render_sha256": "a81b1a8482b6a83e6e65aadbfa8ceb661f01782850d5b286c0e55a99aad5cd3d",
+   "metrics": {
+    "size": [
+     1080,
+     1080
+    ],
+    "family": "ENVIRONMENTAL_PHOTO",
+    "structure": null,
+    "profile": "EVENT",
+    "band_h": 139,
+    "merchandise_pct": 26.7,
+    "text_region_pct": 27.6,
+    "coverage": {
+     "field": {
+      "x": 0,
+      "y": 0,
+      "w": 1080,
+      "h": 941
+     },
+     "field_area_px": 430521,
+     "coverage_pct": 63,
+     "cluster_extent_w": 1,
+     "cluster_extent_h": 0.267,
+     "upper_field_merch_pct": 0,
+     "largest_accidental_void_pct": 8.7,
+     "largest_accidental_void_field_pct": 13.7,
+     "canvas_merchandise_pct": 26.7,
+     "panels": [],
+     "declared_intentional": []
+    },
+    "coverage_gate": {
+     "pass_": true,
+     "hard_failures": [],
+     "soft": {
+      "coverage_in_band": true,
+      "extent_w_ok": true,
+      "extent_h_ok": false,
+      "void_ok": false,
+      "upper_ok": true
+     }
+    },
+    "prominence": {
+     "context": "seller_led_cobranded",
+     "checks": {
+      "band_wordmark_cap_pct": 6.39,
+      "seller_weight": 192238,
+      "advantage_bid_weight": 243560,
+      "weight_ratio": 1.267,
+      "relationship_cap_pct": 2.87,
+      "relationship_has_logo_mark": true,
+      "feed_proxy_wordmark_ocr": true
+     },
+     "violations": [
+      {
+       "check": "weight_ratio",
+       "message": "Advantage.Bid weight 1.27× the seller's > 0.9 (competes)"
+      }
+     ],
+     "pass_": false
+    },
+    "colour": {
+     "pass_": true,
+     "hard_failures": [],
+     "soft": [],
+     "canvas_luminance": 0.826,
+     "copy_zone_luminance": 0.902,
+     "red_elements": 2,
+     "red_share_saturated_copy_zone_pct": 41.4,
+     "red_band": false,
+     "red_ground": false,
+     "navy_present": true
+    },
+    "event_type": {
+     "checks": {
+      "event_type_cap_px": 90,
+      "largest_text_cap_px": 90,
+      "ratio_to_largest": 1,
+      "pct_of_canvas": 8.33
+     },
+     "violations": [],
+     "pass_": true
+    },
+    "density": {
+     "blocks": 7,
+     "roles": [
+      "presenter",
+      "support",
+      "event_type",
+      "event_title",
+      "date",
+      "place_plate",
+      "band"
+     ],
+     "headline_class_roles": [
+      "event_headline"
+     ],
+     "headline_dominance": 2.37
+    },
+    "copy_over_merchandise": [],
+    "largest_empty_pct": 8.7,
+    "upper_half_merch_pct": 3,
+    "text_blocks": 7,
+    "ground_luminance": 0.826,
+    "brand_frame": {
+     "logo": true,
+     "band": true,
+     "wordmark": true
+    },
+    "pattern": "TYPE_LED",
+    "photo_box": {
+     "x": 0,
+     "y": 524,
+     "w": 1080,
+     "h": 251
+    },
+    "identity_scale": 1.3,
+    "type_scale": 1.3,
+    "event_type_missing": false
+   },
+   "logo": {
+    "variant": "primary_transparent",
+    "file": "advantage-bid-transparent.png",
+    "sha256": "8b5fce17b50dea4c15f73b3cfa2e54bd900db22f3106db0ee2d80ea4cd1db561",
+    "box": [
+     767,
+     105,
+     264,
+     106
+    ],
+    "scale": 0.13313,
+    "transform": "uniform_scale+position",
+    "reserved_box": [
+     767,
+     105,
+     264,
+     106
+    ],
+    "selection_reason": "light/neutral zone (luminance 1.00) → transparent lockup",
+    "ok": true
+   },
+   "logo_qa": {
+    "logo_source": {
+     "pass_": true,
+     "template_match": 1,
+     "threshold": 0.97,
+     "variant": "primary_transparent",
+     "asset_sha256": "8b5fce17b50dea4c15f73b3cfa2e54bd900db22f3106db0ee2d80ea4cd1db561",
+     "ocr_available": true,
+     "ocr_text": [
+      "ADVANTAGE.BID",
+      "GET THE ADVANTAGE"
+     ],
+     "reads_advantage_bid": true,
+     "reads_tagline": true,
+     "extra_text": []
+    },
+    "rendered_logo_elsewhere": {
+     "pass_": true,
+     "ocr_available": true,
+     "ocr_hits": [],
+     "template_hits": [],
+     "template_threshold": 0.85
+    }
+   },
+   "plan": null,
+   "copy_changes": [
+    {
+     "field": "relationship",
+     "role": "major_label",
+     "before": "In Conjunction with",
+     "after": "In Conjunction With"
+    }
+   ],
+   "copy_check": {
+    "pass": true,
+    "rejections": [],
+    "notes": []
+   },
+   "hygiene": {
+    "pass": true,
+    "violations": []
+   },
+   "density": {
+    "pass": true,
+    "hard": [],
+    "soft": [
+     "text region 27.6% > 22% (EVENT)"
+    ],
+    "ceiling": 7,
+    "blocks": 7,
+    "profile": "EVENT"
+   },
+   "template_echo": {
+    "flagged": false,
+    "props": [],
+    "rule": "the recurring collaborator props (bronze horse, blue-and-white vase, category-spine books, laptop with logo, script mug/board/box) are tagged in do_not_generalize; the object selector must not treat them as required; a scene containing ≥ 3 of them together is flagged 'template echo' and regenerated"
+   },
+   "similarity": {
+    "pass": true,
+    "failures": [],
+    "max_reference": {
+     "id": "REF-23",
+     "distance": 0.3867
+    },
+    "self_history_min": null,
+    "published_anchor_distance": 0.6497,
+    "thresholds": {
+     "tau_ref": 0.35,
+     "tau_self": 0.25,
+     "tau_pub": 0.4
+    },
+    "all_reference_distances": [
+     {
+      "id": "REF-01",
+      "distance": 0.8903
+     },
+     {
+      "id": "REF-02",
+      "distance": 1.0396
+     },
+     {
+      "id": "REF-03",
+      "distance": 0.6501
+     },
+     {
+      "id": "REF-04",
+      "distance": 0.9697
+     },
+     {
+      "id": "REF-05",
+      "distance": 0.6809
+     },
+     {
+      "id": "REF-06",
+      "distance": 0.7464
+     },
+     {
+      "id": "REF-07",
+      "distance": 1.0687
+     },
+     {
+      "id": "REF-08",
+      "distance": 0.8412
+     },
+     {
+      "id": "REF-19",
+      "distance": 0.6267
+     },
+     {
+      "id": "REF-18",
+      "distance": 0.6581
+     },
+     {
+      "id": "REF-09",
+      "distance": 0.7411
+     },
+     {
+      "id": "REF-10",
+      "distance": 0.6155
+     },
+     {
+      "id": "REF-11",
+      "distance": 0.5572
+     },
+     {
+      "id": "REF-22",
+      "distance": 0.7683
+     },
+     {
+      "id": "REF-17",
+      "distance": 0.8342
+     },
+     {
+      "id": "REF-14",
+      "distance": 0.8249
+     },
+     {
+      "id": "REF-15",
+      "distance": 0.8301
+     },
+     {
+      "id": "REF-16",
+      "distance": 0.8749
+     },
+     {
+      "id": "REF-12",
+      "distance": 1.2358
+     },
+     {
+      "id": "REF-13",
+      "distance": 0.4605
+     },
+     {
+      "id": "REF-23",
+      "distance": 0.3867
+     },
+     {
+      "id": "REF-21",
+      "distance": 0.9098
+     },
+     {
+      "id": "REF-20",
+      "distance": 0.4431
+     }
+    ]
+   },
+   "negative_signature_check": {
+    "nearest": {
+     "id": "p3p-west-university:B:square_1080x1080",
+     "distance": 0.5213
+    },
+    "tau_neg": 0.3,
+    "hard": false,
+    "penalty": false
+   },
+   "leak": {
+    "pass": true,
+    "hits": [],
+    "ocr": "unavailable (no OCR engine in the runtime image; every drawn string is checked exactly)",
+    "logo_template_match": "not_available (no seller logo templates on file)"
+   },
+   "provenance": {
+    "pass": true,
+    "reasons": []
+   },
+   "judge": {
+    "available": true,
+    "model": "claude-sonnet-5",
+    "prompt_version": "p3p1-judge-v2",
+    "runs": [
+     {
+      "items": [
+       {
+        "n": 1,
+        "score": 3,
+        "reason": "Presenter top-left, title center, photo below flows well"
+       },
+       {
+        "n": 2,
+        "score": 3,
+        "reason": "Furniture varies in scale; sofa acts as clear anchor"
+       },
+       {
+        "n": 3,
+        "score": 3,
+        "reason": "Bold serif title truthfully expresses estate elegance"
+       },
+       {
+        "n": 4,
+        "score": 3,
+        "reason": "Color comes from photo; ground and bands stay neutral"
+       },
+       {
+        "n": 5,
+        "score": 4,
+        "reason": "No slogans or icon piles; copy is minimal and factual"
+       },
+       {
+        "n": 6,
+        "score": 3,
+        "reason": "Title and wordmark remain legible at small size"
+       },
+       {
+        "n": 7,
+        "score": 3,
+        "reason": "Real photo and layout feel bespoke, not templated"
+       },
+       {
+        "n": 8,
+        "score": 0,
+        "reason": "No competitor or unrelated brand identity evoked"
+       },
+       {
+        "n": 9,
+        "score": 3,
+        "reason": "Clean hierarchy, strong photo, minimal text; near excellent"
+       }
+      ],
+      "physical": {
+       "through": "no",
+       "through_names": "",
+       "wrong_size": "no",
+       "wrong_size_name": "",
+       "supported": "yes"
+      },
+      "comprehension": {
+       "event_type": "estate sale",
+       "who": "Lewis & Maese with Advantage.Bid",
+       "when": "Saturday, September 19, 9am-3pm",
+       "platform": "Advantage.Bid",
+       "ask": "Attend the one-day on-site estate sale",
+       "masquerade": "no"
+      },
+      "notes": "Strong environmental photo, clear hierarchy, minimal text; solid execution.",
+      "total": 29,
+      "physical_points": 4
+     },
+     {
+      "items": [
+       {
+        "n": 1,
+        "score": 3,
+        "reason": "Presenter top-left, title center, photo below, navy band closes"
+       },
+       {
+        "n": 2,
+        "score": 3,
+        "reason": "Furniture varies scale; sofa anchors the room clearly"
+       },
+       {
+        "n": 3,
+        "score": 3,
+        "reason": "Red Estate Sale contrasts navy West University, truthful emphasis"
+       },
+       {
+        "n": 4,
+        "score": 3,
+        "reason": "Color mostly from photo; ground and bands stay neutral"
+       },
+       {
+        "n": 5,
+        "score": 3,
+        "reason": "No slogans or icon piles; clean logistics block only"
+       },
+       {
+        "n": 6,
+        "score": 3,
+        "reason": "Bold title and navy band legible at small size"
+       },
+       {
+        "n": 7,
+        "score": 2,
+        "reason": "Layout is fairly standard estate-sale template with photo swap"
+       },
+       {
+        "n": 8,
+        "score": 0,
+        "reason": "No competitor identity evoked, real seller named"
+       },
+       {
+        "n": 9,
+        "score": 2,
+        "reason": "Solid, clear, on-brand but not distinctly memorable"
+       }
+      ],
+      "physical": {
+       "through": "no",
+       "through_names": "",
+       "wrong_size": "no",
+       "wrong_size_name": "",
+       "supported": "yes"
+      },
+      "comprehension": {
+       "event_type": "estate sale",
+       "who": "Lewis & Maese with Advantage.Bid",
+       "when": "Saturday, September 19, 9am-3pm",
+       "platform": "Advantage.Bid",
+       "ask": "Attend the one-day estate sale in West University",
+       "masquerade": "no"
+      },
+      "notes": "Clean, compliant, but conventional composition.",
+      "total": 26,
+      "physical_points": 4
+     }
+    ],
+    "points": 27.5,
+    "average": 27.5,
+    "disagreement": 3,
+    "flagged": false,
+    "physical_yes": {
+     "through": false,
+     "wrong_size": false
+    },
+    "comprehension": {
+     "event_type_ok": true,
+     "who_ok": true,
+     "when_ok": true,
+     "platform_ok": true,
+     "masquerade": null,
+     "answers": {
+      "event_type": "estate sale",
+      "who": "Lewis & Maese with Advantage.Bid",
+      "when": "Saturday, September 19, 9am-3pm",
+      "platform": "Advantage.Bid",
+      "ask": "Attend the one-day estate sale in West University",
+      "masquerade": "no"
+     }
+    },
+    "items": [
+     "Hierarchy clarity: the eye enters at the presenter, moves to one title, then to the merchandise.",
+     "Objects (or the photograph) have confident scale variation and at least one clear anchor.",
+     "Typography is confident and, where expressive, truthful to the event.",
+     "Colour comes from the merchandise; the ground and panels stay quiet.",
+     "Nothing reads as filler: no slogans, icon piles, words on merchandise, duplicate URLs.",
+     "It reads at thumbnail size (headline + wordmark legible when small).",
+     "It would not be mistaken for a template with swapped merchandise (editorial irregularity).",
+     "It does not evoke any specific competitor or seller identity (answer 0 if it does).",
+     "Overall: would the Owner say \"good\" (0), \"much better\" (2), \"love this\" (4)? Justify via items 1–9."
+    ]
+   },
+   "measurable": {
+    "points": 52.11,
+    "out_of": 60,
+    "raw": 39.95,
+    "raw_max": 46,
+    "items": [
+     {
+      "key": "merchandise_coverage_field",
+      "pts": 12,
+      "value": 1,
+      "points": 12,
+      "target": [
+       55,
+       75
+      ]
+     },
+     {
+      "key": "accidental_void",
+      "pts": 6,
+      "value": 0.3250000000000002,
+      "points": 1.95,
+      "target": "≤ 6"
+     },
+     {
+      "key": "hierarchy_incl_event_type",
+      "pts": 10,
+      "value": 1,
+      "points": 10,
+      "target": "event-type rules"
+     },
+     {
+      "key": "identity_prominence",
+      "pts": 8,
+      "value": 0.75,
+      "points": 6,
+      "target": "prominence-rules"
+     },
+     {
+      "key": "physical_audit_clean",
+      "pts": 8,
+      "value": null,
+      "points": null,
+      "target": "0 violations"
+     },
+     {
+      "key": "copy",
+      "pts": 6,
+      "value": 1,
+      "points": 6,
+      "target": "one headline-class element"
+     },
+     {
+      "key": "depth_planes",
+      "pts": 6,
+      "value": null,
+      "points": null,
+      "target": "≥ 2 planes"
+     },
+     {
+      "key": "light_ground",
+      "pts": 2,
+      "value": 1,
+      "points": 2,
+      "target": "canvas luminance ≥ 0.60"
+     },
+     {
+      "key": "brand_frame",
+      "pts": 2,
+      "value": 1,
+      "points": 2,
+      "target": "logo + band + wordmark"
+     }
+    ]
+   },
+   "score": 79.61,
+   "decision": "NOT_FOR_PUBLICATION",
+   "hard_failures": [],
+   "regenerate_violations": [],
+   "score_basis": "measurable_60 + judge_40",
+   "bar": 70,
+   "extreme": true,
+   "publication_status": "NOT_FOR_PUBLICATION",
+   "market": null,
+   "notes": "Calibration extreme: identity and event type at 1.3×, nothing else enlarged — say \"come back X%\""
+  }
+ ]
+}

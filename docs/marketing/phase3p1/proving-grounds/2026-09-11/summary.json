@@ -1,0 +1,554 @@
+{
+ "review": "C:\\Projects\\advantage-auction-platform\\docs\\marketing\\phase3p1\\proving-grounds\\2026-09-11\\review.html",
+ "gates": {
+  "marketing.a9_publish_enabled": false,
+  "marketing.destinations.meta_enabled": false,
+  "marketing.destinations.meta_ads_enabled": false,
+  "marketing.destinations.google_ads_enabled": false,
+  "marketing.social.insights_enabled": true,
+  "marketing.social.reply_draft_enabled": false
+ },
+ "social_jobs_pending": 0,
+ "regression": [
+  {
+   "key": "WU-A",
+   "format": "portrait_1080x1350",
+   "identical": true,
+   "outcome": "REGENERATE",
+   "why": "identity prominence: band_wordmark, weight_ratio, relationship_cap, relationship_logo_mark · event type: size_vs_largest, size_vs_canvas, subtitle_pattern, date_vs_type"
+  },
+  {
+   "key": "WU-A",
+   "format": "square_1080x1080",
+   "identical": true,
+   "outcome": "REGENERATE",
+   "why": "identity prominence: band_wordmark, weight_ratio, relationship_cap, relationship_logo_mark · event type: size_vs_largest, size_vs_canvas, subtitle_pattern, date_vs_type"
+  },
+  {
+   "key": "WU-B",
+   "format": "portrait_1080x1350",
+   "identical": true,
+   "outcome": "HARD_FAIL",
+   "why": "coverage/void/panel: accidental void 16.6% exceeds the ENVIRONMENTAL_PHOTO cap 6% by more than 4 points · hierarchy floor (1.43 < 1.65) · negative signature (p3p-west-university:B:portrait_1080x1350 at 0) · identity prominence: band_wordmark, weight_ratio, relationship_cap, relationship_logo_mark · event type: present"
+  },
+  {
+   "key": "WU-B",
+   "format": "square_1080x1080",
+   "identical": true,
+   "outcome": "HARD_FAIL",
+   "why": "coverage/void/panel: accidental void 17.2% exceeds the ENVIRONMENTAL_PHOTO cap 6% by more than 4 points · negative signature (p3p-west-university:B:square_1080x1080 at 0) · identity prominence: band_wordmark, weight_ratio, relationship_cap, relationship_logo_mark · event type: size_vs_largest, size_vs_canvas, subtitle_pattern, date_vs_type"
+  },
+  {
+   "key": "WU-C",
+   "format": "portrait_1080x1350",
+   "identical": true,
+   "outcome": "REGENERATE",
+   "why": "identity prominence: band_wordmark, weight_ratio, relationship_cap, relationship_logo_mark · event type: size_vs_largest, size_vs_canvas, subtitle_pattern, date_vs_type"
+  },
+  {
+   "key": "WU-C",
+   "format": "square_1080x1080",
+   "identical": true,
+   "outcome": "REGENERATE",
+   "why": "identity prominence: band_wordmark, weight_ratio, relationship_cap, relationship_logo_mark · event type: size_vs_largest, size_vs_canvas, subtitle_pattern, date_vs_type"
+  },
+  {
+   "key": "IS-A",
+   "format": "portrait_1080x1350",
+   "identical": true,
+   "outcome": "HARD_FAIL",
+   "why": "physics: scale, unsupported, through, protected-occluded · identity prominence: band_wordmark, size_band, feed_height, feed_recognition · capitalization: sentence-case headline \"It's built to be easy.\""
+  },
+  {
+   "key": "IS-A",
+   "format": "square_1080x1080",
+   "identical": true,
+   "outcome": "HARD_FAIL",
+   "why": "physics: scale, unsupported, protected-occluded, through · identity prominence: band_wordmark, size_band, feed_height, feed_recognition · capitalization: sentence-case headline \"It's built to be easy.\""
+  },
+  {
+   "key": "IS-B",
+   "format": "portrait_1080x1350",
+   "identical": true,
+   "outcome": "HARD_FAIL",
+   "why": "physics: unsupported · screenshot-as-hero (acquisition family rule) · negative signature (p3p-individual-seller:B:portrait_1080x1350 at 0) · identity prominence: band_wordmark, size_band, feed_height, feed_recognition · capitalization: sentence-case headline \"You can do this.\""
+  },
+  {
+   "key": "IS-B",
+   "format": "square_1080x1080",
+   "identical": true,
+   "outcome": "HARD_FAIL",
+   "why": "physics: unsupported · screenshot-as-hero (acquisition family rule) · negative signature (p3p-individual-seller:B:square_1080x1080 at 0) · identity prominence: band_wordmark, size_band, feed_height, feed_recognition · capitalization: sentence-case headline \"You can do this.\""
+  },
+  {
+   "key": "IS-C",
+   "format": "portrait_1080x1350",
+   "identical": true,
+   "outcome": "HARD_FAIL",
+   "why": "physics: scale, unsupported, through, protected-occluded · coverage/void/panel: coverage 17.8% is more than 10 points under the ACQUISITION floor 45% | accidental void 16.3% exceeds the ACQUISITION cap 8% by more than 4 points | contact card content fills 42% of its height · identity prominence: band_wordmark, size_band, feed_height, feed_recognition · capitalization: sentence-case headline \"Help is here.\""
+  },
+  {
+   "key": "IS-C",
+   "format": "square_1080x1080",
+   "identical": true,
+   "outcome": "HARD_FAIL",
+   "why": "physics: scale, unsupported, through, protected-occluded · coverage/void/panel: coverage 23.6% is more than 10 points under the ACQUISITION floor 45% | accidental void 19.3% exceeds the ACQUISITION cap 8% by more than 4 points | contact card content fills 37% of its height · identity prominence: band_wordmark, size_band, feed_height, feed_recognition · capitalization: sentence-case headline \"Help is here.\""
+  }
+ ],
+ "references": [
+  {
+   "reference_id": "REF-19",
+   "g11": "HARD FAIL — distance to itself 0 < τ_ref 0.35",
+   "logo": "rendered logo present (2 OCR hit) → logo_source FAIL",
+   "echo": "FLAGGED (bronze horse, blue-and-white vase, category-spine books, laptop with logo, script mug/board/box)"
+  },
+  {
+   "reference_id": "REF-18",
+   "g11": "HARD FAIL — distance to itself 0 < τ_ref 0.35",
+   "logo": "rendered logo present (1 OCR hit) → logo_source FAIL",
+   "echo": "FLAGGED (bronze horse, blue-and-white vase, category-spine books, laptop with logo, script mug/board/box)"
+  },
+  {
+   "reference_id": "REF-22",
+   "g11": "HARD FAIL — distance to itself 0 < τ_ref 0.35",
+   "logo": "rendered logo present (1 OCR hit) → logo_source FAIL",
+   "echo": "FLAGGED (bronze horse, blue-and-white vase, category-spine books, laptop with logo, script mug/board/box)"
+  },
+  {
+   "reference_id": "REF-17",
+   "g11": "HARD FAIL — distance to itself 0 < τ_ref 0.35",
+   "logo": "rendered logo present (1 OCR hit) → logo_source FAIL",
+   "echo": "none"
+  },
+  {
+   "reference_id": "REF-14",
+   "g11": "HARD FAIL — distance to itself 0 < τ_ref 0.35",
+   "logo": "rendered logo present (2 OCR hit) → logo_source FAIL",
+   "echo": "FLAGGED (bronze horse, blue-and-white vase, category-spine books, laptop with logo, script mug/board/box)"
+  },
+  {
+   "reference_id": "REF-15",
+   "g11": "HARD FAIL — distance to itself 0 < τ_ref 0.35",
+   "logo": "rendered logo present (1 OCR hit) → logo_source FAIL",
+   "echo": "FLAGGED (bronze horse, blue-and-white vase, category-spine books, laptop with logo, script mug/board/box)"
+  },
+  {
+   "reference_id": "REF-16",
+   "g11": "HARD FAIL — distance to itself 0 < τ_ref 0.35",
+   "logo": "rendered logo present (2 OCR hit) → logo_source FAIL",
+   "echo": "not flagged (laptop with logo)"
+  },
+  {
+   "reference_id": "REF-23",
+   "g11": "HARD FAIL — distance to itself 0 < τ_ref 0.35",
+   "logo": "rendered logo present (1 OCR hit) → logo_source FAIL",
+   "echo": "not flagged (bronze horse)"
+  },
+  {
+   "reference_id": "REF-21",
+   "g11": "HARD FAIL — distance to itself 0 < τ_ref 0.35",
+   "logo": "rendered logo present (2 OCR hit) → logo_source FAIL",
+   "echo": "FLAGGED (bronze horse, blue-and-white vase, category-spine books, laptop with logo, script mug/board/box)"
+  },
+  {
+   "reference_id": "REF-20",
+   "g11": "HARD FAIL — distance to itself 0 < τ_ref 0.35",
+   "logo": "rendered logo present (3 OCR hit) → logo_source FAIL",
+   "echo": "FLAGGED (bronze horse, blue-and-white vase, category-spine books, laptop with logo, script mug/board/box)"
+  }
+ ],
+ "summary": [
+  {
+   "job": "p3p1-west-university",
+   "key": "R1",
+   "format": "portrait",
+   "ok": true,
+   "score": 90.11,
+   "decision": "OWNER_REVIEW",
+   "hard": [],
+   "regen": []
+  },
+  {
+   "job": "p3p1-west-university",
+   "key": "R1",
+   "format": "square_1",
+   "ok": true,
+   "score": 86.2,
+   "decision": "OWNER_REVIEW",
+   "hard": [],
+   "regen": []
+  },
+  {
+   "job": "p3p1-west-university",
+   "key": "R2",
+   "format": "portrait",
+   "ok": true,
+   "score": 0,
+   "decision": "HARD_FAIL",
+   "hard": [
+    "G11_anti_similarity"
+   ],
+   "regen": []
+  },
+  {
+   "job": "p3p1-west-university",
+   "key": "R2",
+   "format": "square_1",
+   "ok": true,
+   "score": 0,
+   "decision": "HARD_FAIL",
+   "hard": [
+    "G11_anti_similarity"
+   ],
+   "regen": [
+    "judge_comprehension"
+   ]
+  },
+  {
+   "job": "p3p1-west-university",
+   "key": "R3",
+   "format": "portrait",
+   "ok": true,
+   "score": 84.41,
+   "decision": "NOT_FOR_PUBLICATION",
+   "hard": [],
+   "regen": []
+  },
+  {
+   "job": "p3p1-west-university",
+   "key": "R3",
+   "format": "square_1",
+   "ok": true,
+   "score": 79.61,
+   "decision": "NOT_FOR_PUBLICATION",
+   "hard": [],
+   "regen": []
+  },
+  {
+   "job": "p3p1-individual-seller",
+   "key": "P1",
+   "format": "portrait",
+   "ok": true,
+   "score": 0,
+   "decision": "HARD_FAIL",
+   "hard": [
+    "coverage"
+   ],
+   "regen": []
+  },
+  {
+   "job": "p3p1-individual-seller",
+   "key": "P1",
+   "format": "square_1",
+   "ok": true,
+   "score": 0,
+   "decision": "HARD_FAIL",
+   "hard": [
+    "coverage"
+   ],
+   "regen": []
+  },
+  {
+   "job": "p3p1-individual-seller",
+   "key": "P2",
+   "format": "portrait",
+   "ok": true,
+   "score": 0,
+   "decision": "HARD_FAIL",
+   "hard": [
+    "coverage"
+   ],
+   "regen": []
+  },
+  {
+   "job": "p3p1-individual-seller",
+   "key": "P2",
+   "format": "square_1",
+   "ok": true,
+   "score": 0,
+   "decision": "HARD_FAIL",
+   "hard": [
+    "coverage"
+   ],
+   "regen": []
+  },
+  {
+   "job": "p3p1-individual-seller",
+   "key": "A2",
+   "format": "portrait",
+   "ok": true,
+   "score": 0,
+   "decision": "HARD_FAIL",
+   "hard": [
+    "coverage",
+    "copy_density"
+   ],
+   "regen": []
+  },
+  {
+   "job": "p3p1-individual-seller",
+   "key": "A2",
+   "format": "square_1",
+   "ok": true,
+   "score": 0,
+   "decision": "HARD_FAIL",
+   "hard": [
+    "coverage",
+    "copy_density"
+   ],
+   "regen": []
+  },
+  {
+   "job": "p3p1-individual-seller",
+   "key": "A4",
+   "format": "portrait",
+   "ok": true,
+   "score": 0,
+   "decision": "HARD_FAIL",
+   "hard": [
+    "coverage",
+    "G11_anti_similarity"
+   ],
+   "regen": []
+  },
+  {
+   "job": "p3p1-individual-seller",
+   "key": "A4",
+   "format": "square_1",
+   "ok": true,
+   "score": 0,
+   "decision": "HARD_FAIL",
+   "hard": [
+    "coverage",
+    "G11_anti_similarity"
+   ],
+   "regen": []
+  },
+  {
+   "job": "p3p1-individual-seller",
+   "key": "P3",
+   "format": "portrait",
+   "ok": true,
+   "score": 0,
+   "decision": "HARD_FAIL",
+   "hard": [
+    "coverage"
+   ],
+   "regen": []
+  },
+  {
+   "job": "p3p1-individual-seller",
+   "key": "P3",
+   "format": "square_1",
+   "ok": true,
+   "score": 0,
+   "decision": "HARD_FAIL",
+   "hard": [
+    "coverage"
+   ],
+   "regen": []
+  },
+  {
+   "job": "p3p2-buyer-growth",
+   "key": "B1",
+   "format": "portrait",
+   "ok": true,
+   "score": 0,
+   "decision": "HARD_FAIL",
+   "hard": [
+    "coverage"
+   ],
+   "regen": []
+  },
+  {
+   "job": "p3p2-buyer-growth",
+   "key": "B1",
+   "format": "square_1",
+   "ok": true,
+   "score": 0,
+   "decision": "HARD_FAIL",
+   "hard": [
+    "coverage"
+   ],
+   "regen": []
+  },
+  {
+   "job": "p3p2-buyer-growth",
+   "key": "B2",
+   "format": "portrait",
+   "ok": true,
+   "score": 0,
+   "decision": "HARD_FAIL",
+   "hard": [
+    "coverage",
+    "copy_density"
+   ],
+   "regen": []
+  },
+  {
+   "job": "p3p2-buyer-growth",
+   "key": "B2",
+   "format": "square_1",
+   "ok": true,
+   "score": 0,
+   "decision": "HARD_FAIL",
+   "hard": [
+    "copy_density"
+   ],
+   "regen": []
+  },
+  {
+   "job": "p3p2-buyer-growth",
+   "key": "B4",
+   "format": "portrait",
+   "ok": true,
+   "score": 0,
+   "decision": "HARD_FAIL",
+   "hard": [
+    "coverage",
+    "copy_density"
+   ],
+   "regen": []
+  },
+  {
+   "job": "p3p2-buyer-growth",
+   "key": "B4",
+   "format": "square_1",
+   "ok": true,
+   "score": 0,
+   "decision": "HARD_FAIL",
+   "hard": [
+    "coverage",
+    "copy_density"
+   ],
+   "regen": []
+  },
+  {
+   "job": "p3p2-professional-seller",
+   "key": "C1",
+   "format": "portrait",
+   "ok": true,
+   "score": 0,
+   "decision": "HARD_FAIL",
+   "hard": [
+    "coverage"
+   ],
+   "regen": [
+    "capitalization"
+   ]
+  },
+  {
+   "job": "p3p2-professional-seller",
+   "key": "C1",
+   "format": "square_1",
+   "ok": true,
+   "score": 0,
+   "decision": "HARD_FAIL",
+   "hard": [
+    "coverage"
+   ],
+   "regen": [
+    "capitalization"
+   ]
+  },
+  {
+   "job": "p3p2-professional-seller",
+   "key": "C2",
+   "format": "portrait",
+   "ok": true,
+   "score": 0,
+   "decision": "HARD_FAIL",
+   "hard": [
+    "coverage"
+   ],
+   "regen": []
+  },
+  {
+   "job": "p3p2-professional-seller",
+   "key": "C2",
+   "format": "square_1",
+   "ok": true,
+   "score": 0,
+   "decision": "HARD_FAIL",
+   "hard": [
+    "coverage"
+   ],
+   "regen": []
+  },
+  {
+   "job": "p3p2-professional-seller",
+   "key": "C3",
+   "format": "portrait",
+   "ok": true,
+   "score": 0,
+   "decision": "HARD_FAIL",
+   "hard": [
+    "coverage",
+    "judge_physical"
+   ],
+   "regen": [
+    "identity_prominence",
+    "capitalization"
+   ]
+  },
+  {
+   "job": "p3p2-professional-seller",
+   "key": "C3",
+   "format": "square_1",
+   "ok": true,
+   "score": 0,
+   "decision": "HARD_FAIL",
+   "hard": [
+    "coverage"
+   ],
+   "regen": [
+    "capitalization"
+   ]
+  },
+  {
+   "job": "p3p2-geographic-event",
+   "key": "D1",
+   "format": "portrait",
+   "ok": true,
+   "score": 81.56,
+   "decision": "OWNER_REVIEW",
+   "hard": [],
+   "regen": []
+  },
+  {
+   "job": "p3p2-geographic-event",
+   "key": "D1",
+   "format": "square_1",
+   "ok": true,
+   "score": 85.62,
+   "decision": "OWNER_REVIEW",
+   "hard": [],
+   "regen": []
+  },
+  {
+   "job": "p3p2-geographic-event",
+   "key": "D2",
+   "format": "portrait",
+   "ok": true,
+   "score": 0,
+   "decision": "HARD_FAIL",
+   "hard": [
+    "G11_anti_similarity"
+   ],
+   "regen": []
+  },
+  {
+   "job": "p3p2-geographic-event",
+   "key": "D2",
+   "format": "square_1",
+   "ok": true,
+   "score": 0,
+   "decision": "HARD_FAIL",
+   "hard": [
+    "G11_anti_similarity"
+   ],
+   "regen": []
+  }
+ ],
+ "blocked": []
+}

@@ -1,0 +1,2598 @@
+{
+ "job_id": "p3p2-geographic-event",
+ "campaign_class": "geographic_event_promotion",
+ "title": "Geographic event — L&M ManCave Auction, Houston (real upcoming event; media ladder → tier 6)",
+ "index_version": "3P.1.769d0461bc92",
+ "gates": {
+  "marketing.a9_publish_enabled": false,
+  "marketing.destinations.meta_enabled": false,
+  "marketing.destinations.meta_ads_enabled": false,
+  "marketing.destinations.google_ads_enabled": false
+ },
+ "no_publish": true,
+ "bar": 70,
+ "retrieval": {
+  "confidence": "MEDIUM",
+  "empty_class": false,
+  "has_gold_standard": false,
+  "structures_seen": [
+   "ENVIRONMENTAL_FULL_BLEED"
+  ],
+  "imagery_only": [],
+  "pending_promotion": [],
+  "retrieved": [
+   {
+    "reference_id": "REF-09",
+    "owner_status": "OWNER_APPROVED",
+    "weight": 1,
+    "relevance": 0.5,
+    "imagery_only": false,
+    "structure": "ENVIRONMENTAL_FULL_BLEED"
+   }
+  ]
+ },
+ "calibration": {
+  "campaign_class": "geographic_event_promotion",
+  "family": "RESTRAINED_FACTUAL",
+  "reference_ids": [
+   "REF-09"
+  ],
+  "reference_versions": {
+   "REF-09": "77e8d5a8b6dbbbee506315a504d395d22ed751e9ec4c947abc5ac6864a51a102"
+  },
+  "index_version": "3P.1.769d0461bc92",
+  "confidence": "MEDIUM",
+  "owner_review_required": true,
+  "empty_class": false,
+  "strip_seller_identity": true,
+  "principle_profile": {
+   "hierarchy": [
+    "presenter (the Professional Seller) leads; Advantage.Bid is the visible marketplace partner, subordinate; navy band closes",
+    "one event or message title of 2–6 words",
+    "date larger than time"
+   ],
+   "merchandise": {
+    "mode": "none",
+    "share_band_pct": [
+     50,
+     65
+    ],
+    "treatment": "CLEAN extracted objects of THIS auction only; grounded; one anchor; scale variation"
+   },
+   "copy": {
+    "budget_blocks": 5,
+    "text_share_max_pct": 18,
+    "supporting_line": "category line ≤ 6 words or none",
+    "cta": "none or one factual",
+    "logistics_block": "date + closing"
+   },
+   "typography": {
+    "expressive_allowed": true,
+    "rule": "one element may express contrast or material when truthful; brand faces only"
+   },
+   "ground": "white | very_light",
+   "composition": {
+    "families_allowed": [
+     "RESTRAINED_FACTUAL"
+    ],
+    "title_position": [
+     "top",
+     "bottom",
+     "panel"
+    ],
+    "largest_empty_max_pct": 6,
+    "upper_half_merchandise_min_pct": 30
+   },
+   "transferable_lessons": [
+    "On-site estate sales call for an environmental-photograph family; extraction is for online auctions (missing from current families → proposed ENVIRONMENTAL_PHOTO)",
+    "Place-name-led titles for on-site sales",
+    "Multi-day sales: a date-pair block with large day numbers and small hour lines",
+    "A category line and a place plate are enough supporting copy"
+   ],
+   "anti_patterns": [],
+   "brand_frame": {
+    "ground": [
+     "white",
+     "very_light"
+    ],
+    "band": "navy Advantage.Bid band closes the canvas",
+    "logo": "Advantage.Bid logo at spec",
+    "accent": "red accent, used once"
+   },
+   "variation_required_from": [],
+   "structures_seen": [
+    "ENVIRONMENTAL_FULL_BLEED"
+   ],
+   "structure_rule": "name the structure chosen and why; consecutive creatives for the same objective rotate structure; a Gold is evidence, not a template",
+   "imagery_only_references": []
+  },
+  "do_not_copy": {
+   "seller_marks": [
+    "Lewis & Maese",
+    "Lewis and Maese",
+    "LMAuctionCo",
+    "lmauctionco.com",
+    "L&M",
+    "fleur-de-lis"
+   ],
+   "palettes": "any reference palette",
+   "typefaces": "any reference typeface",
+   "ornaments": "flourishes, decorative frames, stars, crests, gold borders, icon logistics rows",
+   "wording": [
+    "Trusted. Experienced. Results.",
+    "Fine Estate Sales & Appraisals",
+    "Central Time",
+    "Join for Free",
+    "Great Deals",
+    "Luxury finds for the discerning collector",
+    "Quality. Heritage. Timeless Style.",
+    "Bid Confidently",
+    "Real Treasures",
+    "Convenient Local Pickup",
+    "Keep More of the Proceeds",
+    "in minutes",
+    "Another Happy Seller!",
+    "Reach thousands of serious bidders",
+    "Get top dollar",
+    "Low Seller Fees",
+    "The Smarter Way to Bid.",
+    "Global Buyers",
+    "Exceptional Items",
+    "Serious Buyers",
+    "More Exposure",
+    "Higher Realization"
+   ],
+   "layout_signatures": [
+    "4cd2207ace2e4bab769e9f2e62d6ae1e5d52fd408635a1b0d46e1879d2c4c3ef"
+   ]
+  },
+  "library_band": null
+ },
+ "media_decision": {
+  "event_id": "5eb00c47-b4ba-43e2-b969-d0279507ac7e",
+  "tier_selected": 6,
+  "selected_asset_sha256": null,
+  "selected_asset": null,
+  "tier4_available": false,
+  "tier4_reserved_for": null,
+  "candidates": [
+   {
+    "tier": 1,
+    "kind": "cover",
+    "asset": "event image (seller-published)",
+    "asset_sha256": "0ac444c4d3960f17210a8f6f2d0e04bfe6c44e4741636297d990b4fe4ded9ce6",
+    "gates": {
+     "min_long_edge": false,
+     "sharpness": false,
+     "clipped": false,
+     "dark": true,
+     "text": true
+    },
+    "score": null,
+    "ready": false,
+    "measures": {
+     "laplacian_var": 7.8,
+     "sharpness_norm": 1,
+     "luminance": 240,
+     "clipped_pct": 78.08,
+     "dark_pct": 0,
+     "text_class": "none",
+     "crop_fit": {
+      "4:5": 0.879,
+      "1:1": 0.753,
+      "2.30:1": 0.345
+     }
+    },
+    "judged": "unavailable"
+   }
+  ],
+  "excluded": [],
+  "published_anchor": null,
+  "override_reason": null,
+  "collage_considered": true,
+  "collage_reason": "no authentic media and no objects — restrained factual creative (never a manufactured collage)",
+  "owner_review_required": true,
+  "clutter_invitation_source": "vision judge (named item list) — no object detector ships in this runtime",
+  "readiness_threshold": 70,
+  "trail": [],
+  "merchandise_mode": "none"
+ },
+ "anchor": null,
+ "omissions": [
+  "event type (the record carries no recognised type — the record title leads; flagged event_type_missing, nothing guessed)",
+  "the seller's tagline in the record title (\"Houston's Premiere Choice\" — a claim, omitted)",
+  "landmark imagery (D3 — no approved landmark asset and nothing is generated for a real event)",
+  "venue / address (not in the record)"
+ ],
+ "deferred": null,
+ "previous": [],
+ "blocked": [],
+ "results": [
+  {
+   "key": "D1",
+   "format": "portrait_1080x1350",
+   "family": "EVENT_PHOTO",
+   "structure": "CENTERED",
+   "profile": "RESTRAINED_FACTUAL",
+   "ok": true,
+   "png": "C:\\Projects\\advantage-auction-platform\\docs\\marketing\\phase3p1\\proving-grounds\\2026-09-11\\p3p2-geographic-event-D1-portrait_1080x1350.png",
+   "thumb": "C:\\Projects\\advantage-auction-platform\\docs\\marketing\\phase3p1\\proving-grounds\\2026-09-11\\p3p2-geographic-event-D1-portrait_1080x1350_thumb.png",
+   "render_sha256": "c5ad7584c16379d193e3192457f710d71907cfb607cd482b57ff0af7c3ad396c",
+   "metrics": {
+    "size": [
+     1080,
+     1350
+    ],
+    "family": "RESTRAINED_FACTUAL",
+    "structure": null,
+    "profile": "RESTRAINED_FACTUAL",
+    "band_h": 159,
+    "merchandise_pct": 12.5,
+    "text_region_pct": 22,
+    "coverage": {
+     "field": {
+      "x": 0,
+      "y": 0,
+      "w": 1080,
+      "h": 1191
+     },
+     "field_area_px": 786036,
+     "coverage_pct": 20.4,
+     "cluster_extent_w": 0.342,
+     "cluster_extent_h": 0.364,
+     "upper_field_merch_pct": 11.6,
+     "largest_accidental_void_pct": 4.7,
+     "largest_accidental_void_field_pct": 5.7,
+     "canvas_merchandise_pct": 12.5,
+     "panels": [],
+     "declared_intentional": [
+      {
+       "x": 0,
+       "y": 427,
+       "w": 347,
+       "h": 557,
+       "reason": "restrained factual quiet ground"
+      },
+      {
+       "x": 732,
+       "y": 427,
+       "w": 348,
+       "h": 557,
+       "reason": "restrained factual quiet ground"
+      }
+     ]
+    },
+    "coverage_gate": {
+     "pass_": true,
+     "hard_failures": [],
+     "soft": {
+      "coverage_in_band": true,
+      "extent_w_ok": true,
+      "extent_h_ok": true,
+      "void_ok": true,
+      "upper_ok": true
+     }
+    },
+    "prominence": {
+     "context": "seller_led_cobranded",
+     "checks": {
+      "band_wordmark_cap_pct": 5.63,
+      "seller_weight": 302037,
+      "advantage_bid_weight": 225859,
+      "weight_ratio": 0.748,
+      "relationship_cap_pct": 2.22,
+      "relationship_has_logo_mark": true,
+      "feed_proxy_wordmark_ocr": true
+     },
+     "violations": [],
+     "pass_": true
+    },
+    "colour": {
+     "pass_": true,
+     "hard_failures": [],
+     "soft": [
+      "red share of saturated copy-zone pixels 3% outside 35–65%"
+     ],
+     "canvas_luminance": 0.941,
+     "copy_zone_luminance": 0.894,
+     "red_elements": 1,
+     "red_share_saturated_copy_zone_pct": 2.6,
+     "red_band": false,
+     "red_ground": false,
+     "navy_present": true
+    },
+    "event_type": {
+     "checks": {},
+     "violations": [],
+     "pass_": true
+    },
+    "density": {
+     "blocks": 4,
+     "roles": [
+      "presenter",
+      "event_line",
+      "date",
+      "band"
+     ],
+     "headline_class_roles": [
+      "event_headline"
+     ],
+     "headline_dominance": 1.62
+    },
+    "copy_over_merchandise": [],
+    "largest_empty_pct": 4.7,
+    "upper_half_merch_pct": 9.5,
+    "text_blocks": 4,
+    "ground_luminance": 0.941,
+    "brand_frame": {
+     "logo": true,
+     "band": true,
+     "wordmark": true
+    },
+    "pattern": "TYPE_LED",
+    "photo_box": {
+     "x": 0,
+     "y": 427,
+     "w": 1080,
+     "h": 557
+    },
+    "identity_scale": 1,
+    "type_scale": 1,
+    "event_type_missing": true
+   },
+   "logo": {
+    "variant": "primary_transparent",
+    "file": "advantage-bid-transparent.png",
+    "sha256": "8b5fce17b50dea4c15f73b3cfa2e54bd900db22f3106db0ee2d80ea4cd1db561",
+    "box": [
+     777,
+     112,
+     254,
+     102
+    ],
+    "scale": 0.12809,
+    "transform": "uniform_scale+position",
+    "reserved_box": [
+     777,
+     112,
+     254,
+     102
+    ],
+    "selection_reason": "light/neutral zone (luminance 1.00) → transparent lockup",
+    "ok": true
+   },
+   "logo_qa": {
+    "logo_source": {
+     "pass_": true,
+     "template_match": 1,
+     "threshold": 0.97,
+     "variant": "primary_transparent",
+     "asset_sha256": "8b5fce17b50dea4c15f73b3cfa2e54bd900db22f3106db0ee2d80ea4cd1db561",
+     "ocr_available": true,
+     "ocr_text": [
+      "ADVANTAGE.BID",
+      "GET THE ADVANTAGE"
+     ],
+     "reads_advantage_bid": true,
+     "reads_tagline": true,
+     "extra_text": []
+    },
+    "rendered_logo_elsewhere": {
+     "pass_": true,
+     "ocr_available": true,
+     "ocr_hits": [],
+     "template_hits": [],
+     "template_threshold": 0.85
+    }
+   },
+   "plan": null,
+   "copy_changes": [
+    {
+     "field": "relationship",
+     "role": "major_label",
+     "before": "In Conjunction with",
+     "after": "In Conjunction With"
+    }
+   ],
+   "copy_check": {
+    "pass": true,
+    "rejections": [],
+    "notes": []
+   },
+   "hygiene": {
+    "pass": true,
+    "violations": []
+   },
+   "density": {
+    "pass": true,
+    "hard": [],
+    "soft": [
+     "text region 22% > 18% (RESTRAINED_FACTUAL)"
+    ],
+    "ceiling": 4,
+    "blocks": 4,
+    "profile": "RESTRAINED_FACTUAL"
+   },
+   "template_echo": {
+    "flagged": false,
+    "props": [],
+    "rule": "the recurring collaborator props (bronze horse, blue-and-white vase, category-spine books, laptop with logo, script mug/board/box) are tagged in do_not_generalize; the object selector must not treat them as required; a scene containing ≥ 3 of them together is flagged 'template echo' and regenerated"
+   },
+   "similarity": {
+    "pass": true,
+    "failures": [],
+    "max_reference": {
+     "id": "REF-23",
+     "distance": 0.3841
+    },
+    "self_history_min": null,
+    "published_anchor_distance": null,
+    "thresholds": {
+     "tau_ref": 0.35,
+     "tau_self": 0.25,
+     "tau_pub": 0.4
+    },
+    "all_reference_distances": [
+     {
+      "id": "REF-01",
+      "distance": 1.0708
+     },
+     {
+      "id": "REF-02",
+      "distance": 1.3178
+     },
+     {
+      "id": "REF-03",
+      "distance": 0.6017
+     },
+     {
+      "id": "REF-04",
+      "distance": 1.0775
+     },
+     {
+      "id": "REF-05",
+      "distance": 0.7048
+     },
+     {
+      "id": "REF-06",
+      "distance": 0.7351
+     },
+     {
+      "id": "REF-07",
+      "distance": 1.079
+     },
+     {
+      "id": "REF-08",
+      "distance": 0.9225
+     },
+     {
+      "id": "REF-19",
+      "distance": 0.6094
+     },
+     {
+      "id": "REF-18",
+      "distance": 0.6693
+     },
+     {
+      "id": "REF-09",
+      "distance": 1.1565
+     },
+     {
+      "id": "REF-10",
+      "distance": 0.7079
+     },
+     {
+      "id": "REF-11",
+      "distance": 0.5447
+     },
+     {
+      "id": "REF-22",
+      "distance": 0.9332
+     },
+     {
+      "id": "REF-17",
+      "distance": 0.9194
+     },
+     {
+      "id": "REF-14",
+      "distance": 0.9828
+     },
+     {
+      "id": "REF-15",
+      "distance": 0.9869
+     },
+     {
+      "id": "REF-16",
+      "distance": 0.8831
+     },
+     {
+      "id": "REF-12",
+      "distance": 1.2317
+     },
+     {
+      "id": "REF-13",
+      "distance": 0.4155
+     },
+     {
+      "id": "REF-23",
+      "distance": 0.3841
+     },
+     {
+      "id": "REF-21",
+      "distance": 0.9432
+     },
+     {
+      "id": "REF-20",
+      "distance": 0.4346
+     }
+    ]
+   },
+   "negative_signature_check": {
+    "nearest": null,
+    "tau_neg": 0.3,
+    "hard": false,
+    "penalty": false
+   },
+   "leak": {
+    "pass": true,
+    "hits": [],
+    "ocr": "unavailable (no OCR engine in the runtime image; every drawn string is checked exactly)",
+    "logo_template_match": "not_available (no seller logo templates on file)"
+   },
+   "provenance": {
+    "pass": true,
+    "reasons": []
+   },
+   "judge": {
+    "available": true,
+    "model": "claude-sonnet-5",
+    "prompt_version": "p3p1-judge-v2",
+    "runs": [
+     {
+      "items": [
+       {
+        "n": 1,
+        "score": 3,
+        "reason": "Presenter top-left, title centered, single object below leads eye well."
+       },
+       {
+        "n": 2,
+        "score": 1,
+        "reason": "Only one object, no scale variation shown."
+       },
+       {
+        "n": 3,
+        "score": 2,
+        "reason": "Serif title is confident but not particularly expressive of theme."
+       },
+       {
+        "n": 4,
+        "score": 2,
+        "reason": "Deer is gray/neutral, minimal color contrast from merchandise."
+       },
+       {
+        "n": 5,
+        "score": 3,
+        "reason": "Copy is minimal and factual, no slogans or icon piles."
+       },
+       {
+        "n": 6,
+        "score": 3,
+        "reason": "Bold title and navy band remain legible at small size."
+       },
+       {
+        "n": 7,
+        "score": 1,
+        "reason": "Layout feels like a generic template with one swapped object."
+       },
+       {
+        "n": 8,
+        "score": 4,
+        "reason": "No competitor branding present; only presenter and platform shown."
+       },
+       {
+        "n": 9,
+        "score": 2,
+        "reason": "Clean but generic; single object undercuts merchandise impact and variety."
+       }
+      ],
+      "physical": {
+       "through": "no",
+       "through_names": "",
+       "wrong_size": "no",
+       "wrong_size_name": "",
+       "supported": "yes"
+      },
+      "comprehension": {
+       "event_type": "online auction event",
+       "who": "Lewis & Maese with Advantage.Bid",
+       "when": "Sunday, September 13, 11:00 AM–11:59 PM CT",
+       "platform": "Advantage.Bid",
+       "ask": "Bid on ManCave Auction items online during the listed time.",
+       "masquerade": "no"
+      },
+      "notes": "Single object weakens merchandise share and scale variation requirements.",
+      "total": 25,
+      "physical_points": 4
+     },
+     {
+      "items": [
+       {
+        "n": 1,
+        "score": 3,
+        "reason": "Clear flow: presenter, partner logo, title, single object, closing band."
+       },
+       {
+        "n": 2,
+        "score": 1,
+        "reason": "Only one object shown; no scale variation, though it is a clear anchor."
+       },
+       {
+        "n": 3,
+        "score": 2,
+        "reason": "Serif title is confident but not expressive of ManCave theme."
+       },
+       {
+        "n": 4,
+        "score": 2,
+        "reason": "Grayscale deer adds no color; only red rule breaks white/navy palette."
+       },
+       {
+        "n": 5,
+        "score": 3,
+        "reason": "Copy is minimal and factual; no slogans or icon clutter."
+       },
+       {
+        "n": 6,
+        "score": 3,
+        "reason": "Bold title and navy wordmark band remain legible at small size."
+       },
+       {
+        "n": 7,
+        "score": 1,
+        "reason": "Layout feels like a generic template with object swapped in."
+       },
+       {
+        "n": 8,
+        "score": 4,
+        "reason": "No competitor branding or identity referenced."
+       },
+       {
+        "n": 9,
+        "score": 2,
+        "reason": "Clean and legible but generic single-object staging feels templated."
+       }
+      ],
+      "physical": {
+       "through": "no",
+       "through_names": "",
+       "wrong_size": "no",
+       "wrong_size_name": "",
+       "supported": "yes"
+      },
+      "comprehension": {
+       "event_type": "ManCave themed auction",
+       "who": "Lewis & Maese with Advantage.Bid",
+       "when": "Sunday, September 13, 11:00 AM–11:59 PM CT",
+       "platform": "Advantage.Bid",
+       "ask": "View or bid on ManCave Auction items online",
+       "masquerade": "no"
+      },
+      "notes": "Single deer object lacks scale variation and color; layout reads templated despite clean hierarchy.",
+      "total": 25,
+      "physical_points": 4
+     }
+    ],
+    "points": 25,
+    "average": 25,
+    "disagreement": 0,
+    "flagged": false,
+    "physical_yes": {
+     "through": false,
+     "wrong_size": false
+    },
+    "comprehension": {
+     "event_type_ok": null,
+     "who_ok": true,
+     "when_ok": true,
+     "platform_ok": true,
+     "masquerade": null,
+     "answers": {
+      "event_type": "ManCave themed auction",
+      "who": "Lewis & Maese with Advantage.Bid",
+      "when": "Sunday, September 13, 11:00 AM–11:59 PM CT",
+      "platform": "Advantage.Bid",
+      "ask": "View or bid on ManCave Auction items online",
+      "masquerade": "no"
+     }
+    },
+    "items": [
+     "Hierarchy clarity: the eye enters at the presenter, moves to one title, then to the merchandise.",
+     "Objects (or the photograph) have confident scale variation and at least one clear anchor.",
+     "Typography is confident and, where expressive, truthful to the event.",
+     "Colour comes from the merchandise; the ground and panels stay quiet.",
+     "Nothing reads as filler: no slogans, icon piles, words on merchandise, duplicate URLs.",
+     "It reads at thumbnail size (headline + wordmark legible when small).",
+     "It would not be mistaken for a template with swapped merchandise (editorial irregularity).",
+     "It does not evoke any specific competitor or seller identity (answer 0 if it does).",
+     "Overall: would the Owner say \"good\" (0), \"much better\" (2), \"love this\" (4)? Justify via items 1–9."
+    ]
+   },
+   "measurable": {
+    "points": 56.56,
+    "out_of": 60,
+    "raw": 43.36,
+    "raw_max": 46,
+    "items": [
+     {
+      "key": "merchandise_coverage_field",
+      "pts": 12,
+      "value": 1,
+      "points": 12,
+      "target": [
+       0,
+       30
+      ]
+     },
+     {
+      "key": "accidental_void",
+      "pts": 6,
+      "value": 1,
+      "points": 6,
+      "target": "≤ 30"
+     },
+     {
+      "key": "hierarchy_incl_event_type",
+      "pts": 10,
+      "value": 0.7363636363636363,
+      "points": 7.36,
+      "target": "headline ≥ 2.2×"
+     },
+     {
+      "key": "identity_prominence",
+      "pts": 8,
+      "value": 1,
+      "points": 8,
+      "target": "prominence-rules"
+     },
+     {
+      "key": "physical_audit_clean",
+      "pts": 8,
+      "value": null,
+      "points": null,
+      "target": "0 violations"
+     },
+     {
+      "key": "copy",
+      "pts": 6,
+      "value": 1,
+      "points": 6,
+      "target": "one headline-class element"
+     },
+     {
+      "key": "depth_planes",
+      "pts": 6,
+      "value": null,
+      "points": null,
+      "target": "≥ 2 planes"
+     },
+     {
+      "key": "light_ground",
+      "pts": 2,
+      "value": 1,
+      "points": 2,
+      "target": "canvas luminance ≥ 0.60"
+     },
+     {
+      "key": "brand_frame",
+      "pts": 2,
+      "value": 1,
+      "points": 2,
+      "target": "logo + band + wordmark"
+     }
+    ]
+   },
+   "score": 81.56,
+   "decision": "OWNER_REVIEW",
+   "hard_failures": [],
+   "regenerate_violations": [],
+   "score_basis": "measurable_60 + judge_40",
+   "bar": 70,
+   "extreme": false,
+   "publication_status": "HELD_FOR_OWNER_REVIEW",
+   "market": null,
+   "notes": "Tier 6 restrained factual co-brand with the event's own lot photograph as one small inset"
+  },
+  {
+   "key": "D1",
+   "format": "square_1080x1080",
+   "family": "EVENT_PHOTO",
+   "structure": "CENTERED",
+   "profile": "RESTRAINED_FACTUAL",
+   "ok": true,
+   "png": "C:\\Projects\\advantage-auction-platform\\docs\\marketing\\phase3p1\\proving-grounds\\2026-09-11\\p3p2-geographic-event-D1-square_1080x1080.png",
+   "thumb": "C:\\Projects\\advantage-auction-platform\\docs\\marketing\\phase3p1\\proving-grounds\\2026-09-11\\p3p2-geographic-event-D1-square_1080x1080_thumb.png",
+   "render_sha256": "9ef94034b664c3bc65b270eccaec19c9840713ab3f742a27d39160b46be80483",
+   "metrics": {
+    "size": [
+     1080,
+     1080
+    ],
+    "family": "RESTRAINED_FACTUAL",
+    "structure": null,
+    "profile": "RESTRAINED_FACTUAL",
+    "band_h": 139,
+    "merchandise_pct": 9.6,
+    "text_region_pct": 17.9,
+    "coverage": {
+     "field": {
+      "x": 0,
+      "y": 0,
+      "w": 1080,
+      "h": 941
+     },
+     "field_area_px": 610740,
+     "coverage_pct": 16,
+     "cluster_extent_w": 0.267,
+     "cluster_extent_h": 0.36,
+     "upper_field_merch_pct": 8.9,
+     "largest_accidental_void_pct": 5.3,
+     "largest_accidental_void_field_pct": 5.2,
+     "canvas_merchandise_pct": 9.6,
+     "panels": [],
+     "declared_intentional": [
+      {
+       "x": 0,
+       "y": 340,
+       "w": 388,
+       "h": 435,
+       "reason": "restrained factual quiet ground"
+      },
+      {
+       "x": 692,
+       "y": 340,
+       "w": 388,
+       "h": 435,
+       "reason": "restrained factual quiet ground"
+      }
+     ]
+    },
+    "coverage_gate": {
+     "pass_": true,
+     "hard_failures": [],
+     "soft": {
+      "coverage_in_band": true,
+      "extent_w_ok": true,
+      "extent_h_ok": true,
+      "void_ok": true,
+      "upper_ok": true
+     }
+    },
+    "prominence": {
+     "context": "seller_led_cobranded",
+     "checks": {
+      "band_wordmark_cap_pct": 6.39,
+      "seller_weight": 192238,
+      "advantage_bid_weight": 143493,
+      "weight_ratio": 0.746,
+      "relationship_cap_pct": 2.22,
+      "relationship_has_logo_mark": true,
+      "feed_proxy_wordmark_ocr": true
+     },
+     "violations": [],
+     "pass_": true
+    },
+    "colour": {
+     "pass_": true,
+     "hard_failures": [],
+     "soft": [
+      "red share of saturated copy-zone pixels 3% outside 35–65%"
+     ],
+     "canvas_luminance": 0.948,
+     "copy_zone_luminance": 0.914,
+     "red_elements": 1,
+     "red_share_saturated_copy_zone_pct": 3,
+     "red_band": false,
+     "red_ground": false,
+     "navy_present": true
+    },
+    "event_type": {
+     "checks": {},
+     "violations": [],
+     "pass_": true
+    },
+    "density": {
+     "blocks": 4,
+     "roles": [
+      "presenter",
+      "event_line",
+      "date",
+      "band"
+     ],
+     "headline_class_roles": [
+      "event_headline"
+     ],
+     "headline_dominance": 1.63
+    },
+    "copy_over_merchandise": [],
+    "largest_empty_pct": 5.3,
+    "upper_half_merch_pct": 7.5,
+    "text_blocks": 4,
+    "ground_luminance": 0.948,
+    "brand_frame": {
+     "logo": true,
+     "band": true,
+     "wordmark": true
+    },
+    "pattern": "TYPE_LED",
+    "photo_box": {
+     "x": 0,
+     "y": 340,
+     "w": 1080,
+     "h": 435
+    },
+    "identity_scale": 1,
+    "type_scale": 1,
+    "event_type_missing": true
+   },
+   "logo": {
+    "variant": "primary_transparent",
+    "file": "advantage-bid-transparent.png",
+    "sha256": "8b5fce17b50dea4c15f73b3cfa2e54bd900db22f3106db0ee2d80ea4cd1db561",
+    "box": [
+     828,
+     90,
+     203,
+     81
+    ],
+    "scale": 0.10237,
+    "transform": "uniform_scale+position",
+    "reserved_box": [
+     828,
+     90,
+     203,
+     81
+    ],
+    "selection_reason": "light/neutral zone (luminance 1.00) → transparent lockup",
+    "ok": true
+   },
+   "logo_qa": {
+    "logo_source": {
+     "pass_": true,
+     "template_match": 1,
+     "threshold": 0.97,
+     "variant": "primary_transparent",
+     "asset_sha256": "8b5fce17b50dea4c15f73b3cfa2e54bd900db22f3106db0ee2d80ea4cd1db561",
+     "ocr_available": true,
+     "ocr_text": [
+      "ADVANTAGE.BID",
+      "GET THE ADVANTAGE"
+     ],
+     "reads_advantage_bid": true,
+     "reads_tagline": true,
+     "extra_text": []
+    },
+    "rendered_logo_elsewhere": {
+     "pass_": true,
+     "ocr_available": true,
+     "ocr_hits": [],
+     "template_hits": [],
+     "template_threshold": 0.85
+    }
+   },
+   "plan": null,
+   "copy_changes": [
+    {
+     "field": "relationship",
+     "role": "major_label",
+     "before": "In Conjunction with",
+     "after": "In Conjunction With"
+    }
+   ],
+   "copy_check": {
+    "pass": true,
+    "rejections": [],
+    "notes": []
+   },
+   "hygiene": {
+    "pass": true,
+    "violations": []
+   },
+   "density": {
+    "pass": true,
+    "hard": [],
+    "soft": [],
+    "ceiling": 4,
+    "blocks": 4,
+    "profile": "RESTRAINED_FACTUAL"
+   },
+   "template_echo": {
+    "flagged": false,
+    "props": [],
+    "rule": "the recurring collaborator props (bronze horse, blue-and-white vase, category-spine books, laptop with logo, script mug/board/box) are tagged in do_not_generalize; the object selector must not treat them as required; a scene containing ≥ 3 of them together is flagged 'template echo' and regenerated"
+   },
+   "similarity": {
+    "pass": true,
+    "failures": [],
+    "max_reference": {
+     "id": "REF-23",
+     "distance": 0.3784
+    },
+    "self_history_min": null,
+    "published_anchor_distance": null,
+    "thresholds": {
+     "tau_ref": 0.35,
+     "tau_self": 0.25,
+     "tau_pub": 0.4
+    },
+    "all_reference_distances": [
+     {
+      "id": "REF-01",
+      "distance": 1.0545
+     },
+     {
+      "id": "REF-02",
+      "distance": 1.3088
+     },
+     {
+      "id": "REF-03",
+      "distance": 0.5915
+     },
+     {
+      "id": "REF-04",
+      "distance": 1.0753
+     },
+     {
+      "id": "REF-05",
+      "distance": 0.7219
+     },
+     {
+      "id": "REF-06",
+      "distance": 0.7618
+     },
+     {
+      "id": "REF-07",
+      "distance": 1.0738
+     },
+     {
+      "id": "REF-08",
+      "distance": 0.9195
+     },
+     {
+      "id": "REF-19",
+      "distance": 0.5758
+     },
+     {
+      "id": "REF-18",
+      "distance": 0.6398
+     },
+     {
+      "id": "REF-09",
+      "distance": 1.1663
+     },
+     {
+      "id": "REF-10",
+      "distance": 0.7049
+     },
+     {
+      "id": "REF-11",
+      "distance": 0.5306
+     },
+     {
+      "id": "REF-22",
+      "distance": 0.8931
+     },
+     {
+      "id": "REF-17",
+      "distance": 0.8759
+     },
+     {
+      "id": "REF-14",
+      "distance": 0.934
+     },
+     {
+      "id": "REF-15",
+      "distance": 0.9446
+     },
+     {
+      "id": "REF-16",
+      "distance": 0.8827
+     },
+     {
+      "id": "REF-12",
+      "distance": 1.2298
+     },
+     {
+      "id": "REF-13",
+      "distance": 0.4336
+     },
+     {
+      "id": "REF-23",
+      "distance": 0.3784
+     },
+     {
+      "id": "REF-21",
+      "distance": 0.9
+     },
+     {
+      "id": "REF-20",
+      "distance": 0.4062
+     }
+    ]
+   },
+   "negative_signature_check": {
+    "nearest": null,
+    "tau_neg": 0.3,
+    "hard": false,
+    "penalty": false
+   },
+   "leak": {
+    "pass": true,
+    "hits": [],
+    "ocr": "unavailable (no OCR engine in the runtime image; every drawn string is checked exactly)",
+    "logo_template_match": "not_available (no seller logo templates on file)"
+   },
+   "provenance": {
+    "pass": true,
+    "reasons": []
+   },
+   "judge": {
+    "available": true,
+    "model": "claude-sonnet-5",
+    "prompt_version": "p3p1-judge-v2",
+    "runs": [
+     {
+      "items": [
+       {
+        "n": 1,
+        "score": 4,
+        "reason": "Presenter, title, single image flow clearly top to bottom."
+       },
+       {
+        "n": 2,
+        "score": 1,
+        "reason": "Only one object, no scale variation, weak anchor presence."
+       },
+       {
+        "n": 3,
+        "score": 3,
+        "reason": "Serif title confident but not tied to mancave theme."
+       },
+       {
+        "n": 4,
+        "score": 3,
+        "reason": "Ground quiet, deer gray tone provides muted color."
+       },
+       {
+        "n": 5,
+        "score": 4,
+        "reason": "No slogans, icons, or duplicate URLs present."
+       },
+       {
+        "n": 6,
+        "score": 4,
+        "reason": "Headline and wordmark legible at small size."
+       },
+       {
+        "n": 7,
+        "score": 1,
+        "reason": "Feels like a generic template with swappable stock image."
+       },
+       {
+        "n": 8,
+        "score": 4,
+        "reason": "No competitor or seller identity evoked."
+       },
+       {
+        "n": 9,
+        "score": 2,
+        "reason": "Improved layout but single generic asset limits impact."
+       }
+      ],
+      "physical": {
+       "through": "no",
+       "through_names": "",
+       "wrong_size": "no",
+       "wrong_size_name": "",
+       "supported": "yes"
+      },
+      "comprehension": {
+       "event_type": "ManCave themed auction",
+       "who": "Lewis & Maese",
+       "when": "Sunday, September 13, 11:00 AM–11:59 PM CT",
+       "platform": "Advantage.Bid",
+       "ask": "Bid on ManCave auction items on the listed date",
+       "masquerade": "no"
+      },
+      "notes": "Single stock deer image weakens merchandise share and editorial uniqueness.",
+      "total": 30,
+      "physical_points": 4
+     },
+     {
+      "items": [
+       {
+        "n": 1,
+        "score": 3,
+        "reason": "Presenter leads, partner subordinate, single title, navy band closes."
+       },
+       {
+        "n": 2,
+        "score": 1,
+        "reason": "Only one object shown; no scale variation, weak anchor concept."
+       },
+       {
+        "n": 3,
+        "score": 3,
+        "reason": "Serif type confident, matches formal auction tone truthfully."
+       },
+       {
+        "n": 4,
+        "score": 3,
+        "reason": "Grayscale deer, quiet white ground, single red accent line."
+       },
+       {
+        "n": 5,
+        "score": 4,
+        "reason": "No slogans, icon piles, or duplicate URLs; copy is clean."
+       },
+       {
+        "n": 6,
+        "score": 3,
+        "reason": "Title and wordmark remain legible at small thumbnail size."
+       },
+       {
+        "n": 7,
+        "score": 1,
+        "reason": "Generic centered-image template; feels swappable, not editorially distinct."
+       },
+       {
+        "n": 8,
+        "score": 4,
+        "reason": "No competitor or unrelated brand identity evoked anywhere."
+       },
+       {
+        "n": 9,
+        "score": 2,
+        "reason": "Clean but lacks scale variation and editorial distinctiveness overall."
+       }
+      ],
+      "physical": {
+       "through": "no",
+       "through_names": "",
+       "wrong_size": "no",
+       "wrong_size_name": "",
+       "supported": "yes"
+      },
+      "comprehension": {
+       "event_type": "ManCave auction event",
+       "who": "Lewis & Maese with Advantage.Bid",
+       "when": "Sunday, September 13, 11:00 AM–11:59 PM CT",
+       "platform": "Advantage.Bid",
+       "ask": "Join or bid in the ManCave auction at the stated time",
+       "masquerade": "no"
+      },
+      "notes": "Single deer image undercuts merchandise scale-variation rule; layout reads templated.",
+      "total": 28,
+      "physical_points": 4
+     }
+    ],
+    "points": 29,
+    "average": 29,
+    "disagreement": 2,
+    "flagged": false,
+    "physical_yes": {
+     "through": false,
+     "wrong_size": false
+    },
+    "comprehension": {
+     "event_type_ok": null,
+     "who_ok": true,
+     "when_ok": true,
+     "platform_ok": true,
+     "masquerade": null,
+     "answers": {
+      "event_type": "ManCave auction event",
+      "who": "Lewis & Maese with Advantage.Bid",
+      "when": "Sunday, September 13, 11:00 AM–11:59 PM CT",
+      "platform": "Advantage.Bid",
+      "ask": "Join or bid in the ManCave auction at the stated time",
+      "masquerade": "no"
+     }
+    },
+    "items": [
+     "Hierarchy clarity: the eye enters at the presenter, moves to one title, then to the merchandise.",
+     "Objects (or the photograph) have confident scale variation and at least one clear anchor.",
+     "Typography is confident and, where expressive, truthful to the event.",
+     "Colour comes from the merchandise; the ground and panels stay quiet.",
+     "Nothing reads as filler: no slogans, icon piles, words on merchandise, duplicate URLs.",
+     "It reads at thumbnail size (headline + wordmark legible when small).",
+     "It would not be mistaken for a template with swapped merchandise (editorial irregularity).",
+     "It does not evoke any specific competitor or seller identity (answer 0 if it does).",
+     "Overall: would the Owner say \"good\" (0), \"much better\" (2), \"love this\" (4)? Justify via items 1–9."
+    ]
+   },
+   "measurable": {
+    "points": 56.62,
+    "out_of": 60,
+    "raw": 43.41,
+    "raw_max": 46,
+    "items": [
+     {
+      "key": "merchandise_coverage_field",
+      "pts": 12,
+      "value": 1,
+      "points": 12,
+      "target": [
+       0,
+       30
+      ]
+     },
+     {
+      "key": "accidental_void",
+      "pts": 6,
+      "value": 1,
+      "points": 6,
+      "target": "≤ 30"
+     },
+     {
+      "key": "hierarchy_incl_event_type",
+      "pts": 10,
+      "value": 0.7409090909090909,
+      "points": 7.41,
+      "target": "headline ≥ 2.2×"
+     },
+     {
+      "key": "identity_prominence",
+      "pts": 8,
+      "value": 1,
+      "points": 8,
+      "target": "prominence-rules"
+     },
+     {
+      "key": "physical_audit_clean",
+      "pts": 8,
+      "value": null,
+      "points": null,
+      "target": "0 violations"
+     },
+     {
+      "key": "copy",
+      "pts": 6,
+      "value": 1,
+      "points": 6,
+      "target": "one headline-class element"
+     },
+     {
+      "key": "depth_planes",
+      "pts": 6,
+      "value": null,
+      "points": null,
+      "target": "≥ 2 planes"
+     },
+     {
+      "key": "light_ground",
+      "pts": 2,
+      "value": 1,
+      "points": 2,
+      "target": "canvas luminance ≥ 0.60"
+     },
+     {
+      "key": "brand_frame",
+      "pts": 2,
+      "value": 1,
+      "points": 2,
+      "target": "logo + band + wordmark"
+     }
+    ]
+   },
+   "score": 85.62,
+   "decision": "OWNER_REVIEW",
+   "hard_failures": [],
+   "regenerate_violations": [],
+   "score_basis": "measurable_60 + judge_40",
+   "bar": 70,
+   "extreme": false,
+   "publication_status": "HELD_FOR_OWNER_REVIEW",
+   "market": null,
+   "notes": "Tier 6 restrained factual co-brand with the event's own lot photograph as one small inset"
+  },
+  {
+   "key": "D2",
+   "format": "portrait_1080x1350",
+   "family": "EVENT_PHOTO",
+   "structure": "CENTERED",
+   "profile": "RESTRAINED_FACTUAL",
+   "ok": true,
+   "png": "C:\\Projects\\advantage-auction-platform\\docs\\marketing\\phase3p1\\proving-grounds\\2026-09-11\\p3p2-geographic-event-D2-portrait_1080x1350.png",
+   "thumb": "C:\\Projects\\advantage-auction-platform\\docs\\marketing\\phase3p1\\proving-grounds\\2026-09-11\\p3p2-geographic-event-D2-portrait_1080x1350_thumb.png",
+   "render_sha256": "b46a61f84d927b8f55d3b09deeecb6ae5b970476e27fb82b0532bb3b811e0946",
+   "metrics": {
+    "size": [
+     1080,
+     1350
+    ],
+    "family": "RESTRAINED_FACTUAL",
+    "structure": null,
+    "profile": "RESTRAINED_FACTUAL",
+    "band_h": 159,
+    "merchandise_pct": 0,
+    "text_region_pct": 22,
+    "coverage": {
+     "field": {
+      "x": 0,
+      "y": 0,
+      "w": 1080,
+      "h": 1191
+     },
+     "field_area_px": 786036,
+     "coverage_pct": 0,
+     "cluster_extent_w": 0,
+     "cluster_extent_h": 0,
+     "upper_field_merch_pct": 0,
+     "largest_accidental_void_pct": 4.7,
+     "largest_accidental_void_field_pct": 5.7,
+     "canvas_merchandise_pct": 0,
+     "panels": [],
+     "declared_intentional": [
+      {
+       "x": 0,
+       "y": 427,
+       "w": 1080,
+       "h": 557,
+       "reason": "restrained factual quiet ground (no authentic media ready)"
+      }
+     ]
+    },
+    "coverage_gate": {
+     "pass_": true,
+     "hard_failures": [],
+     "soft": {
+      "coverage_in_band": true,
+      "extent_w_ok": true,
+      "extent_h_ok": true,
+      "void_ok": true,
+      "upper_ok": true
+     }
+    },
+    "prominence": {
+     "context": "seller_led_cobranded",
+     "checks": {
+      "band_wordmark_cap_pct": 5.63,
+      "seller_weight": 302037,
+      "advantage_bid_weight": 225859,
+      "weight_ratio": 0.748,
+      "relationship_cap_pct": 2.22,
+      "relationship_has_logo_mark": true,
+      "feed_proxy_wordmark_ocr": true
+     },
+     "violations": [],
+     "pass_": true
+    },
+    "colour": {
+     "pass_": true,
+     "hard_failures": [],
+     "soft": [
+      "red share of saturated copy-zone pixels 3% outside 35–65%"
+     ],
+     "canvas_luminance": 0.944,
+     "copy_zone_luminance": 0.894,
+     "red_elements": 1,
+     "red_share_saturated_copy_zone_pct": 2.6,
+     "red_band": false,
+     "red_ground": false,
+     "navy_present": true
+    },
+    "event_type": {
+     "checks": {},
+     "violations": [],
+     "pass_": true
+    },
+    "density": {
+     "blocks": 4,
+     "roles": [
+      "presenter",
+      "event_line",
+      "date",
+      "band"
+     ],
+     "headline_class_roles": [
+      "event_headline"
+     ],
+     "headline_dominance": 1.62
+    },
+    "copy_over_merchandise": [],
+    "largest_empty_pct": 4.7,
+    "upper_half_merch_pct": 0,
+    "text_blocks": 4,
+    "ground_luminance": 0.944,
+    "brand_frame": {
+     "logo": true,
+     "band": true,
+     "wordmark": true
+    },
+    "pattern": "TYPE_LED",
+    "photo_box": {
+     "x": 0,
+     "y": 427,
+     "w": 1080,
+     "h": 557
+    },
+    "identity_scale": 1,
+    "type_scale": 1,
+    "event_type_missing": true
+   },
+   "logo": {
+    "variant": "primary_transparent",
+    "file": "advantage-bid-transparent.png",
+    "sha256": "8b5fce17b50dea4c15f73b3cfa2e54bd900db22f3106db0ee2d80ea4cd1db561",
+    "box": [
+     777,
+     112,
+     254,
+     102
+    ],
+    "scale": 0.12809,
+    "transform": "uniform_scale+position",
+    "reserved_box": [
+     777,
+     112,
+     254,
+     102
+    ],
+    "selection_reason": "light/neutral zone (luminance 1.00) → transparent lockup",
+    "ok": true
+   },
+   "logo_qa": {
+    "logo_source": {
+     "pass_": true,
+     "template_match": 1,
+     "threshold": 0.97,
+     "variant": "primary_transparent",
+     "asset_sha256": "8b5fce17b50dea4c15f73b3cfa2e54bd900db22f3106db0ee2d80ea4cd1db561",
+     "ocr_available": true,
+     "ocr_text": [
+      "ADVANTAGE.BID",
+      "GET THE ADVANTAGE"
+     ],
+     "reads_advantage_bid": true,
+     "reads_tagline": true,
+     "extra_text": []
+    },
+    "rendered_logo_elsewhere": {
+     "pass_": true,
+     "ocr_available": true,
+     "ocr_hits": [],
+     "template_hits": [],
+     "template_threshold": 0.85
+    }
+   },
+   "plan": null,
+   "copy_changes": [
+    {
+     "field": "relationship",
+     "role": "major_label",
+     "before": "In Conjunction with",
+     "after": "In Conjunction With"
+    }
+   ],
+   "copy_check": {
+    "pass": true,
+    "rejections": [],
+    "notes": []
+   },
+   "hygiene": {
+    "pass": true,
+    "violations": []
+   },
+   "density": {
+    "pass": true,
+    "hard": [],
+    "soft": [
+     "text region 22% > 18% (RESTRAINED_FACTUAL)"
+    ],
+    "ceiling": 4,
+    "blocks": 4,
+    "profile": "RESTRAINED_FACTUAL"
+   },
+   "template_echo": {
+    "flagged": false,
+    "props": [],
+    "rule": "the recurring collaborator props (bronze horse, blue-and-white vase, category-spine books, laptop with logo, script mug/board/box) are tagged in do_not_generalize; the object selector must not treat them as required; a scene containing ≥ 3 of them together is flagged 'template echo' and regenerated"
+   },
+   "similarity": {
+    "pass": false,
+    "failures": [
+     "too close to prior creative p3p2-geographic-event:D1:portrait_1080x1350 (0.0045 < τ_self 0.25)"
+    ],
+    "max_reference": {
+     "id": "REF-23",
+     "distance": 0.382
+    },
+    "self_history_min": {
+     "id": "p3p2-geographic-event:D1:portrait_1080x1350",
+     "distance": 0.0045
+    },
+    "published_anchor_distance": null,
+    "thresholds": {
+     "tau_ref": 0.35,
+     "tau_self": 0.25,
+     "tau_pub": 0.4
+    },
+    "all_reference_distances": [
+     {
+      "id": "REF-01",
+      "distance": 1.08
+     },
+     {
+      "id": "REF-02",
+      "distance": 1.3292
+     },
+     {
+      "id": "REF-03",
+      "distance": 0.601
+     },
+     {
+      "id": "REF-04",
+      "distance": 1.0777
+     },
+     {
+      "id": "REF-05",
+      "distance": 0.7056
+     },
+     {
+      "id": "REF-06",
+      "distance": 0.74
+     },
+     {
+      "id": "REF-07",
+      "distance": 1.081
+     },
+     {
+      "id": "REF-08",
+      "distance": 0.9309
+     },
+     {
+      "id": "REF-19",
+      "distance": 0.6113
+     },
+     {
+      "id": "REF-18",
+      "distance": 0.6703
+     },
+     {
+      "id": "REF-09",
+      "distance": 1.166
+     },
+     {
+      "id": "REF-10",
+      "distance": 0.7118
+     },
+     {
+      "id": "REF-11",
+      "distance": 0.5399
+     },
+     {
+      "id": "REF-22",
+      "distance": 0.9458
+     },
+     {
+      "id": "REF-17",
+      "distance": 0.9198
+     },
+     {
+      "id": "REF-14",
+      "distance": 0.9843
+     },
+     {
+      "id": "REF-15",
+      "distance": 0.9892
+     },
+     {
+      "id": "REF-16",
+      "distance": 0.887
+     },
+     {
+      "id": "REF-12",
+      "distance": 1.228
+     },
+     {
+      "id": "REF-13",
+      "distance": 0.4134
+     },
+     {
+      "id": "REF-23",
+      "distance": 0.382
+     },
+     {
+      "id": "REF-21",
+      "distance": 0.9478
+     },
+     {
+      "id": "REF-20",
+      "distance": 0.438
+     }
+    ]
+   },
+   "negative_signature_check": {
+    "nearest": null,
+    "tau_neg": 0.3,
+    "hard": false,
+    "penalty": false
+   },
+   "leak": {
+    "pass": true,
+    "hits": [],
+    "ocr": "unavailable (no OCR engine in the runtime image; every drawn string is checked exactly)",
+    "logo_template_match": "not_available (no seller logo templates on file)"
+   },
+   "provenance": {
+    "pass": true,
+    "reasons": []
+   },
+   "judge": {
+    "available": true,
+    "model": "claude-sonnet-5",
+    "prompt_version": "p3p1-judge-v2",
+    "runs": [
+     {
+      "items": [
+       {
+        "n": 1,
+        "score": 1,
+        "reason": "Presenter and title present but merchandise entirely missing, breaking flow"
+       },
+       {
+        "n": 2,
+        "score": 0,
+        "reason": "No objects or photograph shown; empty gray box instead"
+       },
+       {
+        "n": 3,
+        "score": 2,
+        "reason": "Serif title has confident contrast but no imagery to feel event-true"
+       },
+       {
+        "n": 4,
+        "score": 1,
+        "reason": "No merchandise to carry color; ground stays quiet by default not design"
+       },
+       {
+        "n": 5,
+        "score": 1,
+        "reason": "Empty central panel reads as glaring filler void"
+       },
+       {
+        "n": 6,
+        "score": 3,
+        "reason": "Title and wordmark legible at small size despite empty middle"
+       },
+       {
+        "n": 7,
+        "score": 0,
+        "reason": "Blank placeholder box looks like an unfinished template, not editorial choice"
+       },
+       {
+        "n": 8,
+        "score": 4,
+        "reason": "No competitor or seller identity evoked beyond stated names"
+       },
+       {
+        "n": 9,
+        "score": 0,
+        "reason": "Missing merchandise entirely fails core principle; owner would reject this"
+       }
+      ],
+      "physical": {
+       "through": "no",
+       "through_names": "",
+       "wrong_size": "no",
+       "wrong_size_name": "",
+       "supported": "yes"
+      },
+      "comprehension": {
+       "event_type": "ManCave themed auction",
+       "who": "Lewis & Maese with Advantage.Bid",
+       "when": "Sunday, September 13, 11:00 AM–11:59 PM CT",
+       "platform": "Advantage.Bid",
+       "ask": "Bid on ManCave auction items online via Advantage.Bid",
+       "masquerade": "no"
+      },
+      "notes": "Largest empty area far exceeds 6% max; merchandise share 0% violates 50-65% requirement entirely.",
+      "total": 16,
+      "physical_points": 4
+     },
+     {
+      "items": [
+       {
+        "n": 1,
+        "score": 1,
+        "reason": "Presenter and title clear but empty box breaks flow to merchandise"
+       },
+       {
+        "n": 2,
+        "score": 0,
+        "reason": "No objects present at all, just empty gray placeholder box"
+       },
+       {
+        "n": 3,
+        "score": 2,
+        "reason": "Title typography confident but no expressive contrast tied to content"
+       },
+       {
+        "n": 4,
+        "score": 1,
+        "reason": "No merchandise color present; only red accent line and navy band"
+       },
+       {
+        "n": 5,
+        "score": 2,
+        "reason": "No slogans or icon piles, but massive blank filler space is worse"
+       },
+       {
+        "n": 6,
+        "score": 2,
+        "reason": "Headline and wordmark legible but ad looks broken at thumbnail"
+       },
+       {
+        "n": 7,
+        "score": 0,
+        "reason": "Looks like unfinished template with placeholder, not editorial choice"
+       },
+       {
+        "n": 8,
+        "score": 0,
+        "reason": "No competitor identity evoked, presenter and partner clearly stated"
+       },
+       {
+        "n": 9,
+        "score": 0,
+        "reason": "Owner would flag missing content; empty box violates core principles"
+       }
+      ],
+      "physical": {
+       "through": "no",
+       "through_names": "",
+       "wrong_size": "no",
+       "wrong_size_name": "",
+       "supported": "yes"
+      },
+      "comprehension": {
+       "event_type": "ManCave auction (online bidding event)",
+       "who": "Lewis & Maese with Advantage.Bid",
+       "when": "Sunday, September 13, 11:00 AM-11:59 PM CT",
+       "platform": "Advantage.Bid",
+       "ask": "Bid on ManCave auction items via Advantage.Bid platform",
+       "masquerade": "no"
+      },
+      "notes": "Central content area is entirely empty gray box, violating largest_empty_max_pct and merchandise share_band_pct requirements; appears to be an unfinished creative missing the actual auction imagery.",
+      "total": 12,
+      "physical_points": 4
+     }
+    ],
+    "points": 14,
+    "average": 14,
+    "disagreement": 4,
+    "flagged": false,
+    "physical_yes": {
+     "through": false,
+     "wrong_size": false
+    },
+    "comprehension": {
+     "event_type_ok": null,
+     "who_ok": true,
+     "when_ok": true,
+     "platform_ok": true,
+     "masquerade": null,
+     "answers": {
+      "event_type": "ManCave auction (online bidding event)",
+      "who": "Lewis & Maese with Advantage.Bid",
+      "when": "Sunday, September 13, 11:00 AM-11:59 PM CT",
+      "platform": "Advantage.Bid",
+      "ask": "Bid on ManCave auction items via Advantage.Bid platform",
+      "masquerade": "no"
+     }
+    },
+    "items": [
+     "Hierarchy clarity: the eye enters at the presenter, moves to one title, then to the merchandise.",
+     "Objects (or the photograph) have confident scale variation and at least one clear anchor.",
+     "Typography is confident and, where expressive, truthful to the event.",
+     "Colour comes from the merchandise; the ground and panels stay quiet.",
+     "Nothing reads as filler: no slogans, icon piles, words on merchandise, duplicate URLs.",
+     "It reads at thumbnail size (headline + wordmark legible when small).",
+     "It would not be mistaken for a template with swapped merchandise (editorial irregularity).",
+     "It does not evoke any specific competitor or seller identity (answer 0 if it does).",
+     "Overall: would the Owner say \"good\" (0), \"much better\" (2), \"love this\" (4)? Justify via items 1–9."
+    ]
+   },
+   "measurable": {
+    "points": 56.56,
+    "out_of": 60,
+    "raw": 43.36,
+    "raw_max": 46,
+    "items": [
+     {
+      "key": "merchandise_coverage_field",
+      "pts": 12,
+      "value": 1,
+      "points": 12,
+      "target": [
+       0,
+       30
+      ]
+     },
+     {
+      "key": "accidental_void",
+      "pts": 6,
+      "value": 1,
+      "points": 6,
+      "target": "≤ 30"
+     },
+     {
+      "key": "hierarchy_incl_event_type",
+      "pts": 10,
+      "value": 0.7363636363636363,
+      "points": 7.36,
+      "target": "headline ≥ 2.2×"
+     },
+     {
+      "key": "identity_prominence",
+      "pts": 8,
+      "value": 1,
+      "points": 8,
+      "target": "prominence-rules"
+     },
+     {
+      "key": "physical_audit_clean",
+      "pts": 8,
+      "value": null,
+      "points": null,
+      "target": "0 violations"
+     },
+     {
+      "key": "copy",
+      "pts": 6,
+      "value": 1,
+      "points": 6,
+      "target": "one headline-class element"
+     },
+     {
+      "key": "depth_planes",
+      "pts": 6,
+      "value": null,
+      "points": null,
+      "target": "≥ 2 planes"
+     },
+     {
+      "key": "light_ground",
+      "pts": 2,
+      "value": 1,
+      "points": 2,
+      "target": "canvas luminance ≥ 0.60"
+     },
+     {
+      "key": "brand_frame",
+      "pts": 2,
+      "value": 1,
+      "points": 2,
+      "target": "logo + band + wordmark"
+     }
+    ]
+   },
+   "score": 0,
+   "decision": "HARD_FAIL",
+   "hard_failures": [
+    {
+     "gate": "G11_anti_similarity",
+     "detail": [
+      "too close to prior creative p3p2-geographic-event:D1:portrait_1080x1350 (0.0045 < τ_self 0.25)"
+     ]
+    }
+   ],
+   "regenerate_violations": [],
+   "score_basis": "measurable_60 + judge_40",
+   "bar": 70,
+   "extreme": false,
+   "publication_status": "HELD_FOR_OWNER_REVIEW",
+   "market": null,
+   "notes": "Tier 6 typographic co-brand (no image)"
+  },
+  {
+   "key": "D2",
+   "format": "square_1080x1080",
+   "family": "EVENT_PHOTO",
+   "structure": "CENTERED",
+   "profile": "RESTRAINED_FACTUAL",
+   "ok": true,
+   "png": "C:\\Projects\\advantage-auction-platform\\docs\\marketing\\phase3p1\\proving-grounds\\2026-09-11\\p3p2-geographic-event-D2-square_1080x1080.png",
+   "thumb": "C:\\Projects\\advantage-auction-platform\\docs\\marketing\\phase3p1\\proving-grounds\\2026-09-11\\p3p2-geographic-event-D2-square_1080x1080_thumb.png",
+   "render_sha256": "ad878d3def784a6d7dda92b6cd6c5c26bf6db01b765b77101fb0a0f31289e9bc",
+   "metrics": {
+    "size": [
+     1080,
+     1080
+    ],
+    "family": "RESTRAINED_FACTUAL",
+    "structure": null,
+    "profile": "RESTRAINED_FACTUAL",
+    "band_h": 139,
+    "merchandise_pct": 0,
+    "text_region_pct": 17.9,
+    "coverage": {
+     "field": {
+      "x": 0,
+      "y": 0,
+      "w": 1080,
+      "h": 941
+     },
+     "field_area_px": 610740,
+     "coverage_pct": 0,
+     "cluster_extent_w": 0,
+     "cluster_extent_h": 0,
+     "upper_field_merch_pct": 0,
+     "largest_accidental_void_pct": 5.3,
+     "largest_accidental_void_field_pct": 5.2,
+     "canvas_merchandise_pct": 0,
+     "panels": [],
+     "declared_intentional": [
+      {
+       "x": 0,
+       "y": 340,
+       "w": 1080,
+       "h": 435,
+       "reason": "restrained factual quiet ground (no authentic media ready)"
+      }
+     ]
+    },
+    "coverage_gate": {
+     "pass_": true,
+     "hard_failures": [],
+     "soft": {
+      "coverage_in_band": true,
+      "extent_w_ok": true,
+      "extent_h_ok": true,
+      "void_ok": true,
+      "upper_ok": true
+     }
+    },
+    "prominence": {
+     "context": "seller_led_cobranded",
+     "checks": {
+      "band_wordmark_cap_pct": 6.39,
+      "seller_weight": 192238,
+      "advantage_bid_weight": 143493,
+      "weight_ratio": 0.746,
+      "relationship_cap_pct": 2.22,
+      "relationship_has_logo_mark": true,
+      "feed_proxy_wordmark_ocr": true
+     },
+     "violations": [],
+     "pass_": true
+    },
+    "colour": {
+     "pass_": true,
+     "hard_failures": [],
+     "soft": [
+      "red share of saturated copy-zone pixels 3% outside 35–65%"
+     ],
+     "canvas_luminance": 0.951,
+     "copy_zone_luminance": 0.914,
+     "red_elements": 1,
+     "red_share_saturated_copy_zone_pct": 3,
+     "red_band": false,
+     "red_ground": false,
+     "navy_present": true
+    },
+    "event_type": {
+     "checks": {},
+     "violations": [],
+     "pass_": true
+    },
+    "density": {
+     "blocks": 4,
+     "roles": [
+      "presenter",
+      "event_line",
+      "date",
+      "band"
+     ],
+     "headline_class_roles": [
+      "event_headline"
+     ],
+     "headline_dominance": 1.63
+    },
+    "copy_over_merchandise": [],
+    "largest_empty_pct": 5.3,
+    "upper_half_merch_pct": 0,
+    "text_blocks": 4,
+    "ground_luminance": 0.951,
+    "brand_frame": {
+     "logo": true,
+     "band": true,
+     "wordmark": true
+    },
+    "pattern": "TYPE_LED",
+    "photo_box": {
+     "x": 0,
+     "y": 340,
+     "w": 1080,
+     "h": 435
+    },
+    "identity_scale": 1,
+    "type_scale": 1,
+    "event_type_missing": true
+   },
+   "logo": {
+    "variant": "primary_transparent",
+    "file": "advantage-bid-transparent.png",
+    "sha256": "8b5fce17b50dea4c15f73b3cfa2e54bd900db22f3106db0ee2d80ea4cd1db561",
+    "box": [
+     828,
+     90,
+     203,
+     81
+    ],
+    "scale": 0.10237,
+    "transform": "uniform_scale+position",
+    "reserved_box": [
+     828,
+     90,
+     203,
+     81
+    ],
+    "selection_reason": "light/neutral zone (luminance 1.00) → transparent lockup",
+    "ok": true
+   },
+   "logo_qa": {
+    "logo_source": {
+     "pass_": true,
+     "template_match": 1,
+     "threshold": 0.97,
+     "variant": "primary_transparent",
+     "asset_sha256": "8b5fce17b50dea4c15f73b3cfa2e54bd900db22f3106db0ee2d80ea4cd1db561",
+     "ocr_available": true,
+     "ocr_text": [
+      "ADVANTAGE.BID",
+      "GET THE ADVANTAGE"
+     ],
+     "reads_advantage_bid": true,
+     "reads_tagline": true,
+     "extra_text": []
+    },
+    "rendered_logo_elsewhere": {
+     "pass_": true,
+     "ocr_available": true,
+     "ocr_hits": [],
+     "template_hits": [],
+     "template_threshold": 0.85
+    }
+   },
+   "plan": null,
+   "copy_changes": [
+    {
+     "field": "relationship",
+     "role": "major_label",
+     "before": "In Conjunction with",
+     "after": "In Conjunction With"
+    }
+   ],
+   "copy_check": {
+    "pass": true,
+    "rejections": [],
+    "notes": []
+   },
+   "hygiene": {
+    "pass": true,
+    "violations": []
+   },
+   "density": {
+    "pass": true,
+    "hard": [],
+    "soft": [],
+    "ceiling": 4,
+    "blocks": 4,
+    "profile": "RESTRAINED_FACTUAL"
+   },
+   "template_echo": {
+    "flagged": false,
+    "props": [],
+    "rule": "the recurring collaborator props (bronze horse, blue-and-white vase, category-spine books, laptop with logo, script mug/board/box) are tagged in do_not_generalize; the object selector must not treat them as required; a scene containing ≥ 3 of them together is flagged 'template echo' and regenerated"
+   },
+   "similarity": {
+    "pass": false,
+    "failures": [
+     "too close to prior creative p3p2-geographic-event:D1:square_1080x1080 (0.0029 < τ_self 0.25)"
+    ],
+    "max_reference": {
+     "id": "REF-23",
+     "distance": 0.3768
+    },
+    "self_history_min": {
+     "id": "p3p2-geographic-event:D1:square_1080x1080",
+     "distance": 0.0029
+    },
+    "published_anchor_distance": null,
+    "thresholds": {
+     "tau_ref": 0.35,
+     "tau_self": 0.25,
+     "tau_pub": 0.4
+    },
+    "all_reference_distances": [
+     {
+      "id": "REF-01",
+      "distance": 1.0606
+     },
+     {
+      "id": "REF-02",
+      "distance": 1.3175
+     },
+     {
+      "id": "REF-03",
+      "distance": 0.5907
+     },
+     {
+      "id": "REF-04",
+      "distance": 1.0746
+     },
+     {
+      "id": "REF-05",
+      "distance": 0.7222
+     },
+     {
+      "id": "REF-06",
+      "distance": 0.7649
+     },
+     {
+      "id": "REF-07",
+      "distance": 1.076
+     },
+     {
+      "id": "REF-08",
+      "distance": 0.9242
+     },
+     {
+      "id": "REF-19",
+      "distance": 0.5775
+     },
+     {
+      "id": "REF-18",
+      "distance": 0.6403
+     },
+     {
+      "id": "REF-09",
+      "distance": 1.173
+     },
+     {
+      "id": "REF-10",
+      "distance": 0.7071
+     },
+     {
+      "id": "REF-11",
+      "distance": 0.527
+     },
+     {
+      "id": "REF-22",
+      "distance": 0.9014
+     },
+     {
+      "id": "REF-17",
+      "distance": 0.876
+     },
+     {
+      "id": "REF-14",
+      "distance": 0.9341
+     },
+     {
+      "id": "REF-15",
+      "distance": 0.9452
+     },
+     {
+      "id": "REF-16",
+      "distance": 0.8859
+     },
+     {
+      "id": "REF-12",
+      "distance": 1.2279
+     },
+     {
+      "id": "REF-13",
+      "distance": 0.4326
+     },
+     {
+      "id": "REF-23",
+      "distance": 0.3768
+     },
+     {
+      "id": "REF-21",
+      "distance": 0.9026
+     },
+     {
+      "id": "REF-20",
+      "distance": 0.4084
+     }
+    ]
+   },
+   "negative_signature_check": {
+    "nearest": null,
+    "tau_neg": 0.3,
+    "hard": false,
+    "penalty": false
+   },
+   "leak": {
+    "pass": true,
+    "hits": [],
+    "ocr": "unavailable (no OCR engine in the runtime image; every drawn string is checked exactly)",
+    "logo_template_match": "not_available (no seller logo templates on file)"
+   },
+   "provenance": {
+    "pass": true,
+    "reasons": []
+   },
+   "judge": {
+    "available": true,
+    "model": "claude-sonnet-5",
+    "prompt_version": "p3p1-judge-v2",
+    "runs": [
+     {
+      "items": [
+       {
+        "n": 1,
+        "score": 1,
+        "reason": "Title present but no merchandise to lead eye toward; empty panel breaks flow"
+       },
+       {
+        "n": 2,
+        "score": 0,
+        "reason": "No objects present at all; empty gray panel instead of merchandise"
+       },
+       {
+        "n": 3,
+        "score": 2,
+        "reason": "Typography clean and serif-appropriate but generic, no event-specific expression"
+       },
+       {
+        "n": 4,
+        "score": 1,
+        "reason": "No merchandise color; only navy/red brand colors present, ground quiet but empty"
+       },
+       {
+        "n": 5,
+        "score": 3,
+        "reason": "No slogans or icon piles, but massive empty space itself reads as filler"
+       },
+       {
+        "n": 6,
+        "score": 3,
+        "reason": "Headline and wordmark legible at small size due to bold typography"
+       },
+       {
+        "n": 7,
+        "score": 0,
+        "reason": "Empty panel makes this indistinguishable from a broken template, not editorial"
+       },
+       {
+        "n": 8,
+        "score": 4,
+        "reason": "No competitor or unrelated seller identity evoked in this ad"
+       },
+       {
+        "n": 9,
+        "score": 0,
+        "reason": "Owner would reject; missing merchandise entirely violates core event-photo requirement"
+       }
+      ],
+      "physical": {
+       "through": "no",
+       "through_names": "",
+       "wrong_size": "no",
+       "wrong_size_name": "",
+       "supported": "yes"
+      },
+      "comprehension": {
+       "event_type": "auction event (ManCave themed)",
+       "who": "Lewis & Maese with Advantage.Bid",
+       "when": "Sunday September 13, 11:00 AM - 11:59 PM CT",
+       "platform": "yes, Advantage.Bid",
+       "ask": "Attend or bid in the ManCave Auction on the stated date",
+       "masquerade": "no"
+      },
+      "notes": "Critical failure: large empty light panel occupies ~40% of canvas where merchandise photo should be, violating merchandise/photo requirements for EVENT_PHOTO family.",
+      "total": 18,
+      "physical_points": 4
+     },
+     {
+      "items": [
+       {
+        "n": 1,
+        "score": 1,
+        "reason": "Presenter then title read fine, but eye hits vast empty panel instead of merchandise"
+       },
+       {
+        "n": 2,
+        "score": 0,
+        "reason": "No objects or photo present, no anchor, no scale variation at all"
+       },
+       {
+        "n": 3,
+        "score": 3,
+        "reason": "Serif title vs sans supporting text is clean and truthful, no expressive risk"
+       },
+       {
+        "n": 4,
+        "score": 1,
+        "reason": "No merchandise color present, only red accent line breaks flat navy/white palette"
+       },
+       {
+        "n": 5,
+        "score": 0,
+        "reason": "Huge blank gray block reads as filler, violates near-zero empty-space allowance"
+       },
+       {
+        "n": 6,
+        "score": 4,
+        "reason": "Headline and wordmark remain legible and bold even at small thumbnail size"
+       },
+       {
+        "n": 7,
+        "score": 0,
+        "reason": "Empty placeholder panel looks exactly like an unfinished template, not edited creative"
+       },
+       {
+        "n": 8,
+        "score": 4,
+        "reason": "No competitor or outside seller identity is evoked anywhere in the design"
+       },
+       {
+        "n": 9,
+        "score": 0,
+        "reason": "Owner would flag the missing merchandise as a critical, unfinished-looking flaw"
+       }
+      ],
+      "physical": {
+       "through": "no",
+       "through_names": "",
+       "wrong_size": "no",
+       "wrong_size_name": "",
+       "supported": "yes"
+      },
+      "comprehension": {
+       "event_type": "auction",
+       "who": "Lewis & Maese with Advantage.Bid",
+       "when": "Sunday, September 13, 11:00 AM–11:59 PM CT",
+       "platform": "Advantage.Bid",
+       "ask": "Join the ManCave auction on the stated date and time",
+       "masquerade": "no"
+      },
+      "notes": "Central merchandise panel is empty, breaking core share and empty-space rules; feels unfinished.",
+      "total": 17,
+      "physical_points": 4
+     }
+    ],
+    "points": 17.5,
+    "average": 17.5,
+    "disagreement": 1,
+    "flagged": false,
+    "physical_yes": {
+     "through": false,
+     "wrong_size": false
+    },
+    "comprehension": {
+     "event_type_ok": null,
+     "who_ok": true,
+     "when_ok": true,
+     "platform_ok": true,
+     "masquerade": null,
+     "answers": {
+      "event_type": "auction",
+      "who": "Lewis & Maese with Advantage.Bid",
+      "when": "Sunday, September 13, 11:00 AM–11:59 PM CT",
+      "platform": "Advantage.Bid",
+      "ask": "Join the ManCave auction on the stated date and time",
+      "masquerade": "no"
+     }
+    },
+    "items": [
+     "Hierarchy clarity: the eye enters at the presenter, moves to one title, then to the merchandise.",
+     "Objects (or the photograph) have confident scale variation and at least one clear anchor.",
+     "Typography is confident and, where expressive, truthful to the event.",
+     "Colour comes from the merchandise; the ground and panels stay quiet.",
+     "Nothing reads as filler: no slogans, icon piles, words on merchandise, duplicate URLs.",
+     "It reads at thumbnail size (headline + wordmark legible when small).",
+     "It would not be mistaken for a template with swapped merchandise (editorial irregularity).",
+     "It does not evoke any specific competitor or seller identity (answer 0 if it does).",
+     "Overall: would the Owner say \"good\" (0), \"much better\" (2), \"love this\" (4)? Justify via items 1–9."
+    ]
+   },
+   "measurable": {
+    "points": 56.62,
+    "out_of": 60,
+    "raw": 43.41,
+    "raw_max": 46,
+    "items": [
+     {
+      "key": "merchandise_coverage_field",
+      "pts": 12,
+      "value": 1,
+      "points": 12,
+      "target": [
+       0,
+       30
+      ]
+     },
+     {
+      "key": "accidental_void",
+      "pts": 6,
+      "value": 1,
+      "points": 6,
+      "target": "≤ 30"
+     },
+     {
+      "key": "hierarchy_incl_event_type",
+      "pts": 10,
+      "value": 0.7409090909090909,
+      "points": 7.41,
+      "target": "headline ≥ 2.2×"
+     },
+     {
+      "key": "identity_prominence",
+      "pts": 8,
+      "value": 1,
+      "points": 8,
+      "target": "prominence-rules"
+     },
+     {
+      "key": "physical_audit_clean",
+      "pts": 8,
+      "value": null,
+      "points": null,
+      "target": "0 violations"
+     },
+     {
+      "key": "copy",
+      "pts": 6,
+      "value": 1,
+      "points": 6,
+      "target": "one headline-class element"
+     },
+     {
+      "key": "depth_planes",
+      "pts": 6,
+      "value": null,
+      "points": null,
+      "target": "≥ 2 planes"
+     },
+     {
+      "key": "light_ground",
+      "pts": 2,
+      "value": 1,
+      "points": 2,
+      "target": "canvas luminance ≥ 0.60"
+     },
+     {
+      "key": "brand_frame",
+      "pts": 2,
+      "value": 1,
+      "points": 2,
+      "target": "logo + band + wordmark"
+     }
+    ]
+   },
+   "score": 0,
+   "decision": "HARD_FAIL",
+   "hard_failures": [
+    {
+     "gate": "G11_anti_similarity",
+     "detail": [
+      "too close to prior creative p3p2-geographic-event:D1:square_1080x1080 (0.0029 < τ_self 0.25)"
+     ]
+    }
+   ],
+   "regenerate_violations": [],
+   "score_basis": "measurable_60 + judge_40",
+   "bar": 70,
+   "extreme": false,
+   "publication_status": "HELD_FOR_OWNER_REVIEW",
+   "market": null,
+   "notes": "Tier 6 typographic co-brand (no image)"
+  }
+ ]
+}

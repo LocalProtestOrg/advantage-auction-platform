@@ -1,0 +1,7112 @@
+{
+ "job_id": "p3p2-buyer-growth",
+ "campaign_class": "buyer_platform_growth",
+ "title": "Buyer growth — discovery language, one idea per ad",
+ "index_version": "3P.1.769d0461bc92",
+ "gates": {
+  "marketing.a9_publish_enabled": false,
+  "marketing.destinations.meta_enabled": false,
+  "marketing.destinations.meta_ads_enabled": false,
+  "marketing.destinations.google_ads_enabled": false
+ },
+ "no_publish": true,
+ "bar": 75,
+ "retrieval": {
+  "confidence": "HIGH",
+  "empty_class": false,
+  "has_gold_standard": true,
+  "structures_seen": [
+   "LEFT_COPY"
+  ],
+  "imagery_only": [
+   "REF-14",
+   "REF-15"
+  ],
+  "pending_promotion": [],
+  "retrieved": [
+   {
+    "reference_id": "REF-17",
+    "owner_status": "OWNER_GOLD_STANDARD",
+    "weight": 2,
+    "relevance": 1,
+    "imagery_only": false,
+    "structure": "LEFT_COPY"
+   },
+   {
+    "reference_id": "REF-18",
+    "owner_status": "OWNER_GOLD_STANDARD",
+    "weight": 2,
+    "relevance": 1,
+    "imagery_only": false,
+    "structure": "LEFT_COPY"
+   },
+   {
+    "reference_id": "REF-19",
+    "owner_status": "OWNER_GOLD_STANDARD",
+    "weight": 2,
+    "relevance": 1,
+    "imagery_only": false,
+    "structure": "LEFT_COPY"
+   },
+   {
+    "reference_id": "REF-14",
+    "owner_status": "OWNER_GOLD_STANDARD",
+    "weight": 2,
+    "relevance": 0.25,
+    "imagery_only": true,
+    "structure": "LEFT_COPY"
+   },
+   {
+    "reference_id": "REF-15",
+    "owner_status": "OWNER_GOLD_STANDARD",
+    "weight": 2,
+    "relevance": 0.25,
+    "imagery_only": true,
+    "structure": "LEFT_COPY"
+   }
+  ]
+ },
+ "calibration": {
+  "campaign_class": "buyer_platform_growth",
+  "family": "ACQUISITION",
+  "reference_ids": [
+   "REF-17",
+   "REF-18",
+   "REF-19",
+   "REF-14",
+   "REF-15"
+  ],
+  "reference_versions": {
+   "REF-17": "759d484332a82acf8897c9674dc2b470b2283351af00e086ee3b35538281f746",
+   "REF-18": "907b873d215258838f24bdad4b84f023517143a631c9337eb4052983da99555a",
+   "REF-19": "77a831ec69f5b5e29c21acdab6a20159333eb942ca75364698c0bde1cfcb67dd",
+   "REF-14": "f28f119755be11af7dcb22ecf73c7a493819c3f4aa1350c5d6ee6f8014a72748",
+   "REF-15": "f8ac005226f3ed1214bb4d6de0542f9778f2260e2b3d49139f531e6d05bfe777"
+  },
+  "index_version": "3P.1.769d0461bc92",
+  "confidence": "HIGH",
+  "owner_review_required": true,
+  "empty_class": false,
+  "strip_seller_identity": false,
+  "principle_profile": {
+   "hierarchy": [
+    "Advantage.Bid leads; one message; navy band closes",
+    "one event or message title of 2–6 words"
+   ],
+   "merchandise": {
+    "mode": "representative",
+    "share_band_pct": [
+     35,
+     50
+    ],
+    "treatment": "representative Advantage.Bid-owned items, visibly disclosed as representative — never presented as lots"
+   },
+   "copy": {
+    "budget_blocks": 5,
+    "text_share_max_pct": 18,
+    "supporting_line": "category line ≤ 6 words or none",
+    "cta": "none or one factual",
+    "logistics_block": "date + closing"
+   },
+   "typography": {
+    "expressive_allowed": true,
+    "rule": "one element may express contrast or material when truthful; brand faces only"
+   },
+   "ground": "white | very_light",
+   "composition": {
+    "families_allowed": [
+     "ACQUISITION"
+    ],
+    "title_position": [
+     "top",
+     "bottom",
+     "panel"
+    ],
+    "largest_empty_max_pct": 22,
+    "upper_half_merchandise_min_pct": 0
+   },
+   "transferable_lessons": [
+    "'Estate Sale' + 'Online Auction' stacked as a two-line event-type headline is an approved pattern for generic estate-auction creative",
+    "An exterior with staged merchandise is an acceptable environmental treatment for GENERIC estate creative (a real event uses its real photographs)",
+    "Category icon rows may name what buyers will find",
+    "Buyer growth = curiosity + discovery: 'finds', 'discover', 'unique', 'updates'; never seller language",
+    "A single red word inside a navy headline is an approved emphasis device",
+    "Email signup creative is a legitimate buyer-growth objective; the destination and form come from platform truth",
+    "Three icon rows (not four) suit buyer creative",
+    "A product screen may appear as a supporting prop inside a merchandise scene; it must never be the hero (rejected in 3P.1) and must show a real screen in production",
+    "'Join for Free' is acceptable only if buyer registration is free in production truth",
+    "Two-line contrast headlines suit buyer growth",
+    "Light foundation with a warm interior on one side is within the Owner's 'light' preference",
+    "A cardboard box as a 'your items' device is an approved narrative prop (representative, no claim)",
+    "Logo lockup at 40–50% of width is inside the Owner's comfort for Advantage.Bid-led creative (3P.1 set 30–40%; widen the ceiling to 50%)",
+    "The same concept may ship in two colour treatments within one campaign"
+   ],
+   "anti_patterns": [],
+   "brand_frame": {
+    "ground": [
+     "white",
+     "very_light"
+    ],
+    "band": "navy Advantage.Bid band closes the canvas",
+    "logo": "Advantage.Bid logo at spec",
+    "accent": "red accent, used once"
+   },
+   "variation_required_from": [],
+   "structures_seen": [
+    "LEFT_COPY"
+   ],
+   "structure_rule": "name the structure chosen and why; consecutive creatives for the same objective rotate structure; a Gold is evidence, not a template",
+   "imagery_only_references": [
+    "REF-14",
+    "REF-15"
+   ]
+  },
+  "do_not_copy": {
+   "seller_marks": [
+    "Lewis & Maese",
+    "Lewis and Maese",
+    "LMAuctionCo",
+    "lmauctionco.com",
+    "L&M",
+    "fleur-de-lis"
+   ],
+   "palettes": "any reference palette",
+   "typefaces": "any reference typeface",
+   "ornaments": "flourishes, decorative frames, stars, crests, gold borders, icon logistics rows",
+   "wording": [
+    "Trusted. Experienced. Results.",
+    "Fine Estate Sales & Appraisals",
+    "Central Time",
+    "Join for Free",
+    "Great Deals",
+    "Luxury finds for the discerning collector",
+    "Quality. Heritage. Timeless Style.",
+    "Bid Confidently",
+    "Real Treasures",
+    "Convenient Local Pickup",
+    "Keep More of the Proceeds",
+    "in minutes",
+    "Another Happy Seller!",
+    "Reach thousands of serious bidders",
+    "Get top dollar",
+    "Low Seller Fees",
+    "The Smarter Way to Bid.",
+    "Global Buyers",
+    "Exceptional Items",
+    "Serious Buyers",
+    "More Exposure",
+    "Higher Realization"
+   ],
+   "layout_signatures": [
+    "57889b64ba61dc1fe3b1bb81c2c829b6abecb3a73ac3d1a2dcc5e13741bcbf70",
+    "96b9bfff7add0b12bc853c950d2a3855b40d0f16f3c869c4b083a2dd0050c8d8",
+    "91964f68377321b9a250b49e5ef774f3e687bf6af4514e903a32c6e7254bc00c",
+    "35ca7c7f593965530d32378d9f4285606fb9427c61a3a49a332818d2256a9b26",
+    "1e516a090e7fa5969e4107c0070071214f622d628be33b2a8beeffd6dc57e177"
+   ]
+  },
+  "library_band": {
+   "merchandise": [
+    35,
+    60
+   ],
+   "text": [
+    24,
+    34
+   ],
+   "text_blocks": [
+    8,
+    9
+   ],
+   "references": [
+    "REF-19",
+    "REF-18",
+    "REF-14",
+    "REF-15",
+    "REF-16",
+    "REF-21",
+    "REF-20"
+   ]
+  }
+ },
+ "media_decision": null,
+ "anchor": null,
+ "omissions": [
+  "product screen / laptop (a screen may be one supporting prop, never the hero — none used)",
+  "\"Join for Free\" / lot counts (claims — omitted)"
+ ],
+ "deferred": null,
+ "previous": [],
+ "blocked": [],
+ "results": [
+  {
+   "key": "B1",
+   "format": "portrait_1080x1350",
+   "family": "EDITORIAL",
+   "structure": "CENTERED",
+   "profile": "FEED_FAST",
+   "ok": true,
+   "png": "C:\\Projects\\advantage-auction-platform\\docs\\marketing\\phase3p1\\proving-grounds\\2026-09-11\\p3p2-buyer-growth-B1-portrait_1080x1350.png",
+   "thumb": "C:\\Projects\\advantage-auction-platform\\docs\\marketing\\phase3p1\\proving-grounds\\2026-09-11\\p3p2-buyer-growth-B1-portrait_1080x1350_thumb.png",
+   "render_sha256": "43b499a2c03da0d1397f30d7a83e30005a07867b5583aa3cf18050da4b86d415",
+   "metrics": {
+    "size": [
+     1080,
+     1350
+    ],
+    "family": "ACQUISITION",
+    "structure": "CENTERED",
+    "profile": "FEED_FAST",
+    "band_h": 159,
+    "merchandise_pct": 9.3,
+    "text_region_pct": 22.2,
+    "coverage": {
+     "field": {
+      "x": 0,
+      "y": 0,
+      "w": 1080,
+      "h": 1191
+     },
+     "field_area_px": 654480,
+     "coverage_pct": 18.2,
+     "cluster_extent_w": 0.586,
+     "cluster_extent_h": 0.293,
+     "upper_field_merch_pct": 0,
+     "largest_accidental_void_pct": 10.6,
+     "largest_accidental_void_field_pct": 19.9,
+     "canvas_merchandise_pct": 9.3,
+     "panels": [],
+     "declared_intentional": []
+    },
+    "coverage_gate": {
+     "pass_": false,
+     "hard_failures": [
+      "coverage 18.2% is more than 10 points under the ACQUISITION floor 45%"
+     ],
+     "soft": {
+      "coverage_in_band": false,
+      "extent_w_ok": false,
+      "extent_h_ok": false,
+      "void_ok": false,
+      "upper_ok": false
+     }
+    },
+    "prominence": {
+     "context": "advantage_bid_led",
+     "checks": {
+      "band_wordmark_cap_pct": 5.63,
+      "logo_width_pct": 36,
+      "logo_height_feed_px": 34.7,
+      "logo_top_pct": 3,
+      "clear_space_px": 54,
+      "clear_space_required_px": 34.3,
+      "contrast": 19.08,
+      "feed_proxy_template": 1,
+      "feed_proxy_wordmark_ocr": true
+     },
+     "violations": [],
+     "pass_": true
+    },
+    "colour": {
+     "pass_": true,
+     "hard_failures": [],
+     "soft": [],
+     "canvas_luminance": 0.898,
+     "copy_zone_luminance": 0.92,
+     "red_elements": 2,
+     "red_share_saturated_copy_zone_pct": 58.7,
+     "red_band": false,
+     "red_ground": false,
+     "navy_present": true
+    },
+    "event_type": {
+     "checks": {},
+     "violations": [],
+     "pass_": true
+    },
+    "density": {
+     "blocks": 5,
+     "roles": [
+      "headline",
+      "support",
+      "cta",
+      "logo",
+      "band"
+     ],
+     "headline_class_roles": [
+      "headline"
+     ],
+     "headline_dominance": 2.75
+    },
+    "copy_over_merchandise": [],
+    "largest_empty_pct": 10.6,
+    "upper_half_merch_pct": 0,
+    "text_blocks": 5,
+    "ground_luminance": 0.898,
+    "brand_frame": {
+     "logo": true,
+     "band": true,
+     "wordmark": true
+    },
+    "representative": true,
+    "scene_kind": "planned",
+    "physical_violations": [],
+    "screenshot": false,
+    "planes_count": 2
+   },
+   "logo": {
+    "variant": "primary_transparent",
+    "file": "advantage-bid-transparent.png",
+    "sha256": "8b5fce17b50dea4c15f73b3cfa2e54bd900db22f3106db0ee2d80ea4cd1db561",
+    "box": [
+     345,
+     40,
+     389,
+     156
+    ],
+    "scale": 0.19617,
+    "transform": "uniform_scale+position",
+    "reserved_box": [
+     345,
+     40,
+     389,
+     156
+    ],
+    "selection_reason": "light/neutral zone (luminance 1.00) → transparent lockup",
+    "ok": true
+   },
+   "logo_qa": {
+    "logo_source": {
+     "pass_": true,
+     "template_match": 1,
+     "threshold": 0.97,
+     "variant": "primary_transparent",
+     "asset_sha256": "8b5fce17b50dea4c15f73b3cfa2e54bd900db22f3106db0ee2d80ea4cd1db561",
+     "ocr_available": true,
+     "ocr_text": [
+      "ADVANTAGE.BID",
+      "GETTHEADVANTAGE"
+     ],
+     "reads_advantage_bid": true,
+     "reads_tagline": true,
+     "extra_text": []
+    },
+    "rendered_logo_elsewhere": {
+     "pass_": true,
+     "ocr_available": true,
+     "ocr_hits": [],
+     "template_hits": [],
+     "template_threshold": 0.85
+    }
+   },
+   "plan": {
+    "ok": true,
+    "family": "ACQUISITION",
+    "arrangement": "anchor_right",
+    "field": {
+     "x": 24,
+     "y": 684,
+     "w": 1031,
+     "h": 453
+    },
+    "canvas": [
+     1080,
+     1350
+    ],
+    "scene_scale_px_per_in": 7.332,
+    "scale_limits": {
+     "vertical": 7.332,
+     "horizontal": 11.448
+    },
+    "primary_anchor": "chairs",
+    "unresolved_anchor": false,
+    "planes": {
+     "floor_baseline": 1123.4,
+     "rear_baseline": 1032.7,
+     "wall_top_line": 1123.4,
+     "supports": {
+      "table": {
+       "top_band": [
+        922.8,
+        999.5
+       ]
+      }
+     }
+    },
+    "objects": [
+     {
+      "id": "table",
+      "semantic_class": "side_table",
+      "x": 222.6000166835188,
+      "y": 932.7904347826088,
+      "w": 157.37196663296257,
+      "h": 190.61956521739128,
+      "z": 3,
+      "baseline": 1123.41,
+      "depth_factor": 1,
+      "plane": "floor",
+      "protected": [],
+      "dims_in": null,
+      "role": "SURFACE_PROVIDER",
+      "asset": "lot36.webp",
+      "trimmed_asset": "C:\\Projects\\advantage-auction-platform\\creative-engine\\runtime\\cache\\trim\\lot36-5023fbb71b1a3355.png",
+      "resolved_by": "keyword:pie crust table",
+      "dims_source": "class_default",
+      "edges": [
+       {
+        "type": "BESIDE",
+        "a": "table",
+        "b": "chairs"
+       }
+      ]
+     },
+     {
+      "id": "vases",
+      "semantic_class": "vase",
+      "x": 225.8011636754298,
+      "y": 839.6801086956523,
+      "w": 88.02088599595548,
+      "h": 102.64130434782606,
+      "z": 4,
+      "baseline": 942.3214130434784,
+      "depth_factor": 1,
+      "plane": "table",
+      "protected": [],
+      "dims_in": null,
+      "role": "SURFACE",
+      "support": "table",
+      "asset": "lot53.webp",
+      "trimmed_asset": "C:\\Projects\\advantage-auction-platform\\creative-engine\\runtime\\cache\\trim\\lot53-e0914241b471f30c.png",
+      "resolved_by": "keyword:vases",
+      "dims_source": "class_default",
+      "edges": [
+       {
+        "type": "ON",
+        "a": "vases",
+        "b": "table"
+       }
+      ]
+     },
+     {
+      "id": "bowl",
+      "semantic_class": "bowl",
+      "x": 751.7572990963519,
+      "y": 1075.7184013687602,
+      "w": 79.34968844025887,
+      "h": 59.28159863123992,
+      "z": 5,
+      "baseline": 1135,
+      "depth_factor": 1.011,
+      "plane": "table",
+      "protected": [],
+      "dims_in": null,
+      "role": "SURFACE",
+      "floor_accent": true,
+      "asset": "lot63.webp",
+      "trimmed_asset": "C:\\Projects\\advantage-auction-platform\\creative-engine\\runtime\\cache\\trim\\lot63-3b3477523746a2db.png",
+      "resolved_by": "keyword:bowl",
+      "dims_source": "class_default",
+      "edges": [
+       {
+        "type": "FOREGROUND_ACCENT",
+        "a": "bowl",
+        "b": "chairs"
+       }
+      ]
+     },
+     {
+      "id": "pheasant",
+      "semantic_class": "figurine",
+      "x": 285.6958600227503,
+      "y": 891.0007608695654,
+      "w": 31.180279954499486,
+      "h": 51.32065217391303,
+      "z": 4,
+      "baseline": 942.3214130434784,
+      "depth_factor": 1,
+      "plane": "table",
+      "protected": [],
+      "dims_in": null,
+      "role": "SURFACE",
+      "support": "table",
+      "asset": "lot25.webp",
+      "trimmed_asset": "C:\\Projects\\advantage-auction-platform\\creative-engine\\runtime\\cache\\trim\\lot25-2fea3ac6f00a05b6.png",
+      "resolved_by": "keyword:figurine",
+      "dims_source": "class_default",
+      "edges": [
+       {
+        "type": "ON",
+        "a": "pheasant",
+        "b": "table"
+       }
+      ]
+     },
+     {
+      "id": "sphere",
+      "semantic_class": "sculpture_small",
+      "x": 289.9311117591035,
+      "y": 839.6801086956523,
+      "w": 85.65856313497821,
+      "h": 102.64130434782606,
+      "z": 4,
+      "baseline": 942.3214130434784,
+      "depth_factor": 1,
+      "plane": "table",
+      "protected": [],
+      "dims_in": null,
+      "role": "SURFACE",
+      "support": "table",
+      "asset": "lot11d.webp",
+      "trimmed_asset": "C:\\Projects\\advantage-auction-platform\\creative-engine\\runtime\\cache\\trim\\lot11d-802eb1ce972a3705.png",
+      "resolved_by": "keyword:quartz",
+      "dims_source": "class_default",
+      "edges": [
+       {
+        "type": "ON",
+        "a": "sphere",
+        "b": "table"
+       }
+      ]
+     },
+     {
+      "id": "chairs",
+      "semantic_class": "wingback_chair",
+      "x": 392.3439833164814,
+      "y": 786.1600000000001,
+      "w": 464.05599999999987,
+      "h": 337.24999999999994,
+      "z": 2,
+      "baseline": 1123.41,
+      "depth_factor": 1,
+      "plane": "floor",
+      "protected": [
+       [
+        "seat_left",
+        0.05232558139534884,
+        0.5499,
+        0.4186046511627907,
+        0.8044000000000001
+       ],
+       [
+        "seat_right",
+        0.5813953488372093,
+        0.5499,
+        0.9578488372093024,
+        0.8044000000000001
+       ],
+       [
+        "arm_left",
+        0.011627906976744186,
+        0.4481,
+        0.19476744186046513,
+        0.7025999999999999
+       ]
+      ],
+      "dims_in": null,
+      "role": "HERO",
+      "asset": "lot31.webp",
+      "trimmed_asset": "C:\\Projects\\advantage-auction-platform\\creative-engine\\runtime\\cache\\trim\\lot31-a01d93866437e7aa.png",
+      "resolved_by": "keyword:wingback",
+      "dims_source": "class_default",
+      "edges": []
+     }
+    ],
+    "edges": [
+     {
+      "type": "BESIDE",
+      "a": "table",
+      "b": "chairs"
+     },
+     {
+      "type": "ON",
+      "a": "vases",
+      "b": "table"
+     },
+     {
+      "type": "ON",
+      "a": "pheasant",
+      "b": "table"
+     },
+     {
+      "type": "ON",
+      "a": "sphere",
+      "b": "table"
+     },
+     {
+      "type": "FOREGROUND_ACCENT",
+      "a": "bowl",
+      "b": "chairs"
+     }
+    ],
+    "intentional_negative_space": [],
+    "audit": {
+     "physical": [],
+     "notes": [
+      "scene scale 7.30 px/in from chairs (wingback_chair)",
+      "bowl declared floor-vignette accent (allowed for small foreground decor)"
+     ],
+     "coverage": {
+      "field": {
+       "x": 24,
+       "y": 684,
+       "w": 1031,
+       "h": 453
+      },
+      "field_area_px": 467043,
+      "coverage_pct": 25.6,
+      "cluster_extent_w": 0.614,
+      "cluster_extent_h": 0.77,
+      "upper_field_merch_pct": 20.8,
+      "largest_accidental_void_pct": 65.5,
+      "largest_accidental_void_field_pct": 17.1,
+      "canvas_merchandise_pct": 9.3,
+      "panels": [],
+      "declared_intentional": []
+     }
+    },
+    "iterations": [
+     {
+      "iteration": 0,
+      "scale_px_per_in": 7.332,
+      "violations": [],
+      "copy_region_clash": [],
+      "coverage_pct": 25.6,
+      "extent_w": 0.614,
+      "extent_h": 0.77
+     }
+    ],
+    "fit_trail": [
+     {
+      "config": "base",
+      "arrangement": "anchor_right",
+      "physical_ok": true,
+      "coverage_pct": 25.6,
+      "extent_w": 0.614,
+      "extent_h": 0.77,
+      "void": 65.5,
+      "coverage_hard_pass": false,
+      "scale": 7.332,
+      "violations": []
+     },
+     {
+      "config": "base",
+      "arrangement": "anchor_left",
+      "physical_ok": true,
+      "coverage_pct": 25.5,
+      "extent_w": 0.614,
+      "extent_h": 0.77,
+      "void": 65.5,
+      "coverage_hard_pass": false,
+      "scale": 7.332,
+      "violations": []
+     },
+     {
+      "config": "base",
+      "arrangement": "split",
+      "physical_ok": true,
+      "coverage_pct": 25.6,
+      "extent_w": 0.614,
+      "extent_h": 0.77,
+      "void": 65.5,
+      "coverage_hard_pass": false,
+      "scale": 7.332,
+      "violations": []
+     },
+     {
+      "config": "base",
+      "arrangement": "split_reverse",
+      "physical_ok": true,
+      "coverage_pct": 25.6,
+      "extent_w": 0.614,
+      "extent_h": 0.77,
+      "void": 65.5,
+      "coverage_hard_pass": false,
+      "scale": 7.332,
+      "violations": []
+     },
+     {
+      "config": "base (accents on support)",
+      "arrangement": "anchor_right",
+      "physical_ok": true,
+      "coverage_pct": 25.1,
+      "extent_w": 0.614,
+      "extent_h": 0.746,
+      "void": 65.5,
+      "coverage_hard_pass": false,
+      "scale": 7.332,
+      "violations": []
+     },
+     {
+      "config": "base (accents on support)",
+      "arrangement": "anchor_left",
+      "physical_ok": true,
+      "coverage_pct": 25.1,
+      "extent_w": 0.614,
+      "extent_h": 0.746,
+      "void": 65.5,
+      "coverage_hard_pass": false,
+      "scale": 7.332,
+      "violations": []
+     },
+     {
+      "config": "base (accents on support)",
+      "arrangement": "split",
+      "physical_ok": true,
+      "coverage_pct": 25.1,
+      "extent_w": 0.614,
+      "extent_h": 0.746,
+      "void": 65.5,
+      "coverage_hard_pass": false,
+      "scale": 7.332,
+      "violations": []
+     },
+     {
+      "config": "base (accents on support)",
+      "arrangement": "split_reverse",
+      "physical_ok": true,
+      "coverage_pct": 25.1,
+      "extent_w": 0.614,
+      "extent_h": 0.746,
+      "void": 65.5,
+      "coverage_hard_pass": false,
+      "scale": 7.332,
+      "violations": []
+     },
+     {
+      "config": "base+walls",
+      "arrangement": "anchor_right",
+      "physical_ok": true,
+      "coverage_pct": 13,
+      "extent_w": 0.335,
+      "extent_h": 0.746,
+      "void": 65.5,
+      "coverage_hard_pass": false,
+      "scale": 3.919,
+      "violations": []
+     },
+     {
+      "config": "base+walls",
+      "arrangement": "anchor_left",
+      "physical_ok": true,
+      "coverage_pct": 13,
+      "extent_w": 0.335,
+      "extent_h": 0.746,
+      "void": 65.5,
+      "coverage_hard_pass": false,
+      "scale": 3.919,
+      "violations": []
+     },
+     {
+      "config": "base+walls",
+      "arrangement": "split",
+      "physical_ok": true,
+      "coverage_pct": 13,
+      "extent_w": 0.335,
+      "extent_h": 0.746,
+      "void": 65.5,
+      "coverage_hard_pass": false,
+      "scale": 3.919,
+      "violations": []
+     },
+     {
+      "config": "base+walls",
+      "arrangement": "split_reverse",
+      "physical_ok": true,
+      "coverage_pct": 13,
+      "extent_w": 0.335,
+      "extent_h": 0.746,
+      "void": 65.5,
+      "coverage_hard_pass": false,
+      "scale": 3.919,
+      "violations": []
+     },
+     {
+      "config": "base+walls(2 rows)",
+      "arrangement": "anchor_right",
+      "physical_ok": true,
+      "coverage_pct": 13,
+      "extent_w": 0.335,
+      "extent_h": 0.746,
+      "void": 65.5,
+      "coverage_hard_pass": false,
+      "scale": 3.919,
+      "violations": []
+     },
+     {
+      "config": "base+walls(2 rows)",
+      "arrangement": "anchor_left",
+      "physical_ok": true,
+      "coverage_pct": 13,
+      "extent_w": 0.335,
+      "extent_h": 0.746,
+      "void": 65.5,
+      "coverage_hard_pass": false,
+      "scale": 3.919,
+      "violations": []
+     },
+     {
+      "config": "base+walls(2 rows)",
+      "arrangement": "split",
+      "physical_ok": true,
+      "coverage_pct": 13,
+      "extent_w": 0.335,
+      "extent_h": 0.746,
+      "void": 65.5,
+      "coverage_hard_pass": false,
+      "scale": 3.919,
+      "violations": []
+     },
+     {
+      "config": "base+walls(2 rows)",
+      "arrangement": "split_reverse",
+      "physical_ok": true,
+      "coverage_pct": 13,
+      "extent_w": 0.335,
+      "extent_h": 0.746,
+      "void": 65.5,
+      "coverage_hard_pass": false,
+      "scale": 3.919,
+      "violations": []
+     },
+     {
+      "config": "anchor+walls",
+      "arrangement": "anchor_right",
+      "physical_ok": true,
+      "coverage_pct": 11.9,
+      "extent_w": 0.241,
+      "extent_h": 0.77,
+      "void": 65.5,
+      "coverage_hard_pass": false,
+      "scale": 3.919,
+      "violations": []
+     },
+     {
+      "config": "anchor+walls",
+      "arrangement": "anchor_left",
+      "physical_ok": true,
+      "coverage_pct": 11.9,
+      "extent_w": 0.241,
+      "extent_h": 0.77,
+      "void": 65.5,
+      "coverage_hard_pass": false,
+      "scale": 3.919,
+      "violations": []
+     },
+     {
+      "config": "anchor+walls",
+      "arrangement": "split",
+      "physical_ok": true,
+      "coverage_pct": 11.9,
+      "extent_w": 0.241,
+      "extent_h": 0.77,
+      "void": 65.5,
+      "coverage_hard_pass": false,
+      "scale": 3.919,
+      "violations": []
+     },
+     {
+      "config": "anchor+walls",
+      "arrangement": "split_reverse",
+      "physical_ok": true,
+      "coverage_pct": 11.9,
+      "extent_w": 0.241,
+      "extent_h": 0.77,
+      "void": 65.5,
+      "coverage_hard_pass": false,
+      "scale": 3.919,
+      "violations": []
+     },
+     {
+      "config": "anchor+walls(2 rows)",
+      "arrangement": "anchor_right",
+      "physical_ok": true,
+      "coverage_pct": 11.9,
+      "extent_w": 0.241,
+      "extent_h": 0.77,
+      "void": 65.5,
+      "coverage_hard_pass": false,
+      "scale": 3.919,
+      "violations": []
+     },
+     {
+      "config": "anchor+walls(2 rows)",
+      "arrangement": "anchor_left",
+      "physical_ok": true,
+      "coverage_pct": 11.9,
+      "extent_w": 0.241,
+      "extent_h": 0.77,
+      "void": 65.5,
+      "coverage_hard_pass": false,
+      "scale": 3.919,
+      "violations": []
+     },
+     {
+      "config": "anchor+walls(2 rows)",
+      "arrangement": "split",
+      "physical_ok": true,
+      "coverage_pct": 11.9,
+      "extent_w": 0.241,
+      "extent_h": 0.77,
+      "void": 65.5,
+      "coverage_hard_pass": false,
+      "scale": 3.919,
+      "violations": []
+     },
+     {
+      "config": "anchor+walls(2 rows)",
+      "arrangement": "split_reverse",
+      "physical_ok": true,
+      "coverage_pct": 11.9,
+      "extent_w": 0.241,
+      "extent_h": 0.77,
+      "void": 65.5,
+      "coverage_hard_pass": false,
+      "scale": 3.919,
+      "violations": []
+     }
+    ],
+    "fit_choice": {
+     "config": "base",
+     "arrangement": "anchor_right",
+     "physical_ok": true,
+     "coverage_pct": 25.6,
+     "extent_w": 0.614,
+     "extent_h": 0.77,
+     "void": 65.5,
+     "coverage_hard_pass": false,
+     "scale": 7.332,
+     "violations": []
+    },
+    "change_family_recommended": "coverage cannot reach the ACQUISITION floor with the available objects (fit step 7: fewer, larger objects or one object)"
+   },
+   "copy_changes": [],
+   "copy_check": {
+    "pass": true,
+    "rejections": [],
+    "notes": [
+     {
+      "field": "headline",
+      "approved": "approved copy"
+     }
+    ]
+   },
+   "hygiene": {
+    "pass": true,
+    "violations": []
+   },
+   "density": {
+    "pass": true,
+    "hard": [],
+    "soft": [
+     "text region 22.2% > 14% (FEED_FAST)"
+    ],
+    "ceiling": 5,
+    "blocks": 5,
+    "profile": "FEED_FAST"
+   },
+   "template_echo": {
+    "flagged": false,
+    "props": [],
+    "rule": "the recurring collaborator props (bronze horse, blue-and-white vase, category-spine books, laptop with logo, script mug/board/box) are tagged in do_not_generalize; the object selector must not treat them as required; a scene containing ≥ 3 of them together is flagged 'template echo' and regenerated"
+   },
+   "similarity": {
+    "pass": true,
+    "failures": [],
+    "max_reference": {
+     "id": "REF-23",
+     "distance": 0.4238
+    },
+    "self_history_min": null,
+    "published_anchor_distance": null,
+    "thresholds": {
+     "tau_ref": 0.35,
+     "tau_self": 0.25,
+     "tau_pub": 0.4
+    },
+    "all_reference_distances": [
+     {
+      "id": "REF-01",
+      "distance": 0.8192
+     },
+     {
+      "id": "REF-02",
+      "distance": 1.1171
+     },
+     {
+      "id": "REF-03",
+      "distance": 0.7214
+     },
+     {
+      "id": "REF-04",
+      "distance": 0.9464
+     },
+     {
+      "id": "REF-05",
+      "distance": 0.6121
+     },
+     {
+      "id": "REF-06",
+      "distance": 0.5912
+     },
+     {
+      "id": "REF-07",
+      "distance": 1.1715
+     },
+     {
+      "id": "REF-08",
+      "distance": 0.8772
+     },
+     {
+      "id": "REF-19",
+      "distance": 0.6537
+     },
+     {
+      "id": "REF-18",
+      "distance": 0.6774
+     },
+     {
+      "id": "REF-09",
+      "distance": 0.8366
+     },
+     {
+      "id": "REF-10",
+      "distance": 0.6314
+     },
+     {
+      "id": "REF-11",
+      "distance": 0.6565
+     },
+     {
+      "id": "REF-22",
+      "distance": 0.7568
+     },
+     {
+      "id": "REF-17",
+      "distance": 0.8257
+     },
+     {
+      "id": "REF-14",
+      "distance": 0.7728
+     },
+     {
+      "id": "REF-15",
+      "distance": 0.7636
+     },
+     {
+      "id": "REF-16",
+      "distance": 0.9348
+     },
+     {
+      "id": "REF-12",
+      "distance": 1.3825
+     },
+     {
+      "id": "REF-13",
+      "distance": 0.4695
+     },
+     {
+      "id": "REF-23",
+      "distance": 0.4238
+     },
+     {
+      "id": "REF-21",
+      "distance": 0.9562
+     },
+     {
+      "id": "REF-20",
+      "distance": 0.4929
+     }
+    ]
+   },
+   "negative_signature_check": {
+    "nearest": null,
+    "tau_neg": 0.3,
+    "hard": false,
+    "penalty": false
+   },
+   "leak": {
+    "pass": true,
+    "hits": [],
+    "ocr": "unavailable (no OCR engine in the runtime image; every drawn string is checked exactly)",
+    "logo_template_match": "not_available (no seller logo templates on file)"
+   },
+   "provenance": {
+    "pass": true,
+    "reasons": []
+   },
+   "judge": {
+    "available": true,
+    "model": "claude-sonnet-5",
+    "prompt_version": "p3p1-judge-v2",
+    "runs": [
+     {
+      "items": [
+       {
+        "n": 1,
+        "score": 3,
+        "reason": "Logo, headline, CTA, then merchandise; CTA precedes goods slightly breaking flow"
+       },
+       {
+        "n": 2,
+        "score": 3,
+        "reason": "Chairs anchor scene; vases/orb smaller but clustered tightly"
+       },
+       {
+        "n": 3,
+        "score": 4,
+        "reason": "Red 'Discover' is a truthful single-word emphasis in serif headline"
+       },
+       {
+        "n": 4,
+        "score": 4,
+        "reason": "Red chairs supply color; white ground and navy band stay quiet"
+       },
+       {
+        "n": 5,
+        "score": 4,
+        "reason": "No slogans, icon piles, or duplicate URLs; disclaimer is required, not filler"
+       },
+       {
+        "n": 6,
+        "score": 4,
+        "reason": "Large serif headline and clear wordmark read well at thumbnail size"
+       },
+       {
+        "n": 7,
+        "score": 3,
+        "reason": "Staged showroom grouping feels editorial but could still read templated"
+       },
+       {
+        "n": 8,
+        "score": 4,
+        "reason": "No competitor or specific seller identity is evoked"
+       },
+       {
+        "n": 9,
+        "score": 3,
+        "reason": "Strong hierarchy, clean copy, confident color; scene composition slightly generic"
+       }
+      ],
+      "physical": {
+       "through": "no",
+       "through_names": "",
+       "wrong_size": "no",
+       "wrong_size_name": "",
+       "supported": "yes"
+      },
+      "comprehension": {
+       "event_type": "not an event",
+       "who": "Advantage.Bid",
+       "when": "not specified",
+       "platform": "Advantage.Bid",
+       "ask": "Browse Advantage.Bid auctions to find unique estate finds",
+       "masquerade": "no"
+      },
+      "notes": "Solid generic buyer-growth creative; minor tightening of merchandise scene could push toward 'love this'.",
+      "total": 36,
+      "physical_points": 4
+     },
+     {
+      "items": [
+       {
+        "n": 1,
+        "score": 3,
+        "reason": "Logo leads, single headline, but CTA precedes merchandise slightly disrupting flow"
+       },
+       {
+        "n": 2,
+        "score": 3,
+        "reason": "Chairs anchor scene; vases and crystal ball give modest scale variety"
+       },
+       {
+        "n": 3,
+        "score": 4,
+        "reason": "Red word emphasis in navy headline is a truthful, approved contrast device"
+       },
+       {
+        "n": 4,
+        "score": 3,
+        "reason": "Merchandise adds color but red CTA/headline also contribute non-object color"
+       },
+       {
+        "n": 5,
+        "score": 4,
+        "reason": "No slogans or icon clutter; disclosure line is clean and necessary"
+       },
+       {
+        "n": 6,
+        "score": 4,
+        "reason": "Bold serif headline and clear wordmark read well at small size"
+       },
+       {
+        "n": 7,
+        "score": 2,
+        "reason": "Layout follows familiar logo-headline-CTA-merchandise template pattern"
+       },
+       {
+        "n": 8,
+        "score": 4,
+        "reason": "No competitor or seller identity referenced anywhere"
+       },
+       {
+        "n": 9,
+        "score": 2,
+        "reason": "Solid, on-brand execution but composition feels formulaic overall"
+       }
+      ],
+      "physical": {
+       "through": "no",
+       "through_names": "",
+       "wrong_size": "no",
+       "wrong_size_name": "",
+       "supported": "yes"
+      },
+      "comprehension": {
+       "event_type": "online estate auction platform",
+       "who": "Advantage.Bid",
+       "when": "not specified",
+       "platform": "Advantage.Bid",
+       "ask": "Browse and bid on unique estate sale finds today",
+       "masquerade": "no"
+      },
+      "notes": "Clean generic buyer-growth creative; slightly template-like but compliant with disclosure and brand rules.",
+      "total": 33,
+      "physical_points": 4
+     }
+    ],
+    "points": 34.5,
+    "average": 34.5,
+    "disagreement": 3,
+    "flagged": false,
+    "physical_yes": {
+     "through": false,
+     "wrong_size": false
+    },
+    "comprehension": {
+     "event_type_ok": null,
+     "who_ok": null,
+     "when_ok": null,
+     "platform_ok": true,
+     "masquerade": false,
+     "answers": {
+      "event_type": "online estate auction platform",
+      "who": "Advantage.Bid",
+      "when": "not specified",
+      "platform": "Advantage.Bid",
+      "ask": "Browse and bid on unique estate sale finds today",
+      "masquerade": "no"
+     }
+    },
+    "items": [
+     "Hierarchy clarity: the eye enters at the presenter, moves to one title, then to the merchandise.",
+     "Objects (or the photograph) have confident scale variation and at least one clear anchor.",
+     "Typography is confident and, where expressive, truthful to the event.",
+     "Colour comes from the merchandise; the ground and panels stay quiet.",
+     "Nothing reads as filler: no slogans, icon piles, words on merchandise, duplicate URLs.",
+     "It reads at thumbnail size (headline + wordmark legible when small).",
+     "It would not be mistaken for a template with swapped merchandise (editorial irregularity).",
+     "It does not evoke any specific competitor or seller identity (answer 0 if it does).",
+     "Overall: would the Owner say \"good\" (0), \"much better\" (2), \"love this\" (4)? Justify via items 1–9."
+    ]
+   },
+   "measurable": {
+    "points": 44.1,
+    "out_of": 60,
+    "raw": 44.1,
+    "raw_max": 60,
+    "items": [
+     {
+      "key": "merchandise_coverage_field",
+      "pts": 12,
+      "value": 0,
+      "points": 0,
+      "target": [
+       45,
+       65
+      ]
+     },
+     {
+      "key": "accidental_void",
+      "pts": 6,
+      "value": 0.3500000000000001,
+      "points": 2.1,
+      "target": "≤ 8"
+     },
+     {
+      "key": "hierarchy_incl_event_type",
+      "pts": 10,
+      "value": 1,
+      "points": 10,
+      "target": "headline ≥ 2.2×"
+     },
+     {
+      "key": "identity_prominence",
+      "pts": 8,
+      "value": 1,
+      "points": 8,
+      "target": "prominence-rules"
+     },
+     {
+      "key": "physical_audit_clean",
+      "pts": 8,
+      "value": 1,
+      "points": 8,
+      "target": "0 violations"
+     },
+     {
+      "key": "copy",
+      "pts": 6,
+      "value": 1,
+      "points": 6,
+      "target": "one headline-class element"
+     },
+     {
+      "key": "depth_planes",
+      "pts": 6,
+      "value": 1,
+      "points": 6,
+      "target": "≥ 2 planes"
+     },
+     {
+      "key": "light_ground",
+      "pts": 2,
+      "value": 1,
+      "points": 2,
+      "target": "canvas luminance ≥ 0.60"
+     },
+     {
+      "key": "brand_frame",
+      "pts": 2,
+      "value": 1,
+      "points": 2,
+      "target": "logo + band + wordmark"
+     }
+    ]
+   },
+   "score": 0,
+   "decision": "HARD_FAIL",
+   "hard_failures": [
+    {
+     "gate": "coverage",
+     "detail": [
+      "coverage 18.2% is more than 10 points under the ACQUISITION floor 45%"
+     ]
+    }
+   ],
+   "regenerate_violations": [],
+   "score_basis": "measurable_60 + judge_40",
+   "bar": 75,
+   "extreme": false,
+   "publication_status": "HELD_FOR_OWNER_REVIEW",
+   "market": null,
+   "notes": "Owner-approved headline (REF-19 Gold); CTA → bid.advantage.bid"
+  },
+  {
+   "key": "B1",
+   "format": "square_1080x1080",
+   "family": "EDITORIAL",
+   "structure": "CENTERED",
+   "profile": "FEED_FAST",
+   "ok": true,
+   "png": "C:\\Projects\\advantage-auction-platform\\docs\\marketing\\phase3p1\\proving-grounds\\2026-09-11\\p3p2-buyer-growth-B1-square_1080x1080.png",
+   "thumb": "C:\\Projects\\advantage-auction-platform\\docs\\marketing\\phase3p1\\proving-grounds\\2026-09-11\\p3p2-buyer-growth-B1-square_1080x1080_thumb.png",
+   "render_sha256": "025e662de322a74746fd2a2ad458045715402650cb063af0469b3c84adcb330d",
+   "metrics": {
+    "size": [
+     1080,
+     1080
+    ],
+    "family": "ACQUISITION",
+    "structure": "CENTERED",
+    "profile": "FEED_FAST",
+    "band_h": 139,
+    "merchandise_pct": 5.5,
+    "text_region_pct": 20.1,
+    "coverage": {
+     "field": {
+      "x": 0,
+      "y": 0,
+      "w": 1080,
+      "h": 941
+     },
+     "field_area_px": 467640,
+     "coverage_pct": 12,
+     "cluster_extent_w": 0.405,
+     "cluster_extent_h": 0.253,
+     "upper_field_merch_pct": 0,
+     "largest_accidental_void_pct": 16.6,
+     "largest_accidental_void_field_pct": 26.1,
+     "canvas_merchandise_pct": 5.5,
+     "panels": [],
+     "declared_intentional": []
+    },
+    "coverage_gate": {
+     "pass_": false,
+     "hard_failures": [
+      "coverage 12.0% is more than 10 points under the ACQUISITION floor 45%",
+      "accidental void 16.6% exceeds the ACQUISITION cap 8% by more than 4 points"
+     ],
+     "soft": {
+      "coverage_in_band": false,
+      "extent_w_ok": false,
+      "extent_h_ok": false,
+      "void_ok": false,
+      "upper_ok": false
+     }
+    },
+    "prominence": {
+     "context": "advantage_bid_led",
+     "checks": {
+      "band_wordmark_cap_pct": 6.39,
+      "logo_width_pct": 36,
+      "logo_height_feed_px": 34.7,
+      "logo_top_pct": 3,
+      "clear_space_px": 43,
+      "clear_space_required_px": 34.3,
+      "contrast": 19.08,
+      "feed_proxy_template": 1,
+      "feed_proxy_wordmark_ocr": true
+     },
+     "violations": [],
+     "pass_": true
+    },
+    "colour": {
+     "pass_": true,
+     "hard_failures": [],
+     "soft": [],
+     "canvas_luminance": 0.928,
+     "copy_zone_luminance": 0.935,
+     "red_elements": 2,
+     "red_share_saturated_copy_zone_pct": 58.7,
+     "red_band": false,
+     "red_ground": false,
+     "navy_present": true
+    },
+    "event_type": {
+     "checks": {},
+     "violations": [],
+     "pass_": true
+    },
+    "density": {
+     "blocks": 5,
+     "roles": [
+      "headline",
+      "support",
+      "cta",
+      "logo",
+      "band"
+     ],
+     "headline_class_roles": [
+      "headline"
+     ],
+     "headline_dominance": 2.79
+    },
+    "copy_over_merchandise": [],
+    "largest_empty_pct": 16.6,
+    "upper_half_merch_pct": 0,
+    "text_blocks": 5,
+    "ground_luminance": 0.928,
+    "brand_frame": {
+     "logo": true,
+     "band": true,
+     "wordmark": true
+    },
+    "representative": true,
+    "scene_kind": "planned",
+    "physical_violations": [],
+    "screenshot": false,
+    "planes_count": 2
+   },
+   "logo": {
+    "variant": "primary_transparent",
+    "file": "advantage-bid-transparent.png",
+    "sha256": "8b5fce17b50dea4c15f73b3cfa2e54bd900db22f3106db0ee2d80ea4cd1db561",
+    "box": [
+     345,
+     32,
+     389,
+     156
+    ],
+    "scale": 0.19617,
+    "transform": "uniform_scale+position",
+    "reserved_box": [
+     345,
+     32,
+     389,
+     156
+    ],
+    "selection_reason": "light/neutral zone (luminance 1.00) → transparent lockup",
+    "ok": true
+   },
+   "logo_qa": {
+    "logo_source": {
+     "pass_": true,
+     "template_match": 1,
+     "threshold": 0.97,
+     "variant": "primary_transparent",
+     "asset_sha256": "8b5fce17b50dea4c15f73b3cfa2e54bd900db22f3106db0ee2d80ea4cd1db561",
+     "ocr_available": true,
+     "ocr_text": [
+      "ADVANTAGE.BID",
+      "GETTHEADVANTAGE"
+     ],
+     "reads_advantage_bid": true,
+     "reads_tagline": true,
+     "extra_text": []
+    },
+    "rendered_logo_elsewhere": {
+     "pass_": true,
+     "ocr_available": true,
+     "ocr_hits": [],
+     "template_hits": [],
+     "template_threshold": 0.85
+    }
+   },
+   "plan": {
+    "ok": true,
+    "family": "ACQUISITION",
+    "arrangement": "anchor_right",
+    "field": {
+     "x": 24,
+     "y": 576,
+     "w": 1031,
+     "h": 322
+    },
+    "canvas": [
+     1080,
+     1080
+    ],
+    "scene_scale_px_per_in": 5.013,
+    "scale_limits": {
+     "vertical": 5.013,
+     "horizontal": 11.448
+    },
+    "primary_anchor": "chairs",
+    "unresolved_anchor": false,
+    "planes": {
+     "floor_baseline": 888.3,
+     "rear_baseline": 815.8,
+     "wall_top_line": 888.3,
+     "supports": {
+      "table": {
+       "top_band": [
+        748,
+        803.6
+       ]
+      }
+     }
+    },
+    "objects": [
+     {
+      "id": "table",
+      "semantic_class": "side_table",
+      "x": 320.8399930839232,
+      "y": 757.9895652173914,
+      "w": 107.61489383215367,
+      "h": 130.35043478260866,
+      "z": 3,
+      "baseline": 888.34,
+      "depth_factor": 1,
+      "plane": "floor",
+      "protected": [],
+      "dims_in": null,
+      "role": "SURFACE_PROVIDER",
+      "asset": "lot36.webp",
+      "trimmed_asset": "C:\\Projects\\advantage-auction-platform\\creative-engine\\runtime\\cache\\trim\\lot36-5023fbb71b1a3355.png",
+      "resolved_by": "keyword:pie crust table",
+      "dims_source": "class_default",
+      "edges": [
+       {
+        "type": "BESIDE",
+        "a": "table",
+        "b": "chairs"
+       }
+      ]
+     },
+     {
+      "id": "vases",
+      "semantic_class": "vase",
+      "x": 323.0290176036401,
+      "y": 694.3183913043479,
+      "w": 60.190887259858435,
+      "h": 70.1886956521739,
+      "z": 4,
+      "baseline": 764.5070869565218,
+      "depth_factor": 1,
+      "plane": "table",
+      "protected": [],
+      "dims_in": null,
+      "role": "SURFACE",
+      "support": "table",
+      "asset": "lot53.webp",
+      "trimmed_asset": "C:\\Projects\\advantage-auction-platform\\creative-engine\\runtime\\cache\\trim\\lot53-e0914241b471f30c.png",
+      "resolved_by": "keyword:vases",
+      "dims_source": "class_default",
+      "edges": [
+       {
+        "type": "ON",
+        "a": "vases",
+        "b": "table"
+       }
+      ]
+     },
+     {
+      "id": "bowl",
+      "semantic_class": "bowl",
+      "x": 686.6527988785223,
+      "y": 855.5365883252819,
+      "w": 54.161142475109166,
+      "h": 40.46341167471819,
+      "z": 5,
+      "baseline": 896,
+      "depth_factor": 1.009,
+      "plane": "table",
+      "protected": [],
+      "dims_in": null,
+      "role": "SURFACE",
+      "floor_accent": true,
+      "asset": "lot63.webp",
+      "trimmed_asset": "C:\\Projects\\advantage-auction-platform\\creative-engine\\runtime\\cache\\trim\\lot63-3b3477523746a2db.png",
+      "resolved_by": "keyword:bowl",
+      "dims_source": "class_default",
+      "edges": [
+       {
+        "type": "FOREGROUND_ACCENT",
+        "a": "bowl",
+        "b": "chairs"
+       }
+      ]
+     },
+     {
+      "id": "pheasant",
+      "semantic_class": "figurine",
+      "x": 363.9865116632963,
+      "y": 729.4127391304348,
+      "w": 21.321856673407478,
+      "h": 35.09434782608695,
+      "z": 4,
+      "baseline": 764.5070869565218,
+      "depth_factor": 1,
+      "plane": "table",
+      "protected": [],
+      "dims_in": null,
+      "role": "SURFACE",
+      "support": "table",
+      "asset": "lot25.webp",
+      "trimmed_asset": "C:\\Projects\\advantage-auction-platform\\creative-engine\\runtime\\cache\\trim\\lot25-2fea3ac6f00a05b6.png",
+      "resolved_by": "keyword:figurine",
+      "dims_source": "class_default",
+      "edges": [
+       {
+        "type": "ON",
+        "a": "pheasant",
+        "b": "table"
+       }
+      ]
+     },
+     {
+      "id": "sphere",
+      "semantic_class": "sculpture_small",
+      "x": 366.88268291737415,
+      "y": 694.3183913043479,
+      "w": 58.575471698113205,
+      "h": 70.1886956521739,
+      "z": 4,
+      "baseline": 764.5070869565218,
+      "depth_factor": 1,
+      "plane": "table",
+      "protected": [],
+      "dims_in": null,
+      "role": "SURFACE",
+      "support": "table",
+      "asset": "lot11d.webp",
+      "trimmed_asset": "C:\\Projects\\advantage-auction-platform\\creative-engine\\runtime\\cache\\trim\\lot11d-802eb1ce972a3705.png",
+      "resolved_by": "keyword:quartz",
+      "dims_source": "class_default",
+      "edges": [
+       {
+        "type": "ON",
+        "a": "sphere",
+        "b": "table"
+       }
+      ]
+     },
+     {
+      "id": "chairs",
+      "semantic_class": "wingback_chair",
+      "x": 440.82688691607694,
+      "y": 657.72,
+      "w": 317.3331199999999,
+      "h": 230.61999999999995,
+      "z": 2,
+      "baseline": 888.34,
+      "depth_factor": 1,
+      "plane": "floor",
+      "protected": [
+       [
+        "seat_left",
+        0.05232558139534884,
+        0.5499,
+        0.4186046511627907,
+        0.8044000000000001
+       ],
+       [
+        "seat_right",
+        0.5813953488372093,
+        0.5499,
+        0.9578488372093024,
+        0.8044000000000001
+       ],
+       [
+        "arm_left",
+        0.011627906976744186,
+        0.4481,
+        0.19476744186046513,
+        0.7025999999999999
+       ]
+      ],
+      "dims_in": null,
+      "role": "HERO",
+      "asset": "lot31.webp",
+      "trimmed_asset": "C:\\Projects\\advantage-auction-platform\\creative-engine\\runtime\\cache\\trim\\lot31-a01d93866437e7aa.png",
+      "resolved_by": "keyword:wingback",
+      "dims_source": "class_default",
+      "edges": []
+     }
+    ],
+    "edges": [
+     {
+      "type": "BESIDE",
+      "a": "table",
+      "b": "chairs"
+     },
+     {
+      "type": "ON",
+      "a": "vases",
+      "b": "table"
+     },
+     {
+      "type": "ON",
+      "a": "pheasant",
+      "b": "table"
+     },
+     {
+      "type": "ON",
+      "a": "sphere",
+      "b": "table"
+     },
+     {
+      "type": "FOREGROUND_ACCENT",
+      "a": "bowl",
+      "b": "chairs"
+     }
+    ],
+    "intentional_negative_space": [],
+    "audit": {
+     "physical": [],
+     "notes": [
+      "scene scale 5.00 px/in from chairs (wingback_chair)",
+      "bowl declared floor-vignette accent (allowed for small foreground decor)"
+     ],
+     "coverage": {
+      "field": {
+       "x": 24,
+       "y": 576,
+       "w": 1031,
+       "h": 322
+      },
+      "field_area_px": 331982,
+      "coverage_pct": 16.9,
+      "cluster_extent_w": 0.424,
+      "cluster_extent_h": 0.739,
+      "upper_field_merch_pct": 12.6,
+      "largest_accidental_void_pct": 68,
+      "largest_accidental_void_field_pct": 25.4,
+      "canvas_merchandise_pct": 5.5,
+      "panels": [],
+      "declared_intentional": []
+     }
+    },
+    "iterations": [
+     {
+      "iteration": 0,
+      "scale_px_per_in": 5.013,
+      "violations": [],
+      "copy_region_clash": [],
+      "coverage_pct": 16.9,
+      "extent_w": 0.424,
+      "extent_h": 0.739
+     }
+    ],
+    "fit_trail": [
+     {
+      "config": "base",
+      "arrangement": "anchor_right",
+      "physical_ok": true,
+      "coverage_pct": 16.9,
+      "extent_w": 0.424,
+      "extent_h": 0.739,
+      "void": 68,
+      "coverage_hard_pass": false,
+      "scale": 5.013,
+      "violations": []
+     },
+     {
+      "config": "base",
+      "arrangement": "anchor_left",
+      "physical_ok": true,
+      "coverage_pct": 16.9,
+      "extent_w": 0.425,
+      "extent_h": 0.739,
+      "void": 68,
+      "coverage_hard_pass": false,
+      "scale": 5.013,
+      "violations": []
+     },
+     {
+      "config": "base",
+      "arrangement": "split",
+      "physical_ok": true,
+      "coverage_pct": 16.9,
+      "extent_w": 0.424,
+      "extent_h": 0.739,
+      "void": 68,
+      "coverage_hard_pass": false,
+      "scale": 5.013,
+      "violations": []
+     },
+     {
+      "config": "base",
+      "arrangement": "split_reverse",
+      "physical_ok": true,
+      "coverage_pct": 16.9,
+      "extent_w": 0.425,
+      "extent_h": 0.739,
+      "void": 68,
+      "coverage_hard_pass": false,
+      "scale": 5.013,
+      "violations": []
+     },
+     {
+      "config": "base (accents on support)",
+      "arrangement": "anchor_right",
+      "physical_ok": true,
+      "coverage_pct": 16.6,
+      "extent_w": 0.424,
+      "extent_h": 0.717,
+      "void": 68,
+      "coverage_hard_pass": false,
+      "scale": 5.013,
+      "violations": []
+     },
+     {
+      "config": "base (accents on support)",
+      "arrangement": "anchor_left",
+      "physical_ok": true,
+      "coverage_pct": 16.6,
+      "extent_w": 0.425,
+      "extent_h": 0.717,
+      "void": 68,
+      "coverage_hard_pass": false,
+      "scale": 5.013,
+      "violations": []
+     },
+     {
+      "config": "base (accents on support)",
+      "arrangement": "split",
+      "physical_ok": true,
+      "coverage_pct": 16.6,
+      "extent_w": 0.424,
+      "extent_h": 0.717,
+      "void": 68,
+      "coverage_hard_pass": false,
+      "scale": 5.013,
+      "violations": []
+     },
+     {
+      "config": "base (accents on support)",
+      "arrangement": "split_reverse",
+      "physical_ok": true,
+      "coverage_pct": 16.6,
+      "extent_w": 0.425,
+      "extent_h": 0.717,
+      "void": 68,
+      "coverage_hard_pass": false,
+      "scale": 5.013,
+      "violations": []
+     },
+     {
+      "config": "base+walls",
+      "arrangement": "anchor_right",
+      "physical_ok": true,
+      "coverage_pct": 8.5,
+      "extent_w": 0.232,
+      "extent_h": 0.717,
+      "void": 68,
+      "coverage_hard_pass": false,
+      "scale": 2.675,
+      "violations": []
+     },
+     {
+      "config": "base+walls",
+      "arrangement": "anchor_left",
+      "physical_ok": true,
+      "coverage_pct": 8.5,
+      "extent_w": 0.232,
+      "extent_h": 0.717,
+      "void": 68,
+      "coverage_hard_pass": false,
+      "scale": 2.675,
+      "violations": []
+     },
+     {
+      "config": "base+walls",
+      "arrangement": "split",
+      "physical_ok": true,
+      "coverage_pct": 8.5,
+      "extent_w": 0.232,
+      "extent_h": 0.717,
+      "void": 68,
+      "coverage_hard_pass": false,
+      "scale": 2.675,
+      "violations": []
+     },
+     {
+      "config": "base+walls",
+      "arrangement": "split_reverse",
+      "physical_ok": true,
+      "coverage_pct": 8.5,
+      "extent_w": 0.232,
+      "extent_h": 0.717,
+      "void": 68,
+      "coverage_hard_pass": false,
+      "scale": 2.675,
+      "violations": []
+     },
+     {
+      "config": "base+walls(2 rows)",
+      "arrangement": "anchor_right",
+      "physical_ok": true,
+      "coverage_pct": 8.5,
+      "extent_w": 0.232,
+      "extent_h": 0.717,
+      "void": 68,
+      "coverage_hard_pass": false,
+      "scale": 2.675,
+      "violations": []
+     },
+     {
+      "config": "base+walls(2 rows)",
+      "arrangement": "anchor_left",
+      "physical_ok": true,
+      "coverage_pct": 8.5,
+      "extent_w": 0.232,
+      "extent_h": 0.717,
+      "void": 68,
+      "coverage_hard_pass": false,
+      "scale": 2.675,
+      "violations": []
+     },
+     {
+      "config": "base+walls(2 rows)",
+      "arrangement": "split",
+      "physical_ok": true,
+      "coverage_pct": 8.5,
+      "extent_w": 0.232,
+      "extent_h": 0.717,
+      "void": 68,
+      "coverage_hard_pass": false,
+      "scale": 2.675,
+      "violations": []
+     },
+     {
+      "config": "base+walls(2 rows)",
+      "arrangement": "split_reverse",
+      "physical_ok": true,
+      "coverage_pct": 8.5,
+      "extent_w": 0.232,
+      "extent_h": 0.717,
+      "void": 68,
+      "coverage_hard_pass": false,
+      "scale": 2.675,
+      "violations": []
+     },
+     {
+      "config": "anchor+walls",
+      "arrangement": "anchor_right",
+      "physical_ok": true,
+      "coverage_pct": 7.8,
+      "extent_w": 0.164,
+      "extent_h": 0.739,
+      "void": 68,
+      "coverage_hard_pass": false,
+      "scale": 2.675,
+      "violations": []
+     },
+     {
+      "config": "anchor+walls",
+      "arrangement": "anchor_left",
+      "physical_ok": true,
+      "coverage_pct": 7.8,
+      "extent_w": 0.164,
+      "extent_h": 0.739,
+      "void": 68,
+      "coverage_hard_pass": false,
+      "scale": 2.675,
+      "violations": []
+     },
+     {
+      "config": "anchor+walls",
+      "arrangement": "split",
+      "physical_ok": true,
+      "coverage_pct": 7.8,
+      "extent_w": 0.164,
+      "extent_h": 0.739,
+      "void": 68,
+      "coverage_hard_pass": false,
+      "scale": 2.675,
+      "violations": []
+     },
+     {
+      "config": "anchor+walls",
+      "arrangement": "split_reverse",
+      "physical_ok": true,
+      "coverage_pct": 7.8,
+      "extent_w": 0.164,
+      "extent_h": 0.739,
+      "void": 68,
+      "coverage_hard_pass": false,
+      "scale": 2.675,
+      "violations": []
+     },
+     {
+      "config": "anchor+walls(2 rows)",
+      "arrangement": "anchor_right",
+      "physical_ok": true,
+      "coverage_pct": 7.8,
+      "extent_w": 0.164,
+      "extent_h": 0.739,
+      "void": 68,
+      "coverage_hard_pass": false,
+      "scale": 2.675,
+      "violations": []
+     },
+     {
+      "config": "anchor+walls(2 rows)",
+      "arrangement": "anchor_left",
+      "physical_ok": true,
+      "coverage_pct": 7.8,
+      "extent_w": 0.164,
+      "extent_h": 0.739,
+      "void": 68,
+      "coverage_hard_pass": false,
+      "scale": 2.675,
+      "violations": []
+     },
+     {
+      "config": "anchor+walls(2 rows)",
+      "arrangement": "split",
+      "physical_ok": true,
+      "coverage_pct": 7.8,
+      "extent_w": 0.164,
+      "extent_h": 0.739,
+      "void": 68,
+      "coverage_hard_pass": false,
+      "scale": 2.675,
+      "violations": []
+     },
+     {
+      "config": "anchor+walls(2 rows)",
+      "arrangement": "split_reverse",
+      "physical_ok": true,
+      "coverage_pct": 7.8,
+      "extent_w": 0.164,
+      "extent_h": 0.739,
+      "void": 68,
+      "coverage_hard_pass": false,
+      "scale": 2.675,
+      "violations": []
+     }
+    ],
+    "fit_choice": {
+     "config": "base",
+     "arrangement": "anchor_right",
+     "physical_ok": true,
+     "coverage_pct": 16.9,
+     "extent_w": 0.424,
+     "extent_h": 0.739,
+     "void": 68,
+     "coverage_hard_pass": false,
+     "scale": 5.013,
+     "violations": []
+    },
+    "change_family_recommended": "coverage cannot reach the ACQUISITION floor with the available objects (fit step 7: fewer, larger objects or one object)"
+   },
+   "copy_changes": [],
+   "copy_check": {
+    "pass": true,
+    "rejections": [],
+    "notes": [
+     {
+      "field": "headline",
+      "approved": "approved copy"
+     }
+    ]
+   },
+   "hygiene": {
+    "pass": true,
+    "violations": []
+   },
+   "density": {
+    "pass": true,
+    "hard": [],
+    "soft": [
+     "text region 20.1% > 14% (FEED_FAST)"
+    ],
+    "ceiling": 5,
+    "blocks": 5,
+    "profile": "FEED_FAST"
+   },
+   "template_echo": {
+    "flagged": false,
+    "props": [],
+    "rule": "the recurring collaborator props (bronze horse, blue-and-white vase, category-spine books, laptop with logo, script mug/board/box) are tagged in do_not_generalize; the object selector must not treat them as required; a scene containing ≥ 3 of them together is flagged 'template echo' and regenerated"
+   },
+   "similarity": {
+    "pass": true,
+    "failures": [],
+    "max_reference": {
+     "id": "REF-23",
+     "distance": 0.4134
+    },
+    "self_history_min": null,
+    "published_anchor_distance": null,
+    "thresholds": {
+     "tau_ref": 0.35,
+     "tau_self": 0.25,
+     "tau_pub": 0.4
+    },
+    "all_reference_distances": [
+     {
+      "id": "REF-01",
+      "distance": 0.888
+     },
+     {
+      "id": "REF-02",
+      "distance": 1.1979
+     },
+     {
+      "id": "REF-03",
+      "distance": 0.6372
+     },
+     {
+      "id": "REF-04",
+      "distance": 0.9952
+     },
+     {
+      "id": "REF-05",
+      "distance": 0.6389
+     },
+     {
+      "id": "REF-06",
+      "distance": 0.6432
+     },
+     {
+      "id": "REF-07",
+      "distance": 1.1394
+     },
+     {
+      "id": "REF-08",
+      "distance": 0.8856
+     },
+     {
+      "id": "REF-19",
+      "distance": 0.6068
+     },
+     {
+      "id": "REF-18",
+      "distance": 0.6622
+     },
+     {
+      "id": "REF-09",
+      "distance": 0.9571
+     },
+     {
+      "id": "REF-10",
+      "distance": 0.674
+     },
+     {
+      "id": "REF-11",
+      "distance": 0.6109
+     },
+     {
+      "id": "REF-22",
+      "distance": 0.7776
+     },
+     {
+      "id": "REF-17",
+      "distance": 0.8261
+     },
+     {
+      "id": "REF-14",
+      "distance": 0.8031
+     },
+     {
+      "id": "REF-15",
+      "distance": 0.8103
+     },
+     {
+      "id": "REF-16",
+      "distance": 0.9005
+     },
+     {
+      "id": "REF-12",
+      "distance": 1.3384
+     },
+     {
+      "id": "REF-13",
+      "distance": 0.4981
+     },
+     {
+      "id": "REF-23",
+      "distance": 0.4134
+     },
+     {
+      "id": "REF-21",
+      "distance": 0.895
+     },
+     {
+      "id": "REF-20",
+      "distance": 0.4632
+     }
+    ]
+   },
+   "negative_signature_check": {
+    "nearest": null,
+    "tau_neg": 0.3,
+    "hard": false,
+    "penalty": false
+   },
+   "leak": {
+    "pass": true,
+    "hits": [],
+    "ocr": "unavailable (no OCR engine in the runtime image; every drawn string is checked exactly)",
+    "logo_template_match": "not_available (no seller logo templates on file)"
+   },
+   "provenance": {
+    "pass": true,
+    "reasons": []
+   },
+   "judge": {
+    "available": true,
+    "model": "claude-sonnet-5",
+    "prompt_version": "p3p1-judge-v2",
+    "runs": [
+     {
+      "items": [
+       {
+        "n": 1,
+        "score": 4,
+        "reason": "Clear flow: logo, headline, merchandise, navy band closes cleanly."
+       },
+       {
+        "n": 2,
+        "score": 2,
+        "reason": "Duplicate chairs reduce scale variation; weak singular anchor object."
+       },
+       {
+        "n": 3,
+        "score": 4,
+        "reason": "Red word emphasis in navy headline is truthful, confident, brand-faced."
+       },
+       {
+        "n": 4,
+        "score": 3,
+        "reason": "Red accent partly from CTA/text, not solely merchandise-driven color."
+       },
+       {
+        "n": 5,
+        "score": 4,
+        "reason": "No slogans or icon piles; representative disclosure present, clean copy."
+       },
+       {
+        "n": 6,
+        "score": 4,
+        "reason": "Bold headline and logo remain legible at small thumbnail size."
+       },
+       {
+        "n": 7,
+        "score": 2,
+        "reason": "Standard stacked layout feels templated, not distinctly editorial or irregular."
+       },
+       {
+        "n": 8,
+        "score": 4,
+        "reason": "No competitor or seller identity evoked anywhere in creative."
+       },
+       {
+        "n": 9,
+        "score": 3,
+        "reason": "Solid, on-brand execution though generic structure limits standout impact."
+       }
+      ],
+      "physical": {
+       "through": "no",
+       "through_names": "",
+       "wrong_size": "no",
+       "wrong_size_name": "",
+       "supported": "yes"
+      },
+      "comprehension": {
+       "event_type": "general auction platform promo, not a specific event",
+       "who": "Advantage.Bid",
+       "when": "not specified",
+       "platform": "Advantage.Bid",
+       "ask": "Browse current local estate auctions online",
+       "masquerade": "no"
+      },
+      "notes": "Generic buyer-growth creative reads clearly but layout is fairly template-standard.",
+      "total": 34,
+      "physical_points": 4
+     },
+     {
+      "items": [
+       {
+        "n": 1,
+        "score": 3,
+        "reason": "Logo, headline, merchandise flow clearly; navy band closes canvas well"
+       },
+       {
+        "n": 2,
+        "score": 3,
+        "reason": "Chairs anchor scene; vases and sphere give scale variation"
+       },
+       {
+        "n": 3,
+        "score": 3,
+        "reason": "Serif headline confident; single red word is truthful emphasis device"
+       },
+       {
+        "n": 4,
+        "score": 3,
+        "reason": "Red chairs supply color; white ground stays quiet and clean"
+       },
+       {
+        "n": 5,
+        "score": 4,
+        "reason": "No slogans or icon piles; disclaimer text is honest, not filler"
+       },
+       {
+        "n": 6,
+        "score": 4,
+        "reason": "Bold headline and logo legible at small size easily"
+       },
+       {
+        "n": 7,
+        "score": 2,
+        "reason": "Layout is fairly standard editorial template, could swap items easily"
+       },
+       {
+        "n": 8,
+        "score": 4,
+        "reason": "No competitor or specific seller identity evoked anywhere"
+       },
+       {
+        "n": 9,
+        "score": 2,
+        "reason": "Solid, on-brand execution but not distinctive enough for love this"
+       }
+      ],
+      "physical": {
+       "through": "no",
+       "through_names": "",
+       "wrong_size": "no",
+       "wrong_size_name": "",
+       "supported": "yes"
+      },
+      "comprehension": {
+       "event_type": "estate sale / auction",
+       "who": "Advantage.Bid",
+       "when": "not specified",
+       "platform": "Advantage.Bid",
+       "ask": "Browse current auctions to find unique items",
+       "masquerade": "no"
+      },
+      "notes": "Disclaimer text under merchandise correctly labels items as representative, not lots.",
+      "total": 32,
+      "physical_points": 4
+     }
+    ],
+    "points": 33,
+    "average": 33,
+    "disagreement": 2,
+    "flagged": false,
+    "physical_yes": {
+     "through": false,
+     "wrong_size": false
+    },
+    "comprehension": {
+     "event_type_ok": null,
+     "who_ok": null,
+     "when_ok": null,
+     "platform_ok": true,
+     "masquerade": false,
+     "answers": {
+      "event_type": "estate sale / auction",
+      "who": "Advantage.Bid",
+      "when": "not specified",
+      "platform": "Advantage.Bid",
+      "ask": "Browse current auctions to find unique items",
+      "masquerade": "no"
+     }
+    },
+    "items": [
+     "Hierarchy clarity: the eye enters at the presenter, moves to one title, then to the merchandise.",
+     "Objects (or the photograph) have confident scale variation and at least one clear anchor.",
+     "Typography is confident and, where expressive, truthful to the event.",
+     "Colour comes from the merchandise; the ground and panels stay quiet.",
+     "Nothing reads as filler: no slogans, icon piles, words on merchandise, duplicate URLs.",
+     "It reads at thumbnail size (headline + wordmark legible when small).",
+     "It would not be mistaken for a template with swapped merchandise (editorial irregularity).",
+     "It does not evoke any specific competitor or seller identity (answer 0 if it does).",
+     "Overall: would the Owner say \"good\" (0), \"much better\" (2), \"love this\" (4)? Justify via items 1–9."
+    ]
+   },
+   "measurable": {
+    "points": 42,
+    "out_of": 60,
+    "raw": 42,
+    "raw_max": 60,
+    "items": [
+     {
+      "key": "merchandise_coverage_field",
+      "pts": 12,
+      "value": 0,
+      "points": 0,
+      "target": [
+       45,
+       65
+      ]
+     },
+     {
+      "key": "accidental_void",
+      "pts": 6,
+      "value": 0,
+      "points": 0,
+      "target": "≤ 8"
+     },
+     {
+      "key": "hierarchy_incl_event_type",
+      "pts": 10,
+      "value": 1,
+      "points": 10,
+      "target": "headline ≥ 2.2×"
+     },
+     {
+      "key": "identity_prominence",
+      "pts": 8,
+      "value": 1,
+      "points": 8,
+      "target": "prominence-rules"
+     },
+     {
+      "key": "physical_audit_clean",
+      "pts": 8,
+      "value": 1,
+      "points": 8,
+      "target": "0 violations"
+     },
+     {
+      "key": "copy",
+      "pts": 6,
+      "value": 1,
+      "points": 6,
+      "target": "one headline-class element"
+     },
+     {
+      "key": "depth_planes",
+      "pts": 6,
+      "value": 1,
+      "points": 6,
+      "target": "≥ 2 planes"
+     },
+     {
+      "key": "light_ground",
+      "pts": 2,
+      "value": 1,
+      "points": 2,
+      "target": "canvas luminance ≥ 0.60"
+     },
+     {
+      "key": "brand_frame",
+      "pts": 2,
+      "value": 1,
+      "points": 2,
+      "target": "logo + band + wordmark"
+     }
+    ]
+   },
+   "score": 0,
+   "decision": "HARD_FAIL",
+   "hard_failures": [
+    {
+     "gate": "coverage",
+     "detail": [
+      "coverage 12.0% is more than 10 points under the ACQUISITION floor 45%",
+      "accidental void 16.6% exceeds the ACQUISITION cap 8% by more than 4 points"
+     ]
+    }
+   ],
+   "regenerate_violations": [],
+   "score_basis": "measurable_60 + judge_40",
+   "bar": 75,
+   "extreme": false,
+   "publication_status": "HELD_FOR_OWNER_REVIEW",
+   "market": null,
+   "notes": "Owner-approved headline (REF-19 Gold); CTA → bid.advantage.bid"
+  },
+  {
+   "key": "B2",
+   "format": "portrait_1080x1350",
+   "family": "EDITORIAL",
+   "structure": "LEFT_COPY",
+   "profile": "ACQUISITION_RICH",
+   "ok": true,
+   "png": "C:\\Projects\\advantage-auction-platform\\docs\\marketing\\phase3p1\\proving-grounds\\2026-09-11\\p3p2-buyer-growth-B2-portrait_1080x1350.png",
+   "thumb": "C:\\Projects\\advantage-auction-platform\\docs\\marketing\\phase3p1\\proving-grounds\\2026-09-11\\p3p2-buyer-growth-B2-portrait_1080x1350_thumb.png",
+   "render_sha256": "a4c03860ae2621e6bc2a0ec6174cc5afcdc17c2224afd94091bc1a49654fa54b",
+   "metrics": {
+    "size": [
+     1080,
+     1350
+    ],
+    "family": "ACQUISITION",
+    "structure": "LEFT_COPY",
+    "profile": "ACQUISITION_RICH",
+    "band_h": 159,
+    "merchandise_pct": 21.5,
+    "text_region_pct": 20.5,
+    "coverage": {
+     "field": {
+      "x": 0,
+      "y": 0,
+      "w": 1080,
+      "h": 1191
+     },
+     "field_area_px": 887736,
+     "coverage_pct": 31.1,
+     "cluster_extent_w": 0.508,
+     "cluster_extent_h": 0.659,
+     "upper_field_merch_pct": 26.5,
+     "largest_accidental_void_pct": 15.3,
+     "largest_accidental_void_field_pct": 22.2,
+     "canvas_merchandise_pct": 21.5,
+     "panels": [],
+     "declared_intentional": []
+    },
+    "coverage_gate": {
+     "pass_": false,
+     "hard_failures": [
+      "coverage 31.1% is more than 10 points under the ACQUISITION floor 45%",
+      "accidental void 15.3% exceeds the ACQUISITION cap 8% by more than 4 points"
+     ],
+     "soft": {
+      "coverage_in_band": false,
+      "extent_w_ok": false,
+      "extent_h_ok": false,
+      "void_ok": false,
+      "upper_ok": true
+     }
+    },
+    "prominence": {
+     "context": "advantage_bid_led",
+     "checks": {
+      "band_wordmark_cap_pct": 5.63,
+      "logo_width_pct": 40,
+      "logo_height_feed_px": 38.4,
+      "logo_top_pct": 3.5,
+      "clear_space_px": 44,
+      "clear_space_required_px": 38.1,
+      "contrast": 19.08,
+      "feed_proxy_template": 1,
+      "feed_proxy_wordmark_ocr": true
+     },
+     "violations": [],
+     "pass_": true
+    },
+    "colour": {
+     "pass_": true,
+     "hard_failures": [],
+     "soft": [],
+     "canvas_luminance": 0.813,
+     "copy_zone_luminance": 0.886,
+     "red_elements": 3,
+     "red_share_saturated_copy_zone_pct": 45.3,
+     "red_band": false,
+     "red_ground": false,
+     "navy_present": true
+    },
+    "event_type": {
+     "checks": {},
+     "violations": [],
+     "pass_": true
+    },
+    "density": {
+     "blocks": 7,
+     "roles": [
+      "headline",
+      "support",
+      "benefits",
+      "cta",
+      "slogan",
+      "logo",
+      "band"
+     ],
+     "headline_class_roles": [
+      "headline"
+     ],
+     "headline_dominance": 1.72
+    },
+    "copy_over_merchandise": [],
+    "largest_empty_pct": 15.3,
+    "upper_half_merch_pct": 18.4,
+    "text_blocks": 7,
+    "ground_luminance": 0.813,
+    "brand_frame": {
+     "logo": true,
+     "band": true,
+     "wordmark": true
+    },
+    "representative": true,
+    "scene_kind": "planned",
+    "physical_violations": [],
+    "screenshot": false,
+    "planes_count": 3
+   },
+   "logo": {
+    "variant": "primary_transparent",
+    "file": "advantage-bid-transparent.png",
+    "sha256": "8b5fce17b50dea4c15f73b3cfa2e54bd900db22f3106db0ee2d80ea4cd1db561",
+    "box": [
+     49,
+     47,
+     432,
+     173
+    ],
+    "scale": 0.21785,
+    "transform": "uniform_scale+position",
+    "reserved_box": [
+     49,
+     47,
+     432,
+     173
+    ],
+    "selection_reason": "light/neutral zone (luminance 1.00) → transparent lockup",
+    "ok": true
+   },
+   "logo_qa": {
+    "logo_source": {
+     "pass_": true,
+     "template_match": 1,
+     "threshold": 0.97,
+     "variant": "primary_transparent",
+     "asset_sha256": "8b5fce17b50dea4c15f73b3cfa2e54bd900db22f3106db0ee2d80ea4cd1db561",
+     "ocr_available": true,
+     "ocr_text": [
+      "ADVANTAGE.BID",
+      "GET THEADVANTAGE"
+     ],
+     "reads_advantage_bid": true,
+     "reads_tagline": true,
+     "extra_text": []
+    },
+    "rendered_logo_elsewhere": {
+     "pass_": true,
+     "ocr_available": true,
+     "ocr_hits": [],
+     "template_hits": [],
+     "template_threshold": 0.85
+    }
+   },
+   "plan": {
+    "ok": true,
+    "family": "ACQUISITION",
+    "arrangement": "anchor_right",
+    "field": {
+     "x": 24,
+     "y": 67,
+     "w": 1031,
+     "h": 1064
+    },
+    "canvas": [
+     1080,
+     1350
+    ],
+    "scene_scale_px_per_in": 8.755,
+    "scale_limits": {
+     "vertical": 10.737,
+     "horizontal": 15.33
+    },
+    "primary_anchor": "chairs",
+    "unresolved_anchor": false,
+    "planes": {
+     "floor_baseline": 1099.1,
+     "rear_baseline": 1008.4,
+     "wall_top_line": 343.9,
+     "supports": {}
+    },
+    "objects": [
+     {
+      "id": "bowl",
+      "semantic_class": "bowl",
+      "x": 908.6256799370633,
+      "y": 1057.020329894178,
+      "w": 96.34632885759815,
+      "h": 71.97967010582188,
+      "z": 5,
+      "baseline": 1129,
+      "depth_factor": 1.028,
+      "plane": "table",
+      "protected": [],
+      "dims_in": null,
+      "role": "SURFACE",
+      "floor_accent": true,
+      "asset": "lot63.webp",
+      "trimmed_asset": "C:\\Projects\\advantage-auction-platform\\creative-engine\\runtime\\cache\\trim\\lot63-3b3477523746a2db.png",
+      "resolved_by": "keyword:bowl",
+      "dims_source": "class_default",
+      "edges": [
+       {
+        "type": "FOREGROUND_ACCENT",
+        "a": "bowl",
+        "b": "chairs"
+       }
+      ]
+     },
+     {
+      "id": "chairs",
+      "semantic_class": "wingback_chair",
+      "x": 480.22888832758804,
+      "y": 696.3539014008632,
+      "w": 554.1511116724121,
+      "h": 402.7260985991367,
+      "z": 2,
+      "baseline": 1099.08,
+      "depth_factor": 1,
+      "plane": "floor",
+      "protected": [
+       [
+        "seat_left",
+        0.05232558139534884,
+        0.5499,
+        0.4186046511627907,
+        0.8044000000000001
+       ],
+       [
+        "seat_right",
+        0.5813953488372093,
+        0.5499,
+        0.9578488372093024,
+        0.8044000000000001
+       ],
+       [
+        "arm_left",
+        0.011627906976744186,
+        0.4481,
+        0.19476744186046513,
+        0.7025999999999999
+       ]
+      ],
+      "dims_in": null,
+      "role": "HERO",
+      "asset": "lot31.webp",
+      "trimmed_asset": "C:\\Projects\\advantage-auction-platform\\creative-engine\\runtime\\cache\\trim\\lot31-a01d93866437e7aa.png",
+      "resolved_by": "keyword:wingback",
+      "dims_source": "class_default",
+      "edges": []
+     },
+     {
+      "id": "oil",
+      "semantic_class": "painting",
+      "x": 539.6308679406156,
+      "y": 343.936954671104,
+      "w": 435.3471524463568,
+      "h": 315.17694672975915,
+      "z": 0,
+      "baseline": 659.1139014008631,
+      "depth_factor": 1,
+      "plane": "wall",
+      "protected": [],
+      "dims_in": null,
+      "role": "WALL",
+      "contact_shadow": false,
+      "asset": "lot73.webp",
+      "trimmed_asset": "C:\\Projects\\advantage-auction-platform\\creative-engine\\runtime\\cache\\trim\\lot73-4b5e78b03db0c909.png",
+      "resolved_by": "keyword:oil",
+      "dims_source": "class_default",
+      "edges": [
+       {
+        "type": "HANGS_ABOVE",
+        "a": "oil",
+        "b": "chairs"
+       }
+      ]
+     }
+    ],
+    "edges": [
+     {
+      "type": "FOREGROUND_ACCENT",
+      "a": "bowl",
+      "b": "chairs"
+     },
+     {
+      "type": "HANGS_ABOVE",
+      "a": "oil",
+      "b": "chairs"
+     }
+    ],
+    "intentional_negative_space": [],
+    "audit": {
+     "physical": [],
+     "notes": [
+      "scene scale 8.74 px/in from chairs (wingback_chair)",
+      "bowl declared floor-vignette accent (allowed for small foreground decor)"
+     ],
+     "coverage": {
+      "field": {
+       "x": 24,
+       "y": 67,
+       "w": 1031,
+       "h": 1064
+      },
+      "field_area_px": 1096984,
+      "coverage_pct": 25.2,
+      "cluster_extent_w": 0.537,
+      "cluster_extent_h": 0.738,
+      "upper_field_merch_pct": 19.8,
+      "largest_accidental_void_pct": 44,
+      "largest_accidental_void_field_pct": 41.7,
+      "canvas_merchandise_pct": 21.5,
+      "panels": [],
+      "declared_intentional": []
+     }
+    },
+    "iterations": [
+     {
+      "iteration": 0,
+      "scale_px_per_in": 10.737,
+      "violations": [],
+      "copy_region_clash": [
+       "chairs"
+      ],
+      "coverage_pct": 37.4,
+      "extent_w": 0.66,
+      "extent_h": 0.863
+     },
+     {
+      "iteration": 1,
+      "scale_px_per_in": 10.308,
+      "violations": [],
+      "copy_region_clash": [
+       "chairs"
+      ],
+      "coverage_pct": 34.9,
+      "extent_w": 0.632,
+      "extent_h": 0.857
+     },
+     {
+      "iteration": 2,
+      "scale_px_per_in": 9.896,
+      "violations": [],
+      "copy_region_clash": [
+       "chairs"
+      ],
+      "coverage_pct": 32.2,
+      "extent_w": 0.607,
+      "extent_h": 0.826
+     },
+     {
+      "iteration": 3,
+      "scale_px_per_in": 9.5,
+      "violations": [],
+      "copy_region_clash": [
+       "chairs"
+      ],
+      "coverage_pct": 29.7,
+      "extent_w": 0.583,
+      "extent_h": 0.795
+     },
+     {
+      "iteration": 4,
+      "scale_px_per_in": 9.12,
+      "violations": [],
+      "copy_region_clash": [
+       "chairs"
+      ],
+      "coverage_pct": 27.3,
+      "extent_w": 0.56,
+      "extent_h": 0.766
+     },
+     {
+      "iteration": 5,
+      "scale_px_per_in": 8.755,
+      "violations": [],
+      "copy_region_clash": [],
+      "coverage_pct": 25.2,
+      "extent_w": 0.537,
+      "extent_h": 0.738
+     }
+    ],
+    "fit_trail": [
+     {
+      "config": "base",
+      "arrangement": "anchor_right",
+      "physical_ok": false,
+      "coverage_pct": 15.1,
+      "extent_w": 0.72,
+      "extent_h": 0.4,
+      "void": 58.8,
+      "coverage_hard_pass": false,
+      "scale": 8.603,
+      "violations": []
+     },
+     {
+      "config": "base",
+      "arrangement": "anchor_left",
+      "physical_ok": false,
+      "coverage_pct": 15,
+      "extent_w": 0.72,
+      "extent_h": 0.4,
+      "void": 58.8,
+      "coverage_hard_pass": false,
+      "scale": 8.603,
+      "violations": []
+     },
+     {
+      "config": "base",
+      "arrangement": "split",
+      "physical_ok": false,
+      "coverage_pct": 15.1,
+      "extent_w": 0.72,
+      "extent_h": 0.4,
+      "void": 58.8,
+      "coverage_hard_pass": false,
+      "scale": 8.603,
+      "violations": []
+     },
+     {
+      "config": "base",
+      "arrangement": "split_reverse",
+      "physical_ok": false,
+      "coverage_pct": 15.1,
+      "extent_w": 0.72,
+      "extent_h": 0.4,
+      "void": 58.8,
+      "coverage_hard_pass": false,
+      "scale": 8.603,
+      "violations": []
+     },
+     {
+      "config": "base (accents on support)",
+      "arrangement": "anchor_right",
+      "physical_ok": false,
+      "coverage_pct": 14.7,
+      "extent_w": 0.72,
+      "extent_h": 0.372,
+      "void": 58.8,
+      "coverage_hard_pass": false,
+      "scale": 8.603,
+      "violations": []
+     },
+     {
+      "config": "base (accents on support)",
+      "arrangement": "anchor_left",
+      "physical_ok": false,
+      "coverage_pct": 14.7,
+      "extent_w": 0.72,
+      "extent_h": 0.372,
+      "void": 58.8,
+      "coverage_hard_pass": false,
+      "scale": 8.603,
+      "violations": []
+     },
+     {
+      "config": "base (accents on support)",
+      "arrangement": "split",
+      "physical_ok": false,
+      "coverage_pct": 14.7,
+      "extent_w": 0.72,
+      "extent_h": 0.372,
+      "void": 58.8,
+      "coverage_hard_pass": false,
+      "scale": 8.603,
+      "violations": []
+     },
+     {
+      "config": "base (accents on support)",
+      "arrangement": "split_reverse",
+      "physical_ok": false,
+      "coverage_pct": 14.7,
+      "extent_w": 0.72,
+      "extent_h": 0.372,
+      "void": 58.8,
+      "coverage_hard_pass": false,
+      "scale": 8.603,
+      "violations": []
+     },
+     {
+      "config": "base+walls",
+      "arrangement": "anchor_right",
+      "physical_ok": false,
+      "coverage_pct": 23.3,
+      "extent_w": 0.676,
+      "extent_h": 0.657,
+      "void": 33.6,
+      "coverage_hard_pass": false,
+      "scale": 8.069,
+      "violations": []
+     },
+     {
+      "config": "base+walls",
+      "arrangement": "anchor_left",
+      "physical_ok": false,
+      "coverage_pct": 23.3,
+      "extent_w": 0.675,
+      "extent_h": 0.657,
+      "void": 33.6,
+      "coverage_hard_pass": false,
+      "scale": 8.069,
+      "violations": []
+     },
+     {
+      "config": "base+walls",
+      "arrangement": "split",
+      "physical_ok": false,
+      "coverage_pct": 23.3,
+      "extent_w": 0.676,
+      "extent_h": 0.657,
+      "void": 33.6,
+      "coverage_hard_pass": false,
+      "scale": 8.069,
+      "violations": []
+     },
+     {
+      "config": "base+walls",
+      "arrangement": "split_reverse",
+      "physical_ok": false,
+      "coverage_pct": 23.3,
+      "extent_w": 0.675,
+      "extent_h": 0.657,
+      "void": 33.6,
+      "coverage_hard_pass": false,
+      "scale": 8.069,
+      "violations": []
+     },
+     {
+      "config": "base+walls(2 rows)",
+      "arrangement": "anchor_right",
+      "physical_ok": false,
+      "coverage_pct": 23.3,
+      "extent_w": 0.676,
+      "extent_h": 0.657,
+      "void": 33.6,
+      "coverage_hard_pass": false,
+      "scale": 8.069,
+      "violations": []
+     },
+     {
+      "config": "base+walls(2 rows)",
+      "arrangement": "anchor_left",
+      "physical_ok": false,
+      "coverage_pct": 23.3,
+      "extent_w": 0.675,
+      "extent_h": 0.657,
+      "void": 33.6,
+      "coverage_hard_pass": false,
+      "scale": 8.069,
+      "violations": []
+     },
+     {
+      "config": "base+walls(2 rows)",
+      "arrangement": "split",
+      "physical_ok": false,
+      "coverage_pct": 23.3,
+      "extent_w": 0.676,
+      "extent_h": 0.657,
+      "void": 33.6,
+      "coverage_hard_pass": false,
+      "scale": 8.069,
+      "violations": []
+     },
+     {
+      "config": "base+walls(2 rows)",
+      "arrangement": "split_reverse",
+      "physical_ok": false,
+      "coverage_pct": 23.3,
+      "extent_w": 0.675,
+      "extent_h": 0.657,
+      "void": 33.6,
+      "coverage_hard_pass": false,
+      "scale": 8.069,
+      "violations": []
+     },
+     {
+      "config": "anchor+walls",
+      "arrangement": "anchor_right",
+      "physical_ok": true,
+      "coverage_pct": 25.2,
+      "extent_w": 0.537,
+      "extent_h": 0.738,
+      "void": 44,
+      "coverage_hard_pass": false,
+      "scale": 8.755,
+      "violations": []
+     },
+     {
+      "config": "anchor+walls",
+      "arrangement": "anchor_left",
+      "physical_ok": true,
+      "coverage_pct": 25.2,
+      "extent_w": 0.537,
+      "extent_h": 0.738,
+      "void": 44,
+      "coverage_hard_pass": false,
+      "scale": 8.755,
+      "violations": []
+     },
+     {
+      "config": "anchor+walls",
+      "arrangement": "split",
+      "physical_ok": true,
+      "coverage_pct": 25.2,
+      "extent_w": 0.537,
+      "extent_h": 0.738,
+      "void": 44,
+      "coverage_hard_pass": false,
+      "scale": 8.755,
+      "violations": []
+     },
+     {
+      "config": "anchor+walls",
+      "arrangement": "split_reverse",
+      "physical_ok": true,
+      "coverage_pct": 25.2,
+      "extent_w": 0.537,
+      "extent_h": 0.738,
+      "void": 44,
+      "coverage_hard_pass": false,
+      "scale": 8.755,
+      "violations": []
+     },
+     {
+      "config": "anchor+walls(2 rows)",
+      "arrangement": "anchor_right",
+      "physical_ok": true,
+      "coverage_pct": 25.2,
+      "extent_w": 0.537,
+      "extent_h": 0.738,
+      "void": 44,
+      "coverage_hard_pass": false,
+      "scale": 8.755,
+      "violations": []
+     },
+     {
+      "config": "anchor+walls(2 rows)",
+      "arrangement": "anchor_left",
+      "physical_ok": true,
+      "coverage_pct": 25.2,
+      "extent_w": 0.537,
+      "extent_h": 0.738,
+      "void": 44,
+      "coverage_hard_pass": false,
+      "scale": 8.755,
+      "violations": []
+     },
+     {
+      "config": "anchor+walls(2 rows)",
+      "arrangement": "split",
+      "physical_ok": true,
+      "coverage_pct": 25.2,
+      "extent_w": 0.537,
+      "extent_h": 0.738,
+      "void": 44,
+      "coverage_hard_pass": false,
+      "scale": 8.755,
+      "violations": []
+     },
+     {
+      "config": "anchor+walls(2 rows)",
+      "arrangement": "split_reverse",
+      "physical_ok": true,
+      "coverage_pct": 25.2,
+      "extent_w": 0.537,
+      "extent_h": 0.738,
+      "void": 44,
+      "coverage_hard_pass": false,
+      "scale": 8.755,
+      "violations": []
+     }
+    ],
+    "fit_choice": {
+     "config": "anchor+walls",
+     "arrangement": "anchor_right",
+     "physical_ok": true,
+     "coverage_pct": 25.2,
+     "extent_w": 0.537,
+     "extent_h": 0.738,
+     "void": 44,
+     "coverage_hard_pass": false,
+     "scale": 8.755,
+     "violations": []
+    },
+    "change_family_recommended": "coverage cannot reach the ACQUISITION floor with the available objects (fit step 7: fewer, larger objects or one object)"
+   },
+   "copy_changes": [],
+   "copy_check": {
+    "pass": true,
+    "rejections": [],
+    "notes": [
+     {
+      "field": "headline",
+      "approved": "approved copy"
+     }
+    ]
+   },
+   "hygiene": {
+    "pass": true,
+    "violations": []
+   },
+   "density": {
+    "pass": false,
+    "hard": [
+     "ACQUISITION_RICH requires exactly one headline ≥ 2.2× any other text (measured 1.72×)",
+     "ACQUISITION_RICH requires merchandise ≥ 45% of the field (measured 31.1%)"
+    ],
+    "soft": [],
+    "ceiling": 9,
+    "blocks": 7,
+    "profile": "ACQUISITION_RICH"
+   },
+   "template_echo": {
+    "flagged": false,
+    "props": [],
+    "rule": "the recurring collaborator props (bronze horse, blue-and-white vase, category-spine books, laptop with logo, script mug/board/box) are tagged in do_not_generalize; the object selector must not treat them as required; a scene containing ≥ 3 of them together is flagged 'template echo' and regenerated"
+   },
+   "similarity": {
+    "pass": true,
+    "failures": [],
+    "max_reference": {
+     "id": "REF-23",
+     "distance": 0.4494
+    },
+    "self_history_min": {
+     "id": "p3p2-buyer-growth:B1:portrait_1080x1350",
+     "distance": 0.4779
+    },
+    "published_anchor_distance": null,
+    "thresholds": {
+     "tau_ref": 0.35,
+     "tau_self": 0.25,
+     "tau_pub": 0.4
+    },
+    "all_reference_distances": [
+     {
+      "id": "REF-01",
+      "distance": 0.6727
+     },
+     {
+      "id": "REF-02",
+      "distance": 0.9491
+     },
+     {
+      "id": "REF-03",
+      "distance": 0.9408
+     },
+     {
+      "id": "REF-04",
+      "distance": 0.7788
+     },
+     {
+      "id": "REF-05",
+      "distance": 0.4936
+     },
+     {
+      "id": "REF-06",
+      "distance": 0.486
+     },
+     {
+      "id": "REF-07",
+      "distance": 1.095
+     },
+     {
+      "id": "REF-08",
+      "distance": 0.8658
+     },
+     {
+      "id": "REF-19",
+      "distance": 0.7485
+     },
+     {
+      "id": "REF-18",
+      "distance": 0.6671
+     },
+     {
+      "id": "REF-09",
+      "distance": 0.7247
+     },
+     {
+      "id": "REF-10",
+      "distance": 0.5483
+     },
+     {
+      "id": "REF-11",
+      "distance": 0.8094
+     },
+     {
+      "id": "REF-22",
+      "distance": 0.7688
+     },
+     {
+      "id": "REF-17",
+      "distance": 0.82
+     },
+     {
+      "id": "REF-14",
+      "distance": 0.6945
+     },
+     {
+      "id": "REF-15",
+      "distance": 0.6788
+     },
+     {
+      "id": "REF-16",
+      "distance": 0.7751
+     },
+     {
+      "id": "REF-12",
+      "distance": 1.2959
+     },
+     {
+      "id": "REF-13",
+      "distance": 0.5718
+     },
+     {
+      "id": "REF-23",
+      "distance": 0.4494
+     },
+     {
+      "id": "REF-21",
+      "distance": 0.8796
+     },
+     {
+      "id": "REF-20",
+      "distance": 0.6435
+     }
+    ]
+   },
+   "negative_signature_check": {
+    "nearest": null,
+    "tau_neg": 0.3,
+    "hard": false,
+    "penalty": false
+   },
+   "leak": {
+    "pass": true,
+    "hits": [],
+    "ocr": "unavailable (no OCR engine in the runtime image; every drawn string is checked exactly)",
+    "logo_template_match": "not_available (no seller logo templates on file)"
+   },
+   "provenance": {
+    "pass": true,
+    "reasons": []
+   },
+   "judge": {
+    "available": true,
+    "model": "claude-sonnet-5",
+    "prompt_version": "p3p1-judge-v2",
+    "runs": [
+     {
+      "items": [
+       {
+        "n": 1,
+        "score": 4,
+        "reason": "Logo, headline, then merchandise flow clearly left to right."
+       },
+       {
+        "n": 2,
+        "score": 3,
+        "reason": "Painting anchors scene; chairs and urn vary scale nicely."
+       },
+       {
+        "n": 3,
+        "score": 4,
+        "reason": "Red word in navy-style headline is truthful expressive accent."
+       },
+       {
+        "n": 4,
+        "score": 4,
+        "reason": "Colour from painting and chairs; ground stays white and quiet."
+       },
+       {
+        "n": 5,
+        "score": 3,
+        "reason": "Three icon rows approved; tagline borders on slogan filler."
+       },
+       {
+        "n": 6,
+        "score": 4,
+        "reason": "Bold headline and large navy wordmark read well small."
+       },
+       {
+        "n": 7,
+        "score": 2,
+        "reason": "Layout feels like a reusable template despite varied props."
+       },
+       {
+        "n": 8,
+        "score": 4,
+        "reason": "No competitor or seller identity referenced anywhere."
+       },
+       {
+        "n": 9,
+        "score": 3,
+        "reason": "Solid, on-pattern buyer-growth creative; not groundbreaking but clean."
+       }
+      ],
+      "physical": {
+       "through": "no",
+       "through_names": "",
+       "wrong_size": "no",
+       "wrong_size_name": "",
+       "supported": "yes"
+      },
+      "comprehension": {
+       "event_type": "not a single event, recurring auction/estate sale email alert",
+       "who": "Advantage.Bid",
+       "when": "weekly (once a week)",
+       "platform": "Advantage.Bid",
+       "ask": "Sign up to get weekly local estate sale and auction finds by email",
+       "masquerade": "no"
+      },
+      "notes": "Representative merchandise clearly disclosed; layout matches LEFT_COPY structure with approved icon and accent patterns.",
+      "total": 35,
+      "physical_points": 4
+     },
+     {
+      "items": [
+       {
+        "n": 1,
+        "score": 4,
+        "reason": "Logo top, clear headline, then merchandise flows right side naturally."
+       },
+       {
+        "n": 2,
+        "score": 3,
+        "reason": "Painting large, chairs paired, small urn anchors bottom right corner."
+       },
+       {
+        "n": 3,
+        "score": 3,
+        "reason": "Bold serif headline with red accent word, clean and truthful styling."
+       },
+       {
+        "n": 4,
+        "score": 4,
+        "reason": "Painting and chairs bring color; ground and text stay neutral."
+       },
+       {
+        "n": 5,
+        "score": 3,
+        "reason": "Icon row is minor filler but disclosure line keeps it honest."
+       },
+       {
+        "n": 6,
+        "score": 4,
+        "reason": "Headline and wordmark bold enough to read at small size."
+       },
+       {
+        "n": 7,
+        "score": 3,
+        "reason": "Specific art and furniture choice avoids generic template feel."
+       },
+       {
+        "n": 8,
+        "score": 4,
+        "reason": "No competitor or seller branding visible anywhere in creative."
+       },
+       {
+        "n": 9,
+        "score": 3,
+        "reason": "Strong clarity and disclosure; icon stack slightly busy overall."
+       }
+      ],
+      "physical": {
+       "through": "no",
+       "through_names": "",
+       "wrong_size": "no",
+       "wrong_size_name": "",
+       "supported": "yes"
+      },
+      "comprehension": {
+       "event_type": "estate sale and online auction email signup",
+       "who": "Advantage.Bid",
+       "when": "weekly, ongoing",
+       "platform": "Advantage.Bid",
+       "ask": "Sign up for weekly local auction and estate sale alerts",
+       "masquerade": "no"
+      },
+      "notes": "Representative disclosure line supports generic compliance well.",
+      "total": 35,
+      "physical_points": 4
+     }
+    ],
+    "points": 35,
+    "average": 35,
+    "disagreement": 0,
+    "flagged": false,
+    "physical_yes": {
+     "through": false,
+     "wrong_size": false
+    },
+    "comprehension": {
+     "event_type_ok": null,
+     "who_ok": null,
+     "when_ok": null,
+     "platform_ok": true,
+     "masquerade": false,
+     "answers": {
+      "event_type": "estate sale and online auction email signup",
+      "who": "Advantage.Bid",
+      "when": "weekly, ongoing",
+      "platform": "Advantage.Bid",
+      "ask": "Sign up for weekly local auction and estate sale alerts",
+      "masquerade": "no"
+     }
+    },
+    "items": [
+     "Hierarchy clarity: the eye enters at the presenter, moves to one title, then to the merchandise.",
+     "Objects (or the photograph) have confident scale variation and at least one clear anchor.",
+     "Typography is confident and, where expressive, truthful to the event.",
+     "Colour comes from the merchandise; the ground and panels stay quiet.",
+     "Nothing reads as filler: no slogans, icon piles, words on merchandise, duplicate URLs.",
+     "It reads at thumbnail size (headline + wordmark legible when small).",
+     "It would not be mistaken for a template with swapped merchandise (editorial irregularity).",
+     "It does not evoke any specific competitor or seller identity (answer 0 if it does).",
+     "Overall: would the Owner say \"good\" (0), \"much better\" (2), \"love this\" (4)? Justify via items 1–9."
+    ]
+   },
+   "measurable": {
+    "points": 39.82,
+    "out_of": 60,
+    "raw": 39.82,
+    "raw_max": 60,
+    "items": [
+     {
+      "key": "merchandise_coverage_field",
+      "pts": 12,
+      "value": 0,
+      "points": 0,
+      "target": [
+       45,
+       65
+      ]
+     },
+     {
+      "key": "accidental_void",
+      "pts": 6,
+      "value": 0,
+      "points": 0,
+      "target": "≤ 8"
+     },
+     {
+      "key": "hierarchy_incl_event_type",
+      "pts": 10,
+      "value": 0.7818181818181817,
+      "points": 7.82,
+      "target": "headline ≥ 2.2×"
+     },
+     {
+      "key": "identity_prominence",
+      "pts": 8,
+      "value": 1,
+      "points": 8,
+      "target": "prominence-rules"
+     },
+     {
+      "key": "physical_audit_clean",
+      "pts": 8,
+      "value": 1,
+      "points": 8,
+      "target": "0 violations"
+     },
+     {
+      "key": "copy",
+      "pts": 6,
+      "value": 1,
+      "points": 6,
+      "target": "one headline-class element"
+     },
+     {
+      "key": "depth_planes",
+      "pts": 6,
+      "value": 1,
+      "points": 6,
+      "target": "≥ 2 planes"
+     },
+     {
+      "key": "light_ground",
+      "pts": 2,
+      "value": 1,
+      "points": 2,
+      "target": "canvas luminance ≥ 0.60"
+     },
+     {
+      "key": "brand_frame",
+      "pts": 2,
+      "value": 1,
+      "points": 2,
+      "target": "logo + band + wordmark"
+     }
+    ]
+   },
+   "score": 0,
+   "decision": "HARD_FAIL",
+   "hard_failures": [
+    {
+     "gate": "coverage",
+     "detail": [
+      "coverage 31.1% is more than 10 points under the ACQUISITION floor 45%",
+      "accidental void 15.3% exceeds the ACQUISITION cap 8% by more than 4 points"
+     ]
+    },
+    {
+     "gate": "copy_density",
+     "detail": [
+      "ACQUISITION_RICH requires exactly one headline ≥ 2.2× any other text (measured 1.72×)",
+      "ACQUISITION_RICH requires merchandise ≥ 45% of the field (measured 31.1%)"
+     ]
+    }
+   ],
+   "regenerate_violations": [],
+   "score_basis": "measurable_60 + judge_40",
+   "bar": 75,
+   "extreme": false,
+   "publication_status": "HELD_FOR_OWNER_REVIEW",
+   "market": null,
+   "notes": "Real signup destination exists (bid.advantage.bid homepage subscriber signup); REF-18 Gold headline"
+  },
+  {
+   "key": "B2",
+   "format": "square_1080x1080",
+   "family": "EDITORIAL",
+   "structure": "LEFT_COPY",
+   "profile": "ACQUISITION_RICH",
+   "ok": true,
+   "png": "C:\\Projects\\advantage-auction-platform\\docs\\marketing\\phase3p1\\proving-grounds\\2026-09-11\\p3p2-buyer-growth-B2-square_1080x1080.png",
+   "thumb": "C:\\Projects\\advantage-auction-platform\\docs\\marketing\\phase3p1\\proving-grounds\\2026-09-11\\p3p2-buyer-growth-B2-square_1080x1080_thumb.png",
+   "render_sha256": "1ae9b0a711d84201ac400466acc421988966ff034faa1aa82d39418bfb0d6bbf",
+   "metrics": {
+    "size": [
+     1080,
+     1080
+    ],
+    "family": "ACQUISITION",
+    "structure": "LEFT_COPY",
+    "profile": "ACQUISITION_RICH",
+    "band_h": 139,
+    "merchandise_pct": 25.3,
+    "text_region_pct": 22.2,
+    "coverage": {
+     "field": {
+      "x": 0,
+      "y": 0,
+      "w": 1080,
+      "h": 941
+     },
+     "field_area_px": 675270,
+     "coverage_pct": 38.1,
+     "cluster_extent_w": 0.494,
+     "cluster_extent_h": 0.792,
+     "upper_field_merch_pct": 39.1,
+     "largest_accidental_void_pct": 8,
+     "largest_accidental_void_field_pct": 12,
+     "canvas_merchandise_pct": 25.3,
+     "panels": [],
+     "declared_intentional": []
+    },
+    "coverage_gate": {
+     "pass_": true,
+     "hard_failures": [],
+     "soft": {
+      "coverage_in_band": false,
+      "extent_w_ok": false,
+      "extent_h_ok": true,
+      "void_ok": true,
+      "upper_ok": true
+     }
+    },
+    "prominence": {
+     "context": "advantage_bid_led",
+     "checks": {
+      "band_wordmark_cap_pct": 6.39,
+      "logo_width_pct": 40,
+      "logo_height_feed_px": 38.4,
+      "logo_top_pct": 3.4,
+      "clear_space_px": 44,
+      "clear_space_required_px": 38.1,
+      "contrast": 19.08,
+      "feed_proxy_template": 1,
+      "feed_proxy_wordmark_ocr": true
+     },
+     "violations": [],
+     "pass_": true
+    },
+    "colour": {
+     "pass_": true,
+     "hard_failures": [],
+     "soft": [],
+     "canvas_luminance": 0.784,
+     "copy_zone_luminance": 0.887,
+     "red_elements": 3,
+     "red_share_saturated_copy_zone_pct": 39.6,
+     "red_band": false,
+     "red_ground": false,
+     "navy_present": true
+    },
+    "event_type": {
+     "checks": {},
+     "violations": [],
+     "pass_": true
+    },
+    "density": {
+     "blocks": 7,
+     "roles": [
+      "headline",
+      "support",
+      "benefits",
+      "cta",
+      "slogan",
+      "logo",
+      "band"
+     ],
+     "headline_class_roles": [
+      "headline"
+     ],
+     "headline_dominance": 2.19
+    },
+    "copy_over_merchandise": [],
+    "largest_empty_pct": 8,
+    "upper_half_merch_pct": 24.7,
+    "text_blocks": 7,
+    "ground_luminance": 0.784,
+    "brand_frame": {
+     "logo": true,
+     "band": true,
+     "wordmark": true
+    },
+    "representative": true,
+    "scene_kind": "planned",
+    "physical_violations": [],
+    "screenshot": false,
+    "planes_count": 3
+   },
+   "logo": {
+    "variant": "primary_transparent",
+    "file": "advantage-bid-transparent.png",
+    "sha256": "8b5fce17b50dea4c15f73b3cfa2e54bd900db22f3106db0ee2d80ea4cd1db561",
+    "box": [
+     49,
+     37,
+     432,
+     173
+    ],
+    "scale": 0.21785,
+    "transform": "uniform_scale+position",
+    "reserved_box": [
+     49,
+     37,
+     432,
+     173
+    ],
+    "selection_reason": "light/neutral zone (luminance 1.00) → transparent lockup",
+    "ok": true
+   },
+   "logo_qa": {
+    "logo_source": {
+     "pass_": true,
+     "template_match": 1,
+     "threshold": 0.97,
+     "variant": "primary_transparent",
+     "asset_sha256": "8b5fce17b50dea4c15f73b3cfa2e54bd900db22f3106db0ee2d80ea4cd1db561",
+     "ocr_available": true,
+     "ocr_text": [
+      "ADVANTAGE.BID",
+      "GET THEADVANTAGE"
+     ],
+     "reads_advantage_bid": true,
+     "reads_tagline": true,
+     "extra_text": []
+    },
+    "rendered_logo_elsewhere": {
+     "pass_": true,
+     "ocr_available": true,
+     "ocr_hits": [],
+     "template_hits": [],
+     "template_threshold": 0.85
+    }
+   },
+   "plan": {
+    "ok": true,
+    "family": "ACQUISITION",
+    "arrangement": "anchor_right",
+    "field": {
+     "x": 24,
+     "y": 54,
+     "w": 1031,
+     "h": 839
+    },
+    "canvas": [
+     1080,
+     1080
+    ],
+    "scene_scale_px_per_in": 8.444,
+    "scale_limits": {
+     "vertical": 8.444,
+     "horizontal": 15.33
+    },
+    "primary_anchor": "chairs",
+    "unresolved_anchor": false,
+    "planes": {
+     "floor_baseline": 867.8,
+     "rear_baseline": 795.3,
+     "wall_top_line": 146.1,
+     "supports": {}
+    },
+    "objects": [
+     {
+      "id": "bowl",
+      "semantic_class": "bowl",
+      "x": 913.1322274229527,
+      "y": 821.6367497911021,
+      "w": 92.8441948321435,
+      "h": 69.36325020889791,
+      "z": 5,
+      "baseline": 891,
+      "depth_factor": 1.027,
+      "plane": "table",
+      "protected": [],
+      "dims_in": null,
+      "role": "SURFACE",
+      "floor_accent": true,
+      "asset": "lot63.webp",
+      "trimmed_asset": "C:\\Projects\\advantage-auction-platform\\creative-engine\\runtime\\cache\\trim\\lot63-3b3477523746a2db.png",
+      "resolved_by": "keyword:bowl",
+      "dims_source": "class_default",
+      "edges": [
+       {
+        "type": "FOREGROUND_ACCENT",
+        "a": "bowl",
+        "b": "chairs"
+       }
+      ]
+     },
+     {
+      "id": "chairs",
+      "semantic_class": "wingback_chair",
+      "x": 499.91089170731726,
+      "y": 479.40768292682935,
+      "w": 534.4691082926828,
+      "h": 388.4223170731707,
+      "z": 2,
+      "baseline": 867.83,
+      "depth_factor": 1,
+      "plane": "floor",
+      "protected": [
+       [
+        "seat_left",
+        0.05232558139534884,
+        0.5499,
+        0.4186046511627907,
+        0.8044000000000001
+       ],
+       [
+        "seat_right",
+        0.5813953488372093,
+        0.5499,
+        0.9578488372093024,
+        0.8044000000000001
+       ],
+       [
+        "arm_left",
+        0.011627906976744186,
+        0.4481,
+        0.19476744186046513,
+        0.7025999999999999
+       ]
+      ],
+      "dims_in": null,
+      "role": "HERO",
+      "asset": "lot31.webp",
+      "trimmed_asset": "C:\\Projects\\advantage-auction-platform\\creative-engine\\runtime\\cache\\trim\\lot31-a01d93866437e7aa.png",
+      "resolved_by": "keyword:wingback",
+      "dims_source": "class_default",
+      "edges": []
+     },
+     {
+      "id": "oil",
+      "semantic_class": "painting",
+      "x": 557.2030678048782,
+      "y": 146.06000000000012,
+      "w": 419.8847560975609,
+      "h": 303.9826829268292,
+      "z": 0,
+      "baseline": 450.04268292682934,
+      "depth_factor": 1,
+      "plane": "wall",
+      "protected": [],
+      "dims_in": null,
+      "role": "WALL",
+      "contact_shadow": false,
+      "asset": "lot73.webp",
+      "trimmed_asset": "C:\\Projects\\advantage-auction-platform\\creative-engine\\runtime\\cache\\trim\\lot73-4b5e78b03db0c909.png",
+      "resolved_by": "keyword:oil",
+      "dims_source": "class_default",
+      "edges": [
+       {
+        "type": "HANGS_ABOVE",
+        "a": "oil",
+        "b": "chairs"
+       }
+      ]
+     }
+    ],
+    "edges": [
+     {
+      "type": "FOREGROUND_ACCENT",
+      "a": "bowl",
+      "b": "chairs"
+     },
+     {
+      "type": "HANGS_ABOVE",
+      "a": "oil",
+      "b": "chairs"
+     }
+    ],
+    "intentional_negative_space": [],
+    "audit": {
+     "physical": [],
+     "notes": [
+      "scene scale 8.41 px/in from chairs (wingback_chair)",
+      "bowl declared floor-vignette accent (allowed for small foreground decor)"
+     ],
+     "coverage": {
+      "field": {
+       "x": 24,
+       "y": 54,
+       "w": 1031,
+       "h": 839
+      },
+      "field_area_px": 865009,
+      "coverage_pct": 29.7,
+      "cluster_extent_w": 0.518,
+      "cluster_extent_h": 0.888,
+      "upper_field_merch_pct": 28.9,
+      "largest_accidental_void_pct": 46.2,
+      "largest_accidental_void_field_pct": 43.6,
+      "canvas_merchandise_pct": 25.3,
+      "panels": [],
+      "declared_intentional": []
+     }
+    },
+    "iterations": [
+     {
+      "iteration": 0,
+      "scale_px_per_in": 8.444,
+      "violations": [],
+      "copy_region_clash": [],
+      "coverage_pct": 29.7,
+      "extent_w": 0.518,
+      "extent_h": 0.888
+     }
+    ],
+    "fit_trail": [
+     {
+      "config": "base",
+      "arrangement": "anchor_right",
+      "physical_ok": false,
+      "coverage_pct": 18.6,
+      "extent_w": 0.72,
+      "extent_h": 0.472,
+      "void": 40.4,
+      "coverage_hard_pass": false,
+      "scale": 8.603,
+      "violations": []
+     },
+     {
+      "config": "base",
+      "arrangement": "anchor_left",
+      "physical_ok": false,
+      "coverage_pct": 18.6,
+      "extent_w": 0.72,
+      "extent_h": 0.472,
+      "void": 40.4,
+      "coverage_hard_pass": false,
+      "scale": 8.603,
+      "violations": []
+     },
+     {
+      "config": "base",
+      "arrangement": "split",
+      "physical_ok": false,
+      "coverage_pct": 18.6,
+      "extent_w": 0.72,
+      "extent_h": 0.472,
+      "void": 40.4,
+      "coverage_hard_pass": false,
+      "scale": 8.603,
+      "violations": []
+     },
+     {
+      "config": "base",
+      "arrangement": "split_reverse",
+      "physical_ok": false,
+      "coverage_pct": 18.6,
+      "extent_w": 0.72,
+      "extent_h": 0.472,
+      "void": 40.4,
+      "coverage_hard_pass": false,
+      "scale": 8.603,
+      "violations": []
+     },
+     {
+      "config": "base (accents on support)",
+      "arrangement": "anchor_right",
+      "physical_ok": false,
+      "coverage_pct": 18.7,
+      "extent_w": 0.72,
+      "extent_h": 0.472,
+      "void": 48.9,
+      "coverage_hard_pass": false,
+      "scale": 8.603,
+      "violations": []
+     },
+     {
+      "config": "base (accents on support)",
+      "arrangement": "anchor_left",
+      "physical_ok": false,
+      "coverage_pct": 18.7,
+      "extent_w": 0.72,
+      "extent_h": 0.472,
+      "void": 48.9,
+      "coverage_hard_pass": false,
+      "scale": 8.603,
+      "violations": []
+     },
+     {
+      "config": "base (accents on support)",
+      "arrangement": "split",
+      "physical_ok": false,
+      "coverage_pct": 18.7,
+      "extent_w": 0.72,
+      "extent_h": 0.472,
+      "void": 48.9,
+      "coverage_hard_pass": false,
+      "scale": 8.603,
+      "violations": []
+     },
+     {
+      "config": "base (accents on support)",
+      "arrangement": "split_reverse",
+      "physical_ok": false,
+      "coverage_pct": 18.7,
+      "extent_w": 0.72,
+      "extent_h": 0.472,
+      "void": 48.9,
+      "coverage_hard_pass": false,
+      "scale": 8.603,
+      "violations": []
+     },
+     {
+      "config": "base+walls",
+      "arrangement": "anchor_right",
+      "physical_ok": true,
+      "coverage_pct": 18.3,
+      "extent_w": 0.534,
+      "extent_h": 0.656,
+      "void": 44.4,
+      "coverage_hard_pass": false,
+      "scale": 6.345,
+      "violations": []
+     },
+     {
+      "config": "base+walls",
+      "arrangement": "anchor_left",
+      "physical_ok": true,
+      "coverage_pct": 18.3,
+      "extent_w": 0.533,
+      "extent_h": 0.656,
+      "void": 44.4,
+      "coverage_hard_pass": false,
+      "scale": 6.345,
+      "violations": []
+     },
+     {
+      "config": "base+walls",
+      "arrangement": "split",
+      "physical_ok": true,
+      "coverage_pct": 18.3,
+      "extent_w": 0.534,
+      "extent_h": 0.656,
+      "void": 44.4,
+      "coverage_hard_pass": false,
+      "scale": 6.345,
+      "violations": []
+     },
+     {
+      "config": "base+walls",
+      "arrangement": "split_reverse",
+      "physical_ok": true,
+      "coverage_pct": 18.3,
+      "extent_w": 0.533,
+      "extent_h": 0.656,
+      "void": 44.4,
+      "coverage_hard_pass": false,
+      "scale": 6.345,
+      "violations": []
+     },
+     {
+      "config": "base+walls(2 rows)",
+      "arrangement": "anchor_right",
+      "physical_ok": true,
+      "coverage_pct": 18.3,
+      "extent_w": 0.534,
+      "extent_h": 0.656,
+      "void": 44.4,
+      "coverage_hard_pass": false,
+      "scale": 6.345,
+      "violations": []
+     },
+     {
+      "config": "base+walls(2 rows)",
+      "arrangement": "anchor_left",
+      "physical_ok": true,
+      "coverage_pct": 18.3,
+      "extent_w": 0.533,
+      "extent_h": 0.656,
+      "void": 44.4,
+      "coverage_hard_pass": false,
+      "scale": 6.345,
+      "violations": []
+     },
+     {
+      "config": "base+walls(2 rows)",
+      "arrangement": "split",
+      "physical_ok": true,
+      "coverage_pct": 18.3,
+      "extent_w": 0.534,
+      "extent_h": 0.656,
+      "void": 44.4,
+      "coverage_hard_pass": false,
+      "scale": 6.345,
+      "violations": []
+     },
+     {
+      "config": "base+walls(2 rows)",
+      "arrangement": "split_reverse",
+      "physical_ok": true,
+      "coverage_pct": 18.3,
+      "extent_w": 0.533,
+      "extent_h": 0.656,
+      "void": 44.4,
+      "coverage_hard_pass": false,
+      "scale": 6.345,
+      "violations": []
+     },
+     {
+      "config": "anchor+walls",
+      "arrangement": "anchor_right",
+      "physical_ok": true,
+      "coverage_pct": 29.7,
+      "extent_w": 0.518,
+      "extent_h": 0.888,
+      "void": 46.2,
+      "coverage_hard_pass": false,
+      "scale": 8.444,
+      "violations": []
+     },
+     {
+      "config": "anchor+walls",
+      "arrangement": "anchor_left",
+      "physical_ok": true,
+      "coverage_pct": 29.7,
+      "extent_w": 0.518,
+      "extent_h": 0.888,
+      "void": 46.2,
+      "coverage_hard_pass": false,
+      "scale": 8.444,
+      "violations": []
+     },
+     {
+      "config": "anchor+walls",
+      "arrangement": "split",
+      "physical_ok": true,
+      "coverage_pct": 29.7,
+      "extent_w": 0.518,
+      "extent_h": 0.888,
+      "void": 46.2,
+      "coverage_hard_pass": false,
+      "scale": 8.444,
+      "violations": []
+     },
+     {
+      "config": "anchor+walls",
+      "arrangement": "split_reverse",
+      "physical_ok": true,
+      "coverage_pct": 29.7,
+      "extent_w": 0.518,
+      "extent_h": 0.888,
+      "void": 46.2,
+      "coverage_hard_pass": false,
+      "scale": 8.444,
+      "violations": []
+     },
+     {
+      "config": "anchor+walls(2 rows)",
+      "arrangement": "anchor_right",
+      "physical_ok": true,
+      "coverage_pct": 29.7,
+      "extent_w": 0.518,
+      "extent_h": 0.888,
+      "void": 46.2,
+      "coverage_hard_pass": false,
+      "scale": 8.444,
+      "violations": []
+     },
+     {
+      "config": "anchor+walls(2 rows)",
+      "arrangement": "anchor_left",
+      "physical_ok": true,
+      "coverage_pct": 29.7,
+      "extent_w": 0.518,
+      "extent_h": 0.888,
+      "void": 46.2,
+      "coverage_hard_pass": false,
+      "scale": 8.444,
+      "violations": []
+     },
+     {
+      "config": "anchor+walls(2 rows)",
+      "arrangement": "split",
+      "physical_ok": true,
+      "coverage_pct": 29.7,
+      "extent_w": 0.518,
+      "extent_h": 0.888,
+      "void": 46.2,
+      "coverage_hard_pass": false,
+      "scale": 8.444,
+      "violations": []
+     },
+     {
+      "config": "anchor+walls(2 rows)",
+      "arrangement": "split_reverse",
+      "physical_ok": true,
+      "coverage_pct": 29.7,
+      "extent_w": 0.518,
+      "extent_h": 0.888,
+      "void": 46.2,
+      "coverage_hard_pass": false,
+      "scale": 8.444,
+      "violations": []
+     }
+    ],
+    "fit_choice": {
+     "config": "anchor+walls",
+     "arrangement": "anchor_right",
+     "physical_ok": true,
+     "coverage_pct": 29.7,
+     "extent_w": 0.518,
+     "extent_h": 0.888,
+     "void": 46.2,
+     "coverage_hard_pass": false,
+     "scale": 8.444,
+     "violations": []
+    },
+    "change_family_recommended": "coverage cannot reach the ACQUISITION floor with the available objects (fit step 7: fewer, larger objects or one object)"
+   },
+   "copy_changes": [],
+   "copy_check": {
+    "pass": true,
+    "rejections": [],
+    "notes": [
+     {
+      "field": "headline",
+      "approved": "approved copy"
+     }
+    ]
+   },
+   "hygiene": {
+    "pass": true,
+    "violations": []
+   },
+   "density": {
+    "pass": false,
+    "hard": [
+     "ACQUISITION_RICH requires exactly one headline ≥ 2.2× any other text (measured 2.19×)",
+     "ACQUISITION_RICH requires merchandise ≥ 45% of the field (measured 38.1%)"
+    ],
+    "soft": [],
+    "ceiling": 9,
+    "blocks": 7,
+    "profile": "ACQUISITION_RICH"
+   },
+   "template_echo": {
+    "flagged": false,
+    "props": [],
+    "rule": "the recurring collaborator props (bronze horse, blue-and-white vase, category-spine books, laptop with logo, script mug/board/box) are tagged in do_not_generalize; the object selector must not treat them as required; a scene containing ≥ 3 of them together is flagged 'template echo' and regenerated"
+   },
+   "similarity": {
+    "pass": true,
+    "failures": [],
+    "max_reference": {
+     "id": "REF-23",
+     "distance": 0.4673
+    },
+    "self_history_min": {
+     "id": "p3p2-buyer-growth:B1:square_1080x1080",
+     "distance": 0.5066
+    },
+    "published_anchor_distance": null,
+    "thresholds": {
+     "tau_ref": 0.35,
+     "tau_self": 0.25,
+     "tau_pub": 0.4
+    },
+    "all_reference_distances": [
+     {
+      "id": "REF-01",
+      "distance": 0.6506
+     },
+     {
+      "id": "REF-02",
+      "distance": 1.0665
+     },
+     {
+      "id": "REF-03",
+      "distance": 0.9551
+     },
+     {
+      "id": "REF-04",
+      "distance": 0.7655
+     },
+     {
+      "id": "REF-05",
+      "distance": 0.5287
+     },
+     {
+      "id": "REF-06",
+      "distance": 0.4754
+     },
+     {
+      "id": "REF-07",
+      "distance": 1.0465
+     },
+     {
+      "id": "REF-08",
+      "distance": 0.8676
+     },
+     {
+      "id": "REF-19",
+      "distance": 0.694
+     },
+     {
+      "id": "REF-18",
+      "distance": 0.6233
+     },
+     {
+      "id": "REF-09",
+      "distance": 0.8877
+     },
+     {
+      "id": "REF-10",
+      "distance": 0.528
+     },
+     {
+      "id": "REF-11",
+      "distance": 0.8546
+     },
+     {
+      "id": "REF-22",
+      "distance": 0.7946
+     },
+     {
+      "id": "REF-17",
+      "distance": 0.8498
+     },
+     {
+      "id": "REF-14",
+      "distance": 0.6936
+     },
+     {
+      "id": "REF-15",
+      "distance": 0.6972
+     },
+     {
+      "id": "REF-16",
+      "distance": 0.6726
+     },
+     {
+      "id": "REF-12",
+      "distance": 1.2858
+     },
+     {
+      "id": "REF-13",
+      "distance": 0.5376
+     },
+     {
+      "id": "REF-23",
+      "distance": 0.4673
+     },
+     {
+      "id": "REF-21",
+      "distance": 0.7883
+     },
+     {
+      "id": "REF-20",
+      "distance": 0.613
+     }
+    ]
+   },
+   "negative_signature_check": {
+    "nearest": null,
+    "tau_neg": 0.3,
+    "hard": false,
+    "penalty": false
+   },
+   "leak": {
+    "pass": true,
+    "hits": [],
+    "ocr": "unavailable (no OCR engine in the runtime image; every drawn string is checked exactly)",
+    "logo_template_match": "not_available (no seller logo templates on file)"
+   },
+   "provenance": {
+    "pass": true,
+    "reasons": []
+   },
+   "judge": {
+    "available": true,
+    "model": "claude-sonnet-5",
+    "prompt_version": "p3p1-judge-v2",
+    "runs": [
+     {
+      "items": [
+       {
+        "n": 1,
+        "score": 3,
+        "reason": "Logo, then headline, then merchandise flows naturally left to right."
+       },
+       {
+        "n": 2,
+        "score": 3,
+        "reason": "Painting and chair pair vary in scale; painting anchors composition."
+       },
+       {
+        "n": 3,
+        "score": 3,
+        "reason": "Bold serif headline with red accent word is confident and truthful."
+       },
+       {
+        "n": 4,
+        "score": 3,
+        "reason": "Painting and chairs bring color; white ground stays quiet and clean."
+       },
+       {
+        "n": 5,
+        "score": 3,
+        "reason": "Three icon checks, no slogans or duplicate URLs, minimal clutter."
+       },
+       {
+        "n": 6,
+        "score": 4,
+        "reason": "Large bold headline and logo remain legible at small size."
+       },
+       {
+        "n": 7,
+        "score": 2,
+        "reason": "Layout is clean but fairly standard left-copy/right-image template feel."
+       },
+       {
+        "n": 8,
+        "score": 4,
+        "reason": "No competitor or seller identity referenced anywhere."
+       },
+       {
+        "n": 9,
+        "score": 3,
+        "reason": "Strong hierarchy, clear disclosure, good color balance; solid 'much better'."
+       }
+      ],
+      "physical": {
+       "through": "no",
+       "through_names": "",
+       "wrong_size": "no",
+       "wrong_size_name": "",
+       "supported": "yes"
+      },
+      "comprehension": {
+       "event_type": "not an event",
+       "who": "Advantage.Bid",
+       "when": "weekly recurring, no specific date",
+       "platform": "yes, Advantage.Bid",
+       "ask": "Sign up to get local auction and estate sale finds by email",
+       "masquerade": "no"
+      },
+      "notes": "Disclosure line reinforces representative status; layout balanced and brand-forward.",
+      "total": 32,
+      "physical_points": 4
+     },
+     {
+      "items": [
+       {
+        "n": 1,
+        "score": 3,
+        "reason": "Logo top-left leads, headline next, merchandise right, clear flow"
+       },
+       {
+        "n": 2,
+        "score": 3,
+        "reason": "Painting large, chairs mid, small urn anchors bottom right"
+       },
+       {
+        "n": 3,
+        "score": 3,
+        "reason": "Bold serif headline with red word, brand-consistent, truthful"
+       },
+       {
+        "n": 4,
+        "score": 3,
+        "reason": "Red accent from chairs and word, ground stays white and quiet"
+       },
+       {
+        "n": 5,
+        "score": 3,
+        "reason": "Three clean icon rows, no slogans or duplicate URLs, disclosed as representative"
+       },
+       {
+        "n": 6,
+        "score": 3,
+        "reason": "Bold logo and headline remain legible at small size"
+       },
+       {
+        "n": 7,
+        "score": 2,
+        "reason": "Layout is clean but fairly conventional LEFT_COPY template feel"
+       },
+       {
+        "n": 8,
+        "score": 4,
+        "reason": "No competitor or seller identity referenced anywhere"
+       },
+       {
+        "n": 9,
+        "score": 3,
+        "reason": "Strong hierarchy, clear CTA, tasteful color use; near 'much better'"
+       }
+      ],
+      "physical": {
+       "through": "no",
+       "through_names": "",
+       "wrong_size": "no",
+       "wrong_size_name": "",
+       "supported": "yes"
+      },
+      "comprehension": {
+       "event_type": "email signup for auctions/estate sales",
+       "who": "Advantage.Bid",
+       "when": "weekly, ongoing",
+       "platform": "yes, Advantage.Bid",
+       "ask": "Sign up to get local auction and estate sale finds weekly",
+       "masquerade": "no"
+      },
+      "notes": "Disclaimer text confirms representative items; clean, brand-forward layout with correct hierarchy and restrained color.",
+      "total": 31,
+      "physical_points": 4
+     }
+    ],
+    "points": 31.5,
+    "average": 31.5,
+    "disagreement": 1,
+    "flagged": false,
+    "physical_yes": {
+     "through": false,
+     "wrong_size": false
+    },
+    "comprehension": {
+     "event_type_ok": null,
+     "who_ok": null,
+     "when_ok": null,
+     "platform_ok": true,
+     "masquerade": false,
+     "answers": {
+      "event_type": "email signup for auctions/estate sales",
+      "who": "Advantage.Bid",
+      "when": "weekly, ongoing",
+      "platform": "yes, Advantage.Bid",
+      "ask": "Sign up to get local auction and estate sale finds weekly",
+      "masquerade": "no"
+     }
+    },
+    "items": [
+     "Hierarchy clarity: the eye enters at the presenter, moves to one title, then to the merchandise.",
+     "Objects (or the photograph) have confident scale variation and at least one clear anchor.",
+     "Typography is confident and, where expressive, truthful to the event.",
+     "Colour comes from the merchandise; the ground and panels stay quiet.",
+     "Nothing reads as filler: no slogans, icon piles, words on merchandise, duplicate URLs.",
+     "It reads at thumbnail size (headline + wordmark legible when small).",
+     "It would not be mistaken for a template with swapped merchandise (editorial irregularity).",
+     "It does not evoke any specific competitor or seller identity (answer 0 if it does).",
+     "Overall: would the Owner say \"good\" (0), \"much better\" (2), \"love this\" (4)? Justify via items 1–9."
+    ]
+   },
+   "measurable": {
+    "points": 51.67,
+    "out_of": 60,
+    "raw": 51.67,
+    "raw_max": 60,
+    "items": [
+     {
+      "key": "merchandise_coverage_field",
+      "pts": 12,
+      "value": 0.31000000000000016,
+      "points": 3.72,
+      "target": [
+       45,
+       65
+      ]
+     },
+     {
+      "key": "accidental_void",
+      "pts": 6,
+      "value": 1,
+      "points": 6,
+      "target": "≤ 8"
+     },
+     {
+      "key": "hierarchy_incl_event_type",
+      "pts": 10,
+      "value": 0.9954545454545454,
+      "points": 9.95,
+      "target": "headline ≥ 2.2×"
+     },
+     {
+      "key": "identity_prominence",
+      "pts": 8,
+      "value": 1,
+      "points": 8,
+      "target": "prominence-rules"
+     },
+     {
+      "key": "physical_audit_clean",
+      "pts": 8,
+      "value": 1,
+      "points": 8,
+      "target": "0 violations"
+     },
+     {
+      "key": "copy",
+      "pts": 6,
+      "value": 1,
+      "points": 6,
+      "target": "one headline-class element"
+     },
+     {
+      "key": "depth_planes",
+      "pts": 6,
+      "value": 1,
+      "points": 6,
+      "target": "≥ 2 planes"
+     },
+     {
+      "key": "light_ground",
+      "pts": 2,
+      "value": 1,
+      "points": 2,
+      "target": "canvas luminance ≥ 0.60"
+     },
+     {
+      "key": "brand_frame",
+      "pts": 2,
+      "value": 1,
+      "points": 2,
+      "target": "logo + band + wordmark"
+     }
+    ]
+   },
+   "score": 0,
+   "decision": "HARD_FAIL",
+   "hard_failures": [
+    {
+     "gate": "copy_density",
+     "detail": [
+      "ACQUISITION_RICH requires exactly one headline ≥ 2.2× any other text (measured 2.19×)",
+      "ACQUISITION_RICH requires merchandise ≥ 45% of the field (measured 38.1%)"
+     ]
+    }
+   ],
+   "regenerate_violations": [],
+   "score_basis": "measurable_60 + judge_40",
+   "bar": 75,
+   "extreme": false,
+   "publication_status": "HELD_FOR_OWNER_REVIEW",
+   "market": null,
+   "notes": "Real signup destination exists (bid.advantage.bid homepage subscriber signup); REF-18 Gold headline"
+  },
+  {
+   "key": "B4",
+   "format": "portrait_1080x1350",
+   "family": "EDITORIAL",
+   "structure": "CENTERED",
+   "profile": "FEED_FAST",
+   "ok": true,
+   "png": "C:\\Projects\\advantage-auction-platform\\docs\\marketing\\phase3p1\\proving-grounds\\2026-09-11\\p3p2-buyer-growth-B4-portrait_1080x1350.png",
+   "thumb": "C:\\Projects\\advantage-auction-platform\\docs\\marketing\\phase3p1\\proving-grounds\\2026-09-11\\p3p2-buyer-growth-B4-portrait_1080x1350_thumb.png",
+   "render_sha256": "b9d70d4449f9de09e8b8532b8f96150bcc75931f31705f0d081f6e88e132e81d",
+   "metrics": {
+    "size": [
+     1080,
+     1350
+    ],
+    "family": "ACQUISITION",
+    "structure": "CENTERED",
+    "profile": "FEED_FAST",
+    "band_h": 159,
+    "merchandise_pct": 4.4,
+    "text_region_pct": 27.2,
+    "coverage": {
+     "field": {
+      "x": 0,
+      "y": 0,
+      "w": 1080,
+      "h": 1191
+     },
+     "field_area_px": 515160,
+     "coverage_pct": 10.9,
+     "cluster_extent_w": 0.406,
+     "cluster_extent_h": 0.201,
+     "upper_field_merch_pct": 0,
+     "largest_accidental_void_pct": 10,
+     "largest_accidental_void_field_pct": 23.7,
+     "canvas_merchandise_pct": 4.4,
+     "panels": [],
+     "declared_intentional": []
+    },
+    "coverage_gate": {
+     "pass_": false,
+     "hard_failures": [
+      "coverage 10.9% is more than 10 points under the ACQUISITION floor 45%"
+     ],
+     "soft": {
+      "coverage_in_band": false,
+      "extent_w_ok": false,
+      "extent_h_ok": false,
+      "void_ok": false,
+      "upper_ok": false
+     }
+    },
+    "prominence": {
+     "context": "advantage_bid_led",
+     "checks": {
+      "band_wordmark_cap_pct": 5.63,
+      "logo_width_pct": 34,
+      "logo_height_feed_px": 32.7,
+      "logo_top_pct": 3,
+      "clear_space_px": 54,
+      "clear_space_required_px": 32.3,
+      "contrast": 19.08,
+      "feed_proxy_template": 1,
+      "feed_proxy_wordmark_ocr": true
+     },
+     "violations": [],
+     "pass_": true
+    },
+    "colour": {
+     "pass_": true,
+     "hard_failures": [],
+     "soft": [],
+     "canvas_luminance": 0.926,
+     "copy_zone_luminance": 0.925,
+     "red_elements": 2,
+     "red_share_saturated_copy_zone_pct": 42.2,
+     "red_band": false,
+     "red_ground": false,
+     "navy_present": true
+    },
+    "event_type": {
+     "checks": {},
+     "violations": [],
+     "pass_": true
+    },
+    "density": {
+     "blocks": 8,
+     "roles": [
+      "eyebrow",
+      "headline",
+      "subheadline",
+      "support",
+      "cta",
+      "help",
+      "logo",
+      "band"
+     ],
+     "headline_class_roles": [
+      "headline"
+     ],
+     "headline_dominance": 1.53
+    },
+    "copy_over_merchandise": [],
+    "largest_empty_pct": 10,
+    "upper_half_merch_pct": 0,
+    "text_blocks": 8,
+    "ground_luminance": 0.926,
+    "brand_frame": {
+     "logo": true,
+     "band": true,
+     "wordmark": true
+    },
+    "representative": true,
+    "scene_kind": "planned",
+    "physical_violations": [],
+    "screenshot": false,
+    "planes_count": 2
+   },
+   "logo": {
+    "variant": "primary_transparent",
+    "file": "advantage-bid-transparent.png",
+    "sha256": "8b5fce17b50dea4c15f73b3cfa2e54bd900db22f3106db0ee2d80ea4cd1db561",
+    "box": [
+     356,
+     40,
+     367,
+     147
+    ],
+    "scale": 0.18507,
+    "transform": "uniform_scale+position",
+    "reserved_box": [
+     356,
+     40,
+     367,
+     147
+    ],
+    "selection_reason": "light/neutral zone (luminance 1.00) → transparent lockup",
+    "ok": true
+   },
+   "logo_qa": {
+    "logo_source": {
+     "pass_": true,
+     "template_match": 1,
+     "threshold": 0.97,
+     "variant": "primary_transparent",
+     "asset_sha256": "8b5fce17b50dea4c15f73b3cfa2e54bd900db22f3106db0ee2d80ea4cd1db561",
+     "ocr_available": true,
+     "ocr_text": [
+      "ADVANTAGE.BID",
+      "GETTHEADVANTAGE"
+     ],
+     "reads_advantage_bid": true,
+     "reads_tagline": true,
+     "extra_text": []
+    },
+    "rendered_logo_elsewhere": {
+     "pass_": true,
+     "ocr_available": true,
+     "ocr_hits": [],
+     "template_hits": [],
+     "template_threshold": 0.85
+    }
+   },
+   "plan": {
+    "ok": true,
+    "family": "ACQUISITION",
+    "arrangement": "anchor_right",
+    "field": {
+     "x": 24,
+     "y": 796,
+     "w": 1031,
+     "h": 341
+    },
+    "canvas": [
+     1080,
+     1350
+    ],
+    "scene_scale_px_per_in": 5.018,
+    "scale_limits": {
+     "vertical": 5.018,
+     "horizontal": 11.448
+    },
+    "primary_anchor": "chairs",
+    "unresolved_anchor": false,
+    "planes": {
+     "floor_baseline": 1126.8,
+     "rear_baseline": 1036,
+     "wall_top_line": 1126.8,
+     "supports": {
+      "table": {
+       "top_band": [
+        986.3,
+        1042
+       ]
+      }
+     }
+    },
+    "objects": [
+     {
+      "id": "table",
+      "semantic_class": "side_table",
+      "x": 320.62809029322557,
+      "y": 996.2895652173913,
+      "w": 107.72221941354901,
+      "h": 130.48043478260865,
+      "z": 3,
+      "baseline": 1126.77,
+      "depth_factor": 1,
+      "plane": "floor",
+      "protected": [],
+      "dims_in": null,
+      "role": "SURFACE_PROVIDER",
+      "asset": "lot36.webp",
+      "trimmed_asset": "C:\\Projects\\advantage-auction-platform\\creative-engine\\runtime\\cache\\trim\\lot36-5023fbb71b1a3355.png",
+      "resolved_by": "keyword:pie crust table",
+      "dims_source": "class_default",
+      "edges": [
+       {
+        "type": "BESIDE",
+        "a": "table",
+        "b": "chairs"
+       }
+      ]
+     },
+     {
+      "id": "vases",
+      "semantic_class": "vase",
+      "x": 322.8192979524773,
+      "y": 932.5548913043478,
+      "w": 60.25091632962587,
+      "h": 70.2586956521739,
+      "z": 4,
+      "baseline": 1002.8135869565217,
+      "depth_factor": 1,
+      "plane": "table",
+      "protected": [],
+      "dims_in": null,
+      "role": "SURFACE",
+      "support": "table",
+      "asset": "lot53.webp",
+      "trimmed_asset": "C:\\Projects\\advantage-auction-platform\\creative-engine\\runtime\\cache\\trim\\lot53-e0914241b471f30c.png",
+      "resolved_by": "keyword:vases",
+      "dims_source": "class_default",
+      "edges": [
+       {
+        "type": "ON",
+        "a": "vases",
+        "b": "table"
+       }
+      ]
+     },
+     {
+      "id": "bowl",
+      "semantic_class": "bowl",
+      "x": 686.8268490090923,
+      "y": 1094.5462326086956,
+      "w": 54.14823339536456,
+      "h": 40.45376739130434,
+      "z": 5,
+      "baseline": 1135,
+      "depth_factor": 1.008,
+      "plane": "table",
+      "protected": [],
+      "dims_in": null,
+      "role": "SURFACE",
+      "floor_accent": true,
+      "asset": "lot63.webp",
+      "trimmed_asset": "C:\\Projects\\advantage-auction-platform\\creative-engine\\runtime\\cache\\trim\\lot63-3b3477523746a2db.png",
+      "resolved_by": "keyword:bowl",
+      "dims_source": "class_default",
+      "edges": [
+       {
+        "type": "FOREGROUND_ACCENT",
+        "a": "bowl",
+        "b": "chairs"
+       }
+      ]
+     },
+     {
+      "id": "pheasant",
+      "semantic_class": "figurine",
+      "x": 363.8176393958545,
+      "y": 967.6842391304348,
+      "w": 21.343121208291198,
+      "h": 35.12934782608695,
+      "z": 4,
+      "baseline": 1002.8135869565217,
+      "depth_factor": 1,
+      "plane": "table",
+      "protected": [],
+      "dims_in": null,
+      "role": "SURFACE",
+      "support": "table",
+      "asset": "lot25.webp",
+      "trimmed_asset": "C:\\Projects\\advantage-auction-platform\\creative-engine\\runtime\\cache\\trim\\lot25-2fea3ac6f00a05b6.png",
+      "resolved_by": "keyword:figurine",
+      "dims_source": "class_default",
+      "edges": [
+       {
+        "type": "ON",
+        "a": "pheasant",
+        "b": "table"
+       }
+      ]
+     },
+     {
+      "id": "sphere",
+      "semantic_class": "sculpture_small",
+      "x": 366.7166990351046,
+      "y": 932.5548913043478,
+      "w": 58.63388969521044,
+      "h": 70.2586956521739,
+      "z": 4,
+      "baseline": 1002.8135869565217,
+      "depth_factor": 1,
+      "plane": "table",
+      "protected": [],
+      "dims_in": null,
+      "role": "SURFACE",
+      "support": "table",
+      "asset": "lot11d.webp",
+      "trimmed_asset": "C:\\Projects\\advantage-auction-platform\\creative-engine\\runtime\\cache\\trim\\lot11d-802eb1ce972a3705.png",
+      "resolved_by": "keyword:quartz",
+      "dims_source": "class_default",
+      "edges": [
+       {
+        "type": "ON",
+        "a": "sphere",
+        "b": "table"
+       }
+      ]
+     },
+     {
+      "id": "chairs",
+      "semantic_class": "wingback_chair",
+      "x": 440.7223097067746,
+      "y": 895.9200000000001,
+      "w": 317.6495999999999,
+      "h": 230.84999999999997,
+      "z": 2,
+      "baseline": 1126.77,
+      "depth_factor": 1,
+      "plane": "floor",
+      "protected": [
+       [
+        "seat_left",
+        0.05232558139534884,
+        0.5499,
+        0.4186046511627907,
+        0.8044000000000001
+       ],
+       [
+        "seat_right",
+        0.5813953488372093,
+        0.5499,
+        0.9578488372093024,
+        0.8044000000000001
+       ],
+       [
+        "arm_left",
+        0.011627906976744186,
+        0.4481,
+        0.19476744186046513,
+        0.7025999999999999
+       ]
+      ],
+      "dims_in": null,
+      "role": "HERO",
+      "asset": "lot31.webp",
+      "trimmed_asset": "C:\\Projects\\advantage-auction-platform\\creative-engine\\runtime\\cache\\trim\\lot31-a01d93866437e7aa.png",
+      "resolved_by": "keyword:wingback",
+      "dims_source": "class_default",
+      "edges": []
+     }
+    ],
+    "edges": [
+     {
+      "type": "BESIDE",
+      "a": "table",
+      "b": "chairs"
+     },
+     {
+      "type": "ON",
+      "a": "vases",
+      "b": "table"
+     },
+     {
+      "type": "ON",
+      "a": "pheasant",
+      "b": "table"
+     },
+     {
+      "type": "ON",
+      "a": "sphere",
+      "b": "table"
+     },
+     {
+      "type": "FOREGROUND_ACCENT",
+      "a": "bowl",
+      "b": "chairs"
+     }
+    ],
+    "intentional_negative_space": [],
+    "audit": {
+     "physical": [],
+     "notes": [
+      "scene scale 5.00 px/in from chairs (wingback_chair)",
+      "bowl declared floor-vignette accent (allowed for small foreground decor)"
+     ],
+     "coverage": {
+      "field": {
+       "x": 24,
+       "y": 796,
+       "w": 1031,
+       "h": 341
+      },
+      "field_area_px": 351571,
+      "coverage_pct": 16,
+      "cluster_extent_w": 0.425,
+      "cluster_extent_h": 0.701,
+      "upper_field_merch_pct": 10.2,
+      "largest_accidental_void_pct": 73.9,
+      "largest_accidental_void_field_pct": 25.6,
+      "canvas_merchandise_pct": 4.4,
+      "panels": [],
+      "declared_intentional": []
+     }
+    },
+    "iterations": [
+     {
+      "iteration": 0,
+      "scale_px_per_in": 5.018,
+      "violations": [],
+      "copy_region_clash": [],
+      "coverage_pct": 16,
+      "extent_w": 0.425,
+      "extent_h": 0.701
+     }
+    ],
+    "fit_trail": [
+     {
+      "config": "base",
+      "arrangement": "anchor_right",
+      "physical_ok": true,
+      "coverage_pct": 16,
+      "extent_w": 0.425,
+      "extent_h": 0.701,
+      "void": 73.9,
+      "coverage_hard_pass": false,
+      "scale": 5.018,
+      "violations": []
+     },
+     {
+      "config": "base",
+      "arrangement": "anchor_left",
+      "physical_ok": true,
+      "coverage_pct": 15.9,
+      "extent_w": 0.425,
+      "extent_h": 0.701,
+      "void": 73.9,
+      "coverage_hard_pass": false,
+      "scale": 5.018,
+      "violations": []
+     },
+     {
+      "config": "base",
+      "arrangement": "split",
+      "physical_ok": true,
+      "coverage_pct": 16,
+      "extent_w": 0.425,
+      "extent_h": 0.701,
+      "void": 73.9,
+      "coverage_hard_pass": false,
+      "scale": 5.018,
+      "violations": []
+     },
+     {
+      "config": "base",
+      "arrangement": "split_reverse",
+      "physical_ok": true,
+      "coverage_pct": 16,
+      "extent_w": 0.425,
+      "extent_h": 0.701,
+      "void": 73.9,
+      "coverage_hard_pass": false,
+      "scale": 5.018,
+      "violations": []
+     },
+     {
+      "config": "base (accents on support)",
+      "arrangement": "anchor_right",
+      "physical_ok": true,
+      "coverage_pct": 15.7,
+      "extent_w": 0.425,
+      "extent_h": 0.677,
+      "void": 73.9,
+      "coverage_hard_pass": false,
+      "scale": 5.018,
+      "violations": []
+     },
+     {
+      "config": "base (accents on support)",
+      "arrangement": "anchor_left",
+      "physical_ok": true,
+      "coverage_pct": 15.7,
+      "extent_w": 0.425,
+      "extent_h": 0.677,
+      "void": 73.9,
+      "coverage_hard_pass": false,
+      "scale": 5.018,
+      "violations": []
+     },
+     {
+      "config": "base (accents on support)",
+      "arrangement": "split",
+      "physical_ok": true,
+      "coverage_pct": 15.7,
+      "extent_w": 0.425,
+      "extent_h": 0.677,
+      "void": 73.9,
+      "coverage_hard_pass": false,
+      "scale": 5.018,
+      "violations": []
+     },
+     {
+      "config": "base (accents on support)",
+      "arrangement": "split_reverse",
+      "physical_ok": true,
+      "coverage_pct": 15.7,
+      "extent_w": 0.425,
+      "extent_h": 0.677,
+      "void": 73.9,
+      "coverage_hard_pass": false,
+      "scale": 5.018,
+      "violations": []
+     },
+     {
+      "config": "base+walls",
+      "arrangement": "anchor_right",
+      "physical_ok": true,
+      "coverage_pct": 8,
+      "extent_w": 0.232,
+      "extent_h": 0.677,
+      "void": 73.9,
+      "coverage_hard_pass": false,
+      "scale": 2.67,
+      "violations": []
+     },
+     {
+      "config": "base+walls",
+      "arrangement": "anchor_left",
+      "physical_ok": true,
+      "coverage_pct": 8,
+      "extent_w": 0.232,
+      "extent_h": 0.677,
+      "void": 73.9,
+      "coverage_hard_pass": false,
+      "scale": 2.67,
+      "violations": []
+     },
+     {
+      "config": "base+walls",
+      "arrangement": "split",
+      "physical_ok": true,
+      "coverage_pct": 8,
+      "extent_w": 0.232,
+      "extent_h": 0.677,
+      "void": 73.9,
+      "coverage_hard_pass": false,
+      "scale": 2.67,
+      "violations": []
+     },
+     {
+      "config": "base+walls",
+      "arrangement": "split_reverse",
+      "physical_ok": true,
+      "coverage_pct": 8,
+      "extent_w": 0.232,
+      "extent_h": 0.677,
+      "void": 73.9,
+      "coverage_hard_pass": false,
+      "scale": 2.67,
+      "violations": []
+     },
+     {
+      "config": "base+walls(2 rows)",
+      "arrangement": "anchor_right",
+      "physical_ok": true,
+      "coverage_pct": 8,
+      "extent_w": 0.232,
+      "extent_h": 0.677,
+      "void": 73.9,
+      "coverage_hard_pass": false,
+      "scale": 2.67,
+      "violations": []
+     },
+     {
+      "config": "base+walls(2 rows)",
+      "arrangement": "anchor_left",
+      "physical_ok": true,
+      "coverage_pct": 8,
+      "extent_w": 0.232,
+      "extent_h": 0.677,
+      "void": 73.9,
+      "coverage_hard_pass": false,
+      "scale": 2.67,
+      "violations": []
+     },
+     {
+      "config": "base+walls(2 rows)",
+      "arrangement": "split",
+      "physical_ok": true,
+      "coverage_pct": 8,
+      "extent_w": 0.232,
+      "extent_h": 0.677,
+      "void": 73.9,
+      "coverage_hard_pass": false,
+      "scale": 2.67,
+      "violations": []
+     },
+     {
+      "config": "base+walls(2 rows)",
+      "arrangement": "split_reverse",
+      "physical_ok": true,
+      "coverage_pct": 8,
+      "extent_w": 0.232,
+      "extent_h": 0.677,
+      "void": 73.9,
+      "coverage_hard_pass": false,
+      "scale": 2.67,
+      "violations": []
+     },
+     {
+      "config": "anchor+walls",
+      "arrangement": "anchor_right",
+      "physical_ok": true,
+      "coverage_pct": 7.4,
+      "extent_w": 0.164,
+      "extent_h": 0.701,
+      "void": 73.9,
+      "coverage_hard_pass": false,
+      "scale": 2.67,
+      "violations": []
+     },
+     {
+      "config": "anchor+walls",
+      "arrangement": "anchor_left",
+      "physical_ok": true,
+      "coverage_pct": 7.4,
+      "extent_w": 0.164,
+      "extent_h": 0.701,
+      "void": 73.9,
+      "coverage_hard_pass": false,
+      "scale": 2.67,
+      "violations": []
+     },
+     {
+      "config": "anchor+walls",
+      "arrangement": "split",
+      "physical_ok": true,
+      "coverage_pct": 7.4,
+      "extent_w": 0.164,
+      "extent_h": 0.701,
+      "void": 73.9,
+      "coverage_hard_pass": false,
+      "scale": 2.67,
+      "violations": []
+     },
+     {
+      "config": "anchor+walls",
+      "arrangement": "split_reverse",
+      "physical_ok": true,
+      "coverage_pct": 7.4,
+      "extent_w": 0.164,
+      "extent_h": 0.701,
+      "void": 73.9,
+      "coverage_hard_pass": false,
+      "scale": 2.67,
+      "violations": []
+     },
+     {
+      "config": "anchor+walls(2 rows)",
+      "arrangement": "anchor_right",
+      "physical_ok": true,
+      "coverage_pct": 7.4,
+      "extent_w": 0.164,
+      "extent_h": 0.701,
+      "void": 73.9,
+      "coverage_hard_pass": false,
+      "scale": 2.67,
+      "violations": []
+     },
+     {
+      "config": "anchor+walls(2 rows)",
+      "arrangement": "anchor_left",
+      "physical_ok": true,
+      "coverage_pct": 7.4,
+      "extent_w": 0.164,
+      "extent_h": 0.701,
+      "void": 73.9,
+      "coverage_hard_pass": false,
+      "scale": 2.67,
+      "violations": []
+     },
+     {
+      "config": "anchor+walls(2 rows)",
+      "arrangement": "split",
+      "physical_ok": true,
+      "coverage_pct": 7.4,
+      "extent_w": 0.164,
+      "extent_h": 0.701,
+      "void": 73.9,
+      "coverage_hard_pass": false,
+      "scale": 2.67,
+      "violations": []
+     },
+     {
+      "config": "anchor+walls(2 rows)",
+      "arrangement": "split_reverse",
+      "physical_ok": true,
+      "coverage_pct": 7.4,
+      "extent_w": 0.164,
+      "extent_h": 0.701,
+      "void": 73.9,
+      "coverage_hard_pass": false,
+      "scale": 2.67,
+      "violations": []
+     }
+    ],
+    "fit_choice": {
+     "config": "base",
+     "arrangement": "anchor_right",
+     "physical_ok": true,
+     "coverage_pct": 16,
+     "extent_w": 0.425,
+     "extent_h": 0.701,
+     "void": 73.9,
+     "coverage_hard_pass": false,
+     "scale": 5.018,
+     "violations": []
+    },
+    "change_family_recommended": "coverage cannot reach the ACQUISITION floor with the available objects (fit step 7: fewer, larger objects or one object)"
+   },
+   "copy_changes": [],
+   "copy_check": {
+    "pass": true,
+    "rejections": [],
+    "notes": [
+     {
+      "field": "headline",
+      "approved": "approved copy"
+     }
+    ]
+   },
+   "hygiene": {
+    "pass": true,
+    "violations": []
+   },
+   "density": {
+    "pass": false,
+    "hard": [
+     "8 blocks > FEED_FAST ceiling 5"
+    ],
+    "soft": [
+     "text region 27.2% > 14% (FEED_FAST)"
+    ],
+    "ceiling": 5,
+    "blocks": 8,
+    "profile": "FEED_FAST"
+   },
+   "template_echo": {
+    "flagged": false,
+    "props": [],
+    "rule": "the recurring collaborator props (bronze horse, blue-and-white vase, category-spine books, laptop with logo, script mug/board/box) are tagged in do_not_generalize; the object selector must not treat them as required; a scene containing ≥ 3 of them together is flagged 'template echo' and regenerated"
+   },
+   "similarity": {
+    "pass": true,
+    "failures": [],
+    "max_reference": {
+     "id": "REF-23",
+     "distance": 0.4089
+    },
+    "self_history_min": null,
+    "published_anchor_distance": null,
+    "thresholds": {
+     "tau_ref": 0.35,
+     "tau_self": 0.25,
+     "tau_pub": 0.4
+    },
+    "all_reference_distances": [
+     {
+      "id": "REF-01",
+      "distance": 0.8954
+     },
+     {
+      "id": "REF-02",
+      "distance": 1.2247
+     },
+     {
+      "id": "REF-03",
+      "distance": 0.638
+     },
+     {
+      "id": "REF-04",
+      "distance": 1.0141
+     },
+     {
+      "id": "REF-05",
+      "distance": 0.5713
+     },
+     {
+      "id": "REF-06",
+      "distance": 0.6371
+     },
+     {
+      "id": "REF-07",
+      "distance": 1.146
+     },
+     {
+      "id": "REF-08",
+      "distance": 0.8988
+     },
+     {
+      "id": "REF-19",
+      "distance": 0.6403
+     },
+     {
+      "id": "REF-18",
+      "distance": 0.6738
+     },
+     {
+      "id": "REF-09",
+      "distance": 0.9266
+     },
+     {
+      "id": "REF-10",
+      "distance": 0.6834
+     },
+     {
+      "id": "REF-11",
+      "distance": 0.6341
+     },
+     {
+      "id": "REF-22",
+      "distance": 0.8411
+     },
+     {
+      "id": "REF-17",
+      "distance": 0.8469
+     },
+     {
+      "id": "REF-14",
+      "distance": 0.8342
+     },
+     {
+      "id": "REF-15",
+      "distance": 0.8346
+     },
+     {
+      "id": "REF-16",
+      "distance": 0.9367
+     },
+     {
+      "id": "REF-12",
+      "distance": 1.318
+     },
+     {
+      "id": "REF-13",
+      "distance": 0.4932
+     },
+     {
+      "id": "REF-23",
+      "distance": 0.4089
+     },
+     {
+      "id": "REF-21",
+      "distance": 0.9429
+     },
+     {
+      "id": "REF-20",
+      "distance": 0.4428
+     }
+    ]
+   },
+   "negative_signature_check": {
+    "nearest": null,
+    "tau_neg": 0.3,
+    "hard": false,
+    "penalty": false
+   },
+   "leak": {
+    "pass": true,
+    "hits": [],
+    "ocr": "unavailable (no OCR engine in the runtime image; every drawn string is checked exactly)",
+    "logo_template_match": "not_available (no seller logo templates on file)"
+   },
+   "provenance": {
+    "pass": true,
+    "reasons": []
+   },
+   "judge": {
+    "available": true,
+    "model": "claude-sonnet-5",
+    "prompt_version": "p3p1-judge-v2",
+    "runs": [
+     {
+      "items": [
+       {
+        "n": 1,
+        "score": 2,
+        "reason": "Multiple text blocks dilute single title; eye path clear but crowded"
+       },
+       {
+        "n": 2,
+        "score": 3,
+        "reason": "Vases, crystal ball, table, chairs show good scale contrast with clear anchor"
+       },
+       {
+        "n": 3,
+        "score": 3,
+        "reason": "Confident serif headline, single red underline accent used truthfully once"
+       },
+       {
+        "n": 4,
+        "score": 3,
+        "reason": "Red button echoes chair hue; ground stays white and quiet"
+       },
+       {
+        "n": 5,
+        "score": 1,
+        "reason": "Too many copy blocks exceed budget: eyebrow, sub, line, CTA, caption"
+       },
+       {
+        "n": 6,
+        "score": 3,
+        "reason": "Logo and headline legible at small size despite dense text"
+       },
+       {
+        "n": 7,
+        "score": 1,
+        "reason": "Centered stock layout feels template-like, easily swappable merchandise"
+       },
+       {
+        "n": 8,
+        "score": 4,
+        "reason": "No competitor or seller identity evoked anywhere"
+       },
+       {
+        "n": 9,
+        "score": 1,
+        "reason": "Good baseline execution but copy overload and templated feel hold it back"
+       }
+      ],
+      "physical": {
+       "through": "no",
+       "through_names": "",
+       "wrong_size": "no",
+       "wrong_size_name": "",
+       "supported": "yes"
+      },
+      "comprehension": {
+       "event_type": "generic estate sale/auction platform promo",
+       "who": "Advantage.Bid",
+       "when": "ongoing, no specific date",
+       "platform": "yes, Advantage.Bid",
+       "ask": "Click Browse Auctions to explore estate sale finds",
+       "masquerade": "no"
+      },
+      "notes": "Copy volume and template composition exceed principle budget despite clean brand execution.",
+      "total": 25,
+      "physical_points": 4
+     },
+     {
+      "items": [
+       {
+        "n": 1,
+        "score": 2,
+        "reason": "Too many stacked text blocks before merchandise; hierarchy diluted."
+       },
+       {
+        "n": 2,
+        "score": 3,
+        "reason": "Good scale range: vases, crystal ball, table, chairs anchor."
+       },
+       {
+        "n": 3,
+        "score": 3,
+        "reason": "Confident serif/sans pairing, no material lie."
+       },
+       {
+        "n": 4,
+        "score": 2,
+        "reason": "Red comes from CTA and underline, not merchandise; ground stays quiet though."
+       },
+       {
+        "n": 5,
+        "score": 1,
+        "reason": "Tagline, subhead, and supporting line stack as redundant filler copy."
+       },
+       {
+        "n": 6,
+        "score": 3,
+        "reason": "Bold serif headline and logo remain legible at thumbnail size."
+       },
+       {
+        "n": 7,
+        "score": 1,
+        "reason": "Centered generic layout reads as swappable template."
+       },
+       {
+        "n": 8,
+        "score": 4,
+        "reason": "No competitor or seller identity evoked."
+       },
+       {
+        "n": 9,
+        "score": 1,
+        "reason": "Copy overload and templated feel keep this at 'good', not more."
+       }
+      ],
+      "physical": {
+       "through": "no",
+       "through_names": "",
+       "wrong_size": "no",
+       "wrong_size_name": "",
+       "supported": "no"
+      },
+      "comprehension": {
+       "event_type": "estate sale/auction (recurring, generic)",
+       "who": "Advantage.Bid",
+       "when": "ongoing, new sales added weekly/daily",
+       "platform": "Advantage.Bid",
+       "ask": "Browse auctions on Advantage.Bid to find unique estate sale finds.",
+       "masquerade": "no"
+      },
+      "notes": "Solid brand clarity but copy-heavy, dual red accents, and templated centered layout weaken editorial distinctiveness.",
+      "total": 23,
+      "physical_points": 3
+     }
+    ],
+    "points": 24,
+    "average": 24,
+    "disagreement": 2,
+    "flagged": false,
+    "physical_yes": {
+     "through": false,
+     "wrong_size": false
+    },
+    "comprehension": {
+     "event_type_ok": null,
+     "who_ok": null,
+     "when_ok": null,
+     "platform_ok": true,
+     "masquerade": false,
+     "answers": {
+      "event_type": "estate sale/auction (recurring, generic)",
+      "who": "Advantage.Bid",
+      "when": "ongoing, new sales added weekly/daily",
+      "platform": "Advantage.Bid",
+      "ask": "Browse auctions on Advantage.Bid to find unique estate sale finds.",
+      "masquerade": "no"
+     }
+    },
+    "items": [
+     "Hierarchy clarity: the eye enters at the presenter, moves to one title, then to the merchandise.",
+     "Objects (or the photograph) have confident scale variation and at least one clear anchor.",
+     "Typography is confident and, where expressive, truthful to the event.",
+     "Colour comes from the merchandise; the ground and panels stay quiet.",
+     "Nothing reads as filler: no slogans, icon piles, words on merchandise, duplicate URLs.",
+     "It reads at thumbnail size (headline + wordmark legible when small).",
+     "It would not be mistaken for a template with swapped merchandise (editorial irregularity).",
+     "It does not evoke any specific competitor or seller identity (answer 0 if it does).",
+     "Overall: would the Owner say \"good\" (0), \"much better\" (2), \"love this\" (4)? Justify via items 1–9."
+    ]
+   },
+   "measurable": {
+    "points": 41.95,
+    "out_of": 60,
+    "raw": 41.95,
+    "raw_max": 60,
+    "items": [
+     {
+      "key": "merchandise_coverage_field",
+      "pts": 12,
+      "value": 0,
+      "points": 0,
+      "target": [
+       45,
+       65
+      ]
+     },
+     {
+      "key": "accidental_void",
+      "pts": 6,
+      "value": 0.5,
+      "points": 3,
+      "target": "≤ 8"
+     },
+     {
+      "key": "hierarchy_incl_event_type",
+      "pts": 10,
+      "value": 0.6954545454545454,
+      "points": 6.95,
+      "target": "headline ≥ 2.2×"
+     },
+     {
+      "key": "identity_prominence",
+      "pts": 8,
+      "value": 1,
+      "points": 8,
+      "target": "prominence-rules"
+     },
+     {
+      "key": "physical_audit_clean",
+      "pts": 8,
+      "value": 1,
+      "points": 8,
+      "target": "0 violations"
+     },
+     {
+      "key": "copy",
+      "pts": 6,
+      "value": 1,
+      "points": 6,
+      "target": "one headline-class element"
+     },
+     {
+      "key": "depth_planes",
+      "pts": 6,
+      "value": 1,
+      "points": 6,
+      "target": "≥ 2 planes"
+     },
+     {
+      "key": "light_ground",
+      "pts": 2,
+      "value": 1,
+      "points": 2,
+      "target": "canvas luminance ≥ 0.60"
+     },
+     {
+      "key": "brand_frame",
+      "pts": 2,
+      "value": 1,
+      "points": 2,
+      "target": "logo + band + wordmark"
+     }
+    ]
+   },
+   "score": 0,
+   "decision": "HARD_FAIL",
+   "hard_failures": [
+    {
+     "gate": "coverage",
+     "detail": [
+      "coverage 10.9% is more than 10 points under the ACQUISITION floor 45%"
+     ]
+    },
+    {
+     "gate": "copy_density",
+     "detail": [
+      "8 blocks > FEED_FAST ceiling 5"
+     ]
+    }
+   ],
+   "regenerate_violations": [],
+   "score_basis": "measurable_60 + judge_40",
+   "bar": 75,
+   "extreme": true,
+   "publication_status": "NOT_FOR_PUBLICATION",
+   "market": null,
+   "notes": "WORDY CONTROL — NOT FOR PUBLICATION: deliberately over the FEED_FAST budget so you can confirm the density line"
+  },
+  {
+   "key": "B4",
+   "format": "square_1080x1080",
+   "family": "EDITORIAL",
+   "structure": "CENTERED",
+   "profile": "FEED_FAST",
+   "ok": true,
+   "png": "C:\\Projects\\advantage-auction-platform\\docs\\marketing\\phase3p1\\proving-grounds\\2026-09-11\\p3p2-buyer-growth-B4-square_1080x1080.png",
+   "thumb": "C:\\Projects\\advantage-auction-platform\\docs\\marketing\\phase3p1\\proving-grounds\\2026-09-11\\p3p2-buyer-growth-B4-square_1080x1080_thumb.png",
+   "render_sha256": "6a21bf995dbc459b9bab943c4bbd5ad333e64fab57fb3e22c3a602b776b00477",
+   "metrics": {
+    "size": [
+     1080,
+     1080
+    ],
+    "family": "ACQUISITION",
+    "structure": "CENTERED",
+    "profile": "FEED_FAST",
+    "band_h": 139,
+    "merchandise_pct": 4.6,
+    "text_region_pct": 24.8,
+    "coverage": {
+     "field": {
+      "x": 0,
+      "y": 0,
+      "w": 1080,
+      "h": 941
+     },
+     "field_area_px": 427680,
+     "coverage_pct": 10.8,
+     "cluster_extent_w": 0.369,
+     "cluster_extent_h": 0.231,
+     "upper_field_merch_pct": 0,
+     "largest_accidental_void_pct": 12.7,
+     "largest_accidental_void_field_pct": 27.1,
+     "canvas_merchandise_pct": 4.6,
+     "panels": [],
+     "declared_intentional": []
+    },
+    "coverage_gate": {
+     "pass_": false,
+     "hard_failures": [
+      "coverage 10.8% is more than 10 points under the ACQUISITION floor 45%",
+      "accidental void 12.7% exceeds the ACQUISITION cap 8% by more than 4 points"
+     ],
+     "soft": {
+      "coverage_in_band": false,
+      "extent_w_ok": false,
+      "extent_h_ok": false,
+      "void_ok": false,
+      "upper_ok": false
+     }
+    },
+    "prominence": {
+     "context": "advantage_bid_led",
+     "checks": {
+      "band_wordmark_cap_pct": 6.39,
+      "logo_width_pct": 34,
+      "logo_height_feed_px": 32.7,
+      "logo_top_pct": 3,
+      "clear_space_px": 43,
+      "clear_space_required_px": 32.3,
+      "contrast": 19.08,
+      "feed_proxy_template": 1,
+      "feed_proxy_wordmark_ocr": true
+     },
+     "violations": [],
+     "pass_": true
+    },
+    "colour": {
+     "pass_": true,
+     "hard_failures": [],
+     "soft": [],
+     "canvas_luminance": 0.931,
+     "copy_zone_luminance": 0.933,
+     "red_elements": 2,
+     "red_share_saturated_copy_zone_pct": 43.7,
+     "red_band": false,
+     "red_ground": false,
+     "navy_present": true
+    },
+    "event_type": {
+     "checks": {},
+     "violations": [],
+     "pass_": true
+    },
+    "density": {
+     "blocks": 8,
+     "roles": [
+      "eyebrow",
+      "headline",
+      "subheadline",
+      "support",
+      "cta",
+      "help",
+      "logo",
+      "band"
+     ],
+     "headline_class_roles": [
+      "headline"
+     ],
+     "headline_dominance": 1.57
+    },
+    "copy_over_merchandise": [],
+    "largest_empty_pct": 12.7,
+    "upper_half_merch_pct": 0,
+    "text_blocks": 8,
+    "ground_luminance": 0.931,
+    "brand_frame": {
+     "logo": true,
+     "band": true,
+     "wordmark": true
+    },
+    "representative": true,
+    "scene_kind": "planned",
+    "physical_violations": [],
+    "screenshot": false,
+    "planes_count": 2
+   },
+   "logo": {
+    "variant": "primary_transparent",
+    "file": "advantage-bid-transparent.png",
+    "sha256": "8b5fce17b50dea4c15f73b3cfa2e54bd900db22f3106db0ee2d80ea4cd1db561",
+    "box": [
+     356,
+     32,
+     367,
+     147
+    ],
+    "scale": 0.18507,
+    "transform": "uniform_scale+position",
+    "reserved_box": [
+     356,
+     32,
+     367,
+     147
+    ],
+    "selection_reason": "light/neutral zone (luminance 1.00) → transparent lockup",
+    "ok": true
+   },
+   "logo_qa": {
+    "logo_source": {
+     "pass_": true,
+     "template_match": 1,
+     "threshold": 0.97,
+     "variant": "primary_transparent",
+     "asset_sha256": "8b5fce17b50dea4c15f73b3cfa2e54bd900db22f3106db0ee2d80ea4cd1db561",
+     "ocr_available": true,
+     "ocr_text": [
+      "ADVANTAGE.BID",
+      "GETTHEADVANTAGE"
+     ],
+     "reads_advantage_bid": true,
+     "reads_tagline": true,
+     "extra_text": []
+    },
+    "rendered_logo_elsewhere": {
+     "pass_": true,
+     "ocr_available": true,
+     "ocr_hits": [],
+     "template_hits": [],
+     "template_threshold": 0.85
+    }
+   },
+   "plan": {
+    "ok": true,
+    "family": "ACQUISITION",
+    "arrangement": "anchor_right",
+    "field": {
+     "x": 24,
+     "y": 598,
+     "w": 1031,
+     "h": 300
+    },
+    "canvas": [
+     1080,
+     1080
+    ],
+    "scene_scale_px_per_in": 4.559,
+    "scale_limits": {
+     "vertical": 4.559,
+     "horizontal": 11.448
+    },
+    "primary_anchor": "chairs",
+    "unresolved_anchor": false,
+    "planes": {
+     "floor_baseline": 889,
+     "rear_baseline": 816.4,
+     "wall_top_line": 889,
+     "supports": {
+      "table": {
+       "top_band": [
+        760.5,
+        812
+       ]
+      }
+     }
+    },
+    "objects": [
+     {
+      "id": "table",
+      "semantic_class": "side_table",
+      "x": 340.09550754297277,
+      "y": 770.4626086956522,
+      "w": 97.8622649140546,
+      "h": 118.53739130434782,
+      "z": 3,
+      "baseline": 889,
+      "depth_factor": 1,
+      "plane": "floor",
+      "protected": [],
+      "dims_in": null,
+      "role": "SURFACE_PROVIDER",
+      "asset": "lot36.webp",
+      "trimmed_asset": "C:\\Projects\\advantage-auction-platform\\creative-engine\\runtime\\cache\\trim\\lot36-5023fbb71b1a3355.png",
+      "resolved_by": "keyword:pie crust table",
+      "dims_source": "class_default",
+      "edges": [
+       {
+        "type": "BESIDE",
+        "a": "table",
+        "b": "chairs"
+       }
+      ]
+     },
+     {
+      "id": "vases",
+      "semantic_class": "vase",
+      "x": 342.0861511223459,
+      "y": 712.5616521739131,
+      "w": 54.73607178968655,
+      "h": 63.82782608695652,
+      "z": 4,
+      "baseline": 776.3894782608696,
+      "depth_factor": 1,
+      "plane": "table",
+      "protected": [],
+      "dims_in": null,
+      "role": "SURFACE",
+      "support": "table",
+      "asset": "lot53.webp",
+      "trimmed_asset": "C:\\Projects\\advantage-auction-platform\\creative-engine\\runtime\\cache\\trim\\lot53-e0914241b471f30c.png",
+      "resolved_by": "keyword:vases",
+      "dims_source": "class_default",
+      "edges": [
+       {
+        "type": "ON",
+        "a": "vases",
+        "b": "table"
+       }
+      ]
+     },
+     {
+      "id": "bowl",
+      "semantic_class": "bowl",
+      "x": 673.8962910353364,
+      "y": 859.2314573268922,
+      "w": 49.21548124338176,
+      "h": 36.76854267310789,
+      "z": 5,
+      "baseline": 896,
+      "depth_factor": 1.008,
+      "plane": "table",
+      "protected": [],
+      "dims_in": null,
+      "role": "SURFACE",
+      "floor_accent": true,
+      "asset": "lot63.webp",
+      "trimmed_asset": "C:\\Projects\\advantage-auction-platform\\creative-engine\\runtime\\cache\\trim\\lot63-3b3477523746a2db.png",
+      "resolved_by": "keyword:bowl",
+      "dims_source": "class_default",
+      "edges": [
+       {
+        "type": "FOREGROUND_ACCENT",
+        "a": "bowl",
+        "b": "chairs"
+       }
+      ]
+     },
+     {
+      "id": "pheasant",
+      "semantic_class": "figurine",
+      "x": 379.3318611830132,
+      "y": 744.4755652173914,
+      "w": 19.38955763397371,
+      "h": 31.91391304347826,
+      "z": 4,
+      "baseline": 776.3894782608696,
+      "depth_factor": 1,
+      "plane": "table",
+      "protected": [],
+      "dims_in": null,
+      "role": "SURFACE",
+      "support": "table",
+      "asset": "lot25.webp",
+      "trimmed_asset": "C:\\Projects\\advantage-auction-platform\\creative-engine\\runtime\\cache\\trim\\lot25-2fea3ac6f00a05b6.png",
+      "resolved_by": "keyword:figurine",
+      "dims_source": "class_default",
+      "edges": [
+       {
+        "type": "ON",
+        "a": "pheasant",
+        "b": "table"
+       }
+      ]
+     },
+     {
+      "id": "sphere",
+      "semantic_class": "sculpture_small",
+      "x": 381.965566132303,
+      "y": 712.5616521739131,
+      "w": 53.26705370101597,
+      "h": 63.82782608695652,
+      "z": 4,
+      "baseline": 776.3894782608696,
+      "depth_factor": 1,
+      "plane": "table",
+      "protected": [],
+      "dims_in": null,
+      "role": "SURFACE",
+      "support": "table",
+      "asset": "lot11d.webp",
+      "trimmed_asset": "C:\\Projects\\advantage-auction-platform\\creative-engine\\runtime\\cache\\trim\\lot11d-802eb1ce972a3705.png",
+      "resolved_by": "keyword:quartz",
+      "dims_source": "class_default",
+      "edges": [
+       {
+        "type": "ON",
+        "a": "sphere",
+        "b": "table"
+       }
+      ]
+     },
+     {
+      "id": "chairs",
+      "semantic_class": "wingback_chair",
+      "x": 450.32977245702733,
+      "y": 679.28,
+      "w": 288.57471999999996,
+      "h": 209.72,
+      "z": 2,
+      "baseline": 889,
+      "depth_factor": 1,
+      "plane": "floor",
+      "protected": [
+       [
+        "seat_left",
+        0.05232558139534884,
+        0.5499,
+        0.4186046511627907,
+        0.8044000000000001
+       ],
+       [
+        "seat_right",
+        0.5813953488372093,
+        0.5499,
+        0.9578488372093024,
+        0.8044000000000001
+       ],
+       [
+        "arm_left",
+        0.011627906976744186,
+        0.4481,
+        0.19476744186046513,
+        0.7025999999999999
+       ]
+      ],
+      "dims_in": null,
+      "role": "HERO",
+      "asset": "lot31.webp",
+      "trimmed_asset": "C:\\Projects\\advantage-auction-platform\\creative-engine\\runtime\\cache\\trim\\lot31-a01d93866437e7aa.png",
+      "resolved_by": "keyword:wingback",
+      "dims_source": "class_default",
+      "edges": []
+     }
+    ],
+    "edges": [
+     {
+      "type": "BESIDE",
+      "a": "table",
+      "b": "chairs"
+     },
+     {
+      "type": "ON",
+      "a": "vases",
+      "b": "table"
+     },
+     {
+      "type": "ON",
+      "a": "pheasant",
+      "b": "table"
+     },
+     {
+      "type": "ON",
+      "a": "sphere",
+      "b": "table"
+     },
+     {
+      "type": "FOREGROUND_ACCENT",
+      "a": "bowl",
+      "b": "chairs"
+     }
+    ],
+    "intentional_negative_space": [],
+    "audit": {
+     "physical": [],
+     "notes": [
+      "scene scale 4.54 px/in from chairs (wingback_chair)",
+      "bowl declared floor-vignette accent (allowed for small foreground decor)"
+     ],
+     "coverage": {
+      "field": {
+       "x": 24,
+       "y": 598,
+       "w": 1031,
+       "h": 300
+      },
+      "field_area_px": 309300,
+      "coverage_pct": 15,
+      "cluster_extent_w": 0.387,
+      "cluster_extent_h": 0.723,
+      "upper_field_merch_pct": 10.6,
+      "largest_accidental_void_pct": 70.1,
+      "largest_accidental_void_field_pct": 27.3,
+      "canvas_merchandise_pct": 4.6,
+      "panels": [],
+      "declared_intentional": []
+     }
+    },
+    "iterations": [
+     {
+      "iteration": 0,
+      "scale_px_per_in": 4.559,
+      "violations": [],
+      "copy_region_clash": [],
+      "coverage_pct": 15,
+      "extent_w": 0.387,
+      "extent_h": 0.723
+     }
+    ],
+    "fit_trail": [
+     {
+      "config": "base",
+      "arrangement": "anchor_right",
+      "physical_ok": true,
+      "coverage_pct": 15,
+      "extent_w": 0.387,
+      "extent_h": 0.723,
+      "void": 70.1,
+      "coverage_hard_pass": false,
+      "scale": 4.559,
+      "violations": []
+     },
+     {
+      "config": "base",
+      "arrangement": "anchor_left",
+      "physical_ok": true,
+      "coverage_pct": 15,
+      "extent_w": 0.387,
+      "extent_h": 0.723,
+      "void": 70.1,
+      "coverage_hard_pass": false,
+      "scale": 4.559,
+      "violations": []
+     },
+     {
+      "config": "base",
+      "arrangement": "split",
+      "physical_ok": true,
+      "coverage_pct": 15,
+      "extent_w": 0.387,
+      "extent_h": 0.723,
+      "void": 70.1,
+      "coverage_hard_pass": false,
+      "scale": 4.559,
+      "violations": []
+     },
+     {
+      "config": "base",
+      "arrangement": "split_reverse",
+      "physical_ok": true,
+      "coverage_pct": 15,
+      "extent_w": 0.387,
+      "extent_h": 0.723,
+      "void": 70.1,
+      "coverage_hard_pass": false,
+      "scale": 4.559,
+      "violations": []
+     },
+     {
+      "config": "base (accents on support)",
+      "arrangement": "anchor_right",
+      "physical_ok": true,
+      "coverage_pct": 14.7,
+      "extent_w": 0.387,
+      "extent_h": 0.7,
+      "void": 70.1,
+      "coverage_hard_pass": false,
+      "scale": 4.559,
+      "violations": []
+     },
+     {
+      "config": "base (accents on support)",
+      "arrangement": "anchor_left",
+      "physical_ok": true,
+      "coverage_pct": 14.7,
+      "extent_w": 0.387,
+      "extent_h": 0.7,
+      "void": 70.1,
+      "coverage_hard_pass": false,
+      "scale": 4.559,
+      "violations": []
+     },
+     {
+      "config": "base (accents on support)",
+      "arrangement": "split",
+      "physical_ok": true,
+      "coverage_pct": 14.7,
+      "extent_w": 0.387,
+      "extent_h": 0.7,
+      "void": 70.1,
+      "coverage_hard_pass": false,
+      "scale": 4.559,
+      "violations": []
+     },
+     {
+      "config": "base (accents on support)",
+      "arrangement": "split_reverse",
+      "physical_ok": true,
+      "coverage_pct": 14.7,
+      "extent_w": 0.387,
+      "extent_h": 0.7,
+      "void": 70.1,
+      "coverage_hard_pass": false,
+      "scale": 4.559,
+      "violations": []
+     },
+     {
+      "config": "base+walls",
+      "arrangement": "anchor_right",
+      "physical_ok": true,
+      "coverage_pct": 7.6,
+      "extent_w": 0.212,
+      "extent_h": 0.7,
+      "void": 70.1,
+      "coverage_hard_pass": false,
+      "scale": 2.43,
+      "violations": []
+     },
+     {
+      "config": "base+walls",
+      "arrangement": "anchor_left",
+      "physical_ok": true,
+      "coverage_pct": 7.6,
+      "extent_w": 0.212,
+      "extent_h": 0.7,
+      "void": 70.1,
+      "coverage_hard_pass": false,
+      "scale": 2.43,
+      "violations": []
+     },
+     {
+      "config": "base+walls",
+      "arrangement": "split",
+      "physical_ok": true,
+      "coverage_pct": 7.6,
+      "extent_w": 0.212,
+      "extent_h": 0.7,
+      "void": 70.1,
+      "coverage_hard_pass": false,
+      "scale": 2.43,
+      "violations": []
+     },
+     {
+      "config": "base+walls",
+      "arrangement": "split_reverse",
+      "physical_ok": true,
+      "coverage_pct": 7.6,
+      "extent_w": 0.212,
+      "extent_h": 0.7,
+      "void": 70.1,
+      "coverage_hard_pass": false,
+      "scale": 2.43,
+      "violations": []
+     },
+     {
+      "config": "base+walls(2 rows)",
+      "arrangement": "anchor_right",
+      "physical_ok": true,
+      "coverage_pct": 7.6,
+      "extent_w": 0.212,
+      "extent_h": 0.7,
+      "void": 70.1,
+      "coverage_hard_pass": false,
+      "scale": 2.43,
+      "violations": []
+     },
+     {
+      "config": "base+walls(2 rows)",
+      "arrangement": "anchor_left",
+      "physical_ok": true,
+      "coverage_pct": 7.6,
+      "extent_w": 0.212,
+      "extent_h": 0.7,
+      "void": 70.1,
+      "coverage_hard_pass": false,
+      "scale": 2.43,
+      "violations": []
+     },
+     {
+      "config": "base+walls(2 rows)",
+      "arrangement": "split",
+      "physical_ok": true,
+      "coverage_pct": 7.6,
+      "extent_w": 0.212,
+      "extent_h": 0.7,
+      "void": 70.1,
+      "coverage_hard_pass": false,
+      "scale": 2.43,
+      "violations": []
+     },
+     {
+      "config": "base+walls(2 rows)",
+      "arrangement": "split_reverse",
+      "physical_ok": true,
+      "coverage_pct": 7.6,
+      "extent_w": 0.212,
+      "extent_h": 0.7,
+      "void": 70.1,
+      "coverage_hard_pass": false,
+      "scale": 2.43,
+      "violations": []
+     },
+     {
+      "config": "anchor+walls",
+      "arrangement": "anchor_right",
+      "physical_ok": true,
+      "coverage_pct": 6.9,
+      "extent_w": 0.149,
+      "extent_h": 0.723,
+      "void": 70.1,
+      "coverage_hard_pass": false,
+      "scale": 2.43,
+      "violations": []
+     },
+     {
+      "config": "anchor+walls",
+      "arrangement": "anchor_left",
+      "physical_ok": true,
+      "coverage_pct": 6.9,
+      "extent_w": 0.149,
+      "extent_h": 0.723,
+      "void": 70.1,
+      "coverage_hard_pass": false,
+      "scale": 2.43,
+      "violations": []
+     },
+     {
+      "config": "anchor+walls",
+      "arrangement": "split",
+      "physical_ok": true,
+      "coverage_pct": 6.9,
+      "extent_w": 0.149,
+      "extent_h": 0.723,
+      "void": 70.1,
+      "coverage_hard_pass": false,
+      "scale": 2.43,
+      "violations": []
+     },
+     {
+      "config": "anchor+walls",
+      "arrangement": "split_reverse",
+      "physical_ok": true,
+      "coverage_pct": 6.9,
+      "extent_w": 0.149,
+      "extent_h": 0.723,
+      "void": 70.1,
+      "coverage_hard_pass": false,
+      "scale": 2.43,
+      "violations": []
+     },
+     {
+      "config": "anchor+walls(2 rows)",
+      "arrangement": "anchor_right",
+      "physical_ok": true,
+      "coverage_pct": 6.9,
+      "extent_w": 0.149,
+      "extent_h": 0.723,
+      "void": 70.1,
+      "coverage_hard_pass": false,
+      "scale": 2.43,
+      "violations": []
+     },
+     {
+      "config": "anchor+walls(2 rows)",
+      "arrangement": "anchor_left",
+      "physical_ok": true,
+      "coverage_pct": 6.9,
+      "extent_w": 0.149,
+      "extent_h": 0.723,
+      "void": 70.1,
+      "coverage_hard_pass": false,
+      "scale": 2.43,
+      "violations": []
+     },
+     {
+      "config": "anchor+walls(2 rows)",
+      "arrangement": "split",
+      "physical_ok": true,
+      "coverage_pct": 6.9,
+      "extent_w": 0.149,
+      "extent_h": 0.723,
+      "void": 70.1,
+      "coverage_hard_pass": false,
+      "scale": 2.43,
+      "violations": []
+     },
+     {
+      "config": "anchor+walls(2 rows)",
+      "arrangement": "split_reverse",
+      "physical_ok": true,
+      "coverage_pct": 6.9,
+      "extent_w": 0.149,
+      "extent_h": 0.723,
+      "void": 70.1,
+      "coverage_hard_pass": false,
+      "scale": 2.43,
+      "violations": []
+     }
+    ],
+    "fit_choice": {
+     "config": "base",
+     "arrangement": "anchor_right",
+     "physical_ok": true,
+     "coverage_pct": 15,
+     "extent_w": 0.387,
+     "extent_h": 0.723,
+     "void": 70.1,
+     "coverage_hard_pass": false,
+     "scale": 4.559,
+     "violations": []
+    },
+    "change_family_recommended": "coverage cannot reach the ACQUISITION floor with the available objects (fit step 7: fewer, larger objects or one object)"
+   },
+   "copy_changes": [],
+   "copy_check": {
+    "pass": true,
+    "rejections": [],
+    "notes": [
+     {
+      "field": "headline",
+      "approved": "approved copy"
+     }
+    ]
+   },
+   "hygiene": {
+    "pass": true,
+    "violations": []
+   },
+   "density": {
+    "pass": false,
+    "hard": [
+     "8 blocks > FEED_FAST ceiling 5"
+    ],
+    "soft": [
+     "text region 24.8% > 14% (FEED_FAST)"
+    ],
+    "ceiling": 5,
+    "blocks": 8,
+    "profile": "FEED_FAST"
+   },
+   "template_echo": {
+    "flagged": false,
+    "props": [],
+    "rule": "the recurring collaborator props (bronze horse, blue-and-white vase, category-spine books, laptop with logo, script mug/board/box) are tagged in do_not_generalize; the object selector must not treat them as required; a scene containing ≥ 3 of them together is flagged 'template echo' and regenerated"
+   },
+   "similarity": {
+    "pass": true,
+    "failures": [],
+    "max_reference": {
+     "id": "REF-23",
+     "distance": 0.4063
+    },
+    "self_history_min": null,
+    "published_anchor_distance": null,
+    "thresholds": {
+     "tau_ref": 0.35,
+     "tau_self": 0.25,
+     "tau_pub": 0.4
+    },
+    "all_reference_distances": [
+     {
+      "id": "REF-01",
+      "distance": 0.9017
+     },
+     {
+      "id": "REF-02",
+      "distance": 1.2199
+     },
+     {
+      "id": "REF-03",
+      "distance": 0.6235
+     },
+     {
+      "id": "REF-04",
+      "distance": 1.0006
+     },
+     {
+      "id": "REF-05",
+      "distance": 0.6463
+     },
+     {
+      "id": "REF-06",
+      "distance": 0.6529
+     },
+     {
+      "id": "REF-07",
+      "distance": 1.1254
+     },
+     {
+      "id": "REF-08",
+      "distance": 0.8907
+     },
+     {
+      "id": "REF-19",
+      "distance": 0.6165
+     },
+     {
+      "id": "REF-18",
+      "distance": 0.6534
+     },
+     {
+      "id": "REF-09",
+      "distance": 0.9742
+     },
+     {
+      "id": "REF-10",
+      "distance": 0.6805
+     },
+     {
+      "id": "REF-11",
+      "distance": 0.6022
+     },
+     {
+      "id": "REF-22",
+      "distance": 0.8039
+     },
+     {
+      "id": "REF-17",
+      "distance": 0.8273
+     },
+     {
+      "id": "REF-14",
+      "distance": 0.8226
+     },
+     {
+      "id": "REF-15",
+      "distance": 0.831
+     },
+     {
+      "id": "REF-16",
+      "distance": 0.9026
+     },
+     {
+      "id": "REF-12",
+      "distance": 1.3223
+     },
+     {
+      "id": "REF-13",
+      "distance": 0.4813
+     },
+     {
+      "id": "REF-23",
+      "distance": 0.4063
+     },
+     {
+      "id": "REF-21",
+      "distance": 0.8903
+     },
+     {
+      "id": "REF-20",
+      "distance": 0.4619
+     }
+    ]
+   },
+   "negative_signature_check": {
+    "nearest": null,
+    "tau_neg": 0.3,
+    "hard": false,
+    "penalty": false
+   },
+   "leak": {
+    "pass": true,
+    "hits": [],
+    "ocr": "unavailable (no OCR engine in the runtime image; every drawn string is checked exactly)",
+    "logo_template_match": "not_available (no seller logo templates on file)"
+   },
+   "provenance": {
+    "pass": true,
+    "reasons": []
+   },
+   "judge": {
+    "available": true,
+    "model": "claude-sonnet-5",
+    "prompt_version": "p3p1-judge-v2",
+    "runs": [
+     {
+      "items": [
+       {
+        "n": 1,
+        "score": 3,
+        "reason": "Logo, single headline, then merchandise cluster below reads in order."
+       },
+       {
+        "n": 2,
+        "score": 3,
+        "reason": "Chairs anchor scene; vases, orb, table give clear scale variety."
+       },
+       {
+        "n": 3,
+        "score": 3,
+        "reason": "Serif headline with red rule is expressive yet truthful, no invented event."
+       },
+       {
+        "n": 4,
+        "score": 3,
+        "reason": "Pink chairs and blue vases bring color; ground and band stay quiet."
+       },
+       {
+        "n": 5,
+        "score": 2,
+        "reason": "Too many text blocks (7) exceed the 5-block copy budget, some redundant."
+       },
+       {
+        "n": 6,
+        "score": 2,
+        "reason": "Headline legible small, but dense supporting copy may blur at thumbnail size."
+       },
+       {
+        "n": 7,
+        "score": 2,
+        "reason": "Layout feels like a swappable template row rather than a bespoke editorial scene."
+       },
+       {
+        "n": 8,
+        "score": 4,
+        "reason": "No competitor or seller identity is evoked anywhere in the creative."
+       },
+       {
+        "n": 9,
+        "score": 2,
+        "reason": "Solid hierarchy and merchandise but copy overload keeps it at much better, not love."
+       }
+      ],
+      "physical": {
+       "through": "no",
+       "through_names": "",
+       "wrong_size": "no",
+       "wrong_size_name": "",
+       "supported": "yes"
+      },
+      "comprehension": {
+       "event_type": "estate sale / auction platform promotion",
+       "who": "Advantage.Bid",
+       "when": "ongoing, new sales added daily",
+       "platform": "yes, Advantage.Bid",
+       "ask": "Browse current auctions to discover unique estate finds",
+       "masquerade": "no"
+      },
+      "notes": "Copy exceeds block budget; merchandise share appears below 35% target, reducing visual weight of goods.",
+      "total": 28,
+      "physical_points": 4
+     },
+     {
+      "items": [
+       {
+        "n": 1,
+        "score": 3,
+        "reason": "Logo top, single headline, then merchandise below; flow works but crowded copy"
+       },
+       {
+        "n": 2,
+        "score": 2,
+        "reason": "Mild scale variation; chairs similar size, no strong single anchor object"
+       },
+       {
+        "n": 3,
+        "score": 3,
+        "reason": "Bold serif headline with red accent underline reads confidently and truthfully"
+       },
+       {
+        "n": 4,
+        "score": 3,
+        "reason": "White ground quiet, colour comes from red chairs and blue vases"
+       },
+       {
+        "n": 5,
+        "score": 1,
+        "reason": "Multiple taglines and CTA lines exceed budget, feels like slogan stack"
+       },
+       {
+        "n": 6,
+        "score": 3,
+        "reason": "Headline and wordmark stay legible and bold at small thumbnail size"
+       },
+       {
+        "n": 7,
+        "score": 1,
+        "reason": "Centered stack over image plus navy band reads as generic template"
+       },
+       {
+        "n": 8,
+        "score": 4,
+        "reason": "No competitor or seller identity referenced anywhere in the creative"
+       },
+       {
+        "n": 9,
+        "score": 1,
+        "reason": "Clean but text-heavy, low merchandise presence, template feel undercuts polish"
+       }
+      ],
+      "physical": {
+       "through": "no",
+       "through_names": "",
+       "wrong_size": "no",
+       "wrong_size_name": "",
+       "supported": "yes"
+      },
+      "comprehension": {
+       "event_type": "estate sales and auctions (general)",
+       "who": "Advantage.Bid",
+       "when": "ongoing, new sales added daily",
+       "platform": "yes - Advantage.Bid",
+       "ask": "Browse auctions to discover new estate sale finds",
+       "masquerade": "no"
+      },
+      "notes": "Merchandise occupies roughly 8% of canvas, far below 35-50% target; copy blocks exceed budget of 5; layout reads as reusable template rather than editorial-specific composition.",
+      "total": 25,
+      "physical_points": 4
+     }
+    ],
+    "points": 26.5,
+    "average": 26.5,
+    "disagreement": 3,
+    "flagged": false,
+    "physical_yes": {
+     "through": false,
+     "wrong_size": false
+    },
+    "comprehension": {
+     "event_type_ok": null,
+     "who_ok": null,
+     "when_ok": null,
+     "platform_ok": true,
+     "masquerade": false,
+     "answers": {
+      "event_type": "estate sales and auctions (general)",
+      "who": "Advantage.Bid",
+      "when": "ongoing, new sales added daily",
+      "platform": "yes - Advantage.Bid",
+      "ask": "Browse auctions to discover new estate sale finds",
+      "masquerade": "no"
+     }
+    },
+    "items": [
+     "Hierarchy clarity: the eye enters at the presenter, moves to one title, then to the merchandise.",
+     "Objects (or the photograph) have confident scale variation and at least one clear anchor.",
+     "Typography is confident and, where expressive, truthful to the event.",
+     "Colour comes from the merchandise; the ground and panels stay quiet.",
+     "Nothing reads as filler: no slogans, icon piles, words on merchandise, duplicate URLs.",
+     "It reads at thumbnail size (headline + wordmark legible when small).",
+     "It would not be mistaken for a template with swapped merchandise (editorial irregularity).",
+     "It does not evoke any specific competitor or seller identity (answer 0 if it does).",
+     "Overall: would the Owner say \"good\" (0), \"much better\" (2), \"love this\" (4)? Justify via items 1–9."
+    ]
+   },
+   "measurable": {
+    "points": 39.14,
+    "out_of": 60,
+    "raw": 39.14,
+    "raw_max": 60,
+    "items": [
+     {
+      "key": "merchandise_coverage_field",
+      "pts": 12,
+      "value": 0,
+      "points": 0,
+      "target": [
+       45,
+       65
+      ]
+     },
+     {
+      "key": "accidental_void",
+      "pts": 6,
+      "value": 0,
+      "points": 0,
+      "target": "≤ 8"
+     },
+     {
+      "key": "hierarchy_incl_event_type",
+      "pts": 10,
+      "value": 0.7136363636363636,
+      "points": 7.14,
+      "target": "headline ≥ 2.2×"
+     },
+     {
+      "key": "identity_prominence",
+      "pts": 8,
+      "value": 1,
+      "points": 8,
+      "target": "prominence-rules"
+     },
+     {
+      "key": "physical_audit_clean",
+      "pts": 8,
+      "value": 1,
+      "points": 8,
+      "target": "0 violations"
+     },
+     {
+      "key": "copy",
+      "pts": 6,
+      "value": 1,
+      "points": 6,
+      "target": "one headline-class element"
+     },
+     {
+      "key": "depth_planes",
+      "pts": 6,
+      "value": 1,
+      "points": 6,
+      "target": "≥ 2 planes"
+     },
+     {
+      "key": "light_ground",
+      "pts": 2,
+      "value": 1,
+      "points": 2,
+      "target": "canvas luminance ≥ 0.60"
+     },
+     {
+      "key": "brand_frame",
+      "pts": 2,
+      "value": 1,
+      "points": 2,
+      "target": "logo + band + wordmark"
+     }
+    ]
+   },
+   "score": 0,
+   "decision": "HARD_FAIL",
+   "hard_failures": [
+    {
+     "gate": "coverage",
+     "detail": [
+      "coverage 10.8% is more than 10 points under the ACQUISITION floor 45%",
+      "accidental void 12.7% exceeds the ACQUISITION cap 8% by more than 4 points"
+     ]
+    },
+    {
+     "gate": "copy_density",
+     "detail": [
+      "8 blocks > FEED_FAST ceiling 5"
+     ]
+    }
+   ],
+   "regenerate_violations": [],
+   "score_basis": "measurable_60 + judge_40",
+   "bar": 75,
+   "extreme": true,
+   "publication_status": "NOT_FOR_PUBLICATION",
+   "market": null,
+   "notes": "WORDY CONTROL — NOT FOR PUBLICATION: deliberately over the FEED_FAST budget so you can confirm the density line"
+  }
+ ]
+}

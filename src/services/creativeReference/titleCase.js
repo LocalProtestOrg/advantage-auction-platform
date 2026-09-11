@@ -22,6 +22,9 @@ function fixedOf(w) { const c = core(w, true); return FIXED.has(c) ? w.toLowerCa
 function capWord(w) {
   const f = fixedOf(w); if (f) return f;
   if (w.includes('-')) return w.split('-').map((p) => (p ? capWord(p) : p)).join('-');
+  // A name with internal capitals ("ManCave", "McAllen", "eBay") is a proper name: kept exactly as written.
+  const core_ = w.replace(/^[^A-Za-z]+|[^A-Za-z]+$/g, '');
+  if (/[a-z]/.test(core_) && /[A-Z]/.test(core_.slice(1))) return w;
   const m = /^([^\w]*)(\w)([\s\S]*)$/.exec(w);
   if (!m) return w;
   return m[1] + m[2].toUpperCase() + m[3].toLowerCase();
