@@ -25,7 +25,8 @@ async function campaignFacts({ campaignKey = null, from = null, to = null } = {}
   const r = runner || db;
   const p = [campaignKey, from, to];
   const cost = (await r.query(
-    `SELECT campaign_key, COALESCE(SUM(spend_cents),0)::bigint spend_cents, COALESCE(SUM(impressions),0)::bigint impressions, COALESCE(SUM(clicks),0)::bigint clicks
+    `SELECT campaign_key, COALESCE(SUM(spend_cents),0)::bigint spend_cents, COALESCE(SUM(impressions),0)::bigint impressions, COALESCE(SUM(clicks),0)::bigint clicks,
+            SUM(link_clicks)::bigint link_clicks, SUM(reach)::bigint reach_daily_sum
        FROM marketing_paid_cost_facts WHERE ($1::text IS NULL OR campaign_key=$1) AND ($2::date IS NULL OR fact_date >= $2) AND ($3::date IS NULL OR fact_date <= $3)
       GROUP BY campaign_key`, p)).rows;
   const sessions = (await r.query(
@@ -43,7 +44,8 @@ async function campaignFacts({ campaignKey = null, from = null, to = null } = {}
       GROUP BY 1,2,3`, p)).rows;
   const map = new Map();
   const get = (k) => { if (!map.has(k)) map.set(k, { campaign_key: k, spend_cents: 0, impressions: 0, clicks: 0, sessions: 0, engaged_sessions: 0, visitors: 0, channel: null, conversions: {}, by_class: {}, value_cents: 0 }); return map.get(k); };
-  for (const c of cost) Object.assign(get(c.campaign_key), { spend_cents: Number(c.spend_cents), impressions: Number(c.impressions), clicks: Number(c.clicks) });
+  for (const c of cost) Object.assign(get(c.campaign_key), { spend_cents: Number(c.spend_cents), impressions: Number(c.impressions), clicks: Number(c.clicks),
+    link_clicks: c.link_clicks == null ? null : Number(c.link_clicks), reach_daily_sum: c.reach_daily_sum == null ? null : Number(c.reach_daily_sum) });
   for (const s of sessions) Object.assign(get(s.campaign_key), { sessions: s.sessions, engaged_sessions: s.engaged_sessions, visitors: s.visitors, channel: s.channel });
   for (const x of conv) {
     const f = get(x.campaign_key);
@@ -51,7 +53,9 @@ async function campaignFacts({ campaignKey = null, from = null, to = null } = {}
     f.by_class[x.cls || 'ATTRIBUTION_UNAVAILABLE'] = (f.by_class[x.cls || 'ATTRIBUTION_UNAVAILABLE'] || 0) + x.n;
     f.value_cents += Number(x.value_cents);
   }
+  const derived = require('./paidCostIngestionService').derivedMetrics;
   for (const f of map.values()) {
+    Object.assign(f, derived(f));
     f.funnel = {};
     for (const [stage, keys] of Object.entries(FUNNEL)) f.funnel[stage] = keys.reduce((a, k) => a + (f.conversions[k] || 0), 0);
     f.first_party_conversions = Object.entries(f.conversions).filter(([k]) => (defs.get(k) || {}).success_signal).reduce((a, [, n]) => a + n, 0);
@@ -75,4 +79,33 @@ async function classTotals({ from = null, to = null } = {}, runner) {
   return q.rows;
 }
 
-module.exports = { campaignFacts, costPerOutcome, classTotals, FUNNEL };
+/**
+ * Paid delivery at the Director's grain — campaign → ad set → ad (with its creative) — straight from the provider
+ * cost facts: spend, impressions, reach (daily reach summed: an upper bound, not deduplicated), clicks, link clicks,
+ * exact CTR / CPC / CPM derived from the sums, and the provider's action counts (provisional until reconciled).
+ */
+async function paidBreakdown({ level = 'ad', from = null, to = null, provider = null } = {}, runner) {
+  const r = runner || db;
+  const dims = { campaign: ['campaign_id', 'campaign_name'], adset: ['campaign_id', 'campaign_name', 'adset_id', 'adset_name'], ad: ['campaign_id', 'campaign_name', 'adset_id', 'adset_name', 'ad_id', 'ad_name', 'creative_id'] }[level];
+  if (!dims) throw new Error('level must be campaign | adset | ad');
+  const cols = dims.map((d) => (d.endsWith('_name') || d === 'creative_id' ? 'max(' + d + ') ' + d : d)).join(', ');
+  const groupBy = dims.filter((d) => !(d.endsWith('_name') || d === 'creative_id')).join(', ');
+  const rows = (await r.query(
+    `SELECT provider, ${cols}, COALESCE(SUM(spend_cents),0)::bigint spend_cents, COALESCE(SUM(impressions),0)::bigint impressions, COALESCE(SUM(clicks),0)::bigint clicks,
+            SUM(link_clicks)::bigint link_clicks, SUM(reach)::bigint reach_daily_sum, jsonb_agg(provider_metrics->'actions') FILTER (WHERE provider_metrics ? 'actions') actions_daily,
+            min(fact_date) first_day, max(fact_date) last_day
+       FROM marketing_paid_cost_facts
+      WHERE ($1::date IS NULL OR fact_date >= $1) AND ($2::date IS NULL OR fact_date <= $2) AND ($3::text IS NULL OR provider = $3)
+      GROUP BY provider, ${groupBy} ORDER BY spend_cents DESC`, [from, to, provider])).rows;
+  const derived = require('./paidCostIngestionService').derivedMetrics;
+  return rows.map((x) => {
+    const actions = {};
+    for (const day of x.actions_daily || []) for (const [k, v] of Object.entries(day || {})) actions[k] = (actions[k] || 0) + Number(v || 0);
+    const n = { ...x, spend_cents: Number(x.spend_cents), impressions: Number(x.impressions), clicks: Number(x.clicks), link_clicks: x.link_clicks == null ? null : Number(x.link_clicks),
+      reach_daily_sum: x.reach_daily_sum == null ? null : Number(x.reach_daily_sum), actions, actions_status: 'provisional until reconciled to first-party outcomes' };
+    delete n.actions_daily;
+    return Object.assign(n, derived(n));
+  });
+}
+
+module.exports = { campaignFacts, costPerOutcome, classTotals, paidBreakdown, FUNNEL };

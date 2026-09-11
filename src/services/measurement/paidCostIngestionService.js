@@ -44,9 +44,13 @@ function normalise(provider, row) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return null;
   // spend may arrive in currency units (provider APIs) or cents (manual import) — callers say which.
   const spendCents = row.spend_cents != null ? int(row.spend_cents) : int(Number(row.spend || 0) * 100);
+  const optInt = (v) => (v === undefined || v === null || v === '' ? null : int(v));
   return { provider, account_ref: row.account_ref || null, campaign_id: String(row.campaign_id), campaign_name: row.campaign_name || null, campaign_key: campaignKeyFor(provider, row),
     adset_id: String(row.adset_id || ''), ad_id: String(row.ad_id || ''), fact_date: date, spend_cents: spendCents, impressions: int(row.impressions), clicks: int(row.clicks),
-    provider_conversions: row.provider_conversions && typeof row.provider_conversions === 'object' ? row.provider_conversions : {} };
+    provider_conversions: row.provider_conversions && typeof row.provider_conversions === 'object' ? row.provider_conversions : {},
+    adset_name: row.adset_name || null, ad_name: row.ad_name || null, creative_id: row.creative_id ? String(row.creative_id) : null,
+    reach: optInt(row.reach), link_clicks: optInt(row.link_clicks),
+    provider_metrics: row.provider_metrics && typeof row.provider_metrics === 'object' ? row.provider_metrics : {} };
 }
 
 async function ingest(provider, rows, runner) {
@@ -56,12 +60,16 @@ async function ingest(provider, rows, runner) {
     const n = normalise(provider, raw);
     if (!n) { out.invalid += 1; continue; }
     await r.query(
-      `INSERT INTO marketing_paid_cost_facts (provider, account_ref, campaign_id, campaign_name, campaign_key, adset_id, ad_id, fact_date, spend_cents, impressions, clicks, provider_conversions)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12::jsonb)
+      `INSERT INTO marketing_paid_cost_facts (provider, account_ref, campaign_id, campaign_name, campaign_key, adset_id, ad_id, fact_date, spend_cents, impressions, clicks, provider_conversions,
+         adset_name, ad_name, creative_id, reach, link_clicks, provider_metrics)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12::jsonb,$13,$14,$15,$16,$17,$18::jsonb)
        ON CONFLICT (provider, campaign_id, adset_id, ad_id, fact_date) DO UPDATE SET
          account_ref = EXCLUDED.account_ref, campaign_name = EXCLUDED.campaign_name, campaign_key = EXCLUDED.campaign_key, spend_cents = EXCLUDED.spend_cents,
-         impressions = EXCLUDED.impressions, clicks = EXCLUDED.clicks, provider_conversions = EXCLUDED.provider_conversions, ingested_at = now()`,
-      [n.provider, n.account_ref, n.campaign_id, n.campaign_name, n.campaign_key, n.adset_id, n.ad_id, n.fact_date, n.spend_cents, n.impressions, n.clicks, JSON.stringify(n.provider_conversions)]);
+         impressions = EXCLUDED.impressions, clicks = EXCLUDED.clicks, provider_conversions = EXCLUDED.provider_conversions,
+         adset_name = EXCLUDED.adset_name, ad_name = EXCLUDED.ad_name, creative_id = COALESCE(EXCLUDED.creative_id, marketing_paid_cost_facts.creative_id),
+         reach = EXCLUDED.reach, link_clicks = EXCLUDED.link_clicks, provider_metrics = EXCLUDED.provider_metrics, ingested_at = now()`,
+      [n.provider, n.account_ref, n.campaign_id, n.campaign_name, n.campaign_key, n.adset_id, n.ad_id, n.fact_date, n.spend_cents, n.impressions, n.clicks, JSON.stringify(n.provider_conversions),
+       n.adset_name, n.ad_name, n.creative_id, n.reach, n.link_clicks, JSON.stringify(n.provider_metrics)]);
     out.upserted += 1; out.campaigns.add(n.campaign_key); out.days.add(n.fact_date);
   }
   // Mirror per-campaign day totals (replace, never double count).
@@ -85,12 +93,42 @@ async function pull(provider, range = {}, runner) {
 const ymd = (d) => new Date(d).toISOString().slice(0, 10);
 const metaTokenPresent = () => Boolean(process.env.META_ADS_READ_TOKEN && String(process.env.META_ADS_READ_TOKEN).length > 20);
 
-/** Map one Insights row (level=ad, time_increment=1) to an ingest row. Pure. */
-function metaInsightToRow(x, accountId) {
-  const conv = {};
-  for (const a of x.actions || []) { const ev = META_ACTIONS[a.action_type]; if (ev) conv[ev] = (conv[ev] || 0) + Number(a.value || 0); }
-  return { campaign_id: x.campaign_id, campaign_name: x.campaign_name || null, adset_id: x.adset_id || '', ad_id: x.ad_id || '', date: x.date_start,
-    spend: Number(x.spend || 0), impressions: Number(x.impressions || 0), clicks: Number(x.clicks || 0), provider_conversions: conv, account_ref: accountId };
+// The Insights fields the Director measures (level=ad, one row per ad per day). All READ-ONLY.
+const META_INSIGHT_FIELDS = ['campaign_id', 'campaign_name', 'adset_id', 'adset_name', 'ad_id', 'ad_name', 'spend', 'impressions', 'reach', 'clicks', 'inline_link_clicks', 'ctr', 'cpc', 'cpm', 'actions', 'date_start', 'date_stop'];
+
+/** Map one Insights row (level=ad, time_increment=1) to an ingest row. Pure. creatives: { ad_id: creative_id }. */
+function metaInsightToRow(x, accountId, creatives = {}) {
+  const conv = {}; const actions = {};
+  for (const a of x.actions || []) {
+    const n = Number(a.value || 0); actions[a.action_type] = (actions[a.action_type] || 0) + n;
+    const ev = META_ACTIONS[a.action_type]; if (ev) conv[ev] = (conv[ev] || 0) + n;
+  }
+  const num = (v) => (v === undefined || v === null || v === '' ? null : Number(v));
+  return { campaign_id: x.campaign_id, campaign_name: x.campaign_name || null, adset_id: x.adset_id || '', adset_name: x.adset_name || null, ad_id: x.ad_id || '', ad_name: x.ad_name || null,
+    creative_id: creatives[x.ad_id] || null, date: x.date_start,
+    spend: Number(x.spend || 0), impressions: Number(x.impressions || 0), reach: num(x.reach), clicks: Number(x.clicks || 0), link_clicks: num(x.inline_link_clicks),
+    provider_conversions: conv, provider_metrics: { ctr: num(x.ctr), cpc: num(x.cpc), cpm: num(x.cpm), actions }, account_ref: accountId };
+}
+
+/** Director grain: exact ratios derived from summed facts (never averaged ratios). Pure. */
+function derivedMetrics({ spend_cents = 0, impressions = 0, clicks = 0, link_clicks = null } = {}) {
+  const r2 = (v) => Math.round(v * 100) / 100;
+  return { ctr_pct: impressions > 0 ? r2((clicks / impressions) * 100) : null, link_ctr_pct: impressions > 0 && link_clicks != null ? r2((link_clicks / impressions) * 100) : null,
+    cpc_usd: clicks > 0 ? r2(spend_cents / 100 / clicks) : null, cost_per_link_click_usd: link_clicks > 0 ? r2(spend_cents / 100 / link_clicks) : null,
+    cpm_usd: impressions > 0 ? r2((spend_cents / 100 / impressions) * 1000) : null };
+}
+
+/** READ-ONLY ad → creative map for an ad account (paged). */
+async function metaCreativeMap(act, token, V) {
+  const map = {}; let url = 'https://graph.facebook.com/' + V + '/' + act + '/ads?fields=id,creative{id}&limit=500'; let pages = 0;
+  while (url && pages < 20) {
+    const res = await fetch(url, { headers: { Authorization: 'Bearer ' + token } });
+    let j = null; try { j = await res.json(); } catch (_) { j = null; }
+    if (!res.ok || !j || j.error) break;
+    for (const a of j.data || []) if (a.creative && a.creative.id) map[a.id] = a.creative.id;
+    url = j.paging && j.paging.next ? j.paging.next : null; pages += 1;
+  }
+  return map;
 }
 
 async function recordEvidence(r, patch) {
@@ -109,7 +147,7 @@ async function pullMeta({ since = null, until = null } = {}, runner) {
   const V = process.env.META_GRAPH_VERSION || 'v21.0';
   const until_ = until || ymd(Date.now() - 86400000); const since_ = since || ymd(new Date(until_).getTime() - 2 * 86400000);
   const act = String(accountId).startsWith('act_') ? String(accountId) : 'act_' + accountId;
-  const fields = 'campaign_id,campaign_name,adset_id,ad_id,spend,impressions,clicks,actions,date_start,date_stop';
+  const fields = META_INSIGHT_FIELDS.join(',');
   let url = 'https://graph.facebook.com/' + V + '/' + act + '/insights?level=ad&time_increment=1&limit=500&fields=' + fields + '&time_range=' + encodeURIComponent(JSON.stringify({ since: since_, until: until_ }));
   const rows = []; let pages = 0;
   while (url && pages < 50) {
@@ -120,13 +158,15 @@ async function pullMeta({ since = null, until = null } = {}, runner) {
       await recordEvidence(r, { cost: { at: new Date().toISOString(), ok: false, account_id: act, since: since_, until: until_, error: msg } });
       return { pulled: false, reason: 'PROVIDER_ERROR', detail: msg };
     }
-    for (const x of j.data || []) rows.push(metaInsightToRow(x, act));
+    for (const x of j.data || []) rows.push(x);
     url = j.paging && j.paging.next ? j.paging.next.replace(/access_token=[^&]+&?/, '') : null; pages += 1;
   }
-  const out = await ingest('meta_ads', rows, r);
-  const spend = rows.reduce((a, x) => a + Math.round(x.spend * 100), 0);
-  await recordEvidence(r, { cost: { at: new Date().toISOString(), ok: true, account_id: act, since: since_, until: until_, rows: rows.length, spend_cents: spend, upserted: out.upserted } });
-  return { pulled: true, account_id: act, since: since_, until: until_, rows: rows.length, spend_cents: spend, upserted: out.upserted };
+  const creatives = rows.length ? await metaCreativeMap(act, process.env.META_ADS_READ_TOKEN, V) : {};
+  const mapped = rows.map((x) => metaInsightToRow(x, act, creatives));
+  const out = await ingest('meta_ads', mapped, r);
+  const spend = mapped.reduce((a, x) => a + Math.round(x.spend * 100), 0);
+  await recordEvidence(r, { cost: { at: new Date().toISOString(), ok: true, account_id: act, since: since_, until: until_, rows: mapped.length, spend_cents: spend, upserted: out.upserted, fields: META_INSIGHT_FIELDS } });
+  return { pulled: true, account_id: act, since: since_, until: until_, rows: mapped.length, spend_cents: spend, upserted: out.upserted };
 }
 
 async function spendSummary({ from, to } = {}, runner) {
@@ -138,4 +178,4 @@ async function spendSummary({ from, to } = {}, runner) {
   return q.rows.map((x) => ({ ...x, spend_cents: Number(x.spend_cents), impressions: Number(x.impressions), clicks: Number(x.clicks) }));
 }
 
-module.exports = { ingest, pull, pullMeta, metaInsightToRow, normalise, campaignKeyFor, spendSummary, PROVIDERS, META_ACTIONS };
+module.exports = { ingest, pull, pullMeta, metaInsightToRow, metaCreativeMap, derivedMetrics, normalise, campaignKeyFor, spendSummary, PROVIDERS, META_ACTIONS, META_INSIGHT_FIELDS };

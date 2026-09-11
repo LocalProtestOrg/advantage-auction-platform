@@ -17,7 +17,8 @@ const isMeta = (u) => /(^https:\/\/([a-z0-9-]+\.)?facebook\.(com|net)\/)|connect
 
 async function run(consented) {
   const browser = await chromium.launch();
-  const ctx = await browser.newContext();
+  // Meta's pixel suppresses events for the default "HeadlessChrome" user agent; use a standard desktop Chrome UA.
+  const ctx = await browser.newContext({ userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0 Safari/537.36' });
   const consent = { analytics: true, personalization: false, advertising: consented, policy_version: 'v1' };
   await ctx.addInitScript((c) => { try { localStorage.setItem('aap_consent', JSON.stringify(c)); sessionStorage.removeItem('aap_measurement_cfg'); } catch (e) {} }, consent);
   const seen = []; const aborted = [];

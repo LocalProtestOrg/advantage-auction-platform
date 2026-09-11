@@ -199,3 +199,55 @@ describe('readiness: Meta items need fresh evidence, never configuration alone',
     expect(by.meta_pixel).toBe('PARTIAL'); expect(by.meta_capi).toBe('PARTIAL'); expect(by.cost_ingestion).toBe('PARTIAL');
   });
 });
+
+describe('no path can create, edit, activate, pause or fund an advertisement', () => {
+  const read = (f) => fs.readFileSync(path.join(ROOT, f), 'utf8');
+  const walk = (dir) => fs.readdirSync(path.join(ROOT, dir), { withFileTypes: true }).flatMap((d) => (d.isDirectory() ? walk(path.join(dir, d.name)) : d.name.endsWith('.js') ? [path.join(dir, d.name)] : []));
+  const graphCallers = [...walk('src'), ...walk('scripts')].filter((f) => read(f).includes('graph.facebook.com'));
+  test('the only Graph callers are the known four', () => {
+    expect(graphCallers.map((f) => f.split(path.sep).join('/')).sort()).toEqual(['scripts/meta-measurement-connect.js', 'src/services/measurement/metaCapiService.js', 'src/services/measurement/paidCostIngestionService.js', 'src/services/metaGraphProvider.js']);
+  });
+  test('the cost puller and the connect script never write (GET only)', () => {
+    for (const f of ['src/services/measurement/paidCostIngestionService.js', 'scripts/meta-measurement-connect.js']) expect(read(f)).not.toMatch(/method:\s*['"](POST|PUT|PATCH|DELETE)['"]/);
+  });
+  test('the Conversions API posts only to /{dataset}/events', () => {
+    const src = read('src/services/measurement/metaCapiService.js');
+    expect((src.match(/method:\s*'POST'/g) || []).length).toBe(1);
+    expect(src).toMatch(/\+ '\/events', \{\s*method: 'POST'/);
+  });
+  test('organic social publishing (separately gated, OFF) posts only to Page / Instagram post endpoints — never an ad object', () => {
+    const src = read('src/services/metaGraphProvider.js');
+    const posts = [...src.matchAll(/http\(([^,]+),\s*\{\s*method:\s*'POST'/g)].map((m) => m[1]);
+    expect(posts.length).toBeGreaterThan(0);
+    for (const p of posts) expect(p).toMatch(/endpoint|\/media|\/media_publish/);
+    expect(src).toMatch(/\$\{base\}\/photos` : `\$\{base\}\/feed`/);
+  });
+  test('no source anywhere references an ad-object write, budget, status or funding endpoint', () => {
+    const AD_WRITE = /(\/adcreatives|\/customaudiences|\/adimages|funding_source|spend_cap|daily_budget|lifetime_budget|bid_amount|['"]status['"]\s*:\s*['"](ACTIVE|PAUSED)['"])/;
+    for (const f of [...walk('src'), ...walk('scripts')]) expect([f, AD_WRITE.test(read(f))]).toEqual([f, false]);
+  });
+});
+
+describe('Director measurement grain (campaign / ad set / ad / creative)', () => {
+  const oa = require('../src/services/measurement/outcomeAttributionService');
+  test('Insights fields requested cover every Director metric', () => {
+    for (const f of ['campaign_id', 'campaign_name', 'adset_id', 'adset_name', 'ad_id', 'ad_name', 'spend', 'impressions', 'reach', 'clicks', 'inline_link_clicks', 'ctr', 'cpc', 'cpm', 'actions']) expect(cost.META_INSIGHT_FIELDS).toContain(f);
+  });
+  test('one Insights row keeps names, creative, reach, link clicks, provider ratios and every action type', () => {
+    const r = cost.metaInsightToRow({ campaign_id: '1', campaign_name: 'C', adset_id: '2', adset_name: 'S', ad_id: '3', ad_name: 'A', spend: '10', impressions: '2000', reach: '1500', clicks: '40', inline_link_clicks: '30', ctr: '2', cpc: '0.25', cpm: '5', date_start: '2026-09-10', actions: [{ action_type: 'link_click', value: '30' }, { action_type: 'offsite_conversion.fb_pixel_lead', value: '1' }] }, 'act_1', { 3: 'cr9' });
+    const n = cost.normalise('meta_ads', r);
+    expect(n).toMatchObject({ adset_name: 'S', ad_name: 'A', creative_id: 'cr9', reach: 1500, link_clicks: 30, provider_conversions: { Lead: 1 } });
+    expect(n.provider_metrics).toEqual({ ctr: 2, cpc: 0.25, cpm: 5, actions: { link_click: 30, 'offsite_conversion.fb_pixel_lead': 1 } });
+  });
+  test('ratios are derived exactly from summed facts (never averaged) and are null when undefined', () => {
+    expect(cost.derivedMetrics({ spend_cents: 1000, impressions: 2000, clicks: 40, link_clicks: 30 })).toEqual({ ctr_pct: 2, link_ctr_pct: 1.5, cpc_usd: 0.25, cost_per_link_click_usd: 0.33, cpm_usd: 5 });
+    expect(cost.derivedMetrics({})).toEqual({ ctr_pct: null, link_ctr_pct: null, cpc_usd: null, cost_per_link_click_usd: null, cpm_usd: null });
+  });
+  test('paidBreakdown groups at the requested level and returns spend, delivery, reach, clicks, derived ratios and actions', async () => {
+    const db = fakeDb([[/FROM marketing_paid_cost_facts/, [{ provider: 'meta_ads', campaign_id: '1', campaign_name: 'C', adset_id: '2', adset_name: 'S', ad_id: '3', ad_name: 'A', creative_id: 'cr9', spend_cents: '1000', impressions: '2000', clicks: '40', link_clicks: '30', reach_daily_sum: '1500', actions_daily: [{ link_click: 20 }, { link_click: 10, lead: 1 }], first_day: '2026-09-09', last_day: '2026-09-10' }]]]);
+    const rows = await oa.paidBreakdown({ level: 'ad' }, db);
+    expect(rows[0]).toMatchObject({ campaign_id: '1', adset_id: '2', ad_id: '3', creative_id: 'cr9', spend_cents: 1000, impressions: 2000, clicks: 40, link_clicks: 30, reach_daily_sum: 1500, ctr_pct: 2, cpc_usd: 0.25, cpm_usd: 5, actions: { link_click: 30, lead: 1 } });
+    expect(db.calls[0].sql).toMatch(/GROUP BY provider, campaign_id, adset_id, ad_id/);
+    await expect(oa.paidBreakdown({ level: 'keyword' }, db)).rejects.toThrow(/level must be/);
+  });
+});
