@@ -99,6 +99,29 @@ describe('M1 — BD public signup resolves to Railway registration', () => {
     const r = runInit('www.advantage.bid', '/auctions');
     expect(r.replaced).toEqual([]);
   });
+  // The live BD pages load ONE Railway script sitewide (BD Footer Scripts): widgets/marketplace-embed.js.
+  const EMBED_SRC = fs.readFileSync('public/widgets/marketplace-embed.js', 'utf8');
+  function runEmbed(hostname, pathname) {
+    const replaced = [];
+    const location = { hostname, pathname, replace(u) { replaced.push(u); } };
+    const document = { readyState: 'loading', addEventListener() {}, querySelectorAll() { return []; }, documentElement: { getAttribute() { return null; } } };
+    const window = { addEventListener() {} };
+    // eslint-disable-next-line no-new-func
+    new Function('location', 'document', 'window', 'setTimeout', 'module', EMBED_SRC)(location, document, window, () => {}, undefined);
+    return replaced;
+  }
+  test('1g. sitewide BD footer helper: exact /signup on the Advantage.Bid BD hosts -> Railway Create Account; nothing else', () => {
+    expect(runEmbed('www.advantage.bid', '/signup')).toEqual([REGISTER]);
+    expect(runEmbed('advantage.bid', '/signup/')).toEqual([REGISTER]);
+    expect(runEmbed('www.advantage.bid', '/signups')).toEqual([]);
+    expect(runEmbed('www.advantage.bid', '/auctions')).toEqual([]);
+    expect(runEmbed('www.example-estate-sales.com', '/signup')).toEqual([]);
+    expect(runEmbed('bid.advantage.bid', '/signup')).toEqual([]);
+  });
+  test('1h. the footer helper keeps its message contract (pure exports unchanged)', () => {
+    const embed = require('../public/widgets/marketplace-embed.js');
+    expect(typeof embed.decide).toBe('function'); expect(embed.ORIGIN).toBe('https://bid.advantage.bid');
+  });
 });
 
 // ───────────────────────── M3 · optional authentication ─────────────────────────

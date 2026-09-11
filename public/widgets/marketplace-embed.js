@@ -26,6 +26,22 @@
    ========================================================================== */
 (function () {
   'use strict';
+
+  // ── BD residual sign-up handoff (Advantage.Bid identity rule: one account, created on Railway) ──
+  // This helper is the Railway-served script in BD's sitewide Footer Scripts, so it retires BD's residual
+  // membership sign-up page without a BD-admin paste. Same rule as Part 1 of
+  // scripts/bd/bd-header-session-aware.js: EXACT path /signup on the Advantage.Bid BD hosts only →
+  // Railway Create Account. Never runs on any other site that loads this helper. Fails safe.
+  try {
+    if (typeof location !== 'undefined' && location && typeof location.replace === 'function') {
+      var bdHost = String(location.hostname || '').toLowerCase();
+      var bdPath = String(location.pathname || '/').replace(/\/+$/, '') || '/';
+      if ((bdHost === 'www.advantage.bid' || bdHost === 'advantage.bid') && bdPath === '/signup') {
+        location.replace('https://bid.advantage.bid/login.html?tab=register');
+      }
+    }
+  } catch (e) { /* never block the page */ }
+
   var ORIGIN = 'https://bid.advantage.bid';   // the ONLY trusted message origin
   var SRC = 'advantage-bid-widget';
   // Known Advantage widgets this helper serves (additive — Event Feed + Featured Items share the
