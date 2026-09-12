@@ -25,6 +25,7 @@ const router = express.Router();
 
 const configService = require('../services/configService');
 const authorization = require('../services/eventPartners/authorizationService');
+const selfService = require('../services/eventPartners/selfServiceService');
 const { asyncRoute, svcErr } = require('../utils/apiError');
 
 // Origins allowed to submit the confirmation form. The page is served from our own origins only.
@@ -109,6 +110,107 @@ router.post('/authorize/:token', express.json({ limit: '8kb' }), asyncRoute(asyn
       authorized_at: row.authorized_at,
       // Deliberately nothing else: no ids, no internal state names, no next-step obligations.
     },
+  });
+}));
+
+// ── Self-service: the public Free Event Promotion request (the lightweight trust ladder) ───────
+//
+// The form asks for four things and nothing else: company name, website, requester name, requester
+// email. No account, no password, no feed configuration, no DNS, no seller application.
+//
+// A request NEVER authorizes anything. At most it becomes eligible for the deterministic single-use
+// authorization link. The reply tells the company what happens next in plain language and deliberately
+// reveals nothing about our internal matching, risk signals or directory records.
+router.post('/request', express.json({ limit: '8kb' }), asyncRoute(async (req, res) => {
+  const origin = req.headers.origin;
+  if (origin && ALLOWED_ORIGINS.indexOf(origin) === -1) {
+    throw svcErr(403, 'BAD_ORIGIN', 'This request could not be verified.');
+  }
+  const b = req.body || {};
+  const out = await selfService.submit({
+    companyName: b.company_name, companyWebsite: b.company_website,
+    requesterName: b.requester_name, requesterEmail: b.requester_email,
+    ip: req.headers['x-forwarded-for'] || req.ip || '',
+    userAgent: req.headers['user-agent'] || '',
+  });
+
+  // One message per rung of the ladder. Path E is told the same thing as Path D on purpose: a
+  // conflicting request must not learn that it collided with an existing partner.
+  const COMPANY = out.request.company_name;
+  const messages = {
+    a_domain_match: {
+      state: 'ready',
+      headline: "You're all set to authorize",
+      message: 'We recognised your company email address. The next step is one click to authorize free event promotion.',
+    },
+    c_trusted_relationship: {
+      state: 'ready',
+      headline: "You're all set to authorize",
+      message: 'We already recognise your Advantage.Bid account for this company. The next step is one click to authorize free event promotion.',
+    },
+    b_official_contact: {
+      state: 'awaiting_company_confirmation',
+      headline: 'One quick confirmation',
+      message: 'We see that the email address you entered is not associated with ' + COMPANY
+        + "'s website. For your protection, we've sent a quick verification link to the contact email published on "
+        + COMPANY + "'s website. Please have the person responsible for that email open the message and confirm the request. That's all we need.",
+    },
+    d_admin_review: {
+      state: 'in_review',
+      headline: "We're reviewing your request",
+      message: 'Thanks — we could not automatically match your email address to ' + COMPANY
+        + "'s website, so a member of our team will take a quick look and follow up with you. Nothing further is needed from you right now.",
+    },
+    e_blocked: {
+      state: 'in_review',
+      headline: "We're reviewing your request",
+      message: 'Thanks — a member of our team will take a quick look at this request and follow up with you. Nothing further is needed from you right now.',
+    },
+  };
+  const view = messages[out.decision.path] || messages.d_admin_review;
+
+  res.set('Cache-Control', 'no-store');
+  res.status(201).json({
+    success: true,
+    data: {
+      state: view.state, headline: view.headline, message: view.message,
+      company_name: COMPANY,
+      // Intentionally absent: the request id, the trust path, the matched organization, the risk
+      // signals, the official contact address, and the confirmation token.
+    },
+  });
+}));
+
+// ── GET /verify-contact/:token — Path B confirmation, read-only preview ─────────────────────────
+router.get('/verify-contact/:token', asyncRoute(async (req, res) => {
+  await requireEnabled();
+  const t = req.params.token;
+  res.set('Cache-Control', 'no-store');
+  // A preview never consumes the token; only the POST does.
+  if (!/^[A-Za-z0-9_-]{43}$/.test(String(t || ''))) {
+    throw svcErr(404, 'INVALID_LINK', 'This confirmation link is not valid.');
+  }
+  res.json({ success: true, data: { requires_confirmation: true } });
+}));
+
+// ── POST /verify-contact/:token — Path B confirmation, single-use consume ───────────────────────
+// Somebody at the company's OWN published address confirmed the request. This still does not
+// authorize: it only makes the request eligible for the deterministic authorization link.
+router.post('/verify-contact/:token', express.json({ limit: '8kb' }), asyncRoute(async (req, res) => {
+  await requireEnabled();
+  const origin = req.headers.origin;
+  if (origin && ALLOWED_ORIGINS.indexOf(origin) === -1) {
+    throw svcErr(403, 'BAD_ORIGIN', 'This request could not be verified.');
+  }
+  if ((req.body || {}).confirm !== true) throw svcErr(400, 'CONFIRMATION_REQUIRED', 'Please confirm to continue.');
+  const request = await selfService.confirmOfficialContact(req.params.token, {
+    ip: req.headers['x-forwarded-for'] || req.ip || '',
+  });
+  res.set('Cache-Control', 'no-store');
+  res.status(200).json({
+    success: true,
+    data: { company_name: request.company_name, state: 'verified',
+      message: 'Thank you — that is all we needed. We will follow up with the authorization link.' },
   });
 }));
 

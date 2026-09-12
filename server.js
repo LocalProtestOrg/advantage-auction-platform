@@ -225,6 +225,7 @@ app.get('/sitemap.xml', async (req, res) => {
     '/how-sellers-get-paid.html',
     '/after-estate-sale.html',
     '/downsizing-liquidation.html',
+    '/free-event-promotion',
     '/events.html',
     '/terms.html',
     '/privacy.html',
@@ -392,6 +393,22 @@ app.get('/how-it-works', (req, res) => {
 });
 app.get('/how-it-works.html', (req, res) => res.redirect(301, '/how-it-works'));
 
+// Public Event Partner acquisition page. This is the SEARCH-DISCOVERABLE door for a company that has
+// never heard of Advantage.Bid — deliberately NOT the token-bearing /authorize-event-promotion.html
+// (which stays noindex), and deliberately NOT linked from the primary nav, the Start Selling flow, or
+// professional seller onboarding. It is an external acquisition door, not a seller-product alternative.
+const FREE_EVENT_PROMO_FILE = path.join(__dirname, 'public', 'free-event-promotion.html');
+let _freeEventPromoHtml = null;
+app.get('/free-event-promotion', (req, res) => {
+  try {
+    if (_freeEventPromoHtml == null) _freeEventPromoHtml = fs.readFileSync(FREE_EVENT_PROMO_FILE, 'utf8');
+    return res.type('html').send(_freeEventPromoHtml);
+  } catch (e) {
+    return res.sendFile(FREE_EVENT_PROMO_FILE);
+  }
+});
+app.get('/free-event-promotion.html', (req, res) => res.redirect(301, '/free-event-promotion'));
+
 // Route legacy signed-in pages into the unified member shell (/app.html). Additive + reversible: the
 // old page files remain in the repo, but these redirects win because they run before express.static.
 // Does NOT modify the BD auth bridge — the bridge still lands on /dashboard.html, which now forwards
@@ -517,6 +534,7 @@ const adminEventsRoutes         = require('./src/routes/adminEvents');
 const adminEventImportsRoutes   = require('./src/routes/adminEventImports');
 const publicEventsRoutes        = require('./src/routes/publicEvents');
 const publicEventPartnerRoutes  = require('./src/routes/publicEventPartner');
+const webhooksEmailRoutes       = require('./src/routes/webhooksEmail');
 const adminEventPartnersRoutes  = require('./src/routes/adminEventPartners');
 const adminMarketplaceRoutes    = require('./src/routes/adminMarketplace');
 const adminMarketplaceLinkRoutes = require('./src/routes/adminMarketplaceLinks');
@@ -616,6 +634,9 @@ app.use('/api/public', publicRoutes);
 app.use('/api/public', publicEventsRoutes);   // event feed (+ restricted CORS); falls through public.js
 // Event Partner one-click authorization (no auth, no session, token-gated, master gate OFF by default).
 app.use('/api/public/event-partner', publicEventPartnerRoutes);
+// Inbound Event Partner mail from the parsed-inbound provider. Authenticates with its own shared
+// secret (+ optional source allowlist), records every callback, and is gated OFF by default.
+app.use('/api/webhooks/email', webhooksEmailRoutes);
 app.use('/api/public/storefront', require('./src/routes/publicStorefront')); // public seller storefront data + item detail + inquiry
 app.use('/api/public/widget', require('./src/routes/publicWidget')); // white-label company auction widget feed (token-scoped, public)
 app.use('/api/seller-storefront', require('./src/routes/sellerStorefront')); // seller storefront mgmt + marketplace inventory + conversion (auth)

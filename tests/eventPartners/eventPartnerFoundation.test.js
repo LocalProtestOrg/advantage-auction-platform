@@ -852,9 +852,12 @@ describe('A15 exists and can do nothing that reaches a company', () => {
     expect(agents.canSpend('A15')).toBe(false);
   });
 
-  test('it may draft, propose and read — and nothing else', () => {
-    expect(a15.capabilities.slice().sort())
-      .toEqual(['draft_partner_outreach', 'propose_partner_outreach', 'read_partner_metrics']);
+  test('it may only draft, propose, read, classify and thread — never act outward', () => {
+    // Every capability A15 holds must be one of these harmless verbs. A new capability with any other
+    // prefix fails here, which is the point: the list of SAFE verbs is the contract, not the count.
+    const SAFE = /^(draft|propose|read|classify|record)_/;
+    expect(a15.capabilities.length).toBeGreaterThan(0);
+    a15.capabilities.forEach((cap) => expect(cap).toMatch(SAFE));
     ['send_email', 'send_partner_outreach', 'authorize_source', 'grant_claim', 'publish_partner']
       .forEach((cap) => expect(agents.agentCan('A15', cap)).toBe(false));
   });

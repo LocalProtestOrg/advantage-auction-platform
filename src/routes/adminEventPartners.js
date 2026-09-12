@@ -26,6 +26,11 @@ const hostAttribution = require('../services/eventPartners/hostAttributionServic
 const performance = require('../services/eventPartners/performanceStatsService');
 const claimSecurity = require('../services/organizationClaimSecurityService');
 const configService = require('../services/configService');
+const threads = require('../services/eventPartners/threadService');
+const escalations = require('../services/eventPartners/escalationService');
+const cohorts = require('../services/eventPartners/cohortService');
+const selfService = require('../services/eventPartners/selfServiceService');
+const partnerSuppression = require('../services/eventPartners/partnerSuppressionService');
 
 const APP_BASE = (process.env.APP_BASE_URL || 'https://bid.advantage.bid').replace(/\/+$/, '');
 
@@ -223,6 +228,158 @@ router.post('/claim-token', manage, asyncRoute(async (req, res) => {
       note: 'The recipient must sign in with this exact email address, and it must be verified.',
     },
   });
+}));
+
+// ==============================================================================================
+// Phase 2A - communications surfaces. Still no send control anywhere in this file.
+// ==============================================================================================
+
+// -- Escalation queue (the human queue) --------------------------------------------------------
+
+// GET /escalations - open items, worst first.
+router.get('/escalations', asyncRoute(async (req, res) => {
+  const rows = await escalations.list({ status: req.query.status, severity: req.query.severity, limit: req.query.limit });
+  res.json({ success: true, data: rows, counts: await escalations.counts() });
+}));
+
+// POST /escalations/:id/claim - take ownership of an item.
+router.post('/escalations/:id/claim', manage, asyncRoute(async (req, res) => {
+  const row = await escalations.claim(req.params.id, actor(req));
+  if (!row) throw svcErr(409, 'NOT_OPEN', 'That item is no longer open.');
+  res.json({ success: true, data: row });
+}));
+
+// POST /escalations/:id/close - resolve or dismiss. A resolution note is required.
+router.post('/escalations/:id/close', manage, asyncRoute(async (req, res) => {
+  const b = req.body || {};
+  const row = await escalations.close(req.params.id, {
+    outcome: b.outcome, resolution: b.resolution, actorId: actor(req),
+  });
+  if (!row) throw svcErr(409, 'NOT_OPEN', 'That item is already closed.');
+  res.json({ success: true, data: row });
+}));
+
+// -- Conversations -----------------------------------------------------------------------------
+
+// GET /threads/:id - one conversation with its messages and classifications.
+router.get('/threads/:id', asyncRoute(async (req, res) => {
+  const thread = await threads.getById(req.params.id);
+  if (!thread) throw svcErr(404, 'NOT_FOUND', 'Thread not found.');
+  res.json({
+    success: true,
+    data: {
+      thread: Object.assign({}, thread, { reply_address: threads.replyAddressFor(thread.reply_key) }),
+      messages: await threads.listMessages(thread.id),
+    },
+  });
+}));
+
+// POST /maintenance/retention-sweep - clear inbound bodies past their retention window. The
+// classification, the headers we rely on and the evidence fingerprint are kept.
+router.post('/maintenance/retention-sweep', manage, asyncRoute(async (req, res) => {
+  const redacted = await threads.runRetentionSweep();
+  res.json({ success: true, data: { redacted } });
+}));
+
+// -- Templates (an approved VERSION is a prerequisite for any send) ----------------------------
+
+router.get('/templates', asyncRoute(async (req, res) => {
+  res.json({ success: true, data: await cohorts.listTemplates() });
+}));
+
+router.post('/templates', manage, asyncRoute(async (req, res) => {
+  const b = req.body || {};
+  const row = await cohorts.createTemplateVersion({
+    templateKey: b.template_key, purpose: b.purpose, subject: b.subject,
+    bodyText: b.body_text, bodyHtml: b.body_html, notes: b.notes, actorId: actor(req),
+  });
+  res.status(201).json({ success: true, data: row });
+}));
+
+router.post('/templates/:id/approve', manage, asyncRoute(async (req, res) => {
+  res.json({ success: true, data: await cohorts.approveTemplate(req.params.id, { actorId: actor(req) }) });
+}));
+
+// -- Cohorts (lock #1 of the double lock) ------------------------------------------------------
+
+router.get('/cohorts', asyncRoute(async (req, res) => {
+  res.json({ success: true, data: await cohorts.listCohorts() });
+}));
+
+router.post('/cohorts', manage, asyncRoute(async (req, res) => {
+  const b = req.body || {};
+  const row = await cohorts.createCohort({
+    name: b.name, description: b.description, maxSends: b.max_sends,
+    dailySendCap: b.daily_send_cap, expiresAt: b.expires_at, notes: b.notes, actorId: actor(req),
+  });
+  res.status(201).json({ success: true, data: row });
+}));
+
+// POST /cohorts/:id/members - membership is fixed once a cohort is approved.
+router.post('/cohorts/:id/members', manage, asyncRoute(async (req, res) => {
+  const b = req.body || {};
+  const row = await cohorts.addMember(req.params.id, {
+    recipientEmail: b.recipient_email, authorizationId: b.authorization_id,
+    organizationId: b.organization_id, actorId: actor(req),
+  });
+  res.status(201).json({ success: true, data: row, added: !!row });
+}));
+
+// POST /cohorts/:id/approve - requires an APPROVED template version and carries an expiry.
+router.post('/cohorts/:id/approve', manage, asyncRoute(async (req, res) => {
+  const b = req.body || {};
+  const row = await cohorts.approveCohort(req.params.id, {
+    templateId: b.template_id, expiresAt: b.expires_at, actorId: actor(req),
+  });
+  res.json({ success: true, data: row });
+}));
+
+// GET /cohorts/:id/send-check - a DRY RUN of the double lock for one recipient. It reports which
+// locks would refuse; it never sends. In Phase 2A the honest answer is always "not allowed",
+// because event_partners.outreach_enabled is off.
+router.get('/cohorts/:id/send-check', asyncRoute(async (req, res) => {
+  const out = await cohorts.evaluateSend({ cohortId: req.params.id, recipientEmail: req.query.email });
+  res.json({ success: true, data: out });
+}));
+
+// -- Self-service requests (the lightweight trust ladder) --------------------------------------
+
+router.get('/requests', asyncRoute(async (req, res) => {
+  const rows = await selfService.listRequests({
+    status: req.query.status, trustPath: req.query.trust_path, limit: req.query.limit,
+  });
+  res.json({ success: true, data: rows, paths: selfService.PATHS });
+}));
+
+// POST /requests/:id/review - the ONLY way a Path D or Path E request proceeds.
+router.post('/requests/:id/review', manage, asyncRoute(async (req, res) => {
+  const b = req.body || {};
+  const row = await selfService.adminReview(req.params.id, {
+    approve: b.approve === true, reason: b.reason, notes: b.notes, actorId: actor(req),
+  });
+  res.json({ success: true, data: row });
+}));
+
+// -- Partner suppression (separate from consumer marketing suppression) ------------------------
+
+router.get('/suppressions', asyncRoute(async (req, res) => {
+  res.json({ success: true, data: await partnerSuppression.list({ limit: req.query.limit }) });
+}));
+
+// POST /suppressions - add by hand (a phone request to stop, for instance).
+router.post('/suppressions', manage, asyncRoute(async (req, res) => {
+  const b = req.body || {};
+  const row = await partnerSuppression.suppress({
+    email: b.email, reason: b.reason || 'admin', source: 'admin',
+    organizationId: b.organization_id, notes: b.notes,
+  });
+  if (!row) throw svcErr(400, 'INVALID_EMAIL', 'A valid email address is required.');
+  res.status(201).json({ success: true, data: row });
+}));
+
+// GET /suppressions/check?email= - why a recipient would be skipped. Honours BOTH lists.
+router.get('/suppressions/check', asyncRoute(async (req, res) => {
+  res.json({ success: true, data: await partnerSuppression.isSuppressed(req.query.email) });
 }));
 
 module.exports = router;

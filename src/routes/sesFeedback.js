@@ -7,8 +7,15 @@
  * SECURITY (fail-closed):
  *   - DISABLED unless SES_FEEDBACK_WEBHOOK_SECRET is configured → 503. Nothing here activates sending.
  *   - Every request must present the shared secret (header x-webhook-secret or ?token=), compared with a
- *     timing-safe check → 401 otherwise. (SNS signature verification can be layered on later; the shared
- *     secret is required regardless.)
+ *     timing-safe check → 401 otherwise.
+ *   - SNS MESSAGE SIGNATURE VERIFICATION (added with migration 154, closing the Phase 2 audit finding):
+ *     an SNS-shaped payload is cryptographically verified against the AWS signing certificate — the
+ *     canonical string-to-sign is rebuilt per AWS's specification, the SigningCertURL host is validated
+ *     as AWS-owned before it is ever fetched, and RSA-SHA1/RSA-SHA256 is checked. A signature that is
+ *     PRESENT and WRONG is always refused (403); no configuration can override that. A failure to FETCH
+ *     the certificate is an infrastructure fault rather than evidence of forgery, so it is recorded as
+ *     `verify_unavailable` and the message is still ingested — losing real bounce and complaint data
+ *     would itself be a compliance harm. The shared secret is required in every case.
  *   - Malformed/unparseable payloads → 400.
  *   - SNS SubscriptionConfirmation is acknowledged but NOT auto-confirmed (no external activation). For a
  *     GENUINE, authenticated SubscriptionConfirmation we surface the one-time AWS SubscribeURL to the
@@ -22,6 +29,8 @@ const express = require('express');
 const crypto = require('crypto');
 const router = express.Router();
 const { parse, isSnsControl } = require('../lib/sesNotificationParser');
+const webhookSignature = require('../lib/webhookSignature');
+const configService = require('../services/configService');
 const sesFeedback = require('../services/sesFeedbackService');
 
 function timingSafeEqual(a, b) {
@@ -51,6 +60,38 @@ router.post('/feedback', async (req, res) => {
   let payload = req.body;
   if (typeof payload === 'string') { try { payload = JSON.parse(payload); } catch (_) { return res.status(400).json({ error: 'Malformed payload' }); } }
   if (!payload || typeof payload !== 'object') return res.status(400).json({ error: 'Malformed payload' });
+
+  // ── SNS message signature ────────────────────────────────────────────────────────────────────
+  // Applies to any payload carrying an SNS envelope (both control messages and notifications). A
+  // non-SNS payload has no signature to check and falls through to the parser, which rejects anything
+  // it does not recognise.
+  if (payload.Type && payload.Signature) {
+    const required = await configService.get(null, 'event_partners.webhook_signature_required').catch(() => true);
+    const result = await webhookSignature.verifySns(payload).catch((e) => ({ ok: false, status: 'verify_unavailable', reason: e.message }));
+    if (!result.ok && result.status === 'rejected_signature') {
+      // Authenticity failed. Always refused.
+      console.error('[ses] REJECTED forged/invalid SNS signature:', result.reason,
+        'TopicArn=' + (payload.TopicArn || '?'), 'MessageId=' + (payload.MessageId || '?'));
+      return res.status(403).json({ error: 'Invalid message signature' });
+    }
+    if (!result.ok && result.status === 'verify_unavailable') {
+      if (required === false) {
+        console.warn('[ses] SNS signature not verified (verification disabled by policy):', result.reason);
+      } else {
+        // Fail-open ONLY on an infrastructure fault, and loudly, so it is visible in the operator log.
+        console.warn('[ses] SNS signature VERIFY UNAVAILABLE — accepting to preserve suppression data:', result.reason);
+      }
+    }
+  } else if (payload.Type && !payload.Signature) {
+    // An SNS-shaped payload with no signature at all is not a genuine SNS delivery — real SNS always
+    // signs. Refused by default; an operator may allow it by setting the policy flag false.
+    const required = await configService.get(null, 'event_partners.webhook_signature_required').catch(() => true);
+    if (required !== false) {
+      console.error('[ses] REJECTED SNS-shaped payload with no Signature field');
+      return res.status(403).json({ error: 'Invalid message signature' });
+    }
+    console.warn('[ses] SNS-shaped payload accepted WITHOUT a signature (verification disabled by policy)');
+  }
 
   if (isSnsControl(payload)) {
     // Acknowledge but NEVER auto-confirm — subscription confirmation is an owner action, not automatic.

@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Promote Your Events Completely Free &amp; Automatically — Advantage.Bid for Estate Sale Companies &amp; Auction Houses</title>
+  <meta name="description" content="Advantage.Bid automatically collects the upcoming estate sales and auctions your company already posts on its own website, and promotes them to buyers free of charge. No cost, no duplicate data entry, no software to learn. Authorize free event promotion in one click." />
+  <!-- This page IS meant to be found by search engines and answer engines. The token-bearing
+       /authorize-event-promotion.html page is noindex and is deliberately not this page. -->
+  <meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large" />
+  <link rel="canonical" href="https://bid.advantage.bid/free-event-promotion" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <meta property="og:title" content="Promote Your Events Completely Free &amp; Automatically — Advantage.Bid" />
+  <meta property="og:description" content="We collect the upcoming estate sales and auctions you already post on your own website and promote them to buyers, free. No duplicate entry. No software to learn." />
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://bid.advantage.bid/free-event-promotion" />
+  <meta property="og:image" content="https://bid.advantage.bid/img/social-card.png" />
+  <meta property="og:site_name" content="Advantage.Bid" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <link rel="stylesheet" href="/marketplace.css" />
+  <style>
+    body { background:#fff; }
+    .hero { background:linear-gradient(160deg,#0f172a 0%,#1e3a5f 100%); padding:4.5rem 1.5rem 3rem; }
+    .inner { max-width:960px; margin:0 auto; }
+    .eyebrow { display:inline-block; font-size:.72rem; font-weight:700; letter-spacing:.09em; text-transform:uppercase; color:#93c5fd; background:rgba(59,130,246,.15); border:1px solid rgba(147,197,253,.25); padding:.28rem .85rem; border-radius:99px; margin-bottom:1.1rem; }
+    .hero h1 { font-size:clamp(2rem,4.8vw,2.95rem); font-weight:800; line-height:1.1; letter-spacing:-.03em; color:#fff; margin-bottom:.8rem; }
+    .hero .free { font-size:1.3rem; font-weight:800; color:#4ade80; margin-bottom:.8rem; }
+    .hero p { font-size:1.06rem; color:#cbd5e1; line-height:1.65; max-width:680px; margin-bottom:1.8rem; }
+    .cta-row { display:flex; gap:.75rem; flex-wrap:wrap; align-items:center; }
+    .btn-primary { background:#2563eb; color:#fff; font-size:1.02rem; font-weight:700; padding:.9rem 2rem; border-radius:9px; text-decoration:none; border:0; cursor:pointer; }
+    .btn-primary:hover { background:#1d4ed8; }
+    .hero small { display:block; color:#94a3b8; font-size:.85rem; margin-top:.9rem; }
+    section { padding:3.5rem 0; }
+    section.alt { background:#f8fafc; }
+    .sec { max-width:960px; margin:0 auto; padding:0 1.5rem; }
+    h2 { font-size:clamp(1.5rem,3.5vw,2rem); font-weight:800; letter-spacing:-.025em; margin-bottom:.6rem; }
+    .sub { color:#64748b; font-size:1rem; line-height:1.6; max-width:680px; margin-bottom:1.9rem; }
+    .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(250px,1fr)); gap:1.1rem; }
+    .card { background:#fff; border:1px solid #e5e7eb; border-radius:14px; padding:1.5rem; }
+    section.alt .card { background:#fff; }
+    .card .ic { font-size:1.6rem; }
+    .card h3 { font-size:1.02rem; font-weight:800; margin:.6rem 0 .35rem; }
+    .card p { font-size:.92rem; color:#475569; line-height:1.6; margin:0; }
+    ol.steps { counter-reset:s; list-style:none; padding:0; max-width:720px; }
+    ol.steps li { counter-increment:s; position:relative; padding-left:3rem; margin-bottom:1.5rem; }
+    ol.steps li::before { content:counter(s); position:absolute; left:0; top:0; width:2rem; height:2rem; border-radius:50%; background:#2563eb; color:#fff; font-weight:800; font-size:.92rem; display:flex; align-items:center; justify-content:center; }
+    ol.steps h3 { font-size:1.02rem; font-weight:800; margin:.2rem 0 .3rem; }
+    ol.steps p { font-size:.94rem; color:#475569; line-height:1.6; margin:0; }
+    .faq details { border-bottom:1px solid #e5e7eb; padding:1.1rem 0; }
+    .faq summary { font-size:1rem; font-weight:700; cursor:pointer; color:#0f172a; }
+    .faq p { font-size:.94rem; color:#475569; line-height:1.65; margin:.7rem 0 0; max-width:720px; }
+    form { max-width:520px; }
+    label { display:block; font-size:.86rem; font-weight:700; color:#334155; margin:1rem 0 .35rem; }
+    input { width:100%; font:inherit; font-size:.96rem; padding:.7rem .8rem; border:1px solid #cbd5e1; border-radius:9px; background:#fff; }
+    input:focus { outline:2px solid #93c5fd; outline-offset:1px; }
+    .hint { font-size:.83rem; color:#64748b; margin-top:.4rem; }
+    #result { margin-top:1.3rem; border-radius:11px; padding:1.1rem 1.2rem; font-size:.95rem; line-height:1.6; display:none; }
+    #result.ok { background:#ecfdf5; border:1px solid #a7f3d0; color:#065f46; }
+    #result.err { background:#fef2f2; border:1px solid #fecaca; color:#991b1b; }
+    #result h3 { font-size:1rem; font-weight:800; margin:0 0 .35rem; }
+    .closed { background:#f1f5f9; border:1px solid #e2e8f0; color:#475569; border-radius:11px; padding:1.1rem 1.2rem; font-size:.95rem; line-height:1.6; }
+    footer { padding:2.5rem 1.5rem; border-top:1px solid #e5e7eb; color:#94a3b8; font-size:.85rem; text-align:center; }
+    footer a { color:#64748b; }
+  </style>
+
+  <!-- Structured data. FAQPage + Service, so search engines and answer engines can answer
+       "can I get my estate sale company's events promoted for free" with our actual terms. -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "WebPage",
+        "@id": "https://bid.advantage.bid/free-event-promotion",
+        "url": "https://bid.advantage.bid/free-event-promotion",
+        "name": "Promote Your Events Completely Free & Automatically",
+        "description": "Advantage.Bid automatically collects the upcoming estate sales and auctions your company posts publicly on its own website and promotes them to buyers at no charge.",
+        "isPartOf": { "@type": "WebSite", "name": "Advantage.Bid", "url": "https://bid.advantage.bid" },
+        "inLanguage": "en-US"
+      },
+      {
+        "@type": "Service",
+        "name": "Free Event Promotion for Estate Sale Companies and Auction Houses",
+        "serviceType": "Event promotion",
+        "provider": { "@type": "Organization", "name": "Advantage.Bid", "url": "https://bid.advantage.bid" },
+        "areaServed": { "@type": "Country", "name": "United States" },
+        "audience": {
+          "@type": "BusinessAudience",
+          "name": "Estate sale companies, auction houses and professional liquidators"
+        },
+        "description": "Advantage.Bid collects the upcoming estate sales and auctions a company posts publicly on its own website and promotes those events to buyers. There is no cost, no duplicate data entry and no software for the company to learn.",
+        "offers": {
+          "@type": "Offer",
+          "price": "0",
+          "priceCurrency": "USD",
+          "description": "Free event promotion. No cost, no subscription, no commission on the company's own sales."
+        }
+      },
+      {
+        "@type": "FAQPage",
+        "mainEntity": [
+          {
+            "@type": "Question",
+            "name": "How much does free event promotion cost?",
+            "acceptedAnswer": { "@type": "Answer", "text": "Nothing. There is no cost, no subscription and no commission on your own sales. Advantage.Bid promotes your publicly posted upcoming events at no charge." }
+          },
+          {
+            "@type": "Question",
+            "name": "What do I have to do on an ongoing basis?",
+            "acceptedAnswer": { "@type": "Answer", "text": "Nothing. You keep posting your sales on your own website exactly as you do today. Advantage.Bid picks up the upcoming ones and promotes them. There is no duplicate data entry and no software to learn." }
+          },
+          {
+            "@type": "Question",
+            "name": "Do I need to create an account or enter a password?",
+            "acceptedAnswer": { "@type": "Answer", "text": "No. Authorizing free event promotion takes one click and does not create an account, ask for a password, or ask for payment details." }
+          },
+          {
+            "@type": "Question",
+            "name": "Which events does Advantage.Bid collect?",
+            "acceptedAnswer": { "@type": "Answer", "text": "Only the upcoming estate sales and auctions that your company already posts publicly on its own website. Each event page names your company as the host and links back to your website." }
+          },
+          {
+            "@type": "Question",
+            "name": "Does this sign me up for marketing email?",
+            "acceptedAnswer": { "@type": "Answer", "text": "No. Authorizing event promotion is a separate decision from email. It does not add you to a marketing list, and you can withdraw the authorization at any time." }
+          },
+          {
+            "@type": "Question",
+            "name": "Can I stop it later?",
+            "acceptedAnswer": { "@type": "Answer", "text": "Yes, at any time. Tell us to stop and we stop collecting your events." }
+          },
+          {
+            "@type": "Question",
+            "name": "Do I need to change my DNS or upload a file to my website?",
+            "acceptedAnswer": { "@type": "Answer", "text": "No. If you contact us from an email address on your company's website domain, that is all we need. If you use a personal address, we send a short confirmation to the contact email published on your company's own website instead." }
+          }
+        ]
+      }
+    ]
+  }
+  </script>
+</head>
+<body>
+  <header class="hero">
+    <div class="inner">
+      <span class="eyebrow">For estate sale companies &amp; auction houses</span>
+      <h1>Promote Your Events Completely Free &amp; Automatically</h1>
+      <p class="free">No cost. No duplicate data entry. No software to learn.</p>
+      <p>Advantage.Bid collects the upcoming estate sales and auctions you already post on your own
+         website, and promotes them to buyers looking for exactly that. You keep working precisely the
+         way you do today.</p>
+      <div class="cta-row">
+        <a class="btn-primary" href="#authorize">Authorize Free Event Promotion</a>
+      </div>
+      <small>One click. No account, no password, no payment details.</small>
+    </div>
+  </header>
+
+  <section>
+    <div class="sec">
+      <h2>What you get</h2>
+      <p class="sub">Your events reach buyers who are already searching for estate sales and auctions
+        near them — without you doing anything differently.</p>
+      <div class="grid">
+        <div class="card">
+          <div class="ic">🆓</div>
+          <h3>Genuinely free</h3>
+          <p>No cost, no subscription, and no commission on your own sales. This is promotion, not a
+             marketplace fee.</p>
+        </div>
+        <div class="card">
+          <div class="ic">🔁</div>
+          <h3>No duplicate entry</h3>
+          <p>You post a sale on your website once, as always. We pick it up. You never re-type an
+             event into a second system.</p>
+        </div>
+        <div class="card">
+          <div class="ic">🧰</div>
+          <h3>No software to learn</h3>
+          <p>There is nothing to install, no dashboard you have to check, and no training. Authorizing
+             takes a single click.</p>
+        </div>
+        <div class="card">
+          <div class="ic">🏷️</div>
+          <h3>Your company, named</h3>
+          <p>Every event page credits your company as the host and links back to your website, so the
+             buyer arrives at you.</p>
+        </div>
+        <div class="card">
+          <div class="ic">📈</div>
+          <h3>Real numbers</h3>
+          <p>We measure how many people viewed your events and how many clicked through to your
+             website — and we only ever quote you exact figures.</p>
+        </div>
+        <div class="card">
+          <div class="ic">🛑</div>
+          <h3>Stop whenever</h3>
+          <p>Withdraw at any time and we stop collecting. No notice period, no negotiation.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="alt">
+    <div class="sec">
+      <h2>How it works</h2>
+      <p class="sub">Four steps, and three of them are ours.</p>
+      <ol class="steps">
+        <li>
+          <h3>Tell us your website</h3>
+          <p>Company name, website, your name and your email. That is the whole form.</p>
+        </li>
+        <li>
+          <h3>Confirm it is really you</h3>
+          <p>If you write from an address on your company's website domain, we are done. If you use a
+             personal address, we send a short confirmation to the contact email published on your own
+             website. No DNS records, no file uploads.</p>
+        </li>
+        <li>
+          <h3>Click to authorize</h3>
+          <p>One click on a secure link. No account, no password, no payment details. You are
+             authorizing us to collect the events you already post publicly, and nothing else.</p>
+        </li>
+        <li>
+          <h3>Keep working as usual</h3>
+          <p>We collect your upcoming sales and promote them. You post to your own website exactly as
+             you always have.</p>
+        </li>
+      </ol>
+    </div>
+  </section>
+
+  <section id="authorize">
+    <div class="sec">
+      <h2>Authorize Free Event Promotion</h2>
+      <p class="sub">Four fields. We will confirm you represent the company, then send you a secure
+        one-click authorization link.</p>
+      <div id="form-wrap">
+        <form id="req" novalidate>
+          <label for="company_name">Company name</label>
+          <input id="company_name" name="company_name" autocomplete="organization" required />
+
+          <label for="company_website">Company website</label>
+          <input id="company_website" name="company_website" inputmode="url" placeholder="yourcompany.com" autocomplete="url" required />
+
+          <label for="requester_name">Your name</label>
+          <input id="requester_name" name="requester_name" autocomplete="name" />
+
+          <label for="requester_email">Your email</label>
+          <input id="requester_email" name="requester_email" type="email" autocomplete="email" required />
+          <p class="hint">A company address (you@yourcompany.com) is fastest. A personal address is
+            fine too — we will simply confirm with the contact email on your website.</p>
+
+          <p style="margin-top:1.4rem"><button class="btn-primary" type="submit" id="submit">Request Free Event Promotion</button></p>
+        </form>
+      </div>
+      <div id="result" role="status" aria-live="polite"></div>
+    </div>
+  </section>
+
+  <section class="alt">
+    <div class="sec faq">
+      <h2>Questions</h2>
+      <details><summary>How much does this cost?</summary><p>Nothing. There is no cost, no subscription, and no commission on your own sales.</p></details>
+      <details><summary>What do I have to do each month?</summary><p>Nothing. You keep posting sales on your own website exactly as you do today.</p></details>
+      <details><summary>Do I need an account or a password?</summary><p>No. Authorizing takes one click and creates no account.</p></details>
+      <details><summary>Which of my events do you collect?</summary><p>Only the upcoming estate sales and auctions you already post publicly on your own website.</p></details>
+      <details><summary>Does this add me to a mailing list?</summary><p>No. Event promotion and email are separate decisions, and we keep them separate.</p></details>
+      <details><summary>Do I have to change DNS or upload a file?</summary><p>No. An email address on your company's domain is enough. Otherwise we confirm with the contact address published on your website.</p></details>
+      <details><summary>Can I stop?</summary><p>Yes, any time. Tell us and we stop collecting.</p></details>
+    </div>
+  </section>
+
+  <footer>
+    <p>Advantage.Bid — <a href="/events.html">Browse estate sales &amp; auctions</a> ·
+       <a href="/terms.html">Terms</a> · <a href="/privacy.html">Privacy</a></p>
+  </footer>
+
+<script>
+(function () {
+  'use strict';
+  var form = document.getElementById('req');
+  var out = document.getElementById('result');
+  var btn = document.getElementById('submit');
+
+  function show(cls, headline, message) {
+    out.className = cls;
+    out.innerHTML = '<h3>' + headline + '</h3><p style="margin:0">' + message + '</p>';
+    out.style.display = 'block';
+  }
+  function esc(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+
+  form.addEventListener('submit', function (ev) {
+    ev.preventDefault();
+    var body = {
+      company_name: document.getElementById('company_name').value.trim(),
+      company_website: document.getElementById('company_website').value.trim(),
+      requester_name: document.getElementById('requester_name').value.trim(),
+      requester_email: document.getElementById('requester_email').value.trim(),
+    };
+    if (!body.company_name || !body.company_website || !body.requester_email) {
+      show('err', 'A few details missing', 'Please give your company name, website and email address.');
+      return;
+    }
+    btn.disabled = true; btn.textContent = 'Sending…';
+    fetch('/api/public/event-partner/request', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify(body),
+    })
+      .then(function (r) { return r.json().then(function (b) { return { status: r.status, body: b }; }); })
+      .then(function (res) {
+        btn.disabled = false; btn.textContent = 'Request Free Event Promotion';
+        if (res.status === 404) {
+          // The programme is not open for self-service yet. Say so honestly.
+          document.getElementById('form-wrap').innerHTML =
+            '<div class="closed"><b>Not quite open yet.</b><br>Free event promotion is being rolled out to '
+            + 'companies gradually. This form will open shortly — or contact Advantage.Bid and we will add you to the list.</div>';
+          out.style.display = 'none';
+          return;
+        }
+        if (!res.body || !res.body.success) {
+          show('err', 'We could not submit that', esc((res.body && res.body.message) || 'Please check the details and try again.'));
+          return;
+        }
+        var d = res.body.data || {};
+        form.reset();
+        document.getElementById('form-wrap').style.display = 'none';
+        show('ok', esc(d.headline || 'Thank you'), esc(d.message || ''));
+      })
+      .catch(function () {
+        btn.disabled = false; btn.textContent = 'Request Free Event Promotion';
+        show('err', 'Connection problem', 'We could not reach Advantage.Bid. Please check your connection and try again.');
+      });
+  });
+})();
+</script>
+<script src="/widgets/shared/behavior-tracker.js" defer></script>
+</body>
+</html>

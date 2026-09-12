@@ -16,6 +16,18 @@ process.env.SES_FEEDBACK_WEBHOOK_SECRET = SECRET;
 jest.mock('../src/services/sesFeedbackService', () => ({
   ingestEvent: jest.fn(async (evt) => ({ ok: true, action: 'recorded', email: evt.email })),
 }));
+// SNS signature verification is exercised separately (see the signature contract block at the bottom
+// and tests/eventPartners/eventPartnerCommunications2a.test.js). These fixtures are synthetic SNS
+// payloads with no real signature, so the verifier is stubbed to 'verified' here — this suite is about
+// SubscribeURL handling, authentication and ingestion.
+jest.mock('../src/lib/webhookSignature', () => ({
+  verifySns: jest.fn(async () => ({ ok: true, status: 'verified', reason: 'stubbed' })),
+  verifyPostmark: jest.fn(() => ({ ok: true, status: 'verified' })),
+  payloadDigest: jest.fn(() => 'digest'),
+}));
+// platform_config is not available in this pure-route suite.
+jest.mock('../src/services/configService', () => ({ get: jest.fn(async () => true) }));
+const webhookSignature = require('../src/lib/webhookSignature');
 const sesFeedback = require('../src/services/sesFeedbackService');
 const router = require('../src/routes/sesFeedback');
 
@@ -41,11 +53,18 @@ function call({ token, header, body } = {}) {
 }
 
 const SUBSCRIBE_URL = 'https://sns.us-east-1.amazonaws.com/?Action=ConfirmSubscription&TopicArn=arn:aws:sns:us-east-1:111:advantage-bid-feedback&Token=SECRET_ONE_TIME_TOKEN_XYZ';
-const subConfirmation = () => ({ Type: 'SubscriptionConfirmation', TopicArn: 'arn:aws:sns:us-east-1:111:advantage-bid-feedback', MessageId: 'mid-1', Timestamp: '2026-09-08T00:00:00Z', SubscribeURL: SUBSCRIBE_URL, Token: 'SECRET_ONE_TIME_TOKEN_XYZ' });
-const notification = () => ({ Type: 'Notification', Message: JSON.stringify({ notificationType: 'Bounce', bounce: { bounceType: 'Permanent', bouncedRecipients: [{ emailAddress: 'hb@example.com' }] }, mail: { messageId: 'm-1' } }) });
+const subConfirmation = () => ({ Signature: 'c3R1Yg==', SigningCertURL: 'https://sns.us-east-1.amazonaws.com/x.pem', Type: 'SubscriptionConfirmation', TopicArn: 'arn:aws:sns:us-east-1:111:advantage-bid-feedback', MessageId: 'mid-1', Timestamp: '2026-09-08T00:00:00Z', SubscribeURL: SUBSCRIBE_URL, Token: 'SECRET_ONE_TIME_TOKEN_XYZ' });
+const notification = () => ({ Signature: 'c3R1Yg==', SigningCertURL: 'https://sns.us-east-1.amazonaws.com/x.pem', Type: 'Notification', Message: JSON.stringify({ notificationType: 'Bounce', bounce: { bounceType: 'Permanent', bouncedRecipients: [{ emailAddress: 'hb@example.com' }] }, mail: { messageId: 'm-1' } }) });
 
 let logs;
-beforeEach(() => { logs = []; jest.spyOn(console, 'log').mockImplementation((...a) => logs.push(a.join(' '))); sesFeedback.ingestEvent.mockClear(); });
+beforeEach(() => {
+  logs = [];
+  jest.spyOn(console, 'log').mockImplementation((...a) => logs.push(a.join(' ')));
+  jest.spyOn(console, 'error').mockImplementation((...a) => logs.push(a.join(' ')));
+  jest.spyOn(console, 'warn').mockImplementation((...a) => logs.push(a.join(' ')));
+  sesFeedback.ingestEvent.mockClear();
+  webhookSignature.verifySns.mockImplementation(async () => ({ ok: true, status: 'verified', reason: 'stubbed' }));
+});
 afterEach(() => jest.restoreAllMocks());
 
 describe('SES feedback route — SubscriptionConfirmation support', () => {
@@ -105,9 +124,43 @@ describe('SES feedback route — SubscriptionConfirmation support', () => {
   });
 
   test('UnsubscribeConfirmation is acknowledged but never logs a SubscribeURL', async () => {
-    const res = await call({ token: SECRET, body: JSON.stringify({ Type: 'UnsubscribeConfirmation', SubscribeURL: SUBSCRIBE_URL }) });
+    const res = await call({ token: SECRET, body: JSON.stringify({ Signature: 'c3R1Yg==', SigningCertURL: 'https://sns.us-east-1.amazonaws.com/x.pem', Type: 'UnsubscribeConfirmation', SubscribeURL: SUBSCRIBE_URL }) });
     expect(res._status).toBe(200);
     expect(res._body.auto_confirmed).toBe(false);
     expect(res._body.subscribe_url_logged).toBeUndefined();
+  });
+});
+
+describe('SES feedback route — SNS signature contract (migration 154)', () => {
+  test('a forged signature is refused, and ingestion never runs', async () => {
+    webhookSignature.verifySns.mockImplementation(async () => ({
+      ok: false, status: 'rejected_signature', reason: 'RSA-SHA1 signature mismatch',
+    }));
+    const res = await call({ token: SECRET, body: JSON.stringify(notification()) });
+    expect(res._status).toBe(403);
+    expect(sesFeedback.ingestEvent).not.toHaveBeenCalled();
+  });
+
+  test('an SNS-shaped payload with no Signature at all is refused', async () => {
+    const unsigned = { Type: 'Notification', Message: JSON.stringify({ notificationType: 'Bounce' }) };
+    const res = await call({ token: SECRET, body: JSON.stringify(unsigned) });
+    expect(res._status).toBe(403);
+    expect(sesFeedback.ingestEvent).not.toHaveBeenCalled();
+  });
+
+  test('an unreachable signing certificate still ingests — losing suppression data is its own harm', async () => {
+    webhookSignature.verifySns.mockImplementation(async () => ({
+      ok: false, status: 'verify_unavailable', reason: 'certificate unavailable: network down',
+    }));
+    const res = await call({ token: SECRET, body: JSON.stringify(notification()) });
+    expect(res._status).toBe(200);
+    expect(sesFeedback.ingestEvent).toHaveBeenCalled();
+    expect(logs.join('\n')).toMatch(/VERIFY UNAVAILABLE/);
+  });
+
+  test('the shared secret is still required regardless of a valid signature', async () => {
+    const res = await call({ token: 'wrong-secret', body: JSON.stringify(notification()) });
+    expect(res._status).toBe(401);
+    expect(sesFeedback.ingestEvent).not.toHaveBeenCalled();
   });
 });

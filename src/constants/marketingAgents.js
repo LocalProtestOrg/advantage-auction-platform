@@ -1,7 +1,7 @@
 'use strict';
 
 /**
- * marketingAgents — the A1–A14 Marketing Agency roster + authority (pure; mirrors migration 129 seed).
+ * marketingAgents — the A1–A15 Marketing Agency roster + authority (pure; mirrors the 129/154 seed).
  * Authority is checked here so an agent can never act outside its capabilities (e.g. a creator cannot
  * publish or spend; QA cannot author what it reviews; only A1/A8 may spend within authority).
  */
@@ -25,13 +25,18 @@ const AGENTS = Object.freeze({
   // propose, and read partner metrics. It has NO send verb, NO publish, NO spend, NO authority to
   // authorize a source or grant a claim, and no mailbox exists for it to use. Phase 2 will design the
   // agent-managed inbound/outbound channel; until then this agent cannot reach a company at all.
-  A15: { code: 'A15', key: 'a15_event_partner', name: 'Event Partner Outreach', tier: 'growth',   capabilities: ['draft_partner_outreach', 'propose_partner_outreach', 'read_partner_metrics'], canPublish: false, canSpend: false, canReview: false },
+  A15: { code: 'A15', key: 'a15_event_partner', name: 'Event Partner Outreach', tier: 'growth',   capabilities: ['draft_partner_outreach', 'propose_partner_outreach', 'read_partner_metrics', 'classify_inbound_reply', 'record_reply_thread', 'draft_partner_reply'], canPublish: false, canSpend: false, canReview: false },
 });
 
 // Capabilities NO agent may hold in Phase 1, asserted here so a future edit that grants one to A15
 // (or anyone) fails the roster test rather than silently shipping an agent that can contact a company.
 const FORBIDDEN_PHASE1_CAPABILITIES = Object.freeze([
   'send_email', 'send_partner_outreach', 'authorize_source', 'grant_claim', 'publish_partner',
+  // Phase 2A additions. A15 gained read-only classification, threading and drafting; it must still be
+  // unable to reach a company, to widen permission, or to touch anything outside its own programme.
+  'send_approved_outreach', 'send_templated_reply', 'grant_authorization', 'broaden_authorization',
+  'change_authorized_domain', 'activate_collection_source', 'grant_listing_ownership',
+  'answer_customer_service', 'answer_seller_inquiry',
 ]);
 
 function get(code) { return AGENTS[String(code || '').toUpperCase()] || null; }
