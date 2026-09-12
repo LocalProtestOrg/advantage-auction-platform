@@ -14,8 +14,12 @@
  *     as AWS-owned before it is ever fetched, and RSA-SHA1/RSA-SHA256 is checked. A signature that is
  *     PRESENT and WRONG is always refused (403); no configuration can override that. A failure to FETCH
  *     the certificate is an infrastructure fault rather than evidence of forgery, so it is recorded as
- *     `verify_unavailable` and the message is still ingested — losing real bounce and complaint data
- *     would itself be a compliance harm. The shared secret is required in every case.
+ *     `verify_unavailable` — and the callback is then QUARANTINED rather than ingested (migration 155).
+ *     An unverified callback must never apply suppression, complaint, bounce, deliverability or
+ *     consent state, because those are recipient-affecting and effectively irreversible. The payload is
+ *     persisted whole and idempotently, verification is retried with backoff, and it is processed
+ *     EXACTLY ONCE once authenticity is established. Nothing is ever silently discarded. The shared
+ *     secret is required in every case.
  *   - Malformed/unparseable payloads → 400.
  *   - SNS SubscriptionConfirmation is acknowledged but NOT auto-confirmed (no external activation). For a
  *     GENUINE, authenticated SubscriptionConfirmation we surface the one-time AWS SubscribeURL to the
@@ -31,6 +35,7 @@ const router = express.Router();
 const { parse, isSnsControl } = require('../lib/sesNotificationParser');
 const webhookSignature = require('../lib/webhookSignature');
 const configService = require('../services/configService');
+const quarantine = require('../services/webhookQuarantineService');
 const sesFeedback = require('../services/sesFeedbackService');
 
 function timingSafeEqual(a, b) {
@@ -58,6 +63,8 @@ router.post('/feedback', async (req, res) => {
   if (!timingSafeEqual(presented, secret)) return res.status(401).json({ error: 'Unauthorized' });
 
   let payload = req.body;
+  // Keep the exact bytes: the quarantine digest must be of what arrived, not of a re-serialization.
+  const rawBody = typeof payload === 'string' ? payload : null;
   if (typeof payload === 'string') { try { payload = JSON.parse(payload); } catch (_) { return res.status(400).json({ error: 'Malformed payload' }); } }
   if (!payload || typeof payload !== 'object') return res.status(400).json({ error: 'Malformed payload' });
 
@@ -78,8 +85,22 @@ router.post('/feedback', async (req, res) => {
       if (required === false) {
         console.warn('[ses] SNS signature not verified (verification disabled by policy):', result.reason);
       } else {
-        // Fail-open ONLY on an infrastructure fault, and loudly, so it is visible in the operator log.
-        console.warn('[ses] SNS signature VERIFY UNAVAILABLE — accepting to preserve suppression data:', result.reason);
+        // FAIL-SAFE, not fail-open: hold the callback, apply nothing, retry verification later.
+        // Acknowledge with 202 so SNS stops retrying — we now own the retry, and the payload is durable.
+        const held = await quarantine.quarantine({
+          provider: 'ses_sns', payload, digest: webhookSignature.payloadDigest(rawBody || payload),
+          signatureStatus: 'verify_unavailable', reason: result.reason,
+          eventKind: payload.Type === 'Notification' ? 'ses_feedback' : payload.Type,
+          remoteIpHash: null,
+        }).catch((e) => ({ quarantined: false, error: e.message }));
+        if (held && held.quarantined) {
+          console.warn('[ses] SNS signature VERIFY UNAVAILABLE — callback QUARANTINED, no state applied:',
+            result.reason, 'quarantine_id=' + held.id, held.duplicate ? '(already held)' : '');
+          return res.status(202).json({ ok: true, quarantined: true, applied: false });
+        }
+        // Quarantine itself failed. Refuse rather than apply unverified state; SNS will retry.
+        console.error('[ses] SNS unverifiable AND quarantine failed — refusing:', (held && held.error) || 'unknown');
+        return res.status(503).json({ error: 'Verification unavailable' });
       }
     }
   } else if (payload.Type && !payload.Signature) {

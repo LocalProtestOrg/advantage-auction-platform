@@ -27,6 +27,12 @@ jest.mock('../src/lib/webhookSignature', () => ({
 }));
 // platform_config is not available in this pure-route suite.
 jest.mock('../src/services/configService', () => ({ get: jest.fn(async () => true) }));
+// The quarantine store is exercised in tests/eventPartners/webhookVerificationQuarantine.test.js;
+// here it is stubbed so the ROUTE contract can be asserted without a database.
+jest.mock('../src/services/webhookQuarantineService', () => ({
+  quarantine: jest.fn(async () => ({ quarantined: true, id: 'qr-1', duplicate: false })),
+}));
+const quarantine = require('../src/services/webhookQuarantineService');
 const webhookSignature = require('../src/lib/webhookSignature');
 const sesFeedback = require('../src/services/sesFeedbackService');
 const router = require('../src/routes/sesFeedback');
@@ -148,14 +154,32 @@ describe('SES feedback route — SNS signature contract (migration 154)', () => 
     expect(sesFeedback.ingestEvent).not.toHaveBeenCalled();
   });
 
-  test('an unreachable signing certificate still ingests — losing suppression data is its own harm', async () => {
+  test('an unreachable signing certificate QUARANTINES the callback and applies nothing', async () => {
+    // Migration 155 replaced the earlier fail-open behaviour: an unverified callback must never apply
+    // suppression, complaint, bounce, deliverability or consent state. It is held, retried, and
+    // processed exactly once only after authenticity has been established.
     webhookSignature.verifySns.mockImplementation(async () => ({
       ok: false, status: 'verify_unavailable', reason: 'certificate unavailable: network down',
     }));
+    quarantine.quarantine.mockClear();
     const res = await call({ token: SECRET, body: JSON.stringify(notification()) });
-    expect(res._status).toBe(200);
-    expect(sesFeedback.ingestEvent).toHaveBeenCalled();
-    expect(logs.join('\n')).toMatch(/VERIFY UNAVAILABLE/);
+
+    expect(res._status).toBe(202);                            // acknowledged: we now own the retry
+    expect(res._body).toEqual({ ok: true, quarantined: true, applied: false });
+    expect(quarantine.quarantine).toHaveBeenCalledTimes(1);
+    expect(sesFeedback.ingestEvent).not.toHaveBeenCalled();   // NO recipient state applied
+    expect(logs.join('\n')).toMatch(/QUARANTINED, no state applied/);
+  });
+
+  test('if quarantining itself fails we refuse rather than apply unverified state', async () => {
+    webhookSignature.verifySns.mockImplementation(async () => ({
+      ok: false, status: 'verify_unavailable', reason: 'certificate unavailable',
+    }));
+    quarantine.quarantine.mockImplementation(async () => { throw new Error('db down'); });
+    const res = await call({ token: SECRET, body: JSON.stringify(notification()) });
+    expect(res._status).toBe(503);                            // the provider retries; nothing lost
+    expect(sesFeedback.ingestEvent).not.toHaveBeenCalled();
+    quarantine.quarantine.mockImplementation(async () => ({ quarantined: true, id: 'qr-1', duplicate: false }));
   });
 
   test('the shared secret is still required regardless of a valid signature', async () => {

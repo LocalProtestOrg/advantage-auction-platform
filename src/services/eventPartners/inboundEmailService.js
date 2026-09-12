@@ -213,8 +213,10 @@ async function applySafeAction(client, ctx) {
 async function ingest(normalized, meta) {
   normalized = normalized || {}; meta = meta || {};
   if (!meta.digest) throw err(400, 'NO_DIGEST', 'A payload digest is required.');
-  // Unverified payloads never reach the conversation store.
-  if (['verified', 'unsigned_accepted', 'verify_unavailable'].indexOf(meta.signatureStatus) === -1) {
+  // Unverified payloads never reach the conversation store. 'verify_unavailable' is deliberately NOT
+  // accepted here (migration 155): an inbound reply drives suppression and decline, which are
+  // recipient-affecting state, so an unauthenticated callback is quarantined by the caller instead.
+  if (['verified', 'unsigned_accepted'].indexOf(meta.signatureStatus) === -1) {
     throw err(403, 'UNVERIFIED_CALLBACK', 'Callback was not verified.');
   }
   const enabled = await configService.get(null, 'event_partners.inbound_enabled');

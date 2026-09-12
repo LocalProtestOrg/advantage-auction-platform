@@ -834,6 +834,9 @@ server.listen(PORT, () => {
     // Autonomous email dispatch. Claims due email_dispatch jobs and sends via the certified sendCampaignLive
     // path. Self-gates on marketing.a7_send_enabled (inert while A7 off); idempotent + bounded retry.
     spawnWorker(path.join(__dirname, 'src/workers/marketingDispatchWorker.js'));
+    // Re-verifies provider callbacks held because verification infrastructure was unavailable, and
+    // applies each exactly once when authenticity is finally established (migration 155).
+    spawnWorker(path.join(__dirname, 'src/workers/webhookQuarantineWorker.js'));
     // Autonomous ORGANIC social dispatch. Claims social_dispatch jobs and publishes via socialAdapter/Meta.
     // DOUBLE self-gated on marketing.a9_publish_enabled + marketing.destinations.meta_enabled (both OFF → inert).
     spawnWorker(path.join(__dirname, 'src/workers/marketingSocialDispatchWorker.js'));
