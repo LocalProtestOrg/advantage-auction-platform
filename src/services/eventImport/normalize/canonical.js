@@ -42,6 +42,28 @@ function intOrNull(v) { const n = parseInt(v, 10); return Number.isFinite(n) ? n
 function floatInRange(v, lo, hi) { const n = parseFloat(v); return Number.isFinite(n) && n >= lo && n <= hi ? n : null; }
 function stringArray(v, max) { const a = Array.isArray(v) ? v : (v == null || v === '' ? [] : String(v).split(/[;,|]/));
   return a.map((x) => text(x, 80)).filter(Boolean).slice(0, max || 25); }
+// US state/territory → USPS code. Connectors disagree (GSA sends "TX", txauction sends "Texas"), and a
+// split like TX/Texas fragments every state facet, map bucket and city page. One canonical form here fixes
+// every source at once. An unrecognised value is left as typed (never guessed, never dropped).
+const US_STATES = {
+  alabama: 'AL', alaska: 'AK', arizona: 'AZ', arkansas: 'AR', california: 'CA', colorado: 'CO', connecticut: 'CT',
+  delaware: 'DE', 'district of columbia': 'DC', florida: 'FL', georgia: 'GA', hawaii: 'HI', idaho: 'ID', illinois: 'IL',
+  indiana: 'IN', iowa: 'IA', kansas: 'KS', kentucky: 'KY', louisiana: 'LA', maine: 'ME', maryland: 'MD',
+  massachusetts: 'MA', michigan: 'MI', minnesota: 'MN', mississippi: 'MS', missouri: 'MO', montana: 'MT',
+  nebraska: 'NE', nevada: 'NV', 'new hampshire': 'NH', 'new jersey': 'NJ', 'new mexico': 'NM', 'new york': 'NY',
+  'north carolina': 'NC', 'north dakota': 'ND', ohio: 'OH', oklahoma: 'OK', oregon: 'OR', pennsylvania: 'PA',
+  'puerto rico': 'PR', 'rhode island': 'RI', 'south carolina': 'SC', 'south dakota': 'SD', tennessee: 'TN',
+  texas: 'TX', utah: 'UT', vermont: 'VT', virginia: 'VA', 'virgin islands': 'VI', washington: 'WA',
+  'west virginia': 'WV', wisconsin: 'WI', wyoming: 'WY', guam: 'GU', 'american samoa': 'AS',
+};
+function normalizeState(v) {
+  const t = collapse(v);
+  if (!t) return null;
+  const compact = t.toLowerCase().replace(/[^a-z ]+/g, '').replace(/\s+/g, ' ').trim();
+  if (/^[a-z]{2}$/.test(compact)) return compact.toUpperCase();      // "TX", "tx", "N.Y." → NY
+  return US_STATES[compact] || text(t, 40);                          // full name → code; anything else as typed
+}
+
 function isoOrNull(v) { if (!v) return null; try { const d = v instanceof Date ? v : new Date(v); return isNaN(d.getTime()) ? null : d.toISOString(); } catch (e) { return null; } }
 function localDateOrNull(v) { const t = collapse(v); return /^\d{4}-\d{2}-\d{2}$/.test(t) ? t : null; }
 
@@ -105,7 +127,7 @@ function sanitizeCanonical(draft) {
     venue_name: text(draft.venue_name, 200) || null,
     address: text(draft.address, 300) || null,
     city: text(draft.city, 120) || null,
-    state: text(draft.state, 40) || null,
+    state: normalizeState(draft.state),
     zip: text(draft.zip, 12) || null,
     lat: floatInRange(draft.lat, -90, 90),
     lng: floatInRange(draft.lng, -180, 180),
@@ -156,5 +178,5 @@ function imagesHash(c) { return sha256(JSON.stringify((c.images || []).map((im) 
 module.exports = {
   CANONICAL_FIELDS, DEFAULT_TZ,
   text, plainText, url, email, phone, boolOrNull, intOrNull, floatInRange, stringArray, isoOrNull, localDateOrNull,
-  normalizeUrlForHash, sha256, endOfLocalDay, deriveEndAt, sanitizeCanonical, contentHash, imagesHash,
+  normalizeUrlForHash, sha256, endOfLocalDay, deriveEndAt, sanitizeCanonical, contentHash, imagesHash, normalizeState, US_STATES,
 };

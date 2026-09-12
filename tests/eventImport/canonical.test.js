@@ -76,3 +76,28 @@ describe('sanitizeCanonical + hashing', () => {
     expect(h1).not.toBe(h3);
   });
 });
+
+describe('state normalisation (one canonical form across sources)', () => {
+  const c = require('../../src/services/eventImport/normalize/canonical');
+  test('full names, codes and punctuated codes all collapse to the USPS code', () => {
+    expect(c.normalizeState('Texas')).toBe('TX');
+    expect(c.normalizeState('texas')).toBe('TX');
+    expect(c.normalizeState('TX')).toBe('TX');
+    expect(c.normalizeState(' tx ')).toBe('TX');
+    expect(c.normalizeState('N.Y.')).toBe('NY');
+    expect(c.normalizeState('new  mexico')).toBe('NM');
+    expect(c.normalizeState('District of Columbia')).toBe('DC');
+    expect(c.normalizeState('Puerto Rico')).toBe('PR');
+  });
+  test('unknown values are kept as typed and empties become null — never guessed', () => {
+    expect(c.normalizeState('Queensland')).toBe('Queensland');
+    expect(c.normalizeState('')).toBeNull();
+    expect(c.normalizeState(null)).toBeNull();
+    expect(c.normalizeState(undefined)).toBeNull();
+  });
+  test('sanitizeCanonical applies it, so GSA ("TX") and txauction ("Texas") land in the same bucket', () => {
+    expect(c.sanitizeCanonical({ title: 'A', state: 'Texas' }).state).toBe('TX');
+    expect(c.sanitizeCanonical({ title: 'B', state: 'TX' }).state).toBe('TX');
+    expect(c.sanitizeCanonical({ title: 'C' }).state).toBeNull();
+  });
+});
