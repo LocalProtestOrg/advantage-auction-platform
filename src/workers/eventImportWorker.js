@@ -157,7 +157,13 @@ function lastExpectedWindow(schedule, nowDate = new Date()) {
     const cand = new Date(nowDate.getTime() - h * 3.6e6);
     const et = etNow(cand);
     if (set.includes(et.weekday) && et.hour === schedule.hour) {
-      return { at: cand, iso: cand.toISOString(), et_date: et.date,
+      // The window is the TOP of that scheduled hour, not "now minus h hours" — walking back by whole hours
+      // keeps the caller's minutes/seconds, which would put the window LATER than the run that served it
+      // (a 03:04 ET run judged against an 03:32 "window" looked missed on every later health check and
+      // emailed the Owner a false "no successful import" alert every day). US Eastern is a whole-hour
+      // offset, so flooring the UTC instant to the hour is exactly the ET hour boundary.
+      const top = new Date(Math.floor(cand.getTime() / 3.6e6) * 3.6e6);
+      return { at: top, iso: top.toISOString(), et_date: et.date,
         label: WD_LONG[et.weekday] + ' ' + et.date + ' at ' + String(schedule.hour).padStart(2, '0') + ':00 ET' };
     }
   }
@@ -216,10 +222,10 @@ async function runOneSource(source, o) {
       return { source: source.key, ok: true, claimed: false, reason: r.reason, counters: {} };
     }
     const out = {
-      source: source.key, ok: true, applied: apply, dryRun: !apply,
+      source: source.key, ok: true, kind: source.kind || null, applied: apply, dryRun: !apply,
       runId: (r && r.runId) || null, status: (r && r.status) || 'completed',
       capped: !!(r && r.capped), remainingAvailable: r && r.remainingAvailable,
-      counters: (r && r.counters) || {}, duration_ms: Date.now() - startedMs,
+      counters: (r && r.counters) || {}, reasons: (r && r.reasons) || {}, duration_ms: Date.now() - startedMs,
     };
     logLine({ evt: 'source_done', source: source.key, status: out.status, capped: out.capped, counters: out.counters, dryRun: out.dryRun });
     return out;
@@ -227,7 +233,7 @@ async function runOneSource(source, o) {
     // Whole-source failure (e.g. connector unreachable). The engine already finished the run row as
     // 'failed'; we record it and keep going with the other sources.
     logLine({ evt: 'source_failed', source: source.key, error: String(e && e.message) });
-    return { source: source.key, ok: false, error: String(e && e.message), counters: {}, duration_ms: Date.now() - startedMs };
+    return { source: source.key, ok: false, kind: source.kind || null, error: String(e && e.message), counters: {}, duration_ms: Date.now() - startedMs };
   }
 }
 
@@ -252,7 +258,7 @@ function summarize(scheduledFor, startedMs, results, extra) {
     sources_ok: results.filter((r) => r.ok !== false).length,
     sources_failed: results.filter((r) => r.ok === false).length,
     counts: agg,
-    sources: results.map((r) => ({ source: r.source, ok: r.ok !== false, status: r.status || null, runId: r.runId || null, capped: !!r.capped, counters: r.counters || {}, error: r.error || null })),
+    sources: results.map((r) => ({ source: r.source, ok: r.ok !== false, kind: r.kind || null, status: r.status || null, runId: r.runId || null, capped: !!r.capped, counters: r.counters || {}, reasons: r.reasons || {}, error: r.error || null })),
   }, extra || {});
 }
 
@@ -284,6 +290,8 @@ async function runScheduledCycle(scheduledFor, opts) {
     // Only for real scheduled cycles (not manual dry-runs) and only when import emails are enabled.
     if (trigger === 'scheduled' && importEmailsOn()) {
       try {
+        // Attach the live public inventory so the email answers "what is live now?", not only "what changed?".
+        try { summary.inventory = await health.inventorySnapshot(db); } catch (_) { summary.inventory = null; }
         const msg = reportEmail.buildRunSummaryEmail(summary);
         await sendEmail({ to: 'info@advantage.bid', subject: msg.subject, text: msg.text });
         logLine({ evt: 'run_summary_emailed', state: msg.subject });

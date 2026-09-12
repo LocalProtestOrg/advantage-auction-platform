@@ -57,6 +57,15 @@ function conciseReason(err) {
   return s.slice(0, 100);
 }
 
+// A manual CSV/paste source that returned rows but nothing new or updated is a STALE EXPORT: it can never
+// add supply again until someone pastes a fresh export. Saying so is the difference between "healthy run,
+// nothing new" and "this source is frozen and needs a human".
+function isStaleManualCsv(x) {
+  const c = x.counters || {};
+  return x.ok !== false && String(x.kind || '').toLowerCase() === 'csv'
+    && (c.fetched || 0) > 0 && (c.created || 0) === 0 && (c.updated || 0) === 0;
+}
+
 function perSourceLine(x) {
   const c = x.counters || {};
   const rejected = (c.skipped_quality || 0) + (c.skipped_ambiguous || 0);
@@ -66,7 +75,28 @@ function perSourceLine(x) {
   if (rejected) bits.push(`rejected ${rejected}`);
   if (c.failed) bits.push(`failed ${c.failed}`);
   if (x.capped) bits.push('weekly cap reached');
+  if (isStaleManualCsv(x)) bits.push('MANUAL EXPORT — nothing new (re-export to refresh this source)');
+  const why = reasonSummary(x.reasons);
+  if (why) bits.push('why: ' + why);
   return `  • ${x.source}: ${bits.join(', ')}`;
+}
+
+// Human-readable "what was rejected and why" from the engine's reason tally ({ "rejected_quality:missing:location": 3 }).
+function reasonSummary(reasons) {
+  const e = Object.entries(reasons || {}).filter(([, n]) => n > 0).sort((a, b) => b[1] - a[1]);
+  if (!e.length) return '';
+  return e.slice(0, 4).map(([k, n]) => `${n} ${k.replace(/^rejected_/, '').replace(/_/g, ' ')}`).join(', ');
+}
+
+// "What is live right now" — the number the Owner judges the feed by, independent of what this run changed.
+function inventoryLines(inv) {
+  if (!inv) return [];
+  const ai = inv.auction_inventory || {};
+  return ['', 'Live public inventory (now):',
+    `  Auction events:    ${inv.active_auctions != null ? inv.active_auctions : '?'}${ai.status ? ' (' + ai.status + ' vs target ' + ai.target + ')' : ''}`,
+    `  Estate sales:      ${inv.active_estate_sales != null ? inv.active_estate_sales : '?'}`,
+    `  Total active:      ${inv.total_active_public != null ? inv.total_active_public : '?'}`,
+    `  Last successful import: ${inv.last_success_run || 'never'}`];
 }
 
 // Build { subject, text } for the per-run summary email.
@@ -77,6 +107,7 @@ function buildRunSummaryEmail(summary) {
   const rejected = (s.sources || []).reduce((n, x) => n + (((x.counters || {}).skipped_quality || 0) + ((x.counters || {}).skipped_ambiguous || 0)), 0);
   const durationMin = s.duration_ms != null ? (s.duration_ms / 60000).toFixed(1) : '?';
   const subject = `Advantage.Bid Event Import — ${state}`;
+  const staleCsv = (s.sources || []).filter(isStaleManualCsv).map((x) => x.source);
   const lines = [
     `Event import run: ${state}`,
     '',
@@ -92,7 +123,10 @@ function buildRunSummaryEmail(summary) {
     '',
     'Per source:',
     ...(s.sources || []).map(perSourceLine),
+    ...inventoryLines(s.inventory),
     '',
+    ...(staleCsv.length ? [`Manual exports with nothing new: ${staleCsv.join(', ')}. These are pasted CSV exports —`
+      + ' they cannot add new events until a fresh export is pasted in Admin → Event Import.', ''] : []),
     state === 'NO NEW EVENTS'
       ? 'This is a healthy run — the importer reached every source and found no genuinely new qualifying events (everything was already known). No action needed.'
       : (state === 'SUCCESS' ? 'New and/or updated events were imported successfully.'
@@ -104,4 +138,4 @@ function buildRunSummaryEmail(summary) {
   return { subject, text: lines.join('\n') };
 }
 
-module.exports = { PIPELINE_FAILURE_CODES, emailableCriticals, classifyRun, buildRunSummaryEmail, conciseReason };
+module.exports = { PIPELINE_FAILURE_CODES, emailableCriticals, classifyRun, buildRunSummaryEmail, conciseReason, isStaleManualCsv, inventoryLines, reasonSummary };

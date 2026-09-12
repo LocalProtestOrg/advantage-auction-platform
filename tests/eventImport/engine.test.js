@@ -115,3 +115,19 @@ describe('runImport — apply persists via the writer + run ledger', () => {
     expect(writer.publishImported).toHaveBeenCalledTimes(2);
   });
 });
+
+describe('runImport — reason breakdown (audit + owner report)', () => {
+  test('rejected records are tallied by outcome+reason and returned/persisted as run stats', async () => {
+    const db = fakeDb({ src: source() });
+    const res = await runImport({ sourceKey: 'csv-test', db, apply: false });
+    // CSV3 row E2 has no title → rejected at validation, and the engine must say WHY.
+    expect(res.counters.skipped_quality).toBeGreaterThan(0);
+    const keys = Object.keys(res.reasons || {});
+    expect(keys.length).toBeGreaterThan(0);
+    expect(keys.every((k) => /^(rejected_quality|ambiguous|failed)/.test(k))).toBe(true);
+    const total = Object.values(res.reasons).reduce((a, b) => a + b, 0);
+    expect(total).toBe(res.counters.skipped_quality + res.counters.skipped_ambiguous + res.counters.failed);
+    // created/updated/unchanged are NOT reasons (they are not rejections)
+    expect(keys.some((k) => /^(created|updated|unchanged)/.test(k))).toBe(false);
+  });
+});

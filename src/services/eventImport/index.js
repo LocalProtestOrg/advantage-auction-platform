@@ -58,6 +58,7 @@ async function runImport(opts) {
   }
 
   const counters = { fetched: 0, eligible: 0, created: 0, updated: 0, skipped_duplicate: 0, skipped_quality: 0, skipped_ambiguous: 0, images_queued: 0, failed: 0 };
+  const reasons = {};   // outcome+reason → count (e.g. "rejected_quality:missing:location": 3)
   const items = [];
   let created = 0, capped = false;
 
@@ -103,18 +104,22 @@ async function runImport(opts) {
 
       const ck = runLog.counterFor(outcome);
       if (ck) counters[ck] = (counters[ck] || 0) + 1;
+      if (outcome !== 'created' && outcome !== 'updated' && outcome !== 'unchanged') {
+        const key = outcome + (reason ? ':' + reason : '');
+        reasons[key] = (reasons[key] || 0) + 1;
+      }
       items.push({ sourceEventId: rec.sourceEventId, eventId, outcome, matchVia, marketVia, reason, error, possibleDuplicate: false });
       if (apply && run) await runLog.recordItem(db, run.id, { sourceEventId: rec.sourceEventId, eventId, outcome, matchVia, marketVia, reason, error, rawExcerpt: raw && raw.payload });
     }
   } catch (e) {
-    if (apply && run) await runLog.finishRun(db, run.id, { status: 'failed', counters, capped, lastError: String(e && e.message) }).catch(() => {});
+    if (apply && run) await runLog.finishRun(db, run.id, { status: 'failed', counters, capped, lastError: String(e && e.message), stats: { reasons } }).catch(() => {});
     throw e;
   }
 
   const status = counters.failed > 0 ? 'partial' : 'completed';
-  if (apply && run) await runLog.finishRun(db, run.id, { status, counters, capped, remainingAvailable: capped ? 0 : Math.max(0, cap - created) });
+  if (apply && run) await runLog.finishRun(db, run.id, { status, counters, capped, remainingAvailable: capped ? 0 : Math.max(0, cap - created), stats: { reasons } });
 
-  return { applied: apply, claimed: apply ? true : undefined, runId: run && run.id, status, capped, remainingAvailable: Math.max(0, cap - created), counters, items };
+  return { applied: apply, claimed: apply ? true : undefined, runId: run && run.id, status, capped, remainingAvailable: Math.max(0, cap - created), counters, reasons, items };
 }
 
 module.exports = { runImport };
