@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="noindex, nofollow" />
+  <title>Claim Your Listing — Advantage.Bid</title>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <link rel="stylesheet" href="/marketplace.css" />
+  <style>
+    body { background:#f8fafc; }
+    .wrap { max-width:560px; margin:0 auto; padding:2.5rem 1.25rem 4rem; }
+    .brand { text-align:center; margin-bottom:1.75rem; }
+    .brand a { font-size:1.05rem; font-weight:800; letter-spacing:-0.02em; color:#0f172a; text-decoration:none; }
+    .card { background:#fff; border:1px solid #e5e7eb; border-radius:16px; padding:2rem 1.75rem; box-shadow:0 1px 3px rgba(15,23,42,0.06); }
+    h1 { font-size:1.6rem; font-weight:800; letter-spacing:-0.03em; margin:0 0 0.6rem; }
+    p { font-size:0.95rem; color:#334155; line-height:1.6; margin:0 0 0.9rem; }
+    .btn { display:block; width:100%; text-align:center; font-size:1rem; font-weight:700; padding:0.9rem 1.5rem; border-radius:10px; border:0; cursor:pointer; background:#2563eb; color:#fff; text-decoration:none; }
+    .btn:hover { background:#1d4ed8; }
+    .btn:disabled { background:#93c5fd; cursor:not-allowed; }
+    .msg { border-radius:10px; padding:1rem 1.1rem; font-size:0.92rem; line-height:1.55; margin-bottom:1rem; }
+    .msg-err { background:#fef2f2; border:1px solid #fecaca; color:#991b1b; }
+    .fineprint { font-size:0.82rem; color:#64748b; text-align:center; margin-top:0.9rem; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="brand"><a href="/">Advantage.Bid</a></div>
+    <div id="app" aria-live="polite"><div class="card"><p>Loading…</p></div></div>
+  </div>
+<script>
+(function () {
+  'use strict';
+  var app = document.getElementById('app');
+  var qs = new URLSearchParams(location.search);
+  var claimToken = qs.get('token') || '';
+  var orgId = qs.get('org') || '';
+  var token = null; try { token = localStorage.getItem('token'); } catch (e) {}
+
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+  function card(html) { app.innerHTML = '<div class="card">' + html + '</div>'; }
+  function fail(m) { card('<div class="msg msg-err">' + esc(m) + '</div><p class="fineprint">Contact Advantage.Bid and we will send a new invitation.</p>'); }
+
+  if (!claimToken || !orgId) { fail('This claim link is incomplete. Please use the full link from your invitation.'); return; }
+
+  // The claim link is bound to one email address AND requires a signed-in, verified account with that
+  // address — holding the link is deliberately not enough on its own.
+  if (!token) {
+    card('<h1>Claim your listing</h1>'
+      + '<p>Sign in with the email address this invitation was sent to, and we will bring you straight back here.</p>'
+      + '<a class="btn" href="/login.html?next=' + encodeURIComponent(location.pathname + location.search) + '">Sign in to continue</a>'
+      + '<p class="fineprint">No account yet? Create one with that same email address.</p>');
+    return;
+  }
+
+  card('<h1>Claim your listing</h1>'
+    + '<p>This connects your Advantage.Bid account to your company’s listing so you can manage it.</p>'
+    + '<button class="btn" id="go" type="button">Claim this listing</button>'
+    + '<p class="fineprint">You must be signed in with the invited email address, and it must be verified.</p>');
+
+  document.getElementById('go').addEventListener('click', function () {
+    var btn = this;
+    btn.disabled = true; btn.textContent = 'Claiming…';
+    fetch('/api/org/claim/' + encodeURIComponent(orgId), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+      body: JSON.stringify({ claim_token: claimToken }),
+    })
+      .then(function (r) { return r.json().then(function (b) { return { ok: r.ok, body: b }; }); })
+      .then(function (res) {
+        if (!res.ok || !res.body.success) {
+          btn.disabled = false; btn.textContent = 'Claim this listing';
+          fail(res.body.message || 'We could not complete this claim.');
+          return;
+        }
+        location.href = '/org/profile.html?claimed=1&next=submit';
+      })
+      .catch(function () {
+        btn.disabled = false; btn.textContent = 'Claim this listing';
+        fail('We could not complete this claim. Please check your connection and try again.');
+      });
+  });
+})();
+</script>
+</body>
+</html>

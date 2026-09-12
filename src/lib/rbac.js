@@ -22,6 +22,9 @@ const PERMISSIONS = [
   'sales.view', 'sales.manage_prospects', 'sales.edit_scripts', 'sales.view_demo',
   'sales.send_email',   // send 1:1 representative prospect outreach (as the assigned rep's identity)
   'sales.manage_reps',  // approve/manage rep outreach identities (Super Admin / owner only)
+  // Event Partner programme (authorization registry, per-company sources, host attribution)
+  'event_partners.view',    // read the partner dashboard, sources, performance and audit trail
+  'event_partners.manage',  // register, mint links, validate/activate sources, attribute, revoke
   // Auction operations
   'auctions.view', 'auctions.create', 'auctions.edit', 'auctions.manage_catalog', 'auctions.submit',
   // Auction approval
@@ -47,7 +50,10 @@ const ROLES = {
     label: 'Marketing / Sales',
     // Marketing/Sales reps can view + manage prospects + send their own 1:1 outreach. They do NOT get
     // sales.manage_reps (approving outreach sender identities is a Super-Admin/owner action).
-    permissions: ['sales.view', 'sales.manage_prospects', 'sales.edit_scripts', 'sales.view_demo', 'sales.send_email'],
+    // Read-only on Event Partners: minting authorization links, validating sources and revoking
+    // permission stay with the Super Admin / owner in Phase 1.
+    permissions: ['sales.view', 'sales.manage_prospects', 'sales.edit_scripts', 'sales.view_demo', 'sales.send_email',
+      'event_partners.view'],
   },
   auction_ops: {
     label: 'Auction Operations',

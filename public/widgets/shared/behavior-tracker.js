@@ -71,6 +71,9 @@
       var ctx = {};
       if (window.__ADV_CATEGORY_KEY) ctx.category_key = String(window.__ADV_CATEGORY_KEY);
       if (window.__ADV_AUCTION_ID) ctx.auction_id = String(window.__ADV_AUCTION_ID);
+      // Event pages publish their event id so a page_view can be attributed to the event. The host
+      // company is resolved server-side from that id, never sent by the browser.
+      if (window.__ADV_EVENT_ID) ctx.event_id = String(window.__ADV_EVENT_ID);
       if (window.AAPAnalytics && window.AAPAnalytics.page) { window.AAPAnalytics.page(ctx); captureTouch(); return; }
       // AAPAnalytics not present → load it, then fire once.
       var s = document.createElement('script');

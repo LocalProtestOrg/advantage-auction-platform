@@ -30,6 +30,11 @@ const KNOWN_EVENT_TYPES = new Set([
   'city_page_visit',
   'seller_onboarding_start',
   'seller_onboarding_complete',
+  // Event Partner measurement (migration 153). These are the ONLY basis for anything we ever tell a
+  // company about its performance, so they must be first-party, deduplicated and never inflated.
+  'event_view',
+  'event_outbound_click',
+  'storefront_view',
 ]);
 
 const UUID_RE            = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -84,6 +89,26 @@ function sanitizeMetadata(raw) {
   return safe;
 }
 
+// ── Host organization resolution ───────────────────────────────────────────────
+// Small, short-TTL cache: an event's host company changes rarely, and a busy event page would
+// otherwise issue one lookup per beacon. A miss is cached too, so an unattributed event does not
+// re-query on every view.
+const HOST_CACHE = new Map();
+const HOST_CACHE_TTL_MS = 5 * 60 * 1000;
+const HOST_CACHE_MAX = 500;
+
+async function resolveHostOrganization(eventId) {
+  try {
+    const hit = HOST_CACHE.get(eventId);
+    if (hit && (Date.now() - hit.at) < HOST_CACHE_TTL_MS) return hit.orgId;
+    const { rows } = await db.query('SELECT host_organization_id FROM events WHERE id = $1', [eventId]);
+    const orgId = (rows[0] && rows[0].host_organization_id) || null;
+    if (HOST_CACHE.size >= HOST_CACHE_MAX) HOST_CACHE.clear();
+    HOST_CACHE.set(eventId, { orgId, at: Date.now() });
+    return orgId;
+  } catch (e) { return null; }   // attribution is best-effort; the event row is still written
+}
+
 // ── insertEvent ────────────────────────────────────────────────────────────────
 
 /**
@@ -109,6 +134,14 @@ async function insertEvent(raw, ip) {
     const widgetName = safeText(raw.widget_name, 64);
     const auctionId  = safeUuid(raw.auction_id);
     const sellerId   = safeUuid(raw.seller_id);
+    // Event Partner attribution (migration 153): which EVENT was viewed/clicked, and which HOST
+    // organization it belongs to. Both are strict UUIDs or null — a malformed value is dropped, never
+    // coerced, so a bad client can never attribute activity to the wrong company.
+    const eventId    = safeUuid(raw.event_id);
+    // organization_id is NEVER taken from the client. These counts are what we show a company about
+    // its own performance, so the host company is resolved from the event id server-side; a browser
+    // cannot credit activity to a company it chooses. Unknown/unattributed event → null.
+    const orgId      = eventId ? await resolveHostOrganization(eventId) : null;
     const city       = safeText(raw.city, 128);
     const stateCode  = safeText(raw.state_code, 2);
     const clientTs   = safeTs(raw.client_ts);
@@ -141,12 +174,14 @@ async function insertEvent(raw, ip) {
       `INSERT INTO analytics_events
          (event_type, session_id, device_type, page_url, referrer,
           widget_name, auction_id, seller_id, city, state_code,
-          metadata, client_ts, ip_hash, visitor_id, page_intent, category_key, consent_state)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)`,
+          metadata, client_ts, ip_hash, visitor_id, page_intent, category_key, consent_state,
+          event_id, organization_id)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)`,
       [
         eventType, sessionId, deviceType, pageUrl, referrer,
         widgetName, auctionId, sellerId, city, stateCode,
         metaJson, clientTs, hashIp(ip), visitorId, pageIntentVal, categoryKey, consentState,
+        eventId, orgId,
       ]
     );
   } catch (err) {
@@ -169,4 +204,4 @@ async function insertBatch(events, ip) {
   await Promise.allSettled(batch.map(evt => insertEvent(evt, ip)));
 }
 
-module.exports = { insertEvent, insertBatch, KNOWN_EVENT_TYPES };
+module.exports = { insertEvent, insertBatch, KNOWN_EVENT_TYPES, _resolveHostOrganization: resolveHostOrganization, _HOST_CACHE: HOST_CACHE };

@@ -29,6 +29,7 @@ const ADMIN_PAGE_PERMISSIONS = {
   '/admin/marketing-campaigns.html': 'members.view',
   '/admin/audiences.html': 'members.view',
   '/admin/director.html': 'members.view',
+  '/admin/event-partners.html': 'event_partners.view',
 };
 
 // Tier requirements. Admin pages need 'admin'; clear seller-management pages need seller|admin;

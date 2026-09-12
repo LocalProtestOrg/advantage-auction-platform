@@ -13,6 +13,7 @@ const { generateUniqueSlug } = require('../../utils/slug');
 const { writeAuditLog } = require('../../lib/auditLog');
 const eventGeo = require('../eventGeocodingService');
 const { evaluatePublication } = require('./publicationGate');
+const hostAttribution = require('../eventPartners/hostAttributionService');
 
 /**
  * Persist the two-tier coordinates for a just-written event, in the SAME transaction.
@@ -134,6 +135,11 @@ async function createImported(client, ctx) {
   await applyGeo(client, eventId, ctx.geo);
   await insertImages(client, eventId, ctx.canonical.images);
   await writeProvenance(client, eventId, ctx);
+  // HOST attribution (migration 153). organization_id above is the OPERATING owner (the importing
+  // organization). If this source belongs to an authorized Event Partner, the event ALSO gets the
+  // company that actually conducted it, on events.host_organization_id. Never guessed: it fires only
+  // when the source is registered to a live authorization, and it is a no-op for every other source.
+  await hostAttribution.attributeFromSource(client, eventId, ctx.provenance && ctx.provenance.sourceId);
   await audit(client, 'event.imported.created', eventId, ctx, { market: (ctx.market || {}).marketSlug });
   return eventId;
 }

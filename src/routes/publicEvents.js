@@ -57,16 +57,30 @@ function serialize(r, images) {
   // that are PROFESSIONAL organizations. An individual/homeowner organizer (e.g. the $39 Estate Sale
   // Promotion auto-org, type NULL) is NEVER surfaced publicly — name/slug/logo stay private.
   const publicOrg = !imported && isPublicOrganizer(r.org_type);
-  const hostProfile = (publicOrg && r.org_slug)
+  // HOST organization (migration 153) — the company that actually conducted the sale, recorded only on
+  // proven evidence (events.host_organization_id). It is NOT e.organization_id, which for an imported
+  // event is the IMPORTING organization. When a host is proven, that company is the one the public sees
+  // and links to, including for an imported event: the sale belongs to the company that ran it, not to
+  // the infrastructure that discovered it. Still gated on the ordinary directory rules — a professional
+  // organization type with a published profile — so nothing becomes public that was not already.
+  const hostOrgPublic = !!(r.host_org_slug && isPublicOrganizer(r.host_org_type) && r.host_org_published === 'true');
+  const hostProfile = hostOrgPublic
     ? {
-        name: r.org_name, slug: r.org_slug, logo_url: r.org_logo || null,
-        website_url: (r.org_website && classifyExternalUrl(r.org_website).ok) ? r.org_website : undefined,
-        verification_status: r.org_verif,
+        name: r.host_org_name, slug: r.host_org_slug, logo_url: r.host_org_logo || null,
+        website_url: (r.host_org_website && classifyExternalUrl(r.host_org_website).ok) ? r.host_org_website : undefined,
+        verification_status: r.host_org_verif,
       }
-    : null;
+    : ((publicOrg && r.org_slug)
+      ? {
+          name: r.org_name, slug: r.org_slug, logo_url: r.org_logo || null,
+          website_url: (r.org_website && classifyExternalUrl(r.org_website).ok) ? r.org_website : undefined,
+          verification_status: r.org_verif,
+        }
+      : null);
   // Public host company NAME: imported → the actual organizer from the source listing; org/admin → the
   // org name ONLY for a professional organizer, else omitted (individual privacy).
-  const hostCompany = imported ? (r.organizer_name || undefined) : (publicOrg ? (r.org_name || undefined) : undefined);
+  const hostCompany = hostOrgPublic ? r.host_org_name
+    : (imported ? (r.organizer_name || undefined) : (publicOrg ? (r.org_name || undefined) : undefined));
   return {
     id: r.id, slug: r.slug, title: r.title, description: r.description,
     category: r.category_slug, market: r.market_slug,
@@ -110,8 +124,13 @@ router.get('/events', asyncRoute(async (req, res) => {
             e.sale_type, e.event_format,
             o.name AS org_name, o.slug AS org_slug, o.logo_url AS org_logo, o.website_url AS org_website,
             o.type AS org_type, o.verification_status AS org_verif,
+            h.name AS host_org_name, h.slug AS host_org_slug, h.logo_url AS host_org_logo,
+            h.website_url AS host_org_website, h.type AS host_org_type,
+            h.verification_status AS host_org_verif, (h.profile_data->>'published') AS host_org_published,
             ${coverImageSql('(SELECT url FROM event_images ei WHERE ei.event_id = e.id ORDER BY is_cover DESC, position ASC LIMIT 1)', 'e.external_url', 'e.sale_type')} AS cover_url
-       FROM events e LEFT JOIN organizations o ON o.id = e.organization_id
+       FROM events e
+       LEFT JOIN organizations o ON o.id = e.organization_id
+       LEFT JOIN organizations h ON h.id = e.host_organization_id
       WHERE ${where.join(' AND ')}
       ORDER BY e.is_featured DESC, e.start_at ASC
       LIMIT $${li} OFFSET $${oi}`, params);
@@ -160,8 +179,13 @@ router.get('/events/map', asyncRoute(async (req, res) => {
 router.get('/events/:slug', asyncRoute(async (req, res) => {
   const { rows } = await db.query(
     `SELECT e.*, o.name AS org_name, o.slug AS org_slug, o.logo_url AS org_logo, o.website_url AS org_website,
-            o.type AS org_type, o.verification_status AS org_verif
-       FROM events e LEFT JOIN organizations o ON o.id = e.organization_id
+            o.type AS org_type, o.verification_status AS org_verif,
+            h.name AS host_org_name, h.slug AS host_org_slug, h.logo_url AS host_org_logo,
+            h.website_url AS host_org_website, h.type AS host_org_type,
+            h.verification_status AS host_org_verif, (h.profile_data->>'published') AS host_org_published
+       FROM events e
+       LEFT JOIN organizations o ON o.id = e.organization_id
+       LEFT JOIN organizations h ON h.id = e.host_organization_id
       WHERE e.slug = $1 AND e.status = 'published' LIMIT 1`, [req.params.slug]);
   if (!rows.length) throw svcErr(404, 'EVENT_NOT_FOUND', 'Event not found.');
   const r = rows[0];

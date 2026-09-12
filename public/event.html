@@ -348,6 +348,45 @@
       + '</div>'
       + '<div id="related"></div>';
 
+    // ── Event Partner measurement (migration 153) ───────────────────────────────────────────────
+    // Two first-party signals, and nothing else, back everything we ever tell a host company about
+    // its performance: the event was viewed, and a visitor clicked through to the company's website.
+    //
+    // Both are deduplicated per event per SESSION. A re-render, a back-navigation or a double tap
+    // must never inflate a number a company will be shown. The host company is NOT sent from here —
+    // the server resolves it from the event id, so the browser cannot credit another company.
+    (function measure(ev) {
+      if (!ev || !ev.id) return;
+      window.__ADV_EVENT_ID = ev.id;   // also lets the shared page_view carry the event id
+      function once(key, fire) {
+        try {
+          var k = 'adv_ep_' + key + '_' + ev.id;
+          if (sessionStorage.getItem(k)) return;
+          sessionStorage.setItem(k, '1');
+        } catch (e) { /* storage blocked → still fire once per page load */ }
+        try { fire(); } catch (e) { /* measurement must never break the page */ }
+      }
+      function track(type, meta) {
+        if (window.AAPAnalytics && window.AAPAnalytics.track) {
+          window.AAPAnalytics.track(type, meta || {}, { event_id: ev.id });
+        }
+      }
+      once('view', function () { track('event_view', { has_host_cta: !!ev.host_external_url }); });
+
+      // The outbound CTA keeps target="_blank" + rel="nofollow noopener noreferrer" exactly as before;
+      // we only observe the click. keepalive on the beacon means the navigation never races it.
+      var cta = content.querySelector('.hostcta a.btn');
+      if (cta) {
+        cta.addEventListener('click', function () {
+          once('outclick', function () {
+            track('event_outbound_click', { destination_host: (function () {
+              try { return new URL(cta.href).hostname; } catch (e) { return null; }
+            })() });
+          });
+        });
+      }
+    })(e);
+
     // Wire photo clicks (hero + thumbnails) → lightbox, with keyboard support.
     Array.prototype.forEach.call(content.querySelectorAll('[data-lb]'), function (el) {
       var idx = parseInt(el.getAttribute('data-lb'), 10) || 0;
@@ -361,6 +400,7 @@
 </script>
 <!-- Return-to-Auction: shared, self-expiring floating control (Phase 2 reach expansion). -->
 <script src="/widgets/shared/return-to-auction.js"></script>
+<script src="/widgets/shared/analytics.js" defer></script>
 <script src="/widgets/shared/behavior-tracker.js" defer></script>
 </body>
 </html>

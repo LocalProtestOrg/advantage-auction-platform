@@ -38,7 +38,12 @@ describe('every public events surface anonymizes an individual organizer', () =>
     expect(pubEvents).toContain("require('../lib/organizerPrivacy')");
     expect(pubEvents).toMatch(/o\.type AS org_type/);                 // org type selected for the gate
     expect(pubEvents).toMatch(/publicOrg = !imported && isPublicOrganizer\(r\.org_type\)/); // serializer gate
-    expect(pubEvents).toMatch(/hostCompany = imported \? \(r\.organizer_name \|\| undefined\) : \(publicOrg \?/);
+    // A PROVEN host organization (migration 153) takes precedence, and is itself gated on a professional
+    // org type AND a published profile — so an individual/homeowner host can never be surfaced either.
+    expect(pubEvents).toMatch(/hostOrgPublic = !!\(r\.host_org_slug && isPublicOrganizer\(r\.host_org_type\) && r\.host_org_published === 'true'\)/);
+    expect(pubEvents).toMatch(/hostCompany = hostOrgPublic \? r\.host_org_name/);
+    // …and the original organizer gate remains the fallback, unchanged.
+    expect(pubEvents).toMatch(/\(imported \? \(r\.organizer_name \|\| undefined\) : \(publicOrg \?/);
     // /events/map host is gated too
     expect(pubEvents).toMatch(/isPublicOrganizer\(r\.org_type\) \? \(r\.org_name \|\| undefined\) : undefined/);
   });

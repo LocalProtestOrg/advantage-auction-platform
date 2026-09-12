@@ -19,6 +19,7 @@ const { withTransaction } = require('../utils/withTransaction');
 const { svcErr } = require('./organizationsService');
 const { computeMatchKey } = require('./organizationMatchingService');
 const { generateUniqueSlug } = require('../utils/slug');
+const claimSecurity = require('./organizationClaimSecurityService');
 
 const VERIFY_CAPABILITIES = ['organizations', 'events', 'widgets'];
 const ACTIVATE_CAPABILITIES = ['auctions', 'imports', 'shipping'];
@@ -59,8 +60,22 @@ async function createShell(input = {}) {
   });
 }
 
-/** A user claims a claimable shell → becomes owner, state 'claimed'. Grants NO capabilities. */
-async function claim(userId, orgId) {
+/**
+ * A user claims a claimable shell → becomes owner, state 'claimed'. Grants NO capabilities.
+ *
+ * SECURITY (migration 153): claiming now requires PROOF of entitlement. Previously any authenticated
+ * user could claim any unclaimed listing — first authenticated user wins — which, with 336 imported
+ * directory listings and an Event Partner programme populating them with real companies' events, let
+ * a stranger take over a company's presence. organizationClaimSecurityService.verifyClaimProof
+ * enforces the ladder (single-use recipient-bound claim token, or a verified company-domain email) and
+ * writes an organization_claim_attempts row for every attempt, granted or denied.
+ *
+ * @param {string} userId
+ * @param {string} orgId
+ * @param {{claimToken?: string, ip?: string, adminOverride?: boolean, actorId?: string}} [opts]
+ */
+async function claim(userId, orgId, opts) {
+  opts = opts || {};
   if (!userId) throw svcErr(401, 'UNAUTHENTICATED', 'Sign in required.');
   return withTransaction(async (client) => {
     const org = await lockOrg(client, orgId);
@@ -71,13 +86,32 @@ async function claim(userId, orgId) {
     if (!['prospect', 'directory_listing', 'inactive'].includes(org.lifecycle_state)) {
       throw svcErr(409, 'NOT_CLAIMABLE', `Organization is not claimable (state: ${org.lifecycle_state}).`);
     }
+
+    // ── Entitlement proof. Nothing below runs until one rung of the ladder holds. ────────────────
+    let proof;
+    if (opts.adminOverride === true) {
+      // An administrator assigning ownership on a company's behalf (e.g. a phone request). Recorded
+      // as admin_override with the acting administrator, never as the claimant's own proof.
+      if (!opts.actorId) throw svcErr(401, 'ACTOR_REQUIRED', 'An acting administrator is required.');
+      proof = { proofMethod: 'admin_override', claimTokenId: null, ipHash: claimSecurity.hashIpForClaim(opts.ip) };
+    } else {
+      const claimant = await claimSecurity.loadClaimant(client, userId);
+      if (!claimant) throw svcErr(404, 'USER_NOT_FOUND', 'User not found.');
+      proof = await claimSecurity.verifyClaimProof(client, claimant, orgId, { claimToken: opts.claimToken, ip: opts.ip });
+    }
+
     await client.query(
       `INSERT INTO organization_members (organization_id, user_id, role, status) VALUES ($1,$2,'owner','active')
        ON CONFLICT (organization_id, user_id) DO UPDATE SET role='owner', status='active'`, [orgId, userId]);
     const { rows } = await client.query(
       "UPDATE organizations SET lifecycle_state='claimed', updated_at=now() WHERE id=$1 RETURNING *", [orgId]);
+    await claimSecurity.recordAttempt(client, {
+      organizationId: orgId, userId, outcome: 'granted', proofMethod: proof.proofMethod,
+      claimTokenId: proof.claimTokenId, ipHash: proof.ipHash, detail: proof.detail || {},
+    });
     await auditService.logEvent(client, {
-      eventType: 'organization.claimed', entityType: 'organization', entityId: orgId, actorId: userId, metadata: {},
+      eventType: 'organization.claimed', entityType: 'organization', entityId: orgId, actorId: userId,
+      metadata: { proof_method: proof.proofMethod, claim_token_id: proof.claimTokenId || null },
     });
     return rows[0]; // NO capabilities granted at claim (Constitution §22)
   });

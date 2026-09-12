@@ -89,7 +89,7 @@
     function money(c){return '$'+((c||0)/100).toLocaleString(undefined,{minimumFractionDigits:0});}
     function fmtDate(v){try{var dt=new Date(v);if(isNaN(dt))return '';return dt.toLocaleDateString(undefined,{month:'short',day:'numeric'});}catch(e){return '';}}
     function toast(m){var t=document.getElementById('toast');t.textContent=m;t.style.display='block';setTimeout(function(){t.style.display='none';},2600);}
-    function ping(type,extra){try{navigator.sendBeacon&&navigator.sendBeacon('/api/analytics/events',new Blob([JSON.stringify(Object.assign({type:type,seller_id:(DATA&&DATA.seller&&DATA.seller.id)||null},extra||{}))],{type:'application/json'}));}catch(e){}}
+    function ping(type,extra){try{navigator.sendBeacon&&navigator.sendBeacon('/api/analytics/events',new Blob([JSON.stringify(Object.assign({event_type:type,seller_id:(DATA&&DATA.seller&&DATA.seller.id)||null},extra||{}))],{type:'application/json'}));}catch(e){}}
     var DATA=null;
 
     fetch('/api/public/storefront/'+encodeURIComponent(SLUG)).then(function(r){return r.json();}).then(function(res){

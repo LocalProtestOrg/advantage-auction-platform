@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="noindex, nofollow" />
+  <title>Event Partners - Advantage Admin</title>
+  <style>
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#f8fafc;color:#0f172a}
+    .wrap{max-width:1240px;margin:0 auto;padding:1rem}
+    h1{font-size:1.35rem;margin:.4rem 0 .2rem}
+    .sub{color:#64748b;font-size:.85rem;margin-bottom:1rem}
+    .card{background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:1.1rem 1.2rem;margin-bottom:1rem}
+    .card h2{font-size:1rem;margin-bottom:.5rem}
+    .muted{color:#64748b}
+    .gates{display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:1rem}
+    .gate{font-size:.75rem;font-weight:700;padding:.3rem .7rem;border-radius:99px;border:1px solid}
+    .gate.on{background:#ecfdf5;border-color:#a7f3d0;color:#065f46}
+    .gate.off{background:#f1f5f9;border-color:#e2e8f0;color:#475569}
+    .filters{display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:.8rem}
+    input,select{font:inherit;font-size:.85rem;padding:.45rem .6rem;border:1px solid #cbd5e1;border-radius:8px;background:#fff}
+    table{width:100%;border-collapse:collapse;font-size:.82rem}
+    th,td{text-align:left;padding:.55rem .5rem;border-bottom:1px solid #e2e8f0;vertical-align:top}
+    th{font-size:.72rem;text-transform:uppercase;letter-spacing:.05em;color:#64748b;font-weight:700}
+    tbody tr:hover{background:#f8fafc;cursor:pointer}
+    .pill{display:inline-block;font-size:.7rem;font-weight:700;padding:.2rem .55rem;border-radius:99px;white-space:nowrap}
+    .s-prospective{background:#f1f5f9;color:#475569}
+    .s-invited{background:#eff6ff;color:#1d4ed8}
+    .s-authorized{background:#ecfdf5;color:#065f46}
+    .s-source_configured{background:#f0fdfa;color:#0f766e}
+    .s-collecting{background:#dcfce7;color:#166534}
+    .s-paused{background:#fef3c7;color:#92400e}
+    .s-revoked,.s-declined,.s-expired{background:#fee2e2;color:#991b1b}
+    .btn{font:inherit;font-size:.8rem;font-weight:700;padding:.45rem .85rem;border-radius:8px;border:1px solid #cbd5e1;background:#fff;color:#0f172a;cursor:pointer}
+    .btn-primary{background:#2563eb;border-color:#2563eb;color:#fff}
+    .btn-danger{background:#fff;border-color:#fecaca;color:#b91c1c}
+    .btn:disabled{opacity:.5;cursor:not-allowed}
+    .row{display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;margin-top:.6rem}
+    #drawer{position:fixed;top:var(--admin-nav-h,0px);right:0;width:min(640px,96vw);height:calc(100% - var(--admin-nav-h,0px));background:#fff;box-shadow:-8px 0 30px rgba(0,0,0,.15);padding:1.2rem;overflow-y:auto;display:none;z-index:50}
+    #drawer h2{font-size:1.05rem;margin-bottom:.2rem}
+    #drawer h3{font-size:.78rem;text-transform:uppercase;letter-spacing:.06em;color:#64748b;margin:1.2rem 0 .4rem}
+    .kv{display:grid;grid-template-columns:150px 1fr;gap:.3rem .8rem;font-size:.83rem}
+    .kv dt{color:#64748b}
+    .linkbox{background:#0f172a;color:#e2e8f0;border-radius:8px;padding:.7rem .8rem;font-size:.76rem;word-break:break-all;line-height:1.5;margin-top:.5rem}
+    .checks li{font-size:.8rem;margin-left:1.1rem;line-height:1.6}
+    .ok{color:#15803d}.bad{color:#b91c1c}
+    .note{font-size:.8rem;background:#fffbeb;border:1px solid #fde68a;color:#78350f;border-radius:8px;padding:.6rem .75rem;line-height:1.5}
+    .close{position:absolute;top:.8rem;right:1rem;background:none;border:none;font-size:1.4rem;cursor:pointer;color:#64748b}
+    .empty{padding:2rem;text-align:center;color:#64748b;font-size:.88rem}
+  </style>
+</head>
+<body>
+  <script src="/widgets/shared/admin-nav.js"></script>
+  <div class="wrap">
+    <h1>Event Partners</h1>
+    <p class="sub">Companies that authorized Advantage.Bid to collect and promote their publicly posted events.
+      Phase 1 sends no email — authorization and claim links are minted here and delivered by hand.</p>
+
+    <div class="gates" id="gates"></div>
+
+    <div class="card">
+      <h2>Register a company</h2>
+      <p class="muted" style="font-size:.83rem">Creating a record grants nothing. It starts at <b>prospective</b> until the company authorizes.</p>
+      <div class="row">
+        <input id="n-org" placeholder="Organization ID (UUID)" style="min-width:320px" />
+        <input id="n-domain" placeholder="Company website (e.g. abcestatesales.com)" style="min-width:260px" />
+        <input id="n-email" placeholder="Invited email (optional)" style="min-width:220px" />
+        <button class="btn btn-primary" id="n-go">Register</button>
+      </div>
+      <p class="muted" id="n-msg" style="font-size:.8rem;margin-top:.5rem"></p>
+    </div>
+
+    <div class="card">
+      <div class="filters">
+        <input id="f-q" placeholder="Search company or domain" style="min-width:240px" />
+        <select id="f-status"><option value="">All statuses</option></select>
+        <button class="btn" id="f-go">Filter</button>
+      </div>
+      <div id="list"><div class="empty">Loading…</div></div>
+    </div>
+  </div>
+
+  <div id="drawer"><button class="close" id="dclose">&times;</button><div id="dbody"></div></div>
+
+<script>
+(function () {
+  'use strict';
+  var token = localStorage.getItem('token');
+  if (!token) location.href = '/login.html?next=' + encodeURIComponent('/admin/event-partners.html');
+
+  function api(path, method, body) {
+    var opts = { method: method || 'GET', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token } };
+    if (body) opts.body = JSON.stringify(body);
+    return fetch('/api/admin/event-partners' + path, opts).then(function (r) {
+      if (r.status === 401) { localStorage.removeItem('token'); location.href = '/login.html'; throw new Error('Session expired'); }
+      return r.json().then(function (b) { if (!r.ok || !b.success) throw new Error(b.message || 'Request failed'); return b; });
+    });
+  }
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+  function date(v) { try { return v ? new Date(v).toLocaleDateString() : '—'; } catch (e) { return '—'; } }
+
+  var drawer = document.getElementById('drawer'), dbody = document.getElementById('dbody');
+  document.getElementById('dclose').addEventListener('click', function () { drawer.style.display = 'none'; });
+
+  function renderGates(g, states) {
+    document.getElementById('gates').innerHTML =
+      ['enabled', 'collection_enabled', 'outreach_enabled'].map(function (k) {
+        return '<span class="gate ' + (g[k] ? 'on' : 'off') + '">' + esc(k.replace(/_/g, ' ')) + ': ' + (g[k] ? 'ON' : 'OFF') + '</span>';
+      }).join('') + '<span class="gate off">performance minimum: ' + esc(g.performance_min_metric) + '</span>';
+    var sel = document.getElementById('f-status');
+    if (sel.options.length <= 1 && states) {
+      states.forEach(function (s) { var o = document.createElement('option'); o.value = s; o.textContent = s; sel.appendChild(o); });
+    }
+  }
+
+  function load() {
+    var qs = [];
+    var q = document.getElementById('f-q').value.trim();
+    var st = document.getElementById('f-status').value;
+    if (q) qs.push('q=' + encodeURIComponent(q));
+    if (st) qs.push('status=' + encodeURIComponent(st));
+    api('/' + (qs.length ? '?' + qs.join('&') : '')).then(function (res) {
+      renderGates(res.gates || {}, res.states);
+      var rows = res.data || [];
+      if (!rows.length) { document.getElementById('list').innerHTML = '<div class="empty">No Event Partner records yet.</div>'; return; }
+      document.getElementById('list').innerHTML =
+        '<table><thead><tr><th>Company</th><th>Website</th><th>Status</th><th>Authorized</th>'
+        + '<th>Source</th><th>Events</th><th>Live</th><th>Claimed</th></tr></thead><tbody>'
+        + rows.map(function (r) {
+          return '<tr data-id="' + esc(r.id) + '">'
+            + '<td><b>' + esc(r.company_name) + '</b><br><span class="muted">' + esc(r.org_city || '') + ' ' + esc(r.org_state || '') + '</span></td>'
+            + '<td>' + esc(r.authorized_domain) + '</td>'
+            + '<td><span class="pill s-' + esc(r.status) + '">' + esc(r.status) + '</span></td>'
+            + '<td>' + date(r.authorized_at) + '</td>'
+            + '<td>' + esc(r.source_status || '—') + '</td>'
+            + '<td>' + esc(r.event_count) + '</td>'
+            + '<td>' + esc(r.live_event_count) + '</td>'
+            + '<td>' + (r.owner_count > 0 ? 'yes' : 'no') + '</td>'
+            + '</tr>';
+        }).join('') + '</tbody></table>';
+      Array.prototype.forEach.call(document.querySelectorAll('tbody tr'), function (tr) {
+        tr.addEventListener('click', function () { open(tr.getAttribute('data-id')); });
+      });
+    }).catch(function (e) { document.getElementById('list').innerHTML = '<div class="empty">' + esc(e.message) + '</div>'; });
+  }
+
+  function open(id) {
+    drawer.style.display = 'block';
+    dbody.innerHTML = '<p class="muted">Loading…</p>';
+    api('/' + encodeURIComponent(id)).then(function (res) {
+      var d = res.data, a = d.authorization, s = d.source, v = d.validation || {}, p = d.performance || {};
+      var checks = (v.checks || []).map(function (c) {
+        return '<li class="' + (c.ok ? 'ok' : 'bad') + '">' + (c.ok ? '✓' : '✗') + ' ' + esc(c.key)
+          + (c.ok ? '' : ' <span class="muted">— ' + esc(c.detail || '') + '</span>') + '</li>';
+      }).join('');
+
+      dbody.innerHTML =
+        '<h2>' + esc(a.company_name) + '</h2>'
+        + '<p class="muted" style="font-size:.83rem">' + esc(a.authorized_domain)
+        + ' · <span class="pill s-' + esc(a.status) + '">' + esc(a.status) + '</span></p>'
+
+        + '<h3>Authorization</h3>'
+        + '<dl class="kv">'
+        + '<dt>Method</dt><dd>' + esc(a.authorization_method || '—') + '</dd>'
+        + '<dt>Authorized</dt><dd>' + date(a.authorized_at) + '</dd>'
+        + '<dt>Statement</dt><dd>' + esc(a.authorization_statement_version || '—') + '</dd>'
+        + '<dt>Invited email</dt><dd>' + esc(a.invited_email || '—') + '</dd>'
+        + '<dt>Revoked</dt><dd>' + (a.revoked_at ? date(a.revoked_at) + ' — ' + esc(a.revoked_reason || '') : 'no') + '</dd>'
+        + '</dl>'
+        + '<div class="row">'
+        +   '<button class="btn btn-primary" data-act="token">Mint authorization link</button>'
+        +   '<button class="btn btn-danger" data-act="revoke">Revoke</button>'
+        + '</div>'
+        + '<div id="linkout"></div>'
+
+        + '<h3>Company source</h3>'
+        + (s
+            ? '<dl class="kv">'
+              + '<dt>Key</dt><dd>' + esc(s.key) + '</dd>'
+              + '<dt>Status</dt><dd>' + esc(s.status) + '</dd>'
+              + '<dt>Owner org</dt><dd>' + esc(s.owner_organization_id) + '</dd>'
+              + '<dt>Feed</dt><dd>' + esc(((s.config || {}).feeds || [])[0] || '—') + '</dd>'
+              + '<dt>Media policy</dt><dd>' + esc(s.media_policy) + '</dd>'
+              + '<dt>Auto publish</dt><dd>' + (s.auto_publish ? 'yes' : 'no') + '</dd>'
+              + '</dl>'
+              + '<h3>Safety validation</h3>'
+              + (checks ? '<ul class="checks">' + checks + '</ul>' : '<p class="muted" style="font-size:.83rem">Not yet validated.</p>')
+              + '<div class="row">'
+              +   '<button class="btn" data-act="validate">Run validation</button>'
+              +   '<button class="btn" data-act="activate">Start collecting</button>'
+              +   '<button class="btn" data-act="pause">Pause</button>'
+              +   '<button class="btn" data-act="resume">Resume</button>'
+              + '</div>'
+            : '<p class="muted" style="font-size:.83rem">No source yet. Create one once the company has authorized.</p>'
+              + '<div class="row"><input id="feed" placeholder="Feed URL (https://…)" style="min-width:300px" />'
+              + '<button class="btn btn-primary" data-act="mksource">Create source</button></div>')
+
+        + '<h3>Performance</h3>'
+        + '<dl class="kv">'
+        + '<dt>Decision</dt><dd><b>' + esc(p.mode || '—') + '</b></dd>'
+        + '<dt>Event views</dt><dd>' + esc((p.stats || {}).event_views) + '</dd>'
+        + '<dt>Outbound clicks</dt><dd>' + esc((p.stats || {}).outbound_clicks) + '</dd>'
+        + '<dt>Threshold</dt><dd>' + esc(p.threshold) + '</dd>'
+        + '</dl>'
+        + (p.mode === 'benefits_only'
+            ? '<p class="note">Below the minimum — no performance figure may be quoted to this company.</p>' : '')
+
+        + '<h3>Claim</h3>'
+        + '<div class="row"><input id="claimmail" placeholder="Recipient email" style="min-width:240px" />'
+        + '<button class="btn" data-act="claimtoken">Mint claim link</button></div>'
+        + '<div id="claimout"></div>'
+
+        + '<h3>Audit</h3>'
+        + '<ul class="checks">' + (d.audit || []).slice(0, 25).map(function (h) {
+            return '<li>' + date(h.created_at) + ' — ' + esc(h.event_type) + '</li>';
+          }).join('') + '</ul>';
+
+      Array.prototype.forEach.call(dbody.querySelectorAll('[data-act]'), function (b) {
+        b.addEventListener('click', function () { act(id, b.getAttribute('data-act'), b); });
+      });
+    }).catch(function (e) { dbody.innerHTML = '<p class="bad">' + esc(e.message) + '</p>'; });
+  }
+
+  function showLink(containerId, url, expires, note) {
+    document.getElementById(containerId).innerHTML =
+      '<div class="linkbox">' + esc(url) + '</div>'
+      + '<p class="muted" style="font-size:.78rem;margin-top:.35rem">Shown once — it cannot be retrieved again. '
+      + 'Expires ' + date(expires) + '. ' + esc(note || '') + '</p>';
+  }
+
+  function act(id, what, btn) {
+    btn.disabled = true;
+    var done = function () { btn.disabled = false; };
+    var fail = function (e) { done(); alert(e.message); };
+
+    if (what === 'token') {
+      return api('/' + id + '/token', 'POST', {}).then(function (r) {
+        showLink('linkout', r.data.authorization_url, r.data.expires_at, 'Nothing was emailed — deliver this yourself.');
+        done();
+      }).catch(fail);
+    }
+    if (what === 'claimtoken') {
+      var email = (document.getElementById('claimmail') || {}).value;
+      return api('/claim-token', 'POST', { organization_id: null, invited_email: email }).catch(function () {
+        // organization_id is required; re-read it from the loaded record.
+        return api('/' + id).then(function (res) {
+          return api('/claim-token', 'POST', { organization_id: res.data.authorization.organization_id, invited_email: email });
+        });
+      }).then(function (r) {
+        showLink('claimout', r.data.claim_url, r.data.expires_at, r.data.note);
+        done();
+      }).catch(fail);
+    }
+    if (what === 'revoke') {
+      if (!confirm('Revoke permission? This is permanent and disables the company source.')) return done();
+      return api('/' + id + '/revoke', 'POST', { reason: prompt('Reason (optional)') || null }).then(function () { open(id); load(); }).catch(fail);
+    }
+    if (what === 'mksource') {
+      var feed = (document.getElementById('feed') || {}).value;
+      return api('/' + id + '/source', 'POST', { feed_url: feed, kind: 'rss', connector: 'feed' })
+        .then(function () { open(id); load(); }).catch(fail);
+    }
+    if (what === 'validate') {
+      return api('/' + id + '/source/validate', 'POST', { robots_checked: confirm('Confirm robots.txt permits retrieval of this feed path.') })
+        .then(function () { open(id); load(); }).catch(fail);
+    }
+    var map = { activate: '/source/activate', pause: '/pause', resume: '/resume' };
+    if (map[what]) return api('/' + id + map[what], 'POST', {}).then(function () { open(id); load(); }).catch(fail);
+    done();
+  }
+
+  document.getElementById('f-go').addEventListener('click', load);
+  document.getElementById('n-go').addEventListener('click', function () {
+    var msg = document.getElementById('n-msg');
+    api('/', 'POST', {
+      organization_id: document.getElementById('n-org').value.trim(),
+      domain: document.getElementById('n-domain').value.trim(),
+      invited_email: document.getElementById('n-email').value.trim() || null,
+    }).then(function () { msg.textContent = 'Registered.'; load(); })
+      .catch(function (e) { msg.textContent = e.message; });
+  });
+  load();
+})();
+</script>
+</body>
+</html>

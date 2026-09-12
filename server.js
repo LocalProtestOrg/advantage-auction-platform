@@ -516,6 +516,8 @@ const orgEventsRoutes           = require('./src/routes/orgEvents');
 const adminEventsRoutes         = require('./src/routes/adminEvents');
 const adminEventImportsRoutes   = require('./src/routes/adminEventImports');
 const publicEventsRoutes        = require('./src/routes/publicEvents');
+const publicEventPartnerRoutes  = require('./src/routes/publicEventPartner');
+const adminEventPartnersRoutes  = require('./src/routes/adminEventPartners');
 const adminMarketplaceRoutes    = require('./src/routes/adminMarketplace');
 const adminMarketplaceLinkRoutes = require('./src/routes/adminMarketplaceLinks');
 const adminPartnersRoutes       = require('./src/routes/adminPartners');
@@ -569,6 +571,7 @@ app.use('/api/admin/buyers', adminBuyersRoutes);
 app.use('/api/admin/users', adminUsersRoutes);
 app.use('/api/admin/events', adminEventsRoutes);
 app.use('/api/admin/event-imports', adminEventImportsRoutes);
+app.use('/api/admin/event-partners', adminEventPartnersRoutes);
 app.use('/api/admin/marketplace', adminMarketplaceRoutes);
 app.use('/api/admin/marketplace-links', adminMarketplaceLinkRoutes);
 app.use('/api/admin/partners', adminPartnersRoutes);
@@ -611,6 +614,8 @@ app.use('/api/image-processing', imageProcessingRoutes);
 app.use('/api/uploads', uploadsRoutes);
 app.use('/api/public', publicRoutes);
 app.use('/api/public', publicEventsRoutes);   // event feed (+ restricted CORS); falls through public.js
+// Event Partner one-click authorization (no auth, no session, token-gated, master gate OFF by default).
+app.use('/api/public/event-partner', publicEventPartnerRoutes);
 app.use('/api/public/storefront', require('./src/routes/publicStorefront')); // public seller storefront data + item detail + inquiry
 app.use('/api/public/widget', require('./src/routes/publicWidget')); // white-label company auction widget feed (token-scoped, public)
 app.use('/api/seller-storefront', require('./src/routes/sellerStorefront')); // seller storefront mgmt + marketplace inventory + conversion (auth)

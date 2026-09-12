@@ -30,8 +30,16 @@ router.get('/search', asyncRoute(async (req, res) => {
 }));
 
 // POST /api/org/claim/:orgId — claim a shell (owner set; 0 capabilities until verified)
+//
+// SECURITY: a signed-in session is no longer sufficient. organizationClaimSecurityService requires a
+// single-use, recipient-bound claim token OR a verified company-domain email address, and records
+// every attempt. `claim_token` may arrive in the body or as ?token= (the shape a claim link uses).
 router.post('/:orgId', asyncRoute(async (req, res) => {
-  const org = await lifecycle.claim(req.user.id, req.params.orgId);
+  const claimToken = (req.body && req.body.claim_token) || req.query.token || null;
+  const org = await lifecycle.claim(req.user.id, req.params.orgId, {
+    claimToken,
+    ip: req.headers['x-forwarded-for'] || req.ip || '',
+  });
   // Free Business Listing welcome — sent ONCE on the successful claim transition (claim() throws
   // ALREADY_CLAIMED on repeat, so this fires at most once per listing). Best-effort; never blocks.
   (async () => {

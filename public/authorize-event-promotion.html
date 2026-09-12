@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Authorize Free Event Promotion — Advantage.Bid</title>
+  <meta name="description" content="Authorize Advantage.Bid to promote your company's upcoming public estate sales and auctions, free of charge." />
+  <!-- An invitation link is private to its recipient: keep it out of search results entirely. -->
+  <meta name="robots" content="noindex, nofollow" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <link rel="stylesheet" href="/marketplace.css" />
+  <style>
+    body { background:#f8fafc; }
+    .wrap { max-width:620px; margin:0 auto; padding:2.5rem 1.25rem 4rem; }
+    .brand { text-align:center; margin-bottom:1.75rem; }
+    .brand a { font-size:1.05rem; font-weight:800; letter-spacing:-0.02em; color:#0f172a; text-decoration:none; }
+    .card { background:#fff; border:1px solid #e5e7eb; border-radius:16px; padding:2rem 1.75rem; box-shadow:0 1px 3px rgba(15,23,42,0.06); }
+    .eyebrow { display:inline-block; font-size:0.7rem; font-weight:700; letter-spacing:0.09em; text-transform:uppercase; color:#2563eb; background:#eff6ff; border:1px solid #bfdbfe; padding:0.26rem 0.8rem; border-radius:99px; margin-bottom:1rem; }
+    h1 { font-size:clamp(1.5rem,4vw,2rem); font-weight:800; line-height:1.15; letter-spacing:-0.03em; color:#0f172a; margin:0 0 0.6rem; }
+    .lead { font-size:1.02rem; color:#334155; line-height:1.6; margin:0 0 0.4rem; }
+    .site { font-size:0.92rem; color:#64748b; margin:0 0 1.5rem; }
+    .site b { color:#0f172a; }
+    h2 { font-size:0.78rem; font-weight:700; letter-spacing:0.07em; text-transform:uppercase; color:#64748b; margin:1.6rem 0 0.7rem; }
+    ul { margin:0; padding-left:0; list-style:none; }
+    ul li { position:relative; padding-left:1.6rem; margin-bottom:0.6rem; font-size:0.95rem; color:#334155; line-height:1.55; }
+    ul.grant li::before { content:"✓"; position:absolute; left:0; top:0; color:#16a34a; font-weight:800; }
+    ul.limits li::before { content:"—"; position:absolute; left:0.15rem; top:0; color:#94a3b8; font-weight:700; }
+    .actions { margin-top:1.9rem; }
+    .btn { display:block; width:100%; text-align:center; font-size:1.02rem; font-weight:700; padding:0.95rem 1.5rem; border-radius:10px; border:0; cursor:pointer; }
+    .btn-primary { background:#2563eb; color:#fff; }
+    .btn-primary:hover { background:#1d4ed8; }
+    .btn-primary:disabled { background:#93c5fd; cursor:not-allowed; }
+    .fineprint { font-size:0.83rem; color:#64748b; text-align:center; margin-top:0.9rem; line-height:1.5; }
+    .state { text-align:center; padding:2.5rem 1rem; color:#64748b; font-size:0.98rem; }
+    .msg { border-radius:10px; padding:1rem 1.1rem; font-size:0.94rem; line-height:1.55; }
+    .msg-err { background:#fef2f2; border:1px solid #fecaca; color:#991b1b; }
+    .done .tick { font-size:2.6rem; line-height:1; }
+    .done h1 { margin-top:0.8rem; }
+    .foot { text-align:center; margin-top:1.5rem; font-size:0.82rem; color:#94a3b8; }
+    .foot a { color:#64748b; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="brand"><a href="/">Advantage.Bid</a></div>
+    <div id="app" aria-live="polite">
+      <div class="state">Loading…</div>
+    </div>
+    <p class="foot">Questions? <a href="/contact.html">Contact Advantage.Bid</a></p>
+  </div>
+
+<script>
+(function () {
+  'use strict';
+  var app = document.getElementById('app');
+  var token = new URLSearchParams(location.search).get('token') || '';
+  var API = '/api/public/event-partner/authorize/';
+
+  function esc(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+  function li(items, cls) {
+    return '<ul class="' + cls + '">' + items.map(function (t) { return '<li>' + esc(t) + '</li>'; }).join('') + '</ul>';
+  }
+  function fail(message) {
+    app.innerHTML = '<div class="card"><div class="msg msg-err">' + esc(message) + '</div>'
+      + '<p class="fineprint" style="margin-top:1.2rem">If you were expecting to authorize event promotion, '
+      + 'reply to the message that brought you here and we will send a new link.</p></div>';
+  }
+
+  if (!token) { fail('This authorization link is incomplete. Please use the full link from your invitation.'); return; }
+
+  // The confirmation page is rendered from a GET, which never changes anything. Only the button below
+  // (a POST) authorizes, so a link preview or scanner cannot authorize on the company's behalf.
+  fetch(API + encodeURIComponent(token), { headers: { Accept: 'application/json' } })
+    .then(function (r) { return r.json().then(function (b) { return { ok: r.ok, body: b }; }); })
+    .then(function (res) {
+      if (!res.ok || !res.body || !res.body.success) {
+        fail((res.body && res.body.message) || 'This authorization link is not valid.');
+        return;
+      }
+      render(res.body.data);
+    })
+    .catch(function () { fail('We could not load this page. Please check your connection and try again.'); });
+
+  function render(d) {
+    var s = d.statement || {};
+    app.innerHTML =
+      '<div class="card">'
+      + '<span class="eyebrow">Free event promotion</span>'
+      + '<h1>' + esc(s.headline || 'Authorize Free Event Promotion') + '</h1>'
+      + '<p class="lead">' + esc(s.lead || '') + '</p>'
+      + (s.website_line ? '<p class="site">' + esc(s.website_line) + '</p>' : '')
+      + '<h2>What you are authorizing</h2>' + li(s.grant || [], 'grant')
+      + '<h2>What this does not do</h2>' + li(s.limits || [], 'limits')
+      + '<div class="actions">'
+      +   '<button id="go" class="btn btn-primary" type="button">' + esc(s.confirm_label || 'Authorize Free Event Promotion') + '</button>'
+      +   '<p class="fineprint">No account, no password, and no payment. You can withdraw this at any time.</p>'
+      + '</div>'
+      + '</div>';
+
+    document.getElementById('go').addEventListener('click', function () {
+      var btn = this;
+      btn.disabled = true;
+      btn.textContent = 'Authorizing…';
+      fetch(API + encodeURIComponent(token), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        // An explicit confirmation field: the grant is never a bare POST.
+        body: JSON.stringify({ confirm: true }),
+      })
+        .then(function (r) { return r.json().then(function (b) { return { ok: r.ok, body: b }; }); })
+        .then(function (res) {
+          if (!res.ok || !res.body || !res.body.success) {
+            btn.disabled = false;
+            btn.textContent = esc(s.confirm_label || 'Authorize Free Event Promotion');
+            fail((res.body && res.body.message) || 'We could not complete this. Please try again.');
+            return;
+          }
+          done(res.body.data);
+        })
+        .catch(function () {
+          btn.disabled = false;
+          btn.textContent = 'Authorize Free Event Promotion';
+          fail('We could not complete this. Please check your connection and try again.');
+        });
+    });
+  }
+
+  function done(d) {
+    app.innerHTML =
+      '<div class="card done" style="text-align:center">'
+      + '<div class="tick">✅</div>'
+      + '<h1>You are all set</h1>'
+      + '<p class="lead">' + esc(d.company_name || 'Your company') + ' is authorized for free event promotion on Advantage.Bid.</p>'
+      + '<p class="site">We will start including your publicly posted upcoming events. '
+      + 'There is nothing else for you to do.</p>'
+      + '<p class="fineprint">Changed your mind? Reply to the message that brought you here and we will stop.</p>'
+      + '</div>';
+  }
+})();
+</script>
+</body>
+</html>

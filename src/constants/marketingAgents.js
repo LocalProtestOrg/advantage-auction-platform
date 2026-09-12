@@ -21,7 +21,18 @@ const AGENTS = Object.freeze({
   A12: { code: 'A12', key: 'a12_pro',       name: 'Professional Seller Growth', tier: 'growth',   capabilities: ['propose_experiment', 'propose_audience'], canPublish: false, canSpend: false, canReview: false },
   A13: { code: 'A13', key: 'a13_prospect',  name: 'Prospecting',                tier: 'growth',   capabilities: ['propose_outreach'], canPublish: false, canSpend: false, canReview: false },
   A14: { code: 'A14', key: 'a14_analytics', name: 'Analytics',                  tier: 'ops',      capabilities: ['read_metrics', 'evaluate_experiment'], canPublish: false, canSpend: false, canReview: false },
+  // A15 Event Partner Outreach (Phase 1: identity + capability definition ONLY). It may draft and
+  // propose, and read partner metrics. It has NO send verb, NO publish, NO spend, NO authority to
+  // authorize a source or grant a claim, and no mailbox exists for it to use. Phase 2 will design the
+  // agent-managed inbound/outbound channel; until then this agent cannot reach a company at all.
+  A15: { code: 'A15', key: 'a15_event_partner', name: 'Event Partner Outreach', tier: 'growth',   capabilities: ['draft_partner_outreach', 'propose_partner_outreach', 'read_partner_metrics'], canPublish: false, canSpend: false, canReview: false },
 });
+
+// Capabilities NO agent may hold in Phase 1, asserted here so a future edit that grants one to A15
+// (or anyone) fails the roster test rather than silently shipping an agent that can contact a company.
+const FORBIDDEN_PHASE1_CAPABILITIES = Object.freeze([
+  'send_email', 'send_partner_outreach', 'authorize_source', 'grant_claim', 'publish_partner',
+]);
 
 function get(code) { return AGENTS[String(code || '').toUpperCase()] || null; }
 function agentCan(code, capability) { const a = get(code); return !!(a && a.capabilities.indexOf(capability) !== -1); }
@@ -29,4 +40,4 @@ function canPublish(code) { const a = get(code); return !!(a && a.canPublish); }
 function canSpend(code) { const a = get(code); return !!(a && a.canSpend); }
 function canReview(code) { const a = get(code); return !!(a && a.canReview); }
 
-module.exports = { AGENTS, get, agentCan, canPublish, canSpend, canReview };
+module.exports = { AGENTS, get, agentCan, canPublish, canSpend, canReview, FORBIDDEN_PHASE1_CAPABILITIES };

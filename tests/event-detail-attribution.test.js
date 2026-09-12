@@ -127,7 +127,11 @@ describe('public event serializer no longer leaks the discovery source (publicEv
     const s = src.slice(src.indexOf('function serialize'), src.indexOf('// GET /api/public/events?'));
     expect(s).toMatch(/const imported = r\.source === 'imported'/);
     expect(s).toMatch(/publicOrg = !imported && isPublicOrganizer\(r\.org_type\)/); // professional-only gate
-    expect(s).toMatch(/hostProfile = \(publicOrg && r\.org_slug\)/);
+    // A proven host organization wins, but only when it is professional AND published; the original
+    // owner-org gate stays as the fallback.
+    expect(s).toMatch(/hostOrgPublic = !!\(r\.host_org_slug && isPublicOrganizer\(r\.host_org_type\) && r\.host_org_published === 'true'\)/);
+    expect(s).toMatch(/hostProfile = hostOrgPublic/);
+    expect(s).toMatch(/\(publicOrg && r\.org_slug\)/);
   });
 });
 

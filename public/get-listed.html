@@ -135,11 +135,24 @@
       var err=document.getElementById('err'); err.textContent='';
       btn.disabled=true; btn.textContent='Claiming…';
       try {
-        await api('POST','/api/org/claim/'+encodeURIComponent(orgId));
+        // Claiming requires proof of entitlement (a recipient-bound invitation link, or a verified
+        // company-domain email). A token in the URL is passed straight through.
+        var claimToken = new URLSearchParams(location.search).get('token') || null;
+        await api('POST','/api/org/claim/'+encodeURIComponent(orgId), claimToken ? { claim_token: claimToken } : undefined);
         // Claimed: owner set. Send them to complete their profile, then submit for review to go live.
         location.href='/org/profile.html?claimed=1&next=submit';
       } catch(e){
-        err.textContent = e.code==='ALREADY_CLAIMED' ? 'That business has already been claimed. Contact Advantage.Bid if this is your company.' : (e.message||'Could not claim this business.');
+        var CLAIM_MSGS = {
+          ALREADY_CLAIMED: 'That business has already been claimed. Contact Advantage.Bid if this is your company.',
+          CLAIM_VERIFICATION_REQUIRED: 'To protect business owners we need to confirm your connection to this company. Sign in with your company email address, or contact Advantage.Bid for an invitation link.',
+          CLAIM_TOKEN_REQUIRED: 'This listing can only be claimed with an invitation link. Contact Advantage.Bid and we will send you one.',
+          CLAIM_TOKEN_EXPIRED: 'That invitation link has expired. Contact Advantage.Bid for a new one.',
+          CLAIM_TOKEN_USED: 'That invitation link has already been used.',
+          CLAIM_TOKEN_WRONG_RECIPIENT: 'That invitation was sent to a different email address. Sign in with that address to continue.',
+          CLAIM_TOKEN_WRONG_ORG: 'That invitation link is for a different company.',
+          EMAIL_NOT_VERIFIED: 'Please verify your email address first, then try again.'
+        };
+        err.textContent = CLAIM_MSGS[e.code] || (e.message||'Could not claim this business.');
         btn.disabled=false; btn.textContent='Claim this business';
       }
     }

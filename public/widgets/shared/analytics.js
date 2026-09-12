@@ -134,6 +134,9 @@ window.AAPAnalytics = (function () {
         if (context.city)        payload.city        = String(context.city);
         if (context.state_code)  payload.state_code  = String(context.state_code);
         if (context.category_key) payload.category_key = String(context.category_key);
+        // Event Partner attribution: ONLY the event id. The host company is resolved server-side
+        // from that id — a client can never name the company its activity is credited to.
+        if (context.event_id) payload.event_id = String(context.event_id);
       }
 
       // Attach event-specific metadata
