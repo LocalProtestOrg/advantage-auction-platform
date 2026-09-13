@@ -35,6 +35,19 @@ const KNOWN_EVENT_TYPES = new Set([
   'event_view',
   'event_outbound_click',
   'storefront_view',
+  // Local sale alert funnel. These are the signals that let the Marketing Director follow
+  // visitor -> alert offer -> signup -> alert delivered -> click -> event engagement, which was
+  // previously unmeasurable: only a single 'subscriber_signup' existed, so an abandoned form and a
+  // never-seen offer looked identical.
+  'alert_offer_shown',
+  'alert_modal_shown',
+  'alert_modal_dismissed',
+  'alert_form_started',
+  'alert_signup_succeeded',
+  'alert_signup_failed',
+  'subscriber_signup',
+  'local_event_alert_delivered',
+  'local_event_alert_click',
 ]);
 
 const UUID_RE            = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
