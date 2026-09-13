@@ -6,6 +6,11 @@
  * TERMINALLY suppress the address for MARKETING; SOFT bounces accumulate to a configurable threshold before
  * suppression; DELIVERY is recorded where provider evidence exists. Never claims opens/clicks (not configured).
  * No AWS secrets are stored. Authenticity is verified by the route before calling this service.
+ *
+ * Stream attribution (migration 156): each event records the SES configuration set that produced it and
+ * our own stream name, so Event Partner deliverability can be measured separately from transactional and
+ * consumer-marketing mail. This is METADATA ONLY — suppression, bounce, complaint and consent behaviour
+ * is byte-for-byte unchanged and never branches on the stream.
  */
 const db = require('../db');
 const { normalizeEmail } = require('../lib/emailNormalize');
@@ -47,10 +52,17 @@ async function ingestEvent(evt = {}) {
       const dup = await client.query('SELECT 1 FROM ses_feedback_events WHERE provider_event_id = $1', [evt.providerEventId]);
       if (dup.rowCount) { await client.query('COMMIT'); return { ok: true, idempotent: true }; }
     }
+    // Stream attribution (migration 156) is recorded ALONGSIDE the event. It is metadata: not one of
+    // the suppression, bounce, complaint or consent decisions below reads it, so an Event Partner hard
+    // bounce suppresses exactly as a transactional one does.
     await client.query(
-      `INSERT INTO ses_feedback_events (event_type, bounce_subtype, normalized_email, provider_event_id, raw)
-       VALUES ($1,$2,$3,$4,$5) ON CONFLICT (provider_event_id) DO NOTHING`,
-      [evt.eventType || null, evt.bounceSubtype || null, normalized, evt.providerEventId || null, evt.raw ? JSON.stringify(evt.raw) : null]);
+      `INSERT INTO ses_feedback_events
+         (event_type, bounce_subtype, normalized_email, provider_event_id, raw,
+          configuration_set, mail_stream, ses_message_id)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8) ON CONFLICT (provider_event_id) DO NOTHING`,
+      [evt.eventType || null, evt.bounceSubtype || null, normalized, evt.providerEventId || null,
+       evt.raw ? JSON.stringify(evt.raw) : null,
+       evt.configurationSet || null, evt.mailStream || null, evt.sesMessageId || null]);
 
     let action = 'recorded';
     const isHard = type === 'bounce' && String(evt.bounceSubtype || '').toLowerCase() !== 'transient';
@@ -75,7 +87,8 @@ async function ingestEvent(evt = {}) {
       action = 'delivery_recorded';
     }
     await client.query('COMMIT');
-    return { ok: true, action };
+    // The stream is reported back for observability; it did not influence `action`.
+    return { ok: true, action, mailStream: evt.mailStream || null, configurationSet: evt.configurationSet || null };
   } catch (e) { await client.query('ROLLBACK').catch(() => {}); throw e; }
   finally { client.release(); }
 }

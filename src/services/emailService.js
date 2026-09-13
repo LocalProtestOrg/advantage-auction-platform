@@ -58,6 +58,20 @@ function isConfigured() {
 // so behavior is unchanged until the Owner creates one and sets the env var.
 const SES_MARKETING_CONFIGURATION_SET = process.env.SES_MARKETING_CONFIGURATION_SET || null;
 
+// Dedicated Event Partner SES configuration set. Separate from marketing so the programme's delivery
+// and complaint telemetry is attributable to it alone, and so its sending reputation can never damage
+// bid notifications, invoices or password resets. Unset = no header, and the stream falls back to
+// ordinary transactional behaviour rather than borrowing another stream's reputation.
+const SES_EVENT_PARTNER_CONFIGURATION_SET = process.env.SES_EVENT_PARTNER_CONFIGURATION_SET || null;
+
+// The configuration set for a given mail stream. Unknown streams get none — never a default that
+// would silently attribute mail to the wrong programme.
+function configurationSetForStream(mailStream) {
+  if (mailStream === 'marketing') return SES_MARKETING_CONFIGURATION_SET;
+  if (mailStream === 'event_partner') return SES_EVENT_PARTNER_CONFIGURATION_SET;
+  return null;
+}
+
 // Lazy singleton transports. TRANSACTIONAL isolation: marketing uses its OWN pooled connection set so a
 // marketing burst can never starve the transactional pool (auth/bids/invoices keep their connections).
 let _transporter = null;         // transactional (default) — unchanged
@@ -114,12 +128,17 @@ async function sendEmail({ to, subject, html, text, attachments, replyTo, header
     // is preserved). `fromName` only sets the friendly display name — e.g. "Kym Witt — Advantage.Bid"
     // <notifications@advantage.bid> — so a rep's identity is visible without a per-mailbox SES identity.
     const from = fromName ? `${String(fromName).replace(/["\r\n<>]/g, '').trim()} <${EMAIL_FROM}>` : EMAIL_FROM;
+    // Event Partner mail is bulk-ish, low-volume outreach: it shares the marketing POOL (so it can
+    // never starve the transactional pool) while carrying its OWN configuration set for telemetry.
     const isMarketing = mailStream === 'marketing';
+    const isEventPartner = mailStream === 'event_partner';
+    const usesMarketingPool = isMarketing || isEventPartner;
+    const configurationSet = configurationSetForStream(mailStream);
     // Marketing uses its own pool; when an SES marketing configuration set is configured, tag the message
     // so bounces/complaints/deliveries publish to the marketing event destination (reputation isolation).
     const mergedHeaders = Object.assign({},
       (headers && typeof headers === 'object' ? headers : {}),
-      (isMarketing && SES_MARKETING_CONFIGURATION_SET ? { 'X-SES-CONFIGURATION-SET': SES_MARKETING_CONFIGURATION_SET } : {}));
+      (configurationSet ? { 'X-SES-CONFIGURATION-SET': configurationSet } : {}));
     const transporter = isMarketing ? getMarketingTransporter() : getTransporter();
     const info = await transporter.sendMail({
       from,
@@ -144,4 +163,9 @@ async function sendEmail({ to, subject, html, text, attachments, replyTo, header
   }
 }
 
-module.exports = { sendEmail, isConfigured, marketingConfigurationSet: () => SES_MARKETING_CONFIGURATION_SET, EMAIL_FROM };
+module.exports = {
+  sendEmail, isConfigured, EMAIL_FROM,
+  marketingConfigurationSet: () => SES_MARKETING_CONFIGURATION_SET,
+  eventPartnerConfigurationSet: () => SES_EVENT_PARTNER_CONFIGURATION_SET,
+  configurationSetForStream,
+};

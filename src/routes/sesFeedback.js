@@ -32,7 +32,7 @@
 const express = require('express');
 const crypto = require('crypto');
 const router = express.Router();
-const { parse, isSnsControl } = require('../lib/sesNotificationParser');
+const { parse, isSnsControl, classify } = require('../lib/sesNotificationParser');
 const webhookSignature = require('../lib/webhookSignature');
 const configService = require('../services/configService');
 const quarantine = require('../services/webhookQuarantineService');
@@ -129,7 +129,22 @@ router.post('/feedback', async (req, res) => {
   }
 
   const events = parse(payload);
-  if (!events.length) return res.status(400).json({ error: 'No recognizable SES events in payload' });
+  if (!events.length) {
+    // A valid SES event type we deliberately do not consume (Send, Reject, RenderingFailure,
+    // DeliveryDelay, Subscription, Open, Click) is ACKNOWLEDGED with a 200, never rejected. A 400 makes
+    // SNS retry and, after sustained failure, disable the subscription — which would also cost us the
+    // bounce and complaint data this endpoint exists for. Widening the event types in SES can therefore
+    // no longer jeopardise the subscription.
+    const c = classify(payload);
+    if (c.known) {
+      return res.status(200).json({
+        ok: true, acknowledged: c.eventType, ingested: 0, consumed: false,
+        mail_stream: c.mailStream || undefined,
+      });
+    }
+    // Genuinely unrecognizable payloads are still refused, so nothing foreign is silently accepted.
+    return res.status(400).json({ error: 'No recognizable SES events in payload' });
+  }
 
   const results = [];
   try {

@@ -91,7 +91,9 @@ describe('sesFeedbackService (ingestion)', () => {
     const { db, calls } = makeDb();
     const svc = load(db);
     const r = await svc.ingestEvent({ eventType: 'Bounce', bounceSubtype: 'Permanent', email: 'Hard@X.com', providerEventId: 'e1' });
-    expect(r).toEqual({ ok: true, action: 'suppressed_hard_bounce' });
+    expect(r).toMatchObject({ ok: true, action: 'suppressed_hard_bounce' });
+    expect(r.mailStream).toBeNull();          // untagged event: no stream is invented
+    expect(r.configurationSet).toBeNull();
     const supp = calls.find(c => /INSERT INTO email_suppressions/.test(c.sql));
     expect(supp).toBeTruthy();
     expect(supp.params[0]).toBe('hard@x.com');   // normalized
