@@ -48,7 +48,8 @@ function policy() {
 // ════════════════════════════════════════════════════════════════════════════════════════════════
 describe('it reuses the existing subscriber backend and builds no second system', () => {
   test('both surfaces post to the certified public endpoint', () => {
-    expect(WIDGET).toMatch(/var ENDPOINT = '\/api\/public\/subscribers'/);
+    // Origin-aware since the BD integration: same-origin on the app, absolute on BD.
+    expect(WIDGET).toMatch(/var ENDPOINT = API_BASE \+ '\/api\/public\/subscribers'/);
     // Exactly one endpoint, and no bespoke storage of its own.
     expect((WIDGET_CODE.match(/fetch\((?:ENDPOINT|'\/api\/)/g) || []).length).toBeGreaterThan(0);
     // No direct database access and no second store of its own.
@@ -289,8 +290,18 @@ describe('SEO and performance are not damaged', () => {
   });
 
   test('no AI or vendor terminology reaches a visible surface', () => {
+    // The standard governs text RENDERED to a person. Vendor and infrastructure names stay
+    // legitimate in code comments and documentation, so the vendor check reads comment-stripped
+    // code — the header legitimately explains which host is the source of truth. The AI check
+    // stays on the whole file, where those terms have no reason to appear at all.
     expect(WIDGET).not.toMatch(/\bA\.?I\.?\b|artificial intelligence|machine learning|GPT|OpenAI|LLM/i);
-    expect(WIDGET).not.toMatch(/Mapbox|Cloudinary|Railway|Neon|Postmark|Amazon SES|nodemailer/i);
+    expect(WIDGET_CODE).not.toMatch(/Mapbox|Cloudinary|Railway|Neon|Postmark|Amazon SES|nodemailer/i);
+  });
+
+  test('no vendor name appears in any string the visitor can actually read', () => {
+    // Every literal that could be rendered: headings, copy, button labels, status messages.
+    const literals = (WIDGET_CODE.match(/'[^']{4,}'|"[^"]{4,}"/g) || []).join(' ');
+    expect(literals).not.toMatch(/Mapbox|Cloudinary|Railway|Neon|Postmark|Amazon SES|nodemailer/i);
   });
 });
 
@@ -425,5 +436,92 @@ describe('unsubscribe, suppression and consent stay intact', () => {
     expect(WIDGET).toMatch(/form\.addEventListener\('submit'/);
     const boot = WIDGET.slice(WIDGET.indexOf('function boot()'), WIDGET.indexOf('root.AdvLocalAlerts'));
     expect(boot).not.toMatch(/fetch\(ENDPOINT/);
+  });
+});
+
+// ════════════════════════════════════════════════════════════════════════════════════════════════
+describe('Brilliant Directories acquisition — one script, two surfaces', () => {
+  // The whole point of this block: on BD a relative endpoint would post to BD itself and silently
+  // lose every signup. Railway must stay the single source of truth.
+
+  test('the API base is resolved from the script src, not hardcoded relative', () => {
+    expect(WIDGET_CODE).toMatch(/var API_BASE = \(function \(\)/);
+    expect(WIDGET_CODE).toMatch(/document\.currentScript/);
+    expect(WIDGET_CODE).toMatch(/if \(u\.origin !== location\.origin\) return u\.origin;/);
+    // Same-origin fallback: a failure to resolve can never post somewhere unexpected.
+    expect(WIDGET_CODE).toMatch(/return '';/);
+  });
+
+  test('both endpoints are absolute-capable', () => {
+    expect(WIDGET_CODE).toMatch(/var ENDPOINT = API_BASE \+ '\/api\/public\/subscribers'/);
+    expect(WIDGET_CODE).toMatch(/var ANALYTICS_ENDPOINT = API_BASE \+ '\/api\/analytics\/events'/);
+    // No relative endpoint survives anywhere in code.
+    expect(WIDGET_CODE).not.toMatch(/fetch\('\/api\//);
+  });
+
+  test('it creates no BD-side storage — submissions go to the canonical Railway system', () => {
+    expect(WIDGET_CODE).toMatch(/\/api\/public\/subscribers/);
+    expect(WIDGET_CODE).not.toMatch(/INSERT INTO|marketing_contacts|indexedDB|openDatabase/);
+  });
+
+  test('BD sensitive routes are suppressed alongside the Railway ones', () => {
+    const re = suppressionRegex();
+    ['/login', '/logout', '/signup', '/register', '/my-account', '/account',
+     '/cart', '/checkout', '/password', '/forgot-password', '/dashboard', '/profile',
+     '/admin', '/privacy', '/terms'].forEach((p) => {
+      expect(re.test(p)).toBe(true);
+    });
+  });
+
+  test('BD public discovery routes remain eligible', () => {
+    const re = suppressionRegex();
+    ['/', '/estate-sales', '/auctions', '/professionals', '/blog/some-post', '/austin-tx']
+      .forEach((p) => expect(re.test(p)).toBe(false));
+  });
+
+  test('placement identifies BD acquisition, and an explicit attribute wins', () => {
+    expect(WIDGET_CODE).toMatch(/function resolvePlacement/);
+    expect(WIDGET_CODE).toMatch(/SCRIPT_EL && SCRIPT_EL\.getAttribute\('data-placement'\)/);
+    ['bd_estate_sales', 'bd_auctions', 'bd_directory', 'bd_blog', 'bd_city_page', 'bd_home', 'bd_other']
+      .forEach((label) => expect(WIDGET_CODE).toContain(label));
+  });
+
+  test('the server accepts the BD placement labels instead of collapsing them to "other"', () => {
+    const route = read('src', 'routes', 'publicSubscribe.js');
+    ['bd_footer', 'bd_home', 'bd_estate_sales', 'bd_auctions', 'bd_directory', 'bd_blog',
+     'bd_city_page', 'bd_other'].forEach((l) => expect(route).toContain(`'${l}'`));
+    // The allowlist still exists, so an arbitrary label cannot be injected.
+    expect(route).toMatch(/if \(!PLACEMENTS\.has\(placement\)\) placement = 'other';/);
+  });
+
+  test('analytics is attributed to its surface and posts to Railway from BD', () => {
+    expect(WIDGET_CODE).toMatch(/surface: EMBEDDED \? 'bd' : 'app'/);
+    expect(WIDGET_CODE).toMatch(/if \(!EMBEDDED && root\.AAPAnalytics/);
+  });
+
+  test('the strip mounts above a BD-themed footer, never inside it', () => {
+    expect(WIDGET_CODE).toMatch(/querySelector\('footer, \.footer, #footer'\)/);
+    expect(WIDGET_CODE).toMatch(/insertBefore\(host, footer\)/);
+  });
+
+  test('the second-event trigger recognises BD listing routes', () => {
+    const m = WIDGET.match(/var DETAIL_PATH = (\/.*\/i);/);
+    expect(m).toBeTruthy();
+    // eslint-disable-next-line no-eval
+    const re = eval(m[1]);
+    expect(re.test('/event.html')).toBe(true);          // Railway
+    expect(re.test('/estate-sales/some-sale')).toBe(true);  // BD
+    expect(re.test('/auctions/some-auction')).toBe(true);   // BD
+    expect(re.test('/')).toBe(false);
+  });
+
+  test('duplicate loading is still guarded, so a second BD block cannot double-mount', () => {
+    expect(WIDGET_CODE).toMatch(/__advLocalAlertsBooted/);
+    expect(WIDGET_CODE).toMatch(/if \(document\.querySelector\('\.advla-strip'\)\) return;/);
+    expect(WIDGET_CODE).toMatch(/if \(document\.getElementById\('adv-alerts-styles'\)\) return;/);
+  });
+
+  test('no secret is exposed to the BD client', () => {
+    expect(WIDGET_CODE).not.toMatch(/API_KEY|SECRET|TOKEN|Authorization|Bearer|X-Api-Key/i);
   });
 });

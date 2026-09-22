@@ -25,11 +25,55 @@
    DOM is built only when it is actually triggered, so there is no duplicate
    crawlable content and no layout shift, and a crawler — which never scrolls,
    moves a pointer or dwells — never triggers it at all.
+
+   TWO SURFACES, ONE SCRIPT. This file runs unchanged on Railway (bid.advantage.bid)
+   and on the Brilliant Directories marketing site (advantage.bid). Only two things
+   differ cross-origin:
+
+     1. WHERE IT POSTS. On Railway the endpoints are same-origin. On BD a relative
+        '/api/public/subscribers' would post to BD itself and silently lose every
+        signup, so the API base is resolved from this script's own src. Railway
+        remains the single source of truth; BD stores nothing.
+
+     2. WHICH PATHS ARE SENSITIVE. BD has its own login/account/checkout routes, so
+        the suppression list covers both vocabularies.
+
+   BD embed (Owner pastes this once, ideally in the global footer block):
+
+     <script src="https://bid.advantage.bid/widgets/shared/local-alerts.js"
+             data-placement="bd_footer" defer></script>
+
+   `data-placement` is optional; when omitted the script classifies the BD page
+   itself so source attribution stays meaningful without per-page configuration.
    ========================================================================== */
 (function (root) {
   'use strict';
 
-  var ENDPOINT = '/api/public/subscribers';
+  // The Railway origin this script was served from. document.currentScript is correct during the
+  // synchronous parse; the querySelector fallback covers a deferred/async re-entry. Falls back to
+  // same-origin (the Railway case), so a failure to resolve can never post somewhere unexpected.
+  var API_BASE = (function () {
+    try {
+      var el = document.currentScript
+        || document.querySelector('script[src*="/widgets/shared/local-alerts.js"]');
+      var src = el && el.getAttribute('src');
+      if (src && /^https?:\/\//i.test(src)) {
+        var u = new URL(src);
+        if (u.origin !== location.origin) return u.origin;   // cross-origin embed (BD)
+      }
+    } catch (e) { /* fall through to same-origin */ }
+    return '';                                               // same-origin (Railway)
+  })();
+  var SCRIPT_EL = (function () {
+    try {
+      return document.currentScript
+        || document.querySelector('script[src*="/widgets/shared/local-alerts.js"]');
+    } catch (e) { return null; }
+  })();
+  var EMBEDDED = API_BASE !== '';                            // true only on BD
+
+  var ENDPOINT = API_BASE + '/api/public/subscribers';
+  var ANALYTICS_ENDPOINT = API_BASE + '/api/analytics/events';
   var STORE = 'adv_alerts_v1';
   var SESSION_SHOWN = 'adv_alerts_shown_session';
   var DETAIL_VIEWS = 'adv_alerts_detail_views';
@@ -57,11 +101,45 @@
     '^/forgot-password', '^/reset-password', // account security
     '^/data-deletion', '^/pricing-agreement',
     '^/terms', '^/privacy', '^/buyer-terms', // legal reading, not a marketing moment
-    '^/appraiser-welcome', '^/estate-sale-welcome'  // post-conversion seller context
+    '^/appraiser-welcome', '^/estate-sale-welcome',  // post-conversion seller context
+    // ── Brilliant Directories route vocabulary. BD names its sensitive pages differently, and a
+    //    signup prompt must not appear over a login, an account area, a cart or a checkout there
+    //    either. Matching is prefix-based on the path, same as above.
+    '^/login', '^/logout', '^/signup', '^/register', '^/join',
+    '^/password', '^/forgot', '^/reset',
+    '^/account', '^/my-account', '^/my-', '^/member', '^/members',
+    '^/dashboard', '^/profile', '^/settings',
+    '^/cart', '^/checkout', '^/billing', '^/invoice', '^/subscribe-',
+    '^/admin', '^/wp-admin',
+    '^/privacy', '^/terms', '^/legal', '^/dmca', '^/cookie'
   ].join('|'), 'i');
 
+  /**
+   * Source attribution. An explicit data-placement wins. Otherwise the BD page is classified from
+   * its own path so attribution stays meaningful without the Owner configuring every page. The
+   * server keeps its own allowlist and collapses anything unrecognised to 'other', so this can
+   * never inject an arbitrary label.
+   */
+  function resolvePlacement(surface) {
+    try {
+      var explicit = SCRIPT_EL && SCRIPT_EL.getAttribute('data-placement');
+      if (explicit) return String(explicit).toLowerCase();
+    } catch (e) { /* fall through */ }
+    if (!EMBEDDED) return surface === 'modal' ? 'modal' : 'footer';
+    var p = (location.pathname || '/').toLowerCase();
+    if (/estate[-_ ]?sale/.test(p)) return 'bd_estate_sales';
+    if (/auction/.test(p)) return 'bd_auctions';
+    if (/(professional|directory|companies|vendors)/.test(p)) return 'bd_directory';
+    if (/(blog|article|news|post)/.test(p)) return 'bd_blog';
+    if (/(city|state|location|near)/.test(p)) return 'bd_city_page';
+    if (p === '/' || p === '/index' || p === '/home') return 'bd_home';
+    return 'bd_other';
+  }
+
   // Pages where a detail view counts toward the "second event viewed" trigger.
-  var DETAIL_PATH = /^\/(event|auction-view|lot)(\.html|\/|$)/i;
+  // Railway detail routes, plus the BD equivalents so the "second event viewed" trigger works on
+  // either surface.
+  var DETAIL_PATH = /^\/(event|auction-view|lot)(\.html|\/|$)|^\/(estate-sales?|auctions?|listing|event)s?\/[^/]+/i;
 
   var STATES = ['AL','AK','AZ','AR','CA','CO','CT','DE','DC','FL','GA','HI','ID','IL','IN','IA','KS',
     'KY','LA','ME','MD','MA','MI','MN','MS','MO','MT','NE','NV','NH','NJ','NM','NY','NC','ND','OH',
@@ -84,8 +162,9 @@
   // ── Analytics. Fire-and-forget through the shared first-party helper. ────────
   function track(type, meta) {
     try {
-      var payload = Object.assign({ path: location.pathname }, meta || {});
-      if (root.AAPAnalytics && root.AAPAnalytics.track) {
+      var payload = Object.assign({ path: location.pathname, surface: EMBEDDED ? 'bd' : 'app' }, meta || {});
+      // On BD the shared helper is absent (and would post to BD's own origin), so post directly.
+      if (!EMBEDDED && root.AAPAnalytics && root.AAPAnalytics.track) {
         root.AAPAnalytics.track(type, payload, {});
         return;
       }
@@ -94,7 +173,7 @@
         event_type: type, page_url: location.href, client_ts: new Date().toISOString(),
         metadata: payload,
       });
-      fetch('/api/analytics/events', {
+      fetch(ANALYTICS_ENDPOINT, {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: body, keepalive: true,
       }).catch(function () {});
     } catch (e) { /* measurement must never break the page */ }
@@ -302,8 +381,10 @@
 
     var host = document.querySelector('[data-adv-local-alerts]');
     if (!host) {
-      // No explicit mount point: place it just before the page footer, else at the end of the body.
-      var footer = document.querySelector('footer');
+      // No explicit mount point: sit just above the page footer, else at the end of the body. BD
+      // themes use a .footer element rather than <footer>, so both are tried. Inserting BEFORE the
+      // footer (never inside it) avoids inheriting footer typography or column layout.
+      var footer = document.querySelector('footer, .footer, #footer');
       host = document.createElement('div');
       if (footer && footer.parentNode) footer.parentNode.insertBefore(host, footer);
       else document.body.appendChild(host);
@@ -322,7 +403,7 @@
     var p = document.createElement('p');
     p.textContent = 'Get notified when new estate sales and auctions are added near you.';
 
-    var built = buildForm('footer');
+    var built = buildForm(resolvePlacement('footer'));
     var fine = document.createElement('p');
     fine.className = 'advla-fine';
     fine.textContent = 'You are asking for local auction and estate-sale notifications. '
@@ -333,7 +414,7 @@
     wrap.appendChild(inner);
     host.appendChild(wrap);
 
-    track('alert_offer_shown', { placement: 'footer', surface: 'strip' });
+    track('alert_offer_shown', { placement: resolvePlacement('footer'), surface: 'strip' });
   }
 
   // ── Modal ────────────────────────────────────────────────────────────────────
@@ -370,7 +451,7 @@
     d.id = 'advla-d'; d.className = 'advla-sub';
     d.textContent = 'Get notified when new estate sales and auctions are added near you.';
 
-    var built = buildForm('modal', close);
+    var built = buildForm(resolvePlacement('modal'), close);
     var fine = document.createElement('p');
     fine.className = 'advla-fine';
     fine.textContent = 'You are asking for local auction and estate-sale notifications. '

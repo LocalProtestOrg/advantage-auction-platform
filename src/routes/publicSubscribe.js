@@ -20,7 +20,14 @@ const ZIP_RE = /^\d{5}(-\d{4})?$/;
 
 // Allowed placement labels (source attribution). Anything else collapses to 'other'.
 const PLACEMENTS = new Set(['footer', 'all_events', 'auctions_listing', 'estate_sales_listing', 'auction_detail',
-  'estate_sale_detail', 'marketplace', 'professional_directory', 'blog', 'help_center', 'seller_page', 'other']);
+  'estate_sale_detail', 'marketplace', 'professional_directory', 'blog', 'help_center', 'seller_page', 'other',
+  // Railway Sales Near You surfaces.
+  'modal',
+  // Brilliant Directories acquisition surfaces. BD submits into THIS canonical system (it stores no
+  // subscribers of its own), so these labels are what distinguish BD acquisition from Railway
+  // acquisition in reporting — alongside source_domain, which is recorded independently.
+  'bd_footer', 'bd_home', 'bd_estate_sales', 'bd_auctions', 'bd_directory', 'bd_blog',
+  'bd_city_page', 'bd_other']);
 
 function ipHash(req) {
   const ip = (req.headers['x-forwarded-for'] || req.ip || '').split(',')[0].trim();
