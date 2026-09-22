@@ -361,6 +361,52 @@ describe('routes (ephemeral server)', () => {
     const ok = await (await fetch(base + '/api/public/assisted-service/inquiry', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: 'a@example.com', contact_consent: true }) })).json();
     expect(ok.success).toBe(true); expect(assistedSvc.submit).toHaveBeenCalledTimes(1);
   });
+  // The Director used to generate a portfolio that failed its OWN experiment-reserve cap. A plan that
+  // cannot pass its own validation is not a plan, so this is asserted on the real output of propose().
+  describe('propose(): the generated portfolio satisfies the caps it is checked against', () => {
+    const director = require('../src/services/paidGrowth/paidGrowthDirector');
+    const ready = { measurement_ready: true, items: [], rules: { minimum_for_any_paid_activation: { not_verified: [] } } };
+
+    test('an active month reserves a tenth for experiments and enforceCaps passes', () => {
+      const plan = director.propose({ readiness: ready, ceilingUsd: 1000, month: '2026-10-01' });
+      const caps = director.enforceCaps(plan.proposals, plan.ceiling_cents);
+      expect(caps.issues).toEqual([]);
+      expect(caps.ok).toBe(true);
+      const experiments = plan.proposals.filter((x) => x.objective === 'creative_audience_experiment');
+      expect(experiments.length).toBe(1);
+      expect(experiments[0].budget_cents).toBeGreaterThanOrEqual(Math.round(caps.total_cents * 0.1));
+    });
+
+    test('the reserve is carved out of the campaigns, never added to the month', () => {
+      const plan = director.propose({ readiness: ready, ceilingUsd: 1000, month: '2026-10-01' });
+      const total = plan.proposals.reduce((a, x) => a + x.budget_cents, 0);
+      expect(total).toBe(plan.recommended_spend_cents);
+      expect(total).toBeLessThanOrEqual(plan.ceiling_cents);
+      // No campaign is emptied to fund the reserve: the carve is proportional.
+      const campaigns = plan.proposals.filter((x) => x.objective !== 'creative_audience_experiment' && x.rationale && !/\$0 until/.test(x.rationale));
+      campaigns.forEach((c) => expect(c.budget_cents).toBeGreaterThan(0));
+    });
+
+    test('the experiment line is a complete, valid proposal like any other', () => {
+      const plan = director.propose({ readiness: ready, ceilingUsd: 1000, month: '2026-10-01' });
+      const exp = plan.proposals.find((x) => x.objective === 'creative_audience_experiment');
+      director.PROPOSAL_FIELDS.forEach((f) => expect(exp[f]).toBeTruthy());
+      expect(director.validateProposal(exp, { ceilingCents: plan.ceiling_cents }).errors).toEqual([]);
+    });
+
+    test('measurement not ready: every budget is $0 and no experiment reserve is invented', () => {
+      const plan = director.propose({ readiness: { measurement_ready: false, items: [], rules: { minimum_for_any_paid_activation: { not_verified: ['utm_capture:MISSING'] } } }, ceilingUsd: 1000, month: '2026-10-01' });
+      expect(plan.recommended_spend_cents).toBe(0);
+      expect(plan.proposals.some((x) => x.objective === 'creative_audience_experiment')).toBe(false);
+    });
+
+    test('a month under $200 keeps no reserve (the policy floor)', () => {
+      const plan = director.propose({ readiness: ready, ceilingUsd: 20, month: '2026-10-01' });
+      expect(plan.recommended_spend_cents).toBeLessThan(20000);
+      expect(director.enforceCaps(plan.proposals, plan.ceiling_cents).ok).toBe(true);
+    });
+  });
+
   test('measurement config: every provider disabled while the gates are OFF — no id is ever returned', async () => {
     const c = await (await fetch(base + '/api/public/measurement-config')).json();
     expect(c.meta_pixel).toEqual({ enabled: false }); expect(c.google_tag).toEqual({ enabled: false });

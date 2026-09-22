@@ -8,7 +8,8 @@ const DEFAULT_KIND = 'buyer_terms';
 // The single current version for a kind (or null if none seeded).
 async function getCurrentTerms(kind = DEFAULT_KIND) {
   const { rows } = await db.query(
-    `SELECT id, kind, version_int, title, body_markdown, effective_at, created_at
+    `SELECT id, kind, version_int, title, body_markdown, effective_at, created_at,
+            includes_sales_near_you
        FROM terms_versions
       WHERE kind = $1 AND is_current = true
       ORDER BY version_int DESC
@@ -49,6 +50,23 @@ async function acceptCurrentTerms(userId, { kind = DEFAULT_KIND, ip = null, user
     [userId, current.id, ip, userAgent]
   );
   const alreadyAccepted = res.rowCount === 0;
+
+  // Sales Near You (migration 158). Accepting a version that DISCLOSES the benefit is the earliest
+  // moment the relationship may honestly be established — account creation accepts no terms, so
+  // nothing is disclosed there and nothing is enrolled there. Fire-and-forget and fully guarded:
+  // a marketing side effect must never be able to fail a terms acceptance.
+  if (current.includes_sales_near_you) {
+    Promise.resolve().then(async () => {
+      const u = (await db.query('SELECT email, contact_email FROM users WHERE id = $1', [userId])).rows[0];
+      if (!u) return;
+      await require('./buyerLifecycleEnrollmentService').enroll({
+        userId,
+        email: (u.contact_email && u.contact_email.trim()) || u.email,
+        trigger: 'account_registration',
+      });
+    }).catch(() => {});
+  }
+
   if (!alreadyAccepted) {
     // Non-blocking audit; failure must not break acceptance.
     writeAuditLog({

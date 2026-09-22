@@ -68,6 +68,22 @@ async function registerForAuction(userId, auctionId, { pickupAcknowledged } = {}
     [auctionId, userId, termsAcceptanceId]
   );
   const row = res.rows[0];
+
+  // Sales Near You (migration 158). Registering for an auction is a registration event in its own
+  // right, so it also resolves the relationship — for a buyer who accepted the disclosing terms on
+  // an earlier visit, and to attach this auction to the evidence trail. Enrolment is idempotent and
+  // refuses unless a DISCLOSING terms version was accepted, so this can never enrol somebody whose
+  // registration did not tell them about it. Fire-and-forget: it must never fail a registration.
+  Promise.resolve().then(async () => {
+    const u = (await db.query('SELECT email, contact_email FROM users WHERE id = $1', [userId])).rows[0];
+    if (!u) return;
+    await require('./buyerLifecycleEnrollmentService').enroll({
+      userId,
+      email: (u.contact_email && u.contact_email.trim()) || u.email,
+      trigger: 'auction_registration',
+      auctionId,
+    });
+  }).catch(() => {});
   writeAuditLog({
     event_type:  'auction.bidder_registered',
     entity_type: 'auction_buyer',

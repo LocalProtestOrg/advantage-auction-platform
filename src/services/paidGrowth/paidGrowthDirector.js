@@ -198,6 +198,34 @@ function propose({ readiness, ceilingUsd = 1000, markets = POLICY.strategic_mark
     p.budget_cents = hasInventory ? Math.min(windowCap, 15000) : 0;   // a bounded first test: enough to reach the $150 state-decision checkpoint
     p.rationale = hasInventory ? 'bounded first test sized to reach one state-decision checkpoint; nothing scales without two meaningful checkpoints' : 'no live inventory in this market for buyers to act on — $0 until there is';
   }
+  // The policy reserves a tenth of an ACTIVE month for experiments, and enforceCaps checks it — but
+  // nothing was producing that line, so every portfolio the Director generated failed its own cap.
+  // The reserve is CARVED OUT of the planned total, never added to it: satisfying a cap must not be
+  // able to grow a month's spend. Proportional, so no single campaign is emptied to fund it.
+  if (ready) {
+    const planned = out.reduce((a, p) => a + p.budget_cents, 0);
+    if (planned >= EXPERIMENT_RESERVE_MIN_TOTAL_CENTS) {
+      const reserve = Math.ceil(planned * EXPERIMENT_RESERVE);
+      let collected = 0;
+      for (const p of out) {
+        if (!p.budget_cents) continue;
+        const cut = Math.min(p.budget_cents, Math.round((p.budget_cents / planned) * reserve), reserve - collected);
+        p.budget_cents -= cut; collected += cut;
+      }
+      for (const p of out) { if (collected < reserve && p.budget_cents > 0) { const cut = Math.min(p.budget_cents, reserve - collected); p.budget_cents -= cut; collected += cut; } }
+      if (collected > 0) {
+        out.push({ market: markets.join(' + '), audience: 'held-out slices of the same audiences, for testing creative and geography against the running campaigns',
+          campaign: 'creative and audience experiment reserve', objective: 'creative_audience_experiment', channel: 'meta_ads',
+          budget_cents: collected, measurement_window_days: 21, success_signal: 'seller_registered',
+          platform_proxy: 'click-through to the page the variant points at',
+          stop_condition: 'LOSER state, or a variant that cannot reach the 100-session / $150 state-decision checkpoint inside the window',
+          scale_condition: 'a variant that beats the running campaign at two consecutive checkpoints replaces it; the reserve is refilled from the next month',
+          measurement_dependencies: baseDeps.concat(['meta_pixel', 'meta_capi', 'meta_click_id']),
+          target_cpa_cents: DEFAULT_TARGET_CPA_CENTS.seller_registered,
+          rationale: `a tenth of the planned $${(planned / 100).toFixed(2)} held back for experiments, carved out of the campaigns rather than added to the month` });
+      }
+    }
+  }
   const caps = enforceCaps(out, ceilingCents);
   if (!caps.ok && caps.total_cents > ceilingCents) {   // never exceed the ceiling: trim from the end
     let over = caps.total_cents - ceilingCents;
