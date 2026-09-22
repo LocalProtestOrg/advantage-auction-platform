@@ -774,8 +774,13 @@ describe('the public acquisition page', () => {
     expect(page).toMatch(/"@type": "FAQPage"/);
     expect(page).toMatch(/"@type": "Service"/);
     expect(page).toMatch(/"priceCurrency": "USD"/);
-    const json = page.slice(page.indexOf('{\n    "@context"'), page.indexOf('</script>'));
-    expect(() => JSON.parse(json)).not.toThrow();
+    // Extract the JSON-LD by its script tag rather than by a whitespace-exact prefix — otherwise a
+    // CRLF checkout silently fails a structured-data assertion.
+    const m = page.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/);
+    expect(m).toBeTruthy();
+    expect(() => JSON.parse(m[1])).not.toThrow();
+    const ld = JSON.parse(m[1]);
+    expect(ld['@graph'].map((n) => n['@type'])).toEqual(expect.arrayContaining(['FAQPage', 'Service']));
   });
 
   test('it asks for only the four permitted fields', () => {

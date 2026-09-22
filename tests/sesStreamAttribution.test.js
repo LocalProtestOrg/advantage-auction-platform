@@ -166,7 +166,8 @@ describe('the event_partner mail stream', () => {
     expect(src).toMatch(/SES_EVENT_PARTNER_CONFIGURATION_SET = process\.env\.SES_EVENT_PARTNER_CONFIGURATION_SET \|\| null/);
     expect(src).toMatch(/if \(mailStream === 'event_partner'\) return SES_EVENT_PARTNER_CONFIGURATION_SET;/);
     // An unknown stream must not fall back to another programme's set.
-    expect(src).toMatch(/return null;\n\}/);
+    // Matched EOL-agnostically so a CRLF checkout cannot fail a test about email routing.
+    expect(src.replace(/\r\n/g, '\n')).toMatch(/return null;\n\}/);
   });
 
   test('the header is stamped from the resolved set, for whichever stream resolves one', () => {
