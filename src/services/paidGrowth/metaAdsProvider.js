@@ -180,6 +180,14 @@ async function validateCampaign({ account, name, funnel, spendCapCents }, runner
 
 async function setStatus({ objectId, status }, runner = db) {
   if (!['PAUSED', 'ACTIVE', 'ARCHIVED'].includes(status)) return { ok: false, reason: 'unsupported status ' + status };
+  // Build mode is a hard stop on going live, not a label. Pausing and archiving stay available so a
+  // problem can always be contained, but nothing may start delivering while it is on.
+  if (status === 'ACTIVE') {
+    const bm = await cfg('marketing.paid.build_mode', runner);
+    if (bm === true || bm === 'true') return { ok: false, reason: 'build mode is ON — no object may be activated' };
+    const kill = await cfg('marketing.paid.global_kill', runner);
+    if (kill === true || kill === 'true') return { ok: false, reason: 'the global kill switch is ON — no object may be activated' };
+  }
   const perms = await permissions();
   if (!perms.ok) return { ok: false, reason: 'cannot read permissions: ' + perms.reason };
   if (!perms.ads_management) return { ok: false, reason: 'ads_management not granted — status changes are not possible' };

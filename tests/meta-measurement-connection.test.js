@@ -250,9 +250,16 @@ describe('no path can create, edit, activate, pause or fund an advertisement', (
     // Every write path checks the permission before calling the Graph API.
     const writeFns = ['async function createCampaign', 'async function setStatus'];
     for (const fn of writeFns) {
-      const body = src.slice(src.indexOf(fn), src.indexOf(fn) + 900);
+      // Window sized to the whole function, not a fixed byte count, so adding a guard inside it
+      // cannot silently push the permission check out of view.
+      const start = src.indexOf(fn);
+      const body = src.slice(start, src.indexOf('\n}', start));
       expect(body).toMatch(/if \(!perms\.ads_management\) return \{ ok: false/);
     }
+    // Going live is additionally blocked by build mode and by the global kill.
+    const st = src.slice(src.indexOf('async function setStatus'), src.indexOf('const pause'));
+    expect(st).toMatch(/build mode is ON — no object may be activated/);
+    expect(st).toMatch(/the global kill switch is ON — no object may be activated/);
     // Campaigns are created PAUSED, so a successful creation still spends nothing.
     expect(src).toMatch(/status: 'PAUSED',\s*\/\/ never create anything that can start spending/);
     // ACTIVE is only ever an explicit status transition, never a creation payload.
