@@ -190,8 +190,11 @@ describe('frequency capping is real, not aspirational', () => {
     expect(WIDGET).toMatch(/writeState\(\{ subscribed: true, subscribedAt: Date\.now\(\) \}\)/);
   });
 
-  test('a dismissal is persisted before the modal closes', () => {
-    expect(WIDGET).toMatch(/function dismiss\(how\) \{\s*writeState\(\{ dismissedAt: Date\.now\(\) \}\)/);
+  test('a real dismissal is persisted before the modal closes', () => {
+    expect(WIDGET_CODE).toMatch(/writeState\(\{ dismissedAt: Date\.now\(\) \}\);/);
+    expect(WIDGET_CODE).toMatch(/track\('alert_modal_dismissed'/);
+    // ...but closing after a successful signup is NOT a dismissal.
+    expect(WIDGET_CODE).toMatch(/if \(subscribed\) \{ close\(\); return; \}/);
   });
 
   test('blocked storage degrades quietly instead of throwing', () => {
@@ -499,9 +502,12 @@ describe('Brilliant Directories acquisition — one script, two surfaces', () =>
     expect(WIDGET_CODE).toMatch(/if \(!EMBEDDED && root\.AAPAnalytics/);
   });
 
-  test('the strip mounts above a BD-themed footer, never inside it', () => {
-    expect(WIDGET_CODE).toMatch(/querySelector\('footer, \.footer, #footer'\)/);
-    expect(WIDGET_CODE).toMatch(/insertBefore\(host, footer\)/);
+  test('the strip mounts above the site footer, never inside it', () => {
+    // Placement is decided by GEOMETRY now, not a class name: a class-name selector picked an early
+    // decoy on the marketing homepage. Detailed coverage lives in salesNearYouBdPlacement.test.js.
+    expect(WIDGET_CODE).toMatch(/var anchor = findFooterAnchor\(\);/);
+    expect(WIDGET_CODE).toMatch(/anchor\.parentNode\.insertBefore\(host, anchor\)/);
+    expect(WIDGET_CODE).not.toMatch(/anchor\.appendChild\(host\)/);
   });
 
   test('the second-event trigger recognises BD listing routes', () => {

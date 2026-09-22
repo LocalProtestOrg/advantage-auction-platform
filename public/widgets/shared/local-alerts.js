@@ -222,6 +222,12 @@
       '.advla-btn:hover{background:#12314f}.advla-btn:disabled{opacity:.6;cursor:default}' +
       '.advla-fine{margin:.7rem 0 0;font-size:.78rem;color:#8494a6;line-height:1.5}' +
       '.advla-msg{margin:.7rem 0 0;font-size:.9rem;line-height:1.5}' +
+      /* durable post-signup confirmation (replaces the form) */
+      '.advla-done{background:#ecfdf5;border:1px solid #a7f3d0;border-radius:12px;padding:1.15rem 1.25rem;text-align:center}' +
+      '.advla-tick{width:44px;height:44px;margin:0 auto .55rem;border-radius:50%;background:#16a34a;color:#fff;' +
+        'font-size:1.45rem;line-height:44px;font-weight:700}' +
+      '.advla-done-h{margin:0 0 .3rem;font-size:1.08rem;font-weight:800;color:#065f46}' +
+      '.advla-done-p{margin:0;font-size:.94rem;line-height:1.55;color:#047857}' +
       '.advla-ok{color:#15803d;font-weight:600}.advla-err{color:#b91c1c}' +
       /* modal */
       '.advla-ov{position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:9998;display:flex;' +
@@ -252,6 +258,41 @@
     st.id = 'adv-alerts-styles';
     st.textContent = css;
     document.head.appendChild(st);
+  }
+
+  /**
+   * Replace a completed form with a clear, persistent confirmation.
+   *
+   * The previous behaviour showed one green sentence and then closed the modal after 2.2 seconds,
+   * which read as a flash. This stays put: on the strip it remains for the rest of the visit, and in
+   * the modal the visitor closes it when they are ready.
+   *
+   * The wording deliberately promises notification of QUALIFYING sales — not that every nearby event
+   * will generate an email, which would not be true.
+   */
+  function showSubscribed(form, msg) {
+    var box = document.createElement('div');
+    box.className = 'advla-done';
+    box.setAttribute('role', 'status');
+    box.setAttribute('aria-live', 'polite');
+
+    var tick = document.createElement('div');
+    tick.className = 'advla-tick';
+    tick.setAttribute('aria-hidden', 'true');
+    tick.textContent = '✓';
+
+    var h = document.createElement('p');
+    h.className = 'advla-done-h';
+    h.textContent = "You're signed up!";
+
+    var p = document.createElement('p');
+    p.className = 'advla-done-p';
+    p.textContent = "We'll let you know when qualifying sales are added near you.";
+
+    box.appendChild(tick); box.appendChild(h); box.appendChild(p);
+    if (msg && msg.parentNode) { msg.textContent = ''; msg.className = 'advla-msg'; }
+    if (form && form.parentNode) form.parentNode.replaceChild(box, form);
+    try { box.focus && box.focus(); } catch (e) {}
   }
 
   // ── The shared form, used by both surfaces ───────────────────────────────────
@@ -356,11 +397,11 @@
           }
           // Remembered so we never pester someone who already said yes.
           writeState({ subscribed: true, subscribedAt: Date.now() });
-          msg.className = 'advla-msg advla-ok';
-          msg.textContent = res.body.message || "You're in! We'll keep you posted about sales near you.";
-          form.querySelectorAll('input,select,button').forEach(function (f) { f.disabled = true; });
           track('alert_signup_succeeded', { placement: placement, state: v.state });
-          if (typeof onDone === 'function') setTimeout(onDone, 2200);
+          // The form is REPLACED by a durable confirmation rather than a sentence that flashes past.
+          // It stays until the visitor navigates away (strip) or closes the modal themselves.
+          showSubscribed(form, msg);
+          if (typeof onDone === 'function') onDone();
         })
         .catch(function () {
           btn.disabled = false; btn.textContent = original;
@@ -373,6 +414,82 @@
     return { form: form, msg: msg, firstField: email };
   }
 
+  // ── Footer anchor resolution ─────────────────────────────────────────────────
+  //
+  // Class names are not reliable across templates. On this site's marketing pages a `div.footer`
+  // is the real site footer on most templates, but the homepage carries an EARLIER element with the
+  // same class sitting above a major content section — so `querySelector('.footer')` puts the signup
+  // in the middle of the homepage. There is no semantic <footer> and no role="contentinfo" anywhere.
+  //
+  // So the anchor is chosen by GEOMETRY, which is template-independent: collect every plausible
+  // footer landmark, keep the ones that are actually rendered, and take the LOWEST on the page —
+  // provided it really is in the bottom portion. A decoy higher up can never win.
+
+  var FOOTER_SELECTORS = [
+    'footer', '[role="contentinfo"]', '.site-footer', '#site-footer', '#footer', '.footer',
+    '.footer_menu', '.footer-menu', '.page-footer', '.main-footer',
+  ].join(',');
+
+  function isRendered(el) {
+    if (!el || !el.getBoundingClientRect) return false;
+    var r = el.getBoundingClientRect();
+    if (r.width <= 0 && r.height <= 0) return false;         // display:none / detached
+    try {
+      var cs = window.getComputedStyle(el);
+      if (cs && (cs.display === 'none' || cs.visibility === 'hidden')) return false;
+    } catch (e) { /* treat an unreadable style as rendered */ }
+    return true;
+  }
+
+  /** Absolute document offset of an element's top edge. */
+  function docTop(el) {
+    var r = el.getBoundingClientRect();
+    return r.top + (window.pageYOffset || document.documentElement.scrollTop || 0);
+  }
+
+  /**
+   * The outermost footer-ish ancestor of a candidate. A theme often nests the footer menu inside the
+   * real footer container; anchoring to the container keeps the signup above the whole footer rather
+   * than wedged between its columns.
+   */
+  function outermostFooter(el) {
+    var best = el, node = el.parentElement, hops = 0;
+    while (node && node !== document.body && hops < 4) {
+      var cls = ' ' + (node.className && node.className.baseVal !== undefined
+        ? node.className.baseVal : (node.className || '')) + ' ';
+      if (node.tagName === 'FOOTER' || / footer /.test(' ' + cls.replace(/-/g, ' ') + ' ')) best = node;
+      node = node.parentElement; hops++;
+    }
+    return best;
+  }
+
+  /**
+   * The lowest genuinely-rendered footer landmark, or null. Returning null is a real answer: the
+   * caller then appends to the end of the body rather than guessing at a mid-page element.
+   */
+  function findFooterAnchor() {
+    try {
+      var nodes = document.querySelectorAll(FOOTER_SELECTORS);
+      if (!nodes || !nodes.length) return null;
+      var pageHeight = Math.max(
+        document.body ? document.body.scrollHeight : 0,
+        document.documentElement ? document.documentElement.scrollHeight : 0, 1);
+
+      var best = null, bestTop = -1;
+      for (var i = 0; i < nodes.length; i++) {
+        var el = outermostFooter(nodes[i]);
+        if (!isRendered(el)) continue;
+        if (el.contains && el.contains(document.querySelector('.advla-strip'))) continue;
+        var top = docTop(el);
+        if (top > bestTop) { bestTop = top; best = el; }
+      }
+      if (!best) return null;
+      // A landmark in the TOP HALF of the page is a decoy, not the site footer.
+      if (bestTop < pageHeight * 0.5) return null;
+      return best;
+    } catch (e) { return null; }
+  }
+
   // ── Footer strip ─────────────────────────────────────────────────────────────
   function mountStrip() {
     if (document.querySelector('.advla-strip')) return;
@@ -381,12 +498,12 @@
 
     var host = document.querySelector('[data-adv-local-alerts]');
     if (!host) {
-      // No explicit mount point: sit just above the page footer, else at the end of the body. BD
-      // themes use a .footer element rather than <footer>, so both are tried. Inserting BEFORE the
-      // footer (never inside it) avoids inheriting footer typography or column layout.
-      var footer = document.querySelector('footer, .footer, #footer');
       host = document.createElement('div');
-      if (footer && footer.parentNode) footer.parentNode.insertBefore(host, footer);
+      var anchor = findFooterAnchor();
+      // Insert BEFORE the site footer (never inside it) so footer typography and column layout are
+      // not inherited and footer navigation is untouched. With no usable anchor, the end of the body
+      // is the honest fallback — still the bottom of the page, just after the footer.
+      if (anchor && anchor.parentNode) anchor.parentNode.insertBefore(host, anchor);
       else document.body.appendChild(host);
     }
 
@@ -451,7 +568,15 @@
     d.id = 'advla-d'; d.className = 'advla-sub';
     d.textContent = 'Get notified when new estate sales and auctions are added near you.';
 
-    var built = buildForm(resolvePlacement('modal'), close);
+    // No auto-close on success: the confirmation stays until the visitor dismisses it themselves.
+    // `subscribed` flips the exit buttons from a DISMISSAL into a plain close, so a successful signup
+    // is never also recorded as someone rejecting the offer.
+    var subscribed = false;
+    var built = buildForm(resolvePlacement('modal'), function onSubscribed() {
+      subscribed = true;
+      no.textContent = 'Close';
+      try { no.focus(); } catch (e) {}
+    });
     var fine = document.createElement('p');
     fine.className = 'advla-fine';
     fine.textContent = 'You are asking for local auction and estate-sale notifications. '
@@ -468,6 +593,10 @@
     requestAnimationFrame(function () { ov.classList.add('open'); });
 
     function dismiss(how) {
+      // After a successful signup this is just "close" — not a dismissal. Recording a dismissal here
+      // would both misreport the outcome and pointlessly set a 30-day suppression on someone who
+      // already subscribed (and is suppressed by alreadySubscribed anyway).
+      if (subscribed) { close(); return; }
       writeState({ dismissedAt: Date.now() });
       track('alert_modal_dismissed', { trigger: trigger, how: how });
       close();
