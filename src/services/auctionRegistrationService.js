@@ -69,6 +69,12 @@ async function registerForAuction(userId, auctionId, { pickupAcknowledged } = {}
   );
   const row = res.rows[0];
 
+  // Registering for an auction is its own funnel stage — a buyer account is not yet a bidder — and
+  // paid acquisition has to be able to optimise toward it. Fire-and-forget, like every other emitter.
+  require('./conversionService').emit('auction_registered', {
+    userId, subjectType: 'auction', subjectId: auctionId,
+  });
+
   // Sales Near You (migration 158). Registering for an auction is a registration event in its own
   // right, so it also resolves the relationship — for a buyer who accepted the disclosing terms on
   // an earlier visit, and to attach this auction to the evidence trail. Enrolment is idempotent and

@@ -30,7 +30,7 @@ const REQUIRED_EVENTS = ['page_view', 'search', 'lot_view', 'watch_lot', 'bid', 
 // Where each server-side conversion is emitted (file must contain the emit call for the key).
 const EMITTERS = {
   buyer_registered: 'src/routes/auth.js', seller_registered: 'src/routes/sellers.js', seller_inquiry: 'src/routes/sellers.js',
-  auction_draft_created: 'src/routes/auctions.js', auction_published: 'src/services/auctionService.js', watch_lot: 'src/routes/watchlist.js',
+  auction_registered: 'src/services/auctionRegistrationService.js', auction_draft_created: 'src/routes/auctions.js', auction_published: 'src/services/auctionService.js', watch_lot: 'src/routes/watchlist.js',
   bid: 'src/services/bidService.js', purchase: 'src/services/combinedInvoiceService.js', email_signup: 'src/routes/publicSubscribe.js',
   assisted_service_inquiry: 'src/routes/publicAssistedService.js',
 };

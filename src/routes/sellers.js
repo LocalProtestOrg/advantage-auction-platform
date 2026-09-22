@@ -150,7 +150,11 @@ router.post('/enroll', auth, async (req, res, next) => {
       onboarding = await agreementService.getOnboardingStatus(req.user.id);
     } catch (_) { /* enablement already committed; agreement send / status is best-effort */ }
 
-    if (!existing) require('../services/conversionService').emit('seller_registered', { ...require('../services/conversionService').ctxFromReq(req), userId: req.user.id, subjectType: 'seller_profile', subjectId: sellerProfileId });
+    // Individual and Professional sellers are two different funnels with different creative,
+    // different landing pages and different economics, so the conversion has to say which one it
+    // was. Carried on subject_type rather than as a second conversion key, so the seller is counted
+    // exactly once.
+    if (!existing) require('../services/conversionService').emit('seller_registered', { ...require('../services/conversionService').ctxFromReq(req), userId: req.user.id, subjectType: isProfessional(sellerType) ? 'professional_seller_profile' : 'individual_seller_profile', subjectId: sellerProfileId });
     return res.status(existing ? 200 : 201).json({
       success: true,
       token,
