@@ -102,30 +102,68 @@ describe('approval and eligibility are separate decisions', () => {
     expect(f.blocking.join(' ')).toMatch(/never publish/);
   });
 
-  test('a copy of a training Gold Standard is blocked and the conflict is named', () => {
+  // Owner policy 2026-09-22: provenance is not authorization. An advertisement may legitimately
+  // exist as reference copy AND as a production-authorized copy; byte-identical content across the
+  // two libraries is recorded as provenance, never as a blocker.
+  test('a copy of a training Gold Standard is recorded as provenance, not blocked', () => {
     const f = registry.assessFacts({
       category: 'individual-seller', sidecar: null,
       isTrainingCopy: true, trainingPath: 'individual-seller/x.png',
     });
-    expect(f.blocking.length).toBeGreaterThan(0);
-    expect(f.blocking.join(' ')).toMatch(/copy of a training \/ Gold Standard reference/);
-    expect(f.conflict).toMatch(/byte-identical to the training\/calibration library/);
+    expect(f.blocking).toEqual([]);
+    expect(f.provenance.join(' ')).toMatch(/also present in the training \/ calibration library/);
+    expect(f.provenance.join(' ')).toMatch(/reference copy stays reference-only/);
   });
 
-  test('provenance that says calibration-only blocks production use', () => {
+  test('an Owner Gold Standard origin is preserved as provenance and does not restrict the production copy', () => {
+    const f = registry.assessFacts({
+      category: 'professional-seller', isTrainingCopy: false,
+      sidecar: { owner_status: 'OWNER_GOLD_STANDARD', source: { rights: '' } },
+    });
+    expect(f.blocking).toEqual([]);
+    expect(f.provenance.join(' ')).toMatch(/originated as an Owner Gold Standard/);
+  });
+
+  test('a calibration-only note describes the reference copy and does not block the production copy', () => {
     const f = registry.assessFacts({
       category: 'professional-seller', isTrainingCopy: false,
       sidecar: { source: { rights: 'Advantage.Bid-owned reference creative. Calibration evidence only: ...' } },
     });
-    expect(f.blocking.join(' ')).toMatch(/calibration evidence only/);
+    expect(f.blocking).toEqual([]);
+    expect(f.provenance.join(' ')).toMatch(/does not govern this production copy/);
   });
 
-  test('an un-approved logo rendering blocks production use', () => {
+  // The sidecar's logo restriction means "do not extract this rendering as a brand source asset".
+  // It does not condemn the finished advertisement. Blocking is per-asset, from the Owner review.
+  test('a sidecar logo restriction alone does not block a finished advertisement', () => {
     const f = registry.assessFacts({
       category: 'professional-seller', isTrainingCopy: false,
       sidecar: { source: { rights: 'the logo drawn inside it is an image-model rendering and is NOT an approved logo asset' } },
     });
-    expect(f.blocking.join(' ')).toMatch(/not an official brand asset/);
+    expect(f.blocking).toEqual([]);
+  });
+
+  test('an asset reviewed as having a materially incorrect logo IS blocked, by content hash', () => {
+    const [hash, reason] = Object.entries(registry.LOGO_DEFECTS)[0];
+    const f = registry.assessFacts({ category: 'individual-seller', sidecar: null, isTrainingCopy: false, sha256: hash });
+    expect(f.blocking).toContain(reason);
+    expect(reason).toMatch(/materially incorrect logo/);
+    // Another asset with the same category but a different hash is unaffected.
+    const clean = registry.assessFacts({ category: 'individual-seller', sidecar: null, isTrainingCopy: false, sha256: 'f'.repeat(64) });
+    expect(clean.blocking).toEqual([]);
+  });
+
+  test('representative merchandise is permitted for general evergreen acquisition, never for event or lot creative', () => {
+    const rights = { source: { rights: 'merchandise is representative, not lots' } };
+    for (const c of ['individual-seller', 'professional-seller', 'buyer-acquisition', 'buyer-growth']) {
+      const f = registry.assessFacts({ category: c, sidecar: rights, isTrainingCopy: false });
+      expect(f.blocking).toEqual([]);
+      expect(f.deferred.join(' ')).toMatch(/must not claim or imply .* specific currently available lot/);
+    }
+    for (const c of ['notable-lot', 'auction-event', 'estate-sale', 'geographic-event']) {
+      const f = registry.assessFacts({ category: c, sidecar: rights, isTrainingCopy: false });
+      expect(f.blocking.join(' ')).toMatch(/can never stand in for a specific advertised lot/);
+    }
   });
 
   test('representative merchandise blocks advertising lots', () => {
@@ -169,12 +207,28 @@ describe('the Owner production library as it stands today', () => {
     });
   });
 
-  test('assets copied from the training library are detected and blocked', () => {
+  test('assets also present in the training library are recorded as provenance, not blocked', () => {
     const copies = scanned.assets.filter((a) => a.training_copy_of);
-    // This is the current real state of the library; if it ever changes the test documents why.
+    expect(copies.length).toBeGreaterThan(0);
     copies.forEach((a) => {
-      expect(a.provenance_conflict).toBeTruthy();
-      expect(a.factual_requirements.blocking.length).toBeGreaterThan(0);
+      expect(a.factual_requirements.provenance.join(' ')).toMatch(/training \/ calibration library/);
+    });
+  });
+
+  test('exactly the reviewed asset is blocked, and only for the reviewed reason', () => {
+    const blocked = scanned.assets.filter((a) => a.factual_requirements.blocking.length);
+    expect(blocked.length).toBe(1);
+    expect(blocked[0].filename).toBe('individual-seller-turn-items-into-cash-gold-standard.png.png');
+    expect(blocked[0].factual_requirements.blocking.join(' ')).toMatch(/materially incorrect logo/);
+  });
+
+  test('a reviewed message that differs from its folder is withheld from the wrong funnel', () => {
+    const mismatched = scanned.assets.filter((a) => a.content_intent
+      && registry.CATEGORY_PURPOSE[a.category].funnel
+      && a.content_intent !== registry.CATEGORY_PURPOSE[a.category].funnel);
+    mismatched.forEach((a) => {
+      expect(a.factual_requirements.blocking).toEqual([]);   // still a good advertisement
+      expect(a.factual_requirements.provenance.join(' ')).toMatch(/withheld from/);
     });
   });
 

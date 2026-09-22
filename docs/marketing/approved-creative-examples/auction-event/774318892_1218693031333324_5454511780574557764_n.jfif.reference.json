@@ -3,7 +3,7 @@
   "reference_id": "REF-06",
   "identity": {
     "sha256": "dbd84e22fd17cdd9c2eac60cd73257f9a702994e7055fea71532aff3044dad50",
-    "current_path": "auction/774318892_1218693031333324_5454511780574557764_n.jfif",
+    "current_path": "auction-event/774318892_1218693031333324_5454511780574557764_n.jfif",
     "original_filename": "774318892_1218693031333324_5454511780574557764_n.jfif",
     "width": 1536,
     "height": 1024,
@@ -11,7 +11,7 @@
     "aspect_ratio": 1.5
   },
   "owner_status": "OWNER_APPROVED",
-  "owner_weight": 1.0,
+  "owner_weight": 1,
   "status_history": [
     {
       "date": "2026-09-09",
@@ -40,7 +40,7 @@
     "nearest_advantage_family": "LEFT_THIRD_WHITE",
     "event_mode": "unknown",
     "merchandise_breadth": "broad",
-    "owner_folder": "auction"
+    "owner_folder": "auction-event"
   },
   "visual_read": {
     "visual_hierarchy": "Same left panel as REF-05. Right: five objects at larger scale — gilt-framed mountain landscape high centre (wall), writing table centre (hero), bronze urn on pedestal in front of the table, carved lion group front right, black chinoiserie breakfront right (tall, cropped).",

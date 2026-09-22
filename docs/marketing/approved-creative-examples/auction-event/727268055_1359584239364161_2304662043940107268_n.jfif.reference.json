@@ -3,15 +3,15 @@
   "reference_id": "REF-03",
   "identity": {
     "sha256": "c331aa710bfa3bbefa5e03b992c2fca6413c007913756f4269f9dcf1031785dc",
-    "current_path": "auction/727268055_1359584239364161_2304662043940107268_n.jfif",
+    "current_path": "auction-event/727268055_1359584239364161_2304662043940107268_n.jfif",
     "original_filename": "727268055_1359584239364161_2304662043940107268_n.jfif",
     "width": 1254,
     "height": 1254,
     "format_class": "square",
-    "aspect_ratio": 1.0
+    "aspect_ratio": 1
   },
   "owner_status": "OWNER_APPROVED",
-  "owner_weight": 1.0,
+  "owner_weight": 1,
   "status_history": [
     {
       "date": "2026-09-09",
@@ -40,7 +40,7 @@
     "nearest_advantage_family": "CATEGORY_GROUP",
     "event_mode": "in_house_or_online",
     "merchandise_breadth": "category_group",
-    "owner_folder": "auction"
+    "owner_folder": "auction-event"
   },
   "visual_read": {
     "visual_hierarchy": "Right column: crest → seller name → FINE TIMEPIECES (gold) → AUCTION (very large navy) → brand list → three icon rows (calendar, in-house/online, address) → navy CTA bar → gold footer bar. Left 55%: five photo tiles of watches and jewellery.",
@@ -59,7 +59,7 @@
     "overall_visual_impact": "high"
   },
   "measured": {
-    "light_pixel_pct": 40.0,
+    "light_pixel_pct": 40,
     "dark_pixel_pct": 5.2,
     "saturated_pixel_pct": 18.3,
     "dominant_hues": [

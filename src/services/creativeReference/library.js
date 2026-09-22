@@ -11,11 +11,11 @@ const path = require('path');
 const crypto = require('crypto');
 
 const LIBRARY_ROOT = path.join(__dirname, '..', '..', '..', 'docs', 'marketing', 'approved-creative-examples');
-const CATEGORY_FOLDERS = ['auction', 'estate-sale', 'notable-lot', 'geographic-event', 'individual-seller', 'professional-seller', 'buyer-growth', 'closing-soon', 'brand'];
+const CATEGORY_FOLDERS = ['auction', 'auction-event', 'estate-sale', 'notable-lot', 'geographic-event', 'individual-seller', 'professional-seller', 'buyer-acquisition', 'buyer-growth', 'closing-soon', 'brand'];
 const FOLDER_CLASS = {
-  'auction': 'auction', 'estate-sale': 'estate_sale', 'notable-lot': 'notable_lot', 'geographic-event': 'geographic_event_promotion',
+  'auction': 'auction', 'auction-event': 'auction', 'estate-sale': 'estate_sale', 'notable-lot': 'notable_lot', 'geographic-event': 'geographic_event_promotion',
   'individual-seller': 'individual_seller_acquisition', 'professional-seller': 'professional_seller_acquisition',
-  'buyer-growth': 'buyer_platform_growth', 'closing-soon': 'closing_soon', 'brand': 'general_brand',
+  'buyer-acquisition': 'buyer_platform_growth', 'buyer-growth': 'buyer_platform_growth', 'closing-soon': 'closing_soon', 'brand': 'general_brand',
 };
 const CAMPAIGN_CLASSES = ['estate_sale', 'auction', 'professional_seller_acquisition', 'individual_seller_acquisition', 'buyer_platform_growth', 'notable_lot', 'closing_soon', 'geographic_event_promotion', 'general_brand'];
 const STATUSES = ['OWNER_APPROVED', 'OWNER_GOLD_STANDARD', 'OWNER_DO_NOT_USE', 'RETIRED'];

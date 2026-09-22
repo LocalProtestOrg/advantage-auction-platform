@@ -3,15 +3,15 @@
   "reference_id": "REF-08",
   "identity": {
     "sha256": "128f8b36c1ca44aaafead4f31769ab8327c30dacd38887d32db728ddad3f9bb1",
-    "current_path": "auction/800644023_2274522166644689_3549738819247121400_n.jfif",
+    "current_path": "auction-event/800644023_2274522166644689_3549738819247121400_n.jfif",
     "original_filename": "800644023_2274522166644689_3549738819247121400_n.jfif",
     "width": 1024,
     "height": 1024,
     "format_class": "square",
-    "aspect_ratio": 1.0
+    "aspect_ratio": 1
   },
   "owner_status": "OWNER_APPROVED",
-  "owner_weight": 1.0,
+  "owner_weight": 1,
   "status_history": [
     {
       "date": "2026-09-09",
@@ -40,7 +40,7 @@
     "nearest_advantage_family": "CATALOG_SCATTER",
     "event_mode": "unknown",
     "merchandise_breadth": "broad",
-    "owner_folder": "auction"
+    "owner_folder": "auction-event"
   },
   "visual_read": {
     "visual_hierarchy": "Seller name top-centre → MANCAVE (navy distressed) / AUCTION (red distressed) with gold stars → twelve objects fill everything else. No date, time, URL or CTA.",

@@ -3,7 +3,7 @@
   "reference_id": "REF-05",
   "identity": {
     "sha256": "8448d6a901323947dd6420f934717e2f7d9b1e335d8af2702da8ba2f82da2eef",
-    "current_path": "auction/768987773_1053905510468704_817358866268751308_n.jfif",
+    "current_path": "auction-event/768987773_1053905510468704_817358866268751308_n.jfif",
     "original_filename": "768987773_1053905510468704_817358866268751308_n.jfif",
     "width": 1536,
     "height": 1024,
@@ -11,7 +11,7 @@
     "aspect_ratio": 1.5
   },
   "owner_status": "OWNER_APPROVED",
-  "owner_weight": 1.0,
+  "owner_weight": 1,
   "status_history": [
     {
       "date": "2026-09-09",
@@ -40,7 +40,7 @@
     "nearest_advantage_family": "LEFT_THIRD_WHITE",
     "event_mode": "unknown",
     "merchandise_breadth": "broad",
-    "owner_folder": "auction"
+    "owner_folder": "auction-event"
   },
   "visual_read": {
     "visual_hierarchy": "Left ~35%: seller name (green serif, gold ampersand) → AUGUST ESTATE AUCTION (gold spaced caps) → OVER 725+ LOTS & GROWING (725+ as a huge gold numeral) → category line → Auction begins / date / time. Right ~65%: seven objects on a white stage with white plinths. Green footer band with gold URL.",

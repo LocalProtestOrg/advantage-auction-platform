@@ -3,7 +3,7 @@
   "reference_id": "REF-07",
   "identity": {
     "sha256": "d5466d9eeb950f8a90ae65187f8e31981491642132ec1179944a7e72d26c4377",
-    "current_path": "auction/790540822_4060954984197683_2602558076501565505_n.jfif",
+    "current_path": "auction-event/790540822_4060954984197683_2602558076501565505_n.jfif",
     "original_filename": "790540822_4060954984197683_2602558076501565505_n.jfif",
     "width": 1536,
     "height": 1024,
@@ -11,7 +11,7 @@
     "aspect_ratio": 1.5
   },
   "owner_status": "OWNER_APPROVED",
-  "owner_weight": 1.0,
+  "owner_weight": 1,
   "status_history": [
     {
       "date": "2026-09-09",
@@ -40,7 +40,7 @@
     "nearest_advantage_family": "CATALOG_SCATTER",
     "event_mode": "in_house_or_online",
     "merchandise_breadth": "category_group",
-    "owner_folder": "auction"
+    "owner_folder": "auction-event"
   },
   "visual_read": {
     "visual_hierarchy": "Left third: black textured panel — seller name (gold) → MANCAVE AUCTION (distressed cream display type) → HOUSTON'S PREMIER CHOICE (red) → icon rows: auction start, address, phone → boxed preview times → red ribbon BID WITH CONFIDENCE → URL. Right two-thirds: ten extracted objects on white.",
@@ -60,7 +60,7 @@
   },
   "measured": {
     "light_pixel_pct": 31.3,
-    "dark_pixel_pct": 31.0,
+    "dark_pixel_pct": 31,
     "saturated_pixel_pct": 20.1,
     "dominant_hues": [
       "orange 51%",

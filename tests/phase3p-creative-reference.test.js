@@ -95,8 +95,15 @@ describe('indexer — reconcile by content hash; Owner never edits JSON', () => 
     expect(r.index.counts.references).toBe(N);
   });
   test('move to do-not-use/ → negative evidence (-1.0); delete → RETIRED (record kept); new image → stub + task; foreign file reported not indexed', async () => {
-    const imgs = listImgs(dir); const a = imgs.find((i) => i.category === 'auction'); const b = imgs.filter((i) => i.category === 'auction')[1];
-    const dnu = path.join(dir, 'auction', 'do-not-use'); fs.mkdirSync(dnu); fs.renameSync(a.path, path.join(dnu, a.filename)); fs.renameSync(a.path + lib.SIDECAR_SUFFIX, path.join(dnu, a.filename + lib.SIDECAR_SUFFIX));
+    // Pick whichever category currently holds at least two images rather than naming one: the Owner
+    // reorganises the library (e.g. 'auction' became 'auction-event'), and this test should follow
+    // the structure instead of going stale whenever a folder is renamed.
+    const imgs = listImgs(dir);
+    const byCat = imgs.reduce((m, i) => { (m[i.category] = m[i.category] || []).push(i); return m; }, {});
+    const cat = Object.keys(byCat).sort().find((c) => byCat[c].length >= 2);
+    expect(cat).toBeTruthy();
+    const a = byCat[cat][0]; const b = byCat[cat][1];
+    const dnu = path.join(dir, cat, 'do-not-use'); fs.mkdirSync(dnu, { recursive: true }); fs.renameSync(a.path, path.join(dnu, a.filename)); fs.renameSync(a.path + lib.SIDECAR_SUFFIX, path.join(dnu, a.filename + lib.SIDECAR_SUFFIX));
     fs.unlinkSync(b.path);
     fs.mkdirSync(path.join(dir, 'individual-seller'), { recursive: true }); // empty category folders are not tracked by git
     fs.copyFileSync(imgs.find((i) => i.category === 'notable-lot').path, path.join(dir, 'individual-seller', 'new-owner-pick.jpg')); // a fresh file → hashes differently? (same bytes) → copy a mutated file instead

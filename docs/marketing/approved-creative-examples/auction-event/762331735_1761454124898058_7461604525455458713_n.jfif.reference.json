@@ -3,7 +3,7 @@
   "reference_id": "REF-04",
   "identity": {
     "sha256": "5982927ac926a11bafbacb08ee650e6703b1edafd6020f75201f2e7278b3a0dc",
-    "current_path": "auction/762331735_1761454124898058_7461604525455458713_n.jfif",
+    "current_path": "auction-event/762331735_1761454124898058_7461604525455458713_n.jfif",
     "original_filename": "762331735_1761454124898058_7461604525455458713_n.jfif",
     "width": 1536,
     "height": 1024,
@@ -11,7 +11,7 @@
     "aspect_ratio": 1.5
   },
   "owner_status": "OWNER_APPROVED",
-  "owner_weight": 1.0,
+  "owner_weight": 1,
   "status_history": [
     {
       "date": "2026-09-09",
@@ -40,7 +40,7 @@
     "nearest_advantage_family": "LEFT_THIRD_WHITE",
     "event_mode": "unknown",
     "merchandise_breadth": "broad",
-    "owner_folder": "auction"
+    "owner_folder": "auction-event"
   },
   "visual_read": {
     "visual_hierarchy": "Left ~40%: crest → seller name → ESTATE (navy) / AUCTION (gold, largest) → AUGUST 16TH → Sunday 11:00 AM → navy pill 'LMAuctionCo.com'. Right ~60%: five extracted objects at large scale.",

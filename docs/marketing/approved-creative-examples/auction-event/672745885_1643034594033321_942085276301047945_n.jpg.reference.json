@@ -3,7 +3,7 @@
   "reference_id": "REF-01",
   "identity": {
     "sha256": "f6579f4cc853e5dde24ac5433918f344538ea7b22e8c8b2b992cae7b1c441f1d",
-    "current_path": "auction/672745885_1643034594033321_942085276301047945_n.jpg",
+    "current_path": "auction-event/672745885_1643034594033321_942085276301047945_n.jpg",
     "original_filename": "672745885_1643034594033321_942085276301047945_n.jpg",
     "width": 1086,
     "height": 1448,
@@ -11,7 +11,7 @@
     "aspect_ratio": 0.75
   },
   "owner_status": "OWNER_APPROVED",
-  "owner_weight": 1.0,
+  "owner_weight": 1,
   "status_history": [
     {
       "date": "2026-09-09",
@@ -40,7 +40,7 @@
     "nearest_advantage_family": "CATEGORY_GROUP",
     "event_mode": "online_only",
     "merchandise_breadth": "single_category",
-    "owner_folder": "auction"
+    "owner_folder": "auction-event"
   },
   "visual_read": {
     "visual_hierarchy": "Title stack top-left (ROCK SPECIMEN dark serif, & and DESIGNER PURSE / AUCTION in orange, AUCTION largest) → date/time/online-only → 'Featuring' line → CTA box → seller logo bottom-left. Merchandise owns the right two-thirds and the whole lower half.",

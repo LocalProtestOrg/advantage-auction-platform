@@ -60,6 +60,40 @@ const CATEGORY_PURPOSE = Object.freeze({
   'do-not-use':         { funnel: null,                  purpose: 'NEVER publish',                            event_specific: false },
 });
 
+/**
+ * Owner logo review, recorded per asset by content hash (2026-09-22).
+ *
+ * The Owner's instruction: a finished advertisement is not rejected merely because a sidecar says
+ * the logo DRAWN INSIDE a Gold Standard is not itself a reusable brand source. That restriction
+ * means "do not extract this rendering and use it as a source asset" — it does not mean the
+ * finished ad can never run. Each of the eight production assets was inspected individually
+ * against docs/marketing/brand-assets/logos. Seven render the official mark correctly. One does
+ * not, and only that one is blocked.
+ */
+/**
+ * Owner content review (2026-09-22). Where a finished advertisement's MESSAGE differs from the
+ * folder it sits in, the message is recorded here so the Director does not cross-use it.
+ *
+ * The Owner's rule is explicit: do not cross-use merely because an image looks attractive. An ad
+ * whose call to action is "BROWSE & BID TODAY" is buyer creative wherever it is filed, and running
+ * it against a seller landing page would buy seller traffic and then show it a buyer message.
+ * The file is NOT moved — only what it says is recorded.
+ */
+const CONTENT_INTENT = Object.freeze({
+  // "ESTATE SALE ONLINE AUCTION / BROWSE & BID TODAY / EXPLORE-BID-WIN" — buyer creative, filed
+  // under individual-seller. Fully valid as a buyer advertisement.
+  '57889b64ba61dc1fe3b1bb81c2c829b6abecb3a73ac3d1a2dcc5e13741bcbf70': 'buyer',
+});
+
+const LOGO_DEFECTS = Object.freeze({
+  // Serif mixed-case "Advantage.Bid" wordmark with ".Bid" in RED, no gavel, and a trademark symbol.
+  // The official mark is an all-caps sans-serif "ADVANTAGE.BID" with the silver gavel and ".BID" in
+  // blue. Wrong typeface, wrong colour and a missing primary device is a materially incorrect
+  // rendering of the brand, not a stylistic variation.
+  '35ca7c7f593965530d32378d9f4285606fb9427c61a3a49a332818d2256a9b26':
+    'materially incorrect logo: serif mixed-case wordmark with ".Bid" in red, no gavel device, and an unauthorised trademark symbol — the official mark is all-caps sans-serif "ADVANTAGE.BID" with the silver gavel and ".BID" in blue',
+});
+
 const CATEGORIES = Object.freeze(Object.keys(CATEGORY_PURPOSE));
 
 /** Destination each funnel sends traffic to. Canonical Advantage.Bid URLs only. */
@@ -109,48 +143,80 @@ function readSidecar(imageFull) {
 /**
  * What must be true before this asset may run, and whether anything blocks it today.
  *
- * `blocking` entries stop paid publication now. `deferred` entries must be revalidated at campaign
- * build time against live data (an event's date, status and location), because an asset that is
- * fine today can advertise an expired sale tomorrow.
+ * OWNER POLICY (2026-09-22), which this function encodes:
+ *
+ *   PROVENANCE IS NOT AUTHORIZATION. An advertisement may legitimately exist in BOTH libraries:
+ *   as reference copy in approved-creative-examples, and as a production-authorized copy the Owner
+ *   deliberately selected into production-creative. Byte-identical content across the two is
+ *   recorded as provenance and is NOT a blocker. The reference copy stays reference-only; the
+ *   production copy is governed by this registry.
+ *
+ *   REPRESENTATIVE MERCHANDISE is permitted in general evergreen acquisition advertising, where the
+ *   ad makes no claim that the pictured items are a specific currently-available lot, seller,
+ *   estate or event. It remains a hard blocker for the event- and inventory-specific categories,
+ *   where substituting representative goods for the advertised thing would be a lie.
+ *
+ *   THE LOGO RESTRICTION on a Gold Standard sidecar means "do not extract this rendering and reuse
+ *   it as a brand source asset". It does not condemn the finished advertisement. Each asset is
+ *   reviewed individually (LOGO_DEFECTS); only a materially incorrect rendering blocks.
+ *
+ * `blocking` stops paid publication now. `deferred` must be revalidated against live data at
+ * campaign build time, because an asset that is accurate today can advertise an expired sale
+ * tomorrow.
  */
-function assessFacts({ category, sidecar, isTrainingCopy, trainingPath }) {
+function assessFacts({ category, sidecar, isTrainingCopy, trainingPath, sha256: hash = null }) {
   const blocking = [];
   const deferred = [];
+  const provenance = [];
   let conflict = null;
 
   if (category === 'do-not-use') blocking.push('category is do-not-use: never publish');
 
-  // The asset's own Owner-recorded provenance is evidence about the asset, and it outranks the
-  // folder it was copied into. A file whose sidecar says "calibration evidence only" is saying it
-  // was never built to be an advertisement.
+  const meta = CATEGORY_PURPOSE[category] || {};
   const rights = sidecar && sidecar.source && typeof sidecar.source.rights === 'string' ? sidecar.source.rights : '';
   const ownerStatus = sidecar ? sidecar.owner_status : null;
 
+  // Provenance, preserved rather than used as a veto.
   if (isTrainingCopy) {
-    conflict = 'byte-identical to the training/calibration library at ' + trainingPath
-      + ' — the Gold Standard and the production advertisement are the same file';
-    blocking.push('this image is a copy of a training / Gold Standard reference, not an advertisement produced for publication');
+    provenance.push('also present in the training / calibration library at ' + trainingPath
+      + ' (reference copy stays reference-only; this production copy is Owner-authorized separately)');
+  }
+  if (ownerStatus === 'OWNER_GOLD_STANDARD') {
+    provenance.push('originated as an Owner Gold Standard — preserved as provenance, not a restriction on this authorized production copy');
   }
   if (/calibration evidence only/i.test(rights)) {
-    blocking.push('own provenance records it as calibration evidence only');
-  }
-  if (/is NOT an approved logo asset/i.test(rights)) {
-    blocking.push('contains a rendered logo that is not an official brand asset (brand-assets/logos is the only approved source)');
-  }
-  if (/merchandise is representative, not lots/i.test(rights)) {
-    blocking.push('depicted merchandise is representative, not real inventory — it cannot advertise lots');
-  }
-  if (ownerStatus === 'OWNER_GOLD_STANDARD' && !conflict) {
-    conflict = 'sidecar records owner_status OWNER_GOLD_STANDARD (a calibration status) while the file sits in production-creative';
+    provenance.push('reference-library sidecar describes the REFERENCE copy as calibration evidence; it does not govern this production copy');
   }
 
-  const meta = CATEGORY_PURPOSE[category];
-  if (meta && meta.event_specific) {
+  // The logo: per-asset review, not a blanket rule.
+  if (hash && LOGO_DEFECTS[hash]) blocking.push(LOGO_DEFECTS[hash]);
+
+  // Where the reviewed message differs from the folder, the message wins for SELECTION purposes.
+  // The asset stays eligible — it is a good advertisement — it is simply not offered to the wrong
+  // funnel. The file itself is never moved or renamed.
+  const intent = hash ? CONTENT_INTENT[hash] : null;
+  if (intent && meta.funnel && intent !== meta.funnel) {
+    provenance.push('reviewed message is ' + intent + ' creative although it is filed under '
+      + category + ' — eligible for ' + intent + ' campaigns, withheld from ' + meta.funnel + ' campaigns');
+  }
+
+  // Representative merchandise: allowed for general evergreen acquisition, never for the
+  // categories that advertise a specific thing.
+  if (/merchandise is representative, not lots/i.test(rights)) {
+    if (meta.event_specific) {
+      blocking.push('depicted merchandise is representative, not real inventory — it can never stand in for a specific advertised lot, estate or event');
+    } else {
+      provenance.push('representative merchandise, permitted in general evergreen acquisition because the ad claims no specific available lot');
+      deferred.push('the advertisement must not claim or imply that the pictured merchandise is a specific currently available lot, seller, estate or event');
+    }
+  }
+
+  if (meta.event_specific) {
     deferred.push('verify the referenced ' + category.replace('-', ' ')
       + ' is currently authoritative: identity, seller, date, status, location, destination and availability');
     deferred.push('never advertise an expired event as current; never substitute another lot; never invent merchandise');
   }
-  return { blocking, deferred, conflict };
+  return { blocking, deferred, provenance, conflict };
 }
 
 // ── scan ──────────────────────────────────────────────────────────────────────────────────────
@@ -175,7 +241,7 @@ function scan({ productionRoot = PRODUCTION_ROOT } = {}) {
     try { hash = sha256(f.full); } catch (e) { foreign.push({ rel: f.rel, reason: 'unreadable: ' + e.message }); continue; }
     const sidecar = readSidecar(f.full);
     const trainingPath = training.get(hash) || null;
-    const facts = assessFacts({ category, sidecar, isTrainingCopy: !!trainingPath, trainingPath });
+    const facts = assessFacts({ category, sidecar, isTrainingCopy: !!trainingPath, trainingPath, sha256: hash });
     const meta = CATEGORY_PURPOSE[category];
     const id = sidecar && sidecar.identity ? sidecar.identity : {};
 
@@ -198,7 +264,9 @@ function scan({ productionRoot = PRODUCTION_ROOT } = {}) {
       sidecar_present: !!sidecar,
       training_copy_of: trainingPath,
       provenance_conflict: facts.conflict,
-      factual_requirements: { blocking: facts.blocking, deferred: facts.deferred },
+      content_intent: CONTENT_INTENT[hash] || meta.funnel,
+      factual_requirements: { blocking: facts.blocking, deferred: facts.deferred, provenance: facts.provenance,
+        content_intent: CONTENT_INTENT[hash] || meta.funnel || null },
     });
   }
   return { productionRoot, assets, nonImages, foreign, categories: CATEGORIES };
@@ -285,17 +353,26 @@ async function selectForCampaign({ category, funnel, runner = db } = {}) {
     const cats = CATEGORIES.filter((c) => CATEGORY_PURPOSE[c].funnel === funnel && c !== 'do-not-use');
     params.push(cats); where.push('category = ANY($' + params.length + ')');
   }
+  // The reviewed message governs which funnel an asset may serve. Assets with no recorded intent
+  // fall back to their category's funnel, so this narrows nothing that was not explicitly reviewed.
+  const whereParams = params.slice();
+  const wantFunnel = funnel || (category && CATEGORY_PURPOSE[category] ? CATEGORY_PURPOSE[category].funnel : null);
+  let intentClause = '';
+  if (wantFunnel) {
+    params.push(wantFunnel);
+    intentClause = ` AND COALESCE(factual_requirements->>'content_intent', $${params.length}) = $${params.length}`;
+  }
   const { rows } = await runner.query(
     `SELECT id, asset_key, filename, relative_path, category, campaign_purpose, ineligible_reason
        FROM marketing_production_creative
       WHERE production_eligible = true AND status = 'REGISTERED'
-        ${where.length ? 'AND ' + where.join(' AND ') : ''}
+        ${where.length ? 'AND ' + where.join(' AND ') : ''}${intentClause}
       ORDER BY registered_at ASC LIMIT 1`, params);
   if (rows[0]) return { asset: rows[0], reason: null };
 
   const near = await runner.query(
     `SELECT count(*)::int n, min(ineligible_reason) reason FROM marketing_production_creative
-      WHERE status='REGISTERED' ${where.length ? 'AND ' + where.join(' AND ') : ''}`, params);
+      WHERE status='REGISTERED' ${where.length ? 'AND ' + where.join(' AND ') : ''}`, whereParams);
   const n = near.rows[0] ? near.rows[0].n : 0;
   return {
     asset: null,
@@ -307,5 +384,5 @@ async function selectForCampaign({ category, funnel, runner = db } = {}) {
 
 module.exports = {
   PRODUCTION_ROOT, TRAINING_ROOT, BRAND_ROOT, CATEGORIES, CATEGORY_PURPOSE, DESTINATIONS,
-  IMAGE_EXT, SIDECAR_SUFFIX, scan, sync, selectForCampaign, assessFacts, walk, isImage,
+  IMAGE_EXT, SIDECAR_SUFFIX, LOGO_DEFECTS, CONTENT_INTENT, scan, sync, selectForCampaign, assessFacts, walk, isImage,
 };

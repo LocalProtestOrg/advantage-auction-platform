@@ -1,0 +1,1142 @@
+{
+  "index_version": "3P.2.preview",
+  "built_at": "2026-09-10T16:08:54Z",
+  "built_by": "Desktop Marketing — Phase 3P.2 (preview; the production indexer regenerates index.json on reindex)",
+  "schema": "reference.schema.json (1.1)",
+  "counts": {
+    "references": 23,
+    "by_status": {
+      "OWNER_APPROVED": 17,
+      "OWNER_GOLD_STANDARD": 6
+    },
+    "by_seller": {
+      "Lewis & Maese": 13,
+      "Advantage.Bid": 10
+    },
+    "by_primary_class": {
+      "estate_sale": 2,
+      "auction": 8,
+      "professional_seller_acquisition": 2,
+      "individual_seller_acquisition": 4,
+      "buyer_platform_growth": 2,
+      "notable_lot": 3,
+      "closing_soon": 0,
+      "geographic_event_promotion": 2,
+      "general_brand": 0
+    }
+  },
+  "seller_concentration": {
+    "Lewis & Maese": 13,
+    "Advantage.Bid": 10,
+    "rule": "strip_seller_identity fires per retrieval when one third-party seller exceeds 60% of the retrieved set; Advantage.Bid's own references are exempt from stripping (they ARE the brand) but never exempt from anti-copy"
+  },
+  "weighting": {
+    "owner_status_weights": {
+      "OWNER_APPROVED": 1.0,
+      "OWNER_GOLD_STANDARD": 2.0,
+      "OWNER_DO_NOT_USE": -1.0,
+      "RETIRED": 0.0
+    },
+    "relevance_factors": {
+      "primary": 1.0,
+      "secondary": 0.5,
+      "family_compatible_only": 0.25
+    },
+    "gold_rule": "a Gold Standard of the class is always included in the retrieved set and raises the ACCEPT bar to 75"
+  },
+  "class_map": {
+    "estate_sale": [
+      {
+        "reference_id": "REF-02",
+        "relevance": "secondary",
+        "relevance_factor": 0.5,
+        "owner_weight": 1.0,
+        "owner_status": "OWNER_APPROVED"
+      },
+      {
+        "reference_id": "REF-04",
+        "relevance": "secondary",
+        "relevance_factor": 0.5,
+        "owner_weight": 1.0,
+        "owner_status": "OWNER_APPROVED"
+      },
+      {
+        "reference_id": "REF-05",
+        "relevance": "secondary",
+        "relevance_factor": 0.5,
+        "owner_weight": 1.0,
+        "owner_status": "OWNER_APPROVED"
+      },
+      {
+        "reference_id": "REF-06",
+        "relevance": "secondary",
+        "relevance_factor": 0.5,
+        "owner_weight": 1.0,
+        "owner_status": "OWNER_APPROVED"
+      },
+      {
+        "reference_id": "REF-09",
+        "relevance": "primary",
+        "relevance_factor": 1.0,
+        "owner_weight": 1.0,
+        "owner_status": "OWNER_APPROVED"
+      },
+      {
+        "reference_id": "REF-10",
+        "relevance": "primary",
+        "relevance_factor": 1.0,
+        "owner_weight": 1.0,
+        "owner_status": "OWNER_APPROVED"
+      },
+      {
+        "reference_id": "REF-17",
+        "relevance": "secondary",
+        "relevance_factor": 0.5,
+        "owner_weight": 2.0,
+        "owner_status": "OWNER_GOLD_STANDARD"
+      },
+      {
+        "reference_id": "REF-22",
+        "relevance": "secondary",
+        "relevance_factor": 0.5,
+        "owner_weight": 1.0,
+        "owner_status": "OWNER_APPROVED"
+      }
+    ],
+    "auction": [
+      {
+        "reference_id": "REF-01",
+        "relevance": "primary",
+        "relevance_factor": 1.0,
+        "owner_weight": 1.0,
+        "owner_status": "OWNER_APPROVED"
+      },
+      {
+        "reference_id": "REF-02",
+        "relevance": "primary",
+        "relevance_factor": 1.0,
+        "owner_weight": 1.0,
+        "owner_status": "OWNER_APPROVED"
+      },
+      {
+        "reference_id": "REF-03",
+        "relevance": "primary",
+        "relevance_factor": 1.0,
+        "owner_weight": 1.0,
+        "owner_status": "OWNER_APPROVED"
+      },
+      {
+        "reference_id": "REF-04",
+        "relevance": "primary",
+        "relevance_factor": 1.0,
+        "owner_weight": 1.0,
+        "owner_status": "OWNER_APPROVED"
+      },
+      {
+        "reference_id": "REF-05",
+        "relevance": "primary",
+        "relevance_factor": 1.0,
+        "owner_weight": 1.0,
+        "owner_status": "OWNER_APPROVED"
+      },
+      {
+        "reference_id": "REF-06",
+        "relevance": "primary",
+        "relevance_factor": 1.0,
+        "owner_weight": 1.0,
+        "owner_status": "OWNER_APPROVED"
+      },
+      {
+        "reference_id": "REF-07",
+        "relevance": "primary",
+        "relevance_factor": 1.0,
+        "owner_weight": 1.0,
+        "owner_status": "OWNER_APPROVED"
+      },
+      {
+        "reference_id": "REF-08",
+        "relevance": "primary",
+        "relevance_factor": 1.0,
+        "owner_weight": 1.0,
+        "owner_status": "OWNER_APPROVED"
+      },
+      {
+        "reference_id": "REF-12",
+        "relevance": "secondary",
+        "relevance_factor": 0.5,
+        "owner_weight": 1.0,
+        "owner_status": "OWNER_APPROVED"
+      },
+      {
+        "reference_id": "REF-13",
+        "relevance": "secondary",
+        "relevance_factor": 0.5,
+        "owner_weight": 1.0,
+        "owner_status": "OWNER_APPROVED"
+      },
+      {
+        "reference_id": "REF-22",
+        "relevance": "secondary",
+        "relevance_factor": 0.5,
+        "owner_weight": 1.0,
+        "owner_status": "OWNER_APPROVED"
+      },
+      {
+        "reference_id": "REF-23",
+        "relevance": "secondary",
+        "relevance_factor": 0.5,
+        "owner_weight": 1.0,
+        "owner_status": "OWNER_APPROVED"
+      }
+    ],
+    "professional_seller_acquisition": [
+      {
+        "reference_id": "REF-16",
+        "relevance": "secondary",
+        "relevance_factor": 0.5,
+        "owner_weight": 2.0,
+        "owner_status": "OWNER_GOLD_STANDARD"
+      },
+      {
+        "reference_id": "REF-20",
+        "relevance": "primary",
+        "relevance_factor": 1.0,
+        "owner_weight": 1.0,
+        "owner_status": "OWNER_APPROVED"
+      },
+      {
+        "reference_id": "REF-21",
+        "relevance": "primary",
+        "relevance_factor": 1.0,
+        "owner_weight": 1.0,
+        "owner_status": "OWNER_APPROVED"
+      }
+    ],
+    "individual_seller_acquisition": [
+      {
+        "reference_id": "REF-14",
+        "relevance": "primary",
+        "relevance_factor": 1.0,
+        "owner_weight": 2.0,
+        "owner_status": "OWNER_GOLD_STANDARD"
+      },
+      {
+        "reference_id": "REF-15",
+        "relevance": "primary",
+        "relevance_factor": 1.0,
+        "owner_weight": 2.0,
+        "owner_status": "OWNER_GOLD_STANDARD"
+      },
+      {
+        "reference_id": "REF-16",
+        "relevance": "primary",
+        "relevance_factor": 1.0,
+        "owner_weight": 2.0,
+        "owner_status": "OWNER_GOLD_STANDARD"
+      },
+      {
+        "reference_id": "REF-17",
+        "relevance": "primary",
+        "relevance_factor": 1.0,
+        "owner_weight": 2.0,
+        "owner_status": "OWNER_GOLD_STANDARD"
+      }
+    ],
+    "buyer_platform_growth": [
+      {
+        "reference_id": "REF-17",
+        "relevance": "secondary",
+        "relevance_factor": 0.5,
+        "owner_weight": 2.0,
+        "owner_status": "OWNER_GOLD_STANDARD"
+      },
+      {
+        "reference_id": "REF-18",
+        "relevance": "primary",
+        "relevance_factor": 1.0,
+        "owner_weight": 2.0,
+        "owner_status": "OWNER_GOLD_STANDARD"
+      },
+      {
+        "reference_id": "REF-19",
+        "relevance": "primary",
+        "relevance_factor": 1.0,
+        "owner_weight": 2.0,
+        "owner_status": "OWNER_GOLD_STANDARD"
+      }
+    ],
+    "notable_lot": [
+      {
+        "reference_id": "REF-01",
+        "relevance": "secondary",
+        "relevance_factor": 0.5,
+        "owner_weight": 1.0,
+        "owner_status": "OWNER_APPROVED"
+      },
+      {
+        "reference_id": "REF-03",
+        "relevance": "secondary",
+        "relevance_factor": 0.5,
+        "owner_weight": 1.0,
+        "owner_status": "OWNER_APPROVED"
+      },
+      {
+        "reference_id": "REF-12",
+        "relevance": "primary",
+        "relevance_factor": 1.0,
+        "owner_weight": 1.0,
+        "owner_status": "OWNER_APPROVED"
+      },
+      {
+        "reference_id": "REF-13",
+        "relevance": "primary",
+        "relevance_factor": 1.0,
+        "owner_weight": 1.0,
+        "owner_status": "OWNER_APPROVED"
+      },
+      {
+        "reference_id": "REF-23",
+        "relevance": "primary",
+        "relevance_factor": 1.0,
+        "owner_weight": 1.0,
+        "owner_status": "OWNER_APPROVED"
+      }
+    ],
+    "closing_soon": [],
+    "geographic_event_promotion": [
+      {
+        "reference_id": "REF-07",
+        "relevance": "secondary",
+        "relevance_factor": 0.5,
+        "owner_weight": 1.0,
+        "owner_status": "OWNER_APPROVED"
+      },
+      {
+        "reference_id": "REF-09",
+        "relevance": "secondary",
+        "relevance_factor": 0.5,
+        "owner_weight": 1.0,
+        "owner_status": "OWNER_APPROVED"
+      },
+      {
+        "reference_id": "REF-10",
+        "relevance": "secondary",
+        "relevance_factor": 0.5,
+        "owner_weight": 1.0,
+        "owner_status": "OWNER_APPROVED"
+      },
+      {
+        "reference_id": "REF-11",
+        "relevance": "primary",
+        "relevance_factor": 1.0,
+        "owner_weight": 1.0,
+        "owner_status": "OWNER_APPROVED"
+      },
+      {
+        "reference_id": "REF-22",
+        "relevance": "primary",
+        "relevance_factor": 1.0,
+        "owner_weight": 1.0,
+        "owner_status": "OWNER_APPROVED"
+      }
+    ],
+    "general_brand": [
+      {
+        "reference_id": "REF-08",
+        "relevance": "secondary",
+        "relevance_factor": 0.5,
+        "owner_weight": 1.0,
+        "owner_status": "OWNER_APPROVED"
+      },
+      {
+        "reference_id": "REF-11",
+        "relevance": "secondary",
+        "relevance_factor": 0.5,
+        "owner_weight": 1.0,
+        "owner_status": "OWNER_APPROVED"
+      },
+      {
+        "reference_id": "REF-14",
+        "relevance": "secondary",
+        "relevance_factor": 0.5,
+        "owner_weight": 2.0,
+        "owner_status": "OWNER_GOLD_STANDARD"
+      },
+      {
+        "reference_id": "REF-15",
+        "relevance": "secondary",
+        "relevance_factor": 0.5,
+        "owner_weight": 2.0,
+        "owner_status": "OWNER_GOLD_STANDARD"
+      },
+      {
+        "reference_id": "REF-18",
+        "relevance": "secondary",
+        "relevance_factor": 0.5,
+        "owner_weight": 2.0,
+        "owner_status": "OWNER_GOLD_STANDARD"
+      },
+      {
+        "reference_id": "REF-19",
+        "relevance": "secondary",
+        "relevance_factor": 0.5,
+        "owner_weight": 2.0,
+        "owner_status": "OWNER_GOLD_STANDARD"
+      },
+      {
+        "reference_id": "REF-20",
+        "relevance": "secondary",
+        "relevance_factor": 0.5,
+        "owner_weight": 1.0,
+        "owner_status": "OWNER_APPROVED"
+      },
+      {
+        "reference_id": "REF-21",
+        "relevance": "secondary",
+        "relevance_factor": 0.5,
+        "owner_weight": 1.0,
+        "owner_status": "OWNER_APPROVED"
+      }
+    ]
+  },
+  "gold_by_class": {
+    "auction": [],
+    "notable_lot": [],
+    "estate_sale": [],
+    "geographic_event_promotion": [],
+    "general_brand": [],
+    "individual_seller_acquisition": [
+      "REF-14",
+      "REF-15",
+      "REF-16",
+      "REF-17"
+    ],
+    "professional_seller_acquisition": [],
+    "buyer_platform_growth": [
+      "REF-18",
+      "REF-19"
+    ]
+  },
+  "empty_classes": [
+    "closing_soon",
+    "general_brand"
+  ],
+  "references": [
+    {
+      "reference_id": "REF-01",
+      "sha256": "f6579f4cc853e5dde24ac5433918f344538ea7b22e8c8b2b992cae7b1c441f1d",
+      "path": "auction/672745885_1643034594033321_942085276301047945_n.jpg",
+      "owner_status": "OWNER_APPROVED",
+      "owner_weight": 1.0,
+      "seller": "Lewis & Maese",
+      "title_visible": "Rock Specimen & Designer Purse Auction",
+      "campaign_class_primary": "auction",
+      "campaign_class_secondary": [
+        "notable_lot"
+      ],
+      "visual_family": "PHOTO_STILL_LIFE",
+      "nearest_advantage_family": "CATEGORY_GROUP",
+      "format_class": "portrait",
+      "ground": "white",
+      "training_example": false,
+      "tags": [
+        "still-life",
+        "light-ground",
+        "one-accent-colour",
+        "serif-title",
+        "factual-cta"
+      ],
+      "avoid_for": [
+        "broad estate auctions (single category only)",
+        "acquisition or brand campaigns"
+      ]
+    },
+    {
+      "reference_id": "REF-02",
+      "sha256": "738c3fd0b9fa40f7ce1ac30899e6b20814d3173baf684c96aca04f53f9aeeb30",
+      "path": "auction/700078662_1669701284699985_700289891861455729_n.jpg",
+      "owner_status": "OWNER_APPROVED",
+      "owner_weight": 1.0,
+      "seller": "Lewis & Maese",
+      "title_visible": "Fine Art & Antiques Auction",
+      "campaign_class_primary": "auction",
+      "campaign_class_secondary": [
+        "estate_sale"
+      ],
+      "visual_family": "SCENE_EXTRACTED",
+      "nearest_advantage_family": "CENTERED_WHITE",
+      "format_class": "square",
+      "ground": "cream",
+      "training_example": false,
+      "tags": [
+        "scene",
+        "extracted",
+        "three-planes",
+        "minimal-copy",
+        "title-bottom",
+        "cream-ground",
+        "breadth"
+      ],
+      "avoid_for": [
+        "single-lot spotlights",
+        "acquisition campaigns"
+      ]
+    },
+    {
+      "reference_id": "REF-03",
+      "sha256": "c331aa710bfa3bbefa5e03b992c2fca6413c007913756f4269f9dcf1031785dc",
+      "path": "auction/727268055_1359584239364161_2304662043940107268_n.jfif",
+      "owner_status": "OWNER_APPROVED",
+      "owner_weight": 1.0,
+      "seller": "Lewis & Maese",
+      "title_visible": "Fine Timepieces Auction",
+      "campaign_class_primary": "auction",
+      "campaign_class_secondary": [
+        "notable_lot"
+      ],
+      "visual_family": "TILE_GRID",
+      "nearest_advantage_family": "CATEGORY_GROUP",
+      "format_class": "square",
+      "ground": "mixed",
+      "training_example": false,
+      "tags": [
+        "tile-grid",
+        "icon-logistics",
+        "high-density",
+        "brand-names",
+        "product-macro"
+      ],
+      "avoid_for": [
+        "broad estate auctions",
+        "general brand",
+        "any family with the 5-block budget"
+      ]
+    },
+    {
+      "reference_id": "REF-04",
+      "sha256": "5982927ac926a11bafbacb08ee650e6703b1edafd6020f75201f2e7278b3a0dc",
+      "path": "auction/762331735_1761454124898058_7461604525455458713_n.jfif",
+      "owner_status": "OWNER_APPROVED",
+      "owner_weight": 1.0,
+      "seller": "Lewis & Maese",
+      "title_visible": "Estate Auction",
+      "campaign_class_primary": "auction",
+      "campaign_class_secondary": [
+        "estate_sale"
+      ],
+      "visual_family": "LEFT_PANEL_EXTRACTED",
+      "nearest_advantage_family": "LEFT_THIRD_WHITE",
+      "format_class": "landscape",
+      "ground": "white",
+      "training_example": false,
+      "tags": [
+        "left-panel",
+        "extracted",
+        "large-scale",
+        "colour-anchors",
+        "depth",
+        "landscape"
+      ],
+      "avoid_for": [
+        "single-lot",
+        "acquisition",
+        "brand"
+      ]
+    },
+    {
+      "reference_id": "REF-05",
+      "sha256": "8448d6a901323947dd6420f934717e2f7d9b1e335d8af2702da8ba2f82da2eef",
+      "path": "auction/768987773_1053905510468704_817358866268751308_n.jfif",
+      "owner_status": "OWNER_APPROVED",
+      "owner_weight": 1.0,
+      "seller": "Lewis & Maese",
+      "title_visible": "August Estate Auction — Over 725+ Lots & Growing",
+      "campaign_class_primary": "auction",
+      "campaign_class_secondary": [
+        "estate_sale"
+      ],
+      "visual_family": "SCENE_EXTRACTED",
+      "nearest_advantage_family": "LEFT_THIRD_WHITE",
+      "format_class": "landscape",
+      "ground": "white",
+      "training_example": false,
+      "tags": [
+        "left-panel",
+        "scene",
+        "plinths",
+        "footer-band",
+        "numeral-hero",
+        "category-line",
+        "landscape"
+      ],
+      "avoid_for": [
+        "single-lot",
+        "acquisition"
+      ]
+    },
+    {
+      "reference_id": "REF-06",
+      "sha256": "dbd84e22fd17cdd9c2eac60cd73257f9a702994e7055fea71532aff3044dad50",
+      "path": "auction/774318892_1218693031333324_5454511780574557764_n.jfif",
+      "owner_status": "OWNER_APPROVED",
+      "owner_weight": 1.0,
+      "seller": "Lewis & Maese",
+      "title_visible": "August Estate Auction — Over 725+ Lots & Growing",
+      "campaign_class_primary": "auction",
+      "campaign_class_secondary": [
+        "estate_sale"
+      ],
+      "visual_family": "LEFT_PANEL_EXTRACTED",
+      "nearest_advantage_family": "LEFT_THIRD_WHITE",
+      "format_class": "landscape",
+      "ground": "white",
+      "training_example": false,
+      "tags": [
+        "left-panel",
+        "extracted",
+        "five-objects",
+        "wall-over-floor",
+        "refresh-variant",
+        "landscape"
+      ],
+      "avoid_for": [
+        "single-lot",
+        "acquisition"
+      ]
+    },
+    {
+      "reference_id": "REF-07",
+      "sha256": "d5466d9eeb950f8a90ae65187f8e31981491642132ec1179944a7e72d26c4377",
+      "path": "auction/790540822_4060954984197683_2602558076501565505_n.jfif",
+      "owner_status": "OWNER_APPROVED",
+      "owner_weight": 1.0,
+      "seller": "Lewis & Maese",
+      "title_visible": "Mancave Auction — Houston's Premier Choice",
+      "campaign_class_primary": "auction",
+      "campaign_class_secondary": [
+        "geographic_event_promotion"
+      ],
+      "visual_family": "CATALOG_SCATTER",
+      "nearest_advantage_family": "CATALOG_SCATTER",
+      "format_class": "landscape",
+      "ground": "mixed",
+      "training_example": false,
+      "tags": [
+        "scatter",
+        "themed-type",
+        "dark-panel",
+        "icon-logistics",
+        "high-density",
+        "landscape"
+      ],
+      "avoid_for": [
+        "fine estate auctions",
+        "acquisition",
+        "brand",
+        "any campaign where a believable room is the intent"
+      ]
+    },
+    {
+      "reference_id": "REF-08",
+      "sha256": "128f8b36c1ca44aaafead4f31769ab8327c30dacd38887d32db728ddad3f9bb1",
+      "path": "auction/800644023_2274522166644689_3549738819247121400_n.jfif",
+      "owner_status": "OWNER_APPROVED",
+      "owner_weight": 1.0,
+      "seller": "Lewis & Maese",
+      "title_visible": "Mancave Auction — Houston's Premier Auctioneer",
+      "campaign_class_primary": "auction",
+      "campaign_class_secondary": [
+        "general_brand"
+      ],
+      "visual_family": "CATALOG_SCATTER",
+      "nearest_advantage_family": "CATALOG_SCATTER",
+      "format_class": "square",
+      "ground": "white",
+      "training_example": false,
+      "tags": [
+        "scatter",
+        "teaser",
+        "no-logistics",
+        "breadth",
+        "full-canvas",
+        "themed-type",
+        "square"
+      ],
+      "avoid_for": [
+        "closing-soon (needs the date)",
+        "estate sale",
+        "acquisition",
+        "families where the gravity rule is locked"
+      ]
+    },
+    {
+      "reference_id": "REF-09",
+      "sha256": "4cd2207ace2e4bab769e9f2e62d6ae1e5d52fd408635a1b0d46e1879d2c4c3ef",
+      "path": "estate-sale/703633034_1679829177020529_6716087826834201503_n.jpg",
+      "owner_status": "OWNER_APPROVED",
+      "owner_weight": 1.0,
+      "seller": "Lewis & Maese",
+      "title_visible": "Katy Estate Sale",
+      "campaign_class_primary": "estate_sale",
+      "campaign_class_secondary": [
+        "geographic_event_promotion"
+      ],
+      "visual_family": "ENVIRONMENTAL_ROOM",
+      "nearest_advantage_family": "ENVIRONMENTAL_PHOTO",
+      "format_class": "portrait",
+      "ground": "cream",
+      "training_example": false,
+      "tags": [
+        "environmental",
+        "room-photo",
+        "date-pair",
+        "place-plate",
+        "portrait",
+        "bands"
+      ],
+      "avoid_for": [
+        "online-only auctions with no site",
+        "single-lot",
+        "acquisition"
+      ]
+    },
+    {
+      "reference_id": "REF-10",
+      "sha256": "6cf2cb6d2e4be25d3cc619553110ef1fc0bc3b4820cb47b62a891483be05bee9",
+      "path": "estate-sale/720972514_1964000754249437_3399025200176588761_n.jfif",
+      "owner_status": "OWNER_APPROVED",
+      "owner_weight": 1.0,
+      "seller": "Lewis & Maese",
+      "title_visible": "Pine Haven Estate Sale — Houston, Texas",
+      "campaign_class_primary": "estate_sale",
+      "campaign_class_secondary": [
+        "geographic_event_promotion"
+      ],
+      "visual_family": "ENVIRONMENTAL_ROOM",
+      "nearest_advantage_family": "ENVIRONMENTAL_PHOTO",
+      "format_class": "square",
+      "ground": "mixed",
+      "training_example": false,
+      "tags": [
+        "environmental",
+        "left-panel",
+        "script-contrast",
+        "icon-dates",
+        "neighbourhood",
+        "square"
+      ],
+      "avoid_for": [
+        "online-only auctions",
+        "single-lot",
+        "acquisition"
+      ]
+    },
+    {
+      "reference_id": "REF-11",
+      "sha256": "504205b3de3223b91617636160242e2dc79c4f7e751afd2e7b22a015c79842bc",
+      "path": "geographic-event/799820637_1578368547000947_3887820092033696613_n.jfif",
+      "owner_status": "OWNER_APPROVED",
+      "owner_weight": 1.0,
+      "seller": "Lewis & Maese",
+      "title_visible": "Happy Labor Day — Work Builds Stronger Tomorrows",
+      "campaign_class_primary": "geographic_event_promotion",
+      "campaign_class_secondary": [
+        "general_brand"
+      ],
+      "visual_family": "ATMOSPHERIC_SCENE",
+      "nearest_advantage_family": "NONE",
+      "format_class": "square",
+      "ground": "photograph",
+      "training_example": false,
+      "tags": [
+        "atmospheric",
+        "holiday",
+        "regional-identity",
+        "no-lots",
+        "warm-light",
+        "square"
+      ],
+      "avoid_for": [
+        "any auction or estate-sale creative",
+        "text-density calibration",
+        "merchandise treatment calibration"
+      ]
+    },
+    {
+      "reference_id": "REF-12",
+      "sha256": "6a37223e52103c47aa083ad12f8e92affefe1693b3c03b1a1f67e244357f4fe7",
+      "path": "notable-lot/672802523_1643989087271205_1140309533266731461_n.jpg",
+      "owner_status": "OWNER_APPROVED",
+      "owner_weight": 1.0,
+      "seller": "Lewis & Maese",
+      "title_visible": "Rock Specimen / Designer Purse Auction",
+      "campaign_class_primary": "notable_lot",
+      "campaign_class_secondary": [
+        "auction"
+      ],
+      "visual_family": "HERO_SINGLE_DARK",
+      "nearest_advantage_family": "SINGLE_LOT",
+      "format_class": "square",
+      "ground": "dark",
+      "training_example": false,
+      "tags": [
+        "hero-single",
+        "dark-ground",
+        "backlit",
+        "negative-space",
+        "square"
+      ],
+      "avoid_for": [
+        "broad auctions",
+        "estate sales",
+        "any multi-object creative"
+      ]
+    },
+    {
+      "reference_id": "REF-13",
+      "sha256": "90d1daf4c42c1d546106d2007e27705c6541bf1eed21e2ea91b2d81a64e6501c",
+      "path": "notable-lot/793212732_1919344445712353_7814833190103763803_n.jfif",
+      "owner_status": "OWNER_APPROVED",
+      "owner_weight": 1.0,
+      "seller": "Lewis & Maese",
+      "title_visible": "Gold & Watches",
+      "campaign_class_primary": "notable_lot",
+      "campaign_class_secondary": [
+        "auction"
+      ],
+      "visual_family": "LINEUP",
+      "nearest_advantage_family": "CATEGORY_GROUP",
+      "format_class": "landscape",
+      "ground": "white",
+      "training_example": false,
+      "tags": [
+        "lineup",
+        "material-typography",
+        "reflections",
+        "footer-band",
+        "category-group",
+        "landscape"
+      ],
+      "avoid_for": [
+        "broad estate auctions",
+        "single-lot",
+        "acquisition"
+      ]
+    },
+    {
+      "reference_id": "REF-14",
+      "sha256": "35ca7c7f593965530d32378d9f4285606fb9427c61a3a49a332818d2256a9b26",
+      "path": "individual-seller/gold-standard/individual-seller-turn-items-into-cash-gold-standard.png.png",
+      "owner_status": "OWNER_GOLD_STANDARD",
+      "owner_weight": 2.0,
+      "seller": "Advantage.Bid",
+      "title_visible": "Have Items to Sell? Turn Your Items Into Cash.",
+      "campaign_class_primary": "individual_seller_acquisition",
+      "campaign_class_secondary": [
+        "general_brand"
+      ],
+      "visual_family": "SCENE_EXTRACTED",
+      "nearest_advantage_family": "ACQUISITION",
+      "format_class": "square",
+      "ground": "mixed",
+      "training_example": false,
+      "tags": [
+        "gold",
+        "acquisition",
+        "question-headline",
+        "navy-red",
+        "warm-interior",
+        "benefit-rows",
+        "step-band",
+        "square"
+      ],
+      "avoid_for": [
+        "event advertising (no event facts)",
+        "buyer growth copy",
+        "any campaign where copy must be minimal"
+      ]
+    },
+    {
+      "reference_id": "REF-15",
+      "sha256": "1e516a090e7fa5969e4107c0070071214f622d628be33b2a8beeffd6dc57e177",
+      "path": "individual-seller/gold-standard/individual-seller-turn-items-into-cash-gold-standard.png",
+      "owner_status": "OWNER_GOLD_STANDARD",
+      "owner_weight": 2.0,
+      "seller": "Advantage.Bid",
+      "title_visible": "Have Items to Sell? Turn Your Items Into Cash.",
+      "campaign_class_primary": "individual_seller_acquisition",
+      "campaign_class_secondary": [
+        "general_brand"
+      ],
+      "visual_family": "SCENE_EXTRACTED",
+      "nearest_advantage_family": "ACQUISITION",
+      "format_class": "square",
+      "ground": "mixed",
+      "training_example": false,
+      "tags": [
+        "gold",
+        "acquisition",
+        "uppercase-headline",
+        "logo-blue",
+        "large-logo",
+        "square"
+      ],
+      "avoid_for": [
+        "event advertising",
+        "buyer growth copy",
+        "minimal-copy placements"
+      ]
+    },
+    {
+      "reference_id": "REF-16",
+      "sha256": "077ea5d05d649082a9d260cbcf6a3e0d8b89bc40295fbb53edb4614ff9a01dd4",
+      "path": "individual-seller/gold-standard/individual-seller-turn-items-into-opportunity-gold-standard.png",
+      "owner_status": "OWNER_GOLD_STANDARD",
+      "owner_weight": 2.0,
+      "seller": "Advantage.Bid",
+      "title_visible": "Sell With Confidence — Turn Your Items Into Opportunity",
+      "campaign_class_primary": "individual_seller_acquisition",
+      "campaign_class_secondary": [
+        "professional_seller_acquisition"
+      ],
+      "visual_family": "ATMOSPHERIC_SCENE",
+      "nearest_advantage_family": "ACQUISITION",
+      "format_class": "landscape",
+      "ground": "mixed",
+      "training_example": false,
+      "tags": [
+        "gold",
+        "acquisition",
+        "person",
+        "landscape",
+        "blue-accent",
+        "no-band"
+      ],
+      "avoid_for": [
+        "any event creative (representative person never near real event facts)",
+        "testimonial-style copy",
+        "buyer growth"
+      ]
+    },
+    {
+      "reference_id": "REF-17",
+      "sha256": "57889b64ba61dc1fe3b1bb81c2c829b6abecb3a73ac3d1a2dcc5e13741bcbf70",
+      "path": "individual-seller/gold-standard/individual-seller-outreach-turn-your-estate-items-into-cash-at-auction.png",
+      "owner_status": "OWNER_GOLD_STANDARD",
+      "owner_weight": 2.0,
+      "seller": "Advantage.Bid",
+      "title_visible": "Estate Sale Online Auction — Quality Finds. Real Value. Right From Home.",
+      "campaign_class_primary": "individual_seller_acquisition",
+      "campaign_class_secondary": [
+        "buyer_platform_growth",
+        "estate_sale"
+      ],
+      "visual_family": "ATMOSPHERIC_SCENE",
+      "nearest_advantage_family": "ENVIRONMENTAL_PHOTO",
+      "format_class": "square",
+      "ground": "mixed",
+      "training_example": false,
+      "tags": [
+        "gold",
+        "estate",
+        "event-type-headline",
+        "exterior",
+        "blue-accent",
+        "square"
+      ],
+      "avoid_for": [
+        "seller-acquisition COPY (buyer wording)",
+        "real event creative (no facts; generic house)",
+        "notable lot"
+      ]
+    },
+    {
+      "reference_id": "REF-18",
+      "sha256": "96b9bfff7add0b12bc853c950d2a3855b40d0f16f3c869c4b083a2dd0050c8d8",
+      "path": "buyer-growth/gold-standard/buyer-outreach-gold-standard.png",
+      "owner_status": "OWNER_GOLD_STANDARD",
+      "owner_weight": 2.0,
+      "seller": "Advantage.Bid",
+      "title_visible": "Amazing Finds Delivered to Your Inbox.",
+      "campaign_class_primary": "buyer_platform_growth",
+      "campaign_class_secondary": [
+        "general_brand"
+      ],
+      "visual_family": "SCENE_EXTRACTED",
+      "nearest_advantage_family": "ACQUISITION",
+      "format_class": "square",
+      "ground": "mixed",
+      "training_example": false,
+      "tags": [
+        "gold",
+        "buyer",
+        "signup",
+        "red-word",
+        "navy-red",
+        "square"
+      ],
+      "avoid_for": [
+        "seller acquisition",
+        "event advertising",
+        "notable lot"
+      ]
+    },
+    {
+      "reference_id": "REF-19",
+      "sha256": "91964f68377321b9a250b49e5ef774f3e687bf6af4514e903a32c6e7254bc00c",
+      "path": "buyer-growth/gold-standard/buyer-outreach-email-sign-up-gold-standard.png",
+      "owner_status": "OWNER_GOLD_STANDARD",
+      "owner_weight": 2.0,
+      "seller": "Advantage.Bid",
+      "title_visible": "Bid Today. Discover Tomorrow.",
+      "campaign_class_primary": "buyer_platform_growth",
+      "campaign_class_secondary": [
+        "general_brand"
+      ],
+      "visual_family": "SCENE_EXTRACTED",
+      "nearest_advantage_family": "ACQUISITION",
+      "format_class": "square",
+      "ground": "mixed",
+      "training_example": false,
+      "tags": [
+        "gold",
+        "buyer",
+        "join",
+        "laptop-prop",
+        "navy-red",
+        "square"
+      ],
+      "avoid_for": [
+        "seller acquisition",
+        "event advertising",
+        "screenshot-led layouts"
+      ]
+    },
+    {
+      "reference_id": "REF-20",
+      "sha256": "991ab2bd594634d900ad1c897d1de2c14aea360950bfa3aa440b9f1dce0140b1",
+      "path": "professional-seller/sell-with-advantage-bid-gold-standard.png",
+      "owner_status": "OWNER_APPROVED",
+      "owner_weight": 1.0,
+      "seller": "Advantage.Bid",
+      "title_visible": "Professional Sellers — Sell More With Advantage.Bid",
+      "campaign_class_primary": "professional_seller_acquisition",
+      "campaign_class_secondary": [
+        "general_brand"
+      ],
+      "visual_family": "SCENE_EXTRACTED",
+      "nearest_advantage_family": "ACQUISITION",
+      "format_class": "square",
+      "ground": "mixed",
+      "training_example": false,
+      "tags": [
+        "approved",
+        "professional-seller",
+        "centered",
+        "red-headline",
+        "square",
+        "filename-gold"
+      ],
+      "avoid_for": [
+        "individual seller copy",
+        "event advertising",
+        "buyer growth"
+      ]
+    },
+    {
+      "reference_id": "REF-21",
+      "sha256": "a8d7dd489f66fe1d99a954a0d26827eafe30b53397549f90cea7f83830660e7b",
+      "path": "professional-seller/become-a-seller-advantage-bid-gold-standard.png",
+      "owner_status": "OWNER_APPROVED",
+      "owner_weight": 1.0,
+      "seller": "Advantage.Bid",
+      "title_visible": "From Inventory to Results. Sell With Confidence.",
+      "campaign_class_primary": "professional_seller_acquisition",
+      "campaign_class_secondary": [
+        "general_brand"
+      ],
+      "visual_family": "SCENE_EXTRACTED",
+      "nearest_advantage_family": "ACQUISITION",
+      "format_class": "square",
+      "ground": "mixed",
+      "training_example": false,
+      "tags": [
+        "approved",
+        "professional-seller",
+        "serif",
+        "red-word",
+        "left-copy",
+        "square",
+        "filename-gold"
+      ],
+      "avoid_for": [
+        "individual seller copy",
+        "event advertising",
+        "buyer growth"
+      ]
+    },
+    {
+      "reference_id": "REF-22",
+      "sha256": "8e2627374748b91b732ff50c7288ab47807547055a2691df88d69ec0d44142e2",
+      "path": "geographic-event/geogrpahical-event-for-Katy-TX.png",
+      "owner_status": "OWNER_APPROVED",
+      "owner_weight": 1.0,
+      "seller": "Advantage.Bid",
+      "title_visible": "Katy, TX — Estate Sale Online Auction — Local Treasures. Real Value.",
+      "campaign_class_primary": "geographic_event_promotion",
+      "campaign_class_secondary": [
+        "estate_sale",
+        "auction"
+      ],
+      "visual_family": "ATMOSPHERIC_SCENE",
+      "nearest_advantage_family": "ENVIRONMENTAL_PHOTO",
+      "format_class": "square",
+      "ground": "mixed",
+      "training_example": false,
+      "tags": [
+        "approved",
+        "geographic",
+        "event-type-red",
+        "landmark",
+        "outdoor-staging",
+        "square"
+      ],
+      "avoid_for": [
+        "seller/buyer acquisition copy",
+        "notable lot",
+        "real events with authentic media (use the photographs)"
+      ]
+    },
+    {
+      "reference_id": "REF-23",
+      "sha256": "a434a180ae7e11ae033a267d6cc31c0d0c62a437d3ad6bb6dc78f48cbba224c1",
+      "path": "notable-lot/notable-lot-advantage-bid.png",
+      "owner_status": "OWNER_APPROVED",
+      "owner_weight": 1.0,
+      "seller": "Advantage.Bid",
+      "title_visible": "Notable Lot — Lot 7 — 19th Century Bronze Horse — Estate Auction April 2 — Over 250 Lots!",
+      "campaign_class_primary": "notable_lot",
+      "campaign_class_secondary": [
+        "auction"
+      ],
+      "visual_family": "HERO_SINGLE_LIGHT",
+      "nearest_advantage_family": "SINGLE_LOT",
+      "format_class": "square",
+      "ground": "mixed",
+      "training_example": true,
+      "tags": [
+        "approved",
+        "notable-lot",
+        "hero-light",
+        "fact-ladder",
+        "training-example",
+        "square"
+      ],
+      "avoid_for": [
+        "any use of its facts",
+        "broad auctions",
+        "acquisition"
+      ]
+    }
+  ]
+}

@@ -3,15 +3,15 @@
   "reference_id": "REF-02",
   "identity": {
     "sha256": "738c3fd0b9fa40f7ce1ac30899e6b20814d3173baf684c96aca04f53f9aeeb30",
-    "current_path": "auction/700078662_1669701284699985_700289891861455729_n.jpg",
+    "current_path": "auction-event/700078662_1669701284699985_700289891861455729_n.jpg",
     "original_filename": "700078662_1669701284699985_700289891861455729_n.jpg",
     "width": 1254,
     "height": 1254,
     "format_class": "square",
-    "aspect_ratio": 1.0
+    "aspect_ratio": 1
   },
   "owner_status": "OWNER_APPROVED",
-  "owner_weight": 1.0,
+  "owner_weight": 1,
   "status_history": [
     {
       "date": "2026-09-09",
@@ -40,7 +40,7 @@
     "nearest_advantage_family": "CENTERED_WHITE",
     "event_mode": "unknown",
     "merchandise_breadth": "broad",
-    "owner_folder": "auction"
+    "owner_folder": "auction-event"
   },
   "visual_read": {
     "visual_hierarchy": "Seller crest + name top-centre → the merchandise scene fills the middle → the event title runs full width at the bottom in navy serif caps → date/time in a smaller line beneath. Three levels only.",

@@ -1,6 +1,6 @@
 {
-  "index_version": "3P.1.769d0461bc92",
-  "built_at": "2026-09-10T20:59:03.725Z",
+  "index_version": "3P.1.7d6384a94de1",
+  "built_at": "2026-09-22T18:40:34.101Z",
   "built_by": "indexer 3P.1 (production creative reference system)",
   "library_root": "docs/marketing/approved-creative-examples",
   "schema": "reference.schema.json",
@@ -14,7 +14,7 @@
       "OWNER_GOLD_STANDARD": 8
     },
     "by_owner_folder": {
-      "auction": 8,
+      "auction-event": 8,
       "buyer-growth": 2,
       "estate-sale": 2,
       "geographic-event": 2,
@@ -418,7 +418,7 @@
     {
       "reference_id": "REF-01",
       "sha256": "f6579f4cc853e5dde24ac5433918f344538ea7b22e8c8b2b992cae7b1c441f1d",
-      "path": "auction/672745885_1643034594033321_942085276301047945_n.jpg",
+      "path": "auction-event/672745885_1643034594033321_942085276301047945_n.jpg",
       "owner_status": "OWNER_APPROVED",
       "owner_weight": 1,
       "stub": false,
@@ -427,7 +427,7 @@
       "campaign_class_secondary": [
         "notable_lot"
       ],
-      "owner_folder": "auction",
+      "owner_folder": "auction-event",
       "visual_family": "PHOTO_STILL_LIFE",
       "nearest_advantage_family": "CATEGORY_GROUP",
       "event_mode": "online_only",
@@ -484,12 +484,12 @@
       "filename_signal": null,
       "text_classification": [],
       "content_reads_as": null,
-      "sidecar_hash": "dce13b79a4b093f7a6bac519cb87434a3ef51b1c984e7d34817d6eea072921a3"
+      "sidecar_hash": "4b67073dff54c5a188e47f61da22791ffe3d3cbb8b1cf1cda7f991a6f6d0a1b0"
     },
     {
       "reference_id": "REF-02",
       "sha256": "738c3fd0b9fa40f7ce1ac30899e6b20814d3173baf684c96aca04f53f9aeeb30",
-      "path": "auction/700078662_1669701284699985_700289891861455729_n.jpg",
+      "path": "auction-event/700078662_1669701284699985_700289891861455729_n.jpg",
       "owner_status": "OWNER_APPROVED",
       "owner_weight": 1,
       "stub": false,
@@ -498,7 +498,7 @@
       "campaign_class_secondary": [
         "estate_sale"
       ],
-      "owner_folder": "auction",
+      "owner_folder": "auction-event",
       "visual_family": "SCENE_EXTRACTED",
       "nearest_advantage_family": "CENTERED_WHITE",
       "event_mode": "unknown",
@@ -557,12 +557,12 @@
       "filename_signal": null,
       "text_classification": [],
       "content_reads_as": null,
-      "sidecar_hash": "a782af9955991666a46c4340e14373b4c3d52a26a01baf05da42a56175f62e49"
+      "sidecar_hash": "9c4228055e3558112a37d8b6ad592862b2bf63bbc4a7552e8e069c091f45f357"
     },
     {
       "reference_id": "REF-03",
       "sha256": "c331aa710bfa3bbefa5e03b992c2fca6413c007913756f4269f9dcf1031785dc",
-      "path": "auction/727268055_1359584239364161_2304662043940107268_n.jfif",
+      "path": "auction-event/727268055_1359584239364161_2304662043940107268_n.jfif",
       "owner_status": "OWNER_APPROVED",
       "owner_weight": 1,
       "stub": false,
@@ -571,7 +571,7 @@
       "campaign_class_secondary": [
         "notable_lot"
       ],
-      "owner_folder": "auction",
+      "owner_folder": "auction-event",
       "visual_family": "TILE_GRID",
       "nearest_advantage_family": "CATEGORY_GROUP",
       "event_mode": "in_house_or_online",
@@ -629,12 +629,12 @@
       "filename_signal": null,
       "text_classification": [],
       "content_reads_as": null,
-      "sidecar_hash": "2594c6b906fc1e0d9ab64e4d7cc8701eafbda939ff3948cd9738f2e6e78b585e"
+      "sidecar_hash": "2847f113849765edcc37bf2cf5b04e81c5e781fc66b4bf1b154840885ff158a0"
     },
     {
       "reference_id": "REF-04",
       "sha256": "5982927ac926a11bafbacb08ee650e6703b1edafd6020f75201f2e7278b3a0dc",
-      "path": "auction/762331735_1761454124898058_7461604525455458713_n.jfif",
+      "path": "auction-event/762331735_1761454124898058_7461604525455458713_n.jfif",
       "owner_status": "OWNER_APPROVED",
       "owner_weight": 1,
       "stub": false,
@@ -643,7 +643,7 @@
       "campaign_class_secondary": [
         "estate_sale"
       ],
-      "owner_folder": "auction",
+      "owner_folder": "auction-event",
       "visual_family": "LEFT_PANEL_EXTRACTED",
       "nearest_advantage_family": "LEFT_THIRD_WHITE",
       "event_mode": "unknown",
@@ -701,12 +701,12 @@
       "filename_signal": null,
       "text_classification": [],
       "content_reads_as": null,
-      "sidecar_hash": "2d9ffdccf1e423fd9b0ce11e9facc95badd117efbc7915ca8d617db41cc3df2a"
+      "sidecar_hash": "5da9a172b39adac1ebad09da9a353d75fbb3eb48ad3e97eee21abef21b639c9c"
     },
     {
       "reference_id": "REF-05",
       "sha256": "8448d6a901323947dd6420f934717e2f7d9b1e335d8af2702da8ba2f82da2eef",
-      "path": "auction/768987773_1053905510468704_817358866268751308_n.jfif",
+      "path": "auction-event/768987773_1053905510468704_817358866268751308_n.jfif",
       "owner_status": "OWNER_APPROVED",
       "owner_weight": 1,
       "stub": false,
@@ -715,7 +715,7 @@
       "campaign_class_secondary": [
         "estate_sale"
       ],
-      "owner_folder": "auction",
+      "owner_folder": "auction-event",
       "visual_family": "SCENE_EXTRACTED",
       "nearest_advantage_family": "LEFT_THIRD_WHITE",
       "event_mode": "unknown",
@@ -773,12 +773,12 @@
       "filename_signal": null,
       "text_classification": [],
       "content_reads_as": null,
-      "sidecar_hash": "6b6181efe0e2bc7972243948a04ba5dfaddb525ac54ece40383bf3851560d8d0"
+      "sidecar_hash": "b98a611c00fd8e15cd7c68410f3837d4efd8007c1fc52bcce90c14fa58dd4fc5"
     },
     {
       "reference_id": "REF-06",
       "sha256": "dbd84e22fd17cdd9c2eac60cd73257f9a702994e7055fea71532aff3044dad50",
-      "path": "auction/774318892_1218693031333324_5454511780574557764_n.jfif",
+      "path": "auction-event/774318892_1218693031333324_5454511780574557764_n.jfif",
       "owner_status": "OWNER_APPROVED",
       "owner_weight": 1,
       "stub": false,
@@ -787,7 +787,7 @@
       "campaign_class_secondary": [
         "estate_sale"
       ],
-      "owner_folder": "auction",
+      "owner_folder": "auction-event",
       "visual_family": "LEFT_PANEL_EXTRACTED",
       "nearest_advantage_family": "LEFT_THIRD_WHITE",
       "event_mode": "unknown",
@@ -841,12 +841,12 @@
       "filename_signal": null,
       "text_classification": [],
       "content_reads_as": null,
-      "sidecar_hash": "363e50522142b7f50f7480970bcb3268232fe166f96e09258947f07b7b2b131d"
+      "sidecar_hash": "c945a0cf19d29640b3a313215a3cc0f438a89c293a188b077db1789d9e66699f"
     },
     {
       "reference_id": "REF-07",
       "sha256": "d5466d9eeb950f8a90ae65187f8e31981491642132ec1179944a7e72d26c4377",
-      "path": "auction/790540822_4060954984197683_2602558076501565505_n.jfif",
+      "path": "auction-event/790540822_4060954984197683_2602558076501565505_n.jfif",
       "owner_status": "OWNER_APPROVED",
       "owner_weight": 1,
       "stub": false,
@@ -855,7 +855,7 @@
       "campaign_class_secondary": [
         "geographic_event_promotion"
       ],
-      "owner_folder": "auction",
+      "owner_folder": "auction-event",
       "visual_family": "CATALOG_SCATTER",
       "nearest_advantage_family": "CATALOG_SCATTER",
       "event_mode": "in_house_or_online",
@@ -915,12 +915,12 @@
       "filename_signal": null,
       "text_classification": [],
       "content_reads_as": null,
-      "sidecar_hash": "daf58c93c505b47f96b97fbd32494774ac85180973a24c0b8a2c516c1f3b94f1"
+      "sidecar_hash": "3ab35ee7f2217cc0feb7d4fe2ad30364f7761e05c0d5592f5eb341614aac1fb0"
     },
     {
       "reference_id": "REF-08",
       "sha256": "128f8b36c1ca44aaafead4f31769ab8327c30dacd38887d32db728ddad3f9bb1",
-      "path": "auction/800644023_2274522166644689_3549738819247121400_n.jfif",
+      "path": "auction-event/800644023_2274522166644689_3549738819247121400_n.jfif",
       "owner_status": "OWNER_APPROVED",
       "owner_weight": 1,
       "stub": false,
@@ -929,7 +929,7 @@
       "campaign_class_secondary": [
         "general_brand"
       ],
-      "owner_folder": "auction",
+      "owner_folder": "auction-event",
       "visual_family": "CATALOG_SCATTER",
       "nearest_advantage_family": "CATALOG_SCATTER",
       "event_mode": "unknown",
@@ -989,7 +989,7 @@
       "filename_signal": null,
       "text_classification": [],
       "content_reads_as": null,
-      "sidecar_hash": "6f0bcbc5ee0f981c035552e30e53f91cb791aa504cc948e86b1f218d0a859187"
+      "sidecar_hash": "499ce39c1a8a07da66583a7b2be27f7bd153b2115499fcaa76b386a77e9f4ba1"
     },
     {
       "reference_id": "REF-19",
@@ -2507,97 +2507,136 @@
     {
       "hash": "d78f1cfe69f7",
       "action": "LIBRARY_BASELINE",
-      "applied": false
+      "applied": true,
+      "targets": [
+        "REF-01",
+        "REF-02",
+        "REF-03",
+        "REF-04",
+        "REF-05",
+        "REF-06",
+        "REF-07",
+        "REF-08",
+        "REF-09",
+        "REF-10",
+        "REF-11",
+        "REF-12",
+        "REF-13"
+      ]
     },
     {
       "hash": "79f793834d90",
       "action": "CREATIVE_REVIEW",
-      "applied": false
+      "applied": true,
+      "targets": []
     },
     {
       "hash": "ef45e3c71590",
       "action": "CREATIVE_REVIEW",
-      "applied": false
+      "applied": true,
+      "targets": []
     },
     {
       "hash": "dd1dc514129e",
       "action": "CREATIVE_REVIEW",
-      "applied": false
+      "applied": true,
+      "targets": []
     },
     {
       "hash": "86af51c4f6bb",
       "action": "CREATIVE_REVIEW",
-      "applied": false
+      "applied": true,
+      "targets": []
     },
     {
       "hash": "5584fb040ce4",
       "action": "CREATIVE_REVIEW",
-      "applied": false
+      "applied": true,
+      "targets": []
     },
     {
       "hash": "6c12bad2f27c",
       "action": "CREATIVE_REVIEW",
-      "applied": false
+      "applied": true,
+      "targets": []
     },
     {
       "hash": "5a061878893e",
       "action": "OWNER_RULE",
-      "applied": false
+      "applied": true,
+      "targets": []
     },
     {
       "hash": "4560e505e0e0",
       "action": "LIBRARY_EXPANSION",
-      "applied": false
+      "applied": true,
+      "targets": []
     },
     {
       "hash": "6f86e9160c06",
       "action": "OWNER_RULE",
-      "applied": false
+      "applied": true,
+      "targets": []
     },
     {
       "hash": "e4090c7014f0",
       "action": "OWNER_RULE",
-      "applied": false
+      "applied": true,
+      "targets": []
     },
     {
       "hash": "00960a6fb37e",
       "action": "OWNER_RULE",
-      "applied": false
+      "applied": true,
+      "targets": []
     },
     {
       "hash": "b3b0abad5f9d",
       "action": "OWNER_RULE",
-      "applied": false
+      "applied": true,
+      "targets": []
     },
     {
       "hash": "ab89f41b4417",
       "action": "OWNER_RULE",
-      "applied": false
+      "applied": true,
+      "targets": []
     },
     {
       "hash": "ddaa99c0d6f4",
       "action": "OWNER_RULE",
-      "applied": false
+      "applied": true,
+      "targets": []
     },
     {
       "hash": "c594e6844cce",
       "action": "SET_STATUS",
-      "applied": false
+      "applied": true,
+      "targets": [
+        "REF-20"
+      ]
     },
     {
       "hash": "0ff7b46f6fcc",
       "action": "SET_STATUS",
-      "applied": false
+      "applied": true,
+      "targets": [
+        "REF-21"
+      ]
     },
     {
       "hash": "7e888478252c",
       "action": "RECLASSIFY",
-      "applied": false
+      "applied": true,
+      "targets": [
+        "REF-17"
+      ]
     },
     {
       "hash": "b7ab752545a6",
       "action": "OWNER_RULE",
-      "applied": false
+      "applied": true,
+      "targets": []
     }
   ]
 }
