@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="noindex, nofollow" />
+  <title>Marketing Agency - Advantage Admin</title>
+  <style>
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#f8fafc;color:#0f172a}
+    .wrap{max-width:1180px;margin:0 auto;padding:1rem}
+    h1{font-size:1.3rem;margin:.4rem 0 .3rem}
+    p.lede{color:#64748b;font-size:.85rem;margin-bottom:1rem}
+    .panel{background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:1rem;margin-bottom:1.2rem}
+    .panel h2{font-size:1rem;margin-bottom:.5rem}
+    button{padding:.5rem 1rem;border:none;border-radius:7px;background:#111827;color:#fff;font-weight:700;cursor:pointer;font-size:.85rem}
+    button.alt{background:#2563eb}button.warn{background:#b45309}button.kill{background:#b91c1c}
+    button:disabled{opacity:.45;cursor:not-allowed}
+    .msg{font-size:.82rem;color:#64748b;margin:.4rem 0}
+    .stat-row{display:flex;gap:1rem;flex-wrap:wrap;margin:.6rem 0}
+    .stat-box{background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:.6rem 1rem;min-width:140px}
+    .stat-box .n{font-size:1.4rem;font-weight:800}.stat-box .l{font-size:.66rem;text-transform:uppercase;color:#64748b;letter-spacing:.03em}
+    .pill{display:inline-block;font-size:.66rem;font-weight:700;border-radius:999px;padding:2px 8px}
+    .ok{background:#dcfce7;color:#166534}.warn2{background:#fef9c3;color:#854d0e}.bad{background:#fee2e2;color:#991b1b}.neu{background:#e2e8f0;color:#334155}
+    table{width:100%;border-collapse:collapse;font-size:.8rem}
+    th{text-align:left;font-size:.66rem;text-transform:uppercase;color:#64748b;padding:.35rem .5rem;border-bottom:2px solid #e2e8f0}
+    td{padding:.4rem .5rem;border-bottom:1px solid #f1f5f9;vertical-align:top}
+    .blockers{background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:.6rem .8rem;margin:.5rem 0}
+    .blockers li{font-size:.8rem;color:#991b1b;margin-left:1rem}
+    .thumb{width:54px;height:54px;object-fit:cover;border-radius:6px;border:1px solid #e2e8f0;background:#f1f5f9}
+    .mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.72rem;color:#475569}
+    .bar{width:100%;height:9px;background:#e2e8f0;border-radius:999px;overflow:hidden;margin-top:.35rem}
+    .bar span{display:block;height:100%;background:#2563eb}
+    .roots{font-size:.74rem;color:#64748b;line-height:1.6}
+  </style>
+</head>
+<body>
+  <div id="adminNav"></div>
+  <div class="wrap">
+    <h1>Marketing Agency</h1>
+    <p class="lede">Paid acquisition status, spend authority, campaigns and Owner-approved production creative.</p>
+
+    <div class="panel">
+      <h2>Paid marketing</h2>
+      <div id="statusLine" class="msg">Loading…</div>
+      <div id="blockers"></div>
+      <div class="stat-row" id="budgetStats"></div>
+      <div class="bar"><span id="budgetBar" style="width:0%"></span></div>
+      <div class="msg" id="budgetNote"></div>
+      <div style="margin-top:.8rem;display:flex;gap:8px;flex-wrap:wrap">
+        <button class="kill" id="killBtn">Emergency stop — pause all paid marketing</button>
+        <button class="alt" id="clearKillBtn">Clear kill switch</button>
+        <button id="refreshBtn">Refresh</button>
+      </div>
+      <div class="msg" id="killMsg"></div>
+    </div>
+
+    <div class="panel">
+      <h2>Buyer inventory</h2>
+      <div class="msg" id="inventory">—</div>
+    </div>
+
+    <div class="panel">
+      <h2>Campaigns</h2>
+      <div id="campaigns" class="msg">Loading…</div>
+    </div>
+
+    <div class="panel">
+      <h2>Production creative</h2>
+      <div class="roots">
+        <strong>production-creative</strong> — actual Owner-approved advertisements ·
+        <strong>approved-creative-examples</strong> — training / calibration Gold Standards, reference only ·
+        <strong>brand-assets/logos</strong> — official source brand assets.
+        These three are never interchangeable.
+      </div>
+      <div class="stat-row" id="creativeStats"></div>
+      <div style="margin:.5rem 0"><button class="alt" id="syncBtn">Re-scan library</button></div>
+      <div id="creative" class="msg">Loading…</div>
+    </div>
+  </div>
+
+  <script src="/widgets/shared/admin-nav.js"></script>
+  <script>
+  (function () {
+    var $ = function (id) { return document.getElementById(id); };
+    var money = function (c) { return '$' + (Number(c || 0) / 100).toFixed(2); };
+    var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (m) {
+      return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[m]; }); };
+
+    function api(path, opts) {
+      return fetch('/api/admin/marketing-agency' + path, Object.assign({ credentials: 'same-origin' }, opts || {}))
+        .then(function (r) { return r.json().then(function (j) { return { status: r.status, body: j }; }); });
+    }
+
+    function pill(text, cls) { return '<span class="pill ' + cls + '">' + esc(text) + '</span>'; }
+
+    function statePill(s) {
+      var map = { ACTIVE: 'ok', READY: 'warn2', PLANNED: 'neu', PAUSED: 'warn2',
+                  STOPPED: 'neu', CREATIVE_BLOCKED: 'bad', FAILED: 'bad' };
+      return pill(s, map[s] || 'neu');
+    }
+
+    function renderOverview(d) {
+      $('statusLine').innerHTML = 'Paid marketing: ' +
+        (d.paid_marketing_status === 'READY TO EXECUTE' ? pill('READY TO EXECUTE', 'ok') : pill('OFF', 'bad')) +
+        ' &nbsp; Global kill: ' + (d.global_kill.engaged ? pill('ENGAGED', 'bad') : pill('available', 'neu'));
+
+      $('blockers').innerHTML = (d.paid_marketing_blockers && d.paid_marketing_blockers.length)
+        ? '<div class="blockers"><strong style="font-size:.8rem;color:#991b1b">Nothing can spend until these are resolved:</strong><ul>' +
+          d.paid_marketing_blockers.map(function (b) { return '<li>' + esc(b) + '</li>'; }).join('') + '</ul></div>'
+        : '';
+
+      var boxes = [
+        ['Monthly authority', money(d.monthly_authority_cents)],
+        ['Committed', money(d.committed_spend_cents)],
+        ['Actual spend', money(d.actual_spend_cents)],
+        ['Remaining', money(d.remaining_authority_cents)],
+        ['Per campaign max', money(d.campaign_ceiling_cents)],
+        ['Per day max', money(d.daily_ceiling_cents)]
+      ];
+      $('budgetStats').innerHTML = boxes.map(function (b) {
+        return '<div class="stat-box"><div class="n">' + esc(b[1]) + '</div><div class="l">' + esc(b[0]) + '</div></div>';
+      }).join('');
+      var used = d.monthly_authority_cents ? Math.min(100, Math.round(
+        (Math.max(d.committed_spend_cents, d.actual_spend_cents) / d.monthly_authority_cents) * 100)) : 0;
+      $('budgetBar').style.width = used + '%';
+      $('budgetNote').textContent = used + '% of the monthly ceiling consumed for ' + d.month +
+        '. The ceiling is a maximum, not a target.';
+
+      if (d.buyer_inventory) {
+        $('inventory').innerHTML = pill(d.buyer_inventory.posture, d.buyer_inventory.posture === 'NORMAL' ? 'ok' :
+          (d.buyer_inventory.posture === 'HOLD' ? 'bad' : 'warn2')) + ' ' + esc(d.buyer_inventory.rationale);
+      }
+
+      if (!d.campaigns.length) { $('campaigns').textContent = 'No campaigns prepared yet.'; return; }
+      $('campaigns').innerHTML = '<table><thead><tr>' +
+        ['Campaign', 'State', 'Funnel', 'Channel', 'Creative', 'Destination', 'Budget', 'Spend', 'Signal', 'Updated', ''].map(function (h) {
+          return '<th>' + h + '</th>'; }).join('') + '</tr></thead><tbody>' +
+        d.campaigns.map(function (c) {
+          return '<tr><td><strong>' + esc(c.campaign_key) + '</strong><div class="mono">' + esc(c.objective || '') + '</div></td>' +
+            '<td>' + statePill(c.state) + (c.blocked_reason ? '<div class="mono">' + esc(c.blocked_reason) + '</div>' : '') + '</td>' +
+            '<td>' + esc(c.funnel) + '</td><td>' + esc(c.channel) + '</td>' +
+            '<td>' + (c.creative_filename ? esc(c.creative_filename) : '<em>none</em>') + '</td>' +
+            '<td class="mono">' + esc(c.destination_url || '') + '</td>' +
+            '<td>' + money(c.budget_cents) + '</td><td>' + money(c.actual_spend_cents) + '</td>' +
+            '<td>' + esc(c.signal_state || '—') + '</td>' +
+            '<td class="mono">' + esc(String(c.updated_at || '').slice(0, 16)) + '</td>' +
+            '<td><button class="warn" data-pause="' + esc(c.campaign_key) + '">Pause</button> ' +
+            '<button data-stop="' + esc(c.campaign_key) + '">Stop</button></td></tr>';
+        }).join('') + '</tbody></table>';
+
+      Array.prototype.forEach.call(document.querySelectorAll('[data-pause]'), function (b) {
+        b.onclick = function () { control(b.getAttribute('data-pause'), 'pause'); };
+      });
+      Array.prototype.forEach.call(document.querySelectorAll('[data-stop]'), function (b) {
+        b.onclick = function () { control(b.getAttribute('data-stop'), 'stop'); };
+      });
+    }
+
+    function control(key, action) {
+      if (action === 'stop' && !window.confirm('Stop ' + key + ' permanently? Unspent authority is returned.')) return;
+      api('/campaigns/' + encodeURIComponent(key) + '/' + action, { method: 'POST',
+        headers: { 'Content-Type': 'application/json' }, body: '{}' })
+        .then(function (r) { $('killMsg').textContent = r.body.success ? (action + ' ok') : ('Failed: ' + (r.body.message || (r.body.data && r.body.data.reason))); load(); });
+    }
+
+    function renderCreative(d) {
+      var s = d.summary;
+      $('creativeStats').innerHTML = [
+        ['Registered', s.total], ['Owner approved', s.approved], ['Production eligible', s.eligible],
+        ['Do-not-use', s.do_not_use], ['Provenance conflicts', s.conflicted]
+      ].map(function (b) {
+        return '<div class="stat-box"><div class="n">' + b[1] + '</div><div class="l">' + b[0] + '</div></div>';
+      }).join('');
+
+      if (!d.assets.length) { $('creative').textContent = 'No production creative registered.'; return; }
+      $('creative').innerHTML = '<table><thead><tr>' +
+        ['', 'Asset', 'Category', 'Purpose', 'Owner approved', 'Eligible', 'Used by', 'Why not'].map(function (h) {
+          return '<th>' + h + '</th>'; }).join('') + '</tr></thead><tbody>' +
+        d.assets.map(function (a) {
+          var src = '/marketing-creative/' + a.relative_path;
+          return '<tr><td><img class="thumb" loading="lazy" alt="" src="' + esc(src) + '" onerror="this.style.visibility=\'hidden\'"></td>' +
+            '<td><strong>' + esc(a.filename) + '</strong><div class="mono">' + esc(a.asset_key) + '</div></td>' +
+            '<td>' + (a.category === 'do-not-use' ? pill('do-not-use', 'bad') : esc(a.category)) + '</td>' +
+            '<td>' + esc(a.campaign_purpose || '') + '</td>' +
+            '<td>' + (a.owner_approved_for_production ? pill('yes', 'ok') : pill('no', 'neu')) +
+              '<div class="mono">' + esc(a.approval_source || '') + '</div></td>' +
+            '<td>' + (a.production_eligible ? pill('eligible', 'ok') : pill('blocked', 'bad')) + '</td>' +
+            '<td>' + (a.campaign_usage || 0) + '</td>' +
+            '<td class="mono">' + esc(a.ineligible_reason || '') +
+              (a.provenance_conflict ? '<br><em>' + esc(a.provenance_conflict) + '</em>' : '') + '</td></tr>';
+        }).join('') + '</tbody></table>';
+    }
+
+    function load() {
+      api('/overview').then(function (r) {
+        if (!r.body.success) { $('statusLine').textContent = r.body.message || 'Not authorized'; return; }
+        renderOverview(r.body.data);
+      });
+      api('/creative').then(function (r) { if (r.body.success) renderCreative(r.body.data); });
+    }
+
+    $('refreshBtn').onclick = load;
+    $('syncBtn').onclick = function () {
+      api('/creative/sync', { method: 'POST' }).then(function (r) {
+        $('creative').textContent = 'Re-scanned.'; load();
+      });
+    };
+    $('killBtn').onclick = function () {
+      if (!window.confirm('Engage the global kill switch and pause every paid campaign?')) return;
+      api('/kill', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })
+        .then(function (r) { $('killMsg').textContent = r.body.success ? 'Kill switch engaged; all campaigns paused.' : 'Failed.'; load(); });
+    };
+    $('clearKillBtn').onclick = function () {
+      api('/kill/clear', { method: 'POST' }).then(function () { $('killMsg').textContent = 'Kill switch cleared.'; load(); });
+    };
+
+    load();
+  })();
+  </script>
+</body>
+</html>

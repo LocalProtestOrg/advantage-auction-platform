@@ -1,0 +1,168 @@
+{
+  "schema_version": "1.1",
+  "reference_id": "REF-15",
+  "identity": {
+    "sha256": "1e516a090e7fa5969e4107c0070071214f622d628be33b2a8beeffd6dc57e177",
+    "current_path": "individual-seller/gold-standard/individual-seller-turn-items-into-cash-gold-standard.png",
+    "original_filename": "individual-seller-turn-items-into-cash-gold-standard.png",
+    "width": 1254,
+    "height": 1254,
+    "format_class": "square",
+    "aspect_ratio": 1
+  },
+  "owner_status": "OWNER_GOLD_STANDARD",
+  "owner_weight": 2,
+  "status_history": [
+    {
+      "date": "2026-09-11",
+      "status": "OWNER_GOLD_STANDARD",
+      "source": "folder_placement_by_owner",
+      "owner_words": "Owner placed the file in approved-creative-examples/individual-seller/gold-standard/ (gold-standard sub-folder = Gold Standard under the library convention)",
+      "recorded_by": "Desktop Marketing — Phase 3P.2"
+    }
+  ],
+  "source": {
+    "seller": "Advantage.Bid",
+    "origin": "Advantage.Bid-led creative produced by the Owner and his creative collaborator after Phase 3P.1 (image-model assisted); Owner-approved by folder placement",
+    "rights": "Advantage.Bid-owned reference creative. Calibration evidence only: the composition teaches attributes; the logo drawn inside it is an image-model rendering and is NOT an approved logo asset (production composites brand-assets/logos); merchandise is representative, not lots; every fact and claim visible is reference-only text unless separately approved.",
+    "campaign_title_visible": "Have Items to Sell? Turn Your Items Into Cash.",
+    "event_date_visible": "(none — generic acquisition)",
+    "advantage_bid_visible": true
+  },
+  "classification": {
+    "campaign_class_primary": "individual_seller_acquisition",
+    "campaign_class_secondary": [
+      "general_brand"
+    ],
+    "event_product_type": "Generic individual-seller acquisition (no event) — same concept as REF-14 with the logo lockup and a blue-accent palette",
+    "seller_hierarchy": "advantage_bid_only",
+    "visual_family": "SCENE_EXTRACTED",
+    "nearest_advantage_family": "ACQUISITION",
+    "event_mode": "not_an_event",
+    "merchandise_breadth": "representative_non_lot",
+    "owner_folder": "individual-seller"
+  },
+  "visual_read": {
+    "visual_hierarchy": "Full logo lockup top-left (large, ~50% width) → 'HAVE ITEMS TO SELL?' uppercase condensed (navy / blue) → blue rule → 'TURN YOUR ITEMS INTO CASH.' → support → four filled blue icon rows → blue CTA 'START YOUR AUCTION TODAY →' → navy step band + 'You Can Do This.' → footer strip.",
+    "merchandise_treatment": "Identical vignette to REF-14.",
+    "composition_style": "As REF-14; the headline is uppercase and the accent colour is the logo's blue rather than red.",
+    "typography_treatment": "Uppercase condensed display headline in navy with the second line in logo blue; sans support; script accents.",
+    "information_density": "high",
+    "branding_hierarchy": "Official-style logo lockup rendered large at top-left (image-model rendering); band script; no seller.",
+    "cta_treatment": "One blue button.",
+    "footer_treatment": "As REF-14.",
+    "photographic_style": "As REF-14.",
+    "overlapping_objects": "confident",
+    "environmental_staged_composition": "As REF-14.",
+    "negative_space": "minimal",
+    "ground": "mixed",
+    "overall_visual_impact": "very_high"
+  },
+  "measured": {
+    "light_pixel_pct": 33,
+    "dark_pixel_pct": 22.9,
+    "saturated_pixel_pct": 39.3,
+    "dominant_hues": [
+      "red 53%",
+      "cyan 20%",
+      "azure 15%",
+      "red share of saturated 56.3%"
+    ],
+    "est_merchandise_share_pct": [
+      52,
+      60
+    ],
+    "est_text_share_pct": [
+      24,
+      30
+    ],
+    "object_count_est": 16,
+    "text_block_count": 9
+  },
+  "strongest_attributes": [
+    "The logo lockup at roughly half the canvas width — the prominence the Owner asked for in 3P.1, shown",
+    "Same approved concept as REF-14 with a different type and colour treatment — the Owner approved both, which is variation evidence",
+    "Blue drawn from the logo's own 'BID' blue used as the accent"
+  ],
+  "transferable_lessons": [
+    "Logo lockup at 40–50% of width is inside the Owner's comfort for Advantage.Bid-led creative (3P.1 set 30–40%; widen the ceiling to 50%)",
+    "An uppercase display headline is acceptable as a deliberate design choice for a short punchy headline (≤ 4 words per line); title style remains the default",
+    "Logo-derived blue is a permitted secondary accent; red remains the attention colour (6 of the 8 new Advantage.Bid-led references use a red CTA)",
+    "The same concept may ship in two colour treatments within one campaign"
+  ],
+  "do_not_generalize": [
+    "The image-model rendering of the logo — production composites the official asset",
+    "Blue as the CTA colour by default — the Owner's stated attention colour is red",
+    "The collaborator's set repeats a bronze rearing horse, a blue-and-white vase, a stack of books with category-name spines, a gilt landscape, a laptop showing the logo and a handwritten script phrase on a mug/board/box. These are the collaborator's props, not required objects; the engine must not learn them as a checklist.",
+    "Uppercase for support lines or labels beyond the headline"
+  ],
+  "text_density_assessment": {
+    "level": "high",
+    "why_it_works_here": "As REF-14.",
+    "advantage_bid_budget_note": "ACQUISITION_RICH ceiling."
+  },
+  "composition_assessment": {
+    "spatial_logic": "As REF-14.",
+    "gravity_and_grounding": "As REF-14.",
+    "depth": "As REF-14.",
+    "scale_strategy": "As REF-14.",
+    "edge_handling": "As REF-14."
+  },
+  "retrieval": {
+    "use_cases": [
+      "individual seller acquisition",
+      "logo prominence calibration (Advantage.Bid-led)",
+      "blue-accent variant of the approved concept"
+    ],
+    "tags": [
+      "gold",
+      "acquisition",
+      "uppercase-headline",
+      "logo-blue",
+      "large-logo",
+      "square"
+    ],
+    "avoid_for": [
+      "event advertising",
+      "buyer growth copy",
+      "minimal-copy placements"
+    ]
+  },
+  "performance": null,
+  "provenance": {
+    "created_by": "Desktop Marketing (Claude, Cowork) — Phase 3P.2",
+    "created_at": "2026-09-10T16:08:54Z",
+    "analysis_method": "Direct visual inspection at full resolution; pixel statistics computed from the file; est_* are visual estimates; text transcribed from the image and classified.",
+    "phase": "3P.2"
+  },
+  "text_classification": [
+    {
+      "text": "Have Items to Sell?",
+      "status": "APPROVED_CAMPAIGN_SPECIFIC_MESSAGE",
+      "role": "headline"
+    },
+    {
+      "text": "Turn Your Items Into Cash.",
+      "status": "APPROVED_CAMPAIGN_SPECIFIC_MESSAGE",
+      "role": "headline"
+    },
+    {
+      "text": "You Can Do This.",
+      "status": "OWNER_APPROVED_MESSAGE",
+      "role": "label"
+    },
+    {
+      "text": "Keep More of the Proceeds",
+      "status": "REFERENCE_ONLY_CLAIM_REQUIRES_PRODUCTION_TRUTH",
+      "role": "label"
+    },
+    {
+      "text": "Start Your Auction Today",
+      "status": "REFERENCE_ONLY_TEXT",
+      "role": "cta"
+    }
+  ],
+  "logo_treatment_in_reference": "Logo lockup in the reference is rendered by the image model (gavel + ADVANTAGE.BID + GET THE ADVANTAGE). Production never reproduces it; it composites brand-assets/logos/advantage-bid-primary.png (or the transparent/white variant) at the prominence rules.",
+  "owner_gold_reason": "Owner placed the file in individual-seller/gold-standard",
+  "filename_signal": "gold-standard"
+}

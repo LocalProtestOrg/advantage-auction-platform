@@ -311,7 +311,9 @@ describe('publish / spend isolation', () => {
     for (const d of dirs) for (const f of fs.readdirSync(path.join(ROOT, d))) { const s = fs.readFileSync(path.join(ROOT, d, f), 'utf8'); if (/\bfetch\(|https?\.request\(|axios/.test(s)) hits.push(f); }
     // metaCapiService: the gated Conversions API sender (POST /events). paidCostIngestionService: the gated READ-ONLY
     // Insights puller (GET only — it can never create, edit or pay for anything).
-    expect(hits.sort()).toEqual(['metaCapiService.js', 'paidCostIngestionService.js']);
+    // metaAdsProvider.js is the paid-execution writer: gated on ads_management, creates PAUSED, and
+    // refuses any excluded ad account (see tests/meta-measurement-connection.test.js).
+    expect(hits.sort()).toEqual(['metaAdsProvider.js', 'metaCapiService.js', 'paidCostIngestionService.js']);
     const costSrc = fs.readFileSync(path.join(ROOT, 'src/services/measurement/paidCostIngestionService.js'), 'utf8');
     expect(costSrc).not.toMatch(/method:\s*['"](POST|PUT|PATCH|DELETE)['"]/);
     expect(costSrc).toMatch(/\/insights\?/);

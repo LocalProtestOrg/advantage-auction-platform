@@ -600,6 +600,13 @@ app.use('/api/admin/pricing-agreements', require('./src/routes/adminPricingAgree
 app.use('/api/admin/owner-alerts', require('./src/routes/adminOwnerAlerts'));
 app.use('/api/admin/marketing-packages', require('./src/routes/adminMarketingPackages'));
 app.use('/api/admin/marketing-runtime', require('./src/routes/adminMarketingRuntime'));
+app.use('/api/admin/marketing-agency', require('./src/routes/adminMarketingAgency'));
+// Owner-approved production creative, served to the admin control centre for preview only. Admin
+// session required: these are internal advertising assets, not public files.
+app.use('/marketing-creative',
+  require('./src/middleware/authMiddleware'),
+  require('./src/middleware/roleMiddleware')(['admin']),
+  express.static(path.join(__dirname, 'docs', 'marketing', 'production-creative'), { fallthrough: false, index: false }));
 app.use('/api/admin/staff', adminStaffRoutes);
 app.use('/api/admin/pickup', adminPickupRoutes);
 app.use('/api/admin/launch-readiness', adminLaunchReadinessRoutes);

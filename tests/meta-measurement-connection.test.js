@@ -204,8 +204,10 @@ describe('no path can create, edit, activate, pause or fund an advertisement', (
   const read = (f) => fs.readFileSync(path.join(ROOT, f), 'utf8');
   const walk = (dir) => fs.readdirSync(path.join(ROOT, dir), { withFileTypes: true }).flatMap((d) => (d.isDirectory() ? walk(path.join(dir, d.name)) : d.name.endsWith('.js') ? [path.join(dir, d.name)] : []));
   const graphCallers = [...walk('src'), ...walk('scripts')].filter((f) => read(f).includes('graph.facebook.com'));
-  test('the only Graph callers are the known four', () => {
-    expect(graphCallers.map((f) => f.split(path.sep).join('/')).sort()).toEqual(['scripts/meta-measurement-connect.js', 'src/services/measurement/metaCapiService.js', 'src/services/measurement/paidCostIngestionService.js', 'src/services/metaGraphProvider.js']);
+  test('the only Graph callers are the known five', () => {
+    // metaAdsProvider is the paid-execution writer added for Owner-activated campaigns. It is the
+    // ONLY module permitted to write an ad object, and the tests below constrain what it may do.
+    expect(graphCallers.map((f) => f.split(path.sep).join('/')).sort()).toEqual(['scripts/meta-measurement-connect.js', 'src/services/measurement/metaCapiService.js', 'src/services/measurement/paidCostIngestionService.js', 'src/services/metaGraphProvider.js', 'src/services/paidGrowth/metaAdsProvider.js']);
   });
   test('the cost puller and the connect script never write (GET only)', () => {
     for (const f of ['src/services/measurement/paidCostIngestionService.js', 'scripts/meta-measurement-connect.js']) expect(read(f)).not.toMatch(/method:\s*['"](POST|PUT|PATCH|DELETE)['"]/);
@@ -222,9 +224,38 @@ describe('no path can create, edit, activate, pause or fund an advertisement', (
     for (const p of posts) expect(p).toMatch(/endpoint|\/media|\/media_publish/);
     expect(src).toMatch(/\$\{base\}\/photos` : `\$\{base\}\/feed`/);
   });
-  test('no source anywhere references an ad-object write, budget, status or funding endpoint', () => {
+  test('among Graph callers, exactly one may write an ad object, budget, status or funding field', () => {
+    // Scoped to modules that actually talk to the Graph API: internal column names such as
+    // `daily_budget_cents` in our own tables are not ad-platform writes and must not be flagged.
     const AD_WRITE = /(\/adcreatives|\/customaudiences|\/adimages|funding_source|spend_cap|daily_budget|lifetime_budget|bid_amount|['"]status['"]\s*:\s*['"](ACTIVE|PAUSED)['"])/;
-    for (const f of [...walk('src'), ...walk('scripts')]) expect([f, AD_WRITE.test(read(f))]).toEqual([f, false]);
+    const writers = graphCallers.filter((f) => AD_WRITE.test(read(f)))
+      .map((f) => f.split(path.sep).join('/')).sort();
+    expect(writers).toEqual(['src/services/paidGrowth/metaAdsProvider.js']);
+  });
+
+  test('no module outside the Graph callers issues any ad-platform write', () => {
+    const graphSet = new Set(graphCallers);
+    const offenders = [...walk('src'), ...walk('scripts')]
+      .filter((f) => !graphSet.has(f))
+      .filter((f) => /graph\.facebook\.com|\/act_[^'"`]*\/(campaigns|adsets|ads)/.test(read(f)))
+      .map((f) => f.split(path.sep).join('/'));
+    expect(offenders).toEqual([]);
+  });
+
+  test('the one permitted writer cannot write without ads_management, and never creates anything live', () => {
+    const src = read('src/services/paidGrowth/metaAdsProvider.js');
+    // Every write path checks the permission before calling the Graph API.
+    const writeFns = ['async function createCampaign', 'async function setStatus'];
+    for (const fn of writeFns) {
+      const body = src.slice(src.indexOf(fn), src.indexOf(fn) + 900);
+      expect(body).toMatch(/if \(!perms\.ads_management\) return \{ ok: false/);
+    }
+    // Campaigns are created PAUSED, so a successful creation still spends nothing.
+    expect(src).toMatch(/status: 'PAUSED',\s*\/\/ never create anything that can start spending/);
+    // ACTIVE is only ever an explicit status transition, never a creation payload.
+    expect(src).not.toMatch(/status:\s*'ACTIVE'/);
+    // Excluded ad accounts (Lewis & Maese) are refused on every write path.
+    expect(src).toMatch(/assertNotExcluded/);
   });
 });
 

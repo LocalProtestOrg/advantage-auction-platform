@@ -1,0 +1,185 @@
+{
+  "schema_version": "1.1",
+  "reference_id": "REF-16",
+  "identity": {
+    "sha256": "077ea5d05d649082a9d260cbcf6a3e0d8b89bc40295fbb53edb4614ff9a01dd4",
+    "current_path": "individual-seller/gold-standard/individual-seller-turn-items-into-opportunity-gold-standard.png",
+    "original_filename": "individual-seller-turn-items-into-opportunity-gold-standard.png",
+    "width": 1374,
+    "height": 1145,
+    "format_class": "landscape",
+    "aspect_ratio": 1.2
+  },
+  "owner_status": "OWNER_GOLD_STANDARD",
+  "owner_weight": 2,
+  "status_history": [
+    {
+      "date": "2026-09-11",
+      "status": "OWNER_GOLD_STANDARD",
+      "source": "folder_placement_by_owner",
+      "owner_words": "Owner placed the file in approved-creative-examples/individual-seller/gold-standard/ (gold-standard sub-folder = Gold Standard under the library convention)",
+      "recorded_by": "Desktop Marketing — Phase 3P.2"
+    }
+  ],
+  "source": {
+    "seller": "Advantage.Bid",
+    "origin": "Advantage.Bid-led creative produced by the Owner and his creative collaborator after Phase 3P.1 (image-model assisted); Owner-approved by folder placement",
+    "rights": "Advantage.Bid-owned reference creative. Calibration evidence only: the composition teaches attributes; the logo drawn inside it is an image-model rendering and is NOT an approved logo asset (production composites brand-assets/logos); merchandise is representative, not lots; every fact and claim visible is reference-only text unless separately approved. A representative person is depicted (image-model rendered); never a real customer or a testimonial.",
+    "campaign_title_visible": "Sell With Confidence — Turn Your Items Into Opportunity",
+    "event_date_visible": "(none — generic acquisition)",
+    "advantage_bid_visible": true
+  },
+  "classification": {
+    "campaign_class_primary": "individual_seller_acquisition",
+    "campaign_class_secondary": [
+      "professional_seller_acquisition"
+    ],
+    "event_product_type": "Generic seller acquisition with a representative seller portrait (landscape 6:5)",
+    "seller_hierarchy": "advantage_bid_only",
+    "visual_family": "ATMOSPHERIC_SCENE",
+    "nearest_advantage_family": "ACQUISITION",
+    "event_mode": "not_an_event",
+    "merchandise_breadth": "representative_non_lot",
+    "owner_folder": "individual-seller"
+  },
+  "visual_read": {
+    "visual_hierarchy": "Logo lockup top-left → 'SELL WITH CONFIDENCE' (navy/blue uppercase, very large) → support line in spaced caps → three blue icon rows → blue CTA 'START SELLING TODAY →' → 'GET THE ADVANTAGE' rule. Right: a blue diagonal panel top-right with 'TURN YOUR ITEMS INTO OPPORTUNITY' and 'Simple. Secure. Successful.'; a smiling man in an apron at a laptop (the laptop shows the logo) behind a table of objects.",
+    "merchandise_treatment": "Globe, vintage camera on a box, gilt-pattern vase, framed landscape, bronze horse, lamp, a cardboard box lettered 'Another Happy Seller!' — on a workbench in a shop/warehouse; a person is the visual centre.",
+    "composition_style": "Left copy column; portrait subject right of centre; objects along the bottom; a diagonal blue panel in the top-right corner; no navy band.",
+    "typography_treatment": "Uppercase condensed display; spaced-caps support; blue as the accent throughout.",
+    "information_density": "high",
+    "branding_hierarchy": "Logo lockup large top-left; logo repeated on the laptop; 'GET THE ADVANTAGE' under the CTA.",
+    "cta_treatment": "Blue pill button.",
+    "footer_treatment": "None — no band.",
+    "photographic_style": "Image-model rendered editorial portrait with props; warm shop light.",
+    "overlapping_objects": "physical_still_life",
+    "environmental_staged_composition": "A working seller's bench; person as anchor; objects supported on the bench and boxes.",
+    "negative_space": "modest",
+    "ground": "mixed",
+    "overall_visual_impact": "high"
+  },
+  "measured": {
+    "light_pixel_pct": 32,
+    "dark_pixel_pct": 13.7,
+    "saturated_pixel_pct": 34.3,
+    "dominant_hues": [
+      "red 50%",
+      "azure 44%",
+      "orange 4%",
+      "red share of saturated 50.4%"
+    ],
+    "est_merchandise_share_pct": [
+      35,
+      45
+    ],
+    "est_text_share_pct": [
+      24,
+      30
+    ],
+    "object_count_est": 9,
+    "text_block_count": 8
+  },
+  "strongest_attributes": [
+    "Approachable, human, aspirational — the seller as the hero, not the software",
+    "Confident headline; the objects are believable working-bench props",
+    "The Owner accepted a representative person in generic acquisition creative (this is new evidence; 3P.1's 'no fabricated people' was a safeguard I wrote, not an Owner rule)"
+  ],
+  "transferable_lessons": [
+    "A representative person may appear in GENERIC acquisition/brand creative when disclosed as representative and never presented as a specific customer or a testimonial",
+    "Landscape 6:5 acquisition layout with no band is acceptable when the logo is large and the CTA is unmistakable",
+    "Blue panels as a corner device are acceptable in blue-accent treatments"
+  ],
+  "do_not_generalize": [
+    "'Another Happy Seller!' on the box — implies a testimonial; reference-only, never approved copy",
+    "'Reach thousands of serious bidders', 'Get top dollar', 'Low Seller Fees' — claims requiring production truth (marketing-package rules forbid promising outcomes)",
+    "The image-model logo on the laptop and in the header",
+    "The person's likeness — never reused; each generation is a new representative person; never in event creative",
+    "Blue-only palette without red — acceptable here, not the default"
+  ],
+  "text_density_assessment": {
+    "level": "high",
+    "why_it_works_here": "Headline dominance plus a corner panel; the rest is subordinate.",
+    "advantage_bid_budget_note": "ACQUISITION_RICH ceiling; the corner panel counts as a block."
+  },
+  "composition_assessment": {
+    "spatial_logic": "Bench scene with a person; props supported on the bench and a box.",
+    "gravity_and_grounding": "Real-looking support for every object.",
+    "depth": "Person mid, objects foreground, shelving background.",
+    "scale_strategy": "Person as scale reference; objects at true scale.",
+    "edge_handling": "Lamp and painting exit the right edge."
+  },
+  "retrieval": {
+    "use_cases": [
+      "seller acquisition with a representative person",
+      "landscape acquisition layout",
+      "professional/individual seller crossover"
+    ],
+    "tags": [
+      "gold",
+      "acquisition",
+      "person",
+      "landscape",
+      "blue-accent",
+      "no-band"
+    ],
+    "avoid_for": [
+      "any event creative (representative person never near real event facts)",
+      "testimonial-style copy",
+      "buyer growth"
+    ]
+  },
+  "performance": null,
+  "provenance": {
+    "created_by": "Desktop Marketing (Claude, Cowork) — Phase 3P.2",
+    "created_at": "2026-09-10T16:08:54Z",
+    "analysis_method": "Direct visual inspection at full resolution; pixel statistics computed from the file; est_* are visual estimates; text transcribed from the image and classified.",
+    "phase": "3P.2"
+  },
+  "text_classification": [
+    {
+      "text": "Sell With Confidence",
+      "status": "REFERENCE_ONLY_TEXT",
+      "role": "headline",
+      "note": "not among the Owner-named messages; may be proposed, not assumed approved"
+    },
+    {
+      "text": "Turn Your Items Into Opportunity",
+      "status": "REFERENCE_ONLY_TEXT",
+      "role": "headline"
+    },
+    {
+      "text": "Reach thousands of serious bidders. Get top dollar.",
+      "status": "REFERENCE_ONLY_CLAIM_REQUIRES_PRODUCTION_TRUTH",
+      "role": "support"
+    },
+    {
+      "text": "Low Seller Fees",
+      "status": "REFERENCE_ONLY_CLAIM_REQUIRES_PRODUCTION_TRUTH",
+      "role": "label"
+    },
+    {
+      "text": "Large, Active Audience",
+      "status": "REFERENCE_ONLY_CLAIM_REQUIRES_PRODUCTION_TRUTH",
+      "role": "label"
+    },
+    {
+      "text": "Secure & Trusted Platform",
+      "status": "REFERENCE_ONLY_TEXT",
+      "role": "label"
+    },
+    {
+      "text": "Another Happy Seller!",
+      "status": "REFERENCE_ONLY_TEXT",
+      "role": "label",
+      "note": "testimonial implication — never approved copy"
+    },
+    {
+      "text": "Start Selling Today",
+      "status": "REFERENCE_ONLY_TEXT",
+      "role": "cta"
+    }
+  ],
+  "logo_treatment_in_reference": "Logo lockup in the reference is rendered by the image model (gavel + ADVANTAGE.BID + GET THE ADVANTAGE). Production never reproduces it; it composites brand-assets/logos/advantage-bid-primary.png (or the transparent/white variant) at the prominence rules.",
+  "owner_gold_reason": "Owner placed the file in individual-seller/gold-standard",
+  "filename_signal": "gold-standard"
+}
