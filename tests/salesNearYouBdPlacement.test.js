@@ -3,12 +3,20 @@
 /**
  * Sales Near You — BD footer placement + durable success state.
  *
- * THE BUG THIS LOCKS SHUT. The persistent signup was anchored with
- * `querySelector('footer, .footer, #footer')`. On the live marketing site most templates put the
- * real site footer in a `div.footer`, so that worked — but the homepage carries an EARLIER element
- * with the same class sitting above a major content section, so the first match was a decoy and the
- * signup landed mid-page. There is no semantic <footer> and no role="contentinfo" anywhere on that
- * site, so no selector alone is trustworthy. Placement is now decided by GEOMETRY.
+ * WHAT THIS LOCKS SHUT. The persistent signup was anchored with
+ * `querySelector('footer, .footer, #footer')` — the FIRST match in document order, taken once at
+ * DOMContentLoaded. Two things make that unreliable on the live marketing site:
+ *
+ *   1. There is no semantic <footer> and no role="contentinfo" anywhere, so the only anchor is a
+ *      class name, and a first-match-wins selector cannot tell a real site footer from any other
+ *      element that happens to carry the same class.
+ *   2. Several templates (estate-sale and auction browsing) render their listings CLIENT-SIDE. At
+ *      DOMContentLoaded the footer is nearly the only thing on the page, so a placement decided at
+ *      that instant is made against an almost empty document.
+ *
+ * Placement is now decided by GEOMETRY at runtime, and re-evaluated once the page has settled.
+ * A footer landmark in the top half of the page is refused as a decoy, and with no qualifying
+ * landmark the strip goes to the end of the body — still the bottom of the page.
  *
  * The placement tests run the REAL resolver — extracted from the shipped file and evaluated against
  * a minimal DOM stub — rather than a reimplementation. jsdom is not a dependency of this project,
@@ -91,11 +99,12 @@ describe('footer placement works regardless of template', () => {
     ], 1200)).toBe(1);
   });
 
-  test('THE HOMEPAGE CASE: an early decoy .footer loses to the real footer below it', () => {
+  test('an early element sharing the footer class loses to the real footer below it', () => {
+    // First-match-wins would have taken the top one; geometry takes the lowest qualifying candidate.
     expect(runResolver([
-      { cls: 'footer', top: 400, h: 60 },                      // decoy above real content
-      { cls: 'homepage-featured-auctions', top: 500, h: 700 },
-      { cls: 'footer', top: 1250, h: 300 },                    // the actual site footer
+      { cls: 'footer', top: 400, h: 60 },        // same class, but above real content
+      { cls: 'featured-section', top: 500, h: 700 },
+      { cls: 'footer', top: 1250, h: 300 },      // the actual site footer
     ], 1550)).toBe(2);
   });
 
@@ -164,6 +173,45 @@ describe('footer placement works regardless of template', () => {
     expect(src).toMatch(/getBoundingClientRect/);
     expect(src).toMatch(/pageHeight \* 0\.5/);
     expect(src).not.toMatch(/querySelector\('footer, \.footer, #footer'\)/);
+  });
+});
+
+// ════════════════════════════════════════════════════════════════════════════════════════════════
+describe('placement survives client-rendered templates', () => {
+  // Several marketing templates render their listings CLIENT-SIDE. At DOMContentLoaded the footer can
+  // be the only content present, so a placement decided at that instant is made against a nearly
+  // empty page. This is the most likely reason placement looked inconsistent across templates.
+
+  test('placement is re-evaluated after the page settles', () => {
+    expect(WIDGET_CODE).toMatch(/function reflowStrip\(\)/);
+    expect(WIDGET_CODE).toMatch(/window\.addEventListener\('load'/);
+    expect(WIDGET_CODE).toMatch(/setTimeout\(reflowStrip, 2500\)/);
+  });
+
+  test('the reflow MOVES the existing strip rather than creating a second one', () => {
+    const fn = WIDGET_CODE.slice(WIDGET_CODE.indexOf('function reflowStrip'),
+      WIDGET_CODE.indexOf('function boot()'));
+    expect(fn).toMatch(/document\.querySelector\('\.advla-strip'\)/);
+    expect(fn).toMatch(/insertBefore\(host, anchor\)/);
+    // No new element is built, so form state and listeners survive the move.
+    expect(fn).not.toMatch(/createElement|mountStrip\(/);
+  });
+
+  test('the reflow is a no-op when placement is already correct', () => {
+    const fn = WIDGET_CODE.slice(WIDGET_CODE.indexOf('function reflowStrip'),
+      WIDGET_CODE.indexOf('function boot()'));
+    expect(fn).toMatch(/if \(host\.nextSibling === anchor\) return;/);
+    expect(fn).toMatch(/if \(!anchor \|\| anchor === host \|\| anchor\.contains\(host\)\) return;/);
+  });
+
+  test('the reflow never throws into the host page', () => {
+    const fn = WIDGET_CODE.slice(WIDGET_CODE.indexOf('function reflowStrip'),
+      WIDGET_CODE.indexOf('function boot()'));
+    expect(fn).toMatch(/catch \(e\)/);
+  });
+
+  test('still exactly one strip after any number of reflows', () => {
+    expect(WIDGET_CODE).toMatch(/if \(document\.querySelector\('\.advla-strip'\)\) return;/);
   });
 });
 

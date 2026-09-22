@@ -679,12 +679,39 @@
   }
 
   // ── Boot ─────────────────────────────────────────────────────────────────────
+  /**
+   * Re-check placement once the page has settled.
+   *
+   * Several marketing templates render their listings CLIENT-SIDE, so at DOMContentLoaded the footer
+   * may be the only thing on the page and any placement decided then is made against a nearly empty
+   * document. After load — and once more a moment later, for content that arrives asynchronously —
+   * the anchor is recomputed and the strip moved if a better one now exists. Moving a node keeps its
+   * state and listeners, so a part-filled form is never lost, and mountStrip's own guard still means
+   * only one strip can ever exist.
+   */
+  function reflowStrip() {
+    try {
+      var strip = document.querySelector('.advla-strip');
+      if (!strip) return;
+      var host = strip.parentNode;
+      if (!host) return;
+      var anchor = findFooterAnchor();
+      if (!anchor || anchor === host || anchor.contains(host)) return;
+      if (host.nextSibling === anchor) return;            // already immediately above it
+      if (anchor.parentNode) anchor.parentNode.insertBefore(host, anchor);
+    } catch (e) { /* placement is best-effort; never break the page */ }
+  }
+
   function boot() {
-    if (root[ '__advLocalAlertsBooted' ]) return;
+    if (root['__advLocalAlertsBooted']) return;
     root['__advLocalAlertsBooted'] = true;
     try {
       mountStrip();
       armTriggers();
+      // Settle passes: after load, and again shortly after, for late client-rendered content.
+      if (document.readyState === 'complete') setTimeout(reflowStrip, 400);
+      else window.addEventListener('load', function () { setTimeout(reflowStrip, 400); }, { once: true });
+      setTimeout(reflowStrip, 2500);
     } catch (e) { /* never break the page */ }
   }
 
@@ -693,6 +720,8 @@
 
   // Exposed for tests and for a page that wants to place the strip explicitly.
   root.AdvLocalAlerts = {
+    _reflow: reflowStrip,
+    _findFooterAnchor: findFooterAnchor,
     _policy: POLICY,
     _suppressed: isSuppressedPath,
     _modalAllowed: modalAllowed,
