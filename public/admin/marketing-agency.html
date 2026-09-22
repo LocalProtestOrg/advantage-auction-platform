@@ -66,6 +66,19 @@
     </div>
 
     <div class="panel">
+      <h2>Audiences — who we are trying to reach</h2>
+      <div class="roots">
+        A strategy is only usable once Meta has confirmed every targeting id it contains.
+        Interest search alone is not proof: a plausible phrase can return the wrong audience, and an
+        option can be returned by search yet be unusable by this ad account.
+      </div>
+      <div id="audiences" class="msg">Loading…</div>
+      <h2 style="margin-top:1rem">Audience experiments</h2>
+      <div class="roots">Variants share one campaign's authorised budget. Testing more audiences never costs more.</div>
+      <div id="experiments" class="msg">Loading…</div>
+    </div>
+
+    <div class="panel">
       <h2>Production creative</h2>
       <div class="roots">
         <strong>production-creative</strong> — actual Owner-approved advertisements ·
@@ -192,12 +205,65 @@
         }).join('') + '</tbody></table>';
     }
 
+    function reachText(a) {
+      if (!a.estimated_reach_lower) return '—';
+      return Number(a.estimated_reach_lower).toLocaleString() + ' – ' + Number(a.estimated_reach_upper).toLocaleString();
+    }
+    function targetingText(a) {
+      var inc = (a.inclusions || []).map(function (t) { return esc(t.name || t.id) + ' [' + esc(t.id) + ']'; });
+      if (!inc.length) return a.audience_mode === 'advantage_plus'
+        ? 'Location only — Meta expands the audience (Advantage+)' : 'Location only';
+      return inc.join(', ');
+    }
+    function renderAudiences(d) {
+      if (!d.strategies.length) { $('audiences').textContent = 'No audience strategies registered.'; return; }
+      $('audiences').innerHTML = '<table><thead><tr>' +
+        ['Audience', 'Funnel', 'Why this audience', 'What Meta targets', 'Where', 'Size', 'Provider check',
+         'Spend', 'Visits', 'Registrations', 'Learned'].map(function (h) { return '<th>' + h + '</th>'; }).join('') +
+        '</tr></thead><tbody>' + d.strategies.map(function (a) {
+          var vp = a.validation_state === 'VALID' ? 'ok' : (a.validation_state === 'PARTIAL' ? 'warn2' : 'bad');
+          var rejected = ((a.validation_detail && a.validation_detail.results) || []).filter(function (r) { return !r.valid; });
+          return '<tr><td><strong>' + esc(a.strategy_key) + '</strong>' +
+            (a.active ? ' ' + pill('active', 'ok') : '') +
+            (a.policy_status !== 'OK' ? ' ' + pill('policy blocked', 'bad') : '') + '</td>' +
+            '<td>' + esc(a.funnel) + '</td>' +
+            '<td>' + esc(a.hypothesis || '') + '</td>' +
+            '<td class="mono">' + targetingText(a) +
+              (rejected.length ? '<br><em>provider rejected: ' + rejected.map(function (r) { return esc(r.type + ' ' + r.id); }).join(', ') + '</em>' : '') + '</td>' +
+            '<td>' + esc((a.geography && a.geography.name) || '') + (a.geography && a.geography.radius ? ' +' + a.geography.radius + 'mi' : '') + '</td>' +
+            '<td>' + reachText(a) + '</td>' +
+            '<td>' + pill(a.validation_state, vp) + '</td>' +
+            '<td>' + money(a.spend_cents) + '</td>' +
+            '<td>' + (a.landing_visits || 0) + '</td>' +
+            '<td>' + (a.registrations || 0) + '</td>' +
+            '<td>' + pill(a.learning_state, a.learning_state === 'PROMISING' ? 'ok' :
+                (a.learning_state === 'NO_DATA' || a.learning_state === 'INSUFFICIENT_DATA' ? 'neu' : 'bad')) +
+              (a.last_reason ? '<div class="mono">' + esc(String(a.last_decision) + ': ' + a.last_reason) + '</div>' : '') + '</td></tr>';
+        }).join('') + '</tbody></table>';
+
+      if (!d.experiments.length) { $('experiments').textContent = 'No audience experiments planned.'; return; }
+      $('experiments').innerHTML = d.experiments.map(function (e) {
+        var arms = (e.arms || []).filter(function (a) { return a && a.arm; });
+        return '<div style="margin:.5rem 0"><strong>' + esc(e.experiment_key) + '</strong> ' + statePill(e.state) +
+          '<div class="mono">' + esc(e.hypothesis || '') + '</div>' +
+          '<div class="msg">Campaign ' + esc(e.campaign_key) + ' — authorised ' + money(e.campaign_budget_cents) +
+          ', allocated across arms ' + money(e.allocated_cents) +
+          (e.allocated_cents > e.campaign_budget_cents ? ' ' + pill('OVER', 'bad') : ' ' + pill('within budget', 'ok')) + '</div>' +
+          '<table><tbody>' + arms.map(function (a) {
+            return '<tr><td>' + esc(a.arm) + '</td><td class="mono">' + esc(a.strategy) + '</td><td>' +
+              money(a.allocated_cents) + ' allocated</td><td>' + money(a.spend_cents) + ' spent</td><td>' +
+              (a.landing_visits || 0) + ' visits</td><td>' + (a.registrations || 0) + ' registrations</td></tr>';
+          }).join('') + '</tbody></table></div>';
+      }).join('');
+    }
+
     function load() {
       api('/overview').then(function (r) {
         if (!r.body.success) { $('statusLine').textContent = r.body.message || 'Not authorized'; return; }
         renderOverview(r.body.data);
       });
       api('/creative').then(function (r) { if (r.body.success) renderCreative(r.body.data); });
+      api('/audiences').then(function (r) { if (r.body.success) renderAudiences(r.body.data); });
     }
 
     $('refreshBtn').onclick = load;

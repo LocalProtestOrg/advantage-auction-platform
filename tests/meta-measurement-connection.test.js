@@ -204,13 +204,16 @@ describe('no path can create, edit, activate, pause or fund an advertisement', (
   const read = (f) => fs.readFileSync(path.join(ROOT, f), 'utf8');
   const walk = (dir) => fs.readdirSync(path.join(ROOT, dir), { withFileTypes: true }).flatMap((d) => (d.isDirectory() ? walk(path.join(dir, d.name)) : d.name.endsWith('.js') ? [path.join(dir, d.name)] : []));
   const graphCallers = [...walk('src'), ...walk('scripts')].filter((f) => read(f).includes('graph.facebook.com'));
-  test('the only Graph callers are the known five', () => {
+  test('the only Graph callers are the known six', () => {
     // metaAdsProvider is the paid-execution writer added for Owner-activated campaigns. It is the
     // ONLY module permitted to write an ad object, and the tests below constrain what it may do.
-    expect(graphCallers.map((f) => f.split(path.sep).join('/')).sort()).toEqual(['scripts/meta-measurement-connect.js', 'src/services/measurement/metaCapiService.js', 'src/services/measurement/paidCostIngestionService.js', 'src/services/metaGraphProvider.js', 'src/services/paidGrowth/metaAdsProvider.js']);
+    expect(graphCallers.map((f) => f.split(path.sep).join('/')).sort()).toEqual(['scripts/meta-measurement-connect.js', 'src/services/measurement/metaCapiService.js', 'src/services/measurement/paidCostIngestionService.js', 'src/services/metaGraphProvider.js', 'src/services/paidGrowth/audienceIntelligenceService.js', 'src/services/paidGrowth/metaAdsProvider.js']);
   });
-  test('the cost puller and the connect script never write (GET only)', () => {
-    for (const f of ['src/services/measurement/paidCostIngestionService.js', 'scripts/meta-measurement-connect.js']) expect(read(f)).not.toMatch(/method:\s*['"](POST|PUT|PATCH|DELETE)['"]/);
+  test('the cost puller, the connect script and audience discovery never write (GET only)', () => {
+    for (const f of ['src/services/measurement/paidCostIngestionService.js', 'scripts/meta-measurement-connect.js',
+      'src/services/paidGrowth/audienceIntelligenceService.js']) {
+      expect(read(f)).not.toMatch(/method:\s*['"](POST|PUT|PATCH|DELETE)['"]/);
+    }
   });
   test('the Conversions API posts only to /{dataset}/events', () => {
     const src = read('src/services/measurement/metaCapiService.js');

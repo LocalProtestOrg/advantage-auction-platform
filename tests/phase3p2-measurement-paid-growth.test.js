@@ -313,7 +313,9 @@ describe('publish / spend isolation', () => {
     // Insights puller (GET only — it can never create, edit or pay for anything).
     // metaAdsProvider.js is the paid-execution writer: gated on ads_management, creates PAUSED, and
     // refuses any excluded ad account (see tests/meta-measurement-connection.test.js).
-    expect(hits.sort()).toEqual(['metaAdsProvider.js', 'metaCapiService.js', 'paidCostIngestionService.js']);
+    // audienceIntelligenceService.js reads targeting capability from the provider and never writes
+    // (asserted GET-only in tests/meta-measurement-connection.test.js).
+    expect(hits.sort()).toEqual(['audienceIntelligenceService.js', 'metaAdsProvider.js', 'metaCapiService.js', 'paidCostIngestionService.js']);
     const costSrc = fs.readFileSync(path.join(ROOT, 'src/services/measurement/paidCostIngestionService.js'), 'utf8');
     expect(costSrc).not.toMatch(/method:\s*['"](POST|PUT|PATCH|DELETE)['"]/);
     expect(costSrc).toMatch(/\/insights\?/);

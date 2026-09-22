@@ -147,6 +147,66 @@ router.post('/creative/:assetKey/approval', superOnly, asyncRoute(async (req, re
     still_blocking: eligible ? [] : blocking } });
 }));
 
+// ── AUDIENCE INTELLIGENCE ─────────────────────────────────────────────────────────────────────
+
+/**
+ * Who we are trying to reach, why, what Meta is actually targeting, how big it is, what it cost and
+ * what the Director learned — in plain English, with the provider specification available but not
+ * forced on the reader.
+ */
+router.get('/audiences', asyncRoute(async (req, res) => {
+  const strategies = (await db.query(`
+    SELECT s.id, s.strategy_key, s.funnel, s.hypothesis, s.rationale, s.audience_mode, s.geography,
+           s.inclusions, s.exclusions, s.optimization_goal, s.validation_state, s.validation_detail,
+           s.last_validated_at, s.estimated_reach_lower, s.estimated_reach_upper, s.learning_state,
+           s.policy_status, s.policy_detail, s.active, s.targeting_spec,
+           COALESCE(f.spend_cents,0)::int   AS spend_cents,
+           COALESCE(f.impressions,0)::int   AS impressions,
+           COALESCE(f.clicks,0)::int        AS clicks,
+           COALESCE(f.landing_visits,0)::int AS landing_visits,
+           COALESCE(f.registrations,0)::int AS registrations,
+           COALESCE(f.qualified,0)::int     AS qualified_conversions,
+           l.decision AS last_decision, l.reason AS last_reason, l.recorded_at AS last_decided_at
+      FROM marketing_audience_strategies s
+      LEFT JOIN LATERAL (
+        SELECT sum(a.spend_cents) spend_cents, sum(a.impressions) impressions, sum(a.clicks) clicks,
+               sum(a.landing_visits) landing_visits, sum(a.registrations) registrations,
+               sum(a.qualified_conversions) qualified
+          FROM marketing_audience_experiment_arms a WHERE a.strategy_id = s.id) f ON true
+      LEFT JOIN LATERAL (
+        SELECT decision, reason, recorded_at FROM marketing_audience_learnings ml
+         WHERE ml.strategy_id = s.id ORDER BY recorded_at DESC LIMIT 1) l ON true
+     ORDER BY s.funnel, s.strategy_key`)).rows;
+
+  const experiments = (await db.query(`
+    SELECT e.experiment_key, e.campaign_key, e.funnel, e.state, e.hypothesis, e.campaign_budget_cents,
+           json_agg(json_build_object('arm', a.arm_label, 'strategy', s.strategy_key,
+             'allocated_cents', a.allocated_cents, 'spend_cents', a.spend_cents,
+             'landing_visits', a.landing_visits, 'registrations', a.registrations,
+             'qualified', a.qualified_conversions) ORDER BY a.arm_label) AS arms,
+           COALESCE(sum(a.allocated_cents),0)::int AS allocated_cents
+      FROM marketing_audience_experiments e
+      LEFT JOIN marketing_audience_experiment_arms a ON a.experiment_id = e.id
+      LEFT JOIN marketing_audience_strategies s ON s.id = a.strategy_id
+     GROUP BY e.id ORDER BY e.experiment_key`)).rows;
+
+  res.json({ success: true, data: { strategies, experiments } });
+}));
+
+/** Re-validate a strategy against the provider. Capability is never assumed permanent. */
+router.post('/audiences/:strategyKey/revalidate', superOnly, asyncRoute(async (req, res) => {
+  const ai = require('../services/paidGrowth/audienceIntelligenceService');
+  const s = (await db.query('SELECT * FROM marketing_audience_strategies WHERE strategy_key=$1', [req.params.strategyKey])).rows[0];
+  if (!s) return res.status(404).json({ success: false, message: 'Unknown strategy' });
+  const out = await ai.upsertStrategy({
+    strategyKey: s.strategy_key, funnel: s.funnel, hypothesis: s.hypothesis, rationale: s.rationale,
+    geography: s.geography, inclusions: s.inclusions, exclusions: s.exclusions,
+    optimizationGoal: s.optimization_goal, audienceMode: s.audience_mode, provenance: 'owner_revalidation',
+  });
+  res.json({ success: true, data: { strategy_key: s.strategy_key, validation_state: out.validation_state,
+    policy: out.policy, reach: { lower: out.strategy.estimated_reach_lower, upper: out.strategy.estimated_reach_upper } } });
+}));
+
 // ── CAMPAIGN CONTROL ──────────────────────────────────────────────────────────────────────────
 
 router.post('/campaigns/:key/pause', superOnly, asyncRoute(async (req, res) => {
