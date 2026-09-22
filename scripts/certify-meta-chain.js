@@ -7,6 +7,9 @@
    MINIMUM set of PAUSED certification artifacts needed to obtain those ids, validates against them,
    reads every object back, and then deletes the artifacts.
 
+   Governed uploaded images are deliberately KEPT: an ad image is inert on its own (it cannot
+   deliver, cost anything or be seen) and reusing it avoids re-uploading the same approved bytes.
+
    Nothing is ever set ACTIVE. Every object is created PAUSED, the campaign carries a spend cap, and
    the ad set carries a daily budget that never runs because nothing is active. Certification
    artifacts are marked as such in marketing_provider_objects and removed at the end.
@@ -19,6 +22,8 @@ const delivery = require('../src/services/paidGrowth/metaDeliveryService');
 
 const KEEP = process.argv.includes('--keep');
 const STRATEGY = (process.argv.find((a) => a.startsWith('--strategy=')) || '').split('=')[1] || null;
+const PACKAGE = (process.argv.find((a) => a.startsWith('--package=')) || '').split('=')[1] || null;
+const FUNNEL = (process.argv.find((a) => a.startsWith('--funnel=')) || '').split('=')[1] || null;
 const log = (...a) => console.log(...a);
 
 (async () => {
@@ -37,17 +42,19 @@ const log = (...a) => console.log(...a);
     `SELECT p.*, c.sha256 AS asset_sha256, c.id AS asset_id, c.filename
        FROM marketing_creative_packages p
        JOIN marketing_production_creative c ON c.id = p.production_creative_id
-      WHERE p.approval_state='OWNER_APPROVED' AND p.policy_status='OK' AND p.funnel='individual_seller'
-      ORDER BY p.created_at LIMIT 1`)).rows[0];
-  if (!pkg) { console.error('REFUSE: no Owner-approved Individual Seller creative package'); return 2; }
+      WHERE p.approval_state='OWNER_APPROVED' AND p.policy_status='OK'
+        AND ($1::text IS NULL OR p.package_key = $1)
+        AND ($2::text IS NULL OR p.funnel = $2)
+      ORDER BY p.created_at LIMIT 1`, [PACKAGE, PACKAGE ? null : (FUNNEL || 'individual_seller')])).rows[0];
+  if (!pkg) { console.error('REFUSE: no Owner-approved creative package matching the request'); return 2; }
   log('Package: ' + pkg.package_key + '  image=' + pkg.filename);
 
   const strategy = (await db.query(
     `SELECT strategy_key, targeting_spec FROM marketing_audience_strategies
-      WHERE funnel='individual_seller' AND validation_state='VALID' AND policy_status='OK'
+      WHERE funnel = $2 AND validation_state='VALID' AND policy_status='OK'
         AND ($1::text IS NULL OR strategy_key = $1)
-      ORDER BY strategy_key LIMIT 1`, [STRATEGY])).rows[0];
-  if (!strategy) { console.error('REFUSE: no VALID individual_seller audience strategy'); return 2; }
+      ORDER BY strategy_key LIMIT 1`, [STRATEGY, pkg.funnel])).rows[0];
+  if (!strategy) { console.error('REFUSE: no VALID ' + pkg.funnel + ' audience strategy'); return 2; }
   log('Strategy: ' + strategy.strategy_key);
 
   // 1. Image — a real upload, reused thereafter. An image serves nothing on its own.

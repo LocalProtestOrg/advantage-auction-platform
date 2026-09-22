@@ -218,7 +218,11 @@ async function listCampaigns({ account }, runner = db) {
  */
 const COPY_LIMITS = Object.freeze({ primary_text: 2200, headline: 255, description: 255 });
 
-const CTA_TYPES = Object.freeze(['LEARN_MORE', 'SIGN_UP', 'GET_STARTED', 'CONTACT_US', 'APPLY_NOW', 'SUBSCRIBE']);
+// The values Meta actually accepts for a link ad, taken from its own rejection message. GET_STARTED,
+// APPLY_NOW and SUBSCRIBE are NOT accepted here and were removed after Meta refused them; anything
+// outside this list falls back to LEARN_MORE rather than failing at creation time.
+const CTA_TYPES = Object.freeze(['LEARN_MORE', 'SIGN_UP', 'CONTACT_US', 'SEE_DETAILS', 'SHOP_NOW',
+  'DOWNLOAD', 'GET_DIRECTIONS', 'SEE_MORE', 'SAVE']);
 
 /** Ask the provider to validate a payload without creating it. */
 async function validateObject(edge, body, { account } = {}, runner = db) {

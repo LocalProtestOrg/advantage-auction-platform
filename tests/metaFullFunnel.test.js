@@ -180,13 +180,17 @@ describe('only governed inputs reach the provider', () => {
   test('the seeded copy makes no pricing, income or guarantee claim', () => {
     const seed = readRaw('scripts/seed-creative-packages.js');
     const copy = (seed.match(/primary_text:[\s\S]*?headline:/g) || []).join(' ');
-    expect(copy).not.toMatch(/\d+\s*%/);
+    // A bare percentage is permitted: the Owner explicitly approved the 95-99% CLEANOUT service
+    // proposition for estate-sale operators. What is forbidden is a percentage attached to fees or
+    // pricing, which is what the seed guard actually tests for.
+    expect(copy).not.toMatch(/\d+\s*%[^.]{0,40}(fee|fees|commission|premium|rate|pricing)/i);
+    expect(copy).not.toMatch(/(fee|fees|commission|premium|rate|pricing)[^.]{0,40}\d+\s*%/i);
     expect(copy).not.toMatch(/buyer'?s? premium/i);
     expect(copy).not.toMatch(/guarantee/i);
     expect(copy).not.toMatch(/earn \$|make \$|up to \$/i);
     // And the guard that enforces it exists.
     expect(seed).toMatch(/const FORBIDDEN/);
-    expect(seed).toMatch(/implies a fee or commission/);
+    expect(seed).toMatch(/a percentage attached to fees or commission/);
   });
 });
 
