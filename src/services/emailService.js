@@ -117,7 +117,7 @@ function getMarketingTransporter() {
  * @returns {Promise<object>} { messageId } on success, { skipped: true } if unconfigured
  * @throws on delivery failure
  */
-async function sendEmail({ to, subject, html, text, attachments, replyTo, headers, fromName, bcc, mailStream }) {
+async function sendEmail({ to, subject, html, text, attachments, replyTo, headers, fromName, bcc, mailStream, fromAddress }) {
   if (!isConfigured()) {
     console.warn('[email] SMTP/SES not configured - skipping delivery to', to);
     return { skipped: true };
@@ -127,7 +127,15 @@ async function sendEmail({ to, subject, html, text, attachments, replyTo, header
     // The technical From address ALWAYS stays the verified EMAIL_FROM sender (SPF/DKIM/DMARC alignment
     // is preserved). `fromName` only sets the friendly display name — e.g. "Kym Witt — Advantage.Bid"
     // <notifications@advantage.bid> — so a rep's identity is visible without a per-mailbox SES identity.
-    const from = fromName ? `${String(fromName).replace(/["\r\n<>]/g, '').trim()} <${EMAIL_FROM}>` : EMAIL_FROM;
+    // A programme may send from its OWN address on the verified domain (e.g. events@advantage.bid
+    // for Event Partner outreach) so its reputation and its replies stay separate from platform
+    // notifications. Only an address on the SAME verified domain is honoured — anything else would
+    // break SPF/DKIM alignment, so it silently falls back to the verified default sender.
+    const verifiedDomain = String(EMAIL_FROM || '').split('@')[1] || '';
+    const requestedFrom = String(fromAddress || '').trim().toLowerCase();
+    const senderAddress = (requestedFrom && verifiedDomain && requestedFrom.endsWith('@' + verifiedDomain))
+      ? requestedFrom : EMAIL_FROM;
+    const from = fromName ? `${String(fromName).replace(/["\r\n<>]/g, '').trim()} <${senderAddress}>` : senderAddress;
     // Event Partner mail is bulk-ish, low-volume outreach: it shares the marketing POOL (so it can
     // never starve the transactional pool) while carrying its OWN configuration set for telemetry.
     const isMarketing = mailStream === 'marketing';
