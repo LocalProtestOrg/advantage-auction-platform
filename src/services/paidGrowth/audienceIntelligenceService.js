@@ -225,6 +225,10 @@ function buildTargetingSpec({ geography = HOUSTON_METRO, inclusions = [], exclus
     if (v.length) inc[t] = v;
   }
   if (Object.keys(inc).length) spec.flexible_spec = [inc];
+  // Meta REQUIRES an explicit decision here whenever detailed targeting is present: "you need to
+  // enable or disable the Advantage audience feature". 0 means use the audience we validated rather
+  // than letting the provider expand beyond it — which is the whole point of a detailed strategy.
+  spec.targeting_automation = { advantage_audience: 0 };
   const exc = {};
   for (const t of ['interests', 'behaviors']) {
     const v = byType(exclusions, t);

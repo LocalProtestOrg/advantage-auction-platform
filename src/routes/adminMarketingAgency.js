@@ -207,6 +207,44 @@ router.post('/audiences/:strategyKey/revalidate', superOnly, asyncRoute(async (r
     policy: out.policy, reach: { lower: out.strategy.estimated_reach_lower, upper: out.strategy.estimated_reach_upper } } });
 }));
 
+// -- DELIVERY CHAIN ---------------------------------------------------------------------------
+
+/**
+ * The complete hierarchy the Owner can inspect: campaign -> experiment -> ad set / audience ->
+ * creative package -> ad. Provider ids are available for diagnostics, but the reading order is the
+ * business one: who, why, where, what it says, where it sends them.
+ */
+router.get('/delivery', asyncRoute(async (req, res) => {
+  const packages = (await db.query(`
+    SELECT p.package_key, p.funnel, p.audience_purpose, p.primary_text, p.headline, p.description,
+           p.cta_type, p.destination_url, p.version, p.fingerprint, p.approval_state, p.policy_status,
+           p.policy_detail, p.active, c.filename AS image_filename, c.asset_key AS image_asset_key,
+           c.production_eligible AS image_eligible,
+           (SELECT provider_image_hash FROM marketing_provider_images i
+             WHERE i.production_creative_id = c.id LIMIT 1) AS provider_image_hash
+      FROM marketing_creative_packages p
+      JOIN marketing_production_creative c ON c.id = p.production_creative_id
+     ORDER BY p.funnel, p.package_key`)).rows;
+
+  const objects = (await db.query(`
+    SELECT object_type, provider_id, parent_provider_id, campaign_key, package_key, provider_status,
+           intended_status, certification_artifact, last_error, created_at, last_reconciled_at
+      FROM marketing_provider_objects ORDER BY created_at DESC LIMIT 200`)).rows;
+
+  const arms = (await db.query(`
+    SELECT e.experiment_key, e.campaign_key, e.funnel, e.campaign_budget_cents, a.arm_label,
+           a.allocated_cents, a.provider_adset_id, a.spend_cents, a.impressions, a.clicks,
+           a.landing_visits, a.registrations, s.strategy_key, s.hypothesis, s.audience_mode,
+           s.validation_state, s.estimated_reach_lower, s.estimated_reach_upper, s.learning_state
+      FROM marketing_audience_experiments e
+      JOIN marketing_audience_experiment_arms a ON a.experiment_id = e.id
+      JOIN marketing_audience_strategies s ON s.id = a.strategy_id
+     ORDER BY e.experiment_key, a.arm_label`)).rows;
+
+  const buildMode = await configService.get(null, 'marketing.paid.build_mode');
+  res.json({ success: true, data: { build_mode: buildMode === true, packages, objects, arms } });
+}));
+
 // ── CAMPAIGN CONTROL ──────────────────────────────────────────────────────────────────────────
 
 router.post('/campaigns/:key/pause', superOnly, asyncRoute(async (req, res) => {

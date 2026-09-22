@@ -79,6 +79,18 @@
     </div>
 
     <div class="panel">
+      <h2>Delivery chain &mdash; what would actually run</h2>
+      <div class="roots">
+        Campaign &rarr; ad set (who and where) &rarr; creative (image, words, destination) &rarr; ad.
+        Every object is created paused; while build mode is on, nothing can be made active at all.
+      </div>
+      <div id="buildMode" class="msg"></div>
+      <div id="packages" class="msg">Loading&hellip;</div>
+      <div id="deliveryArms" class="msg"></div>
+      <div id="providerObjects" class="msg"></div>
+    </div>
+
+    <div class="panel">
       <h2>Production creative</h2>
       <div class="roots">
         <strong>production-creative</strong> — actual Owner-approved advertisements ·
@@ -257,6 +269,56 @@
       }).join('');
     }
 
+    function renderDelivery(d) {
+      $('buildMode').innerHTML = d.build_mode
+        ? pill('BUILD MODE', 'warn2') + ' objects may be created for certification but can never be activated.'
+        : pill('build mode off', 'neu');
+
+      $('packages').innerHTML = !d.packages.length ? 'No governed creative packages.' :
+        '<table><thead><tr>' + ['Package', 'Funnel', 'Image', 'Message', 'Headline', 'CTA', 'Destination', 'Approval', 'Uploaded to Meta']
+          .map(function (x) { return '<th>' + x + '</th>'; }).join('') + '</tr></thead><tbody>' +
+        d.packages.map(function (p) {
+          return '<tr><td><strong>' + esc(p.package_key) + '</strong> v' + p.version +
+            (p.active ? ' ' + pill('active', 'ok') : '') + '</td>' +
+            '<td>' + esc(p.funnel) + '</td>' +
+            '<td class="mono">' + esc(p.image_filename) + (p.image_eligible ? '' : ' ' + pill('not eligible', 'bad')) + '</td>' +
+            '<td>' + esc(String(p.primary_text).slice(0, 150)) + '&hellip;</td>' +
+            '<td>' + esc(p.headline) + '</td><td>' + esc(p.cta_type) + '</td>' +
+            '<td class="mono">' + esc(String(p.destination_url).replace('https://bid.advantage.bid', '')) + '</td>' +
+            '<td>' + pill(p.approval_state, p.approval_state === 'OWNER_APPROVED' ? 'ok' : 'neu') +
+              (p.policy_status !== 'OK' ? ' ' + pill('policy', 'bad') : '') + '</td>' +
+            '<td>' + (p.provider_image_hash ? pill('yes', 'ok') : pill('not yet', 'neu')) + '</td></tr>';
+        }).join('') + '</tbody></table>';
+
+      $('deliveryArms').innerHTML = !d.arms.length ? '' :
+        '<h2 style="font-size:.95rem;margin-top:1rem">Ad sets the experiments would create</h2><table><thead><tr>' +
+        ['Experiment', 'Arm', 'Audience', 'Why', 'Mode', 'Reach', 'Allocated', 'Ad set', 'Spend']
+          .map(function (x) { return '<th>' + x + '</th>'; }).join('') + '</tr></thead><tbody>' +
+        d.arms.map(function (a) {
+          return '<tr><td class="mono">' + esc(a.experiment_key) + '</td><td>' + esc(a.arm_label) + '</td>' +
+            '<td><strong>' + esc(a.strategy_key) + '</strong> ' + pill(a.validation_state, a.validation_state === 'VALID' ? 'ok' : 'bad') + '</td>' +
+            '<td>' + esc(String(a.hypothesis || '').slice(0, 120)) + '</td>' +
+            '<td>' + esc(a.audience_mode) + '</td>' +
+            '<td>' + (a.estimated_reach_lower ? Number(a.estimated_reach_lower).toLocaleString() + '-' + Number(a.estimated_reach_upper).toLocaleString() : '-') + '</td>' +
+            '<td>' + money(a.allocated_cents) + '</td>' +
+            '<td class="mono">' + (a.provider_adset_id ? esc(a.provider_adset_id) : 'not created') + '</td>' +
+            '<td>' + money(a.spend_cents) + '</td></tr>';
+        }).join('') + '</tbody></table>';
+
+      $('providerObjects').innerHTML = !d.objects.length
+        ? '<div class="msg">No provider objects exist at Meta.</div>'
+        : '<h2 style="font-size:.95rem;margin-top:1rem">Objects at Meta</h2><table><thead><tr>' +
+          ['Type', 'Provider ID', 'Parent', 'Status', 'Intended', 'Note'].map(function (x) { return '<th>' + x + '</th>'; }).join('') +
+          '</tr></thead><tbody>' + d.objects.map(function (o) {
+            return '<tr><td>' + esc(o.object_type) + '</td><td class="mono">' + esc(o.provider_id || '-') + '</td>' +
+              '<td class="mono">' + esc(o.parent_provider_id || '-') + '</td>' +
+              '<td>' + pill(o.provider_status || '-', o.provider_status === 'PAUSED' ? 'warn2' : 'neu') + '</td>' +
+              '<td>' + esc(o.intended_status) + '</td>' +
+              '<td class="mono">' + (o.certification_artifact ? 'certification artifact ' : '') +
+                esc(o.last_error || '') + '</td></tr>';
+          }).join('') + '</tbody></table>';
+    }
+
     function load() {
       api('/overview').then(function (r) {
         if (!r.body.success) { $('statusLine').textContent = r.body.message || 'Not authorized'; return; }
@@ -264,6 +326,7 @@
       });
       api('/creative').then(function (r) { if (r.body.success) renderCreative(r.body.data); });
       api('/audiences').then(function (r) { if (r.body.success) renderAudiences(r.body.data); });
+      api('/delivery').then(function (r) { if (r.body.success) renderDelivery(r.body.data); });
     }
 
     $('refreshBtn').onclick = load;
