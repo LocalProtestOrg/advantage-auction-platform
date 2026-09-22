@@ -372,6 +372,38 @@ describe('Meta asset isolation: only Advantage.Bid assets are reachable', () => 
     delete process.env.META_ADS_READ_TOKEN;
   });
 
+  // The exact payload Meta accepts, learned from live validate_only probes (nothing was created).
+  test('the campaign payload carries the fields Meta requires', () => {
+    const body = meta.buildCampaignBody({ name: 'x', funnel: 'individual_seller', spendCapCents: 13500 });
+    expect(body.is_adset_budget_sharing_enabled).toBe(false);   // required when no campaign budget is set
+    expect(body.status).toBe('PAUSED');
+    expect(body.objective).toBe('OUTCOME_LEADS');
+    expect(body.spend_cap).toBe(13500);
+  });
+
+  test("a spend cap below Meta's $100 minimum is omitted rather than sent and rejected", () => {
+    expect(meta.MIN_SPEND_CAP_CENTS).toBe(10000);
+    const low = meta.buildCampaignBody({ name: 'x', funnel: 'buyer', spendCapCents: 5000 });
+    expect(low.spend_cap).toBeUndefined();          // the internal ledger remains the binding limit
+    const ok = meta.buildCampaignBody({ name: 'x', funnel: 'buyer', spendCapCents: 10000 });
+    expect(ok.spend_cap).toBe(10000);
+  });
+
+  test('validateCampaign asks the provider without creating anything', () => {
+    const code = readCode('src/services/paidGrowth/metaAdsProvider.js');
+    const fn = code.slice(code.indexOf('async function validateCampaign'), code.indexOf('async function setStatus'));
+    expect(fn).toMatch(/execution_options: \['validate_only'\]/);
+    expect(fn).toMatch(/created: false/);
+    expect(fn).toMatch(/assertNotExcluded/);          // never validated against an excluded account
+    expect(fn).toMatch(/if \(!perms\.ads_management\) return/);
+  });
+
+  test('permissions are read with the token that will do the writing', () => {
+    const code = readCode('src/services/paidGrowth/metaAdsProvider.js');
+    const fn = code.slice(code.indexOf('async function permissions'), code.indexOf('async function resolveAdAccount'));
+    expect(fn).toMatch(/call\('\/me\/permissions', \{ write: true \}\)/);
+  });
+
   test('campaigns are always created PAUSED, never spending on creation', () => {
     const code = readCode('src/services/paidGrowth/metaAdsProvider.js');
     expect(code).toMatch(/status: 'PAUSED'/);

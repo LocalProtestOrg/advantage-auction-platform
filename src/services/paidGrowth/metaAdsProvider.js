@@ -61,7 +61,7 @@ async function call(pathname, { method = 'GET', body = null, write = false } = {
 
 /** Which permissions the system user actually holds right now. */
 async function permissions() {
-  const r = await call('/me/permissions');
+  const r = await call('/me/permissions', { write: true });
   if (!r.ok) return { ok: false, reason: r.detail || r.error, granted: [] };
   const granted = ((r.data && r.data.data) || []).filter((p) => p.status === 'granted').map((p) => p.permission);
   return {
@@ -108,6 +108,9 @@ async function assertNotExcluded(account, runner = db) {
 
 // ── writes (all create PAUSED) ────────────────────────────────────────────────────────────────
 
+/** Meta's minimum campaign spending limit (USD). Verified live: below this the API refuses. */
+const MIN_SPEND_CAP_CENTS = 10000;
+
 const OBJECTIVES = Object.freeze({
   buyer: 'OUTCOME_TRAFFIC',
   individual_seller: 'OUTCOME_LEADS',
@@ -125,16 +128,49 @@ async function createCampaign({ account, name, funnel, spendCapCents, idempotenc
   if (!perms.ok) return { ok: false, reason: 'cannot read permissions: ' + perms.reason };
   if (!perms.ads_management) return { ok: false, reason: 'ads_management not granted — campaign creation is not possible' };
 
+  const body = buildCampaignBody({ name, funnel, spendCapCents });
+  const r = await call('/' + account + '/campaigns', { method: 'POST', body, write: true });
+  if (!r.ok) return { ok: false, reason: r.detail || r.error, code: r.code || null };
+  return {
+    ok: true, provider_campaign_id: r.data.id, status: 'PAUSED', idempotency_key: idempotencyKey,
+    provider_spend_cap_cents: body.spend_cap || null,
+  };
+}
+
+/**
+ * The exact payload Meta accepts, proven against the live API.
+ *   - `is_adset_budget_sharing_enabled` is REQUIRED when no campaign budget is set.
+ *   - `spend_cap` must be at least $100; below that Meta refuses, so the cap is simply omitted and
+ *     the internal ledger remains the binding limit (it always is — a provider cap is a second
+ *     belt, never the only one).
+ */
+function buildCampaignBody({ name, funnel, spendCapCents }) {
   const body = {
     name,
     objective: OBJECTIVES[funnel] || 'OUTCOME_TRAFFIC',
     status: 'PAUSED',                        // never create anything that can start spending
     special_ad_categories: [],
+    is_adset_budget_sharing_enabled: false,
   };
-  if (Number.isInteger(spendCapCents) && spendCapCents > 0) body.spend_cap = spendCapCents;
+  if (Number.isInteger(spendCapCents) && spendCapCents >= MIN_SPEND_CAP_CENTS) body.spend_cap = spendCapCents;
+  return body;
+}
+
+/**
+ * Ask Meta whether a campaign WOULD be accepted, without creating it
+ * (execution_options: ['validate_only']). This is how write capability is proven without spending
+ * a cent, and it is the safest pre-flight before a real creation.
+ */
+async function validateCampaign({ account, name, funnel, spendCapCents }, runner = db) {
+  const guard = await assertNotExcluded(account, runner);
+  if (!guard.ok) return guard;
+  const perms = await permissions();
+  if (!perms.ok) return { ok: false, reason: 'cannot read permissions: ' + perms.reason };
+  if (!perms.ads_management) return { ok: false, reason: 'ads_management not granted' };
+  const body = Object.assign(buildCampaignBody({ name, funnel, spendCapCents }), { execution_options: ['validate_only'] });
   const r = await call('/' + account + '/campaigns', { method: 'POST', body, write: true });
   if (!r.ok) return { ok: false, reason: r.detail || r.error, code: r.code || null };
-  return { ok: true, provider_campaign_id: r.data.id, status: 'PAUSED', idempotency_key: idempotencyKey };
+  return { ok: true, validated: true, created: false, spend_cap_cents: body.spend_cap || null };
 }
 
 async function setStatus({ objectId, status }, runner = db) {
@@ -170,7 +206,7 @@ async function listCampaigns({ account }, runner = db) {
 }
 
 module.exports = {
-  GRAPH, TOKEN_ENV, READ_TOKEN_ENV, OBJECTIVES,
-  permissions, resolveAdAccount, assertNotExcluded,
+  GRAPH, TOKEN_ENV, READ_TOKEN_ENV, OBJECTIVES, MIN_SPEND_CAP_CENTS,
+  permissions, resolveAdAccount, assertNotExcluded, buildCampaignBody, validateCampaign,
   createCampaign, setStatus, pause, stop, observe, listCampaigns, redact, call,
 };
