@@ -42,7 +42,7 @@ const ledgerHas = async (c) => (await c.query('SELECT 1 FROM schema_migrations W
               (SELECT count(*)::int FROM terms_acceptances) acceptances,
               (SELECT count(*)::int FROM email_suppressions) suppressions,
               (SELECT count(*)::int FROM users) users,
-              (SELECT count(*)::int FROM auction_registrations) auction_registrations`)).rows[0];
+              (SELECT count(*)::int FROM auction_buyers) auction_registrations`)).rows[0];
 
     if (await ledgerHas(c)) console.log('SKIP apply (already recorded; idempotent). Verifying only.');
     else {
@@ -56,7 +56,7 @@ const ledgerHas = async (c) => (await c.query('SELECT 1 FROM schema_migrations W
               (SELECT count(*)::int FROM terms_acceptances) acceptances,
               (SELECT count(*)::int FROM email_suppressions) suppressions,
               (SELECT count(*)::int FROM users) users,
-              (SELECT count(*)::int FROM auction_registrations) auction_registrations,
+              (SELECT count(*)::int FROM auction_buyers) auction_registrations,
               (SELECT count(*)::int FROM buyer_sales_near_you_enrollments) enrollments`)).rows[0];
 
     const versions = (await c.query(
