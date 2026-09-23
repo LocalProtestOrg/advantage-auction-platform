@@ -288,12 +288,18 @@ async function uploadImage({ account, bytesBase64, filename }, runner = db) {
 }
 
 /** The ad set payload. Geography and audience live HERE, never on the campaign. */
-function buildAdSetBody({ name, campaignId, dailyBudgetCents, targetingSpec, pixelId,
-  optimizationGoal, billingEvent, customEventType, bidStrategy }) {
+function buildAdSetBody({ name, campaignId, dailyBudgetCents, lifetimeBudgetCents = null, startTime = null, endTime = null,
+  targetingSpec, pixelId, optimizationGoal, billingEvent, customEventType, bidStrategy }) {
+  // A LIFETIME budget is a hard total the provider will not exceed over the ad set's schedule — the
+  // provider-side backstop for an authorization below Meta's $100 minimum campaign spend cap. It
+  // requires an end time. A daily budget, by contrast, is only a pacing target.
+  const budget = lifetimeBudgetCents != null
+    ? { lifetime_budget: Math.round(Number(lifetimeBudgetCents)), end_time: endTime, ...(startTime ? { start_time: startTime } : {}) }
+    : { daily_budget: Math.round(Number(dailyBudgetCents)) };
   const body = {
     name,
     campaign_id: String(campaignId),
-    daily_budget: Math.round(Number(dailyBudgetCents)),
+    ...budget,
     billing_event: billingEvent || 'IMPRESSIONS',
     optimization_goal: optimizationGoal || 'OFFSITE_CONVERSIONS',
     // Required: without it Meta demands a bid amount or bid constraints. LOWEST_COST_WITHOUT_CAP
@@ -373,7 +379,7 @@ async function createAd(input, runner = db) {
 
 const READ_FIELDS = Object.freeze({
   campaign: 'id,name,status,effective_status,objective,spend_cap,created_time',
-  adset: 'id,name,status,effective_status,campaign_id,daily_budget,optimization_goal,billing_event,targeting,promoted_object',
+  adset: 'id,name,status,effective_status,campaign_id,daily_budget,lifetime_budget,start_time,end_time,optimization_goal,billing_event,targeting,promoted_object',
   adcreative: 'id,name,object_story_spec',
   ad: 'id,name,status,effective_status,adset_id,creative{id}',
 });

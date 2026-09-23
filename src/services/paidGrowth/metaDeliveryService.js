@@ -246,7 +246,10 @@ async function readPerformance({ account, level = 'ad', since = null, until = nu
  * Idempotent: every object is keyed, so a retry re-uses what exists instead of creating a second.
  */
 async function buildExperimentHierarchy({ experimentKey, account, dailyCeilingCentsForExperiment,
-  packageKeyByArm, dryRun = false, runner = db } = {}) {
+  packageKeyByArm, dryRun = false, runner = db, lifetimeSchedule = null, customEventType = null } = {}) {
+  // lifetimeSchedule = { startTime, endTime } — each arm gets a LIFETIME budget equal to its allocation
+  // (a hard provider-side total) instead of a daily pacing target. Used when the authorization is below
+  // Meta's $100 minimum campaign spend cap, so the campaign itself cannot carry the cap.
   const exp = (await runner.query(
     `SELECT e.*, c.funnel AS campaign_funnel, c.budget_cents AS campaign_budget_cents, c.destination_url
        FROM marketing_audience_experiments e
@@ -275,7 +278,16 @@ async function buildExperimentHierarchy({ experimentKey, account, dailyCeilingCe
     return { ok: false, reason: `arms allocate $${(allocated / 100).toFixed(2)} but the campaign is authorized for $${(exp.campaign_budget_cents / 100).toFixed(2)}` };
   }
   // Daily budget per arm is a share of the daily ceiling apportioned to this experiment.
-  const perArmDaily = Math.floor(Number(dailyCeilingCentsForExperiment) / arms.length);
+  let perArmDaily = Math.floor(Number(dailyCeilingCentsForExperiment) / arms.length);
+  if (lifetimeSchedule) {
+    const start = new Date(lifetimeSchedule.startTime).getTime();
+    const end = new Date(lifetimeSchedule.endTime).getTime();
+    if (!(end > start)) return { ok: false, reason: 'a lifetime budget needs an end time after its start' };
+    if (arms.some((a) => !(Number(a.allocated_cents) > 0))) return { ok: false, reason: 'a lifetime-budget arm needs a positive allocation' };
+    // The daily EQUIVALENT is what pacing governance compares against the safe daily target.
+    const days = Math.max(1, (end - start) / 86400000);
+    perArmDaily = Math.ceil(Math.max(...arms.map((a) => Number(a.allocated_cents))) / days);
+  }
   if (!(perArmDaily > 0)) return { ok: false, reason: 'daily ceiling leaves nothing per arm' };
 
   // A daily budget is a pacing TARGET the provider may exceed on a single day, so the configured total
@@ -336,6 +348,15 @@ async function buildExperimentHierarchy({ experimentKey, account, dailyCeilingCe
     }
     if (pkg.production_eligible !== true) return { ok: false, reason: 'package ' + packageKey + ' image is not production-eligible' };
     if (pkg.funnel !== exp.funnel) return { ok: false, reason: 'package ' + packageKey + ' is for the wrong funnel' };
+    // An Owner approval may be SCOPED — to named campaigns and a maximum authorization. Outside that
+    // scope the package is not approved, whatever its approval_state says.
+    const scope = pkg.approval_scope || null;
+    if (scope && Array.isArray(scope.campaign_keys) && !scope.campaign_keys.includes(exp.campaign_key)) {
+      return { ok: false, reason: 'package ' + packageKey + ' is approved only for ' + scope.campaign_keys.join(', ') };
+    }
+    if (scope && scope.max_authorization_cents != null && Number(exp.campaign_budget_cents) > Number(scope.max_authorization_cents)) {
+      return { ok: false, reason: `package ${packageKey} is approved only up to $${(scope.max_authorization_cents / 100).toFixed(2)}` };
+    }
 
     // ── image (uploaded once, reused) ──
     const img = await ensureImage({ productionCreativeId: pkg.asset_id, account, runner });
@@ -347,12 +368,15 @@ async function buildExperimentHierarchy({ experimentKey, account, dailyCeilingCe
     if (!adsetId) {
       const r = await meta.createAdSet({ account, name: 'ADV — ' + experimentKey + ' — ' + a.arm_label + ' (' + a.strategy_key + ')',
         campaignId, dailyBudgetCents: perArmDaily, targetingSpec: a.targeting_spec, pixelId: ids.pixelId,
-        optimizationGoal: a.optimization_goal || 'OFFSITE_CONVERSIONS' }, runner);
+        optimizationGoal: a.optimization_goal || 'OFFSITE_CONVERSIONS', customEventType: customEventType || undefined,
+        ...(lifetimeSchedule ? { lifetimeBudgetCents: Number(a.allocated_cents), startTime: lifetimeSchedule.startTime, endTime: lifetimeSchedule.endTime } : {}) }, runner);
       if (!r.ok) return { ok: false, reason: 'ad set ' + a.arm_label + ': ' + r.reason };
       adsetId = r.provider_adset_id;
       await rememberObject({ objectType: 'adset', providerId: adsetId, parentProviderId: campaignId, account,
         campaignKey: exp.campaign_key, experimentArmId: a.id, idempotencyKey: adsetKey,
-        evidence: { strategy: a.strategy_key, daily_budget_cents: perArmDaily }, runner });
+        evidence: lifetimeSchedule
+          ? { strategy: a.strategy_key, lifetime_budget_cents: Number(a.allocated_cents), start_time: lifetimeSchedule.startTime, end_time: lifetimeSchedule.endTime, daily_equivalent_cents: perArmDaily }
+          : { strategy: a.strategy_key, daily_budget_cents: perArmDaily }, runner });
       await runner.query('UPDATE marketing_audience_experiment_arms SET provider_adset_id=$2 WHERE id=$1', [a.id, adsetId]);
     }
 

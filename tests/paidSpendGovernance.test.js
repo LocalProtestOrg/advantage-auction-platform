@@ -57,6 +57,9 @@ function createFakeDb() {
       const row = { id: 'sync-' + (++seq), finished_at: new Date(), ok: p[3], reconciliation_state: p[12] };
       state.syncs.push(row); return [row];
     }
+    if (/^SELECT evidence FROM marketing_paid_campaigns WHERE campaign_key/.test(s)) {
+      const c = state.campaigns.get(p[0]); return c ? [{ evidence: c.evidence || {} }] : [];
+    }
     if (/^SELECT market_key FROM marketing_paid_campaigns WHERE campaign_key/.test(s)) {
       const c = state.campaigns.get(p[0]); return c ? [{ market_key: c.market_key }] : [];
     }
@@ -868,5 +871,143 @@ describe('Tri-State In-Home Service Area — prepared, measurable, and inside th
     const setStatus = provider.slice(provider.indexOf('async function setStatus'), provider.indexOf('const pause ='));
     expect(setStatus.indexOf('marketing.paid.global_kill')).toBeGreaterThan(-1);
     expect(setStatus.indexOf('marketing.paid.global_kill')).toBeLessThan(setStatus.indexOf('assertNewSpendAllowed'));
+  });
+});
+
+// ── 12. Tri-State controlled $25 text-creative test ───────────────────────────────────────────
+
+describe('Tri-State $25 TOTAL text-creative test — hard money, scoped approval, automatic stop', () => {
+  const launch = code('scripts/launch-tristate-text-test.js');
+  const providerMod = jest.requireActual('../src/services/paidGrowth/metaAdsProvider');
+  const footprintMod = require('../src/services/paidGrowth/tristateFootprint');
+
+  test('a lifetime budget is a hard provider-side total with an end time, and carries no daily budget', () => {
+    const body = providerMod.buildAdSetBody({ name: 'x', campaignId: '1', dailyBudgetCents: 500, lifetimeBudgetCents: 2500,
+      startTime: '2026-09-23T18:00:00Z', endTime: '2026-09-28T18:00:00Z', targetingSpec: {}, pixelId: 'p', customEventType: 'LEAD' });
+    expect(body.lifetime_budget).toBe(2500);
+    expect(body.end_time).toBe('2026-09-28T18:00:00Z');
+    expect(body).not.toHaveProperty('daily_budget');
+    expect(body.promoted_object.custom_event_type).toBe('LEAD');
+    expect(body.status).toBe('PAUSED');
+  });
+
+  test('the daily-budget path Houston uses is unchanged', () => {
+    const body = providerMod.buildAdSetBody({ name: 'x', campaignId: '1', dailyBudgetCents: 1250, targetingSpec: {}, pixelId: 'p' });
+    expect(body.daily_budget).toBe(1250);
+    expect(body).not.toHaveProperty('lifetime_budget');
+    expect(body.promoted_object.custom_event_type).toBe('COMPLETE_REGISTRATION');
+  });
+
+  test('pacing counts a lifetime ad set by its daily equivalent', () => {
+    expect(gov.lifetimeDailyEquivalent({ lifetime_budget: '2500', start_time: '2026-09-23T18:00:00Z', end_time: '2026-09-28T18:00:00Z' })).toBe(500);
+    expect(gov.lifetimeDailyEquivalent({ daily_budget: '1250' })).toBeNull();
+  });
+
+  test('the automatic stop fires at the authorization — only for flagged, ACTIVE campaigns', () => {
+    const c = { state: 'ACTIVE', authorized_cents: 2500, auto_stop: true };
+    expect(gov.authorizationExhausted({ ...c, lifetime_actual_cents: 2499 })).toBe(false);
+    expect(gov.authorizationExhausted({ ...c, lifetime_actual_cents: 2500 })).toBe(true);
+    expect(gov.authorizationExhausted({ ...c, lifetime_actual_cents: 2600 })).toBe(true);
+    expect(gov.authorizationExhausted({ ...c, state: 'PAUSED', lifetime_actual_cents: 2600 })).toBe(false);
+    // Houston carries no auto-stop flag: its own $135 provider caps stop it, and it is not touched.
+    expect(gov.authorizationExhausted({ state: 'ACTIVE', authorized_cents: 13500, lifetime_actual_cents: 13500, auto_stop: false })).toBe(false);
+  });
+
+  test('an auto-stopped campaign can never be restarted automatically', async () => {
+    mockDb.state.campaigns.set('tri-test', { market_key: 'ny_tristate', evidence: { auto_stopped: { at: 'x' } } });
+    const r = await gov.assertNewSpendAllowed({ campaignKey: 'tri-test', action: 'activate_object' });
+    expect(r.ok).toBe(false);
+    expect(r.reason).toMatch(/reached its authorization and was stopped/);
+    expect(mockPull).not.toHaveBeenCalled();                              // refused before any provider call
+  });
+
+  test('the automatic stop pauses through the existing path and records itself', () => {
+    const g = code('src/services/paidGrowth/paidSpendGovernance.js');
+    const fn = g.slice(g.indexOf('async function autoStopExhausted'), g.indexOf('async function ensureFreshSpend'));
+    expect(fn).toMatch(/evidence->>'auto_stop_at_authorization' = 'true'/);
+    expect(fn).toMatch(/pauseCampaign\(/);
+    expect(fn).toMatch(/auto_stopped/);
+    expect(fn).not.toMatch(/setStatus\(|ACTIVE'\s*\}/);
+    expect(g).toMatch(/actions\.push\(\.\.\.await autoStopExhausted\(campaigns, runner\)\)/);
+  });
+
+  test('$25 comes from the shared $1,000 — and a scoped package cannot fund anything larger', async () => {
+    seedHouston(); freshSync();
+    mockDb.state.markets.set('ny_tristate', { status: 'ACTIVE', launch_authorized: true, geo_validation: 'VALID', allocation_cents: null });
+    mockDb.state.campaigns.set('tri-test', { market_key: 'ny_tristate' });
+    const r = await ledger.reserve({ campaignKey: 'tri-test', amountCents: 2500, idempotencyKey: 'campaign:tri-test', month: SEPT });
+    expect(r.ok).toBe(true);
+    expect(mockDb.state.months.get(SEPT).committed_cents).toBe(27000 + 2500);
+    const d = code('src/services/paidGrowth/metaDeliveryService.js');
+    expect(d).toMatch(/scope\.campaign_keys\.includes\(exp\.campaign_key\)/);
+    expect(d).toMatch(/Number\(exp\.campaign_budget_cents\) > Number\(scope\.max_authorization_cents\)/);
+  });
+
+  test('the scope-shape constraint is NULL-safe (migration 166)', () => {
+    const sql = read('db/migrations/166_scoped_approval_check_fix.sql');
+    expect(sql).toMatch(/COALESCE\(jsonb_typeof\(approval_scope -> 'campaign_keys'\) = 'array', false\)/);
+    expect(sql).toMatch(/COALESCE\(jsonb_typeof\(approval_scope -> 'max_authorization_cents'\) = 'number', false\)/);
+  });
+
+  test('the test is ONE audience, ONE creative, $25 total, 5-day lifetime schedule, Lead optimization', () => {
+    expect(launch).toMatch(/authorization_cents: 2500/);
+    expect(launch).toMatch(/schedule_days: 5/);
+    expect(launch).toMatch(/strategy_key: 'IS-BROAD-TRI'/);
+    expect(launch).toMatch(/package_key: 'PKG-IS-TRI-INHOME-V1'/);
+    expect(launch).toMatch(/custom_event_type: 'LEAD'/);
+    expect(launch).toMatch(/arms: \[\{ label: T\.arm, strategyKey: T\.strategy_key, allocatedCents: T\.authorization_cents \}\]/);
+    expect(launch).not.toMatch(/strategyKey: 'IS-INTENT-TRI'/);
+  });
+
+  test('approval is scoped to this campaign and $25, and the creative copy/image are not modified', () => {
+    expect(launch).toMatch(/campaign_keys: \[T\.campaign_key\], max_authorization_cents: T\.authorization_cents/);
+    const prepareFn = launch.slice(launch.indexOf('async function prepare'), launch.indexOf('async function create'));
+    expect(prepareFn).not.toMatch(/primary_text\s*=|headline\s*=|production_creative_id\s*=|fingerprint\s*=/);
+  });
+
+  test('the declined $135 proposal is kept on record, visibly NOT authorized', () => {
+    expect(launch).toMatch(/NOT AUTHORIZED — Owner declined the \$135 proposal/);
+    expect(launch).toMatch(/SET state='ABANDONED'/);
+  });
+
+  test('creation reserves first, builds PAUSED, and verification gates activation', () => {
+    const create = launch.slice(launch.indexOf('async function create'), launch.indexOf('async function verify'));
+    expect(create).toMatch(/ensureFreshSpend\(\{ maxAgeMinutes: 0/);
+    expect(create.indexOf('ledger.reserve')).toBeLessThan(create.indexOf('buildExperimentHierarchy'));
+    expect(create).toMatch(/lifetimeSchedule:/);
+    const main = launch.slice(launch.indexOf("if (has('activate'))"));
+    expect(main.indexOf('await verify(acct)')).toBeLessThan(main.indexOf('activateExperiment'));
+    expect(main).toMatch(/REFUSING TO ACTIVATE/);
+  });
+
+  test('verification checks the exact $25 lifetime budget, geography, attribution, and nothing extra', () => {
+    const v = launch.slice(launch.indexOf('async function verify'), launch.indexOf('(async () =>'));
+    expect(v).toMatch(/Number\(s\.object\.lifetime_budget\) !== T\.authorization_cents/);
+    expect(v).toMatch(/ad set carries a daily budget/);
+    expect(v).toMatch(/gotGeo !== wantGeo/);
+    expect(v).toMatch(/targets a region or country/);
+    expect(v).toMatch(/'utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term', 'adv_funnel', 'adv_experiment', 'adv_arm', 'adv_provider'/);
+    expect(v).toMatch(/names\.length !== 3/);
+    expect(v).toMatch(/Professional Seller Tri-State is not PLANNED at \$0/);
+  });
+
+  test('the Owner-approved footprint adds Monmouth and eastern Fairfield, and targets no excluded county', () => {
+    const names = footprintMod.V2_ADDITIONS.map((a) => a.name + ', ' + a.region);
+    expect(names).toEqual(['Middletown, New Jersey', 'Freehold, New Jersey', 'Fairfield, Connecticut']);
+    expect(footprintMod.V2.length).toBe(15);
+    const notYet = footprintMod.COUNTIES.filter((c) => c[4] === 'NOT_YET').map((c) => c[0]);
+    expect(notYet).toEqual(['Suffolk', 'Putnam', 'Orange', 'Dutchess', 'Mercer', 'Hunterdon', 'Sussex', 'Warren', 'Ocean', 'New Haven']);
+    expect(footprintMod.spilloverIntoExcluded(footprintMod.V2).filter((s) => s.severity === 'CENTROID_INSIDE')).toEqual([]);
+    expect(launch).toMatch(/an excluded county would be targeted/);
+  });
+
+  test('the landing page carries the approved in-home language and keeps its tracking, form and SEO', () => {
+    const page = read('public/assisted-service.html');
+    expect(page).toMatch(/Prefer hands-on help\? Advantage\.Bid offers in-home auction assistance in select areas of the New York Tri-State region\. Tell us about what you need to sell, and we'll help determine the best next step\./);
+    expect(page).toMatch(/\/widgets\/shared\/behavior-tracker\.js/);
+    expect(page).toMatch(/\/widgets\/shared\/analytics\.js/);
+    expect(page).toMatch(/id="as-form"/);
+    expect(page).toMatch(/<meta name="description"/);
+    expect(page).not.toMatch(/guarantee|every inquiry|all inquiries qualify/i);
   });
 });

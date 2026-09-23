@@ -25,8 +25,9 @@
  *
  * WHAT IS HARD AND WHAT IS NOT.
  *   Hard:  the ledger (a reservation beyond uncommitted authority is refused under a row lock),
- *          the provider campaign spend cap (the provider stops the campaign at its authorization),
- *          and the automatic pause on a CEILING_BREACH.
+ *          the provider campaign spend cap (the provider stops the campaign at its authorization) —
+ *          or, below Meta's $100 minimum cap, an ad-set LIFETIME budget — the automatic pause on a
+ *          CEILING_BREACH, and the automatic stop of a campaign whose authorization is used up.
  *   Soft:  provider daily budgets. They are pacing targets and are never described as limits.
  *
  * FRESHNESS. Live spend is re-read on a schedule while anything is running, and ANY decision that
@@ -280,12 +281,20 @@ async function providerPaged(pathname) {
   return { ok: true, rows };
 }
 
+/** A lifetime-budget ad set's average daily spend over its schedule, for pacing. Pure. */
+function lifetimeDailyEquivalent(a) {
+  if (a.lifetime_budget == null || !a.end_time) return null;
+  const start = a.start_time ? new Date(a.start_time).getTime() : Date.now();
+  const days = Math.max(1, (new Date(a.end_time).getTime() - start) / 86400000);
+  return Math.ceil(Number(a.lifetime_budget) / days);
+}
+
 async function readProvider(account, ctx) {
   const range = encodeURIComponent(JSON.stringify({ since: ctx.month_start, until: ctx.today }));
   const [lifetime, month, adsets] = await Promise.all([
     providerPaged('/' + account + '/insights?level=campaign&date_preset=maximum&fields=campaign_id,campaign_name,spend&limit=100'),
     providerGet('/' + account + '/insights?level=account&fields=spend&time_range=' + range),
-    providerPaged('/' + account + '/adsets?fields=id,name,campaign_id,daily_budget,effective_status&limit=100'),
+    providerPaged('/' + account + '/adsets?fields=id,name,campaign_id,daily_budget,lifetime_budget,start_time,end_time,effective_status&limit=100'),
   ]);
   if (!lifetime.ok) return { ok: false, reason: 'campaign lifetime spend: ' + lifetime.reason };
   if (!month.ok) return { ok: false, reason: 'account month spend: ' + month.reason };
@@ -296,7 +305,9 @@ async function readProvider(account, ctx) {
     campaign_lifetime: lifetime.rows.map((x) => ({ provider_campaign_id: String(x.campaign_id), name: x.campaign_name || null, spend_cents: Math.round(Number(x.spend || 0) * 100) })),
     month_cents: monthRow ? Math.round(Number(monthRow.spend || 0) * 100) : 0,
     adsets: adsets.rows.map((a) => ({ id: String(a.id), campaign_id: String(a.campaign_id), name: a.name || null,
-      daily_budget_cents: a.daily_budget != null ? Number(a.daily_budget) : null, effective_status: a.effective_status || null })),
+      daily_budget_cents: a.daily_budget != null ? Number(a.daily_budget) : lifetimeDailyEquivalent(a),
+      lifetime_budget_cents: a.lifetime_budget != null ? Number(a.lifetime_budget) : null, end_time: a.end_time || null,
+      effective_status: a.effective_status || null })),
   };
 }
 
@@ -469,6 +480,7 @@ async function runSync({ trigger = 'manual', now = new Date(), runner = db, allo
     anyActive: activeCampaignIds.size > 0 });
 
   const actions = allowSafetyActions ? await safetyActions(verdict, position, s) : [];
+  if (allowSafetyActions) actions.push(...await autoStopExhausted(campaigns, runner));
 
   const row = await recordSync({ trigger, started_at: startedAt, ok: true, account_ref: account, window_since: window.since,
     window_until: window.until, month: ctx.month, provider_month_cents: prov.month_cents, internal_month_cents: st.actual_cents,
@@ -510,6 +522,35 @@ async function safetyActions(verdict, position, s) {
   return actions;
 }
 
+/** Should this campaign be stopped because its authorization is used up? Pure. */
+function authorizationExhausted({ state, authorized_cents: auth, lifetime_actual_cents: spent, auto_stop: autoStop }) {
+  return autoStop === true && state === 'ACTIVE' && Number(auth) > 0 && Number(spent) >= Number(auth);
+}
+
+/**
+ * A campaign authorized with `evidence.auto_stop_at_authorization` is PAUSED the moment its provider
+ * spend reaches its authorization, and marked so it can never be restarted, scaled or replaced
+ * automatically (assertNewSpendAllowed refuses it). The provider-side lifetime budget is the hard
+ * backstop; this is the second, independent stop.
+ */
+async function autoStopExhausted(campaigns, runner = db) {
+  const out = [];
+  const flagged = (await runner.query(
+    `SELECT campaign_key FROM marketing_paid_campaigns WHERE state = 'ACTIVE' AND evidence->>'auto_stop_at_authorization' = 'true'`)).rows
+    .map((r) => r.campaign_key);
+  for (const c of campaigns) {
+    if (!authorizationExhausted({ ...c, auto_stop: flagged.includes(c.campaign_key) })) continue;
+    const r = await require('./paidExecutionService').pauseCampaign({ campaignKey: c.campaign_key, reason: 'automatic: authorization reached' })
+      .catch((e) => ({ ok: false, reason: e.message }));
+    await runner.query(
+      `UPDATE marketing_paid_campaigns SET evidence = evidence || $2::jsonb, updated_at = now() WHERE campaign_key = $1`,
+      [c.campaign_key, JSON.stringify({ auto_stopped: { at: new Date().toISOString(), spent_cents: c.lifetime_actual_cents,
+        authorized_cents: c.authorized_cents, paused: r.ok, reason: r.ok ? null : r.reason } })]);
+    out.push({ action: 'auto_stopped_at_authorization', campaign_key: c.campaign_key, ok: r.ok, spent_cents: c.lifetime_actual_cents });
+  }
+  return out;
+}
+
 /**
  * Make sure the spend figures are fresh enough to decide on. Re-reads the provider when they are not,
  * and fails closed when the provider cannot be read.
@@ -546,6 +587,11 @@ async function assertMarketLaunchable({ campaignKey = null, marketKey = null } =
  * money) enough uncommitted authority.
  */
 async function assertNewSpendAllowed({ amountCents = 0, campaignKey = null, marketKey = null, action = 'spend' } = {}) {
+  // A campaign stopped because its authorization was used up is never restarted automatically.
+  if (campaignKey) {
+    const c = (await db.query(`SELECT evidence FROM marketing_paid_campaigns WHERE campaign_key = $1`, [campaignKey])).rows[0];
+    if (c && c.evidence && c.evidence.auto_stopped) return { ok: false, reason: campaignKey + ' reached its authorization and was stopped — only a new Owner authorization can restart it' };
+  }
   const fresh = await ensureFreshSpend({ trigger: action });
   if (!fresh.ok) return { ok: false, reason: fresh.reason };
   const mk = await assertMarketLaunchable({ campaignKey, marketKey });
@@ -623,5 +669,6 @@ async function overview() {
 module.exports = {
   DEFAULTS, STATE_ORDER, settings, monthContext, addDays, computePosition, classify, classifyTouch, campaignRows,
   readProvider, updateArms, syncSpend, lastSuccessfulSync, ensureFreshSpend, assertMarketLaunchable,
+  authorizationExhausted, autoStopExhausted, lifetimeDailyEquivalent,
   assertNewSpendAllowed, overview, safetyActions,
 };
