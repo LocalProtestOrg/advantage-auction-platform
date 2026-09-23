@@ -1,0 +1,22 @@
+{
+  "status": "DRAFT — Owner approval required before any use",
+  "purpose": "Tri-State Individual Seller in-home service acquisition",
+  "logo_source": "docs/marketing/brand-assets/logos/advantage-bid-transparent.png (composited, unaltered)",
+  "claims": {
+    "In-home auction service from our team.": "Owner-confirmed service (2026-09-23)",
+    "Catalog and auction setup": "/assisted-service.html — \"Catalog and auction setup assistance\"",
+    "Sale management": "/assisted-service.html — \"Sale management\"",
+    "Pickup coordination": "/assisted-service.html — \"Pickup coordination and handling\"",
+    "Tell Us About Your Sale": "/assisted-service.html call to action",
+    "Available in parts of the New York Tri-State area.": "coverage qualifier — ad reach is not service eligibility"
+  },
+  "excluded_by_design": [
+    "photographs",
+    "testimonials",
+    "statistics",
+    "prices",
+    "turnaround times",
+    "guarantees"
+  ],
+  "rendered_by": "scripts/render-tristate-creative.js"
+}

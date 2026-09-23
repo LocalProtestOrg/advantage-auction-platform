@@ -733,3 +733,140 @@ describe('internal (Owner) records leave acquisition reporting but are never del
     expect(await conv.isInternal(runner, { subjectType: 'subscriber_email_sha256', subjectId: 'otherhash' })).toBe(false);
   });
 });
+
+// ── 11. Tri-State expansion (migration 164) ───────────────────────────────────────────────────
+
+describe('Tri-State In-Home Service Area — prepared, measurable, and inside the ONE ceiling', () => {
+  const sql164 = read('db/migrations/164_tristate_in_home_market.sql');
+  const sql164NoComments = sql164.replace(/--.*$/gm, '');
+  const prep = code('scripts/prepare-tristate-market.js');
+  const cert = code('scripts/certify-meta-chain.js');
+
+  const tristate = (over = {}) => mockDb.state.markets.set('ny_tristate',
+    { status: 'ACTIVE', launch_authorized: true, geo_validation: 'VALID', allocation_cents: null, ...over });
+
+  test('Houston + Tri-State share one $1,000: together they can never exceed it', async () => {
+    seedHouston(); freshSync(); tristate();
+    mockDb.state.campaigns.set('is-tri', { market_key: 'ny_tristate' });
+    mockDb.state.campaigns.set('ps-tri', { market_key: 'ny_tristate' });
+    expect((await ledger.reserve({ campaignKey: 'is-tri', amountCents: 40000, idempotencyKey: 't1', month: SEPT })).ok).toBe(true);
+    expect((await ledger.reserve({ campaignKey: 'ps-tri', amountCents: 33000, idempotencyKey: 't2', month: SEPT })).ok).toBe(true);
+    expect((await ledger.reserve({ campaignKey: 'ps-tri', amountCents: 1, idempotencyKey: 't3', month: SEPT })).ok).toBe(false);
+    expect((await ledger.reserve({ campaignKey: 'is-hou', amountCents: 1, idempotencyKey: 't4', month: SEPT })).ok).toBe(false);
+  });
+
+  test('the proposed $135 Tri-State campaign is reserved exactly once', async () => {
+    seedHouston(); freshSync(); tristate();
+    mockDb.state.campaigns.set('is-tri', { market_key: 'ny_tristate' });
+    expect((await ledger.reserve({ campaignKey: 'is-tri', amountCents: 13500, idempotencyKey: 'campaign:is-tri', month: SEPT })).ok).toBe(true);
+    const again = await ledger.reserve({ campaignKey: 'is-tri', amountCents: 13500, idempotencyKey: 'campaign:is-tri', month: SEPT });
+    expect(again.replayed).toBe(true);
+    expect(mockDb.state.months.get(SEPT).committed_cents).toBe(27000 + 13500);
+  });
+
+  test('the PREPARED Tri-State market and the RETIRED NYC market cannot receive authority', async () => {
+    seedHouston(); freshSync();
+    mockDb.state.markets.set('ny_tristate', { status: 'PREPARED', launch_authorized: false, geo_validation: 'VALID', allocation_cents: null });
+    mockDb.state.markets.set('nyc', { status: 'RETIRED', launch_authorized: false, geo_validation: 'VALID', allocation_cents: null });
+    mockDb.state.campaigns.set('is-tri', { market_key: 'ny_tristate' });
+    expect((await ledger.reserve({ campaignKey: 'is-tri', amountCents: 100, idempotencyKey: 'p1', month: SEPT })).reason).toMatch(/ny_tristate is PREPARED/);
+    expect((await ledger.reserve({ campaignKey: 'is-nyc', amountCents: 100, idempotencyKey: 'p2', month: SEPT })).reason).toMatch(/nyc is RETIRED/);
+    expect((await gov.assertMarketLaunchable({ marketKey: 'ny_tristate' })).ok).toBe(false);
+  });
+
+  test('no duplicate geographic authority: no market money, and ACTIVE needs Owner-approved geography', () => {
+    expect(sql164NoComments).not.toMatch(/ceiling\w*\s+(integer|bigint|numeric)|ceiling_cents/i);
+    expect(sql164NoComments).not.toMatch(/allocation_cents\s*=/);
+    expect(sql164).toMatch(/CHECK \(status <> 'ACTIVE' OR coverage_approval = 'OWNER_APPROVED'\)/);
+    expect(sql164).toMatch(/VALUES \('ny_tristate', 'New York Tri-State In-Home Service Area', 'PREPARED', false/);
+    expect(prep).not.toMatch(/coverage_approval\s*=\s*'OWNER_APPROVED'|launch_authorized\s*=\s*true|status\s*=\s*'ACTIVE'/);
+  });
+
+  test('the NYC-only market is retired with its history versioned, never deleted', () => {
+    expect(sql164).toMatch(/INSERT INTO marketing_paid_market_versions[\s\S]*FROM marketing_paid_markets WHERE market_key = 'nyc'/);
+    expect(sql164).toMatch(/SET status = 'RETIRED', superseded_by = 'ny_tristate'/);
+    expect(sql164NoComments).not.toMatch(/DELETE FROM/);
+  });
+
+  test('migration 164 changes no campaign, experiment, arm, ledger row or provider object', () => {
+    expect(sql164NoComments).not.toMatch(/UPDATE marketing_paid_campaigns|UPDATE marketing_audience_|marketing_paid_budget_|marketing_provider_objects/);
+  });
+
+  test('provider targeting: multi-location markets pass through; Houston keeps its exact one-city form', () => {
+    const ai = require('../src/services/paidGrowth/audienceIntelligenceService');
+    const houston = ai.buildTargetingSpec({ geography: ai.HOUSTON_METRO, audienceMode: 'advantage_plus' });
+    expect(houston.geo_locations).toEqual({ cities: [{ key: '2527622', radius: 25, distance_unit: 'mile' }] });
+    const geo = { cities: [{ key: '2490299', radius: 15, distance_unit: 'mile' }, { key: '2425322', radius: 10, distance_unit: 'mile' }] };
+    const tri = ai.buildTargetingSpec({ geography: { geo_locations: geo }, audienceMode: 'broad' });
+    expect(tri.geo_locations).toEqual(geo);
+    expect(tri.geo_locations).not.toHaveProperty('regions');
+    tri.geo_locations.cities.push({ key: 'x' });
+    expect(geo.cities).toHaveLength(2);                                  // never aliases the stored spec
+    expect(tri.age_min).toBe(ai.MIN_AGE);
+  });
+
+  test('geography keys are resolved by the provider as CITIES and never typed in', () => {
+    expect(prep).toMatch(/g\.type === 'city' && g\.name === a\.name && g\.region === a\.region && g\.country_code === 'US'/);
+    expect(prep).not.toMatch(/key:\s*'\d{6,}'/);
+    expect(prep).toMatch(/PENDING OWNER GEOGRAPHY APPROVAL/);
+  });
+
+  test('separate market attribution keeps the nine-parameter model', () => {
+    const delivery = require('../src/services/paidGrowth/metaDeliveryService');
+    const url = new URL(delivery.buildDestination({ destinationUrl: 'https://bid.advantage.bid/assisted-service.html', funnel: 'individual_seller',
+      campaignKey: '2026-10-individual-seller-tristate', strategyKey: 'IS-BROAD-TRI', experimentKey: 'EXP-IS-TRI-2026-10', armLabel: 'A-broad', packageKey: 'PKG-IS-TRI-INHOME-V1' }));
+    expect([...url.searchParams.keys()].sort()).toEqual(['adv_arm', 'adv_experiment', 'adv_funnel', 'adv_provider', 'utm_campaign', 'utm_content', 'utm_medium', 'utm_source', 'utm_term']);
+    expect(url.searchParams.get('utm_campaign')).toMatch(/tristate/);
+    expect(url.searchParams.get('utm_term')).toBe('IS-BROAD-TRI');
+  });
+
+  test('a service inquiry is a qualified individual-seller outcome', () => {
+    expect(code('src/services/paidGrowth/paidSpendGovernance.js')).toMatch(/'auction_draft_created', 'auction_published', 'assisted_service_inquiry'/);
+  });
+
+  test('campaign authorization: arms share the proposal, nothing is reserved, Houston rows are never touched', () => {
+    expect(prep).toMatch(/allocatedCents: 6750[\s\S]*allocatedCents: 6750/);
+    expect(prep).not.toMatch(/ledger\.reserve|createCampaign\(|buildExperimentHierarchy|activateExperiment|setStatus/);
+    expect(prep).toMatch(/WHERE marketing_paid_campaigns\.provider_campaign_id IS NULL AND marketing_paid_campaigns\.state IN \('PLANNED','CREATIVE_BLOCKED'\)/);
+    expect(prep).toMatch(/'IS-BROAD-TRI'[\s\S]*'IS-INTENT-TRI'[\s\S]*'PS-BROAD-TRI'[\s\S]*'PS-SMB-TRI'/);
+  });
+
+  test('creative approval: the in-home package is DRAFT and inactive, and its image never self-approves', () => {
+    expect(prep).toMatch(/'DRAFT','OK'/);
+    expect(prep).toMatch(/draft creative is unexpectedly approved/);
+    expect(prep).toMatch(/WHERE marketing_creative_packages\.approval_state = 'DRAFT'/);
+    expect(read('db/migrations/161_meta_full_funnel_execution.sql')).toMatch(/active = false OR \(approval_state = 'OWNER_APPROVED' AND policy_status = 'OK'\)/);
+    expect(code('src/services/paidGrowth/metaDeliveryService.js')).toMatch(/pkg\.approval_state !== 'OWNER_APPROVED'/);
+  });
+
+  test('the registry is never synced from a working tree with uncommitted governed files', () => {
+    expect(prep).toMatch(/git status --porcelain -- docs\/marketing\/production-creative/);
+    expect(prep.indexOf('git status --porcelain')).toBeLessThan(prep.indexOf('registry.sync('));
+  });
+
+  test('creative claims are traceable, qualified by area, and free of invented specifics', () => {
+    const r = read('scripts/render-tristate-creative.js');
+    const body = r.slice(r.indexOf('<body>'), r.indexOf('</body>'));
+    const rendered = body.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
+    expect(r).toMatch(/advantage-bid-transparent\.png/);
+    expect(rendered).toMatch(/The Smarter Way to Sell\./);
+    expect(rendered).toMatch(/Available in parts of the New York Tri-State area\./);
+    expect(rendered).not.toMatch(/\$\s?\d|guarantee|nationwide|same[- ]day|\d+\s?(hours|days)|%/i);
+  });
+
+  test('PAUSED-first certification cannot leave or activate anything', () => {
+    expect(cert).toMatch(/--artifacts-only/);
+    expect(cert).toMatch(/--keep is not allowed while build mode is off/);
+    expect(cert).toMatch(/certification: true/);
+    expect(cert).toMatch(/await cleanup\(artifacts\)/);
+    expect(cert).not.toMatch(/setStatus\(/);
+    expect(code('src/services/paidGrowth/metaAdsProvider.js')).toMatch(/WHERE provider_id = \$1 AND certification_artifact = false/);
+  });
+
+  test('the global kill still stops any activation, Tri-State included', () => {
+    const provider = code('src/services/paidGrowth/metaAdsProvider.js');
+    const setStatus = provider.slice(provider.indexOf('async function setStatus'), provider.indexOf('const pause ='));
+    expect(setStatus.indexOf('marketing.paid.global_kill')).toBeGreaterThan(-1);
+    expect(setStatus.indexOf('marketing.paid.global_kill')).toBeLessThan(setStatus.indexOf('assertNewSpendAllowed'));
+  });
+});

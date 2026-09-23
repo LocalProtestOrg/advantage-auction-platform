@@ -35,8 +35,15 @@ const log = (...a) => console.log(...a);
   const perms = await meta.permissions();
   if (!perms.ads_management) { console.error('REFUSE: ads_management not granted'); return 2; }
 
-  // Build mode must be on: this script must never be able to activate anything.
-  if (!(await delivery.buildModeOn())) { console.error('REFUSE: build mode is off'); return 2; }
+  // This script must never be able to activate anything. Build mode guarantees that account-wide; when
+  // a live experiment requires build mode OFF, --artifacts-only relies instead on the provider module:
+  // metaAdsProvider.setStatus refuses ACTIVE for any object not recorded as a NON-certification
+  // delivery object, and every artifact here is recorded certification_artifact=true and deleted.
+  if (!(await delivery.buildModeOn())) {
+    if (!process.argv.includes('--artifacts-only')) { console.error('REFUSE: build mode is off (pass --artifacts-only to certify with PAUSED, never-activatable artifacts)'); return 2; }
+    if (KEEP) { console.error('REFUSE: --keep is not allowed while build mode is off'); return 2; }
+    log('Build mode OFF (live experiment running): certifying with PAUSED certification artifacts that setStatus refuses to activate.');
+  }
 
   const pkg = (await db.query(
     `SELECT p.*, c.sha256 AS asset_sha256, c.id AS asset_id, c.filename
@@ -142,8 +149,11 @@ const log = (...a) => console.log(...a);
       + (o.optimization_goal || ''));
     if (a.type === 'adset' && o.targeting) {
       const t = o.targeting;
-      const city = (t.geo_locations && t.geo_locations.cities && t.geo_locations.cities[0]) || {};
-      log('               geo=' + (city.key || '?') + ' radius=' + (city.radius || '?')
+      const cities = (t.geo_locations && t.geo_locations.cities) || [];
+      const city = cities[0] || {};
+      log('               geo=' + cities.map((x) => x.key + ':' + x.radius).join(',')
+        + (t.geo_locations && t.geo_locations.regions ? '  REGIONS=' + JSON.stringify(t.geo_locations.regions) : '')
+        + '  (' + cities.length + ' locations)' + (city.key ? '' : ' ?')
         + '  age_min=' + (t.age_min || '?') + '  interests='
         + JSON.stringify(((t.flexible_spec || [])[0] || {}).interests || []).slice(0, 90));
     }

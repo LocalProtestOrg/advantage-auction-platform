@@ -210,7 +210,11 @@ async function upsertStrategy(input, runner = db) {
 /** The provider specification for a strategy. Ids only; labels are carried for humans, never sent alone. */
 function buildTargetingSpec({ geography = HOUSTON_METRO, inclusions = [], exclusions = [], audienceMode = 'detailed' } = {}) {
   const spec = {
-    geo_locations: { cities: [{ key: geography.key, radius: geography.radius || 25, distance_unit: geography.distance_unit || 'mile' }] },
+    // A multi-location market (e.g. the Tri-State service area) carries its own provider-resolved
+    // geo_locations; a single-city market (Houston) keeps the original one-city radius form.
+    geo_locations: geography.geo_locations
+      ? JSON.parse(JSON.stringify(geography.geo_locations))
+      : { cities: [{ key: geography.key, radius: geography.radius || 25, distance_unit: geography.distance_unit || 'mile' }] },
     age_min: MIN_AGE,
   };
   if (audienceMode === 'advantage_plus' || audienceMode === 'broad') {

@@ -337,7 +337,9 @@ async function updateArms({ reviewWindowMinutes }, runner = db) {
     const visitors = new Set(real.map((t) => t.visitor_id)).size;
     const touchIds = touches.map((t) => String(t.id));
     const regKeys = a.funnel === 'professional_seller' ? ['seller_registered', 'seller_inquiry'] : ['seller_registered'];
-    const qualKeys = a.funnel === 'professional_seller' ? ['seller_inquiry', 'auction_published'] : ['auction_draft_created', 'auction_published'];
+    // A request for in-home / assisted service is a qualified individual-seller outcome in its own right.
+    const qualKeys = a.funnel === 'professional_seller' ? ['seller_inquiry', 'auction_published']
+      : ['auction_draft_created', 'auction_published', 'assisted_service_inquiry'];
     const conv = touchIds.length ? (await runner.query(
       `SELECT conversion_key, count(*)::int n FROM marketing_conversion_events
         WHERE is_internal = false AND attribution->'last_touch'->>'id' = ANY($1::text[]) GROUP BY 1`, [touchIds])).rows : [];
