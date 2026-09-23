@@ -195,6 +195,12 @@ async function createCampaign({ campaignKey, runner = db } = {}) {
     return { ok: false, reason: 'creative is no longer production-eligible: ' + ((asset && asset.ineligible_reason) || 'unregistered') };
   }
 
+  // Never authorize against stale spend, and never in a market the Owner has not launched. The
+  // provider is re-read here if the last reading is too old; if it cannot be read, this refuses.
+  const governance = require('./paidSpendGovernance');
+  const allowed = await governance.assertNewSpendAllowed({ amountCents: c.budget_cents, campaignKey, action: 'create_campaign' });
+  if (!allowed.ok) return { ok: false, reason: 'spend governance refused: ' + allowed.reason };
+
   const idem = 'campaign:' + campaignKey;
   const reservation = await ledger.reserve({ campaignKey, amountCents: c.budget_cents, idempotencyKey: idem, note: c.objective });
   if (!reservation.ok) return { ok: false, reason: 'budget refused: ' + reservation.reason };

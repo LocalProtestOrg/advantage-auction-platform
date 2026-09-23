@@ -54,7 +54,20 @@ function campaignKey({ utm = {}, channel }) {
   return isPaid(channel) ? channel + ':unlabelled' : null;
 }
 
-async function recordTouch({ visitorId, sessionId = null, landingUrl, referrer = null, consentState = null, at = null } = {}, runner) {
+/**
+ * A coarse class for the browser that reported a touch — never the raw user agent. Provider ad
+ * review and link-preview crawlers run JavaScript and carry real click ids, so without this they are
+ * indistinguishable from paid visitors. Pure.
+ */
+function classifyUserAgent(ua) {
+  const s = String(ua || '');
+  if (!s) return null;
+  if (/facebookexternalhit|facebookcatalog|facebot|meta-externalagent|meta-externalfetcher|adsbot|bot\b|crawler|spider|headless|lighthouse|preview|slurp|python-requests|curl\//i.test(s)) return 'crawler';
+  if (/FBAN|FBAV|FB_IAB|FBIOS|Instagram/i.test(s)) return 'in_app_meta';
+  return 'browser';
+}
+
+async function recordTouch({ visitorId, sessionId = null, landingUrl, referrer = null, consentState = null, at = null, userAgentClass = null } = {}, runner) {
   const r = runner || db;
   const vid = clip(visitorId, 64); if (!vid || !landingUrl) return null;
   const params = parseParams(landingUrl);
@@ -67,11 +80,12 @@ async function recordTouch({ visitorId, sessionId = null, landingUrl, referrer =
   const ck = campaignKey({ utm, channel });
   const hour = new Date(at || Date.now()).toISOString().slice(0, 13);
   const dedup = crypto.createHash('sha256').update([vid, sessionId || '', ck || channel, clickType ? params[clickType] : '', hour].join('|')).digest('hex');
-  const ins = await r.query(`INSERT INTO marketing_attribution_touches (visitor_id, session_id, touched_at, landing_host, landing_path, referrer_host, channel, utm_source, utm_medium, utm_campaign, utm_content, utm_term, click_type, click_value_sha256, campaign_key, consent_state, dedup_key)
-      VALUES ($1,$2,COALESCE($3::timestamptz, now()),$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16::jsonb,$17)
+  const uaClass = ['crawler', 'in_app_meta', 'browser'].includes(userAgentClass) ? userAgentClass : null;
+  const ins = await r.query(`INSERT INTO marketing_attribution_touches (visitor_id, session_id, touched_at, landing_host, landing_path, referrer_host, channel, utm_source, utm_medium, utm_campaign, utm_content, utm_term, click_type, click_value_sha256, campaign_key, consent_state, dedup_key, user_agent_class)
+      VALUES ($1,$2,COALESCE($3::timestamptz, now()),$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16::jsonb,$17,$18)
       ON CONFLICT (dedup_key) DO NOTHING RETURNING id`,
     [vid, clip(sessionId, 64), at, host(landingUrl), pathOf(landingUrl), refHost, channel, utm.utm_source, utm.utm_medium, utm.utm_campaign, utm.utm_content, utm.utm_term, clickType,
-     clickType ? crypto.createHash('sha256').update(String(params[clickType])).digest('hex') : null, ck, consentState ? JSON.stringify(consentState) : null, dedup]);
+     clickType ? crypto.createHash('sha256').update(String(params[clickType])).digest('hex') : null, ck, consentState ? JSON.stringify(consentState) : null, dedup, uaClass]);
   if (!ins.rows.length) return { deduped: true };
   const id = ins.rows[0].id;
   await r.query(`INSERT INTO marketing_attribution_profiles (visitor_id, first_touch_id, last_touch_id, last_paid_touch_id) VALUES ($1,$2,$2,$3)
@@ -112,4 +126,4 @@ async function purgeExpired(months = 13, runner) {
   return res.rowCount;
 }
 
-module.exports = { recordTouch, stitch, snapshot, classifyChannel, campaignKey, parseParams, purgeExpired, LOOKBACK_DAYS };
+module.exports = { recordTouch, stitch, snapshot, classifyChannel, classifyUserAgent, campaignKey, parseParams, purgeExpired, LOOKBACK_DAYS };

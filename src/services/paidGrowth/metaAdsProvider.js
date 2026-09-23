@@ -187,6 +187,14 @@ async function setStatus({ objectId, status }, runner = db) {
     if (bm === true || bm === 'true') return { ok: false, reason: 'build mode is ON — no object may be activated' };
     const kill = await cfg('marketing.paid.global_kill', runner);
     if (kill === true || kill === 'true') return { ok: false, reason: 'the global kill switch is ON — no object may be activated' };
+    // Whatever path asks for delivery, the object must belong to a known campaign, and spend must be
+    // freshly read, reconciled and inside a launched market before anything goes live.
+    const owner = (await runner.query(
+      `SELECT campaign_key FROM marketing_provider_objects WHERE provider_id = $1 AND certification_artifact = false LIMIT 1`,
+      [String(objectId)])).rows[0];
+    if (!owner || !owner.campaign_key) return { ok: false, reason: 'object ' + objectId + ' is not a recorded Advantage.Bid delivery object — activation refused' };
+    const allowed = await require('./paidSpendGovernance').assertNewSpendAllowed({ campaignKey: owner.campaign_key, action: 'activate_object' });
+    if (!allowed.ok) return { ok: false, reason: 'spend governance refused: ' + allowed.reason };
   }
   const perms = await permissions();
   if (!perms.ok) return { ok: false, reason: 'cannot read permissions: ' + perms.reason };

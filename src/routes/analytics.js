@@ -83,7 +83,8 @@ router.post('/touch', analyticsLimiter, express.json({ limit: '8kb' }), (req, re
   if (typeof b.visitor_id !== 'string' || typeof b.landing_url !== 'string') return;
   attribution.recordTouch({ visitorId: b.visitor_id, sessionId: typeof b.session_id === 'string' ? b.session_id : null,
     landingUrl: b.landing_url.slice(0, 2000), referrer: typeof b.referrer === 'string' ? b.referrer.slice(0, 1000) : null,
-    consentState: b.consent && typeof b.consent === 'object' ? b.consent : null }).catch(() => {});
+    consentState: b.consent && typeof b.consent === 'object' ? b.consent : null,
+    userAgentClass: attribution.classifyUserAgent(req.get('user-agent')) }).catch(() => {});
 });
 
 // ── POST /api/analytics/identify (AUTHENTICATED) ────────────────────────────────

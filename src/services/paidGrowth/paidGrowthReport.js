@@ -103,7 +103,7 @@ async function weekly({ since = new Date(Date.now() - 7 * 86400000) } = {}, runn
   const d = new Date(since).toISOString().slice(0, 10);
   const cost = await q(r, `SELECT COALESCE(SUM(spend_cents),0)::bigint s FROM marketing_paid_cost_facts WHERE fact_date >= $1`, [d]);
   const changes = await q(r, `SELECT campaign_key, action, state_before, state_after, created_at FROM marketing_paid_director_actions WHERE created_at >= $1 AND state_after IS NOT NULL ORDER BY created_at DESC`, [since]);
-  const conv = await q(r, `SELECT conversion_key, count(*)::int n FROM marketing_conversion_events WHERE occurred_at >= $1 GROUP BY 1 ORDER BY 1`, [since]);
+  const conv = await q(r, `SELECT conversion_key, count(*)::int n FROM marketing_conversion_events WHERE is_internal = false AND occurred_at >= $1 GROUP BY 1 ORDER BY 1`, [since]);
   const rep = { kind: 'weekly_digest', since: d, spent: usd(cost[0].s), state_changes: changes.map((c) => `${c.campaign_key}: ${STATE_WORDS[c.state_before] || c.state_before || 'new'} → ${STATE_WORDS[c.state_after] || c.state_after} (${c.action.replace(/_/g, ' ').toLowerCase()})`),
     first_party_outcomes: conv };
   rep.text = [`Paid growth — week since ${d}`, `Spent ${rep.spent}.`, rep.state_changes.length ? 'Changes: ' + rep.state_changes.join('; ') + '.' : 'No campaign changed state.',

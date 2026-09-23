@@ -24,6 +24,7 @@ const ledger = require('../services/paidBudgetLedger');
 const registry = require('../services/productionCreativeRegistry');
 const execution = require('../services/paidGrowth/paidExecutionService');
 const configService = require('../services/configService');
+const governance = require('../services/paidGrowth/paidSpendGovernance');
 
 router.use(express.json());
 router.use(auth, requirePermission('members.view'));
@@ -73,7 +74,10 @@ router.get('/overview', asyncRoute(async (req, res) => {
       actual_spend_cents: budget.actual_cents,
       remaining_authority_cents: budget.remaining_cents,
       campaign_ceiling_cents: budget.campaign_ceiling_cents,
-      daily_ceiling_cents: budget.daily_ceiling_cents,
+      // A nominal plan for configured provider daily budgets — a pacing target, NOT a hard limit.
+      nominal_daily_budget_plan_cents: budget.daily_ceiling_cents,
+      authorized_unspent_cents: budget.unspent_exposure_cents,
+      total_exposure_cents: budget.consumed_cents,
       month: budget.month,
       buyer_inventory: inventory,
       counts: {
@@ -85,6 +89,60 @@ router.get('/overview', asyncRoute(async (req, res) => {
       provider: { channel: 'meta_ads', account_ref: pre.account || null, permissions: pre.permissions || null },
     },
   });
+}));
+
+// ── SPEND GOVERNANCE ──────────────────────────────────────────────────────────────────────────
+
+/**
+ * The money picture in the order the Owner reads it: ceiling → actually spent → authorized but
+ * unspent → total exposure → uncommitted → pacing → projection → reconciliation. Everything comes
+ * from the last successful provider read plus the ledger; nothing here calls the provider.
+ */
+router.get('/spend', asyncRoute(async (req, res) => {
+  res.json({ success: true, data: await governance.overview() });
+}));
+
+/** Re-read provider spend now. Read-only at the provider (a CEILING_BREACH still pauses — safety wins). */
+router.post('/spend/sync', superOnly, asyncRoute(async (req, res) => {
+  const out = await governance.syncSpend({ trigger: 'owner_manual' });
+  res.status(out.ok ? 200 : 502).json({ success: out.ok, data: out.ok
+    ? { state: out.reconciliation.state, flags: out.reconciliation.flags, ledger_entries: out.ledger_entries, actions: out.actions }
+    : { reason: out.reason } });
+}));
+
+/**
+ * Pacing and freshness settings. The monthly, per-campaign and daily-plan ceilings are deliberately
+ * NOT editable here: this surface tunes how conservatively the authority is paced, never how much
+ * authority exists.
+ */
+const SPEND_SETTINGS = Object.freeze({
+  'marketing.paid.pacing.daily_budget_safety_factor': { type: 'number', min: 0.1, max: 1 },
+  'marketing.paid.pacing.provider_max_daily_overdelivery': { type: 'number', min: 1, max: 5 },
+  'marketing.paid.spend_sync.interval_minutes': { type: 'number', min: 5, max: 1440 },
+  'marketing.paid.spend_sync.max_age_minutes': { type: 'number', min: 5, max: 2880 },
+  'marketing.paid.spend_sync.decision_max_age_minutes': { type: 'number', min: 1, max: 240 },
+  'marketing.paid.spend_sync.tolerance_cents': { type: 'number', min: 0, max: 10000 },
+  'marketing.paid.auto_pause_on_breach': { type: 'boolean' },
+});
+
+router.post('/spend/settings', superOnly, asyncRoute(async (req, res) => {
+  const body = req.body || {};
+  const applied = {};
+  for (const [key, value] of Object.entries(body)) {
+    const rule = SPEND_SETTINGS[key];
+    if (!rule) return res.status(400).json({ success: false, message: 'Not an editable spend setting: ' + key });
+    if (rule.type === 'boolean') {
+      if (typeof value !== 'boolean') return res.status(400).json({ success: false, message: key + ' must be true or false' });
+    } else {
+      const n = Number(value);
+      if (!Number.isFinite(n) || n < rule.min || n > rule.max) {
+        return res.status(400).json({ success: false, message: `${key} must be between ${rule.min} and ${rule.max}` });
+      }
+    }
+    applied[key] = rule.type === 'boolean' ? value : Number(value);
+  }
+  for (const [k, v] of Object.entries(applied)) await configService.setPlatformConfig(k, v);
+  res.json({ success: true, data: { applied, settings: (await governance.overview()).settings } });
 }));
 
 /** Why can (or can't) anything run right now. */
@@ -280,7 +338,8 @@ router.get('/gates', asyncRoute(async (req, res) => {
     'marketing.paid_growth.campaign_ceiling_usd', 'marketing.paid_growth.daily_ceiling_usd',
     'marketing.destinations.meta_ads_enabled', 'marketing.destinations.google_ads_enabled',
     'marketing.a9_publish_enabled', 'marketing.email.sales_near_you_enabled',
-    'marketing.production_creative.filesystem_presence_implies_approval'];
+    'marketing.production_creative.filesystem_presence_implies_approval',
+    ...Object.keys(SPEND_SETTINGS), 'marketing.paid.pacing.timezone'];
   const out = {};
   for (const k of keys) out[k] = await configService.get(null, k);
   res.json({ success: true, data: out });

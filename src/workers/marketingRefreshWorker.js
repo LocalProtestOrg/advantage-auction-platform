@@ -46,6 +46,28 @@ async function costPass() {
   } catch (e) { console.error('[marketingRefresh] meta cost pull failed:', e.message); }
 }
 
+// Paid SPEND sync — the budget-governance read. Unlike the daily cost pull above (which ingests only
+// completed days), this reads the current month INCLUDING today, writes provider spend into the budget
+// ledger, reconciles it, and pauses delivery on a ceiling breach. While any paid campaign is ACTIVE it
+// runs every `marketing.paid.spend_sync.interval_minutes` (default 60); otherwise once a day, so the
+// ledger never silently goes stale. Read-only at the provider except for the breach pause.
+let lastSpendSyncAt = 0;
+async function spendPass() {
+  try {
+    const db = require('../db');
+    const governance = require('../services/paidGrowth/paidSpendGovernance');
+    const active = (await db.query(`SELECT count(*)::int n FROM marketing_paid_campaigns WHERE state = 'ACTIVE'`)).rows[0].n;
+    const s = await governance.settings();
+    const dueMs = (active > 0 ? s.interval_minutes : 24 * 60) * 60 * 1000;
+    if (Date.now() - lastSpendSyncAt < dueMs) return;
+    lastSpendSyncAt = Date.now();
+    const r = await governance.syncSpend({ trigger: active > 0 ? 'scheduled_live' : 'scheduled_daily' });
+    console.log('[marketingRefresh] paid spend sync:', JSON.stringify(r.ok
+      ? { ok: true, state: r.reconciliation.state, provider_month_cents: r.provider_month_cents, internal_month_cents: r.internal_month_cents, ledger_entries: r.ledger_entries, actions: r.actions }
+      : { ok: false, reason: r.reason }));
+  } catch (e) { console.error('[marketingRefresh] paid spend sync failed:', e.message); }
+}
+
 if (require.main === module) {
   console.log('[marketingRefresh] worker started (fast 15m / slow 60m; gated on marketing.behavioral.enabled)');
   // Stagger the initial runs so startup isn't spiky.
@@ -55,6 +77,9 @@ if (require.main === module) {
   setInterval(slowPass, SLOW_MS);
   setTimeout(costPass, 5 * 60_000);
   setInterval(costPass, COST_MS);
+  // Spend sync checks every 5 minutes whether it is due; the interval itself is Owner-configurable.
+  setTimeout(spendPass, 2 * 60_000);
+  setInterval(spendPass, 5 * 60_000);
 }
 
-module.exports = { fastPass, slowPass, costPass };
+module.exports = { fastPass, slowPass, costPass, spendPass };

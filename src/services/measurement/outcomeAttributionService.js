@@ -40,7 +40,7 @@ async function campaignFacts({ campaignKey = null, from = null, to = null } = {}
   const conv = (await r.query(
     `SELECT ${CK} campaign_key, conversion_key, attribution->>'class' cls, count(*)::int n, COALESCE(SUM(value_cents),0)::bigint value_cents
        FROM marketing_conversion_events
-      WHERE ${CK} IS NOT NULL AND ($1::text IS NULL OR ${CK} = $1) AND ($2::date IS NULL OR occurred_at >= $2) AND ($3::date IS NULL OR occurred_at < ($3::date + 1))
+      WHERE is_internal = false AND ${CK} IS NOT NULL AND ($1::text IS NULL OR ${CK} = $1) AND ($2::date IS NULL OR occurred_at >= $2) AND ($3::date IS NULL OR occurred_at < ($3::date + 1))
       GROUP BY 1,2,3`, p)).rows;
   const map = new Map();
   const get = (k) => { if (!map.has(k)) map.set(k, { campaign_key: k, spend_cents: 0, impressions: 0, clicks: 0, sessions: 0, engaged_sessions: 0, visitors: 0, channel: null, conversions: {}, by_class: {}, value_cents: 0 }); return map.get(k); };
@@ -74,7 +74,7 @@ async function classTotals({ from = null, to = null } = {}, runner) {
   const r = runner || db;
   const q = await r.query(
     `SELECT conversion_key, COALESCE(attribution->>'class','ATTRIBUTION_UNAVAILABLE') cls, count(*)::int n
-       FROM marketing_conversion_events WHERE ($1::date IS NULL OR occurred_at >= $1) AND ($2::date IS NULL OR occurred_at < ($2::date + 1))
+       FROM marketing_conversion_events WHERE is_internal = false AND ($1::date IS NULL OR occurred_at >= $1) AND ($2::date IS NULL OR occurred_at < ($2::date + 1))
       GROUP BY 1,2 ORDER BY 1,2`, [from, to]);
   return q.rows;
 }

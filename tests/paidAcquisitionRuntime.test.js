@@ -267,9 +267,17 @@ describe('budget: the monthly authority is a ceiling', () => {
     expect(code).toMatch(/replayed: true/);
   });
 
-  test('remaining authority is measured against the HIGHER of committed and actual', () => {
+  test('remaining authority is measured against actual spend PLUS each campaign\'s unspent authorization', () => {
+    // Superseded month-level max(committed, actual) — it let one campaign's overshoot hide behind
+    // another's unspent commitment. Exposure is now per campaign (see paidSpendGovernance.test.js).
+    const x = ledger.exposureFromEntries([
+      { campaign_key: 'a', kind: 'commit', month: '2026-09-01', amount_cents: 13500 },
+      { campaign_key: 'a', kind: 'actual', month: '2026-09-01', amount_cents: 14000 },
+      { campaign_key: 'b', kind: 'commit', month: '2026-09-01', amount_cents: 13500 },
+    ], '2026-09-01');
+    expect(x.exposure_cents).toBe(14000 + 13500);
     const code = readCode('src/services/paidBudgetLedger.js');
-    expect(code).toMatch(/Math\.max\(Number\(row\.committed_cents\), Number\(row\.actual_cents\)\)/);
+    expect(code).toMatch(/exposureFromEntries\(await ledgerEntries\(client\), month/);
   });
 
   test('a per-campaign ceiling can never exceed the month that contains it', () => {
@@ -568,10 +576,12 @@ describe('the Owner can see the department without reading JSON', () => {
   const page = readRaw('public/admin/marketing-agency.html');
 
   test('the page reports every field the Owner needs', () => {
-    for (const label of ['Monthly authority', 'Committed', 'Actual spend', 'Remaining',
-      'Per campaign max', 'Per day max']) {
+    for (const label of ['Monthly ceiling', 'Actual spend', 'Authorized, unspent', 'Uncommitted',
+      'Per campaign max', 'Daily budget plan (pacing target, not a limit)']) {
       expect(page).toContain(label);
     }
+    // A nominal provider daily budget is never presented as a hard daily limit (migration 163).
+    expect(page).not.toContain('Per day max');
     for (const col of ['Campaign', 'State', 'Funnel', 'Channel', 'Creative', 'Destination',
       'Budget', 'Spend', 'Signal', 'Updated']) {
       expect(page).toContain("'" + col + "'");   // headers are rendered from a JS array

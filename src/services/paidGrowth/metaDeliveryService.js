@@ -278,6 +278,23 @@ async function buildExperimentHierarchy({ experimentKey, account, dailyCeilingCe
   const perArmDaily = Math.floor(Number(dailyCeilingCentsForExperiment) / arms.length);
   if (!(perArmDaily > 0)) return { ok: false, reason: 'daily ceiling leaves nothing per arm' };
 
+  // A daily budget is a pacing TARGET the provider may exceed on a single day, so the configured total
+  // must sit under the safe pace for the rest of the month (after the safety factor). The monthly
+  // ceiling wins over any nominal daily figure.
+  let pacing = null;
+  if (!dryRun) {
+    const governance = require('./paidSpendGovernance');
+    const allowed = await governance.assertNewSpendAllowed({ campaignKey: exp.campaign_key, action: 'build_experiment' });
+    if (!allowed.ok) return { ok: false, reason: 'spend governance refused: ' + allowed.reason };
+    const ov = await governance.overview();
+    pacing = ov.position;
+    const otherActive = ov.campaigns.filter((c) => c.state === 'ACTIVE' && c.campaign_key !== exp.campaign_key)
+      .reduce((t, c) => t + (c.configured_daily_budget_cents || 0), 0);
+    if (pacing && otherActive + perArmDaily * arms.length > pacing.recommended_max_daily_budget_cents) {
+      return { ok: false, reason: `daily budgets would total $${((otherActive + perArmDaily * arms.length) / 100).toFixed(2)} but the recommended maximum for the rest of the month is $${(pacing.recommended_max_daily_budget_cents / 100).toFixed(2)} (safe pace $${(pacing.safe_daily_pacing_target_cents / 100).toFixed(2)} × safety factor ${pacing.safety_factor})` };
+    }
+  }
+
   const ids = await identities();
   const plan = {
     experiment_key: experimentKey, campaign_key: exp.campaign_key, funnel: exp.funnel,
@@ -387,6 +404,10 @@ async function activateExperiment({ experimentKey, account, runner = db } = {}) 
   const exp = (await runner.query(
     'SELECT campaign_key FROM marketing_audience_experiments WHERE experiment_key = $1', [experimentKey])).rows[0];
   if (!exp) return { ok: false, reason: 'unknown experiment ' + experimentKey };
+
+  // Activation adds paid delivery: fresh spend, a safe reconciliation and a launched market first.
+  const allowed = await require('./paidSpendGovernance').assertNewSpendAllowed({ campaignKey: exp.campaign_key, action: 'activate_experiment' });
+  if (!allowed.ok) return { ok: false, reason: 'spend governance refused: ' + allowed.reason };
 
   // Ads first, then ad sets, then the campaign: a parent that turns on before its children cannot
   // deliver anything, whereas the reverse order could briefly leave an orphan live.

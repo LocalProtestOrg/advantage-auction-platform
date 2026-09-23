@@ -71,6 +71,26 @@ function ctxFromReq(req) {
   } catch (_) { return { eventId: null, meta: {} }; }
 }
 
+/**
+ * Owner and staff activity is kept but never counted as acquisition: an admin / staff account, or a
+ * subscriber already marked internal, produces an internal conversion. Never throws.
+ */
+async function isInternal(r, { userId = null, subjectType = null, subjectId = null } = {}) {
+  try {
+    if (userId) {
+      const u = (await r.query('SELECT role, staff_role FROM users WHERE id = $1', [userId])).rows[0];
+      if (u && (u.role === 'admin' || u.staff_role)) return true;
+    }
+    if (subjectType === 'subscriber_email_sha256' && subjectId) {
+      const c = (await r.query(
+        `SELECT 1 FROM marketing_contacts WHERE is_internal = true
+           AND encode(sha256(convert_to(lower(normalized_email), 'UTF8')), 'hex') = $1 LIMIT 1`, [String(subjectId)])).rows[0];
+      if (c) return true;
+    }
+  } catch (_) { /* classification is best-effort; default is external */ }
+  return false;
+}
+
 async function record(key, { userId = null, visitorId = null, subjectType = null, subjectId = null, valueCents = null, market = null, idempotencyKey = null, occurredAt = null, eventId = null, meta: metaCtx = null, testEventCode = null } = {}, runner) {
   const r = runner || db;
   try {
@@ -80,9 +100,10 @@ async function record(key, { userId = null, visitorId = null, subjectType = null
     const adConsent = await consentAdvertising(r, { userId, visitorId });
     const dispatch = await dispatchDecisions({ key, userId, visitorId, adConsent }, r).catch(() => ({ meta_capi: { status: 'gated_off' }, google_ads: { status: 'gated_off' }, advertising_consent: adConsent }));
     const pev = typeof eventId === 'string' && EVENT_ID_RE.test(eventId) ? eventId : null;
-    const ins = await r.query(`INSERT INTO marketing_conversion_events (conversion_key, user_id, visitor_id, subject_type, subject_id, value_cents, market, occurred_at, attribution, consent_state, provider_dispatch, idempotency_key, provider_event_id)
-        VALUES ($1,$2,$3,$4,$5,$6,$7,COALESCE($8::timestamptz, now()),$9::jsonb,$10::jsonb,$11::jsonb,$12,$13) ON CONFLICT (idempotency_key) DO NOTHING RETURNING id, occurred_at`,
-      [key, userId, visitorId, subjectType, subjectId != null ? String(subjectId) : null, valueCents, market, occurredAt, JSON.stringify(snap), JSON.stringify({ advertising: adConsent }), JSON.stringify(dispatch), idem, pev]);
+    const internal = await isInternal(r, { userId, subjectType, subjectId });
+    const ins = await r.query(`INSERT INTO marketing_conversion_events (conversion_key, user_id, visitor_id, subject_type, subject_id, value_cents, market, occurred_at, attribution, consent_state, provider_dispatch, idempotency_key, provider_event_id, is_internal)
+        VALUES ($1,$2,$3,$4,$5,$6,$7,COALESCE($8::timestamptz, now()),$9::jsonb,$10::jsonb,$11::jsonb,$12,$13,$14) ON CONFLICT (idempotency_key) DO NOTHING RETURNING id, occurred_at`,
+      [key, userId, visitorId, subjectType, subjectId != null ? String(subjectId) : null, valueCents, market, occurredAt, JSON.stringify(snap), JSON.stringify({ advertising: adConsent }), JSON.stringify(dispatch), idem, pev, internal]);
     if (!ins.rows[0]) return { deduped: true };
     const row = { id: ins.rows[0].id, occurred_at: ins.rows[0].occurred_at, conversion_key: key, user_id: userId, visitor_id: visitorId, value_cents: valueCents, provider_event_id: pev };
     if (dispatch.meta_capi.status === 'ready') sendMeta(r, row, adConsent, metaCtx || {}, testEventCode).catch(() => {});
@@ -117,4 +138,4 @@ async function sendMeta(r, row, adConsent, ctx = {}, testEventCode = null) {
 /** Fire-and-forget helper for routes: never awaits into the response path, never throws. */
 function emit(key, opts) { record(key, opts).catch(() => {}); }
 
-module.exports = { record, emit, dispatchDecisions, ctxFromReq, readCookie, sendMeta };
+module.exports = { record, emit, dispatchDecisions, ctxFromReq, readCookie, sendMeta, isInternal };

@@ -59,7 +59,7 @@ async function resolveInputs(purchaseId, runner) {
     local_event_interest: (await safeOne(r, `SELECT count(*)::int n FROM behavioral_audience_members m JOIN behavioral_audiences a ON a.id=m.audience_id WHERE a.audience_key='local_event_interest' AND m.exited_at IS NULL`, []) || {}).n || 0,
   };
 
-  const subscribers = await safeOne(r, `SELECT count(*)::int n FROM marketing_contacts WHERE unsubscribed_at IS NULL`, []);
+  const subscribers = await safeOne(r, `SELECT count(*)::int n FROM marketing_contacts WHERE unsubscribed_at IS NULL AND is_internal = false`, []);
   const suppressed = await safeOne(r, `SELECT count(*)::int n FROM email_suppressions`, []);
 
   const obligations = purchase ? await obligationEngine.listForPurchase('package', purchaseId, r).catch(() => []) : [];

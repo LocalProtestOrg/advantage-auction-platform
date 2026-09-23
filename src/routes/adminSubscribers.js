@@ -40,7 +40,7 @@ router.get('/', async (req, res, next) => {
     const { rows } = await db.query(
       `SELECT mc.id, mc.normalized_email, mc.full_name, mc.city, mc.address_state, mc.zip,
               mc.geography_precision, mc.geography_source, mc.permission_basis, mc.permission_established_at,
-              mc.user_id, mc.created_at,
+              mc.user_id, mc.created_at, mc.is_internal, mc.internal_reason,
               (SELECT string_agg(DISTINCT s.signup_placement, ', ') FROM marketing_contact_sources s WHERE s.contact_id = mc.id) AS sources,
               EXISTS (SELECT 1 FROM email_suppressions es WHERE es.normalized_email = mc.normalized_email) AS suppressed,
               EXISTS (SELECT 1 FROM email_deliverability d WHERE d.normalized_email = mc.normalized_email AND (d.hard_bounced OR d.complaint)) AS undeliverable,
@@ -91,7 +91,7 @@ router.get('/growth/by-source', async (req, res, next) => {
               count(DISTINCT b.bidder_user_id)::int AS bidders,
               count(DISTINCT l.winning_buyer_user_id)::int AS buyers
          FROM marketing_contact_sources s
-         JOIN marketing_contacts mc ON mc.id = s.contact_id AND mc.is_demo = false
+         JOIN marketing_contacts mc ON mc.id = s.contact_id AND mc.is_demo = false AND mc.is_internal = false
          LEFT JOIN bids b ON b.bidder_user_id = mc.user_id
          LEFT JOIN lots l ON l.winning_buyer_user_id = mc.user_id AND l.state = 'closed'
         WHERE s.source_type = 'newsletter_signup'

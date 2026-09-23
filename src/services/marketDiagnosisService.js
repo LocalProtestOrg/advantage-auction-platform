@@ -14,7 +14,7 @@ async function gather(r, market) {
   if (market.slug === 'national' || market.center_lat == null) {
     const supply = (await r.query(`SELECT count(*)::int n FROM events WHERE status='published' AND (end_at IS NULL OR end_at>=now())`)).rows[0].n;
     const auctions = (await r.query(`SELECT count(*)::int n FROM auctions WHERE state IN ('published','active') AND is_archived IS NOT TRUE`)).rows[0].n;
-    const subscribers = (await r.query(`SELECT count(*)::int n FROM marketing_contacts WHERE is_demo=false`)).rows[0].n;
+    const subscribers = (await r.query(`SELECT count(*)::int n FROM marketing_contacts WHERE is_demo=false AND is_internal=false`)).rows[0].n;
     const bidders = (await r.query(`SELECT count(DISTINCT bidder_user_id)::int n FROM bids`)).rows[0].n;
     return { supply_events: supply, supply_auctions: auctions, subscribers, bidders };
   }
@@ -23,7 +23,7 @@ async function gather(r, market) {
   const p = [market.center_lat, market.center_lng, km * 0.621371]; // radius_km→miles
   const supply = (await r.query(`SELECT count(*)::int n FROM events e WHERE e.status='published' AND (e.end_at IS NULL OR e.end_at>=now()) AND e.lat IS NOT NULL AND ${near.replace(/LAT/g,'e.lat').replace(/LNG/g,'e.lng')}`, p)).rows[0].n;
   const auctions = (await r.query(`SELECT count(*)::int n FROM auctions a WHERE a.state IN ('published','active') AND a.is_archived IS NOT TRUE AND a.lat IS NOT NULL AND ${near.replace(/LAT/g,'a.lat').replace(/LNG/g,'a.lng')}`, p)).rows[0].n;
-  const subscribers = (await r.query(`SELECT count(*)::int n FROM marketing_contacts mc WHERE mc.is_demo=false AND mc.latitude IS NOT NULL AND ${near.replace(/LAT/g,'mc.latitude').replace(/LNG/g,'mc.longitude')}`, p)).rows[0].n;
+  const subscribers = (await r.query(`SELECT count(*)::int n FROM marketing_contacts mc WHERE mc.is_demo=false AND mc.is_internal=false AND mc.latitude IS NOT NULL AND ${near.replace(/LAT/g,'mc.latitude').replace(/LNG/g,'mc.longitude')}`, p)).rows[0].n;
   return { supply_events: supply, supply_auctions: auctions, subscribers, bidders: null };
 }
 

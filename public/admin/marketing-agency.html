@@ -40,6 +40,35 @@
     <h1>Marketing Agency</h1>
     <p class="lede">Paid acquisition status, spend authority, campaigns and Owner-approved production creative.</p>
 
+    <div class="panel" id="spendPanel">
+      <h2>Spend control &mdash; this month</h2>
+      <div id="reconLine" class="msg">Loading…</div>
+      <div id="reconFlags"></div>
+      <div class="stat-row" id="spendStats"></div>
+      <div class="bar" title="Spent (dark) and authorized-but-unspent (light) against the monthly ceiling">
+        <span id="spendBarActual" style="width:0%;float:left"></span><span id="spendBarUnspent" style="width:0%;float:left;background:#93c5fd"></span>
+      </div>
+      <div class="msg" id="spendNote"></div>
+      <h2 style="margin-top:.9rem">Campaign authorizations</h2>
+      <div id="spendCampaigns" class="msg">—</div>
+      <h2 style="margin-top:.9rem">Pacing</h2>
+      <div class="stat-row" id="pacingStats"></div>
+      <div class="roots" id="pacingNote"></div>
+      <h2 style="margin-top:.9rem">Markets</h2>
+      <div class="roots">Every market shares the same monthly ceiling. Adding a market never adds money.</div>
+      <div id="spendMarkets" class="msg">—</div>
+      <div style="margin-top:.8rem;display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+        <button class="alt" id="syncSpendBtn">Re-read spend now</button>
+        <span class="msg" id="lastSyncLine"></span>
+      </div>
+      <details style="margin-top:.6rem">
+        <summary class="msg" style="cursor:pointer">Pacing and freshness settings (Super Admin)</summary>
+        <div class="stat-row" id="spendSettings"></div>
+        <button id="saveSpendSettingsBtn">Save settings</button>
+        <div class="msg" id="spendSettingsMsg"></div>
+      </details>
+    </div>
+
     <div class="panel">
       <h2>Paid marketing</h2>
       <div id="statusLine" class="msg">Loading…</div>
@@ -136,20 +165,20 @@
         : '';
 
       var boxes = [
-        ['Monthly authority', money(d.monthly_authority_cents)],
-        ['Committed', money(d.committed_spend_cents)],
+        ['Monthly ceiling', money(d.monthly_authority_cents)],
         ['Actual spend', money(d.actual_spend_cents)],
-        ['Remaining', money(d.remaining_authority_cents)],
+        ['Authorized, unspent', money(d.authorized_unspent_cents)],
+        ['Uncommitted', money(d.remaining_authority_cents)],
         ['Per campaign max', money(d.campaign_ceiling_cents)],
-        ['Per day max', money(d.daily_ceiling_cents)]
+        ['Daily budget plan (pacing target, not a limit)', money(d.nominal_daily_budget_plan_cents)]
       ];
       $('budgetStats').innerHTML = boxes.map(function (b) {
         return '<div class="stat-box"><div class="n">' + esc(b[1]) + '</div><div class="l">' + esc(b[0]) + '</div></div>';
       }).join('');
       var used = d.monthly_authority_cents ? Math.min(100, Math.round(
-        (Math.max(d.committed_spend_cents, d.actual_spend_cents) / d.monthly_authority_cents) * 100)) : 0;
+        (Number(d.total_exposure_cents || 0) / d.monthly_authority_cents) * 100)) : 0;
       $('budgetBar').style.width = used + '%';
-      $('budgetNote').textContent = used + '% of the monthly ceiling consumed for ' + d.month +
+      $('budgetNote').textContent = used + '% of the monthly ceiling is spent or authorized for ' + d.month +
         '. The ceiling is a maximum, not a target.';
 
       if (d.buyer_inventory) {
@@ -319,7 +348,126 @@
           }).join('') + '</tbody></table>';
     }
 
+    var RECON_TEXT = {
+      IN_SYNC: ['ok', 'In sync — our ledger matches Meta'],
+      IMPORT_LAG: ['warn2', 'Import lag — the last Meta read is older than scheduled'],
+      PROVIDER_AHEAD: ['warn2', 'Meta reports more spend than our ledger'],
+      INTERNAL_AHEAD: ['warn2', 'Our ledger holds more spend than Meta reports'],
+      STALE_PROVIDER_DATA: ['bad', 'Stale — Meta spend could not be read recently; new spending is blocked'],
+      BUDGET_RISK: ['bad', 'Budget risk — new spending is blocked until reviewed'],
+      CEILING_BREACH: ['bad', 'Ceiling breach — paid delivery is paused']
+    };
+    var FUNNEL = { individual_seller: 'Individual Seller', professional_seller: 'Professional Seller', buyer: 'Buyer' };
+    var SETTING_LABELS = [
+      ['marketing.paid.pacing.daily_budget_safety_factor', 'Daily budget safety factor (0.1–1)', 'safety_factor'],
+      ['marketing.paid.pacing.provider_max_daily_overdelivery', 'Provider single-day overspend allowance (×)', 'provider_max_daily_overdelivery'],
+      ['marketing.paid.spend_sync.interval_minutes', 'Re-read spend every (minutes, while live)', 'interval_minutes'],
+      ['marketing.paid.spend_sync.decision_max_age_minutes', 'Spending decisions need data newer than (minutes)', 'decision_max_age_minutes'],
+      ['marketing.paid.spend_sync.max_age_minutes', 'Spend data is stale after (minutes)', 'max_age_minutes'],
+      ['marketing.paid.spend_sync.tolerance_cents', 'Reconciliation tolerance (cents)', 'tolerance_cents']
+    ];
+
+    function box(label, value, hint) {
+      return '<div class="stat-box"><div class="n">' + esc(value) + '</div><div class="l">' + esc(label) + '</div>' +
+        (hint ? '<div class="mono" style="margin-top:.2rem">' + esc(hint) + '</div>' : '') + '</div>';
+    }
+
+    function renderSpend(d) {
+      var p = d.position, rc = d.reconciliation || { state: 'STALE_PROVIDER_DATA', flags: [] };
+      var t = RECON_TEXT[rc.state] || ['neu', rc.state];
+      $('reconLine').innerHTML = 'Reconciliation: ' + pill(rc.state, t[0]) + ' ' + esc(t[1]);
+      var flags = (rc.flags || []).filter(function (f) { return f.detail; });
+      $('reconFlags').innerHTML = flags.length ? '<ul class="' + (rc.state === 'IN_SYNC' ? 'roots' : 'blockers') + '" style="list-style:none">' +
+        flags.map(function (f) { return '<li>' + esc(f.code) + ' — ' + esc(f.detail) + '</li>'; }).join('') + '</ul>' : '';
+      if (!p) { $('spendStats').textContent = 'No provider spend reading yet.'; return; }
+
+      $('spendStats').innerHTML = [
+        box('Monthly budget ceiling', money(p.monthly_ceiling_cents)),
+        box('Actual Meta spend (' + p.month.slice(0, 7) + ')', money(p.actual_spend_cents), p.unmapped_actual_cents ? money(p.unmapped_actual_cents) + ' from campaigns we did not create' : null),
+        box('Authorized but unspent', money(p.authorized_unspent_cents), 'may still be spent — not spent yet'),
+        box('Total current exposure', money(p.total_exposure_cents), 'spent + authorized-but-unspent'),
+        box('Remaining uncommitted authority', money(p.uncommitted_authority_cents), 'the most a NEW campaign could be given'),
+        box('Days remaining', String(p.days_remaining), 'of ' + p.days_in_month + ', including today'),
+        box('Projected month-end spend', money(p.projected_month_end_spend_cents), 'worst case ' + money(p.projected_month_end_exposure_cents))
+      ].join('');
+      var pct = function (c) { return p.monthly_ceiling_cents ? Math.min(100, (c / p.monthly_ceiling_cents) * 100) : 0; };
+      $('spendBarActual').style.width = pct(p.actual_spend_cents) + '%';
+      $('spendBarUnspent').style.width = Math.max(0, Math.min(100 - pct(p.actual_spend_cents), pct(p.authorized_unspent_cents))) + '%';
+      $('spendNote').textContent = 'Dark: spent. Light: authorized but not yet spent. Each dollar is counted once.';
+
+      $('spendCampaigns').innerHTML = (d.campaigns || []).length ? '<table><thead><tr>' +
+        ['Campaign', 'Market', 'State', 'Spent / authorized', '', 'Configured daily budgets'].map(function (h) { return '<th>' + h + '</th>'; }).join('') +
+        '</tr></thead><tbody>' + d.campaigns.map(function (c) {
+          var w = c.authorized_cents ? Math.min(100, Math.round((c.spent_cents / c.authorized_cents) * 100)) : 0;
+          return '<tr><td><strong>' + esc(FUNNEL[c.funnel] || c.funnel || '') + '</strong><div class="mono">' + esc(c.campaign_key) + '</div></td>' +
+            '<td>' + esc(c.market_key || '—') + '</td><td>' + (c.state ? statePill(c.state) : '—') + '</td>' +
+            '<td><strong>' + money(c.spent_cents) + '</strong> / ' + money(c.authorized_cents) + ' max</td>' +
+            '<td style="min-width:120px"><div class="bar"><span style="width:' + w + '%"></span></div></td>' +
+            '<td>' + money(c.configured_daily_budget_cents) + '/day <span class="mono">(pacing target)</span></td></tr>';
+        }).join('') + '</tbody></table>' : 'No campaigns have spend or authority this month.';
+
+      $('pacingStats').innerHTML = [
+        box('Safe daily pacing target', money(p.safe_daily_pacing_target_cents) + '/day', '(ceiling − spent) ÷ days remaining'),
+        box('Recommended max daily budgets', money(p.recommended_max_daily_budget_cents) + '/day', 'target × safety factor ' + p.safety_factor),
+        box('Configured daily budgets now', money(p.configured_daily_budget_cents) + '/day', 'worst single day ≈ ' + money(p.worst_case_single_day_cents)),
+        box("Today's spend", money(p.today_spend_cents)),
+        box('Average spend so far', money(p.average_spend_to_date_cents) + '/day')
+      ].join('');
+      $('pacingNote').textContent = 'Meta daily budgets are pacing targets, not hard limits: Meta may spend up to ' +
+        p.provider_max_daily_overdelivery + '× a daily budget on a single day. The hard stops are each campaign’s ' +
+        'spending limit, this monthly ledger, and the automatic pause if a ceiling is breached.';
+
+      $('spendMarkets').innerHTML = (d.markets || []).length ? '<table><thead><tr>' +
+        ['Market', 'Status', 'Launch authorized', 'Geography', 'Allocation'].map(function (h) { return '<th>' + h + '</th>'; }).join('') +
+        '</tr></thead><tbody>' + d.markets.map(function (m) {
+          var geo = m.geo_spec && m.geo_spec.label ? m.geo_spec.label : '—';
+          return '<tr><td><strong>' + esc(m.name) + '</strong><div class="mono">' + esc(m.market_key) + '</div></td>' +
+            '<td>' + pill(m.status, m.status === 'ACTIVE' ? 'ok' : 'neu') + '</td>' +
+            '<td>' + (m.launch_authorized ? pill('yes', 'ok') : pill('no', 'warn2')) + '</td>' +
+            '<td>' + esc(geo) + ' ' + pill(m.geo_validation, m.geo_validation === 'VALID' ? 'ok' : 'warn2') + '</td>' +
+            '<td>' + (m.allocation_cents == null ? 'shares the global ceiling' : money(m.allocation_cents) + ' of the global ceiling') + '</td></tr>';
+        }).join('') + '</tbody></table>' : '—';
+
+      $('lastSyncLine').textContent = d.last_sync ? ('Last Meta read ' + new Date(d.last_sync.finished_at).toLocaleString() +
+        ' (' + d.last_sync.trigger + ')') : 'Meta spend has not been read yet.';
+      if (d.last_attempt && d.last_attempt.ok === false) {
+        $('lastSyncLine').textContent += ' · last attempt failed: ' + (d.last_attempt.error || 'unknown');
+      }
+
+      var st = d.settings || {};
+      $('spendSettings').innerHTML = SETTING_LABELS.map(function (s) {
+        return '<label class="stat-box" style="display:block"><div class="l">' + esc(s[1]) + '</div>' +
+          '<input data-setting="' + esc(s[0]) + '" type="number" step="any" value="' + esc(st[s[2]]) + '" style="width:9rem;margin-top:.3rem"></label>';
+      }).join('') + '<label class="stat-box" style="display:block"><div class="l">Pause all delivery on a ceiling breach</div>' +
+        '<input data-setting="marketing.paid.auto_pause_on_breach" type="checkbox"' + (st.auto_pause_on_breach ? ' checked' : '') + '></label>';
+    }
+
+    function loadSpend() {
+      api('/spend').then(function (r) {
+        if (!r.body.success) { $('reconLine').textContent = r.body.message || 'Not authorized'; return; }
+        renderSpend(r.body.data);
+      });
+    }
+
+    $('syncSpendBtn').onclick = function () {
+      $('lastSyncLine').textContent = 'Reading Meta spend…';
+      api('/spend/sync', { method: 'POST' }).then(function (r) {
+        $('lastSyncLine').textContent = r.body.success ? ('Read complete: ' + r.body.data.state) : ('Failed: ' + ((r.body.data && r.body.data.reason) || r.body.message));
+        loadSpend();
+      });
+    };
+
+    $('saveSpendSettingsBtn').onclick = function () {
+      var body = {};
+      Array.prototype.forEach.call(document.querySelectorAll('[data-setting]'), function (el) {
+        body[el.getAttribute('data-setting')] = el.type === 'checkbox' ? el.checked : Number(el.value);
+      });
+      api('/spend/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+        .then(function (r) { $('spendSettingsMsg').textContent = r.body.success ? 'Saved.' : ('Not saved: ' + r.body.message); loadSpend(); });
+    };
+
     function load() {
+      loadSpend();
       api('/overview').then(function (r) {
         if (!r.body.success) { $('statusLine').textContent = r.body.message || 'Not authorized'; return; }
         renderOverview(r.body.data);

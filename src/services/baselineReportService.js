@@ -22,7 +22,7 @@ function metricDefs() {
     { key: 'watchlist_adds', window: 'all_time', def: 'watchlist entries', sql: `SELECT count(*)::numeric v FROM watchlists` },
     { key: 'watchers_no_bid', window: 'now', def: 'users watching an open lot with no bid on it', sql: `SELECT count(DISTINCT w.user_id)::numeric v FROM watchlists w JOIN lots l ON l.id=w.lot_id WHERE l.state IN ('open','active') AND NOT EXISTS(SELECT 1 FROM bids b WHERE b.lot_id=w.lot_id AND b.bidder_user_id=w.user_id)` },
     // SUBSCRIBER
-    { key: 'subscribers_total', window: 'all_time', def: 'marketing_contacts (non-demo) with a permission', sql: `SELECT count(*)::numeric v FROM marketing_contacts WHERE is_demo=false AND permission_basis IN ('platform_relationship','explicit_opt_in','follower_optin')` },
+    { key: 'subscribers_total', window: 'all_time', def: 'marketing_contacts (non-demo) with a permission', sql: `SELECT count(*)::numeric v FROM marketing_contacts WHERE is_demo=false AND is_internal=false AND permission_basis IN ('platform_relationship','explicit_opt_in','follower_optin')` },
     // AUCTIONS / EVENTS
     { key: 'active_auctions', window: 'now', def: 'auctions in published/active, not archived, syndicated', sql: `SELECT count(*)::numeric v FROM auctions WHERE state IN ('published','active') AND is_archived IS NOT TRUE AND marketplace_status='syndicated' AND is_demo IS NOT TRUE` },
     { key: 'active_events', window: 'now', def: 'published events not ended', sql: `SELECT count(*)::numeric v FROM events WHERE status='published' AND (end_at IS NULL OR end_at >= now())` },
@@ -79,7 +79,7 @@ async function subscriberPlacement(runner) {
            count(DISTINCT b.bidder_user_id)::int AS bid,
            count(DISTINCT l.winning_buyer_user_id)::int AS purchased
       FROM marketing_contact_sources s
-      JOIN marketing_contacts mc ON mc.id = s.contact_id AND mc.is_demo = false
+      JOIN marketing_contacts mc ON mc.id = s.contact_id AND mc.is_demo = false AND mc.is_internal = false
       LEFT JOIN watchlists w ON w.user_id = mc.user_id
       LEFT JOIN bids b ON b.bidder_user_id = mc.user_id
       LEFT JOIN lots l ON l.winning_buyer_user_id = mc.user_id AND l.state='closed'
