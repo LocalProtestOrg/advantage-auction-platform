@@ -1,0 +1,877 @@
+<title>Claimed Listing Blueprint</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Quicksand:wght@500;600;700&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+:root{
+  --paper:#f5f6f9; --surface:#ffffff; --ink:#16213a; --muted:#586379; --rule:#dde2ea; --soft:#eef1f6;
+  --red:#d62828; --navy:#1d2b4f; --link:#1d4f91;
+  --cur-bg:#e4f3ea; --cur-fg:#1c6b44; --bld-bg:#fcefd8; --bld-fg:#8a5200; --fut-bg:#eceff4; --fut-fg:#4a5568;
+  --warn-bg:#fdeaea; --warn-fg:#9b1c1c;
+  --display:"Quicksand", "Trebuchet MS", system-ui, sans-serif;
+  --body:"IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono:"IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    color-scheme:dark;
+    --paper:#0e1422; --surface:#151d2f; --ink:#e6eaf2; --muted:#9ba6ba; --rule:#27324a; --soft:#1b2439;
+    --red:#f06262; --navy:#b9c7e6; --link:#8fb4ee;
+    --cur-bg:#15352a; --cur-fg:#7fd6a6; --bld-bg:#3a2a0c; --bld-fg:#f3c26b; --fut-bg:#222b3d; --fut-fg:#b3bdd0;
+    --warn-bg:#3b1618; --warn-fg:#ffb3b3;
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --paper:#0e1422; --surface:#151d2f; --ink:#e6eaf2; --muted:#9ba6ba; --rule:#27324a; --soft:#1b2439;
+  --red:#f06262; --navy:#b9c7e6; --link:#8fb4ee;
+  --cur-bg:#15352a; --cur-fg:#7fd6a6; --bld-bg:#3a2a0c; --bld-fg:#f3c26b; --fut-bg:#222b3d; --fut-fg:#b3bdd0;
+  --warn-bg:#3b1618; --warn-fg:#ffb3b3;
+}
+*{box-sizing:border-box}
+body{background:var(--paper);color:var(--ink);font-family:var(--body);font-size:15.5px;line-height:1.62;padding-inline:16px;padding-block:0 64px}
+a{color:var(--link)}
+.shell{max-width:1180px;margin:0 auto;display:grid;grid-template-columns:1fr;gap:40px}
+@media (min-width:1040px){.shell{grid-template-columns:230px minmax(0,1fr)}}
+header.top{max-width:1180px;margin:0 auto;padding-block:40px 28px;border-bottom:1px solid var(--rule);margin-bottom:32px}
+.kicker{font-family:var(--mono);font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+h1{font-family:var(--display);font-weight:700;font-size:clamp(28px,4.4vw,42px);line-height:1.12;margin:10px 0 12px;text-wrap:balance;letter-spacing:-.01em}
+h1 .dot{color:var(--red)}
+.lede{max-width:70ch;color:var(--muted);font-size:16.5px;margin:0}
+.verdict{display:inline-flex;gap:10px;align-items:center;margin-top:18px;font-family:var(--mono);font-size:13px;font-weight:500;background:var(--surface);border:1px solid var(--rule);border-left:4px solid var(--red);padding:9px 14px;border-radius:4px}
+nav.toc{position:relative}
+@media (min-width:1040px){nav.toc{position:sticky;top:calc(env(safe-area-inset-top,0px) + 16px);align-self:start;max-height:calc(100vh - 32px);overflow:auto}}
+nav.toc ol{list-style:none;margin:0;padding:0;display:grid;gap:1px;font-size:13px}
+nav.toc a{display:grid;grid-template-columns:26px 1fr;gap:4px;text-decoration:none;color:var(--muted);padding:3px 6px;border-radius:4px}
+nav.toc a:hover,nav.toc a:focus-visible{background:var(--soft);color:var(--ink);outline:none}
+nav.toc .n{font-family:var(--mono);font-size:11.5px;color:var(--muted);padding-top:1px}
+nav.toc summary{font-family:var(--mono);font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);cursor:pointer;margin-bottom:8px}
+main{min-width:0}
+section{padding-block:26px 8px;border-top:1px solid var(--rule)}
+section:first-child{border-top:0;padding-top:0}
+h2{font-family:var(--display);font-weight:700;font-size:23px;line-height:1.25;margin:0 0 12px;text-wrap:balance;display:flex;gap:12px;align-items:baseline}
+h2 .n{font-family:var(--mono);font-weight:500;font-size:13px;color:var(--red);min-width:24px}
+h3{font-family:var(--display);font-weight:700;font-size:17px;margin:22px 0 8px}
+p,li{max-width:74ch}
+ul,ol{padding-left:20px}
+li{margin:3px 0}
+code,.mono{font-family:var(--mono);font-size:.88em}
+code{background:var(--soft);padding:1px 5px;border-radius:3px;overflow-wrap:anywhere}
+.chip{display:inline-block;font-family:var(--mono);font-size:10.5px;font-weight:500;letter-spacing:.06em;text-transform:uppercase;padding:2px 7px;border-radius:3px;vertical-align:2px;white-space:nowrap}
+.cur{background:var(--cur-bg);color:var(--cur-fg)} .bld{background:var(--bld-bg);color:var(--bld-fg)} .fut{background:var(--fut-bg);color:var(--fut-fg)} .gap{background:var(--warn-bg);color:var(--warn-fg)}
+.tbl{overflow-x:auto;margin:12px 0 16px;border:1px solid var(--rule);border-radius:6px;background:var(--surface)}
+table{border-collapse:collapse;width:100%;font-size:14px}
+th,td{text-align:left;vertical-align:top;padding:8px 12px;border-bottom:1px solid var(--rule)}
+tr:last-child td{border-bottom:0}
+th{font-family:var(--mono);font-size:11.5px;font-weight:500;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);background:var(--soft)}
+td.num{font-variant-numeric:tabular-nums;font-family:var(--mono);font-size:13px;white-space:nowrap}
+.facts{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;margin:14px 0 18px}
+@media (min-width:700px){.facts{grid-template-columns:repeat(3,1fr)}}
+.fact{background:var(--surface);border:1px solid var(--rule);border-radius:6px;padding:12px 14px}
+.fact b{display:block;font-family:var(--display);font-size:26px;line-height:1.1;font-variant-numeric:tabular-nums}
+.fact span{font-size:13px;color:var(--muted)}
+.callout{background:var(--surface);border:1px solid var(--rule);border-left:3px solid var(--navy);border-radius:4px;padding:12px 16px;margin:14px 0}
+.callout.red{border-left-color:var(--red)}
+.callout p{margin:.3em 0}
+.decision{font-weight:600}
+.letter{background:var(--surface);border:1px solid var(--rule);border-radius:6px;margin:14px 0 18px}
+.letter .hd{display:flex;flex-wrap:wrap;gap:8px 16px;justify-content:space-between;align-items:center;padding:10px 14px;border-bottom:1px solid var(--rule);background:var(--soft);border-radius:6px 6px 0 0}
+.letter .hd .id{font-family:var(--mono);font-size:12px;color:var(--muted)}
+.letter .meta{padding:10px 14px 0;font-size:14px}
+.letter .meta div{margin:2px 0}
+.letter .meta b{font-family:var(--mono);font-weight:500;font-size:12px;color:var(--muted);display:inline-block;min-width:76px}
+.letter pre{white-space:pre-wrap;font-family:var(--body);font-size:14.5px;line-height:1.6;margin:0;padding:12px 14px 16px;max-width:74ch}
+.copy{font-family:var(--mono);font-size:12px;border:1px solid var(--rule);background:var(--surface);color:var(--ink);padding:4px 10px;border-radius:4px;cursor:pointer}
+.copy:hover,.copy:focus-visible{border-color:var(--navy);outline:none}
+.cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px}
+.card{background:var(--surface);border:1px solid var(--rule);border-radius:6px;padding:12px 16px}
+.card h4{font-family:var(--display);font-size:15px;margin:0 0 6px}
+.card p,.card li{font-size:14px}
+pre.mermaid{background:var(--surface);border:1px solid var(--rule);border-radius:6px;padding:12px;overflow-x:auto}
+.end{margin-top:36px;padding:18px 20px;background:var(--surface);border:1px solid var(--rule);border-left:4px solid var(--red);border-radius:4px;font-family:var(--mono);font-size:15px;font-weight:500}
+.small{font-size:13px;color:var(--muted)}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+
+<header class="top">
+  <div class="kicker">Advantage.Bid Marketing Agency · Desktop Marketing · 24 Sep 2026</div>
+  <h1>Claimed Listing Activation<span class="dot">.</span> &amp; Conversion Blueprint</h1>
+  <p class="lede">How an unclaimed directory listing becomes a claimed, useful company page, and how some of those companies go on to become Professional Sellers. It is built on what production already has, with every decision made and every build item scoped for VS Code. Nothing was sent, published or changed during this mission.</p>
+  <div class="verdict">CLAIMED LISTING ACTIVATION &amp; CONVERSION: READY FOR IMPLEMENTATION</div>
+</header>
+
+<div class="shell">
+<nav class="toc" aria-label="Sections">
+  <details open><summary>Sections</summary>
+  <ol>
+    <li><a href="#s1"><span class="n">01</span>Current-state audit</a></li>
+    <li><a href="#s2"><span class="n">02</span>Opportunity assessment</a></li>
+    <li><a href="#s3"><span class="n">03</span>Target segments</a></li>
+    <li><a href="#s4"><span class="n">04</span>Eligibility &amp; exclusion</a></li>
+    <li><a href="#s5"><span class="n">05</span>Identity resolution</a></li>
+    <li><a href="#s6"><span class="n">06</span>Scoring &amp; priority</a></li>
+    <li><a href="#s7"><span class="n">07</span>Claim experience</a></li>
+    <li><a href="#s8"><span class="n">08</span>Verification</a></li>
+    <li><a href="#s9"><span class="n">09</span>Listing activation</a></li>
+    <li><a href="#s10"><span class="n">10</span>Value proposition</a></li>
+    <li><a href="#s11"><span class="n">11</span>Outreach sequence</a></li>
+    <li><a href="#s12"><span class="n">12</span>Email copy</a></li>
+    <li><a href="#s13"><span class="n">13</span>Follow-up logic</a></li>
+    <li><a href="#s14"><span class="n">14</span>Replies &amp; handoff</a></li>
+    <li><a href="#s15"><span class="n">15</span>Pro Seller path</a></li>
+    <li><a href="#s16"><span class="n">16</span>Marketing Toolbox</a></li>
+    <li><a href="#s17"><span class="n">17</span>Data model</a></li>
+    <li><a href="#s18"><span class="n">18</span>State machine</a></li>
+    <li><a href="#s19"><span class="n">19</span>Compliance &amp; deliverability</a></li>
+    <li><a href="#s20"><span class="n">20</span>Attribution</a></li>
+    <li><a href="#s21"><span class="n">21</span>Funnel dashboard</a></li>
+    <li><a href="#s22"><span class="n">22</span>SEO &amp; AI discovery</a></li>
+    <li><a href="#s23"><span class="n">23</span>Abuse &amp; failure</a></li>
+    <li><a href="#s24"><span class="n">24</span>Pilot design</a></li>
+    <li><a href="#s25"><span class="n">25</span>Success criteria</a></li>
+    <li><a href="#s26"><span class="n">26</span>Rollout stages</a></li>
+    <li><a href="#s27"><span class="n">27</span>VS Code build list</a></li>
+    <li><a href="#s28"><span class="n">28</span>Already supported</a></li>
+    <li><a href="#s29"><span class="n">29</span>Owner decisions</a></li>
+    <li><a href="#s30"><span class="n">30</span>Next action</a></li>
+  </ol>
+  </details>
+  <p class="small" style="margin-top:14px"><span class="chip cur">Current</span> exists in production<br><span class="chip bld">Build</span> VS Code work<br><span class="chip fut">Future</span> not in this rollout<br><span class="chip gap">Gap</span> defect found</p>
+</nav>
+
+<main>
+
+<section id="s1">
+<h2><span class="n">01</span>Current-state audit</h2>
+<p>Sources: live BD directory via the BD connection (read-only), the public listing and claim pages in the browser, and the production repo (routes, services, migrations up to 166, Toolbox HTML). BD numbers are exact counts from filtered queries.</p>
+<div class="facts">
+  <div class="fact"><b>294</b><span>BD records on the "Claim Listing" plan (281 estate sale companies, 13 auction houses)</span></div>
+  <div class="fact"><b>0</b><span>of those 294 have ever logged in to the directory. All were bulk-imported Jul to Aug 2024</span></div>
+  <div class="fact"><b>94+</b><span>use free mailboxes (80 Gmail, 8 Yahoo, 6 Hotmail), about 32%</span></div>
+  <div class="fact"><b>27 / 35</b><span>in Texas / in NY, NJ, CT: the two strategic markets</span></div>
+  <div class="fact"><b>41</b><span>imported, never-joined companies showing paid plan badges (7 Gold, 1 Silver, 33 Appraiser)</span></div>
+  <div class="fact"><b>~336</b><span>matching Railway organization shells (per the claim-security code comment)</span></div>
+</div>
+
+<h3>What exists and works</h3>
+<div class="tbl"><table>
+<tr><th>Area</th><th>What is there</th><th>State</th></tr>
+<tr><td>Directory pages</td><td>BD company pages at www.advantage.bid, indexed, self-canonical, LocalBusiness JSON-LD, "Claim this listing" button, Like, reviews, map.</td><td><span class="chip cur">Current</span></td></tr>
+<tr><td>Organization model</td><td>Railway <code>organizations</code> with lifecycle prospect, directory_listing, inactive, claimed, verified, active_partner. BD import creates inactive shells, dedupes by bd_listing_id, place id, match key.</td><td><span class="chip cur">Current</span></td></tr>
+<tr><td>Secure claiming</td><td>Migration 153 plus <code>organizationClaimSecurityService</code>: single-use, hashed, expiring tokens bound to one recipient email; verified company-domain rung; free-mailbox domains refused for the domain rung; every attempt logged; admin override with actor.</td><td><span class="chip cur">Current</span></td></tr>
+<tr><td>Claim page</td><td><code>/claim-listing.html?org=&amp;token=</code> requires sign-in with the invited address, then claims and redirects to the profile editor.</td><td><span class="chip cur">Current</span></td></tr>
+<tr><td>Free Business Listing</td><td>Profile editor, submit then admin approve and publish, up to 3 active events free, welcome email on claim.</td><td><span class="chip cur">Current</span></td></tr>
+<tr><td>Sales &amp; Marketing Toolbox</td><td><code>/admin/sales.html</code>: prospects, tiers, assigned rep, notes, quick filters (No Website, No Online Auctions), rep sender identities, 1:1 SES send with BCC to info@, scripts and objection handling.</td><td><span class="chip cur">Current</span></td></tr>
+<tr><td>Partner CRM</td><td><code>organization_activity</code>, multi-rep <code>organization_reps</code>, <code>crm_stage</code> including claimed and activated, health score.</td><td><span class="chip cur">Current</span></td></tr>
+<tr><td>Event Partner programme</td><td>Segmentation with the exact decision vocabulary (migration 162), cohorts with a double lock, approved template versions, programme suppression, threads on <code>reply.advantage.bid</code>, reply classifier, escalation queue, dedicated SES configuration set.</td><td><span class="chip cur">Current</span></td></tr>
+<tr><td>Email infrastructure</td><td>SES via <code>emailService</code>, per-stream configuration sets, <code>ses_feedback_events</code> with mail stream, global <code>email_suppressions</code>, RFC 8058 one-click unsubscribe for marketing mail.</td><td><span class="chip cur">Current</span></td></tr>
+<tr><td>Measurement</td><td>First-party attribution (UTM, first/last touch, 90-day stitch) and a conversion ledger that already excludes staff and admins.</td><td><span class="chip cur">Current</span></td></tr>
+</table></div>
+
+<h3>What is broken or missing</h3>
+<div class="tbl"><table>
+<tr><th>#</th><th>Finding</th><th>Why it matters</th></tr>
+<tr><td class="num">G1</td><td><span class="chip gap">Gap</span> Event Partner screening only excludes organizations that already have members. Unclaimed directory shells are invisible to it, and the EP send path attaches to an existing org by domain or name.</td><td>A directory-listed company can get a cold Event Partner invitation and then become claimable by token only. This is the journey collision the Owner prohibited.</td></tr>
+<tr><td class="num">G2</td><td><span class="chip gap">Gap</span> The www "Claim Listing" button goes to <code>/join?claim=&lt;hash&gt;</code>, which is the generic Join page. The listing context is lost; the visitor has to find "Free Business Listing", sign in and search again.</td><td>The one place a business owner arrives on their own is a dead end. That fits the fact that none of the 294 has logged in since import.</td></tr>
+<tr><td class="num">G3</td><td><span class="chip gap">Gap</span> Claim tokens can only be issued by an admin, and nothing sends them ("Phase 1 has no sender").</td><td>No scalable path from listing to claim.</td></tr>
+<tr><td class="num">G4</td><td><span class="chip gap">Gap</span> Redeeming a token needs sign-in, then separate email verification, then the claim.</td><td>Three steps where one would be enough. The token already proves mailbox control.</td></tr>
+<tr><td class="num">G5</td><td><span class="chip gap">Gap</span> 1:1 rep outreach does not check any suppression list, has no List-Unsubscribe header, and does not check recent contact from other programmes.</td><td>Two reps, or a rep and an automated programme, can contact the same company.</td></tr>
+<tr><td class="num">G6</td><td><span class="chip gap">Gap</span> Imported companies that never joined show "Gold Member", "Silver" or "Appraiser" plan badges. Example: Capsule Auctions shows "Membership Plan - Gold Retailers" and has no claim button.</td><td>It implies a paid relationship that does not exist. A recipient who sees it could reasonably distrust the whole email.</td></tr>
+<tr><td class="num">G7</td><td><span class="chip gap">Gap</span> Imported "About" texts were written by us and state business terms. Example: Bayside Auction LLC says "no upfront fees" and "fair commission rates".</td><td>They are unverified factual claims about a real company, and they read as generated.</td></tr>
+<tr><td class="num">G8</td><td><span class="chip gap">Gap</span> The listing JSON-LD image uses a relative URL. Railway company profiles render client-side and are not in the sitemap. No rule decides which company URL is canonical.</td><td>Weakens structured data. Two company URLs could compete.</td></tr>
+<tr><td class="num">G9</td><td><span class="chip gap">Gap</span> No claimed_listing mail stream, templates, cohorts or claim funnel events.</td><td>Nothing to measure or gate this channel with.</td></tr>
+<tr><td class="num">G10</td><td><span class="chip gap">Gap</span> The Toolbox quotes Professional Seller fees as 4% plus 3% processing. CLAUDE.md says a 2% software fee.</td><td>Not used in claim outreach, but reps need one answer before any Pro Seller conversation.</td></tr>
+<tr><td class="num">G11</td><td><span class="chip gap">Gap</span> Em dashes in rendered copy: rep From names (<code>"Name — Advantage.Bid"</code>) and welcome email subjects.</td><td>Brand voice rule.</td></tr>
+</table></div>
+<p class="small">Some data looks wrong and is caught by the Data Quality review rule. A "Proxibid" record uses a Schultz Auctioneers address. Two Black Rock Galleries listings share one contact. National houses (Sotheby's, Bonhams, Phillips, Swann, Fortuna, Bidsquare) are listed with named employees' addresses.</p>
+</section>
+
+<section id="s2">
+<h2><span class="n">02</span>Opportunity assessment</h2>
+<p>The directory already holds about 294 real, local companies with public contact details. After two years, none of them has logged in to the directory (Railway-side claims will be counted in the dry-run report). The biggest problem is the claim path, not awareness: the one button that should work leads nowhere. Most of the secure plumbing a claim channel needs is already built for the Event Partner programme. This channel therefore needs a front door, a sender and a separate lane. It does not need a new platform.</p>
+<ul>
+  <li><b>Why claimed listings matter to Advantage.Bid.</b> A claimed company keeps its own page accurate, posts its sales, and brings buyers who follow that company. Each posted sale adds inventory to the marketplace at no cost. A claimed company is also the warmest possible audience for Professional Seller, because it already uses the platform.</li>
+  <li><b>What is realistic.</b> Directory claim campaigns usually convert a small share of recipients. The value comes from the few who activate and post sales. Plan for a small, high-quality core, and don't count on mass adoption.</li>
+  <li><b>What would limit it.</b> Trust (a cold email about "your listing" looks like a common scam pattern), data accuracy (G6, G7), free-mailbox deliverability, and small operators who mostly live on the phone.</li>
+</ul>
+<p class="decision">Decision: run this as a slow, trust-first, low-volume channel. Measure it in claims and activated listings. Messages sent is not a success measure.</p>
+</section>
+
+<section id="s3">
+<h2><span class="n">03</span>Target segments</h2>
+<div class="tbl"><table>
+<tr><th>Segment</th><th>Assessment</th><th>Treatment</th></tr>
+<tr><td>Active estate-sale companies in Houston and NYC Tri-State with a weak web presence</td><td>Best overall. The page is useful to them right away, they run sales we can promote, local staff can help them, and the fit with online auctions after a sale is natural.</td><td>Tier A. Email plus a rep call task.</td></tr>
+<tr><td>Strong local reputation, weak digital presence</td><td>Credible, active and underserved. Google rating and recent reviews show they are operating.</td><td>Score boost. "Simple company page" message variant.</td></tr>
+<tr><td>No website at all</td><td>The website-like page is worth the most to them, but these are often one-person shops where email gets little response and the phone is their channel.</td><td>Not automatically top priority. Email plus a phone task for Tier A only.</td></tr>
+<tr><td>Weak or outdated website</td><td>Good fit. They care about online presence but lack tools.</td><td>Standard.</td></tr>
+<tr><td>No online auction capability</td><td>Drives Professional Seller fit later. It is not a reason to claim.</td><td>Score factor. Held for the Pro Seller stage.</td></tr>
+<tr><td>Estate-sale-only operations</td><td>The largest group (281). Online auctions for what is left after a sale are a real need.</td><td>Core segment.</td></tr>
+<tr><td>Regional auction houses</td><td>Only 13. They often already use a competing platform, so switching is hard, but they are qualified.</td><td>Standard. Different third bullet in the copy.</td></tr>
+<tr><td>Appraisers (33 on the Appraiser plan)</td><td>They benefit from a listing but have low Professional Seller fit.</td><td>Later wave, after badge cleanup.</td></tr>
+<tr><td>National and international houses</td><td>Low value and reputational risk, and the contacts are named employees.</td><td>Excluded from automated outreach.</td></tr>
+</table></div>
+</section>
+
+<section id="s4">
+<h2><span class="n">04</span>Eligibility and exclusion model <span class="chip bld">Build</span></h2>
+<p>This screen keeps the Event Partner vocabulary and adds three codes the listing journey needs. It is evaluated in this order and the first hit wins. Every decision is stored with its reason and signals.</p>
+<div class="tbl"><table>
+<tr><th>Decision</th><th>Rule</th><th>Sends?</th></tr>
+<tr><td><code>EXCLUDE_SUPPRESSED</code></td><td>Address or company on the global, listing or Event Partner suppression list. A STOP to any Advantage.Bid B2B programme stops all of them.</td><td>No</td></tr>
+<tr><td><code>EXCLUDE_NO_PUBLIC_CONTACT</code></td><td>No valid email on the listing. Free mailboxes are allowed here because the invitation goes to the address already on the listing.</td><td>No</td></tr>
+<tr><td><code>EXCLUDE_RECENT_OUTREACH</code></td><td>Company contacted by this programme or Event Partner in 90 days, or by 1:1 rep email in 30 days.</td><td>No</td></tr>
+<tr><td><code>EXCLUDE_CLAIMED_LISTING</code></td><td>Listing already has an owner. Goes to the activation track instead.</td><td>No</td></tr>
+<tr><td><code>EXCLUDE_EVENT_PARTNER</code></td><td>Company's journey is Event Partner (invited or beyond).</td><td>No</td></tr>
+<tr><td><code>EXCLUDE_PRO_SELLER</code></td><td>Company is a Professional Seller.</td><td>No</td></tr>
+<tr><td><code>EXCLUDE_OUT_OF_SCOPE</code> <span class="chip bld">New</span></td><td>Removed from BD, not operating, non-US, or on the national-house exclusion list.</td><td>No</td></tr>
+<tr><td><code>REVIEW_AMBIGUOUS_IDENTITY</code></td><td>Only a weak name resemblance to a company with a relationship.</td><td>No, review</td></tr>
+<tr><td><code>REVIEW_OTHER_RELATIONSHIP</code></td><td>Rep already working a linked prospect, staff or test account, contact lock held by a person.</td><td>No, review</td></tr>
+<tr><td><code>REVIEW_DATA_QUALITY</code> <span class="chip bld">New</span></td><td>Email domain differs from website domain, one address on several listings, or listing shows a paid badge it never bought.</td><td>No, review</td></tr>
+<tr><td><code>ELIGIBLE_UNCLAIMED_LISTING</code></td><td>None of the above.</td><td>Yes, inside an approved cohort</td></tr>
+</table></div>
+<p>The Event Partner screen gains one code, <code>EXCLUDE_LISTING_JOURNEY</code>, so a company in the listing journey can never receive cold Event Partner outreach. Moving a company between journeys takes a Super Admin action with a written reason, and it is audited.</p>
+</section>
+
+<section id="s5">
+<h2><span class="n">05</span>Identity-resolution model <span class="chip bld">Build</span></h2>
+<p>A new <code>company_identities</code> record ties together every record that refers to the same business: the BD listing, the Railway organization, a sales prospect, an Event Partner source and a seller profile. Each company has exactly one active acquisition journey.</p>
+<div class="tbl"><table>
+<tr><th>Signal</th><th>Strength</th><th>Notes</th></tr>
+<tr><td>BD listing id, Google place id</td><td>Strong</td><td>Exact system identifiers.</td></tr>
+<tr><td>Corporate root domain (website or email)</td><td>Strong</td><td>Free mailbox domains never count as identity.</td></tr>
+<tr><td>Normalized phone (10 digits)</td><td>Strong</td><td>Shared call centers are handled by the review rule.</td></tr>
+<tr><td>Exact normalized name</td><td>Strong</td><td>Same rule as the EP service.</td></tr>
+<tr><td>Two or more distinctive shared name words, or one long word</td><td>Weak</td><td>Result is <code>REVIEW_AMBIGUOUS_IDENTITY</code>. Never a send.</td></tr>
+<tr><td>Address</td><td>Supporting only</td><td>Many are shared suites. Shown to reviewers, not used to link.</td></tr>
+</table></div>
+<p>The normalizers already in <code>relationshipSegmentationService</code> are reused, not copied. Links are only made on strong signals or by an admin. The first backfill runs as a dry run, and its report comes to Desktop before anything is written.</p>
+</section>
+
+<section id="s6">
+<h2><span class="n">06</span>Prospect scoring and prioritization <span class="chip bld">Build</span></h2>
+<div class="tbl"><table>
+<tr><th>Factor</th><th>Points</th></tr>
+<tr><td>Houston metro or NYC Tri-State</td><td class="num">+25</td></tr>
+<tr><td>Estate sale company 15 · auction house or liquidator 10 · appraiser 5</td><td class="num">up to +15</td></tr>
+<tr><td>Currently operating (Google status operational, a review in the last 12 months)</td><td class="num">+15</td></tr>
+<tr><td>Local reputation (rating 4.5+ with 25+ reviews)</td><td class="num">+10</td></tr>
+<tr><td>No website or social-only 10 · basic or outdated 8</td><td class="num">up to +10</td></tr>
+<tr><td>No known online auction capability</td><td class="num">+8</td></tr>
+<tr><td>Corporate email domain with valid MX</td><td class="num">+5</td></tr>
+<tr><td>Named employee at a large firm</td><td class="num">−10</td></tr>
+</table></div>
+<p>Tier A is 60 and above, B is 40 to 59, C is below 40. Missing data scores zero; nothing is guessed. Weights are configuration, so the Director can adjust them from pilot evidence without a deploy.</p>
+</section>
+
+<section id="s7">
+<h2><span class="n">07</span>Claim experience <span class="chip bld">Build</span></h2>
+<p class="decision">Decision: the claim link opens a preview of the listing before any sign-in. A person sees their own company first and decides second.</p>
+<ol>
+  <li><b>Email link</b> goes to <code>bid.advantage.bid/claim/&lt;token&gt;</code>. Opening the page never uses up the token, so mail security scanners that pre-open links cannot break it.</li>
+  <li><b>Preview page</b> shows the listing as it appears today, which address the link was sent to (masked), "Claiming is free. No monthly fee. We never ask for payment details to claim.", and a phone number to call.</li>
+  <li><b>One button:</b> "This is my company, continue". Next screen: name and password only. The email address is fixed to the one invited.</li>
+  <li><b>Claimed.</b> The person lands on a five-step listing checklist.</li>
+</ol>
+<p>Every preview page also offers four other answers: "This isn't my company", "This business has closed", "I'm not the right contact", "Please remove this listing". Each one stops all email to that address and is recorded. Removal requests are honored as a soft, reversible unpublish within two business days. Giving people an easy way out is a trust signal and protects deliverability.</p>
+<h3>Claim page copy</h3>
+<div class="letter"><div class="hd"><span class="id">PAGE · /claim/&lt;token&gt;</span><button class="copy" type="button">Copy</button></div>
+<pre>Claim {{company}} on Advantage.Bid
+
+This is your company's listing as it appears today.
+[listing preview: name, city, phone, website, description]
+The description was written by Advantage.Bid from public business information. Once you claim the listing you can replace it with your own.
+
+Claiming is free. There is no monthly fee, and we never ask for payment details to claim a listing.
+
+This link was sent to {{masked_email}}. Continuing confirms you receive email at that address.
+
+[This is my company, continue]
+
+Not quite right?
+This isn't my company · This business has closed · I'm not the right contact · Please remove this listing
+
+What is Advantage.Bid? An online marketplace where people find local estate sales and auctions, and where sellers run them. Questions? Call (551) 655-7050 or email info@advantage.bid.</pre></div>
+<h3>Replacement for the www "Claim this listing" button</h3>
+<div class="letter"><div class="hd"><span class="id">PAGE · /claim-listing.html?org=</span><button class="copy" type="button">Copy</button></div>
+<pre>Claim {{company}}
+
+It's free. We'll send a claim link to the email address on this listing: {{masked_email}}
+
+[Send my claim link]
+
+Use a different email? If your email address is on your company's web domain, sign in with it and claim directly.
+Can't get to that inbox? Ask us for help. We'll call the phone number on this listing to confirm.</pre></div>
+</section>
+
+<section id="s8">
+<h2><span class="n">08</span>Verification experience</h2>
+<p class="decision">Decision: when someone redeems the emailed token, that counts as email verification. No separate "verify your email" step.</p>
+<p>The token is single-use, bound to one address and delivered only to that inbox. That is the same proof a standard verification link gives. A new account is created with the email already verified, and the reason is recorded in the audit log. If an account already exists, the person signs in first. The existing proof ladder in <code>verifyClaimProof</code> does not change.</p>
+<div class="tbl"><table>
+<tr><th>Situation</th><th>Verification</th><th>State</th></tr>
+<tr><td>Link from our email, same address</td><td>Token redemption</td><td><span class="chip cur">Current</span> ladder, <span class="chip bld">Build</span> one-step UI</td></tr>
+<tr><td>Person on the company's own web domain</td><td>Verified company-domain email (rung 2)</td><td><span class="chip cur">Current</span></td></tr>
+<tr><td>Can't reach the listed inbox</td><td>Staff call the phone number on the listing (never a number the requester gives), then use admin override with actor recorded</td><td><span class="chip bld">Build</span> request form and task</td></tr>
+<tr><td>Listing already claimed by someone else</td><td>Dispute task. Ownership moves only by Super Admin</td><td><span class="chip bld">Build</span></td></tr>
+</table></div>
+<p>After claiming, a change to the company name, the website domain or the contact email goes to review. Changing the contact email also sends a notice to the old address.</p>
+</section>
+
+<section id="s9">
+<h2><span class="n">09</span>Listing activation experience</h2>
+<p>After claiming, the person lands on a checklist that takes about ten minutes:</p>
+<ol>
+  <li>Confirm business details: name, phone, website, and whether to show a street address or only a service area.</li>
+  <li>Add a logo.</li>
+  <li>Replace our description with one in your own words (300 characters or more).</li>
+  <li>Choose service area and specialties.</li>
+  <li>Post your next estate sale or auction, or mark "no sale scheduled right now".</li>
+</ol>
+<div class="tbl"><table>
+<tr><th>Milestone</th><th>Definition</th></tr>
+<tr><td>Claimed</td><td>Ownership granted with a recorded proof method.</td></tr>
+<tr><td>Profile complete</td><td>Steps 1 to 4 done.</td></tr>
+<tr><td><b>Activated</b></td><td>Profile complete and a first event or auction published within 45 days of claiming.</td></tr>
+<tr><td>Engaged</td><td>Two or more published events in 90 days, or 10+ followers, or 4+ login days in 30.</td></tr>
+</table></div>
+<p class="decision">Decision: claims verified by token get a fast lane. Profile edits go live without admin review, except name, website domain and contact email changes. Advantage.Bid keeps full moderation authority.</p>
+</section>
+
+<section id="s10">
+<h2><span class="n">10</span>Value proposition</h2>
+<p><b>Why claim:</b> your company is already listed, and people looking for estate sales and auctions see it. Claiming lets you make sure it is right and make it useful. It costs nothing.</p>
+<div class="tbl"><table>
+<tr><th>What the claimed page can do</th><th>State</th></tr>
+<tr><td>Company name, contact, website and social links, logo, cover image, description</td><td><span class="chip cur">Current</span> (profile editor)</td></tr>
+<tr><td>Service area and specialties</td><td><span class="chip cur">Current</span> (profile_data)</td></tr>
+<tr><td>Post upcoming estate sales and auctions (up to 3 active, free), linked to the company</td><td><span class="chip cur">Current</span></td></tr>
+<tr><td>Appear in the professional directory and on local sale pages</td><td><span class="chip cur">Current</span></td></tr>
+<tr><td>Followers notified of new sales</td><td><span class="chip cur">Current</span> for sellers. Listed as a free-listing feature on /join, but <span class="chip bld">Build</span> needs to confirm it is wired for free organizations before any email promises it</td></tr>
+<tr><td>A shareable page that works as a simple company website</td><td><span class="chip bld">Build</span> needs server rendering, a clean URL and the canonical rule (section 22)</td></tr>
+<tr><td>Monthly listing report: page views, event views, website and phone clicks</td><td><span class="chip bld">Build</span></td></tr>
+<tr><td>Storefront inventory, online auctions</td><td><span class="chip cur">Current</span> for Professional Sellers only</td></tr>
+<tr><td>Custom domain for the company page</td><td><span class="chip fut">Future</span></td></tr>
+</table></div>
+<p><b>What we never promise:</b> search rankings, AI-search placement, traffic, leads, bidders or sales. The copy says what the page does and makes no claims about outcomes.</p>
+</section>
+
+<section id="s11">
+<h2><span class="n">11</span>Outreach sequence</h2>
+<div class="tbl"><table>
+<tr><th>Step</th><th>Timing</th><th>Purpose</th><th>Condition</th></tr>
+<tr><td>E1</td><td>Day 0</td><td>We have your listing, you can claim it, it's free</td><td>Eligible, in an approved cohort</td></tr>
+<tr><td>E2a</td><td>Day 6</td><td>Here is what the listing shows today. Fix what's wrong.</td><td>No human visit to the claim page</td></tr>
+<tr><td>E2b</td><td>2 days after a visit</td><td>Finish claiming, fresh link</td><td>Visited, did not claim</td></tr>
+<tr><td>E3</td><td>Day 14</td><td>Last note, with options to remove or correct the listing</td><td>Still no claim or reply</td></tr>
+<tr><td>E4</td><td>Day 194</td><td>One refresh note, only once</td><td>Dormant, no suppression. Then stop for good.</td></tr>
+</table></div>
+<p>Each step issues a new token and invalidates the previous one. There are three emails in the first cycle and never more.</p>
+</section>
+
+<section id="s12">
+<h2><span class="n">12</span>Production-ready email copy</h2>
+<p class="small">Variables: <code>{{greeting}}</code> is "Hi" plus a first name when the listing names a person, otherwise "Hello". <code>{{area}}</code> is "the Houston area", "the New York area" or the state name. Signature lines use the assigned rep; the pilot rep is Kym. No em dashes, no fees, no mention of Professional Seller.</p>
+
+<div class="letter"><div class="hd"><span class="id">E1 · first contact</span><button class="copy" type="button">Copy</button></div>
+<div class="meta"><div><b>From</b> Advantage.Bid Listings &lt;listings@advantage.bid&gt;</div><div><b>Subject</b> Your Advantage.Bid listing for {{company}}</div><div><b>Alt</b> {{company}} is listed on Advantage.Bid</div><div><b>Preview</b> It's free to claim and update. Here is what that means.</div></div>
+<pre>{{greeting}},
+
+Advantage.Bid is an online marketplace where people in {{area}} look for estate sales and auctions. Our business directory includes a listing for {{company}}:
+
+{{listing_url}}
+
+It shows your company name, your {{city}} location and phone number, taken from public business information. You can claim the listing and manage it yourself. Claiming is free, with no monthly fee and no credit card.
+
+Once it's yours, you can:
+- correct anything that is out of date
+- add your logo and a description in your own words
+- post your upcoming estate sales and auctions so local buyers can find them
+
+Claim the {{company}} listing:
+{{claim_link}}
+
+This link was sent to {{recipient_email}} and works for 14 days.
+
+Claiming is optional. If you would rather not hear from us about this listing, use the link at the bottom of this email and we won't write again.
+
+{{rep_first_name}} {{rep_last_name}}
+Advantage.Bid
+(551) 655-7050
+
+--
+You are receiving this because {{company}} is listed in the Advantage.Bid business directory with this email address. Wrong contact, or has the business closed? Tell us: {{listing_options_link}}
+Don't email me about this listing: {{unsubscribe_link}}
+Advantage.Bid, {{postal_address}}</pre></div>
+<p class="small">Appraiser variant, third bullet: "list your appraisal specialties and service area so people can find you". Auction house variant: "post your upcoming auctions so local bidders can find them".</p>
+
+<div class="letter"><div class="hd"><span class="id">E2a · no visit, day 6</span><button class="copy" type="button">Copy</button></div>
+<div class="meta"><div><b>Subject</b> What people see when they find {{company}}</div><div><b>Preview</b> A quick look at your listing, and how to change it.</div></div>
+<pre>{{greeting}},
+
+Following up about the {{company}} listing on Advantage.Bid. Here is what it shows today:
+
+Name: {{company}}
+Location: {{city}}, {{state}}
+Phone: {{phone}}
+Website: {{website_or_none_listed}}
+Description: written by Advantage.Bid from public information
+
+If any of that is wrong or missing, claiming the listing lets you fix it in a few minutes.
+{{#no_website}}
+If {{company}} doesn't have its own website, the listing can serve as a simple company page you can share with clients, with your details, your logo and your upcoming sales in one place.
+{{/no_website}}
+
+Claim the listing:
+{{claim_link}}
+
+This is a new link for {{recipient_email}}. The one in my earlier email no longer works.
+
+{{rep_first_name}}
+Advantage.Bid · (551) 655-7050
+
+--
+{{footer}}</pre></div>
+
+<div class="letter"><div class="hd"><span class="id">E2b · visited, did not claim</span><button class="copy" type="button">Copy</button></div>
+<div class="meta"><div><b>Subject</b> Finishing your {{company}} listing</div><div><b>Preview</b> Two short steps left. Here is a fresh link.</div></div>
+<pre>{{greeting}},
+
+You opened the claim page for {{company}} but didn't finish. It takes about two minutes: confirm it is your company, then choose a password.
+
+Here is a fresh link:
+{{claim_link}}
+
+If something got in the way, or you have a question, reply to this email. A person on our team reads every reply.
+
+{{rep_first_name}}
+Advantage.Bid · (551) 655-7050
+
+--
+{{footer}}</pre></div>
+
+<div class="letter"><div class="hd"><span class="id">E3 · last note, day 14</span><button class="copy" type="button">Copy</button></div>
+<div class="meta"><div><b>Subject</b> Last note about the {{company}} listing</div><div><b>Preview</b> After this we won't email you about it again.</div></div>
+<pre>{{greeting}},
+
+This is the last email I'll send about claiming the {{company}} listing on Advantage.Bid.
+
+The listing stays in our directory as it is today. You can claim it any time from the listing page with the "Claim this listing" button, or with this link for the next 14 days:
+{{claim_link}}
+
+If the information is wrong, the business has closed, or you would like the listing removed, you can tell us here and we will take care of it:
+{{listing_options_link}}
+
+Thank you,
+{{rep_first_name}}
+Advantage.Bid · (551) 655-7050
+
+--
+{{footer}}</pre></div>
+
+<div class="letter"><div class="hd"><span class="id">E4 · single refresh, day 194</span><button class="copy" type="button">Copy</button></div>
+<div class="meta"><div><b>Subject</b> Is the {{company}} listing still right?</div></div>
+<pre>{{greeting}},
+
+A few months ago we wrote about the {{company}} listing on Advantage.Bid. It is still unclaimed, and we would rather it be accurate than out of date.
+
+Take a look: {{listing_url}}
+Claim it (free): {{claim_link}}
+Correct or remove it: {{listing_options_link}}
+
+We won't email about this again.
+
+{{rep_first_name}}
+Advantage.Bid
+
+--
+{{footer}}</pre></div>
+
+<div class="letter"><div class="hd"><span class="id">CL_SELF_REQUEST · someone clicked "Send my claim link"</span><button class="copy" type="button">Copy</button></div>
+<div class="meta"><div><b>Subject</b> Your claim link for {{company}}</div></div>
+<pre>Hello,
+
+Someone asked to claim the {{company}} listing on Advantage.Bid, and this is the email address on that listing.
+
+If it was you, use this link within 14 days:
+{{claim_link}}
+
+If it wasn't you, you can ignore this email. Nothing changes unless the link is used from this inbox.
+
+Advantage.Bid · (551) 655-7050 · info@advantage.bid</pre></div>
+
+<h3>After claiming (sent to the account holder, stops at activation)</h3>
+<div class="letter"><div class="hd"><span class="id">A1 · immediately (replaces the current welcome email)</span><button class="copy" type="button">Copy</button></div>
+<div class="meta"><div><b>Subject</b> {{company}} is yours to manage</div></div>
+<pre>Hi {{first_name}},
+
+You've claimed {{company}} on Advantage.Bid. It's free, with no monthly fee.
+
+Your listing checklist takes about ten minutes:
+1. Confirm your business details
+2. Add your logo
+3. Replace our description with your own
+4. Choose your service area and specialties
+5. Post your next estate sale or auction
+
+Open your checklist: {{checklist_link}}
+
+Questions? Reply here or call (551) 655-7050.
+
+{{rep_first_name}}
+Advantage.Bid</pre></div>
+<div class="letter"><div class="hd"><span class="id">A2 · day 3, fewer than 3 steps done</span><button class="copy" type="button">Copy</button></div>
+<div class="meta"><div><b>Subject</b> Two quick things for your {{company}} page</div></div>
+<pre>Hi {{first_name}},
+
+Your {{company}} page is claimed. {{next_step_1}} and {{next_step_2}} are the two things that make the biggest difference to how it looks to buyers.
+
+Finish them here: {{checklist_link}}
+
+{{rep_first_name}}
+Advantage.Bid</pre></div>
+<div class="letter"><div class="hd"><span class="id">A3 · day 10, no event posted</span><button class="copy" type="button">Copy</button></div>
+<div class="meta"><div><b>Subject</b> Have a sale coming up?</div></div>
+<pre>Hi {{first_name}},
+
+When you post an upcoming estate sale or auction, it shows on your {{company}} page and on the Advantage.Bid pages buyers in {{area}} use to find sales. Posting is free, and you can have up to three active at a time.
+
+Post a sale: {{new_event_link}}
+
+No sale scheduled right now? You can mark that on your checklist and we'll stop reminding you.
+
+{{rep_first_name}}
+Advantage.Bid</pre></div>
+<div class="letter"><div class="hd"><span class="id">A4 · day 21, still not activated</span><button class="copy" type="button">Copy</button></div>
+<div class="meta"><div><b>Subject</b> Want a hand setting up your page?</div></div>
+<pre>Hi {{first_name}},
+
+If it would help, I can set up the {{company}} page with you over the phone. It usually takes 15 minutes. Reply with a good time, or call me at (551) 655-7050.
+
+{{rep_first_name}}
+Advantage.Bid</pre></div>
+
+<h3>Reply templates for reps</h3>
+<div class="cols">
+<div class="letter" style="margin:0"><div class="hd"><span class="id">R1 · "yes, how do I do it"</span><button class="copy" type="button">Copy</button></div><pre>Thanks for writing back. I've sent a fresh claim link to this address in a separate email. It takes about two minutes. If anything gets stuck, reply here or call me at (551) 655-7050.</pre></div>
+<div class="letter" style="margin:0"><div class="hd"><span class="id">R2 · "is this legit?"</span><button class="copy" type="button">Copy</button></div><pre>Fair question. Advantage.Bid is an online marketplace for estate sales and auctions, based at advantage.bid. Your listing is here: {{listing_url}}. Claiming is free and we never ask for payment details to claim. You're welcome to call us at (551) 655-7050 before doing anything.</pre></div>
+<div class="letter" style="margin:0"><div class="hd"><span class="id">R3 · wrong contact</span><button class="copy" type="button">Copy</button></div><pre>Thank you for letting us know. We've removed this address from the listing's outreach. If you can point us to the right person at {{company}}, we'd be grateful, but no need to reply otherwise.</pre></div>
+<div class="letter" style="margin:0"><div class="hd"><span class="id">R4 · remove the listing</span><button class="copy" type="button">Copy</button></div><pre>Understood. We'll take the {{company}} listing down within two business days and won't contact this address again. Thank you for telling us.</pre></div>
+</div>
+
+<h3>Rep call script (Tier A, no website, no visit)</h3>
+<div class="letter"><div class="hd"><span class="id">CALL · 60 seconds</span><button class="copy" type="button">Copy</button></div>
+<pre>Hi, this is {{rep_first_name}} with Advantage.Bid. We're an online marketplace for estate sales and auctions here in {{area}}. {{company}} is listed in our directory, and I sent a short email to {{masked_email}} about it. Is that still the best address for you?
+
+The listing is free to claim. You can fix your details, add your logo, and post your upcoming sales so local buyers see them. Would you like me to resend the link now, or would you rather I set it up with you while we're on the phone?
+
+[If not interested] No problem at all. Would you like us to leave the listing as it is, or take it down?</pre></div>
+</section>
+
+<section id="s13">
+<h2><span class="n">13</span>Follow-up logic</h2>
+<div class="tbl"><table>
+<tr><th>Signal</th><th>What happens</th></tr>
+<tr><td>Delivered, no human visit by day 6</td><td>E2a</td></tr>
+<tr><td>Human visit, no claim within 48 hours</td><td>E2b replaces E2a</td></tr>
+<tr><td>Claim started, not finished within 48 hours</td><td>E2b, plus a rep task for Tier A</td></tr>
+<tr><td>Tier A, no website, no visit 2 days after E1</td><td>Rep call task (email sequence keeps going unless the rep takes the lock)</td></tr>
+<tr><td>Claim verified</td><td>Outreach stops. A1 to A4 activation track starts.</td></tr>
+<tr><td>Any reply that is not an auto-reply</td><td>All automation stops for that company. Task within 1 business day.</td></tr>
+<tr><td>Out-of-office auto-reply</td><td>Ignored. It does not count as a reply or stop the sequence.</td></tr>
+<tr><td>Unsubscribe, hard bounce, complaint, any landing-page exit option</td><td>Stop and suppress. No confirmation email.</td></tr>
+<tr><td>Soft bounce</td><td>Retry once 24 hours later. A second soft bounce is treated as hard.</td></tr>
+<tr><td>E3 sent, nothing else</td><td>Dormant for 180 days, then E4 once, then permanent stop</td></tr>
+</table></div>
+<p><b>When automation stops for good:</b> after E4, after any suppression, or once the company claims. Opens are never used as a trigger.</p>
+</section>
+
+<section id="s14">
+<h2><span class="n">14</span>Reply and human-handoff logic</h2>
+<p class="decision">Decision: no automatic reply to a person, ever. This follows the Owner's standing rule that there is no autonomous response system for seller inquiries.</p>
+<ul>
+  <li>Replies go to <code>l-&lt;reply_key&gt;@reply.advantage.bid</code>, the inbound system already built for Event Partner, stored in the listing programme's own tables. The reply key matches the reply to the right company without anyone reading it first.</li>
+  <li>Handled without a person: unsubscribe wording (STOP, remove me, unsubscribe) suppresses the address; auto-replies are ignored; bounces are processed.</li>
+  <li>Everything else becomes a Toolbox task with the full thread, and a notification goes to info@advantage.bid. The Owner already monitors that inbox.</li>
+  <li>Service level: first human response within one business day. The task shows the SLA clock.</li>
+  <li>Legal, dispute or angry replies are escalated to the Owner and never answered from a template.</li>
+</ul>
+</section>
+
+<section id="s15">
+<h2><span class="n">15</span>Professional Seller conversion path</h2>
+<p class="decision">Decision: Professional Seller is never mentioned in outreach emails E1 to E4 or in the activation track A1 to A4. It comes up only after a company has shown it uses the free listing, and only in response to what that company is doing.</p>
+<div class="tbl"><table>
+<tr><th>Trigger</th><th>Introduction</th></tr>
+<tr><td>A published estate sale ends</td><td>P1 email: "After the sale: selling what's left online", linking to the existing after-estate-sale page</td></tr>
+<tr><td>Claimed account views the Professional Seller page twice in 14 days</td><td>Rep task: offer the optional demo</td></tr>
+<tr><td>The company asks (reply, call, form)</td><td>Rep conversation, demo</td></tr>
+<tr><td>30 days after activation, none of the above</td><td>One educational P1 email, then nothing unless they engage</td></tr>
+</table></div>
+<p><b>Keeping the free listing from feeling like bait.</b> The free listing never loses features, never expires and never shows a trial countdown. Every Pro Seller message includes one plain line: "Your listing stays free whether or not you ever use anything else." Fees are not quoted in email. The rep quotes them in conversation once G10 is reconciled.</p>
+<div class="letter"><div class="hd"><span class="id">P1 · triggered</span><button class="copy" type="button">Copy</button></div>
+<div class="meta"><div><b>Subject</b> After the sale: selling what's left online</div></div>
+<pre>Hi {{first_name}},
+
+Your {{event_title}} sale wrapped up on {{end_date}}. If there are items left over, some companies on Advantage.Bid move them into an online auction instead of hauling them away or discounting them on the last day.
+
+Here's how that works: {{after_sale_link}}
+
+If you'd like to see it, I can walk you through it in 15 minutes: {{demo_link}}
+
+Your listing stays free whether or not you ever use anything else.
+
+{{rep_first_name}}
+Advantage.Bid</pre></div>
+<p>Stages: Pro Seller interest, then application (a professional seller profile is created), then conversion (first professional auction or storefront listing published). Existing approval and publication gates apply as they do today.</p>
+</section>
+
+<section id="s16">
+<h2><span class="n">16</span>Marketing Toolbox workflow <span class="chip bld">Build</span></h2>
+<p>A new <b>Claimed Listings</b> tab in the Sales &amp; Marketing Toolbox. It is separate from Sales Prospects and Event Partners, and all three share one company-level contact lock and one company timeline.</p>
+<div class="cols">
+<div class="card"><h4>Each row shows</h4><p>Company · location · website · phone · email (masked until opened) · listing status · journey · eligibility and reason · tier and score · outreach step, last and next send · last contact from any programme · next action and due date · engagement (visits, claim started) · claim status and proof · assigned rep · lock holder · Pro Seller status · notes.</p></div>
+<div class="card"><h4>Queues</h4><p>Replies to answer · Claim help requests · Removal requests · Wrong-contact research · Tier A calls · Activation stalled · Pro Seller interest · Review decisions (ambiguous, data quality) · Disputes.</p></div>
+<div class="card"><h4>No double contact</h4><p>A rep must take the company lock before logging or sending anything. Other reps see "Kym is working this company, since Tuesday". Locks lapse after 14 idle days. Taking the lock pauses the automated sequence. 1:1 rep email checks all suppression lists and the lock before sending.</p></div>
+<div class="card"><h4>Access</h4><p>Marketing staff: view and work. Super Admin only: approve cohorts, change journeys, reassign locks. No package economics or financial fields appear anywhere in the tab.</p></div>
+</div>
+</section>
+
+<section id="s17">
+<h2><span class="n">17</span>Data model requirements <span class="chip bld">Build</span></h2>
+<div class="tbl"><table>
+<tr><th>Table</th><th>Purpose</th></tr>
+<tr><td><code>company_identities</code>, <code>company_identity_links</code></td><td>One business, many records</td></tr>
+<tr><td><code>acquisition_journey_assignments</code></td><td>Exactly one active journey per company</td></tr>
+<tr><td><code>listing_outreach_eligibility_decisions</code></td><td>Persisted screening with reasons</td></tr>
+<tr><td><code>listing_outreach_scores</code></td><td>Score, tier, factors</td></tr>
+<tr><td><code>listing_outreach_templates</code></td><td>Approved, immutable versions</td></tr>
+<tr><td><code>listing_outreach_cohorts</code> (+members)</td><td>Owner-approved send lock</td></tr>
+<tr><td><code>listing_outreach_sequences</code></td><td>Per-company step, state, stop reason, cycle</td></tr>
+<tr><td><code>listing_outreach_messages</code></td><td>Every message in and out, idempotent</td></tr>
+<tr><td><code>listing_outreach_suppressions</code></td><td>Programme suppression with reasons</td></tr>
+<tr><td><code>listing_claim_events</code></td><td>Funnel events with internal and automated flags</td></tr>
+<tr><td><code>listing_activation_progress</code></td><td>Checklist and milestones</td></tr>
+<tr><td><code>company_contact_locks</code></td><td>One active contact owner per company</td></tr>
+<tr><td>Column additions</td><td><code>organization_claim_tokens.issue_channel</code>, <code>organizations.acquisition</code>, <code>seller_profiles.acquisition</code>, mail stream <code>claimed_listing</code></td></tr>
+</table></div>
+<p>None of these tables are shared with the Event Partner programme. Full column definitions are in the VS Code handoff.</p>
+</section>
+
+<section id="s18">
+<h2><span class="n">18</span>Automation and state machine</h2>
+<pre class="mermaid">stateDiagram-v2
+  [*] --> Discovered
+  Discovered --> Screened
+  Screened --> Held: REVIEW_*
+  Screened --> Excluded: EXCLUDE_*
+  Screened --> Queued: ELIGIBLE, in approved cohort
+  Held --> Screened: staff resolves
+  Queued --> Contacted: E1 sent
+  Contacted --> Visited: human page view
+  Contacted --> Dormant: E3 sent, no response
+  Visited --> ClaimStarted
+  ClaimStarted --> Claimed: token redeemed
+  Contacted --> HumanReply: reply received
+  Visited --> HumanReply
+  HumanReply --> Contacted: rep resumes
+  HumanReply --> Claimed
+  Dormant --> Contacted: E4 once, after 180 days
+  Contacted --> Suppressed: unsubscribe, bounce, complaint, exit option
+  Claimed --> Activated: profile complete and first event
+  Activated --> Engaged
+  Engaged --> ProInterest
+  ProInterest --> ProApplied
+  ProApplied --> ProSeller
+</pre>
+<h3>Runs automatically</h3>
+<p>Identity linking on strong signals, screening, scoring, cohort proposals (the Director proposes, a person approves), sends inside an approved cohort, stop conditions, suppression, bounce and complaint processing, activation reminders, dashboard.</p>
+<h3>Fails closed</h3>
+<p>Ambiguous identity; suppression or eligibility lookup error; template or cohort not approved; caps reached; outside the send window; missing SES configuration set, From identity, postal address or unsubscribe secret; programme bounce rate over 3% or complaint rate over 0.1% (or any complaint before 50 deliveries), which pauses everything and alerts the Owner.</p>
+<h3>A person gets a task instead of another email</h3>
+<p>Any real reply, claim help, removal, dispute, wrong contact, Tier A call, stalled activation at day 21, Pro Seller interest.</p>
+<p><b>Autonomy later:</b> cohorts carry <code>autonomous_allowed = false</code>. After the pilot passes, the Owner can let the Director run approved-template cohorts within caps without approving each one.</p>
+</section>
+
+<section id="s19">
+<h2><span class="n">19</span>Compliance and deliverability controls</h2>
+<div class="tbl"><table>
+<tr><th>Control</th><th>Decision</th></tr>
+<tr><td>Provider</td><td>AWS SES only. Dedicated configuration set <code>advantage-bid-claimed-listing</code> and mail stream <code>claimed_listing</code>, so this programme's reputation and telemetry are kept separate.</td></tr>
+<tr><td>Sender</td><td>"Advantage.Bid Listings" &lt;listings@advantage.bid&gt;, verified on the domain, SPF and DKIM aligned. The signature names a real rep.</td></tr>
+<tr><td>Reply handling</td><td>Per-thread address on reply.advantage.bid. Tasks, plus notification to info@advantage.bid.</td></tr>
+<tr><td>Unsubscribe</td><td>RFC 8058 one-click header plus a visible link. Takes effect immediately, well within the 10 business days the law allows.</td></tr>
+<tr><td>Suppression</td><td>Global, listing and Event Partner lists are all checked. Company-level: a STOP from one address suppresses cold outreach to that company.</td></tr>
+<tr><td>Bounces and complaints</td><td>Hard bounce suppresses. Soft bounce retries once. A complaint suppresses and pauses the programme for review if the rate threshold is hit.</td></tr>
+<tr><td>Send rate</td><td>Pilot 10 per day. 90 seconds apart at least. One message per recipient domain per 24 hours. Tue to Thu, 09:30 to 11:30 recipient time.</td></tr>
+<tr><td>Frequency</td><td>Three emails per cycle, one refresh email, then permanent stop. 90-day cross-programme cooldown.</td></tr>
+<tr><td>Content</td><td>Truthful subject lines. Real sender. No attachments. Every link on advantage.bid domains. No tracking pixel. Plain HTML with a text part. Postal address in the footer.</td></tr>
+<tr><td>Audit</td><td>Every decision, send, token, claim attempt and suppression is recorded with actor and time.</td></tr>
+</table></div>
+<div class="callout red"><p><b>Needs Owner or counsel review (not a legal conclusion):</b> whether these invitations count as commercial email under CAN-SPAM. The design treats them as commercial, which is the safer reading. That needs a valid physical postal address in every footer (Owner decision O1). Also consider state-law exposure, and whether listing and allowing reviews of businesses that never consented is acceptable. A short counsel review of the final templates is recommended before the pilot.</p></div>
+</section>
+
+<section id="s20">
+<h2><span class="n">20</span>Attribution architecture</h2>
+<p>Attribution follows two paths so it survives lost cookies and devices.</p>
+<ol>
+  <li><b>Hard link (primary):</b> token, then message, then sequence, then cohort, then company. When a listing is claimed, <code>organizations.acquisition</code> records the journey, cohort, template version and proof method. When a member of that organization creates a Professional Seller profile, the record is copied to <code>seller_profiles.acquisition</code>. Seller conversion then carries the original journey with no guesswork.</li>
+  <li><b>Session attribution (supporting):</b> every link carries <code>utm_source=advantage_bid&amp;utm_medium=email&amp;utm_campaign=claimed_listing_&lt;cohort&gt;&amp;utm_content=&lt;template&gt;_v&lt;n&gt;</code>. The existing attribution service records the touch and stitches it to the account at sign-up.</li>
+</ol>
+<p>New conversion keys are first-party only. Nothing is sent to advertising platforms.</p>
+</section>
+
+<section id="s21">
+<h2><span class="n">21</span>Funnel analytics and dashboard <span class="chip bld">Build</span></h2>
+<p>Results are grouped by send week and show the results each cohort has produced so far. Staff, admin, demo, test and seeded accounts are excluded. Automated link fetches are shown separately.</p>
+<div class="tbl"><table>
+<tr><th>Stage</th><th>Definition</th><th>Rate</th></tr>
+<tr><td>Eligible</td><td><code>ELIGIBLE_UNCLAIMED_LISTING</code> at cohort build</td><td>Eligible ÷ screened</td></tr>
+<tr><td>Sent</td><td>SES accepted</td><td></td></tr>
+<tr><td>Delivered</td><td>SES Delivery on the claimed_listing stream</td><td>Delivered ÷ sent</td></tr>
+<tr><td>Bounced · Complained · Unsubscribed</td><td>SES events, one-click or link unsubscribe</td><td>Each ÷ delivered</td></tr>
+<tr><td>Opened</td><td>Not measured, by design</td><td></td></tr>
+<tr><td>Clicked (human)</td><td>Landing page beacon after interaction</td><td>Visits ÷ delivered</td></tr>
+<tr><td>Claim started</td><td>"This is my company, continue"</td><td>Started ÷ visits</td></tr>
+<tr><td>Claim verified</td><td>Ownership granted</td><td>Verified ÷ started, verified ÷ delivered</td></tr>
+<tr><td>Activated</td><td>Section 9 definition</td><td>Activated ÷ verified (45-day window)</td></tr>
+<tr><td>Pro Seller interest</td><td>Section 15 signals</td><td>Interest ÷ activated</td></tr>
+<tr><td>Application</td><td>Professional seller profile created</td><td>Application ÷ interest</td></tr>
+<tr><td>Conversion</td><td>First professional auction or storefront listing published</td><td>Conversion ÷ application; per 100 delivered</td></tr>
+</table></div>
+<p>Also tracked: median time to claim and to activation, events published per activated listing, replies and removal requests per 100 delivered, share of claims by proof method. The headline figure is <b>activated listings per 100 delivered</b>. Visits and claims on their own are vanity measures.</p>
+</section>
+
+<section id="s22">
+<h2><span class="n">22</span>SEO and AI-search requirements</h2>
+<p class="decision">Decision on canonical URLs: for now, the www directory page stays the single public, canonical company page. It is already indexed and it is the page recipients see. Railway stays the source of truth for the data and sends claimed-profile edits to the directory page through the BD adapter. Railway's own company profile points its canonical tag at the directory page whenever a listing exists. Moving company pages to server-rendered Railway pages with redirects is a later decision (<span class="chip fut">Future</span>).</p>
+<div class="tbl"><table>
+<tr><th>Requirement</th><th>Spec</th><th>State</th></tr>
+<tr><td>Crawlability</td><td>Company pages server-rendered, reachable in two clicks from city and category pages, allowed for AI crawlers (robots already allows public content)</td><td><span class="chip cur">Current</span> on www; <span class="chip bld">Build</span> for the Railway profile</td></tr>
+<tr><td>Canonical</td><td>One canonical per company as decided above</td><td><span class="chip bld">Build</span></td></tr>
+<tr><td>Structured data</td><td>LocalBusiness with absolute image URL, telephone, url, sameAs (website and social), areaServed, knowsAbout (specialties), address only if the business chooses to show it; Event items for published sales linking to their canonical event pages; ratings only from real reviews</td><td><span class="chip gap">Gap</span> image URL, <span class="chip bld">Build</span> the rest</td></tr>
+<tr><td>Semantic content</td><td>Factual summary block (what the company does, where, since when) in plain HTML text, written by the owner after claim</td><td><span class="chip bld">Build</span></td></tr>
+<tr><td>Service area</td><td>Structured list of cities and counties, shown and marked up</td><td><span class="chip bld">Build</span></td></tr>
+<tr><td>Internal links</td><td>Company page to its events; events back to the company (host organization); city pages to companies</td><td><span class="chip cur">Current</span> in part (host model exists)</td></tr>
+<tr><td>Sitemaps</td><td>Company pages with lastmod from profile updates</td><td><span class="chip bld">Build</span></td></tr>
+<tr><td>Metadata</td><td>Title "{{company}}, {{type}} in {{city}}, {{state}}"; description from the owner summary; OG image from the logo or cover</td><td><span class="chip bld">Build</span></td></tr>
+<tr><td>Accessibility</td><td>Alt text on logo and photos, heading order, contrast, labelled buttons</td><td><span class="chip bld">Build</span> check</td></tr>
+<tr><td>Trust display</td><td>A visible "Managed by {{company}}" label once claimed; "Listing created from public information" while unclaimed</td><td><span class="chip bld">Build</span></td></tr>
+</table></div>
+<p>Unclaimed pages stay indexed once the generated descriptions have been replaced with short factual text (O4). Hiding them from search would also hide them from the owners we want to find them.</p>
+</section>
+
+<section id="s23">
+<h2><span class="n">23</span>Abuse and failure protections</h2>
+<div class="cols">
+<div class="card"><h4>Listing takeover</h4><ul><li>Single-use tokens bound to one recipient, hashed</li><li>Opening the page never consumes the token</li><li>Rate-limited self-requests; the address is masked</li><li>Help requests confirmed by calling the listing's own phone</li><li>Name, domain and contact changes reviewed; old address notified</li><li>Every attempt logged; repeated denials alert staff</li></ul></div>
+<div class="card"><h4>Looking like phishing</h4><ul><li>No attachments, no forms inside email</li><li>Links only to advantage.bid domains</li><li>"We never ask for payment details to claim" on page and in replies</li><li>Real phone number and a named person</li><li>Confirm DMARC enforcement on advantage.bid (infra check)</li></ul></div>
+<div class="card"><h4>Sending failures</h4><ul><li>Idempotency key per company, cycle and step, so there are no double sends</li><li>SES errors retry with backoff and never skip a step</li><li>Health thresholds auto-pause</li><li>Config missing means nothing sends</li></ul></div>
+<div class="card"><h4>Bad data</h4><ul><li>Data Quality review rule</li><li>One send per address when several listings share it</li><li>Wrong-contact and closed-business exits</li><li>Removal honored within two business days</li></ul></div>
+</div>
+</section>
+
+<section id="s24">
+<h2><span class="n">24</span>Recommended pilot design</h2>
+<ul>
+  <li><b>Size:</b> 50 companies. Houston metro and NYC Tri-State first (about 60 listings before exclusions). If fewer than 50 are eligible, fill with national Tier A estate sale companies.</li>
+  <li><b>Pace:</b> 10 E1 sends per day over five send days. The full sequence finishes in about three weeks.</li>
+  <li><b>Pre-work for every pilot company:</b> factual description replaces the generated text; badge problems fixed; data quality reviewed by a person.</li>
+  <li><b>One version of each email.</b> 50 recipients is too few for an A/B test to mean anything. Pilot learning comes from what replies say, not from comparing variants.</li>
+  <li><b>No holdout group.</b> The baseline is close to zero: no directory logins in two years. The dry-run confirms the Railway claim count.</li>
+  <li><b>Rep:</b> Kym holds all 50, with Tier A call tasks.</li>
+  <li><b>Readout:</b> 30 days after the last E1, and again at 60 days for activation.</li>
+</ul>
+</section>
+
+<section id="s25">
+<h2><span class="n">25</span>Success criteria</h2>
+<p class="small">These are the Director's working thresholds for the go or no-go call, not industry benchmarks.</p>
+<div class="tbl"><table>
+<tr><th>Measure</th><th>Continue</th><th>Adjust</th><th>Stop and rethink</th></tr>
+<tr><td>Hard bounce rate</td><td class="num">&lt; 3%</td><td class="num">3 to 5%</td><td class="num">&gt; 5%</td></tr>
+<tr><td>Complaints</td><td class="num">0</td><td class="num">1 (review)</td><td class="num">2+</td></tr>
+<tr><td>Unsubscribe and removal requests</td><td class="num">&lt; 5%</td><td class="num">5 to 10%</td><td class="num">&gt; 10%</td></tr>
+<tr><td>Claims verified ÷ delivered</td><td class="num">≥ 8%</td><td class="num">4 to 8%</td><td class="num">&lt; 4%</td></tr>
+<tr><td>Activated ÷ claimed (45 days)</td><td class="num">≥ 40%</td><td class="num">20 to 40%</td><td class="num">&lt; 20%</td></tr>
+<tr><td>Replies needing a person, answered within 1 business day</td><td class="num">100%</td><td colspan="2">Any miss is a process fix before expanding</td></tr>
+</table></div>
+<p>Pro Seller results are tracked but are not a pilot criterion. Fifty companies is too few to judge them.</p>
+</section>
+
+<section id="s26">
+<h2><span class="n">26</span>Rollout stages</h2>
+<div class="tbl"><table>
+<tr><th>Stage</th><th>What happens</th><th>Who starts it</th></tr>
+<tr><td>0 · Build and shadow</td><td>Build gates L-A to L-C. Screening, scoring and rendering run in shadow. Nothing sends.</td><td>VS Code</td></tr>
+<tr><td>1 · Seed test</td><td>Real stream to staff Gmail, Outlook and Yahoo inboxes. Check authentication, inbox placement, unsubscribe, links, footer.</td><td>VS Code, Desktop review</td></tr>
+<tr><td>2 · Pilot 50</td><td>Owner approves the cohort and templates and turns sending on.</td><td>Owner</td></tr>
+<tr><td>3 · Expand to 150</td><td>All remaining Houston and Tri-State listings plus national Tier A. Daily cap 25.</td><td>Owner approves each cohort</td></tr>
+<tr><td>4 · Steady state</td><td>Remaining directory at up to 50 per day. After 2 clean cohorts, the Owner may allow the Director to run approved templates within caps. Weekly report to the Owner.</td><td>Director, Owner oversight</td></tr>
+<tr><td>5 · Later</td><td>Appraisers after badge cleanup. Railway-hosted company pages. Creating listings for researched businesses not yet in the directory (Owner decision; not in scope).</td><td>Owner</td></tr>
+</table></div>
+</section>
+
+<section id="s27">
+<h2><span class="n">27</span>Items requiring VS Code implementation</h2>
+<ol>
+  <li>Company identity and journey lock, plus the <code>EXCLUDE_LISTING_JOURNEY</code> change in Event Partner screening (blocker).</li>
+  <li>Claimed Listing eligibility screening and scoring.</li>
+  <li>Token-first claim landing, one-step redemption as verification, exit options.</li>
+  <li>Self-service claim link request, help request, dispute path; the endpoint that lets the BD button point to Railway.</li>
+  <li>Outreach tables, templates, cohorts, sequence worker, send gate, SES stream and configuration set, one-click unsubscribe, inbound reply routing.</li>
+  <li>Activation checklist, milestones, fast lane, A1 to A4 emails.</li>
+  <li>Toolbox tab, contact locks, company timeline, task queues, RBAC permissions; suppression and lock checks added to 1:1 rep email.</li>
+  <li>Funnel events, acquisition records, conversion keys, dashboard.</li>
+  <li>SEO fixes: absolute JSON-LD image, canonical rule, company pages in the sitemap, server rendering for the Railway profile.</li>
+  <li>Copy fixes: remove em dashes from rep From names and listing emails; replace the welcome email with A1.</li>
+</ol>
+<p>Order, table definitions and acceptance tests are in the VS Code handoff.</p>
+</section>
+
+<section id="s28">
+<h2><span class="n">28</span>Items already supported, no build needed</h2>
+<p>Secure claim tokens and the claim-attempt log · the organization lifecycle · verified company-domain claiming · admin override with actor · Free Business Listing review and publication · profile editor and free events · Partner CRM activity and multi-rep tables · the Sales &amp; Marketing Toolbox, rep sender identities and 1:1 send · Google Places research with cost logging · RBAC marketing role · SES sending with per-stream configuration sets and feedback ingestion · global suppression · the RFC 8058 unsubscribe pattern · first-party attribution and the conversion ledger with staff exclusion · the reply.advantage.bid inbound system · sitemap generator · robots policy open to AI crawlers on public pages · the after-estate-sale page used by P1.</p>
+</section>
+
+<section id="s29">
+<h2><span class="n">29</span>Owner decisions genuinely required</h2>
+<p>None of these blocks the build. All of them must be settled before the first real send.</p>
+<div class="tbl"><table>
+<tr><th>#</th><th>Decision</th><th>Recommendation</th></tr>
+<tr><td class="num">O1</td><td>Physical postal address for email footers</td><td>A PO box or registered mailbox service, so no business address has to be published. Needed before the seed test.</td></tr>
+<tr><td class="num">O2</td><td>Authorize the pilot: approve the 50-company cohort and the templates</td><td>Approve after the shadow and seed-test reports.</td></tr>
+<tr><td class="num">O3</td><td>Move 41 imported, never-joined records off paid plans (7 Gold, 1 Silver, 33 Appraiser) to the Claim Listing plan</td><td>Yes. Listed by user id in the handoff. This is a public data change, so it waits for your approval.</td></tr>
+<tr><td class="num">O4</td><td>Replace generated "About" texts with short factual text</td><td>Yes. Pilot companies first, then everyone.</td></tr>
+<tr><td class="num">O5</td><td>Exclude national houses from outreach and decide whether they stay in the directory at all</td><td>Exclude from outreach now. Consider removing them from the directory.</td></tr>
+<tr><td class="num">O6</td><td>Reconcile the Professional Seller fee (Toolbox says 4% + 3%, CLAUDE.md says 2%)</td><td>Needed before reps discuss Pro Seller with claimed companies.</td></tr>
+<tr><td class="num">O7</td><td>Counsel review of templates and the directory-without-consent question</td><td>A short review before the pilot.</td></tr>
+</table></div>
+</section>
+
+<section id="s30">
+<h2><span class="n">30</span>Recommended next action</h2>
+<p>Send the VS Code handoff (written to <code>docs\marketing\claimed-listing\</code> in the production repo). Start with gate L-A: the journey lock and the dry-run backfill. The dry-run report shows how many companies each journey owns, and it closes the Event Partner collision before either programme sends anything. At the same time, the Owner can settle O1, O3 and O4, which need no engineering.</p>
+<div class="end">CLAIMED LISTING ACTIVATION &amp; CONVERSION: READY FOR IMPLEMENTATION</div>
+<p class="small" style="margin-top:18px">Sources: <a href="https://www.ftc.gov/business-guidance/resources/can-spam-act-compliance-guide-business" target="_blank" rel="noopener">FTC, CAN-SPAM Act: A Compliance Guide for Business</a> · <a href="https://support.google.com/a/answer/14229414?hl=en" target="_blank" rel="noopener">Google, Email sender guidelines FAQ</a> · live BD directory (read-only queries, 24 Sep 2026) · advantage.bid and bid.advantage.bid public pages · production repo at migration 166.</p>
+</section>
+
+</main>
+</div>
+
+<script>
+document.querySelectorAll('.letter').forEach(function(box){
+  var btn = box.querySelector('.copy'); if(!btn) return;
+  btn.addEventListener('click', function(){
+    var parts = [];
+    box.querySelectorAll('.meta div').forEach(function(d){ parts.push(d.textContent.trim()); });
+    var pre = box.querySelector('pre'); if (pre) parts.push((parts.length ? '\n' : '') + pre.textContent);
+    var text = parts.join('\n');
+    function done(){ btn.textContent = 'Copied'; setTimeout(function(){ btn.textContent = 'Copy'; }, 1500); }
+    try {
+      navigator.clipboard.writeText(text).then(done, function(){ select(pre); });
+    } catch(e){ select(pre); }
+  });
+});
+function select(el){ if(!el) return; var r=document.createRange(); r.selectNodeContents(el); var s=window.getSelection(); s.removeAllRanges(); s.addRange(r); }
+</script>
