@@ -51,10 +51,28 @@ async function ensureOrganizationForProspect(prospect, runner = db) {
   if (!domain) return { ok: false, reason: 'no company website domain — cannot scope an authorization' };
 
   const existing = (await runner.query(
-    `SELECT id, name FROM organizations
+    `SELECT id, name, bd_listing_id, source FROM organizations
       WHERE lower(regexp_replace(COALESCE(website_url,''), '^https?://(www\\.)?', '')) LIKE $1
          OR lower(name) = lower($2) LIMIT 1`, [domain + '%', prospect.company_name])).rows[0];
-  if (existing) return { ok: true, organizationId: existing.id, created: false };
+  if (existing) {
+    // Journey lock (migration 169): a directory listing belongs to the Claimed Listing journey. Attaching
+    // an Event Partner invitation to it would make it token-only claimable by a cold invitation — the
+    // collision the Owner prohibited. Refuse unless the company has ALREADY entered Event Partner.
+    // Fails closed: if the journey cannot be determined, refuse.
+    if (existing.bd_listing_id || existing.source === 'bd_import') {
+      let journey = null;
+      try {
+        const snap = await require('../acquisition/companyIdentityService').snapshot(runner);
+        const c = snap.clusterFor('organization', String(existing.id));
+        journey = c ? c.journey : null;
+      } catch (e) { journey = 'UNKNOWN'; }
+      if (journey !== 'EVENT_PARTNER') {
+        return { ok: false, code: 'LISTING_JOURNEY',
+          reason: existing.name + ' is a directory listing in the Claimed Listing journey; it cannot receive a cold Event Partner invitation' };
+      }
+    }
+    return { ok: true, organizationId: existing.id, created: false };
+  }
 
   const slug = slugFor(prospect.company_name, domain);
   const row = (await runner.query(

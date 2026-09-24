@@ -35,6 +35,9 @@ const DECISIONS = Object.freeze({
   NO_CONTACT: 'EXCLUDE_NO_PUBLIC_CONTACT',
   AMBIGUOUS: 'REVIEW_AMBIGUOUS_IDENTITY',
   OTHER_RELATIONSHIP: 'REVIEW_OTHER_RELATIONSHIP',
+  // Migration 169: the company belongs to the Claimed Listing journey (a directory listing). It is
+  // invited to claim its listing, never cold-invited into Event Partner.
+  LISTING_JOURNEY: 'EXCLUDE_LISTING_JOURNEY',
 });
 
 /** Free/consumer mail domains: sharing one says nothing about company identity. */
@@ -205,6 +208,13 @@ async function resolve(prospect, ctx = {}, runner = db) {
       matched_entity_type: 'outreach', matched_entity_id: recent.id, signals };
   }
 
+  // Journey lock. A company whose records include a directory listing belongs to the Claimed Listing
+  // journey unless it has already entered Event Partner. Unclaimed directory shells have no members, so
+  // the relationship sets below cannot see them; this check can. It fails closed: if the company map
+  // cannot be built, nothing is sent.
+  const listing = await listingJourneyCheck(prospect, self, ctx, runner);
+  if (listing) return Object.assign({ signals }, listing);
+
   // Relationship screening. Each list is compared on every identity signal we hold.
   const sets = [
     { rows: ctx.claimed || (await claimedListings(runner)), decision: DECISIONS.CLAIMED_LISTING,
@@ -243,12 +253,64 @@ async function resolve(prospect, ctx = {}, runner = db) {
     reason: 'no existing Advantage.Bid relationship found on name, domain, email domain or phone', signals };
 }
 
+/**
+ * The Claimed Listing journey check (migration 169). Returns a decision object when the prospect must
+ * not be cold-invited, or null to continue screening.
+ *   strong identity with a CLAIMED_LISTING company → EXCLUDE_LISTING_JOURNEY
+ *   rare-name resemblance to a listing company     → REVIEW_AMBIGUOUS_IDENTITY
+ *   the company map could not be built             → REVIEW_OTHER_RELATIONSHIP (fail closed)
+ */
+async function listingJourneyCheck(prospect, self, ctx, runner) {
+  try {
+    // Lazy require: companyIdentityService imports this module's normalizers.
+    const identity = require('../acquisition/companyIdentityService');
+    const snap = ctx.companies || (await identity.snapshot(runner));
+    let clusters = [];
+    const own = prospect.id ? snap.clusterFor('sales_prospect', String(prospect.id)) : null;
+    if (own) clusters.push(own);
+    const strongSelf = identity.signalsOf({
+      name: prospect.company_name, website: prospect.website || prospect.website_domain,
+      email: prospect.business_email, phone: prospect.business_phone || prospect.normalized_phone,
+      googlePlaceId: prospect.google_place_id || null,
+    });
+    for (const c of snap.matchSignals(strongSelf).clusters) if (c && clusters.indexOf(c) === -1) clusters.push(c);
+    const hit = clusters.find((c) => c.journey === 'CLAIMED_LISTING');
+    if (hit) {
+      const org = hit.members.find((m) => m.entity_type === 'organization') || hit.members[0];
+      return { decision: DECISIONS.LISTING_JOURNEY,
+        reason: (org ? org.label : 'this company') + ' is a directory listing in the Claimed Listing journey'
+          + ' (' + (hit.journey_reason || 'directory listing') + ') and is never cold-invited to Event Partner',
+        matched_entity_type: org ? org.entity_type : 'company', matched_entity_id: org ? org.entity_id : null,
+        matched_on: ['journey:CLAIMED_LISTING'] };
+    }
+    if (prospect.id) {
+      const weak = snap.ambiguousFor('sales_prospect', String(prospect.id)).find((a) => {
+        const otherKey = a.a === 'sales_prospect:' + prospect.id ? a.b : a.a;
+        const [type, id] = otherKey.split(/:(.+)/);
+        const c = snap.clusterFor(type, id);
+        return c && c.journey === 'CLAIMED_LISTING';
+      });
+      if (weak) {
+        return { decision: DECISIONS.AMBIGUOUS,
+          reason: 'resembles the directory listing ' + (weak.a_label || '') + ' but no strong identifier agreed ('
+            + weak.weak.join(', ') + ') and is held for review rather than contacted',
+          matched_entity_type: 'organization', matched_entity_id: weak.a.split(/:(.+)/)[1] || null, matched_on: weak.weak };
+      }
+    }
+    return null;
+  } catch (e) {
+    return { decision: DECISIONS.OTHER_RELATIONSHIP,
+      reason: 'could not verify whether this company is a directory listing (' + e.message + '); held rather than contacted' };
+  }
+}
+
 /** Screen many prospects, loading the relationship sets once. Persists every decision. */
 async function screen({ prospectIds = null, limit = 500, persist = true, runner = db } = {}) {
   const ctx = {
     claimed: await claimedListings(runner),
     partners: await existingEventPartners(runner),
     pros: await professionalSellers(runner),
+    companies: await require('../acquisition/companyIdentityService').snapshot(runner),
   };
   const { rows } = await runner.query(
     `SELECT id, company_name, business_email, business_phone, website, website_domain,
