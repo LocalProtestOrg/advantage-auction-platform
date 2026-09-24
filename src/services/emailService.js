@@ -64,11 +64,17 @@ const SES_MARKETING_CONFIGURATION_SET = process.env.SES_MARKETING_CONFIGURATION_
 // ordinary transactional behaviour rather than borrowing another stream's reputation.
 const SES_EVENT_PARTNER_CONFIGURATION_SET = process.env.SES_EVENT_PARTNER_CONFIGURATION_SET || null;
 
+// Dedicated Claimed Listing SES configuration set (migration 170). The listing programme's reputation and
+// bounce/complaint telemetry are its own. Unset = no header; the listing send gate refuses to send at all
+// while it is unset, so this stream never borrows another stream's reputation.
+const SES_CLAIMED_LISTING_CONFIGURATION_SET = process.env.SES_CLAIMED_LISTING_CONFIGURATION_SET || null;
+
 // The configuration set for a given mail stream. Unknown streams get none — never a default that
 // would silently attribute mail to the wrong programme.
 function configurationSetForStream(mailStream) {
   if (mailStream === 'marketing') return SES_MARKETING_CONFIGURATION_SET;
   if (mailStream === 'event_partner') return SES_EVENT_PARTNER_CONFIGURATION_SET;
+  if (mailStream === 'claimed_listing') return SES_CLAIMED_LISTING_CONFIGURATION_SET;
   return null;
 }
 
@@ -147,7 +153,9 @@ async function sendEmail({ to, subject, html, text, attachments, replyTo, header
     const mergedHeaders = Object.assign({},
       (headers && typeof headers === 'object' ? headers : {}),
       (configurationSet ? { 'X-SES-CONFIGURATION-SET': configurationSet } : {}));
-    const transporter = isMarketing ? getMarketingTransporter() : getTransporter();
+    // Claimed Listing outreach is bulk-ish too: it uses the marketing pool so it can never starve
+    // transactional mail, while carrying its own configuration set.
+    const transporter = (isMarketing || mailStream === 'claimed_listing') ? getMarketingTransporter() : getTransporter();
     const info = await transporter.sendMail({
       from,
       to,
@@ -175,5 +183,6 @@ module.exports = {
   sendEmail, isConfigured, EMAIL_FROM,
   marketingConfigurationSet: () => SES_MARKETING_CONFIGURATION_SET,
   eventPartnerConfigurationSet: () => SES_EVENT_PARTNER_CONFIGURATION_SET,
+  claimedListingConfigurationSet: () => SES_CLAIMED_LISTING_CONFIGURATION_SET,
   configurationSetForStream,
 };

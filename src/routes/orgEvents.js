@@ -110,7 +110,14 @@ router.post('/profile', asyncRoute(async (req, res) => {
   let org = req.actingOrg;
   const created = !org;
   if (!org) org = await orgsService.onboardOrganization(req.user.id, b);
-  const updates = mapOrgUpdate(b);
+  let updates = mapOrgUpdate(b);
+  // Claimed Listing (migration 170): on a listing claimed through the claim flow, a change to the name,
+  // website domain or contact email is held for staff review; every other field saves exactly as before.
+  let held = [];
+  if (!created) {
+    const pc = await require('../services/claimedListings/profileChangeService').intercept(org, updates, { userId: req.user.id });
+    updates = pc.updates; held = pc.held;
+  }
   if (hasOwn(b, 'profileData')) {
     const existing = (org.profile_data && typeof org.profile_data === 'object') ? org.profile_data : {};
     updates.profile_data = Object.assign({}, existing, profileSchema.sanitizeProfileData(b.profileData));
@@ -129,11 +136,14 @@ router.post('/profile', asyncRoute(async (req, res) => {
       } catch (e) { console.error('[org] welcome email (create) best-effort failed:', e.message); }
     })();
   }
+  // Keep the listing checklist current (best-effort; claimed listings only).
+  require('../services/claimedListings/activationService').recompute(org.id).catch(() => {});
   const types = await orgProfessionalTypes(org.id);
   const s = serializeOrg(org);
   res.status(created ? 201 : 200).json({
     success: true, organization: s, professional_types: types,
     completeness: profileSchema.completeness(s, s.profile_data, types),
+    ...(held.length ? { pending_review: held } : {}),
   });
 }));
 
@@ -159,6 +169,25 @@ router.post('/submit-listing', asyncRoute(async (req, res) => {
     } catch (e) { console.error('[org] submit-listing notify best-effort failed:', e.message); }
   })();
   res.json({ success: true, review_status: out.review_status, requested_type: out.requested_type });
+}));
+
+// GET /api/org/listing-checklist — the claimed listing's five-step checklist + milestones (null when the
+// organization was not claimed through the Claimed Listing flow). Owner-scoped via req.actingOrg.
+router.get('/listing-checklist', asyncRoute(async (req, res) => {
+  const org = req.actingOrg;
+  if (!org) return res.json({ success: true, checklist: null });
+  const view = await require('../services/claimedListings/activationService').checklistFor(org.id).catch(() => null);
+  const pending = view ? await require('../services/claimedListings/profileChangeService').pendingFor(org.id).catch(() => []) : [];
+  res.json({ success: true, checklist: view, pending_review: pending });
+}));
+
+// POST /api/org/listing-checklist/:step — owner confirms details ('details') or marks "no sale scheduled
+// right now" ('no_sale'). Every other step completes itself from the real profile and events.
+router.post('/listing-checklist/:step', asyncRoute(async (req, res) => {
+  const org = req.actingOrg;
+  if (!org) throw svcErr(404, 'ORG_NOT_FOUND', 'No organization.');
+  const view = await require('../services/claimedListings/activationService').markStep(org.id, req.params.step);
+  res.json({ success: true, checklist: view });
 }));
 
 // GET /api/org/events — the org's events + plan usage

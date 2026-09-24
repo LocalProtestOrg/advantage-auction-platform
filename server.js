@@ -469,6 +469,10 @@ app.get('/pro/:slug', async (req, res, next) => {
   } catch (e) { return res.send(tpl); } // fail-open
 });
 
+// Claimed Listing token-first landing (/claim/:token): server-rendered, noindex, no third-party scripts.
+// Opening it never consumes the token. Mounted before the HTML gate and static files.
+app.use(require('./src/routes/claimListing'));
+
 // SERVER-SIDE AUTH GATE for private HTML pages — MUST run before express.static so a protected
 // page is never served to an unauthenticated browser (client-side guards are now defense-in-depth).
 app.use(require('./src/middleware/htmlAuthGate'));
@@ -595,6 +599,7 @@ app.use('/api/admin/marketplace-links', adminMarketplaceLinkRoutes);
 app.use('/api/admin/partners', adminPartnersRoutes);
 app.use('/api/admin/crm', adminCrmRoutes);
 app.use('/api/admin/sales', adminSalesRoutes);
+app.use('/api/admin/claimed-listings', require('./src/routes/adminClaimedListings')); // Toolbox: Claimed Listings tab (listings.* permissions)
 app.use('/api/admin/pricing', adminPricingRoutes);
 app.use('/api/admin/pricing-agreements', require('./src/routes/adminPricingAgreements'));
 app.use('/api/admin/owner-alerts', require('./src/routes/adminOwnerAlerts'));
@@ -637,6 +642,7 @@ app.use('/api/invoices', invoicesRoutes);
 app.use('/api/seller/marketing-report', marketingReportsRoutes);
 app.use('/api/image-processing', imageProcessingRoutes);
 app.use('/api/uploads', uploadsRoutes);
+app.use('/api/public', require('./src/routes/publicListings')); // Claimed Listing: claim context, claim link, help, by-bd lookup, unsubscribe
 app.use('/api/public', publicRoutes);
 app.use('/api/public', publicEventsRoutes);   // event feed (+ restricted CORS); falls through public.js
 // Event Partner one-click authorization (no auth, no session, token-gated, master gate OFF by default).
@@ -835,6 +841,8 @@ server.listen(PORT, () => {
     // Scheduled Event Import worker (weekly, draft-only, review-queue gated). Self-gates on env;
     // stays idle unless EVENT_IMPORT_WORKER_ENABLED=true, so it is inert until the owner activates it.
     spawnWorker(path.join(__dirname, 'src/workers/eventImportWorker.js'));
+    // Claimed Listing scheduler (10 min). Sends NOTHING unless claimed_listings.sending_enabled and all nine send gates pass.
+    spawnWorker(path.join(__dirname, 'src/workers/claimedListingWorker.js'));
     // Marketing audience auto-refresh (platform-fact + behavioral). Self-gates on
     // marketing.behavioral.enabled; never sends/spends/connects a provider.
     spawnWorker(path.join(__dirname, 'src/workers/marketingRefreshWorker.js'));

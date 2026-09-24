@@ -99,7 +99,11 @@
       <button id="tab-prospects" onclick="showTab('prospects')">Prospects</button>
       <button id="tab-playbook" onclick="showTab('playbook')">Scripts &amp; Playbook</button>
       <button id="tab-training" onclick="showTab('training')">Rep Onboarding</button>
+      <button id="tab-claimed" onclick="showTab('claimed')">Claimed Listings</button>
     </div>
+
+    <!-- ============ CLAIMED LISTINGS (directory listings, claim status, programme) ============ -->
+    <div id="pane-claimed" style="display:none"></div>
 
     <!-- ============ TOOLBOX (links + pitch + Q&A) ============ -->
     <div id="pane-toolbox">
@@ -273,7 +277,7 @@
       return r.json();
     }
     function esc(s){return (s==null?'':String(s)).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
-    function showTab(t){['toolbox','prospects','playbook','training'].forEach(x=>{document.getElementById('pane-'+x).style.display=x===t?'':'none';document.getElementById('tab-'+x).classList.toggle('active',x===t);});if(t==='prospects'){loadStats();loadProspects();}}
+    function showTab(t){['toolbox','prospects','playbook','training','claimed'].forEach(x=>{document.getElementById('pane-'+x).style.display=x===t?'':'none';document.getElementById('tab-'+x).classList.toggle('active',x===t);});if(t==='prospects'){loadStats();loadProspects();}if(t==='claimed'&&window.ClaimedListingsTab){window.ClaimedListingsTab.init();}}
 
     // ---- Copy helper ----
     function copyBlock(btn){const txt=btn.parentElement.getAttribute('data-copy')||btn.parentElement.innerText;navigator.clipboard.writeText(txt).then(()=>{btn.textContent='Copied';btn.classList.add('done');setTimeout(()=>{btn.textContent='Copy';btn.classList.remove('done');},1400);});}
@@ -770,5 +774,6 @@
     }
     function closeComposer(){document.getElementById('composer').style.display='none';}
   </script>
+  <script src="/admin/claimed-listings-tab.js"></script>
 </body>
 </html>

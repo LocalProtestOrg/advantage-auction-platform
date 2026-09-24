@@ -29,6 +29,11 @@ const DEFS = {
   bid:                      { kind: 'conversion', funnel: 'buyer', label: 'Bid placed', emitter: 'bid service (after a bid is accepted)', source_event: 'bid_placed', meta_event: 'AddToCart', google_action: 'bid', success_signal: true },
   purchase:                 { kind: 'conversion', funnel: 'buyer', label: 'Purchase (invoice paid)', emitter: 'invoice paid (Stripe webhook)', source_event: 'purchase', meta_event: 'Purchase', google_action: 'purchase', success_signal: true, value: 'invoice total cents' },
   email_signup:             { kind: 'conversion', funnel: 'buyer', label: 'Email signup', emitter: 'POST /api/public/subscribers', meta_event: 'Subscribe', google_action: 'email_signup', success_signal: true },
+  // Claimed Listing journey (migration 170). FIRST-PARTY ONLY: no meta_event / google_action, so nothing is ever
+  // dispatched to an advertising platform (dispatch records 'not_mapped'). Not paid success signals.
+  claimed_listing_claimed:        { kind: 'conversion', funnel: 'listing', label: 'Directory listing claimed', emitter: 'claimLinkService.afterClaim', meta_event: null, google_action: null, provider: 'not_mapped' },
+  claimed_listing_activated:      { kind: 'conversion', funnel: 'listing', label: 'Claimed listing activated', emitter: 'activationService.recompute', meta_event: null, google_action: null, provider: 'not_mapped' },
+  claimed_listing_pro_conversion: { kind: 'conversion', funnel: 'listing', label: 'Claimed listing became a publishing Professional Seller', emitter: 'acquisitionService.propagateToSellers', meta_event: null, google_action: null, provider: 'not_mapped' },
 };
 
 const KEYS = Object.keys(DEFS);

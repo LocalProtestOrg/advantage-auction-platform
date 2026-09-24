@@ -249,8 +249,10 @@ describe('migration 156', () => {
   test('the configuration set names are recorded and match the parser mapping', () => {
     expect(m).toMatch(/'"advantage-bid-event-partner"'/);
     expect(m).toMatch(/'"advantage-bid-marketing"'/);
+    // Migration 170 adds the Claimed Listing programme's own configuration set (and nothing else).
     expect(Object.keys(parser.STREAM_BY_CONFIGURATION_SET).sort())
-      .toEqual(['advantage-bid-event-partner', 'advantage-bid-marketing']);
+      .toEqual(['advantage-bid-claimed-listing', 'advantage-bid-event-partner', 'advantage-bid-marketing']);
+    expect(parser.STREAM_BY_CONFIGURATION_SET['advantage-bid-claimed-listing']).toBe('claimed_listing');
     expect(parser.STREAM_BY_CONFIGURATION_SET['advantage-bid-event-partner']).toBe('event_partner');
   });
 

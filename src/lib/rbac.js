@@ -25,6 +25,11 @@ const PERMISSIONS = [
   // Event Partner programme (authorization registry, per-company sources, host attribution)
   'event_partners.view',    // read the partner dashboard, sources, performance and audit trail
   'event_partners.manage',  // register, mint links, validate/activate sources, attribute, revoke
+  // Claimed Listing programme (migration 170). No package economics or financial fields are exposed.
+  'listings.view',            // read the Claimed Listings queue, company timeline and funnel
+  'listings.work',            // take the company lock, log contact, work tasks, pause a sequence
+  'listings.approve_cohort',  // approve cohorts/templates, program switches (Super Admin only)
+  'listings.manage_journey',  // release or move a company's acquisition journey, reassign locks (Super Admin only)
   // Auction operations
   'auctions.view', 'auctions.create', 'auctions.edit', 'auctions.manage_catalog', 'auctions.submit',
   // Auction approval
@@ -53,7 +58,7 @@ const ROLES = {
     // Read-only on Event Partners: minting authorization links, validating sources and revoking
     // permission stay with the Super Admin / owner in Phase 1.
     permissions: ['sales.view', 'sales.manage_prospects', 'sales.edit_scripts', 'sales.view_demo', 'sales.send_email',
-      'event_partners.view'],
+      'event_partners.view', 'listings.view', 'listings.work'],
   },
   auction_ops: {
     label: 'Auction Operations',

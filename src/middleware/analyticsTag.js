@@ -46,6 +46,7 @@
  *   /org/*        organiser admin surfaces.
  *   /prototype/*  non-production.
  *   /demo.html    non-production.
+ *   /claim/*, /claim-listing.html  claim links carry a single-use token in the URL.
  *
  * These mirror public/robots.txt. Two deliberate exceptions: /login.html and
  * /become-seller.html are Disallow'd for SEO but are essential funnel steps, so
@@ -57,8 +58,10 @@ const path = require('path');
 
 const PUBLIC_DIR = path.join(__dirname, '..', '..', 'public');
 
-const EXCLUDED_PREFIXES = ['/widgets/', '/admin/', '/org/', '/prototype/'];
-const EXCLUDED_EXACT = ['/demo.html'];
+// /claim/ and /claim-listing.html: a claim link carries a single-use token in its URL, so no third-party
+// script may ever load there (Claimed Listing, migration 170).
+const EXCLUDED_PREFIXES = ['/widgets/', '/admin/', '/org/', '/prototype/', '/claim/'];
+const EXCLUDED_EXACT = ['/demo.html', '/claim-listing.html'];
 
 function isEnabled() {
   return String(process.env.ANALYTICS_TAG_ENABLED || '').toLowerCase() === 'true';

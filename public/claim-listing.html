@@ -4,29 +4,32 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="robots" content="noindex, nofollow" />
-  <title>Claim Your Listing — Advantage.Bid</title>
+  <meta name="referrer" content="no-referrer" />
+  <title>Claim Your Listing | Advantage.Bid</title>
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-  <link rel="stylesheet" href="/marketplace.css" />
   <style>
-    body { background:#f8fafc; }
-    .wrap { max-width:560px; margin:0 auto; padding:2.5rem 1.25rem 4rem; }
-    .brand { text-align:center; margin-bottom:1.75rem; }
-    .brand a { font-size:1.05rem; font-weight:800; letter-spacing:-0.02em; color:#0f172a; text-decoration:none; }
-    .card { background:#fff; border:1px solid #e5e7eb; border-radius:16px; padding:2rem 1.75rem; box-shadow:0 1px 3px rgba(15,23,42,0.06); }
-    h1 { font-size:1.6rem; font-weight:800; letter-spacing:-0.03em; margin:0 0 0.6rem; }
-    p { font-size:0.95rem; color:#334155; line-height:1.6; margin:0 0 0.9rem; }
-    .btn { display:block; width:100%; text-align:center; font-size:1rem; font-weight:700; padding:0.9rem 1.5rem; border-radius:10px; border:0; cursor:pointer; background:#2563eb; color:#fff; text-decoration:none; }
-    .btn:hover { background:#1d4ed8; }
-    .btn:disabled { background:#93c5fd; cursor:not-allowed; }
-    .msg { border-radius:10px; padding:1rem 1.1rem; font-size:0.92rem; line-height:1.55; margin-bottom:1rem; }
-    .msg-err { background:#fef2f2; border:1px solid #fecaca; color:#991b1b; }
-    .fineprint { font-size:0.82rem; color:#64748b; text-align:center; margin-top:0.9rem; }
+    :root { --ink:#0f172a; --muted:#475569; --line:#e2e8f0; --accent:#1d4ed8; }
+    * { box-sizing:border-box; }
+    body { margin:0; background:#f8fafc; color:var(--ink); font:16px/1.55 system-ui,-apple-system,'Segoe UI',Roboto,Arial,sans-serif; }
+    .wrap { max-width:600px; margin:0 auto; padding:28px 16px 56px; }
+    .brand { font-weight:800; font-size:18px; margin:0 0 18px; } .brand a { color:var(--ink); text-decoration:none; }
+    .card { background:#fff; border:1px solid var(--line); border-radius:14px; padding:22px 20px; margin:0 0 16px; }
+    h1 { font-size:24px; line-height:1.25; margin:0 0 10px; } h2 { font-size:17px; margin:0 0 8px; }
+    p { margin:0 0 12px; } .fine { font-size:13px; color:var(--muted); }
+    .btn { display:block; width:100%; padding:14px 18px; font-size:16px; font-weight:700; border-radius:10px; border:0; background:var(--accent); color:#fff; cursor:pointer; text-align:center; text-decoration:none; }
+    .btn:disabled { opacity:.6; cursor:wait; } .btn2 { background:#fff; color:var(--ink); border:1px solid #cbd5e1; font-weight:600; }
+    label { display:block; font-weight:600; font-size:14px; margin:10px 0 4px; }
+    input, textarea { width:100%; padding:12px; border:1px solid #cbd5e1; border-radius:8px; font-size:16px; font-family:inherit; }
+    .err { background:#fef2f2; border:1px solid #fecaca; color:#991b1b; border-radius:8px; padding:10px 12px; margin:0 0 12px; }
+    .ok { background:#f0fdf4; border:1px solid #bbf7d0; color:#166534; border-radius:8px; padding:10px 12px; margin:0 0 12px; }
+    .hp { position:absolute; left:-9999px; } [hidden] { display:none !important; }
   </style>
 </head>
 <body>
   <div class="wrap">
     <div class="brand"><a href="/">Advantage.Bid</a></div>
-    <div id="app" aria-live="polite"><div class="card"><p>Loading…</p></div></div>
+    <div id="app" aria-live="polite"><div class="card"><p>Loading...</p></div></div>
+    <div class="card"><h2>What is Advantage.Bid?</h2><p class="fine">An online marketplace where people find local estate sales and auctions, and where sellers run them. Questions? Call (551) 655-7050 or email info@advantage.bid.</p></div>
   </div>
 <script>
 (function () {
@@ -35,51 +38,103 @@
   var qs = new URLSearchParams(location.search);
   var claimToken = qs.get('token') || '';
   var orgId = qs.get('org') || '';
-  var token = null; try { token = localStorage.getItem('token'); } catch (e) {}
+  var authToken = null; try { authToken = localStorage.getItem('token'); } catch (e) {}
 
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
   function card(html) { app.innerHTML = '<div class="card">' + html + '</div>'; }
-  function fail(m) { card('<div class="msg msg-err">' + esc(m) + '</div><p class="fineprint">Contact Advantage.Bid and we will send a new invitation.</p>'); }
 
-  if (!claimToken || !orgId) { fail('This claim link is incomplete. Please use the full link from your invitation.'); return; }
-
-  // The claim link is bound to one email address AND requires a signed-in, verified account with that
-  // address — holding the link is deliberately not enough on its own.
-  if (!token) {
-    card('<h1>Claim your listing</h1>'
-      + '<p>Sign in with the email address this invitation was sent to, and we will bring you straight back here.</p>'
-      + '<a class="btn" href="/login.html?next=' + encodeURIComponent(location.pathname + location.search) + '">Sign in to continue</a>'
-      + '<p class="fineprint">No account yet? Create one with that same email address.</p>');
+  // A claim link (older admin-issued links carried ?org=&token=) always opens the token-first page.
+  if (claimToken) { location.replace('/claim/' + encodeURIComponent(claimToken)); return; }
+  if (!/^[0-9a-f-]{36}$/i.test(orgId)) {
+    card('<h1>Claim your listing</h1><p>Open this page from the "Claim this listing" button on your company\'s listing, or use the link in the email we sent to the address on your listing.</p>'
+      + '<a class="btn btn2" href="/free-business-listing.html">Find or add your business</a>');
     return;
   }
 
-  card('<h1>Claim your listing</h1>'
-    + '<p>This connects your Advantage.Bid account to your company’s listing so you can manage it.</p>'
-    + '<button class="btn" id="go" type="button">Claim this listing</button>'
-    + '<p class="fineprint">You must be signed in with the invited email address, and it must be verified.</p>');
-
-  document.getElementById('go').addEventListener('click', function () {
-    var btn = this;
-    btn.disabled = true; btn.textContent = 'Claiming…';
-    fetch('/api/org/claim/' + encodeURIComponent(orgId), {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
-      body: JSON.stringify({ claim_token: claimToken }),
+  fetch('/api/public/listings/' + encodeURIComponent(orgId) + '/claim-context')
+    .then(function (r) { return r.json().then(function (b) { return { ok: r.ok, body: b }; }); })
+    .then(function (res) {
+      if (!res.ok || !res.body.listing) { card('<h1>Listing not found</h1><p>We could not find this listing. It may have been removed.</p>'); return; }
+      render(res.body.listing);
     })
-      .then(function (r) { return r.json().then(function (b) { return { ok: r.ok, body: b }; }); })
-      .then(function (res) {
-        if (!res.ok || !res.body.success) {
-          btn.disabled = false; btn.textContent = 'Claim this listing';
-          fail(res.body.message || 'We could not complete this claim.');
-          return;
-        }
-        location.href = '/org/profile.html?claimed=1&next=submit';
-      })
-      .catch(function () {
-        btn.disabled = false; btn.textContent = 'Claim this listing';
-        fail('We could not complete this claim. Please check your connection and try again.');
-      });
-  });
+    .catch(function () { card('<div class="err">We could not load this listing. Please check your connection and try again.</div>'); });
+
+  function helpForm(l, dispute) {
+    return '<div class="card" id="help"><h2>' + (dispute ? 'Is this your company?' : 'Can\'t get to that inbox?') + '</h2>'
+      + '<p class="fine">' + (dispute
+        ? 'This listing is already managed by an account. Tell us about your connection to the company and our team will review it. Ownership only changes after a review.'
+        : 'Ask us for help. We will call the phone number on this listing to confirm, then set up your access.') + '</p>'
+      + '<form id="f-help" novalidate><div id="e-help" class="err" hidden></div><div id="ok-help" class="ok" hidden></div>'
+      + '<label for="h-name">Your name</label><input id="h-name" autocomplete="name" required maxlength="120">'
+      + '<label for="h-role">Your role at the company</label><input id="h-role" maxlength="80">'
+      + '<label for="h-phone">Best phone number for you</label><input id="h-phone" type="tel" autocomplete="tel" maxlength="40">'
+      + '<label for="h-email">Your email</label><input id="h-email" type="email" autocomplete="email" maxlength="200">'
+      + '<label for="h-msg">Anything we should know?</label><textarea id="h-msg" rows="3" maxlength="2000"></textarea>'
+      + '<input class="hp" id="h-website" tabindex="-1" autocomplete="off" aria-hidden="true">'
+      + '<button class="btn btn2" type="submit" style="margin-top:14px">Send to the Advantage.Bid team</button></form></div>';
+  }
+
+  function render(l) {
+    var loc = [l.city, l.state].filter(Boolean).join(', ');
+    if (l.claimed) {
+      app.innerHTML = '<div class="card"><h1>' + esc(l.name) + ' is already claimed</h1><p>This listing is managed by an account on Advantage.Bid.</p></div>' + helpForm(l, true);
+      wireHelp();
+      return;
+    }
+    if (!l.claimable) {
+      card('<h1>' + esc(l.name) + '</h1><p>This listing cannot be claimed online. Call (551) 655-7050 or email info@advantage.bid and we will help.</p>');
+      return;
+    }
+    var send = l.self_request_available
+      ? '<p>It\'s free. We\'ll send a claim link to the email address on this listing: <b>' + esc(l.masked_email) + '</b></p>'
+        + '<div id="e-send" class="err" hidden></div><div id="ok-send" class="ok" hidden></div>'
+        + '<button class="btn" id="send" type="button">Send my claim link</button>'
+      : '<p>It\'s free. Claiming by email link isn\'t available for this listing online yet. Use one of the options below, or call (551) 655-7050.</p>';
+    app.innerHTML = '<div class="card"><h1>Claim ' + esc(l.name) + '</h1>' + (loc ? '<p class="fine">' + esc(loc) + '</p>' : '') + send + '</div>'
+      + '<div class="card"><h2>Use a different email?</h2><p class="fine">If your email address is on your company\'s web domain, sign in with it and claim directly.</p>'
+      + (authToken ? '<div id="e-domain" class="err" hidden></div><button class="btn btn2" id="domain" type="button">I\'m signed in with my company email, claim now</button>'
+                   : '<a class="btn btn2" href="/login.html?next=' + encodeURIComponent(location.pathname + location.search) + '">Sign in with your company email</a>')
+      + '</div>' + helpForm(l, false);
+    var b = document.getElementById('send');
+    if (b) b.addEventListener('click', function () {
+      b.disabled = true;
+      fetch('/api/public/listings/' + encodeURIComponent(orgId) + '/claim-link', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })
+        .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, body: j }; }); })
+        .then(function (r) {
+          if (r.ok) { var ok = document.getElementById('ok-send'); ok.textContent = 'Sent. Check the inbox for ' + (r.body.masked_email || l.masked_email) + '. The link works for 14 days.'; ok.hidden = false; b.hidden = true; return; }
+          b.disabled = false; var e = document.getElementById('e-send'); e.textContent = r.body.message || 'We could not send a link right now.'; e.hidden = false;
+        }).catch(function () { b.disabled = false; });
+    });
+    var d = document.getElementById('domain');
+    if (d) d.addEventListener('click', function () {
+      d.disabled = true;
+      fetch('/api/org/claim/' + encodeURIComponent(orgId), { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + authToken }, body: '{}' })
+        .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, body: j }; }); })
+        .then(function (r) {
+          if (r.ok && r.body.success) { location.href = '/org/profile.html?claimed=1'; return; }
+          d.disabled = false; var e = document.getElementById('e-domain'); e.textContent = r.body.message || 'We could not verify your connection to this company.'; e.hidden = false;
+        }).catch(function () { d.disabled = false; });
+    });
+    wireHelp();
+  }
+
+  function wireHelp() {
+    var f = document.getElementById('f-help');
+    if (!f) return;
+    f.addEventListener('submit', function (ev) {
+      ev.preventDefault();
+      var btn = f.querySelector('button'); btn.disabled = true;
+      var body = { name: val('h-name'), role: val('h-role'), phone: val('h-phone'), email: val('h-email'), message: val('h-msg'), website: val('h-website') };
+      fetch('/api/public/listings/' + encodeURIComponent(orgId) + '/claim-help', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+        .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, body: j }; }); })
+        .then(function (r) {
+          btn.disabled = false;
+          if (r.ok) { var ok = document.getElementById('ok-help'); ok.textContent = 'Thank you. A person on our team will be in touch within one business day.'; ok.hidden = false; btn.hidden = true; return; }
+          var e = document.getElementById('e-help'); e.textContent = r.body.message || 'Please try again.'; e.hidden = false;
+        }).catch(function () { btn.disabled = false; });
+    });
+  }
+  function val(id) { var el = document.getElementById(id); return el ? el.value : ''; }
 })();
 </script>
 </body>

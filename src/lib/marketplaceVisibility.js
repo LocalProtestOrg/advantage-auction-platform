@@ -56,6 +56,8 @@ function activeMarketplaceCompanySql(alias = 'o') {
   const common = `${alias}.lat IS NOT NULL AND ${alias}.lng IS NOT NULL`
     + ` AND ${alias}.name IS NOT NULL AND btrim(${alias}.name) <> ''`
     + ` AND (${alias}.bd_sync_status IS NULL OR ${alias}.bd_sync_status <> 'removed')`
+    // Claimed Listing "Please remove this listing": a staff-applied, reversible hide (migration 170).
+    + ` AND COALESCE(${alias}.profile_data->>'hidden_by_request', 'false') <> 'true'`
     + ` AND lower(${alias}.name) NOT LIKE 'sample %' AND lower(${alias}.name) NOT LIKE 'test %' AND lower(${alias}.name) NOT LIKE 'demo %'`;
   const bd = `${alias}.source = 'bd_import'`;
   const native = `(${alias}.source <> 'bd_import'`

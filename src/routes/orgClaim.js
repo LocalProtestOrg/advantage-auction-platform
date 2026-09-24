@@ -40,16 +40,19 @@ router.post('/:orgId', asyncRoute(async (req, res) => {
     claimToken,
     ip: req.headers['x-forwarded-for'] || req.ip || '',
   });
-  // Free Business Listing welcome — sent ONCE on the successful claim transition (claim() throws
-  // ALREADY_CLAIMED on repeat, so this fires at most once per listing). Best-effort; never blocks.
+  // After the claim (migration 170): funnel event, hard attribution record, any listing outreach stopped,
+  // and the listing checklist started. The one-time claim email (A1, or the existing welcome email until
+  // an A1 template is approved) is sent from there, once. Best-effort; never blocks the claim response.
   (async () => {
     try {
-      const u = (await db.query('SELECT email FROM users WHERE id = $1', [req.user.id])).rows[0];
-      if (u && u.email) {
-        const m = require('../services/businessListingEmails').buildWelcomeEmail({ companyName: org.name, claimed: true });
-        await require('../services/emailService').sendEmail({ to: u.email, ...m });
-      }
-    } catch (e) { console.error('[org-claim] welcome email best-effort failed:', e.message); }
+      const a = (await db.query(
+        `SELECT proof_method, claim_token_id FROM organization_claim_attempts
+          WHERE organization_id = $1 AND outcome = 'granted' ORDER BY created_at DESC LIMIT 1`, [org.id])).rows[0] || {};
+      await require('../services/claimedListings/claimLinkService').afterClaim({
+        organizationId: org.id, userId: req.user.id, tokenId: a.claim_token_id || null, proofMethod: a.proof_method || null,
+        ip: req.headers['x-forwarded-for'] || req.ip || '',
+      });
+    } catch (e) { console.error('[org-claim] after-claim best-effort failed:', e.message); }
   })();
   res.status(201).json({ success: true, organization: { id: org.id, slug: org.slug, name: org.name, lifecycle_state: org.lifecycle_state } });
 }));

@@ -40,7 +40,7 @@ async function setDeliverability(client, normalized, patch) {
  * Ingest ONE normalized SES feedback event. Shape: { eventType, bounceSubtype, email, providerEventId, raw }.
  * @returns {object} { ok, action, idempotent? }
  */
-async function ingestEvent(evt = {}) {
+async function ingestEventCore(evt = {}) {
   const normalized = normalizeEmail(evt.email);
   const type = String(evt.eventType || '').toLowerCase();
   if (!normalized) return { ok: false, reason: 'invalid_email' };
@@ -91,6 +91,20 @@ async function ingestEvent(evt = {}) {
     return { ok: true, action, mailStream: evt.mailStream || null, configurationSet: evt.configurationSet || null };
   } catch (e) { await client.query('ROLLBACK').catch(() => {}); throw e; }
   finally { client.release(); }
+}
+
+/**
+ * Public entry point. The decision logic above is unchanged; afterwards, and only for a NEW event on the
+ * claimed_listing stream, the Claimed Listing programme does its own bookkeeping (migration 170): message
+ * status, programme suppression, sequence stop, soft-bounce retry and health auto-pause. It never alters the
+ * global suppression decision already committed, and a failure there is logged, never thrown.
+ */
+async function ingestEvent(evt = {}) {
+  const result = await ingestEventCore(evt);
+  if (evt.mailStream === 'claimed_listing' && result && result.ok && !result.idempotent) {
+    await require('./claimedListings/feedbackService').onFeedback(evt).catch(() => {});
+  }
+  return result;
 }
 
 module.exports = { ingestEvent, suppressMarketing };

@@ -40,6 +40,7 @@ const KNOWN_UNCONSUMED_TYPES = Object.freeze([
 const STREAM_BY_CONFIGURATION_SET = Object.freeze({
   'advantage-bid-event-partner': 'event_partner',
   'advantage-bid-marketing': 'marketing',
+  'advantage-bid-claimed-listing': 'claimed_listing',
 });
 
 /** The configuration set SES stamped on the message, or null for untagged transactional mail. */

@@ -5,7 +5,7 @@
  *
  * The sending identity is ALWAYS derived server-side from the prospect's assigned representative
  * (never from client input): technical From = the verified central sender, From display name =
- * "{Rep} — Advantage.Bid", Reply-To = the rep's approved @advantage.bid address, BCC = the central
+ * "{Rep} | Advantage.Bid", Reply-To = the rep's approved @advantage.bid address, BCC = the central
  * company mailbox (owner oversight). A rep can only send for prospects assigned to them (Super Admins
  * may send for any); unassigned or unconfigured/disabled reps are blocked. Success marks the prospect
  * Contacted + logs activity; failure never falsely marks contact. The CRM is the authoritative record.
@@ -17,7 +17,8 @@ const prospects = require('./salesProspectService');
 const templates = require('./salesOutreachTemplates');
 const company = require('../lib/companyContact');
 
-const APP_FROM_DISPLAY_SUFFIX = ' — Advantage.Bid';
+// No em dash in rendered copy (brand voice): "Kym Witt | Advantage.Bid".
+const APP_FROM_DISPLAY_SUFFIX = ' | Advantage.Bid';
 const OUTREACH_BCC = process.env.OUTREACH_BCC || 'info@advantage.bid';
 // Approved outreach identities must be on the verified sending domain (deliverability + anti-spoofing).
 const APPROVED_EMAIL_DOMAIN = 'advantage.bid';
@@ -176,6 +177,10 @@ async function sendOutreach({ prospectId, actingStaff, templateKey, subject, mes
   if (!body) throw err(400, 'MESSAGE_REQUIRED', 'A message is required.');
 
   const identity = await resolveIdentity(prospect, actingStaff, runner);   // authz + identity (throws)
+  // Shared B2B protections (migration 170): suppression across every programme, no manual email during an
+  // active Claimed Listing sequence, and the company contact lock (taken for the rep when free).
+  const guard = deps.contactGuard || require('./acquisition/outreachGuard').checkProspectContact;
+  await guard({ prospect, repUserId: identity.repUserId }, runner);
   if (await recentDuplicate(prospectId, subj, runner)) {
     throw err(429, 'DUPLICATE_SEND', 'An identical message was just sent to this prospect. Please wait a moment.');
   }
@@ -186,9 +191,13 @@ async function sendOutreach({ prospectId, actingStaff, templateKey, subject, mes
 
   let result;
   try {
+    // RFC 8058 one-click unsubscribe: writes the shared B2B suppression, so it stops every programme.
+    const unsubLink = 'https://bid.advantage.bid/api/public/listing-outreach/unsubscribe?t='
+      + encodeURIComponent(require('../lib/listingUnsubscribeToken').sign({ email: recipient, organizationId: null }));
     result = await send({
       to: recipient, subject: subj, html, text,
       fromName: identity.fromName, replyTo: identity.replyTo, bcc: OUTREACH_BCC,
+      headers: { 'List-Unsubscribe': '<' + unsubLink + '>', 'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click' },
     });
   } catch (e) {
     await logEmail(runner, { prospectId, identity, actorId, recipient, subject: subj, templateKey,

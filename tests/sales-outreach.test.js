@@ -45,7 +45,7 @@ describe('resolveIdentity — server-authoritative, no impersonation', () => {
   test('assigned rep (self) resolves to the rep identity', async () => {
     router(baseRoutes());
     const id = await outreach.resolveIdentity(PROSPECT, SELF);
-    expect(id).toMatchObject({ repUserId: 'rep1', displayName: 'Kym Witt', replyTo: 'kymmie@advantage.bid', fromName: 'Kym Witt — Advantage.Bid' });
+    expect(id).toMatchObject({ repUserId: 'rep1', displayName: 'Kym Witt', replyTo: 'kymmie@advantage.bid', fromName: 'Kym Witt | Advantage.Bid' });
   });
   test('a DIFFERENT non-admin rep cannot send for this prospect', async () => {
     router(baseRoutes());
@@ -95,7 +95,7 @@ describe('sendOutreach — success drives CRM automation with server-derived ide
     // recipient from the RECORD, never client input:
     expect(sendEmail).toHaveBeenCalledWith(expect.objectContaining({
       to: 'contact@abcestates.com',
-      fromName: 'Kym Witt — Advantage.Bid',
+      fromName: 'Kym Witt | Advantage.Bid',
       replyTo: 'kymmie@advantage.bid',
       bcc: 'info@advantage.bid',
     }));

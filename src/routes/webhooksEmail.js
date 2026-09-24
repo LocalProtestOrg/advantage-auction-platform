@@ -27,6 +27,7 @@ const router = express.Router();
 const configService = require('../services/configService');
 const signature = require('../lib/webhookSignature');
 const inbound = require('../services/eventPartners/inboundEmailService');
+const listingInbound = require('../services/claimedListings/inboundService');
 
 // Postmark retries, but a legitimate inbound volume is small. This is generous for real traffic and
 // tight enough to make brute-forcing the secret pointless.
@@ -52,9 +53,11 @@ router.post('/inbound', webhookLimiter, captureRaw, async (req, res) => {
   const remoteIp = req.headers['x-forwarded-for'] || req.ip || '';
   const digest = signature.payloadDigest(req.rawBody || req.body || null);
 
-  // The gate is checked before authentication so a disabled endpoint reveals nothing at all.
+  // The gate is checked before authentication so a disabled endpoint reveals nothing at all. Two
+  // programmes share this provider hook, each behind its OWN switch: Event Partner and Claimed Listing.
   const enabled = await configService.get(null, 'event_partners.inbound_enabled').catch(() => false);
-  if (enabled !== true) return res.status(404).json({ ok: false });
+  const listingEnabled = await listingInbound.inboundEnabled().catch(() => false);
+  if (enabled !== true && listingEnabled !== true) return res.status(404).json({ ok: false });
 
   const secret = process.env.EVENT_PARTNER_INBOUND_SECRET || '';
   const verdict = signature.verifyPostmark(req, {
@@ -72,6 +75,14 @@ router.post('/inbound', webhookLimiter, captureRaw, async (req, res) => {
 
   try {
     const normalized = inbound.fromPostmark(req.body || {});
+    // A Claimed Listing reply carries its own key (listings+l<24 hex>@...). It is stored in the listing
+    // programme's tables, never in event_partner_messages.
+    if (listingInbound.extractListingKey(normalized)) {
+      if (listingEnabled !== true) return res.status(404).json({ ok: false });
+      const lr = await listingInbound.ingest(normalized, { digest, signatureStatus: verdict.status });
+      return res.status(200).json({ ok: true, duplicate: !!lr.duplicate });
+    }
+    if (enabled !== true) return res.status(404).json({ ok: false });
     const result = await inbound.ingest(normalized, {
       digest, signatureStatus: verdict.status, remoteIp, provider: 'postmark',
     });
@@ -90,7 +101,8 @@ router.post('/inbound', webhookLimiter, captureRaw, async (req, res) => {
 // must not require the secret. Reveals nothing beyond whether the endpoint exists.
 router.get('/inbound', webhookLimiter, async (req, res) => {
   const enabled = await configService.get(null, 'event_partners.inbound_enabled').catch(() => false);
-  if (enabled !== true) return res.status(404).json({ ok: false });
+  const listingEnabled = await listingInbound.inboundEnabled().catch(() => false);
+  if (enabled !== true && listingEnabled !== true) return res.status(404).json({ ok: false });
   res.json({ ok: true, accepts: 'POST' });
 });
 

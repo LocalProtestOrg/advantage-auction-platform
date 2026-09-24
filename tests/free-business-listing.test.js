@@ -81,7 +81,12 @@ describe('free-listing welcome email', () => {
   });
   test('sent once — only on the create transition and the successful claim transition', () => {
     expect(orgEvents).toMatch(/if \(created\) \{[\s\S]*?buildWelcomeEmail\(\{ companyName: org\.name, claimed: false \}\)/);
-    expect(claimRoute).toMatch(/buildWelcomeEmail\(\{ companyName: org\.name, claimed: true \}\)/);
+    // Claim transition (migration 170): the route hands off to the shared after-claim step, which sends the
+    // one-time claim email: the approved A1 template, or this same welcome email until A1 is approved.
+    expect(claimRoute).toMatch(/claimLinkService'\)\.afterClaim\(/);
+    const activation = fs.readFileSync(path.join(__dirname, '..', 'src/services/claimedListings/activationService.js'), 'utf8');
+    expect(activation).toMatch(/buildWelcomeEmail\(\{ companyName: row\.name, claimed: true \}\)/);
+    expect(activation).toMatch(/reminders_sent\.A1\) return \{ sent: false, reason: 'already sent' \}/);
   });
 });
 
