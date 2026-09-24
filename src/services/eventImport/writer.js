@@ -140,6 +140,14 @@ async function createImported(client, ctx) {
   // company that actually conducted it, on events.host_organization_id. Never guessed: it fires only
   // when the source is registered to a live authorization, and it is a no-op for every other source.
   await hostAttribution.attributeFromSource(client, eventId, ctx.provenance && ctx.provenance.sourceId);
+  // An event from a member's OWN consented feed is hosted by that member — the same proven,
+  // 'authorized_source' association Event Partners get, available to every Professional Seller alike.
+  // Never overwrites an existing host.
+  if (ctx.memberOrganizationId) {
+    await client.query(
+      `UPDATE events SET host_organization_id = $2, host_attribution_method = 'authorized_source', host_attributed_at = now()
+        WHERE id = $1 AND host_organization_id IS NULL`, [eventId, ctx.memberOrganizationId]);
+  }
   await audit(client, 'event.imported.created', eventId, ctx, { market: (ctx.market || {}).marketSlug });
   return eventId;
 }

@@ -169,6 +169,31 @@ router.get('/health', asyncRoute(async (req, res) => {
   res.json({ success: true, data: await require('../services/eventImport/inventoryHealthService').overview(db, { schedule }) });
 }));
 
+// ── Member Feed Sync onboarding (generic; identical for every Professional Seller) ─────────────
+// A member publishes through its account; optionally it authorizes a feed it publishes itself. The
+// member's consent (who, when, evidence) is required and audited; revoking stops the sync.
+const memberFeeds = require('../services/eventImport/memberFeedService');
+
+router.get('/member-feeds', asyncRoute(async (req, res) => {
+  res.json({ success: true, data: await memberFeeds.listFeeds({ db }) });
+}));
+
+router.post('/member-feeds', express.json(), asyncRoute(async (req, res) => {
+  const b = req.body || {};
+  const out = await memberFeeds.registerFeed({
+    organizationId: b.organization_id, url: b.url, site: b.site, type: b.type || 'auto',
+    organizerName: b.organizer_name, organizerWebsiteUrl: b.organizer_website_url, consent: b.consent,
+  }, { db, actorId: req.user && req.user.id });
+  res.status(out.ok ? 200 : 400).json({ success: out.ok, data: out.ok ? out : undefined, message: out.ok ? undefined : out.reason });
+}));
+
+router.post('/member-feeds/revoke', express.json(), asyncRoute(async (req, res) => {
+  const b = req.body || {};
+  const out = await memberFeeds.revokeFeed({ organizationId: b.organization_id, url: b.url, site: b.site, reason: b.reason },
+    { db, actorId: req.user && req.user.id });
+  res.status(out.ok ? 200 : 400).json({ success: out.ok, message: out.ok ? undefined : out.reason });
+}));
+
 router.get('/status', asyncRoute(async (req, res) => {
   const c = worker.cfg();
   const sched = worker.describeSchedule(c);

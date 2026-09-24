@@ -2,16 +2,22 @@
 /* refresh-external-auctions.js — re-run all active AUTHORIZED external-auction sources through the real
  * pipeline (recurring-safe / idempotent), then re-host any third-party hotlinks into managed storage.
  *   railway run node scripts/refresh-external-auctions.js
- * Sources: gsa-auctions, txauction-gov, lmauction-lewis-maese (estate CSV sources are NOT auctions). */
+ * Sources: every ACTIVE external-discovery source, read from import_sources at run time — never a
+ * hardcoded list naming a company. Static CSV pastes and member-managed feeds are excluded (member feeds
+ * run on their own consent-gated schedule). */
 const { runImport } = require('../src/services/eventImport');
 const { withTransaction } = require('../src/utils/withTransaction');
 const { enrichEvent } = require('../src/services/eventImport/imageEnrichment');
 const { Pool } = require('pg');
 const { activeEventSql } = require('../src/lib/marketplaceVisibility');
 
-const AUCTION_SOURCES = ['gsa-auctions', 'txauction-gov', 'lmauction-lewis-maese'];
-
 (async () => {
+  const listPool = new Pool({ connectionString: process.env.DATABASE_URL.replace('-pooler', ''), ssl: { rejectUnauthorized: false } });
+  const AUCTION_SOURCES = (await listPool.query(
+    `SELECT key FROM import_sources
+      WHERE status = 'active' AND kind <> 'csv' AND COALESCE(config->>'connector', kind) NOT IN ('feed', 'csv')
+      ORDER BY key`)).rows.map((r) => r.key);
+  await listPool.end();
   for (const key of AUCTION_SOURCES) {
     try {
       const r = await runImport({ sourceKey: key, apply: true, trigger: 'manual', withTransaction });

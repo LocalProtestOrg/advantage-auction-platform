@@ -5,9 +5,9 @@
  * organization (owner membership + 'events' capability + display name). Idempotent, additive,
  * reversible. Business Administration (BD membership/billing/listing) is NEVER touched.
  *
- *   node -r dotenv/config scripts/provision-bd-professionals.js                 # dry-run Lewis & Maese (bd-350)
- *   node -r dotenv/config scripts/provision-bd-professionals.js --apply         # apply Lewis & Maese
- *   node -r dotenv/config scripts/provision-bd-professionals.js --bd-user 350 --bd-listing 350 --name lewis --apply
+ *   node -r dotenv/config scripts/provision-bd-professionals.js --bd-user <id> --bd-listing <id> --name <prefix>          # dry-run
+ *   node -r dotenv/config scripts/provision-bd-professionals.js --bd-user <id> --bd-listing <id> --name <prefix> --apply  # apply
+ * Member-neutral: there is no default member — every run names its target explicitly.
  *   node -r dotenv/config scripts/provision-bd-professionals.js --candidates    # list unprovisioned candidates (read-only)
  *
  * Defaults to DRY-RUN. Only writes with --apply. Only ever provisions the member(s) explicitly named
@@ -46,11 +46,17 @@ async function listCandidates() {
 }
 
 async function run() {
-  const bdUser = String(arg('bd-user', '350'));
-  const bdListing = String(arg('bd-listing', '350'));
-  const namePrefix = String(arg('name', 'lewis'));
-
   if (CANDIDATES) { await listCandidates(); return; }
+
+  // No company is a default target: the member being provisioned is always named explicitly.
+  const bdUser = arg('bd-user', null);
+  const bdListing = arg('bd-listing', null);
+  const namePrefix = arg('name', null);
+  if (typeof bdUser !== 'string' || typeof bdListing !== 'string' || typeof namePrefix !== 'string') {
+    console.error('REFUSE: --bd-user, --bd-listing and --name are required (there is no default member).');
+    process.exitCode = 2;
+    return;
+  }
 
   const user = await svc.findUserByBdMember(bdUser);
   const org = await svc.findOrgByBdListing(bdListing);

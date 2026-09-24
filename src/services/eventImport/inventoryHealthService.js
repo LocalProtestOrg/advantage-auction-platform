@@ -38,7 +38,8 @@ async function sourceHealthView(db = db0) {
     const config = r.config || {};
     return {
       key: r.key, name: r.name, kind: r.kind, connector: config.connector || r.kind, status: r.status, media_policy: r.media_policy,
-      live: r.status === 'active' && r.kind !== 'csv',
+      // Live = an active, non-static source. A retired or paused source never counts toward health.
+      live: r.status === 'active' && r.kind !== 'csv' && cls.state !== 'RETIRED',
       health_state: cls.state, health_reason: cls.reason,
       consecutive_failures: r.consecutive_failures || 0, consecutive_zero_runs: r.consecutive_zero_runs || 0,
       last_success_at: r.last_success_at, last_nonzero_at: r.last_nonzero_at, last_failure_at: r.last_failure_at,
@@ -50,24 +51,29 @@ async function sourceHealthView(db = db0) {
   });
 }
 
-/** Image health across LIVE imported events. Government surplus uses its policy placeholder. */
+/**
+ * Image health across LIVE imported events. A source whose images are unobtainable by policy (e.g. the
+ * federal surplus feed's login-gated photos) declares config.placeholder_images = true; that is a source
+ * property, never a hardcoded source name.
+ */
 async function imageHealth(db = db0) {
   const r = (await db.query(
-    `SELECT s.key, s.media_policy, count(DISTINCT e.id)::int n,
+    `SELECT s.key, s.media_policy, COALESCE((s.config->>'placeholder_images')::boolean, false) AS placeholder_policy,
+            count(DISTINCT e.id)::int n,
             count(DISTINCT e.id) FILTER (WHERE EXISTS (SELECT 1 FROM event_images i WHERE i.event_id = e.id))::int with_image,
             count(DISTINCT e.id) FILTER (WHERE EXISTS (SELECT 1 FROM event_images i WHERE i.event_id = e.id AND i.url ILIKE '%res.cloudinary.com%'))::int managed
        FROM events e JOIN event_sources es ON es.event_id = e.id JOIN import_sources s ON s.id = es.source_id
-      WHERE ${activeEventSql('e')} GROUP BY s.key, s.media_policy`)).rows;
-  const bySource = r.map((x) => ({ key: x.key, media_policy: x.media_policy, live: x.n, real_image: x.with_image, managed: x.managed,
-    placeholder: x.n - x.with_image }));
-  // "Image-capable" = sources whose events can legitimately carry a real image (not the gov placeholder policy).
-  const capable = bySource.filter((x) => x.key !== 'gsa-auctions');
+      WHERE ${activeEventSql('e')} GROUP BY s.key, s.media_policy, placeholder_policy`)).rows;
+  const bySource = r.map((x) => ({ key: x.key, media_policy: x.media_policy, placeholder_policy: x.placeholder_policy,
+    live: x.n, real_image: x.with_image, managed: x.managed, placeholder: x.n - x.with_image }));
+  // "Image-capable" = sources whose events can legitimately carry a real image.
+  const capable = bySource.filter((x) => !x.placeholder_policy);
   return {
     by_source: bySource,
     eligible: capable.reduce((t, x) => t + x.live, 0),
     real: capable.reduce((t, x) => t + x.real_image, 0),
     managed: bySource.reduce((t, x) => t + x.managed, 0),
-    gov_placeholder: bySource.filter((x) => x.key === 'gsa-auctions').reduce((t, x) => t + x.placeholder, 0),
+    policy_placeholder: bySource.filter((x) => x.placeholder_policy).reduce((t, x) => t + x.placeholder, 0),
   };
 }
 

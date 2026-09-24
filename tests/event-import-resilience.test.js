@@ -77,7 +77,7 @@ describe('engine: a refused source FAILS the run', () => {
     expect(r.zero_reason).toBe('source_listed_nothing_current');
   });
   test('every connector receives the diagnostics channel', () => {
-    for (const f of ['lmauctionConnector', 'txauctionConnector', 'gsaConnector']) {
+    for (const f of ['txauctionConnector', 'gsaConnector', 'feedConnector']) {
       expect(code('src/services/eventImport/connectors/' + f + '.js')).toMatch(/async \*fetch\(\{ config, limit, signal, diag \} = \{\}\)/);
     }
     expect(code('src/services/eventImport/index.js')).toMatch(/connector\.fetch\(\{ config, limit: opts\.limit, signal: opts\.signal, diag \}\)/);
@@ -226,9 +226,16 @@ describe('source access controls are respected, never evaded', () => {
     expect(img.isUsableImageResponse(r).reason).toBe('blocked_403');
     expect(code('src/services/eventImport/imageEnrichment.js')).not.toMatch(/BROWSER_UA/);
   });
-  test('Lewis & Maese uses a browser identity only with the site owner\'s documented permission', () => {
-    const lm = code('src/services/eventImport/connectors/lmauctionConnector.js');
-    expect(lm).toMatch(/const headers = permittedBrowserIdentity\(ctx\.config\) \? \{ 'User-Agent': BROWSER_UA \} : \{\};/);
+  test('no importer module anywhere presents a browser identity', () => {
+    const files = [];
+    (function walk(d) {
+      for (const e of fs.readdirSync(d, { withFileTypes: true })) {
+        const p = path.join(d, e.name);
+        if (e.isDirectory()) walk(p); else if (p.endsWith('.js')) files.push(p);
+      }
+    })(path.join(ROOT, 'src/services/eventImport'));
+    expect(files.length).toBeGreaterThan(10);
+    for (const p of files) expect(fs.readFileSync(p, 'utf8')).not.toMatch(/Mozilla\/5\.0/);
   });
   test('no other connector presents a browser identity', () => {
     for (const f of ['txauctionConnector', 'gsaConnector', 'feedConnector', 'csvConnector']) {
@@ -283,7 +290,7 @@ describe('migration 167', () => {
   test('retry is a permitted run trigger', () => {
     expect(sql).toMatch(/CHECK \(trigger IN \('scheduled','manual','backfill','retry'\)\)/);
   });
-  test('no Lewis & Maese commercial data is touched', () => {
+  test('no member commercial data is touched', () => {
     expect(sql.replace(/--.*$/gm, '')).not.toMatch(/pricing|platform_fee|seller_profiles|lmauction/i);
   });
 });

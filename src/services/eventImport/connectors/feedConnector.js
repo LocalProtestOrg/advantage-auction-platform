@@ -8,10 +8,17 @@
  * asked us to sync (their data, their permission) — no third-party scraping. The host IS the verified
  * organizer, so config.defaults typically carries { organizer_name, organizer_website_url }.
  *
+ * MEMBER NEUTRALITY (2026-09-24). This is the ONE path by which any Professional Seller's external feed
+ * is synced — no member gets a dedicated connector. Every feed entry names the member organization that
+ * owns it and carries that member's consent; a feed without complete consent, or whose consent was
+ * revoked, is never fetched. Items are attributed to that member (organizer defaults + host record).
+ *
  * config: {
  *   connector: 'feed',
- *   feeds:   [ { url, type? } ],   // type ∈ 'rss' | 'ical' | 'jsonld' | 'auto' (default auto-detect)
- *   site?:   'https://member.example.com',  // optional: discover feeds (RSS/ICS/JSON-LD) from a page
+ *   feeds:   [ { url, type?, organization_id, organizer_name, organizer_website_url?,
+ *                consent: { granted_by, granted_at, evidence }, revoked_at? } ],
+ *            // type ∈ 'rss' | 'ical' | 'jsonld' | 'auto' (default auto-detect)
+ *   (a member entry may give `site` instead of `url` to discover its RSS/ICS/JSON-LD feeds from a page)
  *   defaults?: { organizer_name, organizer_website_url, sale_type, event_format, timezone }
  * }
  * Emits canonical-shaped payloads (identity fieldMap). One malformed item/feed never aborts the run.
@@ -228,10 +235,20 @@ function discoverFeeds(html, baseUrl) {
 }
 
 // ── the connector ────────────────────────────────────────────────────────────────
-async function* iterateFeed(feed, tz, signal) {
+/** Does this feed carry a complete, unrevoked member consent? Pure. */
+function hasMemberConsent(feed) {
+  const c = feed && feed.consent;
+  return !!(feed && feed.organization_id && feed.organizer_name && !feed.revoked_at
+    && c && typeof c.granted_by === 'string' && c.granted_by.trim() && c.granted_at && c.evidence);
+}
+
+async function* iterateFeed(feed, tz, signal, diag) {
   let text = feed.inlineHtml || null, contentType = '';
   if (!text) {
-    const r = await fetchText(feed.url, { signal, timeoutMs: 25000 });
+    let r;
+    try { r = await fetchText(feed.url, { signal, timeoutMs: 25000 }); }
+    catch (e) { const m = /HTTP (d{3})/.exec(String(e && e.message)); if (diag) diag.record(feed.url, m ? Number(m[1]) : 'network', e && e.message); throw e; }
+    if (diag) diag.record(feed.url, r ? r.status : 'network');
     if (!r.ok && !r.text) throw new Error('feed fetch failed: ' + r.status);
     text = r.text; contentType = r.contentType;
   }
@@ -239,12 +256,17 @@ async function* iterateFeed(feed, tz, signal) {
   const gen = type === 'ical' ? parseIcal(text, tz) : type === 'rss' ? parseRss(text) : parseJsonLd(text);
   for (const item of gen) {
     if (!item || !item.sourceEventId || !(item.payload && item.payload.title)) continue;
+    // Attribute to the member who owns this feed: their organizer name / site unless the item states its own.
+    const payload = Object.assign({}, item.payload);
+    if (!payload.organizer_name && feed.organizer_name) payload.organizer_name = feed.organizer_name;
+    if (!payload.organizer_website_url && feed.organizer_website_url) payload.organizer_website_url = feed.organizer_website_url;
     yield {
       sourceEventId: String(item.sourceEventId),
       sourceUrl: item.url || feed.url || null,
       sourceUpdatedAt: null,
-      payload: item.payload,
+      payload,
       images: item.payload.images || [],
+      memberOrganizationId: feed.organization_id || null,
     };
   }
 }
@@ -255,22 +277,30 @@ module.exports = {
   capabilities: { incremental: false, deletions: false, images: true },
   fieldMap: IDENTITY_FIELD_MAP,
 
-  async *fetch({ config, limit, signal } = {}) {
+  async *fetch({ config, limit, signal, diag } = {}) {
     config = config || {};
     const tz = (config.defaults && config.defaults.timezone) || config.timezone || 'America/New_York';
-    let feeds = Array.isArray(config.feeds) ? config.feeds.slice() : [];
-
-    if (config.site) {
+    // Only member-consented, unrevoked feeds are ever fetched. A member entry may give its own `site`
+    // instead of a feed url: feeds discovered there inherit THAT member's ownership and consent. There
+    // is no anonymous source-level discovery — every fetched feed belongs to a consenting member.
+    const consented = (Array.isArray(config.feeds) ? config.feeds : []).filter(hasMemberConsent);
+    let feeds = consented.filter((fd) => fd.url);
+    for (const member of consented.filter((fd) => !fd.url && fd.site)) {
       try {
-        const r = await fetchText(config.site, { signal, expectType: 'html', timeoutMs: 20000 });
-        if (r.text) feeds = feeds.concat(discoverFeeds(r.text, r.url || config.site));
-      } catch (e) { /* discovery is best-effort; explicit feeds still process */ }
+        const r = await fetchText(member.site, { signal, expectType: 'html', timeoutMs: 20000 });
+        if (diag) diag.record(member.site, r ? r.status : 'network');
+        if (r.text) {
+          const inherit = { organization_id: member.organization_id, organizer_name: member.organizer_name,
+            organizer_website_url: member.organizer_website_url, consent: member.consent };
+          feeds = feeds.concat(discoverFeeds(r.text, r.url || member.site).map((d) => Object.assign({}, d, inherit)));
+        }
+      } catch (e) { if (diag) diag.record(member.site, 'network', e && e.message); }
     }
 
     let n = 0;
     for (const feed of feeds) {
       try {
-        for await (const raw of iterateFeed(feed, tz, signal)) {
+        for await (const raw of iterateFeed(feed, tz, signal, diag)) {
           if (limit != null && n >= limit) return;
           yield raw; n++;
         }
@@ -283,6 +313,7 @@ module.exports = {
 
   // exported for focused tests
   _parsers: { parseIcal, parseRss, parseJsonLd, detectType, discoverFeeds },
+  hasMemberConsent,
 
   describe() {
     return { name: 'Member Feed Sync (RSS / iCal / JSON-LD)', basis: 'member_consent',

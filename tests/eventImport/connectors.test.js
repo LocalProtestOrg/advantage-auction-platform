@@ -142,6 +142,10 @@ describe('feedConnector parsers', () => {
   });
 });
 
+// A generic consenting member: every synced feed belongs to a member organization with recorded consent.
+const MEMBER = { organization_id: '00000000-0000-4000-8000-00000000f00d', organizer_name: 'Example Member Auctions',
+  consent: { granted_by: 'Member owner (test)', granted_at: '2026-09-24T00:00:00Z', evidence: 'test fixture' } };
+
 describe('feedConnector.fetch', () => {
   test('imports across configured feeds and yields normalizable records', async () => {
     http.fetchText.mockImplementation(async (url) => {
@@ -149,7 +153,7 @@ describe('feedConnector.fetch', () => {
       if (url.includes('rss')) return { ok: true, text: RSS, contentType: 'application/rss+xml', url };
       return { ok: true, text: JSONLD, contentType: 'text/html', url };
     });
-    const recs = await collect(feed.fetch({ config: { feeds: [{ url: 'https://m/cal.ics' }, { url: 'https://m/rss' }, { url: 'https://m/page' }] } }));
+    const recs = await collect(feed.fetch({ config: { feeds: [{ url: 'https://m/cal.ics', ...MEMBER }, { url: 'https://m/rss', ...MEMBER }, { url: 'https://m/page', ...MEMBER }] } }));
     expect(recs.length).toBe(3);
     const n = pipeline.normalizeItem(recs[0], { fieldMap: feed.fieldMap, defaults: { sale_type: 'estate_sale', organizer_name: 'Member Co', timezone: 'America/Chicago' } });
     expect(n.outcome).toBe('eligible');
@@ -159,7 +163,7 @@ describe('feedConnector.fetch', () => {
       if (url.includes('bad')) throw new Error('DNS fail');
       return { ok: true, text: ICAL, contentType: 'text/calendar', url };
     });
-    const recs = await collect(feed.fetch({ config: { feeds: [{ url: 'https://bad/x.ics' }, { url: 'https://good/x.ics' }] } }));
+    const recs = await collect(feed.fetch({ config: { feeds: [{ url: 'https://bad/x.ics', ...MEMBER }, { url: 'https://good/x.ics', ...MEMBER }] } }));
     expect(recs.length).toBe(1);                                  // the good feed still imported
   });
 });

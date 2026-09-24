@@ -31,6 +31,8 @@ function writerCtx(rec, raw, geo, mr, src, dd) {
     contentHash: rec.contentHash, imagesHash: rec.imagesHash,
     attribution: { source: src.name || src.key, url: rec.sourceUrl },
     actorId: null, imagesChanged: dd.imagesChanged,
+    // Member Feed Sync: the consenting member who owns the feed this item came from (host attribution).
+    memberOrganizationId: (raw && raw.memberOrganizationId) || null,
   };
 }
 

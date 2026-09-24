@@ -9,7 +9,7 @@
  * matched by bd_listing_id), 6/7 (membership creation), 8 (owner role), 9/10 (events cap → Create/My
  * Events), 11 (buying preserved), 12 (ineligible gets nothing), 18/19 (no dup user/org), 20 (no
  * private-seller coercion). Lifecycle change cases (13–15) are covered by the idempotent capability
- * toggle + source assertions; live e2e is verified against production for Lewis & Maese.
+ * toggle + source assertions; live e2e was verified against production for a real member.
  */
 
 const fs = require('fs');
@@ -66,11 +66,15 @@ describe('provisioning scope lock — grants ONLY marketplace event access', () 
   });
 });
 
-describe('backfill script — dry-run by default, Lewis & Maese first, reversible', () => {
+describe('backfill script — dry-run by default, explicit target, reversible', () => {
   const b = read('scripts', 'provision-bd-professionals.js');
   test('defaults to dry-run; only writes with --apply', () => {
     expect(b).toMatch(/APPLY = process\.argv\.includes\('--apply'\)/);
     expect(b).toMatch(/DRY-RUN/);
+  });
+  test('there is no default member: the target must be named explicitly', () => {
+    expect(b).toMatch(/--bd-user, --bd-listing and --name are required/);
+    expect(b).not.toMatch(/arg('bd-user', 'd+')|arg('name', '[a-z]+')/);
   });
   test('name-prefix safety check prevents linking the wrong company', () => {
     expect(b).toMatch(/expectNameStartsWith/);

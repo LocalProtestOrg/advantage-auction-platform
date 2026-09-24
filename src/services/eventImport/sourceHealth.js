@@ -12,6 +12,8 @@
  *   BLOCKED_BY_SOURCE  the source refuses automated access (401/403). Never evaded — needs a person
  *   NO_LONGER_USEFUL   static / frozen input that can never produce a new current event
  *   NEEDS_REVIEW       paused or unconfigured (e.g. member feeds with no feed URLs yet)
+ *   RETIRED            deliberately decommissioned (config.retired_reason); kept only as history —
+ *                      never a live source, never an action item, never part of inventory health
  *
  * RETRY POLICY (bounded, never a loop): only TRANSIENT failures (network, 5xx, 429) are retried, at
  * 1h, 2h then 4h after the failure — at most MAX_RETRIES per scheduled window. Structural failures
@@ -24,7 +26,7 @@ const RETRY_BASE_MS = 60 * 60 * 1000;
 const BROKEN_AFTER_FAILURES = 3;
 const DEGRADED_AFTER_ZERO_RUNS = 3;
 
-const STATES = Object.freeze(['HEALTHY', 'DEGRADED', 'BROKEN', 'BLOCKED_BY_SOURCE', 'NO_LONGER_USEFUL', 'NEEDS_REVIEW']);
+const STATES = Object.freeze(['HEALTHY', 'DEGRADED', 'BROKEN', 'BLOCKED_BY_SOURCE', 'NO_LONGER_USEFUL', 'NEEDS_REVIEW', 'RETIRED']);
 
 /**
  * Fold one run's result into the source's persisted health. Pure.
@@ -63,6 +65,7 @@ function nextState(prev, run, now = new Date()) {
 function classify(source, state, last) {
   source = source || {}; state = state || {}; last = last || {};
   const config = source.config || {};
+  if (config.retired_reason) return { state: 'RETIRED', reason: config.retired_reason };
   if (config.frozen_reason || (source.kind === 'csv' && last.fetched > 0 && !(last.created > 0) && state.frozen)) {
     return { state: 'NO_LONGER_USEFUL', reason: config.frozen_reason || 'static input with no current events' };
   }

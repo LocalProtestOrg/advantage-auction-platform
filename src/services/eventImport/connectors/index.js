@@ -11,15 +11,18 @@ const csvConnector = require('./csvConnector');
 const gsaConnector = require('./gsaConnector');
 const feedConnector = require('./feedConnector');
 const txauctionConnector = require('./txauctionConnector');
-const lmauctionConnector = require('./lmauctionConnector');
 
 // Logical names (config.connector) + a kind fallback for sources that only set `kind`.
+//
+// MEMBER NEUTRALITY (2026-09-24): no connector here is dedicated to an Advantage.Bid MEMBER company.
+// Members publish through their member account, or through the generic, consent-gated Member Feed Sync
+// ('feed') that every Professional Seller can use. The former Lewis & Maese connector was retired; its
+// source row stays (disabled, RETIRED) for history and its events keep their original attribution.
 const REGISTRY = {
   csv: csvConnector,
   gsa: gsaConnector,
   feed: feedConnector,
   txauction: txauctionConnector,   // Gaston & Sheehan (Treasury/USMS/local gov auctions); select via config.connector
-  lmauction: lmauctionConnector,   // Lewis & Maese (Houston, TX auction house); owner-authorized; select via config.connector
 
   // kind fallbacks (import_sources.kind is constrained to csv|rest|rss|xml|json|partner|manual):
   rest: gsaConnector,
@@ -30,7 +33,14 @@ const REGISTRY = {
 
 // getConnector(kind, selector?) — `selector` (config.connector) wins when it resolves; else kind.
 function getConnector(kind, selector) {
-  const conn = (selector && REGISTRY[selector]) || REGISTRY[kind];
+  // A source that NAMES a connector gets exactly that connector or nothing. Falling back to its kind
+  // would let a retired/unknown connector silently run a different source's importer (e.g. a retired
+  // 'rest' connector quietly becoming the GSA connector) — fail closed instead.
+  if (selector) {
+    if (!REGISTRY[selector]) throw new Error('No connector registered for: ' + selector);
+    return REGISTRY[selector];
+  }
+  const conn = REGISTRY[kind];
   if (!conn) throw new Error('No connector registered for: ' + (selector || kind));
   return conn;
 }

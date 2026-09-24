@@ -5,7 +5,7 @@
  *
  * WHY. Connectors used to swallow a failed page fetch and return nothing, so a source that answered
  * "403 Access Denied" and a source that simply had no upcoming events both ended as the same run:
- * "completed, fetched 0". Lewis & Maese produced three such runs in a row and nobody could tell why.
+ * "completed, fetched 0" — three such runs in a row went unexplained before this existed.
  * A connector now records every entry-page response here; the engine turns the tally into an explicit
  * zero-result reason and fails the run when the source refused access.
  *
