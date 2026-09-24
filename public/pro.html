@@ -100,6 +100,9 @@
     // Trust: Verified ONLY when the org is genuinely verified. No ratings/stars are ever shown.
     var verified = h.verified ? '<div class="vf">✓ Verified</div>' : '';
     var newp = h.verified ? '' : '<div class="newp">New Profile</div>';
+    // Trust display (Claimed Listing, blueprint section 22): who manages this page.
+    if (p.listing && p.listing.managed_by_company) newp += '<div class="newp">Managed by '+esc(h.name||'this company')+'</div>';
+    else if (p.listing && p.listing.created_from_public_information) newp += '<div class="newp">Listing created from public information</div>';
 
     var ctas='';
     if(c.phone)   ctas+='<a class="btn primary" href="tel:'+esc(c.phone)+'">Call '+esc(cat)+'</a>';
@@ -145,10 +148,15 @@
     renderFooter();
 
     try{
+      // Absolute image URL (structured data must not use a relative path).
+      var abs=function(u){try{return u?new URL(u,location.origin).href:undefined;}catch(e){return undefined;}};
       var ld={"@context":"https://schema.org","@type":"LocalBusiness",name:h.name,description:(p.seo&&p.seo.description)||h.short_description||undefined,
-        image:h.logo||h.cover||undefined,telephone:c.phone||undefined,url:c.website||undefined,
+        image:abs(h.logo||h.cover),telephone:c.phone||undefined,url:(p.listing&&p.listing.canonical_url)||c.website||undefined,
+        sameAs:c.website?[c.website]:undefined,
         address:h.location?{"@type":"PostalAddress",addressLocality:h.location}:undefined};
       Object.keys(ld).forEach(function(k){if(ld[k]===undefined)delete ld[k];});
+      // One canonical per company: while a directory listing exists, the directory page is canonical.
+      if(p.listing&&p.listing.canonical_url){var cl=document.querySelector('link[rel="canonical"]')||document.head.appendChild(Object.assign(document.createElement('link'),{rel:'canonical'}));cl.href=p.listing.canonical_url;}
       var sc=document.createElement('script');sc.type='application/ld+json';sc.textContent=JSON.stringify(ld);document.getElementById('jsonld').appendChild(sc);
     }catch(e){}
     document.title=(h.name||'Professional Profile')+' - Advantage.Bid';

@@ -232,7 +232,9 @@ router.get('/professionals/:slug', async (req, res, next) => {
     const slug = String(req.params.slug || '').toLowerCase();
     const { rows } = await db.query(
       `SELECT id, slug, name, type, city, state, description, logo_url, cover_image_url,
-              contact_email, contact_phone, website_url, verification_status, profile_data
+              contact_email, contact_phone, website_url, verification_status, profile_data,
+              source, bd_metadata->>'bd_profile_path' AS bd_profile_path,
+              EXISTS (SELECT 1 FROM organization_members m WHERE m.organization_id = organizations.id AND m.role = 'owner' AND m.status = 'active') AS has_owner
          FROM organizations
         WHERE lower(slug) = $1 AND (profile_data->>'published') = 'true'
         LIMIT 1`, [slug]);
@@ -247,7 +249,14 @@ router.get('/professionals/:slug', async (req, res, next) => {
     try { types = profileSchemaPub.professionalTypesFrom(Array.from(await capabilityServicePub.getEffectiveCapabilities(org.id))); } catch (e) { types = []; }
     if (!types.length) return res.status(404).json({ success: false, message: 'Profile not found' });
     res.set('Cache-Control', PUBLIC_CACHE);
-    res.json({ success: true, profile: profileSchemaPub.buildProfileView(org, types) });
+    // Canonical + trust display (Claimed Listing, blueprint section 22). While a directory listing exists,
+    // the directory page is the one canonical company URL; this page points at it.
+    const listing = {
+      canonical_url: mpProfileUrl(org.bd_profile_path),
+      managed_by_company: !!org.has_owner,
+      created_from_public_information: !org.has_owner && org.source === 'bd_import',
+    };
+    res.json({ success: true, profile: Object.assign(profileSchemaPub.buildProfileView(org, types), { listing }) });
   } catch (err) { next(err); }
 });
 
