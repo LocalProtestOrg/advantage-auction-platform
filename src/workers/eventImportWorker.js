@@ -34,6 +34,9 @@ const runLog = require('../services/eventImport/runLog');
 const { writeAuditLog } = require('../lib/auditLog');
 const health = require('../services/eventImport/health');
 const reportEmail = require('../services/eventImport/reportEmail');
+const sourceHealth = require('../services/eventImport/sourceHealth');
+const imageEnrichment = require('../services/eventImport/imageEnrichment');
+const inventoryHealth = require('../services/eventImport/inventoryHealthService');
 const marketplaceIntegrity = require('../services/marketplaceIntegrity');
 const { sendEmail } = require('../services/emailService');
 
@@ -221,20 +224,113 @@ async function runOneSource(source, o) {
       logLine({ evt: 'source_claim_lost', source: source.key, reason: r.reason });
       return { source: source.key, ok: true, claimed: false, reason: r.reason, counters: {} };
     }
+    const status = (r && r.status) || 'completed';
     const out = {
-      source: source.key, ok: true, kind: source.kind || null, applied: apply, dryRun: !apply,
-      runId: (r && r.runId) || null, status: (r && r.status) || 'completed',
+      // A run the engine FAILED (source refused access, unreachable, unreadable) is a failed source even
+      // though the connector returned normally — it is never reported as a quiet "0 fetched" success.
+      source: source.key, ok: status !== 'failed', kind: source.kind || null, applied: apply, dryRun: !apply,
+      runId: (r && r.runId) || null, status,
       capped: !!(r && r.capped), remainingAvailable: r && r.remainingAvailable,
       counters: (r && r.counters) || {}, reasons: (r && r.reasons) || {}, duration_ms: Date.now() - startedMs,
+      zero_reason: (r && r.zero_reason) || null, transient: !!(r && r.transient), error: (r && r.lastError) || null,
+      access: r && r.access ? pickAccess(r.access) : null,
     };
-    logLine({ evt: 'source_done', source: source.key, status: out.status, capped: out.capped, counters: out.counters, dryRun: out.dryRun });
+    if (apply) out.health = await recordSourceHealth(source, out, trigger);
+    logLine({ evt: out.ok ? 'source_done' : 'source_failed', source: source.key, trigger, status: out.status, capped: out.capped, counters: out.counters,
+      zero_reason: out.zero_reason, access: out.access, error: out.error, health: out.health ? out.health.health_state : null, dryRun: out.dryRun });
     return out;
   } catch (e) {
     // Whole-source failure (e.g. connector unreachable). The engine already finished the run row as
     // 'failed'; we record it and keep going with the other sources.
-    logLine({ evt: 'source_failed', source: source.key, error: String(e && e.message) });
-    return { source: source.key, ok: false, kind: source.kind || null, error: String(e && e.message), counters: {}, duration_ms: Date.now() - startedMs };
+    const out = { source: source.key, ok: false, kind: source.kind || null, status: 'failed', error: String(e && e.message), counters: {},
+      zero_reason: e.zeroReason || 'connector_error', transient: !!e.transient, access: e.access ? pickAccess(e.access) : null,
+      duration_ms: Date.now() - startedMs };
+    if (apply) out.health = await recordSourceHealth(source, out, trigger);
+    logLine({ evt: 'source_failed', source: source.key, trigger, error: out.error, zero_reason: out.zero_reason, transient: out.transient,
+      health: out.health ? out.health.health_state : null });
+    return out;
   }
+}
+
+// The compact, secret-free view of what a connector saw (counts + first failing URL/status).
+function pickAccess(a) {
+  const first = a.first_block || a.first_error || null;
+  return { requests: a.requests, ok: a.ok, blocked: a.blocked, rate_limited: a.rate_limited, server_error: a.server_error,
+    network: a.network, parse: a.parse, first_failure: first ? { status: first.status, url: first.url } : null };
+}
+
+/**
+ * Fold one run into the source's persisted health (consecutive failures / zero runs, last success,
+ * bounded retry schedule) and classify it. Never throws.
+ */
+async function recordSourceHealth(source, result, trigger) {
+  try {
+    const prev = (await db.query(
+      `SELECT id, status, kind, config, consecutive_failures, consecutive_zero_runs, retry_count,
+              last_success_at, last_nonzero_at, last_failure_at FROM import_sources WHERE id = $1`, [source.id])).rows[0];
+    if (!prev) return null;
+    const c = result.counters || {};
+    const run = { ok: result.ok !== false, status: result.status, fetched: c.fetched || 0, created: c.created || 0,
+      eligible: c.eligible || 0, rejected: (c.skipped_quality || 0) + (c.skipped_ambiguous || 0),
+      zero_reason: result.zero_reason || null, transient: !!result.transient, error: result.error || null, trigger };
+    const next = sourceHealth.nextState(prev, run);
+    const cls = sourceHealth.classify(prev, next, run);
+    await db.query(
+      `UPDATE import_sources SET consecutive_failures = $2, consecutive_zero_runs = $3, last_success_at = $4, last_nonzero_at = $5,
+              last_failure_at = $6, last_error = $7, retry_count = $8, next_retry_at = $9, health_state = $10, health_reason = $11,
+              health_updated_at = now()
+        WHERE id = $1`,
+      [source.id, next.consecutive_failures, next.consecutive_zero_runs, next.last_success_at, next.last_nonzero_at,
+        next.last_failure_at, next.last_error, next.retry_count, next.next_retry_at, cls.state, cls.reason]);
+    return Object.assign({}, next, { health_state: cls.state, health_reason: cls.reason });
+  } catch (e) { logLine({ evt: 'source_health_error', source: source.key, error: String(e && e.message) }); return null; }
+}
+
+/**
+ * Bounded automatic recovery: re-run ONLY sources whose last failure was transient and whose retry time
+ * has come (1h, 2h, 4h — at most sourceHealth.MAX_RETRIES per window). The retry slot is claimed with a
+ * conditional UPDATE so two processes can never both retry the same failure. Never throws.
+ */
+async function runDueRetries(o = {}) {
+  const out = [];
+  try {
+    const due = (await db.query(
+      `SELECT id, key, name, kind, weekly_cap, auto_publish, status, next_retry_at FROM import_sources
+        WHERE status = 'active' AND next_retry_at IS NOT NULL AND next_retry_at <= now() ORDER BY next_retry_at`)).rows;
+    for (const s of due) {
+      const claimed = (await db.query(
+        `UPDATE import_sources SET next_retry_at = NULL WHERE id = $1 AND next_retry_at = $2 RETURNING id`, [s.id, s.next_retry_at])).rowCount;
+      if (!claimed) continue;
+      logLine({ evt: 'source_retry', source: s.key });
+      out.push(await runOneSource(s, { trigger: 'retry', apply: true, autoPublish: !!o.autoPublish }));
+    }
+  } catch (e) { logLine({ evt: 'retry_error', error: String(e && e.message) }); }
+  return out;
+}
+
+/**
+ * Pull third-party cover images of live events from MIRROR-policy sources into managed storage, after
+ * each cycle. Bounded, sequential and best-effort: it never blocks ingestion or publication, never
+ * fetches a gated image, and never presents a false identity (a 403 stays a 403). Never throws.
+ */
+async function enrichImportedImages({ limit = 40 } = {}) {
+  const tally = { attempted: 0, stored: 0, reasons: {} };
+  try {
+    const rows = (await db.query(
+      `SELECT e.* FROM events e WHERE e.id IN (
+         SELECT es.event_id FROM event_sources es JOIN import_sources s ON s.id = es.source_id WHERE s.media_policy = 'mirror')
+         AND e.status = 'published' AND (e.end_at IS NULL OR e.end_at >= now())
+         AND NOT EXISTS (SELECT 1 FROM event_images i WHERE i.event_id = e.id AND i.url ILIKE '%res.cloudinary.com%')
+       ORDER BY e.created_at DESC LIMIT $1`, [limit])).rows;
+    for (const e of rows) {
+      tally.attempted++;
+      const r = await imageEnrichment.enrichEvent(e, { db });
+      if (r.enriched) tally.stored++;
+      else { const k = String(r.reason || 'unknown').split(':')[0]; tally.reasons[k] = (tally.reasons[k] || 0) + 1; }
+    }
+  } catch (e) { tally.error = String(e && e.message); }
+  logLine(Object.assign({ evt: 'image_enrichment' }, tally));
+  return tally;
 }
 
 // Aggregate per-source results into a single run summary with the required counts.
@@ -258,7 +354,8 @@ function summarize(scheduledFor, startedMs, results, extra) {
     sources_ok: results.filter((r) => r.ok !== false).length,
     sources_failed: results.filter((r) => r.ok === false).length,
     counts: agg,
-    sources: results.map((r) => ({ source: r.source, ok: r.ok !== false, kind: r.kind || null, status: r.status || null, runId: r.runId || null, capped: !!r.capped, counters: r.counters || {}, reasons: r.reasons || {}, error: r.error || null })),
+    sources: results.map((r) => ({ source: r.source, ok: r.ok !== false, kind: r.kind || null, status: r.status || null, runId: r.runId || null, capped: !!r.capped, counters: r.counters || {}, reasons: r.reasons || {}, error: r.error || null,
+      zero_reason: r.zero_reason || null, health: r.health ? r.health.health_state : null })),
   }, extra || {});
 }
 
@@ -277,8 +374,13 @@ async function runScheduledCycle(scheduledFor, opts) {
   const results = [];
   for (const s of sources) results.push(await runOneSource(s, { trigger, scheduledFor, apply, autoPublish: !!opts.autoPublish }));
 
-  const summary = summarize(scheduledFor, startedMs, results, { trigger, apply });
-  logLine(Object.assign({ evt: 'cycle_end' }, summary.counts, { sources_total: summary.sources_total, sources_failed: summary.sources_failed, duration_ms: summary.duration_ms }));
+  // Pull newly imported cover images into managed storage (mirror-policy sources only; best-effort).
+  const images = apply ? await enrichImportedImages() : null;
+  const summary = summarize(scheduledFor, startedMs, results, { trigger, apply, images });
+  logLine(Object.assign({ evt: 'cycle_end' }, summary.counts, { sources_total: summary.sources_total, sources_failed: summary.sources_failed,
+    failed_sources: summary.sources.filter((x) => !x.ok).map((x) => ({ source: x.source, zero_reason: x.zero_reason, error: x.error })),
+    zero_result_sources: summary.sources.filter((x) => x.ok && !((x.counters || {}).fetched > 0)).map((x) => ({ source: x.source, zero_reason: x.zero_reason })),
+    images, duration_ms: summary.duration_ms }));
   if (apply) {
     try {
       await writeAuditLog({
@@ -344,12 +446,19 @@ async function runHealthCheck(nowDate, o) {
     });
     priorSnapshot = snap;
     const scheduleInfo = { enabled: c.enabled, schedule: describeSchedule(c), next_scheduled_run: next, last_expected_window: lw ? lw.label : null };
-    logLine({ evt: 'health', afterCycle: !!o.afterCycle, snapshot: snap, alerts, schedule: scheduleInfo });
+    // Overall state: PIPELINE (is ingestion working?) kept apart from SUPPLY (is there enough?).
+    let overall = null;
+    try {
+      const sources = await inventoryHealth.sourceHealthView(db);
+      const images = await inventoryHealth.imageHealth(db);
+      overall = health.overallHealth({ snap, alerts, images, sources: sources.map((x) => ({ key: x.key, live: x.live, health_state: x.health_state })) });
+    } catch (e) { overall = { state: 'UNKNOWN', reasons: ['health view unavailable: ' + String(e && e.message)] }; }
+    logLine({ evt: 'health', afterCycle: !!o.afterCycle, overall, snapshot: snap, alerts, schedule: scheduleInfo });
     try {
       await writeAuditLog({
         event_type: alerts.some((a) => a.level === 'critical') ? 'event_inventory_alert' : 'event_inventory_health',
         entity_type: 'event_import_scheduler', entity_id: AUDIT_ENTITY_ID, actor_id: null,
-        metadata: Object.assign({ snapshot: snap, alerts, schedule: scheduleInfo }, o.summary ? { run_counts: o.summary.counts, sources: o.summary.sources } : {}),
+        metadata: Object.assign({ overall, snapshot: snap, alerts, schedule: scheduleInfo }, o.summary ? { run_counts: o.summary.counts, sources: o.summary.sources } : {}),
       });
     } catch (_) { /* audit best-effort */ }
     // Critical-alert EMAIL is opt-in (EVENT_INVENTORY_ALERTS_ENABLED=true). It fires ONLY for genuine
@@ -411,6 +520,9 @@ async function tick(nowDate) {
     // Monitoring runs regardless of enabled/due — a stalled or disabled worker must still surface alerts.
     await runHealthCheck(nowDate);
     if (!c.enabled) return;
+    // Bounded automatic recovery of transiently failed sources (never structural failures).
+    const retried = await runDueRetries({ autoPublish: c.autoPublish });
+    if (retried.length) await runHealthCheck(nowDate, { afterCycle: true, summary: summarize(null, Date.now(), retried, { trigger: 'retry', apply: true }) });
     const et = etNow(nowDate);
     if (!due(et, c)) return;
     if (lastCycleDate === et.date) return;   // already handled this date in this process
@@ -441,6 +553,7 @@ module.exports = {
   cfg, etNow, due, clampInt, parseDays, activeSources, reapStaleRun,
   scheduleDayset, scheduleLabel, describeSchedule, nextScheduledRun, lastExpectedWindow,
   runOneSource, runScheduledCycle, runNow, runAllNow, summarize, tick, runHealthCheck,
+  recordSourceHealth, runDueRetries, enrichImportedImages, pickAccess,
   CHECK_INTERVAL_MS, STALE_RUN_MINUTES, AUDIT_ENTITY_ID,
   // Test-only: reset the in-process scheduler + health guards between cases.
   _resetForTest: () => { ticking = false; lastCycleDate = null; lastHealthKey = null; lastCriticalAlertDate = null; priorSnapshot = null; },

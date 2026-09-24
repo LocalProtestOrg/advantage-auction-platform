@@ -173,7 +173,13 @@ describe('fetch — catalog auctions + estate-sale posts through one gentle pass
   const http = require('../src/services/eventImport/http');   // the connector references http.fetchText (injectable)
   let orig;
   beforeAll(() => { orig = http.fetchText; });
-  afterEach(() => { http.fetchText = orig; });
+  // The fixtures describe a Sept 19, 2026 estate sale. The connector (correctly) skips anything already
+  // ended against the REAL clock, so without a pinned "now" these tests silently start failing once the
+  // calendar passes the fixture dates — which is exactly what happened on 2026-09-20. Pin the clock to
+  // the fixtures' era (the day after the post's article:modified_time); the past-skip is proven below.
+  const FIXTURE_NOW = Date.parse('2026-09-10T12:00:00Z');
+  beforeEach(() => { jest.spyOn(Date, 'now').mockReturnValue(FIXTURE_NOW); });
+  afterEach(() => { http.fetchText = orig; jest.restoreAllMocks(); });
   const mockSite = (map) => { http.fetchText = async (url) => ({ ok: !!map[url], status: map[url] ? 200 : 404, text: map[url] || '' }); };
 
   test('yields the catalog auction AND the estate-sale post (distinct source ids, original-host URLs); past posts skipped', async () => {
@@ -191,6 +197,32 @@ describe('fetch — catalog auctions + estate-sale posts through one gentle pass
     const out = [];
     for await (const it of c.fetch({ config: { cap: 10, only_estate_sale_slugs: [ES_SLUG] } })) out.push(it);
     expect(out.map((x) => x.sourceEventId)).toEqual([ES_SLUG]);
+  }, 30000);
+  test('once the sale has ended, the same post is skipped (the past-event filter uses the clock)', async () => {
+    Date.now.mockReturnValue(Date.parse('2026-09-20T12:00:00Z'));   // the day after the Sept 19 sale
+    mockSite({ 'https://www.lmauctionco.com/auctions/upcoming-auctions/': listingHtml(), [CATALOG_URL]: detailHtml(), 'https://www.lmauctionco.com/': homeHtml(), [ES_URL]: estateHtml() });
+    const out = [];
+    for await (const it of c.fetch({ config: { cap: 10, only_estate_sale_slugs: [ES_SLUG] } })) out.push(it);
+    expect(out).toEqual([]);
+  }, 30000);
+  test('a refused page is RECORDED as blocked, never mistaken for an empty listing', async () => {
+    http.fetchText = async (url) => ({ ok: false, status: 403, text: '<title>Access Denied</title>' });
+    const diag = require('../src/services/eventImport/diagnostics').createDiagnostics();
+    const out = [];
+    for await (const it of c.fetch({ config: { cap: 10 }, diag })) out.push(it);
+    expect(out).toEqual([]);
+    const s = diag.summary();
+    expect(s.blocked).toBe(2);                                         // listing + home page
+    expect(require('../src/services/eventImport/diagnostics').zeroReason(0, s)).toBe('blocked_by_source');
+  }, 30000);
+  test('the connector identifies itself honestly unless the SITE OWNER documented permission', async () => {
+    const seen = [];
+    http.fetchText = async (url, opts) => { seen.push((opts.headers || {})['User-Agent'] || null); return { ok: false, status: 403, text: '' }; };
+    for await (const _ of c.fetch({ config: { cap: 1 } })) { /* nothing */ }
+    expect(seen.every((ua) => ua === null)).toBe(true);                // http layer's declared AdvantageBidBot identity
+    expect(c.permittedBrowserIdentity({})).toBe(false);
+    expect(c.permittedBrowserIdentity({ access_permission: { granted_by: 'Advantage.Bid Owner' } })).toBe(false);   // incomplete record
+    expect(c.permittedBrowserIdentity({ access_permission: { granted_by: 'Lewis & Maese', granted_at: '2026-09-24', evidence: 'written email' } })).toBe(true);
   }, 30000);
 });
 

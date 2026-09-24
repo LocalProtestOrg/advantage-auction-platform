@@ -12,9 +12,11 @@
  * ACCESS BASIS (documented 2026-08-25):
  *   • Owner explicitly authorized this source by name (LMAuctionCo.com).
  *   • The public listing /auctions/upcoming-auctions/ and each /auction-catalog/{slug}_{REF} page serve
- *     over HTTP 200 to a normal browser UA. robots.txt is edge-blocked (403, no readable policy); given
- *     explicit owner authorization we read ONLY those public, human-facing pages, gently (crawl delay +
- *     small cap), and never touch any gated/login/API path.
+ *     over HTTP 200 to a normal browser UA, but the site's edge firewall refuses our declared crawler
+ *     identity (403, including robots.txt). As of 2026-09-24 the connector identifies itself honestly
+ *     and records that refusal as BLOCKED_BY_SOURCE unless the source record documents Lewis & Maese's
+ *     own permission (see permittedBrowserIdentity). We read ONLY public, human-facing pages, gently
+ *     (crawl delay + small cap), and never touch any gated/login/API path.
  *   • The site is WordPress + the Invaluable "ConnectWP" catalog widget. There is no og:image / JSON-LD
  *     Event block, so we parse the human-readable page: the <title>, the "Month DD, YYYY HH:MM AM/PM TZ"
  *     start datetime, and the public Invaluable `image.invaluable.com/housePhotos/lmauctionco/...` photos.
@@ -43,9 +45,28 @@ const TZ_ABBR = { cdt: DEFAULT_TZ, cst: DEFAULT_TZ, ct: DEFAULT_TZ, edt: 'Americ
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-// fetchText returns { ok, status, text }; return the body only on a usable 2xx, else null.
-async function getText(url, opts) {
-  const r = await http.fetchText(url, Object.assign({ headers: { 'User-Agent': BROWSER_UA } }, opts));
+// IDENTITY (2026-09-24). The site's edge firewall answers our declared crawler identity
+// (AdvantageBidBot) with "403 Access Denied" — even for robots.txt. Presenting a browser User-Agent to
+// get past that block is exactly the anti-bot evasion the Owner's import policy forbids, so by default
+// the connector identifies itself honestly and a refusal is recorded as BLOCKED_BY_SOURCE for a person
+// to resolve. A browser identity is used ONLY when the source record documents that Lewis & Maese
+// itself granted that access: config.access_permission = { granted_by, granted_at, evidence }.
+function permittedBrowserIdentity(config) {
+  const p = config && config.access_permission;
+  return !!(p && typeof p.granted_by === 'string' && p.granted_by.trim() && p.granted_at && p.evidence);
+}
+
+// fetchText returns { ok, status, text }; return the body only on a usable 2xx, else null. Every
+// response is recorded in the run diagnostics so a refusal is never mistaken for an empty listing.
+async function getText(url, opts, ctx = {}) {
+  const headers = permittedBrowserIdentity(ctx.config) ? { 'User-Agent': BROWSER_UA } : {};
+  let r;
+  try { r = await http.fetchText(url, Object.assign({ headers }, opts)); }
+  catch (e) {
+    if (ctx.diag) ctx.diag.record(url, /\bHTTP (\d{3})\b/.test(e.message) ? Number(/\bHTTP (\d{3})\b/.exec(e.message)[1]) : 'network', e.message);
+    return null;
+  }
+  if (ctx.diag) ctx.diag.record(url, r ? r.status : 'network');
   return r && r.ok && typeof r.text === 'string' ? r.text : null;
 }
 
@@ -237,9 +258,9 @@ module.exports = {
   fieldMap: IDENTITY_FIELD_MAP,
 
   parseUpcomingLinks, parseDetail, titleFromHtml, parseStart, parseImages, refFromPath,  // for unit tests
-  parseEstateSaleLinks, parseEstateSale, parsePostImages, toText,
+  parseEstateSaleLinks, parseEstateSale, parsePostImages, toText, permittedBrowserIdentity,
 
-  async *fetch({ config, limit, signal } = {}) {
+  async *fetch({ config, limit, signal, diag } = {}) {
     config = config || {};
     const tz = config.timezone || DEFAULT_TZ;
     const cap = Math.min(limit != null ? limit : (config.cap || DEFAULT_CAP), config.cap || DEFAULT_CAP);
@@ -249,14 +270,16 @@ module.exports = {
     let n = 0;
 
     // 1. Auctions — Invaluable catalog pages from the public upcoming listing.
-    let listing = null; try { listing = await getText(UPCOMING_URL, fetchOpts); } catch (_) { listing = null; }
+    const ctx = { config, diag };
+    const listing = await getText(UPCOMING_URL, fetchOpts, ctx);
     const paths = listing ? parseUpcomingLinks(listing) : [];
     for (const path of paths) {
       if (n >= cap) return;
       if (onlySlugs) break;                          // narrowed run: skip the catalog path entirely
       const catalogUrl = BASE + path;
       await sleep(CRAWL_DELAY_MS);
-      let html; try { html = await getText(catalogUrl, fetchOpts); } catch (_) { continue; }
+      const html = await getText(catalogUrl, fetchOpts, ctx);
+      if (!html) continue;
       const mapped = parseDetail(html, catalogUrl, tz);
       if (!mapped) continue;
       // Defense-in-depth: skip already-ended auctions (publicationGate also blocks expired).
@@ -272,14 +295,15 @@ module.exports = {
     }
 
     // 2. Estate sales — site posts linked from the home page (and the upcoming listing, if any).
-    let home = null; try { home = await getText(HOME_URL, fetchOpts); } catch (_) { home = null; }
+    const home = await getText(HOME_URL, fetchOpts, ctx);
     let slugs = [...new Set([...parseEstateSaleLinks(home), ...parseEstateSaleLinks(listing)])];
     if (onlySlugs) slugs = slugs.filter((s) => onlySlugs.includes(s));
     for (const slug of slugs) {
       if (n >= cap) return;
       const postUrl = `${BASE}/${slug}/`;
       await sleep(CRAWL_DELAY_MS);
-      let html; try { html = await getText(postUrl, fetchOpts); } catch (_) { continue; }
+      const html = await getText(postUrl, fetchOpts, ctx);
+      if (!html) continue;
       const mapped = parseEstateSale(html, postUrl, tz);
       if (!mapped) continue;
       if (mapped.payload.end_at && new Date(mapped.payload.end_at).getTime() < Date.now()) continue;

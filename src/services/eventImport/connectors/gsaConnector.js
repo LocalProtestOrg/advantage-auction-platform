@@ -53,7 +53,7 @@ module.exports = {
    * Yield one raw record per GSA SALE (deduped across its lots within the run).
    * config: { apiUrl?, apiKeyEnv?, timezone? }  — apiKeyEnv names the env var holding an api.data.gov key.
    */
-  async *fetch({ config, limit, signal } = {}) {
+  async *fetch({ config, limit, signal, diag } = {}) {
     config = config || {};
     const apiKey = (config.apiKeyEnv && process.env[config.apiKeyEnv]) || process.env.GSA_API_KEY || 'DEMO_KEY';
     const base = config.apiUrl || DEFAULT_API_URL;
@@ -62,6 +62,8 @@ module.exports = {
 
     const body = await fetchJson(url, { expectType: 'json', signal, maxBytes: 24 * 1024 * 1024, timeoutMs: 40000 });
     const rows = Array.isArray(body) ? body : (body && Array.isArray(body.Results) ? body.Results : []);
+    // Record the successful read WITHOUT the api_key (diagnostics are persisted and logged).
+    if (diag) diag.record(base, 200, rows.length + ' rows');
 
     const seenSale = new Set();
     let n = 0;

@@ -157,6 +157,18 @@ function mapRun(r) {
 
 // GET /status — scheduler config (from the worker's env-driven cfg) + live worker state (derived
 // from the shared DB: whether a run is in progress + the most recent run). No secrets exposed.
+// GET /health — the Inventory Health view: overall state (pipeline vs supply), inventory by type and
+// source, per-source classification, recent failures, zero-result warnings, rejection reasons, image
+// health and the sources that need a person. Admin-only (router guard); read-only; no secrets.
+router.get('/health', asyncRoute(async (req, res) => {
+  const c = worker.cfg();
+  const lw = c.enabled ? worker.lastExpectedWindow(c) : null;
+  const next = worker.nextScheduledRun(c);
+  const schedule = { enabled: c.enabled, autoPublish: c.autoPublish, label: worker.describeSchedule(c).label,
+    next_scheduled_run: next ? next.label : null, last_expected_window: lw ? lw.label : null, last_expected_window_iso: lw ? lw.iso : null };
+  res.json({ success: true, data: await require('../services/eventImport/inventoryHealthService').overview(db, { schedule }) });
+}));
+
 router.get('/status', asyncRoute(async (req, res) => {
   const c = worker.cfg();
   const sched = worker.describeSchedule(c);

@@ -797,8 +797,8 @@ async function runAuctionStateTransitions() {
         await auctionService.closeAuction(row.id, null /* system actor */);
         console.log(`[state-transition] closed auction ${row.id} (${row.title})`);
       } catch (err) {
-        if (!/already closed/i.test(err.message)) {
-          console.error(`[state-transition] close failed for ${row.id}: ${err.message}`);
+        if (!/already closed/i.test(err.message) && shouldReportCloseFailure(row.id, err.message)) {
+          console.error(`[state-transition] close failed for ${row.id}: ${err.message} (repeats suppressed for ${CLOSE_FAILURE_REPORT_MS / 60000} min)`);
           if (process.env.SENTRY_DSN) Sentry.captureException(err);
         }
       }
@@ -810,6 +810,19 @@ async function runAuctionStateTransitions() {
 }
 
 const AUCTION_STATE_INTERVAL_MS = 30000;
+
+// A close that fails the same way every 30s tick (e.g. an archived test auction the close path cannot
+// load) produced ~2,880 identical error lines a day and buried every other diagnostic. Report a given
+// auction + error once, then at most once per window. Close behaviour itself is unchanged.
+const CLOSE_FAILURE_REPORT_MS = 60 * 60 * 1000;
+const lastCloseFailureReport = new Map();
+function shouldReportCloseFailure(auctionId, message, now = Date.now()) {
+  const key = auctionId + '|' + message;
+  const last = lastCloseFailureReport.get(key);
+  if (last != null && now - last < CLOSE_FAILURE_REPORT_MS) return false;
+  lastCloseFailureReport.set(key, now);
+  return true;
+}
 console.log(`[state-transition] scheduler started — scanning every ${AUCTION_STATE_INTERVAL_MS / 1000}s`);
 setInterval(runAuctionStateTransitions, AUCTION_STATE_INTERVAL_MS);
 runAuctionStateTransitions();

@@ -154,6 +154,7 @@
     <div class="tabs" role="tablist">
       <button class="tab active" id="tabQueue" role="tab" aria-selected="true" aria-controls="view-queue">Review Queue</button>
       <button class="tab" id="tabRuns" role="tab" aria-selected="false" aria-controls="view-runs">Run History</button>
+      <button class="tab" id="tabHealth" role="tab" aria-selected="false" aria-controls="view-health">Inventory Health</button>
     </div>
 
     <div id="view-queue" role="tabpanel" aria-labelledby="tabQueue">
@@ -205,6 +206,16 @@
     <div id="content"><div class="state">Loading review queue&hellip;</div></div>
     <div id="pager" class="pager" hidden></div>
     </div><!-- /view-queue -->
+
+    <div id="view-health" role="tabpanel" aria-labelledby="tabHealth" hidden>
+      <div class="panel">
+        <div class="controls" style="justify-content:space-between;align-items:center">
+          <div><strong>Event import inventory health</strong> <span id="hState"></span></div>
+          <button class="btn" id="hRefresh">Refresh</button>
+        </div>
+        <div id="hBody" aria-live="polite"><div class="state">Loading inventory health&hellip;</div></div>
+      </div>
+    </div>
 
     <div id="view-runs" role="tabpanel" aria-labelledby="tabRuns" hidden>
       <div class="panel">
@@ -837,13 +848,43 @@
 
   function switchView(which){
     currentView=which; const q=which==='queue';
-    document.getElementById('view-queue').hidden=!q;
-    document.getElementById('view-runs').hidden=q;
-    document.getElementById('tabQueue').classList.toggle('active',q);
-    document.getElementById('tabRuns').classList.toggle('active',!q);
-    document.getElementById('tabQueue').setAttribute('aria-selected',q?'true':'false');
-    document.getElementById('tabRuns').setAttribute('aria-selected',!q?'true':'false');
-    if(!q && !runsLoaded){ runsLoaded=true; loadRuns(); }
+    const views={queue:['view-queue','tabQueue'],runs:['view-runs','tabRuns'],health:['view-health','tabHealth']};
+    Object.keys(views).forEach(k=>{ const on=k===which; document.getElementById(views[k][0]).hidden=!on;
+      const t=document.getElementById(views[k][1]); t.classList.toggle('active',on); t.setAttribute('aria-selected',on?'true':'false'); });
+    if(which==='runs' && !runsLoaded){ runsLoaded=true; loadRuns(); }
+    if(which==='health') loadHealth();
+  }
+
+  // ---- Inventory Health (GET /api/admin/event-imports/health) ----
+  const H_PILL={HEALTHY:'#dcfce7;color:#166534',DEGRADED:'#fef9c3;color:#854d0e',CRITICAL:'#fee2e2;color:#991b1b',UNKNOWN:'#e2e8f0;color:#334155',
+    BROKEN:'#fee2e2;color:#991b1b',BLOCKED_BY_SOURCE:'#fee2e2;color:#991b1b',NO_LONGER_USEFUL:'#e2e8f0;color:#334155',NEEDS_REVIEW:'#fef9c3;color:#854d0e'};
+  function hPill(v){ return '<span style="display:inline-block;padding:2px 8px;border-radius:999px;font-size:.72rem;font-weight:700;background:'+(H_PILL[v]||H_PILL.UNKNOWN)+'">'+esc(v||'UNKNOWN')+'</span>'; }
+  function hDate(v){ return v ? esc(new Date(v).toLocaleString()) : '&mdash;'; }
+  function hTable(head, rows){ return '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:.82rem"><thead><tr>'+head.map(h=>'<th style="text-align:left;padding:.35rem .5rem;border-bottom:2px solid #e2e8f0">'+esc(h)+'</th>').join('')+'</tr></thead><tbody>'+rows.map(r=>'<tr>'+r.map(c=>'<td style="padding:.35rem .5rem;border-bottom:1px solid #f1f5f9;vertical-align:top">'+c+'</td>').join('')+'</tr>').join('')+'</tbody></table></div>'; }
+  function loadHealth(){
+    const host=document.getElementById('hBody');
+    api('GET','/api/admin/event-imports/health').then(res=>{
+      if(!res.ok || !res.body || !res.body.success){ host.innerHTML='<div class="state"><h2>Could not load inventory health</h2></div>'; return; }
+      const d=res.body.data, o=d.overall||{}, sn=d.snapshot||{}, img=d.images||{};
+      document.getElementById('hState').innerHTML=hPill(o.state)+' <span class="muted">'+esc((o.diagnosis||'').replace(/_/g,' ').toLowerCase())+'</span>';
+      const ai=sn.auction_inventory||{};
+      let h='<p class="muted">Pipeline: <strong>'+esc(o.pipeline)+'</strong> &middot; Supply: <strong>'+esc(o.supply)+'</strong>'+(d.schedule?' &middot; Schedule: '+esc(d.schedule.label)+' &middot; Next run: '+esc(d.schedule.next_scheduled_run||'n/a'):'')+'</p>';
+      if((o.reasons||[]).length) h+='<ul>'+o.reasons.map(r=>'<li>'+esc(r)+'</li>').join('')+'</ul>';
+      h+='<h3 style="margin-top:1rem">Upcoming public inventory</h3>'+hTable(['Total public','External auctions (target '+esc(ai.target)+')','Estate sales','Native auctions','Last successful import'],
+        [[esc(sn.total_active_public),esc(sn.external_auctions),esc(sn.active_estate_sales),esc(sn.native_auctions),hDate(sn.last_success_run)]]);
+      h+='<h3 style="margin-top:1rem">By source</h3>'+hTable(['Source','Upcoming','By type'],(sn.upcoming_by_source||[]).map(x=>[esc(x.key),esc(x.n),esc(JSON.stringify(x.by_type))]));
+      h+='<h3 style="margin-top:1rem">Connectors</h3>'+hTable(['Source','State','Why','Last run','Fetched / new','Zero-result reason','Next retry'],
+        (d.sources||[]).map(x=>{ const lr=x.last_run||{}; return [esc(x.key)+'<div class="muted">'+esc(x.connector)+' &middot; '+esc(x.status)+'</div>',hPill(x.health_state),esc(x.health_reason),
+          hDate(lr.started_at)+(lr.trigger?'<div class="muted">'+esc(lr.trigger)+' &middot; '+esc(lr.status)+'</div>':''),esc((lr.fetched??'-')+' / '+(lr.created??'-')),esc(lr.zero_reason||''),hDate(x.next_retry_at)]; }));
+      if((d.needs_review||[]).length) h+='<h3 style="margin-top:1rem">Needs a person</h3><ul>'+d.needs_review.map(r=>'<li><strong>'+esc(r.source)+'</strong> ('+esc(r.state)+'): '+esc(r.action)+'</li>').join('')+'</ul>';
+      if((d.zero_result_warnings||[]).length) h+='<h3 style="margin-top:1rem">Zero-result runs</h3><ul>'+d.zero_result_warnings.map(z=>'<li>'+esc(z.source)+': '+esc(z.zero_reason||'no reason recorded')+' ('+hDate(z.at)+')</li>').join('')+'</ul>';
+      const rr=d.rejection_reasons_30d||{};
+      h+='<h3 style="margin-top:1rem">Rejection reasons (30 days)</h3>'+(Object.keys(rr).length?hTable(['Source','Reason','Count'],[].concat(...Object.keys(rr).map(k=>Object.keys(rr[k]).map(r=>[esc(k),esc(r),esc(rr[k][r])])))):'<p class="muted">None.</p>');
+      h+='<h3 style="margin-top:1rem">Images</h3>'+hTable(['Source','Live','Real image','In managed storage','Placeholder'],(img.by_source||[]).map(x=>[esc(x.key),esc(x.live),esc(x.real_image),esc(x.managed),esc(x.placeholder)]))
+        +'<p class="muted">Government surplus auctions use the approved placeholder: their photos are login-gated at the source.</p>';
+      h+='<h3 style="margin-top:1rem">Recent failures</h3>'+((d.recent_failures||[]).length?hTable(['Source','When','Trigger','Reason'],d.recent_failures.map(x=>[esc(x.key),hDate(x.started_at),esc(x.trigger),esc(x.last_error||x.zero_reason||'')])):'<p class="muted">None.</p>');
+      host.innerHTML=h;
+    });
   }
 
   // ---- Bootstrap ----
@@ -887,6 +928,8 @@
     // Tabs.
     document.getElementById('tabQueue').onclick=()=>switchView('queue');
     document.getElementById('tabRuns').onclick=()=>switchView('runs');
+    document.getElementById('tabHealth').onclick=()=>switchView('health');
+    document.getElementById('hRefresh').onclick=loadHealth;
 
     // Run history filters + refresh.
     document.getElementById('rSource').onchange=(e)=>{ RUNS.filters.sourceId=e.target.value; RUNS.filters.page=1; loadRuns(); };

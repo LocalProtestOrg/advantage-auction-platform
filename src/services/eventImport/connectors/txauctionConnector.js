@@ -29,9 +29,18 @@ const CRAWL_DELAY_MS = 3000;
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const locsOf = (xml) => (typeof xml === 'string' ? xml : '').match(/<loc>([^<]+)<\/loc>/gi) || [];
 const firstLoc = (xml) => locsOf(xml).map((s) => s.replace(/<\/?loc>/gi, ''));
-// fetchText returns { ok, status, text }; return the body text only on a usable 2xx, else null.
-async function getText(url, opts) {
-  const r = await fetchText(url, opts);
+// fetchText returns { ok, status, text }; return the body text only on a usable 2xx, else null. Every
+// response (and every thrown fetch failure) is recorded in the run diagnostics, so a refused or
+// rate-limited sitemap is never mistaken for "no upcoming auctions".
+async function getText(url, opts, diag) {
+  let r;
+  try { r = await fetchText(url, opts); }
+  catch (e) {
+    const m = /HTTP (d{3})/.exec(String(e && e.message));
+    if (diag) diag.record(url, m ? Number(m[1]) : 'network', e && e.message);
+    return null;
+  }
+  if (diag) diag.record(url, r ? r.status : 'network');
   return r && r.ok && typeof r.text === 'string' ? r.text : null;
 }
 
@@ -85,14 +94,14 @@ module.exports = {
 
   parseAuctionState, auctionToPayload,   // exported for unit tests against captured fixtures
 
-  async *fetch({ config, limit, signal } = {}) {
+  async *fetch({ config, limit, signal, diag } = {}) {
     config = config || {};
     const tz = config.timezone || DEFAULT_TZ;
     const cap = Math.min(limit != null ? limit : (config.cap || DEFAULT_CAP), config.cap || DEFAULT_CAP);
     const fetchOpts = { timeoutMs: 30000, maxBytes: 8 * 1024 * 1024, signal };
 
     // 1. Auctions sitemap-index → per-auction sitemap URLs (each ends in /sitemap/auction/{id}).
-    let indexXml; try { indexXml = await getText(SITEMAP_INDEX, fetchOpts); } catch (_) { return; }
+    const indexXml = await getText(SITEMAP_INDEX, fetchOpts, diag);
     if (!indexXml) return;
     const auctionSitemaps = firstLoc(indexXml).filter((u) => /\/sitemap\/auction\/\d+/.test(u));
 
@@ -100,7 +109,7 @@ module.exports = {
     for (const sm of auctionSitemaps) {
       if (n >= cap) return;
       await sleep(CRAWL_DELAY_MS);
-      let smXml; try { smXml = await getText(sm, fetchOpts); } catch (_) { continue; }
+      const smXml = await getText(sm, fetchOpts, diag);
       if (!smXml) continue;
       // The per-auction sitemap's first URL is the auction page (/auctions/{id}-{slug}); lots follow.
       const pageUrl = firstLoc(smXml).find((u) => /\/auctions\/\d+-/.test(u));
@@ -108,9 +117,11 @@ module.exports = {
       seen.add(pageUrl);
 
       await sleep(CRAWL_DELAY_MS);
-      let html; try { html = await getText(pageUrl, fetchOpts); } catch (_) { continue; }
+      const html = await getText(pageUrl, fetchOpts, diag);
       if (!html) continue;
       const auction = parseAuctionState(html);
+      // A page that loads but carries no readable auction state is a possible markup change.
+      if (!auction && diag) diag.record(pageUrl, 'parse', 'no __APOLLO_STATE__ Auction node');
       const mapped = auctionToPayload(auction, tz);
       if (!mapped) continue;
       // Skip already-ended auctions (defense-in-depth; publicationGate also blocks expired).

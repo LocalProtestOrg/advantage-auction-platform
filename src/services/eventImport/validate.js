@@ -14,6 +14,15 @@ function hasUsableLocation(c) {
   return !!((c.city && c.state) || c.zip || (c.lat != null && c.lng != null));
 }
 
+const MAX_EVENT_DAYS = 120;
+const TEST_TITLE = /\b(test|practice|demo|sample|dummy)\s+(auction|sale|event|listing)\b/i;
+const TEST_BODY = /\b(this is a test (auction|sale|listing)|there are no (actual )?items for sale|no actual items)\b/i;
+
+/** The host itself marks this as a practice / test listing. Pure. */
+function isTestListing(c) {
+  return TEST_TITLE.test(String(c.title || '')) || TEST_BODY.test(String(c.description || ''));
+}
+
 function validate(c, opts) {
   opts = opts || {};
   c = c || {};
@@ -30,6 +39,17 @@ function validate(c, opts) {
   // The never-expire guard: an event with no computable end_at is NEVER published.
   if (!c.end_at) return { ok: false, outcome: 'rejected_quality', reason: 'no_computable_end_at' };
 
+  // Not a real event: a host's own practice / test listing ("TEST AUCTION FOR BIDDERS … There are no
+  // actual items for sale") is real on the source but is not a sale a buyer can attend.
+  if (isTestListing(c)) return { ok: false, outcome: 'rejected_quality', reason: 'not_a_real_event:test_listing' };
+
+  // Implausible duration: auctions and estate sales run for days or weeks, not years. A span beyond
+  // this is a placeholder date on the source (e.g. 2022 → 2031), never a real sale window.
+  if (c.start_at && c.end_at) {
+    const days = (Date.parse(c.end_at) - Date.parse(c.start_at)) / 86400000;
+    if (Number.isFinite(days) && days > MAX_EVENT_DAYS) return { ok: false, outcome: 'rejected_quality', reason: 'implausible_duration' };
+  }
+
   // Staleness: reject events that have already ended (keeps the marketplace fresh). Optional (needs now).
   if (typeof opts.now === 'number') {
     const end = Date.parse(c.end_at);
@@ -39,4 +59,4 @@ function validate(c, opts) {
   return { ok: true, outcome: 'ok' };
 }
 
-module.exports = { validate, hasUsableLocation };
+module.exports = { validate, hasUsableLocation, isTestListing, MAX_EVENT_DAYS };

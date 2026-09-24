@@ -16,6 +16,7 @@ const marketResolver = require('./marketResolver');
 const geocode = require('./geocode');
 const writer = require('./writer');
 const runLog = require('./runLog');
+const diagnostics = require('./diagnostics');
 const { getConnector } = require('./connectors');
 
 const GLOBAL_CREATE_CAP = 75;
@@ -62,8 +63,12 @@ async function runImport(opts) {
   const items = [];
   let created = 0, capped = false;
 
+  // What the connector saw on the wire, so a refused or unreachable source is never mistaken for a
+  // source with nothing to list.
+  const diag = diagnostics.createDiagnostics();
+
   try {
-    for await (const raw of connector.fetch({ config, limit: opts.limit, signal: opts.signal })) {
+    for await (const raw of connector.fetch({ config, limit: opts.limit, signal: opts.signal, diag })) {
       counters.fetched++;
       const rec = pipeline.normalizeItem(raw, { fieldMap, defaults, now: opts.nowMs });
       let outcome = rec.outcome, eventId = null, matchVia = null, marketVia = null, reason = rec.reason, error = rec.error;
@@ -112,14 +117,32 @@ async function runImport(opts) {
       if (apply && run) await runLog.recordItem(db, run.id, { sourceEventId: rec.sourceEventId, eventId, outcome, matchVia, marketVia, reason, error, rawExcerpt: raw && raw.payload });
     }
   } catch (e) {
-    if (apply && run) await runLog.finishRun(db, run.id, { status: 'failed', counters, capped, lastError: String(e && e.message), stats: { reasons } }).catch(() => {});
+    const cls = diagnostics.classifyError(e && e.message);
+    const access = diag.summary();
+    if (apply && run) await runLog.finishRun(db, run.id, { status: 'failed', counters, capped, lastError: String(e && e.message),
+      stats: { reasons, access, zero_reason: counters.fetched ? null : cls.zero_reason, transient: cls.transient } }).catch(() => {});
+    e.zeroReason = cls.zero_reason; e.transient = cls.transient; e.access = access;
     throw e;
   }
 
-  const status = counters.failed > 0 ? 'partial' : 'completed';
-  if (apply && run) await runLog.finishRun(db, run.id, { status, counters, capped, remainingAvailable: capped ? 0 : Math.max(0, cap - created), stats: { reasons } });
+  // A run that produced nothing must say WHY. A refused / unreachable / unreadable source FAILS the run
+  // (visible, retried or reviewed); a source that loaded fine and listed nothing current is a lull.
+  const access = diag.summary();
+  const zero_reason = diagnostics.zeroReason(counters.fetched, access);
+  const failing = zero_reason && diagnostics.FAILING_ZERO_REASONS.includes(zero_reason);
+  const transient = !!(zero_reason && diagnostics.TRANSIENT_ZERO_REASONS.includes(zero_reason));
+  const status = failing ? 'failed' : counters.failed > 0 ? 'partial' : 'completed';
+  const lastError = failing ? zero_reason + describeAccess(access) : null;
+  if (apply && run) await runLog.finishRun(db, run.id, { status, counters, capped, remainingAvailable: capped ? 0 : Math.max(0, cap - created),
+    lastError, stats: { reasons, access, zero_reason, transient } });
 
-  return { applied: apply, claimed: apply ? true : undefined, runId: run && run.id, status, capped, remainingAvailable: Math.max(0, cap - created), counters, reasons, items };
+  return { applied: apply, claimed: apply ? true : undefined, runId: run && run.id, status, capped, remainingAvailable: Math.max(0, cap - created),
+    counters, reasons, items, zero_reason, transient, access, lastError };
+}
+
+function describeAccess(a) {
+  const r = a && (a.first_block || a.first_error);
+  return r ? ': HTTP ' + r.status + ' at ' + r.url : '';
 }
 
 module.exports = { runImport };

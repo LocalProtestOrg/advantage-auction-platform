@@ -1,6 +1,13 @@
 'use strict';
 
-/** imageEnrichment.fetchImage: a public CDN that answers 403 to the enrichment UA is retried ONCE with a browser UA. */
+/**
+ * imageEnrichment.fetchImage identity policy (2026-09-24).
+ *
+ * Previously a CDN that answered 403 to the enrichment client was retried ONCE with a browser
+ * User-Agent. The Owner's import policy forbids evading anti-bot protections, so that retry was
+ * removed: the image is fetched once, under Advantage.Bid's own declared identity, and a 403 is
+ * recorded ('blocked_403') — the event keeps its source link / placeholder instead.
+ */
 const EventEmitter = require('events');
 const { fetchImage, isUsableImageResponse } = require('../src/services/eventImport/imageEnrichment');
 
@@ -19,22 +26,22 @@ function fakeRequest(plan) {
   return { requestImpl, seen };
 }
 
-test('403 to the enrichment UA → retried with a browser UA → 200 usable image (ua_fallback flagged)', async () => {
+test('403 to the enrichment client → recorded as blocked_403; NEVER retried with a browser identity', async () => {
   const { requestImpl, seen } = fakeRequest((ua) => (/AdvantageBid-ImageEnrichment/.test(ua) ? 403 : 200));
   const r = await fetchImage('https://image.invaluable.com/privatelabel/x.jpg', { requestImpl });
-  expect(r.status).toBe(200); expect(r.ua_fallback).toBe(true); expect(isUsableImageResponse(r).ok).toBe(true);
-  expect(seen.length).toBe(2); expect(seen[0]).toMatch(/AdvantageBid-ImageEnrichment/); expect(seen[1]).toMatch(/Mozilla/);
+  expect(r.status).toBe(403);
+  expect(seen).toHaveLength(1);
+  expect(seen[0]).toMatch(/AdvantageBid-ImageEnrichment/);
+  expect(isUsableImageResponse(r)).toEqual({ ok: false, reason: 'blocked_403' });
 });
-test('200 on the first try → no retry', async () => {
+test('200 on the first try → used as-is, no second request', async () => {
   const { requestImpl, seen } = fakeRequest(() => 200);
   const r = await fetchImage('https://x/y.jpg', { requestImpl });
-  expect(r.status).toBe(200); expect(r.ua_fallback).toBeUndefined(); expect(seen.length).toBe(1);
+  expect(r.status).toBe(200); expect(seen).toHaveLength(1); expect(isUsableImageResponse(r).ok).toBe(true);
 });
-test('403 on both tries → original 403 reported (login/robot gated stays unusable); 401 never retried', async () => {
-  const both = fakeRequest(() => 403);
-  const r = await fetchImage('https://x/y.jpg', { requestImpl: both.requestImpl });
-  expect(r.status).toBe(403); expect(both.seen.length).toBe(2); expect(isUsableImageResponse(r).ok).toBe(false);
-  const gated = fakeRequest(() => 401);
-  const g = await fetchImage('https://x/y.jpg', { requestImpl: gated.requestImpl });
-  expect(g.status).toBe(401); expect(gated.seen.length).toBe(1); expect(isUsableImageResponse(g).reason).toBe('login_gated');
+test('401 (login-gated) is never retried and stays unusable', async () => {
+  const { requestImpl, seen } = fakeRequest(() => 401);
+  const r = await fetchImage('https://www.ppms.gov/x.jpg', { requestImpl });
+  expect(r.status).toBe(401); expect(seen).toHaveLength(1);
+  expect(isUsableImageResponse(r)).toEqual({ ok: false, reason: 'login_gated' });
 });

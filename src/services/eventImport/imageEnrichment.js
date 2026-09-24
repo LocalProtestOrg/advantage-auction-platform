@@ -65,11 +65,11 @@ async function resolveCandidates(event, deps = {}) {
   return extractImageCandidates(html, url);
 }
 
-const ENRICH_UA = 'AdvantageBid-ImageEnrichment/1.0';
-// Some public image CDNs (e.g. Invaluable's WordPress "privatelabel" uploads used by owner-authorized
-// original-host sources) answer 403 to non-browser user agents while serving the same public file to any
-// browser. On a 403 we retry ONCE with a standard browser UA — same public URL, no auth, no gated path.
-const BROWSER_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36';
+const ENRICH_UA = 'AdvantageBid-ImageEnrichment/1.0 (+https://bid.advantage.bid)';
+// IDENTITY (2026-09-24). Some image CDNs answer 403 to a declared automated client while serving the
+// same file to browsers. That 403 is the host's access decision: we used to retry as a browser, which is
+// the anti-bot evasion the Owner's import policy forbids. Now a 403 is recorded ('blocked_403') and the
+// event keeps its source image link / placeholder — the image is never fetched by pretending otherwise.
 
 function fetchImageOnce(url, ua, requestImpl) {
   return new Promise((resolve) => {
@@ -87,14 +87,12 @@ function fetchImageOnce(url, ua, requestImpl) {
 }
 
 async function fetchImage(url, deps = {}) {
-  const first = await fetchImageOnce(url, ENRICH_UA, deps.requestImpl);
-  if (first.status !== 403) return first;
-  const retry = await fetchImageOnce(url, BROWSER_UA, deps.requestImpl);
-  return retry.status === 200 ? Object.assign(retry, { ua_fallback: true }) : first;
+  return fetchImageOnce(url, ENRICH_UA, deps.requestImpl);
 }
 
 // Validate a candidate image response is a genuinely-public, usable image (not a login page/401).
 function isUsableImageResponse(r) {
+  if (r && r.status === 403) return { ok: false, reason: 'blocked_403' };
   if (!r || r.status !== 200) return { ok: false, reason: r && r.status === 401 ? 'login_gated' : ('http_' + (r ? r.status : 'error')) };
   if (!/^image\//i.test(r.ctype)) return { ok: false, reason: 'not_an_image' };            // e.g. JSON login error served as 200
   if (!r.body || r.body.length < 512) return { ok: false, reason: 'too_small' };
