@@ -305,6 +305,14 @@ describe('draft copy can be edited and is validated; approved copy never changes
     expect(v.description_status).toBe('none yet');
     expect(templates.render(row('E2_NOCLICK'), Object.assign({}, v, { postal_address: 'PO' })).text).toMatch(/Description: none yet/);
   });
+  test('the listing link is encoded exactly once, whether or not the synced slug was already encoded', () => {
+    const url = (p) => sender.directoryUrl({ id: 'o1', bd_metadata: { bd_profile_path: p } });
+    expect(url('united-states/wood-village/estate-liquidator/adam%E2%80%99s-auctions-llc')).toBe('https://www.advantage.bid/united-states/wood-village/estate-liquidator/adam%E2%80%99s-auctions-llc');
+    expect(url('united-states/wood-village/estate-liquidator/adam’s-auctions-llc')).toBe('https://www.advantage.bid/united-states/wood-village/estate-liquidator/adam%E2%80%99s-auctions-llc');
+    expect(url('united-states/houston/auction-house/auctions-unlimited-llc')).toBe('https://www.advantage.bid/united-states/houston/auction-house/auctions-unlimited-llc');
+    expect(url('united-states/x/y/100%-bad')).toBe('https://www.advantage.bid/united-states/x/y/100%25-bad');
+    expect(url('')).toBe('https://bid.advantage.bid/claim-listing.html?org=o1');
+  });
   test('outreach copy never implies endorsement or independent verification', () => {
     for (const k of ['E1', 'E2_NOCLICK', 'E2_CLICKED', 'E3', 'E4_REFRESH']) {
       const t = templates.CATALOGUE[k].text + templates.CATALOGUE[k].subject;

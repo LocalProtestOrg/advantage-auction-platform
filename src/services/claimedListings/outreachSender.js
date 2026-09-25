@@ -57,7 +57,10 @@ function thirdBullet(org) {
 function directoryUrl(org) {
   // Same rule as the marketplace cards: the synced directory slug, rejected when malformed.
   const p = String((org.bd_metadata && org.bd_metadata.bd_profile_path) || '').trim().replace(/^\/+/, '');
-  if (p && !/[<>"'\\\s]/.test(p) && !/^https?:/i.test(p)) return 'https://www.advantage.bid/' + p.split('/').map(encodeURIComponent).join('/');
+  // Some synced slugs are already percent-encoded (adam%E2%80%99s-...): decode each segment first so it is
+  // encoded exactly once (a double-encoded link is a 404 on the directory).
+  const seg = (x) => { try { return encodeURIComponent(decodeURIComponent(x)); } catch (_) { return encodeURIComponent(x); } };
+  if (p && !/[<>"'\\\s]/.test(p) && !/^https?:/i.test(p)) return 'https://www.advantage.bid/' + p.split('/').map(seg).join('/');
   return PUBLIC_BASE + '/claim-listing.html?org=' + org.id;
 }
 
