@@ -17,6 +17,7 @@ const crypto = require('crypto');
 const router = express.Router();
 const auth = require('../middleware/authMiddleware');
 const requirePermission = require('../middleware/requirePermission');
+const rbac = require('../lib/rbac');
 const db = require('../db');
 const auditService = require('../services/auditService');
 const toolbox = require('../services/claimedListings/toolboxService');
@@ -230,6 +231,13 @@ router.get('/templates', wrap(async (req, res) => {
 router.post('/templates/seed', approve, wrap(async (req, res) => {
   res.json({ success: true, data: await templates.seedDrafts({ actorId: req.user.id }) });
 }));
+router.put('/templates/:id', idParam('id'), approve, express.json(), wrap(async (req, res) => {
+  const b = req.body || {};
+  res.json({ success: true, data: await templates.updateDraft(req.params.id, { subject: b.subject, preheader: b.preheader || null, body_text: b.body_text }, { actorId: req.user.id }) });
+}));
+router.post('/templates/:id/new-version', idParam('id'), approve, wrap(async (req, res) => {
+  res.status(201).json({ success: true, data: await templates.newVersion(req.params.id, { actorId: req.user.id }) });
+}));
 router.post('/templates/:id/approve', idParam('id'), approve, wrap(async (req, res) => {
   const t = await templates.approve(req.params.id, { actorId: req.user.id });
   if (!t) return res.status(409).json({ success: false, message: 'Only a draft can be approved.' });
@@ -239,13 +247,42 @@ router.post('/templates/:id/approve', idParam('id'), approve, wrap(async (req, r
 }));
 router.get('/cohorts', wrap(async (req, res) => {
   const rows = (await db.query(
-    `SELECT c.*, (SELECT count(*)::int FROM listing_outreach_cohort_members m WHERE m.cohort_id = c.id) AS members FROM listing_outreach_cohorts c ORDER BY c.created_at DESC`)).rows;
+    `SELECT c.*, (SELECT count(*)::int FROM listing_outreach_cohort_members m WHERE m.cohort_id = c.id AND m.status <> 'excluded') AS members,
+            (SELECT COALESCE(jsonb_object_agg(status, n), '{}'::jsonb) FROM (SELECT status, count(*)::int n FROM listing_outreach_cohort_members m WHERE m.cohort_id = c.id GROUP BY 1) x) AS member_status,
+            (SELECT display_name FROM sales_rep_profiles p WHERE p.user_id = c.assigned_rep_user_id) AS rep_name
+       FROM listing_outreach_cohorts c ORDER BY c.created_at DESC`)).rows;
   res.json({ success: true, data: rows });
 }));
 router.post('/cohorts/propose', work, express.json(), wrap(async (req, res) => {
   const b = req.body || {};
-  res.status(201).json({ success: true, data: await sequences.proposeCohort({ name: b.name, size: b.size, actorId: req.user.id,
-    repUserId: UUID_RE.test(b.rep_user_id || '') ? b.rep_user_id : null }) });
+  // Default signing rep: the proposer, when they are an outreach-enabled representative. Approval re-checks it.
+  let repUserId = UUID_RE.test(b.rep_user_id || '') ? b.rep_user_id : null;
+  if (!repUserId) {
+    const own = (await db.query(`SELECT user_id FROM sales_rep_profiles WHERE user_id = $1 AND outreach_enabled = true`, [req.user.id])).rows[0];
+    repUserId = own ? own.user_id : null;
+  }
+  res.status(201).json({ success: true, data: await sequences.proposeCohort({ name: b.name, size: b.size, actorId: req.user.id, repUserId }) });
+}));
+router.get('/cohorts/:id/members', idParam('id'), wrap(async (req, res) => {
+  res.json({ success: true, data: await sequences.cohortMembers(req.params.id) });
+}));
+router.get('/cohorts/:id/members/:orgId/preview', idParam('id'), idParam('orgId'), wrap(async (req, res) => {
+  res.json({ success: true, data: await sequences.previewMember(req.params.id, req.params.orgId) });
+}));
+router.post('/cohorts/:id/members/:orgId/exclude', idParam('id'), idParam('orgId'), work, express.json(), wrap(async (req, res) => {
+  res.json({ success: true, data: await sequences.excludeMember(req.params.id, req.params.orgId, { actorId: req.user.id, reason: (req.body || {}).reason }) });
+}));
+router.post('/cohorts/:id/members/:orgId/include', idParam('id'), idParam('orgId'), work, wrap(async (req, res) => {
+  res.json({ success: true, data: await sequences.includeMember(req.params.id, req.params.orgId, { actorId: req.user.id }) });
+}));
+router.post('/cohorts/:id/rep', idParam('id'), approve, express.json(), wrap(async (req, res) => {
+  const repUserId = (req.body || {}).rep_user_id;
+  if (!UUID_RE.test(repUserId || '')) return res.status(400).json({ success: false, message: 'Choose a representative.' });
+  res.json({ success: true, data: await sequences.assignRep(req.params.id, repUserId, { actorId: req.user.id }) });
+}));
+router.get('/reps', wrap(async (req, res) => {
+  const rows = (await db.query(`SELECT user_id, display_name FROM sales_rep_profiles WHERE outreach_enabled = true ORDER BY display_name`)).rows;
+  res.json({ success: true, data: rows });
 }));
 router.post('/cohorts/:id/templates', idParam('id'), approve, express.json(), wrap(async (req, res) => {
   res.json({ success: true, data: await sequences.bindTemplates(req.params.id, (req.body || {}).template_versions || {}, { actorId: req.user.id }) });
@@ -253,8 +290,12 @@ router.post('/cohorts/:id/templates', idParam('id'), approve, express.json(), wr
 router.post('/cohorts/:id/approve', idParam('id'), approve, wrap(async (req, res) => {
   res.json({ success: true, data: await sequences.approveCohort(req.params.id, { actorId: req.user.id }) });
 }));
-router.post('/cohorts/:id/status', idParam('id'), approve, express.json(), wrap(async (req, res) => {
+// Stopping is always allowed to the people working the campaign; restarting it is the Super Admin's call.
+router.post('/cohorts/:id/status', idParam('id'), work, express.json(), wrap(async (req, res) => {
   const b = req.body || {};
+  if (b.status === 'active' && !rbac.hasPermission(req.staff, 'listings.approve_cohort')) {
+    return res.status(403).json({ success: false, message: 'Only a Super Admin can resume a cohort.' });
+  }
   res.json({ success: true, data: await sequences.setCohortStatus(req.params.id, b.status, { actorId: req.user.id, reason: b.reason || null }) });
 }));
 router.post('/cohorts/:id/shadow', idParam('id'), work, wrap(async (req, res) => {
@@ -282,6 +323,35 @@ router.post('/program', approve, express.json(), wrap(async (req, res) => {
   }
   await auditService.logEvent(db, { eventType: 'claimed_listing.program_changed', entityType: 'program', entityId: null, actorId: req.user.id, metadata: { changes } });
   res.json({ success: true, data: await programState() });
+}));
+
+// The kill switch for the people running the campaign: turns sending OFF and records why. Turning it back
+// on stays a Super Admin action with the confirmation phrase (POST /program).
+router.post('/program/stop', work, express.json(), wrap(async (req, res) => {
+  const reason = String((req.body || {}).reason || '').trim().slice(0, 300);
+  if (reason.length < 3) return res.status(400).json({ success: false, message: 'Say briefly why outreach is being stopped.' });
+  const who = (await db.query(`SELECT COALESCE(full_name, email) AS n FROM users WHERE id = $1`, [req.user.id])).rows[0];
+  const pausedReason = 'Stopped by ' + ((who && who.n) || 'staff') + ' on ' + new Date().toISOString().slice(0, 16).replace('T', ' ') + ' UTC: ' + reason;
+  for (const [k, v] of [['claimed_listings.sending_enabled', false], ['claimed_listings.paused_reason', pausedReason]]) {
+    await db.query(`INSERT INTO platform_config (key, value, category) VALUES ($1, $2::jsonb, 'claimed_listings')
+      ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = now()`, [k, JSON.stringify(v)]);
+  }
+  await auditService.logEvent(db, { eventType: 'claimed_listing.program_stopped', entityType: 'program', entityId: null, actorId: req.user.id, metadata: { reason } });
+  res.json({ success: true, data: await programState() });
+}));
+
+// ── replies to outreach (a person answers every one) ───────────────────────────────────────────
+router.get('/replies', wrap(async (req, res) => {
+  const rows = (await db.query(
+    `SELECT m.id, m.organization_id, o.name AS organization_name, m.created_at, m.classification, m.action_taken, m.subject,
+            left(m.body_text, 1500) AS body_excerpt, m.sender_email_normalized,
+            t.id AS task_id, t.status AS task_status, t.due_at AS task_due_at, t.task_type
+       FROM listing_outreach_messages m
+       LEFT JOIN organizations o ON o.id = m.organization_id
+       LEFT JOIN listing_tasks t ON t.dedupe_key = 'reply:' || m.id::text
+      WHERE m.direction = 'inbound'
+      ORDER BY m.created_at DESC LIMIT 200`)).rows;
+  res.json({ success: true, data: rows });
 }));
 
 // ── gate preview for one listing (read-only) ───────────────────────────────────────────────────

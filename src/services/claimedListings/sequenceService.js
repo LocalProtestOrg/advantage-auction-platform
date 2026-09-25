@@ -96,7 +96,8 @@ async function approveCohort(cohortId, { actorId, expiresInDays = 30 }, runner =
   const approved = (await runner.query(`SELECT id FROM listing_outreach_templates WHERE id = ANY($1::uuid[]) AND status = 'approved'`, [Object.values(tv)])).rows.length;
   if (approved !== Object.values(tv).length) throw err(400, 'TEMPLATE_NOT_APPROVED', 'Every bound template must be an approved version.');
   if (!c.assigned_rep_user_id) throw err(400, 'REP_REQUIRED', 'Assign the signing representative first.');
-  const size = (await runner.query(`SELECT count(*)::int AS n FROM listing_outreach_cohort_members WHERE cohort_id = $1`, [cohortId])).rows[0].n;
+  const size = (await runner.query(`SELECT count(*)::int AS n FROM listing_outreach_cohort_members WHERE cohort_id = $1 AND status <> 'excluded'`, [cohortId])).rows[0].n;
+  if (!size) throw err(400, 'COHORT_EMPTY', 'Every member of this cohort is excluded.');
   const maxCfg = (await runner.query(`SELECT value FROM platform_config WHERE key = 'claimed_listings.first_cohort_max'`)).rows[0];
   if (size > (Number(maxCfg && maxCfg.value) || 50)) throw err(400, 'COHORT_TOO_LARGE', 'The cohort exceeds claimed_listings.first_cohort_max.');
   const r = (await runner.query(
@@ -124,13 +125,103 @@ async function setCohortStatus(cohortId, status, { actorId, reason = null }, run
   return r;
 }
 
+// ── review of a draft cohort (staff): members, exclusions, the signing rep ─────────────────────
+
+async function draftCohort(cohortId, runner) {
+  const c = (await runner.query(`SELECT * FROM listing_outreach_cohorts WHERE id = $1`, [cohortId])).rows[0];
+  if (!c) throw err(404, 'NOT_FOUND', 'Cohort not found.');
+  if (c.status !== 'draft') throw err(409, 'COHORT_NOT_DRAFT', 'Only a draft cohort can be changed. This one is ' + c.status + '.');
+  return c;
+}
+
+/** Leave one company out of a draft cohort, with the reviewer's reason. Idempotent. */
+async function excludeMember(cohortId, organizationId, { actorId, reason }, runner = db) {
+  await draftCohort(cohortId, runner);
+  const why = String(reason || '').trim();
+  if (why.length < 3) throw err(400, 'REASON_REQUIRED', 'Give a short reason for leaving this company out.');
+  const r = (await runner.query(
+    `UPDATE listing_outreach_cohort_members SET status = 'excluded', skip_reason = $3, excluded_by = $4, excluded_at = now(), updated_at = now()
+      WHERE cohort_id = $1 AND organization_id = $2 AND status IN ('pending','excluded') RETURNING *`,
+    [cohortId, organizationId, why.slice(0, 300), actorId])).rows[0];
+  if (!r) throw err(404, 'NOT_A_MEMBER', 'That company is not in this cohort.');
+  await auditService.logEvent(runner, { eventType: 'claimed_listing.cohort_member_excluded', entityType: 'listing_outreach_cohort', entityId: cohortId, actorId,
+    metadata: { organization_id: organizationId, reason: why.slice(0, 300) } });
+  return r;
+}
+
+/** Put an excluded company back, only if it is still eligible right now. */
+async function includeMember(cohortId, organizationId, { actorId }, runner = db) {
+  await draftCohort(cohortId, runner);
+  const m = (await runner.query(`SELECT * FROM listing_outreach_cohort_members WHERE cohort_id = $1 AND organization_id = $2`, [cohortId, organizationId])).rows[0];
+  if (!m) throw err(404, 'NOT_A_MEMBER', 'That company is not in this cohort.');
+  if (m.status !== 'excluded') return m;
+  const d = await eligibility.rescreen(organizationId, runner);
+  if (d.decision !== eligibility.DECISIONS.ELIGIBLE) throw err(409, 'NOT_ELIGIBLE', 'No longer eligible: ' + (d.reason || d.decision));
+  const r = (await runner.query(
+    `UPDATE listing_outreach_cohort_members SET status = 'pending', skip_reason = NULL, excluded_by = NULL, excluded_at = NULL, updated_at = now()
+      WHERE id = $1 RETURNING *`, [m.id])).rows[0];
+  await auditService.logEvent(runner, { eventType: 'claimed_listing.cohort_member_included', entityType: 'listing_outreach_cohort', entityId: cohortId, actorId,
+    metadata: { organization_id: organizationId } });
+  return r;
+}
+
+/** Set the signing representative of a draft cohort (Super Admin). The rep must be enabled for outreach. */
+async function assignRep(cohortId, repUserId, { actorId }, runner = db) {
+  await draftCohort(cohortId, runner);
+  const rep = (await runner.query(`SELECT user_id, display_name FROM sales_rep_profiles WHERE user_id = $1 AND outreach_enabled = true`, [repUserId])).rows[0];
+  if (!rep) throw err(400, 'REP_NOT_ENABLED', 'That person is not an outreach-enabled representative.');
+  const r = (await runner.query(`UPDATE listing_outreach_cohorts SET assigned_rep_user_id = $2, updated_at = now() WHERE id = $1 RETURNING *`, [cohortId, repUserId])).rows[0];
+  await auditService.logEvent(runner, { eventType: 'claimed_listing.cohort_rep_assigned', entityType: 'listing_outreach_cohort', entityId: cohortId, actorId,
+    metadata: { rep_user_id: repUserId, rep: rep.display_name } });
+  return r;
+}
+
+/** Everything a reviewer needs about each member. Email masked; no financial fields. */
+async function cohortMembers(cohortId, runner = db) {
+  const rows = (await runner.query(
+    `SELECT m.organization_id, m.status, m.skip_reason, m.gate_result, m.gate_checked_at, m.excluded_at, eu.full_name AS excluded_by_name,
+            o.name, o.city, o.state, o.lat, o.lng, o.website_url, o.contact_email, o.contact_phone, o.bd_listing_id, o.bd_metadata,
+            d.decision, d.reason, d.evaluated_at, sc.score, sc.tier, sc.factors
+       FROM listing_outreach_cohort_members m
+       JOIN organizations o ON o.id = m.organization_id
+       LEFT JOIN users eu ON eu.id = m.excluded_by
+       LEFT JOIN listing_outreach_eligibility_decisions d ON d.organization_id = m.organization_id
+       LEFT JOIN listing_outreach_scores sc ON sc.organization_id = m.organization_id
+      WHERE m.cohort_id = $1 ORDER BY (m.status = 'excluded'), sc.score DESC NULLS LAST, o.name`, [cohortId])).rows;
+  const { maskEmail } = require('./claimLinkService');
+  return rows.map((r) => ({
+    organization_id: r.organization_id, name: r.name, city: r.city, state: r.state, website: r.website_url || null,
+    email_masked: maskEmail(r.contact_email), email_domain: String(r.contact_email || '').split('@')[1] || null, phone_listed: !!r.contact_phone,
+    directory_plan: eligibility.directoryPlan(r), listing_url: sender.directoryUrl(r), market: scoring.strategicMarket(r),
+    decision: r.decision, reason: r.reason, evaluated_at: r.evaluated_at, score: r.score, tier: r.tier,
+    status: r.status, skip_reason: r.skip_reason, excluded_by: r.excluded_by_name || null, excluded_at: r.excluded_at,
+    gate: r.gate_result ? { allowed: r.gate_result.allowed, blocked_by: r.gate_result.blocked_by, checked_at: r.gate_checked_at } : null,
+  }));
+}
+
+/** Render every email of the sequence for one member, exactly as it would read (placeholder links). Nothing is written or sent. */
+async function previewMember(cohortId, organizationId, { now = new Date() } = {}, runner = db) {
+  const m = (await runner.query(`SELECT * FROM listing_outreach_cohort_members WHERE cohort_id = $1 AND organization_id = $2`, [cohortId, organizationId])).rows[0];
+  if (!m) throw err(404, 'NOT_A_MEMBER', 'That company is not in this cohort.');
+  const shared = { ctx: await listingContext.load(runner) };
+  const seq = { id: null, organization_id: organizationId, cohort_id: cohortId, company_id: m.company_id, cycle_no: 1 };
+  const steps = [['E1', 1, 'Day 0'], ['E2_NOCLICK', 2, 'Day 6 if the link was not opened'], ['E2_CLICKED', 2, '2 days after an unfinished visit'], ['E3', 3, 'Day 14, the last one']];
+  const out = [];
+  for (const [key, no, when] of steps) {
+    const r = await sender.sendStep({ sequence: seq, stepKey: key, stepNo: no, shadow: true, now, shared }, runner);
+    out.push({ step: key, when, template: r.template, subject: r.subject || null, text: r.preview || null, render_error: r.render_error || null,
+      gate: { allowed: r.gate.allowed, blocked_by: r.gate.blocked_by, checks: r.gate.checks } });
+  }
+  return { cohort_id: cohortId, organization_id: organizationId, steps: out };
+}
+
 // ── shadow run: render + gate, nothing sent, nothing issued ───────────────────────────────────
 
 async function shadowRun(cohortId, { now = new Date() } = {}, runner = db) {
   const c = (await runner.query(`SELECT * FROM listing_outreach_cohorts WHERE id = $1`, [cohortId])).rows[0];
   if (!c) throw err(404, 'NOT_FOUND', 'Cohort not found.');
   const members = (await runner.query(
-    `SELECT m.*, o.name FROM listing_outreach_cohort_members m JOIN organizations o ON o.id = m.organization_id WHERE m.cohort_id = $1 ORDER BY o.name`, [cohortId])).rows;
+    `SELECT m.*, o.name FROM listing_outreach_cohort_members m JOIN organizations o ON o.id = m.organization_id WHERE m.cohort_id = $1 AND m.status <> 'excluded' ORDER BY o.name`, [cohortId])).rows;
   const shared = { ctx: await listingContext.load(runner) };
   const results = [];
   for (const m of members) {
@@ -149,6 +240,20 @@ async function shadowRun(cohortId, { now = new Date() } = {}, runner = db) {
 }
 
 // ── the scheduler ─────────────────────────────────────────────────────────────────────────────
+
+/** Stop a sequence and hand the company to a person (delivery_issue task). Nothing else is sent. */
+async function toPerson(s, step, reason, summary, runner) {
+  await runner.query(`UPDATE listing_outreach_sequences SET state = 'stopped', stop_reason = $2, next_send_at = NULL, updated_at = now() WHERE id = $1`,
+    [s.id, reason]);
+  if (s.company_id) await locks.releaseSystem(s.id, runner);
+  await runner.query(`UPDATE listing_outreach_cohort_members SET status = 'stopped', skip_reason = $3, updated_at = now() WHERE cohort_id = $1 AND organization_id = $2`,
+    [s.cohort_id, s.organization_id, reason]);
+  await require('./taskService').open({ type: 'delivery_issue', organizationId: s.organization_id, companyId: s.company_id || null, priority: 'high',
+    summary, payload: { sequence_id: s.id, step: step.stepKey, reason, rule: 'Check the message record before contacting this company again.' },
+    dedupeKey: 'delivery:' + s.id + ':' + step.stepNo }, runner);
+  await auditService.logEvent(runner, { eventType: 'claimed_listing.sequence_to_person', entityType: 'organization', entityId: s.organization_id, actorId: null,
+    metadata: { sequence_id: s.id, step: step.stepKey, reason } }).catch(() => {});
+}
 
 async function humanVisitAfter(sequenceId, since, runner) {
   const r = (await runner.query(
@@ -177,6 +282,8 @@ async function tick({ now = new Date() } = {}, runner = db) {
   const enabled = (await runner.query(`SELECT value FROM platform_config WHERE key = 'claimed_listings.sending_enabled'`)).rows[0];
   out.sending_enabled = !!(enabled && enabled.value === true);
   if (!out.sending_enabled) return out;   // fail closed: no queueing, no sends, no tokens while the switch is off
+  const maxCfg = (await runner.query(`SELECT value FROM platform_config WHERE key = 'claimed_listings.max_send_attempts'`)).rows[0];
+  const maxAttempts = Math.max(1, Number(maxCfg && maxCfg.value) || 5);
 
   // 1. Queue members of approved/active cohorts that have no sequence yet.
   const pending = (await runner.query(
@@ -246,9 +353,22 @@ async function tick({ now = new Date() } = {}, runner = db) {
       if (state !== 'active' && s.company_id) await locks.releaseSystem(s.id, runner);
       await runner.query(`UPDATE listing_outreach_cohort_members SET status = 'active', updated_at = now() WHERE cohort_id = $1 AND organization_id = $2`, [s.cohort_id, s.organization_id]);
     } else if (r.error) {
-      const retry = sender.RETRY_MINUTES[Math.min(s.retry_count || 0, sender.RETRY_MINUTES.length - 1)];
-      await runner.query(`UPDATE listing_outreach_sequences SET retry_count = retry_count + 1, next_send_at = now() + ($2 || ' minutes')::interval, updated_at = now() WHERE id = $1`,
-        [s.id, String(retry)]);
+      if ((s.retry_count || 0) + 1 >= maxAttempts) {
+        // Too many failed attempts: stop and hand it to a person rather than retrying forever.
+        await toPerson(s, step, 'send_failed', 'Delivery failed ' + maxAttempts + ' times: ' + String(r.error).slice(0, 200), runner);
+        out.stopped += 1;
+      } else {
+        const retry = sender.RETRY_MINUTES[Math.min(s.retry_count || 0, sender.RETRY_MINUTES.length - 1)];
+        await runner.query(`UPDATE listing_outreach_sequences SET retry_count = retry_count + 1, next_send_at = now() + ($2 || ' minutes')::interval, updated_at = now() WHERE id = $1`,
+          [s.id, String(retry)]);
+      }
+    } else if (r.inFlight) {
+      // The message slot exists but this sequence was never advanced: a send may or may not have left.
+      // Never resend blindly; a person checks the delivery record and decides.
+      if (r.inFlight.stale) {
+        await toPerson(s, step, 'delivery_uncertain', 'A ' + step.stepKey + ' message was ' + r.inFlight.status + ' but the sequence did not advance; check before any further email', runner);
+        out.stopped += 1;
+      } else out.blocked += 1;
     } else if (r.gate && r.gate.permanent) {
       await runner.query(`UPDATE listing_outreach_sequences SET state = 'stopped', stop_reason = $2, next_send_at = NULL, updated_at = now() WHERE id = $1`,
         [s.id, 'gate: ' + r.gate.blocked_by.join(',')]);
@@ -272,4 +392,5 @@ async function pauseSequence(organizationId, { actorId, reason }, runner = db) {
   return { paused: r.rowCount };
 }
 
-module.exports = { REQUIRED_TEMPLATES, STEP_KEYS, proposeCohort, bindTemplates, approveCohort, setCohortStatus, shadowRun, dueStep, tick, pauseSequence };
+module.exports = { REQUIRED_TEMPLATES, STEP_KEYS, proposeCohort, bindTemplates, approveCohort, setCohortStatus, shadowRun, dueStep, tick, pauseSequence,
+  excludeMember, includeMember, assignRep, cohortMembers, previewMember };

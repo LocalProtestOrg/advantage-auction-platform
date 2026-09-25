@@ -34,7 +34,7 @@ const CATALOGUE = {
       'Advantage.Bid is an online marketplace where people in {{area}} look for estate sales and auctions. Our business directory includes a listing for {{company}}:',
       '{{listing_url}}',
       '',
-      'It shows your company name, your {{city}} location and phone number, taken from public business information. You can claim the listing and manage it yourself. Claiming is free, with no monthly fee and no credit card.',
+      'It shows your company name, your {{city}} location{{#phone_listed}} and phone number{{/phone_listed}}, taken from public business information. You can claim the listing and manage it yourself. Claiming is free, with no monthly fee and no credit card.',
       '',
       'Once it\'s yours, you can:',
       '- correct anything that is out of date',
@@ -66,7 +66,7 @@ const CATALOGUE = {
       'Location: {{city}}, {{state}}',
       'Phone: {{phone}}',
       'Website: {{website_or_none_listed}}',
-      'Description: written by Advantage.Bid from public information',
+      'Description: {{description_status}}',
       '',
       'If any of that is wrong or missing, claiming the listing lets you fix it in a few minutes.',
       '{{#no_website}}',
@@ -313,8 +313,70 @@ async function approve(templateId, { actorId }, runner = db) {
   return r.rows[0] || null;
 }
 
+// Every variable any template may use, with realistic values: an edit is validated by rendering it.
+const SAMPLE_VARS = {
+  greeting: 'Hello', company: 'Sample Estate Sales', area: 'the Houston area', city: 'Houston', state: 'TX', phone: '(713) 555-0100', phone_listed: true,
+  website_or_none_listed: 'none listed', no_website: true, description_status: 'none yet',
+  listing_url: 'https://www.advantage.bid/sample', claim_link: 'https://bid.advantage.bid/claim/SAMPLE', listing_options_link: 'https://bid.advantage.bid/claim/SAMPLE#options',
+  unsubscribe_link: 'https://bid.advantage.bid/api/public/listing-outreach/unsubscribe?t=SAMPLE', recipient_email: 's•••••@example.com',
+  postal_address: '[postal address]', third_bullet: 'post your upcoming estate sales and auctions so local buyers can find them',
+  rep_first_name: 'Kym', rep_full_name: 'Kym Witt', first_name: 'Pat', checklist_link: 'https://bid.advantage.bid/org/profile.html',
+  next_step_1: 'Adding your logo', next_step_2: 'writing your description', preferences_link: 'https://bid.advantage.bid/account.html',
+  new_event_link: 'https://bid.advantage.bid/org/events.html',
+};
+
+/** Validate edited copy. Returns the sample render; throws with a readable message. */
+function validateCopy(key, stream, { subject, preheader, body_text }) {
+  if (!String(subject || '').trim()) throw Object.assign(new Error('A subject is required.'), { code: 'SUBJECT_REQUIRED' });
+  if (!String(body_text || '').trim()) throw Object.assign(new Error('The message body is required.'), { code: 'BODY_REQUIRED' });
+  if (stream === 'claimed_listing' && key !== 'CL_SELF_REQUEST' && !/\{\{footer\}\}/.test(body_text)) {
+    throw Object.assign(new Error('Listing outreach must keep {{footer}} (why you got this, unsubscribe, postal address).'), { code: 'FOOTER_REQUIRED' });
+  }
+  if (LISTING_TEMPLATES.includes(key) && !/\{\{claim_link\}\}/.test(body_text)) {
+    throw Object.assign(new Error('The message must keep {{claim_link}}.'), { code: 'CLAIM_LINK_REQUIRED' });
+  }
+  const r = render({ subject, preheader: preheader || null, body_text, stream }, SAMPLE_VARS);
+  // The same Public Language Standard check the marketing email QA uses (technology and vendor terms).
+  if (require('../marketingEmailQaService').BANNED_TERMS.test([r.subject, r.text, r.preheader || ''].join(' '))) {
+    throw Object.assign(new Error('Copy may not name the technology or vendors behind the platform (Public Language Standard).'), { code: 'BANNED_TERM' });
+  }
+  return r;
+}
+
+/** Edit a DRAFT version (Super Admin). Approved versions never change: revise them instead. */
+async function updateDraft(templateId, { subject, preheader = null, body_text }, { actorId }, runner = db) {
+  const t = (await runner.query(`SELECT * FROM listing_outreach_templates WHERE id = $1`, [templateId])).rows[0];
+  if (!t) throw Object.assign(new Error('Template not found.'), { status: 404, expose: true });
+  if (t.status !== 'draft') throw Object.assign(new Error('Only a draft can be edited. Create a new version of an approved template.'), { status: 409, expose: true });
+  let preview;
+  try { preview = validateCopy(t.template_key, t.stream, { subject, preheader, body_text }); } catch (e) { throw Object.assign(e, { status: 400, expose: true }); }
+  const r = (await runner.query(
+    `UPDATE listing_outreach_templates SET subject = $2, preheader = $3, body_text = $4, body_html = $5, updated_at = now() WHERE id = $1 AND status = 'draft' RETURNING *`,
+    [templateId, String(subject).trim(), preheader ? String(preheader).trim() : null, String(body_text), htmlFromText(body_text, preheader)])).rows[0];
+  await require('../auditService').logEvent(runner, { eventType: 'claimed_listing.template_edited', entityType: 'listing_outreach_template', entityId: templateId, actorId,
+    metadata: { key: t.template_key, version: t.version } });
+  return { template: r, preview };
+}
+
+/** Start a new DRAFT version from any version (Super Admin). The source is not changed. */
+async function newVersion(templateId, { actorId }, runner = db) {
+  const t = (await runner.query(`SELECT * FROM listing_outreach_templates WHERE id = $1`, [templateId])).rows[0];
+  if (!t) throw Object.assign(new Error('Template not found.'), { status: 404, expose: true });
+  const open = (await runner.query(`SELECT id FROM listing_outreach_templates WHERE template_key = $1 AND status = 'draft'`, [t.template_key])).rows[0];
+  if (open) throw Object.assign(new Error('A draft of ' + t.template_key + ' already exists. Edit that one.'), { status: 409, expose: true });
+  const r = (await runner.query(
+    `INSERT INTO listing_outreach_templates (template_key, version, stream, subject, preheader, body_text, body_html, status, created_by, notes)
+     SELECT template_key, (SELECT max(version) + 1 FROM listing_outreach_templates WHERE template_key = $1), stream, subject, preheader, body_text, body_html, 'draft', $3, $4
+       FROM listing_outreach_templates WHERE id = $2 RETURNING *`,
+    [t.template_key, templateId, actorId, 'New version from v' + t.version])).rows[0];
+  await require('../auditService').logEvent(runner, { eventType: 'claimed_listing.template_version_created', entityType: 'listing_outreach_template', entityId: r.id, actorId,
+    metadata: { key: t.template_key, from_version: t.version, version: r.version } });
+  return r;
+}
+
 async function approvedVersion(templateId, runner = db) {
   return (await runner.query(`SELECT * FROM listing_outreach_templates WHERE id = $1 AND status = 'approved'`, [templateId])).rows[0] || null;
 }
 
-module.exports = { CATALOGUE, LISTING_TEMPLATES, STEP_TEMPLATE, LISTING_FOOTER, render, fill, htmlFromText, seedDrafts, approve, approvedVersion, ALLOWED_LINK_HOST };
+module.exports = { CATALOGUE, LISTING_TEMPLATES, STEP_TEMPLATE, LISTING_FOOTER, SAMPLE_VARS, render, fill, htmlFromText, seedDrafts, approve, approvedVersion,
+  validateCopy, updateDraft, newVersion, ALLOWED_LINK_HOST };

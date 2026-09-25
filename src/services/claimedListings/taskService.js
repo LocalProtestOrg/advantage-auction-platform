@@ -12,8 +12,8 @@ const db = require('../../db');
 
 const TYPES = ['reply_received', 'claim_help_request', 'remove_listing', 'wrong_contact_research', 'tier_a_call',
   'activation_stalled', 'pro_interest', 'dispute', 'review_ambiguous_identity', 'review_data_quality',
-  'profile_change_review', 'legal_escalation'];
-const ONE_BUSINESS_DAY = new Set(['reply_received', 'claim_help_request', 'dispute', 'legal_escalation']);
+  'profile_change_review', 'legal_escalation', 'delivery_issue'];
+const ONE_BUSINESS_DAY = new Set(['reply_received', 'claim_help_request', 'dispute', 'legal_escalation', 'delivery_issue']);
 const TWO_BUSINESS_DAYS = new Set(['remove_listing', 'wrong_contact_research', 'profile_change_review']);
 
 /** `n` business days after `from` (Mon-Fri). Pure. */

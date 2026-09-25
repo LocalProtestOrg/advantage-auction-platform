@@ -16,6 +16,8 @@
  *   4  EXCLUDE_CLAIMED_LISTING     the listing already has an owner (it moves to the activation track).
  *   5  EXCLUDE_EVENT_PARTNER       the company's journey is Event Partner.
  *   6  EXCLUDE_PRO_SELLER          the company is a professional seller.
+ *  6b  EXCLUDE_PAID_MEMBER         the listing is on a paid directory plan the company holds (not the free
+ *                                  Claim Listing plan). An unknown plan is held under rule 10 (fail closed).
  *   7  EXCLUDE_OUT_OF_SCOPE        removed from the directory, non-US, national/data-quality exclusion list,
  *                                  or the owner asked for the listing to be removed.
  *   8  REVIEW_AMBIGUOUS_IDENTITY   a rare-name resemblance to a company we have a relationship with.
@@ -40,6 +42,7 @@ const D = Object.freeze({
   CLAIMED: 'EXCLUDE_CLAIMED_LISTING',
   EVENT_PARTNER: 'EXCLUDE_EVENT_PARTNER',
   PRO_SELLER: 'EXCLUDE_PRO_SELLER',
+  PAID_MEMBER: 'EXCLUDE_PAID_MEMBER',
   SUPPRESSED: 'EXCLUDE_SUPPRESSED',
   RECENT: 'EXCLUDE_RECENT_OUTREACH',
   NO_CONTACT: 'EXCLUDE_NO_PUBLIC_CONTACT',
@@ -52,6 +55,12 @@ const SENDABLE = new Set([D.ELIGIBLE]);
 const ENGAGED_PROSPECT = new Set(['contacted', 'follow_up', 'interested', 'demo_scheduled', 'demo_completed', 'signup_sent', 'professional_seller']);
 
 const out = (decision, reason, extra) => Object.assign({ decision, reason }, extra || {});
+
+/** The directory plan id synced into bd_metadata ('7' = free Claim Listing), or null when unknown. */
+function directoryPlan(o) {
+  const v = o && o.bd_metadata && o.bd_metadata.subscription_id;
+  return v == null || String(v).trim() === '' ? null : String(v).trim();
+}
 
 /** Does another cluster carry a relationship a cold invitation must not ignore? */
 function hasRelationship(cluster) {
@@ -111,6 +120,13 @@ function decide(entity, ctx) {
   if (cluster && cluster.journey === 'EVENT_PARTNER') return out(D.EVENT_PARTNER, 'the company is in the Event Partner journey (' + (cluster.journey_reason || '') + ')', { signals });
   const pro = members.find((m) => m.entity_type === 'seller_profile') || (o.linked_seller_profile_id ? { entity_type: 'seller_profile', entity_id: o.linked_seller_profile_id, label: 'linked seller' } : null);
   if (pro) return out(D.PRO_SELLER, 'the company is a Professional Seller', { matched_entity_type: 'seller_profile', matched_entity_id: pro.entity_id, signals });
+  // A paying directory member never gets an acquisition invitation. The imported listings verified to
+  // show a paid badge they never bought are the exception: they wait for the badge correction (rule 10).
+  const plan = directoryPlan(o);
+  const claimPlans = ctx.config.claimPlanIds || new Set(['7']);
+  if (plan && !claimPlans.has(plan) && !ctx.config.paidBadgeBdIds.has(String(o.bd_listing_id))) {
+    return out(D.PAID_MEMBER, 'the listing is on paid directory plan ' + plan + ' (a member, not an acquisition prospect)', { matched_entity_type: 'directory_plan', matched_entity_id: plan, signals });
+  }
 
   // 7. Out of scope.
   if (o.bd_sync_status === 'removed') return out(D.OUT_OF_SCOPE, 'the listing was removed from the directory', { signals });
@@ -149,6 +165,10 @@ function decide(entity, ctx) {
   }
   if (o.bd_listing_id && ctx.config.paidBadgeBdIds.has(String(o.bd_listing_id))) {
     return out(D.DATA_QUALITY, 'the listing shows a paid plan badge the company never bought (badge correction pending)', { signals });
+  }
+  // Fail closed: a directory listing whose plan has not been synced yet could be a paying member.
+  if (o.bd_listing_id && !plan) {
+    return out(D.DATA_QUALITY, 'the directory plan is not known yet (held until the directory sync records it)', { signals });
   }
 
   return out(D.ELIGIBLE, 'unclaimed directory listing with a usable public address and no conflicting relationship', { signals });
@@ -195,4 +215,4 @@ async function rescreen(organizationId, runner = db) {
   }
 }
 
-module.exports = { DECISIONS: D, SENDABLE, decide, screen, rescreen, hasRelationship };
+module.exports = { DECISIONS: D, SENDABLE, decide, screen, rescreen, hasRelationship, directoryPlan };

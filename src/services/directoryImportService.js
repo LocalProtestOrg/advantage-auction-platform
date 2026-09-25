@@ -41,7 +41,7 @@ async function plan(listings) {
 
 function metaFor(l) {
   return {
-    profession_id: l.professionId, subscription_name: l.subscriptionName, listing_type: l.listingType, zip: l.zip, source_bd: true,
+    profession_id: l.professionId, subscription_name: l.subscriptionName, subscription_id: l.subscriptionId || null, listing_type: l.listingType, zip: l.zip, source_bd: true,
     // Public listing imagery + canonical profile path (owner-approved for Marketplace display).
     // Stored in bd_metadata (NOT the platform-managed logo_url column) so claimed-org and
     // linked-seller imagery is never touched; refreshed on every unclaimed-shell true-sync.

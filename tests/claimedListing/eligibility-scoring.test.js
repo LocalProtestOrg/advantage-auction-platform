@@ -18,7 +18,7 @@ function listing(o = {}) {
   n += 1;
   const row = Object.assign({ id: '00000000-0000-4000-8000-' + String(n).padStart(12, '0'), name: 'Listing ' + n + ' Estates', source: 'bd_import',
     bd_listing_id: String(500 + n), contact_email: 'owner' + n + '@listing' + n + '.com', website_url: 'https://listing' + n + '.com',
-    state: 'TX', city: 'Houston', lat: 29.76, lng: -95.37, has_owner: false, bd_sync_status: 'active', profile_data: {}, bd_metadata: { profession_id: '4' } }, o);
+    state: 'TX', city: 'Houston', lat: 29.76, lng: -95.37, has_owner: false, bd_sync_status: 'active', profile_data: {}, bd_metadata: { profession_id: '4', subscription_id: '7' } }, o);
   return { key: 'organization:' + row.id, entity_type: 'organization', entity_id: row.id, label: row.name, row,
     signals: identity.signalsOf({ name: row.name, website: row.website_url, email: row.contact_email, phone: row.contact_phone, bdListingId: row.bd_listing_id }) };
 }

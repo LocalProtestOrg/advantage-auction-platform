@@ -41,7 +41,7 @@ const VARS = {
   claim_link: 'https://bid.advantage.bid/claim/abc', listing_options_link: 'https://bid.advantage.bid/claim/abc#options',
   unsubscribe_link: 'https://bid.advantage.bid/api/public/listing-outreach/unsubscribe?t=x', recipient_email: 'o@smith.com',
   postal_address: 'PO Box 1, Houston TX 77001', third_bullet: 'post your upcoming estate sales and auctions so local buyers can find them',
-  rep_first_name: 'Kym', rep_full_name: 'Kym Witt',
+  rep_first_name: 'Kym', rep_full_name: 'Kym Witt', phone_listed: true, description_status: 'none yet',
 };
 const tplRow = (key) => ({ template_key: key, version: 1, subject: templates.CATALOGUE[key].subject, preheader: templates.CATALOGUE[key].preheader,
   body_text: templates.CATALOGUE[key].text, stream: templates.CATALOGUE[key].stream });
@@ -151,7 +151,9 @@ describe('the scheduler', () => {
     expect(i).toBeGreaterThan(0);
     expect(s.indexOf('claimLinks.issueToken(org.id')).toBeGreaterThan(i);
     expect(s.indexOf('emailService.sendEmail({')).toBeGreaterThan(i);
-    expect(s).toMatch(/if \(!slot\) return \{ sent: false, gate, reason: 'already sent or in flight \(idempotent\)' \};/);
+    const noSlot = s.slice(s.indexOf('if (!slot) {'), s.indexOf('try {', s.indexOf('if (!slot) {')));
+    expect(noSlot).toMatch(/return \{ sent: false, gate, reason: 'already sent or in flight \(idempotent\)', inFlight: /);
+    expect(noSlot).not.toMatch(/sendEmail|issueToken/);
     expect(read('db/migrations/170_claimed_listing_system.sql')).toMatch(/idempotency_key\s+text UNIQUE/);
   });
   test('the sender uses the listing stream, a reply key, RFC 8058 one-click unsubscribe, and fails closed on a provider error', () => {

@@ -75,7 +75,9 @@ function variablesFor(org, { rep, claimLink, optionsLink, unsubLink, postalAddre
   const withUtm = (u) => u + (u.indexOf('?') >= 0 ? '&' : '?') + utm;
   return {
     greeting: 'Hello', company: org.name, area: areaFor(org), city: org.city || 'local', state: org.state || '',
-    phone: org.contact_phone || 'not listed', website_or_none_listed: org.website_url || 'none listed', no_website: !org.website_url,
+    phone: org.contact_phone || 'not listed', phone_listed: !!org.contact_phone,
+    website_or_none_listed: org.website_url || 'none listed', no_website: !org.website_url,
+    description_status: String(org.description || '').trim() ? 'a short summary based on public business information' : 'none yet',
     listing_url: withUtm(directoryUrl(org)), claim_link: withUtm(claimLink), listing_options_link: optionsLink,
     unsubscribe_link: unsubLink, recipient_email: recipient, postal_address: postalAddress, third_bullet: thirdBullet(org),
     rep_first_name: first, rep_full_name: [first].concat(rest).join(' '),
@@ -84,7 +86,7 @@ function variablesFor(org, { rep, claimLink, optionsLink, unsubLink, postalAddre
 
 async function loadOrg(organizationId, runner) {
   return (await runner.query(
-    `SELECT id, name, city, state, lat, lng, contact_email, contact_phone, website_url, bd_metadata FROM organizations WHERE id = $1`,
+    `SELECT id, name, city, state, lat, lng, contact_email, contact_phone, website_url, description, bd_metadata FROM organizations WHERE id = $1`,
     [organizationId])).rows[0] || null;
 }
 
@@ -108,14 +110,17 @@ async function sendStep({ sequence, stepKey, stepNo, shadow = false, now = new D
   if (shadow) {
     // Render with placeholders so the Owner can read exactly what would go out. Nothing is written or sent.
     let preview = null; let renderError = null;
-    const src = tpl || Object.assign({ template_key: stepKey, version: 0 }, (() => { const c = templates.CATALOGUE[stepKey]; return c ? { subject: c.subject, preheader: c.preheader, body_text: c.text, stream: c.stream } : null; })());
+    // Bound version first; otherwise the newest version in review (so an edited draft previews as edited); else the catalogue.
+    const latest = tpl ? null : (await runner.query(
+      `SELECT * FROM listing_outreach_templates WHERE template_key = $1 AND status <> 'retired' ORDER BY version DESC LIMIT 1`, [stepKey])).rows[0];
+    const src = tpl || latest || Object.assign({ template_key: stepKey, version: 0 }, (() => { const c = templates.CATALOGUE[stepKey]; return c ? { subject: c.subject, preheader: c.preheader, body_text: c.text, stream: c.stream } : null; })());
     try {
       const v = variablesFor(org, { rep, claimLink: PUBLIC_BASE + '/claim/SHADOW-TOKEN', optionsLink: PUBLIC_BASE + '/claim/SHADOW-TOKEN#options',
         unsubLink: PUBLIC_BASE + '/api/public/listing-outreach/unsubscribe?t=SHADOW', postalAddress: postal || '[postal address required]',
         recipient: claimLinks.maskEmail(recipient), cohortKey, templateKey: stepKey, version: src.version || 0 });
       preview = templates.render(src, v);
     } catch (e) { renderError = e.message; }
-    return { sent: false, shadow: true, gate, template: tpl ? stepKey + ' v' + tpl.version + ' (' + tpl.status + ')' : stepKey + ' (catalogue draft)',
+    return { sent: false, shadow: true, gate, template: (tpl || latest) ? stepKey + ' v' + src.version + ' (' + src.status + (tpl ? ', bound' : ', not bound yet') + ')' : stepKey + ' (catalogue draft)',
       subject: preview && preview.subject, preview: preview && preview.text, render_error: renderError };
   }
 
@@ -133,7 +138,13 @@ async function sendStep({ sequence, stepKey, stepNo, shadow = false, now = new D
        WHERE listing_outreach_messages.status = 'failed'
      RETURNING id, reply_key`,
     [sequence.id, org.id, sequence.company_id, tpl.template_key, tpl.version, recipient, idem, replyKey])).rows[0];
-  if (!slot) return { sent: false, gate, reason: 'already sent or in flight (idempotent)' };
+  if (!slot) {
+    // Idempotent: never a second copy. A slot already 'sent', or 'queued' for over 30 minutes, belongs to an
+    // attempt whose outcome this sequence never recorded; the scheduler hands that to a person.
+    const prior = (await runner.query(`SELECT status, created_at FROM listing_outreach_messages WHERE idempotency_key = $1`, [idem])).rows[0] || {};
+    const stale = prior.status === 'sent' || (prior.status === 'queued' && now.getTime() - new Date(prior.created_at).getTime() > 30 * 60 * 1000);
+    return { sent: false, gate, reason: 'already sent or in flight (idempotent)', inFlight: { status: prior.status || 'unknown', stale } };
+  }
 
   try {
     // 3. A new claim link (invalidates the previous one).

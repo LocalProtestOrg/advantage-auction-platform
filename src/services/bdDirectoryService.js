@@ -55,6 +55,7 @@ function normalize(r) {
     googlePlaceId: clean(r.goolge_place_id),            // note: BD field name is misspelled
     professionId: clean(r.profession_id),
     subscriptionName: clean(r.subscription_name),       // warm-lead hint
+    subscriptionId: clean(r.subscription_id),           // directory plan id (7 = free Claim Listing); outreach skips paying members
     // Public listing imagery + canonical profile path (owner-approved for Marketplace display).
     bdImageUrl: cap(bdImg.url, 500),                    // resolved main image on www.advantage.bid
     bdImageType: bdImg.type,                            // 'logo' | 'photo' | 'default' | null

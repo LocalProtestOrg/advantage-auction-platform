@@ -61,6 +61,7 @@ async function load(runner = db, { snapshot = null } = {}) {
     excludedBdIds: new Set((await cfg('claimed_listings.excluded_bd_listing_ids', [])).map(String)),
     excludedCompanyIds: new Set((await cfg('claimed_listings.excluded_company_ids', [])).map(String)),
     paidBadgeBdIds: new Set((await cfg('claimed_listings.paid_badge_bd_listing_ids', [])).map(String)),
+    claimPlanIds: new Set((await cfg('claimed_listings.claim_plan_ids', ['7'])).map(String)),
     weights: await cfg('claimed_listings.score_weights', {}),
   };
 

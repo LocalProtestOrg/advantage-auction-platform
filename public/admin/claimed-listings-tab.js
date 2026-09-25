@@ -9,7 +9,7 @@
   function chip(t, tone) { return '<span class="cl-chip cl-' + (tone || 'n') + '">' + esc(t) + '</span>'; }
   var DECISION_LABEL = {
     ELIGIBLE_UNCLAIMED_LISTING: ['Eligible', 'g'], EXCLUDE_CLAIMED_LISTING: ['Claimed', 'b'], EXCLUDE_EVENT_PARTNER: ['Event Partner', 'n'],
-    EXCLUDE_PRO_SELLER: ['Pro Seller', 'b'], EXCLUDE_SUPPRESSED: ['Opted out', 'r'], EXCLUDE_RECENT_OUTREACH: ['Recently contacted', 'n'],
+    EXCLUDE_PRO_SELLER: ['Pro Seller', 'b'], EXCLUDE_PAID_MEMBER: ['Paid member', 'b'], EXCLUDE_SUPPRESSED: ['Opted out', 'r'], EXCLUDE_RECENT_OUTREACH: ['Recently contacted', 'n'],
     EXCLUDE_NO_PUBLIC_CONTACT: ['No usable email', 'n'], EXCLUDE_OUT_OF_SCOPE: ['Out of scope', 'n'], REVIEW_AMBIGUOUS_IDENTITY: ['Review: identity', 'y'],
     REVIEW_OTHER_RELATIONSHIP: ['Review: relationship', 'y'], REVIEW_DATA_QUALITY: ['Review: data quality', 'y'],
   };
@@ -43,9 +43,10 @@
       + '<button class="btn b-ghost" id="cl-apply">Apply</button><button class="btn b-ghost" id="cl-screen">Re-screen now</button></div>'
       + '<div class="cl-table-wrap"><table class="cl-table"><thead><tr><th>Company</th><th>Location</th><th>Status</th><th>Journey</th><th>Eligibility</th><th>Tier</th><th>Outreach</th><th>Last contact</th><th>Next action</th><th>Engagement</th><th>Rep / lock</th></tr></thead><tbody id="cl-rows"><tr><td colspan="11" class="muted">Loading...</td></tr></tbody></table></div></div>'
       + '<div class="card"><h2>Tasks</h2><div id="cl-tasks" class="muted">Loading...</div></div>'
+      + '<div class="card"><h2>Replies</h2><p class="muted">Every reply stops the automatic emails for that company and waits for a person. Answer within one business day, personally.</p><div id="cl-replies" class="muted">Loading...</div></div>'
       + '<div class="card"><h2>Cohorts and templates</h2><p class="muted">A cohort is the Owner\'s send lock. Staff may propose one; only a Super Admin approves it, with approved template versions. Nothing sends while the programme switch is off.</p>'
       + '<button class="btn b-ghost" id="cl-propose">Propose a pilot cohort (50)</button> <button class="btn b-ghost" id="cl-seed">Load blueprint templates as drafts</button>'
-      + '<div id="cl-cohorts" style="margin-top:10px"></div><div id="cl-templates" style="margin-top:10px"></div></div>'
+      + '<div id="cl-cohorts" style="margin-top:10px"></div><div id="cl-cohort-review" style="margin-top:10px"></div><div id="cl-templates" style="margin-top:10px"></div><div id="cl-tpl-edit" style="margin-top:10px"></div></div>'
       + '<div class="card"><h2>Funnel</h2><div id="cl-funnel" class="muted">Loading...</div></div>'
       + '<div class="card"><h2>Company identity</h2><p class="muted">How directory listings, prospects, Event Partner sources and seller profiles group into companies. Ambiguous resemblances are never merged automatically.</p>'
       + '<button class="btn b-ghost" id="cl-identity">Run identity dry run</button><div id="cl-identity-out" style="margin-top:8px"></div></div>';
@@ -60,7 +61,13 @@
       + '<br><b>Reply processing</b> ' + yes(s.inbound_enabled) + '<br><b>Activation reminders</b> ' + yes(s.activation_emails_enabled) + '<br><b>Self-service claim links</b> ' + yes(s.self_request_enabled) + '</div>'
       + '<div class="cl-kv"><b>Before any send</b><br>Postal address ' + ready(rd.postal_address) + '<br>Listing mail stream ' + ready(rd.ses_configuration_set)
       + '<br>Unsubscribe signing key ' + ready(rd.unsubscribe_secret) + '<br>Email delivery ' + ready(rd.email_transport) + '</div></div>'
-      + (p.paused_reason ? '<p class="cl-bad">' + esc(p.paused_reason) + '</p>' : '');
+      + (p.paused_reason ? '<p class="cl-bad">' + esc(p.paused_reason) + '</p>' : '')
+      + '<button class="btn b-ghost cl-btn" id="cl-stop">Stop all Claimed Listing outreach now</button> <span class="muted">Anyone working the campaign can stop it. Only a Super Admin can turn it back on.</span>';
+    $('cl-stop').onclick = function () {
+      var why = window.prompt('Why are you stopping outreach? (recorded)');
+      if (!why) return;
+      call('POST', '/api/admin/claimed-listings/program/stop', { reason: why }).then(function () { msg('Outreach stopped. Nothing will send until a Super Admin turns it back on.'); loadProgram(); }).catch(function (e) { msg(e.message, true); });
+    };
     var sum = function (title, list, key) { return '<div class="cl-kv"><b>' + title + '</b><br>' + (list.length ? list.map(function (r) { return esc(DECISION_LABEL[r[key]] ? DECISION_LABEL[r[key]][0] : r[key]) + ': <b>' + r.n + '</b>' + (r.overdue ? ' (' + r.overdue + ' overdue)' : ''); }).join('<br>') : 'None yet') + '</div>'; };
     $('cl-summary').innerHTML = sum('Eligibility', ov.decisions, 'decision') + sum('Tiers', ov.tiers, 'tier') + sum('Open tasks', ov.tasks, 'task_type') + sum('Sequences', ov.sequences, 'state');
   }
@@ -172,39 +179,186 @@
     Array.prototype.forEach.call(document.querySelectorAll('[data-open]'), function (b) { b.addEventListener('click', function () { openCompany(b.getAttribute('data-open')); }); });
   }
 
+  var TPL_KEYS = ['E1', 'E2_NOCLICK', 'E2_CLICKED', 'E3', 'E4_REFRESH'];
+  var STATUS_TONE = { pending: 'n', excluded: 'r', queued: 'b', active: 'b', completed: 'g', stopped: 'y', skipped: 'n' };
+  function each(sel, fn) { Array.prototype.forEach.call(document.querySelectorAll(sel), fn); }
+  function pre(text) { return '<pre style="white-space:pre-wrap;font-size:.78rem;background:#f8fafc;padding:10px;border-radius:8px">' + esc(text) + '</pre>'; }
+
   async function loadCohorts() {
     var c = await call('GET', '/api/admin/claimed-listings/cohorts');
-    $('cl-cohorts').innerHTML = c.length ? '<table class="cl-table"><tr><th>Cohort</th><th>Status</th><th>Members</th><th>Sends used</th><th></th></tr>' + c.map(function (x) {
-      return '<tr><td>' + esc(x.name) + '</td><td>' + chip(x.status, x.status === 'draft' ? 'n' : 'b') + '</td><td>' + x.members + '</td><td>' + x.sends_used + ' / ' + x.max_sends + '</td>'
-        + '<td><button class="btn b-ghost cl-btn" data-shadow="' + x.id + '">Shadow run</button>' + (x.status === 'draft' ? '<button class="btn b-ghost cl-btn" data-approve="' + x.id + '">Approve (Super Admin)</button>' : '') + '</td></tr>';
+    CL.cohorts = c;
+    $('cl-cohorts').innerHTML = c.length ? '<table class="cl-table"><tr><th>Cohort</th><th>Status</th><th>Members</th><th>Progress</th><th>Rep</th><th>Sends used</th><th></th></tr>' + c.map(function (x) {
+      var ms = x.member_status || {};
+      var progress = Object.keys(ms).filter(function (k) { return k !== 'excluded'; }).map(function (k) { return esc(k) + ' ' + ms[k]; }).join(', ');
+      return '<tr><td>' + esc(x.name) + '</td><td>' + chip(x.status, x.status === 'draft' ? 'n' : 'b') + '</td>'
+        + '<td>' + x.members + (ms.excluded ? ' <span class="muted">(' + ms.excluded + ' left out)</span>' : '') + '</td>'
+        + '<td class="muted">' + progress + '</td><td>' + esc(x.rep_name || 'not assigned') + '</td><td>' + x.sends_used + ' / ' + x.max_sends + '</td>'
+        + '<td><button class="btn b-ghost cl-btn" data-review="' + x.id + '">Review</button><button class="btn b-ghost cl-btn" data-shadow="' + x.id + '">Shadow run</button>'
+        + (x.status === 'draft' ? '<button class="btn b-ghost cl-btn" data-approve="' + x.id + '">Approve (Super Admin)</button>' : '')
+        + (['approved', 'active'].indexOf(x.status) >= 0 ? '<button class="btn b-ghost cl-btn" data-cstatus="paused" data-cid="' + x.id + '">Pause</button>' : '')
+        + (['approved', 'active', 'paused'].indexOf(x.status) >= 0 ? '<button class="btn b-ghost cl-btn" data-cstatus="closed" data-cid="' + x.id + '">Stop for good</button>' : '')
+        + (x.status === 'paused' ? '<button class="btn b-ghost cl-btn" data-cstatus="active" data-cid="' + x.id + '">Resume (Super Admin)</button>' : '')
+        + '</td></tr>';
     }).join('') + '</table><div id="cl-shadow"></div>' : '<span class="muted">No cohorts yet.</span>';
-    Array.prototype.forEach.call(document.querySelectorAll('[data-shadow]'), function (b) {
+    each('[data-review]', function (b) {
+      b.addEventListener('click', function () { reviewCohort(b.getAttribute('data-review')).catch(function (e) { msg(e.message, true); }); });
+    });
+    each('[data-cstatus]', function (b) {
+      b.addEventListener('click', function () {
+        var st = b.getAttribute('data-cstatus');
+        var why = window.prompt(st === 'active' ? 'Why resume this cohort?' : 'Why ' + (st === 'paused' ? 'pause' : 'stop') + ' this cohort? (recorded)');
+        if (!why) return;
+        call('POST', '/api/admin/claimed-listings/cohorts/' + b.getAttribute('data-cid') + '/status', { status: st, reason: why })
+          .then(function () { msg('Cohort ' + st + '.'); loadCohorts(); }).catch(function (e) { msg(e.message, true); });
+      });
+    });
+    each('[data-shadow]', function (b) {
       b.addEventListener('click', function () {
         b.disabled = true; msg('Rendering the cohort and checking every gate. Nothing is sent...');
         call('POST', '/api/admin/claimed-listings/cohorts/' + b.getAttribute('data-shadow') + '/shadow').then(function (r) {
           b.disabled = false; msg('Shadow run complete: ' + r.members + ' members, ' + r.sends + ' sends.');
           $('cl-shadow').innerHTML = '<p class="cl-kv">Would send now: <b>' + r.would_send + '</b>. Blocked by: ' + esc(Object.keys(r.blocked_by).map(function (k) { return k + ' (' + r.blocked_by[k] + ')'; }).join(', ') || 'nothing')
-            + '. Rendered: ' + r.rendered + ', render errors: ' + r.render_errors + '.</p>' + (r.sample ? '<pre style="white-space:pre-wrap;font-size:.78rem;background:#f8fafc;padding:10px;border-radius:8px">' + esc(r.sample) + '</pre>' : '');
+            + '. Rendered: ' + r.rendered + ', render errors: ' + r.render_errors + '.</p>' + (r.sample ? pre(r.sample) : '');
         }).catch(function (e) { b.disabled = false; msg(e.message, true); });
       });
     });
-    Array.prototype.forEach.call(document.querySelectorAll('[data-approve]'), function (b) {
+    each('[data-approve]', function (b) {
       b.addEventListener('click', function () {
+        if (window.prompt('Approving lets this cohort send once the programme switch is on. Type APPROVE to continue.') !== 'APPROVE') return;
         call('POST', '/api/admin/claimed-listings/cohorts/' + b.getAttribute('data-approve') + '/approve').then(function () { msg('Cohort approved. Sending still requires the programme switch.'); loadCohorts(); })
           .catch(function (e) { msg(e.message, true); });
       });
     });
     var t = await call('GET', '/api/admin/claimed-listings/templates');
+    CL.templates = t;
     $('cl-templates').innerHTML = t.length ? '<table class="cl-table"><tr><th>Template</th><th>Version</th><th>Status</th><th>Subject</th><th></th></tr>' + t.map(function (x) {
       return '<tr><td>' + esc(x.template_key) + '</td><td>' + x.version + '</td><td>' + chip(x.status, x.status === 'approved' ? 'g' : 'n') + '</td><td>' + esc(x.subject) + '</td>'
-        + '<td>' + (x.status === 'draft' ? '<button class="btn b-ghost cl-btn" data-tapprove="' + x.id + '">Approve (Super Admin)</button>' : '') + '</td></tr>';
+        + '<td><button class="btn b-ghost cl-btn" data-tview="' + x.id + '">' + (x.status === 'draft' ? 'Read / edit' : 'Read') + '</button>'
+        + (x.status === 'draft' ? '<button class="btn b-ghost cl-btn" data-tapprove="' + x.id + '">Approve (Super Admin)</button>'
+          : '<button class="btn b-ghost cl-btn" data-tnew="' + x.id + '">New version (Super Admin)</button>') + '</td></tr>';
     }).join('') + '</table>' : '<span class="muted">No templates loaded.</span>';
-    Array.prototype.forEach.call(document.querySelectorAll('[data-tapprove]'), function (b) {
+    each('[data-tview]', function (b) { b.addEventListener('click', function () { editTemplate(b.getAttribute('data-tview')); }); });
+    each('[data-tnew]', function (b) {
       b.addEventListener('click', function () {
+        call('POST', '/api/admin/claimed-listings/templates/' + b.getAttribute('data-tnew') + '/new-version').then(function () { msg('New draft version created.'); loadCohorts(); })
+          .catch(function (e) { msg(e.message, true); });
+      });
+    });
+    each('[data-tapprove]', function (b) {
+      b.addEventListener('click', function () {
+        if (window.prompt('An approved version can never be edited. Type APPROVE to continue.') !== 'APPROVE') return;
         call('POST', '/api/admin/claimed-listings/templates/' + b.getAttribute('data-tapprove') + '/approve').then(function () { msg('Template approved. It can no longer be edited.'); loadCohorts(); })
           .catch(function (e) { msg(e.message, true); });
       });
     });
+  }
+
+  function editTemplate(id) {
+    var x = (CL.templates || []).filter(function (t) { return t.id === id; })[0];
+    if (!x) return;
+    var draft = x.status === 'draft';
+    var ro = draft ? '' : ' readonly';
+    $('cl-tpl-edit').innerHTML = '<div class="cl-sec"><b>' + esc(x.template_key) + ' v' + x.version + '</b> ' + chip(x.status, draft ? 'n' : 'g')
+      + (draft ? '<p class="muted">Keep {{footer}} and {{claim_link}}. Words in double braces are filled in for each company. Saving checks the copy against a sample company.</p>'
+        : '<p class="muted">Approved versions cannot change. Use New version to revise.</p>')
+      + '<label>Subject<br><input id="cl-te-subject" style="width:100%"' + ro + ' value="' + esc(x.subject) + '"></label><br>'
+      + '<label>Preview line<br><input id="cl-te-pre" style="width:100%"' + ro + ' value="' + esc(x.preheader || '') + '"></label><br>'
+      + '<label>Message<br><textarea id="cl-te-body" rows="18" style="width:100%;font-family:monospace;font-size:.8rem"' + ro + '>' + esc(x.body_text) + '</textarea></label><br>'
+      + (draft ? '<button class="btn b-blue cl-btn" id="cl-te-save">Save draft (Super Admin)</button>' : '')
+      + '<button class="btn b-ghost cl-btn" id="cl-te-close">Close</button><div id="cl-te-preview"></div></div>';
+    $('cl-te-close').onclick = function () { $('cl-tpl-edit').innerHTML = ''; };
+    if (draft) {
+      $('cl-te-save').onclick = function () {
+        call('PUT', '/api/admin/claimed-listings/templates/' + id, { subject: $('cl-te-subject').value, preheader: $('cl-te-pre').value, body_text: $('cl-te-body').value })
+          .then(function (r) {
+            msg('Draft saved. Sample render below.');
+            $('cl-te-preview').innerHTML = pre('Subject: ' + r.preview.subject + '\n\n' + r.preview.text);
+            return call('GET', '/api/admin/claimed-listings/templates').then(function (t) { CL.templates = t; });
+          })
+          .catch(function (e) { msg(e.message, true); });
+      };
+    }
+  }
+
+  async function reviewCohort(id) {
+    var list = await call('GET', '/api/admin/claimed-listings/cohorts/' + id + '/members');
+    var c = (CL.cohorts || []).filter(function (x) { return x.id === id; })[0] || {};
+    var draft = c.status === 'draft';
+    var reps = draft ? await call('GET', '/api/admin/claimed-listings/reps').catch(function () { return []; }) : [];
+    var bound = c.template_versions || {};
+    var repPicker = draft && reps.length ? ' <select id="cl-rep">' + reps.map(function (r) {
+      return '<option value="' + r.user_id + '"' + (r.user_id === c.assigned_rep_user_id ? ' selected' : '') + '>' + esc(r.display_name) + '</option>';
+    }).join('') + '</select> <button class="btn b-ghost cl-btn" id="cl-rep-save">Set rep (Super Admin)</button>' : '';
+    $('cl-cohort-review').innerHTML = '<div class="cl-sec"><b>Review: ' + esc(c.name || '') + '</b> ' + chip(c.status || '', 'n')
+      + '<div class="cl-kv">Signing rep: <b>' + esc(c.rep_name || 'not assigned') + '</b>' + repPicker
+      + '<br>Templates bound: ' + TPL_KEYS.map(function (k) { return esc(k) + ' ' + (bound[k] ? chip('bound', 'g') : chip('none', 'n')); }).join(' ')
+      + (draft ? ' <button class="btn b-ghost cl-btn" id="cl-bind">Bind the latest approved versions (Super Admin)</button>' : '') + '</div>'
+      + (draft ? '<p class="muted">Leave out any company that should not get this email. A company left out is never contacted by this cohort.</p>' : '')
+      + '<div class="cl-table-wrap"><table class="cl-table"><tr><th>Company</th><th>Location</th><th>Website</th><th>Email</th><th>Plan</th><th>Eligibility now</th><th>Score</th><th>Status</th><th></th></tr>'
+      + list.map(function (m) {
+        var plan = m.directory_plan === '7' ? 'Claim Listing (free)' : (m.directory_plan || 'unknown');
+        return '<tr><td><b>' + esc(m.name) + '</b><br><a href="' + esc(m.listing_url) + '" target="_blank" rel="noopener">listing</a></td>'
+          + '<td>' + esc([m.city, m.state].filter(Boolean).join(', ')) + (m.market ? '<br>' + chip(m.market === 'houston' ? 'Houston' : 'New York area', 'b') : '') + '</td>'
+          + '<td>' + (m.website ? esc(m.website) : '<span class="muted">none</span>') + '</td><td>' + esc(m.email_masked || '') + '</td><td>' + esc(plan) + '</td>'
+          + '<td>' + decisionChip(m.decision) + '<br><span class="muted">' + esc(m.reason || '') + '</span></td><td>' + esc(m.tier || '') + ' ' + esc(m.score == null ? '' : m.score) + '</td>'
+          + '<td>' + chip(m.status, STATUS_TONE[m.status]) + (m.skip_reason ? '<br><span class="muted">' + esc(m.skip_reason) + (m.excluded_by ? ' (' + esc(m.excluded_by) + ')' : '') + '</span>' : '') + '</td>'
+          + '<td><button class="btn b-ghost cl-btn" data-prev="' + m.organization_id + '">Preview emails</button>'
+          + (draft ? (m.status === 'excluded' ? '<button class="btn b-ghost cl-btn" data-inc="' + m.organization_id + '">Put back</button>'
+            : '<button class="btn b-ghost cl-btn" data-exc="' + m.organization_id + '">Leave out</button>') : '') + '</td></tr>';
+      }).join('') + '</table></div><div id="cl-member-preview"></div></div>';
+    var base = '/api/admin/claimed-listings/cohorts/' + id;
+    var refresh = function () { return loadCohorts().then(function () { return reviewCohort(id); }); };
+    each('[data-exc]', function (b) {
+      b.addEventListener('click', function () {
+        var why = window.prompt('Why leave this company out?');
+        if (!why) return;
+        call('POST', base + '/members/' + b.getAttribute('data-exc') + '/exclude', { reason: why }).then(refresh).catch(function (e) { msg(e.message, true); });
+      });
+    });
+    each('[data-inc]', function (b) {
+      b.addEventListener('click', function () { call('POST', base + '/members/' + b.getAttribute('data-inc') + '/include').then(refresh).catch(function (e) { msg(e.message, true); }); });
+    });
+    each('[data-prev]', function (b) {
+      b.addEventListener('click', function () {
+        $('cl-member-preview').textContent = 'Rendering...';
+        call('GET', base + '/members/' + b.getAttribute('data-prev') + '/preview').then(function (p) {
+          $('cl-member-preview').innerHTML = p.steps.map(function (s) {
+            return '<div class="cl-sec"><b>' + esc(s.step) + '</b> <span class="muted">' + esc(s.when) + ' · ' + esc(s.template || '') + '</span> '
+              + (s.gate.allowed ? chip('Would send', 'g') : chip('Blocked: ' + s.gate.blocked_by.join(', '), 'r'))
+              + (s.render_error ? '<p class="cl-bad">' + esc(s.render_error) + '</p>' : pre('Subject: ' + (s.subject || '') + '\n\n' + (s.text || ''))) + '</div>';
+          }).join('') + '<p class="muted">Links are placeholders. Nothing was sent and no claim link was created.</p>';
+        }).catch(function (e) { $('cl-member-preview').textContent = e.message; });
+      });
+    });
+    if ($('cl-rep-save')) {
+      $('cl-rep-save').onclick = function () {
+        call('POST', base + '/rep', { rep_user_id: $('cl-rep').value }).then(function () { msg('Rep set.'); return refresh(); }).catch(function (e) { msg(e.message, true); });
+      };
+    }
+    if ($('cl-bind')) {
+      $('cl-bind').onclick = function () {
+        var latest = {};
+        (CL.templates || []).forEach(function (t) {
+          if (t.status === 'approved' && TPL_KEYS.indexOf(t.template_key) >= 0 && (!latest[t.template_key] || latest[t.template_key].version < t.version)) latest[t.template_key] = t;
+        });
+        var tv = {};
+        Object.keys(latest).forEach(function (k) { tv[k] = latest[k].id; });
+        if (!Object.keys(tv).length) { msg('No approved templates yet.', true); return; }
+        call('POST', base + '/templates', { template_versions: tv }).then(function () { msg('Bound: ' + Object.keys(tv).join(', ')); return refresh(); }).catch(function (e) { msg(e.message, true); });
+      };
+    }
+  }
+
+  async function loadReplies() {
+    var r = await call('GET', '/api/admin/claimed-listings/replies');
+    $('cl-replies').innerHTML = r.length ? '<table class="cl-table"><tr><th>Received</th><th>Company</th><th>Kind</th><th>Message</th><th>Task</th><th></th></tr>' + r.map(function (x) {
+      return '<tr><td>' + fmt(x.created_at) + '</td><td>' + esc(x.organization_name || 'unmatched sender') + '</td>'
+        + '<td>' + esc(String(x.classification || '').replace(/_/g, ' ').toLowerCase()) + '<br><span class="muted">' + esc(String(x.action_taken || '').replace(/_/g, ' ')) + '</span></td>'
+        + '<td><b>' + esc(x.subject || '') + '</b><br><span class="muted" style="white-space:pre-wrap">' + esc(x.body_excerpt || '') + '</span></td>'
+        + '<td>' + (x.task_status ? chip(x.task_status, x.task_status === 'open' ? 'y' : 'n') + '<br><span class="muted">due ' + fmt(x.task_due_at) + '</span>' : '') + '</td>'
+        + '<td>' + (x.organization_id ? '<button class="btn b-ghost cl-btn" data-ropen="' + x.organization_id + '">Open company</button>' : '') + '</td></tr>';
+    }).join('') + '</table>' : '<span class="muted">No replies yet.</span>';
+    each('[data-ropen]', function (b) { b.addEventListener('click', function () { openCompany(b.getAttribute('data-ropen')); }); });
   }
 
   async function loadFunnel() {
@@ -231,7 +385,7 @@
         }).catch(function (e) { $('cl-identity-out').textContent = e.message; });
       };
     }
-    await Promise.all([loadProgram(), loadRows(), loadTasks(), loadCohorts(), loadFunnel()].map(function (p) { return p.catch(function (e) { msg(e.message, true); }); }));
+    await Promise.all([loadProgram(), loadRows(), loadTasks(), loadReplies(), loadCohorts(), loadFunnel()].map(function (p) { return p.catch(function (e) { msg(e.message, true); }); }));
   }
   window.ClaimedListingsTab = { init: init };
 })();
