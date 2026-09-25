@@ -313,6 +313,27 @@ describe('draft copy can be edited and is validated; approved copy never changes
     expect(url('united-states/x/y/100%-bad')).toBe('https://www.advantage.bid/united-states/x/y/100%25-bad');
     expect(url('')).toBe('https://bid.advantage.bid/claim-listing.html?org=o1');
   });
+  test("the company's own website is shown as plain text, so E2 renders for companies that have one", () => {
+    expect(sender.displayWebsite('http://www.aerlestatesale.com/')).toBe('aerlestatesale.com');
+    expect(sender.displayWebsite('https%3A%2F%2Fwww.auctionsunlimitedllc.com%2F')).toBe('auctionsunlimitedllc.com');
+    expect(sender.displayWebsite('http://www.adamsunlimited.net/index.html')).toBe('adamsunlimited.net');
+    expect(sender.displayWebsite('https://bonniesestatesales.com/about-us/')).toBe('bonniesestatesales.com/about-us');
+    for (const bad of ['', null, 'not a site', '<script>', 'javascript:alert(1)']) expect(sender.displayWebsite(bad)).toBeNull();
+    const org = { id: 'o', name: 'Aerl Estate Sales', city: 'Robinson', state: 'TX', contact_phone: '254', description: 'x', website_url: 'http://www.aerlestatesale.com/' };
+    const v = sender.variablesFor(org, { rep: null, claimLink: 'https://bid.advantage.bid/claim/x', optionsLink: 'https://bid.advantage.bid/claim/x#options',
+      unsubLink: 'https://bid.advantage.bid/u', postalAddress: 'PO Box 1', recipient: 'a@b.com', cohortKey: 'p', templateKey: 'E2_NOCLICK', version: 1 });
+    const row = { subject: templates.CATALOGUE.E2_NOCLICK.subject, preheader: null, body_text: templates.CATALOGUE.E2_NOCLICK.text, stream: 'claimed_listing' };
+    const r = templates.render(row, v);
+    expect(r.text).toMatch(/Website: aerlestatesale\.com/);
+    expect(r.text).not.toMatch(/doesn't have its own website/);
+  });
+  test('the shadow run renders every step of the sequence, not only E1', () => {
+    const s = read('src/services/claimedListings/sequenceService.js');
+    const shadow = s.slice(s.indexOf('async function shadowRun'), s.indexOf('// ── the scheduler'));
+    expect(shadow).toMatch(/\['E2_NOCLICK', 2\], \['E2_CLICKED', 2\], \['E3', 3\]/);
+    expect(shadow).toMatch(/shadow: true/);
+    expect(shadow).not.toMatch(/sendEmail|issueToken/);
+  });
   test('outreach copy never implies endorsement or independent verification', () => {
     for (const k of ['E1', 'E2_NOCLICK', 'E2_CLICKED', 'E3', 'E4_REFRESH']) {
       const t = templates.CATALOGUE[k].text + templates.CATALOGUE[k].subject;

@@ -71,6 +71,19 @@ async function repFor(cohort, runner) {
     [cohort.assigned_rep_user_id])).rows[0] || null;
 }
 
+/**
+ * The company's own website as plain text (no scheme): "aerlestatesale.com". Outreach links only to
+ * Advantage.Bid, so their site is shown, not linked. Decodes a URL-encoded value; null when unusable.
+ */
+function displayWebsite(raw) {
+  let s = String(raw || '').trim();
+  if (!s) return null;
+  try { if (/%[0-9a-f]{2}/i.test(s)) s = decodeURIComponent(s); } catch (_) { /* keep as is */ }
+  s = s.replace(/^[a-z][a-z0-9+.-]*:\/\//i, '').replace(/^www\./i, '').replace(/[/?#]+$/, '').replace(/\/index\.html?$/i, '');
+  if (!/^[a-z0-9-]+(\.[a-z0-9-]+)+([/?#].*)?$/i.test(s) || /\s|[<>"]/.test(s)) return null;
+  return s;
+}
+
 /** Variables for a listing message. `claimLink` / `unsubLink` are the real ones or shadow placeholders. */
 function variablesFor(org, { rep, claimLink, optionsLink, unsubLink, postalAddress, recipient, cohortKey, templateKey, version }) {
   const [first, ...rest] = String((rep && rep.display_name) || 'The Advantage.Bid team').split(' ');
@@ -79,7 +92,7 @@ function variablesFor(org, { rep, claimLink, optionsLink, unsubLink, postalAddre
   return {
     greeting: 'Hello', company: org.name, area: areaFor(org), city: org.city || 'local', state: org.state || '',
     phone: org.contact_phone || 'not listed', phone_listed: !!org.contact_phone,
-    website_or_none_listed: org.website_url || 'none listed', no_website: !org.website_url,
+    website_or_none_listed: displayWebsite(org.website_url) || 'none listed', no_website: !displayWebsite(org.website_url),
     description_status: String(org.description || '').trim() ? 'a short summary based on public business information' : 'none yet',
     listing_url: withUtm(directoryUrl(org)), claim_link: withUtm(claimLink), listing_options_link: optionsLink,
     unsubscribe_link: unsubLink, recipient_email: recipient, postal_address: postalAddress, third_bullet: thirdBullet(org),
@@ -216,4 +229,4 @@ async function sendSelfRequest({ organizationId }, runner = db) {
   return { sent: true };
 }
 
-module.exports = { sendStep, sendSelfRequest, variablesFor, mintReplyKey, replyAddressFor, LISTING_REPLY_KEY_RE, directoryUrl, areaFor, thirdBullet, RETRY_MINUTES };
+module.exports = { displayWebsite, sendStep, sendSelfRequest, variablesFor, mintReplyKey, replyAddressFor, LISTING_REPLY_KEY_RE, directoryUrl, areaFor, thirdBullet, RETRY_MINUTES };

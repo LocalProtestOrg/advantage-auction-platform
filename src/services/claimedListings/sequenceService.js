@@ -229,8 +229,15 @@ async function shadowRun(cohortId, { now = new Date() } = {}, runner = db) {
       stepKey: 'E1', stepNo: 1, shadow: true, now, shared }, runner);
     await runner.query(`UPDATE listing_outreach_cohort_members SET gate_result = $2::jsonb, gate_checked_at = now(), updated_at = now() WHERE id = $1`,
       [m.id, JSON.stringify({ shadow: true, allowed: r.gate.allowed, blocked_by: r.gate.blocked_by, checks: r.gate.checks })]);
+    // Every later step renders too, so a copy problem in E2/E3 is found now, not on day 6.
+    const later = [];
+    for (const [key, no] of [['E2_NOCLICK', 2], ['E2_CLICKED', 2], ['E3', 3]]) {
+      const x = await sender.sendStep({ sequence: { id: null, organization_id: m.organization_id, cohort_id: cohortId, company_id: m.company_id, cycle_no: 1 },
+        stepKey: key, stepNo: no, shadow: true, now, shared }, runner);
+      if (x.render_error) later.push(key + ': ' + x.render_error);
+    }
     results.push({ organization_id: m.organization_id, name: m.name, allowed: r.gate.allowed, blocked_by: r.gate.blocked_by,
-      subject: r.subject, render_error: r.render_error || null, template: r.template });
+      subject: r.subject, render_error: [r.render_error ? 'E1: ' + r.render_error : null].concat(later).filter(Boolean).join('; ') || null, template: r.template });
   }
   const blocked = results.reduce((acc, r) => { for (const b of r.blocked_by) acc[b] = (acc[b] || 0) + 1; return acc; }, {});
   return { cohort_id: cohortId, cohort_status: c.status, members: results.length, would_send: results.filter((r) => r.allowed).length,
