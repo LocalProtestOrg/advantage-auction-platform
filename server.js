@@ -139,8 +139,13 @@ app.use((req, res, next) => {
     || req.path === '/marketplace.css'
     || req.path === '/marketplace-components.js';
   const reqOrigin = req.headers.origin;
+  // The directory (www.advantage.bid) may POST first-party analytics events, and nothing else.
+  const directoryOrigin = require('./src/lib/corsPolicy').directoryOriginFor(reqOrigin, req.path);
   if (isPublicDiscovery) {
     res.header('Access-Control-Allow-Origin', '*');
+  } else if (directoryOrigin) {
+    res.header('Access-Control-Allow-Origin', directoryOrigin);
+    res.header('Vary', 'Origin');
   } else if (reqOrigin && isOriginAllowed(reqOrigin)) {
     // Echo the matching allowed origin (supports the multi-origin cutover window).
     res.header('Access-Control-Allow-Origin', reqOrigin);

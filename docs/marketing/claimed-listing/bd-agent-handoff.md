@@ -13,6 +13,8 @@ Railway side (already deployed with the Claimed Listing release):
 
 ## 1. "Claim this listing" button: keep the company context (blueprint G2)
 
+> **Current version: `bd-head-claim-listing-v3.html`** (site-wide HEAD custom code, replacing the v2 "Safe Claim Listing redirect" block). Verified root cause of the v2 failure (2026-09-25): the BD HEAD editor strips backslashes, so v2's `/^d+$/` became `/^d+$/` and the script exited before touching the link. v3 contains no backslash, needs no cross-origin lookup (it links to `claim-listing.html?bd=<user_id>`, which Railway resolves itself), and uses a capture-phase click handler so no click can reach `/join?claim=`. Browser-tested against the live page HTML with BD's own scripts loaded. **Rule for every future BD snippet: no backslash characters.**
+
 **Today.** The button links to `https://www.advantage.bid/join?claim=<hash>`. That is the generic Join page, and the company context is lost.
 
 **Change.** Point the button at the Railway landing page for that listing:

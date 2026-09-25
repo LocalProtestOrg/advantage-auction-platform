@@ -1,0 +1,74 @@
+<script>
+/* Advantage.Bid: Claim Listing button v3.
+   Contains NO backslash characters: the BD HEAD editor strips them (v2 broke that way).
+   Every Claim Listing click goes to the company's Railway claim page, resolved there by the directory
+   member id. There is no cross-origin lookup here, so nothing can fail back to the generic BD Join page. */
+(function () {
+  'use strict';
+  var CLAIM = 'https://bid.advantage.bid/claim-listing.html';
+  var UTM = 'utm_source=directory&utm_medium=listing&utm_campaign=claim_button';
+  var SELECTOR = 'a.claim-listing-link, a[href*="join?claim="]';
+
+  function isDigits(s) {
+    if (!s || s.length > 12) return false;
+    for (var i = 0; i < s.length; i++) {
+      var c = s.charCodeAt(i);
+      if (c < 48 || c > 57) return false;
+    }
+    return true;
+  }
+
+  function memberIdFor(link) {
+    var node = link;
+    while (node && node.nodeType === 1) {
+      var own = node.querySelector ? node.querySelector('[data-userid]') : null;
+      if (node.getAttribute && isDigits(node.getAttribute('data-userid'))) return node.getAttribute('data-userid');
+      if (own && isDigits(own.getAttribute('data-userid'))) return own.getAttribute('data-userid');
+      node = node.parentNode;
+    }
+    var page = document.querySelector('.postItem.userData[data-userid]');
+    var id = page ? page.getAttribute('data-userid') : '';
+    return isDigits(id) ? id : '';
+  }
+
+  function targetFor(link) {
+    var id = memberIdFor(link);
+    return id ? CLAIM + '?bd=' + id + '&' + UTM : CLAIM + '?' + UTM;
+  }
+
+  function rewrite() {
+    var links = document.querySelectorAll(SELECTOR);
+    for (var i = 0; i < links.length; i++) {
+      var t = targetFor(links[i]);
+      if (links[i].getAttribute('href') !== t) links[i].setAttribute('href', t);
+      links[i].setAttribute('data-adv-claim', 'v3');
+    }
+  }
+
+  /* Capture phase: runs before any other handler, and even if the href was changed back. */
+  document.addEventListener('click', function (e) {
+    var el = e.target;
+    while (el && el.nodeType === 1 && !(el.matches && el.matches(SELECTOR))) el = el.parentNode;
+    if (!el || el.nodeType !== 1) return;
+    e.preventDefault();
+    e.stopPropagation();
+    var t = targetFor(el);
+    if (e.ctrlKey || e.metaKey || e.shiftKey || e.button === 1) window.open(t, '_blank', 'noopener');
+    else window.location.assign(t);
+  }, true);
+
+  function start() {
+    rewrite();
+    if (window.MutationObserver && document.body) {
+      var pending = false;
+      new MutationObserver(function () {
+        if (pending) return;
+        pending = true;
+        window.setTimeout(function () { pending = false; rewrite(); }, 50);
+      }).observe(document.body, { childList: true, subtree: true });
+    }
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start);
+  else start();
+})();
+</script>

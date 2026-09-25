@@ -45,6 +45,30 @@
 
   // A claim link (older admin-issued links carried ?org=&token=) always opens the token-first page.
   if (claimToken) { location.replace('/claim/' + encodeURIComponent(claimToken)); return; }
+
+  // The directory "Claim Listing" button sends ?bd=<directory user id>. It is resolved HERE, on this
+  // origin, so the directory page never depends on a cross-origin lookup; a listing that cannot be
+  // claimed online gets a clear message and contact details, never a generic join page.
+  var bdId = qs.get('bd') || '';
+  if (!orgId && /^\d{1,12}$/.test(bdId)) {
+    card('<p>Loading...</p>');
+    fetch('/api/public/listings/by-bd/' + encodeURIComponent(bdId))
+      .then(function (r) { return r.status === 404 ? { gone: true } : (r.ok ? r.json() : Promise.reject(new Error('lookup'))); })
+      .then(function (d) {
+        if (d && d.orgId) {
+          var next = new URLSearchParams(location.search); next.delete('bd'); next.set('org', d.orgId);
+          location.replace(location.pathname + '?' + next.toString());
+          return;
+        }
+        card('<h1>This listing can\'t be claimed online</h1><p>It may already be managed by the business, or it is being updated.</p>'
+          + '<p>If this is your company, call (551) 655-7050 or email info@advantage.bid and a person on our team will help.</p>');
+      })
+      .catch(function () {
+        card('<h1>We couldn\'t load this listing</h1><p>Please try again in a moment. If this is your company, call (551) 655-7050 or email info@advantage.bid.</p>');
+      });
+    return;
+  }
+
   if (!/^[0-9a-f-]{36}$/i.test(orgId)) {
     card('<h1>Claim your listing</h1><p>Open this page from the "Claim this listing" button on your company\'s listing, or use the link in the email we sent to the address on your listing.</p>'
       + '<a class="btn btn2" href="/free-business-listing.html">Find or add your business</a>');
