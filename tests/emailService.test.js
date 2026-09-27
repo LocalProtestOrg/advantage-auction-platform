@@ -49,7 +49,7 @@ describe('emailService — SES SMTP (nodemailer)', () => {
     const res = await svc.sendEmail({
       to: 'buyer@example.com', subject: 'You were outbid', html: '<p>Outbid</p>', text: 'Outbid',
     });
-    expect(res).toEqual({ messageId: 'msg-123' });
+    expect(res).toEqual({ messageId: 'msg-123', sesMessageId: null }); // no SES "250 Ok <id>" reply in this mock
     expect(sendMail).toHaveBeenCalledTimes(1);
     expect(sendMail.mock.calls[0][0]).toMatchObject({
       from:    'notifications@advantage.bid',

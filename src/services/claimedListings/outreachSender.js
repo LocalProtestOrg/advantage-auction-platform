@@ -182,7 +182,7 @@ async function sendStep({ sequence, stepKey, stepNo, shadow = false, now = new D
       headers: { 'List-Unsubscribe': '<' + unsubLink + '>', 'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click' },
     });
     if (!res || res.skipped || !res.messageId) throw new Error(res && res.skipped ? 'email transport not configured' : 'provider did not accept the message');
-    const sesId = String(res.messageId).replace(/^</, '').replace(/>$/, '').split('@')[0];
+    const sesId = res.sesMessageId || String(res.messageId).replace(/^</, '').replace(/>$/, '').split('@')[0];
 
     // 6. Record.
     await runner.query(
@@ -225,7 +225,7 @@ async function sendSelfRequest({ organizationId }, runner = db) {
     `INSERT INTO listing_outreach_messages (organization_id, direction, template_key, template_version, token_id, ses_message_id,
        recipient_email_normalized, status, subject, body_text, sent_at)
      VALUES ($1,'outbound','CL_SELF_REQUEST',$2,$3,$4,$5,'sent',$6,$7, now())`,
-    [org.id, tpl.version, issued.tokenId, String(res.messageId).replace(/^</, '').replace(/>$/, '').split('@')[0], recipient, msg.subject, msg.text]);
+    [org.id, tpl.version, issued.tokenId, res.sesMessageId || String(res.messageId).replace(/^</, '').replace(/>$/, '').split('@')[0], recipient, msg.subject, msg.text]);
   return { sent: true };
 }
 

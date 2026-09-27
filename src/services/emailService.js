@@ -170,7 +170,10 @@ async function sendEmail({ to, subject, html, text, attachments, replyTo, header
       replyTo: replyTo || EFFECTIVE_REPLY_TO,
     });
     console.log(`[email] Sent "${subject}" to ${to} - messageId: ${info.messageId}`);
-    return { messageId: info.messageId };
+    // Amazon SES answers "250 Ok <ses-message-id>". Feedback events (bounce, complaint, delivery) carry THAT id,
+    // not the locally generated Message-ID, so callers that match feedback to a message must store it.
+    const sesMatch = /^250\s+Ok\s+(\S+)/i.exec(String(info.response || ''));
+    return { messageId: info.messageId, sesMessageId: sesMatch ? sesMatch[1] : null };
   } catch (err) {
     console.error(`[email] Delivery failed for ${to} - ${err.message}`);
     // Preserve an analog of the prior Postmark err.statusCode for callers/logs.

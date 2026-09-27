@@ -77,6 +77,13 @@ async function isSuppressed(email, client) {
     if (global) return { suppressed: true, scope: global.scope || 'marketing', reason: global.reason };
   } catch (e) { /* if the table is unavailable, the partner check above still applied */ }
 
+  // Claimed Listing opt-outs (unsubscribe link, STOP reply, bounce, complaint) reach the same businesses: honour them.
+  try {
+    const listing = (await q(client).query(
+      'SELECT reason FROM listing_outreach_suppressions WHERE normalized_email = $1', [normalized])).rows[0];
+    if (listing) return { suppressed: true, scope: 'claimed_listing', reason: listing.reason };
+  } catch (e) { /* table unavailable: the partner and global checks above still applied */ }
+
   return { suppressed: false };
 }
 

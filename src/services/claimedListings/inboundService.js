@@ -114,7 +114,10 @@ async function ingest(normalized, meta = {}) {
       }
     }
     await client.query(`UPDATE listing_outreach_messages SET action_taken = $2 WHERE id = $1`, [ins.id, action]);
-    await auditService.logEvent(client, { eventType: 'claimed_listing.inbound_reply', entityType: 'organization', entityId: orgId, actorId: null,
+    // audit_log.entity_id is NOT NULL: a reply that matches no outbound message is recorded against the programme
+    // id, so the audit insert can never roll back the suppression above (a STOP must always stick).
+    await auditService.logEvent(client, { eventType: 'claimed_listing.inbound_reply', entityType: orgId ? 'organization' : 'program',
+      entityId: orgId || '00000000-0000-0000-0000-000000000000', actorId: null,
       metadata: { classification: verdict.classification, action, matched: !!out, signature_status: meta.signatureStatus } });
     if (action === 'task_reply_received' || action === 'escalated_legal') notifyInfoInbox(out, action).catch(() => {});
     return { ok: true, duplicate: false, classification: verdict.classification, action };
