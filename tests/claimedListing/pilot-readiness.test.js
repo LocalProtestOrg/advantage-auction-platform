@@ -446,6 +446,32 @@ describe('Toolbox permissions: stop is for the campaign team, restart is the Sup
     expect((await req('POST', '/program', 'owner', { sending_enabled: true })).status).toBe(400);
     expect(db.query.mock.calls.some(([sql]) => /INSERT INTO platform_config/.test(sql))).toBe(false);
   });
+  // audit_log.entity_id is NOT NULL uuid. Programme-level rows used to pass null: the settings were saved and
+  // then the request failed with 500 (and the kill switch did the same). They now carry a fixed programme id.
+  const auditParams = () => db.query.mock.calls.filter(([sql]) => /INSERT INTO audit_log/.test(sql)).map(([, p]) => p);
+  const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+  test('settings and all four switches can be saved OFF, with an audit row that has a valid entity id', async () => {
+    const res = await req('POST', '/program', 'owner', { sending_enabled: false, inbound_enabled: false, activation_emails_enabled: false,
+      self_request_enabled: false, postal_address: '  2205 Ogden Hwy, Adrian, MI 49221 ' });
+    expect(res.status).toBe(200);
+    const writes = db.query.mock.calls.filter(([sql]) => /INSERT INTO platform_config/.test(sql)).map(([, p]) => p);
+    for (const k of ['sending_enabled', 'inbound_enabled', 'activation_emails_enabled', 'self_request_enabled']) {
+      expect(writes).toContainEqual(['claimed_listings.' + k, 'false']);
+    }
+    expect(writes).toContainEqual(['company.postal_address', JSON.stringify('2205 Ogden Hwy, Adrian, MI 49221')]);
+    expect(writes.some((p) => p[1] === 'true')).toBe(false);
+    const audits = auditParams();
+    expect(audits).toHaveLength(1);
+    expect(audits[0][0]).toBe('claimed_listing.program_changed');
+    expect(audits[0][2]).toMatch(UUID);
+  });
+  test('the stop switch and screening also write audit rows with a valid entity id', async () => {
+    expect((await req('POST', '/program/stop', 'kym', { reason: 'Checking a complaint' })).status).toBe(200);
+    const stop = auditParams().find((p) => p[0] === 'claimed_listing.program_stopped');
+    expect(stop && stop[2]).toMatch(UUID);
+    const src = read('src/routes/adminClaimedListings.js');
+    expect(src).not.toMatch(/entityId: null/);
+  });
   test('no route other than POST /program can turn a switch on', () => {
     const s = read('src/routes/adminClaimedListings.js');
     const stop = s.slice(s.indexOf("router.post('/program/stop'"), s.indexOf('// ── replies to outreach'));

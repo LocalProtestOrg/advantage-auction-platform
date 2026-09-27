@@ -48,6 +48,9 @@ const wrap = (fn) => async (req, res) => {
 const idParam = (name) => (req, res, next) => (UUID_RE.test(req.params[name]) ? next() : res.status(404).json({ success: false, message: 'Not found.' }));
 const work = requirePermission('listings.work');
 const approve = requirePermission('listings.approve_cohort');
+// Programme-level audit rows (switches, stop, screening) have no single record to point at, but
+// audit_log.entity_id is NOT NULL uuid: they use this fixed id so the row is written and easy to query.
+const PROGRAM_ENTITY_ID = '00000000-0000-0000-0000-000000000000';
 const journeyPerm = requirePermission('listings.manage_journey');
 
 router.use(auth, requirePermission('listings.view'));
@@ -217,7 +220,7 @@ router.post('/profile-changes/:id', idParam('id'), journeyPerm, express.json(), 
 router.post('/screen', work, wrap(async (req, res) => {
   const e = await eligibility.screen({ persist: true });
   const s = await scoring.scoreAll({ persist: true });
-  await auditService.logEvent(db, { eventType: 'claimed_listing.screened', entityType: 'program', entityId: null, actorId: req.user.id,
+  await auditService.logEvent(db, { eventType: 'claimed_listing.screened', entityType: 'program', entityId: PROGRAM_ENTITY_ID, actorId: req.user.id,
     metadata: { counts: e.counts, tiers: s.tiers } }).catch(() => {});
   res.json({ success: true, data: { screened: e.screened, counts: e.counts, tiers: s.tiers } });
 }));
@@ -329,7 +332,7 @@ router.post('/program', approve, express.json(), wrap(async (req, res) => {
     await db.query(`INSERT INTO platform_config (key, value, category) VALUES ($1, $2::jsonb, 'claimed_listings')
       ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = now()`, [k, JSON.stringify(v)]);
   }
-  await auditService.logEvent(db, { eventType: 'claimed_listing.program_changed', entityType: 'program', entityId: null, actorId: req.user.id, metadata: { changes } });
+  await auditService.logEvent(db, { eventType: 'claimed_listing.program_changed', entityType: 'program', entityId: PROGRAM_ENTITY_ID, actorId: req.user.id, metadata: { changes } });
   res.json({ success: true, data: await programState() });
 }));
 
@@ -344,7 +347,7 @@ router.post('/program/stop', work, express.json(), wrap(async (req, res) => {
     await db.query(`INSERT INTO platform_config (key, value, category) VALUES ($1, $2::jsonb, 'claimed_listings')
       ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = now()`, [k, JSON.stringify(v)]);
   }
-  await auditService.logEvent(db, { eventType: 'claimed_listing.program_stopped', entityType: 'program', entityId: null, actorId: req.user.id, metadata: { reason } });
+  await auditService.logEvent(db, { eventType: 'claimed_listing.program_stopped', entityType: 'program', entityId: PROGRAM_ENTITY_ID, actorId: req.user.id, metadata: { reason } });
   res.json({ success: true, data: await programState() });
 }));
 
@@ -373,3 +376,4 @@ router.get('/company/:orgId/gate', idParam('orgId'), wrap(async (req, res) => {
 router.get('/funnel', wrap(async (req, res) => res.json({ success: true, data: await funnelSvc.funnel({ includeInternal: req.query.internal === '1' }) })));
 
 module.exports = router;
+module.exports.PROGRAM_ENTITY_ID = PROGRAM_ENTITY_ID;
