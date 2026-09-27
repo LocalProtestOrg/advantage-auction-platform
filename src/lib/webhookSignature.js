@@ -8,15 +8,12 @@
  * inbound company correspondence arrives the same way, because a forged callback could fabricate a
  * reply — and a fabricated reply is an input to classification, suppression and link re-sending.
  *
- * Two providers, two mechanisms, because they genuinely differ:
+ * One provider: every inbound and feedback callback arrives through Amazon SNS. (The Postmark
+ * verifier was removed with the Postmark inbound provider, which is unavailable.)
  *
  *   AWS SNS  — cryptographically signs every message. We rebuild the canonical string-to-sign exactly
  *              as documented, fetch the signing certificate from a HOST-VALIDATED AWS URL, and verify
  *              RSA-SHA1 (SignatureVersion 1) or RSA-SHA256 (SignatureVersion 2). Real verification.
- *
- *   Postmark — does not sign payloads. Its documented practice is a secret in the webhook URL, HTTP
- *              Basic auth, and/or source-IP allowlisting. We support all three and require at least
- *              the secret, so an attacker needs the secret even to be considered.
  *
  * FAIL-CLOSED vs FAIL-OPEN, stated explicitly because the distinction is the whole design:
  *   - A signature that is PRESENT and WRONG is always rejected. No configuration can change that.
@@ -139,52 +136,6 @@ async function verifySns(msg, opts) {
   }
 }
 
-/**
- * verifyPostmark(req, opts) → { ok, status, reason }
- *   status: 'verified' | 'rejected_secret' | 'rejected_source'
- *
- * Postmark sends no signature, so authenticity rests on a secret only we and Postmark know, and
- * optionally on the source address. The secret is compared in constant time.
- */
-function verifyPostmark(req, opts) {
-  opts = opts || {};
-  const expected = opts.expectedSecret;
-  if (!expected) return { ok: false, status: 'rejected_secret', reason: 'no webhook secret configured' };
-
-  const q = (req && req.query) || {};
-  const h = (req && req.headers) || {};
-  let presented = q.token || h['x-webhook-secret'] || null;
-
-  // HTTP Basic auth is Postmark's other documented option.
-  if (!presented && typeof h.authorization === 'string' && /^basic /i.test(h.authorization)) {
-    try {
-      const decoded = Buffer.from(h.authorization.slice(6).trim(), 'base64').toString('utf8');
-      presented = decoded.slice(decoded.indexOf(':') + 1);
-    } catch (_) { presented = null; }
-  }
-  if (!presented) return { ok: false, status: 'rejected_secret', reason: 'no secret presented' };
-
-  const a = Buffer.from(String(presented));
-  const b = Buffer.from(String(expected));
-  if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) {
-    return { ok: false, status: 'rejected_secret', reason: 'secret mismatch' };
-  }
-
-  // Optional source-address allowlist (Postmark publishes its outbound webhook ranges).
-  const allow = opts.allowedIps;
-  if (Array.isArray(allow) && allow.length) {
-    const remote = String(opts.remoteIp || '').split(',')[0].trim();
-    const permitted = allow.some((entry) => {
-      const e = String(entry).trim();
-      if (!e) return false;
-      // Exact address, or a simple dotted prefix such as "3.134." — no CIDR maths, no surprises.
-      return remote === e || (e.endsWith('.') && remote.indexOf(e) === 0);
-    });
-    if (!permitted) return { ok: false, status: 'rejected_source', reason: 'source address not allowlisted' };
-  }
-  return { ok: true, status: 'verified', reason: 'secret match' };
-}
-
 /** Stable digest of a raw payload — replay protection and tamper-evident evidence. */
 function payloadDigest(raw) {
   const text = typeof raw === 'string' ? raw : JSON.stringify(raw == null ? null : raw);
@@ -192,7 +143,7 @@ function payloadDigest(raw) {
 }
 
 module.exports = {
-  verifySns, verifyPostmark, payloadDigest,
+  verifySns, payloadDigest,
   isAwsCertUrl, buildStringToSign, fetchCertificate,
   SNS_SIGN_FIELDS, _certCache: certCache,
 };

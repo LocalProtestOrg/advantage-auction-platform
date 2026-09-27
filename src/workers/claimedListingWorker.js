@@ -19,6 +19,7 @@ const activation = require('../services/claimedListings/activationService');
 const acquisition = require('../services/claimedListings/acquisitionService');
 const eligibility = require('../services/claimedListings/eligibilityService');
 const scoring = require('../services/claimedListings/scoringService');
+const sesInbound = require('../services/inboundMail/sesInbound');
 
 const POLL_MS = 10 * 60 * 1000;
 let lastHourly = 0;
@@ -32,6 +33,10 @@ async function tableReady() {
 async function tick() {
   try {
     if (!(await tableReady())) return;   // migration 170 not applied yet: do nothing
+    // Shared inbound replies (all campaigns): held, failed and stale receipts. Processes nothing while every
+    // programme's inbound switch is OFF; does nothing at all until migration 172 is applied.
+    const inb = await sesInbound.retryPending({ limit: 20 }).catch((e) => ({ error: e.message }));
+    if (inb && (inb.error || inb.considered)) console.log('[inbound] retry pass', JSON.stringify({ considered: inb.considered || 0, error: inb.error || undefined }));
     const s = await sequences.tick();
     if (s.sending_enabled && (s.attempted || s.queued)) console.log('[claimed-listing] tick', JSON.stringify(s));
     await db.query(`DELETE FROM company_contact_locks WHERE holder_type = 'user' AND expires_at <= now()`);

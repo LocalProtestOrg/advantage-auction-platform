@@ -22,7 +22,7 @@ jest.mock('../src/services/sesFeedbackService', () => ({
 // SubscribeURL handling, authentication and ingestion.
 jest.mock('../src/lib/webhookSignature', () => ({
   verifySns: jest.fn(async () => ({ ok: true, status: 'verified', reason: 'stubbed' })),
-  verifyPostmark: jest.fn(() => ({ ok: true, status: 'verified' })),
+
   payloadDigest: jest.fn(() => 'digest'),
 }));
 // platform_config is not available in this pure-route suite.

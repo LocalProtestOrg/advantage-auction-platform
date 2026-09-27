@@ -288,25 +288,6 @@ describe('provider callback authenticity', () => {
     expect(out.ok).toBe(false);
   });
 
-  test('the Postmark secret is required and compared in constant time', () => {
-    const opts = { expectedSecret: 'sekrit-value' };
-    expect(signature.verifyPostmark({ query: { token: 'sekrit-value' }, headers: {} }, opts).ok).toBe(true);
-    expect(signature.verifyPostmark({ query: {}, headers: { 'x-webhook-secret': 'sekrit-value' } }, opts).ok).toBe(true);
-    const basic = 'Basic ' + Buffer.from('user:sekrit-value').toString('base64');
-    expect(signature.verifyPostmark({ query: {}, headers: { authorization: basic } }, opts).ok).toBe(true);
-    expect(signature.verifyPostmark({ query: { token: 'wrong' }, headers: {} }, opts).status).toBe('rejected_secret');
-    expect(signature.verifyPostmark({ query: {}, headers: {} }, opts).status).toBe('rejected_secret');
-    // No configured secret means nothing is ever accepted.
-    expect(signature.verifyPostmark({ query: { token: 'x' }, headers: {} }, {}).status).toBe('rejected_secret');
-  });
-
-  test('the source allowlist can refuse a caller that has the secret', () => {
-    const opts = { expectedSecret: 's', allowedIps: ['3.134.'], remoteIp: '9.9.9.9' };
-    expect(signature.verifyPostmark({ query: { token: 's' }, headers: {} }, opts).status).toBe('rejected_source');
-    expect(signature.verifyPostmark({ query: { token: 's' }, headers: {} },
-      Object.assign({}, opts, { remoteIp: '3.134.1.2' })).ok).toBe(true);
-  });
-
   test('the payload digest is stable and content-sensitive', () => {
     const a = signature.payloadDigest('{"a":1}');
     expect(a).toMatch(/^[0-9a-f]{64}$/);
@@ -355,33 +336,23 @@ describe('conversation addressing', () => {
 
 // ════════════════════════════════════════════════════════════════════════════════════════════════
 describe('inbound ingestion', () => {
-  const postmark = {
-    MessageID: 'pm-1', Subject: 'Re: your email', FromFull: { Email: 'mary@abcestates.com', Name: 'Mary' },
-    ToFull: [{ Email: 'partner+aaaaaaaaaaaaaaaaaaaaaaaa@reply.advantage.bid', MailboxHash: 'aaaaaaaaaaaaaaaaaaaaaaaa' }],
-    TextBody: 'Yes please, go ahead.', SpamScore: 0.4,
-    Headers: [{ Name: 'Message-ID', Value: '<x@abcestates.com>' }],
+  // The shape the SES inbound adapter produces (src/services/inboundMail/sesInbound.normalize).
+  const reply = {
+    provider: 'ses', providerMessageId: 'ses-1', subject: 'Re: your email', fromEmail: 'mary@abcestates.com', fromName: 'Mary',
+    to: ['partner+aaaaaaaaaaaaaaaaaaaaaaaa@reply.advantage.bid'], toEmail: 'partner+aaaaaaaaaaaaaaaaaaaaaaaa@reply.advantage.bid',
+    mailboxHash: null, textBody: 'Yes please, go ahead.', spamScore: 0, headers: { 'message-id': '<x@abcestates.com>' },
   };
-
-  test('the Postmark payload is normalized into the shape the classifier expects', () => {
-    const n = inbound.fromPostmark(postmark);
-    expect(n.provider).toBe('postmark');
-    expect(n.providerMessageId).toBe('pm-1');
-    expect(n.mailboxHash).toBe('aaaaaaaaaaaaaaaaaaaaaaaa');
-    expect(n.fromEmail).toBe('mary@abcestates.com');
-    expect(n.headers['Message-ID']).toBe('<x@abcestates.com>');
-    expect(n.spamScore).toBe(0.4);
-  });
 
   test('ingestion refuses while the inbound gate is OFF', async () => {
     cfg['event_partners.inbound_enabled'] = false;
-    await expect(inbound.ingest(inbound.fromPostmark(postmark), { digest: 'd1', signatureStatus: 'verified' }))
+    await expect(inbound.ingest(reply, { digest: 'd1', signatureStatus: 'verified' }))
       .rejects.toMatchObject({ code: 'INBOUND_DISABLED' });
   });
 
   test('an unverified callback can never reach the conversation store', async () => {
     cfg['event_partners.inbound_enabled'] = true;
     for (const status of ['rejected_signature', 'rejected_secret', 'rejected_source']) {
-      await expect(inbound.ingest(inbound.fromPostmark(postmark), { digest: 'd', signatureStatus: status }))
+      await expect(inbound.ingest(reply, { digest: 'd', signatureStatus: status }))
         .rejects.toMatchObject({ code: 'UNVERIFIED_CALLBACK' });
     }
     expect(calls().some((c) => /INSERT INTO event_partner_messages/.test(c.sql))).toBe(false);
@@ -393,7 +364,7 @@ describe('inbound ingestion', () => {
       // The ON CONFLICT DO NOTHING returns no row → already seen.
       [/INSERT INTO event_partner_webhook_deliveries/, () => []],
     ]);
-    const out = await inbound.ingest(inbound.fromPostmark(postmark), { digest: 'dup', signatureStatus: 'verified' });
+    const out = await inbound.ingest(reply, { digest: 'dup', signatureStatus: 'verified' });
     expect(out).toMatchObject({ ok: true, duplicate: true, reason: 'payload_replay' });
     expect(calls().some((c) => /INSERT INTO event_partner_messages/.test(c.sql))).toBe(false);
   });
@@ -870,11 +841,13 @@ describe('migration 154 and mail-routing safety', () => {
     expect(threads.replyAddressFor('a'.repeat(24))).toMatch(/@reply\.advantage\.bid$/);
   });
 
-  test('the inbound webhook is gated off and refuses an unauthenticated caller', () => {
+  test('the inbound webhook refuses an unauthenticated caller, and each programme is gated by its own switch', () => {
     const src = read('src', 'routes', 'webhooksEmail.js');
-    expect(src).toMatch(/event_partners\.inbound_enabled/);
-    expect(src).toMatch(/return res\.status\(404\)\.json\(\{ ok: false \}\)/);
-    expect(src).toMatch(/recordRejection/);
+    expect(src).toMatch(/timingSafeEqual\(presented, secret\)/);
+    expect(src).toMatch(/payload\.TopicArn !== cfg\.topicArn/);
     expect(src).toMatch(/return res\.status\(403\)\.json\(\{ ok: false \}\)/);
+    const svc = read('src', 'services', 'inboundMail', 'sesInbound.js');
+    expect(svc).toMatch(/event_partners\.inbound_enabled/);
+    expect(svc).toMatch(/held_disabled/);
   });
 });

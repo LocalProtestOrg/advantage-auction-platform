@@ -119,28 +119,16 @@ async function ingest(normalized, meta = {}) {
     await auditService.logEvent(client, { eventType: 'claimed_listing.inbound_reply', entityType: orgId ? 'organization' : 'program',
       entityId: orgId || '00000000-0000-0000-0000-000000000000', actorId: null,
       metadata: { classification: verdict.classification, action, matched: !!out, signature_status: meta.signatureStatus } });
-    if (action === 'task_reply_received' || action === 'escalated_legal') notifyInfoInbox(out, action).catch(() => {});
-    return { ok: true, duplicate: false, classification: verdict.classification, action };
+    // The oversight notice to info@ (with the reply text) is sent once by the shared inbound pipeline
+    // (src/services/inboundMail), not here, so a reply never produces two notices.
+    return { ok: true, duplicate: false, classification: verdict.classification, action, organizationId: orgId,
+      organizationName: (out && out.organization_name) || null };
   });
 }
 
 /** Rep reply template suggested in the task (a PERSON sends it). R1-R4 from the blueprint. */
 function suggestedTemplate(classification) {
   return { YES_AFFIRMATIVE: 'R1', QUESTION: 'R2', WRONG_CONTACT: 'R3', DECLINE: 'R4' }[classification] || null;
-}
-
-/** Internal heads-up to info@advantage.bid (the Owner's inbox). No message body is forwarded. */
-async function notifyInfoInbox(out, action) {
-  const emailService = require('../emailService');
-  const name = (out && out.organization_name) || 'an unmatched sender';
-  await emailService.sendEmail({
-    to: process.env.OUTREACH_BCC || 'info@advantage.bid',
-    subject: 'Claimed Listing reply waiting: ' + name,
-    text: 'A reply to Claimed Listing outreach from ' + name + ' is waiting in the Sales & Marketing Toolbox (Claimed Listings tab).'
-      + (action === 'escalated_legal' ? ' It raises a legal or rights concern and is escalated to the Owner.' : '') + ' Please answer within one business day.',
-    html: '<p>A reply to Claimed Listing outreach from <b>' + String(name).replace(/[<>&]/g, '') + '</b> is waiting in the Sales &amp; Marketing Toolbox (Claimed Listings tab).'
-      + (action === 'escalated_legal' ? ' It raises a legal or rights concern and is escalated to the Owner.' : '') + ' Please answer within one business day.</p>',
-  });
 }
 
 module.exports = { extractListingKey, inboundEnabled, ingest, suggestedTemplate };

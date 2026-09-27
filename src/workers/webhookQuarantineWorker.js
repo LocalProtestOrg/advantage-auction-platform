@@ -27,6 +27,7 @@ const quarantine = require('../services/webhookQuarantineService');
 const webhookSignature = require('../lib/webhookSignature');
 const { parse, isSnsControl } = require('../lib/sesNotificationParser');
 const sesFeedback = require('../services/sesFeedbackService');
+const sesInbound = require('../services/inboundMail/sesInbound');
 
 const POLL_MS = 5 * 60 * 1000;   // verification outages are minutes-to-hours; five minutes is ample
 const BATCH = 20;
@@ -44,6 +45,12 @@ async function processSes(payload) {
   if (isSnsControl(payload)) {
     // A SubscriptionConfirmation is never auto-confirmed here either — that stays an Owner action.
     return { acknowledged: payload.Type, auto_confirmed: false, applied: false };
+  }
+  // A held INBOUND reply (SES receipt notification) goes to the inbound pipeline, never to the feedback
+  // parser, which would otherwise mark it processed without handling it.
+  if (sesInbound.isInboundNotification(payload)) {
+    const out = await sesInbound.handleVerifiedNotification(payload);
+    return { inbound: true, accepted: !!out.accepted, duplicate: !!out.duplicate, reason: out.reason || null };
   }
   const events = parse(payload);
   if (!events.length) return { ingested: 0, note: 'no recognizable SES events' };

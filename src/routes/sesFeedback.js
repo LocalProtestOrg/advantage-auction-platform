@@ -157,3 +157,6 @@ router.post('/feedback', async (req, res) => {
 });
 
 module.exports = router;
+// Shared with the SES inbound route (src/routes/webhooksEmail.js): one implementation of each check.
+module.exports.timingSafeEqual = timingSafeEqual;
+module.exports.isAwsSnsSubscribeUrl = isAwsSnsSubscribeUrl;

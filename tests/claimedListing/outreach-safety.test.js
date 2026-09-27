@@ -217,13 +217,13 @@ describe('reply routing: no automatic reply to a person, ever', () => {
     expect(s).toMatch(/case 'STOP_UNSUBSCRIBE':[\s\S]*?reason: 'stop_request'/);
     expect(s).toMatch(/default: \{[\s\S]*?await stopAll\('human_reply'\)[\s\S]*?type: legal \? 'legal_escalation' : 'reply_received'/);
     expect(s).not.toMatch(/sendEmail\(\{\s*to: (from|normalized\.fromEmail|out\.recipient)/);   // never writes back to the sender
-    expect(s).toMatch(/to: process\.env\.OUTREACH_BCC \|\| 'info@advantage\.bid'/);            // only the internal heads-up
+    expect(s).not.toMatch(/sendEmail\(/);   // the only notice (to info@) is sent once by the shared inbound pipeline
   });
   test('listing replies are stored in the listing tables, never in event_partner_messages', () => {
     const s = read('src/services/claimedListings/inboundService.js').replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/.*$/gm, '$1');
     expect(s).not.toMatch(/event_partner_messages/);
-    const hook = read('src/routes/webhooksEmail.js');
-    expect(hook).toMatch(/if \(listingInbound\.extractListingKey\(normalized\)\)/);
+    const pipe = read('src/services/inboundMail/sesInbound.js');
+    expect(pipe).toMatch(/if \(programme === 'claimed_listing'\) result = await svc\.claimed_listing\.ingest/);
   });
 });
 

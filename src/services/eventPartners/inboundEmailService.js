@@ -35,32 +35,6 @@ function err(status, code, message) {
   const e = new Error(message); e.status = status; e.code = code; e.expose = true; return e;
 }
 
-/** Normalize a Postmark inbound payload into the shape the classifier and thread store expect. */
-function fromPostmark(payload) {
-  payload = payload || {};
-  const headers = {};
-  (payload.Headers || []).forEach((h) => { if (h && h.Name) headers[h.Name] = h.Value; });
-  const firstTo = (payload.ToFull && payload.ToFull[0]) || null;
-  return {
-    provider: 'postmark',
-    providerMessageId: payload.MessageID || null,
-    messageIdHeader: headers['Message-ID'] || headers['Message-Id'] || null,
-    inReplyTo: headers['In-Reply-To'] || null,
-    references: headers.References || null,
-    mailboxHash: payload.MailboxHash || (firstTo && firstTo.MailboxHash) || null,
-    to: (payload.ToFull || []).map((t) => t && t.Email).filter(Boolean),
-    fromEmail: (payload.FromFull && payload.FromFull.Email) || payload.From || null,
-    fromName: (payload.FromFull && payload.FromFull.Name) || null,
-    toEmail: (firstTo && firstTo.Email) || payload.To || null,
-    subject: payload.Subject || null,
-    textBody: payload.TextBody || payload.StrippedTextReply || null,
-    htmlBody: payload.HtmlBody || null,
-    headers,
-    spamScore: payload.SpamScore != null ? Number(payload.SpamScore) : null,
-    bounceType: payload.Type || null,
-  };
-}
-
 /** Record the callback itself. Digest-keyed, so a replayed payload is detected before any work. */
 async function recordDelivery(client, input) {
   try {
@@ -207,7 +181,7 @@ async function applySafeAction(client, ctx) {
 /**
  * ingest(normalized, meta) — the one entry point.
  *
- * @param {object} normalized  a provider payload already shaped by fromPostmark()
+ * @param {object} normalized  a message already shaped by the SES inbound adapter (src/services/inboundMail/sesInbound.normalize)
  * @param {object} meta        { digest, signatureStatus, remoteIp, provider, rawForEvidence }
  */
 async function ingest(normalized, meta) {
@@ -223,7 +197,7 @@ async function ingest(normalized, meta) {
   if (enabled !== true) throw err(404, 'INBOUND_DISABLED', 'Inbound processing is disabled.');
 
   const remoteIpHash = tokens.hashIp(meta.remoteIp);
-  const provider = normalized.provider || meta.provider || 'postmark';
+  const provider = normalized.provider || meta.provider || 'ses';
 
   return withTransaction(async (client) => {
     const delivery = await recordDelivery(client, {
@@ -320,4 +294,4 @@ async function recordRejection(meta) {
   } catch (e) { /* evidence is best-effort; the rejection itself already happened */ }
 }
 
-module.exports = { ingest, fromPostmark, recordRejection, applySafeAction, recordDelivery };
+module.exports = { ingest, recordRejection, applySafeAction, recordDelivery };
