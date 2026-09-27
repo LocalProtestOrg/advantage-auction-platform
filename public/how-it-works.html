@@ -146,18 +146,24 @@
     :root {
       --se-ink:       #0f172a;
       --se-ink-2:     #0b1220;
-      --se-accent:    #2563eb;
+      --se-accent:    var(--blue, #006fbb);   /* text, buttons, links */
+      --se-ill-accent: #2563eb;               /* drawn product screenshots keep their colours */
       --se-accent-2:  #7aa2ff;
       --se-success:   #16a34a;
       --se-surface:   #ffffff;
       --se-surface-2: #f8fafc;
       --se-line:      #e6eaf1;
       --se-muted:     #56617a;
-      --se-sans:      -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-      --se-display:   'Fraunces', Georgia, 'Times New Roman', serif;
+      /* Readable text uses the shared Quicksand scale (css/typography.css). The drawn product screenshots,
+         the flow diagram and other decorations keep their original faces via the --se-ill-* variables. */
+      --se-sans:      var(--font-body, 'Quicksand', 'Segoe UI', system-ui, sans-serif);
+      --se-display:   var(--font-display, 'Quicksand', 'Segoe UI', system-ui, sans-serif);
+      --se-ill-sans:  -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      --se-ill-display: 'Fraunces', Georgia, 'Times New Roman', serif;
     }
 
     body { background: var(--se-surface); }
+    :where([class*="mk-"], [class*="lb-"], [class*="se-frame"], [class*="se-shot"], [class*="se-pane"], [class*="se-suggest"], [class*="se-breeze"], [class*="se-photo"], .statusbar, [class*="se-node"], [class*="se-video-poster"], [class*="se-arrow"], [class*="se-step-num"]) { font-weight: 400; font-family: var(--se-ill-sans); }
 
     /* Scope: everything inside the education main uses the clean sans + Fraunces */
     .se { font-family: var(--se-sans); color: var(--se-ink); -webkit-font-smoothing: antialiased; }
@@ -293,8 +299,8 @@
     .se-step-num {
       display: inline-flex; align-items: center; justify-content: center;
       width: 42px; height: 42px; border-radius: 12px; margin-bottom: 1rem;
-      background: rgba(37,99,235,0.10); color: var(--se-accent);
-      font-family: var(--se-display); font-weight: 700; font-size: 1.15rem;
+      background: rgba(37,99,235,0.10); color: var(--se-ill-accent);
+      font-family: var(--se-ill-display); font-weight: 700; font-size: 1.15rem;
     }
     .se-step-title { font-size: var(--fs-h2); font-weight: 600; letter-spacing: -0.02em; line-height: 1.12; margin-bottom: 0.6rem; }
     .se-step-callout { font-size: var(--fs-body); color: var(--se-muted); line-height: 1.5; max-width: 30ch; }
@@ -313,7 +319,7 @@
     .se-frame-url {
       margin-left: 0.6rem; flex: 1; height: 22px; border-radius: 6px; background: #fff;
       border: 1px solid var(--se-line); display: flex; align-items: center;
-      padding: 0 0.6rem; font-size: 0.68rem; color: #9aa6bd; font-family: var(--se-sans);
+      padding: 0 0.6rem; font-size: 0.68rem; color: #9aa6bd; font-family: var(--se-ill-sans);
     }
     /* SCREENSHOT SLOT: the swap target. Replace the mock inside with a real
        PNG: <img class="se-shot-real" src="/img/builder-01.png" alt="…"> */
@@ -323,24 +329,24 @@
     }
     .se-shot-badge {
       position: absolute; top: 0.75rem; right: 0.75rem; z-index: 2;
-      font-family: var(--se-sans); font-size: 0.62rem; font-weight: 700; letter-spacing: 0.08em;
+      font-family: var(--se-ill-sans); font-size: 0.62rem; font-weight: 700; letter-spacing: 0.08em;
       text-transform: uppercase; color: #7c88a3; background: rgba(255,255,255,0.85);
       border: 1px dashed #c4cddd; border-radius: 999px; padding: 0.2rem 0.6rem;
     }
 
     /* Generic mock primitives (obviously placeholder, but tasteful) */
     .mk-card { background: #fff; border: 1px solid var(--se-line); border-radius: 12px; padding: 1rem; box-shadow: 0 6px 18px rgba(15,23,42,0.05); }
-    .mk-label { font-family: var(--se-sans); font-size: 0.68rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #97a3b8; margin-bottom: 0.35rem; }
-    .mk-field { height: 34px; border: 1px solid var(--se-line); border-radius: 8px; background: #f8fafc; margin-bottom: 0.85rem; display:flex; align-items:center; padding: 0 0.6rem; font-family: var(--se-sans); font-size: 0.8rem; color: #64708a; }
+    .mk-label { font-family: var(--se-ill-sans); font-size: 0.68rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #97a3b8; margin-bottom: 0.35rem; }
+    .mk-field { height: 34px; border: 1px solid var(--se-line); border-radius: 8px; background: #f8fafc; margin-bottom: 0.85rem; display:flex; align-items:center; padding: 0 0.6rem; font-family: var(--se-ill-sans); font-size: 0.8rem; color: #64708a; }
     .mk-row { display: flex; gap: 0.6rem; }
     .mk-row .mk-col { flex: 1; }
-    .mk-btn { display: inline-flex; align-items: center; justify-content: center; height: 38px; border-radius: 9px; background: var(--se-accent); color: #fff; font-family: var(--se-sans); font-size: 0.85rem; font-weight: 600; padding: 0 1.1rem; }
+    .mk-btn { display: inline-flex; align-items: center; justify-content: center; height: 38px; border-radius: 9px; background: var(--se-ill-accent); color: #fff; font-family: var(--se-ill-sans); font-size: 0.85rem; font-weight: 600; padding: 0 1.1rem; }
     .mk-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.6rem; }
     .mk-tile { aspect-ratio: 1/1; border-radius: 10px; background: linear-gradient(135deg, #e7edf6, #dbe4f1); position: relative; overflow: hidden; }
-    .mk-tile.dropzone { background: repeating-linear-gradient(-45deg, #eef3fa, #eef3fa 8px, #e6edf7 8px, #e6edf7 16px); border: 1.5px dashed #b6c3db; display:flex; align-items:center; justify-content:center; font-family: var(--se-sans); font-size: 1.5rem; color:#9fb0cd; }
-    .mk-chip { display:inline-flex; align-items:center; gap:0.3rem; background:#eef2ff; color: var(--se-accent); font-family: var(--se-sans); font-size:0.72rem; font-weight:600; border-radius:999px; padding:0.2rem 0.55rem; }
-    .mk-money { font-family: var(--se-display); font-weight:700; font-size: 1.8rem; color: var(--se-ink); }
-    .mk-hint { font-family: var(--se-sans); font-size: 0.72rem; color: var(--se-success); font-weight:600; margin-top:0.3rem; }
+    .mk-tile.dropzone { background: repeating-linear-gradient(-45deg, #eef3fa, #eef3fa 8px, #e6edf7 8px, #e6edf7 16px); border: 1.5px dashed #b6c3db; display:flex; align-items:center; justify-content:center; font-family: var(--se-ill-sans); font-size: 1.5rem; color:#9fb0cd; }
+    .mk-chip { display:inline-flex; align-items:center; gap:0.3rem; background:#eef2ff; color: var(--se-ill-accent); font-family: var(--se-ill-sans); font-size:0.72rem; font-weight:600; border-radius:999px; padding:0.2rem 0.55rem; }
+    .mk-money { font-family: var(--se-ill-display); font-weight:700; font-size: 1.8rem; color: var(--se-ink); }
+    .mk-hint { font-family: var(--se-ill-sans); font-size: 0.72rem; color: var(--se-success); font-weight:600; margin-top:0.3rem; }
     .mk-list-row { display:flex; align-items:center; gap:0.7rem; padding:0.55rem 0; border-bottom:1px solid var(--se-line); }
     .mk-list-row:last-child { border-bottom:none; }
     .mk-thumb { width:38px; height:38px; border-radius:8px; background:linear-gradient(135deg,#e7edf6,#dbe4f1); flex-shrink:0; }
@@ -434,11 +440,11 @@
     /* Before → After transformation layout */
     .se-ba { display: grid; grid-template-columns: 1fr auto 1fr; gap: 0.85rem; align-items: center; width: 100%; }
     .se-pane { background:#fff; border:1px solid var(--se-line); border-radius:14px; overflow:hidden; box-shadow:0 8px 22px rgba(15,23,42,0.07); }
-    .se-pane-cap { font-family: var(--se-sans); font-size:0.62rem; font-weight:700; letter-spacing:0.08em; text-transform:uppercase; color:#8590a6; padding:0.6rem 0.75rem 0; }
+    .se-pane-cap { font-family: var(--se-ill-sans); font-size:0.62rem; font-weight:700; letter-spacing:0.08em; text-transform:uppercase; color:#8590a6; padding:0.6rem 0.75rem 0; }
     .se-pane-body { padding: 0.7rem 0.75rem 0.85rem; }
 
     .se-arrow { display:flex; flex-direction:column; align-items:center; gap:0.4rem; }
-    .se-arrow-label { font-family: var(--se-sans); font-size:0.58rem; font-weight:700; letter-spacing:0.05em; text-transform:uppercase; color: var(--se-accent); text-align:center; max-width:8ch; line-height:1.25; }
+    .se-arrow-label { font-family: var(--se-ill-sans); font-size:0.58rem; font-weight:700; letter-spacing:0.05em; text-transform:uppercase; color: var(--se-ill-accent); text-align:center; max-width:8ch; line-height:1.25; }
     .se-arrow-glyph { width:32px; height:32px; border-radius:50%; background: var(--se-accent); color:#fff; display:flex; align-items:center; justify-content:center; box-shadow:0 8px 18px rgba(37,99,235,0.32); flex-shrink:0; }
 
     /* photo before/after tiles */
@@ -448,15 +454,15 @@
     .se-lamp { filter: drop-shadow(0 6px 14px rgba(0,0,0,0.28)); }
 
     /* filled-for-you affordances */
-    .mk-fill { display:inline-flex; align-items:center; gap:0.28rem; background: rgba(22,163,74,0.10); color: var(--se-success); font-family: var(--se-sans); font-size:0.6rem; font-weight:700; border-radius:999px; padding:0.16rem 0.5rem; white-space:nowrap; }
+    .mk-fill { display:inline-flex; align-items:center; gap:0.28rem; background: rgba(22,163,74,0.10); color: var(--se-success); font-family: var(--se-ill-sans); font-size:0.6rem; font-weight:700; border-radius:999px; padding:0.16rem 0.5rem; white-space:nowrap; }
     .mk-field.filled { background:#fff; border-color:#cfe6d6; color: var(--se-ink); justify-content:space-between; gap:0.5rem; }
     .mk-typed { color:#8590a6; }
 
     /* Suggestion rows (Smart Detection + Breeze) */
     .se-suggest { display:flex; align-items:center; justify-content:space-between; gap:0.6rem; background:#fff; border:1px solid var(--se-line); border-radius:10px; padding:0.55rem 0.7rem; margin-bottom:0.5rem; }
     .se-suggest:last-child { margin-bottom:0; }
-    .se-suggest .lbl { font-family: var(--se-sans); font-size:0.68rem; color:#8590a6; }
-    .se-suggest .val { font-family: var(--se-sans); font-size:0.82rem; color:var(--se-ink); font-weight:600; text-align:right; }
+    .se-suggest .lbl { font-family: var(--se-ill-sans); font-size:0.68rem; color:#8590a6; }
+    .se-suggest .val { font-family: var(--se-ill-sans); font-size:0.82rem; color:var(--se-ink); font-weight:600; text-align:right; }
 
     /* Breeze assistant panel */
     .se-breeze {
@@ -465,13 +471,13 @@
     }
     .se-breeze-head { display:flex; align-items:center; gap:0.6rem; margin-bottom:0.9rem; padding-bottom:0.9rem; border-bottom:1px solid #eef1f6; }
     .se-breeze-avatar { width:44px; height:44px; border-radius:50%; background: linear-gradient(140deg, #2563eb, #7aa2ff); display:flex; align-items:center; justify-content:center; box-shadow:0 8px 18px rgba(37,99,235,0.32); flex-shrink:0; }
-    .se-breeze-name { font-family: var(--se-display); font-weight:600; font-size:1.05rem; color:var(--se-ink); line-height:1.15; }
-    .se-breeze-role { font-family: var(--se-sans); font-size:0.72rem; color: var(--se-muted); }
-    .se-breeze-bubble { background:#eef2ff; border-radius:14px 14px 14px 4px; padding:0.65rem 0.85rem; font-family: var(--se-sans); font-size:0.82rem; color:#31406b; line-height:1.45; margin-bottom:0.55rem; }
+    .se-breeze-name { font-family: var(--se-ill-display); font-weight:600; font-size:1.05rem; color:var(--se-ink); line-height:1.15; }
+    .se-breeze-role { font-family: var(--se-ill-sans); font-size:0.72rem; color: var(--se-muted); }
+    .se-breeze-bubble { background:#eef2ff; border-radius:14px 14px 14px 4px; padding:0.65rem 0.85rem; font-family: var(--se-ill-sans); font-size:0.82rem; color:#31406b; line-height:1.45; margin-bottom:0.55rem; }
     .se-breeze-bubble:last-of-type { margin-bottom:0; }
     .se-breeze-card { margin-top:0.95rem; border:1px solid #eef1f6; border-radius:12px; padding:0.55rem 0.85rem 0.75rem; background:#f8fafc; }
     .se-breeze-actions { display:flex; gap:0.5rem; margin-top:0.7rem; }
-    .se-breeze-accept, .se-breeze-edit { flex:1; text-align:center; font-family:var(--se-sans); font-size:0.78rem; font-weight:600; border-radius:8px; padding:0.5rem 0.6rem; }
+    .se-breeze-accept, .se-breeze-edit { flex:1; text-align:center; font-family:var(--se-ill-sans); font-size:0.78rem; font-weight:600; border-radius:8px; padding:0.5rem 0.6rem; }
     .se-breeze-accept { background:#16a34a; color:#fff; }
     .se-breeze-edit { background:#fff; color:#374151; border:1.5px solid #d1d5db; }
 
@@ -489,14 +495,14 @@
 
     .lb { width:100%; max-width:380px; background:#fff; border:1px solid #e5e7eb; border-radius:12px; box-shadow:0 20px 48px rgba(15,23,42,0.18); overflow:hidden; }
     .lb-head { display:flex; align-items:center; gap:0.5rem; padding:0.7rem 1.05rem; border-bottom:1px solid #eef1f6; }
-    .lb-head .brand { font-family:var(--se-sans); font-weight:700; font-size:0.8rem; color:var(--se-accent); }
+    .lb-head .brand { font-family:var(--se-ill-sans); font-weight:700; font-size:0.8rem; color:var(--se-ill-accent); }
     .lb-head .brand span { color:var(--se-ink); }
-    .lb-head .title { font-family:var(--se-sans); font-weight:700; font-size:0.78rem; color:#374151; margin-left:auto; }
+    .lb-head .title { font-family:var(--se-ill-sans); font-weight:700; font-size:0.78rem; color:#374151; margin-left:auto; }
     .lb-body { padding:1rem 1.1rem 1.15rem; }
-    .lb-collabel { font-family:var(--se-sans); font-size:0.62rem; font-weight:700; letter-spacing:0.07em; text-transform:uppercase; color:#9ca3af; padding-bottom:0.5rem; margin-bottom:0.85rem; border-bottom:1px solid #e5e7eb; display:flex; align-items:center; gap:0.5rem; }
-    .lb-label { font-family:var(--se-sans); font-size:0.74rem; font-weight:600; color:#374151; margin-bottom:0.32rem; display:flex; align-items:center; gap:0.4rem; }
+    .lb-collabel { font-family:var(--se-ill-sans); font-size:0.62rem; font-weight:700; letter-spacing:0.07em; text-transform:uppercase; color:#9ca3af; padding-bottom:0.5rem; margin-bottom:0.85rem; border-bottom:1px solid #e5e7eb; display:flex; align-items:center; gap:0.5rem; }
+    .lb-label { font-family:var(--se-ill-sans); font-size:0.74rem; font-weight:600; color:#374151; margin-bottom:0.32rem; display:flex; align-items:center; gap:0.4rem; }
     .lb-req { color:#ef4444; }
-    .lb-input { font-family:var(--se-sans); font-size:0.8rem; color:#111; background:#fff; border:1.5px solid #d1d5db; border-radius:6px; padding:0.5rem 0.6rem; min-height:36px; display:flex; align-items:center; gap:0.4rem; }
+    .lb-input { font-family:var(--se-ill-sans); font-size:0.8rem; color:#111; background:#fff; border:1.5px solid #d1d5db; border-radius:6px; padding:0.5rem 0.6rem; min-height:36px; display:flex; align-items:center; gap:0.4rem; }
     .lb-input.area { min-height:74px; align-items:flex-start; line-height:1.5; display:block; }
     .lb-input .ph { color:#111; }
     .lb-input .val { color:#111; font-weight:600; }
@@ -507,20 +513,20 @@
     .lb-row { display:grid; grid-template-columns:1fr 1fr; gap:0.6rem; }
     .lb-row.three { grid-template-columns:1fr 1fr 1fr; }
 
-    .lb-caret { display:inline-block; width:1.5px; height:0.95em; background:var(--se-accent); margin-left:1px; vertical-align:-0.12em; animation:lb-blink 1.05s steps(1) infinite; }
+    .lb-caret { display:inline-block; width:1.5px; height:0.95em; background:var(--se-ill-accent); margin-left:1px; vertical-align:-0.12em; animation:lb-blink 1.05s steps(1) infinite; }
     @keyframes lb-blink { 50% { opacity:0; } }
 
-    .lb-fill { display:inline-flex; align-items:center; gap:0.24rem; background:rgba(22,163,74,0.10); color:#15803d; font-family:var(--se-sans); font-size:0.58rem; font-weight:700; border-radius:999px; padding:0.14rem 0.46rem; white-space:nowrap; }
-    .lb-suggest-tag { font-family:var(--se-sans); font-size:0.56rem; font-weight:700; letter-spacing:0.04em; text-transform:uppercase; color:var(--se-accent); background:rgba(37,99,235,0.10); border-radius:999px; padding:0.14rem 0.44rem; white-space:nowrap; }
+    .lb-fill { display:inline-flex; align-items:center; gap:0.24rem; background:rgba(22,163,74,0.10); color:#15803d; font-family:var(--se-ill-sans); font-size:0.58rem; font-weight:700; border-radius:999px; padding:0.14rem 0.46rem; white-space:nowrap; }
+    .lb-suggest-tag { font-family:var(--se-ill-sans); font-size:0.56rem; font-weight:700; letter-spacing:0.04em; text-transform:uppercase; color:var(--se-ill-accent); background:rgba(37,99,235,0.10); border-radius:999px; padding:0.14rem 0.44rem; white-space:nowrap; }
     .lb-check { width:20px; height:20px; border-radius:50%; background:rgba(22,163,74,0.12); color:#15803d; display:inline-flex; align-items:center; justify-content:center; font-size:0.66rem; flex-shrink:0; }
 
     .lb-detect-head { display:flex; align-items:center; gap:0.7rem; margin-bottom:0.9rem; }
-    .lb-recog-chip { display:inline-flex; align-items:center; gap:0.3rem; background:rgba(22,163,74,0.10); color:#15803d; font-family:var(--se-sans); font-size:0.66rem; font-weight:700; border-radius:999px; padding:0.2rem 0.5rem; }
-    .lb-detect-name { font-family:var(--se-sans); font-weight:700; font-size:0.85rem; color:#111; margin-top:0.32rem; }
+    .lb-recog-chip { display:inline-flex; align-items:center; gap:0.3rem; background:rgba(22,163,74,0.10); color:#15803d; font-family:var(--se-ill-sans); font-size:0.66rem; font-weight:700; border-radius:999px; padding:0.2rem 0.5rem; }
+    .lb-detect-name { font-family:var(--se-ill-sans); font-weight:700; font-size:0.85rem; color:#111; margin-top:0.32rem; }
     .lb-sugrow { display:flex; align-items:center; gap:0.55rem; padding:0.5rem 0; border-bottom:1px solid #eef1f6; }
     .lb-sugrow:last-child { border-bottom:none; }
-    .lb-sugrow .k { font-family:var(--se-sans); font-size:0.7rem; color:#6b7280; min-width:58px; flex-shrink:0; }
-    .lb-sugrow .v { font-family:var(--se-sans); font-size:0.78rem; color:#111; font-weight:600; margin-left:auto; text-align:right; }
+    .lb-sugrow .k { font-family:var(--se-ill-sans); font-size:0.7rem; color:#6b7280; min-width:58px; flex-shrink:0; }
+    .lb-sugrow .v { font-family:var(--se-ill-sans); font-size:0.78rem; color:#111; font-weight:600; margin-left:auto; text-align:right; }
     .lb-sugrow .lb-suggest-tag, .lb-sugrow .lb-check { flex-shrink:0; }
 
     .lb-photo { width:56px; height:56px; border-radius:8px; border:1px solid #e5e7eb; overflow:hidden; flex-shrink:0; display:flex; align-items:center; justify-content:center; background:linear-gradient(180deg,#ffffff,#f4f7fb); }
@@ -531,7 +537,7 @@
         radial-gradient(85% 65% at 68% 22%, rgba(150,130,90,0.4), transparent 62%),
         linear-gradient(150deg, #4a4335 0%, #29251d 100%);
     }
-    .se-photo-before .statusbar { position:absolute; top:5px; left:9px; right:9px; display:flex; align-items:center; justify-content:space-between; font-family:var(--se-sans); font-size:0.5rem; font-weight:700; color:rgba(255,255,255,0.82); z-index:3; }
+    .se-photo-before .statusbar { position:absolute; top:5px; left:9px; right:9px; display:flex; align-items:center; justify-content:space-between; font-family:var(--se-ill-sans); font-size:0.5rem; font-weight:700; color:rgba(255,255,255,0.82); z-index:3; }
     .se-photo-before .statusbar .batt { display:inline-flex; align-items:center; gap:3px; }
     .se-photo-before .clutter { position:absolute; filter:blur(1.5px); opacity:0.55; z-index:1; }
     .se-photo-before .se-lamp { position:relative; z-index:2; transform:rotate(-6deg) translateY(3px); }
@@ -593,13 +599,13 @@
     .se-play svg { margin-left: 4px; }
     .se-video-poster-label {
       position: absolute; left: 50%; bottom: 22px; transform: translateX(-50%); z-index: 4;
-      font-family: var(--se-sans); font-size: var(--fs-caption); color: #e7ecf7; letter-spacing: 0.04em;
+      font-family: var(--se-ill-sans); font-size: 0.78rem; color: #e7ecf7; letter-spacing: 0.04em;
       text-shadow: 0 1px 8px rgba(0,0,0,0.6);
     }
     .se-video-cta { margin-top: 2.25rem; }
     .se-video-cta small { display: block; color: #93a1bd; font-size: var(--fs-caption); margin-bottom: 0.75rem; }
     .se-video-eyebrow { color: var(--se-accent-2); }
-    .se-video-poster-brand { position: absolute; top: 20px; left: 24px; font-family: var(--se-display); font-weight: 600; font-size: 1.2rem; color: #eef2ff; z-index: 4; text-shadow:0 1px 10px rgba(0,0,0,0.5); }
+    .se-video-poster-brand { position: absolute; top: 20px; left: 24px; font-family: var(--se-ill-display); font-weight: 600; font-size: 1.2rem; color: #eef2ff; z-index: 4; text-shadow:0 1px 10px rgba(0,0,0,0.5); }
     .se-video-poster-brand span { color: #7aa2ff; }
 
     /* Video modal */
@@ -634,12 +640,12 @@
     }
     .se-node-badge {
       width: 40px; height: 40px; border-radius: 11px; display: flex; align-items: center; justify-content: center;
-      font-family: var(--se-display); font-weight: 700; font-size: 1.05rem; margin-bottom: 0.85rem;
-      background: rgba(37,99,235,0.10); color: var(--se-accent);
+      font-family: var(--se-ill-display); font-weight: 700; font-size: 1.05rem; margin-bottom: 0.85rem;
+      background: rgba(37,99,235,0.10); color: var(--se-ill-accent);
     }
     .se-node.you .se-node-badge { background: rgba(86,97,122,0.12); color: #56617a; }
-    .se-node-label { font-family: var(--se-sans); font-weight: 700; font-size: 1.05rem; margin-bottom: 0.3rem; }
-    .se-node-line { font-family: var(--se-sans); font-size: 0.9rem; color: var(--se-muted); line-height: 1.5; }
+    .se-node-label { font-family: var(--se-ill-sans); font-weight: 700; font-size: 1.05rem; margin-bottom: 0.3rem; }
+    .se-node-line { font-family: var(--se-ill-sans); font-size: 0.9rem; color: var(--se-muted); line-height: 1.5; }
     .se-node.finish {
       grid-column: 1 / -1; text-align: center; align-items: center;
       padding: 1.6rem 1.35rem;
@@ -670,7 +676,7 @@
     }
     .se-benefit h3 { font-size: var(--fs-h4); font-weight: 600; letter-spacing: -0.01em; margin-bottom: 0.4rem; }
     .se-benefit p { font-family: var(--se-sans); font-size: var(--fs-body); color: var(--se-muted); line-height: 1.55; }
-    .se-benefit-note { text-align: center; margin-top: 1.75rem; font-family: var(--se-sans); font-size: var(--fs-secondary); color: #8590a6; }
+    .se-benefit-note { text-align: center; margin-top: 1.75rem; font-family: var(--se-sans); font-size: var(--fs-secondary); color: #5f6672; }
     .se-benefits-cta { text-align: center; margin-top: 2.25rem; }
 
     /* =========================================================
@@ -1073,8 +1079,8 @@
             <div class="se-shot" role="img" aria-label="The submit confirmation screen: a green check with a We take it from here message.">
               <div class="mk-card mk-confirm">
                 <div class="mk-check" aria-hidden="true">&#10003;</div>
-                <div style="font-family: var(--se-display); font-weight:600; font-size:var(--fs-h4); color: var(--se-ink);">Submitted!</div>
-                <div style="font-family: var(--se-sans); font-size:var(--fs-body); color: var(--se-muted); margin-top:0.35rem;">We take it from here.</div>
+                <div style="font-family: var(--se-ill-display); font-weight:600; font-size:1.2rem; color: var(--se-ink);">Submitted!</div>
+                <div style="font-family: var(--se-ill-sans); font-size:0.85rem; color: var(--se-muted); margin-top:0.35rem;">We take it from here.</div>
               </div>
             </div>
           </div>
@@ -1587,8 +1593,8 @@
          </video>  -->
     <div class="se-modal-placeholder">
       <svg width="52" height="52" viewBox="0 0 24 24" fill="none" stroke="#7aa2ff" stroke-width="1.4" aria-hidden="true"><polygon points="5 3 19 12 5 21 5 3"/></svg>
-      <div style="font-family:'Fraunces',serif; font-size:var(--fs-h3); font-weight:600;">Advantage<span style="color:#7aa2ff;">.Bid</span></div>
-      <div style="font-family:'Fraunces',serif; font-size:var(--fs-h4); font-weight:600;">A whole auction, start to finish.</div>
+      <div style="font-family:var(--se-display); font-size:var(--fs-h3); font-weight:700;">Advantage<span style="color:#7aa2ff;">.Bid</span></div>
+      <div style="font-family:var(--se-display); font-size:var(--fs-h4); font-weight:700;">A whole auction, start to finish.</div>
       <div style="font-family:var(--se-sans); font-size:var(--fs-body); color:#aab6d0; max-width:36ch;">One seller. One afternoon. From a room of belongings to live bidding.</div>
       <a href="/become-seller.html" class="se-btn se-btn-primary" style="margin-top:0.5rem;">Start Selling</a>
     </div>

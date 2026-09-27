@@ -57,6 +57,39 @@
 }
 
 /* ---- Opted-in pages ---------------------------------------------------- */
+/* The directory's link/button colours replace Railway's on opted-in pages. html[...] outranks
+   marketplace.css's :root, so every var(--blue) / var(--brand-red) on these pages follows.
+   Contrast on white: #006FBB 5.1:1 · #005A96 7.0:1 · white on #D9534F 3.9:1 (large text only: >= 24px
+   regular or >= 18.66px bold, which every red button here is) · white on #C9302C 5.4:1. */
+html[data-type-scale] {
+  /* onboarding.css draws headings in Fraunces through --ob-serif (with !important); Quicksand here. */
+  --ob-serif: var(--font-display);
+  --blue: #006fbb;
+  --blue-d: #005a96;
+  --brand-red: #d9534f;
+  --brand-red-d: #c9302c;
+  --gray: #5f6672;            /* the directory's muted text: 5.9:1 on white, 5.5:1 on #F3F4F6 */
+  --green: #15803d;           /* status green: 5.0:1 on white (was #16A34A, 3.2:1) */
+  --ob-accent: #006fbb;       /* onboarding.css links and buttons */
+  --ob-accent-ink: #005a96;
+}
+[data-type-scale] .section-eyebrow, [data-type-scale] .faq-body a, [data-type-scale] .marketplace-empty a, [data-type-scale] .empty-state a { color: var(--blue); }
+
+/* Accessible link and button roles on opted-in pages (checked 2026-09-27). */
+[data-type-scale] a.btn-primary, [data-type-scale] a.btn-hero-primary,
+[data-type-scale] a.btn-primary:hover, [data-type-scale] a.btn-hero-primary:hover { color: #fff; }
+/* The CTA-band primary button is white with dark text on the navy band (marketplace.css); left as designed. */
+[data-type-scale] .section-view-all, [data-type-scale] .adv-consent a { color: var(--blue); }
+[data-type-scale] a[data-adv-tel]:not([style*="color"]) { color: var(--blue); }   /* phone links with no colour of their own */
+[data-type-scale] footer .footer-links a, [data-type-scale] footer .footer-legal a { color: #dbe3ec; }       /* 13:1 on the navy footer */
+[data-type-scale] footer .footer-tagline, [data-type-scale] footer .footer-copy { color: #b6c2d1; }          /* 9:1 */
+[data-type-scale] footer .footer-links a:hover, [data-type-scale] footer .footer-legal a:hover { color: #fff; }
+/* onboarding.css colours every link on .ob-body pages (.ob-body a), which also caught the header wordmark and
+   the outline buttons on navy sections. Restore their designed colours (13:1 and 11:1 on navy). */
+[data-type-scale] .ob-body .adv-pubnav .brand { color: #fff; }
+[data-type-scale] .ob-body a.btn-hero-secondary, [data-type-scale] .ob-body a.btn-cta-outline { color: #e2e8f0; }
+[data-type-scale] .ob-body a.btn-hero-secondary:hover, [data-type-scale] .ob-body a.btn-cta-outline:hover { color: #fff; }
+[data-type-scale] .ob-body a.btn-cta-primary { color: var(--blue-d); }
 [data-type-scale] body {
   font-family: var(--font-body);
   font-size: var(--fs-body);
@@ -84,7 +117,8 @@
 
 /* Shared components from marketplace.css / public-nav.js, restyled only on opted-in pages. */
 [data-type-scale] .adv-pubnav .nav-link { font-size: var(--fs-secondary); font-weight: 600; }
-[data-type-scale] .adv-pubnav .btn-header-cta { font-size: var(--fs-secondary); padding: 0.45rem 1.1rem; }
+[data-type-scale] .adv-pubnav .btn-header-cta { font-size: var(--fs-secondary); font-weight: 700; padding: 0.45rem 1.1rem; background: var(--brand-red); color: #fff; }
+[data-type-scale] .adv-pubnav .btn-header-cta:hover { background: var(--brand-red-d); color: #fff; }
 [data-type-scale] .adv-pubnav .brand { font-size: 1.5rem; }            /* wordmark: unchanged proportion, not enlarged further */
 [data-type-scale] .section-eyebrow,
 [data-type-scale] .hero-eyebrow { font-size: var(--fs-caption); letter-spacing: 0.08em; font-weight: 700; }
@@ -109,6 +143,7 @@
 [data-type-scale] a[href^="mailto:"] { overflow-wrap: anywhere; }   /* long addresses break instead of widening the page */
 
 /* Shared add-ons that inject their own styles (widgets/shared/local-alerts.js, consent-banner.js). */
+[data-type-scale] .advla-strip, [data-type-scale] .advla-m, [data-type-scale] .adv-consent { font-family: var(--font-body); }
 [data-type-scale] .advla-strip h3, [data-type-scale] .advla-done-h { font-size: var(--fs-h4); }
 [data-type-scale] .advla-strip p, [data-type-scale] .advla-sub, [data-type-scale] .advla-msg, [data-type-scale] .advla-done-p { font-size: var(--fs-body); }
 [data-type-scale] .advla-f input, [data-type-scale] .advla-f select { font-size: var(--fs-body); }
@@ -126,5 +161,6 @@
   /* Logo, menu button and header CTA must share one row on a 390px phone. */
   [data-type-scale] .adv-pubnav .brand { font-size: 1.25rem; }
   /* A longer label ("Become a Seller") wraps onto two short lines rather than widening the page. */
-  [data-type-scale] .adv-pubnav .btn-header-cta { font-size: var(--fs-caption); padding: 0.35rem 0.65rem; white-space: normal; max-width: 7em; text-align: center; line-height: 1.15; }
+  /* 19px bold keeps white-on-red at the WCAG large-text size (18.66px bold) on phones. */
+  [data-type-scale] .adv-pubnav .btn-header-cta { font-size: 1.1875rem; padding: 0.35rem 0.65rem; white-space: normal; max-width: 7em; text-align: center; line-height: 1.15; }
 }

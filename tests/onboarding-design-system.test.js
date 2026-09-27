@@ -37,10 +37,17 @@ const ONBOARDING_PAGES = [
 ];
 
 describe('every Railway onboarding page adopts the shared system', () => {
-  test.each(ONBOARDING_PAGES)('%s links onboarding.css, loads Fraunces, and uses class="ob-body"', (name) => {
+  test.each(ONBOARDING_PAGES)('%s links onboarding.css, loads its heading face, and uses class="ob-body"', (name) => {
     const h = read('public', name + '.html');
     expect(links(h)).toBe(true);
-    expect(h).toMatch(/family=Fraunces/);
+    // Owner decision 2026-09-27: pages on the shared type scale (css/typography.css) use Quicksand for headings
+    // too (--ob-serif is re-pointed there); pages not yet migrated keep the Fraunces display face.
+    if (/<html[^>]*data-type-scale/.test(h)) {
+      expect(h).toMatch(/family=Quicksand/);
+      expect(h).not.toMatch(/family=Fraunces/);
+    } else {
+      expect(h).toMatch(/family=Fraunces/);
+    }
     expect(h).toMatch(/<body[^>]*\bob-body\b/);
   });
 });

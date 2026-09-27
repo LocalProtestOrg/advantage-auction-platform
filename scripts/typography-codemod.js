@@ -34,7 +34,7 @@ function toPx(v) {
 // Decoration keeps its size: logos, wordmarks, icons, emoji, glyphs, pseudo-element marks and the illustrated
 // mock-ups on marketing pages (.mk-*), which are pictures of the product, not readable text.
 // how-it-works also draws product screenshots in HTML (browser frames, the lot-builder kit, a flow diagram).
-const KEEP = /(logo|brand|wordmark|icon|\.ic\b|emoji|avatar|svg|glyph|check-item::before|::before|::after|step-num|\.n\b|spinner|badge-dot|\.mk-|-plus\b|formula-op|arrow|\.lb-|se-frame|se-pane|se-suggest|se-breeze|se-photo|se-shot|statusbar|se-node)/i;
+const KEEP = /(logo|brand|wordmark|icon|\.ic\b|emoji|avatar|svg|glyph|check-item::before|::before|::after|step-num|\.n\b|spinner|badge-dot|\.mk-|-plus\b|formula-op|arrow|\.lb-|se-frame|se-pane|se-suggest|se-breeze|se-photo|se-shot|statusbar|se-node|se-video-poster)/i;
 const CAPTION = /(eyebrow|badge|chip|pill|tag\b|\.q\b|label|kicker|caption|legal|fine|timestamp|col-title|th\b|thead|uppercase|stat .l|\.l\b|objection-q|hero-card-title|payout-title|example-payout-title)/i;
 const SECONDARY = /(nav|footer|meta|muted|note|hint|help|sub-?text|small|table|td\b|tr\b|fee-row|payout-row|payout-line|crumb|breadcrumb|copy|tagline|trust)/i;
 const CONTROL = /(btn|button|cta|\.tab\b|toggle|summary)/i;
