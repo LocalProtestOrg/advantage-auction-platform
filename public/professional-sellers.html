@@ -1,8 +1,10 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-type-scale>
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" /><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin /><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Quicksand:wght@400;500;600;700&display=swap" />
+  <link rel="stylesheet" href="/css/typography.css" data-type-scale-css />
   <title>Online Auctions Under Your Own Name | Estate Sale Companies, Auction Houses &amp; Liquidators | Advantage.Bid</title>
   <meta name="description" content="Offer online auctions under your company name. Each auction appears on your own website through a white-label widget and on the Advantage.Bid marketplace for more bidders. Win more estate contracts, auction whole estates or what is left after a sale, and keep your buyer premium. No auction software to build." />
   <link rel="canonical" href="https://bid.advantage.bid/professional-sellers.html" />
@@ -22,67 +24,67 @@
     body { background:#fff; }
     .hero { background:linear-gradient(160deg,#0f172a 0%,#1e3a5f 100%); padding:5rem 1.5rem 3.5rem; }
     .hero-inner { max-width:960px; margin:0 auto; }
-    .hero-eyebrow { display:inline-block; font-size:0.72rem; font-weight:700; letter-spacing:0.09em; text-transform:uppercase; color:#93c5fd; background:rgba(59,130,246,0.15); border:1px solid rgba(147,197,253,0.25); padding:0.28rem 0.85rem; border-radius:99px; margin-bottom:1.1rem; }
-    .hero h1 { font-size:clamp(2rem,4.8vw,2.9rem); font-weight:800; line-height:1.1; letter-spacing:-0.03em; color:#fff; margin-bottom:1rem; }
+    .hero-eyebrow { display:inline-block; font-size: var(--fs-caption); font-weight:700; letter-spacing:0.09em; text-transform:uppercase; color:#93c5fd; background:rgba(59,130,246,0.15); border:1px solid rgba(147,197,253,0.25); padding:0.28rem 0.85rem; border-radius:99px; margin-bottom:1.1rem; }
+    .hero h1 { font-size: var(--fs-h1); font-weight:800; line-height:1.1; letter-spacing:-0.03em; color:#fff; margin-bottom:1rem; }
     .hero h1 em { font-style:normal; color:#93c5fd; }
-    .hero-sub { font-size:1.05rem; color:#94a3b8; line-height:1.65; max-width:640px; margin-bottom:1.75rem; }
+    .hero-sub { font-size: var(--fs-body); color:#94a3b8; line-height:1.65; max-width:640px; margin-bottom:1.75rem; }
     .hero-actions { display:flex; gap:0.75rem; flex-wrap:wrap; align-items:center; }
-    .btn-primary { background:var(--blue,#2563eb); color:#fff; font-size:1rem; font-weight:700; padding:0.85rem 2rem; border-radius:8px; text-decoration:none; transition:background .15s,transform .1s; }
+    .btn-primary { background:var(--blue,#2563eb); color:#fff; font-size: var(--fs-control); font-weight:700; padding:0.85rem 2rem; border-radius:8px; text-decoration:none; transition:background .15s,transform .1s; }
     .btn-primary:hover { background:var(--blue-d,#1d4ed8); transform:translateY(-1px); }
-    .btn-secondary { background:rgba(255,255,255,0.08); color:#e2e8f0; font-size:1rem; font-weight:600; padding:0.85rem 1.75rem; border-radius:8px; border:1px solid rgba(255,255,255,0.15); text-decoration:none; }
+    .btn-secondary { background:rgba(255,255,255,0.08); color:#e2e8f0; font-size: var(--fs-control); font-weight:600; padding:0.85rem 1.75rem; border-radius:8px; border:1px solid rgba(255,255,255,0.15); text-decoration:none; }
     .btn-secondary:hover { background:rgba(255,255,255,0.12); }
-    .hero-note { color:#64748b; font-size:0.85rem; margin-top:1.1rem; }
+    .hero-note { color:#64748b; font-size: var(--fs-secondary); margin-top:1.1rem; }
     .hero-note b { color:#cbd5e1; }
     .section-inner { max-width:1000px; margin:0 auto; padding:0 1.5rem; }
-    .section-eyebrow { display:inline-block; font-size:0.72rem; font-weight:700; letter-spacing:0.08em; text-transform:uppercase; color:#2563eb; margin-bottom:0.5rem; }
-    .section-h2 { font-size:clamp(1.5rem,3.5vw,2rem); font-weight:800; letter-spacing:-0.025em; margin-bottom:0.6rem; }
-    .section-sub { color:#64748b; font-size:0.98rem; line-height:1.6; max-width:660px; margin-bottom:1.75rem; }
+    .section-eyebrow { display:inline-block; font-size: var(--fs-caption); font-weight:700; letter-spacing:0.08em; text-transform:uppercase; color:#2563eb; margin-bottom:0.5rem; }
+    .section-h2 { font-size: var(--fs-h2); font-weight:800; letter-spacing:-0.025em; margin-bottom:0.6rem; }
+    .section-sub { color:#64748b; font-size: var(--fs-body); line-height:1.6; max-width:660px; margin-bottom:1.75rem; }
     .caps { padding:4rem 0; background:var(--bg,#f8fafc); }
     .cap-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:1.1rem; }
     .cap-card { background:#fff; border:1px solid var(--border,#e5e7eb); border-radius:14px; padding:1.4rem; }
     .cap-card .ic { font-size:1.6rem; }
-    .cap-card h3 { font-size:1.02rem; font-weight:800; margin:0.6rem 0 0.35rem; }
-    .cap-card p { font-size:0.9rem; color:#475569; line-height:1.55; margin:0; }
+    .cap-card h3 { font-size: var(--fs-h4); font-weight:800; margin:0.6rem 0 0.35rem; }
+    .cap-card p { font-size: var(--fs-body); color:#475569; line-height:1.55; margin:0; }
     .cap-card ul { margin:0.5rem 0 0; padding-left:1.05rem; }
-    .cap-card li { font-size:0.86rem; color:#475569; line-height:1.5; margin-bottom:0.2rem; }
+    .cap-card li { font-size: var(--fs-body); color:#475569; line-height:1.5; margin-bottom:0.2rem; }
     .econ { padding:4rem 0; background:#fff; }
     .econ-grid { display:grid; grid-template-columns:1fr 1fr; gap:1.5rem; }
     @media (max-width:720px){ .econ-grid { grid-template-columns:1fr; } }
     .econ-card { border:1px solid var(--border,#e5e7eb); border-radius:14px; padding:1.5rem; }
-    .econ-card h3 { font-size:1.05rem; font-weight:800; margin-bottom:0.5rem; }
-    .econ-card .fee { font-size:1.9rem; font-weight:900; letter-spacing:-0.03em; color:#0f172a; margin:0.2rem 0 0.5rem; }
-    .econ-card p { font-size:0.9rem; color:#475569; line-height:1.6; margin:0 0 0.5rem; }
-    .econ-card .muted { color:#94a3b8; font-size:0.82rem; }
+    .econ-card h3 { font-size: var(--fs-h4); font-weight:800; margin-bottom:0.5rem; }
+    .econ-card .fee { font-size: var(--fs-h2); font-weight:900; letter-spacing:-0.03em; color:#0f172a; margin:0.2rem 0 0.5rem; }
+    .econ-card p { font-size: var(--fs-body); color:#475569; line-height:1.6; margin:0 0 0.5rem; }
+    .econ-card .muted { color:#94a3b8; font-size: var(--fs-secondary); }
     .payout { background:#f1f5f9; border:1px solid #e2e8f0; border-radius:12px; padding:1.25rem 1.4rem; margin-top:1.5rem; }
-    .payout h4 { font-size:0.95rem; font-weight:800; margin-bottom:0.4rem; }
-    .payout p { font-size:0.88rem; color:#475569; line-height:1.6; margin:0 0 0.4rem; }
+    .payout h4 { font-size: var(--fs-h4); font-weight:800; margin-bottom:0.4rem; }
+    .payout p { font-size: var(--fs-body); color:#475569; line-height:1.6; margin:0 0 0.4rem; }
     .steps { padding:4rem 0; background:var(--bg,#f8fafc); }
     .steps-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(210px,1fr)); gap:0; border:1px solid var(--border,#e5e7eb); border-radius:14px; overflow:hidden; background:#fff; }
     .step { padding:1.5rem 1.4rem; border-right:1px solid var(--border,#e5e7eb); }
     .step:last-child { border-right:none; }
     @media (max-width:720px){ .step { border-right:none; border-bottom:1px solid var(--border,#e5e7eb); } .step:last-child { border-bottom:none; } }
     .step .n { font-size:1.6rem; font-weight:900; color:#93c5fd; }
-    .step h3 { font-size:0.95rem; font-weight:800; margin:0.35rem 0 0.3rem; }
-    .step p { font-size:0.86rem; color:#475569; line-height:1.5; margin:0; }
+    .step h3 { font-size: var(--fs-h4); font-weight:800; margin:0.35rem 0 0.3rem; }
+    .step p { font-size: var(--fs-body); color:#475569; line-height:1.5; margin:0; }
     .demos { padding:3rem 0 1rem; background:#fff; }
     .demo-row { display:flex; gap:0.75rem; flex-wrap:wrap; }
-    .demo-link { display:inline-flex; align-items:center; gap:0.4rem; background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:0.6rem 0.95rem; color:#1d4ed8; text-decoration:none; font-size:0.88rem; font-weight:600; }
+    .demo-link { display:inline-flex; align-items:center; gap:0.4rem; background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:0.6rem 0.95rem; color:#1d4ed8; text-decoration:none; font-size: var(--fs-body); font-weight:600; }
     .demo-link:hover { background:#e0e7ff; }
     .cta-band { padding:4rem 1.5rem; background:linear-gradient(160deg,#0f172a 0%,#1e3a5f 100%); text-align:center; }
-    .cta-band h2 { color:#fff; font-size:clamp(1.5rem,3.5vw,2rem); font-weight:800; margin-bottom:0.6rem; }
+    .cta-band h2 { color:#fff; font-size: var(--fs-h2); font-weight:800; margin-bottom:0.6rem; }
     .cta-band p { color:#94a3b8; margin-bottom:1.5rem; }
     .aud { padding:4rem 0; background:#fff; }
     .aud-grid { display:grid; grid-template-columns:1fr auto 1fr; gap:1rem; align-items:stretch; }
     @media (max-width:760px){ .aud-grid { grid-template-columns:1fr; } .aud-plus { padding:0.25rem 0; } }
     .aud-card { border:1px solid var(--border,#e5e7eb); border-radius:14px; padding:1.5rem; background:#fff; }
     .aud-card.own { border-color:#93c5fd; background:#f8fbff; }
-    .aud-card .tag { display:inline-block; font-size:0.7rem; font-weight:800; letter-spacing:0.07em; text-transform:uppercase; color:#1d4ed8; margin-bottom:0.4rem; }
-    .aud-card h3 { font-size:1.12rem; font-weight:800; margin:0 0 0.45rem; }
-    .aud-card p { font-size:0.92rem; color:#475569; line-height:1.6; margin:0 0 0.5rem; }
+    .aud-card .tag { display:inline-block; font-size: var(--fs-caption); font-weight:800; letter-spacing:0.07em; text-transform:uppercase; color:#1d4ed8; margin-bottom:0.4rem; }
+    .aud-card h3 { font-size: var(--fs-h4); font-weight:800; margin:0 0 0.45rem; }
+    .aud-card p { font-size: var(--fs-body); color:#475569; line-height:1.6; margin:0 0 0.5rem; }
     .aud-card ul { margin:0.4rem 0 0; padding-left:1.05rem; }
-    .aud-card li { font-size:0.88rem; color:#475569; line-height:1.5; margin-bottom:0.25rem; }
+    .aud-card li { font-size: var(--fs-body); color:#475569; line-height:1.5; margin-bottom:0.25rem; }
     .aud-plus { display:flex; align-items:center; justify-content:center; font-size:1.8rem; font-weight:900; color:#93c5fd; }
-    .aud-note { margin-top:1.1rem; font-size:0.86rem; color:#64748b; line-height:1.6; max-width:760px; }
+    .aud-note { margin-top:1.1rem; font-size: var(--fs-secondary); color:#64748b; line-height:1.6; max-width:760px; }
   </style>
   <script src="/widgets/shared/company-contact.js"></script>
 </head>

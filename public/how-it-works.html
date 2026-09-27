@@ -1,8 +1,10 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-type-scale>
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" /><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin /><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Quicksand:wght@400;500;600;700&display=swap" />
+  <link rel="stylesheet" href="/css/typography.css" data-type-scale-css />
   <title>How to Create Your Own Online Auction - Advantage.Bid</title>
   <meta name="description" content="Never sold at auction before? Advantage helps you turn a lifetime of belongings into a professionally managed online auction. Most sellers build their catalog in a single afternoon. You build the catalog, we handle the rest, and you get paid." />
   <link rel="canonical" href="https://bid.advantage.bid/how-it-works" />
@@ -166,22 +168,22 @@
 
     .se-eyebrow {
       display: inline-block; font-family: var(--se-sans);
-      font-size: 0.72rem; font-weight: 700; letter-spacing: 0.13em;
+      font-size: var(--fs-caption); font-weight: 700; letter-spacing: 0.13em;
       text-transform: uppercase; color: var(--se-accent); margin-bottom: 0.9rem;
     }
     .se-h2 {
-      font-size: clamp(1.75rem, 4vw, 2.75rem); font-weight: 600;
+      font-size: var(--fs-h1); font-weight: 600;
       line-height: 1.1; letter-spacing: -0.02em; margin-bottom: 0.75rem;
     }
     .se-lead {
-      font-family: var(--se-sans); font-size: clamp(1.05rem, 2.2vw, 1.25rem);
+      font-family: var(--se-sans); font-size: var(--fs-lead);
       color: var(--se-muted); line-height: 1.55; max-width: 640px;
     }
 
     /* ── Buttons ─────────────────────────────────────────────────── */
     .se-btn {
       display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem;
-      font-family: var(--se-sans); font-size: 1rem; font-weight: 600;
+      font-family: var(--se-sans); font-size: var(--fs-control); font-weight: 600;
       min-height: 52px; padding: 0.9rem 1.9rem; border-radius: 12px;
       text-decoration: none; cursor: pointer; border: 1px solid transparent;
       transition: transform 0.18s ease, box-shadow 0.18s ease, background 0.18s ease, border-color 0.18s ease;
@@ -221,11 +223,11 @@
       align-items: center;
     }
     .se-hero h1 {
-      font-size: clamp(2.4rem, 6.5vw, 4.4rem); font-weight: 600;
+      font-size: var(--fs-h1); font-weight: 600;
       line-height: 1.03; letter-spacing: -0.03em; margin-bottom: 1.1rem; color: #fff;
     }
     .se-hero-sub {
-      font-size: clamp(1.1rem, 2.4vw, 1.4rem); line-height: 1.5;
+      font-size: var(--fs-lead); line-height: 1.5;
       color: #c3ccdd; max-width: 34ch; margin-bottom: 2rem;
     }
     .se-hero-actions { display: flex; flex-wrap: wrap; gap: 0.85rem; }
@@ -245,7 +247,7 @@
       position: absolute; inset: 0; display: flex; flex-direction: column;
       align-items: center; justify-content: center; text-align: center; padding: 1.5rem; gap: 0.75rem;
     }
-    .se-hero-media-caption { font-size: 0.85rem; color: #aeb9d0; max-width: 24ch; line-height: 1.5; }
+    .se-hero-media-caption { font-size: var(--fs-caption); color: #aeb9d0; max-width: 24ch; line-height: 1.5; }
 
     /* =========================================================
        2 · SITUATIONS BAND
@@ -256,7 +258,7 @@
     .se-chip {
       display: inline-flex; align-items: center; gap: 0.55rem;
       background: #fff; border: 1px solid var(--se-line); border-radius: 999px;
-      padding: 0.7rem 1.15rem; font-size: 0.95rem; font-weight: 500; color: var(--se-ink);
+      padding: 0.7rem 1.15rem; font-size: var(--fs-caption); font-weight: 500; color: var(--se-ink);
       text-decoration: none; min-height: 44px;
       transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
     }
@@ -268,12 +270,12 @@
        ========================================================= */
     .se-fear { padding: clamp(4rem, 9vw, 7rem) 0; text-align: center; background: #fff; }
     .se-fear h2 {
-      font-size: clamp(2rem, 5.5vw, 3.4rem); font-weight: 500; font-style: italic;
+      font-size: var(--fs-h2); font-weight: 500; font-style: italic;
       letter-spacing: -0.02em; line-height: 1.08; margin-bottom: 1.25rem; color: var(--se-ink);
     }
-    .se-fear-relief { font-size: clamp(1.15rem, 2.6vw, 1.5rem); font-weight: 500; margin-bottom: 0.85rem; }
+    .se-fear-relief { font-size: var(--fs-h3); font-weight: 500; margin-bottom: 0.85rem; }
     .se-fear-relief strong { color: var(--se-accent); font-weight: 700; }
-    .se-fear p.se-fear-body { max-width: 620px; margin: 0 auto 2rem; color: var(--se-muted); font-size: 1.075rem; line-height: 1.6; }
+    .se-fear p.se-fear-body { max-width: 620px; margin: 0 auto 2rem; color: var(--se-muted); font-size: var(--fs-body); line-height: 1.6; }
 
     /* =========================================================
        4 · EFFORTLESS BUILDER
@@ -294,8 +296,8 @@
       background: rgba(37,99,235,0.10); color: var(--se-accent);
       font-family: var(--se-display); font-weight: 700; font-size: 1.15rem;
     }
-    .se-step-title { font-size: clamp(1.5rem, 3.4vw, 2.1rem); font-weight: 600; letter-spacing: -0.02em; line-height: 1.12; margin-bottom: 0.6rem; }
-    .se-step-callout { font-size: 1.1rem; color: var(--se-muted); line-height: 1.5; max-width: 30ch; }
+    .se-step-title { font-size: var(--fs-h2); font-weight: 600; letter-spacing: -0.02em; line-height: 1.12; margin-bottom: 0.6rem; }
+    .se-step-callout { font-size: var(--fs-body); color: var(--se-muted); line-height: 1.5; max-width: 30ch; }
 
     /* Device frames (browser + phone) holding screenshot placeholders */
     .se-frame {
@@ -347,7 +349,7 @@
     .mk-check { width:56px; height:56px; border-radius:50%; background: rgba(22,163,74,0.12); color: var(--se-success); display:flex; align-items:center; justify-content:center; font-size:1.8rem; margin: 0.5rem auto 0.9rem; }
 
     .se-builder-close { text-align: center; max-width: 620px; margin: clamp(2.5rem,5vw,4rem) auto 0; }
-    .se-builder-close p { font-size: clamp(1.15rem, 2.6vw, 1.5rem); font-weight: 500; line-height: 1.4; margin-bottom: 1.5rem; }
+    .se-builder-close p { font-size: var(--fs-h3); font-weight: 500; line-height: 1.4; margin-bottom: 1.5rem; }
     .se-builder-close strong { color: var(--se-accent); }
 
     /* ── SMART CATALOG TOOLS (the centerpiece showcase) ──────────────── */
@@ -357,7 +359,7 @@
       border-top: 1px solid var(--se-line);
     }
     .se-tools-head { text-align: center; max-width: 780px; margin: 0 auto clamp(2.5rem, 5vw, 3.75rem); }
-    .se-tools-head .se-h2 { font-size: clamp(1.9rem, 4.5vw, 3rem); }
+    .se-tools-head .se-h2 { font-size: var(--fs-h1); }
     .se-tools-head .se-lead { margin: 1rem auto 0; }
     .se-tools-head .se-lead strong { color: var(--se-ink); font-weight: 700; }
     .se-tools-grid {
@@ -385,10 +387,10 @@
     }
     .se-tool-icon svg { width: 30px; height: 30px; }
     .se-tool-body { padding: 1.5rem 1.5rem 1.6rem; }
-    .se-tool-title { font-family: var(--se-display); font-size: 1.2rem; font-weight: 600; letter-spacing: -0.01em; margin-bottom: 0.5rem; }
-    .se-tool p { font-family: var(--se-sans); font-size: 0.96rem; color: var(--se-muted); line-height: 1.55; }
+    .se-tool-title { font-family: var(--se-display); font-size: var(--fs-h4); font-weight: 600; letter-spacing: -0.01em; margin-bottom: 0.5rem; }
+    .se-tool p { font-family: var(--se-sans); font-size: var(--fs-body); color: var(--se-muted); line-height: 1.55; }
     .se-tools-close { text-align: center; max-width: 640px; margin: clamp(2.5rem, 5vw, 3.75rem) auto 0; }
-    .se-tools-close p { font-size: clamp(1.2rem, 2.7vw, 1.55rem); font-weight: 500; line-height: 1.4; margin-bottom: 1.5rem; color: var(--se-ink); }
+    .se-tools-close p { font-size: var(--fs-h3); font-weight: 500; line-height: 1.4; margin-bottom: 1.5rem; color: var(--se-ink); }
     .se-tools-close strong { color: var(--se-accent); }
 
     /* Phone frame (for mobile-emphasis mock) */
@@ -403,10 +405,10 @@
     /* ── The Advantage Builder: elevated section intro ───────────────── */
     .se-builder-lead-strong {
       font-family: var(--se-display); font-weight: 600; font-style: italic;
-      font-size: clamp(1.4rem, 3.4vw, 2.15rem); line-height: 1.18;
+      font-size: var(--fs-h2); line-height: 1.18;
       letter-spacing: -0.01em; color: var(--se-ink); margin: 0 auto 0.8rem; max-width: 22ch;
     }
-    .se-builder .se-builder-head .se-eyebrow { font-size: 0.78rem; letter-spacing: 0.15em; }
+    .se-builder .se-builder-head .se-eyebrow { font-size: var(--fs-caption); letter-spacing: 0.15em; }
 
     /* ── FIVE Smart Tool visual showcases (before → after demos) ─────── */
     .se-showcase {
@@ -417,8 +419,8 @@
     .se-showcase:last-of-type { margin-bottom: 0; }
     .se-showcase.reverse .se-showcase-visual { order: 2; }
     .se-showcase-copy .se-eyebrow { margin-bottom: 0.7rem; }
-    .se-showcase-title { font-family: var(--se-display); font-size: clamp(1.5rem, 3.6vw, 2.25rem); font-weight: 600; letter-spacing: -0.02em; line-height: 1.1; margin-bottom: 0.55rem; }
-    .se-showcase-line { font-family: var(--se-sans); font-size: 1.1rem; color: var(--se-muted); line-height: 1.5; max-width: 32ch; }
+    .se-showcase-title { font-family: var(--se-display); font-size: var(--fs-h2); font-weight: 600; letter-spacing: -0.02em; line-height: 1.1; margin-bottom: 0.55rem; }
+    .se-showcase-line { font-family: var(--se-sans); font-size: var(--fs-body); color: var(--se-muted); line-height: 1.5; max-width: 32ch; }
 
     .se-showcase-visual {
       position: relative; border-radius: 20px; padding: clamp(1.1rem, 2.5vw, 1.75rem);
@@ -480,7 +482,7 @@
       position:absolute; z-index:6; display:inline-flex; align-items:center; gap:0.42rem;
       background:#fff; border:1px solid var(--se-line); border-radius:999px;
       padding:0.4rem 0.75rem 0.4rem 0.55rem; box-shadow:0 12px 28px rgba(15,23,42,0.18);
-      font-family:var(--se-sans); font-size:0.74rem; font-weight:600; color:var(--se-ink); white-space:nowrap;
+      font-family:var(--se-sans); font-size: var(--fs-caption); font-weight:600; color:var(--se-ink); white-space:nowrap;
     }
     .se-callout .dot { width:8px; height:8px; border-radius:50%; background:var(--se-success); flex-shrink:0; }
     .se-callout.accent .dot { background:var(--se-accent); }
@@ -557,8 +559,8 @@
         radial-gradient(900px 500px at 50% 0%, rgba(122,162,255,0.20), transparent 60%),
         linear-gradient(180deg, #0b1220 0%, #101c34 100%);
     }
-    .se-video h2 { font-size: clamp(1.9rem, 4.6vw, 3rem); font-weight: 600; letter-spacing: -0.02em; line-height: 1.1; color: #fff; margin-bottom: 0.9rem; max-width: 20ch; margin-left:auto; margin-right:auto; }
-    .se-video-sub { color: #b7c2d8; font-size: clamp(1.05rem, 2.3vw, 1.25rem); max-width: 42ch; margin: 0 auto 2.5rem; line-height: 1.5; }
+    .se-video h2 { font-size: var(--fs-h2); font-weight: 600; letter-spacing: -0.02em; line-height: 1.1; color: #fff; margin-bottom: 0.9rem; max-width: 20ch; margin-left:auto; margin-right:auto; }
+    .se-video-sub { color: #b7c2d8; font-size: var(--fs-lead); max-width: 42ch; margin: 0 auto 2.5rem; line-height: 1.5; }
     /* Cinematic, branded video still: warm golden-hour key light over the
        navy brand base, a soft-focus brass lamp subject, floor plane + vignette. */
     .se-video-frame {
@@ -591,11 +593,11 @@
     .se-play svg { margin-left: 4px; }
     .se-video-poster-label {
       position: absolute; left: 50%; bottom: 22px; transform: translateX(-50%); z-index: 4;
-      font-family: var(--se-sans); font-size: 0.78rem; color: #e7ecf7; letter-spacing: 0.04em;
+      font-family: var(--se-sans); font-size: var(--fs-caption); color: #e7ecf7; letter-spacing: 0.04em;
       text-shadow: 0 1px 8px rgba(0,0,0,0.6);
     }
     .se-video-cta { margin-top: 2.25rem; }
-    .se-video-cta small { display: block; color: #93a1bd; font-size: 0.85rem; margin-bottom: 0.75rem; }
+    .se-video-cta small { display: block; color: #93a1bd; font-size: var(--fs-caption); margin-bottom: 0.75rem; }
     .se-video-eyebrow { color: var(--se-accent-2); }
     .se-video-poster-brand { position: absolute; top: 20px; left: 24px; font-family: var(--se-display); font-weight: 600; font-size: 1.2rem; color: #eef2ff; z-index: 4; text-shadow:0 1px 10px rgba(0,0,0,0.5); }
     .se-video-poster-brand span { color: #7aa2ff; }
@@ -607,7 +609,7 @@
     .se-modal-placeholder { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.6rem; text-align: center; color: #e6ecf7; padding: 2rem; }
     .se-modal-close {
       position: absolute; top: -14px; right: -14px; width: 40px; height: 40px; border-radius: 50%;
-      background: #fff; color: #0f172a; border: none; cursor: pointer; font-size: 1.2rem;
+      background: #fff; color: #0f172a; border: none; cursor: pointer; font-size: var(--fs-h4);
       display: flex; align-items: center; justify-content: center; box-shadow: 0 8px 20px rgba(0,0,0,0.35);
     }
     @media (max-width: 520px) { .se-modal-close { top: 8px; right: 8px; } }
@@ -666,9 +668,9 @@
       width: 44px; height: 44px; border-radius: 12px; display: flex; align-items: center; justify-content: center;
       font-size: 1.35rem; margin-bottom: 1rem; background: rgba(37,99,235,0.09);
     }
-    .se-benefit h3 { font-size: 1.15rem; font-weight: 600; letter-spacing: -0.01em; margin-bottom: 0.4rem; }
-    .se-benefit p { font-family: var(--se-sans); font-size: 0.95rem; color: var(--se-muted); line-height: 1.55; }
-    .se-benefit-note { text-align: center; margin-top: 1.75rem; font-family: var(--se-sans); font-size: 0.82rem; color: #8590a6; }
+    .se-benefit h3 { font-size: var(--fs-h4); font-weight: 600; letter-spacing: -0.01em; margin-bottom: 0.4rem; }
+    .se-benefit p { font-family: var(--se-sans); font-size: var(--fs-body); color: var(--se-muted); line-height: 1.55; }
+    .se-benefit-note { text-align: center; margin-top: 1.75rem; font-family: var(--se-sans); font-size: var(--fs-secondary); color: #8590a6; }
     .se-benefits-cta { text-align: center; margin-top: 2.25rem; }
 
     /* =========================================================
@@ -689,7 +691,7 @@
        .se-who-card { background-image: url('/img/who-estate.jpg'); background-size: cover; } */
     .se-who-card::before { content: ''; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(15,23,42,0.05) 30%, rgba(11,18,32,0.82) 100%); z-index: 1; }
     .se-who-emoji { position: absolute; top: 1rem; left: 1.1rem; font-size: 1.5rem; z-index: 2; filter: drop-shadow(0 2px 6px rgba(0,0,0,0.4)); }
-    .se-who-label { position: relative; z-index: 2; font-family: var(--se-sans); font-weight: 700; font-size: 1.05rem; padding: 1.1rem; }
+    .se-who-label { position: relative; z-index: 2; font-family: var(--se-sans); font-weight: 700; font-size: var(--fs-caption); padding: 1.1rem; }
 
     /* =========================================================
        9 · HUMAN SUPPORT
@@ -707,9 +709,9 @@
     }
     .se-support-media .se-shot-badge { position: static; margin-top: 0.75rem; }
     .se-promise-list { list-style: none; margin: 1.25rem 0 1.75rem; padding: 0; display: flex; flex-direction: column; gap: 0.85rem; }
-    .se-promise { display: flex; gap: 0.75rem; align-items: flex-start; font-size: 1.15rem; font-weight: 500; line-height: 1.4; }
-    .se-promise-tick { flex-shrink: 0; width: 26px; height: 26px; border-radius: 50%; background: rgba(22,163,74,0.12); color: var(--se-success); display: flex; align-items: center; justify-content: center; font-size: 0.9rem; margin-top: 0.15rem; }
-    .se-support p.se-support-foot { color: var(--se-muted); font-size: 1.05rem; line-height: 1.55; max-width: 46ch; }
+    .se-promise { display: flex; gap: 0.75rem; align-items: flex-start; font-size: var(--fs-body); font-weight: 500; line-height: 1.4; }
+    .se-promise-tick { flex-shrink: 0; width: 26px; height: 26px; border-radius: 50%; background: rgba(22,163,74,0.12); color: var(--se-success); display: flex; align-items: center; justify-content: center; font-size: var(--fs-body); margin-top: 0.15rem; }
+    .se-support p.se-support-foot { color: var(--se-muted); font-size: var(--fs-body); line-height: 1.55; max-width: 46ch; }
 
     /* =========================================================
        10 · PROOF (hidden placeholder)
@@ -731,13 +733,13 @@
       width: 100%; text-align: left; background: none; border: none; cursor: pointer;
       display: flex; align-items: center; justify-content: space-between; gap: 1rem;
       padding: 1.15rem 1.35rem; min-height: 56px;
-      font-family: var(--se-display); font-size: 1.1rem; font-weight: 600; color: var(--se-ink);
+      font-family: var(--se-display); font-size: var(--fs-body); font-weight: 600; color: var(--se-ink);
     }
     .se-faq-q:focus-visible { outline: 3px solid var(--se-accent-2); outline-offset: -3px; border-radius: 12px; }
     .se-faq-icon { flex-shrink: 0; width: 24px; height: 24px; position: relative; transition: transform 0.25s ease; color: var(--se-accent); }
     .se-faq-q[aria-expanded="true"] .se-faq-icon { transform: rotate(45deg); }
     .se-faq-a { max-height: 0; overflow: hidden; transition: max-height 0.3s ease; }
-    .se-faq-a-inner { padding: 0 1.35rem 1.3rem; font-family: var(--se-sans); font-size: 0.98rem; color: #3d475c; line-height: 1.65; }
+    .se-faq-a-inner { padding: 0 1.35rem 1.3rem; font-family: var(--se-sans); font-size: var(--fs-body); color: #3d475c; line-height: 1.65; }
     .se-faq-a-inner a { color: var(--se-accent); text-decoration: none; font-weight: 600; }
     .se-faq-a-inner a:hover { text-decoration: underline; }
 
@@ -750,10 +752,10 @@
         radial-gradient(900px 500px at 50% 120%, rgba(37,99,235,0.35), transparent 60%),
         linear-gradient(160deg, #0b1220 0%, #14264a 100%);
     }
-    .se-final h2 { font-size: clamp(2.2rem, 6vw, 3.6rem); font-weight: 600; letter-spacing: -0.02em; line-height: 1.05; margin-bottom: 1rem; color: #fff; }
-    .se-final p { color: #c3ccdd; font-size: clamp(1.05rem, 2.4vw, 1.3rem); max-width: 40ch; margin: 0 auto 2rem; line-height: 1.5; }
+    .se-final h2 { font-size: var(--fs-h2); font-weight: 600; letter-spacing: -0.02em; line-height: 1.05; margin-bottom: 1rem; color: #fff; }
+    .se-final p { color: #c3ccdd; font-size: var(--fs-body); max-width: 40ch; margin: 0 auto 2rem; line-height: 1.5; }
     .se-final-actions { display: flex; flex-wrap: wrap; gap: 0.85rem; justify-content: center; }
-    .se-final-motto { margin-top: 2.5rem; font-style: italic; color: #8fa0c0; font-size: 1.05rem; }
+    .se-final-motto { margin-top: 2.5rem; font-style: italic; color: #8fa0c0; font-size: var(--fs-body); }
 
     /* =========================================================
        STICKY MOBILE CTA
@@ -770,7 +772,7 @@
     .se-sticky .se-btn-primary { flex: 1; min-height: 48px; }
     .se-sticky-dismiss {
       flex-shrink: 0; width: 40px; height: 44px; border: none; background: none; color: #8fa0c0;
-      font-size: 1.4rem; cursor: pointer; display: flex; align-items: center; justify-content: center;
+      font-size: var(--fs-h4); cursor: pointer; display: flex; align-items: center; justify-content: center;
     }
     @media (max-width: 768px) { .se-sticky { display: flex; } }
 
@@ -838,7 +840,7 @@
         <div class="se-hero-media reveal" data-parallax data-replace="hero-media" role="img" aria-label="A calm morning at a kitchen table. A seller holds a vintage vase, phone in hand, ready to list it.">
           <div class="se-hero-media-inner">
             <svg width="46" height="46" viewBox="0 0 24 24" fill="none" stroke="#aeb9d0" stroke-width="1.4" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="10" r="2"/><path d="M21 15l-5-5L5 19"/></svg>
-            <div style="font-family: var(--se-display); font-weight:600; font-size:1.5rem; color:#eef2ff;">Advantage<span style="color:#7aa2ff;">.Bid</span></div>
+            <div style="font-family: var(--se-display); font-weight:600; font-size:var(--fs-h3); color:#eef2ff;">Advantage<span style="color:#7aa2ff;">.Bid</span></div>
             <p class="se-hero-media-caption">Your auction, beautifully presented.</p>
           </div>
         </div>
@@ -1071,8 +1073,8 @@
             <div class="se-shot" role="img" aria-label="The submit confirmation screen: a green check with a We take it from here message.">
               <div class="mk-card mk-confirm">
                 <div class="mk-check" aria-hidden="true">&#10003;</div>
-                <div style="font-family: var(--se-display); font-weight:600; font-size:1.2rem; color: var(--se-ink);">Submitted!</div>
-                <div style="font-family: var(--se-sans); font-size:0.85rem; color: var(--se-muted); margin-top:0.35rem;">We take it from here.</div>
+                <div style="font-family: var(--se-display); font-weight:600; font-size:var(--fs-h4); color: var(--se-ink);">Submitted!</div>
+                <div style="font-family: var(--se-sans); font-size:var(--fs-body); color: var(--se-muted); margin-top:0.35rem;">We take it from here.</div>
               </div>
             </div>
           </div>
@@ -1423,7 +1425,7 @@
         <div class="se-support-media reveal" data-replace="support-photo" role="img" aria-label="A friendly Advantage team member on a support call, ready to help.">
           <div style="text-align:center; color:#c3ccdd;">
             <svg width="46" height="46" viewBox="0 0 24 24" fill="none" stroke="#aeb9d0" stroke-width="1.4" aria-hidden="true"><path d="M20 15.5v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 .1 2.7 2 2 0 0 1 2.1.5h3a2 2 0 0 1 2 1.7c.1.9.3 1.8.6 2.6a2 2 0 0 1-.5 2.1L6.1 8a16 16 0 0 0 6 6l1.1-1.1a2 2 0 0 1 2.1-.5c.8.3 1.7.5 2.6.6a2 2 0 0 1 1.7 2Z"/></svg>
-            <div style="font-family:var(--se-sans); font-size:0.95rem; color:#c3ccdd; margin-top:0.85rem;">Real people, real help.</div>
+            <div style="font-family:var(--se-sans); font-size:var(--fs-body); color:#c3ccdd; margin-top:0.85rem;">Real people, real help.</div>
           </div>
         </div>
         <div class="reveal">
@@ -1585,9 +1587,9 @@
          </video>  -->
     <div class="se-modal-placeholder">
       <svg width="52" height="52" viewBox="0 0 24 24" fill="none" stroke="#7aa2ff" stroke-width="1.4" aria-hidden="true"><polygon points="5 3 19 12 5 21 5 3"/></svg>
-      <div style="font-family:'Fraunces',serif; font-size:1.6rem; font-weight:600;">Advantage<span style="color:#7aa2ff;">.Bid</span></div>
-      <div style="font-family:'Fraunces',serif; font-size:1.35rem; font-weight:600;">A whole auction, start to finish.</div>
-      <div style="font-family:var(--se-sans); font-size:0.95rem; color:#aab6d0; max-width:36ch;">One seller. One afternoon. From a room of belongings to live bidding.</div>
+      <div style="font-family:'Fraunces',serif; font-size:var(--fs-h3); font-weight:600;">Advantage<span style="color:#7aa2ff;">.Bid</span></div>
+      <div style="font-family:'Fraunces',serif; font-size:var(--fs-h4); font-weight:600;">A whole auction, start to finish.</div>
+      <div style="font-family:var(--se-sans); font-size:var(--fs-body); color:#aab6d0; max-width:36ch;">One seller. One afternoon. From a room of belongings to live bidding.</div>
       <a href="/become-seller.html" class="se-btn se-btn-primary" style="margin-top:0.5rem;">Start Selling</a>
     </div>
   </div>

@@ -1,8 +1,10 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-type-scale>
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" /><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin /><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Quicksand:wght@400;500;600;700&display=swap" />
+  <link rel="stylesheet" href="/css/typography.css" data-type-scale-css />
   <title>Free Business Listing — Advantage.Bid for Estate Sale Companies, Auction Houses &amp; Liquidators</title>
   <meta name="description" content="Get a free business listing on Advantage.Bid: a company profile page and a simple way to promote your upcoming auctions and events. No monthly membership. Upgrade to Professional Seller anytime." />
   <link rel="canonical" href="https://bid.advantage.bid/free-business-listing.html" />
@@ -18,37 +20,37 @@
     body { background:#fff; }
     .hero { background:linear-gradient(160deg,#0f172a 0%,#1e3a5f 100%); padding:5rem 1.5rem 3.25rem; }
     .hero-inner { max-width:960px; margin:0 auto; }
-    .eyebrow { display:inline-block; font-size:0.72rem; font-weight:700; letter-spacing:0.09em; text-transform:uppercase; color:#93c5fd; background:rgba(59,130,246,0.15); border:1px solid rgba(147,197,253,0.25); padding:0.28rem 0.85rem; border-radius:99px; margin-bottom:1.1rem; }
-    .hero h1 { font-size:clamp(2rem,4.8vw,2.9rem); font-weight:800; line-height:1.1; letter-spacing:-0.03em; color:#fff; margin-bottom:0.75rem; }
-    .hero .price { font-size:1.4rem; font-weight:800; color:#4ade80; margin-bottom:0.75rem; }
-    .hero-sub { font-size:1.05rem; color:#94a3b8; line-height:1.65; max-width:640px; margin-bottom:1.75rem; }
+    .eyebrow { display:inline-block; font-size: var(--fs-caption); font-weight:700; letter-spacing:0.09em; text-transform:uppercase; color:#93c5fd; background:rgba(59,130,246,0.15); border:1px solid rgba(147,197,253,0.25); padding:0.28rem 0.85rem; border-radius:99px; margin-bottom:1.1rem; }
+    .hero h1 { font-size: var(--fs-h1); font-weight:800; line-height:1.1; letter-spacing:-0.03em; color:#fff; margin-bottom:0.75rem; }
+    .hero .price { font-size: var(--fs-lead); font-weight:800; color:#4ade80; margin-bottom:0.75rem; }
+    .hero-sub { font-size: var(--fs-body); color:#94a3b8; line-height:1.65; max-width:640px; margin-bottom:1.75rem; }
     .hero-actions { display:flex; gap:0.75rem; flex-wrap:wrap; align-items:center; }
-    .btn-primary { background:var(--blue,#2563eb); color:#fff; font-size:1rem; font-weight:700; padding:0.85rem 2rem; border-radius:8px; text-decoration:none; transition:background .15s,transform .1s; }
+    .btn-primary { background:var(--blue,#2563eb); color:#fff; font-size: var(--fs-control); font-weight:700; padding:0.85rem 2rem; border-radius:8px; text-decoration:none; transition:background .15s,transform .1s; }
     .btn-primary:hover { background:var(--blue-d,#1d4ed8); transform:translateY(-1px); }
-    .btn-secondary { background:rgba(255,255,255,0.08); color:#e2e8f0; font-size:1rem; font-weight:600; padding:0.85rem 1.75rem; border-radius:8px; border:1px solid rgba(255,255,255,0.15); text-decoration:none; }
+    .btn-secondary { background:rgba(255,255,255,0.08); color:#e2e8f0; font-size: var(--fs-control); font-weight:600; padding:0.85rem 1.75rem; border-radius:8px; border:1px solid rgba(255,255,255,0.15); text-decoration:none; }
     .section-inner { max-width:1000px; margin:0 auto; padding:0 1.5rem; }
-    .section-eyebrow { display:inline-block; font-size:0.72rem; font-weight:700; letter-spacing:0.08em; text-transform:uppercase; color:#2563eb; margin-bottom:0.5rem; }
-    .section-h2 { font-size:clamp(1.5rem,3.5vw,2rem); font-weight:800; letter-spacing:-0.025em; margin-bottom:0.6rem; }
-    .section-sub { color:#64748b; font-size:0.98rem; line-height:1.6; max-width:660px; margin-bottom:1.75rem; }
+    .section-eyebrow { display:inline-block; font-size: var(--fs-caption); font-weight:700; letter-spacing:0.08em; text-transform:uppercase; color:#2563eb; margin-bottom:0.5rem; }
+    .section-h2 { font-size: var(--fs-h2); font-weight:800; letter-spacing:-0.025em; margin-bottom:0.6rem; }
+    .section-sub { color:#64748b; font-size: var(--fs-body); line-height:1.6; max-width:660px; margin-bottom:1.75rem; }
     .incl { padding:4rem 0; background:var(--bg,#f8fafc); }
     .incl-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:1.1rem; }
     .incl-card { background:#fff; border:1px solid var(--border,#e5e7eb); border-radius:14px; padding:1.4rem; }
     .incl-card .ic { font-size:1.5rem; }
-    .incl-card h3 { font-size:1rem; font-weight:800; margin:0.55rem 0 0.3rem; }
-    .incl-card p { font-size:0.9rem; color:#475569; line-height:1.55; margin:0; }
+    .incl-card h3 { font-size: var(--fs-h4); font-weight:800; margin:0.55rem 0 0.3rem; }
+    .incl-card p { font-size: var(--fs-body); color:#475569; line-height:1.55; margin:0; }
     .limits { padding:3rem 0; background:#fff; }
-    .limits ul { max-width:660px; margin:0; padding-left:1.1rem; color:#475569; line-height:1.7; font-size:0.94rem; }
+    .limits ul { max-width:660px; margin:0; padding-left:1.1rem; color:#475569; line-height:1.7; font-size: var(--fs-body); }
     .compare { padding:3.5rem 0; background:var(--bg,#f8fafc); }
     .compare-grid { display:grid; grid-template-columns:1fr 1fr; gap:1.25rem; }
     @media (max-width:720px){ .compare-grid { grid-template-columns:1fr; } }
     .compare-card { border:1px solid var(--border,#e5e7eb); border-radius:14px; padding:1.5rem; background:#fff; }
-    .compare-card h3 { font-size:1.05rem; font-weight:800; margin-bottom:0.5rem; }
+    .compare-card h3 { font-size: var(--fs-h4); font-weight:800; margin-bottom:0.5rem; }
     .compare-card ul { margin:0.5rem 0 0; padding-left:1.05rem; }
-    .compare-card li { font-size:0.88rem; color:#475569; line-height:1.5; margin-bottom:0.25rem; }
+    .compare-card li { font-size: var(--fs-body); color:#475569; line-height:1.5; margin-bottom:0.25rem; }
     .compare-card.pro { border-color:#c7d2fe; background:#f5f7ff; }
-    .compare-card .tag { font-size:0.72rem; font-weight:800; letter-spacing:0.05em; text-transform:uppercase; color:#1d4ed8; }
+    .compare-card .tag { font-size: var(--fs-caption); font-weight:800; letter-spacing:0.05em; text-transform:uppercase; color:#1d4ed8; }
     .cta-band { padding:4rem 1.5rem; background:linear-gradient(160deg,#0f172a 0%,#1e3a5f 100%); text-align:center; }
-    .cta-band h2 { color:#fff; font-size:clamp(1.5rem,3.5vw,2rem); font-weight:800; margin-bottom:0.6rem; }
+    .cta-band h2 { color:#fff; font-size: var(--fs-h2); font-weight:800; margin-bottom:0.6rem; }
     .cta-band p { color:#94a3b8; margin-bottom:1.5rem; }
   </style>
   <script src="/widgets/shared/company-contact.js"></script>
@@ -143,7 +145,7 @@
   <h2>Claim or create your free listing</h2>
   <p>Find your company if it's already on Advantage.Bid, or create a new listing in a couple of minutes.</p>
   <a href="/get-listed.html" class="btn-primary">Get Your Free Business Listing</a>
-  <p style="color:#64748b;font-size:0.85rem;margin-top:1.1rem">Questions? Call Advantage.Bid at <a data-adv-tel style="color:#cbd5e1;font-weight:700"></a></p>
+  <p style="color:#64748b;font-size:var(--fs-body);margin-top:1.1rem">Questions? Call Advantage.Bid at <a data-adv-tel style="color:#cbd5e1;font-weight:700"></a></p>
 </section>
 
 <footer>

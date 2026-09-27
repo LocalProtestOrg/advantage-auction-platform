@@ -1,0 +1,130 @@
+/* ==========================================================================
+   Advantage.Bid typography — one shared scale for the Railway application.
+   Visual reference: the live Advantage.Bid directory (www.advantage.bid), verified 2026-09-27:
+     font Quicksand (Google Fonts) · text #292929 / #3E3E3E / #5F6672 · ground #F5F7FA · navy #182E45
+     brand blue #006FBB · link blue #337AB7 · CTA red #D9534F · eyebrow pill 800, uppercase, tracked
+     cards 20px radius · buttons 8-12px radius · content width 1170px.
+   Readability standard (owner, 2026-09-27): ordinary text 24px (18pt); buttons ~22px; navigation, tables
+   and secondary text ~20px; badges, column headers and short labels 18px minimum. Headings sit above body.
+
+   Sizes are rem at the browser default (1rem = 16px), so a visitor's browser text-size setting scales
+   everything in proportion. The root size is never changed.
+
+   ROLLOUT: a page opts in with <html data-type-scale> plus a <link> to this file. Rules that restyle SHARED
+   components (header, footer, FAQ, CTA bands from marketplace.css) are scoped to [data-type-scale], so pages
+   that have not migrated yet are unchanged. Logos, icons, charts and embedded widgets are never resized here.
+   ========================================================================== */
+
+:root {
+  /* Type families */
+  --font-body: 'Quicksand', 'Segoe UI', system-ui, -apple-system, Arial, sans-serif;
+  --font-display: 'Quicksand', 'Segoe UI', system-ui, -apple-system, Arial, sans-serif;
+
+  /* Semantic type scale */
+  --fs-caption:   1.125rem;   /* 18px  badges, chips, column headers, eyebrow labels, timestamps, legal */
+  --fs-secondary: 1.25rem;    /* 20px  navigation, table cells, helper text, card metadata, footer links */
+  --fs-control:   1.375rem;   /* 22px  buttons and tabs */
+  --fs-body:      1.5rem;     /* 24px  ordinary reading text, descriptions, FAQs, forms (18pt) */
+  --fs-lead:      1.75rem;    /* 28px  intro paragraph under a page headline */
+  --fs-h4:        1.625rem;   /* 26px  card titles, h4 */
+  --fs-h3:        1.875rem;   /* 30px  h3 */
+  --fs-h2:        clamp(2rem, 1.55rem + 1.6vw, 2.625rem);   /* 32-42px */
+  --fs-h1:        clamp(2.5rem, 1.85rem + 2.8vw, 4rem);     /* 40-64px */
+
+  /* Line heights */
+  --lh-body: 1.6;
+  --lh-tight: 1.2;
+  --lh-heading: 1.15;
+  --lh-ui: 1.35;
+
+  /* Weights (Quicksand ships 300-700; 700 is its boldest) */
+  --fw-body: 500;
+  --fw-strong: 700;
+  --fw-heading: 700;
+
+  /* Directory palette */
+  --text: #292929;
+  --text-2: #3e3e3e;
+  --text-muted: #5f6672;
+  --ground: #f5f7fa;
+  --navy: #182e45;
+  --brand-blue: #006fbb;
+  --link: #006fbb;
+  --cta-red: #d9534f;
+
+  /* Reading measure */
+  --measure: 68ch;
+}
+
+/* ---- Opted-in pages ---------------------------------------------------- */
+[data-type-scale] body {
+  font-family: var(--font-body);
+  font-size: var(--fs-body);
+  font-weight: var(--fw-body);
+  line-height: var(--lh-body);
+  color: var(--text);
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+[data-type-scale] h1, [data-type-scale] h2, [data-type-scale] h3, [data-type-scale] h4 {
+  font-family: var(--font-display);
+  font-weight: var(--fw-heading);
+  line-height: var(--lh-heading);
+  text-wrap: balance;
+}
+[data-type-scale] h1 { font-size: var(--fs-h1); }
+[data-type-scale] h2 { font-size: var(--fs-h2); }
+[data-type-scale] h3 { font-size: var(--fs-h3); }
+[data-type-scale] h4 { font-size: var(--fs-h4); }
+[data-type-scale] p, [data-type-scale] li, [data-type-scale] dd, [data-type-scale] blockquote { line-height: var(--lh-body); }
+[data-type-scale] input, [data-type-scale] select, [data-type-scale] textarea { font: inherit; font-size: var(--fs-body); }
+[data-type-scale] button { font-family: inherit; }
+[data-type-scale] small { font-size: var(--fs-caption); }
+[data-type-scale] :focus-visible { outline: 3px solid var(--brand-blue); outline-offset: 2px; }
+
+/* Shared components from marketplace.css / public-nav.js, restyled only on opted-in pages. */
+[data-type-scale] .adv-pubnav .nav-link { font-size: var(--fs-secondary); font-weight: 600; }
+[data-type-scale] .adv-pubnav .btn-header-cta { font-size: var(--fs-secondary); padding: 0.45rem 1.1rem; }
+[data-type-scale] .adv-pubnav .brand { font-size: 1.5rem; }            /* wordmark: unchanged proportion, not enlarged further */
+[data-type-scale] .section-eyebrow,
+[data-type-scale] .hero-eyebrow { font-size: var(--fs-caption); letter-spacing: 0.08em; font-weight: 700; }
+[data-type-scale] .section-sub { font-size: var(--fs-body); line-height: var(--lh-body); max-width: var(--measure); }
+[data-type-scale] .faq-item summary { font-size: var(--fs-body); font-weight: 700; line-height: var(--lh-ui); }
+[data-type-scale] .faq-item .faq-body { font-size: var(--fs-body); line-height: var(--lh-body); }
+[data-type-scale] .cta-band h2 { font-size: var(--fs-h2); }
+[data-type-scale] .cta-band p { font-size: var(--fs-body); }
+[data-type-scale] .btn-cta-primary, [data-type-scale] .btn-cta-outline { font-size: var(--fs-control); }
+[data-type-scale] footer .footer-tagline, [data-type-scale] footer .footer-copy { font-size: var(--fs-secondary); }
+[data-type-scale] footer .footer-col-title { font-size: var(--fs-caption); letter-spacing: 0.06em; }
+[data-type-scale] footer .footer-links a, [data-type-scale] footer .footer-legal a { font-size: var(--fs-secondary); }
+[data-type-scale] footer .footer-brand { font-size: 1.75rem; }
+
+[data-type-scale] .btn-header-cta { font-size: var(--fs-secondary); }
+[data-type-scale] .trust-item { font-size: var(--fs-secondary); }
+[data-type-scale] .hero-sub { font-size: var(--fs-body); }
+[data-type-scale] .section-view-all { font-size: var(--fs-secondary); }
+[data-type-scale] .empty-state h3 { font-size: var(--fs-h4); }
+[data-type-scale] .empty-state p, [data-type-scale] .marketplace-empty p { font-size: var(--fs-body); }
+[data-type-scale] .empty-state a, [data-type-scale] .marketplace-empty a { font-size: var(--fs-secondary); }
+[data-type-scale] a[href^="mailto:"] { overflow-wrap: anywhere; }   /* long addresses break instead of widening the page */
+
+/* Shared add-ons that inject their own styles (widgets/shared/local-alerts.js, consent-banner.js). */
+[data-type-scale] .advla-strip h3, [data-type-scale] .advla-done-h { font-size: var(--fs-h4); }
+[data-type-scale] .advla-strip p, [data-type-scale] .advla-sub, [data-type-scale] .advla-msg, [data-type-scale] .advla-done-p { font-size: var(--fs-body); }
+[data-type-scale] .advla-f input, [data-type-scale] .advla-f select { font-size: var(--fs-body); }
+[data-type-scale] .advla-btn { font-size: var(--fs-control); }
+[data-type-scale] .advla-fine { font-size: var(--fs-secondary); }
+/* The cookie banner is a compact overlay: secondary size keeps it from covering most of a phone screen. */
+[data-type-scale] .adv-consent p, [data-type-scale] .adv-consent a, [data-type-scale] .adv-consent label, [data-type-scale] .adv-consent button { font-size: var(--fs-secondary); }
+
+@media (max-width: 600px) {
+  /* Headline sizes step down on phones; body text stays 24px. */
+  [data-type-scale] { --fs-lead: 1.625rem; --fs-h3: 1.75rem; }
+  [data-type-scale] .trust-item { white-space: normal; max-width: 100%; min-width: 0; }
+}
+@media (max-width: 480px) {
+  /* Logo, menu button and header CTA must share one row on a 390px phone. */
+  [data-type-scale] .adv-pubnav .brand { font-size: 1.25rem; }
+  /* A longer label ("Become a Seller") wraps onto two short lines rather than widening the page. */
+  [data-type-scale] .adv-pubnav .btn-header-cta { font-size: var(--fs-caption); padding: 0.35rem 0.65rem; white-space: normal; max-width: 7em; text-align: center; line-height: 1.15; }
+}

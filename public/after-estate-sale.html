@@ -1,8 +1,10 @@
 ﻿<!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-type-scale>
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" /><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin /><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Quicksand:wght@400;500;600;700&display=swap" />
+  <link rel="stylesheet" href="/css/typography.css" data-type-scale-css />
   <title>After the Estate Sale: What to Do with Everything Left Behind - Advantage.Bid</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&display=swap" rel="stylesheet">
@@ -44,17 +46,17 @@
 
     .article-hero { background: linear-gradient(160deg, #0f172a 0%, #1e3a5f 100%); padding: 4rem 1.5rem 3.5rem; }
     .article-hero-inner { max-width: 760px; margin: 0 auto; }
-    .article-label { display: inline-block; font-size: 0.72rem; font-weight: 700; letter-spacing: 0.09em; text-transform: uppercase; color: #93c5fd; background: rgba(59,130,246,0.15); border: 1px solid rgba(147,197,253,0.25); padding: 0.28rem 0.85rem; border-radius: 99px; margin-bottom: 1.25rem; }
-    .article-hero h1 { font-size: clamp(1.85rem, 4.5vw, 2.8rem); font-weight: 800; line-height: 1.12; letter-spacing: -0.03em; color: #fff; margin-bottom: 1rem; }
-    .article-hero-sub { font-size: 1.05rem; color: #94a3b8; line-height: 1.65; max-width: 600px; margin-bottom: 1.75rem; }
-    .article-meta { font-size: 0.82rem; color: #475569; }
+    .article-label { display: inline-block; font-size: var(--fs-caption); font-weight: 700; letter-spacing: 0.09em; text-transform: uppercase; color: #93c5fd; background: rgba(59,130,246,0.15); border: 1px solid rgba(147,197,253,0.25); padding: 0.28rem 0.85rem; border-radius: 99px; margin-bottom: 1.25rem; }
+    .article-hero h1 { font-size: var(--fs-h1); font-weight: 800; line-height: 1.12; letter-spacing: -0.03em; color: #fff; margin-bottom: 1rem; }
+    .article-hero-sub { font-size: var(--fs-body); color: #94a3b8; line-height: 1.65; max-width: 600px; margin-bottom: 1.75rem; }
+    .article-meta { font-size: var(--fs-secondary); color: #475569; }
 
     .article-layout { max-width: 1040px; margin: 0 auto; padding: 4rem 1.5rem; display: grid; grid-template-columns: 1fr 280px; gap: 4rem; align-items: start; }
     @media (max-width: 840px) { .article-layout { grid-template-columns: 1fr; gap: 2.5rem; } }
 
-    .article-body { font-size: 1rem; line-height: 1.75; color: #1f2937; }
-    .article-body h2 { font-size: 1.35rem; font-weight: 800; letter-spacing: -0.02em; margin: 2.5rem 0 0.75rem; color: var(--ink); }
-    .article-body h3 { font-size: 1.05rem; font-weight: 700; margin: 1.75rem 0 0.5rem; }
+    .article-body { font-size: var(--fs-body); line-height: 1.75; color: #1f2937; }
+    .article-body h2 { font-size: var(--fs-h2); font-weight: 800; letter-spacing: -0.02em; margin: 2.5rem 0 0.75rem; color: var(--ink); }
+    .article-body h3 { font-size: var(--fs-h3); font-weight: 700; margin: 1.75rem 0 0.5rem; }
     .article-body p { margin-bottom: 1.1rem; }
     .article-body p:last-child { margin-bottom: 0; }
     .article-body a { color: var(--blue); text-decoration: none; }
@@ -64,30 +66,30 @@
     .article-body strong { color: var(--ink); }
 
     .callout { background: var(--blue-lt); border-left: 3px solid var(--blue); border-radius: 0 8px 8px 0; padding: 1rem 1.25rem; margin: 1.5rem 0; }
-    .callout p { margin: 0; font-size: 0.93rem; color: #1e40af; }
+    .callout p { margin: 0; font-size: var(--fs-body); color: #1e40af; }
 
     .option-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin: 1.5rem 0; }
     .option-card { border: 1px solid var(--border); border-radius: 10px; padding: 1.1rem 1.1rem 1.2rem; }
-    .option-card-label { font-size: 0.72rem; font-weight: 700; letter-spacing: 0.07em; text-transform: uppercase; margin-bottom: 0.4rem; }
+    .option-card-label { font-size: var(--fs-caption); font-weight: 700; letter-spacing: 0.07em; text-transform: uppercase; margin-bottom: 0.4rem; }
     .option-card-label.good { color: var(--green); }
     .option-card-label.ok   { color: var(--amber); }
     .option-card-label.bad  { color: #dc2626; }
-    .option-card h3 { font-size: 0.9rem; font-weight: 700; margin-bottom: 0.3rem; }
-    .option-card p { font-size: 0.83rem; color: var(--gray); line-height: 1.5; margin: 0; }
+    .option-card h3 { font-size: var(--fs-h4); font-weight: 700; margin-bottom: 0.3rem; }
+    .option-card p { font-size: var(--fs-body); color: var(--gray); line-height: 1.5; margin: 0; }
 
     .items-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 0.75rem; margin: 1.5rem 0; }
-    .item-tag { background: var(--gray-lt); border: 1px solid var(--border); border-radius: 8px; padding: 0.6rem 0.85rem; font-size: 0.875rem; font-weight: 500; color: #374151; }
+    .item-tag { background: var(--gray-lt); border: 1px solid var(--border); border-radius: 8px; padding: 0.6rem 0.85rem; font-size: var(--fs-caption); font-weight: 500; color: #374151; }
 
     .article-sidebar { display: flex; flex-direction: column; gap: 1.5rem; }
     @media (max-width: 840px) { .article-sidebar { display: none; } }
     .sidebar-card { background: var(--gray-lt); border: 1px solid var(--border); border-radius: 12px; padding: 1.25rem; }
-    .sidebar-card-title { font-size: 0.78rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--gray); margin-bottom: 0.85rem; }
-    .sidebar-card h3 { font-size: 0.95rem; font-weight: 700; margin-bottom: 0.4rem; }
-    .sidebar-card p { font-size: 0.85rem; color: var(--gray); line-height: 1.55; margin-bottom: 0.85rem; }
-    .sidebar-card a.btn { display: block; background: var(--blue); color: #fff; font-size: 0.875rem; font-weight: 700; padding: 0.6rem 1rem; border-radius: 7px; text-decoration: none; text-align: center; transition: background 0.15s; }
+    .sidebar-card-title { font-size: var(--fs-body); font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--gray); margin-bottom: 0.85rem; }
+    .sidebar-card h3 { font-size: var(--fs-h4); font-weight: 700; margin-bottom: 0.4rem; }
+    .sidebar-card p { font-size: var(--fs-body); color: var(--gray); line-height: 1.55; margin-bottom: 0.85rem; }
+    .sidebar-card a.btn { display: block; background: var(--blue); color: #fff; font-size: var(--fs-control); font-weight: 700; padding: 0.6rem 1rem; border-radius: 7px; text-decoration: none; text-align: center; transition: background 0.15s; }
     .sidebar-card a.btn:hover { background: var(--blue-d); }
     .sidebar-links { list-style: none; display: flex; flex-direction: column; gap: 0.4rem; }
-    .sidebar-links a { font-size: 0.875rem; color: var(--blue); text-decoration: none; display: flex; align-items: center; gap: 0.3rem; }
+    .sidebar-links a { font-size: var(--fs-body); color: var(--blue); text-decoration: none; display: flex; align-items: center; gap: 0.3rem; }
     .sidebar-links a:hover { text-decoration: underline; }
   </style>
 </head>
@@ -287,11 +289,11 @@
     <div class="sidebar-card">
       <div class="sidebar-card-title">Quick facts</div>
       <ul class="sidebar-links" style="list-style:none;">
-        <li style="font-size:0.85rem;color:var(--gray);margin-bottom:0.4rem;">✓ No listing fees - pay only if items sell</li>
-        <li style="font-size:0.85rem;color:var(--gray);margin-bottom:0.4rem;">✓ Buyers pay before pickup</li>
-        <li style="font-size:0.85rem;color:var(--gray);margin-bottom:0.4rem;">✓ Full transaction records included</li>
-        <li style="font-size:0.85rem;color:var(--gray);margin-bottom:0.4rem;">✓ You set the pickup window</li>
-        <li style="font-size:0.85rem;color:var(--gray);">✓ Address private until payment</li>
+        <li style="font-size:var(--fs-body);color:var(--gray);margin-bottom:0.4rem;">✓ No listing fees - pay only if items sell</li>
+        <li style="font-size:var(--fs-body);color:var(--gray);margin-bottom:0.4rem;">✓ Buyers pay before pickup</li>
+        <li style="font-size:var(--fs-body);color:var(--gray);margin-bottom:0.4rem;">✓ Full transaction records included</li>
+        <li style="font-size:var(--fs-body);color:var(--gray);margin-bottom:0.4rem;">✓ You set the pickup window</li>
+        <li style="font-size:var(--fs-body);color:var(--gray);">✓ Address private until payment</li>
       </ul>
     </div>
 

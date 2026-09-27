@@ -1,8 +1,10 @@
 ﻿<!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-type-scale>
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" /><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin /><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Quicksand:wght@400;500;600;700&display=swap" />
+  <link rel="stylesheet" href="/css/typography.css" data-type-scale-css />
   <title>Seller FAQ - Advantage.Bid Online Auctions</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&display=swap" rel="stylesheet">
@@ -33,22 +35,22 @@
 
     .page-hero { background: linear-gradient(160deg, #0f172a 0%, #1e3a5f 100%); padding: 3.5rem 1.5rem 3rem; text-align: center; }
     .page-hero-inner { max-width: 680px; margin: 0 auto; }
-    .page-eyebrow { display: inline-block; font-size: 0.72rem; font-weight: 700; letter-spacing: 0.09em; text-transform: uppercase; color: #93c5fd; background: rgba(59,130,246,0.15); border: 1px solid rgba(147,197,253,0.25); padding: 0.28rem 0.85rem; border-radius: 99px; margin-bottom: 1.1rem; }
-    .page-hero h1 { font-size: clamp(1.75rem, 4vw, 2.5rem); font-weight: 800; line-height: 1.15; letter-spacing: -0.03em; color: #fff; margin-bottom: 0.85rem; }
-    .page-hero-sub { font-size: 1rem; color: #94a3b8; line-height: 1.6; }
+    .page-eyebrow { display: inline-block; font-size: var(--fs-caption); font-weight: 700; letter-spacing: 0.09em; text-transform: uppercase; color: #93c5fd; background: rgba(59,130,246,0.15); border: 1px solid rgba(147,197,253,0.25); padding: 0.28rem 0.85rem; border-radius: 99px; margin-bottom: 1.1rem; }
+    .page-hero h1 { font-size: var(--fs-h1); font-weight: 800; line-height: 1.15; letter-spacing: -0.03em; color: #fff; margin-bottom: 0.85rem; }
+    .page-hero-sub { font-size: var(--fs-body); color: #94a3b8; line-height: 1.6; }
 
     .faq-layout { max-width: 1040px; margin: 0 auto; padding: 4rem 1.5rem; display: grid; grid-template-columns: 220px 1fr; gap: 3rem; align-items: start; }
     @media (max-width: 760px) { .faq-layout { grid-template-columns: 1fr; padding: 2.5rem 1.25rem; } }
 
     .faq-sidebar { position: sticky; top: 80px; }
-    .faq-sidebar-title { font-size: 0.72rem; font-weight: 700; letter-spacing: 0.07em; text-transform: uppercase; color: var(--gray); margin-bottom: 0.85rem; }
+    .faq-sidebar-title { font-size: var(--fs-caption); font-weight: 700; letter-spacing: 0.07em; text-transform: uppercase; color: var(--gray); margin-bottom: 0.85rem; }
     .faq-nav { list-style: none; display: flex; flex-direction: column; gap: 0.15rem; }
-    .faq-nav a { font-size: 0.875rem; color: var(--gray); text-decoration: none; padding: 0.35rem 0.65rem; border-radius: 6px; display: block; transition: color 0.15s, background 0.15s; }
+    .faq-nav a { font-size: var(--fs-body); color: var(--gray); text-decoration: none; padding: 0.35rem 0.65rem; border-radius: 6px; display: block; transition: color 0.15s, background 0.15s; }
     .faq-nav a:hover { color: var(--ink); background: var(--gray-lt); }
     @media (max-width: 760px) { .faq-sidebar { display: none; } }
 
     .faq-content { display: flex; flex-direction: column; gap: 3rem; }
-    .faq-group-title { font-size: 1.1rem; font-weight: 800; letter-spacing: -0.01em; margin-bottom: 1rem; padding-bottom: 0.6rem; border-bottom: 2px solid var(--blue-lt); color: var(--ink); }
+    .faq-group-title { font-size: var(--fs-body); font-weight: 800; letter-spacing: -0.01em; margin-bottom: 1rem; padding-bottom: 0.6rem; border-bottom: 2px solid var(--blue-lt); color: var(--ink); }
     .faq-list { display: flex; flex-direction: column; gap: 0.5rem; }
   </style>
 </head>

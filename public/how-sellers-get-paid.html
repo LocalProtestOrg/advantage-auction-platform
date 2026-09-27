@@ -1,8 +1,10 @@
 ﻿<!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-type-scale>
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" /><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin /><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Quicksand:wght@400;500;600;700&display=swap" />
+  <link rel="stylesheet" href="/css/typography.css" data-type-scale-css />
   <title>How Sellers Get Paid - Advantage.Bid</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&display=swap" rel="stylesheet">
@@ -33,9 +35,9 @@
 
     .page-hero { background: linear-gradient(160deg, #0f172a 0%, #1e3a5f 100%); padding: 4rem 1.5rem 3.5rem; text-align: center; }
     .page-hero-inner { max-width: 680px; margin: 0 auto; }
-    .page-eyebrow { display: inline-block; font-size: 0.72rem; font-weight: 700; letter-spacing: 0.09em; text-transform: uppercase; color: #93c5fd; background: rgba(59,130,246,0.15); border: 1px solid rgba(147,197,253,0.25); padding: 0.28rem 0.85rem; border-radius: 99px; margin-bottom: 1.1rem; }
-    .page-hero h1 { font-size: clamp(1.75rem, 4.5vw, 2.6rem); font-weight: 800; line-height: 1.15; letter-spacing: -0.03em; color: #fff; margin-bottom: 0.85rem; }
-    .page-hero-sub { font-size: 1rem; color: #94a3b8; line-height: 1.65; }
+    .page-eyebrow { display: inline-block; font-size: var(--fs-caption); font-weight: 700; letter-spacing: 0.09em; text-transform: uppercase; color: #93c5fd; background: rgba(59,130,246,0.15); border: 1px solid rgba(147,197,253,0.25); padding: 0.28rem 0.85rem; border-radius: 99px; margin-bottom: 1.1rem; }
+    .page-hero h1 { font-size: var(--fs-h1); font-weight: 800; line-height: 1.15; letter-spacing: -0.03em; color: #fff; margin-bottom: 0.85rem; }
+    .page-hero-sub { font-size: var(--fs-body); color: #94a3b8; line-height: 1.65; }
 
     .section-inner { max-width: 860px; margin: 0 auto; padding: 0 1.5rem; }
     .section-wide { max-width: 1100px; margin: 0 auto; padding: 0 1.5rem; }
@@ -45,34 +47,34 @@
     @media (max-width: 640px) { .principle-grid { grid-template-columns: 1fr; } }
     .principle-card { background: var(--green-lt); border: 1px solid #bbf7d0; border-radius: 12px; padding: 1.5rem; }
     .principle-icon { font-size: 1.5rem; margin-bottom: 0.65rem; }
-    .principle-card h3 { font-size: 1rem; font-weight: 800; color: var(--green); margin-bottom: 0.4rem; }
-    .principle-card p { font-size: 0.875rem; color: #166534; line-height: 1.55; }
+    .principle-card h3 { font-size: var(--fs-h4); font-weight: 800; color: var(--green); margin-bottom: 0.4rem; }
+    .principle-card p { font-size: var(--fs-body); color: #166534; line-height: 1.55; }
 
     .formula-section { padding: 4rem 0; background: var(--bg); }
-    .section-h2 { font-size: clamp(1.4rem, 3vw, 1.9rem); font-weight: 800; letter-spacing: -0.02em; line-height: 1.2; margin-bottom: 0.7rem; }
+    .section-h2 { font-size: var(--fs-h2); font-weight: 800; letter-spacing: -0.02em; line-height: 1.2; margin-bottom: 0.7rem; }
 
     .formula-box { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 2rem; margin-bottom: 2rem; }
     .formula { display: flex; align-items: center; justify-content: center; gap: 1rem; flex-wrap: wrap; text-align: center; }
-    .formula-term { font-size: 0.95rem; font-weight: 700; }
-    .formula-term .label { font-size: 0.72rem; font-weight: 500; color: var(--gray); letter-spacing: 0.04em; text-transform: uppercase; display: block; margin-bottom: 0.2rem; }
-    .formula-term .value { font-size: 1.1rem; font-weight: 800; }
-    .formula-term.result .value { color: var(--green); font-size: 1.25rem; }
+    .formula-term { font-size: var(--fs-body); font-weight: 700; }
+    .formula-term .label { font-size: var(--fs-caption); font-weight: 500; color: var(--gray); letter-spacing: 0.04em; text-transform: uppercase; display: block; margin-bottom: 0.2rem; }
+    .formula-term .value { font-size: var(--fs-body); font-weight: 800; }
+    .formula-term.result .value { color: var(--green); font-size: var(--fs-h4); }
     .formula-op { font-size: 1.5rem; color: var(--gray); font-weight: 300; }
 
     .examples-section { padding: 4rem 0; background: #fff; }
     .examples-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 1.5rem; }
     .example-card { border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
     .example-card-header { background: #0f172a; padding: 1rem 1.25rem; }
-    .example-card-title { font-size: 0.9rem; font-weight: 700; color: #fff; margin-bottom: 0.2rem; }
-    .example-card-sub { font-size: 0.78rem; color: #64748b; }
+    .example-card-title { font-size: var(--fs-body); font-weight: 700; color: #fff; margin-bottom: 0.2rem; }
+    .example-card-sub { font-size: var(--fs-body); color: #64748b; }
     .example-rows { display: flex; flex-direction: column; }
-    .example-row { display: flex; justify-content: space-between; padding: 0.6rem 1.25rem; border-bottom: 1px solid var(--border); font-size: 0.875rem; }
+    .example-row { display: flex; justify-content: space-between; padding: 0.6rem 1.25rem; border-bottom: 1px solid var(--border); font-size: var(--fs-body); }
     .example-row:last-child { border-bottom: none; }
     .example-row .ex-label { color: var(--gray); }
     .example-row .ex-val { font-weight: 600; }
     .example-row.total { background: var(--green-lt); }
     .example-row.total .ex-label { color: var(--green); font-weight: 600; }
-    .example-row.total .ex-val { color: var(--green); font-size: 1rem; }
+    .example-row.total .ex-val { color: var(--green); font-size: var(--fs-body); }
 
     .timeline-section { padding: 4rem 0; background: var(--bg); }
     .payout-timeline { display: flex; flex-direction: column; gap: 0; }
@@ -83,22 +85,22 @@
     .pt-line { width: 2px; background: var(--border); flex: 1; margin-top: 0.3rem; }
     .pt-step:last-child .pt-line { display: none; }
     .pt-content { padding-bottom: 0.25rem; }
-    .pt-content h3 { font-size: 0.95rem; font-weight: 700; margin-bottom: 0.3rem; }
-    .pt-content p { font-size: 0.875rem; color: var(--gray); line-height: 1.6; }
+    .pt-content h3 { font-size: var(--fs-h4); font-weight: 700; margin-bottom: 0.3rem; }
+    .pt-content p { font-size: var(--fs-body); color: var(--gray); line-height: 1.6; }
 
     .statement-section { padding: 4rem 0; background: #fff; }
     .statement-sample { background: var(--card); border: 1px solid var(--border); border-radius: 14px; overflow: hidden; max-width: 620px; }
     .statement-header { background: #0f172a; padding: 1.25rem 1.5rem; }
-    .statement-header h3 { font-size: 0.95rem; font-weight: 700; color: #fff; margin-bottom: 0.15rem; }
-    .statement-header p { font-size: 0.8rem; color: #64748b; }
+    .statement-header h3 { font-size: var(--fs-h4); font-weight: 700; color: #fff; margin-bottom: 0.15rem; }
+    .statement-header p { font-size: var(--fs-body); color: #64748b; }
     .statement-body { padding: 1.25rem 1.5rem; }
     .statement-lots { width: 100%; border-collapse: collapse; margin-bottom: 1.25rem; }
-    .statement-lots th { font-size: 0.72rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; color: var(--gray); padding: 0 0.5rem 0.5rem; text-align: left; border-bottom: 1px solid var(--border); }
-    .statement-lots td { font-size: 0.875rem; padding: 0.5rem 0.5rem; border-bottom: 1px solid var(--gray-lt); color: #374151; }
+    .statement-lots th { font-size: var(--fs-caption); font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; color: var(--gray); padding: 0 0.5rem 0.5rem; text-align: left; border-bottom: 1px solid var(--border); }
+    .statement-lots td { font-size: var(--fs-secondary); padding: 0.5rem 0.5rem; border-bottom: 1px solid var(--gray-lt); color: #374151; }
     .statement-lots tr:last-child td { border-bottom: none; }
     .statement-totals { background: var(--gray-lt); border-radius: 8px; padding: 0.85rem 1rem; }
-    .stmt-row { display: flex; justify-content: space-between; font-size: 0.875rem; padding: 0.2rem 0; }
-    .stmt-row.total { font-weight: 800; font-size: 1rem; padding-top: 0.5rem; border-top: 1px solid var(--border); margin-top: 0.3rem; color: var(--green); }
+    .stmt-row { display: flex; justify-content: space-between; font-size: var(--fs-body); padding: 0.2rem 0; }
+    .stmt-row.total { font-weight: 800; font-size: var(--fs-body); padding-top: 0.5rem; border-top: 1px solid var(--border); margin-top: 0.3rem; color: var(--green); }
 
     .faq-section { padding: 4rem 0; background: var(--bg); }
     .faq-list { display: flex; flex-direction: column; gap: 0.5rem; }
@@ -169,7 +171,7 @@
       </div>
     </div>
 
-    <div style="background:var(--blue-lt);border-radius:10px;padding:1.1rem 1.25rem;font-size:0.9rem;color:#1e40af;line-height:1.6;">
+    <div style="background:var(--blue-lt);border-radius:10px;padding:1.1rem 1.25rem;font-size:var(--fs-body);color:#1e40af;line-height:1.6;">
       <strong>What is the hammer price?</strong> The hammer price is the final winning bid amount for a lot - the price at which bidding closed. Your payout is based on hammer prices only. The buyer premium (paid by the buyer on top of the hammer price) is separate and goes to Advantage as the platform's buyer-facing fee.
     </div>
   </div>

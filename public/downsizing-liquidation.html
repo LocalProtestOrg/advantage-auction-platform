@@ -1,8 +1,10 @@
 ﻿<!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-type-scale>
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" /><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin /><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Quicksand:wght@400;500;600;700&display=swap" />
+  <link rel="stylesheet" href="/css/typography.css" data-type-scale-css />
   <title>Downsizing? How to Liquidate Efficiently - Advantage.Bid</title>
   <meta name="description" content="Moving to a smaller home, handling a loved one's estate, or simply simplifying? Here's a practical, honest guide to liquidating possessions through online auction." />
   <meta name="keywords" content="downsizing liquidation guide, how to sell when downsizing, liquidate household possessions, selling home contents online, estate liquidation downsizing, auction when moving" />
@@ -41,17 +43,18 @@
 
     .article-hero { background: linear-gradient(160deg, #1c1917 0%, #292524 100%); padding: 4rem 1.5rem 3.5rem; }
     .article-hero-inner { max-width: 760px; margin: 0 auto; }
-    .article-label { display: inline-block; font-size: 0.72rem; font-weight: 700; letter-spacing: 0.09em; text-transform: uppercase; color: #fcd34d; background: rgba(251,191,36,0.12); border: 1px solid rgba(252,211,77,0.2); padding: 0.28rem 0.85rem; border-radius: 99px; margin-bottom: 1.25rem; }
-    .article-hero h1 { font-size: clamp(1.85rem, 4.5vw, 2.75rem); font-weight: 800; line-height: 1.12; letter-spacing: -0.03em; color: #fff; margin-bottom: 1rem; }
-    .article-hero-sub { font-size: 1.05rem; color: #a8a29e; line-height: 1.65; max-width: 580px; margin-bottom: 1.75rem; }
-    .article-meta { font-size: 0.82rem; color: #57534e; }
+    .article-label { display: inline-block; font-size: var(--fs-caption); font-weight: 700; letter-spacing: 0.09em; text-transform: uppercase; color: #fcd34d; background: rgba(251,191,36,0.12); border: 1px solid rgba(252,211,77,0.2); padding: 0.28rem 0.85rem; border-radius: 99px; margin-bottom: 1.25rem; }
+    .article-hero h1 { font-size: var(--fs-h1); font-weight: 800; line-height: 1.12; letter-spacing: -0.03em; color: #fff; margin-bottom: 1rem; }
+    .article-hero-sub { font-size: var(--fs-body); color: #a8a29e; line-height: 1.65; max-width: 580px; margin-bottom: 1.75rem; }
+    .article-meta { font-size: var(--fs-secondary); color: #57534e; }
 
-    .article-layout { max-width: 1040px; margin: 0 auto; padding: 4rem 1.5rem; display: grid; grid-template-columns: 1fr 280px; gap: 4rem; align-items: start; }
-    @media (max-width: 840px) { .article-layout { grid-template-columns: 1fr; gap: 2.5rem; } }
+    .article-layout { max-width: 1040px; margin: 0 auto; padding: 4rem 1.5rem; display: grid; grid-template-columns: minmax(0,1fr) 280px; gap: 4rem; align-items: start; }
+    @media (max-width: 840px) { .article-layout { grid-template-columns: minmax(0,1fr); gap: 2.5rem; } }
+    .table-scroll { overflow-x: auto; max-width: 100%; }
 
-    .article-body { font-size: 1rem; line-height: 1.75; color: #1f2937; }
-    .article-body h2 { font-size: 1.35rem; font-weight: 800; letter-spacing: -0.02em; margin: 2.75rem 0 0.75rem; color: var(--ink); }
-    .article-body h3 { font-size: 1.05rem; font-weight: 700; margin: 1.75rem 0 0.5rem; }
+    .article-body { font-size: var(--fs-body); line-height: 1.75; color: #1f2937; }
+    .article-body h2 { font-size: var(--fs-h2); font-weight: 800; letter-spacing: -0.02em; margin: 2.75rem 0 0.75rem; color: var(--ink); }
+    .article-body h3 { font-size: var(--fs-h3); font-weight: 700; margin: 1.75rem 0 0.5rem; }
     .article-body p { margin-bottom: 1.1rem; }
     .article-body p:last-child { margin-bottom: 0; }
     .article-body a { color: var(--blue); text-decoration: none; }
@@ -61,15 +64,15 @@
     .article-body strong { color: var(--ink); }
 
     .callout { background: var(--warm-lt); border-left: 3px solid #f59e0b; border-radius: 0 8px 8px 0; padding: 1rem 1.25rem; margin: 1.75rem 0; }
-    .callout p { margin: 0; font-size: 0.93rem; color: var(--warm); line-height: 1.6; }
+    .callout p { margin: 0; font-size: var(--fs-body); color: var(--warm); line-height: 1.6; }
 
     .situation-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem; margin: 1.5rem 0; }
     .situation-card { background: var(--bg); border: 1px solid var(--border); border-radius: 10px; padding: 1.1rem; }
-    .situation-card h3 { font-size: 0.9rem; font-weight: 700; margin: 0 0 0.35rem; }
-    .situation-card p { font-size: 0.83rem; color: var(--gray); line-height: 1.55; margin: 0; }
+    .situation-card h3 { font-size: var(--fs-h4); font-weight: 700; margin: 0 0 0.35rem; }
+    .situation-card p { font-size: var(--fs-body); color: var(--gray); line-height: 1.55; margin: 0; }
 
-    .decision-table { width: 100%; border-collapse: collapse; margin: 1.5rem 0; font-size: 0.9rem; }
-    .decision-table th { font-size: 0.78rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; color: var(--gray); padding: 0.6rem 0.85rem; text-align: left; border-bottom: 2px solid var(--border); }
+    .decision-table { width: 100%; border-collapse: collapse; margin: 1.5rem 0; font-size: var(--fs-secondary); }
+    .decision-table th { font-size: var(--fs-caption); font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; color: var(--gray); padding: 0.6rem 0.85rem; text-align: left; border-bottom: 2px solid var(--border); }
     .decision-table td { padding: 0.7rem 0.85rem; border-bottom: 1px solid var(--gray-lt); color: #374151; vertical-align: top; }
     .decision-table tr:last-child td { border-bottom: none; }
     .decision-table tr.highlight td { background: var(--green-lt); }
@@ -78,21 +81,21 @@
     .bad  { color: #dc2626; }
 
     .checklist { list-style: none; display: flex; flex-direction: column; gap: 0.5rem; margin: 1.25rem 0; }
-    .checklist li { display: flex; gap: 0.75rem; align-items: flex-start; font-size: 0.9rem; color: #374151; }
+    .checklist li { display: flex; gap: 0.75rem; align-items: flex-start; font-size: var(--fs-body); color: #374151; }
     .checklist li::before { content: '✓'; color: var(--green); font-weight: 800; flex-shrink: 0; margin-top: 0.1rem; }
 
     .article-sidebar { display: flex; flex-direction: column; gap: 1.5rem; }
     @media (max-width: 840px) { .article-sidebar { display: none; } }
     .sidebar-card { background: var(--gray-lt); border: 1px solid var(--border); border-radius: 12px; padding: 1.25rem; }
-    .sidebar-card-title { font-size: 0.78rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--gray); margin-bottom: 0.85rem; }
-    .sidebar-card h3 { font-size: 0.95rem; font-weight: 700; margin-bottom: 0.4rem; }
-    .sidebar-card p { font-size: 0.85rem; color: var(--gray); line-height: 1.55; margin-bottom: 0.85rem; }
-    .sidebar-card a.btn { display: block; background: var(--blue); color: #fff; font-size: 0.875rem; font-weight: 700; padding: 0.6rem 1rem; border-radius: 7px; text-decoration: none; text-align: center; transition: background 0.15s; }
+    .sidebar-card-title { font-size: var(--fs-body); font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--gray); margin-bottom: 0.85rem; }
+    .sidebar-card h3 { font-size: var(--fs-h4); font-weight: 700; margin-bottom: 0.4rem; }
+    .sidebar-card p { font-size: var(--fs-body); color: var(--gray); line-height: 1.55; margin-bottom: 0.85rem; }
+    .sidebar-card a.btn { display: block; background: var(--blue); color: #fff; font-size: var(--fs-control); font-weight: 700; padding: 0.6rem 1rem; border-radius: 7px; text-decoration: none; text-align: center; transition: background 0.15s; }
     .sidebar-card a.btn:hover { background: var(--blue-d); }
     .sidebar-links { list-style: none; display: flex; flex-direction: column; gap: 0.4rem; }
-    .sidebar-links a { font-size: 0.875rem; color: var(--blue); text-decoration: none; }
+    .sidebar-links a { font-size: var(--fs-body); color: var(--blue); text-decoration: none; }
     .sidebar-links a:hover { text-decoration: underline; }
-    .sidebar-fact { font-size: 0.85rem; color: var(--gray); display: flex; align-items: flex-start; gap: 0.5rem; margin-bottom: 0.4rem; }
+    .sidebar-fact { font-size: var(--fs-body); color: var(--gray); display: flex; align-items: flex-start; gap: 0.5rem; margin-bottom: 0.4rem; }
     .sidebar-fact::before { content: '✓'; color: var(--green); font-weight: 800; flex-shrink: 0; }
   </style>
 </head>
@@ -133,7 +136,7 @@
 
     <p>Most people dealing with household liquidation end up using some combination of three approaches. Understanding their tradeoffs makes the decision easier.</p>
 
-    <table class="decision-table" role="table" aria-label="Liquidation method comparison">
+    <div class="table-scroll" role="region" aria-label="Liquidation method comparison table" tabindex="0"><table class="decision-table" role="table" aria-label="Liquidation method comparison">
       <thead>
         <tr>
           <th>Method</th>
@@ -150,7 +153,7 @@
           <td>Everyday items, clothing, household basics</td>
         </tr>
         <tr>
-          <td><strong>Individual online listings</strong><br><span style="font-size:0.8rem;color:var(--gray);">(Craigslist, Facebook Marketplace)</span></td>
+          <td><strong>Individual online listings</strong><br><span style="font-size:var(--fs-body);color:var(--gray);">(Craigslist, Facebook Marketplace)</span></td>
           <td><span class="bad">High</span></td>
           <td><span class="ok">Variable</span></td>
           <td>Single high-value items; requires time and follow-up</td>
@@ -168,7 +171,7 @@
           <td>Valuables, collections, furniture, and mixed contents - online reach, buyers compete</td>
         </tr>
       </tbody>
-    </table>
+    </table></div>
 
     <p>
       For most downsizing situations, the most effective approach is to <strong>donate what has no resale value</strong> and <strong>auction the rest</strong>. That combination minimizes your effort, maximizes your recovery, and gets the property cleared.
