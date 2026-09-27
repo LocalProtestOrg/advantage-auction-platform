@@ -13,6 +13,7 @@ const { isProfessional }  = require('../services/sellerTypeRules'); // seller-cl
 const registrationService = require('../services/auctionRegistrationService'); // #20
 const agreementService    = require('../services/agreementService'); // seller agreement gate
 const { brandingVisible } = require('../lib/sellerBranding'); // canonical public seller-identity gate
+const rbac                = require('../lib/rbac');            // Super Admin / finance.view for auction reports
 
 function isUuid(v) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(v);
@@ -109,12 +110,31 @@ router.get('/my', authMiddleware, async (req, res) => {
   }
 });
 
+// ── Auction report access ────────────────────────────────────────────────────
+// A report contains every winning buyer's email and the seller's per-lot money, so it is limited to:
+//   * the auction's own seller (auctions.seller_id → seller_profiles.user_id = the caller), or
+//   * a Super Admin, or active staff holding finance.view (the Finance role; overrides respected).
+// Authorization is decided server-side from the authenticated user id and the database. Anyone else gets
+// the same 404 as a missing auction, so the endpoint never confirms which auction ids exist.
+async function canViewAuctionReport(req, auctionId) {
+  const ctx = await require('../middleware/requirePermission').loadStaffContext(req);
+  if (ctx && (rbac.isSuperAdmin(ctx) || rbac.hasPermission(ctx, 'finance.view'))) return true;
+  const { rows } = await db.query(
+    `SELECT 1 FROM auctions a JOIN seller_profiles sp ON sp.id = a.seller_id
+      WHERE a.id = $1 AND sp.user_id = $2 LIMIT 1`,
+    [auctionId, req.user && req.user.id]);
+  return rows.length > 0;
+}
+
 // ── GET /:auctionId/report/pdf  — Download PDF report ───────────────────────
 router.get('/:auctionId/report/pdf', authMiddleware, async (req, res) => {
   try {
     const { auctionId } = req.params;
     if (!isUuid(auctionId)) {
       return res.status(400).json({ success: false, message: 'Invalid auction ID' });
+    }
+    if (!(await canViewAuctionReport(req, auctionId))) {
+      return res.status(404).json({ success: false, message: 'Auction not found' });
     }
     const { buffer } = await buildReportPdf(auctionId);
     res.setHeader('Content-Type', 'application/pdf');
@@ -135,6 +155,9 @@ router.get('/:auctionId/report', authMiddleware, async (req, res) => {
     const { auctionId } = req.params;
     if (!isUuid(auctionId)) {
       return res.status(400).json({ success: false, message: 'Invalid auction ID' });
+    }
+    if (!(await canViewAuctionReport(req, auctionId))) {
+      return res.status(404).json({ success: false, message: 'Auction not found' });
     }
     const report = await generateAuctionReport(auctionId);
     return res.json({ success: true, data: report });
