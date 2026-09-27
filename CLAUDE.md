@@ -76,6 +76,14 @@ You are working on the Advantage Auction Platform.
 - This applies ONLY to text that is actually rendered to a human. Do NOT rename internal variables, function names, API routes, service/file names, database columns, feature flags, environment variables, internal event names, internal audit data values (e.g. the stored `ai_description` provenance value), or non-rendered code comments. The underlying audit trail and provenance must remain intact — only the visible presentation layer changes. If an internal name is accidentally exposed in the interface, fix the visible text, not the internal name.
 - Do not expose third-party vendor or infrastructure names in visible interface messages (e.g. Cloudinary, Railway, Neon, Postmark) unless the vendor identity is genuinely necessary for the user to complete a task. Prefer neutral language such as "Uploading photo…" or "the Advantage platform". Vendor names remain unchanged in internal logs, configuration, code, and documentation.
 - Introducing any new visible AI wording, or exposing any new vendor/infrastructure name in the interface, requires explicit owner approval. When in doubt, default to Smart Tools language and neutral, vendor-free wording.
+- Sasha, the customer service assistant (Owner decision 2026-09-27):
+  - Her customer-facing name is simply "Sasha", with no formal title.
+  - Website greeting: "Hi! I'm Sasha. How can I help you today?"
+  - Email signature: "Sasha / Advantage.Bid / https://www.advantage.bid".
+  - Her greetings, email signatures, chat widget and routine customer-facing messages never contain "AI" or any model or vendor name.
+  - Customers must always have a clearly visible way to request a human, in chat and by email.
+  - Sasha must never claim to be a human employee, and never deny being automated. If directly asked whether she is a bot, AI or automated, she answers truthfully, for example "Yes, I'm an automated assistant. I can connect you with a member of our team at any time." That truthful answer is required and is not a Public Language violation.
+  - Do not introduce "AI" wording elsewhere in customer-facing content.
 
 ## Coding Expectations
 - Write maintainable code
