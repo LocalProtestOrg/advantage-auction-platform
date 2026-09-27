@@ -12,7 +12,7 @@
     ['🎛️', 'Professional auction controls', 'Set starting prices and reserves, and configure your buyer’s premium and bid increments.'],
     ['🏪', 'Branded Professional Storefront', 'A branded storefront with fixed-price Buy Now selling.'],
     ['🧭', 'Marketplace selling & orders', 'List fixed-price items, sell through checkout, and manage your Storefront orders.'],
-    ['💳', 'Integrated checkout & direct-deposit payouts', 'Built-in buyer payments with direct-deposit payouts (Stripe Connect).'],
+    ['💳', 'Integrated checkout & direct-deposit payouts', 'Built-in buyer payments with direct-deposit payouts.'],
     ['♻️', 'Reuse unsold auction inventory', 'Move eligible unsold auction lots into fixed-price Storefront selling.'],
     ['📣', 'Notify your followers', 'Announce eligible upcoming events to your followers.'],
     ['🔗', 'Keep your existing business profile', 'Upgrade your same company — no new account or second business presence.'],

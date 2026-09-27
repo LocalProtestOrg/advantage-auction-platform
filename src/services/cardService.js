@@ -1,4 +1,4 @@
-// #20 STEP 4 Card-on-file (Stripe TEST). SetupIntent-based save + verify; no
+// #20 STEP 4 Card-on-file. SetupIntent-based save (the bank checks the card); no
 // charge is ever made here (payment capture stays in paymentService).
 const db = require('../db');
 const Stripe = require('stripe');
@@ -9,6 +9,12 @@ const STRIPE_API_VERSION = '2026-03-25.dahlia'; // matches paymentService pin
 function getStripe() {
   if (!process.env.STRIPE_SECRET_KEY) throw new Error('STRIPE_SECRET_KEY not set');
   return Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: STRIPE_API_VERSION });
+}
+
+// Debit and credit cards only (Owner decision 3). Only an explicit 'prepaid' funding type is refused.
+const PREPAID_MESSAGE = "Prepaid cards aren't accepted. Please use a debit or credit card.";
+function isPrepaid(pm) {
+  return !!(pm && pm.card && String(pm.card.funding || '').toLowerCase() === 'prepaid');
 }
 
 // Create (or reuse) the buyer's Stripe Customer and persist the id.
@@ -49,6 +55,17 @@ async function recordCardOnFile(userId) {
   const pms = await stripe.paymentMethods.list({ customer: customerId, type: 'card' });
   if (!pms.data.length) { const e = new Error('No payment method found. Please add a card.'); e.code = 'NO_PM'; throw e; }
   const pm = pms.data[0]; // most recent
+  // Card policy (Owner decision 3, 2026-09-27): debit and credit cards only. The card network reports the
+  // funding type; only an explicit 'prepaid' is refused. 'unknown' is allowed so a legitimate card is never
+  // rejected on an uncertain classification. A refused card is detached, so it is never kept or charged.
+  if (isPrepaid(pm)) {
+    await stripe.paymentMethods.detach(pm.id).catch(() => {});
+    writeAuditLog({
+      event_type: 'card.prepaid_rejected', entity_type: 'user', entity_id: userId, actor_id: userId,
+      metadata: { brand: pm.card && pm.card.brand, last4: pm.card && pm.card.last4, funding: 'prepaid' },
+    }).catch(() => {});
+    const e = new Error(PREPAID_MESSAGE); e.code = 'PREPAID_NOT_ACCEPTED'; throw e;
+  }
   await stripe.customers.update(customerId, { invoice_settings: { default_payment_method: pm.id } });
   const ins = await db.query(
     `INSERT INTO card_verifications (user_id, stripe_payment_method_id, status, attempted_at, amount_cents, currency)
@@ -60,7 +77,7 @@ async function recordCardOnFile(userId) {
     entity_type: 'card_verification',
     entity_id:   ins.rows[0].id,
     actor_id:    userId,
-    metadata:    { brand: pm.card && pm.card.brand, last4: pm.card && pm.card.last4, payment_method_id: pm.id },
+    metadata:    { brand: pm.card && pm.card.brand, last4: pm.card && pm.card.last4, funding: (pm.card && pm.card.funding) || 'unknown', payment_method_id: pm.id },
   }).catch(() => {});
   return { saved: true, brand: pm.card && pm.card.brand, last4: pm.card && pm.card.last4, payment_method_id: pm.id };
 }
@@ -101,4 +118,4 @@ async function getCardSummary(userId) {
   }
 }
 
-module.exports = { ensureStripeCustomer, createSetupIntent, recordCardOnFile, hasCardOnFile, getCardSummary };
+module.exports = { ensureStripeCustomer, createSetupIntent, recordCardOnFile, hasCardOnFile, getCardSummary, isPrepaid, PREPAID_MESSAGE };

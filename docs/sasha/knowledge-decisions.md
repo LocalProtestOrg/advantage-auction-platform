@@ -53,3 +53,25 @@ These are the authoritative answers Sasha may rely on, recorded one decision at 
 Branch content/fee-premium-accuracy.
 - Seller pages: faq, how-it-works, how-sellers-get-paid (including meta, Open Graph and Twitter descriptions), seller-faq, seller-pilot, start-selling, and seller-create (professional hint).
 - Buyer pages: buyer-faq and how-to-buy.
+
+## Decision 3: Card verification and card types (approved 2026-09-27)
+
+**Verification method**
+- Keep the existing card-saving verification: a SetupIntent, where the bank checks the card.
+- Advantage.Bid does NOT charge customers to verify a card. There is no random under-$1 charge or authorization.
+- The customer's bank may briefly show a temporary authorization.
+
+**Card types**
+- Credit and debit cards only.
+- A card the network reports as prepaid is refused when it is saved, and it is detached, never kept.
+- A card reported as unknown is allowed, so a legitimate card is never refused on an uncertain classification.
+
+**Classification check:** verified with official test cards. Stripe reports the funding type as credit, debit, prepaid or unknown, and visa, mastercard, amex and discover were classified correctly.
+
+**Payment provider name:** removed from customer-facing copy ("securely save your payment method"). Exceptions:
+- the payout setup page (payout-profile.html), where sellers are sent to the provider to verify their identity;
+- the Privacy Policy, which must disclose processors.
+
+**Payments status:** production runs in TEST mode until LIVE activation. Until LIVE payments are verified, Sasha must NOT say that real-card setup or payment collection is available.
+
+**Public corrections:** buyer-faq, how-to-buy, login, add-card, billing, payment, lot, browse-categories, featured-auctions, shipping-available, professional-sellers, the professional upgrade panel and the admin dashboard label. The add-card test-mode hint now appears only on test keys. CLAUDE.md is updated.

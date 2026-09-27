@@ -413,7 +413,7 @@
       statLink('/admin/moderation.html', '📋', awaiting.length, 'Awaiting review', awaiting.length ? 'warn' : null, 'review') +
       metricCard('🟢', live.length, 'Live auctions') +
       metricCard('⏳', ending.length, 'Ending soon') +
-      '<div class="adv-card adv-stat"><div class="adv-stat-top"><span class="adv-stat-emoji">💳</span><span class="adv-chip ' + (stripeMode === 'LIVE' ? 'bad' : 'info') + '">' + esc(stripeMode) + '</span></div><div class="adv-stat-num" style="font-size:19px">Payments</div><div class="adv-stat-label">Stripe mode</div></div>' +
+      '<div class="adv-card adv-stat"><div class="adv-stat-top"><span class="adv-stat-emoji">💳</span><span class="adv-chip ' + (stripeMode === 'LIVE' ? 'bad' : 'info') + '">' + esc(stripeMode) + '</span></div><div class="adv-stat-num" style="font-size:19px">Payments</div><div class="adv-stat-label">Payments mode</div></div>' +
       '</div>';
 
     var tools = '<div class="adv-section-title">Admin tools</div><div class="adv-grid" style="grid-template-columns:repeat(auto-fill,minmax(200px,1fr))">' +

@@ -27,14 +27,14 @@
   <div class="wrap">
     <div class="card">
       <h1>Add a Payment Method</h1>
-      <div class="sub">Your card is securely saved for auction settlement. <strong>You will not be charged now.</strong></div>
+      <div class="sub">Securely save your payment method for auction payments. <strong>You will not be charged now.</strong> Debit or credit cards only. Your bank may briefly show a temporary authorization when the card is checked; it is released and you are not charged.</div>
       <div id="loading" class="center">Loading secure card form…</div>
       <form id="pay-form" style="display:none">
         <div id="payment-element"></div>
         <button id="submit" type="submit">Save Card</button>
         <div id="msg" class="msg"></div>
       </form>
-      <div class="note">Test mode - use a Stripe test card (e.g. 4242 4242 4242 4242, any future expiry/CVC). No real charge is made.</div>
+      <div class="note" id="test-mode-note" hidden>Test mode: use test card 4242 4242 4242 4242 with any future expiry and CVC. No real charge is made.</div>
     </div>
   </div>
 
@@ -64,6 +64,8 @@
           loading.textContent = 'Could not start card setup. Please try again later.'; return;
         }
         stripe = Stripe(data.data.publishable_key);
+        // The test-mode hint appears only while the platform is on test keys; never in live mode.
+        document.getElementById('test-mode-note').hidden = !/^pk_test_/.test(data.data.publishable_key);
         elements = stripe.elements({ clientSecret: data.data.client_secret });
         const paymentElement = elements.create('payment');
         paymentElement.mount('#payment-element');
@@ -97,6 +99,8 @@
             return;
           }
           msg.className = 'msg err'; msg.textContent = d.message || 'Card saved but could not be confirmed. Please try again.';
+          // A refused card (for example a prepaid card) is not kept: start a fresh card form so another card can be added.
+          if (d.code === 'PREPAID_NOT_ACCEPTED') { submitBtn.disabled = false; submitBtn.textContent = 'Save Card'; form.style.display = 'none'; loading.style.display = 'block'; loading.textContent = 'Loading…'; init(); return; }
         } catch {
           msg.className = 'msg err'; msg.textContent = 'Card saved but confirmation failed. Please try again.';
         }

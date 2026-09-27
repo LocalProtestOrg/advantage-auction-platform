@@ -90,6 +90,8 @@ router.post('/card-on-file', auth, blockDemoSideEffects, async (req, res) => {
     return res.json({ success: true, data });
   } catch (err) {
     if (err.code === 'NO_PM') return res.status(422).json({ success: false, message: err.message, code: 'NO_PM' });
+    // Debit and credit cards only: a prepaid card is refused with a plain explanation (the card is not kept).
+    if (err.code === 'PREPAID_NOT_ACCEPTED') return res.status(422).json({ success: false, message: err.message, code: 'PREPAID_NOT_ACCEPTED' });
     console.error('[payments] card-on-file save failed:', err.message);
     return res.status(500).json({ success: false, message: 'Could not save payment method' });
   }
