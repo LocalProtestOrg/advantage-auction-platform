@@ -3,15 +3,15 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Start Selling - Advantage.Bid Online Auctions</title>
-  <meta name="description" content="List your estate sale leftovers, liquidation inventory, or collections on Advantage.Bid. Reach motivated buyers nationwide. Simple setup, transparent fees, fast payout." />
-  <meta name="keywords" content="sell estate items online, online auction seller, list auction items, estate sale company auction, liquidation auction seller signup" />
+  <title>Start Selling on Advantage.Bid | Your Auctions, Your Brand, More Buyers</title>
+  <meta name="description" content="Estate sale companies, auction houses and liquidators: run online auctions under your own name, on your own website or your own Advantage.Bid business page, and on the Advantage.Bid marketplace. Selling your own items? Simple setup, payment before pickup and a clear payout statement." />
+  <meta name="keywords" content="sell estate items online, online auction seller, estate sale company online auctions, auction widget for my website, liquidation auction seller signup" />
   <link rel="canonical" href="https://bid.advantage.bid/start-selling.html" />
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
 
   <!-- Open Graph -->
-  <meta property="og:title" content="Start Selling - Advantage.Bid Online Auctions" />
-  <meta property="og:description" content="Reach motivated buyers nationwide. Simple setup, transparent fees, fast payout for estate and liquidation inventory." />
+  <meta property="og:title" content="Your auctions. Your brand. More buyers." />
+  <meta property="og:description" content="Run online auctions under your own name, on your website or your own Advantage.Bid business page, and on the Advantage.Bid marketplace. No website needed." />
   <meta property="og:type" content="website" />
   <meta property="og:url" content="https://bid.advantage.bid/start-selling.html" />
   <meta property="og:image" content="https://bid.advantage.bid/img/social-card.png" />
@@ -21,8 +21,8 @@
 
   <!-- Twitter -->
   <meta name="twitter:card" content="summary_large_image" />
-  <meta name="twitter:title" content="Start Selling - Advantage.Bid Online Auctions" />
-  <meta name="twitter:description" content="Reach motivated buyers nationwide. Simple setup, transparent fees, fast payout for estate and liquidation inventory." />
+  <meta name="twitter:title" content="Your auctions. Your brand. More buyers." />
+  <meta name="twitter:description" content="Run online auctions under your own name, on your website or your own Advantage.Bid business page, and on the Advantage.Bid marketplace. No website needed." />
   <meta name="twitter:image" content="https://bid.advantage.bid/img/social-card.png" />
 
   <link rel="stylesheet" href="/marketplace.css" />
@@ -106,10 +106,42 @@
     .faq-section { padding: 4.5rem 0; background: var(--bg); }
     .faq-list { display: flex; flex-direction: column; gap: 0.5rem; }
 
+    .path-list { list-style: none; display: flex; flex-direction: column; gap: 0.85rem; margin: 0; padding: 0; }
+    .path-list li { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 10px; padding: 0.85rem 1rem; }
+    .path-list b { display: block; color: #e2e8f0; font-size: 0.95rem; margin-bottom: 0.2rem; }
+    .path-list span { color: #94a3b8; font-size: 0.875rem; line-height: 1.5; }
+
+    .pro-section { padding: 4.5rem 0; background: #fff; }
+    .audience-tag { display: inline-block; font-size: 0.72rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: #fff; background: var(--blue); border-radius: 99px; padding: 0.25rem 0.8rem; margin-bottom: 0.75rem; }
+    .audience-tag.individual { background: #0f766e; }
+    .presence-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; margin-bottom: 1.25rem; }
+    @media (max-width: 760px) { .presence-grid { grid-template-columns: 1fr; } }
+    .presence-card { border: 1px solid var(--border); border-radius: 14px; padding: 1.5rem; background: #f8fbff; }
+    .presence-card .q { font-size: 0.78rem; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; color: var(--blue); margin-bottom: 0.4rem; }
+    .presence-card h3 { font-size: 1.1rem; font-weight: 800; margin-bottom: 0.45rem; }
+    .presence-card p { font-size: 0.92rem; color: var(--gray); line-height: 1.6; margin: 0 0 0.5rem; }
+    .presence-card ul { margin: 0.35rem 0 0; padding-left: 1.05rem; }
+    .presence-card li { font-size: 0.875rem; color: var(--gray); line-height: 1.5; margin-bottom: 0.2rem; }
+    .marketplace-strip { border: 1px solid #bfdbfe; background: #eff6ff; border-radius: 12px; padding: 1rem 1.25rem; font-size: 0.92rem; color: #1e3a8a; line-height: 1.6; margin-bottom: 2rem; }
+    .benefit-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1rem; margin-bottom: 1.75rem; }
+    .benefit-card { border: 1px solid var(--border); border-radius: 12px; padding: 1.25rem; background: #fff; }
+    .benefit-card h3 { font-size: 0.98rem; font-weight: 800; margin-bottom: 0.35rem; }
+    .benefit-card p { font-size: 0.875rem; color: var(--gray); line-height: 1.55; margin: 0; }
+    .section-actions { display: flex; gap: 0.75rem; flex-wrap: wrap; align-items: center; }
+    .btn-solid { background: var(--blue); color: #fff; font-weight: 700; font-size: 0.98rem; padding: 0.8rem 1.6rem; border-radius: 8px; text-decoration: none; }
+    .btn-solid:hover { background: var(--blue-d); }
+    .btn-solid.teal { background: #0f766e; }
+    .btn-solid.teal:hover { background: #115e59; }
+    .text-link { color: var(--blue); font-weight: 600; font-size: 0.92rem; text-decoration: none; }
+    .individual-intro { padding: 4.5rem 0 1rem; background: var(--bg); }
+    .individual-intro .hero-check-list { margin-bottom: 1.5rem; }
+    .individual-intro .hero-check-item { color: var(--ink); font-size: 0.95rem; }
+
     @media (max-width: 768px) {
       .hero { padding: 3rem 1.25rem 2.5rem; }
       .who-section, .steps-section, .objections-section,
-      .fees-section, .faq-section { padding: 2.5rem 0; }
+      .fees-section, .faq-section, .pro-section { padding: 2.5rem 0; }
+      .individual-intro { padding: 2.5rem 0 0.5rem; }
     }
   </style>
   <script src="/widgets/shared/company-contact.js"></script>
@@ -125,83 +157,106 @@
 <section class="hero" aria-labelledby="hero-heading">
   <div class="hero-inner">
     <div>
-      <div class="hero-eyebrow">Seller Onboarding</div>
-      <h1>Turn leftover inventory<br />into <em>real revenue.</em></h1>
+      <div class="hero-eyebrow">Start Selling</div>
+      <h1 id="hero-heading">Your auctions. <em>Your brand.</em> More buyers.</h1>
       <p class="hero-sub">
-        Advantage.Bid is built for estate companies, executors, liquidators, and anyone else sitting on items that need to sell. Professional presentation, online reach, transparent payouts.
+        Estate sale companies, auction houses and liquidators run online auctions under their own name, on their own website or their own Advantage.Bid business page. Every auction also reaches buyers on the Advantage.Bid marketplace. Selling your own items instead? We make that simple too.
       </p>
-      <ul class="hero-check-list" aria-label="Key seller benefits">
-        <li class="hero-check-item">No seller platform fee or commission at launch - simple marketplace participation</li>
-        <li class="hero-check-item">No listing fees - you only pay when items sell</li>
-        <li class="hero-check-item">Our team handles publishing and buyer communication</li>
-        <li class="hero-check-item">Buyers pay online before pickup - no chasing payment</li>
-        <li class="hero-check-item">Transparent payout statement after every auction</li>
-      </ul>
       <div class="hero-actions">
-        <a href="/become-seller.html" class="btn-hero-primary">Create Seller Account</a>
-        <a href="/how-it-works.html" class="btn-hero-secondary">See How It Works</a>
+        <a href="#professional" class="btn-hero-primary">For professional sellers</a>
+        <a href="#individual" class="btn-hero-secondary">Selling your own items</a>
       </div>
     </div>
 
-    <div class="hero-card" role="region" aria-label="Example seller payout">
-      <div class="hero-card-title">Example payout - 14-lot auction</div>
-      <div class="payout-rows">
-        <div class="payout-row">
-          <span class="payout-label">Lot 1 - Antique sideboard</span>
-          <span class="payout-amount">$420</span>
-        </div>
-        <div class="payout-row">
-          <span class="payout-label">Lot 2 - Oil painting</span>
-          <span class="payout-amount">$185</span>
-        </div>
-        <div class="payout-row">
-          <span class="payout-label">Lot 3 - Silver flatware set</span>
-          <span class="payout-amount">$310</span>
-        </div>
-        <div class="payout-row">
-          <span class="payout-label">Lots 4-14 (combined)</span>
-          <span class="payout-amount">$915</span>
-        </div>
-        <div class="payout-row">
-          <span class="payout-label" style="color:#475569;">Total hammer price</span>
-          <span class="payout-amount" style="color:#94a3b8;">$1,830</span>
-        </div>
-        <div class="payout-row">
-          <span class="payout-label" style="color:#475569;">Payment processing fee (~3%)</span>
-          <span class="payout-amount" style="color:#475569;">− $55</span>
-        </div>
-        <div class="payout-row total">
-          <span class="payout-label">Your payout</span>
-          <span class="payout-amount">$1,775</span>
-        </div>
-      </div>
-      <p class="hero-card-note">
-        No seller platform fee or commission at launch - only an approximate 3% payment processing (credit card) cost on the hammer price. No listing fees, no photo fees, no surprise deductions.
-        <a href="/how-sellers-get-paid.html">Full payout details →</a>
-      </p>
+    <div class="hero-card" role="region" aria-label="Two ways to get your auctions online">
+      <div class="hero-card-title">No website required</div>
+      <ul class="path-list">
+        <li><b>Already have a website?</b><span>Show your auctions on it with our white-label widget, under your company name.</span></li>
+        <li><b>No website?</b><span>Get your own Advantage.Bid business page where buyers find your company and explore your sales.</span></li>
+        <li><b>Either way</b><span>Every professional auction also appears on the Advantage.Bid marketplace for more bidders.</span></li>
+      </ul>
     </div>
   </div>
 </section>
 
-<!-- ── Who this is for ────────────────────────────────────────────────── -->
+<!-- ── Professional sellers ───────────────────────────────────────────── -->
+<section class="pro-section" id="professional" aria-labelledby="pro-heading">
+  <div class="section-wide">
+    <div class="audience-tag">For professional sellers</div>
+    <h2 class="section-h2" id="pro-heading">Your online presence, with or without a website</h2>
+    <p class="section-sub">For estate sale companies, auction houses and professional liquidators. You do not need your own website to run online auctions under your company name.</p>
+
+    <div class="presence-grid">
+      <div class="presence-card">
+        <div class="q">Already have a website?</div>
+        <h3>Show your auctions on your own site</h3>
+        <p>Our white-label widget displays your live and upcoming auctions on your website, under your company name, with no Advantage.Bid logo in the embed.</p>
+        <ul>
+          <li>Copy-paste install code from your seller dashboard</li>
+          <li>Updates automatically whenever you publish</li>
+        </ul>
+      </div>
+      <div class="presence-card">
+        <div class="q">No website?</div>
+        <h3>Your own Advantage.Bid business page</h3>
+        <p>Publish a dedicated business page for your company, where buyers can discover you and explore your sales.</p>
+        <ul>
+          <li>Your logo, story and services</li>
+          <li>Your current and past auctions and upcoming estate sales</li>
+          <li>Buyers can follow your company and contact you</li>
+        </ul>
+      </div>
+    </div>
+
+    <p class="marketplace-strip"><b>Plus the Advantage.Bid marketplace, automatically.</b> Every professional auction you publish also appears on the Advantage.Bid marketplace, so one auction reaches your own customers and our buyers. Bidding, payment and checkout take place on Advantage.Bid's secure auction pages.</p>
+
+    <div class="benefit-grid">
+      <div class="benefit-card"><h3>Win more estate contracts</h3><p>Offer an online auction when an estate needs one, instead of turning the job away.</p></div>
+      <div class="benefit-card"><h3>Estate sales and online auctions</h3><p>Run traditional estate sales, online auctions or both, from one account, to suit each client.</p></div>
+      <div class="benefit-card"><h3>Sell the remaining inventory</h3><p>Auction what is left after your on-site sale. Online auctions need at least 30 lots; smaller pieces can be grouped.</p></div>
+      <div class="benefit-card"><h3>Your buyer's premium</h3><p>Set the buyer's premium on your auctions and keep it. Your terms are set out in your Professional Seller agreement.</p></div>
+      <div class="benefit-card"><h3>No auction software to build</h3><p>Bidder accounts, bidding, card payments, invoicing, sales tax and payouts are handled for you.</p></div>
+    </div>
+
+    <div class="section-actions">
+      <a href="/become-professional-seller.html" class="btn-solid">Become a Professional Seller</a>
+      <a href="/professional-sellers.html" class="text-link">See everything professional sellers get →</a>
+    </div>
+  </div>
+</section>
+
+<!-- ── Individual sellers ─────────────────────────────────────────────── -->
+<section class="individual-intro" id="individual" aria-labelledby="individual-heading">
+  <div class="section-inner">
+    <div class="audience-tag individual">For individual sellers</div>
+    <h2 class="section-h2" id="individual-heading">Selling your own items? We make it simple.</h2>
+    <p class="section-sub">For downsizers, executors and trustees, collectors and anyone clearing a home. You build the catalog; our team publishes your auction and handles the buyers.</p>
+    <ul class="hero-check-list" aria-label="Individual seller benefits">
+      <li class="hero-check-item">No seller platform fee or commission at launch - simple marketplace participation</li>
+      <li class="hero-check-item">No listing fees - you only pay when items sell</li>
+      <li class="hero-check-item">Our team handles publishing and buyer communication</li>
+      <li class="hero-check-item">Buyers pay online before pickup - no chasing payment</li>
+      <li class="hero-check-item">Transparent payout statement after every auction</li>
+    </ul>
+    <div class="section-actions">
+      <a href="/become-seller.html" class="btn-solid teal">Create Seller Account</a>
+      <a href="/how-it-works.html" class="text-link">See how it works →</a>
+    </div>
+  </div>
+</section>
+
+<!-- ── Who this is for (individual) ───────────────────────────────────── -->
 <section class="who-section" aria-labelledby="who-heading">
   <div class="section-wide">
-    <div class="section-eyebrow">Who Uses Advantage.Bid</div>
-    <h2 class="section-h2" id="who-heading">Built for every liquidation situation</h2>
-    <p class="section-sub">Whether you're an estate professional or clearing your own home, Advantage.Bid gives you the auction infrastructure without the overhead.</p>
+    <div class="section-eyebrow">Individual sellers</div>
+    <h2 class="section-h2" id="who-heading">Who sells their own items on Advantage.Bid</h2>
+    <p class="section-sub">Clearing your own home or collection? Advantage.Bid gives you the auction infrastructure without the overhead.</p>
     <div class="who-grid">
-      <div class="who-card">
-        <div class="who-icon" aria-hidden="true">🏠</div>
-        <div>
-          <h3>Estate Sale Companies</h3>
-          <p>Extend revenue beyond the on-site sale. Auction leftover inventory without holding a second event.</p>
-        </div>
-      </div>
       <div class="who-card">
         <div class="who-icon" aria-hidden="true">📋</div>
         <div>
           <h3>Executors &amp; Trustees</h3>
-          <p>Liquidate estate assets quickly and document everything. Full transaction records for estate settlement.</p>
+          <p>Liquidate estate assets and document everything. Full transaction records for estate settlement.</p>
         </div>
       </div>
       <div class="who-card">
@@ -214,15 +269,8 @@
       <div class="who-card">
         <div class="who-icon" aria-hidden="true">🏺</div>
         <div>
-          <h3>Dealers &amp; Collectors</h3>
-          <p>Sell excess inventory or a full collection to motivated buyers online.</p>
-        </div>
-      </div>
-      <div class="who-card">
-        <div class="who-icon" aria-hidden="true">🏢</div>
-        <div>
-          <h3>Commercial Liquidators</h3>
-          <p>Auction office equipment, fixtures, and commercial inventory with full competitive bidding.</p>
+          <h3>Collectors</h3>
+          <p>Sell excess items or a full collection to buyers online.</p>
         </div>
       </div>
       <div class="who-card">
@@ -239,7 +287,7 @@
 <!-- ── Steps ──────────────────────────────────────────────────────────── -->
 <section class="steps-section" aria-labelledby="steps-heading">
   <div class="section-inner">
-    <div class="section-eyebrow">Getting Started</div>
+    <div class="section-eyebrow">Individual sellers: getting started</div>
     <h2 class="section-h2" id="steps-heading">Three steps to your first auction</h2>
     <p class="section-sub">You handle the items. We handle the platform, presentation, and buyer communication.</p>
 
@@ -272,7 +320,7 @@
 <!-- ── Objection handling ─────────────────────────────────────────────── -->
 <section class="objections-section" aria-labelledby="objections-heading">
   <div class="section-wide">
-    <div class="section-eyebrow">Common Concerns</div>
+    <div class="section-eyebrow">Individual sellers: common concerns</div>
     <h2 class="section-h2" id="objections-heading">Questions sellers ask before their first auction</h2>
     <p class="section-sub">Real answers to real hesitation.</p>
 
@@ -314,9 +362,10 @@
 <!-- ── Fee breakdown ──────────────────────────────────────────────────── -->
 <section class="fees-section" aria-labelledby="fees-heading">
   <div class="section-inner">
-    <div class="section-eyebrow">Marketplace Participation</div>
+    <div class="section-eyebrow">Fees for individual sellers</div>
     <h2 class="section-h2" id="fees-heading">Transparent. Aligned. Simple.</h2>
     <p class="section-sub">No seller platform fee. No commission. No listing fees. No setup costs. At launch the only seller-side deduction is an approximate 3% payment processing (credit card) cost when your items sell.</p>
+    <p class="section-sub" style="margin-top:-0.75rem;"><b>Professional sellers:</b> you set your own buyer's premium and keep it, and your terms are set out in your Professional Seller agreement. <a href="/professional-sellers.html" style="color:var(--blue);text-decoration:none;">Professional seller details →</a></p>
 
     <div class="fees-two-col">
       <div>
@@ -385,9 +434,15 @@
   <div class="section-inner">
     <div class="section-eyebrow">Seller FAQ</div>
     <h2 class="section-h2" id="faq-heading">Before you get started</h2>
-    <p class="section-sub">More detailed answers are in the full <a href="/seller-faq.html" style="color:var(--blue);text-decoration:none;">Seller FAQ</a>.</p>
+    <p class="section-sub">Apart from the first question, these answers describe individual seller accounts. Professional sellers publish their own auctions once verified and set their own reserves and starting bids; see <a href="/professional-sellers.html" style="color:var(--blue);text-decoration:none;">professional sellers</a>. More detailed answers are in the full <a href="/seller-faq.html" style="color:var(--blue);text-decoration:none;">Seller FAQ</a>.</p>
 
     <div class="faq-list">
+      <details class="faq-item">
+        <summary>Do professional sellers need their own website?</summary>
+        <div class="faq-body">
+          No. If you already have a website, our white-label widget shows your auctions on it under your company name. If you don't, you can publish your own Advantage.Bid business page where buyers find your company and explore your sales. Either way, every professional auction also appears on the Advantage.Bid marketplace.
+        </div>
+      </details>
       <details class="faq-item">
         <summary>What kinds of items can I sell?</summary>
         <div class="faq-body">
@@ -436,11 +491,11 @@
 
 <!-- ── CTA band ────────────────────────────────────────────────────────── -->
 <section class="cta-band" aria-labelledby="cta-heading">
-  <h2 id="cta-heading">Ready to list your first auction?</h2>
-  <p>Create your seller account now. Our team will guide you through your first submission - no experience required.</p>
+  <h2 id="cta-heading">Ready to start selling?</h2>
+  <p>Professional sellers: run online auctions under your own name. Individual sellers: create your account and our team will guide you through your first submission.</p>
   <div class="cta-actions">
-    <a href="/become-seller.html" class="btn-cta-primary">Create Seller Account</a>
-    <a href="/how-it-works.html" class="btn-cta-outline">See the Full Process</a>
+    <a href="/become-professional-seller.html" class="btn-cta-primary">Become a Professional Seller</a>
+    <a href="/become-seller.html" class="btn-cta-outline">Create Seller Account</a>
   </div>
 </section>
 
