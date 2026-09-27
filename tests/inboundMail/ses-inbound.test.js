@@ -406,6 +406,12 @@ describe('wiring', () => {
     }
     expect(fs.existsSync(path.join(__dirname, '..', '..', 'scripts', 'send-postmark-validation-email.js'))).toBe(false);
   });
+  test('the S3 client reads the dedicated read-only credentials by name (values never logged)', () => {
+    const src = read('src/services/inboundMail/sesInbound.js');
+    expect(src).toMatch(/process\.env\.SES_INBOUND_ACCESS_KEY_ID/);
+    expect(src).toMatch(/process\.env\.SES_INBOUND_SECRET_ACCESS_KEY/);
+    expect(src).not.toMatch(/console\.[a-z]+\([^)]*(accessKeyId|secretAccessKey|SECRET_ACCESS_KEY)/);
+  });
   test('migration 172 is additive and keys receipts on the SES message id', () => {
     const m = read('db/migrations/172_ses_inbound_email.sql');
     expect(m).toMatch(/CREATE UNIQUE INDEX IF NOT EXISTS uq_inbound_email_receipts_ses_message ON inbound_email_receipts \(ses_message_id\)/);

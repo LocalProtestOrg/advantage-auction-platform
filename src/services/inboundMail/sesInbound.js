@@ -100,7 +100,9 @@ let _s3 = null;
 function s3Client() {
   if (_s3) return _s3;
   const { S3Client } = require('@aws-sdk/client-s3');
-  const id = process.env.SES_INBOUND_AWS_ACCESS_KEY_ID; const secret = process.env.SES_INBOUND_AWS_SECRET_ACCESS_KEY;
+  // Dedicated IAM user advantage-bid-inbound-mail: s3:GetObject on <bucket>/inbound/* only.
+  const id = process.env.SES_INBOUND_ACCESS_KEY_ID || process.env.SES_INBOUND_AWS_ACCESS_KEY_ID;
+  const secret = process.env.SES_INBOUND_SECRET_ACCESS_KEY || process.env.SES_INBOUND_AWS_SECRET_ACCESS_KEY;
   if (!id || !secret) throw Object.assign(new Error('inbound S3 credentials are not configured'), { code: 'S3_NOT_CONFIGURED' });
   _s3 = new S3Client({ region: config().region, credentials: { accessKeyId: id, secretAccessKey: secret } });
   return _s3;
