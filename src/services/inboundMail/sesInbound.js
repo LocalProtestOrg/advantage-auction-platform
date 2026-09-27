@@ -35,6 +35,7 @@ const BASE_BACKOFF_SECONDS = 300;
 const MAX_BACKOFF_SECONDS = 6 * 60 * 60;
 const HOLD_RECHECK_SECONDS = 600;
 const STALE_PROCESSING_MINUTES = 15;
+const SES_SETUP_OBJECT = 'AMAZON_SES_SETUP_NOTIFICATION';
 
 function config() {
   return {
@@ -71,15 +72,24 @@ function validateNotification(snsPayload, cfg = config()) {
   if (!snsPayload || snsPayload.TopicArn !== cfg.topicArn) return { ok: false, reason: 'topic not allowed' };
   let n;
   try { n = JSON.parse(snsPayload.Message || ''); } catch (_) { return { ok: false, reason: 'message is not JSON' }; }
-  if (!n || n.notificationType !== 'Received') return { ok: false, reason: 'not a Received notification', ignorable: true };
+  // Anything other than a receipt notification is unexpected on this topic: refused and reported, never
+  // silently acknowledged.
+  if (!n || n.notificationType !== 'Received') return { ok: false, reason: 'unexpected notification type: ' + String((n && n.notificationType) || 'none').slice(0, 60) };
   const receipt = n.receipt || {}; const mail = n.mail || {}; const action = receipt.action || {};
   if (action.type !== 'S3') return { ok: false, reason: 'receipt action is not S3' };
   if (action.bucketName !== cfg.bucket) return { ok: false, reason: 'bucket not allowed' };
   const key = String(action.objectKey || '');
   if (!key || !key.startsWith(cfg.prefix) || key.includes('..')) return { ok: false, reason: 'object key not allowed' };
-  if (!mail.messageId || !/^[A-Za-z0-9._-]{8,200}$/.test(mail.messageId)) return { ok: false, reason: 'missing SES message id' };
   const recipients = (receipt.recipients || []).map((r) => String(r || '').toLowerCase())
     .filter((r) => r.endsWith('@' + cfg.replyDomain));
+  // SES sends one setup notification when a rule's S3 action is saved, and stores a test object under the
+  // prefix. Only that exact object, arriving through everything checked above (signed, our topic, our
+  // bucket, our prefix) and addressed to nobody on the reply domain, is recognised and skipped quietly. A real
+  // reply always has a reply-domain recipient, so it can never be mistaken for one.
+  if (key === cfg.prefix + SES_SETUP_OBJECT && !recipients.length) {
+    return { ok: false, reason: 'SES setup notification', ignorable: true, setup: true };
+  }
+  if (!mail.messageId || !/^[A-Za-z0-9._-]{8,200}$/.test(mail.messageId)) return { ok: false, reason: 'missing SES message id' };
   if (!recipients.length) return { ok: false, reason: 'no recipient on the reply domain' };
   const v = (x) => (x && x.status) || null;
   return {

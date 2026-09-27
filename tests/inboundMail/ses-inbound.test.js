@@ -72,9 +72,47 @@ describe('notification validation (only our topic, bucket, prefix and reply doma
   ])('refuses %s', (_n, payload, reason) => {
     expect(sesInbound.validateNotification(payload)).toMatchObject({ ok: false, reason });
   });
-  test('a non-Received notification (for example the AMAZON_SES_SETUP_NOTIFICATION) is ignorable', () => {
-    const p = sns({ Message: JSON.stringify({ notificationType: 'AMAZON_SES_SETUP_NOTIFICATION' }) });
-    expect(sesInbound.validateNotification(p)).toMatchObject({ ok: false, ignorable: true });
+  test('an unexpected notification type is refused and reported, never silently acknowledged', () => {
+    const p = sns({ Message: JSON.stringify({ notificationType: 'Bounce' }) });
+    const v = sesInbound.validateNotification(p);
+    expect(v).toMatchObject({ ok: false, reason: 'unexpected notification type: Bounce' });
+    expect(v.ignorable).toBeFalsy();
+  });
+});
+
+// ── the SES setup notification (sent once when a rule's S3 action is saved) ─────────────────────
+describe('SES setup notification', () => {
+  // The genuine shape: a Received notification through our topic, bucket and prefix, for the setup object,
+  // addressed to nobody on the reply domain.
+  const setup = (o = {}) => sns({}, Object.assign({ recipients: [],
+    action: { type: 'S3', bucketName: BUCKET, objectKey: 'inbound/AMAZON_SES_SETUP_NOTIFICATION', topicArn: TOPIC } }, o),
+  { messageId: 'AMAZON_SES_SETUP_NOTIFICATION', source: 'no-reply@amazonaws.com' });
+
+  test('is recognised and skipped quietly', () => {
+    expect(sesInbound.validateNotification(setup())).toEqual({ ok: false, reason: 'SES setup notification', ignorable: true, setup: true });
+  });
+  test('is still refused when it comes from another topic or bucket (security checks run first)', () => {
+    expect(sesInbound.validateNotification(Object.assign(setup(), { TopicArn: 'arn:aws:sns:us-east-1:999999999999:x' }))).toMatchObject({ reason: 'topic not allowed' });
+    const otherBucket = setup({ action: { type: 'S3', bucketName: 'attacker-bucket', objectKey: 'inbound/AMAZON_SES_SETUP_NOTIFICATION' } });
+    expect(sesInbound.validateNotification(otherBucket)).toMatchObject({ ok: false, reason: 'bucket not allowed' });
+    expect(sesInbound.validateNotification(otherBucket).ignorable).toBeFalsy();
+  });
+  test('a real reply is never mistaken for it: a reply-domain recipient means it is processed normally', () => {
+    const v = sesInbound.validateNotification(setup({ recipients: [listingAddr] }));
+    expect(v.ok).toBe(true);
+    expect(v.receipt.recipients).toEqual([listingAddr]);
+  });
+  test('only the exact setup object is skipped; any other key without a recipient is still reported', () => {
+    const other = setup({ action: { type: 'S3', bucketName: BUCKET, objectKey: 'inbound/AMAZON_SES_SETUP_NOTIFICATION_2' } });
+    const v = sesInbound.validateNotification(other);
+    expect(v).toMatchObject({ ok: false, reason: 'no recipient on the reply domain' });
+    expect(v.ignorable).toBeFalsy();
+  });
+  test('it is never recorded or processed', async () => {
+    const q = jest.fn(async () => ({ rows: [] }));
+    const out = await sesInbound.handleVerifiedNotification(setup(), { db: { query: q }, sync: true });
+    expect(out).toMatchObject({ accepted: false, ignorable: true });
+    expect(q).not.toHaveBeenCalled();
   });
 });
 
@@ -381,6 +419,28 @@ describe('webhook security', () => {
     handle.mockRejectedValueOnce(new Error('db down'));
     jest.spyOn(console, 'error').mockImplementation(() => {});
     expect((await post(sns())).status).toBe(500);
+  });
+  const setupPayload = () => sns({}, { recipients: [],
+    action: { type: 'S3', bucketName: BUCKET, objectKey: 'inbound/AMAZON_SES_SETUP_NOTIFICATION', topicArn: TOPIC } },
+  { messageId: 'AMAZON_SES_SETUP_NOTIFICATION' });
+  test('a verified SES setup notification is acknowledged quietly (no error logged, nothing recorded)', async () => {
+    jest.spyOn(signature, 'verifySns').mockResolvedValue({ ok: true, status: 'verified' });
+    const err = jest.spyOn(console, 'error').mockImplementation(() => {});
+    const rec = jest.spyOn(sesInbound, 'record');
+    expect((await post(setupPayload())).status).toBe(200);
+    expect(err).not.toHaveBeenCalled();
+    expect(rec).not.toHaveBeenCalled();
+  });
+  test('a setup notification with a forged signature is still rejected', async () => {
+    jest.spyOn(signature, 'verifySns').mockResolvedValue({ ok: false, status: 'rejected_signature', reason: 'bad' });
+    jest.spyOn(console, 'error').mockImplementation(() => {});
+    expect((await post(setupPayload())).status).toBe(403);
+  });
+  test('an unexpected notification type is acknowledged to SNS but reported as an error', async () => {
+    jest.spyOn(signature, 'verifySns').mockResolvedValue({ ok: true, status: 'verified' });
+    const err = jest.spyOn(console, 'error').mockImplementation(() => {});
+    expect((await post(sns({ Message: JSON.stringify({ notificationType: 'Bounce' }) }))).status).toBe(200);
+    expect(err.mock.calls.some((c) => /notification refused: unexpected notification type: Bounce/.test(c.join(' ')))).toBe(true);
   });
   test('the response never reveals the company, campaign or classification', async () => {
     jest.spyOn(signature, 'verifySns').mockResolvedValue({ ok: true, status: 'verified' });
