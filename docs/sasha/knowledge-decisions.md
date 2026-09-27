@@ -28,3 +28,28 @@ These are the authoritative answers Sasha may rely on, recorded one decision at 
 - Individual seller fees: yes.
 - Professional fees: only that they are set in the seller's agreement.
 - A specific professional seller's rates: only to that seller, after proper identity verification (for example, logged-in chat).
+
+## Decision 2: Buyer's premium (approved 2026-09-27)
+
+**Policy (keep what the code already does)**
+- **Individual-seller auctions:** a fixed 18% buyer's premium, kept by Advantage.Bid.
+- **Professional-seller auctions:** the seller configures a premium between 0% and 25%. It defaults to 18% when not configured, and the professional seller keeps it.
+
+**Historical terms:** historical auction and invoice terms are preserved.
+
+**Public, buyer-facing wording**
+- Stay neutral about who receives the premium.
+- Always show the actual premium for the specific auction or lot.
+
+**Worked example:** a $100 winning bid plus an 18% premium equals $118, before any applicable sales tax. Always label it as an example, not a promise that every auction charges 18%.
+
+**What Sasha may say**
+- The general explanation above.
+- The rate for a specific lot or auction, read from live data only.
+- Nothing about who receives the premium, when talking to buyers.
+
+## Public-content corrections applied for Decisions 1 and 2
+
+Branch content/fee-premium-accuracy.
+- Seller pages: faq, how-it-works, how-sellers-get-paid (including meta, Open Graph and Twitter descriptions), seller-faq, seller-pilot, start-selling, and seller-create (professional hint).
+- Buyer pages: buyer-faq and how-to-buy.

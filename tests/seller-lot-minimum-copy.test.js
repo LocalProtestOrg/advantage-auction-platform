@@ -58,7 +58,7 @@ describe('seller auction minimum copy', () => {
     expect(s).toMatch(/se-step-callout">Same few steps, lot after lot\. Online auctions need at least 30 lots before you submit/);
   });
 
-  test('payout examples add up (hammer total minus the ~3% processing fee)', () => {
+  test('payout examples add up (hammer total minus the 3% processing fee, rounded to the dollar)', () => {
     const s = read('public/how-sellers-get-paid.html');
     const cards = s.split('<div class="example-card">').slice(1);
     expect(cards.length).toBe(3);
@@ -66,8 +66,8 @@ describe('seller auction minimum copy', () => {
       const n = (label) => Number((c.match(new RegExp(label + '</span><span class="ex-val"[^>]*>[^$]*\\$([\\d,]+)')) || [])[1].replace(/,/g, ''));
       const lotsTitle = Number((c.match(/ - (\d+) lots</) || [])[1]);
       expect(lotsTitle).toBeGreaterThanOrEqual(30);
-      const total = n('Total hammer price'); const fee = n('Payment processing fee \\(~3%\\)'); const payout = n('Your payout');
-      expect(Math.abs(fee - total * 0.03)).toBeLessThanOrEqual(1);
+      const total = n('Total hammer price'); const fee = n('Payment processing fee \\(3%\\)'); const payout = n('Your payout');
+      expect(fee).toBe(Math.floor(total * 0.03 + 0.5));   // exactly 3% of the hammer price, rounded half up to the dollar
       expect(total - fee).toBe(payout);
     }
   });
