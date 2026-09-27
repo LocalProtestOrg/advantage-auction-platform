@@ -97,7 +97,8 @@ async function rows({ decision = null, tier = null, q = null, market = null, lim
 /** Full detail for an opened row (the address is revealed here) plus the one company timeline. */
 async function companyDetail(organizationId, runner = db) {
   const o = (await runner.query(
-    `SELECT id, name, city, state, contact_email, contact_phone, website_url, description, lifecycle_state, bd_listing_id, crm_stage, acquisition
+    `SELECT id, name, city, state, contact_email, contact_phone, website_url, description, lifecycle_state, bd_listing_id, crm_stage, acquisition,
+            profile_data->'outreach_hold' AS outreach_hold
        FROM organizations WHERE id = $1`, [organizationId])).rows[0];
   if (!o) return null;
   const link = (await runner.query(`SELECT company_id FROM company_identity_links WHERE entity_type = 'organization' AND entity_id = $1`, [String(organizationId)])).rows[0];

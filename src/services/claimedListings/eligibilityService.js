@@ -20,6 +20,8 @@
  *                                  Claim Listing plan). An unknown plan is held under rule 10 (fail closed).
  *   7  EXCLUDE_OUT_OF_SCOPE        removed from the directory, non-US, national/data-quality exclusion list,
  *                                  or the owner asked for the listing to be removed.
+ *  7b  REVIEW_DATA_QUALITY         a manual outreach hold pending contact verification (outreachHoldService);
+ *                                  only an administrator can release it.
  *   8  REVIEW_AMBIGUOUS_IDENTITY   a rare-name resemblance to a company we have a relationship with.
  *   9  REVIEW_OTHER_RELATIONSHIP   a rep is working a linked prospect, the address belongs to a staff/test
  *                                  account, or a person holds the company contact lock.
@@ -134,6 +136,10 @@ function decide(entity, ctx) {
   if (o.bd_listing_id && ctx.config.excludedBdIds.has(String(o.bd_listing_id))) return out(D.OUT_OF_SCOPE, 'on the national / data-quality exclusion list', { signals });
   if (companyId && ctx.config.excludedCompanyIds.has(String(companyId))) return out(D.OUT_OF_SCOPE, 'company excluded from outreach', { signals });
   if (o.profile_data && (o.profile_data.removal_requested_at || o.profile_data.hidden_by_request)) return out(D.OUT_OF_SCOPE, 'removal requested', { signals });
+
+  // 7b. A manual hold pending contact verification (outreachHoldService): never proposed, never sent, until released.
+  const hold = require('./outreachHoldService').activeHold(o);
+  if (hold) return out(D.DATA_QUALITY, 'outreach hold: contact details must be verified by an administrator (' + hold.reason + ')', { matched_entity_type: 'outreach_hold', signals });
 
   // 8. A resemblance we cannot confirm, to a company we already have a relationship with.
   const weak = ctx.snap.ambiguousFor('organization', entity.entity_id).find((a) => {

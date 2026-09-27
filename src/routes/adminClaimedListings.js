@@ -165,6 +165,14 @@ router.post('/company/:orgId/visibility', idParam('orgId'), work, express.json()
   res.json({ success: true, hidden: hide });
 }));
 
+// ── outreach hold pending contact verification: staff place it, a Super Admin releases it ─────
+router.post('/company/:orgId/outreach-hold', idParam('orgId'), work, express.json(), wrap(async (req, res) => {
+  res.json({ success: true, data: await require('../services/claimedListings/outreachHoldService').place(req.params.orgId, { actorId: req.user.id, reason: (req.body || {}).reason }) });
+}));
+router.delete('/company/:orgId/outreach-hold', idParam('orgId'), journeyPerm, express.json(), wrap(async (req, res) => {
+  res.json({ success: true, data: await require('../services/claimedListings/outreachHoldService').release(req.params.orgId, { actorId: req.user.id, verification: (req.body || {}).verification }) });
+}));
+
 // ── admin-assisted claim after a phone verification (Super Admin) ─────────────────────────────
 router.post('/company/:orgId/assisted-claim', idParam('orgId'), journeyPerm, express.json(), wrap(async (req, res) => {
   const b = req.body || {};

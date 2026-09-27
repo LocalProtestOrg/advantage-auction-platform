@@ -107,6 +107,9 @@
       + '<select id="cl-n-ch"><option>note</option><option>phone</option><option>email</option><option>meeting</option></select><br><textarea id="cl-n-body" rows="3" style="width:100%"></textarea>'
       + '<label><input type="checkbox" id="cl-n-pro"> Interested in Professional Seller</label><br><button class="btn b-blue cl-btn" data-act="note">Save</button></div>'
       + '<div class="cl-sec"><b>Outreach</b><br><button class="btn b-ghost cl-btn" data-act="pause">Pause this company\'s sequence</button><button class="btn b-ghost cl-btn" data-act="gate">Check send gates</button><div id="cl-gate"></div></div>'
+      + '<div class="cl-sec"><b>Outreach hold</b> ' + (o.outreach_hold && o.outreach_hold.held ? chip('On hold', 'r') + '<br><span class="muted">' + esc(o.outreach_hold.reason || '') + ' (since ' + fmt(o.outreach_hold.placed_at) + ')</span>'
+        + '<br><button class="btn b-ghost cl-btn" data-act="hold-release">Release after verifying the contact (Super Admin)</button>'
+        : 'None' + '<br><button class="btn b-ghost cl-btn" data-act="hold">Hold: contact needs verification</button>') + '</div>'
       + '<div class="cl-sec"><b>Listing visibility</b><br><button class="btn b-ghost cl-btn" data-act="hide">Hide (removal request)</button><button class="btn b-ghost cl-btn" data-act="unhide">Show again</button></div>'
       + '<div class="cl-sec"><b>Super Admin</b><br><button class="btn b-ghost cl-btn" data-act="journey">Move or release journey</button><button class="btn b-ghost cl-btn" data-act="assisted">Assign owner after phone verification</button></div>'
       + (d.pending_changes.length ? '<div class="cl-sec"><b>Profile changes waiting for review</b>' + d.pending_changes.map(function (c) {
@@ -137,6 +140,16 @@
       var g = await call('GET', base + '/gate');
       $('cl-gate').innerHTML = (g.allowed ? chip('Would send', 'g') : chip('Blocked', 'r')) + g.checks.map(function (c) { return '<div class="muted">' + (c.ok ? '&#10003; ' : '&#10007; ') + esc(c.name) + ': ' + esc(c.detail) + '</div>'; }).join('');
       return;
+    }
+    if (a === 'hold') {
+      var hr = window.prompt('Why is outreach to this listing on hold? (for example: the email and website belong to another business)');
+      if (!hr) return;
+      await call('POST', base + '/outreach-hold', { reason: hr });
+    }
+    if (a === 'hold-release') {
+      var hv = window.prompt('How were the contact details verified? (recorded)');
+      if (!hv) return;
+      await call('DELETE', base + '/outreach-hold', { verification: hv });
     }
     if (a === 'hide' || a === 'unhide') {
       var reason = window.prompt(a === 'hide' ? 'Reason for hiding this listing:' : 'Reason for showing it again:');

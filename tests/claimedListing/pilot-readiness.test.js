@@ -132,6 +132,52 @@ describe('paying directory members never get acquisition outreach', () => {
   });
 });
 
+describe('manual outreach hold pending contact verification', () => {
+  const holdSvc = require('../../src/services/claimedListings/outreachHoldService');
+  const held = { held: true, reason: 'email and website belong to other businesses', placed_at: '2026-09-27T00:00:00Z' };
+  test('a held listing is never eligible, is not a suppression, and releasing restores eligibility', () => {
+    const e = listing({ profile_data: { outreach_hold: held } });
+    const d = elig.decide(e, ctxFor([e]));
+    expect(d.decision).toBe(D.DATA_QUALITY);
+    expect(d.reason).toMatch(/^outreach hold: contact details must be verified by an administrator/);
+    const released = listing({ profile_data: { outreach_hold: Object.assign({}, held, { held: false, released_at: 'x' }) } });
+    expect(elig.decide(released, ctxFor([released])).decision).toBe(D.ELIGIBLE);
+  });
+  test('placing a hold writes only profile_data.outreach_hold, pauses live sequences and never suppresses or deletes', async () => {
+    const re = jest.spyOn(elig, 'rescreen').mockResolvedValue({ decision: D.DATA_QUALITY });
+    const r = fake([[/UPDATE organizations SET profile_data/, [{ id: 'org-1', name: 'Estate Sale Services' }]]]);
+    await expect(holdSvc.place('org-1', { actorId: null, reason: 'short' }, r)).rejects.toMatchObject({ code: 'REASON_REQUIRED' });
+    const out = await holdSvc.place('org-1', { actorId: null, reason: 'Contact email and website appear to belong to unrelated businesses', requestedBy: 'Owner' }, r);
+    expect(out.hold).toMatchObject({ held: true, requested_by: 'Owner' });
+    const sqls = r.calls.map((c) => c.sql);
+    expect(sqls.some((s) => /jsonb_build_object\('outreach_hold', \$2::jsonb\)/.test(s))).toBe(true);
+    expect(sqls.some((s) => /SET state = 'paused', stop_reason = 'outreach_hold'/.test(s))).toBe(true);
+    expect(sqls.some((s) => /suppressions|DELETE FROM|unsubscribe|sales_prospects|bd_metadata|contact_email =/i.test(s))).toBe(false);
+    expect(re).toHaveBeenCalledWith('org-1', r);
+    re.mockRestore();
+  });
+  test('releasing needs an administrator and a recorded verification', async () => {
+    const re = jest.spyOn(elig, 'rescreen').mockResolvedValue({ decision: D.ELIGIBLE });
+    const r = fake([[/SELECT id, name, profile_data FROM organizations/, [{ id: 'org-1', name: 'X', profile_data: { outreach_hold: held } }]]]);
+    await expect(holdSvc.release('org-1', { actorId: null, verification: 'called the listed phone number' }, r)).rejects.toMatchObject({ code: 'ACTOR_REQUIRED' });
+    await expect(holdSvc.release('org-1', { actorId: 'owner', verification: 'ok' }, r)).rejects.toMatchObject({ code: 'VERIFICATION_REQUIRED' });
+    const out = await holdSvc.release('org-1', { actorId: 'owner', verification: 'Called the phone on the listing; owner confirmed a new address' }, r);
+    expect(out.hold).toMatchObject({ held: false, released_by: 'owner' });
+    const none = fake([[/SELECT id, name, profile_data FROM organizations/, [{ id: 'org-1', name: 'X', profile_data: {} }]]]);
+    await expect(holdSvc.release('org-1', { actorId: 'owner', verification: 'Called the phone on the listing' }, none)).rejects.toMatchObject({ code: 'NO_HOLD' });
+    re.mockRestore();
+  });
+  test('the directory sync never writes profile_data, so a hold survives the nightly sync', () => {
+    const s = read('src/services/directoryImportService.js');
+    expect(s).not.toMatch(/profile_data/);
+  });
+  test('staff can place a hold; only a Super Admin can release it', () => {
+    const s = read('src/routes/adminClaimedListings.js');
+    expect(s).toMatch(/router\.post\('\/company\/:orgId\/outreach-hold', idParam\('orgId'\), work,/);
+    expect(s).toMatch(/router\.delete\('\/company\/:orgId\/outreach-hold', idParam\('orgId'\), journeyPerm,/);
+  });
+});
+
 describe('migration 171', () => {
   const m = read('db/migrations/171_claimed_listing_pilot_readiness.sql');
   test('adds the paid-member decision, the excluded member status and the delivery_issue task, keeping every old value', () => {
