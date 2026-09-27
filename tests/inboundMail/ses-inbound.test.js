@@ -148,9 +148,13 @@ describe('parsing a real message into the programme shape', () => {
 });
 
 // ── the pipeline, against an in-memory receipts row ─────────────────────────────────────────────
-function harness({ switches = { claimed_listing: true, event_partner: false }, attempts = 0, status = 'received', recipients = [listingAddr], verdicts = { spam: 'PASS', virus: 'PASS' } } = {}) {
-  const row = { id: 'r1', ses_message_id: 'o5f7a9b1c3d5e7f9a1b3c5d7', bucket: BUCKET, object_key: 'inbound/o5f7', recipients, mail_from: 'owner@abcestates.com',
+function harness({ switches = { claimed_listing: true, event_partner: false }, attempts = 0, status = 'received', recipients = [listingAddr], verdicts = { spam: 'PASS', virus: 'PASS' },
+  mailFrom = 'owner@abcestates.com', allowedSenders, noticesEnabled } = {}) {
+  const row = { id: 'r1', ses_message_id: 'o5f7a9b1c3d5e7f9a1b3c5d7', bucket: BUCKET, object_key: 'inbound/o5f7', recipients, mail_from: mailFrom,
     verdicts, status, attempts, notified_at: null, outcome: {} };
+  const extraConfig = [];
+  if (allowedSenders !== undefined) extraConfig.push({ key: 'inbound.allowed_senders', value: allowedSenders });
+  if (noticesEnabled !== undefined) extraConfig.push({ key: 'inbound.oversight_notices_enabled', value: noticesEnabled });
   const q = jest.fn(async (sql, p) => {
     const s = String(sql);
     if (/UPDATE inbound_email_receipts SET status = 'processing'/.test(s)) {
@@ -158,7 +162,10 @@ function harness({ switches = { claimed_listing: true, event_partner: false }, a
       row.status = 'processing'; row.attempts += 1; return { rows: [Object.assign({}, row)], rowCount: 1 };
     }
     if (/FROM platform_config/.test(s)) {
-      return { rows: [{ key: 'claimed_listings.inbound_enabled', value: switches.claimed_listing }, { key: 'event_partners.inbound_enabled', value: switches.event_partner }] };
+      return { rows: [{ key: 'claimed_listings.inbound_enabled', value: switches.claimed_listing }, { key: 'event_partners.inbound_enabled', value: switches.event_partner }].concat(extraConfig) };
+    }
+    if (/SET outcome = outcome \|\| \$2::jsonb, updated_at = now\(\) WHERE id = \$1/.test(s)) {
+      row.outcome = Object.assign(row.outcome, JSON.parse(p[1])); return { rows: [], rowCount: 1 };
     }
     if (/UPDATE inbound_email_receipts\s+SET status = \$2::text/.test(s)) {
       row.status = p[1]; row.outcome = Object.assign(row.outcome, JSON.parse(p[2])); row.last_error = p[4]; row.next_attempt_at = p[5];
@@ -254,6 +261,48 @@ describe('processing: routing, STOP, holds, duplicates', () => {
     expect((await sesInbound.processReceipt('r1', h.deps)).status).toBe('ignored');
     expect(h.programmes.claimed_listing.ingest).not.toHaveBeenCalled();
     expect(h.notify).not.toHaveBeenCalled();
+  });
+});
+
+describe('supervised test controls', () => {
+  const TESTER = 'advantageauction.bid@gmail.com';
+  test('with an allow-list, mail from anyone else is held unopened, even with the switch ON', async () => {
+    const h = harness({ allowedSenders: [TESTER] });   // mail_from is a customer address
+    const out = await sesInbound.processReceipt('r1', h.deps);
+    expect(out).toMatchObject({ status: 'held_disabled', held: 'sender not on the test allow-list' });
+    expect(h.fetchRaw).not.toHaveBeenCalled();
+    expect(h.programmes.claimed_listing.ingest).not.toHaveBeenCalled();
+    expect(h.notify).not.toHaveBeenCalled();
+    expect(h.row.attempts).toBe(0);
+  });
+  test('the From header must match too: an allow-listed envelope with a different From is held', async () => {
+    const h = harness({ allowedSenders: [TESTER], mailFrom: TESTER });
+    h.fetchRaw.mockResolvedValueOnce(mime({ from: 'Someone <someone@else.com>' }));
+    expect((await sesInbound.processReceipt('r1', h.deps)).status).toBe('held_disabled');
+    expect(h.programmes.claimed_listing.ingest).not.toHaveBeenCalled();
+  });
+  test('the allow-listed sender is processed (case-insensitive)', async () => {
+    const h = harness({ allowedSenders: ['AdvantageAuction.Bid@Gmail.com'], mailFrom: TESTER });
+    h.fetchRaw.mockResolvedValueOnce(mime({ from: 'Owner <' + TESTER + '>' }));
+    expect((await sesInbound.processReceipt('r1', h.deps)).status).toBe('processed');
+    expect(h.programmes.claimed_listing.ingest).toHaveBeenCalledTimes(1);
+  });
+  test('an empty allow-list means no restriction (normal operation)', async () => {
+    const h = harness({ allowedSenders: [] });
+    expect((await sesInbound.processReceipt('r1', h.deps)).status).toBe('processed');
+  });
+  test('with oversight notices switched off, nothing is sent and the receipt says so; the reply is still handled', async () => {
+    const h = harness({ noticesEnabled: false });
+    expect((await sesInbound.processReceipt('r1', h.deps)).status).toBe('processed');
+    expect(h.programmes.claimed_listing.ingest).toHaveBeenCalledTimes(1);
+    expect(h.notify).not.toHaveBeenCalled();
+    expect(h.row.notified_at).toBeNull();
+    expect(h.row.outcome.notice).toBe('not sent: oversight notices switched off');
+  });
+  test('notices are on unless explicitly switched off', async () => {
+    const h = harness({ noticesEnabled: true });
+    await sesInbound.processReceipt('r1', h.deps);
+    expect(h.notify).toHaveBeenCalledTimes(1);
   });
 });
 

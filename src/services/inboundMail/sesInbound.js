@@ -203,11 +203,33 @@ function isOwnMail(normalized, cfg = config()) {
   return null;
 }
 
+/**
+ * The programme switches plus two controls for supervised tests (neither is set in normal operation):
+ *   inbound.allowed_senders            JSON array of addresses. While non-empty, ONLY mail from these senders
+ *                                      (envelope AND From header) is processed; everything else stays held,
+ *                                      unopened. Unset or [] = no restriction.
+ *   inbound.oversight_notices_enabled  false = no notice to the oversight inbox (recorded on the receipt).
+ *                                      Unset = notices on.
+ */
 async function switches(runner = db) {
   const rows = (await runner.query(
-    `SELECT key, value FROM platform_config WHERE key IN ('claimed_listings.inbound_enabled', 'event_partners.inbound_enabled')`)).rows;
-  const m = {}; for (const r of rows) m[r.key] = r.value === true;
-  return { claimed_listing: !!m['claimed_listings.inbound_enabled'], event_partner: !!m['event_partners.inbound_enabled'] };
+    `SELECT key, value FROM platform_config WHERE key IN ('claimed_listings.inbound_enabled', 'event_partners.inbound_enabled',
+       'inbound.allowed_senders', 'inbound.oversight_notices_enabled')`)).rows;
+  const m = {}; for (const r of rows) m[r.key] = r.value;
+  const allowed = Array.isArray(m['inbound.allowed_senders'])
+    ? m['inbound.allowed_senders'].map((a) => normalizeEmail(String(a || ''))).filter(Boolean) : [];
+  return {
+    claimed_listing: m['claimed_listings.inbound_enabled'] === true,
+    event_partner: m['event_partners.inbound_enabled'] === true,
+    allowedSenders: allowed,
+    noticesEnabled: m['inbound.oversight_notices_enabled'] !== false,
+  };
+}
+
+function senderAllowed(on, address) {
+  if (!on.allowedSenders || !on.allowedSenders.length) return true;
+  const a = normalizeEmail(String(address || ''));
+  return !!a && on.allowedSenders.includes(a);
 }
 
 // ── record + process ────────────────────────────────────────────────────────────────────────────
@@ -283,21 +305,33 @@ async function processReceipt(id, deps = {}) {
   const programme = routeFor(receipt.recipients);
   const on = await switches(runner);
   const notifier = deps.oversight || oversight;
+  // One oversight notice at most per receipt, and none while notices are switched off for a test.
+  const maybeNotify = async (args) => {
+    if (!on.noticesEnabled) {
+      await runner.query(`UPDATE inbound_email_receipts SET outcome = outcome || $2::jsonb, updated_at = now() WHERE id = $1`,
+        [id, JSON.stringify({ notice: 'not sent: oversight notices switched off' })]);
+      return false;
+    }
+    if (!(await markNotified(id, runner))) return false;
+    await notifier.notify(args).catch((e) => console.error('[inbound] oversight notice failed:', e.message));
+    return true;
+  };
+  const hold = async (why, rawSha256) => {
+    await finish(id, 'held_disabled', { outcome: { programme, held: why }, rawSha256,
+      nextAttemptAt: new Date(Date.now() + HOLD_RECHECK_SECONDS * 1000) }, runner);
+    return { id, status: 'held_disabled', programme, held: why };
+  };
 
   // HOLD while the programme that would handle it is switched off. Nothing is parsed or applied.
   const handles = programme === 'unmatched' ? (on.event_partner || on.claimed_listing) : on[programme];
-  if (!handles) {
-    await finish(id, 'held_disabled', { outcome: { programme, held: 'inbound switch off' },
-      nextAttemptAt: new Date(Date.now() + HOLD_RECHECK_SECONDS * 1000) }, runner);
-    return { id, status: 'held_disabled', programme };
-  }
+  if (!handles) return hold('inbound switch off');
+  // Supervised test: only the allow-listed sender is processed; anything else stays held, unopened.
+  if (!senderAllowed(on, receipt.mailFrom)) return hold('sender not on the test allow-list');
 
   // A virus verdict of FAIL is never opened by the application.
   if (receipt.verdicts.virus === 'FAIL') {
     await finish(id, 'quarantined', { outcome: { programme, reason: 'virus verdict FAIL' } }, runner);
-    if (await markNotified(id, runner)) {
-      await notifier.notify({ kind: 'quarantined', programme, receiptId: id, fromEmail: receipt.mailFrom, reason: 'The attachment scan failed, so the message was not opened.' }).catch(() => {});
-    }
+    await maybeNotify({ kind: 'quarantined', programme, receiptId: id, fromEmail: receipt.mailFrom, reason: 'The attachment scan failed, so the message was not opened.' });
     return { id, status: 'quarantined', programme };
   }
 
@@ -306,9 +340,12 @@ async function processReceipt(id, deps = {}) {
     raw = deps.fetchRaw ? await deps.fetchRaw(receipt) : await fetchRaw(receipt);
     normalized = await normalize(raw, receipt);
   } catch (e) {
-    return fail(id, row.attempts, e, programme, receipt, runner, notifier);
+    return fail(id, row.attempts, e, programme, receipt, runner, maybeNotify);
   }
   const digest = crypto.createHash('sha256').update(raw).digest('hex');
+
+  // Supervised test: the From header must be allow-listed too, not only the envelope sender.
+  if (!senderAllowed(on, normalized.fromEmail)) return hold('sender not on the test allow-list', digest);
 
   const own = isOwnMail(normalized);
   if (own) {
@@ -319,9 +356,7 @@ async function processReceipt(id, deps = {}) {
   // Spam-flagged mail goes to a person, with its text, instead of automation.
   if (receipt.verdicts.spam === 'FAIL') {
     await finish(id, 'needs_review', { outcome: { programme, reason: 'spam verdict FAIL' }, rawSha256: digest }, runner);
-    if (await markNotified(id, runner)) {
-      await notifier.notify({ kind: 'needs_review', programme, receiptId: id, normalized, reason: 'Marked as likely spam, so nothing was done automatically. Please check it.' }).catch(() => {});
-    }
+    await maybeNotify({ kind: 'needs_review', programme, receiptId: id, normalized, reason: 'Marked as likely spam, so nothing was done automatically. Please check it.' });
     return { id, status: 'needs_review', programme };
   }
 
@@ -336,18 +371,12 @@ async function processReceipt(id, deps = {}) {
     } else {
       // No reply key and Event Partner inbound is off: a person decides.
       await finish(id, 'needs_review', { outcome: { programme, reason: 'no reply key' }, rawSha256: digest }, runner);
-      if (await markNotified(id, runner)) {
-        await notifier.notify({ kind: 'needs_review', programme, receiptId: id, normalized, reason: 'This reply could not be matched to a campaign. Please check it.' }).catch(() => {});
-      }
+      await maybeNotify({ kind: 'needs_review', programme, receiptId: id, normalized, reason: 'This reply could not be matched to a campaign. Please check it.' });
       return { id, status: 'needs_review', programme };
     }
   } catch (e) {
-    if (e && e.code === 'INBOUND_DISABLED') {
-      await finish(id, 'held_disabled', { outcome: { programme, held: 'inbound switch off' }, rawSha256: digest,
-        nextAttemptAt: new Date(Date.now() + HOLD_RECHECK_SECONDS * 1000) }, runner);
-      return { id, status: 'held_disabled', programme };
-    }
-    return fail(id, row.attempts, e, programme, receipt, runner, notifier, digest);
+    if (e && e.code === 'INBOUND_DISABLED') return hold('inbound switch off', digest);
+    return fail(id, row.attempts, e, programme, receipt, runner, maybeNotify, digest);
   }
 
   const company = target === 'claimed_listing' ? (result.organizationName || null) : await companyForThread(result.threadId, runner);
@@ -357,23 +386,21 @@ async function processReceipt(id, deps = {}) {
   await finish(id, result.duplicate ? 'duplicate' : 'processed', { outcome, rawSha256: digest }, runner);
 
   const decision = oversight.decide(outcome);
-  if (decision.notify && await markNotified(id, runner)) {
-    await notifier.notify({ kind: decision.kind, programme: target, receiptId: id, normalized, company,
-      classification: outcome.classification, action: outcome.action }).catch((e) => console.error('[inbound] oversight notice failed:', e.message));
+  if (decision.notify) {
+    await maybeNotify({ kind: decision.kind, programme: target, receiptId: id, normalized, company,
+      classification: outcome.classification, action: outcome.action });
   }
   return { id, status: result.duplicate ? 'duplicate' : 'processed', programme: target, outcome };
 }
 
-async function fail(id, attempts, e, programme, receipt, runner, notifier, digest) {
+async function fail(id, attempts, e, programme, receipt, runner, maybeNotify, digest) {
   const permanent = !!(e && e.permanent);
   const exhausted = permanent || attempts >= MAX_ATTEMPTS;
   const msg = String((e && e.message) || e).slice(0, 500);
   if (exhausted) {
     await finish(id, 'needs_review', { outcome: { programme, reason: 'could not be processed' }, error: msg, rawSha256: digest }, runner);
-    if (await markNotified(id, runner)) {
-      await notifier.notify({ kind: 'failed', programme, receiptId: id, fromEmail: receipt.mailFrom,
-        reason: 'The message could not be processed automatically after ' + attempts + ' attempt(s). It is kept safely for review.' }).catch(() => {});
-    }
+    await maybeNotify({ kind: 'failed', programme, receiptId: id, fromEmail: receipt.mailFrom,
+      reason: 'The message could not be processed automatically after ' + attempts + ' attempt(s). It is kept safely for review.' });
     return { id, status: 'needs_review', error: msg };
   }
   await finish(id, 'failed', { error: msg, rawSha256: digest, nextAttemptAt: new Date(Date.now() + backoffSeconds(attempts) * 1000) }, runner);
