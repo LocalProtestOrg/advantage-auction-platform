@@ -46,7 +46,7 @@
         '<a href="/" class="brand" aria-label="Advantage.Bid home">Advantage<span>.Bid</span></a>' +
         '<button type="button" class="mobile-menu-btn adv-pubnav-toggle" aria-label="Menu" aria-expanded="false" aria-controls="adv-pubnav-links">&#9776;</button>' +
         '<nav id="adv-pubnav-links" class="header-nav" aria-label="Main navigation">' + navLinks + '</nav>' +
-        '<div class="header-actions"><a class="btn-cta" href="' + esc(cta.href) + '">' + esc(cta.label) + '</a></div>' +
+        '<div class="header-actions"><a class="btn-header-cta" href="' + esc(cta.href) + '">' + esc(cta.label) + '</a></div>' +
       '</div>';
 
     var header = document.createElement('header');
@@ -73,6 +73,10 @@
       st.id = 'adv-pubnav-style';
       st.textContent =
         '.adv-pubnav .adv-pubnav-toggle{display:none;background:none;border:0;font-size:1.4rem;cursor:pointer;line-height:1}' +
+        // The header CTA is a button (brand red, white text) even on a page without marketplace.css.
+        '.adv-pubnav .btn-header-cta{display:inline-block;background:#d62828;color:#fff;border-radius:10px;font-weight:700;text-decoration:none;padding:.45rem 1.1rem;white-space:nowrap}' +
+        '.adv-pubnav .btn-header-cta:hover{background:#b81f1f;color:#fff}' +
+        '.adv-pubnav .btn-header-cta:focus-visible{outline:3px solid #fff;outline-offset:2px}' +
         '@media(max-width:920px){' +
         '.adv-pubnav .adv-pubnav-toggle{display:inline-block}' +
         '.adv-pubnav .header-nav{display:none;flex-direction:column;width:100%}' +

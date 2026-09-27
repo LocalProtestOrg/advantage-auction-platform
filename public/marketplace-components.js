@@ -331,7 +331,9 @@
   function initMobileMenu() {
     var btn = document.querySelector('.mobile-menu-btn');
     var nav = document.querySelector('.header-nav');
-    if (!btn || !nav) return;
+    // The shared public nav (widgets/shared/public-nav.js) binds its own toggle; binding a second one
+    // made every tap open and immediately close the menu.
+    if (!btn || !nav || btn.classList.contains('adv-pubnav-toggle')) return;
 
     btn.addEventListener('click', function () {
       var open = nav.classList.toggle('mobile-open');

@@ -41,6 +41,11 @@
     .stat .n{font-size:1.3rem;font-weight:800;color:#111827}
     .stat .l{font-size:.68rem;text-transform:uppercase;letter-spacing:.04em;color:#64748b}
     table{width:100%;border-collapse:collapse;background:#fff;border:1px solid #e2e8f0;border-radius:10px;overflow:hidden}
+    /* Wide tables scroll inside their own box on a phone; the page itself never scrolls sideways. */
+    .table-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;max-width:100%}
+    .table-scroll:focus-visible{outline:2px solid #2563eb;outline-offset:2px}
+    .table-scroll>table{min-width:640px}
+    @media(max-width:700px){.table-scroll td:nth-child(8){white-space:nowrap}}
     th,td{text-align:left;padding:.5rem .55rem;font-size:.8rem;border-bottom:1px solid #f1f5f9}
     th{background:#f8fafc;color:#475569;font-size:.68rem;text-transform:uppercase;letter-spacing:.03em}
     tr.click{cursor:pointer}tr.click:hover{background:#f8fafc}
@@ -167,10 +172,12 @@
         <button class="b-ghost" style="background:#dcfce7;border-color:#86efac;color:#166534" onclick="openDrawer()">+ New Prospect</button>
       </div>
       <div class="msg" id="prospects-msg"></div>
+      <div class="table-scroll" role="region" aria-label="Prospects table" tabindex="0">
       <table>
         <thead><tr><th>Company</th><th>Location</th><th>Type</th><th>Priority</th><th>Website</th><th>Auctions</th><th>Status</th><th>Contact</th><th>Assigned</th><th>Actions</th></tr></thead>
         <tbody id="prospects-body"></tbody>
       </table>
+      </div>
     </div>
 
     <!-- ============ SCRIPTS & PLAYBOOK ============ -->
