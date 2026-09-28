@@ -14,6 +14,8 @@ const registrationService = require('../services/auctionRegistrationService'); /
 const agreementService    = require('../services/agreementService'); // seller agreement gate
 const { brandingVisible } = require('../lib/sellerBranding'); // canonical public seller-identity gate
 const rbac                = require('../lib/rbac');            // Super Admin / finance.view for auction reports
+const optionalAuth        = require('../middleware/optionalAuthMiddleware');
+const { canViewAuction }  = require('../lib/auctionVisibility'); // not-yet-public auctions: owner/admin/staff only
 
 function isUuid(v) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(v);
@@ -222,7 +224,7 @@ router.post('/:auctionId/lots', authMiddleware, async (req, res) => {
 
 // ── GET /:auctionId/summary  — Public auction summary (buyer-facing) ─────────
 // No auth required — safe to call from unauthenticated buyer pages.
-router.get('/:auctionId/summary', async (req, res) => {
+router.get('/:auctionId/summary', optionalAuth, async (req, res) => {
   try {
     const { auctionId } = req.params;
     if (!isUuid(auctionId)) {
@@ -233,7 +235,7 @@ router.get('/:auctionId/summary', async (req, res) => {
               a.city, a.address_state, a.start_time, a.end_time,   -- PUBLIC location = city/state only
               a.pickup_window_start, a.pickup_window_end, a.timezone,
               a.banner_image_url, a.cover_image_url, a.shipping_available,
-              sp.seller_type, sp.show_branding_to_buyers, sp.storefront_slug, sp.storefront_published,
+              sp.seller_type, sp.show_branding_to_buyers, sp.storefront_slug, sp.storefront_published, sp.user_id AS owner_user_id,
               COALESCE(sp.display_name, sp.metadata->>'display_name', sp.metadata->>'business_name') AS seller_display_name,
               COUNT(sf.id)::int AS follower_count
          FROM auctions a
@@ -242,13 +244,15 @@ router.get('/:auctionId/summary', async (req, res) => {
         WHERE a.id = $1
           AND a.is_archived IS NOT TRUE   -- #22: archived auctions are not public
         GROUP BY a.id, sp.seller_type, sp.show_branding_to_buyers, sp.storefront_slug, sp.storefront_published,
-                 sp.display_name, sp.metadata`,
+                 sp.user_id, sp.display_name, sp.metadata`,
       [auctionId]
     );
-    if (!rows[0]) {
+    // A draft / submitted / under-review auction is readable only by its seller, an admin or staff (same 404 otherwise).
+    if (!rows[0] || !(await canViewAuction(req, { state: rows[0].state, ownerUserId: rows[0].owner_user_id }))) {
       return res.status(404).json({ success: false, message: 'Auction not found' });
     }
     const row = rows[0];
+    delete row.owner_user_id;
     // Public storefront cross-link — ONLY when the seller's identity is publicly brandable (professional +
     // branding-on) AND their storefront is actually published. Otherwise no attribution/slug leaks. The
     // reserve/private-seller privacy rules are unaffected (this exposes only public storefront presence).

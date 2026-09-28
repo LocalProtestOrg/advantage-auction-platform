@@ -3,6 +3,7 @@ const router = express.Router();
 const auth = require('../middleware/authMiddleware');
 const authMiddleware = require('../middleware/authMiddleware');
 const optionalAuth = require('../middleware/optionalAuthMiddleware');
+const { canViewAuction } = require('../lib/auctionVisibility'); // not-yet-public auctions: owner/admin/staff only
 const { redactRealizedPrice } = require('../lib/realizedPrice'); // #20.1
 const { annotateViewerBidState } = require('../lib/viewerBidState'); // #2/#10
 const { auctionBiddingOpen } = require('../lib/biddingWindow'); // auction start gate
@@ -335,8 +336,14 @@ router.get('/auction/:auctionId/seller', auth, async (req, res, next) => {
 router.get('/auction/:auctionId', optionalAuth, async (req, res, next) => {
   try {
     // #22: archived auctions are not browsable publicly.
-    const arch = (await db.query('SELECT is_archived FROM auctions WHERE id = $1', [req.params.auctionId])).rows[0];
+    const arch = (await db.query(
+      `SELECT a.is_archived, a.state, sp.user_id AS owner_user_id
+         FROM auctions a LEFT JOIN seller_profiles sp ON sp.id = a.seller_id WHERE a.id = $1`, [req.params.auctionId])).rows[0];
     if (arch && arch.is_archived) return res.status(404).json({ success: false, message: 'Auction not available' });
+    // A not-yet-public auction's catalog is readable only by its seller, an admin or staff.
+    if (arch && !(await canViewAuction(req, { state: arch.state, ownerUserId: arch.owner_user_id }))) {
+      return res.status(404).json({ success: false, message: 'Auction not available' });
+    }
 
     const result = await db.query(
       `SELECT id, auction_id, lot_number, lot_number_display, title, description,
@@ -711,6 +718,8 @@ router.get('/:lotId', optionalAuth, async (req, res, next) => {
               (SELECT public_auction_type FROM auctions a2 WHERE a2.id = lots.auction_id) AS auction_public_type,
               (SELECT title               FROM auctions a2 WHERE a2.id = lots.auction_id) AS auction_title,
               (SELECT COUNT(*) FROM lots l2 WHERE l2.auction_id = lots.auction_id AND l2.state <> 'withdrawn')::int AS auction_lot_count,
+              (SELECT a2.state FROM auctions a2 WHERE a2.id = lots.auction_id) AS auction_state,
+              (SELECT sp2.user_id FROM auctions a2 JOIN seller_profiles sp2 ON sp2.id = a2.seller_id WHERE a2.id = lots.auction_id) AS auction_owner_user_id,
               created_at, updated_at
        FROM lots
        WHERE id = $1
@@ -718,9 +727,11 @@ router.get('/:lotId', optionalAuth, async (req, res, next) => {
       [req.params.lotId]
     );
     const lot = result.rows[0] || null;
-    if (!lot || lot.state === 'withdrawn') {
+    if (!lot || lot.state === 'withdrawn'
+        || !(await canViewAuction(req, { state: lot.auction_state, ownerUserId: lot.auction_owner_user_id }))) {
       return res.status(404).json({ success: false, message: 'Lot not found' });
     }
+    delete lot.auction_state; delete lot.auction_owner_user_id;
 
     // Server-authoritative bid math (#16): the lot page's "Next minimum bid"
     // must agree EXACTLY with bidService's validation. Both derive the increment

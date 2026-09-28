@@ -760,6 +760,8 @@
   let   bidGate = { logged_in: false, terms_accepted_current: false, registered: false, can_bid: false }; // #20
   let   gridKey = null;        // #1: structural signature of the rendered grid (poll change-detection)
   let   auctionSummary = null; // tabs: captured /summary data for Pickup + Terms panels
+  // A not-yet-public auction is visible only to its seller/admin/staff: send the login (if any) so previews work.
+  function summaryFetchOpts() { var t = null; try { t = localStorage.getItem('token'); } catch (e) {} return t ? { headers: { Authorization: 'Bearer ' + t } } : {}; }
   let   firstLotCloseIso = null; // P3: earliest lot closes_at (computed in loadAuction)
   let   totalLotCount    = null; // P3: total lots in this auction
 
@@ -908,7 +910,7 @@
 
   async function loadSellerInfo() {
     try {
-      const res  = await fetch('/api/auctions/' + auctionId + '/summary');
+      const res  = await fetch('/api/auctions/' + auctionId + '/summary', summaryFetchOpts());
       const data = await res.json();
       if (!data.success || !data.data) return;
 
@@ -1154,7 +1156,7 @@
       const authH = token ? { headers: { Authorization: 'Bearer ' + token } } : {};
       const [lotsRes, meta] = await Promise.all([
         fetch('/api/lots/auction/' + auctionId, authH).then(r => r.json()),
-        fetch('/api/auctions/' + auctionId + '/summary').then(r => r.json()).catch(() => null),
+        fetch('/api/auctions/' + auctionId + '/summary', summaryFetchOpts()).then(r => r.json()).catch(() => null),
       ]);
       if (!lotsRes.success) throw new Error(lotsRes.message || 'Failed to load lots');
       auctionState = (meta && meta.success && meta.data) ? meta.data.state : auctionState;
@@ -1412,7 +1414,7 @@
       const authH = token ? { headers: { Authorization: 'Bearer ' + token } } : {};
       const [lotsRes, meta] = await Promise.all([
         fetch('/api/lots/auction/' + auctionId, authH).then(r => r.json()),
-        fetch('/api/auctions/' + auctionId + '/summary').then(r => r.json()).catch(() => null),
+        fetch('/api/auctions/' + auctionId + '/summary', summaryFetchOpts()).then(r => r.json()).catch(() => null),
       ]);
       if (!lotsRes || !lotsRes.success) return;
       const newState = (meta && meta.success && meta.data) ? meta.data.state : auctionState;

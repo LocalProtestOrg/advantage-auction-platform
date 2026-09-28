@@ -77,7 +77,7 @@ describe('public auction endpoints never select private location fields', () => 
   test('GET /api/auctions/:id/summary (buyer-facing, no auth) returns city/state only', async () => {
     const auctionsRouter = require('../src/routes/auctions');
     db.query.mockImplementation(async (sql) => {
-      if (/FROM auctions a/.test(sql)) return { rows: [{ id: LEAKY.id, title: 'Estate', city: 'Houston', address_state: 'TX', seller_type: 'estate_sale_company' }] };
+      if (/FROM auctions a/.test(sql)) return { rows: [{ id: LEAKY.id, title: 'Estate', state: 'published', city: 'Houston', address_state: 'TX', seller_type: 'estate_sale_company' }] };
       return { rows: [] };
     });
     const { body } = await call(handlerFor(auctionsRouter, 'get', '/:auctionId/summary'), { params: { auctionId: LEAKY.id } });
@@ -128,5 +128,21 @@ describe('disclosure point and operational access are preserved', () => {
   });
   test('admins keep the full auction address in the pickup packet', () => {
     expect(read('src/services/pickupPacketService.js')).toMatch(/street_address/);
+  });
+});
+
+describe('public business/contact address and private pickup location stay separate (owner decision 5)', () => {
+  const sf = read('src/services/storefrontService.js');
+  test('the public storefront contact address comes only from the seller\'s voluntary public config', () => {
+    const pub = sf.slice(sf.indexOf('async function getPublicData('), sf.indexOf('// SSR metadata'));
+    expect(pub).toMatch(/address: cfg\.address,/);
+    expect(pub).not.toMatch(/default_pickup|pickup_address|seller_identity/);
+  });
+  test('saving the private pickup location never writes the public storefront config, and vice versa', () => {
+    const setDefault = sf.slice(sf.indexOf('async function setDefaultPickupLocation('), sf.indexOf('async function updateConfig('));
+    expect(setDefault).not.toMatch(/storefront\s*=|sanitizeConfig|cfg\.address/);
+    const update = sf.slice(sf.indexOf('async function updateConfig('), sf.indexOf('// ── Public storefront aggregation'));
+    expect(update).not.toMatch(/default_pickup/);
+    expect(read('src/services/marketplaceItemService.js')).not.toMatch(/storefront\s*->>\s*'address'|cfg\.address/);
   });
 });
