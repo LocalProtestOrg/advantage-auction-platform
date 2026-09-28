@@ -164,7 +164,7 @@ const DEMO_BUYER_EMAIL_PREFERRED = 'demo-buyer@advantage.bid';
 // Synthetic hammer prices for the combined invoice (two lines so per-lot premium rounding is exercised).
 const SYNTHETIC_HAMMERS = [12550, 4050];
 // Jurisdiction address used ONLY when tax is on and the demo buyer has no tax address (restored afterwards).
-const TEST_TAX_ADDRESS = { line1: '1 Congress Ave', city: 'Austin', state: 'TX', postal_code: '78701', country: 'US' };
+const TEST_TAX_ADDRESS = { line1: '2205 Ogden Hwy', city: 'Adrian', state: 'MI', postal_code: '49221', country: 'US' }; // sandbox has an active MI registration
 const RUN_ID = Date.now().toString(36);
 const RUN_START_SEC = Math.floor(Date.now() / 1000) - 5;
 
@@ -285,7 +285,7 @@ async function discoverItem(buyerIds) {
     `SELECT mi.id, mi.title, mi.status, mi.price_cents, mi.is_demo, mi.pending_order_id, mi.pending_expires_at,
             mi.seller_id, sp.user_id AS seller_user_id, sp.seller_type, sp.is_demo AS seller_is_demo
        FROM marketplace_items mi JOIN seller_profiles sp ON sp.id = mi.seller_id
-      WHERE mi.is_demo = true AND sp.is_demo = true AND mi.status = 'active' AND mi.price_cents > 0
+      WHERE mi.is_demo = true AND sp.is_demo = true AND mi.status = 'active' AND mi.price_cents > 0 AND mi.shippable = true
       ORDER BY (mi.id = $1) DESC, mi.created_at
       LIMIT 20`, [DEMO_ITEM_PREFERRED])).rows;
   return r.find((it) => billingTerms.isProfessional(it.seller_type) && !buyerIds.includes(it.seller_user_id)) || null;
@@ -314,7 +314,7 @@ async function resolveTaxMode(buyerId) {
   if (!taxOn()) { notes.push('STRIPE_TAX_ENABLED is not true in this environment — tax paths run as $0 (flag off).'); return; }
   try {
     const t = await taxService.computeTax({ buyerUserId: buyerId, taxableBaseCents: 1000, address: TEST_TAX_ADDRESS, reference: 'acceptance-probe:' + RUN_ID });
-    notes.push(`Tax ON: TEST-mode Stripe Tax probe OK (tax on $10.00 in Austin TX = ${money(t.taxCents)}).`);
+    notes.push(`Tax ON: TEST-mode Stripe Tax probe OK (tax on $10.00 in Adrian MI = ${money(t.taxCents)}).`);
   } catch (e) {
     setTax(false);
     notes.push(`Tax FORCED OFF for this process: TEST-mode Stripe Tax calculation failed (${e.code || e.message}). Tax recording/reversal paths were NOT exercised.`);
@@ -348,12 +348,12 @@ async function runStorefront(buyer, item) {
     try {
       let quote;
       try {
-        quote = await mos.quote(item.id, buyer.id, { fulfillment_method: 'pickup' });
+        quote = await mos.quote(item.id, buyer.id, { fulfillment_method: 'shipping', ship_to: TEST_TAX_ADDRESS });
       } catch (e) {
         if (TAX_MODE === 'auto' && taxOn() && (e.code === 'PICKUP_TAX_ADDRESS_UNAVAILABLE' || e.name === 'TaxCalculationError')) {
           setTax(false);
           notes.push(`Storefront: tax forced OFF for storefront scenarios (${e.code}); the demo seller has no usable pickup tax address.`);
-          quote = await mos.quote(item.id, buyer.id, { fulfillment_method: 'pickup' });
+          quote = await mos.quote(item.id, buyer.id, { fulfillment_method: 'shipping', ship_to: TEST_TAX_ADDRESS });
         } else throw e;
       }
       const b = quote.breakdown;
@@ -373,7 +373,7 @@ async function runStorefront(buyer, item) {
     // ── Order #1 for S2–S4 ───────────────────────────────────────────────────────────────────────
     let o1 = null;
     try {
-      const c1 = await mos.createOrder(item.id, buyer.id, { fulfillment_method: 'pickup' });
+      const c1 = await mos.createOrder(item.id, buyer.id, { fulfillment_method: 'shipping', ship_to: TEST_TAX_ADDRESS });
       o1 = await track(c1.order.id);
     } catch (e) { fail('S2-4', 'Create order for card-policy checks', e); }
 
@@ -419,7 +419,7 @@ async function runStorefront(buyer, item) {
 
     // ── S5 credit card succeeds via server confirmation + intent-event handler ──────────────────
     try {
-      const c2 = await mos.createOrder(item.id, buyer.id, { fulfillment_method: 'pickup' });
+      const c2 = await mos.createOrder(item.id, buyer.id, { fulfillment_method: 'shipping', ship_to: TEST_TAX_ADDRESS });
       const o2 = await track(c2.order.id);
       const emailIdx = captured.emails.length;
       const r = await mos.payOrder(o2.id, buyer.id, { paymentMethodId: 'pm_card_visa', idempotencyKey: RUN_ID + '-s5' });
@@ -443,18 +443,18 @@ async function runStorefront(buyer, item) {
       if (ok) paidOrder = after;
     } catch (e) { fail('S5', 'Credit card payment', e); }
 
-    // ── S6 fulfillment (pickup) → payout eligibility only ────────────────────────────────────────
+    // ── S6 fulfillment (shipping) → payout eligibility only ────────────────────────────────────────
     if (paidOrder) {
       try {
-        const ready = await mos.updateFulfillment(paidOrder.id, item.seller_user_id, 'ready_for_pickup');
-        const done = await mos.updateFulfillment(paidOrder.id, item.seller_user_id, 'picked_up');
+        const ready = await mos.updateFulfillment(paidOrder.id, item.seller_user_id, 'shipped', { tracking_carrier: 'TEST', tracking_number: 'ACCEPT-' + RUN_ID });
+        const done = await mos.updateFulfillment(paidOrder.id, item.seller_user_id, 'complete');
         // "No money moved": the service only flips a flag; confirm no Stripe transfer references this charge.
         const transfers = await stripe.transfers.list({ limit: 10, created: { gte: RUN_START_SEC } });
         const related = transfers.data.filter((t) => t.source_transaction === paidOrder.stripe_charge_id);
-        record('S6', 'Pickup fulfillment → payout_eligible, no money moved', ready.payout_eligible === false
-          && done.fulfillment_status === 'picked_up' && done.payout_eligible === true && related.length === 0, {
-          after_ready_for_pickup: `${ready.fulfillment_status} · payout_eligible=${ready.payout_eligible}`,
-          after_picked_up: `${done.fulfillment_status} · payout_eligible=${done.payout_eligible}`,
+        record('S6', 'Shipping fulfillment → payout_eligible, no money moved', ready.payout_eligible === false
+          && done.fulfillment_status === 'completed' && done.payout_eligible === true && related.length === 0, {
+          after_shipped: `${ready.fulfillment_status} · payout_eligible=${ready.payout_eligible}`,
+          after_completed: `${done.fulfillment_status} · payout_eligible=${done.payout_eligible}`,
           transfers_for_charge: related.length,
         });
       } catch (e) { fail('S6', 'Fulfillment', e); }
@@ -488,7 +488,7 @@ async function runStorefront(buyer, item) {
     // ── S8 expired hold → sweeper releases item + cancels intent ─────────────────────────────────
     if (itemActive) {
       try {
-        const c3 = await mos.createOrder(item.id, buyer.id, { fulfillment_method: 'pickup' });
+        const c3 = await mos.createOrder(item.id, buyer.id, { fulfillment_method: 'shipping', ship_to: TEST_TAX_ADDRESS });
         const o3 = await track(c3.order.id);
         await q(`UPDATE marketplace_items SET pending_expires_at = now() - interval '1 minute'
                   WHERE id = $1 AND pending_order_id = $2 AND is_demo = true`, [item.id, o3.id]);
@@ -511,7 +511,7 @@ async function runStorefront(buyer, item) {
     // ── S9 conflict: order failed, then a succeeded intent → automatic conflict refund ──────────
     if ((await itemRow()).status === 'active') {
       try {
-        const c4 = await mos.createOrder(item.id, buyer.id, { fulfillment_method: 'pickup' });
+        const c4 = await mos.createOrder(item.id, buyer.id, { fulfillment_method: 'shipping', ship_to: TEST_TAX_ADDRESS });
         const o4 = await track(c4.order.id);
         await mos.releaseOrder(o4.id, 'acceptance:conflict_setup'); // order failed + item released; intent left open
         // The buyer's card is charged anyway (e.g. a late confirmation) — confirm the intent directly.
