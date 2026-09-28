@@ -25,7 +25,7 @@ function buildApplicationEmail({ companyName, sellerTypeLabel } = {}) {
   const steps = [
     'Accept your Professional Seller agreement (if you have not already).',
     'Advantage.Bid verifies your business before your first sale can go live — your work is saved while we review.',
-    'Set up direct-deposit payouts (Stripe Connect) so proceeds can be released to you.',
+    'Set up direct-deposit payouts (a secure bank connection) so proceeds can be released to you.',
   ];
   const html = `<div style="font-family:system-ui,Arial,sans-serif;color:#222;max-width:560px">
     <h2 style="margin:0 0 4px">Welcome to Advantage.Bid, ${co}</h2>
