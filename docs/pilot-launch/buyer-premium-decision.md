@@ -3,8 +3,10 @@
 > ⚠️ **SUPERSEDED (2026-08-07).** The 0% pilot buyer premium AND the 10% seller-side platform
 > fee described below are **no longer in effect**. The owner-approved launch policy is now:
 > **individual sellers → a fixed 18% buyer premium (100% Advantage revenue, no seller platform
-> fee); professional sellers → seller-controlled buyer premium (kept by the seller) plus a 2%
-> Advantage software fee on the hammer.** The single source of truth is
+> fee); professional sellers → seller-controlled buyer premium (kept by the seller) plus an
+> Advantage platform/software fee on the hammer (default 4%, per agreement) and a separate 3% processing fee.**
+> (Corrected 2026-09-28: the earlier "2% software fee" wording was never implemented. Professional Storefront
+> fixed-price sales are separate: flat 11% of the item price, including card processing.) The single source of truth is
 > `src/services/billingTermsService.js` (with `src/lib/settlementPolicy.js` for the seller fee).
 > This document is retained for historical context only — do not implement from it.
 

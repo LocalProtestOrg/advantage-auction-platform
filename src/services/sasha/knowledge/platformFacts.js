@@ -103,13 +103,14 @@ const TOPICS = {
     ],
   }),
   storefront: () => ({
-    source: 'marketplaceOrderService / launchGuards',
+    source: 'marketplaceOrderService.STOREFRONT_FEE_BPS / seller agreement §6.9 / launchGuards',
     facts: [
       'Professional Sellers can have a public storefront and list fixed-price items. Unsold auction lots can be moved to the storefront in one click; the item\'s pickup location carries over.',
       `Storefront items use the seller's confirmed storefront pickup location unless the seller sets a different location for an item. Buyers see only city and state before purchase.`,
       marketplaceCheckoutEnabled() ? 'Online checkout ("Buy Now") for storefront items is available.'
         : 'Online checkout ("Buy Now") for storefront items is not available yet. Interested buyers can contact the seller through the storefront.',
-      'Do not quote a storefront selling-fee percentage to sellers (pending confirmation); a team member can confirm it.',
+      storefrontFeeText(),
+      'Keep the storefront fee separate from Professional Seller AUCTION fees (platform fee per agreement + 3% processing on the hammer price); never combine them.',
     ],
   }),
   account: () => ({
@@ -123,6 +124,11 @@ const TOPICS = {
     ],
   }),
 };
+
+function storefrontFeeText() {
+  const bps = require('../../marketplaceOrderService').STOREFRONT_FEE_BPS;
+  return `Professional Storefront fixed-price sales have a flat ${bps / 100}% seller fee on the item selling price only. It includes card processing; shipping and sales tax are not part of the fee calculation. It is the same for every Professional Seller.`;
+}
 
 const TOPIC_NAMES = Object.keys(TOPICS);
 

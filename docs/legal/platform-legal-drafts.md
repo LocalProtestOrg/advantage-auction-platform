@@ -24,7 +24,9 @@ This agreement governs organizations ("Partners") listing auctions on Advantage.
 Partner auctions are **automatically syndicated** to the Advantage.Bid marketplace; only Platform Administrators
 control marketplace visibility (feature/hide/remove). **Fees:** individual sellers pay no platform commission (Advantage's revenue on individual sales is the fixed
 18% buyer's premium); admin‑approved professional sellers keep their own buyer's premium and pay Advantage a
-**2% software fee on hammer‑price sales**. Any additional per‑Partner fees are configured and disclosed separately.
+**platform/software fee on hammer‑price sales (default 4%, set in the Professional Seller agreement) plus a separate 3%
+payment‑processing fee**. Professional Storefront fixed‑price sales carry a separate **flat 11% seller fee on the item
+price** (includes card processing; shipping and tax excluded). Any additional per‑Partner fees are configured and disclosed separately.
 **Content:** Partners are responsible for accurate listings, lawful items, and honoring winning bids and pickup
 commitments. **Final submission** locks seller editing; Advantage publishes auctions. **Platform rights:** Advantage
 may moderate, unpublish, or remove listings that violate policy.

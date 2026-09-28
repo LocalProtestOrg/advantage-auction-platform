@@ -212,7 +212,7 @@ async function getMySellerTerms(_a, ctx) {
   return { seller_type: sp.seller_type, platform_fee: fee != null ? bpsPct(fee) + ' of the hammer price (your current rate; each auction keeps the rate it was published with)' : 'set in your Professional Seller agreement — a team member can confirm it',
     processing_fee: bpsPct(agreement ? agreement.processing_fee_bps : billing.DEFAULT_PROCESSING_FEE_BPS) + ' of the hammer price',
     buyers_premium: 'you set it per auction (0–25%) and keep it', agreement_page: `${SITE}/pricing-agreement.html`,
-    storefront_fee: 'pending confirmation — offer a team member if needed' };
+    storefront_fee: `${require('../marketplaceOrderService').STOREFRONT_FEE_BPS / 100}% of the item price on Storefront fixed-price sales (includes card processing; shipping and tax excluded) — separate from your auction fees` };
 }
 
 async function getMyStorefrontOrders(_a, ctx) {
