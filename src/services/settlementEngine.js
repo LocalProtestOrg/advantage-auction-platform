@@ -51,7 +51,19 @@ function computeSettlementTotals(i = {}) {
   const adj          = sumAdjustments(i.adjustments);        // unified credit/debit: credit adds, debit subtracts
 
   const outstanding  = Math.max(0, expected - collected);
-  const netCollected = collected - refunds;                  // collected-basis (Decision 2)
+  // SELLER BASIS (fix 2026-09-27). What buyers paid includes amounts that are never the seller's money:
+  //   * sales tax (collected for the state, remitted) — never seller proceeds;
+  //   * the buyer's premium on INDIVIDUAL-seller auctions (fixed 18%, retained by Advantage.Bid).
+  // Professional sellers keep their own premium, so it stays in their share. The seller's share is supplied
+  // by the assembler (hammer + professional premium + shipping, from what buyers actually paid); refunds reduce the
+  // seller's share proportionally. When a caller supplies no split (legacy pure callers), tax and the Advantage premium
+  // are subtracted from collected so the seller can never be paid them.
+  const salesTax        = cents(i.salesTaxCollectedCents);
+  const advPremium      = cents(i.advantagePremiumCollectedCents);
+  const sellerCollected = i.sellerCollectedCents != null ? cents(i.sellerCollectedCents) : Math.max(0, collected - salesTax - advPremium);
+  const sellerRefunds   = i.sellerRefundsCents != null ? cents(i.sellerRefundsCents)
+    : (collected > 0 ? Math.round(refunds * sellerCollected / collected) : refunds);
+  const netCollected = sellerCollected - sellerRefunds;      // collected-basis (Decision 2), SELLER share only
   // Seller platform fee: individual → 0%; professional → per-seller rate of HAMMER (DEFAULT 4%,
   // seller_profiles.platform_fee_bps). Basis is gross hammer sales (NOT netCollected, which includes
   // buyer premium), matching the authoritative seller_payouts figure written at close.
@@ -77,7 +89,11 @@ function computeSettlementTotals(i = {}) {
     outstanding_balance_cents:        outstanding,
     failed_payments_cents:            failed,
     refunds_cents:                    refunds,
-    net_collected_cents:              netCollected,
+    sales_tax_collected_cents:        salesTax,           // collected for the state; never seller proceeds
+    advantage_premium_collected_cents: advPremium,        // individual-seller buyer's premium, retained by Advantage.Bid
+    seller_collected_cents:           sellerCollected,    // seller's share of what buyers paid (before refunds)
+    seller_refunds_cents:             sellerRefunds,      // seller's share of refunds
+    net_collected_cents:              netCollected,       // seller's share, net of refunds (the payout basis)
     adjustments:                      { credit_cents: adj.credit_cents, debit_cents: adj.debit_cents, net_cents: adj.net_cents },
     marketing_deduction_cents:        marketing,
     credit_card_processing_fee_cents: processingFee,          // amount actually DEDUCTED (v2: 3% flat; legacy: actual Stripe)
@@ -206,13 +222,24 @@ async function assembleSettlementInputs(auctionId) {
     : row.seller_platform_bps;
   const processingFeeBps = row.processing_fee_bps;
 
-  // Expected / collected / outstanding from per-buyer combined invoices (Design C).
+  // Expected / collected / outstanding from per-buyer combined invoices (Design C), plus the split of what
+  // was collected: the seller's share (hammer + professional premium + shipping) versus sales tax and the
+  // individual-seller premium, which are never the seller's money. Credits are platform-issued and do not
+  // reduce the seller's share.
   const invRes = await db.query(
     `SELECT
         COALESCE(SUM(total_cents),0)::bigint                                          AS expected,
         COALESCE(SUM(total_cents) FILTER (WHERE status = 'paid'),0)::bigint           AS collected,
-        COALESCE(SUM(total_cents) FILTER (WHERE status <> 'paid' AND status <> 'void'),0)::bigint AS outstanding
+        COALESCE(SUM(total_cents) FILTER (WHERE status <> 'paid' AND status <> 'void'),0)::bigint AS outstanding,
+        COALESCE(SUM(hammer_cents) FILTER (WHERE status = 'paid'),0)::bigint          AS paid_hammer,
+        COALESCE(SUM(buyer_premium_cents) FILTER (WHERE status = 'paid'),0)::bigint   AS paid_premium,
+        COALESCE(SUM(sales_tax_cents) FILTER (WHERE status = 'paid'),0)::bigint       AS paid_tax,
+        COALESCE(SUM(shipping_cents) FILTER (WHERE status = 'paid'),0)::bigint        AS paid_shipping
        FROM buyer_auction_invoices WHERE auction_id = $1`, [auctionId]);
+  const inv = invRes.rows[0];
+  const sellerKeepsPremium = isProfessionalSellerType(sellerType);
+  const paidPremium = Number(inv.paid_premium);
+  const sellerCollectedCents = Number(inv.paid_hammer) + (sellerKeepsPremium ? paidPremium : 0) + Number(inv.paid_shipping);
 
   // Refunds + failed + Stripe-fee source rows from payments for this auction.
   const payRes = await db.query(
@@ -240,9 +267,14 @@ async function assembleSettlementInputs(auctionId) {
     pricingModel,
     processingFeeBps,
     grossSalesCents:                Number(grossRes.rows[0].gross),
-    buyerPaymentsExpectedCents:     Number(invRes.rows[0].expected),
-    buyerPaymentsCollectedCents:    Number(invRes.rows[0].collected),
+    buyerPaymentsExpectedCents:     Number(inv.expected),
+    buyerPaymentsCollectedCents:    Number(inv.collected),
+    sellerCollectedCents,
+    salesTaxCollectedCents:         Number(inv.paid_tax),
+    advantagePremiumCollectedCents: sellerKeepsPremium ? 0 : paidPremium,
     refundsCents:                   refunds,
+    // Refunds are recorded per payment (whole charges); the seller bears only their proportional share.
+    sellerRefundsCents: Number(inv.collected) > 0 ? Math.round(refunds * sellerCollectedCents / Number(inv.collected)) : refunds,
     failedPaymentsCents:            failed,
     marketingDeductionCents:        marketing.deduction_cents,
     stripeFeeCents:                 stripeFee,

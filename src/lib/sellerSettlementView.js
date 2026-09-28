@@ -75,7 +75,10 @@ function sellerSettlementDetailView({ auctionId, auction, sp, totals, marketing 
     status_label: sellerStatusLabel(sp ? sp.settlement_status : 'pending_review'),
     buyer_payments: {
       collected_cents: t.buyer_payments_collected_cents || 0,
-      refunds_cents: t.refunds_cents || 0,
+      sales_tax_cents: t.sales_tax_collected_cents || 0,                 // collected for the state, never seller proceeds
+      advantage_premium_cents: t.advantage_premium_collected_cents || 0, // individual auctions: premium retained by Advantage.Bid
+      seller_collected_cents: t.seller_collected_cents || 0,
+      refunds_cents: t.seller_refunds_cents != null ? t.seller_refunds_cents : (t.refunds_cents || 0), // seller's share
       net_collected_cents: t.net_collected_cents || 0,
     },
     credits_cents: adj.credit_cents || 0,

@@ -209,7 +209,10 @@
       // formula
       const f = [];
       f.push(['Collected Buyer Payments', money(s.buyer_payments_collected_cents), '']);
-      f.push(['Less Refunds', neg(s.refunds_cents), 'op']);
+      if (s.sales_tax_collected_cents) f.push(['Less Sales Tax (remitted; never seller proceeds)', neg(s.sales_tax_collected_cents), 'op']);
+      if (s.advantage_premium_collected_cents) f.push(["Less Buyer's Premium (individual auction; Advantage.Bid revenue)", neg(s.advantage_premium_collected_cents), 'op']);
+      f.push(["Seller's Share of Buyer Payments", money(s.seller_collected_cents), 'sub']);
+      f.push(['Less Refunds (seller share)', neg(s.seller_refunds_cents != null ? s.seller_refunds_cents : s.refunds_cents), 'op']);
       f.push(['Net Collected', money(s.net_collected_cents), 'sub']);
       f.push(['Plus Credits', s.adjustments.credit_cents?('+'+money(s.adjustments.credit_cents)):money(0), 'op']);
       f.push(['Less Debits', neg(s.adjustments.debit_cents), 'op']);

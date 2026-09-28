@@ -135,7 +135,10 @@
 
         const f = [];
         f.push(['Buyer Payments Collected', money(bp.collected_cents), '']);
-        f.push(['Less Refunds', neg(bp.refunds_cents), '']);
+        if (bp.sales_tax_cents) f.push(['Less Sales Tax (collected for the state)', neg(bp.sales_tax_cents), '']);
+        if (bp.advantage_premium_cents) f.push(["Less Buyer's Premium (retained by Advantage.Bid)", neg(bp.advantage_premium_cents), '']);
+        f.push(['Your Share of Buyer Payments', money(bp.seller_collected_cents), 'sub']);
+        f.push(['Less Refunds (your share)', neg(bp.refunds_cents), '']);
         f.push(['Net Collected', money(bp.net_collected_cents), 'sub']);
         f.push(['Plus Credits', d.credits_cents?('+'+money(d.credits_cents)):money(0), '']);
         f.push(['Less Debits', neg(d.debits_cents), '']);
