@@ -65,7 +65,7 @@
     }
 
     function card(o){
-      var pay=o.refund_status==='refunded'?'<span class="pill pill-refunded">Refunded</span>':'<span class="pill pill-paid">Paid</span>';
+      var pay=o.refund_status==='refunded'?'<span class="pill pill-refunded">Refunded</span>':(o.refund_status==='partially_refunded'?'<span class="pill pill-refunded">Partially refunded</span>':'<span class="pill pill-paid">Paid</span>');
       var ful='<span class="pill pill-ful">'+esc((o.fulfillment_status||'').replace(/_/g,' '))+'</span>';
       var elig=o.payout_eligible?'<span class="pill pill-elig">Payout eligible</span>':'';
       var track=o.tracking_number?('<div class="meta">Tracking: '+esc(o.tracking_carrier||'')+' '+esc(o.tracking_number)+'</div>'):'';
