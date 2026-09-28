@@ -133,8 +133,8 @@ async function recordTransaction({ calculationId, reference }) {
 
 /**
  * Reverse a recorded Tax Transaction in full, on a full refund. Idempotent via a stable key.
- * No-op when the flag is off or there is no original transaction id. Partial reversals are out of
- * V1.0 scope (matches the refund architecture: full refund → full reversal).
+ * No-op when the flag is off or there is no original transaction id. Partial refunds use
+ * reversePartialTransaction below.
  */
 async function reverseFullTransaction({ originalTransactionId, reference }) {
   if (!taxEnabled() || !originalTransactionId) return null;
@@ -146,7 +146,24 @@ async function reverseFullTransaction({ originalTransactionId, reference }) {
   return rev.id;
 }
 
+/**
+ * Reverse PART of a recorded Tax Transaction for a partial refund. refundAmountCents is the refunded
+ * amount INCLUDING tax; the provider spreads it proportionally across the transaction (flat_amount, sent as
+ * a negative number). The reference must be unique per reversal; the idempotency key is derived from it.
+ */
+async function reversePartialTransaction({ originalTransactionId, reference, refundAmountCents }) {
+  const amt = Math.trunc(Number(refundAmountCents) || 0);
+  if (!taxEnabled() || !originalTransactionId || amt <= 0) return null;
+  const stripe = getStripe();
+  const rev = await stripe.tax.transactions.createReversal(
+    { mode: 'partial', original_transaction: originalTransactionId, reference, flat_amount: -amt },
+    { idempotencyKey: 'taxrev:' + reference }
+  );
+  return rev.id;
+}
+
 module.exports = {
+  reversePartialTransaction,
   TaxCalculationError,
   DEFAULT_TAX_CODE,
   taxEnabled,

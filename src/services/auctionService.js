@@ -1096,6 +1096,19 @@ async function closeAuction(auctionId, actorId = null) {
         const issued = await combinedInvoiceService.issueForAuction(auctionId);
         console.log(`[combined] issued ${issued.length} combined invoice(s) for auction_id=${auctionId}`);
 
+        // payment_required + Reminder #1 now, and Reminder #2 (+12h) / Final notice #3 (+24h) enqueued with
+        // future next_attempt_at (already honored by the worker's claim query; it self-skips if paid by then).
+        const routePaymentRequired = async (combinedInvoiceId, buyerUserId, reason) => {
+          await combinedInvoiceService.markFailed(combinedInvoiceId, reason);
+          await combinedReceiptService.sendPaymentRequired(combinedInvoiceId, 1); // Reminder #1 (immediate)
+          await db.query(
+            `INSERT INTO notifications_queue (user_id, type, payload, next_attempt_at)
+             VALUES ($1, 'PAYMENT_REMINDER', jsonb_build_object('combined_invoice_id', $2::text, 'n', 2), $3),
+                    ($1, 'PAYMENT_REMINDER', jsonb_build_object('combined_invoice_id', $2::text, 'n', 3), $4)`,
+            [buyerUserId, combinedInvoiceId, plus12h, plus24h]
+          );
+        };
+
         for (const { combinedInvoiceId, buyerUserId, totalCents } of issued) {
           try {
             const r = await paymentService.chargeCombinedOffSession({
@@ -1109,16 +1122,7 @@ async function closeAuction(auctionId, actorId = null) {
               const s = await combinedInvoiceService.settleCombined(combinedInvoiceId, r.intentId, r.paymentId);
               if (s && s.settled) await combinedReceiptService.sendSuccessPackage(combinedInvoiceId);
             } else if (r.skipped || r.status === 'failed') {
-              await combinedInvoiceService.markFailed(combinedInvoiceId, r.reason || r.skipped);
-              await combinedReceiptService.sendPaymentRequired(combinedInvoiceId, 1); // Reminder #1 (immediate)
-              // Enqueue Reminder #2 (+12h) and Final notice #3 (+24h) with future next_attempt_at
-              // (already honored by the worker's claim query); worker self-skips if paid by then.
-              await db.query(
-                `INSERT INTO notifications_queue (user_id, type, payload, next_attempt_at)
-                 VALUES ($1, 'PAYMENT_REMINDER', jsonb_build_object('combined_invoice_id', $2::text, 'n', 2), $3),
-                        ($1, 'PAYMENT_REMINDER', jsonb_build_object('combined_invoice_id', $2::text, 'n', 3), $4)`,
-                [buyerUserId, combinedInvoiceId, plus12h, plus24h]
-              );
+              await routePaymentRequired(combinedInvoiceId, buyerUserId, r.reason || r.skipped);
             } else if (r.status === 'pending') {
               // requires_action / processing — leave the header; the webhook settles it
               // (payment_intent.succeeded) and sends the success package on arrival.
@@ -1127,6 +1131,21 @@ async function closeAuction(auctionId, actorId = null) {
             }
           } catch (perBuyerErr) {
             console.error(`[combined] per-buyer charge failed for combined_invoice_id=${combinedInvoiceId}:`, perBuyerErr.message);
+            // Never leave the buyer without a way to pay: unless a charge for this invoice is already paid or
+            // in flight (a PaymentIntent is attached), route it to payment_required like a decline.
+            try {
+              const inFlight = (await db.query(
+                `SELECT 1 FROM payments
+                  WHERE auction_id = $1 AND buyer_user_id = $2 AND lot_id IS NULL
+                    AND (status IN ('paid', 'refunded', 'partially_refunded')
+                         OR (status = 'pending' AND payment_intent_id IS NOT NULL))
+                  LIMIT 1`, [auctionId, buyerUserId])).rowCount > 0;
+              if (!inFlight && await combinedInvoiceService.stillUnpaid(combinedInvoiceId)) {
+                await routePaymentRequired(combinedInvoiceId, buyerUserId, 'charge_error');
+              }
+            } catch (routeErr) {
+              console.error(`[combined] payment_required fallback failed for combined_invoice_id=${combinedInvoiceId}:`, routeErr.message);
+            }
           }
         }
         // Seller closeout is HELD — no immediate seller email in the combined branch.

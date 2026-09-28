@@ -7,6 +7,9 @@ const router  = express.Router();
 const auth    = require('../middleware/authMiddleware');
 const role    = require('../middleware/roleMiddleware');
 const db      = require('../db');
+// Card-on-file counts only records from the CURRENT payment mode (TEST cards do not count under LIVE keys).
+const { isLiveMode } = require('../lib/stripeMode');
+const liveSql = () => (isLiveMode() ? 'true' : 'false');
 const { writeAuditLog } = require('../lib/auditLog');
 const { buildUserSearch, clampInt } = require('../services/searchService');
 
@@ -23,8 +26,8 @@ router.get('/', async (req, res, next) => {
     params.push(offset); const oi = params.length;
     const { rows } = await db.query(`
       SELECT u.id, u.email, u.full_name, u.phone, u.role, u.is_active, u.created_at,
-             (u.stripe_customer_id IS NOT NULL
-               AND EXISTS (SELECT 1 FROM card_verifications cv WHERE cv.user_id = u.id AND cv.status='verified')) AS card_on_file,
+             (u.stripe_customer_id IS NOT NULL AND COALESCE(u.stripe_customer_livemode, false) = ${liveSql()}
+               AND EXISTS (SELECT 1 FROM card_verifications cv WHERE cv.user_id = u.id AND cv.status = 'verified' AND cv.livemode = ${liveSql()})) AS card_on_file,
              sp.display_name AS seller_name,
              (SELECT COUNT(*)::int FROM bids b WHERE b.bidder_user_id = u.id)            AS bids_placed,
              (SELECT COUNT(*)::int FROM auction_buyers ab WHERE ab.user_id = u.id)       AS registrations,
@@ -57,8 +60,8 @@ router.get('/:id', async (req, res, next) => {
       `SELECT id, display_name, seller_type, location_label FROM seller_profiles WHERE user_id=$1`, [id])).rows[0] || null;
 
     const card_on_file = (await db.query(
-      `SELECT (u.stripe_customer_id IS NOT NULL
-               AND EXISTS (SELECT 1 FROM card_verifications cv WHERE cv.user_id=u.id AND cv.status='verified')) AS ok
+      `SELECT (u.stripe_customer_id IS NOT NULL AND COALESCE(u.stripe_customer_livemode, false) = ${liveSql()}
+               AND EXISTS (SELECT 1 FROM card_verifications cv WHERE cv.user_id = u.id AND cv.status = 'verified' AND cv.livemode = ${liveSql()})) AS ok
          FROM users u WHERE u.id=$1`, [id])).rows[0].ok;
 
     const registrations = (await db.query(

@@ -181,7 +181,7 @@
     <div class="amount" id="display-amount">-</div>
     <div class="lot-label" id="display-lot"></div>
     <!-- Tax breakdown (shown only when sales tax applies) so the buyer sees the tax-inclusive total
-         BEFORE confirming. Populated from the base/tax URL params set by the charge step. -->
+         BEFORE confirming. Populated from the authenticated checkout endpoint. -->
     <div id="tax-breakdown" style="display:none;margin:.75rem auto 0;max-width:280px;font-size:.85rem;color:#374151;text-align:left">
       <div style="display:flex;justify-content:space-between;padding:.15rem 0"><span>Subtotal</span><span id="bd-subtotal"></span></div>
       <div style="display:flex;justify-content:space-between;padding:.15rem 0"><span>Sales tax</span><span id="bd-tax"></span></div>
@@ -205,59 +205,85 @@
   </div>
 
   <script>
-    // ── Read URL params ────────────────────────────────────────────────────────
-    const params       = new URLSearchParams(location.search);
-    const clientSecret = params.get('client_secret');
-    const amountCents  = parseInt(params.get('amount') || '0', 10);
-    const lotId        = params.get('lot_id') || '';
-    const auctionId    = params.get('auction_id') || '';
+    // ── Server-confirmed card payment ─────────────────────────────────────────
+    // The page is opened with ?payment_id=<id> (never a client secret in the URL). It loads the payment
+    // from an authenticated endpoint that only answers the buyer who owns it. The card details go straight
+    // to the card processor; this page only receives a PaymentMethod id and posts it to our server, which
+    // checks the card (debit and credit only) and confirms the payment. A 3-D Secure step, when the bank
+    // asks for one, is completed here and then confirmed again by the server.
+    const params    = new URLSearchParams(location.search);
+    const paymentId = params.get('payment_id') || '';
+    const token     = (function () { try { return localStorage.getItem('token'); } catch (_) { return null; } })();
+    const money     = c => '$' + (Number(c || 0) / 100).toFixed(2);
+    let auctionId   = '';
 
-    // ── Display amount / lot ───────────────────────────────────────────────────
-    if (amountCents) {
-      document.getElementById('display-amount').textContent =
-        '$' + (amountCents / 100).toFixed(2);
+    function authHeaders(extra) {
+      const h = Object.assign({}, extra || {});
+      if (token) h.Authorization = 'Bearer ' + token;
+      return h;
     }
-    // Show the Subtotal / Sales tax / Total breakdown when a tax amount was calculated for this charge.
-    const taxCents  = parseInt(params.get('tax')  || '0', 10);
-    const baseCents = parseInt(params.get('base') || '0', 10);
-    if (taxCents > 0) {
-      const money = c => '$' + (c / 100).toFixed(2);
-      document.getElementById('bd-subtotal').textContent = money(baseCents || (amountCents - taxCents));
-      document.getElementById('bd-tax').textContent      = money(taxCents);
-      document.getElementById('bd-total').textContent    = money(amountCents);
-      document.getElementById('tax-breakdown').style.display = '';
-    }
-    if (lotId) {
-      document.getElementById('display-lot').textContent = 'Lot ' + lotId.slice(0, 8) + '…';
+    function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
+    function formMessage(html) { document.getElementById('payment-form').innerHTML = '<p class="no-secret">' + html + '</p>'; }
+
+    function showSuccess() {
+      document.getElementById('payment-form').style.display = 'none';
+      const el = document.getElementById('result');
+      el.className = 'success';
+      el.style.display = 'block';
+      el.innerHTML =
+        '<strong>Payment successful!</strong> Your purchase has been secured.' +
+        '<div style="margin-top:1rem;display:flex;gap:0.75rem;flex-wrap:wrap;">' +
+        '<a href="/invoices.html" style="padding:0.5rem 1rem;background:#16a34a;color:#fff;border-radius:6px;text-decoration:none;font-size:0.875rem;font-weight:600;">Back to Invoices</a>' +
+        (auctionId ? '<a href="/auction-view.html?auctionId=' + encodeURIComponent(auctionId) + '" style="padding:0.5rem 1rem;background:#2563eb;color:#fff;border-radius:6px;text-decoration:none;font-size:0.875rem;font-weight:600;">Back to Auction</a>' : '') +
+        '<a href="/dashboard.html" style="padding:0.5rem 1rem;background:#fff;color:#2563eb;border:1.5px solid #2563eb;border-radius:6px;text-decoration:none;font-size:0.875rem;font-weight:600;">My Dashboard</a>' +
+        '</div>';
     }
 
     // ── Bootstrap ─────────────────────────────────────────────────────────────
     async function initPayment() {
-      if (!clientSecret) {
-        document.getElementById('payment-form').innerHTML =
-          '<p class="no-secret">Missing payment details. Return to the auction and try again.</p>';
+      if (!paymentId) {
+        formMessage('Missing payment details. Return to your invoices and try again.');
+        return;
+      }
+      let info;
+      try {
+        const r = await fetch('/api/payments/checkout/' + encodeURIComponent(paymentId), { headers: authHeaders(), credentials: 'same-origin' });
+        if (r.status === 401) { location.href = '/login.html?next=' + encodeURIComponent(location.pathname + location.search); return; }
+        const j = await r.json();
+        if (!j.success) { formMessage(esc(j.message || 'This payment could not be loaded.') + ' <a href="/invoices.html">Back to invoices</a>'); return; }
+        info = j.data;
+      } catch (_) {
+        formMessage('Payment details are unavailable right now. Please try again shortly.');
         return;
       }
 
-      // Prefer pk from URL (set by lot.html); fall back to server config
-      let pubKey = params.get('pk');
-      if (!pubKey) {
-        try {
-          const cfg = await fetch('/api/payments/config').then(r => r.json());
-          pubKey = cfg.publishableKey;
-        } catch { /* fall through to error below */ }
+      auctionId = info.auction_id || '';
+      document.getElementById('display-amount').textContent = money(info.amount_cents);
+      const label = info.kind === 'combined'
+        ? (info.auction_title ? 'All lots won in ' + info.auction_title : 'All lots won in this auction')
+        : (info.lot_title ? (info.lot_number ? 'Lot ' + info.lot_number + ': ' : '') + info.lot_title : 'Lot payment');
+      document.getElementById('display-lot').textContent = label;
+      // Subtotal / Sales tax / Total breakdown when tax was calculated for this charge.
+      if ((info.sales_tax_cents || 0) > 0) {
+        document.getElementById('bd-subtotal').textContent = money(info.taxable_base_cents);
+        document.getElementById('bd-tax').textContent      = money(info.sales_tax_cents);
+        document.getElementById('bd-total').textContent    = money(info.amount_cents);
+        document.getElementById('tax-breakdown').style.display = '';
       }
 
-      if (!pubKey) {
-        document.getElementById('payment-form').innerHTML =
-          '<p class="no-secret">Payment configuration unavailable. Contact support.</p>';
+      if (info.status === 'paid') { showSuccess(); return; }
+      if (!info.payable) {
+        formMessage('This payment is no longer open. <a href="/invoices.html">Return to your invoices</a> and choose Pay again.');
+        return;
+      }
+      if (!info.publishable_key) {
+        formMessage('Payment configuration unavailable. Please contact support.');
         return;
       }
 
-      // ── Init Stripe Elements ───────────────────────────────────────────────
-      const stripe   = Stripe(pubKey);
+      // ── Card field ─────────────────────────────────────────────────────────
+      const stripe   = Stripe(info.publishable_key);
       const elements = stripe.elements();
-
       const card = elements.create('card', {
         style: {
           base: {
@@ -269,44 +295,49 @@
           invalid: { color: '#ef4444' },
         },
       });
-
       card.mount('#card-element');
-
       card.on('change', ({ error }) => {
         document.getElementById('card-errors').textContent = error ? error.message : '';
       });
 
+      // Ask the server to confirm. Without a payment method id, the server confirms the card already on the
+      // payment (used after a 3-D Secure step).
+      async function serverConfirm(paymentMethodId) {
+        const r = await fetch('/api/payments/checkout/' + encodeURIComponent(paymentId) + '/confirm', {
+          method: 'POST', credentials: 'same-origin',
+          headers: authHeaders({ 'Content-Type': 'application/json' }),
+          body: JSON.stringify(paymentMethodId ? { payment_method_id: paymentMethodId } : {}),
+        });
+        const j = await r.json().catch(() => ({}));
+        if (!j.success) { const e = new Error(j.message || 'Your payment could not be completed. Please try again.'); e.code = j.code; throw e; }
+        return j.data;
+      }
+
+      async function handleOutcome(data, depth) {
+        if (data.status === 'succeeded') { showSuccess(); return; }
+        if (data.status === 'processing') {
+          document.getElementById('payment-form').style.display = 'none';
+          showResult('success', 'Your payment is processing. We will email your receipt as soon as it completes.');
+          return;
+        }
+        if (data.status === 'requires_action' && data.client_secret && depth < 2) {
+          const res = await stripe.handleCardAction(data.client_secret);
+          if (res.error) throw new Error(res.error.message || 'Card authentication was not completed. Please try again.');
+          return handleOutcome(await serverConfirm(null), depth + 1);
+        }
+        throw new Error('Your payment could not be completed. Please try again.');
+      }
+
       // ── Submit ─────────────────────────────────────────────────────────────
       document.getElementById('pay-btn').addEventListener('click', async () => {
         setLoading(true);
-
+        document.getElementById('card-errors').textContent = '';
         try {
-          const { error, paymentIntent } = await stripe.confirmCardPayment(clientSecret, {
-            payment_method: { card },
-          });
-
-          if (error) {
-            document.getElementById('card-errors').textContent = error.message;
-            setLoading(false);
-          } else if (paymentIntent.status === 'succeeded') {
-            document.getElementById('payment-form').style.display = 'none';
-            const el = document.getElementById('result');
-            el.className = 'success';
-            el.style.display = 'block';
-            el.innerHTML =
-              '<strong>Payment successful!</strong> Your lot has been secured.' +
-              '<div style="margin-top:1rem;display:flex;gap:0.75rem;flex-wrap:wrap;">' +
-              '<a href="/invoices.html" style="padding:0.5rem 1rem;background:#16a34a;color:#fff;border-radius:6px;text-decoration:none;font-size:0.875rem;font-weight:600;">Back to Invoices</a>' +
-              (auctionId ? `<a href="/auction-view.html?auctionId=${auctionId}" style="padding:0.5rem 1rem;background:#2563eb;color:#fff;border-radius:6px;text-decoration:none;font-size:0.875rem;font-weight:600;">Back to Auction</a>` : '') +
-              '<a href="/dashboard.html" style="padding:0.5rem 1rem;background:#fff;color:#2563eb;border:1.5px solid #2563eb;border-radius:6px;text-decoration:none;font-size:0.875rem;font-weight:600;">My Dashboard</a>' +
-              '</div>';
-          } else {
-            showResult('error', 'Payment status: ' + paymentIntent.status + '. Please contact support.');
-            setLoading(false);
-          }
+          const { error, paymentMethod } = await stripe.createPaymentMethod({ type: 'card', card });
+          if (error) throw new Error(error.message);
+          await handleOutcome(await serverConfirm(paymentMethod.id), 0);
         } catch (err) {
-          console.error('[payment] confirmCardPayment threw:', err);
-          document.getElementById('card-errors').textContent = 'An unexpected error occurred. Please try again.';
+          document.getElementById('card-errors').textContent = (err && err.message) || 'An unexpected error occurred. Please try again.';
           setLoading(false);
         }
       });

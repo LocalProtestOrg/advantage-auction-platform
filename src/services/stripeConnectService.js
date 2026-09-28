@@ -15,6 +15,7 @@
  */
 
 const db = require('../db');
+const { isLiveMode, maskPayoutPrefForMode } = require('../lib/stripeMode');
 
 const STRIPE_API_VERSION = '2026-03-25.dahlia'; // matches paymentService pin
 function getStripe() {
@@ -61,8 +62,13 @@ function isConnectReady(mapped) {
   return !!(mapped && mapped.connect_transfers_active && mapped.connect_payouts_enabled);
 }
 
-async function getPref(sellerUserId) {
+// Returns the seller's preference with any OTHER-mode connected account / bank reference hidden (a TEST
+// account is never used under LIVE keys). getRawPref keeps the stored values for history bookkeeping.
+async function getRawPref(sellerUserId) {
   return (await db.query('SELECT * FROM seller_payout_preferences WHERE seller_user_id = $1', [sellerUserId])).rows[0] || null;
+}
+async function getPref(sellerUserId) {
+  return maskPayoutPrefForMode(await getRawPref(sellerUserId));
 }
 
 // Persist safe status onto the seller's payout preference (creates the row if missing).
@@ -71,10 +77,11 @@ async function persistStatusForSeller(sellerUserId, m) {
     `INSERT INTO seller_payout_preferences
        (seller_user_id, payout_method, stripe_account_id, connect_status, connect_details_submitted,
         connect_transfers_active, connect_payouts_enabled, connect_disabled_reason, connect_bank_name,
-        connect_bank_last4, connect_updated_at, updated_at)
-     VALUES ($1,'ach',$2,$3,$4,$5,$6,$7,$8,$9,now(),now())
+        connect_bank_last4, stripe_account_livemode, connect_updated_at, updated_at)
+     VALUES ($1,'ach',$2,$3,$4,$5,$6,$7,$8,$9,$10,now(),now())
      ON CONFLICT (seller_user_id) DO UPDATE SET
        stripe_account_id = EXCLUDED.stripe_account_id,
+       stripe_account_livemode = EXCLUDED.stripe_account_livemode,
        connect_status = EXCLUDED.connect_status,
        connect_details_submitted = EXCLUDED.connect_details_submitted,
        connect_transfers_active = EXCLUDED.connect_transfers_active,
@@ -85,16 +92,19 @@ async function persistStatusForSeller(sellerUserId, m) {
        connect_updated_at = now(), updated_at = now()`,
     [sellerUserId, m.stripe_account_id, m.connect_status, m.connect_details_submitted,
      m.connect_transfers_active, m.connect_payouts_enabled, m.connect_disabled_reason,
-     m.connect_bank_name, m.connect_bank_last4]
+     m.connect_bank_name, m.connect_bank_last4, isLiveMode()]
   );
 }
 
 const RETRIEVE_INCLUDE = ['configuration.recipient', 'requirements'];
 
-// Create OR reuse the seller's Accounts-v2 Connected Account (idempotent — never a second account).
+// Create OR reuse the seller's Accounts-v2 Connected Account (idempotent — never a second account in the
+// same mode). An account from the OTHER mode (a TEST account after the switch to LIVE keys) is not reused:
+// a new one is created and the old id is kept in superseded_stripe_account_id for history.
 async function ensureConnectAccount(sellerUserId) {
-  const pref = await getPref(sellerUserId);
+  const pref = await getPref(sellerUserId);                 // mode-masked
   if (pref && pref.stripe_account_id) return pref.stripe_account_id;
+  const live = isLiveMode();
   const urow = (await db.query('SELECT email FROM users WHERE id = $1', [sellerUserId])).rows[0];
   const email = (urow && urow.email) || undefined;
   const stripe = getStripe();
@@ -110,12 +120,19 @@ async function ensureConnectAccount(sellerUserId) {
     metadata: { seller_user_id: String(sellerUserId), platform: 'advantage.bid' },
   });
   await db.query(
-    `INSERT INTO seller_payout_preferences (seller_user_id, payout_method, stripe_account_id, connect_status, connect_updated_at, updated_at)
-     VALUES ($1,'ach',$2,'onboarding',now(),now())
+    `INSERT INTO seller_payout_preferences (seller_user_id, payout_method, stripe_account_id, stripe_account_livemode, connect_status, connect_updated_at, updated_at)
+     VALUES ($1,'ach',$2,$3,'onboarding',now(),now())
      ON CONFLICT (seller_user_id) DO UPDATE SET
-       payout_method='ach', stripe_account_id=EXCLUDED.stripe_account_id,
-       connect_status='onboarding', connect_updated_at=now(), updated_at=now()`,
-    [sellerUserId, acct.id]
+       payout_method='ach',
+       superseded_stripe_account_id = CASE WHEN seller_payout_preferences.stripe_account_id IS NOT NULL
+                                                AND seller_payout_preferences.stripe_account_id <> EXCLUDED.stripe_account_id
+                                           THEN seller_payout_preferences.stripe_account_id
+                                           ELSE seller_payout_preferences.superseded_stripe_account_id END,
+       stripe_account_id=EXCLUDED.stripe_account_id, stripe_account_livemode=EXCLUDED.stripe_account_livemode,
+       connect_status='onboarding', connect_details_submitted=false, connect_transfers_active=false,
+       connect_payouts_enabled=false, connect_disabled_reason=NULL, connect_bank_name=NULL, connect_bank_last4=NULL,
+       connect_updated_at=now(), updated_at=now()`,
+    [sellerUserId, acct.id, live]
   );
   return acct.id;
 }
@@ -192,5 +209,5 @@ module.exports = {
   mapAccountToStatus, isConnectReady,
   ensureConnectAccount, createOnboardingLink, refreshAccountStatus, syncAccountById,
   applyAccountUpdated, applyPayoutEvent,
-  persistStatusForSeller, getPref,
+  persistStatusForSeller, getPref, getRawPref,
 };

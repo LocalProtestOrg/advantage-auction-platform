@@ -59,7 +59,7 @@
     function pill(st){const r=statusLabel(st);return '<span class="pill '+r[1]+'">'+esc(r[0])+'</span>'}
 
     // Pay an unpaid COMBINED invoice in ONE payment for the whole auction. Uses the
-    // combined on-session charge endpoint → payment.html; the webhook's null-lot branch
+    // combined on-session charge endpoint → payment.html?payment_id=…; the webhook's null-lot branch
     // then settles the combined header + every per-lot invoice at once.
     async function payInvoice(combinedInvoiceId, btn){
       const token=localStorage.getItem('token');
@@ -81,10 +81,10 @@
           if(!j.success)throw new Error(j.message||'Payment could not be started.');
           return j.data;
         }
-        const data=await charge(taxOn?baseKey+'-'+Date.now():baseKey);
-        const qs=new URLSearchParams({client_secret:data.client_secret,amount:data.amount_cents,base:(data.taxable_base_cents!=null?data.taxable_base_cents:data.amount_cents),tax:(data.sales_tax_cents||0)});
-        if(cfg.publishableKey)qs.set('pk',cfg.publishableKey);
-        location.href='/payment.html?'+qs.toString();
+        // Fresh key per click: the server reuses or replaces any open payment, so a retry never dead-ends.
+        const data=await charge(baseKey+'-'+Date.now());
+        // Only the payment id travels in the URL; payment.html loads the rest from an authenticated endpoint.
+        location.href='/payment.html?payment_id='+encodeURIComponent(data.payment_id);
       }catch(e){ if(e&&e.message==='cancelled'){btn.disabled=false;btn.textContent=old;return;} alert(e.message||'Could not start payment. Please try again.');btn.disabled=false;btn.textContent=old;}
     }
 
