@@ -151,14 +151,19 @@ The card can be changed any time in account settings; the new card is checked th
 
 Never name the payment provider. Never mention a random or under-$1 charge.',
  'buyer', 'approved', NULL, 'Owner decision 3 (2026-09-27)'),
-('professional-storefront-fee', 'Professional storefront (fixed-price) fees',
-'Storefront (fixed-price) sales by Professional sellers are not yet open for checkout. Explain that storefront terms are set out in the Professional Seller agreement and offer to connect the seller with the team for specifics. Do not quote any percentage.',
+('professional-storefront-fee', 'Professional Storefront (fixed-price) seller fee',
+'Professional Storefront fixed-price sales have a flat 11% seller fee, calculated on the item selling price only. The 11% includes card processing. Shipping and sales tax are not included in the fee calculation.
+
+This is separate from Professional Seller AUCTION fees (the platform fee set in the Professional Seller agreement plus 3% payment processing on the hammer price). Never combine or confuse the two.
+
+Storefront checkout is not open to buyers yet; if asked, say fixed-price checkout is coming soon and offer a team member for details.',
  'professional', 'conflict',
- 'UNRESOLVED: public pages say a flat 11% (including card processing); the code hard-codes 11% for every seller and ignores agreements; the seller agreement is silent on storefront fees; some older documents mention a 2% software fee. Owner decision pending — until then quote no storefront percentage.',
- 'Sasha fee reconciliation (2026-09-28)'),
+ 'Owner decision 2026-09-28: flat 11% on item price (includes card processing; shipping and tax excluded), not per-seller. Held as interim until the Professional Seller agreement / legal terms disclose it; then set to approved.',
+ 'Owner decision (2026-09-28)'),
 ('payout-timing', 'When do sellers get paid?',
-'Payouts are prepared after the buyer has paid and pickup is complete. Explain the general process and that the seller can see each settlement in their seller dashboard. Do not promise a specific number of days or a specific payout date; if a seller asks about a late or missing payout, hand the conversation to the team.',
- 'seller', 'conflict',
- 'UNRESOLVED: no single published payout timeline; settlement is currently completed manually by the team. Owner to confirm the customer-facing payout timing before Sasha states a number of days.',
- 'Sasha knowledge audit (2026-09-28)')
+'Advantage.Bid processes eligible seller payouts every Thursday. Auction sales become eligible for the first Thursday after pickup or fulfillment is completed and the transaction is otherwise eligible for payout. For Storefront fixed-price sales, the weekly cutoff is Wednesday at 11:59 PM, with eligible sales processed on Thursday.
+
+Say payouts are "processed" on Thursday. Do not promise the money arrives in the bank account on Thursday: bank processing time varies. Sellers can see each settlement in their seller dashboard (https://bid.advantage.bid/seller-settlements.html). If a seller reports a late or missing payout, hand the conversation to the team.',
+ 'seller', 'approved', NULL,
+ 'Owner decision (2026-09-28)')
 ON CONFLICT (slug) DO NOTHING;

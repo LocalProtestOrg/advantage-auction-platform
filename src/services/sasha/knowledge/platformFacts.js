@@ -9,7 +9,6 @@
  *
  * Deliberately NOT stated here (owner decisions pending — see cs_kb_articles with status 'conflict'):
  *   - a standard Professional Seller platform-fee percentage (it is per-seller / per-agreement);
- *   - a promised seller-payout day (payouts are reviewed and sent manually).
  */
 
 const ladder = require('../../../../public/widgets/shared/bid-increment');
@@ -94,12 +93,13 @@ const TOPICS = {
     ],
   }),
   payouts: () => ({
-    source: 'settlementEngine (manual settlement) — payout day is an owner decision (not promised)',
+    source: 'Seller agreement §7.3 payout schedule (Owner decision 2026-09-28) / settlementEngine',
     facts: [
       'After an auction closes and buyers pay, Advantage.Bid prepares a settlement for the seller: collected sales minus the applicable fees (sales tax is never part of seller proceeds).',
-      'Settlements are reviewed by Advantage.Bid and paid manually, by direct deposit (bank account set up on the payout profile page) or by check. Payment is not released while a settlement is on hold or a payment dispute is open.',
+      'Settlements are reviewed by Advantage.Bid and paid manually, by direct deposit (bank account set up on the payout profile page). Payment is not released while a settlement is on hold or a payment dispute is open.',
       `Sellers can see their settlements at ${SITE}/seller-settlements.html and set up payouts at ${SITE}/payout-profile.html.`,
-      'Do not promise a specific payout day or date. If the seller needs a date, a team member can confirm it.',
+      'Advantage.Bid processes eligible seller payouts every Thursday. Auction sales become eligible for the first Thursday after pickup or fulfillment is completed and the transaction is otherwise eligible for payout. For Storefront fixed-price sales, the weekly cutoff is Wednesday at 11:59 PM, with eligible sales processed on Thursday.',
+      'Say payouts are "processed" on Thursday; never promise the funds arrive in the bank that day (bank processing time varies). Payouts can be held while payment, pickup, a dispute, verification or banking details are unresolved; for a specific late or missing payout, hand the conversation to the team.',
     ],
   }),
   storefront: () => ({
