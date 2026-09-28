@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="noindex, nofollow" />
+  <title>Customer Service - Admin</title>
+  <style>
+    *,*::before,*::after{box-sizing:border-box}
+    body{margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#f1f5f9;color:#1f2937}
+    .wrap{max-width:1400px;margin:0 auto;padding:16px}
+    h1{font-size:1.3rem;margin:0 0 .3rem}
+    .sub{color:#64748b;font-size:13px;margin:0 0 12px}
+    .grid{display:grid;grid-template-columns:minmax(300px,420px) 1fr;gap:14px;align-items:start}
+    @media (max-width:900px){.grid{grid-template-columns:1fr}}
+    .card{background:#fff;border:1px solid #e2e8f0;border-radius:12px}
+    .tabs{display:flex;flex-wrap:wrap;gap:6px;padding:10px;border-bottom:1px solid #eef2f7}
+    .tabs button{border:1px solid #e2e8f0;background:#fff;border-radius:999px;padding:5px 11px;font-size:12.5px;cursor:pointer;color:#334155}
+    .tabs button.on{background:#0f172a;color:#fff;border-color:#0f172a}
+    .tabs .n{display:inline-block;margin-left:4px;font-weight:700}
+    .filters{display:flex;gap:6px;padding:8px 10px;border-bottom:1px solid #eef2f7}
+    .filters input,.filters select{border:1px solid #cbd5e1;border-radius:8px;padding:6px 8px;font-size:13px}
+    .filters input{flex:1;min-width:0}
+    .list{max-height:calc(100vh - 230px);overflow:auto}
+    .row{padding:10px 12px;border-bottom:1px solid #f1f5f9;cursor:pointer}
+    .row:hover{background:#f8fafc}.row.sel{background:#eff6ff}
+    .row .t{display:flex;justify-content:space-between;gap:8px;font-size:13.5px;font-weight:600}
+    .row .m{font-size:12px;color:#64748b;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .pill{display:inline-block;font-size:11px;font-weight:700;border-radius:999px;padding:1px 7px;margin-right:4px}
+    .p-need{background:#fee2e2;color:#991b1b}.p-staff{background:#fef3c7;color:#92400e}.p-sasha{background:#dcfce7;color:#166534}
+    .p-ch{background:#e0e7ff;color:#3730a3}.p-mute{background:#f1f5f9;color:#475569}
+    .detail{padding:14px 16px;min-height:400px}
+    .dh{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;border-bottom:1px solid #eef2f7;padding-bottom:10px}
+    .dh h2{font-size:1.05rem;margin:0}
+    .meta{font-size:12.5px;color:#475569;margin-top:4px;line-height:1.5}
+    .actions{display:flex;gap:6px;flex-wrap:wrap;align-items:flex-start}
+    button.b{border:0;border-radius:8px;padding:7px 12px;font-weight:700;font-size:12.5px;cursor:pointer}
+    .b-dark{background:#0f172a;color:#fff}.b-red{background:#D9534F;color:#fff}.b-green{background:#166534;color:#fff}.b-ghost{background:#f1f5f9;color:#0f172a;border:1px solid #e2e8f0}
+    button.b:disabled{opacity:.5;cursor:default}
+    .alert{background:#fef2f2;border:1px solid #fecaca;color:#991b1b;border-radius:8px;padding:8px 10px;font-size:13px;margin:10px 0}
+    .timeline{display:flex;flex-direction:column;gap:8px;margin:12px 0;max-height:52vh;overflow:auto;padding-right:4px}
+    .msg{border-radius:10px;padding:8px 11px;font-size:13.5px;line-height:1.45;white-space:pre-wrap;word-wrap:break-word;max-width:88%}
+    .msg .who{font-size:11px;font-weight:700;color:#64748b;margin-bottom:3px}
+    .m-customer{background:#fff;border:1px solid #e2e8f0;align-self:flex-start}
+    .m-sasha{background:#fef2f2;border:1px solid #fecaca;align-self:flex-end}
+    .m-staff{background:#fff7ed;border:1px solid #fed7aa;align-self:flex-end}
+    .m-note{background:#f8fafc;border:1px dashed #cbd5e1;align-self:center;max-width:95%;color:#334155}
+    textarea{width:100%;border:1px solid #cbd5e1;border-radius:8px;padding:8px 10px;font:inherit;font-size:13.5px;min-height:80px;resize:vertical}
+    .compose{display:grid;gap:8px;margin-top:8px}
+    .compose .row2{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+    details{margin-top:12px;font-size:12.5px}details summary{cursor:pointer;color:#334155;font-weight:600}
+    table{width:100%;border-collapse:collapse;font-size:12px;margin-top:6px}th,td{text-align:left;padding:5px 6px;border-bottom:1px solid #f1f5f9;vertical-align:top}
+    .empty{color:#94a3b8;padding:30px;text-align:center;font-size:13px}
+    .msgline{font-size:12.5px;min-height:1em;color:#166534}.msgline.err{color:#b91c1c}
+  </style>
+</head>
+<body>
+  <script src="/widgets/shared/admin-nav.js"></script>
+  <div class="wrap">
+    <h1>Customer Service</h1>
+    <p class="sub">Sasha's email and chat conversations. Take over any conversation to reply yourself — Sasha stops replying to it until you return it.</p>
+    <div class="grid">
+      <div class="card">
+        <div class="tabs" id="tabs">
+          <button data-v="handoff" class="on">Needs a person <span class="n" id="n-handoff"></span></button>
+          <button data-v="open">Open <span class="n" id="n-open"></span></button>
+          <button data-v="staff">With staff <span class="n" id="n-staff"></span></button>
+          <button data-v="resolved">Resolved</button>
+          <button data-v="all">All</button>
+          <button data-v="ignored">Ignored</button>
+        </div>
+        <div class="filters">
+          <label for="q" style="position:absolute;left:-9999px">Search</label>
+          <input id="q" placeholder="Search email, name, subject, ref…">
+          <label for="ch" style="position:absolute;left:-9999px">Channel</label>
+          <select id="ch"><option value="">All channels</option><option value="email">Email</option><option value="chat">Chat</option></select>
+        </div>
+        <div class="list" id="list"><div class="empty">Loading…</div></div>
+      </div>
+      <div class="card detail" id="detail"><div class="empty">Select a conversation.</div></div>
+    </div>
+  </div>
+<script>
+(function(){
+  var token = null; try { token = localStorage.getItem('token'); } catch (e) {}
+  function api(method, url, body) {
+    var o = { method: method, headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token }, credentials: 'same-origin' };
+    if (body) o.body = JSON.stringify(body);
+    return fetch(url, o).then(function (r) { if (r.status === 401) { location.href = '/login.html?next=' + encodeURIComponent(location.pathname); } return r.json(); });
+  }
+  function esc(s){return (s==null?'':String(s)).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
+  function when(d){ if(!d) return ''; var t=new Date(d); return t.toLocaleString([], {month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}); }
+  var VIEW='handoff', SEL=null, LAST=null;
+
+  document.getElementById('tabs').addEventListener('click', function(e){ var b=e.target.closest('button'); if(!b) return;
+    [].forEach.call(this.children,function(x){x.classList.toggle('on',x===b);}); VIEW=b.getAttribute('data-v'); load(); });
+  var qt; document.getElementById('q').addEventListener('input', function(){ clearTimeout(qt); qt=setTimeout(load,300); });
+  document.getElementById('ch').addEventListener('change', load);
+
+  function load(){
+    var q=encodeURIComponent(document.getElementById('q').value||''), ch=document.getElementById('ch').value;
+    api('GET','/api/admin/sasha/conversations?view='+VIEW+'&q='+q+(ch?'&channel='+ch:'')).then(function(j){
+      if(!j.success){ document.getElementById('list').innerHTML='<div class="empty">'+esc(j.message||j.error||'Not allowed.')+'</div>'; return; }
+      var c=j.data.counts||{}; ['handoff','open','staff'].forEach(function(k){ document.getElementById('n-'+k).textContent=c[k]?c[k]:''; });
+      var rows=j.data.conversations;
+      document.getElementById('list').innerHTML = rows.length ? rows.map(function(r){
+        var badge = r.handoff_state==='needed' ? '<span class="pill p-need">Needs a person</span>' : (r.owner==='staff' ? '<span class="pill p-staff">With '+esc(r.assigned_staff||'staff')+'</span>' : '<span class="pill p-sasha">Sasha</span>');
+        return '<div class="row'+(SEL===r.id?' sel':'')+'" data-id="'+r.id+'"><div class="t"><span>'+esc(r.customer_name||r.customer_email||r.account_email||'Visitor')+'</span><span style="font-weight:400;color:#94a3b8;font-size:12px">'+when(r.last_message_at)+'</span></div>'
+          +'<div class="m"><span class="pill p-ch">'+esc(r.channel)+(r.site?' · '+esc(r.site):'')+'</span>'+badge+esc(r.subject||'')+'</div>'
+          +'<div class="m">'+esc(r.last_text||'')+'</div></div>';
+      }).join('') : '<div class="empty">Nothing here.</div>';
+    });
+  }
+  document.getElementById('list').addEventListener('click', function(e){ var r=e.target.closest('.row'); if(!r) return; SEL=r.getAttribute('data-id'); load(); open(SEL); });
+
+  function open(id){
+    api('GET','/api/admin/sasha/conversations/'+id).then(function(j){
+      if(!j.success){ document.getElementById('detail').innerHTML='<div class="empty">'+esc(j.message||'Not found.')+'</div>'; return; }
+      render(j.data);
+    });
+  }
+  function render(d){
+    var c=d.conversation, staff=c.owner==='staff';
+    var acct = c.user_id ? 'Signed-in account: '+esc(c.account_email)+' ('+esc(c.account_role)+')'
+      : (c.matched_email ? 'Email matches account '+esc(c.matched_email)+' — <b>not verified</b> (no account data shared by email)' : 'No linked account');
+    var openH = d.handoffs.filter(function(h){return h.status!=='resolved';});
+    var html = '<div class="dh"><div><h2>'+esc(c.subject||'Conversation')+' <span class="pill p-mute">'+esc(c.ref)+'</span></h2>'
+      +'<div class="meta"><span class="pill p-ch">'+esc(c.channel)+(c.site?' · '+esc(c.site):'')+'</span>'
+      +(staff?'<span class="pill p-staff">Owned by '+esc(c.assigned_staff||'staff')+' — Sasha is silent</span>':'<span class="pill p-sasha">Sasha is handling this</span>')
+      +'<span class="pill p-mute">'+esc(c.status)+'</span><br>'
+      +esc(c.customer_name||'')+(c.customer_email?' &lt;'+esc(c.customer_email)+'&gt;':'')+'<br>'+acct+'</div></div>'
+      +'<div class="actions">'+(staff?'<button class="b b-green" id="ret">Return to Sasha</button>':'<button class="b b-dark" id="take">Take over</button>')
+      +(c.status==='resolved'||c.status==='closed'?'<button class="b b-ghost" id="reopen">Reopen</button>':'<button class="b b-ghost" id="resolve">Resolve</button>')+'</div></div>';
+    if (openH.length) html += '<div class="alert"><b>Needs a person:</b> '+openH.map(function(h){return esc(h.reason_code.replace(/_/g,' '))+(h.reason_text?' — '+esc(h.reason_text):'');}).join('<br>')+'</div>';
+    html += '<div class="timeline" id="tl">'+d.messages.map(function(m){
+      var cls = m.direction==='note' ? 'm-note' : (m.author_type==='customer'?'m-customer':(m.author_type==='staff'?'m-staff':'m-sasha'));
+      var who = m.direction==='note' ? (m.author_type==='sasha'?'Sasha (draft / internal)':(m.author_type==='system'?'System':'Internal note — '+esc(m.staff_name||'staff')))
+        : (m.author_type==='customer'?'Customer':(m.author_type==='staff'?esc(m.staff_name||'Staff'):'Sasha'+(m.auto_sent?' (sent automatically)':'')));
+      var del = m.delivery_status && m.delivery_status!=='sent' ? ' · delivery: '+esc(m.delivery_status)+(m.delivery_error?' ('+esc(m.delivery_error)+')':'') : '';
+      var att = (m.attachments||[]).length ? '\n[Attachments not opened: '+m.attachments.map(function(a){return esc(a.name||'file');}).join(', ')+']' : '';
+      return '<div class="msg '+cls+'"><div class="who">'+who+' · '+when(m.created_at)+del+'</div>'+esc(m.body_text)+att+'</div>';
+    }).join('')+'</div>';
+    html += '<div class="compose"><label for="reply" style="font-size:12.5px;font-weight:700">Reply to the customer'+(c.channel==='email'?' (sent by email from info@advantage.bid)':' (appears in their chat)')+(staff?'':' — replying takes over from Sasha')+'</label>'
+      +'<textarea id="reply" placeholder="Write your reply…"></textarea>'
+      +'<div class="row2"><button class="b b-red" id="send">Send reply</button><button class="b b-ghost" id="note">Save as internal note</button><span class="msgline" id="ml"></span></div></div>';
+    if (d.runs.length) html += '<details><summary>Sasha activity ('+d.runs.length+')</summary><table><tr><th>When</th><th>Outcome</th><th>Tools</th><th>Tokens</th><th>Cost</th><th>Time</th></tr>'
+      + d.runs.map(function(r){ return '<tr><td>'+when(r.created_at)+'</td><td>'+esc(r.outcome)+(r.outcome_reason?' ('+esc(r.outcome_reason)+')':'')+(r.error?'<br><span style="color:#b91c1c">'+esc(r.error)+'</span>':'')+'</td><td>'+esc((r.tools_used||[]).join(', '))+'</td><td>'+r.input_tokens+' / '+r.output_tokens+'</td><td>$'+(Number(r.cost_micro_usd)/1e6).toFixed(4)+'</td><td>'+(r.latency_ms?(r.latency_ms/1000).toFixed(1)+'s':'')+'</td></tr>'; }).join('')+'</table></details>';
+    var el=document.getElementById('detail'); el.innerHTML=html;
+    var tl=document.getElementById('tl'); tl.scrollTop=tl.scrollHeight;
+    function act(path, body, okMsg){ return api('POST','/api/admin/sasha/conversations/'+c.id+path, body||{}).then(function(j){ if(!j.success){ ml(j.message||'Failed', true); return; } if(okMsg) ml(okMsg); open(c.id); load(); }); }
+    function ml(t,err){ var x=document.getElementById('ml'); if(x){ x.textContent=t; x.className='msgline'+(err?' err':''); } }
+    var b;
+    if ((b=document.getElementById('take'))) b.onclick=function(){ act('/takeover'); };
+    if ((b=document.getElementById('ret'))) b.onclick=function(){ act('/return'); };
+    if ((b=document.getElementById('resolve'))) b.onclick=function(){ act('/status',{status:'resolved'}); };
+    if ((b=document.getElementById('reopen'))) b.onclick=function(){ act('/status',{status:'open'}); };
+    document.getElementById('send').onclick=function(){ var t=document.getElementById('reply').value.trim(); if(!t) return; this.disabled=true; act('/reply',{text:t}); };
+    document.getElementById('note').onclick=function(){ var t=document.getElementById('reply').value.trim(); if(!t) return; act('/note',{text:t}); };
+  }
+  load();
+  setInterval(function(){ if(!document.hidden){ load(); } }, 20000);
+})();
+</script>
+</body>
+</html>

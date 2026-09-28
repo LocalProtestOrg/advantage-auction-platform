@@ -68,6 +68,8 @@ const SES_EVENT_PARTNER_CONFIGURATION_SET = process.env.SES_EVENT_PARTNER_CONFIG
 // bounce/complaint telemetry are its own. Unset = no header; the listing send gate refuses to send at all
 // while it is unset, so this stream never borrows another stream's reputation.
 const SES_CLAIMED_LISTING_CONFIGURATION_SET = process.env.SES_CLAIMED_LISTING_CONFIGURATION_SET || null;
+// Sasha customer-service replies (transactional pool). Optional; unset = no configuration set header.
+const SES_SUPPORT_CONFIGURATION_SET = process.env.SES_SUPPORT_CONFIGURATION_SET || null;
 
 // The configuration set for a given mail stream. Unknown streams get none — never a default that
 // would silently attribute mail to the wrong programme.
@@ -75,6 +77,7 @@ function configurationSetForStream(mailStream) {
   if (mailStream === 'marketing') return SES_MARKETING_CONFIGURATION_SET;
   if (mailStream === 'event_partner') return SES_EVENT_PARTNER_CONFIGURATION_SET;
   if (mailStream === 'claimed_listing') return SES_CLAIMED_LISTING_CONFIGURATION_SET;
+  if (mailStream === 'support') return SES_SUPPORT_CONFIGURATION_SET;
   return null;
 }
 

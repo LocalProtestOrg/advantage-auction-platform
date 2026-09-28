@@ -179,6 +179,8 @@ async function normalize(raw, receipt) {
     headers,
     spamScore: receipt.verdicts && receipt.verdicts.spam === 'FAIL' ? 10 : 0,
     bounceType: null,
+    // Attachment METADATA only (Sasha never opens attachments; the file stays in the private bucket).
+    attachments: (p.attachments || []).slice(0, 20).map((a) => ({ filename: a.filename || null, contentType: a.contentType || null, size: a.size || null })),
   };
 }
 
@@ -188,7 +190,10 @@ const LISTING_KEY_RE = /\+(l[0-9a-f]{24})@/i;
 const PARTNER_KEY_RE = /\+([0-9a-f]{24})@/i;
 
 /** Which programme a message belongs to, from the reply key in the recipient address (never guessed). */
-function routeFor(recipients) {
+function routeFor(recipients, cfg = config()) {
+  // Sasha: the dedicated company-inbox address (info@advantage.bid is forwarded here as a copy).
+  const companyInbox = ('inbox@' + cfg.replyDomain).toLowerCase();
+  for (const r of recipients || []) if (String(r).trim().toLowerCase() === companyInbox) return 'company_inbox';
   for (const r of recipients || []) if (LISTING_KEY_RE.test(r)) return 'claimed_listing';
   for (const r of recipients || []) if (PARTNER_KEY_RE.test(r)) return 'event_partner';
   return 'unmatched';
@@ -214,13 +219,14 @@ function isOwnMail(normalized, cfg = config()) {
 async function switches(runner = db) {
   const rows = (await runner.query(
     `SELECT key, value FROM platform_config WHERE key IN ('claimed_listings.inbound_enabled', 'event_partners.inbound_enabled',
-       'inbound.allowed_senders', 'inbound.oversight_notices_enabled')`)).rows;
+       'inbound.allowed_senders', 'inbound.oversight_notices_enabled', 'sasha.enabled', 'sasha.email_inbound_enabled')`)).rows;
   const m = {}; for (const r of rows) m[r.key] = r.value;
   const allowed = Array.isArray(m['inbound.allowed_senders'])
     ? m['inbound.allowed_senders'].map((a) => normalizeEmail(String(a || ''))).filter(Boolean) : [];
   return {
     claimed_listing: m['claimed_listings.inbound_enabled'] === true,
     event_partner: m['event_partners.inbound_enabled'] === true,
+    company_inbox: m['sasha.enabled'] === true && m['sasha.email_inbound_enabled'] === true,
     allowedSenders: allowed,
     noticesEnabled: m['inbound.oversight_notices_enabled'] !== false,
   };
@@ -356,13 +362,29 @@ async function processReceipt(id, deps = {}) {
   // Spam-flagged mail goes to a person, with its text, instead of automation.
   if (receipt.verdicts.spam === 'FAIL') {
     await finish(id, 'needs_review', { outcome: { programme, reason: 'spam verdict FAIL' }, rawSha256: digest }, runner);
-    await maybeNotify({ kind: 'needs_review', programme, receiptId: id, normalized, reason: 'Marked as likely spam, so nothing was done automatically. Please check it.' });
+    if (programme !== 'company_inbox') {   // company-inbox mail is a copy: the original is already in info@
+      await maybeNotify({ kind: 'needs_review', programme, receiptId: id, normalized, reason: 'Marked as likely spam, so nothing was done automatically. Please check it.' });
+    }
     return { id, status: 'needs_review', programme };
   }
 
   const svc = deps.programmes || programmeServices();
   const meta = { digest, signatureStatus: 'verified', provider: 'ses' };
   let result; let target = programme;
+  if (programme === 'company_inbox') {
+    // Sasha customer service — isolated from Claimed Listing / Event Partner. No oversight copy: info@ already has it.
+    let r;
+    try {
+      r = await (deps.sashaEmail || require('../sasha/emailChannel')).handleInbound(normalized, { id });
+    } catch (e) {
+      if (e && e.code === 'INBOUND_DISABLED') return hold('inbound switch off', digest);
+      return fail(id, row.attempts, e, programme, receipt, runner, async () => false, digest);
+    }
+    const st = r.status === 'ignored' ? 'ignored' : r.status === 'duplicate' ? 'duplicate' : 'processed';
+    await finish(id, st, { outcome: { programme, sasha: r.status, reason: r.reason || null, reply: r.reply || null,
+      conversation_id: r.conversation_id || null }, rawSha256: digest }, runner);
+    return { id, status: st, programme, outcome: r };
+  }
   try {
     if (programme === 'claimed_listing') result = await svc.claimed_listing.ingest(normalized, meta);
     else if (programme === 'event_partner' || (programme === 'unmatched' && on.event_partner)) {

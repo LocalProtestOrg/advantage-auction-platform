@@ -40,6 +40,10 @@ const PERMISSIONS = [
   'sellers.view', 'sellers.manage', 'members.view', 'members.manage',
   // Sensitive financial configuration
   'seller_platform_fee.view', 'seller_platform_fee.manage',
+  // Customer service (Sasha Shared Inbox). Super Admin only until granted to a staff role or person.
+  'support.view',    // read conversations, handoffs and Sasha activity
+  'support.manage',  // take over / return / reply / resolve, and maintain support knowledge
+  // (Sasha's operational switches and budget stay Super-Admin only — see adminSasha.js.)
   // System
   'system.manage', 'diagnostics.view',
 ];

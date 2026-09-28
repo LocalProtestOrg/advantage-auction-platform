@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="noindex, nofollow" />
+  <title>Sasha Settings &amp; Knowledge - Admin</title>
+  <style>
+    *,*::before,*::after{box-sizing:border-box}
+    body{margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#f1f5f9;color:#1f2937}
+    .wrap{max-width:1200px;margin:0 auto;padding:16px;display:grid;gap:14px}
+    h1{font-size:1.3rem;margin:0}
+    h2{font-size:1rem;margin:0 0 10px}
+    .sub{color:#64748b;font-size:13px;margin:4px 0 0}
+    .card{background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:14px 16px}
+    .sw{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px}
+    .s{border:1px solid #e2e8f0;border-radius:10px;padding:10px 12px;display:flex;justify-content:space-between;gap:10px;align-items:center}
+    .s b{font-size:13.5px}.s small{display:block;color:#64748b;font-size:12px;margin-top:2px}
+    .s .eff{font-size:11px;font-weight:700;margin-top:4px}
+    .on{color:#166534}.off{color:#94a3b8}
+    .tg{position:relative;width:44px;height:24px;flex:none}
+    .tg input{opacity:0;width:0;height:0}
+    .tg span{position:absolute;inset:0;background:#cbd5e1;border-radius:999px;cursor:pointer;transition:.15s}
+    .tg span:before{content:'';position:absolute;width:18px;height:18px;left:3px;top:3px;background:#fff;border-radius:50%;transition:.15s}
+    .tg input:checked+span{background:#D9534F}.tg input:checked+span:before{transform:translateX(20px)}
+    .tg input:focus-visible+span{outline:2px solid #0f172a;outline-offset:2px}
+    .tg input:disabled+span{opacity:.5;cursor:default}
+    .kv{display:flex;flex-wrap:wrap;gap:18px;font-size:13px;margin-top:10px}
+    .kv div span{display:block;color:#64748b;font-size:11.5px;text-transform:uppercase;letter-spacing:.04em}
+    .kv b{font-variant-numeric:tabular-nums}
+    input[type=number],input[type=text],select,textarea{border:1px solid #cbd5e1;border-radius:8px;padding:6px 8px;font:inherit;font-size:13px}
+    textarea{width:100%;min-height:140px;resize:vertical}
+    button.b{border:0;border-radius:8px;padding:7px 12px;font-weight:700;font-size:12.5px;cursor:pointer;background:#0f172a;color:#fff}
+    button.g{background:#f1f5f9;color:#0f172a;border:1px solid #e2e8f0}
+    table{width:100%;border-collapse:collapse;font-size:12.5px}
+    th,td{text-align:left;padding:7px 6px;border-bottom:1px solid #f1f5f9;vertical-align:top}
+    th{color:#64748b;font-weight:600;font-size:11.5px;text-transform:uppercase;letter-spacing:.04em}
+    .pill{display:inline-block;font-size:11px;font-weight:700;border-radius:999px;padding:1px 8px}
+    .st-approved{background:#dcfce7;color:#166534}.st-conflict{background:#fee2e2;color:#991b1b}.st-draft{background:#fef3c7;color:#92400e}.st-disabled{background:#f1f5f9;color:#64748b}
+    .note{font-size:12px;color:#991b1b;margin-top:4px}
+    .scroll{overflow-x:auto}
+    .editor{display:grid;gap:8px;margin-top:12px;border-top:1px solid #eef2f7;padding-top:12px}
+    .editor .r{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+    .editor input[type=text]{flex:1;min-width:220px}
+    .msg{font-size:12.5px;min-height:1em}.msg.err{color:#b91c1c}.msg.ok{color:#166534}
+    details summary{cursor:pointer;font-weight:600;font-size:13px}
+    ul.facts{margin:6px 0 10px 18px;padding:0;font-size:12.5px;line-height:1.5}
+    code{background:#f1f5f9;border-radius:4px;padding:1px 5px;font-size:12px}
+  </style>
+</head>
+<body>
+  <script src="/widgets/shared/admin-nav.js"></script>
+  <div class="wrap">
+    <div>
+      <h1>Sasha Settings &amp; Knowledge</h1>
+      <p class="sub">Operational switches, spending limit, the guidance Sasha follows, and recent activity. Conversations are in <a href="/admin/sasha-inbox.html">Customer Service</a>.</p>
+    </div>
+
+    <div class="card">
+      <h2>Switches</h2>
+      <div class="sw" id="sw"></div>
+      <div class="kv" id="kv"></div>
+      <p class="msg" id="swmsg"></p>
+    </div>
+
+    <div class="card">
+      <h2>Guidance Sasha follows</h2>
+      <p class="sub" style="margin:0 0 10px">Order of authority: live platform rules (below) → approved guidance → public help pages. Guidance marked <span class="pill st-conflict">conflict</span> is unresolved — Sasha states no specifics and offers a team member. Disable anything stale.</p>
+      <div class="scroll"><table id="kb"><tr><td>Loading…</td></tr></table></div>
+      <div class="editor" id="ed">
+        <b id="edt" style="font-size:13.5px">Add guidance</b>
+        <div class="r">
+          <label for="k-title" style="position:absolute;left:-9999px">Title</label><input type="text" id="k-title" placeholder="Question or topic, e.g. Can I preview items before bidding?">
+          <label for="k-aud" style="position:absolute;left:-9999px">Audience</label>
+          <select id="k-aud"><option value="all">Everyone</option><option value="buyer">Buyers</option><option value="seller">Sellers</option><option value="professional">Professional sellers</option><option value="staff">Staff only</option></select>
+          <label for="k-st" style="position:absolute;left:-9999px">Status</label>
+          <select id="k-st"><option value="approved">Approved</option><option value="draft">Draft</option><option value="conflict">Conflict</option><option value="disabled">Disabled</option></select>
+        </div>
+        <label for="k-body" style="position:absolute;left:-9999px">Answer</label>
+        <textarea id="k-body" placeholder="The answer Sasha should give, in plain language."></textarea>
+        <label for="k-note" style="position:absolute;left:-9999px">Conflict note</label>
+        <input type="text" id="k-note" placeholder="Conflict note (internal — what disagrees and who decides)">
+        <div class="r"><button class="b" id="k-save">Save guidance</button><button class="b g" id="k-cancel" hidden>Cancel edit</button><span class="msg" id="kmsg"></span></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Live platform rules</h2>
+      <p class="sub" style="margin:0 0 8px">Read directly from the platform's own rules at answer time, so they always match what the system enforces.</p>
+      <div id="facts"></div>
+      <details><summary id="hp">Public help pages</summary><ul class="facts" id="hplist"></ul></details>
+    </div>
+
+    <div class="card">
+      <h2>Activity (last 7 days)</h2>
+      <div class="scroll" id="act"></div>
+    </div>
+  </div>
+<script>
+(function(){
+  var token=null; try{ token=localStorage.getItem('token'); }catch(e){}
+  function api(method,url,body){ var o={method:method,headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},credentials:'same-origin'}; if(body) o.body=JSON.stringify(body);
+    return fetch(url,o).then(function(r){ if(r.status===401){ location.href='/login.html?next='+encodeURIComponent(location.pathname); } return r.json(); }); }
+  function esc(s){return (s==null?'':String(s)).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
+  function msg(id,t,ok){ var e=document.getElementById(id); e.textContent=t||''; e.className='msg '+(ok?'ok':'err'); }
+
+  var SW=[
+    ['sasha.enabled','enabled','Sasha (global)','Master switch. Off stops every channel immediately.',null],
+    ['sasha.engine_enabled','engine_enabled','Answering','Off: messages are kept and handed to the team, no replies.','engine'],
+    ['sasha.email_inbound_enabled','email_inbound_enabled','Email — receive','Accept mail sent to the Sasha inbox address.','email_inbound'],
+    ['sasha.email_autoreply_enabled','email_autoreply_enabled','Email — reply automatically','Off: Sasha drafts a reply for the team to send.','email_autoreply'],
+    ['sasha.chat_bid_enabled','chat_bid_enabled','Chat on bid.advantage.bid','Red help button on the platform (never on live bidding).','chat_bid'],
+    ['sasha.chat_www_enabled','chat_www_enabled','Chat on www.advantage.bid','Red help button on the main website (needs the footer script).','chat_www']
+  ];
+  function loadSettings(){
+    api('GET','/api/admin/sasha/settings').then(function(j){
+      if(!j.success){ document.getElementById('sw').innerHTML='<p>'+esc(j.message||j.error||'Not allowed.')+'</p>'; return; }
+      var s=j.data.settings;
+      document.getElementById('sw').innerHTML=SW.map(function(x){
+        var eff = x[4] ? s[x[4]] : s.enabled;
+        return '<div class="s"><div><b>'+x[2]+'</b><small>'+x[3]+'</small><div class="eff '+(eff?'on':'off')+'">'+(eff?'ACTIVE':'NOT ACTIVE')+(s[x[1]]&&!eff?' (needs the switches above)':'')+'</div></div>'
+          +'<label class="tg"><input type="checkbox" id="sw-'+x[1]+'" data-k="'+x[0]+'"'+(s[x[1]]?' checked':'')+' aria-label="'+x[2]+'"><span></span></label></div>';
+      }).join('');
+      var inb=(j.data.inbound_last_7_days||[]).map(function(r){return esc(r.status)+': '+r.n;}).join(', ')||'none';
+      document.getElementById('kv').innerHTML=
+        '<div><span>Spent today</span><b>$'+Number(j.data.spent_today_usd).toFixed(2)+'</b></div>'
+        +'<div><span>Daily limit (USD)</span><input type="number" id="budget" min="0" max="1000" step="1" value="'+s.daily_budget_usd+'" style="width:90px"> <button class="b g" id="bsave">Save</button></div>'
+        +'<div><span>Inbox address</span><b>'+esc(j.data.inbox_address)+'</b></div>'
+        +'<div><span>Mail received (7 days)</span><b>'+inb+'</b></div>';
+      document.getElementById('bsave').onclick=function(){ save('sasha.daily_budget_usd', Number(document.getElementById('budget').value)); };
+      [].forEach.call(document.querySelectorAll('#sw input'),function(i){ i.onchange=function(){ save(i.getAttribute('data-k'), i.checked); }; });
+    });
+  }
+  function save(key,value){ api('POST','/api/admin/sasha/settings',{key:key,value:value}).then(function(j){ if(!j.success){ msg('swmsg',j.message||'Not saved.'); } else msg('swmsg','Saved.',true); loadSettings(); }); }
+
+  var ARTS=[], EDIT=null;
+  function loadKnowledge(){
+    api('GET','/api/admin/sasha/knowledge').then(function(j){
+      if(!j.success) return;
+      ARTS=j.data.articles;
+      document.getElementById('kb').innerHTML='<tr><th>Guidance</th><th>For</th><th>Status</th><th>Source</th><th>Updated</th><th></th></tr>'+ (ARTS.length? ARTS.map(function(a){
+        return '<tr><td><b>'+esc(a.title)+'</b><div style="color:#475569;margin-top:3px;white-space:pre-wrap">'+esc(a.body.length>260?a.body.slice(0,260)+'…':a.body)+'</div>'+(a.conflict_note?'<div class="note">'+esc(a.conflict_note)+'</div>':'')+'</td>'
+          +'<td>'+esc(a.audience)+'</td><td><span class="pill st-'+esc(a.status)+'">'+esc(a.status)+'</span></td><td>'+esc(a.source||'')+'</td>'
+          +'<td>v'+a.version+'<br>'+new Date(a.updated_at).toLocaleDateString()+(a.updated_by?'<br>'+esc(a.updated_by):'')+'</td>'
+          +'<td><button class="b g" data-e="'+a.id+'">Edit</button></td></tr>';
+      }).join('') : '<tr><td colspan="6">No guidance yet.</td></tr>');
+      var f=j.data.platform_rules, h='';
+      Object.keys(f).forEach(function(k){ var t=f[k]; h+='<details><summary>'+esc(k.replace(/_/g,' '))+'</summary><ul class="facts">'+(t.facts||[]).map(function(x){return '<li>'+esc(x)+'</li>';}).join('')+'</ul>'+(t.source?'<div class="sub" style="margin:0 0 8px">Source: <code>'+esc(t.source)+'</code></div>':'')+'</details>'; });
+      document.getElementById('facts').innerHTML=h;
+      var hi=j.data.help_index||{};
+      document.getElementById('hp').textContent='Public help pages ('+(hi.pages||j.data.help_pages.length)+' pages, '+(hi.sections||'?')+' sections indexed)';
+      document.getElementById('hplist').innerHTML=j.data.help_pages.map(function(p){ var u='/'+String(typeof p==='string'?p:(p.url||p.path||'')).replace(/^\/+/,''); return '<li><a href="'+esc(u)+'" target="_blank" rel="noopener">'+esc(u)+'</a></li>'; }).join('');
+    });
+  }
+  document.getElementById('kb').addEventListener('click',function(e){ var b=e.target.closest('[data-e]'); if(!b) return;
+    var a=ARTS.filter(function(x){return x.id===b.getAttribute('data-e');})[0]; if(!a) return; EDIT=a.id;
+    document.getElementById('edt').textContent='Edit: '+a.title;
+    document.getElementById('k-title').value=a.title; document.getElementById('k-body').value=a.body;
+    document.getElementById('k-aud').value=a.audience; document.getElementById('k-st').value=a.status; document.getElementById('k-note').value=a.conflict_note||'';
+    document.getElementById('k-cancel').hidden=false; document.getElementById('ed').scrollIntoView({behavior:'smooth'}); });
+  function reset(){ EDIT=null; document.getElementById('edt').textContent='Add guidance'; ['k-title','k-body','k-note'].forEach(function(i){document.getElementById(i).value='';}); document.getElementById('k-st').value='approved'; document.getElementById('k-aud').value='all'; document.getElementById('k-cancel').hidden=true; }
+  document.getElementById('k-cancel').onclick=reset;
+  document.getElementById('k-save').onclick=function(){
+    var body={title:document.getElementById('k-title').value,body:document.getElementById('k-body').value,audience:document.getElementById('k-aud').value,status:document.getElementById('k-st').value,conflict_note:document.getElementById('k-note').value};
+    api(EDIT?'PATCH':'POST','/api/admin/sasha/knowledge'+(EDIT?'/'+EDIT:''),body).then(function(j){ if(!j.success){ msg('kmsg',j.message||'Not saved.'); return; } msg('kmsg','Saved.',true); reset(); loadKnowledge(); });
+  };
+
+  function loadActivity(){
+    api('GET','/api/admin/sasha/activity?days=7').then(function(j){
+      if(!j.success) return; var d=j.data;
+      var h='<table><tr><th>Day</th><th>Outcome</th><th>Runs</th><th>Cost</th><th>Avg time</th></tr>'+(d.runs_by_day.length?d.runs_by_day.map(function(r){return '<tr><td>'+esc(r.day)+'</td><td>'+esc(r.outcome)+'</td><td>'+r.n+'</td><td>$'+Number(r.cost_usd).toFixed(4)+'</td><td>'+(r.avg_ms?(r.avg_ms/1000).toFixed(1)+'s':'')+'</td></tr>';}).join(''):'<tr><td colspan="5">No activity yet.</td></tr>')+'</table>';
+      if(d.inbound_filtering.length) h+='<h2 style="margin-top:14px">Inbound email handling</h2><table><tr><th>Result</th><th>Reason</th><th>Count</th></tr>'+d.inbound_filtering.map(function(r){return '<tr><td>'+esc(r.sasha||'—')+'</td><td>'+esc(r.reason||'')+'</td><td>'+r.n+'</td></tr>';}).join('')+'</table>';
+      if(d.recent_errors.length) h+='<h2 style="margin-top:14px">Recent errors</h2><table><tr><th>When</th><th>Conversation</th><th>Error</th></tr>'+d.recent_errors.map(function(r){return '<tr><td>'+new Date(r.created_at).toLocaleString()+'</td><td>'+esc(r.ref||'')+'</td><td>'+esc(r.error||r.outcome_reason||'')+'</td></tr>';}).join('')+'</table>';
+      document.getElementById('act').innerHTML=h;
+    });
+  }
+  loadSettings(); loadKnowledge(); loadActivity();
+})();
+</script>
+</body>
+</html>

@@ -22,6 +22,7 @@ const mountPatch    = idx(/require\((['"])\.\/src\/middleware\/analyticsTag\1\)\
 const shareMeta     = idx(/require\((['"])\.\/src\/middleware\/shareMeta\1\)/);
 const htmlAuthGate  = idx(/require\((['"])\.\/src\/middleware\/htmlAuthGate\1\)/);
 const mountServe    = idx(/require\((['"])\.\/src\/middleware\/analyticsTag\1\)\.serve/);
+const sashaServe    = idx(/require\((['"])\.\/src\/middleware\/sashaTag\1\)\.serve/);
 const staticMount   = idx(/express\.static\(/);
 const firstApi      = idx(/app\.use\((['"])\/api\//);
 const jsonParser    = idx(/express\.json\(/);
@@ -45,13 +46,22 @@ describe('analyticsTag mount ordering in server.js', () => {
     expect(mountServe).toBeGreaterThan(htmlAuthGate);
   });
 
+  test('SECURITY: the Sasha help-button serve mount is also AFTER htmlAuthGate', () => {
+    expect(sashaServe).toBeGreaterThan(htmlAuthGate);
+    expect(sashaServe).toBeGreaterThan(mountServe);
+  });
+
   test('Mount B (serve) is immediately before express.static — nothing mounts between them', () => {
     expect(mountServe).toBeLessThan(staticMount);
     // Slice from the serve mount up to (not including) express.static. The only middleware
-    // registration in that span must be the serve mount itself — no gate, route, or parser
-    // may slip between the gate-protected serve and the file server.
+    // registrations in that span must be the serve mounts themselves (analytics, then the Sasha
+    // help-button tag, which has the same gate-protected read-and-send shape) — no gate, route,
+    // or parser may slip between the gate-protected serve and the file server.
     const between = src.slice(mountServe, staticMount);
-    expect((between.match(/app\.use\(/g) || []).length).toBe(1);
+    const uses = between.match(/app\.use\([^\n]*/g) || [];
+    expect(uses.length).toBe(2);
+    // (the slice starts inside the analytics mount and ends on express.static's own `app.use(`)
+    expect(uses[0]).toMatch(/sashaTag'\)\.serve\)/);
     expect(between).not.toMatch(/app\.(get|post|put|delete|all)\(/);
   });
 

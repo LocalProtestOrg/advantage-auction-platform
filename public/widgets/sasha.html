@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Sasha · Advantage.Bid help</title>
+<style>
+  :root{--red:#D9534F;--red-d:#b8403c;--blue:#006FBB;--ink:#0f172a;--mut:#64748b;--line:#e6eaef;--bg:#f6f8fb;--me:#006FBB;--her:#ffffff}
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;background:var(--bg);color:var(--ink);display:flex;flex-direction:column;font-size:15px}
+  header{background:var(--red);color:#fff;padding:12px 14px;display:flex;align-items:center;gap:10px;flex:0 0 auto}
+  header .av{width:34px;height:34px;border-radius:50%;background:#fff;color:var(--red);display:grid;place-items:center;font-weight:800;font-size:16px}
+  header .who{flex:1;line-height:1.2}header .who b{display:block;font-size:15px}header .who span{font-size:12px;opacity:.9}
+  header button{background:transparent;border:0;color:#fff;font-size:22px;line-height:1;cursor:pointer;padding:4px 8px;border-radius:6px}
+  header button:focus-visible{outline:2px solid #fff}
+  #log{flex:1 1 auto;overflow-y:auto;padding:14px 12px;display:flex;flex-direction:column;gap:8px}
+  .m{max-width:86%;padding:9px 12px;border-radius:14px;line-height:1.45;white-space:pre-wrap;word-wrap:break-word;font-size:14.5px}
+  .m.her{background:var(--her);border:1px solid var(--line);align-self:flex-start;border-bottom-left-radius:4px}
+  .m.me{background:var(--me);color:#fff;align-self:flex-end;border-bottom-right-radius:4px}
+  .m.staff{background:#fff7ed;border:1px solid #fed7aa;align-self:flex-start;border-bottom-left-radius:4px}
+  .m.sys{align-self:center;background:transparent;color:var(--mut);font-size:12.5px;text-align:center;max-width:95%}
+  .m a{color:inherit;text-decoration:underline}
+  .who-tag{font-size:11px;color:var(--mut);margin:2px 4px -4px}
+  .typing{align-self:flex-start;color:var(--mut);font-size:13px;padding:4px 8px}
+  footer{flex:0 0 auto;border-top:1px solid var(--line);background:#fff;padding:8px 10px 10px}
+  form{display:flex;gap:8px;align-items:flex-end}
+  textarea{flex:1;resize:none;border:1px solid #cbd5e1;border-radius:12px;padding:9px 11px;font:inherit;max-height:120px;min-height:40px}
+  textarea:focus{outline:2px solid var(--blue);border-color:transparent}
+  #send{background:var(--red);color:#fff;border:0;border-radius:12px;padding:0 14px;height:40px;font-weight:700;cursor:pointer}
+  #send:disabled{opacity:.5;cursor:default}
+  #send:focus-visible{outline:2px solid var(--ink)}
+  .links{display:flex;justify-content:space-between;margin-top:6px;font-size:12px;color:var(--mut)}
+  .links button{background:none;border:0;color:var(--blue);cursor:pointer;font:inherit;padding:0}
+  .links a{color:var(--mut)}
+  @media (prefers-reduced-motion:no-preference){.m{animation:in .18s ease-out}@keyframes in{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}}
+</style>
+</head>
+<body>
+  <header>
+    <div class="av" aria-hidden="true">S</div>
+    <div class="who"><b>Sasha</b><span>Advantage.Bid customer service</span></div>
+    <button type="button" id="close" aria-label="Close help">×</button>
+  </header>
+  <main id="log" role="log" aria-live="polite" aria-label="Conversation with Sasha"></main>
+  <footer>
+    <form id="f" autocomplete="off">
+      <label for="t" style="position:absolute;left:-9999px">Your message</label>
+      <textarea id="t" rows="1" maxlength="2000" placeholder="Type your question…"></textarea>
+      <button id="send" type="submit">Send</button>
+    </form>
+    <div class="links"><button type="button" id="human">Talk to a person</button><a href="https://www.advantage.bid/privacy" target="_blank" rel="noopener">Privacy</a></div>
+  </footer>
+<script>
+(function () {
+  var params = new URLSearchParams(location.search);
+  var SITE = params.get('site') === 'www' ? 'www' : 'bid';
+  var KEY = 'sasha.chat.' + SITE;
+  var API = '/api/sasha/chat';
+  var log = document.getElementById('log'), t = document.getElementById('t'), send = document.getElementById('send');
+  var token = null, lastAt = null, busy = false, seen = {};
+  try { token = localStorage.getItem(KEY); } catch (e) {}
+
+  function post(path, body) {
+    return fetch(API + path, { method: 'POST', credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json', 'X-Sasha-Client': '1' }, body: JSON.stringify(body || {}) })
+      .then(function (r) { return r.json().catch(function () { return {}; }).then(function (j) { j._status = r.status; return j; }); });
+  }
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+  // Links in messages become clickable (only http(s); everything else stays text).
+  function linkify(s) { return esc(s).replace(/(https?:\/\/[^\s<)]+[^\s<).,!?])/g, '<a href="$1" target="_blank" rel="noopener">$1</a>'); }
+  function add(m) {
+    if (m.id && seen[m.id]) return; if (m.id) seen[m.id] = 1;
+    var cls = m.author === 'customer' ? 'me' : (m.author === 'staff' ? 'staff' : (m.author === 'system' ? 'sys' : 'her'));
+    if (m.author === 'staff') { var w = document.createElement('div'); w.className = 'who-tag'; w.textContent = (m.staff_name || 'Advantage.Bid team'); log.appendChild(w); }
+    var d = document.createElement('div'); d.className = 'm ' + cls; d.innerHTML = linkify(m.text); log.appendChild(d);
+    if (m.at) lastAt = m.at;
+    log.scrollTop = log.scrollHeight;
+  }
+  function typing(on) {
+    var el = document.getElementById('typing');
+    if (on && !el) { el = document.createElement('div'); el.id = 'typing'; el.className = 'typing'; el.textContent = 'Sasha is typing…'; log.appendChild(el); log.scrollTop = log.scrollHeight; }
+    if (!on && el) el.remove();
+  }
+  function start() {
+    post('/start', { site: SITE, token: token }).then(function (j) {
+      if (!j.success) { add({ author: 'system', text: j.message || 'Help is unavailable right now. Please email info@advantage.bid.' }); send.disabled = true; return; }
+      token = j.data.token; try { localStorage.setItem(KEY, token); } catch (e) {}
+      (j.data.messages || []).forEach(add);
+      t.focus();
+    }).catch(function () { add({ author: 'system', text: 'Help is unavailable right now. Please email info@advantage.bid.' }); });
+  }
+  function submit(text) {
+    if (!text || busy) return; busy = true; send.disabled = true;
+    add({ author: 'customer', text: text }); typing(true);
+    post('/send', { token: token, text: text, site: SITE }).then(function (j) {
+      typing(false);
+      if (!j.success) { add({ author: 'system', text: j.message || 'Something went wrong. Please try again.' }); return; }
+      (j.data.messages || []).forEach(function (m) { if (m.author !== 'customer') add(m); else if (m.id) seen[m.id] = 1; });
+    }).catch(function () { typing(false); add({ author: 'system', text: 'Connection problem. Please try again.' }); })
+      .then(function () { busy = false; send.disabled = false; t.focus(); });
+  }
+  document.getElementById('f').addEventListener('submit', function (e) { e.preventDefault(); var v = t.value.trim(); t.value = ''; t.style.height = ''; submit(v); });
+  t.addEventListener('keydown', function (e) { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); document.getElementById('f').requestSubmit(); } });
+  t.addEventListener('input', function () { t.style.height = 'auto'; t.style.height = Math.min(t.scrollHeight, 120) + 'px'; });
+  document.getElementById('human').addEventListener('click', function () { submit('I would like to talk to a person, please.'); });
+  document.getElementById('close').addEventListener('click', function () { try { parent.postMessage({ sasha: 'close' }, '*'); } catch (e) {} });
+  // Staff replies (after a takeover) arrive by polling while the window is open.
+  setInterval(function () {
+    if (!token || busy || document.hidden) return;
+    post('/poll', { token: token, after: lastAt }).then(function (j) { if (j.success) (j.data.messages || []).forEach(add); }).catch(function () {});
+  }, 8000);
+  start();
+})();
+</script>
+</body>
+</html>

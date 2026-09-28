@@ -174,6 +174,9 @@ app.options('/{*path}', (req, res) => {
 // and immediately before shareMeta (which res.send()s and never reaches express.static).
 // Fail-open, idempotent, head-only, and env-gated (ANALYTICS_TAG_ENABLED). shareMeta is
 // not modified. See docs/analytics/ANALYTICS_INTEGRATION_SPEC.md §2–§4.
+// Sasha help-button loader — MOUNT A (patch). Before the analytics patch so it also wraps the analytics tag's own
+// res.send (the loader shows nothing unless chat is switched on; never on live bidding pages).
+app.use(require('./src/middleware/sashaTag').patch);
 app.use(require('./src/middleware/analyticsTag').patch);
 
 // Server-side share-meta injection — MUST run before express.static so shared
@@ -492,6 +495,8 @@ app.use(require('./src/middleware/htmlAuthGate'));
 // BEFORE express.static, with nothing between. Fail-open + env-gated; non-.html paths
 // fall straight through to express.static. See docs/analytics/ANALYTICS_INTEGRATION_SPEC.md §2–§4.
 app.use(require('./src/middleware/analyticsTag').serve);
+// Sasha help-button loader — MOUNT B (serve): static pages the analytics tag did not already send.
+app.use(require('./src/middleware/sashaTag').serve);
 
 // Static frontend — must be before routes and 404 handler
 app.use(express.static(path.join(__dirname, 'public')));
@@ -607,6 +612,7 @@ app.use('/api/admin/marketplace-links', adminMarketplaceLinkRoutes);
 app.use('/api/admin/partners', adminPartnersRoutes);
 app.use('/api/admin/crm', adminCrmRoutes);
 app.use('/api/admin/sales', adminSalesRoutes);
+app.use('/api/admin/sasha', require('./src/routes/adminSasha')); // Sasha Shared Inbox, settings, knowledge (support.* permissions)
 app.use('/api/admin/claimed-listings', require('./src/routes/adminClaimedListings')); // Toolbox: Claimed Listings tab (listings.* permissions)
 app.use('/api/admin/pricing', adminPricingRoutes);
 app.use('/api/admin/pricing-agreements', require('./src/routes/adminPricingAgreements'));
@@ -650,6 +656,8 @@ app.use('/api/invoices', invoicesRoutes);
 app.use('/api/seller/marketing-report', marketingReportsRoutes);
 app.use('/api/image-processing', imageProcessingRoutes);
 app.use('/api/uploads', uploadsRoutes);
+app.use('/api/public/sasha', require('./src/routes/publicSasha')); // Sasha: is the help button on for this site (on/off only)
+app.use('/api/sasha/chat', require('./src/routes/sashaChat'));     // Sasha website chat (bid origin + X-Sasha-Client only)
 app.use('/api/public', require('./src/routes/publicListings')); // Claimed Listing: claim context, claim link, help, by-bd lookup, unsubscribe
 app.use('/api/public', publicRoutes);
 app.use('/api/public', publicEventsRoutes);   // event feed (+ restricted CORS); falls through public.js
