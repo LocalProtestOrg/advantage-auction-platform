@@ -172,8 +172,9 @@ describe('paymentService wiring (all three PI paths + success + refund)', () => 
     expect(paymentSrc).toMatch(/_finalizeTaxTransaction\(paymentId\)/);
     expect(combinedSrc).toMatch(/_finalizeTaxTransaction\(paymentId\)/); // combined settle path too
   });
-  test('full refund reverses the Stripe Tax Transaction (matrix J)', () => {
-    expect(paymentSrc).toMatch(/if \(isFullRefund\) \{\s*await this\._reverseTaxForPayment\(paymentId\)/);
+  test('refunds (full or partial, in-app or charge.refunded) reverse the Stripe Tax Transaction (matrix J)', () => {
+    expect(paymentSrc).toMatch(/await this\._reverseTaxForRefund\(paymentId, newRefundedTotal, 'processRefund'\)/);
+    expect(paymentSrc).toMatch(/_reverseTaxForRefund\(reverseForPaymentId, reverseThrough, 'charge\.refunded'\)/);
   });
   test('tax fail-safe fails the pending payment and rethrows (never an untaxed intent) (matrix N)', () => {
     expect(paymentSrc).toMatch(/_failPendingPayment\(paymentId, 'tax:'/);
@@ -194,6 +195,8 @@ describe('invoice + route presentation wiring (matrix G/E)', () => {
     expect(routeSrc).toMatch(/router\.get\('\/tax-address'/);
   });
   test('charge routes surface the recoverable tax error code/status', () => {
-    expect((routeSrc.match(/err\.code && err\.status/g) || []).length).toBeGreaterThanOrEqual(2);
+    // Both charge routes go through publicPaymentError, which passes a coded error's own status through.
+    expect((routeSrc.match(/publicPaymentError\(err\)/g) || []).length).toBeGreaterThanOrEqual(2);
+    expect(routeSrc).toMatch(/err\.code && err\.status/);
   });
 });

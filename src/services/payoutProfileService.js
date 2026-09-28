@@ -8,10 +8,13 @@
 
 const db = require('../db');
 const { TAX_STATUS, usBankAccountDisplay } = require('../lib/payoutProfile');
+const { isLiveMode, maskPayoutPrefForMode } = require('../lib/stripeMode');
 
+// Other-mode (e.g. TEST after the switch to LIVE) connected-account / bank references are hidden, so the
+// seller is asked to set up direct deposit again. The stored row is kept unchanged for history.
 async function getProfile(sellerUserId) {
   const r = await db.query('SELECT * FROM seller_payout_preferences WHERE seller_user_id = $1', [sellerUserId]);
-  return r.rows[0] || null;
+  return maskPayoutPrefForMode(r.rows[0] || null);
 }
 
 // Upsert a whitelisted set of columns for one seller.
@@ -48,6 +51,7 @@ async function saveAchProfile(sellerUserId, { stripe_bank_account_ref, bank_name
   return upsert(sellerUserId, {
     payout_method: 'ach',
     stripe_bank_account_ref, bank_name, ach_account_type, ach_account_last4, is_verified,
+    stripe_bank_account_livemode: isLiveMode(),
     setup_completed_at: new Date(),
   });
 }

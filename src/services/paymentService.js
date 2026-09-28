@@ -5,6 +5,8 @@ const invoiceService = require('./invoiceService');
 const billingTerms   = require('./billingTermsService');
 const taxService     = require('./taxCalculationService');
 const Stripe         = require('stripe');
+const { isLiveMode, eventMatchesMode } = require('../lib/stripeMode');
+const { isPrepaid, PREPAID_MESSAGE } = require('./cardService');
 
 // Pin Stripe API version. Pin target matches the SDK 22.0.2 default; pinning
 // locks the contract against silent account-level version bumps in the Stripe
@@ -14,6 +16,35 @@ const STRIPE_API_VERSION = '2026-03-25.dahlia';
 function getStripe() {
   if (!process.env.STRIPE_SECRET_KEY) throw new Error('STRIPE_SECRET_KEY is not set');
   return Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: STRIPE_API_VERSION });
+}
+
+// A buyer-safe payment error: `message` is shown to the buyer as-is; `status` is the HTTP status.
+function paymentUserError(code, message, status = 409) {
+  const e = new Error(message);
+  e.code = code; e.status = status; e.userFacing = true;
+  return e;
+}
+
+// On-session auction PaymentIntents are created with MANUAL confirmation and card only: only this server
+// (secret key) can confirm them, after it has checked the card (debit/credit only, prepaid refused). A
+// browser holding the client secret can complete a 3-D Secure step but can never confirm with a card the
+// server has not checked.
+const ON_SESSION_INTENT_PARAMS = Object.freeze({ payment_method_types: ['card'], confirmation_method: 'manual' });
+
+// Open PaymentIntent states that can still be completed by the buyer.
+const REUSABLE_INTENT_STATES = new Set(['requires_payment_method', 'requires_confirmation', 'requires_action']);
+// A still-open intent younger than this is reused on retry (same amount, same tax calculation); an older
+// one is canceled and replaced so the tax calculation is never stale.
+const INTENT_REUSE_MAX_AGE_MS = 24 * 60 * 60 * 1000;
+
+// Is a provider error a card problem (decline / authentication) rather than a configuration or lookup
+// problem? Card problems are the buyer's to fix with another card; the rest are ours.
+function isCardError(err) {
+  return !!(err && (err.type === 'StripeCardError' || err.code === 'card_declined' || err.code === 'authentication_required'));
+}
+// Transient transport errors: the request may or may not have reached the provider.
+function isTransientProviderError(err) {
+  return !!(err && (err.type === 'StripeConnectionError' || err.type === 'StripeAPIError' || err.type === 'StripeRateLimitError'));
 }
 
 // Two-layer deduplication for Stripe webhook events:
@@ -209,6 +240,28 @@ class PaymentService {
     // prevents a concurrent retry from retiring a row that is currently mid-
     // Stripe-call by another process.
     let paymentId, amountCents, paymentCreatedAt;
+
+    // Retry safety: a buyer retrying payment for this lot must never end up with two open PaymentIntents
+    // (both payable) or hit the one-active-payment unique index. An open intent is reused when it is
+    // still completable (recent, same amount, server-confirmed); otherwise it is canceled first.
+    const reuse = await this._resolveOpenIntentsForRetry({ userId, auctionId, lotId });
+    if (reuse) {
+      const r = reuse.row;
+      const tax = r.sales_tax_cents || 0;
+      return {
+        id:                 r.id,
+        lot_id:             lotId,
+        auction_id:         auctionId,
+        amount_cents:       r.amount_cents,
+        taxable_base_cents: (r.taxable_base_cents != null ? r.taxable_base_cents : r.amount_cents - tax),
+        sales_tax_cents:    tax,
+        status:             'pending',
+        created_at:         r.created_at,
+        payment_intent_id:  reuse.intent.id,
+        reused:             true,
+      };
+    }
+
     const client = await db.connect();
     try {
       await client.query('BEGIN');
@@ -302,6 +355,10 @@ class PaymentService {
       await client.query('COMMIT');
     } catch (error) {
       await client.query('ROLLBACK');
+      if (error && error.code === '23505') {
+        // Another attempt for this lot is being started right now (the one-active-payment index).
+        throw paymentUserError('PAYMENT_IN_PROGRESS', 'A payment for this lot is already being started. Please wait a moment and try again.');
+      }
       throw error;
     } finally {
       client.release();
@@ -332,6 +389,7 @@ class PaymentService {
       intent = await stripe.paymentIntents.create({
         amount:   amountCents,
         currency: 'usd',
+        ...ON_SESSION_INTENT_PARAMS,
         metadata: { lot_id: lotId, auction_id: auctionId, buyer_user_id: userId, payment_id: paymentId },
       }, { timeout: 15000, idempotencyKey: stripeKey });
     } catch (stripeErr) {
@@ -434,8 +492,95 @@ class PaymentService {
       status:             'pending',
       created_at:         paymentCreatedAt,
       payment_intent_id:  intent.id,
-      client_secret:      intent.client_secret,
+      // No client secret here: payment.html loads the payment by id and the server confirms it.
     };
+  }
+
+  // ── Retry safety for on-session payments ──────────────────────────────────────────────────────
+  // Inspect this buyer's still-pending payment rows (per lot, or the combined lot_id NULL row) that already
+  // carry a PaymentIntent. Returns { row, intent } for ONE reusable intent, or null. Every other open intent
+  // is canceled and its row retired, so two open PaymentIntents can never both be paid. Throws a buyer-safe
+  // error when the payment already succeeded or is still processing.
+  async _resolveOpenIntentsForRetry({ userId, auctionId, lotId }) {
+    const res = lotId
+      ? await db.query(
+        `SELECT * FROM payments
+          WHERE lot_id = $1 AND buyer_user_id = $2 AND status = 'pending' AND payment_intent_id IS NOT NULL
+          ORDER BY created_at DESC`, [lotId, userId])
+      : await db.query(
+        `SELECT * FROM payments
+          WHERE auction_id = $1 AND buyer_user_id = $2 AND lot_id IS NULL AND status = 'pending' AND payment_intent_id IS NOT NULL
+          ORDER BY created_at DESC`, [auctionId, userId]);
+    const rows = (res && res.rows) || [];
+    if (!rows.length) return null;
+    const stripe = getStripe();
+    let reuse = null;
+    for (const row of rows) {
+      let intent;
+      try {
+        intent = await stripe.paymentIntents.retrieve(row.payment_intent_id);
+      } catch (e) {
+        if (isTransientProviderError(e)) throw paymentUserError('PAYMENTS_UNAVAILABLE', 'Payments are temporarily unavailable. Please try again shortly.', 503);
+        // Unknown under the current keys (e.g. a TEST intent after the switch to LIVE): it can never be
+        // paid, so retire the row and start fresh.
+        await this._retireSupersededPayment(row, userId, 'intent_unavailable');
+        continue;
+      }
+      if (intent.status === 'succeeded') {
+        await this._handlePaymentIntentSucceeded(intent).catch((e) => console.error('[payment] finalize on retry failed', { paymentId: row.id, error: e.message }));
+        throw paymentUserError('ALREADY_PAID', 'This payment has already been completed.');
+      }
+      if (intent.status === 'processing' || intent.status === 'requires_capture') {
+        throw paymentUserError('PAYMENT_PROCESSING', 'Your payment is being processed. Please check back in a few minutes.');
+      }
+      const age = Date.now() - new Date(row.created_at || 0).getTime();
+      if (!reuse && REUSABLE_INTENT_STATES.has(intent.status) && intent.confirmation_method === 'manual'
+          && intent.amount === row.amount_cents && age < INTENT_REUSE_MAX_AGE_MS) {
+        reuse = { row, intent };
+        continue;
+      }
+      if (intent.status !== 'canceled') {
+        try {
+          await stripe.paymentIntents.cancel(intent.id, { cancellation_reason: 'duplicate' });
+        } catch (e) {
+          // It may have completed in the meantime: never retire a real payment.
+          const again = await stripe.paymentIntents.retrieve(intent.id).catch(() => null);
+          if (again && again.status === 'succeeded') {
+            await this._handlePaymentIntentSucceeded(again).catch(() => {});
+            throw paymentUserError('ALREADY_PAID', 'This payment has already been completed.');
+          }
+          if (!again || again.status !== 'canceled') {
+            console.error('[payment] could not cancel superseded intent', { paymentId: row.id, intent_id: intent.id, error: e.message });
+            throw paymentUserError('PAYMENT_IN_PROGRESS', 'A payment for this invoice is already in progress. Please wait a moment and try again.');
+          }
+        }
+      }
+      await this._retireSupersededPayment(row, userId, 'superseded_on_retry');
+    }
+    return reuse;
+  }
+
+  // Retire a still-pending payment row whose intent was canceled or is unusable (pending → failed; the row
+  // and its intent id are kept for history).
+  async _retireSupersededPayment(row, actorId, reason) {
+    const client = await db.connect();
+    try {
+      await client.query('BEGIN');
+      await client.query(
+        `UPDATE payments SET status = 'failed', last_attempted_at = now() WHERE id = $1 AND status = 'pending'`,
+        [row.id]);
+      await auditService.logEvent(client, {
+        eventType: 'payment.intent_superseded', entityType: 'payment', entityId: row.id,
+        auctionId: row.auction_id, lotId: row.lot_id, paymentId: row.id, actorId,
+        metadata: { payment_intent_id: row.payment_intent_id, reason },
+      });
+      await client.query('COMMIT');
+    } catch (e) {
+      await client.query('ROLLBACK').catch(() => {});
+      throw e;
+    } finally {
+      client.release();
+    }
   }
 
   // ── Design C: combined per-buyer off-session charge (FLAG-INERT) ─────────────
@@ -453,16 +598,20 @@ class PaymentService {
 
   // Load the raw context the pure resolver needs. Only calls Stripe (for the
   // customer's default PM) when there is no local verified marker.
+  // Only CURRENT-mode records are used: a TEST customer / card is never charged under LIVE keys (the buyer
+  // is treated as having no card, so the invoice goes to payment_required and they pay on-session).
   async _loadCombinedChargeContext(buyerUserId) {
-    const u = (await db.query('SELECT stripe_customer_id FROM users WHERE id = $1', [buyerUserId])).rows[0] || {};
-    const cv = (await db.query(
+    const live = isLiveMode();
+    const u0 = (await db.query('SELECT stripe_customer_id, stripe_customer_livemode FROM users WHERE id = $1', [buyerUserId])).rows[0] || {};
+    const u = ((u0.stripe_customer_livemode === true) === live) ? u0 : {};
+    const cv = u.stripe_customer_id ? (await db.query(
       `SELECT stripe_payment_method_id
          FROM card_verifications
-        WHERE user_id = $1 AND status = 'verified' AND stripe_payment_method_id IS NOT NULL
+        WHERE user_id = $1 AND status = 'verified' AND stripe_payment_method_id IS NOT NULL AND livemode = $2
         ORDER BY attempted_at DESC NULLS LAST, id DESC
         LIMIT 1`,
-      [buyerUserId]
-    )).rows[0];
+      [buyerUserId, live]
+    )).rows[0] : null;
     let defaultPmId = null;
     if (u.stripe_customer_id && !(cv && cv.stripe_payment_method_id)) {
       try {
@@ -555,26 +704,33 @@ class PaymentService {
     // 3. Stripe off-session confirm. External call OUTSIDE any DB transaction.
     const stripeKey = idempotencyKey || ('combined:' + combinedInvoiceId);
     let intent;
+    const createParams = {
+      amount:         amountCents,
+      currency:       'usd',
+      customer:       resolved.customerId,
+      payment_method: resolved.paymentMethodId,
+      payment_method_types: ['card'],
+      off_session:    true,
+      confirm:        true,
+      metadata: { combined_invoice_id: combinedInvoiceId, auction_id: auctionId, buyer_user_id: buyerUserId, payment_id: paymentId },
+    };
     try {
       const stripe = getStripe();
-      intent = await stripe.paymentIntents.create({
-        amount:         amountCents,
-        currency:       'usd',
-        customer:       resolved.customerId,
-        payment_method: resolved.paymentMethodId,
-        off_session:    true,
-        confirm:        true,
-        metadata: { combined_invoice_id: combinedInvoiceId, auction_id: auctionId, buyer_user_id: buyerUserId, payment_id: paymentId },
-      }, { timeout: 15000, idempotencyKey: stripeKey });
+      try {
+        intent = await stripe.paymentIntents.create(createParams, { timeout: 15000, idempotencyKey: stripeKey });
+      } catch (firstErr) {
+        // A transport error leaves it unknown whether the charge was made. Retry ONCE with the SAME
+        // idempotency key: the provider returns the original result instead of charging twice.
+        if (!isTransientProviderError(firstErr)) throw firstErr;
+        intent = await stripe.paymentIntents.create(createParams, { timeout: 15000, idempotencyKey: stripeKey });
+      }
     } catch (stripeErr) {
       // Off-session declines (card_declined) and authentication_required surface as
-      // StripeCardError. Mark the payment failed and return the outcome — do NOT throw
-      // for a card problem (caller routes the header to payment_required + Reminder #1).
-      const isCardError = stripeErr && (
-        stripeErr.type === 'StripeCardError' ||
-        stripeErr.code === 'card_declined' ||
-        stripeErr.code === 'authentication_required'
-      );
+      // StripeCardError. Every other failure (invalid/missing customer or payment method, an id from the
+      // other mode after the switch to LIVE keys, a persistent outage) is ALSO returned as a failed charge,
+      // never rethrown: the caller routes the header to payment_required + Reminder #1 so the buyer can pay
+      // on-session. The buyer email is neutral (it never states the reason).
+      const cardProblem = isCardError(stripeErr);
       const attachedIntentId = stripeErr && stripeErr.raw && stripeErr.raw.payment_intent && stripeErr.raw.payment_intent.id;
       const fc = await db.connect();
       try {
@@ -602,8 +758,11 @@ class PaymentService {
       } finally {
         fc.release();
       }
-      if (isCardError) return { status: 'failed', paymentId, reason: stripeErr.code || stripeErr.message };
-      throw stripeErr;
+      if (cardProblem) return { status: 'failed', paymentId, reason: stripeErr.code || stripeErr.message };
+      console.error('[combined] off-session charge could not be attempted — routing to payment_required', {
+        paymentId, combinedInvoiceId, type: stripeErr && stripeErr.type, code: stripeErr && stripeErr.code, error: stripeErr && stripeErr.message,
+      });
+      return { status: 'failed', paymentId, reason: 'charge_error:' + ((stripeErr && (stripeErr.code || stripeErr.type)) || 'unknown') };
     }
 
     // Attach the intent id (tx2) — mirror createPaymentIntent's discipline.
@@ -642,12 +801,35 @@ class PaymentService {
 
   // ── Design C: combined ON-SESSION charge (buyer clicks "Pay Now" on an unpaid
   // combined invoice) ─────────────────────────────────────────────────────────
-  // Creates ONE PaymentIntent for the whole combined total (lot_id NULL); payment.html
-  // confirms it client-side, then the webhook's null-lot branch settles the combined
-  // header + per-lot invoices in one shot. Mirrors createPaymentIntent's tx1/Stripe/tx2
-  // idempotency discipline. Returns { client_secret, amount_cents }.
+  // Creates ONE PaymentIntent for the whole combined total (lot_id NULL) with MANUAL confirmation; payment.html
+  // loads it by payment id and the server confirms it after checking the card (confirmOnSessionPayment). The
+  // webhook's null-lot branch (or the synchronous finalize) settles the combined header + per-lot invoices.
+  // Mirrors createPaymentIntent's tx1/Stripe/tx2 idempotency discipline. Returns
+  // { payment_id, amount_cents, taxable_base_cents, sales_tax_cents } (no client secret).
   async createCombinedPaymentIntent(userId, combinedInvoiceId, idempotencyKey) {
     let paymentId, amountCents, auctionId, taxableBaseCents;
+
+    // Ownership pre-check (read-only) so retry handling only ever touches the owner's own payments.
+    const pre = (await db.query(
+      `SELECT auction_id, buyer_user_id, status FROM buyer_auction_invoices WHERE id = $1`, [combinedInvoiceId])).rows[0];
+    if (!pre) throw paymentUserError('INVOICE_NOT_FOUND', 'Invoice not found.', 404);
+    if (pre.buyer_user_id !== userId) throw paymentUserError('NOT_INVOICE_OWNER', 'Only the invoice owner can pay this invoice.', 403);
+    if (pre.status === 'paid' || pre.status === 'void') throw paymentUserError('INVOICE_CLOSED', `This invoice is already ${pre.status}.`);
+
+    // Retry safety (see createPaymentIntent): reuse or cancel an open combined intent first.
+    const reuse = await this._resolveOpenIntentsForRetry({ userId, auctionId: pre.auction_id, lotId: null });
+    if (reuse) {
+      const r = reuse.row;
+      const taxC = r.sales_tax_cents || 0;
+      return {
+        payment_id: r.id,
+        amount_cents: r.amount_cents,
+        taxable_base_cents: (r.taxable_base_cents != null ? r.taxable_base_cents : r.amount_cents - taxC),
+        sales_tax_cents: taxC,
+        reused: true,
+      };
+    }
+
     const client = await db.connect();
     try {
       await client.query('BEGIN');
@@ -657,10 +839,10 @@ class PaymentService {
         [combinedInvoiceId]
       );
       const bai = baiRes.rows[0];
-      if (!bai) throw new Error('Combined invoice not found');
-      if (bai.buyer_user_id !== userId) throw new Error('Only the invoice owner can pay this invoice');
-      if (bai.status === 'paid' || bai.status === 'void') throw new Error(`This invoice is already ${bai.status}`);
-      if (!bai.total_cents || bai.total_cents <= 0) throw new Error('This invoice has no payable amount');
+      if (!bai) throw paymentUserError('INVOICE_NOT_FOUND', 'Invoice not found.', 404);
+      if (bai.buyer_user_id !== userId) throw paymentUserError('NOT_INVOICE_OWNER', 'Only the invoice owner can pay this invoice.', 403);
+      if (bai.status === 'paid' || bai.status === 'void') throw paymentUserError('INVOICE_CLOSED', `This invoice is already ${bai.status}.`);
+      if (!bai.total_cents || bai.total_cents <= 0) throw paymentUserError('NOTHING_TO_PAY', 'This invoice has no payable amount.', 422);
       auctionId = bai.auction_id;
       // Taxable base = hammer + buyer premium (Owner policy; excludes shipping/credits, which are $0 at V1.0).
       taxableBaseCents = (bai.hammer_cents || 0) + (bai.buyer_premium_cents || 0);
@@ -693,26 +875,9 @@ class PaymentService {
       await client.query('ROLLBACK').catch(() => {});
       client.release();
       if (error && error.code === '23505') {
-        // A combined charge is already pending/paid for this (auction, buyer) — reuse
-        // the in-flight intent's client_secret so the buyer resumes the same payment.
-        const ex = (await db.query(
-          `SELECT p.payment_intent_id, p.amount_cents, p.sales_tax_cents FROM payments p
-             JOIN buyer_auction_invoices b ON b.auction_id = p.auction_id AND b.buyer_user_id = p.buyer_user_id
-            WHERE b.id = $1 AND p.lot_id IS NULL AND p.status = 'pending' AND p.payment_intent_id IS NOT NULL
-            ORDER BY p.created_at DESC LIMIT 1`,
-          [combinedInvoiceId]
-        )).rows[0];
-        if (ex && ex.payment_intent_id) {
-          const pi = await getStripe().paymentIntents.retrieve(ex.payment_intent_id);
-          const taxC = ex.sales_tax_cents || 0;
-          return {
-            client_secret: pi.client_secret,
-            amount_cents: ex.amount_cents,
-            taxable_base_cents: ex.amount_cents - taxC,   // derived (avoids a hard dependency on the new column here)
-            sales_tax_cents: taxC,
-          };
-        }
-        throw new Error('A payment for this invoice is already in progress. Please wait a moment and try again.');
+        // Another attempt is being started right now, or a combined payment already exists (paid/refunded).
+        // Never surface the raw database error to the buyer.
+        throw paymentUserError('PAYMENT_IN_PROGRESS', 'A payment for this invoice is already in progress. Please wait a moment and try again.');
       }
       throw error;
     }
@@ -731,6 +896,7 @@ class PaymentService {
     try {
       intent = await getStripe().paymentIntents.create({
         amount: amountCents, currency: 'usd',
+        ...ON_SESSION_INTENT_PARAMS,
         metadata: { combined_invoice_id: combinedInvoiceId, auction_id: auctionId, buyer_user_id: userId, payment_id: paymentId },
       }, { timeout: 15000, idempotencyKey: stripeKey });
     } catch (stripeErr) {
@@ -742,11 +908,136 @@ class PaymentService {
     }
     await db.query(`UPDATE payments SET payment_intent_id = $1 WHERE id = $2 AND payment_intent_id IS NULL`, [intent.id, paymentId]);
     return {
-      client_secret: intent.client_secret,
+      payment_id: paymentId,
       amount_cents: amountCents,                                      // base + sales tax (what will be charged)
       taxable_base_cents: taxableBaseCents,
       sales_tax_cents: amountCents - taxableBaseCents,
     };
+  }
+
+  // ── On-session checkout (payment.html) ──────────────────────────────────────────────────────────
+  // Load a pending payment for its OWNER only. Returns display data (never a client secret) or throws a
+  // buyer-safe error. Used by GET /api/payments/checkout/:paymentId.
+  async getCheckout(userId, paymentId) {
+    const p = (await db.query(
+      `SELECT p.id, p.auction_id, p.lot_id, p.buyer_user_id, p.status, p.amount_cents, p.taxable_base_cents,
+              p.sales_tax_cents, p.payment_intent_id, l.title AS lot_title, l.lot_number, a.title AS auction_title
+         FROM payments p
+         LEFT JOIN lots l ON l.id = p.lot_id
+         LEFT JOIN auctions a ON a.id = p.auction_id
+        WHERE p.id = $1`, [paymentId])).rows[0];
+    // Same answer for "missing" and "someone else's", so ids cannot be probed.
+    if (!p || p.buyer_user_id !== userId) throw paymentUserError('PAYMENT_NOT_FOUND', 'Payment not found.', 404);
+    const tax = p.sales_tax_cents || 0;
+    return {
+      payment_id: p.id,
+      kind: p.lot_id ? 'lot' : 'combined',
+      status: p.status,
+      payable: p.status === 'pending' && !!p.payment_intent_id,
+      amount_cents: p.amount_cents,
+      taxable_base_cents: p.taxable_base_cents != null ? p.taxable_base_cents : p.amount_cents - tax,
+      sales_tax_cents: tax,
+      lot_id: p.lot_id,
+      lot_title: p.lot_title || null,
+      lot_number: p.lot_number || null,
+      auction_id: p.auction_id,
+      auction_title: p.auction_title || null,
+      publishable_key: process.env.STRIPE_PUBLISHABLE_KEY || '',
+    };
+  }
+
+  // Server-side confirmation of an on-session payment. The browser only creates a PaymentMethod (card
+  // details go straight to the provider) and posts its id; this method:
+  //   1. verifies the buyer owns the pending payment and the intent belongs to it;
+  //   2. refuses a prepaid card (422, PREPAID_MESSAGE) — debit and credit only;
+  //   3. confirms the intent with the secret key;
+  //   4. returns { status:'requires_action', client_secret } for 3-D Secure (the browser completes the
+  //      step, then calls again WITHOUT a payment method so the server confirms the result), or finalizes a
+  //      success synchronously (idempotent with the webhook).
+  async confirmOnSessionPayment(userId, paymentId, paymentMethodId) {
+    const p = (await db.query(
+      `SELECT id, buyer_user_id, status, amount_cents, payment_intent_id, lot_id, auction_id FROM payments WHERE id = $1`,
+      [paymentId])).rows[0];
+    if (!p || p.buyer_user_id !== userId) throw paymentUserError('PAYMENT_NOT_FOUND', 'Payment not found.', 404);
+    if (p.status === 'paid') return { status: 'succeeded', payment_id: p.id, already_paid: true };
+    if (p.status !== 'pending' || !p.payment_intent_id) {
+      throw paymentUserError('PAYMENT_NOT_OPEN', 'This payment is no longer open. Please return to your invoices and start again.');
+    }
+    const stripe = getStripe();
+    let intent = await stripe.paymentIntents.retrieve(p.payment_intent_id);
+    const md = intent.metadata || {};
+    if ((md.payment_id && md.payment_id !== p.id) || intent.amount !== p.amount_cents) {
+      console.error('[payment] confirm refused — intent does not match payment row', { paymentId: p.id, intent_id: intent.id });
+      throw paymentUserError('PAYMENT_NOT_OPEN', 'This payment is no longer open. Please return to your invoices and start again.');
+    }
+    if (intent.status === 'succeeded') {
+      await this._finalizeOnSessionSuccess(intent);
+      return { status: 'succeeded', payment_id: p.id };
+    }
+    if (intent.status === 'processing') return { status: 'processing', payment_id: p.id };
+    if (intent.status === 'canceled') {
+      throw paymentUserError('PAYMENT_NOT_OPEN', 'This payment is no longer open. Please return to your invoices and start again.');
+    }
+
+    // Which card will be charged: the newly submitted one, or (after a 3-D Secure step) the one already
+    // on the intent. Either way the server checks its funding type BEFORE confirming.
+    let pmId = paymentMethodId || null;
+    if (!pmId) {
+      if (intent.status !== 'requires_confirmation') {
+        throw paymentUserError('CARD_REQUIRED', 'Please enter your card details.', 422);
+      }
+      pmId = typeof intent.payment_method === 'string' ? intent.payment_method : (intent.payment_method && intent.payment_method.id);
+    }
+    if (!pmId || typeof pmId !== 'string' || !/^pm_/.test(pmId)) {
+      throw paymentUserError('CARD_REQUIRED', 'Please enter your card details.', 422);
+    }
+    let pm;
+    try {
+      pm = await stripe.paymentMethods.retrieve(pmId);
+    } catch (e) {
+      throw paymentUserError('CARD_REQUIRED', 'We could not read that card. Please re-enter your card details.', 422);
+    }
+    if (!pm || pm.type !== 'card') throw paymentUserError('CARD_REQUIRED', 'Please pay with a debit or credit card.', 422);
+    if (isPrepaid(pm)) {
+      require('../lib/auditLog').writeAuditLog({
+        event_type: 'card.prepaid_rejected', entity_type: 'payment', entity_id: p.id, actor_id: userId,
+        metadata: { brand: pm.card && pm.card.brand, last4: pm.card && pm.card.last4, funding: 'prepaid', on_session: true },
+      }).catch(() => {});
+      throw paymentUserError('PREPAID_NOT_ACCEPTED', PREPAID_MESSAGE, 422);
+    }
+
+    try {
+      intent = await stripe.paymentIntents.confirm(intent.id, paymentMethodId ? { payment_method: pmId } : {},
+        { timeout: 20000 });
+    } catch (err) {
+      if (isCardError(err)) {
+        // The buyer can try another card on the same page; the intent stays open.
+        const msg = (err.message && !/stripe/i.test(err.message)) ? err.message : 'Your card was declined. Please try another card.';
+        throw paymentUserError('CARD_DECLINED', msg, 402);
+      }
+      throw err;
+    }
+
+    if (intent.status === 'requires_action') {
+      return { status: 'requires_action', payment_id: p.id, client_secret: intent.client_secret };
+    }
+    if (intent.status === 'succeeded') {
+      await this._finalizeOnSessionSuccess(intent);
+      return { status: 'succeeded', payment_id: p.id };
+    }
+    if (intent.status === 'processing') return { status: 'processing', payment_id: p.id };
+    // requires_payment_method after a failed attempt (e.g. authentication failed).
+    throw paymentUserError('CARD_DECLINED', 'Your card could not be charged. Please try another card.', 402);
+  }
+
+  // Synchronous finalize after an on-session success. Idempotent with the webhook (both paths no-op on an
+  // already-paid row). A failure here is logged — the webhook still settles the payment.
+  async _finalizeOnSessionSuccess(intent) {
+    try {
+      await this._handlePaymentIntentSucceeded(intent);
+    } catch (e) {
+      console.error('[payment] on-session finalize failed; webhook will settle', { intent_id: intent.id, error: e.message });
+    }
   }
 
   async recordPaymentSuccess(paymentId, paymentProviderId) {
@@ -988,8 +1279,8 @@ class PaymentService {
     // amount_cents BEFORE the Stripe call. Defense-in-depth alongside the DB
     // CHECK constraint chk_refunded_amount_bounded (migration 047).
     //
-    // Seeded path (payment_intent_id IS NULL): the Stripe call is skipped;
-    // DB state is still updated so the seeded test data refund flow works.
+    // A payment with no PaymentIntent (seeded / never charged) is REFUSED with NO_PAYMENT_INTENT; it is
+    // never marked refunded without a real provider refund.
     let payment, refundStartedAt;
     const refundKey = idempotencyKey || `${paymentId}:${refundAmountCents}:${Date.now()}`;
 
@@ -1017,6 +1308,14 @@ class PaymentService {
 
       if (refundAmountCents <= 0) {
         throw new Error('Refund amount must be greater than 0');
+      }
+
+      // No PaymentIntent = no card charge on record, so there is nothing the provider can refund. Refuse
+      // instead of silently marking the payment refunded (money would never actually move back).
+      if (!payment.payment_intent_id) {
+        const e = new Error('Cannot refund this payment here: it has no card charge on record (no payment intent). Record any off-platform refund manually.');
+        e.code = 'NO_PAYMENT_INTENT';
+        throw e;
       }
 
       // C-4 cumulative overspend check. The DB CHECK constraint backs this up
@@ -1079,7 +1378,7 @@ class PaymentService {
 
     // ── External Stripe call OUTSIDE any DB transaction ───────────────────
     let stripeRefundId = null;
-    if (payment.payment_intent_id) {
+    {
       try {
         const stripe = getStripe();
         const stripeRefund = await stripe.refunds.create({
@@ -1125,8 +1424,6 @@ class PaymentService {
         });
         throw new Error(`Stripe refund failed: ${stripeErr.message}`);
       }
-    } else {
-      console.warn('[refund] No payment_intent_id — Stripe refund skipped (seeded/test payment)', { paymentId });
     }
 
     // ── tx2: persist DB state ─────────────────────────────────────────────
@@ -1183,12 +1480,10 @@ class PaymentService {
       persistClient.release();
     }
 
-    // On a FULL refund, reverse the recorded Stripe Tax Transaction so the collected tax is credited
-    // back correctly. Idempotent + best-effort; no-op when tax is disabled or no transaction exists.
-    // V1.0 handles full reversals only (matches the full-refund → full-reversal refund model).
-    if (isFullRefund) {
-      await this._reverseTaxForPayment(paymentId);
-    }
+    // Reverse the recorded Stripe Tax Transaction for the refunded amount: in full on a full refund, or
+    // proportionally on a partial refund. Idempotent (one reversal per cumulative refunded level, unique
+    // reference) + best-effort; no-op when tax is disabled or no transaction exists.
+    await this._reverseTaxForRefund(paymentId, newRefundedTotal, 'processRefund');
 
     return {
       payment_id:          paymentId,
@@ -1282,7 +1577,57 @@ class PaymentService {
     }
   }
 
+  // Reverse sales tax for a refund (full or partial, issued from the app OR from outside it). The payment's
+  // recorded Tax Transaction is reversed up to the CUMULATIVE refunded amount `refundedThroughCents`:
+  //   - first reversal covering the whole payment → mode 'full' (reference 'refund:<payment>'), and
+  //     payments.stripe_tax_reversal_id is set (guarded by stripe_tax_reversal_id IS NULL);
+  //   - otherwise → mode 'partial' with a flat (tax-inclusive) amount equal to the newly refunded delta,
+  //     so tax is reversed proportionally (reference 'refund:<payment>:<cumulative cents>').
+  // Idempotent: one payment_tax_reversals row per cumulative level (unique), the provider call uses a stable
+  // idempotency key per reference, and the payment row is locked so two refund paths (processRefund and the
+  // charge.refunded webhook echo) can never reverse the same amount twice. Best-effort; never throws.
+  async _reverseTaxForRefund(paymentId, refundedThroughCents, source) {
+    if (!taxService.taxEnabled()) return null;
+    const client = await db.connect();
+    try {
+      await client.query('BEGIN');
+      const p = (await client.query(
+        `SELECT amount_cents, stripe_tax_transaction_id, stripe_tax_reversal_id FROM payments WHERE id = $1 FOR UPDATE`,
+        [paymentId])).rows[0];
+      if (!p || !p.stripe_tax_transaction_id || p.stripe_tax_reversal_id) { await client.query('ROLLBACK'); return null; }
+      const through = Math.min(Math.max(0, Math.trunc(Number(refundedThroughCents) || 0)), p.amount_cents);
+      const prior = (await client.query(
+        `SELECT COALESCE(MAX(refunded_through_cents), 0)::int AS through, COUNT(*)::int AS n
+           FROM payment_tax_reversals WHERE payment_id = $1`, [paymentId])).rows[0] || { through: 0, n: 0 };
+      if (through <= prior.through) { await client.query('ROLLBACK'); return null; }   // already covered
+      const delta = through - prior.through;
+      const full = prior.n === 0 && through >= p.amount_cents;
+      const reference = full ? 'refund:' + paymentId : 'refund:' + paymentId + ':' + through;
+      const revId = full
+        ? await taxService.reverseFullTransaction({ originalTransactionId: p.stripe_tax_transaction_id, reference })
+        : await taxService.reversePartialTransaction({ originalTransactionId: p.stripe_tax_transaction_id, reference, refundAmountCents: delta });
+      await client.query(
+        `INSERT INTO payment_tax_reversals
+           (payment_id, refunded_through_cents, reversal_amount_cents, mode, reference, stripe_tax_reversal_id, source)
+         VALUES ($1, $2, $3, $4, $5, $6, $7)
+         ON CONFLICT DO NOTHING`,
+        [paymentId, through, delta, full ? 'full' : 'partial', reference, revId || null, source || null]);
+      if (full && revId) {
+        await client.query(`UPDATE payments SET stripe_tax_reversal_id = $1 WHERE id = $2 AND stripe_tax_reversal_id IS NULL`, [revId, paymentId]);
+      }
+      await client.query('COMMIT');
+      return revId || null;
+    } catch (e) {
+      await client.query('ROLLBACK').catch(() => {});
+      console.error('[tax] reverseTaxForRefund failed — MANUAL TAX REVERSAL MAY BE REQUIRED', { paymentId, refundedThroughCents, source, error: e.message });
+      return null;
+    } finally {
+      client.release();
+    }
+  }
+
   // Reverse the recorded Tax Transaction in full when a payment is fully refunded. Idempotent.
+  // (Legacy entry point; refunds now go through _reverseTaxForRefund.)
   async _reverseTaxForPayment(paymentId) {
     if (!taxService.taxEnabled()) return;
     try {
@@ -1341,6 +1686,13 @@ class PaymentService {
   // and Stripe retries.
   async handleWebhookEvent(event) {
     console.log(`[webhook] received ${event.type} ${event.id}`);
+
+    // TEST/LIVE isolation: an event from the other mode (e.g. a TEST event delivered to a server running
+    // LIVE keys) is acknowledged but never acted on, and not recorded as processed.
+    if (!eventMatchesMode(event)) {
+      console.warn(`[webhook] ${event.id} (${event.type}) livemode=${event.livemode} does not match the server key mode — ignored`);
+      return { ignored: 'mode_mismatch' };
+    }
 
     // Fast path: in-memory dedup. Only contains events we have confirmed as
     // 'processed' in the DB, so a hit is authoritative.
@@ -1409,6 +1761,13 @@ class PaymentService {
     if (event.type === 'payment_intent.canceled') {
       return this._handlePaymentIntentCanceled(obj);
     }
+    // ── Disputes (chargebacks): record, hold the seller payout, audit, alert the owner. No money moves. ──
+    if (event.type === 'charge.dispute.created'
+        || event.type === 'charge.dispute.updated'
+        || event.type === 'charge.dispute.closed') {
+      return require('./disputeService').handleDisputeEvent(event, { getStripe });
+    }
+
     if (event.type === 'charge.refunded') {
       // A Dashboard/out-of-band refund on a Marketplace charge reconciles to the marketplace order first;
       // if it is not one of ours, fall through to the auction refund reconcile.
@@ -1487,6 +1846,20 @@ class PaymentService {
         LIMIT 1`,
       [intent.id]
     );
+    if (!paymentRes.rows[0] && intent.metadata && intent.metadata.payment_id && intent.metadata.buyer_user_id) {
+      // The intent id was never attached (e.g. the create call timed out but the charge went through).
+      // Attach it to the row named in its own metadata — only when that row belongs to the same buyer and
+      // has no intent yet — so money received is always recorded (the state machine below does the rest).
+      const attached = await db.query(
+        `UPDATE payments SET payment_intent_id = $1
+          WHERE id = $2 AND buyer_user_id = $3 AND payment_intent_id IS NULL
+          RETURNING id, lot_id, auction_id, buyer_user_id`,
+        [intent.id, intent.metadata.payment_id, intent.metadata.buyer_user_id]);
+      if (attached && attached.rows && attached.rows[0]) {
+        console.warn(`[webhook] payment_intent.succeeded — attached unrecorded intent ${intent.id} to payment ${attached.rows[0].id} via metadata`);
+        paymentRes.rows = attached.rows;
+      }
+    }
     if (!paymentRes.rows[0]) {
       // No DB row for an intent Stripe says succeeded. This is an orphan
       // PaymentIntent. Throw so the event is marked failed; operator must
@@ -1647,6 +2020,7 @@ class PaymentService {
       console.warn(`[webhook] charge.refunded — charge ${charge.id} has no payment_intent; skipping`);
       return;
     }
+    let reverseForPaymentId = null, reverseThrough = 0;
     const client = await db.connect();
     try {
       await client.query('BEGIN');
@@ -1677,6 +2051,8 @@ class PaymentService {
           && (payment.refunded_amount_cents || 0) >= amountRefunded) {
         await client.query('ROLLBACK');
         console.log(`[webhook] charge.refunded — payment ${payment.id} already reconciled (refund=${latestRefundId})`);
+        // Make sure the matching tax reversal exists (idempotent; a no-op when processRefund already did it).
+        await this._reverseTaxForRefund(payment.id, payment.refunded_amount_cents || 0, 'charge.refunded');
         return;
       }
 
@@ -1714,6 +2090,8 @@ class PaymentService {
         }
       });
       await client.query('COMMIT');
+      reverseForPaymentId = payment.id;
+      reverseThrough = Math.max(priorRefunded, amountRefunded);
       console.log(`[webhook] charge.refunded → payment ${payment.id} reconciled (status=${newStatus}, refund=${latestRefundId}, total_refunded=${Math.max(priorRefunded, amountRefunded)})`);
     } catch (err) {
       await client.query('ROLLBACK');
@@ -1721,6 +2099,9 @@ class PaymentService {
     } finally {
       client.release();
     }
+    // Sales tax follows the refund, whether it was issued in the app or outside it (Dashboard), in full or
+    // in part. Idempotent: an echo of processRefund's own refund finds the level already reversed.
+    if (reverseForPaymentId) await this._reverseTaxForRefund(reverseForPaymentId, reverseThrough, 'charge.refunded');
   }
 }
 

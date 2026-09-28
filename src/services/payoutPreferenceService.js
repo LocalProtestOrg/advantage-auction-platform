@@ -1,4 +1,5 @@
 const db = require('../db');
+const { maskPayoutPrefForMode } = require('../lib/stripeMode');
 
 const VALID_METHODS = ['ach', 'check'];
 
@@ -45,12 +46,15 @@ async function upsertSellerPayoutPreference(sellerUserId, payload) {
   return result.rows[0];
 }
 
+// Readers (settlement, Direct Deposit release, seller views) only ever see provider references from the
+// CURRENT payment mode: a TEST connected account / bank reference is hidden under LIVE keys, so no TEST id
+// can be used for a LIVE transfer and the seller is asked to set up direct deposit again.
 async function getSellerPayoutPreference(sellerUserId) {
   const result = await db.query(
     'SELECT * FROM seller_payout_preferences WHERE seller_user_id = $1',
     [sellerUserId]
   );
-  return result.rows[0] || null;
+  return maskPayoutPrefForMode(result.rows[0] || null);
 }
 
 module.exports = { upsertSellerPayoutPreference, getSellerPayoutPreference };

@@ -123,8 +123,13 @@ describe('createPaymentIntent — Sub-batch 2 reorder', () => {
 
     expect(result.id).toBe(paymentRowId);
     expect(result.payment_intent_id).toBe('pi_happy');
-    expect(result.client_secret).toBe('pi_happy_secret');
+    // No client secret leaves the server: payment.html loads the payment by id and the server confirms it.
+    expect(result.client_secret).toBeUndefined();
     expect(result.status).toBe('pending');
+    // Card only + manual (server-side) confirmation, so a browser can never confirm with an unchecked card.
+    const createParams = Stripe.__mockCreate.mock.calls[0][0];
+    expect(createParams.payment_method_types).toEqual(['card']);
+    expect(createParams.confirmation_method).toBe('manual');
 
     // Stripe was called with the HTTP idempotency key forwarded.
     expect(Stripe.__mockCreate).toHaveBeenCalledTimes(1);

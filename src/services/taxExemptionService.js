@@ -38,8 +38,9 @@ function exemptionApplies(exemption, { state = null, date = null } = {}) {
   return true;
 }
 
-// Sales tax for a buyer, honoring an approved applicable exemption → $0. Cents-safe. This is the ONLY place
-// exemption affects tax; it is NOT wired into live invoicing (sales tax remains globally inactive at launch).
+// Sales tax for a buyer at a given rate, honoring an approved applicable exemption → $0. Cents-safe. Pure helper.
+// Live tax calculation DOES apply exemptions: taxCalculationService.computeTax checks effectiveExemptionForSale
+// before calling the tax provider and charges $0 tax for an approved, applicable exemption (STRIPE_TAX_ENABLED).
 function salesTaxCents({ taxableCents, rateBps, exemption, state = null, date = null }) {
   const taxable = Math.max(0, Math.round(Number(taxableCents) || 0));
   const rate = Math.max(0, Number(rateBps) || 0);

@@ -7,7 +7,7 @@
 //   2. Stripe failure: refund_failed audit written; payment row unchanged; original error thrown.
 //   3. 30-second look-back guard rejects concurrent attempt with REFUND_IN_PROGRESS code.
 //   4. Overspend guard rejects refundAmountCents + prior refunded > amount_cents.
-//   5. Seeded path (payment_intent_id NULL): skips Stripe call, still updates DB.
+//   5. No payment_intent_id: refused with NO_PAYMENT_INTENT (never silently marked refunded).
 //   6. Stripe SDK called with options.idempotencyKey equal to provided refund key.
 
 jest.mock('../src/db');
@@ -169,27 +169,23 @@ describe('processRefund — Sub-batch 2 reorder', () => {
     expect(Stripe.__mockRefundCreate).not.toHaveBeenCalled();
   });
 
-  // ── 5. Seeded path (no payment_intent_id) ─────────────────────────────────
-  test('seeded path: Stripe call skipped, DB still updated, stripe_refund_id stays null', async () => {
+  // ── 5. No payment_intent_id → refused (never silently marked refunded) ────
+  test('no PaymentIntent: refund is REFUSED with a clear error and the payment is never marked refunded', async () => {
     const tx1 = tx1MocksFor({
       status: 'paid', amount_cents: 4000, refunded_amount_cents: 0,
       payment_intent_id: null, lot_id: lotId, auction_id: auctionId,
     });
-    const tx2 = makeClient();
-    tx2.query.mockImplementation(async (sql) => {
-      if (/^BEGIN$|^COMMIT$/.test(sql)) return { rowCount: 0 };
-      if (/UPDATE payments\s+SET status\s+= \$1/.test(sql)) return { rowCount: 1 };
-      throw new Error('unexpected tx2: ' + sql);
-    });
-    db.connect.mockImplementationOnce(async () => tx1)
-              .mockImplementationOnce(async () => tx2);
+    db.connect.mockImplementationOnce(async () => tx1);
 
-    const result = await paymentService.processRefund(adminId, paymentId, 4000, idemKey);
+    await expect(paymentService.processRefund(adminId, paymentId, 4000, idemKey))
+      .rejects.toMatchObject({ code: 'NO_PAYMENT_INTENT', message: expect.stringMatching(/^Cannot refund/) });
 
     expect(Stripe.__mockRefundCreate).not.toHaveBeenCalled();
-    expect(result.status).toBe('refunded');
-    expect(result.stripe_refund_id).toBeNull();
-    expect(result.refunded_amount_cents_total).toBe(4000);
+    expect(db.connect).toHaveBeenCalledTimes(1);                         // no persist tx
+    const sqls = tx1.query.mock.calls.map(c => c[0]);
+    expect(sqls.some(s => /UPDATE payments/.test(s))).toBe(false);
+    expect(sqls).toContain('ROLLBACK');
+    expect(auditService.logEvent.mock.calls.map(c => c[1].eventType)).not.toContain('payment.refunded');
   });
 
   // ── 6. Idempotency key forwarded to Stripe ────────────────────────────────

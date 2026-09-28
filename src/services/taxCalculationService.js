@@ -133,8 +133,8 @@ async function recordTransaction({ calculationId, reference }) {
 
 /**
  * Reverse a recorded Tax Transaction in full, on a full refund. Idempotent via a stable key.
- * No-op when the flag is off or there is no original transaction id. Partial reversals are out of
- * V1.0 scope (matches the refund architecture: full refund → full reversal).
+ * No-op when the flag is off or there is no original transaction id. Partial refunds use
+ * reversePartialTransaction below.
  */
 async function reverseFullTransaction({ originalTransactionId, reference }) {
   if (!taxEnabled() || !originalTransactionId) return null;
@@ -147,15 +147,14 @@ async function reverseFullTransaction({ originalTransactionId, reference }) {
 }
 
 /**
- * Reverse PART of a recorded Tax Transaction (a partial refund). `amountCents` is the refunded amount INCLUDING
- * tax; Stripe Tax spreads it proportionally across the transaction's line items and tax (mode 'partial' with a
- * negative flat_amount). The reference must be unique per reversal (callers include the cumulative refunded
- * amount), and doubles as the idempotency key. No-op when the flag is off or there is no original transaction.
+ * Reverse PART of a recorded Tax Transaction (a partial refund). The refunded amount INCLUDES tax; the provider
+ * spreads it proportionally across the transaction (mode 'partial', flat_amount sent negative). The reference must be
+ * unique per reversal (callers include the cumulative refunded amount) and derives the idempotency key. Accepts
+ * amountCents (storefront) or refundAmountCents (auction payments). No-op when tax is off or there is no transaction.
  */
-async function reversePartialTransaction({ originalTransactionId, reference, amountCents }) {
-  if (!taxEnabled() || !originalTransactionId) return null;
-  const amt = Math.round(Number(amountCents) || 0);
-  if (!(amt > 0)) return null;
+async function reversePartialTransaction({ originalTransactionId, reference, amountCents, refundAmountCents }) {
+  const amt = Math.trunc(Number(amountCents != null ? amountCents : refundAmountCents) || 0);
+  if (!taxEnabled() || !originalTransactionId || amt <= 0) return null;
   const stripe = getStripe();
   const rev = await stripe.tax.transactions.createReversal(
     { mode: 'partial', original_transaction: originalTransactionId, reference, flat_amount: -amt },

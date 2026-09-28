@@ -1,4 +1,6 @@
 require('dotenv').config();
+// Test-data script: refuses a production DATABASE_URL, NODE_ENV=production, or LIVE payment keys.
+require('./lib/nonProdGuard').refuseProduction('get-payment-url.js');
 const { Pool } = require('pg');
 const http = require('http');
 
@@ -63,8 +65,9 @@ async function run() {
 
   if (!charge.success) { console.error('charge-lot failed:', charge); process.exit(1); }
 
-  const { client_secret, amount_cents } = charge.data;
-  const url = `http://localhost:3000/payment.html?client_secret=${client_secret}&amount=${amount_cents}&lot_id=${lot_id}`;
+  // payment.html takes only the payment id (it loads the amount from an authenticated endpoint; the buyer must
+  // be logged in as the winner in that browser).
+  const url = `http://localhost:3000/payment.html?payment_id=${encodeURIComponent(charge.data.id)}`;
   console.log('\nPayment URL:');
   console.log(url);
 

@@ -26,7 +26,7 @@ const cardService = require('../src/services/cardService');
 beforeEach(() => {
   jest.clearAllMocks();
   db.query.mockImplementation(async (sql) => {
-    if (/SELECT email, stripe_customer_id FROM users/.test(sql)) return { rows: [{ email: 'buyer@example.com', stripe_customer_id: 'cus_1' }] };
+    if (/SELECT email, stripe_customer_id, stripe_customer_livemode FROM users/.test(sql)) return { rows: [{ email: 'buyer@example.com', stripe_customer_id: 'cus_1', stripe_customer_livemode: false }] };
     if (/INSERT INTO card_verifications/.test(sql)) return { rows: [{ id: 'cv_1' }] };
     return { rows: [] };
   });
@@ -40,7 +40,8 @@ describe('debit and credit only', () => {
     expect(out).toMatchObject({ saved: true, last4: '4242' });
     expect(mockStripe.customers.update).toHaveBeenCalledWith('cus_1', { invoice_settings: { default_payment_method: 'pm_x' } });
     const ins = db.query.mock.calls.find(([sql]) => /INSERT INTO card_verifications/.test(sql));
-    expect(ins[0]).toMatch(/'verified', now\(\), 0, 'usd'/);
+    expect(ins[0]).toMatch(/'verified', now\(\), 0, 'usd', \$3/);
+    expect(ins[1][2]).toBe(false); // stamped TEST mode (sk_test_ key)
     expect(mockStripe.paymentMethods.detach).not.toHaveBeenCalled();
   });
   test('a prepaid card is refused, detached, audited, and never becomes the default or verified', async () => {

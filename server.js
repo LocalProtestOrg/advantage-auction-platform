@@ -74,6 +74,9 @@ if (missingWarn.length) {
 
 const stripeMode = process.env.STRIPE_SECRET_KEY?.startsWith('sk_test_') ? 'TEST'
   : process.env.STRIPE_SECRET_KEY ? 'LIVE' : 'NOT_SET';
+// TEST/LIVE key consistency: a secret/publishable mode mismatch is logged loudly here, and the payment
+// endpoints refuse requests (503) until it is fixed (src/lib/stripeMode.js). Never prints key material.
+require('./src/lib/stripeMode').logStartupModeCheck();
 log.info('startup', 'Advantage Auction Platform', {
   env:    process.env.NODE_ENV || 'development',
   db:     process.env.DATABASE_URL?.includes('neon') ? 'NEON' : 'LOCAL',
@@ -759,6 +762,7 @@ app.get('/api/health', async (req, res) => {
     db_reachable:      dbReachable,
     stripe_configured: !!(process.env.STRIPE_SECRET_KEY && process.env.STRIPE_PUBLISHABLE_KEY),
     stripe_mode:       stripeMode,
+    stripe_keys_consistent: require('./src/lib/stripeMode').modeConsistency().ok,
     email_configured:  !!(process.env.SMTP_HOST && process.env.SMTP_USER),
     reconciliation,
   });

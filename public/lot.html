@@ -2058,8 +2058,8 @@
         if (!(ta && ta.data && ta.data.complete)) { await window.TaxAddress.collect(token); }
       }
       const baseKey = 'pay-' + lotId + '-' + currentUserId;
-      // Tax off → stable key (unchanged behavior). Tax on → fresh key per attempt; the DB partial-unique
-      // index still prevents duplicate active charges, so double-click safety is preserved.
+      // Fresh key per click: the server reuses (or cancels and replaces) any open payment for this lot, so a
+      // retry never dead-ends on an earlier attempt and two open payments can never both be charged.
       async function charge(key) {
         const r = await fetch('/api/payments/charge-lot', {
           method:  'POST',
@@ -2074,17 +2074,9 @@
         if (!j.success) throw new Error(j.message || 'Payment initiation failed');
         return j.data;
       }
-      const data = await charge(taxOn ? baseKey + '-' + Date.now() : baseKey);
-      const qs = new URLSearchParams({
-        client_secret: data.client_secret,
-        amount:        data.amount_cents,
-        base:          (data.taxable_base_cents != null ? data.taxable_base_cents : data.amount_cents),
-        tax:           (data.sales_tax_cents || 0),
-        lot_id:        lotId,
-        auction_id:    currentAuctionId || '',
-      });
-      if (cfg.publishableKey) qs.set('pk', cfg.publishableKey);
-      window.location.href = '/payment.html?' + qs.toString();
+      const data = await charge(baseKey + '-' + Date.now());
+      // Only the payment id travels in the URL; payment.html loads the rest from an authenticated endpoint.
+      window.location.href = '/payment.html?payment_id=' + encodeURIComponent(data.id);
     } catch (err) {
       if (err && err.message === 'cancelled') { btn.disabled = false; btn.textContent = 'Pay Now'; return; }
       setStatus(err.message, 'err');
