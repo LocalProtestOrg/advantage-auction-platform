@@ -303,7 +303,7 @@ async function recalculateSettlement(auctionId, actorId = null) {
     const spRes = await client.query('SELECT * FROM seller_payouts WHERE auction_id = $1 FOR UPDATE', [auctionId]);
     const sp = spRes.rows[0];
     if (!sp) { await client.query('ROLLBACK'); throw new Error('No seller_payouts row for this auction (not closed yet?)'); }
-    if (sp.settlement_status === SETTLEMENT_STATUS.PAID) { await client.query('ROLLBACK'); return { frozen: true, version: sp.settlement_version, totals }; }
+    if (sp.settlement_status === SETTLEMENT_STATUS.PAID || sp.settlement_status === SETTLEMENT_STATUS.VOID) { await client.query('ROLLBACK'); return { frozen: true, version: sp.settlement_version, totals }; }
 
     const vRes = await client.query('SELECT COALESCE(MAX(version),0) AS maxv FROM settlement_snapshots WHERE auction_id = $1', [auctionId]);
     const nextVersion = Number(vRes.rows[0].maxv) + 1;
@@ -369,6 +369,7 @@ function assertMarkPaidAllowed(state, input) {
   const s = state || {}, i = input || {};
   if (!s.hasSettlementRow) throw new MarkPaidError('No settlement exists for this auction yet.');
   if (s.settlementStatus === SETTLEMENT_STATUS.PAID) throw new MarkPaidError('Settlement is already paid and is immutable.');
+  if (s.settlementStatus === SETTLEMENT_STATUS.VOID) throw new MarkPaidError('Settlement is void (not payable)' + (s.voidReason ? ': ' + s.voidReason : '') + '.');
   if (s.settlementStatus === SETTLEMENT_STATUS.ON_HOLD) throw new MarkPaidError('Settlement is on hold' + (s.onHoldReason ? ' (' + s.onHoldReason + ')' : '') + '. Release the hold before paying.');
   if (s.openDisputes > 0) throw new MarkPaidError('A payment dispute is open for this auction. Resolve it before paying the seller.');
   if (i.paymentMethod !== 'ach' && i.paymentMethod !== 'check') throw new MarkPaidError("Payment method must be 'ach' or 'check'.");
@@ -406,6 +407,7 @@ async function markSettlementPaid(auctionId, {
       hasSettlementRow: !!sp,
       settlementStatus: sp && sp.settlement_status,
       onHoldReason: sp && sp.on_hold_reason,
+      voidReason: sp && sp.void_reason,
       openDisputes,
       netProceedsCents: totals.net_seller_proceeds_cents,
       payoutPreferenceComplete: payoutPreferenceComplete(pref),
@@ -467,6 +469,7 @@ function assertPaySellerAllowed(state, input) {
   const s = state || {}, i = input || {};
   if (!s.hasSettlementRow) throw new PaySellerError('No settlement exists for this auction yet.');
   if (s.settlementStatus === SETTLEMENT_STATUS.PAID) throw new PaySellerError('Settlement is already paid and is immutable.');
+  if (s.settlementStatus === SETTLEMENT_STATUS.VOID) throw new PaySellerError('Settlement is void (not payable)' + (s.voidReason ? ': ' + s.voidReason : '') + '.');
   if (s.settlementStatus === SETTLEMENT_STATUS.ON_HOLD) throw new PaySellerError('Settlement is on hold' + (s.onHoldReason ? ' (' + s.onHoldReason + ')' : '') + '. Release the hold before paying.');
   if (s.openDisputes > 0) throw new PaySellerError('A payment dispute is open for this auction. Resolve it before paying the seller.');
   if (s.existingTransferId) throw new PaySellerError('A Stripe transfer already exists for this settlement.');
@@ -503,6 +506,7 @@ async function paySellerViaTransfer(auctionId, { actorId = null, confirmedComple
       hasSettlementRow: !!sp,
       settlementStatus: sp && sp.settlement_status,
       onHoldReason: sp && sp.on_hold_reason,
+      voidReason: sp && sp.void_reason,
       openDisputes,
       existingTransferId: sp && sp.stripe_transfer_id,
       payoutMethod: pref && pref.payout_method,

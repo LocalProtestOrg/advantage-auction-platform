@@ -76,7 +76,7 @@ describe('createPaymentIntent — Sub-batch 2 reorder', () => {
       if (/^BEGIN$/.test(sql))   return { rowCount: 0 };
       if (/^COMMIT$/.test(sql))  return { rowCount: 0 };
       if (/^ROLLBACK$/.test(sql)) return { rowCount: 0 };
-      if (/SELECT state, winning_buyer_user_id, winning_amount_cents FROM lots/.test(sql)) {
+      if (/SELECT state, winning_buyer_user_id, winning_amount_cents,[\s\S]*FROM lots WHERE id/.test(sql)) {
         return { rows: [{ state: 'closed', winning_buyer_user_id: userId, winning_amount_cents: 1234 }] };
       }
       // billingTermsService.resolveEffectiveTerms — effective buyer-premium terms for the auction

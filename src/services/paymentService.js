@@ -25,6 +25,11 @@ function paymentUserError(code, message, status = 409) {
   return e;
 }
 
+// Pre-launch test auctions (mig 176) ran on test payments only: no buyer may ever be charged for one.
+// Each payment path reads the flag inside a query it already makes (no extra round trip).
+const TEST_RECORD_MESSAGE = 'This auction was a test before launch, so there is nothing to pay.';
+const testRecordError = () => paymentUserError('TEST_RECORD', TEST_RECORD_MESSAGE, 409);
+
 // On-session auction PaymentIntents are created with MANUAL confirmation and card only: only this server
 // (secret key) can confirm them, after it has checked the card (debit/credit only, prepaid refused). A
 // browser holding the client secret can complete a 3-D Secure step but can never confirm with a card the
@@ -267,13 +272,16 @@ class PaymentService {
       await client.query('BEGIN');
 
       const lotRes = await client.query(
-        'SELECT state, winning_buyer_user_id, winning_amount_cents FROM lots WHERE id = $1 AND auction_id = $2',
+        `SELECT state, winning_buyer_user_id, winning_amount_cents,
+                (SELECT pre_launch_test FROM auctions WHERE id = $2) AS pre_launch_test
+           FROM lots WHERE id = $1 AND auction_id = $2`,
         [lotId, auctionId]
       );
       if (!lotRes.rows[0]) {
         throw new Error('Lot not found');
       }
       const lot = lotRes.rows[0];
+      if (lot.pre_launch_test === true) throw testRecordError();
 
       // Lot must be closed (winner locked at closeAuction time)
       if (lot.state !== 'closed') {
@@ -600,9 +608,13 @@ class PaymentService {
   // customer's default PM) when there is no local verified marker.
   // Only CURRENT-mode records are used: a TEST customer / card is never charged under LIVE keys (the buyer
   // is treated as having no card, so the invoice goes to payment_required and they pay on-session).
-  async _loadCombinedChargeContext(buyerUserId) {
+  async _loadCombinedChargeContext(buyerUserId, auctionId = null) {
     const live = isLiveMode();
-    const u0 = (await db.query('SELECT stripe_customer_id, stripe_customer_livemode FROM users WHERE id = $1', [buyerUserId])).rows[0] || {};
+    const u0 = (await db.query(
+      `SELECT stripe_customer_id, stripe_customer_livemode,
+              (SELECT pre_launch_test FROM auctions WHERE id = $2) AS pre_launch_test
+         FROM users WHERE id = $1`, [buyerUserId, auctionId])).rows[0] || {};
+    if (u0.pre_launch_test === true) return { preLaunchTest: true, stripeCustomerId: null, verifiedPmId: null, defaultPmId: null };
     const u = ((u0.stripe_customer_livemode === true) === live) ? u0 : {};
     const cv = u.stripe_customer_id ? (await db.query(
       `SELECT stripe_payment_method_id
@@ -643,7 +655,9 @@ class PaymentService {
   //   { status:'failed',    paymentId, reason }     — card_declined / authentication_required
   async chargeCombinedOffSession({ auctionId, buyerUserId, combinedInvoiceId, amountCents, idempotencyKey }) {
     // 1. Resolve customer + payment method. No card → skip (never throw).
-    const ctx = await this._loadCombinedChargeContext(buyerUserId);
+    const ctx = await this._loadCombinedChargeContext(buyerUserId, auctionId);
+    // A pre-launch test auction is never charged, and the buyer is never asked to pay.
+    if (ctx.preLaunchTest) return { status: 'test_record' };
     const resolved = this._resolveCombinedChargeContext(ctx);
     if (resolved.skipped) return { skipped: resolved.skipped };
 
@@ -823,10 +837,13 @@ class PaymentService {
 
     // Ownership pre-check (read-only) so retry handling only ever touches the owner's own payments.
     const pre = (await db.query(
-      `SELECT auction_id, buyer_user_id, status FROM buyer_auction_invoices WHERE id = $1`, [combinedInvoiceId])).rows[0];
+      `SELECT auction_id, buyer_user_id, status,
+              (SELECT pre_launch_test FROM auctions a WHERE a.id = buyer_auction_invoices.auction_id) AS pre_launch_test
+         FROM buyer_auction_invoices WHERE id = $1`, [combinedInvoiceId])).rows[0];
     if (!pre) throw paymentUserError('INVOICE_NOT_FOUND', 'Invoice not found.', 404);
     if (pre.buyer_user_id !== userId) throw paymentUserError('NOT_INVOICE_OWNER', 'Only the invoice owner can pay this invoice.', 403);
     if (pre.status === 'paid' || pre.status === 'void') throw paymentUserError('INVOICE_CLOSED', `This invoice is already ${pre.status}.`);
+    if (pre.pre_launch_test === true) throw testRecordError();
 
     // Retry safety (see createPaymentIntent): reuse or cancel an open combined intent first.
     const reuse = await this._resolveOpenIntentsForRetry({ userId, auctionId: pre.auction_id, lotId: null });
@@ -933,13 +950,15 @@ class PaymentService {
   async getCheckout(userId, paymentId) {
     const p = (await db.query(
       `SELECT p.id, p.auction_id, p.lot_id, p.buyer_user_id, p.status, p.amount_cents, p.taxable_base_cents,
-              p.sales_tax_cents, p.payment_intent_id, l.title AS lot_title, l.lot_number, a.title AS auction_title
+              p.sales_tax_cents, p.payment_intent_id, l.title AS lot_title, l.lot_number, a.title AS auction_title,
+              a.pre_launch_test
          FROM payments p
          LEFT JOIN lots l ON l.id = p.lot_id
          LEFT JOIN auctions a ON a.id = p.auction_id
         WHERE p.id = $1`, [paymentId])).rows[0];
     // Same answer for "missing" and "someone else's", so ids cannot be probed.
     if (!p || p.buyer_user_id !== userId) throw paymentUserError('PAYMENT_NOT_FOUND', 'Payment not found.', 404);
+    if (p.status === 'pending' && p.pre_launch_test === true) throw testRecordError();
     const tax = p.sales_tax_cents || 0;
     return {
       payment_id: p.id,
@@ -968,10 +987,13 @@ class PaymentService {
   //      success synchronously (idempotent with the webhook).
   async confirmOnSessionPayment(userId, paymentId, paymentMethodId) {
     const p = (await db.query(
-      `SELECT id, buyer_user_id, status, amount_cents, payment_intent_id, lot_id, auction_id FROM payments WHERE id = $1`,
+      `SELECT id, buyer_user_id, status, amount_cents, payment_intent_id, lot_id, auction_id,
+              (SELECT pre_launch_test FROM auctions a WHERE a.id = payments.auction_id) AS pre_launch_test
+         FROM payments WHERE id = $1`,
       [paymentId])).rows[0];
     if (!p || p.buyer_user_id !== userId) throw paymentUserError('PAYMENT_NOT_FOUND', 'Payment not found.', 404);
     if (p.status === 'paid') return { status: 'succeeded', payment_id: p.id, already_paid: true };
+    if (p.pre_launch_test === true) throw testRecordError();
     if (p.status !== 'pending' || !p.payment_intent_id) {
       throw paymentUserError('PAYMENT_NOT_OPEN', 'This payment is no longer open. Please return to your invoices and start again.');
     }

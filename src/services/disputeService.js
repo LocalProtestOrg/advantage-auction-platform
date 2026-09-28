@@ -112,13 +112,15 @@ async function handleDisputeEvent(event, { getStripe } = {}) {
 
     // Hold the seller payout while the dispute is open. Never touches a PAID settlement.
     if (!closed && sellerPayout && !row.payout_hold_applied) {
-      if (sellerPayout.settlement_status === 'paid') {
+      if (sellerPayout.settlement_status === 'void') {
+        holdNote = 'Settlement is void (not payable); no hold needed.';
+      } else if (sellerPayout.settlement_status === 'paid') {
         holdNote = 'Settlement already paid before the dispute; no hold possible. Any recovery is an owner decision.';
       } else {
         const reason = `Payment dispute ${dispute.id} (${dispute.reason || 'unspecified'}, ${money(dispute.amount, dispute.currency)}) - payout held until reviewed`;
         const upd = await client.query(
           `UPDATE seller_payouts SET settlement_status = 'on_hold', on_hold_reason = $2, updated_at = now()
-            WHERE id = $1 AND settlement_status <> 'paid'`, [sellerPayout.id, reason]);
+            WHERE id = $1 AND settlement_status NOT IN ('paid', 'void')`, [sellerPayout.id, reason]);
         holdApplied = upd.rowCount === 1;
         holdNote = holdApplied ? 'Seller payout placed on hold.' : 'Seller payout could not be held (already paid).';
         if (holdApplied) {

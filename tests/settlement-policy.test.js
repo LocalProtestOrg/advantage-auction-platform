@@ -24,13 +24,14 @@ describe('settlementPolicy', () => {
     expect(gross - fee).toBe(gross);
   });
 
-  test('exposes the approved 5-state settlement status workflow', () => {
+  test('exposes the approved 5-state settlement status workflow (+ terminal void, mig 176)', () => {
     expect(sp.SETTLEMENT_STATUS).toEqual({
       PENDING_REVIEW: 'pending_review',
       APPROVED: 'approved',
       READY_FOR_PAYMENT: 'ready_for_payment',
       PAID: 'paid',
       ON_HOLD: 'on_hold',
+      VOID: 'void',
     });
     expect(sp.SETTLEMENT_STATUS_LABEL[sp.SETTLEMENT_STATUS.READY_FOR_PAYMENT]).toBe('Ready for Payment');
     expect(sp.SETTLEMENT_STATUS_LABEL[sp.SETTLEMENT_STATUS.ON_HOLD]).toBe('On Hold');

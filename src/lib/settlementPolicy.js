@@ -106,6 +106,7 @@ const SETTLEMENT_STATUS = Object.freeze({
   READY_FOR_PAYMENT: 'ready_for_payment',
   PAID:              'paid',
   ON_HOLD:           'on_hold',
+  VOID:              'void',   // not a liability (e.g. a pre-launch test record); terminal, never paid
 });
 
 // Human-readable labels for UI display (never expose the raw enum).
@@ -115,6 +116,7 @@ const SETTLEMENT_STATUS_LABEL = Object.freeze({
   [SETTLEMENT_STATUS.READY_FOR_PAYMENT]: 'Ready for Payment',
   [SETTLEMENT_STATUS.PAID]:              'Paid',
   [SETTLEMENT_STATUS.ON_HOLD]:           'On Hold',
+  [SETTLEMENT_STATUS.VOID]:              'Void (not payable)',
 });
 
 // ── Settlement audit event vocabulary (owner-approved) ─────────────────────────
@@ -129,6 +131,7 @@ const SETTLEMENT_AUDIT_EVENTS = Object.freeze({
   ADJUSTMENT_REMOVED:       'settlement.adjustment_removed',
   SETTLEMENT_APPROVED:      'settlement.approved',
   SETTLEMENT_ON_HOLD:       'settlement.on_hold',
+  SETTLEMENT_VOIDED:        'settlement.voided',
   SETTLEMENT_MARKED_PAID:   'settlement.marked_paid',
   PAYMENT_REFERENCE_CHANGED:'settlement.payment_reference_changed',
   MARKETING_CHARGE_INCLUDED:'settlement.marketing_charge_included',

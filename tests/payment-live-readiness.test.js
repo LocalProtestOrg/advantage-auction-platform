@@ -325,7 +325,7 @@ describe('disputes: record, hold the payout (no money moved), audit, alert', () 
     const r = await disputeService.handleDisputeEvent(evt('charge.dispute.created'), {});
     expect(r).toMatchObject({ recorded: true, holdApplied: true, closed: false });
     const hold = client.query.mock.calls.find(([s]) => /UPDATE seller_payouts SET settlement_status = 'on_hold'/.test(s));
-    expect(hold[0]).toMatch(/settlement_status <> 'paid'/);
+    expect(hold[0]).toMatch(/settlement_status NOT IN \('paid', 'void'\)/);
     expect(hold[1][1]).toMatch(/dp_1/);
     const events = auditService.logEvent.mock.calls.map((c) => c[1].eventType);
     expect(events).toEqual(expect.arrayContaining(['settlement.on_hold', 'payment.dispute_opened']));

@@ -13,6 +13,7 @@
 function sellerStatusLabel(s) {
   if (s === 'paid') return 'Paid';
   if (s === 'ready_for_payment') return 'Ready For Payment';
+  if (s === 'void') return 'Closed - No Payout'; // e.g. a pre-launch test auction: nothing is owed
   return 'Under Review'; // pending_review / approved / on_hold — do not expose admin workflow
 }
 

@@ -19,6 +19,9 @@ class SettlementAdjustmentError extends Error {}
 // Immutability guard: a paid settlement's adjustments cannot be added/edited/voided.
 async function assertSettlementMutable(client, auctionId) {
   const r = await client.query('SELECT settlement_status FROM seller_payouts WHERE auction_id = $1', [auctionId]);
+  if (r.rows[0] && r.rows[0].settlement_status === 'void') {
+    throw new SettlementAdjustmentError('Settlement is void (not payable); adjustments cannot be changed.');
+  }
   if (r.rows[0] && r.rows[0].settlement_status === 'paid') {
     throw new SettlementAdjustmentError('Settlement is paid and immutable; adjustments cannot be changed.');
   }
