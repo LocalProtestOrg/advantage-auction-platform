@@ -168,6 +168,9 @@ const SYNTHETIC_HAMMERS = [12550, 4050];
 // acceptance fixtures, never a platform default (the sale location comes from src/lib/saleLocation.js).
 const TEST_TAX_ADDRESS = { line1: '2205 Ogden Hwy', city: 'Adrian', state: 'MI', postal_code: '49221', country: 'US' };
 // Temporary pickup location put on the DEMO storefront item for the run (restored afterwards).
+// Temporary pickup address put on the DEMO auction for the run (restored afterwards): an auction sale is taxed at its
+// pickup address, and the sandbox is registered only in MI.
+const TEST_AUCTION_PICKUP = { street_address: '100 E Maumee St', city: 'Adrian', address_state: 'MI', zip: '49221' };
 const TEST_ITEM_PICKUP = { pickup_address_line1: '100 E Maumee St', pickup_address_line2: null, pickup_city: 'Adrian',
   pickup_state: 'MI', pickup_postal_code: '49221', pickup_country: 'US' };
 const RUN_ID = Date.now().toString(36);
@@ -578,6 +581,11 @@ async function runStorefront(buyer, item) {
 async function runAuction(buyer, auction, admin) {
   console.log('\n=== AUCTION (combined per-buyer invoice) ===');
   log('demo auction', `${auction.title} (${auction.id}) state=${auction.state}`);
+  // The sale location is the auction's pickup address: give the demo auction a TEST one for this run (restored in cleanup).
+  const auctionLocSnap = (await q('SELECT street_address, city, address_state, zip FROM auctions WHERE id = $1', [auction.id])).rows[0] || {};
+  await q(`UPDATE auctions SET street_address = $2, city = $3, address_state = $4, zip = $5 WHERE id = $1 AND is_demo = true`,
+    [auction.id, TEST_AUCTION_PICKUP.street_address, TEST_AUCTION_PICKUP.city, TEST_AUCTION_PICKUP.address_state, TEST_AUCTION_PICKUP.zip]);
+  log('demo auction pickup (temporary)', `${TEST_AUCTION_PICKUP.city}, ${TEST_AUCTION_PICKUP.address_state} ${TEST_AUCTION_PICKUP.zip} (was: ${[auctionLocSnap.street_address, auctionLocSnap.city, auctionLocSnap.address_state, auctionLocSnap.zip].map((v) => v || '—').join(' / ')})`);
   log('demo seller', `${auction.seller_id} (${auction.seller_type || 'untyped'})`);
   log('demo buyer', `${buyer.email} (${buyer.id})`);
 
@@ -908,6 +916,11 @@ async function runAuction(buyer, auction, admin) {
   } finally {
     // ── Auction cleanup ──────────────────────────────────────────────────────────────────────────
     console.log('\n  [cleanup] auction');
+    try {
+      await q(`UPDATE auctions SET street_address = $2, city = $3, address_state = $4, zip = $5 WHERE id = $1 AND is_demo = true`,
+        [auction.id, auctionLocSnap.street_address || null, auctionLocSnap.city || null, auctionLocSnap.address_state || null, auctionLocSnap.zip || null]);
+      cleanupLog.push(`demo auction ${auction.id} pickup address restored`);
+    } catch (e) { cleanupLog.push('demo auction pickup restore FAILED: ' + e.message); }
     await teardown('auction final');
     for (const si of A.setupIntents) {
       try { const s = await stripe.setupIntents.retrieve(si); if (!['succeeded', 'canceled'].includes(s.status)) await stripe.setupIntents.cancel(si); }
