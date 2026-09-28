@@ -45,7 +45,7 @@
     }).catch(function(){document.getElementById('list').innerHTML='<p class="err">Network error.</p>';});
 
     function card(o){
-      var pay=o.refund_status==='refunded'?'<span class="pill pill-refunded">Refunded</span>':'<span class="pill pill-paid">Paid</span>';
+      var pay=o.refund_status==='refunded'?'<span class="pill pill-refunded">Refunded</span>':(o.refund_status==='partially_refunded'?'<span class="pill pill-refunded">Partially refunded</span>':'<span class="pill pill-paid">Paid</span>');
       var ful='<span class="pill pill-ful">'+esc((o.fulfillment_status||'').replace(/_/g,' '))+'</span>';
       var seller=o.storefront_slug?('<a href="/pro/'+esc(o.storefront_slug)+'">'+esc(o.seller_name||'Seller')+'</a>'):esc(o.seller_name||'Seller');
       var img=o.thumbnail_url?'<img src="'+esc(o.thumbnail_url)+'" alt="'+esc(o.item_title)+'">':'<div style="width:76px;height:76px;border-radius:10px;background:#eef2f7"></div>';

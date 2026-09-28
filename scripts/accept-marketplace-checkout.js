@@ -68,12 +68,15 @@ const money = (c) => '$' + (Number(c) / 100).toFixed(2);
   const claimed = (await q('SELECT status FROM marketplace_items WHERE id=$1', [DEMO_ITEM])).rows[0].status;
   log('item status after claim', claimed);
   let doubleSell = 'blocked';
-  try { await svc.createOrder(DEMO_ITEM, DEMO_BUYER, { fulfillment_method: 'pickup' }); doubleSell = 'NOT blocked (BUG)'; } catch (e) { doubleSell = 'blocked (' + e.code + ')'; }
+  try { const again = await svc.createOrder(DEMO_ITEM, DEMO_BUYER, { fulfillment_method: 'pickup' }); doubleSell = again.order.id === o.id ? 'blocked (same buyer reuses the same order)' : 'NOT blocked (BUG)'; } catch (e) { doubleSell = 'blocked (' + e.code + ')'; }
   log('concurrent purchase', doubleSell);
 
-  // 2) Confirm the PaymentIntent with a TEST card, then run the webhook-equivalent success path.
+  // 2) Pay with a TEST card through the server-confirmed path, then run the webhook-equivalent success path.
   const intentId = (await q('SELECT stripe_payment_intent_id FROM marketplace_orders WHERE id=$1', [o.id])).rows[0].stripe_payment_intent_id;
-  await stripe.paymentIntents.confirm(intentId, { payment_method: 'pm_card_visa' });
+  // Server-confirmed flow (the PaymentIntent uses manual confirmation): the server reads the card, refuses prepaid,
+  // and confirms. pm_card_visa is a TEST credit card.
+  const payOut = await svc.payOrder(o.id, DEMO_BUYER, { paymentMethodId: 'pm_card_visa', idempotencyKey: 'accept-' + o.id });
+  log('payOrder status', payOut.status);
   const intent = await stripe.paymentIntents.retrieve(intentId, { expand: ['latest_charge'] });
   console.log('\n[2] Card confirmed (pm_card_visa)'); log('intent status', intent.status);
   await svc.markOrderPaid(intent); // idempotent webhook-equivalent

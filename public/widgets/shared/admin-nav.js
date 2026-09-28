@@ -60,6 +60,7 @@
     { href: '/admin/invoices.html', label: 'Invoices' },
     { href: '/admin/pricing.html', label: 'Pricing & Fees', perm: 'seller_platform_fee.view' },
     { href: '/admin/marketplace-config.html', label: 'Marketplace Config' },
+    { href: '/admin/marketplace-orders.html', label: 'Storefront Orders' },
     { href: '/admin/follower-emails.html', label: 'Follower Emails' },
     { href: '/admin/subscribers.html', label: 'Subscribers', perm: 'members.view' },
     { href: '/admin/marketing-campaigns.html', label: 'Campaigns', perm: 'members.view' },

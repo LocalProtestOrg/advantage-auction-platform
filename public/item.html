@@ -126,7 +126,7 @@
       function renderAddr(){
         var shipping=(fm.value==='shipping');
         document.getElementById('addrWrap').innerHTML=
-          '<label>'+(shipping?'Shipping / billing address':'Billing address (for tax)')+'</label>'+
+          '<label>'+(shipping?'Shipping / billing address':'Billing address')+'</label>'+
           '<input id="a_name" placeholder="Full name">'+
           '<input id="a_line1" placeholder="Address line 1" style="margin-top:8px">'+
           '<input id="a_line2" placeholder="Address line 2 (optional)" style="margin-top:8px">'+
@@ -147,7 +147,7 @@
       var errEl=document.getElementById('coErr'); errEl.textContent='';
       document.getElementById('toReview').disabled=true;
       fetch('/api/marketplace/orders/quote',{method:'POST',headers:Object.assign({'Content-Type':'application/json'},authHdr()),
-        body:JSON.stringify({item_id:it.id,fulfillment_method:method,address:addr})})
+        body:JSON.stringify({item_id:it.id,fulfillment_method:method,address:addr,ship_to:method==='shipping'?addr:undefined})})
         .then(function(r){return r.json();}).then(function(res){
           document.getElementById('toReview').disabled=false;
           if(!res.success){errEl.textContent=res.message||'Could not calculate your order.';return;}
@@ -176,20 +176,53 @@
       document.getElementById('payBtn').addEventListener('click',function(){pay(method,addr);});
     }
 
+    // Server-confirmed card flow: the browser only turns the card field into a payment method; the server checks
+    // the card (debit/credit only) and confirms the charge. "Try again" reuses the same order + payment.
+    var ORDER_KEY=null;
+    function orderKey(method,addr){return method+'|'+(method==='shipping'?JSON.stringify(addr):'');}
+    function ensureOrder(method,addr){
+      var key=orderKey(method,addr);
+      if(ORDER&&ORDER_KEY===key&&ORDER.payment_status==='pending')return Promise.resolve(ORDER);
+      var body={item_id:ITEM.id,fulfillment_method:method,address:addr};
+      if(method==='shipping')body.ship_to=addr;
+      return fetch('/api/marketplace/orders',{method:'POST',headers:Object.assign({'Content-Type':'application/json','Idempotency-Key':uuid()},authHdr()),body:JSON.stringify(body)})
+        .then(function(r){return r.json();}).then(function(res){
+          if(!res.success)throw new Error(res.message||'Could not start payment.');
+          ORDER=res.data.order; ORDER_KEY=key; return ORDER;
+        });
+    }
+    function postPay(body){
+      return fetch('/api/marketplace/orders/'+encodeURIComponent(ORDER.id)+'/pay',{method:'POST',
+        headers:Object.assign({'Content-Type':'application/json','Idempotency-Key':uuid()},authHdr()),body:JSON.stringify(body)})
+        .then(function(r){return r.json();}).then(function(res){
+          if(!res.success){
+            if(res.code==='ORDER_NOT_PAYABLE'){ORDER=null;ORDER_KEY=null;}
+            throw new Error(res.message||'Payment failed.');
+          }
+          var d=res.data;
+          if(d.status==='requires_action'){
+            return stripe.handleCardAction(d.client_secret).then(function(ar){
+              if(ar.error)throw new Error('Card verification was not completed. Please try again or use another card.');
+              return postPay({});
+            });
+          }
+          return d;
+        });
+    }
     function pay(method,addr){
       var payBtn=document.getElementById('payBtn'), errEl=document.getElementById('payErr');
       errEl.textContent=''; payBtn.disabled=true; payBtn.textContent='Processing…';
-      var body={item_id:ITEM.id,fulfillment_method:method,address:addr};
-      if(method==='shipping')body.ship_to=addr;
-      fetch('/api/marketplace/orders',{method:'POST',headers:Object.assign({'Content-Type':'application/json','Idempotency-Key':uuid()},authHdr()),body:JSON.stringify(body)})
-        .then(function(r){return r.json();}).then(function(res){
-          if(!res.success){payBtn.disabled=false;payBtn.textContent='Try again';errEl.textContent=res.message||'Could not start payment.';return;}
-          ORDER=res.data.order;
-          return stripe.confirmCardPayment(res.data.client_secret,{payment_method:{card:cardEl}}).then(function(cr){
-            if(cr.error){payBtn.disabled=false;payBtn.textContent='Try again';errEl.textContent=cr.error.message||'Payment failed.';return;}
-            pollOrder(ORDER.id,0);
-          });
-        }).catch(function(){payBtn.disabled=false;payBtn.textContent='Try again';errEl.textContent='Network error.';});
+      function failed(msg){payBtn.disabled=false;payBtn.textContent='Try again';errEl.textContent=msg||'Payment failed.';}
+      ensureOrder(method,addr).then(function(){
+        return stripe.createPaymentMethod({type:'card',card:cardEl,billing_details:{name:addr.name||undefined,
+          address:{line1:addr.line1||undefined,line2:addr.line2||undefined,city:addr.city||undefined,state:addr.state||undefined,postal_code:addr.postal_code||undefined,country:addr.country||undefined}}});
+      }).then(function(pmr){
+        if(pmr.error)throw new Error(pmr.error.message||'Please check your card details.');
+        return postPay({payment_method_id:pmr.paymentMethod.id});
+      }).then(function(d){
+        if(d&&(d.status==='succeeded'||d.status==='processing'))return pollOrder(ORDER.id,0);
+        failed('Your payment could not be completed. Please try again.');
+      }).catch(function(e){failed(e&&e.message?e.message:'Network error.');});
     }
 
     function pollOrder(orderId,tries){

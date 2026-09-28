@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="noindex, nofollow" />
+  <title>Storefront Orders - Admin</title>
+  <style>
+    *,*::before,*::after{box-sizing:border-box}
+    body{margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#f1f5f9;color:#1f2937}
+    .wrap{max-width:1200px;margin:0 auto;padding:1.25rem 1rem 4rem}
+    h1{font-size:1.3rem;margin:0 0 .4rem}
+    .sub{color:#64748b;font-size:13px;margin:0 0 1rem}
+    .bar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+    .bar select{padding:9px 11px;border:1.5px solid #cbd5e1;border-radius:7px;font-size:14px}
+    .bar button{padding:9px 16px;border:none;border-radius:7px;background:#2563eb;color:#fff;font-weight:700;cursor:pointer}
+    .tblwrap{overflow-x:auto;background:#fff;border-radius:10px}
+    table{width:100%;border-collapse:collapse;min-width:980px}
+    th,td{text-align:left;padding:9px 10px;font-size:13px;border-bottom:1px solid #f1f5f9;vertical-align:top}
+    th{background:#f8fafc;color:#475569;white-space:nowrap}
+    td.num,th.num{text-align:right;white-space:nowrap}
+    .badge{display:inline-block;font-size:11px;font-weight:800;padding:2px 8px;border-radius:999px;white-space:nowrap}
+    .ok{background:#dcfce7;color:#166534}.no{background:#fee2e2;color:#991b1b}.neutral{background:#f1f5f9;color:#475569}.warn{background:#fef3c7;color:#92400e}
+    .btn{padding:6px 11px;border:none;border-radius:7px;font-weight:700;font-size:12px;cursor:pointer;margin:2px 4px 2px 0}
+    .btn-danger{background:#fee2e2;color:#991b1b}.btn-mut{background:#e2e8f0;color:#475569}
+    .btn[disabled]{opacity:.5;cursor:not-allowed}
+    .msg{font-size:13px;color:#64748b;margin:8px 0}
+    .note{font-size:12px;color:#92400e;margin-top:4px}
+    .confirm{font-size:12px;color:#991b1b;margin-top:4px}
+    .small{font-size:12px;color:#64748b}
+  </style>
+</head>
+<body>
+  <script src="/widgets/shared/admin-nav.js"></script>
+  <div class="wrap">
+    <h1>Storefront Orders</h1>
+    <p class="sub">Fixed-price Professional Storefront sales. Flat 11% selling fee on the item price (includes card processing); shipping and sales tax are excluded from the fee. Payouts are settled manually — nothing here moves money except an explicit refund.</p>
+    <div class="bar">
+      <select id="status">
+        <option value="">All orders</option>
+        <option value="paid">Paid</option>
+        <option value="pending">Pending</option>
+        <option value="failed">Failed</option>
+        <option value="refunded">Refunded</option>
+        <option value="review">Needs review</option>
+      </select>
+      <button id="go">Refresh</button>
+    </div>
+    <div class="msg" id="listmsg">Loading…</div>
+    <div class="tblwrap">
+      <table>
+        <thead><tr>
+          <th>Order</th><th>Item / Seller</th><th>Buyer</th><th>Payment</th>
+          <th class="num">Item</th><th class="num">Shipping</th><th class="num">Tax</th><th class="num">Buyer total</th>
+          <th class="num">Fee</th><th class="num">Seller proceeds</th>
+          <th>Fulfillment</th><th>Payout</th><th>Refund</th><th></th>
+        </tr></thead>
+        <tbody id="rows"></tbody>
+      </table>
+    </div>
+  </div>
+  <script>
+    const token = localStorage.getItem('token');
+    if (!token) window.location.href = '/login.html';
+    function logout(){ localStorage.removeItem('token'); window.location.href = '/login.html'; }
+    window.adminLogout = logout; // shared admin-nav Log out reuses this
+    function api(method, url, body){
+      const opts = { method, headers: { 'Content-Type':'application/json', 'Authorization':'Bearer '+token } };
+      if (body !== undefined) opts.body = JSON.stringify(body);
+      return fetch(url, opts).then(r => { if (r.status === 401){ logout(); throw new Error('Session expired'); } return r.json(); });
+    }
+    function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+    function money(c){ return '$'+((Number(c)||0)/100).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}); }
+    function fmtDate(d){ return d ? new Date(d).toLocaleString() : '-'; }
+    function payBadge(s){ const cls = s==='paid'?'ok':(s==='failed'?'no':(s==='refunded'?'warn':'neutral')); return '<span class="badge '+cls+'">'+esc(s)+'</span>'; }
+    function refundCell(o){
+      if (o.refund_status === 'refunded') return '<span class="badge warn">Refunded '+money(o.refunded_amount_cents)+'</span>';
+      if (o.refund_status === 'partially_refunded') return '<span class="badge warn">Partial '+money(o.refunded_amount_cents)+'</span>';
+      return '<span class="small">None</span>';
+    }
+    let ORDERS = [];
+    let pendingConfirm = null;
+
+    function render(){
+      const tb = document.getElementById('rows');
+      if (!ORDERS.length){ tb.innerHTML = '<tr><td colspan="14" class="small">No orders.</td></tr>'; return; }
+      tb.innerHTML = ORDERS.map(o => {
+        const canRefund = o.payment_status === 'paid' && o.refund_status !== 'refunded';
+        const remaining = (o.total_charge_cents||0) - (o.refunded_amount_cents||0);
+        let action = '';
+        if (canRefund) {
+          action = pendingConfirm === o.id
+            ? '<div class="confirm">Refund '+money(remaining)+' to the buyer? This cannot be undone.</div>'+
+              '<button class="btn btn-danger" data-act="refund-yes" data-id="'+esc(o.id)+'">Yes, refund</button>'+
+              '<button class="btn btn-mut" data-act="refund-no">Cancel</button>'
+            : '<button class="btn btn-danger" data-act="refund" data-id="'+esc(o.id)+'">Refund</button>';
+        }
+        const reason = o.refund_reason ? '<div class="small">Reason: '+esc(o.refund_reason)+'</div>' : '';
+        const review = o.review_required ? '<div class="note">Needs review: '+esc(o.review_note||'')+'</div>' : '';
+        const tracking = o.tracking_number ? '<div class="small">'+esc(o.tracking_carrier||'')+' '+esc(o.tracking_number)+'</div>' : '';
+        return '<tr>'+
+          '<td><b>'+esc(o.order_number)+'</b><div class="small">'+esc(fmtDate(o.created_at))+'</div>'+(o.is_demo?'<span class="badge neutral">demo</span>':'')+'</td>'+
+          '<td>'+esc(o.item_title)+'<div class="small">'+esc(o.seller_name||'')+'</div></td>'+
+          '<td>'+esc(o.buyer_email||'')+'</td>'+
+          '<td>'+payBadge(o.payment_status)+(o.paid_at?'<div class="small">'+esc(fmtDate(o.paid_at))+'</div>':'')+'</td>'+
+          '<td class="num">'+money(o.item_price_cents)+'</td>'+
+          '<td class="num">'+money(o.shipping_cents)+'</td>'+
+          '<td class="num">'+money(o.tax_cents)+'</td>'+
+          '<td class="num"><b>'+money(o.total_charge_cents)+'</b></td>'+
+          '<td class="num">'+money(o.platform_fee_cents)+'<div class="small">'+((o.platform_fee_bps||0)/100).toFixed(2)+'%</div></td>'+
+          '<td class="num">'+money(o.seller_proceeds_cents)+'</td>'+
+          '<td>'+esc(o.fulfillment_method)+'<div class="small">'+esc(o.fulfillment_status)+'</div>'+tracking+'</td>'+
+          '<td>'+(o.payout_eligible?'<span class="badge ok">Eligible</span>':'<span class="badge neutral">Not yet</span>')+'</td>'+
+          '<td>'+refundCell(o)+reason+review+'</td>'+
+          '<td>'+action+'<div class="msg" id="m-'+esc(o.id)+'"></div></td>'+
+        '</tr>';
+      }).join('');
+    }
+
+    function load(){
+      const st = document.getElementById('status').value;
+      const msg = document.getElementById('listmsg');
+      msg.textContent = 'Loading…';
+      api('GET', '/api/marketplace/admin/orders' + (st ? ('?status=' + encodeURIComponent(st)) : ''))
+        .then(res => {
+          if (!res.success){ msg.textContent = res.message || res.error || 'Could not load orders.'; ORDERS = []; render(); return; }
+          ORDERS = res.data || []; pendingConfirm = null;
+          msg.textContent = ORDERS.length + ' order' + (ORDERS.length === 1 ? '' : 's');
+          render();
+        })
+        .catch(e => { msg.textContent = e.message || 'Could not load orders.'; });
+    }
+
+    document.getElementById('rows').addEventListener('click', e => {
+      const b = e.target.closest('button[data-act]'); if (!b) return;
+      const act = b.getAttribute('data-act'); const id = b.getAttribute('data-id');
+      if (act === 'refund'){ pendingConfirm = id; render(); return; }
+      if (act === 'refund-no'){ pendingConfirm = null; render(); return; }
+      if (act === 'refund-yes'){
+        b.disabled = true; b.textContent = 'Refunding…';
+        api('POST', '/api/marketplace/admin/orders/' + encodeURIComponent(id) + '/refund', {})
+          .then(res => {
+            if (!res.success){
+              b.disabled = false; b.textContent = 'Yes, refund';
+              const m = document.getElementById('m-' + id); if (m) m.textContent = res.message || res.error || 'Refund failed.';
+              return;
+            }
+            pendingConfirm = null; load();
+          })
+          .catch(err => { b.disabled = false; b.textContent = 'Yes, refund'; const m = document.getElementById('m-' + id); if (m) m.textContent = err.message || 'Refund failed.'; });
+      }
+    });
+    document.getElementById('go').addEventListener('click', load);
+    document.getElementById('status').addEventListener('change', load);
+    load();
+  </script>
+</body>
+</html>
