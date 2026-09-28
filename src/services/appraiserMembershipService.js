@@ -187,6 +187,17 @@ async function createBillingPortalSession(userId, origin) {
     || (await db.query('SELECT stripe_customer_id FROM users WHERE id = $1', [userId])).rows[0]?.stripe_customer_id;
   if (!customerId) { const e = new Error('No billing account found for this user.'); e.status = 404; e.code = 'NO_CUSTOMER'; throw e; }
   const stripe = getStripe();
+  // TEST/LIVE isolation: a customer stored under the other key mode does not exist for the current keys.
+  // Treat it as "no billing account" rather than failing inside the provider call.
+  try {
+    const c = await stripe.customers.retrieve(customerId);
+    if (!c || c.deleted) throw Object.assign(new Error('missing'), { code: 'resource_missing' });
+  } catch (err) {
+    if (err && (err.code === 'resource_missing' || err.statusCode === 404)) {
+      const e = new Error('No billing account found for this user.'); e.status = 404; e.code = 'NO_CUSTOMER'; throw e;
+    }
+    throw err;
+  }
   const portal = await stripe.billingPortal.sessions.create({
     customer: customerId,
     return_url: `${base}/appraiser-membership.html`,

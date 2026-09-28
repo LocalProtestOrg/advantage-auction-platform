@@ -1028,6 +1028,22 @@ console.log(`[lot-auto-close] scheduler started — scanning every ${LOT_AUTO_CL
 setInterval(runLotAutoClose, LOT_AUTO_CLOSE_INTERVAL_MS);
 runLotAutoClose();
 
+// ── Auction checkout: uncertain off-session charges ─────────────────────────────────────────────────────
+// Resolves automatic charges whose outcome was unknown (provider unreachable at auction close) without ever
+// charging twice: repeats the exact request with the same idempotency key, or looks the charge up after the
+// key window. Does nothing when there are none.
+const COMBINED_RECONCILE_INTERVAL_MS = 5 * 60 * 1000;
+async function runCombinedChargeReconcile() {
+  try {
+    const out = await require('../services/combinedChargeReconciler').reconcileUncertainCharges();
+    if (out.ran && out.considered) console.log('[combined-reconcile]', JSON.stringify(out));
+  } catch (err) {
+    console.error(`[combined-reconcile] failed: ${err.message}`);
+    if (process.env.SENTRY_DSN) Sentry.captureException(err);
+  }
+}
+setInterval(runCombinedChargeReconcile, COMBINED_RECONCILE_INTERVAL_MS);
+
 // ── Storefront checkout: expired-hold sweeper ─────────────────────────────────────────────────────────
 // Releases fixed-price items whose checkout hold expired and cancels the stale PaymentIntent. Self-gated inside
 // sweepExpiredHolds (no-op unless MARKETPLACE_CHECKOUT_ENABLED and a payment key are set). Never releases an item

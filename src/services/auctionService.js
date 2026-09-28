@@ -1126,6 +1126,9 @@ async function closeAuction(auctionId, actorId = null) {
             } else if (r.status === 'pending') {
               // requires_action / processing — leave the header; the webhook settles it
               // (payment_intent.succeeded) and sends the success package on arrival.
+            } else if (r.status === 'uncertain') {
+              // The provider could not be reached: the charge may have been made. No email now; the
+              // combined-charge reconciler resolves it (settles, or routes to payment_required) within minutes.
             } else if (r.inProgress) {
               // A combined charge is already in flight for this buyer — skip.
             }

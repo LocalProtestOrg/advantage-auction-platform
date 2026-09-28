@@ -725,6 +725,18 @@ class PaymentService {
         intent = await stripe.paymentIntents.create(createParams, { timeout: 15000, idempotencyKey: stripeKey });
       }
     } catch (stripeErr) {
+      // UNKNOWN OUTCOME: both attempts failed in transport, so the charge may have been made. Never tell the
+      // buyer to pay again on a guess (double-charge risk): record the exact request + idempotency key, leave the
+      // payment pending, send nothing, and let combinedChargeReconciler settle it (it repeats the same request with
+      // the same key, which returns the original result, or looks the charge up once the key window has passed).
+      if (isTransientProviderError(stripeErr)) {
+        await auditService.logEvent(db, {
+          eventType: 'payment.charge_uncertain', entityType: 'payment', entityId: paymentId, auctionId, paymentId, actorId: buyerUserId,
+          metadata: { combined_invoice_id: combinedInvoiceId, idempotency_key: stripeKey, create_params: createParams, error_type: stripeErr.type },
+        }).catch((auditErr) => console.error('[combined] could not record uncertain charge', { paymentId, error: auditErr.message }));
+        console.error('[combined] off-session charge outcome unknown — left pending for reconciliation', { paymentId, combinedInvoiceId, type: stripeErr.type });
+        return { status: 'uncertain', paymentId };
+      }
       // Off-session declines (card_declined) and authentication_required surface as
       // StripeCardError. Every other failure (invalid/missing customer or payment method, an id from the
       // other mode after the switch to LIVE keys, a persistent outage) is ALSO returned as a failed charge,

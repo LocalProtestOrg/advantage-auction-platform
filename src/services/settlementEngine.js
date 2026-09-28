@@ -351,10 +351,26 @@ function payoutPreferenceComplete(pref) {
  * PURE guard: decide whether Mark Paid may proceed. Throws MarkPaidError (clear reason)
  * or returns {ok:true}. No side effects — fully unit-testable.
  */
+// Open payment disputes (chargebacks) for this auction. A seller is never paid while one is open, even if an
+// admin released the payout hold. Fails closed: if the check cannot run, it reports one open dispute.
+async function countOpenDisputes(runner, auctionId) {
+  try {
+    const r = await runner.query(
+      `SELECT count(*)::int AS n FROM payment_disputes
+        WHERE auction_id = $1 AND closed_at IS NULL AND status NOT IN ('won', 'lost', 'warning_closed')`, [auctionId]);
+    return Number(r.rows[0] && r.rows[0].n) || 0;
+  } catch (e) {
+    if (e && e.code === '42P01') return 0;   // disputes table not created yet (migration 173 not applied)
+    return 1;
+  }
+}
+
 function assertMarkPaidAllowed(state, input) {
   const s = state || {}, i = input || {};
   if (!s.hasSettlementRow) throw new MarkPaidError('No settlement exists for this auction yet.');
   if (s.settlementStatus === SETTLEMENT_STATUS.PAID) throw new MarkPaidError('Settlement is already paid and is immutable.');
+  if (s.settlementStatus === SETTLEMENT_STATUS.ON_HOLD) throw new MarkPaidError('Settlement is on hold' + (s.onHoldReason ? ' (' + s.onHoldReason + ')' : '') + '. Release the hold before paying.');
+  if (s.openDisputes > 0) throw new MarkPaidError('A payment dispute is open for this auction. Resolve it before paying the seller.');
   if (i.paymentMethod !== 'ach' && i.paymentMethod !== 'check') throw new MarkPaidError("Payment method must be 'ach' or 'check'.");
   if (!s.payoutPreferenceComplete) throw new MarkPaidError('Seller payment preference is incomplete; cannot mark paid.');
   if (!i.paymentReference || !String(i.paymentReference).trim()) throw new MarkPaidError('A payment reference is required.');
@@ -384,10 +400,13 @@ async function markSettlementPaid(auctionId, {
     const spRes = await client.query('SELECT * FROM seller_payouts WHERE auction_id = $1 FOR UPDATE', [auctionId]);
     const sp = spRes.rows[0];
     const pref = sp ? await getSellerPayoutPreference(sp.seller_user_id) : null;
+    const openDisputes = await countOpenDisputes(db, auctionId);   // own connection: a failed read never aborts this transaction
 
     assertMarkPaidAllowed({
       hasSettlementRow: !!sp,
       settlementStatus: sp && sp.settlement_status,
+      onHoldReason: sp && sp.on_hold_reason,
+      openDisputes,
       netProceedsCents: totals.net_seller_proceeds_cents,
       payoutPreferenceComplete: payoutPreferenceComplete(pref),
     }, { paymentMethod, paymentReference, paidAt, finalAmountCents, confirmedCompleted });
@@ -448,6 +467,8 @@ function assertPaySellerAllowed(state, input) {
   const s = state || {}, i = input || {};
   if (!s.hasSettlementRow) throw new PaySellerError('No settlement exists for this auction yet.');
   if (s.settlementStatus === SETTLEMENT_STATUS.PAID) throw new PaySellerError('Settlement is already paid and is immutable.');
+  if (s.settlementStatus === SETTLEMENT_STATUS.ON_HOLD) throw new PaySellerError('Settlement is on hold' + (s.onHoldReason ? ' (' + s.onHoldReason + ')' : '') + '. Release the hold before paying.');
+  if (s.openDisputes > 0) throw new PaySellerError('A payment dispute is open for this auction. Resolve it before paying the seller.');
   if (s.existingTransferId) throw new PaySellerError('A Stripe transfer already exists for this settlement.');
   if (s.payoutMethod !== 'ach') throw new PaySellerError('Seller payout method is not Direct Deposit.');
   if (!s.connectReady) throw new PaySellerError('Seller Direct Deposit is not ready (Stripe onboarding incomplete or payouts disabled).');
@@ -476,10 +497,13 @@ async function paySellerViaTransfer(auctionId, { actorId = null, confirmedComple
     const spRes = await client.query('SELECT * FROM seller_payouts WHERE auction_id = $1 FOR UPDATE', [auctionId]);
     const sp = spRes.rows[0];
     const pref = sp ? await getSellerPayoutPreference(sp.seller_user_id) : null;
+    const openDisputes = await countOpenDisputes(db, auctionId);   // own connection: a failed read never aborts this transaction
 
     assertPaySellerAllowed({
       hasSettlementRow: !!sp,
       settlementStatus: sp && sp.settlement_status,
+      onHoldReason: sp && sp.on_hold_reason,
+      openDisputes,
       existingTransferId: sp && sp.stripe_transfer_id,
       payoutMethod: pref && pref.payout_method,
       connectReady: connectPayoutReady(pref),
