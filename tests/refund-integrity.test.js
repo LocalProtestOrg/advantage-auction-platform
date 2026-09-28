@@ -84,6 +84,7 @@ describe('processRefund — Sub-batch 2 reorder', () => {
     tx2.query.mockImplementation(async (sql) => {
       if (/^BEGIN$|^COMMIT$/.test(sql)) return { rowCount: 0 };
       if (/UPDATE payments\s+SET status\s+= \$1/.test(sql)) return { rowCount: 1 };
+      if (/UPDATE (invoices|buyer_auction_invoices) SET status/.test(sql)) return { rowCount: 1 };   // invoices follow the refund
       throw new Error('unexpected tx2: ' + sql);
     });
 

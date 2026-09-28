@@ -53,7 +53,8 @@
       if(st==='issued'||st==='unpaid'||st==='payment_required')return['Unpaid','issued'];
       if(st==='pending'||st==='processing')return['Payment Processing','processing'];
       if(st==='failed'||st==='payment_failed')return['Payment Failed','failed'];
-      if(st==='refunded'||st==='partially_refunded')return['Refunded','refunded'];
+      if(st==='refunded')return['Refunded','refunded'];
+      if(st==='partially_refunded')return['Partially Refunded','refunded'];
       if(st==='void')return['Void','other'];
       return[(st||'-'),'other'];}
     function pill(st){const r=statusLabel(st);return '<span class="pill '+r[1]+'">'+esc(r[0])+'</span>'}

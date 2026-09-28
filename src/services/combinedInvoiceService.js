@@ -52,7 +52,7 @@ function reminderSchedule(closedAt) {
 // Pure status predicate: a combined invoice is "still unpaid" (worth reminding /
 // charging) unless it has reached a terminal state.
 function isUnpaidStatus(status) {
-  return !['paid', 'void'].includes(status);
+  return !['paid', 'void', 'refunded', 'partially_refunded'].includes(status);   // a refunded invoice was paid
 }
 
 // Pure webhook-branch selector: a combined (null-lot) payment routes to the
@@ -142,7 +142,8 @@ async function settleCombined(combinedInvoiceId, stripePaymentIntentId, paymentI
       await client.query('ROLLBACK');
       throw new Error('Combined invoice not found: ' + combinedInvoiceId);
     }
-    if (bai.status === 'paid') {
+    // Already settled — including one refunded since: a late/replayed success must never flip it back to paid.
+    if (['paid', 'refunded', 'partially_refunded'].includes(bai.status)) {
       await client.query('ROLLBACK');
       return { alreadyPaid: true };
     }
@@ -183,7 +184,7 @@ async function settleCombined(combinedInvoiceId, stripePaymentIntentId, paymentI
     await client.query(
       `UPDATE invoices
           SET status = 'paid', payment_id = COALESCE($3, payment_id)
-        WHERE auction_id = $1 AND buyer_user_id = $2 AND status <> 'paid'`,
+        WHERE auction_id = $1 AND buyer_user_id = $2 AND status NOT IN ('paid', 'refunded', 'partially_refunded')`,
       [bai.auction_id, bai.buyer_user_id, paymentId || null]
     );
 
@@ -219,7 +220,7 @@ async function settleCombined(combinedInvoiceId, stripePaymentIntentId, paymentI
 async function markFailed(combinedInvoiceId, reason) {
   const { rows } = await db.query(
     `UPDATE buyer_auction_invoices
-        SET status = CASE WHEN status IN ('paid', 'void') THEN status ELSE 'payment_required' END,
+        SET status = CASE WHEN status IN ('paid', 'void', 'refunded', 'partially_refunded') THEN status ELSE 'payment_required' END,
             charge_attempted_at = now(),
             reminders_sent = GREATEST(reminders_sent, 1),
             updated_at = now()

@@ -75,7 +75,7 @@ async function fetchCombinedInvoicesForBuyer(buyerId) {
               WHERE i2.auction_id = b.auction_id
                 AND i2.buyer_user_id = b.buyer_user_id
                 AND i2.lot_id IS NOT NULL
-                AND i2.status <> 'paid'
+                AND i2.status NOT IN ('paid', 'refunded', 'partially_refunded', 'void')
               ORDER BY i2.created_at ASC
               LIMIT 1)                   AS pay_lot_id
        FROM buyer_auction_invoices b

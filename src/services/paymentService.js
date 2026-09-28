@@ -1497,6 +1497,8 @@ class PaymentService {
           stripe_idempotency_key:   refundKey,
         }
       });
+      // The buyer's invoices follow the refund (refunded / partially refunded) in the same transaction.
+      await require('./invoiceRefundStatus').syncInvoicesForPayment(persistClient, paymentId, newStatus);
       await persistClient.query('COMMIT');
     } catch (persistErr) {
       await persistClient.query('ROLLBACK').catch(() => {});
@@ -2089,6 +2091,9 @@ class PaymentService {
           && (payment.refunded_amount_cents || 0) >= amountRefunded) {
         await client.query('ROLLBACK');
         console.log(`[webhook] charge.refunded — payment ${payment.id} already reconciled (refund=${latestRefundId})`);
+        // Idempotent: make sure the invoices reflect the refund (a no-op when processRefund already did it).
+        await require('./invoiceRefundStatus').syncInvoicesForPayment(db, payment.id).catch((e) =>
+          console.error('[webhook] invoice refund-status sync failed', { paymentId: payment.id, error: e.message }));
         // Make sure the matching tax reversal exists (idempotent; a no-op when processRefund already did it).
         await this._reverseTaxForRefund(payment.id, payment.refunded_amount_cents || 0, 'charge.refunded');
         return;
@@ -2127,6 +2132,8 @@ class PaymentService {
           new_refunded_total_cents: Math.max(priorRefunded, amountRefunded),
         }
       });
+      // A refund issued outside the app (Dashboard) updates the buyer's invoices too, in the same transaction.
+      await require('./invoiceRefundStatus').syncInvoicesForPayment(client, payment.id, newStatus);
       await client.query('COMMIT');
       reverseForPaymentId = payment.id;
       reverseThrough = Math.max(priorRefunded, amountRefunded);

@@ -229,12 +229,13 @@ async function assembleSettlementInputs(auctionId) {
   const invRes = await db.query(
     `SELECT
         COALESCE(SUM(total_cents),0)::bigint                                          AS expected,
-        COALESCE(SUM(total_cents) FILTER (WHERE status = 'paid'),0)::bigint           AS collected,
-        COALESCE(SUM(total_cents) FILTER (WHERE status <> 'paid' AND status <> 'void'),0)::bigint AS outstanding,
-        COALESCE(SUM(hammer_cents) FILTER (WHERE status = 'paid'),0)::bigint          AS paid_hammer,
-        COALESCE(SUM(buyer_premium_cents) FILTER (WHERE status = 'paid'),0)::bigint   AS paid_premium,
-        COALESCE(SUM(sales_tax_cents) FILTER (WHERE status = 'paid'),0)::bigint       AS paid_tax,
-        COALESCE(SUM(shipping_cents) FILTER (WHERE status = 'paid'),0)::bigint        AS paid_shipping
+        -- 'paid' includes invoices refunded since (the refund is subtracted from payments, never twice).
+        COALESCE(SUM(total_cents) FILTER (WHERE status IN ('paid','partially_refunded','refunded')),0)::bigint         AS collected,
+        COALESCE(SUM(total_cents) FILTER (WHERE status NOT IN ('paid','partially_refunded','refunded','void')),0)::bigint AS outstanding,
+        COALESCE(SUM(hammer_cents) FILTER (WHERE status IN ('paid','partially_refunded','refunded')),0)::bigint        AS paid_hammer,
+        COALESCE(SUM(buyer_premium_cents) FILTER (WHERE status IN ('paid','partially_refunded','refunded')),0)::bigint AS paid_premium,
+        COALESCE(SUM(sales_tax_cents) FILTER (WHERE status IN ('paid','partially_refunded','refunded')),0)::bigint     AS paid_tax,
+        COALESCE(SUM(shipping_cents) FILTER (WHERE status IN ('paid','partially_refunded','refunded')),0)::bigint      AS paid_shipping
        FROM buyer_auction_invoices WHERE auction_id = $1`, [auctionId]);
   const inv = invRes.rows[0];
   const sellerKeepsPremium = isProfessionalSellerType(sellerType);

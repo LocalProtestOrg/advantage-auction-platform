@@ -807,22 +807,29 @@ router.get('/auctions/:auctionId/invoices', auth, role(['admin']), async (req, r
                  i.invoice_number ASC`,
       [auctionId]
     );
-    const enriched = rows.map((r) => ({ ...r, is_paid: r.status === 'paid' || r.payment_status === 'paid' }));
+    // A refunded (or partially refunded) invoice was paid and then refunded: it is neither "paid" nor "unpaid" here.
+    const isRefunded = (r) => r.status === 'refunded' || r.status === 'partially_refunded'
+      || r.payment_status === 'refunded' || r.payment_status === 'partially_refunded';
+    const enriched = rows.map((r) => ({ ...r, is_refunded: isRefunded(r), is_paid: !isRefunded(r) && (r.status === 'paid' || r.payment_status === 'paid') }));
     const tot = (arr, f) => arr.reduce((s, r) => s + (f(r) || 0), 0);
     const lineTotal = (r) => (r.total_cents != null ? r.total_cents : r.amount_cents);
+    const isUnpaid = (i) => !i.is_paid && !i.is_refunded;
     const counts = {
       total: enriched.length,
       paid: enriched.filter((i) => i.is_paid).length,
-      unpaid: enriched.filter((i) => !i.is_paid).length,
+      unpaid: enriched.filter(isUnpaid).length,
+      refunded: enriched.filter((i) => i.is_refunded).length,
     };
     const totals = {
       hammer_cents: tot(enriched, (r) => (r.hammer_cents != null ? r.hammer_cents : r.amount_cents)),
       paid_cents: tot(enriched.filter((i) => i.is_paid), lineTotal),
-      unpaid_cents: tot(enriched.filter((i) => !i.is_paid), lineTotal),
+      unpaid_cents: tot(enriched.filter(isUnpaid), lineTotal),
+      refunded_cents: tot(enriched.filter((i) => i.is_refunded), lineTotal),
     };
     let invoices = enriched;
     if (status === 'paid') invoices = enriched.filter((i) => i.is_paid);
-    else if (status === 'unpaid') invoices = enriched.filter((i) => !i.is_paid);
+    else if (status === 'unpaid') invoices = enriched.filter(isUnpaid);
+    else if (status === 'refunded') invoices = enriched.filter((i) => i.is_refunded);
     return res.json({ success: true, auction_id: auctionId, counts, totals, invoices });
   } catch (err) { next(err); }
 });

@@ -78,7 +78,7 @@
             <button class="pill active" data-s="all">All</button>
             <button class="pill" data-s="unpaid">Unpaid</button>
             <button class="pill" data-s="paid">Paid</button>
-            <button class="pill" data-s="refunded" disabled title="No refunded invoices yet (future)">Refunded</button>
+            <button class="pill" data-s="refunded">Refunded</button>
           </div>
         </div>
       </div>
@@ -125,8 +125,8 @@
     const qN=(document.getElementById('qNum').value||'').trim().toLowerCase();
     let rows = CURRENT.invoices.slice();
     if (CURRENT.status==='paid') rows=rows.filter(i=>i.is_paid);
-    else if (CURRENT.status==='unpaid') rows=rows.filter(i=>!i.is_paid);
-    else if (CURRENT.status==='refunded') rows=rows.filter(i=>i.status==='refunded');
+    else if (CURRENT.status==='unpaid') rows=rows.filter(i=>!i.is_paid&&i.status!=='refunded'&&i.status!=='partially_refunded');
+    else if (CURRENT.status==='refunded') rows=rows.filter(i=>i.status==='refunded'||i.status==='partially_refunded');
     if (qB) rows=rows.filter(i=>((i.buyer_name||'')+' '+(i.buyer_email||'')).toLowerCase().includes(qB));
     if (qN) rows=rows.filter(i=>(i.invoice_number||'').toLowerCase().includes(qN));
     renderTable(rows);
