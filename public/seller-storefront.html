@@ -28,6 +28,12 @@
     .pill{display:inline-block;font-size:.66rem;font-weight:700;border-radius:999px;padding:2px 8px;background:#e0e7ff;color:#3730a3}
     .toggle{display:flex;align-items:center;gap:8px;font-weight:600;font-size:.9rem;text-transform:none;color:#0f172a}
     .hint{color:#94a3b8;font-size:.78rem}
+    .row3{display:grid;grid-template-columns:2fr 1fr 1fr;gap:.7rem}
+    fieldset.pickup{border:1px solid #e6eaef;border-radius:10px;padding:.7rem .8rem .8rem;margin:.8rem 0 .4rem}
+    fieldset.pickup legend{font-weight:700;font-size:.85rem;padding:0 .3rem}
+    .pill-warn{background:#fef3c7;color:#92400e}
+    .pk-edit{display:grid;grid-template-columns:2fr 1fr 1fr 1fr auto;gap:.4rem;margin-top:.4rem}
+    @media (max-width:640px){.row3,.pk-edit{grid-template-columns:1fr}}
   </style>
 </head>
 <body>
@@ -72,7 +78,16 @@
           <div class="row2"><div><label>Price (USD)</label><input id="m-price" type="number" min="0" step="1" placeholder="450"></div><div><label>Category</label><input id="m-cat" placeholder="Furniture, Lighting, Art…"></div></div>
           <label>Condition</label><input id="m-cond" placeholder="Excellent, Very Good, Good…">
           <label>Description</label><textarea id="m-desc" rows="3" placeholder="Describe the piece — era, maker, dimensions, condition notes…"></textarea>
-          <div class="row2"><div><label>City</label><input id="m-city"></div><div><label>State</label><input id="m-state" maxlength="2"></div></div>
+          <fieldset class="pickup" id="m-pickup">
+            <legend>Pickup location</legend>
+            <p class="hint" style="margin:0 0 .5rem;color:#475569">Where the buyer collects this item. Buyers see only the city and state until they've paid; the full address is sent with their order confirmation. It's also where sales tax is calculated.</p>
+            <label for="m-pk1">Street address</label><input id="m-pk1" autocomplete="address-line1" placeholder="123 Main St">
+            <label for="m-pk2">Suite, unit or building (optional)</label><input id="m-pk2" autocomplete="address-line2">
+            <div class="row3"><div><label for="m-city">City</label><input id="m-city" autocomplete="address-level2"></div>
+              <div><label for="m-state">State</label><input id="m-state" maxlength="2" autocomplete="address-level1" placeholder="TX" style="text-transform:uppercase"></div>
+              <div><label for="m-zip">ZIP code</label><input id="m-zip" inputmode="numeric" maxlength="10" autocomplete="postal-code" placeholder="78701"></div></div>
+            <p class="hint" id="m-pk-note" style="margin:.4rem 0 0"></p>
+          </fieldset>
           <label class="toggle"><input type="checkbox" id="m-ship" style="width:auto" onchange="document.getElementById('m-shiprow').style.display=this.checked?'':'none'"> Offer shipping (buyers can also pick up locally)</label>
           <div id="m-shiprow" style="display:none"><label>Flat shipping price (USD)</label><input id="m-shipcost" type="number" min="0" step="1" placeholder="25"></div>
           <div style="margin-top:.8rem"><button class="btn b-blue" onclick="addItem(this)">Add Item</button></div>
@@ -134,11 +149,46 @@
         years_in_business:g('s-years'),hours:g('s-hours'),socials:{facebook:g('s-fb'),instagram:g('s-ig')}}};
       try{var r=await api('PUT','/api/seller-storefront/config',body);if(r.success){msg('Saved. '+(r.data.published?'Your storefront is live.':'Saved as draft.'),true);init();}else msg(r.message||'Save failed');}catch(e){msg('Error: '+e.message);}
     }
+    var ITEMS=[];
+    function hasPickup(m){return pickupMissing({line1:m.pickup_address_line1,city:m.pickup_city,state:m.pickup_state,zip:m.pickup_postal_code}).length===0;}
     async function loadItems(){
-      var r=await api('GET','/api/seller-storefront/items');var rows=r.data||[];
+      var r=await api('GET','/api/seller-storefront/items');var rows=r.data||[];ITEMS=rows;
       document.getElementById('itemsBody').innerHTML=rows.length?rows.map(function(m){
-        return '<tr><td>'+esc(m.title)+'</td><td>'+money(m.price_cents)+'</td><td><span class="pill">'+esc(m.status)+'</span></td><td>'+(m.source_lot_id?'From auction':'Added by you')+'</td><td>'+(m.status!=='removed'?'<button class="btn b-warn" onclick="removeItem(\''+m.id+'\')">Remove</button>':'')+'</td></tr>';
+        var needs=m.status!=='removed'&&m.status!=='sold'&&!hasPickup(m);
+        var where=hasPickup(m)?'<br><span class="hint">Pickup: '+esc(m.pickup_city)+', '+esc(m.pickup_state)+'</span>':'';
+        return '<tr><td>'+esc(m.title)+where+(needs?'<div id="pk-'+m.id+'"></div>':'')+'</td><td>'+money(m.price_cents)+'</td><td><span class="pill">'+esc(m.status)+'</span>'
+          +(needs?' <span class="pill pill-warn">Pickup location needed</span>':'')+'</td><td>'+(m.source_lot_id?'From auction':'Added by you')+'</td><td>'
+          +(needs?'<button class="btn b-ghost" onclick="editPickup(\''+m.id+'\')">Add pickup location</button> ':'')
+          +(m.status!=='removed'?'<button class="btn b-warn" onclick="removeItem(\''+m.id+'\')">Remove</button>':'')+'</td></tr>';
       }).join(''):'<tr><td colspan="5" class="hint">No items yet. Use “Add an Item” above to list your first piece for sale.</td></tr>';
+      prefillPickup();
+    }
+    // Reuse: a new item starts with the pickup location of the seller's most recent item that has one.
+    function prefillPickup(){
+      if(document.getElementById('m-pk1').value.trim())return;
+      var last=ITEMS.find(hasPickup); if(!last)return;
+      document.getElementById('m-pk1').value=last.pickup_address_line1||'';document.getElementById('m-pk2').value=last.pickup_address_line2||'';
+      document.getElementById('m-city').value=last.pickup_city||'';document.getElementById('m-state').value=last.pickup_state||'';
+      document.getElementById('m-zip').value=last.pickup_postal_code||'';
+      document.getElementById('m-pk-note').textContent='Filled in from your last item. Change it if this item is somewhere else.';
+    }
+    function editPickup(id){
+      var box=document.getElementById('pk-'+id); if(!box)return;
+      box.innerHTML='<div class="pk-edit"><input id="pe1-'+id+'" placeholder="Street address" aria-label="Street address"><input id="pec-'+id+'" placeholder="City" aria-label="City">'
+        +'<input id="pes-'+id+'" placeholder="State" maxlength="2" aria-label="State"><input id="pez-'+id+'" placeholder="ZIP" maxlength="10" aria-label="ZIP code">'
+        +'<button class="btn b-blue" onclick="savePickup(\''+id+'\',this)">Save</button></div>';
+      document.getElementById('pe1-'+id).focus();
+    }
+    async function savePickup(id,btn){
+      var v=function(p){return document.getElementById(p+id).value.trim();};
+      var pk={line1:v('pe1-'),city:v('pec-'),state:v('pes-'),zip:v('pez-')};
+      var miss=pickupMissing(pk); if(miss.length){msg('Missing: '+miss.join(', ')+'.');return;}
+      var item=ITEMS.find(function(m){return m.id===id;})||{};
+      var body=pickupBody(pk); if(item.status==='draft')body.status='active';
+      btn.disabled=true;
+      var r=await api('PATCH','/api/seller-storefront/items/'+id,body);
+      if(r.success){msg('Pickup location saved.'+(body.status==='active'?' The item is now live in your shop.':''),true);loadItems();}
+      else{msg(r.message||'Could not save');btn.disabled=false;}
     }
     // Uploaded photos for the item being added (real seller photos → Cloudinary via /api/uploads/image).
     var UPLOADED=[]; var ADDED=0;
@@ -165,22 +215,30 @@
       }
       st.textContent=UPLOADED.length+' photo'+(UPLOADED.length!==1?'s':'')+' ready';
     }
+    var STATES='AL AK AZ AR CA CO CT DE DC FL GA HI ID IL IN IA KS KY LA ME MD MA MI MN MS MO MT NE NV NH NJ NM NY NC ND OH OK OR PA RI SC SD TN TX UT VT VA WA WV WI WY PR VI GU AS MP'.split(' ');
+    function pickupMissing(p){var m=[];if(!p.line1)m.push('street address');if(!p.city)m.push('city');
+      if(STATES.indexOf((p.state||'').toUpperCase())<0)m.push('state');if(!/^\d{5}(-\d{4})?$/.test(p.zip||''))m.push('ZIP code');return m;}
+    function pickupBody(p){return {pickup_address_line1:p.line1,pickup_address_line2:p.line2||null,pickup_city:p.city,pickup_state:(p.state||'').toUpperCase(),pickup_postal_code:p.zip,pickup_country:'US'};}
     async function addItem(btn){
       var g=function(id){return document.getElementById(id).value.trim();};
       var price=Math.round(parseFloat(g('m-price'))*100);
       if(!g('m-title')){msg('Please add a title.');return;}
       if(!(price>0)){msg('Please add a price.');return;}
+      var pk={line1:g('m-pk1'),line2:g('m-pk2'),city:g('m-city'),state:g('m-state'),zip:g('m-zip')};
+      var pkMissing=pickupMissing(pk);
+      if(pkMissing.length){msg('Add the pickup location before listing this item. Missing: '+pkMissing.join(', ')+'.');document.getElementById('m-pk1').focus();return;}
       var ship=document.getElementById('m-ship').checked;
       var body={title:g('m-title'),price_cents:price,category:g('m-cat')||null,condition:g('m-cond'),description:g('m-desc'),
-        city:g('m-city'),state:g('m-state'),shippable:ship,
+        shippable:ship,
         shipping_cost_cents:(ship&&g('m-shipcost'))?Math.round(parseFloat(g('m-shipcost'))*100):null,
         images:UPLOADED.slice()};
+      Object.assign(body,pickupBody(pk));
       if(btn){btn.disabled=true;btn.textContent='Adding…';}
       try{var r=await api('POST','/api/seller-storefront/items',body);
         if(r.success){
           ADDED++; document.getElementById('addedCount').textContent='· '+ADDED+' added this session';
           msg('✓ Item added — it’s live in your shop. Add another below.',true);
-          // Clear item-specific fields; KEEP city/state + shipping choice so the next of many items inherits them.
+          // Clear item-specific fields; KEEP the pickup location + shipping choice so the next of many items inherits them.
           ['m-title','m-price','m-cat','m-cond','m-desc'].forEach(function(i){document.getElementById(i).value='';});
           UPLOADED=[]; renderPhotos(); document.getElementById('upStatus').textContent='';
           document.getElementById('m-title').focus(); loadItems();
@@ -199,7 +257,10 @@
     async function convert(lotId,btn){
       btn.disabled=true;btn.textContent='Posting…';
       try{var r=await api('POST','/api/seller-storefront/unsold-lots/'+lotId+'/convert',{});
-        if(r.success){msg(r.created?'Posted to Marketplace — now live in your store.':'Already in your Marketplace.',true);loadUnsold();}
+        if(r.success){
+          if(r.needs_pickup_location)msg('Saved as a draft: the auction had no complete pickup address. Add the item\'s pickup location in Marketplace Items to put it live.');
+          else msg(r.created?'Posted to Marketplace — now live in your store.':'Already in your Marketplace.',true);
+          loadUnsold();}
         else{msg(r.message||'Could not post');btn.disabled=false;btn.textContent='Post to Marketplace';}
       }catch(e){msg('Error');btn.disabled=false;btn.textContent='Post to Marketplace';}
     }

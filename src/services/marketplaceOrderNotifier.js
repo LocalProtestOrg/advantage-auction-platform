@@ -17,7 +17,8 @@ const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': 
 
 async function loadContext(orderId) {
   const o = (await db.query(
-    `SELECT o.*, mi.title AS item_title,
+    `SELECT o.*, mi.title AS item_title, mi.pickup_address_line1, mi.pickup_address_line2, mi.pickup_city,
+            mi.pickup_state, mi.pickup_postal_code,
             COALESCE(sp.display_name, sp.metadata->>'display_name', sp.metadata->>'business_name') AS seller_name,
             su.email AS seller_email, bu.email AS buyer_email, bu.full_name AS buyer_name
        FROM marketplace_orders o
@@ -40,6 +41,14 @@ function totalsBlock(o) {
   </table>`;
 }
 
+// Pickup address for a PAID pickup order (payment is verified, so the full address may be shared with the buyer).
+function pickupBlock(o) {
+  if (o.fulfillment_method === 'shipping' || !o.pickup_address_line1) return '';
+  const line2 = o.pickup_address_line2 ? esc(o.pickup_address_line2) + '<br>' : '';
+  return `<p style="margin:0 0 16px"><b>Pickup location:</b><br>${esc(o.pickup_address_line1)}<br>${line2}`
+    + `${esc(o.pickup_city)}, ${esc(o.pickup_state)} ${esc(o.pickup_postal_code)}</p>`;
+}
+
 async function sendPaid(orderId) {
   const o = await loadContext(orderId);
   if (!o) return;
@@ -57,6 +66,7 @@ async function sendPaid(orderId) {
       ${totalsBlock(o)}
       <p style="margin:16px 0 4px"><b>Fulfillment:</b> ${method}</p>
       <p style="color:#555;margin:0 0 16px">${esc(next)}</p>
+      ${pickupBlock(o)}
       <p><a href="${APP_BASE}/app.html#purchases" style="background:#1d4ed8;color:#fff;text-decoration:none;padding:10px 16px;border-radius:8px">View your purchases</a></p>
       <p style="color:#475569;font-size:13px;margin-top:20px">Need help? <a href="mailto:info@advantage.bid" style="color:#2563eb">info@advantage.bid</a> · <a href="${company.TEL_HREF}" style="color:#2563eb">${company.PHONE_DISPLAY}</a></p>
     </div>`;

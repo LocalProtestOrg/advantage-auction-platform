@@ -329,35 +329,42 @@ describe('refund tax reversal', () => {
   });
 });
 
-describe('tax jurisdiction', () => {
+describe('tax jurisdiction (sale location, owner rule 2026-09-28)', () => {
   const ship = { name: 'B', line1: '1 Main St', city: 'Austin', state: 'tx', postal_code: '78701', country: 'US' };
-  test('tax OFF → no address needed', async () => {
+  // The item's own pickup location (Houston). Never the seller's legal address.
+  const PICKUP = { pickup_address_line1: '9 Dock Rd', pickup_city: 'Houston', pickup_state: 'TX', pickup_postal_code: '77002', pickup_country: 'US' };
+  test('tax OFF → no location needed', async () => {
     install([]);
-    await expect(svc.resolveTaxAddress({ method: 'pickup', item: { seller_id: 's' } })).resolves.toBeNull();
+    await expect(svc.resolveTaxLocation({ method: 'pickup', item: { id: 'i', seller_id: 's' } })).resolves.toBeNull();
   });
-  test('shipping → the order ship-to', async () => {
+  test('shipping → destination is the order ship-to; origin is the item pickup location', async () => {
     tax.taxEnabled.mockImplementation(() => true);
     install([]);
-    const a = await svc.resolveTaxAddress({ method: 'shipping', item: {}, shipTo: JSON.stringify(ship) });
-    expect(a).toMatchObject({ line1: '1 Main St', city: 'Austin', state: 'TX', postal_code: '78701' });
+    const l = await svc.resolveTaxLocation({ method: 'shipping', item: { id: 'i', ...PICKUP }, shipTo: JSON.stringify(ship) });
+    expect(l.address).toMatchObject({ line1: '1 Main St', city: 'Austin', state: 'TX', postal_code: '78701' });
+    expect(l.shipFrom).toMatchObject({ line1: '9 Dock Rd', state: 'TX', postal_code: '77002' });
   });
-  test('pickup → the seller pickup address, not the buyer address', async () => {
+  test('pickup → the item pickup location (customer address and origin), never the seller legal address', async () => {
     tax.taxEnabled.mockImplementation(() => true);
-    install([[/FROM seller_identity/, { rows: [{ address_line1: '9 Dock Rd', city: 'Houston', state: 'TX', postal_code: '77002', country: 'US' }] }]]);
-    const a = await svc.resolveTaxAddress({ method: 'pickup', item: { seller_id: 's', zip: '77002' } });
-    expect(a).toMatchObject({ line1: '9 Dock Rd', postal_code: '77002' });
+    install([]);
+    const l = await svc.resolveTaxLocation({ method: 'pickup', item: { id: 'i', seller_id: 's', ...PICKUP } });
+    expect(l.address).toMatchObject({ line1: '9 Dock Rd', postal_code: '77002' });
+    expect(l.shipFrom).toEqual(l.address);
+    expect(db.query.mock.calls.some(([sql]) => /seller_identity/.test(sql))).toBe(false);
   });
-  test('pickup item stored in a different ZIP than the business address → refused, not mis-taxed', async () => {
+  test('an item without a pickup location is refused (named parts), not taxed somewhere else', async () => {
     tax.taxEnabled.mockImplementation(() => true);
-    install([[/FROM seller_identity/, { rows: [{ address_line1: '9 Dock Rd', city: 'Houston', state: 'TX', postal_code: '77002' }] }]]);
-    await expect(svc.resolveTaxAddress({ method: 'pickup', item: { seller_id: 's', zip: '75201' } }))
-      .rejects.toMatchObject({ code: 'PICKUP_TAX_ADDRESS_UNAVAILABLE' });
+    install([]);
+    await expect(svc.resolveTaxLocation({ method: 'pickup', item: { id: 'i', seller_id: 's', pickup_city: 'Houston', pickup_state: 'TX' } }))
+      .rejects.toMatchObject({ code: 'PICKUP_LOCATION_MISSING', missing: ['street address', 'ZIP code'] });
+    await expect(svc.resolveTaxLocation({ method: 'shipping', item: { id: 'i', seller_id: 's' }, shipTo: JSON.stringify(ship) }))
+      .rejects.toMatchObject({ code: 'PICKUP_LOCATION_MISSING' });
   });
-  test('createOrder (shipping) taxes the stored ship-to, ignoring a different request-body address', async () => {
+  test('createOrder (shipping) taxes the stored ship-to with the item origin, ignoring a different request-body address', async () => {
     tax.taxEnabled.mockImplementation(() => true);
     tax.computeTax.mockImplementation(async () => ({ enabled: true, taxCents: 825, calculationId: 'calc_1', exempt: false }));
     const itemRow = { id: 'item-1', seller_id: 'seller-1', seller_user_id: 'su', seller_type: 'estate_sale_company',
-      price_cents: 10000, status: 'active', shippable: true, shipping_cost_cents: 1000 };
+      price_cents: 10000, status: 'active', shippable: true, shipping_cost_cents: 1000, ...PICKUP };
     install([
       [/JOIN seller_profiles sp ON sp.id = mi.seller_id/, { rows: [itemRow] }],
       [/SELECT \* FROM marketplace_items WHERE id = \$1 FOR UPDATE/, { rows: [itemRow] }],
@@ -366,7 +373,10 @@ describe('tax jurisdiction', () => {
     ]);
     await svc.createOrder('item-1', 'buyer-1', { fulfillment_method: 'shipping', ship_to: ship,
       address: { line1: '5 Elsewhere', city: 'Portland', state: 'OR', postal_code: '97201', country: 'US' } });
-    expect(tax.computeTax.mock.calls[0][0].address).toMatchObject({ line1: '1 Main St', state: 'TX', postal_code: '78701' });
+    const call = tax.computeTax.mock.calls[0][0];
+    expect(call.address).toMatchObject({ line1: '1 Main St', state: 'TX', postal_code: '78701' });
+    expect(call.shipFrom).toMatchObject({ line1: '9 Dock Rd', postal_code: '77002' });
+    expect(call.addressSource).toBe('shipping');
     const pi = mockStripe.paymentIntents.create.mock.calls[0][0];
     expect(pi.amount).toBe(10000 + 1000 + 825);
     expect(pi.confirmation_method).toBe('manual'); // the browser cannot confirm with an unchecked card

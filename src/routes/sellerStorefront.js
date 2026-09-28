@@ -14,7 +14,7 @@ const items = require('../services/marketplaceItemService');
 const { asyncRoute } = require('../utils/apiError');
 
 router.use(auth);
-const fail = (res, e, next) => { if (e.status) return res.status(e.status).json({ success: false, code: e.code, message: e.message }); next(e); };
+const fail = (res, e, next) => { if (e.status) return res.status(e.status).json({ success: false, code: e.code, message: e.message, missing: e.missing || undefined }); next(e); };
 
 // ── Storefront config ──────────────────────────────────────────────────────────
 router.get('/config', asyncRoute(async (req, res) => res.json({ success: true, data: await storefront.getOwnerConfig(req.user.id) })));
@@ -48,7 +48,8 @@ router.post('/unsold-lots/:lotId/convert', async (req, res, next) => {
   try {
     const b = req.body || {};
     const r = await items.convertLotToListing(req.params.lotId, req.user.id, { priceCents: b.price_cents, edits: b.edits });
-    return res.status(r.created ? 201 : 200).json({ success: true, created: r.created, data: r.item });
+    return res.status(r.created ? 201 : 200).json({ success: true, created: r.created, data: r.item,
+      needs_pickup_location: r.needs_pickup_location || undefined });
   } catch (e) { fail(res, e, next); }
 });
 // Bulk convert (explicit list of lot ids; each idempotent + independently guarded).

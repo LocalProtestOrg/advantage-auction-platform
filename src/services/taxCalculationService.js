@@ -3,8 +3,11 @@
 /**
  * taxCalculationService — Stripe Tax (Calculation API) integration for auction buyer payments.
  *
- * Owner-approved Version 1.0 policy:
- *   • Jurisdiction  = BUYER address (customer_details.address), NOT the auction pickup address.
+ * Owner policy (2026-09-28, supersedes the Version 1.0 "buyer address" rule):
+ *   • Jurisdiction  = where the SALE happens (src/lib/saleLocation.js). Pickup → the pickup location is the
+ *                     customer address (address_source 'shipping'); shipping → the buyer's ship-to address is the
+ *                     customer address and the item's location is sent as the origin (ship_from_details).
+ *                     Never the buyer's billing address for a pickup, never Advantage.Bid's own address.
  *   • Taxable base  = hammer + buyer premium (the caller passes this as taxableBaseCents).
  *   • Seller payout = tax EXCLUDED (this module never touches settlement; the settlement engine
  *                     computes the seller's net from the billing model, independent of the charge).
@@ -55,7 +58,10 @@ function addressComplete(a) {
 }
 
 /**
- * Compute sales tax for a taxable base using the buyer's address.
+ * Compute sales tax for a taxable base at the sale location.
+ *   address       — where the buyer takes possession: the pickup location (pickup) or the ship-to address (shipping).
+ *   shipFrom      — the origin of the goods (the item/auction pickup location); optional, sent when complete.
+ *   addressSource — 'shipping' (default: a place of delivery or pickup) or 'billing'.
  * Returns { enabled, taxCents, calculationId, exempt }.
  *  - flag OFF                          → { enabled:false, taxCents:0, calculationId:null, exempt:false }  (NO Stripe call)
  *  - approved applicable exemption     → { enabled:true,  taxCents:0, calculationId:null, exempt:true  }  (NO Stripe call)
@@ -63,7 +69,7 @@ function addressComplete(a) {
  *  - Stripe failure (flag ON)          → throws TaxCalculationError('TAX_CALCULATION_FAILED')  (caller must FAIL the payment)
  *  - otherwise                         → { enabled:true,  taxCents:<stripe>, calculationId:<id>, exempt:false }
  */
-async function computeTax({ buyerUserId, taxableBaseCents, address, currency = 'usd', reference }) {
+async function computeTax({ buyerUserId, taxableBaseCents, address, shipFrom = null, addressSource = 'shipping', currency = 'usd', reference }) {
   if (!taxEnabled()) return { enabled: false, taxCents: 0, calculationId: null, exempt: false };
 
   const base = Math.max(0, Math.round(Number(taxableBaseCents) || 0));
@@ -102,8 +108,17 @@ async function computeTax({ buyerUserId, taxableBaseCents, address, currency = '
           postal_code: address.postal_code,
           country: address.country || DEFAULT_COUNTRY,
         },
-        address_source: 'billing',
+        address_source: addressSource === 'billing' ? 'billing' : 'shipping',
       },
+      // Origin of the goods (the seller's pickup/item location). Stripe Tax uses it where origin-based rules apply.
+      ...(addressComplete(shipFrom) ? { ship_from_details: { address: {
+        line1: shipFrom.line1,
+        line2: shipFrom.line2 || undefined,
+        city: shipFrom.city,
+        state: shipFrom.state,
+        postal_code: shipFrom.postal_code,
+        country: shipFrom.country || DEFAULT_COUNTRY,
+      } } } : {}),
     }, { timeout: 15000 });
   } catch (e) {
     // Never assume $0 on failure — the caller MUST block the payment (fail-safe).

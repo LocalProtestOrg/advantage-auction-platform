@@ -32,6 +32,7 @@ const taxService = require('./taxCalculationService');
 const billingTerms = require('./billingTermsService');
 const { isProfessional } = require('../lib/sellerBranding');
 const { marketplaceCheckoutEnabled } = require('../lib/launchGuards');
+const saleLocation = require('../lib/saleLocation');
 
 const STRIPE_API_VERSION = '2026-03-25.dahlia'; // matches paymentService/taxCalculationService pin
 const CLAIM_TTL_MINUTES = 30;                    // an in-flight checkout holds a one-of-one item this long
@@ -88,42 +89,29 @@ function normalizeAddress(a) {
   return { line1: s(a.line1), line2: s(a.line2) || undefined, city: s(a.city), state: s(a.state).toUpperCase(),
     postal_code: s(a.postal_code), country: (s(a.country) || 'US').toUpperCase() };
 }
-function sameZip(a, b) {
-  return String(a || '').trim().slice(0, 5) === String(b || '').trim().slice(0, 5);
-}
-
-// Seller's pickup location for a LOCAL-PICKUP sale's tax jurisdiction. Source: the seller's recorded business
-// address (seller_identity), used only when it is complete and — if the item carries its own ZIP — in that same
-// ZIP (an item stored elsewhere must not be taxed at the business address). Returns null when undeterminable.
-async function loadSellerPickupAddress(item, runner = db) {
-  const r = (await runner.query(
-    `SELECT address_line1, address_line2, city, state, postal_code, country
-       FROM seller_identity WHERE seller_profile_id = $1`, [item.seller_id])).rows[0];
-  if (!r) return null;
-  const a = normalizeAddress({ line1: r.address_line1, line2: r.address_line2, city: r.city, state: r.state,
-    postal_code: r.postal_code, country: r.country });
-  if (!(a.line1 && a.city && a.state && a.postal_code)) return null;
-  if (item.zip && !sameZip(item.zip, a.postal_code)) return null;
-  return a;
-}
-
-// Tax jurisdiction (owner rule): PICKUP → the seller's pickup location; SHIPPING → the ship-to address stored on
-// the order (never an arbitrary request-body address that differs from it). Only consulted when tax is ON.
-async function resolveTaxAddress({ method, item, shipTo }, runner = db) {
+// ── Sale location for sales tax (owner rule; src/lib/saleLocation.js) ───────────────────────────────────
+//   PICKUP   → the item's pickup location is where the buyer takes possession (customer address + origin).
+//   SHIPPING → destination = the ship-to address stored on the order; origin = the item's pickup location.
+// Never the buyer's billing address, the seller's legal address or Advantage.Bid's own address. A missing or
+// incomplete location blocks the sale; the seller and admin are told what is missing (once per item).
+// Returns { address, shipFrom } for taxService.computeTax, or null when tax is off. Only consulted when tax is ON.
+async function resolveTaxLocation({ method, item, shipTo }) {
   if (!taxActive()) return null;
+  const origin = saleLocation.fromItemPickup(item);
+  const missing = saleLocation.missingParts(origin);
+  if (missing.length) {
+    await require('./saleLocationAlerts').reportMissingSaleLocation({ entityType: 'marketplace_item', entityId: item.id,
+      missing, sellerId: item.seller_id });
+    throw saleLocation.locationError('PICKUP_LOCATION_MISSING', 'buyer', missing, 409);
+  }
   if (method === 'shipping') {
     const a = normalizeAddress(parseJson(shipTo));
     if (!a || !taxService.addressComplete(a)) {
       throw err(422, 'SHIP_TO_REQUIRED', 'A complete shipping address is required.');
     }
-    return a;
+    return { address: a, shipFrom: origin };
   }
-  const a = await loadSellerPickupAddress(item, runner);
-  if (!a) {
-    throw err(422, 'PICKUP_TAX_ADDRESS_UNAVAILABLE',
-      'Sales tax for local pickup could not be determined for this item. Please contact the seller or choose shipping if offered.');
-  }
-  return a;
+  return { address: origin, shipFrom: origin };
 }
 
 // Load an item joined to its seller, with the purchase-eligibility validations that don't need a lock.
@@ -149,11 +137,12 @@ async function quote(itemId, buyerUserId, opts = {}) {
   if (!marketplaceCheckoutEnabled()) throw err(403, 'CHECKOUT_DISABLED', 'Marketplace checkout is not currently available.');
   const { item, method, shippingCents, feeBps } = await loadItemForPurchase(itemId, buyerUserId, opts.fulfillment_method);
   if (item.status !== 'active') throw err(409, 'NOT_AVAILABLE', 'This item is no longer available for purchase.');
-  // Shipping: the address the buyer will ship to (the same value the order stores as ship_to). Pickup: seller location.
-  const address = await resolveTaxAddress({ method, item, shipTo: opts.ship_to || opts.address });
+  // Shipping: destination = the address the buyer will ship to; origin = the item's pickup location. Pickup: the item's pickup location.
+  const loc = await resolveTaxLocation({ method, item, shipTo: opts.ship_to || opts.address });
   const taxable = item.price_cents + shippingCents;
   const tax = await taxService.computeTax({
-    buyerUserId, taxableBaseCents: taxable, address, reference: 'marketplace-quote:' + itemId,
+    buyerUserId, taxableBaseCents: taxable, address: loc && loc.address, shipFrom: loc && loc.shipFrom,
+    addressSource: 'shipping', reference: 'marketplace-quote:' + itemId,
   });
   const b = computeBreakdown({ itemPriceCents: item.price_cents, shippingCents, taxCents: tax.taxCents, feeBps });
   return {
@@ -206,6 +195,8 @@ async function createOrder(itemId, buyerUserId, opts = {}) {
   const { method, shippingCents, feeBps } = pre;
   const shipToObj = method === 'shipping' && opts.ship_to ? normalizeAddress(opts.ship_to) : null;
   if (method === 'shipping' && !shipToObj) throw err(422, 'SHIP_TO_REQUIRED', 'A shipping address is required.');
+  // Check the sale location BEFORE the item is held, so a blocked sale never claims inventory.
+  if (taxActive()) await resolveTaxLocation({ method, item: pre.item, shipTo: shipToObj });
 
   if (pre.item.status === 'pending_purchase') {
     const reused = await reuseOrRetireHold(pre.item, buyerUserId, method, shipToObj);
@@ -241,13 +232,14 @@ async function createOrder(itemId, buyerUserId, opts = {}) {
     });
   });
 
-  // ── Sales tax (flag-gated). Jurisdiction: pickup → seller location; shipping → the order's stored ship-to. ──
+  // ── Sales tax (flag-gated). Pickup → the item's pickup location; shipping → the order's stored ship-to (destination)
+  // with the item's pickup location as origin. ──
   const taxableBase = order.item_price_cents + order.shipping_cents;
   let tax;
   try {
-    const address = await resolveTaxAddress({ method, item: pre.item, shipTo: order.ship_to || shipToObj });
-    tax = await taxService.computeTax({ buyerUserId, taxableBaseCents: taxableBase, address,
-      reference: 'marketplace-order:' + order.order_number });
+    const loc = await resolveTaxLocation({ method, item: pre.item, shipTo: order.ship_to || shipToObj });
+    tax = await taxService.computeTax({ buyerUserId, taxableBaseCents: taxableBase, address: loc && loc.address,
+      shipFrom: loc && loc.shipFrom, addressSource: 'shipping', reference: 'marketplace-order:' + order.order_number });
   } catch (taxErr) {
     await releaseOrder(order.id, 'tax:' + (taxErr.code || 'error'));
     throw taxErr;
@@ -848,5 +840,5 @@ module.exports = {
   handleIntentEvent, tryHandleChargeRefunded, markOrderPaid, refundOrder, applyRefundState,
   relistItem, updateFulfillment, releaseOrder, listForBuyer, listForSeller,
   getForBuyer, getForSeller, publicOrder, listForAdmin,
-  payOrder, sweepExpiredHolds, releaseExpiredHold, resolveTaxAddress, recordRefund, refundConflict,
+  payOrder, sweepExpiredHolds, releaseExpiredHold, resolveTaxLocation, recordRefund, refundConflict,
 };

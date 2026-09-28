@@ -8,6 +8,7 @@ const verificationService = require('./verificationService'); // publication gat
 const { combinedInvoicingEnabled } = require('./../lib/launchGuards'); // Design C flag gate at close
 const { platformFeeCents } = require('../lib/settlementPolicy'); // seller platform fee = 0% (shared)
 const ownerAlertService = require('./ownerAlertService'); // best-effort owner SMS on submit-for-review
+const saleLocation = require('../lib/saleLocation');
 
 // #18: default gap between consecutive lot closings (AAC timed model). Lot N
 // closes at start_time + N * this interval. Editable config is a post-launch
@@ -45,6 +46,16 @@ async function enforceMinimumLots(auctionId, { actorRole, overrideReason, runner
 // Fields that define WHERE an auction is. A change to any of them re-triggers
 // geocoding for the homepage map; a change to anything else must not.
 const LOCATION_FIELDS = ['street_address', 'city', 'address_state', 'zip'];
+
+// The auction's pickup address is where its sales happen (sales tax) and where buyers collect their items, so an
+// auction cannot be submitted or published without a complete one. Applies to admins too (enter the address).
+function assertPickupLocationComplete(row) {
+  const missing = saleLocation.missingParts(saleLocation.fromAuction(row));
+  if (!missing.length) return;
+  const e = new Error(`Add the auction's full pickup address before publishing (missing: ${saleLocation.describeMissing(missing)}).`);
+  e.code = 'PICKUP_LOCATION_REQUIRED'; e.status = 422; e.missing = missing;
+  throw e;
+}
 
 // Phase C: server-authoritative seller-type schedule enforcement, shared by
 // createAuction + updateAuction. Pure decision over a resolved sellerType.
@@ -664,7 +675,7 @@ async function publishAuction(auctionId, actorId = null, options = {}) {
     await client.query('BEGIN');
 
     const current = await client.query(
-      'SELECT id, state, seller_id, start_time FROM auctions WHERE id = $1 FOR UPDATE',
+      'SELECT id, state, seller_id, start_time, street_address, city, address_state, zip FROM auctions WHERE id = $1 FOR UPDATE',
       [auctionId]
     );
     if (!current.rows[0]) {
@@ -687,6 +698,7 @@ async function publishAuction(auctionId, actorId = null, options = {}) {
       e.code = 'START_TIME_REQUIRED'; e.status = 422;
       throw e;
     }
+    assertPickupLocationComplete(current.rows[0]);
     const lotCountRes = await client.query(
       "SELECT count(*)::int AS c FROM lots WHERE auction_id = $1 AND state != 'withdrawn'",
       [auctionId]
@@ -1126,6 +1138,10 @@ async function closeAuction(auctionId, actorId = null) {
             } else if (r.status === 'pending') {
               // requires_action / processing — leave the header; the webhook settles it
               // (payment_intent.succeeded) and sends the success package on arrival.
+            } else if (r.status === 'location_missing') {
+              // The auction's pickup address is incomplete, so tax cannot be calculated. Not the buyer's problem:
+              // no charge and no payment request. paymentService has already audited it and told the admin what
+              // is missing (once per auction).
             } else if (r.status === 'test_record') {
               // Pre-launch test auction (mig 176): never charged, and the buyer is never asked to pay.
             } else if (r.status === 'uncertain') {
@@ -1214,6 +1230,9 @@ async function sellerSubmitAuction(auctionId, userId) {
   }
   // Ineligible professional or Individual/Private → existing submit-for-review path (AUCTION_SUBMITTED SMS
   // fires from updateAuction). Individuals never reach the auto-publish branch above.
+  // Final submission is single-use, so the pickup address is checked BEFORE the seller loses edit rights.
+  assertPickupLocationComplete((await db.query(
+    'SELECT street_address, city, address_state, zip FROM auctions WHERE id = $1', [auctionId])).rows[0]);
   const auction = await updateAuction(auctionId, userId, { state: 'submitted' }, 'seller');
   require('./complianceService').scanAuctionSafe(auctionId); // best-effort; supports the admin review queue
   return { auto_published: false, auction };
@@ -1236,4 +1255,5 @@ module.exports = {
   closeAuction,
   // Exported for unit-testing the Phase C override decision without a DB.
   enforceScheduleRule,
+  assertPickupLocationComplete,
 };

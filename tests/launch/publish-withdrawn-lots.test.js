@@ -27,7 +27,8 @@ function fakeClient() {
     query: jest.fn(async (sql) => {
       const s = String(sql);
       queries.push(s);
-      if (/FROM auctions WHERE id = \$1 FOR UPDATE/.test(s)) return { rows: [{ id: 'A', state: 'draft', seller_id: 'S', start_time: FUTURE }] };
+      if (/FROM auctions WHERE id = \$1 FOR UPDATE/.test(s)) return { rows: [{ id: 'A', state: 'draft', seller_id: 'S', start_time: FUTURE,
+        street_address: '100 Congress Ave', city: 'Austin', address_state: 'TX', zip: '78701' }] };
       if (/count\(\*\)::int AS c FROM lots/.test(s)) return { rows: [{ c: 30 }] }; // >=30 so the 30-lot minimum passes; this suite tests withdrawn-lot exclusion
       if (/UPDATE\s+auctions[\s\S]*state = 'published'[\s\S]*RETURNING/.test(s)) return { rows: [{ id: 'A', state: 'published', start_time: FUTURE }] };
       return { rows: [] };

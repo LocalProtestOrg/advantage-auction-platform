@@ -6,6 +6,7 @@ const billingTerms   = require('./billingTermsService');
 const taxService     = require('./taxCalculationService');
 const Stripe         = require('stripe');
 const { isLiveMode, eventMatchesMode } = require('../lib/stripeMode');
+const saleLocation = require('../lib/saleLocation');
 const { isPrepaid, PREPAID_MESSAGE } = require('./cardService');
 
 // Pin Stripe API version. Pin target matches the SDK 22.0.2 default; pinning
@@ -711,6 +712,7 @@ class PaymentService {
       } catch (taxErr) {
         await this._failPendingPayment(paymentId, 'tax:' + (taxErr.code || 'error'));
         if (taxErr.code === 'BUYER_TAX_ADDRESS_REQUIRED') return { skipped: 'tax_address_required', paymentId };
+        if (taxErr.code === 'PICKUP_LOCATION_MISSING') return { status: 'location_missing', paymentId, missing: taxErr.missing || [] };
         return { status: 'failed', paymentId, reason: 'tax_' + String(taxErr.code || 'error').toLowerCase() };
       }
     }
@@ -1531,21 +1533,15 @@ class PaymentService {
 
   // ── Stripe Tax helpers (all flag-gated; no-ops when STRIPE_TAX_ENABLED is off) ──────────────
   //
-  // Load the buyer's confirmed tax address (jurisdiction evidence). Owner policy: jurisdiction is
-  // the BUYER address, never the auction pickup address. Returns null when incomplete.
-  async _loadBuyerTaxAddress(buyerUserId) {
-    const u = (await db.query(
-      `SELECT tax_address_line1, tax_address_line2, tax_city, tax_state, tax_postal_code, tax_country
-         FROM users WHERE id = $1`, [buyerUserId])).rows[0];
-    if (!u) return null;
-    return {
-      line1:       u.tax_address_line1,
-      line2:       u.tax_address_line2,
-      city:        u.tax_city,
-      state:       u.tax_state,
-      postal_code: u.tax_postal_code,
-      country:     u.tax_country || 'US',
-    };
+  // The sale location for an auction payment (owner rule, src/lib/saleLocation.js): auction sales are picked up, so
+  // tax is due where the buyer takes possession — the auction's pickup address. Never the buyer's billing address,
+  // the seller's legal address or Advantage.Bid's own address. Returns { address, missing, auctionId }.
+  async _loadSaleLocation(paymentId) {
+    const a = (await db.query(
+      `SELECT a.id AS auction_id, a.street_address, a.city, a.address_state, a.zip
+         FROM payments p JOIN auctions a ON a.id = p.auction_id WHERE p.id = $1`, [paymentId])).rows[0];
+    const address = saleLocation.fromAuction(a);
+    return { address, missing: saleLocation.missingParts(address), auctionId: a ? a.auction_id : null };
   }
 
   // Release a still-transitional pending payment row (no intent attached) so a retry can proceed.
@@ -1569,11 +1565,19 @@ class PaymentService {
     // combined invoices, where shipping/credits are $0 at V1.0). Returns the final charge amount.
     const current = (currentAmountCents == null) ? taxableBaseCents : currentAmountCents;
     if (!taxService.taxEnabled()) return current; // exact pre-tax behavior; no Stripe call
-    const address = await this._loadBuyerTaxAddress(buyerUserId);
+    const loc = await this._loadSaleLocation(paymentId);
+    if (loc.missing.length) {
+      // Block: never tax (or charge) against a guessed location. The seller/admin is told what is missing.
+      await require('./saleLocationAlerts').reportMissingSaleLocation({ entityType: 'auction', entityId: loc.auctionId,
+        auctionId: loc.auctionId, paymentId, missing: loc.missing });
+      throw saleLocation.locationError('PICKUP_LOCATION_MISSING', 'buyer', loc.missing, 409);
+    }
     const t = await taxService.computeTax({
       buyerUserId,
       taxableBaseCents,
-      address,
+      address: loc.address,        // where the buyer takes possession (the auction pickup address)
+      shipFrom: loc.address,       // the goods' origin is the same place
+      addressSource: 'shipping',
       reference: 'payment:' + paymentId,
     });
     const chargeCents = current + (t.taxCents || 0);
