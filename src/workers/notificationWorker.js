@@ -1027,3 +1027,20 @@ const LOT_AUTO_CLOSE_INTERVAL_MS = 30000;
 console.log(`[lot-auto-close] scheduler started — scanning every ${LOT_AUTO_CLOSE_INTERVAL_MS / 1000}s`);
 setInterval(runLotAutoClose, LOT_AUTO_CLOSE_INTERVAL_MS);
 runLotAutoClose();
+
+// ── Storefront checkout: expired-hold sweeper ─────────────────────────────────────────────────────────
+// Releases fixed-price items whose checkout hold expired and cancels the stale PaymentIntent. Self-gated inside
+// sweepExpiredHolds (no-op unless MARKETPLACE_CHECKOUT_ENABLED and a payment key are set). Never releases an item
+// whose payment succeeded or is processing (checks the intent first; a lost success is reconciled instead).
+const STOREFRONT_HOLD_SWEEP_INTERVAL_MS = 5 * 60 * 1000;
+async function runStorefrontHoldSweep() {
+  try {
+    const out = await require('../services/marketplaceOrderService').sweepExpiredHolds();
+    if (out.enabled && out.scanned) console.log('[storefront-hold-sweep]', JSON.stringify(out));
+  } catch (err) {
+    console.error(`[storefront-hold-sweep] failed: ${err.message}`);
+    if (process.env.SENTRY_DSN) Sentry.captureException(err);
+  }
+}
+setInterval(runStorefrontHoldSweep, STOREFRONT_HOLD_SWEEP_INTERVAL_MS);
+runStorefrontHoldSweep();

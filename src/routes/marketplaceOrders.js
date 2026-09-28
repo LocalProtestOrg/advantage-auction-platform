@@ -3,9 +3,9 @@
 /**
  * /api/marketplace — fixed-price Marketplace Buy Now checkout + order management.
  *
- * Buyer:  quote → create order (PaymentIntent) → confirm card client-side → poll order.
+ * Buyer:  quote → create order (PaymentIntent, server-confirmed) → post card → server checks + confirms → poll.
  * Seller: view own orders, advance fulfillment, relist a refunded/removed item.
- * Admin:  refund an order (Stripe refund + Stripe Tax reversal).
+ * Admin:  list storefront orders; refund an order (refund + sales-tax reversal).
  *
  * Ownership is ALWAYS derived server-side from req.user.id. All money is computed server-side; the
  * browser never supplies price/tax/fee/proceeds. Checkout is gated by MARKETPLACE_CHECKOUT_ENABLED and,
@@ -19,6 +19,14 @@ const roleMiddleware = require('../middleware/roleMiddleware');
 const orders = require('../services/marketplaceOrderService');
 const { marketplaceCheckoutEnabled } = require('../lib/launchGuards');
 
+// PUBLIC (no login): the buyer UI reads this to decide whether to show Buy Now to every visitor, including
+// logged-out ones. It exposes only the checkout flag and the publishable (browser-safe) key. Registered BEFORE
+// the auth middleware; every other route below keeps its auth unchanged.
+router.get('/config', (req, res) => res.json({ success: true, data: {
+  checkout_enabled: marketplaceCheckoutEnabled(),
+  stripe_publishable_key: process.env.STRIPE_PUBLISHABLE_KEY || null,
+} }));
+
 router.use(authMiddleware);
 
 const fail = (res, e, next) => {
@@ -27,19 +35,14 @@ const fail = (res, e, next) => {
   return next ? next(e) : res.status(500).json({ success: false, message: 'Server error' });
 };
 
-// Public config the buyer UI reads to know whether Buy Now is live in this environment.
-router.get('/config', (req, res) => res.json({ success: true, data: {
-  checkout_enabled: marketplaceCheckoutEnabled(),
-  stripe_publishable_key: process.env.STRIPE_PUBLISHABLE_KEY || null,
-} }));
-
 // ── Buyer ─────────────────────────────────────────────────────────────────────────────────────────────
-// Read-only quote (no inventory claim, no PaymentIntent) — powers the order-review screen.
+// Read-only quote (no inventory claim, no PaymentIntent) — powers the order-review screen. Gated behind the
+// checkout flag in the service (it calls tax calculation).
 router.post('/orders/quote', async (req, res, next) => {
   try {
-    const { item_id, fulfillment_method, address } = req.body || {};
+    const { item_id, fulfillment_method, address, ship_to } = req.body || {};
     if (!item_id) return res.status(400).json({ success: false, message: 'item_id is required.' });
-    return res.json({ success: true, data: await orders.quote(item_id, req.user.id, { fulfillment_method, address }) });
+    return res.json({ success: true, data: await orders.quote(item_id, req.user.id, { fulfillment_method, address, ship_to }) });
   } catch (e) { fail(res, e, next); }
 });
 
@@ -51,6 +54,18 @@ router.post('/orders', async (req, res, next) => {
     const idempotencyKey = req.get('Idempotency-Key') || undefined;
     const result = await orders.createOrder(item_id, req.user.id, { fulfillment_method, ship_to, address, idempotencyKey });
     return res.json({ success: true, data: result });
+  } catch (e) { fail(res, e, next); }
+});
+
+// Pay an order: the browser posts a PaymentMethod id (created from the card field); the server checks the card
+// (prepaid refused with 422) and confirms server-side. With no payment_method_id it finalizes after the browser
+// completed card authentication. Idempotency-Key header collapses retries of the same click.
+router.post('/orders/:id/pay', async (req, res, next) => {
+  try {
+    const { payment_method_id } = req.body || {};
+    const idempotencyKey = req.get('Idempotency-Key') || undefined;
+    const out = await orders.payOrder(req.params.id, req.user.id, { paymentMethodId: payment_method_id, idempotencyKey });
+    return res.json({ success: true, data: out });
   } catch (e) { fail(res, e, next); }
 });
 
@@ -89,6 +104,13 @@ router.post('/seller/items/:itemId/relist', async (req, res, next) => {
 });
 
 // ── Admin ─────────────────────────────────────────────────────────────────────────────────────────────
+// Storefront order list: status, amounts, fee, proceeds, fulfillment, payout flag, refund state. Read-only;
+// payout stays a manual settlement step (no money moves from here).
+router.get('/admin/orders', roleMiddleware(['admin']), async (req, res, next) => {
+  try { return res.json({ success: true, data: await orders.listForAdmin({ status: req.query.status, limit: req.query.limit }) }); }
+  catch (e) { fail(res, e, next); }
+});
+
 router.post('/admin/orders/:id/refund', roleMiddleware(['admin']), async (req, res, next) => {
   try { return res.json({ success: true, data: await orders.refundOrder(req.params.id, { adminId: req.user.id }) }); }
   catch (e) { fail(res, e, next); }

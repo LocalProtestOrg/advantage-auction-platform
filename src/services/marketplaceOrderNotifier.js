@@ -97,4 +97,22 @@ async function sendRefunded(orderId) {
     text: `Refund of ${money(o.refunded_amount_cents || o.total_charge_cents)} processed for order ${o.order_number} (${o.item_title}).` });
 }
 
-module.exports = { sendPaid, sendRefunded };
+// The buyer's payment went through after the item was no longer available (e.g. their checkout session had
+// expired and another buyer purchased it). The platform refunded the full amount automatically.
+async function sendConflictRefunded(orderId) {
+  const o = await loadContext(orderId);
+  if (!o || !o.buyer_email) return;
+  const amount = money(o.refunded_amount_cents || o.total_charge_cents);
+  const html = `<div style="font-family:system-ui,Arial,sans-serif;color:#222">
+    <h2 style="margin:0 0 4px">Your payment has been refunded</h2>
+    <p style="color:#555;margin:0 0 16px">Order <b>${esc(o.order_number)}</b> · ${esc(o.seller_name || 'Seller')}</p>
+    <p style="margin:0 0 12px">We're sorry — <b>${esc(o.item_title)}</b> was no longer available by the time your payment completed, so the order could not be filled.</p>
+    <p style="margin:0 0 12px">We refunded the full <b>${amount}</b> to your original payment method. Depending on your bank, it can take 5–10 business days to appear.</p>
+    <p><a href="${APP_BASE}/" style="background:#1d4ed8;color:#fff;text-decoration:none;padding:10px 16px;border-radius:8px">Keep browsing</a></p>
+    <p style="color:#475569;font-size:13px;margin-top:20px">Need help? <a href="mailto:info@advantage.bid" style="color:#2563eb">info@advantage.bid</a> · <a href="${company.TEL_HREF}" style="color:#2563eb">${company.PHONE_DISPLAY}</a></p>
+  </div>`;
+  await sendEmail({ to: o.buyer_email, subject: `Payment refunded — ${o.item_title} (${o.order_number})`, html,
+    text: `${o.item_title} was no longer available when your payment completed, so order ${o.order_number} could not be filled. We refunded the full ${amount} to your original payment method; it can take 5-10 business days to appear.` });
+}
+
+module.exports = { sendPaid, sendRefunded, sendConflictRefunded };

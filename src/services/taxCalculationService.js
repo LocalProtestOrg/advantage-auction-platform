@@ -146,6 +146,24 @@ async function reverseFullTransaction({ originalTransactionId, reference }) {
   return rev.id;
 }
 
+/**
+ * Reverse PART of a recorded Tax Transaction (a partial refund). `amountCents` is the refunded amount INCLUDING
+ * tax; Stripe Tax spreads it proportionally across the transaction's line items and tax (mode 'partial' with a
+ * negative flat_amount). The reference must be unique per reversal (callers include the cumulative refunded
+ * amount), and doubles as the idempotency key. No-op when the flag is off or there is no original transaction.
+ */
+async function reversePartialTransaction({ originalTransactionId, reference, amountCents }) {
+  if (!taxEnabled() || !originalTransactionId) return null;
+  const amt = Math.round(Number(amountCents) || 0);
+  if (!(amt > 0)) return null;
+  const stripe = getStripe();
+  const rev = await stripe.tax.transactions.createReversal(
+    { mode: 'partial', original_transaction: originalTransactionId, reference, flat_amount: -amt },
+    { idempotencyKey: 'taxrev:' + reference }
+  );
+  return rev.id;
+}
+
 module.exports = {
   TaxCalculationError,
   DEFAULT_TAX_CODE,
@@ -154,4 +172,5 @@ module.exports = {
   computeTax,
   recordTransaction,
   reverseFullTransaction,
+  reversePartialTransaction,
 };
