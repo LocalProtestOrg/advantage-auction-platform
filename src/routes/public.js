@@ -23,7 +23,7 @@ const { buildLotSearch, clampInt } = require('../services/searchService');
 const { brandedColSql, brandingVisibleSql } = require('../lib/sellerBranding');
 const { organizerColSql } = require('../lib/organizerPrivacy');
 const { labelForFamily } = require('../lib/marketplaceVocabulary');
-const { canonicalCounts, activeMarketplaceCompanySql } = require('../lib/marketplaceVisibility');
+const { canonicalCounts, activeMarketplaceCompanySql, activeNativeAuctionSql } = require('../lib/marketplaceVisibility');
 // Buyer-facing seller-identity columns: NULL unless the seller is a professional type WITH branding
 // enabled. Private/other/unknown are always anonymous. Applied at the query so buyer feeds never even
 // select hidden identity. (The public company DIRECTORY on advantage.bid is separate and NOT scrubbed.)
@@ -799,7 +799,7 @@ router.get('/auctions/near', async (req, res, next) => {
             LEFT JOIN lots l ON l.auction_id = a.id AND l.state != 'withdrawn'
            WHERE a.lat IS NOT NULL
              AND a.lng IS NOT NULL
-             AND a.state IN ('published', 'active') AND a.is_archived IS NOT TRUE
+             AND ${activeNativeAuctionSql('a')}
              ${extraWhere}
            GROUP BY a.id, sp.id
         ) sub
@@ -939,8 +939,8 @@ router.get('/featured-lots', async (req, res, next) => {
 
     const validAS = ['published', 'active', 'closed'];
     const as = req.query.auction_state;
-    let stateClause = `a.state IN ('published', 'active') AND a.is_archived IS NOT TRUE`;
-    if (as && validAS.includes(as)) stateClause = `a.state = '${as}'`;
+    let stateClause = activeNativeAuctionSql('a');   // canonical: never demo, hidden or archived
+    if (as && validAS.includes(as)) stateClause = `a.state = '${as}' AND a.is_archived IS NOT TRUE AND a.marketplace_status = 'syndicated' AND a.is_demo IS NOT TRUE`;
 
     const { rows } = await db.query(`
       SELECT l.id,
@@ -1083,7 +1083,7 @@ router.get('/featured-auctions', async (req, res, next) => {
               FROM auctions a
               LEFT JOIN seller_profiles sp ON sp.id = a.seller_id
               LEFT JOIN lots lo ON lo.auction_id = a.id AND lo.state != 'withdrawn'
-             WHERE a.state IN ('published', 'active') AND a.is_archived IS NOT TRUE
+             WHERE ${activeNativeAuctionSql('a')}
                -- Eligible published/active auctions. NOT gated on an explicit marketplace_priority, so a
                -- normally-published auction appears; featured (priority > 0) auctions still rank first via
                -- ranking_score (auctionScoreSQL gives them a featured_base boost).
@@ -1120,7 +1120,7 @@ router.get('/featured-auctions', async (req, res, next) => {
           FROM auctions a
           LEFT JOIN seller_profiles sp ON sp.id = a.seller_id
           LEFT JOIN lots lo ON lo.auction_id = a.id AND lo.state != 'withdrawn'
-         WHERE a.state IN ('published', 'active') AND a.is_archived IS NOT TRUE
+         WHERE ${activeNativeAuctionSql('a')}
            -- Eligible published/active auctions. NOT gated on an explicit marketplace_priority, so a
            -- normally-published auction appears; featured (priority > 0) auctions rank first via the score.
          GROUP BY a.id, sp.id
@@ -1193,7 +1193,7 @@ router.get('/locations', async (req, res, next) => {
              a.address_state,
              COUNT(DISTINCT a.id)::int AS auction_count,
              COUNT(DISTINCT a.id) FILTER (
-               WHERE a.state IN ('published', 'active') AND a.is_archived IS NOT TRUE
+               WHERE ${activeNativeAuctionSql('a')}
              )::int AS active_count
         FROM auctions a
        WHERE a.city IS NOT NULL
@@ -1232,7 +1232,7 @@ router.get('/sellers/:sellerId/profile', async (req, res, next) => {
                WHERE a.state IN ('published', 'active', 'closed') AND a.is_archived IS NOT TRUE
              )::int AS auction_count,
              COUNT(DISTINCT a.id) FILTER (
-               WHERE a.state IN ('published', 'active') AND a.is_archived IS NOT TRUE
+               WHERE ${activeNativeAuctionSql('a')}
              )::int AS active_auction_count
         FROM seller_profiles sp
         LEFT JOIN auctions a ON a.seller_id = sp.id

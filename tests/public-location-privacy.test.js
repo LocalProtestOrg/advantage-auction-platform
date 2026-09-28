@@ -146,3 +146,25 @@ describe('public business/contact address and private pickup location stay separ
     expect(read('src/services/marketplaceItemService.js')).not.toMatch(/storefront\s*->>\s*'address'|cfg\.address/);
   });
 });
+
+describe('public auction lists never include demo, hidden or archived auctions (canonical visibility)', () => {
+  const publicRouter = require('../src/routes/public');
+  test.each([
+    ['/auctions/near', { query: { lat: '29.7', lng: '-95.3' } }],
+    ['/featured-lots', { query: {} }],
+    ['/featured-lots', { query: { auction_state: 'closed' } }],
+    ['/featured-auctions', { query: {} }],
+    ['/featured-auctions', { query: { lat: '29.7', lng: '-95.3' } }],
+    ['/locations', { query: {} }],
+    ['/sellers/:sellerId/profile', { params: { sellerId: '11111111-1111-4111-8111-111111111111' } }],
+  ])('%s %j', async (p, req) => {
+    await call(handlerFor(publicRouter, 'get', p), req).catch(() => {});
+    const sqls = selected().filter((s) => /(FROM|JOIN) auctions a\b/.test(s));
+    expect(sqls.length).toBeGreaterThan(0);
+    for (const sql of sqls) {
+      expect(sql).toMatch(/a\.is_demo IS NOT TRUE/);
+      expect(sql).toMatch(/a\.marketplace_status = 'syndicated'/);
+      expect(sql).toMatch(/a\.is_archived IS NOT TRUE/);
+    }
+  });
+});

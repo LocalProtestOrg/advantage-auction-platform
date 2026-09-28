@@ -26,15 +26,23 @@ const feat = (() => {
 
 describe('eligibility', () => {
   test('[#1] eligible published/active auctions appear (state gate)', () => {
-    // Both branches (geo + national) select published/active.
-    expect((feat.match(/a\.state IN \('published', 'active'\)/g) || []).length).toBeGreaterThanOrEqual(2);
+    // Both branches (geo + national) use the canonical visibility rule (published/active, not archived,
+    // syndicated, never demo) — see src/lib/marketplaceVisibility.js.
+    expect((feat.match(/activeNativeAuctionSql\('a'\)/g) || []).length).toBeGreaterThanOrEqual(2);
+    const { activeNativeAuctionSql } = require('../src/lib/marketplaceVisibility');
+    expect(activeNativeAuctionSql('a')).toMatch(/a\.state IN \('published','active'\)/);
   });
   test('[#2] draft/submitted auctions do not appear (only published/active pass)', () => {
     expect(feat).not.toMatch(/'draft'/);
     expect(feat).not.toMatch(/'submitted'/);
   });
-  test('[#3] archived (and ended→closed) auctions are excluded', () => {
-    expect((feat.match(/a\.is_archived IS NOT TRUE/g) || []).length).toBeGreaterThanOrEqual(2);
+  test('[#3] archived (and ended→closed) auctions are excluded — and demo / hidden ones too', () => {
+    const { activeNativeAuctionSql } = require('../src/lib/marketplaceVisibility');
+    const rule = activeNativeAuctionSql('a');
+    expect(rule).toMatch(/a\.is_archived IS NOT TRUE/);
+    expect(rule).toMatch(/a\.is_demo IS NOT TRUE/);
+    expect(rule).toMatch(/a\.marketplace_status = 'syndicated'/);
+    expect((feat.match(/activeNativeAuctionSql\('a'\)/g) || []).length).toBeGreaterThanOrEqual(2);
   });
   test('REGRESSION GUARD: no hard marketplace_priority > 0 gate (a normally-published auction appears)', () => {
     expect(feat).not.toMatch(/AND a\.marketplace_priority > 0/);
