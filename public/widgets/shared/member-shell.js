@@ -614,7 +614,7 @@
           var d = s.body && s.body.data; if (!d) return;
           var el = document.getElementById('pk-' + aid); if (!el) return;
           var when = fmtWindow(d.pickup_window_start, d.pickup_window_end);
-          var where = [d.pickup_street, [d.city, d.address_state].filter(Boolean).join(', ')].filter(Boolean).join(' · ');
+          var where = [d.city, d.address_state].filter(Boolean).join(', ');
           var paidInv = inv.some(function (i) { return i.auction_id === aid && String(i.status || '').toLowerCase() === 'paid'; });
           var bits = [];
           if (when) bits.push('📅 Pickup ' + when);

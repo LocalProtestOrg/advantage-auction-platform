@@ -67,6 +67,19 @@
       </div>
 
       <div id="pane-market" style="display:none">
+        <div class="card" id="loc-card"><h3 style="margin-bottom:.3rem">Storefront pickup location</h3>
+          <p class="hint" style="margin:0 0 .6rem;color:#475569">Where buyers collect your items. Set it once — every item you add uses it automatically, unless you change the location for a particular item. Buyers see only the city and state until they've paid. It's also where sales tax is figured.</p>
+          <div id="loc-view" hidden><p id="loc-line" style="font-weight:600;margin:0 0 .5rem"></p><button class="btn b-ghost" type="button" onclick="editDefaultLoc()">Change</button></div>
+          <div id="loc-edit" hidden>
+            <p class="hint" id="loc-suggest" style="margin:0 0 .4rem;color:#92400e" hidden>We filled this in from your business details. Please confirm it's where your items are kept, or change it.</p>
+            <label for="d-pk1">Street address</label><input id="d-pk1" autocomplete="address-line1" placeholder="123 Main St">
+            <label for="d-pk2">Suite, unit or building (optional)</label><input id="d-pk2" autocomplete="address-line2">
+            <div class="row3"><div><label for="d-city">City</label><input id="d-city" autocomplete="address-level2"></div>
+              <div><label for="d-state">State</label><input id="d-state" maxlength="2" autocomplete="address-level1" placeholder="TX" style="text-transform:uppercase"></div>
+              <div><label for="d-zip">ZIP code</label><input id="d-zip" inputmode="numeric" maxlength="10" autocomplete="postal-code" placeholder="77002"></div></div>
+            <div style="margin-top:.7rem"><button class="btn b-blue" type="button" onclick="confirmDefaultLoc(this)">Confirm location</button></div>
+          </div>
+        </div>
         <div class="card"><h3 style="margin-bottom:.5rem">Add an Item</h3>
           <p class="hint" style="margin:-.2rem 0 .7rem">List one of your items for sale at a fixed price. Add photos, a price, and a description — then it goes live in your shop. <span id="addedCount"></span></p>
           <p class="hint" style="margin:-.4rem 0 .8rem;color:#334155"><b>Flat 11% selling fee, including credit card processing.</b> Charged only when an item sells — on the item price (not shipping or tax).</p>
@@ -80,19 +93,22 @@
           <label>Description</label><textarea id="m-desc" rows="3" placeholder="Describe the piece — era, maker, dimensions, condition notes…"></textarea>
           <fieldset class="pickup" id="m-pickup">
             <legend>Pickup location</legend>
-            <p class="hint" style="margin:0 0 .5rem;color:#475569">Where the buyer collects this item. Buyers see only the city and state until they've paid; the full address is sent with their order confirmation. It's also where sales tax is calculated.</p>
-            <label for="m-pk1">Street address</label><input id="m-pk1" autocomplete="address-line1" placeholder="123 Main St">
-            <label for="m-pk2">Suite, unit or building (optional)</label><input id="m-pk2" autocomplete="address-line2">
-            <div class="row3"><div><label for="m-city">City</label><input id="m-city" autocomplete="address-level2"></div>
-              <div><label for="m-state">State</label><input id="m-state" maxlength="2" autocomplete="address-level1" placeholder="TX" style="text-transform:uppercase"></div>
-              <div><label for="m-zip">ZIP code</label><input id="m-zip" inputmode="numeric" maxlength="10" autocomplete="postal-code" placeholder="78701"></div></div>
-            <p class="hint" id="m-pk-note" style="margin:.4rem 0 0"></p>
+            <p id="m-loc-line" style="margin:0 0 .3rem"></p>
+            <button class="btn b-ghost" type="button" id="m-loc-toggle" onclick="toggleItemLoc()">Change location for this item</button>
+            <div id="m-loc-fields" hidden>
+              <p class="hint" style="margin:.5rem 0 0;color:#475569">Only this item uses this address. Your storefront location stays the same.</p>
+              <label for="m-pk1">Street address</label><input id="m-pk1" autocomplete="address-line1">
+              <label for="m-pk2">Suite, unit or building (optional)</label><input id="m-pk2" autocomplete="address-line2">
+              <div class="row3"><div><label for="m-city">City</label><input id="m-city" autocomplete="address-level2"></div>
+                <div><label for="m-state">State</label><input id="m-state" maxlength="2" autocomplete="address-level1" style="text-transform:uppercase"></div>
+                <div><label for="m-zip">ZIP code</label><input id="m-zip" inputmode="numeric" maxlength="10" autocomplete="postal-code"></div></div>
+            </div>
           </fieldset>
           <label class="toggle"><input type="checkbox" id="m-ship" style="width:auto" onchange="document.getElementById('m-shiprow').style.display=this.checked?'':'none'"> Offer shipping (buyers can also pick up locally)</label>
           <div id="m-shiprow" style="display:none"><label>Flat shipping price (USD)</label><input id="m-shipcost" type="number" min="0" step="1" placeholder="25"></div>
           <div style="margin-top:.8rem"><button class="btn b-blue" onclick="addItem(this)">Add Item</button></div>
         </div>
-        <div class="card"><h3 style="margin-bottom:.5rem">Your items</h3><table><thead><tr><th>Item</th><th>Price</th><th>Status</th><th>Source</th><th></th></tr></thead><tbody id="itemsBody"><tr><td colspan="5" class="hint">Loading…</td></tr></tbody></table></div>
+        <div class="card"><h3 style="margin-bottom:.5rem">Your items</h3><table><thead><tr><th>Item</th><th>Price</th><th>Status</th><th>Pickup location</th><th></th></tr></thead><tbody id="itemsBody"><tr><td colspan="5" class="hint">Loading…</td></tr></tbody></table></div>
       </div>
 
       <div id="pane-unsold" style="display:none">
@@ -137,6 +153,7 @@
       document.getElementById('s-ig').value=(c.socials||{}).instagram||'';
       if(d.public_url){document.getElementById('pubUrl').innerHTML='<a href="'+esc(d.public_url)+'" target="_blank">'+esc(d.public_url)+'</a>';document.getElementById('viewBtn').href=d.public_url;
         var hv=document.getElementById('headerView'); if(hv){hv.href=d.public_url; hv.style.display=d.published?'':'none';}}
+      renderDefaultLoc();
       // Deep-link straight to a tab (e.g. the "Add Item" nav → ?tab=market) so listing an item is one click.
       try{var qp=new URLSearchParams(location.search).get('tab'); if(qp&&['store','market','unsold','leads'].indexOf(qp)>=0)tab(qp);}catch(e){}
     }
@@ -149,32 +166,49 @@
         years_in_business:g('s-years'),hours:g('s-hours'),socials:{facebook:g('s-fb'),instagram:g('s-ig')}}};
       try{var r=await api('PUT','/api/seller-storefront/config',body);if(r.success){msg('Saved. '+(r.data.published?'Your storefront is live.':'Saved as draft.'),true);init();}else msg(r.message||'Save failed');}catch(e){msg('Error: '+e.message);}
     }
-    var ITEMS=[];
-    function hasPickup(m){return pickupMissing({line1:m.pickup_address_line1,city:m.pickup_city,state:m.pickup_state,zip:m.pickup_postal_code}).length===0;}
+    var ITEMS=[]; var DEFLOC=null; var ITEM_LOC_OPEN=false;
+    function place(a){return a?(esc(a.city)+', '+esc(a.state)):'';}
+    function fullAddr(a){return a?(esc(a.line1)+(a.line2?', '+esc(a.line2):'')+', '+esc(a.city)+', '+esc(a.state)+' '+esc(a.postal_code)):'';}
+    function renderDefaultLoc(){
+      var pl=(CFG&&CFG.pickup_location)||{}; DEFLOC=pl.confirmed?pl.address:null;
+      document.getElementById('loc-view').hidden=!DEFLOC; document.getElementById('loc-edit').hidden=!!DEFLOC;
+      if(DEFLOC){document.getElementById('loc-line').innerHTML='📍 '+fullAddr(DEFLOC);}
+      else{var sg=pl.suggestion; document.getElementById('loc-suggest').hidden=!sg;
+        if(sg){setLocFields('d-',sg);}}
+      document.getElementById('m-loc-line').innerHTML=DEFLOC?('Uses your storefront location: <b>'+place(DEFLOC)+'</b>')
+        :'<span style="color:#92400e">Confirm your storefront pickup location above first — or set a location for this item.</span>';
+    }
+    function setLocFields(p,a){document.getElementById(p+'pk1').value=a.line1||'';document.getElementById(p+'pk2').value=a.line2||'';
+      document.getElementById(p+'city').value=a.city||'';document.getElementById(p+'state').value=a.state||'';document.getElementById(p+'zip').value=a.postal_code||'';}
+    function readLoc(p){var v=function(id){return document.getElementById(p+id).value.trim();};return {line1:v('pk1'),line2:v('pk2'),city:v('city'),state:v('state'),zip:v('zip')};}
+    function editDefaultLoc(){if(DEFLOC)setLocFields('d-',DEFLOC);document.getElementById('loc-view').hidden=true;document.getElementById('loc-edit').hidden=false;document.getElementById('d-pk1').focus();}
+    async function confirmDefaultLoc(btn){
+      var pk=readLoc('d-'); var miss=pickupMissing(pk); if(miss.length){msg('Your storefront location is missing: '+miss.join(', ')+'.');return;}
+      btn.disabled=true; var r=await api('PUT','/api/seller-storefront/pickup-location',{line1:pk.line1,line2:pk.line2||null,city:pk.city,state:pk.state.toUpperCase(),postal_code:pk.zip,country:'US'});
+      btn.disabled=false;
+      if(r.success){CFG=r.data;renderDefaultLoc();msg('Storefront pickup location saved. Your items use it automatically.',true);loadItems();}
+      else msg(r.message||'Could not save');
+    }
+    function toggleItemLoc(){ITEM_LOC_OPEN=!ITEM_LOC_OPEN;document.getElementById('m-loc-fields').hidden=!ITEM_LOC_OPEN;
+      document.getElementById('m-loc-toggle').textContent=ITEM_LOC_OPEN?'Use my storefront location':'Change location for this item';
+      if(ITEM_LOC_OPEN)document.getElementById('m-pk1').focus();}
+    var SRC_LABEL={'default':'Storefront location','auction':'From its auction','item':'Set for this item'};
     async function loadItems(){
       var r=await api('GET','/api/seller-storefront/items');var rows=r.data||[];ITEMS=rows;
       document.getElementById('itemsBody').innerHTML=rows.length?rows.map(function(m){
-        var needs=m.status!=='removed'&&m.status!=='sold'&&!hasPickup(m);
-        var where=hasPickup(m)?'<br><span class="hint">Pickup: '+esc(m.pickup_city)+', '+esc(m.pickup_state)+'</span>':'';
-        return '<tr><td>'+esc(m.title)+where+(needs?'<div id="pk-'+m.id+'"></div>':'')+'</td><td>'+money(m.price_cents)+'</td><td><span class="pill">'+esc(m.status)+'</span>'
-          +(needs?' <span class="pill pill-warn">Pickup location needed</span>':'')+'</td><td>'+(m.source_lot_id?'From auction':'Added by you')+'</td><td>'
-          +(needs?'<button class="btn b-ghost" onclick="editPickup(\''+m.id+'\')">Add pickup location</button> ':'')
-          +(m.status!=='removed'?'<button class="btn b-warn" onclick="removeItem(\''+m.id+'\')">Remove</button>':'')+'</td></tr>';
+        var loc=m.location||{}; var live=m.status!=='removed'&&m.status!=='sold'; var needs=live&&loc.missing&&loc.missing.length;
+        var where=needs?'<span class="pill pill-warn">Pickup location needed</span>'
+          :'<span class="hint">'+esc(SRC_LABEL[loc.source]||'')+'</span><br>'+place(loc.address);
+        var acts=live?('<button class="btn b-ghost" onclick="editPickup(\''+m.id+'\')">Change location</button> '
+          +(loc.source!=='default'&&DEFLOC?'<button class="btn b-ghost" onclick="useDefault(\''+m.id+'\',this)">Use storefront location</button> ':'')):'';
+        return '<tr><td>'+esc(m.title)+'<div id="pk-'+m.id+'"></div></td><td>'+money(m.price_cents)+'</td><td><span class="pill">'+esc(m.status)+'</span></td><td>'+where+'</td><td>'
+          +acts+(m.status!=='removed'?'<button class="btn b-warn" onclick="removeItem(\''+m.id+'\')">Remove</button>':'')+'</td></tr>';
       }).join(''):'<tr><td colspan="5" class="hint">No items yet. Use “Add an Item” above to list your first piece for sale.</td></tr>';
-      prefillPickup();
-    }
-    // Reuse: a new item starts with the pickup location of the seller's most recent item that has one.
-    function prefillPickup(){
-      if(document.getElementById('m-pk1').value.trim())return;
-      var last=ITEMS.find(hasPickup); if(!last)return;
-      document.getElementById('m-pk1').value=last.pickup_address_line1||'';document.getElementById('m-pk2').value=last.pickup_address_line2||'';
-      document.getElementById('m-city').value=last.pickup_city||'';document.getElementById('m-state').value=last.pickup_state||'';
-      document.getElementById('m-zip').value=last.pickup_postal_code||'';
-      document.getElementById('m-pk-note').textContent='Filled in from your last item. Change it if this item is somewhere else.';
     }
     function editPickup(id){
       var box=document.getElementById('pk-'+id); if(!box)return;
-      box.innerHTML='<div class="pk-edit"><input id="pe1-'+id+'" placeholder="Street address" aria-label="Street address"><input id="pec-'+id+'" placeholder="City" aria-label="City">'
+      box.innerHTML='<p class="hint" style="margin:.4rem 0 0">Only this item moves. Your storefront location and other items stay the same.</p>'
+        +'<div class="pk-edit"><input id="pe1-'+id+'" placeholder="Street address" aria-label="Street address"><input id="pec-'+id+'" placeholder="City" aria-label="City">'
         +'<input id="pes-'+id+'" placeholder="State" maxlength="2" aria-label="State"><input id="pez-'+id+'" placeholder="ZIP" maxlength="10" aria-label="ZIP code">'
         +'<button class="btn b-blue" onclick="savePickup(\''+id+'\',this)">Save</button></div>';
       document.getElementById('pe1-'+id).focus();
@@ -187,8 +221,12 @@
       var body=pickupBody(pk); if(item.status==='draft')body.status='active';
       btn.disabled=true;
       var r=await api('PATCH','/api/seller-storefront/items/'+id,body);
-      if(r.success){msg('Pickup location saved.'+(body.status==='active'?' The item is now live in your shop.':''),true);loadItems();}
+      if(r.success){msg('Pickup location saved for this item.'+(body.status==='active'?' The item is now live in your shop.':''),true);loadItems();}
       else{msg(r.message||'Could not save');btn.disabled=false;}
+    }
+    async function useDefault(id,btn){
+      btn.disabled=true; var r=await api('PATCH','/api/seller-storefront/items/'+id,{use_storefront_location:true});
+      if(r.success){msg('This item now uses your storefront location.',true);loadItems();} else{msg(r.message||'Could not save');btn.disabled=false;}
     }
     // Uploaded photos for the item being added (real seller photos → Cloudinary via /api/uploads/image).
     var UPLOADED=[]; var ADDED=0;
@@ -224,21 +262,22 @@
       var price=Math.round(parseFloat(g('m-price'))*100);
       if(!g('m-title')){msg('Please add a title.');return;}
       if(!(price>0)){msg('Please add a price.');return;}
-      var pk={line1:g('m-pk1'),line2:g('m-pk2'),city:g('m-city'),state:g('m-state'),zip:g('m-zip')};
-      var pkMissing=pickupMissing(pk);
-      if(pkMissing.length){msg('Add the pickup location before listing this item. Missing: '+pkMissing.join(', ')+'.');document.getElementById('m-pk1').focus();return;}
+      var pk=ITEM_LOC_OPEN?readLoc('m-'):null;
+      if(pk){var pkMissing=pickupMissing(pk);if(pkMissing.length){msg('This item\'s location is missing: '+pkMissing.join(', ')+'.');document.getElementById('m-pk1').focus();return;}}
+      else if(!DEFLOC){msg('Confirm your storefront pickup location first (top of this page), or change the location for this item.');document.getElementById('loc-card').scrollIntoView({behavior:'smooth'});return;}
       var ship=document.getElementById('m-ship').checked;
       var body={title:g('m-title'),price_cents:price,category:g('m-cat')||null,condition:g('m-cond'),description:g('m-desc'),
         shippable:ship,
         shipping_cost_cents:(ship&&g('m-shipcost'))?Math.round(parseFloat(g('m-shipcost'))*100):null,
         images:UPLOADED.slice()};
-      Object.assign(body,pickupBody(pk));
+      if(pk)Object.assign(body,pickupBody(pk));
       if(btn){btn.disabled=true;btn.textContent='Adding…';}
       try{var r=await api('POST','/api/seller-storefront/items',body);
         if(r.success){
           ADDED++; document.getElementById('addedCount').textContent='· '+ADDED+' added this session';
           msg('✓ Item added — it’s live in your shop. Add another below.',true);
-          // Clear item-specific fields; KEEP the pickup location + shipping choice so the next of many items inherits them.
+          // Clear item-specific fields; KEEP the shipping choice. The next item uses the storefront location again.
+          if(ITEM_LOC_OPEN)toggleItemLoc();
           ['m-title','m-price','m-cat','m-cond','m-desc'].forEach(function(i){document.getElementById(i).value='';});
           UPLOADED=[]; renderPhotos(); document.getElementById('upStatus').textContent='';
           document.getElementById('m-title').focus(); loadItems();

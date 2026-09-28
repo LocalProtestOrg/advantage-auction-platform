@@ -23,6 +23,12 @@ router.put('/config', async (req, res, next) => {
   catch (e) { fail(res, e, next); }
 });
 
+// Default storefront pickup location — confirmed once; items use it automatically (PRIVATE, owner-only).
+router.put('/pickup-location', async (req, res, next) => {
+  try { return res.json({ success: true, data: await storefront.setDefaultPickupLocation(req.user.id, req.body || {}) }); }
+  catch (e) { fail(res, e, next); }
+});
+
 // ── Marketplace inventory (direct listings) ────────────────────────────────────
 router.get('/items', asyncRoute(async (req, res) => {
   const s = await items.sellerForUser(req.user.id);

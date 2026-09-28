@@ -6,7 +6,8 @@
  *   Auction (pickup)                → the auction's pickup address (auctions.street_address / city / address_state / zip).
  *   Storefront item from a lot      → the originating auction's pickup address, copied onto the item at conversion
  *                                     (marketplace_items.pickup_*), unless the seller later changes the item's location.
- *   Independent storefront item     → the pickup location the seller entered for that item (marketplace_items.pickup_*).
+ *   Independent storefront item     → the seller's confirmed DEFAULT storefront location (seller_profiles.default_pickup_*),
+ *                                     unless the seller changed the location for that item (marketplace_items.pickup_*).
  *   Shipped storefront order        → origin = the item's pickup location; destination = the buyer's ship-to address.
  *   Missing / incomplete location   → the sale is BLOCKED with a message naming what is missing.
  *
@@ -69,6 +70,31 @@ function fromItemPickup(row) {
     state: row.pickup_state, postal_code: row.pickup_postal_code, country: row.pickup_country || 'US' });
 }
 
+/** The seller's default storefront location (seller_profiles.default_pickup_*) → address. Only once CONFIRMED. */
+function fromSellerDefault(row) {
+  if (!row || !row.default_pickup_confirmed_at) return null;
+  return normalize({ line1: row.default_pickup_address_line1, line2: row.default_pickup_address_line2, city: row.default_pickup_city,
+    state: row.default_pickup_state, postal_code: row.default_pickup_postal_code, country: row.default_pickup_country || 'US' });
+}
+
+/**
+ * A storefront item's effective location. `row` is the item joined to its seller's default_pickup_* columns.
+ *   source 'auction' | 'item' → the item's own pickup_* columns (copied from its auction, or chosen for this item)
+ *   source 'default' / none   → the seller's CONFIRMED default storefront location (resolved now, so a changed default
+ *                               follows every item that uses it, and never changes an item with its own location)
+ * Returns { address, source, missing } — missing names what to complete ('storefront location' if never confirmed).
+ */
+function forItem(row) {
+  const own = row && (row.pickup_location_source === 'auction' || row.pickup_location_source === 'item');
+  if (own) {
+    const address = fromItemPickup(row);
+    return { address, source: row.pickup_location_source, missing: missingParts(address) };
+  }
+  const address = fromSellerDefault(row);
+  if (!address) return { address: null, source: 'default', missing: ['confirmed storefront pickup location'] };
+  return { address, source: 'default', missing: missingParts(address) };
+}
+
 /** Seller-supplied pickup fields ({ pickup_address_line1, … } or { line1, … }) → address. */
 function fromInput(input) {
   if (!input) return null;
@@ -92,4 +118,5 @@ function locationError(code, who, parts, status = 422) {
   return e;
 }
 
-module.exports = { normalize, missingParts, isComplete, describeMissing, fromAuction, fromItemPickup, fromInput, locationError, US_STATES };
+module.exports = { normalize, missingParts, isComplete, describeMissing, fromAuction, fromItemPickup, fromSellerDefault, forItem, fromInput,
+  locationError, US_STATES };

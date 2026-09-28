@@ -468,7 +468,11 @@ router.get('/marketplace/feed', async (req, res, next) => {
     }
     if (q.city && String(q.city).trim()) { params.push('%' + String(q.city).trim() + '%'); outer.push(`feed.city ILIKE $${params.length}`); }
     if (q.state && String(q.state).trim()) { params.push(String(q.state).trim().toUpperCase()); outer.push(`upper(feed.state) = $${params.length}`); }
-    if (q.zip && String(q.zip).trim()) { params.push(String(q.zip).trim().replace(/[^0-9]/g, '').slice(0, 5) + '%'); outer.push(`feed.zip LIKE $${params.length}`); }
+    if (q.zip && String(q.zip).trim()) {
+      params.push(String(q.zip).trim().replace(/[^0-9]/g, '').slice(0, 5)); const zi = params.length;
+      // Native auctions match on the 3-digit area only (their ZIP is private); events match the ZIP prefix as before.
+      outer.push(`((feed.source_family = 'advantage_auction' AND feed.zip3 = left($${zi}, 3)) OR (feed.source_family <> 'advantage_auction' AND feed.zip LIKE $${zi} || '%'))`);
+    }
     const outerWhere = outer.length ? ('WHERE ' + outer.join(' AND ')) : '';
 
     // Distance (miles) via Haversine when a search point is supplied; NULL when the row has no coords.
@@ -497,7 +501,7 @@ router.get('/marketplace/feed', async (req, res, next) => {
     const sql = `
       WITH feed AS (
         SELECT 'auction'::text AS kind, 'advantage_auction'::text AS source_family, a.id::text AS ref_id, NULL::text AS slug,
-               a.title, a.city, a.address_state AS state, a.zip, a.lat, a.lng,
+               a.title, a.city, a.address_state AS state, NULL::text AS zip, left(a.zip, 3) AS zip3, round(a.lat::numeric, 2)::float AS lat, round(a.lng::numeric, 2)::float AS lng,
                COALESCE(a.cover_image_url, a.banner_image_url) AS image_url,
                ${B_NAME} AS company, a.state AS lifecycle,
                a.start_time AS start_ts, a.end_time AS end_ts,
@@ -510,7 +514,7 @@ router.get('/marketplace/feed', async (req, res, next) => {
         UNION ALL
         SELECT (CASE WHEN e.sale_type = 'auction' THEN 'auction' ELSE 'estate_sale' END)::text AS kind,
                (CASE WHEN e.sale_type = 'auction' THEN 'partner_event' ELSE 'estate_sale' END)::text AS source_family, e.id::text AS ref_id, e.slug,
-               e.title, e.city, e.state, e.zip, e.lat, e.lng,
+               e.title, e.city, e.state, e.zip, left(e.zip, 3) AS zip3, e.lat, e.lng,
                ${coverImageSql('(SELECT url FROM event_images ei WHERE ei.event_id = e.id ORDER BY is_cover DESC, position ASC LIMIT 1)', 'e.external_url', 'e.sale_type')} AS image_url,
                ${organizerColSql('o.name')} AS company, e.status AS lifecycle, -- individual organizers stay anonymous
                e.start_at AS start_ts, e.end_at AS end_ts,
@@ -547,7 +551,8 @@ router.get('/marketplace/feed', async (req, res, next) => {
       status: r.lifecycle,
       starts_at: r.start_ts, ends_at: r.end_ts,
       is_featured: !!r.is_featured,
-      distance_mi: (r.distance_mi != null ? Math.round(Number(r.distance_mi) * 10) / 10 : null),
+      // Native auctions: whole miles only (with the coarse point, distance cannot pinpoint the pickup address).
+      distance_mi: (r.distance_mi != null ? (r.source_family === 'advantage_auction' ? Math.round(Number(r.distance_mi)) : Math.round(Number(r.distance_mi) * 10) / 10) : null),
       // Route by SOURCE, not kind: events (incl. sale_type='auction') carry a slug and open the event
       // page; native auctions (no slug) open the auction page. So an auction-EVENT is classified as an
       // auction yet still links to /event.html (its bidding/registration link lives on the event page).
@@ -670,9 +675,8 @@ router.get('/auctions', async (req, res, next) => {
              a.state,
              a.city,
              a.address_state,
-             a.zip,
-             a.lat,
-             a.lng,
+             round(a.lat::numeric, 2)::float AS lat,
+             round(a.lng::numeric, 2)::float AS lng,
              a.shipping_available,
              a.start_time,
              a.end_time,
@@ -748,14 +752,14 @@ router.get('/auctions/near', async (req, res, next) => {
     // marketplace_priority included in subquery for secondary sort; excluded from outer SELECT.
     const { rows } = await db.query(`
       SELECT id, title, subtitle, description, public_auction_type,
-             state, city, address_state, zip,
+             state, city, address_state,
              shipping_available, start_time, end_time,
              pickup_window_start, pickup_window_end,
              preview_start, preview_end,
              cover_image_url, banner_image_url, created_at,
              lot_count, shippable_lot_count,
              seller_display_name, seller_location_label, seller_logo_url,
-             distance_km,
+             round(distance_km)::int AS distance_km,
              COUNT(*) OVER() AS total_count
         FROM (
           SELECT a.id,
@@ -766,7 +770,6 @@ router.get('/auctions/near', async (req, res, next) => {
                  a.state,
                  a.city,
                  a.address_state,
-                 a.zip,
                  a.shipping_available,
                  a.start_time,
                  a.end_time,
@@ -785,9 +788,9 @@ router.get('/auctions/near', async (req, res, next) => {
                  ${B_LOGO}        AS seller_logo_url,
                  6371.0 * acos(
                    LEAST(1.0,
-                     cos(radians(a.lat)) * cos(radians($1::float))
-                     * cos(radians(a.lng) - radians($2::float))
-                     + sin(radians(a.lat)) * sin(radians($1::float))
+                     cos(radians(round(a.lat::numeric, 2)::float)) * cos(radians($1::float))
+                     * cos(radians(round(a.lng::numeric, 2)::float) - radians($2::float))
+                     + sin(radians(round(a.lat::numeric, 2)::float)) * sin(radians($1::float))
                    )
                  ) AS distance_km,
                  ${auctionScoreSQL('a')} AS ranking_score
@@ -830,9 +833,8 @@ router.get('/auctions/:id', async (req, res, next) => {
              a.state,
              a.city,
              a.address_state,
-             a.zip,
-             a.lat,
-             a.lng,
+             round(a.lat::numeric, 2)::float AS lat,
+             round(a.lng::numeric, 2)::float AS lng,
              a.shipping_available,
              a.start_time,
              a.end_time,
@@ -1036,13 +1038,13 @@ router.get('/featured-auctions', async (req, res, next) => {
       // Geo-filtered: subquery computes distance, outer query filters + sorts
       ({ rows } = await db.query(`
         SELECT id, title, subtitle, description, public_auction_type,
-               state, city, address_state, zip,
+               state, city, address_state,
                shipping_available, start_time, end_time,
                preview_start, preview_end,
                cover_image_url, banner_image_url, created_at,
                lot_count, shippable_lot_count,
                seller_display_name, seller_location_label, seller_logo_url,
-               distance_km
+               round(distance_km)::int AS distance_km
           FROM (
             SELECT a.id,
                    a.title,
@@ -1052,7 +1054,6 @@ router.get('/featured-auctions', async (req, res, next) => {
                    a.state,
                    a.city,
                    a.address_state,
-                   a.zip,
                    a.shipping_available,
                    a.start_time,
                    a.end_time,
@@ -1071,9 +1072,9 @@ router.get('/featured-auctions', async (req, res, next) => {
                      WHEN a.lat IS NOT NULL AND a.lng IS NOT NULL
                      THEN 6371.0 * acos(
                             LEAST(1.0,
-                              cos(radians(a.lat)) * cos(radians($1::float))
-                              * cos(radians(a.lng) - radians($2::float))
-                              + sin(radians(a.lat)) * sin(radians($1::float))
+                              cos(radians(round(a.lat::numeric, 2)::float)) * cos(radians($1::float))
+                              * cos(radians(round(a.lng::numeric, 2)::float) - radians($2::float))
+                              + sin(radians(round(a.lat::numeric, 2)::float)) * sin(radians($1::float))
                             )
                           )
                      ELSE NULL
@@ -1103,7 +1104,6 @@ router.get('/featured-auctions', async (req, res, next) => {
                a.state,
                a.city,
                a.address_state,
-               a.zip,
                a.shipping_available,
                a.start_time,
                a.end_time,

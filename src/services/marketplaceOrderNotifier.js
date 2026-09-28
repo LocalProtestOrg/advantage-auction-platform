@@ -17,8 +17,10 @@ const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': 
 
 async function loadContext(orderId) {
   const o = (await db.query(
-    `SELECT o.*, mi.title AS item_title, mi.pickup_address_line1, mi.pickup_address_line2, mi.pickup_city,
-            mi.pickup_state, mi.pickup_postal_code,
+    `SELECT o.*, mi.title AS item_title, mi.pickup_location_source, mi.pickup_address_line1, mi.pickup_address_line2, mi.pickup_city,
+            mi.pickup_state, mi.pickup_postal_code, mi.pickup_country,
+            sp.default_pickup_address_line1, sp.default_pickup_address_line2, sp.default_pickup_city, sp.default_pickup_state,
+            sp.default_pickup_postal_code, sp.default_pickup_country, sp.default_pickup_confirmed_at,
             COALESCE(sp.display_name, sp.metadata->>'display_name', sp.metadata->>'business_name') AS seller_name,
             su.email AS seller_email, bu.email AS buyer_email, bu.full_name AS buyer_name
        FROM marketplace_orders o
@@ -43,10 +45,12 @@ function totalsBlock(o) {
 
 // Pickup address for a PAID pickup order (payment is verified, so the full address may be shared with the buyer).
 function pickupBlock(o) {
-  if (o.fulfillment_method === 'shipping' || !o.pickup_address_line1) return '';
-  const line2 = o.pickup_address_line2 ? esc(o.pickup_address_line2) + '<br>' : '';
-  return `<p style="margin:0 0 16px"><b>Pickup location:</b><br>${esc(o.pickup_address_line1)}<br>${line2}`
-    + `${esc(o.pickup_city)}, ${esc(o.pickup_state)} ${esc(o.pickup_postal_code)}</p>`;
+  if (o.fulfillment_method === 'shipping') return '';
+  const a = require('../lib/saleLocation').forItem(o).address;   // the item's own location or the seller's default
+  if (!a || !a.line1) return '';
+  const line2 = a.line2 ? esc(a.line2) + '<br>' : '';
+  return `<p style="margin:0 0 16px"><b>Pickup location:</b><br>${esc(a.line1)}<br>${line2}`
+    + `${esc(a.city)}, ${esc(a.state)} ${esc(a.postal_code)}</p>`;
 }
 
 async function sendPaid(orderId) {

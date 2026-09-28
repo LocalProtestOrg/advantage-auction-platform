@@ -1739,12 +1739,13 @@
   // ── Auction header tabs ─────────────────────────────────────────────────────
   function tabMapsUrl() {
     if (!auctionSummary) return '#';
-    var q = [auctionSummary.pickup_street, auctionSummary.city, auctionSummary.address_state, auctionSummary.zip].filter(Boolean).join(', ');
+    // Public location is city/state only; the full pickup address is sent to the winning buyer after payment.
+    var q = [auctionSummary.city, auctionSummary.address_state].filter(Boolean).join(', ');
     return 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(q || 'auction pickup');
   }
   function tabLocationText() {
     var d = auctionSummary || {};
-    var loc = [d.pickup_street, [d.city, d.address_state].filter(Boolean).join(', '), d.zip].filter(Boolean).join(' · ');
+    var loc = [d.city, d.address_state].filter(Boolean).join(', ');
     return loc || 'Location provided after registration';
   }
   function populatePickupTab() {

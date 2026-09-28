@@ -340,14 +340,21 @@ async function runStorefront(buyer, item) {
 
   const created = { orders: [], intents: new Set() };
   const itemSnap = { status: item.status, pending_order_id: item.pending_order_id, pending_expires_at: item.pending_expires_at };
-  // The sale location is the item's pickup location: give the demo item a TEST one for this run (restored in cleanup).
+  // The normal case: the item INHERITS the seller's confirmed default storefront location. Give the DEMO seller a TEST
+  // default for this run and put the demo item on 'default' (both restored in cleanup).
   const pickupSnap = (await q(`SELECT pickup_address_line1, pickup_address_line2, pickup_city, pickup_state, pickup_postal_code,
                                       pickup_country, pickup_location_source FROM marketplace_items WHERE id = $1`, [item.id])).rows[0] || {};
-  await q(`UPDATE marketplace_items SET pickup_address_line1 = $2, pickup_address_line2 = $3, pickup_city = $4, pickup_state = $5,
-                  pickup_postal_code = $6, pickup_country = $7, pickup_location_source = 'seller' WHERE id = $1 AND is_demo = true`,
-    [item.id, TEST_ITEM_PICKUP.pickup_address_line1, TEST_ITEM_PICKUP.pickup_address_line2, TEST_ITEM_PICKUP.pickup_city,
+  const defaultSnap = (await q(`SELECT default_pickup_address_line1, default_pickup_address_line2, default_pickup_city, default_pickup_state,
+                                       default_pickup_postal_code, default_pickup_country, default_pickup_confirmed_at
+                                  FROM seller_profiles WHERE id = $1`, [item.seller_id])).rows[0] || {};
+  await q(`UPDATE seller_profiles SET default_pickup_address_line1 = $2, default_pickup_address_line2 = $3, default_pickup_city = $4,
+                  default_pickup_state = $5, default_pickup_postal_code = $6, default_pickup_country = $7, default_pickup_confirmed_at = now()
+            WHERE id = $1 AND is_demo = true`,
+    [item.seller_id, TEST_ITEM_PICKUP.pickup_address_line1, TEST_ITEM_PICKUP.pickup_address_line2, TEST_ITEM_PICKUP.pickup_city,
      TEST_ITEM_PICKUP.pickup_state, TEST_ITEM_PICKUP.pickup_postal_code, TEST_ITEM_PICKUP.pickup_country]);
-  Object.assign(item, TEST_ITEM_PICKUP);
+  await q(`UPDATE marketplace_items SET pickup_address_line1 = NULL, pickup_address_line2 = NULL, pickup_city = NULL, pickup_state = NULL,
+                  pickup_postal_code = NULL, pickup_location_source = 'default' WHERE id = $1 AND is_demo = true`, [item.id]);
+  log('demo item pickup', `inherits the demo seller's default (TEST): ${TEST_ITEM_PICKUP.pickup_city}, ${TEST_ITEM_PICKUP.pickup_state}`);
   const itemRow = async () => (await q('SELECT status, pending_order_id, pending_expires_at FROM marketplace_items WHERE id = $1', [item.id])).rows[0];
   const orderRow = async (id) => (await q('SELECT * FROM marketplace_orders WHERE id = $1', [id])).rows[0];
   const track = async (orderId) => {
@@ -563,7 +570,13 @@ async function runStorefront(buyer, item) {
                       pickup_postal_code = $6, pickup_country = COALESCE($7, 'US'), pickup_location_source = $8 WHERE id = $1 AND is_demo = true`,
         [item.id, pickupSnap.pickup_address_line1 || null, pickupSnap.pickup_address_line2 || null, pickupSnap.pickup_city || null,
          pickupSnap.pickup_state || null, pickupSnap.pickup_postal_code || null, pickupSnap.pickup_country || null, pickupSnap.pickup_location_source || null]);
-      cleanupLog.push(`storefront item ${item.id} restored to ${itemSnap.status} (pickup location restored)`);
+      await q(`UPDATE seller_profiles SET default_pickup_address_line1 = $2, default_pickup_address_line2 = $3, default_pickup_city = $4,
+                      default_pickup_state = $5, default_pickup_postal_code = $6, default_pickup_country = COALESCE($7, 'US'),
+                      default_pickup_confirmed_at = $8 WHERE id = $1 AND is_demo = true`,
+        [item.seller_id, defaultSnap.default_pickup_address_line1 || null, defaultSnap.default_pickup_address_line2 || null,
+         defaultSnap.default_pickup_city || null, defaultSnap.default_pickup_state || null, defaultSnap.default_pickup_postal_code || null,
+         defaultSnap.default_pickup_country || null, defaultSnap.default_pickup_confirmed_at || null]);
+      cleanupLog.push(`storefront item ${item.id} restored to ${itemSnap.status} (item + demo seller default location restored)`);
     } catch (e) { cleanupLog.push('storefront item restore FAILED: ' + e.message); }
     if (created.orders.length) {
       try {

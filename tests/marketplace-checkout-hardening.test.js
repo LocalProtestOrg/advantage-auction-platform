@@ -332,7 +332,7 @@ describe('refund tax reversal', () => {
 describe('tax jurisdiction (sale location, owner rule 2026-09-28)', () => {
   const ship = { name: 'B', line1: '1 Main St', city: 'Austin', state: 'tx', postal_code: '78701', country: 'US' };
   // The item's own pickup location (Houston). Never the seller's legal address.
-  const PICKUP = { pickup_address_line1: '9 Dock Rd', pickup_city: 'Houston', pickup_state: 'TX', pickup_postal_code: '77002', pickup_country: 'US' };
+  const PICKUP = { pickup_location_source: 'item', pickup_address_line1: '9 Dock Rd', pickup_city: 'Houston', pickup_state: 'TX', pickup_postal_code: '77002', pickup_country: 'US' };
   test('tax OFF → no location needed', async () => {
     install([]);
     await expect(svc.resolveTaxLocation({ method: 'pickup', item: { id: 'i', seller_id: 's' } })).resolves.toBeNull();
@@ -355,7 +355,7 @@ describe('tax jurisdiction (sale location, owner rule 2026-09-28)', () => {
   test('an item without a pickup location is refused (named parts), not taxed somewhere else', async () => {
     tax.taxEnabled.mockImplementation(() => true);
     install([]);
-    await expect(svc.resolveTaxLocation({ method: 'pickup', item: { id: 'i', seller_id: 's', pickup_city: 'Houston', pickup_state: 'TX' } }))
+    await expect(svc.resolveTaxLocation({ method: 'pickup', item: { id: 'i', seller_id: 's', pickup_location_source: 'item', pickup_city: 'Houston', pickup_state: 'TX' } }))
       .rejects.toMatchObject({ code: 'PICKUP_LOCATION_MISSING', missing: ['street address', 'ZIP code'] });
     await expect(svc.resolveTaxLocation({ method: 'shipping', item: { id: 'i', seller_id: 's' }, shipTo: JSON.stringify(ship) }))
       .rejects.toMatchObject({ code: 'PICKUP_LOCATION_MISSING' });

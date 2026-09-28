@@ -10,6 +10,7 @@
 const db = require('../db');
 const marketplaceItems = require('./marketplaceItemService');
 const { isProfessional } = require('../lib/sellerBranding');
+const saleLocation = require('../lib/saleLocation');
 
 const APP_BASE = (process.env.APP_BASE_URL || 'https://bid.advantage.bid').replace(/\/+$/, '');
 function err(status, code, message) { const e = new Error(message); e.status = status; e.code = code; return e; }
@@ -75,7 +76,50 @@ async function getOwnerConfig(userId) {
   return { eligible: isProfessional(sp.seller_type), seller_id: sp.id,
     slug: sp.storefront_slug, published: sp.storefront_published, is_demo: sp.is_demo,
     name: sellerName(sp), logo_url: sp.logo_url, location_label: sp.location_label,
-    config: sp.storefront || {}, public_url: sp.storefront_slug ? `${APP_BASE}/pro/${sp.storefront_slug}` : null };
+    config: sp.storefront || {}, public_url: sp.storefront_slug ? `${APP_BASE}/pro/${sp.storefront_slug}` : null,
+    pickup_location: await ownerPickupLocation(sp) };
+}
+
+// ── Default storefront pickup location (PRIVATE — the seller's own view only; never public) ──────────────
+// Confirmed once; every storefront item uses it unless the seller changes a particular item's location.
+// Until confirmed, the seller's business address (seller_identity) is offered as a SUGGESTION to confirm or edit —
+// never used for a sale on its own.
+async function ownerPickupLocation(sp) {
+  const confirmed = saleLocation.fromSellerDefault(sp);
+  if (confirmed) return { confirmed: true, confirmed_at: sp.default_pickup_confirmed_at, address: confirmed };
+  let suggestion = null;
+  try {
+    const si = (await db.query(
+      'SELECT address_line1, address_line2, city, state, postal_code, country FROM seller_identity WHERE seller_profile_id = $1', [sp.id])).rows[0];
+    const a = si && saleLocation.normalize({ line1: si.address_line1, line2: si.address_line2, city: si.city, state: si.state,
+      postal_code: si.postal_code, country: si.country });
+    if (a && (a.line1 || a.city)) suggestion = a;
+  } catch (_e) { /* no suggestion */ }
+  return { confirmed: false, address: null, suggestion };
+}
+
+async function setDefaultPickupLocation(userId, input = {}) {
+  const sp = (await db.query('SELECT * FROM seller_profiles WHERE user_id = $1', [userId])).rows[0];
+  if (!sp) throw err(403, 'NOT_A_SELLER', 'No seller profile.');
+  if (!isProfessional(sp.seller_type)) throw err(403, 'NOT_PROFESSIONAL', 'Storefronts are for Professional Sellers.');
+  const loc = saleLocation.fromInput(input);
+  const missing = saleLocation.missingParts(loc);
+  if (missing.length) {
+    const e = err(422, 'PICKUP_LOCATION_INCOMPLETE', `Your storefront pickup location is missing its ${saleLocation.describeMissing(missing)}.`);
+    e.missing = missing; throw e;
+  }
+  await db.query(
+    `UPDATE seller_profiles SET default_pickup_address_line1 = $2, default_pickup_address_line2 = $3, default_pickup_city = $4,
+            default_pickup_state = $5, default_pickup_postal_code = $6, default_pickup_country = $7, default_pickup_confirmed_at = now()
+      WHERE id = $1`, [sp.id, loc.line1, loc.line2, loc.city, loc.state, loc.postal_code, loc.country || 'US']);
+  // Items that use the storefront location follow it (their public city/state too); items with their own location don't.
+  const synced = (await db.query(
+    `UPDATE marketplace_items SET city = $2, state = $3, zip = $4, updated_at = now()
+      WHERE seller_id = $1 AND (pickup_location_source = 'default' OR pickup_location_source IS NULL)`,
+    [sp.id, loc.city, loc.state, loc.postal_code])).rowCount;
+  await require('./auditService').logEvent(db, { eventType: 'storefront.default_pickup_location_confirmed', entityType: 'seller_profile',
+    entityId: sp.id, actorId: userId, metadata: { city: loc.city, state: loc.state, items_following: synced } }).catch(() => {});
+  return getOwnerConfig(userId);
 }
 
 async function updateConfig(userId, body = {}) {
@@ -188,4 +232,4 @@ async function ssrMeta(slug) {
   return { title, description: desc, canonical, image, jsonld, noindex: !!sp.is_demo, name, loc };
 }
 
-module.exports = { sanitizeConfig, getOwnerConfig, updateConfig, getPublicData, ssrMeta, resolveBySlug, sellerName, slugify, clean };
+module.exports = { sanitizeConfig, getOwnerConfig, updateConfig, setDefaultPickupLocation, getPublicData, ssrMeta, resolveBySlug, sellerName, slugify, clean };

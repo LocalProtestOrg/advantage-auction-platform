@@ -97,8 +97,10 @@ function normalizeAddress(a) {
 // Returns { address, shipFrom } for taxService.computeTax, or null when tax is off. Only consulted when tax is ON.
 async function resolveTaxLocation({ method, item, shipTo }) {
   if (!taxActive()) return null;
-  const origin = saleLocation.fromItemPickup(item);
-  const missing = saleLocation.missingParts(origin);
+  // The item's effective location: its own (auction-inherited or changed for this item) or the seller's confirmed default.
+  const eff = saleLocation.forItem(item);
+  const origin = eff.address;
+  const missing = eff.missing || [];
   if (missing.length) {
     await require('./saleLocationAlerts').reportMissingSaleLocation({ entityType: 'marketplace_item', entityId: item.id,
       missing, sellerId: item.seller_id });
@@ -117,7 +119,9 @@ async function resolveTaxLocation({ method, item, shipTo }) {
 // Load an item joined to its seller, with the purchase-eligibility validations that don't need a lock.
 async function loadItemForPurchase(itemId, buyerUserId, fulfillmentMethod, runner = db) {
   const row = (await runner.query(
-    `SELECT mi.*, sp.user_id AS seller_user_id, sp.seller_type, sp.platform_fee_bps
+    `SELECT mi.*, sp.user_id AS seller_user_id, sp.seller_type, sp.platform_fee_bps,
+            sp.default_pickup_address_line1, sp.default_pickup_address_line2, sp.default_pickup_city, sp.default_pickup_state,
+            sp.default_pickup_postal_code, sp.default_pickup_country, sp.default_pickup_confirmed_at
        FROM marketplace_items mi JOIN seller_profiles sp ON sp.id = mi.seller_id
       WHERE mi.id = $1`, [itemId])).rows[0];
   if (!row) throw err(404, 'ITEM_NOT_FOUND', 'This item is no longer available.');
@@ -821,7 +825,9 @@ async function listForAdmin({ status, limit } = {}) {
   const { rows } = await db.query(
     `SELECT o.*, mi.title AS item_title,
             COALESCE(sp.display_name, sp.metadata->>'display_name', sp.metadata->>'business_name') AS seller_name,
-            bu.email AS buyer_email
+            bu.email AS buyer_email, mi.pickup_location_source, mi.pickup_address_line1, mi.pickup_address_line2, mi.pickup_city,
+            mi.pickup_state, mi.pickup_postal_code, mi.pickup_country, sp.default_pickup_address_line1, sp.default_pickup_address_line2,
+            sp.default_pickup_city, sp.default_pickup_state, sp.default_pickup_postal_code, sp.default_pickup_country, sp.default_pickup_confirmed_at
        FROM marketplace_orders o
        JOIN marketplace_items mi ON mi.id = o.marketplace_item_id
        JOIN seller_profiles sp ON sp.id = o.seller_id
@@ -831,7 +837,9 @@ async function listForAdmin({ status, limit } = {}) {
       LIMIT $1`, params);
   return rows.map((r) => ({ ...publicOrder(r), item_title: r.item_title, seller_name: r.seller_name, buyer_email: r.buyer_email,
     refund_reason: r.refund_reason || null, review_required: !!r.review_required, review_note: r.review_note || null,
-    refunded_at: r.refunded_at || null, is_demo: !!r.is_demo }));
+    refunded_at: r.refunded_at || null, is_demo: !!r.is_demo,
+    // Admin/staff operations: the item's effective pickup location (full address; admin-only route).
+    pickup_location: (() => { const e = saleLocation.forItem(r); return { source: e.source, address: e.address, missing: e.missing || [] }; })() }));
 }
 
 module.exports = {

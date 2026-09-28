@@ -230,7 +230,7 @@ router.get('/:auctionId/summary', async (req, res) => {
     }
     const { rows } = await db.query(
       `SELECT a.id, a.title, a.subtitle, a.description, a.state, a.seller_id, a.public_auction_type,
-              a.city, a.address_state, a.zip, a.street_address, a.start_time, a.end_time,
+              a.city, a.address_state, a.start_time, a.end_time,   -- PUBLIC location = city/state only
               a.pickup_window_start, a.pickup_window_end, a.timezone,
               a.banner_image_url, a.cover_image_url, a.shipping_available,
               sp.seller_type, sp.show_branding_to_buyers, sp.storefront_slug, sp.storefront_published,
@@ -266,10 +266,8 @@ router.get('/:auctionId/summary', async (req, res) => {
     // BP only — never the internal AAC/seller split. (Buyer Premium Phase 1 surface.)
     try { row.buyer_premium_bps = (await require('../services/billingTermsService').resolveEffectiveTerms(auctionId)).buyer_premium_bps; }
     catch (e) { row.buyer_premium_bps = 1800; }
-    // Privacy: full address stays hidden until payment is verified. Expose STREET
-    // NAME only (strip the house number); never send the precise number pre-payment.
-    row.pickup_street = row.street_address ? String(row.street_address).replace(/^\s*\d+\s*/, '').trim() : null;
-    delete row.street_address;
+    // Privacy (platform rule): PUBLIC = city and state only. The street address (or any part of it) and ZIP are never
+    // selected here; the winning buyer receives the full pickup address only after payment (receipt/success package).
     return res.json({ success: true, data: row });
   } catch (err) {
     console.error('[auctions] summary error:', err.message);

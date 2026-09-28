@@ -4,10 +4,13 @@
  * Public display coordinates — deterministic privacy offset.
  *
  * The homepage map is a discovery tool, but the platform must never publish the
- * seller's exact property. Production already exposes city, state, zip and the
- * STREET NAME (routes/auctions.js strips the house number into pickup_street) —
- * publishing rooftop coordinates would effectively restore the house number and
- * reverse-geocode straight back to the property.
+ * seller's exact property. Publishing rooftop coordinates would reverse-geocode
+ * straight back to the property.
+ *
+ * NOTE (2026-09-28, platform privacy rule "PUBLIC = city and state only"): public API
+ * responses no longer send ZIP or any part of the street, and every public auction
+ * endpoint additionally rounds this stored point to 2 decimals (~1 km) before it
+ * leaves the server (src/routes/public.js), so the offset below is a second layer.
  *
  * So the public marker is the precise point displaced by ~0.10 miles on a bearing
  * derived from the auction's own identity.
