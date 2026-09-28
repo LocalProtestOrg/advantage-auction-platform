@@ -57,6 +57,8 @@
     { href: '/admin/events.html', label: 'Events' },
     { href: '/admin/business-listings.html', label: 'Business Listings' },
     { href: '/admin/imported-events.html', label: 'Imported Events' },
+    { href: '/admin/sasha-inbox.html', label: 'Customer Service', perm: 'support.view' },
+    { href: '/admin/sasha.html', label: 'Sasha Settings & Knowledge', perm: 'support.view' },
     { href: '/admin/invoices.html', label: 'Invoices' },
     { href: '/admin/pricing.html', label: 'Pricing & Fees', perm: 'seller_platform_fee.view' },
     { href: '/admin/marketplace-config.html', label: 'Marketplace Config' },

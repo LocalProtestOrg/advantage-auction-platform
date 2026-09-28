@@ -22,8 +22,15 @@ const FRAME_ANCESTORS = 'frame-ancestors https://advantage.bid https://www.advan
 // bidding/checkout/auth links out to the identified bid.advantage.bid platform. (Like a public video embed.)
 const EMBED_FRAME_ANCESTORS = 'frame-ancestors *';
 
+// Sasha's chat window is opened by the help button on bid.advantage.bid itself AND on the BD pages, so it (only it)
+// also allows 'self'. It contains no data until the visitor chats, and its API refuses other origins.
+const SASHA_FRAME_ANCESTORS = "frame-ancestors 'self' https://advantage.bid https://www.advantage.bid";
+
 function widgetFraming(req, res, next) {
-  if (req.path && req.path.startsWith('/widgets/')) {
+  if (req.path === '/widgets/sasha.html') {
+    res.removeHeader('X-Frame-Options');
+    res.setHeader('Content-Security-Policy', SASHA_FRAME_ANCESTORS);
+  } else if (req.path && req.path.startsWith('/widgets/')) {
     res.removeHeader('X-Frame-Options');            // SAMEORIGIN can't allowlist a parent origin
     res.setHeader('Content-Security-Policy', FRAME_ANCESTORS);
   } else if (req.path && req.path.startsWith('/embed/')) {
@@ -35,4 +42,5 @@ function widgetFraming(req, res, next) {
 
 widgetFraming.FRAME_ANCESTORS = FRAME_ANCESTORS;
 widgetFraming.EMBED_FRAME_ANCESTORS = EMBED_FRAME_ANCESTORS;
+widgetFraming.SASHA_FRAME_ANCESTORS = SASHA_FRAME_ANCESTORS;
 module.exports = widgetFraming;

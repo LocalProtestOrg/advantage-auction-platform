@@ -11,7 +11,7 @@
  *     receives the hammer; no hammer platform fee. Individuals cannot change the rate.
  *   • PROFESSIONAL sellers (auction_house / estate_sale_company / professional_liquidator): control
  *     their buyer premium (auction override → seller default → 18% fallback); the seller KEEPS the
- *     premium; Advantage charges a 2% software fee on the hammer.
+ *     premium; Advantage charges a platform/software fee (default 4%, per agreement) + 3% processing on the hammer.
  *
  * The 20 numbered assertions the task requires are labelled [#n] below.
  */

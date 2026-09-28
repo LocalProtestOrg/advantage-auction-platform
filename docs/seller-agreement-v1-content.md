@@ -6,7 +6,7 @@
 
 ## Variable schema (author into `variable_schema` JSONB)
 
-The financial and governing terms (0% commission, 3% processing fee, 18% Buyer's Premium, 14-day payout, Michigan governing law) are written as **fixed prose** in the body, so they are NOT template variables and cannot leave an unresolved placeholder. Only per-seller identity/date values remain as variables, and every one of them resolves at auto-send (overrides) or from defaults:
+The financial and governing terms (0% commission, 3% processing fee, 18% Buyer's Premium, professional auction fees, 11% Professional Storefront fee, Thursday payout cycle, Michigan governing law) are written as **fixed prose** in the body, so they are NOT template variables and cannot leave an unresolved placeholder. Only per-seller identity/date values remain as variables, and every one of them resolves at auto-send (overrides) or from defaults:
 
 | key | type | source | required | notes |
 |---|---|---|---|---|
@@ -94,7 +94,7 @@ This Seller Consignment and Auction Services Agreement (this "Agreement") govern
 6.6 **Recovery of costs on withdrawal or cancellation.** If, after Advantage has performed work on an auction or item, the Seller cancels an auction, withdraws items committed to an auction, fails to provide committed items, or materially misrepresents items, Advantage may deduct from amounts otherwise owed to the Seller, or invoice the Seller for, its reasonable costs and losses arising from that conduct. These may include buyer refunds and chargebacks, marketing costs, labor, transportation and handling, and platform and administrative expenses. Such amounts are itemized on the Seller's statement.
 
 > **Professional sellers (added 2026-08-07, H-1).** Sections 6.1–6.6 above state the terms of record for
-> **individual sellers**. Sections 6.7–6.8 below apply **only to admin-approved professional sellers**
+> **individual sellers**. Sections 6.7–6.9 below apply **only to admin-approved professional sellers**
 > (auction houses, estate sale companies, professional liquidators) and reflect the owner-approved launch
 > policy. They do not alter the individual seller terms above.
 
@@ -106,6 +106,8 @@ This Seller Consignment and Auction Services Agreement (this "Agreement") govern
 These two fees are stated and itemized separately on the Seller's settlement statement and are not a single combined commission; the standard combined seller-side deduction is the mathematical sum of the two (7% of hammer). The Platform Fee is the negotiable commercial component and may reflect a rate specifically agreed with the Seller and recorded in the Seller's terms of record; the Processing Fee remains 3% unless a different processing arrangement is separately agreed in writing. These professional-seller fees replace, for professional sellers, the individual-seller commission structure in Section 6.1 (the Processing Fee in Section 6.3 continues to apply as the Processing Fee described here).
 
 6.8 **Professional sellers — business verification before first sale.** A professional Seller may register for an account, access the seller dashboard, create an auction, and build a catalog before Advantage completes verification of the Seller's business. However, Advantage will not make the professional Seller's first sale publicly sellable until Advantage has verified and approved the Seller's business. Advantage publishes auctions; a professional auction remains unpublished until verification is approved.
+
+6.9 **Professional sellers — Storefront fixed-price seller fee.** Fixed-price items that a professional Seller sells through its Advantage.Bid Professional Storefront (not by auction) are subject to a flat seller fee of **11% of the item selling price** (the "Storefront Fee"). The Storefront Fee includes card and payment processing; no separate Processing Fee applies to Storefront fixed-price sales. Shipping charges and sales tax are not included in the amount on which the Storefront Fee is calculated. The Storefront Fee is charged only when an item sells through Advantage.Bid checkout. The Storefront Fee is separate from, and does not change, the auction Platform Fee and Processing Fee in Section 6.7, which apply only to auction (hammer-price) sales.
 
 ## 7. Buyer Payment, Settlement, and Payout
 
@@ -205,7 +207,7 @@ Signature, date, and authentication metadata are captured electronically by the 
 ---
 
 ### Authoring notes (not part of the signed body)
-- Financial + governing terms (0% commission §6.1, 18% Buyer's Premium §6.2, 3% processing fee §6.3, marketing §6.4, 14-day payout §7.3, Michigan §16.1) are FIXED PROSE, not variables — they can never leave an unresolved placeholder. To change a rate, publish a new template version.
+- Financial + governing terms (0% commission §6.1, 18% Buyer's Premium §6.2, 3% processing fee §6.3, marketing §6.4, professional auction fees §6.7, 11% Professional Storefront fee §6.9, Thursday payout cycle §7.3, Michigan §16.1) are FIXED PROSE, not variables — they can never leave an unresolved placeholder. To change a rate, publish a new template version.
 - `effective_terms_defaults` only needs `seller_address` and `seller_phone` (default "On file with Advantage Auction"). Auto-send supplies `effective_date`, `seller_type`, `legal_name`, `signatory_name` per seller (account name). No financial variable is required, so auto-send never blocks on missing terms.
 - Maintain one template per `seller_type` (private, business, auction_house, estate_sale_company, professional_liquidator). The professional templates may add classification-specific scheduling/exemption language (e.g. professional pickup-timing autonomy) in Section 8; the body above is the base.
 - Keep the content em-dash-free (content SOP); `check-dashes.js` should pass on any HTML surface that renders it.
