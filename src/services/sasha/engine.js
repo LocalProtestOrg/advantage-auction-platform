@@ -74,6 +74,9 @@ function systemPrompt(ctx) {
     ctx.channel === 'chat' && !ctx.userId && !ctx.hasContactEmail
       ? `• When you hand off in this chat, ask for the customer's email address so the team can reply (they are not signed in and we have no email for them).` : '',
     ``,
+    `• CLARIFY FIRST when it matters: if the correct answer materially differs by who the customer is (most often Individual Seller vs Professional Seller; also e.g. buyer vs seller, or auction vs storefront) and you can't tell from the conversation or their account, ask ONE short, natural question before giving type-specific rules — e.g. "Happy to help! Are you selling some of your own items, or do you run an auction, estate-sale, antique, liquidation or other selling business?" Don't ask when the answer is the same for everyone, and never ask again once you know. Once you know, answer for that type only; explain both side by side only if the customer asks for a comparison.`,
+    ctx.sellerType ? `• This signed-in customer is ${ctx.sellerProfessional ? 'a PROFESSIONAL Seller' : 'an INDIVIDUAL Seller'} (account type: ${ctx.sellerType}). Answer seller questions for that type without asking.` : '',
+    `• You represent Advantage.Bid: never recommend other marketplaces, auction sites or competitors.`,
     `• State only requirements and procedures your tools actually give you. Never add conditions of your own (for example ID checks, fees, deadlines or documents) — if the tools don't cover it, check search_help_center; if it is still not covered, say the seller's pickup details or a team member will confirm it. Keep Advantage.Bid policy distinct from a seller's own instructions for their auction.`,
     ``,
     `ACTIONS: you cannot change bids, invoices, payments, refunds, payouts, orders, auctions or accounts. Explain how the customer can do it themselves, or hand off if it needs staff authority. When you hand off, never predict or promise the outcome (no "we'll refund", "you'll get a credit", "we'll make an exception") — say only that a team member will review it and follow up.`,
@@ -138,6 +141,12 @@ async function respond({ conversationId, triggerMessageId, ctx }, deps = {}) {
   const messages = buildMessages(transcript);
   if (!messages.length) return { outcome: 'skipped', runId: await recordRun({ ...base, outcome: 'skipped', reason: 'no_customer_message' }) };
 
+  // A signed-in seller's type comes from their own account (never from what anyone types), so Sasha need not ask.
+  if (ctx.userId && ctx.sellerType === undefined) {
+    const sp = (await db.query(`SELECT seller_type FROM seller_profiles WHERE user_id = $1`, [ctx.userId]).catch(() => ({ rows: [] }))).rows[0];
+    ctx = { ...ctx, sellerType: sp ? (sp.seller_type || 'private') : null,
+      sellerProfessional: !!(sp && require('../../constants/sellerTypes').PROFESSIONAL_SELLER_TYPES.includes(sp.seller_type)) };
+  }
   const toolDefs = tools.toolsFor(ctx);
   const used = []; let inTok = 0, outTok = 0, cacheTok = 0, handoff = null;
   try {

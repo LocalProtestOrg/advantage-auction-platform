@@ -7,7 +7,7 @@
  * lot minimum, card policy, storefront fee), so when the platform changes, Sasha's answer changes with it — no
  * separate manual to keep in sync. Facts are grouped by topic; each carries its source for the run log.
  *
- * Deliberately NOT stated here (owner decisions pending — see cs_kb_articles with status 'conflict'):
+ * Deliberately NOT stated here:
  *   - a standard Professional Seller platform-fee percentage (it is per-seller / per-agreement);
  */
 
@@ -16,6 +16,7 @@ const billing = require('../../billingTermsService');
 const sellerTypeRules = require('../../sellerTypeRules');
 const { PROFESSIONAL_SELLER_TYPES } = require('../../../constants/sellerTypes');
 const { marketplaceCheckoutEnabled } = require('../../../lib/launchGuards');
+const MIN_LOTS = require('../../auctionService').MIN_LOTS_FOR_SUBMISSION;
 
 const pct = (bps) => `${(Number(bps) / 100).toFixed(Number(bps) % 100 === 0 ? 0 : 2)}%`;
 const usd = (c) => '$' + (Number(c) / 100).toFixed(2).replace(/\.00$/, '');
@@ -34,7 +35,7 @@ const TOPICS = {
     source: 'bidService / bid-increment ladder / biddingWindow',
     facts: [
       'Bids are placed in whole dollars. The minimum next bid is the current bid plus the increment for that price (or the starting bid if there are no bids).',
-      'Increment ladder (by current price): ' + ladderText().join('; ') + '. An auction can also use a fixed increment set by the seller or Advantage.Bid, and the lot page always shows the exact next minimum bid.',
+      'Increment ladder (by current price): ' + ladderText().join('; ') + '. An auction run by a Professional Seller (or Advantage.Bid) can use a fixed increment instead, and the lot page always shows the exact next minimum bid.',
       'Maximum bids (proxy bidding): you can set a max bid and the system bids for you only as much as needed to keep you in the lead, up to your max.',
       'Soft close / anti-sniping: each lot closes on its own time (lots close in a staggered sequence, about one minute apart). Any bid placed with 2 minutes or less remaining extends THAT lot by 2 minutes, and this can repeat.',
       'You can bid once an auction is published (approved); lots stop taking bids when they close.',
@@ -75,15 +76,12 @@ const TOPICS = {
     ],
   }),
   selling: () => ({
-    source: 'auctionService / sellerTypeRules / seller agreement gate',
+    source: 'auctionService.MIN_LOTS_FOR_SUBMISSION / routes/lots.js professional-only lot settings / sellerTypeRules / seller agreement gate',
     facts: [
-      `Professional seller types: ${PROFESSIONAL_SELLER_TYPES.join(', ')}. Everyone else (private, business, other) is an individual seller.`,
-      'Sellers create an auction, add lots (title, description, photos, category, size category; dimensions are optional), set dates, pickup window and pickup location, choose 3 featured lots, and submit.',
-      'An auction needs at least 30 lots to be submitted/published (Advantage.Bid staff can make exceptions).',
-      'Every auction needs its full pickup address (street, city, state, ZIP) before it can be submitted or published. Buyers see only the city and state until they pay.',
-      'Individual sellers: final submission is single-use and locks editing; Advantage.Bid reviews and publishes the auction. Verified Professional Sellers can publish their own auctions and keep editing.',
-      'Each lot starts at $1 by default unless a different starting bid is set.',
-      'Sellers must sign the seller agreement before creating auctions.',
+      `SELLER TYPES — the rules differ, so know which one you are answering for. Professional Sellers are ${PROFESSIONAL_SELLER_TYPES.join(', ')} (businesses that run sales, approved by Advantage.Bid). Everyone else (private individuals, other businesses) is an Individual Seller.`,
+      `BOTH seller types: create an auction, add lots (title, description, photos, category, size category; dimensions are optional), set dates, pickup window and pickup location, choose 3 featured lots. Every auction needs at least ${MIN_LOTS} lots to be submitted or published (withdrawn lots don't count; smaller pieces can be grouped into one lot). State it simply as the rule. Do not mention exceptions, waivers, workarounds or staff approval at all (not even to say there are none), and never suggest contacting staff about it. Every auction needs its full pickup address before submission; buyers see only city and state until they pay. The seller agreement must be signed first.`,
+      `INDIVIDUAL Sellers only: every lot starts at $1 and bidding follows the standard Advantage.Bid increment ladder — individual sellers do NOT set starting bids, reserves or custom bid increments. The buyer's premium is a fixed ${pct(billing.DEFAULT_BUYER_PREMIUM_BPS)}. Pickup must begin at least ${sellerTypeRules.NON_PRO_MIN_PICKUP_GAP_HOURS} hours after the auction closes. Final submission is single-use and locks editing; Advantage.Bid reviews and publishes the auction.`,
+      `PROFESSIONAL Sellers only: once their business is verified they can publish their own qualifying auctions and keep editing. They can set per-lot starting bids, reserves and custom bid increments, set their own buyer's premium (0–25%) and keep it, and set their own pickup timing (never before the auction closes).`,
     ],
   }),
   seller_fees: () => ({

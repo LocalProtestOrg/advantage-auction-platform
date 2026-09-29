@@ -494,3 +494,40 @@ describe('acceptance fixes (email)', () => {
     expect(p).toMatch(/Never add conditions of your own/);
   });
 });
+
+describe('seller-type accuracy (owner review 2026-09-29)', () => {
+  const selling = () => require('../../src/services/sasha/knowledge/platformFacts').getFacts('selling').selling.facts.join('\n');
+  test('individual sellers are never told they can set a starting price; professional controls are labelled professional-only', () => {
+    const f = selling();
+    expect(f).toMatch(/INDIVIDUAL Sellers only: every lot starts at \$1[^\n]*do NOT set starting bids, reserves or custom bid increments/);
+    expect(f).toMatch(/PROFESSIONAL Sellers only:[^\n]*starting bids, reserves and custom bid increments/);
+    expect(f).not.toMatch(/unless a different starting bid is set/);
+  });
+  test('the 30-lot minimum is stated as the rule, with no exception offered', () => {
+    const f = selling();
+    expect(f).toMatch(/at least 30 lots/);
+    expect(f).not.toMatch(/staff can make exceptions|can make exceptions|may waive|ask (staff|us) for an exception/i);
+    expect(f).toMatch(/Do not mention exceptions, waivers, workarounds or staff approval at all/);
+  });
+  test('the prompt asks one clarifying question when seller type matters and is unknown', () => {
+    const p = engine.systemPrompt({ channel: 'chat' });
+    expect(p).toMatch(/CLARIFY FIRST/);
+    expect(p).toMatch(/ask ONE short, natural question/);
+    expect(p).toMatch(/explain both side by side only if the customer asks for a comparison/);
+    expect(p).not.toMatch(/This signed-in customer is/);
+  });
+  test('a known seller type is given to the model so it does not ask', () => {
+    expect(engine.systemPrompt({ channel: 'chat', userId: 'u', sellerType: 'private', sellerProfessional: false })).toMatch(/This signed-in customer is an INDIVIDUAL Seller/);
+    expect(engine.systemPrompt({ channel: 'chat', userId: 'u', sellerType: 'auction_house', sellerProfessional: true })).toMatch(/This signed-in customer is a PROFESSIONAL Seller/);
+  });
+  test('the engine looks up the signed-in user\'s own seller type (from their account) before answering', async () => {
+    useSettings();
+    route(/SUM\(cost_micro_usd\)/, () => ({ rows: [{ c: 0 }] }));
+    route(/INSERT INTO cs_ai_runs/, () => ({ rows: [{ id: 'run1' }] }));
+    route(/SELECT seller_type FROM seller_profiles WHERE user_id = \$1/, (_s, p) => ({ rows: p[0] === 'pro-user' ? [{ seller_type: 'estate_sale_company' }] : [] }));
+    jest.spyOn(conversations, 'transcriptForModel').mockResolvedValue([{ author_type: 'customer', body_text: 'How do auctions work as a seller?' }]);
+    const create = jest.fn().mockResolvedValue({ stop_reason: 'end_turn', usage: {}, content: [{ type: 'text', text: 'ok' }] });
+    await engine.respond({ conversationId: 'c1', ctx: { channel: 'chat', userId: 'pro-user' } }, { client: { messages: { create } } });
+    expect(create.mock.calls[0][0].system[0].text).toMatch(/PROFESSIONAL Seller \(account type: estate_sale_company\)/);
+  });
+});
