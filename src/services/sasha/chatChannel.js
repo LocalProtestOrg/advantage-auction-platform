@@ -66,8 +66,8 @@ async function send({ token, text, userId, site }, deps = {}) {
     AND created_at > now() - interval '10 minutes'`, [conv.id])).rows[0].n;
   if (recent >= MAX_MESSAGES_PER_10_MIN) throw err(429, 'You\'re sending messages very quickly. Please wait a moment and try again.');
 
-  const since = new Date(Date.now() - 1000);
   const inbound = await conversations.addMessage(conv.id, { direction: 'inbound', author: 'customer', text: body });
+  const since = inbound.created_at;   // database clock: this message and what follows it (never an earlier reply)
   // A visitor who is not signed in may give an email so the team can follow up.
   if (!conv.customer_email) {
     const m = EMAIL_RE.exec(body);

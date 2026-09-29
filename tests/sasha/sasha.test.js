@@ -464,3 +464,14 @@ describe('inbound routing', () => {
     expect(routeFor(['inbox@other.example'], cfg)).toBe('unmatched');
   });
 });
+
+describe('reply formatting', () => {
+  test('markdown is stripped to plain text; bullets become •', () => {
+    expect(engine.plainText('**Buyer premium**\n## Steps\n* one\n- two\nuse `code`\n\n\n\nend'))
+      .toBe('Buyer premium\nSteps\n• one\n• two\nuse code\n\nend');
+  });
+  test('the identity answer is the approved sentence, verbatim', () => {
+    expect(engine.IDENTITY_ANSWER).toBe("Yes, I'm an automated assistant. I can connect you with a member of our team at any time.");
+    expect(engine.systemPrompt({ channel: 'chat' })).toContain('EXACTLY this sentence');
+  });
+});
