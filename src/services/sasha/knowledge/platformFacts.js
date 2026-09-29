@@ -63,9 +63,12 @@ const TOPICS = {
     ],
   }),
   pickup: () => ({
-    source: 'sellerTypeRules / auction pickup windows / location privacy rule',
+    source: 'sellerTypeRules / auction pickup windows / location privacy rule / published buyer FAQ (buyer-faq.html, how-to-buy.html)',
     facts: [
       'Each auction has a pickup window set by the seller. Winners collect their items during that window at the pickup location.',
+      'Advantage.Bid policy: buyers should bring a copy of their payment confirmation when they collect.',
+      'Advantage.Bid policy: a buyer may send someone else to collect on their behalf. That person needs a written authorization from the buyer and a copy of the buyer\'s payment confirmation, and the buyer should let Advantage.Bid support know in advance. Advantage.Bid does not publish any other requirement (for example, it has no stated ID requirement) — do not add one.',
+      'Anything beyond Advantage.Bid policy (dock access, loading help, parking, what to bring, specific arrival times) is set by each seller and published with that auction\'s pickup details; say so rather than guessing.',
       `For individual (non-professional) sellers, pickup must begin at least ${sellerTypeRules.NON_PRO_MIN_PICKUP_GAP_HOURS} hours after the auction closes. Professional sellers set their own pickup timing (never before the auction closes).`,
       'Before payment, listings show only the city and state. The full pickup address is sent to the winning buyer after their payment succeeds (in the payment receipt / pickup email), and it is shown on their paid invoice.',
       'Never give a pickup street address, ZIP code or coordinates to anyone who has not paid for that item (look it up only with get_my_pickup_details for the signed-in buyer).',

@@ -475,3 +475,22 @@ describe('reply formatting', () => {
     expect(engine.systemPrompt({ channel: 'chat' })).toContain('EXACTLY this sentence');
   });
 });
+
+describe('acceptance fixes (email)', () => {
+  test('Gmail quoted history wrapped over two lines is stripped', () => {
+    const body = 'Thanks! Can someone else pick up my items for me if I can\'t make it?\n\nOn Tue, Sep 29, 2026 at 4:50 PM Sasha at Advantage.Bid <\ninfo@advantage.bid> wrote:\n\n> Hi Tyler,';
+    expect(emailChannel.newText(mail({ textBody: body }))).toBe('Thanks! Can someone else pick up my items for me if I can\'t make it?');
+  });
+  test('pickup-by-representative policy comes from published policy, with no invented ID rule', () => {
+    const f = require('../../src/services/sasha/knowledge/platformFacts').getFacts('pickup').pickup.facts.join(' ');
+    expect(f).toMatch(/written authorization/);
+    expect(f).toMatch(/payment confirmation/);
+    expect(f).toMatch(/no stated ID requirement/);
+  });
+  test('the prompt requires answering every part and explains why account data is not sent by email', () => {
+    const p = engine.systemPrompt({ channel: 'email' });
+    expect(p).toMatch(/Answer EVERY part of the message/);
+    expect(p).toMatch(/by email \(an email address alone does not verify identity\)/);
+    expect(p).toMatch(/Never add conditions of your own/);
+  });
+});

@@ -79,7 +79,8 @@ async function findThread(msg) {
 function newText(msg) {
   let t = String(msg.textBody || '');
   if (!t.trim() && msg.htmlBody) t = String(msg.htmlBody).replace(/<br\s*\/?>|<\/p>/gi, '\n').replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ');
-  const cut = t.search(/\n\s*(On .{5,200}wrote:|-{2,}\s*Original Message|From:\s.+\n\s*Sent:|_{5,})/i);
+  // "On <date> <name> wrote:" — Gmail/Apple often wrap it over two lines, so allow one line break inside.
+  const cut = t.search(/\n\s*(On [^\n]{5,200}(\n[^\n]{0,120})?wrote:|-{2,}\s*Original Message|From:\s.+\n\s*Sent:|_{5,})/i);
   if (cut > 0) t = t.slice(0, cut);
   t = t.split('\n').filter((l) => !/^\s*>/.test(l)).join('\n');
   return t.replace(/\n{3,}/g, '\n\n').trim().slice(0, 8000);

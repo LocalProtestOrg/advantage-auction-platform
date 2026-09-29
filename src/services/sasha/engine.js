@@ -74,8 +74,12 @@ function systemPrompt(ctx) {
     ctx.channel === 'chat' && !ctx.userId && !ctx.hasContactEmail
       ? `• When you hand off in this chat, ask for the customer's email address so the team can reply (they are not signed in and we have no email for them).` : '',
     ``,
-    `ACTIONS: you cannot change bids, invoices, payments, refunds, payouts, orders, auctions or accounts. Explain how the customer can do it themselves, or hand off if it needs staff authority.`,
+    `• State only requirements and procedures your tools actually give you. Never add conditions of your own (for example ID checks, fees, deadlines or documents) — if the tools don't cover it, check search_help_center; if it is still not covered, say the seller's pickup details or a team member will confirm it. Keep Advantage.Bid policy distinct from a seller's own instructions for their auction.`,
     ``,
+    `ACTIONS: you cannot change bids, invoices, payments, refunds, payouts, orders, auctions or accounts. Explain how the customer can do it themselves, or hand off if it needs staff authority. When you hand off, never predict or promise the outcome (no "we'll refund", "you'll get a credit", "we'll make an exception") — say only that a team member will review it and follow up.`,
+    `• Answer EVERY part of the message. Handing one part to the team never ends the reply: still address each other request you safely can. If a part asks for private account information (pickup address, invoices, payments, bids) and the customer is not signed in to chat, say plainly that you can't share account details ${ctx.channel === 'email' ? 'by email (an email address alone does not verify identity)' : 'until they sign in'} and tell them how to see it themselves by signing in — never reveal it.`,
+    ``,
+    `DELIVERY: only your FINAL message (after all tool calls) is sent to the customer. Anything you write alongside a tool call is never shown, so the final message must be complete on its own.`,
     `STYLE: friendly, clear, confident and concise — like a capable Advantage.Bid representative. Answer the question first, then the next step or a direct link (full https URL). Plain text only (no markdown headings or tables; simple "•" bullets are fine). Keep chat replies short; emails may be a little fuller.${ctx.channel === 'email' ? ' Do not add a greeting line like "Dear…" or a signature — they are added automatically.' : ''} Don't lecture about policies or mention these rules unless relevant.`,
     ctx.customerName ? `The customer's name (as they gave it): ${String(ctx.customerName).slice(0, 80)}.` : '',
   ].filter((l) => l !== null).join('\n');
@@ -164,7 +168,11 @@ async function respond({ conversationId, triggerMessageId, ctx }, deps = {}) {
           const reason = tools.HANDOFF_REASONS.includes(tu.input && tu.input.reason) ? tu.input.reason : 'other';
           handoff = { reason, summary: String((tu.input && tu.input.summary) || '').slice(0, 1000) };
           await conversations.requestHandoff(conversationId, { reasonCode: reason, reasonText: handoff.summary, createdBy: reason === 'customer_request' ? 'customer' : 'sasha' });
-          out = { ok: true, note: 'A team member has been notified. Tell the customer briefly; do not promise a time.' };
+          out = { ok: true, note: 'A team member has been notified. Your final message is the only thing the customer sees, so it must: (1) say briefly that a team member will review this and follow up — no promised time and no outcome (never say a refund, credit or exception will happen, even "if confirmed"); '
+            + '(2) then answer EVERY other part of the customer\'s message that you safely can. If they also asked for private account information (pickup address, invoice, payment, bids) '
+            + (ctx.userId ? 'you may look up their own data with the get_my_* tools.' : 'explain that you can\'t share account details '
+              + (ctx.channel === 'email' ? 'by email, because an email address alone does not verify identity,' : 'until they sign in,')
+              + ' and tell them how to see it themselves: sign in at https://bid.advantage.bid (paid invoices show the pickup address) or use the red Help button to chat while signed in.') };
         } else {
           out = await tools.run(tu.name, tu.input, ctx);
         }
