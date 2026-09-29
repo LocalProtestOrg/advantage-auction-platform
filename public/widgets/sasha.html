@@ -106,6 +106,8 @@
   t.addEventListener('input', function () { t.style.height = 'auto'; t.style.height = Math.min(t.scrollHeight, 120) + 'px'; });
   document.getElementById('human').addEventListener('click', function () { submit('I would like to talk to a person, please.'); });
   document.getElementById('close').addEventListener('click', function () { try { parent.postMessage({ sasha: 'close' }, '*'); } catch (e) {} });
+  // Escape closes the window when focus is inside the chat too (the page's own Escape handler can't see these keys).
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape') { try { parent.postMessage({ sasha: 'close' }, '*'); } catch (err) {} } });
   // Staff replies (after a takeover) arrive by polling while the window is open.
   setInterval(function () {
     if (!token || busy || document.hidden) return;
