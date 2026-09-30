@@ -860,6 +860,9 @@ server.listen(PORT, () => {
     spawnWorker(path.join(__dirname, 'src/workers/eventImportWorker.js'));
     // Claimed Listing scheduler (10 min). Sends NOTHING unless claimed_listings.sending_enabled and all nine send gates pass.
     spawnWorker(path.join(__dirname, 'src/workers/claimedListingWorker.js'));
+    // Sasha: read NEW mail from info@advantage.bid over IMAP (read-only). Inert unless sasha.imap_read_enabled is ON
+    // and the sealed SASHA_IMAP_* variables are set; a rejected login latches off until a Super Admin clears it.
+    spawnWorker(path.join(__dirname, 'src/workers/sashaImapWorker.js'));
     // Marketing audience auto-refresh (platform-fact + behavioral). Self-gates on
     // marketing.behavioral.enabled; never sends/spends/connects a provider.
     spawnWorker(path.join(__dirname, 'src/workers/marketingRefreshWorker.js'));

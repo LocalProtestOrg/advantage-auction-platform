@@ -64,6 +64,8 @@ const ALERT_TYPES = {
   PAYOUT_RELEASE_PENDING: 'payout_release_pending',
   SETTLEMENT_EXCEPTION: 'settlement_exception',
   COMPLIANCE_ESCALATION: 'compliance_escalation',
+  // Sasha info@ mailbox reader health (login rejected, polling stopped, mailbox renumbered, no mail for 24h).
+  SASHA_IMAP_HEALTH: 'sasha_imap_health',
 };
 
 // ── Recipient routing (role-ready) ────────────────────────────────────────────
@@ -82,6 +84,7 @@ const PER_TYPE_ENV = {
   [ALERT_TYPES.PAYOUT_RELEASE_PENDING]: null,
   [ALERT_TYPES.SETTLEMENT_EXCEPTION]: null,
   [ALERT_TYPES.COMPLIANCE_ESCALATION]: null,
+  [ALERT_TYPES.SASHA_IMAP_HEALTH]: null,
 };
 
 // Resolve the VALIDATED, DEDUPED recipient list for an alert type. Precedence:

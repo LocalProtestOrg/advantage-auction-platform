@@ -39,11 +39,11 @@ const getByRef = async (ref, runner = db) => (await runner.query('SELECT * FROM 
 async function addMessage(conversationId, m, runner = db) {
   const { rows } = await runner.query(
     `INSERT INTO cs_messages (conversation_id, direction, author_type, staff_user_id, body_text, email_message_id, in_reply_to,
-                              references_header, inbound_receipt_id, ses_message_id, delivery_status, auto_sent, attachments)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13::jsonb) RETURNING *`,
+                              references_header, inbound_receipt_id, ses_message_id, delivery_status, auto_sent, attachments, content_fingerprint)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13::jsonb,$14) RETURNING *`,
     [conversationId, m.direction, m.author, m.staffUserId || null, String(m.text || '').slice(0, 20000), m.emailMessageId || null,
       m.inReplyTo || null, m.references || null, m.inboundReceiptId || null, m.sesMessageId || null, m.deliveryStatus || null,
-      !!m.autoSent, JSON.stringify(m.attachments || [])]);
+      !!m.autoSent, JSON.stringify(m.attachments || []), m.contentFingerprint || null]);
   const isCustomer = m.author === 'customer';
   await runner.query(
     `UPDATE cs_conversations SET message_count = message_count + 1, last_message_at = now(), updated_at = now(),

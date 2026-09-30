@@ -155,7 +155,16 @@ router.get('/settings', wrap(async (req, res) => {
   const inbound = (await db.query(`SELECT status, count(*)::int n FROM inbound_email_receipts WHERE programme = 'company_inbox'
     AND received_at > now() - interval '7 days' GROUP BY 1`)).rows;
   res.json({ success: true, data: { settings: s, spent_today_usd: Math.round(spent * 10000) / 10000, model: require('../services/sasha/engine').MODEL(),
-    inbox_address: 'inbox@' + (process.env.INBOUND_REPLY_DOMAIN || 'reply.advantage.bid'), inbound_last_7_days: inbound } });
+    inbox_address: 'inbox@' + (process.env.INBOUND_REPLY_DOMAIN || 'reply.advantage.bid'), inbound_last_7_days: inbound,
+    imap: await require('../services/sasha/imap/imapIngestService').status().catch(() => null) } });
+}));
+
+// Super Admin: clear the fail-closed IMAP login block after the password was corrected (the next poll tries once).
+router.post('/imap/clear-auth-block', superAdminOnly, wrap(async (req, res) => {
+  const r = await require('../services/sasha/imap/imapIngestService').clearAuthBlock();
+  await auditService.logEvent(db, { eventType: 'sasha.imap_auth_block_cleared', entityType: 'platform_config', entityId: '00000000-0000-0000-0000-000000000000',
+    actorId: req.user.id, metadata: { mailbox: r.mailbox } });
+  res.json({ success: true, data: r });
 }));
 
 router.post('/settings', superAdminOnly, wrap(async (req, res) => {

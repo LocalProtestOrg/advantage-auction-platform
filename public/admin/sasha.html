@@ -60,6 +60,7 @@
       <h2>Switches</h2>
       <div class="sw" id="sw"></div>
       <div class="kv" id="kv"></div>
+      <div id="imap" style="margin-top:12px;font-size:13px"></div>
       <p class="msg" id="swmsg"></p>
     </div>
 
@@ -110,7 +111,9 @@
     ['sasha.email_inbound_enabled','email_inbound_enabled','Email — receive','Accept mail sent to the Sasha inbox address.','email_inbound'],
     ['sasha.email_autoreply_enabled','email_autoreply_enabled','Email — reply automatically','Off: Sasha drafts a reply for the team to send.','email_autoreply'],
     ['sasha.chat_bid_enabled','chat_bid_enabled','Chat on bid.advantage.bid','Red help button on the platform (never on live bidding).','chat_bid'],
-    ['sasha.chat_www_enabled','chat_www_enabled','Chat on www.advantage.bid','Red help button on the main website (needs the footer script).','chat_www']
+    ['sasha.chat_www_enabled','chat_www_enabled','Chat on www.advantage.bid','Red help button on the main website (needs the footer script).','chat_www'],
+    ['sasha.imap_read_enabled','imap_read_enabled','info@ mailbox: read (test mode)','Reads new mail in the info@ mailbox without changing it, and records it. Nothing is answered.','imap_read'],
+    ['sasha.imap_process_enabled','imap_process_enabled','info@ mailbox: answer','Sasha answers new info@ mail (needs "read" on).','imap_process']
   ];
   function loadSettings(){
     api('GET','/api/admin/sasha/settings').then(function(j){
@@ -127,9 +130,24 @@
         +'<div><span>Daily limit (USD)</span><input type="number" id="budget" min="0" max="1000" step="1" value="'+s.daily_budget_usd+'" style="width:90px"> <button class="b g" id="bsave">Save</button></div>'
         +'<div><span>Inbox address</span><b>'+esc(j.data.inbox_address)+'</b></div>'
         +'<div><span>Mail received (7 days)</span><b>'+inb+'</b></div>';
+      renderImap(j.data.imap);
       document.getElementById('bsave').onclick=function(){ save('sasha.daily_budget_usd', Number(document.getElementById('budget').value)); };
       [].forEach.call(document.querySelectorAll('#sw input'),function(i){ i.onchange=function(){ save(i.getAttribute('data-k'), i.checked); }; });
     });
+  }
+  function renderImap(m){
+    var el=document.getElementById('imap'); if(!el) return;
+    if(!m){ el.innerHTML=''; return; }
+    var st=m.state||{}, c=m.last_7_days||{};
+    var label={idle:'Not started',disabled:'Off',not_configured:'Mailbox login not set up',ok:'Working',error:'Having trouble (retrying)',auth_failed:'Login rejected: stopped'}[st.status]||'Not started';
+    var t=function(v){return v?new Date(v).toLocaleString():'never';};
+    el.innerHTML='<b>info@ mailbox reader:</b> '+esc(label)+(m.configured?'':' (login details not added yet)')
+      +'<br>Last successful check: '+esc(t(st.last_success_at))+' · Last new mail: '+esc(t(st.last_message_at))+' · Started reading from: '+esc(t(st.baseline_at))
+      +'<br>Last 7 days: '+esc(Object.keys(c).map(function(k){return k+' '+c[k];}).join(', ')||'none')
+      +(st.last_error?'<br><span style="color:#b91c1c">Last problem: '+esc(st.last_error)+'</span>':'')
+      +(st.auth_failed_at?'<br><button class="b g" id="imapclear" style="margin-top:6px">Password fixed: try signing in again</button>':'');
+    var b=document.getElementById('imapclear');
+    if(b) b.onclick=function(){ api('POST','/api/admin/sasha/imap/clear-auth-block',{}).then(function(j){ msg('swmsg', j.success?'The next check will try signing in once.':(j.message||'Not allowed.'), j.success); loadSettings(); }); };
   }
   function save(key,value){ api('POST','/api/admin/sasha/settings',{key:key,value:value}).then(function(j){ if(!j.success){ msg('swmsg',j.message||'Not saved.'); } else msg('swmsg','Saved.',true); loadSettings(); }); }
 
