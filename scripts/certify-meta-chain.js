@@ -84,7 +84,7 @@ const log = (...a) => console.log(...a);
   // 3. Minimum PAUSED artifacts so ad set and ad can be validated against real parents.
   const artifacts = [];
   const stamp = Date.now();
-  const camp = await meta.createCampaign({ account, name: 'ADV — CERTIFICATION (do not activate) ' + stamp,
+  const camp = await meta.createCampaign({ account, name: 'ADV | CERTIFICATION (do not activate) ' + stamp,
     funnel: pkg.funnel, spendCapCents: 13500, idempotencyKey: 'cert:campaign:' + stamp }, db);
   if (!camp.ok) { console.error('CERT CAMPAIGN FAILED: ' + camp.reason); return 1; }
   artifacts.push({ type: 'campaign', id: camp.provider_campaign_id });
@@ -97,7 +97,7 @@ const log = (...a) => console.log(...a);
   log('5. AD SET     validate_only ' + (withCampaign.adset.ok ? 'ok' : 'FAILED: ' + withCampaign.adset.reason));
   if (!withCampaign.adset.ok) { await cleanup(artifacts); return 1; }
 
-  const adset = await meta.createAdSet({ account, name: 'ADV — CERTIFICATION adset ' + stamp,
+  const adset = await meta.createAdSet({ account, name: 'ADV | CERTIFICATION adset ' + stamp,
     campaignId: camp.provider_campaign_id, dailyBudgetCents: 5000,
     targetingSpec: strategy.targeting_spec, pixelId: (await delivery.identities()).pixelId }, db);
   if (!adset.ok) { console.error('CERT AD SET FAILED: ' + adset.reason); await cleanup(artifacts); return 1; }
@@ -107,7 +107,7 @@ const log = (...a) => console.log(...a);
   log('6. AD SET     created PAUSED  id=' + adset.provider_adset_id);
 
   const ids = await delivery.identities();
-  const creative = await meta.createAdCreative({ account, name: 'ADV — CERTIFICATION creative ' + stamp,
+  const creative = await meta.createAdCreative({ account, name: 'ADV | CERTIFICATION creative ' + stamp,
     pageId: ids.pageId, instagramId: ids.instagramId, imageHash: img.image_hash,
     message: copy.primary_text, headline: copy.headline, description: copy.description,
     destinationUrl: destination, ctaType: copy.cta_type }, db);
@@ -123,7 +123,7 @@ const log = (...a) => console.log(...a);
   log('8. AD         validate_only ' + (withAll.ad.ok ? 'ok' : 'FAILED: ' + withAll.ad.reason));
   if (!withAll.ad.ok) { await cleanup(artifacts); return 1; }
 
-  const ad = await meta.createAd({ account, name: 'ADV — CERTIFICATION ad ' + stamp,
+  const ad = await meta.createAd({ account, name: 'ADV | CERTIFICATION ad ' + stamp,
     adsetId: adset.provider_adset_id, creativeId: creative.provider_creative_id }, db);
   if (!ad.ok) { console.error('CERT AD FAILED: ' + ad.reason); await cleanup(artifacts); return 1; }
   artifacts.push({ type: 'ad', id: ad.provider_ad_id });

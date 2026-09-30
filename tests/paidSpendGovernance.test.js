@@ -57,8 +57,8 @@ function createFakeDb() {
       const row = { id: 'sync-' + (++seq), finished_at: new Date(), ok: p[3], reconciliation_state: p[12] };
       state.syncs.push(row); return [row];
     }
-    if (/^SELECT evidence FROM marketing_paid_campaigns WHERE campaign_key/.test(s)) {
-      const c = state.campaigns.get(p[0]); return c ? [{ evidence: c.evidence || {} }] : [];
+    if (/^SELECT (state, )?evidence FROM marketing_paid_campaigns WHERE campaign_key/.test(s)) {
+      const c = state.campaigns.get(p[0]); return c ? [{ state: c.state || 'ACTIVE', evidence: c.evidence || {} }] : [];
     }
     if (/^SELECT market_key FROM marketing_paid_campaigns WHERE campaign_key/.test(s)) {
       const c = state.campaigns.get(p[0]); return c ? [{ market_key: c.market_key }] : [];

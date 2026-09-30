@@ -104,17 +104,19 @@ async function preflight({ channel = 'meta_ads', funnel = 'buyer', runner = db }
  * today reduces the recommendation today; it never disables buyer acquisition.
  */
 async function buyerInventory({ runner = db } = {}) {
+  // Counts use the CANONICAL public-visibility predicates (src/lib/marketplaceVisibility.js), so the
+  // posture always agrees with what buyers can actually see: past events and demo auctions never count.
+  const { activeNativeAuctionSql, activeEventSql, eventKindSql } = require('../../lib/marketplaceVisibility');
   const r = await runner.query(`
     SELECT
-      (SELECT count(*)::int FROM auctions
-        WHERE state IN ('published','active') AND NOT COALESCE(is_archived,false)
-          AND COALESCE(marketplace_status,'') = 'syndicated') AS live_auctions,
+      (SELECT count(*)::int FROM auctions a WHERE ${activeNativeAuctionSql('a')}) AS live_auctions,
       (SELECT count(*)::int FROM lots l JOIN auctions a ON a.id = l.auction_id
-        WHERE a.state IN ('published','active') AND NOT COALESCE(a.is_archived,false)
-          AND COALESCE(a.marketplace_status,'') = 'syndicated' AND l.state = 'open') AS live_lots,
-      (SELECT count(*)::int FROM events WHERE COALESCE(status,'') = 'published') AS live_events`);
-  const inv = r.rows[0] || { live_auctions: 0, live_lots: 0, live_events: 0 };
+        WHERE ${activeNativeAuctionSql('a')} AND l.state = 'open') AS live_lots,
+      (SELECT count(*)::int FROM events e WHERE ${activeEventSql('e')}) AS live_events,
+      (SELECT count(*)::int FROM events e WHERE ${activeEventSql('e')} AND ${eventKindSql('e')} = 'estate_sale') AS live_estate_sales`);
+  const inv = r.rows[0] || { live_auctions: 0, live_lots: 0, live_events: 0, live_estate_sales: 0 };
   const auctions = Number(inv.live_auctions), lots = Number(inv.live_lots), events = Number(inv.live_events);
+  const estateSales = Number(inv.live_estate_sales || 0);
 
   // A buyer we acquire needs something to do. Auctions are the strongest destination, events are a
   // real but weaker one (discovery rather than bidding).
@@ -124,7 +126,8 @@ async function buyerInventory({ runner = db } = {}) {
   else if (events >= 10) { posture = 'DISCOVERY_ONLY'; rationale = `no live auctions; ${events} published events — buyer campaigns may only promote discovery, not bidding`; }
   else { posture = 'HOLD'; rationale = `no live auctions and only ${events} published events — acquiring bidders now would buy attention we cannot convert`; }
 
-  return { live_auctions: auctions, live_lots: lots, live_events: events, posture, rationale };
+  return { live_auctions: auctions, live_lots: lots, live_events: events, live_estate_sales: estateSales,
+    counts_source: 'marketplaceVisibility', posture, rationale };
 }
 
 // ── campaign lifecycle ────────────────────────────────────────────────────────────────────────
@@ -159,7 +162,7 @@ async function prepareCampaign({ campaignKey, proposalId = null, channel = 'meta
        objective=EXCLUDED.objective, market=EXCLUDED.market, audience=EXCLUDED.audience,
        destination_url=EXCLUDED.destination_url, creative_id=EXCLUDED.creative_id,
        budget_cents=EXCLUDED.budget_cents, daily_budget_cents=EXCLUDED.daily_budget_cents,
-       state=CASE WHEN marketing_paid_campaigns.state IN ('ACTIVE','PAUSED','STOPPED')
+       state=CASE WHEN marketing_paid_campaigns.state IN ('ACTIVE','PAUSED','STOPPED','COMPLETED','BUDGET_EXHAUSTED')
                   THEN marketing_paid_campaigns.state ELSE EXCLUDED.state END,
        blocked_reason=EXCLUDED.blocked_reason, evidence=EXCLUDED.evidence, updated_at=now()
      RETURNING *`,
@@ -206,7 +209,7 @@ async function createCampaign({ campaignKey, runner = db } = {}) {
   if (!reservation.ok) return { ok: false, reason: 'budget refused: ' + reservation.reason };
 
   const created = await meta.createCampaign({
-    account: pre.account, name: 'ADV — ' + campaignKey, funnel: c.funnel,
+    account: pre.account, name: require('../../lib/paidCampaignKey').providerName(campaignKey), funnel: c.funnel,
     spendCapCents: c.budget_cents, idempotencyKey: idem,
   }, runner);
 

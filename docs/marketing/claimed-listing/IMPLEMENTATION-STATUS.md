@@ -42,4 +42,11 @@ A bounce or complaint breach auto-pauses the programme and texts the Owner.
 - Replies go to `listings+l<key>@reply.advantage.bid`. The inbound provider route and the reply DNS are the same pending items as Event Partner. After that, set `claimed_listings.inbound_enabled = true`.
 
 ## Owner decisions still open
-O1 postal address · O2 pilot cohort and templates · O3 badge corrections (41 records, list verified) · O4 About replacements (report ready) · O5 national houses stay excluded (seeded), keep or remove from the directory · O6 Professional Seller fee reconciliation (not touched here) · O7 counsel review.
+O1 postal address · O2 pilot cohort and templates · O3 badge corrections (41 records, list verified) · O4 About replacements (report ready) · O5 national houses stay excluded (seeded), keep or remove from the directory · ~~O6 Professional Seller fee reconciliation~~ (resolved 2026-09-30, see VSCODE-HANDOFF.md section 13) · O7 counsel review.
+
+## Reconciled 2026-09-30
+- **O6 resolved.** Professional auctions: a platform fee set per seller in the Professional Seller agreement (default 4% of hammer, negotiable) plus a separate 3% processing fee; the seller sets and keeps its buyer premium. Professional Storefront fixed-price sales: a flat 11% of the item price (includes card processing, excludes shipping and tax, the same for every seller). Individual sellers: 0% commission, 3% processing on hammer, 18% buyer premium paid by the buyer. The "2% software fee" wording was never implemented and is gone. Copy rule: VSCODE-HANDOFF.md section 13.
+- **O1 done.** `company.postal_address` is set in production.
+- **Template P1** (Professional Seller introduction) added to the catalogue as a draft. No trigger is wired.
+- **Sasha boundary** (VSCODE-HANDOFF.md section 14): Claimed Listing replies never reach Sasha. The draft guidance `claimed-listing-help` awaits Owner approval.
+- **Readiness report:** `reports/pilot-1-readiness-2026-09-30.md`.

@@ -68,6 +68,16 @@ async function spendPass() {
   } catch (e) { console.error('[marketingRefresh] paid spend sync failed:', e.message); }
 }
 
+// Director baseline snapshot (marketing_baselines) — daily. Previously captured ONLY by the Super Admin
+// "snapshot" button, so the Director read a baseline frozen at 2026-09-07. Read-only against platform
+// facts; writes only its own immutable snapshot rows. Due-based, so restarts never duplicate a day.
+async function baselinePass() {
+  try {
+    const r = await require('../services/baselineReportService').snapshotIfDue({ maxAgeHours: 24 });
+    if (r.taken) console.log('[marketingRefresh] director baseline snapshot:', JSON.stringify({ snapshot_key: r.snapshot_key, metrics: r.metrics }));
+  } catch (e) { console.error('[marketingRefresh] director baseline snapshot failed:', e.message); }
+}
+
 if (require.main === module) {
   console.log('[marketingRefresh] worker started (fast 15m / slow 60m; gated on marketing.behavioral.enabled)');
   // Stagger the initial runs so startup isn't spiky.
@@ -80,6 +90,9 @@ if (require.main === module) {
   // Spend sync checks every 5 minutes whether it is due; the interval itself is Owner-configurable.
   setTimeout(spendPass, 2 * 60_000);
   setInterval(spendPass, 5 * 60_000);
+  // Director baseline: check hourly whether today's snapshot is due.
+  setTimeout(baselinePass, 10 * 60_000);
+  setInterval(baselinePass, 60 * 60_000);
 }
 
-module.exports = { fastPass, slowPass, costPass, spendPass };
+module.exports = { fastPass, slowPass, costPass, spendPass, baselinePass };

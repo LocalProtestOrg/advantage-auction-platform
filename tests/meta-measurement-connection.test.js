@@ -95,7 +95,7 @@ describe('READ-ONLY Meta cost ingestion', () => {
     const row = cost.metaInsightToRow({ campaign_id: '9', campaign_name: 'Houston Sellers', adset_id: '8', ad_id: '7', spend: '25.50', impressions: '2000', clicks: '31', date_start: '2026-09-10',
       actions: [{ action_type: 'offsite_conversion.fb_pixel_complete_registration', value: '2' }, { action_type: 'link_click', value: '31' }] }, 'act_1');
     expect(row).toMatchObject({ campaign_id: '9', date: '2026-09-10', spend: 25.5, impressions: 2000, clicks: 31, provider_conversions: { CompleteRegistration: 2 } });
-    expect(cost.normalise('meta_ads', row).campaign_key).toBe('facebook:houston_sellers');
+    expect(cost.normalise('meta_ads', row).campaign_key).toBe('houston_sellers');   // canonical bare campaign_key (paidCampaignKey)
   });
   test('cost and landing share one campaign key (lower case, whitespace → _)', () => {
     expect(attribution.campaignKey({ utm: { utm_source: 'facebook', utm_campaign: 'Houston Sellers' } })).toBe(cost.campaignKeyFor('meta_ads', { campaign_name: 'Houston Sellers' }));
@@ -137,8 +137,10 @@ describe('READ-ONLY Meta cost ingestion', () => {
 describe('Meta reconciliation compares by standard event name', () => {
   test('first-party conversions fold onto Meta event names for meta_ads', async () => {
     const db = fakeDb([
-      [/FROM marketing_paid_cost_facts WHERE provider/, [{ provider_conversions: { CompleteRegistration: 3, Lead: 1 } }]],
-      [/FROM marketing_conversion_events/, [{ conversion_key: 'buyer_registered', n: 2 }, { conversion_key: 'seller_registered', n: 1 }, { conversion_key: 'assisted_service_inquiry', n: 1 }]],
+      [/FROM marketing_paid_cost_facts WHERE provider/, [{ campaign_key: 'facebook:hou', provider_conversions: { CompleteRegistration: 3, Lead: 1 } },
+        { campaign_key: 'other', provider_conversions: { Lead: 9 } }]],
+      [/FROM marketing_conversion_events/, [{ paid_key: 'meta:hou', last_key: '', conversion_key: 'buyer_registered', n: 2 }, { paid_key: 'hou', last_key: '', conversion_key: 'seller_registered', n: 1 },
+        { paid_key: '', last_key: 'hou', conversion_key: 'assisted_service_inquiry', n: 1 }, { paid_key: 'other', last_key: '', conversion_key: 'buyer_registered', n: 5 }]],
       [/INSERT INTO marketing_provider_reconciliations/, [{ id: 'r1', created_at: 'x' }]],
     ]);
     const out = await recon.reconcile({ provider: 'meta_ads', campaignKey: 'facebook:hou', windowStart: '2026-09-01', windowEnd: '2026-09-10' }, db);

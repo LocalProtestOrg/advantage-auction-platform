@@ -12,6 +12,7 @@
  */
 const db = require('../../db');
 const defs = require('../../lib/conversionDefinitions');
+const { normalizeCampaignKey } = require('../../lib/paidCampaignKey');
 
 const FUNNEL = {
   registrations: ['buyer_registered', 'seller_registered', 'email_signup'],
@@ -23,7 +24,10 @@ const CK = `COALESCE(attribution->'last_paid_touch'->>'campaign_key', attributio
 
 async function campaignFacts({ campaignKey = null, from = null, to = null } = {}, runner) {
   const r = runner || db;
-  const p = [campaignKey, from, to];
+  // Stored keys include legacy spellings of one campaign ("facebook:adv_—_<key>" on cost, "meta:<key>" on touches);
+  // every row is folded onto the canonical campaign_key here, so the campaign filter is applied after normalisation.
+  const want = campaignKey ? normalizeCampaignKey(campaignKey) : null;
+  const p = [null, from, to];
   const cost = (await r.query(
     `SELECT campaign_key, COALESCE(SUM(spend_cents),0)::bigint spend_cents, COALESCE(SUM(impressions),0)::bigint impressions, COALESCE(SUM(clicks),0)::bigint clicks,
             SUM(link_clicks)::bigint link_clicks, SUM(reach)::bigint reach_daily_sum
@@ -43,10 +47,18 @@ async function campaignFacts({ campaignKey = null, from = null, to = null } = {}
       WHERE is_internal = false AND ${CK} IS NOT NULL AND ($1::text IS NULL OR ${CK} = $1) AND ($2::date IS NULL OR occurred_at >= $2) AND ($3::date IS NULL OR occurred_at < ($3::date + 1))
       GROUP BY 1,2,3`, p)).rows;
   const map = new Map();
-  const get = (k) => { if (!map.has(k)) map.set(k, { campaign_key: k, spend_cents: 0, impressions: 0, clicks: 0, sessions: 0, engaged_sessions: 0, visitors: 0, channel: null, conversions: {}, by_class: {}, value_cents: 0 }); return map.get(k); };
-  for (const c of cost) Object.assign(get(c.campaign_key), { spend_cents: Number(c.spend_cents), impressions: Number(c.impressions), clicks: Number(c.clicks),
-    link_clicks: c.link_clicks == null ? null : Number(c.link_clicks), reach_daily_sum: c.reach_daily_sum == null ? null : Number(c.reach_daily_sum) });
-  for (const s of sessions) Object.assign(get(s.campaign_key), { sessions: s.sessions, engaged_sessions: s.engaged_sessions, visitors: s.visitors, channel: s.channel });
+  const add = (a, b) => (a == null && b == null ? null : Number(a || 0) + Number(b || 0));
+  const get = (raw) => { const k = normalizeCampaignKey(raw) || raw; if (!map.has(k)) map.set(k, { campaign_key: k, spend_cents: 0, impressions: 0, clicks: 0, sessions: 0, engaged_sessions: 0, visitors: 0, channel: null, conversions: {}, by_class: {}, value_cents: 0 }); return map.get(k); };
+  // Several stored spellings can fold onto one campaign, so every figure ACCUMULATES rather than overwrites.
+  for (const c of cost) {
+    const f = get(c.campaign_key);
+    Object.assign(f, { spend_cents: f.spend_cents + Number(c.spend_cents), impressions: f.impressions + Number(c.impressions), clicks: f.clicks + Number(c.clicks),
+      link_clicks: add(f.link_clicks, c.link_clicks), reach_daily_sum: add(f.reach_daily_sum, c.reach_daily_sum) });
+  }
+  for (const s of sessions) {
+    const f = get(s.campaign_key);
+    Object.assign(f, { sessions: f.sessions + s.sessions, engaged_sessions: f.engaged_sessions + s.engaged_sessions, visitors: f.visitors + s.visitors, channel: f.channel || s.channel });
+  }
   for (const x of conv) {
     const f = get(x.campaign_key);
     f.conversions[x.conversion_key] = (f.conversions[x.conversion_key] || 0) + x.n;
@@ -60,7 +72,8 @@ async function campaignFacts({ campaignKey = null, from = null, to = null } = {}
     for (const [stage, keys] of Object.entries(FUNNEL)) f.funnel[stage] = keys.reduce((a, k) => a + (f.conversions[k] || 0), 0);
     f.first_party_conversions = Object.entries(f.conversions).filter(([k]) => (defs.get(k) || {}).success_signal).reduce((a, [, n]) => a + n, 0);
   }
-  return [...map.values()];
+  const all = [...map.values()];
+  return want ? all.filter((f) => f.campaign_key === want) : all;
 }
 
 /** Cost per first-party outcome for a named success signal (null when no outcomes yet — never a fabricated CPA). */

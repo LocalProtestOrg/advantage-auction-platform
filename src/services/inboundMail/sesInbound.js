@@ -191,11 +191,13 @@ const PARTNER_KEY_RE = /\+([0-9a-f]{24})@/i;
 
 /** Which programme a message belongs to, from the reply key in the recipient address (never guessed). */
 function routeFor(recipients, cfg = config()) {
+  // Outreach reply keys win: a reply to a Claimed Listing or Event Partner message belongs to that programme even
+  // when it is also addressed to the company inbox (Sasha must never answer outreach threads).
+  for (const r of recipients || []) if (LISTING_KEY_RE.test(r)) return 'claimed_listing';
+  for (const r of recipients || []) if (PARTNER_KEY_RE.test(r)) return 'event_partner';
   // Sasha: the dedicated company-inbox address (info@advantage.bid is forwarded here as a copy).
   const companyInbox = ('inbox@' + cfg.replyDomain).toLowerCase();
   for (const r of recipients || []) if (String(r).trim().toLowerCase() === companyInbox) return 'company_inbox';
-  for (const r of recipients || []) if (LISTING_KEY_RE.test(r)) return 'claimed_listing';
-  for (const r of recipients || []) if (PARTNER_KEY_RE.test(r)) return 'event_partner';
   return 'unmatched';
 }
 

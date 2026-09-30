@@ -14,10 +14,12 @@
  *   pullMeta(range)         READ-ONLY Meta Ads Insights (spend / impressions / clicks / actions per ad per day) for the
  *                           Graph-verified Advantage.Bid ad account, with META_ADS_READ_TOKEN (ads_read). It never creates,
  *                           edits, starts or pays for anything. Each run is recorded as verification evidence.
- * campaign_key joins cost ↔ first-party outcomes: '<utm_source>:<utm_campaign>' — the same key attributionService builds
- * from the landing UTM, so every ad's final URL must carry utm_source + utm_campaign (a launch checklist item).
+ * campaign_key joins cost ↔ first-party outcomes ↔ the paid budget ledger: the bare campaign_key (normalizeCampaignKey) —
+ * the same key attributionService derives from the landing utm_campaign, so every ad's final URL must carry utm_campaign
+ * = the campaign_key (a launch checklist item).
  */
 const db = require('../../db');
+const { normalizeCampaignKey } = require('../../lib/paidCampaignKey');
 
 const PROVIDERS = { meta_ads: { gate: 'marketing.measurement.meta_cost_ingestion_enabled', utm_source: 'facebook' }, google_ads: { gate: 'marketing.destinations.google_ads_enabled', utm_source: 'google' } };
 // Meta Insights action types → the Meta standard event names our conversion definitions map to (reconciliation joins on these).
@@ -30,11 +32,11 @@ const META_ACTIONS = {
 const int = (v) => { const n = Math.round(Number(v)); return Number.isFinite(n) && n >= 0 ? n : 0; };
 
 function campaignKeyFor(provider, row) {
-  if (row.campaign_key) return String(row.campaign_key).toLowerCase().slice(0, 160);
-  const src = (row.utm_source || PROVIDERS[provider].utm_source).toLowerCase();
-  // Convention: an ad's landing URL carries utm_campaign = its campaign name, so cost and sessions share one key.
-  const camp = row.utm_campaign || row.campaign_name || row.campaign_id;
-  return (src + ':' + String(camp).trim().toLowerCase().replace(/\s+/g, '_')).slice(0, 160);
+  if (row.campaign_key) return normalizeCampaignKey(row.campaign_key);
+  // Convention: an ad's landing URL carries utm_campaign = our campaign_key, and the provider campaign is named
+  // "ADV | <campaign_key>" (legacy "ADV — <campaign_key>"). Both normalise to the bare campaign_key, so cost,
+  // sessions, outcomes and the paid budget ledger share one key (src/lib/paidCampaignKey.js).
+  return normalizeCampaignKey(row.utm_campaign || row.campaign_name || row.campaign_id);
 }
 
 function normalise(provider, row) {

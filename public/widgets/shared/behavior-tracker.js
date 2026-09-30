@@ -14,11 +14,14 @@
   'use strict';
   // Landing capture of ad click IDs (server-side, first-party). Captured once per page load if present.
   // NEVER re-appended to any Advantage.Bid link; the value only travels to our own capture endpoint.
+  // Runs only once AAPAnalytics is available (same point as captureTouch): the server stores a click id
+  // against the visitor id and drops a payload without one, so sending earlier loses the click id.
   function captureClickIds() {
     try {
       var q = new URLSearchParams(location.search);
       var payload = { visitor_id: (window.AAPAnalytics && window.AAPAnalytics._getVisitorId) ? window.AAPAnalytics._getVisitorId() : null,
         consent: window.__ADV_CONSENT || null, source: location.hostname };
+      if (!payload.visitor_id) return;
       var any = false;
       ['gclid', 'gbraid', 'wbraid', 'fbclid'].forEach(function (t) { var v = q.get(t); if (v) { payload[t] = v; any = true; } });
       if (!any) return;
@@ -67,18 +70,17 @@
     try {
       ensureConsentBanner();
       ensureAdMeasurement();
-      captureClickIds();
       var ctx = {};
       if (window.__ADV_CATEGORY_KEY) ctx.category_key = String(window.__ADV_CATEGORY_KEY);
       if (window.__ADV_AUCTION_ID) ctx.auction_id = String(window.__ADV_AUCTION_ID);
       // Event pages publish their event id so a page_view can be attributed to the event. The host
       // company is resolved server-side from that id, never sent by the browser.
       if (window.__ADV_EVENT_ID) ctx.event_id = String(window.__ADV_EVENT_ID);
-      if (window.AAPAnalytics && window.AAPAnalytics.page) { window.AAPAnalytics.page(ctx); captureTouch(); return; }
+      if (window.AAPAnalytics && window.AAPAnalytics.page) { window.AAPAnalytics.page(ctx); captureClickIds(); captureTouch(); return; }
       // AAPAnalytics not present → load it, then fire once.
       var s = document.createElement('script');
       s.src = '/widgets/shared/analytics.js';
-      s.onload = function () { try { window.AAPAnalytics && window.AAPAnalytics.page && window.AAPAnalytics.page(ctx); captureTouch(); } catch (e) {} };
+      s.onload = function () { try { window.AAPAnalytics && window.AAPAnalytics.page && window.AAPAnalytics.page(ctx); captureClickIds(); captureTouch(); } catch (e) {} };
       s.onerror = function () { /* analytics must never affect the page */ };
       document.head.appendChild(s);
     } catch (e) { /* swallow — tracking must never break the page */ }

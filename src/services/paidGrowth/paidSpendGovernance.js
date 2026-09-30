@@ -291,10 +291,13 @@ function lifetimeDailyEquivalent(a) {
 
 async function readProvider(account, ctx) {
   const range = encodeURIComponent(JSON.stringify({ since: ctx.month_start, until: ctx.today }));
-  const [lifetime, month, adsets] = await Promise.all([
+  const [lifetime, month, adsets, camps] = await Promise.all([
     providerPaged('/' + account + '/insights?level=campaign&date_preset=maximum&fields=campaign_id,campaign_name,spend&limit=100'),
     providerGet('/' + account + '/insights?level=account&fields=spend&time_range=' + range),
     providerPaged('/' + account + '/adsets?fields=id,name,campaign_id,daily_budget,lifetime_budget,start_time,end_time,effective_status&limit=100'),
+    // Campaign delivery facts (GET only): the provider's own status, spend cap and stop time. Optional: when this read
+    // fails the sync still succeeds and no campaign is moved to a finished state (fail closed).
+    providerPaged('/' + account + '/campaigns?fields=id,effective_status,spend_cap,stop_time&limit=100'),
   ]);
   if (!lifetime.ok) return { ok: false, reason: 'campaign lifetime spend: ' + lifetime.reason };
   if (!month.ok) return { ok: false, reason: 'account month spend: ' + month.reason };
@@ -308,6 +311,8 @@ async function readProvider(account, ctx) {
       daily_budget_cents: a.daily_budget != null ? Number(a.daily_budget) : lifetimeDailyEquivalent(a),
       lifetime_budget_cents: a.lifetime_budget != null ? Number(a.lifetime_budget) : null, end_time: a.end_time || null,
       effective_status: a.effective_status || null })),
+    campaigns: camps.ok ? camps.rows.map((c) => ({ id: String(c.id), effective_status: c.effective_status || null,
+      spend_cap_cents: c.spend_cap != null && c.spend_cap !== '' ? Number(c.spend_cap) : null, stop_time: c.stop_time || null })) : null,
   };
 }
 
@@ -481,6 +486,11 @@ async function runSync({ trigger = 'manual', now = new Date(), runner = db, allo
 
   const actions = allowSafetyActions ? await safetyActions(verdict, position, s) : [];
   if (allowSafetyActions) actions.push(...await autoStopExhausted(campaigns, runner));
+  if (allowSafetyActions) {
+    const todayById = new Map(providerDays.filter((d) => d.fact_date === ctx.today).map((d) => [d.provider_campaign_id, d.spend_cents]));
+    const yesterdayById = new Map(providerDays.filter((d) => d.fact_date === addDays(ctx.today, -1)).map((d) => [d.provider_campaign_id, d.spend_cents]));
+    actions.push(...await finishCompletedCampaigns({ campaigns, prov, todayById, yesterdayById, now }, runner));
+  }
 
   const row = await recordSync({ trigger, started_at: startedAt, ok: true, account_ref: account, window_since: window.since,
     window_until: window.until, month: ctx.month, provider_month_cents: prov.month_cents, internal_month_cents: st.actual_cents,
@@ -551,6 +561,69 @@ async function autoStopExhausted(campaigns, runner = db) {
   return out;
 }
 
+// -- finished campaigns ------------------------------------------------------------------------------
+// A campaign whose delivery the PROVIDER has finished moves out of ACTIVE so reports stop calling it running:
+//   BUDGET_EXHAUSTED  its authorization is spent (the provider spend cap, or provider lifetime spend >= the authorization)
+//   COMPLETED         its schedule ended (campaign stop_time, or every ad set's end_time, is in the past)
+// Only on provider evidence, and only once delivery has visibly stopped: no spend today and, unless the provider's own
+// spend cap or schedule end guarantees the stop, none yesterday either. A local bookkeeping change only: nothing is
+// sent to the provider, and assertNewSpendAllowed refuses to restart a finished campaign.
+const FINISHED_STATES = ['BUDGET_EXHAUSTED', 'COMPLETED'];
+const NOT_DELIVERING = ['PAUSED', 'CAMPAIGN_PAUSED', 'ADSET_PAUSED', 'DELETED', 'ARCHIVED'];
+
+/** Has the provider finished this campaign's delivery, and how? Pure. Returns { finished, state, why, evidence }. */
+function deliveryFinished({ campaign, providerCampaign = null, adsets = [], todaySpendCents = 0, yesterdaySpendCents = 0, now = new Date() }) {
+  const no = (why) => ({ finished: false, state: null, why });
+  if (!campaign || !['ACTIVE', 'PAUSED'].includes(campaign.state) || !campaign.provider_campaign_id) return no('not a live provider campaign');
+  const t = now.getTime();
+  const authorized = Number(campaign.authorized_cents) || 0;
+  const cap = providerCampaign && providerCampaign.spend_cap_cents > 0 ? providerCampaign.spend_cap_cents : null;
+  const providerLifetime = campaign.provider_lifetime_cents == null ? null : Number(campaign.provider_lifetime_cents);
+  const capReached = cap != null && providerLifetime != null && providerLifetime >= cap;
+  const authorizationSpent = authorized > 0 && providerLifetime != null && providerLifetime >= authorized;
+  const stopTimePassed = !!(providerCampaign && providerCampaign.stop_time && new Date(providerCampaign.stop_time).getTime() < t);
+  const adsetsEnded = adsets.length > 0 && adsets.every((a) => a.end_time && new Date(a.end_time).getTime() < t);
+  const adsetsIdle = adsets.length > 0 && adsets.every((a) => NOT_DELIVERING.includes(a.effective_status));
+  const scheduleEnded = stopTimePassed || adsetsEnded;
+  if (!capReached && !authorizationSpent && !scheduleEnded) return no('delivery can continue');
+  if (Number(todaySpendCents) > 0) return no('still delivering today');
+  if (!capReached && !scheduleEnded && !adsetsIdle && Number(yesterdaySpendCents) > 0) return no('spent yesterday; waiting for a full quiet day');
+  const state = capReached || authorizationSpent ? 'BUDGET_EXHAUSTED' : 'COMPLETED';
+  const why = capReached ? 'provider spend cap reached' : (authorizationSpent ? 'authorization spent' : (stopTimePassed ? 'campaign stop time passed' : 'every ad set schedule ended'));
+  return { finished: true, state, why, evidence: { provider_lifetime_cents: providerLifetime, authorized_cents: authorized, provider_spend_cap_cents: cap,
+    provider_effective_status: providerCampaign ? providerCampaign.effective_status : null, stop_time: providerCampaign ? providerCampaign.stop_time : null,
+    adset_end_times: adsets.map((a) => a.end_time || null), today_spend_cents: Number(todaySpendCents) || 0, yesterday_spend_cents: Number(yesterdaySpendCents) || 0 } };
+}
+
+async function finishCompletedCampaigns({ campaigns = [], prov = {}, todayById = new Map(), yesterdayById = new Map(), now = new Date() }, runner = db) {
+  const out = [];
+  if (!Array.isArray(prov.campaigns)) return out;          // provider campaign facts unavailable: never finish on inference
+  const states = new Map((await runner.query(
+    `SELECT campaign_key, state FROM marketing_paid_campaigns WHERE state IN ('ACTIVE','PAUSED') AND provider_campaign_id IS NOT NULL`)).rows
+    .map((r) => [r.campaign_key, r.state]));
+  for (const c of campaigns) {
+    if (!states.has(c.campaign_key)) continue;
+    const pid = String(c.provider_campaign_id || '');
+    const verdict = deliveryFinished({ campaign: { ...c, state: states.get(c.campaign_key) },
+      providerCampaign: prov.campaigns.find((x) => x.id === pid) || null,
+      adsets: (prov.adsets || []).filter((a) => a.campaign_id === pid),
+      todaySpendCents: todayById.get(pid) || 0, yesterdaySpendCents: yesterdayById.get(pid) || 0, now });
+    if (!verdict.finished) continue;
+    try {
+      const r = await runner.query(
+        `UPDATE marketing_paid_campaigns SET state = $2, stopped_at = COALESCE(stopped_at, now()),
+            evidence = evidence || $3::jsonb, updated_at = now()
+          WHERE campaign_key = $1 AND state IN ('ACTIVE','PAUSED') RETURNING campaign_key`,
+        [c.campaign_key, verdict.state, JSON.stringify({ delivery_finished: { at: now.toISOString(), state: verdict.state, why: verdict.why, ...verdict.evidence } })]);
+      if (r.rows.length) out.push({ action: 'campaign_finished', campaign_key: c.campaign_key, state: verdict.state, why: verdict.why, ok: true });
+    } catch (e) {
+      // e.g. migration 181 not yet applied (state CHECK): report it, never throw out of the sync.
+      out.push({ action: 'campaign_finished', campaign_key: c.campaign_key, state: verdict.state, why: verdict.why, ok: false, reason: e.message });
+    }
+  }
+  return out;
+}
+
 /**
  * Make sure the spend figures are fresh enough to decide on. Re-reads the provider when they are not,
  * and fails closed when the provider cannot be read.
@@ -589,8 +662,9 @@ async function assertMarketLaunchable({ campaignKey = null, marketKey = null } =
 async function assertNewSpendAllowed({ amountCents = 0, campaignKey = null, marketKey = null, action = 'spend' } = {}) {
   // A campaign stopped because its authorization was used up is never restarted automatically.
   if (campaignKey) {
-    const c = (await db.query(`SELECT evidence FROM marketing_paid_campaigns WHERE campaign_key = $1`, [campaignKey])).rows[0];
+    const c = (await db.query(`SELECT state, evidence FROM marketing_paid_campaigns WHERE campaign_key = $1`, [campaignKey])).rows[0];
     if (c && c.evidence && c.evidence.auto_stopped) return { ok: false, reason: campaignKey + ' reached its authorization and was stopped — only a new Owner authorization can restart it' };
+    if (c && FINISHED_STATES.includes(c.state)) return { ok: false, reason: campaignKey + ' is ' + c.state + ' (delivery finished); a new campaign and a new Owner authorization are required' };
   }
   const fresh = await ensureFreshSpend({ trigger: action });
   if (!fresh.ok) return { ok: false, reason: fresh.reason };
@@ -670,5 +744,5 @@ module.exports = {
   DEFAULTS, STATE_ORDER, settings, monthContext, addDays, computePosition, classify, classifyTouch, campaignRows,
   readProvider, updateArms, syncSpend, lastSuccessfulSync, ensureFreshSpend, assertMarketLaunchable,
   authorizationExhausted, autoStopExhausted, lifetimeDailyEquivalent,
-  assertNewSpendAllowed, overview, safetyActions,
+  assertNewSpendAllowed, overview, safetyActions, deliveryFinished, finishCompletedCampaigns, FINISHED_STATES,
 };
