@@ -85,3 +85,41 @@ The customer's answer comes back through the same path and threads onto the same
 - Public data shows city and state only.
 - The pickup street address is given only to the signed-in buyer, and only for an auction where their invoice is **paid**.
 - Public users cannot list or read conversations. `/api/admin/sasha/*` requires staff permissions, and the chat API returns only the caller's own conversation, identified by a random token (stored hashed) plus the session user.
+
+## info@ mailbox reader (IMAP, migration 183)
+
+Sasha can read NEW mail directly from the info@advantage.bid mailbox. No change is needed to MX, DNS, SES, BD/cPanel or the Gmail delivery.
+
+**Read-only by construction** (`src/services/sasha/imap/safeImapClient.js`):
+- the mailbox is opened with EXAMINE and messages are fetched with BODY.PEEK[], so nothing is marked read;
+- the reader cannot delete, move, copy, flag, append, expunge or close the mailbox;
+- TLS certificate verification is always on.
+
+**Switches** (Admin, Sasha Settings & Knowledge), both OFF by default:
+
+| Key | Effect when ON |
+|---|---|
+| `sasha.imap_read_enabled` | Connects every 2 minutes and records new mail. Test mode: nothing is answered. |
+| `sasha.imap_process_enabled` | Hands newly recorded mail to Sasha through the same path as the SES route. Needs "read" on. |
+
+**Railway variables** (entered by the Owner; the password is SEALED; never in git, logs or docs):
+
+| Variable | Value |
+|---|---|
+| `SASHA_IMAP_HOST` | `mail.advantage.bid` |
+| `SASHA_IMAP_PORT` | `993` |
+| `SASHA_IMAP_USER` | `info@advantage.bid` |
+| `SASHA_IMAP_PASSWORD` | the mailbox password (**sealed**) |
+| `SASHA_IMAP_TLS_SERVERNAME` | optional; only if the server's certificate is issued for a different host name |
+
+**Safety**
+- **First connection:** the reader starts at the newest existing message, so the backlog is never answered.
+- **Duplicates:** each mailbox position is recorded once, the Message-ID is unique across IMAP and SES, and mail without a Message-ID is matched by content fingerprint.
+- **Age limit:** mail older than 48 hours when first read goes to staff, never to an automatic reply.
+- **Rejected login:** the reader stops and alerts the Owner by SMS, with no retries. A Super Admin clears the block in Sasha settings after fixing the password.
+
+**Alerts** (owner SMS, `sasha_imap_health`):
+- login rejected;
+- no successful check for 15 minutes;
+- mailbox renumbered;
+- no new mail for 24 hours.

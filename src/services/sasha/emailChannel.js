@@ -58,6 +58,17 @@ function ignoreReason(msg) {
   return null;
 }
 
+/**
+ * Content fingerprint for mail that has no Message-ID: sender + Date header + subject + the customer's new text.
+ * Stable across delivery routes (the info@ mailbox read over IMAP, or a forwarded copy through SES).
+ */
+function contentFingerprint(msg) {
+  const norm = (v) => String(v == null ? '' : v).replace(/\s+/g, ' ').trim().toLowerCase();
+  const parts = [norm(msg.fromEmail), norm(header(msg, 'date')), norm(String(msg.subject || '').replace(/^\s*((re|fw|fwd)\s*:\s*)+/i, '')), norm(newText(msg))];
+  if (!parts[0] || !parts[3]) return null;
+  return require('crypto').createHash('sha256').update(parts.join('|')).digest('hex');
+}
+
 const idsFrom = (s) => (String(s || '').match(/<[^>]+>/g) || []).map((x) => x.trim());
 const REF_RE = /\[Ref\s+(S[A-Z0-9]{6})\]/i;
 
@@ -138,6 +149,12 @@ async function handleInbound(msg, receipt = {}, deps = {}) {
     const dup = (await db.query(`SELECT conversation_id FROM cs_messages WHERE direction = 'inbound' AND email_message_id = $1`, [messageId])).rows[0];
     if (dup) return { status: 'duplicate', conversation_id: dup.conversation_id };
   }
+  // Layer 3: mail WITHOUT a Message-ID is deduplicated by a content fingerprint (same message via two routes).
+  const fingerprint = messageId ? null : contentFingerprint(msg);
+  if (fingerprint) {
+    const dup = (await db.query(`SELECT conversation_id FROM cs_messages WHERE direction = 'inbound' AND email_message_id IS NULL AND content_fingerprint = $1`, [fingerprint])).rows[0];
+    if (dup) return { status: 'duplicate', conversation_id: dup.conversation_id };
+  }
   const fromEmail = conversations.normEmail(msg.fromEmail);
   let conv = await findThread(msg);
   if (!conv) {
@@ -148,7 +165,7 @@ async function handleInbound(msg, receipt = {}, deps = {}) {
   let inbound;
   try {
     inbound = await conversations.addMessage(conv.id, { direction: 'inbound', author: 'customer', text: newText(msg) || '(no text)',
-      emailMessageId: messageId, inReplyTo: msg.inReplyTo || null, references: msg.references || null, inboundReceiptId: receipt.id || null,
+      emailMessageId: messageId, contentFingerprint: fingerprint, inReplyTo: msg.inReplyTo || null, references: msg.references || null, inboundReceiptId: receipt.id || null,
       attachments: (msg.attachments || []).slice(0, 20).map((a) => ({ name: a.filename || null, type: a.contentType || null, size: a.size || null })) });
   } catch (e) {
     if (e.code === '23505') return { status: 'duplicate', conversation_id: conv.id };
@@ -204,4 +221,4 @@ async function sendStaffEmail(conv, text, staffUserId, deps = {}) {
   return sent;
 }
 
-module.exports = { handleInbound, sendStaffEmail, ignoreReason, findThread, newText, replySubject, LIMITS: { MAX_AUTO_PER_SENDER_PER_HOUR, MAX_AUTO_PER_SENDER_PER_DAY, MAX_AUTO_PER_CONVERSATION } };
+module.exports = { handleInbound, sendStaffEmail, ignoreReason, findThread, newText, replySubject, contentFingerprint, LIMITS: { MAX_AUTO_PER_SENDER_PER_HOUR, MAX_AUTO_PER_SENDER_PER_DAY, MAX_AUTO_PER_CONVERSATION } };

@@ -9,13 +9,15 @@
  *   sasha.chat_bid_enabled        — chat on bid.advantage.bid
  *   sasha.chat_www_enabled        — chat on www.advantage.bid (Brilliant Directories)
  *   sasha.daily_budget_usd        — model spend cap per UTC day (reached → hand to staff, no model calls)
+ *   sasha.imap_read_enabled       — read info@advantage.bid over IMAP (read-only) and RECORD new mail (shadow)
+ *   sasha.imap_process_enabled    — hand IMAP-recorded mail to Sasha (requires imap_read_enabled)
  * A 15-second cache keeps the chat path fast; every switch change clears it.
  */
 
 const db = require('../../db');
 
 const KEYS = ['sasha.enabled', 'sasha.engine_enabled', 'sasha.email_inbound_enabled', 'sasha.email_autoreply_enabled',
-  'sasha.chat_bid_enabled', 'sasha.chat_www_enabled', 'sasha.daily_budget_usd'];
+  'sasha.chat_bid_enabled', 'sasha.chat_www_enabled', 'sasha.daily_budget_usd', 'sasha.imap_read_enabled', 'sasha.imap_process_enabled'];
 const BOOL_KEYS = KEYS.filter((k) => k !== 'sasha.daily_budget_usd');
 const TTL_MS = 15000;
 let cache = null, cachedAt = 0;
@@ -45,6 +47,8 @@ async function effective(runner) {
     email_autoreply: on && s.email_inbound_enabled && s.email_autoreply_enabled,
     chat_bid: on && s.chat_bid_enabled,
     chat_www: on && s.chat_www_enabled,
+    imap_read: on && s.imap_read_enabled,
+    imap_process: on && s.imap_read_enabled && s.imap_process_enabled,
   };
 }
 
