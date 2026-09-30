@@ -11,10 +11,13 @@
  * Assisted-service pricing is never stated (custom after evaluation).
  */
 const db = require('../../db');
+const { normalizeCampaignKey } = require('../../lib/paidCampaignKey');
 
 const DATA_SOURCES = Object.freeze([
   'marketing_paid_growth_proposals', 'marketing_paid_campaign_states', 'marketing_paid_director_actions', 'marketing_paid_cost_facts',
   'marketing_conversion_events', 'marketing_attribution_touches', 'analytics_events', 'platform_config:marketing.paid_growth.*',
+  // live position (paidLiveStatus): the reconciled paid budget ledger, its month ceilings, campaign states, sync freshness
+  'marketing_paid_budget_ledger', 'marketing_paid_budget_months', 'marketing_paid_campaigns', 'marketing_paid_spend_syncs', 'platform_config:marketing.paid.*',
 ]);
 const FORBIDDEN_SOURCES = /marketing_package|package_purchase|growth_pool|marketing_obligation|marketing_allocation|media_margin/i;
 const FORBIDDEN_OUTPUT = [/60\s*\/\s*40/, /margin/i, /growth pool/i, /package econom/i, /profitab/i, /unused capacity/i, /\b40\s?%/, /commission/i, /internal director reasoning/i];
@@ -68,13 +71,21 @@ async function monthly({ month = new Date().toISOString().slice(0, 7) } = {}, ru
   const states = await q(r, `SELECT campaign_key, signal_state, meaningful_checkpoints, facts, last_state_change_at FROM marketing_paid_campaign_states`);
   const actions = await q(r, `SELECT campaign_key, action, state_before, state_after, evidence, created_at FROM marketing_paid_director_actions WHERE created_at >= $1 AND created_at < $2 ORDER BY created_at DESC`, [from, to]);
   const facts = await require('../measurement/outcomeAttributionService').campaignFacts({ from, to: new Date(new Date(to).getTime() - 86400000).toISOString().slice(0, 10) }, r);
+  // The live position (config + the reconciled paid budget ledger) — never a static shadow-era assumption.
+  const live = await require('./paidLiveStatus').status({ month }, r);
   const recommended = proposals.reduce((a, p) => a + Number(p.budget_cents || 0), 0);
-  const actual = cost.reduce((a, c) => a + Number(c.spend_cents || 0), 0);
+  const costTotal = cost.reduce((a, c) => a + Number(c.spend_cents || 0), 0);
+  // Ledger actuals are reconciled to the provider every hour; provider cost facts are the fallback when the ledger is empty.
+  const actual = live.month_actual_cents > 0 ? live.month_actual_cents : costTotal;
   const group = (key) => { const m = {}; for (const p of proposals) { const k = p[key] || 'unassigned'; m[k] = m[k] || { recommended_cents: 0 }; m[k].recommended_cents += Number(p.budget_cents || 0); } return m; };
-  const byCampaign = {}; for (const c of cost) byCampaign[c.campaign_key] = { actual_cents: Number(c.spend_cents) };
+  const byCampaign = {};
+  for (const c of cost) { const k = normalizeCampaignKey(c.campaign_key) || c.campaign_key; byCampaign[k] = { actual_cents: ((byCampaign[k] || {}).actual_cents || 0) + Number(c.spend_cents) }; }
+  for (const c of live.campaigns) if (c.month_actual_cents > 0) byCampaign[c.campaign_key] = { actual_cents: c.month_actual_cents, state: c.state };
   const material = facts.filter((f) => f.spend_cents > 0 || f.sessions > 0);
   const report = {
-    kind: 'monthly_summary', month, mode: 'shadow',
+    kind: 'monthly_summary', month, mode: live.mode,
+    paid_status: { state: live.state, execution_enabled: live.execution_enabled, global_kill: live.global_kill, running_campaigns: live.running_campaigns,
+      finished_campaigns: live.finished_campaigns, lifetime_spend: usd(live.lifetime_actual_cents), last_sync: live.last_sync, source: live.source },
     header: { MONTHLY_AUTHORITY: usd(ceilingCents), RECOMMENDED_SPEND: usd(recommended), ACTUAL_SPEND: usd(actual), REMAINING_AUTHORITY: usd(Math.max(0, ceilingCents - actual)) },
     allocation_by: { objective: group('objective'), geography: group('market'), audience: group('audience'), channel: group('channel'), campaign: Object.assign(group('campaign'), byCampaign) },
     measurement: { ready: proposals.length ? proposals.every((p) => p.measurement_ready) : false, not_yet_measurable: [...new Set(proposals.flatMap((p) => p.unmeasurable || []))] },
@@ -91,8 +102,18 @@ function render(rep) {
   const lines = [];
   lines.push(`Paid growth — ${rep.month}`);
   lines.push(`Monthly authority ${h.MONTHLY_AUTHORITY}. Recommended ${h.RECOMMENDED_SPEND}. Spent ${h.ACTUAL_SPEND}. Remaining ${h.REMAINING_AUTHORITY}.`);
-  if (!rep.measurement.ready) lines.push(`No paid campaign is running. Measurement is not ready yet, so the Director recommends ${h.RECOMMENDED_SPEND}. Still to verify: ${rep.measurement.not_yet_measurable.join(', ') || 'the readiness audit'}.`);
-  lines.push('Paid advertising stays off until you turn a channel on.');
+  const ps = rep.paid_status || { state: 'SHADOW', running_campaigns: [], finished_campaigns: [] };
+  if (ps.state === 'LIVE') {
+    lines.push(ps.running_campaigns.length
+      ? `Paid advertising is live: ${ps.running_campaigns.length} campaign${ps.running_campaigns.length === 1 ? '' : 's'} running (${ps.running_campaigns.join(', ')}).`
+      : `Paid advertising is live, with no campaign delivering right now.` + (ps.finished_campaigns.length ? ` Finished: ${ps.finished_campaigns.join(', ')}.` : ''));
+    if (!rep.measurement.ready) lines.push(`Measurement is not complete yet. Still to verify: ${rep.measurement.not_yet_measurable.join(', ') || 'the readiness audit'}.`);
+  } else if (ps.state === 'PAUSED') {
+    lines.push('All paid delivery is paused (the global stop is engaged).');
+  } else {
+    if (!rep.measurement.ready) lines.push(`No paid campaign is running. Measurement is not ready yet, so the Director recommends ${h.RECOMMENDED_SPEND}. Still to verify: ${rep.measurement.not_yet_measurable.join(', ') || 'the readiness audit'}.`);
+    lines.push('Paid advertising stays off until you turn a channel on.');
+  }
   for (const c of rep.campaigns) lines.push(`${c.campaign}: ${c.WHAT_IT_COST} ${c.WHAT_HAPPENED_AFTER_THE_CLICK} ${c.WHAT_WE_HAVE_LEARNED} Next: ${c.WHAT_THE_DIRECTOR_IS_DOING_NEXT}`);
   for (const p of rep.proposals || []) lines.push(`Proposal — ${p.campaign} (${p.market}, ${p.channel}): ${p.budget}. Judged on ${p.success_signal.replace(/_/g, ' ')}. ${p.why || ''}`.trim());
   return lines.join('\n');

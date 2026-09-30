@@ -61,10 +61,29 @@ async function phase3oState(channelKey, runner) {
 async function phase3oMatrix(runner) {
   const r = runner || db;
   const rows = (await r.query(`SELECT channel_key, state, owner_action_required, fallback_ladder FROM marketing_channel_readiness ORDER BY channel_key`)).rows;
-  return rows;
+  return withLivePaidGrowth(rows, r);
+}
+
+/**
+ * Reporting only. The stored 'paid' row is the Marketing PACKAGE paid-fulfillment channel (seeded SHADOW_CERTIFIED);
+ * it is NOT the Paid Growth campaigns the Director runs. Readiness reports used to show only that row, so they read
+ * "paid SHADOW_CERTIFIED" while real campaigns were spending. Add the live Paid Growth position (config + the
+ * reconciled paid ledger) as its own row and label the package row. phase3oState / isActive are unchanged: package
+ * fulfillment keeps using the stored state, so this can never make a package channel executable.
+ */
+async function withLivePaidGrowth(rows, r) {
+  const out = rows.map((x) => (x.channel_key === 'paid' ? { ...x, scope: 'marketing_package_fulfillment' } : x));
+  try {
+    const live = await require('./paidGrowth/paidLiveStatus').status({}, r);
+    out.push({ channel_key: 'paid_growth', state: live.state === 'LIVE' ? 'ACTIVE' : (live.state === 'PAUSED' ? 'PAUSED' : 'SHADOW_CERTIFIED'),
+      scope: 'paid_growth_campaigns', owner_action_required: null, fallback_ladder: null,
+      live: { state: live.state, running_campaigns: live.running_campaigns, month_actual_cents: live.month_actual_cents,
+        lifetime_actual_cents: live.lifetime_actual_cents, ceiling_cents: live.ceiling_cents, last_sync: live.last_sync, source: live.source } });
+  } catch (_) { /* live status unavailable: report the stored rows only */ }
+  return out;
 }
 // A channel is executable for REAL fulfillment only when ACTIVE. SHADOW_CERTIFIED = software-certified, not
 // real send (evidence marked shadow).
 async function isActive(channelKey, runner) { return (await phase3oState(channelKey, runner)) === 'ACTIVE'; }
 
-module.exports = { statusFor, isExecutable, matrix, phase3oState, phase3oMatrix, isActive };
+module.exports = { statusFor, isExecutable, matrix, phase3oState, phase3oMatrix, isActive, withLivePaidGrowth };

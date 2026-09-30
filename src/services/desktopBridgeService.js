@@ -25,7 +25,11 @@ async function buildRuntimeExport(windowLabel, runner) {
   const attempts = (await r.query(`SELECT COALESCE(AVG(attempts),0)::float avg_attempts, MAX(attempts)::int max_attempts FROM marketing_obligations`)).rows[0];
   const ladderOutcomes = (await r.query(`SELECT rung, count(*)::int n FROM marketing_obligation_events WHERE rung IS NOT NULL GROUP BY rung`)).rows;
   const substitutions = (await r.query(`SELECT count(*)::int n FROM marketing_obligations WHERE state='substituted'`)).rows[0].n;
-  const readiness = (await r.query(`SELECT channel_key, state FROM marketing_channel_readiness`)).rows;
+  // Stored rows plus the LIVE Paid Growth position (aggregate only: state, counts and dollar totals).
+  const readiness = (await require('./channelReadinessService').withLivePaidGrowth(
+    (await r.query(`SELECT channel_key, state FROM marketing_channel_readiness`)).rows, r))
+    .map((x) => (x.live ? { channel_key: x.channel_key, state: x.state, scope: x.scope,
+      running_campaigns: x.live.running_campaigns.length, month_actual_cents: x.live.month_actual_cents } : x));
   // Organic social aggregates (per-dimension engagement; counts only — no identities, no excerpts, no economics).
   let socialOrganic = null;
   try {

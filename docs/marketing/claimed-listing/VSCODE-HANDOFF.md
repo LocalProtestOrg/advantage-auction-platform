@@ -431,3 +431,39 @@ rep identities and 1:1 send; Google Places research with cost logging; RBAC `mar
 feedback ingestion with mail streams; global suppression table; RFC 8058 unsubscribe pattern;
 first-party attribution + conversion ledger with staff exclusion; Event Partner inbound namespace
 `reply.advantage.bid`; sitemap generator; robots policy allowing AI crawlers on public content.
+
+---
+
+## 13. Fee terms and copy rule (Reconciled 2026-09-30)
+
+The earlier G10/O6 conflict ("Toolbox 4% + 3% vs CLAUDE.md 2%") is **resolved**. The "2% software fee"
+wording was never implemented in code and has been removed from CLAUDE.md, business rules and legal drafts.
+Authoritative sources: `docs/seller-agreement-v1-content.md` §6.1 to §6.9, `src/lib/settlementPolicy.js`
+(`DEFAULT_PRO_PLATFORM_FEE_BPS = 400`, `DEFAULT_PROCESSING_FEE_BPS = 300`),
+`src/services/marketplaceOrderService.js` (`STOREFRONT_FEE_BPS = 1100`) and CLAUDE.md.
+
+| Seller / sale | Terms |
+|---|---|
+| Individual seller, auction | 0% commission; 3% processing on the hammer price; 18% buyer premium paid by the buyer |
+| Professional seller, auction | Platform fee set per seller in the Professional Seller agreement (default 4% of hammer, negotiable) plus a separate 3% processing fee; the seller sets and keeps its buyer premium |
+| Professional Storefront, fixed price | Flat 11% of the item price, includes card processing, excludes shipping and tax, the same for every seller |
+
+**Copy rule (public pages, outreach, Sasha):**
+- Never quote a standard professional AUCTION percentage in public or outreach copy. Say the platform fee is
+  set in the Professional Seller agreement. (Matches Sasha guidance `seller-fees`.)
+- The Professional Storefront 11% may be quoted, always with "includes card processing" and "item price only".
+- Claimed Listing emails E1 to E4 (incl. E2 variants and E4_REFRESH), activation emails A1 to A4, CL_SELF_REQUEST
+  and the Professional Seller introduction P1 carry **no fee content** at all (no "%" and no "fee").
+  Enforced by `tests/claimedListing/template-fee-free.test.js`.
+- Reps may quote auction fees 1:1 in conversation (default 4%, negotiable, plus 3%, always stated separately,
+  never as one "7%"), per the Sales Toolbox wording in `public/admin/sales.html`.
+
+## 14. Sasha and Claimed Listing boundary (2026-09-30)
+
+Sasha answers mail sent to info@advantage.bid (copied to `inbox@reply.advantage.bid`, programme
+`company_inbox`), and the claim templates and claim pages point people to info@.
+- Claimed Listing replies use `listings+l<key>@reply.advantage.bid` and route to `claimed_listing`, never to
+  Sasha (`tests/claimedListing/inbound-route-isolation.test.js`).
+- Sasha guidance `claimed-listing-help` (draft, Owner approves in Admin, Sasha Settings & Knowledge): claiming
+  is free; phone (551) 655-7050; hand off to staff for claim links, ownership, removal, disputes or outreach.
+  Sasha never issues a claim link, confirms ownership or discusses who was contacted.

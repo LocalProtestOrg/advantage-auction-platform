@@ -8,6 +8,7 @@
  */
 const db = require('../../db');
 const defs = require('../../lib/conversionDefinitions');
+const { normalizeCampaignKey } = require('../../lib/paidCampaignKey');
 
 /** Pure comparison. provider/firstParty = { conversion_key: count }. */
 function compare(provider = {}, firstParty = {}) {
@@ -23,16 +24,26 @@ function compare(provider = {}, firstParty = {}) {
 
 async function reconcile({ provider, campaignKey, windowStart, windowEnd, note = null } = {}, runner) {
   const r = runner || db;
+  // Stored keys may be legacy spellings of the same campaign ("facebook:adv_—_<key>", "meta:<key>"): read the window
+  // and match on the canonical campaign_key (src/lib/paidCampaignKey.js).
+  campaignKey = normalizeCampaignKey(campaignKey);
   const prov = (await r.query(
-    `SELECT provider_conversions FROM marketing_paid_cost_facts WHERE provider=$1 AND campaign_key=$2 AND fact_date BETWEEN $3 AND $4`,
-    [provider, campaignKey, windowStart, windowEnd])).rows;
+    `SELECT campaign_key, provider_conversions FROM marketing_paid_cost_facts WHERE provider=$1 AND fact_date BETWEEN $2 AND $3`,
+    [provider, windowStart, windowEnd])).rows.filter((row) => normalizeCampaignKey(row.campaign_key) === campaignKey);
   const providerTotals = {};
   for (const row of prov) for (const [k, v] of Object.entries(row.provider_conversions || {})) providerTotals[k] = (providerTotals[k] || 0) + Number(v || 0);
-  const fp = (await r.query(
-    `SELECT conversion_key, count(*)::int n FROM marketing_conversion_events
-      WHERE occurred_at >= $2::date AND occurred_at < ($3::date + 1)
-        AND (attribution->'last_paid_touch'->>'campaign_key' = $1 OR attribution->'last_touch'->>'campaign_key' = $1)
-      GROUP BY conversion_key`, [campaignKey, windowStart, windowEnd])).rows;
+  const fpRows = (await r.query(
+    `SELECT COALESCE(attribution->'last_paid_touch'->>'campaign_key', '') paid_key, COALESCE(attribution->'last_touch'->>'campaign_key', '') last_key,
+            conversion_key, count(*)::int n FROM marketing_conversion_events
+      WHERE occurred_at >= $1::date AND occurred_at < ($2::date + 1)
+        AND (attribution->'last_paid_touch'->>'campaign_key' IS NOT NULL OR attribution->'last_touch'->>'campaign_key' IS NOT NULL)
+      GROUP BY 1, 2, 3`, [windowStart, windowEnd])).rows;
+  const fpMap = {};
+  for (const x of fpRows) {
+    if (normalizeCampaignKey(x.paid_key) !== campaignKey && normalizeCampaignKey(x.last_key) !== campaignKey) continue;
+    fpMap[x.conversion_key] = (fpMap[x.conversion_key] || 0) + x.n;
+  }
+  const fp = Object.entries(fpMap).map(([conversion_key, n]) => ({ conversion_key, n }));
   // Meta reports by standard event name (CompleteRegistration, Lead, …): fold first-party keys onto the same names so the
   // comparison is like-for-like; other providers compare by conversion key.
   const firstParty = {};

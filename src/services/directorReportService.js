@@ -24,10 +24,16 @@ async function generate(runner) {
   const experiments = await q(`SELECT verdict, count(*)::int n FROM marketing_experiments GROUP BY verdict`).catch(() => []);
   const learnings = await q(`SELECT statement, verdict, confidence FROM marketing_learnings ORDER BY valid_as_of DESC LIMIT 10`).catch(() => []);
 
-  // Spend in absolute dollars (from the marketing ledger if present; else 0). No utilization %.
-  let spentCents = 0; let authorityCents = 0;
-  try { spentCents = Number((await q(`SELECT COALESCE(SUM(amount_cents),0)::bigint c FROM marketing_ledger WHERE amount_cents > 0`))[0].c) || 0; } catch (_) {}
+  // Spend in absolute dollars. No utilization %. Paid advertising spend comes from the LIVE paid budget ledger
+  // (reconciled to the provider every hour by the spend sync), never from a static shadow value; the marketing
+  // (package) ledger is added only for its own spend so the headline is the real total.
+  let ledgerSpentCents = 0; let authorityCents = 0;
+  try { ledgerSpentCents = Number((await q(`SELECT COALESCE(SUM(amount_cents),0)::bigint c FROM marketing_ledger WHERE amount_cents > 0`))[0].c) || 0; } catch (_) {}
   try { authorityCents = Number((await q(`SELECT COALESCE((value::text)::int,0) c FROM platform_config WHERE key = 'marketing.growth_monthly_additional_authority_cents'`))[0].c) || 0; } catch (_) {}
+  let paid = null;
+  try { paid = await require('./paidGrowth/paidLiveStatus').status({}, r); } catch (_) { paid = null; }
+  const paidMonthCents = paid ? paid.month_actual_cents : 0;
+  const spentCents = ledgerSpentCents + paidMonthCents;
 
   // Standing marketplace figures.
   const crossoverSize = counts['buyer_showing_seller_intent'] || 0;
@@ -57,14 +63,24 @@ async function generate(runner) {
       { item: 'Google Ads', status: gates.google ? 'ON' : 'OFF (not connected)' },
       { item: 'Meta organic publishing (Facebook/Instagram)', status: gates.a9 && gates.metaOrganic ? 'ON' : `OFF (A9=${gates.a9 ? 'on' : 'off'}, Meta provider=${gates.metaOrganic ? 'on' : 'off'})` },
       { item: 'Meta paid retargeting (Custom Audiences / Conversions API)', status: gates.metaAds ? 'ON' : 'OFF (separate gate; not connected)' },
+      { item: 'Paid growth campaigns', status: paid ? (paid.state === 'LIVE' ? `LIVE (${paid.running_campaigns.length} running)` : paid.state) : 'UNKNOWN (live status unavailable)' },
     ],
+    paid_ads: paid ? {
+      state: paid.state, month: paid.month,
+      spent_this_month_dollars: (paid.month_actual_cents / 100).toFixed(2),
+      monthly_ceiling_dollars: (paid.ceiling_cents / 100).toFixed(2),
+      remaining_this_month_dollars: (paid.remaining_cents / 100).toFixed(2),
+      spent_lifetime_dollars: (paid.lifetime_actual_cents / 100).toFixed(2),
+      running_campaigns: paid.running_campaigns, finished_campaigns: paid.finished_campaigns, last_sync: paid.last_sync, source: paid.source,
+    } : null,
     social_organic: social,
     what_is_next: noticed.slice(0, 3).map((o) => o.subject_ref),
     standing_figures: {
       buyer_seller_crossover_audience: crossoverSize,
       audience_counts: counts,
       spend_dollars: (spentCents / 100).toFixed(2),
-      remaining_authority_dollars: (Math.max(0, authorityCents - spentCents) / 100).toFixed(2),
+      paid_ads_spend_this_month_dollars: (paidMonthCents / 100).toFixed(2),
+      remaining_authority_dollars: (Math.max(0, authorityCents - ledgerSpentCents) / 100).toFixed(2),   // growth authority vs its own ledger
     },
     note: 'Marketplace outcomes + absolute dollars. Clicks/impressions/opens/followers/utilization are intentionally not headlined.',
   };
@@ -85,7 +101,7 @@ async function crossoverReadiness(runner) {
     status: powered ? 'READY_FOR_EXPERIMENT' : 'WAITING_ON_ACCUMULATION',
     onsite_treatment_ready: true,     // buyer_seller_cta playbook exists
     email_ready: false,               // A7 off
-    paid_ready: false,                // Google/Meta off
+    paid_ready: false,                // retargeting audiences (Custom Audiences) are not connected
     purpose: def ? def.purpose : null,
   };
 }

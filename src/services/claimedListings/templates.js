@@ -34,7 +34,7 @@ const CATALOGUE = {
       'Advantage.Bid is an online marketplace where people in {{area}} look for estate sales and auctions. Our business directory includes a listing for {{company}}:',
       '{{listing_url}}',
       '',
-      'It shows your company name, your {{city}} location{{#phone_listed}} and phone number{{/phone_listed}}, taken from public business information. You can claim the listing and manage it yourself. Claiming is free, with no monthly fee and no credit card.',
+      'It shows your company name, your {{city}} location{{#phone_listed}} and phone number{{/phone_listed}}, taken from public business information. You can claim the listing and manage it yourself. Claiming is free, with no monthly charge and no credit card.',
       '',
       'Once it\'s yours, you can:',
       '- correct anything that is out of date',
@@ -159,7 +159,7 @@ const CATALOGUE = {
     text: [
       'Hi {{first_name}},',
       '',
-      'You\'ve claimed {{company}} on Advantage.Bid. It\'s free, with no monthly fee.',
+      'You\'ve claimed {{company}} on Advantage.Bid. It\'s free, with no monthly charge.',
       '',
       'Your listing checklist takes about ten minutes:',
       '1. Confirm your business details',
@@ -221,6 +221,37 @@ const CATALOGUE = {
       'Email preferences: {{preferences_link}}',
     ].join('\n'),
   },
+  // Professional Seller introduction (blueprint section 15, corrected to platform truth 2026-09-30, see
+  // docs/marketing/professional-seller-positioning-review-2026-09-27.md). DRAFT: the Owner approves it; no trigger
+  // is wired yet. No fee content, no sell-through claims. Buy Now is mentioned only while storefront checkout is
+  // on in production ({{#buy_now_enabled}}, set at render time from launchGuards.marketplaceCheckoutEnabled()).
+  P1: {
+    stream: 'transactional', subject: 'After the sale: selling what\'s left online', preheader: null,
+    text: [
+      'Hi {{first_name}},',
+      '',
+      'Your {{event_title}} sale wrapped up on {{end_date}}. If there are items left over, {{company}} can offer them in an online auction on Advantage.Bid instead of hauling them away.',
+      '',
+      'How it works for estate sale companies, auction houses and liquidators on Advantage.Bid:',
+      '- Every auction you publish appears on your own website through a small embed with your company name, and on the Advantage.Bid marketplace for more bidders. One listing, two audiences.',
+      '- Online auctions need at least 30 lots, and smaller pieces can be grouped into one lot.',
+      '- Lots that don\'t sell can become fixed-price items in your storefront.',
+      '{{#buy_now_enabled}}',
+      '- Storefront buyers can check out online with Buy Now.',
+      '{{/buy_now_enabled}}',
+      '',
+      'More about selling what\'s left after a sale: {{after_sale_link}}',
+      '',
+      'If you\'d like, I can walk you through it in 15 minutes. Reply here or call (551) 655-7050.',
+      '',
+      'Your listing stays free whether or not you ever use anything else.',
+      '',
+      '{{rep_first_name}}',
+      'Advantage.Bid',
+      '',
+      'Email preferences: {{preferences_link}}',
+    ].join('\n'),
+  },
 };
 
 // Which sequence step uses which template (handoff section 5).
@@ -270,6 +301,8 @@ function htmlFromText(text, preheader) {
  */
 function render(template, vars) {
   const v = Object.assign({}, vars);
+  // Buy Now copy follows production storefront checkout unless the caller sets it explicitly.
+  if (!Object.prototype.hasOwnProperty.call(v, 'buy_now_enabled')) v.buy_now_enabled = require('../../lib/launchGuards').marketplaceCheckoutEnabled();
   if (template.stream === 'claimed_listing' && /\{\{footer\}\}/.test(template.body_text || '')) {
     const f = fill(LISTING_FOOTER, v);
     if (f.missing.length) throw Object.assign(new Error('footer incomplete: ' + f.missing.join(', ')), { code: 'FOOTER_INCOMPLETE' });
@@ -323,6 +356,7 @@ const SAMPLE_VARS = {
   rep_first_name: 'Kym', rep_full_name: 'Kym Witt', first_name: 'Pat', checklist_link: 'https://bid.advantage.bid/org/profile.html',
   next_step_1: 'Adding your logo', next_step_2: 'writing your description', preferences_link: 'https://bid.advantage.bid/account.html',
   new_event_link: 'https://bid.advantage.bid/org/events.html',
+  event_title: 'Maple Street', end_date: 'Saturday, October 3', after_sale_link: 'https://bid.advantage.bid/after-estate-sale.html',
 };
 
 /** Validate edited copy. Returns the sample render; throws with a readable message. */

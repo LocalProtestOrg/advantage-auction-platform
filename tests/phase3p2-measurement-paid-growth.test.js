@@ -55,7 +55,7 @@ describe('first-party attribution', () => {
     expect(attribution.classifyChannel({ referrerHost: 'www.google.com' })).toBe('organic_search');
     expect(attribution.classifyChannel({ referrerHost: 'www.advantage.bid' })).toBe('direct');
     expect(attribution.classifyChannel({ referrerHost: 'news.example.com' })).toBe('referral');
-    expect(attribution.campaignKey({ utm: { utm_source: 'Facebook', utm_campaign: 'Houston_Sellers' } })).toBe('facebook:houston_sellers');
+    expect(attribution.campaignKey({ utm: { utm_source: 'Facebook', utm_campaign: 'Houston_Sellers' } })).toBe('houston_sellers');   // canonical bare campaign_key
   });
   test('recordTouch: internal navigation is not a touch; a campaign landing stores UTM + click TYPE + hash, never the raw click id', async () => {
     const db0 = fakeDb();
@@ -63,7 +63,7 @@ describe('first-party attribution', () => {
     expect(db0.calls.length).toBe(0);
     const db1 = fakeDb([[/INSERT INTO marketing_attribution_touches/, [{ id: 't1' }]]]);
     const out = await attribution.recordTouch({ visitorId: 'v1', landingUrl: 'https://bid.advantage.bid/become-seller.html?utm_source=facebook&utm_medium=paid_social&utm_campaign=hou&fbclid=RAWCLICK123' }, db1);
-    expect(out.channel).toBe('paid_social'); expect(out.campaign_key).toBe('facebook:hou'); expect(out.click_type).toBe('fbclid');
+    expect(out.channel).toBe('paid_social'); expect(out.campaign_key).toBe('hou'); expect(out.click_type).toBe('fbclid');
     const ins = db1.calls.find((c) => /marketing_attribution_touches/.test(c.sql));
     expect(JSON.stringify(ins.params)).not.toContain('RAWCLICK123');
     expect(ins.params).toContain(require('crypto').createHash('sha256').update('RAWCLICK123').digest('hex'));
@@ -138,8 +138,8 @@ describe('asset identity + provider decisions (all gates OFF this phase)', () =>
 describe('cost ingestion + reconciliation', () => {
   test('normalise: spend in currency units or cents; campaign_key joins cost to the landing UTM', () => {
     const n = cost.normalise('meta_ads', { campaign_id: '1', campaign_name: 'Hou', utm_campaign: 'hou_sellers', date: '2026-09-10', spend: 12.5, impressions: 900, clicks: 14 });
-    expect(n.spend_cents).toBe(1250); expect(n.campaign_key).toBe('facebook:hou_sellers');
-    expect(cost.normalise('google_ads', { campaign_id: '9', date: '2026-09-10', spend_cents: 700 }).campaign_key).toBe('google:9');
+    expect(n.spend_cents).toBe(1250); expect(n.campaign_key).toBe('hou_sellers');
+    expect(cost.normalise('google_ads', { campaign_id: '9', date: '2026-09-10', spend_cents: 700 }).campaign_key).toBe('9');
     expect(cost.normalise('meta_ads', { campaign_id: '1', date: 'bad' })).toBeNull();
     expect(() => cost.normalise('tiktok', { campaign_id: '1', date: '2026-09-10' })).toThrow();
   });

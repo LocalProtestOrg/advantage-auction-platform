@@ -30,6 +30,8 @@ const OWN_DOMAINS = /(^|\.)advantage\.bid$|(^|\.)advantageauction\.bid$/i;
 const SYSTEM_SENDER = /^(no-?reply|do-?not-?reply|noreply|mailer-daemon|postmaster|bounces?|notifications?|alerts?|automated|system|daemon|root|nobody)([+._-].*)?@/i;
 const SYSTEM_DOMAINS = /(^|\.)(stripe\.com|amazonses\.com|amazonaws\.com|railway\.app|brilliantdirectories\.com|bdsites\.net|google\.com|facebookmail\.com|twilio\.com|sendgrid\.net|mailchimp\.com|mcsv\.net)$/i;
 
+const OUTREACH_REPLY_ADDR = /\b(listings|partner)\+l?[0-9a-f]{24}@reply\.advantage\.bid\b/i;
+
 function header(msg, name) { const h = msg.headers || {}; return String(h[name] || h[name.toLowerCase()] || '').trim(); }
 
 /** Why this message must NOT be answered (or null when it is a customer message). */
@@ -38,6 +40,9 @@ function ignoreReason(msg) {
   const domain = from.split('@')[1] || '';
   if (!from || !from.includes('@')) return 'no_sender';
   if (header(msg, 'x-advantage-sasha')) return 'sasha_loop';
+  // A copy of a Claimed Listing / Event Partner outreach thread (e.g. a reply that also went to info@): that
+  // programme handles it; Sasha never answers outreach.
+  if (OUTREACH_REPLY_ADDR.test([header(msg, 'to'), header(msg, 'cc')].join(' '))) return 'outreach_thread';
   if (OWN_DOMAINS.test(domain) || header(msg, 'x-advantage-oversight')) return 'own_mail';
   const auto = header(msg, 'auto-submitted').toLowerCase();
   if (auto && auto !== 'no') return 'auto_submitted';

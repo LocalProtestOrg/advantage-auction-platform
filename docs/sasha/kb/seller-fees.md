@@ -19,3 +19,13 @@ live_data: a professional seller's own rates come from their account, and only a
 - You set your own buyer's premium and keep it.
 
 Do not quote a standard professional fee percentage. A professional seller's own rates may be shared only with that seller, once their identity is verified.
+
+## Professional Storefront
+
+> status: draft (added 2026-09-30; the Owner approves it in Admin, Sasha Settings & Knowledge). Source: seller agreement §6.9, `marketplaceOrderService.STOREFRONT_FEE_BPS`.
+
+- Professional Storefront fixed-price sales have a flat 11% seller fee on the item selling price.
+- The 11% includes card processing. Shipping and sales tax are not part of the calculation.
+- It is the same for every Professional Seller and is separate from auction fees.
+
+Keep storefront and auction fees apart. Never quote a standard professional auction percentage.

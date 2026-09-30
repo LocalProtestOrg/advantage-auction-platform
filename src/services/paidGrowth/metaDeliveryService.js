@@ -1,5 +1,7 @@
 'use strict';
 
+const { providerName } = require('../../lib/paidCampaignKey');   // "ADV | <key>": no em dash in names we create
+
 /**
  * metaDeliveryService — assembles the complete Meta delivery chain from governed inputs.
  *
@@ -140,22 +142,22 @@ async function validateChain({ account, campaignId = null, adsetId = null, creat
   const out = {};
 
   out.campaign = await meta.validateObject('campaigns', meta.buildCampaignBody({
-    name: 'ADV — chain validation', funnel, spendCapCents: 13500 }), { account }, runner);
+    name: providerName('chain validation'), funnel, spendCapCents: 13500 }), { account }, runner);
 
   out.adcreative = await meta.validateObject('adcreatives', meta.buildCreativeBody({
-    name: 'ADV — chain validation creative', pageId: ids.pageId, instagramId: ids.instagramId,
+    name: providerName('chain validation creative'), pageId: ids.pageId, instagramId: ids.instagramId,
     imageHash, message: pkg.primary_text, headline: pkg.headline, description: pkg.description,
     destinationUrl: pkg.destination_url, ctaType: pkg.cta_type }), { account }, runner);
 
   out.adset = campaignId
     ? await meta.validateObject('adsets', meta.buildAdSetBody({
-        name: 'ADV — chain validation adset', campaignId, dailyBudgetCents,
+        name: providerName('chain validation adset'), campaignId, dailyBudgetCents,
         targetingSpec, pixelId: ids.pixelId }), { account }, runner)
     : { ok: false, reason: 'ad set validation needs a real campaign id' };
 
   out.ad = (adsetId && creativeId)
     ? await meta.validateObject('ads', meta.buildAdBody({
-        name: 'ADV — chain validation ad', adsetId, creativeId }), { account }, runner)
+        name: providerName('chain validation ad'), adsetId, creativeId }), { account }, runner)
     : { ok: false, reason: 'ad validation needs real ad set and creative ids' };
 
   out.all_valid = ['campaign', 'adcreative', 'adset', 'ad'].every((k) => out[k] && out[k].ok);
@@ -321,7 +323,7 @@ async function buildExperimentHierarchy({ experimentKey, account, dailyCeilingCe
   const campKey = 'live:campaign:' + exp.campaign_key;
   let campaignId = (await findObject(campKey, runner) || {}).provider_id || null;
   if (!campaignId) {
-    const r = await meta.createCampaign({ account, name: 'ADV — ' + exp.campaign_key, funnel: exp.funnel,
+    const r = await meta.createCampaign({ account, name: providerName(exp.campaign_key), funnel: exp.funnel,
       spendCapCents: Number(exp.campaign_budget_cents), idempotencyKey: campKey }, runner);
     if (!r.ok) return { ok: false, reason: 'campaign: ' + r.reason };
     campaignId = r.provider_campaign_id;
@@ -366,7 +368,7 @@ async function buildExperimentHierarchy({ experimentKey, account, dailyCeilingCe
     const adsetKey = 'live:adset:' + experimentKey + ':' + a.arm_label;
     let adsetId = (await findObject(adsetKey, runner) || {}).provider_id || null;
     if (!adsetId) {
-      const r = await meta.createAdSet({ account, name: 'ADV — ' + experimentKey + ' — ' + a.arm_label + ' (' + a.strategy_key + ')',
+      const r = await meta.createAdSet({ account, name: providerName(experimentKey, a.arm_label + ' (' + a.strategy_key + ')'),
         campaignId, dailyBudgetCents: perArmDaily, targetingSpec: a.targeting_spec, pixelId: ids.pixelId,
         optimizationGoal: a.optimization_goal || 'OFFSITE_CONVERSIONS', customEventType: customEventType || undefined,
         ...(lifetimeSchedule ? { lifetimeBudgetCents: Number(a.allocated_cents), startTime: lifetimeSchedule.startTime, endTime: lifetimeSchedule.endTime } : {}) }, runner);
@@ -387,7 +389,7 @@ async function buildExperimentHierarchy({ experimentKey, account, dailyCeilingCe
     const creativeKey = 'live:creative:' + experimentKey + ':' + a.arm_label + ':' + packageKey + ':v' + pkg.version;
     let creativeId = (await findObject(creativeKey, runner) || {}).provider_id || null;
     if (!creativeId) {
-      const r = await meta.createAdCreative({ account, name: 'ADV — ' + packageKey + ' v' + pkg.version + ' — ' + a.arm_label,
+      const r = await meta.createAdCreative({ account, name: providerName(packageKey + ' v' + pkg.version, a.arm_label),
         pageId: ids.pageId, instagramId: ids.instagramId, imageHash: img.image_hash,
         message: pkg.primary_text, headline: pkg.headline, description: pkg.description,
         destinationUrl: destination, ctaType: pkg.cta_type }, runner);
@@ -402,7 +404,7 @@ async function buildExperimentHierarchy({ experimentKey, account, dailyCeilingCe
     const adKey = 'live:ad:' + experimentKey + ':' + a.arm_label;
     let adId = (await findObject(adKey, runner) || {}).provider_id || null;
     if (!adId) {
-      const r = await meta.createAd({ account, name: 'ADV — ' + experimentKey + ' — ' + a.arm_label,
+      const r = await meta.createAd({ account, name: providerName(experimentKey, a.arm_label),
         adsetId, creativeId }, runner);
       if (!r.ok) return { ok: false, reason: 'ad ' + a.arm_label + ': ' + r.reason };
       adId = r.provider_ad_id;

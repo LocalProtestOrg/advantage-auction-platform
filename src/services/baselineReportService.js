@@ -56,6 +56,20 @@ async function snapshot(runner) {
   return { snapshot_key: key, metrics };
 }
 
+/**
+ * Scheduled refresh: capture a new snapshot only when the newest one is older than maxAgeHours. Due-based
+ * (not timer-based), so a worker restart or a second instance never produces duplicate snapshots in a day.
+ * Earlier snapshots are never modified. Returns { taken, snapshot_key?, last_captured_at }.
+ */
+async function snapshotIfDue({ maxAgeHours = 24, runner } = {}) {
+  const r = runner || db;
+  const last = (await r.query(`SELECT max(captured_at) AS at FROM marketing_baselines`)).rows[0];
+  const lastAt = last && last.at ? new Date(last.at) : null;
+  if (lastAt && Date.now() - lastAt.getTime() < maxAgeHours * 3600 * 1000) return { taken: false, last_captured_at: lastAt };
+  const s = await snapshot(r);
+  return { taken: true, snapshot_key: s.snapshot_key, metrics: s.metrics.length, last_captured_at: lastAt };
+}
+
 // Latest snapshot (grouped).
 async function latest(runner) {
   const r = runner || db;
@@ -88,4 +102,4 @@ async function subscriberPlacement(runner) {
   return { window: 'last_90d', rows, note: 'Downstream participation by placement; not vanity signup count. Rows with no deterministic linkage would show 0 (not inferred).' };
 }
 
-module.exports = { snapshot, latest, subscriberPlacement, metricDefs };
+module.exports = { snapshot, snapshotIfDue, latest, subscriberPlacement, metricDefs };

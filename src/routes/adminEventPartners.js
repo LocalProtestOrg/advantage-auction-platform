@@ -59,13 +59,8 @@ router.get('/', asyncRoute(async (req, res) => {
   res.json({ success: true, data: rows, gates, states: authorization.STATES });
 }));
 
-// GET /:id — one partner in full: authorization, source, validation, performance, audit trail.
-router.get('/:id', asyncRoute(async (req, res) => {
-  const detail = await partnerSource.inspect(req.params.id);
-  const perf = await performance.evaluateForAuthorization(req.params.id, {});
-  const history = await authorization.auditHistory(req.params.id);
-  res.json({ success: true, data: Object.assign({}, detail, { performance: perf, audit: history }) });
-}));
+// GET /:id is registered at the END of this file: a single-segment param route registered first would
+// swallow GET /escalations, /templates, /cohorts, /requests and /suppressions (Postgres 22P02 → 500).
 
 // ── Registry ───────────────────────────────────────────────────────────────────────────────────
 
@@ -380,6 +375,20 @@ router.post('/suppressions', manage, asyncRoute(async (req, res) => {
 // GET /suppressions/check?email= - why a recipient would be skipped. Honours BOTH lists.
 router.get('/suppressions/check', asyncRoute(async (req, res) => {
   res.json({ success: true, data: await partnerSuppression.isSuppressed(req.query.email) });
+}));
+
+// ── Partner detail (keep LAST) ─────────────────────────────────────────────────────────────────
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+// GET /:id — one partner in full: authorization, source, validation, performance, audit trail.
+// Registered after every static GET, and a non-uuid id is a 404 (never reaches Postgres as an invalid uuid).
+router.get('/:id', asyncRoute(async (req, res) => {
+  if (!UUID_RE.test(req.params.id || '')) throw svcErr(404, 'NOT_FOUND', 'Not found.');
+  const detail = await partnerSource.inspect(req.params.id);
+  const perf = await performance.evaluateForAuthorization(req.params.id, {});
+  const history = await authorization.auditHistory(req.params.id);
+  res.json({ success: true, data: Object.assign({}, detail, { performance: perf, audit: history }) });
 }));
 
 module.exports = router;
