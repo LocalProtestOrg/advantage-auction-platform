@@ -50,7 +50,8 @@ const scenarios = [
   { name: '4 fewer than 30 lots', ctx: { channel: 'chat' }, turns: ["I only have about 12 items to sell. Can I still run an auction with that?"],
     check: (t) => ({ states_30_rule: /30/.test(t), no_exception: !EXCEPTION.test(t) }) },
   { name: '6 email pickup question', ctx: { channel: 'email' }, turns: ['Hello, if I win something in an auction, how does pickup work and what should I bring?'],
-    check: (t) => ({ payment_confirmation: /payment confirmation/i.test(t), seller_window: /seller/i.test(t), no_speculation: !SPECULATION.test(t) }) },
+    check: (t) => ({ payment_confirmation: /payment confirmation/i.test(t), seller_window: /seller/i.test(t), no_speculation: !SPECULATION.test(t),
+      photo_id_only_as_may: !/photo ID/i.test(t) || /may (also )?be (asked|requested)|might be asked|could be asked|may ask|may request/i.test(t) }) },
   { name: '7 email delegate follow-up', ctx: { channel: 'email' }, history: [
       { author_type: 'customer', body_text: 'Hello, if I win something in an auction, how does pickup work and what should I bring?' },
       { author_type: 'sasha', body_text: 'Each auction has its own pickup window set by the seller. Once you pay, the full pickup address is on your payment receipt and paid invoice. Bring a copy of your payment confirmation.' }],

@@ -588,6 +588,20 @@ describe('writing style: no em dash, no invented requirements (Stage 4 review, 2
     expect(pickup).not.toMatch(/dock|parking|arrival times|counter/i);
     expect(pickup).toMatch(/do not guess or give examples of what a seller might require/);
   });
+  test('pickup rules separate what is REQUIRED from what MAY BE REQUESTED (Terms section 20 items are never universal)', () => {
+    const facts = require('../../src/services/sasha/knowledge/platformFacts').getFacts('pickup').pickup.facts;
+    const bring = facts.find((f) => /^What to bring/.test(f));
+    const required = bring.slice(bring.indexOf('REQUIRED'), bring.indexOf('MAY BE REQUESTED'));
+    const may = bring.slice(bring.indexOf('MAY BE REQUESTED'));
+    expect(required).toMatch(/payment confirmation/);
+    expect(required).not.toMatch(/photo ID|credit card|auction-specific/);
+    expect(may).toMatch(/valid government-issued photo ID, the credit card used for the purchase, and any applicable auction-specific documentation/);
+    expect(may).toMatch(/not required in every case/);
+    expect(may).toMatch(/never as items every buyer must bring/);
+    const delegate = facts.find((f) => /^Someone else collecting/.test(f));
+    expect(delegate).toMatch(/REQUIRED: a written authorization from the buyer and a copy of the buyer's payment confirmation, and the buyer should contact Advantage\.Bid support in advance/);
+    expect(delegate).toMatch(/may also be asked for the MAY BE REQUESTED items/);
+  });
   test('the published Terms still say what Sasha states about pickup (keeps her rules in sync with the Terms page)', () => {
     const terms = require('fs').readFileSync(require('path').join(__dirname, '..', '..', 'public', 'terms.html'), 'utf8');
     expect(terms).toMatch(/Valid government-issued photo ID/);
