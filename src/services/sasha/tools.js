@@ -70,7 +70,7 @@ async function searchHelpCenter({ query }) {
        ORDER BY (${q.map((_, i) => `(CASE WHEN lower(title) LIKE $${i + 1} THEN 2 WHEN lower(body) LIKE $${i + 1} THEN 1 ELSE 0 END)`).join(' + ')}) DESC LIMIT 4`,
       q.map((w) => '%' + w.replace(/[%_]/g, '') + '%'));
     guidance = rows.map((r) => r.status === 'conflict'
-      ? { guidance: r.title, status: 'UNRESOLVED — follow only this interim guidance; state no figures that are not in it (help pages on this topic may be out of date); offer a team member if the customer needs the exact answer', text: r.body.slice(0, 1800) }
+      ? { guidance: r.title, status: 'UNRESOLVED: follow only this interim guidance; state no figures that are not in it (help pages on this topic may be out of date); offer a team member if the customer needs the exact answer', text: r.body.slice(0, 1800) }
       : { guidance: r.title, text: r.body.slice(0, 1800) });
   }
   return { approved_guidance: guidance, help_pages: pages.map((p) => ({ page: p.url, section: p.heading, text: p.text })) };
@@ -167,7 +167,7 @@ async function getMyPickupDetails(args, ctx) {
        FROM buyer_auction_invoices b JOIN auctions a ON a.id = b.auction_id WHERE ${where} ORDER BY b.paid_at DESC LIMIT 5`, params);
   if (!rows.length) return { pickups: [], note: 'No paid auction purchases found. The full pickup address is shared only after payment for what was won; before that only the city and state are shown.' };
   return { pickups: rows.map((r) => { const loc = saleLocation.fromAuction(r);
-    return { auction: r.title, pickup_address: loc && loc.line1 ? `${loc.line1}, ${loc.city}, ${loc.state} ${loc.postal_code}` : 'not yet provided by the seller — a team member can help',
+    return { auction: r.title, pickup_address: loc && loc.line1 ? `${loc.line1}, ${loc.city}, ${loc.state} ${loc.postal_code}` : 'not yet provided by the seller; a team member can help',
       pickup_window: r.pickup_window_start ? { from: r.pickup_window_start, to: r.pickup_window_end, timezone: r.timezone } : null }; }) };
 }
 
@@ -209,10 +209,10 @@ async function getMySellerTerms(_a, ctx) {
   } catch (_e) { agreement = null; }
   if (!pro) return { seller_type: sp.seller_type, platform_fee: '0%', processing_fee: bpsPct(billing.DEFAULT_PROCESSING_FEE_BPS) + ' of the hammer price', buyers_premium: bpsPct(billing.DEFAULT_BUYER_PREMIUM_BPS) + ' (fixed for individual sellers)' };
   const fee = agreement ? agreement.platform_fee_bps : (sp.platform_fee_bps != null ? sp.platform_fee_bps : null);
-  return { seller_type: sp.seller_type, platform_fee: fee != null ? bpsPct(fee) + ' of the hammer price (your current rate; each auction keeps the rate it was published with)' : 'set in your Professional Seller agreement — a team member can confirm it',
+  return { seller_type: sp.seller_type, platform_fee: fee != null ? bpsPct(fee) + ' of the hammer price (your current rate; each auction keeps the rate it was published with)' : 'set in your Professional Seller agreement; a team member can confirm it',
     processing_fee: bpsPct(agreement ? agreement.processing_fee_bps : billing.DEFAULT_PROCESSING_FEE_BPS) + ' of the hammer price',
     buyers_premium: 'you set it per auction (0–25%) and keep it', agreement_page: `${SITE}/pricing-agreement.html`,
-    storefront_fee: `${require('../marketplaceOrderService').STOREFRONT_FEE_BPS / 100}% of the item price on Storefront fixed-price sales (includes card processing; shipping and tax excluded) — separate from your auction fees` };
+    storefront_fee: `${require('../marketplaceOrderService').STOREFRONT_FEE_BPS / 100}% of the item price on Storefront fixed-price sales (includes card processing; shipping and tax excluded), separate from your auction fees` };
 }
 
 async function getMyStorefrontOrders(_a, ctx) {

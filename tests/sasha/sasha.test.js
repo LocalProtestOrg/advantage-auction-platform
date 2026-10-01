@@ -481,17 +481,18 @@ describe('acceptance fixes (email)', () => {
     const body = 'Thanks! Can someone else pick up my items for me if I can\'t make it?\n\nOn Tue, Sep 29, 2026 at 4:50 PM Sasha at Advantage.Bid <\ninfo@advantage.bid> wrote:\n\n> Hi Tyler,';
     expect(emailChannel.newText(mail({ textBody: body }))).toBe('Thanks! Can someone else pick up my items for me if I can\'t make it?');
   });
-  test('pickup-by-representative policy comes from published policy, with no invented ID rule', () => {
+  test('pickup-by-representative policy comes from published policy (buyer FAQ + Terms section 20)', () => {
     const f = require('../../src/services/sasha/knowledge/platformFacts').getFacts('pickup').pickup.facts.join(' ');
     expect(f).toMatch(/written authorization/);
     expect(f).toMatch(/payment confirmation/);
-    expect(f).toMatch(/no stated ID requirement/);
+    expect(f).toMatch(/contact Advantage\.Bid support in advance/);
+    expect(f).not.toMatch(/no stated ID requirement/);   // corrected 2026-10-01: Terms section 20 does list photo ID
   });
   test('the prompt requires answering every part and explains why account data is not sent by email', () => {
     const p = engine.systemPrompt({ channel: 'email' });
     expect(p).toMatch(/Answer EVERY part of the message/);
     expect(p).toMatch(/by email \(an email address alone does not verify identity\)/);
-    expect(p).toMatch(/Never add conditions of your own/);
+    expect(p).toMatch(/Never add conditions, examples or procedures of your own/);
   });
 });
 
@@ -529,5 +530,84 @@ describe('seller-type accuracy (owner review 2026-09-29)', () => {
     const create = jest.fn().mockResolvedValue({ stop_reason: 'end_turn', usage: {}, content: [{ type: 'text', text: 'ok' }] });
     await engine.respond({ conversationId: 'c1', ctx: { channel: 'chat', userId: 'pro-user' } }, { client: { messages: { create } } });
     expect(create.mock.calls[0][0].system[0].text).toMatch(/PROFESSIONAL Seller \(account type: estate_sale_company\)/);
+  });
+});
+
+describe('writing style: no em dash, no invented requirements (Stage 4 review, 2026-10-01)', () => {
+  const EM = '—';
+  const contexts = [
+    ['email', { channel: 'email' }],
+    ['chat on bid.advantage.bid', { channel: 'chat', site: 'bid' }],
+    ['chat on www.advantage.bid', { channel: 'chat', site: 'www' }],
+    ['signed-in chat', { channel: 'chat', userId: 'u1', sellerType: 'private', sellerProfessional: false }],
+  ];
+  test.each(contexts)('the %s system prompt carries the no-em-dash generation rule', (_n, ctx) => {
+    const p = engine.systemPrompt(ctx);
+    expect(p).toContain(engine.NO_EM_DASH_RULE);
+    expect(engine.NO_EM_DASH_RULE).toMatch(/Never use an em dash/);
+    expect(engine.NO_EM_DASH_RULE).toMatch(/period, comma, colon, semicolon or parentheses/);
+  });
+  test('the prompt itself models the style: its only em dash is the one named inside the rule', () => {
+    for (const [, ctx] of contexts) expect(engine.systemPrompt(ctx).split(EM).length - 1).toBe(1);
+  });
+  test('the prompt requires grounded answers, re-checking on follow-ups, and seller details from the published auction', () => {
+    const p = engine.systemPrompt({ channel: 'email' });
+    expect(p).toMatch(/Never add conditions, examples or procedures of your own/);
+    expect(p).toMatch(/Follow-up questions count too/);
+    expect(p).toMatch(/tell the customer to check that auction's published pickup details/);
+    expect(p).toMatch(/Never guess or list what a seller might require/);
+    expect(p).toMatch(/clear, professional and concise/);
+  });
+  test('every response path gets the rule: the model call for email and for chat carries it', async () => {
+    for (const ctx of [{ channel: 'email', userId: null }, { channel: 'chat', userId: null }]) {
+      useSettings();
+      route(/SUM\(cost_micro_usd\)/, () => ({ rows: [{ c: 0 }] }));
+      route(/INSERT INTO cs_ai_runs/, () => ({ rows: [{ id: 'run1' }] }));
+      jest.spyOn(conversations, 'transcriptForModel').mockResolvedValue([{ author_type: 'customer', body_text: 'Can someone else pick up for me?' }]);
+      const create = jest.fn().mockResolvedValue({ stop_reason: 'end_turn', usage: {}, content: [{ type: 'text', text: 'Yes.' }] });
+      await engine.respond({ conversationId: 'c1', ctx }, { client: { messages: { create } } });
+      expect(create.mock.calls[0][0].system[0].text).toContain(engine.NO_EM_DASH_RULE);
+      jest.restoreAllMocks(); ROUTES = [];
+    }
+  });
+  test('what Sasha reads (live rules and tool notes) contains no em dash to imitate', () => {
+    const facts = JSON.stringify(require('../../src/services/sasha/knowledge/platformFacts').getFacts('all'));
+    expect(facts).not.toContain(EM);
+    const src = require('fs').readFileSync(require('path').join(__dirname, '..', '..', 'src', 'services', 'sasha', 'tools.js'), 'utf8');
+    const literals = src.split('\n').filter((l) => !/^\s*(\/\/|\*|\/\*)/.test(l)).join('\n');
+    expect(literals).not.toContain(EM);
+  });
+  test('pickup rules state the published Terms (section 20, 22, 24) and give no speculative seller examples', () => {
+    const t = require('../../src/services/sasha/knowledge/platformFacts').getFacts('pickup').pickup;
+    const pickup = t.facts.join(' ');
+    expect(t.source).toMatch(/Terms of Service sections 20, 22, 24/);
+    expect(pickup).toMatch(/valid government-issued photo ID, the credit card used for the purchase/);   // Terms section 20
+    expect(pickup).toMatch(/not required to provide tools, packing materials, loading assistance/);        // Terms section 20
+    expect(pickup).toMatch(/forfeited without a refund/);                                                  // Terms section 22
+    expect(pickup).toMatch(/inspect items before leaving/);                                                // Terms section 24
+    expect(pickup).not.toMatch(/dock|parking|arrival times|counter/i);
+    expect(pickup).toMatch(/do not guess or give examples of what a seller might require/);
+  });
+  test('the published Terms still say what Sasha states about pickup (keeps her rules in sync with the Terms page)', () => {
+    const terms = require('fs').readFileSync(require('path').join(__dirname, '..', '..', 'public', 'terms.html'), 'utf8');
+    expect(terms).toMatch(/Valid government-issued photo ID/);
+    expect(terms).toMatch(/Proof of authorization if picking up for someone else/);
+    expect(terms).toMatch(/not required to provide tools, packing materials, loading assistance/);
+    expect(terms).toMatch(/deemed abandoned and forfeited without refund/);
+    const faq = require('fs').readFileSync(require('path').join(__dirname, '..', '..', 'public', 'buyer-faq.html'), 'utf8');
+    expect(faq).toMatch(/written authorization and a copy of your payment confirmation/);
+    expect(faq).toMatch(/Contact Advantage support in advance/);
+  });
+  test('no post-processing rewrites dashes (URLs, quotes and identifiers stay untouched)', () => {
+    expect(engine.plainText('See https://bid.advantage.bid/a-b — "quoted — text"')).toBe('See https://bid.advantage.bid/a-b — "quoted — text"');
+  });
+  test('customer-facing fixed strings (greeting, signature, chat fallback) contain no em dash', () => {
+    const fs = require('fs'); const path = require('path');
+    expect(chatChannel.GREETING).not.toContain(EM);
+    const chatSrc = fs.readFileSync(path.join(__dirname, '..', '..', 'src', 'services', 'sasha', 'chatChannel.js'), 'utf8');
+    const fallback = (chatSrc.match(/text: `Thanks for your message[^`]*`/) || [''])[0];
+    expect(fallback).toBeTruthy(); expect(fallback).not.toContain(EM);
+    const emailSrc = fs.readFileSync(path.join(__dirname, '..', '..', 'src', 'services', 'sasha', 'emailChannel.js'), 'utf8');
+    expect((emailSrc.match(/const SIGNATURE = [^;]+;/) || [''])[0]).not.toContain(EM);
   });
 });

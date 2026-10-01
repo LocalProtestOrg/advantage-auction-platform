@@ -47,7 +47,7 @@ const TOPICS = {
     facts: [
       `A buyer's premium is a percentage added to the winning bid (hammer price). The rate is set per auction and shown on the auction and lot pages before you bid.`,
       `Individual-seller auctions use a fixed ${pct(billing.DEFAULT_BUYER_PREMIUM_BPS)} buyer's premium. Professional-seller auctions use the premium that seller configured (0%–25%); if none is set, ${pct(billing.DEFAULT_BUYER_PREMIUM_BPS)}.`,
-      'Example (example only — always check the specific auction): a $100 winning bid with an 18% premium totals $118 before any applicable sales tax.',
+      'Example (example only; always check the specific auction): a $100 winning bid with an 18% premium totals $118 before any applicable sales tax.',
       'For a specific auction or lot, look up its actual rate (tool: get_auction_or_lot) rather than assuming 18%.',
       "Do not tell buyers who receives the premium.",
     ],
@@ -64,12 +64,15 @@ const TOPICS = {
     ],
   }),
   pickup: () => ({
-    source: 'sellerTypeRules / auction pickup windows / location privacy rule / published buyer FAQ (buyer-faq.html, how-to-buy.html)',
+    source: 'Terms of Service sections 20, 22, 24 (terms.html) / buyer FAQ (buyer-faq.html, how-to-buy.html) / sellerTypeRules / location privacy rule',
     facts: [
       'Each auction has a pickup window set by the seller. Winners collect their items during that window at the pickup location.',
-      'Advantage.Bid policy: buyers should bring a copy of their payment confirmation when they collect.',
-      'Advantage.Bid policy: a buyer may send someone else to collect on their behalf. That person needs a written authorization from the buyer and a copy of the buyer\'s payment confirmation, and the buyer should let Advantage.Bid support know in advance. Advantage.Bid does not publish any other requirement (for example, it has no stated ID requirement) — do not add one.',
-      'Anything beyond Advantage.Bid policy (dock access, loading help, parking, what to bring, specific arrival times) is set by each seller and published with that auction\'s pickup details; say so rather than guessing.',
+      'What to bring (buyer FAQ; Terms of Service section 20): bring a copy of your payment confirmation. At pickup, buyers may be asked to show their paid invoice, a valid government-issued photo ID, the credit card used for the purchase, and any auction-specific documentation. Say that these MAY be requested (the Terms do not say they are always checked).',
+      'Someone else collecting (buyer FAQ; Terms of Service section 20): allowed. That person needs a written authorization from the buyer and a copy of the buyer\'s payment confirmation, and the buyer should contact Advantage.Bid support in advance. The Terms list proof of authorization among the things that may be checked at pickup.',
+      'Loading and removal (Terms of Service section 20): the buyer is responsible for pickup, removal, loading, packing, tools, equipment, labor and transportation. Advantage.Bid and sellers are not required to provide tools, packing materials, loading assistance, labor or moving equipment, so bring enough help for large or heavy items.',
+      'Missed pickup (Terms of Service section 22): items not collected during the published pickup window may be treated as abandoned and forfeited without a refund. An alternative pickup time is not guaranteed, and an alternative pickup fee may apply.',
+      'Inspection (Terms of Service section 24): inspect items before leaving the pickup location; leaving with an item counts as accepting it.',
+      'Anything beyond these Advantage.Bid policies is set by each seller and published with that auction\'s pickup details. Tell the customer to check that auction\'s published pickup details; do not guess or give examples of what a seller might require.',
       `For individual (non-professional) sellers, pickup must begin at least ${sellerTypeRules.NON_PRO_MIN_PICKUP_GAP_HOURS} hours after the auction closes. Professional sellers set their own pickup timing (never before the auction closes).`,
       'Before payment, listings show only the city and state. The full pickup address is sent to the winning buyer after their payment succeeds (in the payment receipt / pickup email), and it is shown on their paid invoice.',
       'Never give a pickup street address, ZIP code or coordinates to anyone who has not paid for that item (look it up only with get_my_pickup_details for the signed-in buyer).',
@@ -78,9 +81,9 @@ const TOPICS = {
   selling: () => ({
     source: 'auctionService.MIN_LOTS_FOR_SUBMISSION / routes/lots.js professional-only lot settings / sellerTypeRules / seller agreement gate',
     facts: [
-      `SELLER TYPES — the rules differ, so know which one you are answering for. Professional Sellers are ${PROFESSIONAL_SELLER_TYPES.join(', ')} (businesses that run sales, approved by Advantage.Bid). Everyone else (private individuals, other businesses) is an Individual Seller.`,
+      `SELLER TYPES: the rules differ, so know which one you are answering for. Professional Sellers are ${PROFESSIONAL_SELLER_TYPES.join(', ')} (businesses that run sales, approved by Advantage.Bid). Everyone else (private individuals, other businesses) is an Individual Seller.`,
       `BOTH seller types: create an auction, add lots (title, description, photos, category, size category; dimensions are optional), set dates, pickup window and pickup location, choose 3 featured lots. Every auction needs at least ${MIN_LOTS} lots to be submitted or published (withdrawn lots don't count; smaller pieces can be grouped into one lot). State it simply as the rule. Do not mention exceptions, waivers, workarounds or staff approval at all (not even to say there are none), and never suggest contacting staff about it. Every auction needs its full pickup address before submission; buyers see only city and state until they pay. The seller agreement must be signed first.`,
-      `INDIVIDUAL Sellers only: every lot starts at $1 and bidding follows the standard Advantage.Bid increment ladder — individual sellers do NOT set starting bids, reserves or custom bid increments. The buyer's premium is a fixed ${pct(billing.DEFAULT_BUYER_PREMIUM_BPS)}. Pickup must begin at least ${sellerTypeRules.NON_PRO_MIN_PICKUP_GAP_HOURS} hours after the auction closes. Final submission is single-use and locks editing; Advantage.Bid reviews and publishes the auction.`,
+      `INDIVIDUAL Sellers only: every lot starts at $1 and bidding follows the standard Advantage.Bid increment ladder. Individual sellers do NOT set starting bids, reserves or custom bid increments. The buyer's premium is a fixed ${pct(billing.DEFAULT_BUYER_PREMIUM_BPS)}. Pickup must begin at least ${sellerTypeRules.NON_PRO_MIN_PICKUP_GAP_HOURS} hours after the auction closes. Final submission is single-use and locks editing; Advantage.Bid reviews and publishes the auction.`,
       `PROFESSIONAL Sellers only: once their business is verified they can publish their own qualifying auctions and keep editing. They can set per-lot starting bids, reserves and custom bid increments, set their own buyer's premium (0–25%) and keep it, and set their own pickup timing (never before the auction closes).`,
     ],
   }),

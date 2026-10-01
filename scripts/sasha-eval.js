@@ -11,6 +11,9 @@
  *   3. Known Professional Seller → professional capabilities (starting bids / reserves / own premium).
  *   4. 30-lot minimum → stated as the rule; no exception offered or suggested.
  *   5. Explicit comparison request → both seller types explained.
+ *   6-7. (Stage 4 review, 2026-10-01) Email pickup question, and the follow-up "Can I send someone else?" answered from the
+ *        published policy only: written authorization + payment confirmation, no invented seller requirements (ID checks…).
+ * Every scenario also requires: no em dash anywhere in the reply.
  */
 const path = require('path');
 const root = path.join(__dirname, '..');
@@ -32,6 +35,9 @@ conversations.requestHandoff = async () => {};
 
 const EXCEPTION = /exception|waive|fewer than 30[^.]*(contact|call|reach out|ask)|(contact|call|reach out to|ask) (us|our team|staff|support)[^.]*(fewer|under|less than) 30/i;
 const SETS_START = /(you|sellers?) (can|may|get to) (also )?(set|choose|pick)[^.]{0,40}(starting (bid|price)|opening bid|reserve)/i;
+// Speculation markers: invented details or open-ended examples of seller requirements (photo ID, payment confirmation,
+// loading responsibility etc. ARE published policy, Terms of Service section 20, so they are allowed).
+const SPECULATION = /\bdock\b|parking|counter|particular hours|exact hours|specific hours|such as|\betc\b|\(like /i;
 const scenarios = [
   { name: '1 unknown type → clarify', ctx: { channel: 'chat' }, turns: ['How do auctions work as a seller?'],
     check: (t) => ({ asks_question: /\?/.test(t), short: t.length < 600, no_starting_price: !/starting (bid|price)|reserve/i.test(t), no_exception: !EXCEPTION.test(t),
@@ -43,6 +49,13 @@ const scenarios = [
     check: (t) => ({ pro_controls: /starting (bid|price)|reserve/i.test(t), own_premium: /premium/i.test(t), no_exception: !EXCEPTION.test(t) }) },
   { name: '4 fewer than 30 lots', ctx: { channel: 'chat' }, turns: ["I only have about 12 items to sell. Can I still run an auction with that?"],
     check: (t) => ({ states_30_rule: /30/.test(t), no_exception: !EXCEPTION.test(t) }) },
+  { name: '6 email pickup question', ctx: { channel: 'email' }, turns: ['Hello, if I win something in an auction, how does pickup work and what should I bring?'],
+    check: (t) => ({ payment_confirmation: /payment confirmation/i.test(t), seller_window: /seller/i.test(t), no_speculation: !SPECULATION.test(t) }) },
+  { name: '7 email delegate follow-up', ctx: { channel: 'email' }, history: [
+      { author_type: 'customer', body_text: 'Hello, if I win something in an auction, how does pickup work and what should I bring?' },
+      { author_type: 'sasha', body_text: 'Each auction has its own pickup window set by the seller. Once you pay, the full pickup address is on your payment receipt and paid invoice. Bring a copy of your payment confirmation.' }],
+    turns: ['Thanks! Can I send someone else to pick up my items for me?'],
+    check: (t) => ({ written_authorization: /written authori[sz]ation/i.test(t), payment_confirmation: /payment confirmation/i.test(t), no_speculation: !SPECULATION.test(t) }) },
   { name: '5 comparison requested', ctx: { channel: 'chat' }, turns: ["What's the difference between an Individual Seller and a Professional Seller?"],
     check: (t) => ({ covers_individual: /individual/i.test(t), covers_professional: /professional/i.test(t), no_exception: !EXCEPTION.test(t) }) },
 ];
@@ -51,10 +64,10 @@ const scenarios = [
   let failed = 0;
   for (const s of scenarios) {
     for (let i = 1; i <= RUNS; i++) {
-      conversations.transcriptForModel = async () => s.turns.map((b) => ({ author_type: 'customer', body_text: b }));
+      conversations.transcriptForModel = async () => [...(s.history || []), ...s.turns.map((b) => ({ author_type: 'customer', body_text: b }))];
       const r = await engine.respond({ conversationId: '00000000-0000-0000-0000-000000000000', ctx: { ...s.ctx } });
       const text = r.text || '';
-      const c = s.check(text);
+      const c = { ...s.check(text), no_em_dash: !text.includes('—') };
       const ok = r.outcome === 'replied' && Object.values(c).every(Boolean);
       if (!ok) failed++;
       console.log(`\n=== ${s.name} (run ${i}) ${ok ? 'PASS' : 'FAIL'} ${JSON.stringify(c)}\n${text || r.error}`);
