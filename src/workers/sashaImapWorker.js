@@ -17,6 +17,8 @@ async function tick() {
   try {
     const r = await require('../services/sasha/imap/imapIngestService').pollOnce();
     if (r && !r.skipped) console.log('[sashaImap] poll: ' + JSON.stringify(r));
+    // A skip other than "switched off" / "not configured" means polling is not happening: say so (never silent).
+    else if (r && r.skipped && !['disabled', 'not_configured'].includes(r.skipped)) console.log('[sashaImap] poll skipped: ' + r.skipped);
   } catch (e) {
     console.error('[sashaImap] poll error: ' + require('../services/sasha/imap/safeImapClient').redact(e && e.message));
   } finally { running = false; }

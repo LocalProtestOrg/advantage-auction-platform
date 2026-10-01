@@ -20,14 +20,18 @@
  *   - Mail older than 48 hours when first read is never auto-answered: it is handed to staff.
  *   - A login failure FAILS CLOSED: no further login attempt until a Super Admin clears it (protects the real mailbox
  *     from lockout by the host's brute-force protection). Other failures back off exponentially.
- *   - One poller at a time (Postgres advisory lock). Health is stored in imap_mailbox_state; problems alert the Owner.
+ *   - One poller at a time: a LEASE on the mailbox row (taken with one atomic UPDATE, renewed while working, expires by
+ *     itself). Not a session advisory lock: production reaches Postgres through a transaction-mode pooler, where a
+ *     session lock and its unlock can land on different server connections and the lock is stranded (migration 184).
+ *   - Health is stored in imap_mailbox_state; problems alert the Owner.
  */
 
 const db = require('../../../db');
 const settings = require('../settings');
 const safe = require('./safeImapClient');
 
-const LOCK_KEY = 718_231_183;                 // pg advisory lock id for the IMAP poller
+const LEASE_MS = 10 * 60 * 1000;              // poller lease; renewed after every message, expires if the process dies
+const LEASE_OWNER = require('os').hostname() + ':' + process.pid + ':' + require('crypto').randomBytes(4).toString('hex');
 const MAX_AGE_MS = 48 * 60 * 60 * 1000;       // older than this when first read → staff, never auto-answered
 const RESCAN_MS = 48 * 60 * 60 * 1000;        // UIDVALIDITY change → re-scan this window
 const MAX_PER_POLL = 50;                      // bounded work per poll; the rest follow next poll
@@ -48,6 +52,17 @@ async function setState(label, fields, runner) {
   if (!keys.length) return;
   const sets = keys.map((k, i) => `${k} = $${i + 2}`).join(', ');
   await runner.query(`UPDATE imap_mailbox_state SET ${sets}, updated_at = now() WHERE mailbox = $1`, [label, ...keys.map((k) => fields[k])]);
+}
+
+/** Take or renew the poller lease. True when this owner now holds it. */
+async function takeLease(label, owner, runner) {
+  const r = await runner.query(`UPDATE imap_mailbox_state SET lease_owner = $2, lease_until = now() + ($3 || ' milliseconds')::interval, updated_at = now()
+      WHERE mailbox = $1 AND (lease_owner IS NULL OR lease_until IS NULL OR lease_until < now() OR lease_owner = $2) RETURNING mailbox`,
+  [label, owner, String(LEASE_MS)]);
+  return r.rows.length === 1;
+}
+async function releaseLease(label, owner, runner) {
+  await runner.query(`UPDATE imap_mailbox_state SET lease_owner = NULL, lease_until = NULL WHERE mailbox = $1 AND lease_owner = $2`, [label, owner]);
 }
 
 /**
@@ -175,11 +190,9 @@ async function pollOnce(deps = {}) {
   if (st.auth_failed_at) return { skipped: 'auth_failed_latched' };
   if (st.next_attempt_at && new Date(st.next_attempt_at) > now) return { skipped: 'backoff' };
 
-  // One poller at a time across instances (session-level advisory lock on a dedicated connection).
-  const lockClient = runner.connect ? await runner.connect() : null;
-  const locker = lockClient || runner;
-  const got = (await locker.query(`SELECT pg_try_advisory_lock($1) AS ok`, [LOCK_KEY])).rows[0];
-  if (!got || !got.ok) { if (lockClient) lockClient.release(); return { skipped: 'locked' }; }
+  // One poller at a time: take the lease (atomic; pooler-safe). A lease left by a dead process simply expires.
+  const owner = deps.leaseOwner || LEASE_OWNER;
+  if (!(await takeLease(label, owner, runner))) return { skipped: 'locked' };
 
   let session = null;
   const summary = { recorded: 0, processed: 0, failed: 0, baseline: false, rescan: false };
@@ -219,6 +232,7 @@ async function pollOnce(deps = {}) {
     let lastUid = Number(st.uidvalidity) === box.uidValidity ? Number(st.last_seen_uid) : 0;
     for await (const m of session.fetchSources(want)) {
       const r = await processOne(label, box.uidValidity, m, s, cfg, deps, runner, pendingByUid.get(m.uid) || null);
+      await takeLease(label, owner, runner);
       if (r.recorded && !pendingByUid.has(m.uid)) summary.recorded++;
       if (r.failed) summary.failed++; else if (r.recorded) summary.processed++;
       // Advance the bookmark only past messages that are now durably recorded (layer 1).
@@ -251,8 +265,7 @@ async function pollOnce(deps = {}) {
     return { error: kind, retry_in_ms: wait };
   } finally {
     if (session) await session.logout();
-    try { await locker.query(`SELECT pg_advisory_unlock($1)`, [LOCK_KEY]); } catch (_e) { /* connection closed */ }
-    if (lockClient) lockClient.release();
+    try { await releaseLease(label, owner, runner); } catch (_e) { /* the lease expires by itself */ }
   }
 }
 
