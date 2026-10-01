@@ -14,10 +14,17 @@ function mockQuery(sql, p = []) {
   if (/FROM platform_config WHERE key = ANY/.test(q)) return rows(Object.entries(S.cfg).map(([key, value]) => ({ key, value })));
   if (/^INSERT INTO imap_mailbox_state/.test(q)) { if (!S.state.has(p[0])) S.state.set(p[0], { mailbox: p[0], status: 'idle', consecutive_failures: 0, messages_today: 0, updated_at: new Date() }); return rows([]); }
   if (/^SELECT \* FROM imap_mailbox_state/.test(q) || /^SELECT mailbox, uidvalidity/.test(q)) return rows(S.state.has(p[0]) ? [{ ...S.state.get(p[0]) }] : []);
-  if (/^UPDATE imap_mailbox_state SET/.test(q)) {
+  if (/^UPDATE imap_mailbox_state SET (?!messages_today = CASE)/.test(q)) {
     const st = S.state.get(p[0]); const re = /(\w+) = \$(\d+)/g; let m;
     while ((m = re.exec(q))) st[m[1]] = p[Number(m[2]) - 1];
     st.updated_at = new Date(); return rows([]);
+  }
+  if (/^UPDATE imap_mailbox_state SET messages_today = CASE/.test(q)) {
+    const st = S.state.get(p[0]); const day = p[1];
+    const same = st.messages_today_date instanceof Date && st.messages_today_date.toISOString().slice(0, 10) === day;
+    st.messages_today = same ? st.messages_today + p[2] : p[2];
+    st.messages_today_date = new Date(day + 'T00:00:00Z');          // the pg driver returns DATE as a JS Date
+    return rows([]);
   }
   if (/pg_try_advisory_lock/.test(q)) { if (S.lockHeld) return rows([{ ok: false }]); S.lockHeld = true; return rows([{ ok: true }]); }
   if (/pg_advisory_unlock/.test(q)) { S.lockHeld = false; return rows([{ ok: true }]); }
@@ -434,6 +441,22 @@ describe('failures and health', () => {
     NOW = new Date(NOW.getTime() + 25 * 60 * 60 * 1000);
     await ingest.pollOnce(d);                                    // succeeds, nothing new
     expect((await ingest.healthCheck(d)).alerts).toEqual(['quiet']);
+  });
+  test('"messages today" counts every recorded message across polls and resets on a new UTC day', async () => {
+    const fake = fakeServer({ messages: [{ uid: 1, raw: raw({ messageId: '<a@x>' }), internalDate: NOW }] });
+    const d = deps(fake);
+    await baseline(fake, d);
+    fake.server.messages.push({ uid: 2, raw: raw(), internalDate: NOW });
+    await ingest.pollOnce(d);
+    expect(mockStore.state.get(LABEL).messages_today).toBe(1);
+    await ingest.pollOnce(d);                                    // nothing new: the count must stay at 1 (was reset to 0)
+    expect(mockStore.state.get(LABEL).messages_today).toBe(1);
+    fake.server.messages.push({ uid: 3, raw: raw({ messageId: '<c@x>', body: 'Another question' }), internalDate: NOW });
+    await ingest.pollOnce(d);
+    expect(mockStore.state.get(LABEL).messages_today).toBe(2);
+    NOW = new Date('2026-10-02T00:05:00Z');                       // next UTC day
+    await ingest.pollOnce(d);
+    expect(mockStore.state.get(LABEL).messages_today).toBe(0);
   });
   test('the owner alert type exists and routes to the owner recipients', () => {
     const oa = require('../../src/services/ownerAlertService');

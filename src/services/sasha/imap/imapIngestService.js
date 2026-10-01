@@ -50,6 +50,16 @@ async function setState(label, fields, runner) {
   await runner.query(`UPDATE imap_mailbox_state SET ${sets}, updated_at = now() WHERE mailbox = $1`, [label, ...keys.map((k) => fields[k])]);
 }
 
+/**
+ * "Messages today" counter (UTC day). Done in SQL: the driver returns a DATE column as a JS Date, so comparing it to a
+ * "YYYY-MM-DD" string in JavaScript never matched and the counter reset to 0 on every poll.
+ */
+async function bumpToday(label, now, n, runner) {
+  await runner.query(`UPDATE imap_mailbox_state
+      SET messages_today = CASE WHEN messages_today_date = $2::date THEN messages_today + $3 ELSE $3 END,
+          messages_today_date = $2::date, updated_at = now() WHERE mailbox = $1`, [label, now.toISOString().slice(0, 10), Number(n) || 0]);
+}
+
 /** Owner alert, deduplicated per incident key by ownerAlertService. Best effort; never throws. */
 async function alert(deps, kind, incidentKey, headline, context) {
   try {
@@ -220,11 +230,9 @@ async function pollOnce(deps = {}) {
     // After a re-scan, continue from the last recorded message if the window was larger than one batch.
     if (summary.rescan) await setState(label, { uidvalidity: box.uidValidity, last_seen_uid: uids.length > batch.length ? lastUid : Math.max(lastUid, box.uidNext - 1) }, runner);
 
-    const today = now.toISOString().slice(0, 10);
-    const fresh = await getState(label, runner);
-    const todayCount = (fresh.messages_today_date && String(fresh.messages_today_date).slice(0, 10) === today ? fresh.messages_today : 0) + summary.recorded;
     await setState(label, { status: 'ok', last_success_at: now, consecutive_failures: 0, last_error: null, next_attempt_at: null,
-      messages_today: todayCount, messages_today_date: today, ...(summary.recorded ? { last_message_at: now } : {}) }, runner);
+      ...(summary.recorded ? { last_message_at: now } : {}) }, runner);
+    await bumpToday(label, now, summary.recorded, runner);
     return summary;
   } catch (e) {
     const kind = safe.classify(e);
