@@ -14,7 +14,17 @@ function mockQuery(sql, p = []) {
   if (/FROM platform_config WHERE key = ANY/.test(q)) return rows(Object.entries(S.cfg).map(([key, value]) => ({ key, value })));
   if (/^INSERT INTO imap_mailbox_state/.test(q)) { if (!S.state.has(p[0])) S.state.set(p[0], { mailbox: p[0], status: 'idle', consecutive_failures: 0, messages_today: 0, updated_at: new Date() }); return rows([]); }
   if (/^SELECT \* FROM imap_mailbox_state/.test(q) || /^SELECT mailbox, uidvalidity/.test(q)) return rows(S.state.has(p[0]) ? [{ ...S.state.get(p[0]) }] : []);
-  if (/^UPDATE imap_mailbox_state SET (?!messages_today = CASE)/.test(q)) {
+  if (/^UPDATE imap_mailbox_state SET lease_owner = \$2, lease_until/.test(q)) {
+    const st = S.state.get(p[0]); const now = S.dbNow ? S.dbNow() : Date.now();
+    const free = !st.lease_owner || !st.lease_until || st.lease_until.getTime() < now || st.lease_owner === p[1];
+    if (!free) return rows([]);
+    st.lease_owner = p[1]; st.lease_until = new Date(now + Number(p[2])); return rows([{ mailbox: p[0] }]);
+  }
+  if (/^UPDATE imap_mailbox_state SET lease_owner = NULL/.test(q)) {
+    const st = S.state.get(p[0]); if (st.lease_owner === p[1]) { st.lease_owner = null; st.lease_until = null; } return rows([]);
+  }
+  if (/advisory/.test(q)) throw new Error('advisory locks are not pooler-safe and must not be used');
+  if (/^UPDATE imap_mailbox_state SET (?!messages_today = CASE)(?!lease_owner)/.test(q)) {
     const st = S.state.get(p[0]); const re = /(\w+) = \$(\d+)/g; let m;
     while ((m = re.exec(q))) st[m[1]] = p[Number(m[2]) - 1];
     st.updated_at = new Date(); return rows([]);
@@ -26,8 +36,6 @@ function mockQuery(sql, p = []) {
     st.messages_today_date = new Date(day + 'T00:00:00Z');          // the pg driver returns DATE as a JS Date
     return rows([]);
   }
-  if (/pg_try_advisory_lock/.test(q)) { if (S.lockHeld) return rows([{ ok: false }]); S.lockHeld = true; return rows([{ ok: true }]); }
-  if (/pg_advisory_unlock/.test(q)) { S.lockHeld = false; return rows([{ ok: true }]); }
   if (/^INSERT INTO imap_inbound_messages/.test(q)) {
     const [mailbox, uidvalidity, uid, message_id, content_fingerprint, from_email, subject, internal_date, size_bytes, raw_sha256] = p;
     if (S.msgs.some((r) => r.mailbox === mailbox && Number(r.uidvalidity) === Number(uidvalidity) && Number(r.uid) === Number(uid))) return rows([]);
@@ -94,7 +102,7 @@ const raw = ({ from = 'Pat Customer <pat@example.org>', subject = 'Selling some 
     ...headers, 'MIME-Version: 1.0', 'Content-Type: text/plain; charset=utf-8', '', body, ''].filter((l) => l !== null).join('\r\n');
 
 function reset(cfg = {}) {
-  Object.assign(mockStore, { state: new Map(), msgs: [], cs: [], lockHeld: false, seq: 0, queries: [] });
+  Object.assign(mockStore, { state: new Map(), msgs: [], cs: [], seq: 0, queries: [] });
   mockStore.cfg = { 'sasha.enabled': true, 'sasha.engine_enabled': true, 'sasha.email_inbound_enabled': true, 'sasha.email_autoreply_enabled': true,
     'sasha.imap_read_enabled': true, 'sasha.imap_process_enabled': false, ...cfg };
   settings.clear();
@@ -312,11 +320,35 @@ describe('backlog and idempotency', () => {
     expect(d.ownerAlert.notifyAdminActionRequired).toHaveBeenCalledWith(expect.objectContaining({ actionType: 'sasha_imap_health', entityId: 'uidvalidity:200' }));
     expect(mockStore.state.get(LABEL)).toMatchObject({ uidvalidity: 200, last_seen_uid: 2 });
   });
-  test('only one poller at a time: when the lock is held nothing connects', async () => {
-    mockStore.lockHeld = true;
+  test('only one poller at a time: while another live poller holds the lease nothing connects', async () => {
+    await ingest.status(require('../../src/db'), CFG);                     // ensure the row exists
+    mockStore.state.set(LABEL, { mailbox: LABEL, status: 'ok', consecutive_failures: 0, messages_today: 0, lease_owner: 'other-host:1:abcd', lease_until: new Date(Date.now() + 5 * 60000) });
     const fake = fakeServer();
-    expect(await ingest.pollOnce(deps(fake))).toEqual({ skipped: 'locked' });
+    expect(await ingest.pollOnce({ ...deps(fake), leaseOwner: 'this-host:2:ef01' })).toEqual({ skipped: 'locked' });
     expect(fake.server.constructed).toBe(0);
+  });
+  test('a lease left behind by a dead process expires and polling resumes (the stranded-lock incident cannot recur)', async () => {
+    mockStore.state.set(LABEL, { mailbox: LABEL, status: 'ok', consecutive_failures: 0, messages_today: 0, lease_owner: 'dead-host:9:dead', lease_until: new Date(Date.now() - 1000) });
+    const fake = fakeServer({ messages: [{ uid: 1, raw: raw({ messageId: '<a@x>' }), internalDate: NOW }] });
+    const r = await ingest.pollOnce({ ...deps(fake), leaseOwner: 'new-host:3:beef' });
+    expect(r.baseline).toBe(true);
+    expect(fake.server.constructed).toBe(1);
+  });
+  test('the lease is released after every poll, so consecutive polls (and other instances) are never blocked', async () => {
+    const fake = fakeServer({ messages: [{ uid: 1, raw: raw({ messageId: '<a@x>' }), internalDate: NOW }] });
+    await ingest.pollOnce({ ...deps(fake), leaseOwner: 'host-a:1:aaaa' });
+    expect(mockStore.state.get(LABEL).lease_owner).toBeNull();
+    fake.server.messages.push({ uid: 2, raw: raw(), internalDate: NOW });
+    const r = await ingest.pollOnce({ ...deps(fake), leaseOwner: 'host-b:2:bbbb' });   // a different process/instance
+    expect(r.recorded).toBe(1);
+    expect(mockStore.state.get(LABEL).lease_owner).toBeNull();
+  });
+  test('the poller never uses a session advisory lock (not safe through the production connection pooler)', () => {
+    const src = require('fs').readFileSync(require('path').join(__dirname, '..', '..', 'src', 'services', 'sasha', 'imap', 'imapIngestService.js'), 'utf8');
+    expect(src).not.toMatch(/pg_try_advisory_lock|pg_advisory_lock|pg_advisory_unlock/);
+    const sql = require('fs').readFileSync(require('path').join(__dirname, '..', '..', 'db', 'migrations', '184_imap_poller_lease.sql'), 'utf8');
+    expect(sql).toMatch(/ADD COLUMN IF NOT EXISTS lease_owner/);
+    expect(sql).toMatch(/ADD COLUMN IF NOT EXISTS lease_until/);
   });
   test('a failed processing attempt is retried on the next poll (bounded)', async () => {
     reset({ 'sasha.imap_process_enabled': true });
