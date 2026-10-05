@@ -6,6 +6,8 @@
  * Every programme shares one answer (handoff section 7):
  *   - suppression across the global, Claimed Listing and Event Partner lists (a STOP anywhere stops all);
  *   - no manual email while the company is in an ACTIVE automated Claimed Listing sequence;
+ *   - a Founding Auction Partner (migration 185) is contacted only by the staff member holding its contact lock: a
+ *     free lock is NOT taken automatically, so nobody emails a partner by accident;
  *   - the company contact lock: the sending rep must hold it. A free lock is taken for the rep as part of
  *     the send; a lock held by another person or by an automated sequence refuses the send.
  * Fail closed: any lookup error refuses (the rep can retry; an unwanted email cannot be unsent).
@@ -36,6 +38,15 @@ async function checkProspectContact({ prospect, repUserId }, runner = db) {
       `SELECT 1 FROM listing_outreach_sequences WHERE organization_id = ANY($1::uuid[]) AND state IN ('queued','active') LIMIT 1`, [orgIds])
       .catch(() => ({ rows: [{ unknown: true }] }))).rows[0] : null;
     if (live) throw refuse('LISTING_SEQUENCE_ACTIVE', 'This company is in an active Claimed Listing sequence. Take the company lock (which pauses it) before emailing.');
+  }
+
+  if (cluster && cluster.journey === 'FOUNDING_PARTNER') {
+    const held = cluster.companyId ? await locks.check(cluster.companyId, { type: 'user', userId: repUserId }, runner) : { ok: false };
+    if (!held.ok || !held.lock) {
+      throw refuse('FOUNDING_PARTNER', 'This company is a Founding Auction Partner. Only the team member handling the partnership (the contact lock holder) can email it.');
+    }
+    await locks.touch(cluster.companyId, repUserId, runner).catch(() => {});
+    return { ok: true, companyId: cluster.companyId };
   }
 
   const multi = cluster && cluster.members.length > 1;

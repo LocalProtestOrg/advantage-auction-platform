@@ -614,6 +614,7 @@ app.use('/api/admin/crm', adminCrmRoutes);
 app.use('/api/admin/sales', adminSalesRoutes);
 app.use('/api/admin/sasha', require('./src/routes/adminSasha')); // Sasha Shared Inbox, settings, knowledge (support.* permissions)
 app.use('/api/admin/claimed-listings', require('./src/routes/adminClaimedListings')); // Toolbox: Claimed Listings tab (listings.* permissions)
+app.use('/api/admin/founding-partners', require('./src/routes/adminFoundingPartners')); // Founding Auction Partners (mig 185; Super Admin writes)
 app.use('/api/admin/pricing', adminPricingRoutes);
 app.use('/api/admin/pricing-agreements', require('./src/routes/adminPricingAgreements'));
 app.use('/api/admin/owner-alerts', require('./src/routes/adminOwnerAlerts'));
@@ -887,6 +888,8 @@ server.listen(PORT, () => {
     }, 15_000);
     // Phase 3O Marketing Package fulfillment monitor (SHADOW). Self-gates on marketing.pkg.enabled;
     // advances obligations, never sends/publishes/spends on a non-ACTIVE channel (shadow evidence only).
+    // Founding Auction Partners: Owner alert before/after an introductory fee end date. Never changes a fee.
+    try { require('./src/services/acquisition/foundingPartnerService').startReminders(); } catch (e) { log.error('founding-partners', 'reminder start failed', { error: e.message }); }
     try { require('./src/services/marketingFulfillmentWorker').start(); } catch (e) { log.error('marketing', 'fulfillment monitor start failed', { error: e.message }); }
     // #1 real-time: bridge Postgres NOTIFY (from web + worker processes) to
     // socket.io. Polling on the clients remains the permanent fallback.

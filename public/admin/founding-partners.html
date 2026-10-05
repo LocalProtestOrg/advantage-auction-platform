@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="noindex, nofollow" />
+  <title>Founding Auction Partners - Admin</title>
+  <style>
+    *,*::before,*::after{box-sizing:border-box}
+    body{margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#f1f5f9;color:#1f2937}
+    .wrap{max-width:1280px;margin:0 auto;padding:16px;display:grid;gap:14px}
+    h1{font-size:1.3rem;margin:0}
+    h2{font-size:1rem;margin:0 0 10px}
+    .sub{color:#64748b;font-size:13px;margin:4px 0 0;max-width:80ch;line-height:1.45}
+    .card{background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:14px 16px}
+    .kv{display:flex;flex-wrap:wrap;gap:18px;font-size:13px}
+    .kv div span{display:block;color:#64748b;font-size:11.5px;text-transform:uppercase;letter-spacing:.04em}
+    .kv b{font-variant-numeric:tabular-nums}
+    input[type=number],input[type=text],input[type=date],input[type=search],select,textarea{border:1px solid #cbd5e1;border-radius:8px;padding:6px 8px;font:inherit;font-size:13px}
+    textarea{width:100%;min-height:60px;resize:vertical}
+    button.b{border:0;border-radius:8px;padding:7px 12px;font-weight:700;font-size:12.5px;cursor:pointer;background:#0f172a;color:#fff}
+    button.g{background:#f1f5f9;color:#0f172a;border:1px solid #e2e8f0}
+    button.sm{padding:4px 8px;font-size:11.5px}
+    button:disabled{opacity:.5;cursor:default}
+    button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid #0f172a;outline-offset:2px}
+    table{width:100%;border-collapse:collapse;font-size:12.5px}
+    th,td{text-align:left;padding:7px 6px;border-bottom:1px solid #f1f5f9;vertical-align:top}
+    th{color:#64748b;font-weight:600;font-size:11.5px;text-transform:uppercase;letter-spacing:.04em;white-space:nowrap}
+    td.num{font-variant-numeric:tabular-nums;white-space:nowrap}
+    .pill{display:inline-block;font-size:11px;font-weight:700;border-radius:999px;padding:1px 8px;white-space:nowrap}
+    .p-prospect{background:#e0f2fe;color:#075985}.p-active{background:#dcfce7;color:#166534}.p-ended{background:#f1f5f9;color:#64748b}
+    .p-yes{background:#ecfdf5;color:#065f46}.p-no{background:#f1f5f9;color:#64748b}.p-flag{background:#fef3c7;color:#92400e}.p-bad{background:#fee2e2;color:#991b1b}
+    .scroll{overflow-x:auto}
+    .warn{border-radius:10px;padding:10px 12px;font-size:13px;line-height:1.4;display:grid;gap:4px}
+    .warn.critical{background:#fef2f2;border:1px solid #fca5a5;color:#7f1d1d}
+    .warn.warning{background:#fffbeb;border:1px solid #fcd34d;color:#78350f}
+    .w-line{font-size:12px;margin-top:3px}.w-critical{color:#b91c1c;font-weight:600}.w-warning{color:#92400e}.w-info{color:#64748b}
+    .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px}
+    .grid label{display:grid;gap:4px;font-size:12px;color:#475569;font-weight:600}
+    .msg{font-size:12.5px;min-height:1em}.msg.err{color:#b91c1c}.msg.ok{color:#166534}
+    .results{display:grid;gap:4px;margin-top:8px}
+    .results button{text-align:left;background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:6px 8px;font:inherit;font-size:12.5px;cursor:pointer}
+    .results button[aria-pressed=true]{border-color:#0f172a;background:#f8fafc}
+    .muted{color:#64748b}
+    .actions{display:flex;flex-wrap:wrap;gap:4px}
+    .rule{font-size:12.5px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:10px 12px;line-height:1.5}
+  </style>
+</head>
+<body>
+  <script src="/widgets/shared/admin-nav.js"></script>
+  <div class="wrap">
+    <div>
+      <h1>Founding Auction Partners</h1>
+      <p class="sub">Companies handled one-to-one as Founding Auction Partners. Placing a company here moves it out of Claimed Listing and Event Partner outreach and gives the contact lock to the person handling it. Nothing on this page sends a message.</p>
+    </div>
+
+    <div class="rule" id="rule">
+      <b>Fee rule.</b> Only Advantage.Bid's professional auction platform fee is reduced, and only on the partner's own seller account.
+      The card-processing fee is never waived. The sitewide professional fee and Storefront pricing do not change.
+      Each auction keeps the rates it was published with; restoring the return fee affects only auctions published afterwards.
+      <div class="kv" style="margin-top:8px" id="pricing"></div>
+    </div>
+
+    <div id="alerts" class="warn critical" hidden></div>
+
+    <div class="card">
+      <h2>Partners</h2>
+      <div class="scroll">
+        <table>
+          <thead><tr><th>Company</th><th>Status</th><th>Market</th><th>Intro fee</th><th>Return fee</th><th>Start</th><th>Intro ends</th><th>Seller · effective fee</th><th>Protection</th><th>Auctions</th><th>Actions</th></tr></thead>
+          <tbody id="rows"><tr><td colspan="11" class="muted">Loading…</td></tr></tbody>
+        </table>
+      </div>
+      <div class="msg" id="rows-msg" role="status"></div>
+    </div>
+
+    <div class="card" id="designate">
+      <h2>Place a company under Founding Partner protection</h2>
+      <p class="sub" style="margin:0 0 10px">Find the company's directory listing, seller account or sales prospect. A record that resembles another company without a matching identifier is refused until the identity is reviewed.</p>
+      <label for="q" class="muted" style="font-size:12px;font-weight:600">Find company</label>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:4px">
+        <input type="search" id="q" placeholder="Company name, website or seller email" style="flex:1;min-width:220px" />
+        <button class="b g" id="q-go" type="button">Search</button>
+      </div>
+      <div class="results" id="q-results"></div>
+      <div class="grid" style="margin-top:12px">
+        <label>Selected record<input type="text" id="d-entity" readonly placeholder="Choose a search result" /></label>
+        <label>Market<input type="text" id="d-market" placeholder="houston or ny_tristate" /></label>
+        <label>Intro platform fee (%)<input type="number" id="d-intro" min="0" max="25" step="0.05" value="0.00" /></label>
+        <label>Return platform fee (%)<input type="number" id="d-return" min="0" max="25" step="0.05" placeholder="Seller's current rate" /></label>
+        <label>Start date<input type="date" id="d-start" /></label>
+        <label>Intro end date (optional)<input type="date" id="d-end" /></label>
+      </div>
+      <div class="grid" style="grid-template-columns:1fr;margin-top:10px">
+        <label>Reason (required)<textarea id="d-reason" placeholder="Why this company is a Founding Partner"></textarea></label>
+        <label>Internal note<textarea id="d-note"></textarea></label>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;margin-top:10px;flex-wrap:wrap">
+        <button class="b" id="d-go" type="button">Place under protection</button>
+        <span class="msg" id="d-msg" role="status"></span>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Claimed Listing cohort review</h2>
+      <p class="sub" style="margin:0 0 10px">Read-only. Pending members of a draft cohort with the identity detail Marketing needs to choose Founding Partner prospects. Target profile = estate sale company in Greater Houston or the New York tri-state area. Nothing is removed or sent from here.</p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+        <label for="cohort" class="muted" style="font-size:12px;font-weight:600">Cohort</label>
+        <select id="cohort"></select>
+        <button class="b g" id="cohort-go" type="button">Review</button>
+      </div>
+      <div class="kv" id="cohort-summary" style="margin-top:10px"></div>
+      <div class="scroll" style="margin-top:8px">
+        <table>
+          <thead><tr><th>Company</th><th>Location</th><th>Profile</th><th>Target</th><th>Identity</th><th>Contact</th><th>Screen</th><th></th></tr></thead>
+          <tbody id="cohort-rows"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+<script>
+(function(){
+  var token=null; try{ token=localStorage.getItem('token'); }catch(e){}
+  function api(method,url,body){ var o={method:method,headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},credentials:'same-origin'}; if(body) o.body=JSON.stringify(body);
+    return fetch(url,o).then(function(r){ if(r.status===401){ location.href='/login.html?next='+encodeURIComponent(location.pathname); } return r.json(); }); }
+  function esc(s){return (s==null?'':String(s)).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
+  function msg(id,t,ok){ var e=document.getElementById(id); e.textContent=t||''; e.className='msg '+(ok?'ok':'err'); }
+  function pct(b){ return b==null?'—':(Number(b)/100).toFixed(2)+'%'; }
+  function toBps(v){ if(v===''||v==null) return null; var n=Math.round(parseFloat(v)*100); return isFinite(n)?n:NaN; }
+  var BASE='/api/admin/founding-partners';
+  var selected=null;
+
+  function load(){
+    api('GET',BASE).then(function(d){
+      if(!d.success){ msg('rows-msg',d.message||d.error||'Could not load.'); return; }
+      var p=d.pricing||{};
+      document.getElementById('pricing').innerHTML=
+        '<div><span>Processing (never waived)</span><b>'+pct(p['pricing.auction.processing_fee_bps'])+'</b></div>'+
+        '<div><span>Sitewide professional platform fee</span><b>'+pct(p['pricing.auction.professional.platform_fee_bps'])+'</b></div>'+
+        '<div><span>Storefront seller fee</span><b>'+pct(p['pricing.storefront.seller_fee_bps'])+'</b></div>';
+      var rows=d.data||[], tb=document.getElementById('rows'), alerts=[];
+      if(!rows.length){ tb.innerHTML='<tr><td colspan="11" class="muted">No Founding Partners yet.</td></tr>'; }
+      else tb.innerHTML=rows.map(function(r){
+        (r.warnings||[]).forEach(function(w){ if(w.level!=='info') alerts.push({level:w.level,text:r.display_name+': '+w.text}); });
+        var ends=r.intro_end_date?esc(r.intro_end_date)+(r.days_until_intro_end!=null&&r.status==='active'&&!r.fee_restored_at?'<div class="muted">'+(r.days_until_intro_end<0?(-r.days_until_intro_end)+' days ago':'in '+r.days_until_intro_end+' days')+'</div>':''):'<span class="muted">not set</span>';
+        var seller=r.seller_profile_id?esc(r.seller_email||'seller')+'<div>Stored '+pct(r.seller_platform_fee_bps)+' · <b>effective '+pct(r.effective_platform_fee_bps)+'</b>'+(r.effective_fee_basis==='agreement'?' (agreement)':'')+'</div>':'<span class="muted">no seller account yet</span>';
+        var feeState=r.fee_restored_at?'<div class="muted">return fee restored '+esc(String(r.fee_restored_at).slice(0,10))+'</div>':(r.fee_applied_at?'<div class="muted">intro fee applied '+esc(String(r.fee_applied_at).slice(0,10))+'</div>':'');
+        var prot=r.active_journey==='FOUNDING_PARTNER'
+          ?'<span class="pill p-yes">Claimed Listing + Event Partner suppressed</span>'
+          :'<span class="pill p-bad">Not protected ('+esc(r.active_journey||'no journey')+')</span>';
+        prot+='<div class="muted" style="margin-top:3px">Contact lock: '+(r.lock_holder_type?esc(r.lock_holder_name||r.lock_holder_type)+' until '+esc(String(r.lock_expires_at).slice(0,10)):'free')+'</div>';
+        if(r.live_listing_sequences) prot+='<div class="w-critical">'+r.live_listing_sequences+' listing sequence(s) still open</div>';
+        var acts=[];
+        if(r.status==='prospect') acts.push('<button class="b sm" data-a="activate" data-id="'+r.id+'">Link seller + apply fee</button>');
+        if(r.status==='active'&&r.fee_applied_at&&!r.fee_restored_at) acts.push('<button class="b sm" data-a="restore" data-id="'+r.id+'" data-ret="'+(r.return_platform_fee_bps==null?'':r.return_platform_fee_bps)+'">Restore return fee</button>');
+        if(r.status!=='ended'){ acts.push('<button class="b g sm" data-a="edit" data-id="'+r.id+'" data-end="'+esc(r.intro_end_date||'')+'" data-note="'+esc(r.internal_note||'')+'">Edit dates / note</button>');
+          acts.push('<button class="b g sm" data-a="lock" data-id="'+r.id+'">Take contact lock</button>');
+          acts.push('<button class="b g sm" data-a="end" data-id="'+r.id+'">End</button>'); }
+        var warn=(r.warnings||[]).map(function(w){ return '<div class="w-line w-'+w.level+'">'+esc(w.text)+'</div>'; }).join('');
+        return '<tr><td><b>'+esc(r.display_name)+'</b><div class="muted">'+esc(r.reason)+'</div>'+(r.internal_note?'<div class="muted">Note: '+esc(r.internal_note)+'</div>':'')+
+          '<div class="muted">Approved by '+esc(r.approved_by_name||'—')+' · handled by '+esc(r.relationship_owner_name||'—')+'</div>'+warn+'</td>'+
+          '<td><span class="pill p-'+esc(r.status)+'">'+esc(r.status)+'</span></td><td>'+esc(r.market)+'</td>'+
+          '<td class="num">'+pct(r.intro_platform_fee_bps)+'</td><td class="num">'+pct(r.return_platform_fee_bps)+'</td>'+
+          '<td class="num">'+esc(r.start_date||'—')+'</td><td class="num">'+ends+'</td><td>'+seller+feeState+'</td><td>'+prot+'</td>'+
+          '<td class="num">'+(r.auctions_published||0)+'</td><td><div class="actions">'+acts.join('')+'</div></td></tr>';
+      }).join('');
+      var box=document.getElementById('alerts');
+      if(alerts.length){ box.hidden=false; box.className='warn '+(alerts.some(function(a){return a.level==='critical';})?'critical':'warning');
+        box.innerHTML='<b>Needs attention</b>'+alerts.map(function(a){ return '<div>'+esc(a.text)+'</div>'; }).join(''); }
+      else box.hidden=true;
+    });
+  }
+
+  document.getElementById('rows').addEventListener('click',function(e){
+    var b=e.target.closest('button[data-a]'); if(!b) return; var id=b.dataset.id, a=b.dataset.a, req=null;
+    if(a==='activate'){ var sp=prompt('Email (or seller id) of the partner\'s PROFESSIONAL seller account. The introductory fee is applied to it now.'); if(!sp) return;
+      req=api('POST',BASE+'/'+id+'/activate',{seller:sp.trim()}); }
+    else if(a==='restore'){ var cur=b.dataset.ret; var v=prompt('Return platform fee (%) to put back on the seller. Only auctions published from now on use it.', cur===''?'':(Number(cur)/100).toFixed(2)); if(v==null) return;
+      var bps=toBps(v); if(bps==null||isNaN(bps)){ msg('rows-msg','Enter the return fee as a percent.'); return; }
+      req=api('POST',BASE+'/'+id+'/restore-fee',{return_platform_fee_bps:bps}); }
+    else if(a==='edit'){ var end=prompt('Introductory end date (YYYY-MM-DD), blank for none:', b.dataset.end); if(end==null) return;
+      var note=prompt('Internal note:', b.dataset.note); if(note==null) return;
+      req=api('PATCH',BASE+'/'+id,{intro_end_date:end.trim()||null,internal_note:note}); }
+    else if(a==='lock'){ req=api('POST',BASE+'/'+id+'/lock',{}); }
+    else if(a==='end'){ var r=prompt('Reason for ending this Founding Partner record (the company stays out of automated outreach until its journey is moved in the Claimed Listings toolbox):'); if(!r) return;
+      req=api('POST',BASE+'/'+id+'/end',{reason:r}); }
+    if(!req) return; b.disabled=true;
+    req.then(function(d){ b.disabled=false; if(!d.success){ msg('rows-msg',d.message||d.error||'Failed.'); return; } msg('rows-msg','Saved.',true); load(); });
+  });
+
+  function search(){
+    var q=document.getElementById('q').value.trim(); if(q.length<2) return;
+    api('GET',BASE+'/lookup?q='+encodeURIComponent(q)).then(function(d){
+      var box=document.getElementById('q-results'); box.innerHTML='';
+      (d.data||[]).forEach(function(r){ var bt=document.createElement('button'); bt.type='button'; bt.setAttribute('aria-pressed','false');
+        bt.innerHTML='<b>'+esc(r.label)+'</b> <span class="muted">'+esc(r.entity_type.replace('_',' '))+(r.detail?' · '+esc(r.detail):'')+'</span>';
+        bt.onclick=function(){ choose(r); [].forEach.call(box.children,function(c){c.setAttribute('aria-pressed','false');}); bt.setAttribute('aria-pressed','true'); };
+        box.appendChild(bt); });
+      if(!(d.data||[]).length) box.innerHTML='<span class="muted">No matching records.</span>';
+    });
+  }
+  function choose(r){ selected=r; document.getElementById('d-entity').value=r.label+' ('+r.entity_type.replace('_',' ')+')'; }
+  document.getElementById('q-go').onclick=search;
+  document.getElementById('q').addEventListener('keydown',function(e){ if(e.key==='Enter'){ e.preventDefault(); search(); } });
+
+  document.getElementById('d-go').onclick=function(){
+    if(!selected){ msg('d-msg','Choose a company record first.'); return; }
+    var intro=toBps(document.getElementById('d-intro').value), ret=toBps(document.getElementById('d-return').value);
+    if(intro==null||isNaN(intro)){ msg('d-msg','Enter the introductory fee (0.00 for no platform fee).'); return; }
+    if(isNaN(ret)){ msg('d-msg','Return fee must be a percent or blank.'); return; }
+    var btn=this; btn.disabled=true; msg('d-msg','Saving…',true);
+    api('POST',BASE,{ entity_type:selected.entity_type, entity_id:selected.entity_id, market:document.getElementById('d-market').value.trim(),
+      reason:document.getElementById('d-reason').value, internal_note:document.getElementById('d-note').value||null,
+      start_date:document.getElementById('d-start').value||null, intro_end_date:document.getElementById('d-end').value||null,
+      intro_platform_fee_bps:intro, return_platform_fee_bps:ret }).then(function(d){
+      btn.disabled=false;
+      if(!d.success){ msg('d-msg',d.message||d.error||'Failed.'); return; }
+      msg('d-msg','Placed under protection'+(d.data&&d.data.lock_note?' ('+d.data.lock_note+')':'')+'.',true); load(); reviewCohort();
+    });
+  };
+
+  function loadCohorts(){
+    api('GET',BASE+'/cohorts').then(function(d){
+      var sel=document.getElementById('cohort');
+      sel.innerHTML=(d.data||[]).map(function(c){ return '<option value="'+esc(c.id)+'">'+esc(c.name)+' ('+esc(c.status)+', '+c.pending+' pending)</option>'; }).join('');
+      if((d.data||[]).length) reviewCohort();
+    });
+  }
+  function reviewCohort(){
+    var id=document.getElementById('cohort').value; if(!id) return;
+    api('GET',BASE+'/cohorts/'+id+'/review').then(function(d){
+      if(!d.success) return; var s=d.data.summary, tb=document.getElementById('cohort-rows');
+      document.getElementById('cohort-summary').innerHTML='<div><span>Pending</span><b>'+s.pending+'</b></div><div><span>In target profile</span><b>'+s.in_target_profile+'</b></div>'+
+        '<div><span>Data flags</span><b>'+s.flagged+'</b></div><div><span>Identity concerns</span><b>'+s.identity_concerns+'</b></div><div><span>Already Founding Partner</span><b>'+s.already_founding_partner+'</b></div>';
+      tb.innerHTML=d.data.members.map(function(m){
+        var tgt=m.in_target_profile?'<span class="pill p-yes">'+esc(m.market)+'</span>':'<span class="pill p-no">'+esc(m.market||'other market')+'</span>';
+        if(m.data_flags.length) tgt+='<div class="w-line w-warning">'+esc(m.data_flags.join('; '))+'</div>';
+        var idn=(m.identity_concern?'<span class="pill p-flag">review</span><div class="w-line w-warning">'+esc(m.identity_concern)+'</div>':'<span class="pill p-yes">clear</span>')+
+          '<div class="muted">'+m.company_records+' record(s) · BD '+esc(m.bd_listing_id||'—')+(m.journey?' · '+esc(m.journey):'')+'</div>';
+        var act=m.founding_partner?'<span class="pill p-active">Founding Partner · '+esc(m.founding_partner.status)+'</span>'
+          :(m.can_place_under_protection?'<button class="b g sm" data-org="'+esc(m.organization_id)+'" data-name="'+esc(m.name)+'" data-market="'+esc(m.market||'')+'">Prepare protection</button>':'');
+        return '<tr><td><b>'+esc(m.name)+'</b><div class="muted">'+esc(m.website||'')+'</div></td><td>'+esc(m.city||'')+', '+esc(m.state||'')+'</td>'+
+          '<td>'+esc((m.profession||'unknown').replace(/_/g,' '))+'</td><td>'+tgt+'</td><td>'+idn+'</td>'+
+          '<td>'+esc(m.email_domain||'no email')+(m.has_phone?' · phone':'')+(m.has_google_place?' · Google':'')+'</td>'+
+          '<td>'+esc(m.eligibility_decision||'—')+(m.tier?'<div class="muted">tier '+esc(m.tier)+' · '+esc(m.score)+'</div>':'')+'</td><td>'+act+'</td></tr>';
+      }).join('');
+    });
+  }
+  document.getElementById('cohort-go').onclick=reviewCohort;
+  document.getElementById('cohort-rows').addEventListener('click',function(e){
+    var b=e.target.closest('button[data-org]'); if(!b) return;
+    choose({entity_type:'organization',entity_id:b.dataset.org,label:b.dataset.name});
+    document.getElementById('d-market').value=b.dataset.market||'';
+    msg('d-msg','Prepared '+b.dataset.name+'. Enter the reason and dates, then place under protection.',true);
+    document.getElementById('designate').scrollIntoView({behavior:'smooth'});
+  });
+
+  load(); loadCohorts();
+})();
+</script>
+</body>
+</html>

@@ -4,7 +4,7 @@
  * journeyService — exactly one acquisition journey per company.
  *
  * Journeys: CLAIMED_LISTING (directory listings), EVENT_PARTNER (authorization invited or beyond),
- * SALES_DIRECT (rep-led). A professional seller has no acquisition journey: it is a customer.
+ * SALES_DIRECT (rep-led), FOUNDING_PARTNER (staff-handled Founding Auction Partner). A professional seller has no acquisition journey: it is a customer.
  *
  * The effective journey is the persisted active assignment when one exists, otherwise the journey the
  * company's records imply (companyIdentityService.deriveJourney). Assignment is idempotent; the partial
@@ -18,7 +18,9 @@ const db = require('../../db');
 const { withTransaction } = require('../../utils/withTransaction');
 const auditService = require('../auditService');
 
-const JOURNEYS = ['CLAIMED_LISTING', 'EVENT_PARTNER', 'SALES_DIRECT'];
+// FOUNDING_PARTNER (migration 185): a company handled 1:1 by staff as a Founding Auction Partner. Assigned only by
+// foundingPartnerService.designate; no automated program messages it.
+const JOURNEYS = ['CLAIMED_LISTING', 'EVENT_PARTNER', 'SALES_DIRECT', 'FOUNDING_PARTNER'];
 
 function err(status, code, message) { const e = new Error(message); e.status = status; e.code = code; e.expose = true; return e; }
 

@@ -15,6 +15,7 @@
  *                                  to the same COMPANY (not just the same address).
  *   4  EXCLUDE_CLAIMED_LISTING     the listing already has an owner (it moves to the activation track).
  *   5  EXCLUDE_EVENT_PARTNER       the company's journey is Event Partner.
+ *  5b  EXCLUDE_FOUNDING_PARTNER    the company is handled by staff as a Founding Auction Partner (migration 185).
  *   6  EXCLUDE_PRO_SELLER          the company is a professional seller.
  *  6b  EXCLUDE_PAID_MEMBER         the listing is on a paid directory plan the company holds (not the free
  *                                  Claim Listing plan). An unknown plan is held under rule 10 (fail closed).
@@ -43,6 +44,7 @@ const D = Object.freeze({
   ELIGIBLE: 'ELIGIBLE_UNCLAIMED_LISTING',
   CLAIMED: 'EXCLUDE_CLAIMED_LISTING',
   EVENT_PARTNER: 'EXCLUDE_EVENT_PARTNER',
+  FOUNDING_PARTNER: 'EXCLUDE_FOUNDING_PARTNER',
   PRO_SELLER: 'EXCLUDE_PRO_SELLER',
   PAID_MEMBER: 'EXCLUDE_PAID_MEMBER',
   SUPPRESSED: 'EXCLUDE_SUPPRESSED',
@@ -67,7 +69,7 @@ function directoryPlan(o) {
 /** Does another cluster carry a relationship a cold invitation must not ignore? */
 function hasRelationship(cluster) {
   if (!cluster) return false;
-  if (cluster.journey === 'EVENT_PARTNER') return true;
+  if (cluster.journey === 'EVENT_PARTNER' || cluster.journey === 'FOUNDING_PARTNER') return true;
   return cluster.members.some((m) =>
     (m.entity_type === 'organization' && (m.row.has_owner || m.row.linked_seller_profile_id))
     || m.entity_type === 'seller_profile'
@@ -119,6 +121,7 @@ function decide(entity, ctx) {
   if (o.has_owner || members.some((m) => m.entity_type === 'organization' && m.row.has_owner && m.entity_id === o.id)) {
     return out(D.CLAIMED, 'the listing already has an owner (activation track)', { matched_entity_type: 'organization', matched_entity_id: o.id, signals });
   }
+  if (cluster && cluster.journey === 'FOUNDING_PARTNER') return out(D.FOUNDING_PARTNER, 'the company is handled by staff as a Founding Auction Partner (' + (cluster.journey_reason || '') + ')', { signals });
   if (cluster && cluster.journey === 'EVENT_PARTNER') return out(D.EVENT_PARTNER, 'the company is in the Event Partner journey (' + (cluster.journey_reason || '') + ')', { signals });
   const pro = members.find((m) => m.entity_type === 'seller_profile') || (o.linked_seller_profile_id ? { entity_type: 'seller_profile', entity_id: o.linked_seller_profile_id, label: 'linked seller' } : null);
   if (pro) return out(D.PRO_SELLER, 'the company is a Professional Seller', { matched_entity_type: 'seller_profile', matched_entity_id: pro.entity_id, signals });

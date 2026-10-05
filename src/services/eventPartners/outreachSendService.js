@@ -55,6 +55,19 @@ async function ensureOrganizationForProspect(prospect, runner = db) {
       WHERE lower(regexp_replace(COALESCE(website_url,''), '^https?://(www\\.)?', '')) LIKE $1
          OR lower(name) = lower($2) LIMIT 1`, [domain + '%', prospect.company_name])).rows[0];
   if (existing) {
+    // Founding Partner (migration 185): staff handle the company 1:1. Never attach an automated invitation to it.
+    // Fails closed: if the journey cannot be determined, refuse.
+    let fpJourney = null;
+    try {
+      const snap = await require('../acquisition/companyIdentityService').snapshot(runner);
+      const c = snap.clusterFor('organization', String(existing.id));
+      fpJourney = c ? c.journey : null;
+    } catch (e) { fpJourney = 'UNKNOWN'; }
+    if (fpJourney === 'FOUNDING_PARTNER' || fpJourney === 'UNKNOWN') {
+      return { ok: false, code: fpJourney === 'UNKNOWN' ? 'COMPANY_CHECK_FAILED' : 'FOUNDING_PARTNER',
+        reason: fpJourney === 'UNKNOWN' ? 'could not determine the company journey for ' + existing.name
+          : existing.name + ' is handled by staff as a Founding Auction Partner; it cannot receive an Event Partner invitation' };
+    }
     // Journey lock (migration 169): a directory listing belongs to the Claimed Listing journey. Attaching
     // an Event Partner invitation to it would make it token-only claimable by a cold invitation — the
     // collision the Owner prohibited. Refuse unless the company has ALREADY entered Event Partner.

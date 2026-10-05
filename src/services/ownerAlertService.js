@@ -66,6 +66,8 @@ const ALERT_TYPES = {
   COMPLIANCE_ESCALATION: 'compliance_escalation',
   // Sasha info@ mailbox reader health (login rejected, polling stopped, mailbox renumbered, no mail for 24h).
   SASHA_IMAP_HEALTH: 'sasha_imap_health',
+  // A Founding Auction Partner's introductory platform-fee period is ending or has ended (the fee never changes by itself).
+  FOUNDING_PARTNER_INTRO_ENDING: 'founding_partner_intro_ending',
 };
 
 // ── Recipient routing (role-ready) ────────────────────────────────────────────
@@ -85,6 +87,7 @@ const PER_TYPE_ENV = {
   [ALERT_TYPES.SETTLEMENT_EXCEPTION]: null,
   [ALERT_TYPES.COMPLIANCE_ESCALATION]: null,
   [ALERT_TYPES.SASHA_IMAP_HEALTH]: null,
+  [ALERT_TYPES.FOUNDING_PARTNER_INTRO_ENDING]: null,
 };
 
 // Resolve the VALIDATED, DEDUPED recipient list for an alert type. Precedence:
