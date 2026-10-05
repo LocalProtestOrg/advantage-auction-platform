@@ -8,7 +8,7 @@ async function generateAuctionReport(auctionId) {
     // govern the platform fee (professional → per-seller rate of hammer, DEFAULT 4%; individual → 0%).
     `SELECT a.id, a.title, a.end_time AS ends_at, sp.seller_type,
             COALESCE(a.platform_fee_bps, sp.platform_fee_bps) AS platform_fee_bps,
-            a.processing_fee_bps, a.pricing_model
+            a.processing_fee_bps, a.pricing_model, a.processing_fee_basis
        FROM auctions a LEFT JOIN seller_profiles sp ON sp.id = a.seller_id
       WHERE a.id = $1`,
     [auctionId]
@@ -72,8 +72,12 @@ async function generateAuctionReport(auctionId) {
   // (centralized-pricing) auctions it is the frozen 3%-of-hammer snapshot; legacy auctions carry 0 here
   // (their credit-card processing is the actual-Stripe-cost line in the settlement workbench).
   const isV2 = auction.pricing_model === 'v2_separated';
+  // Auction Partner (migration 186): processing is the ACTUAL Stripe fee of the auction's buyer payments — it cannot be
+  // attributed per lot and is never a percentage. The auction total is the recorded actual cost (pending until complete).
+  const isActual = isV2 && auction.processing_fee_basis === 'actual_stripe';
+  const actualAgg = isActual ? await require('./actualProcessingService').forAuction(auctionId) : null;
   const calcFee  = (gross) => platformFeeCents(gross, auction.seller_type, auction.platform_fee_bps);
-  const calcProc = (gross) => (isV2 ? processingFeeCents(gross, auction.processing_fee_bps) : 0);
+  const calcProc = (gross) => (isActual ? 0 : (isV2 ? processingFeeCents(gross, auction.processing_fee_bps) : 0));
 
   const lots = lotsRes.rows.map(row => {
     const gross     = row.winning_amount_cents ?? 0;
@@ -100,7 +104,7 @@ async function generateAuctionReport(auctionId) {
 
   const gross_revenue_cents = summary.total_revenue_cents;
   const platform_fee_cents  = calcFee(gross_revenue_cents);
-  const processing_fee_cents = calcProc(gross_revenue_cents);
+  const processing_fee_cents = isActual ? (actualAgg.complete ? actualAgg.cents : 0) : calcProc(gross_revenue_cents);
   const seller_payout_cents = gross_revenue_cents - platform_fee_cents - processing_fee_cents;
 
   return {
@@ -118,7 +122,8 @@ async function generateAuctionReport(auctionId) {
       gross_revenue_cents,
       platform_fee_cents,
       processing_fee_cents,
-      processing_fee_bps: isV2 ? Number(auction.processing_fee_bps || 0) : 0,
+      processing_fee_bps: isActual ? 0 : (isV2 ? Number(auction.processing_fee_bps || 0) : 0),
+      ...(isActual ? { processing_fee_basis: 'actual_stripe', processing_fee_pending: !(actualAgg.complete && actualAgg.payments > 0) } : {}),
       seller_payout_cents,
     },
     lots,

@@ -6,7 +6,10 @@ staff operate the program. Partner selection, outreach and final emails are **ou
 ## Commercial rule (permanent unless the Owner changes it)
 
 - Advantage.Bid may temporarily waive **its own professional auction platform/software fee** for a Founding Partner.
-- The **3% card-processing fee is never waived**. It stays the seller's responsibility; Advantage.Bid never absorbs it.
+- **Payment processing is never waived.** For an auction published under the 0% partner fee, the seller's processing
+  deduction is the **actual Stripe processing fee** on that auction's buyer payments (hammer + premium + tax as charged),
+  passed through at cost: no markup, no subsidy (Owner policy 2026-10-05; migration 186). Other auctions keep the
+  3%-of-hammer policy rate.
 - The global default professional fee, any public promotional pricing and **Storefront pricing (flat 11%)** do not change.
 - No duration is assumed. An introductory end date is optional and set per partner.
 
@@ -25,7 +28,8 @@ staff operate the program. Partner selection, outreach and final emails are **ou
 | --- | --- | --- |
 | **Place under protection** (`prospect`) | Super Admin, `/admin/founding-partners.html` | Company moves into the `FOUNDING_PARTNER` acquisition journey; open Claimed Listing sequences stop; the person handling it takes the company contact lock; records are tagged in `acquisition.founding_partner`. **No fee changes.** |
 | **Link seller + apply fee** (`active`) | Super Admin | The introductory rate (default 0%) is written to the seller's existing rate (`seller_profiles.platform_fee_bps`, the Moderation "Stored Platform Fee"), audited as `seller_platform_fee_changed` (source `founding_partner`). Refused while a pricing agreement exists or for a non-professional seller. |
-| **Publish** | normal flow | The publish snapshot freezes platform + 3% processing into the auction and stamps `auctions.founding_partner_id`. For a reduced-fee professional a snapshot failure **stops the publish** rather than publishing unfrozen. |
+| **Publish** | normal flow | The publish snapshot freezes the platform fee, the processing basis (`processing_fee_basis = actual_stripe` while the 0% partner fee is applied) and stamps `auctions.founding_partner_id`. For a reduced-fee professional a snapshot failure **stops the publish** rather than publishing unfrozen. |
+| **Settle** | normal admin flow | Processing = actual Stripe fee of the auction's collected payments, net of any fee Stripe returned on a refund. If any payment's actual fee is not recorded, the settlement stays in review and **cannot be paid** (no percentage fallback). |
 | **Restore return fee** | Super Admin (never automatic) | Puts the return rate back. Only auctions published afterwards use it. Refused if someone changed the seller's rate elsewhere. |
 | **End** | Super Admin | Record kept for attribution. Must restore the fee first. The journey stays `FOUNDING_PARTNER` until a Super Admin moves it in the Claimed Listings toolbox (fail closed). |
 

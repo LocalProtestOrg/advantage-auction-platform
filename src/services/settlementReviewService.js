@@ -50,6 +50,8 @@ async function auditTimeline(auctionId) {
 
 // Payment-readiness warnings shown prominently at the top of the review.
 function readinessWarnings({ totals, payoutStatus, prefMethod, stripeIncomplete }) {
+  // Auction Partner (actual Stripe pass-through): not payable until the actual cost is verified.
+  const actualUnverified = totals.processing_fee_complete === false;
   const w = [];
   if (totals.outstanding_balance_cents > 0) w.push('Outstanding Buyer Payments');
   if (totals.failed_payments_cents > 0) w.push('Failed Payments Present');
@@ -58,6 +60,7 @@ function readinessWarnings({ totals, payoutStatus, prefMethod, stripeIncomplete 
     w.push(prefMethod === 'check' ? 'Missing Mailing Address' : 'Seller Banking Incomplete');
   }
   if (stripeIncomplete) w.push('Stripe Processing Not Complete');
+  if (actualUnverified) w.push('Actual Stripe Processing Not Verified (Auction Partner settlement cannot be paid yet)');
   return w;
 }
 
@@ -116,7 +119,9 @@ async function assembleSettlementReview(auctionId) {
     marketing,
     stripe: {
       actual_processing_cents: totals.credit_card_processing_fee_cents,
-      balance_transaction_incomplete: stripeIncomplete,
+      balance_transaction_incomplete: stripeIncomplete || totals.processing_fee_complete === false,
+      processing_basis: totals.processing_fee_basis || null,               // 'actual_stripe' | 'policy_rate' | 'legacy_actual'
+      processing_incomplete_reason: totals.processing_fee_incomplete_reason || null,
     },
     summary: totals,
     payment: sp ? {
@@ -133,7 +138,8 @@ async function assembleSettlementReview(auctionId) {
     readiness: (() => {
       const { stripeConnectEnabled } = require('../lib/launchGuards');
       const { connectPayoutReady } = require('./settlementEngine');
-      const baseReady = !isPaid && payoutStatus === PAYOUT_STATUS.READY && totals.outstanding_balance_cents === 0;
+      const baseReady = !isPaid && payoutStatus === PAYOUT_STATUS.READY && totals.outstanding_balance_cents === 0
+        && totals.processing_fee_complete !== false;                       // Auction Partner: actual Stripe cost verified
       const isDirectDeposit = (pref && pref.payout_method) === 'ach';
       return {
         warnings: readinessWarnings({ totals, payoutStatus, prefMethod: (pref && pref.payout_method) || null, stripeIncomplete }),

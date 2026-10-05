@@ -30,6 +30,7 @@ const auditService = require('./auditService');
 const { listAdjustments } = require('./settlementAdjustmentService');
 const { getSellerPayoutPreference } = require('./payoutPreferenceService');
 const { platformFeeCents, processingFeeCents, isProfessionalSellerType, DEFAULT_PRO_PLATFORM_FEE_BPS, sumAdjustments, SETTLEMENT_AUDIT_EVENTS, SETTLEMENT_STATUS } = require('../lib/settlementPolicy');
+const actualProcessing = require('./actualProcessingService');
 
 class MarkPaidError extends Error {}
 
@@ -73,7 +74,15 @@ function computeSettlementTotals(i = {}) {
   // NOT deducted again (reconciliation only) — no double processing charge. Legacy auctions keep the
   // prior behavior: the actual Stripe cost IS the processing deduction and there is no flat 3%.
   const isV2 = i.pricingModel === 'v2_separated';
-  const processingFee = isV2 ? processingFeeCents(grossSales, i.processingFeeBps) : stripeFee;
+  // AUCTION PARTNER (migration 186): an auction frozen at publish with processing_fee_basis='actual_stripe' deducts the
+  // ACTUAL Stripe fee of its collected buyer payments (no markup, no subsidy). Never a percentage: when the actual
+  // cost is not fully recorded the settlement is INCOMPLETE and cannot be paid (assertMarkPaidAllowed /
+  // assertPaySellerAllowed). A caller that supplies no actual figures gets INCOMPLETE, never a fallback.
+  const isActualBasis = isV2 && actualProcessing.isActual(i.processingFeeBasis);
+  const actual = isActualBasis ? (i.actualProcessing || { cents: 0, complete: false, payments: 0, missing: [{ reason: 'not_assembled' }] }) : null;
+  const processingFee = isActualBasis ? cents(actual.cents)
+    : (isV2 ? processingFeeCents(grossSales, i.processingFeeBps) : stripeFee);
+  const processingComplete = isActualBasis ? !!actual.complete : true;
   const netProceeds  = netCollected + adj.net_cents - marketing - processingFee - platformFee;
   // SETTLEMENT SHORTFALL POLICY (owner-authoritative): when applicable deductions exceed proceeds, the
   // settlement computes accurately (net may be negative) but NO negative/zero payout is ever paid. The
@@ -96,8 +105,11 @@ function computeSettlementTotals(i = {}) {
     net_collected_cents:              netCollected,       // seller's share, net of refunds (the payout basis)
     adjustments:                      { credit_cents: adj.credit_cents, debit_cents: adj.debit_cents, net_cents: adj.net_cents },
     marketing_deduction_cents:        marketing,
-    credit_card_processing_fee_cents: processingFee,          // amount actually DEDUCTED (v2: 3% flat; legacy: actual Stripe)
-    processing_fee_bps:               isV2 ? Math.max(0, cents(i.processingFeeBps)) : 0,
+    credit_card_processing_fee_cents: processingFee,          // amount actually DEDUCTED (v2: 3% flat; Auction Partner + legacy: actual Stripe)
+    processing_fee_bps:               isActualBasis ? 0 : (isV2 ? Math.max(0, cents(i.processingFeeBps)) : 0),
+    processing_fee_basis:             isActualBasis ? actualProcessing.ACTUAL : (isV2 ? 'policy_rate' : 'legacy_actual'),
+    processing_fee_complete:          processingComplete,     // false → the actual Stripe cost is not yet verified; not payable
+    processing_fee_incomplete_reason: isActualBasis ? actualProcessing.incompleteReason(actual) : null,
     actual_stripe_cost_cents:         stripeFee,               // internal reconciliation ONLY — never a second deduction
     seller_platform_fee_bps:          isProfessionalSellerType(i.sellerType)
                                         ? (i.sellerPlatformFeeBps == null ? DEFAULT_PRO_PLATFORM_FEE_BPS : Math.trunc(Number(i.sellerPlatformFeeBps)))
@@ -211,7 +223,7 @@ async function assembleSettlementInputs(auctionId) {
   // DEFAULT 4%; individual → 0%).
   const stRes = await db.query(
     `SELECT sp.seller_type, sp.platform_fee_bps AS seller_platform_bps,
-            a.platform_fee_bps AS snap_platform_bps, a.processing_fee_bps, a.pricing_model
+            a.platform_fee_bps AS snap_platform_bps, a.processing_fee_bps, a.pricing_model, a.processing_fee_basis
        FROM auctions a LEFT JOIN seller_profiles sp ON sp.id = a.seller_id WHERE a.id = $1`, [auctionId]);
   const row = stRes.rows[0] || {};
   const sellerType = row.seller_type || null;
@@ -221,6 +233,7 @@ async function assembleSettlementInputs(auctionId) {
     ? row.snap_platform_bps
     : row.seller_platform_bps;
   const processingFeeBps = row.processing_fee_bps;
+  const processingFeeBasis = row.processing_fee_basis || null;
 
   // Expected / collected / outstanding from per-buyer combined invoices (Design C), plus the split of what
   // was collected: the seller's share (hammer + professional premium + shipping) versus sales tax and the
@@ -244,7 +257,8 @@ async function assembleSettlementInputs(auctionId) {
 
   // Refunds + failed + Stripe-fee source rows from payments for this auction.
   const payRes = await db.query(
-    `SELECT id, payment_intent_id, status, refunded_amount_cents, stripe_fee_cents
+    `SELECT id, payment_intent_id, status, refunded_amount_cents, stripe_fee_cents,
+            stripe_refund_fee_cents, stripe_refund_fee_refunded_cents
        FROM payments WHERE auction_id = $1`, [auctionId]);
   const payments = payRes.rows;
   const refunds = payments.reduce((s, p) => s + cents(p.refunded_amount_cents), 0);
@@ -255,8 +269,18 @@ async function assembleSettlementInputs(auctionId) {
   for (const p of payments) {
     if (p.status === 'paid' || p.status === 'partially_refunded' || p.status === 'refunded') {
       const fee = p.stripe_fee_cents != null ? p.stripe_fee_cents : await captureStripeFeeForPayment(p);
+      if (fee != null) p.stripe_fee_cents = fee;
       stripeFee += cents(fee);
     }
+  }
+
+  // Auction Partner: the actual cost also needs what Stripe did with the fee on any refund (recorded, never assumed).
+  let actual = null;
+  if (pricingModel === 'v2_separated' && actualProcessing.isActual(processingFeeBasis)) {
+    for (const p of payments) {
+      if (actualProcessing.COLLECTED.includes(p.status) && Number(p.refunded_amount_cents) > 0) await actualProcessing.captureRefundFee(p);
+    }
+    actual = actualProcessing.aggregate(payments);
   }
 
   const adjustments = await listAdjustments(auctionId);          // active credit/debit
@@ -267,6 +291,8 @@ async function assembleSettlementInputs(auctionId) {
     sellerPlatformFeeBps,
     pricingModel,
     processingFeeBps,
+    processingFeeBasis,
+    actualProcessing:               actual,
     grossSalesCents:                Number(grossRes.rows[0].gross),
     buyerPaymentsExpectedCents:     Number(inv.expected),
     buyerPaymentsCollectedCents:    Number(inv.collected),
@@ -321,6 +347,11 @@ async function recalculateSettlement(auctionId, actorId = null) {
       [auctionId, nextVersion, totals.net_seller_proceeds_cents,
        (totals.seller_platform_fee_bps != null ? totals.seller_platform_fee_bps : null),
        totals.seller_platform_fee_cents]);
+    // Auction Partner: the stored processing line follows the actual Stripe cost (other auctions are unchanged).
+    if (totals.processing_fee_basis === actualProcessing.ACTUAL) {
+      await client.query(`UPDATE seller_payouts SET processing_fee_bps = 0, processing_fee_cents = $2 WHERE auction_id = $1`,
+        [auctionId, totals.credit_card_processing_fee_cents]);
+    }
 
     await auditService.logEvent(client, {
       eventType: nextVersion === 1 ? SETTLEMENT_AUDIT_EVENTS.SETTLEMENT_CREATED : SETTLEMENT_AUDIT_EVENTS.SETTLEMENT_RECALCULATED,
@@ -373,6 +404,7 @@ function assertMarkPaidAllowed(state, input) {
   if (s.settlementStatus === SETTLEMENT_STATUS.VOID) throw new MarkPaidError('Settlement is void (not payable)' + (s.voidReason ? ': ' + s.voidReason : '') + '.');
   if (s.settlementStatus === SETTLEMENT_STATUS.ON_HOLD) throw new MarkPaidError('Settlement is on hold' + (s.onHoldReason ? ' (' + s.onHoldReason + ')' : '') + '. Release the hold before paying.');
   if (s.openDisputes > 0) throw new MarkPaidError('A payment dispute is open for this auction. Resolve it before paying the seller.');
+  if (s.processingIncomplete) throw new MarkPaidError(s.processingIncompleteReason || 'Actual Stripe processing cost could not be verified. The settlement stays in review.');
   if (i.paymentMethod !== 'ach' && i.paymentMethod !== 'check') throw new MarkPaidError("Payment method must be 'ach' or 'check'.");
   if (!s.payoutPreferenceComplete) throw new MarkPaidError('Seller payment preference is incomplete; cannot mark paid.');
   if (!i.paymentReference || !String(i.paymentReference).trim()) throw new MarkPaidError('A payment reference is required.');
@@ -410,6 +442,8 @@ async function markSettlementPaid(auctionId, {
       onHoldReason: sp && sp.on_hold_reason,
       voidReason: sp && sp.void_reason,
       openDisputes,
+      processingIncomplete: totals.processing_fee_complete === false,
+      processingIncompleteReason: totals.processing_fee_incomplete_reason,
       netProceedsCents: totals.net_seller_proceeds_cents,
       payoutPreferenceComplete: payoutPreferenceComplete(pref),
     }, { paymentMethod, paymentReference, paidAt, finalAmountCents, confirmedCompleted });
@@ -473,6 +507,7 @@ function assertPaySellerAllowed(state, input) {
   if (s.settlementStatus === SETTLEMENT_STATUS.VOID) throw new PaySellerError('Settlement is void (not payable)' + (s.voidReason ? ': ' + s.voidReason : '') + '.');
   if (s.settlementStatus === SETTLEMENT_STATUS.ON_HOLD) throw new PaySellerError('Settlement is on hold' + (s.onHoldReason ? ' (' + s.onHoldReason + ')' : '') + '. Release the hold before paying.');
   if (s.openDisputes > 0) throw new PaySellerError('A payment dispute is open for this auction. Resolve it before paying the seller.');
+  if (s.processingIncomplete) throw new PaySellerError(s.processingIncompleteReason || 'Actual Stripe processing cost could not be verified. The settlement stays in review.');
   if (s.existingTransferId) throw new PaySellerError('A Stripe transfer already exists for this settlement.');
   if (s.payoutMethod !== 'ach') throw new PaySellerError('Seller payout method is not Direct Deposit.');
   if (!s.connectReady) throw new PaySellerError('Seller Direct Deposit is not ready (Stripe onboarding incomplete or payouts disabled).');
@@ -509,6 +544,8 @@ async function paySellerViaTransfer(auctionId, { actorId = null, confirmedComple
       onHoldReason: sp && sp.on_hold_reason,
       voidReason: sp && sp.void_reason,
       openDisputes,
+      processingIncomplete: totals.processing_fee_complete === false,
+      processingIncompleteReason: totals.processing_fee_incomplete_reason,
       existingTransferId: sp && sp.stripe_transfer_id,
       payoutMethod: pref && pref.payout_method,
       connectReady: connectPayoutReady(pref),

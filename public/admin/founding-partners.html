@@ -56,8 +56,10 @@
 
     <div class="rule" id="rule">
       <b>Fee rule.</b> Only Advantage.Bid's professional auction platform fee is reduced, and only on the partner's own seller account.
-      The card-processing fee is never waived. The sitewide professional fee and Storefront pricing do not change.
-      Each auction keeps the rates it was published with; restoring the return fee affects only auctions published afterwards.
+      Payment processing is never waived: an auction published at the 0% partner fee deducts the <b>actual card-processing charges</b>
+      on its buyers' payments, at cost (no markup, no subsidy). The settlement cannot be paid until that actual cost is recorded.
+      The sitewide professional fee and Storefront pricing do not change.
+      Each auction keeps the terms it was published with; restoring the return fee affects only auctions published afterwards.
       <div class="kv" style="margin-top:8px" id="pricing"></div>
     </div>
 
@@ -136,7 +138,8 @@
       if(!d.success){ msg('rows-msg',d.message||d.error||'Could not load.'); return; }
       var p=d.pricing||{};
       document.getElementById('pricing').innerHTML=
-        '<div><span>Processing (never waived)</span><b>'+pct(p['pricing.auction.processing_fee_bps'])+'</b></div>'+
+        '<div><span>Processing, partner auctions</span><b>Actual card-processing cost</b></div>'+
+        '<div><span>Processing, other auctions</span><b>'+pct(p['pricing.auction.processing_fee_bps'])+' of hammer</b></div>'+
         '<div><span>Sitewide professional platform fee</span><b>'+pct(p['pricing.auction.professional.platform_fee_bps'])+'</b></div>'+
         '<div><span>Storefront seller fee</span><b>'+pct(p['pricing.storefront.seller_fee_bps'])+'</b></div>';
       var rows=d.data||[], tb=document.getElementById('rows'), alerts=[];

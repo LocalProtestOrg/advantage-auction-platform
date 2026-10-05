@@ -58,7 +58,7 @@ function buyerPremiumForLots(lots, bps) {
 // The ONE settlement model. Given the seller type + aggregate hammer + already-summed buyer premium,
 // returns what the buyer pays, Advantage's revenue, and the seller's payout — the SAME numbers used
 // for both the preview and the actual payout (no divergence).
-function settlement({ sellerType, hammerCents, buyerPremiumCents, platformFeeBps, processingFeeBps, pricingModel }) {
+function settlement({ sellerType, hammerCents, buyerPremiumCents, platformFeeBps, processingFeeBps, pricingModel, processingFeeBasis = null, actualProcessingCents = null }) {
   const h = Math.max(0, Math.round(Number(hammerCents) || 0));
   const bp = Math.max(0, Math.round(Number(buyerPremiumCents) || 0));
   const buyer_total_cents = h + bp;
@@ -66,11 +66,21 @@ function settlement({ sellerType, hammerCents, buyerPremiumCents, platformFeeBps
   // Legacy auctions (pricing_model !== 'v2_separated') carry NO flat processing deduction — their prior
   // economics are preserved exactly (processing handled by the settlement workbench's actual-Stripe line).
   const isV2 = pricingModel === 'v2_separated';
-  const procBps = !isV2 ? 0
+  // AUCTION PARTNER (migration 186): processing = the ACTUAL Stripe fee of the auction's buyer payments, supplied by
+  // the caller once recorded. Until then it is PENDING (0 here, flagged), never a percentage; settlementEngine blocks
+  // payment until the actual cost is verified.
+  const actualBasis = isV2 && processingFeeBasis === 'actual_stripe';
+  const actualKnown = actualBasis && actualProcessingCents != null && Number.isFinite(Number(actualProcessingCents));
+  const procBps = (!isV2 || actualBasis) ? 0
     : (processingFeeBps == null || !Number.isFinite(Number(processingFeeBps)))
       ? DEFAULT_PROCESSING_FEE_BPS
       : Math.max(0, Math.round(Number(processingFeeBps)));
-  const processing_fee_cents = roundHalfUp(h * procBps / 10000); // 3% of hammer (own base — never fee-on-fee)
+  const processing_fee_cents = actualBasis
+    ? (actualKnown ? Math.max(0, Math.round(Number(actualProcessingCents))) : 0)
+    : roundHalfUp(h * procBps / 10000); // 3% of hammer (own base — never fee-on-fee)
+  const processing = actualBasis
+    ? { processing_fee_basis: 'actual_stripe', processing_fee_pending: !actualKnown }
+    : {};
   if (isProfessional(sellerType)) {
     // Per-seller software fee (basis points). DEFAULT 4% only when no per-seller rate is supplied.
     const feeBps = (platformFeeBps == null || !Number.isFinite(Number(platformFeeBps)))
@@ -86,6 +96,7 @@ function settlement({ sellerType, hammerCents, buyerPremiumCents, platformFeeBps
       advantage_revenue_cents: platform_fee_cents + processing_fee_cents, // platform + processing (BP is seller's)
       seller_gross_cents: h + bp,                            // seller keeps hammer + their own premium
       seller_payout_cents: h + bp - platform_fee_cents - processing_fee_cents,
+      ...processing,
     };
   }
   return {                                                   // individual
@@ -97,6 +108,7 @@ function settlement({ sellerType, hammerCents, buyerPremiumCents, platformFeeBps
     advantage_revenue_cents: bp + processing_fee_cents,      // buyer premium (100%) + processing fee
     seller_gross_cents: h,                                   // seller receives the hammer only
     seller_payout_cents: h - processing_fee_cents,           // hammer minus 3% processing (v2); hammer (legacy)
+    ...processing,
   };
 }
 
@@ -104,7 +116,7 @@ function settlement({ sellerType, hammerCents, buyerPremiumCents, platformFeeBps
 async function resolveEffectiveTerms(auctionId, client = db) {
   const a = (await client.query(
     `SELECT a.buyer_premium_bps, a.platform_fee_bps AS snap_platform_bps,
-            a.processing_fee_bps AS snap_processing_bps, a.pricing_model,
+            a.processing_fee_bps AS snap_processing_bps, a.pricing_model, a.processing_fee_basis,
             sp.seller_type, sp.platform_fee_bps AS seller_platform_bps, st.buyer_premium_pct
        FROM auctions a
        LEFT JOIN seller_profiles sp ON sp.id = a.seller_id
@@ -124,6 +136,7 @@ async function resolveEffectiveTerms(auctionId, client = db) {
       platform_fee_bps: a.snap_platform_bps != null ? Number(a.snap_platform_bps)
         : (!isProfessional(a.seller_type) ? 0 : DEFAULT_PRO_PLATFORM_FEE_BPS),
       processing_fee_bps: a.snap_processing_bps != null ? Number(a.snap_processing_bps) : DEFAULT_PROCESSING_FEE_BPS,
+      processing_fee_basis: a.processing_fee_basis || null,   // 'actual_stripe' = Auction Partner pass-through (frozen at publish)
       pricing_model,
       seller_type: a.seller_type || null, is_professional: isProfessional(a.seller_type), source: 'snapshot',
     };
@@ -154,12 +167,18 @@ async function getSettlement(auctionId, client = db) {
     [auctionId]);
   const hammerCents = rows.reduce((s, r) => s + (Number(r.winning_amount_cents) || 0), 0);
   const buyerPremiumCents = buyerPremiumForLots(rows, terms.buyer_premium_bps);
+  // Auction Partner: the actual Stripe cost recorded so far (DB only). Used only when complete; otherwise pending.
+  let actualProcessingCents = null;
+  if (terms.processing_fee_basis === 'actual_stripe') {
+    const agg = await require('./actualProcessingService').forAuction(auctionId, client);
+    if (agg.complete && agg.payments > 0) actualProcessingCents = agg.cents;
+  }
   return {
     effective_terms: terms,
     settlement: settlement({
       sellerType: terms.seller_type, hammerCents, buyerPremiumCents,
       platformFeeBps: terms.platform_fee_bps, processingFeeBps: terms.processing_fee_bps,
-      pricingModel: terms.pricing_model,
+      pricingModel: terms.pricing_model, processingFeeBasis: terms.processing_fee_basis, actualProcessingCents,
     }),
   };
 }

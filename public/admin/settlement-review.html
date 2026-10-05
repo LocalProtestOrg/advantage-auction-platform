@@ -204,7 +204,15 @@
       const feePct = ((Number(s.seller_platform_fee_bps) || 0) / 100).toFixed(2) + '%';
 
       // stripe
-      $('stripe').innerHTML = kv('Actual Stripe Processing Cost', money(d.stripe.actual_processing_cents)) + kv('Processing Recovery', money(d.stripe.actual_processing_cents)) + kv('Balance Transaction Status', d.stripe.balance_transaction_incomplete ? 'Not Yet Captured' : 'Captured') + kv('Platform Fee', feePct);
+      // Processing basis (frozen at publish): Auction Partner auctions pass the ACTUAL Stripe fee through; other v2
+      // auctions deduct the frozen policy rate of hammer; legacy auctions deduct the actual Stripe fee.
+      const basis = d.stripe.processing_basis;
+      const procLabel = basis === 'actual_stripe' ? 'Actual Stripe Processing (Auction Partner pass-through, no markup)'
+        : basis === 'policy_rate' ? 'Payment Processing (' + ((Number(s.processing_fee_bps) || 0) / 100).toFixed(2) + '% of hammer, policy rate)'
+        : 'Actual Stripe Processing';
+      $('stripe').innerHTML = kv('Processing Deducted', esc(procLabel)) + kv('Amount', money(s.credit_card_processing_fee_cents))
+        + kv('Balance Transaction Status', d.stripe.balance_transaction_incomplete ? 'Not Yet Captured' : 'Captured') + kv('Platform Fee', feePct)
+        + (d.stripe.processing_incomplete_reason ? '<div class="kv" style="color:#b91c1c;font-weight:600">' + esc(d.stripe.processing_incomplete_reason) + '</div>' : '');
 
       // formula
       const f = [];
@@ -217,7 +225,7 @@
       f.push(['Plus Credits', s.adjustments.credit_cents?('+'+money(s.adjustments.credit_cents)):money(0), 'op']);
       f.push(['Less Debits', neg(s.adjustments.debit_cents), 'op']);
       f.push(['Less Marketing Charges', neg(s.marketing_deduction_cents), 'op']);
-      f.push(['Less Actual Stripe Processing', neg(s.credit_card_processing_fee_cents), 'op']);
+      f.push(['Less ' + procLabel, neg(s.credit_card_processing_fee_cents), 'op']);
       f.push(['Less Platform Fee (' + feePct + ')', neg(s.seller_platform_fee_cents), 'op']);
       f.push(['Net Seller Payment', money(s.net_seller_proceeds_cents), 'final']);
       $('formula').innerHTML = f.map(([k,v,cls]) => '<div class="row '+(cls==='sub'?'sub':cls==='final'?'final':'')+'"><span class="'+(cls==='op'?'op':'')+'">'+esc(k)+'</span><span>'+v+'</span></div>').join('');

@@ -87,7 +87,9 @@ function sellerSettlementDetailView({ auctionId, auction, sp, totals, marketing 
     // SEPARATE, itemized deductions (never collapsed into a "commission"):
     marketing_package_cents: t.marketing_deduction_cents || 0,           // Marketing Package
     payment_processing_cents: t.credit_card_processing_fee_cents || 0,   // Payment Processing (policy amount deducted)
-    payment_processing_label: 'Payment Processing',
+    // Auction Partner auctions pass through the actual card-processing charges on buyers' payments (no markup).
+    payment_processing_label: t.processing_fee_basis === 'actual_stripe' ? 'Payment Processing (actual card-processing charges)' : 'Payment Processing',
+    payment_processing_pending: t.processing_fee_complete === false,
     platform_fee_cents: t.seller_platform_fee_cents || 0,                // Advantage.Bid Platform/Software Fee
     platform_fee_label: 'Advantage.Bid Platform/Software Fee',
     // Rates derived from the ACTUAL applied fee vs gross hammer (individual → 0.00% platform; professional →
@@ -97,6 +99,7 @@ function sellerSettlementDetailView({ auctionId, auction, sp, totals, marketing 
       return (gross > 0 ? (fee / gross * 100) : 0).toFixed(2) + '%';
     })(),
     payment_processing_pct: (() => {
+      if (t.processing_fee_basis === 'actual_stripe') return t.processing_fee_complete === false ? 'pending' : 'at cost';
       const gross = Number(t.gross_sales_cents) || 0; const proc = Number(t.credit_card_processing_fee_cents) || 0;
       return (gross > 0 ? (proc / gross * 100) : 0).toFixed(2) + '%';
     })(),

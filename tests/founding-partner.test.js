@@ -48,7 +48,7 @@ function mockHandle(sql, p = []) {
   if (/^SELECT id FROM founding_partners WHERE seller_profile_id = \$1 AND status <> 'ended' AND id <> \$2/.test(s)) {
     return rows([...st.fps.values()].filter((f) => f.seller_profile_id === p[0] && f.status !== 'ended' && f.id !== p[1]));
   }
-  if (/^SELECT id, intro_platform_fee_bps FROM founding_partners WHERE seller_profile_id = \$1 AND status = 'active'/.test(s)) {
+  if (/^SELECT id, intro_platform_fee_bps, fee_applied_at, fee_restored_at FROM founding_partners WHERE seller_profile_id = \$1 AND status = 'active'/.test(s)) {
     return rows([...st.fps.values()].filter((f) => f.seller_profile_id === p[0] && f.status === 'active'));
   }
   if (/^UPDATE founding_partners SET status = 'active'/.test(s)) {
@@ -97,16 +97,16 @@ function mockHandle(sql, p = []) {
   if (/^UPDATE auctions SET platform_fee_bps = \$2, processing_fee_bps = \$3, buyer_premium_bps = \$4, pricing_model = 'v2_separated'/.test(s)) {
     if (st.failSnapshot) throw new Error('simulated snapshot failure');
     const a = st.auctions.get(p[0]);
-    if (a.pricing_model == null) Object.assign(a, { platform_fee_bps: p[1], processing_fee_bps: p[2], buyer_premium_bps: p[3], pricing_model: 'v2_separated' });
+    if (a.pricing_model == null) Object.assign(a, { platform_fee_bps: p[1], processing_fee_bps: p[2], buyer_premium_bps: p[3], pricing_model: 'v2_separated', processing_fee_basis: p[4] });
     return rows([]);
   }
   if (/^UPDATE auctions SET founding_partner_id = \$2 WHERE id = \$1 AND founding_partner_id IS NULL/.test(s)) {
     const a = st.auctions.get(p[0]); if (a.founding_partner_id == null) a.founding_partner_id = p[1]; return rows([]);
   }
-  if (/^SELECT pricing_model, processing_fee_bps FROM auctions WHERE id = \$1/.test(s)) { const a = st.auctions.get(p[0]); return rows([{ pricing_model: a.pricing_model, processing_fee_bps: a.processing_fee_bps }]); }
+  if (/^SELECT pricing_model, processing_fee_bps, processing_fee_basis FROM auctions WHERE id = \$1/.test(s)) { const a = st.auctions.get(p[0]); return rows([{ pricing_model: a.pricing_model, processing_fee_bps: a.processing_fee_bps, processing_fee_basis: a.processing_fee_basis }]); }
   if (/a\.platform_fee_bps AS snap_platform_bps, a\.processing_fee_bps AS snap_processing_bps, a\.pricing_model/.test(s)) {
     const a = st.auctions.get(p[0]); const sp = st.sellers.get(a.seller_id);
-    return rows([{ buyer_premium_bps: a.buyer_premium_bps, snap_platform_bps: a.platform_fee_bps, snap_processing_bps: a.processing_fee_bps, pricing_model: a.pricing_model,
+    return rows([{ buyer_premium_bps: a.buyer_premium_bps, snap_platform_bps: a.platform_fee_bps, snap_processing_bps: a.processing_fee_bps, pricing_model: a.pricing_model, processing_fee_basis: a.processing_fee_basis,
       seller_type: sp.seller_type, seller_platform_bps: sp.platform_fee_bps, buyer_premium_pct: null }]);
   }
   return rows([]);
@@ -143,9 +143,10 @@ function stubIdentity({ ambiguous = [], conflicts = [] } = {}) {
   jest.spyOn(journeys, 'move').mockResolvedValue({});
   jest.spyOn(locks, 'acquire').mockResolvedValue({ expires_at: new Date() });
 }
-const settle = async (auctionId, hammerCents) => {
+const settle = async (auctionId, hammerCents, actualProcessingCents = null) => {
   const t = await billing.resolveEffectiveTerms(auctionId, { query: async (sql, p) => mockHandle(sql, p) });
-  return billing.settlement({ sellerType: t.seller_type, hammerCents, buyerPremiumCents: 0, platformFeeBps: t.platform_fee_bps, processingFeeBps: t.processing_fee_bps, pricingModel: t.pricing_model });
+  return billing.settlement({ sellerType: t.seller_type, hammerCents, buyerPremiumCents: 0, platformFeeBps: t.platform_fee_bps, processingFeeBps: t.processing_fee_bps,
+    pricingModel: t.pricing_model, processingFeeBasis: t.processing_fee_basis, actualProcessingCents });
 };
 const designateDefault = () => fp.designate({ entityType: 'organization', entityId: 'org-1', market: 'houston', reason: 'Founding Partner pilot, Houston',
   introPlatformFeeBps: 0, actorId: ADMIN, isSuperAdmin: true });
@@ -206,9 +207,11 @@ describe('lifecycle: designate → activate → publish (frozen) → settle → 
     expect(st.sellers.get('S1').acquisition.founding_partner.founding_partner_id).toBe(rec.id);   // durable attribution
 
     await auctionService.publishAuction('A1');
-    expect(st.auctions.get('A1')).toMatchObject({ pricing_model: 'v2_separated', platform_fee_bps: 0, processing_fee_bps: 300, founding_partner_id: rec.id });
-    const s1 = await settle('A1', 100000);
-    expect([s1.platform_fee_cents, s1.processing_fee_cents, s1.seller_payout_cents]).toEqual([0, 3000, 97000]);
+    // Auction Partner at 0%: processing basis frozen as the ACTUAL Stripe fee (Owner policy 2026-10-05).
+    expect(st.auctions.get('A1')).toMatchObject({ pricing_model: 'v2_separated', platform_fee_bps: 0, processing_fee_basis: 'actual_stripe', founding_partner_id: rec.id });
+    const s1 = await settle('A1', 100000, 2930);                         // $1,000 charged; Stripe fee fixture $29.30
+    expect([s1.platform_fee_cents, s1.processing_fee_cents, s1.seller_payout_cents]).toEqual([0, 2930, 97070]);
+    expect((await settle('A1', 100000)).processing_fee_pending).toBe(true);   // not yet recorded → pending, never 3%
 
     const restored = await fp.restoreFee(rec.id, { actorId: ADMIN });
     expect(restored.fee_restored_at).toBeTruthy();
@@ -216,11 +219,12 @@ describe('lifecycle: designate → activate → publish (frozen) → settle → 
 
     // The already-published auction is unchanged, even if it is published again.
     await auctionService.publishAuction('A1');
-    expect(st.auctions.get('A1').platform_fee_bps).toBe(0);
-    expect((await settle('A1', 100000)).platform_fee_cents).toBe(0);
+    expect(st.auctions.get('A1')).toMatchObject({ platform_fee_bps: 0, processing_fee_basis: 'actual_stripe' });   // frozen: restore changes nothing
+    expect((await settle('A1', 100000, 2930)).platform_fee_cents).toBe(0);
 
     await auctionService.publishAuction('A2');
-    expect(st.auctions.get('A2')).toMatchObject({ platform_fee_bps: 400, processing_fee_bps: 300, founding_partner_id: rec.id });
+    // After restore: ordinary Professional rules (4% platform + 3%-of-hammer policy processing).
+    expect(st.auctions.get('A2')).toMatchObject({ platform_fee_bps: 400, processing_fee_bps: 300, processing_fee_basis: 'policy_rate', founding_partner_id: rec.id });
     const s2 = await settle('A2', 100000);
     expect([s2.platform_fee_cents, s2.processing_fee_cents, s2.seller_payout_cents]).toEqual([4000, 3000, 93000]);
 

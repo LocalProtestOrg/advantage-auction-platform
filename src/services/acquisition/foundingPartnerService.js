@@ -302,7 +302,7 @@ async function end(id, { reason, actorId } = {}) {
 async function forSeller(sellerProfileId, runner = db) {
   if (!sellerProfileId) return null;
   return (await runner.query(
-    `SELECT id, intro_platform_fee_bps FROM founding_partners WHERE seller_profile_id = $1 AND status = 'active' LIMIT 1`, [sellerProfileId])).rows[0] || null;
+    `SELECT id, intro_platform_fee_bps, fee_applied_at, fee_restored_at FROM founding_partners WHERE seller_profile_id = $1 AND status = 'active' LIMIT 1`, [sellerProfileId])).rows[0] || null;
 }
 
 const iso = (d) => (d == null ? null : (d instanceof Date ? d.toISOString().slice(0, 10) : String(d).slice(0, 10)));

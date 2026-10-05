@@ -778,6 +778,9 @@ async function publishAuction(auctionId, actorId = null, options = {}) {
       const foundingPartner = isPro && sp.seller_profile_id
         ? await require('./acquisition/foundingPartnerService').forSeller(sp.seller_profile_id, client) : null;
       mustFreeze = !!foundingPartner || (isPro && sp.seller_platform_bps != null && Number(sp.seller_platform_bps) === 0);
+      // AUCTION PARTNER 0% ARRANGEMENT: the partner's introductory fee is applied (not yet restored). Decided below once the
+      // platform rate is resolved; frozen with the snapshot so a later status or fee change never alters this auction.
+      const partnerArrangement = !!(foundingPartner && foundingPartner.fee_applied_at && !foundingPartner.fee_restored_at);
       const buyerPremiumBps = billingTerms.effectiveBuyerPremiumBps(sp.seller_type, { auctionBps: sp.buyer_premium_bps, sellerPct: sp.buyer_premium_pct });
       // Applicable PLATFORM fee follows the owner hierarchy: an ACCEPTED + effective negotiated agreement
       // wins over the bare per-seller override, which wins over the sitewide default. Resolved ONCE here and
@@ -795,19 +798,22 @@ async function publishAuction(auctionId, actorId = null, options = {}) {
           })
         : 0;
       const processingBps = await pricingConfig.currentProcessingBps();
+      // Processing basis: an Auction Partner auction at a 0% platform fee passes the ACTUAL Stripe fee through
+      // (Owner policy 2026-10-05). Everyone else keeps the frozen policy rate of hammer (unchanged).
+      const actualProcessingBasis = isPro && partnerArrangement && platformBps === 0;
       await client.query(
         `UPDATE auctions
             SET platform_fee_bps = $2, processing_fee_bps = $3, buyer_premium_bps = $4,
-                pricing_model = 'v2_separated', pricing_snapshot_at = now()
+                pricing_model = 'v2_separated', pricing_snapshot_at = now(), processing_fee_basis = $5
           WHERE id = $1 AND pricing_model IS NULL`,
-        [auctionId, platformBps, processingBps, buyerPremiumBps]);
+        [auctionId, platformBps, processingBps, buyerPremiumBps, actualProcessingBasis ? 'actual_stripe' : 'policy_rate']);
       // Durable attribution: the Founding Partner record this auction was first published under (never moved later).
       if (foundingPartner) {
         await client.query(`UPDATE auctions SET founding_partner_id = $2 WHERE id = $1 AND founding_partner_id IS NULL`, [auctionId, foundingPartner.id]);
       }
       if (mustFreeze) {
-        const frozen = (await client.query(`SELECT pricing_model, processing_fee_bps FROM auctions WHERE id = $1`, [auctionId])).rows[0] || {};
-        if (frozen.pricing_model !== 'v2_separated' || frozen.processing_fee_bps == null) throw new Error('pricing snapshot not frozen');
+        const frozen = (await client.query(`SELECT pricing_model, processing_fee_bps, processing_fee_basis FROM auctions WHERE id = $1`, [auctionId])).rows[0] || {};
+        if (frozen.pricing_model !== 'v2_separated' || frozen.processing_fee_bps == null || !frozen.processing_fee_basis) throw new Error('pricing snapshot not frozen');
       }
     } catch (e) {
       if (mustFreeze) {
@@ -1030,7 +1036,7 @@ async function closeAuction(auctionId, actorId = null) {
     const s = billingTerms.settlement({
       sellerType: terms.seller_type, hammerCents: grossRevenueCents, buyerPremiumCents,
       platformFeeBps: terms.platform_fee_bps, processingFeeBps: terms.processing_fee_bps,
-      pricingModel: terms.pricing_model,
+      pricingModel: terms.pricing_model, processingFeeBasis: terms.processing_fee_basis,   // Auction Partner: pending until Stripe's actual fee is recorded
     });
     const pref = await getSellerPayoutPreference(sellerUserId);
     await client.query(

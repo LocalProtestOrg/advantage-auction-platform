@@ -209,6 +209,20 @@ async function getMySellerTerms(_a, ctx) {
   } catch (_e) { agreement = null; }
   if (!pro) return { seller_type: sp.seller_type, platform_fee: '0%', processing_fee: bpsPct(billing.DEFAULT_PROCESSING_FEE_BPS) + ' of the hammer price', buyers_premium: bpsPct(billing.DEFAULT_BUYER_PREMIUM_BPS) + ' (fixed for individual sellers)' };
   const fee = agreement ? agreement.platform_fee_bps : (sp.platform_fee_bps != null ? sp.platform_fee_bps : null);
+  // Auction Partner Program (introductory 0% platform fee applied): processing is the actual card-processing charges.
+  let partner = null;
+  try {
+    partner = (await db.query(`SELECT fp.intro_platform_fee_bps FROM founding_partners fp JOIN seller_profiles s ON s.id = fp.seller_profile_id
+      WHERE s.user_id = $1 AND fp.status = 'active' AND fp.fee_applied_at IS NOT NULL AND fp.fee_restored_at IS NULL LIMIT 1`, [ctx.userId])).rows[0] || null;
+  } catch (_e) { partner = null; }
+  if (partner && Number(partner.intro_platform_fee_bps) === 0) {
+    return { seller_type: sp.seller_type, program: 'Auction Partner Program',
+      platform_fee: '0% Advantage.Bid auction platform/software fee on auctions published under the program (each auction keeps the terms it was published with)',
+      processing_fee: 'the actual card-processing charges on your buyers\' payments for that auction, deducted from your proceeds at cost with no markup',
+      buyers_premium: 'you set it per auction (0–25%) and keep it', taxes: 'sales tax is collected and remitted separately and is not part of your proceeds',
+      payouts: 'Advantage.Bid processes eligible seller payouts every Thursday',
+      storefront_fee: `${require('../marketplaceOrderService').STOREFRONT_FEE_BPS / 100}% of the item price on Storefront fixed-price sales (includes card processing; shipping and tax excluded), separate from your auction fees` };
+  }
   return { seller_type: sp.seller_type, platform_fee: fee != null ? bpsPct(fee) + ' of the hammer price (your current rate; each auction keeps the rate it was published with)' : 'set in your Professional Seller agreement; a team member can confirm it',
     processing_fee: bpsPct(agreement ? agreement.processing_fee_bps : billing.DEFAULT_PROCESSING_FEE_BPS) + ' of the hammer price',
     buyers_premium: 'you set it per auction (0–25%) and keep it', agreement_page: `${SITE}/pricing-agreement.html`,
