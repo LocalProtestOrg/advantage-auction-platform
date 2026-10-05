@@ -1233,6 +1233,9 @@ router.get('/sellers', auth, role(['admin']), async (req, res, next) => {
         LIMIT 50`,
       [search, `%${search}%`]
     );
+    // EFFECTIVE platform fee: what a professional auction published today would freeze. An accepted, effective
+    // pricing agreement takes precedence over the stored Moderation rate, so the stored rate alone can mislead.
+    await require('../services/sellerFeeDisplayService').annotate(rows.rows);
     return res.json({ success: true, data: rows.rows });
   } catch (err) {
     next(err);

@@ -2031,7 +2031,10 @@
       }
       const applied = (data.data && data.data.platform_fee_percent != null) ? Number(data.data.platform_fee_percent).toFixed(2) : pct.toFixed(2);
       input.value = applied; input.dataset.prev = applied; input.disabled = false;
-      showMsg('sellers-status', 'Platform fee updated to ' + applied + '% for ' + (email || 'seller') + '.');
+      showMsg('sellers-status', 'Stored platform fee updated to ' + applied + '% for ' + (email || 'seller') + '.');
+      // Refresh so the Effective pill reflects the new stored rate (an accepted agreement may still take precedence).
+      const box = document.getElementById('seller-search');
+      setTimeout(() => loadSellers(box ? box.value.trim() : ''), 600);
     }).catch(err => {
       showMsg('sellers-status', 'Failed: ' + err.message, true);
       input.value = prev; input.disabled = false;
@@ -2100,8 +2103,8 @@
           // buyer premium. Rendered as a small percent input with a % suffix.
           const feeWrap = document.createElement('label');
           feeWrap.style.cssText = 'display:inline-flex;align-items:center;gap:0.25rem;flex-shrink:0;font-size:0.72rem;color:#374151';
-          feeWrap.title = 'Advantage.Bid platform/software fee retained from this professional seller’s sales (default 4.00%). Not the buyer premium.';
-          feeWrap.appendChild(document.createTextNode('Platform Fee'));
+          feeWrap.title = 'STORED per-seller Advantage.Bid platform/software fee (default 4.00%). An accepted pricing agreement takes precedence; the Effective pill shows what a new auction would be charged. Not the buyer premium; processing is separate.';
+          feeWrap.appendChild(document.createTextNode('Stored Platform Fee'));
           const feeInput = document.createElement('input');
           feeInput.type = 'number'; feeInput.min = '0'; feeInput.max = '25'; feeInput.step = '0.05';
           const curBps = (s.platform_fee_bps != null) ? Number(s.platform_fee_bps) : 400;
@@ -2112,6 +2115,30 @@
           feeWrap.appendChild(feeInput);
           feeWrap.appendChild(document.createTextNode('%'));
           row.appendChild(feeWrap);
+
+          // EFFECTIVE fee: what a professional auction published today would be charged. The input above is the
+          // STORED seller rate; an accepted pricing agreement takes precedence over it, so show both when they differ.
+          if (s.effective_platform_fee_bps != null && s.fee_basis !== 'individual') {
+            const eff = document.createElement('span');
+            const overridden = !!s.overridden_by_agreement;
+            eff.textContent = 'Effective ' + (Number(s.effective_platform_fee_bps) / 100).toFixed(2) + '%'
+              + (s.fee_basis === 'agreement' ? ' (agreement)' : s.fee_basis === 'sitewide_default' ? ' (default)' : '');
+            eff.title = s.fee_note || '';
+            eff.style.cssText = 'flex-shrink:0;font-size:0.72rem;padding:0.15rem 0.45rem;border-radius:999px;'
+              + (overridden ? 'background:#fef3c7;color:#92400e;border:1px solid #f59e0b;font-weight:600'
+                            : 'background:#f3f4f6;color:#374151;border:1px solid #e5e7eb');
+            row.appendChild(eff);
+          }
+          if (s.founding_partner) {
+            const fpb = document.createElement('a');
+            fpb.href = '/admin/founding-partners.html';
+            fpb.textContent = 'Founding Partner · ' + s.founding_partner.status;
+            fpb.title = 'Founding Auction Partner: introductory platform fee ' + (Number(s.founding_partner.intro_platform_fee_bps) / 100).toFixed(2)
+              + '%' + (s.founding_partner.intro_end_date ? ' until ' + String(s.founding_partner.intro_end_date).slice(0, 10) : ' (no end date)')
+              + '. Processing is never waived.';
+            fpb.style.cssText = 'flex-shrink:0;font-size:0.72rem;padding:0.15rem 0.45rem;border-radius:999px;background:#ecfdf5;color:#065f46;border:1px solid #10b981;text-decoration:none;font-weight:600';
+            row.appendChild(fpb);
+          }
         }
 
         // SMA-S1a: surface suspension status from the is_active value the

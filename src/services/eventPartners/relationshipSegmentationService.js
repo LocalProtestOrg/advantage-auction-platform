@@ -38,6 +38,8 @@ const DECISIONS = Object.freeze({
   // Migration 169: the company belongs to the Claimed Listing journey (a directory listing). It is
   // invited to claim its listing, never cold-invited into Event Partner.
   LISTING_JOURNEY: 'EXCLUDE_LISTING_JOURNEY',
+  // Migration 185: the company is handled 1:1 by staff as a Founding Auction Partner; no automated invitation.
+  FOUNDING_PARTNER: 'EXCLUDE_FOUNDING_PARTNER',
 });
 
 /** Free/consumer mail domains: sharing one says nothing about company identity. */
@@ -256,8 +258,9 @@ async function resolve(prospect, ctx = {}, runner = db) {
 /**
  * The Claimed Listing journey check (migration 169). Returns a decision object when the prospect must
  * not be cold-invited, or null to continue screening.
+ *   strong identity with a FOUNDING_PARTNER company → EXCLUDE_FOUNDING_PARTNER (migration 185)
  *   strong identity with a CLAIMED_LISTING company → EXCLUDE_LISTING_JOURNEY
- *   rare-name resemblance to a listing company     → REVIEW_AMBIGUOUS_IDENTITY
+ *   rare-name resemblance to a listing or Founding Partner company → REVIEW_AMBIGUOUS_IDENTITY
  *   the company map could not be built             → REVIEW_OTHER_RELATIONSHIP (fail closed)
  */
 async function listingJourneyCheck(prospect, self, ctx, runner) {
@@ -274,6 +277,13 @@ async function listingJourneyCheck(prospect, self, ctx, runner) {
       googlePlaceId: prospect.google_place_id || null,
     });
     for (const c of snap.matchSignals(strongSelf).clusters) if (c && clusters.indexOf(c) === -1) clusters.push(c);
+    const fp = clusters.find((c) => c.journey === 'FOUNDING_PARTNER');
+    if (fp) {
+      const m = fp.members.find((x) => x.entity_type === 'organization') || fp.members[0];
+      return { decision: DECISIONS.FOUNDING_PARTNER,
+        reason: (m ? m.label : 'this company') + ' is handled by staff as a Founding Auction Partner and is never sent an automated invitation',
+        matched_entity_type: m ? m.entity_type : 'company', matched_entity_id: m ? m.entity_id : null, matched_on: ['journey:FOUNDING_PARTNER'] };
+    }
     const hit = clusters.find((c) => c.journey === 'CLAIMED_LISTING');
     if (hit) {
       const org = hit.members.find((m) => m.entity_type === 'organization') || hit.members[0];
@@ -288,11 +298,11 @@ async function listingJourneyCheck(prospect, self, ctx, runner) {
         const otherKey = a.a === 'sales_prospect:' + prospect.id ? a.b : a.a;
         const [type, id] = otherKey.split(/:(.+)/);
         const c = snap.clusterFor(type, id);
-        return c && c.journey === 'CLAIMED_LISTING';
+        return c && (c.journey === 'CLAIMED_LISTING' || c.journey === 'FOUNDING_PARTNER');
       });
       if (weak) {
         return { decision: DECISIONS.AMBIGUOUS,
-          reason: 'resembles the directory listing ' + (weak.a_label || '') + ' but no strong identifier agreed ('
+          reason: 'resembles ' + (weak.a_label || 'a company') + ' (Claimed Listing or Founding Partner)' + ' but no strong identifier agreed ('
             + weak.weak.join(', ') + ') and is held for review rather than contacted',
           matched_entity_type: 'organization', matched_entity_id: weak.a.split(/:(.+)/)[1] || null, matched_on: weak.weak };
       }

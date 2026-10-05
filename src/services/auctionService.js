@@ -758,6 +758,11 @@ async function publishAuction(auctionId, actorId = null, options = {}) {
     // untouched, so future config/seller-rate changes can never alter a published auction. Platform and
     // processing are kept SEPARATE: professional → per-seller platform rate (or config default) + 3%
     // processing; individual → 0% platform + 3% processing. Buyer premium is frozen to the effective rate.
+    // FAIL CLOSED for a reduced-fee professional (a Founding Auction Partner, or any 0% seller rate): an unfrozen auction
+    // would settle as legacy, i.e. with NO processing deduction and the LIVE seller rate, so the introductory 0% would
+    // follow a later restore and Advantage.Bid would absorb processing. For those sellers a snapshot failure aborts the
+    // publish (the transaction rolls back) instead of publishing unfrozen.
+    let mustFreeze = false;
     try {
       const billingTerms = require('./billingTermsService');
       const pricingConfig = require('./pricingConfigService');
@@ -770,6 +775,9 @@ async function publishAuction(auctionId, actorId = null, options = {}) {
            LEFT JOIN seller_terms st ON st.seller_profile_id = sp.id AND st.superseded_at IS NULL
           WHERE a.id = $1`, [auctionId])).rows[0] || {};
       const isPro = billingTerms.isProfessional(sp.seller_type);
+      const foundingPartner = isPro && sp.seller_profile_id
+        ? await require('./acquisition/foundingPartnerService').forSeller(sp.seller_profile_id, client) : null;
+      mustFreeze = !!foundingPartner || (isPro && sp.seller_platform_bps != null && Number(sp.seller_platform_bps) === 0);
       const buyerPremiumBps = billingTerms.effectiveBuyerPremiumBps(sp.seller_type, { auctionBps: sp.buyer_premium_bps, sellerPct: sp.buyer_premium_pct });
       // Applicable PLATFORM fee follows the owner hierarchy: an ACCEPTED + effective negotiated agreement
       // wins over the bare per-seller override, which wins over the sitewide default. Resolved ONCE here and
@@ -793,7 +801,21 @@ async function publishAuction(auctionId, actorId = null, options = {}) {
                 pricing_model = 'v2_separated', pricing_snapshot_at = now()
           WHERE id = $1 AND pricing_model IS NULL`,
         [auctionId, platformBps, processingBps, buyerPremiumBps]);
+      // Durable attribution: the Founding Partner record this auction was first published under (never moved later).
+      if (foundingPartner) {
+        await client.query(`UPDATE auctions SET founding_partner_id = $2 WHERE id = $1 AND founding_partner_id IS NULL`, [auctionId, foundingPartner.id]);
+      }
+      if (mustFreeze) {
+        const frozen = (await client.query(`SELECT pricing_model, processing_fee_bps FROM auctions WHERE id = $1`, [auctionId])).rows[0] || {};
+        if (frozen.pricing_model !== 'v2_separated' || frozen.processing_fee_bps == null) throw new Error('pricing snapshot not frozen');
+      }
     } catch (e) {
+      if (mustFreeze) {
+        console.error('[pricing] publish ABORTED for auction_id=' + auctionId + ' (reduced-fee professional seller): ' + e.message);
+        const err = new Error('Publishing stopped: the auction pricing could not be locked for this seller. Nothing was published; try again or contact engineering.');
+        err.code = 'PRICING_SNAPSHOT_REQUIRED'; err.status = 503;
+        throw err;
+      }
       // A snapshot failure must not break publication; a NULL pricing_model settles safely as legacy
       // (processing 0) and can be re-frozen on re-publish. Surface for diagnostics.
       console.error('[pricing] publish snapshot failed for auction_id=' + auctionId + ':', e.message);
