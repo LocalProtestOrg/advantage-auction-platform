@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="robots" content="noindex, nofollow" />
-  <title>Founding Auction Partners - Admin</title>
+  <title>Auction Partners - Admin</title>
   <style>
     *,*::before,*::after{box-sizing:border-box}
     body{margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#f1f5f9;color:#1f2937}
@@ -29,6 +29,17 @@
     td.num{font-variant-numeric:tabular-nums;white-space:nowrap}
     .pill{display:inline-block;font-size:11px;font-weight:700;border-radius:999px;padding:1px 8px;white-space:nowrap}
     .p-prospect{background:#e0f2fe;color:#075985}.p-active{background:#dcfce7;color:#166534}.p-ended{background:#f1f5f9;color:#64748b}
+    .p-live{background:#166534;color:#fff;font-size:11.5px;padding:3px 9px;letter-spacing:.02em}
+    .econ{display:grid;gap:12px;grid-template-columns:minmax(0,2fr) minmax(0,1fr)}
+    @media (max-width:760px){.econ{grid-template-columns:1fr}}
+    .econ-main{background:#ecfdf5;border:1px solid #10b981;border-radius:12px;padding:12px 14px}
+    .econ-main h3,.econ-std h3{margin:0 0 8px;font-size:12px;letter-spacing:.06em;text-transform:uppercase}
+    .econ-main h3{color:#065f46}.econ-std h3{color:#64748b}
+    .econ-main dl,.econ-std dl{display:grid;grid-template-columns:auto 1fr;gap:4px 14px;margin:0;font-size:13px}
+    .econ-main dt{font-weight:700;color:#065f46}.econ-main dd{margin:0;font-weight:600}
+    .econ-std{background:#f8fafc;border:1px dashed #cbd5e1;border-radius:12px;padding:10px 12px;color:#475569;font-size:12.5px}
+    .econ-std dt{color:#64748b}.econ-std dd{margin:0}
+    .econ-note{font-size:12px;color:#475569;margin-top:8px;line-height:1.45}
     .p-yes{background:#ecfdf5;color:#065f46}.p-no{background:#f1f5f9;color:#64748b}.p-flag{background:#fef3c7;color:#92400e}.p-bad{background:#fee2e2;color:#991b1b}
     .scroll{overflow-x:auto}
     .warn{border-radius:10px;padding:10px 12px;font-size:13px;line-height:1.4;display:grid;gap:4px}
@@ -50,17 +61,31 @@
   <script src="/widgets/shared/admin-nav.js"></script>
   <div class="wrap">
     <div>
-      <h1>Founding Auction Partners</h1>
-      <p class="sub">Companies handled one-to-one as Founding Auction Partners. Placing a company here moves it out of Claimed Listing and Event Partner outreach and gives the contact lock to the person handling it. Nothing on this page sends a message.</p>
+      <h1>Auction Partners</h1>
+      <p class="sub">Companies handled one-to-one in the Advantage.Bid Auction Partner Program. Placing a company here moves it out of Claimed Listing and Event Partner outreach and gives the contact lock to the person handling it. Nothing on this page sends a message.</p>
     </div>
 
-    <div class="rule" id="rule">
-      <b>Fee rule.</b> Only Advantage.Bid's professional auction platform fee is reduced, and only on the partner's own seller account.
-      Payment processing is never waived: an auction published at the 0% partner fee deducts the <b>actual card-processing charges</b>
-      on its buyers' payments, at cost (no markup, no subsidy). The settlement cannot be paid until that actual cost is recorded.
-      The sitewide professional fee and Storefront pricing do not change.
-      Each auction keeps the terms it was published with; restoring the return fee affects only auctions published afterwards.
-      <div class="kv" style="margin-top:8px" id="pricing"></div>
+    <div class="econ" id="rule">
+      <div class="econ-main">
+        <h3>Auction Partner economics</h3>
+        <dl>
+          <dt>Advantage.Bid auction platform fee</dt><dd>0%</dd>
+          <dt>Payment processing</dt><dd>Actual card-processing cost, passed through at cost with no markup</dd>
+          <dt>Buyer's premium</dt><dd>Seller sets and keeps it</dd>
+          <dt>Storefront sales</dt><dd><span id="sf-fee">11%</span> seller fee, unchanged</dd>
+        </dl>
+        <p class="econ-note">Applies to qualifying auctions of an <b>active</b> Auction Partner (signed agreement, approved and activated here) during the agreement term.
+          Each auction keeps the terms it was published with. The settlement cannot be paid until the actual processing cost is recorded.</p>
+      </div>
+      <div class="econ-std">
+        <h3>Standard Professional Seller rates</h3>
+        <dl>
+          <dt>Platform fee</dt><dd id="std-platform">4%</dd>
+          <dt>Processing</dt><dd><span id="std-processing">3%</span> of hammer</dd>
+        </dl>
+        <p class="econ-note">These standard rates do <b>not</b> apply to qualifying Auction Partner auctions while the partner's active agreement terms apply.
+          They apply to ordinary professional sellers, to prospects not yet activated, and to auctions published after a partner's agreement ends.</p>
+      </div>
     </div>
 
     <div id="alerts" class="warn critical" hidden></div>
@@ -69,7 +94,7 @@
       <h2>Partners</h2>
       <div class="scroll">
         <table>
-          <thead><tr><th>Company</th><th>Status</th><th>Market</th><th>Intro fee</th><th>Return fee</th><th>Start</th><th>Intro ends</th><th>Seller · effective fee</th><th>Protection</th><th>Auctions</th><th>Actions</th></tr></thead>
+          <thead><tr><th>Company</th><th>Status</th><th>Market</th><th>Auction Partner fee</th><th>Fee after agreement</th><th>Agreement starts</th><th>Agreement ends</th><th>Seller · effective fee</th><th>Protection</th><th>Auctions</th><th>Actions</th></tr></thead>
           <tbody id="rows"><tr><td colspan="11" class="muted">Loading…</td></tr></tbody>
         </table>
       </div>
@@ -77,7 +102,7 @@
     </div>
 
     <div class="card" id="designate">
-      <h2>Place a company under Founding Partner protection</h2>
+      <h2>Place a company under Auction Partner protection</h2>
       <p class="sub" style="margin:0 0 10px">Find the company's directory listing, seller account or sales prospect. A record that resembles another company without a matching identifier is refused until the identity is reviewed.</p>
       <label for="q" class="muted" style="font-size:12px;font-weight:600">Find company</label>
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:4px">
@@ -88,13 +113,13 @@
       <div class="grid" style="margin-top:12px">
         <label>Selected record<input type="text" id="d-entity" readonly placeholder="Choose a search result" /></label>
         <label>Market<input type="text" id="d-market" placeholder="houston or ny_tristate" /></label>
-        <label>Intro platform fee (%)<input type="number" id="d-intro" min="0" max="25" step="0.05" value="0.00" /></label>
-        <label>Return platform fee (%)<input type="number" id="d-return" min="0" max="25" step="0.05" placeholder="Seller's current rate" /></label>
+        <label>Auction Partner fee (%)<input type="number" id="d-intro" min="0" max="25" step="0.05" value="0.00" /></label>
+        <label>Fee after agreement (%)<input type="number" id="d-return" min="0" max="25" step="0.05" placeholder="Seller's current rate" /></label>
         <label>Start date<input type="date" id="d-start" /></label>
-        <label>Intro end date (optional)<input type="date" id="d-end" /></label>
+        <label>Agreement end date (optional; set from the signature on activation)<input type="date" id="d-end" /></label>
       </div>
       <div class="grid" style="grid-template-columns:1fr;margin-top:10px">
-        <label>Reason (required)<textarea id="d-reason" placeholder="Why this company is a Founding Partner"></textarea></label>
+        <label>Reason (required)<textarea id="d-reason" placeholder="Why this company is an Auction Partner prospect"></textarea></label>
         <label>Internal note<textarea id="d-note"></textarea></label>
       </div>
       <div style="display:flex;gap:8px;align-items:center;margin-top:10px;flex-wrap:wrap">
@@ -105,7 +130,7 @@
 
     <div class="card">
       <h2>Claimed Listing cohort review</h2>
-      <p class="sub" style="margin:0 0 10px">Read-only. Pending members of a draft cohort with the identity detail Marketing needs to choose Founding Partner prospects. Target profile = estate sale company in Greater Houston or the New York tri-state area. Nothing is removed or sent from here.</p>
+      <p class="sub" style="margin:0 0 10px">Read-only. Pending members of a draft cohort with the identity detail Marketing needs to choose Auction Partner prospects. Target profile = estate sale company in Greater Houston or the New York tri-state area. Nothing is removed or sent from here.</p>
       <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
         <label for="cohort" class="muted" style="font-size:12px;font-weight:600">Cohort</label>
         <select id="cohort"></select>
@@ -133,23 +158,36 @@
   var BASE='/api/admin/founding-partners';
   var selected=null;
 
+  // Display only: what the record's state means for fees. Never computes or changes a fee.
+  function liveTerms(r){ return r.status==='active' && r.fee_applied_at && !r.fee_restored_at; }
+  function statusPill(r){
+    if(liveTerms(r)) return '<span class="pill p-live">ACTIVE AUCTION PARTNER - '+pct(r.intro_platform_fee_bps).replace('.00','')+' PLATFORM FEE</span>';
+    if(r.status==='prospect') return '<span class="pill p-prospect">Not active - prospect</span>'+(r.addendum_status==='signed'?'<div class="muted" style="margin-top:3px">Agreement signed; awaiting approval + activation</div>':'');
+    if(r.status==='active') return '<span class="pill p-ended">Agreement ended - standard rates</span>';
+    return '<span class="pill p-ended">Ended</span>';
+  }
+  function partnerFeeCell(r){
+    if(liveTerms(r)) return '<b>'+pct(r.intro_platform_fee_bps)+'</b><div class="muted">active</div>';
+    if(r.status==='prospect') return pct(r.intro_platform_fee_bps)+'<div class="muted">not active; activates after agreement + approval</div>';
+    return '<span class="muted">'+pct(r.intro_platform_fee_bps)+' (no longer applied)</span>';
+  }
+
   function load(){
     api('GET',BASE).then(function(d){
       if(!d.success){ msg('rows-msg',d.message||d.error||'Could not load.'); return; }
       var p=d.pricing||{};
-      document.getElementById('pricing').innerHTML=
-        '<div><span>Processing, partner auctions</span><b>Actual card-processing cost</b></div>'+
-        '<div><span>Processing, other auctions</span><b>'+pct(p['pricing.auction.processing_fee_bps'])+' of hammer</b></div>'+
-        '<div><span>Sitewide professional platform fee</span><b>'+pct(p['pricing.auction.professional.platform_fee_bps'])+'</b></div>'+
-        '<div><span>Storefront seller fee</span><b>'+pct(p['pricing.storefront.seller_fee_bps'])+'</b></div>';
+      var pctShort=function(b){ return b==null?'—':(Number(b)/100).toString()+'%'; };
+      if(p['pricing.storefront.seller_fee_bps']!=null) document.getElementById('sf-fee').textContent=pctShort(p['pricing.storefront.seller_fee_bps']);
+      if(p['pricing.auction.professional.platform_fee_bps']!=null) document.getElementById('std-platform').textContent=pctShort(p['pricing.auction.professional.platform_fee_bps']);
+      if(p['pricing.auction.processing_fee_bps']!=null) document.getElementById('std-processing').textContent=pctShort(p['pricing.auction.processing_fee_bps']);
       var rows=d.data||[], tb=document.getElementById('rows'), alerts=[];
-      if(!rows.length){ tb.innerHTML='<tr><td colspan="11" class="muted">No Founding Partners yet.</td></tr>'; }
+      if(!rows.length){ tb.innerHTML='<tr><td colspan="11" class="muted">No Auction Partners yet.</td></tr>'; }
       else tb.innerHTML=rows.map(function(r){
         (r.warnings||[]).forEach(function(w){ if(w.level!=='info') alerts.push({level:w.level,text:r.display_name+': '+w.text}); });
-        var ends=r.intro_end_date?esc(r.intro_end_date)+(r.days_until_intro_end!=null&&r.status==='active'&&!r.fee_restored_at?'<div class="muted">'+(r.days_until_intro_end<0?(-r.days_until_intro_end)+' days ago':'in '+r.days_until_intro_end+' days')+'</div>':''):'<span class="muted">not set</span>';
+        var ends=r.intro_end_date?esc(r.intro_end_date)+(r.days_until_intro_end!=null&&r.status==='active'&&!r.fee_restored_at?'<div class="muted">'+(r.days_until_intro_end<0?(-r.days_until_intro_end)+' days ago':'in '+r.days_until_intro_end+' days')+'</div>':''):'<span class="muted">set at activation</span>';
         var addendum=r.seller_profile_id?'<div class="muted">Addendum: '+esc(r.addendum_status||'not issued')+'</div>':'';
         var seller=r.seller_profile_id?esc(r.seller_email||'seller')+addendum+'<div>Stored '+pct(r.seller_platform_fee_bps)+' · <b>effective '+pct(r.effective_platform_fee_bps)+'</b>'+(r.effective_fee_basis==='agreement'?' (agreement)':'')+'</div>':'<span class="muted">no seller account yet</span>';
-        var feeState=r.fee_restored_at?'<div class="muted">return fee restored '+esc(String(r.fee_restored_at).slice(0,10))+'</div>':(r.fee_applied_at?'<div class="muted">intro fee applied '+esc(String(r.fee_applied_at).slice(0,10))+'</div>':'');
+        var feeState=r.fee_restored_at?'<div class="muted">return fee restored '+esc(String(r.fee_restored_at).slice(0,10))+'</div>':(r.fee_applied_at?'<div class="muted">Auction Partner fee applied '+esc(String(r.fee_applied_at).slice(0,10))+'</div>':'');
         var prot=r.active_journey==='FOUNDING_PARTNER'
           ?'<span class="pill p-yes">Claimed Listing + Event Partner suppressed</span>'
           :'<span class="pill p-bad">Not protected ('+esc(r.active_journey||'no journey')+')</span>';
@@ -167,8 +205,8 @@
         var warn=(r.warnings||[]).map(function(w){ return '<div class="w-line w-'+w.level+'">'+esc(w.text)+'</div>'; }).join('');
         return '<tr><td><b>'+esc(r.display_name)+'</b><div class="muted">'+esc(r.reason)+'</div>'+(r.internal_note?'<div class="muted">Note: '+esc(r.internal_note)+'</div>':'')+
           '<div class="muted">Approved by '+esc(r.approved_by_name||'—')+' · handled by '+esc(r.relationship_owner_name||'—')+'</div>'+warn+'</td>'+
-          '<td><span class="pill p-'+esc(r.status)+'">'+esc(r.status)+'</span></td><td>'+esc(r.market)+'</td>'+
-          '<td class="num">'+pct(r.intro_platform_fee_bps)+'</td><td class="num">'+pct(r.return_platform_fee_bps)+'</td>'+
+          '<td>'+statusPill(r)+'</td><td>'+esc(r.market)+'</td>'+
+          '<td class="num">'+partnerFeeCell(r)+'</td><td class="num">'+pct(r.return_platform_fee_bps)+'</td>'+
           '<td class="num">'+esc(r.start_date||'—')+'</td><td class="num">'+ends+'</td><td>'+seller+feeState+'</td><td>'+prot+'</td>'+
           '<td class="num">'+(r.auctions_published||0)+'</td><td><div class="actions">'+acts.join('')+'</div></td></tr>';
       }).join('');
@@ -192,11 +230,11 @@
     else if(a==='restore'){ var cur=b.dataset.ret; var v=prompt('Return platform fee (%) to put back on the seller. Only auctions published from now on use it.', cur===''?'':(Number(cur)/100).toFixed(2)); if(v==null) return;
       var bps=toBps(v); if(bps==null||isNaN(bps)){ msg('rows-msg','Enter the return fee as a percent.'); return; }
       req=api('POST',BASE+'/'+id+'/restore-fee',{return_platform_fee_bps:bps}); }
-    else if(a==='edit'){ var end=prompt('Introductory end date (YYYY-MM-DD), blank for none:', b.dataset.end); if(end==null) return;
+    else if(a==='edit'){ var end=prompt('Agreement end date (YYYY-MM-DD), blank for none:', b.dataset.end); if(end==null) return;
       var note=prompt('Internal note:', b.dataset.note); if(note==null) return;
       req=api('PATCH',BASE+'/'+id,{intro_end_date:end.trim()||null,internal_note:note}); }
     else if(a==='lock'){ req=api('POST',BASE+'/'+id+'/lock',{}); }
-    else if(a==='end'){ var r=prompt('Reason for ending this Founding Partner record (the company stays out of automated outreach until its journey is moved in the Claimed Listings toolbox):'); if(!r) return;
+    else if(a==='end'){ var r=prompt('Reason for ending this Auction Partner record (the company stays out of automated outreach until its journey is moved in the Claimed Listings toolbox):'); if(!r) return;
       req=api('POST',BASE+'/'+id+'/end',{reason:r}); }
     if(!req) return; b.disabled=true;
     req.then(function(d){ b.disabled=false; if(!d.success){ msg('rows-msg',d.message||d.error||'Failed.'); return; } msg('rows-msg','Saved.',true); load(); });
@@ -220,7 +258,7 @@
   document.getElementById('d-go').onclick=function(){
     if(!selected){ msg('d-msg','Choose a company record first.'); return; }
     var intro=toBps(document.getElementById('d-intro').value), ret=toBps(document.getElementById('d-return').value);
-    if(intro==null||isNaN(intro)){ msg('d-msg','Enter the introductory fee (0.00 for no platform fee).'); return; }
+    if(intro==null||isNaN(intro)){ msg('d-msg','Enter the Auction Partner fee (0.00 for no platform fee).'); return; }
     if(isNaN(ret)){ msg('d-msg','Return fee must be a percent or blank.'); return; }
     var btn=this; btn.disabled=true; msg('d-msg','Saving…',true);
     api('POST',BASE,{ entity_type:selected.entity_type, entity_id:selected.entity_id, market:document.getElementById('d-market').value.trim(),
@@ -245,13 +283,13 @@
     api('GET',BASE+'/cohorts/'+id+'/review').then(function(d){
       if(!d.success) return; var s=d.data.summary, tb=document.getElementById('cohort-rows');
       document.getElementById('cohort-summary').innerHTML='<div><span>Pending</span><b>'+s.pending+'</b></div><div><span>In target profile</span><b>'+s.in_target_profile+'</b></div>'+
-        '<div><span>Data flags</span><b>'+s.flagged+'</b></div><div><span>Identity concerns</span><b>'+s.identity_concerns+'</b></div><div><span>Already Founding Partner</span><b>'+s.already_founding_partner+'</b></div>';
+        '<div><span>Data flags</span><b>'+s.flagged+'</b></div><div><span>Identity concerns</span><b>'+s.identity_concerns+'</b></div><div><span>Already Auction Partner</span><b>'+s.already_founding_partner+'</b></div>';
       tb.innerHTML=d.data.members.map(function(m){
         var tgt=m.in_target_profile?'<span class="pill p-yes">'+esc(m.market)+'</span>':'<span class="pill p-no">'+esc(m.market||'other market')+'</span>';
         if(m.data_flags.length) tgt+='<div class="w-line w-warning">'+esc(m.data_flags.join('; '))+'</div>';
         var idn=(m.identity_concern?'<span class="pill p-flag">review</span><div class="w-line w-warning">'+esc(m.identity_concern)+'</div>':'<span class="pill p-yes">clear</span>')+
           '<div class="muted">'+m.company_records+' record(s) · BD '+esc(m.bd_listing_id||'—')+(m.journey?' · '+esc(m.journey):'')+'</div>';
-        var act=m.founding_partner?'<span class="pill p-active">Founding Partner · '+esc(m.founding_partner.status)+'</span>'
+        var act=m.founding_partner?'<span class="pill p-active">Auction Partner · '+esc(m.founding_partner.status)+'</span>'
           :(m.can_place_under_protection?'<button class="b g sm" data-org="'+esc(m.organization_id)+'" data-name="'+esc(m.name)+'" data-market="'+esc(m.market||'')+'">Prepare protection</button>':'');
         return '<tr><td><b>'+esc(m.name)+'</b><div class="muted">'+esc(m.website||'')+'</div></td><td>'+esc(m.city||'')+', '+esc(m.state||'')+'</td>'+
           '<td>'+esc((m.profession||'unknown').replace(/_/g,' '))+'</td><td>'+tgt+'</td><td>'+idn+'</td>'+

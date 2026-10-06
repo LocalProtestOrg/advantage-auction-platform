@@ -326,16 +326,16 @@ function warningsFor(r, { now = new Date(), effectiveBps = null, journey = null 
   const w = [];
   const applied = r.status === 'active' && r.fee_applied_at && !r.fee_restored_at;
   const d = daysUntil(r.intro_end_date, now);
-  if (applied && d != null && d < 0) w.push({ level: 'critical', code: 'INTRO_ENDED', text: 'The introductory period ended ' + (-d) + ' day(s) ago and the introductory fee is still applied. Restore the return fee or extend the end date.' });
-  else if (applied && d != null && d <= REMIND_DAYS) w.push({ level: 'warning', code: 'INTRO_ENDING', text: 'The introductory period ends in ' + d + ' day(s) (' + iso(r.intro_end_date) + ').' });
+  if (applied && d != null && d < 0) w.push({ level: 'critical', code: 'INTRO_ENDED', text: 'The Auction Partner agreement ended ' + (-d) + ' day(s) ago and the 0% Auction Partner fee is still applied. Restore the standard fee or extend the end date.' });
+  else if (applied && d != null && d <= REMIND_DAYS) w.push({ level: 'warning', code: 'INTRO_ENDING', text: 'The Auction Partner agreement ends in ' + d + ' day(s) (' + iso(r.intro_end_date) + ').' });
   if (applied && r.seller_platform_fee_bps != null && Number(r.seller_platform_fee_bps) !== Number(r.intro_platform_fee_bps)) {
     w.push({ level: 'warning', code: 'FEE_CHANGED_ELSEWHERE', text: 'The seller\'s rate was changed outside this program (now ' + (Number(r.seller_platform_fee_bps) / 100).toFixed(2) + '%).' });
   }
   if (applied && effectiveBps != null && Number(effectiveBps) !== Number(r.intro_platform_fee_bps)) {
-    w.push({ level: 'critical', code: 'EFFECTIVE_FEE_DIFFERS', text: 'A new auction would be charged ' + (Number(effectiveBps) / 100).toFixed(2) + '%, not the introductory ' + (Number(r.intro_platform_fee_bps) / 100).toFixed(2) + '% (a pricing agreement takes precedence).' });
+    w.push({ level: 'critical', code: 'EFFECTIVE_FEE_DIFFERS', text: 'A new auction would be charged ' + (Number(effectiveBps) / 100).toFixed(2) + '%, not the Auction Partner fee of ' + (Number(r.intro_platform_fee_bps) / 100).toFixed(2) + '% (a pricing agreement takes precedence).' });
   }
-  if (r.status !== 'ended' && journey !== JOURNEY) w.push({ level: 'critical', code: 'NOT_PROTECTED', text: 'The company is not in the Founding Partner journey (' + (journey || 'none') + '); automated programs are not blocked.' });
-  if (applied && !r.intro_end_date) w.push({ level: 'info', code: 'NO_END_DATE', text: 'No introductory end date is set; the introductory fee stays until staff restore the return fee.' });
+  if (r.status !== 'ended' && journey !== JOURNEY) w.push({ level: 'critical', code: 'NOT_PROTECTED', text: 'The company is not in the Auction Partner journey (' + (journey || 'none') + '); automated programs are not blocked.' });
+  if (applied && !r.intro_end_date) w.push({ level: 'info', code: 'NO_END_DATE', text: 'No agreement end date is set; the Auction Partner fee stays until staff restore the standard fee.' });
   return w;
 }
 
@@ -473,8 +473,8 @@ async function sendReminders({ now = new Date(), runner = db, alert = null } = {
       await notify({
         actionType: types.FOUNDING_PARTNER_INTRO_ENDING || 'founding_partner_intro_ending',
         entityType: 'founding_partner', entityId: r.id + (ended ? ':ended' : ':ending'),
-        headline: ended ? 'Founding Partner introductory fee period has ENDED' : 'Founding Partner introductory fee period ends in ' + d + ' day(s)',
-        context: r.display_name + ' (' + r.market + '): introductory ' + fee(r.intro_platform_fee_bps) + ', return '
+        headline: ended ? 'Auction Partner agreement period has ENDED' : 'Auction Partner agreement period ends in ' + d + ' day(s)',
+        context: r.display_name + ' (' + r.market + '): Auction Partner fee ' + fee(r.intro_platform_fee_bps) + ', fee after agreement '
           + (r.return_platform_fee_bps == null ? 'not set' : fee(r.return_platform_fee_bps)) + ', end date ' + iso(r.intro_end_date) + '. The fee does not change by itself.',
         adminPath: '/admin/founding-partners.html', adminId: r.id, actionLabel: 'Review',
       });

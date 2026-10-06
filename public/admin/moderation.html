@@ -2132,8 +2132,8 @@
           if (s.founding_partner) {
             const fpb = document.createElement('a');
             fpb.href = '/admin/founding-partners.html';
-            fpb.textContent = 'Founding Partner · ' + s.founding_partner.status;
-            fpb.title = 'Founding Auction Partner: introductory platform fee ' + (Number(s.founding_partner.intro_platform_fee_bps) / 100).toFixed(2)
+            fpb.textContent = 'Auction Partner · ' + s.founding_partner.status;
+            fpb.title = 'Auction Partner: Auction Partner platform fee ' + (Number(s.founding_partner.intro_platform_fee_bps) / 100).toFixed(2)
               + '%' + (s.founding_partner.intro_end_date ? ' until ' + String(s.founding_partner.intro_end_date).slice(0, 10) : ' (no end date)')
               + '. Processing is never waived.';
             fpb.style.cssText = 'flex-shrink:0;font-size:0.72rem;padding:0.15rem 0.45rem;border-radius:999px;background:#ecfdf5;color:#065f46;border:1px solid #10b981;text-decoration:none;font-weight:600';

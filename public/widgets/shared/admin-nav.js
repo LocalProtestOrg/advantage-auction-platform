@@ -69,7 +69,7 @@
     { href: '/admin/audiences.html', label: 'Audiences', perm: 'members.view' },
     { href: '/admin/director.html', label: 'Director', perm: 'members.view' },
     { href: '/admin/sales.html', label: 'Sales & Marketing', perm: 'sales.view' },
-    { href: '/admin/founding-partners.html', label: 'Founding Partners' },
+    { href: '/admin/founding-partners.html', label: 'Auction Partners' },
     { href: '/admin/staff.html', label: 'Staff & Permissions', perm: 'staff.view' },
   ];
 
