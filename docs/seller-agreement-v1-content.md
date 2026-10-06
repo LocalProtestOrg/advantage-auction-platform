@@ -37,11 +37,16 @@ This Seller Consignment and Auction Services Agreement (this "Agreement") govern
 
 ## 1. Appointment and Scope
 
-1.1 For each item the Seller submits and that Advantage accepts into an auction (the "Consigned Property"), the Seller appoints Advantage as its selling agent to market, list, and sell that item through the Platform. Advantage's rights are exclusive only as to those submitted and accepted items, and only for the duration of the applicable auction event and any related re-offer period. Once an item has been committed to an auction during that period, the Seller will not privately sell it, remove it, relist it elsewhere, or redirect it. This Agreement does not give Advantage exclusive rights to all of the Seller's property or to any of the Seller's future property.
+1.1 For each item the Seller submits and that Advantage accepts into an auction, and for each item a professional Seller publishes in an auction under Section 1.3 (the "Consigned Property"), the Seller appoints Advantage as its selling agent to market, list, and sell that item through the Platform. Advantage's rights are exclusive only as to those items, and only for the duration of the applicable auction event and any related re-offer period. Once an item has been committed to an auction during that period, the Seller will not privately sell it, remove it, relist it elsewhere, or redirect it. This Agreement does not give Advantage exclusive rights to all of the Seller's property or to any of the Seller's future property.
 
 1.2 Advantage provides auction services including cataloging support, listing, bid management, buyer payment processing, and settlement of net proceeds. Advantage does not purchase the Consigned Property and acts solely as the Seller's selling agent unless a separate written purchase arrangement is executed.
 
-1.3 Advantage, not the Seller, controls publication. Advantage reviews and approves each auction before it goes live, and may decline, edit, reschedule, or withdraw any listing in its reasonable discretion. Submitting items for sale does not guarantee that any item will be listed or sold.
+1.3 **Publication.** How an auction is published depends on the Seller's classification:
+
+- **Individual sellers.** Advantage reviews and approves each auction an individual Seller submits before it goes live, and Advantage publishes it.
+- **Professional sellers.** A Seller that Advantage has classified and approved as a professional seller, and whose business Advantage has verified, may create and publish its own auctions through the Platform using the tools Advantage makes available to professional sellers. Publication remains subject to this Agreement, business verification, the Platform's marketplace policies, the prohibited and restricted item rules in Section 4, and the Platform's controls.
+
+In every case, Advantage may review, moderate, decline, edit, reschedule, restrict, suspend, or withdraw any listing or auction, before or after it goes live, in its reasonable discretion under this Agreement and the Platform's policies. A professional Seller's publication of its own auction does not change the roles described in Section 1.2 or the Seller's representations and responsibilities under this Agreement. Submitting or publishing items for sale does not guarantee that any item will be listed or sold.
 
 ## 2. Seller Eligibility and Identity
 
@@ -51,9 +56,9 @@ This Seller Consignment and Auction Services Agreement (this "Agreement") govern
 
 2.3 The Seller must complete required onboarding, including execution of this Agreement, before the Seller's account is activated for setting up and submitting auctions.
 
-2.4 Execution of this Agreement enables the Seller's onboarding and seller dashboard access, but does not by itself grant full selling privileges. Seller account privileges remain subject to Advantage's approval. No auction or lot becomes public without Advantage's human review and approval, and Advantage may suspend or limit the Seller's privileges at any time for risk, noncompliance, or suspected fraud.
+2.4 Execution of this Agreement enables the Seller's onboarding and seller dashboard access, but does not by itself grant full selling privileges. Seller account privileges remain subject to Advantage's approval. An individual Seller's auctions and lots become public only after Advantage's human review and approval; a verified professional Seller may publish its own auctions as described in Section 1.3. Advantage may suspend or limit the Seller's privileges at any time for risk, noncompliance, or suspected fraud.
 
-2.5 Verification documents. Advantage does not require identity or verification documents to create a seller account or to begin building auctions. However, when Advantage determines it is reasonably necessary (for example, to confirm identity, ownership, authority to sell, or to address risk, legal, or compliance concerns), Advantage may request verification documents from the Seller, which may include government-issued identification, a passport, a business license, tax documentation, proof of ownership, a receipt or invoice, estate authority, or probate documentation. The Seller agrees to provide requested verification documents through the secure process Advantage provides. Where Advantage has flagged a Seller or auction as requiring verification, Advantage may decline to publish, or may pause, the affected auction until the requested verification is satisfactorily completed and approved.
+2.5 Verification documents. Advantage does not require identity or verification documents to create a seller account or to begin building auctions. However, when Advantage determines it is reasonably necessary (for example, to confirm identity, ownership, authority to sell, or to address risk, legal, or compliance concerns), Advantage may request verification documents from the Seller, which may include government-issued identification, a passport, a business license, tax documentation, proof of ownership, a receipt or invoice, estate authority, or probate documentation. The Seller agrees to provide requested verification documents through the secure process Advantage provides. Where Advantage has flagged a Seller or auction as requiring verification, Advantage may decline to publish, prevent the Seller from publishing, or pause the affected auction until the requested verification is satisfactorily completed and approved.
 
 ## 3. Title, Authenticity, and Condition
 
@@ -89,7 +94,7 @@ This Seller Consignment and Auction Services Agreement (this "Agreement") govern
 
 6.4 **Marketing fees.** Marketing package fees are not charged upfront and do not apply unless the Seller voluntarily selects, and Advantage approves, a marketing package. If a marketing package is selected and approved, the associated fees are deducted from the Seller's settlement and itemized on the Seller's settlement statement.
 
-6.5 The fees in this Section reflect the Seller's terms of record at the Effective Date. Advantage maintains the Seller's financial terms in a versioned, history-preserving record; changes apply prospectively and do not alter terms for an auction already approved and live.
+6.5 The fees in this Section reflect the Seller's terms of record at the Effective Date. Advantage maintains the Seller's financial terms in a versioned, history-preserving record; changes apply prospectively and do not alter terms for an auction already published.
 
 6.6 **Recovery of costs on withdrawal or cancellation.** If, after Advantage has performed work on an auction or item, the Seller cancels an auction, withdraws items committed to an auction, fails to provide committed items, or materially misrepresents items, Advantage may deduct from amounts otherwise owed to the Seller, or invoice the Seller for, its reasonable costs and losses arising from that conduct. These may include buyer refunds and chargebacks, marketing costs, labor, transportation and handling, and platform and administrative expenses. Such amounts are itemized on the Seller's statement.
 
@@ -105,7 +110,7 @@ This Seller Consignment and Auction Services Agreement (this "Agreement") govern
 
 These two fees are stated and itemized separately on the Seller's settlement statement and are not a single combined commission; the standard combined seller-side deduction is the mathematical sum of the two (7% of hammer). The Platform Fee is the negotiable commercial component and may reflect a rate specifically agreed with the Seller and recorded in the Seller's terms of record; the Processing Fee remains 3% unless a different processing arrangement is separately agreed in writing. These professional-seller fees replace, for professional sellers, the individual-seller commission structure in Section 6.1 (the Processing Fee in Section 6.3 continues to apply as the Processing Fee described here).
 
-6.8 **Professional sellers — business verification before first sale.** A professional Seller may register for an account, access the seller dashboard, create an auction, and build a catalog before Advantage completes verification of the Seller's business. However, Advantage will not make the professional Seller's first sale publicly sellable until Advantage has verified and approved the Seller's business. Advantage publishes auctions; a professional auction remains unpublished until verification is approved.
+6.8 **Professional sellers — business verification before first sale.** A professional Seller may register for an account, access the seller dashboard, create an auction, and build a catalog before Advantage completes verification of the Seller's business. However, a professional Seller cannot publish an auction, and its first sale cannot become publicly sellable, until Advantage has verified and approved the Seller's business. After verification, the professional Seller publishes its own auctions as described in Section 1.3.
 
 6.9 **Professional sellers — Storefront fixed-price seller fee.** Fixed-price items that a professional Seller sells through its Advantage.Bid Professional Storefront (not by auction) are subject to a flat seller fee of **11% of the item selling price** (the "Storefront Fee"). The Storefront Fee includes card and payment processing; no separate Processing Fee applies to Storefront fixed-price sales. Shipping charges and sales tax are not included in the amount on which the Storefront Fee is calculated. The Storefront Fee is charged only when an item sells through Advantage.Bid checkout. The Storefront Fee is separate from, and does not change, the auction Platform Fee and Processing Fee in Section 6.7, which apply only to auction (hammer-price) sales.
 
@@ -163,7 +168,7 @@ These two fees are stated and itemized separately on the Seller's settlement sta
 
 13.1 This Agreement takes effect on the Effective Date and continues until terminated.
 
-13.2 Either party may terminate on written notice. Termination does not affect auctions already approved and live, obligations for items already sold, or settlement of proceeds for completed sales.
+13.2 Either party may terminate on written notice. Termination does not affect auctions already published, obligations for items already sold, or settlement of proceeds for completed sales.
 
 13.3 Advantage may suspend or terminate the Seller's access immediately for breach, suspected fraud, or to comply with law.
 
@@ -212,3 +217,4 @@ Signature, date, and authentication metadata are captured electronically by the 
 - Maintain one template per `seller_type` (private, business, auction_house, estate_sale_company, professional_liquidator). The professional templates may add classification-specific scheduling/exemption language (e.g. professional pickup-timing autonomy) in Section 8; the body above is the base.
 - Keep the content em-dash-free (content SOP); `check-dashes.js` should pass on any HTML surface that renders it.
 - Counsel review required before production use (Section disclaimer at top).
+- **Versioning (2026-10-06):** a text change is published as a NEW template version (`scripts/prod-publish-seller-agreement-version.js`), never by overwriting an existing version row. Signed agreements keep their own frozen `rendered_body` + signature content hash. Version 2 (2026-10-06) aligned Sections 1.1, 1.3, 2.4, 2.5, 6.5, 6.8 and 13.2 with professional self-publishing; nothing else changed.

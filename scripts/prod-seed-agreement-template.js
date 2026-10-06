@@ -59,6 +59,11 @@ function extractBody() {
     // Duplicate-safety: refuse if a DIFFERENT active 'private' template exists.
     const dup = await c.query(`SELECT id FROM agreement_templates WHERE agreement_type='private' AND is_active=true AND id <> $1`, [TEMPLATE]);
     if (dup.rowCount) { console.error('REFUSE: another ACTIVE private template already exists: ' + dup.rows.map(r => r.id).join(', ') + '. Aborting to avoid duplicate active templates.'); c.release(); await pool.end(); return 1; }
+    // IMMUTABILITY (2026-10-06): this script only seeds an EMPTY database. It used to overwrite version 1 in place
+    // (ON CONFLICT DO UPDATE), which rewrote the text behind already-signed agreements. Once any version exists,
+    // publish text changes as a NEW version with scripts/prod-publish-seller-agreement-version.js.
+    const existingVersion = await c.query(`SELECT 1 FROM agreement_template_versions WHERE template_id = $1 LIMIT 1`, [TEMPLATE]);
+    if (existingVersion.rowCount) { console.error('REFUSE: the Seller Agreement template already has a version. Use scripts/prod-publish-seller-agreement-version.js to publish a new version; never overwrite an existing one.'); c.release(); await pool.end(); return 1; }
 
     await c.query('BEGIN');
     await c.query(
