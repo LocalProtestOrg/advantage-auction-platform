@@ -253,12 +253,19 @@ describe('existing onboarding and economics are unaffected', () => {
     expect(b).toMatch(/ends one year later/);
     expect(b).toMatch(/does not renew automatically/);
     expect(b).toMatch(/0% Advantage\.Bid auction platform\/software fee/);
-    expect(b).toMatch(/actually assesses on the buyer payments/);
+    expect(b).toMatch(/actually assesses on the buyer payments/);                                   // actual cost (unchanged)
     expect(b).toMatch(/does not mark up these charges/);
     expect(b).toMatch(/Professional Storefront fixed-price sales are not included/);
     expect(b).toMatch(/starting bids, reserves, custom bid increments, and your buyer's premium/);
     expect(b).toMatch(/Advantage\.Bid processes eligible seller payouts every Thursday\. Auction sales become eligible for the first Thursday after pickup or fulfillment is completed and the transaction is otherwise eligible for payout\./);
-    expect(b).toMatch(/does not include white-label service/);
+    expect(b).toMatch(/Advantage\.Bid attribution remains on every display\./);
+    expect(b).not.toMatch(/white-label/i);
+    expect(b).toMatch(/an auction that you publish through Advantage\.Bid during the Term while you are eligible for the Program/);
+    expect(b).not.toMatch(/Advantage\.Bid (publishes|published|continues to review and publish)/);
+    expect(b).toMatch(/based on the amount processed for the buyer's payment, which may include the hammer price, buyer's premium, and applicable sales tax/);
+    expect(b).toMatch(/The 0% platform fee applies only to Qualifying Auctions published during the Term\./);
+    expect(b).not.toMatch(/not permanent/);
+    expect(b).toMatch(/Advantage Auction Company, LLC d\/b\/a Advantage\.Bid/);
     expect(b).toMatch(/does not set a minimum number of auctions/);
     expect(b).not.toMatch(/2\.9|3%|free of charge|completely free|guarantee(s|d)? (bidders|prices|sell-through)|automatically renew(s)? each|white-label service is included/i);
     expect(b).not.toMatch(/—/);                                                                   // em-dash-free (content SOP)

@@ -11,7 +11,7 @@ This file is the single source for the Auction Partner Program Addendum:
 `{{legal_name}}`, `{{signatory_name}}` and `{{effective_date}}` are filled in for each partner when the addendum is
 issued. In the email copy they read as blanks to be completed online.
 
-Status: final proposed text, 2026-10-06. Owner and counsel items are listed in
+Status: final proposed text, revised 2026-10-06 (Owner review: seller publishing, attribution, processing wording, term wording). Owner and counsel items are listed in
 `docs/legal/auction-partner-program-addendum-counsel-notes.md`.
 
 <!-- BEGIN ADDENDUM BODY -->
@@ -37,11 +37,13 @@ This Auction Partner Program Addendum (this "Addendum") supplements the Advantag
 
 ## 2. Qualifying Auctions
 
-2.1 A "Qualifying Auction" is an auction of yours that Advantage.Bid publishes during the Term while you remain in the Program.
+2.1 A "Qualifying Auction" is an auction that you publish through Advantage.Bid during the Term while you are eligible for the Program.
 
-2.2 Every auction keeps the economic terms in effect when Advantage.Bid published it, for that auction's whole life, even if the Term later ends or the Program or its terms change or end.
+2.2 Every auction keeps the economic terms in effect when it was published, for that auction's whole life, even if the Term later ends or the Program or its terms change or end.
 
-2.3 Auctions that Advantage.Bid publishes outside the Term are governed by the Seller Agreement and your terms of record in effect when each is published.
+2.3 Auctions published outside the Term, or while you are not eligible for the Program, are governed by the Seller Agreement and your terms of record in effect when each is published.
+
+2.4 You publish your auctions using the tools Advantage.Bid makes available to professional sellers, subject to the Platform's rules and controls, including business verification.
 
 ## 3. Platform Fee
 
@@ -53,7 +55,7 @@ This Auction Partner Program Addendum (this "Addendum") supplements the Advantag
 
 4.1 Payment processing remains your responsibility. For each Qualifying Auction, the payment-processing charges that Advantage.Bid's payment processor actually assesses on the buyer payments collected for that auction are deducted from your proceeds. This replaces, for Qualifying Auctions only, the percentage Processing Fee described in the Seller Agreement.
 
-4.2 These charges are assessed on the full amount each buyer pays, which may include the hammer price, the buyer's premium, and applicable sales tax. They are not a fixed percentage and can vary by transaction, for example by card type or card origin.
+4.2 Payment-processing charges are based on the amount processed for the buyer's payment, which may include the hammer price, buyer's premium, and applicable sales tax. They are not a fixed percentage and can vary by transaction.
 
 4.3 Advantage.Bid does not mark up these charges for Qualifying Auctions. If the processor returns any part of a charge when a payment is refunded, only the amount the processor actually retains is deducted.
 
@@ -69,11 +71,11 @@ This Auction Partner Program Addendum (this "Addendum") supplements the Advantag
 
 6.1 You are responsible for selecting the inventory you offer, the photographs and descriptions of your items, your auction settings, buyer pickup or fulfillment, and compliance with the Seller Agreement and the Platform's marketplace rules.
 
-6.2 Advantage.Bid provides the online auction platform, listing on the Advantage.Bid marketplace, bidding, buyer invoicing, buyer payment collection, and processing of eligible payouts. Advantage.Bid continues to review and publish auctions as described in the Seller Agreement.
+6.2 Advantage.Bid provides the online auction platform, listing on the Advantage.Bid marketplace, bidding, buyer invoicing, buyer payment collection, and processing of eligible payouts. Advantage.Bid maintains the Platform's rules and controls and may review, moderate, edit, or withdraw listings as described in the Seller Agreement.
 
 ## 7. Display and Attribution
 
-7.1 Qualifying Auctions are listed on the Advantage.Bid marketplace and, where an integration is in place, may also be displayed through your own website or business presence. Advantage.Bid attribution remains on every display. The Program does not include white-label service.
+7.1 Qualifying Auctions are listed on the Advantage.Bid marketplace and, where an integration is in place, may also be displayed through your own website or business presence. Advantage.Bid attribution remains on every display.
 
 ## 8. Sales Tax
 
@@ -87,7 +89,7 @@ This Auction Partner Program Addendum (this "Addendum") supplements the Advantag
 
 10.1 Advantage.Bid does not guarantee bidder counts, prices, sell-through, or any other result, and does not promise that any category of item will be accepted. The Platform's policies on prohibited and restricted items continue to apply.
 
-10.2 The 0% platform fee applies only to Qualifying Auctions during the Term. It is not permanent. This Addendum does not set a minimum number of auctions for either party.
+10.2 The 0% platform fee applies only to Qualifying Auctions published during the Term. This Addendum does not set a minimum number of auctions for either party.
 
 ## 11. Electronic Acceptance
 
