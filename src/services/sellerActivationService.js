@@ -562,6 +562,43 @@ async function preview({ now = new Date(), runner = db } = {}) {
     return { f, s, h, d, message: d.decision === 'would_contact' ? composeMessage(f, s, d) : null }; });
 }
 
+/**
+ * Super Admin edit path for the switches shown in the Director. Validated and audited. Moving to live requires
+ * confirm === 'LIVE' so it can never happen by accident; moving back to shadow never needs confirmation.
+ */
+const LIMITS = { first_touch_hours: [24, 720], second_touch_days: [3, 60], max_per_stage: [0, 2], max_per_seller: [0, 3], daily_cap: [0, 50], recent_human_days: [1, 90] };
+async function setConfig(patch = {}, { actorId, confirm } = {}) {
+  const writes = [];
+  const bad = (m) => { const e = new Error(m); e.status = 400; throw e; };
+  if (!patch || typeof patch !== 'object' || Array.isArray(patch)) bad('settings must be an object');
+  const unknown = Object.keys(patch).filter((k) => !['enabled', 'mode', ...Object.keys(LIMITS)].includes(k));
+  if (unknown.length) bad('Unknown setting: ' + unknown.join(', '));
+  if ('enabled' in patch && typeof patch.enabled !== 'boolean') bad('enabled must be true or false');
+  if ('enabled' in patch) writes.push(['enabled', patch.enabled]);
+  if ('mode' in patch) {
+    if (!['shadow', 'live'].includes(patch.mode)) { const e = new Error('mode must be shadow or live'); e.status = 400; throw e; }
+    if (patch.mode === 'live' && confirm !== 'LIVE') { const e = new Error('Type LIVE to confirm that Sasha may start sending check-ins.'); e.status = 400; throw e; }
+    writes.push(['mode', patch.mode]);
+  }
+  for (const [k, [lo, hi]] of Object.entries(LIMITS)) {
+    if (!(k in patch)) continue;
+    const n = Number(patch[k]);
+    if (!Number.isInteger(n) || n < lo || n > hi) { const e = new Error(k + ' must be a whole number from ' + lo + ' to ' + hi); e.status = 400; throw e; }
+    writes.push([k, n]);
+  }
+  if (!writes.length) { const e = new Error('Nothing to change.'); e.status = 400; throw e; }
+  const before = await config();
+  for (const [k, v] of writes) {
+    await db.query(`INSERT INTO platform_config (key, value, category, updated_at) VALUES ($1, $2::jsonb, 'seller_activation', now())
+      ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = now()`, ['seller_activation.' + k, JSON.stringify(v)]);
+  }
+  // audit_log.entity_id is a NOT NULL uuid: the switches are one logical record with a fixed id.
+  await require('../lib/auditLog').writeAuditLog({ event_type: 'seller_activation.config_changed', entity_type: 'seller_activation_config',
+    entity_id: 'a1870000-0000-4000-8000-000000000187', actor_id: actorId || null,
+    metadata: { changes: Object.fromEntries(writes.map(([k, v]) => [k, { before: before[k], after: v }])) } });
+  return config();
+}
+
 async function optOut(sellerProfileId, { actorId, reason }) {
   const r = await db.query(
     `INSERT INTO seller_activation_state (seller_profile_id, stage, opted_out_at, opted_out_by, opted_out_reason)
@@ -607,8 +644,8 @@ async function directorView() {
     first_auction_published: real.filter((s) => s.published).length,
   };
   return { config: { enabled: cfg.enabled, mode: cfg.mode, first_touch_hours: cfg.first_touch_hours, second_touch_days: cfg.second_touch_days,
-    max_per_stage: cfg.max_per_stage, max_per_seller: cfg.max_per_seller, daily_cap: cfg.daily_cap }, funnel, sellers };
+    max_per_stage: cfg.max_per_stage, max_per_seller: cfg.max_per_seller, daily_cap: cfg.daily_cap, recent_human_days: cfg.recent_human_days }, funnel, sellers };
 }
 
 module.exports = { computeStage, decide, composeMessage, exclusion, timezoneFor, inWindow, nextWindowStart, config, loadFacts, loadHistory,
-  recordEvaluation, sendCheckIn, runPass, preview, optOut, directorView, DEFAULTS, MIN_LOTS };
+  recordEvaluation, sendCheckIn, runPass, preview, optOut, setConfig, directorView, DEFAULTS, MIN_LOTS };

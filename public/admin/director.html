@@ -48,6 +48,20 @@
     <div class="card" id="sa-card">
       <h2>Seller Activation</h2>
       <div class="bar"><span id="sa-mode" class="msg">Loading…</span><button class="alt" id="sa-eval" style="padding:.3rem .7rem">Re-evaluate</button><span class="msg" id="sa-msg"></span></div>
+      <details id="sa-settings" style="margin:.3rem 0 .6rem"><summary class="msg" style="cursor:pointer">Settings (Super Admin)</summary>
+        <div class="bar" style="margin-top:.5rem;font-size:.8rem">
+          <label><input type="checkbox" id="sa-enabled"> Evaluation on</label>
+          <label>Mode <select id="sa-mode-sel"><option value="shadow">Shadow: Sasha sends nothing</option><option value="live">Live (Sasha sends)</option></select></label>
+          <label>First check-in after <input id="sa-first" type="number" min="24" max="720" style="width:4.5rem"> h</label>
+          <label>Second after <input id="sa-second" type="number" min="3" max="60" style="width:3.5rem"> d</label>
+          <label>Max / stage <input id="sa-stage" type="number" min="0" max="2" style="width:3rem"></label>
+          <label>Max / seller <input id="sa-seller" type="number" min="0" max="3" style="width:3rem"></label>
+          <label>Daily cap <input id="sa-daily" type="number" min="0" max="50" style="width:3.5rem"></label>
+          <label>Recent human contact <input id="sa-human" type="number" min="1" max="90" style="width:3.5rem"> d</label>
+          <label id="sa-confirm-wrap" hidden>Type LIVE to confirm <input id="sa-confirm" style="width:4.5rem"></label>
+          <button id="sa-save" style="padding:.3rem .7rem">Save settings</button>
+        </div>
+      </details>
       <div id="sa-funnel" class="msg"></div>
       <div style="overflow-x:auto"><div id="sa-rows" class="msg">Loading…</div></div>
     </div>
@@ -89,6 +103,12 @@
       const c=d.config;
       document.getElementById('sa-mode').innerHTML='Evaluation '+ch(c.enabled)+' · Mode '+(c.mode==='live'?'<span class="pill bad">LIVE: Sasha sends</span>':'<span class="pill warn">SHADOW: nothing is sent</span>')
         +' · first check-in after '+c.first_touch_hours+'h, second after '+c.second_touch_days+'d · max '+c.max_per_stage+'/stage, '+c.max_per_seller+'/seller, '+c.daily_cap+'/day';
+      saSavedMode=c.mode;
+      document.getElementById('sa-enabled').checked=!!c.enabled;document.getElementById('sa-mode-sel').value=c.mode;
+      document.getElementById('sa-first').value=c.first_touch_hours;document.getElementById('sa-second').value=c.second_touch_days;
+      document.getElementById('sa-stage').value=c.max_per_stage;document.getElementById('sa-seller').value=c.max_per_seller;
+      document.getElementById('sa-daily').value=c.daily_cap;document.getElementById('sa-human').value=c.recent_human_days;
+      document.getElementById('sa-confirm-wrap').hidden=true;document.getElementById('sa-confirm').value='';
       const f=d.funnel;
       document.getElementById('sa-funnel').innerHTML='<b>Funnel:</b> '+f.signup+' signed up → '+f.onboarding_complete+' onboarding complete → '+f.draft_started+' draft started → '+f.submitted+' submitted → '+f.first_auction_published+' first auction published';
       const rows=d.sellers||[];
@@ -107,6 +127,24 @@
     document.getElementById('sa-eval').onclick=async function(){this.disabled=true;document.getElementById('sa-msg').textContent='Evaluating…';
       try{const r=await api('POST','/api/admin/director/seller-activation/evaluate');document.getElementById('sa-msg').textContent=r.success?('Evaluated '+(r.evaluated||0)+' sellers ('+r.mode+').'):(r.message||'Requires Super Admin.');}catch(e){document.getElementById('sa-msg').textContent='Requires Super Admin.';}
       this.disabled=false;loadActivation();};
+    let saSavedMode='shadow';
+    function saNote(text,ok){const m=document.getElementById('sa-msg');m.textContent=text;m.style.color=ok?'#166534':'#991b1b';}
+    document.getElementById('sa-mode-sel').onchange=function(){document.getElementById('sa-confirm-wrap').hidden=!(this.value==='live'&&saSavedMode!=='live');};
+    document.getElementById('sa-save').onclick=async function(){
+      const v=(id)=>Number(document.getElementById(id).value);
+      const settings={enabled:document.getElementById('sa-enabled').checked,first_touch_hours:v('sa-first'),second_touch_days:v('sa-second'),
+        max_per_stage:v('sa-stage'),max_per_seller:v('sa-seller'),daily_cap:v('sa-daily'),recent_human_days:v('sa-human')};
+      const mode=document.getElementById('sa-mode-sel').value;
+      if(mode!==saSavedMode) settings.mode=mode;
+      this.disabled=true;saNote('Saving…',true);
+      let r={};
+      try{r=await fetch('/api/admin/director/seller-activation/config',{method:'POST',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},
+        body:JSON.stringify({settings,confirm:document.getElementById('sa-confirm').value.trim()})}).then(x=>x.json());}catch(e){r={message:'Network error. Nothing was saved.'};}
+      this.disabled=false;
+      if(r.success) saNote('Settings saved. Mode is now '+(r.config.mode==='live'?'LIVE':'SHADOW (Sasha sends nothing)')+'.',true);
+      else saNote(r.message||r.error||'Saving settings requires Super Admin.',false);
+      await loadActivation();   // reload the authoritative saved configuration
+    };
     loadActivation().catch(()=>{document.getElementById('sa-rows').textContent='Unavailable.';});
     document.getElementById('detect').onclick=async function(){this.disabled=true;document.getElementById('msg').textContent='Detecting…';try{const r=await api('POST','/api/admin/director/opportunities/detect');document.getElementById('msg').textContent='Detected '+r.ranked+' ranked, '+r.declined+' declined.';}catch(e){document.getElementById('msg').textContent='Detect requires Super Admin.';}this.disabled=false;load();};
     load();

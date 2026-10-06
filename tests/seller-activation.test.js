@@ -411,6 +411,47 @@ describe('live send (re-evaluated immediately before sending)', () => {
   });
 });
 
+// ── Super Admin settings (audited, validated, LIVE needs typed confirmation) ──────────────────────────
+describe('settings edit path', () => {
+  const writes = () => calls.filter((c) => /INSERT INTO platform_config/.test(c.sql)).map((c) => [c.params[0], JSON.parse(c.params[1])]);
+  const audits = () => calls.filter((c) => /INSERT INTO audit_log/.test(c.sql));
+  beforeEach(() => { route(/seller_activation\.%/, () => cfgRows({ mode: 'shadow' })); });
+  test('saves validated values and audits the change', async () => {
+    await sa.setConfig({ enabled: true, first_touch_hours: 96, second_touch_days: 10, max_per_stage: 1, max_per_seller: 2, daily_cap: 4, recent_human_days: 21 }, { actorId: 'u1' });
+    expect(writes()).toEqual(expect.arrayContaining([['seller_activation.enabled', true], ['seller_activation.first_touch_hours', 96], ['seller_activation.second_touch_days', 10],
+      ['seller_activation.max_per_stage', 1], ['seller_activation.max_per_seller', 2], ['seller_activation.daily_cap', 4], ['seller_activation.recent_human_days', 21]]));
+    expect(audits()).toHaveLength(1);
+    expect(audits()[0].params[0]).toBe('seller_activation.config_changed');
+  });
+  test('switching to live without typing LIVE is refused and writes nothing', async () => {
+    await expect(sa.setConfig({ mode: 'live' }, { actorId: 'u1' })).rejects.toMatchObject({ status: 400, message: expect.stringMatching(/Type LIVE/) });
+    await expect(sa.setConfig({ mode: 'live' }, { actorId: 'u1', confirm: 'live' })).rejects.toMatchObject({ status: 400 });
+    expect(writes()).toEqual([]);
+  });
+  test('typing LIVE switches to live; returning to shadow needs no confirmation', async () => {
+    await sa.setConfig({ mode: 'live' }, { actorId: 'u1', confirm: 'LIVE' });
+    await sa.setConfig({ mode: 'shadow' }, { actorId: 'u1' });
+    expect(writes()).toEqual([['seller_activation.mode', 'live'], ['seller_activation.mode', 'shadow']]);
+  });
+  test.each([
+    [{ first_touch_hours: 12 }], [{ second_touch_days: 1 }], [{ max_per_stage: 3 }], [{ max_per_seller: 4 }], [{ daily_cap: -1 }], [{ recent_human_days: 0 }],
+    [{ daily_cap: 2.5 }], [{ mode: 'turbo' }], [{ enabled: 'yes' }], [{ surprise: 1 }], [{}],
+  ])('rejects invalid input %j', async (patch) => {
+    await expect(sa.setConfig(patch, { actorId: 'u1' })).rejects.toMatchObject({ status: 400 });
+    expect(writes()).toEqual([]);
+  });
+  test('Director wiring: Super Admin endpoint, Save posts to it, reloads the saved config, shadow says Sasha sends nothing', () => {
+    const r = fs.readFileSync(path.join(__dirname, '..', 'src', 'routes', 'adminDirector.js'), 'utf8');
+    const h = fs.readFileSync(path.join(__dirname, '..', 'public', 'admin', 'director.html'), 'utf8');
+    expect(r).toMatch(/router\.post\('\/seller-activation\/config', superOnly/);
+    expect(h).toMatch(/fetch\('\/api\/admin\/director\/seller-activation\/config'/);
+    expect(h).toMatch(/await loadActivation\(\);\s+\/\/ reload the authoritative saved configuration/);
+    expect(h).toMatch(/Shadow: Sasha sends nothing/);
+    expect(h).toMatch(/Type LIVE to confirm/);
+    for (const id of ['sa-enabled', 'sa-mode-sel', 'sa-first', 'sa-second', 'sa-stage', 'sa-seller', 'sa-daily', 'sa-human']) expect(h).toContain('id="' + id + '"');
+  });
+});
+
 // ── funnel fix, Director, Auction Partner release, scope ─────────────────────────────────────────────
 describe('scope and wiring', () => {
   const read = (p) => fs.readFileSync(path.join(__dirname, '..', p), 'utf8');
