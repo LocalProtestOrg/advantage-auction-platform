@@ -78,6 +78,15 @@ async function baselinePass() {
   } catch (e) { console.error('[marketingRefresh] director baseline snapshot failed:', e.message); }
 }
 
+// R-1 Seller Activation (Director-owned). Self-gates on seller_activation.enabled; sends ONLY when
+// seller_activation.mode = 'live' (SHADOW records decisions and sends nothing). Single-flight via advisory lock.
+async function activationPass() {
+  try {
+    const r = await require('../services/sellerActivationService').runPass();
+    if (!r.skipped) console.log('[marketingRefresh] seller activation:', JSON.stringify({ mode: r.mode, evaluated: r.evaluated, counts: r.counts, sent: (r.sends || []).filter((s) => s.sent).length }));
+  } catch (e) { console.error('[marketingRefresh] seller activation failed:', e.message); }
+}
+
 if (require.main === module) {
   console.log('[marketingRefresh] worker started (fast 15m / slow 60m; gated on marketing.behavioral.enabled)');
   // Stagger the initial runs so startup isn't spiky.
@@ -93,6 +102,9 @@ if (require.main === module) {
   // Director baseline: check hourly whether today's snapshot is due.
   setTimeout(baselinePass, 10 * 60_000);
   setInterval(baselinePass, 60 * 60_000);
+  // Seller activation: every 30 minutes.
+  setTimeout(activationPass, 4 * 60_000);
+  setInterval(activationPass, 30 * 60_000);
 }
 
-module.exports = { fastPass, slowPass, costPass, spendPass, baselinePass };
+module.exports = { fastPass, slowPass, costPass, spendPass, baselinePass, activationPass };

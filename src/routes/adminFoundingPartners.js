@@ -131,6 +131,20 @@ router.post('/:id/release-claim', idParam, manage, wrap(async (req, res) => {
   res.json({ success: true, data: { released: true } });
 }));
 
+// R-1 seller activation: an Auction Partner seller belongs to its relationship owner. Sasha's activation check-ins
+// stay off for it until the owner explicitly allows them here (and can withdraw that at any time). Contacts no one.
+router.post('/:id/sasha-assist', idParam, manage, wrap(async (req, res) => {
+  const allow = !!(req.body || {}).allow;
+  const row = (await db.query(
+    `UPDATE founding_partners SET sasha_assist_released_at = CASE WHEN $2 THEN COALESCE(sasha_assist_released_at, now()) ELSE NULL END,
+            sasha_assist_released_by = CASE WHEN $2 THEN COALESCE(sasha_assist_released_by, $3) ELSE NULL END, updated_at = now()
+      WHERE id = $1 RETURNING id, sasha_assist_released_at`, [req.params.id, allow, req.user.id])).rows[0];
+  if (!row) return res.status(404).json({ success: false, message: 'Not found.' });
+  await require('../lib/auditLog').writeAuditLog({ event_type: allow ? 'founding_partner.sasha_assist_allowed' : 'founding_partner.sasha_assist_withdrawn',
+    entity_type: 'founding_partner', entity_id: row.id, actor_id: req.user.id, metadata: {} });
+  res.json({ success: true, data: { sasha_assist_released_at: row.sasha_assist_released_at } });
+}));
+
 // The person handling the partnership takes (or renews) the company contact lock, so only they can email it.
 router.post('/:id/lock', idParam, manage, wrap(async (req, res) => {
   const rec = (await db.query(`SELECT company_id FROM founding_partners WHERE id = $1`, [req.params.id])).rows[0];

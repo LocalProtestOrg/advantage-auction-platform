@@ -103,6 +103,20 @@ router.get('/daily', async (req, res, next) => {
 });
 
 // ── WRITE / ACTION (Super Admin; all pass production enforcement) ──
+// ── R-1 Seller Activation (compact view; decisions are computed by sellerActivationService) ──
+router.get('/seller-activation', async (req, res, next) => {
+  try { res.json({ success: true, ...(await require('./../services/sellerActivationService').directorView()) }); } catch (e) { next(e); }
+});
+// Re-evaluate now. Never sends from here, even in live mode (sending belongs to the scheduled pass).
+router.post('/seller-activation/evaluate', superOnly, async (req, res, next) => {
+  try { res.json({ success: true, ...(await require('./../services/sellerActivationService').runPass({ allowSend: false })) }); } catch (e) { next(e); }
+});
+router.post('/seller-activation/:sellerProfileId/opt-out', superOnly, async (req, res, next) => {
+  try {
+    if (!/^[0-9a-f-]{36}$/i.test(req.params.sellerProfileId)) return res.status(404).json({ success: false, message: 'Not found.' });
+    res.json({ success: true, data: await require('./../services/sellerActivationService').optOut(req.params.sellerProfileId, { actorId: req.user.id, reason: (req.body || {}).reason }) });
+  } catch (e) { next(e); }
+});
 router.post('/baseline/snapshot', superOnly, async (req, res, next) => {
   try { res.json({ success: true, ...(await baseline.snapshot()) }); } catch (e) { next(e); }
 });

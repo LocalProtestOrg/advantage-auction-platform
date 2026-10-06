@@ -45,6 +45,13 @@
       <div class="card"><h2>Declined (with reasons)</h2><div id="declined">Loading…</div></div>
     </div>
 
+    <div class="card" id="sa-card">
+      <h2>Seller Activation</h2>
+      <div class="bar"><span id="sa-mode" class="msg">Loading…</span><button class="alt" id="sa-eval" style="padding:.3rem .7rem">Re-evaluate</button><span class="msg" id="sa-msg"></span></div>
+      <div id="sa-funnel" class="msg"></div>
+      <div style="overflow-x:auto"><div id="sa-rows" class="msg">Loading…</div></div>
+    </div>
+
     <div class="card"><h2>Owner report</h2><div id="report" class="msg">Loading…</div></div>
   </div>
   <script>
@@ -71,6 +78,36 @@
         +'<div class="stat"><div class="n">'+esc(sf.buyer_seller_crossover_audience)+'</div><div class="l">Crossover audience</div></div>'
         +'<div class="msg" style="margin-top:.6rem">'+esc(rep.report.note)+'</div>';
     }
+    const STAGE={onboarding_incomplete:'Onboarding incomplete',ready_no_auction:'Ready, no auction',draft_started:'Draft started',submitted_waiting:'Submitted, waiting on us',activated:'Published'};
+    const NEXT={seller:'Seller',advantage:'Advantage.Bid',relationship_owner:'Relationship owner'};
+    function ago(ts){if(!ts)return '-';const h=Math.floor((Date.now()-new Date(ts).getTime())/36e5);return h<48?h+'h':Math.floor(h/24)+'d';}
+    function statusPill(r){const m={would_contact:['warn','Would contact'],contacted:['ok','Contacted'],waiting:['neu','Waiting'],staff_attention:['bad','Staff attention'],suppressed:['neu','Held'],complete:['ok','Activated']}[r.activation_status]||['neu',r.activation_status||'-'];
+      return '<span class="pill '+m[0]+'" title="'+esc(r.reason||'')+'">'+esc(m[1])+'</span>'+(r.guard&&r.activation_status!=='complete'?'<div class="msg" style="margin:2px 0 0">'+esc(r.guard)+'</div>':'');}
+    async function loadActivation(){
+      const d=await api('GET','/api/admin/director/seller-activation');
+      if(!d.success){document.getElementById('sa-rows').textContent=d.message||'Unavailable.';return;}
+      const c=d.config;
+      document.getElementById('sa-mode').innerHTML='Evaluation '+ch(c.enabled)+' · Mode '+(c.mode==='live'?'<span class="pill bad">LIVE: Sasha sends</span>':'<span class="pill warn">SHADOW: nothing is sent</span>')
+        +' · first check-in after '+c.first_touch_hours+'h, second after '+c.second_touch_days+'d · max '+c.max_per_stage+'/stage, '+c.max_per_seller+'/seller, '+c.daily_cap+'/day';
+      const f=d.funnel;
+      document.getElementById('sa-funnel').innerHTML='<b>Funnel:</b> '+f.signup+' signed up → '+f.onboarding_complete+' onboarding complete → '+f.draft_started+' draft started → '+f.submitted+' submitted → '+f.first_auction_published+' first auction published';
+      const rows=d.sellers||[];
+      document.getElementById('sa-rows').innerHTML=rows.length?('<table><thead><tr><th>Seller</th><th>Type</th><th>Stage</th><th>Blocker</th><th>Next action</th><th>Stalled</th><th>Last Sasha touch</th><th>Reply</th><th>Ownership</th><th>Staff</th><th>Auction Partner</th><th>Activation</th><th></th></tr></thead><tbody>'
+        +rows.map(r=>'<tr><td><b>'+esc(r.seller)+'</b><div class="msg" style="margin:0">'+esc(r.email)+'</div></td><td>'+esc(String(r.seller_type).replace(/_/g,' '))+'</td><td>'+esc(STAGE[r.stage]||r.stage)+'</td><td>'+esc((r.blocker||'-').replace(/_/g,' '))+'</td>'
+          +'<td>'+esc(NEXT[r.next_owner]||'-')+'</td><td>'+(r.stalled_hours==null?'-':ago(r.last_progress_at))+'</td><td>'+(r.last_sasha_touch_at?esc(String(r.last_sasha_touch_at).slice(0,10))+' ('+r.touches+')':'-')+'</td>'
+          +'<td>'+esc(r.reply_status)+'</td><td>'+esc(r.ownership)+'</td><td>'+(r.needs_staff_attention?'<span class="pill bad">Yes</span>':'-')+'</td>'
+          +'<td>'+(r.auction_partner?esc(r.auction_partner.name)+(r.auction_partner.released?' <span class="pill ok">released</span>':' <span class="pill warn">Ty-owned</span>'):'-')+'</td>'
+          +'<td>'+statusPill(r)+'</td><td>'+(r.opted_out?'<span class="pill neu">opted out</span>':(r.stage!=='activated'?'<button class="alt" style="padding:.2rem .5rem;font-size:.7rem;background:#64748b" data-optout="'+r.seller_profile_id+'">Opt out</button>':''))+'</td></tr>').join('')+'</tbody></table>')
+        :'<div class="msg">No sellers evaluated yet.</div>';
+    }
+    document.getElementById('sa-rows').addEventListener('click',async function(e){const b=e.target.closest('button[data-optout]');if(!b)return;
+      if(!confirm('Stop all activation check-ins for this seller?'))return;b.disabled=true;
+      const r=await fetch('/api/admin/director/seller-activation/'+b.dataset.optout+'/opt-out',{method:'POST',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify({reason:'staff recorded opt-out'})}).then(x=>x.json()).catch(()=>({}));
+      document.getElementById('sa-msg').textContent=r.success?'Opt-out saved; it applies on the next evaluation.':'Opt-out requires Super Admin.';loadActivation();});
+    document.getElementById('sa-eval').onclick=async function(){this.disabled=true;document.getElementById('sa-msg').textContent='Evaluating…';
+      try{const r=await api('POST','/api/admin/director/seller-activation/evaluate');document.getElementById('sa-msg').textContent=r.success?('Evaluated '+(r.evaluated||0)+' sellers ('+r.mode+').'):(r.message||'Requires Super Admin.');}catch(e){document.getElementById('sa-msg').textContent='Requires Super Admin.';}
+      this.disabled=false;loadActivation();};
+    loadActivation().catch(()=>{document.getElementById('sa-rows').textContent='Unavailable.';});
     document.getElementById('detect').onclick=async function(){this.disabled=true;document.getElementById('msg').textContent='Detecting…';try{const r=await api('POST','/api/admin/director/opportunities/detect');document.getElementById('msg').textContent='Detected '+r.ranked+' ranked, '+r.declined+' declined.';}catch(e){document.getElementById('msg').textContent='Detect requires Super Admin.';}this.disabled=false;load();};
     load();
   </script>

@@ -273,6 +273,9 @@ router.post('/apply-professional', auth, async (req, res, next) => {
     } catch (e) { console.error('[apply-professional] welcome email best-effort failed:', e.message); }
 
     if (!existing) require('../services/conversionService').emit('seller_inquiry', { ...require('../services/conversionService').ctxFromReq(req), userId: req.user.id, subjectType: 'seller_profile', subjectId: sellerProfileId });
+    // Funnel visibility (R-1): a NEW professional seller profile is a seller registration, exactly like /enroll records one.
+    // An upgrade of an existing profile was already counted when that profile was created.
+    if (!existing) require('../services/conversionService').emit('seller_registered', { ...require('../services/conversionService').ctxFromReq(req), userId: req.user.id, subjectType: 'professional_seller_profile', subjectId: sellerProfileId });
     return res.status(existing ? 200 : 201).json({
       success: true,
       token,

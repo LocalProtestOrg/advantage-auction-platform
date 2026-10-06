@@ -202,6 +202,9 @@
         if(r.status!=='ended'){ acts.push('<button class="b g sm" data-a="edit" data-id="'+r.id+'" data-end="'+esc(r.intro_end_date||'')+'" data-note="'+esc(r.internal_note||'')+'">Edit dates / note</button>');
           acts.push('<button class="b g sm" data-a="lock" data-id="'+r.id+'">Take contact lock</button>');
           acts.push('<button class="b g sm" data-a="end" data-id="'+r.id+'">End</button>'); }
+        if(r.seller_profile_id) acts.push(r.sasha_assist_released_at
+          ?'<button class="b g sm" data-a="sasha-off" data-id="'+r.id+'" title="Sasha may currently send seller setup check-ins">Withdraw Sasha check-ins</button>'
+          :'<button class="b g sm" data-a="sasha-on" data-id="'+r.id+'" title="Off by default: you own this relationship">Allow Sasha check-ins</button>');
         var warn=(r.warnings||[]).map(function(w){ return '<div class="w-line w-'+w.level+'">'+esc(w.text)+'</div>'; }).join('');
         return '<tr><td><b>'+esc(r.display_name)+'</b><div class="muted">'+esc(r.reason)+'</div>'+(r.internal_note?'<div class="muted">Note: '+esc(r.internal_note)+'</div>':'')+
           '<div class="muted">Approved by '+esc(r.approved_by_name||'—')+' · handled by '+esc(r.relationship_owner_name||'—')+'</div>'+warn+'</td>'+
@@ -234,6 +237,8 @@
       var note=prompt('Internal note:', b.dataset.note); if(note==null) return;
       req=api('PATCH',BASE+'/'+id,{intro_end_date:end.trim()||null,internal_note:note}); }
     else if(a==='lock'){ req=api('POST',BASE+'/'+id+'/lock',{}); }
+    else if(a==='sasha-on'){ if(!confirm('Allow Sasha to send this partner seller setup check-ins? You stay the relationship owner and can withdraw this at any time.')) return; req=api('POST',BASE+'/'+id+'/sasha-assist',{allow:true}); }
+    else if(a==='sasha-off'){ req=api('POST',BASE+'/'+id+'/sasha-assist',{allow:false}); }
     else if(a==='end'){ var r=prompt('Reason for ending this Auction Partner record (the company stays out of automated outreach until its journey is moved in the Claimed Listings toolbox):'); if(!r) return;
       req=api('POST',BASE+'/'+id+'/end',{reason:r}); }
     if(!req) return; b.disabled=true;

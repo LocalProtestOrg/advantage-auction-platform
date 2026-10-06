@@ -221,4 +221,31 @@ async function sendStaffEmail(conv, text, staffUserId, deps = {}) {
   return sent;
 }
 
-module.exports = { handleInbound, sendStaffEmail, ignoreReason, findThread, newText, replySubject, contentFingerprint, LIMITS: { MAX_AUTO_PER_SENDER_PER_HOUR, MAX_AUTO_PER_SENDER_PER_DAY, MAX_AUTO_PER_CONVERSATION } };
+/**
+ * Sasha-initiated email (R-1 seller activation check-ins only; see sellerActivationService). Same From, Shared Inbox
+ * reply path and loop guard as her replies, so the seller's answer threads onto the same conversation and staff can
+ * take over. A follow-up in the same conversation replies to the previous check-in.
+ */
+async function sendActivationEmail(conv, subject, text, deps = {}) {
+  const email = deps.emailService || require('../emailService');
+  const last = (await db.query(`SELECT email_message_id, references_header FROM cs_messages WHERE conversation_id = $1 AND email_message_id IS NOT NULL
+    ORDER BY created_at DESC LIMIT 1`, [conv.id])).rows[0] || {};
+  const refs = [...new Set([...idsFrom(last.references_header), ...idsFrom(last.email_message_id)])].slice(-10).join(' ');
+  const body = String(text).trim() + SIGNATURE + `\n\nRef: ${conv.ref}`;
+  if (/[—–]/.test(body + subject)) throw new Error('em dash in Sasha outbound text');
+  const html = '<div style="font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:1.5;color:#1f2937">'
+    + body.split(/\n{2,}/).map((p) => '<p style="margin:0 0 12px">' + p.replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]))
+      .replace(/\n/g, '<br>').replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1">$1</a>') + '</p>').join('') + '</div>';
+  return email.sendEmail({
+    to: conv.customer_email, subject: last.email_message_id ? replySubject(conv, subject) : `${subject} [Ref ${conv.ref}]`, text: body, html,
+    fromAddress: SUPPORT_FROM(), fromName: 'Sasha at Advantage.Bid', replyTo: SUPPORT_FROM(), mailStream: 'support',
+    headers: {
+      ...(last.email_message_id ? { 'In-Reply-To': last.email_message_id } : {}),
+      ...(refs ? { References: refs } : {}),
+      'Auto-Submitted': 'auto-generated',
+      'X-Advantage-Sasha': conv.ref,
+    },
+  });
+}
+
+module.exports = { handleInbound, sendStaffEmail, sendActivationEmail, ignoreReason, findThread, newText, replySubject, contentFingerprint, LIMITS: { MAX_AUTO_PER_SENDER_PER_HOUR, MAX_AUTO_PER_SENDER_PER_DAY, MAX_AUTO_PER_CONVERSATION } };
