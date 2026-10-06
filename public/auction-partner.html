@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="noindex" />
+  <title>Advantage.Bid Auction Partner Program</title>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/widgets/shared/onboarding.css" />
+  <script src="/widgets/shared/company-contact.js"></script>
+  <style>
+    .ap-doc{max-height:420px;overflow:auto;border:1px solid #e2e8f0;border-radius:10px;padding:14px 18px;background:#fff;font-size:14px;line-height:1.55}
+    .ap-doc h1{font-size:19px;margin:6px 0 10px}.ap-doc h2{font-size:15px;margin:16px 0 6px}.ap-doc p{margin:6px 0}.ap-doc hr{border:0;border-top:1px solid #e2e8f0;margin:12px 0}
+    .ap-steps{display:grid;gap:10px;margin-top:10px}
+    .ap-step{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;border:1px solid #e2e8f0;border-radius:10px;padding:12px 14px;background:#fff}
+    .ap-step b{display:block}.ap-step small{color:#64748b}
+    .ap-done{color:#166534;font-weight:700}.ap-wait{color:#92400e;font-weight:700}
+    details summary{cursor:pointer;font-weight:700;margin:10px 0}
+    .ap-list{margin:8px 0 0 18px;padding:0;line-height:1.6}
+  </style>
+</head>
+<body class="ob-body">
+  <div class="ob-topbar"><a class="ob-back" href="https://www.advantage.bid/auction-partners">&larr; Auction Partner Program</a></div>
+  <div class="ob-wrap ob-narrow" style="padding-bottom:40px">
+    <div id="loading" class="ob-lede" style="text-align:center;padding:46px 0">Loading…</div>
+
+    <!-- No invitation: program overview, invitation-only -->
+    <div id="overview" style="display:none">
+      <div class="ob-hero" style="padding:24px 0 6px">
+        <div class="ob-kick">By invitation</div>
+        <h1 class="ob-h1" style="font-size:clamp(26px,5vw,34px)">Advantage.Bid Auction Partner Program</h1>
+        <p class="ob-lede">For selected established estate sale companies and professional liquidators who want to add online auctions to their business.</p>
+      </div>
+      <div class="ob-panel">
+        <ul class="ap-list">
+          <li><b>0% Advantage.Bid auction platform/software fee</b> on qualifying auctions during the one-year program term.</li>
+          <li>You set and keep your buyer's premium.</li>
+          <li>Payment processing stays your responsibility and is passed through at actual cost, with no Advantage.Bid markup.</li>
+          <li>Your auctions are listed on the Advantage.Bid marketplace and can also appear on your own website where integrated.</li>
+          <li>Advantage.Bid processes eligible seller payouts every Thursday.</li>
+        </ul>
+        <div class="ob-callout" style="margin-top:14px"><strong>The program is by invitation.</strong> If Advantage.Bid has invited your company, open the personal link in your invitation to review the agreement and get started.</div>
+        <p class="ob-hint" style="margin-top:14px;text-align:center">Interested? Call Advantage.Bid at <a data-adv-tel style="font-weight:700"></a> or email <a data-adv-email style="font-weight:700"></a>.</p>
+      </div>
+    </div>
+
+    <!-- Invalid / expired invitation -->
+    <div id="invalid" style="display:none">
+      <div class="ob-hero" style="padding:24px 0 6px">
+        <div class="ob-kick">Auction Partner Program</div>
+        <h1 class="ob-h1" style="font-size:clamp(24px,5vw,30px)">This invitation link isn't valid</h1>
+        <p class="ob-lede" id="invalid-msg">This invitation link is not valid or has expired. Please contact Advantage.Bid for a new link.</p>
+      </div>
+      <div class="ob-panel" style="text-align:center"><p class="ob-hint">Call <a data-adv-tel style="font-weight:700"></a> or email <a data-adv-email style="font-weight:700"></a>.</p></div>
+    </div>
+
+    <!-- Invitation -->
+    <div id="invite" style="display:none">
+      <div class="ob-hero" style="padding:24px 0 6px">
+        <div class="ob-kick">Your invitation</div>
+        <h1 class="ob-h1" style="font-size:clamp(26px,5vw,34px)">Advantage.Bid Auction Partner Program</h1>
+        <p class="ob-lede">Prepared for <b id="company"></b>. Review the terms below, then create your account and sign. Invitation valid until <span id="expires"></span>.</p>
+      </div>
+
+      <div class="ob-panel">
+        <div class="ob-steps" style="justify-content:flex-start;margin:0 0 8px"><span><b>1.</b> Review terms</span><span><b>2.</b> Account + business</span><span><b>3.</b> Sign agreements</span><span><b>4.</b> Verification</span></div>
+        <h2 class="ob-h2" style="font-size:18px;margin:10px 0 8px" id="addendum-title">Auction Partner Program Addendum</h2>
+        <div class="ap-doc" id="addendum"></div>
+        <details id="sa-wrap"><summary id="sa-title">Seller Agreement (signed together with the addendum)</summary><div class="ap-doc" id="seller-agreement"></div></details>
+        <p class="ob-hint">You will sign both documents electronically after signing in. Each signature records the exact version you accepted.</p>
+      </div>
+
+      <!-- Not signed in -->
+      <div class="ob-panel" id="need-login" style="display:none;margin-top:14px;text-align:center">
+        <p class="ob-lede" style="margin:0 0 12px">Create your Advantage.Bid account (or sign in) to continue.</p>
+        <a id="register-link" class="ob-cta" href="/login.html?tab=register">Create account</a>
+        <a id="login-link" class="ob-cta" style="margin-left:8px;background:#0f172a" href="/login.html">Sign in</a>
+      </div>
+
+      <!-- Professional business details (existing professional application) -->
+      <div class="ob-panel ob-form" id="pro-form" style="display:none;margin-top:14px">
+        <h2 class="ob-h2" style="font-size:18px;margin:0 0 8px">Your business</h2>
+        <label for="seller-type">Business type</label>
+        <select id="seller-type">
+          <option value="estate_sale_company">Estate Sale Company</option>
+          <option value="professional_liquidator">Professional Liquidator</option>
+          <option value="auction_house">Auction House</option>
+        </select>
+        <label for="company-name">Company / business name <span class="req">*</span></label>
+        <input type="text" id="company-name" />
+        <label for="legal-name">Your full legal name <span class="req">*</span></label>
+        <input type="text" id="legal-name" />
+        <p class="ob-hint">The authorized representative signing for the business. Never shown publicly.</p>
+        <div style="display:flex;gap:12px;flex-wrap:wrap">
+          <div style="flex:2;min-width:180px"><label for="phone">Business phone <span class="req">*</span></label><input type="tel" id="phone" style="width:100%" /></div>
+          <div style="flex:1;min-width:90px"><label for="state">State</label><input type="text" id="state" maxlength="2" style="width:100%" /></div>
+        </div>
+        <button id="pro-btn" type="button" class="ob-cta ob-cta-full" style="margin-top:16px">Continue</button>
+        <div class="ob-err" id="pro-err"></div>
+      </div>
+
+      <!-- Checklist -->
+      <div class="ob-panel" id="checklist" style="display:none;margin-top:14px">
+        <h2 class="ob-h2" style="font-size:18px;margin:0 0 4px">Your steps</h2>
+        <div class="ap-steps" id="steps"></div>
+        <div class="ob-err" id="steps-err"></div>
+        <p class="ob-hint" style="margin-top:12px">After you sign, Advantage.Bid verifies your business and activates your Auction Partner terms before your first auction is published. Questions? Call <a data-adv-tel style="font-weight:700"></a>.</p>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    var qs = new URLSearchParams(location.search);
+    var invite = qs.get('invite');
+    var authToken = null; try { authToken = localStorage.getItem('token'); } catch (e) {}
+    function $(id) { return document.getElementById(id); }
+    function show(id) { $(id).style.display = ''; $('loading').style.display = 'none'; }
+    function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+    function inline(s) { return esc(s).replace(/\*\*([^*]+)\*\*/g, '<b>$1</b>'); }
+    function md(text) {
+      return String(text || '').split('\n').map(function (l) {
+        if (/^\s*---\s*$/.test(l)) return '<hr>';
+        var m = l.match(/^(#{1,4})\s+(.*)$/); if (m) return '<h' + Math.min(m[1].length, 3) + '>' + inline(m[2]) + '</h' + Math.min(m[1].length, 3) + '>';
+        if (/^\s*[-*]\s+/.test(l)) return '<p>&bull; ' + inline(l.replace(/^\s*[-*]\s+/, '')) + '</p>';
+        return l.trim() ? '<p>' + inline(l.replace(/^>\s?/, '')) + '</p>' : '';
+      }).join('');
+    }
+    function selfUrl() { return location.pathname + location.search; }
+    function api(method, url, body) {
+      var o = { method: method, headers: { 'Content-Type': 'application/json' } };
+      if (authToken) o.headers.Authorization = 'Bearer ' + authToken;
+      if (body) o.body = JSON.stringify(body);
+      return fetch(url, o).then(function (r) { return r.json().then(function (j) { j._status = r.status; return j; }); });
+    }
+
+    function renderSteps(s) {
+      var back = encodeURIComponent(selfUrl());
+      var rows = [];
+      function step(title, sub, right) { rows.push('<div class="ap-step"><div><b>' + esc(title) + '</b><small>' + esc(sub) + '</small></div><div>' + right + '</div></div>'); }
+      var sa = s.seller_agreement || {}; var ad = s.addendum || {};
+      step('Seller Agreement', 'The standard Advantage.Bid seller agreement.',
+        sa.signed ? '<span class="ap-done">Signed</span>' : (sa.agreement_id ? '<a class="ob-cta" href="/sign-agreement.html?id=' + encodeURIComponent(sa.agreement_id) + '&return=' + back + '">Review &amp; sign</a>' : '<span class="ap-wait">Preparing…</span>'));
+      step('Auction Partner Program Addendum', 'Your program terms.',
+        ad.signed ? '<span class="ap-done">Signed</span>' : (ad.agreement_id ? '<a class="ob-cta" href="/sign-agreement.html?id=' + encodeURIComponent(ad.agreement_id) + '&return=' + back + '">Review &amp; sign</a>' : '<span class="ap-wait">Preparing…</span>'));
+      var v = s.verification;
+      step('Business verification', 'Advantage.Bid verifies your business before your first auction is published.',
+        v === 'approved' ? '<span class="ap-done">Approved</span>' : '<a class="ob-cta" style="background:#0f172a" href="/verify-documents.html">Open verification</a>');
+      step('Partner terms activated', 'Advantage.Bid activates your Auction Partner terms after review.',
+        s.program_active ? '<span class="ap-done">Active</span>' : '<span class="ap-wait">After signing and verification</span>');
+      $('steps').innerHTML = rows.join('');
+    }
+
+    function acceptAndShow() {
+      return api('POST', '/api/auction-partner/invite/' + encodeURIComponent(invite) + '/accept').then(function (j) {
+        if (j._status === 401) { try { localStorage.removeItem('token'); } catch (e) {} authToken = null; return showLogin(); }
+        if (!j.success && j.code === 'PROFESSIONAL_PROFILE_REQUIRED') { $('pro-form').style.display = ''; return; }
+        if (!j.success) { $('checklist').style.display = ''; $('steps-err').textContent = j.message || 'Something went wrong. Please contact Advantage.Bid.'; return; }
+        $('pro-form').style.display = 'none'; $('checklist').style.display = ''; renderSteps(j.data);
+      });
+    }
+    function showLogin() {
+      var next = encodeURIComponent(selfUrl());
+      $('register-link').href = '/login.html?tab=register&next=' + next;
+      $('login-link').href = '/login.html?next=' + next;
+      $('need-login').style.display = '';
+    }
+
+    $('pro-btn').onclick = function () {
+      var btn = this; $('pro-err').textContent = '';
+      var body = { seller_type: $('seller-type').value, company_name: $('company-name').value.trim(), legal_name: $('legal-name').value.trim(),
+        phone: $('phone').value.trim(), state: $('state').value.trim() };
+      if (!body.company_name || !body.legal_name || !body.phone) { $('pro-err').textContent = 'Company name, your name and a business phone are required.'; return; }
+      btn.disabled = true;
+      api('POST', '/api/sellers/apply-professional', body).then(function (j) {
+        btn.disabled = false;
+        if (!j.success) { $('pro-err').textContent = j.message || 'Could not save your business details.'; return; }
+        if (j.token) { authToken = j.token; try { localStorage.setItem('token', j.token); } catch (e) {} }
+        return acceptAndShow();
+      }).catch(function () { btn.disabled = false; $('pro-err').textContent = 'Network error. Please try again.'; });
+    };
+
+    if (!invite) { show('overview'); }
+    else {
+      api('GET', '/api/auction-partner/invite/' + encodeURIComponent(invite)).then(function (j) {
+        if (!j.success) { if (j.message) $('invalid-msg').textContent = j.message; return show('invalid'); }
+        var d = j.data;
+        $('company').textContent = d.company || 'your company';
+        $('company-name').value = d.company || '';
+        $('expires').textContent = new Date(d.invitation_expires_at).toLocaleDateString();
+        $('addendum-title').textContent = d.addendum.name + ' (version ' + d.addendum.version + ')';
+        $('addendum').innerHTML = md(d.addendum.body);
+        if (d.seller_agreement) { $('sa-title').textContent = d.seller_agreement.name + ' (version ' + d.seller_agreement.version + '), signed together with the addendum'; $('seller-agreement').innerHTML = md(d.seller_agreement.body); }
+        else $('sa-wrap').style.display = 'none';
+        show('invite');
+        if (!authToken) showLogin(); else acceptAndShow();
+      }).catch(function () { show('invalid'); });
+    }
+  </script>
+</body>
+</html>

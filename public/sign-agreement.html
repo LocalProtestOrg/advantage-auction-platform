@@ -231,6 +231,9 @@
         agreement.status = 'signed'; agreement.signed_at = new Date().toISOString();
         document.getElementById('sign-card').style.display = 'none';
         render();
+        // Optional same-site return path (e.g. the Auction Partner checklist). Only a local path is honored.
+        var ret = new URLSearchParams(location.search).get('return');
+        if (ret && /^\/(?![\/\\])/.test(ret)) { setTimeout(function () { location.href = ret; }, 1800); }
       } catch (e) { errEl.textContent = 'Network error.'; document.getElementById('sign-btn').disabled = false; }
     };
 

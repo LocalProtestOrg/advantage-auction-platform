@@ -18,6 +18,9 @@ const cloudinaryService = require('./cloudinaryService');
 const { sendEmail } = require('./emailService');
 
 const DEFAULT_EXPIRES_DAYS = 14;
+// The Auction Partner Program Addendum (auctionPartnerAgreementService.TEMPLATE_ID) supplements the Seller Agreement;
+// it is never the Seller Agreement itself. The base-agreement logic below (auto-send, dashboard gate) ignores it.
+const ADDENDUM_TEMPLATE_ID = 'a9000000-0000-4000-8000-0000000000a1';
 const DEFAULT_INTENT = 'I intend to sign and agree to be legally bound by this agreement.';
 
 class AgreementError extends Error {
@@ -62,8 +65,8 @@ async function resolveActiveTemplateId(sellerType) {
   if (typed.rows[0]) return typed.rows[0].id;
   const fallback = await db.query(
     `SELECT id FROM agreement_templates
-      WHERE is_active = true AND current_version_id IS NOT NULL
-      ORDER BY updated_at DESC LIMIT 1`
+      WHERE is_active = true AND current_version_id IS NOT NULL AND id <> $1
+      ORDER BY updated_at DESC LIMIT 1`, [ADDENDUM_TEMPLATE_ID]
   );
   return fallback.rows[0] ? fallback.rows[0].id : null;
 }
@@ -74,7 +77,7 @@ async function pickTemplate(templateId, sellerType) {
   return id ? templateService.getTemplate(id) : null;
 }
 
-async function sendAgreement({ sellerProfileId, templateId, overrides, expiresInDays, actorId }) {
+async function sendAgreement({ sellerProfileId, templateId, overrides, expiresInDays, actorId, sendEmail: emailTheLink = true }) {
   const sp = await db.query('SELECT id, user_id, seller_type FROM seller_profiles WHERE id = $1', [sellerProfileId]);
   if (!sp.rows[0]) throw new AgreementError('SELLER_NOT_FOUND', 'Seller profile not found', 404);
 
@@ -112,7 +115,7 @@ async function sendAgreement({ sellerProfileId, templateId, overrides, expiresIn
     event_type: 'agreement_sent', entity_type: 'agreement', entity_id: agreement.id, actor_id: actorId ?? null,
     metadata: { seller_profile_id: sellerProfileId, template_id: template.id, template_version_id: version.id, expires_at: agreement.expires_at },
   });
-  await emailLink(agreement, rawToken);
+  if (emailTheLink) await emailLink(agreement, rawToken);   // false when the signer is already on the page (Auction Partner)
   return { agreement, rawToken };
 }
 
@@ -211,11 +214,17 @@ async function signAgreement(agreementId, { userId, typedName, drawnImageData, c
   );
   agreement = (await db.query(`UPDATE agreements SET status='signed', signed_at=now(), updated_at=now() WHERE id=$1 RETURNING *`, [agreementId])).rows[0];
   await writeAuditLog({ event_type: 'agreement_signed', entity_type: 'agreement', entity_id: agreementId, actor_id: userId, metadata: { method, content_sha256: contentHash, ip_address: ip, user_agent: userAgent } });
+  const isAddendum = await require('./auctionPartnerAgreementService').isAddendum(agreement).catch(() => false);
+  if (isAddendum) {
+    agreement.document_title = 'Advantage.Bid Auction Partner Program Addendum';
+    await require('./auctionPartnerAgreementService').onAddendumSigned(agreement);
+  }
 
   // PDF — non-blocking to the legal act. Stored PRIVATE; delivered via signed URLs.
   try {
     const { public_id, sha256: pdfHash, buffer } = await pdfService.generateAndStore(agreement, sig.rows[0]);
-    agreement = (await db.query(`UPDATE agreements SET signed_pdf_public_id=$1, signed_pdf_sha256=$2, pdf_status='stored', updated_at=now() WHERE id=$3 RETURNING *`, [public_id, pdfHash, agreementId])).rows[0];
+    agreement = Object.assign((await db.query(`UPDATE agreements SET signed_pdf_public_id=$1, signed_pdf_sha256=$2, pdf_status='stored', updated_at=now() WHERE id=$3 RETURNING *`, [public_id, pdfHash, agreementId])).rows[0],
+      isAddendum ? { document_title: 'Advantage.Bid Auction Partner Program Addendum' } : {});
     await writeAuditLog({ event_type: 'agreement_pdf_stored', entity_type: 'agreement', entity_id: agreementId, metadata: { signed_pdf_sha256: pdfHash } });
     // Email the signed PDF to the seller (req 5). Best-effort, idempotent.
     await emailSignedPdf(agreement, buffer);
@@ -237,8 +246,9 @@ async function emailSignedPdf(agreement, buffer) {
     if (!to) return;
     await sendEmail({
       to,
-      subject: 'Your signed Advantage.Bid seller agreement',
-      html: `<p>Thank you. Your Advantage.Bid seller agreement has been signed.</p>
+      subject: agreement.document_title ? 'Your signed ' + agreement.document_title : 'Your signed Advantage.Bid seller agreement',
+      html: agreement.document_title ? `<p>Thank you. Your ${agreement.document_title} has been signed.</p>
+             <p>A copy is attached as a PDF for your records. You can also download it any time from your account.</p>` : `<p>Thank you. Your Advantage.Bid seller agreement has been signed.</p>
              <p>A copy of the signed agreement is attached as a PDF for your records. You can also download it any time from your account.</p>`,
       text: 'Your Advantage.Bid seller agreement has been signed. A copy is attached as a PDF for your records. You can also download it any time from your account.',
       attachments: [{ filename: `advantage-seller-agreement-${agreement.id}.pdf`, content: buffer, contentType: 'application/pdf' }],
@@ -260,14 +270,16 @@ async function dashboardAccess(sellerProfileId) {
   if (!sp) return { access: false, reason: 'seller_not_found', agreement_id: null };
   if (sp.agreement_waived_at) return { access: true, reason: 'waived', agreement_id: null };
   const signed = (await db.query(
-    `SELECT id FROM agreements WHERE seller_profile_id = $1 AND status IN ('signed','countersigned')
-      ORDER BY signed_at DESC NULLS LAST LIMIT 1`, [sellerProfileId])).rows[0];
+    `SELECT a.id FROM agreements a JOIN agreement_template_versions v ON v.id = a.template_version_id
+      WHERE a.seller_profile_id = $1 AND a.status IN ('signed','countersigned') AND v.template_id <> $2
+      ORDER BY a.signed_at DESC NULLS LAST LIMIT 1`, [sellerProfileId, ADDENDUM_TEMPLATE_ID])).rows[0];
   if (signed) return { access: true, reason: 'signed', agreement_id: signed.id };
   const gf = (await db.query(`SELECT 1 FROM auctions WHERE seller_id = $1 AND state <> 'draft' LIMIT 1`, [sellerProfileId])).rowCount;
   if (gf) return { access: true, reason: 'grandfathered', agreement_id: null };
   const pending = (await db.query(
-    `SELECT id FROM agreements WHERE seller_profile_id = $1 AND status IN ('sent','viewed')
-      ORDER BY created_at DESC LIMIT 1`, [sellerProfileId])).rows[0];
+    `SELECT a.id FROM agreements a JOIN agreement_template_versions v ON v.id = a.template_version_id
+      WHERE a.seller_profile_id = $1 AND a.status IN ('sent','viewed') AND v.template_id <> $2
+      ORDER BY a.created_at DESC LIMIT 1`, [sellerProfileId, ADDENDUM_TEMPLATE_ID])).rows[0];
   return { access: false, reason: 'agreement_required', agreement_id: pending ? pending.id : null };
 }
 
@@ -284,8 +296,9 @@ async function autoSendAgreement(sellerProfileId, actorId = null) {
     if (!sp) return { status: 'no_seller' };
     if (sp.agreement_waived_at) return { status: 'waived' };
     const existing = (await db.query(
-      `SELECT id FROM agreements WHERE seller_profile_id = $1
-         AND status IN ('draft','sent','viewed','signed','countersigned') ORDER BY created_at DESC LIMIT 1`, [sellerProfileId])).rows[0];
+      `SELECT a.id FROM agreements a JOIN agreement_template_versions v ON v.id = a.template_version_id
+        WHERE a.seller_profile_id = $1 AND a.status IN ('draft','sent','viewed','signed','countersigned') AND v.template_id <> $2
+        ORDER BY a.created_at DESC LIMIT 1`, [sellerProfileId, ADDENDUM_TEMPLATE_ID])).rows[0];
     if (existing) return { status: 'exists', agreement_id: existing.id };
 
     // Type-specific template, else fall back to any active general seller agreement.
@@ -394,7 +407,7 @@ async function expireOverdue() {
 }
 
 module.exports = {
-  AgreementError, hashToken,
+  AgreementError, hashToken, ADDENDUM_TEMPLATE_ID, resolveBaseTemplateId: resolveActiveTemplateId,
   sendAgreement, getById, getByToken, markViewed, listForSeller, listAll, getSignatures,
   signAgreement, resend, reissue, revoke, expireOverdue,
   emailSignedPdf, dashboardAccess, getOnboardingStatus, waiveSellerGate, autoSendAgreement,

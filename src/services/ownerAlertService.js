@@ -68,6 +68,8 @@ const ALERT_TYPES = {
   SASHA_IMAP_HEALTH: 'sasha_imap_health',
   // A Founding Auction Partner's introductory platform-fee period is ending or has ended (the fee never changes by itself).
   FOUNDING_PARTNER_INTRO_ENDING: 'founding_partner_intro_ending',
+  // An invited partner signed the Auction Partner Program Addendum: review verification, then activate.
+  AUCTION_PARTNER_SIGNED: 'auction_partner_signed',
 };
 
 // ── Recipient routing (role-ready) ────────────────────────────────────────────
@@ -88,6 +90,7 @@ const PER_TYPE_ENV = {
   [ALERT_TYPES.COMPLIANCE_ESCALATION]: null,
   [ALERT_TYPES.SASHA_IMAP_HEALTH]: null,
   [ALERT_TYPES.FOUNDING_PARTNER_INTRO_ENDING]: null,
+  [ALERT_TYPES.AUCTION_PARTNER_SIGNED]: null,
 };
 
 // Resolve the VALIDATED, DEDUPED recipient list for an alert type. Precedence:

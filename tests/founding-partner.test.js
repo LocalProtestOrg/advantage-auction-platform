@@ -25,6 +25,8 @@ function mockFresh() {
   mockDb.state = {
     sellers: new Map([['S1', { id: 'S1', seller_type: 'estate_sale_company', platform_fee_bps: 400, acquisition: null }]]),
     fps: new Map(), agreements: [], links: new Map(), auctions: new Map(), seq: 0, audits: [],
+    // The partner signed the Auction Partner Program Addendum (activation requires it; the Term follows the signature).
+    signedAddenda: new Map([['S1', { id: 'agr-S1', signed_at: new Date('2026-10-05T15:00:00Z') }]]),
   };
 }
 function mockHandle(sql, p = []) {
@@ -53,8 +55,11 @@ function mockHandle(sql, p = []) {
   }
   if (/^UPDATE founding_partners SET status = 'active'/.test(s)) {
     const f = st.fps.get(p[0]); Object.assign(f, { status: 'active', seller_profile_id: p[1], prior_platform_fee_bps: p[2],
-      return_platform_fee_bps: f.return_platform_fee_bps == null ? p[2] : f.return_platform_fee_bps, start_date: f.start_date || '2026-10-05',
+      return_platform_fee_bps: f.return_platform_fee_bps == null ? p[2] : f.return_platform_fee_bps, start_date: p[4], intro_end_date: p[5],
       fee_applied_at: new Date(), fee_applied_by: p[3] }); return rows([Object.assign({}, f)]);
+  }
+  if (/FROM agreements a JOIN agreement_template_versions v ON v\.id = a\.template_version_id WHERE a\.seller_profile_id = \$1 AND v\.template_id = \$2 AND a\.status IN \('signed','countersigned'\)/.test(s)) {
+    const a = st.signedAddenda.get(p[0]); return rows(a ? [a] : []);
   }
   if (/^UPDATE founding_partners SET return_platform_fee_bps = \$2, fee_restored_at/.test(s)) {
     const f = st.fps.get(p[0]); Object.assign(f, { return_platform_fee_bps: p[1], fee_restored_at: new Date(), fee_restored_by: p[2] }); return rows([Object.assign({}, f)]);
@@ -203,6 +208,7 @@ describe('lifecycle: designate → activate → publish (frozen) → settle → 
     expect(st.sellers.get('S1').platform_fee_bps).toBe(0);                   // explicit 0 on the EXISTING seller rate
     expect(act.prior_platform_fee_bps).toBe(400);
     expect(act.return_platform_fee_bps).toBe(400);                           // defaults to the seller's prior rate
+    expect([act.start_date, act.intro_end_date]).toEqual(['2026-10-05', '2027-10-04']);   // one-year Term from the signed addendum
     expect(st.audits.find((a) => a.eventType === 'seller_platform_fee_changed')).toMatchObject({ metadata: expect.objectContaining({ before_bps: 400, after_bps: 0, source: 'founding_partner' }) });
     expect(st.sellers.get('S1').acquisition.founding_partner.founding_partner_id).toBe(rec.id);   // durable attribution
 
@@ -289,6 +295,13 @@ describe('program guards', () => {
     const rec = await designateDefault();
     mockDb.state.agreements.push({ seller_profile_id: 'S1', status: 'accepted', platform_fee_bps: 350, version: 1 });
     await expect(fp.activate(rec.id, { sellerProfileId: 'S1', actorId: ADMIN })).rejects.toMatchObject({ code: 'PRICING_AGREEMENT_EXISTS' });
+    expect(mockDb.state.sellers.get('S1').platform_fee_bps).toBe(400);
+  });
+  test('the 0% fee is never applied without a signed Auction Partner Program Addendum', async () => {
+    stubIdentity();
+    const rec = await designateDefault();
+    mockDb.state.signedAddenda.clear();
+    await expect(fp.activate(rec.id, { sellerProfileId: 'S1', actorId: ADMIN })).rejects.toMatchObject({ code: 'ADDENDUM_NOT_SIGNED' });
     expect(mockDb.state.sellers.get('S1').platform_fee_bps).toBe(400);
   });
   test('only professional sellers can carry the introductory platform fee', async () => {

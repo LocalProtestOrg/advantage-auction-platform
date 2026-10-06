@@ -111,7 +111,7 @@ function buildPdfBuffer(agreement, signature) {
     doc.on('end', () => resolve(Buffer.concat(chunks)));
     doc.on('error', reject);
 
-    doc.fontSize(16).font('Helvetica-Bold').text('Seller Agreement', { align: 'center' });
+    doc.fontSize(16).font('Helvetica-Bold').text(agreement.document_title || 'Seller Agreement', { align: 'center' });
     doc.moveDown(0.4);
     const ps = agreement.party_snapshot || {};
     const partyLine = [ps.legal_name, ps.company_name].filter(Boolean).join(' · ');
@@ -151,7 +151,7 @@ function buildUnsignedPdfBuffer(agreement) {
     doc.on('end', () => resolve(Buffer.concat(chunks)));
     doc.on('error', reject);
 
-    doc.fontSize(16).font('Helvetica-Bold').text('Seller Agreement (Unsigned Copy)', { align: 'center' });
+    doc.fontSize(16).font('Helvetica-Bold').text((agreement.document_title || 'Seller Agreement') + ' (Unsigned Copy)', { align: 'center' });
     doc.moveDown(0.3);
     doc.fontSize(9).font('Helvetica').fillColor('#b45309').text('DRAFT - UNSIGNED COPY. This copy is for review only and is not executed.', { align: 'center' });
     doc.fillColor('#000000').moveDown(0.6);

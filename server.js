@@ -615,6 +615,7 @@ app.use('/api/admin/sales', adminSalesRoutes);
 app.use('/api/admin/sasha', require('./src/routes/adminSasha')); // Sasha Shared Inbox, settings, knowledge (support.* permissions)
 app.use('/api/admin/claimed-listings', require('./src/routes/adminClaimedListings')); // Toolbox: Claimed Listings tab (listings.* permissions)
 app.use('/api/admin/founding-partners', require('./src/routes/adminFoundingPartners')); // Founding Auction Partners (mig 185; Super Admin writes)
+app.use('/api/auction-partner', require('./src/routes/auctionPartner')); // Auction Partner Program: invitation-only agreement acceptance
 app.use('/api/admin/pricing', adminPricingRoutes);
 app.use('/api/admin/pricing-agreements', require('./src/routes/adminPricingAgreements'));
 app.use('/api/admin/owner-alerts', require('./src/routes/adminOwnerAlerts'));

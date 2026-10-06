@@ -279,13 +279,13 @@ describe('everything else is unchanged', () => {
 
   test('payout language: "processes eligible seller payouts every Thursday", never "deposited"', () => {
     const fs = require('fs'); const path = require('path');
-    for (const f of ['docs/legal/auction-partner-program-addendum-v1.md', 'src/services/sasha/tools.js']) {
+    for (const f of ['docs/legal/auction-partner-program-addendum.md', 'src/services/sasha/tools.js']) {
       const t = fs.readFileSync(path.join(__dirname, '..', f), 'utf8');
       expect(t).toMatch(/processes eligible seller payouts every Thursday/);
       expect(t).not.toMatch(/deposited every Thursday|automatically (paid|deposited)/i);
     }
-    const addendum = fs.readFileSync(path.join(__dirname, '..', 'docs/legal/auction-partner-program-addendum-v1.md'), 'utf8');
+    const addendum = fs.readFileSync(path.join(__dirname, '..', 'docs/legal/auction-partner-program-addendum.md'), 'utf8');
     expect(addendum).not.toMatch(/2\.9%|completely free/i);
-    expect(addendum).toMatch(/does \*\*not\*\* mark up/);
+    expect(addendum).toMatch(/does not mark up these charges/);
   });
 });

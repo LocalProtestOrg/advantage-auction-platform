@@ -103,6 +103,34 @@ router.post('/:id/end', idParam, manage, wrap(async (req, res) => {
   res.json({ success: true, data: await fp.end(req.params.id, { reason: (req.body || {}).reason, actorId: req.user.id }) });
 }));
 
+// Auction Partner Program invitation link for a reserved prospect (copy it into your own email; nothing is sent).
+router.post('/:id/invite', idParam, manage, wrap(async (req, res) => {
+  const ap = require('../services/auctionPartnerAgreementService');
+  res.json({ success: true, data: await ap.issueInvite(req.params.id, { actorId: req.user.id, days: (req.body || {}).days }) });
+}));
+
+// Revoke every invitation issued so far for this record (a new one can be issued afterwards).
+router.post('/:id/invites/revoke', idParam, manage, wrap(async (req, res) => {
+  const ap = require('../services/auctionPartnerAgreementService');
+  res.json({ success: true, data: await ap.revokeInvites(req.params.id, { actorId: req.user.id }) });
+}));
+
+// Release an accepted-but-unsigned invitation (wrong account accepted it): unbinds the seller and revokes the unsigned
+// addendum. Refused once the addendum is signed or the partner is active.
+router.post('/:id/release-claim', idParam, manage, wrap(async (req, res) => {
+  const ap = require('../services/auctionPartnerAgreementService');
+  const rec = (await db.query(`SELECT id, status, seller_profile_id FROM founding_partners WHERE id = $1`, [req.params.id])).rows[0];
+  if (!rec) return res.status(404).json({ success: false, message: 'Not found.' });
+  if (rec.status !== 'prospect' || !rec.seller_profile_id) return res.status(409).json({ success: false, message: 'Only an accepted invitation on a prospect can be released.' });
+  const add = await ap.addendumFor(rec.seller_profile_id);
+  if (add && ['signed', 'countersigned'].includes(add.status)) return res.status(409).json({ success: false, message: 'The addendum is already signed; it cannot be released.' });
+  if (add) await require('../services/agreementService').revoke(add.id, { reason: 'Auction Partner invitation released by staff' }, req.user.id);
+  await db.query(`UPDATE founding_partners SET seller_profile_id = NULL, updated_at = now() WHERE id = $1 AND status = 'prospect'`, [rec.id]);
+  await require('../lib/auditLog').writeAuditLog({ event_type: 'founding_partner.invite_released', entity_type: 'founding_partner', entity_id: rec.id, actor_id: req.user.id,
+    metadata: { seller_profile_id: rec.seller_profile_id, addendum_revoked: add ? add.id : null } });
+  res.json({ success: true, data: { released: true } });
+}));
+
 // The person handling the partnership takes (or renews) the company contact lock, so only they can email it.
 router.post('/:id/lock', idParam, manage, wrap(async (req, res) => {
   const rec = (await db.query(`SELECT company_id FROM founding_partners WHERE id = $1`, [req.params.id])).rows[0];

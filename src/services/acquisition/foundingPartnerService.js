@@ -178,6 +178,11 @@ async function activate(id, { sellerProfileId, actorId } = {}) {
       + (Number(agr.platform_fee_bps) / 100).toFixed(2) + '%). An agreement takes precedence over the seller rate, so the introductory fee would not apply. '
       + 'Resolve the agreement with Finance first.');
   }
+  // The 0% fee is applied only on a signed Auction Partner Program Addendum; its signature date sets the Term.
+  const signed = await require('../auctionPartnerAgreementService').signedAddendum(sellerProfileId);
+  if (!signed) throw err(409, 'ADDENDUM_NOT_SIGNED', 'This seller has not signed the Auction Partner Program Addendum. Send an invitation from this page first.');
+  const term = require('../auctionPartnerAgreementService').termFor(signed.signed_at);
+  if (fp.seller_profile_id && fp.seller_profile_id !== sellerProfileId) throw err(409, 'INVITE_ACCEPTED_BY_OTHER', 'This record\'s invitation was accepted by a different seller account.');
   const link = (await db.query(`SELECT company_id FROM company_identity_links WHERE entity_type = 'seller_profile' AND entity_id = $1`, [sellerProfileId])).rows[0];
   if (link && link.company_id !== fp.company_id) throw err(409, 'SELLER_IN_OTHER_COMPANY', 'This seller account belongs to a different company record.');
   const other = (await db.query(`SELECT id FROM founding_partners WHERE seller_profile_id = $1 AND status <> 'ended' AND id <> $2`, [sellerProfileId, id])).rows[0];
@@ -186,6 +191,7 @@ async function activate(id, { sellerProfileId, actorId } = {}) {
   return withTransaction(async (client) => {
     const cur = await load(id, client, true);
     if (cur.status !== 'prospect') throw err(409, 'NOT_PROSPECT', 'This record changed; reload and try again.');
+    if (cur.seller_profile_id && cur.seller_profile_id !== sellerProfileId) throw err(409, 'INVITE_ACCEPTED_BY_OTHER', 'This record\'s invitation was accepted by a different seller account.');
     const s = (await client.query(`SELECT platform_fee_bps FROM seller_profiles WHERE id = $1 FOR UPDATE`, [sellerProfileId])).rows[0];
     const prior = s.platform_fee_bps == null ? null : Number(s.platform_fee_bps);
     if (!link) {
@@ -200,9 +206,9 @@ async function activate(id, { sellerProfileId, actorId } = {}) {
     await client.query(ATTRIBUTION_SQL('seller_profiles'), [[sellerProfileId], cur.id, cur.market]);
     const row = (await client.query(
       `UPDATE founding_partners SET status = 'active', seller_profile_id = $2, prior_platform_fee_bps = $3,
-          return_platform_fee_bps = COALESCE(return_platform_fee_bps, $3), start_date = COALESCE(start_date, CURRENT_DATE),
-          fee_applied_at = now(), fee_applied_by = $4, updated_at = now()
-        WHERE id = $1 RETURNING *`, [id, sellerProfileId, prior, actorId])).rows[0];
+          return_platform_fee_bps = COALESCE(return_platform_fee_bps, $3), start_date = $5::date,
+          intro_end_date = $6::date, fee_applied_at = now(), fee_applied_by = $4, updated_at = now()
+        WHERE id = $1 RETURNING *`, [id, sellerProfileId, prior, actorId, term.start_date, term.intro_end_date])).rows[0];
     // The same audit event a Moderation fee change writes, so the seller's fee history stays in one place.
     if (prior !== intro) {
       await auditService.logEvent(client, { eventType: 'seller_platform_fee_changed', entityType: 'seller_profile', entityId: sellerProfileId, actorId,
@@ -342,7 +348,10 @@ async function list({ includeEnded = true } = {}, runner = db) {
             ro.full_name AS relationship_owner_name, ab.full_name AS approved_by_name,
             j.journey AS active_journey, l.holder_type AS lock_holder_type, lu.full_name AS lock_holder_name, l.expires_at AS lock_expires_at,
             (SELECT count(*)::int FROM auctions a WHERE a.founding_partner_id = fp.id) AS auctions_published,
-            (SELECT count(*)::int FROM listing_outreach_sequences s WHERE s.company_id = fp.company_id AND s.state IN ('queued','active','paused','dormant')) AS live_listing_sequences
+            (SELECT count(*)::int FROM listing_outreach_sequences s WHERE s.company_id = fp.company_id AND s.state IN ('queued','active','paused','dormant')) AS live_listing_sequences,
+            (SELECT a.status FROM agreements a JOIN agreement_template_versions v ON v.id = a.template_version_id
+              WHERE a.seller_profile_id = fp.seller_profile_id AND v.template_id = 'a9000000-0000-4000-8000-0000000000a1'
+              ORDER BY a.created_at DESC LIMIT 1) AS addendum_status
        FROM founding_partners fp
        LEFT JOIN seller_profiles sp ON sp.id = fp.seller_profile_id
        LEFT JOIN users u ON u.id = sp.user_id

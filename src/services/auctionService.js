@@ -730,6 +730,11 @@ async function publishAuction(auctionId, actorId = null, options = {}) {
     // flagged verification_required_before_publication AND has no approved
     // verification. Normal publication is otherwise unchanged. (Sellers can still
     // build/edit drafts regardless; this guards the publish transition only.)
+    // AUCTION PARTNER: never freeze the wrong economics. A seller who signed the Auction Partner addendum but is not
+    // activated yet, or whose Term ended with the 0% fee still applied, cannot be published until staff act.
+    const apGuard = await require('./auctionPartnerAgreementService').publishGuard(current.rows[0].seller_id, client);
+    if (apGuard) { const e = new Error(apGuard.message); e.code = apGuard.code; e.status = 409; throw e; }
+
     const gate = await verificationService.publicationGate(current.rows[0].seller_id);
     if (gate.blocked) {
       const e = new Error('Verification is required before this auction can be published. Approve the seller\'s verification documents first.');

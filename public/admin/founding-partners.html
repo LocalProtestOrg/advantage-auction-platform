@@ -147,7 +147,8 @@
       else tb.innerHTML=rows.map(function(r){
         (r.warnings||[]).forEach(function(w){ if(w.level!=='info') alerts.push({level:w.level,text:r.display_name+': '+w.text}); });
         var ends=r.intro_end_date?esc(r.intro_end_date)+(r.days_until_intro_end!=null&&r.status==='active'&&!r.fee_restored_at?'<div class="muted">'+(r.days_until_intro_end<0?(-r.days_until_intro_end)+' days ago':'in '+r.days_until_intro_end+' days')+'</div>':''):'<span class="muted">not set</span>';
-        var seller=r.seller_profile_id?esc(r.seller_email||'seller')+'<div>Stored '+pct(r.seller_platform_fee_bps)+' · <b>effective '+pct(r.effective_platform_fee_bps)+'</b>'+(r.effective_fee_basis==='agreement'?' (agreement)':'')+'</div>':'<span class="muted">no seller account yet</span>';
+        var addendum=r.seller_profile_id?'<div class="muted">Addendum: '+esc(r.addendum_status||'not issued')+'</div>':'';
+        var seller=r.seller_profile_id?esc(r.seller_email||'seller')+addendum+'<div>Stored '+pct(r.seller_platform_fee_bps)+' · <b>effective '+pct(r.effective_platform_fee_bps)+'</b>'+(r.effective_fee_basis==='agreement'?' (agreement)':'')+'</div>':'<span class="muted">no seller account yet</span>';
         var feeState=r.fee_restored_at?'<div class="muted">return fee restored '+esc(String(r.fee_restored_at).slice(0,10))+'</div>':(r.fee_applied_at?'<div class="muted">intro fee applied '+esc(String(r.fee_applied_at).slice(0,10))+'</div>':'');
         var prot=r.active_journey==='FOUNDING_PARTNER'
           ?'<span class="pill p-yes">Claimed Listing + Event Partner suppressed</span>'
@@ -155,7 +156,10 @@
         prot+='<div class="muted" style="margin-top:3px">Contact lock: '+(r.lock_holder_type?esc(r.lock_holder_name||r.lock_holder_type)+' until '+esc(String(r.lock_expires_at).slice(0,10)):'free')+'</div>';
         if(r.live_listing_sequences) prot+='<div class="w-critical">'+r.live_listing_sequences+' listing sequence(s) still open</div>';
         var acts=[];
-        if(r.status==='prospect') acts.push('<button class="b sm" data-a="activate" data-id="'+r.id+'">Link seller + apply fee</button>');
+        if(r.status==='prospect') acts.push('<button class="b sm" data-a="invite" data-id="'+r.id+'">Create invitation link</button>');
+        if(r.status==='prospect') acts.push('<button class="b g sm" data-a="revoke-invites" data-id="'+r.id+'">Revoke invitations</button>');
+        if(r.status==='prospect' && r.seller_profile_id && r.addendum_status!=='signed') acts.push('<button class="b g sm" data-a="release" data-id="'+r.id+'">Release acceptance</button>');
+        if(r.status==='prospect') acts.push('<button class="b sm" data-a="activate" data-id="'+r.id+'"'+(r.addendum_status==='signed'?'':' title="Available after the partner signs the addendum"')+'>Activate partner terms</button>');
         if(r.status==='active'&&r.fee_applied_at&&!r.fee_restored_at) acts.push('<button class="b sm" data-a="restore" data-id="'+r.id+'" data-ret="'+(r.return_platform_fee_bps==null?'':r.return_platform_fee_bps)+'">Restore return fee</button>');
         if(r.status!=='ended'){ acts.push('<button class="b g sm" data-a="edit" data-id="'+r.id+'" data-end="'+esc(r.intro_end_date||'')+'" data-note="'+esc(r.internal_note||'')+'">Edit dates / note</button>');
           acts.push('<button class="b g sm" data-a="lock" data-id="'+r.id+'">Take contact lock</button>');
@@ -177,7 +181,13 @@
 
   document.getElementById('rows').addEventListener('click',function(e){
     var b=e.target.closest('button[data-a]'); if(!b) return; var id=b.dataset.id, a=b.dataset.a, req=null;
-    if(a==='activate'){ var sp=prompt('Email (or seller id) of the partner\'s PROFESSIONAL seller account. The introductory fee is applied to it now.'); if(!sp) return;
+    if(a==='invite'){ req=api('POST',BASE+'/'+id+'/invite',{}); b.disabled=true;
+      req.then(function(d){ b.disabled=false; if(!d.success){ msg('rows-msg',d.message||d.error||'Failed.'); return; }
+        prompt('Invitation link (expires '+String(d.data.expires_at).slice(0,10)+'). Copy it into your email; nothing was sent:', d.data.url); load(); });
+      return; }
+    else if(a==='revoke-invites'){ if(!confirm('Revoke every invitation link issued so far for this company?')) return; req=api('POST',BASE+'/'+id+'/invites/revoke',{}); }
+    else if(a==='release'){ if(!confirm('Release this acceptance? The unsigned addendum is revoked and the invitation can be accepted again.')) return; req=api('POST',BASE+'/'+id+'/release-claim',{}); }
+    else if(a==='activate'){ var sp=prompt('Email (or seller id) of the partner\'s PROFESSIONAL seller account. Requires the signed Auction Partner addendum; the 0% fee is applied now and the Term follows the signature date.'); if(!sp) return;
       req=api('POST',BASE+'/'+id+'/activate',{seller:sp.trim()}); }
     else if(a==='restore'){ var cur=b.dataset.ret; var v=prompt('Return platform fee (%) to put back on the seller. Only auctions published from now on use it.', cur===''?'':(Number(cur)/100).toFixed(2)); if(v==null) return;
       var bps=toBps(v); if(bps==null||isNaN(bps)){ msg('rows-msg','Enter the return fee as a percent.'); return; }
