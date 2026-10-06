@@ -76,9 +76,9 @@ In every case, Advantage may review, moderate, decline, edit, reschedule, restri
 
 ## 5. Pricing, Starting Bids, and Reserves
 
-5.1 Unless Advantage approves an override, each lot opens at the Platform default starting bid. Bid increments follow the Platform's published increment ladder.
+5.1 **Starting bids and bid increments.** For an individual Seller, unless Advantage approves an override, each lot opens at the Platform default starting bid, and bid increments follow the Platform's published increment ladder. A professional Seller may set the starting bid and a custom bid increment for each lot using the tools Advantage makes available to professional sellers; where it does not, the Platform default starting bid and published increment ladder apply.
 
-5.2 Reserve prices and similar advanced options are available only when enabled by Advantage for the Seller's account. Where reserves are not enabled, items sell to the highest valid bid at auction close.
+5.2 **Reserves.** For an individual Seller, reserve prices and similar advanced options are available only when enabled by Advantage for the Seller's account. A professional Seller may set a reserve price for a lot using the tools Advantage makes available to professional sellers. A professional Seller's settings under Sections 5.1 and 5.2 are subject to the Platform's policies, configured limits, and controls, and to Advantage's rights under Section 1.3. Where no reserve applies, items sell to the highest valid bid at auction close.
 
 5.3 Each auction uses per-lot timed closings with anti-sniping extensions as described in the Platform's buyer-facing rules. The Seller acknowledges that final hammer prices are determined by competitive bidding and are not guaranteed.
 
@@ -217,4 +217,4 @@ Signature, date, and authentication metadata are captured electronically by the 
 - Maintain one template per `seller_type` (private, business, auction_house, estate_sale_company, professional_liquidator). The professional templates may add classification-specific scheduling/exemption language (e.g. professional pickup-timing autonomy) in Section 8; the body above is the base.
 - Keep the content em-dash-free (content SOP); `check-dashes.js` should pass on any HTML surface that renders it.
 - Counsel review required before production use (Section disclaimer at top).
-- **Versioning (2026-10-06):** a text change is published as a NEW template version (`scripts/prod-publish-seller-agreement-version.js`), never by overwriting an existing version row. Signed agreements keep their own frozen `rendered_body` + signature content hash. Version 2 (2026-10-06) aligned Sections 1.1, 1.3, 2.4, 2.5, 6.5, 6.8 and 13.2 with professional self-publishing; nothing else changed.
+- **Versioning (2026-10-06):** a text change is published as a NEW template version (`scripts/prod-publish-seller-agreement-version.js`), never by overwriting an existing version row. Signed agreements keep their own frozen `rendered_body` + signature content hash. Version 2 (2026-10-06) aligned Sections 1.1, 1.3, 2.4, 2.5, 6.5, 6.8 and 13.2 with professional self-publishing; nothing else changed. Version 3 (2026-10-06) aligned Sections 5.1 and 5.2 with the professional seller tools (per-lot starting bid, custom increment, reserve); individual seller rules unchanged; nothing else changed.

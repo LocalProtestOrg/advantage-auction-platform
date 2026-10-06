@@ -68,7 +68,7 @@ function extractBody() {
     await c.query('BEGIN');
     await c.query(
       `INSERT INTO agreement_templates (id, agreement_type, name, description, is_active)
-       VALUES ($1,'private','Seller Agreement v1 (private)','Advantage.Bid seller consignment and auction services agreement',true)
+       VALUES ($1,'private','Seller Agreement','Advantage.Bid seller consignment and auction services agreement',true)
        ON CONFLICT (id) DO UPDATE SET name=EXCLUDED.name, is_active=true, updated_at=now()`, [TEMPLATE]);
     await c.query(
       `INSERT INTO agreement_template_versions (id, template_id, version_int, body_markdown, variable_schema, effective_terms_defaults)

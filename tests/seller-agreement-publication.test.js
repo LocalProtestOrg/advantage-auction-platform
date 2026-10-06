@@ -57,6 +57,35 @@ describe('publication model', () => {
   });
 });
 
+describe('§5 professional seller tools (v3)', () => {
+  test('individual seller rules are unchanged: default starting bid unless Advantage overrides, published ladder, reserves only when Advantage enables them', () => {
+    expect(section('5.1')).toMatch(/For an individual Seller, unless Advantage approves an override, each lot opens at the Platform default starting bid, and bid increments follow the Platform's published increment ladder\./);
+    expect(section('5.2')).toMatch(/For an individual Seller, reserve prices and similar advanced options are available only when enabled by Advantage for the Seller's account\./);
+    expect(section('5.2')).toMatch(/Where no reserve applies, items sell to the highest valid bid at auction close\./);
+  });
+  test('professional sellers set starting bids, custom increments and reserves themselves, within platform policies, limits, controls and §1.3 rights', () => {
+    expect(section('5.1')).toMatch(/A professional Seller may set the starting bid and a custom bid increment for each lot using the tools Advantage makes available to professional sellers/);
+    expect(section('5.2')).toMatch(/A professional Seller may set a reserve price for a lot using the tools Advantage makes available to professional sellers/);
+    expect(section('5.2')).toMatch(/subject to the Platform's policies, configured limits, and controls, and to Advantage's rights under Section 1\.3/);
+    expect(body).toMatch(/the Seller controls the Buyer's Premium applicable to the Seller's auctions, subject to Advantage's platform policies and any configured limits/);   // §6.7 unchanged
+  });
+  test('the capabilities stated match the production code (professional-only per-lot starting bid, increment, reserve; reserve enforced at close)', () => {
+    const lots = read('src/routes/lots.js');
+    expect(lots).toMatch(/const effStartingBid\s+= proAllowed/);
+    expect(lots).toMatch(/const effBidIncrement\s+= proAllowed/);
+    expect(lots).toMatch(/const effReserveCents\s+= proAllowed/);
+    expect(read('src/services/bidService.js')).toMatch(/if \(lot\.bid_increment_cents != null\) return lot\.bid_increment_cents;/);
+    expect(read('src/services/auctionService.js')).toMatch(/const reserve = lot\.reserve_cents != null/);
+    expect(read('src/services/auctionService.js')).toMatch(/const professionalSelfService = \['buyer_premium_bps'\];/);
+  });
+  test('the Seller Agreement and the Auction Partner Addendum agree on all four professional controls and on self-publishing', () => {
+    const add = read('docs/legal/auction-partner-program-addendum.md');
+    expect(add).toMatch(/you may set starting bids, reserves, custom bid increments, and your buyer's premium for your Qualifying Auctions, subject to Platform policies and any configured limits/);
+    expect(section('5.1') + section('5.2')).toMatch(/starting bid[\s\S]*custom bid increment[\s\S]*reserve price/);
+    expect(add).toMatch(/You set and keep the buyer's premium/);
+  });
+});
+
 describe('nothing else changed', () => {
   test('fees, payout, tax, Storefront and the contracting entity read exactly as before', () => {
     expect(body).toMatch(/^# Advantage\.Bid Seller Consignment and Auction Services Agreement\n\n\*\*Advantage Auction Company, LLC d\/b\/a Advantage\.Bid\*\*/);

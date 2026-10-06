@@ -15,6 +15,7 @@ const crypto = require('crypto');
 const PROD_EP = 'ep-proud-leaf-an8pzkib'; const STG_EP = 'ep-royal-dawn-anarou3f';
 const TEMPLATE = 'ab000000-0000-4000-8000-000000000001';
 const APPLY = process.argv.includes('--apply');
+const REASON = (process.argv.find((a) => a.startsWith('--reason=')) || '').slice('--reason='.length) || 'Seller Agreement text update';
 const md5 = (s) => crypto.createHash('md5').update(String(s)).digest('hex');
 
 function extractBody() {   // identical extraction to prod-seed-agreement-template.js
@@ -62,7 +63,7 @@ function extractBody() {   // identical extraction to prod-seed-agreement-templa
       await c.query(`UPDATE agreement_templates SET current_version_id = $1, updated_at = now() WHERE id = $2`, [newId, TEMPLATE]);
       await c.query(`INSERT INTO audit_log (event_type, entity_type, entity_id, metadata) VALUES ('agreement_template_version_published', 'agreement_template', $1, $2::jsonb)`,
         [TEMPLATE, JSON.stringify({ version_int: next, version_id: newId, previous_version_int: tpl.version_int, via: 'prod-publish-seller-agreement-version',
-          reason: 'Align Sections 1.1, 1.3, 2.4, 2.5, 6.5, 6.8, 13.2 with professional self-publishing' })]);
+          reason: REASON })]);
       await c.query('COMMIT');
     } catch (e) { await c.query('ROLLBACK').catch(() => {}); console.error('APPLY FAILED', e.message); return 1; }
     const after = await snap();
