@@ -30,11 +30,21 @@ async function health() {
   } catch (e) { console.error('[sashaImap] health error: ' + require('../services/sasha/imap/safeImapClient').redact(e && e.message)); }
 }
 
+// Phone Sasha transcript retention (hourly): blanks spoken turns of calls past sasha.phone.transcript_retention_days.
+async function phoneRetention() {
+  try {
+    const r = await require('../services/sasha/phone/retention').purgeExpired();
+    if (r.calls) console.log('[sashaImap] phone transcripts purged: ' + JSON.stringify(r));
+  } catch (e) { console.error('[sashaImap] phone retention error: ' + e.message); }
+}
+
 if (require.main === module) {
   console.log('[sashaImap] worker started (poll 2m; inert unless sasha.imap_read_enabled)');
   setTimeout(tick, 60 * 1000);
   setInterval(tick, POLL_MS);
   setInterval(health, HEALTH_MS);
+  setTimeout(phoneRetention, 5 * 60 * 1000);
+  setInterval(phoneRetention, 60 * 60 * 1000);
 }
 
-module.exports = { tick, health, POLL_MS };
+module.exports = { tick, health, phoneRetention, POLL_MS };

@@ -125,6 +125,7 @@
     { key: 'support', label: 'Customer Service', title: 'Sasha & Customer Service', links: [
       { href: '/admin/sasha-inbox.html', label: 'Customer Service', perm: 'support.view' },
       { href: '/admin/sasha.html', label: 'Sasha Settings & Knowledge', perm: 'support.view' },
+      { href: '/admin/phone-sasha.html', label: 'Phone Sasha Tester' },
     ] },
     { key: 'platform', label: 'Platform', title: 'Platform', links: [
       { href: '/admin/pricing.html', label: 'Pricing & Fees', perm: 'seller_platform_fee.view' },

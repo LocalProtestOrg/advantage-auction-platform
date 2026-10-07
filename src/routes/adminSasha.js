@@ -51,7 +51,7 @@ router.get('/conversations', wrap(async (req, res) => {
   else if (q.view === 'resolved') where.push(`c.status IN ('resolved','closed')`);
   else if (q.view === 'ignored') where.push(`c.status = 'ignored'`);
   else where.push(`c.status <> 'ignored'`);
-  if (q.channel === 'email' || q.channel === 'chat') { p.push(q.channel); where.push(`c.channel = $${p.length}`); }
+  if (q.channel === 'email' || q.channel === 'chat' || q.channel === 'phone') { p.push(q.channel); where.push(`c.channel = ${p.length}`); }
   if (q.q && String(q.q).trim()) {
     p.push('%' + String(q.q).trim().slice(0, 80).replace(/[%_]/g, '') + '%');
     where.push(`(c.customer_email ILIKE $${p.length} OR c.customer_name ILIKE $${p.length} OR c.subject ILIKE $${p.length} OR c.ref ILIKE $${p.length})`);
@@ -88,7 +88,21 @@ router.get('/conversations/:id', wrap(async (req, res) => {
       FROM cs_handoffs h LEFT JOIN users u ON u.id = h.taken_by WHERE h.conversation_id = $1 ORDER BY h.created_at`, [id])).rows;
   const runs = (await db.query(`SELECT id, created_at, model, outcome, outcome_reason, tools_used, input_tokens, output_tokens, cost_micro_usd, latency_ms, error
       FROM cs_ai_runs WHERE conversation_id = $1 ORDER BY created_at`, [id])).rows;
-  res.json({ success: true, data: { conversation: c, messages, handoffs, runs } });
+  let call = null;
+  if (c.channel === 'phone') {
+    // Phone: call details (caller number: last 4 only), verification, verified account, callbacks and the disclosure audit.
+    call = (await db.query(`SELECT k.id, k.provider, k.is_simulated, k.caller_number_last4, k.status, k.verification_state, k.card_data_redacted, k.interruptions,
+        k.summary, k.end_reason, k.started_at, k.ended_at, k.duration_seconds, k.transcript_purge_after, k.transcript_purged_at,
+        vu.email AS verified_email, vu.full_name AS verified_name, su.full_name AS simulated_by_name
+        FROM cs_calls k LEFT JOIN users vu ON vu.id = k.verified_user_id LEFT JOIN users su ON su.id = k.simulated_by
+       WHERE k.conversation_id = $1 ORDER BY k.started_at DESC LIMIT 1`, [id])).rows[0] || null;
+    if (call) {
+      call.audit = await require('../services/sasha/phone/phoneAudit').forCall(call.id);
+      call.callbacks = (await db.query(`SELECT id, reason_code, callback_status, callback_phone_e164, callback_note, created_at FROM cs_handoffs
+         WHERE conversation_id = $1 AND callback_requested ORDER BY created_at`, [id])).rows;
+    }
+  }
+  res.json({ success: true, data: { conversation: c, messages, handoffs, runs, call } });
 }));
 
 router.post('/conversations/:id/takeover', manage, wrap(async (req, res) => {
@@ -126,6 +140,25 @@ router.post('/conversations/:id/reply', manage, wrap(async (req, res) => {
   if (error) await db.query(`UPDATE cs_messages SET delivery_error = $2 WHERE id = $1`, [msg.id, error]);
   await audit(req, 'sasha.staff_reply', id, { channel: c.channel, delivery });
   res.json({ success: true, data: { message_id: msg.id, delivery, error } });
+}));
+
+// Phone callback queue: staff mark a requested callback in progress / done / cancelled.
+router.post('/conversations/:id/callback', manage, wrap(async (req, res) => {
+  const id = idParam(req, res); if (!id) return;
+  const status = String((req.body && req.body.status) || '');
+  if (!['in_progress', 'done', 'cancelled', 'open'].includes(status)) return res.status(400).json({ success: false, message: 'Unknown callback status.' });
+  const note = req.body && req.body.note ? String(req.body.note).slice(0, 1000) : null;
+  const r = await db.query(`UPDATE cs_handoffs SET callback_status = $2, callback_note = COALESCE($3, callback_note),
+      status = CASE WHEN $2 IN ('done','cancelled') THEN 'resolved' ELSE status END,
+      resolved_at = CASE WHEN $2 IN ('done','cancelled') THEN now() ELSE resolved_at END
+     WHERE conversation_id = $1 AND callback_requested RETURNING id`, [id, status, note]);
+  if (!r.rowCount) return res.status(404).json({ success: false, message: 'No callback on this conversation.' });
+  if (['done', 'cancelled'].includes(status)) {
+    await db.query(`UPDATE cs_conversations SET handoff_state = 'resolved', updated_at = now() WHERE id = $1
+      AND NOT EXISTS (SELECT 1 FROM cs_handoffs WHERE conversation_id = $1 AND status = 'open')`, [id]);
+  }
+  await audit(req, 'sasha.callback_status', id, { status });
+  res.json({ success: true });
 }));
 
 router.post('/conversations/:id/note', manage, wrap(async (req, res) => {
@@ -174,6 +207,73 @@ router.post('/settings', superAdminOnly, wrap(async (req, res) => {
   await auditService.logEvent(db, { eventType: 'sasha.setting_changed', entityType: 'platform_config', entityId: '00000000-0000-0000-0000-000000000000',
     actorId: req.user.id, metadata: { key, before, after: v } });
   res.json({ success: true, data: await settings.effective() });
+}));
+
+// ── Phone Sasha (foundation; the real phone line is OFF and no voice-provider route exists) ───────────────
+const phoneSettings = require('../services/sasha/phone/phoneSettings');
+const PHONE_EDITABLE = ['disclosure_text', 'max_concurrent_calls', 'daily_budget_usd', 'per_call_budget_usd', 'transcript_retention_days', 'code_ttl_minutes',
+  'code_max_attempts', 'code_max_sends_per_30min', 'lockout_minutes', 'session_max_minutes', 'voice'];
+router.get('/phone/settings', wrap(async (req, res) => {
+  phoneSettings.clear();
+  const s = await phoneSettings.load();
+  const spent = await require('../services/sasha/engine').spentTodayUsdForChannel('phone');
+  res.json({ success: true, data: { settings: s, live_calls_allowed: await phoneSettings.liveCallsAllowed(), provider_route_mounted: false,
+    spent_today_usd: Math.round(spent * 10000) / 10000, editable: PHONE_EDITABLE,
+    support_alert_numbers_configured: require('../services/sasha/phone/escalation').supportNumbers().length } });
+}));
+router.post('/phone/settings', superAdminOnly, wrap(async (req, res) => {
+  const { key, value } = req.body || {};
+  const k = String(key || '');
+  if (!PHONE_EDITABLE.includes(k)) return res.status(400).json({ success: false, message: 'That phone setting cannot be changed here.' });
+  let v = value;
+  if (k === 'disclosure_text') {
+    v = String(value || '').trim();
+    if (v.length < 20 || v.length > 400) return res.status(400).json({ success: false, message: 'The disclosure must be 20 to 400 characters.' });
+  } else if (k === 'voice') {
+    if (!value || typeof value !== 'object') return res.status(400).json({ success: false, message: 'Voice must be an object.' });
+    v = { tts_provider: value.tts_provider ? String(value.tts_provider).slice(0, 40) : null, voice: value.voice ? String(value.voice).slice(0, 120) : null,
+      language: String(value.language || 'en-US').slice(0, 10) };
+  } else {
+    const [lo, hi] = phoneSettings.NUM[k]; v = Number(value);
+    if (!Number.isFinite(v) || v < lo || v > hi) return res.status(400).json({ success: false, message: k.replace(/_/g, ' ') + ' must be between ' + lo + ' and ' + hi + '.' });
+  }
+  const before = (await phoneSettings.load())[k];
+  await db.query(`INSERT INTO platform_config (key, value, category) VALUES ($1, $2::jsonb, 'sasha_phone')
+    ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = now()`, ['sasha.phone.' + k, JSON.stringify(v)]);
+  phoneSettings.clear();
+  await auditService.logEvent(db, { eventType: 'sasha.phone_setting_changed', entityType: 'platform_config', entityId: '00000000-0000-0000-0000-000000000000',
+    actorId: req.user.id, metadata: { key: k, before, after: v } });
+  res.json({ success: true, data: await phoneSettings.load() });
+}));
+
+// Simulator: Super Admin only. Runs the real call path with provider 'simulated' (no telephone, no SMS).
+const sim = require('../services/sasha/phone/phoneSimulator');
+const simId = (req, res) => { if (!UUID.test(req.params.callId || '')) { res.status(404).json({ success: false, message: 'Not found.' }); return null; } return req.params.callId; };
+router.post('/phone/sim/start', superAdminOnly, wrap(async (req, res) => {
+  const b = req.body || {};
+  res.json({ success: true, data: await sim.start({ actorId: req.user.id, callerNumber: b.caller_number ? String(b.caller_number).slice(0, 30) : null }) });
+}));
+router.post('/phone/sim/:callId/say', superAdminOnly, wrap(async (req, res) => {
+  const id = simId(req, res); if (!id) return;
+  const text = String((req.body && req.body.text) || '').trim();
+  if (!text) return res.status(400).json({ success: false, message: 'Type what the caller says.' });
+  res.json({ success: true, data: await sim.say(id, req.user.id, text) });
+}));
+router.post('/phone/sim/:callId/keypad', superAdminOnly, wrap(async (req, res) => {
+  const id = simId(req, res); if (!id) return;
+  res.json({ success: true, data: await sim.keypad(id, req.user.id, String((req.body && req.body.digits) || '')) });
+}));
+router.post('/phone/sim/:callId/interrupt', superAdminOnly, wrap(async (req, res) => {
+  const id = simId(req, res); if (!id) return;
+  res.json({ success: true, data: await sim.interrupt(id, req.user.id) });
+}));
+router.post('/phone/sim/:callId/end', superAdminOnly, wrap(async (req, res) => {
+  const id = simId(req, res); if (!id) return;
+  res.json({ success: true, data: await sim.end(id, req.user.id) });
+}));
+router.get('/phone/sim/:callId', superAdminOnly, wrap(async (req, res) => {
+  const id = simId(req, res); if (!id) return;
+  res.json({ success: true, data: await sim.state(id, req.user.id) });
 }));
 
 // ── Knowledge (support guidance + what Sasha reads) ─────────────────────────────────────────────────────

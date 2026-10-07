@@ -19,8 +19,16 @@ const conversations = require('./conversationService');
 const settings = require('./settings');
 
 const MODEL = () => process.env.SASHA_MODEL || 'claude-sonnet-5';
-const PRICE_IN_PER_MTOK = () => Number(process.env.SASHA_PRICE_INPUT_PER_MTOK || 3);     // USD per million input tokens
-const PRICE_OUT_PER_MTOK = () => Number(process.env.SASHA_PRICE_OUTPUT_PER_MTOK || 15);  // USD per million output tokens
+// USD per million tokens for the default model (claude-sonnet-5, Anthropic list price checked 2026-10-07: input $2, output $10,
+// prompt-cache read $0.20, prompt-cache write $2.50). Override with env when SASHA_MODEL points at a differently priced model.
+const PRICE_IN_PER_MTOK = () => Number(process.env.SASHA_PRICE_INPUT_PER_MTOK || 2);
+const PRICE_OUT_PER_MTOK = () => Number(process.env.SASHA_PRICE_OUTPUT_PER_MTOK || 10);
+const PRICE_CACHE_READ_PER_MTOK = () => Number(process.env.SASHA_PRICE_CACHE_READ_PER_MTOK || 0.2);
+const PRICE_CACHE_WRITE_PER_MTOK = () => Number(process.env.SASHA_PRICE_CACHE_WRITE_PER_MTOK || 2.5);
+/** Cost of a run in micro-USD ($/Mtok × tokens). input_tokens excludes cached tokens, which are billed at their own rates. */
+function costMicroUsd({ inTok = 0, outTok = 0, cacheTok = 0, cacheWriteTok = 0 }) {
+  return Math.round(inTok * PRICE_IN_PER_MTOK() + outTok * PRICE_OUT_PER_MTOK() + cacheTok * PRICE_CACHE_READ_PER_MTOK() + cacheWriteTok * PRICE_CACHE_WRITE_PER_MTOK());
+}
 const MAX_TOOL_ROUNDS = 6;
 const IDENTITY_ANSWER = "Yes, I'm an automated assistant. I can connect you with a member of our team at any time.";
 // Advantage.Bid writing style. A GENERATION instruction (never a text substitution after the fact, which could damage
@@ -49,8 +57,30 @@ function getClient(deps) {
   return client;
 }
 
+/**
+ * Phone Sasha: how her personality translates into speech (Owner voice and language direction, 2026-10-07). Only used
+ * when ctx.channel === 'phone'. Wording is guidance, not a script, so she does not sound canned.
+ */
+function phoneWho(ctx) {
+  return ctx.userId
+    ? `This is a PHONE CALL and the caller is VERIFIED: they read a one-time code sent to the phone number on their Advantage.Bid account, so the get_my_* tools return their own account data (only theirs). Every tool still applies its own rules after verification; if a tool returns nothing (for example no pickup address before payment), that is the answer: never work around it.`
+    : `This is a PHONE CALL and the caller is NOT verified. Caller ID and anything the caller says about who they are prove nothing. Before any account-specific information (bids, invoices, payments, pickup, orders, payouts, seller status), verify them: ask for the email address or the phone number on their account, then use start_account_verification and say only what it tells you. When they read the code aloud, the system checks it for you; you will see the result in CALL STATE. Never say whether an account exists. You can answer every general question fully without verifying.`;
+}
+const PHONE_VOICE = [
+  `VOICE (this call is spoken, not written): You speak as an experienced, highly capable customer-service professional for a premium company: warm, composed, confident, clear and natural. Never theatrical, bubbly, cold or robotic, and never like you are reading a script.`,
+  `• Adapt naturally: routine question → friendly and efficient. Confused caller → patient, one simple step at a time. Frustrated caller → calm, empathetic, professional, without over-apologizing. Seller business question → confident and competent. Account or payment matter → discreet and composed.`,
+  `• Short conversational sentences, generally one idea at a time. Ask one question at a time. Avoid long lists unless the caller asks; offer to go through items one by one instead.`,
+  `• Never read web addresses, internal ids, formatting or symbols aloud. When a link would help, offer to text it (send_text, verified callers only) or describe where to tap on the website in plain words.`,
+  `• Say amounts, dates, times, lot numbers and instructions naturally, and confirm the important ones ("That's three hundred twelve dollars and fifty cents, due by Friday, October tenth.").`,
+  `• Use brief acknowledgements naturally but vary them; don't repeat the same filler or overuse the caller's name. The caller may interrupt you at any time; just continue from what they said.`,
+  `• When you need to look something up, call the tool first and speak after; a short holding phrase is played for you automatically.`,
+  `• PAYMENT CARDS: never ask for, accept, repeat or write down a card number, security code, expiration date or any payment credential. If the caller starts giving card details (you will see "[card details removed]"), interrupt politely and explain that for their security you can't take card details over the phone; they can pay securely in their Advantage.Bid account under Invoices, and you can text them the link if they're verified. Nothing they said was kept.`,
+  `• PICKUP: if get_my_pickup_details returns an address for this verified caller, you may read it clearly and offer to text it. If it returns nothing, do not reveal anything about the location beyond the city and state.`,
+  `• A person: if the caller wants one, or a request_human situation applies, offer a callback from the team and use request_callback after confirming the number (the number they are calling from, or one they give). Live transfer is not available yet. Never promise a time or an outcome.`,
+];
+
 function systemPrompt(ctx) {
-  const who = ctx.userId
+  const who = ctx.channel === 'phone' ? phoneWho(ctx) : ctx.userId
     ? `The customer is SIGNED IN to Advantage.Bid (their own account data is available through the get_my_* tools, and only theirs).`
     : ctx.channel === 'email'
       ? `This is an EMAIL. The sender's identity is NOT verified: an email address matching an account is not proof. Do not look up or reveal any account-specific or private information (bids, invoices, payments, pickup addresses, payouts, orders). For those, ask them to sign in at https://bid.advantage.bid and use the red Help button (chat), or check their account pages. You can still answer every general question fully.`
@@ -73,7 +103,9 @@ function systemPrompt(ctx) {
     ``,
     `IDENTITY:`,
     `• Your name is Sasha. Do not call yourself an AI, bot, virtual or automated assistant unless asked. If the customer asks whether you are a person, a bot, automated or an AI, reply with EXACTLY this sentence, word for word, as your whole answer to that question: "${IDENTITY_ANSWER}" (you may then answer any other question they asked). Never claim to be human.`,
-    `• A customer can ALWAYS get a person: if they ask, use request_human (reason "customer_request") and tell them a team member will follow up by ${ctx.channel === 'email' ? 'email' : 'email or here in this chat'}. Do not promise a response time or say someone is online.`,
+    ctx.channel === 'phone'
+      ? `• A caller can ALWAYS get a person: if they ask, offer a callback from the team and use request_callback (reason "customer_request"). Do not promise a callback time or say someone is available.`
+      : `• A customer can ALWAYS get a person: if they ask, use request_human (reason "customer_request") and tell them a team member will follow up by ${ctx.channel === 'email' ? 'email' : 'email or here in this chat'}. Do not promise a response time or say someone is online.`,
     ctx.channel === 'chat' && !ctx.userId && !ctx.hasContactEmail
       ? `• When you hand off in this chat, ask for the customer's email address so the team can reply (they are not signed in and we have no email for them).` : '',
     ``,
@@ -85,10 +117,13 @@ function systemPrompt(ctx) {
     `• Follow-up questions count too: for every new factual question in a conversation, look it up again with your tools before answering. Never answer from memory of an earlier reply or add details it did not contain.`,
     ``,
     `ACTIONS: you cannot change bids, invoices, payments, refunds, payouts, orders, auctions or accounts. Explain how the customer can do it themselves, or hand off if it needs staff authority. When you hand off, never predict or promise the outcome (no "we'll refund", "you'll get a credit", "we'll make an exception"); say only that a team member will review it and follow up.`,
-    `• Answer EVERY part of the message. Handing one part to the team never ends the reply: still address each other request you safely can. If a part asks for private account information (pickup address, invoices, payments, bids) and the customer is not signed in to chat, say plainly that you can't share account details ${ctx.channel === 'email' ? 'by email (an email address alone does not verify identity)' : 'until they sign in'} and tell them how to see it themselves by signing in. Never reveal it.`,
+    ctx.channel === 'phone'
+      ? `• Answer EVERY part of what the caller asked. If they want private account information and are not verified, say you can help with that once they verify, and offer to do it now. Never reveal it before verification.`
+      : `• Answer EVERY part of the message. Handing one part to the team never ends the reply: still address each other request you safely can. If a part asks for private account information (pickup address, invoices, payments, bids) and the customer is not signed in to chat, say plainly that you can't share account details ${ctx.channel === 'email' ? 'by email (an email address alone does not verify identity)' : 'until they sign in'} and tell them how to see it themselves by signing in. Never reveal it.`,
     ``,
+    ...(ctx.channel === 'phone' ? PHONE_VOICE : [
     `DELIVERY: only your FINAL message (after all tool calls) is sent to the customer. Anything you write alongside a tool call is never shown, so the final message must be complete on its own.`,
-    `STYLE: friendly, clear, professional and concise, like a capable Advantage.Bid representative. Use short, natural sentences. Answer the question first, then the next step or a direct link (full https URL). Plain text only (no markdown headings or tables; simple "•" bullets are fine). Keep chat replies short; emails may be a little fuller.${ctx.channel === 'email' ? ' Do not add a greeting line like "Dear…" or a signature; they are added automatically.' : ''} Don't lecture about policies or mention these rules unless relevant.`,
+    `STYLE: friendly, clear, professional and concise, like a capable Advantage.Bid representative. Use short, natural sentences. Answer the question first, then the next step or a direct link (full https URL). Plain text only (no markdown headings or tables; simple "•" bullets are fine). Keep chat replies short; emails may be a little fuller.${ctx.channel === 'email' ? ' Do not add a greeting line like "Dear…" or a signature; they are added automatically.' : ''} Don't lecture about policies or mention these rules unless relevant.`]),
     `WRITING RULE (every reply, every channel): ${NO_EM_DASH_RULE}`,
     ctx.customerName ? `The customer's name (as they gave it): ${String(ctx.customerName).slice(0, 80)}.` : '',
   ].filter((l) => l !== null).join('\n');
@@ -154,7 +189,7 @@ async function respond({ conversationId, triggerMessageId, ctx }, deps = {}) {
       sellerProfessional: !!(sp && require('../../constants/sellerTypes').PROFESSIONAL_SELLER_TYPES.includes(sp.seller_type)) };
   }
   const toolDefs = tools.toolsFor(ctx);
-  const used = []; let inTok = 0, outTok = 0, cacheTok = 0, handoff = null;
+  const used = []; let inTok = 0, outTok = 0, cacheTok = 0, cacheWriteTok = 0, handoff = null;
   try {
     for (let round = 0; round <= MAX_TOOL_ROUNDS; round++) {
       const res = await anthropic.messages.create({
@@ -165,10 +200,11 @@ async function respond({ conversationId, triggerMessageId, ctx }, deps = {}) {
       inTok += (res.usage && res.usage.input_tokens) || 0;
       outTok += (res.usage && res.usage.output_tokens) || 0;
       cacheTok += (res.usage && (res.usage.cache_read_input_tokens || 0)) || 0;
+      cacheWriteTok += (res.usage && (res.usage.cache_creation_input_tokens || 0)) || 0;
       const toolUses = (res.content || []).filter((b) => b.type === 'tool_use');
       if (res.stop_reason !== 'tool_use' || !toolUses.length || round === MAX_TOOL_ROUNDS) {
         const text = plainText((res.content || []).filter((b) => b.type === 'text').map((b) => b.text).join('\n'));
-        const costMicro = Math.round(inTok * PRICE_IN_PER_MTOK() + outTok * PRICE_OUT_PER_MTOK());   // $/Mtok × tokens = micro-USD
+        const costMicro = costMicroUsd({ inTok, outTok, cacheTok, cacheWriteTok });
         if (!text) throw new Error('empty reply');
         const outcome = handoff ? 'handoff' : 'replied';
         const runId = await recordRun({ ...base, outcome, reason: handoff ? handoff.reason : null, tools: used, inTok, outTok, cacheTok, costMicro, latencyMs: Date.now() - started });
@@ -187,7 +223,7 @@ async function respond({ conversationId, triggerMessageId, ctx }, deps = {}) {
             + '(2) then answer EVERY other part of the customer\'s message that you safely can. If they also asked for private account information (pickup address, invoice, payment, bids) '
             + (ctx.userId ? 'you may look up their own data with the get_my_* tools.' : 'explain that you can\'t share account details '
               + (ctx.channel === 'email' ? 'by email, because an email address alone does not verify identity,' : 'until they sign in,')
-              + ' and tell them how to see it themselves: sign in at https://bid.advantage.bid (paid invoices show the pickup address) or use the red Help button to chat while signed in.') };
+              + ' and tell them how to see it themselves: after payment the full pickup address is in their pickup email from Advantage.Bid, or they can sign in at https://bid.advantage.bid and use the red Help button to chat while signed in.') };
         } else {
           out = await tools.run(tu.name, tu.input, ctx);
         }
@@ -197,10 +233,134 @@ async function respond({ conversationId, triggerMessageId, ctx }, deps = {}) {
     }
     throw new Error('tool loop exhausted');
   } catch (e) {
-    const costMicro = Math.round(inTok * PRICE_IN_PER_MTOK() + outTok * PRICE_OUT_PER_MTOK());
+    const costMicro = costMicroUsd({ inTok, outTok, cacheTok, cacheWriteTok });
     const runId = await recordRun({ ...base, outcome: 'error', reason: 'model_error', tools: used, inTok, outTok, cacheTok, costMicro, latencyMs: Date.now() - started, error: e.message });
     return { outcome: 'error', error: e.message, runId };
   }
 }
 
-module.exports = { respond, systemPrompt, buildMessages, spentTodayUsd, MODEL, plainText, IDENTITY_ANSWER, NO_EM_DASH_RULE, _setClient: (c) => { client = c; } };
+// ── Phone: streaming responder ───────────────────────────────────────────────────────────────────────
+const PHONE_MAX_TOOL_ROUNDS = 4;      // fewer rounds than text: every round is dead air on a call
+const PHONE_MAX_OUTPUT_TOKENS = 450;  // spoken answers are short
+
+async function spentTodayUsdForChannel(channel) {
+  const r = (await db.query(`SELECT COALESCE(SUM(cost_micro_usd),0)::bigint AS c FROM cs_ai_runs WHERE channel = $1
+    AND created_at >= date_trunc('day', now() AT TIME ZONE 'UTC') AT TIME ZONE 'UTC'`, [channel])).rows[0];
+  return Number(r.c) / 1e6;
+}
+async function spentOnConversationUsd(conversationId) {
+  const r = (await db.query(`SELECT COALESCE(SUM(cost_micro_usd),0)::bigint AS c FROM cs_ai_runs WHERE conversation_id = $1`, [conversationId])).rows[0];
+  return Number(r.c) / 1e6;
+}
+
+/**
+ * Phone turn: same brain, tools and rules as respond(), but STREAMED so speech can start on the first sentence.
+ *   onSpeak(text, { kind: 'speech' | 'filler' })  called with each speakable sentence (and a holding phrase when a
+ *                                                 lookup starts before anything was said this turn).
+ *   signal                                        AbortSignal: the caller interrupted (barge-in). Generation stops;
+ *                                                 what was already spoken is returned as the reply.
+ *   callState                                     server-set call facts (verification, session) as a second,
+ *                                                 uncached system block. Never caller-supplied.
+ *   limits { dailyUsd, perCallUsd }               phone-channel caps on top of the overall Sasha daily cap.
+ * Returns { outcome: 'replied'|'handoff'|'skipped'|'error', text, handoff, runId, interrupted, budget }.
+ */
+async function respondStream({ conversationId, triggerMessageId, ctx, callState = '', onSpeak = () => {}, signal = null, limits = {} }, deps = {}) {
+  const { SentenceChunker, pickFiller, speakable } = require('./phone/speech');
+  const started = Date.now();
+  const s = await settings.effective();
+  const base = { conversationId, triggerMessageId, channel: 'phone', model: MODEL() };
+  if (!s.engine) return { outcome: 'skipped', reason: 'engine_off', runId: await recordRun({ ...base, outcome: 'skipped', reason: 'engine_off' }) };
+  if ((await spentTodayUsd()) >= s.daily_budget_usd) return { outcome: 'skipped', budget: 'daily', runId: await recordRun({ ...base, outcome: 'skipped', reason: 'daily_budget_reached' }) };
+  if (limits.dailyUsd != null && (await spentTodayUsdForChannel('phone')) >= limits.dailyUsd) {
+    return { outcome: 'skipped', budget: 'phone_daily', runId: await recordRun({ ...base, outcome: 'skipped', reason: 'phone_daily_budget_reached' }) };
+  }
+  if (limits.perCallUsd != null && (await spentOnConversationUsd(conversationId)) >= limits.perCallUsd) {
+    return { outcome: 'skipped', budget: 'per_call', runId: await recordRun({ ...base, outcome: 'skipped', reason: 'call_budget_reached' }) };
+  }
+  const anthropic = getClient(deps);
+  if (!anthropic) return { outcome: 'error', runId: await recordRun({ ...base, outcome: 'error', reason: 'no_model_key', error: 'ANTHROPIC_API_KEY not set' }) };
+  const messages = buildMessages(await conversations.transcriptForModel(conversationId));
+  if (!messages.length) return { outcome: 'skipped', runId: await recordRun({ ...base, outcome: 'skipped', reason: 'no_customer_message' }) };
+  if (ctx.userId && ctx.sellerType === undefined) {
+    const sp = (await db.query(`SELECT seller_type FROM seller_profiles WHERE user_id = $1`, [ctx.userId]).catch(() => ({ rows: [] }))).rows[0];
+    ctx = { ...ctx, sellerType: sp ? (sp.seller_type || 'private') : null,
+      sellerProfessional: !!(sp && require('../../constants/sellerTypes').PROFESSIONAL_SELLER_TYPES.includes(sp.seller_type)) };
+  }
+  const toolDefs = tools.toolsFor(ctx);
+  const system = [{ type: 'text', text: systemPrompt(ctx), cache_control: { type: 'ephemeral' } }];
+  if (callState) system.push({ type: 'text', text: 'CALL STATE (set by the system for this turn):\n' + callState });
+  const used = []; const spoken = []; let inTok = 0, outTok = 0, cacheTok = 0, cacheWriteTok = 0, handoff = null, lastFiller = null, interrupted = false;
+  let fillerPending = false;   // a holding phrase was played and no real speech has followed yet
+  const say = (t, kind) => { const x = speakable(t); if (!x) return; if (kind === 'speech') fillerPending = false; spoken.push(x); onSpeak(x, { kind }); };
+  const aborted = () => !!(signal && signal.aborted);
+  try {
+    for (let round = 0; round <= PHONE_MAX_TOOL_ROUNDS; round++) {
+      if (aborted()) { interrupted = true; break; }
+      const chunker = new SentenceChunker();
+      const blocks = []; let stop = null; let roundOut = 0; let saidThisRound = false;
+      const stream = await anthropic.messages.create({ model: MODEL(), max_tokens: PHONE_MAX_OUTPUT_TOKENS, system, tools: toolDefs, messages, stream: true },
+        signal ? { signal } : undefined);
+      for await (const ev of stream) {
+        if (aborted()) { interrupted = true; break; }
+        if (ev.type === 'message_start') {
+          const u = (ev.message && ev.message.usage) || {};
+          inTok += u.input_tokens || 0; cacheTok += u.cache_read_input_tokens || 0; cacheWriteTok += u.cache_creation_input_tokens || 0;
+        } else if (ev.type === 'content_block_start') {
+          blocks[ev.index] = { ...ev.content_block, text: ev.content_block.text || '', input_json: '' };
+          if (ev.content_block.type === 'tool_use' && !saidThisRound && !fillerPending) {
+            lastFiller = pickFiller(lastFiller); say(lastFiller, 'filler'); fillerPending = true;
+          }
+        } else if (ev.type === 'content_block_delta') {
+          const b = blocks[ev.index]; if (!b) continue;
+          if (ev.delta.type === 'text_delta') { b.text += ev.delta.text; for (const sen of chunker.push(ev.delta.text)) { say(sen, 'speech'); saidThisRound = true; } }
+          else if (ev.delta.type === 'input_json_delta') b.input_json += ev.delta.partial_json || '';
+        } else if (ev.type === 'message_delta') {
+          stop = (ev.delta && ev.delta.stop_reason) || stop;
+          if (ev.usage && ev.usage.output_tokens != null) roundOut = ev.usage.output_tokens;
+        }
+      }
+      outTok += roundOut;
+      if (interrupted) break;
+      for (const sen of chunker.flush()) { say(sen, 'speech'); saidThisRound = true; }
+      const content = blocks.filter(Boolean).map((b) => (b.type === 'tool_use'
+        ? { type: 'tool_use', id: b.id, name: b.name, input: (() => { try { return b.input_json ? JSON.parse(b.input_json) : (b.input || {}); } catch (_e) { return {}; } })() }
+        : { type: 'text', text: b.text }));
+      const toolUses = content.filter((b) => b.type === 'tool_use');
+      if (stop !== 'tool_use' || !toolUses.length || round === PHONE_MAX_TOOL_ROUNDS) break;
+      messages.push({ role: 'assistant', content });
+      const results = [];
+      for (const tu of toolUses) {
+        used.push(tu.name);
+        let out;
+        if (tu.name === 'request_human') {
+          const reason = tools.HANDOFF_REASONS.includes(tu.input && tu.input.reason) ? tu.input.reason : 'other';
+          handoff = { reason, summary: String((tu.input && tu.input.summary) || '').slice(0, 1000) };
+          await conversations.requestHandoff(conversationId, { reasonCode: reason, reasonText: handoff.summary, createdBy: reason === 'customer_request' ? 'customer' : 'sasha' });
+          out = { ok: true, note: 'The team has been notified. Offer the caller a callback from the team (request_callback, after confirming the number), with no promised time or outcome. Then help with anything else you safely can.' };
+        } else {
+          out = await tools.run(tu.name, tu.input, ctx);
+        }
+        results.push({ type: 'tool_result', tool_use_id: tu.id, content: JSON.stringify(out).slice(0, 12000) });
+      }
+      messages.push({ role: 'user', content: results });
+    }
+    const text = require('./phone/redaction').scrubOutbound(spoken.join(' '));
+    if (!text && !interrupted) throw new Error('empty reply');
+    const outcome = handoff ? 'handoff' : 'replied';
+    const runId = await recordRun({ ...base, outcome, reason: interrupted ? 'interrupted' : (handoff ? handoff.reason : null), tools: used, inTok, outTok, cacheTok,
+      costMicro: costMicroUsd({ inTok, outTok, cacheTok, cacheWriteTok }), latencyMs: Date.now() - started });
+    return { outcome, text, handoff, runId, interrupted, tools: used };
+  } catch (e) {
+    if (aborted()) {
+      const runId = await recordRun({ ...base, outcome: 'replied', reason: 'interrupted', tools: used, inTok, outTok, cacheTok,
+        costMicro: costMicroUsd({ inTok, outTok, cacheTok, cacheWriteTok }), latencyMs: Date.now() - started });
+      return { outcome: 'replied', text: spoken.join(' '), handoff, runId, interrupted: true, tools: used };
+    }
+    const runId = await recordRun({ ...base, outcome: 'error', reason: 'model_error', tools: used, inTok, outTok, cacheTok,
+      costMicro: costMicroUsd({ inTok, outTok, cacheTok, cacheWriteTok }), latencyMs: Date.now() - started, error: e.message });
+    return { outcome: 'error', error: e.message, runId, text: spoken.join(' '), tools: used };
+  }
+}
+
+module.exports = { respond, respondStream, systemPrompt, buildMessages, spentTodayUsd, spentTodayUsdForChannel, spentOnConversationUsd, costMicroUsd, MODEL,
+  plainText, IDENTITY_ANSWER, NO_EM_DASH_RULE, PHONE_MAX_TOOL_ROUNDS, _setClient: (c) => { client = c; } };

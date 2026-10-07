@@ -74,7 +74,7 @@ const TOPICS = {
       'Inspection (Terms of Service section 24): inspect items before leaving the pickup location; leaving with an item counts as accepting it.',
       'Anything beyond these Advantage.Bid policies is set by each seller and published with that auction\'s pickup details. Tell the customer to check that auction\'s published pickup details; do not guess or give examples of what a seller might require.',
       `For individual (non-professional) sellers, pickup must begin at least ${sellerTypeRules.NON_PRO_MIN_PICKUP_GAP_HOURS} hours after the auction closes. Professional sellers set their own pickup timing (never before the auction closes).`,
-      'Before payment, listings show only the city and state. The full pickup address is sent to the winning buyer after their payment succeeds (in the payment receipt / pickup email), and it is shown on their paid invoice.',
+      'Before payment, listings show only the city and state. The full pickup address is sent to the winning buyer by email after their payment succeeds (the pickup email from Advantage.Bid). It is not printed on the invoice or shown on the auction page. A signed-in buyer who has paid can also ask Sasha for it.',
       'Never give a pickup street address, ZIP code or coordinates to anyone who has not paid for that item (look it up only with get_my_pickup_details for the signed-in buyer).',
     ],
   }),

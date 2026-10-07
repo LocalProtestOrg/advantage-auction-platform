@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="noindex, nofollow" />
+  <title>Phone Sasha Tester - Admin</title>
+  <style>
+    *,*::before,*::after{box-sizing:border-box}
+    body{margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#f1f5f9;color:#1f2937}
+    .wrap{max-width:1400px;margin:0 auto;padding:16px}
+    h1{font-size:1.3rem;margin:0 0 .3rem}
+    h2{font-size:.95rem;margin:0 0 .5rem}
+    .sub{color:#64748b;font-size:13px;margin:0 0 12px;max-width:80ch}
+    .banner{background:#ecfdf5;border:1px solid #a7f3d0;color:#065f46;border-radius:10px;padding:9px 12px;font-size:13px;margin-bottom:12px}
+    .banner.warn{background:#fffbeb;border-color:#fde68a;color:#92400e}
+    .grid{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(0,1fr);gap:14px;align-items:start}
+    @media (max-width:980px){.grid{grid-template-columns:minmax(0,1fr)}}
+    .card{background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:14px;margin-bottom:14px;min-width:0}
+    .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+    input,select,textarea{border:1px solid #cbd5e1;border-radius:8px;padding:7px 9px;font:inherit;font-size:13.5px}
+    input:focus-visible,button:focus-visible,textarea:focus-visible,select:focus-visible{outline:2px solid #2563eb;outline-offset:1px}
+    button.b{border:0;border-radius:8px;padding:8px 13px;font-weight:700;font-size:13px;cursor:pointer}
+    .b-dark{background:#0f172a;color:#fff}.b-red{background:#D9534F;color:#fff}.b-ghost{background:#f1f5f9;color:#0f172a;border:1px solid #e2e8f0}.b-amber{background:#f59e0b;color:#111827}
+    button.b:disabled{opacity:.5;cursor:default}
+    .timeline{display:flex;flex-direction:column;gap:7px;height:52vh;min-height:280px;overflow:auto;border:1px solid #eef2f7;border-radius:10px;padding:10px;background:#f8fafc}
+    .msg{border-radius:10px;padding:8px 11px;font-size:13.5px;line-height:1.45;white-space:pre-wrap;word-wrap:break-word;max-width:88%}
+    .msg .who{font-size:11px;font-weight:700;color:#64748b;margin-bottom:3px}
+    .m-caller{background:#fff;border:1px solid #e2e8f0;align-self:flex-start}
+    .m-sasha{background:#fef2f2;border:1px solid #fecaca;align-self:flex-end}
+    .m-filler{background:#fff7ed;border:1px dashed #fdba74;align-self:flex-end;font-style:italic;color:#9a3412}
+    .m-system{background:#f1f5f9;border:1px dashed #cbd5e1;align-self:center;color:#475569;font-size:12.5px;max-width:95%}
+    .say{display:grid;grid-template-columns:1fr auto;gap:8px;margin-top:10px}
+    .say textarea{min-height:56px;resize:vertical;width:100%}
+    .kv{display:grid;grid-template-columns:max-content 1fr;gap:4px 12px;font-size:13px}
+    .kv dt{color:#64748b}.kv dd{margin:0;font-weight:600;overflow-wrap:anywhere}
+    .pill{display:inline-block;font-size:11px;font-weight:700;border-radius:999px;padding:2px 8px}
+    .p-ok{background:#dcfce7;color:#166534}.p-warn{background:#fef3c7;color:#92400e}.p-bad{background:#fee2e2;color:#991b1b}.p-mute{background:#f1f5f9;color:#475569}
+    table{width:100%;border-collapse:collapse;font-size:12px}th,td{text-align:left;padding:5px 6px;border-bottom:1px solid #f1f5f9;vertical-align:top}
+    th{color:#64748b;font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:.04em}
+    .scroll{overflow-x:auto}
+    .handset{background:#0f172a;color:#e2e8f0;border-radius:14px;padding:10px;font-size:12.5px;min-height:60px}
+    .handset .sms{background:#1e293b;border-radius:10px;padding:7px 9px;margin-bottom:6px}
+    .handset .sms small{color:#94a3b8;display:block;margin-bottom:2px}
+    .empty{color:#94a3b8;font-size:13px}
+    .msgline{font-size:12.5px;min-height:1em;color:#166534}.msgline.err{color:#b91c1c}
+    .settings{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:8px;font-size:12.5px}
+    .settings label{display:flex;flex-direction:column;gap:3px;color:#475569}
+    .settings input{width:100%}
+    @media (max-width:600px){.say{grid-template-columns:1fr}#caller{width:auto !important;flex:1 1 140px;min-width:0}.row{min-width:0}.msg{max-width:100%}.kv{grid-template-columns:1fr}.kv dd{margin-bottom:4px}}
+  </style>
+</head>
+<body>
+  <script src="/widgets/shared/admin-nav.js"></script>
+  <div class="wrap">
+    <h1>Phone Sasha Tester</h1>
+    <p class="sub">Simulate a telephone call with phone-mode Sasha. It runs the real call path (verification, account tools, privacy rules, disclosure audit, callbacks) with no telephone and no text messages: codes and texts appear on the simulated handset below. Simulations are recorded and marked as simulations.</p>
+    <div class="banner" id="line">Checking the phone line…</div>
+
+    <div class="grid">
+      <div>
+        <div class="card">
+          <div class="row" style="justify-content:space-between">
+            <div class="row">
+              <label for="caller" style="font-size:13px">Caller ID (optional)</label>
+              <input id="caller" placeholder="+1 555 201 0000" style="width:170px;max-width:100%">
+              <button class="b b-dark" id="start">Start call</button>
+            </div>
+            <div class="row">
+              <button class="b b-amber" id="interrupt" disabled title="Simulates the caller talking over Sasha">Interrupt</button>
+              <button class="b b-ghost" id="end" disabled>Hang up</button>
+            </div>
+          </div>
+          <div class="timeline" id="tl" aria-live="polite" style="margin-top:10px"><div class="empty">Start a call to begin.</div></div>
+          <div class="say">
+            <label for="text" style="position:absolute;left:-9999px">What the caller says</label>
+            <textarea id="text" placeholder="What the caller says…" disabled></textarea>
+            <div style="display:grid;gap:6px">
+              <button class="b b-red" id="send" disabled>Say</button>
+              <div class="row"><label for="keys" style="position:absolute;left:-9999px">Keypad digits</label><input id="keys" placeholder="Keypad" style="width:90px" disabled inputmode="numeric"><button class="b b-ghost" id="keypad" disabled>Press</button></div>
+            </div>
+          </div>
+          <div class="msgline" id="ml"></div>
+        </div>
+
+        <div class="card">
+          <h2>Disclosure and security audit</h2>
+          <div class="scroll"><div id="audit" class="empty">No events yet.</div></div>
+        </div>
+      </div>
+
+      <div>
+        <div class="card">
+          <h2>Call</h2>
+          <dl class="kv" id="callkv"><dt>Status</dt><dd>No call</dd></dl>
+        </div>
+        <div class="card">
+          <h2>Verification and account</h2>
+          <dl class="kv" id="verkv"><dt>State</dt><dd>-</dd></dl>
+        </div>
+        <div class="card">
+          <h2>Simulated handset (phone on file)</h2>
+          <div class="handset" id="handset"><span class="empty">Codes and texts sent to the account's phone appear here.</span></div>
+        </div>
+        <div class="card">
+          <h2>Handoff and callbacks</h2>
+          <div id="handoff" class="empty">None.</div>
+        </div>
+        <div class="card">
+          <h2>Sasha's turns</h2>
+          <div class="scroll"><div id="runs" class="empty">None yet.</div></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Phone settings</h2>
+      <p class="sub" style="margin-bottom:8px">Used by simulations now and by real calls once a voice provider is connected. Changes are audited (Super Admin only).</p>
+      <div class="settings" id="settings"></div>
+      <div class="msgline" id="sml"></div>
+    </div>
+  </div>
+<script>
+(function(){
+  var token=null; try{ token=localStorage.getItem('token'); }catch(e){}
+  var BASE='/api/admin/sasha/phone';
+  function api(method,url,body){ var o={method:method,headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},credentials:'same-origin'}; if(body) o.body=JSON.stringify(body);
+    return fetch(url,o).then(function(r){ if(r.status===401){ location.href='/login.html?next='+encodeURIComponent(location.pathname); } return r.json(); }); }
+  function esc(s){ return (s==null?'':String(s)).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];}); }
+  function when(d){ if(!d) return ''; return new Date(d).toLocaleTimeString([], {hour:'numeric',minute:'2-digit',second:'2-digit'}); }
+  function $(id){ return document.getElementById(id); }
+  var CALL=null, BUSY=false, PENDING=[];
+  function ml(t,err){ var x=$('ml'); x.textContent=t||''; x.className='msgline'+(err?' err':''); }
+  function setControls(){ var live=!!(CALL && CALL.call && CALL.call.status==='in_progress');
+    $('start').disabled=live||BUSY; ['send','text','keys','keypad','end'].forEach(function(i){ $(i).disabled=!live||BUSY; }); $('interrupt').disabled=!live; }
+
+  function render(d, turn){
+    CALL=d;
+    var c=d.call||{};
+    // Transcript: stored turns, with this turn's holding phrases shown where Sasha said them.
+    var fillers=(turn||[]).filter(function(m){return m.kind==='filler' && m.token;}).map(function(m){return m.token.trim();});
+    var html=(d.transcript||[]).map(function(m){
+      if(m.direction==='note') return '<div class="msg m-system"><div class="who">System · '+when(m.created_at)+'</div>'+esc(m.body_text)+'</div>';
+      var caller=m.author_type==='customer';
+      return '<div class="msg '+(caller?'m-caller':'m-sasha')+'"><div class="who">'+(caller?'Caller':(m.author_type==='staff'?'Staff':'Sasha'))+' · '+when(m.created_at)+'</div>'+esc(m.body_text)+'</div>';
+    }).join('');
+    if(fillers.length) html+='<div class="msg m-filler"><div class="who">Holding phrase this turn (spoken while Sasha looked something up)</div>'+esc(fillers.join(' '))+'</div>';
+    $('tl').innerHTML=html||'<div class="empty">No conversation yet.</div>'; $('tl').scrollTop=$('tl').scrollHeight;
+
+    var st={in_progress:'<span class="pill p-ok">In progress</span>',completed:'<span class="pill p-mute">Ended</span>',queued:'<span class="pill p-warn">Queued</span>'}[c.status]||esc(c.status);
+    $('callkv').innerHTML='<dt>Status</dt><dd>'+st+'</dd><dt>Reference</dt><dd>'+esc(c.ref||'-')+'</dd><dt>Caller ID</dt><dd>'+(c.caller_last4?'ends in '+esc(c.caller_last4)+' (a hint, not identity)':'not provided')+'</dd>'
+      +'<dt>Duration</dt><dd>'+(c.duration_seconds!=null?Math.floor(c.duration_seconds/60)+' min '+(c.duration_seconds%60)+' s':'in progress')+'</dd>'
+      +'<dt>Interruptions</dt><dd>'+(c.interruptions||0)+'</dd><dt>Card details removed</dt><dd>'+(c.card_data_redacted?'<span class="pill p-warn">'+c.card_data_redacted+' time(s)</span>':'0')+'</dd>'
+      +'<dt>Model cost</dt><dd>$'+Number(d.cost_usd||0).toFixed(4)+'</dd>'+(c.summary?'<dt>Summary</dt><dd>'+esc(c.summary)+'</dd>':'')
+      +'<dt>Owner</dt><dd>'+(c.owner==='staff'?'<span class="pill p-warn">Staff took over</span>':'Sasha')+'</dd>';
+    var vs=(d.verification||{}).state, vpill={anonymous:'<span class="pill p-mute">Not verified</span>',code_sent:'<span class="pill p-warn">Code requested</span>',verified:'<span class="pill p-ok">Verified</span>',expired:'<span class="pill p-bad">Session expired</span>',locked:'<span class="pill p-bad">Locked</span>'}[vs]||esc(vs);
+    var a=d.account;
+    $('verkv').innerHTML='<dt>State</dt><dd>'+vpill+'</dd><dt>Account</dt><dd>'+(a?esc(a.name||'')+' &lt;'+esc(a.email)+'&gt; · '+esc(a.role)+(a.seller_type?' · seller: '+esc(a.seller_type.replace(/_/g,' ')):''):'none (account tools unavailable)')+'</dd>'
+      +'<dt>Session</dt><dd>'+(d.session?'active until '+when(d.session.expires_at):'none')+'</dd>';
+    var hs=(d.handset||[]);
+    $('handset').innerHTML=hs.length?hs.map(function(m){return '<div class="sms"><small>'+(m.kind==='code'?'Verification code':'Text')+' to number ending '+esc(m.to_last4)+' · '+when(m.at)+'</small>'+esc(m.body)+'</div>';}).join(''):'<span class="empty">Codes and texts sent to the account\'s phone appear here.</span>';
+    var ho=d.handoffs||[], al=d.staff_alerts||[];
+    $('handoff').innerHTML=(ho.length?'<table><tr><th>Reason</th><th>Callback</th><th>Status</th></tr>'+ho.map(function(h){return '<tr><td>'+esc(h.reason_code.replace(/_/g,' '))+(h.reason_text?'<br><span style="color:#64748b">'+esc(h.reason_text)+'</span>':'')+'</td><td>'+(h.callback_requested?'to number ending '+esc(h.callback_last4||'?'):'-')+'</td><td>'+esc(h.callback_status||h.status)+'</td></tr>';}).join('')+'</table>':'<span class="empty">None.</span>')
+      +(al.length?'<p style="font-size:12.5px;margin:8px 0 0"><b>Staff alert (simulated, not sent):</b> '+esc(al[al.length-1].message)+'</p>':'');
+    var runs=d.runs||[];
+    $('runs').innerHTML=runs.length?'<table><tr><th>When</th><th>Outcome</th><th>Tools</th><th>Time</th><th>Cost</th></tr>'+runs.map(function(r){return '<tr><td>'+when(r.created_at)+'</td><td>'+esc(r.outcome)+(r.outcome_reason?' ('+esc(r.outcome_reason)+')':'')+'</td><td>'+esc((r.tools_used||[]).join(', ')||'-')+'</td><td>'+(r.latency_ms?(r.latency_ms/1000).toFixed(1)+'s':'')+'</td><td>$'+(Number(r.cost_micro_usd)/1e6).toFixed(4)+'</td></tr>';}).join('')+'</table>':'<span class="empty">None yet.</span>';
+    var ev=d.disclosures||[];
+    $('audit').innerHTML=ev.length?'<table><tr><th>When</th><th>Event</th><th>Tool</th><th>Category</th><th>Detail</th></tr>'+ev.map(function(e){
+      var cls=/refused|failed|locked|redacted/.test(e.event_type)?'p-warn':(/disclosed|succeeded|sent/.test(e.event_type)?'p-ok':'p-mute');
+      return '<tr><td>'+when(e.created_at)+'</td><td><span class="pill '+cls+'">'+esc(e.event_type.replace(/_/g,' '))+'</span></td><td>'+esc(e.tool||'')+'</td><td>'+esc(e.data_category||'')+'</td><td>'+esc(JSON.stringify(e.detail||{}))+'</td></tr>';}).join('')+'</table>':'<span class="empty">No events yet.</span>';
+    setControls();
+  }
+
+  function act(path, body, label){
+    if(!CALL) return; BUSY=true; setControls(); ml(label||'Sasha is responding…');
+    return api('POST',BASE+'/sim/'+CALL.call.id+path,body||{}).then(function(j){ BUSY=false;
+      if(!j.success){ ml(j.message||'That did not work.',true); setControls(); return; }
+      ml(''); render(j.data, j.data.turn); }).catch(function(){ BUSY=false; ml('Network error.',true); setControls(); });
+  }
+  $('start').onclick=function(){ BUSY=true; setControls(); ml('Connecting the simulated call…');
+    api('POST',BASE+'/sim/start',{caller_number:$('caller').value.trim()||null}).then(function(j){ BUSY=false;
+      if(!j.success){ ml(j.message||'Could not start.',true); setControls(); return; }
+      if(!j.data.started){ ml('The call was not connected ('+(j.data.refused||'refused')+').',true); setControls(); return; }
+      ml(''); render(j.data); $('text').focus(); }); };
+  $('send').onclick=function(){ var t=$('text').value.trim(); if(!t) return; $('text').value=''; act('/say',{text:t}); };
+  $('text').addEventListener('keydown',function(e){ if(e.key==='Enter'&&!e.shiftKey){ e.preventDefault(); $('send').click(); } });
+  $('keypad').onclick=function(){ var k=$('keys').value.trim(); if(!k) return; $('keys').value=''; act('/keypad',{digits:k},'Sending keypad digits…'); };
+  $('interrupt').onclick=function(){ if(!CALL) return; api('POST',BASE+'/sim/'+CALL.call.id+'/interrupt',{}).then(function(j){ if(j.success){ ml('Interrupted: Sasha stopped talking.'); } }); };
+  $('end').onclick=function(){ act('/end',{},'Hanging up…'); };
+
+  // Phone line status + settings
+  var LABELS={disclosure_text:'Opening disclosure',max_concurrent_calls:'Calls at once',daily_budget_usd:'Phone daily budget ($)',per_call_budget_usd:'Per-call budget ($)',
+    transcript_retention_days:'Transcript retention (days)',code_ttl_minutes:'Code lifetime (min)',code_max_attempts:'Wrong codes allowed',code_max_sends_per_30min:'Codes per account / 30 min',
+    lockout_minutes:'Lockout (min)',session_max_minutes:'Verified session (min)'};
+  function loadSettings(){ api('GET',BASE+'/settings').then(function(j){
+    if(!j.success){ $('line').className='banner warn'; $('line').textContent=j.message||'Not allowed.'; return; }
+    var d=j.data, s=d.settings;
+    $('line').className='banner'+(d.live_calls_allowed?' warn':'');
+    $('line').innerHTML='<b>Real phone line: '+(d.live_calls_allowed?'ON':'OFF')+'.</b> '+(d.provider_route_mounted?'':'No voice provider is connected, so no real call can reach Sasha. ')+'Phone model spend today: $'+Number(d.spent_today_usd).toFixed(4)+' of $'+s.daily_budget_usd+'. Support-team alert numbers configured: '+d.support_alert_numbers_configured+'.';
+    $('settings').innerHTML=Object.keys(LABELS).map(function(k){ var v=s[k];
+      return '<label for="set-'+k+'">'+esc(LABELS[k])+(k==='disclosure_text'?'<textarea id="set-'+k+'" rows="3">'+esc(v)+'</textarea>':'<input id="set-'+k+'" value="'+esc(v)+'" inputmode="decimal">')+'<button class="b b-ghost" data-k="'+k+'" style="margin-top:3px">Save</button></label>'; }).join('');
+  }); }
+  $('settings').addEventListener('click',function(e){ var b=e.target.closest('button[data-k]'); if(!b) return; var k=b.getAttribute('data-k'), el=$('set-'+k);
+    var v=k==='disclosure_text'?el.value:Number(el.value); b.disabled=true;
+    api('POST',BASE+'/settings',{key:k,value:v}).then(function(j){ b.disabled=false; var x=$('sml'); x.className='msgline'+(j.success?'':' err'); x.textContent=j.success?'Saved.':(j.message||'Not saved.'); loadSettings(); }); });
+  loadSettings(); setControls();
+})();
+</script>
+</body>
+</html>

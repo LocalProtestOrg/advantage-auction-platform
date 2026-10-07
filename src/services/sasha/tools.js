@@ -53,8 +53,16 @@ const ACCOUNT_TOOLS = [
   { name: 'get_my_storefront_orders', description: 'The signed-in seller\'s storefront orders to fulfil.', input_schema: noArgs },
 ];
 
-/** Tools available in this context. Email and anonymous chat get knowledge tools only. */
+/**
+ * Tools available in this context. Email and anonymous chat get knowledge tools only. A phone call adds the phone
+ * flow tools (verification, callback, spoken auction search) and, only inside a verified phone session, the account
+ * tools plus the phone-only account tools (phone/phoneTools.js). Web chat and email are unchanged.
+ */
 function toolsFor(ctx) {
+  if (ctx && ctx.channel === 'phone') {
+    const phone = require('./phone/phoneTools');
+    return [...KNOWLEDGE_TOOLS, ...phone.toolsFor(ctx), ...(ctx.userId ? ACCOUNT_TOOLS : [])];
+  }
   return ctx && ctx.userId ? [...KNOWLEDGE_TOOLS, ...ACCOUNT_TOOLS] : KNOWLEDGE_TOOLS;
 }
 
@@ -247,10 +255,42 @@ const ACCOUNT_TOOL_NAMES = new Set(ACCOUNT_TOOLS.map((t) => t.name));
 /** Run one tool. Account tools refuse without an authenticated user (defence in depth — they are not even offered). */
 async function run(name, input, ctx) {
   if (name === 'request_human') return { handoff: true };   // handled by the engine
+  if (ctx && ctx.channel === 'phone') return runPhone(name, input, ctx);
   const fn = EXEC[name];
   if (!fn) return { error: 'unknown tool' };
   if (ACCOUNT_TOOL_NAMES.has(name) && !(ctx && ctx.userId)) return { error: 'Not available: the customer is not signed in. Ask them to sign in to Advantage.Bid and use the chat, or use their account pages.' };
   try { return await fn(input || {}, ctx || {}); } catch (e) { return { error: 'lookup failed' }; }
+}
+
+/**
+ * Phone: phone-only tools run in phone/phoneTools.js; existing account tools run unchanged here, then every account
+ * read is written to the disclosure audit (which call, which verified session, which account, what category).
+ */
+async function runPhone(name, input, ctx) {
+  const phone = require('./phone/phoneTools');
+  const own = await phone.run(name, input, ctx);
+  if (own !== null) {
+    if (phone.VERIFIED_NAMES.has(name) && ctx.userId && name !== 'send_text') await auditPhoneRead(name, own, ctx);
+    return own;
+  }
+  const fn = EXEC[name];
+  if (!fn) return { error: 'unknown tool' };
+  if (ACCOUNT_TOOL_NAMES.has(name)) {
+    if (!ctx.userId) {
+      await require('./phone/phoneAudit').record(ctx.phone.call, 'tool_refused', { tool: name, category: phone.CATEGORY[name] || null, detail: { reason: 'caller not verified' } });
+      return { error: 'Not available: the caller is not verified. Use start_account_verification first.' };
+    }
+    let out; try { out = await fn(input || {}, ctx); } catch (e) { out = { error: 'lookup failed' }; }
+    await auditPhoneRead(name, out, ctx);
+    return out;
+  }
+  try { return await fn(input || {}, ctx); } catch (e) { return { error: 'lookup failed' }; }
+}
+async function auditPhoneRead(name, out, ctx) {
+  const phone = require('./phone/phoneTools');
+  const shape = phone.auditShape(name, out);
+  await require('./phone/phoneAudit').record(ctx.phone.call, shape.event, { tool: name, category: phone.CATEGORY[name] || null,
+    accountUserId: ctx.userId, sessionId: ctx.phone.sessionId || null, detail: shape.detail });
 }
 
 module.exports = { toolsFor, run, KNOWLEDGE_TOOLS, ACCOUNT_TOOLS, HANDOFF_REASONS, _internal: { getAuctionOrLot, getMyPickupDetails, searchHelpCenter } };

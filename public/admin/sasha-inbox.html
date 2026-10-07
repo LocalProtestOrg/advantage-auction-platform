@@ -58,7 +58,7 @@
   <script src="/widgets/shared/admin-nav.js"></script>
   <div class="wrap">
     <h1>Customer Service</h1>
-    <p class="sub">Sasha's email and chat conversations. Take over any conversation to reply yourself — Sasha stops replying to it until you return it.</p>
+    <p class="sub">Sasha's email, chat and phone conversations. Take over any conversation to reply yourself — Sasha stops replying to it until you return it.</p>
     <div class="grid">
       <div class="card">
         <div class="tabs" id="tabs">
@@ -73,7 +73,7 @@
           <label for="q" style="position:absolute;left:-9999px">Search</label>
           <input id="q" placeholder="Search email, name, subject, ref…">
           <label for="ch" style="position:absolute;left:-9999px">Channel</label>
-          <select id="ch"><option value="">All channels</option><option value="email">Email</option><option value="chat">Chat</option></select>
+          <select id="ch"><option value="">All channels</option><option value="email">Email</option><option value="chat">Chat</option><option value="phone">Phone</option></select>
         </div>
         <div class="list" id="list"><div class="empty">Loading…</div></div>
       </div>
@@ -131,6 +131,7 @@
       +esc(c.customer_name||'')+(c.customer_email?' &lt;'+esc(c.customer_email)+'&gt;':'')+'<br>'+acct+'</div></div>'
       +'<div class="actions">'+(staff?'<button class="b b-green" id="ret">Return to Sasha</button>':'<button class="b b-dark" id="take">Take over</button>')
       +(c.status==='resolved'||c.status==='closed'?'<button class="b b-ghost" id="reopen">Reopen</button>':'<button class="b b-ghost" id="resolve">Resolve</button>')+'</div></div>';
+    if (d.call) html += callPanel(d.call);
     if (openH.length) html += '<div class="alert"><b>Needs a person:</b> '+openH.map(function(h){return esc(h.reason_code.replace(/_/g,' '))+(h.reason_text?' — '+esc(h.reason_text):'');}).join('<br>')+'</div>';
     html += '<div class="timeline" id="tl">'+d.messages.map(function(m){
       var cls = m.direction==='note' ? 'm-note' : (m.author_type==='customer'?'m-customer':(m.author_type==='staff'?'m-staff':'m-sasha'));
@@ -140,6 +141,7 @@
       var att = (m.attachments||[]).length ? '\n[Attachments not opened: '+m.attachments.map(function(a){return esc(a.name||'file');}).join(', ')+']' : '';
       return '<div class="msg '+cls+'"><div class="who">'+who+' · '+when(m.created_at)+del+'</div>'+esc(m.body_text)+att+'</div>';
     }).join('')+'</div>';
+    if (c.channel === 'phone') html += '<p class="meta" style="margin:8px 0">Phone conversations are answered by calling the customer back; replies typed here are saved to the record only.</p>';
     html += '<div class="compose"><label for="reply" style="font-size:12.5px;font-weight:700">Reply to the customer'+(c.channel==='email'?' (sent by email from info@advantage.bid)':' (appears in their chat)')+(staff?'':' — replying takes over from Sasha')+'</label>'
       +'<textarea id="reply" placeholder="Write your reply…"></textarea>'
       +'<div class="row2"><button class="b b-red" id="send">Send reply</button><button class="b b-ghost" id="note">Save as internal note</button><span class="msgline" id="ml"></span></div></div>';
@@ -155,7 +157,23 @@
     if ((b=document.getElementById('resolve'))) b.onclick=function(){ act('/status',{status:'resolved'}); };
     if ((b=document.getElementById('reopen'))) b.onclick=function(){ act('/status',{status:'open'}); };
     document.getElementById('send').onclick=function(){ var t=document.getElementById('reply').value.trim(); if(!t) return; this.disabled=true; act('/reply',{text:t}); };
+    [].forEach.call(document.querySelectorAll('[data-cb]'), function(btn){ btn.onclick=function(){ act('/callback',{status:btn.getAttribute('data-cb')},'Callback updated.'); }; });
     document.getElementById('note').onclick=function(){ var t=document.getElementById('reply').value.trim(); if(!t) return; act('/note',{text:t}); };
+  }
+  function callPanel(k){
+    var v={anonymous:'not verified',code_sent:'code requested, not verified',verified:'verified by a code sent to the phone on file',expired:'verified, session expired',locked:'verification locked'}[k.verification_state]||k.verification_state;
+    var cbs=(k.callbacks||[]);
+    var h='<div class="card" style="padding:10px 12px;margin:10px 0;background:#f8fafc"><div style="font-weight:700;font-size:13px;margin-bottom:4px">Phone call'+(k.is_simulated?' <span class="pill p-mute">simulation'+(k.simulated_by_name?' by '+esc(k.simulated_by_name):'')+'</span>':'')+'</div>'
+      +'<div class="meta">Caller ID '+(k.caller_number_last4?'ends in '+esc(k.caller_number_last4)+' (not proof of identity)':'not provided')+' · '+esc(k.status)+(k.duration_seconds!=null?' · '+Math.floor(k.duration_seconds/60)+' min '+(k.duration_seconds%60)+' s':'')+'<br>'
+      +'Verification: <b>'+esc(v)+'</b>'+(k.verified_email?' · account '+esc(k.verified_email):'')+'<br>'
+      +(k.card_data_redacted?'Card details were removed from the transcript '+k.card_data_redacted+' time(s).<br>':'')
+      +(k.summary?'Summary: '+esc(k.summary)+'<br>':'')
+      +(k.transcript_purged_at?'Transcript removed after the retention period.':(k.transcript_purge_after?'Transcript kept until '+when(k.transcript_purge_after)+'.':''))+'</div>';
+    cbs.forEach(function(cb){ h+='<div class="alert" style="background:#fffbeb;border-color:#fde68a;color:#92400e"><b>Callback requested</b> ('+esc(cb.reason_code.replace(/_/g,' '))+') to '+esc(cb.callback_phone_e164||'?')+' · status: <b>'+esc(cb.callback_status||'open')+'</b>'+(cb.callback_note?' · '+esc(cb.callback_note):'')
+      +'<div class="actions" style="margin-top:6px"><button class="b b-ghost" data-cb="in_progress">Calling now</button><button class="b b-green" data-cb="done">Called back</button><button class="b b-ghost" data-cb="cancelled">Cancel</button></div></div>'; });
+    if ((k.audit||[]).length) h+='<details><summary>Disclosure and security audit ('+k.audit.length+')</summary><table><tr><th>When</th><th>Event</th><th>Tool</th><th>Category</th></tr>'
+      + k.audit.map(function(e){ return '<tr><td>'+when(e.created_at)+'</td><td>'+esc(e.event_type.replace(/_/g,' '))+'</td><td>'+esc(e.tool||'')+'</td><td>'+esc(e.data_category||'')+'</td></tr>'; }).join('')+'</table></details>';
+    return h+'</div>';
   }
   load();
   setInterval(function(){ if(!document.hidden){ load(); } }, 20000);

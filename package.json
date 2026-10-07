@@ -54,6 +54,7 @@
     "twilio": "^6.0.0"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "^0.3.16",
     "@playwright/test": "^1.59.1",
     "@types/node": "^25.6.0",
     "jest": "^30.3.0",
