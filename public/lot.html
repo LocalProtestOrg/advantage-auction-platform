@@ -1119,6 +1119,14 @@
       return;
     }
 
+    if (gate.phone_required && !gate.phone_verified) {
+      form.innerHTML =
+        '<div style="text-align:center; padding:0.5rem 0;">' +
+        '<p style="color:#374151; margin:0 0 0.8rem; font-size:0.92rem; line-height:1.4;">Verify your mobile number to bid in this auction. We text you a 4-digit code; it does not sign you up for text alerts.</p>' +
+        '<a href="/verify-phone.html?next=' + encodeURIComponent(location.pathname + location.search) + '" style="display:block; background:#1d4ed8; color:#fff; padding:0.75rem 1rem; border-radius:8px; text-decoration:none; font-weight:600;">Verify Mobile Number</a></div>';
+      return;
+    }
+
     // terms accepted + card on file but not registered → register-to-bid with pickup ack
     form.innerHTML = '';
     const p = document.createElement('p');
@@ -1133,12 +1141,14 @@
     btn.type = 'button'; btn.textContent = 'Register to Bid';
     btn.style.cssText = 'width:100%; background:#047857; color:#fff; padding:0.75rem 1rem; border:none; border-radius:8px; font-weight:700; cursor:pointer;';
     const st = document.createElement('div'); st.style.cssText = 'font-size:0.8rem; margin-top:0.5rem;';
-    form.appendChild(p); form.appendChild(lbl); form.appendChild(btn); form.appendChild(st);
+    const smsBoxes = BidUtils.smsOptInBoxes(gate);
+    form.appendChild(p); form.appendChild(lbl); if (smsBoxes) form.appendChild(smsBoxes); form.appendChild(btn); form.appendChild(st);
     btn.addEventListener('click', async () => {
       if (!cb.checked) { st.style.color = '#b91c1c'; st.textContent = 'Please acknowledge the pickup obligations.'; return; }
       btn.disabled = true; btn.textContent = 'Registering…';
-      const r = await BidUtils.registerForAuction(currentAuctionId, token, true);
+      const r = await BidUtils.registerForAuction(currentAuctionId, token, true, BidUtils.smsChoices(smsBoxes));
       if (r.unauthorized) { localStorage.removeItem('token'); window.location.href = '/login.html?next=' + encodeURIComponent(location.pathname + location.search); return; }
+      if (r.code === 'PHONE_VERIFICATION_REQUIRED') { window.location.href = '/verify-phone.html?next=' + encodeURIComponent(location.pathname + location.search); return; }
       if (r.ok) { window.location.reload(); }
       else { btn.disabled = false; btn.textContent = 'Register to Bid'; st.style.color = '#b91c1c'; st.textContent = r.message; }
     });

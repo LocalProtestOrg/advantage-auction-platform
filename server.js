@@ -613,6 +613,8 @@ app.use('/api/admin/partners', adminPartnersRoutes);
 app.use('/api/admin/crm', adminCrmRoutes);
 app.use('/api/admin/sales', adminSalesRoutes);
 app.use('/api/admin/sasha', require('./src/routes/adminSasha')); // Sasha Shared Inbox, settings, knowledge (support.* permissions)
+app.use('/api/account', require('./src/routes/accountPhone')); // verified phone + optional text-alert preferences (self only)
+app.use('/pay', require('./src/routes/payLink')); // Phone Sasha payment links: single-use, then normal sign-in → existing payment flow
 app.use('/api/admin/claimed-listings', require('./src/routes/adminClaimedListings')); // Toolbox: Claimed Listings tab (listings.* permissions)
 app.use('/api/admin/founding-partners', require('./src/routes/adminFoundingPartners')); // Founding Auction Partners (mig 185; Super Admin writes)
 app.use('/api/auction-partner', require('./src/routes/auctionPartner')); // Auction Partner Program: invitation-only agreement acceptance

@@ -383,11 +383,9 @@ async function deliver(row) {
     if (!userInfo) throw new Error(`User ${row.user_id} not found`);
     if (!userInfo.email_enabled) return { skipped: true, reason: 'email disabled' };
 
-    // SMS (opt-in) — best-effort, never affects the queue outcome.
-    const smsBody = buildSMS(row.type, payload);
-    if (smsBody && userInfo.sms_enabled && userInfo.sms_consent && userInfo.phone_number) {
-      sendSMS({ to: userInfo.phone_number, message: smsBody }).catch(err => console.error(`[sms] Failed for user ${row.user_id}:`, err.message));
-    }
+    // Outbid TEXTS are handled by auctionSmsService (separate per-type opt-in, verified phone, 5-minute per-lot
+    // cooldown, send-time staleness checks). The old single-flag SMS path here was removed so nothing can text a
+    // bidder without that consent.
 
     console.log(`[notify] ${row.type} → user ${row.user_id} for ${content.lotRef(lot)}`);
     const emailMsg = content.buildLotEmail(row.type, { lot, auction, toAddress: userInfo.email });
@@ -734,6 +732,11 @@ async function enqueueAuctionBeginsSoon() {
     }
   }
 }
+
+// ── Optional auction texts (migration 189): outbid + watched-auction closing reminders. Both self-gate on
+// auction_sms.enabled (OFF) and real delivery additionally needs auction_sms.a2p_confirmed + a messaging sender.
+setInterval(() => require('../services/auctionSmsService').processPending().catch((e) => console.error('[auction-sms] send pass failed:', e.message)), 10_000);
+setInterval(() => require('../services/auctionSmsService').scheduleWatchedReminders().catch((e) => console.error('[auction-sms] schedule pass failed:', e.message)), 60_000);
 
 console.log(`[notify] AUCTION_BEGINS_SOON scheduler started — scanning every ${AUCTION_BEGINS_SOON_INTERVAL_MS / 1000}s`);
 setInterval(enqueueAuctionBeginsSoon, AUCTION_BEGINS_SOON_INTERVAL_MS);

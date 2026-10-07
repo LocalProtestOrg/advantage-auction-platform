@@ -3,7 +3,8 @@
 /**
  * Phone Sasha simulator (Super Admin tester and automated tests). Drives the REAL call path (ConversationRelay message
  * translator → PhoneCall → existing Sasha engine, tools, verification, audit, escalation) with provider 'simulated':
- *   - no telephone, no SMS, no Twilio: verification codes and texts go to an in-memory "handset" shown in the tester;
+ *   - no telephone, no SMS, no email, no Twilio: codes, texts and emails go to an in-memory "handset" and "mailbox"
+ *     shown in the tester (a simulation can never message a real customer);
  *   - staff alerts are recorded, never sent;
  *   - every call, verification, session and disclosure is written and marked is_simulated (with who ran it).
  * Simulations do not need the phone switch (so the team can test while it is OFF) but use the same model budget caps.
@@ -26,11 +27,15 @@ function sweep() {
 async function start({ actorId, callerNumber = null }, deps = {}) {
   sweep();
   if (SIMS.size >= MAX_SIMS) throw Object.assign(new Error('Too many simulated calls are open. End one first.'), { status: 429 });
-  const sim = { outbox: [], handset: [], alerts: [], actorId, touchedAt: Date.now() };
+  const sim = { outbox: [], handset: [], mailbox: [], alerts: [], actorId, touchedAt: Date.now() };
   const send = (m) => sim.outbox.push(m);
   sim.relay = new RelaySession(send, { provider: 'simulated', simulatedBy: actorId,
-    deps: { ...deps, handset: sim.handset, staffAlerts: sim.alerts,
-      onTestCode: (code, last4) => sim.handset.push({ to_last4: last4, body: `Your Advantage.Bid verification code is ${code}. (simulation: shown only in this tester)`, at: new Date().toISOString(), kind: 'code' }) } });
+    deps: { ...deps, handset: sim.handset, mailbox: sim.mailbox, staffAlerts: sim.alerts,
+      onTestCode: (code, meta = {}) => {
+        const body = `Your Advantage.Bid verification code is ${code}. (simulation: shown only in this tester)`;
+        if (meta.channel === 'email') sim.mailbox.push({ kind: 'code', to: meta.email, subject: 'Your Advantage.Bid verification code', body, at: new Date().toISOString() });
+        else sim.handset.push({ to_last4: meta.last4, body, at: new Date().toISOString(), kind: 'code' });
+      } } });
   const r = await sim.relay.onMessage({ type: 'setup', callSid: 'SIM' + crypto.randomBytes(8).toString('hex'), from: callerNumber, to: '+15516557050' });
   if (!sim.relay.call) return { started: false, refused: r && (r.queued ? 'queue' : r.code) };
   SIMS.set(sim.relay.call.id, sim);
@@ -88,9 +93,33 @@ async function state(callId, actorId) {
     session: session ? { id: session.id, expires_at: session.expires_at } : null,
     transcript: messages, runs, handoffs, handoff_state: conv && conv.handoff_state,
     disclosures: await audit.forCall(call.id),
-    handset: sim ? sim.handset : [], staff_alerts: sim ? sim.alerts : [],
+    handset: sim ? sim.handset : [], mailbox: sim ? sim.mailbox : [], staff_alerts: sim ? sim.alerts : [],
     cost_usd: runs.reduce((s, r) => s + Number(r.cost_micro_usd || 0), 0) / 1e6,
   };
 }
 
-module.exports = { start, say, keypad, interrupt, end, state, SIMS };
+// ── Test accounts for the tester (created only when a Super Admin asks) ─────────────────────────────────────
+// Demo-flagged, no password (nobody can sign in), undeliverable .invalid emails, reserved fictional 555-01xx numbers
+// (never texted), no invoices or auctions. They exist only so SMS / email / shared-number verification can be tried.
+const FIXTURES = [
+  { email: 'text-caller@phone-sasha.invalid', name: 'Test Caller (verified mobile)', phone: '+12025550101', verified: true },
+  { email: 'email-caller@phone-sasha.invalid', name: 'Test Caller (no phone)', phone: null, verified: false },
+  { email: 'shared-a@phone-sasha.invalid', name: 'Test Caller (shared number A)', phone: '+12025550102', verified: true },
+  { email: 'shared-b@phone-sasha.invalid', name: 'Test Caller (shared number B)', phone: '+12025550102', verified: true },
+];
+async function ensureFixtures(actorId) {
+  const out = [];
+  for (const x of FIXTURES) {
+    const r = (await db.query(`INSERT INTO users (email, full_name, role, phone, is_demo, phone_verified_e164, phone_verified_at)
+       VALUES ($1,$2,'buyer',$3,true,$4, CASE WHEN $5 THEN now() END)
+       ON CONFLICT (email) DO UPDATE SET full_name = EXCLUDED.full_name, phone = EXCLUDED.phone, is_demo = true,
+         phone_verified_e164 = EXCLUDED.phone_verified_e164, phone_verified_at = COALESCE(users.phone_verified_at, EXCLUDED.phone_verified_at)
+       RETURNING id, email`, [x.email, x.name, x.phone, x.verified ? x.phone : null, x.verified])).rows[0];
+    out.push({ email: r.email, name: x.name, phone_last4: x.phone ? x.phone.slice(-4) : null, verified_phone: x.verified });
+  }
+  await require('../../../lib/auditLog').writeAuditLog({ event_type: 'sasha.phone_test_accounts_ensured', entity_type: 'user', entity_id: actorId, actor_id: actorId,
+    metadata: { emails: FIXTURES.map((f) => f.email) } }).catch(() => {});
+  return out;
+}
+
+module.exports = { start, say, keypad, interrupt, end, state, ensureFixtures, FIXTURES, SIMS };

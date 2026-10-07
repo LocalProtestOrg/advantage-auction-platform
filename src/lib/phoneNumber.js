@@ -28,8 +28,9 @@ function normalizeUsPhone(raw) {
   // NANP: area code and exchange cannot start with 0 or 1; N11 area codes are service codes.
   if (!/^[2-9]\d{2}[2-9]\d{6}$/.test(d)) return { status: 'invalid', e164: null, reason: 'not a valid US number' };
   if (/^[2-9]11/.test(d)) return { status: 'invalid', e164: null, reason: 'service code' };
-  if (d.slice(3, 6) === '555' && /^01\d\d$/.test(d.slice(6))) return { status: 'invalid', e164: null, reason: 'fictional 555-01xx number' };
-  return { status: 'ok', e164: '+1' + d, reason: null };
+  // 555-0100..0199 is reserved for fiction: valid in form (used only by test accounts) but never a real destination.
+  if (d.slice(3, 6) === '555' && /^01\d\d$/.test(d.slice(6))) return { status: 'ok', e164: '+1' + d, reason: null, fictional: true };
+  return { status: 'ok', e164: '+1' + d, reason: null, fictional: false };
 }
 
 /** Candidate raw-digit forms of an E.164 US number, for an index-free SQL pre-filter (the result is re-checked in JS). */
@@ -46,4 +47,7 @@ function identifierHash(value) {
   return crypto.createHmac('sha256', pepper).update(String(value || '').trim().toLowerCase()).digest('hex');
 }
 
-module.exports = { normalizeUsPhone, digitForms, last4, identifierHash };
+/** A real destination for a text message (never a reserved fictional number). */
+function isTextable(e164) { const n = normalizeUsPhone(e164); return n.status === 'ok' && !n.fictional; }
+
+module.exports = { normalizeUsPhone, digitForms, last4, identifierHash, isTextable };

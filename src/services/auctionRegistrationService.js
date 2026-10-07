@@ -27,7 +27,7 @@ async function _currentTermsAcceptanceId(userId) {
 
 // Register (or re-activate) the user for an auction. Idempotent via
 // UNIQUE(auction_id, user_id). Throws RegistrationError on a failed precondition.
-async function registerForAuction(userId, auctionId, { pickupAcknowledged } = {}) {
+async function registerForAuction(userId, auctionId, { pickupAcknowledged, smsOptIn = null, ip = null } = {}) {
   if (pickupAcknowledged !== true) {
     throw new RegistrationError('PICKUP_NOT_ACK', 'You must acknowledge the pickup obligations to register.', 422);
   }
@@ -48,6 +48,10 @@ async function registerForAuction(userId, auctionId, { pickupAcknowledged } = {}
   if (!(await cardService.hasCardOnFile(userId))) {
     throw new RegistrationError('CARD_REQUIRED', 'Please add a payment method before bidding.', 402);
   }
+  // Verified mobile number (bidder_phone.required; OFF until a code sender is live). Existing accounts without one are
+  // asked to verify here, at their next registration; nobody is cut off from an auction they already joined.
+  const phone = await require('./accountPhoneService').phoneGate(userId);
+  if (!phone.ok) throw new RegistrationError('PHONE_VERIFICATION_REQUIRED', 'Please verify your mobile number before registering to bid.', 403);
   const termsAcceptanceId = await _currentTermsAcceptanceId(userId);
 
   // Assign the next paddle number for this auction on first insert; preserve it
@@ -99,6 +103,11 @@ async function registerForAuction(userId, auctionId, { pickupAcknowledged } = {}
     metadata:    { paddle_number: row.paddle_number, new: row.inserted },
   }).catch(() => {});
 
+  // Optional text alerts the bidder ticked while registering (separate consent; never required to bid).
+  if (smsOptIn && typeof smsOptIn === 'object') {
+    try { await require('./smsConsentService').applyFromRegistration(userId, auctionId, smsOptIn, { ip }); }
+    catch (e) { console.error('[registration] sms opt-in not recorded:', e.message); }
+  }
   return { registration_id: row.id, paddle_number: row.paddle_number, status: row.status, newly_registered: row.inserted };
 }
 
@@ -111,6 +120,11 @@ async function getRegistrationStatus(userId, auctionId) {
   const termsAccepted = await termsService.hasAcceptedCurrentTerms(userId);
   const cardOnFile = await cardService.hasCardOnFile(userId);
   const registeredActive = !!reg && reg.status === 'active';
+  const phoneSvc = require('./accountPhoneService');
+  const phone = await phoneSvc.phoneGate(userId, { registeredAt: reg ? reg.registered_at : null });
+  phone.verified = phoneSvc.isVerified((await db.query('SELECT phone, phone_verified_at, phone_verified_e164 FROM users WHERE id = $1', [userId])).rows[0]);
+  let sms = { offer: false };
+  try { sms = await require('./smsConsentService').offerFor(userId, phone.verified); } catch (_e) { sms = { offer: false }; }
   return {
     registered: registeredActive,
     status: reg ? reg.status : null,
@@ -118,7 +132,10 @@ async function getRegistrationStatus(userId, auctionId) {
     terms_accepted_current: termsAccepted,
     card_on_file: cardOnFile,
     paddle_number: reg ? reg.paddle_number : null,
-    can_bid: registeredActive && termsAccepted && cardOnFile,
+    can_bid: registeredActive && termsAccepted && cardOnFile && phone.ok,
+    phone_required: phone.required,
+    phone_verified: !!phone.verified,
+    sms_offer: sms.offer,
   };
 }
 
@@ -138,6 +155,10 @@ async function assertCanBid(userId, auctionId) {
   if (!(await cardService.hasCardOnFile(userId))) {
     return { ok: false, status: 402, code: 'CARD_REQUIRED', message: 'Please add a payment method before bidding.' };
   }
+  // Verified phone (when required): registrations made before the requirement started are not cut off.
+  const regAt = (await db.query('SELECT registered_at FROM auction_buyers WHERE auction_id = $1 AND user_id = $2', [auctionId, userId])).rows[0];
+  const phone = await require('./accountPhoneService').phoneGate(userId, { registeredAt: regAt ? regAt.registered_at : null });
+  if (!phone.ok) return { ok: false, status: 403, code: 'PHONE_VERIFICATION_REQUIRED', message: 'Please verify your mobile number to bid.' };
   return { ok: true };
 }
 

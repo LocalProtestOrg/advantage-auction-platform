@@ -137,6 +137,12 @@
           '</tr>';}).join('')+'</tbody></table>';
         c.querySelectorAll('.pdfbtn').forEach(b=>b.addEventListener('click',()=>downloadInvoice(b.getAttribute('data-id'),b.getAttribute('data-num'),b)));
         c.querySelectorAll('.paybtn').forEach(b=>b.addEventListener('click',()=>payInvoice(b.getAttribute('data-pay-id'),b)));
+        // Arrived from a secure payment link (?pay=<invoice>): point at that invoice's Pay Now button (never pays automatically).
+        const want=new URLSearchParams(location.search).get('pay');
+        if(want){const pb=[...c.querySelectorAll('.paybtn')].find(b=>b.getAttribute('data-pay-id')===want);
+          if(pb){const tr=pb.closest('tr');tr.style.background='#eff6ff';tr.scrollIntoView({block:'center'});pb.focus();
+            s.innerHTML='<strong>Ready to pay:</strong> click <strong>Pay&nbsp;Now</strong> on the highlighted invoice to pay securely.';}
+          else s.textContent='That invoice no longer needs payment.';}
       }catch(e){s.textContent='Could not load invoices. Please refresh.';}
     })();
   </script>

@@ -3,42 +3,44 @@
 /**
  * Phone caller verification and the verified phone-support session.
  *
- *   caller identifies an account (email or the account's phone number)
- *   → the SAME reply whatever happened (never reveals whether an account exists, has a phone, or is locked)
- *   → a 6-digit code to the phone ON FILE for that account (never to the number the caller is calling from)
- *   → the caller reads the code; Railway checks it (the model never sees the code)
+ *   caller identifies an account (its email address, or its verified phone number)
+ *   → the SAME reply whatever happened (never reveals whether an account exists, how it can be reached, or a lock)
+ *   → a 4-digit code to contact details ALREADY ON THE ACCOUNT, chosen by Railway:
+ *       A. a usable VERIFIED mobile number → text message
+ *       B. no usable verified number       → email to the account's email address
+ *       C. the number is shared / ambiguous → never used to identify or verify; the email path applies
+ *       D. a destination the caller supplies is never used (no "send it to this new number/email")
+ *   → the caller reads (or keys in) the code; Railway checks it (the model never sees it; it is never stored)
  *   → a short-lived session bound to this call and this account; Sasha's account tools work only inside it.
  *
  * Caller ID is never identity. Authentication is not authorization: every tool still applies its own rules.
  *
- * Providers:
- *   local_test     simulations and automated tests only. The code goes to a callback (the Super Admin tester's
- *                  simulated handset); only a salted hash is stored. Never used for a real call.
- *   twilio_verify  real calls, when sasha.phone.verify_provider = 'twilio_verify' AND the phone channel is on.
- *                  Twilio generates, delivers and checks the code. Not enabled in this release.
+ * 4-digit controls: code expires in 5 minutes, 3 wrong entries per code, single use, 3 codes per account per 30 minutes,
+ * an hour's lock after two exhausted codes, 3 verification starts per call, 5 starts per identifier per hour,
+ * 6 starts per caller number per hour. A number changed in the last 24 hours is not used (email instead).
  *
- * Limits (sasha.phone.*): code lifetime, wrong entries per code, codes per account per 30 minutes, lock after two
- * exhausted codes, 3 verification starts per call, 5 starts per identifier per hour, session length.
+ * Providers: local_test (simulations/tests; code to the simulated handset), twilio_verify (real calls, when enabled),
+ * email_code (code generated here, emailed with existing email infrastructure; simulations use a simulated mailbox).
  */
 
 const crypto = require('crypto');
 const db = require('../../../db');
 const phoneSettings = require('./phoneSettings');
 const audit = require('./phoneAudit');
-const { normalizeUsPhone, digitForms, last4, identifierHash } = require('../../../lib/phoneNumber');
+const code4 = require('../../../lib/verificationCode');
+const { normalizeUsPhone, last4, identifierHash } = require('../../../lib/phoneNumber');
 
-const GENERIC_REPLY = 'If that matches an Advantage.Bid account with a mobile number on file, a 6-digit code has just been texted to that number. '
-  + 'Ask the caller to read the code to you when it arrives. Do not say whether an account was found. If no code arrives within a couple of minutes, '
-  + 'offer a callback from the team instead.';
+const GENERIC_REPLY = 'If that matches an Advantage.Bid account, a 4-digit code has just been sent to the contact details already on that account '
+  + '(a text to its verified mobile number, or otherwise an email to its email address). Ask the caller to read the code to you when it arrives. '
+  + 'Do not say whether an account was found or which way the code was sent. If nothing arrives within a couple of minutes, offer to try with the '
+  + 'account email address, or a callback from the team.';
 const MAX_STARTS_PER_CALL = 3;
 const MAX_STARTS_PER_IDENTIFIER_PER_HOUR = 5;
+const MAX_STARTS_PER_CALLER_PER_HOUR = 6;
+const CHANGED_NUMBER_HOLD_HOURS = 24;
 const PENDING = ['sent', 'no_match', 'no_phone', 'ambiguous', 'locked', 'send_failed'];
 
-const codeHash = (verificationId, code) => crypto.createHmac('sha256', process.env.SASHA_PHONE_HASH_SALT || ('sasha-code:' + (process.env.JWT_SECRET || 'dev')))
-  .update(verificationId + ':' + code).digest('hex');
-const sameHash = (a, b) => { try { return a && b && crypto.timingSafeEqual(Buffer.from(a, 'hex'), Buffer.from(b, 'hex')); } catch (_e) { return false; } };
-
-// ── providers ─────────────────────────────────────────────────────────────────────────────────────────
+// ── Twilio Verify (real calls and the website flow; never used by simulations) ─────────────────────────
 const twilioVerify = {
   async start(to, deps = {}) {
     const sid = process.env.TWILIO_VERIFY_SERVICE_SID;
@@ -62,97 +64,126 @@ async function twilioPost(url, form, deps) {
   return j;
 }
 
-/** Which provider a call may use. A simulated call can only ever use the local test provider. */
+/** SMS provider for a call. A simulated call can only ever use the local test provider. */
 async function providerFor(call) {
   if (call.is_simulated) return 'local_test';
   const s = await phoneSettings.load();
   return s.enabled && s.verify_provider === 'twilio_verify' ? 'twilio_verify' : 'none';
 }
 
-// ── lookup (internal; the result is never revealed to the caller) ─────────────────────────────────────────
+// ── lookup (internal; never revealed to the caller) ─────────────────────────────────────────────────────
+const VERIFIED = `(u.phone_verified_at IS NOT NULL AND u.phone_verified_e164 IS NOT NULL AND u.phone = u.phone_verified_e164)`;
+
+/** Find the account. By email: exact match. By phone: only a VERIFIED number held by exactly one active account. */
 async function findAccount({ email, phone }, runner = db) {
   if (email) {
     const e = String(email).trim().toLowerCase();
     if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e)) return { status: 'no_match' };
-    const rows = (await runner.query(`SELECT id, phone FROM users WHERE lower(email) = $1 AND COALESCE(is_active, true) = true`, [e])).rows;
-    return rows.length === 1 ? { status: 'found', user: rows[0] } : { status: 'no_match' };
+    const rows = (await runner.query(`SELECT id, email, phone, phone_verified_at, phone_verified_e164, phone_changed_at FROM users
+      WHERE lower(email) = $1 AND COALESCE(is_active, true) = true`, [e])).rows;
+    return rows.length === 1 ? { status: 'found', user: rows[0], by: 'email' } : { status: 'no_match' };
   }
   const n = normalizeUsPhone(phone);
   if (n.status !== 'ok') return { status: 'no_match' };
-  const forms = digitForms(n.e164);
-  const rows = (await runner.query(`SELECT id, phone FROM users WHERE COALESCE(is_active, true) = true
-    AND regexp_replace(COALESCE(phone, ''), '[^0-9]', '', 'g') = ANY($1::text[])`, [forms])).rows
-    .filter((u) => normalizeUsPhone(u.phone).e164 === n.e164);
+  const rows = (await runner.query(`SELECT u.id, u.email, u.phone, u.phone_verified_at, u.phone_verified_e164, u.phone_changed_at FROM users u
+    WHERE COALESCE(u.is_active, true) = true AND ${VERIFIED} AND u.phone_verified_e164 = $1`, [n.e164])).rows;
   if (rows.length > 1) return { status: 'ambiguous' };
-  return rows.length === 1 ? { status: 'found', user: rows[0] } : { status: 'no_match' };
+  return rows.length === 1 ? { status: 'found', user: rows[0], by: 'phone' } : { status: 'no_match' };
+}
+
+/** Can a code be texted to this account's phone? Verified, not shared with another active account, not just changed. */
+async function smsUsable(user, runner = db) {
+  if (!require('../../accountPhoneService').isVerified(user)) return false;
+  if (user.phone_changed_at && Date.now() - new Date(user.phone_changed_at).getTime() < CHANGED_NUMBER_HOLD_HOURS * 3600000) return false;
+  const shared = Number((await runner.query(`SELECT count(*)::int n FROM users u WHERE u.id <> $1 AND COALESCE(u.is_active, true) = true
+    AND ${VERIFIED} AND u.phone_verified_e164 = $2`, [user.id, user.phone_verified_e164])).rows[0].n);
+  return shared === 0;
 }
 
 /**
- * Start verification. Always returns { reply: GENERIC_REPLY } for the model; the internal status is for logs/tests.
- * deps.onTestCode(code, destinationLast4): local_test provider only (simulated handset).
+ * Start verification. Always returns { reply: GENERIC_REPLY } for the model; status/method are internal (logs/tests).
+ * opts.prefer: 'email' to use the account email even when a verified number exists (the caller asks for it).
+ * deps.onTestCode(code, { channel, last4, email }): local test codes in simulations (simulated handset / mailbox).
  */
-async function start(call, { email = null, phone = null } = {}, deps = {}) {
+async function start(call, { email = null, phone = null, prefer = null } = {}, deps = {}) {
   const s = await phoneSettings.load();
+  if (!email && !phone) return { reply: 'Ask the caller for the email address or the verified mobile number on their Advantage.Bid account.', status: 'missing_identifier' };
   const identifierType = email ? 'email' : 'phone';
   const idHash = identifierHash(email ? String(email).trim().toLowerCase() : (normalizeUsPhone(phone).e164 || String(phone || '')));
-  const provider = await providerFor(call);
   const expiresAt = new Date(Date.now() + s.code_ttl_minutes * 60000);
-  const insert = async (status, extra = {}) => (await db.query(
-    `INSERT INTO cs_phone_verifications (call_id, target_user_id, identifier_type, identifier_hash, provider, provider_ref, code_hash, destination_last4,
-       status, max_attempts, expires_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING id`,
-    [call.id, extra.userId || null, identifierType, idHash, provider, extra.ref || null, null, extra.last4 || null, status, s.code_max_attempts, expiresAt])).rows[0].id;
   const finish = async (status, extra = {}) => {
     await db.query(`UPDATE cs_phone_verifications SET status = 'superseded' WHERE call_id = $1 AND status = ANY($2::text[])`, [call.id, PENDING]);
-    const id = await insert(status, extra);
+    const id = extra.id || crypto.randomUUID();
+    await db.query(`INSERT INTO cs_phone_verifications (id, call_id, target_user_id, identifier_type, identifier_hash, caller_number_hash, provider, provider_ref,
+        code_hash, destination_last4, channel, status, max_attempts, expires_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)`,
+    [id, call.id, extra.userId || null, identifierType, idHash, call.caller_number_hash || null, extra.provider || 'none', extra.ref || null, extra.codeHash || null,
+      extra.last4 || null, extra.channel || 'sms', status, s.code_max_attempts, expiresAt]);
     await db.query(`UPDATE cs_calls SET verification_state = CASE WHEN verification_state = 'verified' THEN verification_state ELSE 'code_sent' END WHERE id = $1`, [call.id]);
     await audit.record(call, 'verification_started', { accountUserId: extra.userId || null,
-      detail: { identifier_type: identifierType, outcome: status, provider, destination_last4: extra.last4 || null } });
-    return { reply: GENERIC_REPLY, status, verificationId: id };
+      detail: { identifier_type: identifierType, outcome: status, provider: extra.provider || 'none', what: extra.channel || null, destination_last4: extra.last4 || null } });
+    return { reply: GENERIC_REPLY, status, method: extra.channel || null, verificationId: id };
   };
 
-  if (!email && !phone) return { reply: 'Ask the caller for the email address or the phone number on their Advantage.Bid account.', status: 'missing_identifier' };
-  const starts = Number((await db.query(`SELECT count(*)::int n FROM cs_phone_verifications WHERE call_id = $1`, [call.id])).rows[0].n);
-  if (starts >= MAX_STARTS_PER_CALL) {
+  // Throttles (each returns the same generic reply; nothing is sent).
+  const n = async (sql, p) => Number((await db.query(sql, p)).rows[0].n);
+  if (await n(`SELECT count(*)::int n FROM cs_phone_verifications WHERE call_id = $1`, [call.id]) >= MAX_STARTS_PER_CALL) {
     await audit.record(call, 'verification_locked', { detail: { reason: 'too many verification starts on this call' } });
     return { reply: 'Verification is not available again on this call. Offer a callback from the team.', status: 'call_limit' };
   }
-  const recentForIdentifier = Number((await db.query(`SELECT count(*)::int n FROM cs_phone_verifications WHERE identifier_hash = $1
-    AND created_at > now() - interval '1 hour'`, [idHash])).rows[0].n);
-  if (recentForIdentifier >= MAX_STARTS_PER_IDENTIFIER_PER_HOUR) return finish('locked');
+  if (await n(`SELECT count(*)::int n FROM cs_phone_verifications WHERE identifier_hash = $1 AND created_at > now() - interval '1 hour'`, [idHash]) >= MAX_STARTS_PER_IDENTIFIER_PER_HOUR) return finish('locked');
+  if (call.caller_number_hash && await n(`SELECT count(*)::int n FROM cs_phone_verifications WHERE caller_number_hash = $1 AND created_at > now() - interval '1 hour'`,
+    [call.caller_number_hash]) >= MAX_STARTS_PER_CALLER_PER_HOUR) return finish('locked');
 
   const found = await findAccount({ email, phone });
   if (found.status !== 'found') return finish(found.status);
   const user = found.user;
-  const failures = Number((await db.query(`SELECT count(*)::int n FROM cs_phone_verifications WHERE target_user_id = $1 AND status = 'failed'
-    AND created_at > now() - ($2 || ' minutes')::interval`, [user.id, String(s.lockout_minutes)])).rows[0].n);
-  if (failures >= 2) return finish('locked', { userId: user.id });
-  const sends = Number((await db.query(`SELECT count(*)::int n FROM cs_phone_verifications WHERE target_user_id = $1 AND status IN ('sent','approved','failed','expired','superseded')
-    AND provider <> 'none' AND created_at > now() - interval '30 minutes'`, [user.id])).rows[0].n);
-  if (sends >= s.code_max_sends_per_30min) return finish('locked', { userId: user.id });
-  const dest = normalizeUsPhone(user.phone);
-  if (dest.status !== 'ok') return finish('no_phone', { userId: user.id });
-  if (provider === 'none') return finish('send_failed', { userId: user.id, last4: last4(dest.e164) });
+  if (await n(`SELECT count(*)::int n FROM cs_phone_verifications WHERE target_user_id = $1 AND status = 'failed'
+    AND created_at > now() - ($2 || ' minutes')::interval`, [user.id, String(s.lockout_minutes)]) >= 2) return finish('locked', { userId: user.id });
+  if (await n(`SELECT count(*)::int n FROM cs_phone_verifications WHERE target_user_id = $1 AND status IN ('sent','approved','failed','expired','superseded')
+    AND provider <> 'none' AND created_at > now() - interval '30 minutes'`, [user.id]) >= s.code_max_sends_per_30min) return finish('locked', { userId: user.id });
 
-  // Send. local_test: the code exists only in memory long enough to hash it and hand it to the simulated handset.
-  if (provider === 'local_test') {
-    const code = String(crypto.randomInt(0, 1000000)).padStart(6, '0');
-    const r = await finish('sent', { userId: user.id, last4: last4(dest.e164) });
-    await db.query(`UPDATE cs_phone_verifications SET code_hash = $2 WHERE id = $1`, [r.verificationId, codeHash(r.verificationId, code)]);
-    if (typeof deps.onTestCode === 'function') deps.onTestCode(code, last4(dest.e164));
+  // Choose the destination from what is ALREADY on the account.
+  const viaSms = prefer !== 'email' && await smsUsable(user);
+  const id = crypto.randomUUID();
+  if (viaSms) {
+    const provider = await providerFor(call);
+    const dest = user.phone_verified_e164;
+    if (provider === 'local_test') {
+      const code = code4.generate();
+      const r = await finish('sent', { id, userId: user.id, provider, channel: 'sms', last4: last4(dest), codeHash: code4.hash(id, code) });
+      if (typeof deps.onTestCode === 'function') deps.onTestCode(code, { channel: 'sms', last4: last4(dest) });
+      return r;
+    }
+    if (provider === 'twilio_verify') {
+      try { const sent = await twilioVerify.start(dest, deps); return finish('sent', { id, userId: user.id, provider, channel: 'sms', last4: last4(dest), ref: sent.ref }); }
+      catch (e) { console.error('[sasha-phone] verify send failed', e.message); /* fall through to email */ }
+    }
+  }
+  // Email to the account's existing address (fallback, or the only option).
+  if (!user.email) return finish('no_phone', { userId: user.id });
+  const code = code4.generate();
+  const codeHash = code4.hash(id, code);
+  if (call.is_simulated) {
+    const r = await finish('sent', { id, userId: user.id, provider: 'email_code', channel: 'email', codeHash });
+    if (typeof deps.onTestCode === 'function') deps.onTestCode(code, { channel: 'email', email: user.email });
     return r;
   }
+  if (!(await phoneSettings.liveCallsAllowed())) return finish('send_failed', { id, userId: user.id, provider: 'email_code', channel: 'email' });
   try {
-    const sent = await twilioVerify.start(dest.e164, deps);
-    return finish('sent', { userId: user.id, last4: last4(dest.e164), ref: sent.ref });
+    const r = await (deps.emailService || require('../../emailService')).sendEmail({ to: user.email, subject: 'Your Advantage.Bid verification code',
+      text: `Your Advantage.Bid verification code is ${code}. It expires in ${s.code_ttl_minutes} minutes. Read it to Sasha on your call. If you did not call Advantage.Bid, you can ignore this email.` });
+    if (r && r.skipped) throw new Error('email not configured');
+    return finish('sent', { id, userId: user.id, provider: 'email_code', channel: 'email', codeHash });
   } catch (e) {
-    console.error('[sasha-phone] verify send failed', e.message);
-    return finish('send_failed', { userId: user.id, last4: last4(dest.e164) });
+    console.error('[sasha-phone] verification email failed', e.message);
+    return finish('send_failed', { id, userId: user.id, provider: 'email_code', channel: 'email' });
   }
 }
 
 /**
  * Check a code the caller read (extracted server-side; never passed through the model).
  * Returns { ok, attemptsLeft, reason, session? }. A wrong code and "nothing was ever sent" look identical.
+ * Single use: an approved code is consumed and can never be accepted again.
  */
 async function check(call, code, deps = {}) {
   const v = (await db.query(`SELECT * FROM cs_phone_verifications WHERE call_id = $1 AND status = ANY($2::text[]) ORDER BY created_at DESC LIMIT 1`,
@@ -165,24 +196,23 @@ async function check(call, code, deps = {}) {
   }
   const attempts = v.attempts + 1;
   let correct = false;
-  if (v.status === 'sent' && /^\d{6}$/.test(String(code || ''))) {
-    if (v.provider === 'local_test') correct = sameHash(v.code_hash, codeHash(v.id, code));
+  if (v.status === 'sent' && code4.CODE_RE.test(String(code || ''))) {
+    if (v.provider === 'local_test' || v.provider === 'email_code') correct = code4.matches(v.code_hash, v.id, code);
     else if (v.provider === 'twilio_verify') {
-      const u = (await db.query(`SELECT phone FROM users WHERE id = $1`, [v.target_user_id])).rows[0];
-      try { correct = await twilioVerify.check(normalizeUsPhone(u && u.phone).e164, code, deps); } catch (e) { correct = false; }
+      const u = (await db.query(`SELECT phone_verified_e164 FROM users WHERE id = $1`, [v.target_user_id])).rows[0];
+      try { correct = await twilioVerify.check(u && u.phone_verified_e164, code, deps); } catch (e) { correct = false; }
     }
   }
   if (correct) {
-    await db.query(`UPDATE cs_phone_verifications SET status = 'approved', attempts = $2, verified_at = now() WHERE id = $1`, [v.id, attempts]);
+    const claimed = await db.query(`UPDATE cs_phone_verifications SET status = 'approved', attempts = $2, verified_at = now() WHERE id = $1 AND status = 'sent' RETURNING id`, [v.id, attempts]);
+    if (!claimed.rowCount) return { ok: false, reason: 'no_code_requested', attemptsLeft: 0 };
     const s = await phoneSettings.load();
     const session = (await db.query(`INSERT INTO cs_phone_sessions (call_id, conversation_id, user_id, verification_id, expires_at)
       VALUES ($1,$2,$3,$4, now() + ($5 || ' minutes')::interval) RETURNING *`, [call.id, call.conversation_id, v.target_user_id, v.id, String(s.session_max_minutes)])).rows[0];
     await db.query(`UPDATE cs_calls SET verification_state = 'verified', verified_user_id = $2 WHERE id = $1`, [call.id, v.target_user_id]);
-    // A simulation proves nothing about the real customer's phone: only a real call marks the number as verified.
-    if (!call.is_simulated) await db.query(`UPDATE users SET phone_verified_at = now() WHERE id = $1`, [v.target_user_id]);
-    await audit.record(call, 'verification_succeeded', { accountUserId: v.target_user_id, sessionId: session.id, detail: { provider: v.provider } });
-    await audit.record(call, 'session_started', { accountUserId: v.target_user_id, sessionId: session.id, detail: { level: session.level, expires_at: session.expires_at.toISOString() } });
-    return { ok: true, session };
+    await audit.record(call, 'verification_succeeded', { accountUserId: v.target_user_id, sessionId: session.id, detail: { provider: v.provider, what: v.channel } });
+    await audit.record(call, 'session_started', { accountUserId: v.target_user_id, sessionId: session.id, detail: { level: session.level, what: v.channel, expires_at: session.expires_at.toISOString() } });
+    return { ok: true, session, method: v.channel };
   }
   const exhausted = attempts >= v.max_attempts;
   await db.query(`UPDATE cs_phone_verifications SET attempts = $2, status = CASE WHEN $3 THEN 'failed' ELSE status END WHERE id = $1`, [v.id, attempts, exhausted]);
@@ -206,4 +236,5 @@ async function endSession(call, reason) {
   return r.rowCount;
 }
 
-module.exports = { start, check, activeSession, endSession, findAccount, providerFor, GENERIC_REPLY, MAX_STARTS_PER_CALL, _twilioVerify: twilioVerify, _codeHash: codeHash };
+module.exports = { start, check, activeSession, endSession, findAccount, smsUsable, providerFor, GENERIC_REPLY, MAX_STARTS_PER_CALL,
+  MAX_STARTS_PER_CALLER_PER_HOUR, _twilioVerify: twilioVerify };

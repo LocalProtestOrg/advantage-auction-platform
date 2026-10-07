@@ -9,6 +9,7 @@
  * Speech-to-text writes numbers as words or digits ("four two four two", "4242 4242"), so both are handled.
  */
 
+const { CODE_LENGTH } = require('../../../lib/verificationCode');
 const STRICT_DIGIT = { zero: '0', oh: '0', one: '1', two: '2', three: '3', four: '4', five: '5', six: '6', seven: '7', eight: '8', nine: '9' };
 const DIGIT_WORD = '(?:zero|oh|one|two|three|four|five|six|seven|eight|nine|double|triple|\\d)';
 const SPOKEN_RUN = new RegExp('\\b' + DIGIT_WORD + '(?:[\\s,.-]+' + DIGIT_WORD + '){2,}\\b', 'gi');
@@ -48,7 +49,7 @@ const SECRET_LEAD = /\b(cvv|cvc|cid|security code|expiration( date)?|expiry|exp(
 
 /**
  * Clean one caller utterance.
- * opts.expectCode: a verification code is outstanding → a lone 6-digit run is taken as the code.
+ * opts.expectCode: a verification code is outstanding → a 4-digit run is taken as the code.
  * Returns { text, code, cardDetected }: `text` is safe to store and to give the model.
  */
 function cleanUtterance(raw, { expectCode = false } = {}) {
@@ -66,10 +67,10 @@ function cleanUtterance(raw, { expectCode = false } = {}) {
     if (text !== before) cardDetected = true;
   }
   if (expectCode) {
-    const six = digitRuns(text).filter((r) => r.digits.length === 6);
-    if (six.length) {
-      code = six[0].digits;
-      text = text.slice(0, six[0].index) + '[verification code]' + text.slice(six[0].index + six[0].raw.length);
+    const four = digitRuns(text).filter((r) => r.digits.length === CODE_LENGTH);
+    if (four.length) {
+      code = four[0].digits;
+      text = text.slice(0, four[0].index) + '[verification code]' + text.slice(four[0].index + four[0].raw.length);
     }
   }
   return { text: text.trim(), code, cardDetected };

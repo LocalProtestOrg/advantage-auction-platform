@@ -1,6 +1,6 @@
 # Phone Sasha: secure payment link — design memo
 
-**Status:** DESIGN ONLY. Nothing in this memo is built. It needs Ty's approval before implementation.
+**Status:** Option A APPROVED (2026-10-07) and IMPLEMENTED: src/services/payLinkService.js, GET /pay/:token (src/routes/payLink.js), the Phone Sasha tool send_payment_link, and the ?pay= hand-off on /invoices.html. Option B was not built.
 **Date:** 2026-10-07
 **Scope:** let a verified caller receive a text message that takes them straight to paying the right auction invoice, without Sasha ever handling card data, and without changing tax, invoice, settlement or payout behavior.
 
@@ -25,7 +25,7 @@
 
 ### 2.1 The flow
 
-1. Caller verifies (6-digit code to the phone on file). A phone session exists.
+1. Caller verifies (4-digit code to the verified mobile on file, or to the account email). A phone session exists.
 2. Caller: "I want to pay my invoice."
 3. Sasha calls `get_my_invoices`. If several are payable, she asks which one, by auction name and amount.
 4. Sasha calls a new tool, **`send_payment_link({ invoice_number })`**.

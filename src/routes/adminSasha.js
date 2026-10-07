@@ -276,6 +276,53 @@ router.get('/phone/sim/:callId', superAdminOnly, wrap(async (req, res) => {
   res.json({ success: true, data: await sim.state(id, req.user.id) });
 }));
 
+// Test accounts for the tester (demo, no password, fictional numbers, .invalid emails). Super Admin only.
+router.post('/phone/sim/test-accounts', superAdminOnly, wrap(async (req, res) => {
+  res.json({ success: true, data: await sim.ensureFixtures(req.user.id) });
+}));
+
+// Optional auction text alerts: scenario runner (pure; no data written, nothing sent). Super Admin only.
+router.get('/phone/sms-scenarios', superAdminOnly, wrap(async (req, res) => {
+  res.json({ success: true, data: require('../services/auctionSmsScenarios').list() });
+}));
+router.post('/phone/sms-scenarios/:key', superAdminOnly, wrap(async (req, res) => {
+  res.json({ success: true, data: require('../services/auctionSmsScenarios').run(String(req.params.key || '')) });
+}));
+
+// Bidder phone requirement + optional auction texts: status (support.view) and switches (Super Admin, audited, readiness-checked).
+router.get('/phone/bidder-sms-settings', wrap(async (req, res) => {
+  const phone = require('../services/accountPhoneService'); const sms = require('../services/smsConsentService');
+  const s = await sms.settings();
+  const counts = (await db.query(`SELECT
+      (SELECT count(*)::int FROM users u WHERE ${phone.VERIFIED_SQL('u')}) AS verified_phones,
+      (SELECT count(*)::int FROM sms_consents WHERE status = 'opted_in' AND sms_type = 'outbid') AS outbid_opt_ins,
+      (SELECT count(*)::int FROM sms_consents WHERE status = 'opted_in' AND sms_type = 'watched_closing') AS watched_opt_ins,
+      (SELECT count(*)::int FROM auction_sms_messages WHERE status = 'sent') AS texts_sent`)).rows[0];
+  res.json({ success: true, data: { bidder_phone: await phone.config(), verification_sender_available: await phone.verificationAvailable(),
+    auction_sms: s, auction_sms_live_ready: await require('../services/auctionSmsService').liveReady(s), counts } });
+}));
+router.post('/phone/bidder-sms-settings', superAdminOnly, wrap(async (req, res) => {
+  const b = req.body || {};
+  if (b.bidder_phone) {
+    try { await require('../services/accountPhoneService').setConfig(b.bidder_phone, { actorId: req.user.id }); }
+    catch (e) { return res.status(e.status || 400).json({ success: false, message: e.message }); }
+  }
+  if (b.auction_sms) {
+    const allowed = ['enabled', 'a2p_confirmed', 'offer_opt_in'];
+    const keys = Object.keys(b.auction_sms).filter((k) => allowed.includes(k));
+    if (keys.some((k) => typeof b.auction_sms[k] !== 'boolean')) return res.status(400).json({ success: false, message: 'Switches must be true or false.' });
+    const next = { ...(await require('../services/smsConsentService').settings()), ...Object.fromEntries(keys.map((k) => [k, b.auction_sms[k]])) };
+    if (next.enabled && !next.a2p_confirmed) return res.status(400).json({ success: false, message: 'Confirm the A2P campaign covers these texts before turning them on.' });
+    for (const k of keys) {
+      await db.query(`INSERT INTO platform_config (key, value, category) VALUES ($1, $2::jsonb, 'auction_sms') ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = now()`,
+        ['auction_sms.' + k, JSON.stringify(b.auction_sms[k])]);
+    }
+    await auditService.logEvent(db, { eventType: 'auction_sms.config_changed', entityType: 'platform_config', entityId: '00000000-0000-0000-0000-000000000000',
+      actorId: req.user.id, metadata: { changes: Object.fromEntries(keys.map((k) => [k, b.auction_sms[k]])) } });
+  }
+  res.json({ success: true });
+}));
+
 // ── Knowledge (support guidance + what Sasha reads) ─────────────────────────────────────────────────────
 router.get('/knowledge', wrap(async (req, res) => {
   const kb = (await db.query(`SELECT k.id, k.slug, k.title, k.body, k.audience, k.status, k.conflict_note, k.source, k.version, k.updated_at, u.full_name AS updated_by

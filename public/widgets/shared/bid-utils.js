@@ -115,12 +115,13 @@
   }
 
   // #20: register for an auction. Returns { ok, status, message, data }.
-  async function registerForAuction(auctionId, token, pickupAcknowledged) {
+  // smsOptIn (optional): { outbid: true, watched_closing: true } - boxes the bidder ticked; never required to register.
+  async function registerForAuction(auctionId, token, pickupAcknowledged, smsOptIn) {
     try {
       var res = await fetch('/api/auctions/' + auctionId + '/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
-        body: JSON.stringify({ pickup_acknowledged: !!pickupAcknowledged })
+        body: JSON.stringify(smsOptIn ? { pickup_acknowledged: !!pickupAcknowledged, sms_opt_in: smsOptIn } : { pickup_acknowledged: !!pickupAcknowledged })
       });
       var data = await res.json().catch(function () { return null; });
       if (res.status === 401) return { ok: false, status: 401, unauthorized: true, message: 'Please log in.' };
@@ -170,6 +171,30 @@
     buildBidPayload: buildBidPayload,
     placeBid: placeBid,
     getBidGate: getBidGate,
+    // Optional text-alert boxes for the registration panel (only when offered and the phone is verified).
+    smsOptInBoxes: function (gate) {
+      if (!gate || !gate.sms_offer || !gate.sms_offer.offer) return null;
+      var wrap = document.createElement('div'); wrap.style.cssText = 'margin:0.4rem 0 0.7rem; font-size:0.82rem; color:#374151;';
+      var cur = gate.sms_offer.current || {}; var txt = gate.sms_offer.consent_text || {};
+      var head = document.createElement('div'); head.style.cssText = 'font-weight:600; margin-bottom:0.25rem;'; head.textContent = 'Optional text alerts';
+      wrap.appendChild(head);
+      [['outbid', 'Text me if I am outbid'], ['watched_closing', 'Text me 1 hour before lots begin closing in auctions I watch']].forEach(function (p) {
+        if (cur[p[0]]) return;
+        var l = document.createElement('label'); l.style.cssText = 'display:flex; gap:0.4rem; align-items:flex-start; margin:0.2rem 0;';
+        var cb = document.createElement('input'); cb.type = 'checkbox'; cb.setAttribute('data-sms', p[0]);
+        var sp = document.createElement('span'); sp.textContent = ' ' + p[1]; sp.title = txt[p[0]] || '';
+        l.appendChild(cb); l.appendChild(sp); wrap.appendChild(l);
+      });
+      var fine = document.createElement('div'); fine.style.cssText = 'font-size:0.74rem; color:#6b7280; margin-top:0.2rem;';
+      fine.textContent = 'Optional, not required to bid. Message and data rates may apply. Reply STOP to opt out, HELP for help.';
+      wrap.appendChild(fine);
+      return wrap;
+    },
+    smsChoices: function (wrap) {
+      if (!wrap) return null; var out = {}; var any = false;
+      [].forEach.call(wrap.querySelectorAll('input[data-sms]'), function (cb) { if (cb.checked) { out[cb.getAttribute('data-sms')] = true; any = true; } });
+      return any ? out : null;
+    },
     registerForAuction: registerForAuction
   };
 })(window);

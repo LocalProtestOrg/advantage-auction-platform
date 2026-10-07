@@ -2,7 +2,7 @@
 
 /**
  * Real-Postgres test harness for Phone Sasha (PGlite: Postgres compiled to WASM, in memory, no server).
- * Creates the Sasha tables exactly as migration 180 defines them, applies migration 188 unchanged, and adds the minimal
+ * Creates the Sasha tables exactly as migration 180 defines them, applies migrations 188 and 189 unchanged, and adds the minimal
  * platform tables the phone tools read. `dbAdapter` mimics src/db (query/connect) for jest.mock.
  */
 
@@ -13,7 +13,7 @@ const { Worker } = require('worker_threads');
 const ROOT = path.join(__dirname, '..', '..');
 
 const BASE = `
-CREATE TABLE users (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), email text, full_name text, role text DEFAULT 'buyer', phone text,
+CREATE TABLE users (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), email text UNIQUE, password_hash text, full_name text, role text DEFAULT 'buyer', phone text,
   is_active boolean DEFAULT true, is_demo boolean DEFAULT false, staff_role text, contact_email text, created_at timestamptz DEFAULT now());
 CREATE TABLE platform_config (key text PRIMARY KEY, value jsonb, category text, description text, updated_at timestamptz DEFAULT now());
 CREATE TABLE seller_profiles (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), user_id uuid, seller_type text, display_name text, storefront_published boolean,
@@ -22,10 +22,10 @@ CREATE TABLE seller_profiles (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), use
 CREATE TABLE auctions (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), seller_id uuid, title text, city text, address_state text, street_address text, zip text,
   state text, start_time timestamptz, end_time timestamptz, pickup_window_start timestamptz, pickup_window_end timestamptz, timezone text DEFAULT 'America/New_York',
   is_archived boolean DEFAULT false, is_demo boolean DEFAULT false, marketplace_status text DEFAULT 'syndicated', shipping_available boolean DEFAULT false,
-  created_at timestamptz DEFAULT now(), updated_at timestamptz DEFAULT now(), submitted_at timestamptz, published_at timestamptz, buyer_premium_bps int);
+  created_at timestamptz DEFAULT now(), updated_at timestamptz DEFAULT now(), submitted_at timestamptz, published_at timestamptz, buyer_premium_bps int, pre_launch_test boolean DEFAULT false);
 CREATE TABLE lots (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), auction_id uuid, lot_number int, lot_number_display text, title text, state text,
   current_bid_cents int, starting_bid_cents int, bid_count int DEFAULT 0, closes_at timestamptz, shippable boolean DEFAULT false, bid_increment_cents int,
-  is_withdrawn boolean DEFAULT false, winning_buyer_user_id uuid, current_winner_user_id uuid, created_at timestamptz DEFAULT now(), updated_at timestamptz DEFAULT now());
+  is_withdrawn boolean DEFAULT false, extension_count int DEFAULT 0, winning_buyer_user_id uuid, current_winner_user_id uuid, created_at timestamptz DEFAULT now(), updated_at timestamptz DEFAULT now());
 CREATE TABLE buyer_auction_invoices (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), invoice_number text, buyer_user_id uuid, auction_id uuid, status text,
   hammer_cents int, buyer_premium_cents int, sales_tax_cents int, shipping_cents int, total_cents int, paid_at timestamptz, created_at timestamptz DEFAULT now());
 CREATE TABLE bids (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), lot_id uuid, bidder_user_id uuid, amount_cents int, created_at timestamptz DEFAULT now());
@@ -44,7 +44,12 @@ CREATE TABLE founding_partners (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), s
 CREATE TABLE seller_activation_touches (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), seller_profile_id uuid, mode text, decision text, stage text,
   conversation_id uuid, created_at timestamptz DEFAULT now());
 CREATE TABLE professional_pricing_agreements (seller_profile_id uuid, status text, platform_fee_bps int, processing_fee_bps int, effective_date date, version int);
-CREATE TABLE audit_log (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), event_type text, entity_type text, entity_id uuid, actor_id uuid, metadata jsonb, created_at timestamptz DEFAULT now());
+CREATE TABLE watchlists (user_id uuid, lot_id uuid, created_at timestamptz DEFAULT now(), UNIQUE (user_id, lot_id));
+CREATE TABLE auction_buyers (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), auction_id uuid, user_id uuid, paddle_number int, terms_acceptance_id uuid,
+  pickup_acknowledged boolean, status text, registered_at timestamptz DEFAULT now(), UNIQUE (auction_id, user_id));
+CREATE TABLE terms_versions (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), kind text, is_current boolean);
+CREATE TABLE terms_acceptances (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), user_id uuid, terms_version_id uuid);
+CREATE TABLE audit_log (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), event_type text, entity_type text, entity_id uuid, auction_id uuid, lot_id uuid, payment_id uuid, actor_id uuid, metadata jsonb, created_at timestamptz DEFAULT now());
 `;
 
 function sashaTables() {
@@ -70,6 +75,7 @@ async function createDb() {
   await pg.exec(BASE);
   await pg.exec(sashaTables());
   await pg.exec(fs.readFileSync(path.join(ROOT, 'db', 'migrations', '188_sasha_phone_foundation.sql'), 'utf8'));
+  await pg.exec(fs.readFileSync(path.join(ROOT, 'db', 'migrations', '189_bidder_phone_sms_paylinks.sql'), 'utf8'));
   await pg.exec(`INSERT INTO platform_config (key, value, category) VALUES ('sasha.enabled','true','sasha'),('sasha.engine_enabled','true','sasha'),('sasha.daily_budget_usd','25','sasha')`);
   return pg;
 }

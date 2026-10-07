@@ -4,7 +4,7 @@
  * Phone-only Sasha tools. Offered ONLY when ctx.channel === 'phone' (web chat and email are unchanged).
  *
  *   Call flow (always):      start_account_verification, request_callback, find_auction
- *   Verified session only:   send_text, get_my_seller_onboarding, get_my_business_verification, get_my_agreements,
+ *   Verified session only:   send_text, send_payment_link, get_my_seller_onboarding, get_my_business_verification, get_my_agreements,
  *                            get_my_auction_registration, get_my_pickup_slots, get_my_order_detail
  *
  * Every account tool reads through the existing authoritative service for that domain and is scoped to ctx.userId,
@@ -25,8 +25,8 @@ const money = (c) => (c == null ? null : '$' + (Number(c) / 100).toFixed(2));
 const noArgs = { type: 'object', properties: {} };
 
 const FLOW_TOOLS = [
-  { name: 'start_account_verification', description: 'Start verifying the caller so you can help with their own account. Ask for the email address OR the phone number on their Advantage.Bid account (one of them). A 6-digit code is texted to the phone on file. Repeat ONLY what this tool tells you; it never reveals whether an account exists. The system checks the code itself when the caller reads it.',
-    input_schema: { type: 'object', properties: { email: { type: 'string' }, phone_number: { type: 'string' } } } },
+  { name: 'start_account_verification', description: 'Start verifying the caller so you can help with their own account. Ask for the email address OR the verified mobile number on their Advantage.Bid account (one of them). A 4-digit code is sent to contact details already on the account (a text to its verified mobile, otherwise an email). Never offer to send it anywhere else. Set prefer_email when the caller asks to use email. Repeat ONLY what this tool tells you; it never reveals whether an account exists. The system checks the code itself when the caller reads it.',
+    input_schema: { type: 'object', properties: { email: { type: 'string' }, phone_number: { type: 'string' }, prefer_email: { type: 'boolean' } } } },
   { name: 'request_callback', description: 'Ask the Advantage.Bid team to call the caller back (a person, not you). Use when the caller wants a person, when request_human applies, or when you cannot finish on this call. Confirm the number first: "caller_id" for the number they are calling from, or the digits they give.',
     input_schema: { type: 'object', properties: { callback_number: { type: 'string', description: '"caller_id" or a US phone number' },
       reason: { type: 'string', enum: ['customer_request', 'dispute', 'legal', 'privacy', 'security', 'fraud', 'account_change', 'uncertain', 'conflict', 'other'] },
@@ -37,6 +37,8 @@ const FLOW_TOOLS = [
 const VERIFIED_TOOLS = [
   { name: 'send_text', description: 'Text the verified caller at the phone number on their account (never any other number). what: pickup_details (only if they paid; same rule as get_my_pickup_details), invoices_page, my_bids_page, seller_dashboard, help_center.',
     input_schema: { type: 'object', properties: { what: { type: 'string', enum: ['pickup_details', 'invoices_page', 'my_bids_page', 'seller_dashboard', 'help_center'] }, auction_id: { type: 'string' } }, required: ['what'] } },
+  { name: 'send_payment_link', description: 'Send the verified caller a secure link to pay one unpaid auction invoice (use the invoice number from get_my_invoices). Railway checks the invoice is theirs and payable. The link works once, expires in 30 minutes, and asks them to sign in; then they pay on the website. delivery: "text" (their verified mobile) or "email" (their account email). Never read the link aloud; never take card details.',
+    input_schema: { type: 'object', properties: { invoice_number: { type: 'string' }, delivery: { type: 'string', enum: ['text', 'email'] } }, required: ['invoice_number'] } },
   { name: 'get_my_seller_onboarding', description: 'The verified seller\'s onboarding stage: what step they are on, what is blocking them, and who acts next (them or Advantage.Bid).', input_schema: noArgs },
   { name: 'get_my_business_verification', description: 'The verified Professional Seller\'s business verification status (not submitted, documents needed, under review, more information needed, approved, rejected).', input_schema: noArgs },
   { name: 'get_my_agreements', description: 'The verified seller\'s agreements: which agreement, status (sent, viewed, signed) and dates. Never the agreement text.', input_schema: noArgs },
@@ -54,7 +56,7 @@ const CATEGORY = {
   get_my_account: 'account', get_my_bids: 'bids', get_my_invoices: 'invoices', get_my_pickup_details: 'pickup_address', get_my_orders: 'orders',
   get_my_auctions: 'seller_auctions', get_my_settlements: 'settlements', get_my_seller_terms: 'seller_terms', get_my_storefront_orders: 'storefront_orders',
   get_my_seller_onboarding: 'seller_status', get_my_business_verification: 'seller_verification', get_my_agreements: 'agreements',
-  get_my_auction_registration: 'registration', get_my_pickup_slots: 'pickup_slot', get_my_order_detail: 'orders', send_text: 'text_message',
+  get_my_auction_registration: 'registration', get_my_pickup_slots: 'pickup_slot', get_my_order_detail: 'orders', send_text: 'text_message', send_payment_link: 'payment_link',
 };
 
 function toolsFor(ctx) { return ctx && ctx.userId ? [...FLOW_TOOLS, ...VERIFIED_TOOLS] : FLOW_TOOLS; }
@@ -62,7 +64,8 @@ function toolsFor(ctx) { return ctx && ctx.userId ? [...FLOW_TOOLS, ...VERIFIED_
 // ── flow tools ────────────────────────────────────────────────────────────────────────────────────────
 async function startAccountVerification(args, ctx) {
   if (ctx.userId) return { note: 'The caller is already verified for this call.' };
-  const r = await verification.start(ctx.phone.call, { email: args.email || null, phone: args.email ? null : (args.phone_number || null) }, ctx.phone.deps || {});
+  const r = await verification.start(ctx.phone.call, { email: args.email || null, phone: args.email ? null : (args.phone_number || null), prefer: args.prefer_email ? 'email' : null },
+    ctx.phone.deps || {});
   if (ctx.phone.onVerification) ctx.phone.onVerification(r);
   return { result: r.reply };
 }
@@ -170,9 +173,9 @@ async function getMyOrderDetail(args, ctx) {
 
 async function sendText(args, ctx) {
   const call = ctx.phone.call;
-  const u = (await db.query(`SELECT phone FROM users WHERE id = $1`, [ctx.userId])).rows[0];
-  const dest = normalizeUsPhone(u && u.phone);
-  if (dest.status !== 'ok') return { sent: false, note: 'There is no mobile number on this account to text.' };
+  const u = (await db.query(`SELECT phone, phone_verified_at, phone_verified_e164 FROM users WHERE id = $1`, [ctx.userId])).rows[0];
+  if (!require('../../accountPhoneService').isVerified(u)) return { sent: false, note: 'There is no verified mobile number on this account to text. Offer email instead where available.' };
+  const dest = normalizeUsPhone(u.phone_verified_e164);
   let body;
   if (args.what === 'pickup_details') {
     const r = await require('../tools')._internal.getMyPickupDetails({ auction_id: args.auction_id }, ctx);   // the same paid-only gate
@@ -194,8 +197,15 @@ async function sendText(args, ctx) {
   return sent.sent ? { sent: true, note: 'Texted to the number on file ending in ' + last4(dest.e164) + '.' } : { sent: false, note: 'Texting is not available right now; offer to read it or have the team follow up.' };
 }
 
+async function sendPaymentLink(args, ctx) {
+  const r = await require('../../payLinkService').issue({ call: ctx.phone.call, sessionId: ctx.phone.sessionId, userId: ctx.userId },
+    { invoiceNumber: args.invoice_number, delivery: args.delivery === 'text' ? 'text' : 'email' }, ctx.phone.deps || {});
+  if (r.sent) return { sent: true, note: `A secure payment link for invoice ${r.invoice} was sent by ${r.delivery === 'sms' ? 'text to the mobile number ending in ' + r.destination_last4 : 'email to the address on the account'}. It works once, expires in 30 minutes, and asks them to sign in. Do not read any link aloud.` };
+  return { sent: false, note: r.note || 'The payment link could not be sent. The customer can pay any time from Invoices on the website, or a team member can follow up.' };
+}
+
 const EXEC = {
-  start_account_verification: startAccountVerification, request_callback: requestCallback, find_auction: findAuction, send_text: sendText,
+  start_account_verification: startAccountVerification, request_callback: requestCallback, find_auction: findAuction, send_text: sendText, send_payment_link: sendPaymentLink,
   get_my_seller_onboarding: getMySellerOnboarding, get_my_business_verification: getMyBusinessVerification, get_my_agreements: getMyAgreements,
   get_my_auction_registration: getMyAuctionRegistration, get_my_pickup_slots: getMyPickupSlots, get_my_order_detail: getMyOrderDetail,
 };

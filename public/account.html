@@ -60,7 +60,10 @@
       return '<div class="card"><h2>Profile</h2>'
         +'<div class="fld"><label>Email</label><input type="text" value="'+esc(d.email||'')+'" disabled></div>'
         +'<div class="fld"><label>Full name</label><input type="text" id="p-name" value="'+esc(d.full_name||'')+'" placeholder="Your name"></div>'
-        +'<div class="fld"><label>Phone</label><input type="text" id="p-phone" value="'+esc(d.phone||'')+'" placeholder="Phone number"></div>'
+        +(d.phone_verified
+          ? '<div class="fld"><label>Mobile number</label><input type="text" value="'+esc(d.phone||'')+'" disabled> <span style="color:#15803d;font-size:.85rem;font-weight:600">Verified</span> <a href="/verify-phone.html?next=%2Faccount.html" style="font-size:.85rem">Change number</a></div>'
+          : '<div class="fld"><label>Mobile number</label><input type="text" id="p-phone" value="'+esc(d.phone||'')+'" placeholder="Mobile number"> <a href="/verify-phone.html?next=%2Faccount.html" style="font-size:.85rem">Verify this number</a></div>')
+        +'<div class="fld"><a href="/notifications.html">Text alerts and notification settings</a></div>'
         +'<button class="save" id="p-save">Save profile</button><span class="pmsg" id="p-msg"></span></div>';
     }
     async function load(){
@@ -85,7 +88,7 @@
       if(ps) ps.addEventListener('click', async () => {
         const msg = document.getElementById('p-msg'); msg.textContent = 'Saving…';
         try{
-          const r = await fetch('/api/auth/me', { method:'PATCH', headers:{ 'Content-Type':'application/json', Authorization:'Bearer '+token }, body: JSON.stringify({ full_name: document.getElementById('p-name').value, phone: document.getElementById('p-phone').value }) });
+          const r = await fetch('/api/auth/me', { method:'PATCH', headers:{ 'Content-Type':'application/json', Authorization:'Bearer '+token }, body: JSON.stringify(Object.assign({ full_name: document.getElementById('p-name').value }, document.getElementById('p-phone') ? { phone: document.getElementById('p-phone').value } : {})) });
           const d = await r.json(); msg.textContent = (r.ok && d.success) ? '✓ Saved' : (d.error || 'Failed');
         }catch(e){ msg.textContent = 'Failed'; }
       });

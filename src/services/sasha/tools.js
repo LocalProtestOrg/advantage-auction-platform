@@ -270,7 +270,7 @@ async function runPhone(name, input, ctx) {
   const phone = require('./phone/phoneTools');
   const own = await phone.run(name, input, ctx);
   if (own !== null) {
-    if (phone.VERIFIED_NAMES.has(name) && ctx.userId && name !== 'send_text') await auditPhoneRead(name, own, ctx);
+    if (phone.VERIFIED_NAMES.has(name) && ctx.userId && name !== 'send_text' && name !== 'send_payment_link') await auditPhoneRead(name, own, ctx);
     return own;
   }
   const fn = EXEC[name];

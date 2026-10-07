@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="noindex, nofollow" />
+  <title>Notification Settings - Advantage.Bid</title>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <style>
+    :root { color-scheme: light; }
+    body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f8fafc; color: #1f2937; }
+    .wrap { max-width: 560px; margin: 0 auto; padding: 2.5rem 1.25rem; }
+    .card { background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 1.4rem 1.5rem; margin-bottom: 1rem; }
+    h1 { font-size: 1.3rem; margin: 0 0 0.35rem; }
+    h2 { font-size: 1rem; margin: 0 0 0.4rem; }
+    .sub { color: #6b7280; font-size: 0.88rem; line-height: 1.45; margin: 0 0 1rem; }
+    .opt { display: flex; gap: 0.75rem; align-items: flex-start; padding: 0.85rem 0; border-top: 1px solid #f1f5f9; }
+    .opt:first-of-type { border-top: 0; }
+    .opt input { width: 1.2rem; height: 1.2rem; margin-top: 0.15rem; flex: none; }
+    .opt label { font-weight: 600; font-size: 0.95rem; cursor: pointer; }
+    .opt .fine { font-size: 0.8rem; color: #6b7280; margin-top: 0.2rem; line-height: 1.4; font-weight: 400; }
+    .msg { font-size: 0.85rem; min-height: 1em; margin-top: 0.5rem; }
+    .msg.err { color: #b91c1c; } .msg.ok { color: #15803d; }
+    a { color: #1d4ed8; }
+    input:focus-visible { outline: 2px solid #1d4ed8; outline-offset: 2px; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Notification settings</h1>
+    <p class="sub">Choose how Advantage.Bid keeps you posted. Text alerts are optional and separate from your verified mobile number.</p>
+
+    <div class="card">
+      <h2>Text message alerts</h2>
+      <div id="sms" class="sub">Loading…</div>
+      <div id="msg" class="msg" role="status" aria-live="polite"></div>
+    </div>
+
+    <div class="card">
+      <h2>Email</h2>
+      <p class="sub" style="margin:0">Your auction emails (such as outbid notices, invoices and pickup details) are not affected by these text settings.</p>
+    </div>
+  </div>
+
+  <script src="/widgets/shared/auth-refresh.js"></script>
+  <script src="/widgets/shared/buyer-nav.js"></script>
+  <script>
+  (function () {
+    var token = localStorage.getItem('token');
+    if (!token) { location.href = '/login.html?next=' + encodeURIComponent('/notifications.html'); return; }
+    var LABELS = { outbid: 'Outbid alerts', watched_closing: 'Watched auction closing reminders' };
+    function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+    function msg(t, kind) { var m = document.getElementById('msg'); m.textContent = t || ''; m.className = 'msg' + (kind ? ' ' + kind : ''); }
+    function api(method, body) {
+      return fetch('/api/account/sms-preferences', { method: method, headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token }, body: body ? JSON.stringify(body) : undefined })
+        .then(function (r) { if (r.status === 401) { location.href = '/login.html?next=/notifications.html'; } return r.json(); });
+    }
+    function render(d) {
+      var box = document.getElementById('sms'); var p = d.preferences;
+      var anyOn = Object.keys(p).some(function (k) { return p[k].opted_in; });
+      if (!d.offered && !anyOn) { box.innerHTML = 'Text alerts are not available yet.'; return; }
+      if (!d.phone_verified && !anyOn) { box.innerHTML = 'To get text alerts, first <a href="/verify-phone.html?next=%2Fnotifications.html">verify your mobile number</a>.'; return; }
+      box.innerHTML = (d.phone_last4 ? 'Texts go to your verified number ending in ' + esc(d.phone_last4) + '.' : '') + Object.keys(LABELS).map(function (k) {
+        var canTurnOn = d.offered && d.phone_verified;
+        return '<div class="opt"><input type="checkbox" id="sms-' + k + '" data-k="' + k + '"' + (p[k].opted_in ? ' checked' : '') + (!p[k].opted_in && !canTurnOn ? ' disabled' : '') + '>'
+          + '<div><label for="sms-' + k + '">' + LABELS[k] + '</label><div class="fine">' + esc(p[k].consent_text) + '</div></div></div>';
+      }).join('');
+    }
+    api('GET').then(function (j) { if (!j.success) { msg(j.message || 'Could not load your settings.', 'err'); return; } render(j.data); });
+    document.getElementById('sms').addEventListener('change', function (e) {
+      var cb = e.target.closest('input[data-k]'); if (!cb) return;
+      var body = {}; body[cb.getAttribute('data-k')] = cb.checked; cb.disabled = true;
+      api('PUT', body).then(function (j) {
+        cb.disabled = false;
+        if (!j.success) { cb.checked = !cb.checked; msg(j.message || 'Could not save.', 'err'); return; }
+        msg(cb.checked ? 'Turned on. Reply STOP to any alert to turn texts off.' : 'Turned off.', 'ok');
+      });
+    });
+  })();
+  </script>
+</body>
+</html>

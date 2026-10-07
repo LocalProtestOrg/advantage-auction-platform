@@ -17,6 +17,7 @@ async function send(call, { to, body }, deps = {}) {
   }
   const s = await phoneSettings.load();
   if (!s.enabled || s.provider === 'none' || process.env.SASHA_PHONE_SMS_ENABLED !== 'true') return { sent: false, reason: 'texting not enabled' };
+  if (!require('../../../lib/phoneNumber').isTextable(to)) return { sent: false, reason: 'not a textable number' };
   try { await require('../../smsService').sendSMS({ to, message: body }); return { sent: true }; }
   catch (e) { console.error('[sasha-phone] sms failed', e.message); return { sent: false, reason: 'send failed' }; }
 }

@@ -45,7 +45,7 @@ class RelaySession {
     if (msg.type === 'dtmf') {
       const d = String(msg.digit || '');
       if (d === '#' || d === '*') { const code = this.dtmf; this.dtmf = ''; return this.finishTurn(await this.call.keypad(code)); }
-      if (/^\d$/.test(d)) { this.dtmf += d; if (this.dtmf.length === 6) { const code = this.dtmf; this.dtmf = ''; return this.finishTurn(await this.call.keypad(code)); } }
+      if (/^\d$/.test(d)) { this.dtmf += d; if (this.dtmf.length === require('../../../../lib/verificationCode').CODE_LENGTH) { const code = this.dtmf; this.dtmf = ''; return this.finishTurn(await this.call.keypad(code)); } }
       return null;
     }
     if (msg.type === 'interrupt') { this.call.interrupt(); return { interrupted: true }; }

@@ -1644,6 +1644,13 @@
       body.appendChild(el);
       return;
     }
+    if (bidGate.phone_required && !bidGate.phone_verified && !bidGate.can_bid) {
+      const el = document.createElement('div');
+      el.className = 'card-signin';
+      el.innerHTML = '<a href="/verify-phone.html?next=' + encodeURIComponent(location.pathname + location.search) + '">Verify your mobile number to bid →</a>';
+      body.appendChild(el);
+      return;
+    }
     if (!bidGate.can_bid) {
       const reg = document.createElement('div');
       reg.className = 'card-register';
@@ -1672,12 +1679,14 @@
     const confirm = document.createElement('button');
     confirm.type = 'button'; confirm.className = 'btn-register'; confirm.textContent = 'Confirm & Register';
     const st = document.createElement('div'); st.className = 'cbf-status';
-    reg.appendChild(txt); reg.appendChild(lbl); reg.appendChild(confirm); reg.appendChild(st);
+    const smsBoxes = BidUtils.smsOptInBoxes(bidGate);
+    reg.appendChild(txt); reg.appendChild(lbl); if (smsBoxes) reg.appendChild(smsBoxes); reg.appendChild(confirm); reg.appendChild(st);
     confirm.addEventListener('click', async () => {
       if (!cb.checked) { st.className = 'cbf-status err'; st.textContent = 'Please acknowledge the pickup obligations.'; return; }
       confirm.disabled = true; confirm.textContent = 'Registering…';
-      const r = await BidUtils.registerForAuction(auctionId, token, true);
+      const r = await BidUtils.registerForAuction(auctionId, token, true, BidUtils.smsChoices(smsBoxes));
       if (r.unauthorized) { localStorage.removeItem('token'); window.location.href = '/login.html?next=' + encodeURIComponent(location.pathname + location.search); return; }
+      if (r.code === 'PHONE_VERIFICATION_REQUIRED') { window.location.href = '/verify-phone.html?next=' + encodeURIComponent(location.pathname + location.search); return; }
       if (r.ok) { bidGate.can_bid = true; bidGate.registered = true; loadAuction(); }
       else { confirm.disabled = false; confirm.textContent = 'Confirm & Register'; st.className = 'cbf-status err'; st.textContent = r.message; }
     });
@@ -1780,7 +1789,7 @@
       // published window. The detailed pickup-scheduling rationale lives in the
       // Buyer FAQ (/buyer-faq.html#pickup) and on the paid invoice / pickup packet.
       '<div class="tab-note">You’ll receive a recommended arrival window based on the largest item you win, and you may arrive any time during the published pickup window. Please bring a valid photo ID.</div>' +
-      '<div class="tab-note">For your privacy, the exact street number is shown after your payment is verified.</div>';
+      '<div class="tab-note">For privacy, only the city and state are shown here. Winning bidders receive the full pickup address by email once their payment is confirmed.</div>';
   }
   function populateTermsTab() {
     var el = document.getElementById('panel-terms'); if (!el) return;

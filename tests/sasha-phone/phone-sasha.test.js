@@ -44,9 +44,12 @@ beforeEach(() => { settings.clear(); phoneSettings.clear(); });
 afterEach(async () => { for (const id of [...sim.SIMS.keys()]) await sim.end(id, ADMIN).catch(() => {}); });
 
 // ── fixtures ──────────────────────────────────────────────────────────────────────────────────────────
-async function user({ phone = null, role = 'buyer', name = 'Pat Caller' } = {}) {
+/** verified: the phone passed a code (stored as E.164 with phone_verified_e164), so Phone Sasha may text it. */
+async function user({ phone = null, role = 'buyer', name = 'Pat Caller', verified = false } = {}) {
   const email = `caller-${uniq()}@buyers.org`;
-  const id = (await q(`INSERT INTO users (email, full_name, role, phone) VALUES ($1,$2,$3,$4) RETURNING id`, [email, name, role, phone]))[0].id;
+  const e164 = verified ? normalizeUsPhone(phone).e164 : null;
+  const id = (await q(`INSERT INTO users (email, full_name, role, phone, phone_verified_e164, phone_verified_at) VALUES ($1,$2,$3,$4,$5, CASE WHEN $5::text IS NOT NULL THEN now() END) RETURNING id`,
+    [email, name, role, verified ? e164 : phone, e164]))[0].id;
   return { id, email };
 }
 let phoneSeq = 2010000;
@@ -97,7 +100,13 @@ async function* stream(step, signal) {
 const toolNames = (params) => (params.tools || []).map((t) => t.name);
 const lastToolResult = (params) => { const m = params.messages[params.messages.length - 1]; return Array.isArray(m.content) ? JSON.parse(m.content[0].content) : null; };
 const spokenText = (st) => st.transcript.filter((m) => m.author_type === 'sasha').map((m) => m.body_text).join(' | ');
-const codeFrom = (st) => { const m = [...st.handset].reverse().find((x) => x.kind === 'code'); return m ? /(\d{6})/.exec(m.body)[1] : null; };
+/** The latest 4-digit code delivered to the simulated handset (text) or mailbox (email). */
+const codeFrom = (st, where = null) => {
+  const all = [...(where !== 'email' ? st.handset.map((x) => ({ ...x, via: 'sms' })) : []), ...(where !== 'sms' ? (st.mailbox || []).map((x) => ({ ...x, via: 'email' })) : [])]
+    .filter((x) => x.kind === 'code').sort((a, b) => new Date(a.at) - new Date(b.at));
+  const m = all[all.length - 1]; return m ? /\b(\d{4})\b/.exec(m.body)[1] : null;
+};
+const sent = (st) => st.handset.length + (st.mailbox || []).length;
 async function startCall(client, callerNumber = null) { return sim.start({ actorId: ADMIN, callerNumber }, { client }); }
 
 /** Verify a caller by email through the real tool + spoken code. Returns the call id. */
@@ -108,7 +117,7 @@ async function verifiedCall(u, extraSteps = []) {
   await sim.say(s.call_id, ADMIN, 'I need help with my account. My email is ' + u.email);
   const st = await sim.state(s.call_id, ADMIN);
   const code = codeFrom(st);
-  expect(code).toMatch(/^\d{6}$/);
+  expect(code).toMatch(/^\d{4}$/);
   const r = await sim.say(s.call_id, ADMIN, 'The code is ' + code.split('').join(' '));
   expect(r.verification.state).toBe('verified');
   return { callId: s.call_id, m };
@@ -150,70 +159,117 @@ describe('anonymous public call', () => {
 });
 
 // ── verification ─────────────────────────────────────────────────────────────────────────────────────
-describe('account verification', () => {
+describe('account verification (4-digit codes)', () => {
+  const startStep = (input) => ({ tools: [{ name: 'start_account_verification', input }] });
   test('anti-enumeration: an existing account and an unknown email get the identical reply; only the real one gets a code', async () => {
-    const u = await user({ phone: '(551) 610-3001' });
+    const u = await user({ phone: '(551) 610-3001', verified: true });
     const replies = [];
     for (const email of [u.email, 'nobody-' + uniq() + '@buyers.org']) {
-      const m = model([{ tools: [{ name: 'start_account_verification', input: { email } }] }, (p) => { replies.push(lastToolResult(p).result); return { text: 'If that matches, a code is on its way.' }; }]);
+      const m = model([startStep({ email }), (p) => { replies.push(lastToolResult(p).result); return { text: 'If that matches, a code is on its way.' }; }]);
       const s = await startCall(m.client);
       await sim.say(s.call_id, ADMIN, 'My email is ' + email);
       const st = await sim.state(s.call_id, ADMIN);
-      if (email === u.email) expect(codeFrom(st)).toMatch(/^\d{6}$/); else expect(st.handset).toHaveLength(0);
+      if (email === u.email) expect(codeFrom(st, 'sms')).toMatch(/^\d{4}$/); else expect(sent(st)).toBe(0);
       expect(st.verification.state).toBe('code_sent');   // same visible state either way
     }
     expect(replies[0]).toBe(replies[1]);
     expect(replies[0]).toBe(verification.GENERIC_REPLY);
+    expect(verification.GENERIC_REPLY).toMatch(/4-digit code/);
   });
-  test('successful code: verified session bound to this call and account; account tools offered on the next turn; code never stored or given to the model', async () => {
-    const u = await user({ phone: '(551) 610-4001' });
+  test('verified mobile → the code is TEXTED; successful code opens a session; the code is never stored, logged or shown to the model', async () => {
+    const u = await user({ phone: '(551) 610-4001', verified: true });
     const { callId, m } = await verifiedCall(u);
+    const st = await sim.state(callId, ADMIN);
+    expect(st.handset.filter((h) => h.kind === 'code')).toHaveLength(1);
+    expect(st.mailbox).toHaveLength(0);
     const last = m.calls[m.calls.length - 1];
-    expect(toolNames(last)).toEqual(expect.arrayContaining(['get_my_invoices', 'get_my_pickup_details', 'send_text', 'get_my_order_detail']));
+    expect(toolNames(last)).toEqual(expect.arrayContaining(['get_my_invoices', 'get_my_pickup_details', 'send_text', 'send_payment_link', 'get_my_order_detail']));
     expect(last.system[0].text).toMatch(/the caller is VERIFIED/);
     expect(last.system[1].text).toMatch(/was CORRECT/);
-    const st = await sim.state(callId, ADMIN);
     expect(st.account.email).toBe(u.email);
     expect(st.session).toBeTruthy();
     const code = codeFrom(st);
     const stored = (await q(`SELECT body_text FROM cs_messages WHERE conversation_id = (SELECT conversation_id FROM cs_calls WHERE id = $1)`, [callId])).map((r) => r.body_text).join('\n');
-    expect(stored).not.toContain(code);
     expect(stored).toContain('[verification code]');
-    expect(JSON.stringify(m.calls.map((c) => c.messages))).not.toContain(code);
-    expect(JSON.stringify(await q(`SELECT detail FROM cs_phone_audit WHERE call_id = $1`, [callId]))).not.toContain(code);
-    expect((await q(`SELECT code_hash FROM cs_phone_verifications WHERE call_id = $1`, [callId]))[0].code_hash).not.toContain(code);
-    // A simulation never marks the real customer's phone as verified.
-    expect((await q(`SELECT phone_verified_at FROM users WHERE id = $1`, [u.id]))[0].phone_verified_at).toBeNull();
-    const ev = (await q(`SELECT event_type FROM cs_phone_audit WHERE call_id = $1 ORDER BY created_at`, [callId])).map((e) => e.event_type);
-    expect(ev).toEqual(expect.arrayContaining(['call_started', 'verification_started', 'verification_succeeded', 'session_started']));
+    expect(stored).not.toMatch(new RegExp('\\b' + code + '\\b'));
+    expect(JSON.stringify(m.calls.map((c) => c.messages))).not.toMatch(new RegExp('\\b' + code + '\\b'));
+    expect(JSON.stringify(await q(`SELECT detail FROM cs_phone_audit WHERE call_id = $1`, [callId]))).not.toMatch(new RegExp('\\b' + code + '\\b'));
+    const v = (await q(`SELECT code_hash, channel, provider, status FROM cs_phone_verifications WHERE call_id = $1`, [callId]))[0];
+    expect(v).toMatchObject({ channel: 'sms', provider: 'local_test', status: 'approved' });
+    expect(v.code_hash).toMatch(/^[0-9a-f]{64}$/);
+    const ev = (await q(`SELECT event_type, detail FROM cs_phone_audit WHERE call_id = $1 ORDER BY created_at`, [callId]));
+    expect(ev.map((e) => e.event_type)).toEqual(expect.arrayContaining(['call_started', 'verification_started', 'verification_succeeded', 'session_started']));
+    expect(ev.find((e) => e.event_type === 'verification_succeeded').detail.what).toBe('sms');
   });
-  test('wrong code: attempts counted; five wrong codes lock this code; two exhausted codes lock the account', async () => {
-    const u = await user({ phone: '(551) 610-5001' });
-    const m = model([{ tools: [{ name: 'start_account_verification', input: { email: u.email } }] }, { text: 'Please read the code.' }]);
+  test('no phone on the account → the code is EMAILED to the account email, and verifies the same way (method audited as email)', async () => {
+    const u = await user({ phone: null });
+    const { callId } = await verifiedCall(u);
+    const st = await sim.state(callId, ADMIN);
+    expect(st.handset).toHaveLength(0);
+    expect(st.mailbox[0]).toMatchObject({ kind: 'code', to: u.email });
+    expect((await q(`SELECT channel, provider FROM cs_phone_verifications WHERE call_id = $1`, [callId]))[0]).toEqual({ channel: 'email', provider: 'email_code' });
+    expect((await q(`SELECT detail FROM cs_phone_audit WHERE call_id = $1 AND event_type = 'verification_succeeded'`, [callId]))[0].detail.what).toBe('email');
+  });
+  test('an UNVERIFIED phone on file is never texted: email instead', async () => {
+    const u = await user({ phone: '(551) 610-4101' });   // present but never verified
+    const { callId } = await verifiedCall(u);
+    const st = await sim.state(callId, ADMIN);
+    expect(st.handset).toHaveLength(0);
+    expect(st.mailbox.filter((x) => x.kind === 'code')).toHaveLength(1);
+  });
+  test('the caller can ask for email even when a verified mobile exists', async () => {
+    const u = await user({ phone: '(551) 610-4201', verified: true });
+    const m = model([startStep({ email: u.email, prefer_email: true }), { text: 'Sent.' }]);
+    const s = await startCall(m.client);
+    await sim.say(s.call_id, ADMIN, 'Email me the code please, ' + u.email);
+    const st = await sim.state(s.call_id, ADMIN);
+    expect(st.handset).toHaveLength(0);
+    expect(st.mailbox).toHaveLength(1);
+  });
+  test('a destination the caller supplies is never used: codes go only to what is already on the account', async () => {
+    const u = await user({ phone: null });
+    const m = model([startStep({ email: u.email, phone_number: '(551) 699-9999' }), { text: 'Sent.' }]);
+    const s = await startCall(m.client);
+    await sim.say(s.call_id, ADMIN, 'Send it to my new number 551 699 9999. My email is ' + u.email);
+    const st = await sim.state(s.call_id, ADMIN);
+    expect(st.handset).toHaveLength(0);
+    expect(st.mailbox[0].to).toBe(u.email);
+    expect(fs.readFileSync(path.join(__dirname, '..', '..', 'src', 'services', 'sasha', 'phone', 'phoneTools.js'), 'utf8')).not.toMatch(/change_phone|update_phone|set_phone/);
+  });
+  test('a number changed in the last 24 hours is not used to verify a caller (email instead)', async () => {
+    const u = await user({ phone: '(551) 610-4301', verified: true });
+    await q(`UPDATE users SET phone_changed_at = now() - interval '2 hours' WHERE id = $1`, [u.id]);
+    const { callId } = await verifiedCall(u);
+    const st = await sim.state(callId, ADMIN);
+    expect(st.handset).toHaveLength(0);
+    expect(st.mailbox).toHaveLength(1);
+  });
+  test('wrong code: 3 wrong entries exhaust a code; two exhausted codes lock the account', async () => {
+    const u = await user({ phone: '(551) 610-5001', verified: true });
+    const m = model([startStep({ email: u.email }), { text: 'Please read the code.' }]);
     const s = await startCall(m.client);
     await sim.say(s.call_id, ADMIN, 'email ' + u.email);
     const real = codeFrom(await sim.state(s.call_id, ADMIN));
-    const wrong = real === '000000' ? '111111' : '000000';
+    const wrong = real === '0000' ? '1111' : '0000';
     let r;
-    for (let i = 0; i < 5; i++) r = await sim.say(s.call_id, ADMIN, 'it is ' + wrong);
-    expect(r.verification.state).toBe('code_sent');
+    for (let i = 0; i < 3; i++) r = await sim.say(s.call_id, ADMIN, 'it is ' + wrong);
     expect(m.calls[m.calls.length - 1].system[1].text).toMatch(/Too many wrong codes/);
     r = await sim.say(s.call_id, ADMIN, 'ok try ' + real);   // the right code no longer works
     expect(r.session).toBeNull();
     const v = await q(`SELECT status, attempts FROM cs_phone_verifications WHERE call_id = $1 ORDER BY created_at`, [s.call_id]);
-    expect(v[0]).toMatchObject({ status: 'failed', attempts: 5 });
-    // A second exhausted code within the lockout window locks the ACCOUNT (no further code is sent on another call).
+    expect(v[0]).toMatchObject({ status: 'failed', attempts: 3 });
     await q(`INSERT INTO cs_phone_verifications (call_id, target_user_id, identifier_type, identifier_hash, provider, status, expires_at)
       VALUES ($1,$2,'email','x','local_test','failed', now())`, [s.call_id, u.id]);
-    const m2 = model([{ tools: [{ name: 'start_account_verification', input: { email: u.email } }] }, { text: 'If that matches, a code is coming.' }]);
+    const m2 = model([startStep({ email: u.email }), { text: 'If that matches, a code is coming.' }]);
     const s2 = await startCall(m2.client);
     await sim.say(s2.call_id, ADMIN, 'email ' + u.email);
-    expect((await sim.state(s2.call_id, ADMIN)).handset).toHaveLength(0);
+    expect(sent(await sim.state(s2.call_id, ADMIN))).toBe(0);
     expect((await q(`SELECT status FROM cs_phone_verifications WHERE call_id = $1`, [s2.call_id]))[0].status).toBe('locked');
   });
-  test('expired code is refused', async () => {
-    const u = await user({ phone: '(551) 610-6001' });
-    const m = model([{ tools: [{ name: 'start_account_verification', input: { email: u.email } }] }, { text: 'Read it when it arrives.' }]);
+  test('expired code is refused (codes last 5 minutes)', async () => {
+    expect((await q(`SELECT value FROM platform_config WHERE key = 'sasha.phone.code_ttl_minutes'`))[0].value).toBe(5);
+    const u = await user({ phone: '(551) 610-6001', verified: true });
+    const m = model([startStep({ email: u.email }), { text: 'Read it when it arrives.' }]);
     const s = await startCall(m.client);
     await sim.say(s.call_id, ADMIN, 'email ' + u.email);
     const code = codeFrom(await sim.state(s.call_id, ADMIN));
@@ -222,39 +278,55 @@ describe('account verification', () => {
     expect(r.session).toBeNull();
     expect(m.calls[m.calls.length - 1].system[1].text).toMatch(/EXPIRED/);
   });
+  test('replay: a code that already verified cannot be used again', async () => {
+    const u = await user({ phone: '(551) 610-6051', verified: true });
+    const { callId } = await verifiedCall(u);
+    const code = codeFrom(await sim.state(callId, ADMIN));
+    const call = (await q(`SELECT * FROM cs_calls WHERE id = $1`, [callId]))[0];
+    expect(await verification.check(call, code)).toMatchObject({ ok: false, reason: 'no_code_requested' });
+    expect((await q(`SELECT count(*)::int n FROM cs_phone_sessions WHERE call_id = $1`, [callId]))[0].n).toBe(1);
+  });
   test('resend limit: at most 3 codes per account per 30 minutes; at most 3 starts per call', async () => {
-    const u = await user({ phone: '(551) 610-6101' });
-    const starts = [1, 2, 3, 4].map(() => ({ tools: [{ name: 'start_account_verification', input: { email: u.email } }] }));
-    const m = model([starts[0], { text: 'Sent.' }, starts[1], { text: 'Sent.' }, starts[2], { text: 'Sent.' }, starts[3], { text: 'No more.' }]);
+    const u = await user({ phone: '(551) 610-6101', verified: true });
+    const m = model([startStep({ email: u.email }), { text: 'Sent.' }, startStep({ email: u.email }), { text: 'Sent.' }, startStep({ email: u.email }), { text: 'Sent.' },
+      startStep({ email: u.email }), { text: 'No more.' }]);
     const s = await startCall(m.client);
     for (let i = 0; i < 4; i++) await sim.say(s.call_id, ADMIN, 'please send the code again to ' + u.email);
-    const codes = (await sim.state(s.call_id, ADMIN)).handset.filter((h) => h.kind === 'code');
-    expect(codes).toHaveLength(3);
+    expect((await sim.state(s.call_id, ADMIN)).handset.filter((h) => h.kind === 'code')).toHaveLength(3);
     expect(await q(`SELECT count(*)::int n FROM cs_phone_verifications WHERE call_id = $1`, [s.call_id])).toEqual([{ n: 3 }]);
   });
-  test('duplicate phone numbers: identifying by a shared number sends nothing; the same reply is given', async () => {
-    await user({ phone: '(551) 610-7001' }); await user({ phone: '551.610.7001' });
-    const m = model([{ tools: [{ name: 'start_account_verification', input: { phone_number: '5516107001' } }] }, (p) => ({ text: lastToolResult(p).result === verification.GENERIC_REPLY ? 'Generic.' : 'LEAK' })]);
+  test('per-caller-number throttle: one caller cannot keep starting verifications across calls', async () => {
+    const caller = '+1 551 612 9999';
+    let lastStatus = null;
+    for (let i = 0; i < 7; i++) {
+      const u = await user({ phone: null });
+      const m = model([startStep({ email: u.email }), { text: 'ok' }]);
+      const s = await startCall(m.client, caller);
+      await sim.say(s.call_id, ADMIN, 'email ' + u.email);
+      lastStatus = (await q(`SELECT status FROM cs_phone_verifications WHERE call_id = $1`, [s.call_id]))[0].status;
+      await sim.end(s.call_id, ADMIN);
+    }
+    expect(lastStatus).toBe('locked');
+  });
+  test('shared verified number: never identifies an account; the email path verifies instead', async () => {
+    const a = await user({ phone: '(551) 610-7001', verified: true }); await user({ phone: '551.610.7001', verified: true });
+    const m = model([startStep({ phone_number: '5516107001' }), (p) => ({ text: lastToolResult(p).result === verification.GENERIC_REPLY ? 'Generic.' : 'LEAK' })]);
     const s = await startCall(m.client);
     const r = await sim.say(s.call_id, ADMIN, 'my number is 551 610 7001');
     expect(spokenText(r)).not.toMatch(/LEAK/);
-    expect(r.handset).toHaveLength(0);
+    expect(sent(r)).toBe(0);
     expect((await q(`SELECT status FROM cs_phone_verifications WHERE call_id = $1`, [s.call_id]))[0].status).toBe('ambiguous');
+    // Same account by email: the shared number is not texted; the code goes to the account email.
+    const { callId } = await verifiedCall(a);
+    const st = await sim.state(callId, ADMIN);
+    expect(st.handset).toHaveLength(0);
+    expect(st.mailbox[0].to).toBe(a.email);
   });
-  test('missing phone on the account: nothing sent, same reply, and a code read later simply fails', async () => {
-    const u = await user({ phone: null });
-    const m = model([{ tools: [{ name: 'start_account_verification', input: { email: u.email } }] }, { text: 'If that matches, a code is on its way.' }, { text: 'That code did not match.' }]);
-    const s = await startCall(m.client);
-    await sim.say(s.call_id, ADMIN, 'email ' + u.email);
-    expect((await q(`SELECT status FROM cs_phone_verifications WHERE call_id = $1`, [s.call_id]))[0].status).toBe('no_phone');
-    const r = await sim.say(s.call_id, ADMIN, '123456');
-    expect(r.session).toBeNull();
-    expect(r.verification.state).toBe('code_sent');
-  });
-  test('identifying by the account phone number works when it is unique', async () => {
-    const u = await user({ phone: '551-610-8001' });
-    const found = await verification.findAccount({ phone: '+1 (551) 610 8001' });
-    expect(found).toMatchObject({ status: 'found', user: { id: u.id } });
+  test('identifying by phone works only for a VERIFIED number held by one account', async () => {
+    const v = await user({ phone: '551-610-8001', verified: true });
+    expect(await verification.findAccount({ phone: '+1 (551) 610 8001' })).toMatchObject({ status: 'found', user: { id: v.id } });
+    await user({ phone: '551-610-8002' });   // unverified
+    expect(await verification.findAccount({ phone: '5516108002' })).toEqual({ status: 'no_match' });
   });
 });
 
@@ -274,7 +346,7 @@ describe('verified account support', () => {
   });
   test('unpaid invoice: pickup address is NOT disclosed by voice or text; refusal audited', async () => {
     const seller = await user({ role: 'seller' });
-    const u = await user({ phone: '(551) 611-2001' });
+    const u = await user({ phone: '(551) 611-2001', verified: true });
     await auction({ sellerUserId: seller.id, unpaidBy: u.id });
     let pickupResult = null;
     const { callId, m } = await verifiedCall(u, [{ tools: [{ name: 'get_my_pickup_details', input: {} }] },
@@ -292,7 +364,7 @@ describe('verified account support', () => {
   });
   test('paid invoice: pickup address may be spoken and texted to the phone on file; disclosure audited without the address', async () => {
     const seller = await user({ role: 'seller' });
-    const u = await user({ phone: '(551) 611-3001' });
+    const u = await user({ phone: '(551) 611-3001', verified: true });
     await auction({ sellerUserId: seller.id, paidBy: u.id });
     const { callId } = await verifiedCall(u, [{ tools: [{ name: 'get_my_pickup_details', input: {} }] },
       (p) => ({ text: 'Your pickup address is ' + lastToolResult(p).pickups[0].pickup_address + '. Would you like me to text it?' }),
@@ -353,16 +425,113 @@ describe('payments: no card data ever reaches storage or the model', () => {
     expect(r.call.card_data_redacted).toBe(1);
     expect((await q(`SELECT count(*)::int n FROM cs_phone_audit WHERE call_id = $1 AND event_type = 'card_data_redacted'`, [s.call_id]))[0].n).toBe(1);
   });
-  test('the payment question is answered without any payment-link capability (not built yet)', () => {
-    const names = [...tools.KNOWLEDGE_TOOLS, ...require('../../src/services/sasha/phone/phoneTools').FLOW_TOOLS, ...require('../../src/services/sasha/phone/phoneTools').VERIFIED_TOOLS].map((t) => t.name);
-    expect(names.some((n) => /pay|checkout|charge|link/i.test(n))).toBe(false);
+  test('Sasha offers a secure payment link instead of taking card details', () => {
     expect(engine.systemPrompt({ channel: 'phone' })).toMatch(/never ask for, accept, repeat or write down a card number/);
+    expect(engine.systemPrompt({ channel: 'phone' })).toMatch(/send them a secure payment link instead \(send_payment_link/);
   });
-  test('redaction keeps ordinary speech and catches spoken digits', () => {
+  test('redaction keeps ordinary speech and catches spoken digits (4-digit codes)', () => {
     expect(redaction.cleanUtterance('I need one or two items from lot 42').text).toBe('I need one or two items from lot 42');
-    expect(redaction.cleanUtterance('double five three eight one nine', { expectCode: true })).toMatchObject({ code: '553819', text: '[verification code]' });
+    expect(redaction.cleanUtterance('double five three eight', { expectCode: true })).toMatchObject({ code: '5538', text: '[verification code]' });
+    expect(redaction.cleanUtterance('it is 4 8 2 9', { expectCode: true }).code).toBe('4829');
     expect(redaction.cleanUtterance('call me at 551 655 7050', { expectCode: true }).code).toBeNull();
+    expect(redaction.cleanUtterance('my cvv is 1234', { expectCode: true })).toMatchObject({ code: null, cardDetected: true });
     expect(redaction.scrubOutbound('card 4242 4242 4242 4242 ok')).toBe('card [removed] ok');
+  });
+});
+
+// ── payment links (Option A) ───────────────────────────────────────────────────────────────────────────
+describe('payment links', () => {
+  const payLinks = require('../../src/services/payLinkService');
+  async function linkCall(u, invoiceNumber, delivery = 'email') {
+    const { callId } = await verifiedCall(u, [{ tools: [{ name: 'send_payment_link', input: { invoice_number: invoiceNumber, delivery } }] }, (p) => ({ text: lastToolResult(p).note })]);
+    const r = await sim.say(callId, ADMIN, 'Can you send me a link to pay invoice ' + invoiceNumber + '?');
+    return { callId, r };
+  }
+  const tokenFrom = (body) => { const m = /\/pay\/([A-Za-z0-9_-]{40,60})/.exec(body || ''); return m && m[1]; };
+  async function unpaidInvoiceFor(buyerId) {
+    const seller = await user({ role: 'seller' });
+    await auction({ sellerUserId: seller.id, unpaidBy: buyerId });
+    return (await q(`SELECT id, invoice_number FROM buyer_auction_invoices WHERE buyer_user_id = $1 AND status = 'payment_required'`, [buyerId]))[0];
+  }
+  test('unpaid invoice: a single-use, 30-minute link is emailed; the model and the audit never see the link', async () => {
+    const u = await user({ phone: null });
+    const inv = await unpaidInvoiceFor(u.id);
+    const { callId, r } = await linkCall(u, inv.invoice_number);
+    const mail = r.mailbox.find((x) => x.kind === 'payment_link');
+    expect(mail.to).toBe(u.email);
+    const token = tokenFrom(mail.body);
+    expect(token).toBeTruthy();
+    expect(spokenText(r)).toMatch(/secure payment link/);
+    expect(JSON.stringify(r).split(token).length - 1).toBe(1);   // the link appears once: in the (simulated) email, nowhere else
+    const call = (await q(`SELECT conversation_id FROM cs_calls WHERE id = $1`, [callId]))[0];
+    const stored = JSON.stringify(await q(`SELECT body_text FROM cs_messages WHERE conversation_id = $1`, [call.conversation_id]));
+    expect(stored).not.toContain(token);
+    expect(JSON.stringify(await q(`SELECT detail FROM cs_phone_audit WHERE call_id = $1`, [callId]))).not.toContain(token);
+    const row = (await q(`SELECT * FROM payment_links WHERE combined_invoice_id = $1`, [inv.id]))[0];
+    expect(row.token_hash).toBe(payLinks._sha(token));
+    expect(row).toMatchObject({ user_id: u.id, delivery: 'email', status: 'issued', is_simulated: true });
+    expect(Math.round((new Date(row.expires_at) - new Date(row.created_at)) / 60000)).toBe(30);
+    const ev = (await q(`SELECT event_type FROM cs_phone_audit WHERE call_id = $1 AND data_category = 'payment_link' ORDER BY created_at`, [callId])).map((e) => e.event_type);
+    expect(ev).toEqual(['payment_link_requested', 'payment_link_sent']);
+  });
+  test('a verified mobile can receive the link by text', async () => {
+    const u = await user({ phone: '(551) 616-1001', verified: true });
+    const inv = await unpaidInvoiceFor(u.id);
+    const { r } = await linkCall(u, inv.invoice_number, 'text');
+    const text = r.handset.find((x) => x.kind === 'text');
+    expect(text.body).toMatch(/\/pay\/[A-Za-z0-9_-]{40,}/);
+    expect(text.to_last4).toBe('1001');
+  });
+  test('opening the link: no session → normal sign-in; wrong account → refused, not consumed; right account → existing Invoices pay flow; replay → expired', async () => {
+    const u = await user({ phone: null }); const other = await user({ phone: null });
+    const inv = await unpaidInvoiceFor(u.id);
+    const { r } = await linkCall(u, inv.invoice_number);
+    const token = tokenFrom(r.mailbox.find((x) => x.kind === 'payment_link').body);
+    expect(await payLinks.open(token, null)).toEqual({ action: 'login', status: 302, location: '/login.html?next=' + encodeURIComponent('/pay/' + token) });
+    expect(await payLinks.open(token, other.id)).toMatchObject({ action: 'wrong_account', status: 403 });
+    expect(await payLinks.open(token, u.id)).toEqual({ action: 'redirect', status: 302, location: '/invoices.html?pay=' + encodeURIComponent(inv.id) });
+    expect(await payLinks.open(token, u.id)).toMatchObject({ action: 'expired' });   // single use
+    expect((await q(`SELECT status, used_at IS NOT NULL used FROM payment_links WHERE combined_invoice_id = $1`, [inv.id]))[0]).toEqual({ status: 'consumed', used: true });
+    expect(await payLinks.open('not-a-real-token-but-long-enough-to-look-like-one-xx', u.id)).toMatchObject({ action: 'expired' });
+  });
+  test('expired link is refused; a newer link supersedes the older one', async () => {
+    const u = await user({ phone: null });
+    const inv = await unpaidInvoiceFor(u.id);
+    const first = tokenFrom((await linkCall(u, inv.invoice_number)).r.mailbox.find((x) => x.kind === 'payment_link').body);
+    const second = tokenFrom((await linkCall(u, inv.invoice_number)).r.mailbox.find((x) => x.kind === 'payment_link').body);
+    expect(await payLinks.open(first, u.id)).toMatchObject({ action: 'expired' });
+    await q(`UPDATE payment_links SET expires_at = now() - interval '1 minute' WHERE token_hash = $1`, [payLinks._sha(second)]);
+    expect(await payLinks.open(second, u.id)).toMatchObject({ action: 'expired' });
+  });
+  test('Railway refuses paid invoices and invoices that belong to someone else; refusals are audited', async () => {
+    const u = await user({ phone: null }); const other = await user({ phone: null });
+    const seller = await user({ role: 'seller' });
+    await auction({ sellerUserId: seller.id, paidBy: u.id, unpaidBy: other.id });
+    const paid = (await q(`SELECT invoice_number FROM buyer_auction_invoices WHERE buyer_user_id = $1`, [u.id]))[0].invoice_number;
+    const othersInv = (await q(`SELECT invoice_number FROM buyer_auction_invoices WHERE buyer_user_id = $1`, [other.id]))[0].invoice_number;
+    const a = await linkCall(u, paid);
+    expect(spokenText(a.r)).toMatch(/nothing to pay/);
+    const b = await linkCall(u, othersInv);
+    expect(spokenText(b.r)).toMatch(/No invoice with that number on this account/);
+    expect((await q(`SELECT count(*)::int n FROM payment_links WHERE user_id = $1`, [u.id]))[0].n).toBe(0);
+    expect((await q(`SELECT detail FROM cs_phone_audit WHERE call_id = $1 AND event_type = 'payment_link_refused'`, [b.callId]))[0].detail.reason).toBe('not_found');
+  });
+  test('an unverified caller cannot request a payment link (tool not offered and refused if forced)', async () => {
+    const m = model([{ text: 'I can do that once I verify your account.' }]);
+    const s = await startCall(m.client);
+    await sim.say(s.call_id, ADMIN, 'Send me a payment link');
+    expect(toolNames(m.calls[0])).not.toContain('send_payment_link');
+    const call = (await q(`SELECT * FROM cs_calls WHERE id = $1`, [s.call_id]))[0];
+    expect((await tools.run('send_payment_link', { invoice_number: 'X' }, { channel: 'phone', userId: null, phone: { call } })).error).toMatch(/not verified/);
+  });
+  test('the pay route reuses the existing payment flow: no new Stripe objects, no amount or tax logic', () => {
+    const svc = fs.readFileSync(path.join(__dirname, '..', '..', 'src', 'services', 'payLinkService.js'), 'utf8');
+    const route = fs.readFileSync(path.join(__dirname, '..', '..', 'src', 'routes', 'payLink.js'), 'utf8');
+    const code = (svc + route).replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');   // code only, not explanatory comments
+    expect(code).not.toMatch(/stripe|paymentIntent|checkout\.sessions|tax_cents|settlement/i);
+    expect(svc).toMatch(/'\/invoices\.html\?pay='/);
+    expect(route).toMatch(/Referrer-Policy', 'no-referrer'/);
+    expect(fs.readFileSync(path.join(__dirname, '..', '..', 'public', 'invoices.html'), 'utf8')).toMatch(/never pays automatically/);
   });
 });
 
@@ -524,7 +693,7 @@ describe('ConversationRelay adapter (simulated provider)', () => {
     expect(out[0]).toMatchObject({ type: 'text', kind: 'greeting' });
     await relay.onMessage({ type: 'prompt', voicePrompt: 'partial', last: false });
     await relay.onMessage({ type: 'prompt', voicePrompt: 'Check my account, ' + u.email, last: true });
-    expect(code).toMatch(/^\d{6}$/);
+    expect(code).toMatch(/^\d{4}$/);
     for (const d of code) await relay.onMessage({ type: 'dtmf', digit: d });
     expect((await q(`SELECT verification_state FROM cs_calls WHERE id = $1`, [relay.call.id]))[0].verification_state).toBe('verified');
     expect(out.filter((x) => x.last === true).length).toBeGreaterThanOrEqual(3);

@@ -134,7 +134,7 @@ class PhoneCall {
 
   async keypad(digits) {
     const d = String(digits || '').replace(/\D/g, '');
-    if (d.length !== 6) return this.utterance(d.length ? '[keypad: ' + d.length + ' digits]' : '(keypad)');
+    if (d.length !== require('../../../lib/verificationCode').CODE_LENGTH) return this.utterance(d.length ? '[keypad: ' + d.length + ' digits]' : '(keypad)');
     return this.utterance('', { keypadCode: d });
   }
 

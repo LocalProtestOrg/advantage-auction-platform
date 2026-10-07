@@ -54,7 +54,7 @@
   <script src="/widgets/shared/admin-nav.js"></script>
   <div class="wrap">
     <h1>Phone Sasha Tester</h1>
-    <p class="sub">Simulate a telephone call with phone-mode Sasha. It runs the real call path (verification, account tools, privacy rules, disclosure audit, callbacks) with no telephone and no text messages: codes and texts appear on the simulated handset below. Simulations are recorded and marked as simulations.</p>
+    <p class="sub">Simulate a telephone call with phone-mode Sasha. It runs the real call path (4-digit verification by text or email, account tools, privacy rules, payment links, disclosure audit, callbacks) with no telephone, no text messages and no email: codes, texts and emails appear on the simulated handset and mailbox below. Simulations are recorded and marked as simulations.</p>
     <div class="banner" id="line">Checking the phone line…</div>
 
     <div class="grid">
@@ -103,6 +103,16 @@
           <div class="handset" id="handset"><span class="empty">Codes and texts sent to the account's phone appear here.</span></div>
         </div>
         <div class="card">
+          <h2>Simulated mailbox (account email)</h2>
+          <div class="handset" id="mailbox" style="background:#1e293b"><span class="empty">Email codes and payment-link emails appear here.</span></div>
+        </div>
+        <div class="card">
+          <h2>Test callers</h2>
+          <p class="sub" style="margin-bottom:6px">Say one of these emails (or the account's verified mobile) to try each verification path. Test accounts are demo-only: no password, fictional numbers, undeliverable emails, no invoices. For invoices, pickup and payment links, verify as an existing account by email.</p>
+          <div id="fixtures" class="empty">Not created yet.</div>
+          <button class="b b-ghost" id="mkfix" style="margin-top:6px">Create or refresh test callers</button>
+        </div>
+        <div class="card">
           <h2>Handoff and callbacks</h2>
           <div id="handoff" class="empty">None.</div>
         </div>
@@ -111,6 +121,19 @@
           <div class="scroll"><div id="runs" class="empty">None yet.</div></div>
         </div>
       </div>
+    </div>
+
+    <div class="card">
+      <h2>Auction text alerts: scenario runner</h2>
+      <p class="sub" style="margin-bottom:8px">Runs the same decision rules the text sender uses over a sample timeline. Nothing is saved and nothing is sent.</p>
+      <div class="row" id="scen-list"></div>
+      <div class="scroll" style="margin-top:10px"><div id="scen-out" class="empty">Choose a scenario.</div></div>
+    </div>
+
+    <div class="card">
+      <h2>Verified bidder phones and auction text alerts</h2>
+      <div id="bsms" class="empty">Loading…</div>
+      <div class="msgline" id="bml"></div>
     </div>
 
     <div class="card">
@@ -157,6 +180,8 @@
     var a=d.account;
     $('verkv').innerHTML='<dt>State</dt><dd>'+vpill+'</dd><dt>Account</dt><dd>'+(a?esc(a.name||'')+' &lt;'+esc(a.email)+'&gt; · '+esc(a.role)+(a.seller_type?' · seller: '+esc(a.seller_type.replace(/_/g,' ')):''):'none (account tools unavailable)')+'</dd>'
       +'<dt>Session</dt><dd>'+(d.session?'active until '+when(d.session.expires_at):'none')+'</dd>';
+    var mb=(d.mailbox||[]);
+    $('mailbox').innerHTML=mb.length?mb.map(function(m){return '<div class="sms"><small>'+(m.kind==='code'?'Verification code':'Payment link')+' email to '+esc(m.to)+' · '+when(m.at)+'</small><b>'+esc(m.subject)+'</b><br>'+esc(m.body)+'</div>';}).join(''):'<span class="empty">Email codes and payment-link emails appear here.</span>';
     var hs=(d.handset||[]);
     $('handset').innerHTML=hs.length?hs.map(function(m){return '<div class="sms"><small>'+(m.kind==='code'?'Verification code':'Text')+' to number ending '+esc(m.to_last4)+' · '+when(m.at)+'</small>'+esc(m.body)+'</div>';}).join(''):'<span class="empty">Codes and texts sent to the account\'s phone appear here.</span>';
     var ho=d.handoffs||[], al=d.staff_alerts||[];
@@ -203,6 +228,41 @@
   $('settings').addEventListener('click',function(e){ var b=e.target.closest('button[data-k]'); if(!b) return; var k=b.getAttribute('data-k'), el=$('set-'+k);
     var v=k==='disclosure_text'?el.value:Number(el.value); b.disabled=true;
     api('POST',BASE+'/settings',{key:k,value:v}).then(function(j){ b.disabled=false; var x=$('sml'); x.className='msgline'+(j.success?'':' err'); x.textContent=j.success?'Saved.':(j.message||'Not saved.'); loadSettings(); }); });
+  // Test callers
+  function showFix(list){ $('fixtures').innerHTML='<table><tr><th>Email</th><th>Mobile</th><th>Path</th></tr>'+list.map(function(f){
+      return '<tr><td>'+esc(f.email)+'</td><td>'+(f.phone_last4?'ends '+esc(f.phone_last4)+(f.verified_phone?' (verified)':''):'none')+'</td><td>'+esc(/shared/.test(f.email)?'shared number: email code':(f.verified_phone?'text code':'email code'))+'</td></tr>';}).join('')+'</table>'; }
+  $('mkfix').onclick=function(){ this.disabled=true; api('POST',BASE+'/sim/test-accounts',{}).then(function(j){ $('mkfix').disabled=false; if(j.success) showFix(j.data); else $('fixtures').textContent=j.message||'Not allowed.'; }); };
+
+  // Auction text scenarios
+  api('GET',BASE+'/sms-scenarios').then(function(j){ if(!j.success){ $('scen-list').textContent=j.message||'Not allowed.'; return; }
+    var groups={}; j.data.forEach(function(s){ (groups[s.group]=groups[s.group]||[]).push(s); });
+    $('scen-list').innerHTML=Object.keys(groups).map(function(g){ return '<div style="width:100%"><b style="font-size:12.5px">'+esc(g)+'</b><div class="row" style="margin-top:4px">'
+      +groups[g].map(function(s){ return '<button class="b b-ghost" data-scen="'+esc(s.key)+'">'+esc(s.title)+'</button>'; }).join('')+'</div></div>'; }).join(''); });
+  $('scen-list').addEventListener('click',function(e){ var b=e.target.closest('button[data-scen]'); if(!b) return;
+    api('POST',BASE+'/sms-scenarios/'+b.getAttribute('data-scen'),{}).then(function(j){ if(!j.success){ $('scen-out').textContent=j.message||'Failed.'; return; }
+      $('scen-out').innerHTML='<b>'+esc(j.data.title)+'</b><table style="margin-top:6px"><tr><th>Time</th><th>What happened</th><th>Decision</th><th>Text that would be sent</th></tr>'+j.data.steps.map(function(s){
+        var dec=s.decision?(s.decision==='SENT'?'<span class="pill p-ok">sent</span>':'<span class="pill p-warn">'+esc(s.decision.replace('suppressed: ','suppressed: ').replace(/_/g,' '))+'</span>'):'';
+        return '<tr><td>'+new Date(s.at).toLocaleTimeString([], {hour:'numeric',minute:'2-digit',timeZone:'America/New_York'})+'</td><td>'+esc(s.event)+'</td><td>'+dec+'</td><td>'+esc(s.text||'')+'</td></tr>'; }).join('')+'</table>'; }); });
+
+  // Bidder phone + auction text switches
+  function loadBsms(){ api('GET',BASE+'/bidder-sms-settings').then(function(j){ if(!j.success){ $('bsms').textContent=j.message||'Not allowed.'; return; }
+    var d=j.data, bp=d.bidder_phone, s=d.auction_sms, c=d.counts;
+    function sw(id,label,on,note){ return '<label style="display:flex;gap:6px;align-items:center;font-size:13px;margin:4px 0"><input type="checkbox" id="'+id+'"'+(on?' checked':'')+'> '+esc(label)+(note?' <span style="color:#64748b;font-size:12px">'+esc(note)+'</span>':'')+'</label>'; }
+    $('bsms').className='';
+    $('bsms').innerHTML='<p class="sub" style="margin-bottom:6px">Verified phones: '+c.verified_phones+' · outbid opt-ins: '+c.outbid_opt_ins+' · watched-closing opt-ins: '+c.watched_opt_ins+' · texts sent: '+c.texts_sent
+      +'. Code sender available: <b>'+(d.verification_sender_available?'yes':'no (Twilio Verify not configured)')+'</b>. Live texting ready: <b>'+(d.auction_sms_live_ready?'yes':'no')+'</b>.</p>'
+      +sw('bp-ver','Allow customers to verify their phone on the website',bp.verification_enabled,'needs Twilio Verify')
+      +sw('bp-req','Require a verified mobile number to register to bid',bp.required,bp.required_since?'since '+new Date(bp.required_since).toLocaleString():'existing registrations are never cut off')
+      +sw('as-offer','Offer optional text alerts to bidders (show the opt-in boxes)',s.offer_opt_in,'')
+      +sw('as-a2p','Owner confirms the A2P campaign covers these texts',s.a2p_confirmed,'')
+      +sw('as-en','Send optional outbid and watched-auction texts',s.enabled,'needs the A2P confirmation')
+      +'<button class="b b-dark" id="bsave" style="margin-top:6px">Save switches</button>';
+    $('bsave').onclick=function(){ var body={ bidder_phone:{ verification_enabled:$('bp-ver').checked, required:$('bp-req').checked },
+        auction_sms:{ offer_opt_in:$('as-offer').checked, a2p_confirmed:$('as-a2p').checked, enabled:$('as-en').checked } };
+      api('POST',BASE+'/bidder-sms-settings',body).then(function(r){ var x=$('bml'); x.className='msgline'+(r.success?'':' err'); x.textContent=r.success?'Saved.':(r.message||'Not saved.'); loadBsms(); }); };
+  }); }
+  loadBsms();
+
   loadSettings(); setControls();
 })();
 </script>

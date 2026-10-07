@@ -307,6 +307,12 @@ async function createBid(lotId, userId, { amount, maxBid, max_bid_cents }) {
         [userId, lot.id]
       );
     } catch (e) { console.error('[bid] watchlist auto-add failed (non-fatal):', e.message); }
+    // Optional outbid text for the previous high bidder (opt-in, OFF unless auction_sms.enabled). Post-commit and
+    // fire-and-forget: it can never delay, change or roll back the bid.
+    if (lot.current_winner_user_id && String(lot.current_winner_user_id) !== String(resolution.winner_user_id)) {
+      Promise.resolve().then(() => require('./auctionSmsService').onOutbid({ userId: lot.current_winner_user_id, lot }))
+        .catch((e) => console.error('[bid] outbid text hook failed (non-fatal):', e.message));
+    }
     // First-party conversion ledger (post-commit, fire-and-forget). One row per accepted bid submission; a bid is an
     // intent outcome, never revenue, so no value is attached.
     require('./conversionService').emit('bid', { userId, subjectType: 'lot', subjectId: lot.id, idempotencyKey: 'bid:' + lot.id + ':' + userId + ':' + submittedMaxCents });

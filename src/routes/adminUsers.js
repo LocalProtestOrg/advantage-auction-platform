@@ -159,10 +159,17 @@ router.patch('/:id/contact', async (req, res, next) => {
     if (req.body && 'phone' in req.body)     { params.push(req.body.phone == null ? null : String(req.body.phone).slice(0, 40));      sets.push(`phone=$${params.length}`); }
     if (!sets.length) return res.status(400).json({ success: false, message: 'No editable contact fields supplied (full_name, phone)' });
     params.push(id);
-    const { rows } = await db.query(`UPDATE users SET ${sets.join(', ')} WHERE id=$${params.length} RETURNING id, email, full_name, phone`, params);
+    const { rows } = await db.query(`UPDATE users SET ${sets.join(', ')} WHERE id=${params.length} RETURNING id, email, full_name, phone`, params);
+    // An admin can correct a phone number but cannot VERIFY one: a changed number is no longer verified.
+    let phoneUnverified = false;
+    if (req.body && 'phone' in req.body) {
+      const v = (await db.query(`UPDATE users SET phone_verified_at = NULL, phone_verified_e164 = NULL
+         WHERE id = $1 AND phone_verified_e164 IS NOT NULL AND phone IS DISTINCT FROM phone_verified_e164 RETURNING id`, [id])).rowCount;
+      phoneUnverified = v > 0;
+    }
     await writeAuditLog({
       event_type: 'user.contact_updated', entity_type: 'user', entity_id: id, actor_id: req.user.id,
-      metadata: { before: { full_name: before.full_name, phone: before.phone }, after: { full_name: rows[0].full_name, phone: rows[0].phone } },
+      metadata: { before: { full_name: before.full_name, phone: before.phone }, after: { full_name: rows[0].full_name, phone: rows[0].phone }, phone_verification_cleared: phoneUnverified },
     }).catch(() => {});
     return res.json({ success: true, data: rows[0] });
   } catch (err) { next(err); }

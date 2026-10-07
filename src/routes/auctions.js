@@ -561,6 +561,9 @@ router.post('/:auctionId/register', authMiddleware, async (req, res) => {
     if (!isUuid(auctionId)) return res.status(400).json({ success: false, message: 'Invalid auction ID' });
     const result = await registrationService.registerForAuction(req.user.id, auctionId, {
       pickupAcknowledged: req.body && req.body.pickup_acknowledged === true,
+      // Optional text alerts ticked in the registration panel ({ outbid, watched_closing }); never required to register.
+      smsOptIn: req.body && req.body.sms_opt_in && typeof req.body.sms_opt_in === 'object' ? req.body.sms_opt_in : null,
+      ip: req.ip,
     });
     return res.json({ success: true, data: result });
   } catch (err) {

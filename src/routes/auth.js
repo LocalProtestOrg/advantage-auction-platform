@@ -187,6 +187,7 @@ router.get('/me', auth, async (req, res) => {
   try {
     const { rows } = await db.query(
       `SELECT id, email, role, full_name, phone,
+              (phone_verified_at IS NOT NULL AND phone_verified_e164 IS NOT NULL AND phone = phone_verified_e164) AS phone_verified,
               EXISTS (SELECT 1 FROM external_identities ei
                        WHERE ei.user_id = users.id AND ei.provider = 'brilliant_directories') AS bd_member,
               EXISTS (SELECT 1 FROM organization_members m
@@ -230,6 +231,19 @@ router.patch('/me', auth, async (req, res) => {
     if (req.body && 'full_name' in req.body) { params.push(req.body.full_name == null ? null : String(req.body.full_name).slice(0, 200)); sets.push(`full_name=$${params.length}`); }
     if (req.body && 'phone' in req.body)     { params.push(req.body.phone == null ? null : String(req.body.phone).slice(0, 40));      sets.push(`phone=$${params.length}`); }
     if (!sets.length) return res.status(400).json({ success: false, error: 'No editable fields (full_name, phone)' });
+    // A VERIFIED phone can only be replaced through the verified-phone flow (password + a code to the new number). An
+    // unverified free-text phone can still be edited here as before; saving the same verified number is a no-op.
+    if (req.body && 'phone' in req.body) {
+      const cur = (await db.query('SELECT phone, phone_verified_at, phone_verified_e164 FROM users WHERE id = $1', [req.user.id])).rows[0];
+      const phoneSvc = require('../services/accountPhoneService');
+      if (phoneSvc.isVerified(cur)) {
+        const next = require('../lib/phoneNumber').normalizeUsPhone(req.body.phone);
+        if (next.e164 !== cur.phone_verified_e164) {
+          return res.status(409).json({ success: false, code: 'VERIFIED_PHONE_CHANGE', error: 'To change your verified phone number, use Verify phone so we can confirm the new number.' });
+        }
+        params[sets.findIndex((x) => x.startsWith('phone='))] = cur.phone;   // keep the exact verified value
+      }
+    }
     params.push(req.user.id);
     const { rows } = await db.query(`UPDATE users SET ${sets.join(', ')} WHERE id=$${params.length} RETURNING id, email, role, full_name, phone`, params);
     return res.json({ success: true, data: rows[0] });
