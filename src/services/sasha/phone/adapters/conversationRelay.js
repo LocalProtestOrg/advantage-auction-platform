@@ -28,6 +28,9 @@ class RelaySession {
    */
   constructor(send, opts = {}) {
     this.send = send; this.provider = opts.provider || 'twilio_cr'; this.simulatedBy = opts.simulatedBy || null;
+    // Live calls: the reason and CallSid come from the signed relay ticket (never from the socket's own messages), and
+    // Twilio has already spoken Sasha's greeting (welcomeGreeting), so it is recorded but not sent again.
+    this.routingReason = opts.routingReason || null; this.expectCallSid = opts.expectCallSid || null; this.providerGreeting = !!opts.providerGreeting;
     this.deps = { ...(opts.deps || {}), onSpeak: (text, meta) => this.send({ type: 'text', token: text + ' ', last: false, kind: meta && meta.kind }) };
     this.call = null; this.dtmf = ''; this.ended = false;
   }
@@ -56,10 +59,18 @@ class RelaySession {
   finishTurn(r) { this.send({ type: 'text', token: '', last: true }); return r; }
 
   async setup(msg) {
+    if (this.call || this.ended) return null;   // one setup per session
+    if (this.expectCallSid && msg.callSid !== this.expectCallSid) {
+      this.ended = true; this.send({ type: 'end', handoffData: JSON.stringify({ action: 'unavailable', reason: 'call_mismatch' }) });
+      return { refused: true, code: 'CALL_MISMATCH' };
+    }
+    const params = msg.customParameters && typeof msg.customParameters === 'object' ? msg.customParameters : {};
+    const reason = this.routingReason || (this.provider === 'simulated' ? params.reason : null) || null;
     try {
       const r = await PhoneCall.start({ provider: this.provider, providerCallId: msg.callSid || ('sim-' + Date.now()), callerNumber: msg.from || null,
-        calledNumber: msg.to || null, simulated: this.provider === 'simulated', simulatedBy: this.simulatedBy }, this.deps);
-      if (r.queued) { this.ended = true; this.send({ type: 'end', handoffData: JSON.stringify({ action: 'queue', reason: 'capacity' }) }); return r; }
+        calledNumber: msg.to || null, simulated: this.provider === 'simulated', simulatedBy: this.simulatedBy, routingReason: reason,
+        greetingSpokenByProvider: this.providerGreeting }, this.deps);
+      if (r.queued) { this.ended = true; this.send({ type: 'end', handoffData: JSON.stringify({ action: 'busy', reason: 'capacity' }) }); return r; }
       this.call = r.call;
       this.send({ type: 'text', token: '', last: true });
       return r;
@@ -68,6 +79,18 @@ class RelaySession {
       this.send({ type: 'end', handoffData: JSON.stringify({ action: 'unavailable', reason: e.code || 'error' }) });
       return { refused: true, code: e.code || 'error' };
     }
+  }
+
+  /** The call reached sasha.phone.session_max_minutes: say so, end the session (Twilio then plays goodbye and hangs up). */
+  async timeLimit() {
+    if (!this.call || this.ended) return null;
+    const text = 'We\'ve reached the time limit for this call. If you still need help, please call us back. Thank you for calling Advantage.Bid.';
+    this.call.interrupt();
+    this.send({ type: 'text', token: text, last: true });
+    this.ended = true;
+    const r = await this.call.end('time_limit');
+    this.send({ type: 'end', handoffData: JSON.stringify({ action: 'goodbye', reason: 'time_limit' }) });
+    return r;
   }
 
   /** Caller hung up / socket closed. */

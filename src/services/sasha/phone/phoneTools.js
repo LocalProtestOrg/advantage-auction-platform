@@ -27,10 +27,13 @@ const noArgs = { type: 'object', properties: {} };
 const FLOW_TOOLS = [
   { name: 'start_account_verification', description: 'Start verifying the caller so you can help with their own account. Ask for the email address OR the verified mobile number on their Advantage.Bid account (one of them). A 4-digit code is sent to contact details already on the account (a text to its verified mobile, otherwise an email). Never offer to send it anywhere else. Set prefer_email when the caller asks to use email. Repeat ONLY what this tool tells you; it never reveals whether an account exists. The system checks the code itself when the caller reads it.',
     input_schema: { type: 'object', properties: { email: { type: 'string' }, phone_number: { type: 'string' }, prefer_email: { type: 'boolean' } } } },
-  { name: 'request_callback', description: 'Ask the Advantage.Bid team to call the caller back (a person, not you). Use when the caller wants a person, when request_human applies, or when you cannot finish on this call. Confirm the number first: "caller_id" for the number they are calling from, or the digits they give.',
+  { name: 'request_callback', description: 'Take a message for the Advantage.Bid team, who will get back to the caller (there is no live transfer). Use when the caller still wants a person after you offered to help, when request_human applies, or when you cannot finish on this call. Collect only what is needed and confirm the callback number first: "caller_id" for the number they are calling from, or the digits they give. A callback number is only where the team calls back; it never verifies anyone.',
     input_schema: { type: 'object', properties: { callback_number: { type: 'string', description: '"caller_id" or a US phone number' },
+      caller_name: { type: 'string', description: 'The name the caller gave' },
+      email: { type: 'string', description: 'An email address, only if the caller offered one or it helps the team' },
+      reference: { type: 'string', description: 'An auction, lot or invoice the caller mentioned, if any' },
       reason: { type: 'string', enum: ['customer_request', 'dispute', 'legal', 'privacy', 'security', 'fraud', 'account_change', 'uncertain', 'conflict', 'other'] },
-      summary: { type: 'string', description: 'One or two sentences for the team' } }, required: ['callback_number', 'reason', 'summary'] } },
+      summary: { type: 'string', description: 'The caller\'s message for the team, in one to three sentences' } }, required: ['callback_number', 'reason', 'summary'] } },
   { name: 'find_auction', description: 'Find public auctions from words the caller says ("the Henderson estate in Dayton"). Returns up to 5 matches with title, city/state, status and dates. Use the returned auction_id with get_auction_or_lot (add lot_number for a lot), but never read an id aloud.',
     input_schema: { type: 'object', properties: { words: { type: 'string' } }, required: ['words'] } },
 ];
@@ -76,10 +79,16 @@ async function requestCallback(args, ctx) {
   if (String(args.callback_number || '').toLowerCase() === 'caller_id') number = ctx.phone.callerE164 || null;
   else { const n = normalizeUsPhone(args.callback_number); number = n.e164; }
   if (!number) return { error: 'That callback number is not a valid US number. Ask the caller to say it again, digit by digit.' };
+  const clip = (v, n) => String(v || '').replace(/\s+/g, ' ').trim().slice(0, n);
+  const email = clip(args.email, 120);
+  // The message the team sees in the Shared Inbox (card details were already removed from the caller's words).
+  const message = [args.caller_name ? 'Name: ' + clip(args.caller_name, 80) + '.' : null, 'Callback number ending ' + last4(number) + '.',
+    /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ? 'Email: ' + email + '.' : null, args.reference ? 'About: ' + clip(args.reference, 120) + '.' : null,
+    'Message: ' + (clip(args.summary, 700) || 'Callback requested by phone.')].filter(Boolean).join(' ');
   const escalation = require('./escalation');
-  const r = await escalation.requestCallback(call, { number, reason: args.reason, summary: args.summary, userId: ctx.userId || null }, ctx.phone.deps || {});
+  const r = await escalation.requestCallback(call, { number, reason: args.reason, summary: message, userId: ctx.userId || null }, ctx.phone.deps || {});
   if (ctx.phone.onHandoff) ctx.phone.onHandoff(r);
-  return { ok: true, note: 'Callback requested. Tell the caller a member of the Advantage.Bid team will call them back at the number ending in '
+  return { ok: true, note: 'Message taken for the Advantage.Bid team. Tell the caller a member of the Advantage.Bid team will get back to them as soon as possible at the number ending in '
     + last4(number) + '. Do not promise a time or an outcome.' };
 }
 

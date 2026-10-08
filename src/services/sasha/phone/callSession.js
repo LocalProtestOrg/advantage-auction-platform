@@ -30,6 +30,14 @@ const FALLBACK = 'I\'m sorry, I can\'t look that up right now. I can have a memb
 const STAFF_OWNED = 'Thanks. A member of our team is handling your request and will follow up with you.';
 const ACTIVE = new Map();   // callId → PhoneCall (this process)
 
+/** The caller's menu choice, as call context for Sasha (a likely purpose, not a restriction: they may ask anything). */
+const ROUTING = {
+  buyer: 'MENU CHOICE: the caller pressed 1 (BUYER). Be ready for bidding, auctions, watchlist, invoices, payments and secure payment links, account questions, purchase status, pickup (after verification) and how buying works.',
+  seller: 'MENU CHOICE: the caller pressed 2 (SELLER). Be ready for how selling works, Individual and Professional Seller questions, seller onboarding, creating auctions, listings, the fees you are allowed to explain, seller account and navigation questions, and taking a message for the team when staff are needed. Never quote a Professional Seller platform rate as a standard public rate.',
+  pickup: 'MENU CHOICE: the caller pressed 3 (RECENT PURCHASE / PICKUP). They most likely need post-purchase help: finding the invoice or purchase, payment status, a secure payment link, pickup dates and times, and the pickup address (only after verification and only if paid, as the tools allow).',
+  other: 'MENU CHOICE: the caller pressed 4 (OTHER) or made no choice. Find out conversationally what they need and help.',
+};
+
 class PhoneCallError extends Error { constructor(code, message) { super(message); this.code = code; } }
 
 class PhoneCall {
@@ -37,7 +45,8 @@ class PhoneCall {
 
   get id() { return this.row.id; }
 
-  static async start({ provider, providerCallId, callerNumber = null, calledNumber = null, simulated = false, simulatedBy = null }, deps = {}) {
+  static async start({ provider, providerCallId, callerNumber = null, calledNumber = null, simulated = false, simulatedBy = null, routingReason = null,
+    greetingSpokenByProvider = false }, deps = {}) {
     const s = await phoneSettings.load();
     if (!simulated && !(await phoneSettings.liveCallsAllowed())) throw new PhoneCallError('PHONE_DISABLED', 'Phone Sasha is switched off.');
     if (simulated && provider !== 'simulated') throw new PhoneCallError('BAD_PROVIDER', 'Simulations use the simulated provider.');
@@ -45,17 +54,19 @@ class PhoneCall {
     if (active >= s.max_concurrent_calls) return { queued: true, reason: 'All of Sasha\'s lines are busy; the caller waits in the queue.', active, limit: s.max_concurrent_calls };
     const caller = normalizeUsPhone(callerNumber);
     const conv = await conversations.createConversation({ channel: 'phone', subject: simulated ? 'Phone call (simulation)' : 'Phone call' });
-    const row = (await db.query(`INSERT INTO cs_calls (conversation_id, provider, provider_call_id, is_simulated, simulated_by, caller_number_hash, caller_number_last4, called_number)
-      VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *`,
+    const reason = ROUTING[routingReason] ? routingReason : null;
+    const row = (await db.query(`INSERT INTO cs_calls (conversation_id, provider, provider_call_id, is_simulated, simulated_by, caller_number_hash, caller_number_last4, called_number, routing_reason)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *`,
     [conv.id, provider, String(providerCallId).slice(0, 120), !!simulated, simulatedBy, caller.e164 ? identifierHash(caller.e164) : null, caller.e164 ? last4(caller.e164) : null,
-      calledNumber ? String(calledNumber).slice(0, 20) : null])).rows[0];
+      calledNumber ? String(calledNumber).slice(0, 20) : null, reason])).rows[0];
     const call = new PhoneCall(row, deps);
     call.callerE164 = caller.e164 || null;
     ACTIVE.set(row.id, call);
-    await audit.record(row, 'call_started', { detail: { provider } });
-    const greeting = `${s.disclosure_text} ${GREETING_FOLLOW}`;
+    await audit.record(row, 'call_started', { detail: { provider, routing_reason: reason } });
+    // Owner direction (2026-10-08): Sasha greets as an Advantage.Bid representative; no assistant-type announcement.
+    const greeting = s.greeting || GREETING_FOLLOW;
     await conversations.addMessage(conv.id, { direction: 'outbound', author: 'sasha', text: greeting, autoSent: true });
-    if (call.deps.onSpeak) call.deps.onSpeak(greeting, { kind: 'greeting' });
+    if (call.deps.onSpeak && !greetingSpokenByProvider) call.deps.onSpeak(greeting, { kind: 'greeting' });
     return { call, greeting, conversationId: conv.id };
   }
 
@@ -74,13 +85,14 @@ class PhoneCall {
     if (this.lastCheck) {
       const c = this.lastCheck;
       lines.push(c.ok ? 'The code the caller just read was CORRECT: they are now verified. Briefly confirm and continue helping.'
-        : c.reason === 'expired' ? 'The code the caller read has EXPIRED. Offer to send a new one (start_account_verification) or a callback.'
-          : c.reason === 'too_many_attempts' ? 'Too many wrong codes: verification is LOCKED on this request. Do not try again; offer a callback from the team.'
+        : c.reason === 'expired' ? 'The code the caller read has EXPIRED. Offer to send a new one (start_account_verification) or to take a message for the team.'
+          : c.reason === 'too_many_attempts' ? 'Too many wrong codes: verification is LOCKED on this request. Do not try again; offer to take a message for the team (request_callback).'
             : c.reason === 'no_code_requested' ? 'The caller read digits but no code was requested. Ask what they need.'
               : `The code the caller read did NOT match. They can try again (${c.attemptsLeft} tries left) or you can send a new code.`);
     }
     if (this.cardJustRedacted) lines.push('The caller just started reading payment card details. They were removed and not stored. Politely stop them and explain the secure alternative.');
-    lines.push('Live transfer to a person is not available; offer a callback (request_callback).');
+    if (this.row.routing_reason && ROUTING[this.row.routing_reason]) lines.push(ROUTING[this.row.routing_reason]);
+    lines.push('There is no live transfer to staff. Help with everything you are able to; if the caller still wants a person, or the matter genuinely needs staff, take a message for the team (request_callback).');
     return lines.join('\n');
   }
 
@@ -199,4 +211,4 @@ async function buildSummary(call) {
   return parts.join('; ') + '.';
 }
 
-module.exports = { PhoneCall, PhoneCallError, buildSummary, ACTIVE, FALLBACK, GREETING_FOLLOW };
+module.exports = { PhoneCall, PhoneCallError, buildSummary, ACTIVE, FALLBACK, GREETING_FOLLOW, ROUTING };

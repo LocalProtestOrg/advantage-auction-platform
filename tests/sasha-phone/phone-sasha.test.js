@@ -125,10 +125,11 @@ async function verifiedCall(u, extraSteps = []) {
 
 // ── anonymous / public ─────────────────────────────────────────────────────────────────────────────────
 describe('anonymous public call', () => {
-  test('disclosure greeting, public answer, no account tools offered before verification', async () => {
+  test('Advantage.Bid greeting (no assistant-type announcement), public answer, no account tools offered before verification', async () => {
     const m = model([{ tools: [{ name: 'get_platform_rules', input: { topic: 'bidding' } }] }, { text: 'Bids go up in set increments. A bid in the last two minutes extends that lot by two minutes.' }]);
     const s = await startCall(m.client);
-    expect(s.transcript[0].body_text).toMatch(/^You've reached Advantage\.Bid\. This call is answered by Sasha, our virtual assistant, and is transcribed for customer support\. How can I help you today\?$/);
+    expect(s.transcript[0].body_text).toBe('Thank you for calling Advantage.Bid. This is Sasha. How can I help you today?');
+    expect(s.transcript[0].body_text).not.toMatch(/virtual|automated|assistant|\bAI\b|transcribed/i);
     const r = await sim.say(s.call_id, ADMIN, 'How does bidding work?');
     expect(toolNames(m.calls[0])).toEqual(expect.arrayContaining(['search_help_center', 'get_platform_rules', 'get_auction_or_lot', 'request_human', 'start_account_verification', 'request_callback', 'find_auction']));
     expect(toolNames(m.calls[0]).some((n) => n.startsWith('get_my_') || n === 'send_text')).toBe(false);
@@ -543,7 +544,7 @@ describe('human handoff and callbacks', () => {
       (p) => ({ text: lastToolResult(p).note })]);
     const s = await startCall(m.client, '+1 551 612 1001');
     const r = await sim.say(s.call_id, ADMIN, 'I want to talk to a real person.');
-    expect(spokenText(r)).toMatch(/call them back at the number ending in 1001/);
+    expect(spokenText(r)).toMatch(/get back to them as soon as possible at the number ending in 1001/);
     expect(r.handoffs[0]).toMatchObject({ reason_code: 'customer_request', callback_requested: true, callback_status: 'open', callback_last4: '1001' });
     expect(r.handoff_state).toBe('needed');
     expect(r.staff_alerts[0].to).toMatch(/simulated, not sent/);
@@ -720,15 +721,16 @@ describe('ConversationRelay adapter (simulated provider)', () => {
 
 // ── production safety, regressions, accounting ──────────────────────────────────────────────────────
 describe('production safety and regressions', () => {
-  test('defaults are OFF with no provider; no route accepts voice-provider traffic', async () => {
+  test('defaults are OFF with no provider; the live voice routes exist only behind the switch, Twilio signatures and the staff list', async () => {
     const sql = fs.readFileSync(path.join(__dirname, '..', '..', 'db', 'migrations', '188_sasha_phone_foundation.sql'), 'utf8');
     expect(sql).toMatch(/\('sasha\.phone\.enabled', 'false'::jsonb/);
     expect(sql).toMatch(/\('sasha\.phone\.provider', '"none"'::jsonb/);
     expect(await phoneSettings.liveCallsAllowed()).toBe(false);
+    expect(await phoneSettings.relayLineOn()).toBe(false);
     const server = fs.readFileSync(path.join(__dirname, '..', '..', 'server.js'), 'utf8');
-    expect(server).not.toMatch(/conversationRelay|phone\/voice|twiml|RelaySession/i);
-    const routes = fs.readdirSync(path.join(__dirname, '..', '..', 'src', 'routes')).map((f) => fs.readFileSync(path.join(__dirname, '..', '..', 'src', 'routes', f), 'utf8')).join('\n');
-    expect(routes).not.toMatch(/RelaySession|connectTwiml|express-ws|WebSocketServer/);
+    expect(server).toMatch(/app\.use\('\/api\/voice', require\('\.\/src\/routes\/voice'\)\)/);
+    expect(server).toMatch(/require\('\.\/src\/services\/sasha\/phone\/relayServer'\)\.attach\(server\)/);
+    // Behaviour of those routes is covered in voice-line.test.js (refused unless on, signed, ticketed, staff-listed).
   });
   test('real calls never use the local test code provider, and real texting is refused', async () => {
     expect(await verification.providerFor({ is_simulated: false })).toBe('none');

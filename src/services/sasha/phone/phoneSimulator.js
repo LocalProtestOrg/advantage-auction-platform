@@ -24,7 +24,7 @@ function sweep() {
   for (const [id, s] of SIMS) if (Date.now() - s.touchedAt > IDLE_MS) { s.relay.close('simulation_idle').catch(() => {}); SIMS.delete(id); }
 }
 
-async function start({ actorId, callerNumber = null }, deps = {}) {
+async function start({ actorId, callerNumber = null, routingReason = null }, deps = {}) {
   sweep();
   if (SIMS.size >= MAX_SIMS) throw Object.assign(new Error('Too many simulated calls are open. End one first.'), { status: 429 });
   const sim = { outbox: [], handset: [], mailbox: [], alerts: [], actorId, touchedAt: Date.now() };
@@ -36,7 +36,9 @@ async function start({ actorId, callerNumber = null }, deps = {}) {
         if (meta.channel === 'email') sim.mailbox.push({ kind: 'code', to: meta.email, subject: 'Your Advantage.Bid verification code', body, at: new Date().toISOString() });
         else sim.handset.push({ to_last4: meta.last4, body, at: new Date().toISOString(), kind: 'code' });
       } } });
-  const r = await sim.relay.onMessage({ type: 'setup', callSid: 'SIM' + crypto.randomBytes(8).toString('hex'), from: callerNumber, to: '+15516557050' });
+  // The menu choice reaches the simulated relay the way Twilio delivers it: a <Parameter> in customParameters.
+  const r = await sim.relay.onMessage({ type: 'setup', callSid: 'SIM' + crypto.randomBytes(8).toString('hex'), from: callerNumber, to: '+15516557050',
+    customParameters: routingReason ? { reason: String(routingReason) } : {} });
   if (!sim.relay.call) return { started: false, refused: r && (r.queued ? 'queue' : r.code) };
   SIMS.set(sim.relay.call.id, sim);
   return { started: true, call_id: sim.relay.call.id, ...(await state(sim.relay.call.id, actorId)) };

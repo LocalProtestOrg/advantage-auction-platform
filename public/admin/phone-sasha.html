@@ -64,6 +64,8 @@
             <div class="row">
               <label for="caller" style="font-size:13px">Caller ID (optional)</label>
               <input id="caller" placeholder="+1 555 201 0000" style="width:170px;max-width:100%">
+              <label for="reason" style="font-size:13px">Menu choice</label>
+              <select id="reason"><option value="">None</option><option value="buyer">1 Buyer</option><option value="seller">2 Seller</option><option value="pickup">3 Pickup</option><option value="other">4 Other</option></select>
               <button class="b b-dark" id="start">Start call</button>
             </div>
             <div class="row">
@@ -137,8 +139,21 @@
     </div>
 
     <div class="card">
+      <h2>Live phone line: staff test callers</h2>
+      <p class="sub" style="margin-bottom:8px">While the line is in staff-only testing, only these caller numbers reach the menu and Sasha; everyone else hears a short "not available" message and the call ends. Numbers are stored scrambled (only the last 4 digits are kept readable). Being on this list does not verify anyone: Sasha still verifies the caller's account before sharing account details.</p>
+      <div class="kvline" id="voiceurl" style="font-size:13px;margin-bottom:8px"></div>
+      <div id="tclist" style="margin-bottom:8px"></div>
+      <div class="row">
+        <label for="tcnum" style="font-size:13px">Phone number</label><input id="tcnum" autocomplete="off" style="width:170px;max-width:100%">
+        <label for="tclabel" style="font-size:13px">Label</label><input id="tclabel" placeholder="e.g. Ty mobile" style="width:150px;max-width:100%">
+        <button class="b b-dark" id="tcadd">Add test caller</button>
+      </div>
+      <div class="msgline" id="tcml"></div>
+    </div>
+
+    <div class="card">
       <h2>Phone settings</h2>
-      <p class="sub" style="margin-bottom:8px">Used by simulations now and by real calls once a voice provider is connected. Changes are audited (Super Admin only).</p>
+      <p class="sub" style="margin-bottom:8px">Used by simulations and by the live line. Changes are audited (Super Admin only).</p>
       <div class="settings" id="settings"></div>
       <div class="msgline" id="sml"></div>
     </div>
@@ -203,7 +218,7 @@
       ml(''); render(j.data, j.data.turn); }).catch(function(){ BUSY=false; ml('Network error.',true); setControls(); });
   }
   $('start').onclick=function(){ BUSY=true; setControls(); ml('Connecting the simulated call…');
-    api('POST',BASE+'/sim/start',{caller_number:$('caller').value.trim()||null}).then(function(j){ BUSY=false;
+    api('POST',BASE+'/sim/start',{caller_number:$('caller').value.trim()||null,routing_reason:$('reason').value||null}).then(function(j){ BUSY=false;
       if(!j.success){ ml(j.message||'Could not start.',true); setControls(); return; }
       if(!j.data.started){ ml('The call was not connected ('+(j.data.refused||'refused')+').',true); setControls(); return; }
       ml(''); render(j.data); $('text').focus(); }); };
@@ -214,19 +229,31 @@
   $('end').onclick=function(){ act('/end',{},'Hanging up…'); };
 
   // Phone line status + settings
-  var LABELS={disclosure_text:'Opening disclosure',max_concurrent_calls:'Calls at once',daily_budget_usd:'Phone daily budget ($)',per_call_budget_usd:'Per-call budget ($)',
+  var TEXTS={greeting:1,menu_text:1,call_notice:1};
+  var LABELS={greeting:'Sasha\'s greeting',menu_text:'Routing menu (one spoken line per row)',call_notice:'Optional notice before the menu (empty = none)',max_concurrent_calls:'Calls at once',daily_budget_usd:'Phone daily budget ($)',per_call_budget_usd:'Per-call budget ($)',
     transcript_retention_days:'Transcript retention (days)',code_ttl_minutes:'Code lifetime (min)',code_max_attempts:'Wrong codes allowed',code_max_sends_per_30min:'Codes per account / 30 min',
     lockout_minutes:'Lockout (min)',session_max_minutes:'Verified session (min)'};
   function loadSettings(){ api('GET',BASE+'/settings').then(function(j){
     if(!j.success){ $('line').className='banner warn'; $('line').textContent=j.message||'Not allowed.'; return; }
     var d=j.data, s=d.settings;
     $('line').className='banner'+(d.live_calls_allowed?' warn':'');
-    $('line').innerHTML='<b>Real phone line: '+(d.live_calls_allowed?'ON':'OFF')+'.</b> '+(d.provider_route_mounted?'':'No voice provider is connected, so no real call can reach Sasha. ')+'Phone model spend today: $'+Number(d.spent_today_usd).toFixed(4)+' of $'+s.daily_budget_usd+'. Support-team alert numbers configured: '+d.support_alert_numbers_configured+'.';
+    $('voiceurl').innerHTML='Twilio voice webhook (POST): <code>'+esc(d.voice_webhook_url||'')+'</code>';
+    $('line').innerHTML='<b>Real phone line: '+(d.relay_line_on?'ON':'OFF')+'</b> · access: <b>'+(s.access_mode==='public'?'every caller':'staff test callers only ('+Number(d.test_callers||0)+')')+'</b>. '+(d.relay_line_on?'':'Every call to the voice number hears a short "not available" message and ends. ')+'Phone model spend today: $'+Number(d.spent_today_usd).toFixed(4)+' of $'+s.daily_budget_usd+'. Support-team alert numbers configured: '+d.support_alert_numbers_configured+'.';
     $('settings').innerHTML=Object.keys(LABELS).map(function(k){ var v=s[k];
-      return '<label for="set-'+k+'">'+esc(LABELS[k])+(k==='disclosure_text'?'<textarea id="set-'+k+'" rows="3">'+esc(v)+'</textarea>':'<input id="set-'+k+'" value="'+esc(v)+'" inputmode="decimal">')+'<button class="b b-ghost" data-k="'+k+'" style="margin-top:3px">Save</button></label>'; }).join('');
+      return '<label for="set-'+k+'">'+esc(LABELS[k])+(TEXTS[k]?'<textarea id="set-'+k+'" rows="'+(k==='menu_text'?6:2)+'">'+esc(v)+'</textarea>':'<input id="set-'+k+'" value="'+esc(v)+'" inputmode="decimal">')+'<button class="b b-ghost" data-k="'+k+'" style="margin-top:3px">Save</button></label>'; }).join('');
   }); }
+  // Staff test callers (live line testing phase)
+  function loadTc(){ api('GET',BASE+'/test-callers').then(function(j){ if(!j.success){ $('tclist').textContent=j.message||'Not allowed.'; return; }
+    $('tclist').innerHTML=j.data.length?'<table><tr><th>Number</th><th>Label</th><th></th></tr>'+j.data.map(function(t){ return '<tr><td>ends '+esc(t.phone_last4)+'</td><td>'+esc(t.label||'')+'</td><td><button class="b b-ghost" data-tc="'+esc(t.id)+'">Remove</button></td></tr>'; }).join('')+'</table>'
+      :'<div class="empty">No test callers yet. While the line is staff-only, nobody can reach Sasha.</div>'; }); }
+  $('tcadd').onclick=function(){ var b=this; b.disabled=true; api('POST',BASE+'/test-callers',{number:$('tcnum').value.trim(),label:$('tclabel').value.trim()}).then(function(j){ b.disabled=false;
+    var x=$('tcml'); x.className='msgline'+(j.success?'':' err'); x.textContent=j.success?('Added the number ending '+j.data.phone_last4+(j.data.already?' (already on the list)':'')+'.'):(j.message||'Not added.');
+    if(j.success){ $('tcnum').value=''; $('tclabel').value=''; } loadTc(); loadSettings(); }); };
+  $('tclist').addEventListener('click',function(e){ var b=e.target.closest('button[data-tc]'); if(!b) return; b.disabled=true;
+    api('DELETE',BASE+'/test-callers/'+b.getAttribute('data-tc')).then(function(j){ var x=$('tcml'); x.className='msgline'+(j.success?'':' err'); x.textContent=j.success?'Removed.':(j.message||'Not removed.'); loadTc(); loadSettings(); }); });
+  loadTc();
   $('settings').addEventListener('click',function(e){ var b=e.target.closest('button[data-k]'); if(!b) return; var k=b.getAttribute('data-k'), el=$('set-'+k);
-    var v=k==='disclosure_text'?el.value:Number(el.value); b.disabled=true;
+    var v=TEXTS[k]?el.value:Number(el.value); b.disabled=true;
     api('POST',BASE+'/settings',{key:k,value:v}).then(function(j){ b.disabled=false; var x=$('sml'); x.className='msgline'+(j.success?'':' err'); x.textContent=j.success?'Saved.':(j.message||'Not saved.'); loadSettings(); }); });
   // Test callers
   function showFix(list){ $('fixtures').innerHTML='<table><tr><th>Email</th><th>Mobile</th><th>Path</th></tr>'+list.map(function(f){

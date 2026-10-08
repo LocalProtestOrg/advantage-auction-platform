@@ -77,6 +77,7 @@ async function createDb() {
   await pg.exec(fs.readFileSync(path.join(ROOT, 'db', 'migrations', '188_sasha_phone_foundation.sql'), 'utf8'));
   await pg.exec(fs.readFileSync(path.join(ROOT, 'db', 'migrations', '189_bidder_phone_sms_paylinks.sql'), 'utf8'));
   await pg.exec(fs.readFileSync(path.join(ROOT, 'db', 'migrations', '190_sms_consent_versions_suppression.sql'), 'utf8'));
+  await pg.exec(fs.readFileSync(path.join(ROOT, 'db', 'migrations', '191_phone_sasha_live_relay.sql'), 'utf8'));
   await pg.exec(`INSERT INTO platform_config (key, value, category) VALUES ('sasha.enabled','true','sasha'),('sasha.engine_enabled','true','sasha'),('sasha.daily_budget_usd','25','sasha')`);
   return pg;
 }

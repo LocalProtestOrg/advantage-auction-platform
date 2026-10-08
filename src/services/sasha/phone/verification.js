@@ -33,7 +33,7 @@ const { normalizeUsPhone, last4, identifierHash } = require('../../../lib/phoneN
 const GENERIC_REPLY = 'If that matches an Advantage.Bid account, a 4-digit code has just been sent to the contact details already on that account '
   + '(a text to its verified mobile number, or otherwise an email to its email address). Ask the caller to read the code to you when it arrives. '
   + 'Do not say whether an account was found or which way the code was sent. If nothing arrives within a couple of minutes, offer to try with the '
-  + 'account email address, or a callback from the team.';
+  + 'account email address, or to take a message for the team.';
 const MAX_STARTS_PER_CALL = 3;
 const MAX_STARTS_PER_IDENTIFIER_PER_HOUR = 5;
 const MAX_STARTS_PER_CALLER_PER_HOUR = 6;
@@ -128,7 +128,7 @@ async function start(call, { email = null, phone = null, prefer = null } = {}, d
   const n = async (sql, p) => Number((await db.query(sql, p)).rows[0].n);
   if (await n(`SELECT count(*)::int n FROM cs_phone_verifications WHERE call_id = $1`, [call.id]) >= MAX_STARTS_PER_CALL) {
     await audit.record(call, 'verification_locked', { detail: { reason: 'too many verification starts on this call' } });
-    return { reply: 'Verification is not available again on this call. Offer a callback from the team.', status: 'call_limit' };
+    return { reply: 'Verification is not available again on this call. Offer to take a message for the team.', status: 'call_limit' };
   }
   if (await n(`SELECT count(*)::int n FROM cs_phone_verifications WHERE identifier_hash = $1 AND created_at > now() - interval '1 hour'`, [idHash]) >= MAX_STARTS_PER_IDENTIFIER_PER_HOUR) return finish('locked');
   if (call.caller_number_hash && await n(`SELECT count(*)::int n FROM cs_phone_verifications WHERE caller_number_hash = $1 AND created_at > now() - interval '1 hour'`,

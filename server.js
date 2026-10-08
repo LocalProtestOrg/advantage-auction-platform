@@ -102,6 +102,9 @@ const io = new Server(server, {
 });
 // Share the io instance with route handlers (req.app.get('io')).
 app.set('io', io);
+// Phone Sasha live calls: Twilio ConversationRelay WebSocket at /api/voice/relay (refused unless the line is on, the
+// handshake is Twilio-signed and it carries a valid relay ticket). Other upgrade paths are left to Socket.IO.
+require('./src/services/sasha/phone/relayServer').attach(server);
 
 // ── Socket.IO — auction rooms + per-user rooms (#1 real-time) ──────────────────
 const jwt = require('jsonwebtoken');
@@ -616,6 +619,7 @@ app.use('/api/admin/sasha', require('./src/routes/adminSasha')); // Sasha Shared
 app.use('/api/account', require('./src/routes/accountPhone')); // verified phone + optional text-alert preferences (self only)
 app.use('/pay', require('./src/routes/payLink')); // Phone Sasha payment links: single-use, then normal sign-in → existing payment flow
 app.use('/api/sms', require('./src/routes/smsInbound')); // Twilio inbound STOP/START/HELP sync (signed requests only; mig 190)
+app.use('/api/voice', require('./src/routes/voice')); // Phone Sasha voice webhooks (signed; OFF / staff-only until authorized; mig 191)
 app.use('/api/admin/claimed-listings', require('./src/routes/adminClaimedListings')); // Toolbox: Claimed Listings tab (listings.* permissions)
 app.use('/api/admin/founding-partners', require('./src/routes/adminFoundingPartners')); // Founding Auction Partners (mig 185; Super Admin writes)
 app.use('/api/auction-partner', require('./src/routes/auctionPartner')); // Auction Partner Program: invitation-only agreement acceptance

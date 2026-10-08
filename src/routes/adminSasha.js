@@ -211,13 +211,18 @@ router.post('/settings', superAdminOnly, wrap(async (req, res) => {
 
 // ── Phone Sasha (foundation; the real phone line is OFF and no voice-provider route exists) ───────────────
 const phoneSettings = require('../services/sasha/phone/phoneSettings');
-const PHONE_EDITABLE = ['disclosure_text', 'max_concurrent_calls', 'daily_budget_usd', 'per_call_budget_usd', 'transcript_retention_days', 'code_ttl_minutes',
-  'code_max_attempts', 'code_max_sends_per_30min', 'lockout_minutes', 'session_max_minutes', 'voice'];
+// The opening disclosure is no longer spoken (owner direction 2026-10-08); the menu, greeting and optional notice replace it.
+const PHONE_EDITABLE = ['greeting', 'menu_text', 'call_notice', 'access_mode', 'max_concurrent_calls', 'daily_budget_usd', 'per_call_budget_usd', 'transcript_retention_days',
+  'code_ttl_minutes', 'code_max_attempts', 'code_max_sends_per_30min', 'lockout_minutes', 'session_max_minutes', 'voice'];
+const PHONE_TEXT_LIMITS = { greeting: [10, 300], menu_text: [20, 1200], call_notice: [0, 400] };
 router.get('/phone/settings', wrap(async (req, res) => {
   phoneSettings.clear();
   const s = await phoneSettings.load();
   const spent = await require('../services/sasha/engine').spentTodayUsdForChannel('phone');
-  res.json({ success: true, data: { settings: s, live_calls_allowed: await phoneSettings.liveCallsAllowed(), provider_route_mounted: false,
+  const base = require('../lib/publicUrls').publicBaseUrl().replace(/\/+$/, '');
+  res.json({ success: true, data: { settings: s, live_calls_allowed: await phoneSettings.liveCallsAllowed(), relay_line_on: await phoneSettings.relayLineOn(),
+    provider_route_mounted: true, voice_webhook_url: base + '/api/voice/incoming', menu_lines: phoneSettings.menuLines(s),
+    test_callers: (await require('../services/sasha/phone/testCallers').list()).length,
     spent_today_usd: Math.round(spent * 10000) / 10000, editable: PHONE_EDITABLE,
     support_alert_numbers_configured: require('../services/sasha/phone/escalation').supportNumbers().length } });
 }));
@@ -226,9 +231,14 @@ router.post('/phone/settings', superAdminOnly, wrap(async (req, res) => {
   const k = String(key || '');
   if (!PHONE_EDITABLE.includes(k)) return res.status(400).json({ success: false, message: 'That phone setting cannot be changed here.' });
   let v = value;
-  if (k === 'disclosure_text') {
-    v = String(value || '').trim();
-    if (v.length < 20 || v.length > 400) return res.status(400).json({ success: false, message: 'The disclosure must be 20 to 400 characters.' });
+  if (PHONE_TEXT_LIMITS[k]) {
+    v = String(value || '').trim(); const [lo, hi] = PHONE_TEXT_LIMITS[k];
+    if (v.length < lo || v.length > hi) return res.status(400).json({ success: false, message: k.replace(/_/g, ' ') + ' must be ' + lo + ' to ' + hi + ' characters.' });
+  } else if (k === 'access_mode') {
+    if (!phoneSettings.ACCESS_MODES.includes(value)) return res.status(400).json({ success: false, message: 'Access must be staff_only or public.' });
+    if (value === 'public' && (req.body || {}).confirm !== 'OPEN TO PUBLIC') {
+      return res.status(400).json({ success: false, message: 'Opening the phone line to every caller needs the confirmation phrase OPEN TO PUBLIC.' });
+    }
   } else if (k === 'voice') {
     if (!value || typeof value !== 'object') return res.status(400).json({ success: false, message: 'Voice must be an object.' });
     v = { tts_provider: value.tts_provider ? String(value.tts_provider).slice(0, 40) : null, voice: value.voice ? String(value.voice).slice(0, 120) : null,
@@ -246,12 +256,28 @@ router.post('/phone/settings', superAdminOnly, wrap(async (req, res) => {
   res.json({ success: true, data: await phoneSettings.load() });
 }));
 
+// Staff test callers for the live line's testing phase (Super Admin only). Only the last 4 digits ever leave the server.
+const testCallers = require('../services/sasha/phone/testCallers');
+const tcFail = (res, e) => res.status(e.status || 400).json({ success: false, message: e.message });
+router.get('/phone/test-callers', superAdminOnly, wrap(async (req, res) => { res.json({ success: true, data: await testCallers.list() }); }));
+router.post('/phone/test-callers', superAdminOnly, wrap(async (req, res) => {
+  const b = req.body || {};
+  try { const r = await testCallers.add(String(b.number || '').slice(0, 30), { label: b.label, actorId: req.user.id }); res.json({ success: true, data: { id: r.id, phone_last4: r.phone_last4, already: !!r.already } }); }
+  catch (e) { if (e instanceof testCallers.TestCallerError) return tcFail(res, e); throw e; }
+}));
+router.delete('/phone/test-callers/:id', superAdminOnly, wrap(async (req, res) => {
+  if (!UUID.test(req.params.id || '')) return res.status(404).json({ success: false, message: 'Not found.' });
+  try { res.json({ success: true, data: await testCallers.remove(req.params.id, { actorId: req.user.id }) }); }
+  catch (e) { if (e instanceof testCallers.TestCallerError) return tcFail(res, e); throw e; }
+}));
+
 // Simulator: Super Admin only. Runs the real call path with provider 'simulated' (no telephone, no SMS).
 const sim = require('../services/sasha/phone/phoneSimulator');
 const simId = (req, res) => { if (!UUID.test(req.params.callId || '')) { res.status(404).json({ success: false, message: 'Not found.' }); return null; } return req.params.callId; };
 router.post('/phone/sim/start', superAdminOnly, wrap(async (req, res) => {
   const b = req.body || {};
-  res.json({ success: true, data: await sim.start({ actorId: req.user.id, callerNumber: b.caller_number ? String(b.caller_number).slice(0, 30) : null }) });
+  const routingReason = ['buyer', 'seller', 'pickup', 'other'].includes(b.routing_reason) ? b.routing_reason : null;
+  res.json({ success: true, data: await sim.start({ actorId: req.user.id, callerNumber: b.caller_number ? String(b.caller_number).slice(0, 30) : null, routingReason }) });
 }));
 router.post('/phone/sim/:callId/say', superAdminOnly, wrap(async (req, res) => {
   const id = simId(req, res); if (!id) return;
