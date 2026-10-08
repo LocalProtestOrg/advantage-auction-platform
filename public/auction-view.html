@@ -936,7 +936,7 @@
       const titleEl = document.getElementById('auction-title');
       titleEl.textContent = d.title || 'Auction';
       document.title = isHist
-        ? (d.title || 'Auction') + ' - Advantage Auction Company Historical Archive'
+        ? (d.title || 'Auction') + ' - Advantage.Bid Historical Archive'
         : (d.title || 'Auction') + ' - Advantage.Bid';
       if (isHist) {
         const hb = document.createElement('span');
@@ -1687,6 +1687,10 @@
       const r = await BidUtils.registerForAuction(auctionId, token, true, BidUtils.smsChoices(smsBoxes));
       if (r.unauthorized) { localStorage.removeItem('token'); window.location.href = '/login.html?next=' + encodeURIComponent(location.pathname + location.search); return; }
       if (r.code === 'PHONE_VERIFICATION_REQUIRED') { window.location.href = '/verify-phone.html?next=' + encodeURIComponent(location.pathname + location.search); return; }
+      if (r.ok && r.data && r.data.sms_alerts && r.data.sms_alerts.recorded === false) {
+        st.className = 'cbf-status err'; st.textContent = 'You are registered. ' + r.data.sms_alerts.message;
+        setTimeout(function () { bidGate.can_bid = true; bidGate.registered = true; loadAuction(); }, 4000); return;
+      }
       if (r.ok) { bidGate.can_bid = true; bidGate.registered = true; loadAuction(); }
       else { confirm.disabled = false; confirm.textContent = 'Confirm & Register'; st.className = 'cbf-status err'; st.textContent = r.message; }
     });

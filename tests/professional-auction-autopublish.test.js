@@ -130,7 +130,7 @@ describe('seller UX + governance doc', () => {
   test('dashboard submit posts to /submit; pros see Publish, individuals keep Submit for review', () => {
     const d = read('public', 'seller-dashboard.html');
     expect(d).toMatch(/\/api\/auctions\/' \+ auctionId \+ '\/submit'/);
-    expect(d).toMatch(/isProfessionalSeller\(\) \? 'Publish Auction' : 'Submit for AAC Review'/);
+    expect(d).toMatch(/isProfessionalSeller\(\) \? 'Publish Auction' : 'Submit for Advantage\.Bid Review'/);
     expect(d).toMatch(/Your auction is now live on Advantage\.Bid/);
     expect(d).toMatch(/Submit .* to Advantage for review/); // individual copy preserved
   });

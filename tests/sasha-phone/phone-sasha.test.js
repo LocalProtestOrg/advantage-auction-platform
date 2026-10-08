@@ -443,7 +443,8 @@ describe('payments: no card data ever reaches storage or the model', () => {
 describe('payment links', () => {
   const payLinks = require('../../src/services/payLinkService');
   async function linkCall(u, invoiceNumber, delivery = 'email') {
-    const { callId } = await verifiedCall(u, [{ tools: [{ name: 'send_payment_link', input: { invoice_number: invoiceNumber, delivery } }] }, (p) => ({ text: lastToolResult(p).note })]);
+    const input = delivery === 'text' ? { invoice_number: invoiceNumber, delivery, confirmed_with_caller: true } : { invoice_number: invoiceNumber, delivery };   // texts: caller already agreed
+    const { callId } = await verifiedCall(u, [{ tools: [{ name: 'send_payment_link', input }] }, (p) => ({ text: lastToolResult(p).note })]);
     const r = await sim.say(callId, ADMIN, 'Can you send me a link to pay invoice ' + invoiceNumber + '?');
     return { callId, r };
   }
@@ -781,5 +782,65 @@ describe('production safety and regressions', () => {
     }
     expect(r).toMatch(/router\.get\('\/phone\/sim\/:callId', superAdminOnly/);
     expect(r).toMatch(/router\.post\('\/phone\/settings', superAdminOnly/);
+  });
+});
+
+// ── payment-link texts: confirmation, STOP, destination (migration 190) ───────────────────────────────
+describe('payment-link texts: spoken confirmation, STOP respected, verified number only, no alert consent', () => {
+  const payLinks = require('../../src/services/payLinkService');
+  async function unpaidInvoiceFor(buyerId) {
+    const seller = await user({ role: 'seller' });
+    await auction({ sellerUserId: seller.id, unpaidBy: buyerId });
+    return (await q(`SELECT id, invoice_number FROM buyer_auction_invoices WHERE buyer_user_id = $1 AND status = 'payment_required'`, [buyerId]))[0];
+  }
+  test('Sasha confirms first ("one-time payment link ... doesn\'t sign you up for text alerts"), sends only after the caller agrees, and no consent is created', async () => {
+    const u = await user({ phone: '(551) 616-2002', verified: true });
+    const inv = await unpaidInvoiceFor(u.id);
+    const { callId } = await verifiedCall(u, [
+      { tools: [{ name: 'send_payment_link', input: { invoice_number: inv.invoice_number, delivery: 'text' } }] }, (p) => ({ text: lastToolResult(p).say }),
+      { tools: [{ name: 'send_payment_link', input: { invoice_number: inv.invoice_number, delivery: 'text', confirmed_with_caller: true } }] }, (p) => ({ text: lastToolResult(p).note }),
+    ]);
+    const first = await sim.say(callId, ADMIN, 'Can you text me a link to pay invoice ' + inv.invoice_number + '?');
+    expect(spokenText(first)).toMatch(/I'll text a one-time payment link to your number ending in 2002\. It doesn't sign you up for text alerts\./);
+    expect((first.handset || []).filter((x) => x.kind === 'text')).toHaveLength(0);
+    expect(await q(`SELECT * FROM payment_links WHERE combined_invoice_id = $1`, [inv.id])).toHaveLength(0);
+    const second = await sim.say(callId, ADMIN, 'Yes please.');
+    const text = second.handset.find((x) => x.kind === 'text');
+    expect(text.to_last4).toBe('2002');
+    expect(text.body).toMatch(/\/pay\/[A-Za-z0-9_-]{40,}/);
+    expect(await q(`SELECT * FROM sms_consents WHERE user_id = $1`, [u.id])).toHaveLength(0);
+    expect(await q(`SELECT * FROM sms_consent_events WHERE user_id = $1`, [u.id])).toHaveLength(0);
+  });
+  test('a number that replied STOP is never texted a payment link; Sasha is told to offer email', async () => {
+    const u = await user({ phone: '(551) 616-2003', verified: true });
+    const inv = await unpaidInvoiceFor(u.id);
+    await require('../../src/services/smsSuppressionService').suppress(normalizeUsPhone('(551) 616-2003').e164, { reason: 'stop_keyword', keyword: 'STOP' });
+    const { callId } = await verifiedCall(u, [
+      { tools: [{ name: 'send_payment_link', input: { invoice_number: inv.invoice_number, delivery: 'text', confirmed_with_caller: true } }] }, (p) => ({ text: lastToolResult(p).note }),
+    ]);
+    const r = await sim.say(callId, ADMIN, 'Text me the payment link.');
+    expect(spokenText(r)).toMatch(/opted out of Advantage\.Bid texts .* email/);
+    expect((r.handset || []).filter((x) => x.kind === 'text')).toHaveLength(0);
+    expect(await q(`SELECT * FROM payment_links WHERE combined_invoice_id = $1`, [inv.id])).toHaveLength(0);
+    expect((await q(`SELECT detail FROM cs_phone_audit WHERE call_id = $1 AND event_type = 'payment_link_refused'`, [callId]))[0].detail.reason).toBe('number opted out of texts');
+  });
+  test('a number given during the call is never used as the destination (only the verified number on the account)', async () => {
+    const u = await user({ phone: '(551) 616-2004', verified: true });
+    const inv = await unpaidInvoiceFor(u.id);
+    const { callId } = await verifiedCall(u, [
+      { tools: [{ name: 'send_payment_link', input: { invoice_number: inv.invoice_number, delivery: 'text', confirmed_with_caller: true, phone: '(551) 777-8888', to: '+15517778888' } }] },
+      (p) => ({ text: lastToolResult(p).note }),
+    ]);
+    const r = await sim.say(callId, ADMIN, 'Send it to my other phone, 551 777 8888.');
+    const texts = r.handset.filter((x) => x.kind === 'text');
+    expect(texts).toHaveLength(1);
+    expect(texts[0].to_last4).toBe('2004');
+    const tool = require('../../src/services/sasha/phone/phoneTools.js');
+    const def = JSON.stringify(tool.VERIFIED_TOOLS || []);
+    if (def !== '[]') expect(def).not.toMatch(/"(phone|to|destination)":\{/);
+    expect(engine.systemPrompt({ channel: 'phone' })).toMatch(/If the caller gives a different number, do not text it and do not treat it as proof of who they are/);
+  });
+  test('the payment-link confirmation wording is fixed on the server', () => {
+    expect(payLinks.TEXT_CONFIRMATION('1234')).toBe("I'll text a one-time payment link to your number ending in 1234. It doesn't sign you up for text alerts.");
   });
 });

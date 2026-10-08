@@ -684,7 +684,7 @@ function renderAuctionCard(container, auction) {
     <div style="margin:0.75rem 1.25rem 0;padding:0.65rem 0.9rem;background:#fff7ed;border:1px solid #fdba74;border-radius:6px;font-size:0.82rem;color:#9a3412;line-height:1.5">
       <strong>Revisions requested by Advantage.Bid</strong>
       <div style="margin-top:0.35rem;color:#7c2d12;white-space:pre-wrap">${escHtml(auction.revision_note)}</div>
-      <div style="margin-top:0.4rem;font-size:0.75rem;color:#9a3412">Edit your auction below, then click "Submit for AAC Review" again when ready.</div>
+      <div style="margin-top:0.4rem;font-size:0.75rem;color:#9a3412">Edit your auction below, then click "Submit for Advantage.Bid Review" again when ready.</div>
     </div>` : '';
 
   // GOV-REJ: terminal rejection banner. No CTA - the auction is locked and
@@ -720,7 +720,7 @@ function renderAuctionCard(container, auction) {
         <button class="btn btn-secondary btn-sm" data-toggle-lots="${auction.id}">View Lots</button>
         ${canManageCatalog ? `<a href="/seller-create.html?edit=${auction.id}" class="btn btn-secondary btn-sm">Edit Auction Details</a>` : ''}
         ${canManageCatalog ? `<a href="/dashboard/lots.html?auctionId=${auction.id}" class="btn btn-primary btn-sm">${isEditable ? '+ Add Lot' : 'Manage Lots'}</a>` : ''}
-        ${isEditable ? `<button class="btn btn-secondary btn-sm" data-submit-auction="${auction.id}" data-auction-title="${escHtml(auction.title || 'Untitled')}">${isProfessionalSeller() ? 'Publish Auction' : 'Submit for AAC Review'}</button>` : ''}
+        ${isEditable ? `<button class="btn btn-secondary btn-sm" data-submit-auction="${auction.id}" data-auction-title="${escHtml(auction.title || 'Untitled')}">${isProfessionalSeller() ? 'Publish Auction' : 'Submit for Advantage.Bid Review'}</button>` : ''}
         <button class="btn btn-ghost btn-sm" data-history="${auction.id}" data-auction-title="${escHtml(auction.title || 'Untitled')}" title="View moderation and lifecycle history">History</button>
       </div>
     </div>

@@ -39,11 +39,17 @@ async function findPayableInvoice(userId, invoiceNumber) {
   return inv;
 }
 
+const TEXT_CONFIRMATION = (l4) => `I'll text a one-time payment link to your number ending in ${l4}. It doesn't sign you up for text alerts.`;
+
 /**
  * ctx: { call, sessionId, userId }. delivery: 'text' | 'email'. deps: { handset, mailbox } in simulations.
  * Returns { sent, delivery, destination_last4 } — never the token or URL (the model must not see it).
+ *
+ * A text goes ONLY to the verified mobile number already on the account (never a number given during the call), only
+ * after Sasha has told the caller TEXT_CONFIRMATION and the caller agreed (confirmedWithCaller), and never to a number
+ * that replied STOP. It is a one-time text the caller asked for: it creates no text-alert consent.
  */
-async function issue({ call, sessionId, userId }, { invoiceNumber, delivery = 'email' }, deps = {}) {
+async function issue({ call, sessionId, userId }, { invoiceNumber, delivery = 'email', confirmedWithCaller = false }, deps = {}) {
   const rec = (event, detail = {}) => audit.record(call, event, { tool: 'send_payment_link', category: 'payment_link', accountUserId: userId, sessionId, detail });
   await rec('payment_link_requested', { what: delivery });
   if (!userId || !sessionId) { await rec('payment_link_refused', { reason: 'caller not verified' }); return { sent: false, reason: 'not_verified' }; }
@@ -60,6 +66,17 @@ async function issue({ call, sessionId, userId }, { invoiceNumber, delivery = 'e
   const phoneOk = require('./accountPhoneService').isVerified(u);
   const channel = delivery === 'text' && phoneOk ? 'sms' : 'email';
   if (channel === 'email' && !u.email) { await rec('payment_link_refused', { reason: 'no email on account' }); return { sent: false, reason: 'no_destination' }; }
+  if (channel === 'sms') {
+    const l4 = last4(u.phone_verified_e164);
+    if (await require('./smsSuppressionService').isSuppressed(u.phone_verified_e164)) {
+      await rec('payment_link_refused', { reason: 'number opted out of texts', invoices: [inv.invoice_number], destination_last4: l4 });
+      return { sent: false, reason: 'number_opted_out', note: 'That number has opted out of Advantage.Bid texts (it replied STOP), so the link cannot be texted. Offer to email it to the address on the account instead.' };
+    }
+    if (confirmedWithCaller !== true) {
+      return { sent: false, reason: 'needs_confirmation', needs_confirmation: true, destination_last4: l4, say: TEXT_CONFIRMATION(l4),
+        note: 'Nothing was sent yet. Say this to the caller in your own natural voice, wait for a yes, then call send_payment_link again with confirmed_with_caller true.' };
+    }
+  }
   await db.query(`UPDATE payment_links SET status = 'superseded' WHERE combined_invoice_id = $1 AND status = 'issued'`, [inv.id]);
   const token = crypto.randomBytes(32).toString('base64url');
   const url = `${SITE()}/pay/${token}`;
@@ -112,4 +129,4 @@ async function open(token, sessionUserId) {
   return { action: 'redirect', status: 302, location: '/invoices.html?pay=' + encodeURIComponent(link.combined_invoice_id) };
 }
 
-module.exports = { issue, open, findPayableInvoice, PayLinkError, TTL_MINUTES, PAYABLE, _sha: sha };
+module.exports = { issue, open, findPayableInvoice, PayLinkError, TTL_MINUTES, PAYABLE, TEXT_CONFIRMATION, _sha: sha };

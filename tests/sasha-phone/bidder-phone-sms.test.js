@@ -59,9 +59,14 @@ async function auctionWithLot({ state = 'active', startInMin = 60, lotState = 'o
     [a.id, lotState, String(closesInMin)]))[0];
   return { a, lot };
 }
-async function optIn(userId, type) {
+/** What the page showed: the current consent version and the last 4 digits of the verified number. */
+async function shown(userId) {
+  const u = (await q(`SELECT phone_verified_e164 FROM users WHERE id = $1`, [userId]))[0];
+  return { consentVersion: consent.CONSENT_VERSION, shownLast4: u && u.phone_verified_e164 ? u.phone_verified_e164.slice(-4) : null };
+}
+async function optIn(userId, type, source = 'notification_settings') {
   await setCfg('auction_sms.offer_opt_in', true);
-  return consent.set(userId, type, true, { source: 'notification_settings' });
+  return consent.set(userId, type, true, { source, ...(await shown(userId)) });
 }
 /** A verified, opted-in bidder who has bid on the lot and been outbid by someone else. */
 async function outbidBidder(lot, type = 'outbid') {
@@ -208,17 +213,20 @@ describe('optional text-alert consent', () => {
   test('opt-in needs the program to be offered AND a verified phone; opt-out always works; every change is an event', async () => {
     await setCfg('auction_sms.offer_opt_in', false);
     const v = await user({ phone: freshNumber(), verified: true });
-    await expect(consent.set(v.id, 'outbid', true, { source: 'notification_settings' })).rejects.toMatchObject({ code: 'NOT_OFFERED' });
+    await expect(consent.set(v.id, 'outbid', true, { source: 'notification_settings', ...(await shown(v.id)) })).rejects.toMatchObject({ code: 'NOT_OFFERED' });
     await setCfg('auction_sms.offer_opt_in', true);
     const unv = await user({ phone: freshNumber() });
-    await expect(consent.set(unv.id, 'outbid', true, { source: 'notification_settings' })).rejects.toMatchObject({ code: 'PHONE_NOT_VERIFIED' });
-    expect(await consent.set(v.id, 'outbid', true, { source: 'notification_settings', ip: '1.2.3.4' })).toEqual({ changed: true, opted_in: true });
+    await expect(consent.set(unv.id, 'outbid', true, { source: 'notification_settings', consentVersion: consent.CONSENT_VERSION, shownLast4: '0000' })).rejects.toMatchObject({ code: 'PHONE_NOT_VERIFIED' });
+    expect(await consent.set(v.id, 'outbid', true, { source: 'notification_settings', ip: '1.2.3.4', ...(await shown(v.id)) })).toEqual({ changed: true, opted_in: true });
     expect(await consent.isOptedIn(v.id, 'watched_closing')).toBe(false);   // independent types
     await setCfg('auction_sms.offer_opt_in', false);
     expect(await consent.set(v.id, 'outbid', false, { source: 'notification_settings' })).toEqual({ changed: true, opted_in: false });   // opt-out even when not offered
     const row = (await q(`SELECT status, opted_in_at, opted_out_at, source, consent_text, phone_e164_at_opt_in FROM sms_consents WHERE user_id = $1`, [v.id]))[0];
     expect(row.status).toBe('opted_out'); expect(row.opted_in_at).toBeTruthy(); expect(row.opted_out_at).toBeTruthy();
-    expect(row.consent_text).toMatch(/Reply STOP to opt out/);
+    expect(row.consent_text).toBe(consent.recordText('outbid', 'notification_settings', (await shown(v.id)).shownLast4));
+    expect(row.consent_text.startsWith('Text message alerts: Outbid alerts: Yes, text me Advantage.Bid outbid alerts')).toBe(true);
+    expect(row.consent_text).toContain('Message frequency varies. Msg & data rates may apply. Reply STOP');
+    expect(row.consent_text).toContain('Terms (https://bid.advantage.bid/terms.html) · Privacy Policy (https://bid.advantage.bid/privacy.html)');
     const ev = await q(`SELECT action, source, phone_last4, ip_hash FROM sms_consent_events WHERE user_id = $1 ORDER BY created_at`, [v.id]);
     expect(ev.map((e) => e.action)).toEqual(['opt_in', 'opt_out']);
     expect(ev[0].ip_hash).toMatch(/^[0-9a-f]{64}$/);
@@ -227,10 +235,16 @@ describe('optional text-alert consent', () => {
     await setCfg('auction_sms.offer_opt_in', true);
     const { a } = await auctionWithLot();
     const u = await user({ phone: freshNumber(), verified: true });
-    await registration.registerForAuction(u.id, a.id, { pickupAcknowledged: true, smsOptIn: { outbid: true } });
+    const sh = await shown(u.id);
+    const reg = await registration.registerForAuction(u.id, a.id, { pickupAcknowledged: true, smsOptIn: { outbid: true, consent_version: sh.consentVersion, shown_last4: sh.shownLast4 } });
+    expect(reg.sms_alerts).toEqual({ recorded: true });
     expect(await consent.isOptedIn(u.id, 'outbid')).toBe(true);
     expect(await consent.isOptedIn(u.id, 'watched_closing')).toBe(false);
-    expect((await q(`SELECT source, source_context FROM sms_consents WHERE user_id = $1`, [u.id]))[0]).toEqual({ source: 'auction_registration', source_context: { auction_id: a.id } });
+    const row = (await q(`SELECT source, source_context, surface, consent_version, terms_last_updated, privacy_last_updated, consent_text FROM sms_consents WHERE user_id = $1`, [u.id]))[0];
+    expect(row).toMatchObject({ source: 'auction_registration', source_context: { auction_id: a.id }, surface: 'auction_registration', consent_version: consent.CONSENT_VERSION,
+      terms_last_updated: consent.LEGAL.terms_last_updated, privacy_last_updated: consent.LEGAL.privacy_last_updated });
+    expect(row.consent_text).toBe(consent.recordText('outbid', 'auction_registration', sh.shownLast4));
+    expect(row.consent_text).toMatch(/^Optional text alerts from Advantage.Bid: Yes, text me Advantage.Bid outbid alerts .* Not required to register or bid./);
   });
   test('STOP opts the sender out of every alert type on every account with that verified number; HELP answers', async () => {
     const n = freshNumber();
@@ -447,5 +461,175 @@ describe('tester scenarios, wiring and safety', () => {
     expect(r).toMatch(/router\.post\('\/phone\/sms-scenarios\/:key', superAdminOnly/);
     expect(r).toMatch(/router\.post\('\/phone\/bidder-sms-settings', superAdminOnly/);
     expect(r).toMatch(/Confirm the A2P campaign covers these texts before turning them on/);
+  });
+});
+
+// ── consent versions, STOP/START/HELP sync, do-not-text list (migration 190) ─────────────────────────
+describe('versioned consent, STOP / START / HELP sync and the do-not-text list', () => {
+  const supp = require('../../src/services/smsSuppressionService');
+  const inbound = require('../../src/routes/smsInbound');
+  const e164Of = (n) => require('../../src/lib/phoneNumber').normalizeUsPhone(n).e164;
+  let sidSeq = 0; const sid = () => 'SM' + String(++sidSeq).padStart(32, '0');
+
+  test('verifying a phone never creates text-alert consent', async () => {
+    const u = await user({});
+    await verifyByCode(u.id, freshNumber());
+    expect(await q(`SELECT * FROM sms_consents WHERE user_id = $1`, [u.id])).toHaveLength(0);
+    expect(await consent.get(u.id)).toMatchObject({ outbid: { opted_in: false }, watched_closing: { opted_in: false } });
+  });
+  test('opt-in is refused for a stale page (wrong version or a different number shown) and for any source other than the two website pages', async () => {
+    await setCfg('auction_sms.offer_opt_in', true);
+    const u = await user({ phone: freshNumber(), verified: true });
+    const sh = await shown(u.id);
+    await expect(consent.set(u.id, 'outbid', true, { source: 'notification_settings', consentVersion: 'sms-alerts-v1', shownLast4: sh.shownLast4 })).rejects.toMatchObject({ code: 'STALE_CONSENT' });
+    await expect(consent.set(u.id, 'outbid', true, { source: 'notification_settings', consentVersion: sh.consentVersion, shownLast4: '9999' })).rejects.toMatchObject({ code: 'STALE_CONSENT' });
+    await expect(consent.set(u.id, 'outbid', true, { source: 'notification_settings' })).rejects.toMatchObject({ code: 'STALE_CONSENT' });
+    for (const source of ['admin', 'sms_keyword']) await expect(consent.set(u.id, 'outbid', true, { source, ...sh })).rejects.toMatchObject({ code: 'BAD_SOURCE' });
+    expect(await q(`SELECT * FROM sms_consents WHERE user_id = $1`, [u.id])).toHaveLength(0);
+  });
+  test('a stale registration choice never undoes the registration; nothing is recorded and the page is told why', async () => {
+    await setCfg('auction_sms.offer_opt_in', true);
+    const { a } = await auctionWithLot();
+    const u = await user({ phone: freshNumber(), verified: true });
+    const r = await registration.registerForAuction(u.id, a.id, { pickupAcknowledged: true, smsOptIn: { outbid: true, consent_version: 'old', shown_last4: '0000' } });
+    expect(r.status).toBe('active');
+    expect(r.sms_alerts).toMatchObject({ recorded: false, message: expect.stringMatching(/Reload/) });
+    expect(await consent.isOptedIn(u.id, 'outbid')).toBe(false);
+  });
+  test('outbid and watched-closing consent are separate rows, each with its own exact wording', async () => {
+    const u = await user({ phone: freshNumber(), verified: true });
+    await optIn(u.id, 'watched_closing', 'auction_registration');
+    expect(await consent.isOptedIn(u.id, 'outbid')).toBe(false);
+    expect(await consent.isOptedIn(u.id, 'watched_closing')).toBe(true);
+    const rows = await q(`SELECT sms_type, consent_text FROM sms_consents WHERE user_id = $1`, [u.id]);
+    expect(rows).toHaveLength(1);
+    expect(rows[0].consent_text).toMatch(/Yes, text me Advantage\.Bid reminders about 1 hour before lots begin closing in auctions I watch/);
+  });
+  test('the registration panel offer carries the exact wording to render; the bid gate exposes it', async () => {
+    await setCfg('auction_sms.offer_opt_in', true);
+    const { a } = await auctionWithLot();
+    const u = await user({ phone: freshNumber(), verified: true });
+    const g = await registration.getRegistrationStatus(u.id, a.id);
+    expect(g.sms_offer).toMatchObject({ offer: true, current: { outbid: false, watched_closing: false } });
+    const p = g.sms_offer.presentation;
+    expect(p).toMatchObject({ consent_version: consent.CONSENT_VERSION, heading: 'Optional text alerts from Advantage.Bid', phone_last4: (await shown(u.id)).shownLast4,
+      links: [{ text: 'Terms', href: '/terms.html' }, { text: 'Privacy Policy', href: '/privacy.html' }] });
+    expect(p.labels.outbid).toBe('Yes, text me Advantage.Bid outbid alerts (at most one text per lot every 5 minutes).');
+    expect(p.disclosure).toMatch(/^Optional\. Not required to register or bid\. Texts go to your verified number ending in \d{4}\. Message frequency varies\. Msg & data rates may apply\. Reply STOP to opt out, HELP for help\./);
+    await setCfg('auction_sms.offer_opt_in', false);
+    expect((await registration.getRegistrationStatus(u.id, a.id)).sms_offer).toEqual({ offer: false });
+  });
+  test('a consent counts only for the number it was given for: a new verified number stops alerts until the customer opts in again', async () => {
+    const u = await user({ password: 'pw-123456' });
+    await verifyByCode(u.id, freshNumber());
+    await optIn(u.id, 'outbid');
+    expect(await consent.isOptedIn(u.id, 'outbid')).toBe(true);
+    await verifyByCode(u.id, freshNumber(), { currentPassword: 'pw-123456' });
+    expect(await consent.isOptedIn(u.id, 'outbid')).toBe(false);
+    expect((await consent.get(u.id)).outbid).toMatchObject({ opted_in: false, needs_reconfirm: true });
+    await optIn(u.id, 'outbid');
+    expect(await consent.isOptedIn(u.id, 'outbid')).toBe(true);
+  });
+  test('STOP: number suppressed, both alert types off; opt-in refused while suppressed; START releases the number but does NOT turn alerts back on', async () => {
+    const n = freshNumber(); const e164 = e164Of(n);
+    const u = await user({}); await verifyByCode(u.id, n);
+    await optIn(u.id, 'outbid'); await optIn(u.id, 'watched_closing');
+    expect(await inbound.processInbound({ MessageSid: sid(), From: e164, Body: 'stop' })).toMatchObject({ status: 'processed', action: 'stop', accounts: 1, changed: 2 });
+    expect(await supp.isSuppressed(e164)).toBe(true);
+    expect(await consent.isOptedIn(u.id, 'outbid')).toBe(false);
+    expect(await consent.isOptedIn(u.id, 'watched_closing')).toBe(false);
+    await expect(optIn(u.id, 'outbid')).rejects.toMatchObject({ code: 'NUMBER_OPTED_OUT' });
+    expect(await inbound.processInbound({ MessageSid: sid(), From: e164, Body: 'START' })).toMatchObject({ status: 'processed', action: 'start' });
+    expect(await supp.isSuppressed(e164)).toBe(false);
+    expect(await consent.isOptedIn(u.id, 'outbid')).toBe(false);   // still off: START never re-enables alerts
+    expect(await consent.isOptedIn(u.id, 'watched_closing')).toBe(false);
+    await optIn(u.id, 'outbid');                                   // the customer opts in again on the website
+    expect(await consent.isOptedIn(u.id, 'outbid')).toBe(true);
+  });
+  test('HELP / INFO and other messages change nothing and create no consent; the message body is never stored', async () => {
+    const n = freshNumber(); const e164 = e164Of(n);
+    const u = await user({}); await verifyByCode(u.id, n);
+    for (const Body of ['HELP', 'info', 'what is my bid status? card 4111 1111 1111 1111']) await inbound.processInbound({ MessageSid: sid(), From: e164, Body });
+    expect(await q(`SELECT * FROM sms_consents WHERE user_id = $1`, [u.id])).toHaveLength(0);
+    expect(await supp.isSuppressed(e164)).toBe(false);
+    const rows = await q(`SELECT * FROM sms_inbound_events WHERE from_last4 = $1 ORDER BY created_at`, [e164.slice(-4)]);
+    expect(rows.map((r) => r.action)).toEqual(['help', 'help', 'other']);
+    expect(JSON.stringify(rows)).not.toMatch(/4111|bid status/);
+    expect(JSON.stringify(rows)).not.toContain(e164);
+  });
+  test('each provider message id is processed once (retries are harmless)', async () => {
+    const n = freshNumber(); const e164 = e164Of(n);
+    const u = await user({}); await verifyByCode(u.id, n); await optIn(u.id, 'outbid');
+    const id = sid();
+    expect(await inbound.processInbound({ MessageSid: id, From: e164, Body: 'STOP' })).toMatchObject({ status: 'processed' });
+    expect(await inbound.processInbound({ MessageSid: id, From: e164, Body: 'STOP' })).toEqual({ status: 'duplicate' });
+    expect((await q(`SELECT count(*)::int n FROM sms_consent_events WHERE user_id = $1 AND action = 'opt_out'`, [u.id]))[0].n).toBe(1);
+  });
+  test('the webhook refuses unsigned or badly signed requests and answers signed ones with empty TwiML', async () => {
+    const prev = { a: process.env.TWILIO_ACCOUNT_SID, t: process.env.TWILIO_AUTH_TOKEN };
+    const res = () => { const r = { code: null, body: null, type() { return r; }, status(c) { r.code = c; return r; }, send(b) { r.body = b; return r; } }; return r; };
+    const req = (sig, body) => ({ originalUrl: '/api/sms/inbound', body, get: (h) => ({ 'x-twilio-signature': sig, host: 'bid.advantage.bid' })[h.toLowerCase()] });
+    try {
+      delete process.env.TWILIO_AUTH_TOKEN; delete process.env.TWILIO_ACCOUNT_SID;
+      let r = res(); await inbound.handler()(req('sig', {}), r); expect(r.code).toBe(503);
+      process.env.TWILIO_ACCOUNT_SID = 'AC_test_placeholder'; process.env.TWILIO_AUTH_TOKEN = 'test-token-placeholder';
+      const seen = [];
+      const validateRequest = (token, sig, url) => { seen.push(url); return sig === 'good' && token === 'test-token-placeholder'; };
+      r = res(); await inbound.handler({ validateRequest })(req(undefined, { MessageSid: sid(), From: '+15516201234', Body: 'STOP' }), r); expect(r.code).toBe(403);
+      r = res(); await inbound.handler({ validateRequest })(req('bad', { MessageSid: sid(), From: '+15516201234', Body: 'STOP' }), r); expect(r.code).toBe(403);
+      r = res(); await inbound.handler({ validateRequest })(req('good', { MessageSid: sid(), From: '+15516209876', Body: 'HELP' }), r);
+      expect(r.code).toBe(200); expect(r.body).toBe('<?xml version="1.0" encoding="UTF-8"?><Response></Response>');
+      expect(seen).toContain('https://bid.advantage.bid/api/sms/inbound');
+    } finally {
+      if (prev.a === undefined) delete process.env.TWILIO_ACCOUNT_SID; else process.env.TWILIO_ACCOUNT_SID = prev.a;
+      if (prev.t === undefined) delete process.env.TWILIO_AUTH_TOKEN; else process.env.TWILIO_AUTH_TOKEN = prev.t;
+    }
+    expect(read('server.js')).toMatch(/app\.use\('\/api\/sms', require\('\.\/src\/routes\/smsInbound'\)\)/);
+  });
+  test('a suppressed number is never texted an alert, even when a sender is available', async () => {
+    await setCfg('auction_sms.enabled', true);
+    try {
+      const { lot } = await auctionWithLot();
+      const u = await outbidBidder(lot);
+      const e164 = (await q(`SELECT phone_verified_e164 FROM users WHERE id = $1`, [u.id]))[0].phone_verified_e164;
+      await sms.onOutbid({ userId: u.id, lot });
+      await supp.suppress(e164, { reason: 'admin' });
+      const t = textSender();
+      await sms.processPending({}, { sender: t.fn });
+      expect(t.sent.filter((x) => x.to === e164)).toHaveLength(0);
+      expect((await q(`SELECT suppress_reason FROM auction_sms_messages WHERE user_id = $1`, [u.id])).map((r) => r.suppress_reason)).toContain('number_opted_out');
+    } finally { await setCfg('auction_sms.enabled', false); }
+  });
+  test('a provider "unsubscribed recipient" error (21610) is treated exactly like STOP', async () => {
+    const n = freshNumber(); const e164 = e164Of(n);
+    const u = await user({}); await verifyByCode(u.id, n); await optIn(u.id, 'outbid');
+    expect(await supp.handleSendError(Object.assign(new Error('unsubscribed'), { code: 21610 }), e164)).toBe(true);
+    expect(await supp.isSuppressed(e164)).toBe(true);
+    expect(await consent.isOptedIn(u.id, 'outbid')).toBe(false);
+    expect(await supp.handleSendError(Object.assign(new Error('other'), { code: 30003 }), e164)).toBe(false);
+    const row = (await q(`SELECT reason FROM sms_suppressions WHERE phone_last4 = $1 AND status = 'suppressed'`, [e164.slice(-4)]))[0];
+    expect(row.reason).toBe('provider_unsubscribed');
+  });
+  test('the two website pages render the server wording verbatim with unchecked boxes and Terms / Privacy links', () => {
+    const bu = read('public/widgets/shared/bid-utils.js');
+    expect(bu).toMatch(/cb\.checked = false/);
+    expect(bu).toMatch(/sp\.textContent = p\.labels\[k\]/);
+    expect(bu).toMatch(/out\.consent_version = wrap\.getAttribute\('data-consent-version'\)/);
+    expect(bu).not.toMatch(/Text me if I am outbid/);
+    const nt = read('public/notifications.html');
+    expect(nt).toMatch(/body\.consent_version = state\.presentation\.consent_version/);
+    expect(nt).toMatch(/pr\.links/);
+  });
+  test('Terms and Privacy: SMS consent is not bundled, the program is disclosed, mobile data is not shared for marketing, and only "Advantage.Bid" is named', () => {
+    const terms = read('public/terms.html'); const privacy = read('public/privacy.html');
+    for (const doc of [terms, privacy, read('public/data-deletion.html')]) expect(doc).not.toMatch(/Advantage Auction Company|\bAAC\b/i);
+    expect(terms).toMatch(/\*\*Text messages are not part of this consent\.\*\* Advantage\.Bid sends text messages only as described in Section 6A\./);
+    expect(terms).toMatch(/## 6A\. Text Messages \(SMS\)/);
+    expect(terms).not.toMatch(/may contact you by email, phone, text message/);
+    expect(privacy).not.toMatch(/you consent to receive transactional communications including/);
+    expect(privacy).toMatch(/does not sign you up for text messages/);
+    expect(privacy).toMatch(/We do not sell, rent, or share your mobile phone number, or your text message opt-in data and consent, with third parties or affiliates for their marketing or promotional purposes\./);
+    expect(privacy).toMatch(/with service providers who deliver our text messages/);
+    for (const doc of [terms, privacy]) { expect(doc).toMatch(/Message frequency varies/); expect(doc).toMatch(/Reply STOP/); expect(doc).toMatch(/HELP/); }
   });
 });

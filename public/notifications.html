@@ -48,32 +48,44 @@
   (function () {
     var token = localStorage.getItem('token');
     if (!token) { location.href = '/login.html?next=' + encodeURIComponent('/notifications.html'); return; }
-    var LABELS = { outbid: 'Outbid alerts', watched_closing: 'Watched auction closing reminders' };
+    var state = null;   // last GET payload: preferences + presentation (the exact consent wording, versioned)
     function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
     function msg(t, kind) { var m = document.getElementById('msg'); m.textContent = t || ''; m.className = 'msg' + (kind ? ' ' + kind : ''); }
     function api(method, body) {
       return fetch('/api/account/sms-preferences', { method: method, headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token }, body: body ? JSON.stringify(body) : undefined })
         .then(function (r) { if (r.status === 401) { location.href = '/login.html?next=/notifications.html'; } return r.json(); });
     }
+    // Every word of the consent comes from the server and is rendered verbatim; boxes are checked only for alerts the
+    // customer already turned on for this number.
     function render(d) {
-      var box = document.getElementById('sms'); var p = d.preferences;
+      state = d;
+      var box = document.getElementById('sms'); var p = d.preferences; var pr = d.presentation || {};
       var anyOn = Object.keys(p).some(function (k) { return p[k].opted_in; });
       if (!d.offered && !anyOn) { box.innerHTML = 'Text alerts are not available yet.'; return; }
       if (!d.phone_verified && !anyOn) { box.innerHTML = 'To get text alerts, first <a href="/verify-phone.html?next=%2Fnotifications.html">verify your mobile number</a>.'; return; }
-      box.innerHTML = (d.phone_last4 ? 'Texts go to your verified number ending in ' + esc(d.phone_last4) + '.' : '') + Object.keys(LABELS).map(function (k) {
-        var canTurnOn = d.offered && d.phone_verified;
+      var canTurnOn = d.offered && d.phone_verified && !d.number_opted_out;
+      var html = '';
+      if (d.number_opted_out) html += '<p class="sub" style="margin:0 0 .6rem">Your number replied STOP to Advantage.Bid texts. To turn alerts on again, reply START to any Advantage.Bid text from this phone, then come back here.</p>';
+      html += ['outbid', 'watched_closing'].map(function (k) {
+        var re = p[k].needs_reconfirm ? '<div class="fine" style="color:#92400e">Your mobile number changed. Turn this on again to get alerts at your new number.</div>' : '';
         return '<div class="opt"><input type="checkbox" id="sms-' + k + '" data-k="' + k + '"' + (p[k].opted_in ? ' checked' : '') + (!p[k].opted_in && !canTurnOn ? ' disabled' : '') + '>'
-          + '<div><label for="sms-' + k + '">' + LABELS[k] + '</label><div class="fine">' + esc(p[k].consent_text) + '</div></div></div>';
+          + '<div><label for="sms-' + k + '"><strong>' + esc((pr.short_names || {})[k] || '') + '</strong>: <span style="font-weight:400">' + esc((pr.labels || {})[k] || p[k].label) + '</span></label>' + re + '</div></div>';
       }).join('');
+      html += '<div class="fine" style="margin-top:.5rem">' + esc(pr.disclosure || '') + ' ' + (pr.links || []).map(function (l) {
+        return '<a href="' + esc(l.href) + '" target="_blank" rel="noopener">' + esc(l.text) + '</a>'; }).join(' · ') + '</div>';
+      box.innerHTML = html;
     }
     api('GET').then(function (j) { if (!j.success) { msg(j.message || 'Could not load your settings.', 'err'); return; } render(j.data); });
     document.getElementById('sms').addEventListener('change', function (e) {
       var cb = e.target.closest('input[data-k]'); if (!cb) return;
-      var body = {}; body[cb.getAttribute('data-k')] = cb.checked; cb.disabled = true;
+      var k = cb.getAttribute('data-k'); var body = {}; body[k] = cb.checked; cb.disabled = true;
+      if (cb.checked && state && state.presentation) { body.consent_version = state.presentation.consent_version; body.shown_last4 = state.presentation.phone_last4 || ''; }
       api('PUT', body).then(function (j) {
         cb.disabled = false;
         if (!j.success) { cb.checked = !cb.checked; msg(j.message || 'Could not save.', 'err'); return; }
-        msg(cb.checked ? 'Turned on. Reply STOP to any alert to turn texts off.' : 'Turned off.', 'ok');
+        var name = (state && state.presentation && state.presentation.short_names && state.presentation.short_names[k]) || 'Alerts';
+        msg(cb.checked ? name + ' turned on. Reply STOP to any text to stop, or turn them off here.' : name + ' turned off. You will not get these texts.', 'ok');
+        if (state) { state.preferences = j.data.preferences; render(state); }
       });
     });
   })();

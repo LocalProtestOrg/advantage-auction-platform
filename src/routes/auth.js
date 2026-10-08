@@ -115,7 +115,7 @@ router.post('/login', strictLimiter, async (req, res) => {
     // (not 401) with a clear message so the user knows the account exists but
     // is locked, not that their password is wrong.
     if (user.is_active === false) {
-      return res.status(403).json({ success: false, error: 'Account suspended. Contact Advantage Auction support.' });
+      return res.status(403).json({ success: false, error: 'Account suspended. Contact Advantage.Bid support.' });
     }
     const token = jwt.sign(
       { id: user.id, role: user.role },

@@ -769,7 +769,7 @@
       <div id="historical-panel" style="display:none">
         <div class="hist-sold">SOLD</div>
         <div class="hist-tag">Historical Auction Archive</div>
-        <p class="hist-note">This item was previously offered by Advantage Auction Company and is preserved as part of our Historical Auction Archive.</p>
+        <p class="hist-note">This item was previously offered by Advantage.Bid and is preserved as part of our Historical Auction Archive.</p>
         <p class="hist-note">This auction has ended and is presented for historical reference only.</p>
       </div>
 
@@ -1105,7 +1105,7 @@
     if (!gate.terms_accepted_current) {
       form.innerHTML =
         '<div style="text-align:center; padding:0.5rem 0;">' +
-        '<p style="color:#374151; margin:0 0 0.8rem; font-size:0.92rem; line-height:1.4;">Accept the AAC Buyer Terms &amp; Conditions to bid on this auction.</p>' +
+        '<p style="color:#374151; margin:0 0 0.8rem; font-size:0.92rem; line-height:1.4;">Accept the Advantage.Bid Buyer Terms &amp; Conditions to bid on this auction.</p>' +
         '<a href="/buyer-terms.html?next=' + encodeURIComponent(location.pathname + location.search) + '" style="display:block; background:#1d4ed8; color:#fff; padding:0.75rem 1rem; border-radius:8px; text-decoration:none; font-weight:600;">Review &amp; Accept Terms</a></div>';
       return;
     }
@@ -1149,6 +1149,9 @@
       const r = await BidUtils.registerForAuction(currentAuctionId, token, true, BidUtils.smsChoices(smsBoxes));
       if (r.unauthorized) { localStorage.removeItem('token'); window.location.href = '/login.html?next=' + encodeURIComponent(location.pathname + location.search); return; }
       if (r.code === 'PHONE_VERIFICATION_REQUIRED') { window.location.href = '/verify-phone.html?next=' + encodeURIComponent(location.pathname + location.search); return; }
+      if (r.ok && r.data && r.data.sms_alerts && r.data.sms_alerts.recorded === false) {
+        st.style.color = '#92400e'; st.textContent = 'You are registered. ' + r.data.sms_alerts.message; setTimeout(function () { window.location.reload(); }, 4000); return;
+      }
       if (r.ok) { window.location.reload(); }
       else { btn.disabled = false; btn.textContent = 'Register to Bid'; st.style.color = '#b91c1c'; st.textContent = r.message; }
     });
@@ -1396,7 +1399,7 @@
     renderLotStatus(lot);
     if (window.__lotSocket && window.__lotSocket.connected && currentAuctionId) window.__lotSocket.emit('joinAuction', currentAuctionId);
     document.title = isHistoricalLot
-      ? (lot.title || 'Lot') + ' - Advantage Auction Company Historical Archive'
+      ? (lot.title || 'Lot') + ' - Advantage.Bid Historical Archive'
       : (lot.title || '') + ' - Advantage.Bid';
     // OP-D: prefix title with "Lot #N · " when lot_number is set. Historical archive
     // lots show the clean title ONCE (category + lot number live in the subhead beneath).

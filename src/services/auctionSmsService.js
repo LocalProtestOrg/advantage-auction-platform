@@ -40,11 +40,12 @@ function buildWatchedSms(auction) {
 }
 
 // ── pure decisions ───────────────────────────────────────────────────────────────────────────────────
-/** f: { optedIn, phoneVerified, textable, lot, auction, userIsHighBidder, userHasBid, createdAt, lastSentAt } */
+/** f: { optedIn, phoneVerified, numberMatches, textable, lot, auction, userIsHighBidder, userHasBid, createdAt, lastSentAt } */
 function decideOutbid(f, now, cooldownMinutes = 5) {
   const t = now.getTime();
   if (!f.optedIn) return { send: false, reason: 'no_consent' };
   if (!f.phoneVerified) return { send: false, reason: 'phone_not_verified' };
+  if (f.numberMatches === false) return { send: false, reason: 'number_changed' };
   if (!f.textable) return { send: false, reason: 'not_textable' };
   if (!f.lot) return { send: false, reason: 'lot_missing' };
   if (!['open', 'active'].includes(f.lot.state) || !f.lot.closes_at || new Date(f.lot.closes_at).getTime() <= t) return { send: false, reason: 'lot_closed' };
@@ -56,11 +57,12 @@ function decideOutbid(f, now, cooldownMinutes = 5) {
   return { send: true };
 }
 
-/** f: { optedIn, phoneVerified, textable, watching, auction, snapshotStart, alreadySent } */
+/** f: { optedIn, phoneVerified, numberMatches, textable, watching, auction, snapshotStart, alreadySent } */
 function decideWatchedReminder(f, now, minutesBefore = 60) {
   const t = now.getTime();
   if (!f.optedIn) return { send: false, reason: 'no_consent' };
   if (!f.phoneVerified) return { send: false, reason: 'phone_not_verified' };
+  if (f.numberMatches === false) return { send: false, reason: 'number_changed' };
   if (!f.textable) return { send: false, reason: 'not_textable' };
   if (f.alreadySent) return { send: false, reason: 'already_sent' };
   if (!f.watching) return { send: false, reason: 'not_watching' };
@@ -79,17 +81,28 @@ async function liveReady(s) {
     && (process.env.TWILIO_MESSAGING_SERVICE_SID || process.env.TWILIO_FROM_NUMBER));
 }
 async function deliver(to, body, s, deps) {
+  const supp = require('./smsSuppressionService');
+  if (await supp.isSuppressed(to)) return { sent: false, reason: 'number_opted_out' };   // replied STOP: never texted, even in tests
   if (deps.sender) return deps.sender(to, body);   // tests / simulation
   if (!(await liveReady(s))) return { sent: false, reason: 'not_ready' };
   if (!isTextable(to)) return { sent: false, reason: 'not_textable' };
-  const r = await require('./smsService').sendSMS({ to, message: body });
-  return { sent: true, ref: (r && (r.sid || r.messageSid)) || null };
+  try {
+    const r = await require('./smsService').sendSMS({ to, message: body });
+    return { sent: true, ref: (r && (r.sid || r.messageSid)) || null };
+  } catch (e) {
+    if (await supp.handleSendError(e, to)) return { sent: false, reason: 'number_opted_out' };   // provider says unsubscribed = STOP
+    throw e;
+  }
 }
 
 async function userFacts(userId, type, runner = db) {
   const u = (await runner.query(`SELECT id, phone, phone_verified_at, phone_verified_e164, COALESCE(is_active, true) active, COALESCE(is_demo, false) demo FROM users WHERE id = $1`, [userId])).rows[0];
   const verified = !!u && u.active && require('./accountPhoneService').isVerified(u);
-  return { u, optedIn: !!u && await consent.isOptedIn(userId, type, runner), phoneVerified: verified, textable: verified && !u.demo && (isTextable(u.phone_verified_e164) || false) };
+  const c = u ? (await runner.query(`SELECT status, phone_e164_at_opt_in FROM sms_consents WHERE user_id = $1 AND sms_type = $2`, [userId, type])).rows[0] : null;
+  const optedIn = !!(c && c.status === 'opted_in');
+  // A consent counts only for the number it was given for (a changed number needs a fresh opt-in).
+  const numberMatches = !!(optedIn && verified && c.phone_e164_at_opt_in === u.phone_verified_e164);
+  return { u, optedIn, phoneVerified: verified, numberMatches, textable: verified && !u.demo && (isTextable(u.phone_verified_e164) || false) };
 }
 
 // ── outbid ───────────────────────────────────────────────────────────────────────────────────────────
@@ -102,7 +115,7 @@ async function onOutbid({ userId, lot }, deps = {}) {
   const s = await consent.settings();
   if (!s.enabled && !deps.force) return { skipped: 'disabled' };
   const f = await userFacts(userId, 'outbid');
-  if (!f.optedIn || !f.phoneVerified) return { skipped: 'not_eligible' };
+  if (!f.optedIn || !f.phoneVerified || !f.numberMatches) return { skipped: 'not_eligible' };
   const last = (await db.query(`SELECT sent_at FROM auction_sms_messages WHERE user_id = $1 AND lot_id = $2 AND kind = 'outbid' AND status = 'sent'
     ORDER BY sent_at DESC LIMIT 1`, [userId, lot.id])).rows[0];
   const inCooldown = last && Date.now() - new Date(last.sent_at).getTime() < s.outbid_cooldown_minutes * 60000;

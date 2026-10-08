@@ -115,7 +115,8 @@
   }
 
   // #20: register for an auction. Returns { ok, status, message, data }.
-  // smsOptIn (optional): { outbid: true, watched_closing: true } - boxes the bidder ticked; never required to register.
+  // smsOptIn (optional): { outbid?: true, watched_closing?: true, consent_version, shown_last4 } - boxes the bidder
+  // checked plus the wording version and number shown (see smsChoices); never required to register.
   async function registerForAuction(auctionId, token, pickupAcknowledged, smsOptIn) {
     try {
       var res = await fetch('/api/auctions/' + auctionId + '/register', {
@@ -172,28 +173,41 @@
     placeBid: placeBid,
     getBidGate: getBidGate,
     // Optional text-alert boxes for the registration panel (only when offered and the phone is verified).
+    // Optional text alerts on the registration panel. Every word comes from the server (gate.sms_offer.presentation)
+    // and is rendered verbatim as text; boxes start unchecked. The version and last 4 digits shown are sent back so the
+    // server records exactly what the bidder saw (and refuses a stale page).
     smsOptInBoxes: function (gate) {
-      if (!gate || !gate.sms_offer || !gate.sms_offer.offer) return null;
-      var wrap = document.createElement('div'); wrap.style.cssText = 'margin:0.4rem 0 0.7rem; font-size:0.82rem; color:#374151;';
-      var cur = gate.sms_offer.current || {}; var txt = gate.sms_offer.consent_text || {};
-      var head = document.createElement('div'); head.style.cssText = 'font-weight:600; margin-bottom:0.25rem;'; head.textContent = 'Optional text alerts';
+      var o = gate && gate.sms_offer; var p = o && o.presentation;
+      if (!o || !o.offer || !p || !p.labels) return null;
+      var wrap = document.createElement('div'); wrap.style.cssText = 'margin:0.4rem 0 0.7rem; font-size:0.82rem; color:#374151; text-align:left;';
+      wrap.setAttribute('data-consent-version', p.consent_version || ''); wrap.setAttribute('data-shown-last4', p.phone_last4 || '');
+      var cur = o.current || {};
+      var head = document.createElement('div'); head.style.cssText = 'font-weight:600; margin-bottom:0.25rem;'; head.textContent = p.heading;
       wrap.appendChild(head);
-      [['outbid', 'Text me if I am outbid'], ['watched_closing', 'Text me 1 hour before lots begin closing in auctions I watch']].forEach(function (p) {
-        if (cur[p[0]]) return;
-        var l = document.createElement('label'); l.style.cssText = 'display:flex; gap:0.4rem; align-items:flex-start; margin:0.2rem 0;';
-        var cb = document.createElement('input'); cb.type = 'checkbox'; cb.setAttribute('data-sms', p[0]);
-        var sp = document.createElement('span'); sp.textContent = ' ' + p[1]; sp.title = txt[p[0]] || '';
+      ['outbid', 'watched_closing'].forEach(function (k) {
+        if (cur[k] || !p.labels[k]) return;
+        var id = 'sms-reg-' + k;
+        var l = document.createElement('label'); l.setAttribute('for', id); l.style.cssText = 'display:flex; gap:0.45rem; align-items:flex-start; margin:0.3rem 0; line-height:1.35;';
+        var cb = document.createElement('input'); cb.type = 'checkbox'; cb.id = id; cb.checked = false; cb.setAttribute('data-sms', k); cb.style.marginTop = '0.15rem';
+        var sp = document.createElement('span'); sp.textContent = p.labels[k];
         l.appendChild(cb); l.appendChild(sp); wrap.appendChild(l);
       });
-      var fine = document.createElement('div'); fine.style.cssText = 'font-size:0.74rem; color:#6b7280; margin-top:0.2rem;';
-      fine.textContent = 'Optional, not required to bid. Message and data rates may apply. Reply STOP to opt out, HELP for help.';
+      var fine = document.createElement('div'); fine.style.cssText = 'font-size:0.76rem; color:#4b5563; margin-top:0.3rem; line-height:1.4;';
+      fine.appendChild(document.createTextNode(p.disclosure + ' '));
+      (p.links || []).forEach(function (lk, i) {
+        if (i) fine.appendChild(document.createTextNode(' · '));
+        var a = document.createElement('a'); a.href = lk.href; a.target = '_blank'; a.rel = 'noopener'; a.textContent = lk.text; a.style.color = 'inherit';
+        fine.appendChild(a);
+      });
       wrap.appendChild(fine);
       return wrap;
     },
     smsChoices: function (wrap) {
       if (!wrap) return null; var out = {}; var any = false;
       [].forEach.call(wrap.querySelectorAll('input[data-sms]'), function (cb) { if (cb.checked) { out[cb.getAttribute('data-sms')] = true; any = true; } });
-      return any ? out : null;
+      if (!any) return null;
+      out.consent_version = wrap.getAttribute('data-consent-version'); out.shown_last4 = wrap.getAttribute('data-shown-last4');
+      return out;
     },
     registerForAuction: registerForAuction
   };

@@ -192,7 +192,7 @@
       </div>
       <div>
         <h4>Company</h4>
-        <a href="https://www.advantage.bid" target="_blank" rel="noopener">Advantage Auction &amp; Estate Sales</a>
+        <a href="https://www.advantage.bid" target="_blank" rel="noopener">Advantage.Bid</a>
         <a href="/terms.html">Terms of Use</a>
         <a href="/privacy.html">Privacy Policy</a>
         <a href="/sitemap.html">Sitemap</a>
@@ -200,7 +200,7 @@
     </div>
     <div class="foot-bottom">
       <span>© Advantage.Bid - Online Auction Marketplace</span>
-      <span>The live auction marketplace for Advantage Auction &amp; Estate Sales.</span>
+      <span>The live auction marketplace from Advantage.Bid.</span>
     </div>
   </footer>
 
@@ -219,7 +219,7 @@
       return '<a class="card" href="/auction-view.html?auctionId='+encodeURIComponent(a.id)+'">'
         +'<div class="img"><span class="badge soon">'+(hist?'Historical Auction Archive':'Past Auction')+'</span>'+img+'</div>'
         +'<div class="body"><div class="t">'+esc(a.title)+'</div>'
-        +(hist?'<div class="sub">Advantage Auction Company</div>':'<div class="sub">Closed '+esc(fmtDate(a.end_time))+'</div>')
+        +(hist?'<div class="sub">Advantage.Bid</div>':'<div class="sub">Closed '+esc(fmtDate(a.end_time))+'</div>')
         +'<div class="price">'+(hist?(lots+' lots'):(lots+' lots sold · '+bids+' bids'))+'</div></div></a>';
     }
     function timeLeft(t){ if(!t) return ''; var r=new Date(t).getTime()-Date.now(); if(r<=0) return 'Ended';

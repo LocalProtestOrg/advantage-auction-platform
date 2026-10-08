@@ -25,9 +25,12 @@ describe('data-deletion.html — Meta user data deletion instructions', () => {
     expect(html).toMatch(/<address>/); expect(html).toMatch(/Facebook and Instagram/);
   });
   test('reuses the official privacy contact exactly as the Privacy Policy states it', () => {
-    for (const s of ['privacy@advantage.bid', '(551) 655-7050', '300 Communipaw Ave #137', 'Jersey City, NJ 07304', 'Advantage Auction Company, LLC d/b/a Advantage.Bid']) {
-      expect(html).toContain(s); expect(privacy).toContain(s);
+    for (const s of ['privacy@advantage.bid', '(551) 655-7050', '300 Communipaw Ave #137', 'Jersey City, NJ 07304', '<strong>Advantage.Bid</strong>']) {
+      expect(html).toContain(s); if (!s.startsWith('<')) expect(privacy).toContain(s);
     }
+    expect(privacy).toContain('**Advantage.Bid**');
+    // Customer-facing branding is "Advantage.Bid" only (owner rule, 2026-10-07).
+    for (const doc of [html, privacy]) expect(doc).not.toMatch(/Advantage Auction Company/);
   });
   test('cross-links to the Privacy Policy and Terms of Use', () => {
     expect(html).toMatch(/href="\/privacy\.html"/); expect(html).toMatch(/href="\/terms\.html"/);

@@ -37,8 +37,8 @@ const FLOW_TOOLS = [
 const VERIFIED_TOOLS = [
   { name: 'send_text', description: 'Text the verified caller at the phone number on their account (never any other number). what: pickup_details (only if they paid; same rule as get_my_pickup_details), invoices_page, my_bids_page, seller_dashboard, help_center.',
     input_schema: { type: 'object', properties: { what: { type: 'string', enum: ['pickup_details', 'invoices_page', 'my_bids_page', 'seller_dashboard', 'help_center'] }, auction_id: { type: 'string' } }, required: ['what'] } },
-  { name: 'send_payment_link', description: 'Send the verified caller a secure link to pay one unpaid auction invoice (use the invoice number from get_my_invoices). Railway checks the invoice is theirs and payable. The link works once, expires in 30 minutes, and asks them to sign in; then they pay on the website. delivery: "text" (their verified mobile) or "email" (their account email). Never read the link aloud; never take card details.',
-    input_schema: { type: 'object', properties: { invoice_number: { type: 'string' }, delivery: { type: 'string', enum: ['text', 'email'] } }, required: ['invoice_number'] } },
+  { name: 'send_payment_link', description: 'Send the verified caller a secure link to pay one unpaid auction invoice (use the invoice number from get_my_invoices). Railway checks the invoice is theirs and payable. The link works once, expires in 30 minutes, and asks them to sign in; then they pay on the website. delivery: "text" (ONLY the verified mobile number already on their account) or "email" (their account email). For a text, the first call sends nothing and returns the exact sentence to say first (that the one-time link goes to the number ending in the last four digits, and that it does not sign them up for text alerts); say it naturally, wait for the caller to agree, then call again with confirmed_with_caller true. Never send to a number the caller gives you. Never read the link aloud; never take card details.',
+    input_schema: { type: 'object', properties: { invoice_number: { type: 'string' }, delivery: { type: 'string', enum: ['text', 'email'] }, confirmed_with_caller: { type: 'boolean' } }, required: ['invoice_number'] } },
   { name: 'get_my_seller_onboarding', description: 'The verified seller\'s onboarding stage: what step they are on, what is blocking them, and who acts next (them or Advantage.Bid).', input_schema: noArgs },
   { name: 'get_my_business_verification', description: 'The verified Professional Seller\'s business verification status (not submitted, documents needed, under review, more information needed, approved, rejected).', input_schema: noArgs },
   { name: 'get_my_agreements', description: 'The verified seller\'s agreements: which agreement, status (sent, viewed, signed) and dates. Never the agreement text.', input_schema: noArgs },
@@ -198,8 +198,10 @@ async function sendText(args, ctx) {
 }
 
 async function sendPaymentLink(args, ctx) {
+  // Only these three arguments are read: a destination number is never accepted from the call.
   const r = await require('../../payLinkService').issue({ call: ctx.phone.call, sessionId: ctx.phone.sessionId, userId: ctx.userId },
-    { invoiceNumber: args.invoice_number, delivery: args.delivery === 'text' ? 'text' : 'email' }, ctx.phone.deps || {});
+    { invoiceNumber: args.invoice_number, delivery: args.delivery === 'text' ? 'text' : 'email', confirmedWithCaller: args.confirmed_with_caller === true }, ctx.phone.deps || {});
+  if (r.needs_confirmation) return { sent: false, needs_confirmation: true, say: r.say, note: r.note };
   if (r.sent) return { sent: true, note: `A secure payment link for invoice ${r.invoice} was sent by ${r.delivery === 'sms' ? 'text to the mobile number ending in ' + r.destination_last4 : 'email to the address on the account'}. It works once, expires in 30 minutes, and asks them to sign in. Do not read any link aloud.` };
   return { sent: false, note: r.note || 'The payment link could not be sent. The customer can pay any time from Invoices on the website, or a team member can follow up.' };
 }

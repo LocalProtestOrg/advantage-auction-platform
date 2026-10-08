@@ -2,7 +2,7 @@
 
 /**
  * Real-Postgres test harness for Phone Sasha (PGlite: Postgres compiled to WASM, in memory, no server).
- * Creates the Sasha tables exactly as migration 180 defines them, applies migrations 188 and 189 unchanged, and adds the minimal
+ * Creates the Sasha tables exactly as migration 180 defines them, applies migrations 188, 189 and 190 unchanged, and adds the minimal
  * platform tables the phone tools read. `dbAdapter` mimics src/db (query/connect) for jest.mock.
  */
 
@@ -76,6 +76,7 @@ async function createDb() {
   await pg.exec(sashaTables());
   await pg.exec(fs.readFileSync(path.join(ROOT, 'db', 'migrations', '188_sasha_phone_foundation.sql'), 'utf8'));
   await pg.exec(fs.readFileSync(path.join(ROOT, 'db', 'migrations', '189_bidder_phone_sms_paylinks.sql'), 'utf8'));
+  await pg.exec(fs.readFileSync(path.join(ROOT, 'db', 'migrations', '190_sms_consent_versions_suppression.sql'), 'utf8'));
   await pg.exec(`INSERT INTO platform_config (key, value, category) VALUES ('sasha.enabled','true','sasha'),('sasha.engine_enabled','true','sasha'),('sasha.daily_budget_usd','25','sasha')`);
   return pg;
 }

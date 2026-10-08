@@ -17,8 +17,11 @@
 
 - A Twilio account sends **owner/staff operational alerts** through `TWILIO_MESSAGING_SERVICE_SID` (A2P-registered sender).
 - The repository has **no record of which A2P campaign use case is registered.** It is reasonable to assume it covers internal operational alerts to staff numbers, not texts to customers.
-- `TWILIO_VERIFY_SERVICE_SID` is **not set** in production.
-- There is **no inbound SMS webhook** (no STOP/HELP sync).
+- `TWILIO_VERIFY_SERVICE_SID` is set in production (4-digit codes); website phone verification is ON and optional (2026-10-07).
+- Inbound STOP/START/HELP sync is BUILT (migration 190): `POST https://bid.advantage.bid/api/sms/inbound`, Twilio-signed requests only, idempotent per MessageSid, message bodies never stored. It does nothing until the owner points the Messaging Service's inbound webhook at it (not done; the approved campaign is unchanged).
+- STOP-family keywords put the number on the do-not-text list (`sms_suppressions`) and turn off both optional alert types; START releases the number but never re-enables alerts; HELP changes nothing. Twilio error 21610 is treated as STOP. Alerts, Phone Sasha texts and payment links all check the list.
+- Website consent is server-controlled and versioned (`sms-alerts-v2`): the stored record is exactly the wording shown, with version, surface, Terms/Privacy dates and last 4 digits; stale pages are refused.
+- Customer-facing name is "Advantage.Bid" only (owner rule, 2026-10-07).
 
 ## Per use case
 

@@ -33,7 +33,7 @@ async function registerForAuction(userId, auctionId, { pickupAcknowledged, smsOp
   }
   const u = (await db.query('SELECT is_active FROM users WHERE id = $1', [userId])).rows[0];
   if (!u) throw new RegistrationError('NO_USER', 'Account not found.', 401);
-  if (u.is_active === false) throw new RegistrationError('INACTIVE', 'Account suspended. Contact Advantage Auction support.', 403);
+  if (u.is_active === false) throw new RegistrationError('INACTIVE', 'Account suspended. Contact Advantage.Bid support.', 403);
 
   const a = (await db.query('SELECT state FROM auctions WHERE id = $1', [auctionId])).rows[0];
   if (!a) throw new RegistrationError('NO_AUCTION', 'Auction not found.', 404);
@@ -103,12 +103,15 @@ async function registerForAuction(userId, auctionId, { pickupAcknowledged, smsOp
     metadata:    { paddle_number: row.paddle_number, new: row.inserted },
   }).catch(() => {});
 
-  // Optional text alerts the bidder ticked while registering (separate consent; never required to bid).
+  // Optional text alerts the bidder checked while registering (separate consent; never required to bid). A refused
+  // opt-in (for example a stale page) never undoes the registration; the reason is returned so the page can say so.
+  let smsAlerts = null;
   if (smsOptIn && typeof smsOptIn === 'object') {
-    try { await require('./smsConsentService').applyFromRegistration(userId, auctionId, smsOptIn, { ip }); }
-    catch (e) { console.error('[registration] sms opt-in not recorded:', e.message); }
+    try { await require('./smsConsentService').applyFromRegistration(userId, auctionId, smsOptIn, { ip }); smsAlerts = { recorded: true }; }
+    catch (e) { smsAlerts = { recorded: false, message: e.code ? e.message : 'Your text alert choice was not saved. You can turn alerts on in Notifications.' };
+      if (!e.code) console.error('[registration] sms opt-in not recorded:', e.message); }
   }
-  return { registration_id: row.id, paddle_number: row.paddle_number, status: row.status, newly_registered: row.inserted };
+  return { registration_id: row.id, paddle_number: row.paddle_number, status: row.status, newly_registered: row.inserted, sms_alerts: smsAlerts };
 }
 
 async function getRegistrationStatus(userId, auctionId) {
@@ -135,7 +138,7 @@ async function getRegistrationStatus(userId, auctionId) {
     can_bid: registeredActive && termsAccepted && cardOnFile && phone.ok,
     phone_required: phone.required,
     phone_verified: !!phone.verified,
-    sms_offer: sms.offer,
+    sms_offer: sms,   // { offer, current, presentation } — the panel renders presentation verbatim
   };
 }
 
@@ -143,7 +146,7 @@ async function getRegistrationStatus(userId, auctionId) {
 async function assertCanBid(userId, auctionId) {
   const u = (await db.query('SELECT is_active FROM users WHERE id = $1', [userId])).rows[0];
   if (!u) return { ok: false, status: 401, code: 'NOT_LOGGED_IN', message: 'Please log in to bid.' };
-  if (u.is_active === false) return { ok: false, status: 403, code: 'INACTIVE', message: 'Account suspended. Contact Advantage Auction support.' };
+  if (u.is_active === false) return { ok: false, status: 403, code: 'INACTIVE', message: 'Account suspended. Contact Advantage.Bid support.' };
   if (!(await termsService.hasAcceptedCurrentTerms(userId))) {
     return { ok: false, status: 403, code: 'TERMS_NOT_ACCEPTED', message: 'Please accept the current Buyer Terms & Conditions to bid.' };
   }
