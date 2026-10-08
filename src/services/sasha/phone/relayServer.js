@@ -38,10 +38,23 @@ async function admit(req, deps = {}) {
   return { ok: true, ticket };
 }
 
+/**
+ * Twilio validates outbound messages strictly: any field it does not know rejects the whole message (error 64107,
+ * "Unexpected fields"), so nothing is spoken. Internal labels (e.g. `kind`, used by the admin tester) never go to Twilio.
+ */
+const ALLOWED_FIELDS = { text: ['type', 'token', 'last'], end: ['type', 'handoffData'] };
+function toTwilio(obj) {
+  const allowed = obj && ALLOWED_FIELDS[obj.type];
+  if (!allowed) return null;
+  const out = {};
+  for (const k of allowed) if (obj[k] !== undefined) out[k] = obj[k];
+  return out;
+}
+
 /** Wire one accepted socket to a RelaySession. */
 async function bind(ws, ticket, deps = {}) {
   const s = await phoneSettings.load();
-  const send = (obj) => { if (ws.readyState === 1) ws.send(JSON.stringify(obj)); };
+  const send = (obj) => { const m = toTwilio(obj); if (m && ws.readyState === 1) ws.send(JSON.stringify(m)); };
   const relay = new RelaySession(send, { provider: 'twilio_cr', routingReason: ticket.reason, expectCallSid: ticket.callSid, providerGreeting: true, deps: deps.callDeps || {} });
   let queue = Promise.resolve();
   const timer = setTimeout(() => { queue = queue.then(() => relay.timeLimit()).catch((e) => console.error('[voice-relay] time limit', e.message)); },
@@ -71,4 +84,4 @@ function attach(server, deps = {}) {
   return wss;
 }
 
-module.exports = { attach, admit, bind, PATHS };
+module.exports = { attach, admit, bind, toTwilio, ALLOWED_FIELDS, PATHS };

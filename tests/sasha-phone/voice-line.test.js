@@ -313,3 +313,43 @@ describe('WebSocket wiring on a real HTTP server', () => {
     } finally { await lineOn(false); io.close(); await new Promise((r) => server.close(r)); }
   });
 });
+
+// ── regression: live call 2026-10-08 (Twilio 64107 "Unexpected fields: [kind]") ─────────────────────────
+describe('live ConversationRelay outbound message schema', () => {
+  // Twilio's documented outbound messages (independent of the code under test). Anything else is rejected (64107).
+  const TWILIO_SCHEMA = { text: ['type', 'token', 'last', 'lang', 'interruptible', 'preemptible'], end: ['type', 'handoffData'] };
+  test('a full live call over a real WebSocket sends only fields Twilio accepts, and Sasha\'s reply is actually spoken', async () => {
+    const http = require('http'); const WebSocket = require('ws');
+    const m = model([{ text: 'I\'d be happy to check that for you. I\'ll just need to verify your account first.' }]);
+    const server = http.createServer((req, res) => { res.statusCode = 404; res.end(); });
+    relayServer.attach(server, { validateRequest, callDeps: { client: m.client } });
+    await new Promise((r) => server.listen(0, r));
+    await lineOn();
+    const received = [];
+    try {
+      const cs = callSid();
+      const t = line.issueTicket({ callSid: cs, reason: 'buyer' });
+      const ws = new WebSocket(`ws://127.0.0.1:${server.address().port}/api/voice/relay?t=${encodeURIComponent(t)}`, { headers: { 'x-twilio-signature': GOOD } });
+      ws.on('message', (d) => received.push(JSON.parse(String(d))));
+      await new Promise((resolve, reject) => { ws.on('open', resolve); ws.on('error', reject); });
+      ws.send(JSON.stringify({ type: 'setup', callSid: cs, from: e164(ME), to: '+15550001111', customParameters: { reason: 'buyer' } }));
+      ws.send(JSON.stringify({ type: 'prompt', voicePrompt: 'I recently bid on an item and I was wondering if I won it?', lang: 'en-US', last: true }));
+      const deadline = Date.now() + 15000;
+      while (Date.now() < deadline && !received.some((x) => x.type === 'text' && /verify your account/.test(x.token || ''))) await new Promise((r) => setTimeout(r, 50));
+      const closed = new Promise((r) => ws.on('close', r)); ws.close(); await closed;
+      expect(received.length).toBeGreaterThan(0);
+      for (const msg of received) {
+        expect(TWILIO_SCHEMA[msg.type]).toBeDefined();
+        expect(Object.keys(msg).filter((k) => !TWILIO_SCHEMA[msg.type].includes(k))).toEqual([]);   // e.g. no `kind`
+      }
+      expect(received.filter((x) => x.type === 'text' && x.token).map((x) => x.token).join('')).toMatch(/I'd be happy to check that for you\./);
+      expect(received.some((x) => x.type === 'text' && x.last === true)).toBe(true);
+    } finally { await lineOn(false); await new Promise((r) => server.close(r)); }
+  });
+  test('the filter keeps protocol fields, drops internal labels, and never forwards unknown message types', () => {
+    expect(relayServer.toTwilio({ type: 'text', token: 'Hi ', last: false, kind: 'speech' })).toEqual({ type: 'text', token: 'Hi ', last: false });
+    expect(relayServer.toTwilio({ type: 'end', handoffData: '{"action":"busy"}', kind: 'x' })).toEqual({ type: 'end', handoffData: '{"action":"busy"}' });
+    expect(relayServer.toTwilio({ type: 'debug', token: 'x' })).toBeNull();
+    for (const [type, fields] of Object.entries(relayServer.ALLOWED_FIELDS)) expect(fields.every((f) => TWILIO_SCHEMA[type].includes(f))).toBe(true);
+  });
+});
