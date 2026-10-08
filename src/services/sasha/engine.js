@@ -246,6 +246,66 @@ async function respond({ conversationId, triggerMessageId, ctx }, deps = {}) {
 // ── Phone: streaming responder ───────────────────────────────────────────────────────────────────────
 const PHONE_MAX_TOOL_ROUNDS = 4;      // fewer rounds than text: every round is dead air on a call
 const PHONE_MAX_OUTPUT_TOKENS = 450;  // spoken answers are short
+const PHONE_WATCHDOG_MS = 7000;       // silence during a lookup before a short "still working on it"
+const PHONE_MAX_PROGRESS_UPDATES = 2; // never more than two such updates in one turn
+const PHONE_TOOL_TIMEOUT_MS = 22000;  // hard ceiling for one lookup; then the call speaks the recovery line
+const TOOL_TIMED_OUT = Symbol('tool_timed_out');
+const PROGRESS_UPDATES = ['I\'m still pulling that up. Thanks for your patience.', 'Still working on it, just a moment longer.'];
+
+/** What Sasha says when a lookup starts: specific to what she is doing, conversational, never a status message. */
+const PROGRESS_PHRASES = {
+  get_my_bids: 'Give me just a moment while I pull up your recent bidding activity.',
+  get_my_invoices: 'Give me just a moment while I pull up your invoices.',
+  get_my_pickup_details: 'Give me just a moment while I pull up your pickup details.',
+  get_my_pickup_slots: 'Give me just a moment while I check the pickup times.',
+  get_my_auction_registration: 'Give me just a moment while I check your auction registration.',
+  get_my_orders: 'Give me just a moment while I pull up your orders.',
+  get_my_order_detail: 'Give me just a moment while I pull up that order.',
+  get_my_storefront_orders: 'Give me just a moment while I pull up your orders.',
+  get_my_account: 'Give me just a moment while I pull up your account.',
+  get_my_auctions: 'Give me just a moment while I pull up your auctions.',
+  get_my_settlements: 'Give me just a moment while I pull up your payouts.',
+  get_my_seller_terms: 'Give me just a moment while I pull up your seller terms.',
+  get_my_seller_onboarding: 'Give me just a moment while I check where you are in seller setup.',
+  get_my_business_verification: 'Give me just a moment while I check your business verification.',
+  get_my_agreements: 'Give me just a moment while I check your agreements.',
+  start_account_verification: 'Give me just a moment while I send that verification code.',
+  send_payment_link: 'Give me just a moment while I set up that secure payment link.',
+  send_text: 'Give me just a moment while I send that to you.',
+  request_callback: 'Give me just a moment while I take that down for the team.',
+  find_auction: 'Let me look for that auction.',
+  get_auction_or_lot: 'Let me check on that for you.',
+};
+function progressPhrase(toolName, last, pickFiller) {
+  const p = PROGRESS_PHRASES[toolName];
+  return p && p !== last ? p : pickFiller(last);
+}
+
+/**
+ * The assistant's tool turn rebuilt from the stream, in the shape the model API requires: tool calls, plus text only
+ * when it actually contains text. Empty text blocks (the API rejects them) and any other block type are never sent.
+ */
+function assistantContentFromBlocks(blocks) {
+  const content = [];
+  for (const b of blocks.filter(Boolean)) {
+    if (b.type === 'tool_use') {
+      content.push({ type: 'tool_use', id: b.id, name: b.name, input: (() => { try { return b.input_json ? JSON.parse(b.input_json) : (b.input || {}); } catch (_e) { return {}; } })() });
+    } else if (b.type === 'text' && String(b.text || '').trim()) {
+      content.push({ type: 'text', text: b.text });
+    }
+  }
+  return content;
+}
+
+/** Last check before every phone request: no empty text anywhere (string or block content). */
+function cleanMessagesForModel(messages) {
+  return messages.map((m) => {
+    if (typeof m.content === 'string') return String(m.content).trim() ? m : { ...m, content: '(no words)' };
+    if (!Array.isArray(m.content)) return m;
+    const content = m.content.filter((b) => !(b && b.type === 'text' && !String(b.text || '').trim()));
+    return { ...m, content: content.length ? content : [{ type: 'text', text: '(no words)' }] };
+  });
+}
 
 async function spentTodayUsdForChannel(channel) {
   const r = (await db.query(`SELECT COALESCE(SUM(cost_micro_usd),0)::bigint AS c FROM cs_ai_runs WHERE channel = $1
@@ -294,15 +354,28 @@ async function respondStream({ conversationId, triggerMessageId, ctx, callState 
   const system = [{ type: 'text', text: systemPrompt(ctx), cache_control: { type: 'ephemeral' } }];
   if (callState) system.push({ type: 'text', text: 'CALL STATE (set by the system for this turn):\n' + callState });
   const used = []; const spoken = []; let inTok = 0, outTok = 0, cacheTok = 0, cacheWriteTok = 0, handoff = null, lastFiller = null, interrupted = false;
-  let fillerPending = false;   // a holding phrase was played and no real speech has followed yet
-  const say = (t, kind) => { const x = speakable(t); if (!x) return; if (kind === 'speech') fillerPending = false; spoken.push(x); onSpeak(x, { kind }); };
+  let fillerPending = false;   // a progress phrase was played and no real speech has followed yet
+  // Silence watchdog: armed only while a lookup is genuinely in progress (a tool was called and no answer has been
+  // spoken yet). After ~7 s with nothing said, one short update; at most two per turn. Errors end the turn at once.
+  const watchdogMs = deps.watchdogMs || PHONE_WATCHDOG_MS; const toolTimeoutMs = deps.toolTimeoutMs || PHONE_TOOL_TIMEOUT_MS;
+  let lastSpokeAt = Date.now(); let opActive = false; let updates = 0; let slowTool = null;
+  const say = (t, kind) => {
+    const x = speakable(t); if (!x) return;
+    if (kind === 'speech') { fillerPending = false; opActive = false; }
+    lastSpokeAt = Date.now(); spoken.push(x); onSpeak(x, { kind });
+  };
   const aborted = () => !!(signal && signal.aborted);
+  const watchdog = setInterval(() => {
+    if (!opActive || aborted() || updates >= PHONE_MAX_PROGRESS_UPDATES || Date.now() - lastSpokeAt < watchdogMs) return;
+    say(PROGRESS_UPDATES[updates++], 'progress');
+  }, Math.min(500, Math.max(20, Math.floor(watchdogMs / 4))));
+  if (watchdog.unref) watchdog.unref();
   try {
     for (let round = 0; round <= PHONE_MAX_TOOL_ROUNDS; round++) {
       if (aborted()) { interrupted = true; break; }
       const chunker = new SentenceChunker();
       const blocks = []; let stop = null; let roundOut = 0; let saidThisRound = false;
-      const stream = await anthropic.messages.create({ model: MODEL(), max_tokens: PHONE_MAX_OUTPUT_TOKENS, system, tools: toolDefs, messages, stream: true },
+      const stream = await anthropic.messages.create({ model: MODEL(), max_tokens: PHONE_MAX_OUTPUT_TOKENS, system, tools: toolDefs, messages: cleanMessagesForModel(messages), stream: true },
         signal ? { signal } : undefined);
       for await (const ev of stream) {
         if (aborted()) { interrupted = true; break; }
@@ -311,8 +384,9 @@ async function respondStream({ conversationId, triggerMessageId, ctx, callState 
           inTok += u.input_tokens || 0; cacheTok += u.cache_read_input_tokens || 0; cacheWriteTok += u.cache_creation_input_tokens || 0;
         } else if (ev.type === 'content_block_start') {
           blocks[ev.index] = { ...ev.content_block, text: ev.content_block.text || '', input_json: '' };
-          if (ev.content_block.type === 'tool_use' && !saidThisRound && !fillerPending) {
-            lastFiller = pickFiller(lastFiller); say(lastFiller, 'filler'); fillerPending = true;
+          if (ev.content_block.type === 'tool_use') {
+            if (!saidThisRound && !fillerPending) { lastFiller = progressPhrase(ev.content_block.name, lastFiller, pickFiller); say(lastFiller, 'filler'); fillerPending = true; }
+            opActive = true;
           }
         } else if (ev.type === 'content_block_delta') {
           const b = blocks[ev.index]; if (!b) continue;
@@ -326,9 +400,7 @@ async function respondStream({ conversationId, triggerMessageId, ctx, callState 
       outTok += roundOut;
       if (interrupted) break;
       for (const sen of chunker.flush()) { say(sen, 'speech'); saidThisRound = true; }
-      const content = blocks.filter(Boolean).map((b) => (b.type === 'tool_use'
-        ? { type: 'tool_use', id: b.id, name: b.name, input: (() => { try { return b.input_json ? JSON.parse(b.input_json) : (b.input || {}); } catch (_e) { return {}; } })() }
-        : { type: 'text', text: b.text }));
+      const content = assistantContentFromBlocks(blocks);
       const toolUses = content.filter((b) => b.type === 'tool_use');
       if (stop !== 'tool_use' || !toolUses.length || round === PHONE_MAX_TOOL_ROUNDS) break;
       messages.push({ role: 'assistant', content });
@@ -342,7 +414,16 @@ async function respondStream({ conversationId, triggerMessageId, ctx, callState 
           await conversations.requestHandoff(conversationId, { reasonCode: reason, reasonText: handoff.summary, createdBy: reason === 'customer_request' ? 'customer' : 'sasha' });
           out = { ok: true, note: 'The team has been notified. Offer to take a message for the Advantage.Bid team (request_callback, after confirming the callback number), with no promised time or outcome. Then help with anything else you safely can.' };
         } else {
-          out = await tools.run(tu.name, tu.input, ctx);
+          // Hard ceiling per lookup: stop waiting, end the turn, and let the call speak the recovery line.
+          const t0 = Date.now(); let timer;
+          const ceiling = new Promise((resolve) => { timer = setTimeout(() => resolve(TOOL_TIMED_OUT), toolTimeoutMs); });
+          out = await Promise.race([tools.run(tu.name, tu.input, ctx), ceiling]);
+          clearTimeout(timer);
+          if (out === TOOL_TIMED_OUT) {
+            slowTool = { tool: tu.name, ms: Date.now() - t0 };
+            console.warn(`[sasha-phone] slow operation: ${tu.name} exceeded ${toolTimeoutMs} ms (conversation ${conversationId})`);
+            throw Object.assign(new Error(`tool_timeout: ${tu.name} exceeded ${toolTimeoutMs} ms`), { toolTimeout: true });
+          }
         }
         results.push({ type: 'tool_result', tool_use_id: tu.id, content: JSON.stringify(out).slice(0, 12000) });
       }
@@ -360,11 +441,11 @@ async function respondStream({ conversationId, triggerMessageId, ctx, callState 
         costMicro: costMicroUsd({ inTok, outTok, cacheTok, cacheWriteTok }), latencyMs: Date.now() - started });
       return { outcome: 'replied', text: spoken.join(' '), handoff, runId, interrupted: true, tools: used };
     }
-    const runId = await recordRun({ ...base, outcome: 'error', reason: 'model_error', tools: used, inTok, outTok, cacheTok,
+    const runId = await recordRun({ ...base, outcome: 'error', reason: e.toolTimeout ? 'tool_timeout' : 'model_error', tools: used, inTok, outTok, cacheTok,
       costMicro: costMicroUsd({ inTok, outTok, cacheTok, cacheWriteTok }), latencyMs: Date.now() - started, error: e.message });
-    return { outcome: 'error', error: e.message, runId, text: spoken.join(' '), tools: used };
-  }
+    return { outcome: 'error', error: e.message, runId, text: spoken.join(' '), tools: used, slowTool };
+  } finally { clearInterval(watchdog); }
 }
 
 module.exports = { respond, respondStream, systemPrompt, buildMessages, spentTodayUsd, spentTodayUsdForChannel, spentOnConversationUsd, costMicroUsd, MODEL,
-  plainText, IDENTITY_ANSWER, PHONE_IDENTITY_ANSWER, NO_EM_DASH_RULE, PHONE_MAX_TOOL_ROUNDS, _setClient: (c) => { client = c; } };
+  plainText, IDENTITY_ANSWER, PHONE_IDENTITY_ANSWER, NO_EM_DASH_RULE, PHONE_MAX_TOOL_ROUNDS, PROGRESS_PHRASES, PROGRESS_UPDATES, assistantContentFromBlocks, cleanMessagesForModel, _setClient: (c) => { client = c; } };

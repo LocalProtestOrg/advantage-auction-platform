@@ -846,3 +846,130 @@ describe('payment-link texts: spoken confirmation, STOP respected, verified numb
     expect(payLinks.TEXT_CONFIRMATION('1234')).toBe("I'll text a one-time payment link to your number ending in 1234. It doesn't sign you up for text alerts.");
   });
 });
+
+// ── regression: live call 2026-10-08 18:01 UTC (400 "text content blocks must be non-empty") + progress / recovery ──
+describe('phone tool turns: API-valid messages, progress phrases, watchdog, ceiling, recovery', () => {
+  const { RECOVERY } = require('../../src/services/sasha/phone/callSession');
+  /** Like the real model API: any empty text block (or empty string content) in the request is a 400. */
+  function violations(params) {
+    const bad = [];
+    params.messages.forEach((m, i) => {
+      if (typeof m.content === 'string' && !m.content.trim()) bad.push(i);
+      if (Array.isArray(m.content)) m.content.forEach((b) => { if (b && b.type === 'text' && !String(b.text || '').trim()) bad.push(i); });
+    });
+    return bad;
+  }
+  async function* strictStream(step) {
+    yield { type: 'message_start', message: { usage: { input_tokens: 100, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 } } };
+    let i = 0;
+    if (step.emptyText) { yield { type: 'content_block_start', index: i, content_block: { type: 'text', text: '' } }; i++; }   // the live-call shape
+    if (step.text) {
+      yield { type: 'content_block_start', index: i, content_block: { type: 'text', text: '' } };
+      yield { type: 'content_block_delta', index: i, delta: { type: 'text_delta', text: step.text } }; i++;
+    }
+    for (const t of step.tools || []) {
+      yield { type: 'content_block_start', index: i, content_block: { type: 'tool_use', id: 'tu_' + uniq(), name: t.name, input: {} } };
+      yield { type: 'content_block_delta', index: i, delta: { type: 'input_json_delta', partial_json: JSON.stringify(t.input || {}) } }; i++;
+    }
+    yield { type: 'message_delta', delta: { stop_reason: (step.tools || []).length ? 'tool_use' : 'end_turn' }, usage: { output_tokens: 20 } };
+  }
+  function strictModel(steps) {
+    const calls = [];
+    const client = { messages: { create: async (params) => {
+      calls.push(params);
+      const bad = violations(params);
+      if (bad.length) throw Object.assign(new Error('400 {"type":"error","error":{"type":"invalid_request_error","message":"messages: text content blocks must be non-empty"}}'), { status: 400 });
+      let step = steps.length ? steps.shift() : { text: 'Is there anything else I can help with?' };
+      if (typeof step === 'function') step = step(params);
+      if (step.fail) throw Object.assign(new Error('529 overloaded'), { status: 529 });
+      return strictStream(step);
+    } } };
+    return { client, calls };
+  }
+  /** A caller verified by text code on a simulated call, then the caller's question. Returns the turn result. */
+  async function askAfterVerifying(u, steps, deps = {}) {
+    const m = strictModel([{ tools: [{ name: 'start_account_verification', input: { email: u.email } }] }, { text: 'I just sent a code. Please read it to me.' },
+      { text: 'Thank you, you are verified.' }, ...steps]);
+    const s = await sim.start({ actorId: ADMIN }, { client: m.client, ...deps });
+    await sim.say(s.call_id, ADMIN, 'Can you check my bids? My email is ' + u.email);
+    const code = codeFrom(await sim.state(s.call_id, ADMIN));
+    expect((await sim.say(s.call_id, ADMIN, 'The code is ' + code.split('').join(' '))).verification.state).toBe('verified');
+    const r = await sim.say(s.call_id, ADMIN, 'Did I win the item I bid on?');
+    return { r, m, callId: s.call_id };
+  }
+  const kinds = (r) => r.turn.filter((x) => x.type === 'text' && x.token).map((x) => x.kind);
+  const tokens = (r) => r.turn.filter((x) => x.type === 'text' && x.token).map((x) => x.token.trim());
+
+  test('model sends an EMPTY text block before calling get_my_bids: the tool result still reaches the second model turn and Sasha answers', async () => {
+    const u = await user({ phone: '(551) 616-3101', verified: true });
+    const { r, m } = await askAfterVerifying(u, [{ emptyText: true, tools: [{ name: 'get_my_bids', input: {} }] }, { text: 'I checked, and I don\'t see any winning bids on your account yet.' }]);
+    expect(tokens(r)).toEqual(['Give me just a moment while I pull up your recent bidding activity.', 'I checked, and I don\'t see any winning bids on your account yet.']);
+    const second = m.calls[m.calls.length - 1];
+    const assistant = second.messages[second.messages.length - 2];
+    expect(assistant.content.map((b) => b.type)).toEqual(['tool_use']);   // the empty text block was dropped
+    const result = second.messages[second.messages.length - 1].content[0];
+    expect(result).toMatchObject({ type: 'tool_result' });
+    expect(JSON.parse(result.content)).toHaveProperty('bids');
+    const runs = await q(`SELECT outcome, tools_used FROM cs_ai_runs r JOIN cs_calls c ON c.conversation_id = r.conversation_id WHERE c.id = $1 ORDER BY r.created_at`, [r.call.id]);
+    expect(runs[runs.length - 1]).toMatchObject({ outcome: 'replied', tools_used: ['get_my_bids'] });
+  });
+  test('every request sent to the model has no empty text blocks', async () => {
+    const u = await user({ phone: '(551) 616-3102', verified: true });
+    const { m } = await askAfterVerifying(u, [{ emptyText: true, tools: [{ name: 'get_my_bids', input: {} }] }, { text: 'Here is what I found.' }]);
+    for (const p of m.calls) expect(violations(p)).toEqual([]);
+    expect(engine.cleanMessagesForModel([{ role: 'user', content: '' }, { role: 'assistant', content: [{ type: 'text', text: ' ' }, { type: 'tool_use', id: 't', name: 'x', input: {} }] }]))
+      .toEqual([{ role: 'user', content: '(no words)' }, { role: 'assistant', content: [{ type: 'tool_use', id: 't', name: 'x', input: {} }] }]);
+    expect(engine.assistantContentFromBlocks([{ type: 'text', text: '' }, { type: 'thinking', text: '' }, { type: 'text', text: 'Hi' }, null]))
+      .toEqual([{ type: 'text', text: 'Hi' }]);
+  });
+  test('a forced model error ALWAYS produces a spoken, saved recovery line, even after the progress phrase', async () => {
+    const u = await user({ phone: '(551) 616-3103', verified: true });
+    const { r } = await askAfterVerifying(u, [{ tools: [{ name: 'get_my_bids', input: {} }] }, { fail: true }]);
+    expect(tokens(r)).toEqual(['Give me just a moment while I pull up your recent bidding activity.', RECOVERY]);
+    expect(RECOVERY).toBe('I\'m sorry, I\'m having trouble pulling that up right now. I can try again, or I can take a message for the team.');
+    const last = r.transcript.filter((x) => x.author_type === 'sasha').pop();
+    expect(last.body_text).toContain(RECOVERY);
+    expect(kinds(r)).not.toContain('progress');   // an error is never covered up with progress updates
+  });
+  test('a normal fast lookup never triggers the silence watchdog', async () => {
+    const u = await user({ phone: '(551) 616-3104', verified: true });
+    const { r } = await askAfterVerifying(u, [{ tools: [{ name: 'get_my_invoices', input: {} }] }, { text: 'You have no unpaid invoices.' }]);
+    expect(tokens(r)).toEqual(['Give me just a moment while I pull up your invoices.', 'You have no unpaid invoices.']);
+    expect(kinds(r)).not.toContain('progress');
+  });
+  test('a slow lookup gets at most two short progress updates, then the answer', async () => {
+    const u = await user({ phone: '(551) 616-3105', verified: true });
+    const real = tools.run;
+    const spy = jest.spyOn(tools, 'run').mockImplementation(async (name, input, ctx) => { if (name === 'get_my_bids') await new Promise((res) => setTimeout(res, 900)); return real(name, input, ctx); });
+    try {
+      const { r } = await askAfterVerifying(u, [{ tools: [{ name: 'get_my_bids', input: {} }] }, { text: 'Thanks for waiting. You were outbid on that lot.' }], { watchdogMs: 120, toolTimeoutMs: 5000 });
+      expect(kinds(r).filter((k) => k === 'progress')).toHaveLength(2);
+      expect(tokens(r)).toEqual(['Give me just a moment while I pull up your recent bidding activity.', ...engine.PROGRESS_UPDATES, 'Thanks for waiting.', 'You were outbid on that lot.']);
+    } finally { spy.mockRestore(); }
+  });
+  test('a lookup past the hard ceiling stops waiting: recovery line spoken, slow operation logged, no endless updates', async () => {
+    const u = await user({ phone: '(551) 616-3106', verified: true });
+    const real = tools.run; const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    const spy = jest.spyOn(tools, 'run').mockImplementation(async (name, input, ctx) => { if (name === 'get_my_bids') await new Promise((res) => setTimeout(res, 2500)); return real(name, input, ctx); });
+    try {
+      const { r, m } = await askAfterVerifying(u, [{ tools: [{ name: 'get_my_bids', input: {} }] }, { text: 'This must never be reached.' }], { watchdogMs: 100, toolTimeoutMs: 700 });
+      const said = tokens(r);
+      expect(said[0]).toBe('Give me just a moment while I pull up your recent bidding activity.');
+      expect(said[said.length - 1]).toBe(RECOVERY);
+      expect(kinds(r).filter((k) => k === 'progress').length).toBeLessThanOrEqual(2);
+      expect(said).not.toContain('This must never be reached.');
+      expect(m.calls.some((p) => p.messages.some((x) => Array.isArray(x.content) && x.content.some((b) => b.type === 'tool_result' && /"bids"/.test(b.content))))).toBe(false);   // the model never got a late result
+      const run = (await q(`SELECT outcome, outcome_reason, error FROM cs_ai_runs r JOIN cs_calls c ON c.conversation_id = r.conversation_id WHERE c.id = $1 ORDER BY r.created_at DESC LIMIT 1`, [r.call.id]))[0];
+      expect(run).toMatchObject({ outcome: 'error', outcome_reason: 'tool_timeout' });
+      expect(warn.mock.calls.some((a) => /slow operation: get_my_bids exceeded 700 ms/.test(String(a[0])))).toBe(true);
+      await new Promise((res) => setTimeout(res, 400));
+      const after = await sim.state(r.call.id, ADMIN);
+      expect(after.transcript.filter((x) => x.author_type === 'sasha').pop().body_text).toContain(RECOVERY);   // nothing spoken after the recovery
+    } finally { spy.mockRestore(); warn.mockRestore(); }
+  });
+  test('verification and other lookups use their own natural progress phrases', () => {
+    expect(engine.PROGRESS_PHRASES.start_account_verification).toBe('Give me just a moment while I send that verification code.');
+    expect(engine.PROGRESS_PHRASES.get_my_invoices).toBe('Give me just a moment while I pull up your invoices.');
+    for (const p of Object.values(engine.PROGRESS_PHRASES)) expect(p).not.toMatch(/system|processing|status|AI|query/i);
+  });
+});

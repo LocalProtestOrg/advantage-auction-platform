@@ -28,6 +28,7 @@ const { normalizeUsPhone, last4, identifierHash } = require('../../../lib/phoneN
 const GREETING_FOLLOW = 'How can I help you today?';
 const FALLBACK = 'I\'m sorry, I can\'t look that up right now. I can have a member of our team call you back. Would that help?';
 const STAFF_OWNED = 'Thanks. A member of our team is handling your request and will follow up with you.';
+const RECOVERY = 'I\'m sorry, I\'m having trouble pulling that up right now. I can try again, or I can take a message for the team.';
 const ACTIVE = new Map();   // callId → PhoneCall (this process)
 
 /** The caller's menu choice, as call context for Sasha (a likely purpose, not a restriction: they may ask anything). */
@@ -136,7 +137,9 @@ class PhoneCall {
       } else if (r.outcome === 'skipped' || r.outcome === 'error' || !r.text) {
         if (r.budget) await audit.record(this.row, 'budget_stopped', { detail: { reason: r.budget } });
         if (r.outcome === 'error') await conversations.requestHandoff(this.row.conversation_id, { reasonCode: 'uncertain', reasonText: 'Sasha could not answer on the phone (' + (r.error || r.outcome) + ').', createdBy: 'system' });
-        const extra = r.text ? '' : FALLBACK;
+        // Never leave the caller in silence: after an error the recovery line is ALWAYS spoken, even if a progress
+        // phrase already played; otherwise the fallback is spoken when nothing at all was said. Both are saved.
+        const extra = r.outcome === 'error' ? RECOVERY : (r.text ? '' : FALLBACK);
         if (extra) { speak(extra, { kind: 'speech' }); await this.addReply(((r.text || '') + ' ' + extra).trim(), r.runId); }
       }
       this.cardJustRedacted = false;
@@ -211,4 +214,4 @@ async function buildSummary(call) {
   return parts.join('; ') + '.';
 }
 
-module.exports = { PhoneCall, PhoneCallError, buildSummary, ACTIVE, FALLBACK, GREETING_FOLLOW, ROUTING };
+module.exports = { PhoneCall, PhoneCallError, buildSummary, ACTIVE, FALLBACK, RECOVERY, GREETING_FOLLOW, ROUTING };
