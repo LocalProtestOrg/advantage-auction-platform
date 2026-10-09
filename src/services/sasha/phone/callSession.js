@@ -42,7 +42,7 @@ const ROUTING = {
 /** Public rule topics pre-loaded for each menu choice ("other" loads none: Sasha looks up what she needs). */
 const CORE_TOPICS = {
   buyer: ['bidding', 'buyer_premium', 'payment', 'pickup'],
-  seller: ['selling', 'seller_fees', 'payouts'],
+  seller: ['selling', 'seller_benefits', 'seller_fees', 'payouts'],
   pickup: ['pickup', 'payment', 'buyer_premium'],
 };
 

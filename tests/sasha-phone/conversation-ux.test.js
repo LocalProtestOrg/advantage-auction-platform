@@ -268,3 +268,75 @@ describe('separate menu and Sasha voices', () => {
     await setCfg('sasha.phone.menu_voice', { tts_provider: 'Amazon', voice: 'Amy-Generative', language: 'en-GB' });
   });
 });
+
+// ── seller content after live call #4 (2026-10-09) ────────────────────────────────────────────────────
+describe('seller guidance: lot minimum, dimensions, easy listing, benefits, marketing, payouts', () => {
+  const facts = (t) => platformFacts.getFacts(t)[t].facts.join('\n');
+  test('30-lot rule: sensible grouping of items that belong together only, never unrelated items to reach the minimum', () => {
+    const s = facts('selling');
+    expect(s).toMatch(/every auction needs at least 30 lots to be submitted or published/);
+    expect(s).toMatch(/Items that naturally belong together can sensibly be offered as one lot/);
+    expect(s).toMatch(/never suggest combining unrelated items just to reach 30/);
+    expect(s).not.toMatch(/smaller pieces can be grouped into one lot/);
+    expect(s).not.toMatch(/group (several|a few)[^.]*to (help )?reach/i);
+  });
+  test('dimensions: optional but highly recommended where size matters, with the buyer benefit', () => {
+    const s = facts('selling');
+    expect(s).toMatch(/measurements are optional, but highly recommended for anything where size matters/);
+    expect(s).toMatch(/help buyers bid with confidence and plan pickup/);
+    expect(s).toMatch(/The size category is always required/);
+  });
+  test('easy listing describes only live tools (phone photos, Smart Description review, photo enhancement) with no AI wording or overpromise', () => {
+    const s = facts('selling');
+    expect(s).toMatch(/start a lot simply by taking photos of the item with their phone \(up to 20 photos per lot\)/);
+    expect(s).toMatch(/Smart Description tool can then suggest a title, a short description and a category from the photos, which the seller reviews and adjusts before saving/);
+    expect(s).toMatch(/photo enhancement can automatically clean up the background/);
+    expect(s).toMatch(/there is no one-photo-per-lot bulk upload/);
+    expect(s).not.toMatch(/state-of-the-art|\bBreeze\b/i);
+    expect(s).toMatch(/Never call these tools AI/);
+  });
+  test('seller benefits: marketing and exposure, bidding, payments, payouts; individual vs professional value; no invented guarantees', () => {
+    const b = facts('seller_benefits');
+    expect(b).toMatch(/Marketing and exposure: every published auction is automatically listed on the Advantage\.Bid marketplace/);
+    expect(b).toMatch(/search-engine-friendly auction and lot pages/);
+    expect(b).toMatch(/ending-soon reminder/);
+    expect(b).toMatch(/card on file is charged automatically when the auction closes, so the seller never has to chase or collect payments/);
+    expect(b).toMatch(/INDIVIDUAL Sellers in particular: no commission and nothing to pay upfront to list, only a 3% processing fee/);
+    expect(b).toMatch(/PROFESSIONAL Sellers in particular \(lead with the seller's own business benefit\)/);
+    expect(b).toMatch(/embeddable auction widget, so the same auctions appear on their site and on the Advantage\.Bid marketplace at the same time/);
+    expect(b).toMatch(/never quote a standard percentage/);
+    expect(b).toMatch(/Online Buy Now checkout for storefront items is not available yet/);   // gate is off in this environment
+    expect(b).toMatch(/Do NOT mention: neighborhood "Sales Near You" emails, paid promotion packages, social media posting or ads/);
+    expect(b).not.toMatch(/guarantee(d)? (sale|bidders|traffic)|\d+,?\d* (bidders|visitors)|nationwide/i);
+  });
+  test('payouts: direct deposit is mentioned as the way sellers get paid, a mailed check remains available, bank details stay with Stripe', () => {
+    const p = facts('payouts');
+    expect(p).toMatch(/HOW SELLERS GET PAID \(mention this whenever you explain payouts, without waiting to be asked\): by direct deposit \(ACH\)/);
+    expect(p).toMatch(/A mailed check is also available if the seller prefers/);
+    expect(p).toMatch(/Advantage\.Bid never sees the full account number/);
+    expect(p).toMatch(/processes eligible seller payouts every Thursday/);
+  });
+  test('the phone prompt makes Sasha a conversational seller representative without monologues', () => {
+    const p = engine.systemPrompt({ channel: 'phone' });
+    expect(p).toMatch(/PROSPECTIVE SELLERS: .*be a knowledgeable, friendly sales representative, not a brochure/);
+    expect(p).toMatch(/Keep answering the question they asked first, in a few sentences/);
+    expect(p).toMatch(/Make sure marketing and exposure come up/);
+    expect(p).toMatch(/Would you like me to walk you through those\?/);
+    expect(p).toMatch(/Never stack several benefits into one long answer, never repeat a benefit already mentioned, and never promise results, traffic or sale prices/);
+    expect(p).toMatch(/normally in about two to four short spoken sentences/);   // brevity kept
+    expect(engine.systemPrompt({ channel: 'chat' })).not.toMatch(/PROSPECTIVE SELLERS/);
+  });
+  test('seller calls pre-load the benefits with the live processing fee; account data still needs verification', async () => {
+    await setCfg('pricing.auction.processing_fee_bps', 350);
+    const m = model([{ text: 'For your own items there is no commission.' }]);
+    const s = await sim.start({ actorId: ADMIN, routingReason: 'seller' }, { client: m.client });
+    await sim.say(s.call_id, ADMIN, 'Why should I sell with you?');
+    const block = m.calls[0].system.find((b) => /^CORE PUBLIC RULES/.test(b.text)).text;
+    expect(block).toMatch(/\[seller_benefits\] Marketing and exposure/);
+    expect(block).toMatch(/\[seller_benefits\] INDIVIDUAL Sellers in particular: no commission and nothing to pay upfront to list, only a 3\.50% processing fee/);
+    expect(block).toMatch(/\[payouts\] HOW SELLERS GET PAID/);
+    expect((m.calls[0].tools || []).map((t) => t.name).some((n) => n.startsWith('get_my_'))).toBe(false);
+    await sim.end(s.call_id, ADMIN);
+    await q(`DELETE FROM platform_config WHERE key = 'pricing.auction.processing_fee_bps'`);
+  });
+});
