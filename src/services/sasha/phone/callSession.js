@@ -39,6 +39,13 @@ const ROUTING = {
   other: 'MENU CHOICE: the caller pressed 4 (OTHER) or made no choice. Find out conversationally what they need and help.',
 };
 
+/** Public rule topics pre-loaded for each menu choice ("other" loads none: Sasha looks up what she needs). */
+const CORE_TOPICS = {
+  buyer: ['bidding', 'buyer_premium', 'payment', 'pickup'],
+  seller: ['selling', 'seller_fees', 'payouts'],
+  pickup: ['pickup', 'payment', 'buyer_premium'],
+};
+
 class PhoneCallError extends Error { constructor(code, message) { super(message); this.code = code; } }
 
 class PhoneCall {
@@ -100,11 +107,20 @@ class PhoneCall {
   async utterance(rawText, opts = {}) {
     await this.refresh();
     if (!this.row || this.row.status !== 'in_progress') throw new PhoneCallError('CALL_ENDED', 'This call has ended.');
-    if (this.busy) this.interrupt();   // a new final utterance while Sasha is talking = barge-in
+    if (this.busy) this.interrupt({ source: 'internal' });   // a new final utterance while Sasha is talking = barge-in
     this.busy = true;
     const ac = new AbortController(); this.abort = ac;
+    const turn = { id: require('crypto').randomUUID(), t0: Date.now(), firstAudio: false, firstSpeech: false };
+    this.turn = turn;
+    const mark = (e, d) => this.mark(e, d, turn);
+    mark('transcript_received', { keypad: !!opts.keypadCode, chars: String(rawText || '').length });
     const spoken = [];
-    const speak = (t, meta) => { spoken.push({ text: t, kind: meta.kind }); if (this.deps.onSpeak) this.deps.onSpeak(t, meta); };
+    const speak = (t, meta) => {
+      spoken.push({ text: t, kind: meta.kind });
+      if (!turn.firstAudio) { turn.firstAudio = true; mark('first_audio_sent', { kind: meta.kind }); }
+      if (meta.kind === 'speech' && !turn.firstSpeech) { turn.firstSpeech = true; mark('first_sentence_sent', {}); }
+      if (this.deps.onSpeak) this.deps.onSpeak(t, meta);
+    };
     try {
       const expectCode = this.row.verification_state === 'code_sent';
       const clean = opts.keypadCode ? { text: '[verification code entered on the keypad]', code: opts.keypadCode, cardDetected: false } : cleanUtterance(rawText, { expectCode });
@@ -128,9 +144,11 @@ class PhoneCall {
       const ctx = { channel: 'phone', userId: session ? session.user_id : null,
         phone: { call: this.row, sessionId: session ? session.id : null, callerE164: this.callerE164, deps: this.deps,
           onVerification: (r) => { this.lastVerification = r; }, onHandoff: (r) => { this.lastHandoff = r; } } };
+      ctx.phone.coreRules = await this.coreRules();
       const r = await engine.respondStream({ conversationId: this.row.conversation_id, triggerMessageId: inbound.id, ctx, callState: this.callState(session),
-        onSpeak: speak, signal: ac.signal, limits: { dailyUsd: s.daily_budget_usd, perCallUsd: s.per_call_budget_usd } }, this.deps);
+        onSpeak: speak, onTiming: mark, signal: ac.signal, limits: { dailyUsd: s.daily_budget_usd, perCallUsd: s.per_call_budget_usd } }, this.deps);
       this.lastResult = r;
+      mark('turn_complete', { outcome: r.outcome, interrupted: !!r.interrupted, tools: (r.tools || []).length });
       if ((r.outcome === 'replied' || r.outcome === 'handoff') && r.text) {
         await this.addReply(r.text, r.runId);
         if (r.handoff) await escalation.onEngineHandoff(this.row, r.handoff, this.deps);
@@ -153,13 +171,45 @@ class PhoneCall {
     return this.utterance('', { keypadCode: d });
   }
 
-  interrupt() {
-    if (this.abort && !this.abort.signal.aborted) {
-      this.abort.abort();
-      db.query(`UPDATE cs_calls SET interruptions = interruptions + 1 WHERE id = $1`, [this.id]).catch(() => {});
-      return true;
+  /**
+   * Stop Sasha. source 'provider': the caller spoke over her (Twilio interrupt; always counted and timed).
+   * 'new_prompt': a new final caller turn arrived while she was still generating. 'internal': other barge-in paths.
+   * Returns true when an answer still being generated was aborted.
+   */
+  interrupt({ source = 'internal', detail = {} } = {}) {
+    const aborting = !!(this.abort && !this.abort.signal.aborted);
+    if (aborting) this.abort.abort();
+    if (source === 'provider') this.mark('interrupt_received', detail);
+    if (source === 'provider' || aborting) db.query(`UPDATE cs_calls SET interruptions = interruptions + 1 WHERE id = $1`, [this.id]).catch(() => {});
+    if (aborting) this.mark('generation_aborted', { reason: source });
+    return aborting;
+  }
+
+  /**
+   * Core PUBLIC rules for the caller's menu choice (buyer / seller / pickup), read once per call from the live rule
+   * sources and live admin pricing, so common general questions need no lookup round-trip. Nothing account-specific.
+   */
+  async coreRules() {
+    if (this.coreRulesText !== undefined) return this.coreRulesText;
+    const topics = CORE_TOPICS[this.row.routing_reason] || [];
+    let text = null;
+    if (topics.length) {
+      try {
+        const facts = require('../knowledge/platformFacts');
+        const parts = [];
+        for (const t of topics) { const f = (await facts.getCurrentFacts(t))[t] || {}; for (const line of (f.facts || [])) parts.push(`[${t}] ${line}`); }
+        text = parts.join('\n');
+      } catch (e) { console.error('[sasha-phone] core rules unavailable', e.message); text = null; }
     }
-    return false;
+    this.coreRulesText = text;
+    return text;
+  }
+
+  /** One timing event (timing and counts only; never words, audio or account data). Fire-and-forget. */
+  mark(event, detail = {}, turn = this.turn) {
+    const now = new Date();
+    db.query(`INSERT INTO cs_call_timing_events (call_id, turn_id, event, at, ms_from_turn_start, detail) VALUES ($1,$2,$3,$4,$5,$6::jsonb)`,
+      [this.id, turn ? turn.id : null, event, now, turn ? now.getTime() - turn.t0 : null, JSON.stringify(detail || {})]).catch(() => {});
   }
 
   async addReply(text, runId) {

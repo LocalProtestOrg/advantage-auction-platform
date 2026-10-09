@@ -30,12 +30,13 @@ const MESSAGES = {
 
 const xmlEsc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&apos;' }[c]));
 
-/** <Say voice> for the menu: the same voice as Sasha where Twilio's <Say> supports it. */
+/** <Say voice> for the menu and short call messages (sasha.phone.menu_voice): Google or Amazon Polly voices. */
 function sayVoice(voice = {}) {
   const p = String(voice.tts_provider || '').toLowerCase();
   if (p === 'google' && voice.voice) return 'Google.' + voice.voice;
   if (p === 'amazon' && voice.voice) return 'Polly.' + voice.voice;
-  return 'Google.' + phoneSettings.DEFAULTS.voice.voice;   // ElevenLabs voices are not available to <Say>
+  const d = phoneSettings.DEFAULTS.menu_voice;   // ElevenLabs voices are not available to <Say>
+  return 'Polly.' + d.voice;
 }
 const say = (text, voice) => `<Say voice="${xmlEsc(sayVoice(voice))}">${xmlEsc(text)}</Say>`;
 
@@ -45,17 +46,20 @@ function sayAndHangup(text, voice) { return `<?xml version="1.0" encoding="UTF-8
 function menuTwiml(s, { actionUrl, retry = false }) {
   const lines = phoneSettings.menuLines(s);
   const parts = [];
-  if (retry) parts.push(say(MESSAGES.retry, s.voice));
-  else if (s.call_notice) parts.push(say(s.call_notice, s.voice));
-  lines.forEach((l, i) => { if (retry && i === 0) return; parts.push(say(l, s.voice)); if (i === 0) parts.push('<Pause length="1"/>'); });
+  const mv = s.menu_voice;
+  if (retry) parts.push(say(MESSAGES.retry, mv));
+  else if (s.call_notice) parts.push(say(s.call_notice, mv));
+  lines.forEach((l, i) => { if (retry && i === 0) return; parts.push(say(l, mv)); if (i === 0) parts.push('<Pause length="1"/>'); });
   return `<?xml version="1.0" encoding="UTF-8"?><Response><Gather input="dtmf" numDigits="1" timeout="7" actionOnEmptyResult="true" action="${xmlEsc(actionUrl)}" method="POST">${parts.join('')}</Gather></Response>`;
 }
 
 /** Connect the caller to Sasha. Twilio speaks the greeting itself the moment the relay connects (no model latency). */
 function connectTwiml(s, { wsUrl, actionUrl, reason }) {
   const v = s.voice || {};
+  // Barge-in: caller speech stops Sasha's speech; a new reply replaces obsolete queued speech; "mm-hm" does not cut her off.
   const attrs = [`url="${xmlEsc(wsUrl)}"`, `welcomeGreeting="${xmlEsc(s.greeting)}"`, `language="${xmlEsc(v.language || 'en-US')}"`,
-    v.tts_provider ? `ttsProvider="${xmlEsc(v.tts_provider)}"` : '', v.voice ? `voice="${xmlEsc(v.voice)}"` : '', 'interruptible="any"', 'dtmfDetection="true"']
+    v.tts_provider ? `ttsProvider="${xmlEsc(v.tts_provider)}"` : '', v.voice ? `voice="${xmlEsc(v.voice)}"` : '',
+    'interruptible="any"', 'welcomeGreetingInterruptible="any"', 'preemptible="true"', 'ignoreBackchannel="true"', 'dtmfDetection="true"']
     .filter(Boolean).join(' ');
   return `<?xml version="1.0" encoding="UTF-8"?><Response><Connect action="${xmlEsc(actionUrl)}"><ConversationRelay ${attrs}>`
     + `<Parameter name="reason" value="${xmlEsc(reason)}"/></ConversationRelay></Connect></Response>`;
@@ -67,7 +71,7 @@ function afterTwiml(s, { handoffData, sessionStatus }) {
   const text = h.action === 'busy' ? MESSAGES.busy
     : h.action === 'unavailable' || sessionStatus === 'failed' ? MESSAGES.failed
       : MESSAGES.goodbye;
-  return sayAndHangup(text, s.voice);
+  return sayAndHangup(text, s.menu_voice);
 }
 
 // ── relay tickets ────────────────────────────────────────────────────────────────────────────────────────

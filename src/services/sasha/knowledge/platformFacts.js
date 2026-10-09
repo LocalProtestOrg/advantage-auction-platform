@@ -47,8 +47,8 @@ const TOPICS = {
     facts: [
       `A buyer's premium is a percentage added to the winning bid (hammer price). The rate is set per auction and shown on the auction and lot pages before you bid.`,
       `Individual-seller auctions use a fixed ${pct(billing.DEFAULT_BUYER_PREMIUM_BPS)} buyer's premium. Professional-seller auctions use the premium that seller configured (0%–25%); if none is set, ${pct(billing.DEFAULT_BUYER_PREMIUM_BPS)}.`,
-      'Example (example only; always check the specific auction): a $100 winning bid with an 18% premium totals $118 before any applicable sales tax.',
-      'For a specific auction or lot, look up its actual rate (tool: get_auction_or_lot) rather than assuming 18%.',
+      `Example (example only; always check the specific auction): a $100 winning bid with an ${pct(billing.DEFAULT_BUYER_PREMIUM_BPS)} premium totals ${usd(10000 + billing.DEFAULT_BUYER_PREMIUM_BPS)} before any applicable sales tax.`,
+      `For a specific auction or lot, look up its actual rate (tool: get_auction_or_lot) rather than assuming ${pct(billing.DEFAULT_BUYER_PREMIUM_BPS)}.`,
       "Do not tell buyers who receives the premium.",
     ],
   }),
@@ -87,11 +87,11 @@ const TOPICS = {
       `PROFESSIONAL Sellers only: once their business is verified they can publish their own qualifying auctions and keep editing. They can set per-lot starting bids, reserves and custom bid increments, set their own buyer's premium (0–25%) and keep it, and set their own pickup timing (never before the auction closes).`,
     ],
   }),
-  seller_fees: () => ({
+  seller_fees: (p) => ({
     source: 'billingTermsService / settlementPolicy / owner decision 1 (fee reconciliation pending for professional rates)',
     facts: [
-      `Individual sellers: no platform fee; a ${pct(billing.DEFAULT_PROCESSING_FEE_BPS)} payment-processing fee on the hammer price is deducted from the payout. The buyer's premium on individual auctions is ${pct(billing.DEFAULT_BUYER_PREMIUM_BPS)}.`,
-      `Professional Sellers: the platform fee is set in each seller's Professional Seller agreement (it can differ by seller), plus a ${pct(billing.DEFAULT_PROCESSING_FEE_BPS)} payment-processing fee on the hammer price. Professional Sellers set and keep their own buyer's premium.`,
+      `Individual sellers: no platform fee; a ${pct(p.processingBps)} payment-processing fee on the hammer price is deducted from the payout. The buyer's premium on individual auctions is ${pct(billing.DEFAULT_BUYER_PREMIUM_BPS)}.`,
+      `Professional Sellers: the platform fee is set in each seller's Professional Seller agreement (it can differ by seller), plus a ${pct(p.processingBps)} payment-processing fee on the hammer price. Professional Sellers set and keep their own buyer's premium.`,
       'Never quote a standard Professional Seller platform-fee percentage, and never reveal another seller\'s rate. A signed-in Professional Seller can be told their own terms (tool: get_my_seller_terms).',
       'Auction terms are fixed when the auction is first published; later changes never apply retroactively.',
     ],
@@ -106,7 +106,7 @@ const TOPICS = {
       'Say payouts are "processed" on Thursday; never promise the funds arrive in the bank that day (bank processing time varies). Payouts can be held while payment, pickup, a dispute, verification or banking details are unresolved; for a specific late or missing payout, hand the conversation to the team.',
     ],
   }),
-  storefront: () => ({
+  storefront: (p) => ({
     source: 'marketplaceOrderService.STOREFRONT_FEE_BPS / seller agreement §6.9 / launchGuards',
     facts: [
       'Professional Sellers can have a public storefront and list fixed-price items. Unsold auction lots can be moved to the storefront in one click; the item\'s pickup location carries over.',
@@ -114,7 +114,7 @@ const TOPICS = {
       marketplaceCheckoutEnabled() ? 'Online checkout ("Buy Now") for storefront items is available.'
         : 'Online checkout ("Buy Now") for storefront items is not available yet. Interested buyers can contact the seller through the storefront.',
       storefrontFeeText(),
-      'Keep the storefront fee separate from Professional Seller AUCTION fees (platform fee per agreement + 3% processing on the hammer price); never combine them.',
+      `Keep the storefront fee separate from Professional Seller AUCTION fees (platform fee per agreement + ${pct(p.processingBps)} processing on the hammer price); never combine them.`,
     ],
   }),
   account: () => ({
@@ -137,11 +137,25 @@ function storefrontFeeText() {
 const TOPIC_NAMES = Object.keys(TOPICS);
 
 /** Facts for one topic (or all when topic is 'all'). Never throws. */
-function getFacts(topic) {
+/**
+ * Pricing that new auctions actually use. The payment-processing fee is admin-editable and frozen onto each auction at
+ * publication from pricingConfig.currentProcessingBps(), so Sasha reads it from there (getCurrentFacts). The individual
+ * buyer's premium and the storefront fee are enforced from code constants, which the facts already read.
+ */
+const CODE_PRICING = { processingBps: billing.DEFAULT_PROCESSING_FEE_BPS };
+
+function getFacts(topic, pricing = CODE_PRICING) {
   const names = topic === 'all' || !TOPICS[topic] ? TOPIC_NAMES : [topic];
   const out = {};
-  for (const n of names) { try { out[n] = TOPICS[n](); } catch (e) { out[n] = { source: 'unavailable', facts: [] }; } }
+  for (const n of names) { try { out[n] = TOPICS[n](pricing); } catch (e) { out[n] = { source: 'unavailable', facts: [] }; } }
   return out;
 }
 
-module.exports = { getFacts, TOPIC_NAMES };
+/** Same facts with the CURRENT admin pricing (falls back to the code defaults if pricing cannot be read). */
+async function getCurrentFacts(topic) {
+  let processingBps = CODE_PRICING.processingBps;
+  try { processingBps = await require('../../pricingConfigService').currentProcessingBps(); } catch (_e) { /* code default */ }
+  return getFacts(topic, { processingBps });
+}
+
+module.exports = { getFacts, getCurrentFacts, TOPIC_NAMES };

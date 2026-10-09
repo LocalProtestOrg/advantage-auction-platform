@@ -213,7 +213,7 @@ router.post('/settings', superAdminOnly, wrap(async (req, res) => {
 const phoneSettings = require('../services/sasha/phone/phoneSettings');
 // The opening disclosure is no longer spoken (owner direction 2026-10-08); the menu, greeting and optional notice replace it.
 const PHONE_EDITABLE = ['greeting', 'menu_text', 'call_notice', 'access_mode', 'max_concurrent_calls', 'daily_budget_usd', 'per_call_budget_usd', 'transcript_retention_days',
-  'code_ttl_minutes', 'code_max_attempts', 'code_max_sends_per_30min', 'lockout_minutes', 'session_max_minutes', 'voice'];
+  'code_ttl_minutes', 'code_max_attempts', 'code_max_sends_per_30min', 'lockout_minutes', 'session_max_minutes', 'voice', 'menu_voice'];
 const PHONE_TEXT_LIMITS = { greeting: [10, 300], menu_text: [20, 1200], call_notice: [0, 400] };
 router.get('/phone/settings', wrap(async (req, res) => {
   phoneSettings.clear();
@@ -239,7 +239,9 @@ router.post('/phone/settings', superAdminOnly, wrap(async (req, res) => {
     if (value === 'public' && (req.body || {}).confirm !== 'OPEN TO PUBLIC') {
       return res.status(400).json({ success: false, message: 'Opening the phone line to every caller needs the confirmation phrase OPEN TO PUBLIC.' });
     }
-  } else if (k === 'voice') {
+  } else if (k === 'menu_voice' && !['google', 'amazon'].includes(String((value || {}).tts_provider || '').toLowerCase())) {
+    return res.status(400).json({ success: false, message: 'The menu voice must be a Google or Amazon voice (Twilio <Say> does not support other providers).' });
+  } else if (k === 'voice' || k === 'menu_voice') {
     if (!value || typeof value !== 'object') return res.status(400).json({ success: false, message: 'Voice must be an object.' });
     v = { tts_provider: value.tts_provider ? String(value.tts_provider).slice(0, 40) : null, voice: value.voice ? String(value.voice).slice(0, 120) : null,
       language: String(value.language || 'en-US').slice(0, 10) };

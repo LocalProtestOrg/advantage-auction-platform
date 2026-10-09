@@ -42,7 +42,9 @@ async function admit(req, deps = {}) {
  * Twilio validates outbound messages strictly: any field it does not know rejects the whole message (error 64107,
  * "Unexpected fields"), so nothing is spoken. Internal labels (e.g. `kind`, used by the admin tester) never go to Twilio.
  */
-const ALLOWED_FIELDS = { text: ['type', 'token', 'last'], end: ['type', 'handoffData'] };
+// Only fields in Twilio's documented outbound schema. interruptible: caller speech stops this text's playback;
+// preemptible: a later message may replace it (the talk-cycle replacement itself is set on <ConversationRelay>).
+const ALLOWED_FIELDS = { text: ['type', 'token', 'last', 'interruptible', 'preemptible'], end: ['type', 'handoffData'] };
 function toTwilio(obj) {
   const allowed = obj && ALLOWED_FIELDS[obj.type];
   if (!allowed) return null;
@@ -64,6 +66,9 @@ async function bind(ws, ticket, deps = {}) {
     let msg; try { msg = JSON.parse(String(data)); } catch (_e) { return; }
     // Interruptions act immediately; everything else is handled in order.
     if (msg && msg.type === 'interrupt') { relay.onMessage(msg).catch(() => {}); return; }
+    // A new final caller turn supersedes the answer still being generated: stop it now, so the new turn is not
+    // queued behind obsolete speech.
+    if (msg && msg.type === 'prompt' && msg.last !== false && relay.call && relay.call.busy) relay.call.interrupt({ source: 'new_prompt' });
     queue = queue.then(() => relay.onMessage(msg)).catch((e) => console.error('[voice-relay] message failed', e.message));
   });
   ws.on('close', () => { clearTimeout(timer); queue = queue.then(() => relay.close('caller_hung_up')).catch(() => {}); });

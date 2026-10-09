@@ -27,6 +27,8 @@ const DEFAULTS = {
   code_ttl_minutes: 10, code_max_attempts: 5, code_max_sends_per_30min: 3, lockout_minutes: 60, session_max_minutes: 20,
   // Adult female, neutral American. Used for the menu (<Say>) and for Sasha (ConversationRelay); editable by Super Admin.
   voice: { tts_provider: 'Google', voice: 'en-US-Chirp3-HD-Aoede', language: 'en-US' },
+  // The routing menu and short call messages (<Say>): a polished British female voice, deliberately different from Sasha.
+  menu_voice: { tts_provider: 'Amazon', voice: 'Amy-Generative', language: 'en-GB' },
 };
 const ACCESS_MODES = ['staff_only', 'public'];
 const NUM = { max_concurrent_calls: [1, 200], daily_budget_usd: [0, 1000], per_call_budget_usd: [0, 25], transcript_retention_days: [1, 3650],
@@ -38,7 +40,7 @@ let cache = null; let cachedAt = 0;
 
 async function load(runner = db) {
   if (cache && Date.now() - cachedAt < TTL_MS) return cache;
-  const s = { ...DEFAULTS, voice: { ...DEFAULTS.voice } };
+  const s = { ...DEFAULTS, voice: { ...DEFAULTS.voice }, menu_voice: { ...DEFAULTS.menu_voice } };
   try {
     const rows = (await runner.query(`SELECT key, value FROM platform_config WHERE key LIKE 'sasha.phone.%'`)).rows;
     for (const { key, value } of rows) {
@@ -51,9 +53,9 @@ async function load(runner = db) {
       else if (k === 'greeting' && typeof value === 'string' && value.trim()) s.greeting = value.trim().slice(0, 300);
       else if (k === 'menu_text' && typeof value === 'string' && value.trim()) s.menu_text = value.trim().slice(0, 1200);
       else if (k === 'call_notice' && typeof value === 'string') s.call_notice = value.trim().slice(0, 400);
-      else if (k === 'voice' && value && typeof value === 'object') {
+      else if ((k === 'voice' || k === 'menu_voice') && value && typeof value === 'object') {
         // Null fields keep the defaults (a half-configured voice must never leave the call without one).
-        for (const f of ['tts_provider', 'voice', 'language']) if (value[f]) s.voice[f] = String(value[f]);
+        for (const f of ['tts_provider', 'voice', 'language']) if (value[f]) s[k][f] = String(value[f]);
       }
       else if (NUM[k] && Number.isFinite(Number(value)) && Number(value) >= NUM[k][0] && Number(value) <= NUM[k][1]) s[k] = Number(value);
     }

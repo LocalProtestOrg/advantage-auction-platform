@@ -31,7 +31,8 @@ class RelaySession {
     // Live calls: the reason and CallSid come from the signed relay ticket (never from the socket's own messages), and
     // Twilio has already spoken Sasha's greeting (welcomeGreeting), so it is recorded but not sent again.
     this.routingReason = opts.routingReason || null; this.expectCallSid = opts.expectCallSid || null; this.providerGreeting = !!opts.providerGreeting;
-    this.deps = { ...(opts.deps || {}), onSpeak: (text, meta) => this.send({ type: 'text', token: text + ' ', last: false, kind: meta && meta.kind }) };
+    // Every spoken message is explicitly interruptible: caller speech stops its playback (Twilio barge-in).
+    this.deps = { ...(opts.deps || {}), onSpeak: (text, meta) => this.send({ type: 'text', token: text + ' ', last: false, interruptible: true, kind: meta && meta.kind }) };
     this.call = null; this.dtmf = ''; this.ended = false;
   }
 
@@ -51,7 +52,14 @@ class RelaySession {
       if (/^\d$/.test(d)) { this.dtmf += d; if (this.dtmf.length === require('../../../../lib/verificationCode').CODE_LENGTH) { const code = this.dtmf; this.dtmf = ''; return this.finishTurn(await this.call.keypad(code)); } }
       return null;
     }
-    if (msg.type === 'interrupt') { this.call.interrupt(); return { interrupted: true }; }
+    if (msg.type === 'interrupt') {
+      // Timing only: how long Sasha had been speaking and how much of the text was played (a count, never the words).
+      const detail = { duration_ms: Number.isFinite(Number(msg.durationUntilInterruptMs)) ? Number(msg.durationUntilInterruptMs) : null,
+        played_chars: String(msg.utteranceUntilInterrupt || '').length };
+      const aborted = this.call.interrupt({ source: 'provider', detail });
+      if (this.provider !== 'simulated') console.log(`[voice-relay] interrupt after ${detail.duration_ms == null ? '?' : detail.duration_ms} ms; generation ${aborted ? 'aborted' : 'already complete'}`);
+      return { interrupted: true, aborted };
+    }
     if (msg.type === 'error') { console.error('[sasha-phone] provider error', String(msg.description || '').slice(0, 200)); return null; }
     return null;
   }

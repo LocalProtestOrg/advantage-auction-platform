@@ -48,7 +48,7 @@ function incoming(deps = {}) {
     const lineOn = await phoneSettings.relayLineOn();
     const callerAllowed = lineOn && s.access_mode !== 'public' ? await require('../services/sasha/phone/testCallers').isAllowed(req.body.From) : true;
     const d = line.decideIncoming({ lineOn, accessMode: s.access_mode, callerAllowed });
-    if (d.action !== 'menu') { await logRefusal(d.reason, req.body.From); return twiml(res, line.sayAndHangup(line.MESSAGES.unavailable, s.voice)); }
+    if (d.action !== 'menu') { await logRefusal(d.reason, req.body.From); return twiml(res, line.sayAndHangup(line.MESSAGES.unavailable, s.menu_voice)); }
     return twiml(res, line.menuTwiml(s, { actionUrl: base() + '/api/voice/menu?attempt=1' }));
   };
 }
@@ -56,21 +56,21 @@ function incoming(deps = {}) {
 function menu(deps = {}) {
   return async (req, res) => {
     const s = await phoneSettings.load();
-    if (!(await phoneSettings.relayLineOn())) { await logRefusal('line_off', req.body.From); return twiml(res, line.sayAndHangup(line.MESSAGES.unavailable, s.voice)); }
+    if (!(await phoneSettings.relayLineOn())) { await logRefusal('line_off', req.body.From); return twiml(res, line.sayAndHangup(line.MESSAGES.unavailable, s.menu_voice)); }
     // Re-check the test list on every step (the menu URL could be replayed for another call).
     if (s.access_mode !== 'public' && !(await require('../services/sasha/phone/testCallers').isAllowed(req.body.From))) {
-      await logRefusal('not_on_test_list', req.body.From); return twiml(res, line.sayAndHangup(line.MESSAGES.unavailable, s.voice));
+      await logRefusal('not_on_test_list', req.body.From); return twiml(res, line.sayAndHangup(line.MESSAGES.unavailable, s.menu_voice));
     }
     const attempt = Number(req.query.attempt) || 1;
     let reason = line.REASONS[String(req.body.Digits || '').trim()] || null;
     if (!reason && attempt < 2) return twiml(res, line.menuTwiml(s, { actionUrl: base() + '/api/voice/menu?attempt=2', retry: true }));
     if (!reason) reason = 'other';   // no choice after two tries: Sasha finds out what they need
     const active = Number((await db.query(`SELECT count(*)::int n FROM cs_calls WHERE status = 'in_progress' AND is_simulated = false`)).rows[0].n);
-    if (active >= s.max_concurrent_calls) { await logRefusal('all_lines_busy', req.body.From); return twiml(res, line.sayAndHangup(line.MESSAGES.busy, s.voice)); }
+    if (active >= s.max_concurrent_calls) { await logRefusal('all_lines_busy', req.body.From); return twiml(res, line.sayAndHangup(line.MESSAGES.busy, s.menu_voice)); }
     const spent = await (deps.spentToday || (() => require('../services/sasha/engine').spentTodayUsdForChannel('phone')))();
-    if (spent >= s.daily_budget_usd) { await logRefusal('daily_budget_reached', req.body.From); return twiml(res, line.sayAndHangup(line.MESSAGES.busy, s.voice)); }
+    if (spent >= s.daily_budget_usd) { await logRefusal('daily_budget_reached', req.body.From); return twiml(res, line.sayAndHangup(line.MESSAGES.busy, s.menu_voice)); }
     const callSid = String(req.body.CallSid || '');
-    if (!/^CA[0-9a-f]{32}$/i.test(callSid)) return twiml(res, line.sayAndHangup(line.MESSAGES.failed, s.voice));
+    if (!/^CA[0-9a-f]{32}$/i.test(callSid)) return twiml(res, line.sayAndHangup(line.MESSAGES.failed, s.menu_voice));
     const ticket = line.issueTicket({ callSid, reason });
     const wsUrl = base().replace(/^https?:/, 'wss:') + '/api/voice/relay?t=' + encodeURIComponent(ticket);
     return twiml(res, line.connectTwiml(s, { wsUrl, actionUrl: base() + '/api/voice/after', reason }));

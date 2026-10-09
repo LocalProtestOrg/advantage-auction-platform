@@ -72,10 +72,12 @@ const PHONE_VOICE = [
   `VOICE (this call is spoken, not written): You speak as an experienced, highly capable customer-service professional for a premium company: warm, composed, confident, clear and natural. Never theatrical, bubbly, cold or robotic, and never like you are reading a script.`,
   `• Adapt naturally: routine question → friendly and efficient. Confused caller → patient, one simple step at a time. Frustrated caller → calm, empathetic, professional, without over-apologizing. Seller business question → confident and competent. Account or payment matter → discreet and composed.`,
   `• Short conversational sentences, generally one idea at a time. Ask one question at a time. Avoid long lists unless the caller asks; offer to go through items one by one instead.`,
+  `• CONVERSATION, NOT A BRIEFING: answer the caller's immediate question first, normally in about two to four short spoken sentences, then stop and let them respond, or offer the next logical topic in a few words ("Want me to go over payouts too?"). Don't cover every related policy just because you know it. If the caller asks for the full explanation, give it in natural chunks of a few sentences and check in between ("Does that make sense so far?"). Keep reasoning naturally and ask a useful clarifying question when the answer depends on it.`,
+  `• Never speak headings or labels (no "Getting started:", "Minimum lots:", "Bidding:"), never speak parenthetical asides (fold them into a normal sentence or leave them out), and don't repeat anything you already told this caller unless they ask. Use the caller's name at most once, unless it is genuinely useful later.`,
   `• Never read web addresses, internal ids, formatting or symbols aloud. When a link would help, offer to text it (send_text, verified callers only) or describe where to tap on the website in plain words.`,
   `• Say amounts, dates, times, lot numbers and instructions naturally, and confirm the important ones ("That's three hundred twelve dollars and fifty cents, due by Friday, October tenth.").`,
   `• Use brief acknowledgements naturally but vary them; don't repeat the same filler or overuse the caller's name. The caller may interrupt you at any time; just continue from what they said.`,
-  `• When you need to look something up, call the tool first and speak after; a short holding phrase is played for you automatically.`,
+  `• When you need to look something up, call the tool first and speak after; a short holding phrase is played for you automatically. After it, go straight to the answer: don't add another opener such as "Perfect", "Sure thing" or "Great question".`,
   `• PAYMENT CARDS: never ask for, accept, repeat or write down a card number, security code, expiration date or any payment credential. If the caller starts giving card details (you will see "[card details removed]"), interrupt politely and explain that for their security you can't take card details over the phone, and that you can send them a secure payment link instead (send_payment_link, once they are verified; it asks them to sign in and pay on the website). They can also pay any time from Invoices in their account. Nothing they said was kept.`,
   `• TEXTS TO THE CALLER: texts go only to the verified mobile number already on the account. If the caller gives a different number, do not text it and do not treat it as proof of who they are; explain that the number can be changed and verified on the website (Account, then Verify this number), and offer email instead. Before texting a payment link, say naturally: "I'll text a one-time payment link to your number ending in" the last four digits, "It doesn't sign you up for text alerts", and wait for a yes. If a number has opted out of texts, offer email instead.`,
   `• PICKUP: if get_my_pickup_details returns an address for this verified caller, you may read it clearly and offer to text it. If it returns nothing, do not reveal anything about the location beyond the city and state.`,
@@ -245,7 +247,7 @@ async function respond({ conversationId, triggerMessageId, ctx }, deps = {}) {
 
 // ── Phone: streaming responder ───────────────────────────────────────────────────────────────────────
 const PHONE_MAX_TOOL_ROUNDS = 4;      // fewer rounds than text: every round is dead air on a call
-const PHONE_MAX_OUTPUT_TOKENS = 450;  // spoken answers are short
+const PHONE_MAX_OUTPUT_TOKENS = 200;  // backstop only: the conversational instructions keep spoken answers short
 const PHONE_WATCHDOG_MS = 7000;       // silence during a lookup before a short "still working on it"
 const PHONE_MAX_PROGRESS_UPDATES = 2; // never more than two such updates in one turn
 const PHONE_TOOL_TIMEOUT_MS = 22000;  // hard ceiling for one lookup; then the call speaks the recovery line
@@ -328,7 +330,7 @@ async function spentOnConversationUsd(conversationId) {
  *   limits { dailyUsd, perCallUsd }               phone-channel caps on top of the overall Sasha daily cap.
  * Returns { outcome: 'replied'|'handoff'|'skipped'|'error', text, handoff, runId, interrupted, budget }.
  */
-async function respondStream({ conversationId, triggerMessageId, ctx, callState = '', onSpeak = () => {}, signal = null, limits = {} }, deps = {}) {
+async function respondStream({ conversationId, triggerMessageId, ctx, callState = '', onSpeak = () => {}, onTiming = () => {}, signal = null, limits = {} }, deps = {}) {
   const { SentenceChunker, pickFiller, speakable } = require('./phone/speech');
   const started = Date.now();
   const s = await settings.effective();
@@ -352,6 +354,13 @@ async function respondStream({ conversationId, triggerMessageId, ctx, callState 
   }
   const toolDefs = tools.toolsFor(ctx);
   const system = [{ type: 'text', text: systemPrompt(ctx), cache_control: { type: 'ephemeral' } }];
+  // Core PUBLIC rules for the caller's menu choice, loaded once per call from the live rule sources and pricing. Stable
+  // for the whole call, so it is cached with the prompt.
+  if (ctx.phone && ctx.phone.coreRules) {
+    system.push({ type: 'text', cache_control: { type: 'ephemeral' }, text: 'CORE PUBLIC RULES for this caller\'s menu choice (live; same source as get_platform_rules). '
+      + 'For general questions these cover, answer directly without calling get_platform_rules. Anything about a specific auction, lot, account, bid, invoice, payment, '
+      + 'pickup, order or payout still needs the right tool and the caller\'s verification, exactly as before.\n' + ctx.phone.coreRules });
+  }
   if (callState) system.push({ type: 'text', text: 'CALL STATE (set by the system for this turn):\n' + callState });
   const used = []; const spoken = []; let inTok = 0, outTok = 0, cacheTok = 0, cacheWriteTok = 0, handoff = null, lastFiller = null, interrupted = false;
   let fillerPending = false;   // a progress phrase was played and no real speech has followed yet
@@ -365,6 +374,7 @@ async function respondStream({ conversationId, triggerMessageId, ctx, callState 
     lastSpokeAt = Date.now(); spoken.push(x); onSpeak(x, { kind });
   };
   const aborted = () => !!(signal && signal.aborted);
+  const timing = (event, detail) => { try { onTiming(event, detail); } catch (_e) { /* timing never breaks a call */ } };
   const watchdog = setInterval(() => {
     if (!opActive || aborted() || updates >= PHONE_MAX_PROGRESS_UPDATES || Date.now() - lastSpokeAt < watchdogMs) return;
     say(PROGRESS_UPDATES[updates++], 'progress');
@@ -374,11 +384,15 @@ async function respondStream({ conversationId, triggerMessageId, ctx, callState 
     for (let round = 0; round <= PHONE_MAX_TOOL_ROUNDS; round++) {
       if (aborted()) { interrupted = true; break; }
       const chunker = new SentenceChunker();
-      const blocks = []; let stop = null; let roundOut = 0; let saidThisRound = false;
+      const blocks = []; let stop = null; let roundOut = 0; let saidThisRound = false; let firstOutput = false;
+      timing('model_request', { round });
       const stream = await anthropic.messages.create({ model: MODEL(), max_tokens: PHONE_MAX_OUTPUT_TOKENS, system, tools: toolDefs, messages: cleanMessagesForModel(messages), stream: true },
         signal ? { signal } : undefined);
       for await (const ev of stream) {
         if (aborted()) { interrupted = true; break; }
+        if (!firstOutput && (ev.type === 'content_block_start' || ev.type === 'content_block_delta')) {
+          firstOutput = true; timing('first_output', { round, kind: ev.content_block ? ev.content_block.type : 'delta' });
+        }
         if (ev.type === 'message_start') {
           const u = (ev.message && ev.message.usage) || {};
           inTok += u.input_tokens || 0; cacheTok += u.cache_read_input_tokens || 0; cacheWriteTok += u.cache_creation_input_tokens || 0;
@@ -398,6 +412,7 @@ async function respondStream({ conversationId, triggerMessageId, ctx, callState 
         }
       }
       outTok += roundOut;
+      if (aborted()) interrupted = true;   // the stream may end quietly on abort: never speak the leftover partial sentence
       if (interrupted) break;
       for (const sen of chunker.flush()) { say(sen, 'speech'); saidThisRound = true; }
       const content = assistantContentFromBlocks(blocks);
@@ -417,8 +432,10 @@ async function respondStream({ conversationId, triggerMessageId, ctx, callState 
           // Hard ceiling per lookup: stop waiting, end the turn, and let the call speak the recovery line.
           const t0 = Date.now(); let timer;
           const ceiling = new Promise((resolve) => { timer = setTimeout(() => resolve(TOOL_TIMED_OUT), toolTimeoutMs); });
+          timing('tool_start', { tool: tu.name });
           out = await Promise.race([tools.run(tu.name, tu.input, ctx), ceiling]);
           clearTimeout(timer);
+          timing('tool_end', { tool: tu.name, ms: Date.now() - t0, timed_out: out === TOOL_TIMED_OUT, error: !!(out && out !== TOOL_TIMED_OUT && out.error) });
           if (out === TOOL_TIMED_OUT) {
             slowTool = { tool: tu.name, ms: Date.now() - t0 };
             console.warn(`[sasha-phone] slow operation: ${tu.name} exceeded ${toolTimeoutMs} ms (conversation ${conversationId})`);

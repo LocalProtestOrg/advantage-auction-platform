@@ -102,7 +102,7 @@ describe('incoming call: signed, OFF by default, staff-only while testing', () =
       const said = [...r.body.matchAll(/<Say voice="([^"]+)">([^<]*)<\/Say>/g)];
       expect(said.map((m) => m[2])).toEqual(['Thank you for calling Advantage.Bid, where you always get the advantage!', 'If you are a buyer, please press 1.',
         'If you are a seller, please press 2.', 'If you have recently purchased and need assistance with pickup, please press 3.', 'For all other questions, please press 4.']);
-      expect(said.every((m) => m[1] === 'Google.en-US-Chirp3-HD-Aoede')).toBe(true);
+      expect(said.every((m) => m[1] === 'Polly.Amy-Generative')).toBe(true);   // British menu voice, separate from Sasha's
       expect(r.body).toMatch(/advantage!<\/Say><Pause length="1"\/>/);
       expect(r.body).not.toMatch(/virtual|automated|assistant|\bAI\b|operator|press 0|transcrib|record/i);
       await testCallers.remove(tc.id, { actorId: ADMIN });
@@ -118,7 +118,7 @@ describe('menu choice → ConversationRelay', () => {
   test.each([['1', 'buyer'], ['2', 'seller'], ['3', 'pickup'], ['4', 'other']])('key %s connects to Sasha with reason %s, a signed ticket and the greeting', async (digit, reason) => {
     const cs = callSid();
     const r = await hook('menu', { From: e164(ME), CallSid: cs, Digits: digit }, { query: { attempt: '1' }, deps: { spentToday: async () => 0 } });
-    const m = /<Connect action="([^"]+)"><ConversationRelay url="([^"]+)" welcomeGreeting="([^"]+)" language="en-US" ttsProvider="Google" voice="en-US-Chirp3-HD-Aoede" interruptible="any" dtmfDetection="true"><Parameter name="reason" value="([a-z]+)"\/><\/ConversationRelay><\/Connect><\/Response>$/.exec(r.body);
+    const m = /<Connect action="([^"]+)"><ConversationRelay url="([^"]+)" welcomeGreeting="([^"]+)" language="en-US" ttsProvider="Google" voice="en-US-Chirp3-HD-Aoede" interruptible="any" welcomeGreetingInterruptible="any" preemptible="true" ignoreBackchannel="true" dtmfDetection="true"><Parameter name="reason" value="([a-z]+)"\/><\/ConversationRelay><\/Connect><\/Response>$/.exec(r.body);
     expect(m).toBeTruthy();
     expect(m[1]).toBe(BASE() + '/api/voice/after');
     expect(m[3]).toBe('Thank you for calling Advantage.Bid. This is Sasha. How can I help you today?');
@@ -206,7 +206,7 @@ describe('live relay session (twilio_cr) with the menu choice', () => {
     const msgs = await q(`SELECT author_type, body_text FROM cs_messages WHERE conversation_id = $1 ORDER BY created_at, id`, [row.conversation_id]);
     expect(msgs[0]).toMatchObject({ author_type: 'sasha', body_text: 'Thank you for calling Advantage.Bid. This is Sasha. How can I help you today?' });
     await relay.onMessage({ type: 'prompt', voicePrompt: 'I bought a dresser and need to know when I can pick it up.', last: true });
-    const callState = m.calls[0].system[1].text;
+    const callState = m.calls[0].system.map((b) => b.text).join(' | ');
     expect(callState).toMatch(/MENU CHOICE: the caller pressed 3 \(RECENT PURCHASE \/ PICKUP\)/);
     expect(callState).toMatch(/There is no live transfer to staff/);
     expect(out.some((x) => x.type === 'text' && /verify your account first/.test(x.token))).toBe(true);

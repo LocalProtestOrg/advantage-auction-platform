@@ -137,7 +137,7 @@ describe('anonymous public call', () => {
     expect(spokenText(r)).toMatch(/extends that lot by two minutes/);
     expect(m.calls[0].system[0].text).toMatch(/This is a PHONE CALL and the caller is NOT verified/);
     expect(m.calls[0].system[1].text).toMatch(/Caller verification: NOT verified/);
-    expect(m.calls[0].max_tokens).toBe(450);
+    expect(m.calls[0].max_tokens).toBe(200);
     expect(m.calls[0].stream).toBe(true);
   });
   test('caller ID is a hint only: a caller ID matching an account grants nothing', async () => {
@@ -699,7 +699,7 @@ describe('ConversationRelay adapter (simulated provider)', () => {
     for (const d of code) await relay.onMessage({ type: 'dtmf', digit: d });
     expect((await q(`SELECT verification_state FROM cs_calls WHERE id = $1`, [relay.call.id]))[0].verification_state).toBe('verified');
     expect(out.filter((x) => x.last === true).length).toBeGreaterThanOrEqual(3);
-    expect(await relay.onMessage({ type: 'interrupt', utteranceUntilInterrupt: 'Please' })).toEqual({ interrupted: true });
+    expect(await relay.onMessage({ type: 'interrupt', utteranceUntilInterrupt: 'Please' })).toMatchObject({ interrupted: true });
     const ended = await relay.close();
     expect(ended.status).toBe('completed');
   });

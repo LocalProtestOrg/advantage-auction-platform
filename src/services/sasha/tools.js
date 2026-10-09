@@ -245,7 +245,7 @@ async function getMyStorefrontOrders(_a, ctx) {
 }
 
 const EXEC = {
-  search_help_center: searchHelpCenter, get_platform_rules: async ({ topic }) => platformFacts.getFacts(topic), get_auction_or_lot: getAuctionOrLot,
+  search_help_center: searchHelpCenter, get_platform_rules: async ({ topic }) => platformFacts.getCurrentFacts(topic), get_auction_or_lot: getAuctionOrLot,
   get_my_account: getMyAccount, get_my_bids: getMyBids, get_my_invoices: getMyInvoices, get_my_pickup_details: getMyPickupDetails,
   get_my_orders: getMyOrders, get_my_auctions: getMyAuctions, get_my_settlements: getMySettlements, get_my_seller_terms: getMySellerTerms,
   get_my_storefront_orders: getMyStorefrontOrders,
