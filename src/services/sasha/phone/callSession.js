@@ -100,6 +100,9 @@ class PhoneCall {
     }
     if (this.cardJustRedacted) lines.push('The caller just started reading payment card details. They were removed and not stored. Politely stop them and explain the secure alternative.');
     if (this.row.routing_reason && ROUTING[this.row.routing_reason]) lines.push(ROUTING[this.row.routing_reason]);
+    lines.push(!session ? 'Texting: NOT available (the caller is not verified). Do not offer to text anything; describe where to find it on the website instead.'
+      : this.textingNow ? 'Texting: AVAILABLE. You may offer to text this verified caller at the verified mobile number on their account.'
+        : 'Texting: NOT available on this call. Do not offer to text anything. Describe where to find it on the website, and for a payment link offer to email it.');
     lines.push('There is no live transfer to staff. Help with everything you are able to; if the caller still wants a person, or the matter genuinely needs staff, take a message for the team (request_callback).');
     return lines.join('\n');
   }
@@ -145,6 +148,7 @@ class PhoneCall {
         phone: { call: this.row, sessionId: session ? session.id : null, callerE164: this.callerE164, deps: this.deps,
           onVerification: (r) => { this.lastVerification = r; }, onHandoff: (r) => { this.lastHandoff = r; } } };
       ctx.phone.coreRules = await this.coreRules();
+      ctx.phone.textingAvailable = this.textingNow = await this.textingAvailable(session);
       const r = await engine.respondStream({ conversationId: this.row.conversation_id, triggerMessageId: inbound.id, ctx, callState: this.callState(session),
         onSpeak: speak, onTiming: mark, signal: ac.signal, limits: { dailyUsd: s.daily_budget_usd, perCallUsd: s.per_call_budget_usd } }, this.deps);
       this.lastResult = r;
@@ -203,6 +207,16 @@ class PhoneCall {
     }
     this.coreRulesText = text;
     return text;
+  }
+
+  /** Whether a text can really be sent to this caller now (verified session, verified mobile not on the do-not-text list, texting switched on). */
+  async textingAvailable(session) {
+    if (!session) return false;
+    try {
+      const u = (await db.query(`SELECT phone, phone_verified_at, phone_verified_e164 FROM users WHERE id = $1`, [session.user_id])).rows[0];
+      if (!require('../../accountPhoneService').isVerified(u)) return false;
+      return await require('./phoneSms').available(this.row, u.phone_verified_e164);
+    } catch (_e) { return false; }   // when unsure, never offer a text
   }
 
   /** One timing event (timing and counts only; never words, audio or account data). Fire-and-forget. */

@@ -53,15 +53,28 @@ function menuTwiml(s, { actionUrl, retry = false }) {
   return `<?xml version="1.0" encoding="UTF-8"?><Response><Gather input="dtmf" numDigits="1" timeout="7" actionOnEmptyResult="true" action="${xmlEsc(actionUrl)}" method="POST">${parts.join('')}</Gather></Response>`;
 }
 
+/**
+ * The short "connecting you" moment between the menu and Sasha: one standard US ringback cycle (2.5 s), played once.
+ * Returns the URL only when the transition is on and the file is actually deployed with this server; otherwise null
+ * and the caller goes straight to Sasha (a missing sound can never stop the call).
+ */
+const RING_FILE = require('path').join(__dirname, '..', '..', '..', '..', 'public', 'audio', 'connecting-ring.wav');
+function transitionAudioUrl(s, base, deps = {}) {
+  if (!s || s.transition_audio === false) return null;
+  const exists = deps.fileExists || ((p) => require('fs').existsSync(p));
+  return exists(RING_FILE) ? String(base || '').replace(/\/+$/, '') + '/audio/connecting-ring.wav' : null;
+}
+
 /** Connect the caller to Sasha. Twilio speaks the greeting itself the moment the relay connects (no model latency). */
-function connectTwiml(s, { wsUrl, actionUrl, reason }) {
+function connectTwiml(s, { wsUrl, actionUrl, reason, transitionUrl = null }) {
   const v = s.voice || {};
   // Barge-in: caller speech stops Sasha's speech; a new reply replaces obsolete queued speech; "mm-hm" does not cut her off.
   const attrs = [`url="${xmlEsc(wsUrl)}"`, `welcomeGreeting="${xmlEsc(s.greeting)}"`, `language="${xmlEsc(v.language || 'en-US')}"`,
     v.tts_provider ? `ttsProvider="${xmlEsc(v.tts_provider)}"` : '', v.voice ? `voice="${xmlEsc(v.voice)}"` : '',
     'interruptible="any"', 'welcomeGreetingInterruptible="any"', 'preemptible="true"', 'ignoreBackchannel="true"', 'dtmfDetection="true"']
     .filter(Boolean).join(' ');
-  return `<?xml version="1.0" encoding="UTF-8"?><Response><Connect action="${xmlEsc(actionUrl)}"><ConversationRelay ${attrs}>`
+  const ring = transitionUrl ? `<Play>${xmlEsc(transitionUrl)}</Play>` : '';
+  return `<?xml version="1.0" encoding="UTF-8"?><Response>${ring}<Connect action="${xmlEsc(actionUrl)}"><ConversationRelay ${attrs}>`
     + `<Parameter name="reason" value="${xmlEsc(reason)}"/></ConversationRelay></Connect></Response>`;
 }
 
@@ -103,4 +116,4 @@ function decideIncoming({ lineOn, accessMode, callerAllowed }) {
   return { action: 'menu' };
 }
 
-module.exports = { REASONS, MESSAGES, menuTwiml, connectTwiml, afterTwiml, sayAndHangup, sayVoice, issueTicket, verifyTicket, decideIncoming, TICKET_TTL_MS };
+module.exports = { REASONS, MESSAGES, menuTwiml, connectTwiml, afterTwiml, sayAndHangup, sayVoice, transitionAudioUrl, RING_FILE, issueTicket, verifyTicket, decideIncoming, TICKET_TTL_MS };

@@ -62,7 +62,17 @@ const CATEGORY = {
   get_my_auction_registration: 'registration', get_my_pickup_slots: 'pickup_slot', get_my_order_detail: 'orders', send_text: 'text_message', send_payment_link: 'payment_link',
 };
 
-function toolsFor(ctx) { return ctx && ctx.userId ? [...FLOW_TOOLS, ...VERIFIED_TOOLS] : FLOW_TOOLS; }
+/**
+ * Tools for this turn. Texting tools are offered only when a text can really be sent to this caller now
+ * (ctx.phone.textingAvailable): otherwise send_text is not offered and payment links can only be emailed.
+ */
+function toolsFor(ctx) {
+  if (!(ctx && ctx.userId)) return FLOW_TOOLS;
+  if (ctx.phone && ctx.phone.textingAvailable) return [...FLOW_TOOLS, ...VERIFIED_TOOLS];
+  return [...FLOW_TOOLS, ...VERIFIED_TOOLS.filter((t) => t.name !== 'send_text').map((t) => (t.name !== 'send_payment_link' ? t : {
+    ...t, description: 'Email the verified caller a secure link to pay one unpaid auction invoice (use the invoice number from get_my_invoices). Texting is not available on this call, so the link goes to the email address on their account. Railway checks the invoice is theirs and payable. The link works once, expires in 30 minutes, and asks them to sign in; then they pay on the website. Never read the link aloud; never take card details.',
+    input_schema: { type: 'object', properties: { invoice_number: { type: 'string' }, delivery: { type: 'string', enum: ['email'] } }, required: ['invoice_number'] } }))];
+}
 
 // ── flow tools ────────────────────────────────────────────────────────────────────────────────────────
 async function startAccountVerification(args, ctx) {
@@ -182,6 +192,7 @@ async function getMyOrderDetail(args, ctx) {
 
 async function sendText(args, ctx) {
   const call = ctx.phone.call;
+  if (!ctx.phone.textingAvailable) return { sent: false, note: 'Texting is not available on this call. Do not offer it; describe where to find it on the website instead.' };
   const u = (await db.query(`SELECT phone, phone_verified_at, phone_verified_e164 FROM users WHERE id = $1`, [ctx.userId])).rows[0];
   if (!require('../../accountPhoneService').isVerified(u)) return { sent: false, note: 'There is no verified mobile number on this account to text. Offer email instead where available.' };
   const dest = normalizeUsPhone(u.phone_verified_e164);
@@ -207,6 +218,11 @@ async function sendText(args, ctx) {
 }
 
 async function sendPaymentLink(args, ctx) {
+  if (args.delivery === 'text' && !ctx.phone.textingAvailable) {
+    await audit.record(ctx.phone.call, 'payment_link_refused', { tool: 'send_payment_link', category: 'payment_link', accountUserId: ctx.userId, sessionId: ctx.phone.sessionId,
+      detail: { reason: 'texting not available on this call', what: 'text' } });
+    return { sent: false, note: 'Texting is not available on this call (or this number has opted out of texts), so nothing was sent. Offer to email the secure payment link to the address on the account instead.' };
+  }
   // Only these three arguments are read: a destination number is never accepted from the call.
   const r = await require('../../payLinkService').issue({ call: ctx.phone.call, sessionId: ctx.phone.sessionId, userId: ctx.userId },
     { invoiceNumber: args.invoice_number, delivery: args.delivery === 'text' ? 'text' : 'email', confirmedWithCaller: args.confirmed_with_caller === true }, ctx.phone.deps || {});

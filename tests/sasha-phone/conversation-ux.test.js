@@ -340,3 +340,132 @@ describe('seller guidance: lot minimum, dimensions, easy listing, benefits, mark
     await q(`DELETE FROM platform_config WHERE key = 'pricing.auction.processing_fee_bps'`);
   });
 });
+
+// ── menu-to-Sasha ring, texting availability, Individual Seller bidding wording (2026-10-09) ─────────────
+describe('menu-to-Sasha transition ring', () => {
+  const voice = require('../../src/routes/voice');
+  const testCallers = require('../../src/services/sasha/phone/testCallers');
+  const fs = require('fs');
+  const BASE = () => require('../../src/lib/publicUrls').publicBaseUrl().replace(/\/+$/, '');
+  async function menuHook(body, deps = {}) {
+    const res = { code: null, body: null, status(c) { this.code = c; return this; }, type() { return this; }, send(b) { this.body = b; if (this.code == null) this.code = 200; return this; } };
+    const req = { body, query: { attempt: '1' }, originalUrl: '/api/voice/menu?attempt=1', get: (h) => ({ 'x-twilio-signature': GOOD, host: 'bid.advantage.bid' })[String(h).toLowerCase()] };
+    let ok = false; voice._handlers.guard({ validateRequest })(req, res, () => { ok = true; });
+    if (ok) await voice._handlers.menu({ spentToday: async () => 0, ...deps })(req, res);
+    return res;
+  }
+  beforeAll(async () => { await lineOn(); await testCallers.add('(551) 616-8899', { actorId: ADMIN }); });
+  afterAll(async () => { await lineOn(false); });
+
+  test('one ring cycle plays exactly once, after the key press and before Sasha connects', async () => {
+    const r = await menuHook({ From: '+15516168899', CallSid: callSid(), Digits: '2' });
+    expect((r.body.match(/<Play>/g) || [])).toHaveLength(1);
+    expect(r.body).toMatch(new RegExp(`<Response><Play>${BASE().replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}/audio/connecting-ring\\.wav</Play><Connect action=`));
+    expect(r.body.indexOf('<Play>')).toBeLessThan(r.body.indexOf('<ConversationRelay'));
+    expect(r.body).not.toMatch(/Connecting you|<Pause/);
+  });
+  test('no ring on the menu, the re-prompt, or refusals', async () => {
+    const s = await phoneSettings.load();
+    expect(line.menuTwiml(s, { actionUrl: 'https://x/menu' })).not.toMatch(/<Play>/);
+    expect((await menuHook({ From: '+15516168899', CallSid: callSid(), Digits: '9' })).body).not.toMatch(/<Play>/);
+    expect((await menuHook({ From: '+15516168800', CallSid: callSid(), Digits: '1' })).body).not.toMatch(/<Play>|<Connect/);   // not on the staff list
+  });
+  test('if the sound is missing or switched off, the call still goes straight to Sasha', async () => {
+    const missing = await menuHook({ From: '+15516168899', CallSid: callSid(), Digits: '1' }, { fileExists: () => false });
+    expect(missing.body).not.toMatch(/<Play>/);
+    expect(missing.body).toMatch(/<Response><Connect action="[^"]+"><ConversationRelay /);
+    await setCfg('sasha.phone.transition_audio', false);
+    try {
+      const off = await menuHook({ From: '+15516168899', CallSid: callSid(), Digits: '1' });
+      expect(off.body).not.toMatch(/<Play>/); expect(off.body).toMatch(/<Connect /);
+    } finally { await setCfg('sasha.phone.transition_audio', true); }
+  });
+  test('the ring is one standard US ringback cycle: 440 + 480 Hz, 2 s tone then 0.5 s quiet, 8 kHz mono 16-bit, subtle level', () => {
+    const b = fs.readFileSync(line.RING_FILE);
+    expect(b.toString('ascii', 0, 4)).toBe('RIFF'); expect(b.toString('ascii', 8, 12)).toBe('WAVE');
+    expect(b.readUInt16LE(20)).toBe(1); expect(b.readUInt16LE(22)).toBe(1); expect(b.readUInt32LE(24)).toBe(8000); expect(b.readUInt16LE(34)).toBe(16);
+    const samples = b.readUInt32LE(40) / 2;
+    expect(samples / 8000).toBeCloseTo(2.5, 2);
+    let peak = 0; for (let i = 0; i < 16000; i++) peak = Math.max(peak, Math.abs(b.readInt16LE(44 + i * 2)));
+    expect(peak).toBeGreaterThan(3000); expect(peak).toBeLessThan(9000);   // audible but soft (about -11 dBFS peak)
+    let tail = 0; for (let i = 16000; i < samples; i++) tail = Math.max(tail, Math.abs(b.readInt16LE(44 + i * 2)));
+    expect(tail).toBe(0);
+    // energy at 440 Hz and 480 Hz, nothing at 1 kHz (simple DFT over the tone)
+    const mag = (f) => { let re = 0, im = 0; for (let i = 1000; i < 9000; i++) { const v = b.readInt16LE(44 + i * 2); re += v * Math.cos(2 * Math.PI * f * i / 8000); im += v * Math.sin(2 * Math.PI * f * i / 8000); } return Math.hypot(re, im); };
+    expect(mag(440)).toBeGreaterThan(20 * mag(1000)); expect(mag(480)).toBeGreaterThan(20 * mag(1000));
+  });
+});
+
+describe('texting is offered only when it is really available', () => {
+  const phoneTools = require('../../src/services/sasha/phone/phoneTools');
+  const phoneSms = require('../../src/services/sasha/phone/phoneSms');
+  const { PhoneCall } = require('../../src/services/sasha/phone/callSession');
+  const names = (ctx) => phoneTools.toolsFor(ctx).map((t) => t.name);
+  test('tools: unverified callers get no texting tools; verified callers get send_text only when texting is available, otherwise payment links by email only', () => {
+    expect(names({ userId: null, phone: {} })).not.toEqual(expect.arrayContaining(['send_text']));
+    expect(names({ userId: 'u', phone: { textingAvailable: true } })).toEqual(expect.arrayContaining(['send_text', 'send_payment_link']));
+    const off = phoneTools.toolsFor({ userId: 'u', phone: { textingAvailable: false } });
+    expect(off.map((t) => t.name)).not.toContain('send_text');
+    const pl = off.find((t) => t.name === 'send_payment_link');
+    expect(pl.input_schema.properties.delivery.enum).toEqual(['email']);
+    expect(pl.description).toMatch(/Texting is not available on this call, so the link goes to the email address on their account/);
+  });
+  test('availability: real calls need in-call texting switched on; numbers that replied STOP are never available', async () => {
+    const prev = process.env.SASHA_PHONE_SMS_ENABLED;
+    try {
+      delete process.env.SASHA_PHONE_SMS_ENABLED;
+      await lineOn();
+      expect(await phoneSms.available({ is_simulated: false }, '+15516168877')).toBe(false);
+      process.env.SASHA_PHONE_SMS_ENABLED = 'true'; phoneSettings.clear();
+      expect(await phoneSms.available({ is_simulated: false }, '+15516168877')).toBe(true);
+      await require('../../src/services/smsSuppressionService').suppress('+15516168877', { reason: 'admin' });
+      expect(await phoneSms.available({ is_simulated: false }, '+15516168877')).toBe(false);
+      expect(await phoneSms.available({ is_simulated: false }, null)).toBe(false);
+    } finally { if (prev === undefined) delete process.env.SASHA_PHONE_SMS_ENABLED; else process.env.SASHA_PHONE_SMS_ENABLED = prev; await lineOn(false); }
+  });
+  test('the tools refuse a text when texting is unavailable and point Sasha to the email / website alternative', async () => {
+    const s = await sim.start({ actorId: ADMIN }, { client: model([]).client });
+    const call = (await q(`SELECT * FROM cs_calls WHERE id = $1`, [s.call_id]))[0];
+    const ctx = { channel: 'phone', userId: ADMIN, phone: { call, sessionId: null, textingAvailable: false, deps: {} } };
+    expect((await tools.run('send_text', { what: 'invoices_page' }, ctx))).toMatchObject({ sent: false, note: expect.stringMatching(/Texting is not available on this call\. Do not offer it/) });
+    expect((await tools.run('send_payment_link', { invoice_number: 'INV-1', delivery: 'text' }, ctx))).toMatchObject({ sent: false, note: expect.stringMatching(/Offer to email the secure payment link/) });
+    await sim.end(s.call_id, ADMIN);
+  });
+  test('CALL STATE tells Sasha whether texting is available, and the phone prompt forbids offering texts otherwise', async () => {
+    const c = new PhoneCall({ id: 'x', verification_state: 'anonymous', routing_reason: null }, {});
+    expect(c.callState(null)).toMatch(/Texting: NOT available \(the caller is not verified\)\. Do not offer to text anything/);
+    c.textingNow = false;
+    expect(c.callState({ expires_at: new Date().toISOString() })).toMatch(/Texting: NOT available on this call\. Do not offer to text anything\. .*for a payment link offer to email it/);
+    c.textingNow = true;
+    expect(c.callState({ expires_at: new Date().toISOString() })).toMatch(/Texting: AVAILABLE/);
+    const p = engine.systemPrompt({ channel: 'phone' });
+    expect(p).toMatch(/offer to text it \(send_text\) only when CALL STATE says texting is AVAILABLE\. Never offer a text otherwise, not even "would you like me to text you a link\?"/);
+    expect(p).not.toMatch(/offer to text it \(send_text, verified callers only\)/);
+    const m = model([{ text: 'You can find that under Invoices on our website.' }]);
+    const sc = await sim.start({ actorId: ADMIN, routingReason: 'seller' }, { client: m.client });
+    await sim.say(sc.call_id, ADMIN, 'Can you send me the link to start selling?');
+    expect(m.calls[0].system.map((b) => b.text).join('\n')).toMatch(/Texting: NOT available \(the caller is not verified\)/);
+    expect((m.calls[0].tools || []).map((t) => t.name)).not.toContain('send_text');
+    await sim.end(sc.call_id, ADMIN);
+  });
+});
+
+describe('Individual Seller bidding wording', () => {
+  test('benefits describe competitive bidding, automatic maximum bids and soft close, never price protection or reserves for individuals', () => {
+    const b = platformFacts.getFacts('seller_benefits').seller_benefits.facts.join('\n');
+    expect(b).toMatch(/Competitive online bidding: bidders compete in real time and can set a maximum bid that bids for them automatically/);
+    expect(b).toMatch(/a bid in the last two minutes extends that lot by two more minutes \(soft close\)/);
+    expect(b).toMatch(/INDIVIDUAL Sellers and price: never say or imply that bidding protects their prices, sets a minimum price, guarantees a sale amount, or works like a reserve/);
+    expect(b).toMatch(/Their lots start at \$1 with no reserve and sell to the highest bidder/);
+    expect(b).toMatch(/Reserves and starting bids are Professional Seller controls only/);
+    const withoutRules = b.split('\n').filter((l) => !/never say or imply/.test(l)).join('\n');
+    expect(withoutRules).not.toMatch(/protect(s|ing)? (their |your )?price|price protection|guaranteed? (a )?(minimum|price|sale)/i);
+    expect(b).toMatch(/PROFESSIONAL Sellers in particular .* their own starting bids, reserves, bid increments/);
+  });
+  test('the seller sales guidance uses the accurate bidding benefits', () => {
+    const p = engine.systemPrompt({ channel: 'phone' });
+    expect(p).not.toMatch(/bidding that protects their prices/);
+    expect(p).toMatch(/competitive bidding with automatic maximum bids and a soft close/);
+    expect(p).toMatch(/For Individual Sellers never imply a minimum price, reserve or price protection: their lots start at \$1 and sell to the highest bidder/);
+  });
+});

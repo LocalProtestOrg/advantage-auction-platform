@@ -12,6 +12,20 @@
 
 const phoneSettings = require('./phoneSettings');
 
+/**
+ * Can a text actually be sent to this caller right now? Only with a verified mobile number that has not replied STOP,
+ * and, on real calls, only when in-call texting is switched on (phone channel + provider + SASHA_PHONE_SMS_ENABLED).
+ * Sasha offers texting only when this is true (tools and CALL STATE follow it).
+ */
+async function available(call, toE164) {
+  if (!toE164) return false;
+  if (!call.is_simulated && !require('../../../lib/phoneNumber').isTextable(toE164)) return false;   // simulations may use reserved test numbers
+  if (await require('../../smsSuppressionService').isSuppressed(toE164)) return false;
+  if (call.is_simulated) return true;
+  const s = await phoneSettings.load();
+  return !!(s.enabled && s.provider !== 'none' && process.env.SASHA_PHONE_SMS_ENABLED === 'true');
+}
+
 async function send(call, { to, body }, deps = {}) {
   // A number that replied STOP gets nothing from Advantage.Bid, simulated or real (Sasha offers email instead).
   if (await require('../../smsSuppressionService').isSuppressed(to)) return { sent: false, reason: 'number_opted_out' };
@@ -29,4 +43,4 @@ async function send(call, { to, body }, deps = {}) {
   }
 }
 
-module.exports = { send };
+module.exports = { send, available };

@@ -821,10 +821,10 @@ describe('payment-link texts: spoken confirmation, STOP respected, verified numb
       { tools: [{ name: 'send_payment_link', input: { invoice_number: inv.invoice_number, delivery: 'text', confirmed_with_caller: true } }] }, (p) => ({ text: lastToolResult(p).note }),
     ]);
     const r = await sim.say(callId, ADMIN, 'Text me the payment link.');
-    expect(spokenText(r)).toMatch(/opted out of Advantage\.Bid texts .* email/);
+    expect(spokenText(r)).toMatch(/opted out of texts\), so nothing was sent\. Offer to email/);
     expect((r.handset || []).filter((x) => x.kind === 'text')).toHaveLength(0);
     expect(await q(`SELECT * FROM payment_links WHERE combined_invoice_id = $1`, [inv.id])).toHaveLength(0);
-    expect((await q(`SELECT detail FROM cs_phone_audit WHERE call_id = $1 AND event_type = 'payment_link_refused'`, [callId]))[0].detail.reason).toBe('number opted out of texts');
+    expect((await q(`SELECT detail FROM cs_phone_audit WHERE call_id = $1 AND event_type = 'payment_link_refused'`, [callId]))[0].detail.reason).toBe('texting not available on this call');
   });
   test('a number given during the call is never used as the destination (only the verified number on the account)', async () => {
     const u = await user({ phone: '(551) 616-2004', verified: true });

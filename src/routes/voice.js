@@ -73,7 +73,8 @@ function menu(deps = {}) {
     if (!/^CA[0-9a-f]{32}$/i.test(callSid)) return twiml(res, line.sayAndHangup(line.MESSAGES.failed, s.menu_voice));
     const ticket = line.issueTicket({ callSid, reason });
     const wsUrl = base().replace(/^https?:/, 'wss:') + '/api/voice/relay?t=' + encodeURIComponent(ticket);
-    return twiml(res, line.connectTwiml(s, { wsUrl, actionUrl: base() + '/api/voice/after', reason }));
+    // One ring cycle after the key press, then Sasha (skipped automatically if the sound is off or not deployed).
+    return twiml(res, line.connectTwiml(s, { wsUrl, actionUrl: base() + '/api/voice/after', reason, transitionUrl: line.transitionAudioUrl(s, base(), deps) }));
   };
 }
 

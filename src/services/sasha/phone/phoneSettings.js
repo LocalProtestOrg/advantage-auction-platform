@@ -20,6 +20,7 @@ const DEFAULT_MENU = [
 ].join('\n');
 const DEFAULTS = {
   enabled: false, provider: 'none', verify_provider: 'none', access_mode: 'staff_only',
+  transition_audio: true,   // one ring cycle between the menu and Sasha (sasha.phone.transition_audio = false turns it off)
   greeting: 'Thank you for calling Advantage.Bid. This is Sasha. How can I help you today?',
   menu_text: DEFAULT_MENU, call_notice: '',
   disclosure_text: "You've reached Advantage.Bid. This call is answered by Sasha, our virtual assistant, and is transcribed for customer support.",
@@ -49,6 +50,7 @@ async function load(runner = db) {
       else if (k === 'provider') s.provider = PROVIDERS.includes(value) ? value : 'none';
       else if (k === 'verify_provider') s.verify_provider = VERIFY_PROVIDERS.includes(value) ? value : 'none';
       else if (k === 'disclosure_text' && typeof value === 'string' && value.trim()) s.disclosure_text = value.trim().slice(0, 400);
+      else if (k === 'transition_audio') s.transition_audio = value !== false;
       else if (k === 'access_mode') s.access_mode = ACCESS_MODES.includes(value) ? value : 'staff_only';
       else if (k === 'greeting' && typeof value === 'string' && value.trim()) s.greeting = value.trim().slice(0, 300);
       else if (k === 'menu_text' && typeof value === 'string' && value.trim()) s.menu_text = value.trim().slice(0, 1200);
