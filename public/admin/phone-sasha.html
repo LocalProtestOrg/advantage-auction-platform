@@ -245,8 +245,16 @@
         return '<label>'+esc(p[1])+'<span class="row"><input id="vp-'+p[0]+'" value="'+esc(vv.tts_provider||'')+'" placeholder="Provider" style="width:110px" aria-label="'+esc(p[1])+' provider">'
           +'<input id="vv-'+p[0]+'" value="'+esc(vv.voice||'')+'" placeholder="Voice" style="flex:1;min-width:0" aria-label="'+esc(p[1])+' voice">'
           +'<input id="vl-'+p[0]+'" value="'+esc(vv.language||'')+'" placeholder="Language" style="width:80px" aria-label="'+esc(p[1])+' language"></span>'
-          +'<button class="b b-ghost" data-voice="'+p[0]+'" style="margin-top:3px">Save</button></label>'; }).join('');
+          +'<button class="b b-ghost" data-voice="'+p[0]+'" style="margin-top:3px">Save</button></label>'; }).join('')
+      +((s.voice_presets||[]).length?'<div><div style="font-size:13px;margin-bottom:4px">Saved Sasha voices (one click switches her voice for the next call)</div><div class="row">'
+        +s.voice_presets.map(function(v,i){ var on=s.voice&&v.voice===s.voice.voice&&v.tts_provider===s.voice.tts_provider;
+          return '<button class="b '+(on?'b-dark':'b-ghost')+'" data-preset="'+i+'"'+(on?' disabled':'')+'>'+esc(v.label)+(on?' (current)':'')+'</button>'; }).join('')+'</div></div>':'');
+    PRESETS=s.voice_presets||[];
   }); }
+  var PRESETS=[];
+  $('settings').addEventListener('click',function(e){ var b=e.target.closest('button[data-preset]'); if(!b) return; var v=PRESETS[Number(b.getAttribute('data-preset'))]; if(!v) return; b.disabled=true;
+    api('POST',BASE+'/settings',{key:'voice',value:{tts_provider:v.tts_provider,voice:v.voice,language:v.language}}).then(function(j){
+      var x=$('sml'); x.className='msgline'+(j.success?'':' err'); x.textContent=j.success?('Sasha\'s voice is now '+v.label+'. It applies to the next call.'):(j.message||'Not saved.'); loadSettings(); }); });
   $('settings').addEventListener('click',function(e){ var b=e.target.closest('button[data-voice]'); if(!b) return; var k=b.getAttribute('data-voice'); b.disabled=true;
     api('POST',BASE+'/settings',{key:k,value:{tts_provider:$('vp-'+k).value.trim(),voice:$('vv-'+k).value.trim(),language:$('vl-'+k).value.trim()}}).then(function(j){ b.disabled=false;
       var x=$('sml'); x.className='msgline'+(j.success?'':' err'); x.textContent=j.success?'Saved.':(j.message||'Not saved.'); loadSettings(); }); });

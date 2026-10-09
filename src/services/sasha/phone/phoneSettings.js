@@ -21,6 +21,7 @@ const DEFAULT_MENU = [
 const DEFAULTS = {
   enabled: false, provider: 'none', verify_provider: 'none', access_mode: 'staff_only',
   transition_audio: true,   // one ring cycle between the menu and Sasha (sasha.phone.transition_audio = false turns it off)
+  voice_presets: [],        // saved Sasha voices offered as one-click choices in admin
   greeting: 'Thank you for calling Advantage.Bid. This is Sasha. How can I help you today?',
   menu_text: DEFAULT_MENU, call_notice: '',
   disclosure_text: "You've reached Advantage.Bid. This call is answered by Sasha, our virtual assistant, and is transcribed for customer support.",
@@ -50,6 +51,7 @@ async function load(runner = db) {
       else if (k === 'provider') s.provider = PROVIDERS.includes(value) ? value : 'none';
       else if (k === 'verify_provider') s.verify_provider = VERIFY_PROVIDERS.includes(value) ? value : 'none';
       else if (k === 'disclosure_text' && typeof value === 'string' && value.trim()) s.disclosure_text = value.trim().slice(0, 400);
+      else if (k === 'voice_presets') s.voice_presets = voicePresets(value);
       else if (k === 'transition_audio') s.transition_audio = value !== false;
       else if (k === 'access_mode') s.access_mode = ACCESS_MODES.includes(value) ? value : 'staff_only';
       else if (k === 'greeting' && typeof value === 'string' && value.trim()) s.greeting = value.trim().slice(0, 300);
@@ -74,7 +76,31 @@ function clear() { cache = null; cachedAt = 0; }
 /** The Twilio ConversationRelay line specifically (the only live voice adapter built). */
 async function relayLineOn(runner) { const s = await load(runner); return !!(s.enabled && s.provider === 'twilio_cr'); }
 
+/**
+ * Sasha's ConversationRelay voice: provider Google, Amazon or ElevenLabs (canonical casing for TwiML). ElevenLabs voices
+ * are a 20-character voice ID, optionally followed by -model and -speed_stability_similarity (Twilio's documented form;
+ * without them ElevenLabs uses Flash 2.5 with the voice's default settings). Returns { value } or { error }.
+ */
+const SASHA_TTS = { google: 'Google', amazon: 'Amazon', elevenlabs: 'ElevenLabs' };
+const ELEVENLABS_VOICE = /^[A-Za-z0-9]{20}(-(flash_v2_5|flash_v2|turbo_v2_5|turbo_v2)(-(0\.[7-9]\d*|1(\.[0-2]\d*)?|1)_(0(\.\d+)?|1(\.0+)?)_(0(\.\d+)?|1(\.0+)?))?)?$/;
+function normalizeSashaVoice(value) {
+  if (!value || typeof value !== 'object') return { error: 'Voice must be an object.' };
+  const provider = SASHA_TTS[String(value.tts_provider || '').trim().toLowerCase()];
+  if (!provider) return { error: "Sasha's voice provider must be Google, Amazon or ElevenLabs." };
+  const voice = String(value.voice || '').trim();
+  if (!voice || voice.length > 120) return { error: 'Enter a voice name or ID.' };
+  if (provider === 'ElevenLabs' && !ELEVENLABS_VOICE.test(voice)) return { error: 'An ElevenLabs voice must be its 20-character voice ID (optionally with -model and -speed_stability_similarity).' };
+  return { value: { tts_provider: provider, voice, language: String(value.language || 'en-US').trim().slice(0, 10) || 'en-US' } };
+}
+
+/** Saved voices offered as one-click choices in admin (sasha.phone.voice_presets). */
+function voicePresets(raw) {
+  return (Array.isArray(raw) ? raw : []).slice(0, 8).map((p) => {
+    const n = normalizeSashaVoice(p || {}); return n.value ? { label: String((p && p.label) || n.value.voice).slice(0, 60), ...n.value } : null;
+  }).filter(Boolean);
+}
+
 /** Menu lines (one per spoken sentence). */
 function menuLines(s) { return String((s && s.menu_text) || DEFAULT_MENU).split(/\n+/).map((x) => x.trim()).filter(Boolean).slice(0, 10); }
 
-module.exports = { load, liveCallsAllowed, relayLineOn, menuLines, clear, DEFAULTS, NUM, PROVIDERS, VERIFY_PROVIDERS, ACCESS_MODES, DEFAULT_MENU };
+module.exports = { load, liveCallsAllowed, relayLineOn, menuLines, clear, normalizeSashaVoice, voicePresets, DEFAULTS, NUM, PROVIDERS, VERIFY_PROVIDERS, ACCESS_MODES, DEFAULT_MENU };

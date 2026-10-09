@@ -241,7 +241,11 @@ router.post('/phone/settings', superAdminOnly, wrap(async (req, res) => {
     }
   } else if (k === 'menu_voice' && !['google', 'amazon'].includes(String((value || {}).tts_provider || '').toLowerCase())) {
     return res.status(400).json({ success: false, message: 'The menu voice must be a Google or Amazon voice (Twilio <Say> does not support other providers).' });
-  } else if (k === 'voice' || k === 'menu_voice') {
+  } else if (k === 'voice') {
+    const n = phoneSettings.normalizeSashaVoice(value);
+    if (n.error) return res.status(400).json({ success: false, message: n.error });
+    v = n.value;
+  } else if (k === 'menu_voice') {
     if (!value || typeof value !== 'object') return res.status(400).json({ success: false, message: 'Voice must be an object.' });
     v = { tts_provider: value.tts_provider ? String(value.tts_provider).slice(0, 40) : null, voice: value.voice ? String(value.voice).slice(0, 120) : null,
       language: String(value.language || 'en-US').slice(0, 10) };

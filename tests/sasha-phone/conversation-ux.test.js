@@ -469,3 +469,37 @@ describe('Individual Seller bidding wording', () => {
     expect(p).toMatch(/For Individual Sellers never imply a minimum price, reserve or price protection: their lots start at \$1 and sell to the highest bidder/);
   });
 });
+
+// ── Sasha ElevenLabs voice audition (2026-10-09) ────────────────────────────────────────────────────────
+describe('Sasha ElevenLabs voice configuration', () => {
+  const FIRST = 'KpTQ5yzwazQWLkvnK59A'; const SECOND = 'DIS307HFaAvJZzq496qM';
+  test('validation accepts the two chosen ElevenLabs IDs (Flash 2.5 by default) and rejects malformed voices', () => {
+    expect(phoneSettings.normalizeSashaVoice({ tts_provider: 'elevenlabs', voice: FIRST })).toEqual({ value: { tts_provider: 'ElevenLabs', voice: FIRST, language: 'en-US' } });
+    expect(phoneSettings.normalizeSashaVoice({ tts_provider: 'ElevenLabs', voice: SECOND }).value.voice).toBe(SECOND);
+    expect(phoneSettings.normalizeSashaVoice({ tts_provider: 'ElevenLabs', voice: SECOND + '-flash_v2_5-1.0_0.5_0.75' }).value).toBeTruthy();
+    for (const bad of [FIRST.slice(1), FIRST + '!', FIRST + '-fast', 'Rachel']) expect(phoneSettings.normalizeSashaVoice({ tts_provider: 'ElevenLabs', voice: bad }).error).toMatch(/20-character voice ID/);
+    expect(phoneSettings.normalizeSashaVoice({ tts_provider: 'Azure', voice: 'x' }).error).toMatch(/Google, Amazon or ElevenLabs/);
+  });
+  test('with the first choice set, Sasha speaks with ElevenLabs while the menu keeps Amy, the ring and barge-in stay', async () => {
+    await setCfg('sasha.phone.voice', { tts_provider: 'ElevenLabs', voice: FIRST, language: 'en-US' });
+    try {
+      const s = await phoneSettings.load();
+      const c = line.connectTwiml(s, { wsUrl: 'wss://x/api/voice/relay?t=1', actionUrl: 'https://x/after', reason: 'seller', transitionUrl: 'https://x/audio/connecting-ring.wav' });
+      expect(c).toContain(`language="en-US" ttsProvider="ElevenLabs" voice="${FIRST}"`);
+      expect(c).not.toContain('-flash');   // plain ID: Flash 2.5 with the voice's default settings
+      for (const a of ['interruptible="any"', 'welcomeGreetingInterruptible="any"', 'preemptible="true"', 'ignoreBackchannel="true"']) expect(c).toContain(a);
+      expect(c).toMatch(/^<\?xml version="1\.0" encoding="UTF-8"\?><Response><Play>https:\/\/x\/audio\/connecting-ring\.wav<\/Play><Connect /);
+      expect(line.menuTwiml(s, { actionUrl: 'https://x/menu' })).toContain('<Say voice="Polly.Amy-Generative">');
+      expect(line.afterTwiml(s, { sessionStatus: 'completed' })).toContain('<Say voice="Polly.Amy-Generative">');
+    } finally { await setCfg('sasha.phone.voice', { tts_provider: null, voice: null, language: 'en-US' }); }
+  });
+  test('saved voice presets load for one-click switching; invalid presets are dropped', async () => {
+    await setCfg('sasha.phone.voice_presets', [{ label: 'ElevenLabs first choice', tts_provider: 'ElevenLabs', voice: FIRST }, { label: 'ElevenLabs second choice', tts_provider: 'ElevenLabs', voice: SECOND },
+      { label: 'Previous Google voice', tts_provider: 'Google', voice: 'en-US-Chirp3-HD-Aoede' }, { label: 'broken', tts_provider: 'ElevenLabs', voice: 'nope' }]);
+    try {
+      const s = await phoneSettings.load();
+      expect(s.voice_presets.map((p) => p.label)).toEqual(['ElevenLabs first choice', 'ElevenLabs second choice', 'Previous Google voice']);
+      expect(s.voice_presets[1]).toEqual({ label: 'ElevenLabs second choice', tts_provider: 'ElevenLabs', voice: SECOND, language: 'en-US' });
+    } finally { await q(`DELETE FROM platform_config WHERE key = 'sasha.phone.voice_presets'`); phoneSettings.clear(); }
+  });
+});
