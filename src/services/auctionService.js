@@ -3,7 +3,7 @@ const auditService = require('./auditService');
 const realtime = require('../lib/realtime'); // #1 real-time push (pg NOTIFY)
 const { writeAuditLog } = require('../lib/auditLog');
 const { getSellerPayoutPreference } = require('./payoutPreferenceService');
-const { validateAuctionSchedule, assertStartBeforeEnd, ScheduleRuleError, isProfessional } = require('./sellerTypeRules');
+const { validateAuctionSchedule, assertStartBeforeEnd, ScheduleRuleError, isProfessional, shippingAllowed } = require('./sellerTypeRules');
 const verificationService = require('./verificationService'); // publication gate (verification-required)
 const { combinedInvoicingEnabled } = require('./../lib/launchGuards'); // Design C flag gate at close
 const { platformFeeCents } = require('../lib/settlementPolicy'); // seller platform fee = 0% (shared)
@@ -125,6 +125,18 @@ async function createAuction(data) {
     effPreviewEnd   = null;
   }
 
+  // Shipping gate (owner policy 2026-10-12): admin always; professional sellers choose;
+  // an Individual seller only when an admin enabled capabilities.shipping_enabled.
+  // Otherwise the requested value is ignored and the auction is created without shipping.
+  let effShippingAvailable = shippingAvailable === true;
+  if (effShippingAvailable && data.actorRole !== 'admin') {
+    const shRes = await db.query('SELECT seller_type, capabilities FROM seller_profiles WHERE id = $1', [sellerId]);
+    const sp = shRes.rows[0];
+    if (!sp || !shippingAllowed({ role: data.actorRole, sellerType: sp.seller_type, capabilities: sp.capabilities })) {
+      effShippingAvailable = false;
+    }
+  }
+
   const result = await db.query(
     `INSERT INTO auctions (
        seller_id, title, subtitle, description, state,
@@ -153,7 +165,7 @@ async function createAuction(data) {
       pickupWindowStart || null,
       pickupWindowEnd   || null,
       timezone        || 'America/New_York',  // Phase: capture auction timezone (default Eastern)
-      shippingAvailable === true,
+      effShippingAvailable,
       bannerImageUrl  || null,
       coverImageUrl   || null,
     ]
@@ -252,9 +264,23 @@ async function updateAuction(auctionId, userId, updates, actorRole, options = {}
   // buyer_premium_bps (billingTermsService.resolveEffectiveTerms prefers it over the seller
   // default). Bid increment stays a per-lot control (enforced in src/routes/lots.js), not here.
   const professionalSelfService = ['buyer_premium_bps'];
-  const effectiveAllowed = actorRole === 'admin'
+  let effectiveAllowed = actorRole === 'admin'
     ? [...allowed, ...adminOnly]
     : (isProAuthor ? [...allowed, ...professionalSelfService] : allowed);
+  // Shipping gate (owner policy 2026-10-12): an Individual (non-admin, non-professional)
+  // seller may change shipping_available only when an admin enabled
+  // capabilities.shipping_enabled for them; otherwise the field is dropped (ignored,
+  // existing stored value preserved).
+  if (actorRole !== 'admin' && !isProAuthor && updates.shipping_available !== undefined) {
+    const capRes = await db.query(
+      `SELECT sp.capabilities FROM auctions a JOIN seller_profiles sp ON sp.id = a.seller_id WHERE a.id = $1`,
+      [auctionId]
+    );
+    const caps = capRes.rows[0] ? capRes.rows[0].capabilities : null;
+    if (!shippingAllowed({ role: actorRole, sellerType: sellerTypeForAuth, capabilities: caps })) {
+      effectiveAllowed = effectiveAllowed.filter((k) => k !== 'shipping_available');
+    }
+  }
 
   // Gate state transitions separately from the generic whitelist. Defense-in-
   // depth on top of GOV-1's route-layer canMutateAuction gate — also protects

@@ -102,7 +102,7 @@
       : '<img class="aap-thumb-ph" src="' + esc(PLACEHOLDER) + '" alt="' + esc(a.title || 'Advantage.Bid') + '" loading="lazy">';
     var lots = a.lot_count
       ? '<p class="aap-lots">' + a.lot_count + ' lot' + (a.lot_count !== 1 ? 's' : '') +
-        (a.shippable_lot_count ? ' &middot; ' + a.shippable_lot_count + ' ship nationwide' : '') + '</p>'
+        (a.shippable_lot_count ? ' &middot; ' + a.shippable_lot_count + ' offer shipping' : '') + '</p>'
       : '';
     var endDate = a.end_time ? '<p class="aap-meta">Ends ' + esc(fmtDate(a.end_time)) + '</p>' : '';
 

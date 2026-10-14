@@ -14,10 +14,13 @@ const PHONE_SCHEMA = '+1-551-655-7050';       // schema.org telephone format
 const SUPPORT_EMAIL = 'info@advantage.bid';   // existing approved support/contact email (unchanged)
 const NAME = 'Advantage.Bid';
 const WEBSITE = 'https://bid.advantage.bid';
+// Public office / support hours (owner decision 2026-10-12). Staff availability only: an automated assistant may answer
+// at other times, which never implies staff are available then.
+const OFFICE_HOURS = 'Monday through Friday, 10:00 AM to 5:00 PM Eastern Time';
 
 // A plain-text signature/contact block for emails (company line only — never overrides a rep's identity).
 function emailContactLines() {
   return `${NAME}\n${PHONE_DISPLAY}\n${SUPPORT_EMAIL}\n${WEBSITE}`;
 }
 
-module.exports = { PHONE_DISPLAY, PHONE_E164, TEL_HREF, PHONE_SCHEMA, SUPPORT_EMAIL, NAME, WEBSITE, emailContactLines };
+module.exports = { PHONE_DISPLAY, PHONE_E164, TEL_HREF, PHONE_SCHEMA, SUPPORT_EMAIL, NAME, WEBSITE, OFFICE_HOURS, emailContactLines };

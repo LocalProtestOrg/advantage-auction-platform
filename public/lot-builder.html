@@ -476,7 +476,7 @@
         </div>
       </div>
 
-      <div class="field">
+      <div class="field" id="lot-shipping-field" style="display:none">
         <label>Shipping</label>
         <div class="toggle-row">
           <span class="toggle-wrap">
@@ -558,6 +558,22 @@
   }
 
   if (auctionId) refreshProgress();
+
+  // Shipping toggle is shown only when this seller may offer shipping (Professional Sellers,
+  // admins, or an Individual Seller Advantage.Bid enabled). Presentation only — the server
+  // ignores shippable for sellers who are not allowed.
+  (async function revealShippingToggle() {
+    const show = () => { const f = document.getElementById('lot-shipping-field'); if (f) f.style.display = ''; };
+    try {
+      const p = JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
+      if (p && p.role === 'admin') { show(); return; }
+    } catch (e) { /* fall through to the server check */ }
+    try {
+      const r = await fetch('/api/sellers/me', { headers: { Authorization: 'Bearer ' + token } });
+      const d = await r.json();
+      if (d && d.success && d.data && d.data.shipping_allowed === true) show();
+    } catch (e) { /* non-fatal: toggle stays hidden */ }
+  })();
   // Re-pull the authoritative X/30 when returning to this tab — so withdraw/restore/delete performed on
   // another page (which don't touch this counter directly) are reflected without a manual reload.
   window.addEventListener('focus', function () { if (auctionId) refreshProgress(); });

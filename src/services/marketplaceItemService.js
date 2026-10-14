@@ -17,7 +17,10 @@
 
 const db = require('../db');
 const { withTransaction } = require('../utils/withTransaction');
-const { isProfessional, brandingVisible } = require('../lib/sellerBranding');
+// Storefronts are a Professional Seller feature (owner decision 2026-10-12): eligibility uses the canonical seller-type rule,
+// never the buyer-branding list (which also includes the self-serve 'business' Individual Seller type).
+const { brandingVisible } = require('../lib/sellerBranding');
+const { isProfessional } = require('./sellerTypeRules');
 const saleLocation = require('../lib/saleLocation');
 
 function err(status, code, message) { const e = new Error(message); e.status = status; e.code = code; return e; }
@@ -203,6 +206,7 @@ async function updateItem(id, actingUserId, patch = {}) {
   const item = (await db.query('SELECT * FROM marketplace_items WHERE id = $1', [id])).rows[0];
   if (!item) throw err(404, 'NOT_FOUND', 'Listing not found.');
   if (item.seller_id !== seller.id) throw err(403, 'NOT_OWNER', 'Not your listing.');
+  if (!isProfessional(seller.seller_type)) throw err(403, 'NOT_PROFESSIONAL', 'Marketplace listings are for Professional Sellers.');
   const sets = []; const vals = [id]; const add = (col, v) => { vals.push(v); sets.push(`${col} = $${vals.length}`); };
   if (patch.title != null) add('title', String(patch.title).trim());
   if (patch.description != null) add('description', patch.description);

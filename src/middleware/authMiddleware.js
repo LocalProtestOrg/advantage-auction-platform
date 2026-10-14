@@ -12,10 +12,14 @@
 const jwt = require('jsonwebtoken');
 const { setSessionCookie } = require('../lib/sessionCookie');
 const { resolveSession } = require('../lib/sessionAuth');
+const accountStatus = require('../lib/accountStatus');
 
 if (!process.env.JWT_SECRET) {
   throw new Error('JWT_SECRET is not configured');
 }
+
+// Read-only methods never change state; a suspended session may still read (unchanged behavior).
+const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
 
 const authMiddleware = (req, res, next) => {
   // Bearer first (primary/compat), then the cookie session (canonical browser session).
@@ -37,17 +41,46 @@ const authMiddleware = (req, res, next) => {
 
   req.user = { id: decoded.id, role: decoded.role };
 
-  // Sliding session renewal: once the token passes half its lifetime, mint a fresh one and refresh
-  // the session cookie so an active member never silently expires mid-session. The X-Refreshed-Token
-  // header (which the client fetch wrapper mirrors into localStorage) is emitted ONLY for Bearer
-  // clients — a cookie-only session slides via the refreshed cookie alone, and we never hand a new
-  // JWT to JavaScript that it did not already hold. Best-effort — never blocks the request.
-  let cookieToken = token;
-  try {
-    if (decoded.exp && decoded.iat) {
-      const nowSec   = Math.floor(Date.now() / 1000);
-      const lifetime = decoded.exp - decoded.iat;
-      if (lifetime > 0 && (nowSec - decoded.iat) > lifetime / 2) {
+  // Account-status re-check (suspension = users.is_active = false, mig 046). A token issued while the
+  // account was active stays cryptographically valid, so for an already-authenticated session we
+  // refuse EVERY state-changing request from a suspended account (checkout, payment, bidding, seller
+  // creation, …) — admins included — and never renew its session. Read-only requests not yet due a
+  // renewal stay on the original synchronous path with no DB lookup. POST /api/auth/logout is not
+  // behind this middleware, so a suspended member can always sign out.
+  const stateChanging = !SAFE_METHODS.has(String(req.method || 'GET').toUpperCase());
+  let refreshDue = false;
+  if (decoded.exp && decoded.iat) {
+    const nowSec   = Math.floor(Date.now() / 1000);
+    const lifetime = decoded.exp - decoded.iat;
+    refreshDue = lifetime > 0 && (nowSec - decoded.iat) > lifetime / 2;
+  }
+
+  const finish = (active) => {
+    if (active === false) {
+      if (stateChanging) {
+        console.warn('[auth] suspended account refused:', req.method, req.path);
+        return res.status(403).json(accountStatus.SUSPENDED_BODY);
+      }
+      // Read-only request from a suspended account: allowed as before, but no renewed token/cookie.
+      return next();
+    }
+    if (active !== true) {
+      // Status could not be determined (lookup error / timeout / no user row): FAIL CLOSED for
+      // state-changing requests with a neutral retry message; read-only requests proceed, unrenewed.
+      if (stateChanging) {
+        console.warn('[auth] account status unavailable, refused:', req.method, req.path);
+        return res.status(503).json(accountStatus.UNAVAILABLE_BODY);
+      }
+      return next();
+    }
+    // Sliding session renewal: once the token passes half its lifetime, mint a fresh one and refresh
+    // the session cookie so an active member never silently expires mid-session. The X-Refreshed-Token
+    // header (which the client fetch wrapper mirrors into localStorage) is emitted ONLY for Bearer
+    // clients — a cookie-only session slides via the refreshed cookie alone, and we never hand a new
+    // JWT to JavaScript that it did not already hold. Best-effort — never blocks the request.
+    let cookieToken = token;
+    try {
+      if (refreshDue) {
         const fresh = jwt.sign(
           { id: decoded.id, role: decoded.role },
           process.env.JWT_SECRET,
@@ -56,10 +89,17 @@ const authMiddleware = (req, res, next) => {
         if (source === 'bearer') res.set('X-Refreshed-Token', fresh);
         cookieToken = fresh;
       }
-    }
-  } catch (_) { /* renewal is best-effort; ignore */ }
-  try { setSessionCookie(res, cookieToken); } catch (_) { /* never block */ }
-  next();
+    } catch (_) { /* renewal is best-effort; ignore */ }
+    try { setSessionCookie(res, cookieToken); } catch (_) { /* never block */ }
+    return next();
+  };
+
+  if (!stateChanging && !refreshDue) return finish(true);
+  const cached = accountStatus.cachedActive(decoded.id);
+  if (cached !== undefined) return finish(cached);
+  // is_active === false → 403 suspended; unknown (null: no row / lookup error / timeout) → 503 for
+  // state-changing requests, read-only proceeds without renewal. Unknown is never cached.
+  return accountStatus.isAccountActive(decoded.id).catch(() => null).then(finish);
 };
 
 module.exports = authMiddleware;

@@ -11,7 +11,7 @@
   var Nav = (typeof window !== 'undefined' && window.AdvNav);
   var Chrome = (typeof window !== 'undefined' && window.AdvChrome); // shared chrome renderer (single source)
   var LOGIN = '/login.html?next=' + encodeURIComponent('/app.html');
-  var mountEl, state = { user: null, isSeller: false, sellerType: null, route: 'home', mode: 'buying', isBdMember: false, businessAdminUrl: null, isEventOrganizer: false, sellerReady: false };
+  var mountEl, state = { user: null, isSeller: false, sellerType: null, route: 'home', mode: 'buying', isBdMember: false, businessAdminUrl: null, isEventOrganizer: false, sellerReady: false, storefrontEligible: false };
   var MODE_KEY = 'ab_active_mode';
   function readMode() { try { return localStorage.getItem(MODE_KEY); } catch (e) { return null; } }
   function writeMode(m) { try { localStorage.setItem(MODE_KEY, m); } catch (e) {} }
@@ -54,14 +54,14 @@
     var b = document.getElementById('adv-retry'); if (b) b.addEventListener('click', boot); }
 
   // ---- chrome (rendered by the shared AdvChrome module — the single sidebar/header source) ----
-  function navCtx() { return { role: state.user.role, isSeller: state.isSeller, mode: state.mode, isBdMember: state.isBdMember, businessAdminUrl: state.businessAdminUrl, isEventOrganizer: state.isEventOrganizer, sellerReady: state.sellerReady }; }
+  function navCtx() { return { role: state.user.role, isSeller: state.isSeller, mode: state.mode, isBdMember: state.isBdMember, businessAdminUrl: state.businessAdminUrl, isEventOrganizer: state.isEventOrganizer, sellerReady: state.sellerReady, storefrontEligible: state.storefrontEligible }; }
   // Full chrome context for AdvChrome: identity + role + the in-shell routing flags. inShell:true means
   // section items hash-route in place (data-route) and member-shell's wire() handles the clicks.
   function chromeCtx() {
     return {
       user: state.user, isSeller: state.isSeller, sellerType: state.sellerType, mode: state.mode,
       isBdMember: state.isBdMember, businessAdminUrl: state.businessAdminUrl, isEventOrganizer: state.isEventOrganizer,
-      sellerReady: state.sellerReady, inShell: true, activeRoute: state.route,
+      sellerReady: state.sellerReady, storefrontEligible: state.storefrontEligible, inShell: true, activeRoute: state.route,
     };
   }
   function railHtml() { return Chrome.rail(chromeCtx()); }
@@ -848,6 +848,8 @@
       state.isEventOrganizer = me.body.data.event_organizer === true;
       // seller_ready: Marketplace seller setup complete → Create/Manage Online Auction nav + no onboarding CTA.
       state.sellerReady = me.body.data.seller_ready === true;
+      // storefront_eligible: Professional Sellers only → My Storefront / Add Item / Store Orders nav.
+      state.storefrontEligible = me.body.data.storefront_eligible === true;
       // seller detail is best-effort; a non-seller simply has no profile
       try {
         var s = await apiGet('/api/sellers/me');

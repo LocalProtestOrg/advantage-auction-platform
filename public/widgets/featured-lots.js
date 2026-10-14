@@ -151,7 +151,7 @@
       badges.push({ text: cfg('marketplace.badge.ending_soon', null, 'Ending Soon'), variant: 'ending-soon' });
     }
     if (lot.shippable && cfg('marketplace.shipping.show_badge', null, true)) {
-      badges.push({ text: cfg('marketplace.badge.ships', null, 'Ships nationwide'), variant: 'ships' });
+      badges.push({ text: cfg('marketplace.badge.ships', null, 'Shipping available'), variant: 'ships' });
     }
 
     return {
@@ -198,7 +198,7 @@
       ? '<span class="aapc-badge aapc-badge-live">LIVE NOW</span>'
       : '<span class="aapc-badge aapc-badge-upcoming">UPCOMING</span>';
     var shipBadge = lot.shippable
-      ? '<span class="aapc-badge aapc-badge-ships">Ships nationwide</span>'
+      ? '<span class="aapc-badge aapc-badge-ships">Shipping available</span>'
       : '';
 
     var bidStr = '';

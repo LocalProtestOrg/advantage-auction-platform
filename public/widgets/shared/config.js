@@ -55,7 +55,7 @@ window.AAPConfig = (function () {
     // ── Status / type badge labels ───────────────────────────────────────────
     'marketplace.badge.live':                        'LIVE NOW',
     'marketplace.badge.upcoming':                    'UPCOMING',
-    'marketplace.badge.ships':                       'Ships nationwide',
+    'marketplace.badge.ships':                       'Shipping available',
     'marketplace.badge.ending_soon':                 'Ending Soon',
     'marketplace.badge.ending_soon_threshold_min':   120,
 

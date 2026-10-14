@@ -15,7 +15,8 @@
     "test:release": "playwright test e2e/governance-regression.spec.js --project=chromium",
     "integrity": "node scripts/marketplace-integrity.js",
     "integrity:db": "node scripts/marketplace-integrity.js --db-only",
-    "gate": "jest --testPathPatterns=tests/ --forceExit && node scripts/marketplace-integrity.js --strict"
+    "gate": "jest --testPathPatterns=tests/ --forceExit && node scripts/marketplace-integrity.js --strict",
+    "certify:sasha-phone": "node certification/sasha-phone/run.js"
   },
   "jest": {
     "testEnvironment": "node"

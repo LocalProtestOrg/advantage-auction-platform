@@ -20,6 +20,7 @@ const jwt = require('jsonwebtoken');
 const router = express.Router();
 const { normalLimiter, strictLimiter } = require('../middleware/rateLimit');
 const optionalAuth = require('../middleware/optionalAuthMiddleware');
+const { refuseInactiveSignedIn } = require('../lib/accountStatus');
 const { setSessionCookie } = require('../lib/sessionCookie');
 const claims = require('../services/claimedListings/claimLinkService');
 const company = require('../lib/companyContact');
@@ -164,7 +165,7 @@ router.post('/claim/:token/continue', normalLimiter, json, async (req, res, next
   } catch (e) { return next(e); }
 });
 
-router.post('/claim/:token/complete', strictLimiter, json, optionalAuth, async (req, res) => {
+router.post('/claim/:token/complete', strictLimiter, json, optionalAuth, refuseInactiveSignedIn, async (req, res) => {
   try {
     const b = req.body || {};
     const out = await claims.complete(req.params.token, { fullName: b.full_name, password: b.password,

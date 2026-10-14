@@ -94,12 +94,10 @@ describe('$39 published event is publicly discoverable; identity/type is not a p
   test('a null / non-auction sale_type classifies as estate_sale (so $39 + org estate sales both show)', () => {
     expect(mv.eventKindSql('e')).toMatch(/WHEN e\.sale_type = 'auction' THEN 'auction' ELSE 'estate_sale' END/);
   });
-  test('promote-estate-sale page frames it as a private individual product, not a pro membership', () => {
-    const page = read('public', 'promote-estate-sale.html');
-    expect(page).toMatch(/\$39/);
-    expect(page).toMatch(/No subscription\. No membership\./); // preserved (existing test relies on this)
-    expect(page).toMatch(/individuals promoting their own/i);
-    expect(page).toMatch(/not a professional seller membership/i);
+  test('the $39 promotion landing page is archived (owner decision 2026-10-12), no longer served from public/', () => {
+    expect(fs.existsSync(path.join(__dirname, '..', 'public', 'promote-estate-sale.html'))).toBe(false);
+    const page = read('docs', 'archive', 'estate-sale-promotion', 'promote-estate-sale.html');
+    expect(page).toMatch(/not a professional seller membership/i); // archived copy preserved for reconsideration
   });
 });
 

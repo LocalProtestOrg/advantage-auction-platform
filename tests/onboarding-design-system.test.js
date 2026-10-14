@@ -8,9 +8,7 @@ const path = require('path');
 const read = (...p) => fs.readFileSync(path.join(__dirname, '..', ...p), 'utf8');
 const css = read('public', 'widgets', 'shared', 'onboarding.css');
 const becomeSeller = read('public', 'become-seller.html');
-const promote = read('public', 'promote-estate-sale.html');
 const appraiser = read('public', 'appraiser-membership.html');
-const createEs = read('public', 'create-estate-sale.html');
 
 const links = (h) => /<link[^>]+widgets\/shared\/onboarding\.css/.test(h);
 const hasThreeAnswers = (h) => /What am I doing\?/.test(h) && /What happens next\?/.test(h) && /Will my info be public\?/.test(h);
@@ -30,9 +28,11 @@ describe('onboarding.css — the shared design system exists with the core compo
 });
 
 // Every Railway onboarding page (Phase 6B) — all must adopt the shared design system.
+// (promote-estate-sale / create-estate-sale / estate-sale-welcome were archived 2026-10-12 when the
+// Estate Sale Promotion was disabled — see tests/estate-sale-promotion-disabled.test.js.)
 const ONBOARDING_PAGES = [
-  'become-seller', 'promote-estate-sale', 'create-estate-sale', 'appraiser-membership',
-  'appraiser-welcome', 'estate-sale-welcome', 'after-estate-sale', 'sign-agreement',
+  'become-seller', 'appraiser-membership',
+  'appraiser-welcome', 'after-estate-sale', 'sign-agreement',
   'verify-documents', 'seller-faq', 'seller-pilot', 'how-sellers-get-paid', 'seller-create',
 ];
 
@@ -65,11 +65,9 @@ describe('ADVANTAGE_DESIGN_SYSTEM.md — the governing design document', () => {
 });
 
 describe('the first screen answers the three questions', () => {
-  test('Become Seller + Promote Estate Sale carry the three-answer strip', () => {
+  test('Become Seller carries the three-answer strip', () => {
     expect(hasThreeAnswers(becomeSeller)).toBe(true);
-    expect(hasThreeAnswers(promote)).toBe(true);
     expect(becomeSeller).toMatch(/class="ob-answers"/);
-    expect(promote).toMatch(/class="ob-answers"/);
   });
 });
 
@@ -81,13 +79,3 @@ describe('privacy microcopy — private sellers', () => {
   });
 });
 
-describe('SEO on the indexable public landing (Promote Estate Sale)', () => {
-  test('has title, description, canonical, OpenGraph, Twitter card, and JSON-LD (Service + Breadcrumb)', () => {
-    expect(promote).toMatch(/<meta name="description"/);
-    expect(promote).toMatch(/rel="canonical"/);
-    expect(promote).toMatch(/property="og:title"/);
-    expect(promote).toMatch(/name="twitter:card"/);
-    expect(promote).toMatch(/"@type":"Service"/);
-    expect(promote).toMatch(/"@type":"BreadcrumbList"/);
-  });
-});

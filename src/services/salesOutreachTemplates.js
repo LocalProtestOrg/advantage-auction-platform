@@ -11,7 +11,6 @@
 const APP_BASE = (process.env.APP_BASE_URL || 'https://bid.advantage.bid').replace(/\/+$/, '');
 const LINKS = {
   become_seller: `${APP_BASE}/become-seller.html`,
-  create_estate_sale: `${APP_BASE}/create-estate-sale.html`,
   how_it_works: `${APP_BASE}/how-it-works.html`,
   seller_faq: `${APP_BASE}/seller-faq.html`,
   demo_auction: `${APP_BASE}/auction-view.html?auctionId=00000000-0000-4000-a000-0000000d0003`,
@@ -100,8 +99,6 @@ What day/time works best for a 10-15 minute call?`,
     body: (c) => `${greeting(c.company)}
 
 Great talking with you. When you're ready, you can get started as a professional seller here: ${LINKS.become_seller}
-
-If you primarily run estate sales, you can create your first estate sale here: ${LINKS.create_estate_sale}
 
 Happy to walk through any of it — just let me know.`,
   },

@@ -159,7 +159,7 @@ describe('Phase 4E — professional-first navigation ordering', () => {
   test('a future seller tool inserts into the pro section via the registry (no restructuring needed)', () => {
     // The registry drives professionalMarketplaceItems; adding a row appears in this list. Business
     // Administration is no longer here — it is pinned to the top section (see visibleSectionsFor).
-    const ready = Nav.visibleSectionsFor({ role: 'buyer', mode: 'buying', isEventOrganizer: true, sellerReady: true, isBdMember: true, businessAdminUrl: 'x' });
+    const ready = Nav.visibleSectionsFor({ role: 'buyer', mode: 'buying', isEventOrganizer: true, sellerReady: true, storefrontEligible: true, isBdMember: true, businessAdminUrl: 'x' });
     const pro = ready.find((s) => s.heading === 'Professional Marketplace');
     expect(pro.items.map((i) => i.id)).toEqual(['events', 'createEvent', 'storefront', 'addItem', 'mpOrders', 'createAuction', 'sell']);
   });

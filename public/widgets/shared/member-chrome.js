@@ -40,7 +40,7 @@
     var p = n.split(/\s+/);
     return ((p[0] || '')[0] || '') + (p.length > 1 ? (p[p.length - 1][0] || '') : '');
   }
-  function navContext(ctx) { return { role: ctx.user && ctx.user.role, isSeller: ctx.isSeller, mode: ctx.mode, isBdMember: ctx.isBdMember, businessAdminUrl: ctx.businessAdminUrl, isEventOrganizer: ctx.isEventOrganizer, sellerReady: ctx.sellerReady }; }
+  function navContext(ctx) { return { role: ctx.user && ctx.user.role, isSeller: ctx.isSeller, mode: ctx.mode, isBdMember: ctx.isBdMember, businessAdminUrl: ctx.businessAdminUrl, isEventOrganizer: ctx.isEventOrganizer, sellerReady: ctx.sellerReady, storefrontEligible: ctx.storefrontEligible }; }
 
   // A single nav item. External items are plain links (active by href). In-shell items either
   // hash-route in place (inShell) or navigate to the shell app (/app.html#…) from a standalone page.
@@ -186,6 +186,7 @@
       user: d, isSeller: isSeller, sellerType: sellerType, mode: mode,
       isBdMember: d.bd_member === true, businessAdminUrl: d.business_admin_url || null,
       isEventOrganizer: d.event_organizer === true, sellerReady: d.seller_ready === true,
+      storefrontEligible: d.storefront_eligible === true,
     };
   }
 

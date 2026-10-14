@@ -18,6 +18,8 @@ const calls = [];
 const route = (re, fn) => ROUTES.push([re, fn]);
 async function mockQ(sql, params) {
   calls.push({ sql, params });
+  // authMiddleware account-status re-check (fails closed on an unknown row): test identities are active.
+  if (/^SELECT is_active FROM users WHERE id = \$1$/.test(sql)) return { rows: [{ is_active: true }], rowCount: 1 };
   for (const [re, fn] of ROUTES) if (re.test(sql)) { const r = await fn(sql, params); return Object.assign({ rows: [], rowCount: (r && r.rows || []).length }, r); }
   return { rows: [], rowCount: 0 };
 }
@@ -437,7 +439,7 @@ describe('engine', () => {
     expect(m).toHaveLength(1);
     expect(m[0].content).toMatch(/^<customer_message>/);
     const p = engine.systemPrompt({ channel: 'email' });
-    expect(p).toMatch(/Yes, I'm an automated assistant\. I can connect you with a member of our team at any time\./);
+    expect(p).toContain(engine.IDENTITY_ANSWER);
     expect(p).toMatch(/NOT verified/);
     expect(p).toMatch(/city and state only/);
     expect(p).toMatch(/Never quote a standard professional fee percentage/);
@@ -471,8 +473,9 @@ describe('reply formatting', () => {
       .toBe('Buyer premium\nSteps\n• one\n• two\nuse code\n\nend');
   });
   test('the identity answer is the approved sentence, verbatim', () => {
-    expect(engine.IDENTITY_ANSWER).toBe("Yes, I'm an automated assistant. I can connect you with a member of our team at any time.");
-    expect(engine.systemPrompt({ channel: 'chat' })).toContain('EXACTLY this sentence');
+    expect(engine.IDENTITY_ANSWER).toBe("I am Sasha, Advantage.Bid's Virtual Assistant. I can handle pretty much anything you may need to know. How can I help you?");   // owner wording 2026-10-12 (round 3)
+    expect(engine.IDENTITY_ANSWER).not.toMatch(/^(Yes|No)\b/);   // owner direction 2026-10-12: no leading Yes that implies a human
+    expect(engine.systemPrompt({ channel: 'chat' })).toContain('answer with this sentence');
   });
 });
 
@@ -581,26 +584,26 @@ describe('writing style: no em dash, no invented requirements (Stage 4 review, 2
     const t = require('../../src/services/sasha/knowledge/platformFacts').getFacts('pickup').pickup;
     const pickup = t.facts.join(' ');
     expect(t.source).toMatch(/Terms of Service sections 20, 22, 24/);
-    expect(pickup).toMatch(/valid government-issued photo ID, the credit card used for the purchase/);   // Terms section 20
+    expect(pickup).toMatch(/bring valid legal identification/);                                         // owner decision 2026-10-12
+    expect(pickup).toMatch(/may also ask for the credit card used for the purchase/);                   // Terms section 20
     expect(pickup).toMatch(/not required to provide tools, packing materials, loading assistance/);        // Terms section 20
     expect(pickup).toMatch(/forfeited without a refund/);                                                  // Terms section 22
     expect(pickup).toMatch(/inspect items before leaving/);                                                // Terms section 24
     expect(pickup).not.toMatch(/dock|parking|arrival times|counter/i);
     expect(pickup).toMatch(/do not guess or give examples of what a seller might require/);
   });
-  test('pickup rules separate what is REQUIRED from what MAY BE REQUESTED (Terms section 20 items are never universal)', () => {
+  test('pickup ID policy (owner decision 2026-10-12): bring valid legal ID; checking is up to the seller or pickup operator', () => {
     const facts = require('../../src/services/sasha/knowledge/platformFacts').getFacts('pickup').pickup.facts;
     const bring = facts.find((f) => /^What to bring/.test(f));
-    const required = bring.slice(bring.indexOf('REQUIRED'), bring.indexOf('MAY BE REQUESTED'));
-    const may = bring.slice(bring.indexOf('MAY BE REQUESTED'));
-    expect(required).toMatch(/payment confirmation/);
-    expect(required).not.toMatch(/photo ID|credit card|auction-specific/);
-    expect(may).toMatch(/valid government-issued photo ID, the credit card used for the purchase, and any applicable auction-specific documentation/);
-    expect(may).toMatch(/not required in every case/);
-    expect(may).toMatch(/never as items every buyer must bring/);
+    expect(bring).toMatch(/every buyer should bring valid legal identification and a copy of their payment confirmation to pickup/);
+    expect(bring).toMatch(/Whether and how ID is actually checked is up to the seller or pickup operator/);
+    expect(bring).toMatch(/never say ID definitely will or definitely will not be checked/);
     const delegate = facts.find((f) => /^Someone else collecting/.test(f));
     expect(delegate).toMatch(/REQUIRED: a written authorization from the buyer and a copy of the buyer's payment confirmation, and the buyer should contact Advantage\.Bid support in advance/);
-    expect(delegate).toMatch(/may also be asked for the MAY BE REQUESTED items/);
+    expect(delegate).toMatch(/should bring their own valid legal identification/);
+    const appt = facts.find((f) => /^Pickup instructions and appointments/.test(f));
+    expect(appt).toMatch(/never say appointments are always automatic, always optional or merely a courtesy/);
+    expect(facts.join('\n')).toMatch(/Never give a pickup street address, ZIP code or coordinates to anyone who has not paid for that item/);   // privacy preserved
   });
   test('the published Terms still say what Sasha states about pickup (keeps her rules in sync with the Terms page)', () => {
     const terms = require('fs').readFileSync(require('path').join(__dirname, '..', '..', 'public', 'terms.html'), 'utf8');

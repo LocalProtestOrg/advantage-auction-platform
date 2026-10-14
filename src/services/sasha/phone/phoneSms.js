@@ -6,6 +6,8 @@
  * that replied STOP (sms_suppressions) is never texted.
  *
  *   simulated call → the message goes to the simulated handset (deps.handset) only; nothing leaves the server.
+ *                    Whether texting is OFFERED mirrors production (the same switches), so a simulation never shows
+ *                    a capability the live line does not have. Tests of the texting flow opt in with deps.simulateTexting.
  *   real call      → NOT ENABLED in this release. It will require the phone channel switch, a provider, and an A2P
  *                    campaign that covers customer-care texts. Until then it refuses and Sasha offers another way.
  */
@@ -17,11 +19,18 @@ const phoneSettings = require('./phoneSettings');
  * and, on real calls, only when in-call texting is switched on (phone channel + provider + SASHA_PHONE_SMS_ENABLED).
  * Sasha offers texting only when this is true (tools and CALL STATE follow it).
  */
-async function available(call, toE164) {
+/** Is in-call texting switched on for this line at all (before any caller or number is considered)? */
+async function lineEnabled(call, deps = {}) {
+  if (call.is_simulated && deps.simulateTexting === true) return true;
+  const s = await phoneSettings.load();
+  return !!(s.enabled && s.provider !== 'none' && process.env.SASHA_PHONE_SMS_ENABLED === 'true');
+}
+
+async function available(call, toE164, deps = {}) {
   if (!toE164) return false;
   if (!call.is_simulated && !require('../../../lib/phoneNumber').isTextable(toE164)) return false;   // simulations may use reserved test numbers
   if (await require('../../smsSuppressionService').isSuppressed(toE164)) return false;
-  if (call.is_simulated) return true;
+  if (call.is_simulated && deps.simulateTexting === true) return true;
   const s = await phoneSettings.load();
   return !!(s.enabled && s.provider !== 'none' && process.env.SASHA_PHONE_SMS_ENABLED === 'true');
 }
@@ -43,4 +52,4 @@ async function send(call, { to, body }, deps = {}) {
   }
 }
 
-module.exports = { send, available };
+module.exports = { send, available, lineEnabled };

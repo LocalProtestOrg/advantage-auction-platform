@@ -62,6 +62,11 @@ async function ensureContext(userId) {
 
 // ── Checkout ───────────────────────────────────────────────────────────────
 async function createCheckoutSession(userId, origin) {
+  // Owner decision 2026-10-12: the offering is disabled (see src/lib/launchGuards.js). Defense in depth
+  // behind the route guard — never create a new Stripe session, whatever the env config.
+  if (!require('../lib/launchGuards').estateSalePromotionEnabled()) {
+    const e = new Error('This offering is not available.'); e.status = 410; e.code = 'NOT_AVAILABLE'; e.expose = true; throw e;
+  }
   const base = origin || appBase();
   const { customerId, orgId } = await ensureContext(userId);
   const stripe = getStripe();

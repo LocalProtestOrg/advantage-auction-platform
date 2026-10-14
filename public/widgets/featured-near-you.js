@@ -211,7 +211,7 @@
       : '<span class="' + P + '-badge ' + P + '-upcoming" aria-label="Upcoming auction">UPCOMING</span>';
 
     var shipBadge = (a.shippable_lot_count > 0)
-      ? '<span class="' + P + '-badge ' + P + '-ships">Ships nationwide</span>'
+      ? '<span class="' + P + '-badge ' + P + '-ships">Shipping available</span>'
       : '';
 
     var thumb = a.cover_image_url

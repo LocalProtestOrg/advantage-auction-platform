@@ -9,6 +9,7 @@ const emailVerificationService = require('../services/emailVerificationService')
 const { setSessionCookie, clearSessionCookie, readSessionToken } = require('../lib/sessionCookie');
 const { bdMemberAdminUrl } = require('../lib/bridgeConfig');
 const agreementService = require('../services/agreementService');
+const { isProfessional } = require('../services/sellerTypeRules');
 
 const router = express.Router();
 const JWT_SECRET = process.env.JWT_SECRET;
@@ -201,10 +202,17 @@ router.get('/me', auth, async (req, res) => {
     // seller_ready: Marketplace seller setup complete — a seller_profile AND a satisfied agreement gate
     // (signed, admin-waived, or grandfathered). Single server-authoritative signal; the client never
     // re-derives entitlement. Drives the three-state seller CTA + the "Create/Manage Online Auction" nav.
-    let sellerReady = false;
+    // storefront_eligible: online Storefronts (My Storefront / Add Item / Store Orders) are for
+    // Professional Sellers only — the SAME canonical isProfessional rule the storefront services enforce.
+    // Individual Sellers (private / business / other / untyped) and accounts without a seller profile
+    // (admins included) are not eligible. Drives nav visibility only; the services remain authoritative.
+    let sellerReady = false, storefrontEligible = false;
     try {
-      const sp = (await db.query('SELECT id FROM seller_profiles WHERE user_id = $1', [req.user.id])).rows[0];
-      if (sp) sellerReady = (await agreementService.dashboardAccess(sp.id)).access === true;
+      const sp = (await db.query('SELECT id, seller_type FROM seller_profiles WHERE user_id = $1', [req.user.id])).rows[0];
+      if (sp) {
+        storefrontEligible = isProfessional(sp.seller_type);
+        sellerReady = (await agreementService.dashboardAccess(sp.id)).access === true;
+      }
     } catch (_) { sellerReady = false; }
     // Business Administration (BD member area) is offered only to members who actually came from BD;
     // native buyers/sellers have no BD dashboard to return to. The URL is server-authoritative.
@@ -214,6 +222,7 @@ router.get('/me', auth, async (req, res) => {
       bd_member: bdMember,
       event_organizer: rows[0].event_organizer === true,
       seller_ready: sellerReady,
+      storefront_eligible: storefrontEligible,
       business_admin_url: bdMember ? bdMemberAdminUrl() : null,
     }) });
   } catch (err) {

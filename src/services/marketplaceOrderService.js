@@ -30,7 +30,9 @@ const { withTransaction } = require('../utils/withTransaction');
 const auditService = require('./auditService');
 const taxService = require('./taxCalculationService');
 const billingTerms = require('./billingTermsService');
-const { isProfessional } = require('../lib/sellerBranding');
+// Storefronts are a Professional Seller feature (owner decision 2026-10-12): eligibility uses the canonical seller-type rule,
+// never the buyer-branding list (which also includes the self-serve 'business' Individual Seller type).
+const { isProfessional } = require('./sellerTypeRules');
 const { marketplaceCheckoutEnabled } = require('../lib/launchGuards');
 const saleLocation = require('../lib/saleLocation');
 
@@ -705,8 +707,9 @@ async function applyRefundState(orderId, refundedCents, reversalId, adminId, ext
 // Seller explicitly relists a refunded/removed/draft item. Preserves all historical orders.
 async function relistItem(itemId, sellerUserId) {
   return withTransaction(async (client) => {
-    const seller = (await client.query('SELECT id FROM seller_profiles WHERE user_id = $1', [sellerUserId])).rows[0];
+    const seller = (await client.query('SELECT id, seller_type FROM seller_profiles WHERE user_id = $1', [sellerUserId])).rows[0];
     if (!seller) throw err(403, 'NOT_A_SELLER', 'No seller profile.');
+    if (!isProfessional(seller.seller_type)) throw err(403, 'NOT_PROFESSIONAL', 'Marketplace listings are for Professional Sellers.');
     const item = (await client.query('SELECT * FROM marketplace_items WHERE id = $1 FOR UPDATE', [itemId])).rows[0];
     if (!item) throw err(404, 'ITEM_NOT_FOUND', 'Item not found.');
     if (item.seller_id !== seller.id) throw err(403, 'NOT_OWNER', 'Not your listing.');

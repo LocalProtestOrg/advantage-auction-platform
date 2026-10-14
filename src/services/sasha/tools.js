@@ -35,7 +35,7 @@ const KNOWLEDGE_TOOLS = [
   { name: 'get_platform_rules', description: 'Authoritative platform rules read from the live system (these override help-page wording if they differ). Topics: bidding (increments, soft close, max bids, registration), buyer_premium, payment, pickup, selling, seller_benefits (why sell with Advantage.Bid), seller_fees, payouts, storefront, account.',
     input_schema: { type: 'object', properties: { topic: { type: 'string', enum: [...platformFacts.TOPIC_NAMES, 'all'] } }, required: ['topic'] } },
   { name: 'get_auction_or_lot', description: 'Public facts about one auction or lot: title, city/state, status, dates, pickup window, the exact buyer\'s premium, shipping availability; for a lot also the current bid, next minimum bid and closing time. Accepts an auction id, lot id, or a title search.',
-    input_schema: { type: 'object', properties: { auction_id: { type: 'string' }, lot_id: { type: 'string' }, search: { type: 'string', description: 'Auction title words, if no id is known' }, lot_number: { type: 'string', description: 'Lot number within the auction, if known' } } } },
+    input_schema: { type: 'object', properties: { auction_id: { type: 'string' }, lot_id: { type: 'string' }, search: { type: 'string', description: 'Auction title words, if no id is known' }, lot_number: { type: 'string', description: 'Lot number within the auction, if known' }, lot_words: { type: 'string', description: 'Words describing an item the caller mentioned ("Rolex", "walnut dresser"), to find a lot within the auction' } } } },
   { name: 'request_human', description: 'Hand this conversation to an Advantage.Bid team member. Use ONLY for genuine exceptions: the customer asks for a person, disputes needing judgment, legal matters, privacy requests, security incidents, suspected fraud, changes to money/accounts you cannot make, or a material fact you cannot verify. Tell the customer a team member will follow up.',
     input_schema: { type: 'object', properties: { reason: { type: 'string', enum: HANDOFF_REASONS }, summary: { type: 'string', description: 'One or two sentences for the team: what the customer needs and why a person is required' } }, required: ['reason', 'summary'] } },
 ];
@@ -43,7 +43,7 @@ const noArgs = { type: 'object', properties: {} };
 const ACCOUNT_TOOLS = [
   { name: 'get_my_account', description: 'The signed-in customer\'s own account: name, role, whether a card is on file (brand/last 4), buyer terms accepted, seller type.', input_schema: noArgs },
   { name: 'get_my_bids', description: 'The signed-in buyer\'s recent bids: lots, their bid, whether they are winning, current price, closing time, and lots won.', input_schema: noArgs },
-  { name: 'get_my_invoices', description: 'The signed-in buyer\'s auction invoices: number, auction, total, status (paid, payment required, refunded…).', input_schema: noArgs },
+  { name: 'get_my_invoices', description: 'The signed-in buyer\'s auction invoices: number, auction, the items won on that invoice, total, status (paid, payment required, refunded…).', input_schema: noArgs },
   { name: 'get_my_pickup_details', description: 'Pickup address and window for an auction where the signed-in buyer has PAID for what they won. Returns nothing before payment.',
     input_schema: { type: 'object', properties: { auction_id: { type: 'string' } } } },
   { name: 'get_my_orders', description: 'The signed-in buyer\'s storefront (fixed-price) orders.', input_schema: noArgs },
@@ -107,6 +107,16 @@ async function getAuctionOrLot(args, ctx) {
     a = (await db.query(`SELECT a.*, sp.seller_type FROM auctions a LEFT JOIN seller_profiles sp ON sp.id = a.seller_id WHERE a.id = $1`, [matches[0].id])).rows[0];
   }
   if (!a) return { found: false, note: 'No public auction or lot found for that reference.' };
+  let lotSearch = null;
+  if (!lot && !args.lot_number && args.lot_words) {
+    const words = String(args.lot_words).toLowerCase().replace(/[^a-z0-9\s]/g, ' ').split(/\s+/).filter((w) => w.length > 2).slice(0, 4);
+    const found = words.length ? (await db.query(`SELECT id, lot_number, lot_number_display, title, state, current_bid_cents, starting_bid_cents, bid_count, closes_at, shippable, bid_increment_cents
+      FROM lots WHERE auction_id = $1 AND is_withdrawn IS NOT TRUE AND ${words.map((_, i) => `title ILIKE $${i + 2}`).join(' AND ')} ORDER BY lot_number LIMIT 3`,
+      [a.id, ...words.map((w) => '%' + w.replace(/[%_]/g, '') + '%')])).rows : [];
+    if (found.length === 1) lot = found[0];
+    else lotSearch = found.length ? { lot_found: false, matches: found.map((l) => ({ lot_number: l.lot_number_display || l.lot_number, title: l.title })), note: 'Several lots match; read the titles and ask which one.' }
+      : { lot_found: false, note: `No lot matching "${String(args.lot_words).slice(0, 60)}" was found in this auction. Say plainly that you could not find it and offer to search another way; never talk about it as if it exists or describe it.` };
+  }
   if (!lot && args.lot_number) {
     lot = (await db.query(`SELECT id, lot_number, lot_number_display, title, state, current_bid_cents, starting_bid_cents, bid_count, closes_at, shippable, bid_increment_cents
       FROM lots WHERE auction_id = $1 AND (lot_number::text = $2 OR lot_number_display = $2) AND is_withdrawn IS NOT TRUE LIMIT 1`, [a.id, String(args.lot_number).trim()])).rows[0];
@@ -114,7 +124,7 @@ async function getAuctionOrLot(args, ctx) {
   let terms = null; try { terms = await billing.resolveEffectiveTerms(a.id); } catch (_e) { terms = null; }
   const out = {
     auction: { auction_id: a.id, title: a.title, location: [a.city, a.address_state].filter(Boolean).join(', '), status: a.state,
-      bidding_starts_or_started: a.start_time, closes_starting: a.end_time, pickup_window: a.pickup_window_start ? { from: a.pickup_window_start, to: a.pickup_window_end } : null,
+      timezone: a.timezone || undefined, bidding_starts_or_started: a.start_time, closes_starting: a.end_time, pickup_window: a.pickup_window_start ? { from: a.pickup_window_start, to: a.pickup_window_end } : null,
       buyers_premium: terms ? bpsPct(terms.buyer_premium_bps) : 'shown on the auction page', shipping_available: !!a.shipping_available,
       page: `${SITE}/auction-view.html?auctionId=${a.id}` },
   };
@@ -126,9 +136,10 @@ async function getAuctionOrLot(args, ctx) {
       next = bids.nextMinBidCents(lot.starting_bid_cents || 100, lot.current_bid_cents || 0, override);
     } catch (_e) { next = null; }
     out.lot = { lot_id: lot.id, lot_number: lot.lot_number_display || lot.lot_number, title: lot.title, status: lot.state, bids: lot.bid_count,
-      current_bid: money(lot.current_bid_cents), starting_bid: money(lot.starting_bid_cents), next_minimum_bid: money(next), closes_at: lot.closes_at,
+      timezone: a.timezone || undefined, current_bid: money(lot.current_bid_cents), starting_bid: money(lot.starting_bid_cents), next_minimum_bid: money(next), closes_at: lot.closes_at,
       shippable: !!lot.shippable, page: `${SITE}/lot.html?lotId=${lot.id}` };
   }
+  if (lotSearch) out.lot_search = lotSearch;
   return out;
 }
 
@@ -158,10 +169,12 @@ async function getMyBids(_a, ctx) {
 async function getMyInvoices(_a, ctx) {
   const { rows } = await db.query(
     `SELECT b.invoice_number, b.status, b.hammer_cents, b.buyer_premium_cents, b.sales_tax_cents, b.shipping_cents, b.total_cents, b.paid_at, b.created_at,
-            a.title auction_title, a.id auction_id
+            a.title auction_title, a.id auction_id,
+            (SELECT array_agg(l.title ORDER BY l.lot_number) FROM lots l WHERE l.auction_id = a.id AND l.winning_buyer_user_id = b.buyer_user_id) items_won
        FROM buyer_auction_invoices b JOIN auctions a ON a.id = b.auction_id WHERE b.buyer_user_id = $1 ORDER BY b.created_at DESC LIMIT 20`, [ctx.userId]);
   const label = { paid: 'paid', payment_required: 'payment required (you can pay it on the invoices page)', issued: 'issued (card charge pending)', void: 'void', refunded: 'refunded', partially_refunded: 'partially refunded' };
-  return { invoices: rows.map((r) => ({ invoice: r.invoice_number, auction: r.auction_title, auction_id: r.auction_id, status: label[r.status] || r.status,
+  // items_won: which purchase an item belongs to comes from here (or get_my_bids), never from a guess (certification 2026-10-12).
+  return { invoices: rows.map((r) => ({ invoice: r.invoice_number, auction: r.auction_title, auction_id: r.auction_id, items_won: r.items_won || [], status: label[r.status] || r.status,
     winning_bids: money(r.hammer_cents), buyers_premium: money(r.buyer_premium_cents), sales_tax: money(r.sales_tax_cents), shipping: money(r.shipping_cents),
     total: money(r.total_cents), paid_at: r.paid_at })), invoices_page: `${SITE}/invoices.html` };
 }
@@ -171,11 +184,16 @@ async function getMyPickupDetails(args, ctx) {
   let where = `b.buyer_user_id = $1 AND b.status = 'paid'`;
   if (UUID.test(args.auction_id || '')) { params.push(args.auction_id); where += ' AND b.auction_id = $2'; }
   const { rows } = await db.query(
-    `SELECT a.id, a.title, a.street_address, a.city, a.address_state, a.zip, a.pickup_window_start, a.pickup_window_end, a.timezone
-       FROM buyer_auction_invoices b JOIN auctions a ON a.id = b.auction_id WHERE ${where} ORDER BY b.paid_at DESC LIMIT 5`, params);
+    `SELECT a.id, a.title, a.street_address, a.city, a.address_state, a.zip, a.pickup_window_start, a.pickup_window_end, a.timezone, sp.seller_type
+       FROM buyer_auction_invoices b JOIN auctions a ON a.id = b.auction_id LEFT JOIN seller_profiles sp ON sp.id = a.seller_id
+      WHERE ${where} ORDER BY b.paid_at DESC LIMIT 5`, params);
   if (!rows.length) return { pickups: [], note: 'No paid auction purchases found. The full pickup address is shared only after payment for what was won; before that only the city and state are shown.' };
   return { pickups: rows.map((r) => { const loc = saleLocation.fromAuction(r);
-    return { auction: r.title, pickup_address: loc && loc.line1 ? `${loc.line1}, ${loc.city}, ${loc.state} ${loc.postal_code}` : 'not yet provided by the seller; a team member can help',
+    const pro = require('../sellerTypeRules').isProfessional(r.seller_type);
+    return { auction: r.title, auction_id: r.id, seller: pro ? 'Professional Seller' : 'Individual Seller',
+      pickup_rule: pro ? 'Professional Seller auction: the published pickup terms for this auction apply.'
+        : 'Individual Seller auction: the published pickup date and window are final and part of the purchase terms; any other arrangement is only a voluntary seller accommodation.',
+      pickup_address: loc && loc.line1 ? `${loc.line1}, ${loc.city}, ${loc.state} ${loc.postal_code}` : 'not yet provided by the seller; a team member can help',
       pickup_window: r.pickup_window_start ? { from: r.pickup_window_start, to: r.pickup_window_end, timezone: r.timezone } : null }; }) };
 }
 
@@ -215,7 +233,10 @@ async function getMySellerTerms(_a, ctx) {
     agreement = (await db.query(`SELECT platform_fee_bps, processing_fee_bps, effective_date FROM professional_pricing_agreements pa
       JOIN seller_profiles s ON s.id = pa.seller_profile_id WHERE s.user_id = $1 AND pa.status = 'accepted' ORDER BY pa.effective_date DESC NULLS LAST LIMIT 1`, [ctx.userId])).rows[0] || null;
   } catch (_e) { agreement = null; }
-  if (!pro) return { seller_type: sp.seller_type, platform_fee: '0%', processing_fee: bpsPct(billing.DEFAULT_PROCESSING_FEE_BPS) + ' of the hammer price', buyers_premium: bpsPct(billing.DEFAULT_BUYER_PREMIUM_BPS) + ' (fixed for individual sellers)' };
+  // The processing fee new auctions use is admin-editable (frozen per auction at publication): read the live value.
+  let processingBps = billing.DEFAULT_PROCESSING_FEE_BPS;
+  try { processingBps = await require('../pricingConfigService').currentProcessingBps(); } catch (_e) { /* code default */ }
+  if (!pro) return { seller_type: sp.seller_type, platform_fee: '0%', processing_fee: bpsPct(processingBps) + ' of the hammer price', buyers_premium: bpsPct(billing.DEFAULT_BUYER_PREMIUM_BPS) + ' (fixed for individual sellers)' };
   const fee = agreement ? agreement.platform_fee_bps : (sp.platform_fee_bps != null ? sp.platform_fee_bps : null);
   // Auction Partner Program (introductory 0% platform fee applied): processing is the actual card-processing charges.
   let partner = null;
@@ -224,7 +245,7 @@ async function getMySellerTerms(_a, ctx) {
       WHERE s.user_id = $1 AND fp.status = 'active' AND fp.fee_applied_at IS NOT NULL AND fp.fee_restored_at IS NULL LIMIT 1`, [ctx.userId])).rows[0] || null;
   } catch (_e) { partner = null; }
   if (partner && Number(partner.intro_platform_fee_bps) === 0) {
-    return { seller_type: sp.seller_type, program: 'Auction Partner Program',
+    return { seller_type: sp.seller_type, program: 'Advantage.Bid Auction Partner Program (Selected Auction Partner)',
       platform_fee: '0% Advantage.Bid auction platform/software fee on auctions published under the program (each auction keeps the terms it was published with)',
       processing_fee: 'the actual card-processing charges on your buyers\' payments for that auction, deducted from your proceeds at cost with no markup',
       buyers_premium: 'you set it per auction (0–25%) and keep it', taxes: 'sales tax is collected and remitted separately and is not part of your proceeds',
@@ -232,7 +253,7 @@ async function getMySellerTerms(_a, ctx) {
       storefront_fee: `${require('../marketplaceOrderService').STOREFRONT_FEE_BPS / 100}% of the item price on Storefront fixed-price sales (includes card processing; shipping and tax excluded), separate from your auction fees` };
   }
   return { seller_type: sp.seller_type, platform_fee: fee != null ? bpsPct(fee) + ' of the hammer price (your current rate; each auction keeps the rate it was published with)' : 'set in your Professional Seller agreement; a team member can confirm it',
-    processing_fee: bpsPct(agreement ? agreement.processing_fee_bps : billing.DEFAULT_PROCESSING_FEE_BPS) + ' of the hammer price',
+    processing_fee: bpsPct(agreement ? agreement.processing_fee_bps : processingBps) + ' of the hammer price',
     buyers_premium: 'you set it per auction (0–25%) and keep it', agreement_page: `${SITE}/pricing-agreement.html`,
     storefront_fee: `${require('../marketplaceOrderService').STOREFRONT_FEE_BPS / 100}% of the item price on Storefront fixed-price sales (includes card processing; shipping and tax excluded), separate from your auction fees` };
 }
@@ -253,7 +274,45 @@ const EXEC = {
 const ACCOUNT_TOOL_NAMES = new Set(ACCOUNT_TOOLS.map((t) => t.name));
 
 /** Run one tool. Account tools refuse without an authenticated user (defence in depth — they are not even offered). */
+/**
+ * Every timestamp a tool returns also gets a ready-to-say local version (<key>_local), in the auction's own time zone
+ * when the result carries one, otherwise Eastern Time. Sasha reads the local version and never converts UTC herself
+ * (certification 2026-10-12: a UTC pickup window was converted wrongly).
+ */
+const ISO_TS = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/;
+function localTime(v, tz) {
+  const d = v instanceof Date ? v : new Date(v);
+  if (Number.isNaN(d.getTime())) return null;
+  try {
+    return new Intl.DateTimeFormat('en-US', { timeZone: tz, weekday: 'long', month: 'long', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit', timeZoneName: 'short' }).format(d);
+  } catch (_e) { return localTime(d, require('../../lib/timezoneUtils').DEFAULT_TZ); }
+}
+function withLocalTimes(x, tz) {
+  if (Array.isArray(x)) return x.map((v) => withLocalTimes(v, tz));
+  if (!x || typeof x !== 'object' || x instanceof Date) return x;
+  const zone = (typeof x.timezone === 'string' && x.timezone) || tz;
+  const out = {};
+  for (const [k, v] of Object.entries(x)) {
+    out[k] = withLocalTimes(v, zone);
+    if (v instanceof Date || (typeof v === 'string' && ISO_TS.test(v))) { const l = localTime(v, zone); if (l) out[k + '_local'] = l; }
+  }
+  return out;
+}
+
+// Server-side permission guard: every tool runs with a per-tool write allowlist (customer-service tables only) and no
+// payment-processor access, whatever the model asks for (owner directive 2026-10-14; see toolGuard.js).
+const guard = require('./toolGuard');
+guard.installDb(db);
+guard.installNet();
+
 async function run(name, input, ctx) {
+  const tz = require('../../lib/timezoneUtils').DEFAULT_TZ;
+  let out;
+  try { out = await guard.run(name, () => runRaw(name, input, ctx)); }
+  catch (e) { if (e instanceof guard.SashaToolPermissionError) out = { error: 'not permitted' }; else throw e; }
+  return withLocalTimes(out, tz);
+}
+async function runRaw(name, input, ctx) {
   if (name === 'request_human') return { handoff: true };   // handled by the engine
   if (ctx && ctx.channel === 'phone') return runPhone(name, input, ctx);
   const fn = EXEC[name];
@@ -270,7 +329,7 @@ async function runPhone(name, input, ctx) {
   const phone = require('./phone/phoneTools');
   const own = await phone.run(name, input, ctx);
   if (own !== null) {
-    if (phone.VERIFIED_NAMES.has(name) && ctx.userId && name !== 'send_text' && name !== 'send_payment_link') await auditPhoneRead(name, own, ctx);
+    if (phone.VERIFIED_NAMES.has(name) && ctx.userId && name !== 'send_text' && name !== 'send_payment_link' && name !== 'contact_seller_about_pickup') await auditPhoneRead(name, own, ctx);
     return own;
   }
   const fn = EXEC[name];
@@ -293,4 +352,4 @@ async function auditPhoneRead(name, out, ctx) {
     accountUserId: ctx.userId, sessionId: ctx.phone.sessionId || null, detail: shape.detail });
 }
 
-module.exports = { toolsFor, run, KNOWLEDGE_TOOLS, ACCOUNT_TOOLS, HANDOFF_REASONS, _internal: { getAuctionOrLot, getMyPickupDetails, searchHelpCenter } };
+module.exports = { toolsFor, run, KNOWLEDGE_TOOLS, ACCOUNT_TOOLS, HANDOFF_REASONS, _internal: { getAuctionOrLot, getMyPickupDetails, searchHelpCenter, withLocalTimes } };

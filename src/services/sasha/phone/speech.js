@@ -11,8 +11,11 @@
 
 const UUID_RE = /\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/gi;
 
-function speakable(t) {
-  return String(t || '')
+// A bare site name ("bid.advantage.bid", "www.advantage.bid"), lower-case only so the brand "Advantage.Bid" is never touched.
+const BARE_DOMAIN = /\b(?:https?:\/\/)?(?:www|bid)\.advantage\.bid\b(?!\/)/g;
+/** opts.allowDomain: the caller asked for the website address, so a bare site name may be spoken. */
+function speakable(t, opts = {}) {
+  const out = String(t || '')
     .replace(/\*\*([^*\n]+)\*\*/g, '$1').replace(/__([^_\n]+)__/g, '$1').replace(/`([^`\n]+)`/g, '$1')
     .replace(/^\s{0,3}#{1,6}\s+/gm, '')
     .replace(/^\s*(?:[*\-•]|\d+[.)])\s+/gm, '')
@@ -25,10 +28,11 @@ function speakable(t) {
     .replace(/[ \t]+/g, ' ')
     .replace(/\s*\n+\s*/g, ' ')
     .trim();
+  return opts.allowDomain ? out : out.replace(BARE_DOMAIN, 'the Advantage.Bid website').replace(/\bthe the Advantage\.Bid website\b/g, 'the Advantage.Bid website');
 }
 
 class SentenceChunker {
-  constructor() { this.buf = ''; }
+  constructor(opts = {}) { this.buf = ''; this.opts = opts; }
   /** Add streamed text; returns the complete sentences now available (possibly none). */
   push(delta) {
     this.buf += String(delta || '');
@@ -48,9 +52,9 @@ class SentenceChunker {
       }
       out.push(before); this.buf = this.buf.slice(end + m[3].length);
     }
-    return out.map(speakable).filter(Boolean);
+    return out.map((x) => speakable(x, this.opts)).filter(Boolean);
   }
-  flush() { const s = speakable(this.buf); this.buf = ''; return s ? [s] : []; }
+  flush() { const s = speakable(this.buf, this.opts); this.buf = ''; return s ? [s] : []; }
 }
 
 const FILLERS = ['One moment while I check that for you.', 'Let me look that up.', 'Give me just a second.', 'Let me check on that.',

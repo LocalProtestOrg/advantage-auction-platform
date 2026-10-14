@@ -4,6 +4,9 @@
  * Phase 2B — Individual Estate Sale Promotion ($39 one-time, Stripe TEST). Behavioral tests for the
  * service's pure logic + source-level assertions for gating, webhook routing, moderation emails,
  * customer language, and SEO. No real Stripe/DB/network.
+ *
+ * The offering was DISABLED 2026-10-12 (owner decision); purchase refusal is covered in
+ * tests/estate-sale-promotion-disabled.test.js. The service/webhook/historical-data assertions here stay.
  */
 const fs = require('fs');
 const path = require('path');
@@ -112,53 +115,15 @@ describe('emails — lifecycle exists for estate sales (none existed before)', (
   });
 });
 
-describe('customer pages — simple language, correct SEO/gating', () => {
-  const landing = read('public', 'promote-estate-sale.html');
-  const welcome = read('public', 'estate-sale-welcome.html');
-  const create = read('public', 'create-estate-sale.html');
-  const dash = read('public', 'my-estate-sales.html');
-  const robots = read('public', 'robots.txt');
-  const gate = read('src', 'middleware', 'htmlAuthGate.js');
-
-  test('landing is public + indexable with the $39 offer + JSON-LD', () => {
-    expect(landing).not.toMatch(/name="robots" content="noindex/);
-    expect(landing).toContain('$39');
-    expect(landing).toMatch(/Promote My Estate Sale/);
-    expect(landing).toMatch(/application\/ld\+json/);
-    expect(landing).toMatch(/"price":"39\.00"/);
-    expect(landing).toMatch(/No subscription\. No membership\./);
+describe('customer pages — archived (offering disabled by owner decision 2026-10-12)', () => {
+  const PAGES = ['promote-estate-sale', 'estate-sale-welcome', 'create-estate-sale', 'my-estate-sales'];
+  test.each(PAGES)('%s.html is no longer served from public/ but is preserved in docs/archive', (name) => {
+    expect(fs.existsSync(path.join(__dirname, '..', 'public', name + '.html'))).toBe(false);
+    expect(fs.existsSync(path.join(__dirname, '..', 'docs', 'archive', 'estate-sale-promotion', name + '.html'))).toBe(true);
   });
-  test('welcome / create / dashboard are noindex, robots-disallowed, and member-gated', () => {
-    [welcome, create, dash].forEach((p) => expect(p).toMatch(/name="robots" content="noindex, nofollow"/));
-    ['/estate-sale-welcome.html', '/create-estate-sale.html', '/my-estate-sales.html'].forEach((u) => {
-      expect((robots.match(new RegExp('Disallow: ' + u.replace(/[/.]/g, '\\$&'), 'g')) || []).length).toBe(2);
-      expect(gate).toContain("'" + u + "'");
-    });
-    expect(gate).not.toMatch(/'\/promote-estate-sale\.html'/); // landing stays public
-  });
-  test('never exposes internal concepts (credit / entitlement / capability / customer organization)', () => {
-    [welcome, create, dash].forEach((p) => expect(p).not.toMatch(/\bcredit\b|\bentitlement\b|\bcapability\b|\borganization\b/i));
-    // landing: the only "Organization" is the schema.org provider type, not the customer's org
-    const landingNoLd = landing.replace(/<script type="application\/ld\+json">[\s\S]*?<\/script>/g, '');
-    expect(landingNoLd).not.toMatch(/\bcredit\b|\bentitlement\b|\bcapability\b|\borganization\b/i);
-  });
-  test('success page uses approved wording and confirms via the API (not the query string)', () => {
-    expect(welcome).toMatch(/You’re all set!/);
-    expect(welcome).toMatch(/Your Estate Sale Promotion has been activated/);
-    expect(welcome).toMatch(/Create Your Estate Sale/);
-    expect(welcome).toMatch(/\/api\/estate-sale\/promotion/);
-    expect(welcome).not.toMatch(/session_id.*activated|\?success=1/);
-  });
-  test('dashboard card is action-oriented (Ready to Use + Create Your Estate Sale)', () => {
-    expect(dash).toMatch(/Ready to Use/);
-    expect(dash).toMatch(/Estate Sale Promotion/);
-    expect(dash).toMatch(/Create Your Estate Sale/);
-    expect(dash).not.toMatch(/Purchased and ready/);
-  });
-  test('landing CTA stays "Promote My Estate Sale" and auto-continues after sign-in', () => {
-    expect((landing.match(/Promote My Estate Sale/g) || []).length).toBeGreaterThanOrEqual(2);
-    expect(landing).toMatch(/sessionStorage\.setItem\('es_intent','1'\)/);
-    expect(landing).toMatch(/sessionStorage\.getItem\('es_intent'\)\)\{ sessionStorage\.removeItem\('es_intent'\); start\(\)/);
+  test('the archive README documents the decision, the flag and what remains in code', () => {
+    const md = read('docs', 'archive', 'estate-sale-promotion', 'README.md');
+    ['4e52997', '2026-10-12', 'ESTATE_SALE_PROMOTION_ENABLED', 'STRIPE_ESTATE_SALE_PRICE_ID', '105'].forEach((t) => expect(md).toContain(t));
   });
 });
 

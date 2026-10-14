@@ -9,6 +9,9 @@ process.env.JWT_SECRET = process.env.JWT_SECRET || 'test-secret-cookie-session';
 
 const jwt = require('jsonwebtoken');
 const fs = require('fs');
+// A past-half-life renewal re-checks account status (src/lib/accountStatus.js); the account is active here.
+jest.mock('../src/db', () => ({ query: jest.fn(async () => ({ rows: [{ is_active: true }] })) }));
+const flush = () => new Promise((r) => setImmediate(r));
 const authMiddleware = require('../src/middleware/authMiddleware');
 const { COOKIE_NAME } = require('../src/lib/sessionCookie');
 
@@ -73,16 +76,18 @@ describe('authMiddleware — cookie is a valid fallback session (the fix)', () =
     expect(res.body.error).toBe('Authentication required');
   });
 
-  test('6. cookie auth refreshes the session cookie but does NOT leak a new JWT via X-Refreshed-Token', () => {
+  test('6. cookie auth refreshes the session cookie but does NOT leak a new JWT via X-Refreshed-Token', async () => {
     // cookie token past half-life → cookie is re-issued (slides) but no header handed to JS.
-    const { res, authed } = run({ cookie: sign(validClaims, now() - 5000, now() + 3000) });
-    expect(authed).toBe(true);
+    const { res, next } = run({ cookie: sign(validClaims, now() - 5000, now() + 3000) });
+    await flush();
+    expect(next).toHaveBeenCalledTimes(1);
     expect(res.cookies.length).toBe(1);                       // cookie refreshed
     expect(res.headers['X-Refreshed-Token']).toBeUndefined(); // not exposed to JS for cookie sessions
   });
 
-  test('7. Bearer past half-life still emits X-Refreshed-Token (compat unchanged)', () => {
+  test('7. Bearer past half-life still emits X-Refreshed-Token (compat unchanged)', async () => {
     const { res } = run({ bearer: sign(validClaims, now() - 5000, now() + 3000) });
+    await flush();
     expect(res.headers['X-Refreshed-Token']).toBeTruthy();
     expect(jwt.verify(res.headers['X-Refreshed-Token'], SECRET).id).toBe('u-1');
   });

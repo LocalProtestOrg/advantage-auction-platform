@@ -232,9 +232,17 @@ describe('phone prompt and take-a-message', () => {
   test('identity is truthful only when asked, with the owner\'s wording; chat keeps its own', () => {
     const phone = engine.systemPrompt({ channel: 'phone' });
     expect(phone).toContain(`"${engine.PHONE_IDENTITY_ANSWER}"`);
-    expect(engine.PHONE_IDENTITY_ANSWER).toBe("Yes, I'm Advantage.Bid's virtual assistant. I can help with bidding, invoices, payments, pickup information, seller questions, account assistance, and much more. What can I help you with today?");
-    expect(phone).toMatch(/Do not call yourself an AI, bot, virtual or automated assistant unless asked/);
-    expect(phone).toMatch(/Never claim to be human/);
+    expect(engine.PHONE_IDENTITY_ANSWER).toBe("I am Sasha, Advantage.Bid's Virtual Assistant. I can handle pretty much anything you may need to know. How can I help you?");
+    // "Yes" in front would answer "Am I talking to a real person?" with yes (certification 2026-10-09).
+    expect(engine.PHONE_IDENTITY_ANSWER).not.toMatch(/^(Yes|No)\b/);
+    expect(phone).toMatch(/Never put a "Yes" in front of an answer to "are you human\?"/);
+    expect(phone).toMatch(/In ordinary conversation never say or hint that you are an AI, a bot, automated, virtual or not human/);
+    expect(phone).toMatch(/if they asked directly whether you are human or a real person, begin with "I'm not a person\."/);
+    expect(phone).toMatch(/if they asked directly whether you are an AI, a robot, a bot, automated, a machine or a computer, begin with "Yes, I'm automated\."/);
+    expect(phone).toMatch(/for "are you a robot\?" say "Yes, I'm automated\.", not "I'm not a person\."/);
+    expect(phone).toMatch(/never evade a direct question, and never claim or imply to be human/);
+    expect(phone).toMatch(/Say it once, then keep helping; do not bring it up again unless they ask again/);
+    for (const c of ['chat', 'email']) expect(engine.systemPrompt({ channel: c })).toMatch(/Never put a "Yes" in front of an answer to "are you human\?"/);
     expect(engine.systemPrompt({ channel: 'chat' })).toContain(`"${engine.IDENTITY_ANSWER}"`);
   });
   test('human requests: capability first, at most once, then take a message; no transfer; permission before codes', () => {

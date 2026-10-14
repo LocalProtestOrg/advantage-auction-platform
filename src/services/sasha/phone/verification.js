@@ -94,6 +94,9 @@ async function findAccount({ email, phone }, runner = db) {
 /** Can a code be texted to this account's phone? Verified, not shared with another active account, not just changed. */
 async function smsUsable(user, runner = db) {
   if (!require('../../accountPhoneService').isVerified(user)) return false;
+  // Conservative launch rule (owner decision 2026-10-12): a number that replied STOP gets no SMS verification;
+  // the code goes to the account email instead. Not a legal conclusion about transactional texts.
+  if (await require('../../smsSuppressionService').isSuppressed(user.phone_verified_e164)) return false;
   if (user.phone_changed_at && Date.now() - new Date(user.phone_changed_at).getTime() < CHANGED_NUMBER_HOLD_HOURS * 3600000) return false;
   const shared = Number((await runner.query(`SELECT count(*)::int n FROM users u WHERE u.id <> $1 AND COALESCE(u.is_active, true) = true
     AND ${VERIFIED} AND u.phone_verified_e164 = $2`, [user.id, user.phone_verified_e164])).rows[0].n);

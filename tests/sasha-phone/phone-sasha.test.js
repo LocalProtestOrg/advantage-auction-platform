@@ -107,7 +107,8 @@ const codeFrom = (st, where = null) => {
   const m = all[all.length - 1]; return m ? /\b(\d{4})\b/.exec(m.body)[1] : null;
 };
 const sent = (st) => st.handset.length + (st.mailbox || []).length;
-async function startCall(client, callerNumber = null) { return sim.start({ actorId: ADMIN, callerNumber }, { client }); }
+// These scenarios exercise the in-call texting flow, so they opt in (a plain simulation mirrors production, where it is off).
+async function startCall(client, callerNumber = null) { return sim.start({ actorId: ADMIN, callerNumber }, { client, simulateTexting: true }); }
 
 /** Verify a caller by email through the real tool + spoken code. Returns the call id. */
 async function verifiedCall(u, extraSteps = []) {
@@ -137,7 +138,7 @@ describe('anonymous public call', () => {
     expect(spokenText(r)).toMatch(/extends that lot by two minutes/);
     expect(m.calls[0].system[0].text).toMatch(/This is a PHONE CALL and the caller is NOT verified/);
     expect(m.calls[0].system[1].text).toMatch(/Caller verification: NOT verified/);
-    expect(m.calls[0].max_tokens).toBe(200);
+    expect(m.calls[0].max_tokens).toBe(engine.PHONE_MAX_OUTPUT_TOKENS);
     expect(m.calls[0].stream).toBe(true);
   });
   test('caller ID is a hint only: a caller ID matching an account grants nothing', async () => {
@@ -403,7 +404,8 @@ describe('verified account support', () => {
     let terms = null;
     const { callId } = await verifiedCall(u, [{ tools: [{ name: 'get_my_seller_terms', input: {} }] }, (p) => { terms = lastToolResult(p); return { text: 'You are in the Auction Partner Program.' }; }]);
     await sim.say(callId, ADMIN, 'What are my fees?');
-    expect(terms.program).toBe('Auction Partner Program');
+    expect(terms.program).toBe('Advantage.Bid Auction Partner Program (Selected Auction Partner)');
+    expect(JSON.stringify(terms)).not.toMatch(/founding/i);   // customer-facing name only
     const after = JSON.stringify(await q(`SELECT * FROM founding_partners ORDER BY id`)) + (await q(`SELECT count(*)::int n FROM seller_activation_touches`))[0].n;
     expect(after).toBe(before);
     const src = ['phoneTools.js', 'callSession.js', 'escalation.js'].map((f) => fs.readFileSync(path.join(__dirname, '..', '..', 'src', 'services', 'sasha', 'phone', f), 'utf8')).join('\n');
@@ -890,7 +892,7 @@ describe('phone tool turns: API-valid messages, progress phrases, watchdog, ceil
   async function askAfterVerifying(u, steps, deps = {}) {
     const m = strictModel([{ tools: [{ name: 'start_account_verification', input: { email: u.email } }] }, { text: 'I just sent a code. Please read it to me.' },
       { text: 'Thank you, you are verified.' }, ...steps]);
-    const s = await sim.start({ actorId: ADMIN }, { client: m.client, ...deps });
+    const s = await sim.start({ actorId: ADMIN }, { client: m.client, simulateTexting: true, ...deps });
     await sim.say(s.call_id, ADMIN, 'Can you check my bids? My email is ' + u.email);
     const code = codeFrom(await sim.state(s.call_id, ADMIN));
     expect((await sim.say(s.call_id, ADMIN, 'The code is ' + code.split('').join(' '))).verification.state).toBe('verified');
@@ -971,5 +973,113 @@ describe('phone tool turns: API-valid messages, progress phrases, watchdog, ceil
     expect(engine.PROGRESS_PHRASES.start_account_verification).toBe('Give me just a moment while I send that verification code.');
     expect(engine.PROGRESS_PHRASES.get_my_invoices).toBe('Give me just a moment while I pull up your invoices.');
     for (const p of Object.values(engine.PROGRESS_PHRASES)) expect(p).not.toMatch(/system|processing|status|AI|query/i);
+  });
+});
+
+// ── owner decisions 2026-10-12 (round 4): STOP numbers and the pickup seller-contact request ──────────────
+describe('STOP-suppressed numbers never get an SMS verification code', () => {
+  test('a verified mobile that replied STOP: the code goes to the account email instead; no text is attempted', async () => {
+    const u = await user({ phone: '(551) 619-4001', verified: true });
+    await require('../../src/services/smsSuppressionService').suppress(normalizeUsPhone('(551) 619-4001').e164, { reason: 'stop_keyword', keyword: 'STOP' });
+    const m = model([{ tools: [{ name: 'start_account_verification', input: { email: u.email } }] }, { text: 'If that matches, a code is on its way.' }]);
+    const s = await startCall(m.client);
+    await sim.say(s.call_id, ADMIN, 'My email is ' + u.email);
+    const st = await sim.state(s.call_id, ADMIN);
+    expect(st.handset.filter((h) => h.kind === 'code')).toHaveLength(0);
+    expect(codeFrom(st, 'email')).toMatch(/^\d{4}$/);
+    expect((await q(`SELECT channel FROM cs_phone_verifications WHERE call_id = $1 AND status = 'sent'`, [s.call_id]))[0].channel).toBe('email');
+  });
+  test('the same number without STOP still gets the code by text (rule is limited to suppressed numbers)', async () => {
+    const u = await user({ phone: '(551) 619-4002', verified: true });
+    const m = model([{ tools: [{ name: 'start_account_verification', input: { email: u.email } }] }, { text: 'If that matches, a code is on its way.' }]);
+    const s = await startCall(m.client);
+    await sim.say(s.call_id, ADMIN, 'My email is ' + u.email);
+    expect(codeFrom(await sim.state(s.call_id, ADMIN), 'sms')).toMatch(/^\d{4}$/);
+  });
+});
+
+describe('pickup help: contact_seller_about_pickup (verified buyer, paid purchase, request only)', () => {
+  const ask = (input) => [{ tools: [{ name: 'contact_seller_about_pickup', input }] }, (p) => ({ text: lastToolResult(p).note || lastToolResult(p).error })];
+  test('not offered before verification; refused for an unverified caller', async () => {
+    const m = model([{ text: 'Happy to help.' }]);
+    const s = await startCall(m.client);
+    await sim.say(s.call_id, ADMIN, 'I cannot make my pickup.');
+    expect(toolNames(m.calls[0])).not.toContain('contact_seller_about_pickup');
+  });
+  test('paid purchase: one structured request to the seller (simulated mailbox), no buyer contact without permission, audited, in the Shared Inbox, pickup terms unchanged', async () => {
+    const seller = await user({ role: 'seller' });
+    const u = await user({ phone: '(551) 619-5001', verified: true });
+    const auctionId = await auction({ sellerUserId: seller.id, paidBy: u.id, title: 'Maple Street Sale' });
+    const { callId } = await verifiedCall(u, ask({ auction_id: auctionId, reason: 'My truck broke down and I may be an hour late.' }));
+    const r = await sim.say(callId, ADMIN, 'I am going to be late for pickup, can you ask the seller?');
+    const st = await sim.state(callId, ADMIN);
+    const req = st.mailbox.filter((x) => x.kind === 'seller_pickup_request');
+    expect(req).toHaveLength(1);
+    expect(req[0].body).toMatch(/This is a request only\. The published pickup terms for this auction are unchanged/);
+    expect(req[0].body).toMatch(/did not share contact details/);
+    expect(req[0].body).not.toContain(u.email);
+    expect(req[0].body).not.toMatch(/619-5001|6195001/);
+    expect(spokenText(r)).toMatch(/cannot promise the seller will agree or when they will reply/);
+    const ev = (await q(`SELECT event_type, data_category, account_user_id, detail FROM cs_phone_audit WHERE call_id = $1 AND tool = 'contact_seller_about_pickup'`, [callId]))[0];
+    expect(ev).toMatchObject({ event_type: 'tool_disclosed', data_category: 'seller_contact', account_user_id: u.id });
+    expect(ev.detail).toMatchObject({ outcome: 'simulated', auction_ids: [auctionId] });
+    expect((await q(`SELECT count(*)::int n FROM cs_handoffs WHERE conversation_id = (SELECT conversation_id FROM cs_calls WHERE id = $1) AND status = 'open'`, [callId]))[0].n).toBeGreaterThan(0);
+    const unchanged = (await q(`SELECT pickup_window_end FROM auctions WHERE id = $1`, [auctionId]))[0];
+    expect(unchanged.pickup_window_end).toBeTruthy();
+  });
+  test('one request per buyer, auction and day; contact details only with explicit permission; unpaid purchases refused', async () => {
+    const seller = await user({ role: 'seller' });
+    const u = await user({ phone: '(551) 619-6001', verified: true });
+    const paid = await auction({ sellerUserId: seller.id, paidBy: u.id, title: 'Oak Lane Sale' });
+    const unpaid = await auction({ sellerUserId: seller.id, unpaidBy: u.id, title: 'Birch Road Sale' });
+    const { callId } = await verifiedCall(u, [
+      ...ask({ auction_id: paid, reason: 'Could I come at the very end of the window?', share_contact: true, buyer_name: 'Pat', callback_number: '(551) 619-6001' }),
+      ...ask({ auction_id: paid, reason: 'Asking again.' }),
+      ...ask({ auction_id: unpaid, reason: 'Pickup problem.' }),
+    ]);
+    await sim.say(callId, ADMIN, 'Please ask the seller, and you can give them my name and number.');
+    const r2 = await sim.say(callId, ADMIN, 'Can you ask them again?');
+    const r3 = await sim.say(callId, ADMIN, 'What about my other sale?');
+    const st = await sim.state(callId, ADMIN);
+    const req = st.mailbox.filter((x) => x.kind === 'seller_pickup_request');
+    expect(req).toHaveLength(1);
+    expect(req[0].body).toMatch(/With their permission, the buyer asked us to share: Pat, \+15516196001\./);
+    expect(spokenText(r2)).toMatch(/already sent to the seller today/);
+    expect(spokenText(r3)).toMatch(/no paid purchase from that auction/);
+  });
+});
+
+// ── round 5: authoritative seller category for pickup; lot search never invents a lot ─────────────────
+describe('pickup seller category and lot search', () => {
+  test('get_my_pickup_details returns the seller category and the matching pickup rule (never inferred)', async () => {
+    const ind = await user({ role: 'seller' });
+    const u = await user({ phone: '(551) 619-7001' });
+    await auction({ sellerUserId: ind.id, paidBy: u.id, title: 'Cedar Lane Sale' });   // fixture seller_type 'private'
+    let result = null;
+    const { callId } = await verifiedCall(u, [{ tools: [{ name: 'get_my_pickup_details', input: {} }] }, (p) => { result = lastToolResult(p); return { text: 'Here are your pickup details.' }; }]);
+    await sim.say(callId, ADMIN, 'Where do I pick up?');
+    expect(result.pickups[0]).toMatchObject({ seller: 'Individual Seller' });
+    expect(result.pickups[0].pickup_rule).toMatch(/published pickup date and window are final/);
+    const pro = await user({ role: 'seller' });
+    await q(`INSERT INTO seller_profiles (user_id, seller_type) VALUES ($1, 'auction_house')`, [pro.id]);
+    const u2 = await user({ phone: '(551) 619-7002' });
+    await auction({ sellerUserId: pro.id, paidBy: u2.id, title: 'Harbor Auction House Sale' });
+    let r2 = null;
+    const v2 = await verifiedCall(u2, [{ tools: [{ name: 'get_my_pickup_details', input: {} }] }, (p) => { r2 = lastToolResult(p); return { text: 'Here you go.' }; }]);
+    await sim.say(v2.callId, ADMIN, 'Where do I pick up?');
+    expect(r2.pickups[0]).toMatchObject({ seller: 'Professional Seller' });
+  });
+  test('a lot search by item words that finds nothing says so explicitly', async () => {
+    const seller = await user({ role: 'seller' });
+    const sp = (await q(`INSERT INTO seller_profiles (user_id, seller_type) VALUES ($1,'private') RETURNING id`, [seller.id]))[0];
+    const a = (await q(`INSERT INTO auctions (seller_id, title, city, address_state, state, end_time) VALUES ($1,'Elm Street Estate','Dayton','OH','active', now() + interval '2 days') RETURNING id`, [sp.id]))[0];
+    await q(`INSERT INTO lots (auction_id, title, lot_number, state) VALUES ($1, 'Walnut Dresser', 1, 'active')`, [a.id]);
+    const ctx = { channel: 'chat', userId: seller.id };   // the seller's own draft auction is visible to them
+    const none = await tools.run('get_auction_or_lot', { auction_id: a.id, lot_words: 'Rolex watch' }, ctx);
+    expect(none.lot).toBeUndefined();
+    expect(none.lot_search).toMatchObject({ lot_found: false });
+    expect(none.lot_search.note).toMatch(/never talk about it as if it exists/);
+    const one = await tools.run('get_auction_or_lot', { auction_id: a.id, lot_words: 'walnut dresser' }, ctx);
+    expect(one.lot && one.lot.title).toBe('Walnut Dresser');
   });
 });

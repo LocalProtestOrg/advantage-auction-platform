@@ -9,7 +9,9 @@
 
 const db = require('../db');
 const marketplaceItems = require('./marketplaceItemService');
-const { isProfessional } = require('../lib/sellerBranding');
+// Storefronts are a Professional Seller feature (owner decision 2026-10-12): eligibility uses the canonical seller-type rule,
+// never the buyer-branding list (which also includes the self-serve 'business' Individual Seller type).
+const { isProfessional } = require('./sellerTypeRules');
 const saleLocation = require('../lib/saleLocation');
 
 const APP_BASE = (process.env.APP_BASE_URL || 'https://bid.advantage.bid').replace(/\/+$/, '');

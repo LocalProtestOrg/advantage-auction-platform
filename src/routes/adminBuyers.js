@@ -126,6 +126,7 @@ router.post('/:userId/tax-exemption/review', async (req, res, next) => {
 
 async function setActive(userId, active, actorId, reason) {
   const { rows } = await db.query(`UPDATE users SET is_active = $2 WHERE id = $1 RETURNING id, email, is_active`, [userId, active]);
+  require('../lib/accountStatus').invalidateAccountStatus(userId); // apply on this instance now, not after the cache TTL
   if (!rows.length) return null;
   try {
     await writeAuditLog({

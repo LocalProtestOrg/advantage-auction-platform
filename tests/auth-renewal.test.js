@@ -3,7 +3,10 @@
 // passes half its lifetime, so a page refresh no longer logs them out mid-auction.
 process.env.JWT_SECRET = process.env.JWT_SECRET || 'test-secret-for-auth-renewal';
 const jwt = require('jsonwebtoken');
+// A past-half-life renewal re-checks account status (src/lib/accountStatus.js); the account is active here.
+jest.mock('../src/db', () => ({ query: jest.fn(async () => ({ rows: [{ is_active: true }] })) }));
 const authMiddleware = require('../src/middleware/authMiddleware');
+const flush = () => new Promise((r) => setImmediate(r));
 
 const SECRET = process.env.JWT_SECRET;
 const nowSec = () => Math.floor(Date.now() / 1000);
@@ -21,10 +24,11 @@ function makeRes() {
 const reqWith = (token) => ({ headers: token ? { authorization: 'Bearer ' + token } : {} });
 
 describe('#4 authMiddleware sliding renewal', () => {
-  test('token past half its lifetime → fresh token in X-Refreshed-Token header', () => {
+  test('token past half its lifetime → fresh token in X-Refreshed-Token header', async () => {
     const t = jwt.sign({ id: 'u1', role: 'buyer', iat: nowSec() - 5000, exp: nowSec() + 3000 }, SECRET);
     const res = makeRes(); const next = jest.fn();
     authMiddleware(reqWith(t), res, next);
+    await flush();
     expect(next).toHaveBeenCalled();
     expect(res.headers['X-Refreshed-Token']).toBeTruthy();
     const decoded = jwt.verify(res.headers['X-Refreshed-Token'], SECRET);

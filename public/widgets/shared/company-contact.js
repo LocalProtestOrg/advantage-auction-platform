@@ -14,6 +14,7 @@
   var PHONE_DISPLAY = '(551) 655-7050';
   var TEL_HREF = 'tel:+15516557050';
   var SUPPORT_EMAIL = 'info@advantage.bid';
+  var OFFICE_HOURS = 'Monday through Friday, 10:00 AM to 5:00 PM Eastern Time';   // mirrors src/lib/companyContact.js
 
   function telLinkHTML(className, label) {
     return '<a href="' + TEL_HREF + '" class="' + (className || '') + '" aria-label="Call Advantage.Bid at '
@@ -44,7 +45,7 @@
     else populate();
   }
 
-  var api = { PHONE_DISPLAY: PHONE_DISPLAY, TEL_HREF: TEL_HREF, SUPPORT_EMAIL: SUPPORT_EMAIL, telLinkHTML: telLinkHTML, populate: populate };
+  var api = { PHONE_DISPLAY: PHONE_DISPLAY, TEL_HREF: TEL_HREF, SUPPORT_EMAIL: SUPPORT_EMAIL, OFFICE_HOURS: OFFICE_HOURS, telLinkHTML: telLinkHTML, populate: populate };
   if (typeof module === 'object' && module.exports) module.exports = api;
   root.AdvContact = api;
 })(typeof self !== 'undefined' ? self : this);

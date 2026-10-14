@@ -44,7 +44,7 @@ You are working on the Advantage Auction Platform.
 - Seller final submission is single-use and locks seller editing
 - Auction publication (owner governance, updated 2026-09): Individual/Private sellers submit for Advantage (Admin) review and publication. VERIFIED + ACTIVE + ELIGIBLE Professional Sellers may publish their own qualifying auctions directly (no routine Admin approval) — via the same publicationGate/validation authority. Advantage.Bid retains full post-publication moderation authority over ALL auctions (review/hold/unpublish/suspend). (Supersedes the prior blanket "Advantage publishes auctions, not sellers" rule, which now applies only to Individual/Private sellers.)
 - Each lot starts at $1 by default unless admin overrides it
-- Bid increments must follow the approved editable increment ladder
+- Bid increments follow the platform increment ladder in `public/widgets/shared/bid-increment.js` (single source for server and client; changing it is a code change, there is no admin ladder editor). Professional Sellers and admins may set a per-lot flat increment override (`routes/lots.js`); Individual Sellers always use the ladder.
 - Buyers must be able to save favorite lots and view them on a dedicated page
 - Auction terms and other standard auction sections must be editable
 - Consignor information must be stored for recordkeeping
@@ -54,7 +54,11 @@ You are working on the Advantage Auction Platform.
 - SMS notifications must be opt-in only
 - Full address stays hidden until payment is verified
 - Public bidding identity uses auction-specific paddle numbers
-- Shipping, reserve, and similar advanced options may be seller-visible only when enabled by admin
+- Starting bids, reserves and per-lot increments are Professional Seller (and admin) controls, enforced server-side by seller type (`routes/lots.js`); Individual Seller lots start at $1 with no reserve.
+- Shipping (owner policy 2026-10-12): Professional Sellers may choose whether their listings offer shipping and are responsible for fulfillment; Individual Sellers may offer shipping only when Advantage.Bid/Admin enables or approves it for that seller or listing. (Production gap as of 2026-10-12: shipping toggles are not yet gated by seller type or admin approval.)
+- Storefronts (owner decision 2026-10-12): online Storefronts, fixed-price inventory, Buy Now and Storefront seller widgets are Professional Seller features only (canonical `sellerTypeRules.isProfessional`, never the buyer-branding list).
+- Individual Seller pickup (owner decision 2026-10-12): the published pickup date and window are part of the purchase terms and are final; a seller may voluntarily accommodate a buyer, which never changes the terms.
+- Public office/support hours: Monday through Friday, 10:00 AM to 5:00 PM Eastern Time (`src/lib/companyContact.js`).
 - Marketing campaign upsells and campaign configuration must remain admin-editable
 - BD may display public data but must not own auction operations
 

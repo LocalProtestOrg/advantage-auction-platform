@@ -16,11 +16,12 @@ const path = require('path');
 const PUBLIC_DIR = path.join(__dirname, '..', '..', '..', '..', 'public');
 const SITE = (process.env.APP_BASE_URL || 'https://bid.advantage.bid').replace(/\/+$/, '');
 
-// Public, informational pages only (curated: app/dashboard pages are excluded on purpose).
+// Public, informational pages only (curated: app/dashboard pages are excluded on purpose). shipping-available.html is a
+// marketing landing page with a blanket "ships nationwide" message, so it is not a policy source (owner decision 2026-10-12).
 const HELP_PAGES = [
   'faq.html', 'buyer-faq.html', 'how-to-buy.html', 'how-it-works.html', 'buyer-terms.html', 'terms.html', 'privacy.html',
   'seller-faq.html', 'start-selling.html', 'become-seller.html', 'become-professional-seller.html', 'professional-sellers.html',
-  'how-sellers-get-paid.html', 'shipping-available.html', 'appraiser-membership.html', 'promote-estate-sale.html', 'after-estate-sale.html',
+  'how-sellers-get-paid.html', 'appraiser-membership.html', 'after-estate-sale.html',
 ];
 
 const STOP = new Set(('a an the and or of to in on for is are be it this that with as at by from your you our we can do does how what '

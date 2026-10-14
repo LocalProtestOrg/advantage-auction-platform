@@ -5,7 +5,7 @@
  *
  *   Call flow (always):      start_account_verification, request_callback, find_auction
  *   Verified session only:   send_text, send_payment_link, get_my_seller_onboarding, get_my_business_verification, get_my_agreements,
- *                            get_my_auction_registration, get_my_pickup_slots, get_my_order_detail
+ *                            get_my_auction_registration, get_my_pickup_slots, get_my_order_detail, contact_seller_about_pickup
  *
  * Every account tool reads through the existing authoritative service for that domain and is scoped to ctx.userId,
  * which the call layer sets ONLY from a live verified phone session (never from caller ID or anything said).
@@ -40,7 +40,7 @@ const FLOW_TOOLS = [
 const VERIFIED_TOOLS = [
   { name: 'send_text', description: 'Text the verified caller at the phone number on their account (never any other number). what: pickup_details (only if they paid; same rule as get_my_pickup_details), invoices_page, my_bids_page, seller_dashboard, help_center.',
     input_schema: { type: 'object', properties: { what: { type: 'string', enum: ['pickup_details', 'invoices_page', 'my_bids_page', 'seller_dashboard', 'help_center'] }, auction_id: { type: 'string' } }, required: ['what'] } },
-  { name: 'send_payment_link', description: 'Send the verified caller a secure link to pay one unpaid auction invoice (use the invoice number from get_my_invoices). Railway checks the invoice is theirs and payable. The link works once, expires in 30 minutes, and asks them to sign in; then they pay on the website. delivery: "text" (ONLY the verified mobile number already on their account) or "email" (their account email). For a text, the first call sends nothing and returns the exact sentence to say first (that the one-time link goes to the number ending in the last four digits, and that it does not sign them up for text alerts); say it naturally, wait for the caller to agree, then call again with confirmed_with_caller true. Never send to a number the caller gives you. Never read the link aloud; never take card details.',
+  { name: 'send_payment_link', description: 'Send the verified caller a secure link to pay one unpaid AUCTION invoice (use the invoice number from get_my_invoices; never for storefront items or orders). The system checks that the invoice is theirs and payable. The link works once, expires in 30 minutes, and asks them to sign in; then they pay on the website. delivery: "text" (ONLY the verified mobile number already on their account) or "email" (their account email). For a text, the first call sends nothing and returns the exact sentence to say first (that the one-time link goes to the number ending in the last four digits, and that it does not sign them up for text alerts); say it naturally, wait for the caller to agree, then call again with confirmed_with_caller true. Never send to a number the caller gives you. Never read the link aloud; never take card details.',
     input_schema: { type: 'object', properties: { invoice_number: { type: 'string' }, delivery: { type: 'string', enum: ['text', 'email'] }, confirmed_with_caller: { type: 'boolean' } }, required: ['invoice_number'] } },
   { name: 'get_my_seller_onboarding', description: 'The verified seller\'s onboarding stage: what step they are on, what is blocking them, and who acts next (them or Advantage.Bid).', input_schema: noArgs },
   { name: 'get_my_business_verification', description: 'The verified Professional Seller\'s business verification status (not submitted, documents needed, under review, more information needed, approved, rejected).', input_schema: noArgs },
@@ -51,6 +51,8 @@ const VERIFIED_TOOLS = [
     input_schema: { type: 'object', properties: { auction_id: { type: 'string' } } } },
   { name: 'get_my_order_detail', description: 'One storefront order of the verified buyer, by order number: item, totals, payment, fulfillment and tracking.',
     input_schema: { type: 'object', properties: { order_number: { type: 'string' } }, required: ['order_number'] } },
+  { name: 'contact_seller_about_pickup', description: 'For a VERIFIED buyer with a PAID purchase who is having trouble with pickup: send the seller of that auction a short, structured request asking whether the seller is voluntarily able to help. It is a request only: it never changes the pickup terms or deadline, and for Individual Seller auctions the published pickup window stays final. Use the auction_id from get_my_pickup_details. reason: what the buyer needs, in one or two plain sentences (no card, account or address details). share_contact: true ONLY if the buyer explicitly agreed that the seller may have their name and callback number; then give buyer_name and callback_number ("caller_id" or the digits they said). Limited to one request per buyer, auction and day. Tell the buyer only what this tool returns; never promise the seller will help or reply, or any response time.',
+    input_schema: { type: 'object', properties: { auction_id: { type: 'string' }, reason: { type: 'string' }, share_contact: { type: 'boolean' }, buyer_name: { type: 'string' }, callback_number: { type: 'string' } }, required: ['auction_id', 'reason'] } },
 ];
 const VERIFIED_NAMES = new Set(VERIFIED_TOOLS.map((t) => t.name));
 
@@ -60,6 +62,7 @@ const CATEGORY = {
   get_my_auctions: 'seller_auctions', get_my_settlements: 'settlements', get_my_seller_terms: 'seller_terms', get_my_storefront_orders: 'storefront_orders',
   get_my_seller_onboarding: 'seller_status', get_my_business_verification: 'seller_verification', get_my_agreements: 'agreements',
   get_my_auction_registration: 'registration', get_my_pickup_slots: 'pickup_slot', get_my_order_detail: 'orders', send_text: 'text_message', send_payment_link: 'payment_link',
+  contact_seller_about_pickup: 'seller_contact',
 };
 
 /**
@@ -70,7 +73,7 @@ function toolsFor(ctx) {
   if (!(ctx && ctx.userId)) return FLOW_TOOLS;
   if (ctx.phone && ctx.phone.textingAvailable) return [...FLOW_TOOLS, ...VERIFIED_TOOLS];
   return [...FLOW_TOOLS, ...VERIFIED_TOOLS.filter((t) => t.name !== 'send_text').map((t) => (t.name !== 'send_payment_link' ? t : {
-    ...t, description: 'Email the verified caller a secure link to pay one unpaid auction invoice (use the invoice number from get_my_invoices). Texting is not available on this call, so the link goes to the email address on their account. Railway checks the invoice is theirs and payable. The link works once, expires in 30 minutes, and asks them to sign in; then they pay on the website. Never read the link aloud; never take card details.',
+    ...t, description: 'Email the verified caller a secure link to pay one unpaid AUCTION invoice (use the invoice number from get_my_invoices; never for storefront items or orders). Texting is not available on this call, so the link goes to the email address on their account. The system checks that the invoice is theirs and payable. The link works once, expires in 30 minutes, and asks them to sign in; then they pay on the website. Never read the link aloud; never take card details.',
     input_schema: { type: 'object', properties: { invoice_number: { type: 'string' }, delivery: { type: 'string', enum: ['email'] } }, required: ['invoice_number'] } }))];
 }
 
@@ -223,6 +226,17 @@ async function sendPaymentLink(args, ctx) {
       detail: { reason: 'texting not available on this call', what: 'text' } });
     return { sent: false, note: 'Texting is not available on this call (or this number has opted out of texts), so nothing was sent. Offer to email the secure payment link to the address on the account instead.' };
   }
+  // Payment links are for unpaid AUCTION invoices only: a storefront order number is refused here, not just in the prompt.
+  let storefrontOrder = null;
+  try {
+    storefrontOrder = (await db.query(`SELECT id FROM marketplace_orders WHERE buyer_user_id = $1 AND upper(order_number) = upper($2) LIMIT 1`,
+      [ctx.userId, String(args.invoice_number || '').trim()])).rows[0] || null;
+  } catch (_e) { storefrontOrder = null; }
+  if (storefrontOrder) {
+    await audit.record(ctx.phone.call, 'payment_link_refused', { tool: 'send_payment_link', category: 'payment_link', accountUserId: ctx.userId, sessionId: ctx.phone.sessionId,
+      detail: { reason: 'storefront order (payment links are for auction invoices only)' } });
+    return { sent: false, note: 'That is a storefront order, not an auction invoice, so no payment link was sent. Payment links are only for unpaid auction invoices. Do not describe storefront checkout: say the item\'s listing shows how it can be purchased, or they can contact the seller through the storefront.' };
+  }
   // Only these three arguments are read: a destination number is never accepted from the call.
   const r = await require('../../payLinkService').issue({ call: ctx.phone.call, sessionId: ctx.phone.sessionId, userId: ctx.userId },
     { invoiceNumber: args.invoice_number, delivery: args.delivery === 'text' ? 'text' : 'email', confirmedWithCaller: args.confirmed_with_caller === true }, ctx.phone.deps || {});
@@ -231,10 +245,78 @@ async function sendPaymentLink(args, ctx) {
   return { sent: false, note: r.note || 'The payment link could not be sent. The customer can pay any time from Invoices on the website, or a team member can follow up.' };
 }
 
+/**
+ * Pickup help: ask the seller of a verified buyer's PAID purchase whether they are voluntarily able to help (owner
+ * approval 2026-10-12). A fixed message structure; the buyer's name and callback number only with their explicit
+ * permission; one request per buyer, auction and day; audited; visible in the Shared Inbox. Simulated calls put the
+ * message in the simulated mailbox and never email anyone. The pickup terms are never changed.
+ */
+const SELLER_CONTACT_DAILY_LIMIT = 1;
+async function contactSellerAboutPickup(args, ctx) {
+  const call = ctx.phone.call;
+  const clip = (v, n) => String(v || '').replace(/[\r\n]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, n);
+  const auditIt = (outcome, extra = {}) => audit.record(call, 'tool_disclosed', { tool: 'contact_seller_about_pickup', category: 'seller_contact',
+    accountUserId: ctx.userId, sessionId: ctx.phone.sessionId, detail: { auction_ids: args.auction_id ? [String(args.auction_id)] : [], outcome, ...extra } });
+  if (!UUID.test(args.auction_id || '')) return { error: 'Use the auction_id from get_my_pickup_details for the purchase the buyer is asking about.' };
+  const reason = clip(args.reason, 300).replace(/\d{5,}/g, '[digits]');
+  if (!reason) return { error: 'Ask the buyer briefly what they need help with, then try again.' };
+  const { recipientEmailSql } = require('../../recipientService');
+  const p = (await db.query(
+    `SELECT a.id, a.title, sp.seller_type, ${recipientEmailSql('u')} AS seller_email, ab.paddle_number
+       FROM buyer_auction_invoices b JOIN auctions a ON a.id = b.auction_id JOIN seller_profiles sp ON sp.id = a.seller_id JOIN users u ON u.id = sp.user_id
+       LEFT JOIN auction_buyers ab ON ab.auction_id = a.id AND ab.user_id = b.buyer_user_id
+      WHERE b.buyer_user_id = $1 AND b.auction_id = $2 AND b.status = 'paid' LIMIT 1`, [ctx.userId, args.auction_id])).rows[0];
+  if (!p) { await auditIt('refused: no paid purchase'); return { sent: false, note: 'There is no paid purchase from that auction on this account, so the seller was not contacted. Pickup help is for paid purchases.' }; }
+  const recent = (await db.query(
+    `SELECT count(*)::int n FROM cs_phone_audit WHERE event_type = 'tool_disclosed' AND tool = 'contact_seller_about_pickup' AND account_user_id = $1
+        AND detail->'auction_ids' ? $2 AND detail->>'outcome' IN ('sent', 'simulated') AND created_at > now() - interval '1 day'`, [ctx.userId, String(args.auction_id)])).rows[0].n;
+  if (recent >= SELLER_CONTACT_DAILY_LIMIT) {
+    await auditIt('refused: daily limit');
+    return { sent: false, note: 'A pickup request for this auction was already sent to the seller today, so another was not sent. Offer to take a message for the Advantage.Bid team instead (request_callback).' };
+  }
+  if (!p.seller_email) { await auditIt('refused: no seller contact on file'); return { sent: false, note: 'The seller could not be reached this way. Take a message for the Advantage.Bid team instead (request_callback).' }; }
+  let contactLine = 'The buyer did not share contact details. To respond, reply to this email and the Advantage.Bid team will pass your answer on.';
+  let shared = false;
+  if (args.share_contact === true) {
+    let number = null;
+    if (String(args.callback_number || '').toLowerCase() === 'caller_id') number = ctx.phone.callerE164 || null;
+    else if (args.callback_number) number = normalizeUsPhone(args.callback_number).e164;
+    const name = clip(args.buyer_name, 60);
+    if (!number || !name) return { error: 'To share contact details, confirm the buyer\'s name and the callback number they want the seller to use (and that they agree to share them).' };
+    contactLine = `With their permission, the buyer asked us to share: ${name}, ${number}.`;
+    shared = true;
+  }
+  const company = require('../../../lib/companyContact');
+  const subject = `Pickup help request: ${clip(p.title, 120)}`;
+  const text = [
+    `A buyer who has paid for items in your auction "${clip(p.title, 120)}"${p.paddle_number ? ` (paddle ${p.paddle_number})` : ''} contacted Advantage.Bid about pickup.`,
+    '', `Their request: ${reason}`, '', contactLine, '',
+    'This is a request only. The published pickup terms for this auction are unchanged, and whether you can help is entirely your decision.',
+    '', `${company.NAME} · ${company.PHONE_DISPLAY} · ${company.SUPPORT_EMAIL}`,
+  ].join('\n');
+  let outcome;
+  if (call.is_simulated) {
+    if (Array.isArray((ctx.phone.deps || {}).mailbox)) ctx.phone.deps.mailbox.push({ kind: 'seller_pickup_request', to: 'seller of the auction (simulated, not sent)', subject, body: text, at: new Date().toISOString() });
+    outcome = 'simulated';
+  } else {
+    try { await require('../../emailService').sendEmail({ to: p.seller_email, subject, text, replyTo: company.SUPPORT_EMAIL }); outcome = 'sent'; }
+    catch (e) { console.error('[sasha-phone] seller pickup request failed', e.message); outcome = 'failed'; }
+  }
+  await auditIt(outcome, { what: shared ? 'buyer contact shared with permission' : 'no buyer contact shared' });
+  if (outcome === 'failed') return { sent: false, note: 'The request could not be sent. Take a message for the Advantage.Bid team instead (request_callback).' };
+  // Visible in the Shared Inbox: a note on this call's conversation and an open item for the team to follow.
+  const conversations = require('../conversationService');
+  await conversations.addMessage(call.conversation_id, { direction: 'note', author: 'system',
+    text: `Pickup help request sent to the seller of "${clip(p.title, 120)}"${shared ? ' (buyer shared name and callback number with permission)' : ' (no buyer contact shared)'}. Request: ${reason}` });
+  await conversations.requestHandoff(call.conversation_id, { reasonCode: 'other', reasonText: `Pickup help: seller of "${clip(p.title, 120)}" was asked whether they can help. Follow up if needed.`, createdBy: 'sasha' });
+  return { sent: true, note: `The request was sent to the seller of ${p.title}. Tell the buyer you have asked the seller whether they are able to help, that the published pickup window still applies, and that you cannot promise the seller will agree or when they will reply.${shared ? '' : ' The seller will reply through Advantage.Bid because no contact details were shared.'}` };
+}
+
 const EXEC = {
   start_account_verification: startAccountVerification, request_callback: requestCallback, find_auction: findAuction, send_text: sendText, send_payment_link: sendPaymentLink,
   get_my_seller_onboarding: getMySellerOnboarding, get_my_business_verification: getMyBusinessVerification, get_my_agreements: getMyAgreements,
   get_my_auction_registration: getMyAuctionRegistration, get_my_pickup_slots: getMyPickupSlots, get_my_order_detail: getMyOrderDetail,
+  contact_seller_about_pickup: contactSellerAboutPickup,
 };
 
 /** Summarise a tool result for the audit (references only) and decide disclosed vs nothing-to-disclose. */
@@ -260,4 +342,4 @@ async function run(name, input, ctx) {
   try { return await fn(input || {}, ctx); } catch (e) { console.error('[sasha-phone] tool', name, e.message); return { error: 'lookup failed' }; }
 }
 
-module.exports = { toolsFor, run, auditShape, FLOW_TOOLS, VERIFIED_TOOLS, CATEGORY, VERIFIED_NAMES, _internal: { findAuction, getMySellerOnboarding } };
+module.exports = { toolsFor, run, auditShape, FLOW_TOOLS, VERIFIED_TOOLS, CATEGORY, VERIFIED_NAMES, SELLER_CONTACT_DAILY_LIMIT, _internal: { findAuction, getMySellerOnboarding, contactSellerAboutPickup } };

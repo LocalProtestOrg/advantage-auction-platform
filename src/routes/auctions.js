@@ -10,6 +10,7 @@ const { sendEmail }             = require('../services/emailService');
 const db                        = require('../db/index');
 const { canMutateAuction, canDeleteAuction, lockErrorMessage } = require('./lots');
 const { isProfessional }  = require('../services/sellerTypeRules'); // seller-class gate (starting price is professional-only)
+const { shippingAllowed } = require('../services/sellerTypeRules'); // shipping gate (professional / admin-enabled individual)
 const registrationService = require('../services/auctionRegistrationService'); // #20
 const agreementService    = require('../services/agreementService'); // seller agreement gate
 const { brandingVisible } = require('../lib/sellerBranding'); // canonical public seller-identity gate
@@ -201,13 +202,24 @@ router.post('/:auctionId/lots', authMiddleware, async (req, res) => {
       );
       if (!st.rows[0] || !isProfessional(st.rows[0].seller_type)) effStartingPrice = undefined; // → $1 default in lotService.createLot
     }
+    // Shipping gate (owner policy 2026-10-12): admin always; professionals choose; an Individual
+    // seller only with admin-enabled capabilities.shipping_enabled. Otherwise ignored → false.
+    let effShippable = shippable;
+    if (req.user.role !== 'admin' && shippable === true) {
+      const sh = await db.query(
+        `SELECT sp.seller_type, sp.capabilities FROM auctions a JOIN seller_profiles sp ON sp.id = a.seller_id WHERE a.id = $1`,
+        [auctionId]
+      );
+      const r = sh.rows[0];
+      if (!r || !shippingAllowed({ role: req.user.role, sellerType: r.seller_type, capabilities: r.capabilities })) effShippable = false;
+    }
     const lotData = {
       title, description,
       startingPrice: effStartingPrice,
       pickupCategory: pickup_category,
       category, condition, material, era,
       makerArtist: maker_artist,
-      weight, dimensions, shippable,
+      weight, dimensions, shippable: effShippable,
     };
     let lot;
     if (req.user.role === 'admin') {

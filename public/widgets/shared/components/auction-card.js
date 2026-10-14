@@ -166,7 +166,7 @@ window.AAPComponents = window.AAPComponents || {};
     // Shipping badge (for auction cards with shippable_lot_count)
     var showShip = cfgGet(cfg, 'marketplace.shipping.show_badge', true);
     if (showShip && opts.shippable_lot_count > 0) {
-      list.push({ text: cfgGet(cfg, 'marketplace.badge.ships', 'Ships nationwide'), variant: 'ships' });
+      list.push({ text: cfgGet(cfg, 'marketplace.badge.ships', 'Shipping available'), variant: 'ships' });
     }
 
     return list;

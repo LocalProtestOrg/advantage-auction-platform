@@ -12,7 +12,7 @@ const db = require('../db');
 const { getBidsByLot, createBid, resolveIncrementOverride, resolveAuctionIncrementOverride, effectiveIncrement, nextMinBidCents } = require('../services/bidService');
 const imageProcessingService      = require('../services/imageProcessingService');
 const { writeAuditLog }           = require('../lib/auditLog');
-const { isProfessional }          = require('../services/sellerTypeRules');
+const { isProfessional, shippingAllowed } = require('../services/sellerTypeRules');
 const { normalizeTier, validateLotPayload } = require('../validation/lotValidation'); // H2
 
 // ── Phase C.2: professional-only lot settings (starting bid, reserve) ─────────
@@ -42,6 +42,32 @@ async function proSettingsAllowedForLot(userRole, lotId) {
     [lotId]
   );
   return rows[0] ? isProfessional(rows[0].seller_type) : false;
+}
+
+// Shipping (owner policy 2026-10-12): admin always; professional sellers choose; an
+// Individual seller only when an admin enabled capabilities.shipping_enabled for them.
+// When not allowed the shippable field is ignored (never a hard error).
+async function shippingAllowedForLot(userRole, lotId) {
+  if (userRole === 'admin') return true;
+  const { rows } = await db.query(
+    `SELECT sp.seller_type, sp.capabilities FROM lots l
+       JOIN auctions a        ON a.id  = l.auction_id
+       JOIN seller_profiles sp ON sp.id = a.seller_id
+      WHERE l.id = $1`,
+    [lotId]
+  );
+  return rows[0] ? shippingAllowed({ role: userRole, sellerType: rows[0].seller_type, capabilities: rows[0].capabilities }) : false;
+}
+
+async function shippingAllowedForAuction(userRole, auctionId) {
+  if (userRole === 'admin') return true;
+  const { rows } = await db.query(
+    `SELECT sp.seller_type, sp.capabilities FROM auctions a
+       JOIN seller_profiles sp ON sp.id = a.seller_id
+      WHERE a.id = $1`,
+    [auctionId]
+  );
+  return rows[0] ? shippingAllowed({ role: userRole, sellerType: rows[0].seller_type, capabilities: rows[0].capabilities }) : false;
 }
 
 // ── Ownership helpers (admin bypasses both checks) ───────────────────────────
@@ -83,14 +109,19 @@ async function userOwnsLot(userId, userRole, lotId) {
 // 'auction_not_found', 'lot_not_found'.
 async function canMutateAuction(userId, userRole, auctionId) {
   if (userRole === 'admin') return { allowed: true, reason: 'admin' };
+  // Ownership first (security fix 2026-10-12): only the seller who owns the auction may mutate it or its
+  // lots, and the edit-lock follows the OWNER's seller type. Previously this read the caller's own seller
+  // profile, so any caller could add lots to another seller's draft auction and a Professional caller to
+  // another seller's auction in any state.
   const { rows } = await db.query(
-    `SELECT a.state, sp.seller_type
+    `SELECT a.state, sp.seller_type, sp.user_id AS owner_user_id
        FROM auctions a
-       LEFT JOIN seller_profiles sp ON sp.user_id = $2
+       LEFT JOIN seller_profiles sp ON sp.id = a.seller_id
       WHERE a.id = $1`,
-    [auctionId, userId]
+    [auctionId]
   );
   if (!rows[0]) return { allowed: false, reason: 'auction_not_found' };
+  if (!rows[0].owner_user_id || String(rows[0].owner_user_id) !== String(userId)) return { allowed: false, reason: 'not_owner' };
   const { state, seller_type } = rows[0];
   if (state === 'draft')               return { allowed: true,  reason: 'draft' };
   // Owner policy: post-submission catalog edits follow the PROFESSIONAL classification, not the
@@ -241,7 +272,7 @@ router.get('/my-bids', authMiddleware, async (req, res, next) => {
 // POST /api/lots
 router.post('/', auth, async (req, res, next) => {
   try {
-    const { auctionId, title, description, size_category, pickup_category, bid_increment_cents, starting_bid_cents, reserve_cents, reserve_visible, dimensions } = req.body;
+    const { auctionId, title, description, size_category, pickup_category, bid_increment_cents, starting_bid_cents, reserve_cents, reserve_visible, dimensions, shippable } = req.body;
     // Edit-lock gate — refuse mutation if parent auction is past 'draft' for
     // a private/other seller. Admin and business sellers bypass.
     const gate = await canMutateAuction(req.user.id, req.user.role, auctionId);
@@ -269,12 +300,15 @@ router.post('/', auth, async (req, res, next) => {
     const effReserveCents   = proAllowed ? (reserve_cents || null)      : null;
     const effReserveVisible = proAllowed ? (reserve_visible === true)   : false;
     const dimsValidated = validateDimensions(dimensions); // null if invalid → stored as NULL
+    // Shipping gate: shippable is saved only when this seller may offer shipping
+    // (admin / professional / admin-enabled individual); otherwise ignored → column default.
+    const effShippable = (typeof shippable === 'boolean' && await shippingAllowedForAuction(req.user.role, auctionId)) ? shippable : null;
     const result = await db.query(
-      `INSERT INTO lots (auction_id, title, description, size_category, pickup_category, bid_increment_cents, starting_bid_cents, reserve_cents, reserve_visible, dimensions, lot_number)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10::jsonb,
+      `INSERT INTO lots (auction_id, title, description, size_category, pickup_category, bid_increment_cents, starting_bid_cents, reserve_cents, reserve_visible, dimensions, shippable, lot_number)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10::jsonb, COALESCE($11::boolean, false),
                (SELECT COALESCE(MAX(lot_number), 0) + 1 FROM lots WHERE auction_id = $1))
        RETURNING *`,
-      [auctionId, title, description, effSize, effPickup, effBidIncrement, effStartingBid, effReserveCents, effReserveVisible, dimsValidated ? JSON.stringify(dimsValidated) : null]
+      [auctionId, title, description, effSize, effPickup, effBidIncrement, effStartingBid, effReserveCents, effReserveVisible, dimsValidated ? JSON.stringify(dimsValidated) : null, effShippable]
     );
     // INT-2: audit lot creation. Non-blocking — helper swallows errors.
     const created = result.rows[0];
@@ -421,6 +455,14 @@ router.post('/:lotId/images', auth, async (req, res, next) => {
     if (!Array.isArray(images) || images.length === 0) {
       return res.status(400).json({ success: false, message: 'Images array required' });
     }
+    // Ownership + edit-lock (security fix 2026-10-12): previously any signed-in user could attach images to any lot.
+    if (!await userOwnsLot(req.user.id, req.user.role, req.params.lotId)) {
+      return res.status(403).json({ success: false, message: 'Access denied' });
+    }
+    const imgGate = await canMutateLot(req.user.id, req.user.role, req.params.lotId);
+    if (!imgGate.allowed) {
+      return res.status(403).json({ success: false, message: lockErrorMessage(imgGate.reason) });
+    }
 
     // Store enhancement_enabled per image row — all images in this batch share the flag.
     // $1 = lot_id, $2…$(n+1) = image URLs, $(n+2) = enhancement_enabled flag
@@ -562,6 +604,8 @@ router.put('/:lotId', auth, async (req, res, next) => {
     const effBidIncrement   = proAllowed ? (bid_increment_cents || null) : null;
     const effReserveCents   = proAllowed ? (reserve_cents != null ? reserve_cents : null) : null;
     const effReserveVisible = proAllowed ? (typeof reserve_visible === 'boolean' ? reserve_visible : null) : null;
+    // Shipping gate: a disallowed seller's shippable is ignored (COALESCE keeps the stored value).
+    const effShippable = (shippable != null && await shippingAllowedForLot(req.user.role, req.params.lotId)) ? shippable : null;
     // INT-2: snapshot the columns that this UPDATE writes so we can compute
     // a diff for the audit_log entry after the UPDATE succeeds. auction_id
     // is included so we can scope the audit entry to the parent auction
@@ -633,7 +677,7 @@ router.put('/:lotId', auth, async (req, res, next) => {
           const v = validateDimensions(dimensions);
           return v ? JSON.stringify(v) : null;
         })(),
-        shippable != null ? shippable : null,
+        effShippable,            // shipping gate: null (ignored) when the seller may not offer shipping
         closes_at       || null,
         effReserveCents,         // Phase C.2: COALESCE preserves existing when null
         effReserveVisible,       // Phase C.2: COALESCE preserves existing when null

@@ -13,6 +13,7 @@ const { sendEmail } = require('../services/emailService');
 const { PROFESSIONAL_SELLER_TYPES, SELLER_TYPE_LABELS } = require('../constants/sellerTypes');
 const widgetService = require('../services/widgetService');
 const { isDemoUser } = require('../middleware/demoGuard');
+const { shippingAllowed } = require('../services/sellerTypeRules');
 
 // Self-service seller enablement (the individual /enroll path) is restricted to non-professional
 // seller types. Professional types (auction_house, estate_sale_company, professional_liquidator) are
@@ -29,7 +30,7 @@ const SELF_SERVE_SELLER_TYPES = ['private', 'business', 'other'];
 router.get('/me', auth, async (req, res, next) => {
   try {
     const result = await db.query(
-      'SELECT id, user_id, seller_type, show_branding_to_buyers FROM seller_profiles WHERE user_id = $1',
+      'SELECT id, user_id, seller_type, show_branding_to_buyers, capabilities FROM seller_profiles WHERE user_id = $1',
       [req.user.id]
     );
     if (!result.rows[0]) {
@@ -39,6 +40,11 @@ router.get('/me', auth, async (req, res, next) => {
     // Whether the "Display company branding to buyers" preference is eligible for this seller.
     // Only professional/business types can ever brand to buyers; private/other/unknown never can.
     row.branding_eligible = isProfessional(row.seller_type);
+    // Shipping (owner policy 2026-10-12): server-computed so the seller UI can hide the shipping
+    // toggles. Professionals choose; Individuals only when an admin enabled it. The raw
+    // capabilities map is not returned.
+    row.shipping_allowed = shippingAllowed({ role: req.user.role, sellerType: row.seller_type, capabilities: row.capabilities });
+    delete row.capabilities;
     return res.json({ success: true, data: row });
   } catch (err) {
     next(err);

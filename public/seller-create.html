@@ -426,6 +426,9 @@
   </div>
 
   <!-- ── Settings ───────────────────────────────────────────────── -->
+  <!-- Shipping is shown only when the server says this seller may offer it (Professional
+       Sellers, admins, or an Individual Seller Advantage.Bid enabled). The server enforces it too. -->
+  <div id="shipping-settings" style="display:none">
   <p class="section-title">Settings</p>
 
   <div class="field">
@@ -436,6 +439,7 @@
       </span>
       <label class="toggle-label" for="shipping-toggle">Shipping available for this auction</label>
     </div>
+  </div>
   </div>
 
   <!-- ── Media - Banner & Cover ─────────────────────────────────── -->
@@ -567,6 +571,7 @@
   function revealCreateForm(profile) {
     var card = document.getElementById('create-card'); if (card) card.style.display = '';
     sellerProfileId = profile.id;
+    if (profile.shipping_allowed === true) { var ship = document.getElementById('shipping-settings'); if (ship) ship.style.display = ''; }
     var PRO_TYPES = ['auction_house', 'estate_sale_company', 'professional_liquidator'];
     if (PRO_TYPES.indexOf(profile.seller_type) !== -1) {
       var row = document.getElementById('preview-times-row'); if (row) row.style.display = '';

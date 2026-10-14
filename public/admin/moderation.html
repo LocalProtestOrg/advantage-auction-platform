@@ -2041,6 +2041,28 @@
     });
   }
 
+  // Shipping permission (owner policy 2026-10-12). Professional Sellers always may offer
+  // shipping; an Individual Seller only when Advantage.Bid enables it here. Saves through the
+  // admin-only, audited capabilities endpoint (seller_capabilities_changed). The server's
+  // shippingAllowed() check is the real control — this is only the admin edit path.
+  const PROFESSIONAL_SELLER_TYPES = ['auction_house', 'estate_sale_company', 'professional_liquidator'];
+  function setSellerShipping(sellerProfileId, email, box) {
+    const enable = box.checked;
+    box.disabled = true;
+    showMsg('sellers-status', (enable ? 'Enabling' : 'Disabling') + ' shipping for ' + (email || 'seller') + '…');
+    api('POST', `/api/admin/sellers/${sellerProfileId}/capabilities`, { shipping_enabled: enable }).then(data => {
+      box.disabled = false;
+      if (!data.success) {
+        showMsg('sellers-status', 'Failed: ' + (data.message || 'unknown'), true);
+        box.checked = !enable; return;
+      }
+      showMsg('sellers-status', 'Shipping ' + (enable ? 'enabled' : 'disabled') + ' for ' + (email || 'seller') + '.');
+    }).catch(err => {
+      showMsg('sellers-status', 'Failed: ' + err.message, true);
+      box.checked = !enable; box.disabled = false;
+    });
+  }
+
   function loadSellers(search) {
     showMsg('sellers-status', 'Loading…');
     api('GET', '/api/admin/sellers?search=' + encodeURIComponent(search)).then(data => {
@@ -2139,6 +2161,25 @@
             fpb.style.cssText = 'flex-shrink:0;font-size:0.72rem;padding:0.15rem 0.45rem;border-radius:999px;background:#ecfdf5;color:#065f46;border:1px solid #10b981;text-decoration:none;font-weight:600';
             row.appendChild(fpb);
           }
+
+          // Shipping enabled for this seller (Individual Sellers only). Default off; Professional
+          // Sellers always have shipping, so the control shows as not applicable for them.
+          const shipWrap = document.createElement('label');
+          shipWrap.className = 'seller-shipping-toggle';
+          shipWrap.style.cssText = 'display:inline-flex;align-items:center;gap:0.25rem;flex-shrink:0;font-size:0.72rem;color:#374151';
+          shipWrap.title = 'Shipping enabled for this seller (Individual Sellers only; Professional Sellers always have shipping)';
+          if (PROFESSIONAL_SELLER_TYPES.includes(s.seller_type)) {
+            shipWrap.appendChild(document.createTextNode('Shipping: always on (Professional Seller) — N/A'));
+            shipWrap.style.color = '#6b7280';
+          } else {
+            const shipBox = document.createElement('input');
+            shipBox.type = 'checkbox';
+            shipBox.checked = !!(s.capabilities && s.capabilities.shipping_enabled === true);
+            shipBox.onchange = () => setSellerShipping(s.seller_profile_id, s.email, shipBox);
+            shipWrap.appendChild(shipBox);
+            shipWrap.appendChild(document.createTextNode('Shipping enabled'));
+          }
+          row.appendChild(shipWrap);
         }
 
         // SMA-S1a: surface suspension status from the is_active value the

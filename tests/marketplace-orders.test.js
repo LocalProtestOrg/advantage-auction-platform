@@ -237,7 +237,11 @@ describe('updateFulfillment', () => {
 
 // ── Relist rules ─────────────────────────────────────────────────────────────────────────────────────
 describe('relistItem', () => {
-  const seller = { rows: [{ id: 'seller-1' }] };
+  const seller = { rows: [{ id: 'seller-1', seller_type: 'auction_house' }] };
+  test('an Individual Seller (including the self-serve "business" type) cannot relist: Storefronts are Professional only', async () => {
+    mockClient = makeClient([[/FROM seller_profiles WHERE user_id/, { rows: [{ id: 'seller-1', seller_type: 'business' }] }]]);
+    await expect(svc.relistItem('item-1', 'seller-user')).rejects.toMatchObject({ code: 'NOT_PROFESSIONAL' });
+  });
   test('a removed (refunded) item can be relisted', async () => {
     mockClient = makeClient([
       [/FROM seller_profiles WHERE user_id/, seller],

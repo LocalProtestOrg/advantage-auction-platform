@@ -261,6 +261,7 @@ router.post('/sellers/:sellerId/suspend', auth, role(['admin']), idempotency, as
       return res.status(409).json({ success: false, message: 'Seller is already suspended' });
     }
     await db.query(`UPDATE users SET is_active = false WHERE id = $1`, [cur.rows[0].user_id]);
+    require('../lib/accountStatus').invalidateAccountStatus(cur.rows[0].user_id); // apply on this instance now, not after the cache TTL
     const { writeAuditLog } = require('../lib/auditLog');
     await writeAuditLog({
       event_type:  'seller_suspended',
@@ -294,6 +295,7 @@ router.post('/sellers/:sellerId/unsuspend', auth, role(['admin']), idempotency, 
       return res.status(409).json({ success: false, message: 'Seller is not suspended' });
     }
     await db.query(`UPDATE users SET is_active = true WHERE id = $1`, [cur.rows[0].user_id]);
+    require('../lib/accountStatus').invalidateAccountStatus(cur.rows[0].user_id); // apply on this instance now, not after the cache TTL
     const { writeAuditLog } = require('../lib/auditLog');
     await writeAuditLog({
       event_type:  'seller_unsuspended',

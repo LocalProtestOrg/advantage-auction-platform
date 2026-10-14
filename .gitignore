@@ -73,3 +73,6 @@ demo-data/heritage-home-demo-auction/*.xlsx
 
 # Phase 3P.1/3P.2 creative engine scratch (regression re-analysis, OCR caches) — regenerated on demand
 creative-engine/runtime/cache/
+
+# Phone Sasha certification run output (contains only fictional fixture data)
+certification/sasha-phone/reports/

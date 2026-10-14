@@ -72,14 +72,19 @@
   // A DIFFERENT workflow/product from events (Create Event ≠ Create Online Auction — kept separate).
   // "Manage Online Auctions" reuses the in-shell seller workspace (#sell); "Create Online Auction"
   // deep-links to the hosted-auction builder.
-  function auctionSellerItems() {
-    return [
+  // Storefront items (My Storefront / Add Item / Store Orders) appear ONLY for Professional Sellers
+  // (ctx.storefrontEligible — server-computed from the canonical isProfessional rule); Individual
+  // Sellers never see Storefront actions they cannot use.
+  function auctionSellerItems(ctx) {
+    var storefront = (ctx && ctx.storefrontEligible) ? [
       { id: 'storefront',    label: 'My Storefront',          emoji: '🏪', href: '/seller-storefront.html', external: true, primaryMobile: true },
       { id: 'addItem',       label: 'Add Item',               emoji: '🏷️', href: '/seller-storefront.html?tab=market', external: true, primaryMobile: true },
-      { id: 'mpOrders',      label: 'Store Orders',           emoji: '📦', href: '/seller-orders.html', external: true },
+      { id: 'mpOrders',      label: 'Store Orders',           emoji: '📦', href: '/seller-orders.html', external: true }
+    ] : [];
+    return storefront.concat([
       { id: 'createAuction', label: 'Create Online Auction',  emoji: '🔨', href: '/seller-create.html', external: true },
       { id: 'sell',          label: 'Manage Online Auctions', emoji: '📊', href: '#sell' }
-    ];
+    ]);
   }
 
   // A capability-aware account (an event organizer and/or a Marketplace-ready seller) gets a single
@@ -92,7 +97,7 @@
   // inserting a row here — the section, headings, and rendering need no restructuring.
   var PROFESSIONAL_FEATURES = [
     { key: 'events',   when: function (c) { return c.isEventOrganizer; },              items: function () { return eventOrganizerItems(); } }, // My Events, Create Event
-    { key: 'auctions', when: function (c) { return c.sellerReady; },                   items: function () { return auctionSellerItems(); } }, // Create/Manage Online Auction
+    { key: 'auctions', when: function (c) { return c.sellerReady; },                   items: function (c) { return auctionSellerItems(c); } }, // Create/Manage Online Auction
     // ── future professional tools slot in here (capability-gated), e.g.:
     // { key: 'analytics',   when: function (c) { return c.sellerReady; }, items: function () { return [{ id:'analytics', label:'Seller Analytics', emoji:'📈', href:'#analytics' }]; } },
     // { key: 'lots',        when: function (c) { return c.sellerReady; }, items: function () { return [{ id:'lots', label:'My Lots', emoji:'📦', href:'/dashboard/lots.html', external:true }]; } },

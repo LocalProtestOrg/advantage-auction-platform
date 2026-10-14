@@ -37,6 +37,19 @@ function isProfessional(sellerType) {
 }
 
 /**
+ * Shipping permission (owner policy 2026-10-12). Professional sellers choose whether
+ * their listings offer shipping (and are responsible for fulfillment). Individual
+ * sellers (business / private / other / untyped) may NOT enable shipping unless an
+ * admin has enabled it for that seller via seller_profiles.capabilities.shipping_enabled.
+ * Admins may always set shipping. Pure — callers supply role/sellerType/capabilities.
+ */
+function shippingAllowed({ role, sellerType, capabilities } = {}) {
+  if (role === 'admin') return true;
+  if (isProfessional(sellerType)) return true;
+  return !!(capabilities && typeof capabilities === 'object' && capabilities.shipping_enabled === true);
+}
+
+/**
  * Pure validator. Returns { ok, violations: [{ rule, requiredHours?, actualHours?, message }] }.
  * Validates only when BOTH timestamps are present — a missing field yields no
  * violation (supports grandfathering / partial drafts at the caller).
@@ -101,6 +114,7 @@ module.exports = {
   NON_PRO_MIN_PICKUP_GAP_HOURS,
   MESSAGES,
   isProfessional,
+  shippingAllowed,
   validateAuctionSchedule,
   assertStartBeforeEnd,
   ScheduleRuleError,

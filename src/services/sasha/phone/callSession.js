@@ -39,11 +39,12 @@ const ROUTING = {
   other: 'MENU CHOICE: the caller pressed 4 (OTHER) or made no choice. Find out conversationally what they need and help.',
 };
 
-/** Public rule topics pre-loaded for each menu choice ("other" loads none: Sasha looks up what she needs). */
+/** Public rule topics pre-loaded for each menu choice ("other" loads only contact and account basics; Sasha looks up the rest). */
 const CORE_TOPICS = {
-  buyer: ['bidding', 'buyer_premium', 'payment', 'pickup'],
-  seller: ['selling', 'seller_benefits', 'seller_fees', 'payouts'],
-  pickup: ['pickup', 'payment', 'buyer_premium'],
+  buyer: ['bidding', 'buyer_premium', 'payment', 'pickup', 'buyer_policies', 'account', 'contact'],
+  seller: ['selling', 'seller_benefits', 'seller_fees', 'payouts', 'storefront', 'programs', 'contact'],   // storefront: its fee is asked on seller calls
+  pickup: ['pickup', 'payment', 'buyer_premium', 'buyer_policies', 'contact'],
+  other: ['contact', 'account'],
 };
 
 class PhoneCallError extends Error { constructor(code, message) { super(message); this.code = code; } }
@@ -100,7 +101,8 @@ class PhoneCall {
     }
     if (this.cardJustRedacted) lines.push('The caller just started reading payment card details. They were removed and not stored. Politely stop them and explain the secure alternative.');
     if (this.row.routing_reason && ROUTING[this.row.routing_reason]) lines.push(ROUTING[this.row.routing_reason]);
-    lines.push(!session ? 'Texting: NOT available (the caller is not verified). Do not offer to text anything; describe where to find it on the website instead.'
+    lines.push(this.textingOnLine === false ? 'Texting: NOT available on calls at this time, before or after verification. Do not offer, suggest or imply texting anything; describe where to find it on the website, and for a payment link offer email once the caller is verified.'
+      : !session ? 'Texting: NOT available (the caller is not verified). Do not offer to text anything; describe where to find it on the website instead.'
       : this.textingNow ? 'Texting: AVAILABLE. You may offer to text this verified caller at the verified mobile number on their account.'
         : 'Texting: NOT available on this call. Do not offer to text anything. Describe where to find it on the website, and for a payment link offer to email it.');
     lines.push('There is no live transfer to staff. Help with everything you are able to; if the caller still wants a person, or the matter genuinely needs staff, take a message for the team (request_callback).');
@@ -149,6 +151,7 @@ class PhoneCall {
           onVerification: (r) => { this.lastVerification = r; }, onHandoff: (r) => { this.lastHandoff = r; } } };
       ctx.phone.coreRules = await this.coreRules();
       ctx.phone.textingAvailable = this.textingNow = await this.textingAvailable(session);
+      this.textingOnLine = await require('./phoneSms').lineEnabled(this.row, this.deps).catch(() => false);
       const r = await engine.respondStream({ conversationId: this.row.conversation_id, triggerMessageId: inbound.id, ctx, callState: this.callState(session),
         onSpeak: speak, onTiming: mark, signal: ac.signal, limits: { dailyUsd: s.daily_budget_usd, perCallUsd: s.per_call_budget_usd } }, this.deps);
       this.lastResult = r;
@@ -215,7 +218,7 @@ class PhoneCall {
     try {
       const u = (await db.query(`SELECT phone, phone_verified_at, phone_verified_e164 FROM users WHERE id = $1`, [session.user_id])).rows[0];
       if (!require('../../accountPhoneService').isVerified(u)) return false;
-      return await require('./phoneSms').available(this.row, u.phone_verified_e164);
+      return await require('./phoneSms').available(this.row, u.phone_verified_e164, this.deps);
     } catch (_e) { return false; }   // when unsure, never offer a text
   }
 

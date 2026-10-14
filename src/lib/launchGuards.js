@@ -41,4 +41,15 @@ function marketplaceCheckoutEnabled(env = process.env) {
   return !!(env && env.MARKETPLACE_CHECKOUT_ENABLED === 'true');
 }
 
-module.exports = { isInvoicePaid, sellerSettlementsEnabled, combinedInvoicingEnabled, stripeConnectEnabled, marketplaceCheckoutEnabled };
+// Individual "$39 Estate Sale Promotion" (Phase 2B, commit 4e52997) is DISABLED by owner decision
+// (2026-10-12: never owner-approved, zero purchases). This is a hard-coded constant on purpose, NOT an
+// env flag: no environment variable (including STRIPE_ESTATE_SALE_PRICE_ID) can re-open purchase.
+// Re-enabling requires a deliberate code change + owner approval. Historical purchase records, the
+// service, migration 105 tables and webhook handling are intentionally kept so old data stays readable.
+// See docs/archive/estate-sale-promotion/README.md.
+const ESTATE_SALE_PROMOTION_ENABLED = false;
+function estateSalePromotionEnabled() {
+  return ESTATE_SALE_PROMOTION_ENABLED === true;
+}
+
+module.exports = { isInvoicePaid, sellerSettlementsEnabled, combinedInvoicingEnabled, stripeConnectEnabled, marketplaceCheckoutEnabled, ESTATE_SALE_PROMOTION_ENABLED, estateSalePromotionEnabled };

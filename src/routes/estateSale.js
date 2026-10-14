@@ -7,6 +7,11 @@
  * from env (STRIPE_ESTATE_SALE_PRICE_ID) — the client can never submit a price. Creating a listing
  * requires a paid promotion; submitting consumes it (the paywall gate). Draft editing + photos reuse
  * the existing /api/org/events/* endpoints (the customer never sees "organization").
+ *
+ * DISABLED (owner decision 2026-10-12): ESTATE_SALE_PROMOTION_ENABLED (src/lib/launchGuards.js) is
+ * false, so every endpoint that starts a purchase, creates a promoted listing or consumes a promotion
+ * answers 410 NOT_AVAILABLE regardless of env config. GET /promotion stays readable for historical
+ * records; webhook handling (paymentService) is untouched.
  */
 
 const express = require('express');
@@ -15,6 +20,12 @@ const authMiddleware = require('../middleware/authMiddleware');
 const { strictLimiter } = require('../middleware/rateLimit');
 const idempotency = require('../middleware/idempotency');
 const svc = require('../services/estateSalePromotionService');
+const { estateSalePromotionEnabled } = require('../lib/launchGuards');
+
+// Neutral refusal while the offering is disabled (no product name / price in the message).
+function notAvailable(res) {
+  return res.status(410).json({ success: false, error: 'NOT_AVAILABLE', message: 'This offering is not available.' });
+}
 
 function originOf(req) {
   const proto = (req.headers['x-forwarded-proto'] || req.protocol || 'https').split(',')[0].trim();
@@ -36,6 +47,7 @@ router.get('/promotion', async (req, res) => {
 
 // Start the $39 one-time checkout → Stripe-hosted Checkout Session URL.
 router.post('/checkout-session', strictLimiter, idempotency, async (req, res) => {
+  if (!estateSalePromotionEnabled()) return notAvailable(res);
   try {
     if (!process.env.STRIPE_ESTATE_SALE_PRICE_ID) return res.status(503).json({ success: false, message: 'Estate Sale Promotion is not available yet. Please try again later.' });
     const { url } = await svc.createCheckoutSession(req.user.id, originOf(req));
@@ -45,12 +57,14 @@ router.post('/checkout-session', strictLimiter, idempotency, async (req, res) =>
 
 // Create the estate sale draft (requires a paid promotion; software sets sale_type=estate_sale).
 router.post('/events', strictLimiter, async (req, res) => {
+  if (!estateSalePromotionEnabled()) return notAvailable(res);
   try { const event = await svc.createEstateSale(req.user.id, req.body || {}); res.status(201).json({ success: true, event }); }
   catch (e) { fail(res, e, 'Unable to create your estate sale. Please try again.'); }
 });
 
 // Submit for review — consumes the promotion.
 router.post('/events/:id/submit', strictLimiter, async (req, res) => {
+  if (!estateSalePromotionEnabled()) return notAvailable(res);
   try { const event = await svc.submitEstateSale(req.user.id, req.params.id); res.json({ success: true, event }); }
   catch (e) { fail(res, e, 'Unable to submit your estate sale. Please try again.'); }
 });
