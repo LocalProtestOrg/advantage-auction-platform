@@ -248,13 +248,13 @@ async function getMySellerTerms(_a, ctx) {
     return { seller_type: sp.seller_type, program: 'Advantage.Bid Auction Partner Program (Selected Auction Partner)',
       platform_fee: '0% Advantage.Bid auction platform/software fee on auctions published under the program (each auction keeps the terms it was published with)',
       processing_fee: 'the actual card-processing charges on your buyers\' payments for that auction, deducted from your proceeds at cost with no markup',
-      buyers_premium: 'you set it per auction (0–25%) and keep it', taxes: 'sales tax is collected and remitted separately and is not part of your proceeds',
+      buyers_premium: 'you set it per auction and keep it', taxes: 'sales tax is collected and remitted separately and is not part of your proceeds',
       payouts: 'Advantage.Bid processes eligible seller payouts every Thursday',
       storefront_fee: `${require('../marketplaceOrderService').STOREFRONT_FEE_BPS / 100}% of the item price on Storefront fixed-price sales (includes card processing; shipping and tax excluded), separate from your auction fees` };
   }
   return { seller_type: sp.seller_type, platform_fee: fee != null ? bpsPct(fee) + ' of the hammer price (your current rate; each auction keeps the rate it was published with)' : 'set in your Professional Seller agreement; a team member can confirm it',
     processing_fee: bpsPct(agreement ? agreement.processing_fee_bps : processingBps) + ' of the hammer price',
-    buyers_premium: 'you set it per auction (0–25%) and keep it', agreement_page: `${SITE}/pricing-agreement.html`,
+    buyers_premium: 'you set it per auction and keep it', agreement_page: `${SITE}/pricing-agreement.html`,
     storefront_fee: `${require('../marketplaceOrderService').STOREFRONT_FEE_BPS / 100}% of the item price on Storefront fixed-price sales (includes card processing; shipping and tax excluded), separate from your auction fees` };
 }
 

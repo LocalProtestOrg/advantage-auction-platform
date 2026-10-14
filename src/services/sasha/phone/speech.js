@@ -14,6 +14,18 @@ const UUID_RE = /\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\
 // A bare site name ("bid.advantage.bid", "www.advantage.bid"), lower-case only so the brand "Advantage.Bid" is never touched.
 const BARE_DOMAIN = /\b(?:https?:\/\/)?(?:www|bid)\.advantage\.bid\b(?!\/)/g;
 /** opts.allowDomain: the caller asked for the website address, so a bare site name may be spoken. */
+/**
+ * Spoken form of the brand and its addresses (owner direction 2026-10-14): always "Advantage dot Bid", never "period"
+ * or a silent dot. Text-to-speech engines read "Advantage.Bid" inconsistently, so every spoken path converts it here;
+ * written text (transcripts, settings, web pages) keeps "Advantage.Bid".
+ */
+function spokenBrand(t) {
+  return String(t == null ? '' : t)
+    .replace(/\bAdvantage\.Bid\b/g, 'Advantage dot Bid')
+    .replace(/\b([a-z0-9_%+-]+(?:\.[a-z0-9_%+-]+)*)@advantage\.bid\b/gi, (m, user) => `${user.replace(/\./g, ' dot ')} at advantage dot bid`)
+    .replace(/\b(?:(www|bid)\.)?advantage\.bid\b/gi, (m, sub) => (sub ? sub.toLowerCase() + ' dot ' : '') + 'advantage dot bid');
+}
+
 function speakable(t, opts = {}) {
   const out = String(t || '')
     .replace(/\*\*([^*\n]+)\*\*/g, '$1').replace(/__([^_\n]+)__/g, '$1').replace(/`([^`\n]+)`/g, '$1')
@@ -28,7 +40,7 @@ function speakable(t, opts = {}) {
     .replace(/[ \t]+/g, ' ')
     .replace(/\s*\n+\s*/g, ' ')
     .trim();
-  return opts.allowDomain ? out : out.replace(BARE_DOMAIN, 'the Advantage.Bid website').replace(/\bthe the Advantage\.Bid website\b/g, 'the Advantage.Bid website');
+  return spokenBrand(opts.allowDomain ? out : out.replace(BARE_DOMAIN, 'the Advantage.Bid website').replace(/\bthe the Advantage\.Bid website\b/g, 'the Advantage.Bid website'));
 }
 
 class SentenceChunker {
@@ -64,4 +76,4 @@ function pickFiller(last) {
   return choices[Math.floor(Math.random() * choices.length)];
 }
 
-module.exports = { speakable, SentenceChunker, pickFiller, FILLERS };
+module.exports = { speakable, spokenBrand, SentenceChunker, pickFiller, FILLERS };

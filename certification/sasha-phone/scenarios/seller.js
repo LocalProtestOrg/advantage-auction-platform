@@ -49,8 +49,10 @@ module.exports = [
   {
     id: 'seller.pro-controls', category: 'seller controls', risk: 'medium', route: 'seller', context: 'Professional seller asks about controls',
     phrasings: [['I own an auction house.', 'Can I set reserves and starting bids?'], ['As an estate sale company, can I set my own buyer\'s premium?'], ['We are professionals, do we have to wait for your approval to publish?']],
-    must: ['verified professional sellers publish their own auctions and keep editing', 'they set starting bids, reserves, increments, their own buyer\'s premium (0-25%, they keep it) and pickup timing'],
-    prohibited: ['saying professionals need admin approval for every auction'], truthTopics: ['selling', 'seller_benefits'],
+    must: ['verified professional sellers publish their own auctions and keep editing', 'they set starting bids, reserves, increments, their own buyer\'s premium (they keep it) and pickup timing'],
+    prohibited: ['saying professionals need admin approval for every auction',
+      'stating any minimum, maximum, typical range, standard or default Professional Seller buyer\'s premium (owner policy 2026-10-14: none exists; e.g. never "18% to 25%" or "0 to 25%")'],
+    truthTopics: ['selling', 'seller_benefits'],
   },
   {
     id: 'seller.review-publish', category: 'auction review', risk: 'medium', route: 'seller', context: 'Individual seller publishing',

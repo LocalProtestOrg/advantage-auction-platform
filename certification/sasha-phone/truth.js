@@ -24,7 +24,7 @@ async function build() {
     processing_fee: pct(processingBps),
     individual_bp: pct(billing.DEFAULT_BUYER_PREMIUM_BPS),
     individual_platform_fee: pct(billing.INDIVIDUAL_PLATFORM_FEE_BPS != null ? billing.INDIVIDUAL_PLATFORM_FEE_BPS : 0),
-    pro_bp_range: '0% to 25%',
+    pro_bp_range: 'set by each Professional Seller (no stated minimum, maximum, range or default)',
     min_lots: String(req('services/auctionService').MIN_LOTS_FOR_SUBMISSION),
     pickup_gap_hours: String(sellerTypeRules.NON_PRO_MIN_PICKUP_GAP_HOURS),
     storefront_fee: pct(req('services/marketplaceOrderService').STOREFRONT_FEE_BPS),

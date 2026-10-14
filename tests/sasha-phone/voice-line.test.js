@@ -17,6 +17,7 @@ jest.setTimeout(60000);
 const { createDb } = require('./pgHarness');
 const phoneSettings = require('../../src/services/sasha/phone/phoneSettings');
 const line = require('../../src/services/sasha/phone/voiceLine');
+const { spokenBrand } = require('../../src/services/sasha/phone/speech');   // the spoken form of the brand ("Advantage dot Bid")
 const voice = require('../../src/routes/voice');
 const relayServer = require('../../src/services/sasha/phone/relayServer');
 const testCallers = require('../../src/services/sasha/phone/testCallers');
@@ -85,7 +86,7 @@ describe('incoming call: signed, OFF by default, staff-only while testing', () =
   test('line OFF (the production default): a short "not available" message and the call ends; nothing is dialed', async () => {
     const r = await hook('incoming', { From: e164(ME), CallSid: callSid() });
     expect(r.code).toBe(200); expect(r.ctype).toBe('text/xml');
-    expect(r.body).toContain(line.MESSAGES.unavailable);
+    expect(r.body).toContain(spokenBrand(line.MESSAGES.unavailable));
     expect(r.body).toMatch(/<Hangup\/><\/Response>$/);
     expect(r.body).not.toMatch(/<Dial|<Gather|<Connect|<Enqueue/);
     const a = await q(`SELECT metadata FROM audit_log WHERE event_type = 'sasha.phone_call_not_connected' ORDER BY created_at DESC LIMIT 1`);
@@ -96,17 +97,17 @@ describe('incoming call: signed, OFF by default, staff-only while testing', () =
     try {
       const tc = await testCallers.add(ME, { label: 'Owner test phone', actorId: ADMIN });
       const out = await hook('incoming', { From: e164(STRANGER), CallSid: callSid() });
-      expect(out.body).toContain(line.MESSAGES.unavailable); expect(out.body).not.toMatch(/<Gather/);
+      expect(out.body).toContain(spokenBrand(line.MESSAGES.unavailable)); expect(out.body).not.toMatch(/<Gather/);
       const r = await hook('incoming', { From: e164(ME), CallSid: callSid() });
       expect(r.body).toMatch(/<Gather input="dtmf" numDigits="1" timeout="7" actionOnEmptyResult="true" action="[^"]+\/api\/voice\/menu\?attempt=1" method="POST">/);
       const said = [...r.body.matchAll(/<Say voice="([^"]+)">([^<]*)<\/Say>/g)];
-      expect(said.map((m) => m[2])).toEqual(['Thank you for calling Advantage.Bid, where you always get the advantage!', 'If you are a buyer, please press 1.',
+      expect(said.map((m) => m[2])).toEqual(['Thank you for calling Advantage dot Bid, where you always get the advantage!', 'If you are a buyer, please press 1.',
         'If you are a seller, please press 2.', 'If you have recently purchased and need assistance with pickup, please press 3.', 'For all other questions, please press 4.']);
       expect(said.every((m) => m[1] === 'Polly.Amy-Generative')).toBe(true);   // British menu voice, separate from Sasha's
       expect(r.body).toMatch(/advantage!<\/Say><Pause length="1"\/>/);
       expect(r.body).not.toMatch(/virtual|automated|assistant|\bAI\b|operator|press 0|transcrib|record/i);
       await testCallers.remove(tc.id, { actorId: ADMIN });
-      expect((await hook('incoming', { From: e164(ME), CallSid: callSid() })).body).toContain(line.MESSAGES.unavailable);
+      expect((await hook('incoming', { From: e164(ME), CallSid: callSid() })).body).toContain(spokenBrand(line.MESSAGES.unavailable));
     } finally { await lineOn(false); }
   });
 });
@@ -121,7 +122,7 @@ describe('menu choice → ConversationRelay', () => {
     const m = /<Connect action="([^"]+)"><ConversationRelay url="([^"]+)" welcomeGreeting="([^"]+)" language="en-US" ttsProvider="Google" voice="en-US-Chirp3-HD-Aoede" interruptible="any" welcomeGreetingInterruptible="any" preemptible="true" ignoreBackchannel="true" dtmfDetection="true"><Parameter name="reason" value="([a-z]+)"\/><\/ConversationRelay><\/Connect><\/Response>$/.exec(r.body);
     expect(m).toBeTruthy();
     expect(m[1]).toBe(BASE() + '/api/voice/after');
-    expect(m[3]).toBe('Thank you for calling Advantage.Bid. This is Sasha. How can I help you today?');
+    expect(m[3]).toBe('Thank you for calling Advantage dot Bid. This is Sasha. How can I help you today?');
     expect(m[4]).toBe(reason);
     const url = new URL(m[2].replace(/&amp;/g, '&'));
     expect(url.protocol).toBe('wss:'); expect(url.pathname).toBe('/api/voice/relay');
@@ -137,21 +138,21 @@ describe('menu choice → ConversationRelay', () => {
     expect(second.body).toMatch(/<Parameter name="reason" value="other"\/>/);
   });
   test('the menu step re-checks the staff list, the line switch, capacity and the daily budget', async () => {
-    expect((await hook('menu', { From: e164(STRANGER), CallSid: callSid(), Digits: '1' })).body).toContain(line.MESSAGES.unavailable);
-    expect((await hook('menu', { From: e164(ME), CallSid: callSid(), Digits: '1' }, { deps: { spentToday: async () => 999 } })).body).toContain(line.MESSAGES.busy);
+    expect((await hook('menu', { From: e164(STRANGER), CallSid: callSid(), Digits: '1' })).body).toContain(spokenBrand(line.MESSAGES.unavailable));
+    expect((await hook('menu', { From: e164(ME), CallSid: callSid(), Digits: '1' }, { deps: { spentToday: async () => 999 } })).body).toContain(spokenBrand(line.MESSAGES.busy));
     await setCfg('sasha.phone.max_concurrent_calls', 1);
     const conv = (await require('../../src/services/sasha/conversationService').createConversation({ channel: 'phone', subject: 'busy test' })).id;
     await q(`INSERT INTO cs_calls (conversation_id, provider, provider_call_id, is_simulated) VALUES ($1,'twilio_cr',$2,false)`, [conv, callSid()]);
-    try { expect((await hook('menu', { From: e164(ME), CallSid: callSid(), Digits: '1' }, { deps: { spentToday: async () => 0 } })).body).toContain(line.MESSAGES.busy); }
+    try { expect((await hook('menu', { From: e164(ME), CallSid: callSid(), Digits: '1' }, { deps: { spentToday: async () => 0 } })).body).toContain(spokenBrand(line.MESSAGES.busy)); }
     finally { await q(`UPDATE cs_calls SET status = 'completed' WHERE conversation_id = $1`, [conv]); await setCfg('sasha.phone.max_concurrent_calls', 10); }
     await lineOn(false);
-    expect((await hook('menu', { From: e164(ME), CallSid: callSid(), Digits: '1' })).body).toContain(line.MESSAGES.unavailable);
+    expect((await hook('menu', { From: e164(ME), CallSid: callSid(), Digits: '1' })).body).toContain(spokenBrand(line.MESSAGES.unavailable));
     await lineOn(true);
   });
   test('after the session: goodbye, or a short apology if it failed; never a transfer', async () => {
-    expect((await hook('after', { SessionStatus: 'completed', HandoffData: '' })).body).toContain(line.MESSAGES.goodbye);
+    expect((await hook('after', { SessionStatus: 'completed', HandoffData: '' })).body).toContain(spokenBrand(line.MESSAGES.goodbye));
     expect((await hook('after', { SessionStatus: 'failed', ErrorCode: '64101' })).body).toContain(xml(line.MESSAGES.failed));
-    expect((await hook('after', { SessionStatus: 'ended', HandoffData: JSON.stringify({ action: 'busy' }) })).body).toContain(line.MESSAGES.busy);
+    expect((await hook('after', { SessionStatus: 'ended', HandoffData: JSON.stringify({ action: 'busy' }) })).body).toContain(spokenBrand(line.MESSAGES.busy));
     for (const b of [{}, { SessionStatus: 'failed' }]) expect((await hook('after', b)).body).not.toMatch(/<Dial|<Enqueue|<Redirect/);
   });
 });

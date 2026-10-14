@@ -53,10 +53,21 @@ function toTwilio(obj) {
   return out;
 }
 
+// A caller turn (speech or keypad) that has not finished by now is stopped and the caller hears the recovery line, so
+// one stalled operation can never silence the rest of the call (incident 2026-10-14). Normal turns finish well within
+// it: the engine's own lookup ceiling is 22 s and progress phrases play from 7 s.
+const TURN_LIMIT_MS = 35000;
+function withTurnLimit(p, ms, onLimit) {
+  let timer;
+  const limit = new Promise((resolve) => { timer = setTimeout(() => { onLimit(); resolve({ turn_limit: true }); }, ms); if (timer.unref) timer.unref(); });
+  return Promise.race([p, limit]).finally(() => clearTimeout(timer));
+}
+
 /** Wire one accepted socket to a RelaySession. */
 async function bind(ws, ticket, deps = {}) {
   const s = await phoneSettings.load();
   const send = (obj) => { const m = toTwilio(obj); if (m && ws.readyState === 1) ws.send(JSON.stringify(m)); };
+  const limitMs = deps.turnLimitMs || TURN_LIMIT_MS;
   const relay = new RelaySession(send, { provider: 'twilio_cr', routingReason: ticket.reason, expectCallSid: ticket.callSid, providerGreeting: true, deps: deps.callDeps || {} });
   let queue = Promise.resolve();
   const timer = setTimeout(() => { queue = queue.then(() => relay.timeLimit()).catch((e) => console.error('[voice-relay] time limit', e.message)); },
@@ -69,15 +80,25 @@ async function bind(ws, ticket, deps = {}) {
     // A new final caller turn supersedes the answer still being generated: stop it now, so the new turn is not
     // queued behind obsolete speech.
     if (msg && msg.type === 'prompt' && msg.last !== false && relay.call && relay.call.busy) relay.call.interrupt({ source: 'new_prompt' });
-    queue = queue.then(() => relay.onMessage(msg)).catch((e) => console.error('[voice-relay] message failed', e.message));
+    const turn = msg && (msg.type === 'prompt' || msg.type === 'dtmf');
+    queue = queue.then(() => (turn ? withTurnLimit(relay.onMessage(msg), limitMs, () => relay.recoverTurn('turn limit')) : relay.onMessage(msg)))
+      .catch((e) => { console.error('[voice-relay] message failed', e.message); if (turn) relay.recoverTurn('error'); });
   });
-  ws.on('close', () => { clearTimeout(timer); queue = queue.then(() => relay.close('caller_hung_up')).catch(() => {}); });
+  // A hang-up ends the call at once (it never waits behind a running turn): end() stops any turn still generating.
+  ws.on('close', () => { clearTimeout(timer); relay.close('caller_hung_up').catch((e) => console.error('[voice-relay] close failed', e.message)); });
   ws.on('error', () => { /* close follows */ });
   return relay;
 }
 
 function attach(server, deps = {}) {
   const wss = new WebSocketServer({ noServer: true, maxPayload: 64 * 1024 });
+  // End live calls left 'in_progress' (restart, lost socket): shortly after start, then every 10 minutes.
+  if (deps.staleCallCleanup !== false && process.env.NODE_ENV !== 'test') {
+    const { reapStaleCalls } = require('./callSession');
+    const run = () => reapStaleCalls().then((n) => { if (n) console.log(`[voice-relay] ended ${n} stale call record(s)`); }).catch((e) => console.error('[voice-relay] stale call cleanup', e.message));
+    const first = setTimeout(run, 60 * 1000); if (first.unref) first.unref();
+    const every = setInterval(run, 10 * 60 * 1000); if (every.unref) every.unref();
+  }
   server.on('upgrade', (req, socket, head) => {
     const path = String(req.url || '').split('?')[0];
     if (!PATHS.has(path)) return;   // not ours (Socket.IO handles its own path)
@@ -89,4 +110,4 @@ function attach(server, deps = {}) {
   return wss;
 }
 
-module.exports = { attach, admit, bind, toTwilio, ALLOWED_FIELDS, PATHS };
+module.exports = { attach, admit, bind, toTwilio, withTurnLimit, ALLOWED_FIELDS, PATHS, TURN_LIMIT_MS };

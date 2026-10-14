@@ -71,6 +71,7 @@ class PhoneCall {
     const call = new PhoneCall(row, deps);
     call.callerE164 = caller.e164 || null;
     ACTIVE.set(row.id, call);
+    call.coreRules().catch(() => {});   // load the menu choice's public rules while the greeting plays
     await audit.record(row, 'call_started', { detail: { provider, routing_reason: reason } });
     // Owner direction (2026-10-08): Sasha greets as an Advantage.Bid representative; no assistant-type announcement.
     const greeting = s.greeting || GREETING_FOLLOW;
@@ -198,18 +199,32 @@ class PhoneCall {
    */
   async coreRules() {
     if (this.coreRulesText !== undefined) return this.coreRulesText;
-    const topics = CORE_TOPICS[this.row.routing_reason] || [];
-    let text = null;
-    if (topics.length) {
-      try {
-        const facts = require('../knowledge/platformFacts');
-        const parts = [];
-        for (const t of topics) { const f = (await facts.getCurrentFacts(t))[t] || {}; for (const line of (f.facts || [])) parts.push(`[${t}] ${line}`); }
-        text = parts.join('\n');
-      } catch (e) { console.error('[sasha-phone] core rules unavailable', e.message); text = null; }
+    // One load per call, shared by concurrent callers; started at call start so it is ready before the first question.
+    if (!this.coreRulesPromise) {
+      this.coreRulesPromise = (async () => {
+        const topics = CORE_TOPICS[this.row.routing_reason] || [];
+        if (!topics.length) return null;
+        try {
+          // One read of the live switches for all topics (was one per topic: ~4 queries x 7 topics before the model started).
+          const all = await require('../knowledge/platformFacts').getCurrentFacts('all');
+          const parts = [];
+          for (const t of topics) for (const line of ((all[t] || {}).facts || [])) parts.push(`[${t}] ${line}`);
+          return parts.join('\n');
+        } catch (e) { console.error('[sasha-phone] core rules unavailable', e.message); return null; }
+      })().then((text) => { this.coreRulesText = text; return text; });
     }
-    this.coreRulesText = text;
-    return text;
+    return this.coreRulesPromise;
+  }
+
+  /**
+   * Safety net for the live relay: a turn that has not finished within the turn limit (e.g. a stalled lookup) must
+   * never hold the call. Stops it and frees the call for the caller's next question. Returns whether a turn was held.
+   */
+  releaseStuckTurn() {
+    const held = this.busy;
+    if (this.abort && !this.abort.signal.aborted) { this.abort.abort(); this.mark('generation_aborted', { reason: 'turn_limit' }); }
+    this.busy = false; this.abort = null;   // the stalled turn's own cleanup no longer matches, so it cannot clear a newer turn
+    return held;
   }
 
   /** Whether a text can really be sent to this caller now (verified session, verified mobile not on the do-not-text list, texting switched on). */
@@ -281,4 +296,21 @@ async function buildSummary(call) {
   return parts.join('; ') + '.';
 }
 
-module.exports = { PhoneCall, PhoneCallError, buildSummary, ACTIVE, FALLBACK, RECOVERY, GREETING_FOLLOW, ROUTING };
+/**
+ * Live calls left 'in_progress' with no session in this process (a restart, a lost socket, or a stalled turn that kept
+ * the hang-up from running) are ended normally once they are older than the session limit plus a margin: summary,
+ * verification sessions closed, audit. Otherwise they would also count against max_concurrent_calls. Simulations untouched.
+ */
+async function reapStaleCalls(deps = {}) {
+  const s = await phoneSettings.load();
+  const rows = (await db.query(`SELECT * FROM cs_calls WHERE status = 'in_progress' AND is_simulated IS NOT TRUE
+      AND started_at < now() - ($1 || ' minutes')::interval ORDER BY started_at LIMIT 50`, [String(Number(s.session_max_minutes || 20) + 10)])).rows;
+  let ended = 0;
+  for (const row of rows) {
+    if (ACTIVE.has(row.id)) continue;
+    try { await new PhoneCall(row, deps).end('stale_session'); ended++; } catch (e) { console.error('[sasha-phone] stale call cleanup failed', e.message); }
+  }
+  return ended;
+}
+
+module.exports = { PhoneCall, PhoneCallError, buildSummary, reapStaleCalls, ACTIVE, FALLBACK, RECOVERY, GREETING_FOLLOW, ROUTING };

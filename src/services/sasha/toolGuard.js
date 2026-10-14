@@ -99,17 +99,34 @@ if (process.env.SASHA_TOOL_GUARD_RECORD) {
   record = (x) => { try { fs.appendFileSync(file, JSON.stringify(x) + '\n'); } catch (_e) { /* audit aid only */ } };
 }
 
-/** Wrap a db module object ({ query, connect }) once so every statement passes checkSql (a refusal is a rejected promise, as pg errors are). Idempotent. */
+/**
+ * Wrap a query function so every statement passes checkSql. ALL arguments are passed through unchanged: pg's own Pool
+ * calls client.query(text, values, callback) on pooled clients, so dropping the callback hangs that query forever and
+ * leaks the client (production incident 2026-10-14: follow-up phone turns never completed). A refusal is delivered the
+ * way the caller asked for results: through the callback when one is given, otherwise as a rejected promise.
+ */
+function guardQuery(fn) {
+  return function guardedQuery(...args) {
+    const first = args[0];
+    try { checkSql(first && typeof first === 'object' && first.text ? first.text : first); } catch (e) {
+      const cb = args.find((a) => typeof a === 'function') || (first && typeof first === 'object' && typeof first.callback === 'function' ? first.callback : null);
+      if (cb) { process.nextTick(() => cb(e)); return undefined; }
+      return Promise.reject(e);
+    }
+    return fn.apply(this, args);
+  };
+}
+
+/** Wrap a db module object ({ query, connect }) once so every statement passes checkSql. Idempotent. */
 function installDb(db) {
   if (!db || db.__sashaGuarded) return db;
-  const q = db.query;
-  if (typeof q === 'function') db.query = function guardedQuery(text, params) { try { checkSql(text && text.text ? text.text : text); } catch (e) { return Promise.reject(e); } return q.call(this, text, params); };
+  if (typeof db.query === 'function') db.query = guardQuery(db.query);
   const c = db.connect;
   if (typeof c === 'function') {
     db.connect = async function guardedConnect(...a) {
       const client = await c.apply(this, a);
       if (client && !client.__sashaGuarded && typeof client.query === 'function') {
-        const cq = client.query; client.query = function (text, params) { try { checkSql(text && text.text ? text.text : text); } catch (e) { return Promise.reject(e); } return cq.call(this, text, params); };
+        client.query = guardQuery(client.query);
         client.__sashaGuarded = true;
       }
       return client;

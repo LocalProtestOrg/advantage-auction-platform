@@ -17,7 +17,8 @@
  * a telephone. A Retell adapter would map Retell's events onto the same PhoneCall API; Sasha itself does not change.
  */
 
-const { PhoneCall } = require('../callSession');
+const { PhoneCall, RECOVERY } = require('../callSession');
+const { spokenBrand } = require('../speech');
 
 const xmlEsc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&apos;' }[c]));
 
@@ -66,6 +67,19 @@ class RelaySession {
 
   finishTurn(r) { this.send({ type: 'text', token: '', last: true }); return r; }
 
+  /**
+   * A caller turn failed or did not finish within the turn limit: free the call, tell the caller, and keep listening.
+   * The caller is never left in silence and the next question is handled normally.
+   */
+  recoverTurn(why) {
+    if (!this.call || this.ended) return false;
+    const held = this.call.releaseStuckTurn();
+    console.error(`[voice-relay] turn recovered (${why}); turn was ${held ? 'still running' : 'already finished'}`);
+    this.send({ type: 'text', token: RECOVERY + ' ', last: false, interruptible: true });
+    this.send({ type: 'text', token: '', last: true });
+    return true;
+  }
+
   async setup(msg) {
     if (this.call || this.ended) return null;   // one setup per session
     if (this.expectCallSid && msg.callSid !== this.expectCallSid) {
@@ -94,7 +108,7 @@ class RelaySession {
     if (!this.call || this.ended) return null;
     const text = 'We\'ve reached the time limit for this call. If you still need help, please call us back. Thank you for calling Advantage.Bid.';
     this.call.interrupt();
-    this.send({ type: 'text', token: text, last: true });
+    this.send({ type: 'text', token: spokenBrand(text), last: true });
     this.ended = true;
     const r = await this.call.end('time_limit');
     this.send({ type: 'end', handoffData: JSON.stringify({ action: 'goodbye', reason: 'time_limit' }) });
@@ -110,7 +124,7 @@ class RelaySession {
 
 /** TwiML that connects an answered call to the relay (used once a provider route exists). Voice comes from settings. */
 function connectTwiml({ wsUrl, actionUrl, greeting, voice = {} }) {
-  const attrs = [`url="${xmlEsc(wsUrl)}"`, greeting ? `welcomeGreeting="${xmlEsc(greeting)}"` : '', `language="${xmlEsc(voice.language || 'en-US')}"`,
+  const attrs = [`url="${xmlEsc(wsUrl)}"`, greeting ? `welcomeGreeting="${xmlEsc(spokenBrand(greeting))}"` : '', `language="${xmlEsc(voice.language || 'en-US')}"`,
     voice.tts_provider ? `ttsProvider="${xmlEsc(voice.tts_provider)}"` : '', voice.voice ? `voice="${xmlEsc(voice.voice)}"` : '', 'interruptible="speech"', 'dtmfDetection="true"']
     .filter(Boolean).join(' ');
   return `<?xml version="1.0" encoding="UTF-8"?><Response><Connect action="${xmlEsc(actionUrl)}"><ConversationRelay ${attrs} /></Connect></Response>`;
@@ -126,7 +140,7 @@ function afterSessionTwiml(handoffData) {
   let h = {}; try { h = JSON.parse(handoffData || '{}'); } catch (_e) { h = {}; }
   const say = h.action === 'unavailable' ? 'Sorry, our phone assistant is not available right now. Please email info at advantage dot bid, and our team will help.'
     : 'Thank you for calling Advantage.Bid. Goodbye.';
-  return `<?xml version="1.0" encoding="UTF-8"?><Response><Say>${xmlEsc(say)}</Say><Hangup/></Response>`;
+  return `<?xml version="1.0" encoding="UTF-8"?><Response><Say>${xmlEsc(spokenBrand(say))}</Say><Hangup/></Response>`;
 }
 
 module.exports = { RelaySession, connectTwiml, queueTwiml, afterSessionTwiml };

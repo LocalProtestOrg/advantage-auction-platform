@@ -73,9 +73,9 @@ function model(steps) {
 }
 
 /** A live relay session over a real WebSocket (line on, Twilio-signed, ticketed). */
-async function liveSession(m, reason = 'seller') {
+async function liveSession(m, reason = 'seller', opts = {}) {
   const server = http.createServer((req, res) => { res.statusCode = 404; res.end(); });
-  relayServer.attach(server, { validateRequest, callDeps: { client: m.client } });
+  relayServer.attach(server, { validateRequest, callDeps: { client: m.client }, ...opts });
   await new Promise((r) => server.listen(0, r));
   const cs = callSid();
   const t = line.issueTicket({ callSid: cs, reason });
@@ -335,7 +335,7 @@ describe('separate menu and Sasha voices', () => {
     const s = await phoneSettings.load();
     expect(s.menu_voice).toEqual({ tts_provider: 'Amazon', voice: 'Amy-Generative', language: 'en-GB' });
     expect(s.voice).toMatchObject({ tts_provider: 'Google', voice: 'en-US-Chirp3-HD-Aoede' });
-    expect(line.menuTwiml(s, { actionUrl: 'https://x/menu' })).toMatch(/<Say voice="Polly\.Amy-Generative">Thank you for calling Advantage\.Bid, where you always get the advantage!<\/Say>/);
+    expect(line.menuTwiml(s, { actionUrl: 'https://x/menu' })).toMatch(/<Say voice="Polly\.Amy-Generative">Thank you for calling Advantage dot Bid, where you always get the advantage!<\/Say>/);
     expect(line.afterTwiml(s, { sessionStatus: 'completed' })).toContain('<Say voice="Polly.Amy-Generative">');
     const c = line.connectTwiml(s, { wsUrl: 'wss://x/r', actionUrl: 'https://x/a', reason: 'buyer' });
     expect(c).toContain('ttsProvider="Google" voice="en-US-Chirp3-HD-Aoede"');
@@ -720,13 +720,13 @@ describe('round 4: tool not final authority, listing review, money wording, spok
     expect(faq).toMatch(/does not inspect, authenticate, or individually review every item/);
     expect(require('../../src/services/sasha/knowledge/helpIndex').HELP_PAGES).not.toContain('promote-estate-sale.html');
   });
-  test('spoken output: a bare site name becomes "the Advantage.Bid website" unless the caller asked for the address; the brand is untouched', () => {
+  test('spoken output: a bare site name becomes "the Advantage dot Bid website" unless the caller asked for the address; the brand is always spoken "Advantage dot Bid"', () => {
     const { speakable, SentenceChunker } = require('../../src/services/sasha/phone/speech');
-    expect(speakable('Sign in at bid.advantage.bid to see it.')).toBe('Sign in at the Advantage.Bid website to see it.');
-    expect(speakable('Visit www.advantage.bid today.')).toBe('Visit the Advantage.Bid website today.');
-    expect(speakable('Sign in at bid.advantage.bid to see it.', { allowDomain: true })).toBe('Sign in at bid.advantage.bid to see it.');
-    expect(speakable('Advantage.Bid is the marketplace.')).toBe('Advantage.Bid is the marketplace.');
-    expect(new SentenceChunker().push('Go to bid.advantage.bid now. Then ')).toEqual(['Go to the Advantage.Bid website now.']);
+    expect(speakable('Sign in at bid.advantage.bid to see it.')).toBe('Sign in at the Advantage dot Bid website to see it.');
+    expect(speakable('Visit www.advantage.bid today.')).toBe('Visit the Advantage dot Bid website today.');
+    expect(speakable('Sign in at bid.advantage.bid to see it.', { allowDomain: true })).toBe('Sign in at bid dot advantage dot bid to see it.');
+    expect(speakable('Advantage.Bid is the marketplace.')).toBe('Advantage dot Bid is the marketplace.');
+    expect(new SentenceChunker().push('Go to bid.advantage.bid now. Then ')).toEqual(['Go to the Advantage dot Bid website now.']);
   });
   test('the caller asking for the website lets the address be spoken; otherwise it is never spoken', async () => {
     for (const [said, expectDomain] of [['How do I sign up?', false], ['What is your website address?', true]]) {
@@ -734,7 +734,7 @@ describe('round 4: tool not final authority, listing review, money wording, spok
       const s = await sim.start({ actorId: ADMIN }, { client: m.client });
       const r = await sim.say(s.call_id, ADMIN, said);
       const spoken = r.turn.filter((x) => x.type === 'text' && x.token).map((x) => x.token).join(' ');
-      expect(/bid\.advantage\.bid/.test(spoken)).toBe(expectDomain);
+      expect(/bid dot advantage dot bid/.test(spoken)).toBe(expectDomain);
       await sim.end(s.call_id, ADMIN);
     }
   });
@@ -801,7 +801,7 @@ describe('round 5: tool corrections and authoritative wording for the remaining 
     const ph = engine.systemPrompt({ channel: 'phone' });
     expect(ph).toMatch(/LENGTH: keep each answer well under 60 spoken words/);
     expect(ph).toMatch(/NOTHING EXTRA: say only what your sources state/);
-    expect(ph).toMatch(/ALWAYS ON A CALL: payment links are only for unpaid AUCTION invoices/);
+    expect(ph).toMatch(/ALWAYS ON A CALL: .*Payment links are only for unpaid AUCTION invoices/);
     expect(ph).toMatch(/Never assume which purchase an item belongs to/);
     for (const c of ['chat', 'email']) expect(engine.systemPrompt({ channel: c })).not.toMatch(/NOTHING EXTRA|ALWAYS ON A CALL|LENGTH: keep each answer/);
     expect(engine.PHONE_MAX_OUTPUT_TOKENS).toBe(1024);
@@ -838,5 +838,142 @@ describe('bidding facts match the bidding engine', () => {
     expect(src).toMatch(/A manual bid \(amount\) is treated as a max bid equal to the submitted amount/);
     expect(platformFacts.getFacts('bidding').bidding.facts.join('\n')).toMatch(/Every bid works as a maximum bid/);
     expect(engine.systemPrompt({ channel: 'phone' })).not.toMatch(/Never say every bid is automatically a maximum bid/);
+  });
+});
+
+// ── live-call reliability (incident 2026-10-14: follow-up questions went unanswered) ─────────────────────────
+describe('multi-turn reliability on the live socket', () => {
+  const conversations = require('../../src/services/sasha/conversationService');
+  const { RECOVERY, reapStaleCalls, ACTIVE } = require('../../src/services/sasha/phone/callSession');
+  beforeAll(async () => { await lineOn(); });
+  afterAll(async () => { await lineOn(false); });
+  const answered = (got, re) => spokenTokens(got).some((t) => re.test(t));
+
+  test('an initial question and three follow-ups are each answered in turn, then the hang-up completes the call', async () => {
+    const m = model([{ text: 'Bidding starts at one dollar.' }, { text: 'Pickup is in the published window.' }, { text: 'Payouts are processed Thursdays.' }, { text: 'Anything else today?' }]);
+    const s = await liveSession(m, 'buyer');
+    try {
+      const qs = [['How does bidding work?', /one dollar/], ['And pickup?', /published window/], ['What about payouts?', /Thursdays/], ['Thanks, one more thing.', /Anything else/]];
+      for (const [qText, re] of qs) {
+        s.ws.send(JSON.stringify({ type: 'prompt', voicePrompt: qText, last: true }));
+        expect(await waitFor(() => answered(s.got, re), 4000)).toBe(true);
+      }
+      const call = await s.callRow();
+      const runs = await q(`SELECT outcome FROM cs_ai_runs WHERE conversation_id = $1`, [call.conversation_id]);
+      expect(runs.map((r) => r.outcome)).toEqual(['replied', 'replied', 'replied', 'replied']);
+      const turns = await q(`SELECT count(DISTINCT turn_id)::int n FROM cs_call_timing_events WHERE call_id = $1 AND event = 'turn_complete'`, [call.id]);
+      expect(turns[0].n).toBe(4);
+      // Conversation context is kept: the 4th model request carries the earlier turns.
+      expect(m.calls[3].messages.length).toBeGreaterThan(m.calls[0].messages.length);
+    } finally { await s.close(); }
+    expect((await s.callRow()).status).toBe('completed');
+  });
+
+  test('a stalled database write after an answer cannot silence the call: recovery line, then the follow-up is answered', async () => {
+    const m = model([{ text: 'First answer here.' }, { text: 'The follow-up answer.' }]);
+    const s = await liveSession(m, 'buyer', { turnLimitMs: 600 });
+    const err = jest.spyOn(console, 'error').mockImplementation(() => {});
+    const real = conversations.addSashaReply; let n = 0;
+    const spy = jest.spyOn(conversations, 'addSashaReply').mockImplementation((...a) => (++n === 1 ? new Promise(() => {}) : real(...a)));   // turn 1 never finishes
+    try {
+      s.ws.send(JSON.stringify({ type: 'prompt', voicePrompt: 'First question?', last: true }));
+      expect(await waitFor(() => answered(s.got, /First answer/), 3000)).toBe(true);
+      expect(await waitFor(() => spokenTokens(s.got).includes(RECOVERY), 3000)).toBe(true);   // the turn limit freed the call
+      s.ws.send(JSON.stringify({ type: 'prompt', voicePrompt: 'Follow-up question?', last: true }));
+      expect(await waitFor(() => answered(s.got, /follow-up answer/), 3000)).toBe(true);
+      const call = await s.callRow();
+      const ev = await q(`SELECT detail FROM cs_call_timing_events WHERE call_id = $1 AND event = 'generation_aborted'`, [call.id]);
+      expect(ev.map((e) => e.detail.reason)).toContain('turn_limit');
+    } finally { spy.mockRestore(); err.mockRestore(); await s.close(); }
+  });
+
+  test('a turn that fails with an error is recovered out loud and the next question still works', async () => {
+    const m = model([{ text: 'Second question answered.' }]);
+    const s = await liveSession(m, 'buyer');
+    const err = jest.spyOn(console, 'error').mockImplementation(() => {});
+    const real = conversations.addMessage; let n = 0;
+    const spy = jest.spyOn(conversations, 'addMessage').mockImplementation((...a) => (a[1] && a[1].author === 'customer' && ++n === 1 ? Promise.reject(new Error('db down')) : real(...a)));
+    try {
+      s.ws.send(JSON.stringify({ type: 'prompt', voicePrompt: 'First?', last: true }));
+      expect(await waitFor(() => spokenTokens(s.got).includes(RECOVERY), 3000)).toBe(true);
+      s.ws.send(JSON.stringify({ type: 'prompt', voicePrompt: 'Second?', last: true }));
+      expect(await waitFor(() => answered(s.got, /Second question answered/), 3000)).toBe(true);
+    } finally { spy.mockRestore(); err.mockRestore(); await s.close(); }
+  });
+
+  test('hanging up while a turn is stalled ends the call at once (never left in progress)', async () => {
+    const m = model([{ text: 'An answer.' }]);
+    const s = await liveSession(m, 'buyer', { turnLimitMs: 60000 });
+    const spy = jest.spyOn(conversations, 'addSashaReply').mockImplementation(() => new Promise(() => {}));
+    try {
+      s.ws.send(JSON.stringify({ type: 'prompt', voicePrompt: 'Question?', last: true }));
+      expect(await waitFor(() => answered(s.got, /An answer/), 3000)).toBe(true);
+    } finally { spy.mockRestore(); await s.close(); }
+    await sleep(300);   // let the hang-up handling finish
+    const row = await s.callRow();
+    expect(row.status).toBe('completed');
+    expect(row.end_reason).toBe('caller_hung_up');
+  });
+
+  test('stale live call records are ended (summary, audit); recent and simulated calls are untouched', async () => {
+    const mk = async (subject, provider, sid, simulated, age) => {
+      const conv = await conversations.createConversation({ channel: 'phone', subject });
+      return (await q(`INSERT INTO cs_calls (conversation_id, provider, provider_call_id, is_simulated, started_at) VALUES ($1,$2,$3,$4, now() - ($5 || ' minutes')::interval) RETURNING id`, [conv.id, provider, sid, simulated, String(age)]))[0].id;
+    };
+    const old = await mk('Phone call', 'twilio_cr', 'CAstale1', false, 180);
+    const recent = await mk('Phone call', 'twilio_cr', 'CAfresh1', false, 1);
+    const simOld = await mk('Phone call (simulation)', 'simulated', 'sim-old', true, 180);
+    expect(await reapStaleCalls()).toBeGreaterThanOrEqual(1);
+    const st = async (id) => (await q(`SELECT status, end_reason FROM cs_calls WHERE id = $1`, [id]))[0];
+    expect(await st(old)).toEqual({ status: 'completed', end_reason: 'stale_session' });
+    expect((await st(recent)).status).toBe('in_progress');
+    expect((await st(simOld)).status).toBe('in_progress');
+    expect((await q(`SELECT count(*)::int n FROM cs_phone_audit WHERE call_id = $1 AND event_type = 'call_ended'`, [old]))[0].n).toBe(1);
+    expect(ACTIVE.has(old)).toBe(false);
+    await q(`UPDATE cs_calls SET status = 'completed' WHERE id = ANY($1::uuid[])`, [[recent, simOld]]);   // leave no open rows for later tests
+  });
+
+  test("speed: the menu choice's public rules load once per call, started while the greeting plays", async () => {
+    const spy = jest.spyOn(platformFacts, 'getCurrentFacts');
+    const m = model([{ text: 'One.' }, { text: 'Two.' }]);
+    const s = await liveSession(m, 'seller');
+    try {
+      expect(await waitFor(() => spy.mock.calls.length >= 1, 2000)).toBe(true);   // before any question was asked
+      expect(spy.mock.calls.map((c) => c[0])).toEqual(['all']);
+      s.ws.send(JSON.stringify({ type: 'prompt', voicePrompt: 'Fees?', last: true }));
+      expect(await waitFor(() => answered(s.got, /^One\./), 3000)).toBe(true);
+      s.ws.send(JSON.stringify({ type: 'prompt', voicePrompt: 'Payouts?', last: true }));
+      expect(await waitFor(() => answered(s.got, /^Two\./), 3000)).toBe(true);
+      expect(spy.mock.calls.filter((c) => c[0] === 'all').length).toBe(1);   // not reloaded per turn
+      const sys = m.calls[0].system.map((b) => b.text).join('\n');
+      expect(sys).toMatch(/\[storefront\] .*flat 11% seller fee/);
+    } finally { spy.mockRestore(); await s.close(); }
+  });
+});
+
+describe('spoken brand and Professional Seller premium (owner corrections 2026-10-14)', () => {
+  test('every spoken path says "Advantage dot Bid"; written text keeps Advantage.Bid', () => {
+    const { speakable, spokenBrand } = require('../../src/services/sasha/phone/speech');
+    expect(speakable('Thanks for calling Advantage.Bid.')).toBe('Thanks for calling Advantage dot Bid.');
+    expect(spokenBrand('Email info@advantage.bid')).toBe('Email info at advantage dot bid');
+    expect(spokenBrand('Go to bid.advantage.bid or www.advantage.bid')).toBe('Go to bid dot advantage dot bid or www dot advantage dot bid');
+    expect(speakable('Advantage.Bid')).not.toMatch(/period|Advantage\.Bid|Advantage Bid/);
+    const s = { ...phoneSettings.DEFAULTS, voice: { ...phoneSettings.DEFAULTS.voice }, greeting: 'Thank you for calling Advantage.Bid. This is Sasha.', menu_text: 'Thank you for calling Advantage.Bid!\nPress 1.' };
+    expect(line.connectTwiml(s, { wsUrl: 'wss://x/r', actionUrl: 'https://x/a', reason: 'buyer' })).toContain('welcomeGreeting="Thank you for calling Advantage dot Bid. This is Sasha."');
+    expect(line.menuTwiml(s, { actionUrl: 'https://x/menu' })).toContain('Thank you for calling Advantage dot Bid!');
+    expect(line.menuTwiml(s, { actionUrl: 'https://x/menu' })).not.toMatch(/Advantage\.Bid/);
+    expect(engine.systemPrompt({ channel: 'phone' })).toMatch(/Advantage\.Bid/);   // the written brand stays in Sasha's instructions
+  });
+  test("no Professional Seller premium range, minimum, maximum or default anywhere in Sasha's knowledge, tools or grader truth", () => {
+    const all = JSON.stringify(platformFacts.getFacts('all'));
+    const src = ['src/services/sasha/tools.js', 'src/services/sasha/engine.js', 'certification/sasha-phone/truth.js'].map((p) => require('fs').readFileSync(require('path').join(__dirname, '..', '..', p), 'utf8')).join('\n');
+    for (const text of [all, src]) {
+      expect(text).not.toMatch(/0\s*%?\s*[–-]\s*25\s*%/);
+      expect(text).not.toMatch(/0% to 25%/);
+      expect(text).not.toMatch(/if none is set/);
+    }
+    expect(all).toMatch(/Professional Sellers set their own buyer's premium for their auctions under their seller agreement and platform permissions/);
+    expect(all).toMatch(/never state a minimum, maximum, typical range, standard or default rate \(never \\"18% to 25%\\"/);
+    expect(engine.systemPrompt({ channel: 'phone' })).toMatch(/Individual Seller auctions have an 18% buyer's premium; Professional Sellers set their own, so never state a minimum, maximum, typical range or default/);
   });
 });

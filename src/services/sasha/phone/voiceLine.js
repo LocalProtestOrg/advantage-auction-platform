@@ -38,7 +38,8 @@ function sayVoice(voice = {}) {
   const d = phoneSettings.DEFAULTS.menu_voice;   // ElevenLabs voices are not available to <Say>
   return 'Polly.' + d.voice;
 }
-const say = (text, voice) => `<Say voice="${xmlEsc(sayVoice(voice))}">${xmlEsc(text)}</Say>`;
+const { spokenBrand } = require('./speech');   // "Advantage dot Bid" on every spoken path
+const say = (text, voice) => `<Say voice="${xmlEsc(sayVoice(voice))}">${xmlEsc(spokenBrand(text))}</Say>`;
 
 function sayAndHangup(text, voice) { return `<?xml version="1.0" encoding="UTF-8"?><Response>${say(text, voice)}<Hangup/></Response>`; }
 
@@ -69,7 +70,7 @@ function transitionAudioUrl(s, base, deps = {}) {
 function connectTwiml(s, { wsUrl, actionUrl, reason, transitionUrl = null }) {
   const v = s.voice || {};
   // Barge-in: caller speech stops Sasha's speech; a new reply replaces obsolete queued speech; "mm-hm" does not cut her off.
-  const attrs = [`url="${xmlEsc(wsUrl)}"`, `welcomeGreeting="${xmlEsc(s.greeting)}"`, `language="${xmlEsc(v.language || 'en-US')}"`,
+  const attrs = [`url="${xmlEsc(wsUrl)}"`, `welcomeGreeting="${xmlEsc(spokenBrand(s.greeting))}"`, `language="${xmlEsc(v.language || 'en-US')}"`,
     v.tts_provider ? `ttsProvider="${xmlEsc(v.tts_provider)}"` : '', v.voice ? `voice="${xmlEsc(v.voice)}"` : '',
     'interruptible="any"', 'welcomeGreetingInterruptible="any"', 'preemptible="true"', 'ignoreBackchannel="true"', 'dtmfDetection="true"']
     .filter(Boolean).join(' ');
