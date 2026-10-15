@@ -105,6 +105,13 @@ module.exports = async function htmlAuthGate(req, res, next) {
   let decoded;
   try { decoded = jwt.verify(token, process.env.JWT_SECRET); } catch (_) { return toLogin(); }
   if (!decoded || !decoded.id || !decoded.role) return toLogin();
+  // Server-side session state (src/lib/sessionTokens.js): a session ended on the server goes to sign-in; the current
+  // database role decides access. Unknown status (lookup failed) keeps the token's role, as before.
+  try {
+    const check = await require('../lib/sessionTokens').checkSession(decoded, token);
+    if (check.state === 'revoked') return toLogin();
+    if (check.state === 'ok') decoded = { ...decoded, role: check.role };
+  } catch (_) { /* unknown: keep the token's role */ }
 
   if (roles.includes(decoded.role)) return next(); // authorized by role (admins pass all /admin pages)
 

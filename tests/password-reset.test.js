@@ -79,9 +79,12 @@ describe('resetPassword', () => {
   test('valid token → password updated + token consumed + committed', async () => {
     const client = fakeClient({ id: 't1', user_id: 'u1', expires_at: new Date(NOW + 600000), used_at: null });
     db.connect.mockResolvedValueOnce(client);
+    db.query.mockResolvedValueOnce({ rows: [{ session_version: 1 }] }); // every sign-in ended (migration 194)
 
     const r = await svc.resetPassword('rawtoken', 'newpassword1');
     expect(r.ok).toBe(true);
+    expect(db.query.mock.calls[0][0]).toMatch(/UPDATE users SET session_version = session_version \+ 1 WHERE id = \$1/);
+    expect(db.query.mock.calls[0][1]).toEqual(['u1']);
     expect(r.userId).toBe('u1');
     const sql = sqlOf(client);
     expect(sql).toMatch(/UPDATE users SET password_hash/i);

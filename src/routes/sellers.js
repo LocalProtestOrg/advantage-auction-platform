@@ -149,7 +149,7 @@ router.post('/enroll', auth, async (req, res, next) => {
 
     // Post-commit side effects are best-effort: the seller is already enabled, so a
     // hiccup here must not surface as a failure. Always return a fresh seller JWT.
-    const token = jwt.sign({ id: req.user.id, role: newRole }, process.env.JWT_SECRET, { expiresIn: process.env.JWT_EXPIRES_IN || '24h' });
+    const token = require('../lib/sessionTokens').issueToken({ id: req.user.id, role: newRole }, { sid: req.session && req.session.sid, sv: req.session && req.session.sv }); // same sign-in, new role
     let onboarding = null;
     try {
       await agreementService.autoSendAgreement(sellerProfileId, req.user.id);
@@ -253,7 +253,7 @@ router.post('/apply-professional', auth, async (req, res, next) => {
     await client.query('COMMIT');
 
     // Post-commit side effects are best-effort (enrollment already committed).
-    const token = jwt.sign({ id: req.user.id, role: newRole }, process.env.JWT_SECRET, { expiresIn: process.env.JWT_EXPIRES_IN || '24h' });
+    const token = require('../lib/sessionTokens').issueToken({ id: req.user.id, role: newRole }, { sid: req.session && req.session.sid, sv: req.session && req.session.sv }); // same sign-in, new role
     let organizationId = null, organizationLinked = false;
     try {
       // One org per user: reuse the seller's existing org, else create THEIR OWN org (source 'onboarding').

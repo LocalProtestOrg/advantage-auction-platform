@@ -47,7 +47,7 @@ describe('repository guard: nothing sets session state over the pooled productio
   test('every SET SESSION / default_transaction_read_only use is on a direct (non-pooler) connection', () => {
     const offenders = files.filter((f) => {
       const s = fs.readFileSync(f, 'utf8');
-      if (!/SET\s+SESSION|default_transaction_read_only\s*=/i.test(s)) return false;
+      if (!/SET\s+SESSION\b|default_transaction_read_only\s*=/i.test(s)) return false;   // \b: not the users.session_version column
       if (/scripts[\\/]lib[\\/]prodReadOnly\.js$/.test(f)) return false;   // the helper only names them to refuse them
       return !/replace\(\s*'-pooler'\s*,\s*''\s*\)/.test(s);
     }).map((f) => path.relative(ROOT, f));

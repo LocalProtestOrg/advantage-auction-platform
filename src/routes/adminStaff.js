@@ -147,16 +147,23 @@ router.patch('/:id', requirePermission('staff.manage'), async (req, res, next) =
       // Keep marketplace role consistent: promotion to super_admin => role='admin'.
       if (nextRole === 'super_admin') fields.push("role = 'admin'");
     }
+    // Removing Super Admin (demotion or deactivation) also removes the marketplace admin role, which otherwise keeps
+    // full access on its own: back to 'seller' when the account has a seller profile, else 'buyer'.
+    if (willLoseSuper && target.role === 'admin') {
+      fields.push("role = CASE WHEN EXISTS (SELECT 1 FROM seller_profiles sp WHERE sp.user_id = users.id) THEN 'seller' ELSE 'buyer' END");
+    }
     if (nextActive !== undefined) fields.push('staff_active = $' + (vals.push(nextActive)));
     if (!fields.length) return res.status(400).json({ success: false, message: 'Nothing to update' });
     vals.push(id);
     const updated = (await db.query(
       `UPDATE users SET ${fields.join(', ')} WHERE id = $${vals.length}
          RETURNING id, email, role, staff_role, staff_active`, vals)).rows[0];
+    // Any staff role or status change ends the member's existing sign-ins, so reduced access applies at once.
+    await require('../lib/sessionTokens').endAllSessions(null, id, 'staff role changed');
     await writeAuditLog({
       event_type: 'staff_role_changed', entity_type: 'user', entity_id: id, actor_id: req.user.id,
-      metadata: { before: { staff_role: target.staff_role, staff_active: target.staff_active },
-                  after: { staff_role: updated.staff_role, staff_active: updated.staff_active } },
+      metadata: { before: { role: target.role, staff_role: target.staff_role, staff_active: target.staff_active },
+                  after: { role: updated.role, staff_role: updated.staff_role, staff_active: updated.staff_active } },
     });
     return res.json({ success: true, data: { ...updated, is_super_admin: rbac.isSuperAdmin(updated) } });
   } catch (err) { next(err); }
@@ -171,6 +178,7 @@ router.post('/:id/reset-password', requirePermission('staff.manage'), async (req
     const tempPassword = 'Staff-' + crypto.randomBytes(12).toString('base64url') + '-Ab9';
     const hash = await bcrypt.hashSync(tempPassword, 10);
     await db.query('UPDATE users SET password_hash = $1 WHERE id = $2', [hash, id]);
+    await require('../lib/sessionTokens').endAllSessions(null, id, 'staff password reset');
     await writeAuditLog({
       event_type: 'staff_password_reset', entity_type: 'user', entity_id: id, actor_id: req.user.id,
       metadata: { email: target.email },

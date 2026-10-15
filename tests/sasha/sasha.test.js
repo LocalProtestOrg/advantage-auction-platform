@@ -19,7 +19,7 @@ const route = (re, fn) => ROUTES.push([re, fn]);
 async function mockQ(sql, params) {
   calls.push({ sql, params });
   // authMiddleware account-status re-check (fails closed on an unknown row): test identities are active.
-  if (/^SELECT is_active FROM users WHERE id = \$1$/.test(sql)) return { rows: [{ is_active: true }], rowCount: 1 };
+  if (/^SELECT is_active FROM users WHERE id = \$1$/.test(sql) || /FROM users u WHERE u\.id = \$1/.test(sql)) return { rows: [{ is_active: true }], rowCount: 1 };
   for (const [re, fn] of ROUTES) if (re.test(sql)) { const r = await fn(sql, params); return Object.assign({ rows: [], rowCount: (r && r.rows || []).length }, r); }
   return { rows: [], rowCount: 0 };
 }

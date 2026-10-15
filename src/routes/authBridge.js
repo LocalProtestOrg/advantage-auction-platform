@@ -23,8 +23,9 @@ const limiter = rateLimit
   : (req, res, next) => next();
 
 // Reuse the EXACT login JWT: same secret, same {id, role} claims, same expiry. No second JWT format.
+// Carries the account's session_version + a new sign-in id (src/lib/sessionTokens.js).
 function signJwt(payload) {
-  return jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: process.env.JWT_EXPIRES_IN || '24h' });
+  return require('../lib/sessionTokens').issueTokenForUser(payload.id, payload.role);
 }
 
 // Server-to-server. BD calls this with X-Bridge-Key; the browser is never trusted here.

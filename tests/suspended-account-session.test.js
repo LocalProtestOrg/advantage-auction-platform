@@ -14,7 +14,8 @@ const mockAccounts = new Map(); // userId -> is_active
 const mockDb = { statusDown: false }; // simulate a database outage for the status lookup only
 jest.mock('../src/db', () => ({
   query: jest.fn(async (sql, params) => {
-    if (/SELECT is_active FROM users WHERE id = \$1/.test(sql)) {
+    // Legacy status lookup, or the per-request session check (src/lib/sessionTokens.js) that replaced it.
+    if (/SELECT is_active FROM users WHERE id = \$1|FROM users u WHERE u\.id = \$1/.test(sql)) {
       if (mockDb.statusDown) throw new Error('connection terminated unexpectedly');
       const id = params && params[0];
       return { rows: mockAccounts.has(id) ? [{ is_active: mockAccounts.get(id) }] : [] };

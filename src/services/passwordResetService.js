@@ -130,6 +130,9 @@ async function resetPassword(rawToken, newPassword) {
     // Invalidate any other outstanding tokens for this user.
     await client.query('DELETE FROM password_reset_tokens WHERE user_id = $1 AND used_at IS NULL', [t.user_id]);
     await client.query('COMMIT');
+    // A password reset ends every existing sign-in for the account (src/lib/sessionTokens.js).
+    try { await require('../lib/sessionTokens').endAllSessions(null, t.user_id, 'password reset'); }
+    catch (e) { console.error('[passwordReset] sessions not ended after reset:', e.message); } // the new password still applies
     return { ok: true, userId: t.user_id };
   } catch (err) {
     try { await client.query('ROLLBACK'); } catch (_) { /* ignore */ }

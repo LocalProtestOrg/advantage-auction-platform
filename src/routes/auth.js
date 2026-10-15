@@ -11,6 +11,7 @@ const { bdMemberAdminUrl } = require('../lib/bridgeConfig');
 const agreementService = require('../services/agreementService');
 const { isProfessional } = require('../services/sellerTypeRules');
 const { maskEmailForLog } = require('../lib/logSafe');
+const sessionTokens = require('../lib/sessionTokens');
 
 const router = express.Router();
 const JWT_SECRET = process.env.JWT_SECRET;
@@ -51,11 +52,7 @@ router.post('/register', normalLimiter, async (req, res) => {
       [email, hashedPassword, 'buyer']
     );
     const user = result.rows[0];
-    const token = jwt.sign(
-      { id: user.id, role: user.role },
-      process.env.JWT_SECRET,
-      { expiresIn: process.env.JWT_EXPIRES_IN || '24h' }
-    );
+    const token = sessionTokens.issueToken(user);
     // Launch: professional welcome email + OPTIONAL (non-blocking) email verification.
     // Fire-and-forget — registration must never fail because email delivery did, and
     // nothing downstream gates on verification.
@@ -130,11 +127,7 @@ router.post('/login', strictLimiter, async (req, res) => {
     if (user.is_active === false) {
       return res.status(403).json({ success: false, error: 'Account suspended. Contact Advantage.Bid support.' });
     }
-    const token = jwt.sign(
-      { id: user.id, role: user.role },
-      process.env.JWT_SECRET,
-      { expiresIn: process.env.JWT_EXPIRES_IN || '24h' }
-    );
+    const token = sessionTokens.issueToken(user); // carries users.session_version + a new sign-in id
     setSessionCookie(res, token); // server-side session for the HTML gate (same JWT)
     // Best-effort last-login stamp (used by Staff & Permissions). Never blocks or fails the login.
     db.query('UPDATE users SET last_login_at = now() WHERE id = $1', [user.id]).catch(() => {});
@@ -155,7 +148,16 @@ router.post('/session', auth, (req, res) => {
 // POST /api/auth/logout — clear the server-side session cookie. The client also clears its
 // localStorage token; the GET /logout page route (server.js) does both + redirects. Unauthenticated
 // callers are fine — clearing an absent cookie is a no-op.
-router.post('/logout', (req, res) => {
+// The sign-in presented (Bearer and/or cookie) is also ended on the server (revoked_sessions), so a copy of the token
+// stops working too. Best-effort: signing out in the browser always succeeds.
+router.post('/logout', async (req, res) => {
+  const { resolveSession } = require('../lib/sessionAuth');
+  const tokens = new Set([String((req.headers.authorization || '').split(' ')[1] || ''), String(readSessionToken(req) || '')]);
+  for (const t of tokens) {
+    if (!t) continue;
+    const decoded = resolveSession({ headers: { authorization: 'Bearer ' + t } }).decoded;
+    if (decoded) await sessionTokens.endSession(decoded, t, 'logout').catch(() => {});
+  }
   clearSessionCookie(res);
   res.set('Cache-Control', 'no-store');
   res.json({ success: true });
@@ -172,7 +174,7 @@ const SESSION_STATUS_ORIGINS = new Set([
   'https://www.advantage.bid',
   'https://advantage.bid',
 ]);
-router.get('/session-status', (req, res) => {
+router.get('/session-status', async (req, res) => {
   const origin = req.headers.origin;
   if (origin && SESSION_STATUS_ORIGINS.has(origin)) {
     res.header('Access-Control-Allow-Origin', origin);      // exact origin (never '*' with credentials)
@@ -185,7 +187,10 @@ router.get('/session-status', (req, res) => {
     const token = readSessionToken(req);
     if (token && process.env.JWT_SECRET) {
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
-      authenticated = !!(decoded && decoded.id && decoded.role);
+      if (decoded && decoded.id && decoded.role) {
+        const check = await sessionTokens.checkSession(decoded, token);
+        authenticated = check.state === 'ok' || check.state === 'unknown';
+      }
     }
   } catch (_) { authenticated = false; }
   return res.json({ authenticated });

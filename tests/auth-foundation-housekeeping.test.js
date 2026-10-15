@@ -132,54 +132,56 @@ function req({ bearer, cookie, rawAuth } = {}) {
   if (cookie) headers.cookie = 'other=1; ' + COOKIE_NAME + '=' + cookie;
   return { headers, method: 'GET', path: '/api/lots/x' };
 }
-function runOptional(opts) {
+// The server-side session check (src/lib/sessionTokens.js) makes optional auth asynchronous.
+async function runOptional(opts) {
   const r = req(opts); const res = { cookie: jest.fn(), set: jest.fn() }; const next = jest.fn();
   optionalAuth(r, res, next);
+  await new Promise((res2) => setImmediate(res2));
   return { user: r.user, next, res };
 }
 const A = { id: 'user-a', role: 'buyer' };
 const B = { id: 'user-b', role: 'seller' };
 
 describe('M3 — optional auth recognises Bearer OR cookie, never invalid credentials', () => {
-  test('10. anonymous request stays anonymous', () => {
-    const { user, next } = runOptional({});
+  test('10. anonymous request stays anonymous', async () => {
+    const { user, next } = (await runOptional({}));
     expect(user).toBeUndefined(); expect(next).toHaveBeenCalledTimes(1);
   });
-  test('9. valid Bearer resolves the user', () => { expect(runOptional({ bearer: tok(A) }).user).toEqual(A); });
-  test('8. valid cookie-only session resolves the user (the fix)', () => { expect(runOptional({ cookie: tok(B) }).user).toEqual(B); });
-  test('11a. invalid Bearer alone is anonymous', () => { expect(runOptional({ bearer: 'not.a.jwt' }).user).toBeUndefined(); });
-  test('11b. invalid cookie alone is anonymous', () => { expect(runOptional({ cookie: 'garbage' }).user).toBeUndefined(); });
-  test('11c. expired Bearer and expired cookie are anonymous', () => {
-    expect(runOptional({ bearer: tok(A, { expired: true }) }).user).toBeUndefined();
-    expect(runOptional({ cookie: tok(A, { expired: true }) }).user).toBeUndefined();
+  test('9. valid Bearer resolves the user', async () => { expect((await runOptional({ bearer: tok(A) })).user).toEqual(A); });
+  test('8. valid cookie-only session resolves the user (the fix)', async () => { expect((await runOptional({ cookie: tok(B) })).user).toEqual(B); });
+  test('11a. invalid Bearer alone is anonymous', async () => { expect((await runOptional({ bearer: 'not.a.jwt' })).user).toBeUndefined(); });
+  test('11b. invalid cookie alone is anonymous', async () => { expect((await runOptional({ cookie: 'garbage' })).user).toBeUndefined(); });
+  test('11c. expired Bearer and expired cookie are anonymous', async () => {
+    expect((await runOptional({ bearer: tok(A, { expired: true }) })).user).toBeUndefined();
+    expect((await runOptional({ cookie: tok(A, { expired: true }) })).user).toBeUndefined();
   });
-  test('11d. token signed with another secret is anonymous', () => {
-    expect(runOptional({ cookie: tok(A, { secret: 'attacker-secret' }) }).user).toBeUndefined();
+  test('11d. token signed with another secret is anonymous', async () => {
+    expect((await runOptional({ cookie: tok(A, { secret: 'attacker-secret' }) })).user).toBeUndefined();
   });
-  test('11e. signature-valid token without id/role is anonymous', () => {
-    expect(runOptional({ bearer: tok({ id: 'x' }) }).user).toBeUndefined();
+  test('11e. signature-valid token without id/role is anonymous', async () => {
+    expect((await runOptional({ bearer: tok({ id: 'x' }) })).user).toBeUndefined();
   });
-  test('conflict: valid Bearer and valid cookie for different users -> Bearer wins (documented precedence)', () => {
-    expect(runOptional({ bearer: tok(A), cookie: tok(B) }).user).toEqual(A);
+  test('conflict: valid Bearer and valid cookie for different users -> Bearer wins (documented precedence)', async () => {
+    expect((await runOptional({ bearer: tok(A), cookie: tok(B) })).user).toEqual(A);
   });
-  test('conflict: invalid Bearer + valid cookie -> the independently valid cookie (same as mandatory auth)', () => {
-    expect(runOptional({ bearer: tok(A, { expired: true }), cookie: tok(B) }).user).toEqual(B);
+  test('conflict: invalid Bearer + valid cookie -> the independently valid cookie (same as mandatory auth)', async () => {
+    expect((await runOptional({ bearer: tok(A, { expired: true }), cookie: tok(B) })).user).toEqual(B);
   });
-  test('optional auth is read-only: never sets or renews the cookie', () => {
-    const { res } = runOptional({ cookie: tok(B) });
+  test('optional auth is read-only: never sets or renews the cookie', async () => {
+    const { res } = (await runOptional({ cookie: tok(B) }));
     expect(res.cookie).not.toHaveBeenCalled(); expect(res.set).not.toHaveBeenCalled();
   });
-  test('mandatory and optional auth resolve through the same function (no second JWT validator)', () => {
+  test('mandatory and optional auth resolve through the same function (no second JWT validator)', async () => {
     const mw = fs.readFileSync('src/middleware/authMiddleware.js', 'utf8');
     const ow = fs.readFileSync('src/middleware/optionalAuthMiddleware.js', 'utf8');
     for (const src of [mw, ow]) { expect(src).toContain("require('../lib/sessionAuth')"); expect(src).not.toMatch(/jwt\.verify\(/); }
     const r = req({ bearer: tok(A), cookie: tok(B) });
     expect(resolveSession(r).source).toBe('bearer');
   });
-  test('mandatory auth unchanged: cookie-only authenticates, expired both -> 401', () => {
+  test('mandatory auth unchanged: cookie-only authenticates, expired both -> 401', async () => {
     const ok = req({ cookie: tok(B) }); const next = jest.fn();
     const res = { set: jest.fn(), cookie: jest.fn(), status: jest.fn(() => ({ json: jest.fn() })) };
-    authMiddleware(ok, res, next); expect(next).toHaveBeenCalled(); expect(ok.user).toEqual(B);
+    authMiddleware(ok, res, next); await new Promise((r2) => setImmediate(r2)); expect(next).toHaveBeenCalled(); expect(ok.user).toEqual(B);
     const bad = req({ bearer: tok(A, { expired: true }), cookie: tok(B, { expired: true }) }); const next2 = jest.fn();
     authMiddleware(bad, res, next2); expect(next2).not.toHaveBeenCalled(); expect(res.status).toHaveBeenCalledWith(401);
   });
