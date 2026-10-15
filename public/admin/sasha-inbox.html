@@ -175,6 +175,8 @@
       + k.audit.map(function(e){ return '<tr><td>'+when(e.created_at)+'</td><td>'+esc(e.event_type.replace(/_/g,' '))+'</td><td>'+esc(e.tool||'')+'</td><td>'+esc(e.data_category||'')+'</td></tr>'; }).join('')+'</table></details>';
     return h+'</div>';
   }
+  // Deep link from a staff notification email: ?c=<conversation id> opens that conversation.
+  (function(){ var m=/[?&]c=([0-9a-f-]{36})(?:&|$)/i.exec(location.search); if(m){ SEL=m[1]; open(SEL); } })();
   load();
   setInterval(function(){ if(!document.hidden){ load(); } }, 20000);
 })();

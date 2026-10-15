@@ -93,6 +93,19 @@
     </div>
 
     <div class="card">
+      <h2>Staff notifications</h2>
+      <p style="font-size:13px;color:#475569;margin:0 0 10px">When a customer needs a person or asks for a callback (chat, email or phone), the message is kept in Customer Service and one notice goes to each address and number below. Text messages carry no customer details.</p>
+      <label style="font-size:13px;font-weight:600">Email addresses (one per line)</label>
+      <textarea id="sa-emails" rows="3" style="width:100%;max-width:420px;display:block;margin:4px 0 10px"></textarea>
+      <label style="font-size:13px;font-weight:600">Text-alert numbers (US mobile, one per line)</label>
+      <textarea id="sa-sms" rows="2" style="width:100%;max-width:420px;display:block;margin:4px 0 10px"></textarea>
+      <button type="button" id="sa-save">Save recipients</button>
+      <button type="button" id="sa-test" style="margin-left:6px">Send a test notice</button>
+      <p class="msg" id="samsg"></p>
+      <div class="scroll" id="sa-log" style="margin-top:10px"></div>
+    </div>
+
+    <div class="card">
       <h2>Activity (last 7 days)</h2>
       <div class="scroll" id="act"></div>
     </div>
@@ -192,7 +205,30 @@
       document.getElementById('act').innerHTML=h;
     });
   }
-  loadSettings(); loadKnowledge(); loadActivity();
+  function lines(id){ return document.getElementById(id).value.split(/\n/).map(function(s){return s.trim();}).filter(Boolean); }
+  function loadStaffAlerts(){
+    api('GET','/api/admin/sasha/staff-alerts').then(function(j){
+      if(!j.success){ msg('samsg', j.message||'Could not load.', false); return; }
+      var d=j.data;
+      document.getElementById('sa-emails').value=d.recipients.emails.join('\n');
+      document.getElementById('sa-sms').value=d.recipients.sms.join('\n');
+      var rows=d.deliveries||[];
+      document.getElementById('sa-log').innerHTML = rows.length ? '<table><tr><th>When</th><th>Ref</th><th>Kind</th><th>To</th><th>Status</th><th>Tries</th><th>Error</th></tr>'+rows.map(function(r){
+        return '<tr><td>'+new Date(r.created_at).toLocaleString()+'</td><td>'+esc(r.ref||'')+'</td><td>'+esc(r.kind)+'</td><td>'+esc(r.channel)+' '+esc(r.recipient)+'</td><td>'+esc(r.status)+'</td><td>'+r.attempts+'</td><td>'+esc(r.last_error||'')+'</td></tr>';
+      }).join('')+'</table>' : '<p style="font-size:13px;color:#64748b">No notices sent yet.</p>';
+    });
+  }
+  document.getElementById('sa-save').addEventListener('click', function(){
+    api('POST','/api/admin/sasha/staff-alerts',{ emails: lines('sa-emails'), sms: lines('sa-sms') }).then(function(j){
+      if(!j.success){ msg('samsg', j.message||'Not saved.', false); return; } msg('samsg','Saved.', true); loadStaffAlerts(); });
+  });
+  document.getElementById('sa-test').addEventListener('click', function(){
+    msg('samsg','Sending…', true);
+    api('POST','/api/admin/sasha/staff-alerts/test',{}).then(function(j){
+      if(!j.success){ msg('samsg', j.message||'Test failed.', false); return; }
+      var d=j.data; msg('samsg', d.notified ? ('Test '+d.ref+': '+d.sent+' sent, '+d.failed+' failed.') : ('Not sent: '+(d.reason||'unknown')), !!d.notified && !d.failed); loadStaffAlerts(); });
+  });
+  loadSettings(); loadKnowledge(); loadActivity(); loadStaffAlerts();
 })();
 </script>
 </body>

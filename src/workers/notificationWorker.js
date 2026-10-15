@@ -1066,3 +1066,16 @@ async function runStorefrontHoldSweep() {
 }
 setInterval(runStorefrontHoldSweep, STOREFRONT_HOLD_SWEEP_INTERVAL_MS);
 runStorefrontHoldSweep();
+
+// ── Sasha staff notifications: retry failed deliveries ────────────────────────────────────────────────
+// The actionable message is already in the staff inbox; this retries its email / text notice (bounded attempts, 24 h).
+const STAFF_ALERT_RETRY_INTERVAL_MS = 2 * 60 * 1000;
+async function runStaffAlertRetry() {
+  try {
+    const out = await require('../services/sasha/staffAlertService').retryFailed();
+    if (out.retried) console.log('[sasha-staff-alert-retry]', JSON.stringify(out));
+  } catch (err) {
+    console.error(`[sasha-staff-alert-retry] failed: ${err.message}`);
+  }
+}
+setInterval(runStaffAlertRetry, STAFF_ALERT_RETRY_INTERVAL_MS);
