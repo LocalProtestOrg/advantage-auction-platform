@@ -26,7 +26,18 @@ has regression tests (`tests/security-audit-2026-10-15.test.js`, `tests/payment-
 | 14 | Low | Percent-encoded paths (`/%61dmin/...`) bypassed the private-page gate (page code only; APIs still protected). | Gate decodes and normalizes the path before matching (`middleware/htmlAuthGate.js`). |
 | 15 | Low-Med | Organization website/logo/cover URLs accepted `javascript:`. | http(s) only (`services/organizationsService.js`). |
 
-## Needs an owner decision (not changed)
+## Owner decisions (2026-10-15) and status
+
+| Item | Decision | Status |
+|---|---|---|
+| Session revocation | Approved | Built and tested (migration 194, commit d3e0a18). **Waiting on deploy approval** (session model). |
+| Buyer contact to sellers | Only once the buyer has paid; staff with finance.view or Super Admin see everything | **Deployed** (ba33846). |
+| Closed-lot prices | Signed-in only | **Deployed** (ba33846): public feeds, JSON-LD, Sasha. |
+| Content Security Policy | Report-only first | **Deployed** (18cfdcf). Not enforced; violations go to the logs. |
+| nodemailer 8 → 10.0.13 | Test before deploy | Tested over a live SMTP conversation (9569656). **Waiting on deploy approval.** |
+| Login protections | Prepare safely; no merging | Built (b5a6341): per-account throttle, case-insensitive matching. Production has 0 duplicates. Migration 195 is prepared, not applied. **Waiting on deploy approval.** |
+
+## Original owner-decision list
 
 | Finding | Recommendation |
 |---|---|
