@@ -119,9 +119,10 @@ describe('Professional Buyer Premium self-service (updateAuction, auction-level)
     const adminOnlyBlock = auctionServiceSrc.slice(auctionServiceSrc.indexOf('const adminOnly'), auctionServiceSrc.indexOf('const adminOnly') + 400);
     expect(adminOnlyBlock).toMatch(/'buyer_premium_bps'/);
   });
-  test('professional buyer premium is range-validated (0–2500 bps = 0–25%)', () => {
+  // Owner policy 2026-10-15: whole percentages 0–100% (the 25% ceiling was removed); see pro-buyer-premium-policy.test.js.
+  test('professional buyer premium is range-validated (whole percentages 0–100%)', () => {
     expect(auctionServiceSrc).toMatch(/if \(isProAuthor && updates\.buyer_premium_bps/);
-    expect(auctionServiceSrc).toMatch(/bp < 0 \|\| bp > 2500/);
+    expect(auctionServiceSrc).toMatch(/bp < 0 \|\| bp > 10000 \|\| bp % 100 !== 0/);
   });
   test('price fields incl. buyer_premium_bps remain locked once the auction is ACTIVE', () => {
     const activeLocked = auctionServiceSrc.slice(auctionServiceSrc.indexOf('ACTIVE_LOCKED'), auctionServiceSrc.indexOf('ACTIVE_LOCKED') + 200);

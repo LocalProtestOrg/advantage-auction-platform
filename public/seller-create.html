@@ -360,9 +360,9 @@
        individual sellers, whose premium stays fixed. Stored as buyer_premium_bps (percent × 100). -->
   <div class="row" id="buyer-premium-row" style="display:none">
     <div class="field">
-      <label for="buyer-premium-pct">Buyer Premium (%)</label>
-      <input type="number" id="buyer-premium-pct" min="0" max="25" step="0.5" placeholder="18" />
-      <p class="hint">This percentage is added to the winning bid and charged to the buyer, and it is yours to keep. Your Advantage.Bid platform/software fee is set in your Professional Seller agreement, and a separate 3% payment-processing fee applies to the hammer price. Leave at your standard rate if unsure.</p>
+      <label for="buyer-premium-pct">Buyer Premium (%) <span style="font-weight:400">(required)</span></label>
+      <input type="number" id="buyer-premium-pct" min="0" max="100" step="1" inputmode="numeric" />
+      <p class="hint">You choose this: a whole percentage from 0% to 100%, added to the winning bid and charged to the buyer, and it is yours to keep. It is required before your auction is published, and it cannot change after publication. If you have a default rate in your seller terms it is used when this is left empty. Your Advantage.Bid platform/software fee is set in your Professional Seller agreement, and a separate 3% payment-processing fee applies to the hammer price.</p>
     </div>
   </div>
 
