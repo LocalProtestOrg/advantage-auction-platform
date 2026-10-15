@@ -207,10 +207,12 @@ function mkRes() {
   return res;
 }
 async function doLogin(body, userRow, { throws } = {}) {
+  require('../src/lib/loginThrottle')._reset(); // per-account sign-in throttle (security audit 2026-10-15)
   db.query.mockReset();
   db.query.mockImplementation((sql) => {
-    if (throws && /SELECT \* FROM users/.test(sql)) return Promise.reject(new Error('relation "users" password leak details'));
-    if (/SELECT \* FROM users/.test(sql)) return Promise.resolve({ rows: userRow ? [userRow] : [] });
+    // The sign-in lookup is case-insensitive (src/lib/accountEmail.js): SELECT *, (email = $1) AS _exact FROM users ...
+    if (throws && /SELECT \*.* FROM users/.test(sql)) return Promise.reject(new Error('relation "users" password leak details'));
+    if (/SELECT \*.* FROM users/.test(sql)) return Promise.resolve({ rows: userRow ? [userRow] : [] });
     return Promise.resolve({ rows: [] });
   });
   const res = mkRes();
