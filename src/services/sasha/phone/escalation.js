@@ -50,9 +50,11 @@ async function alertStaff(call, { kind, reason }, deps = {}) {
 async function requestCallback(call, { number, reason, summary, userId }, deps = {}) {
   const r = String(reason || 'customer_request');
   await conversations.requestHandoff(call.conversation_id, { reasonCode: r, reasonText: String(summary || '').slice(0, 1000) || 'Callback requested by phone.',
-    createdBy: r === 'customer_request' ? 'customer' : 'sasha' });
-  await db.query(`UPDATE cs_handoffs SET callback_requested = true, callback_phone_e164 = $2, callback_status = 'open'
-     WHERE id = (SELECT id FROM cs_handoffs WHERE conversation_id = $1 AND status = 'open' ORDER BY created_at DESC LIMIT 1)`, [call.conversation_id, number]);
+    createdBy: r === 'customer_request' ? 'customer' : 'sasha', notify: false });   // notified below, with the callback number
+  const cb = (await db.query(`UPDATE cs_handoffs SET callback_requested = true, callback_phone_e164 = $2, callback_status = 'open'
+     WHERE id = (SELECT id FROM cs_handoffs WHERE conversation_id = $1 AND status = 'open' ORDER BY created_at DESC LIMIT 1) RETURNING id`, [call.conversation_id, number])).rows[0];
+  // Staff notification (email + SMS, once per callback message; the callback is already in the staff inbox).
+  if (cb && !call.is_simulated) require('../toolGuard').scheduleOutside(() => require('../staffAlertService').notify(cb.id, { kind: 'callback' }));
   await audit.record(call, 'callback_requested', { accountUserId: userId || null, detail: { reason: r, destination_last4: String(number).slice(-4) } });
   const alert = await alertStaff(call, { kind: 'callback', reason: r }, deps);
   return { callback: true, plan: plan(), alert };

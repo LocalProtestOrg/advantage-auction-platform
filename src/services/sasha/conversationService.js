@@ -73,16 +73,24 @@ async function addSashaReply(conversationId, m) {
   } catch (e) { await c.query('ROLLBACK').catch(() => {}); throw e; } finally { c.release(); }
 }
 
-/** Open a handoff (idempotent per open reason) and flag the conversation for staff. Sasha keeps ownership unless taken. */
-async function requestHandoff(conversationId, { reasonCode, reasonText, createdBy }, runner = db) {
+/**
+ * Open a handoff (idempotent per open reason) and flag the conversation for staff. Sasha keeps ownership unless taken.
+ * A NEW hand-off is an actionable message: staff are notified once (staffAlertService, after this write; the message is
+ * already in the staff inbox if notification fails). `notify: false` lets a caller notify after adding details
+ * (phone callback number).
+ */
+async function requestHandoff(conversationId, { reasonCode, reasonText, createdBy, notify = true }, runner = db) {
   const open = (await runner.query(`SELECT id FROM cs_handoffs WHERE conversation_id = $1 AND status = 'open' LIMIT 1`, [conversationId])).rows[0];
+  let createdId = null;
   if (!open) {
-    await runner.query(`INSERT INTO cs_handoffs (conversation_id, reason_code, reason_text, created_by) VALUES ($1,$2,$3,$4)`,
-      [conversationId, reasonCode || 'other', reasonText ? String(reasonText).slice(0, 1000) : null, createdBy || 'sasha']);
+    createdId = ((await runner.query(`INSERT INTO cs_handoffs (conversation_id, reason_code, reason_text, created_by) VALUES ($1,$2,$3,$4) RETURNING id`,
+      [conversationId, reasonCode || 'other', reasonText ? String(reasonText).slice(0, 1000) : null, createdBy || 'sasha'])).rows[0] || {}).id || null;
   }
   await runner.query(`UPDATE cs_conversations SET handoff_state = 'needed', handoff_reason = COALESCE($2, handoff_reason),
       status = CASE WHEN status IN ('resolved','closed') THEN 'open' ELSE status END, updated_at = now() WHERE id = $1`,
   [conversationId, reasonText ? String(reasonText).slice(0, 300) : reasonCode]);
+  if (createdId && notify) require('./toolGuard').scheduleOutside(() => require('./staffAlertService').notify(createdId, { kind: 'handoff' }));
+  return { handoffId: createdId || (open && open.id) || null, created: !!createdId };
 }
 
 /** Staff takes over: Sasha stops replying immediately (ownership flips under lock). */

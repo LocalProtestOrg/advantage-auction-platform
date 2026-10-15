@@ -167,4 +167,12 @@ function run(tool, fn, { onDenied } = {}) {
   return als.run({ tool: String(tool || ''), onDenied }, fn);
 }
 
-module.exports = { run, installDb, installNet, checkSql, checkHost, writesOf, TOOL_WRITES, SashaToolPermissionError, _current: current };
+/**
+ * Schedule SYSTEM work (not a tool) outside any tool's scope: the staff notification after a hand-off the tool has
+ * already written (staffAlertService). The tool itself gains no permission; the scheduled function runs as platform code.
+ */
+function scheduleOutside(fn) {
+  als.exit(() => setImmediate(() => { Promise.resolve().then(fn).catch(() => {}); }));
+}
+
+module.exports = { run, scheduleOutside, installDb, installNet, checkSql, checkHost, writesOf, TOOL_WRITES, SashaToolPermissionError, _current: current };

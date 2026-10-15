@@ -200,6 +200,28 @@ router.post('/imap/clear-auth-block', superAdminOnly, wrap(async (req, res) => {
   res.json({ success: true, data: r });
 }));
 
+// ── Staff notifications for actionable messages (hand-offs, phone callbacks): recipients + delivery log ──────────
+const staffAlerts = require('../services/sasha/staffAlertService');
+router.get('/staff-alerts', wrap(async (req, res) => {
+  const rc = await staffAlerts.recipients();
+  res.json({ success: true, data: { recipients: rc, deliveries: await staffAlerts.recentDeliveries({ limit: 50 }), sends_in_this_environment: process.env.NODE_ENV === 'production' } });
+}));
+router.post('/staff-alerts', superAdminOnly, wrap(async (req, res) => {
+  const before = await staffAlerts.recipients();
+  const after = await staffAlerts.setRecipients({ emails: (req.body || {}).emails, sms: (req.body || {}).sms });
+  const { maskEmailForLog } = require('../lib/logSafe');
+  const m = (r) => ({ emails: r.emails.map(maskEmailForLog), sms: r.sms.map((n) => '…' + n.slice(-4)) });
+  await auditService.logEvent(db, { eventType: 'sasha.staff_alert_recipients_changed', entityType: 'platform_config', entityId: '00000000-0000-0000-0000-000000000000',
+    actorId: req.user.id, metadata: { before: m(before), after: m(after) } });
+  res.json({ success: true, data: { recipients: after } });
+}));
+router.post('/staff-alerts/test', superAdminOnly, wrap(async (req, res) => {
+  const out = await staffAlerts.sendTest(req.user.id);
+  await auditService.logEvent(db, { eventType: 'sasha.staff_alert_test_sent', entityType: 'platform_config', entityId: '00000000-0000-0000-0000-000000000000',
+    actorId: req.user.id, metadata: { ref: out.ref, sent: out.sent || 0, failed: out.failed || 0, reason: out.reason || null } });
+  res.json({ success: true, data: out });
+}));
+
 router.post('/settings', superAdminOnly, wrap(async (req, res) => {
   const { key, value } = req.body || {};
   const before = (await settings.load())[String(key || '').replace('sasha.', '')];
