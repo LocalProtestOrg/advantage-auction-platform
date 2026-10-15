@@ -1208,7 +1208,7 @@
     var miTxt=(d.mi!=null?(' · '+d.mi+' mi'):'');
     var tail=d.state==='historical'?(' · '+d.lots+' lots'):(' · '+d.end);
     var html='<div class="pv"><div class="img" style="background-image:'+d.bg+'"><span class="tagchip" style="background:'+tagbg+'">'+tagtxt+'</span></div>'+
-      '<div class="body"><div class="t">'+d.t+'</div><div class="s">📍 '+(d.city||'')+miTxt+tail+'</div></div></div>';
+      '<div class="body"><div class="t">'+mpEsc(d.t)+'</div><div class="s">📍 '+mpEsc(d.city||'')+miTxt+tail+'</div></div></div>';
     hidePreview();
     hoverPopup=new maplibregl.Popup({closeButton:false,closeOnClick:false,offset:26,className:'preview',maxWidth:'260px'}).setLngLat([d.lng,d.lat]).setHTML(html).addTo(map);
     var elp=hoverPopup.getElement(); if(elp) elp.style.pointerEvents='none';
@@ -1227,7 +1227,7 @@
     var tail=d.state==='historical'?(' · '+d.lots+' lots'):(' · '+d.end);
     var cta=d.state==='historical'?'View Results':'View Auction';
     var html='<div class="pv"><div class="img" style="background-image:'+d.bg+'"><span class="tagchip" style="background:'+tagbg+'">'+tagtxt+'</span></div>'+
-      '<div class="body"><div class="t">'+d.t+'</div><div class="s">📍 '+(d.city||'')+miTxt+tail+'</div>'+
+      '<div class="body"><div class="t">'+mpEsc(d.t)+'</div><div class="s">📍 '+mpEsc(d.city||'')+miTxt+tail+'</div>'+
       '<a href="'+d.href+'" style="display:block;margin-top:10px;text-align:center;background:#B5273B;color:#fff;font-weight:700;font-size:.86rem;text-decoration:none;padding:9px 12px;border-radius:8px">'+cta+'</a>'+
       '</div></div>';
     cardPopup=new maplibregl.Popup({closeButton:true,closeOnClick:true,offset:26,className:'preview',maxWidth:'260px'}).setLngLat([d.lng,d.lat]).setHTML(html).addTo(map);
@@ -1374,8 +1374,8 @@
       var miTxt=(d.mi!=null?(' · '+d.mi+' mi'):'');
       var when=d.state==='coming'?d.end:(d.state==='historical'?(d.lots+' lots'):(d.end+(d.lots?(' · '+d.lots+' lots'):'')));
       var c=document.createElement('a'); c.className='card'; c.dataset.id=d.id; c.href=d.href;
-      c.innerHTML='<div class="ph" style="background-image:'+d.bg+'"></div><div class="meta"><div class="t">'+d.t+'</div>'+
-        '<div class="s">'+(d._online?'🌐 ':'📍 ')+(d.city||'Location TBA')+miTxt+'</div>'+
+      c.innerHTML='<div class="ph" style="background-image:'+d.bg+'"></div><div class="meta"><div class="t">'+mpEsc(d.t)+'</div>'+
+        '<div class="s">'+(d._online?'🌐 ':'📍 ')+mpEsc(d.city||'Location TBA')+miTxt+'</div>'+
         '<div class="r"><span class="tag '+d.state+'">'+tg+'</span><span class="when">'+when+'</span></div></div>';
       c.addEventListener('mouseenter',function(){ highlight(d.id,true); });
       c.addEventListener('mouseleave',function(){ highlight(d.id,false); });

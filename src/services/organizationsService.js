@@ -92,6 +92,7 @@ async function onboardOrganization(userId, input = {}) {
     throw svcErr(400, 'ORG_CONTACT_REQUIRED', 'A contact email or phone is required.');
   }
 
+  assertWebUrls({ website_url: input.websiteUrl, logo_url: input.logoUrl });
   const existing = await getPrimaryOrgForUser(userId);
   if (existing) return existing; // one org per user — never create a second
 
@@ -124,8 +125,22 @@ async function onboardOrganization(userId, input = {}) {
   });
 }
 
+/**
+ * Links rendered on public profiles and admin pages: only http(s) URLs (or empty). A javascript: or data: URL would run
+ * script when clicked (security audit 2026-10-15).
+ */
+function assertWebUrls(fields) {
+  for (const [k, v] of Object.entries(fields)) {
+    if (v == null || v === '') continue;
+    if (typeof v !== 'string' || v.length > 2048 || !/^https?:\/\/[^\s]+$/i.test(v.trim())) {
+      throw svcErr(400, 'INVALID_URL', `${k.replace(/_/g, ' ')} must be a web address starting with http:// or https://.`);
+    }
+  }
+}
+
 /** Owner-only profile update (safe fields only; never slug/plan/verification). */
 async function updateProfile(userId, orgId, input = {}) {
+  assertWebUrls({ website_url: input.website_url, logo_url: input.logo_url, cover_image_url: input.cover_image_url });
   const ALLOWED = ['name', 'type', 'contact_email', 'contact_phone', 'website_url', 'logo_url', 'city', 'state',
     'description', 'cover_image_url', 'profile_data'];
   const sets = [];

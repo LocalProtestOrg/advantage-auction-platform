@@ -347,7 +347,7 @@ async function createBid(lotId, userId, { amount, maxBid, max_bid_cents }) {
       visible_cents:  resolution.visible_cents,
     };
 
-    console.log('CREATE BID SUCCESS', result);
+    console.log('CREATE BID SUCCESS', { lot_id: lotId, visible_cents: result.visible_cents, closes_at: result.closes_at });   // no account ids or amounts per bidder in logs
     return result;
 
   } catch (error) {

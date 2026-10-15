@@ -398,9 +398,15 @@
       return '$' + (c / 100).toFixed(2);
     }
 
+    // Escape every value before it goes into innerHTML: auction titles and seller fields are user-controlled
+    // (stored XSS in the admin session, security audit 2026-10-15).
+    function escH(v) {
+      return String(v == null ? '' : v).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; });
+    }
+
     function renderError(elId, err) {
       document.getElementById(elId).innerHTML =
-        '<div class="diag-error">' + (err && err.message ? err.message : 'Fetch failed') + '</div>';
+        '<div class="diag-error">' + escH(err && err.message ? err.message : 'Fetch failed') + '</div>';
     }
 
     // Recent Auctions
@@ -431,13 +437,13 @@
           rows.forEach(function (r) {
             var sellerCell = '-';
             if (r.seller_email) {
-              sellerCell = '<a href="mailto:' + r.seller_email + '" style="color:#2563eb">' + r.seller_email + '</a>';
-              if (r.seller_type) sellerCell += '<br><span style="font-size:0.7rem;color:#6b7280">' + r.seller_type + '</span>';
+              sellerCell = '<a href="mailto:' + escH(encodeURIComponent(r.seller_email)).replace(/%40/g, '@') + '" style="color:#2563eb">' + escH(r.seller_email) + '</a>';
+              if (r.seller_type) sellerCell += '<br><span style="font-size:0.7rem;color:#6b7280">' + escH(r.seller_type) + '</span>';
             }
-            html += '<tr><td>' + (r.title || '(untitled)') +
+            html += '<tr><td>' + escH(r.title || '(untitled)') +
               '</td><td>' + sellerCell +
-              '</td><td>' + r.state +
-              '</td><td>' + (r.lot_count != null ? r.lot_count : '-') +
+              '</td><td>' + escH(r.state) +
+              '</td><td>' + escH(r.lot_count != null ? r.lot_count : '-') +
               '</td><td>' + fmtDate(r.created_at) + '</td></tr>';
           });
           html += '</tbody></table>';
@@ -463,7 +469,7 @@
             '<th>Amount</th><th>Status</th><th>Created</th></tr></thead><tbody>';
           rows.slice(0, 10).forEach(function (r) {
             html += '<tr><td>' + fmtCents(r.amount_cents) +
-              '</td><td>' + (r.status || '-') +
+              '</td><td>' + escH(r.status || '-') +
               '</td><td>' + fmtDate(r.created_at) + '</td></tr>';
           });
           html += '</tbody></table>';
@@ -486,7 +492,7 @@
           if (statusRows.length) {
             html += '<table class="diag-table"><thead><tr><th>Status</th><th>Count</th></tr></thead><tbody>';
             statusRows.forEach(function (r) {
-              html += '<tr><td>' + r.status + '</td><td>' + r.count + '</td></tr>';
+              html += '<tr><td>' + escH(r.status) + '</td><td>' + escH(r.count) + '</td></tr>';
             });
             html += '</tbody></table>';
           } else {

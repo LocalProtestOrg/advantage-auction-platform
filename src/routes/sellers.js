@@ -213,6 +213,19 @@ router.post('/apply-professional', auth, async (req, res, next) => {
       if (phone.replace(/\D/g, '').length < 10) { await client.query('ROLLBACK'); return res.status(400).json({ success: false, message: 'Please enter a valid phone number.' }); }
     }
 
+    // An Individual Seller with an auction past draft cannot self-upgrade: Professional controls (editing after
+    // submission, reserves, starting bids, increments, premium) would otherwise reopen an auction that final submission
+    // locked. Advantage.Bid changes the seller type for them (security audit 2026-10-15).
+    if (existing && req.user.role !== 'admin') {
+      const prof = (await client.query(`SELECT seller_type FROM seller_profiles WHERE id = $1`, [existing.id])).rows[0];
+      const pastDraft = (await client.query(`SELECT 1 FROM auctions WHERE seller_id = $1 AND state <> 'draft' LIMIT 1`, [existing.id])).rowCount;
+      if (pastDraft && !PROFESSIONAL_SELLER_TYPES.includes(prof && prof.seller_type)) {
+        await client.query('ROLLBACK');
+        return res.status(409).json({ success: false, code: 'CONTACT_ADVANTAGE',
+          message: 'You already have a submitted auction as an Individual Seller. Please contact Advantage.Bid to change your seller type.' });
+      }
+    }
+
     let sellerProfileId;
     if (existing) {
       sellerProfileId = existing.id;

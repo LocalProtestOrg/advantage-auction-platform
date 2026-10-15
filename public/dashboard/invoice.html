@@ -250,11 +250,13 @@
       var when = inv.invoice_date || inv.created_at;
       date.textContent = when ? 'Purchased ' + formatDate(when) : 'Purchase date unavailable';
 
+      // Auction titles are seller-controlled: escape before innerHTML (stored XSS, security audit 2026-10-15).
+      function escH(v) { return String(v == null ? '' : v).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
       var meta = document.createElement('div');
       meta.style.cssText = 'font-size:.82rem;color:#475569';
       meta.innerHTML =
-        (inv.invoice_number ? '<div><strong>Invoice ' + inv.invoice_number + '</strong></div>' : '') +
-        (inv.auction_title ? '<div style="color:#94a3b8">' + inv.auction_title + '</div>' : '');
+        (inv.invoice_number ? '<div><strong>Invoice ' + escH(inv.invoice_number) + '</strong></div>' : '') +
+        (inv.auction_title ? '<div style="color:#94a3b8">' + escH(inv.auction_title) + '</div>' : '');
 
       var breakdown = document.createElement('div');
       breakdown.style.cssText = 'border-top:1px solid #eef2f7;padding-top:.75rem;margin-top:.25rem;display:flex;flex-direction:column;gap:.3rem';

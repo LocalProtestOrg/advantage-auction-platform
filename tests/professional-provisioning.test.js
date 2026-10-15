@@ -125,7 +125,9 @@ describe('professional-company events auto-publish (skip the review queue)', () 
     for (const t of ['auction_company', 'auction_house', 'estate_sale_company', 'professional_liquidator']) expect(ev).toContain(t);
   });
   test('submit() publishes directly for professional companies (member → published, no review)', () => {
-    expect(code).toMatch(/if \(AUTO_PUBLISH_ORG_TYPES\.has\(orgType\)\)/);
+    // VERIFIED professional organizations only: the org type is owner-editable (security audit 2026-10-15).
+    expect(code).toMatch(/const verifiedPro = AUTO_PUBLISH_ORG_TYPES\.has\(orgType\) && orgRow\[0\]\.verification_status === 'verified';/);
+    expect(code).toMatch(/if \(verifiedPro\) \{/);
     expect(code).toMatch(/SET status='published', submitted_at=now\(\), published_at=now\(\)/);
     expect(code).toMatch(/professional_company_auto_publish/);
   });

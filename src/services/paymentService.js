@@ -299,6 +299,16 @@ class PaymentService {
         throw new Error('Only winning bidder can create payment');
       }
 
+      // One way to pay per auction: when combined invoicing is on, or a combined invoice already exists for this buyer
+      // and auction, the lot is paid through that invoice. A per-lot charge here would bill the same lot twice
+      // (combined payments carry lot_id NULL, so the per-lot check below cannot see them; security audit 2026-10-15).
+      const combined = await client.query(
+        `SELECT status FROM buyer_auction_invoices WHERE auction_id = $1 AND buyer_user_id = $2 LIMIT 1`, [auctionId, userId]);
+      if (require('../lib/launchGuards').combinedInvoicingEnabled() || combined.rows[0]) {
+        const e = new Error('This lot is paid through your combined invoice for the auction. Please pay it from your Invoices page.');
+        e.status = 409; e.code = 'USE_COMBINED_INVOICE'; throw e;
+      }
+
       // Check if a completed payment already exists — block only on paid/refunded
       const existingPayment = await client.query(
         `SELECT id, status FROM payments

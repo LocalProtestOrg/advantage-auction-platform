@@ -72,7 +72,9 @@ async function aggregateBuyerTotals(auctionId, buyerUserId) {
       WHERE auction_id = $1
         AND winning_buyer_user_id = $2
         AND state = 'closed'
-        AND winning_amount_cents IS NOT NULL`,
+        AND winning_amount_cents IS NOT NULL
+        -- a lot the buyer already paid on its own (per-lot payment) is never billed again here (security audit 2026-10-15)
+        AND NOT EXISTS (SELECT 1 FROM payments p WHERE p.lot_id = lots.id AND p.buyer_user_id = $2 AND p.status IN ('paid', 'partially_refunded'))`,
     [auctionId, buyerUserId]
   );
   // The effective buyer-premium bps is authoritative (individual → fixed 18%; professional → their rate).

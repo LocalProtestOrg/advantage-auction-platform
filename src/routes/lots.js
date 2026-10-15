@@ -181,11 +181,16 @@ function validateDimensions(input) {
 
 // ── Bid sub-routes (must come before /:lotId to avoid shadowing) ─────────────
 
+// Bid data sent to browsers never carries account ids: the public bidding identity is the auction paddle number, and
+// a raw bidder_user_id lets anyone follow one person across lots and auctions (security audit 2026-10-15).
+const publicBid = (b, viewerId) => ({ id: b.id, amount_cents: b.amount_cents, amount: b.amount, is_proxy: !!b.is_proxy, created_at: b.created_at,
+  is_mine: !!viewerId && b.bidder_user_id === viewerId });
+
 // GET /api/lots/:lotId/bids
 router.get('/:lotId/bids', authMiddleware, async (req, res) => {
   try {
     const bids = await getBidsByLot(req.params.lotId);
-    res.json({ success: true, data: bids });
+    res.json({ success: true, data: bids.map((b) => publicBid(b, req.user.id)) });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
@@ -233,7 +238,9 @@ router.post('/:lotId/bids', authMiddleware, async (req, res) => {
 
     const { amount, maxBid, max_bid_cents } = req.body;
     const result = await createBid(req.params.lotId, req.user.id, { amount, maxBid, max_bid_cents });
-    return res.json({ success: true, data: result });
+    // Never return another bidder's account id (the resolved row can belong to the leading proxy bidder).
+    const { bidder_user_id: _b, winner_user_id: winnerId, prev_winner_user_id: _p, ...rest } = result || {};
+    return res.json({ success: true, data: { ...rest, viewer_is_high_bidder: winnerId === req.user.id } });
   } catch (err) {
     return res.status(400).json({ success: false, message: err.message });
   }

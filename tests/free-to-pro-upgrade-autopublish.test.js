@@ -62,7 +62,9 @@ describe('Professional Seller upgrade panel', () => {
 describe('professional estate-sale / event auto-publish', () => {
   const ev = read('src', 'services', 'eventsService.js');
   test('a professional org type publishes events directly (no admin review queue)', () => {
-    expect(ev).toMatch(/if \(AUTO_PUBLISH_ORG_TYPES\.has\(orgType\)\)/);
+    // VERIFIED professional organizations only: the org type is owner-editable (security audit 2026-10-15).
+    expect(ev).toMatch(/const verifiedPro = AUTO_PUBLISH_ORG_TYPES\.has\(orgType\) && orgRow\[0\]\.verification_status === 'verified';/);
+    expect(ev).toMatch(/if \(verifiedPro\) \{/);
     expect(ev).toMatch(/status='published', submitted_at=now\(\), published_at=now\(\)/);
     expect(ev).toMatch(/reason: 'professional_company_auto_publish'/);
   });

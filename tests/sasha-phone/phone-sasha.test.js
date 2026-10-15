@@ -260,8 +260,8 @@ describe('account verification (4-digit codes)', () => {
     expect(r.session).toBeNull();
     const v = await q(`SELECT status, attempts FROM cs_phone_verifications WHERE call_id = $1 ORDER BY created_at`, [s.call_id]);
     expect(v[0]).toMatchObject({ status: 'failed', attempts: 3 });
-    await q(`INSERT INTO cs_phone_verifications (call_id, target_user_id, identifier_type, identifier_hash, provider, status, expires_at)
-      VALUES ($1,$2,'email','x','local_test','failed', now())`, [s.call_id, u.id]);
+    await q(`INSERT INTO cs_phone_verifications (call_id, target_user_id, identifier_type, identifier_hash, provider, status, attempts, expires_at)
+      VALUES ($1,$2,'email','x','local_test','failed', 3, now())`, [s.call_id, u.id]);
     const m2 = model([startStep({ email: u.email }), { text: 'If that matches, a code is coming.' }]);
     const s2 = await startCall(m2.client);
     await sim.say(s2.call_id, ADMIN, 'email ' + u.email);
@@ -1081,5 +1081,24 @@ describe('pickup seller category and lot search', () => {
     expect(none.lot_search.note).toMatch(/never talk about it as if it exists/);
     const one = await tools.run('get_auction_or_lot', { auction_id: a.id, lot_words: 'walnut dresser' }, ctx);
     expect(one.lot && one.lot.title).toBe('Walnut Dresser');
+  });
+});
+
+// Security audit 2026-10-15: abandoning a code before its last attempt must not reset the wrong-guess lockout.
+describe('phone verification lockout cannot be bypassed by abandoning codes', () => {
+  const startStep = (input) => ({ tools: [{ name: 'start_account_verification', input }] });
+  test('wrong guesses on superseded codes count: after two codes worth of wrong guesses, no new code is sent', async () => {
+    const u = await user({ phone: '(551) 610-5099', verified: true });
+    const s0 = await startCall(model([{ text: 'x' }]).client);
+    // Three abandoned codes with two wrong guesses each (6 wrong guesses, none of them "exhausted").
+    for (let i = 0; i < 3; i++) {
+      await q(`INSERT INTO cs_phone_verifications (call_id, target_user_id, identifier_type, identifier_hash, provider, status, attempts, expires_at)
+        VALUES ($1,$2,'email','x','local_test','superseded', 2, now())`, [s0.call_id, u.id]);
+    }
+    const m = model([startStep({ email: u.email }), { text: 'If that matches, a code is coming.' }]);
+    const s = await startCall(m.client);
+    await sim.say(s.call_id, ADMIN, 'email ' + u.email);
+    expect(sent(await sim.state(s.call_id, ADMIN))).toBe(0);
+    expect((await q(`SELECT status FROM cs_phone_verifications WHERE call_id = $1`, [s.call_id]))[0].status).toBe('locked');
   });
 });

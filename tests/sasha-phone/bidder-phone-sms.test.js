@@ -123,7 +123,7 @@ describe('account phone verification (website, 4-digit)', () => {
     for (let i = 0; i < 5; i++) await phone.start((await user({})).id, { phone: shared }, { sender: sender().s });
     await expect(phone.start((await user({})).id, { phone: shared }, { sender: sender().s })).rejects.toMatchObject({ code: 'RATE_LIMITED' });
     const v = await user({});
-    await q(`INSERT INTO account_phone_verifications (user_id, phone_e164, phone_hash, provider, status, expires_at) VALUES ($1,'+15550000000','h','local_test','failed', now()),($1,'+15550000000','h','local_test','failed', now())`, [v.id]);
+    await q(`INSERT INTO account_phone_verifications (user_id, phone_e164, phone_hash, provider, status, attempts, expires_at) VALUES ($1,'+15550000000','h','local_test','failed', 3, now()),($1,'+15550000000','h','local_test','failed', 3, now())`, [v.id]);
     await expect(phone.start(v.id, { phone: freshNumber() }, { sender: sender().s })).rejects.toMatchObject({ code: 'LOCKED' });
   });
   test('invalid, international and fictional numbers are refused', async () => {
@@ -631,5 +631,21 @@ describe('versioned consent, STOP / START / HELP sync and the do-not-text list',
     expect(privacy).toMatch(/We do not sell, rent, or share your mobile phone number, or your text message opt-in data and consent, with third parties or affiliates for their marketing or promotional purposes\./);
     expect(privacy).toMatch(/with service providers who deliver our text messages/);
     for (const doc of [terms, privacy]) { expect(doc).toMatch(/Message frequency varies/); expect(doc).toMatch(/Reply STOP/); expect(doc).toMatch(/HELP/); }
+  });
+});
+
+// Security audit 2026-10-15: abandoning a code before its last attempt (asking for a new one) must not reset the lockout.
+describe('wrong-guess lockout cannot be bypassed by abandoning codes', () => {
+  test('website: wrong guesses on superseded and expired codes count toward the lockout', async () => {
+    const v = await user({});
+    await q(`INSERT INTO account_phone_verifications (user_id, phone_e164, phone_hash, provider, status, attempts, expires_at) VALUES
+      ($1,'+15550000000','h','local_test','superseded', 2, now()), ($1,'+15550000000','h','local_test','superseded', 2, now()), ($1,'+15550000000','h','local_test','expired', 2, now())`, [v.id]);
+    await expect(phone.start(v.id, { phone: freshNumber() }, { sender: sender().s })).rejects.toMatchObject({ code: 'LOCKED' });
+  });
+  test('website: a verified (approved) code and codes with no wrong guesses never lock', async () => {
+    const v = await user({});
+    await q(`INSERT INTO account_phone_verifications (user_id, phone_e164, phone_hash, provider, status, attempts, expires_at) VALUES
+      ($1,'+15550000000','h','local_test','approved', 2, now()), ($1,'+15550000000','h','local_test','superseded', 0, now())`, [v.id]);
+    await expect(phone.start(v.id, { phone: freshNumber() }, { sender: sender().s })).resolves.toMatchObject({ sent: true });
   });
 });

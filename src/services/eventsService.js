@@ -185,8 +185,11 @@ async function updateDraft(userId, eventId, input = {}) {
 async function submit(userId, eventId) {
   return withTransaction(async (client) => {
     const ev = await loadOwnedEvent(client, eventId, userId);
-    const { rows: orgRow } = await client.query('SELECT type FROM organizations WHERE id=$1', [ev.organization_id]);
+    const { rows: orgRow } = await client.query('SELECT type, verification_status FROM organizations WHERE id=$1', [ev.organization_id]);
     const orgType = orgRow[0] && orgRow[0].type;
+    // The org type is owner-editable, so it alone never skips review: only a VERIFIED professional organization
+    // auto-publishes (security audit 2026-10-15). An unverified professional org's events go to the review queue.
+    const verifiedPro = AUTO_PUBLISH_ORG_TYPES.has(orgType) && orgRow[0].verification_status === 'verified';
     // Decision #2: a PROFESSIONAL organization may publish its own estate sales through the org portal
     // using its FREE event allowance — event type is NOT a proxy for account type. An INDIVIDUAL /
     // non-professional org still uses the paid one-time $39 Estate Sale Promotion (a different customer +
@@ -204,8 +207,8 @@ async function submit(userId, eventId) {
       throw svcErr(422, 'ACTIVE_EVENT_LIMIT',
         `Your plan allows ${plan.max_active_events} active events. Archive one to submit another.`);
     }
-    // Professional companies skip the review queue: their events go member → published directly.
-    if (AUTO_PUBLISH_ORG_TYPES.has(orgType)) {
+    // VERIFIED professional companies skip the review queue: their events go member → published directly.
+    if (verifiedPro) {
       const { rows } = await client.query(
         `UPDATE events SET status='published', submitted_at=now(), published_at=now(), review_reason=NULL, updated_at=now()
           WHERE id=$1 RETURNING *`, [eventId]);

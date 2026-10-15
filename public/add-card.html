@@ -43,7 +43,8 @@
   <script>
     const token = localStorage.getItem('token');
     const params = new URLSearchParams(location.search);
-    const next = params.get('next') || '/';
+    function safeInternalNext(raw, fallback) { try { if (!raw || !/^\/(?!\/)[^\s]*$/.test(raw)) return fallback; var u = new URL(raw, location.origin); return u.origin === location.origin ? (u.pathname + u.search + u.hash) : fallback; } catch (e) { return fallback; } }   // same-origin path only (no javascript:, //host, /\host or tab tricks; security audit 2026-10-15)
+    const next = safeInternalNext(params.get('next'), '/');
     const loading = document.getElementById('loading');
     const form = document.getElementById('pay-form');
     const msg = document.getElementById('msg');

@@ -140,8 +140,11 @@ async function start(call, { email = null, phone = null, prefer = null } = {}, d
   const found = await findAccount({ email, phone });
   if (found.status !== 'found') return finish(found.status);
   const user = found.user;
-  if (await n(`SELECT count(*)::int n FROM cs_phone_verifications WHERE target_user_id = $1 AND status = 'failed'
-    AND created_at > now() - ($2 || ' minutes')::interval`, [user.id, String(s.lockout_minutes)]) >= 2) return finish('locked', { userId: user.id });
+  // Lockout counts WRONG GUESSES across all of this account's codes in the window, including codes the caller abandoned
+  // by asking for a new one (superseded) or let expire: otherwise guessing all but the last attempt and starting again
+  // never locks (security audit 2026-10-15). Threshold = two full codes' worth of wrong guesses, as before.
+  if (await n(`SELECT coalesce(sum(attempts), 0)::int n FROM cs_phone_verifications WHERE target_user_id = $1 AND status <> 'approved'
+    AND created_at > now() - ($2 || ' minutes')::interval`, [user.id, String(s.lockout_minutes)]) >= 2 * s.code_max_attempts) return finish('locked', { userId: user.id });
   if (await n(`SELECT count(*)::int n FROM cs_phone_verifications WHERE target_user_id = $1 AND status IN ('sent','approved','failed','expired','superseded')
     AND provider <> 'none' AND created_at > now() - interval '30 minutes'`, [user.id]) >= s.code_max_sends_per_30min) return finish('locked', { userId: user.id });
 

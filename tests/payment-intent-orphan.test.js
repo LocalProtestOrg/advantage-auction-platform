@@ -87,6 +87,10 @@ describe('createPaymentIntent — Sub-batch 2 reorder', () => {
       if (/SELECT id, status FROM payments\s+WHERE lot_id = \$1 AND buyer_user_id = \$2 AND status IN/.test(sql)) {
         return { rows: [] };
       }
+      // No combined invoice for this buyer/auction (combined invoicing off in this test), so the per-lot path proceeds.
+      if (/SELECT status FROM buyer_auction_invoices WHERE auction_id = \$1 AND buyer_user_id = \$2/.test(sql)) {
+        return { rows: [] };
+      }
       if (/UPDATE payments\s+SET status = 'failed'/.test(sql)) {
         return { rowCount: 0 };
       }
@@ -281,5 +285,33 @@ describe('_handlePaymentIntentSucceeded — webhook intent lookup ordering', () 
     await expect(
       paymentService._handlePaymentIntentSucceeded({ id: 'pi_test', metadata: {} })
     ).rejects.toThrow('stop');
+  });
+});
+
+// Security audit 2026-10-15: a lot must never be charged twice (per-lot "Pay Now" plus the combined invoice).
+describe('per-lot charge is refused when the auction is paid through a combined invoice', () => {
+  const paymentService = require('../src/services/paymentService');
+  const db = require('../src/db');
+  const mkClient = (combinedRow) => ({ release: jest.fn(), query: jest.fn(async (sql) => {
+    if (/^(BEGIN|COMMIT|ROLLBACK)$/.test(sql)) return { rowCount: 0 };
+    if (/FROM lots WHERE id/.test(sql)) return { rows: [{ state: 'closed', winning_buyer_user_id: 'buyer-1', winning_amount_cents: 5000 }] };
+    if (/FROM buyer_auction_invoices WHERE auction_id = \$1 AND buyer_user_id = \$2/.test(sql)) return { rows: combinedRow ? [combinedRow] : [] };
+    if (/FROM payments\s+WHERE lot_id/.test(sql)) return { rows: [] };
+    if (/SELECT a\.buyer_premium_bps/.test(sql)) return { rows: [{ seller_type: 'private' }] };
+    throw new Error('should not reach: ' + String(sql).slice(0, 60));
+  }) });
+  afterEach(() => { delete process.env.COMBINED_INVOICING_ENABLED; });
+  test('a combined invoice exists for this buyer and auction: 409 USE_COMBINED_INVOICE, nothing charged', async () => {
+    db.connect.mockImplementation(async () => mkClient({ status: 'paid' }));
+    await expect(paymentService.createPaymentIntent('buyer-1', 'auction-1', 'lot-1', 'idem-1')).rejects.toMatchObject({ status: 409, code: 'USE_COMBINED_INVOICE' });
+  });
+  test('combined invoicing is on: per-lot charge refused even before the invoice is issued', async () => {
+    process.env.COMBINED_INVOICING_ENABLED = 'true';
+    db.connect.mockImplementation(async () => mkClient(null));
+    await expect(paymentService.createPaymentIntent('buyer-1', 'auction-1', 'lot-1', 'idem-2')).rejects.toMatchObject({ code: 'USE_COMBINED_INVOICE' });
+  });
+  test('the combined total excludes lots the buyer already paid on their own', () => {
+    const src = require('fs').readFileSync(require('path').join(__dirname, '..', 'src', 'services', 'combinedInvoiceService.js'), 'utf8');
+    expect(src).toMatch(/AND NOT EXISTS \(SELECT 1 FROM payments p WHERE p\.lot_id = lots\.id AND p\.buyer_user_id = \$2 AND p\.status IN \('paid', 'partially_refunded'\)\)/);
   });
 });

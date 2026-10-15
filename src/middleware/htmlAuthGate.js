@@ -81,9 +81,20 @@ function safeNext(originalUrl) {
   return originalUrl;
 }
 
+// Match on the path the static server will actually serve: express.static decodes percent-escapes and normalizes,
+// so "/%61dmin/staff.html" or "/admin/../admin/x.html" must be gated like "/admin/staff.html" (security audit
+// 2026-10-15). A path that cannot be decoded is refused rather than passed through.
+function servedPath(p) {
+  let d;
+  try { d = decodeURIComponent(p); } catch (_e) { return null; }
+  return require('path').posix.normalize(d);
+}
+
 module.exports = async function htmlAuthGate(req, res, next) {
   if (req.method !== 'GET' && req.method !== 'HEAD') return next();
-  const roles = requirement(req.path);
+  const served = servedPath(req.path);
+  if (served === null) return res.status(400).end();
+  const roles = requirement(served);
   if (!roles) return next(); // public page/asset — let static serve it
 
   res.set('Cache-Control', 'no-store, must-revalidate');

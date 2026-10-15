@@ -24,10 +24,21 @@ async function timingHash() {
 }
 
 // Register
+// Exactly ONE plain address: the welcome/verification email is sent to this string, and a list ("a@x.com, b@y.com")
+// would mail every recipient from our domain (security audit 2026-10-15).
+const SINGLE_EMAIL = /^[^\s@,;<>()"']+@[^\s@,;<>()"']+\.[^\s@,;<>()"']+$/;
+
 router.post('/register', normalLimiter, async (req, res) => {
-  const { email, password } = req.body;
+  const { password } = req.body;
+  const email = typeof req.body.email === 'string' ? req.body.email.trim() : '';
   if (!email || !password) {
     return res.status(400).json({ success: false, error: 'Email and password required' });
+  }
+  if (email.length > 254 || !SINGLE_EMAIL.test(email)) {
+    return res.status(400).json({ success: false, error: 'Please enter a single valid email address' });
+  }
+  if (typeof password !== 'string') {
+    return res.status(400).json({ success: false, error: 'Password must be at least 8 characters' });
   }
   if (password.length < 8) {
     return res.status(400).json({ success: false, error: 'Password must be at least 8 characters' });

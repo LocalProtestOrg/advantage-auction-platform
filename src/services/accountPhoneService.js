@@ -82,7 +82,9 @@ async function start(userId, { phone, currentPassword = null, ip = null } = {}, 
   const phoneHash = identifierHash(n.e164);
   const ipHash = ip ? identifierHash('ip:' + ip) : null;
   const q1 = async (sql, p) => Number((await db.query(sql, p)).rows[0].n);
-  if (await q1(`SELECT count(*)::int n FROM account_phone_verifications WHERE user_id = $1 AND status = 'failed' AND created_at > now() - interval '${LOCK_MIN} minutes'`, [userId]) >= 2) {
+  // Wrong guesses across ALL of this account's codes in the window (abandoned/superseded and expired codes included), so
+  // requesting a new code before the last attempt never resets the count (security audit 2026-10-15).
+  if (await q1(`SELECT coalesce(sum(attempts), 0)::int n FROM account_phone_verifications WHERE user_id = $1 AND status <> 'approved' AND created_at > now() - interval '${LOCK_MIN} minutes'`, [userId]) >= 2 * MAX_ATTEMPTS) {
     throw new PhoneError('LOCKED', 'Too many incorrect codes. Please wait an hour and try again.', 429);
   }
   if (await q1(`SELECT count(*)::int n FROM account_phone_verifications WHERE user_id = $1 AND created_at > now() - interval '30 minutes'`, [userId]) >= SENDS_PER_30

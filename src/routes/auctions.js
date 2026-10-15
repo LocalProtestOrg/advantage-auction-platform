@@ -72,7 +72,9 @@ router.post('/', authMiddleware, async (req, res) => {
     const auction = await auctionService.createAuction({
       sellerId: sellerProfileId,
       title, subtitle, description,
-      state: state || 'draft',
+      // Only admins may create an auction in another state: sellers always start in draft, so review, the 30-lot
+      // minimum, verification and compliance gates cannot be skipped (security audit 2026-10-15).
+      state: req.user.role === 'admin' ? (state || 'draft') : 'draft',
       startTime, endTime,
       streetAddress, city, addressState, zip,
       previewStart, previewEnd,
