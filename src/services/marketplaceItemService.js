@@ -10,9 +10,11 @@
  * Eligibility for one-button conversion = the authoritative UNSOLD set: lot closed, not withdrawn, no
  * winner, and no live/completed payment. Conversion is idempotent (unique source_lot_id) and transactional.
  *
- * This layer does NOT implement on-platform fixed-price CHECKOUT (that is a separate Stripe/payment
- * decision, deliberately deferred): a listing is a public, priced inventory record shown on the seller's
- * storefront + marketplace feed with a "contact seller to purchase" path.
+ * Checkout (Buy Now) lives in marketplaceOrderService and is gated by MARKETPLACE_CHECKOUT_ENABLED; while it is off a
+ * listing is a public, priced inventory record with a "contact seller" path.
+ *
+ * Inventory safety (storefront milestone 1): an item a buyer has reserved (checkout hold) or bought cannot be changed by
+ * the seller - no price, title, shipping, location or status change - and a sold item can never be put back on sale.
  */
 
 const db = require('../db');
@@ -21,6 +23,7 @@ const { withTransaction } = require('../utils/withTransaction');
 // never the buyer-branding list (which also includes the self-serve 'business' Individual Seller type).
 const { brandingVisible } = require('../lib/sellerBranding');
 const { isProfessional } = require('./sellerTypeRules');
+const { PROFESSIONAL_SELLER_TYPES } = require('../constants/sellerTypes');
 const saleLocation = require('../lib/saleLocation');
 
 function err(status, code, message) { const e = new Error(message); e.status = status; e.code = code; return e; }
@@ -200,13 +203,42 @@ async function createDirectListing(actingUserId, data = {}) {
   return rows[0];
 }
 
+// Status changes a seller may make. 'pending_purchase' is set only by checkout; 'sold' may be set by the seller for an
+// item sold elsewhere (and by a paid order); a sold item may only be removed from view.
+const SELLER_TRANSITIONS = {
+  draft: ['draft', 'active', 'removed', 'sold'],
+  active: ['active', 'draft', 'removed', 'sold'],
+  removed: ['removed', 'draft', 'active'],
+  sold: ['sold', 'removed'],
+  pending_purchase: [],
+};
+
 async function updateItem(id, actingUserId, patch = {}) {
   const seller = await sellerForUser(actingUserId);
   if (!seller) throw err(403, 'NOT_A_SELLER', 'No seller profile.');
-  const item = (await db.query('SELECT * FROM marketplace_items WHERE id = $1', [id])).rows[0];
+  if (!isProfessional(seller.seller_type)) throw err(403, 'NOT_PROFESSIONAL', 'Marketplace listings are for Professional Sellers.');
+  return withTransaction(async (client) => {
+  // Locked: checkout claims the same row FOR UPDATE, so an edit and a purchase can never interleave.
+  const item = (await client.query('SELECT * FROM marketplace_items WHERE id = $1 FOR UPDATE', [id])).rows[0];
   if (!item) throw err(404, 'NOT_FOUND', 'Listing not found.');
   if (item.seller_id !== seller.id) throw err(403, 'NOT_OWNER', 'Not your listing.');
-  if (!isProfessional(seller.seller_type)) throw err(403, 'NOT_PROFESSIONAL', 'Marketplace listings are for Professional Sellers.');
+  const orders = (await client.query(
+    `SELECT count(*) FILTER (WHERE payment_status IN ('pending','processing'))::int AS live,
+            count(*) FILTER (WHERE payment_status = 'paid')::int AS paid
+       FROM marketplace_orders WHERE marketplace_item_id = $1`, [id])).rows[0] || { live: 0, paid: 0 };
+  if (item.status === 'pending_purchase' || orders.live > 0) {
+    throw err(409, 'ITEM_RESERVED', "A buyer is checking out this item, so it can't be changed right now. Try again in a few minutes.");
+  }
+  if (patch.status != null) {
+    if (!['draft', 'active', 'sold', 'removed'].includes(patch.status)) throw err(400, 'INVALID_STATUS', 'That status is not available.');
+    const allowed = SELLER_TRANSITIONS[item.status] || [];
+    if (!allowed.includes(patch.status) || (orders.paid > 0 && ['draft', 'active'].includes(patch.status))) {
+      throw err(409, 'ITEM_SOLD', 'This item has been sold. It can be removed from view but not offered again.');
+    }
+  }
+  if ((item.status === 'sold' || orders.paid > 0) && Object.keys(patch).some((k) => k !== 'status' && patch[k] !== undefined)) {
+    throw err(409, 'ITEM_SOLD', 'This item has been sold, so its details are kept as they were at the sale.');
+  }
   const sets = []; const vals = [id]; const add = (col, v) => { vals.push(v); sets.push(`${col} = $${vals.length}`); };
   if (patch.title != null) add('title', String(patch.title).trim());
   if (patch.description != null) add('description', patch.description);
@@ -215,7 +247,7 @@ async function updateItem(id, actingUserId, patch = {}) {
   if (patch.condition != null) add('condition', patch.condition);
   if (patch.shippable != null) add('shippable', !!patch.shippable);
   if (patch.shipping_cost_cents != null) add('shipping_cost_cents', parseInt(patch.shipping_cost_cents, 10));
-  if (patch.status != null && ['draft', 'active', 'sold', 'removed'].includes(patch.status)) add('status', patch.status);
+  if (patch.status != null) add('status', patch.status);
   // Location changes affect THIS item only — never the seller's default or any other item.
   let eff = saleLocation.forItem({ ...seller, ...item });
   const locationChanged = hasPickupInput(patch) || patch.use_storefront_location === true;
@@ -244,8 +276,9 @@ async function updateItem(id, actingUserId, patch = {}) {
     if (eff.missing && eff.missing.length) throw pickupRequiredError(eff.missing);
   }
   if (!sets.length) return item;
-  const { rows } = await db.query(`UPDATE marketplace_items SET ${sets.join(', ')}, updated_at = now() WHERE id = $1 RETURNING *`, vals);
+  const { rows } = await client.query(`UPDATE marketplace_items SET ${sets.join(', ')}, updated_at = now() WHERE id = $1 RETURNING *`, vals);
   return rows[0];
+  });
 }
 
 // Seller's own listings (all statuses).
@@ -266,8 +299,12 @@ async function listForSeller(sellerId, runner = db) {
 // Public active listings for a seller (storefront + feed).
 async function listPublicForSeller(sellerId, limit = 200, runner = db) {
   const { rows } = await runner.query(
-    "SELECT id, seller_id, title, price_cents, thumbnail_url, images, city, state, shippable, pickup_group, category, condition, status, source_lot_id, created_at FROM marketplace_items WHERE seller_id = $1 AND status = 'active' ORDER BY created_at DESC LIMIT $2",
-    [sellerId, limit]);
+    `SELECT mi.id, mi.seller_id, mi.title, mi.price_cents, mi.thumbnail_url, mi.images, mi.city, mi.state, mi.shippable, mi.pickup_group,
+            mi.category, mi.condition, mi.status, mi.source_lot_id, mi.created_at
+       FROM marketplace_items mi JOIN seller_profiles sp ON sp.id = mi.seller_id
+      WHERE mi.seller_id = $1 AND mi.status = 'active' AND sp.seller_type = ANY($3::text[])
+      ORDER BY mi.created_at DESC LIMIT $2`,
+    [sellerId, limit, PROFESSIONAL_SELLER_TYPES]);
   return rows;
 }
 async function getPublicItem(id, runner = db) {
@@ -278,7 +315,7 @@ async function getPublicItem(id, runner = db) {
     `SELECT mi.*, sp.storefront_slug, sp.seller_type, sp.show_branding_to_buyers,
             COALESCE(sp.display_name, sp.metadata->>'display_name', sp.metadata->>'business_name') AS seller_name
        FROM marketplace_items mi JOIN seller_profiles sp ON sp.id = mi.seller_id
-      WHERE mi.id = $1 AND mi.status IN ('active','pending_purchase','sold')`, [id]);
+      WHERE mi.id = $1 AND mi.status IN ('active','pending_purchase','sold') AND sp.seller_type = ANY($2::text[])`, [id, PROFESSIONAL_SELLER_TYPES]);   // Professional Sellers only
   return rows[0] ? publicItem(rows[0]) : null;
 }
 // Public shape of an item — an ALLOW-LIST, so a column added later is private until someone deliberately publishes it.

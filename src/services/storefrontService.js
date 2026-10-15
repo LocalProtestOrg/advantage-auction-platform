@@ -158,9 +158,13 @@ async function resolveBySlug(slug, runner = db) {
   return rows[0] || null;
 }
 
+// A storefront is public only when the seller published it AND is a Professional Seller (storefronts are a Professional
+// feature; a seller whose type changes stops being public without anyone unpublishing by hand).
+function isPublicStorefront(sp) { return !!(sp && sp.storefront_published && isProfessional(sp.seller_type)); }
+
 async function getPublicData(slug) {
   const sp = await resolveBySlug(slug);
-  if (!sp || !sp.storefront_published) throw err(404, 'STOREFRONT_NOT_FOUND', 'Storefront not found.');
+  if (!isPublicStorefront(sp)) throw err(404, 'STOREFRONT_NOT_FOUND', 'Storefront not found.');
   const cfg = sp.storefront || {};
   const [auctions, past, items, followers, events] = await Promise.all([
     db.query(`SELECT id, title, subtitle, city, address_state AS state, start_time, end_time, state AS auction_state,
@@ -214,7 +218,7 @@ async function getPublicData(slug) {
 // SSR metadata + JSON-LD for /pro/:slug (mirrors shareMeta). Draft/demo → noindex.
 async function ssrMeta(slug) {
   const sp = await resolveBySlug(slug);
-  if (!sp || !sp.storefront_published) return null;
+  if (!isPublicStorefront(sp)) return null;
   const cfg = sp.storefront || {};
   const name = sellerName(sp);
   const loc = sp.location_label || cfg.service_area || sellerMetaVal(sp, 'service_area') || '';
@@ -234,4 +238,5 @@ async function ssrMeta(slug) {
   return { title, description: desc, canonical, image, jsonld, noindex: !!sp.is_demo, name, loc };
 }
 
-module.exports = { sanitizeConfig, getOwnerConfig, updateConfig, setDefaultPickupLocation, getPublicData, ssrMeta, resolveBySlug, sellerName, slugify, clean };
+module.exports = {
+  isPublicStorefront, sanitizeConfig, getOwnerConfig, updateConfig, setDefaultPickupLocation, getPublicData, ssrMeta, resolveBySlug, sellerName, slugify, clean };

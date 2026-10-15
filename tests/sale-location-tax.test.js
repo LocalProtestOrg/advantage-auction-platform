@@ -127,10 +127,14 @@ describe('Professional Seller default storefront location: confirm once, items i
   const DEFAULT_HOU = { default_pickup_address_line1: '2100 Warehouse Rd', default_pickup_address_line2: null, default_pickup_city: 'Houston',
     default_pickup_state: 'TX', default_pickup_postal_code: '77020', default_pickup_country: 'US', default_pickup_confirmed_at: '2026-09-28T12:00:00Z' };
   const PRO = { id: 'sp1', user_id: 'u1', seller_type: 'estate_sale_company', is_demo: false, unsold_price_policy: null };
-  const route = (handlers) => db.query.mockImplementation(async (sql, params) => {
-    for (const [re, out] of handlers) if (re.test(sql)) return typeof out === 'function' ? out(params, sql) : out;
-    return { rows: [], rowCount: 0 };
-  });
+  const route = (handlers) => {
+    db.query.mockImplementation(async (sql, params) => {
+      for (const [re, out] of handlers) if (re.test(sql)) return typeof out === 'function' ? out(params, sql) : out;
+      return { rows: [], rowCount: 0 };
+    });
+    // Item edits run in a locked transaction (storefront milestone 1); the client answers from the same routes.
+    db.connect.mockResolvedValue({ query: (sql, params) => db.query(sql, params), release: () => {} });
+  };
   const storefront = require('../src/services/storefrontService');
 
   test('the seller confirms the default location once (complete address required); items that use it follow it', async () => {

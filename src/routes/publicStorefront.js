@@ -37,7 +37,7 @@ router.get('/:slug', async (req, res, next) => {
 router.post('/:slug/inquiry', express.json(), async (req, res, next) => {
   try {
     const sp = await storefront.resolveBySlug(req.params.slug);
-    if (!sp || !sp.storefront_published) return res.status(404).json({ success: false, message: 'Storefront not found.' });
+    if (!storefront.isPublicStorefront(sp)) return res.status(404).json({ success: false, message: 'Storefront not found.' });
     const b = req.body || {};
     const name = clean(b.name, 120); const email = clean(b.email, 160); const phone = clean(b.phone, 40);
     const message = clean(b.message, 2000);

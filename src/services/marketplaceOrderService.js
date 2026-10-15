@@ -216,6 +216,8 @@ async function createOrder(itemId, buyerUserId, opts = {}) {
     if (item.status !== 'active') throw err(409, 'NOT_AVAILABLE', 'This item is no longer available for purchase.');
     const b = computeBreakdown({ itemPriceCents: item.price_cents, shippingCents, taxCents: 0, feeBps });
     const shipTo = shipToObj ? JSON.stringify(shipToObj) : null;
+    // The database allows one live order per item (uq_marketplace_orders_live_item); if one already exists the buyer
+    // gets a clean "not available" instead of a server error.
     const inserted = await client.query(
       `INSERT INTO marketplace_orders
          (marketplace_item_id, seller_id, buyer_user_id, item_price_cents, shipping_cents, tax_cents,
@@ -225,7 +227,8 @@ async function createOrder(itemId, buyerUserId, opts = {}) {
        RETURNING *`,
       [itemId, item.seller_id, buyerUserId, b.item_price_cents, b.shipping_cents,
        b.platform_fee_bps, b.platform_fee_cents, b.seller_proceeds_cents, b.total_charge_cents,
-       method, shipTo, !!item.is_demo, opts.idempotencyKey || null]);
+       method, shipTo, !!item.is_demo, opts.idempotencyKey || null])
+      .catch((e) => { if (e && e.code === '23505' && /live_item/.test(e.constraint || e.message || '')) throw err(409, 'NOT_AVAILABLE', 'This item is no longer available for purchase.'); throw e; });
     order = inserted.rows[0];
     await client.query(
       `UPDATE marketplace_items
