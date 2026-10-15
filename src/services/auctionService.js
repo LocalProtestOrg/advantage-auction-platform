@@ -365,17 +365,14 @@ async function updateAuction(auctionId, userId, updates, actorRole, options = {}
   // range check. No individual-fixed-18% guard is needed here because individuals never reach
   // this branch — buyer_premium_bps is not in their effectiveAllowed, so it is dropped for them.
   if (isProAuthor && updates.buyer_premium_bps !== undefined && updates.buyer_premium_bps !== null) {
-    const bp = Number(updates.buyer_premium_bps);
-    if (!Number.isInteger(bp) || bp < 0 || bp > 2500) {
-      throw new Error('Buyer premium must be a whole number between 0% and 25%.');
-    }
+    assertProfessionalPremiumBps(updates.buyer_premium_bps);
   }
 
   // Phase 4: validate + normalize admin-only settings.
   if (actorRole === 'admin') {
     if (updates.buyer_premium_bps !== undefined && updates.buyer_premium_bps !== null) {
       const bp = Number(updates.buyer_premium_bps);
-      if (!Number.isInteger(bp) || bp < 0 || bp > 2500) throw new Error('buyer_premium_bps must be an integer 0-2500 (basis points; 0-25%)');
+      assertProfessionalPremiumBps(bp);   // same 0-100% whole-percent rule as the Professional self-service path
       // INDIVIDUAL sellers have a FIXED 18% buyer premium (100% Advantage revenue) — reject any override
       // attempt at write time. Server-authoritative; resolveEffectiveTerms also ignores a stored override
       // for individuals as defense-in-depth, so the charged rate is 18% even if this were bypassed.
@@ -440,6 +437,13 @@ async function updateAuction(auctionId, userId, updates, actorRole, options = {}
     for (const k of ACTIVE_LOCKED) {
       if (updates[k] !== undefined) throw new Error('Bidding and price fields are locked once the auction is active.');
     }
+  }
+  // The buyer's premium is frozen at publication (owner policy 2026-10-15: preserve the premium on every published
+  // auction), so it cannot change once the auction is published, for anyone.
+  if (['published', 'closed'].includes(curState) && updates.buyer_premium_bps !== undefined) {
+    const e = new Error("The buyer's premium is fixed once an auction is published.");
+    e.code = 'BUYER_PREMIUM_LOCKED'; e.status = 409;
+    throw e;
   }
 
   const fields = [];
@@ -695,6 +699,34 @@ async function getAuctionById(auctionId, userId) {
   return result.rows[0] || null;
 }
 
+// ── Professional buyer's premium (owner policy 2026-10-15) ───────────────────────────────────────────────
+// Professional Sellers choose their buyer's premium: any WHOLE percentage from 0% through 100% (0-10000 bps in steps of
+// 100). No platform-wide ceiling; a seller-specific limit would come from that seller's agreement (none define one
+// today). Individual Sellers are unchanged: fixed 18%, no override.
+function assertProfessionalPremiumBps(value) {
+  const bp = Number(value);
+  if (!Number.isInteger(bp) || bp < 0 || bp > 10000 || bp % 100 !== 0) {
+    const e = new Error("Buyer's premium must be a whole percentage from 0% to 100%.");
+    e.code = 'INVALID_BUYER_PREMIUM'; e.status = 400;
+    throw e;
+  }
+  return bp;
+}
+
+// A Professional auction needs a premium the seller chose: the auction's own rate, or the seller's current default
+// terms (seller_terms). Individual auctions always pass (fixed 18%).
+async function assertProfessionalPremiumChosen(auctionId, runner = db) {
+  const r = (await runner.query(
+    `SELECT sp.seller_type, a.buyer_premium_bps,
+            (SELECT st.buyer_premium_pct FROM seller_terms st WHERE st.seller_profile_id = sp.id AND st.superseded_at IS NULL LIMIT 1) AS seller_pct
+       FROM auctions a LEFT JOIN seller_profiles sp ON sp.id = a.seller_id WHERE a.id = $1`, [auctionId])).rows[0];
+  if (!r || !isProfessional(r.seller_type)) return;
+  if (r.buyer_premium_bps != null || r.seller_pct != null) return;
+  const e = new Error("Choose this auction's buyer's premium (a whole percentage from 0% to 100%) before it is published.");
+  e.code = 'BUYER_PREMIUM_REQUIRED'; e.status = 422;
+  throw e;
+}
+
 async function publishAuction(auctionId, actorId = null, options = {}) {
   const client = await db.connect();
   try {
@@ -760,6 +792,11 @@ async function publishAuction(auctionId, actorId = null, options = {}) {
     // activated yet, or whose Term ended with the 0% fee still applied, cannot be published until staff act.
     const apGuard = await require('./auctionPartnerAgreementService').publishGuard(current.rows[0].seller_id, client);
     if (apGuard) { const e = new Error(apGuard.message); e.code = apGuard.code; e.status = 409; throw e; }
+
+    // PROFESSIONAL BUYER'S PREMIUM (owner policy 2026-10-15): a Professional auction is published only with a premium
+    // the seller chose (on the auction, or the seller's own default terms). No silent 18% default. Already-published
+    // auctions never pass through here again, so their frozen premium is untouched.
+    await assertProfessionalPremiumChosen(auctionId, client);
 
     const gate = await verificationService.publicationGate(current.rows[0].seller_id);
     if (gate.blocked) {
@@ -1277,6 +1314,8 @@ async function sellerSubmitAuction(auctionId, userId) {
   const elig = await professionalAutoPublishEligibility(auctionId, userId);
   if (elig.reason === 'not_found') { const e = new Error('Auction not found'); e.status = 404; e.code = 'NOT_FOUND'; throw e; }
   if (elig.reason === 'not_owner') { const e = new Error('You do not have access to this auction.'); e.status = 403; e.code = 'FORBIDDEN'; throw e; }
+  // A Professional seller chooses the buyer's premium BEFORE the single-use submission (auto-publish or review).
+  await assertProfessionalPremiumChosen(auctionId);
 
   if (elig.eligible) {
     // draft → published (publishAuction validates gate/start_time/lots and throws actionable codes; a retry
@@ -1298,6 +1337,8 @@ async function sellerSubmitAuction(auctionId, userId) {
 }
 
 module.exports = {
+  assertProfessionalPremiumBps,
+  assertProfessionalPremiumChosen,
   createAuction,
   getSellerAuctions,
   getAuctionById,

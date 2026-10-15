@@ -44,6 +44,13 @@ async function setTerms(sellerProfileId, patch, actorId) {
     const current = cur.rows[0] || {};
     const merged = {};
     for (const f of TERMS_FIELDS) merged[f] = (patch[f] !== undefined) ? patch[f] : (current[f] ?? null);
+    // A seller's default buyer's premium is a whole percentage from 0% to 100% (owner policy 2026-10-15), or unset.
+    if (patch.buyer_premium_pct !== undefined && patch.buyer_premium_pct !== null && patch.buyer_premium_pct !== '') {
+      const p = Number(patch.buyer_premium_pct);
+      if (!Number.isInteger(p) || p < 0 || p > 100) {
+        throw Object.assign(new Error("Default buyer's premium must be a whole percentage from 0% to 100%."), { status: 400, code: 'INVALID_BUYER_PREMIUM' });
+      }
+    }
 
     if (cur.rows[0]) {
       await client.query('UPDATE seller_terms SET superseded_at = now() WHERE id = $1', [cur.rows[0].id]);
