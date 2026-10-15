@@ -21,6 +21,12 @@ const SELLER_PROFILE_ID  = '876f6172-96a4-4eeb-912e-1bb9ba760e58';
 const ADMIN_USER_ID      = '3d4a318a-5538-48f1-82f5-cae483e01725';
 
 async function run() {
+  // Never against production: this creates sign-in accounts with a published password and test payments
+  // (security audit 2026-10-15).
+  if (/ep-proud-leaf-an8pzkib/.test(String(process.env.DATABASE_URL || '') + String(process.env.DB_HOST || '')) || process.env.NODE_ENV === 'production') {
+    console.error('REFUSE: seed scripts never run against production.');
+    process.exit(2);
+  }
   const pool = new Pool({
     host:     process.env.DB_HOST     || 'localhost',
     port:     parseInt(process.env.DB_PORT || '5432', 10),

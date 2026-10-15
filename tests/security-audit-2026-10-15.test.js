@@ -165,3 +165,48 @@ describe('escaping and redirects in pages', () => {
     expect(safe('/app.html?x=1#y', 'F')).toBe('/app.html?x=1#y');
   });
 });
+
+describe('follow-up hardening (lower-priority audit items)', () => {
+  test('a bid is refused inside the locked transaction once the lot has closed (and rolled back)', async () => {
+    const { createBid } = require('../src/services/bidService');
+    const client = { release: jest.fn(), query: jest.fn(async (sql) => {
+      if (/FOR UPDATE/.test(sql)) return { rows: [{ id: 'l-1', auction_id: 'a-1', state: 'open', closes_at: new Date(Date.now() - 1000).toISOString(), current_bid_cents: 0 }] };
+      if (/FROM auctions a\s+JOIN seller_profiles/.test(sql)) return { rows: [{ user_id: 'seller-u' }] };
+      return { rows: [] };
+    }) };
+    db.connect.mockResolvedValue(client);
+    const err = jest.spyOn(console, 'error').mockImplementation(() => {});
+    await expect(createBid('l-1', 'buyer-u', { amount: 5 })).rejects.toMatchObject({ code: 'LOT_CLOSED' });
+    err.mockRestore();
+    const sqls = client.query.mock.calls.map(([s]) => String(s));
+    expect(sqls).toContain('ROLLBACK');
+    expect(sqls.some((s) => /INSERT INTO bids/.test(s))).toBe(false);
+    expect(client.release).toHaveBeenCalled();
+  });
+  test('the bid log carries no account id or max-bid amount', () => {
+    const src = read('src', 'services', 'bidService.js');
+    expect(src).toMatch(/console\.log\('BID SUBMITTED \(UNIFIED\)', \{ lot_id: lot\.id, override, currentBidCents: lot\.current_bid_cents \}\);/);
+  });
+  test('email addresses are masked in logs', () => {
+    const { maskEmailForLog } = require('../src/lib/logSafe');
+    expect(maskEmailForLog('Jane.Doe@Example.com')).toBe('J***@example.com');
+    expect(maskEmailForLog(['a@x.co', 'Bob <bob@y.org>'])).toBe('a***@x.co, b***@y.org');
+    expect(maskEmailForLog('not-an-email')).toBe('(address hidden)');
+    expect(maskEmailForLog(null)).toBe('(none)');
+    for (const [f, re] of [[['src', 'services', 'emailService.js'], /to \$\{to\}|delivery to', to\)|for \$\{to\}/],
+      [['src', 'routes', 'auth.js'], /\{ email, error/], [['src', 'services', 'receiptService.js'], /'to', data\.buyerEmail\)/]]) {
+      expect(read(...f)).not.toMatch(re);
+    }
+  });
+  test('the signed-out auction list shows public states only', async () => {
+    const router = require('../src/routes/auctions');
+    db.query.mockResolvedValueOnce({ rows: [] });
+    await call(router, 'get', '/', {});
+    expect(db.query.mock.calls[0][0]).toMatch(/WHERE state IN \('published', 'active', 'closed'\)/);
+  });
+  test('demo and test-fixture seed scripts refuse production', () => {
+    for (const f of ['seed-demo-data.js', 'seed-test-fixtures.js']) {
+      expect(read('scripts', f)).toMatch(/ep-proud-leaf-an8pzkib[\s\S]*REFUSE: seed scripts never run against production\.[\s\S]*process\.exit\(2\)/);
+    }
+  });
+});

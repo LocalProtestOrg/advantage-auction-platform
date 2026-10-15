@@ -37,12 +37,22 @@ has regression tests (`tests/security-audit-2026-10-15.test.js`, `tests/payment-
 | **nodemailer 8 → 10** (major upgrade; address-parser denial of service). Mitigated now by the single-address registration check. | Schedule the major upgrade with email regression testing. |
 | **Professional buyer's premium** 25% cap and 18% default. | See `docs/projects/professional-buyer-premium-policy-proposal.md`. |
 
+Deployed to production 2026-10-15 (6cea65e, Railway deployment 67083a7e); post-deploy read-only checks passed.
+
+## Follow-up fixes (second commit, not yet deployed)
+
+- Bid close time re-checked on the locked lot row inside the bid transaction (`LOT_CLOSED`), same rule as the route.
+- `GET /api/auctions` (signed-out list) shows published/active/closed only; submitted, under-review and rejected titles
+  are no longer listed.
+- Email addresses masked in logs (sent/failed mail, auth errors, receipt and unpaid-invoice sends); the bid log no
+  longer prints the bidder id or max bid (`src/lib/logSafe.js`).
+- `seed-demo-data.js` and `seed-test-fixtures.js` refuse the production database.
+
 ## Lower priority (recorded for follow-up)
 
-- Bid close time is not re-checked inside the locked bid transaction (millisecond window at close).
-- `GET /api/auctions` lists submitted/under-review auction titles without sign-in; `/api/auctions/:id/summary` exposes a private seller's profile id.
-- PII in some logs (emails on auth errors and unpaid-invoice sends).
-- Login brute force limited per IP only; emails not case-normalized (case-variant duplicate accounts).
+- `/api/auctions/:id/summary` returns the seller profile id (needed by the Follow button; an opaque id, kept).
+- Login brute force limited per IP only; emails not case-normalized (case-variant duplicate accounts; normalizing
+  needs a check for existing case-variant duplicates first).
 - Public `/api/health` returns operational detail; database TLS does not verify the certificate.
 - Event-import fetches follow redirects without blocking private addresses (admin-registered feeds).
 - Two seed scripts lack a production guard; 500 MB video uploads are buffered in memory.

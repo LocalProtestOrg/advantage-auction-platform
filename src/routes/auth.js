@@ -10,6 +10,7 @@ const { setSessionCookie, clearSessionCookie, readSessionToken } = require('../l
 const { bdMemberAdminUrl } = require('../lib/bridgeConfig');
 const agreementService = require('../services/agreementService');
 const { isProfessional } = require('../services/sellerTypeRules');
+const { maskEmailForLog } = require('../lib/logSafe');
 
 const router = express.Router();
 const JWT_SECRET = process.env.JWT_SECRET;
@@ -68,7 +69,7 @@ router.post('/register', normalLimiter, async (req, res) => {
     if (err.code === '23505') {
       return res.status(409).json({ success: false, error: 'An account with this email already exists' });
     }
-    console.error('[auth] register failed:', { email, error: err.message });
+    console.error('[auth] register failed:', { email: maskEmailForLog(email), error: err.message });
     return res.status(500).json({ success: false, error: 'Registration failed' });
   }
 });
@@ -139,7 +140,7 @@ router.post('/login', strictLimiter, async (req, res) => {
     db.query('UPDATE users SET last_login_at = now() WHERE id = $1', [user.id]).catch(() => {});
     res.json({ success: true, token });
   } catch (err) {
-    console.error('[auth] login failed:', { email, error: err.message });
+    console.error('[auth] login failed:', { email: maskEmailForLog(email), error: err.message });
     return res.status(500).json({ success: false, error: 'Login failed. Please try again.' }); // never echo internals
   }
 });

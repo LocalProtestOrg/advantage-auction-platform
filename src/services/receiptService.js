@@ -19,6 +19,7 @@ const { sendEmail } = require('./emailService');
 const invoicePdfService = require('./invoicePdfService');
 const doc = require('./documentService');
 const auditService = require('./auditService');
+const { maskEmailForLog } = require('../lib/logSafe');
 
 let SITE_URL = '';
 try { SITE_URL = require('../lib/publicUrls').publicBaseUrl(); } catch (_e) { SITE_URL = ''; }
@@ -147,7 +148,7 @@ async function sendPaymentReceipt(paymentId) {
       await logEmail('receipt.email_skipped', { invoiceId, paymentId, to: data.buyerEmail, result: 'skipped', reason: 'smtp_unconfigured' });
       return { sent: false, skipped: true, reason: 'smtp_unconfigured' };
     }
-    console.log('[receipt] sent receipt for invoice', invoiceId, 'to', data.buyerEmail);
+    console.log('[receipt] sent receipt for invoice', invoiceId, 'to', maskEmailForLog(data.buyerEmail));
     await logEmail('receipt.email_sent', { invoiceId, paymentId, to: data.buyerEmail, result: 'sent', messageId: result && result.messageId });
     return { sent: true, messageId: result && result.messageId };
   } catch (err) {
@@ -236,7 +237,7 @@ async function sendUnpaidInvoiceEmail(invoiceId) {
       await logEmail('invoice.email_skipped', { invoiceId, to: data.buyerEmail, result: 'skipped', reason: 'smtp_unconfigured' });
       return { sent: false, skipped: true, reason: 'smtp_unconfigured' };
     }
-    console.log('[invoice-email] sent unpaid invoice', invoiceId, 'to', data.buyerEmail);
+    console.log('[invoice-email] sent unpaid invoice', invoiceId, 'to', maskEmailForLog(data.buyerEmail));
     await logEmail('invoice.email_sent', { invoiceId, to: data.buyerEmail, result: 'sent', messageId: result && result.messageId });
     return { sent: true, messageId: result && result.messageId };
   } catch (err) {

@@ -28,8 +28,8 @@ router.get('/', async (req, res) => {
     const result = await db.query(
       `SELECT id, title, state, start_time, end_time
        FROM auctions
-       WHERE state != 'draft'
-         AND is_archived IS NOT TRUE
+       WHERE state IN ('published', 'active', 'closed')   -- public states only: submitted / under-review / cancelled
+         AND is_archived IS NOT TRUE                       -- titles are not public (security audit 2026-10-15)
        ORDER BY end_time DESC NULLS LAST`
     );
     res.json({ success: true, data: result.rows });

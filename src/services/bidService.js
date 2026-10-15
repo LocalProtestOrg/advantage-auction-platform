@@ -262,16 +262,19 @@ async function createBid(lotId, userId, { amount, maxBid, max_bid_cents }) {
     if (!['draft', 'open', 'active'].includes(lot.status || lot.state)) {
       throw new Error('Bidding not allowed on this lot');
     }
+    // Close-time guard on the LOCKED row (the route's pre-flight read is unlocked, so the lot can close between that
+    // check and this lock; security audit 2026-10-15). Same rule and message as the route.
+    if (lot.closes_at && Date.now() > new Date(lot.closes_at).getTime()) {
+      const e = new Error('Lot has closed and is no longer accepting bids');
+      e.code = 'LOT_CLOSED';
+      throw e;
+    }
 
     // Resolve the increment override once for this transaction (null ⇒ ladder).
     const override = await resolveIncrementOverride(client, lot);
 
-    console.log('BID SUBMITTED (UNIFIED)', {
-      userId,
-      submittedMaxCents,
-      override,
-      currentBidCents: lot.current_bid_cents,
-    });
+    // No account ids or max-bid amounts in logs (a max bid is confidential).
+    console.log('BID SUBMITTED (UNIFIED)', { lot_id: lot.id, override, currentBidCents: lot.current_bid_cents });
 
     // Step 4 — Validate minimum before touching any state.
     const currentBidCents  = lot.current_bid_cents || 0;

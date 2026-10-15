@@ -64,6 +64,12 @@ function log(msg) {
 // Main
 // ---------------------------------------------------------------------------
 async function main() {
+  // Never against production: this creates sign-in accounts with a published password and test payments
+  // (security audit 2026-10-15).
+  if (/ep-proud-leaf-an8pzkib/.test(String(process.env.DATABASE_URL || '') + String(process.env.DB_HOST || '')) || process.env.NODE_ENV === 'production') {
+    console.error('REFUSE: seed scripts never run against production.');
+    process.exit(2);
+  }
   const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
     ssl: { rejectUnauthorized: false },

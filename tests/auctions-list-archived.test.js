@@ -9,7 +9,9 @@ describe('GET /api/auctions (public list)', () => {
     const m = src.match(/router\.get\('\/',[\s\S]*?ORDER BY end_time DESC NULLS LAST/);
     expect(m).toBeTruthy();
     const handler = m[0];
-    expect(handler).toMatch(/state\s*!=\s*'draft'/);
+    // Public states only (allowlist; excludes draft, submitted, under_review and rejected — security audit 2026-10-15).
+    expect(handler).toMatch(/state IN \('published', 'active', 'closed'\)/);
+    expect(handler).not.toMatch(/'draft'|'submitted'|'under_review'|'rejected'/);
     expect(handler).toMatch(/is_archived IS NOT TRUE/i);
   });
 });

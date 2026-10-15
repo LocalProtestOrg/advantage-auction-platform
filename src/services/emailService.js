@@ -24,6 +24,7 @@
 
 require('dotenv').config();
 const nodemailer = require('nodemailer');
+const { maskEmailForLog } = require('../lib/logSafe');
 
 const {
   SMTP_HOST,
@@ -128,7 +129,7 @@ function getMarketingTransporter() {
  */
 async function sendEmail({ to, subject, html, text, attachments, replyTo, headers, fromName, bcc, mailStream, fromAddress }) {
   if (!isConfigured()) {
-    console.warn('[email] SMTP/SES not configured - skipping delivery to', to);
+    console.warn('[email] SMTP/SES not configured - skipping delivery to', maskEmailForLog(to));
     return { skipped: true };
   }
 
@@ -172,13 +173,13 @@ async function sendEmail({ to, subject, html, text, attachments, replyTo, header
       // Per-message reply-to (e.g. the assigned sales rep's approved @advantage.bid address).
       replyTo: replyTo || EFFECTIVE_REPLY_TO,
     });
-    console.log(`[email] Sent "${subject}" to ${to} - messageId: ${info.messageId}`);
+    console.log(`[email] Sent "${subject}" to ${maskEmailForLog(to)} - messageId: ${info.messageId}`);
     // Amazon SES answers "250 Ok <ses-message-id>". Feedback events (bounce, complaint, delivery) carry THAT id,
     // not the locally generated Message-ID, so callers that match feedback to a message must store it.
     const sesMatch = /^250\s+Ok\s+(\S+)/i.exec(String(info.response || ''));
     return { messageId: info.messageId, sesMessageId: sesMatch ? sesMatch[1] : null };
   } catch (err) {
-    console.error(`[email] Delivery failed for ${to} - ${err.message}`);
+    console.error(`[email] Delivery failed for ${maskEmailForLog(to)} - ${err.message}`);
     // Preserve an analog of the prior Postmark err.statusCode for callers/logs.
     if (err.responseCode) err.statusCode = err.responseCode;
     throw err;
