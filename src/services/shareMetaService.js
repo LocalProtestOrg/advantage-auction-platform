@@ -103,6 +103,7 @@ async function getLotMeta(id) {
               l.thumbnail_url,
               l.lot_number,
               l.auction_id,
+              l.state AS lot_state,
               l.current_bid_cents,
               l.starting_bid_cents,
               a.title AS auction_title,
@@ -130,7 +131,9 @@ async function getLotMeta(id) {
     // Reliable price for JSON-LD offers: prefer a live current bid, else the
     // starting bid. Only a positive integer cent value is exposed; anything
     // null/zero/non-numeric yields null so the caller OMITS offers entirely.
-    const rawPrice = (typeof r.current_bid_cents === 'number' && r.current_bid_cents > 0)
+    // A CLOSED lot has no offer, and its realized price is for signed-in members only (#20.1; crawlers are never
+    // signed in), so offers are omitted for it.
+    const rawPrice = r.lot_state === 'closed' ? null : (typeof r.current_bid_cents === 'number' && r.current_bid_cents > 0)
       ? r.current_bid_cents
       : (typeof r.starting_bid_cents === 'number' && r.starting_bid_cents > 0 ? r.starting_bid_cents : null);
     const priceCents = Number.isFinite(rawPrice) && rawPrice > 0 ? Math.round(rawPrice) : null;

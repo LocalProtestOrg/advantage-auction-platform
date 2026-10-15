@@ -202,7 +202,10 @@
       : '';
 
     var bidStr = '';
-    if (lot.bid_count > 0 && lot.current_bid_cents) {
+    if (lot.realized_price_hidden) {
+      // Closed lot: the final price is shown to signed-in members only.
+      bidStr = '<p class="aapc-bid">Closed · sign in to see the price</p>';
+    } else if (lot.bid_count > 0 && lot.current_bid_cents) {
       bidStr = '<p class="aapc-bid">$' + (lot.current_bid_cents / 100).toFixed(2) + ' · ' + lot.bid_count + ' bids</p>';
     } else if (lot.starting_bid_cents) {
       bidStr = '<p class="aapc-bid">Starts at $' + (lot.starting_bid_cents / 100).toFixed(2) + '</p>';

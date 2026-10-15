@@ -199,16 +199,19 @@
     bidRow.className = 'lot-card-bid';
     var bidAmt = document.createElement('span');
     bidAmt.className = 'lot-bid-amount';
-    bidAmt.textContent = (lot.bid_count > 0)
-      ? fmtMoney(lot.current_bid_cents)
-      : fmtMoney(lot.starting_bid_cents);
+    // Closed lot with the price hidden: the final price is shown to signed-in members only.
+    bidAmt.textContent = lot.realized_price_hidden ? 'Closed'
+      : (lot.bid_count > 0)
+        ? fmtMoney(lot.current_bid_cents)
+        : fmtMoney(lot.starting_bid_cents);
     bidRow.appendChild(bidAmt);
 
     var bidLabel = document.createElement('span');
     bidLabel.className = 'lot-bid-count';
-    bidLabel.textContent = lot.bid_count > 0
-      ? lot.bid_count + (lot.bid_count === 1 ? ' bid' : ' bids')
-      : 'starting bid';
+    bidLabel.textContent = lot.realized_price_hidden ? 'sign in to see the price'
+      : lot.bid_count > 0
+        ? lot.bid_count + (lot.bid_count === 1 ? ' bid' : ' bids')
+        : 'starting bid';
     bidRow.appendChild(bidLabel);
     body.appendChild(bidRow);
 

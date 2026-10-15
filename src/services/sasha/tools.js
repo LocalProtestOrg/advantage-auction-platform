@@ -128,15 +128,18 @@ async function getAuctionOrLot(args, ctx) {
       buyers_premium: terms ? bpsPct(terms.buyer_premium_bps) : 'shown on the auction page', shipping_available: !!a.shipping_available,
       page: `${SITE}/auction-view.html?auctionId=${a.id}` },
   };
+  // Realized prices of closed lots are for signed-in (on the phone: verified) members only (#20.1).
+  if (lot && !ctx.userId) lot = require('../../lib/realizedPrice').redactRealizedPrice(lot, false);
   if (lot) {
     const bids = require('../bidService');
     let next = null;
-    try {   // the same resolution bidding uses (lot → auction → ladder), so the number matches the lot page
+    if (!lot.realized_price_hidden) try {   // the same resolution bidding uses (lot → auction → ladder), so the number matches the lot page
       const override = await bids.resolveIncrementOverride(db, { ...lot, auction_id: a.id });
       next = bids.nextMinBidCents(lot.starting_bid_cents || 100, lot.current_bid_cents || 0, override);
     } catch (_e) { next = null; }
     out.lot = { lot_id: lot.id, lot_number: lot.lot_number_display || lot.lot_number, title: lot.title, status: lot.state, bids: lot.bid_count,
       timezone: a.timezone || undefined, current_bid: money(lot.current_bid_cents), starting_bid: money(lot.starting_bid_cents), next_minimum_bid: money(next), closes_at: lot.closes_at,
+      ...(lot.realized_price_hidden ? { price_note: 'This lot has closed. Its final price is shown only to signed-in members; suggest signing in to see it.' } : {}),
       shippable: !!lot.shippable, page: `${SITE}/lot.html?lotId=${lot.id}` };
   }
   if (lotSearch) out.lot_search = lotSearch;

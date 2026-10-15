@@ -121,14 +121,15 @@ router.get('/my', authMiddleware, async (req, res) => {
 //   * a Super Admin, or active staff holding finance.view (the Finance role; overrides respected).
 // Authorization is decided server-side from the authenticated user id and the database. Anyone else gets
 // the same 404 as a missing auction, so the endpoint never confirms which auction ids exist.
+// Resolves 'staff' (sees every winner's contact), 'seller' (paid winners only) or false.
 async function canViewAuctionReport(req, auctionId) {
   const ctx = await require('../middleware/requirePermission').loadStaffContext(req);
-  if (ctx && (rbac.isSuperAdmin(ctx) || rbac.hasPermission(ctx, 'finance.view'))) return true;
+  if (ctx && (rbac.isSuperAdmin(ctx) || rbac.hasPermission(ctx, 'finance.view'))) return 'staff';
   const { rows } = await db.query(
     `SELECT 1 FROM auctions a JOIN seller_profiles sp ON sp.id = a.seller_id
       WHERE a.id = $1 AND sp.user_id = $2 LIMIT 1`,
     [auctionId, req.user && req.user.id]);
-  return rows.length > 0;
+  return rows.length > 0 ? 'seller' : false;
 }
 
 // ── GET /:auctionId/report/pdf  — Download PDF report ───────────────────────
@@ -138,10 +139,11 @@ router.get('/:auctionId/report/pdf', authMiddleware, async (req, res) => {
     if (!isUuid(auctionId)) {
       return res.status(400).json({ success: false, message: 'Invalid auction ID' });
     }
-    if (!(await canViewAuctionReport(req, auctionId))) {
+    const viewer = await canViewAuctionReport(req, auctionId);
+    if (!viewer) {
       return res.status(404).json({ success: false, message: 'Auction not found' });
     }
-    const { buffer } = await buildReportPdf(auctionId);
+    const { buffer } = await buildReportPdf(auctionId, { includeBuyerContact: viewer === 'staff' });
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename="auction-report-${auctionId}.pdf"`);
     return res.send(buffer);
@@ -161,10 +163,11 @@ router.get('/:auctionId/report', authMiddleware, async (req, res) => {
     if (!isUuid(auctionId)) {
       return res.status(400).json({ success: false, message: 'Invalid auction ID' });
     }
-    if (!(await canViewAuctionReport(req, auctionId))) {
+    const viewer = await canViewAuctionReport(req, auctionId);
+    if (!viewer) {
       return res.status(404).json({ success: false, message: 'Auction not found' });
     }
-    const report = await generateAuctionReport(auctionId);
+    const report = await generateAuctionReport(auctionId, { includeBuyerContact: viewer === 'staff' });
     return res.json({ success: true, data: report });
   } catch (err) {
     if (err.message === 'Auction not found') {

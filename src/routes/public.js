@@ -16,6 +16,7 @@
 const express = require('express');
 const router  = express.Router();
 const db      = require('../db');
+const { redactRealizedPrice } = require('../lib/realizedPrice');
 const { auctionScoreSQL } = require('../services/discoveryRankingService');
 const discoveryService = require('../services/discoveryService');
 const { coverImageSql } = require('../lib/govSurplusPlaceholder');
@@ -921,7 +922,9 @@ router.get('/auctions/:id/lots', async (req, res, next) => {
     `, [id, limit, offset]);
 
     const total_count = rows.length > 0 ? parseInt(rows[0].total_count, 10) : 0;
-    const data = rows.map(({ total_count: _tc, ...rest }) => rest);
+    // Realized prices of closed lots are for signed-in members only (#20.1). This response is publicly cached, so it is
+    // always redacted; signed-in pages read /api/lots/auction/:id.
+    const data = rows.map(({ total_count: _tc, ...rest }) => redactRealizedPrice(rest, false));
     res.set('Cache-Control', LIVE_CACHE);
     return res.json({ success: true, data, total_count, has_more: offset + data.length < total_count, offset, limit });
   } catch (err) { next(err); }
@@ -981,7 +984,7 @@ router.get('/featured-lots', async (req, res, next) => {
     `, [limit]);
 
     res.set('Cache-Control', PUBLIC_CACHE);
-    return res.json({ success: true, data: rows });
+    return res.json({ success: true, data: rows.map((r) => redactRealizedPrice(r, false)) });   // closed lots: no realized price (#20.1)
   } catch (err) { next(err); }
 });
 
@@ -1489,7 +1492,7 @@ router.get('/lots/recently-added', async (req, res, next) => {
     `, params);
 
     res.set('Cache-Control', PUBLIC_CACHE);
-    return res.json({ success: true, data: rows });
+    return res.json({ success: true, data: rows.map((r) => redactRealizedPrice(r, false)) });   // closed lots: no realized price (#20.1)
   } catch (err) { next(err); }
 });
 

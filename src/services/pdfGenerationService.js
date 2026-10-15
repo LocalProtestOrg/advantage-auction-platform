@@ -18,8 +18,9 @@ function fmt(cents) {
 // Returns { buffer: Buffer, path: string }.
 // Writes the PDF to disk and resolves the full buffer so callers can stream
 // it directly without a second fs.readFile.
-async function buildReportPdf(auctionId) {
-  const report = await generateAuctionReport(auctionId);
+// opts.includeBuyerContact: staff copy (every winner's email); the seller's copy shows paid winners only.
+async function buildReportPdf(auctionId, opts = {}) {
+  const report = await generateAuctionReport(auctionId, opts);
 
   if (!fs.existsSync(REPORTS_DIR)) {
     fs.mkdirSync(REPORTS_DIR, { recursive: true });
@@ -113,7 +114,8 @@ async function buildReportPdf(auctionId) {
       if (doc.y > 680) doc.addPage();
 
       const rowY = doc.y;
-      const winner = lot.winner_email ?? (lot.winner_user_id ? lot.winner_user_id : '—');
+      // Buyer contact only once paid (owner policy 2026-10-15); never an account id.
+      const winner = lot.winner_email || (lot.winner_paid === false ? 'Awaiting payment' : '—');
 
       doc.text(lot.lot_number ?? '—',            cols.num.x,       rowY, { width: cols.num.w });
       doc.text(lot.title ?? 'Untitled',          cols.title.x,     rowY, { width: cols.title.w });

@@ -58,12 +58,21 @@ async function loadSellerAndAuction(auctionId) {
   return rows[0] || null;
 }
 
+// Buyer contact (owner policy 2026-10-15): the seller gets a buyer's name and email only once that buyer has paid for
+// this auction; an unpaid buyer appears by paddle number.
+
 // Per-buyer combined invoice + payment-status roster for the auction.
 async function loadBuyerInvoices(auctionId) {
   const { rows } = await db.query(
     `SELECT bai.id, bai.invoice_number, bai.total_cents, bai.hammer_cents, bai.status,
             bai.paid_at, bai.reminders_sent,
-            u.email AS buyer_email, u.full_name AS buyer_name
+            CASE WHEN (EXISTS (SELECT 1 FROM buyer_auction_invoices pi WHERE pi.auction_id = $1 AND pi.buyer_user_id = bai.buyer_user_id AND pi.status = 'paid')
+              OR EXISTS (SELECT 1 FROM payments pp JOIN lots pl ON pl.id = pp.lot_id
+                          WHERE pl.auction_id = $1 AND pp.buyer_user_id = bai.buyer_user_id AND pp.status = 'paid')) THEN u.email END AS buyer_email,
+            CASE WHEN (EXISTS (SELECT 1 FROM buyer_auction_invoices pi WHERE pi.auction_id = $1 AND pi.buyer_user_id = bai.buyer_user_id AND pi.status = 'paid')
+              OR EXISTS (SELECT 1 FROM payments pp JOIN lots pl ON pl.id = pp.lot_id
+                          WHERE pl.auction_id = $1 AND pp.buyer_user_id = bai.buyer_user_id AND pp.status = 'paid')) THEN u.full_name END AS buyer_name,
+            (SELECT 'Paddle ' || ab.paddle_number || ' (unpaid)' FROM auction_buyers ab WHERE ab.auction_id = $1 AND ab.user_id = bai.buyer_user_id) AS buyer_ref
        FROM buyer_auction_invoices bai
        JOIN users u ON u.id = bai.buyer_user_id
       WHERE bai.auction_id = $1
@@ -90,7 +99,13 @@ async function loadPickupReport(auctionId) {
   const { rows } = await db.query(
     `SELECT DISTINCT ON (pa.buyer_user_id)
             pa.buyer_user_id, pa.assigned_tier, pa.slot_start, pa.slot_end, pa.pickup_status,
-            u.email AS buyer_email, u.full_name AS buyer_name
+            CASE WHEN (EXISTS (SELECT 1 FROM buyer_auction_invoices pi WHERE pi.auction_id = $1 AND pi.buyer_user_id = pa.buyer_user_id AND pi.status = 'paid')
+              OR EXISTS (SELECT 1 FROM payments pp JOIN lots pl ON pl.id = pp.lot_id
+                          WHERE pl.auction_id = $1 AND pp.buyer_user_id = pa.buyer_user_id AND pp.status = 'paid')) THEN u.email END AS buyer_email,
+            CASE WHEN (EXISTS (SELECT 1 FROM buyer_auction_invoices pi WHERE pi.auction_id = $1 AND pi.buyer_user_id = pa.buyer_user_id AND pi.status = 'paid')
+              OR EXISTS (SELECT 1 FROM payments pp JOIN lots pl ON pl.id = pp.lot_id
+                          WHERE pl.auction_id = $1 AND pp.buyer_user_id = pa.buyer_user_id AND pp.status = 'paid')) THEN u.full_name END AS buyer_name,
+            (SELECT 'Paddle ' || ab.paddle_number || ' (unpaid)' FROM auction_buyers ab WHERE ab.auction_id = $1 AND ab.user_id = pa.buyer_user_id) AS buyer_ref
        FROM pickup_assignments pa
        JOIN pickup_schedules ps ON ps.id = pa.pickup_schedule_id
        JOIN users u ON u.id = pa.buyer_user_id
@@ -106,7 +121,13 @@ async function loadNoShows(auctionId) {
   const { rows } = await db.query(
     `SELECT mp.lot_id, mp.status, mp.scheduled_slot_start, mp.scheduled_slot_end,
             l.lot_number, l.title AS lot_title,
-            u.email AS buyer_email, u.full_name AS buyer_name
+            CASE WHEN (EXISTS (SELECT 1 FROM buyer_auction_invoices pi WHERE pi.auction_id = $1 AND pi.buyer_user_id = mp.buyer_user_id AND pi.status = 'paid')
+              OR EXISTS (SELECT 1 FROM payments pp JOIN lots pl ON pl.id = pp.lot_id
+                          WHERE pl.auction_id = $1 AND pp.buyer_user_id = mp.buyer_user_id AND pp.status = 'paid')) THEN u.email END AS buyer_email,
+            CASE WHEN (EXISTS (SELECT 1 FROM buyer_auction_invoices pi WHERE pi.auction_id = $1 AND pi.buyer_user_id = mp.buyer_user_id AND pi.status = 'paid')
+              OR EXISTS (SELECT 1 FROM payments pp JOIN lots pl ON pl.id = pp.lot_id
+                          WHERE pl.auction_id = $1 AND pp.buyer_user_id = mp.buyer_user_id AND pp.status = 'paid')) THEN u.full_name END AS buyer_name,
+            (SELECT 'Paddle ' || ab.paddle_number || ' (unpaid)' FROM auction_buyers ab WHERE ab.auction_id = $1 AND ab.user_id = mp.buyer_user_id) AS buyer_ref
        FROM missed_pickups mp
        JOIN lots l ON l.id = mp.lot_id
        LEFT JOIN users u ON u.id = mp.buyer_user_id
@@ -160,13 +181,13 @@ function buildEmail({ auctionTitle, auctionId, report, invoices, unsold, pickups
   t.push('');
   t.push(`PAYMENT STATUS  (paid ${paidCount} / payment-required ${unpaidCount} / ${invoices.length} buyer invoice(s))`);
   for (const inv of invoices) {
-    t.push(`  ${inv.invoice_number || '—'}  ${inv.buyer_email || inv.buyer_name || 'buyer'}  ${doc.money(inv.total_cents)}  [${statusLabel(inv.status)}]`);
+    t.push(`  ${inv.invoice_number || '—'}  ${inv.buyer_email || inv.buyer_name || inv.buyer_ref || 'buyer'}  ${doc.money(inv.total_cents)}  [${statusLabel(inv.status)}]`);
   }
   if (!invoices.length) t.push('  (no combined buyer invoices)');
   t.push('');
   t.push('BUYER ROSTER');
   if (invoices.length) {
-    for (const inv of invoices) t.push(`  ${inv.buyer_name || inv.buyer_email || 'buyer'} — ${doc.money(inv.total_cents)}`);
+    for (const inv of invoices) t.push(`  ${inv.buyer_name || inv.buyer_email || inv.buyer_ref || 'buyer'} — ${doc.money(inv.total_cents)}`);
   } else {
     t.push('  (no winning buyers)');
   }
@@ -181,7 +202,7 @@ function buildEmail({ auctionTitle, auctionId, report, invoices, unsold, pickups
   t.push('PICKUP REPORT');
   if (pickups.length) {
     for (const p of pickups) {
-      t.push(`  ${p.buyer_email || p.buyer_name || 'buyer'} — tier ${p.assigned_tier || '—'} — ${p.pickup_status || 'scheduled'}`);
+      t.push(`  ${p.buyer_email || p.buyer_name || p.buyer_ref || 'buyer'} — tier ${p.assigned_tier || '—'} — ${p.pickup_status || 'scheduled'}`);
     }
   } else {
     t.push('  (no pickup assignments)');
@@ -189,7 +210,7 @@ function buildEmail({ auctionTitle, auctionId, report, invoices, unsold, pickups
   t.push('');
   t.push('NO-SHOW REPORT');
   if (noShows.length) {
-    for (const n of noShows) t.push(`  #${n.lot_number} ${n.lot_title || ''} — ${n.buyer_email || 'buyer'} — ${n.status}`.trimEnd());
+    for (const n of noShows) t.push(`  #${n.lot_number} ${n.lot_title || ''} — ${n.buyer_email || n.buyer_ref || 'buyer'} — ${n.status}`.trimEnd());
   } else {
     t.push('  (no missed pickups)');
   }
@@ -211,7 +232,7 @@ function buildEmail({ auctionTitle, auctionId, report, invoices, unsold, pickups
     : '';
   const invRows = invoices.map((inv) => (
     `<tr><td style="padding:4px 12px 4px 0">${esc(inv.invoice_number || '—')}</td>` +
-    `<td style="padding:4px 12px 4px 0">${esc(inv.buyer_email || inv.buyer_name || 'buyer')}</td>` +
+    `<td style="padding:4px 12px 4px 0">${esc(inv.buyer_email || inv.buyer_name || inv.buyer_ref || 'buyer')}</td>` +
     `<td style="padding:4px 12px 4px 0;text-align:right">${doc.money(inv.total_cents)}</td>` +
     `<td style="padding:4px 0">${esc(statusLabel(inv.status))}</td></tr>`
   )).join('') || '<tr><td colspan="4" style="color:#94a3b8;padding:4px 0">(no combined buyer invoices)</td></tr>';
@@ -278,7 +299,7 @@ async function generateAndSend(auctionId) {
   // Bundled all-buyer-invoice PDF (best-effort attachment).
   const attachments = [];
   try {
-    const packet = await pickupPacketService.getPacketData(auctionId);
+    const packet = await pickupPacketService.getPacketData(auctionId, { forSeller: true });   // unpaid buyers without contact
     if (packet) {
       const buffer = await pickupPacketService.buildPacketPdf(packet);
       if (buffer) attachments.push({ filename: 'auction-buyer-invoices-' + auctionId + '.pdf', content: buffer, contentType: 'application/pdf' });
