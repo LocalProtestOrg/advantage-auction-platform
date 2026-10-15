@@ -12,6 +12,8 @@ const agreementService = require('../services/agreementService');
 const { isProfessional } = require('../services/sellerTypeRules');
 const { maskEmailForLog } = require('../lib/logSafe');
 const sessionTokens = require('../lib/sessionTokens');
+const accountEmail = require('../lib/accountEmail');
+const loginThrottle = require('../lib/loginThrottle');
 
 const router = express.Router();
 const JWT_SECRET = process.env.JWT_SECRET;
@@ -32,7 +34,9 @@ const SINGLE_EMAIL = /^[^\s@,;<>()"']+@[^\s@,;<>()"']+\.[^\s@,;<>()"']+$/;
 
 router.post('/register', normalLimiter, async (req, res) => {
   const { password } = req.body;
-  const email = typeof req.body.email === 'string' ? req.body.email.trim() : '';
+  // Stored lower-case and trimmed; an address that differs only by letter case is the same account (security audit
+  // 2026-10-15). Existing accounts are never changed or merged.
+  const email = accountEmail.normalizeEmail(req.body.email);
   if (!email || !password) {
     return res.status(400).json({ success: false, error: 'Email and password required' });
   }
@@ -46,6 +50,9 @@ router.post('/register', normalLimiter, async (req, res) => {
     return res.status(400).json({ success: false, error: 'Password must be at least 8 characters' });
   }
   try {
+    if (await accountEmail.findUserByEmail(email, 'id')) {
+      return res.status(409).json({ success: false, error: 'An account with this email already exists' });
+    }
     const hashedPassword = await bcrypt.hash(password, 10);
     const result = await db.query(
       'INSERT INTO users (email, password_hash, role) VALUES ($1, $2, $3) RETURNING id, role',
@@ -105,9 +112,12 @@ router.post('/login', strictLimiter, async (req, res) => {
   if (!email || !password) {
     return res.status(400).json({ success: false, error: 'Email and password required' });
   }
+  // Per-account throttle (all addresses), on top of the per-IP limiter; same response whether or not the account exists.
+  if (loginThrottle.lockedFor(email) > 0) {
+    return res.status(429).json(loginThrottle.LOCKED_BODY);
+  }
   try {
-    const result = await db.query('SELECT * FROM users WHERE email = $1', [email]);
-    const user = result.rows[0];
+    const user = await accountEmail.findUserByEmail(String(email), '*');   // case-insensitive, never ambiguous
     // A local password is required for the email/password path. An account without one (e.g. a
     // future Google/Facebook-only account) can NEVER authenticate here just because password_hash is
     // NULL. Unknown account, no local password, malformed hash and wrong password all return the
@@ -118,8 +128,10 @@ router.post('/login', strictLimiter, async (req, res) => {
       validPassword = await bcrypt.compare(String(password), hash || await timingHash());
     } catch (_) { validPassword = false; }
     if (!user || !hash || validPassword !== true) {
+      loginThrottle.recordFailure(email);
       return res.status(401).json({ success: false, error: 'Invalid credentials' });
     }
+    loginThrottle.recordSuccess(email);
     // OPS-3: suspended accounts cannot log in. is_active defaults true; admin
     // toggles it via /api/admin/sellers/:id/{suspend,unsuspend}. We return 403
     // (not 401) with a clear message so the user knows the account exists but

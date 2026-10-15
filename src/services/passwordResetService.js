@@ -69,10 +69,12 @@ async function requestReset(email, { ip, baseUrl } = {}) {
   if (!normalized) return { ok: true };
 
   const { rows } = await db.query(
-    'SELECT id, email, is_active FROM users WHERE email = $1',
+    // Case-insensitive, never ambiguous (src/lib/accountEmail.js).
+    'SELECT id, email, is_active FROM users WHERE lower(btrim(email)) = lower(btrim($1)) ORDER BY created_at ASC LIMIT 2',
     [normalized]
   );
-  const user = rows[0];
+  // Two accounts that differ only by case (none in production): only an exact match may reset; never merged.
+  const user = rows.length > 1 ? (rows.find((r) => r.email === normalized) || null) : rows[0];
   // Identical outcome whether the user is missing or suspended — no enumeration.
   if (!user || user.is_active === false) return { ok: true };
 
