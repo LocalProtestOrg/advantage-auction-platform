@@ -131,6 +131,14 @@ io.on('connection', (socket) => {
 // Strict-Transport-Security, Referrer-Policy, etc. CSP is disabled because the
 // HTML pages use inline <script> blocks; it can be enabled with nonces later.
 app.use(helmet({ contentSecurityPolicy: false }));
+// Content Security Policy in REPORT-ONLY mode (owner-approved 2026-10-15): nothing is blocked; browsers report what a
+// policy would block to /api/csp-report so it can be reviewed before any enforcement. Kill switch: CSP_REPORT_ONLY=off.
+{
+  const csp = require('./src/middleware/cspReportOnly');
+  const cspLimiter = require('express-rate-limit')({ windowMs: 60 * 1000, max: 60, standardHeaders: false, legacyHeaders: false });
+  app.post('/api/csp-report', cspLimiter, csp.reportParser, csp.receiveReport);
+  app.use(csp.cspReportOnly);
+}
 
 // Framing exception — ONLY /widgets/* may be embedded by the approved BD parent origins.
 // Drops X-Frame-Options (SAMEORIGIN can't allowlist) and sets a narrow CSP frame-ancestors
