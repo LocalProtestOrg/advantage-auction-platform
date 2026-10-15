@@ -72,7 +72,10 @@ const SIZE_LABELS = {
   C: 'C - Large (truck / dolly)',
 };
 
-async function getPacketData(auctionId) {
+// opts.forSeller: the copy sent to the seller. Owner policy 2026-10-15: a buyer's name, email and phone go to the seller
+// only once that buyer has paid (per-lot payment or the paid combined invoice); an unpaid buyer appears by paddle number.
+// The admin packet (default) shows everyone.
+async function getPacketData(auctionId, { forSeller = false } = {}) {
   const auctionRes = await db.query(
     `SELECT id, title, timezone, street_address, city, address_state, zip, pickup_window_start, pickup_window_end
        FROM auctions WHERE id = $1`,
@@ -99,6 +102,9 @@ async function getPacketData(auctionId) {
             u.phone             AS buyer_phone,
             p.status            AS payment_status,
             p.charged_at        AS payment_date,
+            EXISTS (SELECT 1 FROM buyer_auction_invoices bi WHERE bi.auction_id = i.auction_id
+                      AND bi.buyer_user_id = i.buyer_user_id AND bi.status = 'paid') AS combined_paid,
+            (SELECT ab.paddle_number FROM auction_buyers ab WHERE ab.auction_id = i.auction_id AND ab.user_id = i.buyer_user_id) AS paddle_number,
             l.lot_number,
             l.title             AS lot_title,
             l.size_category,
@@ -130,8 +136,13 @@ async function getPacketData(auctionId) {
   }
 
   const invoices = rows.map((r) => {
-    const isPaid = r.invoice_status === 'paid' || r.payment_status === 'paid';
-    const name = parseName(r.buyer_name, r.buyer_email);
+    const isPaid = r.invoice_status === 'paid' || r.payment_status === 'paid' || r.combined_paid === true;
+    let hiddenLabel = null;
+    if (forSeller && !isPaid) {
+      hiddenLabel = r.paddle_number != null ? `Paddle ${r.paddle_number}` : 'Buyer (unpaid)';
+      r = { ...r, buyer_name: null, buyer_email: null, buyer_phone: null };
+    }
+    const name = hiddenLabel ? { first: '', last: hiddenLabel, display: hiddenLabel } : parseName(r.buyer_name, r.buyer_email);
     const hammer = r.hammer_cents != null ? r.hammer_cents : r.amount_cents;
     const total = r.total_cents != null ? r.total_cents : r.amount_cents;
     const buyerLotRows = byBuyer.get(r.buyer_user_id) || [];

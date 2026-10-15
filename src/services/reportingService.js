@@ -1,7 +1,10 @@
 const db = require('../db');
 const { platformFeeCents, processingFeeCents } = require('../lib/settlementPolicy');
 
-async function generateAuctionReport(auctionId) {
+// Buyer contact (owner policy 2026-10-15): a seller sees a winning buyer's email only once that buyer has paid for the
+// lot (per-lot payment or the paid combined invoice), when it is needed to arrange pickup or shipping. Staff callers
+// (Super Admin / finance.view) pass { includeBuyerContact: true } and see every winner.
+async function generateAuctionReport(auctionId, { includeBuyerContact = false } = {}) {
   const auctionRes = await db.query(
     // Deployed schema column is end_time; aliased to ends_at to preserve the
     // downstream auction.ends_at / report.auction_ends_at interface. seller_type + platform_fee_bps
@@ -45,6 +48,11 @@ async function generateAuctionReport(auctionId) {
        l.winning_buyer_user_id     AS winner_user_id,
        l.extension_count,
        u.email                     AS winner_email,
+       (l.winning_buyer_user_id IS NOT NULL AND (
+          EXISTS (SELECT 1 FROM payments p WHERE p.lot_id = l.id AND p.buyer_user_id = l.winning_buyer_user_id AND p.status = 'paid')
+          OR EXISTS (SELECT 1 FROM buyer_auction_invoices i WHERE i.auction_id = l.auction_id
+                       AND i.buyer_user_id = l.winning_buyer_user_id AND i.status = 'paid')
+       ))                          AS winner_paid,
        COUNT(b.id)::int            AS bid_count
      FROM lots l
      LEFT JOIN bids  b ON b.lot_id = l.id
@@ -93,8 +101,9 @@ async function generateAuctionReport(auctionId) {
       intensity,
       was_extended:         row.extension_count > 0,
       winning_amount_cents: row.winning_amount_cents,
-      winner_user_id:       row.winner_user_id,
-      winner_email:         row.winner_email,
+      ...(includeBuyerContact ? { winner_user_id: row.winner_user_id } : {}),
+      winner_email:         (includeBuyerContact || row.winner_paid === true) ? row.winner_email : null,
+      winner_paid:          row.winner_user_id ? row.winner_paid === true : null,
       gross_amount_cents:   gross,
       fee_amount_cents:     fee,
       processing_fee_cents: proc,

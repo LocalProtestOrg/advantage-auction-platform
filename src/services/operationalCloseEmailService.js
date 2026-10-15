@@ -42,16 +42,17 @@ async function sendOperationalCloseEmail(auctionId) {
       [auctionId]
     ),
 
-    // Per-buyer summary: email, lots won, total owed
+    // Per-buyer summary by PADDLE NUMBER, lots won, total owed. This email goes out at close, before anyone has paid,
+    // so it carries no buyer contact details (owner policy 2026-10-15: contact is shared once the buyer pays).
     db.query(
-      `SELECT u.email              AS buyer_email,
+      `SELECT ab.paddle_number       AS paddle_number,
               COUNT(l.id)::int     AS lots_won,
               COALESCE(SUM(l.winning_amount_cents), 0)::int AS total_cents
        FROM lots l
-       JOIN users u ON u.id = l.winning_buyer_user_id
+       LEFT JOIN auction_buyers ab ON ab.auction_id = l.auction_id AND ab.user_id = l.winning_buyer_user_id
        WHERE l.auction_id = $1
          AND l.winning_buyer_user_id IS NOT NULL
-       GROUP BY u.email
+       GROUP BY l.winning_buyer_user_id, ab.paddle_number
        ORDER BY total_cents DESC`,
       [auctionId]
     ),
@@ -94,9 +95,12 @@ async function sendOperationalCloseEmail(auctionId) {
     lines.push('No winning buyers recorded for this auction.');
   } else {
     lines.push('Buyer Summary:');
-    for (const b of buyers) {
-      lines.push(`  ${b.buyer_email} - ${b.lots_won} lot(s) - ${formatCents(b.total_cents)}`);
-    }
+    buyers.forEach((b, i) => {
+      const who = b.paddle_number != null ? `Paddle ${b.paddle_number}` : `Buyer ${i + 1}`;
+      lines.push(`  ${who} - ${b.lots_won} lot(s) - ${formatCents(b.total_cents)}`);
+    });
+    lines.push('');
+    lines.push('Buyer names and contact details are shared with you once each buyer has paid.');
   }
 
   lines.push('');
