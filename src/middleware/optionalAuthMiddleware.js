@@ -14,12 +14,23 @@ if (!process.env.JWT_SECRET) {
   throw new Error('JWT_SECRET is not configured');
 }
 
+// A session ended on the server (signed out, password reset, suspension, role change — src/lib/sessionTokens.js) is
+// anonymous here too; the current database role is used. If the session state cannot be determined the token's
+// identity is used as before.
 const optionalAuthMiddleware = (req, res, next) => {
+  let resolved, identity;
   try {
-    const identity = identityFrom(resolveSession(req).decoded);
-    if (identity) req.user = identity;
-  } catch (_) { /* optional auth never blocks a public request */ }
-  next();
+    resolved = resolveSession(req);
+    identity = identityFrom(resolved.decoded);
+  } catch (_) { identity = null; }
+  if (!identity) return next();
+  return require('../lib/sessionTokens').checkSession(resolved.decoded, resolved.token)
+    .then((check) => {
+      if (check.state === 'ok') req.user = { id: identity.id, role: check.role };
+      else if (check.state === 'unknown') req.user = identity;
+    })
+    .catch(() => { req.user = identity; })
+    .then(() => next());
 };
 
 module.exports = optionalAuthMiddleware;

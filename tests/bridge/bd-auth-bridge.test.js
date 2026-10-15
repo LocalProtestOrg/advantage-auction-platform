@@ -160,7 +160,9 @@ describe('feature flag + existing auth untouched', () => {
     expect(auth).not.toMatch(/bd\/exchange|bd\/return|redeemAndProvision|mintCode|bd_login_codes|provisionWithinTxn/i);
     // external_identities may be READ (e.g. /me's bd_member flag) but NEVER written by the login router.
     expect(auth).not.toMatch(/INSERT\s+INTO\s+external_identities|UPDATE\s+external_identities/i);
-    expect(auth).toMatch(/jwt\.sign/); // the login JWT the bridge reuses still lives here, untouched
+    // The login and the bridge mint the SAME token through one issuer (src/lib/sessionTokens.js, migration 194).
+    expect(auth).toMatch(/sessionTokens\.issueToken\(user\)/);
+    expect(fs.readFileSync(path.join(__dirname, '..', '..', 'src', 'routes', 'authBridge.js'), 'utf8')).toMatch(/sessionTokens'\)\.issueTokenForUser\(payload\.id, payload\.role\)/);
   });
 });
 

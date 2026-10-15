@@ -116,7 +116,12 @@ io.on('connection', (socket) => {
     const token = socket.handshake && socket.handshake.auth && socket.handshake.auth.token;
     if (token && process.env.JWT_SECRET) {
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
-      if (decoded && decoded.id) socket.join(`user:${decoded.id}`);
+      // A session ended on the server (signed out, password reset, ...) stays anonymous.
+      if (decoded && decoded.id) {
+        require('./src/lib/sessionTokens').checkSession(decoded, token)
+          .then((check) => { if (check.state !== 'revoked' && socket.connected) socket.join(`user:${decoded.id}`); })
+          .catch(() => {});
+      }
     }
   } catch (_) { /* invalid/expired token → anonymous socket */ }
 
@@ -444,7 +449,13 @@ app.get('/watchlist.html', (req, res) => res.redirect(302, '/app.html#watchlist'
 // Central logout: clear the server session cookie, then a tiny no-store page clears the client's
 // localStorage token and redirects to the login page. Every logout button navigates here so a
 // single path invalidates both halves of the session. Safe for already-logged-out users.
-app.get('/logout', (req, res) => {
+app.get('/logout', async (req, res) => {
+  // End the cookie's sign-in on the server too (best-effort), then clear it.
+  try {
+    const t = require('./src/lib/sessionCookie').readSessionToken(req);
+    const decoded = t ? require('./src/lib/sessionAuth').verifyToken(t) : null;
+    if (decoded) await require('./src/lib/sessionTokens').endSession(decoded, t, 'logout');
+  } catch (_) { /* signing out in the browser always succeeds */ }
   require('./src/lib/sessionCookie').clearSessionCookie(res);
   res.set('Cache-Control', 'no-store, must-revalidate');
   res.type('html').send(

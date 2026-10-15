@@ -37,10 +37,11 @@ describe('#4 authMiddleware sliding renewal', () => {
     expect(decoded.exp).toBeGreaterThan(nowSec() + 3000); // strictly later expiry
   });
 
-  test('fresh token (under half-life) → no refresh header', () => {
+  test('fresh token (under half-life) → no refresh header', async () => {
     const t = jwt.sign({ id: 'u2', role: 'buyer', iat: nowSec() - 60, exp: nowSec() + 86340 }, SECRET);
     const res = makeRes(); const next = jest.fn();
     authMiddleware(reqWith(t), res, next);
+    await flush(); // the server-side session check is asynchronous on every request (src/lib/sessionTokens.js)
     expect(next).toHaveBeenCalled();
     expect(res.headers['X-Refreshed-Token']).toBeUndefined();
   });

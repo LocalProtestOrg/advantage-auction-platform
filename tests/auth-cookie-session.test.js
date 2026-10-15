@@ -32,9 +32,11 @@ function makeRes() {
   res.status = (c) => { res.statusCode = c; return { json: (b) => { res.body = b; return res; } }; };
   return res;
 }
-function run(reqOpts) {
+// The server-side session check (src/lib/sessionTokens.js) is asynchronous on every request.
+async function run(reqOpts) {
   const req = makeReq(reqOpts), res = makeRes(), next = jest.fn();
   authMiddleware(req, res, next);
+  await flush();
   return { req, res, next, authed: next.mock.calls.length === 1 };
 }
 
@@ -43,42 +45,42 @@ const validToken = () => sign(validClaims, now() - 60, now() + 86340);
 const expiredToken = () => sign(validClaims, now() - 100, now() - 10);
 
 describe('authMiddleware — cookie is a valid fallback session (the fix)', () => {
-  test('1. valid Bearer → authenticates (primary path, unchanged)', () => {
-    const { res, next, req, authed } = run({ bearer: validToken() });
+  test('1. valid Bearer → authenticates (primary path, unchanged)', async () => {
+    const { res, next, req, authed } = await run({ bearer: validToken() });
     expect(authed).toBe(true);
     expect(req.user).toEqual(validClaims);
     expect(res.statusCode).toBeNull();
   });
 
-  test('2. NO Bearer + valid cookie → authenticates via cookie', () => {
-    const { req, authed } = run({ cookie: validToken() });
+  test('2. NO Bearer + valid cookie → authenticates via cookie', async () => {
+    const { req, authed } = await run({ cookie: validToken() });
     expect(authed).toBe(true);
     expect(req.user).toEqual(validClaims);
   });
 
-  test('3. stale/expired Bearer + valid cookie → cookie wins (no false 401)', () => {
-    const { req, res, authed } = run({ bearer: expiredToken(), cookie: validToken() });
+  test('3. stale/expired Bearer + valid cookie → cookie wins (no false 401)', async () => {
+    const { req, res, authed } = await run({ bearer: expiredToken(), cookie: validToken() });
     expect(authed).toBe(true);
     expect(req.user).toEqual(validClaims);
     expect(res.statusCode).toBeNull();
   });
 
-  test('4. expired cookie + stale Bearer → 401 (logged out safely)', () => {
-    const { res, next } = run({ bearer: expiredToken(), cookie: expiredToken() });
+  test('4. expired cookie + stale Bearer → 401 (logged out safely)', async () => {
+    const { res, next } = await run({ bearer: expiredToken(), cookie: expiredToken() });
     expect(next).not.toHaveBeenCalled();
     expect(res.statusCode).toBe(401);
     expect(res.body.error).toMatch(/Session expired/);
   });
 
-  test('5. no credentials at all → 401 Authentication required', () => {
-    const { res } = run({});
+  test('5. no credentials at all → 401 Authentication required', async () => {
+    const { res } = await run({});
     expect(res.statusCode).toBe(401);
     expect(res.body.error).toBe('Authentication required');
   });
 
   test('6. cookie auth refreshes the session cookie but does NOT leak a new JWT via X-Refreshed-Token', async () => {
     // cookie token past half-life → cookie is re-issued (slides) but no header handed to JS.
-    const { res, next } = run({ cookie: sign(validClaims, now() - 5000, now() + 3000) });
+    const { res, next } = await run({ cookie: sign(validClaims, now() - 5000, now() + 3000) });
     await flush();
     expect(next).toHaveBeenCalledTimes(1);
     expect(res.cookies.length).toBe(1);                       // cookie refreshed
@@ -86,14 +88,14 @@ describe('authMiddleware — cookie is a valid fallback session (the fix)', () =
   });
 
   test('7. Bearer past half-life still emits X-Refreshed-Token (compat unchanged)', async () => {
-    const { res } = run({ bearer: sign(validClaims, now() - 5000, now() + 3000) });
+    const { res } = await run({ bearer: sign(validClaims, now() - 5000, now() + 3000) });
     await flush();
     expect(res.headers['X-Refreshed-Token']).toBeTruthy();
     expect(jwt.verify(res.headers['X-Refreshed-Token'], SECRET).id).toBe('u-1');
   });
 
-  test('8. garbage cookie, no Bearer → 401 (fails safe)', () => {
-    const { res, next } = run({ cookie: 'not-a-jwt' });
+  test('8. garbage cookie, no Bearer → 401 (fails safe)', async () => {
+    const { res, next } = await run({ cookie: 'not-a-jwt' });
     expect(next).not.toHaveBeenCalled();
     expect(res.statusCode).toBe(401);
   });
@@ -101,13 +103,13 @@ describe('authMiddleware — cookie is a valid fallback session (the fix)', () =
 
 describe('member-shell client — cookie session is honored at startup', () => {
   const src = fs.readFileSync('public/widgets/shared/member-shell.js', 'utf8');
-  test('apiGet sends the cookie (credentials) and only adds Bearer when a token exists', () => {
+  test('apiGet sends the cookie (credentials) and only adds Bearer when a token exists', async () => {
     expect(src).toMatch(/credentials:\s*'same-origin'/);
     expect(src).toMatch(/if \(t\) headers\.Authorization = 'Bearer ' \+ t/);
     // the OLD apiGet signature (unconditional Bearer, no credentials) is gone:
     expect(src).not.toMatch(/fetch\(path, \{ headers: \{ Authorization: 'Bearer ' \+ token\(\) \} \}\)/);
   });
-  test('boot() no longer bails on a missing localStorage token', () => {
+  test('boot() no longer bails on a missing localStorage token', async () => {
     expect(src).not.toMatch(/if \(!token\(\)\) return renderLoggedOut\(\)/);
     // it now lets the API result decide (401 → sign-in / session-expired)
     expect(src).toMatch(/me\.status === 401\) return token\(\) \? renderUnauthorized\(\) : renderLoggedOut\(\)/);

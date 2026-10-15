@@ -83,7 +83,10 @@ function refuseInactiveSignedIn(req, res, next) {
 
 // Called after an admin suspends/reactivates an account so this instance applies it immediately.
 function invalidateAccountStatus(userId) {
-  if (userId != null) cache.delete(String(userId));
+  if (userId != null) {
+    cache.delete(String(userId));
+    require('./sessionTokens').forgetUser(userId); // the per-request session check caches status too
+  }
 }
 
 function _clearAccountStatusCache() { cache.clear(); }

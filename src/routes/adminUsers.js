@@ -121,6 +121,7 @@ router.post('/:id/status', async (req, res, next) => {
     if (!before) return res.status(404).json({ success: false, message: 'User not found' });
     const { rows } = await db.query(`UPDATE users SET is_active=$2 WHERE id=$1 RETURNING id, email, is_active`, [id, active]);
     require('../lib/accountStatus').invalidateAccountStatus(id); // apply on this instance now, not after the cache TTL
+    if (!active) await require('../lib/sessionTokens').endAllSessions(null, id, 'account suspended'); // signs the account out everywhere
     await writeAuditLog({
       event_type: active ? 'user.reactivated' : 'user.suspended',
       entity_type: 'user', entity_id: id, actor_id: req.user.id,

@@ -82,7 +82,7 @@ async function handleReturn(input, ctx) {
   if (!result) {
     return { status: 400, headers: ERROR_HEADERS, html: errorPage() }; // failed/expired/replayed/unknown → NO JWT
   }
-  const jwt = ctx.signJwt({ id: result.userId, role: result.role }); // SAME login JWT, same claims
+  const jwt = await ctx.signJwt({ id: result.userId, role: result.role }); // SAME login JWT, same claims
   const seed = ctx.buildSeed(jwt, resolveDest(result.dest));
   // Return the JWT so the route can also set the server-side session cookie the HTML gate reads —
   // otherwise the seed page (localStorage only) would land on a gated page with no cookie and bounce

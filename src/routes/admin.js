@@ -262,6 +262,7 @@ router.post('/sellers/:sellerId/suspend', auth, role(['admin']), idempotency, as
     }
     await db.query(`UPDATE users SET is_active = false WHERE id = $1`, [cur.rows[0].user_id]);
     require('../lib/accountStatus').invalidateAccountStatus(cur.rows[0].user_id); // apply on this instance now, not after the cache TTL
+    await require('../lib/sessionTokens').endAllSessions(null, cur.rows[0].user_id, 'account suspended'); // signs the account out everywhere
     const { writeAuditLog } = require('../lib/auditLog');
     await writeAuditLog({
       event_type:  'seller_suspended',

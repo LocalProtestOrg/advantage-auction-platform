@@ -171,7 +171,7 @@ router.post('/claim/:token/complete', strictLimiter, json, optionalAuth, refuseI
     const out = await claims.complete(req.params.token, { fullName: b.full_name, password: b.password,
       signedInUser: req.user && req.user.id ? { id: req.user.id } : null, ip: ipOf(req), visitorId: typeof b.visitor_id === 'string' ? b.visitor_id : null });
     const role = (req.user && req.user.role) || 'buyer';
-    const token = jwt.sign({ id: out.userId, role }, process.env.JWT_SECRET, { expiresIn: process.env.JWT_EXPIRES_IN || '24h' });
+    const token = await require('../lib/sessionTokens').issueTokenForUser(out.userId, role);
     setSessionCookie(res, token);
     return res.status(201).json({ success: true, token, redirect: '/org/profile.html?claimed=1', organization: { id: out.organization.id, name: out.organization.name } });
   } catch (e) {

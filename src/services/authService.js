@@ -33,14 +33,7 @@ class AuthService {
       throw new Error('Invalid credentials');
     }
 
-    const token = jwt.sign(
-      {
-        id: user.id,
-        role: user.role
-      },
-      process.env.JWT_SECRET,
-      { expiresIn: process.env.JWT_EXPIRES_IN || '24h' }
-    );
+    const token = require('../lib/sessionTokens').issueToken(user);
 
     return {
       token,
