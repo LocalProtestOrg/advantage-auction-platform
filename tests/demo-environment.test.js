@@ -34,6 +34,13 @@ describe('demo never auto-closes (no payouts/settlement/tax)', () => {
     const dueBlock = worker.slice(worker.indexOf('const due = await db.query'), worker.indexOf('const due = await db.query') + 400);
     expect(dueBlock).toMatch(/a\.is_demo IS NOT TRUE/);
   });
+  test('archived auctions are out of the lifecycle: never auto-promoted or auto-closed (2026-10-15 hourly close error)', () => {
+    const worker = read('src/workers/notificationWorker.js');
+    const dueBlock = worker.slice(worker.indexOf('const due = await db.query'), worker.indexOf('const due = await db.query') + 700);
+    expect(dueBlock).toMatch(/a\.is_archived IS NOT TRUE/);
+    const promote = worker.slice(worker.indexOf('const promoted = await db.query'), worker.indexOf('const promoted = await db.query') + 400);
+    expect(promote).toMatch(/is_archived IS NOT TRUE/);
+  });
 });
 
 describe('demo excluded from operational auction diagnostics', () => {

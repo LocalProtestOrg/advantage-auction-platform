@@ -766,6 +766,7 @@ async function runAuctionStateTransitions() {
       UPDATE auctions
       SET state = 'active', updated_at = NOW()
       WHERE state = 'published'
+        AND is_archived IS NOT TRUE   -- archived auctions are out of the lifecycle
         AND start_time IS NOT NULL
         AND start_time <= NOW()
       RETURNING id, title
@@ -787,6 +788,8 @@ async function runAuctionStateTransitions() {
       SELECT a.id, a.title FROM auctions a
       WHERE a.state = 'active'
         AND a.is_demo IS NOT TRUE   -- sales-demo auctions never auto-close (no payouts/settlement/tax)
+        AND a.is_archived IS NOT TRUE   -- archived auctions are out of the lifecycle; never auto-closed (an archived
+                                        -- pre-launch test auction with no seller failed this close every hour)
         AND (
           (a.end_time IS NOT NULL AND a.end_time <= NOW())
           OR (
