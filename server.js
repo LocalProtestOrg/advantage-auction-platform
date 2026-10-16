@@ -272,6 +272,10 @@ app.get('/sitemap.xml', async (req, res) => {
     for (const ev of (entries.events || [])) {
       urls.push(urlEl(`${base}/event.html?slug=${encodeURIComponent(ev.slug)}`, lastmodDate(ev.lastmod)));
     }
+    // Professional Storefront pages and items for sale (canonical item URLs; demo, draft, taken-down and sold excluded).
+    const shop = await require('./src/services/productPageService').sitemapEntries();
+    for (const sf of shop.storefronts) urls.push(urlEl(base + sf.path, null));
+    for (const it of shop.items) urls.push(urlEl(base + it.path, lastmodDate(it.lastmod)));
   } catch (e) {
     // FAIL-SAFE: fall through with just the static pages already collected.
   }
@@ -500,6 +504,31 @@ app.get('/pro/:slug', async (req, res, next) => {
     const html = tpl.replace(/<title>[\s\S]*?<\/title>/i, '').replace('<!-- SSR-META -->', head).replace('<!-- SSR-JSONLD -->', jsonld);
     return res.send(html);
   } catch (e) { return res.send(tpl); } // fail-open
+});
+
+// ── Professional Storefront item pages: ONE canonical, server-rendered URL per item (roadmap §4.1) ──
+// /shop/item/<id>/<slug>: title, description, canonical, Open Graph, Product + Offer + BreadcrumbList JSON-LD and the item
+// content in the HTML. A changed title 301s to the current slug; /item.html?id= 301s here. Non-public → 404 + noindex.
+// Fail-open to the plain shell (the browser renders the item from the public API).
+app.get(['/shop/item/:id', '/shop/item/:id/:slug'], async (req, res) => {
+  try {
+    const { publicBaseUrl } = require('./src/lib/publicUrls');
+    const r = await require('./src/services/productPageService').render(req.params.id, req.params.slug, publicBaseUrl());
+    if (r.redirect) return res.redirect(301, r.redirect);
+    if (r.html) { res.set('Cache-Control', 'public, max-age=60'); return res.status(r.status).send(r.html); }
+  } catch (e) { console.error('[product-page] render failed:', e.message); }
+  return res.sendFile(path.join(__dirname, 'public', 'item.html'));
+});
+app.get('/item.html', async (req, res, next) => {
+  const id = req.query && req.query.id;
+  if (!id) return next();
+  try {
+    const pages = require('./src/services/productPageService');
+    const to = await pages.canonicalPathFor(String(id));
+    if (to) return res.redirect(301, to);
+    const nf = pages.notFoundPage();
+    return res.status(nf.status).send(nf.html);
+  } catch (e) { return next(); }
 });
 
 // Claimed Listing token-first landing (/claim/:token): server-rendered, noindex, no third-party scripts.

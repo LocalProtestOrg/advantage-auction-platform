@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Marketplace Item · Advantage.Bid</title>
+  <!-- SSR-META -->
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
   <link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@600;700&family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
   <script src="https://js.stripe.com/v3/"></script>
@@ -43,12 +44,22 @@
     .sheet h3{font-family:Fraunces;font-size:20px;margin-bottom:4px}
   </style>
   <script src="/widgets/shared/lot-image.js"></script>
+  <!-- SSR-JSONLD -->
+  <style>
+    .more{margin-top:8px}.more h2{font-family:Fraunces,serif;font-size:20px;margin:0 0 12px}
+    .more-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px}
+    .more-card{display:block;background:#fff;border:1px solid #e6eaef;border-radius:12px;padding:8px;color:inherit;text-decoration:none;font-size:13px}
+    .more-card img{width:100%;aspect-ratio:1/1;object-fit:cover;border-radius:8px;display:block;margin-bottom:6px}
+    .more-card span{display:block;margin-bottom:2px}
+  </style>
 </head>
 <body>
-  <div class="wrap" id="app"><p style="color:#64748b">Loading…</p></div>
+  <div class="wrap" id="app"><!-- SSR-BODY:START --><p style="color:#64748b">Loading…</p><!-- SSR-BODY:END --></div>
+  <!-- SSR-MORE -->
   <div class="modal" id="modal"><div class="sheet" id="sheet"></div></div>
   <script>
-    var ID=new URLSearchParams(location.search).get('id')||'';
+    // Canonical URL /shop/item/<id>/<slug> (server-rendered); older /item.html?id=<id> links are redirected to it.
+    var ID=new URLSearchParams(location.search).get('id')||((location.pathname.match(/^\/shop\/item\/([0-9a-f-]{36})/i)||[])[1])||'';
     var token=localStorage.getItem('token')||'';
     var CFG={checkout_enabled:false,stripe_publishable_key:null};
     var ITEM=null, ORDER=null, stripe=null, cardEl=null;
@@ -71,10 +82,12 @@
       document.title=it.title+' · Advantage.Bid';
       var imgs=(it.images&&it.images.length?it.images:(it.thumbnail_url?[it.thumbnail_url]:[]));
       var main=AdvLotImage.img(imgs[0], it.title, 'id="main"');
-      var thumbs=imgs.length>1?('<div class="thumbs">'+imgs.map(function(u){return '<img src="'+esc(u)+'" onclick="document.getElementById(\'main\').src=this.src" alt="thumbnail">';}).join('')+'</div>'):'';
+      var alts=it.image_alt||[];
+      function alt(i){return (alts[i]&&String(alts[i]).trim())||(i===0?it.title:(it.title+' - photo '+(i+1)));}
+      var thumbs=imgs.length>1?('<div class="thumbs">'+imgs.map(function(u,i){return '<img src="'+esc(u)+'" onclick="document.getElementById(\'main\').src=this.src" alt="'+esc(alt(i))+'">';}).join('')+'</div>'):'';
       var loc=[it.city,it.state].filter(Boolean).join(', ');
       var sellerLink=it.storefront_slug?('<a href="/pro/'+esc(it.storefront_slug)+'">'+esc(it.seller_name)+'</a>'):esc(it.seller_name);
-      var jsonld={'@context':'https://schema.org','@type':'Product',name:it.title,image:imgs,description:it.description||undefined,offers:{'@type':'Offer',price:((it.price_cents||0)/100).toFixed(2),priceCurrency:'USD',availability:it.status==='active'?'https://schema.org/InStock':'https://schema.org/SoldOut'}};
+      // Product structured data is rendered once, by the server, on the canonical page (one product record per item).
 
       var status=it.status||'active';
       var buyBox;
@@ -101,8 +114,7 @@
         buyBox+
         (it.description?'<div class="desc">'+esc(it.description)+'</div>':'')+
         '<p class="meta" style="margin-top:18px"><a href="#" id="reportLink">Report this listing</a></p>'+
-        '</div></div>'+
-        '<script type="application/ld+json">'+JSON.stringify(jsonld).replace(/</g,'\\u003c')+'<\/script>';
+        '</div></div>';
       var b=document.getElementById('buyNow'); if(b)b.addEventListener('click',startCheckout);
       var rl=document.getElementById('reportLink'); if(rl)rl.addEventListener('click',function(e){e.preventDefault();openReport();});
     }

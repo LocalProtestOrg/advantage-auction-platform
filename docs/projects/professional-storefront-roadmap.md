@@ -36,12 +36,13 @@ public marketing of unfinished features stay OFF until the readiness checks in �
 | Professional auction buyer's premium policy + Buy Now 0% premium separation | LIVE (0672359, 7cb793a) |
 | M2 moderation, reports, buyer issues, seller permission checkpoint (migration 198) | LIVE (6f6762b), verified in production |
 | Seller staff accounts (migration 199) | Built + tested on `feat/seller-staff-accounts` (approved defaults); not deployed; off until `SELLER_STAFF_ENABLED=true` |
+| Product SEO foundation (migration 200) | Built + tested on `feat/seller-staff-accounts`; not deployed (see §4 "Built") |
 | M3 retail settlement and payouts | Policy design awaiting owner decisions; nothing moves money |
 
 ## 2. Development sequence (recommended)
 
 1. **Seller staff accounts** — BUILT (membership, invitations, step-up, revocation; flag-gated). Awaiting deploy approval.
-2. **Product SEO foundation** (§4.1–4.3) — server-rendered item pages, canonical URLs, structured data, sitemap, SEO data
+2. **Product SEO foundation** (§4.1–4.3) — BUILT, awaiting deploy approval. Server-rendered item pages, canonical URLs, structured data, sitemap, SEO data
    fields. Safe to build and ship now: it only improves what is already public. Must land **before** bulk import and the
    widget, so imported and widget items are born with the right data model.
 3. **M3 retail settlement** — build ledger, holds, reconciliation with transfers OFF; live transfers only after owner approval.
@@ -80,6 +81,19 @@ Pages that will need updates:
 - Emails: seller onboarding / welcome sequences.
 
 ## 4. TODO — Product-level SEO and shopping discovery (permanent architectural requirement, 2026-10-16)
+
+### Built (2026-10-16, branch `feat/seller-staff-accounts`, not deployed)
+- Canonical `/shop/item/<uuid>/<slug>` (server-rendered title, description, canonical, Open Graph, Product + Offer +
+  BreadcrumbList JSON-LD, item content, "More from this seller" links). Other slugs and `/item.html?id=` 301 to it;
+  non-public items 404 + noindex; demo items noindex. One product record per item (browser copy removed).
+- Migration 200 product fields (brand, manufacturer, GTIN with check-digit validation, MPN, condition type, era/period,
+  material, per-photo descriptions); `identifier_exists` is derived, never entered. Seller add-item form has an optional
+  "Product details" section. Single source: `src/lib/productData.js`; pages: `src/services/productPageService.js`.
+- `/sitemap.xml` lists published non-demo Professional storefronts and live (active / in-checkout) items, never draft,
+  removed, taken-down, sold, demo or non-Professional ones. Tests: `tests/storefront-product-seo.test.js` (§4.5 list).
+- Not yet: feed builder/mappers (§4.4), per-item edit form for the new fields (API supports it), category pages.
+- **Owner decision pending:** how long sold items stay indexed. Current default: a sold item's page stays reachable,
+  marked sold out, and is dropped from the sitemap immediately.
 
 ### 4.1 Item page architecture
 Today (gap): items live at `/item.html?id=<uuid>`, render in the browser with a generic `<title>`, add JSON-LD client-side,

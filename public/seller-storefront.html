@@ -91,6 +91,14 @@
           <div class="row2"><div><label>Price (USD)</label><input id="m-price" type="number" min="0" step="1" placeholder="450"></div><div><label>Category</label><input id="m-cat" placeholder="Furniture, Lighting, Art…"></div></div>
           <label>Condition</label><input id="m-cond" placeholder="Excellent, Very Good, Good…">
           <label>Description</label><textarea id="m-desc" rows="3" placeholder="Describe the piece — era, maker, dimensions, condition notes…"></textarea>
+          <details style="margin:.6rem 0"><summary style="cursor:pointer;font-weight:600">Product details (optional) — helps shoppers find this item</summary>
+            <p class="hint" style="margin:.4rem 0;color:#475569">Fill in only what you know for sure. Antiques, vintage, handmade and one-of-a-kind pieces usually have no brand barcode or part number — leave those blank.</p>
+            <div class="row2"><div><label for="m-ctype">New or used</label><select id="m-ctype"><option value="">Not specified</option><option value="used">Used / pre-owned / vintage</option><option value="new">New</option><option value="refurbished">Refurbished</option></select></div>
+              <div><label for="m-era">Era or period</label><input id="m-era" placeholder="e.g. Mid-century, 1920s, Victorian"></div></div>
+            <div class="row2"><div><label for="m-brand">Brand</label><input id="m-brand" placeholder="e.g. Herman Miller"></div><div><label for="m-maker">Maker or manufacturer</label><input id="m-maker"></div></div>
+            <div class="row2"><div><label for="m-material">Material</label><input id="m-material" placeholder="e.g. Walnut, sterling silver"></div><div><label for="m-mpn">Model or part number</label><input id="m-mpn"></div></div>
+            <label for="m-gtin">Barcode number (UPC / EAN), if the item has one</label><input id="m-gtin" inputmode="numeric" maxlength="18">
+          </details>
           <fieldset class="pickup" id="m-pickup">
             <legend>Pickup location</legend>
             <p id="m-loc-line" style="margin:0 0 .3rem"></p>
@@ -139,7 +147,7 @@
       document.getElementById('content').style.display='block';
       if(d.staff){
         // Staff (Inventory Manager): items only. Storefront settings, the private pickup address and inquiries stay with the owner.
-        ['t-store','t-leads','pane-store','pane-leads'].forEach(function(id){var el=document.getElementById(id);if(el)el.style.display='none';});
+        ['t-store','t-leads','pane-store','pane-leads','loc-card'].forEach(function(id){var el=document.getElementById(id);if(el)el.style.display='none';});
         var sb=document.createElement('div');sb.className='sub';sb.style.margin='0 0 12px';sb.textContent='Working for '+(d.name||'your company')+' as staff.';
         var ct=document.getElementById('content');ct.insertBefore(sb,ct.firstChild);
         renderDefaultLoc();tab('market');return;
@@ -277,7 +285,9 @@
       var body={title:g('m-title'),price_cents:price,category:g('m-cat')||null,condition:g('m-cond'),description:g('m-desc'),
         shippable:ship,
         shipping_cost_cents:(ship&&g('m-shipcost'))?Math.round(parseFloat(g('m-shipcost'))*100):null,
-        images:UPLOADED.slice()};
+        images:UPLOADED.slice(),
+        condition_type:document.getElementById('m-ctype').value||null,era_or_period:g('m-era'),brand:g('m-brand'),manufacturer:g('m-maker'),
+        material:g('m-material'),mpn:g('m-mpn'),gtin:g('m-gtin')};
       if(pk)Object.assign(body,pickupBody(pk));
       if(btn){btn.disabled=true;btn.textContent='Adding…';}
       try{var r=await api('POST','/api/seller-storefront/items',body);
@@ -286,7 +296,7 @@
           msg('✓ Item added — it’s live in your shop. Add another below.',true);
           // Clear item-specific fields; KEEP the shipping choice. The next item uses the storefront location again.
           if(ITEM_LOC_OPEN)toggleItemLoc();
-          ['m-title','m-price','m-cat','m-cond','m-desc'].forEach(function(i){document.getElementById(i).value='';});
+          ['m-title','m-price','m-cat','m-cond','m-desc','m-ctype','m-era','m-brand','m-maker','m-material','m-mpn','m-gtin'].forEach(function(i){document.getElementById(i).value='';});
           UPLOADED=[]; renderPhotos(); document.getElementById('upStatus').textContent='';
           document.getElementById('m-title').focus(); loadItems();
         } else msg(r.message||'Failed');
