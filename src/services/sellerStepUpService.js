@@ -34,11 +34,15 @@ async function start(ctx, { password } = {}, { sid } = {}, deps = {}) {
   if (!sid) throw new StepUpError('SIGN_IN_AGAIN', 'Please sign out and sign in again, then retry.', 401);
   const u = (await db.query(`SELECT id, password_hash, phone, phone_verified_at, phone_verified_e164, COALESCE(is_active, true) active FROM users WHERE id = $1`, [ctx.userId])).rows[0];
   if (!u || !u.active) throw new StepUpError('NO_USER', 'Account not available.');
+  // Record the attempt as failed FIRST and count it with every other attempt (parallel guesses included); the record
+  // is removed only when the password turns out to be right.
+  const attempt = (await db.query(`INSERT INTO seller_step_up_challenges (user_id, seller_id, session_sid, status, expires_at) VALUES ($1,$2,$3,'password_failed', now()) RETURNING id`,
+    [ctx.userId, ctx.sellerId, String(sid)])).rows[0];
   const failedPw = Number((await db.query(`SELECT count(*)::int n FROM seller_step_up_challenges WHERE user_id = $1 AND status = 'password_failed' AND created_at > now() - interval '${LOCK_MIN} minutes'`, [ctx.userId])).rows[0].n);
-  if (failedPw >= MAX_PASSWORD_FAILS) throw new StepUpError('LOCKED', 'Too many incorrect attempts. Please wait an hour and try again.', 429);
-  if (!u.password_hash || !password || !(await bcrypt.compare(String(password), u.password_hash))) {
-    await db.query(`INSERT INTO seller_step_up_challenges (user_id, seller_id, session_sid, status, expires_at) VALUES ($1,$2,$3,'password_failed', now())`,
-      [ctx.userId, ctx.sellerId, String(sid)]);
+  if (failedPw > MAX_PASSWORD_FAILS) throw new StepUpError('LOCKED', 'Too many incorrect attempts. Please wait an hour and try again.', 429);
+  const pwOk = !!(u.password_hash && password && (await bcrypt.compare(String(password), u.password_hash)));
+  if (pwOk) await db.query('DELETE FROM seller_step_up_challenges WHERE id = $1', [attempt.id]);
+  if (!pwOk) {
     await writeAuditLog({ event_type: 'seller.step_up_password_failed', entity_type: 'user', entity_id: ctx.userId, actor_id: ctx.userId,
       metadata: { seller_id: ctx.sellerId } }).catch(() => {});
     throw new StepUpError('PASSWORD_INCORRECT', 'That password is not correct.');

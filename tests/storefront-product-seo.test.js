@@ -204,6 +204,15 @@ describe('one canonical URL per item; no private data in public output', () => {
     const sm = JSON.stringify(await pages.sitemapEntries());
     for (const f of forbidden) expect(sm).not.toMatch(f);
   });
+  test("'$' sequences in seller text are shown literally and never corrupt the page", async () => {
+    const it = await add('nora', { title: "Rare $' and $` and $& Records ($'90s)", description: "Priced at $'50 $1 $$" });
+    const r = await page(it);
+    expect(r.status).toBe(200);
+    expect(r.html).toContain("Rare $&#39; and $` and $&amp; Records ($&#39;90s)");
+    expect((r.html.match(/<script src="https:\/\/js\.stripe\.com\/v3\/"><\/script>/g) || []).length).toBe(1);
+    expect((r.html.match(/<body>/g) || []).length).toBe(1);
+    expect(product(r.html).name).toBe("Rare $' and $` and $& Records ($'90s)");
+  });
   test('the item page template carries no browser-built product record (the server renders exactly one)', () => {
     const tpl = fs.readFileSync(path.join(ROOT, 'public', 'item.html'), 'utf8');
     expect(tpl).not.toMatch(/'@type':'Product'/);

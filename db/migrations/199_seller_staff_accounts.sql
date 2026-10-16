@@ -58,6 +58,7 @@ BEGIN
     RAISE EXCEPTION 'staff membership status % cannot become %', OLD.status, NEW.status USING ERRCODE = 'check_violation';
   END IF;
   IF NEW.user_id IS NOT NULL AND OLD.user_id IS NULL THEN
+    PERFORM 1 FROM users WHERE id = NEW.user_id FOR UPDATE;   -- serialises with a seller profile being created for this account
     -- The company owner (or the owner of any company) cannot also be staff.
     IF EXISTS (SELECT 1 FROM seller_profiles sp WHERE sp.user_id = NEW.user_id) THEN
       RAISE EXCEPTION 'a seller company owner cannot be staff of a company' USING ERRCODE = 'check_violation';
@@ -120,6 +121,9 @@ CREATE INDEX IF NOT EXISTS idx_seller_step_up_user ON seller_step_up_challenges 
 -- (the membership side is checked when an invitation is accepted; this covers a seller profile created or reassigned later).
 CREATE OR REPLACE FUNCTION seller_profiles_not_staff_guard() RETURNS trigger LANGUAGE plpgsql AS $$
 BEGIN
+  IF NEW.user_id IS NOT NULL AND (TG_OP = 'INSERT' OR NEW.user_id IS DISTINCT FROM OLD.user_id) THEN
+    PERFORM 1 FROM users WHERE id = NEW.user_id FOR UPDATE;   -- serialises with an invitation being accepted by this account
+  END IF;
   IF NEW.user_id IS NOT NULL AND (TG_OP = 'INSERT' OR NEW.user_id IS DISTINCT FROM OLD.user_id)
      AND EXISTS (SELECT 1 FROM seller_staff_members m WHERE m.user_id = NEW.user_id AND m.status IN ('active','suspended')) THEN
     RAISE EXCEPTION 'this account is staff of a seller company; remove the membership before making it a company owner' USING ERRCODE = 'check_violation';

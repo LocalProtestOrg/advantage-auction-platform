@@ -358,6 +358,11 @@ describe('4. staff act for their own company only, within their role', () => {
     expect(JSON.stringify(list)).not.toMatch(/1 Nora St|77001/);
     expect(list[0].location.address).toEqual({ city: 'Houston', state: 'TX' });
     expect(JSON.stringify((await call('nora', 'GET', '/api/seller-storefront/items')).body.data)).toMatch(/1 Nora St/);
+    // ...including in create and save responses (an empty save must not return the full row)
+    expect(JSON.stringify(r.body.data)).not.toMatch(/1 Nora St|77001|converted_by_user_id/);
+    const empty = await call('ivy', 'PATCH', '/api/seller-storefront/items/' + r.body.data.id, {});
+    expect(empty.status).toBe(200);
+    expect(JSON.stringify(empty.body.data)).not.toMatch(/1 Nora St|77001|pickup_address_line1|pickup_postal_code/);
   });
   test('Inventory Manager: no storefront settings, no street address, no inquiries, no fulfilment, no buyer contact or fees', async () => {
     const cfg = (await call('ivy', 'GET', '/api/seller-storefront/config')).body.data;

@@ -191,7 +191,8 @@ async function acceptInvite(userId, token, deps = {}) {
       await event(client, m, 'invite_expired', null, 'system');
       return { expired: true };
     }
-    const u = (await client.query('SELECT id, lower(email) AS email, COALESCE(is_active, true) AS active FROM users WHERE id = $1', [userId])).rows[0];
+    // Locked: serialises with a seller profile being created for this account at the same moment (see migration 199 trigger).
+    const u = (await client.query('SELECT id, lower(email) AS email, COALESCE(is_active, true) AS active FROM users WHERE id = $1 FOR UPDATE', [userId])).rows[0];
     if (!u || !u.active) throw err(403, 'NO_USER', 'Account not available.');
     if (u.email !== m.invited_email) throw err(403, 'EMAIL_MISMATCH', 'This invitation was sent to a different email address. Sign in with that email to accept it.');
     if ((await client.query('SELECT 1 FROM seller_profiles WHERE user_id = $1', [userId])).rowCount) {

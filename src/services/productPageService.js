@@ -125,12 +125,16 @@ async function render(id, slug, base, runner = db) {
   if (slug !== productData.slugify(item.title)) return { status: 301, redirect: canonicalPath };
   if (!tpl) return { status: 200, html: null };
   const more = await moreFromSeller(sellerId, item.id, 6, runner);
+  // Function replacements: seller text is inserted literally ("$'" or "$&" in a title never acts as a pattern).
+  const head = headHtml(item, base, { noindex: demo });
+  const json = ld(productData.productJsonLd(item, base)) + ld(productData.breadcrumbJsonLd(item, base));
+  const body = bodyHtml(item); const moreBlock = moreHtml(item, more);
   const html = tpl
-    .replace(/<title>[\s\S]*?<\/title>/i, '')
-    .replace('<!-- SSR-META -->', headHtml(item, base, { noindex: demo }))
-    .replace('<!-- SSR-JSONLD -->', ld(productData.productJsonLd(item, base)) + ld(productData.breadcrumbJsonLd(item, base)))
-    .replace(/<!-- SSR-BODY:START -->[\s\S]*?<!-- SSR-BODY:END -->/, bodyHtml(item))
-    .replace('<!-- SSR-MORE -->', moreHtml(item, more));
+    .replace(/<title>[\s\S]*?<\/title>/i, () => '')
+    .replace('<!-- SSR-META -->', () => head)
+    .replace('<!-- SSR-JSONLD -->', () => json)
+    .replace(/<!-- SSR-BODY:START -->[\s\S]*?<!-- SSR-BODY:END -->/, () => body)
+    .replace('<!-- SSR-MORE -->', () => moreBlock);
   return { status: 200, html };
 }
 

@@ -306,15 +306,21 @@ async function listForSeller(sellerId, runner = db, { streetAddress = true } = {
     const out = Object.assign({}, r);
     DEFAULT_COLUMNS.forEach((k) => { delete out[k]; });
     out.location = { source: eff.source, address: eff.address, missing: eff.missing || [] };
-    if (!streetAddress) {
-      // Staff: the private pickup street address stays with the owner (city/state only), and no internal user ids.
-      PICKUP_COLUMNS.filter((k) => !['pickup_city', 'pickup_state', 'pickup_location_source'].includes(k)).forEach((k) => { delete out[k]; });
-      delete out.converted_by_user_id; delete out.pending_order_id; delete out.zip;
-      out.location.address = eff.address ? { city: eff.address.city || null, state: eff.address.state || null } : null;
-    }
-    return out;
+    return streetAddress ? out : staffItemView(out);
   });
 }
+// A staff member's view of one of the company's items: the private pickup street address stays with the owner
+// (city/state only), and no internal user or order ids. Used for every item response sent to staff.
+function staffItemView(row) {
+  if (!row) return row;
+  const out = Object.assign({}, row);
+  PICKUP_COLUMNS.filter((k) => !['pickup_city', 'pickup_state'].includes(k)).forEach((k) => { delete out[k]; });
+  DEFAULT_COLUMNS.forEach((k) => { delete out[k]; });
+  delete out.converted_by_user_id; delete out.pending_order_id; delete out.zip;
+  if (out.location) out.location = { ...out.location, address: out.location.address ? { city: out.location.address.city || null, state: out.location.address.state || null } : null };
+  return out;
+}
+
 // Public active listings for a seller (storefront + feed).
 async function listPublicForSeller(sellerId, limit = 200, runner = db) {
   const { rows } = await runner.query(
@@ -362,5 +368,5 @@ async function listingForLot(lotId, runner = db) {
 module.exports = {
   sellerForUser, listUnsoldEligible, convertLotToListing, createDirectListing, updateItem,
   listForSeller, listPublicForSeller, getPublicItem, listingForLot, defaultPrice, UNSOLD_JOIN,
-  publicItem, PICKUP_COLUMNS,
+  publicItem, PICKUP_COLUMNS, staffItemView,
 };

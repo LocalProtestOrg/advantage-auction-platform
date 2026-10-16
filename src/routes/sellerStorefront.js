@@ -18,6 +18,8 @@ const seller = require('../middleware/requireSellerPermission');
 const { optionalSellerPermission: sellerRead } = require('../middleware/requireSellerPermission');
 
 router.use(auth);
+// Staff never receive the private pickup street address (or internal ids) in any item response.
+const shape = (req, row) => (req.sellerCtx && req.sellerCtx.staff ? items.staffItemView(row) : row);
 const fail = (res, e, next) => { if (e.status) return res.status(e.status).json({ success: false, code: e.code, message: e.message, missing: e.missing || undefined }); next(e); };
 
 // ── Storefront config ──────────────────────────────────────────────────────────
@@ -46,11 +48,11 @@ router.get('/items', sellerRead('company.inventory.view'), asyncRoute(async (req
   return res.json({ success: true, data: await items.listForSeller(s.id, undefined, { streetAddress: !req.sellerCtx.staff }) });
 }));
 router.post('/items', seller('company.inventory.edit'), async (req, res, next) => {
-  try { return res.status(201).json({ success: true, data: await items.createDirectListing(req.sellerCtx, req.body || {}) }); }
+  try { return res.status(201).json({ success: true, data: shape(req, await items.createDirectListing(req.sellerCtx, req.body || {})) }); }
   catch (e) { fail(res, e, next); }
 });
 router.patch('/items/:id', seller('company.inventory.edit'), async (req, res, next) => {
-  try { return res.json({ success: true, data: await items.updateItem(req.params.id, req.sellerCtx, req.body || {}) }); }
+  try { return res.json({ success: true, data: shape(req, await items.updateItem(req.params.id, req.sellerCtx, req.body || {})) }); }
   catch (e) { fail(res, e, next); }
 });
 
@@ -64,7 +66,7 @@ router.post('/unsold-lots/:lotId/convert', seller('company.inventory.edit'), asy
   try {
     const b = req.body || {};
     const r = await items.convertLotToListing(req.params.lotId, req.sellerCtx, { priceCents: b.price_cents, edits: b.edits });
-    return res.status(r.created ? 201 : 200).json({ success: true, created: r.created, data: r.item,
+    return res.status(r.created ? 201 : 200).json({ success: true, created: r.created, data: shape(req, r.item),
       needs_pickup_location: r.needs_pickup_location || undefined });
   } catch (e) { fail(res, e, next); }
 });
