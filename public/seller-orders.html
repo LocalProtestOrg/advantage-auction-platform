@@ -85,7 +85,7 @@
       var elig=o.payout_eligible?'<span class="pill pill-elig">Payout eligible</span>':'';
       var track=o.tracking_number?('<div class="meta">Tracking: '+esc(o.tracking_carrier||'')+' '+esc(o.tracking_number)+'</div>'):'';
       return '<div class="order"><div class="top"><div>'+
-        '<div class="t">'+esc(o.item_title||'Item')+'</div>'+
+        '<div class="t">'+esc(o.item_title||'Item')+(o.inventory_number?' <span class="meta">#'+esc(o.inventory_number)+'</span>':'')+'</div>'+
         '<div class="meta">Order '+esc(o.order_number)+' · '+dt(o.created_at)+' · '+(o.fulfillment_method==='shipping'?'Shipping':'Local pickup')+'</div>'+
         (o.buyer_name||o.buyer_email?'<div class="meta">Buyer: '+esc(o.buyer_name||'—')+(o.buyer_email?' · '+esc(o.buyer_email):'')+'</div>':'')+
         (o.ship_to?'<div class="meta">Ship to: '+esc(JSON.stringify(o.ship_to).replace(/[{}"]/g,' '))+'</div>':'')+

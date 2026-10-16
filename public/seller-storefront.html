@@ -98,6 +98,7 @@
           <label class="btn b-ghost" style="display:inline-block;cursor:pointer;margin-bottom:.4rem">➕ Add Photos<input type="file" id="m-file" accept="image/*" multiple style="display:none" onchange="uploadPhotos(this)"></label>
           <span class="hint" id="upStatus" style="margin-left:.5rem"></span>
           <label>Title</label><input id="m-title" placeholder="e.g. Victorian Walnut Side Table">
+          <label for="m-inv">Your inventory number / SKU (optional)</label><input id="m-inv" maxlength="64" placeholder="e.g. HH-1042">
           <div class="row2"><div><label>Price (USD)</label><input id="m-price" type="number" min="0" step="1" placeholder="450"></div><div><label>Category</label><input id="m-cat" placeholder="Furniture, Lighting, Art…"></div></div>
           <label>Condition</label><input id="m-cond" placeholder="Excellent, Very Good, Good…">
           <label>Description</label><textarea id="m-desc" rows="3" placeholder="Describe the piece — era, maker, dimensions, condition notes…"></textarea>
@@ -126,7 +127,8 @@
           <button class="btn b-ghost" type="button" id="m-usedef" hidden onclick="useShipDefaults('m')">Use my store shipping default</button>
           <div style="margin-top:.8rem"><button class="btn b-blue" onclick="addItem(this)">Add Item</button></div>
         </div>
-        <div class="card"><h3 style="margin-bottom:.5rem">Your items</h3><table><thead><tr><th>Item</th><th>Price</th><th>Status</th><th>Pickup location</th><th></th></tr></thead><tbody id="itemsBody"><tr><td colspan="5" class="hint">Loading…</td></tr></tbody></table></div>
+        <div class="card"><h3 style="margin-bottom:.5rem">Your items</h3>
+          <input id="itemSearch" type="search" placeholder="Search by inventory number or title" aria-label="Search your items" style="max-width:320px;margin-bottom:.6rem" oninput="clearTimeout(window.__isq);window.__isq=setTimeout(loadItems,300)"><table><thead><tr><th>Item</th><th>Price</th><th>Status</th><th>Pickup location</th><th></th></tr></thead><tbody id="itemsBody"><tr><td colspan="5" class="hint">Loading…</td></tr></tbody></table></div>
       </div>
 
       <div id="pane-unsold" style="display:none">
@@ -311,7 +313,8 @@
       if(ITEM_LOC_OPEN)document.getElementById('m-pk1').focus();}
     var SRC_LABEL={'default':'Storefront location','auction':'From its auction','item':'Set for this item'};
     async function loadItems(){
-      var r=await api('GET','/api/seller-storefront/items');var rows=r.data||[];ITEMS=rows;
+      var sq=(document.getElementById('itemSearch')||{}).value||'';
+      var r=await api('GET','/api/seller-storefront/items'+(sq.trim()?'?q='+encodeURIComponent(sq.trim()):''));var rows=r.data||[];ITEMS=rows;
       document.getElementById('itemsBody').innerHTML=rows.length?rows.map(function(m){
         var loc=m.location||{}; var live=m.status!=='removed'&&m.status!=='sold'; var needs=live&&loc.missing&&loc.missing.length;
         var where=needs?'<span class="pill pill-warn">Pickup location needed</span>'
@@ -320,7 +323,7 @@
           +(loc.source!=='default'&&DEFLOC?'<button class="btn b-ghost" onclick="useDefault(\''+m.id+'\',this)">Use storefront location</button> ':'')):'';
         var editable=m.status!=='sold'&&m.status!=='pending_purchase';
         if(editable)acts='<button class="btn b-ghost" onclick="editDetails(\''+m.id+'\')">Edit details</button> '+acts;
-        return '<tr><td>'+esc(m.title)+'<div id="pk-'+m.id+'"></div><div id="ed-'+m.id+'"></div></td><td>'+money(m.price_cents)+'</td><td><span class="pill">'+esc(m.status)+'</span></td><td>'+where+'</td><td>'
+        return '<tr><td>'+esc(m.title)+(m.inventory_number?'<div class="hint">#'+esc(m.inventory_number)+'</div>':'')+'<div id="pk-'+m.id+'"></div><div id="ed-'+m.id+'"></div></td><td>'+money(m.price_cents)+'</td><td><span class="pill">'+esc(m.status)+'</span></td><td>'+where+'</td><td>'
           +acts+(m.status!=='removed'?'<button class="btn b-warn" onclick="removeItem(\''+m.id+'\')">Remove</button>':'')+'</td></tr>';
       }).join(''):'<tr><td colspan="5" class="hint">No items yet. Use “Add an Item” above to list your first piece for sale.</td></tr>';
     }
@@ -335,6 +338,7 @@
       var imgs=(m.images&&m.images.length?m.images:(m.thumbnail_url?[m.thumbnail_url]:[])); var alts=m.image_alt||[];
       box.innerHTML='<div class="card" style="margin:.5rem 0;padding:.8rem">'
         +f('title','Title',m.title)
+        +f('inv','Your inventory number / SKU',m.inventory_number,' maxlength="64"')
         +'<div class="row2"><div>'+f('price','Price (USD)',m.price_cents!=null?(m.price_cents/100):'',' type="number" min="0" step="0.01"')+'</div><div>'+f('cat','Category',m.category)+'</div></div>'
         +f('cond','Condition details',m.condition)
         +'<label for="e-desc-'+id+'">Description</label><textarea id="e-desc-'+id+'" rows="3">'+esc(m.description||'')+'</textarea>'
@@ -359,7 +363,8 @@
       var n=(m.images&&m.images.length?m.images.length:(m.thumbnail_url?1:0)); var alts=[]; for(var i=0;i<n;i++)alts.push(v('alt'+i));
       var ship=readShip('es'+id,false,true); if(ship.error){msg(ship.error);return;}
       var body=Object.assign({title:v('title'),price_cents:price,category:v('cat'),condition:v('cond'),description:v('desc'),
-        condition_type:v('ctype')||null,era_or_period:v('era'),brand:v('brand'),manufacturer:v('maker'),material:v('material'),mpn:v('mpn'),gtin:v('gtin'),image_alt:alts},ship);
+        condition_type:v('ctype')||null,era_or_period:v('era'),brand:v('brand'),manufacturer:v('maker'),material:v('material'),mpn:v('mpn'),gtin:v('gtin'),image_alt:alts,
+        inventory_number:v('inv')},ship);
       btn.disabled=true; var r=await api('PATCH','/api/seller-storefront/items/'+id,body);
       if(r.success){msg('Changes saved.',true);loadItems();} else{msg(r.message||'Could not save');btn.disabled=false;}
     }
@@ -427,7 +432,7 @@
       var body=Object.assign({title:g('m-title'),price_cents:price,category:g('m-cat')||null,condition:g('m-cond'),description:g('m-desc'),
         images:UPLOADED.slice(),
         condition_type:document.getElementById('m-ctype').value||null,era_or_period:g('m-era'),brand:g('m-brand'),manufacturer:g('m-maker'),
-        material:g('m-material'),mpn:g('m-mpn'),gtin:g('m-gtin')},ship);
+        material:g('m-material'),mpn:g('m-mpn'),gtin:g('m-gtin'),inventory_number:g('m-inv')},ship);
       if(pk)Object.assign(body,pickupBody(pk));
       if(btn){btn.disabled=true;btn.textContent='Adding…';}
       try{var r=await api('POST','/api/seller-storefront/items',body);
@@ -436,7 +441,7 @@
           msg('✓ Item added — it’s live in your shop. Add another below.',true);
           // Clear item-specific fields; KEEP the shipping choice. The next item uses the storefront location again.
           if(ITEM_LOC_OPEN)toggleItemLoc();
-          ['m-title','m-price','m-cat','m-cond','m-desc','m-ctype','m-era','m-brand','m-maker','m-material','m-mpn','m-gtin'].forEach(function(i){document.getElementById(i).value='';});
+          ['m-title','m-inv','m-price','m-cat','m-cond','m-desc','m-ctype','m-era','m-brand','m-maker','m-material','m-mpn','m-gtin'].forEach(function(i){document.getElementById(i).value='';});
           UPLOADED=[]; renderPhotos(); document.getElementById('upStatus').textContent='';
           document.getElementById('m-title').focus(); loadItems();
         } else msg(r.message||'Failed');

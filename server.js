@@ -961,6 +961,8 @@ server.listen(PORT, () => {
     // Founding Auction Partners: Owner alert before/after an introductory fee end date. Never changes a fee.
     try { require('./src/services/acquisition/foundingPartnerService').startReminders(); } catch (e) { log.error('founding-partners', 'reminder start failed', { error: e.message }); }
     try { require('./src/services/marketingFulfillmentWorker').start(); } catch (e) { log.error('marketing', 'fulfillment monitor start failed', { error: e.message }); }
+    // Storefront seller notices (queued in the paid transaction; delivered with retries). Idle while nothing is queued.
+    try { require('./src/services/storefrontNotificationService').start(); } catch (e) { log.error('storefront', 'notification sender start failed', { error: e.message }); }
     // #1 real-time: bridge Postgres NOTIFY (from web + worker processes) to
     // socket.io. Polling on the clients remains the permanent fallback.
     require('./src/lib/realtime').startListener(io)

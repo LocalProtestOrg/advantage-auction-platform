@@ -1,44 +1,44 @@
 'use strict';
 
 /**
- * Paid-sale seller notification content (owner requirement 2026-10-16; roadmap §8.1): the seller's "Item sold" email names
- * the item, order, confirmed price, fulfilment method, next step and a secure dashboard link — and NEVER the buyer's name,
- * email, phone or ship-to address (those stay behind the authenticated, role-shaped seller dashboard).
+ * Paid-sale seller notification content (owner requirements 2026-10-16; roadmap §8.1, milestone N). The seller notice is
+ * rendered from the order's fixed purchase snapshot by storefrontNotificationService and delivered through the outbox;
+ * marketplaceOrderNotifier.sendPaid now sends only the buyer's receipt.
  */
 const mockSent = [];
 const ROW = {
   id: 'o1', order_number: 'MO-000123', item_title: 'Walnut Sideboard', item_price_cents: 45000, shipping_cents: 2500, tax_cents: 0,
-  total_charge_cents: 47500, seller_proceeds_cents: 40050, fulfillment_method: 'shipping', seller_name: 'Nora Estate Sales',
-  seller_email: 'owner@nora.example', buyer_email: 'bea.private@buyer.example', buyer_name: 'Bea Buyerton',
+  total_charge_cents: 47500, platform_fee_bps: 1100, platform_fee_cents: 4950, seller_proceeds_cents: 42550, fulfillment_method: 'shipping',
+  seller_name: 'Nora Estate Sales', seller_email: 'owner@nora.example', buyer_email: 'bea.private@buyer.example', buyer_name: 'Bea Buyerton',
   ship_to: { line1: '77 Secret Lane', city: 'Austin', state: 'TX', postal_code: '78701' },
-  item_snapshot: { description: 'Solid walnut, c. 1950, minor wear.', thumbnail_url: 'https://img.example/sideboard.jpg' },
+  item_snapshot: { title: 'Walnut Sideboard', description: 'Solid walnut, c. 1950, minor wear.', thumbnail_url: 'https://img.example/sideboard.jpg', inventory_number: 'HH-1042' },
 };
-let mockRow = ROW;
+const mockRow = ROW;
 jest.mock('../src/db', () => ({ query: jest.fn(async () => ({ rows: [mockRow] })) }));
 jest.mock('../src/services/emailService', () => ({ sendEmail: jest.fn(async (m) => { mockSent.push(m); return { messageId: 'x' }; }) }));
 
 const notifier = require('../src/services/marketplaceOrderNotifier');
+const { renderSalePaid } = require('../src/services/storefrontNotificationService');
 
-describe('seller "Item sold" email', () => {
-  beforeEach(() => { mockSent.length = 0; });
-  test('names the item, order, price, method, next step, thumbnail and link — never buyer contact or address', async () => {
-    await notifier.sendPaid('o1');
-    const seller = mockSent.find((m) => m.to === 'owner@nora.example');
-    expect(seller).toBeDefined();
-    const all = seller.subject + seller.html + seller.text;
-    for (const s of ['Walnut Sideboard', 'MO-000123', '$450.00', 'Shipping', 'record the carrier and tracking number', '/seller-orders.html',
-      'https://img.example/sideboard.jpg', 'Solid walnut', 'Estimated proceeds']) expect(all).toContain(s);
+describe('seller "Item sold" notice', () => {
+  test('names the item, inventory number, price, 11% fee, proceeds, method, next step, thumbnail and link — never buyer contact or address', () => {
+    const m = renderSalePaid(ROW);
+    const all = m.subject + m.html + m.text;
+    for (const s of ['Walnut Sideboard', 'HH-1042', 'MO-000123', '$450.00', '11% of the item price', '$49.50', '$425.50', 'Shipping',
+      'record the carrier and tracking number', '/seller-orders.html', 'https://img.example/sideboard.jpg', 'Solid walnut', 'Estimated proceeds']) {
+      expect(all).toContain(s);
+    }
     for (const bad of [/bea\.private/, /Bea Buyerton/, /Secret Lane/, /78701/]) expect(all).not.toMatch(bad);
-    // the buyer still gets their own receipt
-    expect(mockSent.find((m) => m.to === 'bea.private@buyer.example')).toBeDefined();
   });
-  test('pickup orders get the pickup next step; a non-https thumbnail is not embedded', async () => {
-    mockRow = { ...ROW, fulfillment_method: 'pickup', ship_to: null, item_snapshot: { thumbnail_url: 'http://insecure.example/x.jpg' } };
+  test('pickup orders get the pickup next step; a non-https thumbnail is not embedded; escaping holds', () => {
+    const m = renderSalePaid({ ...ROW, fulfillment_method: 'pickup', item_snapshot: { title: '<b>Lamp</b>', thumbnail_url: 'http://insecure.example/x.jpg' } });
+    expect(m.html).toContain('Ready for Pickup');
+    expect(m.html).not.toContain('insecure.example');
+    expect(m.html).toContain('&lt;b&gt;Lamp&lt;/b&gt;');
+  });
+  test('sendPaid now sends only the buyer receipt (the seller notice goes through the outbox)', async () => {
+    mockSent.length = 0;
     await notifier.sendPaid('o1');
-    const seller = mockSent.find((m) => m.to === 'owner@nora.example');
-    expect(seller.html).toContain('Ready for Pickup');
-    expect(seller.html).not.toContain('insecure.example');
-    expect(seller.html + seller.text).not.toMatch(/bea\.private|Bea Buyerton/);
-    mockRow = ROW;
+    expect(mockSent.map((m) => m.to)).toEqual(['bea.private@buyer.example']);
   });
 });

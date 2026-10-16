@@ -164,6 +164,7 @@ function purchaseSnapshot(item, method = 'pickup', shippingCents = 0) {
       condition: item.condition || null, thumbnail_url: item.thumbnail_url || null, images: Array.isArray(item.images) ? item.images : [],
       shippable: !!item.shippable, shipping_cost_cents: item.shipping_cost_cents == null ? null : Number(item.shipping_cost_cents),
       shipping_notes: item.shipping_notes || null, source_lot_id: item.source_lot_id || null, listed_price_cents: Number(item.price_cents),
+      inventory_number: item.inventory_number || null,   // the seller's own number, fixed with the sale (migration 204)
       // the shipping or pickup terms offered and the one the buyer chose, fixed at purchase (migration 201)
       shipping_terms: shipping.snapshotTerms(item, method, shippingCents) },
     seller: { seller_profile_id: item.seller_id, seller_user_id: item.seller_user_id, display_name: item.seller_display_name || null,
@@ -640,6 +641,9 @@ async function markOrderPaid(intent) {
       metadata: { intent_id: intent.id, total_charge_cents: o.total_charge_cents },
     });
     await recordEvent(client, o.id, 'paid', { data: { intent_id: intent.id, charge_id: chargeId, total_charge_cents: o.total_charge_cents } });
+    // Seller "item sold" notice: queued in THIS transaction, so a paid order always has it and an unpaid one never does
+    // (delivered with retries by storefrontNotificationService).
+    await require('./storefrontNotificationService').enqueueSalePaid(client, o.id);
     paidOrder = o;
   });
   if (conflict) return refundConflict(conflict.order, intent, chargeId, conflict.reason);
@@ -970,7 +974,8 @@ async function listForSeller(sellerActorRef) {
       ORDER BY o.created_at DESC`, [seller.id]);
   // Seller sees only the buyer contact necessary to fulfill a PAID order (name/email + shipping snapshot), and only
   // people whose role fulfils orders see it (sellerOrderView).
-  return rows.map((r) => sellerOrderView(r, sellerActorRef, { item_title: r.item_title, thumbnail_url: r.thumbnail_url }));
+  return rows.map((r) => sellerOrderView(r, sellerActorRef, { item_title: r.item_title, thumbnail_url: r.thumbnail_url,
+    inventory_number: (r.item_snapshot && r.item_snapshot.inventory_number) || null }));
 }
 
 // Single-order fetch, ownership-scoped (used by the buyer confirmation poll + seller/admin detail).

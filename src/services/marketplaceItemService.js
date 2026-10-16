@@ -58,6 +58,22 @@ function pickupValues(loc, source) {
   };
 }
 
+// The seller's own inventory number / SKU (migration 204): optional, trimmed, ≤ 64 printable characters. Unique within the
+// seller's live items (database); another seller may use the same number.
+function normalizeInventoryNumber(v) {
+  if (v === undefined || v === null) return null;
+  const s = String(v).replace(/[\u0000-\u001f\u007f]+/g, '').trim();
+  if (!s) return null;
+  if (s.length > 64) throw err(422, 'INVENTORY_NUMBER_INVALID', 'Inventory numbers can be up to 64 characters.');
+  return s;
+}
+function inventoryConflict(e) {
+  if (e && e.code === '23505' && /inventory_number/.test(String(e.constraint || e.message || ''))) {
+    throw err(409, 'INVENTORY_NUMBER_TAKEN', 'You already have a listing with that inventory number.');
+  }
+  throw e;
+}
+
 // Resolve the acting seller company (id, seller_type, is_demo, city/state via profile). Null if none. Accepts the seller
 // context from the seller checkpoint (owner or staff; company from the session) or the owner's user id.
 async function sellerForUser(actor, runner = db) {
@@ -184,6 +200,7 @@ async function createDirectListing(actingUserId, data = {}) {
   // Optional product details (brand, barcode, part number, condition type, era, material, photo descriptions): only
   // what the seller actually entered; an invalid barcode is refused, never corrected (src/lib/productData.js).
   const pd = productData.normalizeProductFields(data);
+  const inventoryNumber = normalizeInventoryNumber(data.inventory_number);
   // Shipping: OFF unless the seller turns it on for this item with complete terms, or deliberately applies their store
   // shipping default (src/lib/storefrontShipping.js). A blank shipping price is never free.
   const fromDefaults = data.apply_store_shipping_defaults === true ? shipping.columnsFromStoreDefaults(seller.shipping_defaults) : null;
@@ -208,10 +225,10 @@ async function createDirectListing(actingUserId, data = {}) {
         pickup_address_line1, pickup_address_line2, pickup_city, pickup_state, pickup_postal_code, pickup_country,
         pickup_location_source, pickup_location_updated_at,
         brand, manufacturer, gtin, mpn, condition_type, era_or_period, material, image_alt,
-        shipping_method, shipping_price_mode, shipping_destinations, shipping_states, handling_days, is_oversized, is_fragile)
+        shipping_method, shipping_price_mode, shipping_destinations, shipping_states, handling_days, is_oversized, is_fragile, inventory_number)
      VALUES ($1,$2,$3,$4,$5,$6,$7::jsonb,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,'direct',
              $18,$19,$20,$21,$22,$23,$24,$25, $26,$27,$28,$29,$30,$31,$32,$33::jsonb,
-             $34,$35,$36,$37,$38,$39,$40) RETURNING *`,
+             $34,$35,$36,$37,$38,$39,$40,$41) RETURNING *`,
     [seller.id, title, data.description || null, data.category || null, data.condition || null, price,
      JSON.stringify(images), images[0] || null, place.city || data.city || null, place.state || data.state || null, place.zip || data.zip || null,
      sh.shippable, sh.shipping_cost_cents, sh.shipping_notes, data.pickup_group || null, status, !!seller.is_demo,
@@ -219,7 +236,8 @@ async function createDirectListing(actingUserId, data = {}) {
      pv.pickup_location_source, new Date(),
      pd.brand || null, pd.manufacturer || null, pd.gtin || null, pd.mpn || null, pd.condition_type || null, pd.era_or_period || null,
      pd.material || null, JSON.stringify(pd.image_alt || []),
-     sh.shipping_method, sh.shipping_price_mode, sh.shipping_destinations, sh.shipping_states || [], sh.handling_days, !!sh.is_oversized, !!sh.is_fragile]);
+     sh.shipping_method, sh.shipping_price_mode, sh.shipping_destinations, sh.shipping_states || [], sh.handling_days, !!sh.is_oversized, !!sh.is_fragile,
+     inventoryNumber || null]).catch(inventoryConflict);
   return rows[0];
 }
 
@@ -274,6 +292,7 @@ async function updateItem(id, actingUserId, patch = {}) {
   for (const [k, v] of Object.entries(shipping.normalizeShippingInput(patch, item))) add(k, v);
   if (patch.status != null) add('status', patch.status);
   for (const [k, v] of Object.entries(productData.normalizeProductFields(patch))) add(k, k === 'image_alt' ? JSON.stringify(v) : v);
+  if (patch.inventory_number !== undefined) add('inventory_number', normalizeInventoryNumber(patch.inventory_number));
   // Location changes affect THIS item only — never the seller's default or any other item.
   let eff = saleLocation.forItem({ ...seller, ...item });
   const locationChanged = hasPickupInput(patch) || patch.use_storefront_location === true;
@@ -302,17 +321,21 @@ async function updateItem(id, actingUserId, patch = {}) {
     if (eff.missing && eff.missing.length) throw pickupRequiredError(eff.missing);
   }
   if (!sets.length) return item;
-  const { rows } = await client.query(`UPDATE marketplace_items SET ${sets.join(', ')}, updated_at = now() WHERE id = $1 RETURNING *`, vals);
+  const { rows } = await client.query(`UPDATE marketplace_items SET ${sets.join(', ')}, updated_at = now() WHERE id = $1 RETURNING *`, vals).catch(inventoryConflict);
   return rows[0];
   });
 }
 
 // Seller's own listings (all statuses).
-async function listForSeller(sellerId, runner = db, { streetAddress = true } = {}) {
+async function listForSeller(sellerId, runner = db, { streetAddress = true, q = null } = {}) {
+  // Optional search by the seller's inventory number or title (within this seller's own items only).
+  const term = q == null ? null : String(q).trim().slice(0, 100);
+  const like = term ? '%' + term.replace(/[\\%_]/g, (c) => '\\' + c) + '%' : null;
   const { rows } = await runner.query(
     `SELECT mi.*, ${DEFAULT_COLUMNS.map((c) => 'sp.' + c).join(', ')}
        FROM marketplace_items mi JOIN seller_profiles sp ON sp.id = mi.seller_id
-      WHERE mi.seller_id = $1 ORDER BY mi.created_at DESC`, [sellerId]);
+      WHERE mi.seller_id = $1 AND ($2::text IS NULL OR mi.inventory_number ILIKE $2 OR mi.title ILIKE $2)
+      ORDER BY mi.created_at DESC`, [sellerId, like]);
   // The seller sees each item's effective location and where it comes from (their own data; never public).
   return rows.map((r) => {
     const eff = saleLocation.forItem(r);

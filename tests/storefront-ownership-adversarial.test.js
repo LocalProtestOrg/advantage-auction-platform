@@ -115,7 +115,7 @@ beforeAll(async () => {
   await global.__PG.exec(BASE);
   for (const f of ['119_seller_storefronts_marketplace.sql', '121_marketplace_orders.sql', '174_marketplace_checkout_hardening.sql',
     '177_marketplace_item_pickup_location.sql', '178_seller_default_pickup_location.sql', '197_storefront_order_integrity.sql',
-    '198_storefront_moderation_reports.sql', '199_seller_staff_accounts.sql', '200_storefront_product_data.sql', '201_storefront_shipping_controls.sql', '203_seller_store_policies.sql']) {
+    '198_storefront_moderation_reports.sql', '199_seller_staff_accounts.sql', '200_storefront_product_data.sql', '201_storefront_shipping_controls.sql', '203_seller_store_policies.sql', '204_inventory_numbers_and_sale_notifications.sql']) {
     await global.__PG.exec(mig(f));
   }
   // migration 197 is idempotent
@@ -1104,5 +1104,100 @@ describe('seller policies: re-review fixes', () => {
     expect(src).toMatch(/23514' && \/own seller\/[\s\S]{0,80}POLICIES_CHANGED/);
     const pol = fs.readFileSync(path.join(ROOT, 'src', 'services', 'sellerPolicyService.js'), 'utf8');
     expect(pol).toMatch(/async function withdraw[\s\S]*FOR UPDATE[\s\S]*status = 'withdrawn'/);
+  });
+});
+
+// ═════════════════════════════════════════════════════════════════════════════════════════════════════════
+// Milestone N — seller inventory numbers + reliable paid-sale notifications (migration 204)
+describe('milestone N: inventory numbers', () => {
+  test("unique within one seller's live items, reusable by another seller, searchable, and fixed on the order", async () => {
+    const a = await noraItem({ title: 'Inventory chair', inventory_number: '  HH-1042 ' });
+    expect(a.inventory_number).toBe('HH-1042');
+    const dup = await call('nora', 'POST', '/api/seller-storefront/items', { title: 'Dup', price_cents: 1000, inventory_number: 'hh-1042' });
+    expect(dup.status).toBe(409); expect(dup.body.code).toBe('INVENTORY_NUMBER_TAKEN');
+    const sue = await call('sue', 'POST', '/api/seller-storefront/items', { title: 'Sue chair', price_cents: 1000, inventory_number: 'HH-1042' });
+    expect(sue.status).toBe(201);
+    const b = await noraItem({ title: 'Other item' });
+    expect((await call('nora', 'PATCH', '/api/seller-storefront/items/' + b.id, { inventory_number: 'HH-1042' })).body.code).toBe('INVENTORY_NUMBER_TAKEN');
+    expect((await call('nora', 'POST', '/api/seller-storefront/items', { title: 'Too long', price_cents: 1000, inventory_number: 'x'.repeat(65) })).body.code).toBe('INVENTORY_NUMBER_INVALID');
+    const found = (await call('nora', 'GET', '/api/seller-storefront/items?q=hh-10')).body.data;
+    expect(found.map((x) => x.id)).toEqual([a.id]);
+    expect((await call('nora', 'GET', '/api/seller-storefront/items?q=%25')).body.data.map((x) => x.id)).not.toContain(a.id);   // % is literal
+    const o = await beaBuys(a);
+    expect(o.item_snapshot.inventory_number).toBe('HH-1042');
+    const seen = (await call('nora', 'GET', '/api/marketplace/seller/orders')).body.data.find((x) => x.id === o.id);
+    expect(seen.inventory_number).toBe('HH-1042');
+    // after the sale the number is free for a new listing; the order keeps its own
+    expect((await call('nora', 'POST', '/api/seller-storefront/items', { title: 'New HH-1042', price_cents: 1000, inventory_number: 'HH-1042' })).status).toBe(201);
+    expect((await one('SELECT item_snapshot FROM marketplace_orders WHERE id = $1', [o.id])).item_snapshot.inventory_number).toBe('HH-1042');
+  });
+});
+
+describe('milestone N: reliable paid-sale notifications', () => {
+  const notify = require('../src/services/storefrontNotificationService');
+  const mail = require('../src/services/emailService');
+  const alerts = require('../src/services/ownerAlertService');
+  beforeEach(async () => { await notify.tick(); mail.sendEmail.mockClear(); alerts.notifyAdminActionRequired.mockClear(); });   // drain earlier tests' notices
+  test('no notice for a started or pending checkout; exactly one once paid, even if the payment confirmation repeats', async () => {
+    const it = await noraItem({ title: 'Notice desk', inventory_number: 'ND-7' });
+    const c = await orders.createOrder(it.id, U.bea.id, { policiesAcknowledged: true });
+    expect(await one('SELECT count(*)::int n FROM storefront_notifications WHERE order_id = $1', [c.order.id])).toEqual({ n: 0 });
+    await orders.payOrder(c.order.id, U.bea.id, { paymentMethodId: 'pm_bea' });
+    const o = await one('SELECT * FROM marketplace_orders WHERE id = $1', [c.order.id]);
+    const intent = mockStripe.intents.get(o.stripe_payment_intent_id);
+    await orders.markOrderPaid({ ...intent });   // replayed confirmations
+    await orders.markOrderPaid({ ...intent });
+    const rows = await q('SELECT seller_id, recipient_email, event, status FROM storefront_notifications WHERE order_id = $1', [o.id]);
+    expect(rows).toEqual([{ seller_id: SP.nora, recipient_email: 'nora@test.example', event: 'sale_paid', status: 'pending' }]);
+    const r = await notify.tick();
+    expect(r.sent).toBeGreaterThanOrEqual(1);
+    const sent = mail.sendEmail.mock.calls.map((x) => x[0]).filter((m) => m.to === 'nora@test.example' && /Notice desk/.test(m.subject));
+    expect(sent).toHaveLength(1);
+    const body = sent[0].subject + sent[0].html + sent[0].text;
+    for (const s of ['ND-7', o.order_number, '$100.00', '11% of the item price', '$11.00', 'Estimated proceeds', '/seller-orders.html']) expect(body).toContain(s);
+    for (const bad of [/bea@test/, /BEA/, /5 Buyer Rd/]) expect(body).not.toMatch(bad);
+    expect(await one('SELECT status, attempts FROM storefront_notifications WHERE order_id = $1', [o.id])).toEqual({ status: 'sent', attempts: 1 });
+    await notify.tick();
+    expect(mail.sendEmail.mock.calls.filter((x) => /Notice desk/.test(x[0].subject))).toHaveLength(1);   // never sent twice
+  });
+  test('a failed send is retried with back-off; after the last attempt it is marked failed and the owner is alerted', async () => {
+    const o = await beaBuys(await noraItem({ title: 'Retry vase' }));
+    mail.sendEmail.mockImplementation(async (m) => { if (/Retry vase/.test(m.subject)) throw new Error('mailbox unavailable'); return { messageId: 'm' }; });
+    try {
+      await notify.tick();
+      let n = await one('SELECT status, attempts, next_attempt_at > now() AS later FROM storefront_notifications WHERE order_id = $1', [o.id]);
+      expect(n).toEqual({ status: 'pending', attempts: 1, later: true });
+      for (let i = 0; i < notify.MAX_ATTEMPTS; i++) {
+        await q(`UPDATE storefront_notifications SET next_attempt_at = now() WHERE order_id = $1 AND status = 'pending'`, [o.id]);
+        await notify.tick();
+      }
+      n = await one('SELECT status, attempts, last_error FROM storefront_notifications WHERE order_id = $1', [o.id]);
+      expect(n).toMatchObject({ status: 'failed', attempts: notify.MAX_ATTEMPTS, last_error: 'mailbox unavailable' });
+      expect(alerts.notifyAdminActionRequired).toHaveBeenCalledWith(expect.objectContaining({ entityType: 'storefront_notification' }));
+    } finally { mail.sendEmail.mockImplementation(async () => ({ messageId: 'm' })); }
+    expect(notify.backoffMinutes(1)).toBe(2); expect(notify.backoffMinutes(20)).toBe(240);
+  });
+  test('a crashed delivery lease is reclaimed and delivered once', async () => {
+    const o = await beaBuys(await noraItem({ title: 'Lease lamp' }));
+    await q(`UPDATE storefront_notifications SET status = 'processing', locked_at = now() - interval '1 hour' WHERE order_id = $1`, [o.id]);
+    await notify.tick();
+    expect((await one('SELECT status FROM storefront_notifications WHERE order_id = $1', [o.id])).status).toBe('sent');
+    expect(mail.sendEmail.mock.calls.filter((x) => /Lease lamp/.test(x[0].subject))).toHaveLength(1);
+  });
+  test("the database ties a notice to its own seller's order and keeps it as a delivery record", async () => {
+    const o = await beaBuys(await noraItem({ title: 'DB notice' }));
+    const fk = await rejects(`INSERT INTO storefront_notifications (seller_id, order_id, event, recipient_email) VALUES ($1, $2, 'sale_paid', 'sue@test.example')`, [SP.sue, o.id]);
+    expect(fk.message).toMatch(/foreign key/i);
+    const dupe = await rejects(`INSERT INTO storefront_notifications (seller_id, order_id, event, recipient_email) VALUES ($1, $2, 'sale_paid', 'nora@test.example')`, [SP.nora, o.id]);
+    expect(dupe.message).toMatch(/unique|duplicate/i);
+    const n = await one('SELECT id FROM storefront_notifications WHERE order_id = $1', [o.id]);
+    for (const sql of [`UPDATE storefront_notifications SET recipient_email = 'evil@x.example' WHERE id = $1`,
+      `UPDATE storefront_notifications SET seller_id = '${SP.sue}' WHERE id = $1`, `DELETE FROM storefront_notifications WHERE id = $1`]) {
+      const e = await rejects(sql, [n.id]);
+      expect(e.message).toMatch(/keeps its seller|delivery records|foreign key/i);
+    }
+    await notify.tick();
+    const e2 = await rejects(`UPDATE storefront_notifications SET status = 'pending' WHERE id = $1`, [n.id]);
+    expect(e2.message).toMatch(/stays sent/);
   });
 });

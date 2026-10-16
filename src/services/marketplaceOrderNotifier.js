@@ -3,9 +3,9 @@
 /**
  * marketplaceOrderNotifier — buyer receipt + seller "item sold" notice for a paid Marketplace order,
  * and a buyer notice on refund. Reuses the platform emailService. Best-effort: callers wrap in try/catch
- * so a mail failure never breaks the payment webhook. No "AI"/vendor terminology in visible copy. The seller email carries
- * NO buyer contact details or ship-to address (owner rule 2026-10-16): fulfilment details live in the authenticated,
- * role-shaped seller dashboard. Seller followers are NOT notified on a sale.
+ * so a mail failure never breaks the payment webhook. No "AI"/vendor terminology in visible copy. The seller's sale notice
+ * is delivered by storefrontNotificationService (queued, retried, no buyer contact details). Seller followers are NOT
+ * notified on a sale.
  */
 
 const db = require('../db');
@@ -81,31 +81,8 @@ async function sendPaid(orderId) {
       text: `Order ${o.order_number} confirmed. ${o.item_title}. Total ${money(o.total_charge_cents)}. Fulfillment: ${method}. ${next}` });
   }
 
-  // Seller "item sold" notice (owner rule 2026-10-16): the item, the confirmed sale, the next fulfilment step and a secure
-  // link — NO buyer contact details and NO ship-to address. Fulfilment details are shown only inside the authenticated
-  // seller dashboard, to the roles allowed to fulfil (migration 199). Sent only once the order is PAID.
-  if (o.seller_email) {
-    const snap = o.item_snapshot && typeof o.item_snapshot === 'object' ? o.item_snapshot : {};
-    const desc = snap.description ? String(snap.description).replace(/\s+/g, ' ').trim().slice(0, 280) : '';
-    const thumb = snap.thumbnail_url && /^https:\/\//i.test(snap.thumbnail_url) ? snap.thumbnail_url : null;
-    const action = o.fulfillment_method === 'shipping'
-      ? 'Next step: pack and ship the item, then record the carrier and tracking number in Marketplace Orders.'
-      : 'Next step: prepare the item and mark it "Ready for Pickup" in Marketplace Orders. The buyer details are there.';
-    const html = `<div style="font-family:system-ui,Arial,sans-serif;color:#222">
-      <h2 style="margin:0 0 4px">You sold an item</h2>
-      <p style="color:#555;margin:0 0 16px">Order <b>${esc(o.order_number)}</b> · payment confirmed</p>
-      ${thumb ? `<p style="margin:0 0 12px"><img src="${esc(thumb)}" alt="${esc(o.item_title)}" width="120" style="border-radius:8px;max-width:120px"></p>` : ''}
-      <p style="font-size:16px;margin:0 0 6px"><b>${esc(o.item_title)}</b> — ${money(o.item_price_cents)}</p>
-      ${desc ? `<p style="color:#555;margin:0 0 12px">${esc(desc)}</p>` : ''}
-      <p style="margin:8px 0"><b>Fulfillment:</b> ${method}</p>
-      <p style="margin:8px 0">${esc(action)}</p>
-      <p style="color:#555;margin:12px 0">Estimated proceeds after the flat 11% selling fee (includes credit card processing): <b>${money(o.seller_proceeds_cents)}</b>. Final amounts appear in your settlement statement.</p>
-      <p><a href="${APP_BASE}/seller-orders.html" style="background:#1d4ed8;color:#fff;text-decoration:none;padding:10px 16px;border-radius:8px">Manage this order</a></p>
-      <p style="color:#475569;font-size:13px;margin-top:20px">Need help? <a href="mailto:info@advantage.bid" style="color:#2563eb">info@advantage.bid</a> · <a href="${company.TEL_HREF}" style="color:#2563eb">${company.PHONE_DISPLAY}</a></p>
-    </div>`;
-    await sendEmail({ to: o.seller_email, subject: `Item sold — ${o.item_title} (${o.order_number})`, html,
-      text: `You sold ${o.item_title} (order ${o.order_number}, payment confirmed) for ${money(o.item_price_cents)}. Fulfillment: ${method}. ${action} Manage: ${APP_BASE}/seller-orders.html` });
-  }
+  // The seller "item sold" notice is no longer sent here: it is queued in the paid transaction and delivered with retries
+  // by storefrontNotificationService (migration 204), with no buyer contact details.
 }
 
 async function sendRefunded(orderId) {
