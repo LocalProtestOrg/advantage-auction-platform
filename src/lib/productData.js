@@ -132,6 +132,8 @@ function productJsonLd(item, base) {
   const offer = { '@type': 'Offer', url, price: priceString(item.price_cents), priceCurrency: 'USD',
     availability: SCHEMA_AVAILABILITY[item.status] || 'https://schema.org/OutOfStock' };
   if (p.itemCondition) offer.itemCondition = p.itemCondition;
+  const ship = require('./storefrontShipping').shippingDetailsJsonLd(item);
+  if (ship) offer.shippingDetails = ship;
   offer.seller = item.seller_name ? { '@type': 'Organization', name: item.seller_name, ...(item.storefront_slug ? { url: String(base).replace(/\/+$/, '') + '/pro/' + item.storefront_slug } : {}) }
     : { '@type': 'Organization', name: 'Advantage.Bid' };
   p.offers = offer;

@@ -109,8 +109,9 @@
         '<div class="grid"><div class="gallery">'+main+thumbs+'</div>'+
         '<div><h1>'+esc(it.title)+'</h1><div class="meta">Sold by '+sellerLink+'</div>'+
         '<div class="price">'+money(it.price_cents)+'</div>'+
-        '<div style="margin:8px 0">'+(it.condition?'<span class="pill">'+esc(it.condition)+'</span>':'')+(it.shippable?'<span class="pill">Shipping available</span>':'<span class="pill">Local pickup</span>')+(it.source_lot_id?'<span class="pill">Previously at auction</span>':'')+'</div>'+
+        '<div style="margin:8px 0">'+(it.condition?'<span class="pill">'+esc(it.condition)+'</span>':'')+(it.shippable?'<span class="pill">Shipping available</span>':'<span class="pill">Local pickup</span>')+(it.is_oversized?'<span class="pill">Oversized item</span>':'')+(it.is_fragile?'<span class="pill">Fragile</span>':'')+(it.source_lot_id?'<span class="pill">Previously at auction</span>':'')+'</div>'+
         (loc?'<div class="meta">📍 '+esc(loc)+'</div>':'')+
+        '<div class="meta"><b>Shipping &amp; pickup:</b> '+esc((it.shipping&&it.shipping.summary)||'Local pickup available')+((it.shipping&&it.shipping.notes)?' — '+esc(it.shipping.notes):'')+'</div>'+
         buyBox+
         (it.description?'<div class="desc">'+esc(it.description)+'</div>':'')+
         '<p class="meta" style="margin-top:18px"><a href="#" id="reportLink">Report this listing</a></p>'+

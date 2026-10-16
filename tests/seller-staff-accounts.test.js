@@ -126,7 +126,7 @@ beforeAll(async () => {
   await global.__PG.exec(BASE);
   for (const f of ['119_seller_storefronts_marketplace.sql', '121_marketplace_orders.sql', '174_marketplace_checkout_hardening.sql',
     '177_marketplace_item_pickup_location.sql', '178_seller_default_pickup_location.sql', '197_storefront_order_integrity.sql',
-    '198_storefront_moderation_reports.sql', '199_seller_staff_accounts.sql', '200_storefront_product_data.sql']) {
+    '198_storefront_moderation_reports.sql', '199_seller_staff_accounts.sql', '200_storefront_product_data.sql', '201_storefront_shipping_controls.sql']) {
     await global.__PG.exec(mig(f));
   }
   await global.__PG.exec(mig('199_seller_staff_accounts.sql'));   // idempotent
@@ -178,7 +178,8 @@ async function join(owner, who, role) {
   return one('SELECT * FROM seller_staff_members WHERE id = $1', [inv.id]);
 }
 async function noraItem(extra = {}) {
-  return items.createDirectListing(U.nora.id, { title: 'Walnut sideboard', price_cents: 10000, shippable: true, shipping_cost_cents: 1500, ...extra });
+  return items.createDirectListing(U.nora.id, { title: 'Walnut sideboard', price_cents: 10000, shippable: true, shipping_cost_cents: 1500,
+    shipping_method: 'parcel', shipping_destinations: 'us_all', ...extra });
 }
 async function sueItem() { return items.createDirectListing(U.sue.id, { title: 'Brass lamp', price_cents: 5000 }); }
 async function beaBuys(item) {

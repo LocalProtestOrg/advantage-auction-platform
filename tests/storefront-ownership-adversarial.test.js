@@ -115,7 +115,7 @@ beforeAll(async () => {
   await global.__PG.exec(BASE);
   for (const f of ['119_seller_storefronts_marketplace.sql', '121_marketplace_orders.sql', '174_marketplace_checkout_hardening.sql',
     '177_marketplace_item_pickup_location.sql', '178_seller_default_pickup_location.sql', '197_storefront_order_integrity.sql',
-    '198_storefront_moderation_reports.sql', '199_seller_staff_accounts.sql', '200_storefront_product_data.sql']) {
+    '198_storefront_moderation_reports.sql', '199_seller_staff_accounts.sql', '200_storefront_product_data.sql', '201_storefront_shipping_controls.sql']) {
     await global.__PG.exec(mig(f));
   }
   // migration 197 is idempotent
@@ -152,7 +152,8 @@ afterAll(async () => { if (server) await new Promise((r) => server.close(r)); if
 
 // Nora's listing, created through her own account (the seller is derived from the session).
 async function noraItem(extra = {}) {
-  return items.createDirectListing(U.nora.id, { title: 'Walnut sideboard', price_cents: 10000, shippable: true, shipping_cost_cents: 1500, ...extra });
+  return items.createDirectListing(U.nora.id, { title: 'Walnut sideboard', price_cents: 10000, shippable: true, shipping_cost_cents: 1500,
+    shipping_method: 'parcel', shipping_destinations: 'us_all', ...extra });
 }
 // Bea buys it (create order → pay), returning the paid order row.
 async function beaBuys(item, method = 'pickup') {
@@ -691,5 +692,198 @@ describe('milestone 2: seller permission architecture', () => {
       const r = await call('bea', m, url, m === 'POST' ? { title: 'x', price_cents: 100, seller_id: SP.nora } : undefined);
       expect(r.status).toBe(403); expect(r.body.code).toBe('NOT_A_SELLER');
     }
+  });
+});
+
+// ═════════════════════════════════════════════════════════════════════════════════════════════════════════
+// Shipping controls (migration 201; owner requirements 2026-10-16; src/lib/storefrontShipping.js)
+describe('shipping: defaults to NO everywhere', () => {
+  const SHIP = { shippable: true, shipping_method: 'parcel', shipping_destinations: 'us_all', shipping_cost_cents: 2500 };
+  test('a new listing is pickup only unless the seller turns shipping on; every seller\'s store default starts off', async () => {
+    const it = await items.createDirectListing(U.nora.id, { title: 'Plain listing', price_cents: 5000 });
+    expect(it).toMatchObject({ shippable: false, shipping_method: null, shipping_price_mode: null, shipping_cost_cents: null });
+    const sp = await one('SELECT shipping_defaults FROM seller_profiles WHERE id = $1', [SP.sue]);
+    expect(sp.shipping_defaults).toEqual({ enabled: false });
+    const pub = items.publicItem({ ...it, seller_type: 'estate_sale_company' });
+    expect(pub.shippable).toBe(false);
+    expect(pub.shipping).toMatchObject({ pickup_only: true, shipping: null, summary: 'Pickup only — this item is not shipped' });
+  });
+  test('a converted auction lot starts pickup only, whatever its auction shipping settings (even if the request asks to ship)', async () => {
+    const a = await one(`INSERT INTO auctions (seller_id, title, city, address_state, street_address, zip, state) VALUES ($1,'Ship sale','Houston','TX','1 Nora St','77001','closed') RETURNING id`, [SP.nora]);
+    const lot = await one(`INSERT INTO lots (auction_id, title, state, starting_bid_cents, shippable, shipping_cost_cents, shipping_notes)
+      VALUES ($1, 'Shippable lamp', 'closed', 500, true, 1800, 'Ships UPS') RETURNING id`, [a.id]);
+    const r = await call('nora', 'POST', '/api/seller-storefront/unsold-lots/' + lot.id + '/convert', { edits: { shippable: true } });
+    expect(r.status).toBe(201);
+    const row = await one('SELECT shippable, shipping_cost_cents, shipping_notes, shipping_method FROM marketplace_items WHERE id = $1', [r.body.data.id]);
+    expect(row).toEqual({ shippable: false, shipping_cost_cents: null, shipping_notes: null, shipping_method: null });
+  });
+});
+
+describe('shipping: never free by accident', () => {
+  test('turning shipping on needs a method, destinations and a price — a blank or $0 price is refused, never treated as free', async () => {
+    for (const [body, code] of [
+      [{ shippable: true, shipping_method: 'parcel', shipping_destinations: 'us_all' }, 'SHIPPING_PRICE_REQUIRED'],
+      [{ shippable: true, shipping_method: 'parcel', shipping_destinations: 'us_all', shipping_cost_cents: '' }, 'SHIPPING_PRICE_REQUIRED'],
+      [{ shippable: true, shipping_method: 'parcel', shipping_destinations: 'us_all', shipping_cost_cents: 0, shipping_price_mode: 'flat' }, 'SHIPPING_PRICE_REQUIRED'],
+      [{ shippable: true, shipping_destinations: 'us_all', shipping_cost_cents: 900 }, 'SHIPPING_METHOD_REQUIRED'],
+      [{ shippable: true, shipping_method: 'parcel', shipping_cost_cents: 900 }, 'SHIPPING_DESTINATIONS_REQUIRED'],
+      [{ shippable: true, shipping_method: 'parcel', shipping_destinations: 'listed_states', shipping_cost_cents: 900 }, 'SHIPPING_STATES_REQUIRED'],
+      [{ shippable: true, shipping_method: 'drone', shipping_destinations: 'us_all', shipping_cost_cents: 900 }, 'SHIPPING_METHOD_INVALID'],
+    ]) {
+      const r = await call('nora', 'POST', '/api/seller-storefront/items', { title: 'Ship test', price_cents: 4000, ...body });
+      expect(r.status).toBe(422); expect(r.body.code).toBe(code);
+    }
+  });
+  test('free shipping is a deliberate choice and carries no price', async () => {
+    const r = await call('nora', 'POST', '/api/seller-storefront/items', { title: 'Free ship', price_cents: 4000, shippable: true,
+      shipping_method: 'parcel', shipping_destinations: 'us_contiguous', shipping_price_mode: 'free', shipping_cost_cents: 999 });
+    expect(r.status).toBe(201);
+    expect(r.body.data).toMatchObject({ shippable: true, shipping_price_mode: 'free', shipping_cost_cents: null });
+    const { shippingCents } = await orders.loadItemForPurchase(r.body.data.id, U.bea.id, 'shipping', undefined, { shipToState: 'TX' });
+    expect(shippingCents).toBe(0);
+  });
+  test('the database refuses shipping without complete terms, but never blocks status changes on an older listing', async () => {
+    const it = await noraItem({ title: 'DB guard' });
+    for (const sql of [
+      `UPDATE marketplace_items SET shipping_price_mode = NULL, shipping_cost_cents = NULL WHERE id = $1`,
+      `UPDATE marketplace_items SET shipping_cost_cents = 0 WHERE id = $1`,
+      `UPDATE marketplace_items SET shipping_method = NULL WHERE id = $1`,
+      `UPDATE marketplace_items SET shipping_price_mode = 'free' WHERE id = $1`,   // free must not keep a price
+    ]) {
+      const e = await rejects(sql, [it.id]);
+      expect(e.message).toMatch(/shipping needs a method/);
+    }
+    // an older listing (shippable with only a price, from before migration 201)
+    await q('ALTER TABLE marketplace_items DISABLE TRIGGER trg_marketplace_items_shipping_terms');
+    const legacy = await one(`INSERT INTO marketplace_items (seller_id, title, price_cents, status, shippable, shipping_cost_cents, city, state,
+      pickup_location_source) VALUES ($1, 'Legacy shippable', 3000, 'active', true, 1200, 'Houston', 'TX', 'default') RETURNING *`, [SP.nora]);
+    await q('ALTER TABLE marketplace_items ENABLE TRIGGER trg_marketplace_items_shipping_terms');
+    await q(`UPDATE marketplace_items SET status = 'removed' WHERE id = $1`, [legacy.id]);   // moderation / sale status changes still work
+    await q(`UPDATE marketplace_items SET status = 'active' WHERE id = $1`, [legacy.id]);
+    // ...but it cannot be shipped until its seller completes the terms; pickup still works; its page says so
+    await expect(orders.loadItemForPurchase(legacy.id, U.bea.id, 'shipping', undefined, { shipToState: 'TX' })).rejects.toMatchObject({ code: 'SHIPPING_DETAILS_INCOMPLETE' });
+    expect((await orders.loadItemForPurchase(legacy.id, U.bea.id, 'pickup')).shippingCents).toBe(0);
+    const pub = items.publicItem({ ...(await one('SELECT * FROM marketplace_items WHERE id = $1', [legacy.id])), seller_type: 'estate_sale_company' });
+    expect(pub.shippable).toBe(false);
+    expect(pub.shipping.summary).toBe('Local pickup available · shipping not offered yet');
+    // editing an unrelated field is fine; completing the shipping terms makes it shippable
+    expect((await call('nora', 'PATCH', '/api/seller-storefront/items/' + legacy.id, { title: 'Legacy, renamed' })).status).toBe(200);
+    const fixed = await call('nora', 'PATCH', '/api/seller-storefront/items/' + legacy.id, { shipping_method: 'parcel', shipping_destinations: 'us_all' });
+    expect(fixed.status).toBe(200);
+    expect((await orders.loadItemForPurchase(legacy.id, U.bea.id, 'shipping', undefined, { shipToState: 'TX' })).shippingCents).toBe(1200);
+  });
+});
+
+describe('shipping: what the buyer can choose', () => {
+  test('a pickup-only item can never be shipped; destinations the seller does not serve are refused', async () => {
+    const pick = await items.createDirectListing(U.nora.id, { title: 'Pickup sofa', price_cents: 20000, is_oversized: true });
+    await expect(orders.loadItemForPurchase(pick.id, U.bea.id, 'shipping', undefined, { shipToState: 'TX' })).rejects.toMatchObject({ code: 'SHIPPING_UNAVAILABLE' });
+    const r = await call('bea', 'POST', '/api/marketplace/orders', { item_id: pick.id, fulfillment_method: 'shipping',
+      ship_to: { line1: '5 Buyer Rd', city: 'Austin', state: 'TX', postal_code: '78701' } });
+    expect(r.status).toBe(422); expect(r.body.code).toBe('SHIPPING_UNAVAILABLE');
+    const lower48 = await noraItem({ title: 'Contiguous only', shipping_destinations: 'us_contiguous' });
+    await expect(orders.loadItemForPurchase(lower48.id, U.bea.id, 'shipping', undefined, { shipToState: 'AK' })).rejects.toMatchObject({ code: 'SHIPPING_DESTINATION_NOT_SERVED' });
+    const listed = await noraItem({ title: 'Texas only', shipping_destinations: 'listed_states', shipping_states: ['TX', 'ok'] });
+    expect(listed.shipping_states).toEqual(['TX', 'OK']);
+    await expect(orders.loadItemForPurchase(listed.id, U.bea.id, 'shipping', undefined, { shipToState: 'CA' })).rejects.toMatchObject({ code: 'SHIPPING_DESTINATION_NOT_SERVED' });
+    const ok = await call('bea', 'POST', '/api/marketplace/orders', { item_id: listed.id, fulfillment_method: 'shipping',
+      ship_to: { line1: '5 Buyer Rd', city: 'Tulsa', state: 'OK', postal_code: '74101' } });
+    expect(ok.status).toBe(200);
+    const bad = await call('ben', 'POST', '/api/marketplace/orders', { item_id: lower48.id, fulfillment_method: 'shipping',
+      ship_to: { line1: '1 Ice Rd', city: 'Juneau', state: 'AK', postal_code: '99801' } });
+    expect(bad.status).toBe(422); expect(bad.body.code).toBe('SHIPPING_DESTINATION_NOT_SERVED');
+    expect(await one(`SELECT count(*)::int n FROM marketplace_orders WHERE marketplace_item_id = $1`, [lower48.id])).toEqual({ n: 0 });
+  });
+  test('the 11% fee is on the item price only; shipping is charged as set and recorded with the terms on the order', async () => {
+    const it = await noraItem({ title: 'Fee base', handling_days: 3, is_fragile: true });
+    const o = await (async () => {
+      const created = await orders.createOrder(it.id, U.bea.id, { fulfillment_method: 'shipping', ship_to: { line1: '5 Buyer Rd', city: 'Austin', state: 'TX', postal_code: '78701', country: 'US' } });
+      await orders.payOrder(created.order.id, U.bea.id, { paymentMethodId: 'pm_bea' });
+      return one('SELECT * FROM marketplace_orders WHERE id = $1', [created.order.id]);
+    })();
+    expect(o).toMatchObject({ item_price_cents: 10000, shipping_cents: 1500, total_charge_cents: 11500, platform_fee_bps: 1100, platform_fee_cents: 1100,
+      seller_proceeds_cents: 10000 - 1100 + 1500, fulfillment_method: 'shipping' });
+    expect(o.item_snapshot.shipping_terms).toEqual({ selected: 'shipping', shipping_cents: 1500,
+      offered: { method: 'parcel', price_mode: 'flat', shipping_cents: 1500, destinations: 'us_all', states: [], handling_days: 3 },
+      oversized: false, fragile: true, notes: null });
+    // the order's record of the terms can never change, and the sold item's shipping can no longer be edited
+    const e = await rejects(`UPDATE marketplace_orders SET item_snapshot = jsonb_set(item_snapshot, '{shipping_terms,shipping_cents}', '0') WHERE id = $1`, [o.id]);
+    expect(e.message).toMatch(/purchase terms are fixed/);
+    const edit = await call('nora', 'PATCH', '/api/seller-storefront/items/' + it.id, { shipping_cost_cents: 100 });
+    expect(edit.status).toBe(409);
+    expect((await one('SELECT shipping_cost_cents FROM marketplace_items WHERE id = $1', [it.id])).shipping_cost_cents).toBe(1500);
+  });
+  test('shipping terms cannot change while a buyer is checking out', async () => {
+    const it = await noraItem({ title: 'Reserved ship' });
+    await orders.createOrder(it.id, U.bea.id, { fulfillment_method: 'shipping', ship_to: { line1: '5 Buyer Rd', city: 'Austin', state: 'TX', postal_code: '78701', country: 'US' } });
+    for (const patch of [{ shipping_cost_cents: 1 }, { shippable: false }, { shipping_price_mode: 'free' }]) {
+      const r = await call('nora', 'PATCH', '/api/seller-storefront/items/' + it.id, patch);
+      expect(r.status).toBe(409); expect(r.body.code).toBe('ITEM_RESERVED');
+    }
+    expect((await one('SELECT shipping_cost_cents, shippable FROM marketplace_items WHERE id = $1', [it.id]))).toEqual({ shipping_cost_cents: 1500, shippable: true });
+  });
+});
+
+describe('shipping: store default and seller isolation', () => {
+  test('the store default is off until set; saving it never changes existing listings; it applies only when chosen', async () => {
+    const before = await items.createDirectListing(U.sue.id, { title: 'Sue existing', price_cents: 3000 });
+    const snapshotSue = await q(`SELECT id, shippable, shipping_method, shipping_cost_cents FROM marketplace_items WHERE seller_id = $1 ORDER BY id`, [SP.sue]);
+    const noDefault = await call('sue', 'POST', '/api/seller-storefront/items', { title: 'x', price_cents: 1000, apply_store_shipping_defaults: true });
+    expect(noDefault.body.code).toBe('NO_STORE_SHIPPING_DEFAULT');
+    const bad = await call('sue', 'PUT', '/api/seller-storefront/shipping-defaults', { enabled: true, shipping_method: 'freight', shipping_destinations: 'us_all' });
+    expect(bad.status).toBe(422); expect(bad.body.code).toBe('SHIPPING_PRICE_REQUIRED');
+    const set = await call('sue', 'PUT', '/api/seller-storefront/shipping-defaults', { enabled: true, shipping_method: 'freight',
+      shipping_destinations: 'us_contiguous', shipping_cost_cents: 15000, handling_days: 5, is_oversized: true });
+    expect(set.status).toBe(200);
+    expect(await q(`SELECT id, shippable, shipping_method, shipping_cost_cents FROM marketplace_items WHERE seller_id = $1 ORDER BY id`, [SP.sue])).toEqual(snapshotSue);
+    expect((await one('SELECT shippable FROM marketplace_items WHERE id = $1', [before.id])).shippable).toBe(false);
+    // a new item does NOT get the default unless the seller chooses it
+    const plain = await call('sue', 'POST', '/api/seller-storefront/items', { title: 'Sue plain', price_cents: 2000 });
+    expect(plain.body.data.shippable).toBe(false);
+    const withDef = await call('sue', 'POST', '/api/seller-storefront/items', { title: 'Sue armoire', price_cents: 90000, apply_store_shipping_defaults: true });
+    expect(withDef.body.data).toMatchObject({ shippable: true, shipping_method: 'freight', shipping_cost_cents: 15000, shipping_destinations: 'us_contiguous',
+      handling_days: 5, is_oversized: true });
+    // Nora's store default is untouched by Sue's
+    expect((await one('SELECT shipping_defaults FROM seller_profiles WHERE id = $1', [SP.nora])).shipping_defaults).toEqual({ enabled: false });
+  });
+  test('another seller, a buyer or Finance staff cannot change an item\'s shipping or a store\'s default', async () => {
+    const it = await noraItem({ title: 'Isolated shipping' });
+    for (const [who, body] of [['sue', { shipping_cost_cents: 1 }], ['sue', { shippable: false }], ['bea', { shipping_price_mode: 'free' }]]) {
+      const r = await call(who, 'PATCH', '/api/seller-storefront/items/' + it.id, body);
+      expect(r.status).toBe(403);
+    }
+    expect(await one('SELECT shippable, shipping_cost_cents, shipping_price_mode FROM marketplace_items WHERE id = $1', [it.id]))
+      .toEqual({ shippable: true, shipping_cost_cents: 1500, shipping_price_mode: 'flat' });
+    const asBuyer = await call('bea', 'PUT', '/api/seller-storefront/shipping-defaults', { enabled: false });
+    expect(asBuyer.status).toBe(403);
+    // a seller id in the body is ignored: Sue saving "for Nora" saves Sue's own default
+    await call('sue', 'PUT', '/api/seller-storefront/shipping-defaults', { enabled: false, seller_id: SP.nora });
+    expect((await one('SELECT shipping_defaults FROM seller_profiles WHERE id = $1', [SP.sue])).shipping_defaults).toEqual({ enabled: false });
+  });
+});
+
+describe('shipping: shown accurately to buyers and search engines', () => {
+  test('the item page and its structured data state the real shipping or pickup terms', async () => {
+    const pages = require('../src/services/productPageService');
+    const pd = require('../src/lib/productData');
+    const shipped = await noraItem({ title: 'Shipped Mirror', handling_days: 2 });
+    let r = await pages.render(shipped.id, pd.slugify(shipped.title), 'https://bid.advantage.bid');
+    expect(r.html).toContain('Shipping $15.00 (Parcel shipping) · ships to anywhere in the United States · ships within 2 business days · Local pickup available');
+    const ld = [...r.html.matchAll(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g)].map((m) => JSON.parse(m[1])).find((j) => j['@type'] === 'Product');
+    expect(ld.offers.shippingDetails).toEqual({ '@type': 'OfferShippingDetails', shippingRate: { '@type': 'MonetaryAmount', value: '15.00', currency: 'USD' },
+      shippingDestination: { '@type': 'DefinedRegion', addressCountry: 'US' },
+      deliveryTime: { '@type': 'ShippingDeliveryTime', handlingTime: { '@type': 'QuantitativeValue', minValue: 0, maxValue: 2, unitCode: 'DAY' } } });
+    expect(ld.offers.price).toBe('100.00');   // item price only
+    const pickup = await items.createDirectListing(U.nora.id, { title: 'Pickup Hutch', price_cents: 30000, is_oversized: true });
+    r = await pages.render(pickup.id, pd.slugify(pickup.title), 'https://bid.advantage.bid');
+    expect(r.html).toContain('Pickup only — this item is not shipped');
+    expect(r.html).toContain('Oversized item');
+    const ld2 = [...r.html.matchAll(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g)].map((m) => JSON.parse(m[1])).find((j) => j['@type'] === 'Product');
+    expect(ld2.offers.shippingDetails).toBeUndefined();
+    // the storefront grid's "Ships" marker follows what can actually be bought
+    const list = await items.listPublicForSeller(SP.nora, 500);
+    expect(list.find((x) => x.id === shipped.id).shippable).toBe(true);
+    expect(list.find((x) => x.id === pickup.id).shippable).toBe(false);
+    expect(Object.keys(list[0])).not.toContain('shipping_cost_cents');
   });
 });

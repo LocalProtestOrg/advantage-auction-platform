@@ -364,7 +364,7 @@ describe('tax jurisdiction (sale location, owner rule 2026-09-28)', () => {
     tax.taxEnabled.mockImplementation(() => true);
     tax.computeTax.mockImplementation(async () => ({ enabled: true, taxCents: 825, calculationId: 'calc_1', exempt: false }));
     const itemRow = { id: 'item-1', seller_id: 'seller-1', seller_user_id: 'su', seller_type: 'estate_sale_company',
-      price_cents: 10000, status: 'active', shippable: true, shipping_cost_cents: 1000, ...PICKUP };
+      price_cents: 10000, status: 'active', shippable: true, shipping_cost_cents: 1000, shipping_method: 'parcel', shipping_destinations: 'us_all', ...PICKUP };
     install([
       [/JOIN seller_profiles sp ON sp.id = mi.seller_id/, { rows: [itemRow] }],
       [/SELECT \* FROM marketplace_items WHERE id = \$1 FOR UPDATE/, { rows: [itemRow] }],

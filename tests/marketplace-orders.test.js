@@ -133,7 +133,7 @@ describe('flat 11% storefront selling fee', () => {
 describe('loadItemForPurchase guards', () => {
   const PRO_ITEM = (over = {}) => ({ rows: [{
     id: 'item-1', seller_id: 'seller-1', seller_user_id: 'seller-user', seller_type: 'estate_sale_company',
-    platform_fee_bps: 400, price_cents: 100000, status: 'active', shippable: true, shipping_cost_cents: 5000, is_demo: false, ...over }] });
+    platform_fee_bps: 400, price_cents: 100000, status: 'active', shippable: true, shipping_cost_cents: 5000, shipping_method: 'parcel', shipping_destinations: 'us_all', is_demo: false, ...over }] });
 
   test('rejects buying your own listing', async () => {
     db.query.mockImplementation(async () => PRO_ITEM());

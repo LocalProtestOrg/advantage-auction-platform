@@ -79,7 +79,18 @@ async function getOwnerConfig(userId) {
     slug: sp.storefront_slug, published: sp.storefront_published, is_demo: sp.is_demo,
     name: sellerName(sp), logo_url: sp.logo_url, location_label: sp.location_label,
     config: sp.storefront || {}, public_url: sp.storefront_slug ? `${APP_BASE}/pro/${sp.storefront_slug}` : null,
-    pickup_location: await ownerPickupLocation(sp) };
+    pickup_location: await ownerPickupLocation(sp), shipping_defaults: sp.shipping_defaults || { enabled: false } };
+}
+
+// Store-wide shipping default (owner). Starts OFF. Applies only to NEW items whose seller deliberately chooses it; saving
+// it never changes an existing listing (no item row is touched here).
+async function setShippingDefaults(userId, input = {}) {
+  const sp = (await db.query('SELECT id, seller_type FROM seller_profiles WHERE user_id = $1', [userId])).rows[0];
+  if (!sp) throw err(403, 'NOT_A_SELLER', 'No seller profile.');
+  if (!isProfessional(sp.seller_type)) throw err(403, 'NOT_PROFESSIONAL', 'Storefronts are for Professional Sellers.');
+  const defs = require('../lib/storefrontShipping').normalizeStoreDefaults(input);
+  await db.query('UPDATE seller_profiles SET shipping_defaults = $2::jsonb WHERE id = $1', [sp.id, JSON.stringify(defs)]);
+  return defs;
 }
 
 // A staff member's view (seller checkpoint context; company from the session). No storefront settings, no street address.
@@ -89,7 +100,8 @@ async function getStaffConfig(ctx) {
   const confirmed = saleLocation.fromSellerDefault(sp);
   return { eligible: isProfessional(sp.seller_type), staff: true, role: ctx.role, name: sellerName(sp),
     published: sp.storefront_published, public_url: sp.storefront_slug ? `${APP_BASE}/pro/${sp.storefront_slug}` : null,
-    pickup_location: { confirmed: !!confirmed, address: confirmed ? { city: confirmed.city, state: confirmed.state } : null } };
+    pickup_location: { confirmed: !!confirmed, address: confirmed ? { city: confirmed.city, state: confirmed.state } : null },
+    shipping_defaults: sp.shipping_defaults || { enabled: false } };
 }
 
 // ── Default storefront pickup location (PRIVATE — the seller's own view only; never public) ──────────────
@@ -248,5 +260,5 @@ async function ssrMeta(slug) {
   return { title, description: desc, canonical, image, jsonld, noindex: !!sp.is_demo, name, loc };
 }
 
-module.exports = { getStaffConfig,
+module.exports = { getStaffConfig, setShippingDefaults,
   isPublicStorefront, sanitizeConfig, getOwnerConfig, updateConfig, setDefaultPickupLocation, getPublicData, ssrMeta, resolveBySlug, sellerName, slugify, clean };

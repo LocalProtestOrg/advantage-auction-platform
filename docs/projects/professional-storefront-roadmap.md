@@ -37,8 +37,9 @@ public marketing of unfinished features stay OFF until the readiness checks in �
 | M2 moderation, reports, buyer issues, seller permission checkpoint (migration 198) | LIVE (6f6762b), verified in production |
 | Seller staff accounts (migration 199) | LIVE (5dab1ae, 2026-10-16), verified; OFF (`SELLER_STAFF_ENABLED` unset) until production phone-code + step-up verification |
 | Product SEO foundation (migration 200) | LIVE (5dab1ae, 2026-10-16), verified in production (see §4 "Built") |
-| Existing-item product detail editing | Built + tested (34a547d, branch `feat/storefront-next`); not deployed |
-| Shipping settings, seller policies, storefront tabs, policy snapshots, storefront widget (§7) | Requirements recorded 2026-10-16; not built |
+| Existing-item product detail editing | LIVE (34a547d, 2026-10-16), verified in production |
+| Shipping controls (migration 201, §7.1) | Built + tested on `feat/storefront-shipping`; security + financial review; awaiting owner approval (changes checkout pricing) |
+| Seller policies, storefront tabs, policy snapshots, storefront widget (§7.2–7.6) | Requirements recorded 2026-10-16; not built |
 | M3 retail settlement and payouts | Policy design awaiting owner decisions; nothing moves money |
 
 ## 2. Development sequence (recommended; updated 2026-10-16 with the owner's §7 requirements)
@@ -206,6 +207,16 @@ explicitly marks shipping free; (b) converting an auction lot copies the lot's s
 "no shipping"; (c) no store-wide default, methods, service areas, handling time, size class or restrictions.
 Migration needed: yes (store shipping defaults on the seller organization; item shipping method/handling/area/size/
 restriction fields and an explicit free-shipping flag; database checks that shipping cannot be offered without a set price).
+
+**Built (migration 201, branch `feat/storefront-shipping`, not deployed):** `src/lib/storefrontShipping.js` is the single
+authority (checkout, item page, structured data, storefront grid; later the widget and feeds). Pickup only by default;
+converted lots always start pickup only; shipping needs method + destinations (contiguous US / all US / listed states) +
+a set price or explicit free shipping, enforced in the service and by a database trigger that fires only on shipping
+changes (status changes on older listings are never blocked); older listings without complete terms stay listed, pickup
+works, shipping checkout is refused until completed. Handling days, oversized, fragile, notes. Store-wide default (off)
+applies only to new items when the seller chooses it, never to existing listings. Orders record the offered and selected
+shipping terms in the immutable item snapshot. Fee stays 11% of the item price. Seller UI: add form, edit panel, store
+default. Tests in `tests/storefront-ownership-adversarial.test.js` ("shipping:" sections).
 
 ### 7.2 Seller Store Terms & Conditions and Shipping & Pickup Policy
 - A dedicated account area where each Professional Seller writes, edits, previews and publishes their **own** Store Terms

@@ -35,6 +35,12 @@ router.put('/config', seller('company.storefront.manage'), async (req, res, next
   catch (e) { fail(res, e, next); }
 });
 
+// Store-wide shipping default for NEW items (owner). Saving it never changes an existing listing.
+router.put('/shipping-defaults', seller('company.storefront.manage'), async (req, res, next) => {
+  try { return res.json({ success: true, data: await storefront.setShippingDefaults(req.user.id, req.body || {}) }); }
+  catch (e) { fail(res, e, next); }
+});
+
 // Default storefront pickup location — confirmed once; items use it automatically (PRIVATE, owner-only).
 router.put('/pickup-location', seller('company.storefront.manage'), async (req, res, next) => {
   try { return res.json({ success: true, data: await storefront.setDefaultPickupLocation(req.user.id, req.body || {}) }); }

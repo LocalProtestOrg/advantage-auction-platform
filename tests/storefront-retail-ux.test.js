@@ -26,9 +26,12 @@ describe('seller storefront editor — add an item (antique dealer)', () => {
     expect(editor).toContain("/api/uploads/image");
     expect(editor).not.toContain('Image URLs (comma separated, optional)'); // old URL-only field removed
   });
-  test('collects category + flat shipping price (fields the service already supports)', () => {
+  test('collects category + shipping controls (pickup only by default; price or explicit free shipping)', () => {
     expect(editor).toContain('id="m-cat"');
-    expect(editor).toContain('id="m-shipcost"');
+    expect(editor).toContain('id="m-shipbox"');
+    expect(editor).toMatch(/function shipFields\(p,v,alwaysOn\)/);
+    expect(editor).toContain('Pickup only');
+    expect(editor).toContain('A blank price is never treated as free.');
   });
   test('add-another keeps location/shipping defaults, clears only item-specific fields', () => {
     // clears title/price/category/condition/description; does NOT clear city/state/shipping.

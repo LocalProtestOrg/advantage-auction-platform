@@ -20,6 +20,7 @@
 const db = require('../db');
 const sellerActor = require('../lib/sellerActor');
 const productData = require('../lib/productData');
+const shipping = require('../lib/storefrontShipping');
 const { withTransaction } = require('../utils/withTransaction');
 // Storefronts are a Professional Seller feature (owner decision 2026-10-12): eligibility uses the canonical seller-type rule,
 // never the buyer-branding list (which also includes the self-serve 'business' Individual Seller type).
@@ -60,7 +61,7 @@ function pickupValues(loc, source) {
 // Resolve the acting seller company (id, seller_type, is_demo, city/state via profile). Null if none. Accepts the seller
 // context from the seller checkpoint (owner or staff; company from the session) or the owner's user id.
 async function sellerForUser(actor, runner = db) {
-  return sellerActor.sellerRow(actor, runner, `id, user_id, seller_type, is_demo, unsold_price_policy, ${DEFAULT_COLUMNS.join(', ')}`);
+  return sellerActor.sellerRow(actor, runner, `id, user_id, seller_type, is_demo, unsold_price_policy, shipping_defaults, ${DEFAULT_COLUMNS.join(', ')}`);
 }
 
 // The authoritative "unsold + resaleable" predicate for a lot owned by :sellerId. Reserve enforcement is
@@ -160,7 +161,9 @@ async function convertLotToListing(lotId, actingUserId, opts = {}) {
        (e.title || lot.title || 'Item'), (e.description != null ? e.description : lot.description), lot.category, lot.condition,
        price, JSON.stringify(images), lot.thumbnail_url || images[0] || null,
        loc.city || lot.city, loc.state || lot.a_state, loc.postal_code || lot.zip,
-       e.shippable != null ? !!e.shippable : !!lot.shippable, lot.shipping_cost_cents, lot.shipping_notes, lot.pickup_group,
+       // Owner rule: a converted auction lot always starts PICKUP ONLY, whatever the lot's auction shipping settings were;
+       // the seller turns shipping on for the listing deliberately, with complete shipping terms.
+       false, null, null, lot.pickup_group,
        status, !!lot.auction_demo, sellerActor.actorUserId(actingUserId), reason,
        pv.pickup_address_line1, pv.pickup_address_line2, pv.pickup_city, pv.pickup_state, pv.pickup_postal_code, pv.pickup_country,
        pv.pickup_location_source]);
@@ -181,6 +184,13 @@ async function createDirectListing(actingUserId, data = {}) {
   // Optional product details (brand, barcode, part number, condition type, era, material, photo descriptions): only
   // what the seller actually entered; an invalid barcode is refused, never corrected (src/lib/productData.js).
   const pd = productData.normalizeProductFields(data);
+  // Shipping: OFF unless the seller turns it on for this item with complete terms, or deliberately applies their store
+  // shipping default (src/lib/storefrontShipping.js). A blank shipping price is never free.
+  const fromDefaults = data.apply_store_shipping_defaults === true ? shipping.columnsFromStoreDefaults(seller.shipping_defaults) : null;
+  if (data.apply_store_shipping_defaults === true && !fromDefaults) throw err(422, 'NO_STORE_SHIPPING_DEFAULT', 'Your store has no shipping default turned on.');
+  const sh = { shippable: false, shipping_method: null, shipping_price_mode: null, shipping_cost_cents: null, shipping_destinations: null,
+    shipping_states: [], handling_days: null, is_oversized: false, is_fragile: false, shipping_notes: null,
+    ...(fromDefaults || shipping.normalizeShippingInput({ ...data, shippable: data.shippable === true }, {})) };
   // Location: the seller's confirmed default storefront location, automatically — unless the seller chose a location
   // for THIS item ("Change Location"). Never inferred from the seller's legal address.
   const status = data.status === 'draft' ? 'draft' : 'active';
@@ -197,17 +207,19 @@ async function createDirectListing(actingUserId, data = {}) {
         shippable, shipping_cost_cents, shipping_notes, pickup_group, status, is_demo, conversion_reason,
         pickup_address_line1, pickup_address_line2, pickup_city, pickup_state, pickup_postal_code, pickup_country,
         pickup_location_source, pickup_location_updated_at,
-        brand, manufacturer, gtin, mpn, condition_type, era_or_period, material, image_alt)
+        brand, manufacturer, gtin, mpn, condition_type, era_or_period, material, image_alt,
+        shipping_method, shipping_price_mode, shipping_destinations, shipping_states, handling_days, is_oversized, is_fragile)
      VALUES ($1,$2,$3,$4,$5,$6,$7::jsonb,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,'direct',
-             $18,$19,$20,$21,$22,$23,$24,$25, $26,$27,$28,$29,$30,$31,$32,$33::jsonb) RETURNING *`,
+             $18,$19,$20,$21,$22,$23,$24,$25, $26,$27,$28,$29,$30,$31,$32,$33::jsonb,
+             $34,$35,$36,$37,$38,$39,$40) RETURNING *`,
     [seller.id, title, data.description || null, data.category || null, data.condition || null, price,
      JSON.stringify(images), images[0] || null, place.city || data.city || null, place.state || data.state || null, place.zip || data.zip || null,
-     !!data.shippable, data.shipping_cost_cents != null ? parseInt(data.shipping_cost_cents, 10) : null,
-     data.shipping_notes || null, data.pickup_group || null, status, !!seller.is_demo,
+     sh.shippable, sh.shipping_cost_cents, sh.shipping_notes, data.pickup_group || null, status, !!seller.is_demo,
      pv.pickup_address_line1, pv.pickup_address_line2, pv.pickup_city, pv.pickup_state, pv.pickup_postal_code, pv.pickup_country,
      pv.pickup_location_source, new Date(),
      pd.brand || null, pd.manufacturer || null, pd.gtin || null, pd.mpn || null, pd.condition_type || null, pd.era_or_period || null,
-     pd.material || null, JSON.stringify(pd.image_alt || [])]);
+     pd.material || null, JSON.stringify(pd.image_alt || []),
+     sh.shipping_method, sh.shipping_price_mode, sh.shipping_destinations, sh.shipping_states || [], sh.handling_days, !!sh.is_oversized, !!sh.is_fragile]);
   return rows[0];
 }
 
@@ -257,8 +269,9 @@ async function updateItem(id, actingUserId, patch = {}) {
   if (patch.price_cents != null) add('price_cents', Math.max(0, parseInt(patch.price_cents, 10) || 0));
   if (patch.category != null) add('category', patch.category);
   if (patch.condition != null) add('condition', patch.condition);
-  if (patch.shippable != null) add('shippable', !!patch.shippable);
-  if (patch.shipping_cost_cents != null) add('shipping_cost_cents', parseInt(patch.shipping_cost_cents, 10));
+  // Shipping settings: validated against the item's current terms (src/lib/storefrontShipping.js); turning shipping on
+  // needs complete terms, and a blank price is never free. Only this item changes — never other listings.
+  for (const [k, v] of Object.entries(shipping.normalizeShippingInput(patch, item))) add(k, v);
   if (patch.status != null) add('status', patch.status);
   for (const [k, v] of Object.entries(productData.normalizeProductFields(patch))) add(k, k === 'image_alt' ? JSON.stringify(v) : v);
   // Location changes affect THIS item only — never the seller's default or any other item.
@@ -325,12 +338,17 @@ function staffItemView(row) {
 async function listPublicForSeller(sellerId, limit = 200, runner = db) {
   const { rows } = await runner.query(
     `SELECT mi.id, mi.seller_id, mi.title, mi.price_cents, mi.thumbnail_url, mi.images, mi.city, mi.state, mi.shippable, mi.pickup_group,
-            mi.category, mi.condition, mi.status, mi.source_lot_id, mi.created_at
+            mi.category, mi.condition, mi.status, mi.source_lot_id, mi.created_at,
+            mi.shipping_method, mi.shipping_price_mode, mi.shipping_cost_cents, mi.shipping_destinations, mi.shipping_states
        FROM marketplace_items mi JOIN seller_profiles sp ON sp.id = mi.seller_id
       WHERE mi.seller_id = $1 AND mi.status = 'active' AND sp.seller_type = ANY($3::text[])
       ORDER BY mi.created_at DESC LIMIT $2`,
     [sellerId, limit, PROFESSIONAL_SELLER_TYPES]);
-  return rows;
+  // "Ships" only when shipping can actually be bought (complete terms); the shipping terms themselves stay on the item page.
+  return rows.map((r) => {
+    const { shipping_method, shipping_price_mode, shipping_cost_cents, shipping_destinations, shipping_states, ...rest } = r;
+    return { ...rest, shippable: shipping.shippingOffer(r).available };
+  });
 }
 async function getPublicItem(id, runner = db) {
   // Public statuses: 'active' (purchasable), 'pending_purchase' (temporarily held during a checkout),
@@ -349,11 +367,16 @@ async function getPublicItem(id, runner = db) {
 const PUBLIC_ITEM_FIELDS = ['id', 'title', 'description', 'category', 'condition', 'price_cents', 'images', 'thumbnail_url',
   'city', 'state', 'shippable', 'shipping_cost_cents', 'shipping_notes', 'status', 'created_at', 'updated_at', 'storefront_slug',
   // product data the seller chose to give (migration 200) — public by nature; never invented
-  'brand', 'manufacturer', 'gtin', 'mpn', 'condition_type', 'era_or_period', 'material', 'image_alt'];
+  'brand', 'manufacturer', 'gtin', 'mpn', 'condition_type', 'era_or_period', 'material', 'image_alt',
+  // seller-set shipping terms (migration 201) — public by nature
+  'shipping_method', 'shipping_price_mode', 'shipping_destinations', 'shipping_states', 'handling_days', 'is_oversized', 'is_fragile'];
 function publicItem(row) {
   const out = {};
   PUBLIC_ITEM_FIELDS.forEach((k) => { if (row[k] !== undefined) out[k] = row[k]; });
   out.source_lot_id = row.source_lot_id ? true : null;          // the page only needs "previously at auction"
+  // What a buyer can actually get (pickup always; shipping only with complete terms). `shippable` means "can be shipped".
+  out.shipping = shipping.publicShipping(row);
+  out.shippable = !!out.shipping.shipping;
   const branded = row.seller_type === undefined ? true : brandingVisible(row.seller_type, row.show_branding_to_buyers);
   out.seller_name = branded ? (row.seller_name || null) : null;
   if (!branded) out.storefront_slug = null;

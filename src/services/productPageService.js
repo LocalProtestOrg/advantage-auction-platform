@@ -81,7 +81,9 @@ function bodyHtml(item) {
   const alts = productData.altTexts(item);
   const seller = item.seller_name ? (item.storefront_slug ? `<a href="/pro/${esc(item.storefront_slug)}">${esc(item.seller_name)}</a>` : esc(item.seller_name)) : '';
   const place = [item.city, item.state].filter(Boolean).join(', ');
-  const pills = [item.condition ? esc(item.condition) : '', item.era_or_period ? esc(item.era_or_period) : '', item.shippable ? 'Shipping available' : 'Local pickup']
+  const sh = item.shipping || { summary: 'Local pickup available' };
+  const pills = [item.condition ? esc(item.condition) : '', item.era_or_period ? esc(item.era_or_period) : '', sh.shipping ? 'Shipping available' : 'Local pickup',
+    sh.oversized ? 'Oversized item' : '', sh.fragile ? 'Fragile' : '']
     .filter(Boolean).map((t) => `<span class="pill">${t}</span>`).join('');
   const facts = [['Brand', item.brand], ['Maker', item.manufacturer], ['Material', item.material], ['Model or part number', item.mpn]]
     .filter(([, v]) => v).map(([k, v]) => `<li><b>${esc(k)}:</b> ${esc(v)}</li>`).join('');
@@ -91,6 +93,7 @@ function bodyHtml(item) {
 <div class="price">${money(item.price_cents)}</div>
 <div class="meta">${esc(AVAIL_TEXT[item.status] || '')}</div>
 <div style="margin:8px 0">${pills}</div>${place ? `<div class="meta">${esc(place)}</div>` : ''}
+<div class="meta" id="ship-summary"><b>Shipping &amp; pickup:</b> ${esc(sh.summary)}${sh.notes ? ' — ' + esc(sh.notes) : ''}</div>
 ${item.description ? `<div class="desc">${esc(item.description)}</div>` : ''}${facts ? `<ul class="meta">${facts}</ul>` : ''}</div></div>`;
 }
 
