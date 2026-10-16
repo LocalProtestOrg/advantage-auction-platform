@@ -3,8 +3,9 @@
 /**
  * marketplaceOrderNotifier — buyer receipt + seller "item sold" notice for a paid Marketplace order,
  * and a buyer notice on refund. Reuses the platform emailService. Best-effort: callers wrap in try/catch
- * so a mail failure never breaks the payment webhook. No "AI"/vendor terminology in visible copy; only the
- * minimum buyer PII the seller needs to fulfill is shared; seller followers are NOT notified on a sale.
+ * so a mail failure never breaks the payment webhook. No "AI"/vendor terminology in visible copy. The seller email carries
+ * NO buyer contact details or ship-to address (owner rule 2026-10-16): fulfilment details live in the authenticated,
+ * role-shaped seller dashboard. Seller followers are NOT notified on a sale.
  */
 
 const db = require('../db');

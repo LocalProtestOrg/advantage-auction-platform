@@ -78,3 +78,15 @@ test('no route or service returns a full EIN any more', () => {
   expect(read('src/services/sellerIdentityService.js')).not.toMatch(/SELECT \* FROM seller_identity|before, after/);
   expect(read('public/verify-documents.html')).not.toMatch(/id="bz-ein"/);
 });
+
+test('documents that would show a full taxpayer number can no longer be requested or uploaded (existing rows still display)', async () => {
+  const v = require('../src/services/verificationService');
+  expect(v.RETIRED_CATEGORIES).toEqual(['ein_verification', 'tax_document']);
+  for (const cat of v.RETIRED_CATEGORIES) {
+    await expect(v.createRequest(SP, { categories: [cat] }, null)).rejects.toMatchObject({ code: 'INVALID_CATEGORY' });
+  }
+  const src = fs.readFileSync(path.join(__dirname, '..', 'src', 'services', 'verificationService.js'), 'utf8');
+  expect(src).toMatch(/if \(RETIRED_CATEGORIES\.includes\(category\)\) \{\s*throw new VerificationError\('CATEGORY_RETIRED'/);
+  expect(fs.readFileSync(path.join(__dirname, '..', 'public', 'admin', 'verification.html'), 'utf8')).not.toMatch(/var CATS = \[[^\]]*'ein_verification'/);
+  expect(fs.existsSync(path.join(__dirname, '..', 'db', 'rollbacks', '202_taxpayer_id_minimization.down.sql'))).toBe(true);
+});

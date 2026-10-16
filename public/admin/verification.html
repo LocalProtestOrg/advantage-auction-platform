@@ -67,7 +67,7 @@
   </div>
   <script>
     var token = localStorage.getItem('token');
-    var CATS = ['government_id','passport','business_license','tax_document','proof_of_ownership','receipt_invoice','estate_authority','probate_letter','ein_verification','business_registration','other'];
+    var CATS = ['government_id','passport','business_license','proof_of_ownership','receipt_invoice','estate_authority','probate_letter','business_registration','other'];   // EIN letters and tax forms are no longer requested (owner 2026-10-16)
     var sp = '';
     function H(p,opt){ opt=opt||{}; opt.headers=Object.assign({Authorization:'Bearer '+token},opt.headers||{}); return fetch(p,opt).then(function(r){return r.json().then(function(j){return {ok:r.ok,j:j};});}); }
     function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,function(c){return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]);}); }
@@ -95,7 +95,7 @@
       el.innerHTML = '<div><strong>Seller type:</strong> '+esc(d.seller_type||'—')+'</div>'
         + '<div><strong>Legal business name:</strong> '+esc(d.legal_business_name||'—')+'</div>'
         + '<div><strong>DBA:</strong> '+esc(d.dba_name||'—')+'</div>'
-        + '<div><strong>Taxpayer ID:</strong> '+esc((d.taxpayer_id&&d.taxpayer_id.status)||'not_provided')+(d.taxpayer_id&&d.taxpayer_id.last4?' (ending '+esc(d.taxpayer_id.last4)+')':'')+' <span class="small">collected during payout setup; not stored by Advantage.Bid</span></div>'
+        + '<div><strong>Taxpayer ID:</strong> '+esc(({not_provided:'Not yet provided',pending:'Being verified',verified:'Verified',unverified:'Not verified'})[(d.taxpayer_id&&d.taxpayer_id.status)||'not_provided'])+(d.taxpayer_id&&d.taxpayer_id.last4?' (ending '+esc(d.taxpayer_id.last4)+')':'')+' <span class="small">collected during payout setup; not stored by Advantage.Bid</span></div>'
         + '<div><strong>Address:</strong> '+esc([d.address_line1,d.city,d.state,d.postal_code].filter(Boolean).join(', ')||'—')+'</div>';
     }
     async function loadDups(){

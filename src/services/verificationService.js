@@ -28,6 +28,9 @@ const CATEGORIES = [
 // taxpayer identification is collected and verified during payout setup by the payment processor, and Advantage.Bid
 // does not keep complete EINs (migration 202).
 const BUSINESS_DOCUMENT_CATEGORIES = ['business_registration', 'business_license'];
+// Document categories whose files would contain a complete taxpayer number (IRS EIN letters, tax forms). Kept valid so
+// any existing rows still display for review, but no new request or upload uses them (owner decision 2026-10-16).
+const RETIRED_CATEGORIES = ['ein_verification', 'tax_document'];
 const RISK_LEVELS = ['low', 'medium', 'high'];
 const MAX_BYTES = 15 * 1024 * 1024; // 15 MB per document
 const SIGNED_URL_TTL_SECONDS = 300;
@@ -48,7 +51,7 @@ async function createRequest(sellerProfileId, { categories, message }, actorId) 
   if (!sp) throw new VerificationError('SELLER_NOT_FOUND', 'Seller profile not found', 404);
   const cats = Array.isArray(categories) ? [...new Set(categories)] : [];
   if (!cats.length) throw new VerificationError('CATEGORIES_REQUIRED', 'At least one document category is required', 400);
-  const bad = cats.filter((c) => !CATEGORIES.includes(c));
+  const bad = cats.filter((c) => !CATEGORIES.includes(c) || RETIRED_CATEGORIES.includes(c));
   if (bad.length) throw new VerificationError('INVALID_CATEGORY', `Invalid categories: ${bad.join(', ')}`, 400);
 
   const req = (await db.query(
@@ -232,6 +235,9 @@ async function uploadDocument(requestId, userId, { category, filename, contentTy
   if (!spId || spId !== req.seller_profile_id) throw new VerificationError('FORBIDDEN', 'Not your verification request', 403);
   if (['approved', 'cancelled'].includes(req.status)) throw new VerificationError('REQUEST_CLOSED', `This request is ${req.status}`, 409);
   if (!CATEGORIES.includes(category)) throw new VerificationError('INVALID_CATEGORY', 'Invalid document category', 400);
+  if (RETIRED_CATEGORIES.includes(category)) {
+    throw new VerificationError('CATEGORY_RETIRED', 'Please do not upload documents showing your EIN or tax ID. Your taxpayer ID is collected securely when you set up payouts.', 422);
+  }
   if (!dataBase64 || typeof dataBase64 !== 'string') throw new VerificationError('FILE_REQUIRED', 'A document file is required', 400);
 
   const b64 = dataBase64.includes(',') ? dataBase64.split(',')[1] : dataBase64;
@@ -434,6 +440,6 @@ module.exports = {
   sellerPublicationStatus, requireVerificationForProfessional, isProfessionalSellerType,
   PROFESSIONAL_VERIFICATION_PENDING_MESSAGE,
   // Professional business verification (self-service)
-  BUSINESS_DOCUMENT_CATEGORIES, maskEin, saveBusinessInfo, getBusinessInfo,
+  BUSINESS_DOCUMENT_CATEGORIES, RETIRED_CATEGORIES, maskEin, saveBusinessInfo, getBusinessInfo,
   getOrCreateOpenBusinessRequest, submitBusinessVerification, businessVerificationStatus,
 };
