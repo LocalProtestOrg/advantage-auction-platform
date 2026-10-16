@@ -256,6 +256,11 @@ default. Tests in `tests/storefront-ownership-adversarial.test.js` ("shipping:" 
   inventory (photos, prices, descriptions, availability), search and filters, Store Terms and Shipping & Pickup Policy
   (Shop Items / Store Terms / Shipping & Pickup tabs, accessible small-screen alternative), and links to each product and
   to checkout **on Advantage.Bid**.
+- **Owner checkout decision (2026-10-16):** for the initial widget release every purchase completes through Advantage.Bid
+  checkout. No checkout or payment processor inside the seller's website widget. The widget shows the seller's branded
+  merchandise, prices, availability, Store Terms and Shipping & Pickup Policy, then sends the buyer securely to the
+  Advantage.Bid item and checkout. Advantage.Bid remains the source of truth for inventory, payments, tax, order records,
+  refunds and fulfillment.
 - Presentation settings (colors, layout, logo display). Policies and inventory are read live from the same authoritative
   records as the public storefront — no duplicate documents or inventory for sellers to maintain.
 - Tenant-scoped by a server-issued widget key bound to the seller organization (the white-label auction widget's
