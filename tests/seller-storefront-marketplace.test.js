@@ -81,7 +81,7 @@ describe('auction→Marketplace conversion — success + safety', () => {
   });
   test('idempotent: an already-converted lot returns the existing listing (no duplicate insert)', async () => {
     const rec = [];
-    mockClient = client(convRoutes({ existing: [{ id: 'item-existing', source_lot_id: 'lot-1' }] }), rec);
+    mockClient = client(convRoutes({ existing: [{ id: 'item-existing', source_lot_id: 'lot-1', seller_id: 'seller-1' }] }), rec);
     const r = await items.convertLotToListing('lot-1', 'user-1', {});
     expect(r.created).toBe(false);
     expect(r.item.id).toBe('item-existing');

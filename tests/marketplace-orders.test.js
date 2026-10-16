@@ -179,7 +179,7 @@ describe('createOrder concurrency guard', () => {
 // ── Fulfillment state machine → payout eligibility (never moves money) ────────────────────────────────
 describe('updateFulfillment', () => {
   const seller = { rows: [{ id: 'seller-1' }] };
-  const order = (over = {}) => ({ id: 'order-1', seller_id: 'seller-1', payment_status: 'paid',
+  const order = (over = {}) => ({ id: '0000000b-0000-4000-8000-000000000001', seller_id: 'seller-1', payment_status: 'paid',
     fulfillment_method: 'pickup', fulfillment_status: 'unfulfilled', payout_eligible: false, ...over });
 
   function routesFor(o) {
@@ -195,7 +195,7 @@ describe('updateFulfillment', () => {
   test('pickup: picked_up marks payout ELIGIBLE', async () => {
     const r = routesFor(order({ fulfillment_status: 'ready_for_pickup' }));
     mockClient = makeClient(r.routes);
-    const out = await svc.updateFulfillment('order-1', 'seller-user', 'picked_up');
+    const out = await svc.updateFulfillment('0000000b-0000-4000-8000-000000000001', 'seller-user', 'picked_up');
     expect(out.fulfillment_status).toBe('picked_up');
     expect(out.payout_eligible).toBe(true);
   });
@@ -203,7 +203,7 @@ describe('updateFulfillment', () => {
   test('pickup: ready_for_pickup does NOT make payout eligible yet', async () => {
     const r = routesFor(order());
     mockClient = makeClient(r.routes);
-    const out = await svc.updateFulfillment('order-1', 'seller-user', 'ready_for_pickup');
+    const out = await svc.updateFulfillment('0000000b-0000-4000-8000-000000000001', 'seller-user', 'ready_for_pickup');
     expect(out.fulfillment_status).toBe('ready_for_pickup');
     expect(out.payout_eligible).toBe(false);
   });
@@ -211,7 +211,7 @@ describe('updateFulfillment', () => {
   test('shipping: complete (after shipped) makes payout eligible', async () => {
     const r = routesFor(order({ fulfillment_method: 'shipping', fulfillment_status: 'shipped' }));
     mockClient = makeClient(r.routes);
-    const out = await svc.updateFulfillment('order-1', 'seller-user', 'complete');
+    const out = await svc.updateFulfillment('0000000b-0000-4000-8000-000000000001', 'seller-user', 'complete');
     expect(out.fulfillment_status).toBe('completed');
     expect(out.payout_eligible).toBe(true);
   });
@@ -219,19 +219,19 @@ describe('updateFulfillment', () => {
   test('rejects a pickup action on a shipping order', async () => {
     mockClient = makeClient([[/FROM seller_profiles WHERE user_id/, seller],
       [/SELECT \* FROM marketplace_orders WHERE id = \$1 FOR UPDATE/, { rows: [order({ fulfillment_method: 'shipping' })] }]]);
-    await expect(svc.updateFulfillment('order-1', 'seller-user', 'ready_for_pickup')).rejects.toMatchObject({ code: 'WRONG_METHOD' });
+    await expect(svc.updateFulfillment('0000000b-0000-4000-8000-000000000001', 'seller-user', 'ready_for_pickup')).rejects.toMatchObject({ code: 'WRONG_METHOD' });
   });
 
   test('rejects a seller acting on an order that is not theirs', async () => {
     mockClient = makeClient([[/FROM seller_profiles WHERE user_id/, seller],
       [/SELECT \* FROM marketplace_orders WHERE id = \$1 FOR UPDATE/, { rows: [order({ seller_id: 'other-seller' })] }]]);
-    await expect(svc.updateFulfillment('order-1', 'seller-user', 'picked_up')).rejects.toMatchObject({ code: 'NOT_OWNER' });
+    await expect(svc.updateFulfillment('0000000b-0000-4000-8000-000000000001', 'seller-user', 'picked_up')).rejects.toMatchObject({ code: 'NOT_OWNER' });
   });
 
   test('rejects an out-of-order transition', async () => {
     mockClient = makeClient([[/FROM seller_profiles WHERE user_id/, seller],
       [/SELECT \* FROM marketplace_orders WHERE id = \$1 FOR UPDATE/, { rows: [order({ fulfillment_method: 'shipping', fulfillment_status: 'unfulfilled' })] }]]);
-    await expect(svc.updateFulfillment('order-1', 'seller-user', 'complete')).rejects.toMatchObject({ code: 'BAD_TRANSITION' });
+    await expect(svc.updateFulfillment('0000000b-0000-4000-8000-000000000001', 'seller-user', 'complete')).rejects.toMatchObject({ code: 'BAD_TRANSITION' });
   });
 });
 

@@ -112,8 +112,10 @@ async function convertLotToListing(lotId, actingUserId, opts = {}) {
     if (!seller) throw err(403, 'NOT_A_SELLER', 'No seller profile for this user.');
     if (!isProfessional(seller.seller_type)) throw err(403, 'NOT_PROFESSIONAL', 'Marketplace listings are for Professional Sellers.');
 
-    // Idempotency: already converted → return the existing listing (repeat clicks are safe).
+    // Idempotency: already converted → return the existing listing (repeat clicks are safe) — but ONLY to its own seller.
+    // Another seller naming this lot id learns nothing (same answer as a lot that does not exist).
     const existing = (await client.query('SELECT * FROM marketplace_items WHERE source_lot_id = $1', [lotId])).rows[0];
+    if (existing && existing.seller_id !== seller.id) throw err(404, 'LOT_NOT_FOUND', 'Lot not found or not owned by you.');
     if (existing) return { item: existing, created: false };
 
     // Load the lot + its auction, scoped to THIS seller, and re-check unsold eligibility atomically.

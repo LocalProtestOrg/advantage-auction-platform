@@ -77,7 +77,7 @@ beforeEach(() => {
 });
 
 const ORDER = (over = {}) => ({
-  id: 'o1', order_number: 'MO-001001', marketplace_item_id: 'item-1', seller_id: 'seller-1', buyer_user_id: 'buyer-1',
+  id: '0000000a-0000-4000-8000-000000000001', order_number: 'MO-001001', marketplace_item_id: 'item-1', seller_id: 'seller-1', buyer_user_id: 'buyer-1',
   item_price_cents: 10000, shipping_cents: 1000, tax_cents: 0, platform_fee_bps: 1100, platform_fee_cents: 1100,
   seller_proceeds_cents: 9900, total_charge_cents: 11000, fulfillment_method: 'pickup', payment_status: 'pending',
   refund_status: 'none', refunded_amount_cents: 0, stripe_payment_intent_id: 'pi_1', stripe_tax_transaction_id: null,
@@ -100,13 +100,13 @@ describe('markOrderPaid: conflict auto-refund', () => {
     const out = await svc.markOrderPaid(INTENT());
     expect(out).toEqual({ conflict: true, reason: 'item_sold' });
     expect(mockStripe.refunds.create).toHaveBeenCalledWith(
-      { payment_intent: 'pi_1', amount: 11000 }, { idempotencyKey: 'mo-conflict-refund:o1' });
+      { payment_intent: 'pi_1', amount: 11000 }, { idempotencyKey: 'mo-conflict-refund:0000000a-0000-4000-8000-000000000001' });
     const upd = f.find(/UPDATE marketplace_orders SET payment_status = 'refunded'/)[0];
     expect(upd.params[3]).toBe('conflict:item_sold');
     expect(f.has(/SET payment_status = 'paid'/)).toBe(false);          // never marks paid
     expect(f.has(/UPDATE marketplace_items/)).toBe(false);             // never touches the other buyer's item
     expect(audit.logEvent).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ eventType: 'marketplace_order.conflict_refunded' }));
-    expect(notifier.sendConflictRefunded).toHaveBeenCalledWith('o1');
+    expect(notifier.sendConflictRefunded).toHaveBeenCalledWith('0000000a-0000-4000-8000-000000000001');
   });
 
   test('item claimed by ANOTHER order → refunded with that reason', async () => {
@@ -134,12 +134,12 @@ describe('markOrderPaid: conflict auto-refund', () => {
   });
 
   test('normal path: item held by THIS order → paid + sold, no refund', async () => {
-    const f = install(routesFor(ORDER(), { id: 'item-1', status: 'pending_purchase', pending_order_id: 'o1' }));
+    const f = install(routesFor(ORDER(), { id: 'item-1', status: 'pending_purchase', pending_order_id: '0000000a-0000-4000-8000-000000000001' }));
     await svc.markOrderPaid(INTENT());
     expect(f.has(/SET payment_status = 'paid'/)).toBe(true);
     expect(f.has(/UPDATE marketplace_items SET status = 'sold'/)).toBe(true);
     expect(mockStripe.refunds.create).not.toHaveBeenCalled();
-    expect(notifier.sendPaid).toHaveBeenCalledWith('o1');
+    expect(notifier.sendPaid).toHaveBeenCalledWith('0000000a-0000-4000-8000-000000000001');
   });
 });
 
@@ -198,7 +198,7 @@ describe('sweepExpiredHolds', () => {
       .mockResolvedValueOnce(INTENT({ status: 'requires_payment_method' }))
       .mockResolvedValueOnce(INTENT({ status: 'succeeded' }));
     mockStripe.paymentIntents.cancel.mockRejectedValueOnce(new Error('unexpected state'));
-    const released = await svc.releaseOrder('o1', 'hold_expired', { cancelIntent: true });
+    const released = await svc.releaseOrder('0000000a-0000-4000-8000-000000000001', 'hold_expired', { cancelIntent: true });
     expect(released).toBe(false);
     expect(f.has(/SET payment_status = 'failed'/)).toBe(false);
   });
@@ -213,7 +213,7 @@ describe('handleIntentEvent', () => {
   });
   test('canceled releases the hold', async () => {
     const f = install([
-      [/SELECT id FROM marketplace_orders WHERE stripe_payment_intent_id/, { rows: [{ id: 'o1' }] }],
+      [/SELECT id FROM marketplace_orders WHERE stripe_payment_intent_id/, { rows: [{ id: '0000000a-0000-4000-8000-000000000001' }] }],
       [/SELECT \* FROM marketplace_orders WHERE id = \$1 FOR UPDATE/, { rows: [ORDER()] }],
     ]);
     await svc.handleIntentEvent('payment_intent.canceled', INTENT({ status: 'canceled' }));
@@ -242,8 +242,8 @@ describe('/api/marketplace routes auth', () => {
     expect(body).toEqual({ success: true, data: { checkout_enabled: true, stripe_publishable_key: 'pk_test_dummy' } });
   });
   test.each([
-    ['post', '/orders/quote'], ['post', '/orders'], ['post', '/orders/o1/pay'], ['get', '/orders/mine'],
-    ['get', '/seller/orders'], ['get', '/admin/orders'], ['post', '/admin/orders/o1/refund'],
+    ['post', '/orders/quote'], ['post', '/orders'], ['post', '/orders/0000000a-0000-4000-8000-000000000001/pay'], ['get', '/orders/mine'],
+    ['get', '/seller/orders'], ['get', '/admin/orders'], ['post', '/admin/orders/0000000a-0000-4000-8000-000000000001/refund'],
   ])('%s %s still requires login', async (method, p) => {
     const r = await fetch(base + '/api/marketplace' + p, { method: method.toUpperCase(),
       headers: { 'Content-Type': 'application/json' }, body: method === 'post' ? '{}' : undefined });
@@ -268,8 +268,8 @@ describe('refund tax reversal', () => {
       [/SELECT \* FROM marketplace_orders WHERE id = \$1/, { rows: [o] }],
       [/UPDATE marketplace_orders SET payment_status = 'refunded'/, { rows: [{ ...o, payment_status: 'refunded', refund_status: 'refunded' }] }],
     ]);
-    await svc.refundOrder('o1', { adminId: 'admin-1' });
-    expect(mockStripe.refunds.create).toHaveBeenCalledWith({ payment_intent: 'pi_1', amount: 11000 }, { idempotencyKey: 'mo-refund:o1' });
+    await svc.refundOrder('0000000a-0000-4000-8000-000000000001', { adminId: 'admin-1', reason: 'Test refund reason' });
+    expect(mockStripe.refunds.create).toHaveBeenCalledWith({ payment_intent: 'pi_1', amount: 11000 }, { idempotencyKey: 'mo-refund:0000000a-0000-4000-8000-000000000001' });
     const ref = tax.reverseFullTransaction.mock.calls[0][0].reference;
     expect(ref).toBe('marketplace-refund:MO-001001');
     expect(ref).not.toBe('marketplace-order:MO-001001');
@@ -392,7 +392,7 @@ describe('payOrder: card funding check before any charge', () => {
       [/UPDATE marketplace_items SET pending_expires_at = GREATEST/, { rowCount: 1, rows: [] }],
       [/SELECT stripe_customer_id FROM users/, { rows: [{ stripe_customer_id: 'cus_1' }] }],
       [/FROM marketplace_orders WHERE stripe_payment_intent_id = \$1 FOR UPDATE/, { rows: [ORDER()] }],
-      [/FROM marketplace_items WHERE id = \$1 FOR UPDATE/, { rows: [{ id: 'item-1', status: 'pending_purchase', pending_order_id: 'o1' }] }],
+      [/FROM marketplace_items WHERE id = \$1 FOR UPDATE/, { rows: [{ id: 'item-1', status: 'pending_purchase', pending_order_id: '0000000a-0000-4000-8000-000000000001' }] }],
       [/SELECT \* FROM marketplace_orders WHERE id = \$1/, { rows: [ORDER({ payment_status: 'paid' })] }],
     ]);
   }
@@ -401,7 +401,7 @@ describe('payOrder: card funding check before any charge', () => {
   test('prepaid → 422 with the platform message; the intent is never confirmed', async () => {
     payRoutes();
     mockStripe.paymentMethods.retrieve.mockResolvedValueOnce(pm('prepaid'));
-    await expect(svc.payOrder('o1', 'buyer-1', { paymentMethodId: 'pm_prepaid' }))
+    await expect(svc.payOrder('0000000a-0000-4000-8000-000000000001', 'buyer-1', { paymentMethodId: 'pm_prepaid' }))
       .rejects.toMatchObject({ status: 422, code: 'PREPAID_NOT_ACCEPTED', message: PREPAID_MESSAGE });
     expect(mockStripe.paymentIntents.confirm).not.toHaveBeenCalled();
     expect(PREPAID_MESSAGE).not.toMatch(/stripe/i);
@@ -411,8 +411,8 @@ describe('payOrder: card funding check before any charge', () => {
     const f = payRoutes();
     mockStripe.paymentMethods.retrieve.mockResolvedValueOnce(pm(funding));
     mockStripe.paymentIntents.confirm.mockResolvedValueOnce(INTENT({ status: 'succeeded' }));
-    const out = await svc.payOrder('o1', 'buyer-1', { paymentMethodId: 'pm_' + funding, idempotencyKey: 'k1' });
-    expect(mockStripe.paymentIntents.confirm).toHaveBeenCalledWith('pi_1', { payment_method: 'pm_' + funding }, { idempotencyKey: 'mo-confirm:o1:k1' });
+    const out = await svc.payOrder('0000000a-0000-4000-8000-000000000001', 'buyer-1', { paymentMethodId: 'pm_' + funding, idempotencyKey: 'k1' });
+    expect(mockStripe.paymentIntents.confirm).toHaveBeenCalledWith('pi_1', { payment_method: 'pm_' + funding }, { idempotencyKey: 'mo-confirm:0000000a-0000-4000-8000-000000000001:k1' });
     expect(out.status).toBe('succeeded');
     expect(f.has(/SET payment_status = 'paid'/)).toBe(true);
   });
@@ -421,11 +421,11 @@ describe('payOrder: card funding check before any charge', () => {
     payRoutes();
     mockStripe.paymentMethods.retrieve.mockResolvedValueOnce(pm('credit'));
     mockStripe.paymentIntents.confirm.mockResolvedValueOnce(INTENT({ status: 'requires_action', client_secret: 'cs_1' }));
-    const step1 = await svc.payOrder('o1', 'buyer-1', { paymentMethodId: 'pm_credit' });
+    const step1 = await svc.payOrder('0000000a-0000-4000-8000-000000000001', 'buyer-1', { paymentMethodId: 'pm_credit' });
     expect(step1).toMatchObject({ status: 'requires_action', client_secret: 'cs_1' });
     mockStripe.paymentIntents.retrieve.mockResolvedValueOnce(INTENT({ status: 'requires_confirmation', payment_method: pm('credit') }));
     mockStripe.paymentIntents.confirm.mockResolvedValueOnce(INTENT({ status: 'succeeded' }));
-    const step2 = await svc.payOrder('o1', 'buyer-1', {});
+    const step2 = await svc.payOrder('0000000a-0000-4000-8000-000000000001', 'buyer-1', {});
     expect(step2.status).toBe('succeeded');
     expect(mockStripe.paymentIntents.confirm).toHaveBeenLastCalledWith('pi_1', {}, undefined);
   });
@@ -434,7 +434,7 @@ describe('payOrder: card funding check before any charge', () => {
     const f = payRoutes();
     mockStripe.paymentMethods.retrieve.mockResolvedValueOnce(pm('credit'));
     mockStripe.paymentIntents.confirm.mockRejectedValueOnce(Object.assign(new Error('Your card was declined.'), { type: 'StripeCardError', code: 'card_declined' }));
-    const e = await svc.payOrder('o1', 'buyer-1', { paymentMethodId: 'pm_credit' }).catch((x) => x);
+    const e = await svc.payOrder('0000000a-0000-4000-8000-000000000001', 'buyer-1', { paymentMethodId: 'pm_credit' }).catch((x) => x);
     expect(e).toMatchObject({ status: 402, code: 'CARD_DECLINED' });
     expect(e.message).not.toMatch(/stripe/i);
     expect(f.has(/SET payment_status = 'failed'/)).toBe(false);
@@ -445,7 +445,7 @@ describe('payOrder: card funding check before any charge', () => {
       [/SELECT \* FROM marketplace_orders WHERE id = \$1 AND buyer_user_id = \$2/, { rows: [ORDER()] }],
       [/UPDATE marketplace_items SET pending_expires_at = GREATEST/, { rowCount: 0, rows: [] }],
     ]);
-    await expect(svc.payOrder('o1', 'buyer-1', { paymentMethodId: 'pm_x' })).rejects.toMatchObject({ code: 'ORDER_NOT_PAYABLE' });
+    await expect(svc.payOrder('0000000a-0000-4000-8000-000000000001', 'buyer-1', { paymentMethodId: 'pm_x' })).rejects.toMatchObject({ code: 'ORDER_NOT_PAYABLE' });
     expect(mockStripe.paymentMethods.retrieve).not.toHaveBeenCalled();
   });
 });
@@ -455,13 +455,13 @@ test('createOrder by the same buyer while their hold is live returns the SAME or
   const future = new Date(Date.now() + 10 * 60 * 1000).toISOString();
   const f = install([
     [/JOIN seller_profiles sp ON sp.id = mi.seller_id/, { rows: [{ id: 'item-1', seller_id: 'seller-1', seller_user_id: 'su',
-      seller_type: 'estate_sale_company', price_cents: 10000, status: 'pending_purchase', pending_order_id: 'o1', pending_expires_at: future, shippable: false }] }],
+      seller_type: 'estate_sale_company', price_cents: 10000, status: 'pending_purchase', pending_order_id: '0000000a-0000-4000-8000-000000000001', pending_expires_at: future, shippable: false }] }],
     [/SELECT \* FROM marketplace_orders WHERE id = \$1/, { rows: [ORDER({ shipping_cents: 0, ship_to: null })] }],
   ]);
   mockStripe.paymentIntents.retrieve.mockResolvedValueOnce(INTENT({ status: 'requires_payment_method', client_secret: 'cs_1' }));
   const out = await svc.createOrder('item-1', 'buyer-1', { fulfillment_method: 'pickup' });
   expect(out.reused).toBe(true);
-  expect(out.order.id).toBe('o1');
+  expect(out.order.id).toBe('0000000a-0000-4000-8000-000000000001');
   expect(out.client_secret).toBe('cs_1');
   expect(mockStripe.paymentIntents.create).not.toHaveBeenCalled();
   expect(f.has(/INSERT INTO marketplace_orders/)).toBe(false);

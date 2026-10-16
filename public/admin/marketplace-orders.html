@@ -91,6 +91,7 @@
         if (canRefund) {
           action = pendingConfirm === o.id
             ? '<div class="confirm">Refund '+money(remaining)+' to the buyer? This cannot be undone.</div>'+
+              '<input type="text" maxlength="500" id="rr-'+esc(o.id)+'" placeholder="Reason for the refund (required)" aria-label="Reason for the refund" style="width:100%;margin:4px 0">'+
               '<button class="btn btn-danger" data-act="refund-yes" data-id="'+esc(o.id)+'">Yes, refund</button>'+
               '<button class="btn btn-mut" data-act="refund-no">Cancel</button>'
             : '<button class="btn btn-danger" data-act="refund" data-id="'+esc(o.id)+'">Refund</button>';
@@ -137,8 +138,11 @@
       if (act === 'refund'){ pendingConfirm = id; render(); return; }
       if (act === 'refund-no'){ pendingConfirm = null; render(); return; }
       if (act === 'refund-yes'){
+        const rr = document.getElementById('rr-' + id);
+        const why = rr ? rr.value.trim() : '';
+        if (why.length < 5){ const m = document.getElementById('m-' + id); if (m) m.textContent = 'Give a short reason for this refund.'; return; }
         b.disabled = true; b.textContent = 'Refunding…';
-        api('POST', '/api/marketplace/admin/orders/' + encodeURIComponent(id) + '/refund', {})
+        api('POST', '/api/marketplace/admin/orders/' + encodeURIComponent(id) + '/refund', { reason: why })
           .then(res => {
             if (!res.success){
               b.disabled = false; b.textContent = 'Yes, refund';

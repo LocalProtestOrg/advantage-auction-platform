@@ -53,21 +53,24 @@ async function findPayment(dispute, getStripe) {
       intentId = idOf(ch && ch.payment_intent);
     } catch (e) { /* best-effort — recorded without a payment link */ }
   }
-  if (!intentId) return { intentId: null, payment: null };
+  if (!intentId) return { intentId: null, payment: null, marketplaceOrder: null };
   const payment = (await db.query(
     `SELECT id, auction_id, buyer_user_id, lot_id, status FROM payments
       WHERE payment_intent_id = $1
       ORDER BY CASE status WHEN 'paid' THEN 0 WHEN 'partially_refunded' THEN 1 WHEN 'refunded' THEN 2 ELSE 3 END,
                created_at DESC
       LIMIT 1`, [intentId])).rows[0] || null;
-  return { intentId, payment };
+  // A storefront (fixed-price) order: found by its own PaymentIntent, so the dispute is tied to that order's real seller.
+  const marketplaceOrder = payment ? null : ((await db.query(
+    'SELECT id, seller_id, buyer_user_id FROM marketplace_orders WHERE stripe_payment_intent_id = $1', [intentId])).rows[0] || null);
+  return { intentId, payment, marketplaceOrder };
 }
 
 async function handleDisputeEvent(event, { getStripe } = {}) {
   const dispute = (event && event.data && event.data.object) || {};
   if (!dispute.id) return { recorded: false, reason: 'no_dispute_id' };
   const closed = isClosed(event.type, dispute.status);
-  const { intentId, payment } = await findPayment(dispute, getStripe);
+  const { intentId, payment, marketplaceOrder } = await findPayment(dispute, getStripe);
 
   const client = await db.connect();
   let row, holdApplied = false, holdNote = null, sellerPayout = null;
@@ -79,12 +82,19 @@ async function handleDisputeEvent(event, { getStripe } = {}) {
         [payment.auction_id])).rows[0] || null;
     }
 
+    // Storefront order: hold its payout (a flag) and record the dispute against the order's own seller.
+    let mo = null;
+    if (marketplaceOrder) {
+      mo = await require('./marketplaceOrderService').holdForDispute(client, marketplaceOrder.id,
+        { disputeId: dispute.id, reason: dispute.reason, closed });
+    }
+
     const upsert = await client.query(
       `INSERT INTO payment_disputes
          (stripe_dispute_id, stripe_charge_id, payment_intent_id, payment_id, auction_id, buyer_user_id,
           seller_payout_id, amount_cents, currency, reason, status, livemode, evidence_due_by,
-          closed_at, last_event_id, last_event_type)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13, CASE WHEN $14 THEN now() END, $15, $16)
+          closed_at, last_event_id, last_event_type, marketplace_order_id, marketplace_seller_id)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13, CASE WHEN $14 THEN now() END, $15, $16, $17, $18)
        ON CONFLICT (stripe_dispute_id) DO UPDATE SET
          stripe_charge_id  = COALESCE(EXCLUDED.stripe_charge_id, payment_disputes.stripe_charge_id),
          payment_intent_id = COALESCE(EXCLUDED.payment_intent_id, payment_disputes.payment_intent_id),
@@ -101,13 +111,15 @@ async function handleDisputeEvent(event, { getStripe } = {}) {
          closed_at         = COALESCE(payment_disputes.closed_at, EXCLUDED.closed_at),
          last_event_id     = EXCLUDED.last_event_id,
          last_event_type   = EXCLUDED.last_event_type,
+         marketplace_order_id  = COALESCE(payment_disputes.marketplace_order_id, EXCLUDED.marketplace_order_id),
+         marketplace_seller_id = COALESCE(payment_disputes.marketplace_seller_id, EXCLUDED.marketplace_seller_id),
          updated_at        = now()
        RETURNING id, payout_hold_applied, (xmax = 0) AS inserted`,
       [dispute.id, idOf(dispute.charge), intentId, payment ? payment.id : null,
-       payment ? payment.auction_id : null, payment ? payment.buyer_user_id : null,
+       payment ? payment.auction_id : null, payment ? payment.buyer_user_id : (marketplaceOrder ? marketplaceOrder.buyer_user_id : null),
        sellerPayout ? sellerPayout.id : null, dispute.amount != null ? dispute.amount : null,
        dispute.currency || null, dispute.reason || null, dispute.status || 'unknown', !!dispute.livemode,
-       dueBy(dispute), closed, event.id || null, event.type]);
+       dueBy(dispute), closed, event.id || null, event.type, mo ? mo.id : null, mo ? mo.seller_id : null]);
     row = upsert.rows[0];
 
     // Hold the seller payout while the dispute is open. Never touches a PAID settlement.
@@ -133,6 +145,11 @@ async function handleDisputeEvent(event, { getStripe } = {}) {
       }
       await client.query(
         `UPDATE payment_disputes SET payout_hold_applied = $2, payout_hold_note = $3, updated_at = now() WHERE id = $1`,
+        [row.id, holdApplied, holdNote]);
+    } else if (mo && row.inserted) {
+      holdNote = closed ? 'Storefront order dispute recorded (closed).' : 'Storefront order payout held until reviewed.';
+      holdApplied = !closed;
+      await client.query(`UPDATE payment_disputes SET payout_hold_applied = $2, payout_hold_note = $3, updated_at = now() WHERE id = $1`,
         [row.id, holdApplied, holdNote]);
     } else if (!sellerPayout && row.inserted) {
       holdNote = payment ? 'No seller payout exists yet for this auction; hold it when one is created.' : 'Disputed charge is not an auction payment on this platform.';

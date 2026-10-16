@@ -46,7 +46,9 @@ function totalsBlock(o) {
 // Pickup address for a PAID pickup order (payment is verified, so the full address may be shared with the buyer).
 function pickupBlock(o) {
   if (o.fulfillment_method === 'shipping') return '';
-  const a = require('../lib/saleLocation').forItem(o).address;   // the item's own location or the seller's default
+  // The pickup address recorded at purchase (migration 197); older orders fall back to the item's current location.
+  const snap = o.pickup_snapshot && typeof o.pickup_snapshot === 'object' ? o.pickup_snapshot : null;
+  const a = snap && snap.line1 ? snap : require('../lib/saleLocation').forItem(o).address;
   if (!a || !a.line1) return '';
   const line2 = a.line2 ? esc(a.line2) + '<br>' : '';
   return `<p style="margin:0 0 16px"><b>Pickup location:</b><br>${esc(a.line1)}<br>${line2}`

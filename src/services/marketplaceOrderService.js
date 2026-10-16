@@ -77,6 +77,11 @@ function computeBreakdown({ itemPriceCents, shippingCents, taxCents, feeBps }) {
   };
 }
 
+// What a buyer is shown of a breakdown: what they pay. The seller's fee and proceeds are the seller's business.
+function buyerBreakdown(b) {
+  return { item_price_cents: b.item_price_cents, shipping_cents: b.shipping_cents, tax_cents: b.tax_cents, total_charge_cents: b.total_charge_cents };
+}
+
 function taxActive() {
   return typeof taxService.taxEnabled === 'function' ? !!taxService.taxEnabled() : false;
 }
@@ -121,7 +126,8 @@ async function resolveTaxLocation({ method, item, shipTo }) {
 // Load an item joined to its seller, with the purchase-eligibility validations that don't need a lock.
 async function loadItemForPurchase(itemId, buyerUserId, fulfillmentMethod, runner = db) {
   const row = (await runner.query(
-    `SELECT mi.*, sp.user_id AS seller_user_id, sp.seller_type, sp.platform_fee_bps,
+    `SELECT mi.*, sp.user_id AS seller_user_id, sp.seller_type, sp.platform_fee_bps, sp.storefront_slug,
+            COALESCE(sp.display_name, sp.metadata->>'display_name', sp.metadata->>'business_name') AS seller_display_name,
             sp.default_pickup_address_line1, sp.default_pickup_address_line2, sp.default_pickup_city, sp.default_pickup_state,
             sp.default_pickup_postal_code, sp.default_pickup_country, sp.default_pickup_confirmed_at
        FROM marketplace_items mi JOIN seller_profiles sp ON sp.id = mi.seller_id
@@ -134,6 +140,30 @@ async function loadItemForPurchase(itemId, buyerUserId, fulfillmentMethod, runne
   if (method === 'shipping' && !row.shippable) throw err(422, 'SHIPPING_UNAVAILABLE', 'This item is not available for shipping.');
   const shippingCents = method === 'shipping' ? Math.max(0, parseInt(row.shipping_cost_cents, 10) || 0) : 0;
   return { item: row, method, shippingCents, feeBps: feeBpsForSeller(row) };
+}
+
+// The fixed record of what was bought and from whom, captured from the locked item at purchase (migration 197 rejects an
+// order whose snapshot names a different item or seller, and never lets it change afterwards).
+function purchaseSnapshot(item) {
+  const eff = saleLocation.forItem(item);
+  return {
+    item: { item_id: item.id, title: item.title, description: item.description || null, category: item.category || null,
+      condition: item.condition || null, thumbnail_url: item.thumbnail_url || null, images: Array.isArray(item.images) ? item.images : [],
+      shippable: !!item.shippable, shipping_cost_cents: item.shipping_cost_cents == null ? null : Number(item.shipping_cost_cents),
+      shipping_notes: item.shipping_notes || null, source_lot_id: item.source_lot_id || null, listed_price_cents: Number(item.price_cents) },
+    seller: { seller_profile_id: item.seller_id, seller_user_id: item.seller_user_id, display_name: item.seller_display_name || null,
+      seller_type: item.seller_type, storefront_slug: item.storefront_slug || null },
+    pickup: eff && eff.address && eff.address.line1 ? { source: eff.source, ...eff.address } : null,
+  };
+}
+
+// Append to the order's permanent history. The seller and buyer always come from the order row itself, never from the
+// caller, so a history entry can never be attributed to anyone else.
+async function recordEvent(runner, orderId, eventType, { actorUserId = null, actorRole = 'system', data = {} } = {}) {
+  await runner.query(
+    `INSERT INTO marketplace_order_events (order_id, seller_id, buyer_user_id, event_type, actor_user_id, actor_role, data)
+     SELECT o.id, o.seller_id, o.buyer_user_id, $2, $3, $4, $5::jsonb FROM marketplace_orders o WHERE o.id = $1`,
+    [orderId, eventType, actorUserId, actorRole, JSON.stringify(data || {})]);
 }
 
 // ── Read-only quote (no inventory claim, no PaymentIntent) — powers the buyer's order-review screen ────
@@ -153,7 +183,7 @@ async function quote(itemId, buyerUserId, opts = {}) {
   const b = computeBreakdown({ itemPriceCents: item.price_cents, shippingCents, taxCents: tax.taxCents, feeBps });
   return {
     item: { id: item.id, title: item.title, thumbnail_url: item.thumbnail_url, seller_id: item.seller_id },
-    fulfillment_method: method, tax_enabled: tax.enabled, tax_exempt: tax.exempt, breakdown: b,
+    fulfillment_method: method, tax_enabled: tax.enabled, tax_exempt: tax.exempt, breakdown: buyerBreakdown(b),
   };
 }
 
@@ -211,25 +241,34 @@ async function createOrder(itemId, buyerUserId, opts = {}) {
 
   let order;
   await withTransaction(async (client) => {
-    const item = (await client.query('SELECT * FROM marketplace_items WHERE id = $1 FOR UPDATE', [itemId])).rows[0];
-    if (!item) throw err(404, 'ITEM_NOT_FOUND', 'This item is no longer available.');
-    if (item.status !== 'active') throw err(409, 'NOT_AVAILABLE', 'This item is no longer available for purchase.');
-    const b = computeBreakdown({ itemPriceCents: item.price_cents, shippingCents, taxCents: 0, feeBps });
+    const locked = (await client.query('SELECT * FROM marketplace_items WHERE id = $1 FOR UPDATE', [itemId])).rows[0];
+    if (!locked) throw err(404, 'ITEM_NOT_FOUND', 'This item is no longer available.');
+    if (locked.status !== 'active') throw err(409, 'NOT_AVAILABLE', 'This item is no longer available for purchase.');
+    // Everything the order records comes from the LOCKED item and its owning seller, re-checked here: the seller, price,
+    // shipping and pickup terms cannot change between the eligibility check above and this order.
+    const { item, method: lockedMethod, shippingCents: lockedShipping } = await loadItemForPurchase(itemId, buyerUserId, method, client);
+    if (lockedMethod !== method) throw err(409, 'NOT_AVAILABLE', 'This item is no longer available for purchase.');
+    const b = computeBreakdown({ itemPriceCents: item.price_cents, shippingCents: lockedShipping, taxCents: 0, feeBps });
     const shipTo = shipToObj ? JSON.stringify(shipToObj) : null;
+    const snap = purchaseSnapshot(item);
     // The database allows one live order per item (uq_marketplace_orders_live_item); if one already exists the buyer
     // gets a clean "not available" instead of a server error.
     const inserted = await client.query(
       `INSERT INTO marketplace_orders
          (marketplace_item_id, seller_id, buyer_user_id, item_price_cents, shipping_cents, tax_cents,
           platform_fee_bps, platform_fee_cents, seller_proceeds_cents, total_charge_cents,
-          fulfillment_method, ship_to, payment_status, is_demo, idempotency_key)
-       VALUES ($1,$2,$3,$4,$5,0,$6,$7,$8,$9,$10,$11::jsonb,'pending',$12,$13)
+          fulfillment_method, ship_to, payment_status, is_demo, idempotency_key,
+          item_snapshot, seller_snapshot, pickup_snapshot)
+       VALUES ($1,$2,$3,$4,$5,0,$6,$7,$8,$9,$10,$11::jsonb,'pending',$12,$13,$14::jsonb,$15::jsonb,$16::jsonb)
        RETURNING *`,
       [itemId, item.seller_id, buyerUserId, b.item_price_cents, b.shipping_cents,
        b.platform_fee_bps, b.platform_fee_cents, b.seller_proceeds_cents, b.total_charge_cents,
-       method, shipTo, !!item.is_demo, opts.idempotencyKey || null])
+       method, shipTo, !!item.is_demo, opts.idempotencyKey || null,
+       JSON.stringify(snap.item), JSON.stringify(snap.seller), snap.pickup ? JSON.stringify(snap.pickup) : null])
       .catch((e) => { if (e && e.code === '23505' && /live_item/.test(e.constraint || e.message || '')) throw err(409, 'NOT_AVAILABLE', 'This item is no longer available for purchase.'); throw e; });
     order = inserted.rows[0];
+    await recordEvent(client, order.id, 'created', { actorUserId: buyerUserId, actorRole: 'buyer',
+      data: { item_id: itemId, seller_id: item.seller_id, total_charge_cents: b.total_charge_cents, method } });
     await client.query(
       `UPDATE marketplace_items
           SET status = 'pending_purchase', pending_order_id = $2,
@@ -280,7 +319,7 @@ async function createOrder(itemId, buyerUserId, opts = {}) {
       WHERE id = $1 RETURNING *`,
     [order.id, intent.id, tax.calculationId, finalB.tax_cents, finalB.total_charge_cents])).rows[0];
 
-  return { order: publicOrder(updated), client_secret: intent.client_secret, breakdown: finalB,
+  return { order: buyerOrder(updated), client_secret: intent.client_secret, breakdown: buyerBreakdown(finalB),
     tax_enabled: tax.enabled, tax_exempt: tax.exempt };
 }
 
@@ -297,9 +336,9 @@ async function reuseOrRetireHold(item, buyerUserId, method, shipToObj) {
     const intent = await stripe.paymentIntents.retrieve(o.stripe_payment_intent_id);
     if (INTENT_IN_FLIGHT.includes(intent.status)) throw err(409, 'PAYMENT_IN_PROGRESS', 'Your payment for this item is already being processed.');
     if (INTENT_REUSABLE.includes(intent.status) && o.fulfillment_method === method && sameShipTo(o.ship_to, shipToObj)) {
-      return { order: publicOrder(o), client_secret: intent.client_secret, reused: true,
-        breakdown: computeBreakdown({ itemPriceCents: o.item_price_cents, shippingCents: o.shipping_cents,
-          taxCents: o.tax_cents, feeBps: o.platform_fee_bps }),
+      return { order: buyerOrder(o), client_secret: intent.client_secret, reused: true,
+        breakdown: buyerBreakdown(computeBreakdown({ itemPriceCents: o.item_price_cents, shippingCents: o.shipping_cents,
+          taxCents: o.tax_cents, feeBps: o.platform_fee_bps })),
         tax_enabled: taxActive(), tax_exempt: false };
     }
     await releaseOrder(o.id, 'buyer_changed_checkout', { cancelIntent: true });
@@ -336,6 +375,7 @@ async function releaseOrder(orderId, reason, opts = {}) {
         eventType: 'marketplace_order.released', entityType: 'marketplace_order', entityId: orderId,
         metadata: { reason: reason || null },
       });
+      await recordEvent(client, orderId, 'released', { data: { reason: reason || null } });
       released = true;
     });
     return released;
@@ -412,9 +452,10 @@ function declineError(e) {
 async function payOrder(orderId, buyerUserId, { paymentMethodId, idempotencyKey } = {}) {
   if (!marketplaceCheckoutEnabled()) throw err(403, 'CHECKOUT_DISABLED', 'Marketplace checkout is not currently available.');
   const { isPrepaid, PREPAID_MESSAGE } = require('./cardService');
+  if (!isUuid(orderId)) throw err(404, 'ORDER_NOT_FOUND', 'Order not found.');
   const o = (await db.query('SELECT * FROM marketplace_orders WHERE id = $1 AND buyer_user_id = $2', [orderId, buyerUserId])).rows[0];
   if (!o) throw err(404, 'ORDER_NOT_FOUND', 'Order not found.');
-  if (o.payment_status === 'paid') return { status: 'succeeded', order: publicOrder(o) };
+  if (o.payment_status === 'paid') return { status: 'succeeded', order: buyerOrder(o) };
   if (o.payment_status !== 'pending' || !o.stripe_payment_intent_id) {
     throw err(409, 'ORDER_NOT_PAYABLE', 'This checkout has ended. Please start again.');
   }
@@ -473,12 +514,12 @@ async function payOrder(orderId, buyerUserId, { paymentMethodId, idempotencyKey 
   if (intent.status === 'succeeded') {
     await markOrderPaid(intent); // idempotent with the webhook
     const fresh = (await db.query('SELECT * FROM marketplace_orders WHERE id = $1', [o.id])).rows[0];
-    return { status: 'succeeded', order: publicOrder(fresh) };
+    return { status: 'succeeded', order: buyerOrder(fresh) };
   }
-  if (intent.status === 'requires_action') return { status: 'requires_action', client_secret: intent.client_secret, order: publicOrder(o) };
-  if (intent.status === 'processing') return { status: 'processing', order: publicOrder(o) };
+  if (intent.status === 'requires_action') return { status: 'requires_action', client_secret: intent.client_secret, order: buyerOrder(o) };
+  if (intent.status === 'processing') return { status: 'processing', order: buyerOrder(o) };
   if (intent.status === 'requires_payment_method') throw err(402, 'CARD_DECLINED', 'Your card was declined. Please try another debit or credit card.');
-  return { status: intent.status, order: publicOrder(o) };
+  return { status: intent.status, order: buyerOrder(o) };
 }
 
 // ── Webhook: PaymentIntent lifecycle for marketplace orders (routed from paymentService dispatcher) ───
@@ -494,6 +535,17 @@ async function handleIntentEvent(type, intent) {
   // payment_intent.payment_failed → intentionally no state change.
 }
 
+function intentMismatch(o, intent) {
+  const md = (intent && intent.metadata) || {};
+  if (md.marketplace_order_id && md.marketplace_order_id !== o.id) return 'order';
+  if (md.seller_id && md.seller_id !== o.seller_id) return 'seller';
+  if (md.buyer_user_id && md.buyer_user_id !== o.buyer_user_id) return 'buyer';
+  if (intent.currency && String(intent.currency).toLowerCase() !== String(o.currency || 'usd').toLowerCase()) return 'currency';
+  const amount = Number(intent.amount_received != null ? intent.amount_received : intent.amount);
+  if (Number.isFinite(amount) && amount !== Number(o.total_charge_cents)) return 'amount';
+  return null;
+}
+
 async function markOrderPaid(intent) {
   const chargeId = (intent.latest_charge && (intent.latest_charge.id || intent.latest_charge)) || null;
   let paidOrder = null;
@@ -504,6 +556,16 @@ async function markOrderPaid(intent) {
     if (!o) throw new Error('No marketplace order for intent ' + intent.id); // orphan → event marked failed, operator reconciles
     if (o.payment_status === 'paid') return;                                 // idempotent
     if (o.payment_status === 'refunded' || o.refund_status === 'refunded') return; // money already returned
+    // The payment must be for exactly this order: same order and seller in its metadata, same currency, the full total.
+    // A mismatch is never "corrected" by marking the order paid — it is held for a person to review.
+    const mismatch = intentMismatch(o, intent);
+    if (mismatch) {
+      await client.query(`UPDATE marketplace_orders SET review_required = true, review_note = $2, updated_at = now() WHERE id = $1`,
+        [o.id, 'Payment does not match this order (' + mismatch + '); not marked paid. Review required.']);
+      await recordEvent(client, o.id, 'payment_mismatch', { data: { intent_id: intent.id, mismatch } });
+      console.error('[marketplace] payment/order mismatch', { order: o.id, intent: intent.id, mismatch });
+      return;
+    }
     const item = (await client.query(
       'SELECT id, status, pending_order_id FROM marketplace_items WHERE id = $1 FOR UPDATE', [o.marketplace_item_id])).rows[0];
     const claimedByThis = !!(item && item.status === 'pending_purchase' && item.pending_order_id === o.id);
@@ -529,6 +591,7 @@ async function markOrderPaid(intent) {
       eventType: 'marketplace_order.paid', entityType: 'marketplace_order', entityId: o.id,
       metadata: { intent_id: intent.id, total_charge_cents: o.total_charge_cents },
     });
+    await recordEvent(client, o.id, 'paid', { data: { intent_id: intent.id, charge_id: chargeId, total_charge_cents: o.total_charge_cents } });
     paidOrder = o;
   });
   if (conflict) return refundConflict(conflict.order, intent, chargeId, conflict.reason);
@@ -569,6 +632,7 @@ async function refundConflict(o, intent, chargeId, reason) {
       eventType: 'marketplace_order.conflict_refunded', entityType: 'marketplace_order', entityId: o.id,
       metadata: { intent_id: intent.id, refunded_amount_cents: amount, reason },
     });
+    await recordEvent(client, o.id, 'refund', { data: { kind: 'conflict', refunded_amount_cents: amount, reason } });
     applied = true;
   });
   if (applied) {
@@ -583,7 +647,7 @@ async function refundConflict(o, intent, chargeId, reason) {
 // in full; anything else (partial, or the remainder after an earlier partial) reverses proportionally by amount.
 // Every reversal reference is unique (`marketplace-refund:<order_number>[:<cumulative cents>]`) and distinct from
 // the sale's own reference. A tax reversal that fails never breaks the refund — the order is flagged for review.
-async function recordRefund(o, { cumulativeRefundedCents, adminId, reason } = {}) {
+async function recordRefund(o, { cumulativeRefundedCents, adminId, reason, note } = {}) {
   const prior = Number(o.refunded_amount_cents) || 0;
   const total = Number(o.total_charge_cents) || 0;
   const cumulative = Math.min(total, Math.max(0, Math.round(Number(cumulativeRefundedCents) || 0)));
@@ -610,7 +674,7 @@ async function recordRefund(o, { cumulativeRefundedCents, adminId, reason } = {}
     }
   }
 
-  if (full) return applyRefundState(o.id, cumulative, reversalId, adminId, { reason, reviewNote });
+  if (full) return applyRefundState(o.id, cumulative, reversalId, adminId, { reason, reviewNote, note });
 
   // Partial: the order stays paid; proceeds need a person before settlement (payout is manual anyway).
   let out;
@@ -629,6 +693,8 @@ async function recordRefund(o, { cumulativeRefundedCents, adminId, reason } = {}
       await auditService.logEvent(client, {
         eventType: 'marketplace_order.partially_refunded', entityType: 'marketplace_order', entityId: o.id,
         actorId: adminId || null, metadata: { refunded_amount_cents: cumulative, delta_cents: delta, reversal_id: reversalId } });
+      await recordEvent(client, o.id, 'refund', { actorUserId: adminId || null, actorRole: adminId ? 'admin' : 'system',
+        data: { kind: 'partial', refunded_amount_cents: cumulative, delta_cents: delta, reason: reason || null } });
     }
     out = upd || o;
   });
@@ -660,6 +726,11 @@ async function tryHandleChargeRefunded(charge) {
 
 // ── Admin refund (the remaining balance) — reuses the existing refund + tax reversal primitives ──────
 async function refundOrder(orderId, opts = {}) {
+  // An admin refund is an override of a real sale: it needs a named admin and a written reason (kept in the order history).
+  const note = String(opts.reason || '').trim().slice(0, 500);
+  if (!opts.adminId) throw err(403, 'ADMIN_REQUIRED', 'Only an administrator can refund an order.');
+  if (note.length < 5) throw err(422, 'REASON_REQUIRED', 'Give a short reason for this refund.');
+  if (!isUuid(orderId)) throw err(404, 'ORDER_NOT_FOUND', 'Order not found.');
   const o = (await db.query('SELECT * FROM marketplace_orders WHERE id = $1', [orderId])).rows[0];
   if (!o) throw err(404, 'ORDER_NOT_FOUND', 'Order not found.');
   if (o.refund_status === 'refunded') return publicOrder(o); // idempotent
@@ -674,7 +745,7 @@ async function refundOrder(orderId, opts = {}) {
       { payment_intent: o.stripe_payment_intent_id, amount: remaining },
       { idempotencyKey: prior === 0 ? ('mo-refund:' + o.id) : ('mo-refund:' + o.id + ':' + prior) });
   }
-  const updated = await recordRefund(o, { cumulativeRefundedCents: o.total_charge_cents, adminId: opts.adminId, reason: 'admin_refund' });
+  const updated = await recordRefund(o, { cumulativeRefundedCents: o.total_charge_cents, adminId: opts.adminId, reason: 'admin_refund', note });
   try { await require('./marketplaceOrderNotifier').sendRefunded(o.id); } catch (e) { /* best-effort */ }
   return updated;
 }
@@ -702,6 +773,8 @@ async function applyRefundState(orderId, refundedCents, reversalId, adminId, ext
     await auditService.logEvent(client, {
       eventType: 'marketplace_order.refunded', entityType: 'marketplace_order', entityId: orderId,
       actorId: adminId || null, metadata: { refunded_amount_cents: refundedCents, reversal_id: reversalId, reason: extra.reason || null } });
+    await recordEvent(client, orderId, 'refund', { actorUserId: adminId || null, actorRole: adminId ? 'admin' : 'system',
+      data: { kind: 'full', refunded_amount_cents: refundedCents, reason: extra.reason || null, note: extra.note || null } });
     out = upd;
   });
   return publicOrder(out);
@@ -717,6 +790,11 @@ async function relistItem(itemId, sellerUserId) {
     if (!item) throw err(404, 'ITEM_NOT_FOUND', 'Item not found.');
     if (item.seller_id !== seller.id) throw err(403, 'NOT_OWNER', 'Not your listing.');
     if (!['removed', 'draft'].includes(item.status)) throw err(409, 'NOT_RELISTABLE', 'Only a removed or draft item can be relisted.');
+    // A sold item stays sold even after it is removed from view: only a refunded or failed sale frees it again.
+    const live = (await client.query(
+      `SELECT count(*)::int AS n FROM marketplace_orders WHERE marketplace_item_id = $1 AND payment_status IN ('pending','processing','paid')`,
+      [itemId])).rows[0];
+    if (live && live.n > 0) throw err(409, 'ITEM_SOLD', 'This item has been sold. It can be removed from view but not offered again.');
     const upd = (await client.query(
       `UPDATE marketplace_items SET status = 'active', pending_order_id = NULL, pending_expires_at = NULL, updated_at = now()
         WHERE id = $1 RETURNING *`, [itemId])).rows[0];
@@ -734,6 +812,7 @@ const FULFILL = {
 async function updateFulfillment(orderId, sellerUserId, action, opts = {}) {
   const spec = FULFILL[action];
   if (!spec) throw err(400, 'BAD_ACTION', 'Unknown fulfillment action.');
+  if (!isUuid(orderId)) throw err(404, 'ORDER_NOT_FOUND', 'Order not found.');
   return withTransaction(async (client) => {
     const seller = (await client.query('SELECT id FROM seller_profiles WHERE user_id = $1', [sellerUserId])).rows[0];
     if (!seller) throw err(403, 'NOT_A_SELLER', 'No seller profile.');
@@ -743,20 +822,29 @@ async function updateFulfillment(orderId, sellerUserId, action, opts = {}) {
     if (o.payment_status !== 'paid') throw err(409, 'NOT_PAID', 'Order is not paid.');
     if (o.fulfillment_method !== spec.method) throw err(409, 'WRONG_METHOD', 'That action does not apply to this order.');
     if (!spec.from.includes(o.fulfillment_status)) throw err(409, 'BAD_TRANSITION', 'That fulfillment step is not available now.');
-    const carrier = action === 'shipped' ? (opts.tracking_carrier || null) : null;
-    const tracking = action === 'shipped' ? (opts.tracking_number || null) : null;
+    if (o.refund_status === 'refunded') throw err(409, 'ORDER_REFUNDED', 'This order was refunded.');
+    const clip = (v, n) => (v == null ? '' : String(v).replace(/[\u0000-\u001f]+/g, ' ').trim().slice(0, n));
+    const carrier = action === 'shipped' ? clip(opts.tracking_carrier, 60) : '';
+    const tracking = action === 'shipped' ? clip(opts.tracking_number, 80) : '';
+    if (action === 'shipped' && (!carrier || !tracking)) {
+      throw err(422, 'TRACKING_REQUIRED', 'Enter the carrier and tracking number for this shipment.');
+    }
+    // Payout eligibility is a flag (no money moves) and is never set while the order is on hold (e.g. a chargeback).
     const upd = (await client.query(
       `UPDATE marketplace_orders
           SET fulfillment_status = $2,
               tracking_carrier = COALESCE($3, tracking_carrier),
               tracking_number  = COALESCE($4, tracking_number),
-              payout_eligible    = CASE WHEN $5 THEN true ELSE payout_eligible END,
-              payout_eligible_at = CASE WHEN $5 AND payout_eligible_at IS NULL THEN now() ELSE payout_eligible_at END,
+              payout_eligible    = CASE WHEN $5 AND NOT payout_hold THEN true ELSE payout_eligible END,
+              payout_eligible_at = CASE WHEN $5 AND NOT payout_hold AND payout_eligible_at IS NULL THEN now() ELSE payout_eligible_at END,
               updated_at = now()
-        WHERE id = $1 RETURNING *`, [orderId, spec.to, carrier, tracking, spec.eligible])).rows[0];
+        WHERE id = $1 RETURNING *`, [orderId, spec.to, carrier || null, tracking || null, spec.eligible])).rows[0];
     await auditService.logEvent(client, {
       eventType: 'marketplace_order.fulfillment', entityType: 'marketplace_order', entityId: orderId,
       actorId: sellerUserId, metadata: { action, to: spec.to, payout_eligible: upd.payout_eligible } });
+    await recordEvent(client, orderId, 'fulfillment', { actorUserId: sellerUserId, actorRole: 'seller',
+      data: { action, from: o.fulfillment_status, to: spec.to, tracking_carrier: carrier || null, tracking_number: tracking || null,
+        payout_eligible: upd.payout_eligible } });
     return publicOrder(upd);
   });
 }
@@ -779,6 +867,16 @@ function publicOrder(o) {
   };
 }
 
+// The buyer's view: their own money and fulfillment, without the seller's fee or proceeds.
+function buyerOrder(o) {
+  const p = publicOrder(o);
+  if (!p) return null;
+  delete p.platform_fee_bps; delete p.platform_fee_cents; delete p.seller_proceeds_cents; delete p.payout_eligible;
+  return p;
+}
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const isUuid = (v) => UUID_RE.test(String(v || ''));
+
 async function listForBuyer(buyerUserId) {
   const { rows } = await db.query(
     `SELECT o.*, mi.title AS item_title, mi.thumbnail_url,
@@ -789,7 +887,7 @@ async function listForBuyer(buyerUserId) {
        JOIN seller_profiles sp ON sp.id = o.seller_id
       WHERE o.buyer_user_id = $1 AND o.payment_status IN ('paid','refunded')
       ORDER BY o.created_at DESC`, [buyerUserId]);
-  return rows.map((r) => ({ ...publicOrder(r), item_title: r.item_title, thumbnail_url: r.thumbnail_url,
+  return rows.map((r) => ({ ...buyerOrder(r), item_title: r.item_title, thumbnail_url: r.thumbnail_url,
     seller_name: r.seller_name, storefront_slug: r.storefront_slug }));
 }
 
@@ -804,21 +902,83 @@ async function listForSeller(sellerUserId) {
        JOIN users bu ON bu.id = o.buyer_user_id
       WHERE o.seller_id = $1 AND o.payment_status IN ('paid','refunded')
       ORDER BY o.created_at DESC`, [seller.id]);
-  // Seller sees only the buyer contact necessary to fulfill (name/email + shipping snapshot). No payment PII.
-  return rows.map((r) => ({ ...publicOrder(r), item_title: r.item_title, thumbnail_url: r.thumbnail_url,
-    buyer_name: r.buyer_full_name || null, buyer_email: r.buyer_email }));
+  // Seller sees only the buyer contact necessary to fulfill a PAID order (name/email + shipping snapshot). A refunded
+  // order is no longer the seller's to fulfill, so its buyer contact and ship-to are withheld. No payment PII.
+  return rows.map((r) => {
+    const fulfil = r.payment_status === 'paid';
+    return { ...publicOrder(r), ship_to: fulfil ? (r.ship_to || null) : null, item_title: r.item_title, thumbnail_url: r.thumbnail_url,
+      buyer_name: fulfil ? (r.buyer_full_name || null) : null, buyer_email: fulfil ? r.buyer_email : null };
+  });
 }
 
 // Single-order fetch, ownership-scoped (used by the buyer confirmation poll + seller/admin detail).
 async function getForBuyer(orderId, buyerUserId) {
+  if (!isUuid(orderId)) return null;
   const o = (await db.query('SELECT * FROM marketplace_orders WHERE id = $1 AND buyer_user_id = $2', [orderId, buyerUserId])).rows[0];
-  return o ? publicOrder(o) : null;
+  return o ? buyerOrder(o) : null;
 }
 async function getForSeller(orderId, sellerUserId) {
+  if (!isUuid(orderId)) return null;
   const o = (await db.query(
     `SELECT o.* FROM marketplace_orders o JOIN seller_profiles sp ON sp.id = o.seller_id
       WHERE o.id = $1 AND sp.user_id = $2`, [orderId, sellerUserId])).rows[0];
   return o ? publicOrder(o) : null;
+}
+
+// Order history (append-only, migration 197). Buyer → their own order; seller → their own order; admin → any.
+// Buyers and sellers see what happened and when, not internal payment references.
+async function orderHistory(orderId, { buyerUserId, sellerUserId, admin } = {}) {
+  if (!isUuid(orderId)) return null;
+  let o;
+  if (admin) o = (await db.query('SELECT id FROM marketplace_orders WHERE id = $1', [orderId])).rows[0];
+  else if (buyerUserId) o = (await db.query('SELECT id FROM marketplace_orders WHERE id = $1 AND buyer_user_id = $2', [orderId, buyerUserId])).rows[0];
+  else if (sellerUserId) {
+    o = (await db.query(`SELECT o.id FROM marketplace_orders o JOIN seller_profiles sp ON sp.id = o.seller_id
+                          WHERE o.id = $1 AND sp.user_id = $2`, [orderId, sellerUserId])).rows[0];
+  }
+  if (!o) return null;
+  const { rows } = await db.query(
+    'SELECT event_type, actor_role, actor_user_id, data, created_at FROM marketplace_order_events WHERE order_id = $1 ORDER BY created_at ASC, id ASC', [o.id]);
+  const SHARED = ['action', 'from', 'to', 'tracking_carrier', 'tracking_number', 'kind', 'refunded_amount_cents', 'category', 'status', 'method'];
+  return rows.map((r) => {
+    const d = r.data || {};
+    const shown = admin ? d : Object.fromEntries(Object.entries(d).filter(([k]) => SHARED.includes(k)));
+    return { event: r.event_type, by: r.actor_role, at: r.created_at, ...(admin ? { actor_user_id: r.actor_user_id } : {}), details: shown };
+  });
+}
+
+// Admin: place or release a payout hold on an order (a flag; no money moves). Reason required; kept in the order history.
+async function setPayoutHold(orderId, adminId, { hold, reason } = {}) {
+  if (!adminId) throw err(403, 'ADMIN_REQUIRED', 'Only an administrator can change a payout hold.');
+  if (!isUuid(orderId)) throw err(404, 'ORDER_NOT_FOUND', 'Order not found.');
+  const note = String(reason || '').trim().slice(0, 500);
+  if (note.length < 5) throw err(422, 'REASON_REQUIRED', 'Give a short reason.');
+  return withTransaction(async (client) => {
+    const o = (await client.query('SELECT * FROM marketplace_orders WHERE id = $1 FOR UPDATE', [orderId])).rows[0];
+    if (!o) throw err(404, 'ORDER_NOT_FOUND', 'Order not found.');
+    const on = hold !== false;
+    const upd = (await client.query(
+      `UPDATE marketplace_orders SET payout_hold = $2, payout_hold_reason = $3, updated_at = now() WHERE id = $1 RETURNING *`,
+      [o.id, on, on ? note : null])).rows[0];
+    await recordEvent(client, o.id, on ? 'payout_hold' : 'payout_hold_released', { actorUserId: adminId, actorRole: 'admin', data: { reason: note } });
+    await auditService.logEvent(client, { eventType: on ? 'marketplace_order.payout_hold' : 'marketplace_order.payout_hold_released',
+      entityType: 'marketplace_order', entityId: o.id, actorId: adminId, metadata: { reason: note } });
+    return publicOrder(upd);
+  });
+}
+
+// Chargeback on a storefront order (from disputeService): hold the payout and flag for review, inside the dispute's
+// transaction. Returns the order's own seller id so the dispute is recorded against the real seller.
+async function holdForDispute(client, orderId, { disputeId, reason, closed } = {}) {
+  const o = (await client.query('SELECT id, seller_id, payout_hold FROM marketplace_orders WHERE id = $1 FOR UPDATE', [orderId])).rows[0];
+  if (!o) return null;
+  if (!closed && !o.payout_hold) {
+    await client.query(
+      `UPDATE marketplace_orders SET payout_hold = true, payout_hold_reason = $2, review_required = true,
+              review_note = $2, updated_at = now() WHERE id = $1`, [o.id, `Payment dispute ${disputeId} (${reason || 'unspecified'}) - payout held until reviewed`]);
+  }
+  await recordEvent(client, o.id, closed ? 'dispute_closed' : 'dispute', { data: { dispute_id: disputeId, reason: reason || null, hold_applied: !closed && !o.payout_hold } });
+  return o;
 }
 
 // Admin read model: every storefront order with the money snapshot, fulfillment, payout flag and refund state.
@@ -853,6 +1013,7 @@ module.exports = {
   feeBpsForSeller, computeBreakdown, loadItemForPurchase, quote, createOrder,
   handleIntentEvent, tryHandleChargeRefunded, markOrderPaid, refundOrder, applyRefundState,
   relistItem, updateFulfillment, releaseOrder, listForBuyer, listForSeller,
-  getForBuyer, getForSeller, publicOrder, listForAdmin,
+  getForBuyer, getForSeller, publicOrder, buyerOrder, listForAdmin, orderHistory, setPayoutHold, holdForDispute, purchaseSnapshot,
+  intentMismatch, recordEvent,
   payOrder, sweepExpiredHolds, releaseExpiredHold, resolveTaxLocation, recordRefund, refundConflict,
 };

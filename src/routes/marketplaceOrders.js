@@ -17,6 +17,7 @@ const router = express.Router();
 const authMiddleware = require('../middleware/authMiddleware');
 const roleMiddleware = require('../middleware/roleMiddleware');
 const orders = require('../services/marketplaceOrderService');
+const issues = require('../services/marketplaceOrderIssueService');
 const { marketplaceCheckoutEnabled } = require('../lib/launchGuards');
 
 // PUBLIC (no login): the buyer UI reads this to decide whether to show Buy Now to every visitor, including
@@ -74,6 +75,25 @@ router.get('/orders/mine', async (req, res, next) => {
   catch (e) { fail(res, e, next); }
 });
 
+// Buyer issues (complaints) — always on the buyer's OWN order; the seller is taken from the order, never from the request.
+router.get('/issues/mine', async (req, res, next) => {
+  try { return res.json({ success: true, data: await issues.listForBuyer(req.user.id) }); }
+  catch (e) { fail(res, e, next); }
+});
+router.post('/orders/:id/issues', async (req, res, next) => {
+  try {
+    const { category, message } = req.body || {};
+    return res.status(201).json({ success: true, data: await issues.openIssue(req.params.id, req.user.id, { category, message }) });
+  } catch (e) { fail(res, e, next); }
+});
+router.get('/orders/:id/history', async (req, res, next) => {
+  try {
+    const h = await orders.orderHistory(req.params.id, { buyerUserId: req.user.id });
+    if (!h) return res.status(404).json({ success: false, message: 'Order not found.' });
+    return res.json({ success: true, data: h });
+  } catch (e) { fail(res, e, next); }
+});
+
 router.get('/orders/:id', async (req, res, next) => {
   try {
     const o = await orders.getForBuyer(req.params.id, req.user.id);
@@ -97,6 +117,22 @@ router.post('/seller/orders/:id/fulfillment', async (req, res, next) => {
   } catch (e) { fail(res, e, next); }
 });
 
+router.get('/seller/orders/:id/history', async (req, res, next) => {
+  try {
+    const h = await orders.orderHistory(req.params.id, { sellerUserId: req.user.id });
+    if (!h) return res.status(404).json({ success: false, message: 'Order not found.' });
+    return res.json({ success: true, data: h });
+  } catch (e) { fail(res, e, next); }
+});
+router.get('/seller/issues', async (req, res, next) => {
+  try { return res.json({ success: true, data: await issues.listForSeller(req.user.id) }); }
+  catch (e) { fail(res, e, next); }
+});
+router.post('/seller/issues/:id/respond', async (req, res, next) => {
+  try { return res.json({ success: true, data: await issues.respond(req.params.id, req.user.id, { response: (req.body || {}).response }) }); }
+  catch (e) { fail(res, e, next); }
+});
+
 // Explicitly relist a refunded/removed/draft item back to the public Marketplace (never automatic).
 router.post('/seller/items/:itemId/relist', async (req, res, next) => {
   try { return res.json({ success: true, data: await orders.relistItem(req.params.itemId, req.user.id) }); }
@@ -111,9 +147,33 @@ router.get('/admin/orders', roleMiddleware(['admin']), async (req, res, next) =>
   catch (e) { fail(res, e, next); }
 });
 
+// Admin overrides: a named administrator and a written reason, both kept in the order's permanent history.
 router.post('/admin/orders/:id/refund', roleMiddleware(['admin']), async (req, res, next) => {
-  try { return res.json({ success: true, data: await orders.refundOrder(req.params.id, { adminId: req.user.id }) }); }
+  try { return res.json({ success: true, data: await orders.refundOrder(req.params.id, { adminId: req.user.id, reason: (req.body || {}).reason }) }); }
   catch (e) { fail(res, e, next); }
+});
+router.post('/admin/orders/:id/payout-hold', roleMiddleware(['admin']), async (req, res, next) => {
+  try {
+    const { hold, reason } = req.body || {};
+    return res.json({ success: true, data: await orders.setPayoutHold(req.params.id, req.user.id, { hold: hold !== false, reason }) });
+  } catch (e) { fail(res, e, next); }
+});
+router.get('/admin/orders/:id/history', roleMiddleware(['admin']), async (req, res, next) => {
+  try {
+    const h = await orders.orderHistory(req.params.id, { admin: true });
+    if (!h) return res.status(404).json({ success: false, message: 'Order not found.' });
+    return res.json({ success: true, data: h });
+  } catch (e) { fail(res, e, next); }
+});
+router.get('/admin/issues', roleMiddleware(['admin']), async (req, res, next) => {
+  try { return res.json({ success: true, data: await issues.listForAdmin({ status: req.query.status }) }); }
+  catch (e) { fail(res, e, next); }
+});
+router.post('/admin/issues/:id/resolve', roleMiddleware(['admin']), async (req, res, next) => {
+  try {
+    const { status, resolution_note } = req.body || {};
+    return res.json({ success: true, data: await issues.resolve(req.params.id, req.user.id, { status, resolution_note }) });
+  } catch (e) { fail(res, e, next); }
 });
 
 module.exports = router;
