@@ -76,6 +76,15 @@ You are working on the Advantage Auction Platform.
 - If a real credential appears anywhere in your output, stop and report it
 - Read `docs/security/secret-management.md` for the full credential policy
 
+## Data Minimization and Focused Development (Owner principle, 2026-10-16 — permanent, whole platform)
+- Collect only what is necessary. Never request or store sensitive seller or buyer information because it might become useful later.
+- EINs, taxpayer IDs, tax forms, licenses and business documents are collected only when required by applicable law, a verified reporting obligation, the payment processor, or a necessary business operation.
+- Stripe Connect collects and verifies taxpayer identity. Do not duplicate Stripe-held sensitive information in Advantage.Bid (no complete EINs are stored — migration 202).
+- Do not make an EIN, auctioneer license, state tax registration number or additional documentation universally mandatory. Requirements differ by seller type and jurisdiction: verify a specific requirement, document its legal or operational basis, then implement the minimum necessary collection.
+- Do not expand tax or compliance features beyond what the current milestone requires.
+- Every milestone has a clear purpose, defined scope, acceptance tests and completion criteria. No speculative features, unnecessary complexity or unrelated refactoring. Approved future features stay in the roadmap and are not built early.
+- Security, seller ownership isolation, accurate financial records and legal compliance are essential; complexity that serves no real requirement is not.
+
 ## Public Language Standard (Non-Negotiable)
 - No human-facing interface may expose "AI" terminology. This applies to EVERY rendered surface seen by any person — public pages, seller tools, buyer tools, admin dashboards, staff moderation tools, emails, notifications, toasts, dialogs, tooltips, help text, buttons, metadata, accessibility labels, and any API message displayed to a user. Administrators and staff are included: the standard is consistency across the entire Advantage.Bid experience, not just customer-facing pages.
 - Banned visible terms include (non-exhaustive): AI, A.I., Artificial Intelligence, Machine Learning, AI Assistant/Generator/Writer/Enhancement/Detection/Recognition/Suggestions/Verification, "AI-powered", "powered by AI", "AI-generated", and any phrasing that frames a feature as artificial intelligence. Also avoid exposing model/vendor terms in visible text (OpenAI, GPT, LLM, Copilot).

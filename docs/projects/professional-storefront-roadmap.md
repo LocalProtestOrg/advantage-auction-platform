@@ -24,6 +24,12 @@ fully white-label unless that is actually built.
 **Privacy.** No SEO page, API, widget, feed or structured data may expose private seller addresses, buyer information,
 transaction records or internal inventory data. Public location = city/state.
 
+**Data minimization and focused development (owner, 2026-10-16; permanent, whole platform — also in `CLAUDE.md`).**
+Collect only what is legally, processor- or operationally required (Stripe Connect for taxpayer identity, never
+duplicated; no universally mandatory EIN, licence or registration field without a verified requirement and documented
+basis). Every milestone states its purpose, scope, acceptance tests and completion criteria; approved future features
+stay in this roadmap and are not built early.
+
 **Safety switches.** Live checkout (`MARKETPLACE_CHECKOUT_ENABLED`), payouts, external merchant feeds, paid shopping ads and
 public marketing of unfinished features stay OFF until the readiness checks in §6 pass and the owner approves.
 
@@ -41,7 +47,8 @@ public marketing of unfinished features stay OFF until the readiness checks in �
 | Shipping controls (migration 201, §7.1) | LIVE (7ccd039, 2026-10-16), verified in production; demo items set to pickup only (owner) |
 | Staff one-company pilot | LIVE (010eb01, 2026-10-16); general switch off, pilot list empty — no company enabled until the owner confirms the authorised account and phone verification |
 | EIN / taxpayer-ID minimisation (migration 202) + seller sale email without buyer contact | LIVE (5e2a4f7, 2026-10-16), verified in production |
-| Seller Store Terms + Shipping & Pickup Policy, storefront tabs, item links, purchase snapshots + acknowledgment (migration 203, §7.2–7.4) | Built + tested on `feat/seller-policies`; awaiting deploy approval |
+| Seller Store Terms + Shipping & Pickup Policy, storefront tabs, item links, purchase snapshots + acknowledgment (migration 203, §7.2–7.4) | LIVE (6383329, 2026-10-16), verified in production (rolled-back DB check `scripts/prod-verify-203.js` PASS) |
+| **Next milestone N: seller inventory numbers + reliable paid-sale seller notifications** (§8.1–8.2) | In progress (`feat/inventory-and-sale-notifications`); scope below |
 | Item questions / messaging, anti-circumvention, widget header, search & filters (§9–§10) | Requirements + design recorded 2026-10-16 (`storefront-messaging-and-widget-design-2026-10-16.md`); not built; messaging stays off until security + privacy testing |
 | Sale notifications, inventory numbers, bulk import, settlement/statements, tax responsibility, compliance profile, tax-time reports (§8) | Requirements + architecture recorded 2026-10-16 (`storefront-notifications-inventory-finance-compliance-plan-2026-10-16.md`); not built |
 | Seller policies, storefront tabs, policy snapshots, storefront widget (§7.2–7.6) | Requirements recorded 2026-10-16; not built |
@@ -314,6 +321,26 @@ policies never shown); inventory synchronization (a sale on either surface remov
 Full detail, current-state review, architecture, milestones (N1, N2, M3a, M3b, T1, C1, R1, I1) and acceptance tests:
 `storefront-notifications-inventory-finance-compliance-plan-2026-10-16.md`. Summary of what must never be dropped:
 
+### Milestone N (current) — inventory numbers + reliable paid-sale seller notifications
+- **Purpose:** a seller is told reliably, once, and only after payment is confirmed, exactly which item sold (with their own
+  inventory number), so they can fulfil it — a prerequisite for live checkout.
+- **Scope:** (1) optional per-item inventory number/SKU, unique within the seller's live items, editable on add/edit,
+  searchable in the seller's item list, copied into the order snapshot and shown on the seller's orders page; (2) a
+  storefront notification outbox: one row per (order, event, recipient) created **inside the paid transaction**,
+  delivered by a worker with lease, back-off retries, a final-failure owner alert and an audit trail; (3) the paid-sale
+  email: item title, description excerpt, real thumbnail when available, inventory number, sale price, order number,
+  fulfilment method, the 11% platform fee on the item price and the estimated proceeds, and a link to the authenticated
+  seller order page — **no buyer name, email, phone or address**. Recipient: the company owner's account email.
+- **Out of scope (stays in roadmap):** notification preferences and staff recipients (staff are off), other event types
+  (refund, dispute, pickup, payout), buyer-receipt queueing, exports/statements, bulk import, messaging, widget, filters.
+- **Acceptance tests:** no notice for started/pending/failed checkouts; exactly one notice per paid order under webhook
+  replay and worker crash/retry; a failed send is retried with back-off and alerts after the last attempt; a notice can
+  only reference its own seller's order (database); the email contains no buyer contact or address; inventory numbers
+  are unique per seller but reusable across sellers, preserved through edits, sale and refund, and immutable on the order.
+- **Completion criteria:** tests green in the full gate; security review with findings fixed; production pre-check +
+  migration verified; owner approval to deploy; production verification with a rolled-back check (no real email sent
+  without an authorised test).
+
 ### 8.1 Immediate seller sale notifications (before live checkout)
 Email to the seller's company address and opted-in fulfilment staff **only after payment is confirmed** (never on
 checkout start or pending payment): item title + description, the seller's inventory number, a thumbnail of the real
@@ -351,6 +378,10 @@ The system identifies the remitting party per transaction and jurisdiction; unde
 the Stripe Tax integration; no live tax/payment configuration change without authorisation.
 
 ### 8.6 Professional Seller legal and compliance profile
+**Scope rule (owner, 2026-10-16):** build only fields with a verified legal, processor or operational requirement. Today
+that is the Stripe-held taxpayer-ID *status* (migration 202) and the existing business-verification documents
+(registration or licence). Everything listed below is a candidate, not a plan — each needs its basis documented before
+it is collected.
 Legal name, DBA, entity type, business address, operating states, taxpayer id verification status, state tax
 registrations, auctioneer licences (number, state, expiry) and other licences where legally required, documents,
 verification status, review dates, expiry reminders. Requirements differ by seller category and state; no universal EIN
@@ -377,6 +408,8 @@ changed field names only, taxpayer-ID status (+ at most last 4 from the processo
 with state registration or business licence documents (IRS EIN letters no longer requested).
 
 ### 8.7 Tax-time and financial reporting
+**Scope rule:** only the reports an actual obligation or the ledger reconciliation needs, built with Milestone 3; no
+filing features.
 On-demand admin reports by tax year, seller, state, jurisdiction or period: gross sales and counts, refunds/chargebacks/
 adjustments, commission revenue, shipping, tax collected by jurisdiction, tax remitted by verified party, payouts,
 balances and holds, seller verification status, information-return data. Evaluate 1099-K and state reporting obligations

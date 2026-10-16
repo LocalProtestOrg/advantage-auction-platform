@@ -85,6 +85,9 @@ Canonical TODO: `professional-storefront-roadmap.md` §8.
 - No change to live Stripe Tax or payment configuration without owner authorisation; no filing or remittance by the system.
 
 ### 2.6 Seller legal and compliance profile (migration; restricted)
+**Owner scope rule 2026-10-16 (data minimization):** none of the fields below is collected until a specific legal,
+processor or operational requirement is verified and documented. Taxpayer identity is Stripe Connect's (status only in
+Advantage.Bid, migration 202). The structure below is the design to use *when* a requirement is confirmed.
 - `seller_compliance_profiles` (one per seller): legal name, DBA, entity type, business address, operating states,
   seller category (auction business, antique shop, estate sale company, sole proprietor, other), verification status,
   review dates. `seller_registrations` (type: state tax permit, auctioneer licence, business licence, other; issuing
