@@ -887,3 +887,40 @@ describe('shipping: shown accurately to buyers and search engines', () => {
     expect(Object.keys(list[0])).not.toContain('shipping_cost_cents');
   });
 });
+
+describe('shipping: review fixes (US only, quoted price confirmed, consistent public data)', () => {
+  test('shipping only to US addresses: a foreign country is refused even with a US state code', async () => {
+    const it = await noraItem({ title: 'US only' });
+    const r = await call('bea', 'POST', '/api/marketplace/orders', { item_id: it.id, fulfillment_method: 'shipping',
+      ship_to: { line1: '1 Calle', city: 'Monterrey', state: 'TX', postal_code: '64000', country: 'MX' } });
+    expect(r.status).toBe(422); expect(r.body.code).toBe('SHIPPING_DESTINATION_NOT_SERVED');
+    await expect(orders.quote(it.id, U.bea.id, { fulfillment_method: 'shipping', ship_to: { line1: 'x', city: 'y', postal_code: '1' } }))
+      .rejects.toMatchObject({ code: 'SHIPPING_DESTINATION_NOT_SERVED' });   // an address without a state is not served
+  });
+  test('if the seller changed the price or shipping after the buyer reviewed it, the order is refused (never charged silently)', async () => {
+    const it = await noraItem({ title: 'Changed after review' });
+    const ship = { line1: '5 Buyer Rd', city: 'Austin', state: 'TX', postal_code: '78701' };
+    const q1 = await orders.quote(it.id, U.bea.id, { fulfillment_method: 'shipping', ship_to: ship });
+    expect(q1.breakdown.shipping_cents).toBe(1500);
+    await call('nora', 'PATCH', '/api/seller-storefront/items/' + it.id, { shipping_cost_cents: 4000 });
+    const r = await call('bea', 'POST', '/api/marketplace/orders', { item_id: it.id, fulfillment_method: 'shipping', ship_to: ship,
+      expected_item_price_cents: q1.breakdown.item_price_cents, expected_shipping_cents: q1.breakdown.shipping_cents });
+    expect(r.status).toBe(409); expect(r.body.code).toBe('PRICE_CHANGED');
+    expect(await one('SELECT count(*)::int n FROM marketplace_orders WHERE marketplace_item_id = $1', [it.id])).toEqual({ n: 0 });
+    expect((await one('SELECT status FROM marketplace_items WHERE id = $1', [it.id])).status).toBe('active');   // not left reserved
+    const ok = await call('bea', 'POST', '/api/marketplace/orders', { item_id: it.id, fulfillment_method: 'shipping', ship_to: ship,
+      expected_item_price_cents: 10000, expected_shipping_cents: 4000 });
+    expect(ok.status).toBe(200);
+  });
+  test('an older listing never shows a shipping price buyers cannot actually pay', async () => {
+    const row = { id: 'x', title: 'Old', price_cents: 100, status: 'active', shippable: true, shipping_cost_cents: 1200, seller_type: 'auction_house' };
+    const pub = items.publicItem(row);
+    expect(pub).toMatchObject({ shippable: false, shipping_cost_cents: null });
+    const full = items.publicItem({ ...row, shipping_method: 'parcel', shipping_destinations: 'us_all', shipping_price_mode: 'flat' });
+    expect(full).toMatchObject({ shippable: true, shipping_cost_cents: 1200 });
+  });
+  test('the demo seed gives its shippable item complete shipping terms', () => {
+    const seed = fs.readFileSync(path.join(ROOT, 'scripts', 'seed-demo-storefront.js'), 'utf8');
+    expect(seed).toMatch(/'freight', 'flat', 'us_contiguous', true\)/);
+  });
+});

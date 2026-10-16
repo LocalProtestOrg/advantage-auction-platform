@@ -53,10 +53,12 @@ router.post('/orders/quote', async (req, res, next) => {
 // Create the order + PaymentIntent (claims the one-of-one item). Idempotency-Key header collapses retries.
 router.post('/orders', async (req, res, next) => {
   try {
-    const { item_id, fulfillment_method, ship_to, address } = req.body || {};
+    const { item_id, fulfillment_method, ship_to, address, expected_item_price_cents, expected_shipping_cents } = req.body || {};
     if (!item_id) return res.status(400).json({ success: false, message: 'item_id is required.' });
     const idempotencyKey = req.get('Idempotency-Key') || undefined;
-    const result = await orders.createOrder(item_id, req.user.id, { fulfillment_method, ship_to, address, idempotencyKey });
+    // expected_*: what the buyer saw on the review screen. Used ONLY to refuse a changed price — never to set one.
+    const result = await orders.createOrder(item_id, req.user.id, { fulfillment_method, ship_to, address, idempotencyKey,
+      expectedItemPriceCents: expected_item_price_cents, expectedShippingCents: expected_shipping_cents });
     return res.json({ success: true, data: result });
   } catch (e) { fail(res, e, next); }
 });

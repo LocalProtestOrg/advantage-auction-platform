@@ -47,8 +47,9 @@ function shippingOffer(item) {
     destinations: dest, states: dest === 'listed_states' ? states : [], handling_days: Number.isInteger(item.handling_days) ? item.handling_days : null, ...base };
 }
 
-function destinationAllowed(offer, state) {
+function destinationAllowed(offer, state, country = 'US') {
   const st = String(state || '').toUpperCase();
+  if (String(country || 'US').toUpperCase() !== 'US') return false;   // US destinations only
   if (!offer || !offer.available || !US_STATES.has(st)) return false;
   if (offer.destinations === 'us_all') return true;
   if (offer.destinations === 'us_contiguous') return !NON_CONTIGUOUS.has(st);
@@ -59,12 +60,12 @@ function destinationAllowed(offer, state) {
  * The shipping charge for a purchase, or a refusal. Never returns $0 unless the seller chose free shipping.
  * method 'pickup' → 0. Throws 422 SHIPPING_UNAVAILABLE / SHIPPING_DETAILS_INCOMPLETE / SHIPPING_DESTINATION_NOT_SERVED.
  */
-function shippingChargeFor(item, method, shipToState) {
+function shippingChargeFor(item, method, shipToState, shipToCountry = 'US') {
   if (method !== 'shipping') return { shippingCents: 0, offer: shippingOffer(item) };
   const offer = shippingOffer(item);
   if (offer.reason === 'PICKUP_ONLY') throw err('SHIPPING_UNAVAILABLE', 'This item is pickup only.');
   if (!offer.available) throw err('SHIPPING_DETAILS_INCOMPLETE', 'Shipping is not available for this item yet. Choose local pickup or ask the seller.');
-  if (shipToState !== undefined && !destinationAllowed(offer, shipToState)) {
+  if (shipToState !== undefined && !destinationAllowed(offer, shipToState, shipToCountry)) {
     throw err('SHIPPING_DESTINATION_NOT_SERVED', 'The seller does not ship this item to that location. Choose local pickup or another address.');
   }
   return { shippingCents: offer.shipping_cents, offer };

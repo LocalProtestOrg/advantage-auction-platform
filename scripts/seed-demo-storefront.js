@@ -69,10 +69,11 @@ const STOREFRONT = {
     await c.query(
       `INSERT INTO marketplace_items (id, seller_id, title, description, category, condition, price_cents,
                                       images, thumbnail_url, city, state, shippable, shipping_cost_cents, pickup_group,
-                                      status, is_demo, conversion_reason)
+                                      status, is_demo, conversion_reason, shipping_method, shipping_price_mode, shipping_destinations, is_oversized)
        VALUES ($1,$2,'Mid-Century Walnut Sideboard (DEMO)','A demonstration fixed-price Marketplace item available now from Heritage & Home.','Furniture','Very Good',45000,
-               '[]'::jsonb, NULL, 'Maplewood','OH', true, 6500, 'A_group', 'active', true, 'direct')
-       ON CONFLICT (id) DO UPDATE SET price_cents=45000, status='active', is_demo=true`,
+               '[]'::jsonb, NULL, 'Maplewood','OH', true, 6500, 'A_group', 'active', true, 'direct', 'freight', 'flat', 'us_contiguous', true)
+       ON CONFLICT (id) DO UPDATE SET price_cents=45000, status='active', is_demo=true, shippable=true, shipping_cost_cents=6500,
+         shipping_method='freight', shipping_price_mode='flat', shipping_destinations='us_contiguous', is_oversized=true`,
       [ID.directItem, ID.profile]);
     console.log('DEMO direct marketplace item seeded');
 

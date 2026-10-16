@@ -377,6 +377,7 @@ function publicItem(row) {
   // What a buyer can actually get (pickup always; shipping only with complete terms). `shippable` means "can be shipped".
   out.shipping = shipping.publicShipping(row);
   out.shippable = !!out.shipping.shipping;
+  out.shipping_cost_cents = out.shipping.shipping ? out.shipping.shipping.shipping_cents : null;
   const branded = row.seller_type === undefined ? true : brandingVisible(row.seller_type, row.show_branding_to_buyers);
   out.seller_name = branded ? (row.seller_name || null) : null;
   if (!branded) out.storefront_slug = null;

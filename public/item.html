@@ -189,7 +189,7 @@
         .then(function(r){return r.json();}).then(function(res){
           document.getElementById('toReview').disabled=false;
           if(!res.success){errEl.textContent=res.message||'Could not calculate your order.';return;}
-          showReview(res.data,method,addr);
+          REVIEWED=res.data.breakdown; showReview(res.data,method,addr);
         }).catch(function(){document.getElementById('toReview').disabled=false;errEl.textContent='Network error.';});
     }
 
@@ -216,12 +216,13 @@
 
     // Server-confirmed card flow: the browser only turns the card field into a payment method; the server checks
     // the card (debit/credit only) and confirms the charge. "Try again" reuses the same order + payment.
-    var ORDER_KEY=null;
+    var ORDER_KEY=null; var REVIEWED=null;   // the price and shipping the buyer reviewed (the server refuses if they changed)
     function orderKey(method,addr){return method+'|'+(method==='shipping'?JSON.stringify(addr):'');}
     function ensureOrder(method,addr){
       var key=orderKey(method,addr);
       if(ORDER&&ORDER_KEY===key&&ORDER.payment_status==='pending')return Promise.resolve(ORDER);
       var body={item_id:ITEM.id,fulfillment_method:method,address:addr};
+      if(REVIEWED){body.expected_item_price_cents=REVIEWED.item_price_cents;body.expected_shipping_cents=REVIEWED.shipping_cents;}
       if(method==='shipping')body.ship_to=addr;
       return fetch('/api/marketplace/orders',{method:'POST',headers:Object.assign({'Content-Type':'application/json','Idempotency-Key':uuid()},authHdr()),body:JSON.stringify(body)})
         .then(function(r){return r.json();}).then(function(res){

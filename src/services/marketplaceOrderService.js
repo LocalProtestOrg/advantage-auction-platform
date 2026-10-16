@@ -136,7 +136,7 @@ async function resolveTaxLocation({ method, item, shipTo }) {
 // Shipping is decided ONLY by src/lib/storefrontShipping.js: pickup-only items cannot be shipped, incomplete shipping
 // terms refuse shipping (a blank price is never $0), and a destination the seller does not serve is refused. The seller
 // fee (computeBreakdown) stays on the item price only.
-async function loadItemForPurchase(itemId, buyerUserId, fulfillmentMethod, runner = db, { shipToState } = {}) {
+async function loadItemForPurchase(itemId, buyerUserId, fulfillmentMethod, runner = db, { shipToState, shipToCountry } = {}) {
   const row = (await runner.query(
     `SELECT mi.*, sp.user_id AS seller_user_id, sp.seller_type, sp.platform_fee_bps, sp.storefront_slug,
             COALESCE(sp.display_name, sp.metadata->>'display_name', sp.metadata->>'business_name') AS seller_display_name,
@@ -149,7 +149,7 @@ async function loadItemForPurchase(itemId, buyerUserId, fulfillmentMethod, runne
   if (row.seller_user_id === buyerUserId) throw err(403, 'CANNOT_BUY_OWN', 'You cannot purchase your own listing.');
   if (!(Number(row.price_cents) > 0)) throw err(422, 'PRICE_INVALID', 'This item has no valid price.');
   const method = fulfillmentMethod === 'shipping' ? 'shipping' : 'pickup';
-  const { shippingCents } = shipping.shippingChargeFor(row, method, shipToState);
+  const { shippingCents } = shipping.shippingChargeFor(row, method, shipToState, shipToCountry);
   return { item: row, method, shippingCents, feeBps: feeBpsForSeller(row) };
 }
 
@@ -186,7 +186,7 @@ async function quote(itemId, buyerUserId, opts = {}) {
   if (!marketplaceCheckoutEnabled()) throw err(403, 'CHECKOUT_DISABLED', 'Marketplace checkout is not currently available.');
   const qShip = opts.fulfillment_method === 'shipping' ? normalizeAddress(parseJson(opts.ship_to || opts.address)) : null;
   const { item, method, shippingCents, feeBps } = await loadItemForPurchase(itemId, buyerUserId, opts.fulfillment_method, db,
-    { shipToState: qShip && qShip.state ? qShip.state : undefined });
+    qShip ? { shipToState: qShip.state || '', shipToCountry: qShip.country } : {});
   if (item.status !== 'active') throw err(409, 'NOT_AVAILABLE', 'This item is no longer available for purchase.');
   // Shipping: destination = the address the buyer will ship to; origin = the item's pickup location. Pickup: the item's pickup location.
   const loc = await resolveTaxLocation({ method, item, shipTo: opts.ship_to || opts.address });
@@ -244,7 +244,8 @@ async function createOrder(itemId, buyerUserId, opts = {}) {
   if (!marketplaceCheckoutEnabled()) throw err(403, 'CHECKOUT_DISABLED', 'Marketplace checkout is not currently available.');
   const wantShip = opts.fulfillment_method === 'shipping';
   const shipToObj = wantShip && opts.ship_to ? normalizeAddress(opts.ship_to) : null;
-  const pre = await loadItemForPurchase(itemId, buyerUserId, opts.fulfillment_method, db, { shipToState: shipToObj ? shipToObj.state : undefined });
+  const dest = shipToObj ? { shipToState: shipToObj.state || '', shipToCountry: shipToObj.country } : {};
+  const pre = await loadItemForPurchase(itemId, buyerUserId, opts.fulfillment_method, db, dest);
   const { method, shippingCents, feeBps } = pre;
   if (method === 'shipping' && !shipToObj) throw err(422, 'SHIP_TO_REQUIRED', 'A shipping address is required.');
   // Check the sale location BEFORE the item is held, so a blocked sale never claims inventory.
@@ -262,8 +263,13 @@ async function createOrder(itemId, buyerUserId, opts = {}) {
     if (locked.status !== 'active') throw err(409, 'NOT_AVAILABLE', 'This item is no longer available for purchase.');
     // Everything the order records comes from the LOCKED item and its owning seller, re-checked here: the seller, price,
     // shipping and pickup terms cannot change between the eligibility check above and this order.
-    const { item, method: lockedMethod, shippingCents: lockedShipping } = await loadItemForPurchase(itemId, buyerUserId, method, client,
-      { shipToState: shipToObj ? shipToObj.state : undefined });
+    const { item, method: lockedMethod, shippingCents: lockedShipping } = await loadItemForPurchase(itemId, buyerUserId, method, client, dest);
+    // 5. The buyer confirmed a price and shipping charge on the review screen: if the seller changed either since, stop and
+    // ask the buyer to review again instead of charging an amount they did not see.
+    if ((opts.expectedItemPriceCents != null && Number(opts.expectedItemPriceCents) !== Number(item.price_cents))
+        || (opts.expectedShippingCents != null && Number(opts.expectedShippingCents) !== Number(lockedShipping))) {
+      throw err(409, 'PRICE_CHANGED', 'The price or shipping for this item changed since you reviewed it. Please review your order again.');
+    }
     if (lockedMethod !== method) throw err(409, 'NOT_AVAILABLE', 'This item is no longer available for purchase.');
     const b = computeBreakdown({ itemPriceCents: item.price_cents, shippingCents: lockedShipping, taxCents: 0, feeBps });
     const shipTo = shipToObj ? JSON.stringify(shipToObj) : null;

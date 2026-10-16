@@ -175,10 +175,13 @@
       var el=function(x){return document.getElementById(p+'-'+x);};
       var sync=function(){if(el('on')&&el('sbox'))el('sbox').hidden=!el('on').checked;if(el('strow'))el('strow').hidden=el('dest').value!=='listed_states';if(el('cost'))el('cost').disabled=el('free').checked;};
       ['on','off','dest','free'].forEach(function(x){var e=el(x);if(e)e.addEventListener('change',sync);});
+      // remember whether the seller changed anything here (an edit of other details leaves shipping exactly as it is)
+      var fs=el('sbox')&&el('sbox').closest('fieldset'); if(fs){var mark=function(){fs.setAttribute('data-touched','1');};fs.addEventListener('change',mark);fs.addEventListener('input',mark);}
     }
     // The seller's shipping choices as API fields. Returns {error} when shipping is on but incomplete.
-    function readShip(p,alwaysOn){
+    function readShip(p,alwaysOn,onlyIfChanged){
       var el=function(x){return document.getElementById(p+'-'+x);};
+      var fs=el('sbox')&&el('sbox').closest('fieldset'); if(onlyIfChanged&&fs&&!fs.getAttribute('data-touched'))return {};
       var base={is_oversized:el('big').checked,is_fragile:el('frag').checked,shipping_notes:el('snotes').value.trim()};
       var on=alwaysOn||(el('on')&&el('on').checked);
       if(!on)return Object.assign(base,{shippable:false});
@@ -310,6 +313,7 @@
         +'<div class="row2"><div>'+f('brand','Brand',m.brand)+'</div><div>'+f('maker','Maker or manufacturer',m.manufacturer)+'</div></div>'
         +'<div class="row2"><div>'+f('material','Material',m.material)+'</div><div>'+f('mpn','Model or part number',m.mpn)+'</div></div>'
         +f('gtin','Barcode number (UPC / EAN), if the item has one',m.gtin,' inputmode="numeric" maxlength="18"')
+        +(m.shippable&&!m.shipping_method?'<p class="hint" style="color:#92400e;margin:.6rem 0 0">This item is marked for shipping but its shipping details are incomplete, so buyers can only pick it up. Finish the details below or choose pickup only.</p>':'')
         +shipFields('es'+id,m)
         +(imgs.length?'<p class="hint" style="margin:.6rem 0 .2rem">Photo descriptions (help shoppers using screen readers and search engines)</p>'+imgs.map(function(u,i){
             return '<div style="display:flex;gap:8px;align-items:center;margin:4px 0"><img src="'+esc(u)+'" alt="" style="width:48px;height:48px;object-fit:cover;border-radius:6px">'
@@ -322,7 +326,7 @@
       if(!v('title')){msg('Please add a title.');return;}
       var price=Math.round(parseFloat(v('price'))*100); if(!(price>0)){msg('Please add a price.');return;}
       var n=(m.images&&m.images.length?m.images.length:(m.thumbnail_url?1:0)); var alts=[]; for(var i=0;i<n;i++)alts.push(v('alt'+i));
-      var ship=readShip('es'+id); if(ship.error){msg(ship.error);return;}
+      var ship=readShip('es'+id,false,true); if(ship.error){msg(ship.error);return;}
       var body=Object.assign({title:v('title'),price_cents:price,category:v('cat'),condition:v('cond'),description:v('desc'),
         condition_type:v('ctype')||null,era_or_period:v('era'),brand:v('brand'),manufacturer:v('maker'),material:v('material'),mpn:v('mpn'),gtin:v('gtin'),image_alt:alts},ship);
       btn.disabled=true; var r=await api('PATCH','/api/seller-storefront/items/'+id,body);
