@@ -64,6 +64,10 @@
           <div class="row2"><div><label>Facebook URL</label><input id="s-fb"></div><div><label>Instagram URL</label><input id="s-ig"></div></div>
           <div style="margin-top:1rem;display:flex;gap:.5rem"><button class="btn b-blue" onclick="saveStore()">Save Storefront</button></div>
         </div>
+        <div class="card" id="pol-card"><h3 style="margin-bottom:.3rem">Store policies</h3>
+          <p class="hint" style="margin:0 0 .6rem;color:#475569">Your own Store Terms &amp; Conditions and Shipping &amp; Pickup Policy, shown on your storefront and linked from every item. Write them in your own words — Advantage.Bid does not write or legally review them, and its Buyer Terms also apply to every purchase and take priority. Save a draft, preview it, then publish. Published versions are kept; publishing again creates a new version.</p>
+          <div id="pol-store_terms"></div><div id="pol-shipping_pickup" style="margin-top:1rem"></div>
+        </div>
         <div class="card"><h3 style="margin-bottom:.3rem">Shipping default for new items</h3>
           <p class="hint" style="margin:0 0 .6rem;color:#475569">Off unless you turn it on. When it is on, you can choose to apply it to a new item while adding it. Changing it never changes items you have already listed.</p>
           <label class="toggle"><input type="checkbox" id="sd-enabled" style="width:auto" onchange="document.getElementById('sd-box').hidden=!this.checked"> Offer shipping by default on new items</label>
@@ -203,6 +207,32 @@
     // Deliberately fill the add form from the store default (the seller can still change anything before adding).
     function useShipDefaults(p){var defs=(CFG&&CFG.shipping_defaults)||{};if(!defs.enabled)return;var box=document.getElementById(p+'-shipbox');
       box.innerHTML=shipFields(p,Object.assign({},defs,{shippable:true}));wireShip(p);msg('Store shipping default filled in. Check it fits this item.',true);}
+    // ── Store policies editor (owner) ──
+    var POLICIES=null;
+    async function loadPolicies(){
+      var r=await api('GET','/api/seller-storefront/policies'); if(!r.success)return; POLICIES=r.data;
+      ['store_terms','shipping_pickup'].forEach(function(k){
+        var p=POLICIES[k], box=document.getElementById('pol-'+k); if(!box)return;
+        var text=(p.draft&&p.draft.body)||(p.published&&p.published.body)||'';
+        var state=p.published?('Published version '+p.published.version+' · '+new Date(p.published.published_at).toLocaleDateString()):'Not published yet';
+        if(p.draft)state+=' · unpublished changes saved';
+        box.innerHTML='<label for="pt-'+k+'"><b>'+esc(p.label)+'</b> <span class="hint">('+esc(state)+')</span></label>'
+          +'<textarea id="pt-'+k+'" rows="8" maxlength="20000" style="width:100%">'+esc(text)+'</textarea>'
+          +'<div style="margin-top:.4rem;display:flex;gap:.5rem;flex-wrap:wrap"><button class="btn b-ghost" type="button" onclick="savePolicy(\''+k+'\',this)">Save draft</button>'
+          +'<button class="btn b-ghost" type="button" onclick="previewPolicy(\''+k+'\')">Preview</button>'
+          +'<button class="btn b-blue" type="button" onclick="publishPolicy(\''+k+'\',this)">Publish</button></div>'
+          +'<div id="pv-'+k+'" class="card" hidden style="margin-top:.5rem;white-space:pre-wrap"></div>';
+      });
+    }
+    async function savePolicy(k,btn){btn.disabled=true;var r=await api('PUT','/api/seller-storefront/policies/'+k,{body:document.getElementById('pt-'+k).value});btn.disabled=false;
+      if(r.success){msg('Draft saved. It is not public until you publish it.',true);loadPolicies();}else msg(r.message||'Could not save');}
+    function previewPolicy(k){var pv=document.getElementById('pv-'+k);pv.textContent=document.getElementById('pt-'+k).value||'(empty)';pv.hidden=false;}
+    async function publishPolicy(k,btn){
+      if(!confirm('Publish this policy? Buyers will see it on your storefront and items. Earlier versions are kept on record.'))return;
+      btn.disabled=true; var s=await api('PUT','/api/seller-storefront/policies/'+k,{body:document.getElementById('pt-'+k).value});
+      if(!s.success){btn.disabled=false;msg(s.message||'Could not save');return;}
+      var r=await api('POST','/api/seller-storefront/policies/'+k+'/publish'); btn.disabled=false;
+      if(r.success){msg('Published (version '+r.data.version+').',true);loadPolicies();}else msg(r.message||'Could not publish');}
     async function saveShipDefaults(btn){
       var on=document.getElementById('sd-enabled').checked; var body={enabled:false};
       if(on){var s=readShip('sd',true); if(s.error){msg(s.error);return;} body=Object.assign(s,{enabled:true});}
@@ -215,6 +245,7 @@
       if(!d.eligible){document.getElementById('denied').style.display='block';return;}
       document.getElementById('content').style.display='block';
       setupShipUI();
+      if(!d.staff)loadPolicies();
       if(d.staff){
         // Staff (Inventory Manager): items only. Storefront settings, the private pickup address and inquiries stay with the owner.
         ['t-store','t-leads','pane-store','pane-leads','loc-card'].forEach(function(id){var el=document.getElementById(id);if(el)el.style.display='none';});

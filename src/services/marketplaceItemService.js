@@ -356,7 +356,8 @@ async function getPublicItem(id, runner = db) {
   // to decide Buy Now vs. SOLD vs. temporarily-unavailable.
   const { rows } = await runner.query(
     `SELECT mi.*, sp.storefront_slug, sp.seller_type, sp.show_branding_to_buyers,
-            COALESCE(sp.display_name, sp.metadata->>'display_name', sp.metadata->>'business_name') AS seller_name
+            COALESCE(sp.display_name, sp.metadata->>'display_name', sp.metadata->>'business_name') AS seller_name,
+            (SELECT array_agg(v.kind) FROM seller_policy_versions v WHERE v.seller_id = mi.seller_id AND v.status = 'published') AS published_policy_kinds
        FROM marketplace_items mi JOIN seller_profiles sp ON sp.id = mi.seller_id
       WHERE mi.id = $1 AND mi.status IN ('active','pending_purchase','sold') AND sp.seller_type = ANY($2::text[])`, [id, PROFESSIONAL_SELLER_TYPES]);   // Professional Sellers only
   return rows[0] ? publicItem(rows[0]) : null;
@@ -381,6 +382,9 @@ function publicItem(row) {
   const branded = row.seller_type === undefined ? true : brandingVisible(row.seller_type, row.show_branding_to_buyers);
   out.seller_name = branded ? (row.seller_name || null) : null;
   if (!branded) out.storefront_slug = null;
+  // Which of THIS item's seller's policies are published (links go to that seller's own policy pages, never another's).
+  const kinds = Array.isArray(row.published_policy_kinds) ? row.published_policy_kinds : [];
+  out.policies = { store_terms: kinds.includes('store_terms'), shipping_pickup: kinds.includes('shipping_pickup') };
   return out;
 }
 // For the closed-lot "now in Marketplace" banner.

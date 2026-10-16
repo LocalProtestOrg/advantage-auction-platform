@@ -152,6 +152,17 @@
       }
       // Shop — the fixed-price store. Hidden entirely when empty (consistent with the other sections; no
       // "check back soon" placeholder cluttering a storefront that simply has no items yet).
+      // Store sections: Shop Items | Store Terms & Conditions | Shipping & Pickup Policy (the seller's own published policies;
+      // each also has a stable page at /pro/<slug>/terms and /pro/<slug>/shipping-pickup). Wraps on small screens.
+      var pol=d.policies||{};
+      if((vis.marketplace!==false && d.marketplace.length) || pol.store_terms || pol.shipping_pickup){
+        var base='/pro/'+encodeURIComponent(s.slug||'');
+        html+='<nav class="store-tabs" role="tablist" aria-label="Store sections" style="display:flex;flex-wrap:wrap;gap:8px;margin:24px 0 8px">'
+          +((vis.marketplace!==false && d.marketplace.length)?'<a role="tab" class="btn btn-ghost" href="#shop">Shop Items</a>':'')
+          +(pol.store_terms?'<a role="tab" class="btn btn-ghost" href="'+base+'/terms">Store Terms &amp; Conditions</a>':'')
+          +(pol.shipping_pickup?'<a role="tab" class="btn btn-ghost" href="'+base+'/shipping-pickup">Shipping &amp; Pickup Policy</a>':'')
+          +'</nav>';
+      }
       if(vis.marketplace!==false && d.marketplace.length){
         html+='<section id="shop"><div class="sec-head"><div><h2>Shop</h2><div class="sec-sub">'+d.marketplace.length+' item'+(d.marketplace.length!==1?'s':'')+' available now from '+esc(s.name)+'</div></div></div>';
         html+= ('<div class="grid grid-4">'+d.marketplace.map(function(m){

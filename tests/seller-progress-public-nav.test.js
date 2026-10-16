@@ -86,8 +86,11 @@ describe('canonical-domain hygiene: no brand/logo points to the www host', () =>
   // the brand to the APEX marketing site (https://advantage.bid — enforced by brand-link.test). The only
   // genuine inconsistency was a www. host, which must not appear on any brand link.
   test('no public page uses https://www.advantage.bid on a brand link', () => {
-    const files = fs.readdirSync(path.join(__dirname, '..', 'public')).filter((f) => f.endsWith('.html'));
-    const offenders = files.filter((f) => /class="brand" href="https:\/\/www\.advantage\.bid/.test(read('public', f)));
+    // Skip the temporary "__"-prefixed fixtures another suite (analyticsTag) writes into public/ while running in parallel,
+    // and tolerate a file vanishing between listing and reading (it was one of those fixtures).
+    const files = fs.readdirSync(path.join(__dirname, '..', 'public')).filter((f) => f.endsWith('.html') && !f.startsWith('__'));
+    const safeRead = (f) => { try { return read('public', f); } catch (e) { if (e.code === 'ENOENT') return ''; throw e; } };
+    const offenders = files.filter((f) => /class="brand" href="https:\/\/www\.advantage\.bid/.test(safeRead(f)));
     expect(offenders).toEqual([]);
   });
 });

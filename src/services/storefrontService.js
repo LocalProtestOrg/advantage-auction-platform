@@ -210,7 +210,9 @@ async function getPublicData(slug) {
                  AND (e.end_at IS NULL OR e.end_at >= now())
                ORDER BY e.start_at ASC NULLS LAST LIMIT 8`, [sp.id]),
   ]);
+  const storePolicies = await require('./sellerPolicyService').publishedFor(sp.id);
   return {
+    policies: storePolicies,
     seller: {
       id: sp.id, name: sellerName(sp), seller_type: sp.seller_type, is_professional: isProfessional(sp.seller_type),
       logo_url: sp.logo_url, location_label: sp.location_label || sellerMetaVal(sp, 'service_area'),

@@ -35,6 +35,19 @@ router.put('/config', seller('company.storefront.manage'), async (req, res, next
   catch (e) { fail(res, e, next); }
 });
 
+// ── Store Terms & Conditions and Shipping & Pickup Policy (owner; migration 203). The seller's own words: each kind is
+// saved as a draft, previewed and published independently; published versions are never rewritten.
+const policies = require('../services/sellerPolicyService');
+router.get('/policies', seller('company.storefront.manage'), async (req, res, next) => {
+  try { return res.json({ success: true, data: await policies.forOwner(req.sellerCtx) }); } catch (e) { fail(res, e, next); }
+});
+router.put('/policies/:kind', seller('company.storefront.manage'), async (req, res, next) => {
+  try { return res.json({ success: true, data: await policies.saveDraft(req.sellerCtx, req.params.kind, (req.body || {}).body) }); } catch (e) { fail(res, e, next); }
+});
+router.post('/policies/:kind/publish', seller('company.storefront.manage'), async (req, res, next) => {
+  try { return res.json({ success: true, data: await policies.publish(req.sellerCtx, req.params.kind) }); } catch (e) { fail(res, e, next); }
+});
+
 // Store-wide shipping default for NEW items (owner). Saving it never changes an existing listing.
 router.put('/shipping-defaults', seller('company.storefront.manage'), async (req, res, next) => {
   try { return res.json({ success: true, data: await storefront.setShippingDefaults(req.user.id, req.body || {}) }); }

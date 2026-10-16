@@ -165,14 +165,14 @@ describe('createOrder concurrency guard', () => {
       return { rows: [] };
     });
     mockClient = makeClient([[/SELECT \* FROM marketplace_items WHERE id = \$1 FOR UPDATE/, { rows: [{ id: 'item-1', status: 'sold', price_cents: 100000 }] }]]);
-    await expect(svc.createOrder('item-1', 'buyer-1', { fulfillment_method: 'pickup' })).rejects.toMatchObject({ code: 'NOT_AVAILABLE' });
+    await expect(svc.createOrder('item-1', 'buyer-1', { policiesAcknowledged: true,  fulfillment_method: 'pickup' })).rejects.toMatchObject({ code: 'NOT_AVAILABLE' });
     expect(mockStripe.paymentIntents.create).not.toHaveBeenCalled(); // no charge attempted
   });
 
   test('refuses checkout entirely when the flag is OFF', async () => {
     process.env.MARKETPLACE_CHECKOUT_ENABLED = 'false';
     db.query.mockImplementation(async () => ({ rows: [{ id: 'item-1', seller_id: 's', seller_user_id: 'su', seller_type: 'estate_sale_company', platform_fee_bps: 400, price_cents: 100000, status: 'active', shippable: false }] }));
-    await expect(svc.createOrder('item-1', 'buyer-1', { fulfillment_method: 'pickup' })).rejects.toMatchObject({ code: 'CHECKOUT_DISABLED' });
+    await expect(svc.createOrder('item-1', 'buyer-1', { policiesAcknowledged: true,  fulfillment_method: 'pickup' })).rejects.toMatchObject({ code: 'CHECKOUT_DISABLED' });
   });
 });
 

@@ -275,6 +275,7 @@ app.get('/sitemap.xml', async (req, res) => {
     // Professional Storefront pages and items for sale (canonical item URLs; demo, draft, taken-down and sold excluded).
     const shop = await require('./src/services/productPageService').sitemapEntries();
     for (const sf of shop.storefronts) urls.push(urlEl(base + sf.path, null));
+    for (const pp of (shop.policies || [])) urls.push(urlEl(base + pp.path, lastmodDate(pp.lastmod)));
     for (const it of shop.items) urls.push(urlEl(base + it.path, lastmodDate(it.lastmod)));
   } catch (e) {
     // FAIL-SAFE: fall through with just the static pages already collected.
@@ -504,6 +505,17 @@ app.get('/pro/:slug', async (req, res, next) => {
     const html = tpl.replace(/<title>[\s\S]*?<\/title>/i, '').replace('<!-- SSR-META -->', head).replace('<!-- SSR-JSONLD -->', jsonld);
     return res.send(html);
   } catch (e) { return res.send(tpl); } // fail-open
+});
+
+// ── Professional Seller policy pages: /pro/:slug/terms and /pro/:slug/shipping-pickup (seller's own words; migration 203) ──
+app.get('/pro/:slug/:page', async (req, res, next) => {
+  if (!['terms', 'shipping-pickup'].includes(req.params.page)) return next();
+  try {
+    const { publicBaseUrl } = require('./src/lib/publicUrls');
+    const r = await require('./src/services/policyPageService').render(req.params.slug, req.params.page, publicBaseUrl());
+    res.set('Cache-Control', 'public, max-age=60');
+    return res.status(r.status).send(r.html);
+  } catch (e) { console.error('[policy-page] render failed:', e.message); return next(); }
 });
 
 // ── Professional Storefront item pages: ONE canonical, server-rendered URL per item (roadmap §4.1) ──

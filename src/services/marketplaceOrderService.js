@@ -27,6 +27,7 @@
 const db = require('../db');
 const sellerActor = require('../lib/sellerActor');
 const shipping = require('../lib/storefrontShipping');
+const sellerPolicies = require('./sellerPolicyService');
 const Stripe = require('stripe');
 const { withTransaction } = require('../utils/withTransaction');
 const auditService = require('./auditService');
@@ -242,6 +243,11 @@ function sameShipTo(a, b) {
 // tx2: attach intent id + tax calc id + final tax/total. On failure: release item, fail order.
 async function createOrder(itemId, buyerUserId, opts = {}) {
   if (!marketplaceCheckoutEnabled()) throw err(403, 'CHECKOUT_DISABLED', 'Marketplace checkout is not currently available.');
+  // The buyer must confirm they had access to the seller's Store Terms and Shipping & Pickup Policy and the Advantage.Bid
+  // Buyer Terms (migration 203). The exact versions are recorded on the order below and can never change.
+  if (opts.policiesAcknowledged !== true) {
+    throw err(422, 'POLICIES_ACK_REQUIRED', "Please confirm you have read the seller's store policies and the Advantage.Bid Buyer Terms.");
+  }
   const wantShip = opts.fulfillment_method === 'shipping';
   const shipToObj = wantShip && opts.ship_to ? normalizeAddress(opts.ship_to) : null;
   const dest = shipToObj ? { shipToState: shipToObj.state || '', shipToCountry: shipToObj.country } : {};
@@ -281,13 +287,14 @@ async function createOrder(itemId, buyerUserId, opts = {}) {
          (marketplace_item_id, seller_id, buyer_user_id, item_price_cents, shipping_cents, tax_cents,
           platform_fee_bps, platform_fee_cents, seller_proceeds_cents, total_charge_cents,
           fulfillment_method, ship_to, payment_status, is_demo, idempotency_key,
-          item_snapshot, seller_snapshot, pickup_snapshot)
-       VALUES ($1,$2,$3,$4,$5,0,$6,$7,$8,$9,$10,$11::jsonb,'pending',$12,$13,$14::jsonb,$15::jsonb,$16::jsonb)
+          item_snapshot, seller_snapshot, pickup_snapshot, policy_snapshot, policies_acknowledged_at)
+       VALUES ($1,$2,$3,$4,$5,0,$6,$7,$8,$9,$10,$11::jsonb,'pending',$12,$13,$14::jsonb,$15::jsonb,$16::jsonb,$17::jsonb, now())
        RETURNING *`,
       [itemId, item.seller_id, buyerUserId, b.item_price_cents, b.shipping_cents,
        b.platform_fee_bps, b.platform_fee_cents, b.seller_proceeds_cents, b.total_charge_cents,
        method, shipTo, !!item.is_demo, opts.idempotencyKey || null,
-       JSON.stringify(snap.item), JSON.stringify(snap.seller), snap.pickup ? JSON.stringify(snap.pickup) : null])
+       JSON.stringify(snap.item), JSON.stringify(snap.seller), snap.pickup ? JSON.stringify(snap.pickup) : null,
+       JSON.stringify(await sellerPolicies.snapshotFor(item.seller_id, client))])
       .catch((e) => { if (e && e.code === '23505' && /live_item/.test(e.constraint || e.message || '')) throw err(409, 'NOT_AVAILABLE', 'This item is no longer available for purchase.'); throw e; });
     order = inserted.rows[0];
     await recordEvent(client, order.id, 'created', { actorUserId: buyerUserId, actorRole: 'buyer',

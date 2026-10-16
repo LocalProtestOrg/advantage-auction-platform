@@ -36,7 +36,8 @@ async function loadItem(id, runner = db) {
   if (!productData.UUID_RE.test(String(id || ''))) return null;
   const row = (await runner.query(
     `SELECT mi.*, sp.storefront_slug, sp.seller_type, sp.show_branding_to_buyers, sp.is_demo AS seller_is_demo,
-            COALESCE(sp.display_name, sp.metadata->>'display_name', sp.metadata->>'business_name') AS seller_name
+            COALESCE(sp.display_name, sp.metadata->>'display_name', sp.metadata->>'business_name') AS seller_name,
+            (SELECT array_agg(v.kind) FROM seller_policy_versions v WHERE v.seller_id = mi.seller_id AND v.status = 'published') AS published_policy_kinds
        FROM marketplace_items mi JOIN seller_profiles sp ON sp.id = mi.seller_id
       WHERE mi.id = $1 AND mi.status = ANY($2::text[]) AND mi.moderation_status = 'none' AND sp.seller_type = ANY($3::text[])`,
     [id, PUBLIC_STATUSES, PROFESSIONAL_SELLER_TYPES])).rows[0];
@@ -94,7 +95,17 @@ function bodyHtml(item) {
 <div class="meta">${esc(AVAIL_TEXT[item.status] || '')}</div>
 <div style="margin:8px 0">${pills}</div>${place ? `<div class="meta">${esc(place)}</div>` : ''}
 <div class="meta" id="ship-summary"><b>Shipping &amp; pickup:</b> ${esc(sh.summary)}${sh.notes ? ' — ' + esc(sh.notes) : ''}</div>
-${item.description ? `<div class="desc">${esc(item.description)}</div>` : ''}${facts ? `<ul class="meta">${facts}</ul>` : ''}</div></div>`;
+${item.description ? `<div class="desc">${esc(item.description)}</div>` : ''}${facts ? `<ul class="meta">${facts}</ul>` : ''}${policyLinks(item)}</div></div>`;
+}
+
+// Links to THIS item's seller's own published policies (only when the seller is shown and has published them).
+function policyLinks(item) {
+  const p = item.policies || {};
+  if (!item.storefront_slug || (!p.store_terms && !p.shipping_pickup)) return '';
+  const a = [];
+  if (p.store_terms) a.push(`<a href="/pro/${esc(item.storefront_slug)}/terms">Store Terms &amp; Conditions</a>`);
+  if (p.shipping_pickup) a.push(`<a href="/pro/${esc(item.storefront_slug)}/shipping-pickup">Shipping &amp; Pickup Policy</a>`);
+  return `<p class="meta" id="seller-policies">${esc(item.seller_name || 'Seller')}: ${a.join(' · ')}</p>`;
 }
 
 function moreHtml(item, more) {
@@ -153,7 +164,7 @@ async function canonicalPathFor(id, runner = db) {
  * not listed. FAIL-SAFE: returns empty lists on error.
  */
 async function sitemapEntries(runner = db) {
-  const out = { items: [], storefronts: [] };
+  const out = { items: [], storefronts: [], policies: [] };
   try {
     out.items = (await runner.query(
       `SELECT mi.id, mi.title, COALESCE(mi.updated_at, mi.created_at) AS lastmod
@@ -170,6 +181,13 @@ async function sitemapEntries(runner = db) {
         ORDER BY storefront_slug LIMIT 2000`, [PROFESSIONAL_SELLER_TYPES])).rows
       .map((r) => ({ path: '/pro/' + r.storefront_slug, lastmod: null }));
   } catch (e) { /* leave empty */ }
+  try {
+    out.policies = (await runner.query(
+      `SELECT sp.storefront_slug, v.kind, v.published_at AS lastmod FROM seller_policy_versions v JOIN seller_profiles sp ON sp.id = v.seller_id
+        WHERE v.status = 'published' AND sp.storefront_published = true AND sp.storefront_slug IS NOT NULL AND COALESCE(sp.is_demo, false) = false
+          AND sp.seller_type = ANY($1::text[]) ORDER BY sp.storefront_slug, v.kind LIMIT 4000`, [PROFESSIONAL_SELLER_TYPES])).rows
+      .map((r) => ({ path: `/pro/${r.storefront_slug}/${r.kind === 'store_terms' ? 'terms' : 'shipping-pickup'}`, lastmod: r.lastmod }));
+  } catch (e) { out.policies = []; }
   return out;
 }
 

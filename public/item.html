@@ -77,6 +77,14 @@
       ITEM=res.data;render();
     }).catch(function(){document.getElementById('app').textContent='Unable to load item.';});
 
+    // Links to this item's own seller's published policies (never another seller's).
+    function policyLinks(it){
+      var p=it.policies||{}; if(!it.storefront_slug||(!p.store_terms&&!p.shipping_pickup))return '';
+      var b='/pro/'+encodeURIComponent(it.storefront_slug), a=[];
+      if(p.store_terms)a.push('<a href="'+b+'/terms" target="_blank" rel="noopener">Store Terms &amp; Conditions</a>');
+      if(p.shipping_pickup)a.push('<a href="'+b+'/shipping-pickup" target="_blank" rel="noopener">Shipping &amp; Pickup Policy</a>');
+      return '<p class="meta" style="margin-top:12px">'+esc(it.seller_name||'Seller')+': '+a.join(' · ')+'</p>';
+    }
     function render(){
       var it=ITEM;
       document.title=it.title+' · Advantage.Bid';
@@ -114,6 +122,7 @@
         '<div class="meta"><b>Shipping &amp; pickup:</b> '+esc((it.shipping&&it.shipping.summary)||'Local pickup available')+((it.shipping&&it.shipping.notes)?' — '+esc(it.shipping.notes):'')+'</div>'+
         buyBox+
         (it.description?'<div class="desc">'+esc(it.description)+'</div>':'')+
+        policyLinks(it)+
         '<p class="meta" style="margin-top:18px"><a href="#" id="reportLink">Report this listing</a></p>'+
         '</div></div>';
       var b=document.getElementById('buyNow'); if(b)b.addEventListener('click',startCheckout);
@@ -202,6 +211,11 @@
         '<tr class="tot"><td>Total</td><td align="right">'+money(b.total_charge_cents)+'</td></tr></table>';
       openModal('<h3>Review your order</h3><div class="meta">'+esc(ITEM.title)+' · '+(method==='shipping'?'Shipping':'Local pickup')+'</div>'+
         lines+
+        '<label style="display:flex;gap:8px;align-items:flex-start;font-weight:400;margin-top:12px"><input type="checkbox" id="ackPol" style="width:auto;margin-top:3px"> <span>I have read '+
+          (ITEM.policies&&(ITEM.policies.store_terms||ITEM.policies.shipping_pickup)&&ITEM.storefront_slug?(esc(ITEM.seller_name||'the seller')+'&#39;s '+
+            [ITEM.policies.store_terms?'<a href="/pro/'+encodeURIComponent(ITEM.storefront_slug)+'/terms" target="_blank" rel="noopener">Store Terms</a>':'',
+             ITEM.policies.shipping_pickup?'<a href="/pro/'+encodeURIComponent(ITEM.storefront_slug)+'/shipping-pickup" target="_blank" rel="noopener">Shipping &amp; Pickup Policy</a>':''].filter(Boolean).join(' and ')+' and ')
+            :'')+'the Advantage.Bid <a href="/buyer-terms.html" target="_blank" rel="noopener">Buyer Terms</a>.</span></label>'+
         '<label>Card details</label><div id="card-el"></div>'+
         '<div class="err" id="payErr"></div>'+
         '<div style="margin-top:16px;display:flex;gap:8px"><button class="btn btn-primary" id="payBtn">Pay '+money(b.total_charge_cents)+'</button><button class="btn btn-ghost" id="payCancel">Back</button></div>'+
@@ -211,7 +225,9 @@
       stripe=Stripe(CFG.stripe_publishable_key);
       var elements=stripe.elements();
       cardEl=elements.create('card'); cardEl.mount('#card-el');
-      document.getElementById('payBtn').addEventListener('click',function(){pay(method,addr);});
+      document.getElementById('payBtn').addEventListener('click',function(){
+        if(!document.getElementById('ackPol').checked){document.getElementById('payErr').textContent='Please confirm you have read the store policies and Buyer Terms.';return;}
+        pay(method,addr);});
     }
 
     // Server-confirmed card flow: the browser only turns the card field into a payment method; the server checks
@@ -223,6 +239,7 @@
       if(ORDER&&ORDER_KEY===key&&ORDER.payment_status==='pending')return Promise.resolve(ORDER);
       var body={item_id:ITEM.id,fulfillment_method:method,address:addr};
       if(REVIEWED){body.expected_item_price_cents=REVIEWED.item_price_cents;body.expected_shipping_cents=REVIEWED.shipping_cents;}
+      var ack=document.getElementById('ackPol'); body.policies_acknowledged=!!(ack&&ack.checked);
       if(method==='shipping')body.ship_to=addr;
       return fetch('/api/marketplace/orders',{method:'POST',headers:Object.assign({'Content-Type':'application/json','Idempotency-Key':uuid()},authHdr()),body:JSON.stringify(body)})
         .then(function(r){return r.json();}).then(function(res){

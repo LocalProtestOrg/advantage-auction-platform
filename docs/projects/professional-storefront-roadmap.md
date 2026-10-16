@@ -40,6 +40,8 @@ public marketing of unfinished features stay OFF until the readiness checks in �
 | Existing-item product detail editing | LIVE (34a547d, 2026-10-16), verified in production |
 | Shipping controls (migration 201, §7.1) | LIVE (7ccd039, 2026-10-16), verified in production; demo items set to pickup only (owner) |
 | Staff one-company pilot | LIVE (010eb01, 2026-10-16); general switch off, pilot list empty — no company enabled until the owner confirms the authorised account and phone verification |
+| EIN / taxpayer-ID minimisation (migration 202) + seller sale email without buyer contact | LIVE (5e2a4f7, 2026-10-16), verified in production |
+| Seller Store Terms + Shipping & Pickup Policy, storefront tabs, item links, purchase snapshots + acknowledgment (migration 203, §7.2–7.4) | Built + tested on `feat/seller-policies`; awaiting deploy approval |
 | Item questions / messaging, anti-circumvention, widget header, search & filters (§9–§10) | Requirements + design recorded 2026-10-16 (`storefront-messaging-and-widget-design-2026-10-16.md`); not built; messaging stays off until security + privacy testing |
 | Sale notifications, inventory numbers, bulk import, settlement/statements, tax responsibility, compliance profile, tax-time reports (§8) | Requirements + architecture recorded 2026-10-16 (`storefront-notifications-inventory-finance-compliance-plan-2026-10-16.md`); not built |
 | Seller policies, storefront tabs, policy snapshots, storefront widget (§7.2–7.6) | Requirements recorded 2026-10-16; not built |
@@ -238,7 +240,13 @@ default. Tests in `tests/storefront-ownership-adversarial.test.js` ("shipping:" 
   seller terms cannot override mandatory platform policies, payment protections, consumer rights or legal requirements.
   The interface says so. Advantage.Bid never auto-generates legally binding terms for a seller and never presents
   seller-entered text as legally approved (optional neutral headings/prompts only).
-- Today: nothing exists. Migration needed: yes (`seller_policies` + append-only `seller_policy_versions`).
+- **Built (migration 203, branch `feat/seller-policies`):** `seller_policy_versions` (append-only; draft editable, published
+  words fixed forever by trigger, publish supersedes the previous version, nothing deleted), owner editor (save draft,
+  preview, publish per policy), public API and server-rendered pages `/pro/:slug/terms` and `/pro/:slug/shipping-pickup`
+  (escaped plain text, canonical, sitemap, noindex for demo, note that Advantage.Bid Buyer Terms also apply and prevail),
+  storefront tabs (Shop Items / Store Terms / Shipping & Pickup), item-page links to the item's own seller's policies,
+  checkout acknowledgment (required by the order service) and an immutable `policy_snapshot` per order (seller versions +
+  content hashes + current platform Buyer Terms version; database refuses changes and refuses another seller's version).
 
 ### 7.3 Policy access across the storefront and product pages
 - The public storefront (`/pro/:slug`) offers **Shop Items**, **Store Terms & Conditions** and **Shipping & Pickup Policy**

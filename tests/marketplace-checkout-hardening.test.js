@@ -371,7 +371,7 @@ describe('tax jurisdiction (sale location, owner rule 2026-09-28)', () => {
       [/INSERT INTO marketplace_orders/, (p) => ({ rows: [ORDER({ fulfillment_method: 'shipping', ship_to: JSON.parse(p[10]) })] })],
       [/UPDATE marketplace_orders SET stripe_payment_intent_id/, (p) => ({ rows: [ORDER({ tax_cents: p[3], total_charge_cents: p[4] })] })],
     ]);
-    await svc.createOrder('item-1', 'buyer-1', { fulfillment_method: 'shipping', ship_to: ship,
+    await svc.createOrder('item-1', 'buyer-1', { policiesAcknowledged: true,  fulfillment_method: 'shipping', ship_to: ship,
       address: { line1: '5 Elsewhere', city: 'Portland', state: 'OR', postal_code: '97201', country: 'US' } });
     const call = tax.computeTax.mock.calls[0][0];
     expect(call.address).toMatchObject({ line1: '1 Main St', state: 'TX', postal_code: '78701' });
@@ -459,7 +459,7 @@ test('createOrder by the same buyer while their hold is live returns the SAME or
     [/SELECT \* FROM marketplace_orders WHERE id = \$1/, { rows: [ORDER({ shipping_cents: 0, ship_to: null })] }],
   ]);
   mockStripe.paymentIntents.retrieve.mockResolvedValueOnce(INTENT({ status: 'requires_payment_method', client_secret: 'cs_1' }));
-  const out = await svc.createOrder('item-1', 'buyer-1', { fulfillment_method: 'pickup' });
+  const out = await svc.createOrder('item-1', 'buyer-1', { policiesAcknowledged: true,  fulfillment_method: 'pickup' });
   expect(out.reused).toBe(true);
   expect(out.order.id).toBe('0000000a-0000-4000-8000-000000000001');
   expect(out.client_secret).toBe('cs_1');

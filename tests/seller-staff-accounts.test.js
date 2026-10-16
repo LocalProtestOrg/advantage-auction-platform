@@ -126,7 +126,7 @@ beforeAll(async () => {
   await global.__PG.exec(BASE);
   for (const f of ['119_seller_storefronts_marketplace.sql', '121_marketplace_orders.sql', '174_marketplace_checkout_hardening.sql',
     '177_marketplace_item_pickup_location.sql', '178_seller_default_pickup_location.sql', '197_storefront_order_integrity.sql',
-    '198_storefront_moderation_reports.sql', '199_seller_staff_accounts.sql', '200_storefront_product_data.sql', '201_storefront_shipping_controls.sql']) {
+    '198_storefront_moderation_reports.sql', '199_seller_staff_accounts.sql', '200_storefront_product_data.sql', '201_storefront_shipping_controls.sql', '203_seller_store_policies.sql']) {
     await global.__PG.exec(mig(f));
   }
   await global.__PG.exec(mig('199_seller_staff_accounts.sql'));   // idempotent
@@ -183,7 +183,7 @@ async function noraItem(extra = {}) {
 }
 async function sueItem() { return items.createDirectListing(U.sue.id, { title: 'Brass lamp', price_cents: 5000 }); }
 async function beaBuys(item) {
-  const created = await orders.createOrder(item.id, U.bea.id, {});
+  const created = await orders.createOrder(item.id, U.bea.id, { policiesAcknowledged: true, });
   const paid = await orders.payOrder(created.order.id, U.bea.id, { paymentMethodId: 'pm_bea' });
   expect(paid.status).toBe('succeeded');
   return one('SELECT * FROM marketplace_orders WHERE id = $1', [created.order.id]);

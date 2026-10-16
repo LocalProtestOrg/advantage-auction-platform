@@ -115,7 +115,7 @@ beforeAll(async () => {
   await global.__PG.exec(BASE);
   for (const f of ['119_seller_storefronts_marketplace.sql', '121_marketplace_orders.sql', '174_marketplace_checkout_hardening.sql',
     '177_marketplace_item_pickup_location.sql', '178_seller_default_pickup_location.sql', '197_storefront_order_integrity.sql',
-    '198_storefront_moderation_reports.sql', '199_seller_staff_accounts.sql', '200_storefront_product_data.sql', '201_storefront_shipping_controls.sql']) {
+    '198_storefront_moderation_reports.sql', '199_seller_staff_accounts.sql', '200_storefront_product_data.sql', '201_storefront_shipping_controls.sql', '203_seller_store_policies.sql']) {
     await global.__PG.exec(mig(f));
   }
   // migration 197 is idempotent
@@ -144,6 +144,7 @@ beforeAll(async () => {
   app.use('/api/marketplace', require('../src/routes/marketplaceOrders'));
   app.use('/api/seller-storefront', require('../src/routes/sellerStorefront'));
   app.use('/api/admin/storefront', require('../src/routes/adminStorefrontModeration'));
+  app.use('/api/public/storefront', require('../src/routes/publicStorefront'));
   await new Promise((r) => { server = app.listen(0, r); });
   base = 'http://127.0.0.1:' + server.address().port;
 }, 60000);
@@ -157,8 +158,8 @@ async function noraItem(extra = {}) {
 }
 // Bea buys it (create order → pay), returning the paid order row.
 async function beaBuys(item, method = 'pickup') {
-  const created = await orders.createOrder(item.id, U.bea.id, method === 'shipping'
-    ? { fulfillment_method: 'shipping', ship_to: { line1: '5 Buyer Rd', city: 'Austin', state: 'TX', postal_code: '78701', country: 'US' } } : {});
+  const created = await orders.createOrder(item.id, U.bea.id, { policiesAcknowledged: true, ...(method === 'shipping'
+    ? { fulfillment_method: 'shipping', ship_to: { line1: '5 Buyer Rd', city: 'Austin', state: 'TX', postal_code: '78701', country: 'US' } } : {}) });
   const paid = await orders.payOrder(created.order.id, U.bea.id, { paymentMethodId: 'pm_bea' });
   expect(paid.status).toBe('succeeded');
   return one('SELECT * FROM marketplace_orders WHERE id = $1', [created.order.id]);
@@ -206,7 +207,7 @@ describe('1. listing ownership comes from the signed-in seller, never the browse
 describe('2. orders: tied to the purchased item and its verified seller, with a fixed snapshot', () => {
   test('a manipulated checkout request (seller, price, fee, buyer in the body) cannot change who sold, who bought or what it cost', async () => {
     const it = await noraItem();
-    const r = await call('bea', 'POST', '/api/marketplace/orders', { item_id: it.id, seller_id: SP.sue, price_cents: 1, item_price_cents: 1,
+    const r = await call('bea', 'POST', '/api/marketplace/orders', { policies_acknowledged: true, item_id: it.id, seller_id: SP.sue, price_cents: 1, item_price_cents: 1,
       platform_fee_bps: 0, total_charge_cents: 1, buyer_user_id: U.ben.id, shipping_cents: 0, fulfillment_method: 'shipping',
       ship_to: { line1: '5 Buyer Rd', city: 'Austin', state: 'TX', postal_code: '78701' } });
     expect(r.status).toBe(200);
@@ -229,7 +230,7 @@ describe('2. orders: tied to the purchased item and its verified seller, with a 
   });
   test('a seller cannot buy their own listing (service and database)', async () => {
     const it = await noraItem();
-    await expect(orders.createOrder(it.id, U.nora.id, {})).rejects.toMatchObject({ code: 'CANNOT_BUY_OWN' });
+    await expect(orders.createOrder(it.id, U.nora.id, { policiesAcknowledged: true, })).rejects.toMatchObject({ code: 'CANNOT_BUY_OWN' });
     const e = await rejects(`INSERT INTO marketplace_orders (marketplace_item_id, seller_id, buyer_user_id, item_price_cents, total_charge_cents, fulfillment_method,
       item_snapshot, seller_snapshot) VALUES ($1, $2, $3, 1, 1, 'pickup', $4, $5)`,
       [it.id, SP.nora, U.nora.id, JSON.stringify({ item_id: it.id }), JSON.stringify({ seller_profile_id: SP.nora })]);
@@ -288,7 +289,7 @@ describe('2. orders: tied to the purchased item and its verified seller, with a 
   test('a payment that does not match its order (other seller in metadata, or wrong amount) is never marked paid', async () => {
     for (const tamper of [{ metadata_seller: SP.sue }, { amount: 1 }]) {
       const it = await noraItem();
-      const c = await orders.createOrder(it.id, U.bea.id, {});
+      const c = await orders.createOrder(it.id, U.bea.id, { policiesAcknowledged: true, });
       const o = await one('SELECT * FROM marketplace_orders WHERE id = $1', [c.order.id]);
       const pi = mockStripe.intents.get(o.stripe_payment_intent_id);
       const forged = { ...pi, status: 'succeeded', amount_received: tamper.amount || pi.amount,
@@ -305,7 +306,7 @@ describe('2. orders: tied to the purchased item and its verified seller, with a 
 describe('3–6. who can see and act on an order', () => {
   test('Ben cannot read, pay, see the history of, or complain about Bea\'s order (indistinguishable from "not found")', async () => {
     const it = await noraItem();
-    const c = await orders.createOrder(it.id, U.bea.id, {});
+    const c = await orders.createOrder(it.id, U.bea.id, { policiesAcknowledged: true, });
     const id = c.order.id;
     expect((await call('ben', 'GET', '/api/marketplace/orders/' + id)).status).toBe(404);
     expect((await call('ben', 'POST', '/api/marketplace/orders/' + id + '/pay', { payment_method_id: 'pm_ben' })).status).toBe(404);
@@ -382,7 +383,7 @@ describe('7. buyer issues are tied to the order\'s real seller', () => {
   });
   test('an issue needs a paid order; resolving one needs an administrator and a note', async () => {
     const it = await noraItem();
-    const c = await orders.createOrder(it.id, U.bea.id, {});
+    const c = await orders.createOrder(it.id, U.bea.id, { policiesAcknowledged: true, });
     await expect(issues.openIssue(c.order.id, U.bea.id, { category: 'other', message: 'Unpaid order issue' })).rejects.toMatchObject({ code: 'ORDER_NOT_PURCHASED' });
     const o = await beaBuys(await noraItem());
     const i = await issues.openIssue(o.id, U.bea.id, { category: 'not_received', message: 'Never got it' });
@@ -483,7 +484,7 @@ describe('9. refunds, chargebacks and payouts use the original verified transact
 test('migration 197 leaves demo orders removable for test cleanup, but never real ones', async () => {
   const it = await noraItem();
   await q('UPDATE marketplace_items SET is_demo = true WHERE id = $1', [it.id]);
-  const c = await orders.createOrder(it.id, U.bea.id, {});
+  const c = await orders.createOrder(it.id, U.bea.id, { policiesAcknowledged: true, });
   await q('UPDATE marketplace_items SET status = $2, pending_order_id = NULL WHERE id = $1', [it.id, 'active']);
   await q('DELETE FROM marketplace_orders WHERE id = $1', [c.order.id]);
   expect(await one('SELECT id FROM marketplace_orders WHERE id = $1', [c.order.id])).toBeUndefined();
@@ -506,7 +507,7 @@ describe('storefront Buy Now never has a buyer\'s premium (separate from auction
       const it = await noraItem();   // $100.00 item, $15.00 shipping
       const quote = await orders.quote(it.id, U.bea.id, { fulfillment_method: 'shipping', ship_to: { line1: '5 Buyer Rd', city: 'Austin', state: 'TX', postal_code: '78701' } });
       expect(quote.breakdown).toEqual({ item_price_cents: 10000, shipping_cents: 1500, tax_cents: 0, total_charge_cents: 11500 });
-      const c = await orders.createOrder(it.id, U.bea.id, { fulfillment_method: 'shipping', ship_to: { line1: '5 Buyer Rd', city: 'Austin', state: 'TX', postal_code: '78701' } });
+      const c = await orders.createOrder(it.id, U.bea.id, { policiesAcknowledged: true,  fulfillment_method: 'shipping', ship_to: { line1: '5 Buyer Rd', city: 'Austin', state: 'TX', postal_code: '78701' } });
       const o = await one('SELECT * FROM marketplace_orders WHERE id = $1', [c.order.id]);
       expect(o).toMatchObject({ item_price_cents: 10000, shipping_cents: 1500, tax_cents: 0, total_charge_cents: 11500,
         platform_fee_bps: 1100, platform_fee_cents: 1100, seller_proceeds_cents: 10400 });
@@ -563,7 +564,7 @@ describe('milestone 2: listing moderation', () => {
     expect(rl.status).toBe(409); expect(rl.body.code).toBe('TAKEN_DOWN');
     await rejects(`UPDATE marketplace_items SET status = 'active' WHERE id = $1`, [it.id]);
     expect(await items.getPublicItem(it.id)).toBeNull();
-    await expect(orders.createOrder(it.id, U.bea.id, {})).rejects.toMatchObject({ code: 'NOT_AVAILABLE' });
+    await expect(orders.createOrder(it.id, U.bea.id, { policiesAcknowledged: true, })).rejects.toMatchObject({ code: 'NOT_AVAILABLE' });
   });
   test('restore returns the listing to its previous status; the history is permanent and names the real seller', async () => {
     const it = await noraItem();
@@ -582,7 +583,7 @@ describe('milestone 2: listing moderation', () => {
     const sold = await noraItem(); await beaBuys(sold);
     await moderation().takedown(sold.id, U.admin.id, { reason: 'Review after sale' });
     expect((await moderation().restore(sold.id, U.admin.id, { reason: 'Fine after review' })).status).toBe('sold');
-    const held = await noraItem(); await orders.createOrder(held.id, U.ben.id, {});
+    const held = await noraItem(); await orders.createOrder(held.id, U.ben.id, { policiesAcknowledged: true, });
     await expect(moderation().takedown(held.id, U.admin.id, { reason: 'Mid checkout' })).rejects.toMatchObject({ code: 'ITEM_RESERVED' });
   });
 });
@@ -778,7 +779,7 @@ describe('shipping: what the buyer can choose', () => {
   test('a pickup-only item can never be shipped; destinations the seller does not serve are refused', async () => {
     const pick = await items.createDirectListing(U.nora.id, { title: 'Pickup sofa', price_cents: 20000, is_oversized: true });
     await expect(orders.loadItemForPurchase(pick.id, U.bea.id, 'shipping', undefined, { shipToState: 'TX' })).rejects.toMatchObject({ code: 'SHIPPING_UNAVAILABLE' });
-    const r = await call('bea', 'POST', '/api/marketplace/orders', { item_id: pick.id, fulfillment_method: 'shipping',
+    const r = await call('bea', 'POST', '/api/marketplace/orders', { policies_acknowledged: true, item_id: pick.id, fulfillment_method: 'shipping',
       ship_to: { line1: '5 Buyer Rd', city: 'Austin', state: 'TX', postal_code: '78701' } });
     expect(r.status).toBe(422); expect(r.body.code).toBe('SHIPPING_UNAVAILABLE');
     const lower48 = await noraItem({ title: 'Contiguous only', shipping_destinations: 'us_contiguous' });
@@ -786,10 +787,10 @@ describe('shipping: what the buyer can choose', () => {
     const listed = await noraItem({ title: 'Texas only', shipping_destinations: 'listed_states', shipping_states: ['TX', 'ok'] });
     expect(listed.shipping_states).toEqual(['TX', 'OK']);
     await expect(orders.loadItemForPurchase(listed.id, U.bea.id, 'shipping', undefined, { shipToState: 'CA' })).rejects.toMatchObject({ code: 'SHIPPING_DESTINATION_NOT_SERVED' });
-    const ok = await call('bea', 'POST', '/api/marketplace/orders', { item_id: listed.id, fulfillment_method: 'shipping',
+    const ok = await call('bea', 'POST', '/api/marketplace/orders', { policies_acknowledged: true, item_id: listed.id, fulfillment_method: 'shipping',
       ship_to: { line1: '5 Buyer Rd', city: 'Tulsa', state: 'OK', postal_code: '74101' } });
     expect(ok.status).toBe(200);
-    const bad = await call('ben', 'POST', '/api/marketplace/orders', { item_id: lower48.id, fulfillment_method: 'shipping',
+    const bad = await call('ben', 'POST', '/api/marketplace/orders', { policies_acknowledged: true, item_id: lower48.id, fulfillment_method: 'shipping',
       ship_to: { line1: '1 Ice Rd', city: 'Juneau', state: 'AK', postal_code: '99801' } });
     expect(bad.status).toBe(422); expect(bad.body.code).toBe('SHIPPING_DESTINATION_NOT_SERVED');
     expect(await one(`SELECT count(*)::int n FROM marketplace_orders WHERE marketplace_item_id = $1`, [lower48.id])).toEqual({ n: 0 });
@@ -797,7 +798,7 @@ describe('shipping: what the buyer can choose', () => {
   test('the 11% fee is on the item price only; shipping is charged as set and recorded with the terms on the order', async () => {
     const it = await noraItem({ title: 'Fee base', handling_days: 3, is_fragile: true });
     const o = await (async () => {
-      const created = await orders.createOrder(it.id, U.bea.id, { fulfillment_method: 'shipping', ship_to: { line1: '5 Buyer Rd', city: 'Austin', state: 'TX', postal_code: '78701', country: 'US' } });
+      const created = await orders.createOrder(it.id, U.bea.id, { policiesAcknowledged: true,  fulfillment_method: 'shipping', ship_to: { line1: '5 Buyer Rd', city: 'Austin', state: 'TX', postal_code: '78701', country: 'US' } });
       await orders.payOrder(created.order.id, U.bea.id, { paymentMethodId: 'pm_bea' });
       return one('SELECT * FROM marketplace_orders WHERE id = $1', [created.order.id]);
     })();
@@ -815,7 +816,7 @@ describe('shipping: what the buyer can choose', () => {
   });
   test('shipping terms cannot change while a buyer is checking out', async () => {
     const it = await noraItem({ title: 'Reserved ship' });
-    await orders.createOrder(it.id, U.bea.id, { fulfillment_method: 'shipping', ship_to: { line1: '5 Buyer Rd', city: 'Austin', state: 'TX', postal_code: '78701', country: 'US' } });
+    await orders.createOrder(it.id, U.bea.id, { policiesAcknowledged: true,  fulfillment_method: 'shipping', ship_to: { line1: '5 Buyer Rd', city: 'Austin', state: 'TX', postal_code: '78701', country: 'US' } });
     for (const patch of [{ shipping_cost_cents: 1 }, { shippable: false }, { shipping_price_mode: 'free' }]) {
       const r = await call('nora', 'PATCH', '/api/seller-storefront/items/' + it.id, patch);
       expect(r.status).toBe(409); expect(r.body.code).toBe('ITEM_RESERVED');
@@ -891,7 +892,7 @@ describe('shipping: shown accurately to buyers and search engines', () => {
 describe('shipping: review fixes (US only, quoted price confirmed, consistent public data)', () => {
   test('shipping only to US addresses: a foreign country is refused even with a US state code', async () => {
     const it = await noraItem({ title: 'US only' });
-    const r = await call('bea', 'POST', '/api/marketplace/orders', { item_id: it.id, fulfillment_method: 'shipping',
+    const r = await call('bea', 'POST', '/api/marketplace/orders', { policies_acknowledged: true, item_id: it.id, fulfillment_method: 'shipping',
       ship_to: { line1: '1 Calle', city: 'Monterrey', state: 'TX', postal_code: '64000', country: 'MX' } });
     expect(r.status).toBe(422); expect(r.body.code).toBe('SHIPPING_DESTINATION_NOT_SERVED');
     await expect(orders.quote(it.id, U.bea.id, { fulfillment_method: 'shipping', ship_to: { line1: 'x', city: 'y', postal_code: '1' } }))
@@ -903,12 +904,12 @@ describe('shipping: review fixes (US only, quoted price confirmed, consistent pu
     const q1 = await orders.quote(it.id, U.bea.id, { fulfillment_method: 'shipping', ship_to: ship });
     expect(q1.breakdown.shipping_cents).toBe(1500);
     await call('nora', 'PATCH', '/api/seller-storefront/items/' + it.id, { shipping_cost_cents: 4000 });
-    const r = await call('bea', 'POST', '/api/marketplace/orders', { item_id: it.id, fulfillment_method: 'shipping', ship_to: ship,
+    const r = await call('bea', 'POST', '/api/marketplace/orders', { policies_acknowledged: true, item_id: it.id, fulfillment_method: 'shipping', ship_to: ship,
       expected_item_price_cents: q1.breakdown.item_price_cents, expected_shipping_cents: q1.breakdown.shipping_cents });
     expect(r.status).toBe(409); expect(r.body.code).toBe('PRICE_CHANGED');
     expect(await one('SELECT count(*)::int n FROM marketplace_orders WHERE marketplace_item_id = $1', [it.id])).toEqual({ n: 0 });
     expect((await one('SELECT status FROM marketplace_items WHERE id = $1', [it.id])).status).toBe('active');   // not left reserved
-    const ok = await call('bea', 'POST', '/api/marketplace/orders', { item_id: it.id, fulfillment_method: 'shipping', ship_to: ship,
+    const ok = await call('bea', 'POST', '/api/marketplace/orders', { policies_acknowledged: true, item_id: it.id, fulfillment_method: 'shipping', ship_to: ship,
       expected_item_price_cents: 10000, expected_shipping_cents: 4000 });
     expect(ok.status).toBe(200);
   });
@@ -923,5 +924,114 @@ describe('shipping: review fixes (US only, quoted price confirmed, consistent pu
     const seed = fs.readFileSync(path.join(ROOT, 'scripts', 'seed-demo-storefront.js'), 'utf8');
     expect(seed).toMatch(/'Maplewood','OH', false, NULL,/);
     expect(seed).toMatch(/shippable=false, shipping_cost_cents=NULL/);
+  });
+});
+
+// ═════════════════════════════════════════════════════════════════════════════════════════════════════════
+// Seller Store Terms & Conditions and Shipping & Pickup Policy (migration 203; roadmap §7.2–7.4)
+describe('seller policies: each company writes and publishes its own', () => {
+  const NORA_TERMS = 'Nora Estate Sales store terms. All items are sold as described. Inspection welcome by appointment.';
+  test('the owner saves a draft (not public), publishes it, and a seller id in the request is ignored', async () => {
+    const d = await call('nora', 'PUT', '/api/seller-storefront/policies/store_terms', { body: NORA_TERMS, seller_id: SP.sue });
+    expect(d.status).toBe(200); expect(d.body.data).toMatchObject({ version: 1, status: 'draft' });
+    expect((await one(`SELECT seller_id FROM seller_policy_versions WHERE id = $1`, [d.body.data.id])).seller_id).toBe(SP.nora);
+    const pub0 = await call('bea', 'GET', '/api/public/storefront/nora/policies');
+    expect(pub0.body.data.store_terms).toBeNull();                       // a draft is never public
+    const p = await call('nora', 'POST', '/api/seller-storefront/policies/store_terms/publish');
+    expect(p.status).toBe(200); expect(p.body.data).toMatchObject({ version: 1, status: 'published' });
+    const pub = await call('bea', 'GET', '/api/public/storefront/nora/policies');
+    expect(pub.body.data.store_terms).toMatchObject({ version: 1, body: NORA_TERMS, path: 'terms' });
+    expect(pub.body.data.shipping_pickup).toBeNull();
+  });
+  test("Sue cannot read or change Nora's policies; buyers cannot use the editor", async () => {
+    await call('sue', 'PUT', '/api/seller-storefront/policies/store_terms', { body: 'Sue draft terms that are long enough to publish.', seller_id: SP.nora });
+    const sueView = await call('sue', 'GET', '/api/seller-storefront/policies');
+    expect(JSON.stringify(sueView.body.data)).not.toContain('Nora Estate Sales store terms');
+    expect((await call('sue', 'POST', '/api/seller-storefront/policies/store_terms/publish')).status).toBe(200);
+    expect((await call('bea', 'PUT', '/api/seller-storefront/policies/store_terms', { body: 'hijack hijack hijack hijack' })).status).toBe(403);
+    expect((await call('bea', 'GET', '/api/seller-storefront/policies')).status).toBe(403);
+    expect((await call('nora', 'PUT', '/api/seller-storefront/policies/refunds', { body: 'x'.repeat(30) })).status).toBe(404);
+    expect((await call('bea', 'GET', '/api/public/storefront/nora/policies')).body.data.store_terms.body).toBe(NORA_TERMS);
+  });
+  test('published words can never change, versions are never deleted, and a new version supersedes the old', async () => {
+    const v1 = await one(`SELECT id FROM seller_policy_versions WHERE seller_id = $1 AND kind = 'store_terms' AND status = 'published'`, [SP.nora]);
+    for (const sql of [`UPDATE seller_policy_versions SET body = 'rewritten' WHERE id = $1`, `DELETE FROM seller_policy_versions WHERE id = $1`,
+      `UPDATE seller_policy_versions SET status = 'draft' WHERE id = $1`, `UPDATE seller_policy_versions SET seller_id = '${SP.sue}' WHERE id = $1`]) {
+      const e = await rejects(sql, [v1.id]);
+      expect(e.message).toMatch(/never be rewritten|kept permanently|cannot become|keeps its seller/);
+    }
+    const ins = await rejects(`INSERT INTO seller_policy_versions (seller_id, kind, version, status, body, content_hash, created_by) VALUES ($1,'store_terms',99,'published','x','h',$2)`, [SP.nora, U.nora.id]);
+    expect(ins.message).toMatch(/starts as a draft/);
+    expect((await call('nora', 'POST', '/api/seller-storefront/policies/store_terms/publish')).body.code).toBe('NO_DRAFT');
+    await call('nora', 'PUT', '/api/seller-storefront/policies/store_terms', { body: 'Nora store terms, version two. Returns within 3 days.' });
+    expect((await call('nora', 'POST', '/api/seller-storefront/policies/store_terms/publish')).body.data.version).toBe(2);
+    expect(await one(`SELECT status FROM seller_policy_versions WHERE id = $1`, [v1.id])).toEqual({ status: 'superseded' });
+    const owner = (await call('nora', 'GET', '/api/seller-storefront/policies')).body.data.store_terms;
+    expect(owner.history.map((h) => [h.version, h.status])).toEqual([[2, 'published'], [1, 'superseded']]);
+  });
+  test('the public policy pages show the right seller, escape seller text, and 404 when nothing is published', async () => {
+    await call('nora', 'PUT', '/api/seller-storefront/policies/shipping_pickup', { body: 'Pickup within 7 days.\n\n<script>alert(1)</script> We ship freight.' });
+    await call('nora', 'POST', '/api/seller-storefront/policies/shipping_pickup/publish');
+    const pages = require('../src/services/policyPageService');
+    const r = await pages.render('nora', 'shipping-pickup', 'https://bid.advantage.bid');
+    expect(r.status).toBe(200);
+    expect(r.html).toContain('<h1>Shipping &amp; Pickup Policy</h1>');
+    expect(r.html).toContain('Nora Estate Sales');
+    expect(r.html).toContain('&lt;script&gt;alert(1)&lt;/script&gt;');
+    expect(r.html).not.toContain('<script>alert(1)</script>');
+    expect(r.html).toContain('<link rel="canonical" href="https://bid.advantage.bid/pro/nora/shipping-pickup">');
+    expect(r.html).toContain('Buyer Terms');
+    expect(r.html).not.toMatch(/Sue Auctions|Sue draft terms/);
+    expect((await pages.render('sue', 'shipping-pickup', 'https://bid.advantage.bid')).status).toBe(404);
+    expect((await pages.render('nora', 'refunds', 'https://bid.advantage.bid')).status).toBe(404);
+    const sm = await require('../src/services/productPageService').sitemapEntries();
+    expect(sm.policies.map((p) => p.path)).toEqual(expect.arrayContaining(['/pro/nora/terms', '/pro/nora/shipping-pickup', '/pro/sue/terms']));
+  });
+  test("every item links to its own seller's policies, never another seller's", async () => {
+    const it = await noraItem({ title: 'Policy-linked chest' });
+    const pub = await items.getPublicItem(it.id);
+    expect(pub.policies).toEqual({ store_terms: true, shipping_pickup: true });
+    const pd = require('../src/lib/productData');
+    const html = (await require('../src/services/productPageService').render(it.id, pd.slugify(it.title), 'https://bid.advantage.bid')).html;
+    expect(html).toContain('href="/pro/nora/terms"'); expect(html).toContain('href="/pro/nora/shipping-pickup"');
+    expect(html).not.toContain('/pro/sue/');
+    const sueItem = await items.createDirectListing(U.sue.id, { title: 'Sue vase', price_cents: 2000 });
+    expect((await items.getPublicItem(sueItem.id)).policies).toEqual({ store_terms: true, shipping_pickup: false });
+  });
+});
+
+describe('seller policies at checkout: acknowledged and recorded permanently', () => {
+  test('an order needs the acknowledgment and records the exact policy versions; later edits never change it', async () => {
+    const it = await noraItem({ title: 'Acknowledged sideboard' });
+    const noAck = await call('bea', 'POST', '/api/marketplace/orders', { item_id: it.id, fulfillment_method: 'pickup' });
+    expect(noAck.status).toBe(422); expect(noAck.body.code).toBe('POLICIES_ACK_REQUIRED');
+    expect(await one('SELECT count(*)::int n FROM marketplace_orders WHERE marketplace_item_id = $1', [it.id])).toEqual({ n: 0 });
+    const r = await call('bea', 'POST', '/api/marketplace/orders', { item_id: it.id, fulfillment_method: 'pickup', policies_acknowledged: true });
+    expect(r.status).toBe(200);
+    const o = await one('SELECT policy_snapshot, policies_acknowledged_at FROM marketplace_orders WHERE id = $1', [r.body.data.order.id]);
+    const terms = await one(`SELECT id, version, content_hash FROM seller_policy_versions WHERE seller_id = $1 AND kind = 'store_terms' AND status = 'published'`, [SP.nora]);
+    expect(o.policy_snapshot.store_terms).toMatchObject({ version_id: terms.id, version: terms.version, content_hash: terms.content_hash });
+    expect(o.policy_snapshot.shipping_pickup).toBeTruthy();
+    expect(o.policies_acknowledged_at).toBeTruthy();
+    // Nora publishes a new version: the order still records the one that applied
+    await call('nora', 'PUT', '/api/seller-storefront/policies/store_terms', { body: 'Nora store terms, version three, published after the order.' });
+    await call('nora', 'POST', '/api/seller-storefront/policies/store_terms/publish');
+    const again = await one('SELECT policy_snapshot FROM marketplace_orders WHERE id = $1', [r.body.data.order.id]);
+    expect(again.policy_snapshot.store_terms.version_id).toBe(terms.id);
+    const e = await rejects(`UPDATE marketplace_orders SET policy_snapshot = '{}'::jsonb WHERE id = $1`, [r.body.data.order.id]);
+    expect(e.message).toMatch(/can never change/);
+    const e2 = await rejects(`UPDATE marketplace_orders SET policies_acknowledged_at = now() - interval '1 day' WHERE id = $1`, [r.body.data.order.id]);
+    expect(e2.message).toMatch(/can never change/);
+  });
+  test('a seller without published policies still requires the platform terms acknowledgment and records nulls', async () => {
+    const pat = await one(`INSERT INTO users (email, full_name, role) VALUES ('pat2@test.example', 'PAT2', 'seller') RETURNING *`);
+    U.pat2 = pat;
+    const sp = (await one(`INSERT INTO seller_profiles (user_id, seller_type, display_name, default_pickup_address_line1, default_pickup_city, default_pickup_state,
+      default_pickup_postal_code, default_pickup_country, default_pickup_confirmed_at) VALUES ($1,'auction_house','Pat Co','3 Pat Rd','Houston','TX','77001','US', now()) RETURNING id`, [pat.id])).id;
+    const it = await items.createDirectListing(pat.id, { title: 'No-policy item', price_cents: 1500 });
+    const c = await orders.createOrder(it.id, U.bea.id, { policiesAcknowledged: true });
+    const o = await one('SELECT seller_id, policy_snapshot FROM marketplace_orders WHERE id = $1', [c.order.id]);
+    expect(o.seller_id).toBe(sp);
+    expect(o.policy_snapshot).toMatchObject({ store_terms: null, shipping_pickup: null });
   });
 });
