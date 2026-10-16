@@ -60,20 +60,20 @@
       try{ var r = await fetch('/api/verification/business', { headers:{ Authorization:'Bearer '+token } }); var j = await r.json(); d = j && j.data; }catch(e){ return; }
       if(!d || !d.business_info || PRO_TYPES.indexOf(d.business_info.seller_type) === -1){ biz.innerHTML=''; return; } // professionals only
       var info = d.business_info, meta = BIZ_STATUS[d.status] || BIZ_STATUS.not_submitted;
-      var cats = (d.accepted_categories||['ein_verification','business_registration','business_license']).map(function(c){
+      var cats = (d.accepted_categories||['business_registration','business_license']).map(function(c){
         return '<option value="'+esc(c)+'">'+esc(CAT_LABEL[c]||c)+'</option>';
       }).join('');
       var gateNote = (d.gate && d.gate.blocked)
         ? '<div class="muted" style="margin:.4rem 0">Advantage.Bid must verify your business before your first sale can go live. You can keep building auctions and your catalog in the meantime.</div>' : '';
       biz.innerHTML = '<div class="card">'
         + '<h1>Business verification</h1>'
-        + '<div class="muted">Provide your business details and at least one supporting document (IRS EIN confirmation, state registration, or business license). Stored privately; reviewed only by Advantage staff.</div>'
+        + '<div class="muted">Provide your business details and at least one supporting document (state business registration or business license). Stored privately; reviewed only by Advantage staff. Please do not upload documents showing your EIN or Social Security number: your taxpayer ID is collected securely when you set up payouts.</div>'
         + '<p><span class="badge '+meta.c+'">'+meta.t+'</span></p>'
         + gateNote
         + '<div class="cat">'
         + '<label>Legal business name</label><br><input type="text" id="bz-legal" value="'+esc(info.legal_business_name||'')+'" style="width:100%;padding:.5rem;margin:.2rem 0"><br>'
         + '<label>DBA / business name (if different)</label><br><input type="text" id="bz-dba" value="'+esc(info.dba_name||'')+'" style="width:100%;padding:.5rem;margin:.2rem 0"><br>'
-        + '<label>EIN'+(info.ein_on_file?(' (on file: '+esc(info.ein||'')+')'):'')+'</label><br><input type="text" id="bz-ein" placeholder="XX-XXXXXXX" style="width:100%;padding:.5rem;margin:.2rem 0"><br>'
+        + '<p class="muted" style="margin:.4rem 0">Taxpayer ID: '+esc(({not_provided:'collected when you set up payouts',pending:'being verified',verified:'verified',unverified:'not verified — please review your payout setup'})[(info.taxpayer_id&&info.taxpayer_id.status)||'not_provided'])+'</p>'
         + '<label>Business address</label><br><input type="text" id="bz-addr" value="'+esc(info.address_line1||'')+'" placeholder="Street address" style="width:100%;padding:.5rem;margin:.2rem 0">'
         + '<input type="text" id="bz-city" value="'+esc(info.city||'')+'" placeholder="City" style="width:48%;padding:.5rem;margin:.2rem 4% .2rem 0">'
         + '<input type="text" id="bz-state" value="'+esc(info.state||'')+'" placeholder="State" style="width:22%;padding:.5rem;margin:.2rem 4% .2rem 0">'
@@ -100,7 +100,6 @@
               business_info: {
                 legal_business_name: document.getElementById('bz-legal').value || null,
                 dba_name: document.getElementById('bz-dba').value || null,
-                ein: document.getElementById('bz-ein').value || null,
                 address_line1: document.getElementById('bz-addr').value || null,
                 city: document.getElementById('bz-city').value || null,
                 state: document.getElementById('bz-state').value || null,

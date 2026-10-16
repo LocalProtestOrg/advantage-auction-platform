@@ -34,9 +34,9 @@ function routeBusinessSubmit({ sellerType = 'auction_house', existingRequest = n
     if (s.includes('insert into verification_requests')) return { rows: [{ id: REQ, seller_profile_id: SP, status: 'open' }], rowCount: 1 };
     if (s.includes('insert into verification_request_categories')) return { rows: [], rowCount: 1 };
     if (s.includes('select * from verification_requests where id')) return { rows: [{ id: REQ, seller_profile_id: SP, status: 'open' }], rowCount: 1 };
-    if (s.includes('insert into verification_documents')) return { rows: [{ id: DOC, category: 'ein_verification', status: 'submitted', uploaded_at: 't' }], rowCount: 1 };
+    if (s.includes('insert into verification_documents')) return { rows: [{ id: DOC, category: 'business_registration', status: 'submitted', uploaded_at: 't' }], rowCount: 1 };
     if (s.includes('update verification_requests set status')) return { rows: [], rowCount: 1 };
-    if (s.includes('from seller_profiles sp left join seller_identity')) return { rows: [{ seller_type: sellerType, legal_name: 'Acme LLC', dba_name: null, ein: '12-3456789', address_line1: '1 A St', city: 'X', state: 'TX', postal_code: '70000', country: 'US' }], rowCount: 1 };
+    if (s.includes('from seller_profiles sp left join seller_identity')) return { rows: [{ seller_type: sellerType, legal_name: 'Acme LLC', dba_name: null, taxpayer_id_status: 'not_provided', address_line1: '1 A St', city: 'X', state: 'TX', postal_code: '70000', country: 'US' }], rowCount: 1 };
     if (s.includes('verification_required_before_publication from seller_profiles')) return { rows: [{ verification_required_before_publication: sellerType === 'private' ? false : true }], rowCount: 1 };
     if (s.includes("status='approved'")) return { rows: [], rowCount: 0 };
     return { rows: [], rowCount: 0 };
@@ -47,11 +47,11 @@ describe('Professional business verification', () => {
   test('[#1] professional can upload a business verification document', async () => {
     routeBusinessSubmit({ sellerType: 'auction_house' });
     const out = await v.submitBusinessVerification(USER, {
-      businessInfo: { legal_business_name: 'Acme LLC', ein: '12-3456789' },
-      category: 'ein_verification', filename: 'ein.pdf', contentType: 'application/pdf', dataBase64: 'Zm9v',
+      businessInfo: { legal_business_name: 'Acme LLC' },
+      category: 'business_registration', filename: 'reg.pdf', contentType: 'application/pdf', dataBase64: 'Zm9v',
     });
     expect(out.status).toBe('submitted');
-    expect(out.document.category).toBe('ein_verification');
+    expect(out.document.category).toBe('business_registration');
     // A document row was inserted.
     expect(db.query.mock.calls.some(c => /insert into verification_documents/i.test(c[0]))).toBe(true);
   });
@@ -69,7 +69,9 @@ describe('Professional business verification', () => {
     routeBusinessSubmit();
     await expect(v.submitBusinessVerification(USER, { category: 'government_id', filename: 'x.pdf', contentType: 'application/pdf', dataBase64: 'Zm9v' }))
       .rejects.toThrow(/business document category/i);
-    expect(v.BUSINESS_DOCUMENT_CATEGORIES).toEqual(['ein_verification', 'business_registration', 'business_license']);
+    expect(v.BUSINESS_DOCUMENT_CATEGORIES).toEqual(['business_registration', 'business_license']);   // no IRS EIN letters (owner 2026-10-16)
+    await expect(v.submitBusinessVerification(USER, { category: 'ein_verification', filename: 'x.pdf', contentType: 'application/pdf', dataBase64: 'Zm9v' }))
+      .rejects.toThrow(/business document category/i);
   });
 
   test('[#2] individual seller is NOT forced through business verification (gate open)', async () => {
@@ -79,13 +81,15 @@ describe('Professional business verification', () => {
     expect(status.status).toBe('not_submitted');
   });
 
-  test('EIN is masked in seller-facing business info (never the raw value)', async () => {
+  test('Advantage.Bid never accepts, stores or returns an EIN (owner decision 2026-10-16: collected during payout setup)', async () => {
     routeBusinessSubmit();
-    const info = await v.getBusinessInfo(SP);        // seller-facing (default masks)
-    expect(info.ein).toBe('**-***6789');
-    expect(info.ein).not.toContain('12-3456789');
-    const adminInfo = await v.getBusinessInfo(SP, { includeEin: true });
-    expect(adminInfo.ein).toBe('12-3456789');        // admin review sees the full value
+    await expect(v.submitBusinessVerification(USER, { businessInfo: { legal_business_name: 'Acme LLC', ein: '12-3456789' }, category: 'business_registration',
+      filename: 'r.pdf', contentType: 'application/pdf', dataBase64: 'Zm9v' })).rejects.toMatchObject({ code: 'TAXPAYER_ID_NOT_ACCEPTED' });
+    expect(db.query.mock.calls.some((c) => (c[1] || []).includes('12-3456789'))).toBe(false);   // never sent to the database
+    const info = await v.getBusinessInfo(SP, { includeEin: true });   // the old admin option no longer exists
+    expect(info.ein).toBeUndefined(); expect(info.ein_on_file).toBeUndefined();
+    expect(info.taxpayer_id).toEqual({ status: 'not_provided', collected_during: 'payout_setup', last4: null, verified_at: null });
+    expect(db.query.mock.calls.filter((c) => /seller_identity/i.test(c[0])).some((c) => /\bsi\.ein\b|ein\s*=|, ein,/i.test(c[0]))).toBe(false);
   });
 });
 

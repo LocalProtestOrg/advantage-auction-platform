@@ -33,7 +33,7 @@ CREATE TABLE card_verifications (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), 
 CREATE TABLE verification_requests (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), seller_profile_id uuid, status text, message text, reviewed_at timestamptz,
   created_at timestamptz DEFAULT now(), updated_at timestamptz DEFAULT now());
 CREATE TABLE verification_request_categories (request_id uuid, category text);
-CREATE TABLE seller_identity (seller_profile_id uuid, legal_name text, dba_name text, ein text, address_line1 text, address_line2 text, city text, state text, postal_code text, country text);
+CREATE TABLE seller_identity (seller_profile_id uuid, legal_name text, dba_name text, ein text, taxpayer_id_status text DEFAULT 'not_provided', taxpayer_id_source text, taxpayer_id_last4 text, taxpayer_id_verified_at timestamptz, address_line1 text, address_line2 text, city text, state text, postal_code text, country text);
 CREATE TABLE agreement_templates (id uuid PRIMARY KEY, name text, agreement_type text);
 CREATE TABLE agreement_template_versions (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), template_id uuid, version_int int);
 CREATE TABLE agreements (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), seller_profile_id uuid, seller_user_id uuid, template_version_id uuid, status text,

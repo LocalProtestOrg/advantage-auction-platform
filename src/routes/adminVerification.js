@@ -61,11 +61,12 @@ router.get('/sellers/:sellerProfileId/publication-gate', async (req, res, next) 
   } catch (err) { mapErr(res, err, next); }
 });
 
-// Professional Seller business identity for review (admin sees the FULL EIN; seller responses mask it).
+// Professional Seller business identity for review. No taxpayer number is held or returned (owner decision 2026-10-16):
+// only its verification status from payout setup.
 router.get('/sellers/:sellerProfileId/business', async (req, res, next) => {
   try {
     if (!isUuid(req.params.sellerProfileId)) return res.status(400).json({ success: false, message: 'Invalid seller id' });
-    const info = await v.getBusinessInfo(req.params.sellerProfileId, { includeEin: true });
+    const info = await v.getBusinessInfo(req.params.sellerProfileId);
     if (!info) return res.status(404).json({ success: false, message: 'Seller not found' });
     return res.json({ success: true, data: info });
   } catch (err) { mapErr(res, err, next); }

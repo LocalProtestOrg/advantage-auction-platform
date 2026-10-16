@@ -23,9 +23,11 @@ const CATEGORIES = [
   'proof_of_ownership', 'receipt_invoice', 'estate_authority', 'probate_letter',
   'ein_verification', 'business_registration', 'other',
 ];
-// Business credentials accepted for Professional Seller business verification (at least one required):
-// IRS EIN confirmation (CP575 / 147C / equivalent), state registration/formation, or a business license.
-const BUSINESS_DOCUMENT_CATEGORIES = ['ein_verification', 'business_registration', 'business_license'];
+// Business credentials accepted for Professional Seller business verification (at least one required): state
+// registration/formation or a business license. IRS EIN letters are no longer requested (owner decision 2026-10-16):
+// taxpayer identification is collected and verified during payout setup by the payment processor, and Advantage.Bid
+// does not keep complete EINs (migration 202).
+const BUSINESS_DOCUMENT_CATEGORIES = ['business_registration', 'business_license'];
 const RISK_LEVELS = ['low', 'medium', 'high'];
 const MAX_BYTES = 15 * 1024 * 1024; // 15 MB per document
 const SIGNED_URL_TTL_SECONDS = 300;
@@ -110,42 +112,45 @@ async function openRequestsForUser(userId) {
 }
 
 // ── Professional Seller business verification (self-initiated; reuses requests + documents) ─────
-// Mask an EIN for client responses: show only the last 4 (e.g. "**-***6789"). Never return the raw EIN
-// to a seller/buyer client; admin review reads the full value server-side only.
+// (Kept for callers/tests that format a last-4 value; Advantage.Bid no longer stores complete EINs.)
 function maskEin(ein) {
   const s = String(ein || '').replace(/\D/g, '');
   if (!s) return null;
   return '**-***' + s.slice(-4);
 }
 
-// Upsert the seller's business identity (Legal Business Name, DBA, EIN, business address) onto
-// seller_identity. Only provided fields overwrite; nulls preserve existing values (COALESCE).
+// Upsert the seller's business identity (Legal Business Name, DBA, business address) onto seller_identity. Only provided
+// fields overwrite; nulls preserve existing values (COALESCE). A taxpayer id is NEVER accepted here (owner decision
+// 2026-10-16): it is collected and verified during payout setup, and the database refuses a stored EIN (migration 202).
 async function saveBusinessInfo(sellerProfileId, info = {}, actorId = null) {
   const i = info || {};
+  if (i.ein != null && String(i.ein).trim() !== '') {
+    throw new VerificationError('TAXPAYER_ID_NOT_ACCEPTED', 'Please do not enter your EIN here. Your taxpayer ID is collected securely when you set up payouts.', 422);
+  }
   await db.query(
     `INSERT INTO seller_identity
-       (seller_profile_id, legal_name, dba_name, ein, address_line1, address_line2, city, state, postal_code, country, updated_by, updated_at)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11, now())
+       (seller_profile_id, legal_name, dba_name, address_line1, address_line2, city, state, postal_code, country, updated_by, updated_at)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10, now())
      ON CONFLICT (seller_profile_id) DO UPDATE SET
        legal_name    = COALESCE(EXCLUDED.legal_name, seller_identity.legal_name),
        dba_name      = COALESCE(EXCLUDED.dba_name, seller_identity.dba_name),
-       ein           = COALESCE(EXCLUDED.ein, seller_identity.ein),
        address_line1 = COALESCE(EXCLUDED.address_line1, seller_identity.address_line1),
        address_line2 = COALESCE(EXCLUDED.address_line2, seller_identity.address_line2),
        city          = COALESCE(EXCLUDED.city, seller_identity.city),
        state         = COALESCE(EXCLUDED.state, seller_identity.state),
        postal_code   = COALESCE(EXCLUDED.postal_code, seller_identity.postal_code),
        country       = COALESCE(EXCLUDED.country, seller_identity.country),
-       updated_by    = $11, updated_at = now()`,
-    [sellerProfileId, i.legal_business_name || null, i.dba_name || null, i.ein || null,
+       updated_by    = $10, updated_at = now()`,
+    [sellerProfileId, i.legal_business_name || null, i.dba_name || null,
      i.address_line1 || null, i.address_line2 || null, i.city || null, i.state || null,
      i.postal_code || null, i.country || null, actorId ?? null]);
 }
 
-// Read business identity + seller_type. EIN is MASKED unless includeEin (admin review only).
-async function getBusinessInfo(sellerProfileId, { includeEin = false } = {}) {
+// Read business identity + seller_type. No taxpayer number is held: only its verification status (and at most the last
+// four digits reported by the payment processor). The same shape for sellers and administrators.
+async function getBusinessInfo(sellerProfileId) {
   const r = (await db.query(
-    `SELECT sp.seller_type, si.legal_name, si.dba_name, si.ein,
+    `SELECT sp.seller_type, si.legal_name, si.dba_name, si.taxpayer_id_status, si.taxpayer_id_source, si.taxpayer_id_last4, si.taxpayer_id_verified_at,
             si.address_line1, si.address_line2, si.city, si.state, si.postal_code, si.country
        FROM seller_profiles sp LEFT JOIN seller_identity si ON si.seller_profile_id = sp.id
       WHERE sp.id = $1`, [sellerProfileId])).rows[0];
@@ -154,8 +159,8 @@ async function getBusinessInfo(sellerProfileId, { includeEin = false } = {}) {
     seller_type: r.seller_type || null,
     legal_business_name: r.legal_name || null,
     dba_name: r.dba_name || null,
-    ein: includeEin ? (r.ein || null) : maskEin(r.ein),
-    ein_on_file: !!r.ein,
+    taxpayer_id: { status: r.taxpayer_id_status || 'not_provided', collected_during: 'payout_setup',
+      last4: r.taxpayer_id_last4 || null, verified_at: r.taxpayer_id_verified_at || null },
     address_line1: r.address_line1 || null, address_line2: r.address_line2 || null,
     city: r.city || null, state: r.state || null, postal_code: r.postal_code || null, country: r.country || null,
   };

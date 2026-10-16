@@ -362,6 +362,11 @@ stop copying identity rows into audit metadata (record changed field names only)
 relying on Stripe Connect's verified taxpayer status; full view only with a dedicated permission, every view logged;
 masked everywhere else. Existing rows: none to migrate today; the migration still ships a reviewed, reversible
 backfill for any row that appears before it runs. No identity records are deleted.
+**Owner decision 2026-10-16:** Stripe Connect collects and verifies taxpayer IDs; Advantage.Bid stores no complete EIN
+unless a verified legal/operational requirement arises. Remediation built (migration 202, branch `feat/ein-remediation`):
+EIN never accepted or stored (database CHECK), no full-EIN admin view, identity reads allow-listed, audit log records
+changed field names only, taxpayer-ID status (+ at most last 4 from the processor) kept; business verification continues
+with state registration or business licence documents (IRS EIN letters no longer requested).
 
 ### 8.7 Tax-time and financial reporting
 On-demand admin reports by tax year, seller, state, jurisdiction or period: gross sales and counts, refunds/chargebacks/
@@ -395,6 +400,16 @@ Design: `storefront-messaging-and-widget-design-2026-10-16.md` §1–§4, milest
   penalties, order cancellation or accusations from automated detection alone**; legitimate shipping, pickup, condition
   and inspection discussion allowed; spam prevention, rate limits, safe attachments if ever supported, retention policy.
   Circumvention cannot be prevented completely and we do not claim so.
+- **Owner decisions 2026-10-16 (eBay-style):** layered detection — explicit contact details, obfuscated contact details
+  (spelled-out or separated digits, disguised emails), off-platform payment requests, and **indirect diversion requests**
+  ("Google my business name and call me", "look up our phone number on our website", "find me on Facebook", "contact our
+  store directly for a better price", "5% off if you buy in person", external checkout links). Obvious contact details
+  are masked; ambiguous or diversion messages are held for human review (never silently deleted) with a polite rephrase
+  option; review history, appeals and abuse controls; never automatic penalties. Legitimate condition, measurements,
+  photos, authenticity, shipping, pickup/delivery, inspections and price changes completed through Advantage.Bid are
+  never blocked; post-purchase fulfilment details stay available to authorised staff in the dashboard. Contact-form
+  transition: item pages switch to "Ask the seller a question"; the storefront form becomes "Request a consultation"
+  for services only, screened by the same rules (design §3.4).
 - Today: the storefront "Contact" form (`seller_inquiries`) gives the visitor's name, email and phone directly to the
   seller and is linked from item pages while checkout is off — to be replaced on item pages by the on-platform thread
   (kept only for service consultations, clearly labelled). Messaging stays off until security and privacy testing pass.

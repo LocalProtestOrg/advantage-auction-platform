@@ -34,26 +34,62 @@ privacy testing pass and the owner approves.** Canonical TODO: `professional-sto
 - Item page: "Ask the seller a question" on every eligible Professional item (signed in, or verified guest). The existing
   storefront consultation form remains for services, not items.
 
-## 3. Anti-circumvention (professional, human-reviewed)
+## 3. Anti-circumvention (owner-approved 2026-10-16: eBay-style, layered, human-reviewed)
 
-- Messaging UI never shows email addresses or phone numbers of either side; the reply form shows a short, polite note:
-  "For your protection, please keep questions and purchases on Advantage.Bid."
-- Seller agreement: a clause prohibiting diversion of Advantage.Bid-generated buyers or transactions to avoid fees
-  (**legal wording for owner/legal approval** — not drafted as binding text by engineering).
-- Detection (deterministic rules, no model calls by default): phone-number and email patterns (including obfuscated
-  forms like "five five five", "at gmail dot com"), payment-app and off-platform payment terms (cash discount, Venmo,
-  Zelle, Cash App, PayPal friends-and-family, wire, "pay me directly", "avoid the fee", "outside the site"), external
-  links. Outcomes: a matched contact detail is **masked in the delivered message** (sender is told it was hidden for
-  safety); a matched off-platform payment solicitation is delivered with a buyer-safety notice **and** flagged for human
-  review. Normal shipping, pickup, condition and inspection discussion is never blocked.
-- Human review only: flags appear in the moderation dashboard; an authorised reviewer records a decision with a note.
-  **No automatic suspension, penalty, order cancellation or accusation**; any action follows the documented review and
-  appeal process (seller can respond; decisions audited).
-- Spam and abuse: per-buyer, per-seller and per-IP rate limits; duplicate-message suppression; block/report controls;
-  attachments not supported initially (when added: type/size limits, malware scan, private storage, no hot-linking).
-- Retention: conversations kept for the order/dispute window plus a policy period (owner decision), then archived.
-- We do not claim circumvention can be prevented completely; the goal is to make on-platform the easy, safe path and to
-  surface obvious diversion for human review.
+Principle: make on-platform the easy, safe path; hide obvious contact details; send anything ambiguous to a person; never
+punish automatically. We do not claim circumvention can be prevented completely.
+
+### 3.1 Layered detection (deterministic rules first; every rule versioned and tested)
+| Layer | Catches | Examples (all covered by the specification) | Action |
+|---|---|---|---|
+| L1 explicit contact details | phone numbers, email addresses, URLs, social handles | "713-555-0199", "bob@gmail.com", "www.myshop.com", "@nora_estate" | **masked** in the delivered message; sender told politely and may rephrase |
+| L2 obfuscated contact details | spelled-out or separated digits, disguised emails/links | "seven one three five five five…", "7 1 3 – 5 5 5", "bob at gmail dot com", "b o b [at] gmail", "myshop dot com", digits split across lines or words, homoglyphs | **masked**; flagged if repeated |
+| L3 off-platform payment | payment apps and arrangements | Venmo, Zelle, Cash App, PayPal friends-and-family, wire, crypto, "cash only if you come by", "pay me directly" | message **held for human review**; sender sees a polite explanation and can rephrase |
+| L4 indirect contact / diversion requests | asking the other party to find contact details elsewhere or to transact off-platform | "Google my business name and call me", "Look up our phone number on our website", "Find me on Facebook and message me", "Contact our store directly and I'll give you a better price", "I'll give you 5% off if you buy in person", "skip the fee", "outside the site", "my own checkout page", a link to an external checkout for the listed item | message **held for human review** (not silently deleted); polite notice to sender with a rephrase option |
+| L5 context and behaviour | patterns across a conversation or seller | the same seller repeatedly triggering L3/L4, many conversations ending right after a contact attempt, discount + "in person" combinations | conversation **flagged** for review (no action on the user) |
+
+- Rules use normalisation (lower-casing, digit-word mapping, removing separators, Unicode folding) before matching, so
+  "seven-one-three" and "7.1.3" are treated alike; a scoring step combines weak signals (e.g. "call" + "Google" +
+  business name) so indirect requests are caught without a basic phone/email filter alone.
+- An optional, owner-approved text-classification step may be added later for L4/L5 ranking only; it never acts alone and
+  never decides an outcome (and is never named in the interface).
+
+### 3.2 What is never interfered with
+Item condition, measurements, photographs and authenticity; shipping costs and destinations; local pickup and delivery
+arrangements; approved inspections and viewing appointments; negotiating a price change **completed through
+Advantage.Bid** (the seller lowers the listed price with the normal edit controls — different from an off-platform
+discount); and, after a confirmed purchase, the fulfilment details authorised staff see in the protected order dashboard.
+Lawful post-purchase fulfilment communication is not blocked. Allow-list rules (e.g. "pickup at our warehouse in
+Houston", "we can ship freight") are tested so they never trip L3/L4.
+
+### 3.3 Holding, review, appeals and abuse controls
+- Held messages are visible to the sender as "awaiting review"; reviewers release, release with masking, or decline with
+  a reason; the sender can always rephrase. Nothing legitimate is deleted silently.
+- Review queue in the moderation dashboard with full history (rule hit, version, reviewer, decision, note, time),
+  append-only; seller can respond and appeal; outcomes audited.
+- **No automatic suspension, penalty, order cancellation or accusation** from automated detection. Any account action is
+  a separate, human, documented decision under the seller agreement.
+- Seller agreement clause against diverting Advantage.Bid-generated buyers or sales (legal wording for owner approval).
+- Abuse controls: per-buyer, per-seller, per-IP rate limits; duplicate suppression; block/report; guest email
+  verification; attachments off initially. Retention period per owner decision.
+
+### 3.4 Transition from the existing storefront "Contact" form (`seller_inquiries`)
+Purpose today: a **service consultation** form on the storefront page (estate-sale / appraisal / clean-out requests:
+name, phone/email, city, service, preferred contact, message), shown to the seller in the Inquiries inbox. It is also
+reachable from item pages ("Contact Seller" while checkout is off), which makes it an item-question route that hands over
+the buyer's contact details.
+1. When item questions launch (flag on, after security + privacy testing): every item page's "Contact Seller" becomes
+   **"Ask the seller a question"** (on-platform thread). No item page links to the consultation form any more.
+2. The storefront form is relabelled **"Request a consultation"** (services such as estate sales, appraisals and
+   clean-outs), with a note that questions about items for sale go through "Ask the seller a question". Its submissions
+   are checked with the same L1–L4 rules; a submission that is about a specific listed item is redirected to the item
+   question flow instead of being delivered.
+3. Consultation requests keep working for legitimate service leads (the requester chooses to share contact details for
+   a service visit); existing inquiries stay in the seller's inbox. The owner decides whether consultation requests also
+   move on-platform later.
+4. No new loophole: seller profile pages and notification emails never show buyer contact details; the consultation
+   form is not linked from items, widgets or item emails; widget navigation links are the seller's own pages, separate
+   from messaging.
 
 ## 4. Sale notification content correction (applies now)
 The paid-sale seller email must **not** contain buyer contact details or the ship-to address; fulfilment details stay

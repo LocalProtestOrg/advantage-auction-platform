@@ -95,7 +95,7 @@
       el.innerHTML = '<div><strong>Seller type:</strong> '+esc(d.seller_type||'—')+'</div>'
         + '<div><strong>Legal business name:</strong> '+esc(d.legal_business_name||'—')+'</div>'
         + '<div><strong>DBA:</strong> '+esc(d.dba_name||'—')+'</div>'
-        + '<div><strong>EIN:</strong> '+esc(d.ein||'—')+'</div>'
+        + '<div><strong>Taxpayer ID:</strong> '+esc((d.taxpayer_id&&d.taxpayer_id.status)||'not_provided')+(d.taxpayer_id&&d.taxpayer_id.last4?' (ending '+esc(d.taxpayer_id.last4)+')':'')+' <span class="small">collected during payout setup; not stored by Advantage.Bid</span></div>'
         + '<div><strong>Address:</strong> '+esc([d.address_line1,d.city,d.state,d.postal_code].filter(Boolean).join(', ')||'—')+'</div>';
     }
     async function loadDups(){
