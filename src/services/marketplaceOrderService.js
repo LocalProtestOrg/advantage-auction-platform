@@ -28,6 +28,7 @@ const db = require('../db');
 const sellerActor = require('../lib/sellerActor');
 const shipping = require('../lib/storefrontShipping');
 const sellerPolicies = require('./sellerPolicyService');
+const { brandingVisible } = require('../lib/sellerBranding');
 const Stripe = require('stripe');
 const { withTransaction } = require('../utils/withTransaction');
 const auditService = require('./auditService');
@@ -139,7 +140,7 @@ async function resolveTaxLocation({ method, item, shipTo }) {
 // fee (computeBreakdown) stays on the item price only.
 async function loadItemForPurchase(itemId, buyerUserId, fulfillmentMethod, runner = db, { shipToState, shipToCountry } = {}) {
   const row = (await runner.query(
-    `SELECT mi.*, sp.user_id AS seller_user_id, sp.seller_type, sp.platform_fee_bps, sp.storefront_slug,
+    `SELECT mi.*, sp.user_id AS seller_user_id, sp.seller_type, sp.platform_fee_bps, sp.storefront_slug, sp.show_branding_to_buyers,
             COALESCE(sp.display_name, sp.metadata->>'display_name', sp.metadata->>'business_name') AS seller_display_name,
             sp.default_pickup_address_line1, sp.default_pickup_address_line2, sp.default_pickup_city, sp.default_pickup_state,
             sp.default_pickup_postal_code, sp.default_pickup_country, sp.default_pickup_confirmed_at
@@ -280,6 +281,16 @@ async function createOrder(itemId, buyerUserId, opts = {}) {
     const b = computeBreakdown({ itemPriceCents: item.price_cents, shippingCents: lockedShipping, taxCents: 0, feeBps });
     const shipTo = shipToObj ? JSON.stringify(shipToObj) : null;
     const snap = purchaseSnapshot(item, lockedMethod, lockedShipping);
+    // The seller's policies apply only when the buyer could see them (seller branding shown). The buyer confirmed the
+    // versions on the review screen: if the seller published a different version since, ask the buyer to review again.
+    const policySnap = await sellerPolicies.snapshotFor(item.seller_id, client, { shown: brandingVisible(item.seller_type, item.show_branding_to_buyers) });
+    if (opts.expectedPolicyVersions && typeof opts.expectedPolicyVersions === 'object') {
+      for (const k of ['store_terms', 'shipping_pickup']) {
+        const want = opts.expectedPolicyVersions[k] == null ? null : Number(opts.expectedPolicyVersions[k]);
+        const have = policySnap[k] ? Number(policySnap[k].version) : null;
+        if (want !== have) throw err(409, 'POLICIES_CHANGED', "The seller updated their store policies since you reviewed them. Please review them again.");
+      }
+    }
     // The database allows one live order per item (uq_marketplace_orders_live_item); if one already exists the buyer
     // gets a clean "not available" instead of a server error.
     const inserted = await client.query(
@@ -294,7 +305,7 @@ async function createOrder(itemId, buyerUserId, opts = {}) {
        b.platform_fee_bps, b.platform_fee_cents, b.seller_proceeds_cents, b.total_charge_cents,
        method, shipTo, !!item.is_demo, opts.idempotencyKey || null,
        JSON.stringify(snap.item), JSON.stringify(snap.seller), snap.pickup ? JSON.stringify(snap.pickup) : null,
-       JSON.stringify(await sellerPolicies.snapshotFor(item.seller_id, client))])
+       JSON.stringify(policySnap)])
       .catch((e) => { if (e && e.code === '23505' && /live_item/.test(e.constraint || e.message || '')) throw err(409, 'NOT_AVAILABLE', 'This item is no longer available for purchase.'); throw e; });
     order = inserted.rows[0];
     await recordEvent(client, order.id, 'created', { actorUserId: buyerUserId, actorRole: 'buyer',

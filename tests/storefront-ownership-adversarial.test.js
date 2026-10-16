@@ -1035,3 +1035,47 @@ describe('seller policies at checkout: acknowledged and recorded permanently', (
     expect(o.policy_snapshot).toMatchObject({ store_terms: null, shipping_pickup: null });
   });
 });
+
+describe('seller policies: review fixes (changed after review, hidden branding, admin withdrawal)', () => {
+  test('if the seller publishes a new version after the buyer reviewed the policies, the order is refused', async () => {
+    const it = await noraItem({ title: 'Changed policy item' });
+    const seen = (await items.getPublicItem(it.id)).policy_versions;
+    expect(seen.store_terms).toBeGreaterThan(0);
+    await call('nora', 'PUT', '/api/seller-storefront/policies/store_terms', { body: 'Nora store terms, a newer version published mid-checkout.' });
+    await call('nora', 'POST', '/api/seller-storefront/policies/store_terms/publish');
+    const r = await call('bea', 'POST', '/api/marketplace/orders', { item_id: it.id, policies_acknowledged: true, expected_policy_versions: seen });
+    expect(r.status).toBe(409); expect(r.body.code).toBe('POLICIES_CHANGED');
+    expect(await one('SELECT count(*)::int n FROM marketplace_orders WHERE marketplace_item_id = $1', [it.id])).toEqual({ n: 0 });
+    const fresh = (await items.getPublicItem(it.id)).policy_versions;
+    expect((await call('bea', 'POST', '/api/marketplace/orders', { item_id: it.id, policies_acknowledged: true, expected_policy_versions: fresh })).status).toBe(200);
+  });
+  test('a seller whose branding is hidden: its policies are not shown, not required and not recorded (no seller leak)', async () => {
+    await q('UPDATE seller_profiles SET show_branding_to_buyers = false WHERE id = $1', [SP.sue]);
+    try {
+      const it = await items.createDirectListing(U.sue.id, { title: 'Hidden-brand lamp', price_cents: 3000 });
+      const pub = await items.getPublicItem(it.id);
+      expect(pub.policies).toEqual({ store_terms: false, shipping_pickup: false });
+      expect(pub.policy_versions).toEqual({ store_terms: null, shipping_pickup: null });
+      expect(JSON.stringify(pub)).not.toMatch(/\/pro\/sue|Sue Auctions/);
+      const c = await orders.createOrder(it.id, U.bea.id, { policiesAcknowledged: true, expectedPolicyVersions: pub.policy_versions });
+      const o = await one('SELECT policy_snapshot FROM marketplace_orders WHERE id = $1', [c.order.id]);
+      expect(o.policy_snapshot).toMatchObject({ store_terms: null, shipping_pickup: null, seller_policies_shown: false });
+    } finally { await q('UPDATE seller_profiles SET show_branding_to_buyers = true WHERE id = $1', [SP.sue]); }
+  });
+  test('Advantage.Bid can withdraw a published policy with a reason; the text stays on record; sellers and buyers cannot', async () => {
+    const v = await one(`SELECT id FROM seller_policy_versions WHERE seller_id = $1 AND kind = 'shipping_pickup' AND status = 'published'`, [SP.nora]);
+    for (const who of ['nora', 'sue', 'bea']) expect((await call(who, 'POST', `/api/admin/storefront/policies/${v.id}/withdraw`, { reason: 'Misleading terms' })).status).toBe(403);
+    expect((await call('admin', 'POST', `/api/admin/storefront/policies/${v.id}/withdraw`, { reason: 'x' })).body.code).toBe('REASON_REQUIRED');
+    const w = await call('admin', 'POST', `/api/admin/storefront/policies/${v.id}/withdraw`, { reason: 'Contradicts the Buyer Terms on refunds' });
+    expect(w.status).toBe(200); expect(w.body.data.status).toBe('withdrawn');
+    expect((await call('bea', 'GET', '/api/public/storefront/nora/policies')).body.data.shipping_pickup).toBeNull();
+    expect((await require('../src/services/policyPageService').render('nora', 'shipping-pickup', 'https://bid.advantage.bid')).status).toBe(404);
+    const kept = await one('SELECT body, withdrawn_reason FROM seller_policy_versions WHERE id = $1', [v.id]);
+    expect(kept.body).toMatch(/Pickup within 7 days/); expect(kept.withdrawn_reason).toMatch(/Buyer Terms/);
+    const e = await rejects(`UPDATE seller_policy_versions SET status = 'published' WHERE id = $1`, [v.id]);
+    expect(e.message).toMatch(/cannot become/);
+    // the seller can publish a corrected version
+    await call('nora', 'PUT', '/api/seller-storefront/policies/shipping_pickup', { body: 'Corrected shipping and pickup policy for our store.' });
+    expect((await call('nora', 'POST', '/api/seller-storefront/policies/shipping_pickup/publish')).status).toBe(200);
+  });
+});

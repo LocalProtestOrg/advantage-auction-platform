@@ -27,6 +27,9 @@ router.get('/items/:id/history', async (req, res, next) => {
 router.post('/items/:id/takedown', h((req) => moderation.takedown(req.params.id, req.user.id, { reason: (req.body || {}).reason })));
 router.post('/items/:id/restore', h((req) => moderation.restore(req.params.id, req.user.id, { reason: (req.body || {}).reason })));
 router.get('/reports', h((req) => moderation.listReports({ status: req.query.status })));
+// Seller store policies: review and, with a written reason, withdraw a published policy from public view (text kept).
+router.get('/policies', h((req) => require('../services/sellerPolicyService').listPublishedForAdmin(req.query || {})));
+router.post('/policies/:id/withdraw', h((req) => require('../services/sellerPolicyService').withdraw(req.params.id, req.user.id, { reason: (req.body || {}).reason })));
 router.post('/reports/:id/review', h((req) => moderation.reviewReport(req.params.id, req.user.id, { action: (req.body || {}).action, note: (req.body || {}).note })));
 router.get('/issues', h((req) => issues.listForAdmin({ status: req.query.status })));
 router.post('/issues/:id/resolve', h((req) => {

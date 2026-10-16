@@ -357,7 +357,8 @@ async function getPublicItem(id, runner = db) {
   const { rows } = await runner.query(
     `SELECT mi.*, sp.storefront_slug, sp.seller_type, sp.show_branding_to_buyers,
             COALESCE(sp.display_name, sp.metadata->>'display_name', sp.metadata->>'business_name') AS seller_name,
-            (SELECT array_agg(v.kind) FROM seller_policy_versions v WHERE v.seller_id = mi.seller_id AND v.status = 'published') AS published_policy_kinds
+            (SELECT array_agg(v.kind) FROM seller_policy_versions v WHERE v.seller_id = mi.seller_id AND v.status = 'published') AS published_policy_kinds,
+            (SELECT json_object_agg(v.kind, v.version) FROM seller_policy_versions v WHERE v.seller_id = mi.seller_id AND v.status = 'published') AS published_policy_versions
        FROM marketplace_items mi JOIN seller_profiles sp ON sp.id = mi.seller_id
       WHERE mi.id = $1 AND mi.status IN ('active','pending_purchase','sold') AND sp.seller_type = ANY($2::text[])`, [id, PROFESSIONAL_SELLER_TYPES]);   // Professional Sellers only
   return rows[0] ? publicItem(rows[0]) : null;
@@ -383,8 +384,11 @@ function publicItem(row) {
   out.seller_name = branded ? (row.seller_name || null) : null;
   if (!branded) out.storefront_slug = null;
   // Which of THIS item's seller's policies are published (links go to that seller's own policy pages, never another's).
-  const kinds = Array.isArray(row.published_policy_kinds) ? row.published_policy_kinds : [];
+  // Hidden branding: the seller's policies cannot be linked without revealing the seller, so none are shown (or applied).
+  const kinds = branded && Array.isArray(row.published_policy_kinds) ? row.published_policy_kinds : [];
   out.policies = { store_terms: kinds.includes('store_terms'), shipping_pickup: kinds.includes('shipping_pickup') };
+  const vers = branded && row.published_policy_versions && typeof row.published_policy_versions === 'object' ? row.published_policy_versions : {};
+  out.policy_versions = { store_terms: vers.store_terms || null, shipping_pickup: vers.shipping_pickup || null };
   return out;
 }
 // For the closed-lot "now in Marketplace" banner.

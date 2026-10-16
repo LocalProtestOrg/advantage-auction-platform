@@ -12,7 +12,7 @@ CREATE TABLE IF NOT EXISTS seller_policy_versions (
   seller_id     UUID NOT NULL REFERENCES seller_profiles(id),
   kind          TEXT NOT NULL CHECK (kind IN ('store_terms','shipping_pickup')),
   version       INTEGER NOT NULL CHECK (version >= 1),
-  status        TEXT NOT NULL DEFAULT 'draft' CHECK (status IN ('draft','published','superseded')),
+  status        TEXT NOT NULL DEFAULT 'draft' CHECK (status IN ('draft','published','superseded','withdrawn')),
   body          TEXT NOT NULL CHECK (length(body) <= 20000),
   content_hash  TEXT NOT NULL,
   created_by    UUID NOT NULL REFERENCES users(id),
@@ -21,9 +21,15 @@ CREATE TABLE IF NOT EXISTS seller_policy_versions (
   published_by  UUID REFERENCES users(id),
   published_at  TIMESTAMPTZ,
   superseded_at TIMESTAMPTZ,
+  -- Advantage.Bid override: an administrator may withdraw a published policy from public view (with a written reason);
+  -- the words stay on record and the seller can publish a corrected version.
+  withdrawn_by     UUID REFERENCES users(id),
+  withdrawn_at     TIMESTAMPTZ,
+  withdrawn_reason TEXT CHECK (withdrawn_reason IS NULL OR length(withdrawn_reason) BETWEEN 5 AND 1000),
   CONSTRAINT uq_seller_policy_versions_id_seller UNIQUE (id, seller_id),
   CONSTRAINT uq_seller_policy_version UNIQUE (seller_id, kind, version),
-  CONSTRAINT seller_policy_published_has_time CHECK (status = 'draft' OR (published_at IS NOT NULL AND published_by IS NOT NULL))
+  CONSTRAINT seller_policy_published_has_time CHECK (status = 'draft' OR (published_at IS NOT NULL AND published_by IS NOT NULL)),
+  CONSTRAINT seller_policy_withdrawn_has_reason CHECK (status <> 'withdrawn' OR (withdrawn_by IS NOT NULL AND withdrawn_at IS NOT NULL AND withdrawn_reason IS NOT NULL))
 );
 CREATE UNIQUE INDEX IF NOT EXISTS uq_seller_policy_one_draft ON seller_policy_versions (seller_id, kind) WHERE status = 'draft';
 CREATE UNIQUE INDEX IF NOT EXISTS uq_seller_policy_one_published ON seller_policy_versions (seller_id, kind) WHERE status = 'published';
@@ -48,7 +54,7 @@ BEGIN
     RAISE EXCEPTION 'a published seller policy can never be rewritten; publish a new version' USING ERRCODE = 'check_violation';
   END IF;
   IF NEW.status IS DISTINCT FROM OLD.status AND NOT (
-       (OLD.status = 'draft' AND NEW.status = 'published') OR (OLD.status = 'published' AND NEW.status = 'superseded')) THEN
+       (OLD.status = 'draft' AND NEW.status = 'published') OR (OLD.status = 'published' AND NEW.status IN ('superseded','withdrawn'))) THEN
     RAISE EXCEPTION 'seller policy status % cannot become %', OLD.status, NEW.status USING ERRCODE = 'check_violation';
   END IF;
   RETURN NEW;
@@ -79,7 +85,8 @@ BEGIN
   IF NEW.policy_snapshot IS NULL THEN RETURN NEW; END IF;
   FOREACH k IN ARRAY ARRAY['store_terms','shipping_pickup'] LOOP
     vid := NEW.policy_snapshot -> k ->> 'version_id';
-    IF vid IS NOT NULL AND NOT EXISTS (SELECT 1 FROM seller_policy_versions v WHERE v.id = vid::uuid AND v.seller_id = NEW.seller_id AND v.kind = k) THEN
+    IF vid IS NOT NULL AND (vid !~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+       OR NOT EXISTS (SELECT 1 FROM seller_policy_versions v WHERE v.id = vid::uuid AND v.seller_id = NEW.seller_id AND v.kind = k AND v.status = 'published')) THEN
       RAISE EXCEPTION 'an order can only record its own seller''s % policy', k USING ERRCODE = 'check_violation';
     END IF;
   END LOOP;

@@ -240,6 +240,7 @@
       var body={item_id:ITEM.id,fulfillment_method:method,address:addr};
       if(REVIEWED){body.expected_item_price_cents=REVIEWED.item_price_cents;body.expected_shipping_cents=REVIEWED.shipping_cents;}
       var ack=document.getElementById('ackPol'); body.policies_acknowledged=!!(ack&&ack.checked);
+      body.expected_policy_versions=ITEM.policy_versions||{store_terms:null,shipping_pickup:null};   // the versions this buyer was shown
       if(method==='shipping')body.ship_to=addr;
       return fetch('/api/marketplace/orders',{method:'POST',headers:Object.assign({'Content-Type':'application/json','Idempotency-Key':uuid()},authHdr()),body:JSON.stringify(body)})
         .then(function(r){return r.json();}).then(function(res){

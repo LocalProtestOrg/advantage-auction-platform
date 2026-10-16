@@ -40,7 +40,8 @@ async function forOwner(ctx) {
   for (const k of Object.keys(KINDS)) {
     const mine = rows.filter((r) => r.kind === k);
     out[k] = { label: KINDS[k], draft: view(mine.find((r) => r.status === 'draft')), published: view(mine.find((r) => r.status === 'published')),
-      history: mine.filter((r) => r.status !== 'draft').map((r) => ({ version: r.version, status: r.status, published_at: r.published_at, superseded_at: r.superseded_at })) };
+      history: mine.filter((r) => r.status !== 'draft').map((r) => ({ version: r.version, status: r.status, published_at: r.published_at, superseded_at: r.superseded_at,
+        withdrawn_at: r.withdrawn_at || null, withdrawn_reason: r.withdrawn_reason || null })) };
   }
   return out;
 }
@@ -97,9 +98,10 @@ async function publishedFor(sellerId, runner = db) {
 }
 
 // What an order records at purchase: the seller's published versions (or null) and the current platform Buyer Terms
-// version (read only — never modified here).
-async function snapshotFor(sellerId, runner = db) {
-  const rows = (await runner.query(`SELECT id, kind, version, content_hash, published_at FROM seller_policy_versions WHERE seller_id = $1 AND status = 'published'`, [sellerId])).rows;
+// version (read only — never modified here). `shown: false` = the seller's branding is hidden, so its policies could not be
+// shown to the buyer: they are neither required nor recorded (only the platform Buyer Terms apply).
+async function snapshotFor(sellerId, runner = db, { shown = true } = {}) {
+  const rows = shown ? (await runner.query(`SELECT id, kind, version, content_hash, published_at FROM seller_policy_versions WHERE seller_id = $1 AND status = 'published'`, [sellerId])).rows : [];
   const pick = (k) => { const r = rows.find((x) => x.kind === k); return r ? { version_id: r.id, version: r.version, content_hash: r.content_hash, published_at: r.published_at } : null; };
   // Runs inside the checkout transaction, so it must never raise: check the table exists before reading it.
   let platform = null;
@@ -108,7 +110,31 @@ async function snapshotFor(sellerId, runner = db) {
     const t = (await runner.query(`SELECT id, version_int FROM terms_versions WHERE kind = 'buyer_terms' AND is_current = true LIMIT 1`)).rows[0];
     if (t) platform = { version_id: t.id, version: t.version_int };
   }
-  return { store_terms: pick('store_terms'), shipping_pickup: pick('shipping_pickup'), platform_terms: platform };
+  return { store_terms: pick('store_terms'), shipping_pickup: pick('shipping_pickup'), platform_terms: platform, seller_policies_shown: !!shown };
 }
 
-module.exports = { KINDS, PATHS, forOwner, saveDraft, publish, publishedFor, snapshotFor, _hash: hash, _clean: clean };
+// Advantage.Bid override (marketplace.moderate): withdraw a published policy from public view with a written reason. The
+// text stays on record; the seller may publish a corrected version.
+async function withdraw(versionId, adminId, { reason } = {}) {
+  if (!adminId) throw err(403, 'ADMIN_REQUIRED', 'Only an administrator can withdraw a seller policy.');
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(versionId || ''))) throw err(404, 'POLICY_NOT_FOUND', 'Policy not found.');
+  const note = String(reason || '').trim().slice(0, 1000);
+  if (note.length < 5) throw err(422, 'REASON_REQUIRED', 'Give a short reason.');
+  const row = (await db.query(`UPDATE seller_policy_versions SET status = 'withdrawn', withdrawn_by = $2, withdrawn_at = now(), withdrawn_reason = $3
+    WHERE id = $1 AND status = 'published' RETURNING *`, [versionId, adminId, note])).rows[0];
+  if (!row) throw err(409, 'NOT_PUBLISHED', 'Only a published policy can be withdrawn.');
+  await writeAuditLog({ event_type: 'seller_policy_withdrawn', entity_type: 'seller_profile', entity_id: row.seller_id, actor_id: adminId,
+    metadata: { kind: row.kind, version: row.version, reason: note } }).catch(() => {});
+  return view(row);
+}
+
+// Administrators: every company's currently published policies (for review / withdrawal).
+async function listPublishedForAdmin({ limit = 200 } = {}) {
+  const { rows } = await db.query(
+    `SELECT v.id, v.seller_id, v.kind, v.version, v.body, v.published_at, COALESCE(sp.display_name, sp.metadata->>'business_name') AS seller_name, sp.storefront_slug
+       FROM seller_policy_versions v JOIN seller_profiles sp ON sp.id = v.seller_id WHERE v.status = 'published' ORDER BY v.published_at DESC LIMIT $1`,
+    [Math.min(500, Math.max(1, parseInt(limit, 10) || 200))]);
+  return rows;
+}
+
+module.exports = { KINDS, PATHS, forOwner, saveDraft, publish, publishedFor, snapshotFor, withdraw, listPublishedForAdmin, _hash: hash, _clean: clean };
