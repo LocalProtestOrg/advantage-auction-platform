@@ -1,8 +1,17 @@
 # Professional Seller staff accounts — permission design (for owner approval)
 
-Status: **design for approval** (2026-10-16). The permission catalog and the server-side checkpoint are built and live-ready
-(`src/lib/sellerRbac.js`, `src/middleware/requireSellerPermission.js`); today the checkpoint resolves only the company
-owner. Staff membership, invitations and step-up verification are **not built** until this design is approved.
+Status: **APPROVED and BUILT** (owner, 2026-10-16: "use the approved defaults"), branch `feat/seller-staff-accounts`,
+migration 199. Off until `SELLER_STAFF_ENABLED=true`. Decisions taken: the four roles and the permission table below;
+step-up = account password + one-time code to the owner's verified phone, valid 10 minutes for that sign-in session only;
+**one company per person**; **Finance Managers see order numbers only** (no buyer names, emails or addresses).
+
+Implementation: `db/migrations/199_seller_staff_accounts.sql` (memberships, append-only staff history, step-up challenges,
+guard triggers), `src/middleware/requireSellerPermission.js` (owner or active member, read on every request; staff changes
+written to the history), `src/lib/sellerActor.js` (services act for the session's company), `src/services/sellerStaffService.js`,
+`src/services/sellerStepUpService.js`, `src/routes/sellerStaff.js` (`/api/seller-staff`), pages `seller-staff.html` (owner)
+and `seller-staff-invite.html` (invitee). Tests: `tests/seller-staff-accounts.test.js` (real Postgres, two companies, three
+staff roles, outsiders). Not built yet (Milestone 3): the payout-destination change flow and its 72-hour payout hold —
+there is no storefront payout destination to change until Stripe Connect is set up; `company.payout.manage` stays owner-only.
 
 ## 1. Model
 

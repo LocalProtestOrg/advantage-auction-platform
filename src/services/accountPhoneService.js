@@ -186,5 +186,5 @@ async function setConfig(patch = {}, { actorId } = {}, deps = {}) {
   return config();
 }
 
-module.exports = { start, confirm, status, isVerified, phoneGate, config, setConfig, verificationAvailable, PhoneError, VERIFIED_SQL,
+module.exports = { start, confirm, status, isVerified, phoneGate, config, setConfig, verificationAvailable, sender, PhoneError, VERIFIED_SQL,
   LIMITS: { TTL_MIN, MAX_ATTEMPTS, SENDS_PER_30, PER_NUMBER_PER_HOUR, PER_IP_PER_HOUR, LOCK_MIN } };

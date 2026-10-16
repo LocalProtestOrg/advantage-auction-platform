@@ -699,6 +699,7 @@ app.use('/api/public/storefront', require('./src/routes/publicStorefront')); // 
 app.use('/api/public/widget', require('./src/routes/publicWidget')); // white-label company auction widget feed (token-scoped, public)
 app.use('/api/seller-storefront', require('./src/routes/sellerStorefront')); // seller storefront mgmt + marketplace inventory + conversion (auth)
 app.use('/api/marketplace', require('./src/routes/marketplaceOrders')); // fixed-price Buy Now checkout + buyer/seller/admin order mgmt (auth; flag-gated)
+app.use('/api/seller-staff', require('./src/routes/sellerStaff')); // Professional Seller staff accounts: invitations, roles, step-up (auth; SELLER_STAFF_ENABLED; mig 199)
 app.use('/api/public/follower-emails', require('./src/routes/publicFollowerEmails')); // one-click unsubscribe (no auth)
 app.use('/api/public/subscribers', require('./src/routes/publicSubscribe')); // first-party newsletter signup (collection only)
 app.use('/api/public/marketing-email', require('./src/routes/publicMarketingEmail')); // marketing unsubscribe + click (no auth, token-signed)

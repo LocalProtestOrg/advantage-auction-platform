@@ -25,6 +25,7 @@
  */
 
 const db = require('../db');
+const sellerActor = require('../lib/sellerActor');
 const Stripe = require('stripe');
 const { withTransaction } = require('../utils/withTransaction');
 const auditService = require('./auditService');
@@ -788,9 +789,9 @@ async function applyRefundState(orderId, refundedCents, reversalId, adminId, ext
 }
 
 // Seller explicitly relists a refunded/removed/draft item. Preserves all historical orders.
-async function relistItem(itemId, sellerUserId) {
+async function relistItem(itemId, sellerActorRef) {
   return withTransaction(async (client) => {
-    const seller = (await client.query('SELECT id, seller_type FROM seller_profiles WHERE user_id = $1', [sellerUserId])).rows[0];
+    const seller = await sellerActor.sellerRow(sellerActorRef, client);
     if (!seller) throw err(403, 'NOT_A_SELLER', 'No seller profile.');
     if (!isProfessional(seller.seller_type)) throw err(403, 'NOT_PROFESSIONAL', 'Marketplace listings are for Professional Sellers.');
     const item = (await client.query('SELECT * FROM marketplace_items WHERE id = $1 FOR UPDATE', [itemId])).rows[0];
@@ -819,12 +820,13 @@ const FULFILL = {
   shipped:          { method: 'shipping', from: ['unfulfilled'], to: 'shipped', eligible: false },
   complete:         { method: 'shipping', from: ['shipped'], to: 'completed', eligible: true },
 };
-async function updateFulfillment(orderId, sellerUserId, action, opts = {}) {
+async function updateFulfillment(orderId, sellerActorRef, action, opts = {}) {
+  const sellerUserId = sellerActor.actorUserId(sellerActorRef);
   const spec = FULFILL[action];
   if (!spec) throw err(400, 'BAD_ACTION', 'Unknown fulfillment action.');
   if (!isUuid(orderId)) throw err(404, 'ORDER_NOT_FOUND', 'Order not found.');
   return withTransaction(async (client) => {
-    const seller = (await client.query('SELECT id FROM seller_profiles WHERE user_id = $1', [sellerUserId])).rows[0];
+    const seller = await sellerActor.sellerRow(sellerActorRef, client);
     if (!seller) throw err(403, 'NOT_A_SELLER', 'No seller profile.');
     const o = (await client.query('SELECT * FROM marketplace_orders WHERE id = $1 FOR UPDATE', [orderId])).rows[0];
     if (!o) throw err(404, 'ORDER_NOT_FOUND', 'Order not found.');
@@ -855,7 +857,7 @@ async function updateFulfillment(orderId, sellerUserId, action, opts = {}) {
     await recordEvent(client, orderId, 'fulfillment', { actorUserId: sellerUserId, actorRole: 'seller',
       data: { action, from: o.fulfillment_status, to: spec.to, tracking_carrier: carrier || null, tracking_number: tracking || null,
         payout_eligible: upd.payout_eligible } });
-    return publicOrder(upd);
+    return sellerOrderView(upd, sellerActorRef);
   });
 }
 
@@ -901,8 +903,22 @@ async function listForBuyer(buyerUserId) {
     seller_name: r.seller_name, storefront_slug: r.storefront_slug }));
 }
 
-async function listForSeller(sellerUserId) {
-  const seller = (await db.query('SELECT id FROM seller_profiles WHERE user_id = $1', [sellerUserId])).rows[0];
+// The seller company's view of an order, shaped by the person's role: fees, proceeds and payout status need
+// company.finance.view; the buyer's name, email and ship-to need company.orders.fulfil and a PAID order. A refunded order
+// is no longer the seller's to fulfill, so its buyer contact and ship-to are withheld. No payment PII, ever.
+function sellerOrderView(o, actor, extra = {}) {
+  const p = publicOrder(o);
+  if (!p) return null;
+  if (!sellerActor.can(actor, 'company.finance.view')) {
+    delete p.platform_fee_bps; delete p.platform_fee_cents; delete p.seller_proceeds_cents; delete p.payout_eligible;
+  }
+  const contact = o.payment_status === 'paid' && sellerActor.can(actor, 'company.orders.fulfil');
+  p.ship_to = contact ? (o.ship_to || null) : null;
+  return { ...p, ...extra, buyer_name: contact ? (o.buyer_full_name || null) : null, buyer_email: contact ? (o.buyer_email || null) : null };
+}
+
+async function listForSeller(sellerActorRef) {
+  const seller = await sellerActor.sellerRow(sellerActorRef);
   if (!seller) throw err(403, 'NOT_A_SELLER', 'No seller profile.');
   const { rows } = await db.query(
     `SELECT o.*, mi.title AS item_title, mi.thumbnail_url,
@@ -912,13 +928,9 @@ async function listForSeller(sellerUserId) {
        JOIN users bu ON bu.id = o.buyer_user_id
       WHERE o.seller_id = $1 AND o.payment_status IN ('paid','refunded')
       ORDER BY o.created_at DESC`, [seller.id]);
-  // Seller sees only the buyer contact necessary to fulfill a PAID order (name/email + shipping snapshot). A refunded
-  // order is no longer the seller's to fulfill, so its buyer contact and ship-to are withheld. No payment PII.
-  return rows.map((r) => {
-    const fulfil = r.payment_status === 'paid';
-    return { ...publicOrder(r), ship_to: fulfil ? (r.ship_to || null) : null, item_title: r.item_title, thumbnail_url: r.thumbnail_url,
-      buyer_name: fulfil ? (r.buyer_full_name || null) : null, buyer_email: fulfil ? r.buyer_email : null };
-  });
+  // Seller sees only the buyer contact necessary to fulfill a PAID order (name/email + shipping snapshot), and only
+  // people whose role fulfils orders see it (sellerOrderView).
+  return rows.map((r) => sellerOrderView(r, sellerActorRef, { item_title: r.item_title, thumbnail_url: r.thumbnail_url }));
 }
 
 // Single-order fetch, ownership-scoped (used by the buyer confirmation poll + seller/admin detail).
@@ -927,24 +939,28 @@ async function getForBuyer(orderId, buyerUserId) {
   const o = (await db.query('SELECT * FROM marketplace_orders WHERE id = $1 AND buyer_user_id = $2', [orderId, buyerUserId])).rows[0];
   return o ? buyerOrder(o) : null;
 }
-async function getForSeller(orderId, sellerUserId) {
+async function getForSeller(orderId, sellerActorRef) {
   if (!isUuid(orderId)) return null;
+  const seller = await sellerActor.sellerRow(sellerActorRef);
+  if (!seller) return null;
   const o = (await db.query(
-    `SELECT o.* FROM marketplace_orders o JOIN seller_profiles sp ON sp.id = o.seller_id
-      WHERE o.id = $1 AND sp.user_id = $2`, [orderId, sellerUserId])).rows[0];
-  return o ? publicOrder(o) : null;
+    `SELECT o.*, bu.email AS buyer_email, bu.full_name AS buyer_full_name
+       FROM marketplace_orders o JOIN users bu ON bu.id = o.buyer_user_id
+      WHERE o.id = $1 AND o.seller_id = $2`, [orderId, seller.id])).rows[0];
+  return o ? sellerOrderView(o, sellerActorRef) : null;
 }
 
 // Order history (append-only, migration 197). Buyer → their own order; seller → their own order; admin → any.
 // Buyers and sellers see what happened and when, not internal payment references.
-async function orderHistory(orderId, { buyerUserId, sellerUserId, admin } = {}) {
+async function orderHistory(orderId, { buyerUserId, sellerUserId, seller: sellerRef, admin } = {}) {
+  const sellerActorRef = sellerRef || sellerUserId;
   if (!isUuid(orderId)) return null;
   let o;
   if (admin) o = (await db.query('SELECT id FROM marketplace_orders WHERE id = $1', [orderId])).rows[0];
   else if (buyerUserId) o = (await db.query('SELECT id FROM marketplace_orders WHERE id = $1 AND buyer_user_id = $2', [orderId, buyerUserId])).rows[0];
-  else if (sellerUserId) {
-    o = (await db.query(`SELECT o.id FROM marketplace_orders o JOIN seller_profiles sp ON sp.id = o.seller_id
-                          WHERE o.id = $1 AND sp.user_id = $2`, [orderId, sellerUserId])).rows[0];
+  else if (sellerActorRef) {
+    const s = await sellerActor.sellerRow(sellerActorRef);
+    if (s) o = (await db.query('SELECT o.id FROM marketplace_orders o WHERE o.id = $1 AND o.seller_id = $2', [orderId, s.id])).rows[0];
   }
   if (!o) return null;
   const { rows } = await db.query(

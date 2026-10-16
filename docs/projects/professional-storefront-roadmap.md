@@ -35,12 +35,12 @@ public marketing of unfinished features stay OFF until the readiness checks in �
 | Ownership + order integrity (migration 197) | LIVE (3a16946), verified in production |
 | Professional auction buyer's premium policy + Buy Now 0% premium separation | LIVE (0672359, 7cb793a) |
 | M2 moderation, reports, buyer issues, seller permission checkpoint (migration 198) | LIVE (6f6762b), verified in production |
-| Seller staff accounts | Design awaiting owner decisions; checkpoint + catalog live (owner-only) |
+| Seller staff accounts (migration 199) | Built + tested on `feat/seller-staff-accounts` (approved defaults); not deployed; off until `SELLER_STAFF_ENABLED=true` |
 | M3 retail settlement and payouts | Policy design awaiting owner decisions; nothing moves money |
 
 ## 2. Development sequence (recommended)
 
-1. **Seller staff accounts** — after design approval (membership, invitations, step-up, revocation; flag-gated).
+1. **Seller staff accounts** — BUILT (membership, invitations, step-up, revocation; flag-gated). Awaiting deploy approval.
 2. **Product SEO foundation** (§4.1–4.3) — server-rendered item pages, canonical URLs, structured data, sitemap, SEO data
    fields. Safe to build and ship now: it only improves what is already public. Must land **before** bulk import and the
    widget, so imported and widget items are born with the right data model.
@@ -138,6 +138,6 @@ public output.
 - Stripe production payments + webhooks verified (owner Dashboard check).
 - Stripe Connect onboarding + payout account verification.
 - Stripe Tax configuration and registrations (test-mode head office known missing).
-- Seller and buyer ownership protections (done: 197/198) and seller staff permissions (pending).
+- Seller and buyer ownership protections (done: 197/198) and seller staff permissions (built: 199, not deployed).
 - Fulfilment and delivery verification (M3), refund and chargeback handling (partly done), reconciliation and payout holds (M3).
 - Administrative oversight and audit logs (admin read access is not yet logged).

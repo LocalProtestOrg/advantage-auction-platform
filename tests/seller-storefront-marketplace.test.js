@@ -126,7 +126,9 @@ describe('RBAC + privacy source guards', () => {
   test('seller storefront management routes require auth; public routes are read-only', () => {
     const s = read('src/routes/sellerStorefront.js');
     expect(s).toMatch(/router\.use\(auth\)/);
-    expect(s).toMatch(/convertLotToListing\(req\.params\.lotId, req\.user\.id/); // ownership from token, never body
+    // ownership from the session (seller checkpoint context), never the body
+    expect(s).toMatch(/convertLotToListing\(req\.params\.lotId, req\.sellerCtx/);
+    expect(s).not.toMatch(/req\.body[^;\n]*seller_?id/i);
     const pub = read('src/routes/publicStorefront.js');
     expect(pub).not.toMatch(/req\.user/); // public routes never trust/require a user
   });

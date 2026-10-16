@@ -134,8 +134,16 @@
     var CFG=null;
     async function init(){
       var r=await api('GET','/api/seller-storefront/config');var d=r.data;CFG=d;
+      if(!r.success||!d){var dn=document.getElementById('denied');if(r.code==='SELLER_PERMISSION')dn.textContent='Your role on this seller team does not include managing items.';dn.style.display='block';return;}
       if(!d.eligible){document.getElementById('denied').style.display='block';return;}
       document.getElementById('content').style.display='block';
+      if(d.staff){
+        // Staff (Inventory Manager): items only. Storefront settings, the private pickup address and inquiries stay with the owner.
+        ['t-store','t-leads','pane-store','pane-leads'].forEach(function(id){var el=document.getElementById(id);if(el)el.style.display='none';});
+        var sb=document.createElement('div');sb.className='sub';sb.style.margin='0 0 12px';sb.textContent='Working for '+(d.name||'your company')+' as staff.';
+        var ct=document.getElementById('content');ct.insertBefore(sb,ct.firstChild);
+        renderDefaultLoc();tab('market');return;
+      }
       var c=d.config||{};
       document.getElementById('s-pub').checked=!!d.published;
       document.getElementById('s-slug').value=d.slug||'';

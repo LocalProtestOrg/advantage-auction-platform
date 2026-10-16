@@ -20,6 +20,7 @@
  */
 
 const db = require('../db');
+const sellerActor = require('../lib/sellerActor');
 const { withTransaction } = require('../utils/withTransaction');
 
 const CATEGORIES = ['not_received', 'not_as_described', 'damaged', 'pickup_problem', 'refund_request', 'other'];
@@ -119,8 +120,9 @@ async function listForBuyer(buyerUserId) {
   return rows.map((r) => view(r));
 }
 
-async function sellerIdFor(userId, runner = db) {
-  const s = (await runner.query('SELECT id FROM seller_profiles WHERE user_id = $1', [userId])).rows[0];
+// The acting company: the seller checkpoint's context (owner or staff; company from the session) or the owner's user id.
+async function sellerIdFor(actor, runner = db) {
+  const s = await sellerActor.sellerRow(actor, runner, 'id');
   if (!s) throw err(403, 'NOT_A_SELLER', 'No seller profile.');
   return s.id;
 }
@@ -134,12 +136,13 @@ async function listForSeller(sellerUserId) {
 }
 
 // Seller answers an issue on THEIR order (one response; the buyer's words are never editable).
-async function respond(issueId, sellerUserId, body = {}) {
+async function respond(issueId, sellerActorRef, body = {}) {
+  const sellerUserId = sellerActor.actorUserId(sellerActorRef);
   if (!UUID_RE.test(String(issueId || ''))) throw err(404, 'ISSUE_NOT_FOUND', 'Issue not found.');
   const response = clip(body.response, 4000);
   if (response.length < 2) throw err(422, 'RESPONSE_REQUIRED', 'Write a response.');
   return withTransaction(async (client) => {
-    const sellerId = await sellerIdFor(sellerUserId, client);
+    const sellerId = await sellerIdFor(sellerActorRef, client);
     const i = (await client.query('SELECT * FROM marketplace_order_issues WHERE id = $1 AND seller_id = $2 FOR UPDATE', [issueId, sellerId])).rows[0];
     if (!i) throw err(404, 'ISSUE_NOT_FOUND', 'Issue not found.');
     if (i.status !== 'open') throw err(409, 'ALREADY_ANSWERED', 'This issue has already been answered.');

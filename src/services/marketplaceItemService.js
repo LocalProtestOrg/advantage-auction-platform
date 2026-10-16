@@ -18,6 +18,7 @@
  */
 
 const db = require('../db');
+const sellerActor = require('../lib/sellerActor');
 const { withTransaction } = require('../utils/withTransaction');
 // Storefronts are a Professional Seller feature (owner decision 2026-10-12): eligibility uses the canonical seller-type rule,
 // never the buyer-branding list (which also includes the self-serve 'business' Individual Seller type).
@@ -55,12 +56,10 @@ function pickupValues(loc, source) {
   };
 }
 
-// Resolve the acting user's own seller_profile (id, seller_type, is_demo, city/state via profile). Null if none.
-async function sellerForUser(userId, runner = db) {
-  const { rows } = await runner.query(
-    `SELECT id, user_id, seller_type, is_demo, unsold_price_policy, ${DEFAULT_COLUMNS.join(', ')}
-       FROM seller_profiles WHERE user_id = $1`, [userId]);
-  return rows[0] || null;
+// Resolve the acting seller company (id, seller_type, is_demo, city/state via profile). Null if none. Accepts the seller
+// context from the seller checkpoint (owner or staff; company from the session) or the owner's user id.
+async function sellerForUser(actor, runner = db) {
+  return sellerActor.sellerRow(actor, runner, `id, user_id, seller_type, is_demo, unsold_price_policy, ${DEFAULT_COLUMNS.join(', ')}`);
 }
 
 // The authoritative "unsold + resaleable" predicate for a lot owned by :sellerId. Reserve enforcement is
@@ -161,7 +160,7 @@ async function convertLotToListing(lotId, actingUserId, opts = {}) {
        price, JSON.stringify(images), lot.thumbnail_url || images[0] || null,
        loc.city || lot.city, loc.state || lot.a_state, loc.postal_code || lot.zip,
        e.shippable != null ? !!e.shippable : !!lot.shippable, lot.shipping_cost_cents, lot.shipping_notes, lot.pickup_group,
-       status, !!lot.auction_demo, actingUserId, reason,
+       status, !!lot.auction_demo, sellerActor.actorUserId(actingUserId), reason,
        pv.pickup_address_line1, pv.pickup_address_line2, pv.pickup_city, pv.pickup_state, pv.pickup_postal_code, pv.pickup_country,
        pv.pickup_location_source]);
     return { item: rows[0], created: true, needs_pickup_location: missing.length ? missing : undefined };

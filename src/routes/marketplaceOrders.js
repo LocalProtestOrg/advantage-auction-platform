@@ -115,7 +115,7 @@ router.get('/orders/:id', async (req, res, next) => {
 
 // ── Seller ────────────────────────────────────────────────────────────────────────────────────────────
 router.get('/seller/orders', seller('company.orders.view'), async (req, res, next) => {
-  try { return res.json({ success: true, data: await orders.listForSeller(req.user.id) }); }
+  try { return res.json({ success: true, data: await orders.listForSeller(req.sellerCtx) }); }
   catch (e) { fail(res, e, next); }
 });
 
@@ -123,30 +123,30 @@ router.get('/seller/orders', seller('company.orders.view'), async (req, res, nex
 router.post('/seller/orders/:id/fulfillment', seller('company.orders.fulfil'), async (req, res, next) => {
   try {
     const { action, tracking_carrier, tracking_number } = req.body || {};
-    const o = await orders.updateFulfillment(req.params.id, req.user.id, action, { tracking_carrier, tracking_number });
+    const o = await orders.updateFulfillment(req.params.id, req.sellerCtx, action, { tracking_carrier, tracking_number });
     return res.json({ success: true, data: o });
   } catch (e) { fail(res, e, next); }
 });
 
 router.get('/seller/orders/:id/history', seller('company.orders.view'), async (req, res, next) => {
   try {
-    const h = await orders.orderHistory(req.params.id, { sellerUserId: req.user.id });
+    const h = await orders.orderHistory(req.params.id, { seller: req.sellerCtx });
     if (!h) return res.status(404).json({ success: false, message: 'Order not found.' });
     return res.json({ success: true, data: h });
   } catch (e) { fail(res, e, next); }
 });
 router.get('/seller/issues', seller('company.issues.view'), async (req, res, next) => {
-  try { return res.json({ success: true, data: await issues.listForSeller(req.user.id) }); }
+  try { return res.json({ success: true, data: await issues.listForSeller(req.sellerCtx) }); }
   catch (e) { fail(res, e, next); }
 });
 router.post('/seller/issues/:id/respond', seller('company.issues.respond'), async (req, res, next) => {
-  try { return res.json({ success: true, data: await issues.respond(req.params.id, req.user.id, { response: (req.body || {}).response }) }); }
+  try { return res.json({ success: true, data: await issues.respond(req.params.id, req.sellerCtx, { response: (req.body || {}).response }) }); }
   catch (e) { fail(res, e, next); }
 });
 
 // Explicitly relist a refunded/removed/draft item back to the public Marketplace (never automatic).
 router.post('/seller/items/:itemId/relist', seller('company.inventory.edit'), async (req, res, next) => {
-  try { return res.json({ success: true, data: await orders.relistItem(req.params.itemId, req.user.id) }); }
+  try { return res.json({ success: true, data: await orders.relistItem(req.params.itemId, req.sellerCtx) }); }
   catch (e) { fail(res, e, next); }
 });
 

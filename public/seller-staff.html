@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Your Team · Advantage.Bid</title>
+  <meta name="robots" content="noindex" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@600;700&family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:Inter,-apple-system,sans-serif;color:#0f172a;background:#f6f8fb}
+    .wrap{max-width:960px;margin:0 auto;padding:24px 16px}
+    a{color:#2563eb;text-decoration:none}
+    h1{font-family:Fraunces,serif;font-size:26px;margin-bottom:4px}
+    h2{font-size:16px;margin:0 0 10px}
+    .sub{color:#64748b;font-size:14px;margin-bottom:18px}
+    .card{background:#fff;border:1px solid #e6eaef;border-radius:14px;padding:16px 18px;margin-bottom:14px}
+    .row{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;padding:10px 0;border-top:1px solid #f1f5f9}
+    .row:first-child{border-top:none}
+    .meta{color:#64748b;font-size:13px;margin:3px 0}
+    .pill{display:inline-block;font-size:12px;font-weight:700;border-radius:999px;padding:3px 10px;background:#eef2ff;color:#3730a3}
+    .btn{border:none;border-radius:9px;padding:8px 14px;font-weight:700;font-size:13px;cursor:pointer;font-family:inherit;background:#2563eb;color:#fff;margin:4px 6px 0 0}
+    .btn-ghost{background:#fff;color:#0f172a;border:1px solid #e6eaef}
+    .btn-danger{background:#fff;color:#b91c1c;border:1px solid #fecaca}
+    input,select{padding:8px 10px;border:1px solid #d7dde5;border-radius:8px;font-family:inherit;font-size:14px;margin:4px 6px 0 0;max-width:100%}
+    .err{color:#b91c1c;font-size:13px;margin-top:6px}
+    .ok{color:#166534;font-size:13px;margin-top:6px}
+    table{width:100%;border-collapse:collapse;font-size:13px}
+    td,th{text-align:left;padding:6px 4px;border-top:1px solid #f1f5f9;vertical-align:top}
+    .verify{background:#fffbeb;border:1px solid #fde68a}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Your Team</h1>
+    <div class="sub">Give people at your company access to the parts of your Advantage.Bid seller account they need. You stay the owner; only you can add or remove people.</div>
+    <div id="off" class="card" style="display:none">Staff accounts are not available yet.</div>
+    <div id="main" style="display:none">
+      <div class="card verify" id="verifyCard">
+        <h2>Confirm it's you</h2>
+        <div class="meta" id="verifyState">Adding, changing or removing team members needs your password and a code we text to your verified phone. It lasts 10 minutes.</div>
+        <div id="verifyForm">
+          <input id="pw" type="password" autocomplete="current-password" placeholder="Your password" aria-label="Your password">
+          <button class="btn" id="sendCode">Text me a code</button>
+          <span id="codeBox" style="display:none"><input id="code" inputmode="numeric" maxlength="4" placeholder="4-digit code" aria-label="Code"><button class="btn" id="checkCode">Confirm</button></span>
+        </div>
+        <div id="verifyMsg"></div>
+      </div>
+      <div class="card">
+        <h2>Invite someone</h2>
+        <input id="email" type="email" placeholder="Their email address" aria-label="Email address">
+        <select id="role" aria-label="Role"></select>
+        <button class="btn" id="invite">Send invitation</button>
+        <div class="meta" id="roleHelp"></div>
+        <div id="inviteMsg"></div>
+      </div>
+      <div class="card"><h2>Team members</h2><div id="members"><p class="meta">Loading…</p></div></div>
+      <div class="card"><h2>Recent team activity</h2><div id="history"></div></div>
+    </div>
+  </div>
+  <script>
+    var token=localStorage.getItem('token')||'';
+    if(!token){location.href='/login.html?next=/seller-staff.html';}
+    function esc(s){return (s==null?'':String(s)).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
+    function dt(v){try{return new Date(v).toLocaleString();}catch(e){return '';}}
+    function api(m,u,b){var o={method:m,headers:{'Content-Type':'application/json',Authorization:'Bearer '+token}};if(b)o.body=JSON.stringify(b);
+      return fetch(u,o).then(function(r){if(r.status===401){location.href='/login.html?next=/seller-staff.html';}return r.json();});}
+    function say(id,t,ok){document.getElementById(id).innerHTML='<div class="'+(ok?'ok':'err')+'">'+esc(t)+'</div>';}
+    var ROLES=[]; var DESC={inventory_manager:'Can add and edit items for sale and see orders (no buyer contact details, no fees or proceeds).',
+      fulfillment:'Can see orders, the buyer contact needed to ship or arrange pickup, record shipping and pickup, and see buyer issues.',
+      finance:'Can see orders by order number, fees, proceeds and buyer issues. Cannot change payout details.'};
+    var STATUS={invited:'Invited',active:'Active',suspended:'Paused',removed:'Removed',revoked:'Invitation cancelled',expired:'Invitation expired'};
+    var ACTION={invited:'Invited',invite_revoked:'Invitation cancelled',invite_expired:'Invitation expired',accepted:'Joined',role_changed:'Role changed',
+      suspended:'Paused',reinstated:'Access restored',removed:'Removed',sensitive_action:'Made a change'};
+
+    function act(path,body){
+      return api('POST',path,body).then(function(r){
+        if(!r.success){ if(r.code==='STEP_UP_REQUIRED'){document.getElementById('verifyCard').scrollIntoView();} alert(r.message||'Could not save.'); return false; }
+        load(); return true;
+      });
+    }
+    function memberRow(m){
+      var open=['invited','active','suspended'].indexOf(m.status)>=0;
+      var b='';
+      if(open){
+        b+='<select data-role="'+m.id+'" aria-label="Change role">'+ROLES.map(function(r){return '<option value="'+r.role+'"'+(r.role===m.role?' selected':'')+'>'+esc(r.label)+'</option>';}).join('')+'</select>';
+        if(m.status==='invited')b+='<button class="btn btn-danger" data-do="revoke" data-id="'+m.id+'">Cancel invitation</button>';
+        if(m.status==='active')b+='<button class="btn btn-ghost" data-do="suspend" data-id="'+m.id+'">Pause access</button>';
+        if(m.status==='suspended')b+='<button class="btn btn-ghost" data-do="reinstate" data-id="'+m.id+'">Restore access</button>';
+        if(m.status!=='invited')b+='<button class="btn btn-danger" data-do="remove" data-id="'+m.id+'">Remove</button>';
+      }
+      return '<div class="row"><div><b>'+esc(m.name||m.email)+'</b>'+(m.name?'<div class="meta">'+esc(m.email)+'</div>':'')+
+        '<div class="meta"><span class="pill">'+esc(m.role_label)+'</span> '+esc(STATUS[m.status]||m.status)+
+        (m.status==='invited'&&m.invite_expires_at?' · expires '+esc(dt(m.invite_expires_at)):'')+'</div></div><div>'+b+'</div></div>';
+    }
+    function load(){
+      api('GET','/api/seller-staff/team').then(function(r){
+        if(!r.success){ if(r.code==='STAFF_NOT_AVAILABLE'){document.getElementById('off').style.display='block';return;}
+          document.getElementById('off').textContent=r.message||'Could not load your team.';document.getElementById('off').style.display='block';return; }
+        document.getElementById('main').style.display='block';
+        var d=r.data; ROLES=d.roles;
+        var sel=document.getElementById('role'); if(!sel.options.length){sel.innerHTML=ROLES.map(function(x){return '<option value="'+x.role+'">'+esc(x.label)+'</option>';}).join('');help();}
+        document.getElementById('members').innerHTML=d.members.length?d.members.map(memberRow).join(''):'<p class="meta">No team members yet.</p>';
+        document.getElementById('history').innerHTML=d.history.length?'<table>'+d.history.map(function(h){
+          var det=h.details&&h.details.from&&h.details.to?' ('+esc(h.details.from)+' → '+esc(h.details.to)+')':(h.details&&h.details.path?' '+esc(h.details.method+' '+h.details.path):'');
+          return '<tr><td>'+esc(dt(h.at))+'</td><td>'+esc(h.member_email)+'</td><td>'+esc(ACTION[h.action]||h.action)+det+'</td></tr>';}).join('')+'</table>':'<p class="meta">Nothing yet.</p>';
+      }).catch(function(){document.getElementById('off').textContent='Network error.';document.getElementById('off').style.display='block';});
+    }
+    function help(){document.getElementById('roleHelp').textContent=DESC[document.getElementById('role').value]||'';}
+    document.getElementById('role').addEventListener('change',help);
+    document.getElementById('sendCode').addEventListener('click',function(){
+      api('POST','/api/seller-staff/step-up/start',{password:document.getElementById('pw').value}).then(function(r){
+        if(!r.success)return say('verifyMsg',r.message||'Could not send a code.');
+        document.getElementById('pw').value=''; document.getElementById('codeBox').style.display='';
+        say('verifyMsg','We texted a code to your phone ending in '+r.data.phone_last4+'.',true); document.getElementById('code').focus();
+      });
+    });
+    document.getElementById('checkCode').addEventListener('click',function(){
+      api('POST','/api/seller-staff/step-up/confirm',{code:document.getElementById('code').value}).then(function(r){
+        if(!r.success)return say('verifyMsg',r.message||'That code did not work.');
+        document.getElementById('codeBox').style.display='none'; document.getElementById('code').value='';
+        say('verifyMsg','Confirmed. You can make team changes until '+new Date(r.data.valid_until).toLocaleTimeString()+'.',true);
+      });
+    });
+    document.getElementById('invite').addEventListener('click',function(){
+      api('POST','/api/seller-staff/invitations',{email:document.getElementById('email').value,role:document.getElementById('role').value}).then(function(r){
+        if(!r.success)return say('inviteMsg',r.message||'Could not send the invitation.');
+        document.getElementById('email').value=''; say('inviteMsg','Invitation sent to '+r.data.email+'.',true); load();
+      });
+    });
+    document.getElementById('members').addEventListener('click',function(ev){
+      var a=ev.target.getAttribute('data-do'); var id=ev.target.getAttribute('data-id'); if(!a||!id)return;
+      if(a==='remove'&&!confirm('Remove this person from your team? Their access ends right away.'))return;
+      act('/api/seller-staff/members/'+encodeURIComponent(id)+'/'+a);
+    });
+    document.getElementById('members').addEventListener('change',function(ev){
+      var id=ev.target.getAttribute('data-role'); if(!id)return;
+      act('/api/seller-staff/members/'+encodeURIComponent(id)+'/role',{role:ev.target.value}).then(function(ok){if(!ok)load();});
+    });
+    load();
+  </script>
+</body>
+</html>

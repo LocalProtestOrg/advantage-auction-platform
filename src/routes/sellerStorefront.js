@@ -2,8 +2,8 @@
 
 /**
  * /api/seller-storefront — Professional Seller storefront management + Marketplace inventory +
- * auction→marketplace conversion. Authenticated seller only; ownership is ALWAYS derived server-side
- * from req.user.id (never a client-supplied seller id).
+ * auction→marketplace conversion. Authenticated seller only; the company is ALWAYS derived server-side from the
+ * session by the seller checkpoint (owner, or an active staff member with the needed role) — never a client-supplied id.
  */
 const express = require('express');
 const router = express.Router();
@@ -15,12 +15,19 @@ const { asyncRoute } = require('../utils/apiError');
 // Changes pass through the seller checkpoint (seller company resolved from the session). Reads keep their existing
 // "no seller profile → empty list" behaviour for pages shown to every member.
 const seller = require('../middleware/requireSellerPermission');
+const { optionalSellerPermission: sellerRead } = require('../middleware/requireSellerPermission');
 
 router.use(auth);
 const fail = (res, e, next) => { if (e.status) return res.status(e.status).json({ success: false, code: e.code, message: e.message, missing: e.missing || undefined }); next(e); };
 
 // ── Storefront config ──────────────────────────────────────────────────────────
-router.get('/config', asyncRoute(async (req, res) => res.json({ success: true, data: await storefront.getOwnerConfig(req.user.id) })));
+router.get('/config', sellerRead('company.inventory.view'), asyncRoute(async (req, res) => {
+  const ctx = req.sellerCtx;
+  // Staff see only what their inventory work needs: the company name, whether a default pickup location is confirmed, and
+  // its city/state. Storefront settings, the full private address and inquiries stay with the owner.
+  if (ctx && ctx.staff) return res.json({ success: true, data: await storefront.getStaffConfig(ctx) });
+  return res.json({ success: true, data: await storefront.getOwnerConfig(req.user.id) });
+}));
 router.put('/config', seller('company.storefront.manage'), async (req, res, next) => {
   try { return res.json({ success: true, data: await storefront.updateConfig(req.user.id, req.body || {}) }); }
   catch (e) { fail(res, e, next); }
@@ -33,30 +40,30 @@ router.put('/pickup-location', seller('company.storefront.manage'), async (req, 
 });
 
 // ── Marketplace inventory (direct listings) ────────────────────────────────────
-router.get('/items', asyncRoute(async (req, res) => {
-  const s = await items.sellerForUser(req.user.id);
+router.get('/items', sellerRead('company.inventory.view'), asyncRoute(async (req, res) => {
+  const s = req.sellerCtx && await items.sellerForUser(req.sellerCtx);
   if (!s) return res.json({ success: true, data: [] });
   return res.json({ success: true, data: await items.listForSeller(s.id) });
 }));
 router.post('/items', seller('company.inventory.edit'), async (req, res, next) => {
-  try { return res.status(201).json({ success: true, data: await items.createDirectListing(req.user.id, req.body || {}) }); }
+  try { return res.status(201).json({ success: true, data: await items.createDirectListing(req.sellerCtx, req.body || {}) }); }
   catch (e) { fail(res, e, next); }
 });
 router.patch('/items/:id', seller('company.inventory.edit'), async (req, res, next) => {
-  try { return res.json({ success: true, data: await items.updateItem(req.params.id, req.user.id, req.body || {}) }); }
+  try { return res.json({ success: true, data: await items.updateItem(req.params.id, req.sellerCtx, req.body || {}) }); }
   catch (e) { fail(res, e, next); }
 });
 
 // ── Unsold Inventory Center: eligible unsold lots + one-button conversion ───────
-router.get('/unsold-lots', asyncRoute(async (req, res) => {
-  const s = await items.sellerForUser(req.user.id);
+router.get('/unsold-lots', sellerRead('company.inventory.view'), asyncRoute(async (req, res) => {
+  const s = req.sellerCtx && await items.sellerForUser(req.sellerCtx);
   if (!s) return res.json({ success: true, data: [] });
   return res.json({ success: true, data: await items.listUnsoldEligible(s.id) });
 }));
 router.post('/unsold-lots/:lotId/convert', seller('company.inventory.edit'), async (req, res, next) => {
   try {
     const b = req.body || {};
-    const r = await items.convertLotToListing(req.params.lotId, req.user.id, { priceCents: b.price_cents, edits: b.edits });
+    const r = await items.convertLotToListing(req.params.lotId, req.sellerCtx, { priceCents: b.price_cents, edits: b.edits });
     return res.status(r.created ? 201 : 200).json({ success: true, created: r.created, data: r.item,
       needs_pickup_location: r.needs_pickup_location || undefined });
   } catch (e) { fail(res, e, next); }
@@ -67,7 +74,7 @@ router.post('/unsold-lots/convert-batch', seller('company.inventory.edit'), asyn
     const ids = Array.isArray((req.body || {}).lot_ids) ? req.body.lot_ids.slice(0, 100) : [];
     const out = { converted: 0, skipped: 0, errors: [] };
     for (const id of ids) {
-      try { const r = await items.convertLotToListing(id, req.user.id, {}); if (r.created) out.converted++; else out.skipped++; }
+      try { const r = await items.convertLotToListing(id, req.sellerCtx, {}); if (r.created) out.converted++; else out.skipped++; }
       catch (e) { out.errors.push({ lot_id: id, code: e.code || 'ERR' }); }
     }
     return res.json({ success: true, data: out });
@@ -75,15 +82,15 @@ router.post('/unsold-lots/convert-batch', seller('company.inventory.edit'), asyn
 });
 
 // ── Seller inquiry inbox (own inquiries only) ──────────────────────────────────
-router.get('/inquiries', asyncRoute(async (req, res) => {
-  const s = await items.sellerForUser(req.user.id);
+router.get('/inquiries', sellerRead('company.storefront.manage'), asyncRoute(async (req, res) => {
+  const s = req.sellerCtx && await items.sellerForUser(req.sellerCtx);
   if (!s) return res.json({ success: true, data: [] });
   const { rows } = await db.query(
     'SELECT id, name, email, phone, city, service, preferred_contact, message, status, seller_notes, created_at FROM seller_inquiries WHERE seller_id = $1 ORDER BY created_at DESC LIMIT 200', [s.id]);
   return res.json({ success: true, data: rows });
 }));
 router.patch('/inquiries/:id', seller('company.storefront.manage'), asyncRoute(async (req, res) => {
-  const s = await items.sellerForUser(req.user.id);
+  const s = await items.sellerForUser(req.sellerCtx);
   if (!s) return res.status(403).json({ success: false, message: 'No seller profile.' });
   const b = req.body || {};
   const status = ['new', 'contacted', 'closed'].includes(b.status) ? b.status : null;

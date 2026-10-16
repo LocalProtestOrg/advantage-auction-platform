@@ -43,7 +43,13 @@
     function hdr(){return {Authorization:'Bearer '+token};}
     if(!token){location.href='/login.html?next=/seller-orders.html';}
 
-    var ISSUES={};
+    var ISSUES={}; var CAN_FULFIL=true; var CAN_RESPOND=true;
+    // Staff see only what their role allows (the server enforces it; this just hides buttons they cannot use).
+    fetch('/api/seller-staff/me',{headers:hdr()}).then(function(r){return r.json();}).then(function(res){
+      var m=res&&res.data&&res.data.staff&&res.data.membership; if(!m)return;
+      CAN_FULFIL=m.permissions.indexOf('company.orders.fulfil')>=0; CAN_RESPOND=m.permissions.indexOf('company.issues.respond')>=0;
+      var s=document.querySelector('.sub'); if(s)s.textContent='Fixed-price sales for '+m.company+'. You are signed in as '+m.role_label+'.'; load();
+    }).catch(function(){});
     var LABEL={not_received:'Item not received',not_as_described:'Not as described',damaged:'Damaged',pickup_problem:'Pickup problem',refund_request:'Refund request',other:'Other'};
     function load(){
       Promise.all([
@@ -61,7 +67,7 @@
     }
 
     function actions(o){
-      if(o.payment_status!=='paid')return '';
+      if(o.payment_status!=='paid'||!CAN_FULFIL)return '';
       var a='';
       if(o.fulfillment_method==='pickup'){
         if(o.fulfillment_status==='unfulfilled')a+='<button class="btn" data-act="ready_for_pickup" data-id="'+o.id+'">Mark Ready for Pickup</button>';
@@ -81,11 +87,11 @@
       return '<div class="order"><div class="top"><div>'+
         '<div class="t">'+esc(o.item_title||'Item')+'</div>'+
         '<div class="meta">Order '+esc(o.order_number)+' · '+dt(o.created_at)+' · '+(o.fulfillment_method==='shipping'?'Shipping':'Local pickup')+'</div>'+
-        '<div class="meta">Buyer: '+esc(o.buyer_name||'—')+(o.buyer_email?' · '+esc(o.buyer_email):'')+'</div>'+
+        (o.buyer_name||o.buyer_email?'<div class="meta">Buyer: '+esc(o.buyer_name||'—')+(o.buyer_email?' · '+esc(o.buyer_email):'')+'</div>':'')+
         (o.ship_to?'<div class="meta">Ship to: '+esc(JSON.stringify(o.ship_to).replace(/[{}"]/g,' '))+'</div>':'')+
         track+
         '</div><div style="text-align:right"><div class="money">'+money(o.item_price_cents)+'</div>'+
-        '<div class="meta">Your proceeds: '+money(o.seller_proceeds_cents)+'</div></div></div>'+
+        (o.seller_proceeds_cents!=null?'<div class="meta">Your proceeds: '+money(o.seller_proceeds_cents)+'</div>':'')+'</div></div>'+
         '<div style="margin-top:8px">'+pay+ful+elig+'</div>'+
         '<div>'+actions(o)+'</div>'+issuesFor(o)+'</div>';
     }
@@ -95,7 +101,7 @@
       return (ISSUES[o.id]||[]).map(function(i){
         var body='<b>Buyer reported: '+esc(LABEL[i.category]||i.category)+'</b> · '+esc(String(i.status).replace(/_/g,' '))+'<div>'+esc(i.message)+'</div>';
         if(i.seller_response) body+='<div style="margin-top:4px"><b>Your response:</b> '+esc(i.seller_response)+'</div>';
-        else if(i.status==='open') body+='<textarea id="r_'+esc(i.id)+'" rows="3" maxlength="4000" placeholder="Your response to the buyer and Advantage.Bid" aria-label="Your response"></textarea>'+
+        else if(i.status==='open'&&CAN_RESPOND) body+='<textarea id="r_'+esc(i.id)+'" rows="3" maxlength="4000" placeholder="Your response to the buyer and Advantage.Bid" aria-label="Your response"></textarea>'+
           '<button class="btn" data-respond="'+esc(i.id)+'">Send response</button>';
         if(i.resolution_note) body+='<div style="margin-top:4px"><b>Advantage.Bid:</b> '+esc(i.resolution_note)+'</div>';
         return '<div class="issue">'+body+'</div>';

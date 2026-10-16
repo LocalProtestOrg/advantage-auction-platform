@@ -52,4 +52,11 @@ function estateSalePromotionEnabled() {
   return ESTATE_SALE_PROMOTION_ENABLED === true;
 }
 
-module.exports = { isInvoicePaid, sellerSettlementsEnabled, combinedInvoicingEnabled, stripeConnectEnabled, marketplaceCheckoutEnabled, ESTATE_SALE_PROMOTION_ENABLED, estateSalePromotionEnabled };
+// Professional Seller staff accounts (migration 199) are OFF unless SELLER_STAFF_ENABLED is exactly 'true'. Default (unset)
+// = disabled: no invitation can be sent or accepted and every seller route resolves the company OWNER only, exactly as
+// before. Turning it off again immediately stops every staff member's access (memberships are checked on each request).
+function sellerStaffEnabled(env = process.env) {
+  return !!(env && env.SELLER_STAFF_ENABLED === 'true');
+}
+
+module.exports = { sellerStaffEnabled, isInvoicePaid, sellerSettlementsEnabled, combinedInvoicingEnabled, stripeConnectEnabled, marketplaceCheckoutEnabled, ESTATE_SALE_PROMOTION_ENABLED, estateSalePromotionEnabled };

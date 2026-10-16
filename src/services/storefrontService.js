@@ -82,6 +82,16 @@ async function getOwnerConfig(userId) {
     pickup_location: await ownerPickupLocation(sp) };
 }
 
+// A staff member's view (seller checkpoint context; company from the session). No storefront settings, no street address.
+async function getStaffConfig(ctx) {
+  const sp = (await db.query('SELECT * FROM seller_profiles WHERE id = $1', [ctx.sellerId])).rows[0];
+  if (!sp) throw err(403, 'NOT_A_SELLER', 'No seller profile.');
+  const confirmed = saleLocation.fromSellerDefault(sp);
+  return { eligible: isProfessional(sp.seller_type), staff: true, role: ctx.role, name: sellerName(sp),
+    published: sp.storefront_published, public_url: sp.storefront_slug ? `${APP_BASE}/pro/${sp.storefront_slug}` : null,
+    pickup_location: { confirmed: !!confirmed, address: confirmed ? { city: confirmed.city, state: confirmed.state } : null } };
+}
+
 // ── Default storefront pickup location (PRIVATE — the seller's own view only; never public) ──────────────
 // Confirmed once; every storefront item uses it unless the seller changes a particular item's location.
 // Until confirmed, the seller's business address (seller_identity) is offered as a SUGGESTION to confirm or edit —
@@ -238,5 +248,5 @@ async function ssrMeta(slug) {
   return { title, description: desc, canonical, image, jsonld, noindex: !!sp.is_demo, name, loc };
 }
 
-module.exports = {
+module.exports = { getStaffConfig,
   isPublicStorefront, sanitizeConfig, getOwnerConfig, updateConfig, setDefaultPickupLocation, getPublicData, ssrMeta, resolveBySlug, sellerName, slugify, clean };

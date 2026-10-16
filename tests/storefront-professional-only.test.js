@@ -31,7 +31,7 @@ describe('storefront eligibility: Professional Sellers only', () => {
     expect(update).toMatch(/if \(!isProfessional\(seller\.seller_type\)\) throw err\(403, 'NOT_PROFESSIONAL'/);
     const orders = src('marketplaceOrderService.js');
     const relist = orders.slice(orders.indexOf('async function relistItem'), orders.indexOf('async function relistItem') + 900);
-    expect(relist).toMatch(/SELECT id, seller_type FROM seller_profiles/);
+    expect(relist).toMatch(/sellerActor\.sellerRow\(sellerActorRef, client\)/);   // loads id + seller_type for the session's company
     expect(relist).toMatch(/if \(!isProfessional\(seller\.seller_type\)\) throw err\(403, 'NOT_PROFESSIONAL'/);
   });
 });
