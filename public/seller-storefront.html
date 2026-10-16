@@ -217,9 +217,46 @@
           :'<span class="hint">'+esc(SRC_LABEL[loc.source]||'')+'</span><br>'+place(loc.address);
         var acts=live?('<button class="btn b-ghost" onclick="editPickup(\''+m.id+'\')">Change location</button> '
           +(loc.source!=='default'&&DEFLOC?'<button class="btn b-ghost" onclick="useDefault(\''+m.id+'\',this)">Use storefront location</button> ':'')):'';
-        return '<tr><td>'+esc(m.title)+'<div id="pk-'+m.id+'"></div></td><td>'+money(m.price_cents)+'</td><td><span class="pill">'+esc(m.status)+'</span></td><td>'+where+'</td><td>'
+        var editable=m.status!=='sold'&&m.status!=='pending_purchase';
+        if(editable)acts='<button class="btn b-ghost" onclick="editDetails(\''+m.id+'\')">Edit details</button> '+acts;
+        return '<tr><td>'+esc(m.title)+'<div id="pk-'+m.id+'"></div><div id="ed-'+m.id+'"></div></td><td>'+money(m.price_cents)+'</td><td><span class="pill">'+esc(m.status)+'</span></td><td>'+where+'</td><td>'
           +acts+(m.status!=='removed'?'<button class="btn b-warn" onclick="removeItem(\''+m.id+'\')">Remove</button>':'')+'</td></tr>';
       }).join(''):'<tr><td colspan="5" class="hint">No items yet. Use “Add an Item” above to list your first piece for sale.</td></tr>';
+    }
+    // Edit an existing item's details, including the optional product details used by search engines. Only what the
+    // seller knows: brand, maker, part number and barcode stay blank for antiques and one-of-a-kind pieces. A sold item's
+    // details are kept as they were at the sale (the server refuses changes).
+    var CTYPE_OPTS=[['','Not specified'],['used','Used / pre-owned / vintage'],['new','New'],['refurbished','Refurbished']];
+    function editDetails(id){
+      var m=ITEMS.find(function(x){return x.id===id;}); var box=document.getElementById('ed-'+id); if(!m||!box)return;
+      if(box.innerHTML){box.innerHTML='';return;}
+      var f=function(k,label,val,extra){return '<label for="e-'+k+'-'+id+'">'+label+'</label><input id="e-'+k+'-'+id+'" value="'+esc(val==null?'':val)+'"'+(extra||'')+'>';};
+      var imgs=(m.images&&m.images.length?m.images:(m.thumbnail_url?[m.thumbnail_url]:[])); var alts=m.image_alt||[];
+      box.innerHTML='<div class="card" style="margin:.5rem 0;padding:.8rem">'
+        +f('title','Title',m.title)
+        +'<div class="row2"><div>'+f('price','Price (USD)',m.price_cents!=null?(m.price_cents/100):'',' type="number" min="0" step="0.01"')+'</div><div>'+f('cat','Category',m.category)+'</div></div>'
+        +f('cond','Condition details',m.condition)
+        +'<label for="e-desc-'+id+'">Description</label><textarea id="e-desc-'+id+'" rows="3">'+esc(m.description||'')+'</textarea>'
+        +'<p class="hint" style="margin:.6rem 0 .2rem;color:#475569"><b>Product details (optional)</b> — fill in only what you know for sure. Antiques, vintage, handmade and one-of-a-kind pieces usually have no brand barcode or part number.</p>'
+        +'<div class="row2"><div><label for="e-ctype-'+id+'">New or used</label><select id="e-ctype-'+id+'">'+CTYPE_OPTS.map(function(o){return '<option value="'+o[0]+'"'+((m.condition_type||'')===o[0]?' selected':'')+'>'+o[1]+'</option>';}).join('')+'</select></div>'
+        +'<div>'+f('era','Era or period',m.era_or_period)+'</div></div>'
+        +'<div class="row2"><div>'+f('brand','Brand',m.brand)+'</div><div>'+f('maker','Maker or manufacturer',m.manufacturer)+'</div></div>'
+        +'<div class="row2"><div>'+f('material','Material',m.material)+'</div><div>'+f('mpn','Model or part number',m.mpn)+'</div></div>'
+        +f('gtin','Barcode number (UPC / EAN), if the item has one',m.gtin,' inputmode="numeric" maxlength="18"')
+        +(imgs.length?'<p class="hint" style="margin:.6rem 0 .2rem">Photo descriptions (help shoppers using screen readers and search engines)</p>'+imgs.map(function(u,i){
+            return '<div style="display:flex;gap:8px;align-items:center;margin:4px 0"><img src="'+esc(u)+'" alt="" style="width:48px;height:48px;object-fit:cover;border-radius:6px">'
+              +'<input id="e-alt'+i+'-'+id+'" value="'+esc(alts[i]||'')+'" placeholder="e.g. Front view showing the carved legs" aria-label="Description of photo '+(i+1)+'" maxlength="200"></div>';}).join(''):'')
+        +'<div style="margin-top:.7rem"><button class="btn b-blue" onclick="saveDetails(\''+id+'\',this)">Save changes</button> <button class="btn b-ghost" onclick="editDetails(\''+id+'\')">Cancel</button></div></div>';
+    }
+    async function saveDetails(id,btn){
+      var m=ITEMS.find(function(x){return x.id===id;})||{}; var v=function(k){var el=document.getElementById('e-'+k+'-'+id);return el?el.value.trim():'';};
+      if(!v('title')){msg('Please add a title.');return;}
+      var price=Math.round(parseFloat(v('price'))*100); if(!(price>0)){msg('Please add a price.');return;}
+      var n=(m.images&&m.images.length?m.images.length:(m.thumbnail_url?1:0)); var alts=[]; for(var i=0;i<n;i++)alts.push(v('alt'+i));
+      var body={title:v('title'),price_cents:price,category:v('cat'),condition:v('cond'),description:v('desc'),
+        condition_type:v('ctype')||null,era_or_period:v('era'),brand:v('brand'),manufacturer:v('maker'),material:v('material'),mpn:v('mpn'),gtin:v('gtin'),image_alt:alts};
+      btn.disabled=true; var r=await api('PATCH','/api/seller-storefront/items/'+id,body);
+      if(r.success){msg('Changes saved.',true);loadItems();} else{msg(r.message||'Could not save');btn.disabled=false;}
     }
     function editPickup(id){
       var box=document.getElementById('pk-'+id); if(!box)return;

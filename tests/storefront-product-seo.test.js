@@ -235,3 +235,47 @@ describe('one canonical URL per item; no private data in public output', () => {
     }
   });
 });
+
+describe('editing product details on existing listings', () => {
+  test('a seller adds, changes and clears product details on an existing item; the page follows the database', async () => {
+    const it = await add('nora', { title: 'Carved Oak Chest' });
+    expect(product((await page(it)).html).brand).toBeUndefined();
+    await items.updateItem(it.id, U.nora.id, { condition_type: 'used', era_or_period: 'Victorian', brand: 'Gillows', material: 'Oak',
+      image_alt: ['Front of the carved oak chest', 'Detail of the carving'] });
+    let r = await page(it); let p = product(r.html);
+    expect(p).toMatchObject({ brand: { name: 'Gillows' }, material: 'Oak', itemCondition: 'https://schema.org/UsedCondition' });
+    expect(p.additionalProperty).toEqual(expect.arrayContaining([{ '@type': 'PropertyValue', name: 'Era or period', value: 'Victorian' }]));
+    expect(r.html).toContain('alt="Detail of the carving"');
+    const row = await one('SELECT brand, era_or_period, image_alt FROM marketplace_items WHERE id = $1', [it.id]);
+    expect(row).toEqual({ brand: 'Gillows', era_or_period: 'Victorian', image_alt: ['Front of the carved oak chest', 'Detail of the carving'] });
+    // clearing a field (empty text) removes it everywhere — nothing is kept or guessed
+    await items.updateItem(it.id, U.nora.id, { brand: '', condition_type: '' });
+    p = product((await page(it)).html);
+    expect(p.brand).toBeUndefined(); expect(p.itemCondition).toBeUndefined();
+    expect(await one('SELECT brand, condition_type FROM marketplace_items WHERE id = $1', [it.id])).toEqual({ brand: null, condition_type: null });
+  });
+  test('an invalid barcode on an existing item is refused and nothing changes; only the fields sent are changed', async () => {
+    const it = await add('nora', { title: 'Pressed Glass Bowl', brand: 'Fenton', material: 'Glass' });
+    await expect(items.updateItem(it.id, U.nora.id, { gtin: '012345678901', title: 'Renamed' })).rejects.toMatchObject({ code: 'GTIN_INVALID' });
+    expect(await one('SELECT title, gtin, brand FROM marketplace_items WHERE id = $1', [it.id])).toEqual({ title: 'Pressed Glass Bowl', gtin: null, brand: 'Fenton' });
+    await items.updateItem(it.id, U.nora.id, { mpn: 'FB-12' });
+    expect(await one('SELECT brand, material, mpn FROM marketplace_items WHERE id = $1', [it.id])).toEqual({ brand: 'Fenton', material: 'Glass', mpn: 'FB-12' });
+  });
+  test("a sold item's details stay as they were at the sale; another seller cannot edit the details", async () => {
+    const it = await add('nora', { title: 'Sold Clock', brand: 'Seth Thomas' });
+    await expect(items.updateItem(it.id, U.sue.id, { brand: 'Fake Brand' })).rejects.toMatchObject({ code: 'NOT_OWNER' });
+    await q(`UPDATE marketplace_items SET status = 'sold' WHERE id = $1`, [it.id]);
+    await expect(items.updateItem(it.id, U.nora.id, { brand: 'Changed' })).rejects.toMatchObject({ code: 'ITEM_SOLD' });
+    expect((await one('SELECT brand FROM marketplace_items WHERE id = $1', [it.id])).brand).toBe('Seth Thomas');
+  });
+  test('the seller page offers editing for existing items (not sold or in checkout) and its script is valid', () => {
+    const h = fs.readFileSync(path.join(ROOT, 'public', 'seller-storefront.html'), 'utf8');
+    expect(h).toMatch(/function editDetails\(id\)/);
+    expect(h).toMatch(/var editable=m\.status!=='sold'&&m\.status!=='pending_purchase';/);
+    for (const k of ['condition_type', 'era_or_period', 'brand', 'manufacturer', 'material', 'mpn', 'gtin', 'image_alt']) expect(h).toContain(k + ':');
+    for (const s of [...h.matchAll(/<script>([\s\S]*?)<\/script>/g)].map((m) => m[1])) {
+      // eslint-disable-next-line no-new-func
+      expect(() => new Function(s)).not.toThrow();
+    }
+  });
+});
