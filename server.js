@@ -630,6 +630,7 @@ app.use('/api/admin/events', adminEventsRoutes);
 app.use('/api/admin/event-imports', adminEventImportsRoutes);
 app.use('/api/admin/event-partners', adminEventPartnersRoutes);
 app.use('/api/admin/marketplace', adminMarketplaceRoutes);
+app.use('/api/admin/storefront', require('./src/routes/adminStorefrontModeration')); // storefront moderation: takedowns, reports, order issues (marketplace.moderate; mig 198)
 app.use('/api/admin/marketplace-links', adminMarketplaceLinkRoutes);
 app.use('/api/admin/partners', adminPartnersRoutes);
 app.use('/api/admin/crm', adminCrmRoutes);

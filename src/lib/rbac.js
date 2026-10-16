@@ -44,6 +44,9 @@ const PERMISSIONS = [
   'support.view',    // read conversations, handoffs and Sasha activity
   'support.manage',  // take over / return / reply / resolve, and maintain support knowledge
   // (Sasha's operational switches and budget stay Super-Admin only — see adminSasha.js.)
+  // Professional Storefront moderation (milestone 2): listing takedown/restore, buyer reports and order issues.
+  // Super Admin only until granted to a staff role or person.
+  'marketplace.moderate',
   // System
   'system.manage', 'diagnostics.view',
 ];

@@ -25,6 +25,8 @@
     input{padding:7px 9px;border:1px solid #d7dde5;border-radius:7px;font-family:inherit;font-size:13px;margin:6px 6px 0 0}
     .err{color:#b91c1c;font-size:13px}
     .money{font-family:Fraunces;font-weight:700}
+    .issue{background:#fff7ed;border:1px solid #fed7aa;border-radius:10px;padding:8px 10px;margin-top:10px;font-size:13px}
+    .issue textarea{width:100%;padding:8px;border:1px solid #d7dde5;border-radius:8px;font-family:inherit;font-size:13px;margin-top:6px}
   </style>
 </head>
 <body>
@@ -41,8 +43,15 @@
     function hdr(){return {Authorization:'Bearer '+token};}
     if(!token){location.href='/login.html?next=/seller-orders.html';}
 
+    var ISSUES={};
+    var LABEL={not_received:'Item not received',not_as_described:'Not as described',damaged:'Damaged',pickup_problem:'Pickup problem',refund_request:'Refund request',other:'Other'};
     function load(){
-      fetch('/api/marketplace/seller/orders',{headers:hdr()}).then(function(r){return r.json();}).then(function(res){
+      Promise.all([
+        fetch('/api/marketplace/seller/orders',{headers:hdr()}).then(function(r){return r.json();}),
+        fetch('/api/marketplace/seller/issues',{headers:hdr()}).then(function(r){return r.json();}).catch(function(){return {data:[]};})
+      ]).then(function(a){
+        var res=a[0];
+        ISSUES={};((a[1]&&a[1].data)||[]).forEach(function(i){(ISSUES[i.order_id]=ISSUES[i.order_id]||[]).push(i);});
         if(!res.success){document.getElementById('list').innerHTML='<p class="err">'+esc(res.message||'Could not load orders.')+'</p>';return;}
         var rows=res.data||[];
         if(!rows.length){document.getElementById('list').innerHTML='<p class="meta">No Marketplace orders yet.</p>';return;}
@@ -78,8 +87,28 @@
         '</div><div style="text-align:right"><div class="money">'+money(o.item_price_cents)+'</div>'+
         '<div class="meta">Your proceeds: '+money(o.seller_proceeds_cents)+'</div></div></div>'+
         '<div style="margin-top:8px">'+pay+ful+elig+'</div>'+
-        '<div>'+actions(o)+'</div></div>';
+        '<div>'+actions(o)+'</div>'+issuesFor(o)+'</div>';
     }
+
+    // Buyer issues on this order. An issue is not a finding about your business; Advantage.Bid reviews it with you.
+    function issuesFor(o){
+      return (ISSUES[o.id]||[]).map(function(i){
+        var body='<b>Buyer reported: '+esc(LABEL[i.category]||i.category)+'</b> · '+esc(String(i.status).replace(/_/g,' '))+'<div>'+esc(i.message)+'</div>';
+        if(i.seller_response) body+='<div style="margin-top:4px"><b>Your response:</b> '+esc(i.seller_response)+'</div>';
+        else if(i.status==='open') body+='<textarea id="r_'+esc(i.id)+'" rows="3" maxlength="4000" placeholder="Your response to the buyer and Advantage.Bid" aria-label="Your response"></textarea>'+
+          '<button class="btn" data-respond="'+esc(i.id)+'">Send response</button>';
+        if(i.resolution_note) body+='<div style="margin-top:4px"><b>Advantage.Bid:</b> '+esc(i.resolution_note)+'</div>';
+        return '<div class="issue">'+body+'</div>';
+      }).join('');
+    }
+    document.getElementById('list').addEventListener('click',function(ev){
+      var id=ev.target.getAttribute('data-respond'); if(!id)return;
+      ev.target.disabled=true;
+      fetch('/api/marketplace/seller/issues/'+encodeURIComponent(id)+'/respond',{method:'POST',headers:Object.assign({'Content-Type':'application/json'},hdr()),
+        body:JSON.stringify({response:(document.getElementById('r_'+id)||{}).value||''})})
+        .then(function(r){return r.json();}).then(function(res){if(!res.success){alert(res.message||'Could not send.');ev.target.disabled=false;}else load();})
+        .catch(function(){alert('Network error.');ev.target.disabled=false;});
+    });
 
     function wire(o){
       document.querySelectorAll('[data-id="'+o.id+'"]').forEach(function(btn){

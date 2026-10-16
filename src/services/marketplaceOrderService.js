@@ -797,6 +797,9 @@ async function relistItem(itemId, sellerUserId) {
     if (!item) throw err(404, 'ITEM_NOT_FOUND', 'Item not found.');
     if (item.seller_id !== seller.id) throw err(403, 'NOT_OWNER', 'Not your listing.');
     if (!['removed', 'draft'].includes(item.status)) throw err(409, 'NOT_RELISTABLE', 'Only a removed or draft item can be relisted.');
+    if (item.moderation_status === 'taken_down') {
+      throw err(409, 'TAKEN_DOWN', 'This listing was removed by Advantage.Bid and cannot be put back on sale. Contact support if you have questions.');
+    }
     // A sold item stays sold even after it is removed from view: only a refunded or failed sale frees it again.
     const live = (await client.query(
       `SELECT count(*)::int AS n FROM marketplace_orders WHERE marketplace_item_id = $1 AND payment_status IN ('pending','processing','paid')`,

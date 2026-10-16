@@ -18,6 +18,9 @@ const authMiddleware = require('../middleware/authMiddleware');
 const roleMiddleware = require('../middleware/roleMiddleware');
 const orders = require('../services/marketplaceOrderService');
 const issues = require('../services/marketplaceOrderIssueService');
+const moderation = require('../services/marketplaceModerationService');
+// Seller routes pass through one checkpoint that resolves the seller company from the session (never the request).
+const seller = require('../middleware/requireSellerPermission');
 const { marketplaceCheckoutEnabled } = require('../lib/launchGuards');
 
 // PUBLIC (no login): the buyer UI reads this to decide whether to show Buy Now to every visitor, including
@@ -94,6 +97,14 @@ router.get('/orders/:id/history', async (req, res, next) => {
   } catch (e) { fail(res, e, next); }
 });
 
+// Report a public listing (signed-in buyers). The report is tied to the listing's own seller.
+router.post('/items/:id/report', async (req, res, next) => {
+  try {
+    const { category, message } = req.body || {};
+    return res.status(201).json({ success: true, data: await moderation.reportItem(req.params.id, req.user.id, { category, message }) });
+  } catch (e) { fail(res, e, next); }
+});
+
 router.get('/orders/:id', async (req, res, next) => {
   try {
     const o = await orders.getForBuyer(req.params.id, req.user.id);
@@ -103,13 +114,13 @@ router.get('/orders/:id', async (req, res, next) => {
 });
 
 // ── Seller ────────────────────────────────────────────────────────────────────────────────────────────
-router.get('/seller/orders', async (req, res, next) => {
+router.get('/seller/orders', seller('company.orders.view'), async (req, res, next) => {
   try { return res.json({ success: true, data: await orders.listForSeller(req.user.id) }); }
   catch (e) { fail(res, e, next); }
 });
 
 // Advance fulfillment: ready_for_pickup | picked_up | shipped | complete. Seller cannot touch any money field.
-router.post('/seller/orders/:id/fulfillment', async (req, res, next) => {
+router.post('/seller/orders/:id/fulfillment', seller('company.orders.fulfil'), async (req, res, next) => {
   try {
     const { action, tracking_carrier, tracking_number } = req.body || {};
     const o = await orders.updateFulfillment(req.params.id, req.user.id, action, { tracking_carrier, tracking_number });
@@ -117,24 +128,24 @@ router.post('/seller/orders/:id/fulfillment', async (req, res, next) => {
   } catch (e) { fail(res, e, next); }
 });
 
-router.get('/seller/orders/:id/history', async (req, res, next) => {
+router.get('/seller/orders/:id/history', seller('company.orders.view'), async (req, res, next) => {
   try {
     const h = await orders.orderHistory(req.params.id, { sellerUserId: req.user.id });
     if (!h) return res.status(404).json({ success: false, message: 'Order not found.' });
     return res.json({ success: true, data: h });
   } catch (e) { fail(res, e, next); }
 });
-router.get('/seller/issues', async (req, res, next) => {
+router.get('/seller/issues', seller('company.issues.view'), async (req, res, next) => {
   try { return res.json({ success: true, data: await issues.listForSeller(req.user.id) }); }
   catch (e) { fail(res, e, next); }
 });
-router.post('/seller/issues/:id/respond', async (req, res, next) => {
+router.post('/seller/issues/:id/respond', seller('company.issues.respond'), async (req, res, next) => {
   try { return res.json({ success: true, data: await issues.respond(req.params.id, req.user.id, { response: (req.body || {}).response }) }); }
   catch (e) { fail(res, e, next); }
 });
 
 // Explicitly relist a refunded/removed/draft item back to the public Marketplace (never automatic).
-router.post('/seller/items/:itemId/relist', async (req, res, next) => {
+router.post('/seller/items/:itemId/relist', seller('company.inventory.edit'), async (req, res, next) => {
   try { return res.json({ success: true, data: await orders.relistItem(req.params.itemId, req.user.id) }); }
   catch (e) { fail(res, e, next); }
 });

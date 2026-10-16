@@ -22,6 +22,11 @@
     .meta{color:#64748b;font-size:13px;margin:3px 0}
     .money{font-family:Fraunces;font-weight:700}
     .err{color:#b91c1c;font-size:13px}
+    .btn{border:none;border-radius:9px;padding:7px 12px;font-weight:700;font-size:13px;cursor:pointer;font-family:inherit;background:#fff;color:#0f172a;border:1px solid #e6eaef;margin-top:8px}
+    .btn-primary{background:#2563eb;color:#fff;border-color:#2563eb}
+    .issue{background:#fff7ed;border:1px solid #fed7aa;border-radius:10px;padding:8px 10px;margin-top:8px;font-size:13px}
+    .form{margin-top:8px;display:none}.form.on{display:block}
+    .form select,.form textarea{width:100%;padding:8px;border:1px solid #d7dde5;border-radius:8px;font-family:inherit;font-size:13px;margin-top:6px}
   </style>
 </head>
 <body>
@@ -37,12 +42,51 @@
     function dt(v){try{return new Date(v).toLocaleDateString();}catch(e){return '';}}
     if(!token){location.href='/login.html?next=/marketplace-purchases.html';}
 
-    fetch('/api/marketplace/orders/mine',{headers:{Authorization:'Bearer '+token}}).then(function(r){return r.json();}).then(function(res){
-      if(!res.success){document.getElementById('list').innerHTML='<p class="err">'+esc(res.message||'Could not load purchases.')+'</p>';return;}
-      var rows=res.data||[];
-      if(!rows.length){document.getElementById('list').innerHTML='<p class="meta">You have no Marketplace purchases yet. <a href="/">Explore the Marketplace</a></p>';return;}
-      document.getElementById('list').innerHTML=rows.map(card).join('');
-    }).catch(function(){document.getElementById('list').innerHTML='<p class="err">Network error.</p>';});
+    var ISSUES={};
+    var LABEL={not_received:'Item not received',not_as_described:'Not as described',damaged:'Damaged',pickup_problem:'Pickup problem',refund_request:'Refund request',other:'Other'};
+    function hdr(){return {Authorization:'Bearer '+token};}
+    function load(){
+      Promise.all([
+        fetch('/api/marketplace/orders/mine',{headers:hdr()}).then(function(r){return r.json();}),
+        fetch('/api/marketplace/issues/mine',{headers:hdr()}).then(function(r){return r.json();}).catch(function(){return {data:[]};})
+      ]).then(function(a){
+        var res=a[0];
+        if(!res.success){document.getElementById('list').innerHTML='<p class="err">'+esc(res.message||'Could not load purchases.')+'</p>';return;}
+        ISSUES={};(a[1].data||[]).forEach(function(i){(ISSUES[i.order_id]=ISSUES[i.order_id]||[]).push(i);});
+        var rows=res.data||[];
+        if(!rows.length){document.getElementById('list').innerHTML='<p class="meta">You have no Marketplace purchases yet. <a href="/">Explore the Marketplace</a></p>';return;}
+        document.getElementById('list').innerHTML=rows.map(card).join('');
+      }).catch(function(){document.getElementById('list').innerHTML='<p class="err">Network error.</p>';});
+    }
+    load();
+
+    function issuesBlock(o){
+      var list=(ISSUES[o.id]||[]).map(function(i){
+        var st=i.status==='open'?'Open — we are reviewing it':(i.status==='seller_responded'?'The seller responded':(i.status==='resolved'?'Resolved':'Closed'));
+        return '<div class="issue"><b>'+esc(LABEL[i.category]||i.category)+'</b> · '+esc(st)+'<div>'+esc(i.message)+'</div>'+
+          (i.seller_response?'<div style="margin-top:4px"><b>Seller:</b> '+esc(i.seller_response)+'</div>':'')+
+          (i.resolution_note?'<div style="margin-top:4px"><b>Advantage.Bid:</b> '+esc(i.resolution_note)+'</div>':'')+'</div>';
+      }).join('');
+      var form='<button class="btn" data-open="'+esc(o.id)+'">Report a problem with this order</button>'+
+        '<div class="form" id="f_'+esc(o.id)+'"><select id="c_'+esc(o.id)+'" aria-label="What is the problem?"><option value="">What is the problem?</option>'+
+        Object.keys(LABEL).map(function(k){return '<option value="'+k+'">'+esc(LABEL[k])+'</option>';}).join('')+'</select>'+
+        '<textarea id="m_'+esc(o.id)+'" rows="3" maxlength="4000" placeholder="Describe what happened" aria-label="Describe what happened"></textarea>'+
+        '<button class="btn btn-primary" data-send="'+esc(o.id)+'">Send to Advantage.Bid</button><div class="err" id="e_'+esc(o.id)+'"></div></div>';
+      return list+form;
+    }
+
+    document.getElementById('list').addEventListener('click',function(ev){
+      var open=ev.target.getAttribute('data-open'), send=ev.target.getAttribute('data-send');
+      if(open){document.getElementById('f_'+open).classList.toggle('on');return;}
+      if(!send)return;
+      ev.target.disabled=true;
+      fetch('/api/marketplace/orders/'+encodeURIComponent(send)+'/issues',{method:'POST',headers:Object.assign({'Content-Type':'application/json'},hdr()),
+        body:JSON.stringify({category:document.getElementById('c_'+send).value,message:document.getElementById('m_'+send).value})})
+        .then(function(r){return r.json();}).then(function(res){
+          if(!res.success){ev.target.disabled=false;document.getElementById('e_'+send).textContent=res.message||'Could not send.';return;}
+          load();
+        }).catch(function(){ev.target.disabled=false;document.getElementById('e_'+send).textContent='Network error.';});
+    });
 
     function card(o){
       var pay=o.refund_status==='refunded'?'<span class="pill pill-refunded">Refunded</span>':(o.refund_status==='partially_refunded'?'<span class="pill pill-refunded">Partially refunded</span>':'<span class="pill pill-paid">Paid</span>');
@@ -54,7 +98,7 @@
         '<div class="meta">Sold by '+seller+'</div>'+
         '<div class="meta">Order '+esc(o.order_number)+' · '+dt(o.created_at)+' · '+(o.fulfillment_method==='shipping'?'Shipping':'Local pickup')+'</div>'+
         track+
-        '<div style="margin-top:6px">'+pay+ful+'</div></div>'+
+        '<div style="margin-top:6px">'+pay+ful+'</div>'+issuesBlock(o)+'</div>'+
         '<div style="text-align:right"><div class="money">'+money(o.total_charge_cents)+'</div></div></div>';
     }
   </script>

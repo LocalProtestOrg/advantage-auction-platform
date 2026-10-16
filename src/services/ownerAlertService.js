@@ -70,6 +70,9 @@ const ALERT_TYPES = {
   FOUNDING_PARTNER_INTRO_ENDING: 'founding_partner_intro_ending',
   // An invited partner signed the Auction Partner Program Addendum: review verification, then activate.
   AUCTION_PARTNER_SIGNED: 'auction_partner_signed',
+  // Storefront milestone 2: a buyer reported a listing / opened an issue on an order (no customer details in the text).
+  STOREFRONT_ITEM_REPORT: 'storefront_item_report',
+  STOREFRONT_ORDER_ISSUE: 'storefront_order_issue',
 };
 
 // ── Recipient routing (role-ready) ────────────────────────────────────────────

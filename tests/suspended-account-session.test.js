@@ -20,6 +20,8 @@ jest.mock('../src/db', () => ({
       const id = params && params[0];
       return { rows: mockAccounts.has(id) ? [{ is_active: mockAccounts.get(id) }] : [] };
     }
+    // The seller checkpoint (requireSellerPermission) resolves the seller company from the session's user.
+    if (/FROM seller_profiles WHERE user_id = \$1/.test(sql) && params && /^seller-/.test(params[0])) return { rows: [{ id: 'sp-' + params[0], seller_type: 'auction_house' }] };
     return { rows: [] };
   }),
   connect: jest.fn(),

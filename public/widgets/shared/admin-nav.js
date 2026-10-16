@@ -100,6 +100,7 @@
       { href: '/admin/imported-events.html', label: 'Imported Events' },
       { href: '/admin/invoices.html', label: 'Invoices' },
       { href: '/admin/marketplace-orders.html', label: 'Storefront Orders' },
+      { href: '/admin/storefront-moderation.html', label: 'Storefront Moderation', perm: 'marketplace.moderate' },
     ] },
     { key: 'people', label: 'People & Sellers', title: 'People & Sellers', links: [
       { href: '/admin/users.html', label: 'Users' },

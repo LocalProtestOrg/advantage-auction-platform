@@ -100,9 +100,34 @@
         (loc?'<div class="meta">📍 '+esc(loc)+'</div>':'')+
         buyBox+
         (it.description?'<div class="desc">'+esc(it.description)+'</div>':'')+
+        '<p class="meta" style="margin-top:18px"><a href="#" id="reportLink">Report this listing</a></p>'+
         '</div></div>'+
         '<script type="application/ld+json">'+JSON.stringify(jsonld).replace(/</g,'\\u003c')+'<\/script>';
       var b=document.getElementById('buyNow'); if(b)b.addEventListener('click',startCheckout);
+      var rl=document.getElementById('reportLink'); if(rl)rl.addEventListener('click',function(e){e.preventDefault();openReport();});
+    }
+
+    // Report a listing (signed-in). Our team reviews every report; a report is not a finding against the seller.
+    function openReport(){
+      if(!token){location.href='/login.html?next='+encodeURIComponent(location.pathname+location.search);return;}
+      openModal('<h3>Report this listing</h3><div class="meta">Tell us what is wrong. Our team reviews every report.</div>'+
+        '<label for="rc">What is the problem?</label><select id="rc">'+
+        '<option value="">Choose one…</option><option value="prohibited_item">Item is not allowed to be sold</option><option value="counterfeit">Counterfeit or fake</option>'+
+        '<option value="misleading">Misleading description or photos</option><option value="wrong_category">Wrong category</option><option value="offensive">Offensive content</option><option value="other">Something else</option></select>'+
+        '<label for="rm">Details</label><textarea id="rm" rows="4" maxlength="2000" style="width:100%;padding:8px;border:1px solid #d7dde5;border-radius:8px;font-family:inherit"></textarea>'+
+        '<div class="err" id="rErr"></div>'+
+        '<div style="margin-top:16px;display:flex;gap:8px"><button class="btn btn-primary" id="rSend">Send report</button><button class="btn btn-ghost" id="rCancel">Cancel</button></div>');
+      document.getElementById('rCancel').addEventListener('click',closeModal);
+      document.getElementById('rSend').addEventListener('click',function(){
+        var btn=this; btn.disabled=true;
+        fetch('/api/marketplace/items/'+encodeURIComponent(ID)+'/report',{method:'POST',headers:Object.assign({'Content-Type':'application/json'},authHdr()),
+          body:JSON.stringify({category:document.getElementById('rc').value,message:document.getElementById('rm').value})})
+          .then(function(r){return r.json();}).then(function(res){
+            if(!res.success){btn.disabled=false;document.getElementById('rErr').textContent=res.message||'Could not send the report.';return;}
+            openModal('<h3>Thank you</h3><p class="meta">'+(res.data&&res.data.already_reported?'You already reported this listing. Our team will review it.':'Your report was sent. Our team will review it.')+'</p><div style="margin-top:16px"><button class="btn btn-primary" id="rDone">Close</button></div>');
+            document.getElementById('rDone').addEventListener('click',closeModal);
+          }).catch(function(){btn.disabled=false;document.getElementById('rErr').textContent='Network error.';});
+      });
     }
 
     function openModal(html){document.getElementById('sheet').innerHTML=html;document.getElementById('modal').classList.add('on');}

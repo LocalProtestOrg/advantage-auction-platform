@@ -24,6 +24,7 @@ const rbac = require('../lib/rbac');
 // the authoritative data gate regardless of page access.
 const ADMIN_PAGE_PERMISSIONS = {
   '/admin/sales.html': 'sales.view',
+  '/admin/storefront-moderation.html': 'marketplace.moderate',
   '/admin/staff.html': 'staff.view',
   '/admin/subscribers.html': 'members.view',
   '/admin/marketing-campaigns.html': 'members.view',

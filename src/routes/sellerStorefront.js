@@ -12,19 +12,22 @@ const db = require('../db');
 const storefront = require('../services/storefrontService');
 const items = require('../services/marketplaceItemService');
 const { asyncRoute } = require('../utils/apiError');
+// Changes pass through the seller checkpoint (seller company resolved from the session). Reads keep their existing
+// "no seller profile → empty list" behaviour for pages shown to every member.
+const seller = require('../middleware/requireSellerPermission');
 
 router.use(auth);
 const fail = (res, e, next) => { if (e.status) return res.status(e.status).json({ success: false, code: e.code, message: e.message, missing: e.missing || undefined }); next(e); };
 
 // ── Storefront config ──────────────────────────────────────────────────────────
 router.get('/config', asyncRoute(async (req, res) => res.json({ success: true, data: await storefront.getOwnerConfig(req.user.id) })));
-router.put('/config', async (req, res, next) => {
+router.put('/config', seller('company.storefront.manage'), async (req, res, next) => {
   try { return res.json({ success: true, data: await storefront.updateConfig(req.user.id, req.body || {}) }); }
   catch (e) { fail(res, e, next); }
 });
 
 // Default storefront pickup location — confirmed once; items use it automatically (PRIVATE, owner-only).
-router.put('/pickup-location', async (req, res, next) => {
+router.put('/pickup-location', seller('company.storefront.manage'), async (req, res, next) => {
   try { return res.json({ success: true, data: await storefront.setDefaultPickupLocation(req.user.id, req.body || {}) }); }
   catch (e) { fail(res, e, next); }
 });
@@ -35,11 +38,11 @@ router.get('/items', asyncRoute(async (req, res) => {
   if (!s) return res.json({ success: true, data: [] });
   return res.json({ success: true, data: await items.listForSeller(s.id) });
 }));
-router.post('/items', async (req, res, next) => {
+router.post('/items', seller('company.inventory.edit'), async (req, res, next) => {
   try { return res.status(201).json({ success: true, data: await items.createDirectListing(req.user.id, req.body || {}) }); }
   catch (e) { fail(res, e, next); }
 });
-router.patch('/items/:id', async (req, res, next) => {
+router.patch('/items/:id', seller('company.inventory.edit'), async (req, res, next) => {
   try { return res.json({ success: true, data: await items.updateItem(req.params.id, req.user.id, req.body || {}) }); }
   catch (e) { fail(res, e, next); }
 });
@@ -50,7 +53,7 @@ router.get('/unsold-lots', asyncRoute(async (req, res) => {
   if (!s) return res.json({ success: true, data: [] });
   return res.json({ success: true, data: await items.listUnsoldEligible(s.id) });
 }));
-router.post('/unsold-lots/:lotId/convert', async (req, res, next) => {
+router.post('/unsold-lots/:lotId/convert', seller('company.inventory.edit'), async (req, res, next) => {
   try {
     const b = req.body || {};
     const r = await items.convertLotToListing(req.params.lotId, req.user.id, { priceCents: b.price_cents, edits: b.edits });
@@ -59,7 +62,7 @@ router.post('/unsold-lots/:lotId/convert', async (req, res, next) => {
   } catch (e) { fail(res, e, next); }
 });
 // Bulk convert (explicit list of lot ids; each idempotent + independently guarded).
-router.post('/unsold-lots/convert-batch', async (req, res, next) => {
+router.post('/unsold-lots/convert-batch', seller('company.inventory.edit'), async (req, res, next) => {
   try {
     const ids = Array.isArray((req.body || {}).lot_ids) ? req.body.lot_ids.slice(0, 100) : [];
     const out = { converted: 0, skipped: 0, errors: [] };
@@ -79,7 +82,7 @@ router.get('/inquiries', asyncRoute(async (req, res) => {
     'SELECT id, name, email, phone, city, service, preferred_contact, message, status, seller_notes, created_at FROM seller_inquiries WHERE seller_id = $1 ORDER BY created_at DESC LIMIT 200', [s.id]);
   return res.json({ success: true, data: rows });
 }));
-router.patch('/inquiries/:id', asyncRoute(async (req, res) => {
+router.patch('/inquiries/:id', seller('company.storefront.manage'), asyncRoute(async (req, res) => {
   const s = await items.sellerForUser(req.user.id);
   if (!s) return res.status(403).json({ success: false, message: 'No seller profile.' });
   const b = req.body || {};

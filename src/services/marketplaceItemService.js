@@ -233,6 +233,10 @@ async function updateItem(id, actingUserId, patch = {}) {
   }
   if (patch.status != null) {
     if (!['draft', 'active', 'sold', 'removed'].includes(patch.status)) throw err(400, 'INVALID_STATUS', 'That status is not available.');
+    // A listing an administrator took down stays down until an administrator restores it (database-enforced too).
+    if (item.moderation_status === 'taken_down' && patch.status !== item.status) {
+      throw err(409, 'TAKEN_DOWN', 'This listing was removed by Advantage.Bid and cannot be put back on sale. Contact support if you have questions.');
+    }
     const allowed = SELLER_TRANSITIONS[item.status] || [];
     if (!allowed.includes(patch.status) || (orders.paid > 0 && ['draft', 'active'].includes(patch.status))) {
       throw err(409, 'ITEM_SOLD', 'This item has been sold. It can be removed from view but not offered again.');

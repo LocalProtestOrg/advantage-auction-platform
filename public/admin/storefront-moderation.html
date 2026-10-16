@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="noindex, nofollow" />
+  <title>Storefront Moderation - Admin</title>
+  <style>
+    *,*::before,*::after{box-sizing:border-box}
+    body{margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#f1f5f9;color:#1f2937}
+    .wrap{max-width:1200px;margin:0 auto;padding:1.25rem 1rem 4rem}
+    h1{font-size:1.3rem;margin:0 0 .4rem}
+    .sub{color:#64748b;font-size:13px;margin:0 0 1rem}
+    .tabs{display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap}
+    .tab{padding:8px 14px;border-radius:8px;border:1.5px solid #cbd5e1;background:#fff;font-weight:700;font-size:13px;cursor:pointer}
+    .tab.on{background:#0f172a;color:#fff;border-color:#0f172a}
+    .bar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+    .bar select,.bar input{padding:8px 10px;border:1.5px solid #cbd5e1;border-radius:7px;font-size:14px}
+    .bar button{padding:8px 14px;border:none;border-radius:7px;background:#2563eb;color:#fff;font-weight:700;cursor:pointer}
+    .tblwrap{overflow-x:auto;background:#fff;border-radius:10px}
+    table{width:100%;border-collapse:collapse;min-width:900px}
+    th,td{text-align:left;padding:9px 10px;font-size:13px;border-bottom:1px solid #f1f5f9;vertical-align:top}
+    th{background:#f8fafc;color:#475569;white-space:nowrap}
+    .badge{display:inline-block;font-size:11px;font-weight:800;padding:2px 8px;border-radius:999px;white-space:nowrap;margin-right:4px}
+    .ok{background:#dcfce7;color:#166534}.no{background:#fee2e2;color:#991b1b}.neutral{background:#f1f5f9;color:#475569}.warn{background:#fef3c7;color:#92400e}
+    .btn{padding:6px 11px;border:none;border-radius:7px;font-weight:700;font-size:12px;cursor:pointer;margin:2px 4px 2px 0}
+    .btn-danger{background:#fee2e2;color:#991b1b}.btn-ok{background:#dcfce7;color:#166534}.btn-mut{background:#e2e8f0;color:#475569}
+    .btn[disabled]{opacity:.5;cursor:not-allowed}
+    .reason{width:100%;min-width:220px;margin:4px 0;padding:6px 8px;border:1.5px solid #cbd5e1;border-radius:6px;font-size:12px;font-family:inherit}
+    .msg{font-size:13px;color:#64748b;margin:8px 0}
+    .small{font-size:12px;color:#64748b}
+    .quote{white-space:pre-wrap;font-size:12px;background:#f8fafc;border-radius:6px;padding:6px 8px;margin-top:4px;max-width:420px}
+  </style>
+</head>
+<body>
+  <script src="/widgets/shared/admin-nav.js"></script>
+  <div class="wrap">
+    <h1>Storefront Moderation</h1>
+    <p class="sub">Professional Storefront listings, buyer reports and buyer order issues. Every takedown, restore and decision needs a written reason and is kept permanently. A report or an issue is not a finding against the seller. An issue about receiving the item places that order's payout on hold until you resolve it.</p>
+    <div class="tabs">
+      <button class="tab on" data-tab="issues">Order issues</button>
+      <button class="tab" data-tab="reports">Listing reports</button>
+      <button class="tab" data-tab="items">All listings</button>
+    </div>
+    <div class="bar" id="bar"></div>
+    <div class="msg" id="listmsg"></div>
+    <div class="tblwrap"><table><thead id="head"></thead><tbody id="rows"></tbody></table></div>
+  </div>
+  <script>
+    const token = localStorage.getItem('token');
+    if (!token) window.location.href = '/login.html';
+    function logout(){ localStorage.removeItem('token'); window.location.href = '/login.html'; }
+    window.adminLogout = logout;
+    function api(method, url, body){
+      const opts = { method, headers: { 'Content-Type':'application/json', 'Authorization':'Bearer '+token } };
+      if (body !== undefined) opts.body = JSON.stringify(body);
+      return fetch(url, opts).then(r => { if (r.status === 401){ logout(); throw new Error('Session expired'); } return r.json(); });
+    }
+    function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+    function money(c){ return '$'+((Number(c)||0)/100).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}); }
+    function fmtDate(d){ return d ? new Date(d).toLocaleString() : '-'; }
+    function label(s){ return esc(String(s||'').replace(/_/g,' ')); }
+    let TAB = 'issues';
+    const qs = new URLSearchParams(location.search);
+    if (qs.get('item')) TAB = 'items'; else if (qs.get('report')) TAB = 'reports';
+
+    const BARS = {
+      issues: '<select id="f"><option value="open">Open</option><option value="seller_responded">Seller responded</option><option value="resolved">Resolved</option><option value="closed">Closed</option><option value="">All</option></select><button id="go">Refresh</button>',
+      reports: '<select id="f"><option value="open">Open</option><option value="actioned">Actioned</option><option value="dismissed">Dismissed</option></select><button id="go">Refresh</button>',
+      items: '<select id="f"><option value="">All statuses</option><option value="active">Active</option><option value="sold">Sold</option><option value="removed">Removed</option><option value="draft">Draft</option></select><select id="m"><option value="">Any moderation</option><option value="taken_down">Taken down</option></select><select id="r"><option value="">Any reports</option><option value="open">Has open reports</option></select><input id="q" placeholder="Title or seller"><button id="go">Search</button>',
+    };
+    const HEADS = {
+      issues: '<tr><th>Order</th><th>Seller</th><th>Problem</th><th>Seller response</th><th>Status</th><th>Decision</th></tr>',
+      reports: '<tr><th>Listing</th><th>Seller</th><th>Report</th><th>Status</th><th>Decision</th></tr>',
+      items: '<tr><th>Listing</th><th>Seller</th><th>Price</th><th>Status</th><th>Reports / orders</th><th>Action</th></tr>',
+    };
+
+    function setTab(t){
+      TAB = t;
+      document.querySelectorAll('.tab').forEach(b => b.classList.toggle('on', b.getAttribute('data-tab') === t));
+      document.getElementById('bar').innerHTML = BARS[t];
+      document.getElementById('head').innerHTML = HEADS[t];
+      document.getElementById('go').addEventListener('click', load);
+      load();
+    }
+    document.querySelectorAll('.tab').forEach(b => b.addEventListener('click', () => setTab(b.getAttribute('data-tab'))));
+
+    function val(id){ const e = document.getElementById(id); return e ? e.value : ''; }
+    function load(){
+      const msg = document.getElementById('listmsg'); msg.textContent = 'Loading…';
+      let url;
+      if (TAB === 'issues') url = '/api/admin/storefront/issues' + (val('f') ? '?status=' + encodeURIComponent(val('f')) : '');
+      else if (TAB === 'reports') url = '/api/admin/storefront/reports?status=' + encodeURIComponent(val('f') || 'open');
+      else {
+        const p = new URLSearchParams();
+        if (val('f')) p.set('status', val('f')); if (val('m')) p.set('moderation', val('m')); if (val('r')) p.set('reported', val('r')); if (val('q')) p.set('q', val('q'));
+        url = '/api/admin/storefront/items' + (p.toString() ? '?' + p.toString() : '');
+      }
+      api('GET', url).then(res => {
+        if (!res.success){ msg.textContent = res.message || res.error || 'Could not load.'; document.getElementById('rows').innerHTML = ''; return; }
+        const rows = res.data || [];
+        msg.textContent = rows.length + ' shown';
+        document.getElementById('rows').innerHTML = rows.length ? rows.map(ROW[TAB]).join('') : '<tr><td colspan="6" class="small">Nothing here.</td></tr>';
+      }).catch(e => { msg.textContent = e.message; });
+    }
+
+    const reasonBox = (id, ph) => '<textarea class="reason" id="why-'+esc(id)+'" maxlength="1000" placeholder="'+esc(ph)+'" aria-label="'+esc(ph)+'"></textarea>';
+    const ROW = {
+      issues: (i) => {
+        const open = i.status === 'open' || i.status === 'seller_responded';
+        const act = open
+          ? reasonBox(i.id, 'How was this resolved? (required, kept permanently)') +
+            '<label class="small"><input type="checkbox" id="rel-'+esc(i.id)+'"> Release the payout hold this issue placed</label><br>' +
+            '<button class="btn btn-ok" data-act="resolve" data-id="'+esc(i.id)+'">Resolve</button><button class="btn btn-mut" data-act="close" data-id="'+esc(i.id)+'">Close</button>'
+          : '<div class="small">'+esc(i.resolution_note||'')+'</div><div class="small">'+esc(fmtDate(i.resolved_at))+'</div>';
+        return '<tr><td><b>'+esc(i.order_number)+'</b><div class="small">'+esc(fmtDate(i.created_at))+'</div></td>'+
+          '<td>'+esc(i.seller_name||'')+'</td>'+
+          '<td><span class="badge warn">'+label(i.category)+'</span><div class="quote">'+esc(i.message)+'</div></td>'+
+          '<td>'+(i.seller_response ? '<div class="quote">'+esc(i.seller_response)+'</div>' : '<span class="small">No response yet</span>')+'</td>'+
+          '<td><span class="badge '+(open?'warn':'ok')+'">'+label(i.status)+'</span></td>'+
+          '<td>'+act+'<div class="msg" id="m-'+esc(i.id)+'"></div></td></tr>';
+      },
+      reports: (r) => {
+        const act = r.status === 'open'
+          ? reasonBox(r.id, 'Decision note (required, kept permanently)') +
+            '<button class="btn btn-danger" data-act="report-takedown" data-id="'+esc(r.id)+'">Take listing down</button><button class="btn btn-mut" data-act="report-dismiss" data-id="'+esc(r.id)+'">Dismiss</button>'
+          : '<div class="small">'+esc(r.review_note||'')+'</div>';
+        return '<tr><td><a href="/item.html?id='+encodeURIComponent(r.item_id)+'" target="_blank" rel="noopener">'+esc(r.item_title)+'</a><div class="small">'+label(r.item_status)+(r.moderation_status==='taken_down'?' · taken down':'')+'</div></td>'+
+          '<td>'+esc(r.seller_name||'')+'</td>'+
+          '<td><span class="badge warn">'+label(r.category)+'</span><div class="quote">'+esc(r.message)+'</div><div class="small">'+esc(fmtDate(r.created_at))+'</div></td>'+
+          '<td><span class="badge '+(r.status==='open'?'warn':'neutral')+'">'+label(r.status)+'</span></td>'+
+          '<td>'+act+'<div class="msg" id="m-'+esc(r.id)+'"></div></td></tr>';
+      },
+      items: (it) => {
+        const down = it.moderation_status === 'taken_down';
+        const act = down
+          ? reasonBox(it.id, 'Why restore? (required)') + '<button class="btn btn-ok" data-act="restore" data-id="'+esc(it.id)+'">Restore</button>'
+          : reasonBox(it.id, 'Why take this down? (required)') + '<button class="btn btn-danger" data-act="takedown" data-id="'+esc(it.id)+'">Take down</button>';
+        return '<tr><td><a href="/item.html?id='+encodeURIComponent(it.id)+'" target="_blank" rel="noopener">'+esc(it.title)+'</a>'+(it.is_demo?' <span class="badge neutral">demo</span>':'')+'<div class="small">'+esc([it.city,it.state].filter(Boolean).join(', '))+'</div></td>'+
+          '<td>'+esc(it.seller_name||'')+'</td><td>'+money(it.price_cents)+'</td>'+
+          '<td><span class="badge neutral">'+label(it.status)+'</span>'+(down?'<span class="badge no">taken down</span><div class="small">'+esc(it.moderation_reason||'')+'</div>':'')+'</td>'+
+          '<td>'+(it.open_reports?'<span class="badge warn">'+it.open_reports+' open report(s)</span>':'<span class="small">none</span>')+'<div class="small">'+it.live_orders+' order(s)</div></td>'+
+          '<td>'+act+'<div class="msg" id="m-'+esc(it.id)+'"></div></td></tr>';
+      },
+    };
+
+    document.getElementById('rows').addEventListener('click', (ev) => {
+      const b = ev.target.closest('button[data-act]'); if (!b) return;
+      const id = b.getAttribute('data-id'), act = b.getAttribute('data-act');
+      const why = (document.getElementById('why-' + id) || {}).value || '';
+      const m = document.getElementById('m-' + id);
+      if (why.trim().length < 5){ if (m) m.textContent = 'Write a short reason first.'; return; }
+      let call;
+      if (act === 'resolve' || act === 'close') call = api('POST', '/api/admin/storefront/issues/' + encodeURIComponent(id) + '/resolve',
+        { status: act === 'close' ? 'closed' : 'resolved', resolution_note: why, release_hold: !!(document.getElementById('rel-' + id) || {}).checked });
+      else if (act === 'report-takedown' || act === 'report-dismiss') call = api('POST', '/api/admin/storefront/reports/' + encodeURIComponent(id) + '/review',
+        { action: act === 'report-takedown' ? 'takedown' : 'dismiss', note: why });
+      else call = api('POST', '/api/admin/storefront/items/' + encodeURIComponent(id) + '/' + act, { reason: why });
+      b.disabled = true;
+      call.then(res => { if (!res.success){ b.disabled = false; if (m) m.textContent = res.message || res.error || 'Could not save.'; return; } load(); })
+        .catch(e => { b.disabled = false; if (m) m.textContent = e.message; });
+    });
+    setTab(TAB);
+  </script>
+</body>
+</html>

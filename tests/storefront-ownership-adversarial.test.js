@@ -38,7 +38,9 @@ jest.mock('../src/db/index', () => mockAdapter());
 jest.mock('../src/services/auditService', () => ({ logEvent: jest.fn(async () => {}) }));
 jest.mock('../src/services/marketplaceOrderNotifier', () => ({ sendPaid: jest.fn(async () => {}), sendRefunded: jest.fn(async () => {}),
   sendConflictRefunded: jest.fn(async () => {}) }));
-jest.mock('../src/services/ownerAlertService', () => ({ notifyAdminActionRequired: jest.fn(async () => {}), ALERT_TYPES: { SETTLEMENT_EXCEPTION: 'x' } }));
+jest.mock('../src/services/ownerAlertService', () => ({ notifyAdminActionRequired: jest.fn(async () => {}),
+  ALERT_TYPES: { SETTLEMENT_EXCEPTION: 'x', STOREFRONT_ITEM_REPORT: 'storefront_item_report', STOREFRONT_ORDER_ISSUE: 'storefront_order_issue' } }));
+jest.mock('../src/services/emailService', () => ({ sendEmail: jest.fn(async () => ({ messageId: 'm' })), isConfigured: () => true }));
 jest.mock('../src/services/taxCalculationService', () => ({
   taxEnabled: () => false, addressComplete: () => true,
   computeTax: jest.fn(async () => ({ taxCents: 0, enabled: false, exempt: false, calculationId: null })),
@@ -72,7 +74,8 @@ process.env.STRIPE_SECRET_KEY = 'sk_test_placeholder_not_a_real_key';
 const ROOT = path.join(__dirname, '..');
 const mig = (f) => fs.readFileSync(path.join(ROOT, 'db', 'migrations', f), 'utf8');
 const BASE = `
-CREATE TABLE users (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), email text UNIQUE, full_name text, role text DEFAULT 'buyer', staff_role text,
+CREATE TABLE staff_permission_overrides (user_id uuid, permission text, effect text);
+CREATE TABLE users (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), email text UNIQUE, full_name text, role text DEFAULT 'buyer', staff_role text, staff_active boolean DEFAULT true,
   stripe_customer_id text, is_active boolean DEFAULT true, created_at timestamptz DEFAULT now());
 CREATE TABLE seller_profiles (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), user_id uuid UNIQUE REFERENCES users(id), seller_type text, display_name text,
   platform_fee_bps int, metadata jsonb DEFAULT '{}'::jsonb, is_demo boolean DEFAULT false, show_branding_to_buyers boolean DEFAULT true, created_at timestamptz DEFAULT now());
@@ -111,11 +114,13 @@ beforeAll(async () => {
   global.__PG = startPg();
   await global.__PG.exec(BASE);
   for (const f of ['119_seller_storefronts_marketplace.sql', '121_marketplace_orders.sql', '174_marketplace_checkout_hardening.sql',
-    '177_marketplace_item_pickup_location.sql', '178_seller_default_pickup_location.sql', '197_storefront_order_integrity.sql']) {
+    '177_marketplace_item_pickup_location.sql', '178_seller_default_pickup_location.sql', '197_storefront_order_integrity.sql',
+    '198_storefront_moderation_reports.sql']) {
     await global.__PG.exec(mig(f));
   }
   // migration 197 is idempotent
   await global.__PG.exec(mig('197_storefront_order_integrity.sql'));
+  await global.__PG.exec(mig('198_storefront_moderation_reports.sql'));
 
   for (const [name, role, staff] of [['nora', 'seller'], ['sue', 'seller'], ['bea', 'buyer'], ['ben', 'buyer'], ['admin', 'admin'], ['finance', 'buyer', 'finance']]) {
     U[name] = await one(`INSERT INTO users (email, full_name, role, staff_role) VALUES ($1, $2, $3, $4) RETURNING *`, [name + '@test.example', name.toUpperCase(), role, staff || null]);
@@ -138,6 +143,7 @@ beforeAll(async () => {
   app.use(express.json());
   app.use('/api/marketplace', require('../src/routes/marketplaceOrders'));
   app.use('/api/seller-storefront', require('../src/routes/sellerStorefront'));
+  app.use('/api/admin/storefront', require('../src/routes/adminStorefrontModeration'));
   await new Promise((r) => { server = app.listen(0, r); });
   base = 'http://127.0.0.1:' + server.address().port;
 }, 60000);
@@ -528,5 +534,162 @@ describe('storefront Buy Now never has a buyer\'s premium (separate from auction
     expect(orders.STOREFRONT_BUYER_PREMIUM_BPS).toBe(0);
     expect(fs.readFileSync(path.join(ROOT, 'src', 'services', 'marketplaceOrderNotifier.js'), 'utf8')).not.toMatch(/premium/i);
     expect(fs.readFileSync(path.join(ROOT, 'public', 'item.html'), 'utf8')).not.toMatch(/buyer'?s premium/i);
+  });
+});
+
+// ═════════════════════════════════════════════════════════════════════════════════════════════════════════
+const moderation = () => require('../src/services/marketplaceModerationService');
+
+describe('milestone 2: listing moderation', () => {
+  test('only an administrator (with a reason) can take a listing down; Sue, buyers and Finance staff cannot', async () => {
+    const it = await noraItem();
+    for (const who of ['sue', 'nora', 'bea', 'finance']) {
+      expect((await call(who, 'POST', '/api/admin/storefront/items/' + it.id + '/takedown', { reason: 'I do not like it' })).status).toBe(403);
+      expect((await call(who, 'GET', '/api/admin/storefront/items')).status).toBe(403);
+    }
+    expect((await call('admin', 'POST', '/api/admin/storefront/items/' + it.id + '/takedown', {})).body.code).toBe('REASON_REQUIRED');
+    expect(await one('SELECT status, moderation_status FROM marketplace_items WHERE id = $1', [it.id])).toEqual({ status: 'active', moderation_status: 'none' });
+    const ok = await call('admin', 'POST', '/api/admin/storefront/items/' + it.id + '/takedown', { reason: 'Prohibited item (test)' });
+    expect(ok.status).toBe(200);
+    expect(ok.body.data).toMatchObject({ status: 'removed', moderation_status: 'taken_down' });
+  });
+  test('a taken-down listing cannot be put back on sale by its seller (service, relist and database), and is not public', async () => {
+    const it = await noraItem();
+    await call('admin', 'POST', '/api/admin/storefront/items/' + it.id + '/takedown', { reason: 'Counterfeit (test)' });
+    const p = await call('nora', 'PATCH', '/api/seller-storefront/items/' + it.id, { status: 'active' });
+    expect(p.status).toBe(409); expect(p.body.code).toBe('TAKEN_DOWN');
+    const rl = await call('nora', 'POST', '/api/marketplace/seller/items/' + it.id + '/relist');
+    expect(rl.status).toBe(409); expect(rl.body.code).toBe('TAKEN_DOWN');
+    await rejects(`UPDATE marketplace_items SET status = 'active' WHERE id = $1`, [it.id]);
+    expect(await items.getPublicItem(it.id)).toBeNull();
+    await expect(orders.createOrder(it.id, U.bea.id, {})).rejects.toMatchObject({ code: 'NOT_AVAILABLE' });
+  });
+  test('restore returns the listing to its previous status; the history is permanent and names the real seller', async () => {
+    const it = await noraItem();
+    await call('admin', 'POST', '/api/admin/storefront/items/' + it.id + '/takedown', { reason: 'Checking provenance' });
+    const r = await call('admin', 'POST', '/api/admin/storefront/items/' + it.id + '/restore', { reason: 'Provenance confirmed' });
+    expect(r.body.data).toMatchObject({ status: 'active', moderation_status: 'none' });
+    const h = await q('SELECT action, seller_id, actor_user_id, prior_status FROM marketplace_item_moderation_events WHERE item_id = $1 ORDER BY created_at', [it.id]);
+    expect(h).toEqual([{ action: 'takedown', seller_id: SP.nora, actor_user_id: U.admin.id, prior_status: 'active' },
+      { action: 'restore', seller_id: SP.nora, actor_user_id: U.admin.id, prior_status: 'removed' }]);
+    await rejects(`UPDATE marketplace_item_moderation_events SET reason = 'edited' WHERE item_id = $1`, [it.id]);
+    await rejects('DELETE FROM marketplace_item_moderation_events WHERE item_id = $1', [it.id]);
+    await rejects(`INSERT INTO marketplace_item_moderation_events (item_id, seller_id, action, actor_user_id, reason) VALUES ($1,$2,'takedown',$3,'wrong seller')`, [it.id, SP.sue, U.admin.id]);
+    expect((await call('admin', 'POST', '/api/admin/storefront/items/' + it.id + '/restore', { reason: 'again please' })).body.code).toBe('NOT_TAKEN_DOWN');
+  });
+  test('a sold listing taken down and restored stays sold, and one in checkout cannot be taken down', async () => {
+    const sold = await noraItem(); await beaBuys(sold);
+    await moderation().takedown(sold.id, U.admin.id, { reason: 'Review after sale' });
+    expect((await moderation().restore(sold.id, U.admin.id, { reason: 'Fine after review' })).status).toBe('sold');
+    const held = await noraItem(); await orders.createOrder(held.id, U.ben.id, {});
+    await expect(moderation().takedown(held.id, U.admin.id, { reason: 'Mid checkout' })).rejects.toMatchObject({ code: 'ITEM_RESERVED' });
+  });
+});
+
+describe('milestone 2: buyer reports about a listing', () => {
+  test("a report naming Sue is still a report about Nora's listing; repeat reports are harmless; owners cannot report their own", async () => {
+    const it = await noraItem();
+    const r = await call('bea', 'POST', '/api/marketplace/items/' + it.id + '/report', { category: 'misleading', message: 'Photos are of a different piece', seller_id: SP.sue });
+    expect(r.status).toBe(201);
+    expect(await one('SELECT seller_id, reporter_user_id FROM marketplace_item_reports WHERE id = $1', [r.body.data.id])).toEqual({ seller_id: SP.nora, reporter_user_id: U.bea.id });
+    expect((await call('bea', 'POST', '/api/marketplace/items/' + it.id + '/report', { category: 'other', message: 'Again, same thing' })).body.data.already_reported).toBe(true);
+    expect((await call('nora', 'POST', '/api/marketplace/items/' + it.id + '/report', { category: 'other', message: 'Reporting myself' })).body.code).toBe('OWN_LISTING');
+    const draft = await noraItem({ status: 'draft' });
+    expect((await call('bea', 'POST', '/api/marketplace/items/' + draft.id + '/report', { category: 'other', message: 'Hidden listing' })).status).toBe(404);
+    const oa = require('../src/services/ownerAlertService');
+    const alert = oa.notifyAdminActionRequired.mock.calls.find((c) => c[0].actionType === 'storefront_item_report' && c[0].entityId === it.id);
+    expect(alert).toBeTruthy();
+    expect(JSON.stringify(alert[0])).not.toMatch(/bea@|Photos are of/);   // no reporter identity or words in the SMS
+  });
+  test("the database refuses a report pointing at another seller and keeps a report's words unchanged", async () => {
+    const it = await noraItem();
+    await rejects(`INSERT INTO marketplace_item_reports (item_id, seller_id, reporter_user_id, category, message) VALUES ($1,$2,$3,'other','wrong seller')`, [it.id, SP.sue, U.ben.id]);
+    const r = await moderation().reportItem(it.id, U.ben.id, { category: 'offensive', message: 'Offensive wording' });
+    await rejects(`UPDATE marketplace_item_reports SET message = 'changed' WHERE id = $1`, [r.id]);
+    await rejects('UPDATE marketplace_item_reports SET seller_id = $2 WHERE id = $1', [r.id, SP.sue]);
+    await rejects('DELETE FROM marketplace_item_reports WHERE id = $1', [r.id]);
+  });
+  test('an administrator acts on a report (takes the listing down) once; a reviewed report cannot be reopened', async () => {
+    const it = await noraItem();
+    const r = await moderation().reportItem(it.id, U.ben.id, { category: 'prohibited_item', message: 'Not allowed to sell this' });
+    expect((await call('sue', 'POST', '/api/admin/storefront/reports/' + r.id + '/review', { action: 'dismiss', note: 'Dismissing a rival' })).status).toBe(403);
+    const ok = await call('admin', 'POST', '/api/admin/storefront/reports/' + r.id + '/review', { action: 'takedown', note: 'Confirmed prohibited item' });
+    expect(ok.body.data.status).toBe('actioned');
+    expect((await one('SELECT moderation_status FROM marketplace_items WHERE id = $1', [it.id])).moderation_status).toBe('taken_down');
+    expect((await call('admin', 'POST', '/api/admin/storefront/reports/' + r.id + '/review', { action: 'dismiss', note: 'Changing my mind' })).body.code).toBe('ALREADY_REVIEWED');
+    await rejects(`UPDATE marketplace_item_reports SET status = 'open' WHERE id = $1`, [r.id]);
+  });
+});
+
+describe('milestone 2: buyer issues hold the payout for review without deciding fault', () => {
+  test('an issue about receiving the item holds the payout; fulfilment cannot make it payable; staff and seller are told without customer details', async () => {
+    const email = require('../src/services/emailService');
+    email.sendEmail.mockClear();
+    const o = await beaBuys(await noraItem());
+    const i = await issues.openIssue(o.id, U.bea.id, { category: 'damaged', message: 'Leg snapped in transit, photos available' });
+    expect(i.payout_held).toBe(true);
+    await call('nora', 'POST', '/api/marketplace/seller/orders/' + o.id + '/fulfillment', { action: 'picked_up' });
+    expect(await one('SELECT payout_hold, payout_eligible FROM marketplace_orders WHERE id = $1', [o.id])).toEqual({ payout_hold: true, payout_eligible: false });
+    const oa = require('../src/services/ownerAlertService');
+    const alert = oa.notifyAdminActionRequired.mock.calls.find((c) => c[0].actionType === 'storefront_order_issue' && c[0].entityId === i.id);
+    expect(alert).toBeTruthy();
+    expect(JSON.stringify(alert[0])).not.toMatch(/bea@test|BEA|Leg snapped/);
+    const mail = email.sendEmail.mock.calls.find((c) => c[0].to === 'nora@test.example');
+    expect(mail).toBeTruthy();
+    expect(mail[0].text).toMatch(/not a finding about your business/);
+    expect(JSON.stringify(mail[0])).not.toMatch(/bea@test|BEA|Leg snapped/);
+    expect(email.sendEmail.mock.calls.some((c) => c[0].to === 'sue@test.example')).toBe(false);
+  });
+  test('a pickup question does not hold the payout', async () => {
+    const o = await beaBuys(await noraItem());
+    const i = await issues.openIssue(o.id, U.bea.id, { category: 'pickup_problem', message: 'Can I come on Saturday?' });
+    expect(i.payout_held).toBe(false);
+    expect((await one('SELECT payout_hold FROM marketplace_orders WHERE id = $1', [o.id])).payout_hold).toBe(false);
+  });
+  test('only an administrator resolving the issue releases the hold, and never while a chargeback or another issue is open', async () => {
+    const o = await beaBuys(await noraItem());
+    const a = await issues.openIssue(o.id, U.bea.id, { category: 'not_received', message: 'Never arrived' });
+    const b = await issues.openIssue(o.id, U.bea.id, { category: 'other', message: 'Also a question' });
+    await expect(issues.resolve(a.id, U.admin.id, { resolution_note: 'Delivered per carrier', release_hold: true })).rejects.toMatchObject({ code: 'HOLD_STILL_NEEDED' });
+    await issues.resolve(b.id, U.admin.id, { resolution_note: 'Answered the question' });
+    const nora = await call('nora', 'POST', '/api/admin/storefront/issues/' + a.id + '/resolve', { resolution_note: 'I resolved it myself', release_hold: true });
+    expect(nora.status).toBe(403);
+    const ok = await call('admin', 'POST', '/api/admin/storefront/issues/' + a.id + '/resolve', { resolution_note: 'Delivered per carrier photo', release_hold: true });
+    expect(ok.body.data.payout_hold_released).toBe(true);
+    expect((await one('SELECT payout_hold FROM marketplace_orders WHERE id = $1', [o.id])).payout_hold).toBe(false);
+  });
+  test('a chargeback keeps the hold even when the issue is resolved', async () => {
+    const o = await beaBuys(await noraItem());
+    const a = await issues.openIssue(o.id, U.bea.id, { category: 'not_received', message: 'Never arrived at all' });
+    await disputes.handleDisputeEvent({ id: 'evt_m2', type: 'charge.dispute.created',
+      data: { object: { id: 'dp_m2', payment_intent: o.stripe_payment_intent_id, amount: o.total_charge_cents, currency: 'usd', reason: 'product_not_received', status: 'needs_response' } } });
+    await expect(issues.resolve(a.id, U.admin.id, { resolution_note: 'Resolved with buyer', release_hold: true })).rejects.toMatchObject({ code: 'HOLD_STILL_NEEDED' });
+  });
+});
+
+describe('milestone 2: seller permission architecture', () => {
+  const sellerRbac = require('../src/lib/sellerRbac');
+  const platformRbac = require('../src/lib/rbac');
+  test('no seller role can produce a platform permission or Super Admin', () => {
+    for (const role of Object.keys(sellerRbac.SELLER_ROLES)) {
+      for (const perm of sellerRbac.permissionsForRole(role)) expect(platformRbac.PERMISSIONS).not.toContain(perm);
+    }
+    expect(sellerRbac.SELLER_PERMISSIONS.some((p) => platformRbac.PERMISSIONS.includes(p))).toBe(false);
+    expect(platformRbac.isSuperAdmin({ role: 'seller', staff_role: 'owner' })).toBe(false);
+  });
+  test('roles grant only their job: fulfilment cannot edit listings or see finances; inventory cannot fulfil; only the owner manages staff or payouts', () => {
+    const can = (role, p) => sellerRbac.hasSellerPermission({ sellerId: 'x', role }, p);
+    expect(can('fulfillment', 'company.inventory.edit')).toBe(false); expect(can('fulfillment', 'company.finance.view')).toBe(false); expect(can('fulfillment', 'company.orders.fulfil')).toBe(true);
+    expect(can('inventory_manager', 'company.orders.fulfil')).toBe(false); expect(can('inventory_manager', 'company.inventory.edit')).toBe(true);
+    expect(can('finance', 'company.payout.manage')).toBe(false); expect(can('finance', 'company.finance.view')).toBe(true);
+    for (const r of ['inventory_manager', 'fulfillment', 'finance']) { expect(can(r, 'company.staff.manage')).toBe(false); expect(can(r, 'company.payout.manage')).toBe(false); }
+    expect(sellerRbac.STEP_UP_REQUIRED.has('company.payout.manage')).toBe(true);
+    expect(sellerRbac.hasSellerPermission({ role: 'owner' }, 'company.orders.view')).toBe(false);   // no seller company → nothing
+  });
+  test('the seller checkpoint resolves the company from the session: non-sellers are refused before any seller route runs', async () => {
+    for (const [m, url] of [['GET', '/api/marketplace/seller/orders'], ['GET', '/api/marketplace/seller/issues'], ['POST', '/api/seller-storefront/items']]) {
+      const r = await call('bea', m, url, m === 'POST' ? { title: 'x', price_cents: 100, seller_id: SP.nora } : undefined);
+      expect(r.status).toBe(403); expect(r.body.code).toBe('NOT_A_SELLER');
+    }
   });
 });
