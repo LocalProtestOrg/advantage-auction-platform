@@ -919,8 +919,9 @@ describe('shipping: review fixes (US only, quoted price confirmed, consistent pu
     const full = items.publicItem({ ...row, shipping_method: 'parcel', shipping_destinations: 'us_all', shipping_price_mode: 'flat' });
     expect(full).toMatchObject({ shippable: true, shipping_cost_cents: 1200 });
   });
-  test('the demo seed gives its shippable item complete shipping terms', () => {
+  test('the demo seed keeps its item pickup only (no invented shipping cost or delivery promise)', () => {
     const seed = fs.readFileSync(path.join(ROOT, 'scripts', 'seed-demo-storefront.js'), 'utf8');
-    expect(seed).toMatch(/'freight', 'flat', 'us_contiguous', true\)/);
+    expect(seed).toMatch(/'Maplewood','OH', false, NULL,/);
+    expect(seed).toMatch(/shippable=false, shipping_cost_cents=NULL/);
   });
 });

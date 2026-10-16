@@ -38,32 +38,33 @@ public marketing of unfinished features stay OFF until the readiness checks in �
 | Seller staff accounts (migration 199) | LIVE (5dab1ae, 2026-10-16), verified; OFF (`SELLER_STAFF_ENABLED` unset) until production phone-code + step-up verification |
 | Product SEO foundation (migration 200) | LIVE (5dab1ae, 2026-10-16), verified in production (see §4 "Built") |
 | Existing-item product detail editing | LIVE (34a547d, 2026-10-16), verified in production |
-| Shipping controls (migration 201, §7.1) | Built + tested on `feat/storefront-shipping`; security + financial review; awaiting owner approval (changes checkout pricing) |
+| Shipping controls (migration 201, §7.1) | LIVE (7ccd039, 2026-10-16), verified in production; demo items set to pickup only (owner) |
+| Staff one-company pilot (owner-approved approach) | In development (`feat/storefront-pilot-and-plan`) |
+| Sale notifications, inventory numbers, bulk import, settlement/statements, tax responsibility, compliance profile, tax-time reports (§8) | Requirements + architecture recorded 2026-10-16 (`storefront-notifications-inventory-finance-compliance-plan-2026-10-16.md`); not built |
 | Seller policies, storefront tabs, policy snapshots, storefront widget (§7.2–7.6) | Requirements recorded 2026-10-16; not built |
 | M3 retail settlement and payouts | Policy design awaiting owner decisions; nothing moves money |
 
-## 2. Development sequence (recommended; updated 2026-10-16 with the owner's §7 requirements)
+## 2. Development sequence (recommended; updated 2026-10-16 with the owner's §7 and §8 requirements)
 
-Done: seller staff accounts (LIVE, switched off pending production phone-code verification); product SEO foundation
-(LIVE); existing-item product detail editing (built, awaiting deploy).
+Done: staff accounts (LIVE, off), product SEO (LIVE), existing-item editing (LIVE), shipping controls (LIVE).
 
-1. **Production phone-code / step-up verification** with the owner, then the "Your Team" navigation and staff rollout.
-2. **Shipping settings and item-level shipping controls** (§7.1; migration). First, because policy pages, checkout
-   acknowledgment, the widget, the feed and import all depend on accurate shipping/pickup data. Includes closing two
-   existing gaps (§7.1 "Today").
-3. **Seller Store Terms and Shipping & Pickup Policy management** (§7.2; migration) — versioned, per seller organization.
-4. **Public storefront tabs and product-level policy links** (§7.3; no migration) — needs 2 and 3.
-5. **Immutable policy snapshots + acknowledgment for future checkout** (§7.4; migration) — needs 3; checkout stays OFF.
-6. **M3 retail settlement** — ledger, holds, reconciliation with transfers OFF; live transfers only after owner approval.
-   (Independent of 2–5; can run alongside them.)
-7. **Buyer marketplace search and filters; per-storefront search and filters** — needed by the widget.
-8. **Embeddable Professional Storefront widget** (§7.5–7.6; migration for widget settings) — needs 2–4 and 7.
-9. **Bulk CSV / spreadsheet import** — needs the final item data model (SEO fields + shipping fields).
-10. **Stripe production verification** (payments, webhooks, Connect onboarding, Tax registrations) and checkout readiness.
-11. **Shopping-network feed** (§4.4) — generate + validate internally; needs accurate shipping eligibility (2). Submit to
-    Google Merchant Center only after checkout is live, the merchant account is set up and the owner approves.
-12. **Public marketing launch** (§3) — only when functionality and payment readiness are verified. Nothing in §7 is
-    advertised as live before it is built, tested and deployed.
+1. **Staff one-company pilot** → production phone-code + step-up test by the authorised owner → "Your Team" rollout.
+2. **Seller Store Terms + Shipping & Pickup Policy** (§7.2; migration), **storefront tabs + item policy links** (§7.3),
+   **policy snapshots + acknowledgment** (§7.4; migration).
+3. **Inventory numbers** (§8.2, N2; small migration) — early, because notices, statements, exports and import depend on it.
+4. **Paid-sale seller notification outbox** (§8.1, N1; migration) — part of checkout readiness; must be operational
+   before live checkout.
+5. **Milestone 3 ledger, statements, payout batches and reconciliation** (§8.4, M3a/M3b; transfers OFF) together with the
+   **tax responsibility model** (§8.5, T1). The ledger is designed before any live money movement.
+6. **Seller compliance profile** (§8.6, C1; incl. encrypting the existing plain-text EIN) and **tax-time reports**
+   (§8.7, R1; exports only, no filing).
+7. **Product search and ~10 high-value filters** (marketplace + per storefront).
+8. **Embeddable Professional Storefront widget** (§7.5–7.6; checkout only on Advantage.Bid) — major deliverable.
+9. **Bulk inventory import + image migration** (§8.3, I1) — major deliverable.
+10. **Stripe production verification** and checkout readiness (§6), then **shopping-network feeds** (§4.4).
+11. **Public marketing launch** (§3) once features and payment readiness are verified.
+Nothing is advertised as live before it is built, tested and deployed. Live checkout, payouts, external feeds, tax
+filing and tax remittance stay OFF until explicitly approved.
 
 ## 3. TODO — Public-facing Professional Seller marketing (owner requirement 2026-10-16)
 
@@ -179,6 +180,10 @@ public output.
 - Seller and buyer ownership protections (done: 197/198) and seller staff permissions (built: 199, not deployed).
 - Fulfilment and delivery verification (M3), refund and chargeback handling (partly done), reconciliation and payout holds (M3).
 - Administrative oversight and audit logs (admin read access is not yet logged).
+- Paid-sale seller notifications queued, idempotent and monitored (§8.1, N1) — required before live checkout.
+- Seller policies + purchase snapshots (§7.2–7.4); storefront ledger, statements and reconciliation (§8.4, M3a/M3b).
+- Sales tax remitting party determined per jurisdiction after qualified review (§8.5); undetermined → tax held.
+- Seller compliance data encrypted with logged access (§8.6), including the existing plain-text EIN field.
 
 ## 7. TODO — Shipping, seller policies, storefront tabs, checkout acknowledgment and storefront widget (owner requirements 2026-10-16, permanent)
 
@@ -292,4 +297,69 @@ set or explicitly free price; pickup-only cannot be shipped; fee base excludes s
 (cross-seller read/write/display refused; versions append-only); checkout policy snapshots (recorded at purchase, immutable,
 unaffected by later edits); widget ownership (key bound to one seller; no private or unpublished data; another seller's
 policies never shown); inventory synchronization (a sale on either surface removes availability on both; no double sale).
+
+## 8. TODO — Sale notifications, inventory numbers, bulk import, settlement, tax and seller compliance (owner requirements 2026-10-16, permanent)
+
+Full detail, current-state review, architecture, milestones (N1, N2, M3a, M3b, T1, C1, R1, I1) and acceptance tests:
+`storefront-notifications-inventory-finance-compliance-plan-2026-10-16.md`. Summary of what must never be dropped:
+
+### 8.1 Immediate seller sale notifications (before live checkout)
+Email to the seller's company address and opted-in fulfilment staff **only after payment is confirmed** (never on
+checkout start or pending payment): item title + description, the seller's inventory number, a thumbnail of the real
+photo, confirmed sale price, order number, shipping or pickup, the next fulfilment action, a secure link to order
+management, and a labelled estimated proceeds amount if reliable. Queued, idempotent (one per order/event/recipient),
+retried, monitored, audited; never another seller's order, never payment credentials or unnecessary buyer data.
+Separate notices planned for cancellation, refund, dispute, pickup confirmation, shipping deadline, payout completion.
+Today: an inline "Item sold" email to the owner exists (no retry, no staff, no thumbnail/inventory number).
+
+### 8.2 Seller inventory numbers / SKU
+Per item, seller-scoped (sellers may reuse each other's numbers), searchable in the dashboard, carried into orders,
+notices, settlement reports and exports, preserved through imports, edits, sales, refunds and reporting. Today: none.
+
+### 8.3 Bulk inventory import and image migration (major committed deliverable)
+CSV/spreadsheet; multiple images; image URLs + authorised image migration; inventory number/SKU mapping; flexible column
+mapping; Shopify and Etsy export presets where practical; preview and dry run; duplicate detection; create vs update;
+error reports; resumable large imports; progress and completion reports; category, condition, dimensions, materials,
+shipping, price and SEO fields. Seller ownership verified on every record. Imported items are **drafts** until the
+seller authorises publication; shipping **off** unless complete shipping settings are explicitly confirmed. Never
+publish or overwrite another seller's records or create duplicate purchasable listings. Dual distribution preserved.
+
+### 8.4 Seller settlement and deposit breakdowns
+Per sale and per payout: seller and account, order and inventory numbers, item description, gross item price, shipping
+collected, sales tax collected, tax jurisdiction and remitting party where determined, 11% fee on item price only,
+refunds/partials, chargebacks/disputes, adjustments, held/pending, eligible, actually transferred, payout date,
+transaction reference, reconciliation status. Distinguish collected / owed / held / remitted as tax / transferred.
+Never assume collected tax belongs in seller deposits. Reconcile to Stripe, orders, refunds, fees and bank transfers.
+Seller statements + authorised admin reports with CSV/spreadsheet export. Immutable append-only accounting with audit
+trail; no silent retroactive changes.
+
+### 8.5 Sales tax responsibility — legal and accounting review (before checkout or payouts)
+Document actual collection and remittance obligations (marketplace facilitator, seller, jurisdiction rules) from current
+authoritative guidance with qualified review. Assume neither "seller always remits" nor "Advantage.Bid always remits".
+The system identifies the remitting party per transaction and jurisdiction; undetermined → tax portion held. Preserve
+the Stripe Tax integration; no live tax/payment configuration change without authorisation.
+
+### 8.6 Professional Seller legal and compliance profile
+Legal name, DBA, entity type, business address, operating states, taxpayer id verification status, state tax
+registrations, auctioneer licences (number, state, expiry) and other licences where legally required, documents,
+verification status, review dates, expiry reminders. Requirements differ by seller category and state; no universal EIN
+or licence requirement without confirming the law. Prefer Stripe-verified taxpayer data and tokenised references;
+encrypt sensitive numbers, minimise storage, restrict and log access, retention/deletion controls. Never on public pages,
+SEO, widgets or ordinary seller emails. **Known gap:** `seller_identity.ein` is plain text today — to be encrypted.
+
+### 8.7 Tax-time and financial reporting
+On-demand admin reports by tax year, seller, state, jurisdiction or period: gross sales and counts, refunds/chargebacks/
+adjustments, commission revenue, shipping, tax collected by jurisdiction, tax remitted by verified party, payouts,
+balances and holds, seller verification status, information-return data. Evaluate 1099-K and state reporting obligations
+before any filing functionality (the payment settlement entity may be the filer). Validation, exceptions, audit logs,
+exports. **No automatic filing, remittance, financial-record changes or government submissions without explicit
+approval and verification.**
+
+### 8.8 Preserved requirements (do not drop)
+Seller Store Terms + Shipping & Pickup Policies; versioned policy snapshots at purchase; storefront policy tabs and
+correct seller-specific item links; branded seller website widget with checkout only on Advantage.Bid; marketplace ↔
+widget inventory synchronisation; product search with ~10 high-value filters; product SEO and future shopping feeds;
+antiques and unique items without invented identifiers; staff roles and company isolation; refunds, disputes,
+fulfilment and payout controls; seller followers and authorised follower notifications; public Professional Seller
+marketing only when features are genuinely ready.
 

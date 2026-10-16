@@ -65,15 +65,15 @@ const STOREFRONT = {
     await c.query("DELETE FROM payments WHERE lot_id=$1", [ID.unsoldLot]);
     console.log('DEMO past auction + unsold lot seeded (unsold lot=' + ID.unsoldLot + ')');
 
-    // Demo DIRECT marketplace item so "Shop Available Items" is populated on the demo storefront.
+    // Demo DIRECT marketplace item so "Shop Available Items" is populated on the demo storefront. Pickup only (owner,
+    // 2026-10-16): demo items never carry invented shipping costs or delivery promises.
     await c.query(
       `INSERT INTO marketplace_items (id, seller_id, title, description, category, condition, price_cents,
                                       images, thumbnail_url, city, state, shippable, shipping_cost_cents, pickup_group,
                                       status, is_demo, conversion_reason, shipping_method, shipping_price_mode, shipping_destinations, is_oversized)
        VALUES ($1,$2,'Mid-Century Walnut Sideboard (DEMO)','A demonstration fixed-price Marketplace item available now from Heritage & Home.','Furniture','Very Good',45000,
-               '[]'::jsonb, NULL, 'Maplewood','OH', true, 6500, 'A_group', 'active', true, 'direct', 'freight', 'flat', 'us_contiguous', true)
-       ON CONFLICT (id) DO UPDATE SET price_cents=45000, status='active', is_demo=true, shippable=true, shipping_cost_cents=6500,
-         shipping_method='freight', shipping_price_mode='flat', shipping_destinations='us_contiguous', is_oversized=true`,
+               '[]'::jsonb, NULL, 'Maplewood','OH', false, NULL, 'A_group', 'active', true, 'direct', NULL, NULL, NULL, true)
+       ON CONFLICT (id) DO UPDATE SET price_cents=45000, status='active', is_demo=true, shippable=false, shipping_cost_cents=NULL`,
       [ID.directItem, ID.profile]);
     console.log('DEMO direct marketplace item seeded');
 
