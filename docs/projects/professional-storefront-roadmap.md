@@ -35,14 +35,14 @@ public marketing of unfinished features stay OFF until the readiness checks in �
 | Ownership + order integrity (migration 197) | LIVE (3a16946), verified in production |
 | Professional auction buyer's premium policy + Buy Now 0% premium separation | LIVE (0672359, 7cb793a) |
 | M2 moderation, reports, buyer issues, seller permission checkpoint (migration 198) | LIVE (6f6762b), verified in production |
-| Seller staff accounts (migration 199) | Built + tested on `feat/seller-staff-accounts` (approved defaults); not deployed; off until `SELLER_STAFF_ENABLED=true` |
-| Product SEO foundation (migration 200) | Built + tested on `feat/seller-staff-accounts`; not deployed (see §4 "Built") |
+| Seller staff accounts (migration 199) | LIVE (5dab1ae, 2026-10-16), verified; OFF (`SELLER_STAFF_ENABLED` unset) until production phone-code + step-up verification |
+| Product SEO foundation (migration 200) | LIVE (5dab1ae, 2026-10-16), verified in production (see §4 "Built") |
 | M3 retail settlement and payouts | Policy design awaiting owner decisions; nothing moves money |
 
 ## 2. Development sequence (recommended)
 
-1. **Seller staff accounts** — BUILT (membership, invitations, step-up, revocation; flag-gated). Awaiting deploy approval.
-2. **Product SEO foundation** (§4.1–4.3) — BUILT, awaiting deploy approval. Server-rendered item pages, canonical URLs, structured data, sitemap, SEO data
+1. **Seller staff accounts** — LIVE 2026-10-16 (switched off pending production phone-code verification).
+2. **Product SEO foundation** (§4.1–4.3) — LIVE 2026-10-16. Server-rendered item pages, canonical URLs, structured data, sitemap, SEO data
    fields. Safe to build and ship now: it only improves what is already public. Must land **before** bulk import and the
    widget, so imported and widget items are born with the right data model.
 3. **M3 retail settlement** — build ledger, holds, reconciliation with transfers OFF; live transfers only after owner approval.
@@ -82,7 +82,7 @@ Pages that will need updates:
 
 ## 4. TODO — Product-level SEO and shopping discovery (permanent architectural requirement, 2026-10-16)
 
-### Built (2026-10-16, branch `feat/seller-staff-accounts`, not deployed)
+### Built and LIVE (2026-10-16, production 5dab1ae)
 - Canonical `/shop/item/<uuid>/<slug>` (server-rendered title, description, canonical, Open Graph, Product + Offer +
   BreadcrumbList JSON-LD, item content, "More from this seller" links). Other slugs and `/item.html?id=` 301 to it;
   non-public items 404 + noindex; demo items noindex. One product record per item (browser copy removed).
@@ -92,8 +92,21 @@ Pages that will need updates:
 - `/sitemap.xml` lists published non-demo Professional storefronts and live (active / in-checkout) items, never draft,
   removed, taken-down, sold, demo or non-Professional ones. Tests: `tests/storefront-product-seo.test.js` (§4.5 list).
 - Not yet: feed builder/mappers (§4.4), per-item edit form for the new fields (API supports it), category pages.
-- **Owner decision pending:** how long sold items stay indexed. Current default: a sold item's page stays reachable,
-  marked sold out, and is dropped from the sitemap immediately.
+- **Sold-page policy (owner-approved 2026-10-16):** a sold item keeps its permanent URL and stays reachable with a clear
+  SOLD indication and `SoldOut` structured data; it is never purchasable or advertised as available; it is removed
+  promptly from the sitemap and from any future shopping feed; it links to the seller's other available items; no buyer
+  identity, transaction detail or confidential seller information is shown.
+
+### Next (owner-approved order, 2026-10-16)
+1. Verify the staff phone-code / sensitive-action workflow in production with safe, authorized testing (needs the owner's
+   verified phone and production phone-code sending enabled).
+2. Seller-facing "Your Team" navigation and staff-invitation rollout (then `SELLER_STAFF_ENABLED=true` with approval).
+3. Existing-item product-detail editing interface (the API already accepts the fields).
+4. Shopping-feed builder design (Google Merchant Center first, destination-neutral; no submission without approval).
+5. Milestone 3 retail settlement with live transfers disabled.
+6. Public Professional Seller marketing launch after checkout and Stripe readiness.
+Design focus: antiques, collectibles, vintage furniture, artwork, estate merchandise and one-of-a-kind inventory; never
+invent a GTIN, brand, manufacturer or other identifier; storefront ↔ item internal linking.
 
 ### 4.1 Item page architecture
 Today (gap): items live at `/item.html?id=<uuid>`, render in the browser with a generic `<title>`, add JSON-LD client-side,
