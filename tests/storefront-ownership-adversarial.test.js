@@ -77,7 +77,8 @@ CREATE TABLE users (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), email text UN
 CREATE TABLE seller_profiles (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), user_id uuid UNIQUE REFERENCES users(id), seller_type text, display_name text,
   platform_fee_bps int, metadata jsonb DEFAULT '{}'::jsonb, is_demo boolean DEFAULT false, show_branding_to_buyers boolean DEFAULT true, created_at timestamptz DEFAULT now());
 CREATE TABLE auctions (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), seller_id uuid REFERENCES seller_profiles(id), title text, city text, address_state text,
-  street_address text, zip text, state text, end_time timestamptz, is_demo boolean DEFAULT false);
+  street_address text, zip text, state text, end_time timestamptz, is_demo boolean DEFAULT false, buyer_premium_bps int);
+CREATE TABLE seller_terms (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), seller_profile_id uuid, buyer_premium_pct numeric, superseded_at timestamptz);
 CREATE TABLE lots (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), auction_id uuid REFERENCES auctions(id), lot_number int, lot_number_display text, title text,
   description text, category text, condition text, thumbnail_url text, state text, is_withdrawn boolean DEFAULT false, winning_buyer_user_id uuid,
   reserve_cents int, reserve_not_met boolean DEFAULT false, starting_bid_cents int, current_bid_cents int, bid_count int DEFAULT 0, shippable boolean DEFAULT false,
@@ -479,4 +480,53 @@ test('migration 197 leaves demo orders removable for test cleanup, but never rea
   await q('UPDATE marketplace_items SET status = $2, pending_order_id = NULL WHERE id = $1', [it.id, 'active']);
   await q('DELETE FROM marketplace_orders WHERE id = $1', [c.order.id]);
   expect(await one('SELECT id FROM marketplace_orders WHERE id = $1', [c.order.id])).toBeUndefined();
+});
+
+// ═════════════════════════════════════════════════════════════════════════════════════════════════════════
+describe('storefront Buy Now never has a buyer\'s premium (separate from auction pricing)', () => {
+  const setAuctionPricing = async ({ pct, auctionBps, platformBps }) => {
+    await q('UPDATE seller_terms SET superseded_at = now() WHERE seller_profile_id = $1 AND superseded_at IS NULL', [SP.nora]);
+    if (pct != null) await q('INSERT INTO seller_terms (seller_profile_id, buyer_premium_pct) VALUES ($1, $2)', [SP.nora, pct]);
+    await q('UPDATE auctions SET buyer_premium_bps = $2 WHERE seller_id = $1', [SP.nora, auctionBps]);
+    await q('UPDATE seller_profiles SET platform_fee_bps = $2 WHERE id = $1', [SP.nora, platformBps]);
+  };
+  test('whatever the seller\'s auction premium, default terms or auction fee, the Buy Now total is item + shipping + tax and the fee is 11% of the item', async () => {
+    await q(`INSERT INTO auctions (seller_id, title, state, buyer_premium_bps) VALUES ($1, 'Nora auction', 'draft', 1800)`, [SP.nora]);
+    const totals = [];
+    for (const cfg of [{ pct: null, auctionBps: null, platformBps: null }, { pct: 18, auctionBps: 1800, platformBps: 400 },
+      { pct: 35, auctionBps: 5000, platformBps: 0 }, { pct: 100, auctionBps: 10000, platformBps: 2500 }, { pct: 0, auctionBps: 0, platformBps: 9000 }]) {
+      await setAuctionPricing(cfg);
+      const it = await noraItem();   // $100.00 item, $15.00 shipping
+      const quote = await orders.quote(it.id, U.bea.id, { fulfillment_method: 'shipping', ship_to: { line1: '5 Buyer Rd', city: 'Austin', state: 'TX', postal_code: '78701' } });
+      expect(quote.breakdown).toEqual({ item_price_cents: 10000, shipping_cents: 1500, tax_cents: 0, total_charge_cents: 11500 });
+      const c = await orders.createOrder(it.id, U.bea.id, { fulfillment_method: 'shipping', ship_to: { line1: '5 Buyer Rd', city: 'Austin', state: 'TX', postal_code: '78701' } });
+      const o = await one('SELECT * FROM marketplace_orders WHERE id = $1', [c.order.id]);
+      expect(o).toMatchObject({ item_price_cents: 10000, shipping_cents: 1500, tax_cents: 0, total_charge_cents: 11500,
+        platform_fee_bps: 1100, platform_fee_cents: 1100, seller_proceeds_cents: 10400 });
+      expect(mockStripe.intents.get(o.stripe_payment_intent_id).amount).toBe(11500);
+      totals.push(o.total_charge_cents);
+    }
+    expect(new Set(totals).size).toBe(1);
+  });
+  test('changing the seller\'s auction premium after a Buy Now order is placed changes nothing about that order or its refund', async () => {
+    await setAuctionPricing({ pct: 18, auctionBps: 1800, platformBps: 400 });
+    const o = await beaBuys(await noraItem());
+    await setAuctionPricing({ pct: 60, auctionBps: 6000, platformBps: 0 });
+    const after = await one('SELECT item_price_cents, total_charge_cents, platform_fee_cents, seller_proceeds_cents FROM marketplace_orders WHERE id = $1', [o.id]);
+    expect(after).toEqual({ item_price_cents: 10000, total_charge_cents: 10000, platform_fee_cents: 1100, seller_proceeds_cents: 8900 });
+    const before = mockStripe.refunds.length;
+    await orders.refundOrder(o.id, { adminId: U.admin.id, reason: 'Separation regression test' });
+    expect(mockStripe.refunds.slice(before)).toEqual([expect.objectContaining({ payment_intent: o.stripe_payment_intent_id, amount: 10000 })]);
+  });
+  test('the storefront order, item, issue and notice code never loads auction pricing or mentions a buyer\'s premium to buyers', () => {
+    const files = ['marketplaceOrderService', 'marketplaceItemService', 'marketplaceOrderIssueService', 'marketplaceOrderNotifier'];
+    for (const f of files) {
+      const src = fs.readFileSync(path.join(ROOT, 'src', 'services', f + '.js'), 'utf8');
+      expect(src).not.toMatch(/require\(['"]\.\/(billingTermsService|sellerTermsService|pricingConfigService|auctionService|sellerPricingAgreementService)['"]\)/);
+      expect(src).not.toMatch(/buyer_premium_bps|buyer_premium_pct|effectiveBuyerPremiumBps|lotBuyerPremiumCents/);
+    }
+    expect(orders.STOREFRONT_BUYER_PREMIUM_BPS).toBe(0);
+    expect(fs.readFileSync(path.join(ROOT, 'src', 'services', 'marketplaceOrderNotifier.js'), 'utf8')).not.toMatch(/premium/i);
+    expect(fs.readFileSync(path.join(ROOT, 'public', 'item.html'), 'utf8')).not.toMatch(/buyer'?s premium/i);
+  });
 });

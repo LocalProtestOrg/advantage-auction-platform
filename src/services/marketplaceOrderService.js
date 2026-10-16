@@ -29,7 +29,6 @@ const Stripe = require('stripe');
 const { withTransaction } = require('../utils/withTransaction');
 const auditService = require('./auditService');
 const taxService = require('./taxCalculationService');
-const billingTerms = require('./billingTermsService');
 // Storefronts are a Professional Seller feature (owner decision 2026-10-12): eligibility uses the canonical seller-type rule,
 // never the buyer-branding list (which also includes the self-serve 'business' Individual Seller type).
 const { isProfessional } = require('./sellerTypeRules');
@@ -63,12 +62,20 @@ function getStripe() {
 function feeBpsForSeller(/* seller */) {
   return STOREFRONT_FEE_BPS;
 }
+// STOREFRONT PRICING IS SEPARATE FROM AUCTION PRICING (owner rule 2026-10-16). A fixed-price Buy Now purchase NEVER has a
+// buyer's premium: the buyer pays the listed item price + shipping + sales tax, and the seller pays the flat 11% fee on the
+// item price only. This module deliberately does not load any auction pricing module (billing terms, seller terms, pricing
+// config), so no auction buyer's premium, auction fee or auction default can reach a storefront total.
+const STOREFRONT_BUYER_PREMIUM_BPS = 0;
+// Cents-safe basis points of an amount (half-up), local to the storefront.
+function bpsOf(cents, bps) { return Math.floor((Math.max(0, Math.round(Number(cents) || 0)) * (Number(bps) || 0)) / 10000 + 0.5); }
+
 // Deterministic, cents-safe breakdown. platform fee = bps of ITEM PRICE only.
 function computeBreakdown({ itemPriceCents, shippingCents, taxCents, feeBps }) {
   const item = Math.max(0, Math.round(Number(itemPriceCents) || 0));
   const ship = Math.max(0, Math.round(Number(shippingCents) || 0));
   const tax = Math.max(0, Math.round(Number(taxCents) || 0));
-  const platform_fee_cents = billingTerms.lotBuyerPremiumCents(item, feeBps); // canonical bps-of(itemPrice)
+  const platform_fee_cents = bpsOf(item, feeBps);                            // seller fee: bps of the item price only
   const seller_proceeds_cents = item + ship - platform_fee_cents;             // tax EXCLUDED from proceeds
   const total_charge_cents = item + ship + tax;                              // buyer pays goods+shipping+tax
   return {
@@ -1009,7 +1016,7 @@ async function listForAdmin({ status, limit } = {}) {
 }
 
 module.exports = {
-  STOREFRONT_FEE_BPS, STOREFRONT_FEE_ADVANTAGE_BPS, STOREFRONT_FEE_PROCESSING_BPS,
+  STOREFRONT_FEE_BPS, STOREFRONT_FEE_ADVANTAGE_BPS, STOREFRONT_FEE_PROCESSING_BPS, STOREFRONT_BUYER_PREMIUM_BPS,
   feeBpsForSeller, computeBreakdown, loadItemForPurchase, quote, createOrder,
   handleIntentEvent, tryHandleChargeRefunded, markOrderPaid, refundOrder, applyRefundState,
   relistItem, updateFulfillment, releaseOrder, listForBuyer, listForSeller,
