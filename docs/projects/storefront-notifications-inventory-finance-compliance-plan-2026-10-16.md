@@ -35,8 +35,9 @@ Canonical TODO: `professional-storefront-roadmap.md` §8.
 - Recipients: the company notification address (new `seller_profiles.notification_email`, verified) and active staff with
   `company.orders.fulfil` who opted in (`seller_staff_members` + per-member preference). Never another company's people.
 - Content: title, description excerpt, inventory number, thumbnail (if any), confirmed sale price, order number,
-  shipping/pickup, required next action, secure link, "estimated proceeds" labelled as an estimate. Buyer contact only
-  to recipients with `company.orders.fulfil`; never payment data.
+  shipping/pickup, required next action, secure link, "estimated proceeds" labelled as an estimate. **No buyer contact
+  details or ship-to address in any sale email** (owner, 2026-10-16) — fulfilment details only inside the authenticated,
+  role-shaped seller dashboard; never payment data. (Already applied to the existing email: `marketplaceOrderNotifier`.)
 
 ### 2.2 Inventory numbers (migration; small)
 - `marketplace_items.inventory_number TEXT` (≤ 64 chars, trimmed), searchable in the seller dashboard.

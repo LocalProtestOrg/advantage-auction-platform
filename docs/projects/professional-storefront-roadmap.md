@@ -39,32 +39,35 @@ public marketing of unfinished features stay OFF until the readiness checks in �
 | Product SEO foundation (migration 200) | LIVE (5dab1ae, 2026-10-16), verified in production (see §4 "Built") |
 | Existing-item product detail editing | LIVE (34a547d, 2026-10-16), verified in production |
 | Shipping controls (migration 201, §7.1) | LIVE (7ccd039, 2026-10-16), verified in production; demo items set to pickup only (owner) |
-| Staff one-company pilot (owner-approved approach) | In development (`feat/storefront-pilot-and-plan`) |
+| Staff one-company pilot | LIVE (010eb01, 2026-10-16); general switch off, pilot list empty — no company enabled until the owner confirms the authorised account and phone verification |
+| Item questions / messaging, anti-circumvention, widget header, search & filters (§9–§10) | Requirements + design recorded 2026-10-16 (`storefront-messaging-and-widget-design-2026-10-16.md`); not built; messaging stays off until security + privacy testing |
 | Sale notifications, inventory numbers, bulk import, settlement/statements, tax responsibility, compliance profile, tax-time reports (§8) | Requirements + architecture recorded 2026-10-16 (`storefront-notifications-inventory-finance-compliance-plan-2026-10-16.md`); not built |
 | Seller policies, storefront tabs, policy snapshots, storefront widget (§7.2–7.6) | Requirements recorded 2026-10-16; not built |
 | M3 retail settlement and payouts | Policy design awaiting owner decisions; nothing moves money |
 
-## 2. Development sequence (recommended; updated 2026-10-16 with the owner's §7 and §8 requirements)
+## 2. Development sequence (owner priorities 2026-10-16, dependency-ordered)
 
-Done: staff accounts (LIVE, off), product SEO (LIVE), existing-item editing (LIVE), shipping controls (LIVE).
+Done: staff accounts + one-company pilot framework (LIVE, off), product SEO (LIVE), existing-item editing (LIVE),
+shipping controls (LIVE).
 
-1. **Staff one-company pilot** → production phone-code + step-up test by the authorised owner → "Your Team" rollout.
-2. **Seller Store Terms + Shipping & Pickup Policy** (§7.2; migration), **storefront tabs + item policy links** (§7.3),
-   **policy snapshots + acknowledgment** (§7.4; migration).
-3. **Inventory numbers** (§8.2, N2; small migration) — early, because notices, statements, exports and import depend on it.
-4. **Paid-sale seller notification outbox** (§8.1, N1; migration) — part of checkout readiness; must be operational
-   before live checkout.
-5. **Milestone 3 ledger, statements, payout batches and reconciliation** (§8.4, M3a/M3b; transfers OFF) together with the
-   **tax responsibility model** (§8.5, T1). The ledger is designed before any live money movement.
-6. **Seller compliance profile** (§8.6, C1; incl. encrypting the existing plain-text EIN) and **tax-time reports**
-   (§8.7, R1; exports only, no filing).
-7. **Product search and ~10 high-value filters** (marketplace + per storefront).
-8. **Embeddable Professional Storefront widget** (§7.5–7.6; checkout only on Advantage.Bid) — major deliverable.
-9. **Bulk inventory import + image migration** (§8.3, I1) — major deliverable.
-10. **Stripe production verification** and checkout readiness (§6), then **shopping-network feeds** (§4.4).
-11. **Public marketing launch** (§3) once features and payment readiness are verified.
-Nothing is advertised as live before it is built, tested and deployed. Live checkout, payouts, external feeds, tax
-filing and tax remittance stay OFF until explicitly approved.
+1. **Staff pilot verification** — owner confirms the authorised pilot account and verifies its phone; then one company
+   is added to `SELLER_STAFF_PILOT_SELLER_IDS` and the owner runs invite + step-up; then "Your Team" rollout.
+2. **EIN protection** (§8.6 "EIN") — before any seller can enter a taxpayer number in production (none stored today).
+3. **Seller Store Terms + Shipping & Pickup Policy** (§7.2), storefront tabs + item policy links (§7.3), purchase
+   snapshots + acknowledgment (§7.4).
+4. **Seller inventory numbers / SKU** (§8.2).
+5. **Reliable sold-item notification queue** (§8.1) — required before live checkout. (Content already corrected: no buyer
+   contact in the seller email.)
+6. **Item questions and secure seller replies** (§9; flag off until security + privacy testing) — shares the outbox (5).
+7. **Storefront ledger, settlement statements and tax accounting** (§8.4–8.5; Milestone 3; transfers off).
+8. **Seller compliance profile** (§8.6) and tax-time reports (§8.7; exports only).
+9. **Storefront search, filtering and sorting** (§10.2) — shared by marketplace and widget.
+10. **Branded website widget with optional navigation header** (§7.5–7.6, §10.1; checkout only on Advantage.Bid).
+11. **Spreadsheet and image bulk import** (§8.3).
+12. **Shopping-network feeds** (§4.4) and **final launch readiness** (§6: Stripe production verification, readiness
+    gates), then the **public marketing launch** (§3).
+No requirement is dropped or indefinitely deferred. Live checkout, payouts, external shopping submissions, tax filing
+and remittance stay OFF until explicitly approved.
 
 ## 3. TODO — Public-facing Professional Seller marketing (owner requirement 2026-10-16)
 
@@ -345,7 +348,20 @@ registrations, auctioneer licences (number, state, expiry) and other licences wh
 verification status, review dates, expiry reminders. Requirements differ by seller category and state; no universal EIN
 or licence requirement without confirming the law. Prefer Stripe-verified taxpayer data and tokenised references;
 encrypt sensitive numbers, minimise storage, restrict and log access, retention/deletion controls. Never on public pages,
-SEO, widgets or ordinary seller emails. **Known gap:** `seller_identity.ein` is plain text today — to be encrypted.
+SEO, widgets or ordinary seller emails.
+
+**EIN assessment (2026-10-16).** Production holds **no EINs** (`seller_identity` has 0 rows; no audit record contains
+one; no EIN documents uploaded), so nothing is exposed today. The code paths are unsafe for future use: (a) the seller
+business-verification form (`verify-documents.html` → `verificationService.upsertBusinessInfo`) stores the full EIN as
+plain text in `seller_identity.ein`; (b) admin `GET /api/admin/verification/sellers/:id/business` returns it in full to
+any administrator, unlogged; (c) admin agreements `GET .../identity` returns the whole row; (d) `sellerIdentityService.
+upsertIdentity` writes the full before/after row (EIN included) into `audit_log` metadata. Sellers only ever see it
+masked; request logs record method/path/status only (no bodies). **Remediation (next, before any seller enters an EIN):**
+stop copying identity rows into audit metadata (record changed field names only); store a taxpayer number only encrypted
+(application-level envelope encryption, key outside the database) with last-4 in clear, or — preferred — not at all,
+relying on Stripe Connect's verified taxpayer status; full view only with a dedicated permission, every view logged;
+masked everywhere else. Existing rows: none to migrate today; the migration still ships a reviewed, reversible
+backfill for any row that appears before it runs. No identity records are deleted.
 
 ### 8.7 Tax-time and financial reporting
 On-demand admin reports by tax year, seller, state, jurisdiction or period: gross sales and counts, refunds/chargebacks/
@@ -362,4 +378,41 @@ widget inventory synchronisation; product search with ~10 high-value filters; pr
 antiques and unique items without invented identifiers; staff roles and company isolation; refunds, disputes,
 fulfilment and payout controls; seller followers and authorised follower notifications; public Professional Seller
 marketing only when features are genuinely ready.
+
+## 9. TODO — Ask the seller a question / on-platform messaging / anti-circumvention (owner requirements 2026-10-16, permanent)
+
+Design: `storefront-messaging-and-widget-design-2026-10-16.md` §1–§4, milestones Q1–Q2.
+- Every eligible Professional item page gets "Ask the seller a question" (signed-in buyer or verified guest). The thread is
+  tied to the item's real seller company, the item and its inventory number, the buyer identity, with full history and
+  timestamps; access only for the buyer, the authorised seller organisation and permitted, logged Advantage.Bid support.
+- Email is a **notification channel only** (seller: item title, inventory number, thumbnail, question, secure reply link;
+  buyer: notified of replies). No private email address or phone number is exposed. Channel-neutral data model so in-app
+  and push notifications can be added without redesign. Message notices and sale notices are different event types.
+- Anti-circumvention: communications stay on Advantage.Bid; no direct contact details in the messaging UI; a seller
+  agreement clause against diverting Advantage.Bid-generated sales (legal wording for owner approval); a polite reminder
+  to buy through Advantage.Bid; detection of contact exchanges, off-platform payment solicitation and checkout bypass
+  requests; flags go to human review with audit records and a documented appeal process; **never automatic suspension,
+  penalties, order cancellation or accusations from automated detection alone**; legitimate shipping, pickup, condition
+  and inspection discussion allowed; spam prevention, rate limits, safe attachments if ever supported, retention policy.
+  Circumvention cannot be prevented completely and we do not claim so.
+- Today: the storefront "Contact" form (`seller_inquiries`) gives the visitor's name, email and phone directly to the
+  seller and is linked from item pages while checkout is off — to be replaced on item pages by the on-platform thread
+  (kept only for service consultations, clearly labelled). Messaging stays off until security and privacy testing pass.
+
+## 10. TODO — Branded widget header, search, filters and sorting (owner requirements 2026-10-16, permanent)
+
+Design: `storefront-messaging-and-widget-design-2026-10-16.md` §5–§6, milestones W1 and S1.
+### 10.1 Widget header and navigation
+Compact mode (sits under the seller's own header) or Branded mode (optional header with logo, company name, navigation).
+Seller navigation editor: link title/CTA, destination URL, order, visible/hidden, add/edit/delete/reorder, responsive.
+Logo links to the seller's verified website. Links to the seller's own pages and appropriate Advantage.Bid pages. Safe URL
+validation (https only; no javascript:/data:/other unsafe schemes; no malicious redirects or scripts), per-seller
+isolation, no impersonation of Advantage.Bid controls, required Advantage.Bid attribution cannot be removed.
+### 10.2 Search, filters and sorting (marketplace + widget, shared API)
+About ten filters: keyword + seller inventory number, category, price range, condition, material, colour, dimensions/size,
+seller and location (where relevant), availability, shipping or pickup eligibility. Sorting: newest, price low→high,
+price high→low, category/alphabetical, relevance. Desktop and mobile, including narrow embeds; filters with no data are
+hidden. Authoritative Advantage.Bid inventory and search APIs; every eligible item stays on the marketplace; widget
+inventory synchronised automatically; purchases go to Advantage.Bid checkout; product SEO, canonical URLs, availability
+and seller attribution preserved.
 
